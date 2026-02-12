@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace cressim::neo::graphics
 {
@@ -59,6 +60,11 @@ struct RenderTargetReadbackEvent
 {
     RenderTargetHandle target{};
     std::uint64_t frameIndex = 0;
+    // Optional RGBA8 payload copied from the target color buffer.
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    std::uint32_t rowStrideBytes = 0;
+    std::vector<std::uint8_t> colorRgba8{};
 };
 
 class CRESSIM_NEO_GRAPHICS_API IGraphicsDevice
@@ -82,11 +88,12 @@ public:
     // Sets viewport state used for the next beginRenderTarget/endRenderTarget pair on this target.
     virtual void setRenderTargetViewport(RenderTargetHandle target, const RenderViewport& viewport) = 0;
     virtual void beginRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) = 0;
+    // Draws a backend-provided shader triangle into the currently bound target.
+    virtual bool drawDebugTriangle(RenderTargetHandle target) = 0;
     virtual void endRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) = 0;
     // Requests a CPU-facing completion event for this target once rendering is done.
     virtual void requestReadback(RenderTargetHandle target) = 0;
-    // Pops readback completion metadata. Current implementation reports logical completion only.
-    // TODO: gate this by real GPU copy + fence completion and attach payload metadata.
+    // Pops readback completion metadata and optional color payload.
     virtual bool tryPopReadbackEvent(RenderTargetReadbackEvent& outEvent) = 0;
     virtual void endFrame(const common::FrameContext& frameContext) = 0;
 

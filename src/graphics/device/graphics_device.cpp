@@ -2,17 +2,22 @@
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Fence.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Shader.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Texture.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <deque>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace cressim::neo::graphics
 {
@@ -65,6 +70,54 @@ struct RenderTargetResources
     Diligent::RefCntAutoPtr<Diligent::ITexture> depthTexture;
 };
 
+struct PendingReadbackCopy
+{
+    RenderTargetHandle target{};
+    std::uint64_t frameIndex = 0;
+    std::uint64_t fenceValue = 0;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
+};
+
+constexpr char kDebugTriangleVsSource[] = R"(
+struct VSOutput
+{
+    float4 Position : SV_Position;
+    float3 Color : COLOR0;
+};
+
+void main(in uint VertexId : SV_VertexID, out VSOutput Out)
+{
+    float2 positions[3] = {
+        float2(0.0, 0.6),
+        float2(0.6, -0.6),
+        float2(-0.6, -0.6)
+    };
+    float3 colors[3] = {
+        float3(1.0, 0.2, 0.2),
+        float3(0.2, 1.0, 0.2),
+        float3(0.2, 0.3, 1.0)
+    };
+
+    Out.Position = float4(positions[VertexId], 0.0, 1.0);
+    Out.Color = colors[VertexId];
+}
+)";
+
+constexpr char kDebugTrianglePsSource[] = R"(
+struct VSOutput
+{
+    float4 Position : SV_Position;
+    float3 Color : COLOR0;
+};
+
+float4 main(in VSOutput In) : SV_Target
+{
+    return float4(In.Color, 1.0);
+}
+)";
+
 class DiligentGraphicsDevice final : public IGraphicsDevice
 {
 public:
@@ -112,11 +165,16 @@ public:
 
     void shutdown() override
     {
+        mDebugTrianglePsoWithDepth = nullptr;
+        mDebugTrianglePsoNoDepth = nullptr;
+        mReadbackFence = nullptr;
+        mNextReadbackFenceValue = 1;
         mImmediateContext = nullptr;
         mRenderDevice = nullptr;
 
         mRenderTargets.clear();
         mPendingReadbacks.clear();
+        mPendingReadbackCopies.clear();
         mCompletedReadbacks.clear();
         mDefaultRenderTarget = {};
         mNextRenderTargetId = 1;
@@ -221,6 +279,12 @@ public:
                 mCompletedReadbacks.end(),
                 [&](const RenderTargetReadbackEvent& event) { return event.target.id == target.id; }),
             mCompletedReadbacks.end());
+        mPendingReadbackCopies.erase(
+            std::remove_if(
+                mPendingReadbackCopies.begin(),
+                mPendingReadbackCopies.end(),
+                [&](const PendingReadbackCopy& copy) { return copy.target.id == target.id; }),
+            mPendingReadbackCopies.end());
         mRenderTargets.erase(target.id);
     }
 
@@ -315,24 +379,63 @@ public:
         mImmediateContext->SetViewports(1, &diligentViewport, it->second.desc.width, it->second.desc.height);
     }
 
+    bool drawDebugTriangle(RenderTargetHandle target) override
+    {
+        if (!mInitialized || mBackend != GraphicsBackend::Vulkan || !mImmediateContext || !mRenderDevice)
+        {
+            return false;
+        }
+
+        const auto it = mRenderTargets.find(target.id);
+        if (it == mRenderTargets.end())
+        {
+            return false;
+        }
+        if (it->second.colorTexture == nullptr)
+        {
+            return false;
+        }
+
+        Diligent::IPipelineState* trianglePso = getDebugTrianglePso(it->second.depthTexture != nullptr);
+        if (trianglePso == nullptr)
+        {
+            return false;
+        }
+
+        mImmediateContext->SetPipelineState(trianglePso);
+
+        Diligent::DrawAttribs drawAttribs{};
+        drawAttribs.NumVertices = 3;
+        drawAttribs.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
+        mImmediateContext->Draw(drawAttribs);
+        return true;
+    }
+
     void endRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) override
     {
-        // Transition readback request state for this target: pending -> completed.
-        // NOTE: completion is currently logical (render pass ended), not GPU-fence backed.
-        // NOTE: duplicate events for the same target/frame are possible if multiple passes
-        // write to that target; this is acceptable for scaffolding and will be deduplicated
-        // when readback moves to real copy/fence completion.
         const auto pendingReadbackIt = mPendingReadbacks.find(target.id);
         if (pendingReadbackIt == mPendingReadbacks.end())
         {
             return;
         }
 
+        mPendingReadbacks.erase(pendingReadbackIt);
+
+        if (mBackend == GraphicsBackend::Vulkan && mImmediateContext != nullptr)
+        {
+            mImmediateContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+        }
+
+        if (queueReadbackCopy(target, frameContext.frameIndex))
+        {
+            return;
+        }
+
+        // Fallback path for targets/backends without pixel payload support.
         RenderTargetReadbackEvent event{};
         event.target = target;
         event.frameIndex = frameContext.frameIndex;
-        mCompletedReadbacks.push_back(event);
-        mPendingReadbacks.erase(pendingReadbackIt);
+        mCompletedReadbacks.push_back(std::move(event));
     }
 
     void requestReadback(RenderTargetHandle target) override
@@ -372,15 +475,62 @@ public:
             // Requests that did not get rendered this frame are discarded.
             // TODO: keep/age these requests if later behavior needs cross-frame persistence.
             mPendingReadbacks.clear();
+            mPendingReadbackCopies.clear();
             return;
         }
 
-        // Placeholder hook for async staging-buffer copies when CPU readback is requested.
-        // TODO: execute copy-to-staging + fence signaling and only then push completion events.
         mImmediateContext->Flush();
         mImmediateContext->FinishFrame();
 
+        for (const PendingReadbackCopy& copy : mPendingReadbackCopies)
+        {
+            RenderTargetReadbackEvent event{};
+            event.target = copy.target;
+            event.frameIndex = copy.frameIndex;
+
+            if (copy.stagingTexture != nullptr && copy.width > 0 && copy.height > 0)
+            {
+                if (mReadbackFence != nullptr && copy.fenceValue > 0)
+                {
+                    mReadbackFence->Wait(copy.fenceValue);
+                }
+
+                Diligent::MappedTextureSubresource mappedData{};
+                mImmediateContext->MapTextureSubresource(
+                    copy.stagingTexture,
+                    0,
+                    0,
+                    Diligent::MAP_READ,
+                    Diligent::MAP_FLAG_DO_NOT_WAIT,
+                    nullptr,
+                    mappedData);
+
+                if (mappedData.pData != nullptr)
+                {
+                    event.width = copy.width;
+                    event.height = copy.height;
+                    event.rowStrideBytes = copy.width * 4u;
+                    event.colorRgba8.resize(static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height));
+
+                    const auto* srcRows = static_cast<const std::uint8_t*>(mappedData.pData);
+                    auto* dstRows = event.colorRgba8.data();
+                    for (std::uint32_t y = 0; y < event.height; ++y)
+                    {
+                        std::memcpy(
+                            dstRows + static_cast<std::size_t>(y) * event.rowStrideBytes,
+                            srcRows + static_cast<std::size_t>(y) * static_cast<std::size_t>(mappedData.Stride),
+                            event.rowStrideBytes);
+                    }
+
+                    mImmediateContext->UnmapTextureSubresource(copy.stagingTexture, 0, 0);
+                }
+            }
+
+            mCompletedReadbacks.push_back(std::move(event));
+        }
+
         mPendingReadbacks.clear();
+        mPendingReadbackCopies.clear();
     }
 
     GraphicsBackend backend() const override
@@ -401,6 +551,15 @@ private:
         engineCreateInfo.EnableValidation = static_cast<Diligent::Bool>(mDesc.enableValidation ? 1 : 0);
         factoryVk->CreateDeviceAndContextsVk(engineCreateInfo, &mRenderDevice, &mImmediateContext);
         if (!mRenderDevice || !mImmediateContext)
+        {
+            return false;
+        }
+
+        Diligent::FenceDesc readbackFenceDesc{};
+        readbackFenceDesc.Name = "CRESSimNeo.ReadbackFence";
+        readbackFenceDesc.Type = Diligent::FENCE_TYPE_CPU_WAIT_ONLY;
+        mRenderDevice->CreateFence(readbackFenceDesc, &mReadbackFence);
+        if (mReadbackFence == nullptr)
         {
             return false;
         }
@@ -502,6 +661,126 @@ private:
         return true;
     }
 
+    Diligent::IPipelineState* getDebugTrianglePso(bool hasDepthTarget)
+    {
+        auto& pso = hasDepthTarget ? mDebugTrianglePsoWithDepth : mDebugTrianglePsoNoDepth;
+        if (pso != nullptr)
+        {
+            return pso;
+        }
+
+        if (!createDebugTrianglePso(hasDepthTarget, pso))
+        {
+            return nullptr;
+        }
+
+        return pso;
+    }
+
+    bool createDebugTrianglePso(bool hasDepthTarget, Diligent::RefCntAutoPtr<Diligent::IPipelineState>& outPso)
+    {
+        if (!mRenderDevice)
+        {
+            return false;
+        }
+
+        Diligent::ShaderCreateInfo shaderCreateInfo{};
+        shaderCreateInfo.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
+        shaderCreateInfo.Desc.UseCombinedTextureSamplers = true;
+        shaderCreateInfo.EntryPoint = "main";
+
+        Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
+        shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
+        shaderCreateInfo.Desc.Name = hasDepthTarget ? "CRESSimNeo.DebugTriangle.VS.Depth" : "CRESSimNeo.DebugTriangle.VS.NoDepth";
+        shaderCreateInfo.Source = kDebugTriangleVsSource;
+        mRenderDevice->CreateShader(shaderCreateInfo, &vertexShader);
+        if (vertexShader == nullptr)
+        {
+            return false;
+        }
+
+        Diligent::RefCntAutoPtr<Diligent::IShader> pixelShader;
+        shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
+        shaderCreateInfo.Desc.Name = hasDepthTarget ? "CRESSimNeo.DebugTriangle.PS.Depth" : "CRESSimNeo.DebugTriangle.PS.NoDepth";
+        shaderCreateInfo.Source = kDebugTrianglePsSource;
+        mRenderDevice->CreateShader(shaderCreateInfo, &pixelShader);
+        if (pixelShader == nullptr)
+        {
+            return false;
+        }
+
+        Diligent::GraphicsPipelineStateCreateInfo psoCreateInfo{};
+        psoCreateInfo.PSODesc.Name = hasDepthTarget ? "CRESSimNeo.DebugTrianglePSO.Depth" : "CRESSimNeo.DebugTrianglePSO.NoDepth";
+        psoCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
+        psoCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
+        psoCreateInfo.GraphicsPipeline.RTVFormats[0] = Diligent::TEX_FORMAT_RGBA8_UNORM;
+        psoCreateInfo.GraphicsPipeline.DSVFormat = hasDepthTarget ? Diligent::TEX_FORMAT_D32_FLOAT : Diligent::TEX_FORMAT_UNKNOWN;
+        psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_NONE;
+        psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = hasDepthTarget ? Diligent::True : Diligent::False;
+        psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = hasDepthTarget ? Diligent::True : Diligent::False;
+        psoCreateInfo.pVS = vertexShader;
+        psoCreateInfo.pPS = pixelShader;
+
+        mRenderDevice->CreateGraphicsPipelineState(psoCreateInfo, &outPso);
+        return outPso != nullptr;
+    }
+
+    bool queueReadbackCopy(RenderTargetHandle target, std::uint64_t frameIndex)
+    {
+        if (!mRenderDevice || !mImmediateContext || !mReadbackFence || mBackend != GraphicsBackend::Vulkan)
+        {
+            return false;
+        }
+
+        const auto targetIt = mRenderTargets.find(target.id);
+        if (targetIt == mRenderTargets.end())
+        {
+            return false;
+        }
+
+        const RenderTargetResources& resources = targetIt->second;
+        if (!resources.desc.cpuReadback || resources.colorTexture == nullptr)
+        {
+            return false;
+        }
+
+        Diligent::TextureDesc stagingDesc = resources.colorTexture->GetDesc();
+        const std::string stagingName = resources.desc.debugName + ".Readback";
+        stagingDesc.Name = stagingName.c_str();
+        stagingDesc.BindFlags = Diligent::BIND_NONE;
+        stagingDesc.Usage = Diligent::USAGE_STAGING;
+        stagingDesc.CPUAccessFlags = Diligent::CPU_ACCESS_READ;
+        stagingDesc.MiscFlags = Diligent::MISC_TEXTURE_FLAG_NONE;
+
+        Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
+        mRenderDevice->CreateTexture(stagingDesc, nullptr, &stagingTexture);
+        if (stagingTexture == nullptr)
+        {
+            return false;
+        }
+
+        Diligent::CopyTextureAttribs copyAttribs{
+            resources.colorTexture,
+            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+            stagingTexture,
+            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
+        mImmediateContext->CopyTexture(copyAttribs);
+
+        const std::uint64_t fenceValue = mNextReadbackFenceValue++;
+        mImmediateContext->EnqueueSignal(mReadbackFence, fenceValue);
+
+        PendingReadbackCopy readbackCopy{};
+        readbackCopy.target = target;
+        readbackCopy.frameIndex = frameIndex;
+        readbackCopy.fenceValue = fenceValue;
+        readbackCopy.width = resources.desc.width;
+        readbackCopy.height = resources.desc.height;
+        readbackCopy.stagingTexture = std::move(stagingTexture);
+        mPendingReadbackCopies.push_back(std::move(readbackCopy));
+        return true;
+    }
+
 private:
     GraphicsDeviceDesc mDesc{};
     GraphicsBackend mBackend = GraphicsBackend::Null;
@@ -512,8 +791,15 @@ private:
     std::unordered_map<common::ResourceId, RenderTargetResources> mRenderTargets;
     // Targets that requested readback and are waiting for endRenderTarget().
     std::unordered_set<common::ResourceId> mPendingReadbacks;
+    // GPU->CPU copy jobs collected during render target completion and consumed in endFrame().
+    std::vector<PendingReadbackCopy> mPendingReadbackCopies;
     // FIFO completion metadata consumed through tryPopReadbackEvent().
     std::deque<RenderTargetReadbackEvent> mCompletedReadbacks;
+
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mDebugTrianglePsoWithDepth;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mDebugTrianglePsoNoDepth;
+    Diligent::RefCntAutoPtr<Diligent::IFence> mReadbackFence;
+    std::uint64_t mNextReadbackFenceValue = 1;
 
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> mRenderDevice;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mImmediateContext;

@@ -1,1 +1,2 @@
 add_subdirectory(smoke)
+add_subdirectory(triangle_capture)

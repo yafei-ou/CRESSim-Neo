@@ -4,22 +4,21 @@
 
 #include <cstdint>
 #include <cstdlib>
-#include <cstring>
+#include <fstream>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace
 {
 
 using cressim::neo::common::FrameContext;
 using cressim::neo::engine::CameraComponent;
-using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::graphics::GraphicsBackend;
-using cressim::neo::graphics::IGraphicsDevice;
 using cressim::neo::graphics::RenderTargetDesc;
 using cressim::neo::graphics::RenderTargetHandle;
 using cressim::neo::graphics::RenderTargetReadbackEvent;
@@ -39,7 +38,8 @@ GraphicsBackend parseBackend(const std::string& value)
 
 void printUsage(const char* appName)
 {
-    std::cerr << "Usage: " << appName << " [--backend vulkan|null] [--frames N] [--validation on|off]\n";
+    std::cerr << "Usage: " << appName
+              << " [--backend vulkan|null] [--frames N] [--output path.ppm] [--validation on|off]\n";
 }
 
 bool isNear(std::uint8_t value, std::uint8_t expected, std::uint8_t tolerance)
@@ -50,6 +50,12 @@ bool isNear(std::uint8_t value, std::uint8_t expected, std::uint8_t tolerance)
 
 bool containsNonClearPixel(const RenderTargetReadbackEvent& event)
 {
+    constexpr std::uint8_t kClearR = 5;
+    constexpr std::uint8_t kClearG = 5;
+    constexpr std::uint8_t kClearB = 8;
+    constexpr std::uint8_t kClearA = 255;
+    constexpr std::uint8_t kTolerance = 2;
+
     if (event.width == 0 || event.height == 0 || event.rowStrideBytes < event.width * 4u)
     {
         return false;
@@ -58,12 +64,6 @@ bool containsNonClearPixel(const RenderTargetReadbackEvent& event)
     {
         return false;
     }
-
-    constexpr std::uint8_t kClearR = 5;
-    constexpr std::uint8_t kClearG = 5;
-    constexpr std::uint8_t kClearB = 8;
-    constexpr std::uint8_t kClearA = 255;
-    constexpr std::uint8_t kTolerance = 2;
 
     for (std::uint32_t y = 0; y < event.height; ++y)
     {
@@ -91,6 +91,41 @@ bool containsNonClearPixel(const RenderTargetReadbackEvent& event)
     return false;
 }
 
+bool writePpm(const std::string& path, const RenderTargetReadbackEvent& event)
+{
+    if (event.width == 0 || event.height == 0 || event.rowStrideBytes < event.width * 4u)
+    {
+        return false;
+    }
+    if (event.colorRgba8.size() < static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height))
+    {
+        return false;
+    }
+
+    std::ofstream out(path, std::ios::binary);
+    if (!out.is_open())
+    {
+        return false;
+    }
+
+    out << "P6\n" << event.width << " " << event.height << "\n255\n";
+
+    std::vector<std::uint8_t> rgbRow(static_cast<std::size_t>(event.width) * 3u);
+    for (std::uint32_t y = 0; y < event.height; ++y)
+    {
+        const std::uint8_t* src = event.colorRgba8.data() + static_cast<std::size_t>(y) * event.rowStrideBytes;
+        for (std::uint32_t x = 0; x < event.width; ++x)
+        {
+            rgbRow[static_cast<std::size_t>(x) * 3u + 0u] = src[static_cast<std::size_t>(x) * 4u + 0u];
+            rgbRow[static_cast<std::size_t>(x) * 3u + 1u] = src[static_cast<std::size_t>(x) * 4u + 1u];
+            rgbRow[static_cast<std::size_t>(x) * 3u + 2u] = src[static_cast<std::size_t>(x) * 4u + 2u];
+        }
+        out.write(reinterpret_cast<const char*>(rgbRow.data()), static_cast<std::streamsize>(rgbRow.size()));
+    }
+
+    return out.good();
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -99,7 +134,8 @@ int main(int argc, char** argv)
     config.graphics.preferredBackend = GraphicsBackend::Vulkan;
     config.graphics.enableValidation = false;
 
-    std::uint64_t numFrames = 3;
+    std::uint64_t numFrames = 2;
+    std::string outputPath = "triangle_readback.ppm";
 
     for (int i = 1; i < argc; ++i)
     {
@@ -122,6 +158,16 @@ int main(int argc, char** argv)
                 return 2;
             }
             numFrames = static_cast<std::uint64_t>(std::strtoull(argv[++i], nullptr, 10));
+            continue;
+        }
+        if (arg == "--output")
+        {
+            if (i + 1 >= argc)
+            {
+                printUsage(argv[0]);
+                return 2;
+            }
+            outputPath = argv[++i];
             continue;
         }
         if (arg == "--validation")
@@ -158,69 +204,53 @@ int main(int argc, char** argv)
     }
 
     auto& world = runtime.getWorld();
+    auto* graphicsDevice = runtime.getGraphicsDevice();
+    if (graphicsDevice == nullptr)
+    {
+        runtime.shutdown();
+        std::cerr << "Graphics device unavailable.\n";
+        return 1;
+    }
+
+    RenderTargetDesc targetDesc{};
+    targetDesc.width = 512;
+    targetDesc.height = 512;
+    targetDesc.cpuReadback = true;
+    targetDesc.debugName = "TriangleCapture.Target";
+    const RenderTargetHandle target = graphicsDevice->createRenderTarget(targetDesc);
+    if (!graphicsDevice->isValidRenderTarget(target))
+    {
+        runtime.shutdown();
+        std::cerr << "Failed to create readback target.\n";
+        return 1;
+    }
 
     const auto cameraEntity = world.createEntity();
-    TransformComponent cameraTransform{};
-    cameraTransform.worldTransform.position = {0.0f, 1.0f, 3.0f};
+    world.setTransform(cameraEntity, TransformComponent{});
     CameraComponent camera{};
-    camera.renderOrder = 0;
-    world.setTransform(cameraEntity, cameraTransform);
+    camera.outputTarget = target;
+    camera.outputWidth = targetDesc.width;
+    camera.outputHeight = targetDesc.height;
+    camera.viewport = {0.0f, 0.0f, 1.0f, 1.0f};
+    camera.requestReadback = true;
     world.setCamera(cameraEntity, camera);
-
-    IGraphicsDevice* graphicsDevice = runtime.getGraphicsDevice();
-    RenderTargetHandle secondaryTarget{};
-    if (graphicsDevice != nullptr)
-    {
-        RenderTargetDesc secondaryTargetDesc{};
-        secondaryTargetDesc.width = 640;
-        secondaryTargetDesc.height = 480;
-        secondaryTargetDesc.debugName = "Smoke.SecondaryCamera";
-        // This enables readback event plumbing in the smoke test.
-        secondaryTargetDesc.cpuReadback = true;
-        secondaryTarget = graphicsDevice->createRenderTarget(secondaryTargetDesc);
-    }
-
-    if (graphicsDevice != nullptr && graphicsDevice->isValidRenderTarget(secondaryTarget))
-    {
-        const auto secondaryCameraEntity = world.createEntity();
-        TransformComponent secondaryCameraTransform{};
-        secondaryCameraTransform.worldTransform.position = {-1.0f, 1.5f, 2.5f};
-
-        CameraComponent secondaryCamera{};
-        secondaryCamera.outputTarget = secondaryTarget;
-        secondaryCamera.outputWidth = 800;
-        secondaryCamera.outputHeight = 600;
-        secondaryCamera.viewport = {0.0f, 0.0f, 1.0f, 1.0f};
-        secondaryCamera.renderOrder = 1;
-        secondaryCamera.requestReadback = true;
-
-        world.setTransform(secondaryCameraEntity, secondaryCameraTransform);
-        world.setCamera(secondaryCameraEntity, secondaryCamera);
-    }
-
-    const auto lightEntity = world.createEntity();
-    world.setDirectionalLight(lightEntity, DirectionalLightComponent{});
 
     auto& resources = runtime.getScene().resources();
     cressim::neo::graphics::MeshResourceDesc meshDesc{};
-    meshDesc.debugName = "Smoke.DebugTriangleMesh";
-    const auto mesh = resources.registerMesh(meshDesc);
-
+    meshDesc.debugName = "TriangleCapture.Mesh";
     cressim::neo::graphics::MaterialResourceDesc materialDesc{};
-    materialDesc.debugName = "Smoke.DebugTriangleMaterial";
-    const auto material = resources.registerMaterial(materialDesc);
+    materialDesc.debugName = "TriangleCapture.Material";
 
     const auto renderableEntity = world.createEntity();
-    world.setTransform(renderableEntity, TransformComponent{});
     MeshRendererComponent meshRenderer{};
-    meshRenderer.mesh = mesh;
-    meshRenderer.material = material;
+    meshRenderer.mesh = resources.registerMesh(meshDesc);
+    meshRenderer.material = resources.registerMaterial(materialDesc);
     meshRenderer.visible = true;
+    world.setTransform(renderableEntity, TransformComponent{});
     world.setMeshRenderer(renderableEntity, meshRenderer);
 
     FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
-
     for (std::uint64_t i = 0; i < numFrames; ++i)
     {
         frame.frameIndex = i;
@@ -228,48 +258,43 @@ int main(int argc, char** argv)
         runtime.tick(frame);
     }
 
-    std::uint32_t readbackEvents = 0;
-    std::uint32_t payloadEvents = 0;
-    bool foundNonClearPixel = false;
-    if (graphicsDevice != nullptr)
+    RenderTargetReadbackEvent captured{};
+    bool hasCapturedPayload = false;
+    RenderTargetReadbackEvent event{};
+    while (runtime.tryPopReadbackEvent(event))
     {
-        RenderTargetReadbackEvent event{};
-        while (runtime.tryPopReadbackEvent(event))
+        if (event.target.id == target.id && !event.colorRgba8.empty())
         {
-            ++readbackEvents;
-            if (!event.colorRgba8.empty())
-            {
-                ++payloadEvents;
-                foundNonClearPixel = foundNonClearPixel || containsNonClearPixel(event);
-            }
-        }
-    }
-
-    if (config.graphics.preferredBackend == GraphicsBackend::Vulkan)
-    {
-        if (readbackEvents == 0)
-        {
-            runtime.shutdown();
-            std::cerr << "Smoke run failed: expected at least one readback event.\n";
-            return 1;
-        }
-        if (payloadEvents == 0)
-        {
-            runtime.shutdown();
-            std::cerr << "Smoke run failed: expected readback payload for Vulkan backend.\n";
-            return 1;
-        }
-        if (!foundNonClearPixel)
-        {
-            runtime.shutdown();
-            std::cerr << "Smoke run failed: readback payload contains only clear color.\n";
-            return 1;
+            captured = event;
+            hasCapturedPayload = true;
         }
     }
 
     runtime.shutdown();
 
-    std::cout << "Smoke run passed. Frames: " << numFrames << ", Readback events: " << readbackEvents
-              << ", Payload events: " << payloadEvents << '\n';
+    if (config.graphics.preferredBackend == GraphicsBackend::Null)
+    {
+        std::cout << "Null backend selected; capture skipped.\n";
+        return 0;
+    }
+
+    if (!hasCapturedPayload)
+    {
+        std::cerr << "No readback payload captured.\n";
+        return 1;
+    }
+    if (!containsNonClearPixel(captured))
+    {
+        std::cerr << "Captured image appears to contain only clear color.\n";
+        return 1;
+    }
+    if (!writePpm(outputPath, captured))
+    {
+        std::cerr << "Failed to write image: " << outputPath << '\n';
+        return 1;
+    }
+
+    std::cout << "Triangle capture passed. Wrote " << captured.width << "x" << captured.height
+              << " image to " << outputPath << '\n';
     return 0;
 }

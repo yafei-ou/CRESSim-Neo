@@ -123,12 +123,18 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
             ++stats.readbackRequests;
         }
 
-        // TODO: actual pass graph (cull, bind pipelines/materials, issue draws) goes here.
         mDevice.beginRenderTarget(target, frameContext);
+        // Temporary vertical slice: each valid renderable emits one debug triangle draw.
+        for (std::uint32_t i = 0; i < stats.validRenderableCount; ++i)
+        {
+            if (mDevice.drawDebugTriangle(target))
+            {
+                ++stats.drawCalls;
+            }
+        }
         mDevice.endRenderTarget(target, frameContext);
 
         ++stats.cameraCount;
-        stats.drawCalls += stats.validRenderableCount;
     };
 
     if (cameras.empty())
