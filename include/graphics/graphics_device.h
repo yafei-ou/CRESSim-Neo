@@ -25,6 +25,11 @@ struct GraphicsDeviceDesc
     bool enableValidation = true;
     std::uint32_t initialWidth = 1280;
     std::uint32_t initialHeight = 720;
+    // Optional override for runtime shader source directory.
+    // If empty, the engine resolves its default search paths.
+    std::string shaderDirectory;
+    // Allows using embedded fallback sources when shader files are unavailable.
+    bool allowShaderFallback = true;
 };
 
 struct RenderTargetHandle
@@ -127,8 +132,6 @@ public:
     virtual void setRenderTargetViewport(RenderTargetHandle target, const RenderViewport& viewport) = 0;
     virtual void beginRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) = 0;
     virtual bool drawPbr(RenderTargetHandle target, const PbrDrawCommand& drawCommand) = 0;
-    // Draws a backend-provided shader triangle into the currently bound target.
-    virtual bool drawDebugTriangle(RenderTargetHandle target) = 0;
     virtual void endRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) = 0;
     // Requests a CPU-facing completion event for this target once rendering is done.
     virtual void requestReadback(RenderTargetHandle target) = 0;

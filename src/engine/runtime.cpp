@@ -1,4 +1,5 @@
 #include "engine/runtime.h"
+#include "engine/world_to_render_world_sync.h"
 
 namespace cressim::neo::engine
 {
@@ -105,56 +106,7 @@ const graphics::Scene& Runtime::getScene() const noexcept
 
 void Runtime::syncWorldToRenderWorld()
 {
-    graphics::RenderWorld& renderWorld = mScene.world();
-    // Full rebuild each frame for now; straightforward but not optimal for large scenes.
-    // TODO: switch to dirty-entity sync to avoid re-uploading unchanged data.
-    renderWorld.clear();
-
-    for (const common::EntityId entityId : mWorld.entities())
-    {
-        const TransformComponent* transform = mWorld.tryGetTransform(entityId);
-        const common::Transform worldTransform = transform ? transform->worldTransform : common::Transform{};
-
-        const MeshRendererComponent* meshRenderer = mWorld.tryGetMeshRenderer(entityId);
-        if (meshRenderer != nullptr && meshRenderer->visible)
-        {
-            graphics::RenderableInstance renderable{};
-            renderable.entityId = entityId;
-            renderable.worldTransform = worldTransform;
-            renderable.mesh = meshRenderer->mesh;
-            renderable.material = meshRenderer->material;
-            renderWorld.upsertRenderable(renderable);
-        }
-
-        const CameraComponent* camera = mWorld.tryGetCamera(entityId);
-        if (camera != nullptr)
-        {
-            graphics::CameraData cameraData{};
-            cameraData.entityId = entityId;
-            cameraData.worldTransform = worldTransform;
-            cameraData.verticalFovDegrees = camera->verticalFovDegrees;
-            cameraData.nearClip = camera->nearClip;
-            cameraData.farClip = camera->farClip;
-            cameraData.outputTarget = camera->outputTarget;
-            cameraData.outputWidth = camera->outputWidth;
-            cameraData.outputHeight = camera->outputHeight;
-            cameraData.viewport = camera->viewport;
-            cameraData.renderOrder = camera->renderOrder;
-            cameraData.requestReadback = camera->requestReadback;
-            renderWorld.upsertCamera(cameraData);
-        }
-
-        const DirectionalLightComponent* directionalLight = mWorld.tryGetDirectionalLight(entityId);
-        if (directionalLight != nullptr)
-        {
-            graphics::DirectionalLightData lightData{};
-            lightData.entityId = entityId;
-            lightData.direction = directionalLight->direction;
-            lightData.color = directionalLight->color;
-            lightData.intensity = directionalLight->intensity;
-            renderWorld.upsertDirectionalLight(lightData);
-        }
-    }
+    detail::syncWorldToRenderWorld(mWorld, mScene.world());
 }
 
 } // namespace cressim::neo::engine

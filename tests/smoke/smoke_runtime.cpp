@@ -203,7 +203,7 @@ int main(int argc, char** argv)
 
     auto& resources = runtime.getScene().resources();
     cressim::neo::graphics::MeshResourceDesc meshDesc{};
-    meshDesc.debugName = "Smoke.DebugTriangleMesh";
+    meshDesc.debugName = "Smoke.TriangleMesh";
     meshDesc.vertices = {
         {{-0.6f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, 0.0f, 0.0f},
         {{0.6f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, 1.0f, 0.0f},
@@ -212,7 +212,7 @@ int main(int argc, char** argv)
     const auto mesh = resources.registerMesh(meshDesc);
 
     cressim::neo::graphics::MaterialResourceDesc materialDesc{};
-    materialDesc.debugName = "Smoke.DebugTriangleMaterial";
+    materialDesc.debugName = "Smoke.TriangleMaterial";
     materialDesc.baseColor = {0.95f, 0.25f, 0.20f};
     materialDesc.metallic = 0.1f;
     materialDesc.roughness = 0.35f;
