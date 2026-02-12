@@ -13,12 +13,7 @@ namespace cressim::neo::graphics
 enum class GraphicsBackend
 {
     Null,
-    D3D11,
-    D3D12,
     Vulkan,
-    OpenGL,
-    Metal,
-    WebGPU
 };
 
 struct GraphicsDeviceDesc

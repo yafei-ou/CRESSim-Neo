@@ -53,10 +53,13 @@ target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/extern)
 
 target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common)
 
-if(CRESSIM_NEO_USE_DILIGENT)
-    target_compile_definitions(${TARGET_NAME} PUBLIC CRESSIM_NEO_USE_DILIGENT=1)
+# Link with Diligent
+if(TARGET Diligent-GraphicsEngineVk-static)
+    target_link_libraries(${TARGET_NAME} PRIVATE Diligent-GraphicsEngineVk-static)
+elseif(TARGET Diligent-GraphicsEngineVk-shared)
+    target_link_libraries(${TARGET_NAME} PRIVATE Diligent-GraphicsEngineVk-shared)
 else()
-    target_compile_definitions(${TARGET_NAME} PUBLIC CRESSIM_NEO_USE_DILIGENT=0)
+    message(FATAL_ERROR "Requires Vulkan Diligent backend target.")
 endif()
 
 set_target_properties(${TARGET_NAME}

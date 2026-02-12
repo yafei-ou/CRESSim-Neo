@@ -4,6 +4,8 @@ set(CMAKE_CXX_STANDARD 17)
 
 project(CRESSim-Neo VERSION 0.1.0 LANGUAGES C CXX)
 
+include(CTest)
+
 set(PROJECT_VENDOR "Yafei Ou")
 set(PROJECT_DESCRIPTION "")
 set(PROJECT_PRODUCT_NAME "")
@@ -21,7 +23,6 @@ configure_file(
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/generated)
 
 option(ENGINE_STATIC "Build the engine as a static library"  ON)
-option(CRESSIM_NEO_USE_DILIGENT "Enable Diligent-based graphics backend integration" OFF)
 option(CRESSIM_NEO_ENABLE_CLANG_TIDY "Enable clang-tidy checks during build" OFF)
 
 if(CRESSIM_NEO_ENABLE_CLANG_TIDY)
@@ -51,4 +52,22 @@ if(ENGINE_STATIC)
     add_compile_definitions(CRESSIM_NEO_STATIC)
 endif()
 
+# Keep the embedded Diligent build lean for engine integration.
+set(DILIGENT_BUILD_TOOLS OFF CACHE BOOL "Build DiligentTools module" FORCE)
+set(DILIGENT_BUILD_FX OFF CACHE BOOL "Build DiligentFX module" FORCE)
+set(DILIGENT_BUILD_SAMPLES OFF CACHE BOOL "Build DiligentSamples module" FORCE)
+set(DILIGENT_BUILD_DOCS OFF CACHE BOOL "Build Diligent documentation" FORCE)
+set(DILIGENT_BUILD_TESTS OFF CACHE BOOL "Build Diligent tests" FORCE)
+set(DILIGENT_NO_DIRECT3D11 ON CACHE BOOL "Disable Direct3D11 backend" FORCE)
+set(DILIGENT_NO_DIRECT3D12 ON CACHE BOOL "Disable Direct3D12 backend" FORCE)
+set(DILIGENT_NO_OPENGL ON CACHE BOOL "Disable OpenGL backend" FORCE)
+set(DILIGENT_NO_METAL ON CACHE BOOL "Disable Metal backend" FORCE)
+set(DILIGENT_NO_WEBGPU ON CACHE BOOL "Disable WebGPU backend" FORCE)
+set(DILIGENT_NO_VULKAN OFF CACHE BOOL "Disable Vulkan backend" FORCE)
+add_subdirectory(extern/DiligentEngine EXCLUDE_FROM_ALL)
+
 add_subdirectory(src)
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
