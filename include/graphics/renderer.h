@@ -14,9 +14,13 @@ namespace cressim::neo::graphics
 
 struct RenderStats
 {
+    // Current counters are framework-level instrumentation, not GPU timestamps.
     std::uint32_t drawCalls = 0;
     std::uint32_t renderableCount = 0;
+    std::uint32_t validRenderableCount = 0;
     std::uint32_t lightCount = 0;
+    std::uint32_t cameraCount = 0;
+    std::uint32_t readbackRequests = 0;
 };
 
 class CRESSIM_NEO_GRAPHICS_API Renderer

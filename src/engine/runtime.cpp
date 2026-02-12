@@ -74,6 +74,25 @@ const World& Runtime::getWorld() const noexcept
     return mWorld;
 }
 
+graphics::IGraphicsDevice* Runtime::getGraphicsDevice() noexcept
+{
+    return mGraphicsDevice.get();
+}
+
+const graphics::IGraphicsDevice* Runtime::getGraphicsDevice() const noexcept
+{
+    return mGraphicsDevice.get();
+}
+
+bool Runtime::tryPopReadbackEvent(graphics::RenderTargetReadbackEvent& outEvent)
+{
+    if (!mGraphicsDevice)
+    {
+        return false;
+    }
+    return mGraphicsDevice->tryPopReadbackEvent(outEvent);
+}
+
 graphics::Scene& Runtime::getScene() noexcept
 {
     return mScene;
@@ -87,6 +106,8 @@ const graphics::Scene& Runtime::getScene() const noexcept
 void Runtime::syncWorldToRenderWorld()
 {
     graphics::RenderWorld& renderWorld = mScene.world();
+    // Full rebuild each frame for now; straightforward but not optimal for large scenes.
+    // TODO: switch to dirty-entity sync to avoid re-uploading unchanged data.
     renderWorld.clear();
 
     for (const common::EntityId entityId : mWorld.entities())
@@ -114,6 +135,12 @@ void Runtime::syncWorldToRenderWorld()
             cameraData.verticalFovDegrees = camera->verticalFovDegrees;
             cameraData.nearClip = camera->nearClip;
             cameraData.farClip = camera->farClip;
+            cameraData.outputTarget = camera->outputTarget;
+            cameraData.outputWidth = camera->outputWidth;
+            cameraData.outputHeight = camera->outputHeight;
+            cameraData.viewport = camera->viewport;
+            cameraData.renderOrder = camera->renderOrder;
+            cameraData.requestReadback = camera->requestReadback;
             renderWorld.upsertCamera(cameraData);
         }
 
