@@ -161,7 +161,7 @@ int main(int argc, char** argv)
 
     const auto cameraEntity = world.createEntity();
     TransformComponent cameraTransform{};
-    cameraTransform.worldTransform.position = {0.0f, 1.0f, 3.0f};
+    cameraTransform.worldTransform.position = {0.0f, 0.0f, 2.0f};
     CameraComponent camera{};
     camera.renderOrder = 0;
     world.setTransform(cameraEntity, cameraTransform);
@@ -204,10 +204,18 @@ int main(int argc, char** argv)
     auto& resources = runtime.getScene().resources();
     cressim::neo::graphics::MeshResourceDesc meshDesc{};
     meshDesc.debugName = "Smoke.DebugTriangleMesh";
+    meshDesc.vertices = {
+        {{-0.6f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, 0.0f, 0.0f},
+        {{0.6f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, 1.0f, 0.0f},
+        {{0.0f, 0.6f, 0.0f}, {0.0f, 0.0f, 1.0f}, 0.5f, 1.0f}};
+    meshDesc.indices = {0u, 1u, 2u};
     const auto mesh = resources.registerMesh(meshDesc);
 
     cressim::neo::graphics::MaterialResourceDesc materialDesc{};
     materialDesc.debugName = "Smoke.DebugTriangleMaterial";
+    materialDesc.baseColor = {0.95f, 0.25f, 0.20f};
+    materialDesc.metallic = 0.1f;
+    materialDesc.roughness = 0.35f;
     const auto material = resources.registerMaterial(materialDesc);
 
     const auto renderableEntity = world.createEntity();

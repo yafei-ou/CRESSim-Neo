@@ -226,7 +226,9 @@ int main(int argc, char** argv)
     }
 
     const auto cameraEntity = world.createEntity();
-    world.setTransform(cameraEntity, TransformComponent{});
+    TransformComponent cameraTransform{};
+    cameraTransform.worldTransform.position = {0.0f, 0.0f, 2.0f};
+    world.setTransform(cameraEntity, cameraTransform);
     CameraComponent camera{};
     camera.outputTarget = target;
     camera.outputWidth = targetDesc.width;
@@ -238,8 +240,16 @@ int main(int argc, char** argv)
     auto& resources = runtime.getScene().resources();
     cressim::neo::graphics::MeshResourceDesc meshDesc{};
     meshDesc.debugName = "TriangleCapture.Mesh";
+    meshDesc.vertices = {
+        {{-0.7f, -0.6f, 0.0f}, {0.0f, 0.0f, 1.0f}, 0.0f, 0.0f},
+        {{0.7f, -0.6f, 0.0f}, {0.0f, 0.0f, 1.0f}, 1.0f, 0.0f},
+        {{0.0f, 0.7f, 0.0f}, {0.0f, 0.0f, 1.0f}, 0.5f, 1.0f}};
+    meshDesc.indices = {0u, 1u, 2u};
     cressim::neo::graphics::MaterialResourceDesc materialDesc{};
     materialDesc.debugName = "TriangleCapture.Material";
+    materialDesc.baseColor = {0.2f, 0.8f, 0.4f};
+    materialDesc.metallic = 0.05f;
+    materialDesc.roughness = 0.3f;
 
     const auto renderableEntity = world.createEntity();
     MeshRendererComponent meshRenderer{};

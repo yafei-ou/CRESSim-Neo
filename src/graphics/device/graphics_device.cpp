@@ -1,6 +1,7 @@
 #include "graphics/graphics_device.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Fence.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
@@ -80,6 +81,20 @@ struct PendingReadbackCopy
     Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
 };
 
+struct CachedMeshGpuData
+{
+    std::uint64_t version = 0;
+    std::uint32_t indexCount = 0;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> vertexBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> indexBuffer;
+};
+
+struct PbrPipelineResources
+{
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipelineState;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> shaderResourceBinding;
+};
+
 constexpr char kDebugTriangleVsSource[] = R"(
 struct VSOutput
 {
@@ -117,6 +132,145 @@ float4 main(in VSOutput In) : SV_Target
     return float4(In.Color, 1.0);
 }
 )";
+
+constexpr char kPbrVsSource[] = R"(
+struct VSInput
+{
+    float3 Position : ATTRIB0;
+    float3 Normal : ATTRIB1;
+    float2 TexCoord : ATTRIB2;
+};
+
+struct VSOutput
+{
+    float4 Position : SV_Position;
+    float3 WorldPos : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
+};
+
+cbuffer PbrConstants
+{
+    row_major float4x4 g_Model;
+    row_major float4x4 g_ViewProjection;
+    float4 g_CameraPositionMetallic;
+    float4 g_LightDirectionIntensity;
+    float4 g_LightColorRoughness;
+    float4 g_BaseColor;
+};
+
+void main(in VSInput In, out VSOutput Out)
+{
+    float4 worldPos = mul(float4(In.Position, 1.0), g_Model);
+    Out.Position = mul(worldPos, g_ViewProjection);
+    Out.WorldPos = worldPos.xyz;
+    Out.WorldNormal = normalize(mul(float4(In.Normal, 0.0), g_Model).xyz);
+}
+)";
+
+constexpr char kPbrPsSource[] = R"(
+struct VSOutput
+{
+    float4 Position : SV_Position;
+    float3 WorldPos : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
+};
+
+cbuffer PbrConstants
+{
+    row_major float4x4 g_Model;
+    row_major float4x4 g_ViewProjection;
+    float4 g_CameraPositionMetallic;
+    float4 g_LightDirectionIntensity;
+    float4 g_LightColorRoughness;
+    float4 g_BaseColor;
+};
+
+static const float PI = 3.14159265359;
+
+float DistributionGGX(float3 N, float3 H, float roughness)
+{
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH * NdotH;
+
+    float numerator = a2;
+    float denominator = (NdotH2 * (a2 - 1.0) + 1.0);
+    denominator = PI * denominator * denominator;
+    return numerator / max(denominator, 0.0001);
+}
+
+float GeometrySchlickGGX(float NdotV, float roughness)
+{
+    float r = roughness + 1.0;
+    float k = (r * r) / 8.0;
+    float numerator = NdotV;
+    float denominator = NdotV * (1.0 - k) + k;
+    return numerator / max(denominator, 0.0001);
+}
+
+float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
+{
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+    return ggx1 * ggx2;
+}
+
+float3 FresnelSchlick(float cosTheta, float3 F0)
+{
+    return F0 + (1.0 - F0) * pow(saturate(1.0 - cosTheta), 5.0);
+}
+
+float4 main(in VSOutput In) : SV_Target
+{
+    float3 N = normalize(In.WorldNormal);
+    float3 V = normalize(g_CameraPositionMetallic.xyz - In.WorldPos);
+    float3 L = normalize(-g_LightDirectionIntensity.xyz);
+    float3 H = normalize(V + L);
+
+    float roughness = clamp(g_LightColorRoughness.w, 0.04, 1.0);
+    float metallic = clamp(g_CameraPositionMetallic.w, 0.0, 1.0);
+    float3 albedo = saturate(g_BaseColor.xyz);
+
+    float3 F0 = float3(0.04, 0.04, 0.04);
+    F0 = lerp(F0, albedo, metallic);
+
+    float NDF = DistributionGGX(N, H, roughness);
+    float G = GeometrySmith(N, V, L, roughness);
+    float3 F = FresnelSchlick(max(dot(H, V), 0.0), F0);
+
+    float3 numerator = NDF * G * F;
+    float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
+    float3 specular = numerator / denominator;
+
+    float3 kS = F;
+    float3 kD = (1.0 - kS) * (1.0 - metallic);
+    float NdotL = max(dot(N, L), 0.0);
+
+    float3 radiance = g_LightColorRoughness.xyz * g_LightDirectionIntensity.w;
+    float3 diffuse = kD * albedo / PI;
+    float3 Lo = (diffuse + specular) * radiance * NdotL;
+
+    float3 ambient = 0.03 * albedo;
+    float3 color = ambient + Lo;
+    color = color / (color + 1.0);
+    color = pow(color, 1.0 / 2.2);
+
+    return float4(color, 1.0);
+}
+)";
+
+struct PbrDrawConstants
+{
+    float modelMatrix[16] = {};
+    float viewProjectionMatrix[16] = {};
+    float cameraPositionMetallic[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float lightDirectionIntensity[4] = {0.0f, -1.0f, 0.0f, 1.0f};
+    float lightColorRoughness[4] = {1.0f, 1.0f, 1.0f, 0.5f};
+    float baseColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+};
 
 class DiligentGraphicsDevice final : public IGraphicsDevice
 {
@@ -165,6 +319,13 @@ public:
 
     void shutdown() override
     {
+        mHasActiveRenderTarget = false;
+        mActiveRenderTargetHasDepth = false;
+        mActiveRenderTarget = {};
+        mCachedMeshes.clear();
+        mPbrPipelineWithDepth = {};
+        mPbrPipelineNoDepth = {};
+        mPbrConstantBuffer = nullptr;
         mDebugTrianglePsoWithDepth = nullptr;
         mDebugTrianglePsoNoDepth = nullptr;
         mReadbackFence = nullptr;
@@ -272,6 +433,13 @@ public:
             return;
         }
 
+        if (mHasActiveRenderTarget && mActiveRenderTarget.id == target.id)
+        {
+            mHasActiveRenderTarget = false;
+            mActiveRenderTargetHasDepth = false;
+            mActiveRenderTarget = {};
+        }
+
         mPendingReadbacks.erase(target.id);
         mCompletedReadbacks.erase(
             std::remove_if(
@@ -377,6 +545,92 @@ public:
         diligentViewport.MinDepth = 0.0f;
         diligentViewport.MaxDepth = 1.0f;
         mImmediateContext->SetViewports(1, &diligentViewport, it->second.desc.width, it->second.desc.height);
+
+        mActiveRenderTarget = target;
+        mHasActiveRenderTarget = true;
+        mActiveRenderTargetHasDepth = (depthDsv != nullptr);
+    }
+
+    bool drawPbr(RenderTargetHandle target, const PbrDrawCommand& drawCommand) override
+    {
+        if (!mInitialized || mBackend != GraphicsBackend::Vulkan || !mImmediateContext || !mRenderDevice)
+        {
+            return false;
+        }
+        if (!mHasActiveRenderTarget || mActiveRenderTarget.id != target.id)
+        {
+            return false;
+        }
+        if (drawCommand.meshId == common::kInvalidResourceId || drawCommand.vertexData == nullptr || drawCommand.indexData == nullptr)
+        {
+            return false;
+        }
+        if (drawCommand.vertexCount == 0 || drawCommand.indexCount < 3 || drawCommand.vertexStrideBytes == 0)
+        {
+            return false;
+        }
+
+        CachedMeshGpuData* meshBuffers = getOrCreateMeshBuffers(drawCommand);
+        if (meshBuffers == nullptr || meshBuffers->vertexBuffer == nullptr || meshBuffers->indexBuffer == nullptr || meshBuffers->indexCount == 0)
+        {
+            return false;
+        }
+
+        PbrPipelineResources* pipeline = getOrCreatePbrPipeline(mActiveRenderTargetHasDepth);
+        if (pipeline == nullptr || pipeline->pipelineState == nullptr || pipeline->shaderResourceBinding == nullptr || mPbrConstantBuffer == nullptr)
+        {
+            return false;
+        }
+
+        PbrDrawConstants constants{};
+        std::memcpy(constants.modelMatrix, drawCommand.modelMatrix, sizeof(constants.modelMatrix));
+        std::memcpy(constants.viewProjectionMatrix, drawCommand.viewProjectionMatrix, sizeof(constants.viewProjectionMatrix));
+        constants.cameraPositionMetallic[0] = drawCommand.cameraPosition[0];
+        constants.cameraPositionMetallic[1] = drawCommand.cameraPosition[1];
+        constants.cameraPositionMetallic[2] = drawCommand.cameraPosition[2];
+        constants.cameraPositionMetallic[3] = drawCommand.material.metallic;
+        constants.lightDirectionIntensity[0] = drawCommand.light.direction[0];
+        constants.lightDirectionIntensity[1] = drawCommand.light.direction[1];
+        constants.lightDirectionIntensity[2] = drawCommand.light.direction[2];
+        constants.lightDirectionIntensity[3] = drawCommand.light.intensity;
+        constants.lightColorRoughness[0] = drawCommand.light.color[0];
+        constants.lightColorRoughness[1] = drawCommand.light.color[1];
+        constants.lightColorRoughness[2] = drawCommand.light.color[2];
+        constants.lightColorRoughness[3] = drawCommand.material.roughness;
+        constants.baseColor[0] = drawCommand.material.baseColor[0];
+        constants.baseColor[1] = drawCommand.material.baseColor[1];
+        constants.baseColor[2] = drawCommand.material.baseColor[2];
+        constants.baseColor[3] = 1.0f;
+
+        void* mappedConstants = nullptr;
+        mImmediateContext->MapBuffer(mPbrConstantBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
+        if (mappedConstants == nullptr)
+        {
+            return false;
+        }
+        std::memcpy(mappedConstants, &constants, sizeof(constants));
+        mImmediateContext->UnmapBuffer(mPbrConstantBuffer, Diligent::MAP_WRITE);
+
+        const Diligent::Uint64 vertexOffset = 0;
+        Diligent::IBuffer* vertexBuffers[] = {meshBuffers->vertexBuffer};
+        mImmediateContext->SetVertexBuffers(
+            0,
+            1,
+            vertexBuffers,
+            &vertexOffset,
+            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+            Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
+        mImmediateContext->SetIndexBuffer(meshBuffers->indexBuffer, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+        mImmediateContext->SetPipelineState(pipeline->pipelineState);
+        mImmediateContext->CommitShaderResources(pipeline->shaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+        Diligent::DrawIndexedAttribs drawAttrs{};
+        drawAttrs.IndexType = Diligent::VT_UINT32;
+        drawAttrs.NumIndices = meshBuffers->indexCount;
+        drawAttrs.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
+        mImmediateContext->DrawIndexed(drawAttrs);
+        return true;
     }
 
     bool drawDebugTriangle(RenderTargetHandle target) override
@@ -413,6 +667,13 @@ public:
 
     void endRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) override
     {
+        if (mHasActiveRenderTarget && mActiveRenderTarget.id == target.id)
+        {
+            mHasActiveRenderTarget = false;
+            mActiveRenderTargetHasDepth = false;
+            mActiveRenderTarget = {};
+        }
+
         const auto pendingReadbackIt = mPendingReadbacks.find(target.id);
         if (pendingReadbackIt == mPendingReadbacks.end())
         {
@@ -661,6 +922,160 @@ private:
         return true;
     }
 
+    CachedMeshGpuData* getOrCreateMeshBuffers(const PbrDrawCommand& drawCommand)
+    {
+        auto& mesh = mCachedMeshes[drawCommand.meshId];
+        const bool recreate =
+            mesh.vertexBuffer == nullptr ||
+            mesh.indexBuffer == nullptr ||
+            mesh.version != drawCommand.meshVersion;
+        if (!recreate)
+        {
+            return &mesh;
+        }
+
+        Diligent::BufferDesc vertexBufferDesc{};
+        vertexBufferDesc.Name = "CRESSimNeo.Pbr.VertexBuffer";
+        vertexBufferDesc.Usage = Diligent::USAGE_IMMUTABLE;
+        vertexBufferDesc.BindFlags = Diligent::BIND_VERTEX_BUFFER;
+        vertexBufferDesc.Size = static_cast<Diligent::Uint64>(drawCommand.vertexCount) * drawCommand.vertexStrideBytes;
+
+        Diligent::BufferData vertexData{};
+        vertexData.pData = drawCommand.vertexData;
+        vertexData.DataSize = vertexBufferDesc.Size;
+        mRenderDevice->CreateBuffer(vertexBufferDesc, &vertexData, &mesh.vertexBuffer);
+        if (mesh.vertexBuffer == nullptr)
+        {
+            mCachedMeshes.erase(drawCommand.meshId);
+            return nullptr;
+        }
+
+        Diligent::BufferDesc indexBufferDesc{};
+        indexBufferDesc.Name = "CRESSimNeo.Pbr.IndexBuffer";
+        indexBufferDesc.Usage = Diligent::USAGE_IMMUTABLE;
+        indexBufferDesc.BindFlags = Diligent::BIND_INDEX_BUFFER;
+        indexBufferDesc.Size = static_cast<Diligent::Uint64>(drawCommand.indexCount) * sizeof(std::uint32_t);
+
+        Diligent::BufferData indexData{};
+        indexData.pData = drawCommand.indexData;
+        indexData.DataSize = indexBufferDesc.Size;
+        mRenderDevice->CreateBuffer(indexBufferDesc, &indexData, &mesh.indexBuffer);
+        if (mesh.indexBuffer == nullptr)
+        {
+            mCachedMeshes.erase(drawCommand.meshId);
+            return nullptr;
+        }
+
+        mesh.version = drawCommand.meshVersion;
+        mesh.indexCount = drawCommand.indexCount;
+        return &mesh;
+    }
+
+    bool createPbrPipeline(bool hasDepthTarget, PbrPipelineResources& outResources)
+    {
+        if (!mRenderDevice)
+        {
+            return false;
+        }
+
+        Diligent::ShaderCreateInfo shaderCreateInfo{};
+        shaderCreateInfo.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
+        shaderCreateInfo.CompileFlags = Diligent::SHADER_COMPILE_FLAG_PACK_MATRIX_ROW_MAJOR;
+        shaderCreateInfo.Desc.UseCombinedTextureSamplers = true;
+        shaderCreateInfo.EntryPoint = "main";
+
+        Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
+        shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
+        shaderCreateInfo.Desc.Name = hasDepthTarget ? "CRESSimNeo.Pbr.VS.Depth" : "CRESSimNeo.Pbr.VS.NoDepth";
+        shaderCreateInfo.Source = kPbrVsSource;
+        mRenderDevice->CreateShader(shaderCreateInfo, &vertexShader);
+        if (vertexShader == nullptr)
+        {
+            return false;
+        }
+
+        Diligent::RefCntAutoPtr<Diligent::IShader> pixelShader;
+        shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
+        shaderCreateInfo.Desc.Name = hasDepthTarget ? "CRESSimNeo.Pbr.PS.Depth" : "CRESSimNeo.Pbr.PS.NoDepth";
+        shaderCreateInfo.Source = kPbrPsSource;
+        mRenderDevice->CreateShader(shaderCreateInfo, &pixelShader);
+        if (pixelShader == nullptr)
+        {
+            return false;
+        }
+
+        Diligent::GraphicsPipelineStateCreateInfo psoCreateInfo{};
+        psoCreateInfo.PSODesc.Name = hasDepthTarget ? "CRESSimNeo.Pbr.PSO.Depth" : "CRESSimNeo.Pbr.PSO.NoDepth";
+        psoCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
+        psoCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
+        psoCreateInfo.GraphicsPipeline.RTVFormats[0] = Diligent::TEX_FORMAT_RGBA8_UNORM;
+        psoCreateInfo.GraphicsPipeline.DSVFormat = hasDepthTarget ? Diligent::TEX_FORMAT_D32_FLOAT : Diligent::TEX_FORMAT_UNKNOWN;
+        psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_NONE;
+        psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = hasDepthTarget ? Diligent::True : Diligent::False;
+        psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = hasDepthTarget ? Diligent::True : Diligent::False;
+        psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+
+        constexpr Diligent::LayoutElement layoutElements[] = {
+            Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, Diligent::False},
+            Diligent::LayoutElement{1, 0, 3, Diligent::VT_FLOAT32, Diligent::False},
+            Diligent::LayoutElement{2, 0, 2, Diligent::VT_FLOAT32, Diligent::False}};
+        psoCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = layoutElements;
+        psoCreateInfo.GraphicsPipeline.InputLayout.NumElements = 3;
+        psoCreateInfo.pVS = vertexShader;
+        psoCreateInfo.pPS = pixelShader;
+
+        mRenderDevice->CreateGraphicsPipelineState(psoCreateInfo, &outResources.pipelineState);
+        if (outResources.pipelineState == nullptr)
+        {
+            return false;
+        }
+
+        if (mPbrConstantBuffer == nullptr)
+        {
+            Diligent::BufferDesc constantBufferDesc{};
+            constantBufferDesc.Name = "CRESSimNeo.Pbr.Constants";
+            constantBufferDesc.Size = sizeof(PbrDrawConstants);
+            constantBufferDesc.Usage = Diligent::USAGE_DYNAMIC;
+            constantBufferDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+            constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+            mRenderDevice->CreateBuffer(constantBufferDesc, nullptr, &mPbrConstantBuffer);
+            if (mPbrConstantBuffer == nullptr)
+            {
+                return false;
+            }
+        }
+
+        Diligent::IShaderResourceVariable* vertexConstants =
+            outResources.pipelineState->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "PbrConstants");
+        Diligent::IShaderResourceVariable* pixelConstants =
+            outResources.pipelineState->GetStaticVariableByName(Diligent::SHADER_TYPE_PIXEL, "PbrConstants");
+        if (vertexConstants == nullptr || pixelConstants == nullptr)
+        {
+            return false;
+        }
+        vertexConstants->Set(mPbrConstantBuffer);
+        pixelConstants->Set(mPbrConstantBuffer);
+        outResources.pipelineState->CreateShaderResourceBinding(&outResources.shaderResourceBinding, true);
+        return outResources.shaderResourceBinding != nullptr;
+    }
+
+    PbrPipelineResources* getOrCreatePbrPipeline(bool hasDepthTarget)
+    {
+        PbrPipelineResources& resources = hasDepthTarget ? mPbrPipelineWithDepth : mPbrPipelineNoDepth;
+        if (resources.pipelineState != nullptr && resources.shaderResourceBinding != nullptr)
+        {
+            return &resources;
+        }
+
+        if (!createPbrPipeline(hasDepthTarget, resources))
+        {
+            return nullptr;
+        }
+
+        return &resources;
+    }
+
     Diligent::IPipelineState* getDebugTrianglePso(bool hasDepthTarget)
     {
         auto& pso = hasDepthTarget ? mDebugTrianglePsoWithDepth : mDebugTrianglePsoNoDepth;
@@ -785,10 +1200,14 @@ private:
     GraphicsDeviceDesc mDesc{};
     GraphicsBackend mBackend = GraphicsBackend::Null;
     bool mInitialized = false;
+    bool mHasActiveRenderTarget = false;
+    bool mActiveRenderTargetHasDepth = false;
     common::ResourceId mNextRenderTargetId = 1;
     RenderTargetHandle mDefaultRenderTarget{};
+    RenderTargetHandle mActiveRenderTarget{};
 
     std::unordered_map<common::ResourceId, RenderTargetResources> mRenderTargets;
+    std::unordered_map<common::ResourceId, CachedMeshGpuData> mCachedMeshes;
     // Targets that requested readback and are waiting for endRenderTarget().
     std::unordered_set<common::ResourceId> mPendingReadbacks;
     // GPU->CPU copy jobs collected during render target completion and consumed in endFrame().
@@ -798,6 +1217,9 @@ private:
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mDebugTrianglePsoWithDepth;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mDebugTrianglePsoNoDepth;
+    PbrPipelineResources mPbrPipelineWithDepth{};
+    PbrPipelineResources mPbrPipelineNoDepth{};
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mPbrConstantBuffer;
     Diligent::RefCntAutoPtr<Diligent::IFence> mReadbackFence;
     std::uint64_t mNextReadbackFenceValue = 1;
 
