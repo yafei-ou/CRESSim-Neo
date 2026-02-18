@@ -73,6 +73,14 @@ struct RenderViewport
     float height = 1.0f;
 };
 
+struct RenderPassBeginDesc
+{
+    bool clearColor = true;
+    bool clearDepth = true;
+    float clearColorValue[4] = {0.02f, 0.02f, 0.03f, 1.0f};
+    float clearDepthValue = 1.0f;
+};
+
 struct RenderTargetReadbackEvent
 {
     RenderTargetHandle target{};
@@ -114,7 +122,10 @@ public:
     virtual void beginFrame(const common::FrameContext& frameContext) = 0;
     // Sets viewport state used for the next beginRenderTarget/endRenderTarget pair on this target.
     virtual void setRenderTargetViewport(RenderTargetHandle target, const RenderViewport& viewport) = 0;
-    virtual void beginRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) = 0;
+    virtual void beginRenderTarget(
+        RenderTargetHandle target,
+        const common::FrameContext& frameContext,
+        const RenderPassBeginDesc& beginDesc) = 0;
     virtual void endRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) = 0;
     // Queues a target readback request that completes after a subsequent render pass of that target.
     virtual RenderTargetReadbackRequest requestRenderTargetReadback(RenderTargetHandle target) = 0;

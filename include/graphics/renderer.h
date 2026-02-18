@@ -45,8 +45,15 @@ struct RenderStats
 {
     // Current counters are framework-level instrumentation, not GPU timestamps.
     std::uint32_t drawCalls = 0;
+    std::uint32_t opaqueDrawCalls = 0;
+    std::uint32_t shadowDrawCalls = 0;
+    std::uint32_t transparentDrawCalls = 0;
     std::uint32_t renderableCount = 0;
     std::uint32_t validRenderableCount = 0;
+    std::uint32_t culledRenderableCount = 0;
+    std::uint32_t opaqueQueueCount = 0;
+    std::uint32_t shadowCasterQueueCount = 0;
+    std::uint32_t transparentQueueCount = 0;
     std::uint32_t lightCount = 0;
     std::uint32_t cameraCount = 0;
 };

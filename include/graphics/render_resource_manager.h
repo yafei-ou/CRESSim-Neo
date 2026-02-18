@@ -28,6 +28,18 @@ struct TextureHandle
     common::ResourceId id = common::kInvalidResourceId;
 };
 
+enum class ShadingModel
+{
+    Pbr,
+    Phong,
+};
+
+enum class BlendMode
+{
+    Opaque,
+    Transparent,
+};
+
 struct MeshResourceDesc
 {
     struct Vertex
@@ -49,6 +61,11 @@ struct MaterialResourceDesc
     common::Vec3f baseColor{1.0f, 1.0f, 1.0f};
     float metallic = 0.0f;
     float roughness = 0.5f;
+    ShadingModel shadingModel = ShadingModel::Pbr;
+    BlendMode blendMode = BlendMode::Opaque;
+    float opacity = 1.0f;
+    bool castsShadows = true;
+    bool receivesShadows = true;
 };
 
 struct TextureResourceDesc
@@ -70,6 +87,7 @@ public:
     const MeshResourceDesc* tryGetMesh(MeshHandle mesh) const noexcept;
     const MaterialResourceDesc* tryGetMaterial(MaterialHandle material) const noexcept;
     const TextureResourceDesc* tryGetTexture(TextureHandle texture) const noexcept;
+    bool tryGetMeshLocalBounds(MeshHandle mesh, common::Vec3f& outMin, common::Vec3f& outMax) const noexcept;
 
     std::uint64_t meshVersion(MeshHandle mesh) const noexcept;
 
@@ -78,6 +96,9 @@ private:
     {
         MeshResourceDesc desc{};
         std::uint64_t version = 1;
+        common::Vec3f localBoundsMin{};
+        common::Vec3f localBoundsMax{};
+        bool hasLocalBounds = false;
     };
 
     common::ResourceId mNextMeshId = 1;

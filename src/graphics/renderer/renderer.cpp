@@ -1,10 +1,15 @@
 #include "graphics/renderer.h"
+
 #include "graphics/device/graphics_device_impl.h"
 #include "graphics/math/diligent_math_utils.h"
 #include "graphics/renderer/passes/forward_pipeline.h"
+#include "graphics/renderer/passes/render_pass_types.h"
 #include "graphics/renderer/services/debug_view_presenter.h"
 
+#include "DiligentEngine/DiligentCore/Common/interface/AdvancedMath.hpp"
+
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 namespace cressim::neo::graphics
@@ -55,6 +60,9 @@ struct ValidRenderable
     const RenderableInstance* instance = nullptr;
     const MeshResourceDesc* mesh = nullptr;
     const MaterialResourceDesc* material = nullptr;
+    bool hasLocalBounds = false;
+    common::Vec3f localBoundsMin{};
+    common::Vec3f localBoundsMax{};
 };
 
 std::vector<ValidRenderable> gatherValidRenderables(const std::vector<RenderableInstance>& renderables, const RenderResourceManager& resources)
@@ -79,6 +87,7 @@ std::vector<ValidRenderable> gatherValidRenderables(const std::vector<Renderable
         validRenderable.instance = &renderable;
         validRenderable.mesh = mesh;
         validRenderable.material = material;
+        validRenderable.hasLocalBounds = resources.tryGetMeshLocalBounds(renderable.mesh, validRenderable.localBoundsMin, validRenderable.localBoundsMax);
         valid.push_back(validRenderable);
     }
 
@@ -106,8 +115,7 @@ ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightDat
 
 bool buildDrawCommand(
     const ValidRenderable& renderable,
-    const Diligent::float4x4& viewProjectionMatrix,
-    const Diligent::float3& cameraPosition,
+    const FrameViewData& frameView,
     const ForwardDirectionalLightData& light,
     const RenderResourceManager& resources,
     ForwardDrawCommand& outCommand)
@@ -127,8 +135,9 @@ bool buildDrawCommand(
     const Diligent::float4x4 modelMatrix = math::transformMatrix(renderable.instance->worldTransform);
 
     outCommand = {};
-    outCommand.shadingModel = ForwardShadingModel::Pbr;
+    outCommand.shadingModel = material.shadingModel;
     outCommand.meshId = renderable.instance->mesh.id;
+    outCommand.materialId = renderable.instance->material.id;
     outCommand.meshVersion = resources.meshVersion(renderable.instance->mesh);
     outCommand.vertexData = mesh.vertices.data();
     outCommand.vertexCount = static_cast<std::uint32_t>(mesh.vertices.size());
@@ -136,24 +145,24 @@ bool buildDrawCommand(
     outCommand.indexData = mesh.indices.data();
     outCommand.indexCount = static_cast<std::uint32_t>(mesh.indices.size());
     math::copyMatrixRowMajor(outCommand.modelMatrix, modelMatrix);
-    math::copyMatrixRowMajor(outCommand.viewProjectionMatrix, viewProjectionMatrix);
-    outCommand.cameraPosition[0] = cameraPosition.x;
-    outCommand.cameraPosition[1] = cameraPosition.y;
-    outCommand.cameraPosition[2] = cameraPosition.z;
+    math::copyMatrixRowMajor(outCommand.viewProjectionMatrix, frameView.viewProjectionMatrix);
+    outCommand.cameraPosition[0] = frameView.cameraWorldPosition.x;
+    outCommand.cameraPosition[1] = frameView.cameraWorldPosition.y;
+    outCommand.cameraPosition[2] = frameView.cameraWorldPosition.z;
     outCommand.material.baseColor[0] = material.baseColor.x;
     outCommand.material.baseColor[1] = material.baseColor.y;
     outCommand.material.baseColor[2] = material.baseColor.z;
     outCommand.material.metallic = material.metallic;
     outCommand.material.roughness = material.roughness;
+    outCommand.material.opacity = clamp01(material.opacity);
+    outCommand.material.receivesShadows = material.receivesShadows ? 1.0f : 0.0f;
     outCommand.light = light;
     return true;
 }
 
-Diligent::float4x4 buildViewProjection(const CameraData& camera)
+Diligent::float4x4 buildViewProjection(const CameraData& camera, float outputWidth, float outputHeight)
 {
-    const float outputWidth = camera.outputWidth > 0 ? static_cast<float>(camera.outputWidth) : 1280.0f;
-    const float outputHeight = camera.outputHeight > 0 ? static_cast<float>(camera.outputHeight) : 720.0f;
-    const float aspect = outputWidth / clampPositive(outputHeight, 1.0f);
+    const float aspect = clampPositive(outputWidth, 1.0f) / clampPositive(outputHeight, 1.0f);
 
     const Diligent::float4x4 view = math::viewMatrixFromTransform(camera.worldTransform);
     const Diligent::float4x4 projection = math::perspectiveMatrix(camera.verticalFovDegrees, aspect, camera.nearClip, camera.farClip);
@@ -186,6 +195,166 @@ std::vector<CameraData> sortedCameras(const RenderWorld& world)
         return lhs.entityId < rhs.entityId;
     });
     return cameras;
+}
+
+float squaredDistanceToCamera(const common::Transform& transform, const Diligent::float3& cameraWorldPosition)
+{
+    const float dx = transform.position.x - cameraWorldPosition.x;
+    const float dy = transform.position.y - cameraWorldPosition.y;
+    const float dz = transform.position.z - cameraWorldPosition.z;
+    return dx * dx + dy * dy + dz * dz;
+}
+
+bool isVisibleByFrustum(const ValidRenderable& renderable, const Diligent::ViewFrustum& frustum)
+{
+    if (renderable.instance == nullptr)
+    {
+        return false;
+    }
+
+    if (!renderable.hasLocalBounds)
+    {
+        return true;
+    }
+
+    const Diligent::BoundBox localBounds{
+        Diligent::float3{renderable.localBoundsMin.x, renderable.localBoundsMin.y, renderable.localBoundsMin.z},
+        Diligent::float3{renderable.localBoundsMax.x, renderable.localBoundsMax.y, renderable.localBoundsMax.z}};
+    const Diligent::float4x4 modelMatrix = math::transformMatrix(renderable.instance->worldTransform);
+    const Diligent::BoundBox worldBounds = localBounds.Transform(modelMatrix);
+
+    const Diligent::BoxVisibility visibility = Diligent::GetBoxVisibility(frustum, worldBounds);
+    return visibility != Diligent::BoxVisibility::Invisible;
+}
+
+CameraRenderQueues buildCameraRenderQueues(
+    const std::vector<ValidRenderable>& validRenderables,
+    const FrameViewData& frameView,
+    const ForwardDirectionalLightData& lightData,
+    const RenderResourceManager& resources,
+    RenderStats& stats)
+{
+    CameraRenderQueues queues{};
+    queues.opaque.reserve(validRenderables.size());
+    queues.transparent.reserve(validRenderables.size());
+    queues.shadowCasters.reserve(validRenderables.size());
+
+    for (const ValidRenderable& renderable : validRenderables)
+    {
+        if (renderable.instance == nullptr)
+        {
+            continue;
+        }
+
+        if (!isVisibleByFrustum(renderable, frameView.viewFrustum))
+        {
+            ++stats.culledRenderableCount;
+            continue;
+        }
+
+        ForwardDrawCommand drawCommand{};
+        if (!buildDrawCommand(renderable, frameView, lightData, resources, drawCommand))
+        {
+            continue;
+        }
+
+        QueuedDraw queuedDraw{};
+        queuedDraw.entityId = renderable.instance->entityId;
+        queuedDraw.meshId = renderable.instance->mesh.id;
+        queuedDraw.materialId = renderable.instance->material.id;
+        queuedDraw.depth = squaredDistanceToCamera(renderable.instance->worldTransform, frameView.cameraWorldPosition);
+        queuedDraw.castsShadows = renderable.material->castsShadows;
+        queuedDraw.receivesShadows = renderable.material->receivesShadows;
+        queuedDraw.transparent = (renderable.material->blendMode == BlendMode::Transparent);
+        queuedDraw.drawCommand = drawCommand;
+
+        if (queuedDraw.transparent)
+        {
+            queues.transparent.push_back(queuedDraw);
+        }
+        else
+        {
+            queues.opaque.push_back(queuedDraw);
+        }
+
+        if (queuedDraw.castsShadows && !queuedDraw.transparent)
+        {
+            queues.shadowCasters.push_back(queuedDraw);
+        }
+    }
+
+    std::sort(queues.opaque.begin(), queues.opaque.end(), [](const QueuedDraw& lhs, const QueuedDraw& rhs) {
+        if (lhs.drawCommand.shadingModel != rhs.drawCommand.shadingModel)
+        {
+            return static_cast<int>(lhs.drawCommand.shadingModel) < static_cast<int>(rhs.drawCommand.shadingModel);
+        }
+        if (lhs.materialId != rhs.materialId)
+        {
+            return lhs.materialId < rhs.materialId;
+        }
+        if (lhs.meshId != rhs.meshId)
+        {
+            return lhs.meshId < rhs.meshId;
+        }
+        if (lhs.depth != rhs.depth)
+        {
+            return lhs.depth < rhs.depth;
+        }
+        return lhs.entityId < rhs.entityId;
+    });
+
+    std::sort(queues.transparent.begin(), queues.transparent.end(), [](const QueuedDraw& lhs, const QueuedDraw& rhs) {
+        if (lhs.depth != rhs.depth)
+        {
+            return lhs.depth > rhs.depth;
+        }
+        if (lhs.materialId != rhs.materialId)
+        {
+            return lhs.materialId < rhs.materialId;
+        }
+        if (lhs.meshId != rhs.meshId)
+        {
+            return lhs.meshId < rhs.meshId;
+        }
+        return lhs.entityId < rhs.entityId;
+    });
+
+    std::sort(queues.shadowCasters.begin(), queues.shadowCasters.end(), [](const QueuedDraw& lhs, const QueuedDraw& rhs) {
+        if (lhs.materialId != rhs.materialId)
+        {
+            return lhs.materialId < rhs.materialId;
+        }
+        if (lhs.meshId != rhs.meshId)
+        {
+            return lhs.meshId < rhs.meshId;
+        }
+        return lhs.entityId < rhs.entityId;
+    });
+
+    stats.opaqueQueueCount += static_cast<std::uint32_t>(queues.opaque.size());
+    stats.transparentQueueCount += static_cast<std::uint32_t>(queues.transparent.size());
+    stats.shadowCasterQueueCount += static_cast<std::uint32_t>(queues.shadowCasters.size());
+    return queues;
+}
+
+FrameViewData buildFrameViewData(
+    const CameraData& camera,
+    const RenderTargetDesc& targetDesc,
+    RenderTargetHandle target,
+    const RenderViewport& viewport)
+{
+    FrameViewData frameView{};
+    frameView.target = target;
+    frameView.viewport = viewport;
+    frameView.outputWidth = targetDesc.width;
+    frameView.outputHeight = targetDesc.height;
+    frameView.viewProjectionMatrix = buildViewProjection(
+        camera,
+        static_cast<float>(targetDesc.width),
+        static_cast<float>(targetDesc.height));
+    frameView.cameraWorldPosition = cameraPosition(camera);
+    Diligent::ExtractViewFrustumPlanesFromMatrix(frameView.viewProjectionMatrix, frameView.viewFrustum, false);
+    return frameView;
 }
 
 } // namespace
@@ -265,27 +434,32 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
             (void)mDevice.resizeRenderTarget(target, camera.outputWidth, camera.outputHeight);
         }
 
-        mDevice.setRenderTargetViewport(target, normalizeViewport(camera.viewport));
+        const RenderViewport viewport = normalizeViewport(camera.viewport);
+        mDevice.setRenderTargetViewport(target, viewport);
 
-        const Diligent::float4x4 viewProjectionMatrix = buildViewProjection(camera);
-        const Diligent::float3 cameraWorldPosition = cameraPosition(camera);
-
-        mDevice.beginRenderTarget(target, frameContext);
-        for (const ValidRenderable& renderable : validRenderables)
+        RenderTargetDesc targetDesc{};
+        if (!mDevice.tryGetRenderTargetDesc(target, targetDesc))
         {
-            ForwardDrawCommand drawCommand{};
-            if (!buildDrawCommand(renderable, viewProjectionMatrix, cameraWorldPosition, lightData, mResourceManager, drawCommand))
-            {
-                continue;
-            }
-
-            if (mForwardPipeline != nullptr && mForwardPipeline->draw(target, drawCommand))
-            {
-                ++stats.drawCalls;
-            }
+            return;
         }
+
+        const FrameViewData frameView = buildFrameViewData(camera, targetDesc, target, viewport);
+        const CameraRenderQueues queues = buildCameraRenderQueues(validRenderables, frameView, lightData, mResourceManager, stats);
+
+        const RenderPassBeginDesc beginDesc{};
+        mDevice.beginRenderTarget(target, frameContext, beginDesc);
+
+        ForwardPassExecutionStats passStats{};
+        if (mForwardPipeline != nullptr)
+        {
+            (void)mForwardPipeline->execute(target, queues, passStats);
+        }
+
         mDevice.endRenderTarget(target, frameContext);
 
+        stats.opaqueDrawCalls += passStats.opaqueDrawCalls;
+        stats.shadowDrawCalls += passStats.shadowDrawCalls;
+        stats.transparentDrawCalls += passStats.transparentDrawCalls;
         ++stats.cameraCount;
     };
 
@@ -293,6 +467,8 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
     {
         renderCamera(camera);
     }
+
+    stats.drawCalls = stats.opaqueDrawCalls + stats.shadowDrawCalls + stats.transparentDrawCalls;
 
     mDevice.endFrame(frameContext);
     if (mDebugViewPresenter != nullptr)

@@ -42,7 +42,10 @@ public:
 
     void beginFrame(const common::FrameContext& frameContext) override;
     void setRenderTargetViewport(RenderTargetHandle target, const RenderViewport& viewport) override;
-    void beginRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) override;
+    void beginRenderTarget(
+        RenderTargetHandle target,
+        const common::FrameContext& frameContext,
+        const RenderPassBeginDesc& beginDesc) override;
     void endRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) override;
     RenderTargetReadbackRequest requestRenderTargetReadback(RenderTargetHandle target) override;
     bool tryGetRenderTargetReadback(RenderTargetReadbackRequest request, RenderTargetReadbackEvent& outEvent) override;

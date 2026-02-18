@@ -25,24 +25,42 @@ bool ForwardPipeline::initialize()
     return true;
 }
 
-bool ForwardPipeline::draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand)
+bool ForwardPipeline::execute(
+    RenderTargetHandle target,
+    const CameraRenderQueues& queues,
+    ForwardPassExecutionStats& outStats)
 {
     if (!mInitialized || mPbrPass == nullptr)
     {
         return false;
     }
 
-    switch (drawCommand.shadingModel)
+    outStats = {};
+
+    // Milestone 1 scaffold: shadow pass is queued but not executed yet.
+    (void)queues.shadowCasters;
+
+    for (const QueuedDraw& draw : queues.opaque)
     {
-    case ForwardShadingModel::Pbr:
-        return mPbrPass->draw(target, drawCommand);
-    case ForwardShadingModel::Phong:
-    case ForwardShadingModel::BlinnPhong:
-        // Reserved for upcoming forward shading pass variants.
-        return false;
-    default:
-        return false;
+        switch (draw.drawCommand.shadingModel)
+        {
+        case ShadingModel::Pbr:
+            if (mPbrPass->draw(target, draw.drawCommand))
+            {
+                ++outStats.opaqueDrawCalls;
+            }
+            break;
+        case ShadingModel::Phong:
+            // Milestone 1: Phong pass reserved for next milestone.
+            break;
+        default:
+            break;
+        }
     }
+
+    // Milestone 1 scaffold: transparent pass is queued but not executed yet.
+    (void)queues.transparent;
+    return true;
 }
 
 } // namespace cressim::neo::graphics::detail

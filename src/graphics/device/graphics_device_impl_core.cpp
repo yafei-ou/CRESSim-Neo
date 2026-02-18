@@ -336,7 +336,10 @@ void GraphicsDeviceImpl::setRenderTargetViewport(RenderTargetHandle target, cons
     it->second.viewport = normalizeViewport(viewport);
 }
 
-void GraphicsDeviceImpl::beginRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext)
+void GraphicsDeviceImpl::beginRenderTarget(
+    RenderTargetHandle target,
+    const common::FrameContext& frameContext,
+    const RenderPassBeginDesc& beginDesc)
 {
     (void)frameContext;
     mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
@@ -376,17 +379,24 @@ void GraphicsDeviceImpl::beginRenderTarget(RenderTargetHandle target, const comm
     if (colorRtv != nullptr)
     {
         mImmediateContext->SetRenderTargets(1, &colorRtv, depthDsv, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        constexpr float kClearColor[4] = {0.02f, 0.02f, 0.03f, 1.0f};
-        mImmediateContext->ClearRenderTarget(colorRtv, kClearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (beginDesc.clearColor)
+        {
+            mImmediateContext->ClearRenderTarget(colorRtv, beginDesc.clearColorValue, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        }
     }
     else
     {
         mImmediateContext->SetRenderTargets(0, nullptr, depthDsv, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
 
-    if (depthDsv != nullptr)
+    if (depthDsv != nullptr && beginDesc.clearDepth)
     {
-        mImmediateContext->ClearDepthStencil(depthDsv, Diligent::CLEAR_DEPTH_FLAG, 1.0f, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        mImmediateContext->ClearDepthStencil(
+            depthDsv,
+            Diligent::CLEAR_DEPTH_FLAG,
+            beginDesc.clearDepthValue,
+            0,
+            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
 
     const float targetWidth = static_cast<float>(it->second.desc.width);

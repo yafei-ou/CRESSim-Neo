@@ -51,6 +51,7 @@ void Runtime::shutdown()
         mGraphicsDevice.reset();
     }
 
+    mLastRenderStats = {};
     mInitialized = false;
 }
 
@@ -62,7 +63,7 @@ void Runtime::tick(const common::FrameContext& frameContext)
     }
 
     syncWorldToRenderWorld();
-    (void)mRenderer->render(frameContext, mScene.world());
+    mLastRenderStats = mRenderer->render(frameContext, mScene.world());
 }
 
 World& Runtime::getWorld() noexcept
@@ -101,6 +102,11 @@ bool Runtime::tryGetRenderTargetReadback(graphics::RenderTargetReadbackRequest r
         return false;
     }
     return mGraphicsDevice->tryGetRenderTargetReadback(request, outEvent);
+}
+
+const graphics::RenderStats& Runtime::lastRenderStats() const noexcept
+{
+    return mLastRenderStats;
 }
 
 graphics::Scene& Runtime::getScene() noexcept

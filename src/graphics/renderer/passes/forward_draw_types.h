@@ -2,26 +2,22 @@
 #define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_DRAW_TYPES_H
 
 #include "common/id.h"
+#include "graphics/render_resource_manager.h"
 
 #include <cstdint>
 
 namespace cressim::neo::graphics
 {
 
-enum class ForwardShadingModel
-{
-    Pbr,
-    Phong,
-    BlinnPhong,
-};
-
 struct ForwardMaterialData
 {
     float baseColor[3] = {1.0f, 1.0f, 1.0f};
     float metallic = 0.0f;
     float roughness = 0.5f;
-    float specularStrength = 0.5f;
-    float shininess = 32.0f;
+    float opacity = 1.0f;
+    float receivesShadows = 1.0f;
+    float _padding0 = 0.0f;
+    float _padding1 = 0.0f;
 };
 
 struct ForwardDirectionalLightData
@@ -34,9 +30,10 @@ struct ForwardDirectionalLightData
 
 struct ForwardDrawCommand
 {
-    ForwardShadingModel shadingModel = ForwardShadingModel::Pbr;
+    ShadingModel shadingModel = ShadingModel::Pbr;
     // Stable id/version pair used by pass-level mesh buffer caches.
     common::ResourceId meshId = common::kInvalidResourceId;
+    common::ResourceId materialId = common::kInvalidResourceId;
     std::uint64_t meshVersion = 0;
 
     const void* vertexData = nullptr;

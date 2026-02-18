@@ -2,7 +2,7 @@
 #define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_PIPELINE_H
 
 #include "graphics/graphics_device.h"
-#include "graphics/renderer/passes/forward_draw_types.h"
+#include "graphics/renderer/passes/render_pass_types.h"
 
 #include <memory>
 
@@ -23,7 +23,10 @@ public:
     ~ForwardPipeline();
 
     bool initialize();
-    bool draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand);
+    bool execute(
+        RenderTargetHandle target,
+        const CameraRenderQueues& queues,
+        ForwardPassExecutionStats& outStats);
 
 private:
     GraphicsDeviceImpl& mDevice;

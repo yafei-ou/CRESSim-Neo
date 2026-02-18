@@ -7,10 +7,12 @@ This document summarizes what the current graphics scaffolding does and what to 
 1. `engine::Runtime` builds a render snapshot every tick by copying ECS data into `graphics::RenderWorld`.
 2. `graphics::Renderer` sorts cameras by `renderOrder` and renders each camera output target.
 3. `graphics::GraphicsDevice` is focused on backend primitives (render targets, frame/target lifecycle, presentation, readback).
-4. `graphics::Renderer` owns forward shading passes; `PbrPass` is the current implementation.
-5. Shader source lookup/loading lives in `ShaderSourceProvider`, shared by renderer passes.
-6. Vulkan implementation is currently headless/offscreen and clears targets per camera pass.
-7. Forward shading path is abstracted by `ForwardShadingModel`; `Pbr` is implemented, while `Phong` and `BlinnPhong` are reserved extension slots.
+4. `graphics::Renderer` now builds per-camera render queues (`shadow`, `opaque`, `transparent`) and executes them through a static forward pass scheduler.
+5. `graphics::Renderer` uses Diligent-first culling with `AdvancedMath.hpp` (`ExtractViewFrustumPlanesFromMatrix`, `BoundBox`, `GetBoxVisibility`).
+6. `PbrPass` is the active opaque pass implementation; shadow and transparent execution are scaffolded for later milestones.
+7. Shader source lookup/loading lives in `ShaderSourceProvider`, shared by renderer passes.
+8. Vulkan implementation is currently headless/offscreen.
+9. Material now drives shading and render policy (`ShadingModel`, blend mode, shadow casting/receiving, opacity).
 
 ## Camera Output Flow
 
@@ -32,9 +34,8 @@ The renderer copies these into `graphics::CameraData` and applies them per camer
 
 ## Next Implementation Steps
 
-1. Add pipeline/pass execution in renderer:
-   - culling
-   - material binding
-2. Add scene transform building with nodes
-3. Add GPU-resident texture handoff APIs for physics/ultrasound interop without CPU copies.
-4. Replace full `RenderWorld` rebuild with dirty/incremental sync for large scenes.
+1. Implement shadow pass execution (single directional light map first) and shadow sampling in opaque shading.
+2. Add functional `Phong` pass alongside `Pbr`.
+3. Enable transparent pass execution with back-to-front blending.
+4. Add GPU-resident texture handoff APIs for physics/ultrasound interop without CPU copies.
+5. Replace full `RenderWorld` rebuild with dirty/incremental sync for large scenes.

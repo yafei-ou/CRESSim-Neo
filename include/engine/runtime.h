@@ -37,6 +37,7 @@ public:
     graphics::RenderTargetReadbackRequest requestRenderTargetReadback(graphics::RenderTargetHandle target);
     // Polls a specific readback request for completion metadata and optional payload.
     bool tryGetRenderTargetReadback(graphics::RenderTargetReadbackRequest request, graphics::RenderTargetReadbackEvent& outEvent);
+    const graphics::RenderStats& lastRenderStats() const noexcept;
 
     graphics::Scene& getScene() noexcept;
     const graphics::Scene& getScene() const noexcept;
@@ -47,6 +48,7 @@ private:
     bool mInitialized = false;
     std::unique_ptr<graphics::GraphicsDevice> mGraphicsDevice;
     std::unique_ptr<graphics::Renderer> mRenderer;
+    graphics::RenderStats mLastRenderStats{};
     World mWorld;
     graphics::Scene mScene;
 };
