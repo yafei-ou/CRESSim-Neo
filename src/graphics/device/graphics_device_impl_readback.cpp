@@ -1,4 +1,4 @@
-#include "graphics/device/diligent_graphics_device.h"
+#include "graphics/device/graphics_device_impl.h"
 
 #include <cstring>
 #include <utility>
@@ -6,7 +6,7 @@
 namespace cressim::neo::graphics
 {
 
-void DiligentGraphicsDevice::requestReadback(RenderTargetHandle target)
+void GraphicsDeviceImpl::requestReadback(RenderTargetHandle target)
 {
     const auto it = mRenderTargets.find(target.id);
     if (it == mRenderTargets.end())
@@ -22,7 +22,7 @@ void DiligentGraphicsDevice::requestReadback(RenderTargetHandle target)
     mPendingReadbacks.insert(target.id);
 }
 
-bool DiligentGraphicsDevice::tryPopReadbackEvent(RenderTargetReadbackEvent& outEvent)
+bool GraphicsDeviceImpl::tryPopReadbackEvent(RenderTargetReadbackEvent& outEvent)
 {
     if (mCompletedReadbacks.empty())
     {
@@ -34,7 +34,7 @@ bool DiligentGraphicsDevice::tryPopReadbackEvent(RenderTargetReadbackEvent& outE
     return true;
 }
 
-void DiligentGraphicsDevice::endFrame(const common::FrameContext& frameContext)
+void GraphicsDeviceImpl::endFrame(const common::FrameContext& frameContext)
 {
     (void)frameContext;
 
@@ -112,7 +112,7 @@ void DiligentGraphicsDevice::endFrame(const common::FrameContext& frameContext)
     mPendingReadbackCopies.clear();
 }
 
-bool DiligentGraphicsDevice::queueReadbackCopy(RenderTargetHandle target, std::uint64_t frameIndex)
+bool GraphicsDeviceImpl::queueReadbackCopy(RenderTargetHandle target, std::uint64_t frameIndex)
 {
     if (!mRenderDevice || !mImmediateContext || !mReadbackFence || mBackend != GraphicsBackend::Vulkan)
     {

@@ -130,10 +130,10 @@ struct PbrDrawCommand
     PbrDirectionalLightData light{};
 };
 
-class CRESSIM_NEO_GRAPHICS_API IGraphicsDevice
+class CRESSIM_NEO_GRAPHICS_API GraphicsDevice
 {
 public:
-    virtual ~IGraphicsDevice() = default;
+    virtual ~GraphicsDevice() = default;
 
     virtual bool initialize(const GraphicsDeviceDesc& desc) = 0;
     virtual void shutdown() = 0;
@@ -162,7 +162,7 @@ public:
     virtual GraphicsBackend backend() const = 0;
 };
 
-CRESSIM_NEO_GRAPHICS_API std::unique_ptr<IGraphicsDevice> createGraphicsDevice();
+CRESSIM_NEO_GRAPHICS_API std::unique_ptr<GraphicsDevice> createGraphicsDevice();
 
 } // namespace cressim::neo::graphics
 

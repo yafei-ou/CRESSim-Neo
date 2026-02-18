@@ -1,4 +1,4 @@
-#include "graphics/device/diligent_graphics_device.h"
+#include "graphics/device/graphics_device_impl.h"
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "DiligentEngine/DiligentCore/Platforms/interface/NativeWindow.h"
@@ -9,6 +9,11 @@
 
 namespace cressim::neo::graphics
 {
+
+std::unique_ptr<GraphicsDevice> createGraphicsDevice()
+{
+    return std::make_unique<GraphicsDeviceImpl>();
+}
 
 namespace
 {
@@ -58,7 +63,7 @@ RenderViewport normalizeViewport(const RenderViewport& viewport)
 
 } // namespace
 
-bool DiligentGraphicsDevice::initialize(const GraphicsDeviceDesc& desc)
+bool GraphicsDeviceImpl::initialize(const GraphicsDeviceDesc& desc)
 {
     shutdown();
 
@@ -109,7 +114,7 @@ bool DiligentGraphicsDevice::initialize(const GraphicsDeviceDesc& desc)
     return mInitialized;
 }
 
-void DiligentGraphicsDevice::shutdown()
+void GraphicsDeviceImpl::shutdown()
 {
     mHasActiveRenderTarget = false;
     mActiveRenderTargetHasDepth = false;
@@ -139,7 +144,7 @@ void DiligentGraphicsDevice::shutdown()
     mInitialized = false;
 }
 
-void DiligentGraphicsDevice::resizeDefaultRenderTarget(std::uint32_t width, std::uint32_t height)
+void GraphicsDeviceImpl::resizeDefaultRenderTarget(std::uint32_t width, std::uint32_t height)
 {
     mDesc.initialWidth = clampExtent(width);
     mDesc.initialHeight = clampExtent(height);
@@ -152,7 +157,7 @@ void DiligentGraphicsDevice::resizeDefaultRenderTarget(std::uint32_t width, std:
     (void)resizeRenderTarget(mDefaultRenderTarget, mDesc.initialWidth, mDesc.initialHeight);
 }
 
-RenderTargetHandle DiligentGraphicsDevice::createRenderTarget(const RenderTargetDesc& desc)
+RenderTargetHandle GraphicsDeviceImpl::createRenderTarget(const RenderTargetDesc& desc)
 {
     if (!mInitialized)
     {
@@ -181,7 +186,7 @@ RenderTargetHandle DiligentGraphicsDevice::createRenderTarget(const RenderTarget
     return RenderTargetHandle{id};
 }
 
-bool DiligentGraphicsDevice::resizeRenderTarget(RenderTargetHandle target, std::uint32_t width, std::uint32_t height)
+bool GraphicsDeviceImpl::resizeRenderTarget(RenderTargetHandle target, std::uint32_t width, std::uint32_t height)
 {
     if (!mInitialized)
     {
@@ -230,7 +235,7 @@ bool DiligentGraphicsDevice::resizeRenderTarget(RenderTargetHandle target, std::
     return true;
 }
 
-void DiligentGraphicsDevice::destroyRenderTarget(RenderTargetHandle target)
+void GraphicsDeviceImpl::destroyRenderTarget(RenderTargetHandle target)
 {
     if (target.id == common::kInvalidResourceId || target.id == mDefaultRenderTarget.id)
     {
@@ -260,7 +265,7 @@ void DiligentGraphicsDevice::destroyRenderTarget(RenderTargetHandle target)
     mRenderTargets.erase(target.id);
 }
 
-bool DiligentGraphicsDevice::isValidRenderTarget(RenderTargetHandle target) const
+bool GraphicsDeviceImpl::isValidRenderTarget(RenderTargetHandle target) const
 {
     if (target.id == common::kInvalidResourceId)
     {
@@ -269,17 +274,17 @@ bool DiligentGraphicsDevice::isValidRenderTarget(RenderTargetHandle target) cons
     return mRenderTargets.find(target.id) != mRenderTargets.end();
 }
 
-RenderTargetHandle DiligentGraphicsDevice::defaultRenderTarget() const
+RenderTargetHandle GraphicsDeviceImpl::defaultRenderTarget() const
 {
     return mDefaultRenderTarget;
 }
 
-void DiligentGraphicsDevice::beginFrame(const common::FrameContext& frameContext)
+void GraphicsDeviceImpl::beginFrame(const common::FrameContext& frameContext)
 {
     (void)frameContext;
 }
 
-void DiligentGraphicsDevice::setRenderTargetViewport(RenderTargetHandle target, const RenderViewport& viewport)
+void GraphicsDeviceImpl::setRenderTargetViewport(RenderTargetHandle target, const RenderViewport& viewport)
 {
     const auto it = mRenderTargets.find(target.id);
     if (it == mRenderTargets.end())
@@ -290,7 +295,7 @@ void DiligentGraphicsDevice::setRenderTargetViewport(RenderTargetHandle target, 
     it->second.viewport = normalizeViewport(viewport);
 }
 
-void DiligentGraphicsDevice::beginRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext)
+void GraphicsDeviceImpl::beginRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext)
 {
     (void)frameContext;
     mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
@@ -371,7 +376,7 @@ void DiligentGraphicsDevice::beginRenderTarget(RenderTargetHandle target, const 
     mActiveRenderTargetHasDepth = (depthDsv != nullptr);
 }
 
-void DiligentGraphicsDevice::endRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext)
+void GraphicsDeviceImpl::endRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext)
 {
     if (mHasActiveRenderTarget && mActiveRenderTarget.id == target.id)
     {
@@ -406,12 +411,12 @@ void DiligentGraphicsDevice::endRenderTarget(RenderTargetHandle target, const co
     mCompletedReadbacks.push_back(std::move(event));
 }
 
-GraphicsBackend DiligentGraphicsDevice::backend() const
+GraphicsBackend GraphicsDeviceImpl::backend() const
 {
     return mBackend;
 }
 
-bool DiligentGraphicsDevice::initializeVulkan()
+bool GraphicsDeviceImpl::initializeVulkan()
 {
     Diligent::IEngineFactoryVk* factoryVk = Diligent::LoadAndGetEngineFactoryVk();
     if (factoryVk == nullptr)
@@ -440,7 +445,7 @@ bool DiligentGraphicsDevice::initializeVulkan()
     return true;
 }
 
-bool DiligentGraphicsDevice::createDebugViewerSwapChain()
+bool GraphicsDeviceImpl::createDebugViewerSwapChain()
 {
     mSwapChain = nullptr;
     if (!mDesc.debugViewer.enabled)
@@ -508,7 +513,7 @@ bool DiligentGraphicsDevice::createDebugViewerSwapChain()
     return true;
 }
 
-bool DiligentGraphicsDevice::createDefaultRenderTarget()
+bool GraphicsDeviceImpl::createDefaultRenderTarget()
 {
     if (mSwapChain != nullptr)
     {
@@ -539,7 +544,7 @@ bool DiligentGraphicsDevice::createDefaultRenderTarget()
     return isValidRenderTarget(mDefaultRenderTarget);
 }
 
-RenderTargetDesc DiligentGraphicsDevice::normalizeTargetDesc(const RenderTargetDesc& desc) const
+RenderTargetDesc GraphicsDeviceImpl::normalizeTargetDesc(const RenderTargetDesc& desc) const
 {
     RenderTargetDesc normalized = desc;
     normalized.width = clampExtent(normalized.width == 0 ? mDesc.initialWidth : normalized.width);
@@ -555,7 +560,7 @@ RenderTargetDesc DiligentGraphicsDevice::normalizeTargetDesc(const RenderTargetD
     return normalized;
 }
 
-bool DiligentGraphicsDevice::createRenderTargetTextures(const RenderTargetDesc& desc, RenderTargetResources& resources)
+bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc, RenderTargetResources& resources)
 {
     if (!mRenderDevice || (!desc.color && !desc.depth))
     {

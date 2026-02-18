@@ -1,5 +1,5 @@
-#ifndef CRESSIM_NEO_GRAPHICS_DEVICE_DILIGENT_GRAPHICS_DEVICE_H
-#define CRESSIM_NEO_GRAPHICS_DEVICE_DILIGENT_GRAPHICS_DEVICE_H
+#ifndef CRESSIM_NEO_GRAPHICS_DEVICE_GRAPHICS_DEVICE_IMPL_H
+#define CRESSIM_NEO_GRAPHICS_DEVICE_GRAPHICS_DEVICE_IMPL_H
 
 #include "graphics/graphics_device.h"
 
@@ -22,7 +22,7 @@
 namespace cressim::neo::graphics
 {
 
-class DiligentGraphicsDevice final : public IGraphicsDevice
+class GraphicsDeviceImpl final : public GraphicsDevice
 {
 public:
     bool initialize(const GraphicsDeviceDesc& desc) override;
@@ -141,4 +141,4 @@ private:
 
 } // namespace cressim::neo::graphics
 
-#endif // CRESSIM_NEO_GRAPHICS_DEVICE_DILIGENT_GRAPHICS_DEVICE_H
+#endif // CRESSIM_NEO_GRAPHICS_DEVICE_GRAPHICS_DEVICE_IMPL_H

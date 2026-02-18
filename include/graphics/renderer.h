@@ -26,13 +26,13 @@ struct RenderStats
 class CRESSIM_NEO_GRAPHICS_API Renderer
 {
 public:
-    Renderer(IGraphicsDevice& device, RenderResourceManager& resourceManager);
+    Renderer(GraphicsDevice& device, RenderResourceManager& resourceManager);
 
     bool initialize();
     RenderStats render(const common::FrameContext& frameContext, const RenderWorld& world);
 
 private:
-    IGraphicsDevice& mDevice;
+    GraphicsDevice& mDevice;
     RenderResourceManager& mResourceManager;
     bool mInitialized = false;
 };

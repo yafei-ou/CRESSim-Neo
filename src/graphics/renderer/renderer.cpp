@@ -186,7 +186,7 @@ std::vector<CameraData> sortedCameras(const RenderWorld& world)
 
 } // namespace
 
-Renderer::Renderer(IGraphicsDevice& device, RenderResourceManager& resourceManager) :
+Renderer::Renderer(GraphicsDevice& device, RenderResourceManager& resourceManager) :
     mDevice(device),
     mResourceManager(resourceManager)
 {

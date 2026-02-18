@@ -75,12 +75,12 @@ const World& Runtime::getWorld() const noexcept
     return mWorld;
 }
 
-graphics::IGraphicsDevice* Runtime::getGraphicsDevice() noexcept
+graphics::GraphicsDevice* Runtime::getGraphicsDevice() noexcept
 {
     return mGraphicsDevice.get();
 }
 
-const graphics::IGraphicsDevice* Runtime::getGraphicsDevice() const noexcept
+const graphics::GraphicsDevice* Runtime::getGraphicsDevice() const noexcept
 {
     return mGraphicsDevice.get();
 }

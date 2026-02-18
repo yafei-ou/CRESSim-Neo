@@ -1,4 +1,4 @@
-#include "graphics/device/diligent_graphics_device.h"
+#include "graphics/device/graphics_device_impl.h"
 
 #include <filesystem>
 #include <fstream>
@@ -9,7 +9,7 @@
 namespace cressim::neo::graphics
 {
 
-bool DiligentGraphicsDevice::resolveShaderDirectory()
+bool GraphicsDeviceImpl::resolveShaderDirectory()
 {
     if (mShaderDirectoryResolved)
     {
@@ -49,7 +49,7 @@ bool DiligentGraphicsDevice::resolveShaderDirectory()
     return false;
 }
 
-bool DiligentGraphicsDevice::loadShaderSource(const char* relativePath, const char* fallbackSource, std::string& outSource)
+bool GraphicsDeviceImpl::loadShaderSource(const char* relativePath, const char* fallbackSource, std::string& outSource)
 {
     if (relativePath == nullptr || relativePath[0] == '\0')
     {

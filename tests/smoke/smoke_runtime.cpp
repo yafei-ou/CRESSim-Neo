@@ -19,7 +19,7 @@ using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::graphics::GraphicsBackend;
-using cressim::neo::graphics::IGraphicsDevice;
+using cressim::neo::graphics::GraphicsDevice;
 using cressim::neo::graphics::RenderTargetDesc;
 using cressim::neo::graphics::RenderTargetHandle;
 using cressim::neo::graphics::RenderTargetReadbackEvent;
@@ -167,7 +167,7 @@ int main(int argc, char** argv)
     world.setTransform(cameraEntity, cameraTransform);
     world.setCamera(cameraEntity, camera);
 
-    IGraphicsDevice* graphicsDevice = runtime.getGraphicsDevice();
+    GraphicsDevice* graphicsDevice = runtime.getGraphicsDevice();
     RenderTargetHandle secondaryTarget{};
     if (graphicsDevice != nullptr)
     {

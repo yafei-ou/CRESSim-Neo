@@ -1,4 +1,4 @@
-#include "graphics/device/diligent_graphics_device.h"
+#include "graphics/device/graphics_device_impl.h"
 
 #include "graphics/device/shaders/shader_fallback_sources.h"
 
@@ -19,7 +19,7 @@ std::uint64_t makePbrPipelineCacheKey(bool hasDepthTarget, Diligent::TEXTURE_FOR
 
 } // namespace
 
-bool DiligentGraphicsDevice::drawPbr(RenderTargetHandle target, const PbrDrawCommand& drawCommand)
+bool GraphicsDeviceImpl::drawPbr(RenderTargetHandle target, const PbrDrawCommand& drawCommand)
 {
     if (!mInitialized || mBackend != GraphicsBackend::Vulkan || !mImmediateContext || !mRenderDevice)
     {
@@ -101,7 +101,7 @@ bool DiligentGraphicsDevice::drawPbr(RenderTargetHandle target, const PbrDrawCom
     return true;
 }
 
-DiligentGraphicsDevice::CachedMeshGpuData* DiligentGraphicsDevice::getOrCreateMeshBuffers(const PbrDrawCommand& drawCommand)
+GraphicsDeviceImpl::CachedMeshGpuData* GraphicsDeviceImpl::getOrCreateMeshBuffers(const PbrDrawCommand& drawCommand)
 {
     auto& mesh = mCachedMeshes[drawCommand.meshId];
     const bool recreate =
@@ -150,7 +150,7 @@ DiligentGraphicsDevice::CachedMeshGpuData* DiligentGraphicsDevice::getOrCreateMe
     return &mesh;
 }
 
-bool DiligentGraphicsDevice::createPbrPipeline(
+bool GraphicsDeviceImpl::createPbrPipeline(
     bool hasDepthTarget,
     Diligent::TEXTURE_FORMAT colorFormat,
     PbrPipelineResources& outResources)
@@ -259,7 +259,7 @@ bool DiligentGraphicsDevice::createPbrPipeline(
     return outResources.shaderResourceBinding != nullptr;
 }
 
-DiligentGraphicsDevice::PbrPipelineResources* DiligentGraphicsDevice::getOrCreatePbrPipeline(
+GraphicsDeviceImpl::PbrPipelineResources* GraphicsDeviceImpl::getOrCreatePbrPipeline(
     bool hasDepthTarget,
     Diligent::TEXTURE_FORMAT colorFormat)
 {
