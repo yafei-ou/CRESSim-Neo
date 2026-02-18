@@ -310,8 +310,8 @@ MeshResourceDesc makeCubeMesh(float halfExtent)
 int main(int argc, char** argv)
 {
     RuntimeConfig config{};
-    config.graphics.preferredBackend = GraphicsBackend::Vulkan;
-    config.graphics.enableValidation = false;
+    config.graphicsDeviceDesc.preferredBackend = GraphicsBackend::Vulkan;
+    config.graphicsDeviceDesc.enableValidation = false;
 
     std::uint64_t numFrames = 2;
     std::string outputPath = "cube_depth_readback.ppm";
@@ -326,7 +326,7 @@ int main(int argc, char** argv)
                 printUsage(argv[0]);
                 return 2;
             }
-            config.graphics.preferredBackend = parseBackend(argv[++i]);
+            config.graphicsDeviceDesc.preferredBackend = parseBackend(argv[++i]);
             continue;
         }
         if (arg == "--frames")
@@ -359,12 +359,12 @@ int main(int argc, char** argv)
             const std::string value = argv[++i];
             if (value == "on")
             {
-                config.graphics.enableValidation = true;
+                config.graphicsDeviceDesc.enableValidation = true;
                 continue;
             }
             if (value == "off")
             {
-                config.graphics.enableValidation = false;
+                config.graphicsDeviceDesc.enableValidation = false;
                 continue;
             }
             printUsage(argv[0]);
@@ -510,7 +510,7 @@ int main(int argc, char** argv)
 
     runtime.shutdown();
 
-    if (config.graphics.preferredBackend == GraphicsBackend::Null)
+    if (config.graphicsDeviceDesc.preferredBackend == GraphicsBackend::Null)
     {
         std::cout << "Null backend selected; depth capture skipped.\n";
         return 0;

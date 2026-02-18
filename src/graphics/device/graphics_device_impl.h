@@ -7,7 +7,6 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Fence.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Texture.h"
 
 #include <cstdint>
@@ -52,6 +51,9 @@ public:
 
     GraphicsBackend backend() const override;
     bool tryGetVulkanContext(VulkanBackendContext& outContext);
+    bool tryGetRenderTargetDesc(RenderTargetHandle target, RenderTargetDesc& outDesc) const;
+    bool tryGetRenderTargetColorTexture(RenderTargetHandle target, Diligent::ITexture*& outTexture);
+    bool setDefaultRenderTargetColorFormat(Diligent::TEXTURE_FORMAT format);
     const std::string& shaderSourceDirectory() const;
     bool allowShaderFallback() const;
 
@@ -60,6 +62,8 @@ private:
     {
         RenderTargetDesc desc{};
         RenderViewport viewport{};
+        Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
+        Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_D32_FLOAT;
         Diligent::RefCntAutoPtr<Diligent::ITexture> colorTexture;
         Diligent::RefCntAutoPtr<Diligent::ITexture> depthTexture;
     };
@@ -75,7 +79,6 @@ private:
     };
 
     bool initializeVulkan();
-    bool createDebugViewerSwapChain();
     bool createDefaultRenderTarget();
     RenderTargetDesc normalizeTargetDesc(const RenderTargetDesc& desc) const;
     bool createRenderTargetTextures(const RenderTargetDesc& desc, RenderTargetResources& resources);
@@ -106,7 +109,6 @@ private:
 
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> mRenderDevice;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mImmediateContext;
-    Diligent::RefCntAutoPtr<Diligent::ISwapChain> mSwapChain;
 };
 
 } // namespace cressim::neo::graphics

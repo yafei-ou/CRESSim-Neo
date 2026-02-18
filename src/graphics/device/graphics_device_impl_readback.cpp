@@ -47,19 +47,8 @@ void GraphicsDeviceImpl::endFrame(const common::FrameContext& frameContext)
         return;
     }
 
-    bool frameFinishedBySwapChain = false;
-    if (mSwapChain != nullptr)
-    {
-        // For Vulkan primary swap chains, Present() internally flushes and finishes the frame.
-        mSwapChain->Present(mDesc.debugViewer.syncInterval);
-        frameFinishedBySwapChain = mSwapChain->GetDesc().IsPrimary;
-    }
-
-    if (!frameFinishedBySwapChain)
-    {
-        mImmediateContext->Flush();
-        mImmediateContext->FinishFrame();
-    }
+    mImmediateContext->Flush();
+    mImmediateContext->FinishFrame();
 
     for (const PendingReadbackCopy& copy : mPendingReadbackCopies)
     {

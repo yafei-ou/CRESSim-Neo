@@ -15,7 +15,8 @@ namespace cressim::neo::engine
 
 struct RuntimeConfig
 {
-    graphics::GraphicsDeviceDesc graphics{};
+    graphics::GraphicsDeviceDesc graphicsDeviceDesc{};
+    graphics::RendererDesc rendererDesc{};
 };
 
 class CRESSIM_NEO_ENGINE_API Runtime

@@ -269,23 +269,23 @@ int main(int argc, char** argv)
     }
 
     RuntimeConfig runtimeConfig{};
-    runtimeConfig.graphics.preferredBackend = app.backend;
-    runtimeConfig.graphics.enableValidation = app.validation;
-    runtimeConfig.graphics.initialWidth = app.width;
-    runtimeConfig.graphics.initialHeight = app.height;
-    runtimeConfig.graphics.debugViewer.enabled = app.viewerEnabled;
-    runtimeConfig.graphics.debugViewer.syncInterval = app.vSync ? 1u : 0u;
+    runtimeConfig.graphicsDeviceDesc.preferredBackend = app.backend;
+    runtimeConfig.graphicsDeviceDesc.enableValidation = app.validation;
+    runtimeConfig.graphicsDeviceDesc.initialWidth = app.width;
+    runtimeConfig.graphicsDeviceDesc.initialHeight = app.height;
+    runtimeConfig.rendererDesc.debugViewer.enabled = app.viewerEnabled;
+    runtimeConfig.rendererDesc.debugViewer.syncInterval = app.vSync ? 1u : 0u;
 
 #if defined(_WIN32)
     if (app.viewerEnabled)
     {
-        runtimeConfig.graphics.debugViewer.nativeWindow = glfwGetWin32Window(window);
+        runtimeConfig.renderer.debugViewer.nativeWindow = glfwGetWin32Window(window);
     }
 #elif defined(__linux__)
     if (app.viewerEnabled)
     {
-        runtimeConfig.graphics.debugViewer.nativeWindowId = static_cast<std::uint64_t>(glfwGetX11Window(window));
-        runtimeConfig.graphics.debugViewer.nativeDisplay = glfwGetX11Display();
+        runtimeConfig.rendererDesc.debugViewer.nativeWindowId = static_cast<std::uint64_t>(glfwGetX11Window(window));
+        runtimeConfig.rendererDesc.debugViewer.nativeDisplay = glfwGetX11Display();
     }
 #endif
 

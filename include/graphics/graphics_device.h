@@ -21,24 +21,6 @@ enum class GraphicsBackend
 
 struct GraphicsDeviceDesc
 {
-    struct DebugViewerDesc
-    {
-        // Enables swap-chain-backed presentation for the default render target.
-        bool enabled = false;
-        // Passed to ISwapChain::Present(). 1 = v-sync on, 0 = v-sync off.
-        std::uint32_t syncInterval = 1;
-
-        // Platform-native window handles.
-        // Win32: nativeWindow = HWND
-        // Linux/X11: nativeWindowId = Window, nativeDisplay = Display*
-        // Linux/XCB: nativeWindowId = xcb_window_t, nativeConnection = xcb_connection_t*
-        // macOS: nativeWindow = NSView*
-        void* nativeWindow = nullptr;
-        std::uint64_t nativeWindowId = 0;
-        void* nativeDisplay = nullptr;
-        void* nativeConnection = nullptr;
-    };
-
     GraphicsBackend preferredBackend = GraphicsBackend::Vulkan;
     bool enableValidation = true;
     std::uint32_t initialWidth = 1280;
@@ -48,8 +30,6 @@ struct GraphicsDeviceDesc
     std::string shaderDirectory;
     // Allows using embedded fallback sources when shader files are unavailable.
     bool allowShaderFallback = true;
-
-    DebugViewerDesc debugViewer{};
 };
 
 struct RenderTargetHandle

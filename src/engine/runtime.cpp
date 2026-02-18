@@ -17,13 +17,13 @@ bool Runtime::initialize(const RuntimeConfig& config)
         return false;
     }
 
-    if (!mGraphicsDevice->initialize(config.graphics))
+    if (!mGraphicsDevice->initialize(config.graphicsDeviceDesc))
     {
         mGraphicsDevice.reset();
         return false;
     }
 
-    mRenderer = std::make_unique<graphics::Renderer>(*mGraphicsDevice, mScene.resources());
+    mRenderer = std::make_unique<graphics::Renderer>(*mGraphicsDevice, mScene.resources(), config.rendererDesc);
     if (!mRenderer->initialize())
     {
         mRenderer.reset();
