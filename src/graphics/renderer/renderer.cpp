@@ -1,8 +1,7 @@
 #include "graphics/renderer.h"
+#include "graphics/math/diligent_math_utils.h"
 
 #include <algorithm>
-#include <cmath>
-#include <cstring>
 #include <vector>
 
 namespace cressim::neo::graphics
@@ -10,11 +9,6 @@ namespace cressim::neo::graphics
 
 namespace
 {
-
-struct Matrix4f
-{
-    float m[16] = {};
-};
 
 float clamp01(float value)
 {
@@ -24,162 +18,6 @@ float clamp01(float value)
 float clampPositive(float value, float fallback)
 {
     return value > 0.0f ? value : fallback;
-}
-
-common::Vec3f subtract(const common::Vec3f& lhs, const common::Vec3f& rhs)
-{
-    return {lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z};
-}
-
-float dot(const common::Vec3f& lhs, const common::Vec3f& rhs)
-{
-    return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
-}
-
-common::Vec3f cross(const common::Vec3f& lhs, const common::Vec3f& rhs)
-{
-    return {
-        lhs.y * rhs.z - lhs.z * rhs.y,
-        lhs.z * rhs.x - lhs.x * rhs.z,
-        lhs.x * rhs.y - lhs.y * rhs.x};
-}
-
-common::Vec3f normalize(const common::Vec3f& value)
-{
-    const float lengthSq = dot(value, value);
-    if (lengthSq <= 1.0e-12f)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    const float invLength = 1.0f / std::sqrt(lengthSq);
-    return {value.x * invLength, value.y * invLength, value.z * invLength};
-}
-
-common::Quatf normalizeQuaternion(const common::Quatf& value)
-{
-    const float lengthSq = value.x * value.x + value.y * value.y + value.z * value.z + value.w * value.w;
-    if (lengthSq <= 1.0e-12f)
-    {
-        return {};
-    }
-
-    const float invLength = 1.0f / std::sqrt(lengthSq);
-    return {value.x * invLength, value.y * invLength, value.z * invLength, value.w * invLength};
-}
-
-common::Vec3f rotateVector(const common::Quatf& rotation, const common::Vec3f& value)
-{
-    const common::Quatf q = normalizeQuaternion(rotation);
-    const common::Vec3f u{q.x, q.y, q.z};
-    const float s = q.w;
-
-    const common::Vec3f uxv = cross(u, value);
-    const common::Vec3f uxu = cross(u, uxv);
-
-    return {
-        value.x + 2.0f * (s * uxv.x + uxu.x),
-        value.y + 2.0f * (s * uxv.y + uxu.y),
-        value.z + 2.0f * (s * uxv.z + uxu.z)};
-}
-
-Matrix4f identityMatrix()
-{
-    Matrix4f out{};
-    out.m[0] = 1.0f;
-    out.m[5] = 1.0f;
-    out.m[10] = 1.0f;
-    out.m[15] = 1.0f;
-    return out;
-}
-
-Matrix4f multiply(const Matrix4f& lhs, const Matrix4f& rhs)
-{
-    Matrix4f out{};
-    for (int row = 0; row < 4; ++row)
-    {
-        for (int col = 0; col < 4; ++col)
-        {
-            out.m[row * 4 + col] =
-                lhs.m[row * 4 + 0] * rhs.m[0 * 4 + col] +
-                lhs.m[row * 4 + 1] * rhs.m[1 * 4 + col] +
-                lhs.m[row * 4 + 2] * rhs.m[2 * 4 + col] +
-                lhs.m[row * 4 + 3] * rhs.m[3 * 4 + col];
-        }
-    }
-    return out;
-}
-
-Matrix4f transformMatrix(const common::Transform& transform)
-{
-    const common::Vec3f right = rotateVector(transform.rotation, common::Vec3f{1.0f, 0.0f, 0.0f});
-    const common::Vec3f up = rotateVector(transform.rotation, common::Vec3f{0.0f, 1.0f, 0.0f});
-    const common::Vec3f forward = rotateVector(transform.rotation, common::Vec3f{0.0f, 0.0f, 1.0f});
-
-    Matrix4f out = identityMatrix();
-    out.m[0] = right.x * transform.scale.x;
-    out.m[1] = up.x * transform.scale.y;
-    out.m[2] = forward.x * transform.scale.z;
-    out.m[4] = right.y * transform.scale.x;
-    out.m[5] = up.y * transform.scale.y;
-    out.m[6] = forward.y * transform.scale.z;
-    out.m[8] = right.z * transform.scale.x;
-    out.m[9] = up.z * transform.scale.y;
-    out.m[10] = forward.z * transform.scale.z;
-    out.m[12] = transform.position.x;
-    out.m[13] = transform.position.y;
-    out.m[14] = transform.position.z;
-    return out;
-}
-
-Matrix4f viewMatrixFromTransform(const common::Transform& cameraTransform)
-{
-    const common::Vec3f eye = cameraTransform.position;
-    const common::Vec3f forward = normalize(rotateVector(cameraTransform.rotation, common::Vec3f{0.0f, 0.0f, -1.0f}));
-    const common::Vec3f up = normalize(rotateVector(cameraTransform.rotation, common::Vec3f{0.0f, 1.0f, 0.0f}));
-
-    const common::Vec3f at{
-        eye.x + forward.x,
-        eye.y + forward.y,
-        eye.z + forward.z};
-
-    const common::Vec3f zAxis = normalize(subtract(eye, at));
-    const common::Vec3f xAxis = normalize(cross(up, zAxis));
-    const common::Vec3f yAxis = cross(zAxis, xAxis);
-
-    Matrix4f out = identityMatrix();
-    out.m[0] = xAxis.x;
-    out.m[1] = yAxis.x;
-    out.m[2] = zAxis.x;
-    out.m[4] = xAxis.y;
-    out.m[5] = yAxis.y;
-    out.m[6] = zAxis.y;
-    out.m[8] = xAxis.z;
-    out.m[9] = yAxis.z;
-    out.m[10] = zAxis.z;
-    out.m[12] = -dot(xAxis, eye);
-    out.m[13] = -dot(yAxis, eye);
-    out.m[14] = -dot(zAxis, eye);
-    return out;
-}
-
-Matrix4f perspectiveMatrix(float verticalFovDegrees, float aspectRatio, float nearClip, float farClip)
-{
-    const float fovRadians = verticalFovDegrees * 0.017453292519943295769f;
-    const float tanHalfFov = std::tan(0.5f * fovRadians);
-    const float yScale = 1.0f / clampPositive(tanHalfFov, 1.0f);
-    const float xScale = yScale / clampPositive(aspectRatio, 1.0f);
-    const float nearPlane = std::max(nearClip, 0.001f);
-    const float farPlane = std::max(farClip, nearPlane + 0.001f);
-    const float clipRange = nearPlane - farPlane;
-
-    Matrix4f out{};
-    out.m[0] = xScale;
-    out.m[5] = yScale;
-    out.m[10] = farPlane / clipRange;
-    out.m[11] = -1.0f;
-    out.m[14] = (nearPlane * farPlane) / clipRange;
-    return out;
 }
 
 RenderViewport normalizeViewport(const RenderViewport& viewport)
@@ -263,15 +101,10 @@ PbrDirectionalLightData buildMainLight(const std::vector<DirectionalLightData>& 
     return out;
 }
 
-void copyMatrix(float* dst, const Matrix4f& matrix)
-{
-    std::memcpy(dst, matrix.m, sizeof(matrix.m));
-}
-
 bool buildDrawCommand(
     const ValidRenderable& renderable,
-    const Matrix4f& viewProjectionMatrix,
-    const common::Vec3f& cameraPosition,
+    const Diligent::float4x4& viewProjectionMatrix,
+    const Diligent::float3& cameraPosition,
     const PbrDirectionalLightData& light,
     const RenderResourceManager& resources,
     PbrDrawCommand& outCommand)
@@ -288,7 +121,7 @@ bool buildDrawCommand(
         return false;
     }
 
-    const Matrix4f modelMatrix = transformMatrix(renderable.instance->worldTransform);
+    const Diligent::float4x4 modelMatrix = math::transformMatrix(renderable.instance->worldTransform);
 
     outCommand = {};
     outCommand.meshId = renderable.instance->mesh.id;
@@ -298,8 +131,8 @@ bool buildDrawCommand(
     outCommand.vertexStrideBytes = static_cast<std::uint32_t>(sizeof(MeshResourceDesc::Vertex));
     outCommand.indexData = mesh.indices.data();
     outCommand.indexCount = static_cast<std::uint32_t>(mesh.indices.size());
-    copyMatrix(outCommand.modelMatrix, modelMatrix);
-    copyMatrix(outCommand.viewProjectionMatrix, viewProjectionMatrix);
+    math::copyMatrixRowMajor(outCommand.modelMatrix, modelMatrix);
+    math::copyMatrixRowMajor(outCommand.viewProjectionMatrix, viewProjectionMatrix);
     outCommand.cameraPosition[0] = cameraPosition.x;
     outCommand.cameraPosition[1] = cameraPosition.y;
     outCommand.cameraPosition[2] = cameraPosition.z;
@@ -312,20 +145,20 @@ bool buildDrawCommand(
     return true;
 }
 
-Matrix4f buildViewProjection(const CameraData& camera)
+Diligent::float4x4 buildViewProjection(const CameraData& camera)
 {
     const float outputWidth = camera.outputWidth > 0 ? static_cast<float>(camera.outputWidth) : 1280.0f;
     const float outputHeight = camera.outputHeight > 0 ? static_cast<float>(camera.outputHeight) : 720.0f;
     const float aspect = outputWidth / clampPositive(outputHeight, 1.0f);
 
-    const Matrix4f view = viewMatrixFromTransform(camera.worldTransform);
-    const Matrix4f projection = perspectiveMatrix(camera.verticalFovDegrees, aspect, camera.nearClip, camera.farClip);
-    return multiply(view, projection);
+    const Diligent::float4x4 view = math::viewMatrixFromTransform(camera.worldTransform);
+    const Diligent::float4x4 projection = math::perspectiveMatrix(camera.verticalFovDegrees, aspect, camera.nearClip, camera.farClip);
+    return view * projection;
 }
 
-common::Vec3f cameraPosition(const CameraData& camera)
+Diligent::float3 cameraPosition(const CameraData& camera)
 {
-    return camera.worldTransform.position;
+    return math::toFloat3(camera.worldTransform.position);
 }
 
 CameraData defaultCamera()
@@ -414,8 +247,8 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
             ++stats.readbackRequests;
         }
 
-        const Matrix4f viewProjectionMatrix = buildViewProjection(camera);
-        const common::Vec3f cameraWorldPosition = cameraPosition(camera);
+        const Diligent::float4x4 viewProjectionMatrix = buildViewProjection(camera);
+        const Diligent::float3 cameraWorldPosition = cameraPosition(camera);
 
         mDevice.beginRenderTarget(target, frameContext);
         for (const ValidRenderable& renderable : validRenderables)

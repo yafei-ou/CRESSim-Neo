@@ -215,11 +215,11 @@ bool DiligentGraphicsDevice::createPbrPipeline(
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = hasDepthTarget ? Diligent::True : Diligent::False;
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
-    constexpr Diligent::LayoutElement layoutElements[] = {
+    constexpr Diligent::LayoutElement kLayoutElements[] = {
         Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, Diligent::False},
         Diligent::LayoutElement{1, 0, 3, Diligent::VT_FLOAT32, Diligent::False},
         Diligent::LayoutElement{2, 0, 2, Diligent::VT_FLOAT32, Diligent::False}};
-    psoCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = layoutElements;
+    psoCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = kLayoutElements;
     psoCreateInfo.GraphicsPipeline.InputLayout.NumElements = 3;
     psoCreateInfo.pVS = vertexShader;
     psoCreateInfo.pPS = pixelShader;

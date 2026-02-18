@@ -49,3 +49,5 @@ CMakeUserPresets.json
 build
 bin
 out
+
+.cache

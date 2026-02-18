@@ -340,8 +340,8 @@ void DiligentGraphicsDevice::beginRenderTarget(RenderTargetHandle target, const 
     if (colorRtv != nullptr)
     {
         mImmediateContext->SetRenderTargets(1, &colorRtv, depthDsv, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        constexpr float clearColor[4] = {0.02f, 0.02f, 0.03f, 1.0f};
-        mImmediateContext->ClearRenderTarget(colorRtv, clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        constexpr float kClearColor[4] = {0.02f, 0.02f, 0.03f, 1.0f};
+        mImmediateContext->ClearRenderTarget(colorRtv, kClearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
     else
     {
