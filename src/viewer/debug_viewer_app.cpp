@@ -1,0 +1,623 @@
+#include "viewer/debug_viewer_app.h"
+
+#include "engine/components.h"
+
+#include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
+
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <iostream>
+#include <unordered_map>
+#include <utility>
+
+namespace cressim::neo::viewer
+{
+
+namespace
+{
+
+using cressim::neo::common::Quatf;
+using cressim::neo::common::Vec3f;
+using cressim::neo::engine::CameraComponent;
+using cressim::neo::engine::TransformComponent;
+
+constexpr float kPi = 3.14159265358979323846f;
+
+float clampPositive(float value, float fallback)
+{
+    return value > 0.0f ? value : fallback;
+}
+
+float clampSpeed(float speed, float minSpeed, float maxSpeed)
+{
+    const float clampedMin = std::max(minSpeed, 0.001f);
+    const float clampedMax = std::max(maxSpeed, clampedMin);
+    return std::max(clampedMin, std::min(speed, clampedMax));
+}
+
+float clampPitch(float pitchDegrees)
+{
+    return std::max(-89.0f, std::min(89.0f, pitchDegrees));
+}
+
+float radiansToDegrees(float radians)
+{
+    return radians * (180.0f / kPi);
+}
+
+float degreesToRadians(float degrees)
+{
+    return degrees * (kPi / 180.0f);
+}
+
+Vec3f add(const Vec3f& a, const Vec3f& b)
+{
+    return {a.x + b.x, a.y + b.y, a.z + b.z};
+}
+
+Vec3f scale(const Vec3f& v, float scalar)
+{
+    return {v.x * scalar, v.y * scalar, v.z * scalar};
+}
+
+float dot(const Vec3f& a, const Vec3f& b)
+{
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+Vec3f cross(const Vec3f& a, const Vec3f& b)
+{
+    return {
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x};
+}
+
+float lengthSq(const Vec3f& v)
+{
+    return dot(v, v);
+}
+
+float length(const Vec3f& v)
+{
+    return std::sqrt(lengthSq(v));
+}
+
+Vec3f normalize(const Vec3f& v)
+{
+    const float len = length(v);
+    if (len <= 1.0e-6f)
+    {
+        return {};
+    }
+    return scale(v, 1.0f / len);
+}
+
+Quatf quaternionFromEulerDegrees(float pitchDegrees, float yawDegrees, float rollDegrees)
+{
+    const float pitch = degreesToRadians(pitchDegrees) * 0.5f;
+    const float yaw = degreesToRadians(yawDegrees) * 0.5f;
+    const float roll = degreesToRadians(rollDegrees) * 0.5f;
+
+    const float sinPitch = std::sin(pitch);
+    const float cosPitch = std::cos(pitch);
+    const float sinYaw = std::sin(yaw);
+    const float cosYaw = std::cos(yaw);
+    const float sinRoll = std::sin(roll);
+    const float cosRoll = std::cos(roll);
+
+    Quatf q{};
+    q.w = cosRoll * cosPitch * cosYaw + sinRoll * sinPitch * sinYaw;
+    q.x = sinRoll * cosPitch * cosYaw - cosRoll * sinPitch * sinYaw;
+    q.y = cosRoll * sinPitch * cosYaw + sinRoll * cosPitch * sinYaw;
+    q.z = cosRoll * cosPitch * sinYaw - sinRoll * sinPitch * cosYaw;
+    return q;
+}
+
+Quatf cameraOrientationFromYawPitch(float yawDegrees, float pitchDegrees)
+{
+    // quaternionFromEulerDegrees() uses a different axis convention:
+    //  - first parameter rotates around Y
+    //  - third parameter rotates around X
+    // Map viewer yaw/pitch into that convention so:
+    //  - mouse X drives yaw (left/right turn)
+    //  - mouse Y drives pitch (up/down look)
+    return quaternionFromEulerDegrees(-yawDegrees, 0.0f, pitchDegrees);
+}
+
+Vec3f rotateVector(const Quatf& rotation, const Vec3f& vector)
+{
+    const Vec3f qVec{rotation.x, rotation.y, rotation.z};
+    const Vec3f t = scale(cross(qVec, vector), 2.0f);
+    return add(add(vector, scale(t, rotation.w)), cross(qVec, t));
+}
+
+void yawPitchFromRotation(const Quatf& rotation, float& outYawDegrees, float& outPitchDegrees)
+{
+    const Vec3f forward = normalize(rotateVector(rotation, {0.0f, 0.0f, -1.0f}));
+    outYawDegrees = radiansToDegrees(std::atan2(forward.x, -forward.z));
+    outPitchDegrees = radiansToDegrees(std::asin(std::max(-1.0f, std::min(forward.y, 1.0f))));
+}
+
+bool isPressed(GLFWwindow* window, int key)
+{
+    return key >= 0 && glfwGetKey(window, key) == GLFW_PRESS;
+}
+
+} // namespace
+
+class DebugViewerApp::Impl
+{
+public:
+    struct CameraState
+    {
+        Vec3f position{};
+        float yawDegrees = 0.0f;
+        float pitchDegrees = 0.0f;
+        float moveSpeed = 3.0f;
+        float inputSensitivity = 0.08f;
+        float speedBoostScale = 3.0f;
+        float speedSlowScale = 0.35f;
+    };
+
+    bool initialize(DebugViewerAppDesc desc, engine::RuntimeConfig& inOutRuntimeConfig)
+    {
+        shutdown();
+
+        mDesc = desc;
+        mDesc.width = std::max(mDesc.width, 1u);
+        mDesc.height = std::max(mDesc.height, 1u);
+        mDesc.moveSpeed = clampSpeed(mDesc.moveSpeed, mDesc.minMoveSpeed, mDesc.maxMoveSpeed);
+        mDesc.inputSensitivity = clampPositive(mDesc.inputSensitivity, 0.08f);
+        mDesc.speedBoostScale = clampPositive(mDesc.speedBoostScale, 1.0f);
+        mDesc.speedSlowScale = clampPositive(mDesc.speedSlowScale, 0.35f);
+        mDesc.fixedDeltaSeconds = clampPositive(mDesc.fixedDeltaSeconds, 1.0f / 60.0f);
+        mShowStats = mDesc.showStats;
+
+        inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.width = mDesc.width;
+        inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.height = mDesc.height;
+        inOutRuntimeConfig.rendererDesc.debugViewer.enabled = mDesc.windowEnabled;
+        inOutRuntimeConfig.rendererDesc.debugViewer.syncInterval = mDesc.vSync ? 1u : 0u;
+        inOutRuntimeConfig.rendererDesc.debugViewer.nativeWindow = nullptr;
+        inOutRuntimeConfig.rendererDesc.debugViewer.nativeWindowId = 0;
+        inOutRuntimeConfig.rendererDesc.debugViewer.nativeDisplay = nullptr;
+        inOutRuntimeConfig.rendererDesc.debugViewer.nativeConnection = nullptr;
+
+        if (!mDesc.windowEnabled)
+        {
+            mInitialized = true;
+            mExitRequested.store(false);
+            return true;
+        }
+
+        if (glfwInit() != GLFW_TRUE)
+        {
+            std::cerr << "DebugViewerApp: failed to initialize GLFW.\n";
+            return false;
+        }
+        mGlfwInitialized = true;
+
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        glfwWindowHint(GLFW_VISIBLE, mDesc.windowVisible ? GLFW_TRUE : GLFW_FALSE);
+        mWindow = glfwCreateWindow(
+            static_cast<int>(mDesc.width),
+            static_cast<int>(mDesc.height),
+            mDesc.windowTitle.c_str(),
+            nullptr,
+            nullptr);
+        if (mWindow == nullptr)
+        {
+            std::cerr << "DebugViewerApp: failed to create window.\n";
+            shutdown();
+            return false;
+        }
+
+        glfwSetWindowUserPointer(mWindow, this);
+        glfwSetScrollCallback(mWindow, &Impl::scrollCallback);
+
+#if defined(_WIN32)
+        inOutRuntimeConfig.rendererDesc.debugViewer.nativeWindow = glfwGetWin32Window(mWindow);
+#elif defined(__linux__)
+        inOutRuntimeConfig.rendererDesc.debugViewer.nativeWindowId = static_cast<std::uint64_t>(glfwGetX11Window(mWindow));
+        inOutRuntimeConfig.rendererDesc.debugViewer.nativeDisplay = glfwGetX11Display();
+#elif defined(__APPLE__)
+        inOutRuntimeConfig.rendererDesc.debugViewer.nativeWindow = glfwGetCocoaWindow(mWindow);
+#endif
+
+        mInitialized = true;
+        mExitRequested.store(false);
+        return true;
+    }
+
+    bool run(engine::Runtime& runtime, DebugViewerCameraBinding cameraBinding, DebugViewerCallbacks callbacks)
+    {
+        if (!mInitialized)
+        {
+            return false;
+        }
+        if (cameraBinding.cameraEntity == common::kInvalidEntityId)
+        {
+            std::cerr << "DebugViewerApp: camera binding requires a valid entity id.\n";
+            return false;
+        }
+        if (!mDesc.windowEnabled && mDesc.maxFrames == 0)
+        {
+            std::cerr << "DebugViewerApp: maxFrames must be > 0 when window is disabled.\n";
+            return false;
+        }
+
+        if (runtime.getGraphicsDevice() == nullptr)
+        {
+            std::cerr << "DebugViewerApp: runtime has no graphics device.\n";
+            return false;
+        }
+
+        auto& world = runtime.getWorld();
+        if (!world.isAlive(cameraBinding.cameraEntity))
+        {
+            std::cerr << "DebugViewerApp: bound camera entity does not exist.\n";
+            return false;
+        }
+
+        const CameraComponent* existingCamera = world.tryGetCamera(cameraBinding.cameraEntity);
+        if (existingCamera == nullptr)
+        {
+            std::cerr << "DebugViewerApp: bound entity has no CameraComponent.\n";
+            return false;
+        }
+
+        TransformComponent transform{};
+        const TransformComponent* existingTransform = world.tryGetTransform(cameraBinding.cameraEntity);
+        if (existingTransform != nullptr)
+        {
+            transform = *existingTransform;
+        }
+        else
+        {
+            world.setTransform(cameraBinding.cameraEntity, transform);
+        }
+
+        CameraComponent camera = *existingCamera;
+        CameraState cameraState{};
+        cameraState.position = transform.worldTransform.position;
+        yawPitchFromRotation(transform.worldTransform.rotation, cameraState.yawDegrees, cameraState.pitchDegrees);
+        cameraState.pitchDegrees = clampPitch(cameraState.pitchDegrees);
+        cameraState.moveSpeed = clampSpeed(
+            cameraBinding.moveSpeed > 0.0f ? cameraBinding.moveSpeed : mDesc.moveSpeed,
+            mDesc.minMoveSpeed,
+            mDesc.maxMoveSpeed);
+        cameraState.inputSensitivity =
+            clampPositive(cameraBinding.inputSensitivity > 0.0f ? cameraBinding.inputSensitivity : mDesc.inputSensitivity, 0.08f);
+        cameraState.speedBoostScale =
+            clampPositive(cameraBinding.speedBoostScale > 0.0f ? cameraBinding.speedBoostScale : mDesc.speedBoostScale, 1.0f);
+        cameraState.speedSlowScale =
+            clampPositive(cameraBinding.speedSlowScale > 0.0f ? cameraBinding.speedSlowScale : mDesc.speedSlowScale, 0.35f);
+
+        const CameraState initialCameraState = cameraState;
+        mLookActive = false;
+        mAccumulatedScrollY = 0.0;
+        mKeyIsDown.clear();
+        mExitRequested.store(false);
+
+        mLastTickTime = std::chrono::steady_clock::now();
+        common::FrameContext frame{};
+        frame.deltaSeconds = mDesc.fixedDeltaSeconds;
+
+        while (!mExitRequested.load())
+        {
+            if (mDesc.windowEnabled && mWindow != nullptr)
+            {
+                glfwPollEvents();
+                if (glfwWindowShouldClose(mWindow))
+                {
+                    break;
+                }
+                if (consumeKeyPress(mDesc.keymap.quit))
+                {
+                    break;
+                }
+            }
+
+            const float deltaSeconds = computeDeltaSeconds();
+            frame.deltaSeconds = deltaSeconds;
+            frame.timeSeconds += static_cast<double>(deltaSeconds);
+
+            if (consumeKeyPress(mDesc.keymap.toggleStats))
+            {
+                mShowStats = !mShowStats;
+            }
+
+            if (consumeKeyPress(mDesc.keymap.resetCamera))
+            {
+                cameraState = initialCameraState;
+            }
+
+            const InputState input = sampleInput();
+            applyInputToCamera(cameraState, input, deltaSeconds);
+
+            transform.worldTransform.position = cameraState.position;
+            transform.worldTransform.rotation =
+                cameraOrientationFromYawPitch(cameraState.yawDegrees, cameraState.pitchDegrees);
+            world.setTransform(cameraBinding.cameraEntity, transform);
+
+            int outputWidth = static_cast<int>(mDesc.width);
+            int outputHeight = static_cast<int>(mDesc.height);
+            if (mDesc.windowEnabled && mWindow != nullptr)
+            {
+                glfwGetFramebufferSize(mWindow, &outputWidth, &outputHeight);
+            }
+            camera.outputWidth = static_cast<std::uint32_t>(std::max(outputWidth, 1));
+            camera.outputHeight = static_cast<std::uint32_t>(std::max(outputHeight, 1));
+            if (mDesc.windowEnabled)
+            {
+                camera.outputTarget = {};
+            }
+            world.setCamera(cameraBinding.cameraEntity, camera);
+
+            frame.frameIndex += 1u;
+
+            if (callbacks.beforeTick)
+            {
+                callbacks.beforeTick(frame, runtime);
+            }
+
+            runtime.tick(frame);
+
+            if (callbacks.afterTick)
+            {
+                callbacks.afterTick(frame, runtime);
+            }
+
+            if (mShowStats && mDesc.statsIntervalFrames > 0 && frame.frameIndex % mDesc.statsIntervalFrames == 0)
+            {
+                const float fps = frame.deltaSeconds > 0.0f ? (1.0f / frame.deltaSeconds) : 0.0f;
+                std::cout << "viewer frame=" << frame.frameIndex
+                          << " fps=" << fps
+                          << " camPos=(" << cameraState.position.x << ", " << cameraState.position.y << ", " << cameraState.position.z << ")"
+                          << " yaw=" << cameraState.yawDegrees
+                          << " pitch=" << cameraState.pitchDegrees
+                          << " speed=" << cameraState.moveSpeed << '\n';
+            }
+
+            if (mDesc.maxFrames > 0 && frame.frameIndex >= mDesc.maxFrames)
+            {
+                break;
+            }
+        }
+
+        if (mWindow != nullptr)
+        {
+            glfwSetInputMode(mWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        }
+        mLookActive = false;
+        return true;
+    }
+
+    void requestExit()
+    {
+        mExitRequested.store(true);
+    }
+
+    void shutdown()
+    {
+        if (mWindow != nullptr)
+        {
+            glfwDestroyWindow(mWindow);
+            mWindow = nullptr;
+        }
+        if (mGlfwInitialized)
+        {
+            glfwTerminate();
+            mGlfwInitialized = false;
+        }
+        mInitialized = false;
+        mLookActive = false;
+        mAccumulatedScrollY = 0.0;
+        mKeyIsDown.clear();
+    }
+
+private:
+    struct InputState
+    {
+        Vec3f moveDirection{};
+        float mouseDeltaX = 0.0f;
+        float mouseDeltaY = 0.0f;
+        float scrollDelta = 0.0f;
+        bool boost = false;
+        bool slow = false;
+    };
+
+    static void scrollCallback(GLFWwindow* window, double, double yOffset)
+    {
+        if (window == nullptr)
+        {
+            return;
+        }
+        auto* self = static_cast<Impl*>(glfwGetWindowUserPointer(window));
+        if (self != nullptr)
+        {
+            self->mAccumulatedScrollY += yOffset;
+        }
+    }
+
+    bool consumeKeyPress(int key)
+    {
+        if (!mDesc.windowEnabled || mWindow == nullptr || key < 0)
+        {
+            return false;
+        }
+
+        const bool down = glfwGetKey(mWindow, key) == GLFW_PRESS;
+        const bool wasDown = mKeyIsDown[key];
+        mKeyIsDown[key] = down;
+        return down && !wasDown;
+    }
+
+    bool isKeyDown(int primary, int secondary = -1) const
+    {
+        if (!mDesc.windowEnabled || mWindow == nullptr)
+        {
+            return false;
+        }
+        if (isPressed(mWindow, primary))
+        {
+            return true;
+        }
+        return secondary >= 0 && isPressed(mWindow, secondary);
+    }
+
+    float computeDeltaSeconds()
+    {
+        if (!mDesc.windowEnabled)
+        {
+            return std::max(1.0f / 240.0f, std::min(mDesc.fixedDeltaSeconds, 0.1f));
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        const std::chrono::duration<double> elapsed = now - mLastTickTime;
+        mLastTickTime = now;
+        const float dt = static_cast<float>(elapsed.count());
+        return std::max(1.0f / 240.0f, std::min(dt, 0.1f));
+    }
+
+    InputState sampleInput()
+    {
+        InputState out{};
+
+        if (!mDesc.windowEnabled || mWindow == nullptr)
+        {
+            return out;
+        }
+
+        out.moveDirection.x += isKeyDown(mDesc.keymap.moveRight) ? 1.0f : 0.0f;
+        out.moveDirection.x -= isKeyDown(mDesc.keymap.moveLeft) ? 1.0f : 0.0f;
+        out.moveDirection.y += isKeyDown(mDesc.keymap.moveUp) ? 1.0f : 0.0f;
+        out.moveDirection.y -= isKeyDown(mDesc.keymap.moveDown) ? 1.0f : 0.0f;
+        out.moveDirection.z += isKeyDown(mDesc.keymap.moveForward) ? 1.0f : 0.0f;
+        out.moveDirection.z -= isKeyDown(mDesc.keymap.moveBackward) ? 1.0f : 0.0f;
+
+        out.boost = isKeyDown(mDesc.keymap.speedBoostPrimary, mDesc.keymap.speedBoostSecondary);
+        out.slow = isKeyDown(mDesc.keymap.speedSlowPrimary, mDesc.keymap.speedSlowSecondary);
+
+        const bool lookDown = (glfwGetMouseButton(mWindow, mDesc.keymap.lookButton) == GLFW_PRESS);
+        if (lookDown && !mLookActive)
+        {
+            mLookActive = true;
+            glfwSetInputMode(mWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            if (glfwRawMouseMotionSupported() == GLFW_TRUE)
+            {
+                glfwSetInputMode(mWindow, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+            }
+            glfwGetCursorPos(mWindow, &mLastCursorX, &mLastCursorY);
+        }
+        else if (!lookDown && mLookActive)
+        {
+            mLookActive = false;
+            glfwSetInputMode(mWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            if (glfwRawMouseMotionSupported() == GLFW_TRUE)
+            {
+                glfwSetInputMode(mWindow, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+            }
+        }
+
+        if (mLookActive)
+        {
+            double cursorX = mLastCursorX;
+            double cursorY = mLastCursorY;
+            glfwGetCursorPos(mWindow, &cursorX, &cursorY);
+            out.mouseDeltaX = static_cast<float>(cursorX - mLastCursorX);
+            out.mouseDeltaY = static_cast<float>(cursorY - mLastCursorY);
+            mLastCursorX = cursorX;
+            mLastCursorY = cursorY;
+        }
+
+        out.scrollDelta = static_cast<float>(mAccumulatedScrollY);
+        mAccumulatedScrollY = 0.0;
+        return out;
+    }
+
+    void applyInputToCamera(CameraState& camera, const InputState& input, float deltaSeconds) const
+    {
+        if (input.scrollDelta != 0.0f)
+        {
+            const float factor = std::max(0.1f, 1.0f + input.scrollDelta * mDesc.wheelSpeedScale);
+            camera.moveSpeed = clampSpeed(camera.moveSpeed * factor, mDesc.minMoveSpeed, mDesc.maxMoveSpeed);
+        }
+
+        camera.yawDegrees += input.mouseDeltaX * camera.inputSensitivity;
+        camera.pitchDegrees -= input.mouseDeltaY * camera.inputSensitivity;
+        camera.pitchDegrees = clampPitch(camera.pitchDegrees);
+
+        const Quatf orientation = cameraOrientationFromYawPitch(camera.yawDegrees, camera.pitchDegrees);
+        const Vec3f forward = normalize(rotateVector(orientation, {0.0f, 0.0f, -1.0f}));
+        const Vec3f right = normalize(rotateVector(orientation, {1.0f, 0.0f, 0.0f}));
+        const Vec3f worldUp{0.0f, 1.0f, 0.0f};
+
+        Vec3f worldDirection{};
+        worldDirection = add(worldDirection, scale(right, input.moveDirection.x));
+        worldDirection = add(worldDirection, scale(worldUp, input.moveDirection.y));
+        worldDirection = add(worldDirection, scale(forward, input.moveDirection.z));
+        worldDirection = normalize(worldDirection);
+
+        float movementSpeed = camera.moveSpeed;
+        if (input.boost)
+        {
+            movementSpeed *= camera.speedBoostScale;
+        }
+        if (input.slow)
+        {
+            movementSpeed *= camera.speedSlowScale;
+        }
+
+        camera.position = add(camera.position, scale(worldDirection, movementSpeed * deltaSeconds));
+    }
+
+private:
+    DebugViewerAppDesc mDesc{};
+    GLFWwindow* mWindow = nullptr;
+    bool mInitialized = false;
+    bool mGlfwInitialized = false;
+    bool mShowStats = true;
+    bool mLookActive = false;
+    double mLastCursorX = 0.0;
+    double mLastCursorY = 0.0;
+    double mAccumulatedScrollY = 0.0;
+    std::unordered_map<int, bool> mKeyIsDown;
+    std::chrono::steady_clock::time_point mLastTickTime{};
+    std::atomic<bool> mExitRequested{false};
+};
+
+DebugViewerApp::DebugViewerApp() : mImpl(std::make_unique<Impl>())
+{
+}
+
+DebugViewerApp::~DebugViewerApp() = default;
+
+DebugViewerApp::DebugViewerApp(DebugViewerApp&&) noexcept = default;
+DebugViewerApp& DebugViewerApp::operator=(DebugViewerApp&&) noexcept = default;
+
+bool DebugViewerApp::initialize(DebugViewerAppDesc desc, engine::RuntimeConfig& inOutRuntimeConfig)
+{
+    return mImpl->initialize(std::move(desc), inOutRuntimeConfig);
+}
+
+bool DebugViewerApp::run(engine::Runtime& runtime, DebugViewerCameraBinding camera, DebugViewerCallbacks callbacks)
+{
+    return mImpl->run(runtime, camera, std::move(callbacks));
+}
+
+void DebugViewerApp::requestExit()
+{
+    mImpl->requestExit();
+}
+
+void DebugViewerApp::shutdown()
+{
+    mImpl->shutdown();
+}
+
+} // namespace cressim::neo::viewer
