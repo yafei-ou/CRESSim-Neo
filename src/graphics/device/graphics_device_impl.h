@@ -4,17 +4,14 @@
 #include "graphics/graphics_device.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Fence.h"
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Texture.h"
 
 #include <cstdint>
 #include <deque>
-#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -25,6 +22,16 @@ namespace cressim::neo::graphics
 class GraphicsDeviceImpl final : public GraphicsDevice
 {
 public:
+    struct VulkanBackendContext
+    {
+        Diligent::IRenderDevice* renderDevice = nullptr;
+        Diligent::IDeviceContext* immediateContext = nullptr;
+        common::ResourceId activeRenderTargetId = common::kInvalidResourceId;
+        bool hasActiveRenderTarget = false;
+        bool activeRenderTargetHasDepth = false;
+        Diligent::TEXTURE_FORMAT activeRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
+    };
+
     bool initialize(const GraphicsDeviceDesc& desc) override;
     void shutdown() override;
 
@@ -38,13 +45,15 @@ public:
     void beginFrame(const common::FrameContext& frameContext) override;
     void setRenderTargetViewport(RenderTargetHandle target, const RenderViewport& viewport) override;
     void beginRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) override;
-    bool drawPbr(RenderTargetHandle target, const PbrDrawCommand& drawCommand) override;
     void endRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) override;
     void requestReadback(RenderTargetHandle target) override;
     bool tryPopReadbackEvent(RenderTargetReadbackEvent& outEvent) override;
     void endFrame(const common::FrameContext& frameContext) override;
 
     GraphicsBackend backend() const override;
+    bool tryGetVulkanContext(VulkanBackendContext& outContext);
+    const std::string& shaderSourceDirectory() const;
+    bool allowShaderFallback() const;
 
 private:
     struct RenderTargetResources
@@ -65,45 +74,13 @@ private:
         Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
     };
 
-    struct CachedMeshGpuData
-    {
-        std::uint64_t version = 0;
-        std::uint32_t indexCount = 0;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> vertexBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> indexBuffer;
-    };
-
-    struct PbrPipelineResources
-    {
-        Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipelineState;
-        Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> shaderResourceBinding;
-    };
-
-    struct PbrDrawConstants
-    {
-        float modelMatrix[16] = {};
-        float viewProjectionMatrix[16] = {};
-        float cameraPositionMetallic[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-        float lightDirectionIntensity[4] = {0.0f, -1.0f, 0.0f, 1.0f};
-        float lightColorRoughness[4] = {1.0f, 1.0f, 1.0f, 0.5f};
-        float baseColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-    };
-
     bool initializeVulkan();
     bool createDebugViewerSwapChain();
     bool createDefaultRenderTarget();
     RenderTargetDesc normalizeTargetDesc(const RenderTargetDesc& desc) const;
     bool createRenderTargetTextures(const RenderTargetDesc& desc, RenderTargetResources& resources);
 
-    CachedMeshGpuData* getOrCreateMeshBuffers(const PbrDrawCommand& drawCommand);
-
-    bool createPbrPipeline(bool hasDepthTarget, Diligent::TEXTURE_FORMAT colorFormat, PbrPipelineResources& outResources);
-    PbrPipelineResources* getOrCreatePbrPipeline(bool hasDepthTarget, Diligent::TEXTURE_FORMAT colorFormat);
-
     bool queueReadbackCopy(RenderTargetHandle target, std::uint64_t frameIndex);
-
-    bool resolveShaderDirectory();
-    bool loadShaderSource(const char* relativePath, const char* fallbackSource, std::string& outSource);
 
 private:
     GraphicsDeviceDesc mDesc{};
@@ -112,13 +89,11 @@ private:
     bool mHasActiveRenderTarget = false;
     bool mActiveRenderTargetHasDepth = false;
     Diligent::TEXTURE_FORMAT mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
-    bool mShaderDirectoryResolved = false;
     common::ResourceId mNextRenderTargetId = 1;
     RenderTargetHandle mDefaultRenderTarget{};
     RenderTargetHandle mActiveRenderTarget{};
 
     std::unordered_map<common::ResourceId, RenderTargetResources> mRenderTargets;
-    std::unordered_map<common::ResourceId, CachedMeshGpuData> mCachedMeshes;
     // Targets that requested readback and are waiting for endRenderTarget().
     std::unordered_set<common::ResourceId> mPendingReadbacks;
     // GPU->CPU copy jobs collected during render target completion and consumed in endFrame().
@@ -126,17 +101,12 @@ private:
     // FIFO completion metadata consumed through tryPopReadbackEvent().
     std::deque<RenderTargetReadbackEvent> mCompletedReadbacks;
 
-    std::unordered_map<std::uint64_t, PbrPipelineResources> mPbrPipelineCache;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mPbrConstantBuffer;
     Diligent::RefCntAutoPtr<Diligent::IFence> mReadbackFence;
     std::uint64_t mNextReadbackFenceValue = 1;
 
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> mRenderDevice;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mImmediateContext;
     Diligent::RefCntAutoPtr<Diligent::ISwapChain> mSwapChain;
-
-    std::string mResolvedShaderDirectory;
-    std::unordered_map<std::string, std::string> mShaderSourceCache;
 };
 
 } // namespace cressim::neo::graphics

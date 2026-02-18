@@ -1,15 +1,21 @@
-#include "graphics/device/graphics_device_impl.h"
+#include "graphics/renderer/services/shader_source_provider.h"
 
 #include <filesystem>
 #include <fstream>
 #include <iterator>
-#include <string>
+#include <utility>
 #include <vector>
 
-namespace cressim::neo::graphics
+namespace cressim::neo::graphics::detail
 {
 
-bool GraphicsDeviceImpl::resolveShaderDirectory()
+ShaderSourceProvider::ShaderSourceProvider(std::string shaderDirectory, bool allowFallback) :
+    mShaderDirectory(std::move(shaderDirectory)),
+    mAllowFallback(allowFallback)
+{
+}
+
+bool ShaderSourceProvider::resolveShaderDirectory()
 {
     if (mShaderDirectoryResolved)
     {
@@ -19,9 +25,9 @@ bool GraphicsDeviceImpl::resolveShaderDirectory()
     mShaderDirectoryResolved = true;
 
     std::vector<std::filesystem::path> candidates;
-    if (!mDesc.shaderDirectory.empty())
+    if (!mShaderDirectory.empty())
     {
-        candidates.emplace_back(mDesc.shaderDirectory);
+        candidates.emplace_back(mShaderDirectory);
     }
 
 #ifdef CRESSIM_NEO_SHADER_SOURCE_DIR
@@ -49,7 +55,7 @@ bool GraphicsDeviceImpl::resolveShaderDirectory()
     return false;
 }
 
-bool GraphicsDeviceImpl::loadShaderSource(const char* relativePath, const char* fallbackSource, std::string& outSource)
+bool ShaderSourceProvider::loadSource(const char* relativePath, const char* fallbackSource, std::string& outSource)
 {
     if (relativePath == nullptr || relativePath[0] == '\0')
     {
@@ -82,7 +88,7 @@ bool GraphicsDeviceImpl::loadShaderSource(const char* relativePath, const char* 
         }
     }
 
-    if (mDesc.allowShaderFallback && fallbackSource != nullptr)
+    if (mAllowFallback && fallbackSource != nullptr)
     {
         outSource = fallbackSource;
         return true;
@@ -91,4 +97,4 @@ bool GraphicsDeviceImpl::loadShaderSource(const char* relativePath, const char* 
     return false;
 }
 
-} // namespace cressim::neo::graphics
+} // namespace cressim::neo::graphics::detail

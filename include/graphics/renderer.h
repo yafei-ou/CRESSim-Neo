@@ -8,9 +8,15 @@
 #include "graphics/render_world.h"
 
 #include <cstdint>
+#include <memory>
 
 namespace cressim::neo::graphics
 {
+
+namespace detail
+{
+class ForwardPipeline;
+}
 
 struct RenderStats
 {
@@ -27,6 +33,7 @@ class CRESSIM_NEO_GRAPHICS_API Renderer
 {
 public:
     Renderer(GraphicsDevice& device, RenderResourceManager& resourceManager);
+    ~Renderer();
 
     bool initialize();
     RenderStats render(const common::FrameContext& frameContext, const RenderWorld& world);
@@ -34,6 +41,7 @@ public:
 private:
     GraphicsDevice& mDevice;
     RenderResourceManager& mResourceManager;
+    std::unique_ptr<detail::ForwardPipeline> mForwardPipeline;
     bool mInitialized = false;
 };
 

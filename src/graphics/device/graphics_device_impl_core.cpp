@@ -70,9 +70,6 @@ bool GraphicsDeviceImpl::initialize(const GraphicsDeviceDesc& desc)
     mDesc = desc;
     mDesc.initialWidth = clampExtent(mDesc.initialWidth);
     mDesc.initialHeight = clampExtent(mDesc.initialHeight);
-    mShaderDirectoryResolved = false;
-    mResolvedShaderDirectory.clear();
-    mShaderSourceCache.clear();
 
     if (mDesc.preferredBackend == GraphicsBackend::Null)
     {
@@ -120,9 +117,6 @@ void GraphicsDeviceImpl::shutdown()
     mActiveRenderTargetHasDepth = false;
     mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
     mActiveRenderTarget = {};
-    mCachedMeshes.clear();
-    mPbrPipelineCache.clear();
-    mPbrConstantBuffer = nullptr;
     mReadbackFence = nullptr;
     mNextReadbackFenceValue = 1;
     mImmediateContext = nullptr;
@@ -135,10 +129,6 @@ void GraphicsDeviceImpl::shutdown()
     mCompletedReadbacks.clear();
     mDefaultRenderTarget = {};
     mNextRenderTargetId = 1;
-
-    mResolvedShaderDirectory.clear();
-    mShaderSourceCache.clear();
-    mShaderDirectoryResolved = false;
 
     mBackend = GraphicsBackend::Null;
     mInitialized = false;
@@ -414,6 +404,34 @@ void GraphicsDeviceImpl::endRenderTarget(RenderTargetHandle target, const common
 GraphicsBackend GraphicsDeviceImpl::backend() const
 {
     return mBackend;
+}
+
+bool GraphicsDeviceImpl::tryGetVulkanContext(VulkanBackendContext& outContext)
+{
+    outContext = {};
+
+    if (!mInitialized || mBackend != GraphicsBackend::Vulkan || mRenderDevice == nullptr || mImmediateContext == nullptr)
+    {
+        return false;
+    }
+
+    outContext.renderDevice = mRenderDevice;
+    outContext.immediateContext = mImmediateContext;
+    outContext.hasActiveRenderTarget = mHasActiveRenderTarget;
+    outContext.activeRenderTargetId = mHasActiveRenderTarget ? mActiveRenderTarget.id : common::kInvalidResourceId;
+    outContext.activeRenderTargetHasDepth = mActiveRenderTargetHasDepth;
+    outContext.activeRenderTargetColorFormat = mActiveRenderTargetColorFormat;
+    return true;
+}
+
+const std::string& GraphicsDeviceImpl::shaderSourceDirectory() const
+{
+    return mDesc.shaderDirectory;
+}
+
+bool GraphicsDeviceImpl::allowShaderFallback() const
+{
+    return mDesc.allowShaderFallback;
 }
 
 bool GraphicsDeviceImpl::initializeVulkan()

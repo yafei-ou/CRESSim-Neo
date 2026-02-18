@@ -1,16 +1,18 @@
-#include "graphics/device/graphics_device_impl.h"
+#include "graphics/renderer/passes/pbr_pass.h"
 
+#include "graphics/device/graphics_device_impl.h"
 #include "graphics/device/shaders/shader_fallback_sources.h"
 
 #include <cstring>
+#include <string>
 
-namespace cressim::neo::graphics
+namespace cressim::neo::graphics::detail
 {
 
 namespace
 {
 
-std::uint64_t makePbrPipelineCacheKey(bool hasDepthTarget, Diligent::TEXTURE_FORMAT colorFormat)
+std::uint64_t makePipelineCacheKey(bool hasDepthTarget, Diligent::TEXTURE_FORMAT colorFormat)
 {
     const std::uint64_t depthBit = hasDepthTarget ? (1ull << 32ull) : 0ull;
     const std::uint64_t colorBits = static_cast<std::uint64_t>(static_cast<std::uint32_t>(colorFormat));
@@ -19,16 +21,44 @@ std::uint64_t makePbrPipelineCacheKey(bool hasDepthTarget, Diligent::TEXTURE_FOR
 
 } // namespace
 
-bool GraphicsDeviceImpl::drawPbr(RenderTargetHandle target, const PbrDrawCommand& drawCommand)
+PbrPass::PbrPass(GraphicsDeviceImpl& device) :
+    mDevice(device),
+    mShaderSourceProvider("", true)
 {
-    if (!mInitialized || mBackend != GraphicsBackend::Vulkan || !mImmediateContext || !mRenderDevice)
+}
+
+bool PbrPass::initialize()
+{
+    mShaderSourceProvider = ShaderSourceProvider(mDevice.shaderSourceDirectory(), mDevice.allowShaderFallback());
+    mInitialized = true;
+    return true;
+}
+
+bool PbrPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand)
+{
+    if (!mInitialized)
     {
         return false;
     }
-    if (!mHasActiveRenderTarget || mActiveRenderTarget.id != target.id)
+
+    GraphicsDeviceImpl::VulkanBackendContext backendContext{};
+    if (!mDevice.tryGetVulkanContext(backendContext))
     {
         return false;
     }
+    if (!backendContext.hasActiveRenderTarget || backendContext.activeRenderTargetId != target.id)
+    {
+        return false;
+    }
+    if (backendContext.renderDevice == nullptr || backendContext.immediateContext == nullptr)
+    {
+        return false;
+    }
+    if (backendContext.activeRenderTargetColorFormat == Diligent::TEX_FORMAT_UNKNOWN)
+    {
+        return false;
+    }
+
     if (drawCommand.meshId == common::kInvalidResourceId || drawCommand.vertexData == nullptr || drawCommand.indexData == nullptr)
     {
         return false;
@@ -38,19 +68,22 @@ bool GraphicsDeviceImpl::drawPbr(RenderTargetHandle target, const PbrDrawCommand
         return false;
     }
 
-    CachedMeshGpuData* meshBuffers = getOrCreateMeshBuffers(drawCommand);
+    CachedMeshGpuData* meshBuffers = getOrCreateMeshBuffers(drawCommand, backendContext.renderDevice);
     if (meshBuffers == nullptr || meshBuffers->vertexBuffer == nullptr || meshBuffers->indexBuffer == nullptr || meshBuffers->indexCount == 0)
     {
         return false;
     }
 
-    PbrPipelineResources* pipeline = getOrCreatePbrPipeline(mActiveRenderTargetHasDepth, mActiveRenderTargetColorFormat);
-    if (pipeline == nullptr || pipeline->pipelineState == nullptr || pipeline->shaderResourceBinding == nullptr || mPbrConstantBuffer == nullptr)
+    PipelineResources* pipeline = getOrCreatePipeline(
+        backendContext.renderDevice,
+        backendContext.activeRenderTargetHasDepth,
+        backendContext.activeRenderTargetColorFormat);
+    if (pipeline == nullptr || pipeline->pipelineState == nullptr || pipeline->shaderResourceBinding == nullptr || mConstantBuffer == nullptr)
     {
         return false;
     }
 
-    PbrDrawConstants constants{};
+    DrawConstants constants{};
     std::memcpy(constants.modelMatrix, drawCommand.modelMatrix, sizeof(constants.modelMatrix));
     std::memcpy(constants.viewProjectionMatrix, drawCommand.viewProjectionMatrix, sizeof(constants.viewProjectionMatrix));
     constants.cameraPositionMetallic[0] = drawCommand.cameraPosition[0];
@@ -71,38 +104,45 @@ bool GraphicsDeviceImpl::drawPbr(RenderTargetHandle target, const PbrDrawCommand
     constants.baseColor[3] = 1.0f;
 
     void* mappedConstants = nullptr;
-    mImmediateContext->MapBuffer(mPbrConstantBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
+    backendContext.immediateContext->MapBuffer(mConstantBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
     }
     std::memcpy(mappedConstants, &constants, sizeof(constants));
-    mImmediateContext->UnmapBuffer(mPbrConstantBuffer, Diligent::MAP_WRITE);
+    backendContext.immediateContext->UnmapBuffer(mConstantBuffer, Diligent::MAP_WRITE);
 
     const Diligent::Uint64 vertexOffset = 0;
     Diligent::IBuffer* vertexBuffers[] = {meshBuffers->vertexBuffer};
-    mImmediateContext->SetVertexBuffers(
+    backendContext.immediateContext->SetVertexBuffers(
         0,
         1,
         vertexBuffers,
         &vertexOffset,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
         Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
-    mImmediateContext->SetIndexBuffer(meshBuffers->indexBuffer, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    backendContext.immediateContext->SetIndexBuffer(meshBuffers->indexBuffer, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    mImmediateContext->SetPipelineState(pipeline->pipelineState);
-    mImmediateContext->CommitShaderResources(pipeline->shaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    backendContext.immediateContext->SetPipelineState(pipeline->pipelineState);
+    backendContext.immediateContext->CommitShaderResources(pipeline->shaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     Diligent::DrawIndexedAttribs drawAttrs{};
     drawAttrs.IndexType = Diligent::VT_UINT32;
     drawAttrs.NumIndices = meshBuffers->indexCount;
     drawAttrs.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
-    mImmediateContext->DrawIndexed(drawAttrs);
+    backendContext.immediateContext->DrawIndexed(drawAttrs);
     return true;
 }
 
-GraphicsDeviceImpl::CachedMeshGpuData* GraphicsDeviceImpl::getOrCreateMeshBuffers(const PbrDrawCommand& drawCommand)
+PbrPass::CachedMeshGpuData* PbrPass::getOrCreateMeshBuffers(
+    const ForwardDrawCommand& drawCommand,
+    Diligent::IRenderDevice* renderDevice)
 {
+    if (renderDevice == nullptr)
+    {
+        return nullptr;
+    }
+
     auto& mesh = mCachedMeshes[drawCommand.meshId];
     const bool recreate =
         mesh.vertexBuffer == nullptr ||
@@ -114,7 +154,7 @@ GraphicsDeviceImpl::CachedMeshGpuData* GraphicsDeviceImpl::getOrCreateMeshBuffer
     }
 
     Diligent::BufferDesc vertexBufferDesc{};
-    vertexBufferDesc.Name = "CRESSimNeo.Pbr.VertexBuffer";
+    vertexBufferDesc.Name = "CRESSimNeo.PbrPass.VertexBuffer";
     vertexBufferDesc.Usage = Diligent::USAGE_IMMUTABLE;
     vertexBufferDesc.BindFlags = Diligent::BIND_VERTEX_BUFFER;
     vertexBufferDesc.Size = static_cast<Diligent::Uint64>(drawCommand.vertexCount) * drawCommand.vertexStrideBytes;
@@ -122,7 +162,7 @@ GraphicsDeviceImpl::CachedMeshGpuData* GraphicsDeviceImpl::getOrCreateMeshBuffer
     Diligent::BufferData vertexData{};
     vertexData.pData = drawCommand.vertexData;
     vertexData.DataSize = vertexBufferDesc.Size;
-    mRenderDevice->CreateBuffer(vertexBufferDesc, &vertexData, &mesh.vertexBuffer);
+    renderDevice->CreateBuffer(vertexBufferDesc, &vertexData, &mesh.vertexBuffer);
     if (mesh.vertexBuffer == nullptr)
     {
         mCachedMeshes.erase(drawCommand.meshId);
@@ -130,7 +170,7 @@ GraphicsDeviceImpl::CachedMeshGpuData* GraphicsDeviceImpl::getOrCreateMeshBuffer
     }
 
     Diligent::BufferDesc indexBufferDesc{};
-    indexBufferDesc.Name = "CRESSimNeo.Pbr.IndexBuffer";
+    indexBufferDesc.Name = "CRESSimNeo.PbrPass.IndexBuffer";
     indexBufferDesc.Usage = Diligent::USAGE_IMMUTABLE;
     indexBufferDesc.BindFlags = Diligent::BIND_INDEX_BUFFER;
     indexBufferDesc.Size = static_cast<Diligent::Uint64>(drawCommand.indexCount) * sizeof(std::uint32_t);
@@ -138,7 +178,7 @@ GraphicsDeviceImpl::CachedMeshGpuData* GraphicsDeviceImpl::getOrCreateMeshBuffer
     Diligent::BufferData indexData{};
     indexData.pData = drawCommand.indexData;
     indexData.DataSize = indexBufferDesc.Size;
-    mRenderDevice->CreateBuffer(indexBufferDesc, &indexData, &mesh.indexBuffer);
+    renderDevice->CreateBuffer(indexBufferDesc, &indexData, &mesh.indexBuffer);
     if (mesh.indexBuffer == nullptr)
     {
         mCachedMeshes.erase(drawCommand.meshId);
@@ -150,28 +190,25 @@ GraphicsDeviceImpl::CachedMeshGpuData* GraphicsDeviceImpl::getOrCreateMeshBuffer
     return &mesh;
 }
 
-bool GraphicsDeviceImpl::createPbrPipeline(
+bool PbrPass::createPipeline(
+    Diligent::IRenderDevice* renderDevice,
     bool hasDepthTarget,
     Diligent::TEXTURE_FORMAT colorFormat,
-    PbrPipelineResources& outResources)
+    PipelineResources& outResources)
 {
-    if (!mRenderDevice)
-    {
-        return false;
-    }
-    if (colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
+    if (renderDevice == nullptr || colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
     {
         return false;
     }
 
     std::string pbrVsSource;
-    if (!loadShaderSource("pbr.vs.hlsl", shaders::pbrVertex(), pbrVsSource))
+    if (!mShaderSourceProvider.loadSource("pbr.vs.hlsl", shaders::pbrVertex(), pbrVsSource))
     {
         return false;
     }
 
     std::string pbrPsSource;
-    if (!loadShaderSource("pbr.ps.hlsl", shaders::pbrPixel(), pbrPsSource))
+    if (!mShaderSourceProvider.loadSource("pbr.ps.hlsl", shaders::pbrPixel(), pbrPsSource))
     {
         return false;
     }
@@ -184,9 +221,9 @@ bool GraphicsDeviceImpl::createPbrPipeline(
 
     Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
-    shaderCreateInfo.Desc.Name = hasDepthTarget ? "CRESSimNeo.Pbr.VS.Depth" : "CRESSimNeo.Pbr.VS.NoDepth";
+    shaderCreateInfo.Desc.Name = hasDepthTarget ? "CRESSimNeo.PbrPass.VS.Depth" : "CRESSimNeo.PbrPass.VS.NoDepth";
     shaderCreateInfo.Source = pbrVsSource.c_str();
-    mRenderDevice->CreateShader(shaderCreateInfo, &vertexShader);
+    renderDevice->CreateShader(shaderCreateInfo, &vertexShader);
     if (vertexShader == nullptr)
     {
         return false;
@@ -194,16 +231,16 @@ bool GraphicsDeviceImpl::createPbrPipeline(
 
     Diligent::RefCntAutoPtr<Diligent::IShader> pixelShader;
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
-    shaderCreateInfo.Desc.Name = hasDepthTarget ? "CRESSimNeo.Pbr.PS.Depth" : "CRESSimNeo.Pbr.PS.NoDepth";
+    shaderCreateInfo.Desc.Name = hasDepthTarget ? "CRESSimNeo.PbrPass.PS.Depth" : "CRESSimNeo.PbrPass.PS.NoDepth";
     shaderCreateInfo.Source = pbrPsSource.c_str();
-    mRenderDevice->CreateShader(shaderCreateInfo, &pixelShader);
+    renderDevice->CreateShader(shaderCreateInfo, &pixelShader);
     if (pixelShader == nullptr)
     {
         return false;
     }
 
     Diligent::GraphicsPipelineStateCreateInfo psoCreateInfo{};
-    psoCreateInfo.PSODesc.Name = hasDepthTarget ? "CRESSimNeo.Pbr.PSO.Depth" : "CRESSimNeo.Pbr.PSO.NoDepth";
+    psoCreateInfo.PSODesc.Name = hasDepthTarget ? "CRESSimNeo.PbrPass.PSO.Depth" : "CRESSimNeo.PbrPass.PSO.NoDepth";
     psoCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
     psoCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
     psoCreateInfo.GraphicsPipeline.RTVFormats[0] = colorFormat;
@@ -224,22 +261,22 @@ bool GraphicsDeviceImpl::createPbrPipeline(
     psoCreateInfo.pVS = vertexShader;
     psoCreateInfo.pPS = pixelShader;
 
-    mRenderDevice->CreateGraphicsPipelineState(psoCreateInfo, &outResources.pipelineState);
+    renderDevice->CreateGraphicsPipelineState(psoCreateInfo, &outResources.pipelineState);
     if (outResources.pipelineState == nullptr)
     {
         return false;
     }
 
-    if (mPbrConstantBuffer == nullptr)
+    if (mConstantBuffer == nullptr)
     {
         Diligent::BufferDesc constantBufferDesc{};
-        constantBufferDesc.Name = "CRESSimNeo.Pbr.Constants";
-        constantBufferDesc.Size = sizeof(PbrDrawConstants);
+        constantBufferDesc.Name = "CRESSimNeo.PbrPass.Constants";
+        constantBufferDesc.Size = sizeof(DrawConstants);
         constantBufferDesc.Usage = Diligent::USAGE_DYNAMIC;
         constantBufferDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
         constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-        mRenderDevice->CreateBuffer(constantBufferDesc, nullptr, &mPbrConstantBuffer);
-        if (mPbrConstantBuffer == nullptr)
+        renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mConstantBuffer);
+        if (mConstantBuffer == nullptr)
         {
             return false;
         }
@@ -253,24 +290,25 @@ bool GraphicsDeviceImpl::createPbrPipeline(
     {
         return false;
     }
-    vertexConstants->Set(mPbrConstantBuffer);
-    pixelConstants->Set(mPbrConstantBuffer);
+    vertexConstants->Set(mConstantBuffer);
+    pixelConstants->Set(mConstantBuffer);
     outResources.pipelineState->CreateShaderResourceBinding(&outResources.shaderResourceBinding, true);
     return outResources.shaderResourceBinding != nullptr;
 }
 
-GraphicsDeviceImpl::PbrPipelineResources* GraphicsDeviceImpl::getOrCreatePbrPipeline(
+PbrPass::PipelineResources* PbrPass::getOrCreatePipeline(
+    Diligent::IRenderDevice* renderDevice,
     bool hasDepthTarget,
     Diligent::TEXTURE_FORMAT colorFormat)
 {
-    if (colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
+    if (renderDevice == nullptr || colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
     {
         return nullptr;
     }
 
-    const std::uint64_t key = makePbrPipelineCacheKey(hasDepthTarget, colorFormat);
-    auto cacheIt = mPbrPipelineCache.find(key);
-    if (cacheIt != mPbrPipelineCache.end())
+    const std::uint64_t key = makePipelineCacheKey(hasDepthTarget, colorFormat);
+    auto cacheIt = mPipelineCache.find(key);
+    if (cacheIt != mPipelineCache.end())
     {
         if (cacheIt->second.pipelineState != nullptr && cacheIt->second.shaderResourceBinding != nullptr)
         {
@@ -278,14 +316,14 @@ GraphicsDeviceImpl::PbrPipelineResources* GraphicsDeviceImpl::getOrCreatePbrPipe
         }
     }
 
-    PbrPipelineResources resources{};
-    if (!createPbrPipeline(hasDepthTarget, colorFormat, resources))
+    PipelineResources resources{};
+    if (!createPipeline(renderDevice, hasDepthTarget, colorFormat, resources))
     {
         return nullptr;
     }
 
-    auto insertResult = mPbrPipelineCache.emplace(key, std::move(resources));
+    auto insertResult = mPipelineCache.emplace(key, std::move(resources));
     return &insertResult.first->second;
 }
 
-} // namespace cressim::neo::graphics
+} // namespace cressim::neo::graphics::detail

@@ -1,5 +1,7 @@
 #include "graphics/renderer.h"
+#include "graphics/device/graphics_device_impl.h"
 #include "graphics/math/diligent_math_utils.h"
+#include "graphics/renderer/passes/forward_pipeline.h"
 
 #include <algorithm>
 #include <vector>
@@ -82,9 +84,9 @@ std::vector<ValidRenderable> gatherValidRenderables(const std::vector<Renderable
     return valid;
 }
 
-PbrDirectionalLightData buildMainLight(const std::vector<DirectionalLightData>& lights)
+ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightData>& lights)
 {
-    PbrDirectionalLightData out{};
+    ForwardDirectionalLightData out{};
     if (lights.empty())
     {
         return out;
@@ -105,9 +107,9 @@ bool buildDrawCommand(
     const ValidRenderable& renderable,
     const Diligent::float4x4& viewProjectionMatrix,
     const Diligent::float3& cameraPosition,
-    const PbrDirectionalLightData& light,
+    const ForwardDirectionalLightData& light,
     const RenderResourceManager& resources,
-    PbrDrawCommand& outCommand)
+    ForwardDrawCommand& outCommand)
 {
     if (renderable.instance == nullptr || renderable.mesh == nullptr || renderable.material == nullptr)
     {
@@ -124,6 +126,7 @@ bool buildDrawCommand(
     const Diligent::float4x4 modelMatrix = math::transformMatrix(renderable.instance->worldTransform);
 
     outCommand = {};
+    outCommand.shadingModel = ForwardShadingModel::Pbr;
     outCommand.meshId = renderable.instance->mesh.id;
     outCommand.meshVersion = resources.meshVersion(renderable.instance->mesh);
     outCommand.vertexData = mesh.vertices.data();
@@ -192,8 +195,18 @@ Renderer::Renderer(GraphicsDevice& device, RenderResourceManager& resourceManage
 {
 }
 
+Renderer::~Renderer() = default;
+
 bool Renderer::initialize()
 {
+    GraphicsDeviceImpl& deviceImpl = static_cast<GraphicsDeviceImpl&>(mDevice);
+    mForwardPipeline = std::make_unique<detail::ForwardPipeline>(deviceImpl);
+    if (!mForwardPipeline->initialize())
+    {
+        mForwardPipeline.reset();
+        return false;
+    }
+
     mInitialized = true;
     return mInitialized;
 }
@@ -211,7 +224,7 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
 
     const auto& renderables = world.renderables();
     const auto validRenderables = gatherValidRenderables(renderables, mResourceManager);
-    const PbrDirectionalLightData lightData = buildMainLight(world.directionalLights());
+    const ForwardDirectionalLightData lightData = buildMainLight(world.directionalLights());
 
     stats.renderableCount = static_cast<std::uint32_t>(renderables.size());
     stats.validRenderableCount = static_cast<std::uint32_t>(validRenderables.size());
@@ -253,13 +266,13 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
         mDevice.beginRenderTarget(target, frameContext);
         for (const ValidRenderable& renderable : validRenderables)
         {
-            PbrDrawCommand drawCommand{};
+            ForwardDrawCommand drawCommand{};
             if (!buildDrawCommand(renderable, viewProjectionMatrix, cameraWorldPosition, lightData, mResourceManager, drawCommand))
             {
                 continue;
             }
 
-            if (mDevice.drawPbr(target, drawCommand))
+            if (mForwardPipeline != nullptr && mForwardPipeline->draw(target, drawCommand))
             {
                 ++stats.drawCalls;
             }

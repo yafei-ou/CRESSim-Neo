@@ -92,44 +92,6 @@ struct RenderTargetReadbackEvent
     std::vector<std::uint8_t> colorRgba8{};
 };
 
-struct PbrMaterialData
-{
-    float baseColor[3] = {1.0f, 1.0f, 1.0f};
-    float metallic = 0.0f;
-    float roughness = 0.5f;
-};
-
-struct PbrDirectionalLightData
-{
-    float direction[3] = {0.0f, -1.0f, 0.0f};
-    float intensity = 1.0f;
-    float color[3] = {1.0f, 1.0f, 1.0f};
-    float _padding = 0.0f;
-};
-
-struct PbrDrawCommand
-{
-    // Stable id/version pair used by the backend for mesh buffer caches.
-    common::ResourceId meshId = common::kInvalidResourceId;
-    std::uint64_t meshVersion = 0;
-
-    const void* vertexData = nullptr;
-    std::uint32_t vertexCount = 0;
-    std::uint32_t vertexStrideBytes = 0;
-
-    const std::uint32_t* indexData = nullptr;
-    std::uint32_t indexCount = 0;
-
-    // Row-major 4x4 matrices.
-    float modelMatrix[16] = {0.0f};
-    float viewProjectionMatrix[16] = {0.0f};
-    float cameraPosition[3] = {0.0f, 0.0f, 0.0f};
-    float _padding0 = 0.0f;
-
-    PbrMaterialData material{};
-    PbrDirectionalLightData light{};
-};
-
 class CRESSIM_NEO_GRAPHICS_API GraphicsDevice
 {
 public:
@@ -151,7 +113,6 @@ public:
     // Sets viewport state used for the next beginRenderTarget/endRenderTarget pair on this target.
     virtual void setRenderTargetViewport(RenderTargetHandle target, const RenderViewport& viewport) = 0;
     virtual void beginRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) = 0;
-    virtual bool drawPbr(RenderTargetHandle target, const PbrDrawCommand& drawCommand) = 0;
     virtual void endRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) = 0;
     // Requests a CPU-facing completion event for this target once rendering is done.
     virtual void requestReadback(RenderTargetHandle target) = 0;
