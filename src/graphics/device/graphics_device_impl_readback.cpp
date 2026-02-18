@@ -6,31 +6,45 @@
 namespace cressim::neo::graphics
 {
 
-void GraphicsDeviceImpl::requestReadback(RenderTargetHandle target)
+RenderTargetReadbackRequest GraphicsDeviceImpl::requestRenderTargetReadback(RenderTargetHandle target)
 {
+    RenderTargetReadbackRequest request{};
+
     const auto it = mRenderTargets.find(target.id);
     if (it == mRenderTargets.end())
     {
-        return;
+        return request;
     }
     if (!it->second.desc.cpuReadback)
     {
-        return;
+        return request;
     }
 
-    // Deduplicates repeated requests in the same frame.
-    mPendingReadbacks.insert(target.id);
+    std::uint64_t requestId = mNextReadbackRequestId++;
+    if (requestId == 0)
+    {
+        requestId = mNextReadbackRequestId++;
+    }
+    request.id = requestId;
+    mPendingReadbackRequests[target.id].push_back(requestId);
+    return request;
 }
 
-bool GraphicsDeviceImpl::tryPopReadbackEvent(RenderTargetReadbackEvent& outEvent)
+bool GraphicsDeviceImpl::tryGetRenderTargetReadback(RenderTargetReadbackRequest request, RenderTargetReadbackEvent& outEvent)
 {
-    if (mCompletedReadbacks.empty())
+    if (request.id == 0)
     {
         return false;
     }
 
-    outEvent = mCompletedReadbacks.front();
-    mCompletedReadbacks.pop_front();
+    const auto completedIt = mCompletedReadbacks.find(request.id);
+    if (completedIt == mCompletedReadbacks.end())
+    {
+        return false;
+    }
+
+    outEvent = completedIt->second;
+    mCompletedReadbacks.erase(completedIt);
     return true;
 }
 
@@ -40,9 +54,17 @@ void GraphicsDeviceImpl::endFrame(const common::FrameContext& frameContext)
 
     if (!mInitialized || mBackend != GraphicsBackend::Vulkan || !mImmediateContext)
     {
-        // Requests that did not get rendered this frame are discarded.
-        // TODO: keep/age these requests if later behavior needs cross-frame persistence.
-        mPendingReadbacks.clear();
+        for (const PendingReadbackCopy& copy : mPendingReadbackCopies)
+        {
+            RenderTargetReadbackEvent event{};
+            event.target = copy.target;
+            event.frameIndex = copy.frameIndex;
+            event.colorFormat = copy.colorFormat;
+            for (const std::uint64_t requestId : copy.requestIds)
+            {
+                mCompletedReadbacks[requestId] = event;
+            }
+        }
         mPendingReadbackCopies.clear();
         return;
     }
@@ -79,10 +101,10 @@ void GraphicsDeviceImpl::endFrame(const common::FrameContext& frameContext)
                 event.width = copy.width;
                 event.height = copy.height;
                 event.rowStrideBytes = copy.width * 4u;
-                event.colorRgba8.resize(static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height));
+                event.colorBytes.resize(static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height));
 
                 const auto* srcRows = static_cast<const std::uint8_t*>(mappedData.pData);
-                auto* dstRows = event.colorRgba8.data();
+                auto* dstRows = event.colorBytes.data();
                 for (std::uint32_t y = 0; y < event.height; ++y)
                 {
                     std::memcpy(
@@ -95,16 +117,22 @@ void GraphicsDeviceImpl::endFrame(const common::FrameContext& frameContext)
             }
         }
 
-        mCompletedReadbacks.push_back(std::move(event));
+        for (const std::uint64_t requestId : copy.requestIds)
+        {
+            mCompletedReadbacks[requestId] = event;
+        }
     }
 
-    mPendingReadbacks.clear();
     mPendingReadbackCopies.clear();
 }
 
-bool GraphicsDeviceImpl::queueReadbackCopy(RenderTargetHandle target, std::uint64_t frameIndex)
+bool GraphicsDeviceImpl::queueReadbackCopy(RenderTargetHandle target, std::uint64_t frameIndex, const std::vector<std::uint64_t>& requestIds)
 {
     if (!mRenderDevice || !mImmediateContext || !mReadbackFence || mBackend != GraphicsBackend::Vulkan)
+    {
+        return false;
+    }
+    if (requestIds.empty())
     {
         return false;
     }
@@ -147,6 +175,7 @@ bool GraphicsDeviceImpl::queueReadbackCopy(RenderTargetHandle target, std::uint6
     mImmediateContext->EnqueueSignal(mReadbackFence, fenceValue);
 
     PendingReadbackCopy readbackCopy{};
+    readbackCopy.requestIds = requestIds;
     readbackCopy.target = target;
     readbackCopy.frameIndex = frameIndex;
     readbackCopy.fenceValue = fenceValue;

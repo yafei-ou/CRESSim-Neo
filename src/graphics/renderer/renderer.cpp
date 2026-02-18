@@ -267,12 +267,6 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
 
         mDevice.setRenderTargetViewport(target, normalizeViewport(camera.viewport));
 
-        if (camera.requestReadback)
-        {
-            mDevice.requestReadback(target);
-            ++stats.readbackRequests;
-        }
-
         const Diligent::float4x4 viewProjectionMatrix = buildViewProjection(camera);
         const Diligent::float3 cameraWorldPosition = cameraPosition(camera);
 

@@ -12,6 +12,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -31,6 +32,7 @@ using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::graphics::RenderTargetDesc;
 using cressim::neo::graphics::RenderTargetHandle;
 using cressim::neo::graphics::RenderTargetReadbackEvent;
+using cressim::neo::graphics::RenderTargetReadbackRequest;
 
 struct AppConfig
 {
@@ -337,7 +339,6 @@ int main(int argc, char** argv)
     camera.outputWidth = app.width;
     camera.outputHeight = app.height;
     camera.outputTarget = app.viewerEnabled ? RenderTargetHandle{} : offscreenTarget;
-    camera.requestReadback = app.readbackEnabled && !app.viewerEnabled && hasOffscreenTarget;
     world.setCamera(cameraEntity, camera);
 
     const auto lightEntity = world.createEntity();
@@ -413,6 +414,7 @@ int main(int argc, char** argv)
     float backYawDegrees = -24.0f;
 
     std::uint64_t readbackEvents = 0;
+    std::vector<RenderTargetReadbackRequest> pendingReadbackRequests;
     FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
 
@@ -496,27 +498,41 @@ int main(int argc, char** argv)
             camera.outputTarget = {};
             camera.outputWidth = static_cast<std::uint32_t>(fbWidth);
             camera.outputHeight = static_cast<std::uint32_t>(fbHeight);
-            camera.requestReadback = false;
         }
         else
         {
             camera.outputTarget = hasOffscreenTarget ? offscreenTarget : RenderTargetHandle{};
             camera.outputWidth = app.width;
             camera.outputHeight = app.height;
-            camera.requestReadback = requestReadback && hasOffscreenTarget;
         }
         world.setCamera(cameraEntity, camera);
+
+        if (!renderToWindow && requestReadback && hasOffscreenTarget)
+        {
+            const RenderTargetReadbackRequest request = graphicsDevice->requestRenderTargetReadback(offscreenTarget);
+            if (request.id != 0)
+            {
+                pendingReadbackRequests.push_back(request);
+            }
+        }
 
         frame.frameIndex++;
         runtime.tick(frame);
 
-        RenderTargetReadbackEvent readbackEvent{};
-        while (runtime.tryPopReadbackEvent(readbackEvent))
+        auto requestIt = pendingReadbackRequests.begin();
+        while (requestIt != pendingReadbackRequests.end())
         {
+            RenderTargetReadbackEvent readbackEvent{};
+            if (!graphicsDevice->tryGetRenderTargetReadback(*requestIt, readbackEvent))
+            {
+                ++requestIt;
+                continue;
+            }
             if (readbackEvent.target.id == offscreenTarget.id)
             {
                 ++readbackEvents;
             }
+            requestIt = pendingReadbackRequests.erase(requestIt);
         }
 
         if (showStats && (frame.frameIndex % 120u == 0u))
@@ -525,7 +541,7 @@ int main(int argc, char** argv)
                       << " viewer=" << (renderToWindow ? "on" : "off")
                       << " frontCube=" << (showFrontCube ? "on" : "off")
                       << " animate=" << (animate ? "on" : "off")
-                      << " readback=" << (camera.requestReadback ? "on" : "off")
+                      << " readback=" << ((!renderToWindow && requestReadback && hasOffscreenTarget) ? "on" : "off")
                       << " readbackEvents=" << readbackEvents << '\n';
         }
 

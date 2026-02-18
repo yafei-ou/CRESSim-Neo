@@ -29,6 +29,7 @@ using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::graphics::RenderTargetDesc;
 using cressim::neo::graphics::RenderTargetHandle;
 using cressim::neo::graphics::RenderTargetReadbackEvent;
+using cressim::neo::graphics::RenderTargetReadbackRequest;
 
 GraphicsBackend parseBackend(const std::string& value)
 {
@@ -87,7 +88,7 @@ bool isValidReadback(const RenderTargetReadbackEvent& event)
     {
         return false;
     }
-    if (event.colorRgba8.size() < static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height))
+    if (event.colorBytes.size() < static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height))
     {
         return false;
     }
@@ -112,10 +113,10 @@ bool containsNonClearPixel(const RenderTargetReadbackEvent& event)
         for (std::uint32_t x = 0; x < event.width; ++x)
         {
             const std::size_t offset = static_cast<std::size_t>(y) * event.rowStrideBytes + static_cast<std::size_t>(x) * 4u;
-            const std::uint8_t r = event.colorRgba8[offset + 0u];
-            const std::uint8_t g = event.colorRgba8[offset + 1u];
-            const std::uint8_t b = event.colorRgba8[offset + 2u];
-            const std::uint8_t a = event.colorRgba8[offset + 3u];
+            const std::uint8_t r = event.colorBytes[offset + 0u];
+            const std::uint8_t g = event.colorBytes[offset + 1u];
+            const std::uint8_t b = event.colorBytes[offset + 2u];
+            const std::uint8_t a = event.colorBytes[offset + 3u];
 
             const bool nearClear =
                 isNear(r, kClearR, kTolerance) &&
@@ -145,10 +146,10 @@ std::array<std::uint8_t, 4> readCenterPixel(const RenderTargetReadbackEvent& eve
     const std::uint32_t y = event.height / 2u;
     const std::size_t offset = static_cast<std::size_t>(y) * event.rowStrideBytes + static_cast<std::size_t>(x) * 4u;
 
-    pixel[0] = event.colorRgba8[offset + 0u];
-    pixel[1] = event.colorRgba8[offset + 1u];
-    pixel[2] = event.colorRgba8[offset + 2u];
-    pixel[3] = event.colorRgba8[offset + 3u];
+    pixel[0] = event.colorBytes[offset + 0u];
+    pixel[1] = event.colorBytes[offset + 1u];
+    pixel[2] = event.colorBytes[offset + 2u];
+    pixel[3] = event.colorBytes[offset + 3u];
     return pixel;
 }
 
@@ -197,10 +198,10 @@ DominantPixelStats analyzeDominantPixels(const RenderTargetReadbackEvent& event)
         {
             const std::size_t offset = static_cast<std::size_t>(y) * event.rowStrideBytes + static_cast<std::size_t>(x) * 4u;
             const std::array<std::uint8_t, 4> pixel{
-                event.colorRgba8[offset + 0u],
-                event.colorRgba8[offset + 1u],
-                event.colorRgba8[offset + 2u],
-                event.colorRgba8[offset + 3u]};
+                event.colorBytes[offset + 0u],
+                event.colorBytes[offset + 1u],
+                event.colorBytes[offset + 2u],
+                event.colorBytes[offset + 3u]};
 
             const bool nearClear =
                 isNear(pixel[0], kClearR, kTolerance) &&
@@ -258,7 +259,7 @@ bool writePpm(const std::string& path, const RenderTargetReadbackEvent& event)
     std::vector<std::uint8_t> rgbRow(static_cast<std::size_t>(event.width) * 3u);
     for (std::uint32_t y = 0; y < event.height; ++y)
     {
-        const std::uint8_t* src = event.colorRgba8.data() + static_cast<std::size_t>(y) * event.rowStrideBytes;
+        const std::uint8_t* src = event.colorBytes.data() + static_cast<std::size_t>(y) * event.rowStrideBytes;
         for (std::uint32_t x = 0; x < event.width; ++x)
         {
             rgbRow[static_cast<std::size_t>(x) * 3u + 0u] = src[static_cast<std::size_t>(x) * 4u + 0u];
@@ -419,7 +420,6 @@ int main(int argc, char** argv)
     camera.outputWidth = targetDesc.width;
     camera.outputHeight = targetDesc.height;
     camera.viewport = {0.0f, 0.0f, 1.0f, 1.0f};
-    camera.requestReadback = true;
     world.setCamera(cameraEntity, camera);
 
     const auto lightEntity = world.createEntity();
@@ -473,12 +473,19 @@ int main(int argc, char** argv)
 
     FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
+    std::vector<RenderTargetReadbackRequest> readbackRequests;
     for (std::uint64_t i = 0; i < numFrames; ++i)
     {
         if (i == 1)
         {
             frontCube.visible = true;
             world.setMeshRenderer(frontCubeEntity, frontCube);
+        }
+
+        const RenderTargetReadbackRequest request = graphicsDevice->requestRenderTargetReadback(target);
+        if (request.id != 0)
+        {
+            readbackRequests.push_back(request);
         }
 
         frame.frameIndex = i;
@@ -490,10 +497,14 @@ int main(int argc, char** argv)
     RenderTargetReadbackEvent layeredCapture{};
     bool hasBackOnlyPayload = false;
     bool hasLayeredPayload = false;
-    RenderTargetReadbackEvent event{};
-    while (runtime.tryPopReadbackEvent(event))
+    for (const RenderTargetReadbackRequest request : readbackRequests)
     {
-        if (event.target.id == target.id && !event.colorRgba8.empty() && isValidReadback(event))
+        RenderTargetReadbackEvent event{};
+        if (!graphicsDevice->tryGetRenderTargetReadback(request, event))
+        {
+            continue;
+        }
+        if (event.target.id == target.id && !event.colorBytes.empty() && isValidReadback(event))
         {
             if (!hasBackOnlyPayload || event.frameIndex < backOnlyCapture.frameIndex)
             {

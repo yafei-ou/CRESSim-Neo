@@ -85,13 +85,22 @@ const graphics::GraphicsDevice* Runtime::getGraphicsDevice() const noexcept
     return mGraphicsDevice.get();
 }
 
-bool Runtime::tryPopReadbackEvent(graphics::RenderTargetReadbackEvent& outEvent)
+graphics::RenderTargetReadbackRequest Runtime::requestRenderTargetReadback(graphics::RenderTargetHandle target)
+{
+    if (!mGraphicsDevice)
+    {
+        return {};
+    }
+    return mGraphicsDevice->requestRenderTargetReadback(target);
+}
+
+bool Runtime::tryGetRenderTargetReadback(graphics::RenderTargetReadbackRequest request, graphics::RenderTargetReadbackEvent& outEvent)
 {
     if (!mGraphicsDevice)
     {
         return false;
     }
-    return mGraphicsDevice->tryPopReadbackEvent(outEvent);
+    return mGraphicsDevice->tryGetRenderTargetReadback(request, outEvent);
 }
 
 graphics::Scene& Runtime::getScene() noexcept

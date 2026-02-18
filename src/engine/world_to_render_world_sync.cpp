@@ -39,7 +39,6 @@ void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWor
             cameraData.outputHeight = camera->outputHeight;
             cameraData.viewport = camera->viewport;
             cameraData.renderOrder = camera->renderOrder;
-            cameraData.requestReadback = camera->requestReadback;
             renderWorld.upsertCamera(cameraData);
         }
 

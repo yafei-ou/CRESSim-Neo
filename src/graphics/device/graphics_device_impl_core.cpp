@@ -127,12 +127,13 @@ void GraphicsDeviceImpl::shutdown()
     mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
     mActiveRenderTarget = {};
     mReadbackFence = nullptr;
+    mNextReadbackRequestId = 1;
     mNextReadbackFenceValue = 1;
     mImmediateContext = nullptr;
     mRenderDevice = nullptr;
 
     mRenderTargets.clear();
-    mPendingReadbacks.clear();
+    mPendingReadbackRequests.clear();
     mPendingReadbackCopies.clear();
     mCompletedReadbacks.clear();
     mDefaultRenderTarget = {};
@@ -262,18 +263,45 @@ void GraphicsDeviceImpl::destroyRenderTarget(RenderTargetHandle target)
         mActiveRenderTarget = {};
     }
 
-    mPendingReadbacks.erase(target.id);
-    mCompletedReadbacks.erase(
-        std::remove_if(
-            mCompletedReadbacks.begin(),
-            mCompletedReadbacks.end(),
-            [&](const RenderTargetReadbackEvent& event) { return event.target.id == target.id; }),
-        mCompletedReadbacks.end());
+    RenderTargetColorFormat targetColorFormat = RenderTargetColorFormat::Rgba8Unorm;
+    const auto targetIt = mRenderTargets.find(target.id);
+    if (targetIt != mRenderTargets.end())
+    {
+        targetColorFormat = targetIt->second.desc.colorFormat;
+    }
+
+    auto completeRequestWithEmptyResult = [&](std::uint64_t requestId) {
+        RenderTargetReadbackEvent event{};
+        event.target = target;
+        event.colorFormat = targetColorFormat;
+        mCompletedReadbacks[requestId] = std::move(event);
+    };
+
+    const auto pendingRequestsIt = mPendingReadbackRequests.find(target.id);
+    if (pendingRequestsIt != mPendingReadbackRequests.end())
+    {
+        for (const std::uint64_t requestId : pendingRequestsIt->second)
+        {
+            completeRequestWithEmptyResult(requestId);
+        }
+        mPendingReadbackRequests.erase(pendingRequestsIt);
+    }
+
     mPendingReadbackCopies.erase(
         std::remove_if(
             mPendingReadbackCopies.begin(),
             mPendingReadbackCopies.end(),
-            [&](const PendingReadbackCopy& copy) { return copy.target.id == target.id; }),
+            [&](const PendingReadbackCopy& copy) {
+                if (copy.target.id != target.id)
+                {
+                    return false;
+                }
+                for (const std::uint64_t requestId : copy.requestIds)
+                {
+                    completeRequestWithEmptyResult(requestId);
+                }
+                return true;
+            }),
         mPendingReadbackCopies.end());
     mRenderTargets.erase(target.id);
 }
@@ -394,15 +422,16 @@ void GraphicsDeviceImpl::endRenderTarget(RenderTargetHandle target, const common
         mImmediateContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
     }
 
-    const auto pendingReadbackIt = mPendingReadbacks.find(target.id);
-    if (pendingReadbackIt == mPendingReadbacks.end())
+    const auto pendingRequestsIt = mPendingReadbackRequests.find(target.id);
+    if (pendingRequestsIt == mPendingReadbackRequests.end() || pendingRequestsIt->second.empty())
     {
         return;
     }
 
-    mPendingReadbacks.erase(pendingReadbackIt);
+    const std::vector<std::uint64_t> requestIds = pendingRequestsIt->second;
+    mPendingReadbackRequests.erase(pendingRequestsIt);
 
-    if (queueReadbackCopy(target, frameContext.frameIndex))
+    if (queueReadbackCopy(target, frameContext.frameIndex, requestIds))
     {
         return;
     }
@@ -416,7 +445,10 @@ void GraphicsDeviceImpl::endRenderTarget(RenderTargetHandle target, const common
     {
         event.colorFormat = targetIt->second.desc.colorFormat;
     }
-    mCompletedReadbacks.push_back(std::move(event));
+    for (const std::uint64_t requestId : requestIds)
+    {
+        mCompletedReadbacks[requestId] = event;
+    }
 }
 
 GraphicsBackend GraphicsDeviceImpl::backend() const

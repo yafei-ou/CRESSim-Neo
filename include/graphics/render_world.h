@@ -37,7 +37,6 @@ struct CameraData
     RenderViewport viewport{};
 
     std::uint32_t renderOrder = 0;
-    bool requestReadback = false;
 };
 
 struct DirectionalLightData

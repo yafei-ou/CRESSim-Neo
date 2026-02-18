@@ -36,8 +36,6 @@ struct CameraComponent
 
     // Cameras are rendered in ascending order.
     std::uint32_t renderOrder = 0;
-    // Emits completion metadata through Runtime::tryPopReadbackEvent().
-    bool requestReadback = false;
 };
 
 struct DirectionalLightComponent

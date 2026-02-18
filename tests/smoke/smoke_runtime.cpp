@@ -7,6 +7,7 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -23,6 +24,7 @@ using cressim::neo::graphics::GraphicsDevice;
 using cressim::neo::graphics::RenderTargetDesc;
 using cressim::neo::graphics::RenderTargetHandle;
 using cressim::neo::graphics::RenderTargetReadbackEvent;
+using cressim::neo::graphics::RenderTargetReadbackRequest;
 
 GraphicsBackend parseBackend(const std::string& value)
 {
@@ -54,7 +56,7 @@ bool containsNonClearPixel(const RenderTargetReadbackEvent& event)
     {
         return false;
     }
-    if (event.colorRgba8.size() < static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height))
+    if (event.colorBytes.size() < static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height))
     {
         return false;
     }
@@ -70,10 +72,10 @@ bool containsNonClearPixel(const RenderTargetReadbackEvent& event)
         for (std::uint32_t x = 0; x < event.width; ++x)
         {
             const std::size_t offset = static_cast<std::size_t>(y) * event.rowStrideBytes + static_cast<std::size_t>(x) * 4u;
-            const std::uint8_t r = event.colorRgba8[offset + 0u];
-            const std::uint8_t g = event.colorRgba8[offset + 1u];
-            const std::uint8_t b = event.colorRgba8[offset + 2u];
-            const std::uint8_t a = event.colorRgba8[offset + 3u];
+            const std::uint8_t r = event.colorBytes[offset + 0u];
+            const std::uint8_t g = event.colorBytes[offset + 1u];
+            const std::uint8_t b = event.colorBytes[offset + 2u];
+            const std::uint8_t a = event.colorBytes[offset + 3u];
 
             const bool nearClear =
                 isNear(r, kClearR, kTolerance) &&
@@ -192,7 +194,6 @@ int main(int argc, char** argv)
         secondaryCamera.outputHeight = 600;
         secondaryCamera.viewport = {0.0f, 0.0f, 1.0f, 1.0f};
         secondaryCamera.renderOrder = 1;
-        secondaryCamera.requestReadback = true;
 
         world.setTransform(secondaryCameraEntity, secondaryCameraTransform);
         world.setCamera(secondaryCameraEntity, secondaryCamera);
@@ -228,9 +229,18 @@ int main(int argc, char** argv)
 
     FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
+    std::vector<RenderTargetReadbackRequest> readbackRequests;
 
     for (std::uint64_t i = 0; i < numFrames; ++i)
     {
+        if (graphicsDevice != nullptr && graphicsDevice->isValidRenderTarget(secondaryTarget))
+        {
+            const RenderTargetReadbackRequest request = graphicsDevice->requestRenderTargetReadback(secondaryTarget);
+            if (request.id != 0)
+            {
+                readbackRequests.push_back(request);
+            }
+        }
         frame.frameIndex = i;
         frame.timeSeconds = static_cast<double>(i) * static_cast<double>(frame.deltaSeconds);
         runtime.tick(frame);
@@ -241,11 +251,15 @@ int main(int argc, char** argv)
     bool foundNonClearPixel = false;
     if (graphicsDevice != nullptr)
     {
-        RenderTargetReadbackEvent event{};
-        while (runtime.tryPopReadbackEvent(event))
+        for (const RenderTargetReadbackRequest request : readbackRequests)
         {
+            RenderTargetReadbackEvent event{};
+            if (!graphicsDevice->tryGetRenderTargetReadback(request, event))
+            {
+                continue;
+            }
             ++readbackEvents;
-            if (!event.colorRgba8.empty())
+            if (!event.colorBytes.empty())
             {
                 ++payloadEvents;
                 foundNonClearPixel = foundNonClearPixel || containsNonClearPixel(event);

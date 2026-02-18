@@ -83,7 +83,13 @@ struct RenderTargetReadbackEvent
     std::uint32_t width = 0;
     std::uint32_t height = 0;
     std::uint32_t rowStrideBytes = 0;
-    std::vector<std::uint8_t> colorRgba8{};
+    std::vector<std::uint8_t> colorBytes{};
+};
+
+struct RenderTargetReadbackRequest
+{
+    // Opaque per-device handle for a queued readback request.
+    std::uint64_t id = 0;
 };
 
 class CRESSIM_NEO_GRAPHICS_API GraphicsDevice
@@ -110,10 +116,10 @@ public:
     virtual void setRenderTargetViewport(RenderTargetHandle target, const RenderViewport& viewport) = 0;
     virtual void beginRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) = 0;
     virtual void endRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) = 0;
-    // Requests a CPU-facing completion event for this target once rendering is done.
-    virtual void requestReadback(RenderTargetHandle target) = 0;
-    // Pops readback completion metadata and optional color payload.
-    virtual bool tryPopReadbackEvent(RenderTargetReadbackEvent& outEvent) = 0;
+    // Queues a target readback request that completes after a subsequent render pass of that target.
+    virtual RenderTargetReadbackRequest requestRenderTargetReadback(RenderTargetHandle target) = 0;
+    // Polls completion for a specific request id, returning payload when available.
+    virtual bool tryGetRenderTargetReadback(RenderTargetReadbackRequest request, RenderTargetReadbackEvent& outEvent) = 0;
     virtual void endFrame(const common::FrameContext& frameContext) = 0;
 
     virtual GraphicsBackend backend() const = 0;

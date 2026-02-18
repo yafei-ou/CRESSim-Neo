@@ -10,9 +10,7 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Texture.h"
 
 #include <cstdint>
-#include <deque>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace cressim::neo::graphics
@@ -46,8 +44,8 @@ public:
     void setRenderTargetViewport(RenderTargetHandle target, const RenderViewport& viewport) override;
     void beginRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) override;
     void endRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) override;
-    void requestReadback(RenderTargetHandle target) override;
-    bool tryPopReadbackEvent(RenderTargetReadbackEvent& outEvent) override;
+    RenderTargetReadbackRequest requestRenderTargetReadback(RenderTargetHandle target) override;
+    bool tryGetRenderTargetReadback(RenderTargetReadbackRequest request, RenderTargetReadbackEvent& outEvent) override;
     void endFrame(const common::FrameContext& frameContext) override;
 
     GraphicsBackend backend() const override;
@@ -69,6 +67,7 @@ private:
 
     struct PendingReadbackCopy
     {
+        std::vector<std::uint64_t> requestIds{};
         RenderTargetHandle target{};
         std::uint64_t frameIndex = 0;
         std::uint64_t fenceValue = 0;
@@ -84,7 +83,7 @@ private:
     RenderTargetDesc normalizeTargetDesc(const RenderTargetDesc& desc) const;
     bool createRenderTargetTextures(const RenderTargetDesc& desc, RenderTargetResources& resources);
 
-    bool queueReadbackCopy(RenderTargetHandle target, std::uint64_t frameIndex);
+    bool queueReadbackCopy(RenderTargetHandle target, std::uint64_t frameIndex, const std::vector<std::uint64_t>& requestIds);
 
 private:
     GraphicsDeviceDesc mDesc{};
@@ -94,16 +93,17 @@ private:
     bool mActiveRenderTargetHasDepth = false;
     Diligent::TEXTURE_FORMAT mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
     common::ResourceId mNextRenderTargetId = 1;
+    std::uint64_t mNextReadbackRequestId = 1;
     RenderTargetHandle mDefaultRenderTarget{};
     RenderTargetHandle mActiveRenderTarget{};
 
     std::unordered_map<common::ResourceId, RenderTargetResources> mRenderTargets;
-    // Targets that requested readback and are waiting for endRenderTarget().
-    std::unordered_set<common::ResourceId> mPendingReadbacks;
+    // Per-target readback request ids waiting for the next completed render pass of that target.
+    std::unordered_map<common::ResourceId, std::vector<std::uint64_t>> mPendingReadbackRequests;
     // GPU->CPU copy jobs collected during render target completion and consumed in endFrame().
     std::vector<PendingReadbackCopy> mPendingReadbackCopies;
-    // FIFO completion metadata consumed through tryPopReadbackEvent().
-    std::deque<RenderTargetReadbackEvent> mCompletedReadbacks;
+    // Completed results consumed through tryGetRenderTargetReadback().
+    std::unordered_map<std::uint64_t, RenderTargetReadbackEvent> mCompletedReadbacks;
 
     Diligent::RefCntAutoPtr<Diligent::IFence> mReadbackFence;
     std::uint64_t mNextReadbackFenceValue = 1;
