@@ -1,8 +1,10 @@
 #include "graphics/device/diligent_graphics_device.h"
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
+#include "DiligentEngine/DiligentCore/Platforms/interface/NativeWindow.h"
 
 #include <algorithm>
+#include <limits>
 #include <utility>
 
 namespace cressim::neo::graphics
@@ -14,6 +16,12 @@ namespace
 std::uint32_t clampExtent(std::uint32_t value)
 {
     return std::max<std::uint32_t>(value, 1u);
+}
+
+Diligent::Uint32 clampWindowId(std::uint64_t value)
+{
+    constexpr std::uint64_t kMax = static_cast<std::uint64_t>(std::numeric_limits<Diligent::Uint32>::max());
+    return static_cast<Diligent::Uint32>(std::min<std::uint64_t>(value, kMax));
 }
 
 float clampNormalized(float value)
@@ -85,6 +93,12 @@ bool DiligentGraphicsDevice::initialize(const GraphicsDeviceDesc& desc)
         return false;
     }
 
+    if (!createDebugViewerSwapChain())
+    {
+        shutdown();
+        return false;
+    }
+
     mInitialized = true;
     if (!createDefaultRenderTarget())
     {
@@ -99,15 +113,16 @@ void DiligentGraphicsDevice::shutdown()
 {
     mHasActiveRenderTarget = false;
     mActiveRenderTargetHasDepth = false;
+    mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
     mActiveRenderTarget = {};
     mCachedMeshes.clear();
-    mPbrPipelineWithDepth = {};
-    mPbrPipelineNoDepth = {};
+    mPbrPipelineCache.clear();
     mPbrConstantBuffer = nullptr;
     mReadbackFence = nullptr;
     mNextReadbackFenceValue = 1;
     mImmediateContext = nullptr;
     mRenderDevice = nullptr;
+    mSwapChain = nullptr;
 
     mRenderTargets.clear();
     mPendingReadbacks.clear();
@@ -183,7 +198,16 @@ bool DiligentGraphicsDevice::resizeRenderTarget(RenderTargetHandle target, std::
     resizedDesc.width = clampExtent(width == 0 ? resizedDesc.width : width);
     resizedDesc.height = clampExtent(height == 0 ? resizedDesc.height : height);
 
-    if (mBackend == GraphicsBackend::Vulkan)
+    const bool isSwapChainDefaultTarget = (target.id == mDefaultRenderTarget.id && mSwapChain != nullptr);
+    if (isSwapChainDefaultTarget)
+    {
+        mSwapChain->Resize(resizedDesc.width, resizedDesc.height, Diligent::SURFACE_TRANSFORM_OPTIMAL);
+        const auto& swapChainDesc = mSwapChain->GetDesc();
+        resizedDesc.width = clampExtent(swapChainDesc.Width);
+        resizedDesc.height = clampExtent(swapChainDesc.Height);
+    }
+
+    if (mBackend == GraphicsBackend::Vulkan && !isSwapChainDefaultTarget)
     {
         RenderTargetResources resizedResources{};
         resizedResources.desc = resizedDesc;
@@ -269,6 +293,7 @@ void DiligentGraphicsDevice::setRenderTargetViewport(RenderTargetHandle target, 
 void DiligentGraphicsDevice::beginRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext)
 {
     (void)frameContext;
+    mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
 
     if (!mInitialized || mBackend != GraphicsBackend::Vulkan || !mImmediateContext)
     {
@@ -283,11 +308,26 @@ void DiligentGraphicsDevice::beginRenderTarget(RenderTargetHandle target, const 
 
     Diligent::ITextureView* colorRtv = nullptr;
     Diligent::ITextureView* depthDsv = nullptr;
-    if (it->second.colorTexture != nullptr)
+    const bool isSwapChainDefaultTarget = (target.id == mDefaultRenderTarget.id && mSwapChain != nullptr);
+    if (isSwapChainDefaultTarget)
+    {
+        colorRtv = mSwapChain->GetCurrentBackBufferRTV();
+        depthDsv = mSwapChain->GetDepthBufferDSV();
+        const auto& swapChainDesc = mSwapChain->GetDesc();
+        it->second.desc.width = clampExtent(swapChainDesc.Width);
+        it->second.desc.height = clampExtent(swapChainDesc.Height);
+        mActiveRenderTargetColorFormat = swapChainDesc.ColorBufferFormat;
+    }
+    else if (it->second.colorTexture != nullptr)
     {
         colorRtv = it->second.colorTexture->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+        mActiveRenderTargetColorFormat = it->second.colorTexture->GetDesc().Format;
     }
-    if (it->second.depthTexture != nullptr)
+    else
+    {
+        mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
+    }
+    if (!isSwapChainDefaultTarget && it->second.depthTexture != nullptr)
     {
         depthDsv = it->second.depthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL);
     }
@@ -337,6 +377,7 @@ void DiligentGraphicsDevice::endRenderTarget(RenderTargetHandle target, const co
     {
         mHasActiveRenderTarget = false;
         mActiveRenderTargetHasDepth = false;
+        mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
         mActiveRenderTarget = {};
     }
 
@@ -399,8 +440,93 @@ bool DiligentGraphicsDevice::initializeVulkan()
     return true;
 }
 
+bool DiligentGraphicsDevice::createDebugViewerSwapChain()
+{
+    mSwapChain = nullptr;
+    if (!mDesc.debugViewer.enabled)
+    {
+        return true;
+    }
+    if (mBackend != GraphicsBackend::Vulkan || mRenderDevice == nullptr || mImmediateContext == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::IEngineFactoryVk* factoryVk = Diligent::LoadAndGetEngineFactoryVk();
+    if (factoryVk == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::NativeWindow window{};
+#if PLATFORM_WIN32
+    if (mDesc.debugViewer.nativeWindow == nullptr)
+    {
+        return false;
+    }
+    window.hWnd = mDesc.debugViewer.nativeWindow;
+#elif PLATFORM_LINUX
+    if (mDesc.debugViewer.nativeWindowId == 0)
+    {
+        return false;
+    }
+    window.WindowId = clampWindowId(mDesc.debugViewer.nativeWindowId);
+    if (mDesc.debugViewer.nativeConnection != nullptr)
+    {
+        window.pXCBConnection = mDesc.debugViewer.nativeConnection;
+    }
+    else if (mDesc.debugViewer.nativeDisplay != nullptr)
+    {
+        window.pDisplay = mDesc.debugViewer.nativeDisplay;
+    }
+    else
+    {
+        return false;
+    }
+#elif PLATFORM_MACOS
+    if (mDesc.debugViewer.nativeWindow == nullptr)
+    {
+        return false;
+    }
+    window.pNSView = mDesc.debugViewer.nativeWindow;
+#else
+    return false;
+#endif
+
+    Diligent::SwapChainDesc swapChainDesc{};
+    swapChainDesc.Width = mDesc.initialWidth;
+    swapChainDesc.Height = mDesc.initialHeight;
+    factoryVk->CreateSwapChainVk(mRenderDevice, mImmediateContext, swapChainDesc, window, &mSwapChain);
+    if (mSwapChain == nullptr)
+    {
+        return false;
+    }
+
+    const auto& activeDesc = mSwapChain->GetDesc();
+    mDesc.initialWidth = clampExtent(activeDesc.Width);
+    mDesc.initialHeight = clampExtent(activeDesc.Height);
+    return true;
+}
+
 bool DiligentGraphicsDevice::createDefaultRenderTarget()
 {
+    if (mSwapChain != nullptr)
+    {
+        const common::ResourceId id = mNextRenderTargetId++;
+        RenderTargetResources resources{};
+        resources.viewport = normalizeViewport(RenderViewport{});
+        resources.desc.width = mDesc.initialWidth;
+        resources.desc.height = mDesc.initialHeight;
+        resources.desc.color = true;
+        resources.desc.depth = true;
+        resources.desc.shaderReadable = false;
+        resources.desc.cpuReadback = false;
+        resources.desc.debugName = "CRESSimNeo.DebugViewer.Default";
+        mRenderTargets.emplace(id, std::move(resources));
+        mDefaultRenderTarget = RenderTargetHandle{id};
+        return true;
+    }
+
     RenderTargetDesc defaultDesc{};
     defaultDesc.width = mDesc.initialWidth;
     defaultDesc.height = mDesc.initialHeight;

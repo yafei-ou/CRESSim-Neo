@@ -24,6 +24,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/generated)
 
 option(ENGINE_STATIC "Build the engine as a static library"  ON)
 option(CRESSIM_NEO_ENABLE_CLANG_TIDY "Enable clang-tidy checks during build" OFF)
+option(CRESSIM_NEO_BUILD_DEBUG_VIEWER "Build interactive debug viewer app" OFF)
 
 if(CRESSIM_NEO_ENABLE_CLANG_TIDY)
     find_program(CRESSIM_NEO_CLANG_TIDY_EXE NAMES clang-tidy)

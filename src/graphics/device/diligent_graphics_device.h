@@ -9,6 +9,7 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Fence.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Texture.h"
 
 #include <cstdint>
@@ -89,14 +90,15 @@ private:
     };
 
     bool initializeVulkan();
+    bool createDebugViewerSwapChain();
     bool createDefaultRenderTarget();
     RenderTargetDesc normalizeTargetDesc(const RenderTargetDesc& desc) const;
     bool createRenderTargetTextures(const RenderTargetDesc& desc, RenderTargetResources& resources);
 
     CachedMeshGpuData* getOrCreateMeshBuffers(const PbrDrawCommand& drawCommand);
 
-    bool createPbrPipeline(bool hasDepthTarget, PbrPipelineResources& outResources);
-    PbrPipelineResources* getOrCreatePbrPipeline(bool hasDepthTarget);
+    bool createPbrPipeline(bool hasDepthTarget, Diligent::TEXTURE_FORMAT colorFormat, PbrPipelineResources& outResources);
+    PbrPipelineResources* getOrCreatePbrPipeline(bool hasDepthTarget, Diligent::TEXTURE_FORMAT colorFormat);
 
     bool queueReadbackCopy(RenderTargetHandle target, std::uint64_t frameIndex);
 
@@ -109,6 +111,7 @@ private:
     bool mInitialized = false;
     bool mHasActiveRenderTarget = false;
     bool mActiveRenderTargetHasDepth = false;
+    Diligent::TEXTURE_FORMAT mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
     bool mShaderDirectoryResolved = false;
     common::ResourceId mNextRenderTargetId = 1;
     RenderTargetHandle mDefaultRenderTarget{};
@@ -123,14 +126,14 @@ private:
     // FIFO completion metadata consumed through tryPopReadbackEvent().
     std::deque<RenderTargetReadbackEvent> mCompletedReadbacks;
 
-    PbrPipelineResources mPbrPipelineWithDepth{};
-    PbrPipelineResources mPbrPipelineNoDepth{};
+    std::unordered_map<std::uint64_t, PbrPipelineResources> mPbrPipelineCache;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPbrConstantBuffer;
     Diligent::RefCntAutoPtr<Diligent::IFence> mReadbackFence;
     std::uint64_t mNextReadbackFenceValue = 1;
 
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> mRenderDevice;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mImmediateContext;
+    Diligent::RefCntAutoPtr<Diligent::ISwapChain> mSwapChain;
 
     std::string mResolvedShaderDirectory;
     std::unordered_map<std::string, std::string> mShaderSourceCache;

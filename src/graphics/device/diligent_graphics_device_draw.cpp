@@ -7,6 +7,18 @@
 namespace cressim::neo::graphics
 {
 
+namespace
+{
+
+std::uint64_t makePbrPipelineCacheKey(bool hasDepthTarget, Diligent::TEXTURE_FORMAT colorFormat)
+{
+    const std::uint64_t depthBit = hasDepthTarget ? (1ull << 32ull) : 0ull;
+    const std::uint64_t colorBits = static_cast<std::uint64_t>(static_cast<std::uint32_t>(colorFormat));
+    return depthBit | colorBits;
+}
+
+} // namespace
+
 bool DiligentGraphicsDevice::drawPbr(RenderTargetHandle target, const PbrDrawCommand& drawCommand)
 {
     if (!mInitialized || mBackend != GraphicsBackend::Vulkan || !mImmediateContext || !mRenderDevice)
@@ -32,7 +44,7 @@ bool DiligentGraphicsDevice::drawPbr(RenderTargetHandle target, const PbrDrawCom
         return false;
     }
 
-    PbrPipelineResources* pipeline = getOrCreatePbrPipeline(mActiveRenderTargetHasDepth);
+    PbrPipelineResources* pipeline = getOrCreatePbrPipeline(mActiveRenderTargetHasDepth, mActiveRenderTargetColorFormat);
     if (pipeline == nullptr || pipeline->pipelineState == nullptr || pipeline->shaderResourceBinding == nullptr || mPbrConstantBuffer == nullptr)
     {
         return false;
@@ -138,9 +150,16 @@ DiligentGraphicsDevice::CachedMeshGpuData* DiligentGraphicsDevice::getOrCreateMe
     return &mesh;
 }
 
-bool DiligentGraphicsDevice::createPbrPipeline(bool hasDepthTarget, PbrPipelineResources& outResources)
+bool DiligentGraphicsDevice::createPbrPipeline(
+    bool hasDepthTarget,
+    Diligent::TEXTURE_FORMAT colorFormat,
+    PbrPipelineResources& outResources)
 {
     if (!mRenderDevice)
+    {
+        return false;
+    }
+    if (colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
     {
         return false;
     }
@@ -187,7 +206,7 @@ bool DiligentGraphicsDevice::createPbrPipeline(bool hasDepthTarget, PbrPipelineR
     psoCreateInfo.PSODesc.Name = hasDepthTarget ? "CRESSimNeo.Pbr.PSO.Depth" : "CRESSimNeo.Pbr.PSO.NoDepth";
     psoCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
     psoCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
-    psoCreateInfo.GraphicsPipeline.RTVFormats[0] = Diligent::TEX_FORMAT_RGBA8_UNORM;
+    psoCreateInfo.GraphicsPipeline.RTVFormats[0] = colorFormat;
     psoCreateInfo.GraphicsPipeline.DSVFormat = hasDepthTarget ? Diligent::TEX_FORMAT_D32_FLOAT : Diligent::TEX_FORMAT_UNKNOWN;
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_BACK;
@@ -240,20 +259,33 @@ bool DiligentGraphicsDevice::createPbrPipeline(bool hasDepthTarget, PbrPipelineR
     return outResources.shaderResourceBinding != nullptr;
 }
 
-DiligentGraphicsDevice::PbrPipelineResources* DiligentGraphicsDevice::getOrCreatePbrPipeline(bool hasDepthTarget)
+DiligentGraphicsDevice::PbrPipelineResources* DiligentGraphicsDevice::getOrCreatePbrPipeline(
+    bool hasDepthTarget,
+    Diligent::TEXTURE_FORMAT colorFormat)
 {
-    PbrPipelineResources& resources = hasDepthTarget ? mPbrPipelineWithDepth : mPbrPipelineNoDepth;
-    if (resources.pipelineState != nullptr && resources.shaderResourceBinding != nullptr)
-    {
-        return &resources;
-    }
-
-    if (!createPbrPipeline(hasDepthTarget, resources))
+    if (colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
     {
         return nullptr;
     }
 
-    return &resources;
+    const std::uint64_t key = makePbrPipelineCacheKey(hasDepthTarget, colorFormat);
+    auto cacheIt = mPbrPipelineCache.find(key);
+    if (cacheIt != mPbrPipelineCache.end())
+    {
+        if (cacheIt->second.pipelineState != nullptr && cacheIt->second.shaderResourceBinding != nullptr)
+        {
+            return &cacheIt->second;
+        }
+    }
+
+    PbrPipelineResources resources{};
+    if (!createPbrPipeline(hasDepthTarget, colorFormat, resources))
+    {
+        return nullptr;
+    }
+
+    auto insertResult = mPbrPipelineCache.emplace(key, std::move(resources));
+    return &insertResult.first->second;
 }
 
 } // namespace cressim::neo::graphics
