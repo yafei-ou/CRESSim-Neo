@@ -7,6 +7,8 @@
 #include "graphics/export.h"
 #include "graphics/render_resource_manager.h"
 
+#include <cstddef>
+#include <unordered_map>
 #include <vector>
 
 namespace cressim::neo::graphics
@@ -63,6 +65,10 @@ private:
     std::vector<RenderableInstance> mRenderables;
     std::vector<CameraData> mCameras;
     std::vector<DirectionalLightData> mDirectionalLights;
+
+    std::unordered_map<common::EntityId, std::size_t> mRenderableIndices;
+    std::unordered_map<common::EntityId, std::size_t> mCameraIndices;
+    std::unordered_map<common::EntityId, std::size_t> mDirectionalLightIndices;
 };
 
 } // namespace cressim::neo::graphics

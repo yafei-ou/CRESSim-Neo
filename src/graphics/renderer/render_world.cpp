@@ -1,7 +1,5 @@
 #include "graphics/render_world.h"
 
-#include <algorithm>
-
 namespace cressim::neo::graphics
 {
 
@@ -9,19 +7,21 @@ namespace
 {
 
 template <typename T>
-void upsertByEntityId(std::vector<T>& entries, const T& value)
+void upsertByEntityId(
+    std::vector<T>& entries,
+    std::unordered_map<common::EntityId, std::size_t>& indices,
+    const T& value)
 {
-    const auto it = std::find_if(entries.begin(), entries.end(), [&](const T& entry) {
-        return entry.entityId == value.entityId;
-    });
-
-    if (it == entries.end())
+    const auto indexIt = indices.find(value.entityId);
+    if (indexIt == indices.end())
     {
+        const std::size_t newIndex = entries.size();
         entries.push_back(value);
+        indices.emplace(value.entityId, newIndex);
         return;
     }
 
-    *it = value;
+    entries[indexIt->second] = value;
 }
 
 } // namespace
@@ -31,21 +31,25 @@ void RenderWorld::clear()
     mRenderables.clear();
     mCameras.clear();
     mDirectionalLights.clear();
+
+    mRenderableIndices.clear();
+    mCameraIndices.clear();
+    mDirectionalLightIndices.clear();
 }
 
 void RenderWorld::upsertRenderable(const RenderableInstance& instance)
 {
-    upsertByEntityId(mRenderables, instance);
+    upsertByEntityId(mRenderables, mRenderableIndices, instance);
 }
 
 void RenderWorld::upsertCamera(const CameraData& camera)
 {
-    upsertByEntityId(mCameras, camera);
+    upsertByEntityId(mCameras, mCameraIndices, camera);
 }
 
 void RenderWorld::upsertDirectionalLight(const DirectionalLightData& light)
 {
-    upsertByEntityId(mDirectionalLights, light);
+    upsertByEntityId(mDirectionalLights, mDirectionalLightIndices, light);
 }
 
 const std::vector<RenderableInstance>& RenderWorld::renderables() const noexcept
