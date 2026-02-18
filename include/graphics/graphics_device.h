@@ -19,17 +19,15 @@ enum class GraphicsBackend
     Vulkan,
 };
 
-struct GraphicsDeviceDesc
+enum class RenderTargetColorFormat
 {
-    GraphicsBackend preferredBackend = GraphicsBackend::Vulkan;
-    bool enableValidation = true;
-    std::uint32_t initialWidth = 1280;
-    std::uint32_t initialHeight = 720;
-    // Optional override for runtime shader source directory.
-    // If empty, the engine resolves its default search paths.
-    std::string shaderDirectory;
-    // Allows using embedded fallback sources when shader files are unavailable.
-    bool allowShaderFallback = true;
+    Rgba8Unorm,
+    Bgra8Unorm,
+};
+
+enum class RenderTargetDepthFormat
+{
+    D32Float,
 };
 
 struct RenderTargetHandle
@@ -45,11 +43,25 @@ struct RenderTargetDesc
     std::uint32_t height = 0;
     bool color = true;
     bool depth = true;
+    RenderTargetColorFormat colorFormat = RenderTargetColorFormat::Rgba8Unorm;
+    RenderTargetDepthFormat depthFormat = RenderTargetDepthFormat::D32Float;
     // Enables sampling this target in later shader passes.
     bool shaderReadable = true;
     // Enables readback request tracking for this target.
     bool cpuReadback = false;
     std::string debugName;
+};
+
+struct GraphicsDeviceDesc
+{
+    GraphicsBackend preferredBackend = GraphicsBackend::Vulkan;
+    bool enableValidation = true;
+    RenderTargetDesc defaultRenderTargetDesc{};
+    // Optional override for runtime shader source directory.
+    // If empty, the engine resolves its default search paths.
+    std::string shaderDirectory;
+    // Allows using embedded fallback sources when shader files are unavailable.
+    bool allowShaderFallback = true;
 };
 
 struct RenderViewport
@@ -65,7 +77,9 @@ struct RenderTargetReadbackEvent
 {
     RenderTargetHandle target{};
     std::uint64_t frameIndex = 0;
-    // Optional RGBA8 payload copied from the target color buffer.
+    // Format of color payload when available.
+    RenderTargetColorFormat colorFormat = RenderTargetColorFormat::Rgba8Unorm;
+    // Optional 4-channel 8-bit payload copied from the target color buffer.
     std::uint32_t width = 0;
     std::uint32_t height = 0;
     std::uint32_t rowStrideBytes = 0;
@@ -80,13 +94,15 @@ public:
     virtual bool initialize(const GraphicsDeviceDesc& desc) = 0;
     virtual void shutdown() = 0;
 
-    // Resizes the built-in fallback target used when a camera has no explicit output target.
-    virtual void resizeDefaultRenderTarget(std::uint32_t width, std::uint32_t height) = 0;
-    // Explicit per-target management API (for multi-camera and GPU-only processing chains).
+    // Per-target management API (for multi-camera and GPU-only processing chains).
     virtual RenderTargetHandle createRenderTarget(const RenderTargetDesc& desc) = 0;
     virtual bool resizeRenderTarget(RenderTargetHandle target, std::uint32_t width, std::uint32_t height) = 0;
+    // Recreates target resources from an updated descriptor while preserving handle identity.
+    virtual bool reconfigureRenderTarget(RenderTargetHandle target, const RenderTargetDesc& desc) = 0;
     virtual void destroyRenderTarget(RenderTargetHandle target) = 0;
     virtual bool isValidRenderTarget(RenderTargetHandle target) const = 0;
+    virtual bool tryGetRenderTargetDesc(RenderTargetHandle target, RenderTargetDesc& outDesc) const = 0;
+    // Built-in fallback target used when a camera has no explicit output target.
     virtual RenderTargetHandle defaultRenderTarget() const = 0;
 
     virtual void beginFrame(const common::FrameContext& frameContext) = 0;

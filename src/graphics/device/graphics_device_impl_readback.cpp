@@ -55,6 +55,7 @@ void GraphicsDeviceImpl::endFrame(const common::FrameContext& frameContext)
         RenderTargetReadbackEvent event{};
         event.target = copy.target;
         event.frameIndex = copy.frameIndex;
+        event.colorFormat = copy.colorFormat;
 
         if (copy.stagingTexture != nullptr && copy.width > 0 && copy.height > 0)
         {
@@ -151,6 +152,7 @@ bool GraphicsDeviceImpl::queueReadbackCopy(RenderTargetHandle target, std::uint6
     readbackCopy.fenceValue = fenceValue;
     readbackCopy.width = resources.desc.width;
     readbackCopy.height = resources.desc.height;
+    readbackCopy.colorFormat = resources.desc.colorFormat;
     readbackCopy.stagingTexture = std::move(stagingTexture);
     mPendingReadbackCopies.push_back(std::move(readbackCopy));
     return true;

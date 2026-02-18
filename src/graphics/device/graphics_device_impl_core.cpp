@@ -53,6 +53,30 @@ RenderViewport normalizeViewport(const RenderViewport& viewport)
     return normalized;
 }
 
+Diligent::TEXTURE_FORMAT toDiligentColorFormat(RenderTargetColorFormat format)
+{
+    switch (format)
+    {
+    case RenderTargetColorFormat::Rgba8Unorm:
+        return Diligent::TEX_FORMAT_RGBA8_UNORM;
+    case RenderTargetColorFormat::Bgra8Unorm:
+        return Diligent::TEX_FORMAT_BGRA8_UNORM;
+    default:
+        return Diligent::TEX_FORMAT_UNKNOWN;
+    }
+}
+
+Diligent::TEXTURE_FORMAT toDiligentDepthFormat(RenderTargetDepthFormat format)
+{
+    switch (format)
+    {
+    case RenderTargetDepthFormat::D32Float:
+        return Diligent::TEX_FORMAT_D32_FLOAT;
+    default:
+        return Diligent::TEX_FORMAT_UNKNOWN;
+    }
+}
+
 } // namespace
 
 bool GraphicsDeviceImpl::initialize(const GraphicsDeviceDesc& desc)
@@ -60,8 +84,7 @@ bool GraphicsDeviceImpl::initialize(const GraphicsDeviceDesc& desc)
     shutdown();
 
     mDesc = desc;
-    mDesc.initialWidth = clampExtent(mDesc.initialWidth);
-    mDesc.initialHeight = clampExtent(mDesc.initialHeight);
+    mDesc.defaultRenderTargetDesc = normalizeDefaultRenderTargetDesc(mDesc.defaultRenderTargetDesc);
 
     if (mDesc.preferredBackend == GraphicsBackend::Null)
     {
@@ -119,19 +142,6 @@ void GraphicsDeviceImpl::shutdown()
     mInitialized = false;
 }
 
-void GraphicsDeviceImpl::resizeDefaultRenderTarget(std::uint32_t width, std::uint32_t height)
-{
-    mDesc.initialWidth = clampExtent(width);
-    mDesc.initialHeight = clampExtent(height);
-
-    if (!mInitialized || !isValidRenderTarget(mDefaultRenderTarget))
-    {
-        return;
-    }
-
-    (void)resizeRenderTarget(mDefaultRenderTarget, mDesc.initialWidth, mDesc.initialHeight);
-}
-
 RenderTargetHandle GraphicsDeviceImpl::createRenderTarget(const RenderTargetDesc& desc)
 {
     if (!mInitialized)
@@ -147,8 +157,8 @@ RenderTargetHandle GraphicsDeviceImpl::createRenderTarget(const RenderTargetDesc
     RenderTargetResources resources{};
     resources.desc = normalizeTargetDesc(desc);
     resources.viewport = normalizeViewport(RenderViewport{});
-    resources.colorFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
-    resources.depthFormat = Diligent::TEX_FORMAT_D32_FLOAT;
+    resources.colorFormat = resources.desc.colorFormat;
+    resources.depthFormat = resources.desc.depthFormat;
 
     if (mBackend == GraphicsBackend::Vulkan)
     {
@@ -179,28 +189,60 @@ bool GraphicsDeviceImpl::resizeRenderTarget(RenderTargetHandle target, std::uint
     RenderTargetDesc resizedDesc = it->second.desc;
     resizedDesc.width = clampExtent(width == 0 ? resizedDesc.width : width);
     resizedDesc.height = clampExtent(height == 0 ? resizedDesc.height : height);
+    return reconfigureRenderTarget(target, resizedDesc);
+}
+
+bool GraphicsDeviceImpl::reconfigureRenderTarget(RenderTargetHandle target, const RenderTargetDesc& desc)
+{
+    if (!mInitialized)
+    {
+        return false;
+    }
+
+    const auto it = mRenderTargets.find(target.id);
+    if (it == mRenderTargets.end())
+    {
+        return false;
+    }
+
+    RenderTargetDesc updatedDesc = normalizeTargetDesc(desc);
+    if (target.id == mDefaultRenderTarget.id)
+    {
+        updatedDesc = normalizeDefaultRenderTargetDesc(updatedDesc);
+    }
+    RenderTargetResources updatedResources = it->second;
+    updatedResources.desc = updatedDesc;
+    updatedResources.colorFormat = updatedDesc.colorFormat;
+    updatedResources.depthFormat = updatedDesc.depthFormat;
 
     if (mBackend == GraphicsBackend::Vulkan)
     {
-        RenderTargetResources resizedResources{};
-        resizedResources.desc = resizedDesc;
-        resizedResources.viewport = it->second.viewport;
-        resizedResources.colorFormat = it->second.colorFormat;
-        resizedResources.depthFormat = it->second.depthFormat;
-        if (!createRenderTargetTextures(resizedDesc, resizedResources))
+        if (mImmediateContext != nullptr)
+        {
+            mImmediateContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+        }
+
+        if (!createRenderTargetTextures(updatedDesc, updatedResources))
         {
             return false;
         }
-        it->second.colorTexture = std::move(resizedResources.colorTexture);
-        it->second.depthTexture = std::move(resizedResources.depthTexture);
     }
 
-    it->second.desc = resizedDesc;
+    it->second = std::move(updatedResources);
 
     if (target.id == mDefaultRenderTarget.id)
     {
-        mDesc.initialWidth = resizedDesc.width;
-        mDesc.initialHeight = resizedDesc.height;
+        mDesc.defaultRenderTargetDesc = it->second.desc;
+    }
+
+    if (mHasActiveRenderTarget && mActiveRenderTarget.id == target.id)
+    {
+        mActiveRenderTargetHasDepth = it->second.desc.depth;
+        mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
+        if (it->second.colorTexture != nullptr)
+        {
+            mActiveRenderTargetColorFormat = it->second.colorTexture->GetDesc().Format;
+        }
     }
 
     return true;
@@ -369,6 +411,11 @@ void GraphicsDeviceImpl::endRenderTarget(RenderTargetHandle target, const common
     RenderTargetReadbackEvent event{};
     event.target = target;
     event.frameIndex = frameContext.frameIndex;
+    const auto targetIt = mRenderTargets.find(target.id);
+    if (targetIt != mRenderTargets.end())
+    {
+        event.colorFormat = targetIt->second.desc.colorFormat;
+    }
     mCompletedReadbacks.push_back(std::move(event));
 }
 
@@ -427,48 +474,6 @@ bool GraphicsDeviceImpl::tryGetRenderTargetColorTexture(RenderTargetHandle targe
     return true;
 }
 
-bool GraphicsDeviceImpl::setDefaultRenderTargetColorFormat(Diligent::TEXTURE_FORMAT format)
-{
-    if (format == Diligent::TEX_FORMAT_UNKNOWN)
-    {
-        return false;
-    }
-
-    const auto defaultIt = mRenderTargets.find(mDefaultRenderTarget.id);
-    if (defaultIt == mRenderTargets.end() || !defaultIt->second.desc.color)
-    {
-        return false;
-    }
-
-    if (defaultIt->second.colorFormat == format)
-    {
-        return true;
-    }
-
-    RenderTargetResources previousResources = defaultIt->second;
-    defaultIt->second.colorFormat = format;
-
-    if (mBackend == GraphicsBackend::Vulkan)
-    {
-        if (mImmediateContext != nullptr)
-        {
-            mImmediateContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
-        }
-
-        if (!createRenderTargetTextures(defaultIt->second.desc, defaultIt->second))
-        {
-            defaultIt->second = std::move(previousResources);
-            return false;
-        }
-    }
-
-    if (mHasActiveRenderTarget && mActiveRenderTarget.id == mDefaultRenderTarget.id)
-    {
-        mActiveRenderTargetColorFormat = format;
-    }
-    return true;
-}
-
 const std::string& GraphicsDeviceImpl::shaderSourceDirectory() const
 {
     return mDesc.shaderDirectory;
@@ -510,23 +515,37 @@ bool GraphicsDeviceImpl::initializeVulkan()
 
 bool GraphicsDeviceImpl::createDefaultRenderTarget()
 {
-    RenderTargetDesc defaultDesc{};
-    defaultDesc.width = mDesc.initialWidth;
-    defaultDesc.height = mDesc.initialHeight;
-    defaultDesc.color = true;
-    defaultDesc.depth = true;
-    defaultDesc.shaderReadable = true;
-    defaultDesc.debugName = "CRESSimNeo.Default";
+    RenderTargetDesc defaultDesc = normalizeDefaultRenderTargetDesc(mDesc.defaultRenderTargetDesc);
+    mDesc.defaultRenderTargetDesc = defaultDesc;
 
     mDefaultRenderTarget = createRenderTarget(defaultDesc);
     return isValidRenderTarget(mDefaultRenderTarget);
 }
 
+
+constexpr std::uint32_t kDefaultRenderTargetWidth = 1280u;
+constexpr std::uint32_t kDefaultRenderTargetHeight = 720u;
+
+RenderTargetDesc GraphicsDeviceImpl::normalizeDefaultRenderTargetDesc(const RenderTargetDesc& desc) const
+{
+    RenderTargetDesc normalized = desc;
+    normalized.width = clampExtent(normalized.width == 0 ? kDefaultRenderTargetWidth : normalized.width);
+    normalized.height = clampExtent(normalized.height == 0 ? kDefaultRenderTargetHeight : normalized.height);
+    normalized.color = true;
+    if (normalized.debugName.empty())
+    {
+        normalized.debugName = "CRESSimNeo.Default";
+    }
+    return normalized;
+}
+
 RenderTargetDesc GraphicsDeviceImpl::normalizeTargetDesc(const RenderTargetDesc& desc) const
 {
     RenderTargetDesc normalized = desc;
-    normalized.width = clampExtent(normalized.width == 0 ? mDesc.initialWidth : normalized.width);
-    normalized.height = clampExtent(normalized.height == 0 ? mDesc.initialHeight : normalized.height);
+    const std::uint32_t fallbackWidth = clampExtent(mDesc.defaultRenderTargetDesc.width == 0 ? kDefaultRenderTargetWidth : mDesc.defaultRenderTargetDesc.width);
+    const std::uint32_t fallbackHeight = clampExtent(mDesc.defaultRenderTargetDesc.height == 0 ? kDefaultRenderTargetHeight : mDesc.defaultRenderTargetDesc.height);
+    normalized.width = clampExtent(normalized.width == 0 ? fallbackWidth : normalized.width);
+    normalized.height = clampExtent(normalized.height == 0 ? fallbackHeight : normalized.height);
     if (!normalized.color && !normalized.depth)
     {
         normalized.color = true;
@@ -550,6 +569,12 @@ bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc
 
     if (desc.color)
     {
+        const Diligent::TEXTURE_FORMAT colorFormat = toDiligentColorFormat(resources.colorFormat);
+        if (colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
+        {
+            return false;
+        }
+
         Diligent::TextureDesc colorDesc{};
         const std::string colorName = desc.debugName + ".Color";
         colorDesc.Name = colorName.c_str();
@@ -558,7 +583,7 @@ bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc
         colorDesc.Height = desc.height;
         colorDesc.MipLevels = 1;
         colorDesc.ArraySize = 1;
-        colorDesc.Format = resources.colorFormat;
+        colorDesc.Format = colorFormat;
         colorDesc.BindFlags = Diligent::BIND_RENDER_TARGET;
         if (desc.shaderReadable)
         {
@@ -575,6 +600,12 @@ bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc
 
     if (desc.depth)
     {
+        const Diligent::TEXTURE_FORMAT depthFormat = toDiligentDepthFormat(resources.depthFormat);
+        if (depthFormat == Diligent::TEX_FORMAT_UNKNOWN)
+        {
+            return false;
+        }
+
         Diligent::TextureDesc depthDesc{};
         const std::string depthName = desc.debugName + ".Depth";
         depthDesc.Name = depthName.c_str();
@@ -583,7 +614,7 @@ bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc
         depthDesc.Height = desc.height;
         depthDesc.MipLevels = 1;
         depthDesc.ArraySize = 1;
-        depthDesc.Format = resources.depthFormat;
+        depthDesc.Format = depthFormat;
         depthDesc.BindFlags = Diligent::BIND_DEPTH_STENCIL;
         if (desc.shaderReadable)
         {

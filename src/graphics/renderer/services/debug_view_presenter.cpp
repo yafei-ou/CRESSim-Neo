@@ -23,6 +23,35 @@ Diligent::Uint32 clampWindowId(std::uint64_t value)
     return static_cast<Diligent::Uint32>(std::min<std::uint64_t>(value, kMax));
 }
 
+Diligent::TEXTURE_FORMAT toDiligentColorFormat(RenderTargetColorFormat format)
+{
+    switch (format)
+    {
+    case RenderTargetColorFormat::Rgba8Unorm:
+        return Diligent::TEX_FORMAT_RGBA8_UNORM;
+    case RenderTargetColorFormat::Bgra8Unorm:
+        return Diligent::TEX_FORMAT_BGRA8_UNORM;
+    default:
+        return Diligent::TEX_FORMAT_UNKNOWN;
+    }
+}
+
+bool tryFromDiligentColorFormat(Diligent::TEXTURE_FORMAT format, RenderTargetColorFormat& outFormat)
+{
+    switch (format)
+    {
+    case Diligent::TEX_FORMAT_RGBA8_UNORM:
+        outFormat = RenderTargetColorFormat::Rgba8Unorm;
+        return true;
+    case Diligent::TEX_FORMAT_BGRA8_UNORM:
+        outFormat = RenderTargetColorFormat::Bgra8Unorm;
+        return true;
+    default:
+        outFormat = RenderTargetColorFormat::Rgba8Unorm;
+        return false;
+    }
+}
+
 } // namespace
 
 DebugViewPresenter::DebugViewPresenter(GraphicsDeviceImpl& device, const RendererDesc::DebugViewerDesc& desc) :
@@ -47,12 +76,15 @@ bool DebugViewPresenter::initialize()
     {
         return false;
     }
-
-    Diligent::TEXTURE_FORMAT requestedColorFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
-    Diligent::ITexture* defaultColorTexture = nullptr;
-    if (mDevice.tryGetRenderTargetColorTexture(mDevice.defaultRenderTarget(), defaultColorTexture) && defaultColorTexture != nullptr)
+    if (!defaultDesc.color)
     {
-        requestedColorFormat = defaultColorTexture->GetDesc().Format;
+        return false;
+    }
+
+    const Diligent::TEXTURE_FORMAT requestedColorFormat = toDiligentColorFormat(defaultDesc.colorFormat);
+    if (requestedColorFormat == Diligent::TEX_FORMAT_UNKNOWN)
+    {
+        return false;
     }
 
     if (!createSwapChain(defaultDesc.width, defaultDesc.height, requestedColorFormat))
@@ -60,7 +92,7 @@ bool DebugViewPresenter::initialize()
         return false;
     }
 
-    return mDevice.setDefaultRenderTargetColorFormat(mSwapChain->GetDesc().ColorBufferFormat);
+    return true;
 }
 
 bool DebugViewPresenter::present(RenderTargetHandle sourceTarget)
@@ -106,7 +138,13 @@ bool DebugViewPresenter::present(RenderTargetHandle sourceTarget)
     const Diligent::TEXTURE_FORMAT backBufferFormat = backBufferRtv->GetTexture()->GetDesc().Format;
     if (sourceTexture->GetDesc().Format != backBufferFormat)
     {
-        if (!mDevice.setDefaultRenderTargetColorFormat(backBufferFormat))
+        RenderTargetColorFormat backBufferColorFormat = RenderTargetColorFormat::Rgba8Unorm;
+        if (!tryFromDiligentColorFormat(backBufferFormat, backBufferColorFormat))
+        {
+            return false;
+        }
+        sourceDesc.colorFormat = backBufferColorFormat;
+        if (!mDevice.reconfigureRenderTarget(sourceTarget, sourceDesc))
         {
             return false;
         }

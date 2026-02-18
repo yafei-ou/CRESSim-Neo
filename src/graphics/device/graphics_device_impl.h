@@ -34,11 +34,12 @@ public:
     bool initialize(const GraphicsDeviceDesc& desc) override;
     void shutdown() override;
 
-    void resizeDefaultRenderTarget(std::uint32_t width, std::uint32_t height) override;
     RenderTargetHandle createRenderTarget(const RenderTargetDesc& desc) override;
     bool resizeRenderTarget(RenderTargetHandle target, std::uint32_t width, std::uint32_t height) override;
+    bool reconfigureRenderTarget(RenderTargetHandle target, const RenderTargetDesc& desc) override;
     void destroyRenderTarget(RenderTargetHandle target) override;
     bool isValidRenderTarget(RenderTargetHandle target) const override;
+    bool tryGetRenderTargetDesc(RenderTargetHandle target, RenderTargetDesc& outDesc) const override;
     RenderTargetHandle defaultRenderTarget() const override;
 
     void beginFrame(const common::FrameContext& frameContext) override;
@@ -51,9 +52,7 @@ public:
 
     GraphicsBackend backend() const override;
     bool tryGetVulkanContext(VulkanBackendContext& outContext);
-    bool tryGetRenderTargetDesc(RenderTargetHandle target, RenderTargetDesc& outDesc) const;
     bool tryGetRenderTargetColorTexture(RenderTargetHandle target, Diligent::ITexture*& outTexture);
-    bool setDefaultRenderTargetColorFormat(Diligent::TEXTURE_FORMAT format);
     const std::string& shaderSourceDirectory() const;
     bool allowShaderFallback() const;
 
@@ -62,8 +61,8 @@ private:
     {
         RenderTargetDesc desc{};
         RenderViewport viewport{};
-        Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
-        Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_D32_FLOAT;
+        RenderTargetColorFormat colorFormat = RenderTargetColorFormat::Rgba8Unorm;
+        RenderTargetDepthFormat depthFormat = RenderTargetDepthFormat::D32Float;
         Diligent::RefCntAutoPtr<Diligent::ITexture> colorTexture;
         Diligent::RefCntAutoPtr<Diligent::ITexture> depthTexture;
     };
@@ -75,11 +74,13 @@ private:
         std::uint64_t fenceValue = 0;
         std::uint32_t width = 0;
         std::uint32_t height = 0;
+        RenderTargetColorFormat colorFormat = RenderTargetColorFormat::Rgba8Unorm;
         Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
     };
 
     bool initializeVulkan();
     bool createDefaultRenderTarget();
+    RenderTargetDesc normalizeDefaultRenderTargetDesc(const RenderTargetDesc& desc) const;
     RenderTargetDesc normalizeTargetDesc(const RenderTargetDesc& desc) const;
     bool createRenderTargetTextures(const RenderTargetDesc& desc, RenderTargetResources& resources);
 

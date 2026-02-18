@@ -271,8 +271,8 @@ int main(int argc, char** argv)
     RuntimeConfig runtimeConfig{};
     runtimeConfig.graphicsDeviceDesc.preferredBackend = app.backend;
     runtimeConfig.graphicsDeviceDesc.enableValidation = app.validation;
-    runtimeConfig.graphicsDeviceDesc.initialWidth = app.width;
-    runtimeConfig.graphicsDeviceDesc.initialHeight = app.height;
+    runtimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.width = app.width;
+    runtimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.height = app.height;
     runtimeConfig.rendererDesc.debugViewer.enabled = app.viewerEnabled;
     runtimeConfig.rendererDesc.debugViewer.syncInterval = app.vSync ? 1u : 0u;
 
@@ -489,7 +489,10 @@ int main(int argc, char** argv)
             fbWidth = std::max(fbWidth, 1);
             fbHeight = std::max(fbHeight, 1);
 
-            graphicsDevice->resizeDefaultRenderTarget(static_cast<std::uint32_t>(fbWidth), static_cast<std::uint32_t>(fbHeight));
+            (void)graphicsDevice->resizeRenderTarget(
+                graphicsDevice->defaultRenderTarget(),
+                static_cast<std::uint32_t>(fbWidth),
+                static_cast<std::uint32_t>(fbHeight));
             camera.outputTarget = {};
             camera.outputWidth = static_cast<std::uint32_t>(fbWidth);
             camera.outputHeight = static_cast<std::uint32_t>(fbHeight);
