@@ -67,8 +67,8 @@ bool ShadowPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawC
     }
 
     DrawConstants constants{};
-    constants.modelMatrix = drawCommand.modelMatrix;
-    constants.lightViewProjectionMatrix = drawCommand.lightViewProjectionMatrix;
+    constants.modelMatrix = drawCommand.modelMatrix.Transpose();
+    constants.lightViewProjectionMatrix = drawCommand.lightViewProjectionMatrix.Transpose();
 
     void* mappedConstants = nullptr;
     backendContext.immediateContext->MapBuffer(mConstantBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
@@ -172,7 +172,6 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
 
     Diligent::ShaderCreateInfo shaderCreateInfo{};
     shaderCreateInfo.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
-    shaderCreateInfo.CompileFlags = Diligent::SHADER_COMPILE_FLAG_PACK_MATRIX_ROW_MAJOR;
     shaderCreateInfo.Desc.UseCombinedTextureSamplers = true;
     shaderCreateInfo.EntryPoint = "main";
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;

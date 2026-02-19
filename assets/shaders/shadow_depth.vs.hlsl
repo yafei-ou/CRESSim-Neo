@@ -12,8 +12,8 @@ struct VSOutput
 
 cbuffer ShadowConstants
 {
-    row_major float4x4 g_Model;
-    row_major float4x4 g_LightViewProjection;
+    float4x4 g_Model;
+    float4x4 g_LightViewProjection;
 };
 
 void main(in VSInput In, out VSOutput Out)

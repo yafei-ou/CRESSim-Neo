@@ -8,9 +8,9 @@ struct VSOutput
 
 cbuffer PbrConstants
 {
-    row_major float4x4 g_Model;
-    row_major float4x4 g_ViewProjection;
-    row_major float4x4 g_LightViewProjection;
+    float4x4 g_Model;
+    float4x4 g_ViewProjection;
+    float4x4 g_LightViewProjection;
     float4 g_CameraPositionMetallic;
     float4 g_LightDirectionIntensity;
     float4 g_LightColorRoughness;

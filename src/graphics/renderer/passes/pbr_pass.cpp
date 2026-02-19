@@ -164,9 +164,9 @@ bool PbrPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawComm
     shadowMapVar->Set(shadowMapSrv);
 
     DrawConstants constants{};
-    constants.modelMatrix = drawCommand.modelMatrix;
-    constants.viewProjectionMatrix = drawCommand.viewProjectionMatrix;
-    constants.lightViewProjectionMatrix = drawCommand.lightViewProjectionMatrix;
+    constants.modelMatrix = drawCommand.modelMatrix.Transpose();
+    constants.viewProjectionMatrix = drawCommand.viewProjectionMatrix.Transpose();
+    constants.lightViewProjectionMatrix = drawCommand.lightViewProjectionMatrix.Transpose();
     constants.cameraPositionMetallic = Diligent::float4{
         drawCommand.cameraPosition.x,
         drawCommand.cameraPosition.y,
@@ -305,7 +305,6 @@ bool PbrPass::createPipeline(
 
     Diligent::ShaderCreateInfo shaderCreateInfo{};
     shaderCreateInfo.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
-    shaderCreateInfo.CompileFlags = Diligent::SHADER_COMPILE_FLAG_PACK_MATRIX_ROW_MAJOR;
     shaderCreateInfo.Desc.UseCombinedTextureSamplers = true;
     shaderCreateInfo.EntryPoint = "main";
 
