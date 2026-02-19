@@ -4,6 +4,7 @@ set(CMAKE_CXX_STANDARD 17)
 # Diligent claims that it doesn't work with O2/O3 using gcc
 set(CMAKE_C_COMPILER clang)
 set(CMAKE_CXX_COMPILER clang++)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(CRESSim-Neo VERSION 0.1.0 LANGUAGES C CXX)
 
