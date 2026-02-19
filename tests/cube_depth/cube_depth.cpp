@@ -426,7 +426,7 @@ int main(int argc, char** argv)
     light.intensity = 4.0f;
     world.setDirectionalLight(lightEntity, light);
 
-    auto& resources = runtime.getScene().resources();
+    auto& resources = runtime.getResources();
     const auto cubeMesh = resources.registerMesh(makeCubeMesh(0.65f));
 
     MaterialResourceDesc frontMaterialDesc{};

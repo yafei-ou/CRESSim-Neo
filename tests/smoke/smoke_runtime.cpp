@@ -202,7 +202,7 @@ int main(int argc, char** argv)
     const auto lightEntity = world.createEntity();
     world.setDirectionalLight(lightEntity, DirectionalLightComponent{});
 
-    auto& resources = runtime.getScene().resources();
+    auto& resources = runtime.getResources();
     cressim::neo::graphics::MeshResourceDesc meshDesc{};
     meshDesc.debugName = "Smoke.TriangleMesh";
     meshDesc.vertices = {

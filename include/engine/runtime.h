@@ -5,8 +5,9 @@
 #include "engine/export.h"
 #include "engine/world.h"
 #include "graphics/graphics_device.h"
+#include "graphics/render_resource_manager.h"
+#include "graphics/render_world.h"
 #include "graphics/renderer.h"
-#include "graphics/scene.h"
 
 #include <memory>
 
@@ -39,8 +40,8 @@ public:
     bool tryGetRenderTargetReadback(graphics::RenderTargetReadbackRequest request, graphics::RenderTargetReadbackEvent& outEvent);
     const graphics::RenderStats& lastRenderStats() const noexcept;
 
-    graphics::Scene& getScene() noexcept;
-    const graphics::Scene& getScene() const noexcept;
+    graphics::RenderResourceManager& getResources() noexcept;
+    const graphics::RenderResourceManager& getResources() const noexcept;
 
 private:
     void syncWorldToRenderWorld();
@@ -50,7 +51,8 @@ private:
     std::unique_ptr<graphics::Renderer> mRenderer;
     graphics::RenderStats mLastRenderStats{};
     World mWorld;
-    graphics::Scene mScene;
+    graphics::RenderResourceManager mResources;
+    graphics::RenderWorld mRenderWorld;
 };
 
 } // namespace cressim::neo::engine

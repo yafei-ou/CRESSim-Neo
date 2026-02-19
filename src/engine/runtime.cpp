@@ -23,7 +23,7 @@ bool Runtime::initialize(const RuntimeConfig& config)
         return false;
     }
 
-    mRenderer = std::make_unique<graphics::Renderer>(*mGraphicsDevice, mScene.resources(), config.rendererDesc);
+    mRenderer = std::make_unique<graphics::Renderer>(*mGraphicsDevice, mResources, config.rendererDesc);
     if (!mRenderer->initialize())
     {
         mRenderer.reset();
@@ -63,7 +63,7 @@ void Runtime::tick(const common::FrameContext& frameContext)
     }
 
     syncWorldToRenderWorld();
-    mLastRenderStats = mRenderer->render(frameContext, mScene.world());
+    mLastRenderStats = mRenderer->render(frameContext, mRenderWorld);
 }
 
 World& Runtime::getWorld() noexcept
@@ -109,19 +109,19 @@ const graphics::RenderStats& Runtime::lastRenderStats() const noexcept
     return mLastRenderStats;
 }
 
-graphics::Scene& Runtime::getScene() noexcept
+graphics::RenderResourceManager& Runtime::getResources() noexcept
 {
-    return mScene;
+    return mResources;
 }
 
-const graphics::Scene& Runtime::getScene() const noexcept
+const graphics::RenderResourceManager& Runtime::getResources() const noexcept
 {
-    return mScene;
+    return mResources;
 }
 
 void Runtime::syncWorldToRenderWorld()
 {
-    detail::syncWorldToRenderWorld(mWorld, mScene.world());
+    detail::syncWorldToRenderWorld(mWorld, mRenderWorld);
 }
 
 } // namespace cressim::neo::engine
