@@ -23,6 +23,7 @@ struct FrameViewData
     Diligent::float4x4 lightViewProjectionMatrix = Diligent::float4x4::Identity();
     Diligent::float3 cameraWorldPosition = {0.0f, 0.0f, 0.0f};
     Diligent::ViewFrustum viewFrustum{};
+    Diligent::ViewFrustum lightFrustum{};
     bool hasDirectionalLight = false;
 };
 

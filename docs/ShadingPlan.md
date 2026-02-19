@@ -42,8 +42,9 @@ Overall roadmap stays the same: architecture-first pass scheduler, shadows next,
 ### Milestone 2: Shadows + Phong
 1. Implement single directional-light shadow map pass.
 2. Add shadow sampling integration to opaque lighting path.
-3. Add `PhongPass` and shading dispatch (`Pbr` + `Phong`).
-4. Enforce material policy:
+3. Implement CSM and PCF
+4. Add `PhongPass` and shading dispatch (`Pbr` + `Phong`).
+5. Enforce material policy:
    - `castsShadows` controls shadow queue inclusion.
    - `receivesShadows` controls shadow application in lighting.
 
@@ -52,6 +53,9 @@ Overall roadmap stays the same: architecture-first pass scheduler, shadows next,
 2. Use back-to-front alpha blending.
 3. Use `BlendMode::Transparent` and `opacity`.
 4. Keep transparent shadow-casting disabled by default in this milestone.
+
+### Mileston 4: Advanced
+1. Implement material diffuse/specular maps
 
 ## Test Cases and Scenarios
 1. Add forward-pipeline tests (null backend) for:

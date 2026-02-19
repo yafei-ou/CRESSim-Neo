@@ -401,9 +401,20 @@ CameraRenderQueues buildCameraRenderQueues(
             continue;
         }
 
-        if (!isVisibleByFrustum(renderable, frameView.viewFrustum))
+        const bool cameraVisible = isVisibleByFrustum(renderable, frameView.viewFrustum);
+        const bool transparent = (renderable.material->blendMode == BlendMode::Transparent);
+        const bool canCastShadows = renderable.material->castsShadows && !transparent;
+        const bool lightVisible = frameView.hasDirectionalLight && isVisibleByFrustum(renderable, frameView.lightFrustum);
+
+        if (!cameraVisible)
         {
             ++stats.culledRenderableCount;
+        }
+
+        const bool needsMainPass = cameraVisible;
+        const bool needsShadowPass = canCastShadows && lightVisible;
+        if (!needsMainPass && !needsShadowPass)
+        {
             continue;
         }
 
@@ -420,19 +431,19 @@ CameraRenderQueues buildCameraRenderQueues(
         queuedDraw.depth = squaredDistanceToCamera(renderable.instance->worldTransform, frameView.cameraWorldPosition);
         queuedDraw.castsShadows = renderable.material->castsShadows;
         queuedDraw.receivesShadows = renderable.material->receivesShadows;
-        queuedDraw.transparent = (renderable.material->blendMode == BlendMode::Transparent);
+        queuedDraw.transparent = transparent;
         queuedDraw.drawCommand = drawCommand;
 
-        if (queuedDraw.transparent)
+        if (needsMainPass && queuedDraw.transparent)
         {
             queues.transparent.push_back(queuedDraw);
         }
-        else
+        else if (needsMainPass)
         {
             queues.opaque.push_back(queuedDraw);
         }
 
-        if (queuedDraw.castsShadows && !queuedDraw.transparent)
+        if (needsShadowPass)
         {
             queues.shadowCasters.push_back(queuedDraw);
         }
@@ -513,6 +524,10 @@ FrameViewData buildFrameViewData(
     frameView.lightViewProjectionMatrix =
         buildDirectionalLightViewProjection(lightData, shadowFocusWorldPosition, frameView.hasDirectionalLight);
     Diligent::ExtractViewFrustumPlanesFromMatrix(frameView.viewProjectionMatrix, frameView.viewFrustum, false);
+    if (frameView.hasDirectionalLight)
+    {
+        Diligent::ExtractViewFrustumPlanesFromMatrix(frameView.lightViewProjectionMatrix, frameView.lightFrustum, false);
+    }
     return frameView;
 }
 
