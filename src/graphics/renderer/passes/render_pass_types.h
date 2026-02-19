@@ -8,6 +8,7 @@
 #include "DiligentEngine/DiligentCore/Common/interface/AdvancedMath.hpp"
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 
+#include <array>
 #include <vector>
 
 namespace cressim::neo::graphics
@@ -19,11 +20,16 @@ struct FrameViewData
     RenderViewport viewport{};
     std::uint32_t outputWidth = 0;
     std::uint32_t outputHeight = 0;
+    Diligent::float4x4 viewMatrix = Diligent::float4x4::Identity();
     Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
-    Diligent::float4x4 lightViewProjectionMatrix = Diligent::float4x4::Identity();
+    std::array<Diligent::float4x4, kShadowCascadeCount> lightViewProjectionMatrices{};
+    std::array<float, kShadowCascadeCount> cascadeSplits{};
     Diligent::float3 cameraWorldPosition = {0.0f, 0.0f, 0.0f};
     Diligent::ViewFrustum viewFrustum{};
-    Diligent::ViewFrustum lightFrustum{};
+    std::array<Diligent::ViewFrustum, kShadowCascadeCount> lightFrustums{};
+    std::uint32_t shadowCascadeCount = 0;
+    float shadowMapInvSizeX = 0.0f;
+    float shadowMapInvSizeY = 0.0f;
     bool hasDirectionalLight = false;
 };
 
@@ -36,6 +42,7 @@ struct QueuedDraw
     bool castsShadows = true;
     bool receivesShadows = true;
     bool transparent = false;
+    std::uint32_t shadowCascadeMask = 0;
     ForwardDrawCommand drawCommand{};
 };
 

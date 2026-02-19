@@ -45,6 +45,8 @@ struct DirectionalLightData
     Diligent::float3 direction{0.0f, -1.0f, 0.0f};
     Diligent::float3 color{1.0f, 1.0f, 1.0f};
     float intensity = 1.0f;
+    float shadowDistance = 120.0f;
+    float shadowFadeDistance = 20.0f;
 };
 
 class CRESSIM_NEO_GRAPHICS_API RenderWorld

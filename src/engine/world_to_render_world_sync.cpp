@@ -50,6 +50,8 @@ void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWor
             lightData.direction = directionalLight->direction;
             lightData.color = directionalLight->color;
             lightData.intensity = directionalLight->intensity;
+            lightData.shadowDistance = directionalLight->shadowDistance;
+            lightData.shadowFadeDistance = directionalLight->shadowFadeDistance;
             renderWorld.upsertDirectionalLight(lightData);
         }
     }

@@ -12,6 +12,7 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Sampler.h"
 
+#include <array>
 #include <cstdint>
 #include <unordered_map>
 
@@ -29,7 +30,7 @@ public:
     explicit PbrPass(GraphicsDeviceImpl& device);
 
     bool initialize();
-    void setShadowMapTarget(RenderTargetHandle shadowMapTarget);
+    void setShadowMapTargets(const std::array<RenderTargetHandle, kShadowCascadeCount>& shadowMapTargets, std::uint32_t shadowMapCount);
     bool draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand);
 
 private:
@@ -50,14 +51,17 @@ private:
     struct DrawConstants
     {
         Diligent::float4x4 modelMatrix = Diligent::float4x4::Identity();
+        Diligent::float4x4 viewMatrix = Diligent::float4x4::Identity();
         Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
-        Diligent::float4x4 lightViewProjectionMatrix = Diligent::float4x4::Identity();
+        std::array<Diligent::float4x4, kShadowCascadeCount> lightViewProjectionMatrices{};
         Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
         Diligent::float4 cameraPositionMetallic{0.0f, 0.0f, 0.0f, 0.0f};
         Diligent::float4 lightDirectionIntensity{0.0f, -1.0f, 0.0f, 1.0f};
         Diligent::float4 lightColorRoughness{1.0f, 1.0f, 1.0f, 0.5f};
         Diligent::float4 baseColor{1.0f, 1.0f, 1.0f, 1.0f};
-        Diligent::float4 shadowParams{0.0015f, 0.0f, 1.0f, 0.0f};
+        Diligent::float4 cascadeSplits{1000.0f, 1000.0f, 1000.0f, 1000.0f};
+        Diligent::float4 shadowTexelSizeCascadeCount{0.0f, 0.0f, 0.0f, 0.0f};
+        Diligent::float4 shadowParams{0.0015f, 0.0f, 0.0f, 0.0f};
     };
 
     CachedMeshGpuData* getOrCreateMeshBuffers(
@@ -83,7 +87,8 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mConstantBuffer;
     Diligent::RefCntAutoPtr<Diligent::ISampler> mShadowSampler;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackShadowMapSrv;
-    RenderTargetHandle mShadowMapTarget{};
+    std::array<RenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
+    std::uint32_t mShadowMapCount = 0;
 };
 
 } // namespace detail

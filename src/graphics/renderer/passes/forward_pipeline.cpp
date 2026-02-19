@@ -4,6 +4,9 @@
 #include "graphics/renderer/passes/pbr_pass.h"
 #include "graphics/renderer/passes/shadow_pass.h"
 
+#include <algorithm>
+#include <string>
+
 namespace cressim::neo::graphics::detail
 {
 
@@ -14,9 +17,12 @@ ForwardPipeline::ForwardPipeline(GraphicsDeviceImpl& device) :
 
 ForwardPipeline::~ForwardPipeline()
 {
-    if (mDevice.isValidRenderTarget(mShadowMapTarget))
+    for (RenderTargetHandle target : mShadowMapTargets)
     {
-        mDevice.destroyRenderTarget(mShadowMapTarget);
+        if (mDevice.isValidRenderTarget(target))
+        {
+            mDevice.destroyRenderTarget(target);
+        }
     }
 }
 
@@ -37,17 +43,20 @@ bool ForwardPipeline::initialize()
         return false;
     }
 
-    RenderTargetDesc shadowDesc{};
-    shadowDesc.width = 2048;
-    shadowDesc.height = 2048;
-    shadowDesc.color = false;
-    shadowDesc.depth = true;
-    shadowDesc.shaderReadable = true;
-    shadowDesc.debugName = "CRESSimNeo.ShadowMap";
-    mShadowMapTarget = mDevice.createRenderTarget(shadowDesc);
-    if (!mDevice.isValidRenderTarget(mShadowMapTarget))
+    for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
     {
-        mShadowMapTarget = {};
+        RenderTargetDesc shadowDesc{};
+        shadowDesc.width = kShadowMapResolution;
+        shadowDesc.height = kShadowMapResolution;
+        shadowDesc.color = false;
+        shadowDesc.depth = true;
+        shadowDesc.shaderReadable = true;
+        shadowDesc.debugName = "CRESSimNeo.ShadowMap.Cascade" + std::to_string(cascadeIdx);
+        mShadowMapTargets[cascadeIdx] = mDevice.createRenderTarget(shadowDesc);
+        if (!mDevice.isValidRenderTarget(mShadowMapTargets[cascadeIdx]))
+        {
+            mShadowMapTargets[cascadeIdx] = {};
+        }
     }
 
     mInitialized = true;
@@ -67,29 +76,46 @@ bool ForwardPipeline::execute(
 
     outStats = {};
 
-    bool hasShadowMap = false;
-    if (frameView.hasDirectionalLight && !queues.shadowCasters.empty() && mShadowPass != nullptr && mDevice.isValidRenderTarget(mShadowMapTarget))
+    std::array<RenderTargetHandle, kShadowCascadeCount> activeShadowMaps{};
+    std::uint32_t activeShadowMapCount = 0;
+    if (frameView.hasDirectionalLight && frameView.shadowCascadeCount > 0 && !queues.shadowCasters.empty() && mShadowPass != nullptr)
     {
-        mDevice.setRenderTargetViewport(mShadowMapTarget, RenderViewport{});
-
-        RenderPassBeginDesc shadowBegin{};
-        shadowBegin.clearColor = false;
-        shadowBegin.clearDepth = true;
-        shadowBegin.clearDepthValue = 1.0f;
-
-        mDevice.beginRenderTarget(mShadowMapTarget, frameContext, shadowBegin);
-        for (const QueuedDraw& draw : queues.shadowCasters)
+        for (std::uint32_t cascadeIdx = 0; cascadeIdx < frameView.shadowCascadeCount; ++cascadeIdx)
         {
-            if (mShadowPass->draw(mShadowMapTarget, draw.drawCommand))
+            const RenderTargetHandle cascadeShadowMap = mShadowMapTargets[cascadeIdx];
+            if (!mDevice.isValidRenderTarget(cascadeShadowMap))
             {
-                ++outStats.shadowDrawCalls;
+                continue;
             }
+
+            mDevice.setRenderTargetViewport(cascadeShadowMap, RenderViewport{});
+
+            RenderPassBeginDesc shadowBegin{};
+            shadowBegin.clearColor = false;
+            shadowBegin.clearDepth = true;
+            shadowBegin.clearDepthValue = 1.0f;
+
+            mDevice.beginRenderTarget(cascadeShadowMap, frameContext, shadowBegin);
+            for (const QueuedDraw& draw : queues.shadowCasters)
+            {
+                if ((draw.shadowCascadeMask & (1u << cascadeIdx)) == 0u)
+                {
+                    continue;
+                }
+                ForwardDrawCommand shadowDrawCommand = draw.drawCommand;
+                shadowDrawCommand.lightViewProjectionMatrix = draw.drawCommand.lightViewProjectionMatrices[cascadeIdx];
+                if (mShadowPass->draw(cascadeShadowMap, shadowDrawCommand))
+                {
+                    ++outStats.shadowDrawCalls;
+                }
+            }
+            mDevice.endRenderTarget(cascadeShadowMap, frameContext);
+            activeShadowMaps[cascadeIdx] = cascadeShadowMap;
+            activeShadowMapCount = std::max(activeShadowMapCount, cascadeIdx + 1);
         }
-        mDevice.endRenderTarget(mShadowMapTarget, frameContext);
-        hasShadowMap = true;
     }
 
-    mPbrPass->setShadowMapTarget(hasShadowMap ? mShadowMapTarget : RenderTargetHandle{});
+    mPbrPass->setShadowMapTargets(activeShadowMaps, activeShadowMapCount);
 
     mDevice.setRenderTargetViewport(frameView.target, frameView.viewport);
     const RenderPassBeginDesc mainBegin{};

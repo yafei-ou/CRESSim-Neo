@@ -137,7 +137,7 @@ int main()
         std::cerr << "Unexpected culling count. expected=1 got=" << firstFrame.culledRenderableCount << '\n';
         return 1;
     }
-    if (firstFrame.opaqueQueueCount != 1 || firstFrame.transparentQueueCount != 1 || firstFrame.shadowCasterQueueCount != 1)
+    if (firstFrame.opaqueQueueCount != 1 || firstFrame.transparentQueueCount != 1 || firstFrame.shadowCasterQueueCount != 2)
     {
         std::cerr << "Unexpected queue counters. opaque=" << firstFrame.opaqueQueueCount
                   << " transparent=" << firstFrame.transparentQueueCount

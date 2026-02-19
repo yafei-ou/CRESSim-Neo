@@ -9,7 +9,9 @@
 #include "DiligentEngine/DiligentCore/Common/interface/AdvancedMath.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <limits>
 #include <vector>
 
 namespace cressim::neo::graphics
@@ -19,6 +21,10 @@ namespace
 {
 
 constexpr float kEpsilon = 1.0e-12f;
+constexpr float kDegreesToRadians = 0.017453292519943295769f;
+constexpr float kCascadeSplitLambda = 0.85f;
+constexpr float kCascadeStabilization = 16.0f;
+constexpr float kCascadeDepthPadding = 16.0f;
 
 float clamp01(float value)
 {
@@ -171,6 +177,8 @@ ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightDat
     out.direction = light.direction;
     out.color = light.color;
     out.intensity = light.intensity;
+    out.shadowDistance = light.shadowDistance;
+    out.shadowFadeDistance = light.shadowFadeDistance;
     return out;
 }
 
@@ -206,10 +214,23 @@ bool buildDrawCommand(
     outCommand.indexData = mesh.indices.data();
     outCommand.indexCount = static_cast<std::uint32_t>(mesh.indices.size());
     outCommand.modelMatrix = modelMatrix;
+    outCommand.viewMatrix = frameView.viewMatrix;
     outCommand.viewProjectionMatrix = frameView.viewProjectionMatrix;
-    outCommand.lightViewProjectionMatrix = frameView.lightViewProjectionMatrix;
+    outCommand.lightViewProjectionMatrix = Diligent::float4x4::Identity();
+    for (std::uint32_t i = 0; i < kShadowCascadeCount; ++i)
+    {
+        outCommand.lightViewProjectionMatrices[i] = frameView.lightViewProjectionMatrices[i];
+        outCommand.cascadeSplits[i] = frameView.cascadeSplits[i];
+    }
+    if (frameView.shadowCascadeCount > 0)
+    {
+        outCommand.lightViewProjectionMatrix = frameView.lightViewProjectionMatrices[0];
+    }
     outCommand.normalMatrix = normalMatrixFromModelMatrix(modelMatrix);
     outCommand.cameraPosition = frameView.cameraWorldPosition;
+    outCommand.shadowCascadeCount = static_cast<float>(frameView.shadowCascadeCount);
+    outCommand.shadowMapInvSizeX = frameView.shadowMapInvSizeX;
+    outCommand.shadowMapInvSizeY = frameView.shadowMapInvSizeY;
     outCommand.material.baseColor = material.baseColor;
     outCommand.material.metallic = material.metallic;
     outCommand.material.roughness = material.roughness;
@@ -217,18 +238,6 @@ bool buildDrawCommand(
     outCommand.material.receivesShadows = material.receivesShadows ? 1.0f : 0.0f;
     outCommand.light = light;
     return true;
-}
-
-Diligent::float4x4 buildViewProjection(const CameraData& camera, float outputWidth, float outputHeight)
-{
-    const float aspect = clampPositive(outputWidth, 1.0f) / clampPositive(outputHeight, 1.0f);
-    const float fovRadians = camera.verticalFovDegrees * 0.017453292519943295769f;
-    const float nearPlane = std::max(camera.nearClip, 0.001f);
-    const float farPlane = std::max(camera.farClip, nearPlane + 0.001f);
-
-    const Diligent::float4x4 view = viewMatrixFromCameraTransform(camera.worldTransform);
-    const Diligent::float4x4 projection = Diligent::float4x4::Projection(fovRadians, aspect, nearPlane, farPlane, false);
-    return view * projection;
 }
 
 Diligent::float4x4 lookAtMatrix(const Diligent::float3& eye, const Diligent::float3& at, const Diligent::float3& up)
@@ -241,87 +250,178 @@ Diligent::float4x4 lookAtMatrix(const Diligent::float3& eye, const Diligent::flo
     return viewTranslation * viewRotation;
 }
 
-Diligent::float4x4 buildDirectionalLightViewProjection(
-    const ForwardDirectionalLightData& light,
-    const Diligent::float3& shadowFocusWorldPosition,
-    bool& outHasDirectionalLight)
+struct CameraFrustumInfo
 {
-    const Diligent::float3 lightDirection = light.direction;
-    outHasDirectionalLight = light.intensity > 0.0f && Diligent::dot(lightDirection, lightDirection) > 1.0e-6f;
-    if (!outHasDirectionalLight)
-    {
-        return Diligent::float4x4::Identity();
-    }
+    Diligent::float3 position{0.0f, 0.0f, 0.0f};
+    Diligent::float3 right{1.0f, 0.0f, 0.0f};
+    Diligent::float3 up{0.0f, 1.0f, 0.0f};
+    Diligent::float3 forward{0.0f, 0.0f, 1.0f};
+    float aspect = 1.0f;
+    float fovRadians = 60.0f * kDegreesToRadians;
+    float nearPlane = 0.01f;
+    float farPlane = 1000.0f;
+    Diligent::float4x4 viewMatrix = Diligent::float4x4::Identity();
+    Diligent::float4x4 projectionMatrix = Diligent::float4x4::Identity();
+};
 
-    const Diligent::float3 dir = Diligent::normalize(lightDirection);
-    const Diligent::float3 sceneCenter = shadowFocusWorldPosition;
-    const Diligent::float3 lightPosition = sceneCenter - dir * 18.0f;
+CameraFrustumInfo buildCameraFrustumInfo(const CameraData& camera, float outputWidth, float outputHeight)
+{
+    CameraFrustumInfo info{};
+    info.position = camera.worldTransform.position;
+    info.aspect = clampPositive(outputWidth, 1.0f) / clampPositive(outputHeight, 1.0f);
+    info.fovRadians = std::max(camera.verticalFovDegrees, 1.0f) * kDegreesToRadians;
+    info.nearPlane = std::max(camera.nearClip, 0.001f);
+    info.farPlane = std::max(camera.farClip, info.nearPlane + 0.001f);
+
+    const Diligent::QuaternionF rotation = normalizeQuaternion(camera.worldTransform.rotation);
+    info.forward = safeNormalize(rotation.RotateVector(Diligent::float3{0.0f, 0.0f, 1.0f}), Diligent::float3{0.0f, 0.0f, 1.0f});
+    const Diligent::float3 worldUp = safeNormalize(rotation.RotateVector(Diligent::float3{0.0f, 1.0f, 0.0f}), Diligent::float3{0.0f, 1.0f, 0.0f});
+    info.right = safeNormalize(Diligent::cross(worldUp, info.forward), Diligent::float3{1.0f, 0.0f, 0.0f});
+    info.up = safeNormalize(Diligent::cross(info.forward, info.right), Diligent::float3{0.0f, 1.0f, 0.0f});
+    info.viewMatrix = viewMatrixFromCameraTransform(camera.worldTransform);
+    info.projectionMatrix = Diligent::float4x4::Projection(info.fovRadians, info.aspect, info.nearPlane, info.farPlane, false);
+    return info;
+}
+
+void computeCascadeSplits(float nearPlane, float farPlane, std::array<float, kShadowCascadeCount>& outSplits)
+{
+    for (std::uint32_t i = 0; i < kShadowCascadeCount; ++i)
+    {
+        const float p = static_cast<float>(i + 1) / static_cast<float>(kShadowCascadeCount);
+        const float logarithmic = nearPlane * std::pow(farPlane / nearPlane, p);
+        const float uniform = nearPlane + (farPlane - nearPlane) * p;
+        outSplits[i] = kCascadeSplitLambda * logarithmic + (1.0f - kCascadeSplitLambda) * uniform;
+    }
+}
+
+std::array<Diligent::float3, 8> buildFrustumCornersForRange(
+    const CameraFrustumInfo& cameraInfo,
+    float splitNear,
+    float splitFar)
+{
+    const float tanHalfFov = std::tan(cameraInfo.fovRadians * 0.5f);
+    const float nearHalfHeight = tanHalfFov * splitNear;
+    const float nearHalfWidth = nearHalfHeight * cameraInfo.aspect;
+    const float farHalfHeight = tanHalfFov * splitFar;
+    const float farHalfWidth = farHalfHeight * cameraInfo.aspect;
+
+    const Diligent::float3 nearCenter = cameraInfo.position + cameraInfo.forward * splitNear;
+    const Diligent::float3 farCenter = cameraInfo.position + cameraInfo.forward * splitFar;
+
+    return {
+        nearCenter - cameraInfo.right * nearHalfWidth - cameraInfo.up * nearHalfHeight,
+        nearCenter + cameraInfo.right * nearHalfWidth - cameraInfo.up * nearHalfHeight,
+        nearCenter + cameraInfo.right * nearHalfWidth + cameraInfo.up * nearHalfHeight,
+        nearCenter - cameraInfo.right * nearHalfWidth + cameraInfo.up * nearHalfHeight,
+        farCenter - cameraInfo.right * farHalfWidth - cameraInfo.up * farHalfHeight,
+        farCenter + cameraInfo.right * farHalfWidth - cameraInfo.up * farHalfHeight,
+        farCenter + cameraInfo.right * farHalfWidth + cameraInfo.up * farHalfHeight,
+        farCenter - cameraInfo.right * farHalfWidth + cameraInfo.up * farHalfHeight};
+}
+
+Diligent::float4x4 buildDirectionalLightCascadeViewProjection(
+    const Diligent::float3& lightDirection,
+    const std::array<Diligent::float3, 8>& cascadeCorners)
+{
+    Diligent::float3 cascadeCenter{0.0f, 0.0f, 0.0f};
+    for (const Diligent::float3& corner : cascadeCorners)
+    {
+        cascadeCenter += corner;
+    }
+    cascadeCenter /= static_cast<float>(cascadeCorners.size());
+
+    float radius = 1.0f;
+    for (const Diligent::float3& corner : cascadeCorners)
+    {
+        radius = std::max(radius, Diligent::length(corner - cascadeCenter));
+    }
+    radius = std::ceil(radius * kCascadeStabilization) / kCascadeStabilization;
+
     const Diligent::float3 upCandidate =
-        std::abs(Diligent::dot(dir, Diligent::float3{0.0f, 1.0f, 0.0f})) > 0.98f ?
+        std::abs(Diligent::dot(lightDirection, Diligent::float3{0.0f, 1.0f, 0.0f})) > 0.98f ?
             Diligent::float3{0.0f, 0.0f, 1.0f} :
             Diligent::float3{0.0f, 1.0f, 0.0f};
 
-    const Diligent::float4x4 lightView = lookAtMatrix(lightPosition, sceneCenter, upCandidate);
-    const Diligent::float4x4 lightProjection = Diligent::float4x4::Ortho(24.0f, 24.0f, 0.1f, 60.0f, false);
+    const Diligent::float3 lightPosition = cascadeCenter - lightDirection * (radius * 2.0f + kCascadeDepthPadding);
+    const Diligent::float4x4 lightView = lookAtMatrix(lightPosition, cascadeCenter, upCandidate);
+
+    const Diligent::float4 lightSpaceCenter4 = Diligent::float4{cascadeCenter, 1.0f} * lightView;
+    const float texelWorldSize = (radius * 2.0f) / static_cast<float>(kShadowMapResolution);
+    float snappedCenterX = lightSpaceCenter4.x;
+    float snappedCenterY = lightSpaceCenter4.y;
+    if (texelWorldSize > 0.0f)
+    {
+        snappedCenterX = std::floor(snappedCenterX / texelWorldSize + 0.5f) * texelWorldSize;
+        snappedCenterY = std::floor(snappedCenterY / texelWorldSize + 0.5f) * texelWorldSize;
+    }
+
+    float minZ = std::numeric_limits<float>::max();
+    float maxZ = std::numeric_limits<float>::lowest();
+    for (const Diligent::float3& corner : cascadeCorners)
+    {
+        const Diligent::float4 lightSpaceCorner = Diligent::float4{corner, 1.0f} * lightView;
+        minZ = std::min(minZ, lightSpaceCorner.z);
+        maxZ = std::max(maxZ, lightSpaceCorner.z);
+    }
+
+    // Use a fixed XY extent from the frustum slice's bounding sphere for stable cascades.
+    const float left = snappedCenterX - radius;
+    const float right = snappedCenterX + radius;
+    const float bottom = snappedCenterY - radius;
+    const float top = snappedCenterY + radius;
+    const float nearPlane = std::max(0.1f, minZ - kCascadeDepthPadding);
+    const float farPlane = std::max(nearPlane + 1.0f, maxZ + kCascadeDepthPadding);
+
+    const Diligent::float4x4 lightProjection =
+        Diligent::float4x4::OrthoOffCenter(left, right, bottom, top, nearPlane, farPlane, false);
     return lightView * lightProjection;
 }
 
-bool buildWorldBoundsCenter(const std::vector<ValidRenderable>& validRenderables, Diligent::float3& outCenter)
+void populateDirectionalLightCascades(
+    const CameraFrustumInfo& cameraInfo,
+    const ForwardDirectionalLightData& lightData,
+    FrameViewData& outFrameView)
 {
-    bool hasBounds = false;
-    Diligent::float3 minBounds{0.0f, 0.0f, 0.0f};
-    Diligent::float3 maxBounds{0.0f, 0.0f, 0.0f};
-
-    for (const ValidRenderable& renderable : validRenderables)
+    outFrameView.hasDirectionalLight = lightData.intensity > 0.0f && Diligent::dot(lightData.direction, lightData.direction) > 1.0e-6f;
+    if (!outFrameView.hasDirectionalLight)
     {
-        if (renderable.instance == nullptr)
+        outFrameView.shadowCascadeCount = 0;
+        outFrameView.shadowMapInvSizeX = 0.0f;
+        outFrameView.shadowMapInvSizeY = 0.0f;
+        for (std::uint32_t i = 0; i < kShadowCascadeCount; ++i)
         {
-            continue;
+            outFrameView.lightViewProjectionMatrices[i] = Diligent::float4x4::Identity();
+            outFrameView.cascadeSplits[i] = cameraInfo.farPlane;
+            Diligent::ExtractViewFrustumPlanesFromMatrix(
+                outFrameView.lightViewProjectionMatrices[i],
+                outFrameView.lightFrustums[i],
+                false);
         }
-
-        Diligent::float3 worldMin{};
-        Diligent::float3 worldMax{};
-        if (renderable.hasLocalBounds)
-        {
-            const Diligent::BoundBox localBounds{
-                renderable.localBoundsMin,
-                renderable.localBoundsMax};
-            const Diligent::float4x4 modelMatrix = worldMatrixFromTransform(renderable.instance->worldTransform);
-            const Diligent::BoundBox worldBounds = localBounds.Transform(modelMatrix);
-            worldMin = worldBounds.Min;
-            worldMax = worldBounds.Max;
-        }
-        else
-        {
-            const Diligent::float3 position = renderable.instance->worldTransform.position;
-            worldMin = position;
-            worldMax = position;
-        }
-
-        if (!hasBounds)
-        {
-            minBounds = worldMin;
-            maxBounds = worldMax;
-            hasBounds = true;
-            continue;
-        }
-
-        minBounds.x = std::min(minBounds.x, worldMin.x);
-        minBounds.y = std::min(minBounds.y, worldMin.y);
-        minBounds.z = std::min(minBounds.z, worldMin.z);
-        maxBounds.x = std::max(maxBounds.x, worldMax.x);
-        maxBounds.y = std::max(maxBounds.y, worldMax.y);
-        maxBounds.z = std::max(maxBounds.z, worldMax.z);
+        return;
     }
 
-    if (!hasBounds)
-    {
-        outCenter = Diligent::float3{0.0f, 0.0f, 0.0f};
-        return false;
-    }
+    const Diligent::float3 lightDirection = Diligent::normalize(lightData.direction);
+    const float shadowFarDistance = std::min(
+        cameraInfo.farPlane,
+        std::max(lightData.shadowDistance, cameraInfo.nearPlane + 0.001f));
+    computeCascadeSplits(cameraInfo.nearPlane, shadowFarDistance, outFrameView.cascadeSplits);
+    outFrameView.shadowCascadeCount = kShadowCascadeCount;
+    outFrameView.shadowMapInvSizeX = 1.0f / static_cast<float>(kShadowMapResolution);
+    outFrameView.shadowMapInvSizeY = 1.0f / static_cast<float>(kShadowMapResolution);
 
-    outCenter = (minBounds + maxBounds) * 0.5f;
-    return true;
+    float splitNear = cameraInfo.nearPlane;
+    for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
+    {
+        const float splitFar = outFrameView.cascadeSplits[cascadeIdx];
+        const auto cascadeCorners = buildFrustumCornersForRange(cameraInfo, splitNear, splitFar);
+        outFrameView.lightViewProjectionMatrices[cascadeIdx] =
+            buildDirectionalLightCascadeViewProjection(lightDirection, cascadeCorners);
+        Diligent::ExtractViewFrustumPlanesFromMatrix(
+            outFrameView.lightViewProjectionMatrices[cascadeIdx],
+            outFrameView.lightFrustums[cascadeIdx],
+            false);
+        splitNear = splitFar;
+    }
 }
 
 Diligent::float3 cameraPosition(const CameraData& camera)
@@ -404,7 +504,18 @@ CameraRenderQueues buildCameraRenderQueues(
         const bool cameraVisible = isVisibleByFrustum(renderable, frameView.viewFrustum);
         const bool transparent = (renderable.material->blendMode == BlendMode::Transparent);
         const bool canCastShadows = renderable.material->castsShadows && !transparent;
-        const bool lightVisible = frameView.hasDirectionalLight && isVisibleByFrustum(renderable, frameView.lightFrustum);
+        std::uint32_t shadowCascadeMask = 0;
+        if (frameView.hasDirectionalLight)
+        {
+            for (std::uint32_t cascadeIdx = 0; cascadeIdx < frameView.shadowCascadeCount; ++cascadeIdx)
+            {
+                if (isVisibleByFrustum(renderable, frameView.lightFrustums[cascadeIdx]))
+                {
+                    shadowCascadeMask |= (1u << cascadeIdx);
+                }
+            }
+        }
+        const bool lightVisible = shadowCascadeMask != 0;
 
         if (!cameraVisible)
         {
@@ -432,6 +543,7 @@ CameraRenderQueues buildCameraRenderQueues(
         queuedDraw.castsShadows = renderable.material->castsShadows;
         queuedDraw.receivesShadows = renderable.material->receivesShadows;
         queuedDraw.transparent = transparent;
+        queuedDraw.shadowCascadeMask = shadowCascadeMask;
         queuedDraw.drawCommand = drawCommand;
 
         if (needsMainPass && queuedDraw.transparent)
@@ -508,26 +620,23 @@ FrameViewData buildFrameViewData(
     const RenderTargetDesc& targetDesc,
     RenderTargetHandle target,
     const RenderViewport& viewport,
-    const ForwardDirectionalLightData& lightData,
-    const Diligent::float3& shadowFocusWorldPosition)
+    const ForwardDirectionalLightData& lightData)
 {
     FrameViewData frameView{};
     frameView.target = target;
     frameView.viewport = viewport;
     frameView.outputWidth = targetDesc.width;
     frameView.outputHeight = targetDesc.height;
-    frameView.viewProjectionMatrix = buildViewProjection(
+
+    const CameraFrustumInfo cameraInfo = buildCameraFrustumInfo(
         camera,
         static_cast<float>(targetDesc.width),
         static_cast<float>(targetDesc.height));
+    frameView.viewMatrix = cameraInfo.viewMatrix;
+    frameView.viewProjectionMatrix = cameraInfo.viewMatrix * cameraInfo.projectionMatrix;
     frameView.cameraWorldPosition = cameraPosition(camera);
-    frameView.lightViewProjectionMatrix =
-        buildDirectionalLightViewProjection(lightData, shadowFocusWorldPosition, frameView.hasDirectionalLight);
     Diligent::ExtractViewFrustumPlanesFromMatrix(frameView.viewProjectionMatrix, frameView.viewFrustum, false);
-    if (frameView.hasDirectionalLight)
-    {
-        Diligent::ExtractViewFrustumPlanesFromMatrix(frameView.lightViewProjectionMatrix, frameView.lightFrustum, false);
-    }
+    populateDirectionalLightCascades(cameraInfo, lightData, frameView);
     return frameView;
 }
 
@@ -581,8 +690,6 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
     const auto& renderables = world.renderables();
     const auto validRenderables = gatherValidRenderables(renderables, mResourceManager);
     const ForwardDirectionalLightData lightData = buildMainLight(world.directionalLights());
-    Diligent::float3 worldCenter = Diligent::float3{0.0f, 0.0f, 0.0f};
-    const bool hasWorldCenter = buildWorldBoundsCenter(validRenderables, worldCenter);
 
     stats.renderableCount = static_cast<std::uint32_t>(renderables.size());
     stats.validRenderableCount = static_cast<std::uint32_t>(validRenderables.size());
@@ -618,8 +725,7 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
             return;
         }
 
-        const Diligent::float3 shadowFocus = hasWorldCenter ? worldCenter : cameraPosition(camera);
-        const FrameViewData frameView = buildFrameViewData(camera, targetDesc, target, viewport, lightData, shadowFocus);
+        const FrameViewData frameView = buildFrameViewData(camera, targetDesc, target, viewport, lightData);
         const CameraRenderQueues queues = buildCameraRenderQueues(validRenderables, frameView, lightData, mResourceManager, stats);
 
         ForwardPassExecutionStats passStats{};

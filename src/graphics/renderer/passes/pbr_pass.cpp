@@ -3,6 +3,7 @@
 #include "graphics/device/graphics_device_impl.h"
 #include "graphics/device/shaders/shader_fallback_sources.h"
 
+#include <algorithm>
 #include <cstring>
 #include <string>
 
@@ -35,12 +36,13 @@ bool PbrPass::initialize()
     if (mDevice.tryGetVulkanContext(backendContext) && backendContext.renderDevice != nullptr)
     {
         Diligent::SamplerDesc shadowSamplerDesc{};
-        shadowSamplerDesc.MinFilter = Diligent::FILTER_TYPE_LINEAR;
-        shadowSamplerDesc.MagFilter = Diligent::FILTER_TYPE_LINEAR;
+        shadowSamplerDesc.MinFilter = Diligent::FILTER_TYPE_COMPARISON_LINEAR;
+        shadowSamplerDesc.MagFilter = Diligent::FILTER_TYPE_COMPARISON_LINEAR;
         shadowSamplerDesc.MipFilter = Diligent::FILTER_TYPE_LINEAR;
         shadowSamplerDesc.AddressU = Diligent::TEXTURE_ADDRESS_CLAMP;
         shadowSamplerDesc.AddressV = Diligent::TEXTURE_ADDRESS_CLAMP;
         shadowSamplerDesc.AddressW = Diligent::TEXTURE_ADDRESS_CLAMP;
+        shadowSamplerDesc.ComparisonFunc = Diligent::COMPARISON_FUNC_LESS_EQUAL;
         backendContext.renderDevice->CreateSampler(shadowSamplerDesc, &mShadowSampler);
 
         Diligent::TextureDesc textureDesc{};
@@ -50,18 +52,12 @@ bool PbrPass::initialize()
         textureDesc.Height = 1;
         textureDesc.MipLevels = 1;
         textureDesc.ArraySize = 1;
-        textureDesc.Format = Diligent::TEX_FORMAT_R32_FLOAT;
-        textureDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
-        textureDesc.Usage = Diligent::USAGE_IMMUTABLE;
-
-        const float whiteShadow = 1.0f;
-        Diligent::TextureSubResData subresource{&whiteShadow, sizeof(float)};
-        Diligent::TextureData textureData{};
-        textureData.pSubResources = &subresource;
-        textureData.NumSubresources = 1;
+        textureDesc.Format = Diligent::TEX_FORMAT_D32_FLOAT;
+        textureDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_DEPTH_STENCIL;
+        textureDesc.Usage = Diligent::USAGE_DEFAULT;
 
         Diligent::RefCntAutoPtr<Diligent::ITexture> fallbackTexture;
-        backendContext.renderDevice->CreateTexture(textureDesc, &textureData, &fallbackTexture);
+        backendContext.renderDevice->CreateTexture(textureDesc, nullptr, &fallbackTexture);
         if (fallbackTexture != nullptr)
         {
             mFallbackShadowMapSrv = fallbackTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
@@ -76,9 +72,10 @@ bool PbrPass::initialize()
     return true;
 }
 
-void PbrPass::setShadowMapTarget(RenderTargetHandle shadowMapTarget)
+void PbrPass::setShadowMapTargets(const std::array<RenderTargetHandle, kShadowCascadeCount>& shadowMapTargets, std::uint32_t shadowMapCount)
 {
-    mShadowMapTarget = shadowMapTarget;
+    mShadowMapTargets = shadowMapTargets;
+    mShadowMapCount = std::min<std::uint32_t>(shadowMapCount, kShadowCascadeCount);
 }
 
 bool PbrPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand)
@@ -130,43 +127,59 @@ bool PbrPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawComm
         return false;
     }
 
-    Diligent::ITextureView* shadowMapSrv = mFallbackShadowMapSrv;
+    std::array<Diligent::ITextureView*, kShadowCascadeCount> shadowMapSrvs{};
     bool hasShadowMap = false;
-    if (mShadowMapTarget.id != common::kInvalidResourceId)
+    for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
     {
-        Diligent::ITexture* depthTexture = nullptr;
-        if (mDevice.tryGetRenderTargetDepthTexture(mShadowMapTarget, depthTexture) && depthTexture != nullptr)
+        Diligent::ITextureView* shadowMapSrv = mFallbackShadowMapSrv;
+        if (cascadeIdx < mShadowMapCount && mShadowMapTargets[cascadeIdx].id != common::kInvalidResourceId)
         {
-            Diligent::ITextureView* depthSrv = depthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
-            if (depthSrv != nullptr)
+            Diligent::ITexture* depthTexture = nullptr;
+            if (mDevice.tryGetRenderTargetDepthTexture(mShadowMapTargets[cascadeIdx], depthTexture) && depthTexture != nullptr)
             {
-                if (mShadowSampler != nullptr)
+                Diligent::ITextureView* depthSrv = depthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+                if (depthSrv != nullptr)
                 {
-                    depthSrv->SetSampler(mShadowSampler);
+                    if (mShadowSampler != nullptr)
+                    {
+                        depthSrv->SetSampler(mShadowSampler);
+                    }
+                    shadowMapSrv = depthSrv;
+                    hasShadowMap = true;
                 }
-                shadowMapSrv = depthSrv;
-                hasShadowMap = true;
             }
         }
+        if (shadowMapSrv == nullptr)
+        {
+            return false;
+        }
+        shadowMapSrvs[cascadeIdx] = shadowMapSrv;
     }
 
-    if (shadowMapSrv == nullptr)
+    constexpr const char* kShadowMapVarNames[kShadowCascadeCount] = {
+        "g_ShadowMap0",
+        "g_ShadowMap1",
+        "g_ShadowMap2",
+        "g_ShadowMap3"};
+    for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
     {
-        return false;
+        Diligent::IShaderResourceVariable* shadowMapVar =
+            pipeline->shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, kShadowMapVarNames[cascadeIdx]);
+        if (shadowMapVar == nullptr)
+        {
+            return false;
+        }
+        shadowMapVar->Set(shadowMapSrvs[cascadeIdx]);
     }
-
-    Diligent::IShaderResourceVariable* shadowMapVar =
-        pipeline->shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap");
-    if (shadowMapVar == nullptr)
-    {
-        return false;
-    }
-    shadowMapVar->Set(shadowMapSrv);
 
     DrawConstants constants{};
     constants.modelMatrix = drawCommand.modelMatrix.Transpose();
+    constants.viewMatrix = drawCommand.viewMatrix.Transpose();
     constants.viewProjectionMatrix = drawCommand.viewProjectionMatrix.Transpose();
-    constants.lightViewProjectionMatrix = drawCommand.lightViewProjectionMatrix.Transpose();
+    for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
+    {
+        constants.lightViewProjectionMatrices[cascadeIdx] = drawCommand.lightViewProjectionMatrices[cascadeIdx].Transpose();
+    }
     constants.normalMatrix = drawCommand.normalMatrix.Transpose();
     constants.cameraPositionMetallic = Diligent::float4{
         drawCommand.cameraPosition.x,
@@ -188,11 +201,21 @@ bool PbrPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawComm
         drawCommand.material.baseColor.y,
         drawCommand.material.baseColor.z,
         drawCommand.material.opacity};
+    constants.cascadeSplits = Diligent::float4{
+        drawCommand.cascadeSplits[0],
+        drawCommand.cascadeSplits[1],
+        drawCommand.cascadeSplits[2],
+        drawCommand.cascadeSplits[3]};
+    constants.shadowTexelSizeCascadeCount = Diligent::float4{
+        drawCommand.shadowMapInvSizeX,
+        drawCommand.shadowMapInvSizeY,
+        std::min(drawCommand.shadowCascadeCount, static_cast<float>(mShadowMapCount)),
+        std::max(drawCommand.light.shadowFadeDistance, 0.001f)};
     constants.shadowParams = Diligent::float4{
         drawCommand.shadowBias,
         hasShadowMap ? 1.0f : 0.0f,
         drawCommand.material.receivesShadows,
-        0.0f};
+        0.35f};
 
     void* mappedConstants = nullptr;
     backendContext.immediateContext->MapBuffer(mConstantBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
@@ -342,9 +365,12 @@ bool PbrPass::createPipeline(
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = hasDepthTarget ? Diligent::True : Diligent::False;
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     constexpr Diligent::ShaderResourceVariableDesc kVars[] = {
-        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
+        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap0", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap1", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap2", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap3", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
     psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
-    psoCreateInfo.PSODesc.ResourceLayout.NumVariables = 1;
+    psoCreateInfo.PSODesc.ResourceLayout.NumVariables = 4;
 
     constexpr Diligent::LayoutElement kLayoutElements[] = {
         Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, Diligent::False},

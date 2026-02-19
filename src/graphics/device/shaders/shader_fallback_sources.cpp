@@ -19,19 +19,21 @@ struct VSOutput
     float4 Position : SV_Position;
     float3 WorldPos : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
-    float4 ShadowPos : TEXCOORD2;
 };
 
 cbuffer PbrConstants
 {
     float4x4 g_Model;
+    float4x4 g_ViewMatrix;
     float4x4 g_ViewProjection;
-    float4x4 g_LightViewProjection;
+    float4x4 g_LightViewProjection[4];
     float4x4 g_NormalMatrix;
     float4 g_CameraPositionMetallic;
     float4 g_LightDirectionIntensity;
     float4 g_LightColorRoughness;
     float4 g_BaseColor;
+    float4 g_CascadeSplits;
+    float4 g_ShadowTexelSizeCascadeCount;
     float4 g_ShadowParams;
 };
 
@@ -41,7 +43,6 @@ void main(in VSInput In, out VSOutput Out)
     Out.Position = mul(worldPos, g_ViewProjection);
     Out.WorldPos = worldPos.xyz;
     Out.WorldNormal = normalize(mul(float4(In.Normal, 0.0), g_NormalMatrix).xyz);
-    Out.ShadowPos = mul(worldPos, g_LightViewProjection);
 }
 )";
 
@@ -51,24 +52,32 @@ struct VSOutput
     float4 Position : SV_Position;
     float3 WorldPos : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
-    float4 ShadowPos : TEXCOORD2;
 };
 
 cbuffer PbrConstants
 {
     float4x4 g_Model;
+    float4x4 g_ViewMatrix;
     float4x4 g_ViewProjection;
-    float4x4 g_LightViewProjection;
+    float4x4 g_LightViewProjection[4];
     float4x4 g_NormalMatrix;
     float4 g_CameraPositionMetallic;
     float4 g_LightDirectionIntensity;
     float4 g_LightColorRoughness;
     float4 g_BaseColor;
+    float4 g_CascadeSplits;
+    float4 g_ShadowTexelSizeCascadeCount;
     float4 g_ShadowParams;
 };
 
-Texture2D g_ShadowMap;
-SamplerState g_ShadowMap_sampler;
+Texture2D g_ShadowMap0;
+Texture2D g_ShadowMap1;
+Texture2D g_ShadowMap2;
+Texture2D g_ShadowMap3;
+SamplerComparisonState g_ShadowMap0_sampler;
+SamplerComparisonState g_ShadowMap1_sampler;
+SamplerComparisonState g_ShadowMap2_sampler;
+SamplerComparisonState g_ShadowMap3_sampler;
 
 static const float PI = 3.14159265359;
 
@@ -108,14 +117,62 @@ float3 FresnelSchlick(float cosTheta, float3 F0)
     return F0 + (1.0 - F0) * pow(saturate(1.0 - cosTheta), 5.0);
 }
 
-float ComputeShadowFactor(float4 shadowPos)
+int SelectCascade(float viewDepth)
 {
-    // x: bias, y: hasShadowMap, z: receivesShadows
-    if (g_ShadowParams.y < 0.5 || g_ShadowParams.z < 0.5)
+    int cascadeCount = clamp((int)round(g_ShadowTexelSizeCascadeCount.z), 0, 4);
+    if (cascadeCount <= 0)
     {
-        return 1.0;
+        return -1;
     }
 
+    int cascadeIdx = 0;
+    if (cascadeCount > 1 && viewDepth > g_CascadeSplits.x)
+    {
+        cascadeIdx = 1;
+    }
+    if (cascadeCount > 2 && viewDepth > g_CascadeSplits.y)
+    {
+        cascadeIdx = 2;
+    }
+    if (cascadeCount > 3 && viewDepth > g_CascadeSplits.z)
+    {
+        cascadeIdx = 3;
+    }
+    return min(cascadeIdx, cascadeCount - 1);
+}
+
+float SampleShadowPCF(Texture2D shadowMap, SamplerComparisonState shadowSampler, float2 uv, float receiverDepth, float bias, float2 texelSize)
+{
+    float visibility = 0.0;
+    float compareDepth = receiverDepth - bias;
+    [unroll]
+    for (int y = -1; y <= 1; ++y)
+    {
+        [unroll]
+        for (int x = -1; x <= 1; ++x)
+        {
+            float2 sampleUv = uv + float2((float)x, (float)y) * texelSize;
+            if (sampleUv.x < 0.0 || sampleUv.x > 1.0 || sampleUv.y < 0.0 || sampleUv.y > 1.0)
+            {
+                visibility += 1.0;
+                continue;
+            }
+
+            visibility += shadowMap.SampleCmpLevelZero(shadowSampler, sampleUv, compareDepth);
+        }
+    }
+    return visibility / 9.0;
+}
+
+float SampleCascadeShadow(
+    Texture2D shadowMap,
+    SamplerComparisonState shadowSampler,
+    float4x4 lightViewProjection,
+    float3 worldPos,
+    float bias,
+    float2 texelSize)
+{
+    float4 shadowPos = mul(float4(worldPos, 1.0), lightViewProjection);
     float invW = 1.0 / max(shadowPos.w, 1e-5);
     float3 proj = shadowPos.xyz * invW;
     float2 uv = float2(0.5, 0.5) + float2(0.5, -0.5) * proj.xy;
@@ -125,9 +182,56 @@ float ComputeShadowFactor(float4 shadowPos)
         return 1.0;
     }
 
-    float mapDepth = g_ShadowMap.SampleLevel(g_ShadowMap_sampler, uv, 0).r;
-    float lit = (proj.z - g_ShadowParams.x) <= mapDepth ? 1.0 : 0.35;
-    return lit;
+    return SampleShadowPCF(shadowMap, shadowSampler, uv, proj.z, bias, texelSize);
+}
+
+float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir)
+{
+    // x: bias, y: hasShadowMap, z: receivesShadows, w: minimum shadow visibility
+    if (g_ShadowParams.y < 0.5 || g_ShadowParams.z < 0.5)
+    {
+        return 1.0;
+    }
+
+    float viewDepth = mul(float4(worldPos, 1.0), g_ViewMatrix).z;
+    float shadowDistance = g_CascadeSplits.w;
+    float fadeBand = max(g_ShadowTexelSizeCascadeCount.w, 1e-5);
+    float distanceFade = saturate((shadowDistance - viewDepth) / fadeBand);
+    if (distanceFade <= 0.0)
+    {
+        return 1.0;
+    }
+
+    int cascadeIdx = SelectCascade(viewDepth);
+    if (cascadeIdx < 0)
+    {
+        return 1.0;
+    }
+
+    float slopeScale = 1.0 - saturate(dot(normal, lightDir));
+    float shadowBias = g_ShadowParams.x * (1.0 + 2.5 * slopeScale);
+    float2 texelSize = max(g_ShadowTexelSizeCascadeCount.xy, float2(1e-5, 1e-5));
+    float visibility = 1.0;
+
+    if (cascadeIdx == 0)
+    {
+        visibility = SampleCascadeShadow(g_ShadowMap0, g_ShadowMap0_sampler, g_LightViewProjection[0], worldPos, shadowBias, texelSize);
+    }
+    else if (cascadeIdx == 1)
+    {
+        visibility = SampleCascadeShadow(g_ShadowMap1, g_ShadowMap1_sampler, g_LightViewProjection[1], worldPos, shadowBias, texelSize);
+    }
+    else if (cascadeIdx == 2)
+    {
+        visibility = SampleCascadeShadow(g_ShadowMap2, g_ShadowMap2_sampler, g_LightViewProjection[2], worldPos, shadowBias, texelSize);
+    }
+    else
+    {
+        visibility = SampleCascadeShadow(g_ShadowMap3, g_ShadowMap3_sampler, g_LightViewProjection[3], worldPos, shadowBias, texelSize);
+    }
+
+    float shadowTerm = lerp(g_ShadowParams.w, 1.0, visibility);
+    return lerp(1.0, shadowTerm, distanceFade);
 }
 
 float4 main(in VSOutput In) : SV_Target
@@ -156,7 +260,7 @@ float4 main(in VSOutput In) : SV_Target
     float3 kD = (1.0 - kS) * (1.0 - metallic);
     float NdotL = max(dot(N, L), 0.0);
 
-    float shadowFactor = ComputeShadowFactor(In.ShadowPos);
+    float shadowFactor = ComputeShadowFactor(In.WorldPos, N, L);
 
     float3 radiance = g_LightColorRoughness.xyz * g_LightDirectionIntensity.w;
     float3 diffuse = kD * albedo / PI;

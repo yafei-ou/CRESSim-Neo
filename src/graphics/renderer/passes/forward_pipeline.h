@@ -4,6 +4,7 @@
 #include "graphics/graphics_device.h"
 #include "graphics/renderer/passes/render_pass_types.h"
 
+#include <array>
 #include <memory>
 
 namespace cressim::neo::graphics
@@ -34,7 +35,7 @@ private:
     GraphicsDeviceImpl& mDevice;
     std::unique_ptr<PbrPass> mPbrPass;
     std::unique_ptr<ShadowPass> mShadowPass;
-    RenderTargetHandle mShadowMapTarget{};
+    std::array<RenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
     bool mInitialized = false;
 };
 
