@@ -1,10 +1,8 @@
 ---
-Checks: >
-  -*,
-  readability-identifier-naming
+Checks: '-*,readability-identifier-naming'
 WarningsAsErrors: ''
 HeaderFilterRegex: '^(include|src)/'
-FormatStyle: none
+FormatStyle: 'none'
 CheckOptions:
   - key: readability-identifier-naming.NamespaceCase
     value: lower_case
@@ -29,13 +27,15 @@ CheckOptions:
   - key: readability-identifier-naming.LocalVariableCase
     value: camelBack
 
+  - key: readability-identifier-naming.ClassMemberCase
+    value: CamelCase
+  - key: readability-identifier-naming.ClassMemberPrefix
+    value: m
   - key: readability-identifier-naming.MemberCase
     value: camelBack
-  - key: readability-identifier-naming.MemberPrefix
-    value: m
 
   - key: readability-identifier-naming.GlobalVariableCase
-    value: camelBack
+    value: CamelCase
   - key: readability-identifier-naming.GlobalVariablePrefix
     value: g
 

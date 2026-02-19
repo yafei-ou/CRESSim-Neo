@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace cressim::neo::graphics
 {
@@ -18,12 +19,15 @@ enum class GraphicsBackend
     Vulkan,
 };
 
-struct GraphicsDeviceDesc
+enum class RenderTargetColorFormat
 {
-    GraphicsBackend preferredBackend = GraphicsBackend::Vulkan;
-    bool enableValidation = true;
-    std::uint32_t initialWidth = 1280;
-    std::uint32_t initialHeight = 720;
+    Rgba8Unorm,
+    Bgra8Unorm,
+};
+
+enum class RenderTargetDepthFormat
+{
+    D32Float,
 };
 
 struct RenderTargetHandle
@@ -39,11 +43,25 @@ struct RenderTargetDesc
     std::uint32_t height = 0;
     bool color = true;
     bool depth = true;
+    RenderTargetColorFormat colorFormat = RenderTargetColorFormat::Rgba8Unorm;
+    RenderTargetDepthFormat depthFormat = RenderTargetDepthFormat::D32Float;
     // Enables sampling this target in later shader passes.
     bool shaderReadable = true;
     // Enables readback request tracking for this target.
     bool cpuReadback = false;
     std::string debugName;
+};
+
+struct GraphicsDeviceDesc
+{
+    GraphicsBackend preferredBackend = GraphicsBackend::Vulkan;
+    bool enableValidation = true;
+    RenderTargetDesc defaultRenderTargetDesc{};
+    // Optional override for runtime shader source directory.
+    // If empty, the engine resolves its default search paths.
+    std::string shaderDirectory;
+    // Allows using embedded fallback sources when shader files are unavailable.
+    bool allowShaderFallback = true;
 };
 
 struct RenderViewport
@@ -55,45 +73,70 @@ struct RenderViewport
     float height = 1.0f;
 };
 
+struct RenderPassBeginDesc
+{
+    bool clearColor = true;
+    bool clearDepth = true;
+    float clearColorValue[4] = {0.02f, 0.02f, 0.03f, 1.0f};
+    float clearDepthValue = 1.0f;
+};
+
 struct RenderTargetReadbackEvent
 {
     RenderTargetHandle target{};
     std::uint64_t frameIndex = 0;
+    // Format of color payload when available.
+    RenderTargetColorFormat colorFormat = RenderTargetColorFormat::Rgba8Unorm;
+    // Optional 4-channel 8-bit payload copied from the target color buffer.
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    std::uint32_t rowStrideBytes = 0;
+    std::vector<std::uint8_t> colorBytes{};
 };
 
-class CRESSIM_NEO_GRAPHICS_API IGraphicsDevice
+struct RenderTargetReadbackRequest
+{
+    // Opaque per-device handle for a queued readback request.
+    std::uint64_t id = 0;
+};
+
+class CRESSIM_NEO_GRAPHICS_API GraphicsDevice
 {
 public:
-    virtual ~IGraphicsDevice() = default;
+    virtual ~GraphicsDevice() = default;
 
     virtual bool initialize(const GraphicsDeviceDesc& desc) = 0;
     virtual void shutdown() = 0;
 
-    // Resizes the built-in fallback target used when a camera has no explicit output target.
-    virtual void resizeDefaultRenderTarget(std::uint32_t width, std::uint32_t height) = 0;
-    // Explicit per-target management API (for multi-camera and GPU-only processing chains).
+    // Per-target management API (for multi-camera and GPU-only processing chains).
     virtual RenderTargetHandle createRenderTarget(const RenderTargetDesc& desc) = 0;
     virtual bool resizeRenderTarget(RenderTargetHandle target, std::uint32_t width, std::uint32_t height) = 0;
+    // Recreates target resources from an updated descriptor while preserving handle identity.
+    virtual bool reconfigureRenderTarget(RenderTargetHandle target, const RenderTargetDesc& desc) = 0;
     virtual void destroyRenderTarget(RenderTargetHandle target) = 0;
     virtual bool isValidRenderTarget(RenderTargetHandle target) const = 0;
+    virtual bool tryGetRenderTargetDesc(RenderTargetHandle target, RenderTargetDesc& outDesc) const = 0;
+    // Built-in fallback target used when a camera has no explicit output target.
     virtual RenderTargetHandle defaultRenderTarget() const = 0;
 
     virtual void beginFrame(const common::FrameContext& frameContext) = 0;
     // Sets viewport state used for the next beginRenderTarget/endRenderTarget pair on this target.
     virtual void setRenderTargetViewport(RenderTargetHandle target, const RenderViewport& viewport) = 0;
-    virtual void beginRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) = 0;
+    virtual void beginRenderTarget(
+        RenderTargetHandle target,
+        const common::FrameContext& frameContext,
+        const RenderPassBeginDesc& beginDesc) = 0;
     virtual void endRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) = 0;
-    // Requests a CPU-facing completion event for this target once rendering is done.
-    virtual void requestReadback(RenderTargetHandle target) = 0;
-    // Pops readback completion metadata. Current implementation reports logical completion only.
-    // TODO: gate this by real GPU copy + fence completion and attach payload metadata.
-    virtual bool tryPopReadbackEvent(RenderTargetReadbackEvent& outEvent) = 0;
+    // Queues a target readback request that completes after a subsequent render pass of that target.
+    virtual RenderTargetReadbackRequest requestRenderTargetReadback(RenderTargetHandle target) = 0;
+    // Polls completion for a specific request id, returning payload when available.
+    virtual bool tryGetRenderTargetReadback(RenderTargetReadbackRequest request, RenderTargetReadbackEvent& outEvent) = 0;
     virtual void endFrame(const common::FrameContext& frameContext) = 0;
 
     virtual GraphicsBackend backend() const = 0;
 };
 
-CRESSIM_NEO_GRAPHICS_API std::unique_ptr<IGraphicsDevice> createGraphicsDevice();
+CRESSIM_NEO_GRAPHICS_API std::unique_ptr<GraphicsDevice> createGraphicsDevice();
 
 } // namespace cressim::neo::graphics
 

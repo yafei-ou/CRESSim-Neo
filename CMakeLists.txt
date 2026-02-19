@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.18)
 
 set(CMAKE_CXX_STANDARD 17)
+# Diligent claims that it doesn't work with O2/O3 using gcc
+set(CMAKE_C_COMPILER clang)
+set(CMAKE_CXX_COMPILER clang++)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(CRESSim-Neo VERSION 0.1.0 LANGUAGES C CXX)
 
@@ -23,6 +27,7 @@ configure_file(
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/generated)
 
 option(ENGINE_STATIC "Build the engine as a static library"  ON)
+option(CRESSIM_NEO_BUILD_VIEWER "Build viewer module and related integration tests" ON)
 option(CRESSIM_NEO_ENABLE_CLANG_TIDY "Enable clang-tidy checks during build" OFF)
 
 if(CRESSIM_NEO_ENABLE_CLANG_TIDY)

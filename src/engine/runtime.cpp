@@ -1,4 +1,5 @@
 #include "engine/runtime.h"
+#include "engine/world_to_render_world_sync.h"
 
 namespace cressim::neo::engine
 {
@@ -16,13 +17,13 @@ bool Runtime::initialize(const RuntimeConfig& config)
         return false;
     }
 
-    if (!mGraphicsDevice->initialize(config.graphics))
+    if (!mGraphicsDevice->initialize(config.graphicsDeviceDesc))
     {
         mGraphicsDevice.reset();
         return false;
     }
 
-    mRenderer = std::make_unique<graphics::Renderer>(*mGraphicsDevice, mScene.resources());
+    mRenderer = std::make_unique<graphics::Renderer>(*mGraphicsDevice, mResources, config.rendererDesc);
     if (!mRenderer->initialize())
     {
         mRenderer.reset();
@@ -50,6 +51,7 @@ void Runtime::shutdown()
         mGraphicsDevice.reset();
     }
 
+    mLastRenderStats = {};
     mInitialized = false;
 }
 
@@ -61,7 +63,7 @@ void Runtime::tick(const common::FrameContext& frameContext)
     }
 
     syncWorldToRenderWorld();
-    (void)mRenderer->render(frameContext, mScene.world());
+    mLastRenderStats = mRenderer->render(frameContext, mRenderWorld);
 }
 
 World& Runtime::getWorld() noexcept
@@ -74,87 +76,52 @@ const World& Runtime::getWorld() const noexcept
     return mWorld;
 }
 
-graphics::IGraphicsDevice* Runtime::getGraphicsDevice() noexcept
+graphics::GraphicsDevice* Runtime::getGraphicsDevice() noexcept
 {
     return mGraphicsDevice.get();
 }
 
-const graphics::IGraphicsDevice* Runtime::getGraphicsDevice() const noexcept
+const graphics::GraphicsDevice* Runtime::getGraphicsDevice() const noexcept
 {
     return mGraphicsDevice.get();
 }
 
-bool Runtime::tryPopReadbackEvent(graphics::RenderTargetReadbackEvent& outEvent)
+graphics::RenderTargetReadbackRequest Runtime::requestRenderTargetReadback(graphics::RenderTargetHandle target)
+{
+    if (!mGraphicsDevice)
+    {
+        return {};
+    }
+    return mGraphicsDevice->requestRenderTargetReadback(target);
+}
+
+bool Runtime::tryGetRenderTargetReadback(graphics::RenderTargetReadbackRequest request, graphics::RenderTargetReadbackEvent& outEvent)
 {
     if (!mGraphicsDevice)
     {
         return false;
     }
-    return mGraphicsDevice->tryPopReadbackEvent(outEvent);
+    return mGraphicsDevice->tryGetRenderTargetReadback(request, outEvent);
 }
 
-graphics::Scene& Runtime::getScene() noexcept
+const graphics::RenderStats& Runtime::lastRenderStats() const noexcept
 {
-    return mScene;
+    return mLastRenderStats;
 }
 
-const graphics::Scene& Runtime::getScene() const noexcept
+graphics::RenderResourceManager& Runtime::getResources() noexcept
 {
-    return mScene;
+    return mResources;
+}
+
+const graphics::RenderResourceManager& Runtime::getResources() const noexcept
+{
+    return mResources;
 }
 
 void Runtime::syncWorldToRenderWorld()
 {
-    graphics::RenderWorld& renderWorld = mScene.world();
-    // Full rebuild each frame for now; straightforward but not optimal for large scenes.
-    // TODO: switch to dirty-entity sync to avoid re-uploading unchanged data.
-    renderWorld.clear();
-
-    for (const common::EntityId entityId : mWorld.entities())
-    {
-        const TransformComponent* transform = mWorld.tryGetTransform(entityId);
-        const common::Transform worldTransform = transform ? transform->worldTransform : common::Transform{};
-
-        const MeshRendererComponent* meshRenderer = mWorld.tryGetMeshRenderer(entityId);
-        if (meshRenderer != nullptr && meshRenderer->visible)
-        {
-            graphics::RenderableInstance renderable{};
-            renderable.entityId = entityId;
-            renderable.worldTransform = worldTransform;
-            renderable.mesh = meshRenderer->mesh;
-            renderable.material = meshRenderer->material;
-            renderWorld.upsertRenderable(renderable);
-        }
-
-        const CameraComponent* camera = mWorld.tryGetCamera(entityId);
-        if (camera != nullptr)
-        {
-            graphics::CameraData cameraData{};
-            cameraData.entityId = entityId;
-            cameraData.worldTransform = worldTransform;
-            cameraData.verticalFovDegrees = camera->verticalFovDegrees;
-            cameraData.nearClip = camera->nearClip;
-            cameraData.farClip = camera->farClip;
-            cameraData.outputTarget = camera->outputTarget;
-            cameraData.outputWidth = camera->outputWidth;
-            cameraData.outputHeight = camera->outputHeight;
-            cameraData.viewport = camera->viewport;
-            cameraData.renderOrder = camera->renderOrder;
-            cameraData.requestReadback = camera->requestReadback;
-            renderWorld.upsertCamera(cameraData);
-        }
-
-        const DirectionalLightComponent* directionalLight = mWorld.tryGetDirectionalLight(entityId);
-        if (directionalLight != nullptr)
-        {
-            graphics::DirectionalLightData lightData{};
-            lightData.entityId = entityId;
-            lightData.direction = directionalLight->direction;
-            lightData.color = directionalLight->color;
-            lightData.intensity = directionalLight->intensity;
-            renderWorld.upsertDirectionalLight(lightData);
-        }
-    }
+    detail::syncWorldToRenderWorld(mWorld, mRenderWorld);
 }
 
 } // namespace cressim::neo::engine

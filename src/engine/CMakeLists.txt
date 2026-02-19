@@ -1,12 +1,12 @@
-file(GLOB_RECURSE PROJECT_HEADER
+file(GLOB_RECURSE PROJECT_HEADER CONFIGURE_DEPENDS
     ${PROJECT_SOURCE_DIR}/include/engine/*.h
 )
 
-file(GLOB_RECURSE TARGET_HEADER
+file(GLOB_RECURSE TARGET_HEADER CONFIGURE_DEPENDS
     ${PROJECT_SOURCE_DIR}/src/engine/*.h
 )
 
-file(GLOB_RECURSE TARGET_SOURCE
+file(GLOB_RECURSE TARGET_SOURCE CONFIGURE_DEPENDS
     ${PROJECT_SOURCE_DIR}/src/engine/*.cpp
 )
 
@@ -48,8 +48,8 @@ source_group(
 )
 
 target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/extern)
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src)
-target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/extern)
 
 target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common cressim_neo_graphics)
 

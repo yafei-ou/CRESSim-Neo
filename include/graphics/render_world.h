@@ -7,6 +7,8 @@
 #include "graphics/export.h"
 #include "graphics/render_resource_manager.h"
 
+#include <cstddef>
+#include <unordered_map>
 #include <vector>
 
 namespace cressim::neo::graphics
@@ -35,14 +37,13 @@ struct CameraData
     RenderViewport viewport{};
 
     std::uint32_t renderOrder = 0;
-    bool requestReadback = false;
 };
 
 struct DirectionalLightData
 {
     common::EntityId entityId = common::kInvalidEntityId;
-    common::Vec3f direction{0.0f, -1.0f, 0.0f};
-    common::Vec3f color{1.0f, 1.0f, 1.0f};
+    Diligent::float3 direction{0.0f, -1.0f, 0.0f};
+    Diligent::float3 color{1.0f, 1.0f, 1.0f};
     float intensity = 1.0f;
 };
 
@@ -63,6 +64,10 @@ private:
     std::vector<RenderableInstance> mRenderables;
     std::vector<CameraData> mCameras;
     std::vector<DirectionalLightData> mDirectionalLights;
+
+    std::unordered_map<common::EntityId, std::size_t> mRenderableIndices;
+    std::unordered_map<common::EntityId, std::size_t> mCameraIndices;
+    std::unordered_map<common::EntityId, std::size_t> mDirectionalLightIndices;
 };
 
 } // namespace cressim::neo::graphics
