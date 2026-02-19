@@ -30,8 +30,55 @@ PbrPass::PbrPass(GraphicsDeviceImpl& device) :
 bool PbrPass::initialize()
 {
     mShaderSourceProvider = ShaderSourceProvider(mDevice.shaderSourceDirectory(), mDevice.allowShaderFallback());
+
+    GraphicsDeviceImpl::VulkanBackendContext backendContext{};
+    if (mDevice.tryGetVulkanContext(backendContext) && backendContext.renderDevice != nullptr)
+    {
+        Diligent::SamplerDesc shadowSamplerDesc{};
+        shadowSamplerDesc.MinFilter = Diligent::FILTER_TYPE_LINEAR;
+        shadowSamplerDesc.MagFilter = Diligent::FILTER_TYPE_LINEAR;
+        shadowSamplerDesc.MipFilter = Diligent::FILTER_TYPE_LINEAR;
+        shadowSamplerDesc.AddressU = Diligent::TEXTURE_ADDRESS_CLAMP;
+        shadowSamplerDesc.AddressV = Diligent::TEXTURE_ADDRESS_CLAMP;
+        shadowSamplerDesc.AddressW = Diligent::TEXTURE_ADDRESS_CLAMP;
+        backendContext.renderDevice->CreateSampler(shadowSamplerDesc, &mShadowSampler);
+
+        Diligent::TextureDesc textureDesc{};
+        textureDesc.Name = "CRESSimNeo.PbrPass.FallbackShadow";
+        textureDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
+        textureDesc.Width = 1;
+        textureDesc.Height = 1;
+        textureDesc.MipLevels = 1;
+        textureDesc.ArraySize = 1;
+        textureDesc.Format = Diligent::TEX_FORMAT_R32_FLOAT;
+        textureDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+        textureDesc.Usage = Diligent::USAGE_IMMUTABLE;
+
+        const float whiteShadow = 1.0f;
+        Diligent::TextureSubResData subresource{&whiteShadow, sizeof(float)};
+        Diligent::TextureData textureData{};
+        textureData.pSubResources = &subresource;
+        textureData.NumSubresources = 1;
+
+        Diligent::RefCntAutoPtr<Diligent::ITexture> fallbackTexture;
+        backendContext.renderDevice->CreateTexture(textureDesc, &textureData, &fallbackTexture);
+        if (fallbackTexture != nullptr)
+        {
+            mFallbackShadowMapSrv = fallbackTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+            if (mFallbackShadowMapSrv != nullptr && mShadowSampler != nullptr)
+            {
+                mFallbackShadowMapSrv->SetSampler(mShadowSampler);
+            }
+        }
+    }
+
     mInitialized = true;
     return true;
+}
+
+void PbrPass::setShadowMapTarget(RenderTargetHandle shadowMapTarget)
+{
+    mShadowMapTarget = shadowMapTarget;
 }
 
 bool PbrPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand)
@@ -83,9 +130,43 @@ bool PbrPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawComm
         return false;
     }
 
+    Diligent::ITextureView* shadowMapSrv = mFallbackShadowMapSrv;
+    bool hasShadowMap = false;
+    if (mShadowMapTarget.id != common::kInvalidResourceId)
+    {
+        Diligent::ITexture* depthTexture = nullptr;
+        if (mDevice.tryGetRenderTargetDepthTexture(mShadowMapTarget, depthTexture) && depthTexture != nullptr)
+        {
+            Diligent::ITextureView* depthSrv = depthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+            if (depthSrv != nullptr)
+            {
+                if (mShadowSampler != nullptr)
+                {
+                    depthSrv->SetSampler(mShadowSampler);
+                }
+                shadowMapSrv = depthSrv;
+                hasShadowMap = true;
+            }
+        }
+    }
+
+    if (shadowMapSrv == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::IShaderResourceVariable* shadowMapVar =
+        pipeline->shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap");
+    if (shadowMapVar == nullptr)
+    {
+        return false;
+    }
+    shadowMapVar->Set(shadowMapSrv);
+
     DrawConstants constants{};
     std::memcpy(constants.modelMatrix, drawCommand.modelMatrix, sizeof(constants.modelMatrix));
     std::memcpy(constants.viewProjectionMatrix, drawCommand.viewProjectionMatrix, sizeof(constants.viewProjectionMatrix));
+    std::memcpy(constants.lightViewProjectionMatrix, drawCommand.lightViewProjectionMatrix, sizeof(constants.lightViewProjectionMatrix));
     constants.cameraPositionMetallic[0] = drawCommand.cameraPosition[0];
     constants.cameraPositionMetallic[1] = drawCommand.cameraPosition[1];
     constants.cameraPositionMetallic[2] = drawCommand.cameraPosition[2];
@@ -101,7 +182,10 @@ bool PbrPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawComm
     constants.baseColor[0] = drawCommand.material.baseColor[0];
     constants.baseColor[1] = drawCommand.material.baseColor[1];
     constants.baseColor[2] = drawCommand.material.baseColor[2];
-    constants.baseColor[3] = 1.0f;
+    constants.baseColor[3] = drawCommand.material.opacity;
+    constants.shadowParams[0] = drawCommand.shadowBias;
+    constants.shadowParams[1] = hasShadowMap ? 1.0f : 0.0f;
+    constants.shadowParams[2] = drawCommand.material.receivesShadows;
 
     void* mappedConstants = nullptr;
     backendContext.immediateContext->MapBuffer(mConstantBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
@@ -251,6 +335,10 @@ bool PbrPass::createPipeline(
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = hasDepthTarget ? Diligent::True : Diligent::False;
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = hasDepthTarget ? Diligent::True : Diligent::False;
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+    constexpr Diligent::ShaderResourceVariableDesc kVars[] = {
+        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
+    psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
+    psoCreateInfo.PSODesc.ResourceLayout.NumVariables = 1;
 
     constexpr Diligent::LayoutElement kLayoutElements[] = {
         Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, Diligent::False},

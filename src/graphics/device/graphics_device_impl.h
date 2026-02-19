@@ -54,6 +54,7 @@ public:
     GraphicsBackend backend() const override;
     bool tryGetVulkanContext(VulkanBackendContext& outContext);
     bool tryGetRenderTargetColorTexture(RenderTargetHandle target, Diligent::ITexture*& outTexture);
+    bool tryGetRenderTargetDepthTexture(RenderTargetHandle target, Diligent::ITexture*& outTexture);
     const std::string& shaderSourceDirectory() const;
     bool allowShaderFallback() const;
 

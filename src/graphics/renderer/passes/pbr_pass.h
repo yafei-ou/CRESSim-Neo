@@ -9,6 +9,8 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Sampler.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Texture.h"
 
 #include <cstdint>
 #include <unordered_map>
@@ -27,6 +29,7 @@ public:
     explicit PbrPass(GraphicsDeviceImpl& device);
 
     bool initialize();
+    void setShadowMapTarget(RenderTargetHandle shadowMapTarget);
     bool draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand);
 
 private:
@@ -48,10 +51,12 @@ private:
     {
         float modelMatrix[16] = {};
         float viewProjectionMatrix[16] = {};
+        float lightViewProjectionMatrix[16] = {};
         float cameraPositionMetallic[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         float lightDirectionIntensity[4] = {0.0f, -1.0f, 0.0f, 1.0f};
         float lightColorRoughness[4] = {1.0f, 1.0f, 1.0f, 0.5f};
         float baseColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+        float shadowParams[4] = {0.0015f, 0.0f, 1.0f, 0.0f};
     };
 
     CachedMeshGpuData* getOrCreateMeshBuffers(
@@ -75,6 +80,9 @@ private:
     std::unordered_map<common::ResourceId, CachedMeshGpuData> mCachedMeshes;
     std::unordered_map<std::uint64_t, PipelineResources> mPipelineCache;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mConstantBuffer;
+    Diligent::RefCntAutoPtr<Diligent::ISampler> mShadowSampler;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackShadowMapSrv;
+    RenderTargetHandle mShadowMapTarget{};
 };
 
 } // namespace detail

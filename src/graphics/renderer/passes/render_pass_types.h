@@ -20,8 +20,10 @@ struct FrameViewData
     std::uint32_t outputWidth = 0;
     std::uint32_t outputHeight = 0;
     Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
+    Diligent::float4x4 lightViewProjectionMatrix = Diligent::float4x4::Identity();
     Diligent::float3 cameraWorldPosition = {0.0f, 0.0f, 0.0f};
     Diligent::ViewFrustum viewFrustum{};
+    bool hasDirectionalLight = false;
 };
 
 struct QueuedDraw

@@ -46,8 +46,9 @@ struct ForwardDrawCommand
     // Row-major 4x4 matrices.
     float modelMatrix[16] = {0.0f};
     float viewProjectionMatrix[16] = {0.0f};
+    float lightViewProjectionMatrix[16] = {0.0f};
     float cameraPosition[3] = {0.0f, 0.0f, 0.0f};
-    float _padding0 = 0.0f;
+    float shadowBias = 0.0015f;
 
     ForwardMaterialData material{};
     ForwardDirectionalLightData light{};

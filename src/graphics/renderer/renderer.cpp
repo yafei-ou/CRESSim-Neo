@@ -99,6 +99,10 @@ ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightDat
     ForwardDirectionalLightData out{};
     if (lights.empty())
     {
+        out.direction[0] = 0.0f;
+        out.direction[1] = 0.0f;
+        out.direction[2] = 0.0f;
+        out.intensity = 0.0f;
         return out;
     }
 
@@ -146,6 +150,7 @@ bool buildDrawCommand(
     outCommand.indexCount = static_cast<std::uint32_t>(mesh.indices.size());
     math::copyMatrixRowMajor(outCommand.modelMatrix, modelMatrix);
     math::copyMatrixRowMajor(outCommand.viewProjectionMatrix, frameView.viewProjectionMatrix);
+    math::copyMatrixRowMajor(outCommand.lightViewProjectionMatrix, frameView.lightViewProjectionMatrix);
     outCommand.cameraPosition[0] = frameView.cameraWorldPosition.x;
     outCommand.cameraPosition[1] = frameView.cameraWorldPosition.y;
     outCommand.cameraPosition[2] = frameView.cameraWorldPosition.z;
@@ -167,6 +172,126 @@ Diligent::float4x4 buildViewProjection(const CameraData& camera, float outputWid
     const Diligent::float4x4 view = math::viewMatrixFromTransform(camera.worldTransform);
     const Diligent::float4x4 projection = math::perspectiveMatrix(camera.verticalFovDegrees, aspect, camera.nearClip, camera.farClip);
     return view * projection;
+}
+
+Diligent::float4x4 lookAtMatrix(const Diligent::float3& eye, const Diligent::float3& at, const Diligent::float3& up)
+{
+    const Diligent::float3 zAxis = Diligent::normalize(eye - at);
+    const Diligent::float3 xAxis = Diligent::normalize(Diligent::cross(up, zAxis));
+    const Diligent::float3 yAxis = Diligent::cross(zAxis, xAxis);
+
+    Diligent::float4x4 view = Diligent::float4x4::Identity();
+    view.m00 = xAxis.x;
+    view.m01 = yAxis.x;
+    view.m02 = zAxis.x;
+    view.m10 = xAxis.y;
+    view.m11 = yAxis.y;
+    view.m12 = zAxis.y;
+    view.m20 = xAxis.z;
+    view.m21 = yAxis.z;
+    view.m22 = zAxis.z;
+    view.m30 = -Diligent::dot(xAxis, eye);
+    view.m31 = -Diligent::dot(yAxis, eye);
+    view.m32 = -Diligent::dot(zAxis, eye);
+    return view;
+}
+
+Diligent::float4x4 orthographicMatrix(float width, float height, float nearClip, float farClip)
+{
+    const float w = clampPositive(width, 1.0f);
+    const float h = clampPositive(height, 1.0f);
+    const float n = std::max(nearClip, 0.001f);
+    const float f = std::max(farClip, n + 0.001f);
+
+    Diligent::float4x4 out = Diligent::float4x4::Identity();
+    out.m00 = 2.0f / w;
+    out.m11 = 2.0f / h;
+    out.m22 = 1.0f / (n - f);
+    out.m32 = n / (n - f);
+    return out;
+}
+
+Diligent::float4x4 buildDirectionalLightViewProjection(
+    const ForwardDirectionalLightData& light,
+    const Diligent::float3& shadowFocusWorldPosition,
+    bool& outHasDirectionalLight)
+{
+    const Diligent::float3 lightDirection{light.direction[0], light.direction[1], light.direction[2]};
+    outHasDirectionalLight = light.intensity > 0.0f && Diligent::dot(lightDirection, lightDirection) > 1.0e-6f;
+    if (!outHasDirectionalLight)
+    {
+        return Diligent::float4x4::Identity();
+    }
+
+    const Diligent::float3 dir = Diligent::normalize(lightDirection);
+    const Diligent::float3 sceneCenter = shadowFocusWorldPosition;
+    const Diligent::float3 lightPosition = sceneCenter - dir * 18.0f;
+    const Diligent::float3 upCandidate =
+        std::abs(Diligent::dot(dir, Diligent::float3{0.0f, 1.0f, 0.0f})) > 0.98f ?
+            Diligent::float3{0.0f, 0.0f, 1.0f} :
+            Diligent::float3{0.0f, 1.0f, 0.0f};
+
+    const Diligent::float4x4 lightView = lookAtMatrix(lightPosition, sceneCenter, upCandidate);
+    const Diligent::float4x4 lightProjection = orthographicMatrix(24.0f, 24.0f, 0.1f, 60.0f);
+    return lightView * lightProjection;
+}
+
+bool buildWorldBoundsCenter(const std::vector<ValidRenderable>& validRenderables, Diligent::float3& outCenter)
+{
+    bool hasBounds = false;
+    Diligent::float3 minBounds{0.0f, 0.0f, 0.0f};
+    Diligent::float3 maxBounds{0.0f, 0.0f, 0.0f};
+
+    for (const ValidRenderable& renderable : validRenderables)
+    {
+        if (renderable.instance == nullptr)
+        {
+            continue;
+        }
+
+        Diligent::float3 worldMin{};
+        Diligent::float3 worldMax{};
+        if (renderable.hasLocalBounds)
+        {
+            const Diligent::BoundBox localBounds{
+                Diligent::float3{renderable.localBoundsMin.x, renderable.localBoundsMin.y, renderable.localBoundsMin.z},
+                Diligent::float3{renderable.localBoundsMax.x, renderable.localBoundsMax.y, renderable.localBoundsMax.z}};
+            const Diligent::float4x4 modelMatrix = math::transformMatrix(renderable.instance->worldTransform);
+            const Diligent::BoundBox worldBounds = localBounds.Transform(modelMatrix);
+            worldMin = worldBounds.Min;
+            worldMax = worldBounds.Max;
+        }
+        else
+        {
+            const Diligent::float3 position = math::toFloat3(renderable.instance->worldTransform.position);
+            worldMin = position;
+            worldMax = position;
+        }
+
+        if (!hasBounds)
+        {
+            minBounds = worldMin;
+            maxBounds = worldMax;
+            hasBounds = true;
+            continue;
+        }
+
+        minBounds.x = std::min(minBounds.x, worldMin.x);
+        minBounds.y = std::min(minBounds.y, worldMin.y);
+        minBounds.z = std::min(minBounds.z, worldMin.z);
+        maxBounds.x = std::max(maxBounds.x, worldMax.x);
+        maxBounds.y = std::max(maxBounds.y, worldMax.y);
+        maxBounds.z = std::max(maxBounds.z, worldMax.z);
+    }
+
+    if (!hasBounds)
+    {
+        outCenter = Diligent::float3{0.0f, 0.0f, 0.0f};
+        return false;
+    }
+
+    outCenter = (minBounds + maxBounds) * 0.5f;
+    return true;
 }
 
 Diligent::float3 cameraPosition(const CameraData& camera)
@@ -341,7 +466,9 @@ FrameViewData buildFrameViewData(
     const CameraData& camera,
     const RenderTargetDesc& targetDesc,
     RenderTargetHandle target,
-    const RenderViewport& viewport)
+    const RenderViewport& viewport,
+    const ForwardDirectionalLightData& lightData,
+    const Diligent::float3& shadowFocusWorldPosition)
 {
     FrameViewData frameView{};
     frameView.target = target;
@@ -353,6 +480,8 @@ FrameViewData buildFrameViewData(
         static_cast<float>(targetDesc.width),
         static_cast<float>(targetDesc.height));
     frameView.cameraWorldPosition = cameraPosition(camera);
+    frameView.lightViewProjectionMatrix =
+        buildDirectionalLightViewProjection(lightData, shadowFocusWorldPosition, frameView.hasDirectionalLight);
     Diligent::ExtractViewFrustumPlanesFromMatrix(frameView.viewProjectionMatrix, frameView.viewFrustum, false);
     return frameView;
 }
@@ -407,6 +536,8 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
     const auto& renderables = world.renderables();
     const auto validRenderables = gatherValidRenderables(renderables, mResourceManager);
     const ForwardDirectionalLightData lightData = buildMainLight(world.directionalLights());
+    Diligent::float3 worldCenter = Diligent::float3{0.0f, 0.0f, 0.0f};
+    const bool hasWorldCenter = buildWorldBoundsCenter(validRenderables, worldCenter);
 
     stats.renderableCount = static_cast<std::uint32_t>(renderables.size());
     stats.validRenderableCount = static_cast<std::uint32_t>(validRenderables.size());
@@ -435,7 +566,6 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
         }
 
         const RenderViewport viewport = normalizeViewport(camera.viewport);
-        mDevice.setRenderTargetViewport(target, viewport);
 
         RenderTargetDesc targetDesc{};
         if (!mDevice.tryGetRenderTargetDesc(target, targetDesc))
@@ -443,19 +573,15 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
             return;
         }
 
-        const FrameViewData frameView = buildFrameViewData(camera, targetDesc, target, viewport);
+        const Diligent::float3 shadowFocus = hasWorldCenter ? worldCenter : cameraPosition(camera);
+        const FrameViewData frameView = buildFrameViewData(camera, targetDesc, target, viewport, lightData, shadowFocus);
         const CameraRenderQueues queues = buildCameraRenderQueues(validRenderables, frameView, lightData, mResourceManager, stats);
-
-        const RenderPassBeginDesc beginDesc{};
-        mDevice.beginRenderTarget(target, frameContext, beginDesc);
 
         ForwardPassExecutionStats passStats{};
         if (mForwardPipeline != nullptr)
         {
-            (void)mForwardPipeline->execute(target, queues, passStats);
+            (void)mForwardPipeline->execute(frameContext, frameView, queues, passStats);
         }
-
-        mDevice.endRenderTarget(target, frameContext);
 
         stats.opaqueDrawCalls += passStats.opaqueDrawCalls;
         stats.shadowDrawCalls += passStats.shadowDrawCalls;

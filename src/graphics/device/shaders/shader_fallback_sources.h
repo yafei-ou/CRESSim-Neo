@@ -6,6 +6,7 @@ namespace cressim::neo::graphics::shaders
 
 const char* pbrVertex();
 const char* pbrPixel();
+const char* shadowDepthVertex();
 
 } // namespace cressim::neo::graphics::shaders
 

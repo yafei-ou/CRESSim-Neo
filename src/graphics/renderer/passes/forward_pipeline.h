@@ -15,6 +15,7 @@ namespace detail
 {
 
 class PbrPass;
+class ShadowPass;
 
 class ForwardPipeline
 {
@@ -24,13 +25,16 @@ public:
 
     bool initialize();
     bool execute(
-        RenderTargetHandle target,
+        const common::FrameContext& frameContext,
+        const FrameViewData& frameView,
         const CameraRenderQueues& queues,
         ForwardPassExecutionStats& outStats);
 
 private:
     GraphicsDeviceImpl& mDevice;
     std::unique_ptr<PbrPass> mPbrPass;
+    std::unique_ptr<ShadowPass> mShadowPass;
+    RenderTargetHandle mShadowMapTarget{};
     bool mInitialized = false;
 };
 

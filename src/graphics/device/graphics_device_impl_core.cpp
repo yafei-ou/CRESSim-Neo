@@ -516,6 +516,25 @@ bool GraphicsDeviceImpl::tryGetRenderTargetColorTexture(RenderTargetHandle targe
     return true;
 }
 
+bool GraphicsDeviceImpl::tryGetRenderTargetDepthTexture(RenderTargetHandle target, Diligent::ITexture*& outTexture)
+{
+    outTexture = nullptr;
+
+    if (!mInitialized || mBackend != GraphicsBackend::Vulkan)
+    {
+        return false;
+    }
+
+    const auto it = mRenderTargets.find(target.id);
+    if (it == mRenderTargets.end() || it->second.depthTexture == nullptr)
+    {
+        return false;
+    }
+
+    outTexture = it->second.depthTexture;
+    return true;
+}
+
 const std::string& GraphicsDeviceImpl::shaderSourceDirectory() const
 {
     return mDesc.shaderDirectory;

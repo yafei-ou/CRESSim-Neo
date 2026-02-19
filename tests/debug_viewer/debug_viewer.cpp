@@ -78,6 +78,20 @@ MeshResourceDesc makeCubeMesh(float halfExtent)
     return mesh;
 }
 
+MeshResourceDesc makePlaneMesh(float halfExtent)
+{
+    MeshResourceDesc mesh{};
+    mesh.debugName = "ViewerIntegration.PlaneMesh";
+    const float h = halfExtent;
+    mesh.vertices = {
+        {{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f},
+        {{h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 1.0f, 0.0f},
+        {{h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 1.0f, 1.0f},
+        {{-h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 0.0f, 1.0f}};
+    mesh.indices = {0u, 2u, 1u, 0u, 3u, 2u};
+    return mesh;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -117,7 +131,9 @@ int main(int argc, char** argv)
 
     DebugViewerApp viewer;
     DebugViewerAppDesc viewerDesc{};
-    viewerDesc.windowEnabled = true;
+    const bool windowEnabled = (config.graphicsDeviceDesc.preferredBackend != GraphicsBackend::Null);
+    viewerDesc.windowEnabled = windowEnabled;
+    viewerDesc.windowVisible = windowEnabled;
     viewerDesc.maxFrames = std::max<std::uint64_t>(numFrames, 1u);
     viewerDesc.showStats = false;
     viewerDesc.width = 640;
@@ -140,19 +156,20 @@ int main(int argc, char** argv)
     auto& world = runtime.getWorld();
     const auto cameraEntity = world.createEntity();
     TransformComponent cameraTransform{};
-    cameraTransform.worldTransform.position = {0.0f, 0.0f, 2.2f};
+    cameraTransform.worldTransform.position = {0.0f, 1.8f, 4.2f};
     world.setTransform(cameraEntity, cameraTransform);
     world.setCamera(cameraEntity, CameraComponent{});
 
     const auto lightEntity = world.createEntity();
     DirectionalLightComponent light{};
-    light.direction = {-0.35f, -0.45f, -1.0f};
+    light.direction = {-0.45f, -1.0f, -0.35f};
     light.color = {1.0f, 1.0f, 1.0f};
-    light.intensity = 4.0f;
+    light.intensity = 6.0f;
     world.setDirectionalLight(lightEntity, light);
 
     auto& resources = runtime.getScene().resources();
     const auto cubeMesh = resources.registerMesh(makeCubeMesh(0.65f));
+    const auto planeMesh = resources.registerMesh(makePlaneMesh(8.0f));
 
     MaterialResourceDesc frontMaterialDesc{};
     frontMaterialDesc.debugName = "ViewerIntegration.FrontMaterial";
@@ -168,9 +185,26 @@ int main(int argc, char** argv)
     backMaterialDesc.roughness = 0.45f;
     const auto backMaterial = resources.registerMaterial(backMaterialDesc);
 
+    MaterialResourceDesc planeMaterialDesc{};
+    planeMaterialDesc.debugName = "ViewerIntegration.GroundMaterial";
+    planeMaterialDesc.baseColor = {0.72f, 0.74f, 0.77f};
+    planeMaterialDesc.metallic = 0.0f;
+    planeMaterialDesc.roughness = 0.85f;
+    const auto planeMaterial = resources.registerMaterial(planeMaterialDesc);
+
+    const auto groundEntity = world.createEntity();
+    TransformComponent groundTransform{};
+    groundTransform.worldTransform.position = {0.0f, -1.0f, 0.0f};
+    world.setTransform(groundEntity, groundTransform);
+    MeshRendererComponent ground{};
+    ground.mesh = planeMesh;
+    ground.material = planeMaterial;
+    ground.visible = true;
+    world.setMeshRenderer(groundEntity, ground);
+
     const auto frontCubeEntity = world.createEntity();
     TransformComponent frontCubeTransform{};
-    frontCubeTransform.worldTransform.position = {0.18f, -0.02f, 0.05f};
+    frontCubeTransform.worldTransform.position = {0.65f, -0.32f, 0.25f};
     world.setTransform(frontCubeEntity, frontCubeTransform);
     MeshRendererComponent frontCube{};
     frontCube.mesh = cubeMesh;
@@ -180,8 +214,8 @@ int main(int argc, char** argv)
 
     const auto backCubeEntity = world.createEntity();
     TransformComponent backCubeTransform{};
-    backCubeTransform.worldTransform.position = {-0.14f, 0.03f, -1.35f};
-    backCubeTransform.worldTransform.scale = {1.35f, 1.35f, 1.35f};
+    backCubeTransform.worldTransform.position = {-1.05f, -0.12f, -1.15f};
+    backCubeTransform.worldTransform.scale = {1.15f, 1.15f, 1.15f};
     world.setTransform(backCubeEntity, backCubeTransform);
     MeshRendererComponent backCube{};
     backCube.mesh = cubeMesh;
