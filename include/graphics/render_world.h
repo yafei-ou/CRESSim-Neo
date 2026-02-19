@@ -42,8 +42,8 @@ struct CameraData
 struct DirectionalLightData
 {
     common::EntityId entityId = common::kInvalidEntityId;
-    common::Vec3f direction{0.0f, -1.0f, 0.0f};
-    common::Vec3f color{1.0f, 1.0f, 1.0f};
+    Diligent::float3 direction{0.0f, -1.0f, 0.0f};
+    Diligent::float3 color{1.0f, 1.0f, 1.0f};
     float intensity = 1.0f;
 };
 

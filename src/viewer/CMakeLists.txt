@@ -62,8 +62,8 @@ source_group(
 )
 
 target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/extern)
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src)
-target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/extern)
 
 if(WIN32)
     target_compile_definitions(${TARGET_NAME} PRIVATE

@@ -85,7 +85,7 @@ int main()
 
     const auto visibleOpaqueEntity = world.createEntity();
     TransformComponent visibleOpaqueTransform{};
-    visibleOpaqueTransform.worldTransform.position = {0.0f, 0.0f, -2.0f};
+    visibleOpaqueTransform.worldTransform.position = {0.0f, 0.0f, 2.0f};
     world.setTransform(visibleOpaqueEntity, visibleOpaqueTransform);
     MeshRendererComponent visibleOpaqueRenderer{};
     visibleOpaqueRenderer.mesh = mesh;
@@ -95,7 +95,7 @@ int main()
 
     const auto visibleTransparentEntity = world.createEntity();
     TransformComponent visibleTransparentTransform{};
-    visibleTransparentTransform.worldTransform.position = {0.8f, 0.0f, -3.0f};
+    visibleTransparentTransform.worldTransform.position = {0.8f, 0.0f, 3.0f};
     world.setTransform(visibleTransparentEntity, visibleTransparentTransform);
     MeshRendererComponent visibleTransparentRenderer{};
     visibleTransparentRenderer.mesh = mesh;
@@ -105,7 +105,7 @@ int main()
 
     const auto culledEntity = world.createEntity();
     TransformComponent culledTransform{};
-    culledTransform.worldTransform.position = {0.0f, 0.0f, 2.0f};
+    culledTransform.worldTransform.position = {0.0f, 0.0f, -2.0f};
     world.setTransform(culledEntity, culledTransform);
     MeshRendererComponent culledRenderer{};
     culledRenderer.mesh = mesh;

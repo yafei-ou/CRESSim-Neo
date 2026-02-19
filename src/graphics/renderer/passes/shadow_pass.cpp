@@ -67,8 +67,8 @@ bool ShadowPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawC
     }
 
     DrawConstants constants{};
-    std::memcpy(constants.modelMatrix, drawCommand.modelMatrix, sizeof(constants.modelMatrix));
-    std::memcpy(constants.lightViewProjectionMatrix, drawCommand.lightViewProjectionMatrix, sizeof(constants.lightViewProjectionMatrix));
+    constants.modelMatrix = drawCommand.modelMatrix;
+    constants.lightViewProjectionMatrix = drawCommand.lightViewProjectionMatrix;
 
     void* mappedConstants = nullptr;
     backendContext.immediateContext->MapBuffer(mConstantBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);

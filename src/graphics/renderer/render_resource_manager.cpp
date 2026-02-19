@@ -89,7 +89,7 @@ const TextureResourceDesc* RenderResourceManager::tryGetTexture(TextureHandle te
     return &it->second;
 }
 
-bool RenderResourceManager::tryGetMeshLocalBounds(MeshHandle mesh, common::Vec3f& outMin, common::Vec3f& outMax) const noexcept
+bool RenderResourceManager::tryGetMeshLocalBounds(MeshHandle mesh, Diligent::float3& outMin, Diligent::float3& outMax) const noexcept
 {
     const auto it = mMeshes.find(mesh.id);
     if (it == mMeshes.end() || !it->second.hasLocalBounds)

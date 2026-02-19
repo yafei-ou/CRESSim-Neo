@@ -15,8 +15,6 @@ namespace
 {
 
 using cressim::neo::common::FrameContext;
-using cressim::neo::common::Quatf;
-using cressim::neo::common::Vec3f;
 using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
@@ -61,7 +59,7 @@ float degreesToRadians(float value)
     return value * 0.017453292519943295769f;
 }
 
-Quatf quaternionFromEulerDegrees(float pitchDegrees, float yawDegrees, float rollDegrees)
+Diligent::QuaternionF quaternionFromEulerDegrees(float pitchDegrees, float yawDegrees, float rollDegrees)
 {
     const float pitch = degreesToRadians(pitchDegrees) * 0.5f;
     const float yaw = degreesToRadians(yawDegrees) * 0.5f;
@@ -74,12 +72,11 @@ Quatf quaternionFromEulerDegrees(float pitchDegrees, float yawDegrees, float rol
     const float sinRoll = std::sin(roll);
     const float cosRoll = std::cos(roll);
 
-    Quatf q{};
-    q.w = cosRoll * cosPitch * cosYaw + sinRoll * sinPitch * sinYaw;
-    q.x = sinRoll * cosPitch * cosYaw - cosRoll * sinPitch * sinYaw;
-    q.y = cosRoll * sinPitch * cosYaw + sinRoll * cosPitch * sinYaw;
-    q.z = cosRoll * cosPitch * sinYaw - sinRoll * sinPitch * cosYaw;
-    return q;
+    return Diligent::QuaternionF{
+        sinRoll * cosPitch * cosYaw - cosRoll * sinPitch * sinYaw,
+        cosRoll * sinPitch * cosYaw + sinRoll * cosPitch * sinYaw,
+        cosRoll * cosPitch * sinYaw - sinRoll * sinPitch * cosYaw,
+        cosRoll * cosPitch * cosYaw + sinRoll * sinPitch * sinYaw};
 }
 
 bool isValidReadback(const RenderTargetReadbackEvent& event)
@@ -279,7 +276,7 @@ MeshResourceDesc makeCubeMesh(float halfExtent)
     mesh.vertices.reserve(24);
     mesh.indices.reserve(36);
 
-    const auto addFace = [&](const Vec3f& normal, const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const Vec3f& v3) {
+    const auto addFace = [&](const Diligent::float3& normal, const Diligent::float3& v0, const Diligent::float3& v1, const Diligent::float3& v2, const Diligent::float3& v3) {
         const std::uint32_t baseIndex = static_cast<std::uint32_t>(mesh.vertices.size());
         mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
         mesh.vertices.push_back({v1, normal, 1.0f, 0.0f});
@@ -287,11 +284,11 @@ MeshResourceDesc makeCubeMesh(float halfExtent)
         mesh.vertices.push_back({v3, normal, 0.0f, 1.0f});
 
         mesh.indices.push_back(baseIndex + 0u);
+        mesh.indices.push_back(baseIndex + 2u);
         mesh.indices.push_back(baseIndex + 1u);
-        mesh.indices.push_back(baseIndex + 2u);
         mesh.indices.push_back(baseIndex + 0u);
-        mesh.indices.push_back(baseIndex + 2u);
         mesh.indices.push_back(baseIndex + 3u);
+        mesh.indices.push_back(baseIndex + 2u);
     };
 
     const float h = halfExtent;
@@ -412,7 +409,7 @@ int main(int argc, char** argv)
 
     const auto cameraEntity = world.createEntity();
     TransformComponent cameraTransform{};
-    cameraTransform.worldTransform.position = {0.0f, 0.1f, 4.2f};
+    cameraTransform.worldTransform.position = {0.0f, 0.1f, -4.2f};
     world.setTransform(cameraEntity, cameraTransform);
     CameraComponent camera{};
     camera.verticalFovDegrees = 52.0f;
@@ -424,7 +421,7 @@ int main(int argc, char** argv)
 
     const auto lightEntity = world.createEntity();
     DirectionalLightComponent light{};
-    light.direction = {-0.35f, -0.45f, -1.0f};
+    light.direction = {-0.35f, -0.45f, 1.0f};
     light.color = {1.0f, 1.0f, 1.0f};
     light.intensity = 4.0f;
     world.setDirectionalLight(lightEntity, light);
@@ -448,7 +445,7 @@ int main(int argc, char** argv)
 
     const auto frontCubeEntity = world.createEntity();
     TransformComponent frontCubeTransform{};
-    frontCubeTransform.worldTransform.position = {0.18f, -0.02f, 0.05f};
+    frontCubeTransform.worldTransform.position = {0.18f, -0.02f, -0.05f};
     frontCubeTransform.worldTransform.rotation = quaternionFromEulerDegrees(-18.0f, 32.0f, 0.0f);
     world.setTransform(frontCubeEntity, frontCubeTransform);
     MeshRendererComponent frontCube{};
@@ -461,7 +458,7 @@ int main(int argc, char** argv)
     // Intentionally created after the front cube so depth testing, not draw order, resolves visibility.
     const auto backCubeEntity = world.createEntity();
     TransformComponent backCubeTransform{};
-    backCubeTransform.worldTransform.position = {-0.14f, 0.03f, -1.35f};
+    backCubeTransform.worldTransform.position = {-0.14f, 0.03f, 1.35f};
     backCubeTransform.worldTransform.rotation = quaternionFromEulerDegrees(12.0f, -24.0f, 0.0f);
     backCubeTransform.worldTransform.scale = {1.35f, 1.35f, 1.35f};
     world.setTransform(backCubeEntity, backCubeTransform);

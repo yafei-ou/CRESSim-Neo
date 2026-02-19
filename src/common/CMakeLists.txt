@@ -48,8 +48,11 @@ source_group(
 )
 
 target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/extern)
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src)
-target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/extern)
+
+# Link with Diligent
+target_link_libraries(${TARGET_NAME} PUBLIC Diligent-PublicBuildSettings)
 
 set_target_properties(${TARGET_NAME}
     PROPERTIES

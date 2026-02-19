@@ -14,6 +14,21 @@ This document summarizes what the current graphics scaffolding does and what to 
 8. Vulkan implementation is currently headless/offscreen.
 9. Material now drives shading and render policy (`ShadingModel`, blend mode, shadow casting/receiving, opacity).
 
+## Coordinate System Conventions
+
+1. Runtime math uses Diligent/Direct3D-style row vectors and row-major host-side matrices.
+2. Canonical world/camera basis is left-handed: `+X` right, `+Y` up, `+Z` forward.
+3. Transform composition follows Diligent order: `World = Scale * Rotation * Translation`.
+4. Camera projection uses Diligent defaults for Vulkan/Null: NDC `Z` range is `[0, 1]`.
+5. Vulkan viewport Y handling relies on Diligent's backend behavior (negative viewport height under the hood); no extra app-side Y inversion should be added.
+
+## Invariants Checklist
+
+1. Do not introduce manual right-handed projection/view formulas.
+2. Do not assume camera forward is `-Z`; default forward is `+Z`.
+3. Keep matrix multiplication order in Diligent row-vector form (`World * View * Proj`).
+4. Keep frustum extraction in non-OpenGL mode for current Vulkan/Null runtime (`bIsOpenGL = false`).
+
 ## Camera Output Flow
 
 Camera fields in `engine::CameraComponent`:

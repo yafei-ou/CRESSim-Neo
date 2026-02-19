@@ -4,6 +4,8 @@
 #include "common/id.h"
 #include "graphics/render_resource_manager.h"
 
+#include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
+
 #include <cstdint>
 
 namespace cressim::neo::graphics
@@ -11,21 +13,18 @@ namespace cressim::neo::graphics
 
 struct ForwardMaterialData
 {
-    float baseColor[3] = {1.0f, 1.0f, 1.0f};
+    Diligent::float3 baseColor{1.0f, 1.0f, 1.0f};
     float metallic = 0.0f;
     float roughness = 0.5f;
     float opacity = 1.0f;
     float receivesShadows = 1.0f;
-    float _padding0 = 0.0f;
-    float _padding1 = 0.0f;
 };
 
 struct ForwardDirectionalLightData
 {
-    float direction[3] = {0.0f, -1.0f, 0.0f};
+    Diligent::float3 direction{0.0f, -1.0f, 0.0f};
     float intensity = 1.0f;
-    float color[3] = {1.0f, 1.0f, 1.0f};
-    float _padding = 0.0f;
+    Diligent::float3 color{1.0f, 1.0f, 1.0f};
 };
 
 struct ForwardDrawCommand
@@ -43,11 +42,10 @@ struct ForwardDrawCommand
     const std::uint32_t* indexData = nullptr;
     std::uint32_t indexCount = 0;
 
-    // Row-major 4x4 matrices.
-    float modelMatrix[16] = {0.0f};
-    float viewProjectionMatrix[16] = {0.0f};
-    float lightViewProjectionMatrix[16] = {0.0f};
-    float cameraPosition[3] = {0.0f, 0.0f, 0.0f};
+    Diligent::float4x4 modelMatrix = Diligent::float4x4::Identity();
+    Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
+    Diligent::float4x4 lightViewProjectionMatrix = Diligent::float4x4::Identity();
+    Diligent::float3 cameraPosition{0.0f, 0.0f, 0.0f};
     float shadowBias = 0.0015f;
 
     ForwardMaterialData material{};

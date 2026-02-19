@@ -164,28 +164,34 @@ bool PbrPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawComm
     shadowMapVar->Set(shadowMapSrv);
 
     DrawConstants constants{};
-    std::memcpy(constants.modelMatrix, drawCommand.modelMatrix, sizeof(constants.modelMatrix));
-    std::memcpy(constants.viewProjectionMatrix, drawCommand.viewProjectionMatrix, sizeof(constants.viewProjectionMatrix));
-    std::memcpy(constants.lightViewProjectionMatrix, drawCommand.lightViewProjectionMatrix, sizeof(constants.lightViewProjectionMatrix));
-    constants.cameraPositionMetallic[0] = drawCommand.cameraPosition[0];
-    constants.cameraPositionMetallic[1] = drawCommand.cameraPosition[1];
-    constants.cameraPositionMetallic[2] = drawCommand.cameraPosition[2];
-    constants.cameraPositionMetallic[3] = drawCommand.material.metallic;
-    constants.lightDirectionIntensity[0] = drawCommand.light.direction[0];
-    constants.lightDirectionIntensity[1] = drawCommand.light.direction[1];
-    constants.lightDirectionIntensity[2] = drawCommand.light.direction[2];
-    constants.lightDirectionIntensity[3] = drawCommand.light.intensity;
-    constants.lightColorRoughness[0] = drawCommand.light.color[0];
-    constants.lightColorRoughness[1] = drawCommand.light.color[1];
-    constants.lightColorRoughness[2] = drawCommand.light.color[2];
-    constants.lightColorRoughness[3] = drawCommand.material.roughness;
-    constants.baseColor[0] = drawCommand.material.baseColor[0];
-    constants.baseColor[1] = drawCommand.material.baseColor[1];
-    constants.baseColor[2] = drawCommand.material.baseColor[2];
-    constants.baseColor[3] = drawCommand.material.opacity;
-    constants.shadowParams[0] = drawCommand.shadowBias;
-    constants.shadowParams[1] = hasShadowMap ? 1.0f : 0.0f;
-    constants.shadowParams[2] = drawCommand.material.receivesShadows;
+    constants.modelMatrix = drawCommand.modelMatrix;
+    constants.viewProjectionMatrix = drawCommand.viewProjectionMatrix;
+    constants.lightViewProjectionMatrix = drawCommand.lightViewProjectionMatrix;
+    constants.cameraPositionMetallic = Diligent::float4{
+        drawCommand.cameraPosition.x,
+        drawCommand.cameraPosition.y,
+        drawCommand.cameraPosition.z,
+        drawCommand.material.metallic};
+    constants.lightDirectionIntensity = Diligent::float4{
+        drawCommand.light.direction.x,
+        drawCommand.light.direction.y,
+        drawCommand.light.direction.z,
+        drawCommand.light.intensity};
+    constants.lightColorRoughness = Diligent::float4{
+        drawCommand.light.color.x,
+        drawCommand.light.color.y,
+        drawCommand.light.color.z,
+        drawCommand.material.roughness};
+    constants.baseColor = Diligent::float4{
+        drawCommand.material.baseColor.x,
+        drawCommand.material.baseColor.y,
+        drawCommand.material.baseColor.z,
+        drawCommand.material.opacity};
+    constants.shadowParams = Diligent::float4{
+        drawCommand.shadowBias,
+        hasShadowMap ? 1.0f : 0.0f,
+        drawCommand.material.receivesShadows,
+        0.0f};
 
     void* mappedConstants = nullptr;
     backendContext.immediateContext->MapBuffer(mConstantBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);

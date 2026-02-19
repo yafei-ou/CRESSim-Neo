@@ -20,8 +20,6 @@ namespace cressim::neo::viewer
 namespace
 {
 
-using cressim::neo::common::Quatf;
-using cressim::neo::common::Vec3f;
 using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::TransformComponent;
 
@@ -54,50 +52,17 @@ float degreesToRadians(float degrees)
     return degrees * (kPi / 180.0f);
 }
 
-Vec3f add(const Vec3f& a, const Vec3f& b)
+Diligent::float3 safeNormalize(const Diligent::float3& v, const Diligent::float3& fallback = Diligent::float3{0.0f, 0.0f, 0.0f})
 {
-    return {a.x + b.x, a.y + b.y, a.z + b.z};
-}
-
-Vec3f scale(const Vec3f& v, float scalar)
-{
-    return {v.x * scalar, v.y * scalar, v.z * scalar};
-}
-
-float dot(const Vec3f& a, const Vec3f& b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
-Vec3f cross(const Vec3f& a, const Vec3f& b)
-{
-    return {
-        a.y * b.z - a.z * b.y,
-        a.z * b.x - a.x * b.z,
-        a.x * b.y - a.y * b.x};
-}
-
-float lengthSq(const Vec3f& v)
-{
-    return dot(v, v);
-}
-
-float length(const Vec3f& v)
-{
-    return std::sqrt(lengthSq(v));
-}
-
-Vec3f normalize(const Vec3f& v)
-{
-    const float len = length(v);
-    if (len <= 1.0e-6f)
+    const float lengthSq = Diligent::dot(v, v);
+    if (lengthSq <= 1.0e-12f)
     {
-        return {};
+        return fallback;
     }
-    return scale(v, 1.0f / len);
+    return v * (1.0f / std::sqrt(lengthSq));
 }
 
-Quatf quaternionFromEulerDegrees(float pitchDegrees, float yawDegrees, float rollDegrees)
+Diligent::QuaternionF quaternionFromEulerDegrees(float pitchDegrees, float yawDegrees, float rollDegrees)
 {
     const float pitch = degreesToRadians(pitchDegrees) * 0.5f;
     const float yaw = degreesToRadians(yawDegrees) * 0.5f;
@@ -110,36 +75,27 @@ Quatf quaternionFromEulerDegrees(float pitchDegrees, float yawDegrees, float rol
     const float sinRoll = std::sin(roll);
     const float cosRoll = std::cos(roll);
 
-    Quatf q{};
-    q.w = cosRoll * cosPitch * cosYaw + sinRoll * sinPitch * sinYaw;
-    q.x = sinRoll * cosPitch * cosYaw - cosRoll * sinPitch * sinYaw;
-    q.y = cosRoll * sinPitch * cosYaw + sinRoll * cosPitch * sinYaw;
-    q.z = cosRoll * cosPitch * sinYaw - sinRoll * sinPitch * cosYaw;
-    return q;
+    return Diligent::QuaternionF{
+        sinRoll * cosPitch * cosYaw - cosRoll * sinPitch * sinYaw,
+        cosRoll * sinPitch * cosYaw + sinRoll * cosPitch * sinYaw,
+        cosRoll * cosPitch * sinYaw - sinRoll * sinPitch * cosYaw,
+        cosRoll * cosPitch * cosYaw + sinRoll * sinPitch * sinYaw};
 }
 
-Quatf cameraOrientationFromYawPitch(float yawDegrees, float pitchDegrees)
+Diligent::QuaternionF cameraOrientationFromYawPitch(float yawDegrees, float pitchDegrees)
 {
-    // quaternionFromEulerDegrees() uses a different axis convention:
-    //  - first parameter rotates around Y
-    //  - third parameter rotates around X
-    // Map viewer yaw/pitch into that convention so:
-    //  - mouse X drives yaw (left/right turn)
-    //  - mouse Y drives pitch (up/down look)
-    return quaternionFromEulerDegrees(-yawDegrees, 0.0f, pitchDegrees);
+    return quaternionFromEulerDegrees(yawDegrees, 0.0f, -pitchDegrees);
 }
 
-Vec3f rotateVector(const Quatf& rotation, const Vec3f& vector)
+Diligent::float3 rotateVector(const Diligent::QuaternionF& rotation, const Diligent::float3& vector)
 {
-    const Vec3f qVec{rotation.x, rotation.y, rotation.z};
-    const Vec3f t = scale(cross(qVec, vector), 2.0f);
-    return add(add(vector, scale(t, rotation.w)), cross(qVec, t));
+    return rotation.RotateVector(vector);
 }
 
-void yawPitchFromRotation(const Quatf& rotation, float& outYawDegrees, float& outPitchDegrees)
+void yawPitchFromRotation(const Diligent::QuaternionF& rotation, float& outYawDegrees, float& outPitchDegrees)
 {
-    const Vec3f forward = normalize(rotateVector(rotation, {0.0f, 0.0f, -1.0f}));
-    outYawDegrees = radiansToDegrees(std::atan2(forward.x, -forward.z));
+    const Diligent::float3 forward = safeNormalize(rotateVector(rotation, {0.0f, 0.0f, 1.0f}), Diligent::float3{0.0f, 0.0f, 1.0f});
+    outYawDegrees = radiansToDegrees(std::atan2(forward.x, forward.z));
     outPitchDegrees = radiansToDegrees(std::asin(std::max(-1.0f, std::min(forward.y, 1.0f))));
 }
 
@@ -155,7 +111,7 @@ class DebugViewerApp::Impl
 public:
     struct CameraState
     {
-        Vec3f position{};
+        Diligent::float3 position{};
         float yawDegrees = 0.0f;
         float pitchDegrees = 0.0f;
         float moveSpeed = 3.0f;
@@ -423,7 +379,7 @@ public:
 private:
     struct InputState
     {
-        Vec3f moveDirection{};
+        Diligent::float3 moveDirection{};
         float mouseDeltaX = 0.0f;
         float mouseDeltaY = 0.0f;
         float scrollDelta = 0.0f;
@@ -552,16 +508,13 @@ private:
         camera.pitchDegrees -= input.mouseDeltaY * camera.inputSensitivity;
         camera.pitchDegrees = clampPitch(camera.pitchDegrees);
 
-        const Quatf orientation = cameraOrientationFromYawPitch(camera.yawDegrees, camera.pitchDegrees);
-        const Vec3f forward = normalize(rotateVector(orientation, {0.0f, 0.0f, -1.0f}));
-        const Vec3f right = normalize(rotateVector(orientation, {1.0f, 0.0f, 0.0f}));
-        const Vec3f worldUp{0.0f, 1.0f, 0.0f};
+        const Diligent::QuaternionF orientation = cameraOrientationFromYawPitch(camera.yawDegrees, camera.pitchDegrees);
+        const Diligent::float3 forward = safeNormalize(rotateVector(orientation, {0.0f, 0.0f, 1.0f}), Diligent::float3{0.0f, 0.0f, 1.0f});
+        const Diligent::float3 right = safeNormalize(rotateVector(orientation, {1.0f, 0.0f, 0.0f}), Diligent::float3{1.0f, 0.0f, 0.0f});
+        const Diligent::float3 worldUp{0.0f, 1.0f, 0.0f};
 
-        Vec3f worldDirection{};
-        worldDirection = add(worldDirection, scale(right, input.moveDirection.x));
-        worldDirection = add(worldDirection, scale(worldUp, input.moveDirection.y));
-        worldDirection = add(worldDirection, scale(forward, input.moveDirection.z));
-        worldDirection = normalize(worldDirection);
+        Diligent::float3 worldDirection = right * input.moveDirection.x + worldUp * input.moveDirection.y + forward * input.moveDirection.z;
+        worldDirection = safeNormalize(worldDirection);
 
         float movementSpeed = camera.moveSpeed;
         if (input.boost)
@@ -573,7 +526,7 @@ private:
             movementSpeed *= camera.speedSlowScale;
         }
 
-        camera.position = add(camera.position, scale(worldDirection, movementSpeed * deltaSeconds));
+        camera.position = camera.position + worldDirection * (movementSpeed * deltaSeconds);
     }
 
 private:

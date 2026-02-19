@@ -13,7 +13,6 @@ namespace
 {
 
 using cressim::neo::common::FrameContext;
-using cressim::neo::common::Vec3f;
 using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
@@ -53,7 +52,7 @@ MeshResourceDesc makeCubeMesh(float halfExtent)
     mesh.vertices.reserve(24);
     mesh.indices.reserve(36);
 
-    const auto addFace = [&](const Vec3f& normal, const Vec3f& v0, const Vec3f& v1, const Vec3f& v2, const Vec3f& v3) {
+    const auto addFace = [&](const Diligent::float3& normal, const Diligent::float3& v0, const Diligent::float3& v1, const Diligent::float3& v2, const Diligent::float3& v3) {
         const std::uint32_t base = static_cast<std::uint32_t>(mesh.vertices.size());
         mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
         mesh.vertices.push_back({v1, normal, 1.0f, 0.0f});
@@ -61,11 +60,11 @@ MeshResourceDesc makeCubeMesh(float halfExtent)
         mesh.vertices.push_back({v3, normal, 0.0f, 1.0f});
 
         mesh.indices.push_back(base + 0u);
+        mesh.indices.push_back(base + 2u);
         mesh.indices.push_back(base + 1u);
-        mesh.indices.push_back(base + 2u);
         mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 2u);
         mesh.indices.push_back(base + 3u);
+        mesh.indices.push_back(base + 2u);
     };
 
     const float h = halfExtent;
@@ -88,7 +87,7 @@ MeshResourceDesc makePlaneMesh(float halfExtent)
         {{h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 1.0f, 0.0f},
         {{h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 1.0f, 1.0f},
         {{-h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 0.0f, 1.0f}};
-    mesh.indices = {0u, 2u, 1u, 0u, 3u, 2u};
+    mesh.indices = {0u, 1u, 2u, 0u, 2u, 3u};
     return mesh;
 }
 
@@ -156,13 +155,13 @@ int main(int argc, char** argv)
     auto& world = runtime.getWorld();
     const auto cameraEntity = world.createEntity();
     TransformComponent cameraTransform{};
-    cameraTransform.worldTransform.position = {0.0f, 1.8f, 4.2f};
+    cameraTransform.worldTransform.position = {0.0f, 1.8f, -4.2f};
     world.setTransform(cameraEntity, cameraTransform);
     world.setCamera(cameraEntity, CameraComponent{});
 
     const auto lightEntity = world.createEntity();
     DirectionalLightComponent light{};
-    light.direction = {-0.45f, -1.0f, -0.35f};
+    light.direction = {-0.45f, -1.0f, 0.35f};
     light.color = {1.0f, 1.0f, 1.0f};
     light.intensity = 6.0f;
     world.setDirectionalLight(lightEntity, light);
@@ -204,7 +203,7 @@ int main(int argc, char** argv)
 
     const auto frontCubeEntity = world.createEntity();
     TransformComponent frontCubeTransform{};
-    frontCubeTransform.worldTransform.position = {0.65f, -0.32f, 0.25f};
+    frontCubeTransform.worldTransform.position = {0.65f, -0.32f, -0.25f};
     world.setTransform(frontCubeEntity, frontCubeTransform);
     MeshRendererComponent frontCube{};
     frontCube.mesh = cubeMesh;
@@ -214,7 +213,7 @@ int main(int argc, char** argv)
 
     const auto backCubeEntity = world.createEntity();
     TransformComponent backCubeTransform{};
-    backCubeTransform.worldTransform.position = {-1.05f, -0.12f, -1.15f};
+    backCubeTransform.worldTransform.position = {-1.05f, -0.12f, 1.15f};
     backCubeTransform.worldTransform.scale = {1.15f, 1.15f, 1.15f};
     world.setTransform(backCubeEntity, backCubeTransform);
     MeshRendererComponent backCube{};

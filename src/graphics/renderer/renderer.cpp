@@ -1,7 +1,6 @@
 #include "graphics/renderer.h"
 
 #include "graphics/device/graphics_device_impl.h"
-#include "graphics/math/diligent_math_utils.h"
 #include "graphics/renderer/passes/forward_pipeline.h"
 #include "graphics/renderer/passes/render_pass_types.h"
 #include "graphics/renderer/services/debug_view_presenter.h"
@@ -17,6 +16,8 @@ namespace cressim::neo::graphics
 
 namespace
 {
+
+constexpr float kEpsilon = 1.0e-12f;
 
 float clamp01(float value)
 {
@@ -61,9 +62,49 @@ struct ValidRenderable
     const MeshResourceDesc* mesh = nullptr;
     const MaterialResourceDesc* material = nullptr;
     bool hasLocalBounds = false;
-    common::Vec3f localBoundsMin{};
-    common::Vec3f localBoundsMax{};
+    Diligent::float3 localBoundsMin{};
+    Diligent::float3 localBoundsMax{};
 };
+
+Diligent::float3 safeNormalize(const Diligent::float3& value, const Diligent::float3& fallback)
+{
+    const float lengthSq = Diligent::dot(value, value);
+    if (lengthSq <= kEpsilon)
+    {
+        return fallback;
+    }
+    return value * (1.0f / std::sqrt(lengthSq));
+}
+
+Diligent::QuaternionF normalizeQuaternion(const Diligent::QuaternionF& value)
+{
+    const float lengthSq = Diligent::dot(value.q, value.q);
+    if (lengthSq <= kEpsilon)
+    {
+        return Diligent::QuaternionF{0.0f, 0.0f, 0.0f, 1.0f};
+    }
+    return Diligent::normalize(value);
+}
+
+Diligent::float4x4 worldMatrixFromTransform(const common::Transform& transform)
+{
+    const Diligent::QuaternionF rotation = normalizeQuaternion(transform.rotation);
+    return Diligent::float4x4::Scale(transform.scale) * rotation.ToMatrix() * Diligent::float4x4::Translation(transform.position);
+}
+
+Diligent::float4x4 viewMatrixFromCameraTransform(const common::Transform& cameraTransform)
+{
+    const Diligent::QuaternionF rotation = normalizeQuaternion(cameraTransform.rotation);
+    const Diligent::float3 eye = cameraTransform.position;
+    const Diligent::float3 zAxis = safeNormalize(rotation.RotateVector(Diligent::float3{0.0f, 0.0f, 1.0f}), Diligent::float3{0.0f, 0.0f, 1.0f});
+    const Diligent::float3 up = safeNormalize(rotation.RotateVector(Diligent::float3{0.0f, 1.0f, 0.0f}), Diligent::float3{0.0f, 1.0f, 0.0f});
+    const Diligent::float3 xAxis = safeNormalize(Diligent::cross(up, zAxis), Diligent::float3{1.0f, 0.0f, 0.0f});
+    const Diligent::float3 yAxis = safeNormalize(Diligent::cross(zAxis, xAxis), Diligent::float3{0.0f, 1.0f, 0.0f});
+
+    const Diligent::float4x4 viewRotation = Diligent::float4x4::ViewFromBasis(xAxis, yAxis, zAxis);
+    const Diligent::float4x4 viewTranslation = Diligent::float4x4::Translation(-eye);
+    return viewTranslation * viewRotation;
+}
 
 std::vector<ValidRenderable> gatherValidRenderables(const std::vector<RenderableInstance>& renderables, const RenderResourceManager& resources)
 {
@@ -99,20 +140,14 @@ ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightDat
     ForwardDirectionalLightData out{};
     if (lights.empty())
     {
-        out.direction[0] = 0.0f;
-        out.direction[1] = 0.0f;
-        out.direction[2] = 0.0f;
+        out.direction = Diligent::float3{0.0f, 0.0f, 0.0f};
         out.intensity = 0.0f;
         return out;
     }
 
     const DirectionalLightData& light = lights.front();
-    out.direction[0] = light.direction.x;
-    out.direction[1] = light.direction.y;
-    out.direction[2] = light.direction.z;
-    out.color[0] = light.color.x;
-    out.color[1] = light.color.y;
-    out.color[2] = light.color.z;
+    out.direction = light.direction;
+    out.color = light.color;
     out.intensity = light.intensity;
     return out;
 }
@@ -136,7 +171,7 @@ bool buildDrawCommand(
         return false;
     }
 
-    const Diligent::float4x4 modelMatrix = math::transformMatrix(renderable.instance->worldTransform);
+    const Diligent::float4x4 modelMatrix = worldMatrixFromTransform(renderable.instance->worldTransform);
 
     outCommand = {};
     outCommand.shadingModel = material.shadingModel;
@@ -148,15 +183,11 @@ bool buildDrawCommand(
     outCommand.vertexStrideBytes = static_cast<std::uint32_t>(sizeof(MeshResourceDesc::Vertex));
     outCommand.indexData = mesh.indices.data();
     outCommand.indexCount = static_cast<std::uint32_t>(mesh.indices.size());
-    math::copyMatrixRowMajor(outCommand.modelMatrix, modelMatrix);
-    math::copyMatrixRowMajor(outCommand.viewProjectionMatrix, frameView.viewProjectionMatrix);
-    math::copyMatrixRowMajor(outCommand.lightViewProjectionMatrix, frameView.lightViewProjectionMatrix);
-    outCommand.cameraPosition[0] = frameView.cameraWorldPosition.x;
-    outCommand.cameraPosition[1] = frameView.cameraWorldPosition.y;
-    outCommand.cameraPosition[2] = frameView.cameraWorldPosition.z;
-    outCommand.material.baseColor[0] = material.baseColor.x;
-    outCommand.material.baseColor[1] = material.baseColor.y;
-    outCommand.material.baseColor[2] = material.baseColor.z;
+    outCommand.modelMatrix = modelMatrix;
+    outCommand.viewProjectionMatrix = frameView.viewProjectionMatrix;
+    outCommand.lightViewProjectionMatrix = frameView.lightViewProjectionMatrix;
+    outCommand.cameraPosition = frameView.cameraWorldPosition;
+    outCommand.material.baseColor = material.baseColor;
     outCommand.material.metallic = material.metallic;
     outCommand.material.roughness = material.roughness;
     outCommand.material.opacity = clamp01(material.opacity);
@@ -168,47 +199,23 @@ bool buildDrawCommand(
 Diligent::float4x4 buildViewProjection(const CameraData& camera, float outputWidth, float outputHeight)
 {
     const float aspect = clampPositive(outputWidth, 1.0f) / clampPositive(outputHeight, 1.0f);
+    const float fovRadians = camera.verticalFovDegrees * 0.017453292519943295769f;
+    const float nearPlane = std::max(camera.nearClip, 0.001f);
+    const float farPlane = std::max(camera.farClip, nearPlane + 0.001f);
 
-    const Diligent::float4x4 view = math::viewMatrixFromTransform(camera.worldTransform);
-    const Diligent::float4x4 projection = math::perspectiveMatrix(camera.verticalFovDegrees, aspect, camera.nearClip, camera.farClip);
+    const Diligent::float4x4 view = viewMatrixFromCameraTransform(camera.worldTransform);
+    const Diligent::float4x4 projection = Diligent::float4x4::Projection(fovRadians, aspect, nearPlane, farPlane, false);
     return view * projection;
 }
 
 Diligent::float4x4 lookAtMatrix(const Diligent::float3& eye, const Diligent::float3& at, const Diligent::float3& up)
 {
-    const Diligent::float3 zAxis = Diligent::normalize(eye - at);
-    const Diligent::float3 xAxis = Diligent::normalize(Diligent::cross(up, zAxis));
-    const Diligent::float3 yAxis = Diligent::cross(zAxis, xAxis);
-
-    Diligent::float4x4 view = Diligent::float4x4::Identity();
-    view.m00 = xAxis.x;
-    view.m01 = yAxis.x;
-    view.m02 = zAxis.x;
-    view.m10 = xAxis.y;
-    view.m11 = yAxis.y;
-    view.m12 = zAxis.y;
-    view.m20 = xAxis.z;
-    view.m21 = yAxis.z;
-    view.m22 = zAxis.z;
-    view.m30 = -Diligent::dot(xAxis, eye);
-    view.m31 = -Diligent::dot(yAxis, eye);
-    view.m32 = -Diligent::dot(zAxis, eye);
-    return view;
-}
-
-Diligent::float4x4 orthographicMatrix(float width, float height, float nearClip, float farClip)
-{
-    const float w = clampPositive(width, 1.0f);
-    const float h = clampPositive(height, 1.0f);
-    const float n = std::max(nearClip, 0.001f);
-    const float f = std::max(farClip, n + 0.001f);
-
-    Diligent::float4x4 out = Diligent::float4x4::Identity();
-    out.m00 = 2.0f / w;
-    out.m11 = 2.0f / h;
-    out.m22 = 1.0f / (n - f);
-    out.m32 = n / (n - f);
-    return out;
+    const Diligent::float3 zAxis = safeNormalize(at - eye, Diligent::float3{0.0f, 0.0f, 1.0f});
+    const Diligent::float3 xAxis = safeNormalize(Diligent::cross(up, zAxis), Diligent::float3{1.0f, 0.0f, 0.0f});
+    const Diligent::float3 yAxis = safeNormalize(Diligent::cross(zAxis, xAxis), Diligent::float3{0.0f, 1.0f, 0.0f});
+    const Diligent::float4x4 viewRotation = Diligent::float4x4::ViewFromBasis(xAxis, yAxis, zAxis);
+    const Diligent::float4x4 viewTranslation = Diligent::float4x4::Translation(-eye);
+    return viewTranslation * viewRotation;
 }
 
 Diligent::float4x4 buildDirectionalLightViewProjection(
@@ -216,7 +223,7 @@ Diligent::float4x4 buildDirectionalLightViewProjection(
     const Diligent::float3& shadowFocusWorldPosition,
     bool& outHasDirectionalLight)
 {
-    const Diligent::float3 lightDirection{light.direction[0], light.direction[1], light.direction[2]};
+    const Diligent::float3 lightDirection = light.direction;
     outHasDirectionalLight = light.intensity > 0.0f && Diligent::dot(lightDirection, lightDirection) > 1.0e-6f;
     if (!outHasDirectionalLight)
     {
@@ -232,7 +239,7 @@ Diligent::float4x4 buildDirectionalLightViewProjection(
             Diligent::float3{0.0f, 1.0f, 0.0f};
 
     const Diligent::float4x4 lightView = lookAtMatrix(lightPosition, sceneCenter, upCandidate);
-    const Diligent::float4x4 lightProjection = orthographicMatrix(24.0f, 24.0f, 0.1f, 60.0f);
+    const Diligent::float4x4 lightProjection = Diligent::float4x4::Ortho(24.0f, 24.0f, 0.1f, 60.0f, false);
     return lightView * lightProjection;
 }
 
@@ -254,16 +261,16 @@ bool buildWorldBoundsCenter(const std::vector<ValidRenderable>& validRenderables
         if (renderable.hasLocalBounds)
         {
             const Diligent::BoundBox localBounds{
-                Diligent::float3{renderable.localBoundsMin.x, renderable.localBoundsMin.y, renderable.localBoundsMin.z},
-                Diligent::float3{renderable.localBoundsMax.x, renderable.localBoundsMax.y, renderable.localBoundsMax.z}};
-            const Diligent::float4x4 modelMatrix = math::transformMatrix(renderable.instance->worldTransform);
+                renderable.localBoundsMin,
+                renderable.localBoundsMax};
+            const Diligent::float4x4 modelMatrix = worldMatrixFromTransform(renderable.instance->worldTransform);
             const Diligent::BoundBox worldBounds = localBounds.Transform(modelMatrix);
             worldMin = worldBounds.Min;
             worldMax = worldBounds.Max;
         }
         else
         {
-            const Diligent::float3 position = math::toFloat3(renderable.instance->worldTransform.position);
+            const Diligent::float3 position = renderable.instance->worldTransform.position;
             worldMin = position;
             worldMax = position;
         }
@@ -296,7 +303,7 @@ bool buildWorldBoundsCenter(const std::vector<ValidRenderable>& validRenderables
 
 Diligent::float3 cameraPosition(const CameraData& camera)
 {
-    return math::toFloat3(camera.worldTransform.position);
+    return camera.worldTransform.position;
 }
 
 CameraData defaultCamera()
@@ -343,9 +350,9 @@ bool isVisibleByFrustum(const ValidRenderable& renderable, const Diligent::ViewF
     }
 
     const Diligent::BoundBox localBounds{
-        Diligent::float3{renderable.localBoundsMin.x, renderable.localBoundsMin.y, renderable.localBoundsMin.z},
-        Diligent::float3{renderable.localBoundsMax.x, renderable.localBoundsMax.y, renderable.localBoundsMax.z}};
-    const Diligent::float4x4 modelMatrix = math::transformMatrix(renderable.instance->worldTransform);
+        renderable.localBoundsMin,
+        renderable.localBoundsMax};
+    const Diligent::float4x4 modelMatrix = worldMatrixFromTransform(renderable.instance->worldTransform);
     const Diligent::BoundBox worldBounds = localBounds.Transform(modelMatrix);
 
     const Diligent::BoxVisibility visibility = Diligent::GetBoxVisibility(frustum, worldBounds);

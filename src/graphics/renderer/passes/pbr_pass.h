@@ -5,6 +5,7 @@
 #include "graphics/renderer/passes/forward_draw_types.h"
 #include "graphics/renderer/services/shader_source_provider.h"
 
+#include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
@@ -49,14 +50,14 @@ private:
 
     struct DrawConstants
     {
-        float modelMatrix[16] = {};
-        float viewProjectionMatrix[16] = {};
-        float lightViewProjectionMatrix[16] = {};
-        float cameraPositionMetallic[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-        float lightDirectionIntensity[4] = {0.0f, -1.0f, 0.0f, 1.0f};
-        float lightColorRoughness[4] = {1.0f, 1.0f, 1.0f, 0.5f};
-        float baseColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-        float shadowParams[4] = {0.0015f, 0.0f, 1.0f, 0.0f};
+        Diligent::float4x4 modelMatrix = Diligent::float4x4::Identity();
+        Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
+        Diligent::float4x4 lightViewProjectionMatrix = Diligent::float4x4::Identity();
+        Diligent::float4 cameraPositionMetallic{0.0f, 0.0f, 0.0f, 0.0f};
+        Diligent::float4 lightDirectionIntensity{0.0f, -1.0f, 0.0f, 1.0f};
+        Diligent::float4 lightColorRoughness{1.0f, 1.0f, 1.0f, 0.5f};
+        Diligent::float4 baseColor{1.0f, 1.0f, 1.0f, 1.0f};
+        Diligent::float4 shadowParams{0.0015f, 0.0f, 1.0f, 0.0f};
     };
 
     CachedMeshGpuData* getOrCreateMeshBuffers(

@@ -163,7 +163,7 @@ int main(int argc, char** argv)
 
     const auto cameraEntity = world.createEntity();
     TransformComponent cameraTransform{};
-    cameraTransform.worldTransform.position = {0.0f, 0.0f, 2.0f};
+    cameraTransform.worldTransform.position = {0.0f, 0.0f, -2.0f};
     CameraComponent camera{};
     camera.renderOrder = 0;
     world.setTransform(cameraEntity, cameraTransform);
@@ -186,7 +186,7 @@ int main(int argc, char** argv)
     {
         const auto secondaryCameraEntity = world.createEntity();
         TransformComponent secondaryCameraTransform{};
-        secondaryCameraTransform.worldTransform.position = {-1.0f, 1.5f, 2.5f};
+        secondaryCameraTransform.worldTransform.position = {-1.0f, 1.5f, -2.5f};
 
         CameraComponent secondaryCamera{};
         secondaryCamera.outputTarget = secondaryTarget;

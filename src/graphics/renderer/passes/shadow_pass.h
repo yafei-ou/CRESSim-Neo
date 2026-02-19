@@ -5,6 +5,7 @@
 #include "graphics/renderer/passes/forward_draw_types.h"
 #include "graphics/renderer/services/shader_source_provider.h"
 
+#include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
@@ -40,8 +41,8 @@ private:
 
     struct DrawConstants
     {
-        float modelMatrix[16] = {};
-        float lightViewProjectionMatrix[16] = {};
+        Diligent::float4x4 modelMatrix = Diligent::float4x4::Identity();
+        Diligent::float4x4 lightViewProjectionMatrix = Diligent::float4x4::Identity();
     };
 
     CachedMeshGpuData* getOrCreateMeshBuffers(

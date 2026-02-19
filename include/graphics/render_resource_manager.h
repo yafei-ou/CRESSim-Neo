@@ -2,8 +2,9 @@
 #define CRESSIM_NEO_GRAPHICS_RENDER_RESOURCE_MANAGER_H
 
 #include "common/id.h"
-#include "common/math_types.h"
 #include "graphics/export.h"
+
+#include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 
 #include <cstdint>
 #include <string>
@@ -44,8 +45,8 @@ struct MeshResourceDesc
 {
     struct Vertex
     {
-        common::Vec3f position{};
-        common::Vec3f normal{0.0f, 1.0f, 0.0f};
+        Diligent::float3 position{};
+        Diligent::float3 normal{0.0f, 1.0f, 0.0f};
         float texCoordU = 0.0f;
         float texCoordV = 0.0f;
     };
@@ -58,7 +59,7 @@ struct MeshResourceDesc
 struct MaterialResourceDesc
 {
     std::string debugName;
-    common::Vec3f baseColor{1.0f, 1.0f, 1.0f};
+    Diligent::float3 baseColor{1.0f, 1.0f, 1.0f};
     float metallic = 0.0f;
     float roughness = 0.5f;
     ShadingModel shadingModel = ShadingModel::Pbr;
@@ -87,7 +88,7 @@ public:
     const MeshResourceDesc* tryGetMesh(MeshHandle mesh) const noexcept;
     const MaterialResourceDesc* tryGetMaterial(MaterialHandle material) const noexcept;
     const TextureResourceDesc* tryGetTexture(TextureHandle texture) const noexcept;
-    bool tryGetMeshLocalBounds(MeshHandle mesh, common::Vec3f& outMin, common::Vec3f& outMax) const noexcept;
+    bool tryGetMeshLocalBounds(MeshHandle mesh, Diligent::float3& outMin, Diligent::float3& outMax) const noexcept;
 
     std::uint64_t meshVersion(MeshHandle mesh) const noexcept;
 
@@ -96,8 +97,8 @@ private:
     {
         MeshResourceDesc desc{};
         std::uint64_t version = 1;
-        common::Vec3f localBoundsMin{};
-        common::Vec3f localBoundsMax{};
+        Diligent::float3 localBoundsMin{};
+        Diligent::float3 localBoundsMax{};
         bool hasLocalBounds = false;
     };
 
