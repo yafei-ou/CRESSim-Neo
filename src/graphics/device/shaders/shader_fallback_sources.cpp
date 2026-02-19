@@ -27,6 +27,7 @@ cbuffer PbrConstants
     float4x4 g_Model;
     float4x4 g_ViewProjection;
     float4x4 g_LightViewProjection;
+    float4x4 g_NormalMatrix;
     float4 g_CameraPositionMetallic;
     float4 g_LightDirectionIntensity;
     float4 g_LightColorRoughness;
@@ -39,7 +40,7 @@ void main(in VSInput In, out VSOutput Out)
     float4 worldPos = mul(float4(In.Position, 1.0), g_Model);
     Out.Position = mul(worldPos, g_ViewProjection);
     Out.WorldPos = worldPos.xyz;
-    Out.WorldNormal = normalize(mul(float4(In.Normal, 0.0), g_Model).xyz);
+    Out.WorldNormal = normalize(mul(float4(In.Normal, 0.0), g_NormalMatrix).xyz);
     Out.ShadowPos = mul(worldPos, g_LightViewProjection);
 }
 )";
@@ -58,6 +59,7 @@ cbuffer PbrConstants
     float4x4 g_Model;
     float4x4 g_ViewProjection;
     float4x4 g_LightViewProjection;
+    float4x4 g_NormalMatrix;
     float4 g_CameraPositionMetallic;
     float4 g_LightDirectionIntensity;
     float4 g_LightColorRoughness;

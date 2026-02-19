@@ -1,5 +1,6 @@
 #include "graphics/renderer.h"
 
+#include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "graphics/device/graphics_device_impl.h"
 #include "graphics/renderer/passes/forward_pipeline.h"
 #include "graphics/renderer/passes/render_pass_types.h"
@@ -90,6 +91,27 @@ Diligent::float4x4 worldMatrixFromTransform(const common::Transform& transform)
 {
     const Diligent::QuaternionF rotation = normalizeQuaternion(transform.rotation);
     return Diligent::float4x4::Scale(transform.scale) * rotation.ToMatrix() * Diligent::float4x4::Translation(transform.position);
+}
+
+Diligent::float4x4 normalMatrixFromModelMatrix(const Diligent::float4x4& model)
+{
+    // Normal matrix = inverse-transpose of the model's linear (upper-left 3x3) part.
+    // Return as 4x4 with last row/col = identity-ish so we can use it easily in shaders.
+
+    const auto linear3x3 = Diligent::float3x3{
+        Diligent::float3{model._11, model._12, model._13},
+        Diligent::float3{model._21, model._22, model._23},
+        Diligent::float3{model._31, model._32, model._33},
+    };
+
+    const Diligent::float3x3 normal3x3 = linear3x3.Inverse().Transpose();
+
+    return Diligent::float4x4{
+        normal3x3._11, normal3x3._12, normal3x3._13, 0.0f,
+        normal3x3._21, normal3x3._22, normal3x3._23, 0.0f,
+        normal3x3._31, normal3x3._32, normal3x3._33, 0.0f,
+        0.0f,          0.0f,          0.0f,          1.0f
+    };
 }
 
 Diligent::float4x4 viewMatrixFromCameraTransform(const common::Transform& cameraTransform)
@@ -186,6 +208,7 @@ bool buildDrawCommand(
     outCommand.modelMatrix = modelMatrix;
     outCommand.viewProjectionMatrix = frameView.viewProjectionMatrix;
     outCommand.lightViewProjectionMatrix = frameView.lightViewProjectionMatrix;
+    outCommand.normalMatrix = normalMatrixFromModelMatrix(modelMatrix);
     outCommand.cameraPosition = frameView.cameraWorldPosition;
     outCommand.material.baseColor = material.baseColor;
     outCommand.material.metallic = material.metallic;

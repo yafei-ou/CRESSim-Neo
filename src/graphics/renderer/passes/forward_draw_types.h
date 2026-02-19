@@ -45,6 +45,7 @@ struct ForwardDrawCommand
     Diligent::float4x4 modelMatrix = Diligent::float4x4::Identity();
     Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
     Diligent::float4x4 lightViewProjectionMatrix = Diligent::float4x4::Identity();
+    Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
     Diligent::float3 cameraPosition{0.0f, 0.0f, 0.0f};
     float shadowBias = 0.0015f;
 

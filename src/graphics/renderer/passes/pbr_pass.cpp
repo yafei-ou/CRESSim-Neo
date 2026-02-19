@@ -167,6 +167,7 @@ bool PbrPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawComm
     constants.modelMatrix = drawCommand.modelMatrix.Transpose();
     constants.viewProjectionMatrix = drawCommand.viewProjectionMatrix.Transpose();
     constants.lightViewProjectionMatrix = drawCommand.lightViewProjectionMatrix.Transpose();
+    constants.normalMatrix = drawCommand.normalMatrix.Transpose();
     constants.cameraPositionMetallic = Diligent::float4{
         drawCommand.cameraPosition.x,
         drawCommand.cameraPosition.y,

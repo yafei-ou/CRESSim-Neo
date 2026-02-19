@@ -11,6 +11,7 @@ cbuffer PbrConstants
     float4x4 g_Model;
     float4x4 g_ViewProjection;
     float4x4 g_LightViewProjection;
+    float4x4 g_NormalMatrix;
     float4 g_CameraPositionMetallic;
     float4 g_LightDirectionIntensity;
     float4 g_LightColorRoughness;

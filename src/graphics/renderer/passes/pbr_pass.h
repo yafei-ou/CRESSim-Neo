@@ -11,7 +11,6 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Sampler.h"
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Texture.h"
 
 #include <cstdint>
 #include <unordered_map>
@@ -53,6 +52,7 @@ private:
         Diligent::float4x4 modelMatrix = Diligent::float4x4::Identity();
         Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
         Diligent::float4x4 lightViewProjectionMatrix = Diligent::float4x4::Identity();
+        Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
         Diligent::float4 cameraPositionMetallic{0.0f, 0.0f, 0.0f, 0.0f};
         Diligent::float4 lightDirectionIntensity{0.0f, -1.0f, 0.0f, 1.0f};
         Diligent::float4 lightColorRoughness{1.0f, 1.0f, 1.0f, 0.5f};
