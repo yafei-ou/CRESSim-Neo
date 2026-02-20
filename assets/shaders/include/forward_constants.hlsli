@@ -1,4 +1,4 @@
-#include "include/cressim_per_object.hlsli"
+#include "include/per_object.hlsli"
 
 cbuffer CressimForwardPerFrame
 {
