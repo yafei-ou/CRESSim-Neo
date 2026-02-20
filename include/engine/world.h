@@ -5,6 +5,7 @@
 #include "engine/components.h"
 #include "engine/export.h"
 
+#include <cstdint>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -25,14 +26,23 @@ public:
     MeshRendererComponent& setMeshRenderer(common::EntityId entityId, const MeshRendererComponent& component);
     CameraComponent& setCamera(common::EntityId entityId, const CameraComponent& component);
     DirectionalLightComponent& setDirectionalLight(common::EntityId entityId, const DirectionalLightComponent& component);
+    bool removeTransform(common::EntityId entityId);
+    bool removeMeshRenderer(common::EntityId entityId);
+    bool removeCamera(common::EntityId entityId);
+    bool removeDirectionalLight(common::EntityId entityId);
 
     const TransformComponent* tryGetTransform(common::EntityId entityId) const;
     const MeshRendererComponent* tryGetMeshRenderer(common::EntityId entityId) const;
     const CameraComponent* tryGetCamera(common::EntityId entityId) const;
     const DirectionalLightComponent* tryGetDirectionalLight(common::EntityId entityId) const;
 
+    std::uint64_t revision() const noexcept;
+    const std::vector<common::EntityId>& dirtyEntities() const noexcept;
+    void clearDirtyEntities() noexcept;
+
 private:
     void ensureEntity(common::EntityId entityId);
+    void markDirty(common::EntityId entityId);
 
     common::EntityId mNextEntityId = 1;
     std::vector<common::EntityId> mEntities;
@@ -42,6 +52,9 @@ private:
     std::unordered_map<common::EntityId, MeshRendererComponent> mMeshRenderers;
     std::unordered_map<common::EntityId, CameraComponent> mCameras;
     std::unordered_map<common::EntityId, DirectionalLightComponent> mDirectionalLights;
+    std::uint64_t mRevision = 0;
+    std::vector<common::EntityId> mDirtyEntities;
+    std::unordered_set<common::EntityId> mDirtySet;
 };
 
 } // namespace cressim::neo::engine

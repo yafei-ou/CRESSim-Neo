@@ -12,7 +12,8 @@ namespace cressim::neo::graphics::detail
 
 ShadowPass::ShadowPass(GraphicsDeviceImpl& device) :
     mDevice(device),
-    mShaderSourceProvider("")
+    mShaderSourceProvider(""),
+    mMeshGpuCache("CRESSimNeo.ShadowPass")
 {
 }
 
@@ -23,7 +24,10 @@ bool ShadowPass::initialize()
     return true;
 }
 
-bool ShadowPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand)
+bool ShadowPass::draw(
+    RenderTargetHandle target,
+    const ForwardDrawCommand& drawCommand,
+    const Diligent::float4x4& lightViewProjectionMatrix)
 {
     if (!mInitialized)
     {
@@ -53,7 +57,7 @@ bool ShadowPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawC
         return false;
     }
 
-    CachedMeshGpuData* meshBuffers = getOrCreateMeshBuffers(drawCommand, backendContext.renderDevice);
+    MeshGpuCache::CachedBuffers* meshBuffers = mMeshGpuCache.getOrCreate(drawCommand, backendContext.renderDevice);
     if (meshBuffers == nullptr || meshBuffers->vertexBuffer == nullptr || meshBuffers->indexBuffer == nullptr || meshBuffers->indexCount == 0)
     {
         return false;
@@ -77,7 +81,7 @@ bool ShadowPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawC
     objectConstants.normalMatrix = drawCommand.normalMatrix.Transpose();
 
     ShadowPerPassConstants shadowPassConstants{};
-    shadowPassConstants.lightViewProjectionMatrix = drawCommand.lightViewProjectionMatrix.Transpose();
+    shadowPassConstants.lightViewProjectionMatrix = lightViewProjectionMatrix.Transpose();
 
     void* mappedConstants = nullptr;
     backendContext.immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
@@ -117,62 +121,6 @@ bool ShadowPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawC
     drawAttrs.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
     backendContext.immediateContext->DrawIndexed(drawAttrs);
     return true;
-}
-
-ShadowPass::CachedMeshGpuData* ShadowPass::getOrCreateMeshBuffers(
-    const ForwardDrawCommand& drawCommand,
-    Diligent::IRenderDevice* renderDevice)
-{
-    if (renderDevice == nullptr)
-    {
-        return nullptr;
-    }
-
-    auto& mesh = mCachedMeshes[drawCommand.meshId];
-    const bool recreate =
-        mesh.vertexBuffer == nullptr ||
-        mesh.indexBuffer == nullptr ||
-        mesh.version != drawCommand.meshVersion;
-    if (!recreate)
-    {
-        return &mesh;
-    }
-
-    Diligent::BufferDesc vertexBufferDesc{};
-    vertexBufferDesc.Name = "CRESSimNeo.ShadowPass.VertexBuffer";
-    vertexBufferDesc.Usage = Diligent::USAGE_IMMUTABLE;
-    vertexBufferDesc.BindFlags = Diligent::BIND_VERTEX_BUFFER;
-    vertexBufferDesc.Size = static_cast<Diligent::Uint64>(drawCommand.vertexCount) * drawCommand.vertexStrideBytes;
-
-    Diligent::BufferData vertexData{};
-    vertexData.pData = drawCommand.vertexData;
-    vertexData.DataSize = vertexBufferDesc.Size;
-    renderDevice->CreateBuffer(vertexBufferDesc, &vertexData, &mesh.vertexBuffer);
-    if (mesh.vertexBuffer == nullptr)
-    {
-        mCachedMeshes.erase(drawCommand.meshId);
-        return nullptr;
-    }
-
-    Diligent::BufferDesc indexBufferDesc{};
-    indexBufferDesc.Name = "CRESSimNeo.ShadowPass.IndexBuffer";
-    indexBufferDesc.Usage = Diligent::USAGE_IMMUTABLE;
-    indexBufferDesc.BindFlags = Diligent::BIND_INDEX_BUFFER;
-    indexBufferDesc.Size = static_cast<Diligent::Uint64>(drawCommand.indexCount) * sizeof(std::uint32_t);
-
-    Diligent::BufferData indexData{};
-    indexData.pData = drawCommand.indexData;
-    indexData.DataSize = indexBufferDesc.Size;
-    renderDevice->CreateBuffer(indexBufferDesc, &indexData, &mesh.indexBuffer);
-    if (mesh.indexBuffer == nullptr)
-    {
-        mCachedMeshes.erase(drawCommand.meshId);
-        return nullptr;
-    }
-
-    mesh.version = drawCommand.meshVersion;
-    mesh.indexCount = drawCommand.indexCount;
-    return &mesh;
 }
 
 bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)

@@ -124,8 +124,9 @@ float SampleCascadeShadow(
 
 float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir)
 {
-    // x: bias, y: hasShadowMap, z: receivesShadows, w: minimum shadow visibility
-    if (g_ShadowParams.y < 0.5 || g_ShadowParams.z < 0.5)
+    // x: bias, y: hasShadowMap, z: minimum shadow visibility, w: reserved
+    // g_MaterialParams.w controls receivesShadows per material.
+    if (g_ShadowParams.y < 0.5 || g_MaterialParams.w < 0.5)
     {
         return 1.0;
     }
@@ -167,26 +168,26 @@ float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir)
         visibility = SampleCascadeShadow(g_ShadowMap3, g_ShadowMap3_sampler, g_LightViewProjection[3], worldPos, shadowBias, texelSize);
     }
 
-    float shadowTerm = lerp(g_ShadowParams.w, 1.0, visibility);
+    float shadowTerm = lerp(g_ShadowParams.z, 1.0, visibility);
     return lerp(1.0, shadowTerm, distanceFade);
 }
 
 float4 main(in VSOutput In) : SV_Target
 {
 #ifdef CRESSIM_FEATURE_ALPHA_TEST
-    if (g_BaseColor.w < g_PipelineParams.x)
+    if (g_BaseColor.w < g_MaterialParams.z)
     {
         discard;
     }
 #endif
 
     float3 N = normalize(In.WorldNormal);
-    float3 V = normalize(g_CameraPositionMetallic.xyz - In.WorldPos);
+    float3 V = normalize(g_CameraPosition.xyz - In.WorldPos);
     float3 L = normalize(-g_LightDirectionIntensity.xyz);
     float3 H = normalize(V + L);
 
-    float roughness = clamp(g_LightColorRoughness.w, 0.04, 1.0);
-    float metallic = clamp(g_CameraPositionMetallic.w, 0.0, 1.0);
+    float roughness = clamp(g_MaterialParams.y, 0.04, 1.0);
+    float metallic = clamp(g_MaterialParams.x, 0.0, 1.0);
     float3 albedo = saturate(g_BaseColor.xyz);
 
     float3 F0 = float3(0.04, 0.04, 0.04);
@@ -206,7 +207,7 @@ float4 main(in VSOutput In) : SV_Target
 
     float shadowFactor = ComputeShadowFactor(In.WorldPos, N, L);
 
-    float3 radiance = g_LightColorRoughness.xyz * g_LightDirectionIntensity.w;
+    float3 radiance = g_LightColor.xyz * g_LightDirectionIntensity.w;
     float3 diffuse = kD * albedo / PI;
     float3 Lo = (diffuse + specular) * radiance * NdotL * shadowFactor;
 

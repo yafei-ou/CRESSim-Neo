@@ -38,7 +38,12 @@ bool sameStats(const RenderStats& lhs, const RenderStats& rhs)
         lhs.shadowCasterQueueCount == rhs.shadowCasterQueueCount &&
         lhs.transparentQueueCount == rhs.transparentQueueCount &&
         lhs.lightCount == rhs.lightCount &&
-        lhs.cameraCount == rhs.cameraCount;
+        lhs.cameraCount == rhs.cameraCount &&
+        lhs.renderTargetResizeRequests == rhs.renderTargetResizeRequests &&
+        lhs.renderTargetResizeNoOps == rhs.renderTargetResizeNoOps &&
+        lhs.renderTargetRecreateCount == rhs.renderTargetRecreateCount &&
+        lhs.renderTargetResizeConflicts == rhs.renderTargetResizeConflicts &&
+        lhs.worldSyncSkippedFrames == rhs.worldSyncSkippedFrames;
 }
 
 } // namespace
@@ -130,6 +135,11 @@ int main()
     runtime.tick(frame);
     const RenderStats secondFrame = runtime.lastRenderStats();
 
+    frame.frameIndex = 2;
+    frame.timeSeconds = static_cast<double>(frame.deltaSeconds) * 2.0;
+    runtime.tick(frame);
+    const RenderStats thirdFrame = runtime.lastRenderStats();
+
     runtime.shutdown();
 
     if (firstFrame.renderableCount != 3 || firstFrame.validRenderableCount != 3)
@@ -159,7 +169,12 @@ int main()
         std::cerr << "Unexpected camera/light counters.\n";
         return 1;
     }
-    if (!sameStats(firstFrame, secondFrame))
+    if (firstFrame.worldSyncSkippedFrames != 0 || secondFrame.worldSyncSkippedFrames != 1 || thirdFrame.worldSyncSkippedFrames != 1)
+    {
+        std::cerr << "Unexpected world sync skip counters across frames.\n";
+        return 1;
+    }
+    if (!sameStats(secondFrame, thirdFrame))
     {
         std::cerr << "Forward queue statistics were not stable across identical frames.\n";
         return 1;

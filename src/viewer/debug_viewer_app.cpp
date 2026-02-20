@@ -1,5 +1,6 @@
 #include "viewer/debug_viewer_app.h"
 
+#include "common/math_utils_runtime.h"
 #include "engine/components.h"
 
 #include <GLFW/glfw3.h>
@@ -23,13 +24,6 @@ namespace
 using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::TransformComponent;
 
-constexpr float kPi = 3.14159265358979323846f;
-
-float clampPositive(float value, float fallback)
-{
-    return value > 0.0f ? value : fallback;
-}
-
 float clampSpeed(float speed, float minSpeed, float maxSpeed)
 {
     const float clampedMin = std::max(minSpeed, 0.001f);
@@ -42,49 +36,9 @@ float clampPitch(float pitchDegrees)
     return std::max(-89.0f, std::min(89.0f, pitchDegrees));
 }
 
-float radiansToDegrees(float radians)
-{
-    return radians * (180.0f / kPi);
-}
-
-float degreesToRadians(float degrees)
-{
-    return degrees * (kPi / 180.0f);
-}
-
-Diligent::float3 safeNormalize(const Diligent::float3& v, const Diligent::float3& fallback = Diligent::float3{0.0f, 0.0f, 0.0f})
-{
-    const float lengthSq = Diligent::dot(v, v);
-    if (lengthSq <= 1.0e-12f)
-    {
-        return fallback;
-    }
-    return v * (1.0f / std::sqrt(lengthSq));
-}
-
-Diligent::QuaternionF quaternionFromEulerDegrees(float pitchDegrees, float yawDegrees, float rollDegrees)
-{
-    const float pitch = degreesToRadians(pitchDegrees) * 0.5f;
-    const float yaw = degreesToRadians(yawDegrees) * 0.5f;
-    const float roll = degreesToRadians(rollDegrees) * 0.5f;
-
-    const float sinPitch = std::sin(pitch);
-    const float cosPitch = std::cos(pitch);
-    const float sinYaw = std::sin(yaw);
-    const float cosYaw = std::cos(yaw);
-    const float sinRoll = std::sin(roll);
-    const float cosRoll = std::cos(roll);
-
-    return Diligent::QuaternionF{
-        sinRoll * cosPitch * cosYaw - cosRoll * sinPitch * sinYaw,
-        cosRoll * sinPitch * cosYaw + sinRoll * cosPitch * sinYaw,
-        cosRoll * cosPitch * sinYaw - sinRoll * sinPitch * cosYaw,
-        cosRoll * cosPitch * cosYaw + sinRoll * sinPitch * sinYaw};
-}
-
 Diligent::QuaternionF cameraOrientationFromYawPitch(float yawDegrees, float pitchDegrees)
 {
-    return quaternionFromEulerDegrees(yawDegrees, 0.0f, -pitchDegrees);
+    return common::runtime_math::quaternionFromEulerDegrees(yawDegrees, 0.0f, -pitchDegrees);
 }
 
 Diligent::float3 rotateVector(const Diligent::QuaternionF& rotation, const Diligent::float3& vector)
@@ -94,9 +48,11 @@ Diligent::float3 rotateVector(const Diligent::QuaternionF& rotation, const Dilig
 
 void yawPitchFromRotation(const Diligent::QuaternionF& rotation, float& outYawDegrees, float& outPitchDegrees)
 {
-    const Diligent::float3 forward = safeNormalize(rotateVector(rotation, {0.0f, 0.0f, 1.0f}), Diligent::float3{0.0f, 0.0f, 1.0f});
-    outYawDegrees = radiansToDegrees(std::atan2(forward.x, forward.z));
-    outPitchDegrees = radiansToDegrees(std::asin(std::max(-1.0f, std::min(forward.y, 1.0f))));
+    const Diligent::float3 forward = common::runtime_math::safeNormalize(
+        rotateVector(rotation, {0.0f, 0.0f, 1.0f}),
+        Diligent::float3{0.0f, 0.0f, 1.0f});
+    outYawDegrees = common::runtime_math::radiansToDegrees(std::atan2(forward.x, forward.z));
+    outPitchDegrees = common::runtime_math::radiansToDegrees(std::asin(std::max(-1.0f, std::min(forward.y, 1.0f))));
 }
 
 bool isPressed(GLFWwindow* window, int key)
@@ -128,10 +84,10 @@ public:
         mDesc.width = std::max(mDesc.width, 1u);
         mDesc.height = std::max(mDesc.height, 1u);
         mDesc.moveSpeed = clampSpeed(mDesc.moveSpeed, mDesc.minMoveSpeed, mDesc.maxMoveSpeed);
-        mDesc.inputSensitivity = clampPositive(mDesc.inputSensitivity, 0.08f);
-        mDesc.speedBoostScale = clampPositive(mDesc.speedBoostScale, 1.0f);
-        mDesc.speedSlowScale = clampPositive(mDesc.speedSlowScale, 0.35f);
-        mDesc.fixedDeltaSeconds = clampPositive(mDesc.fixedDeltaSeconds, 1.0f / 60.0f);
+        mDesc.inputSensitivity = common::runtime_math::clampPositive(mDesc.inputSensitivity, 0.08f);
+        mDesc.speedBoostScale = common::runtime_math::clampPositive(mDesc.speedBoostScale, 1.0f);
+        mDesc.speedSlowScale = common::runtime_math::clampPositive(mDesc.speedSlowScale, 0.35f);
+        mDesc.fixedDeltaSeconds = common::runtime_math::clampPositive(mDesc.fixedDeltaSeconds, 1.0f / 60.0f);
         mShowStats = mDesc.showStats;
 
         inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.width = mDesc.width;
@@ -247,11 +203,11 @@ public:
             mDesc.minMoveSpeed,
             mDesc.maxMoveSpeed);
         cameraState.inputSensitivity =
-            clampPositive(cameraBinding.inputSensitivity > 0.0f ? cameraBinding.inputSensitivity : mDesc.inputSensitivity, 0.08f);
+            common::runtime_math::clampPositive(cameraBinding.inputSensitivity > 0.0f ? cameraBinding.inputSensitivity : mDesc.inputSensitivity, 0.08f);
         cameraState.speedBoostScale =
-            clampPositive(cameraBinding.speedBoostScale > 0.0f ? cameraBinding.speedBoostScale : mDesc.speedBoostScale, 1.0f);
+            common::runtime_math::clampPositive(cameraBinding.speedBoostScale > 0.0f ? cameraBinding.speedBoostScale : mDesc.speedBoostScale, 1.0f);
         cameraState.speedSlowScale =
-            clampPositive(cameraBinding.speedSlowScale > 0.0f ? cameraBinding.speedSlowScale : mDesc.speedSlowScale, 0.35f);
+            common::runtime_math::clampPositive(cameraBinding.speedSlowScale > 0.0f ? cameraBinding.speedSlowScale : mDesc.speedSlowScale, 0.35f);
 
         const CameraState initialCameraState = cameraState;
         mLookActive = false;
@@ -509,12 +465,16 @@ private:
         camera.pitchDegrees = clampPitch(camera.pitchDegrees);
 
         const Diligent::QuaternionF orientation = cameraOrientationFromYawPitch(camera.yawDegrees, camera.pitchDegrees);
-        const Diligent::float3 forward = safeNormalize(rotateVector(orientation, {0.0f, 0.0f, 1.0f}), Diligent::float3{0.0f, 0.0f, 1.0f});
-        const Diligent::float3 right = safeNormalize(rotateVector(orientation, {1.0f, 0.0f, 0.0f}), Diligent::float3{1.0f, 0.0f, 0.0f});
+        const Diligent::float3 forward = common::runtime_math::safeNormalize(
+            rotateVector(orientation, {0.0f, 0.0f, 1.0f}),
+            Diligent::float3{0.0f, 0.0f, 1.0f});
+        const Diligent::float3 right = common::runtime_math::safeNormalize(
+            rotateVector(orientation, {1.0f, 0.0f, 0.0f}),
+            Diligent::float3{1.0f, 0.0f, 0.0f});
         const Diligent::float3 worldUp{0.0f, 1.0f, 0.0f};
 
         Diligent::float3 worldDirection = right * input.moveDirection.x + worldUp * input.moveDirection.y + forward * input.moveDirection.z;
-        worldDirection = safeNormalize(worldDirection);
+        worldDirection = common::runtime_math::safeNormalize(worldDirection);
 
         float movementSpeed = camera.moveSpeed;
         if (input.boost)

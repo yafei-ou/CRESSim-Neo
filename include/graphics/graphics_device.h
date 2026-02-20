@@ -30,6 +30,13 @@ enum class RenderTargetDepthFormat
     D32Float,
 };
 
+enum class RenderTargetUpdateResult
+{
+    Failed,
+    Unchanged,
+    Recreated,
+};
+
 struct RenderTargetHandle
 {
     // Opaque per-device handle for an offscreen target.
@@ -108,9 +115,9 @@ public:
 
     // Per-target management API (for multi-camera and GPU-only processing chains).
     virtual RenderTargetHandle createRenderTarget(const RenderTargetDesc& desc) = 0;
-    virtual bool resizeRenderTarget(RenderTargetHandle target, std::uint32_t width, std::uint32_t height) = 0;
+    virtual RenderTargetUpdateResult resizeRenderTarget(RenderTargetHandle target, std::uint32_t width, std::uint32_t height) = 0;
     // Recreates target resources from an updated descriptor while preserving handle identity.
-    virtual bool reconfigureRenderTarget(RenderTargetHandle target, const RenderTargetDesc& desc) = 0;
+    virtual RenderTargetUpdateResult reconfigureRenderTarget(RenderTargetHandle target, const RenderTargetDesc& desc) = 0;
     virtual void destroyRenderTarget(RenderTargetHandle target) = 0;
     virtual bool isValidRenderTarget(RenderTargetHandle target) const = 0;
     virtual bool tryGetRenderTargetDesc(RenderTargetHandle target, RenderTargetDesc& outDesc) const = 0;

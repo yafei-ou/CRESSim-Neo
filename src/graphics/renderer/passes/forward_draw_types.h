@@ -6,7 +6,6 @@
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 
-#include <array>
 #include <cstdint>
 
 namespace cressim::neo::graphics
@@ -51,20 +50,9 @@ struct ForwardDrawCommand
     std::uint32_t indexCount = 0;
 
     Diligent::float4x4 modelMatrix = Diligent::float4x4::Identity();
-    Diligent::float4x4 viewMatrix = Diligent::float4x4::Identity();
-    Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
-    std::array<Diligent::float4x4, kShadowCascadeCount> lightViewProjectionMatrices{};
-    Diligent::float4x4 lightViewProjectionMatrix = Diligent::float4x4::Identity();
-    std::array<float, kShadowCascadeCount> cascadeSplits{};
     Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
-    Diligent::float3 cameraPosition{0.0f, 0.0f, 0.0f};
-    float shadowCascadeCount = 0.0f;
-    float shadowMapInvSizeX = 0.0f;
-    float shadowMapInvSizeY = 0.0f;
-    float shadowBias = 0.0015f;
 
     ForwardMaterialData material{};
-    ForwardDirectionalLightData light{};
 };
 
 } // namespace cressim::neo::graphics

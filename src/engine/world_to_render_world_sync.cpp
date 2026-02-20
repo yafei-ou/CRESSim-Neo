@@ -5,12 +5,16 @@ namespace cressim::neo::engine::detail
 
 void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWorld)
 {
-    // Full rebuild each frame for now; straightforward but not optimal for large scenes.
-    // TODO: switch to dirty-entity sync to avoid re-uploading unchanged data.
-    renderWorld.clear();
-
-    for (const common::EntityId entityId : world.entities())
+    for (const common::EntityId entityId : world.dirtyEntities())
     {
+        if (!world.isAlive(entityId))
+        {
+            (void)renderWorld.removeRenderable(entityId);
+            (void)renderWorld.removeCamera(entityId);
+            (void)renderWorld.removeDirectionalLight(entityId);
+            continue;
+        }
+
         const TransformComponent* transform = world.tryGetTransform(entityId);
         const common::Transform worldTransform = transform ? transform->worldTransform : common::Transform{};
 
@@ -23,6 +27,10 @@ void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWor
             renderable.mesh = meshRenderer->mesh;
             renderable.material = meshRenderer->material;
             renderWorld.upsertRenderable(renderable);
+        }
+        else
+        {
+            (void)renderWorld.removeRenderable(entityId);
         }
 
         const CameraComponent* camera = world.tryGetCamera(entityId);
@@ -41,6 +49,10 @@ void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWor
             cameraData.renderOrder = camera->renderOrder;
             renderWorld.upsertCamera(cameraData);
         }
+        else
+        {
+            (void)renderWorld.removeCamera(entityId);
+        }
 
         const DirectionalLightComponent* directionalLight = world.tryGetDirectionalLight(entityId);
         if (directionalLight != nullptr)
@@ -53,6 +65,10 @@ void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWor
             lightData.shadowDistance = directionalLight->shadowDistance;
             lightData.shadowFadeDistance = directionalLight->shadowFadeDistance;
             renderWorld.upsertDirectionalLight(lightData);
+        }
+        else
+        {
+            (void)renderWorld.removeDirectionalLight(entityId);
         }
     }
 }

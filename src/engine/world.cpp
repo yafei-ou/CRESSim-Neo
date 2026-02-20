@@ -11,6 +11,7 @@ common::EntityId World::createEntity()
     const common::EntityId entityId = mNextEntityId++;
     mAlive.insert(entityId);
     mEntities.push_back(entityId);
+    markDirty(entityId);
     return entityId;
 }
 
@@ -27,6 +28,7 @@ bool World::destroyEntity(common::EntityId entityId)
     mDirectionalLights.erase(entityId);
 
     mEntities.erase(std::remove(mEntities.begin(), mEntities.end(), entityId), mEntities.end());
+    markDirty(entityId);
     return true;
 }
 
@@ -48,7 +50,9 @@ TransformComponent& World::setTransform(common::EntityId entityId, const Transfo
     }
 
     ensureEntity(entityId);
-    return mTransforms[entityId] = component;
+    TransformComponent& updated = mTransforms[entityId] = component;
+    markDirty(entityId);
+    return updated;
 }
 
 MeshRendererComponent& World::setMeshRenderer(common::EntityId entityId, const MeshRendererComponent& component)
@@ -59,7 +63,9 @@ MeshRendererComponent& World::setMeshRenderer(common::EntityId entityId, const M
     }
 
     ensureEntity(entityId);
-    return mMeshRenderers[entityId] = component;
+    MeshRendererComponent& updated = mMeshRenderers[entityId] = component;
+    markDirty(entityId);
+    return updated;
 }
 
 CameraComponent& World::setCamera(common::EntityId entityId, const CameraComponent& component)
@@ -70,7 +76,9 @@ CameraComponent& World::setCamera(common::EntityId entityId, const CameraCompone
     }
 
     ensureEntity(entityId);
-    return mCameras[entityId] = component;
+    CameraComponent& updated = mCameras[entityId] = component;
+    markDirty(entityId);
+    return updated;
 }
 
 DirectionalLightComponent& World::setDirectionalLight(common::EntityId entityId, const DirectionalLightComponent& component)
@@ -81,7 +89,49 @@ DirectionalLightComponent& World::setDirectionalLight(common::EntityId entityId,
     }
 
     ensureEntity(entityId);
-    return mDirectionalLights[entityId] = component;
+    DirectionalLightComponent& updated = mDirectionalLights[entityId] = component;
+    markDirty(entityId);
+    return updated;
+}
+
+bool World::removeTransform(common::EntityId entityId)
+{
+    if (mTransforms.erase(entityId) == 0)
+    {
+        return false;
+    }
+    markDirty(entityId);
+    return true;
+}
+
+bool World::removeMeshRenderer(common::EntityId entityId)
+{
+    if (mMeshRenderers.erase(entityId) == 0)
+    {
+        return false;
+    }
+    markDirty(entityId);
+    return true;
+}
+
+bool World::removeCamera(common::EntityId entityId)
+{
+    if (mCameras.erase(entityId) == 0)
+    {
+        return false;
+    }
+    markDirty(entityId);
+    return true;
+}
+
+bool World::removeDirectionalLight(common::EntityId entityId)
+{
+    if (mDirectionalLights.erase(entityId) == 0)
+    {
+        return false;
+    }
+    markDirty(entityId);
+    return true;
 }
 
 const TransformComponent* World::tryGetTransform(common::EntityId entityId) const
@@ -108,6 +158,22 @@ const DirectionalLightComponent* World::tryGetDirectionalLight(common::EntityId 
     return it != mDirectionalLights.end() ? &it->second : nullptr;
 }
 
+std::uint64_t World::revision() const noexcept
+{
+    return mRevision;
+}
+
+const std::vector<common::EntityId>& World::dirtyEntities() const noexcept
+{
+    return mDirtyEntities;
+}
+
+void World::clearDirtyEntities() noexcept
+{
+    mDirtyEntities.clear();
+    mDirtySet.clear();
+}
+
 void World::ensureEntity(common::EntityId entityId)
 {
     if (mAlive.find(entityId) != mAlive.end())
@@ -121,6 +187,15 @@ void World::ensureEntity(common::EntityId entityId)
     if (entityId >= mNextEntityId)
     {
         mNextEntityId = entityId + 1;
+    }
+}
+
+void World::markDirty(common::EntityId entityId)
+{
+    ++mRevision;
+    if (mDirtySet.insert(entityId).second)
+    {
+        mDirtyEntities.push_back(entityId);
     }
 }
 

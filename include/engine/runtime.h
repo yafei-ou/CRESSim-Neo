@@ -9,6 +9,7 @@
 #include "graphics/render_world.h"
 #include "graphics/renderer.h"
 
+#include <cstdint>
 #include <memory>
 
 namespace cressim::neo::engine
@@ -44,12 +45,13 @@ public:
     const graphics::RenderResourceManager& getResources() const noexcept;
 
 private:
-    void syncWorldToRenderWorld();
+    bool syncWorldToRenderWorld();
 
     bool mInitialized = false;
     std::unique_ptr<graphics::GraphicsDevice> mGraphicsDevice;
     std::unique_ptr<graphics::Renderer> mRenderer;
     graphics::RenderStats mLastRenderStats{};
+    std::uint64_t mLastSyncedWorldRevision = ~0ull;
     World mWorld;
     graphics::RenderResourceManager mResources;
     graphics::RenderWorld mRenderWorld;

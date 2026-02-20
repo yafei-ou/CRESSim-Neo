@@ -56,6 +56,11 @@ struct RenderStats
     std::uint32_t transparentQueueCount = 0;
     std::uint32_t lightCount = 0;
     std::uint32_t cameraCount = 0;
+    std::uint32_t renderTargetResizeRequests = 0;
+    std::uint32_t renderTargetResizeNoOps = 0;
+    std::uint32_t renderTargetRecreateCount = 0;
+    std::uint32_t renderTargetResizeConflicts = 0;
+    std::uint32_t worldSyncSkippedFrames = 0;
 };
 
 class CRESSIM_NEO_GRAPHICS_API Renderer

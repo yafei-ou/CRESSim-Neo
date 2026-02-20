@@ -112,9 +112,7 @@ bool ForwardPipeline::execute(
                 {
                     continue;
                 }
-                ForwardDrawCommand shadowDrawCommand = draw.drawCommand;
-                shadowDrawCommand.lightViewProjectionMatrix = draw.drawCommand.lightViewProjectionMatrices[cascadeIdx];
-                if (mShadowPass->draw(cascadeShadowMap, shadowDrawCommand))
+                if (mShadowPass->draw(cascadeShadowMap, draw.drawCommand, frameView.lightViewProjectionMatrices[cascadeIdx]))
                 {
                     ++outStats.shadowDrawCalls;
                 }
@@ -126,6 +124,10 @@ bool ForwardPipeline::execute(
     }
 
     mForwardOpaquePass->setShadowMapTargets(activeShadowMaps, activeShadowMapCount);
+    if (!mForwardOpaquePass->beginCameraFrame(frameView))
+    {
+        return false;
+    }
 
     mDevice.setRenderTargetViewport(frameView.target, frameView.viewport);
     const RenderPassBeginDesc mainBegin{};

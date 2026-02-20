@@ -33,8 +33,8 @@ public:
     void shutdown() override;
 
     RenderTargetHandle createRenderTarget(const RenderTargetDesc& desc) override;
-    bool resizeRenderTarget(RenderTargetHandle target, std::uint32_t width, std::uint32_t height) override;
-    bool reconfigureRenderTarget(RenderTargetHandle target, const RenderTargetDesc& desc) override;
+    RenderTargetUpdateResult resizeRenderTarget(RenderTargetHandle target, std::uint32_t width, std::uint32_t height) override;
+    RenderTargetUpdateResult reconfigureRenderTarget(RenderTargetHandle target, const RenderTargetDesc& desc) override;
     void destroyRenderTarget(RenderTargetHandle target) override;
     bool isValidRenderTarget(RenderTargetHandle target) const override;
     bool tryGetRenderTargetDesc(RenderTargetHandle target, RenderTargetDesc& outDesc) const override;

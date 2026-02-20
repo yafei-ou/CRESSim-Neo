@@ -1,5 +1,7 @@
 #include "graphics/device/graphics_device_impl.h"
 
+#include "common/math_utils_runtime.h"
+
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 
 #include <algorithm>
@@ -15,43 +17,6 @@ std::unique_ptr<GraphicsDevice> createGraphicsDevice()
 
 namespace
 {
-
-std::uint32_t clampExtent(std::uint32_t value)
-{
-    return std::max<std::uint32_t>(value, 1u);
-}
-
-float clampNormalized(float value)
-{
-    return std::max(0.0f, std::min(value, 1.0f));
-}
-
-RenderViewport normalizeViewport(const RenderViewport& viewport)
-{
-    RenderViewport normalized{};
-    normalized.x = clampNormalized(viewport.x);
-    normalized.y = clampNormalized(viewport.y);
-    normalized.width = clampNormalized(viewport.width);
-    normalized.height = clampNormalized(viewport.height);
-
-    const float maxWidth = std::max(0.0f, 1.0f - normalized.x);
-    const float maxHeight = std::max(0.0f, 1.0f - normalized.y);
-    normalized.width = std::min(normalized.width, maxWidth);
-    normalized.height = std::min(normalized.height, maxHeight);
-
-    if (normalized.width == 0.0f)
-    {
-        normalized.width = 1.0f;
-        normalized.x = 0.0f;
-    }
-    if (normalized.height == 0.0f)
-    {
-        normalized.height = 1.0f;
-        normalized.y = 0.0f;
-    }
-
-    return normalized;
-}
 
 Diligent::TEXTURE_FORMAT toDiligentColorFormat(RenderTargetColorFormat format)
 {
@@ -75,6 +40,17 @@ Diligent::TEXTURE_FORMAT toDiligentDepthFormat(RenderTargetDepthFormat format)
     default:
         return Diligent::TEX_FORMAT_UNKNOWN;
     }
+}
+
+bool requiresTextureRecreate(const RenderTargetDesc& currentDesc, const RenderTargetDesc& updatedDesc)
+{
+    return currentDesc.width != updatedDesc.width ||
+        currentDesc.height != updatedDesc.height ||
+        currentDesc.color != updatedDesc.color ||
+        currentDesc.depth != updatedDesc.depth ||
+        currentDesc.colorFormat != updatedDesc.colorFormat ||
+        currentDesc.depthFormat != updatedDesc.depthFormat ||
+        currentDesc.shaderReadable != updatedDesc.shaderReadable;
 }
 
 } // namespace
@@ -157,7 +133,7 @@ RenderTargetHandle GraphicsDeviceImpl::createRenderTarget(const RenderTargetDesc
 
     RenderTargetResources resources{};
     resources.desc = normalizeTargetDesc(desc);
-    resources.viewport = normalizeViewport(RenderViewport{});
+    resources.viewport = common::runtime_math::normalizeViewport(RenderViewport{});
     resources.colorFormat = resources.desc.colorFormat;
     resources.depthFormat = resources.desc.depthFormat;
 
@@ -174,36 +150,41 @@ RenderTargetHandle GraphicsDeviceImpl::createRenderTarget(const RenderTargetDesc
     return RenderTargetHandle{id};
 }
 
-bool GraphicsDeviceImpl::resizeRenderTarget(RenderTargetHandle target, std::uint32_t width, std::uint32_t height)
+RenderTargetUpdateResult GraphicsDeviceImpl::resizeRenderTarget(RenderTargetHandle target, std::uint32_t width, std::uint32_t height)
 {
     if (!mInitialized)
     {
-        return false;
+        return RenderTargetUpdateResult::Failed;
     }
 
     const auto it = mRenderTargets.find(target.id);
     if (it == mRenderTargets.end())
     {
-        return false;
+        return RenderTargetUpdateResult::Failed;
     }
 
     RenderTargetDesc resizedDesc = it->second.desc;
-    resizedDesc.width = clampExtent(width == 0 ? resizedDesc.width : width);
-    resizedDesc.height = clampExtent(height == 0 ? resizedDesc.height : height);
+    resizedDesc.width = common::runtime_math::clampExtent(width == 0 ? resizedDesc.width : width);
+    resizedDesc.height = common::runtime_math::clampExtent(height == 0 ? resizedDesc.height : height);
+    if (resizedDesc.width == it->second.desc.width && resizedDesc.height == it->second.desc.height)
+    {
+        return RenderTargetUpdateResult::Unchanged;
+    }
+
     return reconfigureRenderTarget(target, resizedDesc);
 }
 
-bool GraphicsDeviceImpl::reconfigureRenderTarget(RenderTargetHandle target, const RenderTargetDesc& desc)
+RenderTargetUpdateResult GraphicsDeviceImpl::reconfigureRenderTarget(RenderTargetHandle target, const RenderTargetDesc& desc)
 {
     if (!mInitialized)
     {
-        return false;
+        return RenderTargetUpdateResult::Failed;
     }
 
     const auto it = mRenderTargets.find(target.id);
     if (it == mRenderTargets.end())
     {
-        return false;
+        return RenderTargetUpdateResult::Failed;
     }
 
     RenderTargetDesc updatedDesc = normalizeTargetDesc(desc);
@@ -211,12 +192,14 @@ bool GraphicsDeviceImpl::reconfigureRenderTarget(RenderTargetHandle target, cons
     {
         updatedDesc = normalizeDefaultRenderTargetDesc(updatedDesc);
     }
+    const bool recreateTextures = requiresTextureRecreate(it->second.desc, updatedDesc);
+
     RenderTargetResources updatedResources = it->second;
     updatedResources.desc = updatedDesc;
     updatedResources.colorFormat = updatedDesc.colorFormat;
     updatedResources.depthFormat = updatedDesc.depthFormat;
 
-    if (mBackend == GraphicsBackend::Vulkan)
+    if (mBackend == GraphicsBackend::Vulkan && recreateTextures)
     {
         if (mImmediateContext != nullptr)
         {
@@ -225,7 +208,7 @@ bool GraphicsDeviceImpl::reconfigureRenderTarget(RenderTargetHandle target, cons
 
         if (!createRenderTargetTextures(updatedDesc, updatedResources))
         {
-            return false;
+            return RenderTargetUpdateResult::Failed;
         }
     }
 
@@ -246,7 +229,7 @@ bool GraphicsDeviceImpl::reconfigureRenderTarget(RenderTargetHandle target, cons
         }
     }
 
-    return true;
+    return recreateTextures ? RenderTargetUpdateResult::Recreated : RenderTargetUpdateResult::Unchanged;
 }
 
 void GraphicsDeviceImpl::destroyRenderTarget(RenderTargetHandle target)
@@ -333,7 +316,7 @@ void GraphicsDeviceImpl::setRenderTargetViewport(RenderTargetHandle target, cons
         return;
     }
 
-    it->second.viewport = normalizeViewport(viewport);
+    it->second.viewport = common::runtime_math::normalizeViewport(viewport);
 }
 
 void GraphicsDeviceImpl::beginRenderTarget(
@@ -585,8 +568,8 @@ constexpr std::uint32_t kDefaultRenderTargetHeight = 720u;
 RenderTargetDesc GraphicsDeviceImpl::normalizeDefaultRenderTargetDesc(const RenderTargetDesc& desc) const
 {
     RenderTargetDesc normalized = desc;
-    normalized.width = clampExtent(normalized.width == 0 ? kDefaultRenderTargetWidth : normalized.width);
-    normalized.height = clampExtent(normalized.height == 0 ? kDefaultRenderTargetHeight : normalized.height);
+    normalized.width = common::runtime_math::clampExtent(normalized.width == 0 ? kDefaultRenderTargetWidth : normalized.width);
+    normalized.height = common::runtime_math::clampExtent(normalized.height == 0 ? kDefaultRenderTargetHeight : normalized.height);
     normalized.color = true;
     if (normalized.debugName.empty())
     {
@@ -598,10 +581,12 @@ RenderTargetDesc GraphicsDeviceImpl::normalizeDefaultRenderTargetDesc(const Rend
 RenderTargetDesc GraphicsDeviceImpl::normalizeTargetDesc(const RenderTargetDesc& desc) const
 {
     RenderTargetDesc normalized = desc;
-    const std::uint32_t fallbackWidth = clampExtent(mDesc.defaultRenderTargetDesc.width == 0 ? kDefaultRenderTargetWidth : mDesc.defaultRenderTargetDesc.width);
-    const std::uint32_t fallbackHeight = clampExtent(mDesc.defaultRenderTargetDesc.height == 0 ? kDefaultRenderTargetHeight : mDesc.defaultRenderTargetDesc.height);
-    normalized.width = clampExtent(normalized.width == 0 ? fallbackWidth : normalized.width);
-    normalized.height = clampExtent(normalized.height == 0 ? fallbackHeight : normalized.height);
+    const std::uint32_t fallbackWidth =
+        common::runtime_math::clampExtent(mDesc.defaultRenderTargetDesc.width == 0 ? kDefaultRenderTargetWidth : mDesc.defaultRenderTargetDesc.width);
+    const std::uint32_t fallbackHeight =
+        common::runtime_math::clampExtent(mDesc.defaultRenderTargetDesc.height == 0 ? kDefaultRenderTargetHeight : mDesc.defaultRenderTargetDesc.height);
+    normalized.width = common::runtime_math::clampExtent(normalized.width == 0 ? fallbackWidth : normalized.width);
+    normalized.height = common::runtime_math::clampExtent(normalized.height == 0 ? fallbackHeight : normalized.height);
     if (!normalized.color && !normalized.depth)
     {
         normalized.color = true;

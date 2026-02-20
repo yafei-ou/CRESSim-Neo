@@ -57,6 +57,9 @@ public:
     void upsertRenderable(const RenderableInstance& instance);
     void upsertCamera(const CameraData& camera);
     void upsertDirectionalLight(const DirectionalLightData& light);
+    bool removeRenderable(common::EntityId entityId);
+    bool removeCamera(common::EntityId entityId);
+    bool removeDirectionalLight(common::EntityId entityId);
 
     const std::vector<RenderableInstance>& renderables() const noexcept;
     const std::vector<CameraData>& cameras() const noexcept;

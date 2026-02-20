@@ -3,6 +3,7 @@
 
 #include "graphics/graphics_device.h"
 #include "graphics/renderer/passes/forward_draw_types.h"
+#include "graphics/renderer/services/mesh_gpu_cache.h"
 #include "graphics/renderer/services/shader_source_provider.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
@@ -10,9 +11,6 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
-
-#include <cstdint>
-#include <unordered_map>
 
 namespace cressim::neo::graphics
 {
@@ -28,17 +26,9 @@ public:
     explicit ShadowPass(GraphicsDeviceImpl& device);
 
     bool initialize();
-    bool draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand);
+    bool draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand, const Diligent::float4x4& lightViewProjectionMatrix);
 
 private:
-    struct CachedMeshGpuData
-    {
-        std::uint64_t version = 0;
-        std::uint32_t indexCount = 0;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> vertexBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> indexBuffer;
-    };
-
     struct PerObjectConstants
     {
         Diligent::float4x4 modelMatrix = Diligent::float4x4::Identity();
@@ -50,9 +40,6 @@ private:
         Diligent::float4x4 lightViewProjectionMatrix = Diligent::float4x4::Identity();
     };
 
-    CachedMeshGpuData* getOrCreateMeshBuffers(
-        const ForwardDrawCommand& drawCommand,
-        Diligent::IRenderDevice* renderDevice);
     bool createPipeline(Diligent::IRenderDevice* renderDevice);
     bool ensureConstantBuffers(Diligent::IRenderDevice* renderDevice);
 
@@ -61,7 +48,7 @@ private:
     bool mInitialized = false;
     ShaderSourceProvider mShaderSourceProvider;
 
-    std::unordered_map<common::ResourceId, CachedMeshGpuData> mCachedMeshes;
+    MeshGpuCache mMeshGpuCache;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mPipelineState;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mShaderResourceBinding;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;

@@ -1,5 +1,7 @@
 #include "graphics/render_world.h"
 
+#include <utility>
+
 namespace cressim::neo::graphics
 {
 
@@ -22,6 +24,30 @@ void upsertByEntityId(
     }
 
     entries[indexIt->second] = value;
+}
+
+template <typename T>
+bool removeByEntityId(
+    std::vector<T>& entries,
+    std::unordered_map<common::EntityId, std::size_t>& indices,
+    common::EntityId entityId)
+{
+    const auto indexIt = indices.find(entityId);
+    if (indexIt == indices.end())
+    {
+        return false;
+    }
+
+    const std::size_t removedIndex = indexIt->second;
+    const std::size_t lastIndex = entries.size() - 1;
+    if (removedIndex != lastIndex)
+    {
+        entries[removedIndex] = std::move(entries[lastIndex]);
+        indices[entries[removedIndex].entityId] = removedIndex;
+    }
+    entries.pop_back();
+    indices.erase(indexIt);
+    return true;
 }
 
 } // namespace
@@ -50,6 +76,21 @@ void RenderWorld::upsertCamera(const CameraData& camera)
 void RenderWorld::upsertDirectionalLight(const DirectionalLightData& light)
 {
     upsertByEntityId(mDirectionalLights, mDirectionalLightIndices, light);
+}
+
+bool RenderWorld::removeRenderable(common::EntityId entityId)
+{
+    return removeByEntityId(mRenderables, mRenderableIndices, entityId);
+}
+
+bool RenderWorld::removeCamera(common::EntityId entityId)
+{
+    return removeByEntityId(mCameras, mCameraIndices, entityId);
+}
+
+bool RenderWorld::removeDirectionalLight(common::EntityId entityId)
+{
+    return removeByEntityId(mDirectionalLights, mDirectionalLightIndices, entityId);
 }
 
 const std::vector<RenderableInstance>& RenderWorld::renderables() const noexcept

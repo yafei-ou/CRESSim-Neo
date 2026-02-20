@@ -30,6 +30,7 @@ struct FrameViewData
     Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
     std::array<Diligent::float4x4, kShadowCascadeCount> lightViewProjectionMatrices{};
     std::array<float, kShadowCascadeCount> cascadeSplits{};
+    ForwardDirectionalLightData light{};
     Diligent::float3 cameraWorldPosition = {0.0f, 0.0f, 0.0f};
     Diligent::ViewFrustum viewFrustum{};
     std::array<Diligent::ViewFrustum, kShadowCascadeCount> lightFrustums{};

@@ -1,5 +1,7 @@
 #include "graphics/renderer/services/debug_view_presenter.h"
 
+#include "common/math_utils_runtime.h"
+
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "DiligentEngine/DiligentCore/Platforms/interface/NativeWindow.h"
 
@@ -11,12 +13,6 @@ namespace cressim::neo::graphics::detail
 
 namespace
 {
-
-std::uint32_t clampExtent(std::uint32_t value)
-{
-    return std::max<std::uint32_t>(value, 1u);
-}
-
 Diligent::Uint32 clampWindowId(std::uint64_t value)
 {
     constexpr std::uint64_t kMax = static_cast<std::uint64_t>(std::numeric_limits<Diligent::Uint32>::max());
@@ -124,8 +120,8 @@ bool DebugViewPresenter::present(RenderTargetHandle sourceTarget)
     if (swapChainDesc.Width != sourceDesc.width || swapChainDesc.Height != sourceDesc.height)
     {
         mSwapChain->Resize(
-            clampExtent(sourceDesc.width),
-            clampExtent(sourceDesc.height),
+            common::runtime_math::clampExtent(sourceDesc.width),
+            common::runtime_math::clampExtent(sourceDesc.height),
             Diligent::SURFACE_TRANSFORM_OPTIMAL);
     }
 
@@ -144,7 +140,8 @@ bool DebugViewPresenter::present(RenderTargetHandle sourceTarget)
             return false;
         }
         sourceDesc.colorFormat = backBufferColorFormat;
-        if (!mDevice.reconfigureRenderTarget(sourceTarget, sourceDesc))
+        const RenderTargetUpdateResult updateResult = mDevice.reconfigureRenderTarget(sourceTarget, sourceDesc);
+        if (updateResult == RenderTargetUpdateResult::Failed)
         {
             return false;
         }
@@ -221,8 +218,8 @@ bool DebugViewPresenter::createSwapChain(std::uint32_t width, std::uint32_t heig
 #endif
 
     Diligent::SwapChainDesc swapChainDesc{};
-    swapChainDesc.Width = clampExtent(width);
-    swapChainDesc.Height = clampExtent(height);
+    swapChainDesc.Width = common::runtime_math::clampExtent(width);
+    swapChainDesc.Height = common::runtime_math::clampExtent(height);
     swapChainDesc.ColorBufferFormat = colorFormat;
     swapChainDesc.DepthBufferFormat = Diligent::TEX_FORMAT_UNKNOWN;
     factoryVk->CreateSwapChainVk(backendContext.renderDevice, backendContext.immediateContext, swapChainDesc, window, &mSwapChain);

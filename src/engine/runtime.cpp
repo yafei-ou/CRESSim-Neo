@@ -52,6 +52,7 @@ void Runtime::shutdown()
     }
 
     mLastRenderStats = {};
+    mLastSyncedWorldRevision = ~0ull;
     mInitialized = false;
 }
 
@@ -62,8 +63,9 @@ void Runtime::tick(const common::FrameContext& frameContext)
         return;
     }
 
-    syncWorldToRenderWorld();
+    const bool syncSkipped = syncWorldToRenderWorld();
     mLastRenderStats = mRenderer->render(frameContext, mRenderWorld);
+    mLastRenderStats.worldSyncSkippedFrames = syncSkipped ? 1u : 0u;
 }
 
 World& Runtime::getWorld() noexcept
@@ -119,9 +121,17 @@ const graphics::RenderResourceManager& Runtime::getResources() const noexcept
     return mResources;
 }
 
-void Runtime::syncWorldToRenderWorld()
+bool Runtime::syncWorldToRenderWorld()
 {
+    if (mWorld.revision() == mLastSyncedWorldRevision)
+    {
+        return true;
+    }
+
     detail::syncWorldToRenderWorld(mWorld, mRenderWorld);
+    mWorld.clearDirtyEntities();
+    mLastSyncedWorldRevision = mWorld.revision();
+    return false;
 }
 
 } // namespace cressim::neo::engine
