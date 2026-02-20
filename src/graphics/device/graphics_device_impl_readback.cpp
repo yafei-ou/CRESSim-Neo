@@ -8,7 +8,8 @@
 namespace cressim::neo::graphics
 {
 
-RenderTargetReadbackRequest GraphicsDeviceImpl::requestRenderTargetReadback(RenderTargetHandle target)
+RenderTargetReadbackRequest GraphicsDeviceImpl::requestRenderTargetReadback(
+    RenderTargetHandle target)
 {
     RenderTargetReadbackRequest request{};
 
@@ -28,7 +29,8 @@ RenderTargetReadbackRequest GraphicsDeviceImpl::requestRenderTargetReadback(Rend
     return request;
 }
 
-bool GraphicsDeviceImpl::tryGetRenderTargetReadback(RenderTargetReadbackRequest request, RenderTargetReadbackEvent& outEvent)
+bool GraphicsDeviceImpl::tryGetRenderTargetReadback(RenderTargetReadbackRequest request,
+                                                    RenderTargetReadbackEvent& outEvent)
 {
     if (request.id == 0)
     {
@@ -55,8 +57,8 @@ void GraphicsDeviceImpl::endFrame(const common::FrameContext& frameContext)
         for (const PendingReadbackCopy& copy : mPendingReadbackCopies)
         {
             RenderTargetReadbackEvent event{};
-            event.target = copy.target;
-            event.frameIndex = copy.frameIndex;
+            event.target      = copy.target;
+            event.frameIndex  = copy.frameIndex;
             event.colorFormat = copy.colorFormat;
             for (const std::uint64_t requestId : copy.requestIds)
             {
@@ -75,8 +77,8 @@ void GraphicsDeviceImpl::endFrame(const common::FrameContext& frameContext)
     for (const PendingReadbackCopy& copy : mPendingReadbackCopies)
     {
         RenderTargetReadbackEvent event{};
-        event.target = copy.target;
-        event.frameIndex = copy.frameIndex;
+        event.target      = copy.target;
+        event.frameIndex  = copy.frameIndex;
         event.colorFormat = copy.colorFormat;
 
         if (copy.stagingTexture != nullptr && copy.width > 0 && copy.height > 0)
@@ -87,30 +89,26 @@ void GraphicsDeviceImpl::endFrame(const common::FrameContext& frameContext)
             }
 
             Diligent::MappedTextureSubresource mappedData{};
-            mImmediateContext->MapTextureSubresource(
-                copy.stagingTexture,
-                0,
-                0,
-                Diligent::MAP_READ,
-                Diligent::MAP_FLAG_DO_NOT_WAIT,
-                nullptr,
-                mappedData);
+            mImmediateContext->MapTextureSubresource(copy.stagingTexture, 0, 0, Diligent::MAP_READ,
+                                                     Diligent::MAP_FLAG_DO_NOT_WAIT, nullptr,
+                                                     mappedData);
 
             if (mappedData.pData != nullptr)
             {
-                event.width = copy.width;
-                event.height = copy.height;
+                event.width          = copy.width;
+                event.height         = copy.height;
                 event.rowStrideBytes = copy.width * 4u;
-                event.colorBytes.resize(static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height));
+                event.colorBytes.resize(static_cast<std::size_t>(event.rowStrideBytes) *
+                                        static_cast<std::size_t>(event.height));
 
                 const auto* srcRows = static_cast<const std::uint8_t*>(mappedData.pData);
-                auto* dstRows = event.colorBytes.data();
+                auto* dstRows       = event.colorBytes.data();
                 for (std::uint32_t y = 0; y < event.height; ++y)
                 {
-                    std::memcpy(
-                        dstRows + static_cast<std::size_t>(y) * event.rowStrideBytes,
-                        srcRows + static_cast<std::size_t>(y) * static_cast<std::size_t>(mappedData.Stride),
-                        event.rowStrideBytes);
+                    std::memcpy(dstRows + static_cast<std::size_t>(y) * event.rowStrideBytes,
+                                srcRows + static_cast<std::size_t>(y) *
+                                              static_cast<std::size_t>(mappedData.Stride),
+                                event.rowStrideBytes);
                 }
 
                 mImmediateContext->UnmapTextureSubresource(copy.stagingTexture, 0, 0);
@@ -138,7 +136,8 @@ bool GraphicsDeviceImpl::presentPrimarySwapChain()
     }
 
     Diligent::ITexture* sourceTexture = nullptr;
-    if (!tryGetRenderTargetColorTexture(mDefaultRenderTarget, sourceTexture) || sourceTexture == nullptr)
+    if (!tryGetRenderTargetColorTexture(mDefaultRenderTarget, sourceTexture) ||
+        sourceTexture == nullptr)
     {
         return false;
     }
@@ -152,10 +151,9 @@ bool GraphicsDeviceImpl::presentPrimarySwapChain()
     const auto& swapChainDesc = mPrimarySwapChain->GetDesc();
     if (swapChainDesc.Width != sourceDesc.width || swapChainDesc.Height != sourceDesc.height)
     {
-        mPrimarySwapChain->Resize(
-            common::runtime_math::clampExtent(sourceDesc.width),
-            common::runtime_math::clampExtent(sourceDesc.height),
-            Diligent::SURFACE_TRANSFORM_OPTIMAL);
+        mPrimarySwapChain->Resize(common::runtime_math::clampExtent(sourceDesc.width),
+                                  common::runtime_math::clampExtent(sourceDesc.height),
+                                  Diligent::SURFACE_TRANSFORM_OPTIMAL);
     }
 
     Diligent::ITextureView* backBufferRtv = mPrimarySwapChain->GetCurrentBackBufferRTV();
@@ -169,9 +167,9 @@ bool GraphicsDeviceImpl::presentPrimarySwapChain()
         return false;
     }
 
-    const auto& srcTexDesc = sourceTexture->GetDesc();
-    const auto& dstTexDesc = backBufferTexture->GetDesc();
-    const std::uint32_t copyWidth = std::min<std::uint32_t>(srcTexDesc.Width, dstTexDesc.Width);
+    const auto& srcTexDesc         = sourceTexture->GetDesc();
+    const auto& dstTexDesc         = backBufferTexture->GetDesc();
+    const std::uint32_t copyWidth  = std::min<std::uint32_t>(srcTexDesc.Width, dstTexDesc.Width);
     const std::uint32_t copyHeight = std::min<std::uint32_t>(srcTexDesc.Height, dstTexDesc.Height);
     if (copyWidth == 0 || copyHeight == 0)
     {
@@ -181,14 +179,12 @@ bool GraphicsDeviceImpl::presentPrimarySwapChain()
 
     const Diligent::Box srcBox{0u, copyWidth, 0u, copyHeight, 0u, 1u};
     Diligent::CopyTextureAttribs copyAttribs{
-        sourceTexture,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-        backBufferTexture,
+        sourceTexture, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, backBufferTexture,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
     copyAttribs.pSrcBox = &srcBox;
-    copyAttribs.DstX = 0;
-    copyAttribs.DstY = 0;
-    copyAttribs.DstZ = 0;
+    copyAttribs.DstX    = 0;
+    copyAttribs.DstY    = 0;
+    copyAttribs.DstZ    = 0;
     mImmediateContext->CopyTexture(copyAttribs);
 
     mPrimarySwapChain->Present(mDesc.presentation.syncInterval);
@@ -201,9 +197,11 @@ bool GraphicsDeviceImpl::presentPrimarySwapChain()
     return true;
 }
 
-bool GraphicsDeviceImpl::queueReadbackCopy(RenderTargetHandle target, std::uint64_t frameIndex, const std::vector<std::uint64_t>& requestIds)
+bool GraphicsDeviceImpl::queueReadbackCopy(RenderTargetHandle target, std::uint64_t frameIndex,
+                                           const std::vector<std::uint64_t>& requestIds)
 {
-    if (!mRenderDevice || !mImmediateContext || !mReadbackFence || mBackend != GraphicsBackend::Vulkan)
+    if (!mRenderDevice || !mImmediateContext || !mReadbackFence ||
+        mBackend != GraphicsBackend::Vulkan)
     {
         return false;
     }
@@ -225,12 +223,12 @@ bool GraphicsDeviceImpl::queueReadbackCopy(RenderTargetHandle target, std::uint6
     }
 
     Diligent::TextureDesc stagingDesc = resources.colorTexture->GetDesc();
-    const std::string stagingName = resources.desc.debugName + ".Readback";
-    stagingDesc.Name = stagingName.c_str();
-    stagingDesc.BindFlags = Diligent::BIND_NONE;
-    stagingDesc.Usage = Diligent::USAGE_STAGING;
-    stagingDesc.CPUAccessFlags = Diligent::CPU_ACCESS_READ;
-    stagingDesc.MiscFlags = Diligent::MISC_TEXTURE_FLAG_NONE;
+    const std::string stagingName     = resources.desc.debugName + ".Readback";
+    stagingDesc.Name                  = stagingName.c_str();
+    stagingDesc.BindFlags             = Diligent::BIND_NONE;
+    stagingDesc.Usage                 = Diligent::USAGE_STAGING;
+    stagingDesc.CPUAccessFlags        = Diligent::CPU_ACCESS_READ;
+    stagingDesc.MiscFlags             = Diligent::MISC_TEXTURE_FLAG_NONE;
 
     Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
     mRenderDevice->CreateTexture(stagingDesc, nullptr, &stagingTexture);
@@ -240,9 +238,7 @@ bool GraphicsDeviceImpl::queueReadbackCopy(RenderTargetHandle target, std::uint6
     }
 
     Diligent::CopyTextureAttribs copyAttribs{
-        resources.colorTexture,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-        stagingTexture,
+        resources.colorTexture, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, stagingTexture,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
     mImmediateContext->CopyTexture(copyAttribs);
 
@@ -250,13 +246,13 @@ bool GraphicsDeviceImpl::queueReadbackCopy(RenderTargetHandle target, std::uint6
     mImmediateContext->EnqueueSignal(mReadbackFence, fenceValue);
 
     PendingReadbackCopy readbackCopy{};
-    readbackCopy.requestIds = requestIds;
-    readbackCopy.target = target;
-    readbackCopy.frameIndex = frameIndex;
-    readbackCopy.fenceValue = fenceValue;
-    readbackCopy.width = resources.desc.width;
-    readbackCopy.height = resources.desc.height;
-    readbackCopy.colorFormat = resources.desc.colorFormat;
+    readbackCopy.requestIds     = requestIds;
+    readbackCopy.target         = target;
+    readbackCopy.frameIndex     = frameIndex;
+    readbackCopy.fenceValue     = fenceValue;
+    readbackCopy.width          = resources.desc.width;
+    readbackCopy.height         = resources.desc.height;
+    readbackCopy.colorFormat    = resources.desc.colorFormat;
     readbackCopy.stagingTexture = std::move(stagingTexture);
     mPendingReadbackCopies.push_back(std::move(readbackCopy));
     return true;

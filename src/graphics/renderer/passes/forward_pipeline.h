@@ -26,11 +26,8 @@ public:
     ~ForwardPipeline();
 
     bool initialize();
-    bool execute(
-        const common::FrameContext& frameContext,
-        const FrameViewData& frameView,
-        const CameraRenderQueues& queues,
-        ForwardPassExecutionStats& outStats);
+    bool execute(const common::FrameContext& frameContext, const FrameViewData& frameView,
+                 const CameraRenderQueues& queues, ForwardPassExecutionStats& outStats);
 
 private:
     GraphicsDeviceImpl& mDevice;

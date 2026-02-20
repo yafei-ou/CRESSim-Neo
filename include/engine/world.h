@@ -22,10 +22,13 @@ public:
     bool isAlive(common::EntityId entityId) const;
     const std::vector<common::EntityId>& entities() const noexcept;
 
-    TransformComponent& setTransform(common::EntityId entityId, const TransformComponent& component);
-    MeshRendererComponent& setMeshRenderer(common::EntityId entityId, const MeshRendererComponent& component);
+    TransformComponent& setTransform(common::EntityId entityId,
+                                     const TransformComponent& component);
+    MeshRendererComponent& setMeshRenderer(common::EntityId entityId,
+                                           const MeshRendererComponent& component);
     CameraComponent& setCamera(common::EntityId entityId, const CameraComponent& component);
-    DirectionalLightComponent& setDirectionalLight(common::EntityId entityId, const DirectionalLightComponent& component);
+    DirectionalLightComponent& setDirectionalLight(common::EntityId entityId,
+                                                   const DirectionalLightComponent& component);
     bool removeTransform(common::EntityId entityId);
     bool removeMeshRenderer(common::EntityId entityId);
     bool removeCamera(common::EntityId entityId);

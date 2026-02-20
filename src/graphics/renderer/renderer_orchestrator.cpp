@@ -9,10 +9,9 @@
 namespace cressim::neo::graphics
 {
 
-Renderer::Renderer(GraphicsDevice& device, RenderResourceManager& resourceManager, const RendererDesc& desc) :
-    mDevice(device),
-    mResourceManager(resourceManager),
-    mDesc(desc)
+Renderer::Renderer(GraphicsDevice& device, RenderResourceManager& resourceManager,
+                   const RendererDesc& desc)
+    : mDevice(device), mResourceManager(resourceManager), mDesc(desc)
 {
 }
 
@@ -21,7 +20,7 @@ Renderer::~Renderer() = default;
 bool Renderer::initialize()
 {
     GraphicsDeviceImpl& deviceImpl = static_cast<GraphicsDeviceImpl&>(mDevice);
-    mForwardPipeline = std::make_unique<detail::ForwardPipeline>(deviceImpl);
+    mForwardPipeline               = std::make_unique<detail::ForwardPipeline>(deviceImpl);
     if (!mForwardPipeline->initialize())
     {
         mForwardPipeline.reset();
@@ -44,12 +43,13 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
     mDevice.beginFrame(frameContext);
 
     const auto& renderables = world.renderables();
-    const auto preparedRenderables = detail::buildPreparedRenderables(renderables, mResourceManager);
+    const auto preparedRenderables =
+        detail::buildPreparedRenderables(renderables, mResourceManager);
     const ForwardDirectionalLightData lightData = detail::buildMainLight(world.directionalLights());
 
-    stats.renderableCount = static_cast<std::uint32_t>(renderables.size());
+    stats.renderableCount      = static_cast<std::uint32_t>(renderables.size());
     stats.validRenderableCount = static_cast<std::uint32_t>(preparedRenderables.size());
-    stats.lightCount = static_cast<std::uint32_t>(world.directionalLights().size());
+    stats.lightCount           = static_cast<std::uint32_t>(world.directionalLights().size());
 
     std::vector<CameraData> cameras = detail::sortedCameras(world);
     if (cameras.empty())
@@ -59,12 +59,13 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
 
     struct RequestedExtent
     {
-        std::uint32_t width = 0;
+        std::uint32_t width  = 0;
         std::uint32_t height = 0;
     };
     std::unordered_map<common::ResourceId, RequestedExtent> requestedExtents;
 
-    const auto renderCamera = [&](const CameraData& camera) {
+    const auto renderCamera = [&](const CameraData& camera)
+    {
         RenderTargetHandle target = camera.outputTarget;
         if (!mDevice.isValidRenderTarget(target))
         {
@@ -86,7 +87,7 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
             ++stats.renderTargetResizeRequests;
 
             RequestedExtent desired{};
-            desired.width = (camera.outputWidth == 0 ? targetDesc.width : camera.outputWidth);
+            desired.width  = (camera.outputWidth == 0 ? targetDesc.width : camera.outputWidth);
             desired.height = (camera.outputHeight == 0 ? targetDesc.height : camera.outputHeight);
 
             const auto requestedIt = requestedExtents.find(target.id);
@@ -96,7 +97,8 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
             }
             else
             {
-                const bool conflict = requestedIt->second.width != desired.width || requestedIt->second.height != desired.height;
+                const bool conflict = requestedIt->second.width != desired.width ||
+                                      requestedIt->second.height != desired.height;
                 if (conflict)
                 {
                     ++stats.renderTargetResizeConflicts;
@@ -106,7 +108,8 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
 
             if (targetDesc.width != desired.width || targetDesc.height != desired.height)
             {
-                const RenderTargetUpdateResult updateResult = mDevice.resizeRenderTarget(target, desired.width, desired.height);
+                const RenderTargetUpdateResult updateResult =
+                    mDevice.resizeRenderTarget(target, desired.width, desired.height);
                 if (updateResult == RenderTargetUpdateResult::Unchanged)
                 {
                     ++stats.renderTargetResizeNoOps;
@@ -130,8 +133,10 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
         }
 
         const RenderViewport viewport = detail::normalizeViewport(camera.viewport);
-        const FrameViewData frameView = detail::buildFrameViewData(camera, targetDesc, target, viewport, lightData);
-        const CameraRenderQueues queues = detail::buildCameraRenderQueues(preparedRenderables, frameView, mResourceManager, stats);
+        const FrameViewData frameView =
+            detail::buildFrameViewData(camera, targetDesc, target, viewport, lightData);
+        const CameraRenderQueues queues = detail::buildCameraRenderQueues(
+            preparedRenderables, frameView, mResourceManager, stats);
 
         ForwardPassExecutionStats passStats{};
         if (mForwardPipeline != nullptr)

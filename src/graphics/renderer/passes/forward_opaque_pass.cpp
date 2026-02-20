@@ -8,47 +8,46 @@
 namespace cressim::neo::graphics::detail
 {
 
-ForwardOpaquePass::ForwardOpaquePass(GraphicsDeviceImpl& device) :
-    mDevice(device),
-    mShaderSourceProvider(""),
-    mMeshGpuCache("CRESSimNeo.ForwardOpaquePass")
+ForwardOpaquePass::ForwardOpaquePass(GraphicsDeviceImpl& device)
+    : mDevice(device), mShaderSourceProvider(""), mMeshGpuCache("CRESSimNeo.ForwardOpaquePass")
 {
 }
 
 bool ForwardOpaquePass::initialize()
 {
     mShaderSourceProvider = ShaderSourceProvider(mDevice.shaderSourceDirectory());
-    mProgramRegistry = std::make_unique<MaterialProgramRegistry>(mShaderSourceProvider);
+    mProgramRegistry      = std::make_unique<MaterialProgramRegistry>(mShaderSourceProvider);
 
     GraphicsDeviceImpl::VulkanBackendContext backendContext{};
     if (mDevice.tryGetVulkanContext(backendContext) && backendContext.renderDevice != nullptr)
     {
         Diligent::SamplerDesc shadowSamplerDesc{};
-        shadowSamplerDesc.MinFilter = Diligent::FILTER_TYPE_COMPARISON_LINEAR;
-        shadowSamplerDesc.MagFilter = Diligent::FILTER_TYPE_COMPARISON_LINEAR;
-        shadowSamplerDesc.MipFilter = Diligent::FILTER_TYPE_LINEAR;
-        shadowSamplerDesc.AddressU = Diligent::TEXTURE_ADDRESS_CLAMP;
-        shadowSamplerDesc.AddressV = Diligent::TEXTURE_ADDRESS_CLAMP;
-        shadowSamplerDesc.AddressW = Diligent::TEXTURE_ADDRESS_CLAMP;
+        shadowSamplerDesc.MinFilter      = Diligent::FILTER_TYPE_COMPARISON_LINEAR;
+        shadowSamplerDesc.MagFilter      = Diligent::FILTER_TYPE_COMPARISON_LINEAR;
+        shadowSamplerDesc.MipFilter      = Diligent::FILTER_TYPE_LINEAR;
+        shadowSamplerDesc.AddressU       = Diligent::TEXTURE_ADDRESS_CLAMP;
+        shadowSamplerDesc.AddressV       = Diligent::TEXTURE_ADDRESS_CLAMP;
+        shadowSamplerDesc.AddressW       = Diligent::TEXTURE_ADDRESS_CLAMP;
         shadowSamplerDesc.ComparisonFunc = Diligent::COMPARISON_FUNC_LESS_EQUAL;
         backendContext.renderDevice->CreateSampler(shadowSamplerDesc, &mShadowSampler);
 
         Diligent::TextureDesc textureDesc{};
-        textureDesc.Name = "CRESSimNeo.ForwardOpaquePass.FallbackShadow";
-        textureDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
-        textureDesc.Width = 1;
-        textureDesc.Height = 1;
+        textureDesc.Name      = "CRESSimNeo.ForwardOpaquePass.FallbackShadow";
+        textureDesc.Type      = Diligent::RESOURCE_DIM_TEX_2D;
+        textureDesc.Width     = 1;
+        textureDesc.Height    = 1;
         textureDesc.MipLevels = 1;
         textureDesc.ArraySize = 1;
-        textureDesc.Format = Diligent::TEX_FORMAT_D32_FLOAT;
+        textureDesc.Format    = Diligent::TEX_FORMAT_D32_FLOAT;
         textureDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_DEPTH_STENCIL;
-        textureDesc.Usage = Diligent::USAGE_DEFAULT;
+        textureDesc.Usage     = Diligent::USAGE_DEFAULT;
 
         Diligent::RefCntAutoPtr<Diligent::ITexture> fallbackTexture;
         backendContext.renderDevice->CreateTexture(textureDesc, nullptr, &fallbackTexture);
         if (fallbackTexture != nullptr)
         {
-            mFallbackShadowMapSrv = fallbackTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+            mFallbackShadowMapSrv =
+                fallbackTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
             if (mFallbackShadowMapSrv != nullptr && mShadowSampler != nullptr)
             {
                 mFallbackShadowMapSrv->SetSampler(mShadowSampler);
@@ -82,45 +81,35 @@ bool ForwardOpaquePass::beginCameraFrame(const FrameViewData& frameView)
     }
 
     ForwardPerFrameConstants frameConstants{};
-    frameConstants.viewMatrix = frameView.viewMatrix.Transpose();
+    frameConstants.viewMatrix           = frameView.viewMatrix.Transpose();
     frameConstants.viewProjectionMatrix = frameView.viewProjectionMatrix.Transpose();
     for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
     {
-        frameConstants.lightViewProjectionMatrices[cascadeIdx] = frameView.lightViewProjectionMatrices[cascadeIdx].Transpose();
+        frameConstants.lightViewProjectionMatrices[cascadeIdx] =
+            frameView.lightViewProjectionMatrices[cascadeIdx].Transpose();
     }
-    frameConstants.cameraPosition = Diligent::float4{
-        frameView.cameraWorldPosition.x,
-        frameView.cameraWorldPosition.y,
-        frameView.cameraWorldPosition.z,
-        0.0f};
-    frameConstants.lightDirectionIntensity = Diligent::float4{
-        frameView.light.direction.x,
-        frameView.light.direction.y,
-        frameView.light.direction.z,
-        frameView.light.intensity};
-    frameConstants.lightColor = Diligent::float4{
-        frameView.light.color.x,
-        frameView.light.color.y,
-        frameView.light.color.z,
-        0.0f};
-    frameConstants.cascadeSplits = Diligent::float4{
-        frameView.cascadeSplits[0],
-        frameView.cascadeSplits[1],
-        frameView.cascadeSplits[2],
-        frameView.cascadeSplits[3]};
-    frameConstants.shadowTexelSizeCascadeCount = Diligent::float4{
-        frameView.shadowMapInvSizeX,
-        frameView.shadowMapInvSizeY,
-        std::min(static_cast<float>(frameView.shadowCascadeCount), static_cast<float>(mShadowMapCount)),
-        std::max(frameView.light.shadowFadeDistance, 0.001f)};
-    frameConstants.shadowParams = Diligent::float4{
-        0.0015f,
-        hasAnyShadowMap() ? 1.0f : 0.0f,
-        0.35f,
-        0.0f};
+    frameConstants.cameraPosition =
+        Diligent::float4{frameView.cameraWorldPosition.x, frameView.cameraWorldPosition.y,
+                         frameView.cameraWorldPosition.z, 0.0f};
+    frameConstants.lightDirectionIntensity =
+        Diligent::float4{frameView.light.direction.x, frameView.light.direction.y,
+                         frameView.light.direction.z, frameView.light.intensity};
+    frameConstants.lightColor = Diligent::float4{frameView.light.color.x, frameView.light.color.y,
+                                                 frameView.light.color.z, 0.0f};
+    frameConstants.cascadeSplits =
+        Diligent::float4{frameView.cascadeSplits[0], frameView.cascadeSplits[1],
+                         frameView.cascadeSplits[2], frameView.cascadeSplits[3]};
+    frameConstants.shadowTexelSizeCascadeCount =
+        Diligent::float4{frameView.shadowMapInvSizeX, frameView.shadowMapInvSizeY,
+                         std::min(static_cast<float>(frameView.shadowCascadeCount),
+                                  static_cast<float>(mShadowMapCount)),
+                         std::max(frameView.light.shadowFadeDistance, 0.001f)};
+    frameConstants.shadowParams =
+        Diligent::float4{0.0015f, hasAnyShadowMap() ? 1.0f : 0.0f, 0.35f, 0.0f};
 
     void* mappedConstants = nullptr;
-    backendContext.immediateContext->MapBuffer(mForwardPerFrameBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
+    backendContext.immediateContext->MapBuffer(mForwardPerFrameBuffer, Diligent::MAP_WRITE,
+                                               Diligent::MAP_FLAG_DISCARD, mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
@@ -135,7 +124,7 @@ void ForwardOpaquePass::setShadowMapTargets(
     std::uint32_t shadowMapCount)
 {
     mShadowMapTargets = shadowMapTargets;
-    mShadowMapCount = std::min<std::uint32_t>(shadowMapCount, kShadowCascadeCount);
+    mShadowMapCount   = std::min<std::uint32_t>(shadowMapCount, kShadowCascadeCount);
 }
 
 bool ForwardOpaquePass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand)
@@ -163,17 +152,21 @@ bool ForwardOpaquePass::draw(RenderTargetHandle target, const ForwardDrawCommand
         return false;
     }
 
-    if (drawCommand.meshId == common::kInvalidResourceId || drawCommand.vertexData == nullptr || drawCommand.indexData == nullptr)
+    if (drawCommand.meshId == common::kInvalidResourceId || drawCommand.vertexData == nullptr ||
+        drawCommand.indexData == nullptr)
     {
         return false;
     }
-    if (drawCommand.vertexCount == 0 || drawCommand.indexCount < 3 || drawCommand.vertexStrideBytes == 0)
+    if (drawCommand.vertexCount == 0 || drawCommand.indexCount < 3 ||
+        drawCommand.vertexStrideBytes == 0)
     {
         return false;
     }
 
-    MeshGpuCache::CachedBuffers* meshBuffers = mMeshGpuCache.getOrCreate(drawCommand, backendContext.renderDevice);
-    if (meshBuffers == nullptr || meshBuffers->vertexBuffer == nullptr || meshBuffers->indexBuffer == nullptr || meshBuffers->indexCount == 0)
+    MeshGpuCache::CachedBuffers* meshBuffers =
+        mMeshGpuCache.getOrCreate(drawCommand, backendContext.renderDevice);
+    if (meshBuffers == nullptr || meshBuffers->vertexBuffer == nullptr ||
+        meshBuffers->indexBuffer == nullptr || meshBuffers->indexCount == 0)
     {
         return false;
     }
@@ -183,18 +176,16 @@ bool ForwardOpaquePass::draw(RenderTargetHandle target, const ForwardDrawCommand
         return false;
     }
 
-    const Diligent::TEXTURE_FORMAT depthFormat =
-        backendContext.activeRenderTargetHasDepth ? Diligent::TEX_FORMAT_D32_FLOAT : Diligent::TEX_FORMAT_UNKNOWN;
+    const Diligent::TEXTURE_FORMAT depthFormat    = backendContext.activeRenderTargetHasDepth
+                                                        ? Diligent::TEX_FORMAT_D32_FLOAT
+                                                        : Diligent::TEX_FORMAT_UNKNOWN;
     const MaterialProgramRegistry::ProgramKey key = MaterialProgramRegistry::buildProgramKey(
-        MainPassClass::ForwardOpaque,
-        drawCommand.programFamily,
-        drawCommand.materialFeatureFlags,
-        backendContext.activeRenderTargetColorFormat,
-        depthFormat,
-        backendContext.activeRenderTargetHasDepth,
-        backendContext.activeRenderTargetHasDepth,
+        MainPassClass::ForwardOpaque, drawCommand.programFamily, drawCommand.materialFeatureFlags,
+        backendContext.activeRenderTargetColorFormat, depthFormat,
+        backendContext.activeRenderTargetHasDepth, backendContext.activeRenderTargetHasDepth,
         false);
-    MaterialProgramRegistry::ProgramResources* program = mProgramRegistry->getOrCreateProgram(backendContext.renderDevice, key);
+    MaterialProgramRegistry::ProgramResources* program =
+        mProgramRegistry->getOrCreateProgram(backendContext.renderDevice, key);
     if (program == nullptr || program->pipelineState == nullptr)
     {
         return false;
@@ -216,12 +207,16 @@ bool ForwardOpaquePass::draw(RenderTargetHandle target, const ForwardDrawCommand
     for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
     {
         Diligent::ITextureView* shadowMapSrv = mFallbackShadowMapSrv;
-        if (cascadeIdx < mShadowMapCount && mShadowMapTargets[cascadeIdx].id != common::kInvalidResourceId)
+        if (cascadeIdx < mShadowMapCount &&
+            mShadowMapTargets[cascadeIdx].id != common::kInvalidResourceId)
         {
             Diligent::ITexture* depthTexture = nullptr;
-            if (mDevice.tryGetRenderTargetDepthTexture(mShadowMapTargets[cascadeIdx], depthTexture) && depthTexture != nullptr)
+            if (mDevice.tryGetRenderTargetDepthTexture(mShadowMapTargets[cascadeIdx],
+                                                       depthTexture) &&
+                depthTexture != nullptr)
             {
-                Diligent::ITextureView* depthSrv = depthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+                Diligent::ITextureView* depthSrv =
+                    depthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
                 if (depthSrv != nullptr)
                 {
                     if (mShadowSampler != nullptr)
@@ -240,14 +235,12 @@ bool ForwardOpaquePass::draw(RenderTargetHandle target, const ForwardDrawCommand
     }
 
     constexpr const char* kShadowMapVarNames[kShadowCascadeCount] = {
-        "g_ShadowMap0",
-        "g_ShadowMap1",
-        "g_ShadowMap2",
-        "g_ShadowMap3"};
+        "g_ShadowMap0", "g_ShadowMap1", "g_ShadowMap2", "g_ShadowMap3"};
     for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
     {
         Diligent::IShaderResourceVariable* shadowMapVar =
-            program->shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, kShadowMapVarNames[cascadeIdx]);
+            program->shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                                              kShadowMapVarNames[cascadeIdx]);
         if (shadowMapVar == nullptr)
         {
             return false;
@@ -256,23 +249,20 @@ bool ForwardOpaquePass::draw(RenderTargetHandle target, const ForwardDrawCommand
     }
 
     PerObjectConstants objectConstants{};
-    objectConstants.modelMatrix = drawCommand.modelMatrix.Transpose();
+    objectConstants.modelMatrix  = drawCommand.modelMatrix.Transpose();
     objectConstants.normalMatrix = drawCommand.normalMatrix.Transpose();
 
     ForwardPerMaterialConstants materialConstants{};
-    materialConstants.baseColor = Diligent::float4{
-        drawCommand.material.baseColor.x,
-        drawCommand.material.baseColor.y,
-        drawCommand.material.baseColor.z,
-        drawCommand.material.opacity};
-    materialConstants.materialParams = Diligent::float4{
-        drawCommand.material.metallic,
-        drawCommand.material.roughness,
-        drawCommand.material.alphaCutoff,
-        drawCommand.material.receivesShadows};
+    materialConstants.baseColor =
+        Diligent::float4{drawCommand.material.baseColor.x, drawCommand.material.baseColor.y,
+                         drawCommand.material.baseColor.z, drawCommand.material.opacity};
+    materialConstants.materialParams =
+        Diligent::float4{drawCommand.material.metallic, drawCommand.material.roughness,
+                         drawCommand.material.alphaCutoff, drawCommand.material.receivesShadows};
 
     void* mappedConstants = nullptr;
-    backendContext.immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
+    backendContext.immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE,
+                                               Diligent::MAP_FLAG_DISCARD, mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
@@ -281,7 +271,8 @@ bool ForwardOpaquePass::draw(RenderTargetHandle target, const ForwardDrawCommand
     backendContext.immediateContext->UnmapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE);
 
     mappedConstants = nullptr;
-    backendContext.immediateContext->MapBuffer(mForwardPerMaterialBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
+    backendContext.immediateContext->MapBuffer(mForwardPerMaterialBuffer, Diligent::MAP_WRITE,
+                                               Diligent::MAP_FLAG_DISCARD, mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
@@ -290,23 +281,21 @@ bool ForwardOpaquePass::draw(RenderTargetHandle target, const ForwardDrawCommand
     backendContext.immediateContext->UnmapBuffer(mForwardPerMaterialBuffer, Diligent::MAP_WRITE);
 
     const Diligent::Uint64 vertexOffset = 0;
-    Diligent::IBuffer* vertexBuffers[] = {meshBuffers->vertexBuffer};
+    Diligent::IBuffer* vertexBuffers[]  = {meshBuffers->vertexBuffer};
     backendContext.immediateContext->SetVertexBuffers(
-        0,
-        1,
-        vertexBuffers,
-        &vertexOffset,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+        0, 1, vertexBuffers, &vertexOffset, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
         Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
-    backendContext.immediateContext->SetIndexBuffer(meshBuffers->indexBuffer, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    backendContext.immediateContext->SetIndexBuffer(
+        meshBuffers->indexBuffer, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     backendContext.immediateContext->SetPipelineState(program->pipelineState);
-    backendContext.immediateContext->CommitShaderResources(program->shaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    backendContext.immediateContext->CommitShaderResources(
+        program->shaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     Diligent::DrawIndexedAttribs drawAttrs{};
-    drawAttrs.IndexType = Diligent::VT_UINT32;
+    drawAttrs.IndexType  = Diligent::VT_UINT32;
     drawAttrs.NumIndices = meshBuffers->indexCount;
-    drawAttrs.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
+    drawAttrs.Flags      = Diligent::DRAW_FLAG_VERIFY_ALL;
     backendContext.immediateContext->DrawIndexed(drawAttrs);
     return true;
 }
@@ -326,10 +315,10 @@ bool ForwardOpaquePass::ensureConstantBuffers(Diligent::IRenderDevice* renderDev
     if (mForwardPerFrameBuffer == nullptr)
     {
         Diligent::BufferDesc constantBufferDesc{};
-        constantBufferDesc.Name = "CRESSimNeo.ForwardOpaquePass.CressimForwardPerFrame";
-        constantBufferDesc.Size = sizeof(ForwardPerFrameConstants);
-        constantBufferDesc.Usage = Diligent::USAGE_DYNAMIC;
-        constantBufferDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+        constantBufferDesc.Name           = "CRESSimNeo.ForwardOpaquePass.CressimForwardPerFrame";
+        constantBufferDesc.Size           = sizeof(ForwardPerFrameConstants);
+        constantBufferDesc.Usage          = Diligent::USAGE_DYNAMIC;
+        constantBufferDesc.BindFlags      = Diligent::BIND_UNIFORM_BUFFER;
         constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
         renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mForwardPerFrameBuffer);
         if (mForwardPerFrameBuffer == nullptr)
@@ -341,10 +330,10 @@ bool ForwardOpaquePass::ensureConstantBuffers(Diligent::IRenderDevice* renderDev
     if (mPerObjectBuffer == nullptr)
     {
         Diligent::BufferDesc constantBufferDesc{};
-        constantBufferDesc.Name = "CRESSimNeo.ForwardOpaquePass.CressimPerObject";
-        constantBufferDesc.Size = sizeof(PerObjectConstants);
-        constantBufferDesc.Usage = Diligent::USAGE_DYNAMIC;
-        constantBufferDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+        constantBufferDesc.Name           = "CRESSimNeo.ForwardOpaquePass.CressimPerObject";
+        constantBufferDesc.Size           = sizeof(PerObjectConstants);
+        constantBufferDesc.Usage          = Diligent::USAGE_DYNAMIC;
+        constantBufferDesc.BindFlags      = Diligent::BIND_UNIFORM_BUFFER;
         constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
         renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mPerObjectBuffer);
         if (mPerObjectBuffer == nullptr)
@@ -356,9 +345,9 @@ bool ForwardOpaquePass::ensureConstantBuffers(Diligent::IRenderDevice* renderDev
     if (mForwardPerMaterialBuffer == nullptr)
     {
         Diligent::BufferDesc constantBufferDesc{};
-        constantBufferDesc.Name = "CRESSimNeo.ForwardOpaquePass.CressimForwardPerMaterial";
-        constantBufferDesc.Size = sizeof(ForwardPerMaterialConstants);
-        constantBufferDesc.Usage = Diligent::USAGE_DYNAMIC;
+        constantBufferDesc.Name      = "CRESSimNeo.ForwardOpaquePass.CressimForwardPerMaterial";
+        constantBufferDesc.Size      = sizeof(ForwardPerMaterialConstants);
+        constantBufferDesc.Usage     = Diligent::USAGE_DYNAMIC;
         constantBufferDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
         constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
         renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mForwardPerMaterialBuffer);
@@ -373,16 +362,17 @@ bool ForwardOpaquePass::ensureConstantBuffers(Diligent::IRenderDevice* renderDev
 
 bool ForwardOpaquePass::bindProgramConstants(MaterialProgramRegistry::ProgramResources& program)
 {
-    if (program.pipelineState == nullptr ||
-        mForwardPerFrameBuffer == nullptr ||
-        mPerObjectBuffer == nullptr ||
-        mForwardPerMaterialBuffer == nullptr)
+    if (program.pipelineState == nullptr || mForwardPerFrameBuffer == nullptr ||
+        mPerObjectBuffer == nullptr || mForwardPerMaterialBuffer == nullptr)
     {
         return false;
     }
 
-    auto bindIfPresent = [&](Diligent::SHADER_TYPE shaderType, const char* varName, Diligent::IBuffer* buffer, bool required) {
-        Diligent::IShaderResourceVariable* variable = program.pipelineState->GetStaticVariableByName(shaderType, varName);
+    auto bindIfPresent = [&](Diligent::SHADER_TYPE shaderType, const char* varName,
+                             Diligent::IBuffer* buffer, bool required)
+    {
+        Diligent::IShaderResourceVariable* variable =
+            program.pipelineState->GetStaticVariableByName(shaderType, varName);
         if (variable == nullptr)
         {
             return !required;
@@ -391,12 +381,16 @@ bool ForwardOpaquePass::bindProgramConstants(MaterialProgramRegistry::ProgramRes
         return true;
     };
 
-    if (!bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "CressimForwardPerFrame", mForwardPerFrameBuffer, true) ||
-        !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "CressimForwardPerFrame", mForwardPerFrameBuffer, true) ||
+    if (!bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "CressimForwardPerFrame",
+                       mForwardPerFrameBuffer, true) ||
+        !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "CressimForwardPerFrame",
+                       mForwardPerFrameBuffer, true) ||
         !bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "CressimPerObject", mPerObjectBuffer, true) ||
         !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "CressimPerObject", mPerObjectBuffer, false) ||
-        !bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "CressimForwardPerMaterial", mForwardPerMaterialBuffer, false) ||
-        !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "CressimForwardPerMaterial", mForwardPerMaterialBuffer, true))
+        !bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "CressimForwardPerMaterial",
+                       mForwardPerMaterialBuffer, false) ||
+        !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "CressimForwardPerMaterial",
+                       mForwardPerMaterialBuffer, true))
     {
         return false;
     }
@@ -409,7 +403,8 @@ bool ForwardOpaquePass::hasAnyShadowMap() const
     for (std::uint32_t cascadeIdx = 0; cascadeIdx < mShadowMapCount; ++cascadeIdx)
     {
         Diligent::ITexture* depthTexture = nullptr;
-        if (mDevice.tryGetRenderTargetDepthTexture(mShadowMapTargets[cascadeIdx], depthTexture) && depthTexture != nullptr)
+        if (mDevice.tryGetRenderTargetDepthTexture(mShadowMapTargets[cascadeIdx], depthTexture) &&
+            depthTexture != nullptr)
         {
             return true;
         }

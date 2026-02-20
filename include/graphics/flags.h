@@ -17,10 +17,14 @@ enum class MaterialFeatureFlags : std::uint32_t
 };
 
 template <typename E>
-struct EnableBitMaskOps : std::false_type {};
+struct EnableBitMaskOps : std::false_type
+{
+};
 
 template <>
-struct EnableBitMaskOps<MaterialFeatureFlags> : std::true_type {};
+struct EnableBitMaskOps<MaterialFeatureFlags> : std::true_type
+{
+};
 
 template <typename E>
 constexpr bool EnableBitMaskOps_v = EnableBitMaskOps<E>::value;

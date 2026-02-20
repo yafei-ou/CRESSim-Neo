@@ -44,8 +44,8 @@ enum class BlendMode
 struct MaterialPipelineDesc
 {
     MaterialProgramFamily programFamily = MaterialProgramFamily::StandardLit;
-    MaterialFeatureFlags featureFlags = MaterialFeatureFlags::None;
-    float alphaCutoff = 0.5f;
+    MaterialFeatureFlags featureFlags   = MaterialFeatureFlags::None;
+    float alphaCutoff                   = 0.5f;
 };
 
 struct MeshResourceDesc
@@ -67,12 +67,12 @@ struct MaterialResourceDesc
 {
     std::string debugName;
     Diligent::float3 baseColor{1.0f, 1.0f, 1.0f};
-    float metallic = 0.0f;
+    float metallic  = 0.0f;
     float roughness = 0.5f;
     MaterialPipelineDesc pipeline{};
-    BlendMode blendMode = BlendMode::Opaque;
-    float opacity = 1.0f;
-    bool castsShadows = true;
+    BlendMode blendMode  = BlendMode::Opaque;
+    float opacity        = 1.0f;
+    bool castsShadows    = true;
     bool receivesShadows = true;
 };
 
@@ -95,7 +95,8 @@ public:
     const MeshResourceDesc* tryGetMesh(MeshHandle mesh) const noexcept;
     const MaterialResourceDesc* tryGetMaterial(MaterialHandle material) const noexcept;
     const TextureResourceDesc* tryGetTexture(TextureHandle texture) const noexcept;
-    bool tryGetMeshLocalBounds(MeshHandle mesh, Diligent::float3& outMin, Diligent::float3& outMax) const noexcept;
+    bool tryGetMeshLocalBounds(MeshHandle mesh, Diligent::float3& outMin,
+                               Diligent::float3& outMax) const noexcept;
 
     std::uint64_t meshVersion(MeshHandle mesh) const noexcept;
 
@@ -109,9 +110,9 @@ private:
         bool hasLocalBounds = false;
     };
 
-    common::ResourceId mNextMeshId = 1;
+    common::ResourceId mNextMeshId     = 1;
     common::ResourceId mNextMaterialId = 1;
-    common::ResourceId mNextTextureId = 1;
+    common::ResourceId mNextTextureId  = 1;
 
     std::unordered_map<common::ResourceId, MeshResource> mMeshes;
     std::unordered_map<common::ResourceId, MaterialResourceDesc> mMaterials;

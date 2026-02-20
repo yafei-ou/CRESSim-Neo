@@ -11,10 +11,7 @@
 namespace cressim::neo::graphics::detail
 {
 
-ForwardPipeline::ForwardPipeline(GraphicsDeviceImpl& device) :
-    mDevice(device)
-{
-}
+ForwardPipeline::ForwardPipeline(GraphicsDeviceImpl& device) : mDevice(device) {}
 
 ForwardPipeline::~ForwardPipeline()
 {
@@ -56,12 +53,12 @@ bool ForwardPipeline::initialize()
     for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
     {
         RenderTargetDesc shadowDesc{};
-        shadowDesc.width = kShadowMapResolution;
-        shadowDesc.height = kShadowMapResolution;
-        shadowDesc.color = false;
-        shadowDesc.depth = true;
-        shadowDesc.shaderReadable = true;
-        shadowDesc.debugName = "CRESSimNeo.ShadowMap.Cascade" + std::to_string(cascadeIdx);
+        shadowDesc.width              = kShadowMapResolution;
+        shadowDesc.height             = kShadowMapResolution;
+        shadowDesc.color              = false;
+        shadowDesc.depth              = true;
+        shadowDesc.shaderReadable     = true;
+        shadowDesc.debugName          = "CRESSimNeo.ShadowMap.Cascade" + std::to_string(cascadeIdx);
         mShadowMapTargets[cascadeIdx] = mDevice.createRenderTarget(shadowDesc);
         if (!mDevice.isValidRenderTarget(mShadowMapTargets[cascadeIdx]))
         {
@@ -73,11 +70,9 @@ bool ForwardPipeline::initialize()
     return true;
 }
 
-bool ForwardPipeline::execute(
-    const common::FrameContext& frameContext,
-    const FrameViewData& frameView,
-    const CameraRenderQueues& queues,
-    ForwardPassExecutionStats& outStats)
+bool ForwardPipeline::execute(const common::FrameContext& frameContext,
+                              const FrameViewData& frameView, const CameraRenderQueues& queues,
+                              ForwardPassExecutionStats& outStats)
 {
     if (!mInitialized || mForwardOpaquePass == nullptr)
     {
@@ -88,7 +83,8 @@ bool ForwardPipeline::execute(
 
     std::array<RenderTargetHandle, kShadowCascadeCount> activeShadowMaps{};
     std::uint32_t activeShadowMapCount = 0;
-    if (frameView.hasDirectionalLight && frameView.shadowCascadeCount > 0 && !queues.shadowCasters.empty() && mShadowPass != nullptr)
+    if (frameView.hasDirectionalLight && frameView.shadowCascadeCount > 0 &&
+        !queues.shadowCasters.empty() && mShadowPass != nullptr)
     {
         for (std::uint32_t cascadeIdx = 0; cascadeIdx < frameView.shadowCascadeCount; ++cascadeIdx)
         {
@@ -101,8 +97,8 @@ bool ForwardPipeline::execute(
             mDevice.setRenderTargetViewport(cascadeShadowMap, RenderViewport{});
 
             RenderPassBeginDesc shadowBegin{};
-            shadowBegin.clearColor = false;
-            shadowBegin.clearDepth = true;
+            shadowBegin.clearColor      = false;
+            shadowBegin.clearDepth      = true;
             shadowBegin.clearDepthValue = 1.0f;
 
             mDevice.beginRenderTarget(cascadeShadowMap, frameContext, shadowBegin);
@@ -112,14 +108,15 @@ bool ForwardPipeline::execute(
                 {
                     continue;
                 }
-                if (mShadowPass->draw(cascadeShadowMap, draw.drawCommand, frameView.lightViewProjectionMatrices[cascadeIdx]))
+                if (mShadowPass->draw(cascadeShadowMap, draw.drawCommand,
+                                      frameView.lightViewProjectionMatrices[cascadeIdx]))
                 {
                     ++outStats.shadowDrawCalls;
                 }
             }
             mDevice.endRenderTarget(cascadeShadowMap, frameContext);
             activeShadowMaps[cascadeIdx] = cascadeShadowMap;
-            activeShadowMapCount = std::max(activeShadowMapCount, cascadeIdx + 1);
+            activeShadowMapCount         = std::max(activeShadowMapCount, cascadeIdx + 1);
         }
     }
 

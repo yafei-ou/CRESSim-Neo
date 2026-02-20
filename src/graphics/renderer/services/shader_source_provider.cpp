@@ -10,8 +10,8 @@
 namespace cressim::neo::graphics::detail
 {
 
-ShaderSourceProvider::ShaderSourceProvider(std::string shaderDirectory) :
-    mShaderDirectory(std::move(shaderDirectory))
+ShaderSourceProvider::ShaderSourceProvider(std::string shaderDirectory)
+    : mShaderDirectory(std::move(shaderDirectory))
 {
 }
 
@@ -64,15 +64,19 @@ bool ShaderSourceProvider::resolveShaderPath(const char* relativePath, std::stri
     }
     if (!resolveShaderDirectory())
     {
-        LOG_ERROR_MESSAGE("Shader path resolution failed for '", relativePath, "': shader directory could not be resolved.");
+        LOG_ERROR_MESSAGE("Shader path resolution failed for '", relativePath,
+                          "': shader directory could not be resolved.");
         return false;
     }
 
-    const std::filesystem::path shaderPath = std::filesystem::path(mResolvedShaderDirectory) / relativePath;
+    const std::filesystem::path shaderPath =
+        std::filesystem::path(mResolvedShaderDirectory) / relativePath;
     std::error_code error;
-    if (!std::filesystem::exists(shaderPath, error) || !std::filesystem::is_regular_file(shaderPath, error))
+    if (!std::filesystem::exists(shaderPath, error) ||
+        !std::filesystem::is_regular_file(shaderPath, error))
     {
-        LOG_ERROR_MESSAGE("Shader file not found: relative='", relativePath, "' resolved='", shaderPath.lexically_normal().string(), "'");
+        LOG_ERROR_MESSAGE("Shader file not found: relative='", relativePath, "' resolved='",
+                          shaderPath.lexically_normal().string(), "'");
         return false;
     }
 
@@ -97,14 +101,17 @@ bool ShaderSourceProvider::ensureStreamFactory()
     }
     if (!resolveShaderDirectory())
     {
-        LOG_ERROR_MESSAGE("Failed to create shader source stream factory: shader directory could not be resolved.");
+        LOG_ERROR_MESSAGE("Failed to create shader source stream factory: shader directory could "
+                          "not be resolved.");
         return false;
     }
 
-    Diligent::CreateDefaultShaderSourceStreamFactory(mResolvedShaderDirectory.c_str(), &mStreamFactory);
+    Diligent::CreateDefaultShaderSourceStreamFactory(mResolvedShaderDirectory.c_str(),
+                                                     &mStreamFactory);
     if (mStreamFactory == nullptr)
     {
-        LOG_ERROR_MESSAGE("Failed to create shader source stream factory for directory '", mResolvedShaderDirectory, "'.");
+        LOG_ERROR_MESSAGE("Failed to create shader source stream factory for directory '",
+                          mResolvedShaderDirectory, "'.");
         return false;
     }
     return true;

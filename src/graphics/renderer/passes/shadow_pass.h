@@ -26,12 +26,13 @@ public:
     explicit ShadowPass(GraphicsDeviceImpl& device);
 
     bool initialize();
-    bool draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand, const Diligent::float4x4& lightViewProjectionMatrix);
+    bool draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand,
+              const Diligent::float4x4& lightViewProjectionMatrix);
 
 private:
     struct PerObjectConstants
     {
-        Diligent::float4x4 modelMatrix = Diligent::float4x4::Identity();
+        Diligent::float4x4 modelMatrix  = Diligent::float4x4::Identity();
         Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
     };
 

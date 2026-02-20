@@ -36,9 +36,11 @@ public:
     graphics::GraphicsDevice* getGraphicsDevice() noexcept;
     const graphics::GraphicsDevice* getGraphicsDevice() const noexcept;
     // Queues a readback request for a target and returns a request handle.
-    graphics::RenderTargetReadbackRequest requestRenderTargetReadback(graphics::RenderTargetHandle target);
+    graphics::RenderTargetReadbackRequest requestRenderTargetReadback(
+        graphics::RenderTargetHandle target);
     // Polls a specific readback request for completion metadata and optional payload.
-    bool tryGetRenderTargetReadback(graphics::RenderTargetReadbackRequest request, graphics::RenderTargetReadbackEvent& outEvent);
+    bool tryGetRenderTargetReadback(graphics::RenderTargetReadbackRequest request,
+                                    graphics::RenderTargetReadbackEvent& outEvent);
     const graphics::RenderStats& lastRenderStats() const noexcept;
 
     graphics::RenderResourceManager& getResources() noexcept;

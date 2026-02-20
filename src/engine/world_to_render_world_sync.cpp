@@ -24,10 +24,10 @@ void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWor
         if (meshRenderer != nullptr && meshRenderer->visible)
         {
             graphics::RenderableInstance renderable{};
-            renderable.entityId = entityId;
+            renderable.entityId       = entityId;
             renderable.worldTransform = worldTransform;
-            renderable.mesh = meshRenderer->mesh;
-            renderable.material = meshRenderer->material;
+            renderable.mesh           = meshRenderer->mesh;
+            renderable.material       = meshRenderer->material;
             renderWorld.upsertRenderable(renderable);
         }
         else
@@ -39,16 +39,16 @@ void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWor
         if (camera != nullptr)
         {
             graphics::CameraData cameraData{};
-            cameraData.entityId = entityId;
-            cameraData.worldTransform = worldTransform;
+            cameraData.entityId           = entityId;
+            cameraData.worldTransform     = worldTransform;
             cameraData.verticalFovDegrees = camera->verticalFovDegrees;
-            cameraData.nearClip = camera->nearClip;
-            cameraData.farClip = camera->farClip;
-            cameraData.outputTarget = camera->outputTarget;
-            cameraData.outputWidth = camera->outputWidth;
-            cameraData.outputHeight = camera->outputHeight;
-            cameraData.viewport = camera->viewport;
-            cameraData.renderOrder = camera->renderOrder;
+            cameraData.nearClip           = camera->nearClip;
+            cameraData.farClip            = camera->farClip;
+            cameraData.outputTarget       = camera->outputTarget;
+            cameraData.outputWidth        = camera->outputWidth;
+            cameraData.outputHeight       = camera->outputHeight;
+            cameraData.viewport           = camera->viewport;
+            cameraData.renderOrder        = camera->renderOrder;
             renderWorld.upsertCamera(cameraData);
         }
         else
@@ -60,11 +60,11 @@ void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWor
         if (directionalLight != nullptr)
         {
             graphics::DirectionalLightData lightData{};
-            lightData.entityId = entityId;
-            lightData.direction = directionalLight->direction;
-            lightData.color = directionalLight->color;
-            lightData.intensity = directionalLight->intensity;
-            lightData.shadowDistance = directionalLight->shadowDistance;
+            lightData.entityId           = entityId;
+            lightData.direction          = directionalLight->direction;
+            lightData.color              = directionalLight->color;
+            lightData.intensity          = directionalLight->intensity;
+            lightData.shadowDistance     = directionalLight->shadowDistance;
             lightData.shadowFadeDistance = directionalLight->shadowFadeDistance;
             renderWorld.upsertDirectionalLight(lightData);
         }

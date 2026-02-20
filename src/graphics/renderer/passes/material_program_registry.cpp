@@ -32,7 +32,8 @@ const char* passClassName(MainPassClass passClass)
     }
 }
 
-Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 4>& macros, MaterialFeatureFlags featureFlags)
+Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 4>& macros,
+                                              MaterialFeatureFlags featureFlags)
 {
     Diligent::Uint32 count = 0;
     if (hasFlag(featureFlags, MaterialFeatureFlags::AlphaTest))
@@ -56,7 +57,8 @@ Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 
 
 } // namespace
 
-std::size_t MaterialProgramRegistry::ProgramKeyHasher::operator()(const ProgramKey& key) const noexcept
+std::size_t MaterialProgramRegistry::ProgramKeyHasher::operator()(
+    const ProgramKey& key) const noexcept
 {
     std::size_t seed = 0;
     hashCombine(seed, static_cast<std::uint32_t>(key.passClass));
@@ -70,14 +72,13 @@ std::size_t MaterialProgramRegistry::ProgramKeyHasher::operator()(const ProgramK
     return seed;
 }
 
-MaterialProgramRegistry::MaterialProgramRegistry(ShaderSourceProvider& shaderSourceProvider) :
-    mShaderSourceProvider(shaderSourceProvider)
+MaterialProgramRegistry::MaterialProgramRegistry(ShaderSourceProvider& shaderSourceProvider)
+    : mShaderSourceProvider(shaderSourceProvider)
 {
 }
 
 MaterialProgramRegistry::ProgramResources* MaterialProgramRegistry::getOrCreateProgram(
-    Diligent::IRenderDevice* renderDevice,
-    const ProgramKey& key)
+    Diligent::IRenderDevice* renderDevice, const ProgramKey& key)
 {
     if (renderDevice == nullptr || key.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
     {
@@ -104,23 +105,18 @@ MaterialProgramRegistry::ProgramResources* MaterialProgramRegistry::getOrCreateP
 }
 
 MaterialProgramRegistry::ProgramKey MaterialProgramRegistry::buildProgramKey(
-    MainPassClass passClass,
-    MaterialProgramFamily programFamily,
-    MaterialFeatureFlags featureFlags,
-    Diligent::TEXTURE_FORMAT colorFormat,
-    Diligent::TEXTURE_FORMAT depthFormat,
-    bool depthEnable,
-    bool depthWrite,
-    bool blendingEnabled) noexcept
+    MainPassClass passClass, MaterialProgramFamily programFamily, MaterialFeatureFlags featureFlags,
+    Diligent::TEXTURE_FORMAT colorFormat, Diligent::TEXTURE_FORMAT depthFormat, bool depthEnable,
+    bool depthWrite, bool blendingEnabled) noexcept
 {
     ProgramKey key{};
-    key.passClass = passClass;
-    key.programFamily = programFamily;
-    key.featureFlags = featureFlags;
-    key.colorFormat = colorFormat;
-    key.depthFormat = depthFormat;
-    key.depthEnable = depthEnable;
-    key.depthWrite = depthWrite;
+    key.passClass       = passClass;
+    key.programFamily   = programFamily;
+    key.featureFlags    = featureFlags;
+    key.colorFormat     = colorFormat;
+    key.depthFormat     = depthFormat;
+    key.depthEnable     = depthEnable;
+    key.depthWrite      = depthWrite;
     key.blendingEnabled = blendingEnabled;
     return key;
 }
@@ -130,13 +126,10 @@ std::size_t MaterialProgramRegistry::cachedProgramCount() const noexcept
     return mPrograms.size();
 }
 
-bool MaterialProgramRegistry::createProgram(
-    Diligent::IRenderDevice* renderDevice,
-    const ProgramKey& key,
-    ProgramResources& outResources)
+bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevice,
+                                            const ProgramKey& key, ProgramResources& outResources)
 {
-    if (renderDevice == nullptr ||
-        key.passClass != MainPassClass::ForwardOpaque ||
+    if (renderDevice == nullptr || key.passClass != MainPassClass::ForwardOpaque ||
         key.programFamily != MaterialProgramFamily::StandardLit)
     {
         return false;
@@ -148,31 +141,25 @@ bool MaterialProgramRegistry::createProgram(
     std::string pbrVsPath;
     if (!mShaderSourceProvider.resolveShaderPath(kPbrVsRelativePath, pbrVsPath))
     {
-        LOG_ERROR_MESSAGE(
-            "MaterialProgramRegistry failed to resolve vertex shader path for pass=",
-            passClassName(key.passClass),
-            " relative='",
-            kPbrVsRelativePath,
-            "'.");
+        LOG_ERROR_MESSAGE("MaterialProgramRegistry failed to resolve vertex shader path for pass=",
+                          passClassName(key.passClass), " relative='", kPbrVsRelativePath, "'.");
         return false;
     }
 
     std::string pbrPsPath;
     if (!mShaderSourceProvider.resolveShaderPath(kPbrPsRelativePath, pbrPsPath))
     {
-        LOG_ERROR_MESSAGE(
-            "MaterialProgramRegistry failed to resolve pixel shader path for pass=",
-            passClassName(key.passClass),
-            " relative='",
-            kPbrPsRelativePath,
-            "'.");
+        LOG_ERROR_MESSAGE("MaterialProgramRegistry failed to resolve pixel shader path for pass=",
+                          passClassName(key.passClass), " relative='", kPbrPsRelativePath, "'.");
         return false;
     }
 
-    Diligent::IShaderSourceInputStreamFactory* streamFactory = mShaderSourceProvider.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory* streamFactory =
+        mShaderSourceProvider.streamFactory();
     if (streamFactory == nullptr)
     {
-        LOG_ERROR_MESSAGE("MaterialProgramRegistry failed to get stream factory for pass=", passClassName(key.passClass), ".");
+        LOG_ERROR_MESSAGE("MaterialProgramRegistry failed to get stream factory for pass=",
+                          passClassName(key.passClass), ".");
         return false;
     }
 
@@ -180,76 +167,85 @@ bool MaterialProgramRegistry::createProgram(
     const Diligent::ShaderMacroArray macroArray = buildFeatureMacros(macros, key.featureFlags);
 
     Diligent::ShaderCreateInfo shaderCreateInfo{};
-    shaderCreateInfo.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
+    shaderCreateInfo.SourceLanguage                  = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
     shaderCreateInfo.Desc.UseCombinedTextureSamplers = true;
-    shaderCreateInfo.EntryPoint = "main";
-    shaderCreateInfo.Macros = macroArray;
-    shaderCreateInfo.pShaderSourceStreamFactory = streamFactory;
+    shaderCreateInfo.EntryPoint                      = "main";
+    shaderCreateInfo.Macros                          = macroArray;
+    shaderCreateInfo.pShaderSourceStreamFactory      = streamFactory;
 
     Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
-    shaderCreateInfo.Desc.Name = "CRESSimNeo.ForwardOpaque.StandardLit.VS";
-    shaderCreateInfo.FilePath = kPbrVsRelativePath;
-    shaderCreateInfo.Source = nullptr;
+    shaderCreateInfo.Desc.Name       = "CRESSimNeo.ForwardOpaque.StandardLit.VS";
+    shaderCreateInfo.FilePath        = kPbrVsRelativePath;
+    shaderCreateInfo.Source          = nullptr;
     renderDevice->CreateShader(shaderCreateInfo, &vertexShader);
     if (vertexShader == nullptr)
     {
         LOG_ERROR_MESSAGE(
             "MaterialProgramRegistry failed to compile VS. pass=", passClassName(key.passClass),
             " programFamily=", static_cast<std::uint32_t>(key.programFamily),
-            " featureFlags=", static_cast<std::uint32_t>(key.featureFlags),
-            " shader='", pbrVsPath, "'.");
+            " featureFlags=", static_cast<std::uint32_t>(key.featureFlags), " shader='", pbrVsPath,
+            "'.");
         return false;
     }
 
     Diligent::RefCntAutoPtr<Diligent::IShader> pixelShader;
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
-    shaderCreateInfo.Desc.Name = "CRESSimNeo.ForwardOpaque.StandardLit.PS";
-    shaderCreateInfo.FilePath = kPbrPsRelativePath;
-    shaderCreateInfo.Source = nullptr;
+    shaderCreateInfo.Desc.Name       = "CRESSimNeo.ForwardOpaque.StandardLit.PS";
+    shaderCreateInfo.FilePath        = kPbrPsRelativePath;
+    shaderCreateInfo.Source          = nullptr;
     renderDevice->CreateShader(shaderCreateInfo, &pixelShader);
     if (pixelShader == nullptr)
     {
         LOG_ERROR_MESSAGE(
             "MaterialProgramRegistry failed to compile PS. pass=", passClassName(key.passClass),
             " programFamily=", static_cast<std::uint32_t>(key.programFamily),
-            " featureFlags=", static_cast<std::uint32_t>(key.featureFlags),
-            " shader='", pbrPsPath, "'.");
+            " featureFlags=", static_cast<std::uint32_t>(key.featureFlags), " shader='", pbrPsPath,
+            "'.");
         return false;
     }
 
     Diligent::GraphicsPipelineStateCreateInfo psoCreateInfo{};
-    psoCreateInfo.PSODesc.Name = "CRESSimNeo.ForwardOpaque.StandardLit.PSO";
-    psoCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
+    psoCreateInfo.PSODesc.Name                      = "CRESSimNeo.ForwardOpaque.StandardLit.PSO";
+    psoCreateInfo.PSODesc.PipelineType              = Diligent::PIPELINE_TYPE_GRAPHICS;
     psoCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
-    psoCreateInfo.GraphicsPipeline.RTVFormats[0] = key.colorFormat;
-    psoCreateInfo.GraphicsPipeline.DSVFormat = key.depthEnable ? key.depthFormat : Diligent::TEX_FORMAT_UNKNOWN;
+    psoCreateInfo.GraphicsPipeline.RTVFormats[0]    = key.colorFormat;
+    psoCreateInfo.GraphicsPipeline.DSVFormat =
+        key.depthEnable ? key.depthFormat : Diligent::TEX_FORMAT_UNKNOWN;
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode =
-        hasFlag(key.featureFlags, MaterialFeatureFlags::DoubleSided) ? Diligent::CULL_MODE_NONE : Diligent::CULL_MODE_BACK;
+        hasFlag(key.featureFlags, MaterialFeatureFlags::DoubleSided) ? Diligent::CULL_MODE_NONE
+                                                                     : Diligent::CULL_MODE_BACK;
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = Diligent::True;
-    psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = key.depthEnable ? Diligent::True : Diligent::False;
-    psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = key.depthWrite ? Diligent::True : Diligent::False;
+    psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable =
+        key.depthEnable ? Diligent::True : Diligent::False;
+    psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable =
+        key.depthWrite ? Diligent::True : Diligent::False;
 
-    auto& blendDesc = psoCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
+    auto& blendDesc       = psoCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
     blendDesc.BlendEnable = key.blendingEnabled ? Diligent::True : Diligent::False;
     if (key.blendingEnabled)
     {
-        blendDesc.SrcBlend = Diligent::BLEND_FACTOR_SRC_ALPHA;
-        blendDesc.DestBlend = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
-        blendDesc.BlendOp = Diligent::BLEND_OPERATION_ADD;
-        blendDesc.SrcBlendAlpha = Diligent::BLEND_FACTOR_ONE;
+        blendDesc.SrcBlend       = Diligent::BLEND_FACTOR_SRC_ALPHA;
+        blendDesc.DestBlend      = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
+        blendDesc.BlendOp        = Diligent::BLEND_OPERATION_ADD;
+        blendDesc.SrcBlendAlpha  = Diligent::BLEND_FACTOR_ONE;
         blendDesc.DestBlendAlpha = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
-        blendDesc.BlendOpAlpha = Diligent::BLEND_OPERATION_ADD;
+        blendDesc.BlendOpAlpha   = Diligent::BLEND_OPERATION_ADD;
     }
 
-    psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType = Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+    psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType =
+        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     constexpr Diligent::ShaderResourceVariableDesc kVars[] = {
-        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap0", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap1", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap2", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap3", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
-    psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
+        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap0",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap1",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap2",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap3",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
+    psoCreateInfo.PSODesc.ResourceLayout.Variables    = kVars;
     psoCreateInfo.PSODesc.ResourceLayout.NumVariables = 4;
 
     // Fixed vertex layout for this milestone: position, normal, uv.
@@ -258,9 +254,9 @@ bool MaterialProgramRegistry::createProgram(
         Diligent::LayoutElement{1, 0, 3, Diligent::VT_FLOAT32, Diligent::False},
         Diligent::LayoutElement{2, 0, 2, Diligent::VT_FLOAT32, Diligent::False}};
     psoCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = kLayoutElements;
-    psoCreateInfo.GraphicsPipeline.InputLayout.NumElements = 3;
-    psoCreateInfo.pVS = vertexShader;
-    psoCreateInfo.pPS = pixelShader;
+    psoCreateInfo.GraphicsPipeline.InputLayout.NumElements    = 3;
+    psoCreateInfo.pVS                                         = vertexShader;
+    psoCreateInfo.pPS                                         = pixelShader;
 
     renderDevice->CreateGraphicsPipelineState(psoCreateInfo, &outResources.pipelineState);
     if (outResources.pipelineState == nullptr)

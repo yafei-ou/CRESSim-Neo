@@ -17,45 +17,45 @@ namespace cressim::neo::viewer
 struct DebugViewerKeymap
 {
     // Letter keys follow GLFW key values (ASCII uppercase).
-    int moveForward = 87; // W
+    int moveForward  = 87; // W
     int moveBackward = 83; // S
-    int moveLeft = 65; // A
-    int moveRight = 68; // D
-    int moveUp = 69; // E
-    int moveDown = 81; // Q
+    int moveLeft     = 65; // A
+    int moveRight    = 68; // D
+    int moveUp       = 69; // E
+    int moveDown     = 81; // Q
 
-    int speedBoostPrimary = 340; // Left Shift
+    int speedBoostPrimary   = 340; // Left Shift
     int speedBoostSecondary = 344; // Right Shift
-    int speedSlowPrimary = 341; // Left Ctrl
-    int speedSlowSecondary = 345; // Right Ctrl
+    int speedSlowPrimary    = 341; // Left Ctrl
+    int speedSlowSecondary  = 345; // Right Ctrl
 
     int lookButton = 1; // Right mouse button
 
-    int resetCamera = 70; // F
-    int toggleStats = 72; // H
-    int quit = 256; // Escape
+    int resetCamera = 70;  // F
+    int toggleStats = 72;  // H
+    int quit        = 256; // Escape
 };
 
 struct DebugViewerAppDesc
 {
     std::string windowTitle = "CRESSim Neo Debug Viewer";
-    std::uint32_t width = 1280;
-    std::uint32_t height = 720;
-    bool windowEnabled = true;
-    bool windowVisible = true;
-    bool vSync = true;
+    std::uint32_t width     = 1280;
+    std::uint32_t height    = 720;
+    bool windowEnabled      = true;
+    bool windowVisible      = true;
+    bool vSync              = true;
 
     float inputSensitivity = 0.08f;
-    float moveSpeed = 3.0f;
-    float speedBoostScale = 3.0f;
-    float speedSlowScale = 0.35f;
-    float wheelSpeedScale = 0.12f;
-    float minMoveSpeed = 0.25f;
-    float maxMoveSpeed = 80.0f;
+    float moveSpeed        = 3.0f;
+    float speedBoostScale  = 3.0f;
+    float speedSlowScale   = 0.35f;
+    float wheelSpeedScale  = 0.12f;
+    float minMoveSpeed     = 0.25f;
+    float maxMoveSpeed     = 80.0f;
 
-    float fixedDeltaSeconds = 1.0f / 60.0f;
-    std::uint64_t maxFrames = 0;
-    bool showStats = true;
+    float fixedDeltaSeconds           = 1.0f / 60.0f;
+    std::uint64_t maxFrames           = 0;
+    bool showStats                    = true;
     std::uint32_t statsIntervalFrames = 120;
 
     DebugViewerKeymap keymap{};
@@ -64,10 +64,10 @@ struct DebugViewerAppDesc
 struct DebugViewerCameraBinding
 {
     common::EntityId cameraEntity = common::kInvalidEntityId;
-    float moveSpeed = 0.0f;
-    float inputSensitivity = 0.0f;
-    float speedBoostScale = 0.0f;
-    float speedSlowScale = 0.0f;
+    float moveSpeed               = 0.0f;
+    float inputSensitivity        = 0.0f;
+    float speedBoostScale         = 0.0f;
+    float speedSlowScale          = 0.0f;
 };
 
 struct DebugViewerCallbacks
@@ -82,13 +82,14 @@ public:
     DebugViewerApp();
     ~DebugViewerApp();
 
-    DebugViewerApp(const DebugViewerApp&) = delete;
+    DebugViewerApp(const DebugViewerApp&)            = delete;
     DebugViewerApp& operator=(const DebugViewerApp&) = delete;
     DebugViewerApp(DebugViewerApp&&) noexcept;
     DebugViewerApp& operator=(DebugViewerApp&&) noexcept;
 
     bool initialize(DebugViewerAppDesc desc, engine::RuntimeConfig& inOutRuntimeConfig);
-    bool run(engine::Runtime& runtime, DebugViewerCameraBinding camera, DebugViewerCallbacks callbacks = {});
+    bool run(engine::Runtime& runtime, DebugViewerCameraBinding camera,
+             DebugViewerCallbacks callbacks = {});
     void requestExit();
     void shutdown();
 

@@ -46,13 +46,14 @@ Diligent::float3 rotateVector(const Diligent::QuaternionF& rotation, const Dilig
     return rotation.RotateVector(vector);
 }
 
-void yawPitchFromRotation(const Diligent::QuaternionF& rotation, float& outYawDegrees, float& outPitchDegrees)
+void yawPitchFromRotation(const Diligent::QuaternionF& rotation, float& outYawDegrees,
+                          float& outPitchDegrees)
 {
     const Diligent::float3 forward = common::runtime_math::safeNormalize(
-        rotateVector(rotation, {0.0f, 0.0f, 1.0f}),
-        Diligent::float3{0.0f, 0.0f, 1.0f});
-    outYawDegrees = common::runtime_math::radiansToDegrees(std::atan2(forward.x, forward.z));
-    outPitchDegrees = common::runtime_math::radiansToDegrees(std::asin(std::max(-1.0f, std::min(forward.y, 1.0f))));
+        rotateVector(rotation, {0.0f, 0.0f, 1.0f}), Diligent::float3{0.0f, 0.0f, 1.0f});
+    outYawDegrees   = common::runtime_math::radiansToDegrees(std::atan2(forward.x, forward.z));
+    outPitchDegrees = common::runtime_math::radiansToDegrees(
+        std::asin(std::max(-1.0f, std::min(forward.y, 1.0f))));
 }
 
 bool isPressed(GLFWwindow* window, int key)
@@ -68,37 +69,40 @@ public:
     struct CameraState
     {
         Diligent::float3 position{};
-        float yawDegrees = 0.0f;
-        float pitchDegrees = 0.0f;
-        float moveSpeed = 3.0f;
+        float yawDegrees       = 0.0f;
+        float pitchDegrees     = 0.0f;
+        float moveSpeed        = 3.0f;
         float inputSensitivity = 0.08f;
-        float speedBoostScale = 3.0f;
-        float speedSlowScale = 0.35f;
+        float speedBoostScale  = 3.0f;
+        float speedSlowScale   = 0.35f;
     };
 
     bool initialize(DebugViewerAppDesc desc, engine::RuntimeConfig& inOutRuntimeConfig)
     {
         shutdown();
 
-        mDesc = desc;
-        mDesc.width = std::max(mDesc.width, 1u);
-        mDesc.height = std::max(mDesc.height, 1u);
+        mDesc           = desc;
+        mDesc.width     = std::max(mDesc.width, 1u);
+        mDesc.height    = std::max(mDesc.height, 1u);
         mDesc.moveSpeed = clampSpeed(mDesc.moveSpeed, mDesc.minMoveSpeed, mDesc.maxMoveSpeed);
         mDesc.inputSensitivity = common::runtime_math::clampPositive(mDesc.inputSensitivity, 0.08f);
-        mDesc.speedBoostScale = common::runtime_math::clampPositive(mDesc.speedBoostScale, 1.0f);
-        mDesc.speedSlowScale = common::runtime_math::clampPositive(mDesc.speedSlowScale, 0.35f);
-        mDesc.fixedDeltaSeconds = common::runtime_math::clampPositive(mDesc.fixedDeltaSeconds, 1.0f / 60.0f);
+        mDesc.speedBoostScale  = common::runtime_math::clampPositive(mDesc.speedBoostScale, 1.0f);
+        mDesc.speedSlowScale   = common::runtime_math::clampPositive(mDesc.speedSlowScale, 0.35f);
+        mDesc.fixedDeltaSeconds =
+            common::runtime_math::clampPositive(mDesc.fixedDeltaSeconds, 1.0f / 60.0f);
         mShowStats = mDesc.showStats;
 
-        inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.width = mDesc.width;
+        inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.width  = mDesc.width;
         inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.height = mDesc.height;
-        inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.enabled = mDesc.windowEnabled;
+        inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.colorFormat =
+            Diligent::TEX_FORMAT_UNKNOWN;
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.enabled      = mDesc.windowEnabled;
         inOutRuntimeConfig.graphicsDeviceDesc.presentation.syncInterval = mDesc.vSync ? 1u : 0u;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.preferredColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindow = nullptr;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindowId = 0;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeDisplay = nullptr;
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.preferredColorFormat =
+            Diligent::TEX_FORMAT_UNKNOWN;
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindow     = nullptr;
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindowId   = 0;
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeDisplay    = nullptr;
         inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeConnection = nullptr;
 
         if (!mDesc.windowEnabled)
@@ -117,12 +121,8 @@ public:
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_VISIBLE, mDesc.windowVisible ? GLFW_TRUE : GLFW_FALSE);
-        mWindow = glfwCreateWindow(
-            static_cast<int>(mDesc.width),
-            static_cast<int>(mDesc.height),
-            mDesc.windowTitle.c_str(),
-            nullptr,
-            nullptr);
+        mWindow = glfwCreateWindow(static_cast<int>(mDesc.width), static_cast<int>(mDesc.height),
+                                   mDesc.windowTitle.c_str(), nullptr, nullptr);
         if (mWindow == nullptr)
         {
             std::cerr << "DebugViewerApp: failed to create window.\n";
@@ -134,12 +134,15 @@ public:
         glfwSetScrollCallback(mWindow, &Impl::scrollCallback);
 
 #if defined(_WIN32)
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindow = glfwGetWin32Window(mWindow);
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindow =
+            glfwGetWin32Window(mWindow);
 #elif defined(__linux__)
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindowId = static_cast<std::uint64_t>(glfwGetX11Window(mWindow));
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindowId =
+            static_cast<std::uint64_t>(glfwGetX11Window(mWindow));
         inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeDisplay = glfwGetX11Display();
 #elif defined(__APPLE__)
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindow = glfwGetCocoaWindow(mWindow);
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindow =
+            glfwGetCocoaWindow(mWindow);
 #endif
 
         mInitialized = true;
@@ -147,7 +150,8 @@ public:
         return true;
     }
 
-    bool run(engine::Runtime& runtime, DebugViewerCameraBinding cameraBinding, DebugViewerCallbacks callbacks)
+    bool run(engine::Runtime& runtime, DebugViewerCameraBinding cameraBinding,
+             DebugViewerCallbacks callbacks)
     {
         if (!mInitialized)
         {
@@ -185,7 +189,8 @@ public:
         }
 
         TransformComponent transform{};
-        const TransformComponent* existingTransform = world.tryGetTransform(cameraBinding.cameraEntity);
+        const TransformComponent* existingTransform =
+            world.tryGetTransform(cameraBinding.cameraEntity);
         if (existingTransform != nullptr)
         {
             transform = *existingTransform;
@@ -198,22 +203,28 @@ public:
         CameraComponent camera = *existingCamera;
         CameraState cameraState{};
         cameraState.position = transform.worldTransform.position;
-        yawPitchFromRotation(transform.worldTransform.rotation, cameraState.yawDegrees, cameraState.pitchDegrees);
+        yawPitchFromRotation(transform.worldTransform.rotation, cameraState.yawDegrees,
+                             cameraState.pitchDegrees);
         cameraState.pitchDegrees = clampPitch(cameraState.pitchDegrees);
-        cameraState.moveSpeed = clampSpeed(
-            cameraBinding.moveSpeed > 0.0f ? cameraBinding.moveSpeed : mDesc.moveSpeed,
-            mDesc.minMoveSpeed,
-            mDesc.maxMoveSpeed);
-        cameraState.inputSensitivity =
-            common::runtime_math::clampPositive(cameraBinding.inputSensitivity > 0.0f ? cameraBinding.inputSensitivity : mDesc.inputSensitivity, 0.08f);
-        cameraState.speedBoostScale =
-            common::runtime_math::clampPositive(cameraBinding.speedBoostScale > 0.0f ? cameraBinding.speedBoostScale : mDesc.speedBoostScale, 1.0f);
-        cameraState.speedSlowScale =
-            common::runtime_math::clampPositive(cameraBinding.speedSlowScale > 0.0f ? cameraBinding.speedSlowScale : mDesc.speedSlowScale, 0.35f);
+        cameraState.moveSpeed =
+            clampSpeed(cameraBinding.moveSpeed > 0.0f ? cameraBinding.moveSpeed : mDesc.moveSpeed,
+                       mDesc.minMoveSpeed, mDesc.maxMoveSpeed);
+        cameraState.inputSensitivity = common::runtime_math::clampPositive(
+            cameraBinding.inputSensitivity > 0.0f ? cameraBinding.inputSensitivity
+                                                  : mDesc.inputSensitivity,
+            0.08f);
+        cameraState.speedBoostScale = common::runtime_math::clampPositive(
+            cameraBinding.speedBoostScale > 0.0f ? cameraBinding.speedBoostScale
+                                                 : mDesc.speedBoostScale,
+            1.0f);
+        cameraState.speedSlowScale = common::runtime_math::clampPositive(
+            cameraBinding.speedSlowScale > 0.0f ? cameraBinding.speedSlowScale
+                                                : mDesc.speedSlowScale,
+            0.35f);
 
         const CameraState initialCameraState = cameraState;
-        mLookActive = false;
-        mAccumulatedScrollY = 0.0;
+        mLookActive                          = false;
+        mAccumulatedScrollY                  = 0.0;
         mKeyIsDown.clear();
         mExitRequested.store(false);
 
@@ -237,7 +248,7 @@ public:
             }
 
             const float deltaSeconds = computeDeltaSeconds();
-            frame.deltaSeconds = deltaSeconds;
+            frame.deltaSeconds       = deltaSeconds;
             frame.timeSeconds += static_cast<double>(deltaSeconds);
 
             if (consumeKeyPress(mDesc.keymap.toggleStats))
@@ -258,13 +269,13 @@ public:
                 cameraOrientationFromYawPitch(cameraState.yawDegrees, cameraState.pitchDegrees);
             world.setTransform(cameraBinding.cameraEntity, transform);
 
-            int outputWidth = static_cast<int>(mDesc.width);
+            int outputWidth  = static_cast<int>(mDesc.width);
             int outputHeight = static_cast<int>(mDesc.height);
             if (mDesc.windowEnabled && mWindow != nullptr)
             {
                 glfwGetFramebufferSize(mWindow, &outputWidth, &outputHeight);
             }
-            camera.outputWidth = static_cast<std::uint32_t>(std::max(outputWidth, 1));
+            camera.outputWidth  = static_cast<std::uint32_t>(std::max(outputWidth, 1));
             camera.outputHeight = static_cast<std::uint32_t>(std::max(outputHeight, 1));
             if (mDesc.windowEnabled)
             {
@@ -286,12 +297,13 @@ public:
                 callbacks.afterTick(frame, runtime);
             }
 
-            if (mShowStats && mDesc.statsIntervalFrames > 0 && frame.frameIndex % mDesc.statsIntervalFrames == 0)
+            if (mShowStats && mDesc.statsIntervalFrames > 0 &&
+                frame.frameIndex % mDesc.statsIntervalFrames == 0)
             {
                 const float fps = frame.deltaSeconds > 0.0f ? (1.0f / frame.deltaSeconds) : 0.0f;
-                std::cout << "viewer frame=" << frame.frameIndex
-                          << " fps=" << fps
-                          << " camPos=(" << cameraState.position.x << ", " << cameraState.position.y << ", " << cameraState.position.z << ")"
+                std::cout << "viewer frame=" << frame.frameIndex << " fps=" << fps << " camPos=("
+                          << cameraState.position.x << ", " << cameraState.position.y << ", "
+                          << cameraState.position.z << ")"
                           << " yaw=" << cameraState.yawDegrees
                           << " pitch=" << cameraState.pitchDegrees
                           << " speed=" << cameraState.moveSpeed << '\n';
@@ -328,8 +340,8 @@ public:
             glfwTerminate();
             mGlfwInitialized = false;
         }
-        mInitialized = false;
-        mLookActive = false;
+        mInitialized        = false;
+        mLookActive         = false;
         mAccumulatedScrollY = 0.0;
         mKeyIsDown.clear();
     }
@@ -341,8 +353,8 @@ private:
         float mouseDeltaX = 0.0f;
         float mouseDeltaY = 0.0f;
         float scrollDelta = 0.0f;
-        bool boost = false;
-        bool slow = false;
+        bool boost        = false;
+        bool slow         = false;
     };
 
     static void scrollCallback(GLFWwindow* window, double, double yOffset)
@@ -365,9 +377,9 @@ private:
             return false;
         }
 
-        const bool down = glfwGetKey(mWindow, key) == GLFW_PRESS;
+        const bool down    = glfwGetKey(mWindow, key) == GLFW_PRESS;
         const bool wasDown = mKeyIsDown[key];
-        mKeyIsDown[key] = down;
+        mKeyIsDown[key]    = down;
         return down && !wasDown;
     }
 
@@ -391,10 +403,10 @@ private:
             return std::max(1.0f / 240.0f, std::min(mDesc.fixedDeltaSeconds, 0.1f));
         }
 
-        const auto now = std::chrono::steady_clock::now();
+        const auto now                              = std::chrono::steady_clock::now();
         const std::chrono::duration<double> elapsed = now - mLastTickTime;
-        mLastTickTime = now;
-        const float dt = static_cast<float>(elapsed.count());
+        mLastTickTime                               = now;
+        const float dt                              = static_cast<float>(elapsed.count());
         return std::max(1.0f / 240.0f, std::min(dt, 0.1f));
     }
 
@@ -415,7 +427,7 @@ private:
         out.moveDirection.z -= isKeyDown(mDesc.keymap.moveBackward) ? 1.0f : 0.0f;
 
         out.boost = isKeyDown(mDesc.keymap.speedBoostPrimary, mDesc.keymap.speedBoostSecondary);
-        out.slow = isKeyDown(mDesc.keymap.speedSlowPrimary, mDesc.keymap.speedSlowSecondary);
+        out.slow  = isKeyDown(mDesc.keymap.speedSlowPrimary, mDesc.keymap.speedSlowSecondary);
 
         const bool lookDown = (glfwGetMouseButton(mWindow, mDesc.keymap.lookButton) == GLFW_PRESS);
         if (lookDown && !mLookActive)
@@ -445,11 +457,11 @@ private:
             glfwGetCursorPos(mWindow, &cursorX, &cursorY);
             out.mouseDeltaX = static_cast<float>(cursorX - mLastCursorX);
             out.mouseDeltaY = static_cast<float>(cursorY - mLastCursorY);
-            mLastCursorX = cursorX;
-            mLastCursorY = cursorY;
+            mLastCursorX    = cursorX;
+            mLastCursorY    = cursorY;
         }
 
-        out.scrollDelta = static_cast<float>(mAccumulatedScrollY);
+        out.scrollDelta     = static_cast<float>(mAccumulatedScrollY);
         mAccumulatedScrollY = 0.0;
         return out;
     }
@@ -459,23 +471,25 @@ private:
         if (input.scrollDelta != 0.0f)
         {
             const float factor = std::max(0.1f, 1.0f + input.scrollDelta * mDesc.wheelSpeedScale);
-            camera.moveSpeed = clampSpeed(camera.moveSpeed * factor, mDesc.minMoveSpeed, mDesc.maxMoveSpeed);
+            camera.moveSpeed =
+                clampSpeed(camera.moveSpeed * factor, mDesc.minMoveSpeed, mDesc.maxMoveSpeed);
         }
 
         camera.yawDegrees += input.mouseDeltaX * camera.inputSensitivity;
         camera.pitchDegrees -= input.mouseDeltaY * camera.inputSensitivity;
         camera.pitchDegrees = clampPitch(camera.pitchDegrees);
 
-        const Diligent::QuaternionF orientation = cameraOrientationFromYawPitch(camera.yawDegrees, camera.pitchDegrees);
+        const Diligent::QuaternionF orientation =
+            cameraOrientationFromYawPitch(camera.yawDegrees, camera.pitchDegrees);
         const Diligent::float3 forward = common::runtime_math::safeNormalize(
-            rotateVector(orientation, {0.0f, 0.0f, 1.0f}),
-            Diligent::float3{0.0f, 0.0f, 1.0f});
+            rotateVector(orientation, {0.0f, 0.0f, 1.0f}), Diligent::float3{0.0f, 0.0f, 1.0f});
         const Diligent::float3 right = common::runtime_math::safeNormalize(
-            rotateVector(orientation, {1.0f, 0.0f, 0.0f}),
-            Diligent::float3{1.0f, 0.0f, 0.0f});
+            rotateVector(orientation, {1.0f, 0.0f, 0.0f}), Diligent::float3{1.0f, 0.0f, 0.0f});
         const Diligent::float3 worldUp{0.0f, 1.0f, 0.0f};
 
-        Diligent::float3 worldDirection = right * input.moveDirection.x + worldUp * input.moveDirection.y + forward * input.moveDirection.z;
+        Diligent::float3 worldDirection = right * input.moveDirection.x +
+                                          worldUp * input.moveDirection.y +
+                                          forward * input.moveDirection.z;
         worldDirection = common::runtime_math::safeNormalize(worldDirection);
 
         float movementSpeed = camera.moveSpeed;
@@ -493,26 +507,24 @@ private:
 
 private:
     DebugViewerAppDesc mDesc{};
-    GLFWwindow* mWindow = nullptr;
-    bool mInitialized = false;
-    bool mGlfwInitialized = false;
-    bool mShowStats = true;
-    bool mLookActive = false;
-    double mLastCursorX = 0.0;
-    double mLastCursorY = 0.0;
+    GLFWwindow* mWindow        = nullptr;
+    bool mInitialized          = false;
+    bool mGlfwInitialized      = false;
+    bool mShowStats            = true;
+    bool mLookActive           = false;
+    double mLastCursorX        = 0.0;
+    double mLastCursorY        = 0.0;
     double mAccumulatedScrollY = 0.0;
     std::unordered_map<int, bool> mKeyIsDown;
     std::chrono::steady_clock::time_point mLastTickTime{};
     std::atomic<bool> mExitRequested{false};
 };
 
-DebugViewerApp::DebugViewerApp() : mImpl(std::make_unique<Impl>())
-{
-}
+DebugViewerApp::DebugViewerApp() : mImpl(std::make_unique<Impl>()) {}
 
 DebugViewerApp::~DebugViewerApp() = default;
 
-DebugViewerApp::DebugViewerApp(DebugViewerApp&&) noexcept = default;
+DebugViewerApp::DebugViewerApp(DebugViewerApp&&) noexcept            = default;
 DebugViewerApp& DebugViewerApp::operator=(DebugViewerApp&&) noexcept = default;
 
 bool DebugViewerApp::initialize(DebugViewerAppDesc desc, engine::RuntimeConfig& inOutRuntimeConfig)
@@ -520,7 +532,8 @@ bool DebugViewerApp::initialize(DebugViewerAppDesc desc, engine::RuntimeConfig& 
     return mImpl->initialize(std::move(desc), inOutRuntimeConfig);
 }
 
-bool DebugViewerApp::run(engine::Runtime& runtime, DebugViewerCameraBinding camera, DebugViewerCallbacks callbacks)
+bool DebugViewerApp::run(engine::Runtime& runtime, DebugViewerCameraBinding camera,
+                         DebugViewerCallbacks callbacks)
 {
     return mImpl->run(runtime, camera, std::move(callbacks));
 }

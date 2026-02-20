@@ -23,4 +23,13 @@ DerivePointerAlignment: false
 PointerAlignment: Left
 ColumnLimit: 100
 AllowShortIfStatementsOnASingleLine: true
-AllowShortFunctionsOnASingleLine: None
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortBlocksOnASingleLine: Empty
+AccessModifierOffset: -4
+PenaltyReturnTypeOnItsOwnLine: 1000000
+BreakTemplateDeclarations: Yes
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: true
+BreakBeforeTernaryOperators: true
