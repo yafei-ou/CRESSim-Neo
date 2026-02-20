@@ -18,6 +18,6 @@ set_target_properties(${TARGET_NAME}
 )
 
 add_test(
-    NAME cressim_neo_smoke_null
-    COMMAND ${TARGET_NAME} --backend null --frames 3
+    NAME cressim_neo_smoke_vulkan
+    COMMAND ${TARGET_NAME} --backend vulkan --frames 3
 )

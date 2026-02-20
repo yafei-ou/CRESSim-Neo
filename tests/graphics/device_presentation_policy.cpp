@@ -17,7 +17,7 @@ int main()
 {
     {
         RuntimeConfig config{};
-        config.graphicsDeviceDesc.preferredBackend = GraphicsBackend::Null;
+        config.graphicsDeviceDesc.preferredBackend = GraphicsBackend::Vulkan;
         config.graphicsDeviceDesc.presentation.enabled = false;
         config.graphicsDeviceDesc.defaultRenderTargetDesc.colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
 

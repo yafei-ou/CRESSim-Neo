@@ -9,7 +9,6 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 
-#include <cstdint>
 #include <unordered_map>
 
 namespace cressim::neo::graphics::detail
@@ -22,7 +21,7 @@ public:
     {
         MainPassClass passClass = MainPassClass::ForwardOpaque;
         MaterialProgramFamily programFamily = MaterialProgramFamily::StandardLit;
-        std::uint32_t featureFlags = MaterialFeature_None;
+        MaterialFeatureFlags featureFlags = MaterialFeatureFlags::None;
         Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
         Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
         bool depthEnable = true;
@@ -61,7 +60,7 @@ public:
     static ProgramKey buildProgramKey(
         MainPassClass passClass,
         MaterialProgramFamily programFamily,
-        std::uint32_t featureFlags,
+        MaterialFeatureFlags featureFlags,
         Diligent::TEXTURE_FORMAT colorFormat,
         Diligent::TEXTURE_FORMAT depthFormat,
         bool depthEnable,

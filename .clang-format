@@ -1,0 +1,26 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+BreakBeforeBraces: Allman
+
+# Optional: control exactly where wrapping happens
+BraceWrapping:
+  AfterNamespace: true
+  AfterFunction: true
+  AfterControlStatement: true
+  AfterClass: true
+  AfterStruct: true
+  AfterEnum: true
+
+SortIncludes: true
+IncludeBlocks: Preserve
+
+---
+Language: Cpp
+DerivePointerAlignment: false
+PointerAlignment: Left
+ColumnLimit: 100
+AllowShortIfStatementsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: None

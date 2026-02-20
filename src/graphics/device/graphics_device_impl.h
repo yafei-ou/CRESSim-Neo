@@ -64,7 +64,7 @@ private:
         RenderTargetDesc desc{};
         RenderViewport viewport{};
         Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
-        RenderTargetDepthFormat depthFormat = RenderTargetDepthFormat::D32Float;
+        Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_D32_FLOAT;
         Diligent::RefCntAutoPtr<Diligent::ITexture> colorTexture;
         Diligent::RefCntAutoPtr<Diligent::ITexture> depthTexture;
     };

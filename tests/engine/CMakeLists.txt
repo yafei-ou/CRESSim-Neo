@@ -18,6 +18,6 @@ set_target_properties(${TARGET_NAME}
 )
 
 add_test(
-    NAME cressim_neo_world_sync_incremental_null
+    NAME cressim_neo_world_sync_incremental_vulkan
     COMMAND ${TARGET_NAME}
 )

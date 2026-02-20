@@ -36,7 +36,7 @@ struct ForwardDirectionalLightData
 struct ForwardDrawCommand
 {
     MaterialProgramFamily programFamily = MaterialProgramFamily::StandardLit;
-    std::uint32_t materialFeatureFlags = MaterialFeature_None;
+    MaterialFeatureFlags materialFeatureFlags = MaterialFeatureFlags::None;
     // Stable id/version pair used by pass-level mesh buffer caches.
     common::ResourceId meshId = common::kInvalidResourceId;
     common::ResourceId materialId = common::kInvalidResourceId;

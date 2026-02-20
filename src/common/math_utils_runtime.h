@@ -13,7 +13,9 @@ namespace cressim::neo::common::runtime_math
 {
 
 constexpr float kPi = 3.14159265358979323846f;
-constexpr float kEpsilon = 1.0e-12f;
+constexpr float kRadPerDeg = kPi / 180.0f;
+constexpr float kDegPerRad = 180.0f / kPi;
+constexpr float kEpsilon = 1.0e-6f;
 
 inline std::uint32_t clampExtent(std::uint32_t value)
 {
@@ -22,7 +24,7 @@ inline std::uint32_t clampExtent(std::uint32_t value)
 
 inline float clamp01(float value)
 {
-    return std::max(0.0f, std::min(value, 1.0f));
+    return std::clamp(value, 0.0f, 1.0f);
 }
 
 inline float clampPositive(float value, float fallback)
@@ -32,12 +34,12 @@ inline float clampPositive(float value, float fallback)
 
 inline float degreesToRadians(float value)
 {
-    return value * (kPi / 180.0f);
+    return value * kRadPerDeg;
 }
 
 inline float radiansToDegrees(float value)
 {
-    return value * (180.0f / kPi);
+    return value * kDegPerRad;
 }
 
 inline Diligent::float3 safeNormalize(
@@ -62,24 +64,23 @@ inline Diligent::QuaternionF normalizeQuaternion(const Diligent::QuaternionF& va
     return Diligent::normalize(value);
 }
 
-inline Diligent::QuaternionF quaternionFromEulerDegrees(float pitchDegrees, float yawDegrees, float rollDegrees)
+inline Diligent::QuaternionF quaternionFromEulerDegrees(float xDegrees, float yDegrees, float zDegrees)
 {
-    const float pitch = degreesToRadians(pitchDegrees) * 0.5f;
-    const float yaw = degreesToRadians(yawDegrees) * 0.5f;
-    const float roll = degreesToRadians(rollDegrees) * 0.5f;
+  const float x = degreesToRadians(xDegrees) * 0.5f;
+  const float y = degreesToRadians(yDegrees) * 0.5f;
+  const float z = degreesToRadians(zDegrees) * 0.5f;
 
-    const float sinPitch = std::sin(pitch);
-    const float cosPitch = std::cos(pitch);
-    const float sinYaw = std::sin(yaw);
-    const float cosYaw = std::cos(yaw);
-    const float sinRoll = std::sin(roll);
-    const float cosRoll = std::cos(roll);
+  const float sinX = std::sin(x);
+  const float cosX = std::cos(x);
+  const float sinY = std::sin(y);
+  const float cosY = std::cos(y);
+  const float sinZ = std::sin(z);
+  const float cosZ = std::cos(z);
 
-    return Diligent::QuaternionF{
-        sinRoll * cosPitch * cosYaw - cosRoll * sinPitch * sinYaw,
-        cosRoll * sinPitch * cosYaw + sinRoll * cosPitch * sinYaw,
-        cosRoll * cosPitch * sinYaw - sinRoll * sinPitch * cosYaw,
-        cosRoll * cosPitch * cosYaw + sinRoll * sinPitch * sinYaw};
+  return Diligent::QuaternionF{sinZ * cosX * cosY - cosZ * sinX * sinY,
+                               cosZ * sinX * cosY + sinZ * cosX * sinY,
+                               cosZ * cosX * sinY - sinZ * sinX * cosY,
+                               cosZ * cosX * cosY + sinZ * sinX * sinY};
 }
 
 inline graphics::RenderViewport normalizeViewport(const graphics::RenderViewport& viewport)

@@ -177,8 +177,6 @@ int main(int argc, char** argv)
         secondaryTargetDesc.width = 640;
         secondaryTargetDesc.height = 480;
         secondaryTargetDesc.debugName = "Smoke.SecondaryCamera";
-        // This enables readback event plumbing in the smoke test.
-        secondaryTargetDesc.cpuReadback = true;
         secondaryTarget = graphicsDevice->createRenderTarget(secondaryTargetDesc);
     }
 

@@ -1,6 +1,5 @@
-#include "graphics/device/graphics_device_impl.h"
-
 #include "common/math_utils_runtime.h"
+#include "graphics/device/graphics_device_impl.h"
 
 #include <algorithm>
 #include <cstring>
@@ -15,10 +14,6 @@ RenderTargetReadbackRequest GraphicsDeviceImpl::requestRenderTargetReadback(Rend
 
     const auto it = mRenderTargets.find(target.id);
     if (it == mRenderTargets.end())
-    {
-        return request;
-    }
-    if (!it->second.desc.cpuReadback)
     {
         return request;
     }
@@ -224,7 +219,7 @@ bool GraphicsDeviceImpl::queueReadbackCopy(RenderTargetHandle target, std::uint6
     }
 
     const RenderTargetResources& resources = targetIt->second;
-    if (!resources.desc.cpuReadback || resources.colorTexture == nullptr)
+    if (resources.colorTexture == nullptr)
     {
         return false;
     }

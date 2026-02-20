@@ -397,7 +397,6 @@ int main(int argc, char** argv)
     RenderTargetDesc targetDesc{};
     targetDesc.width = 640;
     targetDesc.height = 480;
-    targetDesc.cpuReadback = true;
     targetDesc.debugName = "CubeDepth.Target";
     const RenderTargetHandle target = graphicsDevice->createRenderTarget(targetDesc);
     if (!graphicsDevice->isValidRenderTarget(target))

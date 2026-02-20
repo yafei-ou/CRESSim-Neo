@@ -18,7 +18,7 @@ set_target_properties(${TARGET_NAME}
 )
 
 add_test(
-    NAME cressim_neo_render_target_resize_policy_null
+    NAME cressim_neo_render_target_resize_policy_vulkan
     COMMAND ${TARGET_NAME}
 )
 
@@ -42,6 +42,6 @@ set_target_properties(${TARGET_NAME}
 )
 
 add_test(
-    NAME cressim_neo_device_presentation_policy_null
+    NAME cressim_neo_device_presentation_policy_vulkan
     COMMAND ${TARGET_NAME}
 )

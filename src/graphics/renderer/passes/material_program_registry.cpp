@@ -32,22 +32,22 @@ const char* passClassName(MainPassClass passClass)
     }
 }
 
-Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 4>& macros, std::uint32_t featureFlags)
+Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 4>& macros, MaterialFeatureFlags featureFlags)
 {
     Diligent::Uint32 count = 0;
-    if (hasMaterialFeature(featureFlags, MaterialFeature_AlphaTest))
+    if (hasFlag(featureFlags, MaterialFeatureFlags::AlphaTest))
     {
         macros[count++] = Diligent::ShaderMacro{"CRESSIM_FEATURE_ALPHA_TEST", "1"};
     }
-    if (hasMaterialFeature(featureFlags, MaterialFeature_NormalMap))
+    if (hasFlag(featureFlags, MaterialFeatureFlags::NormalMap))
     {
         macros[count++] = Diligent::ShaderMacro{"CRESSIM_FEATURE_NORMAL_MAP", "1"};
     }
-    if (hasMaterialFeature(featureFlags, MaterialFeature_ClearCoat))
+    if (hasFlag(featureFlags, MaterialFeatureFlags::ClearCoat))
     {
         macros[count++] = Diligent::ShaderMacro{"CRESSIM_FEATURE_CLEAR_COAT", "1"};
     }
-    if (hasMaterialFeature(featureFlags, MaterialFeature_DoubleSided))
+    if (hasFlag(featureFlags, MaterialFeatureFlags::DoubleSided))
     {
         macros[count++] = Diligent::ShaderMacro{"CRESSIM_FEATURE_DOUBLE_SIDED", "1"};
     }
@@ -61,7 +61,7 @@ std::size_t MaterialProgramRegistry::ProgramKeyHasher::operator()(const ProgramK
     std::size_t seed = 0;
     hashCombine(seed, static_cast<std::uint32_t>(key.passClass));
     hashCombine(seed, static_cast<std::uint32_t>(key.programFamily));
-    hashCombine(seed, key.featureFlags);
+    hashCombine(seed, static_cast<std::uint32_t>(key.featureFlags));
     hashCombine(seed, static_cast<std::uint32_t>(key.colorFormat));
     hashCombine(seed, static_cast<std::uint32_t>(key.depthFormat));
     hashCombine(seed, key.depthEnable);
@@ -106,7 +106,7 @@ MaterialProgramRegistry::ProgramResources* MaterialProgramRegistry::getOrCreateP
 MaterialProgramRegistry::ProgramKey MaterialProgramRegistry::buildProgramKey(
     MainPassClass passClass,
     MaterialProgramFamily programFamily,
-    std::uint32_t featureFlags,
+    MaterialFeatureFlags featureFlags,
     Diligent::TEXTURE_FORMAT colorFormat,
     Diligent::TEXTURE_FORMAT depthFormat,
     bool depthEnable,
@@ -197,7 +197,7 @@ bool MaterialProgramRegistry::createProgram(
         LOG_ERROR_MESSAGE(
             "MaterialProgramRegistry failed to compile VS. pass=", passClassName(key.passClass),
             " programFamily=", static_cast<std::uint32_t>(key.programFamily),
-            " featureFlags=", key.featureFlags,
+            " featureFlags=", static_cast<std::uint32_t>(key.featureFlags),
             " shader='", pbrVsPath, "'.");
         return false;
     }
@@ -213,7 +213,7 @@ bool MaterialProgramRegistry::createProgram(
         LOG_ERROR_MESSAGE(
             "MaterialProgramRegistry failed to compile PS. pass=", passClassName(key.passClass),
             " programFamily=", static_cast<std::uint32_t>(key.programFamily),
-            " featureFlags=", key.featureFlags,
+            " featureFlags=", static_cast<std::uint32_t>(key.featureFlags),
             " shader='", pbrPsPath, "'.");
         return false;
     }
@@ -226,7 +226,7 @@ bool MaterialProgramRegistry::createProgram(
     psoCreateInfo.GraphicsPipeline.DSVFormat = key.depthEnable ? key.depthFormat : Diligent::TEX_FORMAT_UNKNOWN;
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode =
-        hasMaterialFeature(key.featureFlags, MaterialFeature_DoubleSided) ? Diligent::CULL_MODE_NONE : Diligent::CULL_MODE_BACK;
+        hasFlag(key.featureFlags, MaterialFeatureFlags::DoubleSided) ? Diligent::CULL_MODE_NONE : Diligent::CULL_MODE_BACK;
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = Diligent::True;
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = key.depthEnable ? Diligent::True : Diligent::False;
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = key.depthWrite ? Diligent::True : Diligent::False;
@@ -268,7 +268,7 @@ bool MaterialProgramRegistry::createProgram(
         LOG_ERROR_MESSAGE(
             "MaterialProgramRegistry failed to create PSO. pass=", passClassName(key.passClass),
             " programFamily=", static_cast<std::uint32_t>(key.programFamily),
-            " featureFlags=", key.featureFlags, ".");
+            " featureFlags=", static_cast<std::uint32_t>(key.featureFlags), ".");
         return false;
     }
 

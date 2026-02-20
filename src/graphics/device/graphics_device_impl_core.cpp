@@ -1,7 +1,5 @@
-#include "GraphicsTypes.h"
-#include "graphics/device/graphics_device_impl.h"
-
 #include "common/math_utils_runtime.h"
+#include "graphics/device/graphics_device_impl.h"
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "DiligentEngine/DiligentCore/Platforms/interface/NativeWindow.h"
@@ -24,17 +22,6 @@ namespace
 
 constexpr std::uint32_t kDefaultRenderTargetWidth = 1280u;
 constexpr std::uint32_t kDefaultRenderTargetHeight = 720u;
-
-Diligent::TEXTURE_FORMAT toDiligentDepthFormat(RenderTargetDepthFormat format)
-{
-    switch (format)
-    {
-    case RenderTargetDepthFormat::D32Float:
-        return Diligent::TEX_FORMAT_D32_FLOAT;
-    default:
-        return Diligent::TEX_FORMAT_UNKNOWN;
-    }
-}
 
 Diligent::Uint32 clampWindowId(std::uint64_t value)
 {
@@ -769,7 +756,7 @@ bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc
 
     if (desc.depth)
     {
-        const Diligent::TEXTURE_FORMAT depthFormat = toDiligentDepthFormat(resources.depthFormat);
+        const Diligent::TEXTURE_FORMAT depthFormat = resources.depthFormat;
         if (depthFormat == Diligent::TEX_FORMAT_UNKNOWN)
         {
             return false;

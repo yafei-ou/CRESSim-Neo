@@ -5,7 +5,7 @@
 #include "common/id.h"
 #include "graphics/export.h"
 
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Texture.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/GraphicsTypes.h"
 
 #include <cstdint>
 #include <memory>
@@ -19,11 +19,6 @@ enum class GraphicsBackend
 {
     Null,
     Vulkan,
-};
-
-enum class RenderTargetDepthFormat
-{
-    D32Float,
 };
 
 enum class RenderTargetUpdateResult
@@ -48,11 +43,9 @@ struct RenderTargetDesc
     bool depth = true;
     // TEX_FORMAT_UNKNOWN means "auto".
     Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
-    RenderTargetDepthFormat depthFormat = RenderTargetDepthFormat::D32Float;
+    Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_D32_FLOAT;
     // Enables sampling this target in later shader passes.
     bool shaderReadable = true;
-    // Enables readback request tracking for this target.
-    bool cpuReadback = false;
     std::string debugName;
 };
 

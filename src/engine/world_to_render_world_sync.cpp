@@ -9,6 +9,7 @@ void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWor
     {
         if (!world.isAlive(entityId))
         {
+            // Remove from render world if not alive any more
             (void)renderWorld.removeRenderable(entityId);
             (void)renderWorld.removeCamera(entityId);
             (void)renderWorld.removeDirectionalLight(entityId);
@@ -16,7 +17,8 @@ void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWor
         }
 
         const TransformComponent* transform = world.tryGetTransform(entityId);
-        const common::Transform worldTransform = transform ? transform->worldTransform : common::Transform{};
+        const common::Transform worldTransform =
+            transform ? transform->worldTransform : common::Transform{};
 
         const MeshRendererComponent* meshRenderer = world.tryGetMeshRenderer(entityId);
         if (meshRenderer != nullptr && meshRenderer->visible)
