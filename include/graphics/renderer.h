@@ -15,30 +15,11 @@ namespace cressim::neo::graphics
 
 namespace detail
 {
-class DebugViewPresenter;
 class ForwardPipeline;
 }
 
 struct RendererDesc
 {
-    struct DebugViewerDesc
-    {
-        bool enabled = false;
-        // Passed to ISwapChain::Present(). 1 = v-sync on, 0 = v-sync off.
-        std::uint32_t syncInterval = 1;
-
-        // Platform-native window handles.
-        // Win32: nativeWindow = HWND
-        // Linux/X11: nativeWindowId = Window, nativeDisplay = Display*
-        // Linux/XCB: nativeWindowId = xcb_window_t, nativeConnection = xcb_connection_t*
-        // macOS: nativeWindow = NSView*
-        void* nativeWindow = nullptr;
-        std::uint64_t nativeWindowId = 0;
-        void* nativeDisplay = nullptr;
-        void* nativeConnection = nullptr;
-    };
-
-    DebugViewerDesc debugViewer{};
 };
 
 struct RenderStats
@@ -77,7 +58,6 @@ private:
     RenderResourceManager& mResourceManager;
     RendererDesc mDesc{};
     std::unique_ptr<detail::ForwardPipeline> mForwardPipeline;
-    std::unique_ptr<detail::DebugViewPresenter> mDebugViewPresenter;
     bool mInitialized = false;
 };
 

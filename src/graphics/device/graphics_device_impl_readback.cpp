@@ -1,5 +1,8 @@
 #include "graphics/device/graphics_device_impl.h"
 
+#include "common/math_utils_runtime.h"
+
+#include <algorithm>
 #include <cstring>
 #include <utility>
 
@@ -69,6 +72,8 @@ void GraphicsDeviceImpl::endFrame(const common::FrameContext& frameContext)
         return;
     }
 
+    (void)presentPrimarySwapChain();
+
     mImmediateContext->Flush();
     mImmediateContext->FinishFrame();
 
@@ -124,6 +129,81 @@ void GraphicsDeviceImpl::endFrame(const common::FrameContext& frameContext)
     }
 
     mPendingReadbackCopies.clear();
+}
+
+bool GraphicsDeviceImpl::presentPrimarySwapChain()
+{
+    if (mPrimarySwapChain == nullptr)
+    {
+        return true;
+    }
+    if (!mInitialized || mBackend != GraphicsBackend::Vulkan || mImmediateContext == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::ITexture* sourceTexture = nullptr;
+    if (!tryGetRenderTargetColorTexture(mDefaultRenderTarget, sourceTexture) || sourceTexture == nullptr)
+    {
+        return false;
+    }
+
+    RenderTargetDesc sourceDesc{};
+    if (!tryGetRenderTargetDesc(mDefaultRenderTarget, sourceDesc))
+    {
+        return false;
+    }
+
+    const auto& swapChainDesc = mPrimarySwapChain->GetDesc();
+    if (swapChainDesc.Width != sourceDesc.width || swapChainDesc.Height != sourceDesc.height)
+    {
+        mPrimarySwapChain->Resize(
+            common::runtime_math::clampExtent(sourceDesc.width),
+            common::runtime_math::clampExtent(sourceDesc.height),
+            Diligent::SURFACE_TRANSFORM_OPTIMAL);
+    }
+
+    Diligent::ITextureView* backBufferRtv = mPrimarySwapChain->GetCurrentBackBufferRTV();
+    if (backBufferRtv == nullptr || backBufferRtv->GetTexture() == nullptr)
+    {
+        return false;
+    }
+    Diligent::ITexture* backBufferTexture = backBufferRtv->GetTexture();
+    if (backBufferTexture == nullptr)
+    {
+        return false;
+    }
+
+    const auto& srcTexDesc = sourceTexture->GetDesc();
+    const auto& dstTexDesc = backBufferTexture->GetDesc();
+    const std::uint32_t copyWidth = std::min<std::uint32_t>(srcTexDesc.Width, dstTexDesc.Width);
+    const std::uint32_t copyHeight = std::min<std::uint32_t>(srcTexDesc.Height, dstTexDesc.Height);
+    if (copyWidth == 0 || copyHeight == 0)
+    {
+        mPrimarySwapChain->Present(mDesc.presentation.syncInterval);
+        return true;
+    }
+
+    const Diligent::Box srcBox{0u, copyWidth, 0u, copyHeight, 0u, 1u};
+    Diligent::CopyTextureAttribs copyAttribs{
+        sourceTexture,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+        backBufferTexture,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
+    copyAttribs.pSrcBox = &srcBox;
+    copyAttribs.DstX = 0;
+    copyAttribs.DstY = 0;
+    copyAttribs.DstZ = 0;
+    mImmediateContext->CopyTexture(copyAttribs);
+
+    mPrimarySwapChain->Present(mDesc.presentation.syncInterval);
+    if (!mPrimarySwapChain->GetDesc().IsPrimary)
+    {
+        mImmediateContext->Flush();
+        mImmediateContext->FinishFrame();
+    }
+
+    return true;
 }
 
 bool GraphicsDeviceImpl::queueReadbackCopy(RenderTargetHandle target, std::uint64_t frameIndex, const std::vector<std::uint64_t>& requestIds)

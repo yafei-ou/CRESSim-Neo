@@ -92,12 +92,14 @@ public:
 
         inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.width = mDesc.width;
         inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.height = mDesc.height;
-        inOutRuntimeConfig.rendererDesc.debugViewer.enabled = mDesc.windowEnabled;
-        inOutRuntimeConfig.rendererDesc.debugViewer.syncInterval = mDesc.vSync ? 1u : 0u;
-        inOutRuntimeConfig.rendererDesc.debugViewer.nativeWindow = nullptr;
-        inOutRuntimeConfig.rendererDesc.debugViewer.nativeWindowId = 0;
-        inOutRuntimeConfig.rendererDesc.debugViewer.nativeDisplay = nullptr;
-        inOutRuntimeConfig.rendererDesc.debugViewer.nativeConnection = nullptr;
+        inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.enabled = mDesc.windowEnabled;
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.syncInterval = mDesc.vSync ? 1u : 0u;
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.preferredColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindow = nullptr;
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindowId = 0;
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeDisplay = nullptr;
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeConnection = nullptr;
 
         if (!mDesc.windowEnabled)
         {
@@ -132,12 +134,12 @@ public:
         glfwSetScrollCallback(mWindow, &Impl::scrollCallback);
 
 #if defined(_WIN32)
-        inOutRuntimeConfig.rendererDesc.debugViewer.nativeWindow = glfwGetWin32Window(mWindow);
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindow = glfwGetWin32Window(mWindow);
 #elif defined(__linux__)
-        inOutRuntimeConfig.rendererDesc.debugViewer.nativeWindowId = static_cast<std::uint64_t>(glfwGetX11Window(mWindow));
-        inOutRuntimeConfig.rendererDesc.debugViewer.nativeDisplay = glfwGetX11Display();
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindowId = static_cast<std::uint64_t>(glfwGetX11Window(mWindow));
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeDisplay = glfwGetX11Display();
 #elif defined(__APPLE__)
-        inOutRuntimeConfig.rendererDesc.debugViewer.nativeWindow = glfwGetCocoaWindow(mWindow);
+        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindow = glfwGetCocoaWindow(mWindow);
 #endif
 
         mInitialized = true;

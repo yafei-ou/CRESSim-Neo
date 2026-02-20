@@ -3,7 +3,6 @@
 #include "graphics/device/graphics_device_impl.h"
 #include "graphics/renderer/passes/forward_pipeline.h"
 #include "graphics/renderer/renderer_internal.h"
-#include "graphics/renderer/services/debug_view_presenter.h"
 
 #include <unordered_map>
 
@@ -27,17 +26,6 @@ bool Renderer::initialize()
     {
         mForwardPipeline.reset();
         return false;
-    }
-
-    if (mDesc.debugViewer.enabled)
-    {
-        mDebugViewPresenter = std::make_unique<detail::DebugViewPresenter>(deviceImpl, mDesc.debugViewer);
-        if (!mDebugViewPresenter->initialize())
-        {
-            mDebugViewPresenter.reset();
-            mForwardPipeline.reset();
-            return false;
-        }
     }
 
     mInitialized = true;
@@ -165,11 +153,6 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
     stats.drawCalls = stats.opaqueDrawCalls + stats.shadowDrawCalls + stats.transparentDrawCalls;
 
     mDevice.endFrame(frameContext);
-    if (mDebugViewPresenter != nullptr)
-    {
-        (void)mDebugViewPresenter->present(mDevice.defaultRenderTarget());
-    }
-
     return stats;
 }
 

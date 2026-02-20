@@ -5,6 +5,8 @@
 #include "common/id.h"
 #include "graphics/export.h"
 
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Texture.h"
+
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -17,12 +19,6 @@ enum class GraphicsBackend
 {
     Null,
     Vulkan,
-};
-
-enum class RenderTargetColorFormat
-{
-    Rgba8Unorm,
-    Bgra8Unorm,
 };
 
 enum class RenderTargetDepthFormat
@@ -50,7 +46,8 @@ struct RenderTargetDesc
     std::uint32_t height = 0;
     bool color = true;
     bool depth = true;
-    RenderTargetColorFormat colorFormat = RenderTargetColorFormat::Rgba8Unorm;
+    // TEX_FORMAT_UNKNOWN means "auto".
+    Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
     RenderTargetDepthFormat depthFormat = RenderTargetDepthFormat::D32Float;
     // Enables sampling this target in later shader passes.
     bool shaderReadable = true;
@@ -61,9 +58,29 @@ struct RenderTargetDesc
 
 struct GraphicsDeviceDesc
 {
+    struct PresentationDesc
+    {
+        bool enabled = false;
+        // Passed to ISwapChain::Present(). 1 = v-sync on, 0 = v-sync off.
+        std::uint32_t syncInterval = 1;
+        // TEX_FORMAT_UNKNOWN lets the backend choose.
+        Diligent::TEXTURE_FORMAT preferredColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
+
+        // Platform-native window handles.
+        // Win32: nativeWindow = HWND
+        // Linux/X11: nativeWindowId = Window, nativeDisplay = Display*
+        // Linux/XCB: nativeWindowId = xcb_window_t, nativeConnection = xcb_connection_t*
+        // macOS: nativeWindow = NSView*
+        void* nativeWindow = nullptr;
+        std::uint64_t nativeWindowId = 0;
+        void* nativeDisplay = nullptr;
+        void* nativeConnection = nullptr;
+    };
+
     GraphicsBackend preferredBackend = GraphicsBackend::Vulkan;
     bool enableValidation = true;
     RenderTargetDesc defaultRenderTargetDesc{};
+    PresentationDesc presentation{};
     // Optional override for runtime shader source directory.
     // If empty, the engine resolves its default search paths.
     std::string shaderDirectory;
@@ -91,7 +108,7 @@ struct RenderTargetReadbackEvent
     RenderTargetHandle target{};
     std::uint64_t frameIndex = 0;
     // Format of color payload when available.
-    RenderTargetColorFormat colorFormat = RenderTargetColorFormat::Rgba8Unorm;
+    Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
     // Optional 4-channel 8-bit payload copied from the target color buffer.
     std::uint32_t width = 0;
     std::uint32_t height = 0;

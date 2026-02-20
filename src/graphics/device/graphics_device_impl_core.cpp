@@ -1,10 +1,14 @@
+#include "GraphicsTypes.h"
 #include "graphics/device/graphics_device_impl.h"
 
 #include "common/math_utils_runtime.h"
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
+#include "DiligentEngine/DiligentCore/Platforms/interface/NativeWindow.h"
 
 #include <algorithm>
+#include <iostream>
+#include <limits>
 #include <utility>
 
 namespace cressim::neo::graphics
@@ -18,18 +22,8 @@ std::unique_ptr<GraphicsDevice> createGraphicsDevice()
 namespace
 {
 
-Diligent::TEXTURE_FORMAT toDiligentColorFormat(RenderTargetColorFormat format)
-{
-    switch (format)
-    {
-    case RenderTargetColorFormat::Rgba8Unorm:
-        return Diligent::TEX_FORMAT_RGBA8_UNORM;
-    case RenderTargetColorFormat::Bgra8Unorm:
-        return Diligent::TEX_FORMAT_BGRA8_UNORM;
-    default:
-        return Diligent::TEX_FORMAT_UNKNOWN;
-    }
-}
+constexpr std::uint32_t kDefaultRenderTargetWidth = 1280u;
+constexpr std::uint32_t kDefaultRenderTargetHeight = 720u;
 
 Diligent::TEXTURE_FORMAT toDiligentDepthFormat(RenderTargetDepthFormat format)
 {
@@ -40,6 +34,12 @@ Diligent::TEXTURE_FORMAT toDiligentDepthFormat(RenderTargetDepthFormat format)
     default:
         return Diligent::TEX_FORMAT_UNKNOWN;
     }
+}
+
+Diligent::Uint32 clampWindowId(std::uint64_t value)
+{
+    constexpr std::uint64_t kMax = static_cast<std::uint64_t>(std::numeric_limits<Diligent::Uint32>::max());
+    return static_cast<Diligent::Uint32>(std::min<std::uint64_t>(value, kMax));
 }
 
 bool requiresTextureRecreate(const RenderTargetDesc& currentDesc, const RenderTargetDesc& updatedDesc)
@@ -60,19 +60,6 @@ bool GraphicsDeviceImpl::initialize(const GraphicsDeviceDesc& desc)
     shutdown();
 
     mDesc = desc;
-    mDesc.defaultRenderTargetDesc = normalizeDefaultRenderTargetDesc(mDesc.defaultRenderTargetDesc);
-
-    if (mDesc.preferredBackend == GraphicsBackend::Null)
-    {
-        mBackend = GraphicsBackend::Null;
-        mInitialized = true;
-        if (!createDefaultRenderTarget())
-        {
-            shutdown();
-            return false;
-        }
-        return mInitialized;
-    }
 
     // Vulkan-only backend path.
     if (mDesc.preferredBackend != GraphicsBackend::Vulkan)
@@ -86,6 +73,14 @@ bool GraphicsDeviceImpl::initialize(const GraphicsDeviceDesc& desc)
         return false;
     }
 
+    if (mDesc.presentation.enabled && !createPrimarySwapChain())
+    {
+        shutdown();
+        return false;
+    }
+
+    mDesc.defaultRenderTargetDesc = normalizeDefaultRenderTargetDesc(mDesc.defaultRenderTargetDesc);
+
     mInitialized = true;
     if (!createDefaultRenderTarget())
     {
@@ -98,6 +93,13 @@ bool GraphicsDeviceImpl::initialize(const GraphicsDeviceDesc& desc)
 
 void GraphicsDeviceImpl::shutdown()
 {
+    if (mImmediateContext != nullptr)
+    {
+        mImmediateContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+        mImmediateContext->Flush();
+        mImmediateContext->FinishFrame();
+    }
+
     mHasActiveRenderTarget = false;
     mActiveRenderTargetHasDepth = false;
     mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
@@ -107,6 +109,7 @@ void GraphicsDeviceImpl::shutdown()
     mNextReadbackFenceValue = 1;
     mImmediateContext = nullptr;
     mRenderDevice = nullptr;
+    mPrimarySwapChain = nullptr;
 
     mRenderTargets.clear();
     mPendingReadbackRequests.clear();
@@ -246,7 +249,7 @@ void GraphicsDeviceImpl::destroyRenderTarget(RenderTargetHandle target)
         mActiveRenderTarget = {};
     }
 
-    RenderTargetColorFormat targetColorFormat = RenderTargetColorFormat::Rgba8Unorm;
+    Diligent::TEXTURE_FORMAT targetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
     const auto targetIt = mRenderTargets.find(target.id);
     if (targetIt != mRenderTargets.end())
     {
@@ -552,6 +555,97 @@ bool GraphicsDeviceImpl::initializeVulkan()
     return true;
 }
 
+bool GraphicsDeviceImpl::createPrimarySwapChain()
+{
+    if (!mDesc.presentation.enabled)
+    {
+        return true;
+    }
+    if (mBackend != GraphicsBackend::Vulkan || mRenderDevice == nullptr || mImmediateContext == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::IEngineFactoryVk* factoryVk = Diligent::LoadAndGetEngineFactoryVk();
+    if (factoryVk == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::NativeWindow window{};
+#if PLATFORM_WIN32
+    if (mDesc.presentation.nativeWindow == nullptr)
+    {
+        std::cerr << "GraphicsDeviceImpl: presentation nativeWindow must be set on Win32.\n";
+        return false;
+    }
+    window.hWnd = mDesc.presentation.nativeWindow;
+#elif PLATFORM_LINUX
+    if (mDesc.presentation.nativeWindowId == 0)
+    {
+        std::cerr << "GraphicsDeviceImpl: presentation nativeWindowId must be set on Linux.\n";
+        return false;
+    }
+    window.WindowId = clampWindowId(mDesc.presentation.nativeWindowId);
+    if (mDesc.presentation.nativeConnection != nullptr)
+    {
+        window.pXCBConnection = mDesc.presentation.nativeConnection;
+    }
+    else if (mDesc.presentation.nativeDisplay != nullptr)
+    {
+        window.pDisplay = mDesc.presentation.nativeDisplay;
+    }
+    else
+    {
+        std::cerr << "GraphicsDeviceImpl: presentation native display/connection is missing on Linux.\n";
+        return false;
+    }
+#elif PLATFORM_MACOS
+    if (mDesc.presentation.nativeWindow == nullptr)
+    {
+        std::cerr << "GraphicsDeviceImpl: presentation nativeWindow must be set on macOS.\n";
+        return false;
+    }
+    window.pNSView = mDesc.presentation.nativeWindow;
+#else
+    std::cerr << "GraphicsDeviceImpl: presentation is unsupported on this platform.\n";
+    return false;
+#endif
+
+    Diligent::SwapChainDesc swapChainDesc{};
+    swapChainDesc.Width = common::runtime_math::clampExtent(
+        mDesc.defaultRenderTargetDesc.width == 0 ? kDefaultRenderTargetWidth : mDesc.defaultRenderTargetDesc.width);
+    swapChainDesc.Height = common::runtime_math::clampExtent(
+        mDesc.defaultRenderTargetDesc.height == 0 ? kDefaultRenderTargetHeight : mDesc.defaultRenderTargetDesc.height);
+    swapChainDesc.DepthBufferFormat = Diligent::TEX_FORMAT_UNKNOWN;
+    const Diligent::TEXTURE_FORMAT preferredColorFormat = mDesc.presentation.preferredColorFormat;
+    if (preferredColorFormat != Diligent::TEX_FORMAT_UNKNOWN)
+    {
+        swapChainDesc.ColorBufferFormat = preferredColorFormat;
+    }
+    else
+    {
+        // TODO: always use non-sRGB color format
+        // This is needed because our shaders now use manual gamma
+        // Flags or shader variants should be implemented
+        swapChainDesc.ColorBufferFormat = Diligent::TEX_FORMAT_BGRA8_UNORM;
+    }
+
+    factoryVk->CreateSwapChainVk(mRenderDevice, mImmediateContext, swapChainDesc, window, &mPrimarySwapChain);
+    if (mPrimarySwapChain == nullptr)
+    {
+        std::cerr << "GraphicsDeviceImpl: failed to create primary swapchain.\n";
+        return false;
+    }
+
+    const Diligent::TEXTURE_FORMAT actualSwapChainFormat = mPrimarySwapChain->GetDesc().ColorBufferFormat;
+
+    // Force the default offscreen color target to the primary swapchain format.
+    mDesc.defaultRenderTargetDesc.colorFormat = actualSwapChainFormat;
+
+    return true;
+}
+
 bool GraphicsDeviceImpl::createDefaultRenderTarget()
 {
     RenderTargetDesc defaultDesc = normalizeDefaultRenderTargetDesc(mDesc.defaultRenderTargetDesc);
@@ -561,16 +655,46 @@ bool GraphicsDeviceImpl::createDefaultRenderTarget()
     return isValidRenderTarget(mDefaultRenderTarget);
 }
 
-
-constexpr std::uint32_t kDefaultRenderTargetWidth = 1280u;
-constexpr std::uint32_t kDefaultRenderTargetHeight = 720u;
-
 RenderTargetDesc GraphicsDeviceImpl::normalizeDefaultRenderTargetDesc(const RenderTargetDesc& desc) const
 {
     RenderTargetDesc normalized = desc;
-    normalized.width = common::runtime_math::clampExtent(normalized.width == 0 ? kDefaultRenderTargetWidth : normalized.width);
-    normalized.height = common::runtime_math::clampExtent(normalized.height == 0 ? kDefaultRenderTargetHeight : normalized.height);
+    std::uint32_t fallbackWidth = kDefaultRenderTargetWidth;
+    std::uint32_t fallbackHeight = kDefaultRenderTargetHeight;
+    if (mPrimarySwapChain != nullptr)
+    {
+        const auto& swapChainDesc = mPrimarySwapChain->GetDesc();
+        if (swapChainDesc.Width > 0)
+        {
+            fallbackWidth = swapChainDesc.Width;
+        }
+        if (swapChainDesc.Height > 0)
+        {
+            fallbackHeight = swapChainDesc.Height;
+        }
+    }
+    normalized.width = common::runtime_math::clampExtent(normalized.width == 0 ? fallbackWidth : normalized.width);
+    normalized.height = common::runtime_math::clampExtent(normalized.height == 0 ? fallbackHeight : normalized.height);
     normalized.color = true;
+    if (mPrimarySwapChain != nullptr)
+    {
+        const Diligent::TEXTURE_FORMAT swapChainFormat = mPrimarySwapChain->GetDesc().ColorBufferFormat;
+        if (swapChainFormat == Diligent::TEX_FORMAT_UNKNOWN)
+        {
+            normalized.colorFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
+        }
+        else
+        {
+            normalized.colorFormat = swapChainFormat;
+        }
+    }
+    else if (normalized.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
+    {
+        normalized.colorFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
+    }
+    else if (normalized.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
+    {
+        normalized.colorFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
+    }
     if (normalized.debugName.empty())
     {
         normalized.debugName = "CRESSimNeo.Default";
@@ -587,6 +711,10 @@ RenderTargetDesc GraphicsDeviceImpl::normalizeTargetDesc(const RenderTargetDesc&
         common::runtime_math::clampExtent(mDesc.defaultRenderTargetDesc.height == 0 ? kDefaultRenderTargetHeight : mDesc.defaultRenderTargetDesc.height);
     normalized.width = common::runtime_math::clampExtent(normalized.width == 0 ? fallbackWidth : normalized.width);
     normalized.height = common::runtime_math::clampExtent(normalized.height == 0 ? fallbackHeight : normalized.height);
+    if (normalized.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
+    {
+        normalized.colorFormat = mDesc.defaultRenderTargetDesc.colorFormat;
+    }
     if (!normalized.color && !normalized.depth)
     {
         normalized.color = true;
@@ -610,7 +738,7 @@ bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc
 
     if (desc.color)
     {
-        const Diligent::TEXTURE_FORMAT colorFormat = toDiligentColorFormat(resources.colorFormat);
+        const Diligent::TEXTURE_FORMAT colorFormat = resources.colorFormat;
         if (colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
         {
             return false;

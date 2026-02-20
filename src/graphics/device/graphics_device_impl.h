@@ -7,6 +7,7 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Fence.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Texture.h"
 
 #include <cstdint>
@@ -62,7 +63,7 @@ private:
     {
         RenderTargetDesc desc{};
         RenderViewport viewport{};
-        RenderTargetColorFormat colorFormat = RenderTargetColorFormat::Rgba8Unorm;
+        Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
         RenderTargetDepthFormat depthFormat = RenderTargetDepthFormat::D32Float;
         Diligent::RefCntAutoPtr<Diligent::ITexture> colorTexture;
         Diligent::RefCntAutoPtr<Diligent::ITexture> depthTexture;
@@ -76,11 +77,13 @@ private:
         std::uint64_t fenceValue = 0;
         std::uint32_t width = 0;
         std::uint32_t height = 0;
-        RenderTargetColorFormat colorFormat = RenderTargetColorFormat::Rgba8Unorm;
+        Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
         Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
     };
 
     bool initializeVulkan();
+    bool createPrimarySwapChain();
+    bool presentPrimarySwapChain();
     bool createDefaultRenderTarget();
     RenderTargetDesc normalizeDefaultRenderTargetDesc(const RenderTargetDesc& desc) const;
     RenderTargetDesc normalizeTargetDesc(const RenderTargetDesc& desc) const;
@@ -113,6 +116,7 @@ private:
 
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> mRenderDevice;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mImmediateContext;
+    Diligent::RefCntAutoPtr<Diligent::ISwapChain> mPrimarySwapChain;
 };
 
 } // namespace cressim::neo::graphics
