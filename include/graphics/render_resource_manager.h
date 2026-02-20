@@ -3,6 +3,7 @@
 
 #include "common/id.h"
 #include "graphics/export.h"
+#include "graphics/flags.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 
@@ -34,30 +35,6 @@ enum class MaterialProgramFamily
     StandardLit,
 };
 
-enum MaterialFeatureFlags : std::uint32_t
-{
-    MaterialFeature_None = 0u,
-    MaterialFeature_AlphaTest = 1u << 0u,
-    MaterialFeature_NormalMap = 1u << 1u,
-    MaterialFeature_ClearCoat = 1u << 2u,
-    MaterialFeature_DoubleSided = 1u << 3u,
-};
-
-constexpr std::uint32_t operator|(MaterialFeatureFlags lhs, MaterialFeatureFlags rhs) noexcept
-{
-    return static_cast<std::uint32_t>(lhs) | static_cast<std::uint32_t>(rhs);
-}
-
-constexpr std::uint32_t operator|(std::uint32_t lhs, MaterialFeatureFlags rhs) noexcept
-{
-    return lhs | static_cast<std::uint32_t>(rhs);
-}
-
-constexpr bool hasMaterialFeature(std::uint32_t flags, MaterialFeatureFlags feature) noexcept
-{
-    return (flags & static_cast<std::uint32_t>(feature)) != 0u;
-}
-
 enum class BlendMode
 {
     Opaque,
@@ -67,8 +44,8 @@ enum class BlendMode
 struct MaterialPipelineDesc
 {
     MaterialProgramFamily programFamily = MaterialProgramFamily::StandardLit;
-    std::uint32_t featureFlags = MaterialFeature_None;
-    float alphaCutoff = 0.5f;
+    MaterialFeatureFlags featureFlags   = MaterialFeatureFlags::None;
+    float alphaCutoff                   = 0.5f;
 };
 
 struct MeshResourceDesc
@@ -90,12 +67,12 @@ struct MaterialResourceDesc
 {
     std::string debugName;
     Diligent::float3 baseColor{1.0f, 1.0f, 1.0f};
-    float metallic = 0.0f;
+    float metallic  = 0.0f;
     float roughness = 0.5f;
     MaterialPipelineDesc pipeline{};
-    BlendMode blendMode = BlendMode::Opaque;
-    float opacity = 1.0f;
-    bool castsShadows = true;
+    BlendMode blendMode  = BlendMode::Opaque;
+    float opacity        = 1.0f;
+    bool castsShadows    = true;
     bool receivesShadows = true;
 };
 
@@ -118,7 +95,8 @@ public:
     const MeshResourceDesc* tryGetMesh(MeshHandle mesh) const noexcept;
     const MaterialResourceDesc* tryGetMaterial(MaterialHandle material) const noexcept;
     const TextureResourceDesc* tryGetTexture(TextureHandle texture) const noexcept;
-    bool tryGetMeshLocalBounds(MeshHandle mesh, Diligent::float3& outMin, Diligent::float3& outMax) const noexcept;
+    bool tryGetMeshLocalBounds(MeshHandle mesh, Diligent::float3& outMin,
+                               Diligent::float3& outMax) const noexcept;
 
     std::uint64_t meshVersion(MeshHandle mesh) const noexcept;
 
@@ -132,9 +110,9 @@ private:
         bool hasLocalBounds = false;
     };
 
-    common::ResourceId mNextMeshId = 1;
+    common::ResourceId mNextMeshId     = 1;
     common::ResourceId mNextMaterialId = 1;
-    common::ResourceId mNextTextureId = 1;
+    common::ResourceId mNextTextureId  = 1;
 
     std::unordered_map<common::ResourceId, MeshResource> mMeshes;
     std::unordered_map<common::ResourceId, MaterialResourceDesc> mMaterials;

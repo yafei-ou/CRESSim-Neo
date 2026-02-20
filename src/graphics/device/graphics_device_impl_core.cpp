@@ -1,7 +1,5 @@
-#include "GraphicsTypes.h"
-#include "graphics/device/graphics_device_impl.h"
-
 #include "common/math_utils_runtime.h"
+#include "graphics/device/graphics_device_impl.h"
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "DiligentEngine/DiligentCore/Platforms/interface/NativeWindow.h"
@@ -22,35 +20,24 @@ std::unique_ptr<GraphicsDevice> createGraphicsDevice()
 namespace
 {
 
-constexpr std::uint32_t kDefaultRenderTargetWidth = 1280u;
+constexpr std::uint32_t kDefaultRenderTargetWidth  = 1280u;
 constexpr std::uint32_t kDefaultRenderTargetHeight = 720u;
-
-Diligent::TEXTURE_FORMAT toDiligentDepthFormat(RenderTargetDepthFormat format)
-{
-    switch (format)
-    {
-    case RenderTargetDepthFormat::D32Float:
-        return Diligent::TEX_FORMAT_D32_FLOAT;
-    default:
-        return Diligent::TEX_FORMAT_UNKNOWN;
-    }
-}
 
 Diligent::Uint32 clampWindowId(std::uint64_t value)
 {
-    constexpr std::uint64_t kMax = static_cast<std::uint64_t>(std::numeric_limits<Diligent::Uint32>::max());
+    constexpr std::uint64_t kMax =
+        static_cast<std::uint64_t>(std::numeric_limits<Diligent::Uint32>::max());
     return static_cast<Diligent::Uint32>(std::min<std::uint64_t>(value, kMax));
 }
 
-bool requiresTextureRecreate(const RenderTargetDesc& currentDesc, const RenderTargetDesc& updatedDesc)
+bool requiresTextureRecreate(const RenderTargetDesc& currentDesc,
+                             const RenderTargetDesc& updatedDesc)
 {
-    return currentDesc.width != updatedDesc.width ||
-        currentDesc.height != updatedDesc.height ||
-        currentDesc.color != updatedDesc.color ||
-        currentDesc.depth != updatedDesc.depth ||
-        currentDesc.colorFormat != updatedDesc.colorFormat ||
-        currentDesc.depthFormat != updatedDesc.depthFormat ||
-        currentDesc.shaderReadable != updatedDesc.shaderReadable;
+    return currentDesc.width != updatedDesc.width || currentDesc.height != updatedDesc.height ||
+           currentDesc.color != updatedDesc.color || currentDesc.depth != updatedDesc.depth ||
+           currentDesc.colorFormat != updatedDesc.colorFormat ||
+           currentDesc.depthFormat != updatedDesc.depthFormat ||
+           currentDesc.shaderReadable != updatedDesc.shaderReadable;
 }
 
 } // namespace
@@ -95,30 +82,31 @@ void GraphicsDeviceImpl::shutdown()
 {
     if (mImmediateContext != nullptr)
     {
-        mImmediateContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+        mImmediateContext->SetRenderTargets(0, nullptr, nullptr,
+                                            Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
         mImmediateContext->Flush();
         mImmediateContext->FinishFrame();
     }
 
-    mHasActiveRenderTarget = false;
-    mActiveRenderTargetHasDepth = false;
+    mHasActiveRenderTarget         = false;
+    mActiveRenderTargetHasDepth    = false;
     mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
-    mActiveRenderTarget = {};
-    mReadbackFence = nullptr;
-    mNextReadbackRequestId = 1;
-    mNextReadbackFenceValue = 1;
-    mImmediateContext = nullptr;
-    mRenderDevice = nullptr;
-    mPrimarySwapChain = nullptr;
+    mActiveRenderTarget            = {};
+    mReadbackFence                 = nullptr;
+    mNextReadbackRequestId         = 1;
+    mNextReadbackFenceValue        = 1;
+    mImmediateContext              = nullptr;
+    mRenderDevice                  = nullptr;
+    mPrimarySwapChain              = nullptr;
 
     mRenderTargets.clear();
     mPendingReadbackRequests.clear();
     mPendingReadbackCopies.clear();
     mCompletedReadbacks.clear();
     mDefaultRenderTarget = {};
-    mNextRenderTargetId = 1;
+    mNextRenderTargetId  = 1;
 
-    mBackend = GraphicsBackend::Null;
+    mBackend     = GraphicsBackend::Null;
     mInitialized = false;
 }
 
@@ -135,8 +123,8 @@ RenderTargetHandle GraphicsDeviceImpl::createRenderTarget(const RenderTargetDesc
     }
 
     RenderTargetResources resources{};
-    resources.desc = normalizeTargetDesc(desc);
-    resources.viewport = common::runtime_math::normalizeViewport(RenderViewport{});
+    resources.desc        = normalizeTargetDesc(desc);
+    resources.viewport    = common::runtime_math::normalizeViewport(RenderViewport{});
     resources.colorFormat = resources.desc.colorFormat;
     resources.depthFormat = resources.desc.depthFormat;
 
@@ -153,7 +141,9 @@ RenderTargetHandle GraphicsDeviceImpl::createRenderTarget(const RenderTargetDesc
     return RenderTargetHandle{id};
 }
 
-RenderTargetUpdateResult GraphicsDeviceImpl::resizeRenderTarget(RenderTargetHandle target, std::uint32_t width, std::uint32_t height)
+RenderTargetUpdateResult GraphicsDeviceImpl::resizeRenderTarget(RenderTargetHandle target,
+                                                                std::uint32_t width,
+                                                                std::uint32_t height)
 {
     if (!mInitialized)
     {
@@ -168,7 +158,8 @@ RenderTargetUpdateResult GraphicsDeviceImpl::resizeRenderTarget(RenderTargetHand
 
     RenderTargetDesc resizedDesc = it->second.desc;
     resizedDesc.width = common::runtime_math::clampExtent(width == 0 ? resizedDesc.width : width);
-    resizedDesc.height = common::runtime_math::clampExtent(height == 0 ? resizedDesc.height : height);
+    resizedDesc.height =
+        common::runtime_math::clampExtent(height == 0 ? resizedDesc.height : height);
     if (resizedDesc.width == it->second.desc.width && resizedDesc.height == it->second.desc.height)
     {
         return RenderTargetUpdateResult::Unchanged;
@@ -177,7 +168,8 @@ RenderTargetUpdateResult GraphicsDeviceImpl::resizeRenderTarget(RenderTargetHand
     return reconfigureRenderTarget(target, resizedDesc);
 }
 
-RenderTargetUpdateResult GraphicsDeviceImpl::reconfigureRenderTarget(RenderTargetHandle target, const RenderTargetDesc& desc)
+RenderTargetUpdateResult GraphicsDeviceImpl::reconfigureRenderTarget(RenderTargetHandle target,
+                                                                     const RenderTargetDesc& desc)
 {
     if (!mInitialized)
     {
@@ -198,15 +190,16 @@ RenderTargetUpdateResult GraphicsDeviceImpl::reconfigureRenderTarget(RenderTarge
     const bool recreateTextures = requiresTextureRecreate(it->second.desc, updatedDesc);
 
     RenderTargetResources updatedResources = it->second;
-    updatedResources.desc = updatedDesc;
-    updatedResources.colorFormat = updatedDesc.colorFormat;
-    updatedResources.depthFormat = updatedDesc.depthFormat;
+    updatedResources.desc                  = updatedDesc;
+    updatedResources.colorFormat           = updatedDesc.colorFormat;
+    updatedResources.depthFormat           = updatedDesc.depthFormat;
 
     if (mBackend == GraphicsBackend::Vulkan && recreateTextures)
     {
         if (mImmediateContext != nullptr)
         {
-            mImmediateContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+            mImmediateContext->SetRenderTargets(0, nullptr, nullptr,
+                                                Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
         }
 
         if (!createRenderTargetTextures(updatedDesc, updatedResources))
@@ -224,7 +217,7 @@ RenderTargetUpdateResult GraphicsDeviceImpl::reconfigureRenderTarget(RenderTarge
 
     if (mHasActiveRenderTarget && mActiveRenderTarget.id == target.id)
     {
-        mActiveRenderTargetHasDepth = it->second.desc.depth;
+        mActiveRenderTargetHasDepth    = it->second.desc.depth;
         mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
         if (it->second.colorTexture != nullptr)
         {
@@ -232,7 +225,8 @@ RenderTargetUpdateResult GraphicsDeviceImpl::reconfigureRenderTarget(RenderTarge
         }
     }
 
-    return recreateTextures ? RenderTargetUpdateResult::Recreated : RenderTargetUpdateResult::Unchanged;
+    return recreateTextures ? RenderTargetUpdateResult::Recreated
+                            : RenderTargetUpdateResult::Unchanged;
 }
 
 void GraphicsDeviceImpl::destroyRenderTarget(RenderTargetHandle target)
@@ -244,22 +238,23 @@ void GraphicsDeviceImpl::destroyRenderTarget(RenderTargetHandle target)
 
     if (mHasActiveRenderTarget && mActiveRenderTarget.id == target.id)
     {
-        mHasActiveRenderTarget = false;
+        mHasActiveRenderTarget      = false;
         mActiveRenderTargetHasDepth = false;
-        mActiveRenderTarget = {};
+        mActiveRenderTarget         = {};
     }
 
     Diligent::TEXTURE_FORMAT targetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
-    const auto targetIt = mRenderTargets.find(target.id);
+    const auto targetIt                        = mRenderTargets.find(target.id);
     if (targetIt != mRenderTargets.end())
     {
         targetColorFormat = targetIt->second.desc.colorFormat;
     }
 
-    auto completeRequestWithEmptyResult = [&](std::uint64_t requestId) {
+    auto completeRequestWithEmptyResult = [&](std::uint64_t requestId)
+    {
         RenderTargetReadbackEvent event{};
-        event.target = target;
-        event.colorFormat = targetColorFormat;
+        event.target                   = target;
+        event.colorFormat              = targetColorFormat;
         mCompletedReadbacks[requestId] = std::move(event);
     };
 
@@ -274,20 +269,19 @@ void GraphicsDeviceImpl::destroyRenderTarget(RenderTargetHandle target)
     }
 
     mPendingReadbackCopies.erase(
-        std::remove_if(
-            mPendingReadbackCopies.begin(),
-            mPendingReadbackCopies.end(),
-            [&](const PendingReadbackCopy& copy) {
-                if (copy.target.id != target.id)
-                {
-                    return false;
-                }
-                for (const std::uint64_t requestId : copy.requestIds)
-                {
-                    completeRequestWithEmptyResult(requestId);
-                }
-                return true;
-            }),
+        std::remove_if(mPendingReadbackCopies.begin(), mPendingReadbackCopies.end(),
+                       [&](const PendingReadbackCopy& copy)
+                       {
+                           if (copy.target.id != target.id)
+                           {
+                               return false;
+                           }
+                           for (const std::uint64_t requestId : copy.requestIds)
+                           {
+                               completeRequestWithEmptyResult(requestId);
+                           }
+                           return true;
+                       }),
         mPendingReadbackCopies.end());
     mRenderTargets.erase(target.id);
 }
@@ -311,7 +305,8 @@ void GraphicsDeviceImpl::beginFrame(const common::FrameContext& frameContext)
     (void)frameContext;
 }
 
-void GraphicsDeviceImpl::setRenderTargetViewport(RenderTargetHandle target, const RenderViewport& viewport)
+void GraphicsDeviceImpl::setRenderTargetViewport(RenderTargetHandle target,
+                                                 const RenderViewport& viewport)
 {
     const auto it = mRenderTargets.find(target.id);
     if (it == mRenderTargets.end())
@@ -322,10 +317,9 @@ void GraphicsDeviceImpl::setRenderTargetViewport(RenderTargetHandle target, cons
     it->second.viewport = common::runtime_math::normalizeViewport(viewport);
 }
 
-void GraphicsDeviceImpl::beginRenderTarget(
-    RenderTargetHandle target,
-    const common::FrameContext& frameContext,
-    const RenderPassBeginDesc& beginDesc)
+void GraphicsDeviceImpl::beginRenderTarget(RenderTargetHandle target,
+                                           const common::FrameContext& frameContext,
+                                           const RenderPassBeginDesc& beginDesc)
 {
     (void)frameContext;
     mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
@@ -364,58 +358,62 @@ void GraphicsDeviceImpl::beginRenderTarget(
 
     if (colorRtv != nullptr)
     {
-        mImmediateContext->SetRenderTargets(1, &colorRtv, depthDsv, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        mImmediateContext->SetRenderTargets(1, &colorRtv, depthDsv,
+                                            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         if (beginDesc.clearColor)
         {
-            mImmediateContext->ClearRenderTarget(colorRtv, beginDesc.clearColorValue, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            mImmediateContext->ClearRenderTarget(
+                colorRtv, beginDesc.clearColorValue,
+                Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         }
     }
     else
     {
-        mImmediateContext->SetRenderTargets(0, nullptr, depthDsv, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        mImmediateContext->SetRenderTargets(0, nullptr, depthDsv,
+                                            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
 
     if (depthDsv != nullptr && beginDesc.clearDepth)
     {
-        mImmediateContext->ClearDepthStencil(
-            depthDsv,
-            Diligent::CLEAR_DEPTH_FLAG,
-            beginDesc.clearDepthValue,
-            0,
-            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        mImmediateContext->ClearDepthStencil(depthDsv, Diligent::CLEAR_DEPTH_FLAG,
+                                             beginDesc.clearDepthValue, 0,
+                                             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
 
-    const float targetWidth = static_cast<float>(it->second.desc.width);
-    const float targetHeight = static_cast<float>(it->second.desc.height);
+    const float targetWidth       = static_cast<float>(it->second.desc.width);
+    const float targetHeight      = static_cast<float>(it->second.desc.height);
     const RenderViewport viewport = it->second.viewport;
 
     Diligent::Viewport diligentViewport{};
     diligentViewport.TopLeftX = viewport.x * targetWidth;
     diligentViewport.TopLeftY = viewport.y * targetHeight;
-    diligentViewport.Width = viewport.width * targetWidth;
-    diligentViewport.Height = viewport.height * targetHeight;
+    diligentViewport.Width    = viewport.width * targetWidth;
+    diligentViewport.Height   = viewport.height * targetHeight;
     diligentViewport.MinDepth = 0.0f;
     diligentViewport.MaxDepth = 1.0f;
-    mImmediateContext->SetViewports(1, &diligentViewport, it->second.desc.width, it->second.desc.height);
+    mImmediateContext->SetViewports(1, &diligentViewport, it->second.desc.width,
+                                    it->second.desc.height);
 
-    mActiveRenderTarget = target;
-    mHasActiveRenderTarget = true;
+    mActiveRenderTarget         = target;
+    mHasActiveRenderTarget      = true;
     mActiveRenderTargetHasDepth = (depthDsv != nullptr);
 }
 
-void GraphicsDeviceImpl::endRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext)
+void GraphicsDeviceImpl::endRenderTarget(RenderTargetHandle target,
+                                         const common::FrameContext& frameContext)
 {
     if (mHasActiveRenderTarget && mActiveRenderTarget.id == target.id)
     {
-        mHasActiveRenderTarget = false;
-        mActiveRenderTargetHasDepth = false;
+        mHasActiveRenderTarget         = false;
+        mActiveRenderTargetHasDepth    = false;
         mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
-        mActiveRenderTarget = {};
+        mActiveRenderTarget            = {};
     }
 
     if (mBackend == GraphicsBackend::Vulkan && mImmediateContext != nullptr)
     {
-        mImmediateContext->SetRenderTargets(0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+        mImmediateContext->SetRenderTargets(0, nullptr, nullptr,
+                                            Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
     }
 
     const auto pendingRequestsIt = mPendingReadbackRequests.find(target.id);
@@ -434,8 +432,8 @@ void GraphicsDeviceImpl::endRenderTarget(RenderTargetHandle target, const common
 
     // Fallback path for targets/backends without pixel payload support.
     RenderTargetReadbackEvent event{};
-    event.target = target;
-    event.frameIndex = frameContext.frameIndex;
+    event.target        = target;
+    event.frameIndex    = frameContext.frameIndex;
     const auto targetIt = mRenderTargets.find(target.id);
     if (targetIt != mRenderTargets.end())
     {
@@ -456,21 +454,24 @@ bool GraphicsDeviceImpl::tryGetVulkanContext(VulkanBackendContext& outContext)
 {
     outContext = {};
 
-    if (!mInitialized || mBackend != GraphicsBackend::Vulkan || mRenderDevice == nullptr || mImmediateContext == nullptr)
+    if (!mInitialized || mBackend != GraphicsBackend::Vulkan || mRenderDevice == nullptr ||
+        mImmediateContext == nullptr)
     {
         return false;
     }
 
-    outContext.renderDevice = mRenderDevice;
-    outContext.immediateContext = mImmediateContext;
+    outContext.renderDevice          = mRenderDevice;
+    outContext.immediateContext      = mImmediateContext;
     outContext.hasActiveRenderTarget = mHasActiveRenderTarget;
-    outContext.activeRenderTargetId = mHasActiveRenderTarget ? mActiveRenderTarget.id : common::kInvalidResourceId;
-    outContext.activeRenderTargetHasDepth = mActiveRenderTargetHasDepth;
+    outContext.activeRenderTargetId =
+        mHasActiveRenderTarget ? mActiveRenderTarget.id : common::kInvalidResourceId;
+    outContext.activeRenderTargetHasDepth    = mActiveRenderTargetHasDepth;
     outContext.activeRenderTargetColorFormat = mActiveRenderTargetColorFormat;
     return true;
 }
 
-bool GraphicsDeviceImpl::tryGetRenderTargetDesc(RenderTargetHandle target, RenderTargetDesc& outDesc) const
+bool GraphicsDeviceImpl::tryGetRenderTargetDesc(RenderTargetHandle target,
+                                                RenderTargetDesc& outDesc) const
 {
     const auto it = mRenderTargets.find(target.id);
     if (it == mRenderTargets.end())
@@ -483,7 +484,8 @@ bool GraphicsDeviceImpl::tryGetRenderTargetDesc(RenderTargetHandle target, Rende
     return true;
 }
 
-bool GraphicsDeviceImpl::tryGetRenderTargetColorTexture(RenderTargetHandle target, Diligent::ITexture*& outTexture)
+bool GraphicsDeviceImpl::tryGetRenderTargetColorTexture(RenderTargetHandle target,
+                                                        Diligent::ITexture*& outTexture)
 {
     outTexture = nullptr;
 
@@ -502,7 +504,8 @@ bool GraphicsDeviceImpl::tryGetRenderTargetColorTexture(RenderTargetHandle targe
     return true;
 }
 
-bool GraphicsDeviceImpl::tryGetRenderTargetDepthTexture(RenderTargetHandle target, Diligent::ITexture*& outTexture)
+bool GraphicsDeviceImpl::tryGetRenderTargetDepthTexture(RenderTargetHandle target,
+                                                        Diligent::ITexture*& outTexture)
 {
     outTexture = nullptr;
 
@@ -561,7 +564,8 @@ bool GraphicsDeviceImpl::createPrimarySwapChain()
     {
         return true;
     }
-    if (mBackend != GraphicsBackend::Vulkan || mRenderDevice == nullptr || mImmediateContext == nullptr)
+    if (mBackend != GraphicsBackend::Vulkan || mRenderDevice == nullptr ||
+        mImmediateContext == nullptr)
     {
         return false;
     }
@@ -597,7 +601,8 @@ bool GraphicsDeviceImpl::createPrimarySwapChain()
     }
     else
     {
-        std::cerr << "GraphicsDeviceImpl: presentation native display/connection is missing on Linux.\n";
+        std::cerr
+            << "GraphicsDeviceImpl: presentation native display/connection is missing on Linux.\n";
         return false;
     }
 #elif PLATFORM_MACOS
@@ -614,10 +619,12 @@ bool GraphicsDeviceImpl::createPrimarySwapChain()
 
     Diligent::SwapChainDesc swapChainDesc{};
     swapChainDesc.Width = common::runtime_math::clampExtent(
-        mDesc.defaultRenderTargetDesc.width == 0 ? kDefaultRenderTargetWidth : mDesc.defaultRenderTargetDesc.width);
+        mDesc.defaultRenderTargetDesc.width == 0 ? kDefaultRenderTargetWidth
+                                                 : mDesc.defaultRenderTargetDesc.width);
     swapChainDesc.Height = common::runtime_math::clampExtent(
-        mDesc.defaultRenderTargetDesc.height == 0 ? kDefaultRenderTargetHeight : mDesc.defaultRenderTargetDesc.height);
-    swapChainDesc.DepthBufferFormat = Diligent::TEX_FORMAT_UNKNOWN;
+        mDesc.defaultRenderTargetDesc.height == 0 ? kDefaultRenderTargetHeight
+                                                  : mDesc.defaultRenderTargetDesc.height);
+    swapChainDesc.DepthBufferFormat                     = Diligent::TEX_FORMAT_UNKNOWN;
     const Diligent::TEXTURE_FORMAT preferredColorFormat = mDesc.presentation.preferredColorFormat;
     if (preferredColorFormat != Diligent::TEX_FORMAT_UNKNOWN)
     {
@@ -631,14 +638,16 @@ bool GraphicsDeviceImpl::createPrimarySwapChain()
         swapChainDesc.ColorBufferFormat = Diligent::TEX_FORMAT_BGRA8_UNORM;
     }
 
-    factoryVk->CreateSwapChainVk(mRenderDevice, mImmediateContext, swapChainDesc, window, &mPrimarySwapChain);
+    factoryVk->CreateSwapChainVk(mRenderDevice, mImmediateContext, swapChainDesc, window,
+                                 &mPrimarySwapChain);
     if (mPrimarySwapChain == nullptr)
     {
         std::cerr << "GraphicsDeviceImpl: failed to create primary swapchain.\n";
         return false;
     }
 
-    const Diligent::TEXTURE_FORMAT actualSwapChainFormat = mPrimarySwapChain->GetDesc().ColorBufferFormat;
+    const Diligent::TEXTURE_FORMAT actualSwapChainFormat =
+        mPrimarySwapChain->GetDesc().ColorBufferFormat;
 
     // Force the default offscreen color target to the primary swapchain format.
     mDesc.defaultRenderTargetDesc.colorFormat = actualSwapChainFormat;
@@ -648,17 +657,18 @@ bool GraphicsDeviceImpl::createPrimarySwapChain()
 
 bool GraphicsDeviceImpl::createDefaultRenderTarget()
 {
-    RenderTargetDesc defaultDesc = normalizeDefaultRenderTargetDesc(mDesc.defaultRenderTargetDesc);
+    RenderTargetDesc defaultDesc  = normalizeDefaultRenderTargetDesc(mDesc.defaultRenderTargetDesc);
     mDesc.defaultRenderTargetDesc = defaultDesc;
 
     mDefaultRenderTarget = createRenderTarget(defaultDesc);
     return isValidRenderTarget(mDefaultRenderTarget);
 }
 
-RenderTargetDesc GraphicsDeviceImpl::normalizeDefaultRenderTargetDesc(const RenderTargetDesc& desc) const
+RenderTargetDesc GraphicsDeviceImpl::normalizeDefaultRenderTargetDesc(
+    const RenderTargetDesc& desc) const
 {
-    RenderTargetDesc normalized = desc;
-    std::uint32_t fallbackWidth = kDefaultRenderTargetWidth;
+    RenderTargetDesc normalized  = desc;
+    std::uint32_t fallbackWidth  = kDefaultRenderTargetWidth;
     std::uint32_t fallbackHeight = kDefaultRenderTargetHeight;
     if (mPrimarySwapChain != nullptr)
     {
@@ -672,12 +682,15 @@ RenderTargetDesc GraphicsDeviceImpl::normalizeDefaultRenderTargetDesc(const Rend
             fallbackHeight = swapChainDesc.Height;
         }
     }
-    normalized.width = common::runtime_math::clampExtent(normalized.width == 0 ? fallbackWidth : normalized.width);
-    normalized.height = common::runtime_math::clampExtent(normalized.height == 0 ? fallbackHeight : normalized.height);
+    normalized.width =
+        common::runtime_math::clampExtent(normalized.width == 0 ? fallbackWidth : normalized.width);
+    normalized.height = common::runtime_math::clampExtent(
+        normalized.height == 0 ? fallbackHeight : normalized.height);
     normalized.color = true;
     if (mPrimarySwapChain != nullptr)
     {
-        const Diligent::TEXTURE_FORMAT swapChainFormat = mPrimarySwapChain->GetDesc().ColorBufferFormat;
+        const Diligent::TEXTURE_FORMAT swapChainFormat =
+            mPrimarySwapChain->GetDesc().ColorBufferFormat;
         if (swapChainFormat == Diligent::TEX_FORMAT_UNKNOWN)
         {
             normalized.colorFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
@@ -704,13 +717,17 @@ RenderTargetDesc GraphicsDeviceImpl::normalizeDefaultRenderTargetDesc(const Rend
 
 RenderTargetDesc GraphicsDeviceImpl::normalizeTargetDesc(const RenderTargetDesc& desc) const
 {
-    RenderTargetDesc normalized = desc;
-    const std::uint32_t fallbackWidth =
-        common::runtime_math::clampExtent(mDesc.defaultRenderTargetDesc.width == 0 ? kDefaultRenderTargetWidth : mDesc.defaultRenderTargetDesc.width);
-    const std::uint32_t fallbackHeight =
-        common::runtime_math::clampExtent(mDesc.defaultRenderTargetDesc.height == 0 ? kDefaultRenderTargetHeight : mDesc.defaultRenderTargetDesc.height);
-    normalized.width = common::runtime_math::clampExtent(normalized.width == 0 ? fallbackWidth : normalized.width);
-    normalized.height = common::runtime_math::clampExtent(normalized.height == 0 ? fallbackHeight : normalized.height);
+    RenderTargetDesc normalized       = desc;
+    const std::uint32_t fallbackWidth = common::runtime_math::clampExtent(
+        mDesc.defaultRenderTargetDesc.width == 0 ? kDefaultRenderTargetWidth
+                                                 : mDesc.defaultRenderTargetDesc.width);
+    const std::uint32_t fallbackHeight = common::runtime_math::clampExtent(
+        mDesc.defaultRenderTargetDesc.height == 0 ? kDefaultRenderTargetHeight
+                                                  : mDesc.defaultRenderTargetDesc.height);
+    normalized.width =
+        common::runtime_math::clampExtent(normalized.width == 0 ? fallbackWidth : normalized.width);
+    normalized.height = common::runtime_math::clampExtent(
+        normalized.height == 0 ? fallbackHeight : normalized.height);
     if (normalized.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
     {
         normalized.colorFormat = mDesc.defaultRenderTargetDesc.colorFormat;
@@ -726,7 +743,8 @@ RenderTargetDesc GraphicsDeviceImpl::normalizeTargetDesc(const RenderTargetDesc&
     return normalized;
 }
 
-bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc, RenderTargetResources& resources)
+bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc,
+                                                    RenderTargetResources& resources)
 {
     if (!mRenderDevice || (!desc.color && !desc.depth))
     {
@@ -746,14 +764,14 @@ bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc
 
         Diligent::TextureDesc colorDesc{};
         const std::string colorName = desc.debugName + ".Color";
-        colorDesc.Name = colorName.c_str();
-        colorDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
-        colorDesc.Width = desc.width;
-        colorDesc.Height = desc.height;
-        colorDesc.MipLevels = 1;
-        colorDesc.ArraySize = 1;
-        colorDesc.Format = colorFormat;
-        colorDesc.BindFlags = Diligent::BIND_RENDER_TARGET;
+        colorDesc.Name              = colorName.c_str();
+        colorDesc.Type              = Diligent::RESOURCE_DIM_TEX_2D;
+        colorDesc.Width             = desc.width;
+        colorDesc.Height            = desc.height;
+        colorDesc.MipLevels         = 1;
+        colorDesc.ArraySize         = 1;
+        colorDesc.Format            = colorFormat;
+        colorDesc.BindFlags         = Diligent::BIND_RENDER_TARGET;
         if (desc.shaderReadable)
         {
             colorDesc.BindFlags |= Diligent::BIND_SHADER_RESOURCE;
@@ -761,7 +779,8 @@ bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc
         colorDesc.Usage = Diligent::USAGE_DEFAULT;
 
         mRenderDevice->CreateTexture(colorDesc, nullptr, &resources.colorTexture);
-        if (!resources.colorTexture || resources.colorTexture->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET) == nullptr)
+        if (!resources.colorTexture ||
+            resources.colorTexture->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET) == nullptr)
         {
             return false;
         }
@@ -769,7 +788,7 @@ bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc
 
     if (desc.depth)
     {
-        const Diligent::TEXTURE_FORMAT depthFormat = toDiligentDepthFormat(resources.depthFormat);
+        const Diligent::TEXTURE_FORMAT depthFormat = resources.depthFormat;
         if (depthFormat == Diligent::TEX_FORMAT_UNKNOWN)
         {
             return false;
@@ -777,14 +796,14 @@ bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc
 
         Diligent::TextureDesc depthDesc{};
         const std::string depthName = desc.debugName + ".Depth";
-        depthDesc.Name = depthName.c_str();
-        depthDesc.Type = Diligent::RESOURCE_DIM_TEX_2D;
-        depthDesc.Width = desc.width;
-        depthDesc.Height = desc.height;
-        depthDesc.MipLevels = 1;
-        depthDesc.ArraySize = 1;
-        depthDesc.Format = depthFormat;
-        depthDesc.BindFlags = Diligent::BIND_DEPTH_STENCIL;
+        depthDesc.Name              = depthName.c_str();
+        depthDesc.Type              = Diligent::RESOURCE_DIM_TEX_2D;
+        depthDesc.Width             = desc.width;
+        depthDesc.Height            = desc.height;
+        depthDesc.MipLevels         = 1;
+        depthDesc.ArraySize         = 1;
+        depthDesc.Format            = depthFormat;
+        depthDesc.BindFlags         = Diligent::BIND_DEPTH_STENCIL;
         if (desc.shaderReadable)
         {
             depthDesc.BindFlags |= Diligent::BIND_SHADER_RESOURCE;
@@ -792,7 +811,8 @@ bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc
         depthDesc.Usage = Diligent::USAGE_DEFAULT;
 
         mRenderDevice->CreateTexture(depthDesc, nullptr, &resources.depthTexture);
-        if (!resources.depthTexture || resources.depthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL) == nullptr)
+        if (!resources.depthTexture ||
+            resources.depthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL) == nullptr)
         {
             return false;
         }

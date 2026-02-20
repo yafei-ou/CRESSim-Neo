@@ -9,7 +9,6 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 
-#include <cstdint>
 #include <unordered_map>
 
 namespace cressim::neo::graphics::detail
@@ -20,25 +19,21 @@ class MaterialProgramRegistry
 public:
     struct ProgramKey
     {
-        MainPassClass passClass = MainPassClass::ForwardOpaque;
-        MaterialProgramFamily programFamily = MaterialProgramFamily::StandardLit;
-        std::uint32_t featureFlags = MaterialFeature_None;
+        MainPassClass passClass              = MainPassClass::ForwardOpaque;
+        MaterialProgramFamily programFamily  = MaterialProgramFamily::StandardLit;
+        MaterialFeatureFlags featureFlags    = MaterialFeatureFlags::None;
         Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
         Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
-        bool depthEnable = true;
-        bool depthWrite = true;
-        bool blendingEnabled = false;
+        bool depthEnable                     = true;
+        bool depthWrite                      = true;
+        bool blendingEnabled                 = false;
 
         bool operator==(const ProgramKey& rhs) const noexcept
         {
-            return passClass == rhs.passClass &&
-                programFamily == rhs.programFamily &&
-                featureFlags == rhs.featureFlags &&
-                colorFormat == rhs.colorFormat &&
-                depthFormat == rhs.depthFormat &&
-                depthEnable == rhs.depthEnable &&
-                depthWrite == rhs.depthWrite &&
-                blendingEnabled == rhs.blendingEnabled;
+            return passClass == rhs.passClass && programFamily == rhs.programFamily &&
+                   featureFlags == rhs.featureFlags && colorFormat == rhs.colorFormat &&
+                   depthFormat == rhs.depthFormat && depthEnable == rhs.depthEnable &&
+                   depthWrite == rhs.depthWrite && blendingEnabled == rhs.blendingEnabled;
         }
     };
 
@@ -56,22 +51,20 @@ public:
 public:
     explicit MaterialProgramRegistry(ShaderSourceProvider& shaderSourceProvider);
 
-    ProgramResources* getOrCreateProgram(Diligent::IRenderDevice* renderDevice, const ProgramKey& key);
+    ProgramResources* getOrCreateProgram(Diligent::IRenderDevice* renderDevice,
+                                         const ProgramKey& key);
 
-    static ProgramKey buildProgramKey(
-        MainPassClass passClass,
-        MaterialProgramFamily programFamily,
-        std::uint32_t featureFlags,
-        Diligent::TEXTURE_FORMAT colorFormat,
-        Diligent::TEXTURE_FORMAT depthFormat,
-        bool depthEnable,
-        bool depthWrite,
-        bool blendingEnabled) noexcept;
+    static ProgramKey buildProgramKey(MainPassClass passClass, MaterialProgramFamily programFamily,
+                                      MaterialFeatureFlags featureFlags,
+                                      Diligent::TEXTURE_FORMAT colorFormat,
+                                      Diligent::TEXTURE_FORMAT depthFormat, bool depthEnable,
+                                      bool depthWrite, bool blendingEnabled) noexcept;
 
     std::size_t cachedProgramCount() const noexcept;
 
 private:
-    bool createProgram(Diligent::IRenderDevice* renderDevice, const ProgramKey& key, ProgramResources& outResources);
+    bool createProgram(Diligent::IRenderDevice* renderDevice, const ProgramKey& key,
+                       ProgramResources& outResources);
 
 private:
     ShaderSourceProvider& mShaderSourceProvider;

@@ -9,10 +9,8 @@ namespace
 {
 
 template <typename T>
-void upsertByEntityId(
-    std::vector<T>& entries,
-    std::unordered_map<common::EntityId, std::size_t>& indices,
-    const T& value)
+void upsertByEntityId(std::vector<T>& entries,
+                      std::unordered_map<common::EntityId, std::size_t>& indices, const T& value)
 {
     const auto indexIt = indices.find(value.entityId);
     if (indexIt == indices.end())
@@ -27,10 +25,9 @@ void upsertByEntityId(
 }
 
 template <typename T>
-bool removeByEntityId(
-    std::vector<T>& entries,
-    std::unordered_map<common::EntityId, std::size_t>& indices,
-    common::EntityId entityId)
+bool removeByEntityId(std::vector<T>& entries,
+                      std::unordered_map<common::EntityId, std::size_t>& indices,
+                      common::EntityId entityId)
 {
     const auto indexIt = indices.find(entityId);
     if (indexIt == indices.end())
@@ -39,10 +36,10 @@ bool removeByEntityId(
     }
 
     const std::size_t removedIndex = indexIt->second;
-    const std::size_t lastIndex = entries.size() - 1;
+    const std::size_t lastIndex    = entries.size() - 1;
     if (removedIndex != lastIndex)
     {
-        entries[removedIndex] = std::move(entries[lastIndex]);
+        entries[removedIndex]                   = std::move(entries[lastIndex]);
         indices[entries[removedIndex].entityId] = removedIndex;
     }
     entries.pop_back();

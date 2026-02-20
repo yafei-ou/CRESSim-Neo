@@ -3,8 +3,8 @@
 
 #include "common/id.h"
 #include "common/math_types.h"
-#include "graphics/graphics_device.h"
 #include "graphics/export.h"
+#include "graphics/graphics_device.h"
 #include "graphics/render_resource_manager.h"
 
 #include <cstddef>
@@ -27,12 +27,12 @@ struct CameraData
     common::EntityId entityId = common::kInvalidEntityId;
     common::Transform worldTransform{};
     float verticalFovDegrees = 60.0f;
-    float nearClip = 0.01f;
-    float farClip = 1000.0f;
+    float nearClip           = 0.01f;
+    float farClip            = 1000.0f;
 
     // Render output and scheduling controls copied from engine::CameraComponent.
     RenderTargetHandle outputTarget{};
-    std::uint32_t outputWidth = 0;
+    std::uint32_t outputWidth  = 0;
     std::uint32_t outputHeight = 0;
     RenderViewport viewport{};
 
@@ -44,8 +44,8 @@ struct DirectionalLightData
     common::EntityId entityId = common::kInvalidEntityId;
     Diligent::float3 direction{0.0f, -1.0f, 0.0f};
     Diligent::float3 color{1.0f, 1.0f, 1.0f};
-    float intensity = 1.0f;
-    float shadowDistance = 120.0f;
+    float intensity          = 1.0f;
+    float shadowDistance     = 120.0f;
     float shadowFadeDistance = 20.0f;
 };
 

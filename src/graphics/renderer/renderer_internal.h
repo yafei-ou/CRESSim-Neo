@@ -15,12 +15,12 @@ namespace cressim::neo::graphics::detail
 
 struct PreparedRenderable
 {
-    const RenderableInstance* instance = nullptr;
-    const MeshResourceDesc* mesh = nullptr;
+    const RenderableInstance* instance   = nullptr;
+    const MeshResourceDesc* mesh         = nullptr;
     const MaterialResourceDesc* material = nullptr;
-    Diligent::float4x4 modelMatrix = Diligent::float4x4::Identity();
-    Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
-    bool hasWorldBounds = false;
+    Diligent::float4x4 modelMatrix       = Diligent::float4x4::Identity();
+    Diligent::float4x4 normalMatrix      = Diligent::float4x4::Identity();
+    bool hasWorldBounds                  = false;
     Diligent::BoundBox worldBounds{};
 };
 
@@ -29,20 +29,14 @@ Diligent::float4x4 worldMatrixFromTransform(const common::Transform& transform);
 Diligent::float4x4 normalMatrixFromModelMatrix(const Diligent::float4x4& modelMatrix);
 ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightData>& lights);
 std::vector<PreparedRenderable> buildPreparedRenderables(
-    const std::vector<RenderableInstance>& renderables,
-    const RenderResourceManager& resources);
+    const std::vector<RenderableInstance>& renderables, const RenderResourceManager& resources);
 bool isVisibleByFrustum(const PreparedRenderable& renderable, const Diligent::ViewFrustum& frustum);
-FrameViewData buildFrameViewData(
-    const CameraData& camera,
-    const RenderTargetDesc& targetDesc,
-    RenderTargetHandle target,
-    const RenderViewport& viewport,
-    const ForwardDirectionalLightData& lightData);
+FrameViewData buildFrameViewData(const CameraData& camera, const RenderTargetDesc& targetDesc,
+                                 RenderTargetHandle target, const RenderViewport& viewport,
+                                 const ForwardDirectionalLightData& lightData);
 CameraRenderQueues buildCameraRenderQueues(
-    const std::vector<PreparedRenderable>& preparedRenderables,
-    const FrameViewData& frameView,
-    const RenderResourceManager& resources,
-    RenderStats& stats);
+    const std::vector<PreparedRenderable>& preparedRenderables, const FrameViewData& frameView,
+    const RenderResourceManager& resources, RenderStats& stats);
 CameraData defaultCamera();
 std::vector<CameraData> sortedCameras(const RenderWorld& world);
 

@@ -15,7 +15,8 @@ bool isVisibleByFrustum(const PreparedRenderable& renderable, const Diligent::Vi
         return true;
     }
 
-    const Diligent::BoxVisibility visibility = Diligent::GetBoxVisibility(frustum, renderable.worldBounds);
+    const Diligent::BoxVisibility visibility =
+        Diligent::GetBoxVisibility(frustum, renderable.worldBounds);
     return visibility != Diligent::BoxVisibility::Invisible;
 }
 

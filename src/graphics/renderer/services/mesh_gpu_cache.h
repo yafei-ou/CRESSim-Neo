@@ -21,13 +21,14 @@ public:
 
     struct CachedBuffers
     {
-        std::uint64_t version = 0;
+        std::uint64_t version    = 0;
         std::uint32_t indexCount = 0;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> vertexBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> indexBuffer;
     };
 
-    CachedBuffers* getOrCreate(const ForwardDrawCommand& drawCommand, Diligent::IRenderDevice* renderDevice);
+    CachedBuffers* getOrCreate(const ForwardDrawCommand& drawCommand,
+                               Diligent::IRenderDevice* renderDevice);
 
 private:
     std::string mDebugPrefix;

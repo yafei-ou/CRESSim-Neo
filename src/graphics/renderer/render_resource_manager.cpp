@@ -69,7 +69,8 @@ const MeshResourceDesc* RenderResourceManager::tryGetMesh(MeshHandle mesh) const
     return &it->second.desc;
 }
 
-const MaterialResourceDesc* RenderResourceManager::tryGetMaterial(MaterialHandle material) const noexcept
+const MaterialResourceDesc* RenderResourceManager::tryGetMaterial(
+    MaterialHandle material) const noexcept
 {
     const auto it = mMaterials.find(material.id);
     if (it == mMaterials.end())
@@ -79,7 +80,8 @@ const MaterialResourceDesc* RenderResourceManager::tryGetMaterial(MaterialHandle
     return &it->second;
 }
 
-const TextureResourceDesc* RenderResourceManager::tryGetTexture(TextureHandle texture) const noexcept
+const TextureResourceDesc* RenderResourceManager::tryGetTexture(
+    TextureHandle texture) const noexcept
 {
     const auto it = mTextures.find(texture.id);
     if (it == mTextures.end())
@@ -89,7 +91,8 @@ const TextureResourceDesc* RenderResourceManager::tryGetTexture(TextureHandle te
     return &it->second;
 }
 
-bool RenderResourceManager::tryGetMeshLocalBounds(MeshHandle mesh, Diligent::float3& outMin, Diligent::float3& outMax) const noexcept
+bool RenderResourceManager::tryGetMeshLocalBounds(MeshHandle mesh, Diligent::float3& outMin,
+                                                  Diligent::float3& outMax) const noexcept
 {
     const auto it = mMeshes.find(mesh.id);
     if (it == mMeshes.end() || !it->second.hasLocalBounds)

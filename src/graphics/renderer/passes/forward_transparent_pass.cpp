@@ -3,10 +3,7 @@
 namespace cressim::neo::graphics::detail
 {
 
-ForwardTransparentPass::ForwardTransparentPass(GraphicsDeviceImpl& device) :
-    mDevice(device)
-{
-}
+ForwardTransparentPass::ForwardTransparentPass(GraphicsDeviceImpl& device) : mDevice(device) {}
 
 bool ForwardTransparentPass::initialize()
 {

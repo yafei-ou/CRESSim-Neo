@@ -33,14 +33,16 @@ public:
 
     bool initialize();
     bool beginCameraFrame(const FrameViewData& frameView);
-    void setShadowMapTargets(const std::array<RenderTargetHandle, kShadowCascadeCount>& shadowMapTargets, std::uint32_t shadowMapCount);
+    void setShadowMapTargets(
+        const std::array<RenderTargetHandle, kShadowCascadeCount>& shadowMapTargets,
+        std::uint32_t shadowMapCount);
     bool draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand);
     std::size_t cachedProgramCount() const noexcept;
 
 private:
     struct ForwardPerFrameConstants
     {
-        Diligent::float4x4 viewMatrix = Diligent::float4x4::Identity();
+        Diligent::float4x4 viewMatrix           = Diligent::float4x4::Identity();
         Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
         std::array<Diligent::float4x4, kShadowCascadeCount> lightViewProjectionMatrices{};
         Diligent::float4 cameraPosition{0.0f, 0.0f, 0.0f, 0.0f};
@@ -53,7 +55,7 @@ private:
 
     struct PerObjectConstants
     {
-        Diligent::float4x4 modelMatrix = Diligent::float4x4::Identity();
+        Diligent::float4x4 modelMatrix  = Diligent::float4x4::Identity();
         Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
     };
 

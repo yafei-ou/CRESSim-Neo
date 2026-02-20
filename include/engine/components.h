@@ -23,13 +23,13 @@ struct MeshRendererComponent
 struct CameraComponent
 {
     float verticalFovDegrees = 60.0f;
-    float nearClip = 0.01f;
-    float farClip = 1000.0f;
+    float nearClip           = 0.01f;
+    float farClip            = 1000.0f;
 
     // If invalid, renderer falls back to device.defaultRenderTarget().
     graphics::RenderTargetHandle outputTarget{};
     // Optional per-camera output resize request (0 keeps current target size).
-    std::uint32_t outputWidth = 0;
+    std::uint32_t outputWidth  = 0;
     std::uint32_t outputHeight = 0;
     // Normalized viewport on the chosen output target.
     graphics::RenderViewport viewport{};
@@ -42,8 +42,8 @@ struct DirectionalLightComponent
 {
     Diligent::float3 direction{0.0f, -1.0f, 0.0f};
     Diligent::float3 color{1.0f, 1.0f, 1.0f};
-    float intensity = 1.0f;
-    float shadowDistance = 120.0f;
+    float intensity          = 1.0f;
+    float shadowDistance     = 120.0f;
     float shadowFadeDistance = 20.0f;
 };
 

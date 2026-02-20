@@ -19,6 +19,6 @@ set_target_properties(${TARGET_NAME}
 )
 
 add_test(
-    NAME cressim_neo_forward_pipeline_null
+    NAME cressim_neo_forward_pipeline_vulkan
     COMMAND ${TARGET_NAME}
 )

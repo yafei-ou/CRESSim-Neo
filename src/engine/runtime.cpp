@@ -23,7 +23,8 @@ bool Runtime::initialize(const RuntimeConfig& config)
         return false;
     }
 
-    mRenderer = std::make_unique<graphics::Renderer>(*mGraphicsDevice, mResources, config.rendererDesc);
+    mRenderer =
+        std::make_unique<graphics::Renderer>(*mGraphicsDevice, mResources, config.rendererDesc);
     if (!mRenderer->initialize())
     {
         mRenderer.reset();
@@ -51,9 +52,9 @@ void Runtime::shutdown()
         mGraphicsDevice.reset();
     }
 
-    mLastRenderStats = {};
+    mLastRenderStats         = {};
     mLastSyncedWorldRevision = ~0ull;
-    mInitialized = false;
+    mInitialized             = false;
 }
 
 void Runtime::tick(const common::FrameContext& frameContext)
@@ -63,8 +64,8 @@ void Runtime::tick(const common::FrameContext& frameContext)
         return;
     }
 
-    const bool syncSkipped = syncWorldToRenderWorld();
-    mLastRenderStats = mRenderer->render(frameContext, mRenderWorld);
+    const bool syncSkipped                  = syncWorldToRenderWorld();
+    mLastRenderStats                        = mRenderer->render(frameContext, mRenderWorld);
     mLastRenderStats.worldSyncSkippedFrames = syncSkipped ? 1u : 0u;
 }
 
@@ -88,7 +89,8 @@ const graphics::GraphicsDevice* Runtime::getGraphicsDevice() const noexcept
     return mGraphicsDevice.get();
 }
 
-graphics::RenderTargetReadbackRequest Runtime::requestRenderTargetReadback(graphics::RenderTargetHandle target)
+graphics::RenderTargetReadbackRequest Runtime::requestRenderTargetReadback(
+    graphics::RenderTargetHandle target)
 {
     if (!mGraphicsDevice)
     {
@@ -97,7 +99,8 @@ graphics::RenderTargetReadbackRequest Runtime::requestRenderTargetReadback(graph
     return mGraphicsDevice->requestRenderTargetReadback(target);
 }
 
-bool Runtime::tryGetRenderTargetReadback(graphics::RenderTargetReadbackRequest request, graphics::RenderTargetReadbackEvent& outEvent)
+bool Runtime::tryGetRenderTargetReadback(graphics::RenderTargetReadbackRequest request,
+                                         graphics::RenderTargetReadbackEvent& outEvent)
 {
     if (!mGraphicsDevice)
     {

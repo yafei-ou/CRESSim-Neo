@@ -18,8 +18,7 @@ using cressim::neo::engine::TransformComponent;
 using cressim::neo::graphics::BlendMode;
 using cressim::neo::graphics::GraphicsBackend;
 using cressim::neo::graphics::MaterialResourceDesc;
-using cressim::neo::graphics::MaterialFeature_AlphaTest;
-using cressim::neo::graphics::MaterialFeature_None;
+using cressim::neo::graphics::MaterialFeatureFlags;
 using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::graphics::MainPassClass;
 using cressim::neo::graphics::RenderStats;
@@ -51,7 +50,7 @@ bool sameStats(const RenderStats& lhs, const RenderStats& rhs)
 int main()
 {
     RuntimeConfig config{};
-    config.graphicsDeviceDesc.preferredBackend = GraphicsBackend::Null;
+    config.graphicsDeviceDesc.preferredBackend = GraphicsBackend::Vulkan;
 
     Runtime runtime;
     if (!runtime.initialize(config))
@@ -159,9 +158,14 @@ int main()
                   << " shadow=" << firstFrame.shadowCasterQueueCount << '\n';
         return 1;
     }
-    if (firstFrame.transparentDrawCalls != 0 || firstFrame.shadowDrawCalls != 0)
+    if (firstFrame.transparentDrawCalls != 0)
     {
-        std::cerr << "Transparent pass should remain hook-only and null backend should report zero shadow draws.\n";
+        std::cerr << "Transparent pass should remain hook-only.\n";
+        return 1;
+    }
+    if (firstFrame.shadowDrawCalls != 8) // 2 objects * 4 cascades
+    {
+        std::cerr << "Unexpected shadow draws.\n";
         return 1;
     }
     if (firstFrame.cameraCount != 1 || firstFrame.lightCount != 1)
@@ -183,7 +187,7 @@ int main()
     MaterialResourceDesc runtimeVariantA{};
     runtimeVariantA.baseColor = {1.0f, 0.2f, 0.2f};
     runtimeVariantA.roughness = 0.15f;
-    runtimeVariantA.pipeline.featureFlags = MaterialFeature_None;
+    runtimeVariantA.pipeline.featureFlags = MaterialFeatureFlags::None;
 
     MaterialResourceDesc runtimeVariantB = runtimeVariantA;
     runtimeVariantB.baseColor = {0.1f, 0.8f, 0.4f};
@@ -215,7 +219,7 @@ int main()
     }
 
     MaterialResourceDesc featureVariant = runtimeVariantA;
-    featureVariant.pipeline.featureFlags = MaterialFeature_AlphaTest;
+    featureVariant.pipeline.featureFlags = MaterialFeatureFlags::AlphaTest;
     const auto keyC = MaterialProgramRegistry::buildProgramKey(
         MainPassClass::ForwardOpaque,
         featureVariant.pipeline.programFamily,
@@ -231,6 +235,6 @@ int main()
         return 1;
     }
 
-    std::cout << "Forward pipeline null-backend checks passed.\n";
+    std::cout << "Forward pipeline vulkan-backend checks passed.\n";
     return 0;
 }

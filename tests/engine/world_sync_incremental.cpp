@@ -30,7 +30,7 @@ void tick(Runtime& runtime, FrameContext& frame)
 int main()
 {
     RuntimeConfig config{};
-    config.graphicsDeviceDesc.preferredBackend = GraphicsBackend::Null;
+    config.graphicsDeviceDesc.preferredBackend = GraphicsBackend::Vulkan;
 
     Runtime runtime;
     if (!runtime.initialize(config))

@@ -22,11 +22,11 @@ class GraphicsDeviceImpl final : public GraphicsDevice
 public:
     struct VulkanBackendContext
     {
-        Diligent::IRenderDevice* renderDevice = nullptr;
-        Diligent::IDeviceContext* immediateContext = nullptr;
-        common::ResourceId activeRenderTargetId = common::kInvalidResourceId;
-        bool hasActiveRenderTarget = false;
-        bool activeRenderTargetHasDepth = false;
+        Diligent::IRenderDevice* renderDevice                  = nullptr;
+        Diligent::IDeviceContext* immediateContext             = nullptr;
+        common::ResourceId activeRenderTargetId                = common::kInvalidResourceId;
+        bool hasActiveRenderTarget                             = false;
+        bool activeRenderTargetHasDepth                        = false;
         Diligent::TEXTURE_FORMAT activeRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
     };
 
@@ -34,22 +34,26 @@ public:
     void shutdown() override;
 
     RenderTargetHandle createRenderTarget(const RenderTargetDesc& desc) override;
-    RenderTargetUpdateResult resizeRenderTarget(RenderTargetHandle target, std::uint32_t width, std::uint32_t height) override;
-    RenderTargetUpdateResult reconfigureRenderTarget(RenderTargetHandle target, const RenderTargetDesc& desc) override;
+    RenderTargetUpdateResult resizeRenderTarget(RenderTargetHandle target, std::uint32_t width,
+                                                std::uint32_t height) override;
+    RenderTargetUpdateResult reconfigureRenderTarget(RenderTargetHandle target,
+                                                     const RenderTargetDesc& desc) override;
     void destroyRenderTarget(RenderTargetHandle target) override;
     bool isValidRenderTarget(RenderTargetHandle target) const override;
-    bool tryGetRenderTargetDesc(RenderTargetHandle target, RenderTargetDesc& outDesc) const override;
+    bool tryGetRenderTargetDesc(RenderTargetHandle target,
+                                RenderTargetDesc& outDesc) const override;
     RenderTargetHandle defaultRenderTarget() const override;
 
     void beginFrame(const common::FrameContext& frameContext) override;
-    void setRenderTargetViewport(RenderTargetHandle target, const RenderViewport& viewport) override;
-    void beginRenderTarget(
-        RenderTargetHandle target,
-        const common::FrameContext& frameContext,
-        const RenderPassBeginDesc& beginDesc) override;
-    void endRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext) override;
+    void setRenderTargetViewport(RenderTargetHandle target,
+                                 const RenderViewport& viewport) override;
+    void beginRenderTarget(RenderTargetHandle target, const common::FrameContext& frameContext,
+                           const RenderPassBeginDesc& beginDesc) override;
+    void endRenderTarget(RenderTargetHandle target,
+                         const common::FrameContext& frameContext) override;
     RenderTargetReadbackRequest requestRenderTargetReadback(RenderTargetHandle target) override;
-    bool tryGetRenderTargetReadback(RenderTargetReadbackRequest request, RenderTargetReadbackEvent& outEvent) override;
+    bool tryGetRenderTargetReadback(RenderTargetReadbackRequest request,
+                                    RenderTargetReadbackEvent& outEvent) override;
     void endFrame(const common::FrameContext& frameContext) override;
 
     GraphicsBackend backend() const override;
@@ -64,7 +68,7 @@ private:
         RenderTargetDesc desc{};
         RenderViewport viewport{};
         Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
-        RenderTargetDepthFormat depthFormat = RenderTargetDepthFormat::D32Float;
+        Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_D32_FLOAT;
         Diligent::RefCntAutoPtr<Diligent::ITexture> colorTexture;
         Diligent::RefCntAutoPtr<Diligent::ITexture> depthTexture;
     };
@@ -73,10 +77,10 @@ private:
     {
         std::vector<std::uint64_t> requestIds{};
         RenderTargetHandle target{};
-        std::uint64_t frameIndex = 0;
-        std::uint64_t fenceValue = 0;
-        std::uint32_t width = 0;
-        std::uint32_t height = 0;
+        std::uint64_t frameIndex             = 0;
+        std::uint64_t fenceValue             = 0;
+        std::uint32_t width                  = 0;
+        std::uint32_t height                 = 0;
         Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
         Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
     };
@@ -89,17 +93,18 @@ private:
     RenderTargetDesc normalizeTargetDesc(const RenderTargetDesc& desc) const;
     bool createRenderTargetTextures(const RenderTargetDesc& desc, RenderTargetResources& resources);
 
-    bool queueReadbackCopy(RenderTargetHandle target, std::uint64_t frameIndex, const std::vector<std::uint64_t>& requestIds);
+    bool queueReadbackCopy(RenderTargetHandle target, std::uint64_t frameIndex,
+                           const std::vector<std::uint64_t>& requestIds);
 
 private:
     GraphicsDeviceDesc mDesc{};
-    GraphicsBackend mBackend = GraphicsBackend::Null;
-    bool mInitialized = false;
-    bool mHasActiveRenderTarget = false;
-    bool mActiveRenderTargetHasDepth = false;
+    GraphicsBackend mBackend                                = GraphicsBackend::Null;
+    bool mInitialized                                       = false;
+    bool mHasActiveRenderTarget                             = false;
+    bool mActiveRenderTargetHasDepth                        = false;
     Diligent::TEXTURE_FORMAT mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
-    common::ResourceId mNextRenderTargetId = 1;
-    std::uint64_t mNextReadbackRequestId = 1;
+    common::ResourceId mNextRenderTargetId                  = 1;
+    std::uint64_t mNextReadbackRequestId                    = 1;
     RenderTargetHandle mDefaultRenderTarget{};
     RenderTargetHandle mActiveRenderTarget{};
 

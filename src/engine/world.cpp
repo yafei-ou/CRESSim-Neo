@@ -42,7 +42,8 @@ const std::vector<common::EntityId>& World::entities() const noexcept
     return mEntities;
 }
 
-TransformComponent& World::setTransform(common::EntityId entityId, const TransformComponent& component)
+TransformComponent& World::setTransform(common::EntityId entityId,
+                                        const TransformComponent& component)
 {
     if (entityId == common::kInvalidEntityId)
     {
@@ -55,7 +56,8 @@ TransformComponent& World::setTransform(common::EntityId entityId, const Transfo
     return updated;
 }
 
-MeshRendererComponent& World::setMeshRenderer(common::EntityId entityId, const MeshRendererComponent& component)
+MeshRendererComponent& World::setMeshRenderer(common::EntityId entityId,
+                                              const MeshRendererComponent& component)
 {
     if (entityId == common::kInvalidEntityId)
     {
@@ -81,7 +83,8 @@ CameraComponent& World::setCamera(common::EntityId entityId, const CameraCompone
     return updated;
 }
 
-DirectionalLightComponent& World::setDirectionalLight(common::EntityId entityId, const DirectionalLightComponent& component)
+DirectionalLightComponent& World::setDirectionalLight(common::EntityId entityId,
+                                                      const DirectionalLightComponent& component)
 {
     if (entityId == common::kInvalidEntityId)
     {

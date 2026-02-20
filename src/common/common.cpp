@@ -1,5 +1,3 @@
-#include "common/frame_context.h"
-
 namespace cressim::neo::common
 {
 

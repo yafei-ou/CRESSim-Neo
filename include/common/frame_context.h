@@ -9,8 +9,8 @@ namespace cressim::neo::common
 struct FrameContext
 {
     std::uint64_t frameIndex = 0;
-    double timeSeconds = 0.0;
-    float deltaSeconds = 0.0f;
+    double timeSeconds       = 0.0;
+    float deltaSeconds       = 0.0f;
 };
 
 } // namespace cressim::neo::common
