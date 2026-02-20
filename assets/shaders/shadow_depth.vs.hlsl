@@ -1,3 +1,5 @@
+#include "include/shadow_constants.hlsli"
+
 struct VSInput
 {
     float3 Position : ATTRIB0;
@@ -8,12 +10,6 @@ struct VSInput
 struct VSOutput
 {
     float4 Position : SV_Position;
-};
-
-cbuffer ShadowConstants
-{
-    float4x4 g_Model;
-    float4x4 g_LightViewProjection;
 };
 
 void main(in VSInput In, out VSOutput Out)

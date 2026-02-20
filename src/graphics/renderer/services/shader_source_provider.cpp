@@ -1,17 +1,17 @@
 #include "graphics/renderer/services/shader_source_provider.h"
 
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/include/DefaultShaderSourceStreamFactory.h"
+#include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
+
 #include <filesystem>
-#include <fstream>
-#include <iterator>
 #include <utility>
 #include <vector>
 
 namespace cressim::neo::graphics::detail
 {
 
-ShaderSourceProvider::ShaderSourceProvider(std::string shaderDirectory, bool allowFallback) :
-    mShaderDirectory(std::move(shaderDirectory)),
-    mAllowFallback(allowFallback)
+ShaderSourceProvider::ShaderSourceProvider(std::string shaderDirectory) :
+    mShaderDirectory(std::move(shaderDirectory))
 {
 }
 
@@ -55,46 +55,59 @@ bool ShaderSourceProvider::resolveShaderDirectory()
     return false;
 }
 
-bool ShaderSourceProvider::loadSource(const char* relativePath, const char* fallbackSource, std::string& outSource)
+bool ShaderSourceProvider::resolveShaderPath(const char* relativePath, std::string& outPath)
 {
     if (relativePath == nullptr || relativePath[0] == '\0')
     {
+        LOG_ERROR_MESSAGE("Shader path resolution failed: empty shader relative path.");
+        return false;
+    }
+    if (!resolveShaderDirectory())
+    {
+        LOG_ERROR_MESSAGE("Shader path resolution failed for '", relativePath, "': shader directory could not be resolved.");
         return false;
     }
 
-    const std::string shaderKey = relativePath;
-    const auto cachedIt = mShaderSourceCache.find(shaderKey);
-    if (cachedIt != mShaderSourceCache.end())
+    const std::filesystem::path shaderPath = std::filesystem::path(mResolvedShaderDirectory) / relativePath;
+    std::error_code error;
+    if (!std::filesystem::exists(shaderPath, error) || !std::filesystem::is_regular_file(shaderPath, error))
     {
-        outSource = cachedIt->second;
+        LOG_ERROR_MESSAGE("Shader file not found: relative='", relativePath, "' resolved='", shaderPath.lexically_normal().string(), "'");
+        return false;
+    }
+
+    outPath = shaderPath.lexically_normal().string();
+    return true;
+}
+
+Diligent::IShaderSourceInputStreamFactory* ShaderSourceProvider::streamFactory()
+{
+    if (!ensureStreamFactory())
+    {
+        return nullptr;
+    }
+    return mStreamFactory;
+}
+
+bool ShaderSourceProvider::ensureStreamFactory()
+{
+    if (mStreamFactory != nullptr)
+    {
         return true;
     }
-
-    if (resolveShaderDirectory())
+    if (!resolveShaderDirectory())
     {
-        const std::filesystem::path shaderPath = std::filesystem::path(mResolvedShaderDirectory) / relativePath;
-        std::ifstream shaderFile(shaderPath, std::ios::binary);
-        if (shaderFile.is_open())
-        {
-            std::string fileSource{
-                std::istreambuf_iterator<char>{shaderFile},
-                std::istreambuf_iterator<char>{}};
-            if (!fileSource.empty())
-            {
-                mShaderSourceCache.emplace(shaderKey, fileSource);
-                outSource = std::move(fileSource);
-                return true;
-            }
-        }
+        LOG_ERROR_MESSAGE("Failed to create shader source stream factory: shader directory could not be resolved.");
+        return false;
     }
 
-    if (mAllowFallback && fallbackSource != nullptr)
+    Diligent::CreateDefaultShaderSourceStreamFactory(mResolvedShaderDirectory.c_str(), &mStreamFactory);
+    if (mStreamFactory == nullptr)
     {
-        outSource = fallbackSource;
-        return true;
+        LOG_ERROR_MESSAGE("Failed to create shader source stream factory for directory '", mResolvedShaderDirectory, "'.");
+        return false;
     }
-
-    return false;
+    return true;
 }
 
 } // namespace cressim::neo::graphics::detail

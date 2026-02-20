@@ -56,7 +56,6 @@ public:
     bool tryGetRenderTargetColorTexture(RenderTargetHandle target, Diligent::ITexture*& outTexture);
     bool tryGetRenderTargetDepthTexture(RenderTargetHandle target, Diligent::ITexture*& outTexture);
     const std::string& shaderSourceDirectory() const;
-    bool allowShaderFallback() const;
 
 private:
     struct RenderTargetResources

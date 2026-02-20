@@ -39,9 +39,14 @@ private:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> indexBuffer;
     };
 
-    struct DrawConstants
+    struct PerObjectConstants
     {
         Diligent::float4x4 modelMatrix = Diligent::float4x4::Identity();
+        Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
+    };
+
+    struct ShadowPerPassConstants
+    {
         Diligent::float4x4 lightViewProjectionMatrix = Diligent::float4x4::Identity();
     };
 
@@ -49,6 +54,7 @@ private:
         const ForwardDrawCommand& drawCommand,
         Diligent::IRenderDevice* renderDevice);
     bool createPipeline(Diligent::IRenderDevice* renderDevice);
+    bool ensureConstantBuffers(Diligent::IRenderDevice* renderDevice);
 
 private:
     GraphicsDeviceImpl& mDevice;
@@ -58,7 +64,8 @@ private:
     std::unordered_map<common::ResourceId, CachedMeshGpuData> mCachedMeshes;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mPipelineState;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mShaderResourceBinding;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mConstantBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mShadowPerPassBuffer;
 };
 
 } // namespace detail

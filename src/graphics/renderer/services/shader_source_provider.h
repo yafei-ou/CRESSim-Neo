@@ -1,8 +1,10 @@
 #ifndef CRESSIM_NEO_GRAPHICS_RENDERER_SERVICES_SHADER_SOURCE_PROVIDER_H
 #define CRESSIM_NEO_GRAPHICS_RENDERER_SERVICES_SHADER_SOURCE_PROVIDER_H
 
+#include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Shader.h"
+
 #include <string>
-#include <unordered_map>
 
 namespace cressim::neo::graphics::detail
 {
@@ -10,19 +12,20 @@ namespace cressim::neo::graphics::detail
 class ShaderSourceProvider
 {
 public:
-    ShaderSourceProvider(std::string shaderDirectory, bool allowFallback);
+    explicit ShaderSourceProvider(std::string shaderDirectory);
 
-    bool loadSource(const char* relativePath, const char* fallbackSource, std::string& outSource);
+    bool resolveShaderPath(const char* relativePath, std::string& outPath);
+    Diligent::IShaderSourceInputStreamFactory* streamFactory();
 
 private:
     bool resolveShaderDirectory();
+    bool ensureStreamFactory();
 
 private:
     std::string mShaderDirectory;
-    bool mAllowFallback = true;
     bool mShaderDirectoryResolved = false;
     std::string mResolvedShaderDirectory;
-    std::unordered_map<std::string, std::string> mShaderSourceCache;
+    Diligent::RefCntAutoPtr<Diligent::IShaderSourceInputStreamFactory> mStreamFactory;
 };
 
 } // namespace cressim::neo::graphics::detail

@@ -1,6 +1,6 @@
 #include "graphics/renderer/passes/material_program_registry.h"
 
-#include "graphics/device/shaders/shader_fallback_sources.h"
+#include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
 
 #include <array>
 #include <functional>
@@ -17,6 +17,19 @@ void hashCombine(std::size_t& seed, T value)
 {
     const auto hashed = std::hash<T>{}(value);
     seed ^= hashed + 0x9e3779b97f4a7c15ull + (seed << 6u) + (seed >> 2u);
+}
+
+const char* passClassName(MainPassClass passClass)
+{
+    switch (passClass)
+    {
+    case MainPassClass::ForwardOpaque:
+        return "ForwardOpaque";
+    case MainPassClass::ForwardTransparent:
+        return "ForwardTransparent";
+    default:
+        return "Unknown";
+    }
 }
 
 Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 4>& macros, std::uint32_t featureFlags)
@@ -129,15 +142,37 @@ bool MaterialProgramRegistry::createProgram(
         return false;
     }
 
-    std::string pbrVsSource;
-    if (!mShaderSourceProvider.loadSource("pbr.vs.hlsl", shaders::pbrVertex(), pbrVsSource))
+    constexpr const char* kPbrVsRelativePath = "pbr.vs.hlsl";
+    constexpr const char* kPbrPsRelativePath = "pbr.ps.hlsl";
+
+    std::string pbrVsPath;
+    if (!mShaderSourceProvider.resolveShaderPath(kPbrVsRelativePath, pbrVsPath))
     {
+        LOG_ERROR_MESSAGE(
+            "MaterialProgramRegistry failed to resolve vertex shader path for pass=",
+            passClassName(key.passClass),
+            " relative='",
+            kPbrVsRelativePath,
+            "'.");
         return false;
     }
 
-    std::string pbrPsSource;
-    if (!mShaderSourceProvider.loadSource("pbr.ps.hlsl", shaders::pbrPixel(), pbrPsSource))
+    std::string pbrPsPath;
+    if (!mShaderSourceProvider.resolveShaderPath(kPbrPsRelativePath, pbrPsPath))
     {
+        LOG_ERROR_MESSAGE(
+            "MaterialProgramRegistry failed to resolve pixel shader path for pass=",
+            passClassName(key.passClass),
+            " relative='",
+            kPbrPsRelativePath,
+            "'.");
+        return false;
+    }
+
+    Diligent::IShaderSourceInputStreamFactory* streamFactory = mShaderSourceProvider.streamFactory();
+    if (streamFactory == nullptr)
+    {
+        LOG_ERROR_MESSAGE("MaterialProgramRegistry failed to get stream factory for pass=", passClassName(key.passClass), ".");
         return false;
     }
 
@@ -149,24 +184,37 @@ bool MaterialProgramRegistry::createProgram(
     shaderCreateInfo.Desc.UseCombinedTextureSamplers = true;
     shaderCreateInfo.EntryPoint = "main";
     shaderCreateInfo.Macros = macroArray;
+    shaderCreateInfo.pShaderSourceStreamFactory = streamFactory;
 
     Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
     shaderCreateInfo.Desc.Name = "CRESSimNeo.ForwardOpaque.StandardLit.VS";
-    shaderCreateInfo.Source = pbrVsSource.c_str();
+    shaderCreateInfo.FilePath = kPbrVsRelativePath;
+    shaderCreateInfo.Source = nullptr;
     renderDevice->CreateShader(shaderCreateInfo, &vertexShader);
     if (vertexShader == nullptr)
     {
+        LOG_ERROR_MESSAGE(
+            "MaterialProgramRegistry failed to compile VS. pass=", passClassName(key.passClass),
+            " programFamily=", static_cast<std::uint32_t>(key.programFamily),
+            " featureFlags=", key.featureFlags,
+            " shader='", pbrVsPath, "'.");
         return false;
     }
 
     Diligent::RefCntAutoPtr<Diligent::IShader> pixelShader;
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
     shaderCreateInfo.Desc.Name = "CRESSimNeo.ForwardOpaque.StandardLit.PS";
-    shaderCreateInfo.Source = pbrPsSource.c_str();
+    shaderCreateInfo.FilePath = kPbrPsRelativePath;
+    shaderCreateInfo.Source = nullptr;
     renderDevice->CreateShader(shaderCreateInfo, &pixelShader);
     if (pixelShader == nullptr)
     {
+        LOG_ERROR_MESSAGE(
+            "MaterialProgramRegistry failed to compile PS. pass=", passClassName(key.passClass),
+            " programFamily=", static_cast<std::uint32_t>(key.programFamily),
+            " featureFlags=", key.featureFlags,
+            " shader='", pbrPsPath, "'.");
         return false;
     }
 
@@ -215,7 +263,16 @@ bool MaterialProgramRegistry::createProgram(
     psoCreateInfo.pPS = pixelShader;
 
     renderDevice->CreateGraphicsPipelineState(psoCreateInfo, &outResources.pipelineState);
-    return outResources.pipelineState != nullptr;
+    if (outResources.pipelineState == nullptr)
+    {
+        LOG_ERROR_MESSAGE(
+            "MaterialProgramRegistry failed to create PSO. pass=", passClassName(key.passClass),
+            " programFamily=", static_cast<std::uint32_t>(key.programFamily),
+            " featureFlags=", key.featureFlags, ".");
+        return false;
+    }
+
+    return true;
 }
 
 } // namespace cressim::neo::graphics::detail

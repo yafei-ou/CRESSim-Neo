@@ -10,13 +10,13 @@ namespace cressim::neo::graphics::detail
 
 ForwardOpaquePass::ForwardOpaquePass(GraphicsDeviceImpl& device) :
     mDevice(device),
-    mShaderSourceProvider("", true)
+    mShaderSourceProvider("")
 {
 }
 
 bool ForwardOpaquePass::initialize()
 {
-    mShaderSourceProvider = ShaderSourceProvider(mDevice.shaderSourceDirectory(), mDevice.allowShaderFallback());
+    mShaderSourceProvider = ShaderSourceProvider(mDevice.shaderSourceDirectory());
     mProgramRegistry = std::make_unique<MaterialProgramRegistry>(mShaderSourceProvider);
 
     GraphicsDeviceImpl::VulkanBackendContext backendContext{};
@@ -107,7 +107,7 @@ bool ForwardOpaquePass::draw(RenderTargetHandle target, const ForwardDrawCommand
         return false;
     }
 
-    if (!ensureConstantBuffer(backendContext.renderDevice) || mProgramRegistry == nullptr)
+    if (!ensureConstantBuffers(backendContext.renderDevice) || mProgramRegistry == nullptr)
     {
         return false;
     }
@@ -186,64 +186,86 @@ bool ForwardOpaquePass::draw(RenderTargetHandle target, const ForwardDrawCommand
         shadowMapVar->Set(shadowMapSrvs[cascadeIdx]);
     }
 
-    DrawConstants constants{};
-    constants.modelMatrix = drawCommand.modelMatrix.Transpose();
-    constants.viewMatrix = drawCommand.viewMatrix.Transpose();
-    constants.viewProjectionMatrix = drawCommand.viewProjectionMatrix.Transpose();
+    ForwardPerFrameConstants frameConstants{};
+    frameConstants.viewMatrix = drawCommand.viewMatrix.Transpose();
+    frameConstants.viewProjectionMatrix = drawCommand.viewProjectionMatrix.Transpose();
     for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
     {
-        constants.lightViewProjectionMatrices[cascadeIdx] = drawCommand.lightViewProjectionMatrices[cascadeIdx].Transpose();
+        frameConstants.lightViewProjectionMatrices[cascadeIdx] = drawCommand.lightViewProjectionMatrices[cascadeIdx].Transpose();
     }
-    constants.normalMatrix = drawCommand.normalMatrix.Transpose();
-    constants.cameraPositionMetallic = Diligent::float4{
+    frameConstants.cameraPositionMetallic = Diligent::float4{
         drawCommand.cameraPosition.x,
         drawCommand.cameraPosition.y,
         drawCommand.cameraPosition.z,
         drawCommand.material.metallic};
-    constants.lightDirectionIntensity = Diligent::float4{
+    frameConstants.lightDirectionIntensity = Diligent::float4{
         drawCommand.light.direction.x,
         drawCommand.light.direction.y,
         drawCommand.light.direction.z,
         drawCommand.light.intensity};
-    constants.lightColorRoughness = Diligent::float4{
+    frameConstants.lightColorRoughness = Diligent::float4{
         drawCommand.light.color.x,
         drawCommand.light.color.y,
         drawCommand.light.color.z,
         drawCommand.material.roughness};
-    constants.baseColor = Diligent::float4{
-        drawCommand.material.baseColor.x,
-        drawCommand.material.baseColor.y,
-        drawCommand.material.baseColor.z,
-        drawCommand.material.opacity};
-    constants.cascadeSplits = Diligent::float4{
+    frameConstants.cascadeSplits = Diligent::float4{
         drawCommand.cascadeSplits[0],
         drawCommand.cascadeSplits[1],
         drawCommand.cascadeSplits[2],
         drawCommand.cascadeSplits[3]};
-    constants.shadowTexelSizeCascadeCount = Diligent::float4{
+    frameConstants.shadowTexelSizeCascadeCount = Diligent::float4{
         drawCommand.shadowMapInvSizeX,
         drawCommand.shadowMapInvSizeY,
         std::min(drawCommand.shadowCascadeCount, static_cast<float>(mShadowMapCount)),
         std::max(drawCommand.light.shadowFadeDistance, 0.001f)};
-    constants.shadowParams = Diligent::float4{
+    frameConstants.shadowParams = Diligent::float4{
         drawCommand.shadowBias,
         hasShadowMap ? 1.0f : 0.0f,
         drawCommand.material.receivesShadows,
         0.35f};
-    constants.pipelineParams = Diligent::float4{
+
+    PerObjectConstants objectConstants{};
+    objectConstants.modelMatrix = drawCommand.modelMatrix.Transpose();
+    objectConstants.normalMatrix = drawCommand.normalMatrix.Transpose();
+
+    ForwardPerMaterialConstants materialConstants{};
+    materialConstants.baseColor = Diligent::float4{
+        drawCommand.material.baseColor.x,
+        drawCommand.material.baseColor.y,
+        drawCommand.material.baseColor.z,
+        drawCommand.material.opacity};
+    materialConstants.pipelineParams = Diligent::float4{
         drawCommand.material.alphaCutoff,
         0.0f,
         0.0f,
         0.0f};
 
     void* mappedConstants = nullptr;
-    backendContext.immediateContext->MapBuffer(mConstantBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
+    backendContext.immediateContext->MapBuffer(mForwardPerFrameBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
     }
-    std::memcpy(mappedConstants, &constants, sizeof(constants));
-    backendContext.immediateContext->UnmapBuffer(mConstantBuffer, Diligent::MAP_WRITE);
+    std::memcpy(mappedConstants, &frameConstants, sizeof(frameConstants));
+    backendContext.immediateContext->UnmapBuffer(mForwardPerFrameBuffer, Diligent::MAP_WRITE);
+
+    mappedConstants = nullptr;
+    backendContext.immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
+    if (mappedConstants == nullptr)
+    {
+        return false;
+    }
+    std::memcpy(mappedConstants, &objectConstants, sizeof(objectConstants));
+    backendContext.immediateContext->UnmapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE);
+
+    mappedConstants = nullptr;
+    backendContext.immediateContext->MapBuffer(mForwardPerMaterialBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
+    if (mappedConstants == nullptr)
+    {
+        return false;
+    }
+    std::memcpy(mappedConstants, &materialConstants, sizeof(materialConstants));
+    backendContext.immediateContext->UnmapBuffer(mForwardPerMaterialBuffer, Diligent::MAP_WRITE);
 
     const Diligent::Uint64 vertexOffset = 0;
     Diligent::IBuffer* vertexBuffers[] = {meshBuffers->vertexBuffer};
@@ -328,44 +350,91 @@ ForwardOpaquePass::CachedMeshGpuData* ForwardOpaquePass::getOrCreateMeshBuffers(
     return &mesh;
 }
 
-bool ForwardOpaquePass::ensureConstantBuffer(Diligent::IRenderDevice* renderDevice)
+bool ForwardOpaquePass::ensureConstantBuffers(Diligent::IRenderDevice* renderDevice)
 {
     if (renderDevice == nullptr)
     {
         return false;
     }
-    if (mConstantBuffer != nullptr)
+
+    if (mForwardPerFrameBuffer == nullptr)
     {
-        return true;
+        Diligent::BufferDesc constantBufferDesc{};
+        constantBufferDesc.Name = "CRESSimNeo.ForwardOpaquePass.CressimForwardPerFrame";
+        constantBufferDesc.Size = sizeof(ForwardPerFrameConstants);
+        constantBufferDesc.Usage = Diligent::USAGE_DYNAMIC;
+        constantBufferDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+        constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+        renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mForwardPerFrameBuffer);
+        if (mForwardPerFrameBuffer == nullptr)
+        {
+            return false;
+        }
     }
 
-    Diligent::BufferDesc constantBufferDesc{};
-    constantBufferDesc.Name = "CRESSimNeo.ForwardOpaquePass.Constants";
-    constantBufferDesc.Size = sizeof(DrawConstants);
-    constantBufferDesc.Usage = Diligent::USAGE_DYNAMIC;
-    constantBufferDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-    constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-    renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mConstantBuffer);
-    return mConstantBuffer != nullptr;
+    if (mPerObjectBuffer == nullptr)
+    {
+        Diligent::BufferDesc constantBufferDesc{};
+        constantBufferDesc.Name = "CRESSimNeo.ForwardOpaquePass.CressimPerObject";
+        constantBufferDesc.Size = sizeof(PerObjectConstants);
+        constantBufferDesc.Usage = Diligent::USAGE_DYNAMIC;
+        constantBufferDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+        constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+        renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mPerObjectBuffer);
+        if (mPerObjectBuffer == nullptr)
+        {
+            return false;
+        }
+    }
+
+    if (mForwardPerMaterialBuffer == nullptr)
+    {
+        Diligent::BufferDesc constantBufferDesc{};
+        constantBufferDesc.Name = "CRESSimNeo.ForwardOpaquePass.CressimForwardPerMaterial";
+        constantBufferDesc.Size = sizeof(ForwardPerMaterialConstants);
+        constantBufferDesc.Usage = Diligent::USAGE_DYNAMIC;
+        constantBufferDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+        constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+        renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mForwardPerMaterialBuffer);
+        if (mForwardPerMaterialBuffer == nullptr)
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool ForwardOpaquePass::bindProgramConstants(MaterialProgramRegistry::ProgramResources& program)
 {
-    if (program.pipelineState == nullptr || mConstantBuffer == nullptr)
+    if (program.pipelineState == nullptr ||
+        mForwardPerFrameBuffer == nullptr ||
+        mPerObjectBuffer == nullptr ||
+        mForwardPerMaterialBuffer == nullptr)
     {
         return false;
     }
 
-    Diligent::IShaderResourceVariable* vertexConstants =
-        program.pipelineState->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "PbrConstants");
-    Diligent::IShaderResourceVariable* pixelConstants =
-        program.pipelineState->GetStaticVariableByName(Diligent::SHADER_TYPE_PIXEL, "PbrConstants");
-    if (vertexConstants == nullptr || pixelConstants == nullptr)
+    auto bindIfPresent = [&](Diligent::SHADER_TYPE shaderType, const char* varName, Diligent::IBuffer* buffer, bool required) {
+        Diligent::IShaderResourceVariable* variable = program.pipelineState->GetStaticVariableByName(shaderType, varName);
+        if (variable == nullptr)
+        {
+            return !required;
+        }
+        variable->Set(buffer);
+        return true;
+    };
+
+    if (!bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "CressimForwardPerFrame", mForwardPerFrameBuffer, true) ||
+        !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "CressimForwardPerFrame", mForwardPerFrameBuffer, true) ||
+        !bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "CressimPerObject", mPerObjectBuffer, true) ||
+        !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "CressimPerObject", mPerObjectBuffer, false) ||
+        !bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "CressimForwardPerMaterial", mForwardPerMaterialBuffer, false) ||
+        !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "CressimForwardPerMaterial", mForwardPerMaterialBuffer, true))
     {
         return false;
     }
-    vertexConstants->Set(mConstantBuffer);
-    pixelConstants->Set(mConstantBuffer);
+
     return true;
 }
 

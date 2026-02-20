@@ -60,8 +60,6 @@ struct GraphicsDeviceDesc
     // Optional override for runtime shader source directory.
     // If empty, the engine resolves its default search paths.
     std::string shaderDirectory;
-    // Allows using embedded fallback sources when shader files are unavailable.
-    bool allowShaderFallback = true;
 };
 
 struct RenderViewport

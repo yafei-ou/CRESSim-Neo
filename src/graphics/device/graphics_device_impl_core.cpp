@@ -540,11 +540,6 @@ const std::string& GraphicsDeviceImpl::shaderSourceDirectory() const
     return mDesc.shaderDirectory;
 }
 
-bool GraphicsDeviceImpl::allowShaderFallback() const
-{
-    return mDesc.allowShaderFallback;
-}
-
 bool GraphicsDeviceImpl::initializeVulkan()
 {
     Diligent::IEngineFactoryVk* factoryVk = Diligent::LoadAndGetEngineFactoryVk();

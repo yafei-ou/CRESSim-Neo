@@ -44,27 +44,35 @@ private:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> indexBuffer;
     };
 
-    struct DrawConstants
+    struct ForwardPerFrameConstants
     {
-        Diligent::float4x4 modelMatrix = Diligent::float4x4::Identity();
         Diligent::float4x4 viewMatrix = Diligent::float4x4::Identity();
         Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
         std::array<Diligent::float4x4, kShadowCascadeCount> lightViewProjectionMatrices{};
-        Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
         Diligent::float4 cameraPositionMetallic{0.0f, 0.0f, 0.0f, 0.0f};
         Diligent::float4 lightDirectionIntensity{0.0f, -1.0f, 0.0f, 1.0f};
         Diligent::float4 lightColorRoughness{1.0f, 1.0f, 1.0f, 0.5f};
-        Diligent::float4 baseColor{1.0f, 1.0f, 1.0f, 1.0f};
         Diligent::float4 cascadeSplits{1000.0f, 1000.0f, 1000.0f, 1000.0f};
         Diligent::float4 shadowTexelSizeCascadeCount{0.0f, 0.0f, 0.0f, 0.0f};
         Diligent::float4 shadowParams{0.0015f, 0.0f, 0.0f, 0.0f};
+    };
+
+    struct PerObjectConstants
+    {
+        Diligent::float4x4 modelMatrix = Diligent::float4x4::Identity();
+        Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
+    };
+
+    struct ForwardPerMaterialConstants
+    {
+        Diligent::float4 baseColor{1.0f, 1.0f, 1.0f, 1.0f};
         Diligent::float4 pipelineParams{0.5f, 0.0f, 0.0f, 0.0f};
     };
 
     CachedMeshGpuData* getOrCreateMeshBuffers(
         const ForwardDrawCommand& drawCommand,
         Diligent::IRenderDevice* renderDevice);
-    bool ensureConstantBuffer(Diligent::IRenderDevice* renderDevice);
+    bool ensureConstantBuffers(Diligent::IRenderDevice* renderDevice);
     bool bindProgramConstants(MaterialProgramRegistry::ProgramResources& program);
 
 private:
@@ -74,7 +82,9 @@ private:
     std::unique_ptr<MaterialProgramRegistry> mProgramRegistry;
 
     std::unordered_map<common::ResourceId, CachedMeshGpuData> mCachedMeshes;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mConstantBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mForwardPerFrameBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mForwardPerMaterialBuffer;
     Diligent::RefCntAutoPtr<Diligent::ISampler> mShadowSampler;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackShadowMapSrv;
     std::array<RenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};

@@ -1,25 +1,10 @@
+#include "include/forward_constants.hlsli"
+
 struct VSOutput
 {
     float4 Position : SV_Position;
     float3 WorldPos : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
-};
-
-cbuffer PbrConstants
-{
-    float4x4 g_Model;
-    float4x4 g_ViewMatrix;
-    float4x4 g_ViewProjection;
-    float4x4 g_LightViewProjection[4];
-    float4x4 g_NormalMatrix;
-    float4 g_CameraPositionMetallic;
-    float4 g_LightDirectionIntensity;
-    float4 g_LightColorRoughness;
-    float4 g_BaseColor;
-    float4 g_CascadeSplits;
-    float4 g_ShadowTexelSizeCascadeCount;
-    float4 g_ShadowParams;
-    float4 g_PipelineParams;
 };
 
 Texture2D g_ShadowMap0;

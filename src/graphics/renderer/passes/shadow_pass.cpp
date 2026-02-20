@@ -1,7 +1,8 @@
 #include "graphics/renderer/passes/shadow_pass.h"
 
 #include "graphics/device/graphics_device_impl.h"
-#include "graphics/device/shaders/shader_fallback_sources.h"
+
+#include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
 
 #include <cstring>
 #include <string>
@@ -11,13 +12,13 @@ namespace cressim::neo::graphics::detail
 
 ShadowPass::ShadowPass(GraphicsDeviceImpl& device) :
     mDevice(device),
-    mShaderSourceProvider("", true)
+    mShaderSourceProvider("")
 {
 }
 
 bool ShadowPass::initialize()
 {
-    mShaderSourceProvider = ShaderSourceProvider(mDevice.shaderSourceDirectory(), mDevice.allowShaderFallback());
+    mShaderSourceProvider = ShaderSourceProvider(mDevice.shaderSourceDirectory());
     mInitialized = true;
     return true;
 }
@@ -58,7 +59,7 @@ bool ShadowPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawC
         return false;
     }
 
-    if (mPipelineState == nullptr || mShaderResourceBinding == nullptr || mConstantBuffer == nullptr)
+    if (mPipelineState == nullptr || mShaderResourceBinding == nullptr)
     {
         if (!createPipeline(backendContext.renderDevice))
         {
@@ -66,18 +67,35 @@ bool ShadowPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawC
         }
     }
 
-    DrawConstants constants{};
-    constants.modelMatrix = drawCommand.modelMatrix.Transpose();
-    constants.lightViewProjectionMatrix = drawCommand.lightViewProjectionMatrix.Transpose();
+    if (!ensureConstantBuffers(backendContext.renderDevice))
+    {
+        return false;
+    }
+
+    PerObjectConstants objectConstants{};
+    objectConstants.modelMatrix = drawCommand.modelMatrix.Transpose();
+    objectConstants.normalMatrix = drawCommand.normalMatrix.Transpose();
+
+    ShadowPerPassConstants shadowPassConstants{};
+    shadowPassConstants.lightViewProjectionMatrix = drawCommand.lightViewProjectionMatrix.Transpose();
 
     void* mappedConstants = nullptr;
-    backendContext.immediateContext->MapBuffer(mConstantBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
+    backendContext.immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
     }
-    std::memcpy(mappedConstants, &constants, sizeof(constants));
-    backendContext.immediateContext->UnmapBuffer(mConstantBuffer, Diligent::MAP_WRITE);
+    std::memcpy(mappedConstants, &objectConstants, sizeof(objectConstants));
+    backendContext.immediateContext->UnmapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE);
+
+    mappedConstants = nullptr;
+    backendContext.immediateContext->MapBuffer(mShadowPerPassBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mappedConstants);
+    if (mappedConstants == nullptr)
+    {
+        return false;
+    }
+    std::memcpy(mappedConstants, &shadowPassConstants, sizeof(shadowPassConstants));
+    backendContext.immediateContext->UnmapBuffer(mShadowPerPassBuffer, Diligent::MAP_WRITE);
 
     const Diligent::Uint64 vertexOffset = 0;
     Diligent::IBuffer* vertexBuffers[] = {meshBuffers->vertexBuffer};
@@ -164,9 +182,19 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
         return false;
     }
 
-    std::string shadowVsSource;
-    if (!mShaderSourceProvider.loadSource("shadow_depth.vs.hlsl", shaders::shadowDepthVertex(), shadowVsSource))
+    constexpr const char* kShadowVsRelativePath = "shadow_depth.vs.hlsl";
+
+    std::string shadowVsPath;
+    if (!mShaderSourceProvider.resolveShaderPath(kShadowVsRelativePath, shadowVsPath))
     {
+        LOG_ERROR_MESSAGE("ShadowPass shader path resolution failed for relative path '", kShadowVsRelativePath, "'.");
+        return false;
+    }
+
+    Diligent::IShaderSourceInputStreamFactory* streamFactory = mShaderSourceProvider.streamFactory();
+    if (streamFactory == nullptr)
+    {
+        LOG_ERROR_MESSAGE("ShadowPass could not acquire shader source stream factory.");
         return false;
     }
 
@@ -176,12 +204,14 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
     shaderCreateInfo.EntryPoint = "main";
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
     shaderCreateInfo.Desc.Name = "CRESSimNeo.ShadowPass.VS";
-    shaderCreateInfo.Source = shadowVsSource.c_str();
+    shaderCreateInfo.FilePath = kShadowVsRelativePath;
+    shaderCreateInfo.pShaderSourceStreamFactory = streamFactory;
 
     Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
     renderDevice->CreateShader(shaderCreateInfo, &vertexShader);
     if (vertexShader == nullptr)
     {
+        LOG_ERROR_MESSAGE("ShadowPass failed to compile shader: '", shadowVsPath, "'.");
         return false;
     }
 
@@ -210,33 +240,71 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
     renderDevice->CreateGraphicsPipelineState(psoCreateInfo, &mPipelineState);
     if (mPipelineState == nullptr)
     {
+        LOG_ERROR_MESSAGE("ShadowPass failed to create PSO.");
         return false;
     }
 
-    if (mConstantBuffer == nullptr)
+    if (!ensureConstantBuffers(renderDevice))
+    {
+        LOG_ERROR_MESSAGE("ShadowPass failed to allocate constant buffers.");
+        return false;
+    }
+
+    Diligent::IShaderResourceVariable* perObjectVar =
+        mPipelineState->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "CressimPerObject");
+    Diligent::IShaderResourceVariable* shadowPerPassVar =
+        mPipelineState->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "CressimShadowPerPass");
+    if (perObjectVar == nullptr || shadowPerPassVar == nullptr)
+    {
+        LOG_ERROR_MESSAGE("ShadowPass static constant bindings are missing from shader reflection.");
+        return false;
+    }
+
+    perObjectVar->Set(mPerObjectBuffer);
+    shadowPerPassVar->Set(mShadowPerPassBuffer);
+
+    mPipelineState->CreateShaderResourceBinding(&mShaderResourceBinding, true);
+    return mShaderResourceBinding != nullptr;
+}
+
+bool ShadowPass::ensureConstantBuffers(Diligent::IRenderDevice* renderDevice)
+{
+    if (renderDevice == nullptr)
+    {
+        return false;
+    }
+
+    if (mPerObjectBuffer == nullptr)
     {
         Diligent::BufferDesc constantBufferDesc{};
-        constantBufferDesc.Name = "CRESSimNeo.ShadowPass.Constants";
-        constantBufferDesc.Size = sizeof(DrawConstants);
+        constantBufferDesc.Name = "CRESSimNeo.ShadowPass.CressimPerObject";
+        constantBufferDesc.Size = sizeof(PerObjectConstants);
         constantBufferDesc.Usage = Diligent::USAGE_DYNAMIC;
         constantBufferDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
         constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-        renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mConstantBuffer);
-        if (mConstantBuffer == nullptr)
+        renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mPerObjectBuffer);
+        if (mPerObjectBuffer == nullptr)
         {
             return false;
         }
     }
 
-    Diligent::IShaderResourceVariable* vertexConstants =
-        mPipelineState->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "ShadowConstants");
-    if (vertexConstants == nullptr)
+    if (mShadowPerPassBuffer == nullptr)
     {
-        return false;
+        Diligent::BufferDesc constantBufferDesc{};
+        constantBufferDesc.Name = "CRESSimNeo.ShadowPass.CressimShadowPerPass";
+        constantBufferDesc.Size = sizeof(ShadowPerPassConstants);
+        constantBufferDesc.Usage = Diligent::USAGE_DYNAMIC;
+        constantBufferDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+        constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+        renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mShadowPerPassBuffer);
+        if (mShadowPerPassBuffer == nullptr)
+        {
+            return false;
+        }
     }
-    vertexConstants->Set(mConstantBuffer);
-    mPipelineState->CreateShaderResourceBinding(&mShaderResourceBinding, true);
-    return mShaderResourceBinding != nullptr;
+
+    return true;
 }
 
 } // namespace cressim::neo::graphics::detail
