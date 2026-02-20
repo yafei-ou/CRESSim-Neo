@@ -26,6 +26,7 @@ cbuffer PbrConstants
     float4 g_CascadeSplits;
     float4 g_ShadowTexelSizeCascadeCount;
     float4 g_ShadowParams;
+    float4 g_PipelineParams;
 };
 
 void main(in VSInput In, out VSOutput Out)

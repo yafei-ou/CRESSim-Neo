@@ -35,6 +35,7 @@ cbuffer PbrConstants
     float4 g_CascadeSplits;
     float4 g_ShadowTexelSizeCascadeCount;
     float4 g_ShadowParams;
+    float4 g_PipelineParams;
 };
 
 void main(in VSInput In, out VSOutput Out)
@@ -68,6 +69,7 @@ cbuffer PbrConstants
     float4 g_CascadeSplits;
     float4 g_ShadowTexelSizeCascadeCount;
     float4 g_ShadowParams;
+    float4 g_PipelineParams;
 };
 
 Texture2D g_ShadowMap0;
@@ -236,6 +238,13 @@ float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir)
 
 float4 main(in VSOutput In) : SV_Target
 {
+#ifdef CRESSIM_FEATURE_ALPHA_TEST
+    if (g_BaseColor.w < g_PipelineParams.x)
+    {
+        discard;
+    }
+#endif
+
     float3 N = normalize(In.WorldNormal);
     float3 V = normalize(g_CameraPositionMetallic.xyz - In.WorldPos);
     float3 L = normalize(-g_LightDirectionIntensity.xyz);

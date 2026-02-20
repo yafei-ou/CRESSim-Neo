@@ -15,7 +15,8 @@ class GraphicsDeviceImpl;
 namespace detail
 {
 
-class PbrPass;
+class ForwardOpaquePass;
+class ForwardTransparentPass;
 class ShadowPass;
 
 class ForwardPipeline
@@ -33,7 +34,8 @@ public:
 
 private:
     GraphicsDeviceImpl& mDevice;
-    std::unique_ptr<PbrPass> mPbrPass;
+    std::unique_ptr<ForwardOpaquePass> mForwardOpaquePass;
+    std::unique_ptr<ForwardTransparentPass> mForwardTransparentPass;
     std::unique_ptr<ShadowPass> mShadowPass;
     std::array<RenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
     bool mInitialized = false;

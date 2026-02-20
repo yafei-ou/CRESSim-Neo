@@ -1,6 +1,7 @@
 #include "common/frame_context.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "graphics/renderer/passes/material_program_registry.h"
 
 #include <iostream>
 
@@ -17,8 +18,12 @@ using cressim::neo::engine::TransformComponent;
 using cressim::neo::graphics::BlendMode;
 using cressim::neo::graphics::GraphicsBackend;
 using cressim::neo::graphics::MaterialResourceDesc;
+using cressim::neo::graphics::MaterialFeature_AlphaTest;
+using cressim::neo::graphics::MaterialFeature_None;
 using cressim::neo::graphics::MeshResourceDesc;
+using cressim::neo::graphics::MainPassClass;
 using cressim::neo::graphics::RenderStats;
+using cressim::neo::graphics::detail::MaterialProgramRegistry;
 
 bool sameStats(const RenderStats& lhs, const RenderStats& rhs)
 {
@@ -146,7 +151,7 @@ int main()
     }
     if (firstFrame.transparentDrawCalls != 0 || firstFrame.shadowDrawCalls != 0)
     {
-        std::cerr << "Transparent/shadow pass should be scaffold-only in milestone 1.\n";
+        std::cerr << "Transparent pass should remain hook-only and null backend should report zero shadow draws.\n";
         return 1;
     }
     if (firstFrame.cameraCount != 1 || firstFrame.lightCount != 1)
@@ -157,6 +162,57 @@ int main()
     if (!sameStats(firstFrame, secondFrame))
     {
         std::cerr << "Forward queue statistics were not stable across identical frames.\n";
+        return 1;
+    }
+
+    MaterialResourceDesc runtimeVariantA{};
+    runtimeVariantA.baseColor = {1.0f, 0.2f, 0.2f};
+    runtimeVariantA.roughness = 0.15f;
+    runtimeVariantA.pipeline.featureFlags = MaterialFeature_None;
+
+    MaterialResourceDesc runtimeVariantB = runtimeVariantA;
+    runtimeVariantB.baseColor = {0.1f, 0.8f, 0.4f};
+    runtimeVariantB.roughness = 0.9f;
+    runtimeVariantB.metallic = 1.0f;
+
+    const auto keyA = MaterialProgramRegistry::buildProgramKey(
+        MainPassClass::ForwardOpaque,
+        runtimeVariantA.pipeline.programFamily,
+        runtimeVariantA.pipeline.featureFlags,
+        Diligent::TEX_FORMAT_RGBA8_UNORM,
+        Diligent::TEX_FORMAT_D32_FLOAT,
+        true,
+        true,
+        false);
+    const auto keyB = MaterialProgramRegistry::buildProgramKey(
+        MainPassClass::ForwardOpaque,
+        runtimeVariantB.pipeline.programFamily,
+        runtimeVariantB.pipeline.featureFlags,
+        Diligent::TEX_FORMAT_RGBA8_UNORM,
+        Diligent::TEX_FORMAT_D32_FLOAT,
+        true,
+        true,
+        false);
+    if (!(keyA == keyB))
+    {
+        std::cerr << "Program key unexpectedly changed with runtime-only material parameters.\n";
+        return 1;
+    }
+
+    MaterialResourceDesc featureVariant = runtimeVariantA;
+    featureVariant.pipeline.featureFlags = MaterialFeature_AlphaTest;
+    const auto keyC = MaterialProgramRegistry::buildProgramKey(
+        MainPassClass::ForwardOpaque,
+        featureVariant.pipeline.programFamily,
+        featureVariant.pipeline.featureFlags,
+        Diligent::TEX_FORMAT_RGBA8_UNORM,
+        Diligent::TEX_FORMAT_D32_FLOAT,
+        true,
+        true,
+        false);
+    if (keyA == keyC)
+    {
+        std::cerr << "Program key should differ when compile-time feature flags differ.\n";
         return 1;
     }
 

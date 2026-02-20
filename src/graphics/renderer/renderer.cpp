@@ -204,7 +204,8 @@ bool buildDrawCommand(
     const Diligent::float4x4 modelMatrix = worldMatrixFromTransform(renderable.instance->worldTransform);
 
     outCommand = {};
-    outCommand.shadingModel = material.shadingModel;
+    outCommand.programFamily = material.pipeline.programFamily;
+    outCommand.materialFeatureFlags = material.pipeline.featureFlags;
     outCommand.meshId = renderable.instance->mesh.id;
     outCommand.materialId = renderable.instance->material.id;
     outCommand.meshVersion = resources.meshVersion(renderable.instance->mesh);
@@ -235,6 +236,7 @@ bool buildDrawCommand(
     outCommand.material.metallic = material.metallic;
     outCommand.material.roughness = material.roughness;
     outCommand.material.opacity = clamp01(material.opacity);
+    outCommand.material.alphaCutoff = clamp01(material.pipeline.alphaCutoff);
     outCommand.material.receivesShadows = material.receivesShadows ? 1.0f : 0.0f;
     outCommand.light = light;
     return true;
@@ -543,6 +545,7 @@ CameraRenderQueues buildCameraRenderQueues(
         queuedDraw.castsShadows = renderable.material->castsShadows;
         queuedDraw.receivesShadows = renderable.material->receivesShadows;
         queuedDraw.transparent = transparent;
+        queuedDraw.mainPassClass = transparent ? MainPassClass::ForwardTransparent : MainPassClass::ForwardOpaque;
         queuedDraw.shadowCascadeMask = shadowCascadeMask;
         queuedDraw.drawCommand = drawCommand;
 
@@ -562,9 +565,13 @@ CameraRenderQueues buildCameraRenderQueues(
     }
 
     std::sort(queues.opaque.begin(), queues.opaque.end(), [](const QueuedDraw& lhs, const QueuedDraw& rhs) {
-        if (lhs.drawCommand.shadingModel != rhs.drawCommand.shadingModel)
+        if (lhs.drawCommand.programFamily != rhs.drawCommand.programFamily)
         {
-            return static_cast<int>(lhs.drawCommand.shadingModel) < static_cast<int>(rhs.drawCommand.shadingModel);
+            return static_cast<std::uint32_t>(lhs.drawCommand.programFamily) < static_cast<std::uint32_t>(rhs.drawCommand.programFamily);
+        }
+        if (lhs.drawCommand.materialFeatureFlags != rhs.drawCommand.materialFeatureFlags)
+        {
+            return lhs.drawCommand.materialFeatureFlags < rhs.drawCommand.materialFeatureFlags;
         }
         if (lhs.materialId != rhs.materialId)
         {

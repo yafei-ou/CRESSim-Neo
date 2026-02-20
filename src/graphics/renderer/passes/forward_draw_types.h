@@ -21,6 +21,7 @@ struct ForwardMaterialData
     float metallic = 0.0f;
     float roughness = 0.5f;
     float opacity = 1.0f;
+    float alphaCutoff = 0.5f;
     float receivesShadows = 1.0f;
 };
 
@@ -35,7 +36,8 @@ struct ForwardDirectionalLightData
 
 struct ForwardDrawCommand
 {
-    ShadingModel shadingModel = ShadingModel::Pbr;
+    MaterialProgramFamily programFamily = MaterialProgramFamily::StandardLit;
+    std::uint32_t materialFeatureFlags = MaterialFeature_None;
     // Stable id/version pair used by pass-level mesh buffer caches.
     common::ResourceId meshId = common::kInvalidResourceId;
     common::ResourceId materialId = common::kInvalidResourceId;

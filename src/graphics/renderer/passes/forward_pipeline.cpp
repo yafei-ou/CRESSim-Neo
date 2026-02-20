@@ -1,7 +1,8 @@
 #include "graphics/renderer/passes/forward_pipeline.h"
 
 #include "graphics/device/graphics_device_impl.h"
-#include "graphics/renderer/passes/pbr_pass.h"
+#include "graphics/renderer/passes/forward_opaque_pass.h"
+#include "graphics/renderer/passes/forward_transparent_pass.h"
 #include "graphics/renderer/passes/shadow_pass.h"
 
 #include <algorithm>
@@ -28,10 +29,18 @@ ForwardPipeline::~ForwardPipeline()
 
 bool ForwardPipeline::initialize()
 {
-    mPbrPass = std::make_unique<PbrPass>(mDevice);
-    if (!mPbrPass->initialize())
+    mForwardOpaquePass = std::make_unique<ForwardOpaquePass>(mDevice);
+    if (!mForwardOpaquePass->initialize())
     {
-        mPbrPass.reset();
+        mForwardOpaquePass.reset();
+        return false;
+    }
+
+    mForwardTransparentPass = std::make_unique<ForwardTransparentPass>(mDevice);
+    if (!mForwardTransparentPass->initialize())
+    {
+        mForwardTransparentPass.reset();
+        mForwardOpaquePass.reset();
         return false;
     }
 
@@ -39,7 +48,8 @@ bool ForwardPipeline::initialize()
     if (!mShadowPass->initialize())
     {
         mShadowPass.reset();
-        mPbrPass.reset();
+        mForwardTransparentPass.reset();
+        mForwardOpaquePass.reset();
         return false;
     }
 
@@ -69,7 +79,7 @@ bool ForwardPipeline::execute(
     const CameraRenderQueues& queues,
     ForwardPassExecutionStats& outStats)
 {
-    if (!mInitialized || mPbrPass == nullptr)
+    if (!mInitialized || mForwardOpaquePass == nullptr)
     {
         return false;
     }
@@ -115,7 +125,7 @@ bool ForwardPipeline::execute(
         }
     }
 
-    mPbrPass->setShadowMapTargets(activeShadowMaps, activeShadowMapCount);
+    mForwardOpaquePass->setShadowMapTargets(activeShadowMaps, activeShadowMapCount);
 
     mDevice.setRenderTargetViewport(frameView.target, frameView.viewport);
     const RenderPassBeginDesc mainBegin{};
@@ -123,24 +133,23 @@ bool ForwardPipeline::execute(
 
     for (const QueuedDraw& draw : queues.opaque)
     {
-        switch (draw.drawCommand.shadingModel)
+        if (mForwardOpaquePass->draw(frameView.target, draw.drawCommand))
         {
-        case ShadingModel::Pbr:
-            if (mPbrPass->draw(frameView.target, draw.drawCommand))
-            {
-                ++outStats.opaqueDrawCalls;
-            }
-            break;
-        case ShadingModel::Phong:
-            // Reserved for upcoming Phong pass.
-            break;
-        default:
-            break;
+            ++outStats.opaqueDrawCalls;
         }
     }
 
-    // Transparent pass is still scaffolded in this milestone.
-    (void)queues.transparent;
+    if (mForwardTransparentPass != nullptr)
+    {
+        for (const QueuedDraw& draw : queues.transparent)
+        {
+            if (mForwardTransparentPass->draw(frameView.target, draw.drawCommand))
+            {
+                ++outStats.transparentDrawCalls;
+            }
+        }
+    }
+
     mDevice.endRenderTarget(frameView.target, frameContext);
     return true;
 }

@@ -29,16 +29,46 @@ struct TextureHandle
     common::ResourceId id = common::kInvalidResourceId;
 };
 
-enum class ShadingModel
+enum class MaterialProgramFamily
 {
-    Pbr,
-    Phong,
+    StandardLit,
 };
+
+enum MaterialFeatureFlags : std::uint32_t
+{
+    MaterialFeature_None = 0u,
+    MaterialFeature_AlphaTest = 1u << 0u,
+    MaterialFeature_NormalMap = 1u << 1u,
+    MaterialFeature_ClearCoat = 1u << 2u,
+    MaterialFeature_DoubleSided = 1u << 3u,
+};
+
+constexpr std::uint32_t operator|(MaterialFeatureFlags lhs, MaterialFeatureFlags rhs) noexcept
+{
+    return static_cast<std::uint32_t>(lhs) | static_cast<std::uint32_t>(rhs);
+}
+
+constexpr std::uint32_t operator|(std::uint32_t lhs, MaterialFeatureFlags rhs) noexcept
+{
+    return lhs | static_cast<std::uint32_t>(rhs);
+}
+
+constexpr bool hasMaterialFeature(std::uint32_t flags, MaterialFeatureFlags feature) noexcept
+{
+    return (flags & static_cast<std::uint32_t>(feature)) != 0u;
+}
 
 enum class BlendMode
 {
     Opaque,
     Transparent,
+};
+
+struct MaterialPipelineDesc
+{
+    MaterialProgramFamily programFamily = MaterialProgramFamily::StandardLit;
+    std::uint32_t featureFlags = MaterialFeature_None;
+    float alphaCutoff = 0.5f;
 };
 
 struct MeshResourceDesc
@@ -62,7 +92,7 @@ struct MaterialResourceDesc
     Diligent::float3 baseColor{1.0f, 1.0f, 1.0f};
     float metallic = 0.0f;
     float roughness = 0.5f;
-    ShadingModel shadingModel = ShadingModel::Pbr;
+    MaterialPipelineDesc pipeline{};
     BlendMode blendMode = BlendMode::Opaque;
     float opacity = 1.0f;
     bool castsShadows = true;

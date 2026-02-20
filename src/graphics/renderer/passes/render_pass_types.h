@@ -14,6 +14,12 @@
 namespace cressim::neo::graphics
 {
 
+enum class MainPassClass
+{
+    ForwardOpaque,
+    ForwardTransparent,
+};
+
 struct FrameViewData
 {
     RenderTargetHandle target{};
@@ -42,6 +48,7 @@ struct QueuedDraw
     bool castsShadows = true;
     bool receivesShadows = true;
     bool transparent = false;
+    MainPassClass mainPassClass = MainPassClass::ForwardOpaque;
     std::uint32_t shadowCascadeMask = 0;
     ForwardDrawCommand drawCommand{};
 };
