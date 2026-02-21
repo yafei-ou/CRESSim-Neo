@@ -1,7 +1,7 @@
 #ifndef CRESSIM_NEO_COMMON_MATH_UTILS_RUNTIME_H
 #define CRESSIM_NEO_COMMON_MATH_UTILS_RUNTIME_H
 
-#include "graphics/graphics_device.h"
+#include "gpu/gpu_types.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 
@@ -83,9 +83,9 @@ inline Diligent::QuaternionF quaternionFromEulerDegrees(float xDegrees, float yD
         cosZ * cosX * sinY - sinZ * sinX * cosY, cosZ * cosX * cosY + sinZ * sinX * sinY};
 }
 
-inline graphics::RenderViewport normalizeViewport(const graphics::RenderViewport& viewport)
+inline gpu::GpuRenderViewport normalizeViewport(const gpu::GpuRenderViewport& viewport)
 {
-    graphics::RenderViewport normalized{};
+    gpu::GpuRenderViewport normalized{};
     normalized.x      = clamp01(viewport.x);
     normalized.y      = clamp01(viewport.y);
     normalized.width  = clamp01(viewport.width);

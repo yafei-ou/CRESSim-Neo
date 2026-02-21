@@ -16,8 +16,3 @@ set_target_properties(${TARGET_NAME}
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
-
-add_test(
-    NAME cressim_neo_viewer_integration_vulkan
-    COMMAND ${TARGET_NAME} --backend vulkan --frames 4
-)

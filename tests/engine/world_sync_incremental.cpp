@@ -14,7 +14,7 @@ using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::graphics::GraphicsBackend;
+using cressim::neo::gpu::GpuBackend;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshResourceDesc;
 
@@ -30,7 +30,7 @@ void tick(Runtime& runtime, FrameContext& frame)
 int main()
 {
     RuntimeConfig config{};
-    config.graphicsDeviceDesc.preferredBackend = GraphicsBackend::Vulkan;
+    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
 
     Runtime runtime;
     if (!runtime.initialize(config))

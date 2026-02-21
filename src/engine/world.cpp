@@ -26,6 +26,7 @@ bool World::destroyEntity(common::EntityId entityId)
     mMeshRenderers.erase(entityId);
     mCameras.erase(entityId);
     mDirectionalLights.erase(entityId);
+    mRigidBodies.erase(entityId);
 
     mEntities.erase(std::remove(mEntities.begin(), mEntities.end(), entityId), mEntities.end());
     markDirty(entityId);
@@ -97,6 +98,20 @@ DirectionalLightComponent& World::setDirectionalLight(common::EntityId entityId,
     return updated;
 }
 
+RigidBodyComponent& World::setRigidBody(common::EntityId entityId,
+                                        const RigidBodyComponent& component)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        throw std::invalid_argument("setRigidBody requires a valid entity id.");
+    }
+
+    ensureEntity(entityId);
+    RigidBodyComponent& updated = mRigidBodies[entityId] = component;
+    markDirty(entityId);
+    return updated;
+}
+
 bool World::removeTransform(common::EntityId entityId)
 {
     if (mTransforms.erase(entityId) == 0)
@@ -137,6 +152,16 @@ bool World::removeDirectionalLight(common::EntityId entityId)
     return true;
 }
 
+bool World::removeRigidBody(common::EntityId entityId)
+{
+    if (mRigidBodies.erase(entityId) == 0)
+    {
+        return false;
+    }
+    markDirty(entityId);
+    return true;
+}
+
 const TransformComponent* World::tryGetTransform(common::EntityId entityId) const
 {
     const auto it = mTransforms.find(entityId);
@@ -159,6 +184,12 @@ const DirectionalLightComponent* World::tryGetDirectionalLight(common::EntityId 
 {
     const auto it = mDirectionalLights.find(entityId);
     return it != mDirectionalLights.end() ? &it->second : nullptr;
+}
+
+const RigidBodyComponent* World::tryGetRigidBody(common::EntityId entityId) const
+{
+    const auto it = mRigidBodies.find(entityId);
+    return it != mRigidBodies.end() ? &it->second : nullptr;
 }
 
 std::uint64_t World::revision() const noexcept

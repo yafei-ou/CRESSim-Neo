@@ -1,6 +1,5 @@
 #include "graphics/renderer/passes/forward_pipeline.h"
 
-#include "graphics/device/graphics_device_impl.h"
 #include "graphics/renderer/passes/forward_opaque_pass.h"
 #include "graphics/renderer/passes/forward_transparent_pass.h"
 #include "graphics/renderer/passes/shadow_pass.h"
@@ -11,11 +10,11 @@
 namespace cressim::neo::graphics::detail
 {
 
-ForwardPipeline::ForwardPipeline(GraphicsDeviceImpl& device) : mDevice(device) {}
+ForwardPipeline::ForwardPipeline(gpu::GpuDevice& device) : mDevice(device) {}
 
 ForwardPipeline::~ForwardPipeline()
 {
-    for (RenderTargetHandle target : mShadowMapTargets)
+    for (gpu::GpuRenderTargetHandle target : mShadowMapTargets)
     {
         if (mDevice.isValidRenderTarget(target))
         {
@@ -52,7 +51,7 @@ bool ForwardPipeline::initialize()
 
     for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
     {
-        RenderTargetDesc shadowDesc{};
+        gpu::GpuRenderTargetDesc shadowDesc{};
         shadowDesc.width              = kShadowMapResolution;
         shadowDesc.height             = kShadowMapResolution;
         shadowDesc.color              = false;
@@ -81,22 +80,22 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
 
     outStats = {};
 
-    std::array<RenderTargetHandle, kShadowCascadeCount> activeShadowMaps{};
+    std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> activeShadowMaps{};
     std::uint32_t activeShadowMapCount = 0;
     if (frameView.hasDirectionalLight && frameView.shadowCascadeCount > 0 &&
         !queues.shadowCasters.empty() && mShadowPass != nullptr)
     {
         for (std::uint32_t cascadeIdx = 0; cascadeIdx < frameView.shadowCascadeCount; ++cascadeIdx)
         {
-            const RenderTargetHandle cascadeShadowMap = mShadowMapTargets[cascadeIdx];
+            const gpu::GpuRenderTargetHandle cascadeShadowMap = mShadowMapTargets[cascadeIdx];
             if (!mDevice.isValidRenderTarget(cascadeShadowMap))
             {
                 continue;
             }
 
-            mDevice.setRenderTargetViewport(cascadeShadowMap, RenderViewport{});
+            mDevice.setRenderTargetViewport(cascadeShadowMap, gpu::GpuRenderViewport{});
 
-            RenderPassBeginDesc shadowBegin{};
+            gpu::GpuRenderPassBeginDesc shadowBegin{};
             shadowBegin.clearColor      = false;
             shadowBegin.clearDepth      = true;
             shadowBegin.clearDepthValue = 1.0f;
@@ -127,7 +126,7 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
     }
 
     mDevice.setRenderTargetViewport(frameView.target, frameView.viewport);
-    const RenderPassBeginDesc mainBegin{};
+    const gpu::GpuRenderPassBeginDesc mainBegin{};
     mDevice.beginRenderTarget(frameView.target, frameContext, mainBegin);
 
     for (const QueuedDraw& draw : queues.opaque)

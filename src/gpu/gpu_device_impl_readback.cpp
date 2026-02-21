@@ -1,17 +1,17 @@
 #include "common/math_utils_runtime.h"
-#include "graphics/device/graphics_device_impl.h"
+#include "gpu/gpu_device_impl.h"
 
 #include <algorithm>
 #include <cstring>
 #include <utility>
 
-namespace cressim::neo::graphics
+namespace cressim::neo::gpu
 {
 
-RenderTargetReadbackRequest GraphicsDeviceImpl::requestRenderTargetReadback(
-    RenderTargetHandle target)
+GpuRenderTargetReadbackRequest GpuDeviceImpl::requestRenderTargetReadback(
+    GpuRenderTargetHandle target)
 {
-    RenderTargetReadbackRequest request{};
+    GpuRenderTargetReadbackRequest request{};
 
     const auto it = mRenderTargets.find(target.id);
     if (it == mRenderTargets.end())
@@ -29,8 +29,8 @@ RenderTargetReadbackRequest GraphicsDeviceImpl::requestRenderTargetReadback(
     return request;
 }
 
-bool GraphicsDeviceImpl::tryGetRenderTargetReadback(RenderTargetReadbackRequest request,
-                                                    RenderTargetReadbackEvent& outEvent)
+bool GpuDeviceImpl::tryGetRenderTargetReadback(GpuRenderTargetReadbackRequest request,
+                                               GpuRenderTargetReadbackEvent& outEvent)
 {
     if (request.id == 0)
     {
@@ -48,15 +48,15 @@ bool GraphicsDeviceImpl::tryGetRenderTargetReadback(RenderTargetReadbackRequest 
     return true;
 }
 
-void GraphicsDeviceImpl::endFrame(const common::FrameContext& frameContext)
+void GpuDeviceImpl::endFrame(const common::FrameContext& frameContext)
 {
     (void)frameContext;
 
-    if (!mInitialized || mBackend != GraphicsBackend::Vulkan || !mImmediateContext)
+    if (!mInitialized || mBackend != GpuBackend::Vulkan || !mImmediateContext)
     {
         for (const PendingReadbackCopy& copy : mPendingReadbackCopies)
         {
-            RenderTargetReadbackEvent event{};
+            GpuRenderTargetReadbackEvent event{};
             event.target      = copy.target;
             event.frameIndex  = copy.frameIndex;
             event.colorFormat = copy.colorFormat;
@@ -76,7 +76,7 @@ void GraphicsDeviceImpl::endFrame(const common::FrameContext& frameContext)
 
     for (const PendingReadbackCopy& copy : mPendingReadbackCopies)
     {
-        RenderTargetReadbackEvent event{};
+        GpuRenderTargetReadbackEvent event{};
         event.target      = copy.target;
         event.frameIndex  = copy.frameIndex;
         event.colorFormat = copy.colorFormat;
@@ -124,13 +124,13 @@ void GraphicsDeviceImpl::endFrame(const common::FrameContext& frameContext)
     mPendingReadbackCopies.clear();
 }
 
-bool GraphicsDeviceImpl::presentPrimarySwapChain()
+bool GpuDeviceImpl::presentPrimarySwapChain()
 {
     if (mPrimarySwapChain == nullptr)
     {
         return true;
     }
-    if (!mInitialized || mBackend != GraphicsBackend::Vulkan || mImmediateContext == nullptr)
+    if (!mInitialized || mBackend != GpuBackend::Vulkan || mImmediateContext == nullptr)
     {
         return false;
     }
@@ -142,7 +142,7 @@ bool GraphicsDeviceImpl::presentPrimarySwapChain()
         return false;
     }
 
-    RenderTargetDesc sourceDesc{};
+    GpuRenderTargetDesc sourceDesc{};
     if (!tryGetRenderTargetDesc(mDefaultRenderTarget, sourceDesc))
     {
         return false;
@@ -197,11 +197,10 @@ bool GraphicsDeviceImpl::presentPrimarySwapChain()
     return true;
 }
 
-bool GraphicsDeviceImpl::queueReadbackCopy(RenderTargetHandle target, std::uint64_t frameIndex,
-                                           const std::vector<std::uint64_t>& requestIds)
+bool GpuDeviceImpl::queueReadbackCopy(GpuRenderTargetHandle target, std::uint64_t frameIndex,
+                                      const std::vector<std::uint64_t>& requestIds)
 {
-    if (!mRenderDevice || !mImmediateContext || !mReadbackFence ||
-        mBackend != GraphicsBackend::Vulkan)
+    if (!mRenderDevice || !mImmediateContext || !mReadbackFence || mBackend != GpuBackend::Vulkan)
     {
         return false;
     }
@@ -258,4 +257,4 @@ bool GraphicsDeviceImpl::queueReadbackCopy(RenderTargetHandle target, std::uint6
     return true;
 }
 
-} // namespace cressim::neo::graphics
+} // namespace cressim::neo::gpu

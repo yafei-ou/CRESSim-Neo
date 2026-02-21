@@ -24,15 +24,17 @@ struct PreparedRenderable
     Diligent::BoundBox worldBounds{};
 };
 
-RenderViewport normalizeViewport(const RenderViewport& viewport);
+gpu::GpuRenderViewport normalizeViewport(const gpu::GpuRenderViewport& viewport);
 Diligent::float4x4 worldMatrixFromTransform(const common::Transform& transform);
 Diligent::float4x4 normalMatrixFromModelMatrix(const Diligent::float4x4& modelMatrix);
 ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightData>& lights);
 std::vector<PreparedRenderable> buildPreparedRenderables(
     const std::vector<RenderableInstance>& renderables, const RenderResourceManager& resources);
 bool isVisibleByFrustum(const PreparedRenderable& renderable, const Diligent::ViewFrustum& frustum);
-FrameViewData buildFrameViewData(const CameraData& camera, const RenderTargetDesc& targetDesc,
-                                 RenderTargetHandle target, const RenderViewport& viewport,
+FrameViewData buildFrameViewData(const CameraData& camera,
+                                 const gpu::GpuRenderTargetDesc& targetDesc,
+                                 gpu::GpuRenderTargetHandle target,
+                                 const gpu::GpuRenderViewport& viewport,
                                  const ForwardDirectionalLightData& lightData);
 CameraRenderQueues buildCameraRenderQueues(
     const std::vector<PreparedRenderable>& preparedRenderables, const FrameViewData& frameView,

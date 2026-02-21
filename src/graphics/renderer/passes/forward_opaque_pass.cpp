@@ -1,25 +1,23 @@
 #include "graphics/renderer/passes/forward_opaque_pass.h"
 
-#include "graphics/device/graphics_device_impl.h"
-
 #include <algorithm>
 #include <cstring>
 
 namespace cressim::neo::graphics::detail
 {
 
-ForwardOpaquePass::ForwardOpaquePass(GraphicsDeviceImpl& device)
-    : mDevice(device), mShaderSourceProvider(""), mMeshGpuCache("CRESSimNeo.ForwardOpaquePass")
+ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice& device)
+    : mDevice(device), mShaderLibrary(""), mMeshGpuCache("CRESSimNeo.ForwardOpaquePass")
 {
 }
 
 bool ForwardOpaquePass::initialize()
 {
-    mShaderSourceProvider = ShaderSourceProvider(mDevice.shaderSourceDirectory());
-    mProgramRegistry      = std::make_unique<MaterialProgramRegistry>(mShaderSourceProvider);
+    mShaderLibrary   = gpu::ShaderLibrary(mDevice.shaderSourceDirectory());
+    mProgramRegistry = std::make_unique<MaterialProgramRegistry>(mShaderLibrary);
 
-    GraphicsDeviceImpl::VulkanBackendContext backendContext{};
-    if (mDevice.tryGetVulkanContext(backendContext) && backendContext.renderDevice != nullptr)
+    gpu::GpuBackendContext backendContext{};
+    if (mDevice.tryGetBackendContext(backendContext) && backendContext.renderDevice != nullptr)
     {
         Diligent::SamplerDesc shadowSamplerDesc{};
         shadowSamplerDesc.MinFilter      = Diligent::FILTER_TYPE_COMPARISON_LINEAR;
@@ -66,8 +64,8 @@ bool ForwardOpaquePass::beginCameraFrame(const FrameViewData& frameView)
         return false;
     }
 
-    GraphicsDeviceImpl::VulkanBackendContext backendContext{};
-    if (!mDevice.tryGetVulkanContext(backendContext))
+    gpu::GpuBackendContext backendContext{};
+    if (!mDevice.tryGetBackendContext(backendContext))
     {
         return false;
     }
@@ -120,22 +118,23 @@ bool ForwardOpaquePass::beginCameraFrame(const FrameViewData& frameView)
 }
 
 void ForwardOpaquePass::setShadowMapTargets(
-    const std::array<RenderTargetHandle, kShadowCascadeCount>& shadowMapTargets,
+    const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount>& shadowMapTargets,
     std::uint32_t shadowMapCount)
 {
     mShadowMapTargets = shadowMapTargets;
     mShadowMapCount   = std::min<std::uint32_t>(shadowMapCount, kShadowCascadeCount);
 }
 
-bool ForwardOpaquePass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand)
+bool ForwardOpaquePass::draw(gpu::GpuRenderTargetHandle target,
+                             const ForwardDrawCommand& drawCommand)
 {
     if (!mInitialized)
     {
         return false;
     }
 
-    GraphicsDeviceImpl::VulkanBackendContext backendContext{};
-    if (!mDevice.tryGetVulkanContext(backendContext))
+    gpu::GpuBackendContext backendContext{};
+    if (!mDevice.tryGetBackendContext(backendContext))
     {
         return false;
     }

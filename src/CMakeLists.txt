@@ -1,6 +1,7 @@
 add_subdirectory(common)
+add_subdirectory(gpu)
 add_subdirectory(graphics)
-# add_subdirectory(physics)
+add_subdirectory(physics)
 add_subdirectory(engine)
 if(CRESSIM_NEO_BUILD_VIEWER)
     add_subdirectory(viewer)

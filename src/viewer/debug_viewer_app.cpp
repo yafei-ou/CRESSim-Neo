@@ -92,18 +92,18 @@ public:
             common::runtime_math::clampPositive(mDesc.fixedDeltaSeconds, 1.0f / 60.0f);
         mShowStats = mDesc.showStats;
 
-        inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.width  = mDesc.width;
-        inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.height = mDesc.height;
-        inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.colorFormat =
+        inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.width  = mDesc.width;
+        inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.height = mDesc.height;
+        inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.colorFormat =
             Diligent::TEX_FORMAT_UNKNOWN;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.enabled      = mDesc.windowEnabled;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.syncInterval = mDesc.vSync ? 1u : 0u;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.preferredColorFormat =
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.enabled      = mDesc.windowEnabled;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.syncInterval = mDesc.vSync ? 1u : 0u;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.preferredColorFormat =
             Diligent::TEX_FORMAT_UNKNOWN;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindow     = nullptr;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindowId   = 0;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeDisplay    = nullptr;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeConnection = nullptr;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeWindow     = nullptr;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeWindowId   = 0;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeDisplay    = nullptr;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeConnection = nullptr;
 
         if (!mDesc.windowEnabled)
         {
@@ -134,15 +134,13 @@ public:
         glfwSetScrollCallback(mWindow, &Impl::scrollCallback);
 
 #if defined(_WIN32)
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindow =
-            glfwGetWin32Window(mWindow);
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeWindow = glfwGetWin32Window(mWindow);
 #elif defined(__linux__)
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindowId =
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeWindowId =
             static_cast<std::uint64_t>(glfwGetX11Window(mWindow));
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeDisplay = glfwGetX11Display();
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeDisplay = glfwGetX11Display();
 #elif defined(__APPLE__)
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindow =
-            glfwGetCocoaWindow(mWindow);
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeWindow = glfwGetCocoaWindow(mWindow);
 #endif
 
         mInitialized = true;
@@ -168,7 +166,7 @@ public:
             return false;
         }
 
-        if (runtime.getGraphicsDevice() == nullptr)
+        if (runtime.getGpuDevice() == nullptr)
         {
             std::cerr << "DebugViewerApp: runtime has no graphics device.\n";
             return false;

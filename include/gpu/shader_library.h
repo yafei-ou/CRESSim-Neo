@@ -1,18 +1,20 @@
-#ifndef CRESSIM_NEO_GRAPHICS_RENDERER_SERVICES_SHADER_SOURCE_PROVIDER_H
-#define CRESSIM_NEO_GRAPHICS_RENDERER_SERVICES_SHADER_SOURCE_PROVIDER_H
+#ifndef CRESSIM_NEO_GPU_SHADER_LIBRARY_H
+#define CRESSIM_NEO_GPU_SHADER_LIBRARY_H
+
+#include "gpu/export.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Shader.h"
 
 #include <string>
 
-namespace cressim::neo::graphics::detail
+namespace cressim::neo::gpu
 {
 
-class ShaderSourceProvider
+class CRESSIM_NEO_GPU_API ShaderLibrary
 {
 public:
-    explicit ShaderSourceProvider(std::string shaderDirectory);
+    explicit ShaderLibrary(std::string shaderDirectory);
 
     bool resolveShaderPath(const char* relativePath, std::string& outPath);
     Diligent::IShaderSourceInputStreamFactory* streamFactory();
@@ -28,6 +30,6 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IShaderSourceInputStreamFactory> mStreamFactory;
 };
 
-} // namespace cressim::neo::graphics::detail
+} // namespace cressim::neo::gpu
 
-#endif // CRESSIM_NEO_GRAPHICS_RENDERER_SERVICES_SHADER_SOURCE_PROVIDER_H
+#endif // CRESSIM_NEO_GPU_SHADER_LIBRARY_H

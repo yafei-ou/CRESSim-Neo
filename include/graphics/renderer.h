@@ -2,8 +2,8 @@
 #define CRESSIM_NEO_GRAPHICS_RENDERER_H
 
 #include "common/frame_context.h"
+#include "gpu/gpu_device.h"
 #include "graphics/export.h"
-#include "graphics/graphics_device.h"
 #include "graphics/render_resource_manager.h"
 #include "graphics/render_world.h"
 
@@ -47,7 +47,7 @@ struct RenderStats
 class CRESSIM_NEO_GRAPHICS_API Renderer
 {
 public:
-    Renderer(GraphicsDevice& device, RenderResourceManager& resourceManager,
+    Renderer(gpu::GpuDevice& device, RenderResourceManager& resourceManager,
              const RendererDesc& desc = RendererDesc{});
     ~Renderer();
 
@@ -55,7 +55,7 @@ public:
     RenderStats render(const common::FrameContext& frameContext, const RenderWorld& world);
 
 private:
-    GraphicsDevice& mDevice;
+    gpu::GpuDevice& mDevice;
     RenderResourceManager& mResourceManager;
     RendererDesc mDesc{};
     std::unique_ptr<detail::ForwardPipeline> mForwardPipeline;

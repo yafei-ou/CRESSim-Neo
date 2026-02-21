@@ -1,10 +1,10 @@
 #ifndef CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_SHADOW_PASS_H
 #define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_SHADOW_PASS_H
 
-#include "graphics/graphics_device.h"
+#include "gpu/gpu_device.h"
+#include "gpu/shader_library.h"
 #include "graphics/renderer/passes/forward_draw_types.h"
 #include "graphics/renderer/services/mesh_gpu_cache.h"
-#include "graphics/renderer/services/shader_source_provider.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
@@ -15,18 +15,16 @@
 namespace cressim::neo::graphics
 {
 
-class GraphicsDeviceImpl;
-
 namespace detail
 {
 
 class ShadowPass
 {
 public:
-    explicit ShadowPass(GraphicsDeviceImpl& device);
+    explicit ShadowPass(gpu::GpuDevice& device);
 
     bool initialize();
-    bool draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand,
+    bool draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
               const Diligent::float4x4& lightViewProjectionMatrix);
 
 private:
@@ -45,9 +43,9 @@ private:
     bool ensureConstantBuffers(Diligent::IRenderDevice* renderDevice);
 
 private:
-    GraphicsDeviceImpl& mDevice;
+    gpu::GpuDevice& mDevice;
     bool mInitialized = false;
-    ShaderSourceProvider mShaderSourceProvider;
+    gpu::ShaderLibrary mShaderLibrary;
 
     MeshGpuCache mMeshGpuCache;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mPipelineState;

@@ -1,4 +1,4 @@
-#include "graphics/renderer/services/shader_source_provider.h"
+#include "gpu/shader_library.h"
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/include/DefaultShaderSourceStreamFactory.h"
 #include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
@@ -7,15 +7,15 @@
 #include <utility>
 #include <vector>
 
-namespace cressim::neo::graphics::detail
+namespace cressim::neo::gpu
 {
 
-ShaderSourceProvider::ShaderSourceProvider(std::string shaderDirectory)
+ShaderLibrary::ShaderLibrary(std::string shaderDirectory)
     : mShaderDirectory(std::move(shaderDirectory))
 {
 }
 
-bool ShaderSourceProvider::resolveShaderDirectory()
+bool ShaderLibrary::resolveShaderDirectory()
 {
     if (mShaderDirectoryResolved)
     {
@@ -55,7 +55,7 @@ bool ShaderSourceProvider::resolveShaderDirectory()
     return false;
 }
 
-bool ShaderSourceProvider::resolveShaderPath(const char* relativePath, std::string& outPath)
+bool ShaderLibrary::resolveShaderPath(const char* relativePath, std::string& outPath)
 {
     if (relativePath == nullptr || relativePath[0] == '\0')
     {
@@ -84,7 +84,7 @@ bool ShaderSourceProvider::resolveShaderPath(const char* relativePath, std::stri
     return true;
 }
 
-Diligent::IShaderSourceInputStreamFactory* ShaderSourceProvider::streamFactory()
+Diligent::IShaderSourceInputStreamFactory* ShaderLibrary::streamFactory()
 {
     if (!ensureStreamFactory())
     {
@@ -93,7 +93,7 @@ Diligent::IShaderSourceInputStreamFactory* ShaderSourceProvider::streamFactory()
     return mStreamFactory;
 }
 
-bool ShaderSourceProvider::ensureStreamFactory()
+bool ShaderLibrary::ensureStreamFactory()
 {
     if (mStreamFactory != nullptr)
     {
@@ -117,4 +117,4 @@ bool ShaderSourceProvider::ensureStreamFactory()
     return true;
 }
 
-} // namespace cressim::neo::graphics::detail
+} // namespace cressim::neo::gpu

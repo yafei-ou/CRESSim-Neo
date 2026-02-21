@@ -1,6 +1,5 @@
 #include "graphics/renderer.h"
 
-#include "graphics/device/graphics_device_impl.h"
 #include "graphics/renderer/passes/forward_pipeline.h"
 #include "graphics/renderer/renderer_internal.h"
 
@@ -9,7 +8,7 @@
 namespace cressim::neo::graphics
 {
 
-Renderer::Renderer(GraphicsDevice& device, RenderResourceManager& resourceManager,
+Renderer::Renderer(gpu::GpuDevice& device, RenderResourceManager& resourceManager,
                    const RendererDesc& desc)
     : mDevice(device), mResourceManager(resourceManager), mDesc(desc)
 {
@@ -19,8 +18,7 @@ Renderer::~Renderer() = default;
 
 bool Renderer::initialize()
 {
-    GraphicsDeviceImpl& deviceImpl = static_cast<GraphicsDeviceImpl&>(mDevice);
-    mForwardPipeline               = std::make_unique<detail::ForwardPipeline>(deviceImpl);
+    mForwardPipeline = std::make_unique<detail::ForwardPipeline>(mDevice);
     if (!mForwardPipeline->initialize())
     {
         mForwardPipeline.reset();
@@ -66,7 +64,7 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
 
     const auto renderCamera = [&](const CameraData& camera)
     {
-        RenderTargetHandle target = camera.outputTarget;
+        gpu::GpuRenderTargetHandle target = camera.outputTarget;
         if (!mDevice.isValidRenderTarget(target))
         {
             target = mDevice.defaultRenderTarget();
@@ -76,7 +74,7 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
             return;
         }
 
-        RenderTargetDesc targetDesc{};
+        gpu::GpuRenderTargetDesc targetDesc{};
         if (!mDevice.tryGetRenderTargetDesc(target, targetDesc))
         {
             return;
@@ -108,17 +106,17 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
 
             if (targetDesc.width != desired.width || targetDesc.height != desired.height)
             {
-                const RenderTargetUpdateResult updateResult =
+                const gpu::GpuRenderTargetUpdateResult updateResult =
                     mDevice.resizeRenderTarget(target, desired.width, desired.height);
-                if (updateResult == RenderTargetUpdateResult::Unchanged)
+                if (updateResult == gpu::GpuRenderTargetUpdateResult::Unchanged)
                 {
                     ++stats.renderTargetResizeNoOps;
                 }
-                else if (updateResult == RenderTargetUpdateResult::Recreated)
+                else if (updateResult == gpu::GpuRenderTargetUpdateResult::Recreated)
                 {
                     ++stats.renderTargetRecreateCount;
                 }
-                if (updateResult != RenderTargetUpdateResult::Failed)
+                if (updateResult != gpu::GpuRenderTargetUpdateResult::Failed)
                 {
                     if (!mDevice.tryGetRenderTargetDesc(target, targetDesc))
                     {
@@ -132,7 +130,7 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
             }
         }
 
-        const RenderViewport viewport = detail::normalizeViewport(camera.viewport);
+        const gpu::GpuRenderViewport viewport = detail::normalizeViewport(camera.viewport);
         const FrameViewData frameView =
             detail::buildFrameViewData(camera, targetDesc, target, viewport, lightData);
         const CameraRenderQueues queues = detail::buildCameraRenderQueues(

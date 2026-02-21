@@ -238,7 +238,7 @@ Diligent::float3 cameraPosition(const CameraData& camera)
 
 } // namespace
 
-RenderViewport normalizeViewport(const RenderViewport& viewport)
+gpu::GpuRenderViewport normalizeViewport(const gpu::GpuRenderViewport& viewport)
 {
     return common::runtime_math::normalizeViewport(viewport);
 }
@@ -286,8 +286,10 @@ ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightDat
     return out;
 }
 
-FrameViewData buildFrameViewData(const CameraData& camera, const RenderTargetDesc& targetDesc,
-                                 RenderTargetHandle target, const RenderViewport& viewport,
+FrameViewData buildFrameViewData(const CameraData& camera,
+                                 const gpu::GpuRenderTargetDesc& targetDesc,
+                                 gpu::GpuRenderTargetHandle target,
+                                 const gpu::GpuRenderViewport& viewport,
                                  const ForwardDirectionalLightData& lightData)
 {
     FrameViewData frameView{};

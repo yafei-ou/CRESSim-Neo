@@ -7,18 +7,18 @@ namespace
 
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
-using cressim::neo::graphics::GraphicsBackend;
-using cressim::neo::graphics::GraphicsDevice;
-using cressim::neo::graphics::RenderTargetDesc;
-using cressim::neo::graphics::RenderTargetHandle;
-using cressim::neo::graphics::RenderTargetUpdateResult;
+using cressim::neo::gpu::GpuBackend;
+using cressim::neo::gpu::GpuDevice;
+using cressim::neo::gpu::GpuRenderTargetDesc;
+using cressim::neo::gpu::GpuRenderTargetHandle;
+using cressim::neo::gpu::GpuRenderTargetUpdateResult;
 
 } // namespace
 
 int main()
 {
     RuntimeConfig config{};
-    config.graphicsDeviceDesc.preferredBackend = GraphicsBackend::Vulkan;
+    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
 
     Runtime runtime;
     if (!runtime.initialize(config))
@@ -27,7 +27,7 @@ int main()
         return 1;
     }
 
-    GraphicsDevice* device = runtime.getGraphicsDevice();
+    GpuDevice* device = runtime.getGpuDevice();
     if (device == nullptr)
     {
         std::cerr << "Graphics device not available.\n";
@@ -35,11 +35,11 @@ int main()
         return 1;
     }
 
-    RenderTargetDesc desc{};
+    GpuRenderTargetDesc desc{};
     desc.width = 640;
     desc.height = 480;
     desc.debugName = "ResizePolicy.Target";
-    RenderTargetHandle target = device->createRenderTarget(desc);
+    GpuRenderTargetHandle target = device->createRenderTarget(desc);
     if (!device->isValidRenderTarget(target))
     {
         std::cerr << "Failed to create render target.\n";
@@ -47,15 +47,15 @@ int main()
         return 1;
     }
 
-    const RenderTargetUpdateResult resizeNoOp = device->resizeRenderTarget(target, 640, 480);
-    if (resizeNoOp != RenderTargetUpdateResult::Unchanged)
+    const GpuRenderTargetUpdateResult resizeNoOp = device->resizeRenderTarget(target, 640, 480);
+    if (resizeNoOp != GpuRenderTargetUpdateResult::Unchanged)
     {
         std::cerr << "Expected unchanged result for same-size resize.\n";
         runtime.shutdown();
         return 1;
     }
 
-    RenderTargetDesc updatedDesc{};
+    GpuRenderTargetDesc updatedDesc{};
     if (!device->tryGetRenderTargetDesc(target, updatedDesc))
     {
         std::cerr << "Failed to fetch render target descriptor.\n";
@@ -64,8 +64,8 @@ int main()
     }
 
     updatedDesc.debugName = "ResizePolicy.Renamed";
-    const RenderTargetUpdateResult metadataUpdate = device->reconfigureRenderTarget(target, updatedDesc);
-    if (metadataUpdate != RenderTargetUpdateResult::Unchanged)
+    const GpuRenderTargetUpdateResult metadataUpdate = device->reconfigureRenderTarget(target, updatedDesc);
+    if (metadataUpdate != GpuRenderTargetUpdateResult::Unchanged)
     {
         std::cerr << "Expected unchanged result for metadata-only reconfigure.\n";
         runtime.shutdown();
@@ -73,15 +73,15 @@ int main()
     }
 
     updatedDesc.width = 800;
-    const RenderTargetUpdateResult resizedUpdate = device->reconfigureRenderTarget(target, updatedDesc);
-    if (resizedUpdate != RenderTargetUpdateResult::Recreated)
+    const GpuRenderTargetUpdateResult resizedUpdate = device->reconfigureRenderTarget(target, updatedDesc);
+    if (resizedUpdate != GpuRenderTargetUpdateResult::Recreated)
     {
         std::cerr << "Expected recreated result for dimension-changing reconfigure.\n";
         runtime.shutdown();
         return 1;
     }
 
-    RenderTargetDesc finalDesc{};
+    GpuRenderTargetDesc finalDesc{};
     if (!device->tryGetRenderTargetDesc(target, finalDesc))
     {
         std::cerr << "Failed to fetch final descriptor.\n";

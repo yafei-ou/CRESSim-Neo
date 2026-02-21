@@ -1,9 +1,9 @@
 #ifndef CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_MATERIAL_PROGRAM_REGISTRY_H
 #define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_MATERIAL_PROGRAM_REGISTRY_H
 
+#include "gpu/shader_library.h"
 #include "graphics/render_resource_manager.h"
 #include "graphics/renderer/passes/render_pass_types.h"
-#include "graphics/renderer/services/shader_source_provider.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
@@ -49,7 +49,7 @@ public:
     };
 
 public:
-    explicit MaterialProgramRegistry(ShaderSourceProvider& shaderSourceProvider);
+    explicit MaterialProgramRegistry(gpu::ShaderLibrary& shaderSourceProvider);
 
     ProgramResources* getOrCreateProgram(Diligent::IRenderDevice* renderDevice,
                                          const ProgramKey& key);
@@ -67,7 +67,7 @@ private:
                        ProgramResources& outResources);
 
 private:
-    ShaderSourceProvider& mShaderSourceProvider;
+    gpu::ShaderLibrary& mShaderLibrary;
     std::unordered_map<ProgramKey, ProgramResources, ProgramKeyHasher> mPrograms;
 };
 

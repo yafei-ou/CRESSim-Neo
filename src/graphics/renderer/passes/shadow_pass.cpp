@@ -1,7 +1,5 @@
 #include "graphics/renderer/passes/shadow_pass.h"
 
-#include "graphics/device/graphics_device_impl.h"
-
 #include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
 
 #include <cstring>
@@ -10,19 +8,19 @@
 namespace cressim::neo::graphics::detail
 {
 
-ShadowPass::ShadowPass(GraphicsDeviceImpl& device)
-    : mDevice(device), mShaderSourceProvider(""), mMeshGpuCache("CRESSimNeo.ShadowPass")
+ShadowPass::ShadowPass(gpu::GpuDevice& device)
+    : mDevice(device), mShaderLibrary(""), mMeshGpuCache("CRESSimNeo.ShadowPass")
 {
 }
 
 bool ShadowPass::initialize()
 {
-    mShaderSourceProvider = ShaderSourceProvider(mDevice.shaderSourceDirectory());
-    mInitialized          = true;
+    mShaderLibrary = gpu::ShaderLibrary(mDevice.shaderSourceDirectory());
+    mInitialized   = true;
     return true;
 }
 
-bool ShadowPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand,
+bool ShadowPass::draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
                       const Diligent::float4x4& lightViewProjectionMatrix)
 {
     if (!mInitialized)
@@ -30,8 +28,8 @@ bool ShadowPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawC
         return false;
     }
 
-    GraphicsDeviceImpl::VulkanBackendContext backendContext{};
-    if (!mDevice.tryGetVulkanContext(backendContext))
+    gpu::GpuBackendContext backendContext{};
+    if (!mDevice.tryGetBackendContext(backendContext))
     {
         return false;
     }
@@ -134,15 +132,14 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
     constexpr const char* kShadowVsRelativePath = "shadow_depth.vs.hlsl";
 
     std::string shadowVsPath;
-    if (!mShaderSourceProvider.resolveShaderPath(kShadowVsRelativePath, shadowVsPath))
+    if (!mShaderLibrary.resolveShaderPath(kShadowVsRelativePath, shadowVsPath))
     {
         LOG_ERROR_MESSAGE("ShadowPass shader path resolution failed for relative path '",
                           kShadowVsRelativePath, "'.");
         return false;
     }
 
-    Diligent::IShaderSourceInputStreamFactory* streamFactory =
-        mShaderSourceProvider.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory* streamFactory = mShaderLibrary.streamFactory();
     if (streamFactory == nullptr)
     {
         LOG_ERROR_MESSAGE("ShadowPass could not acquire shader source stream factory.");

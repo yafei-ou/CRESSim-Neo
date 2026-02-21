@@ -1,12 +1,12 @@
 #ifndef CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_OPAQUE_PASS_H
 #define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_OPAQUE_PASS_H
 
-#include "graphics/graphics_device.h"
+#include "gpu/gpu_device.h"
+#include "gpu/shader_library.h"
 #include "graphics/renderer/passes/forward_draw_types.h"
 #include "graphics/renderer/passes/material_program_registry.h"
 #include "graphics/renderer/passes/render_pass_types.h"
 #include "graphics/renderer/services/mesh_gpu_cache.h"
-#include "graphics/renderer/services/shader_source_provider.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
@@ -21,22 +21,20 @@
 namespace cressim::neo::graphics
 {
 
-class GraphicsDeviceImpl;
-
 namespace detail
 {
 
 class ForwardOpaquePass
 {
 public:
-    explicit ForwardOpaquePass(GraphicsDeviceImpl& device);
+    explicit ForwardOpaquePass(gpu::GpuDevice& device);
 
     bool initialize();
     bool beginCameraFrame(const FrameViewData& frameView);
     void setShadowMapTargets(
-        const std::array<RenderTargetHandle, kShadowCascadeCount>& shadowMapTargets,
+        const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount>& shadowMapTargets,
         std::uint32_t shadowMapCount);
-    bool draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand);
+    bool draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand);
     std::size_t cachedProgramCount() const noexcept;
 
 private:
@@ -70,9 +68,9 @@ private:
     bool hasAnyShadowMap() const;
 
 private:
-    GraphicsDeviceImpl& mDevice;
+    gpu::GpuDevice& mDevice;
     bool mInitialized = false;
-    ShaderSourceProvider mShaderSourceProvider;
+    gpu::ShaderLibrary mShaderLibrary;
     std::unique_ptr<MaterialProgramRegistry> mProgramRegistry;
 
     MeshGpuCache mMeshGpuCache;
@@ -81,7 +79,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mForwardPerMaterialBuffer;
     Diligent::RefCntAutoPtr<Diligent::ISampler> mShadowSampler;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackShadowMapSrv;
-    std::array<RenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
+    std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
     std::uint32_t mShadowMapCount = 0;
 };
 

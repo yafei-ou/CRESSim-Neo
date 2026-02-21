@@ -1,5 +1,5 @@
 #include "common/math_utils_runtime.h"
-#include "graphics/device/graphics_device_impl.h"
+#include "gpu/gpu_device_impl.h"
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "DiligentEngine/DiligentCore/Platforms/interface/NativeWindow.h"
@@ -9,12 +9,12 @@
 #include <limits>
 #include <utility>
 
-namespace cressim::neo::graphics
+namespace cressim::neo::gpu
 {
 
-std::unique_ptr<GraphicsDevice> createGraphicsDevice()
+std::unique_ptr<GpuDevice> createGpuDevice()
 {
-    return std::make_unique<GraphicsDeviceImpl>();
+    return std::make_unique<GpuDeviceImpl>();
 }
 
 namespace
@@ -30,8 +30,8 @@ Diligent::Uint32 clampWindowId(std::uint64_t value)
     return static_cast<Diligent::Uint32>(std::min<std::uint64_t>(value, kMax));
 }
 
-bool requiresTextureRecreate(const RenderTargetDesc& currentDesc,
-                             const RenderTargetDesc& updatedDesc)
+bool requiresTextureRecreate(const GpuRenderTargetDesc& currentDesc,
+                             const GpuRenderTargetDesc& updatedDesc)
 {
     return currentDesc.width != updatedDesc.width || currentDesc.height != updatedDesc.height ||
            currentDesc.color != updatedDesc.color || currentDesc.depth != updatedDesc.depth ||
@@ -42,14 +42,14 @@ bool requiresTextureRecreate(const RenderTargetDesc& currentDesc,
 
 } // namespace
 
-bool GraphicsDeviceImpl::initialize(const GraphicsDeviceDesc& desc)
+bool GpuDeviceImpl::initialize(const GpuDeviceDesc& desc)
 {
     shutdown();
 
     mDesc = desc;
 
     // Vulkan-only backend path.
-    if (mDesc.preferredBackend != GraphicsBackend::Vulkan)
+    if (mDesc.preferredBackend != GpuBackend::Vulkan)
     {
         return false;
     }
@@ -78,7 +78,7 @@ bool GraphicsDeviceImpl::initialize(const GraphicsDeviceDesc& desc)
     return mInitialized;
 }
 
-void GraphicsDeviceImpl::shutdown()
+void GpuDeviceImpl::shutdown()
 {
     if (mImmediateContext != nullptr)
     {
@@ -106,29 +106,29 @@ void GraphicsDeviceImpl::shutdown()
     mDefaultRenderTarget = {};
     mNextRenderTargetId  = 1;
 
-    mBackend     = GraphicsBackend::Null;
+    mBackend     = GpuBackend::Null;
     mInitialized = false;
 }
 
-RenderTargetHandle GraphicsDeviceImpl::createRenderTarget(const RenderTargetDesc& desc)
+GpuRenderTargetHandle GpuDeviceImpl::createRenderTarget(const GpuRenderTargetDesc& desc)
 {
     if (!mInitialized)
     {
         return {};
     }
 
-    if (mBackend == GraphicsBackend::Vulkan && !mRenderDevice)
+    if (mBackend == GpuBackend::Vulkan && !mRenderDevice)
     {
         return {};
     }
 
     RenderTargetResources resources{};
     resources.desc        = normalizeTargetDesc(desc);
-    resources.viewport    = common::runtime_math::normalizeViewport(RenderViewport{});
+    resources.viewport    = common::runtime_math::normalizeViewport(GpuRenderViewport{});
     resources.colorFormat = resources.desc.colorFormat;
     resources.depthFormat = resources.desc.depthFormat;
 
-    if (mBackend == GraphicsBackend::Vulkan)
+    if (mBackend == GpuBackend::Vulkan)
     {
         if (!createRenderTargetTextures(resources.desc, resources))
         {
@@ -138,51 +138,51 @@ RenderTargetHandle GraphicsDeviceImpl::createRenderTarget(const RenderTargetDesc
 
     const common::ResourceId id = mNextRenderTargetId++;
     mRenderTargets.emplace(id, std::move(resources));
-    return RenderTargetHandle{id};
+    return GpuRenderTargetHandle{id};
 }
 
-RenderTargetUpdateResult GraphicsDeviceImpl::resizeRenderTarget(RenderTargetHandle target,
-                                                                std::uint32_t width,
-                                                                std::uint32_t height)
+GpuRenderTargetUpdateResult GpuDeviceImpl::resizeRenderTarget(GpuRenderTargetHandle target,
+                                                              std::uint32_t width,
+                                                              std::uint32_t height)
 {
     if (!mInitialized)
     {
-        return RenderTargetUpdateResult::Failed;
+        return GpuRenderTargetUpdateResult::Failed;
     }
 
     const auto it = mRenderTargets.find(target.id);
     if (it == mRenderTargets.end())
     {
-        return RenderTargetUpdateResult::Failed;
+        return GpuRenderTargetUpdateResult::Failed;
     }
 
-    RenderTargetDesc resizedDesc = it->second.desc;
+    GpuRenderTargetDesc resizedDesc = it->second.desc;
     resizedDesc.width = common::runtime_math::clampExtent(width == 0 ? resizedDesc.width : width);
     resizedDesc.height =
         common::runtime_math::clampExtent(height == 0 ? resizedDesc.height : height);
     if (resizedDesc.width == it->second.desc.width && resizedDesc.height == it->second.desc.height)
     {
-        return RenderTargetUpdateResult::Unchanged;
+        return GpuRenderTargetUpdateResult::Unchanged;
     }
 
     return reconfigureRenderTarget(target, resizedDesc);
 }
 
-RenderTargetUpdateResult GraphicsDeviceImpl::reconfigureRenderTarget(RenderTargetHandle target,
-                                                                     const RenderTargetDesc& desc)
+GpuRenderTargetUpdateResult GpuDeviceImpl::reconfigureRenderTarget(GpuRenderTargetHandle target,
+                                                                   const GpuRenderTargetDesc& desc)
 {
     if (!mInitialized)
     {
-        return RenderTargetUpdateResult::Failed;
+        return GpuRenderTargetUpdateResult::Failed;
     }
 
     const auto it = mRenderTargets.find(target.id);
     if (it == mRenderTargets.end())
     {
-        return RenderTargetUpdateResult::Failed;
+        return GpuRenderTargetUpdateResult::Failed;
     }
 
-    RenderTargetDesc updatedDesc = normalizeTargetDesc(desc);
+    GpuRenderTargetDesc updatedDesc = normalizeTargetDesc(desc);
     if (target.id == mDefaultRenderTarget.id)
     {
         updatedDesc = normalizeDefaultRenderTargetDesc(updatedDesc);
@@ -194,7 +194,7 @@ RenderTargetUpdateResult GraphicsDeviceImpl::reconfigureRenderTarget(RenderTarge
     updatedResources.colorFormat           = updatedDesc.colorFormat;
     updatedResources.depthFormat           = updatedDesc.depthFormat;
 
-    if (mBackend == GraphicsBackend::Vulkan && recreateTextures)
+    if (mBackend == GpuBackend::Vulkan && recreateTextures)
     {
         if (mImmediateContext != nullptr)
         {
@@ -204,7 +204,7 @@ RenderTargetUpdateResult GraphicsDeviceImpl::reconfigureRenderTarget(RenderTarge
 
         if (!createRenderTargetTextures(updatedDesc, updatedResources))
         {
-            return RenderTargetUpdateResult::Failed;
+            return GpuRenderTargetUpdateResult::Failed;
         }
     }
 
@@ -225,11 +225,11 @@ RenderTargetUpdateResult GraphicsDeviceImpl::reconfigureRenderTarget(RenderTarge
         }
     }
 
-    return recreateTextures ? RenderTargetUpdateResult::Recreated
-                            : RenderTargetUpdateResult::Unchanged;
+    return recreateTextures ? GpuRenderTargetUpdateResult::Recreated
+                            : GpuRenderTargetUpdateResult::Unchanged;
 }
 
-void GraphicsDeviceImpl::destroyRenderTarget(RenderTargetHandle target)
+void GpuDeviceImpl::destroyRenderTarget(GpuRenderTargetHandle target)
 {
     if (target.id == common::kInvalidResourceId || target.id == mDefaultRenderTarget.id)
     {
@@ -252,7 +252,7 @@ void GraphicsDeviceImpl::destroyRenderTarget(RenderTargetHandle target)
 
     auto completeRequestWithEmptyResult = [&](std::uint64_t requestId)
     {
-        RenderTargetReadbackEvent event{};
+        GpuRenderTargetReadbackEvent event{};
         event.target                   = target;
         event.colorFormat              = targetColorFormat;
         mCompletedReadbacks[requestId] = std::move(event);
@@ -286,7 +286,7 @@ void GraphicsDeviceImpl::destroyRenderTarget(RenderTargetHandle target)
     mRenderTargets.erase(target.id);
 }
 
-bool GraphicsDeviceImpl::isValidRenderTarget(RenderTargetHandle target) const
+bool GpuDeviceImpl::isValidRenderTarget(GpuRenderTargetHandle target) const
 {
     if (target.id == common::kInvalidResourceId)
     {
@@ -295,18 +295,18 @@ bool GraphicsDeviceImpl::isValidRenderTarget(RenderTargetHandle target) const
     return mRenderTargets.find(target.id) != mRenderTargets.end();
 }
 
-RenderTargetHandle GraphicsDeviceImpl::defaultRenderTarget() const
+GpuRenderTargetHandle GpuDeviceImpl::defaultRenderTarget() const
 {
     return mDefaultRenderTarget;
 }
 
-void GraphicsDeviceImpl::beginFrame(const common::FrameContext& frameContext)
+void GpuDeviceImpl::beginFrame(const common::FrameContext& frameContext)
 {
     (void)frameContext;
 }
 
-void GraphicsDeviceImpl::setRenderTargetViewport(RenderTargetHandle target,
-                                                 const RenderViewport& viewport)
+void GpuDeviceImpl::setRenderTargetViewport(GpuRenderTargetHandle target,
+                                            const GpuRenderViewport& viewport)
 {
     const auto it = mRenderTargets.find(target.id);
     if (it == mRenderTargets.end())
@@ -317,14 +317,14 @@ void GraphicsDeviceImpl::setRenderTargetViewport(RenderTargetHandle target,
     it->second.viewport = common::runtime_math::normalizeViewport(viewport);
 }
 
-void GraphicsDeviceImpl::beginRenderTarget(RenderTargetHandle target,
-                                           const common::FrameContext& frameContext,
-                                           const RenderPassBeginDesc& beginDesc)
+void GpuDeviceImpl::beginRenderTarget(GpuRenderTargetHandle target,
+                                      const common::FrameContext& frameContext,
+                                      const GpuRenderPassBeginDesc& beginDesc)
 {
     (void)frameContext;
     mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
 
-    if (!mInitialized || mBackend != GraphicsBackend::Vulkan || !mImmediateContext)
+    if (!mInitialized || mBackend != GpuBackend::Vulkan || !mImmediateContext)
     {
         return;
     }
@@ -380,9 +380,9 @@ void GraphicsDeviceImpl::beginRenderTarget(RenderTargetHandle target,
                                              Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
 
-    const float targetWidth       = static_cast<float>(it->second.desc.width);
-    const float targetHeight      = static_cast<float>(it->second.desc.height);
-    const RenderViewport viewport = it->second.viewport;
+    const float targetWidth          = static_cast<float>(it->second.desc.width);
+    const float targetHeight         = static_cast<float>(it->second.desc.height);
+    const GpuRenderViewport viewport = it->second.viewport;
 
     Diligent::Viewport diligentViewport{};
     diligentViewport.TopLeftX = viewport.x * targetWidth;
@@ -399,8 +399,8 @@ void GraphicsDeviceImpl::beginRenderTarget(RenderTargetHandle target,
     mActiveRenderTargetHasDepth = (depthDsv != nullptr);
 }
 
-void GraphicsDeviceImpl::endRenderTarget(RenderTargetHandle target,
-                                         const common::FrameContext& frameContext)
+void GpuDeviceImpl::endRenderTarget(GpuRenderTargetHandle target,
+                                    const common::FrameContext& frameContext)
 {
     if (mHasActiveRenderTarget && mActiveRenderTarget.id == target.id)
     {
@@ -410,7 +410,7 @@ void GraphicsDeviceImpl::endRenderTarget(RenderTargetHandle target,
         mActiveRenderTarget            = {};
     }
 
-    if (mBackend == GraphicsBackend::Vulkan && mImmediateContext != nullptr)
+    if (mBackend == GpuBackend::Vulkan && mImmediateContext != nullptr)
     {
         mImmediateContext->SetRenderTargets(0, nullptr, nullptr,
                                             Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
@@ -431,7 +431,7 @@ void GraphicsDeviceImpl::endRenderTarget(RenderTargetHandle target,
     }
 
     // Fallback path for targets/backends without pixel payload support.
-    RenderTargetReadbackEvent event{};
+    GpuRenderTargetReadbackEvent event{};
     event.target        = target;
     event.frameIndex    = frameContext.frameIndex;
     const auto targetIt = mRenderTargets.find(target.id);
@@ -445,16 +445,16 @@ void GraphicsDeviceImpl::endRenderTarget(RenderTargetHandle target,
     }
 }
 
-GraphicsBackend GraphicsDeviceImpl::backend() const
+GpuBackend GpuDeviceImpl::backend() const
 {
     return mBackend;
 }
 
-bool GraphicsDeviceImpl::tryGetVulkanContext(VulkanBackendContext& outContext)
+bool GpuDeviceImpl::tryGetBackendContext(GpuBackendContext& outContext)
 {
-    outContext = {};
+    outContext = GpuBackendContext{};
 
-    if (!mInitialized || mBackend != GraphicsBackend::Vulkan || mRenderDevice == nullptr ||
+    if (!mInitialized || mBackend != GpuBackend::Vulkan || mRenderDevice == nullptr ||
         mImmediateContext == nullptr)
     {
         return false;
@@ -470,8 +470,8 @@ bool GraphicsDeviceImpl::tryGetVulkanContext(VulkanBackendContext& outContext)
     return true;
 }
 
-bool GraphicsDeviceImpl::tryGetRenderTargetDesc(RenderTargetHandle target,
-                                                RenderTargetDesc& outDesc) const
+bool GpuDeviceImpl::tryGetRenderTargetDesc(GpuRenderTargetHandle target,
+                                           GpuRenderTargetDesc& outDesc) const
 {
     const auto it = mRenderTargets.find(target.id);
     if (it == mRenderTargets.end())
@@ -484,12 +484,12 @@ bool GraphicsDeviceImpl::tryGetRenderTargetDesc(RenderTargetHandle target,
     return true;
 }
 
-bool GraphicsDeviceImpl::tryGetRenderTargetColorTexture(RenderTargetHandle target,
-                                                        Diligent::ITexture*& outTexture)
+bool GpuDeviceImpl::tryGetRenderTargetColorTexture(GpuRenderTargetHandle target,
+                                                   Diligent::ITexture*& outTexture)
 {
     outTexture = nullptr;
 
-    if (!mInitialized || mBackend != GraphicsBackend::Vulkan)
+    if (!mInitialized || mBackend != GpuBackend::Vulkan)
     {
         return false;
     }
@@ -504,12 +504,12 @@ bool GraphicsDeviceImpl::tryGetRenderTargetColorTexture(RenderTargetHandle targe
     return true;
 }
 
-bool GraphicsDeviceImpl::tryGetRenderTargetDepthTexture(RenderTargetHandle target,
-                                                        Diligent::ITexture*& outTexture)
+bool GpuDeviceImpl::tryGetRenderTargetDepthTexture(GpuRenderTargetHandle target,
+                                                   Diligent::ITexture*& outTexture)
 {
     outTexture = nullptr;
 
-    if (!mInitialized || mBackend != GraphicsBackend::Vulkan)
+    if (!mInitialized || mBackend != GpuBackend::Vulkan)
     {
         return false;
     }
@@ -524,12 +524,12 @@ bool GraphicsDeviceImpl::tryGetRenderTargetDepthTexture(RenderTargetHandle targe
     return true;
 }
 
-const std::string& GraphicsDeviceImpl::shaderSourceDirectory() const
+const std::string& GpuDeviceImpl::shaderSourceDirectory() const
 {
     return mDesc.shaderDirectory;
 }
 
-bool GraphicsDeviceImpl::initializeVulkan()
+bool GpuDeviceImpl::initializeVulkan()
 {
     Diligent::IEngineFactoryVk* factoryVk = Diligent::LoadAndGetEngineFactoryVk();
     if (factoryVk == nullptr)
@@ -554,18 +554,17 @@ bool GraphicsDeviceImpl::initializeVulkan()
         return false;
     }
 
-    mBackend = GraphicsBackend::Vulkan;
+    mBackend = GpuBackend::Vulkan;
     return true;
 }
 
-bool GraphicsDeviceImpl::createPrimarySwapChain()
+bool GpuDeviceImpl::createPrimarySwapChain()
 {
     if (!mDesc.presentation.enabled)
     {
         return true;
     }
-    if (mBackend != GraphicsBackend::Vulkan || mRenderDevice == nullptr ||
-        mImmediateContext == nullptr)
+    if (mBackend != GpuBackend::Vulkan || mRenderDevice == nullptr || mImmediateContext == nullptr)
     {
         return false;
     }
@@ -580,14 +579,14 @@ bool GraphicsDeviceImpl::createPrimarySwapChain()
 #if PLATFORM_WIN32
     if (mDesc.presentation.nativeWindow == nullptr)
     {
-        std::cerr << "GraphicsDeviceImpl: presentation nativeWindow must be set on Win32.\n";
+        std::cerr << "GpuDeviceImpl: presentation nativeWindow must be set on Win32.\n";
         return false;
     }
     window.hWnd = mDesc.presentation.nativeWindow;
 #elif PLATFORM_LINUX
     if (mDesc.presentation.nativeWindowId == 0)
     {
-        std::cerr << "GraphicsDeviceImpl: presentation nativeWindowId must be set on Linux.\n";
+        std::cerr << "GpuDeviceImpl: presentation nativeWindowId must be set on Linux.\n";
         return false;
     }
     window.WindowId = clampWindowId(mDesc.presentation.nativeWindowId);
@@ -601,19 +600,18 @@ bool GraphicsDeviceImpl::createPrimarySwapChain()
     }
     else
     {
-        std::cerr
-            << "GraphicsDeviceImpl: presentation native display/connection is missing on Linux.\n";
+        std::cerr << "GpuDeviceImpl: presentation native display/connection is missing on Linux.\n";
         return false;
     }
 #elif PLATFORM_MACOS
     if (mDesc.presentation.nativeWindow == nullptr)
     {
-        std::cerr << "GraphicsDeviceImpl: presentation nativeWindow must be set on macOS.\n";
+        std::cerr << "GpuDeviceImpl: presentation nativeWindow must be set on macOS.\n";
         return false;
     }
     window.pNSView = mDesc.presentation.nativeWindow;
 #else
-    std::cerr << "GraphicsDeviceImpl: presentation is unsupported on this platform.\n";
+    std::cerr << "GpuDeviceImpl: presentation is unsupported on this platform.\n";
     return false;
 #endif
 
@@ -642,7 +640,7 @@ bool GraphicsDeviceImpl::createPrimarySwapChain()
                                  &mPrimarySwapChain);
     if (mPrimarySwapChain == nullptr)
     {
-        std::cerr << "GraphicsDeviceImpl: failed to create primary swapchain.\n";
+        std::cerr << "GpuDeviceImpl: failed to create primary swapchain.\n";
         return false;
     }
 
@@ -655,21 +653,22 @@ bool GraphicsDeviceImpl::createPrimarySwapChain()
     return true;
 }
 
-bool GraphicsDeviceImpl::createDefaultRenderTarget()
+bool GpuDeviceImpl::createDefaultRenderTarget()
 {
-    RenderTargetDesc defaultDesc  = normalizeDefaultRenderTargetDesc(mDesc.defaultRenderTargetDesc);
+    GpuRenderTargetDesc defaultDesc =
+        normalizeDefaultRenderTargetDesc(mDesc.defaultRenderTargetDesc);
     mDesc.defaultRenderTargetDesc = defaultDesc;
 
     mDefaultRenderTarget = createRenderTarget(defaultDesc);
     return isValidRenderTarget(mDefaultRenderTarget);
 }
 
-RenderTargetDesc GraphicsDeviceImpl::normalizeDefaultRenderTargetDesc(
-    const RenderTargetDesc& desc) const
+GpuRenderTargetDesc GpuDeviceImpl::normalizeDefaultRenderTargetDesc(
+    const GpuRenderTargetDesc& desc) const
 {
-    RenderTargetDesc normalized  = desc;
-    std::uint32_t fallbackWidth  = kDefaultRenderTargetWidth;
-    std::uint32_t fallbackHeight = kDefaultRenderTargetHeight;
+    GpuRenderTargetDesc normalized = desc;
+    std::uint32_t fallbackWidth    = kDefaultRenderTargetWidth;
+    std::uint32_t fallbackHeight   = kDefaultRenderTargetHeight;
     if (mPrimarySwapChain != nullptr)
     {
         const auto& swapChainDesc = mPrimarySwapChain->GetDesc();
@@ -715,9 +714,9 @@ RenderTargetDesc GraphicsDeviceImpl::normalizeDefaultRenderTargetDesc(
     return normalized;
 }
 
-RenderTargetDesc GraphicsDeviceImpl::normalizeTargetDesc(const RenderTargetDesc& desc) const
+GpuRenderTargetDesc GpuDeviceImpl::normalizeTargetDesc(const GpuRenderTargetDesc& desc) const
 {
-    RenderTargetDesc normalized       = desc;
+    GpuRenderTargetDesc normalized    = desc;
     const std::uint32_t fallbackWidth = common::runtime_math::clampExtent(
         mDesc.defaultRenderTargetDesc.width == 0 ? kDefaultRenderTargetWidth
                                                  : mDesc.defaultRenderTargetDesc.width);
@@ -743,8 +742,8 @@ RenderTargetDesc GraphicsDeviceImpl::normalizeTargetDesc(const RenderTargetDesc&
     return normalized;
 }
 
-bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc,
-                                                    RenderTargetResources& resources)
+bool GpuDeviceImpl::createRenderTargetTextures(const GpuRenderTargetDesc& desc,
+                                               RenderTargetResources& resources)
 {
     if (!mRenderDevice || (!desc.color && !desc.depth))
     {
@@ -821,4 +820,4 @@ bool GraphicsDeviceImpl::createRenderTargetTextures(const RenderTargetDesc& desc
     return true;
 }
 
-} // namespace cressim::neo::graphics
+} // namespace cressim::neo::gpu
