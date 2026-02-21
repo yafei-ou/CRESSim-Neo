@@ -11,6 +11,7 @@ int main()
 
     engine::RuntimeConfig config{};
     config.gpuDeviceDesc.preferredBackend = gpu::GpuBackend::Vulkan;
+    config.gpuDeviceDesc.enableValidation = false;
 
     engine::Runtime runtime;
     if (!runtime.initialize(config))
@@ -34,8 +35,8 @@ int main()
 
     engine::RigidBodyComponent rigidBody{};
     rigidBody.linearVelocity = {1.5f, 0.0f, 0.0f};
-    rigidBody.inverseMass = 1.0f;
-    rigidBody.simulated = true;
+    rigidBody.inverseMass    = 1.0f;
+    rigidBody.simulated      = true;
     world.setRigidBody(rigidEntity, rigidBody);
 
     common::FrameContext frame{};
@@ -44,7 +45,7 @@ int main()
     constexpr std::uint32_t kFrames = 10;
     for (std::uint32_t i = 0; i < kFrames; ++i)
     {
-        frame.frameIndex = i;
+        frame.frameIndex  = i;
         frame.timeSeconds = static_cast<double>(i) * static_cast<double>(frame.deltaSeconds);
         runtime.tick(frame);
     }
@@ -57,7 +58,8 @@ int main()
         return 1;
     }
 
-    const float expectedX = rigidBody.linearVelocity.x * frame.deltaSeconds * static_cast<float>(kFrames);
+    const float expectedX =
+        rigidBody.linearVelocity.x * frame.deltaSeconds * static_cast<float>(kFrames);
     const float actualX = finalTransform->worldTransform.position.x;
     if (std::fabs(actualX - expectedX) > 0.05f)
     {

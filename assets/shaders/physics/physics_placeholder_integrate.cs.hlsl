@@ -5,7 +5,7 @@ struct RigidBodyState
     float4 linearVelocity;
 };
 
-cbuffer PhysicsStepConstants
+cbuffer PhysicsStepConstantsBuffer
 {
     float dt;
     uint bodyCount;
