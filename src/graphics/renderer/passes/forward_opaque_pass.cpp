@@ -210,8 +210,8 @@ bool ForwardOpaquePass::draw(gpu::GpuRenderTargetHandle target,
             mShadowMapTargets[cascadeIdx].id != common::kInvalidResourceId)
         {
             Diligent::ITexture* depthTexture = nullptr;
-            if (mDevice.tryGetRenderTargetDepthTexture(mShadowMapTargets[cascadeIdx],
-                                                       depthTexture) &&
+            if (mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(
+                    mShadowMapTargets[cascadeIdx], depthTexture) &&
                 depthTexture != nullptr)
             {
                 Diligent::ITextureView* depthSrv =
@@ -402,7 +402,8 @@ bool ForwardOpaquePass::hasAnyShadowMap() const
     for (std::uint32_t cascadeIdx = 0; cascadeIdx < mShadowMapCount; ++cascadeIdx)
     {
         Diligent::ITexture* depthTexture = nullptr;
-        if (mDevice.tryGetRenderTargetDepthTexture(mShadowMapTargets[cascadeIdx], depthTexture) &&
+        if (mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(
+                mShadowMapTargets[cascadeIdx], depthTexture) &&
             depthTexture != nullptr)
         {
             return true;

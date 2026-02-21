@@ -398,8 +398,8 @@ int main(int argc, char** argv)
     targetDesc.width = 640;
     targetDesc.height = 480;
     targetDesc.debugName = "CubeDepth.Target";
-    const GpuRenderTargetHandle target = graphicsDevice->createRenderTarget(targetDesc);
-    if (!graphicsDevice->isValidRenderTarget(target))
+    const GpuRenderTargetHandle target = graphicsDevice->renderTargetSystem().createRenderTarget(targetDesc);
+    if (!graphicsDevice->renderTargetSystem().isValidRenderTarget(target))
     {
         runtime.shutdown();
         std::cerr << "Failed to create readback target.\n";
@@ -478,7 +478,7 @@ int main(int argc, char** argv)
             world.setMeshRenderer(frontCubeEntity, frontCube);
         }
 
-        const GpuRenderTargetReadbackRequest request = graphicsDevice->requestRenderTargetReadback(target);
+        const GpuRenderTargetReadbackRequest request = graphicsDevice->renderTargetSystem().requestRenderTargetReadback(target);
         if (request.id != 0)
         {
             readbackRequests.push_back(request);
@@ -496,7 +496,7 @@ int main(int argc, char** argv)
     for (const GpuRenderTargetReadbackRequest request : readbackRequests)
     {
         GpuRenderTargetReadbackEvent event{};
-        if (!graphicsDevice->tryGetRenderTargetReadback(request, event))
+        if (!graphicsDevice->renderTargetSystem().tryGetRenderTargetReadback(request, event))
         {
             continue;
         }

@@ -16,9 +16,9 @@ ForwardPipeline::~ForwardPipeline()
 {
     for (gpu::GpuRenderTargetHandle target : mShadowMapTargets)
     {
-        if (mDevice.isValidRenderTarget(target))
+        if (mDevice.renderTargetSystem().isValidRenderTarget(target))
         {
-            mDevice.destroyRenderTarget(target);
+            mDevice.renderTargetSystem().destroyRenderTarget(target);
         }
     }
 }
@@ -58,8 +58,8 @@ bool ForwardPipeline::initialize()
         shadowDesc.depth              = true;
         shadowDesc.shaderReadable     = true;
         shadowDesc.debugName          = "CRESSimNeo.ShadowMap.Cascade" + std::to_string(cascadeIdx);
-        mShadowMapTargets[cascadeIdx] = mDevice.createRenderTarget(shadowDesc);
-        if (!mDevice.isValidRenderTarget(mShadowMapTargets[cascadeIdx]))
+        mShadowMapTargets[cascadeIdx] = mDevice.renderTargetSystem().createRenderTarget(shadowDesc);
+        if (!mDevice.renderTargetSystem().isValidRenderTarget(mShadowMapTargets[cascadeIdx]))
         {
             mShadowMapTargets[cascadeIdx] = {};
         }
@@ -88,19 +88,21 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
         for (std::uint32_t cascadeIdx = 0; cascadeIdx < frameView.shadowCascadeCount; ++cascadeIdx)
         {
             const gpu::GpuRenderTargetHandle cascadeShadowMap = mShadowMapTargets[cascadeIdx];
-            if (!mDevice.isValidRenderTarget(cascadeShadowMap))
+            if (!mDevice.renderTargetSystem().isValidRenderTarget(cascadeShadowMap))
             {
                 continue;
             }
 
-            mDevice.setRenderTargetViewport(cascadeShadowMap, gpu::GpuRenderViewport{});
+            mDevice.renderTargetSystem().setRenderTargetViewport(cascadeShadowMap,
+                                                                 gpu::GpuRenderViewport{});
 
             gpu::GpuRenderPassBeginDesc shadowBegin{};
             shadowBegin.clearColor      = false;
             shadowBegin.clearDepth      = true;
             shadowBegin.clearDepthValue = 1.0f;
 
-            mDevice.beginRenderTarget(cascadeShadowMap, frameContext, shadowBegin);
+            mDevice.renderTargetSystem().beginRenderTarget(cascadeShadowMap, frameContext,
+                                                           shadowBegin);
             for (const QueuedDraw& draw : queues.shadowCasters)
             {
                 if ((draw.shadowCascadeMask & (1u << cascadeIdx)) == 0u)
@@ -113,7 +115,7 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
                     ++outStats.shadowDrawCalls;
                 }
             }
-            mDevice.endRenderTarget(cascadeShadowMap, frameContext);
+            mDevice.renderTargetSystem().endRenderTarget(cascadeShadowMap, frameContext);
             activeShadowMaps[cascadeIdx] = cascadeShadowMap;
             activeShadowMapCount         = std::max(activeShadowMapCount, cascadeIdx + 1);
         }
@@ -125,9 +127,9 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
         return false;
     }
 
-    mDevice.setRenderTargetViewport(frameView.target, frameView.viewport);
+    mDevice.renderTargetSystem().setRenderTargetViewport(frameView.target, frameView.viewport);
     const gpu::GpuRenderPassBeginDesc mainBegin{};
-    mDevice.beginRenderTarget(frameView.target, frameContext, mainBegin);
+    mDevice.renderTargetSystem().beginRenderTarget(frameView.target, frameContext, mainBegin);
 
     for (const QueuedDraw& draw : queues.opaque)
     {
@@ -148,7 +150,7 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
         }
     }
 
-    mDevice.endRenderTarget(frameView.target, frameContext);
+    mDevice.renderTargetSystem().endRenderTarget(frameView.target, frameContext);
     return true;
 }
 

@@ -65,17 +65,17 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
     const auto renderCamera = [&](const CameraData& camera)
     {
         gpu::GpuRenderTargetHandle target = camera.outputTarget;
-        if (!mDevice.isValidRenderTarget(target))
+        if (!mDevice.renderTargetSystem().isValidRenderTarget(target))
         {
-            target = mDevice.defaultRenderTarget();
+            target = mDevice.renderTargetSystem().defaultRenderTarget();
         }
-        if (!mDevice.isValidRenderTarget(target))
+        if (!mDevice.renderTargetSystem().isValidRenderTarget(target))
         {
             return;
         }
 
         gpu::GpuRenderTargetDesc targetDesc{};
-        if (!mDevice.tryGetRenderTargetDesc(target, targetDesc))
+        if (!mDevice.renderTargetSystem().tryGetRenderTargetDesc(target, targetDesc))
         {
             return;
         }
@@ -107,7 +107,8 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
             if (targetDesc.width != desired.width || targetDesc.height != desired.height)
             {
                 const gpu::GpuRenderTargetUpdateResult updateResult =
-                    mDevice.resizeRenderTarget(target, desired.width, desired.height);
+                    mDevice.renderTargetSystem().resizeRenderTarget(target, desired.width,
+                                                                    desired.height);
                 if (updateResult == gpu::GpuRenderTargetUpdateResult::Unchanged)
                 {
                     ++stats.renderTargetResizeNoOps;
@@ -118,7 +119,7 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
                 }
                 if (updateResult != gpu::GpuRenderTargetUpdateResult::Failed)
                 {
-                    if (!mDevice.tryGetRenderTargetDesc(target, targetDesc))
+                    if (!mDevice.renderTargetSystem().tryGetRenderTargetDesc(target, targetDesc))
                     {
                         return;
                     }

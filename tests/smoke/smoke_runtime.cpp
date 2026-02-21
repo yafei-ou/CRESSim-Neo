@@ -177,10 +177,10 @@ int main(int argc, char** argv)
         secondaryTargetDesc.width = 640;
         secondaryTargetDesc.height = 480;
         secondaryTargetDesc.debugName = "Smoke.SecondaryCamera";
-        secondaryTarget = graphicsDevice->createRenderTarget(secondaryTargetDesc);
+        secondaryTarget = graphicsDevice->renderTargetSystem().createRenderTarget(secondaryTargetDesc);
     }
 
-    if (graphicsDevice != nullptr && graphicsDevice->isValidRenderTarget(secondaryTarget))
+    if (graphicsDevice != nullptr && graphicsDevice->renderTargetSystem().isValidRenderTarget(secondaryTarget))
     {
         const auto secondaryCameraEntity = world.createEntity();
         TransformComponent secondaryCameraTransform{};
@@ -231,9 +231,9 @@ int main(int argc, char** argv)
 
     for (std::uint64_t i = 0; i < numFrames; ++i)
     {
-        if (graphicsDevice != nullptr && graphicsDevice->isValidRenderTarget(secondaryTarget))
+        if (graphicsDevice != nullptr && graphicsDevice->renderTargetSystem().isValidRenderTarget(secondaryTarget))
         {
-            const GpuRenderTargetReadbackRequest request = graphicsDevice->requestRenderTargetReadback(secondaryTarget);
+            const GpuRenderTargetReadbackRequest request = graphicsDevice->renderTargetSystem().requestRenderTargetReadback(secondaryTarget);
             if (request.id != 0)
             {
                 readbackRequests.push_back(request);
@@ -252,7 +252,7 @@ int main(int argc, char** argv)
         for (const GpuRenderTargetReadbackRequest request : readbackRequests)
         {
             GpuRenderTargetReadbackEvent event{};
-            if (!graphicsDevice->tryGetRenderTargetReadback(request, event))
+            if (!graphicsDevice->renderTargetSystem().tryGetRenderTargetReadback(request, event))
             {
                 continue;
             }

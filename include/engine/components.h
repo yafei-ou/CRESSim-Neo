@@ -26,7 +26,7 @@ struct CameraComponent
     float nearClip           = 0.01f;
     float farClip            = 1000.0f;
 
-    // If invalid, renderer falls back to device.defaultRenderTarget().
+    // If invalid, renderer falls back to device.renderTargets().defaultRenderTarget().
     gpu::GpuRenderTargetHandle outputTarget{};
     // Optional per-camera output resize request (0 keeps current target size).
     std::uint32_t outputWidth  = 0;

@@ -1,127 +1,27 @@
 #include "common/math_utils_runtime.h"
 #include "gpu/gpu_device_impl.h"
+#include "gpu/gpu_render_target_system_impl.h"
+
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h"
 
 #include <algorithm>
-#include <cstring>
-#include <utility>
 
 namespace cressim::neo::gpu
 {
 
-GpuRenderTargetReadbackRequest GpuDeviceImpl::requestRenderTargetReadback(
-    GpuRenderTargetHandle target)
-{
-    GpuRenderTargetReadbackRequest request{};
-
-    const auto it = mRenderTargets.find(target.id);
-    if (it == mRenderTargets.end())
-    {
-        return request;
-    }
-
-    std::uint64_t requestId = mNextReadbackRequestId++;
-    if (requestId == 0)
-    {
-        requestId = mNextReadbackRequestId++;
-    }
-    request.id = requestId;
-    mPendingReadbackRequests[target.id].push_back(requestId);
-    return request;
-}
-
-bool GpuDeviceImpl::tryGetRenderTargetReadback(GpuRenderTargetReadbackRequest request,
-                                               GpuRenderTargetReadbackEvent& outEvent)
-{
-    if (request.id == 0)
-    {
-        return false;
-    }
-
-    const auto completedIt = mCompletedReadbacks.find(request.id);
-    if (completedIt == mCompletedReadbacks.end())
-    {
-        return false;
-    }
-
-    outEvent = completedIt->second;
-    mCompletedReadbacks.erase(completedIt);
-    return true;
-}
-
 void GpuDeviceImpl::endFrame(const common::FrameContext& frameContext)
 {
-    (void)frameContext;
-
-    if (!mInitialized || mBackend != GpuBackend::Vulkan || !mImmediateContext)
+    if (mRenderTargets == nullptr)
     {
-        for (const PendingReadbackCopy& copy : mPendingReadbackCopies)
-        {
-            GpuRenderTargetReadbackEvent event{};
-            event.target      = copy.target;
-            event.frameIndex  = copy.frameIndex;
-            event.colorFormat = copy.colorFormat;
-            for (const std::uint64_t requestId : copy.requestIds)
-            {
-                mCompletedReadbacks[requestId] = event;
-            }
-        }
-        mPendingReadbackCopies.clear();
         return;
     }
 
-    (void)presentPrimarySwapChain();
-
-    mImmediateContext->Flush();
-    mImmediateContext->FinishFrame();
-
-    for (const PendingReadbackCopy& copy : mPendingReadbackCopies)
+    if (mInitialized && mBackend == GpuBackend::Vulkan && mImmediateContext != nullptr)
     {
-        GpuRenderTargetReadbackEvent event{};
-        event.target      = copy.target;
-        event.frameIndex  = copy.frameIndex;
-        event.colorFormat = copy.colorFormat;
-
-        if (copy.stagingTexture != nullptr && copy.width > 0 && copy.height > 0)
-        {
-            if (mReadbackFence != nullptr && copy.fenceValue > 0)
-            {
-                mReadbackFence->Wait(copy.fenceValue);
-            }
-
-            Diligent::MappedTextureSubresource mappedData{};
-            mImmediateContext->MapTextureSubresource(copy.stagingTexture, 0, 0, Diligent::MAP_READ,
-                                                     Diligent::MAP_FLAG_DO_NOT_WAIT, nullptr,
-                                                     mappedData);
-
-            if (mappedData.pData != nullptr)
-            {
-                event.width          = copy.width;
-                event.height         = copy.height;
-                event.rowStrideBytes = copy.width * 4u;
-                event.colorBytes.resize(static_cast<std::size_t>(event.rowStrideBytes) *
-                                        static_cast<std::size_t>(event.height));
-
-                const auto* srcRows = static_cast<const std::uint8_t*>(mappedData.pData);
-                auto* dstRows       = event.colorBytes.data();
-                for (std::uint32_t y = 0; y < event.height; ++y)
-                {
-                    std::memcpy(dstRows + static_cast<std::size_t>(y) * event.rowStrideBytes,
-                                srcRows + static_cast<std::size_t>(y) *
-                                              static_cast<std::size_t>(mappedData.Stride),
-                                event.rowStrideBytes);
-                }
-
-                mImmediateContext->UnmapTextureSubresource(copy.stagingTexture, 0, 0);
-            }
-        }
-
-        for (const std::uint64_t requestId : copy.requestIds)
-        {
-            mCompletedReadbacks[requestId] = event;
-        }
+        (void)presentPrimarySwapChain();
     }
 
-    mPendingReadbackCopies.clear();
+    mRenderTargets->endFrame(frameContext);
 }
 
 bool GpuDeviceImpl::presentPrimarySwapChain()
@@ -130,20 +30,22 @@ bool GpuDeviceImpl::presentPrimarySwapChain()
     {
         return true;
     }
-    if (!mInitialized || mBackend != GpuBackend::Vulkan || mImmediateContext == nullptr)
+    if (!mInitialized || mBackend != GpuBackend::Vulkan || mImmediateContext == nullptr ||
+        mRenderTargets == nullptr)
     {
         return false;
     }
 
-    Diligent::ITexture* sourceTexture = nullptr;
-    if (!tryGetRenderTargetColorTexture(mDefaultRenderTarget, sourceTexture) ||
+    Diligent::ITexture* sourceTexture         = nullptr;
+    const GpuRenderTargetHandle defaultTarget = mRenderTargets->defaultRenderTarget();
+    if (!mRenderTargets->tryGetRenderTargetColorTexture(defaultTarget, sourceTexture) ||
         sourceTexture == nullptr)
     {
         return false;
     }
 
     GpuRenderTargetDesc sourceDesc{};
-    if (!tryGetRenderTargetDesc(mDefaultRenderTarget, sourceDesc))
+    if (!mRenderTargets->tryGetRenderTargetDesc(defaultTarget, sourceDesc))
     {
         return false;
     }
@@ -194,66 +96,6 @@ bool GpuDeviceImpl::presentPrimarySwapChain()
         mImmediateContext->FinishFrame();
     }
 
-    return true;
-}
-
-bool GpuDeviceImpl::queueReadbackCopy(GpuRenderTargetHandle target, std::uint64_t frameIndex,
-                                      const std::vector<std::uint64_t>& requestIds)
-{
-    if (!mRenderDevice || !mImmediateContext || !mReadbackFence || mBackend != GpuBackend::Vulkan)
-    {
-        return false;
-    }
-    if (requestIds.empty())
-    {
-        return false;
-    }
-
-    const auto targetIt = mRenderTargets.find(target.id);
-    if (targetIt == mRenderTargets.end())
-    {
-        return false;
-    }
-
-    const RenderTargetResources& resources = targetIt->second;
-    if (resources.colorTexture == nullptr)
-    {
-        return false;
-    }
-
-    Diligent::TextureDesc stagingDesc = resources.colorTexture->GetDesc();
-    const std::string stagingName     = resources.desc.debugName + ".Readback";
-    stagingDesc.Name                  = stagingName.c_str();
-    stagingDesc.BindFlags             = Diligent::BIND_NONE;
-    stagingDesc.Usage                 = Diligent::USAGE_STAGING;
-    stagingDesc.CPUAccessFlags        = Diligent::CPU_ACCESS_READ;
-    stagingDesc.MiscFlags             = Diligent::MISC_TEXTURE_FLAG_NONE;
-
-    Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
-    mRenderDevice->CreateTexture(stagingDesc, nullptr, &stagingTexture);
-    if (stagingTexture == nullptr)
-    {
-        return false;
-    }
-
-    Diligent::CopyTextureAttribs copyAttribs{
-        resources.colorTexture, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, stagingTexture,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
-    mImmediateContext->CopyTexture(copyAttribs);
-
-    const std::uint64_t fenceValue = mNextReadbackFenceValue++;
-    mImmediateContext->EnqueueSignal(mReadbackFence, fenceValue);
-
-    PendingReadbackCopy readbackCopy{};
-    readbackCopy.requestIds     = requestIds;
-    readbackCopy.target         = target;
-    readbackCopy.frameIndex     = frameIndex;
-    readbackCopy.fenceValue     = fenceValue;
-    readbackCopy.width          = resources.desc.width;
-    readbackCopy.height         = resources.desc.height;
-    readbackCopy.colorFormat    = resources.desc.colorFormat;
-    readbackCopy.stagingTexture = std::move(stagingTexture);
-    mPendingReadbackCopies.push_back(std::move(readbackCopy));
     return true;
 }
 

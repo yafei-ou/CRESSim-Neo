@@ -37,7 +37,7 @@ int main()
         }
 
         GpuRenderTargetDesc defaultDesc{};
-        if (!device->tryGetRenderTargetDesc(device->defaultRenderTarget(), defaultDesc))
+        if (!device->renderTargetSystem().tryGetRenderTargetDesc(device->renderTargetSystem().defaultRenderTarget(), defaultDesc))
         {
             std::cerr << "Failed to query default render target descriptor.\n";
             runtime.shutdown();

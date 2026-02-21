@@ -39,15 +39,15 @@ int main()
     desc.width = 640;
     desc.height = 480;
     desc.debugName = "ResizePolicy.Target";
-    GpuRenderTargetHandle target = device->createRenderTarget(desc);
-    if (!device->isValidRenderTarget(target))
+    GpuRenderTargetHandle target = device->renderTargetSystem().createRenderTarget(desc);
+    if (!device->renderTargetSystem().isValidRenderTarget(target))
     {
         std::cerr << "Failed to create render target.\n";
         runtime.shutdown();
         return 1;
     }
 
-    const GpuRenderTargetUpdateResult resizeNoOp = device->resizeRenderTarget(target, 640, 480);
+    const GpuRenderTargetUpdateResult resizeNoOp = device->renderTargetSystem().resizeRenderTarget(target, 640, 480);
     if (resizeNoOp != GpuRenderTargetUpdateResult::Unchanged)
     {
         std::cerr << "Expected unchanged result for same-size resize.\n";
@@ -56,7 +56,7 @@ int main()
     }
 
     GpuRenderTargetDesc updatedDesc{};
-    if (!device->tryGetRenderTargetDesc(target, updatedDesc))
+    if (!device->renderTargetSystem().tryGetRenderTargetDesc(target, updatedDesc))
     {
         std::cerr << "Failed to fetch render target descriptor.\n";
         runtime.shutdown();
@@ -64,7 +64,7 @@ int main()
     }
 
     updatedDesc.debugName = "ResizePolicy.Renamed";
-    const GpuRenderTargetUpdateResult metadataUpdate = device->reconfigureRenderTarget(target, updatedDesc);
+    const GpuRenderTargetUpdateResult metadataUpdate = device->renderTargetSystem().reconfigureRenderTarget(target, updatedDesc);
     if (metadataUpdate != GpuRenderTargetUpdateResult::Unchanged)
     {
         std::cerr << "Expected unchanged result for metadata-only reconfigure.\n";
@@ -73,7 +73,7 @@ int main()
     }
 
     updatedDesc.width = 800;
-    const GpuRenderTargetUpdateResult resizedUpdate = device->reconfigureRenderTarget(target, updatedDesc);
+    const GpuRenderTargetUpdateResult resizedUpdate = device->renderTargetSystem().reconfigureRenderTarget(target, updatedDesc);
     if (resizedUpdate != GpuRenderTargetUpdateResult::Recreated)
     {
         std::cerr << "Expected recreated result for dimension-changing reconfigure.\n";
@@ -82,7 +82,7 @@ int main()
     }
 
     GpuRenderTargetDesc finalDesc{};
-    if (!device->tryGetRenderTargetDesc(target, finalDesc))
+    if (!device->renderTargetSystem().tryGetRenderTargetDesc(target, finalDesc))
     {
         std::cerr << "Failed to fetch final descriptor.\n";
         runtime.shutdown();
