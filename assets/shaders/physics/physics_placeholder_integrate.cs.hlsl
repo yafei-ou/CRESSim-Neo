@@ -1,18 +1,15 @@
-struct RigidBodyState
-{
-    float4 positionInvMass;
-    float4 rotation;
-    float4 linearVelocity;
-};
-
 cbuffer PhysicsStepConstantsBuffer
 {
     float dt;
     uint bodyCount;
-    float2 _padding;
+    uint substepIndex;
+    uint iterationIndex;
 };
 
-RWStructuredBuffer<RigidBodyState> g_RigidBodies;
+RWStructuredBuffer<float4> g_RigidBodyPositionsInvMass;
+RWStructuredBuffer<float4> g_RigidBodyOrientations;
+RWStructuredBuffer<float4> g_RigidBodyLinearVelocities;
+RWStructuredBuffer<float4> g_RigidBodyAngularVelocities;
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -23,7 +20,12 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    RigidBodyState rb = g_RigidBodies[idx];
-    rb.positionInvMass.xyz += rb.linearVelocity.xyz * dt;
-    g_RigidBodies[idx] = rb;
+    float4 positionInvMass = g_RigidBodyPositionsInvMass[idx];
+    const float4 linearVelocity = g_RigidBodyLinearVelocities[idx];
+    positionInvMass.xyz += linearVelocity.xyz * dt;
+    g_RigidBodyPositionsInvMass[idx] = positionInvMass;
+
+    // Keep these UAVs explicitly read-write until dedicated solve/update passes land.
+    g_RigidBodyLinearVelocities[idx] = linearVelocity;
+    g_RigidBodyAngularVelocities[idx] = g_RigidBodyAngularVelocities[idx];
 }

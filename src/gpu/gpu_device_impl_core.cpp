@@ -6,6 +6,7 @@
 #include "DiligentEngine/DiligentCore/Platforms/interface/NativeWindow.h"
 
 #include <algorithm>
+#include <array>
 #include <iostream>
 #include <limits>
 
@@ -124,10 +125,20 @@ void GpuDeviceImpl::shutdown()
         mImmediateContext->Flush();
         mImmediateContext->FinishFrame();
     }
+    if (mPhysicsContext != nullptr && mPhysicsContext != mImmediateContext)
+    {
+        mPhysicsContext->Flush();
+        mPhysicsContext->FinishFrame();
+    }
 
     mImmediateContext = nullptr;
+    mPhysicsContext   = nullptr;
     mRenderDevice     = nullptr;
     mPrimarySwapChain = nullptr;
+    mGraphicsContextId = 0;
+    mPhysicsContextId  = 0;
+    mGraphicsQueueType = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
+    mPhysicsQueueType  = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
 
     mBackend     = GpuBackend::Null;
     mInitialized = false;
@@ -148,7 +159,7 @@ GpuBackend GpuDeviceImpl::backend() const
     return mBackend;
 }
 
-bool GpuDeviceImpl::tryGetBackendContext(GpuBackendContext& outContext)
+bool GpuDeviceImpl::tryGetGraphicsBackendContext(GpuBackendContext& outContext)
 {
     outContext = GpuBackendContext{};
 
@@ -167,6 +178,24 @@ bool GpuDeviceImpl::tryGetBackendContext(GpuBackendContext& outContext)
     return true;
 }
 
+bool GpuDeviceImpl::tryGetPhysicsBackendContext(GpuComputeBackendContext& outContext)
+{
+    outContext = GpuComputeBackendContext{};
+
+    if (!mInitialized || mBackend != GpuBackend::Vulkan || mRenderDevice == nullptr ||
+        mPhysicsContext == nullptr)
+    {
+        return false;
+    }
+
+    outContext.renderDevice   = mRenderDevice;
+    outContext.computeContext = mPhysicsContext;
+    outContext.contextId      = mPhysicsContextId;
+    outContext.queueType      = mPhysicsQueueType;
+    outContext.role           = GpuContextRole::Physics;
+    return true;
+}
+
 const std::string& GpuDeviceImpl::shaderSourceDirectory() const
 {
     return mDesc.shaderDirectory;
@@ -180,13 +209,68 @@ bool GpuDeviceImpl::initializeVulkan()
         return false;
     }
 
-    Diligent::EngineVkCreateInfo engineCreateInfo{};
-    engineCreateInfo.EnableValidation = static_cast<Diligent::Bool>(mDesc.enableValidation ? 1 : 0);
-    factoryVk->CreateDeviceAndContextsVk(engineCreateInfo, &mRenderDevice, &mImmediateContext);
-    if (!mRenderDevice || !mImmediateContext)
+    auto createDeviceContexts = [&](bool requestDedicatedPhysicsContext)
     {
-        return false;
+        mRenderDevice     = nullptr;
+        mImmediateContext = nullptr;
+        mPhysicsContext   = nullptr;
+
+        Diligent::EngineVkCreateInfo engineCreateInfo{};
+        engineCreateInfo.EnableValidation = static_cast<Diligent::Bool>(mDesc.enableValidation ? 1 : 0);
+
+        std::array<Diligent::IDeviceContext*, 2> contexts = {nullptr, nullptr};
+        if (requestDedicatedPhysicsContext)
+        {
+            static constexpr Diligent::ImmediateContextCreateInfo kContextInfo[2] = {
+                Diligent::ImmediateContextCreateInfo{"CRESSimNeo.GraphicsContext", 0u},
+                Diligent::ImmediateContextCreateInfo{"CRESSimNeo.PhysicsContext", 0u},
+            };
+            engineCreateInfo.pImmediateContextInfo = kContextInfo;
+            engineCreateInfo.NumImmediateContexts  = 2u;
+            factoryVk->CreateDeviceAndContextsVk(engineCreateInfo, &mRenderDevice, contexts.data());
+        }
+        else
+        {
+            factoryVk->CreateDeviceAndContextsVk(engineCreateInfo, &mRenderDevice, contexts.data());
+        }
+
+        if (mRenderDevice == nullptr || contexts[0] == nullptr)
+        {
+            return false;
+        }
+
+        mImmediateContext = contexts[0];
+        if (requestDedicatedPhysicsContext && contexts[1] != nullptr)
+        {
+            mPhysicsContext = contexts[1];
+        }
+        else
+        {
+            mPhysicsContext = mImmediateContext;
+        }
+        return true;
+    };
+
+    if (!createDeviceContexts(true))
+    {
+        std::cerr << "GpuDeviceImpl: failed to create dedicated physics context; falling back to shared context.\n";
+        if (!createDeviceContexts(false))
+        {
+            return false;
+        }
     }
+
+    if (mPhysicsContext == mImmediateContext)
+    {
+        std::cerr << "GpuDeviceImpl: physics context is shared with graphics context.\n";
+    }
+
+    const auto graphicsDesc = mImmediateContext->GetDesc();
+    const auto physicsDesc  = mPhysicsContext->GetDesc();
+    mGraphicsContextId      = graphicsDesc.ContextId;
+    mPhysicsContextId       = physicsDesc.ContextId;
+    mGraphicsQueueType      = graphicsDesc.QueueType;
+    mPhysicsQueueType       = physicsDesc.QueueType;
 
     mBackend = GpuBackend::Vulkan;
     return true;

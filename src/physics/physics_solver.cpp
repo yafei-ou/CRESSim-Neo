@@ -13,8 +13,10 @@
 #include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
-#include <vector>
+#include <iterator>
+#include <limits>
 
 namespace cressim::neo::physics
 {
@@ -22,43 +24,47 @@ namespace cressim::neo::physics
 namespace
 {
 
-struct GpuRigidBodyState
-{
-    Diligent::float4 positionInvMass{0.0f, 0.0f, 0.0f, 1.0f};
-    Diligent::float4 rotation{0.0f, 0.0f, 0.0f, 1.0f};
-    Diligent::float4 linearVelocity{0.0f, 0.0f, 0.0f, 0.0f};
-};
-
 struct PhysicsStepConstants
 {
     float dt                = 0.0f;
     std::uint32_t bodyCount = 0;
-    float padding[2]        = {0.0f, 0.0f};
+    std::uint32_t substep   = 0;
+    std::uint32_t iteration = 0;
+};
+
+struct GpuPair
+{
+    std::uint32_t a = 0;
+    std::uint32_t b = 0;
 };
 
 constexpr std::uint32_t kComputeThreadGroupSize = 64;
 
-GpuRigidBodyState toGpuState(const RigidBodyState& rb)
+constexpr std::size_t stageIndex(RigidPbdSolverStage stage)
 {
-    GpuRigidBodyState out{};
-    out.positionInvMass =
-        Diligent::float4{rb.position.x, rb.position.y, rb.position.z, rb.inverseMass};
-    out.rotation =
-        Diligent::float4{rb.rotation.q.x, rb.rotation.q.y, rb.rotation.q.z, rb.rotation.q.w};
-    out.linearVelocity =
-        Diligent::float4{rb.linearVelocity.x, rb.linearVelocity.y, rb.linearVelocity.z, 0.0f};
-    return out;
+    return static_cast<std::size_t>(stage);
 }
 
-void applyGpuState(const GpuRigidBodyState& src, RigidBodyState& dst)
+void markStage(PhysicsSolverStageStats& stats, RigidPbdSolverStage stage, bool executed)
 {
-    dst.position =
-        Diligent::float3{src.positionInvMass.x, src.positionInvMass.y, src.positionInvMass.z};
-    dst.inverseMass = src.positionInvMass.w;
-    dst.rotation =
-        Diligent::QuaternionF{src.rotation.x, src.rotation.y, src.rotation.z, src.rotation.w};
-    dst.linearVelocity =
-        Diligent::float3{src.linearVelocity.x, src.linearVelocity.y, src.linearVelocity.z};
+    stats.executed[stageIndex(stage)] = executed;
+    if (executed)
+    {
+        ++stats.dispatchedStages;
+    }
+    else
+    {
+        ++stats.skippedStages;
+    }
+}
+
+Diligent::Uint64 contextMaskForId(std::uint32_t contextId)
+{
+    if (contextId >= 64u)
+    {
+        return std::numeric_limits<Diligent::Uint64>::max();
+    }
+    return static_cast<Diligent::Uint64>(1ull) << contextId;
 }
 
 } // namespace
@@ -66,13 +72,40 @@ void applyGpuState(const GpuRigidBodyState& src, RigidBodyState& dst)
 struct PhysicsSolver::Impl
 {
     gpu::ShaderLibrary shaderLibrary{""};
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> srb;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidBodyBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> integratePso;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> integrateSrb;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> stepConstantsBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> readbackBuffer;
-    std::vector<GpuRigidBodyState> stagingStates;
+
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> orientationsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> linearVelocitiesBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> angularVelocitiesBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> colliderShapeTypesBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> colliderParamsBuffer;
+
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> broadphaseKeysBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> sortedIndicesBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> candidatePairsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> contactsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> constraintScratchBuffer;
+
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsReadbackBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> orientationsReadbackBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> linearVelocitiesReadbackBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> angularVelocitiesReadbackBuffer;
+
     std::uint32_t bufferCapacity = 0;
+    std::uint32_t scratchCapacity = 0;
+    PhysicsSolverStageStats stageStats{};
+
+    bool bindIntegrateBuffers();
+    bool ensureCapacity(Diligent::IRenderDevice* renderDevice, std::uint32_t bodyCount,
+                        std::uint32_t physicsContextId);
+    bool uploadRigidBodySoA(Diligent::IDeviceContext* computeContext, PhysicsWorld& world,
+                            std::uint32_t bodyCount);
+    bool dispatchIntegratePass(Diligent::IDeviceContext* computeContext, std::uint32_t bodyCount);
+    bool readbackRigidTransformsBlocking(Diligent::IDeviceContext* computeContext, PhysicsWorld& world,
+                                         std::uint32_t bodyCount);
 };
 
 PhysicsSolver::PhysicsSolver(gpu::GpuDevice& device, const PhysicsSolverDesc& desc)
@@ -81,6 +114,355 @@ PhysicsSolver::PhysicsSolver(gpu::GpuDevice& device, const PhysicsSolverDesc& de
 }
 
 PhysicsSolver::~PhysicsSolver() = default;
+
+namespace
+{
+
+bool ensureStructuredBuffer(Diligent::IRenderDevice* renderDevice,
+                            const char* name,
+                            std::uint32_t elementStride,
+                            std::uint32_t elementCount,
+                            Diligent::BIND_FLAGS bindFlags,
+                            Diligent::USAGE usage,
+                            Diligent::CPU_ACCESS_FLAGS cpuAccess,
+                            Diligent::Uint64 immediateContextMask,
+                            Diligent::RefCntAutoPtr<Diligent::IBuffer>& outBuffer)
+{
+    if (renderDevice == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::BufferDesc desc{};
+    desc.Name                 = name;
+    desc.Size                 = static_cast<Diligent::Uint64>(elementStride) * elementCount;
+    desc.BindFlags            = bindFlags;
+    desc.Usage                = usage;
+    desc.CPUAccessFlags       = cpuAccess;
+    desc.ImmediateContextMask = immediateContextMask;
+    if (usage != Diligent::USAGE_STAGING)
+    {
+        desc.Mode              = Diligent::BUFFER_MODE_STRUCTURED;
+        desc.ElementByteStride = elementStride;
+    }
+
+    renderDevice->CreateBuffer(desc, nullptr, &outBuffer);
+    return outBuffer != nullptr;
+}
+
+} // namespace
+
+bool PhysicsSolver::Impl::bindIntegrateBuffers()
+{
+    auto bindView = [&](const char* varName, Diligent::IBuffer* buffer,
+                        Diligent::BUFFER_VIEW_TYPE viewType)
+    {
+        Diligent::IShaderResourceVariable* variable =
+            integrateSrb->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, varName);
+        if (variable == nullptr || buffer == nullptr)
+        {
+            return false;
+        }
+        Diligent::IBufferView* view = buffer->GetDefaultView(viewType);
+        if (view != nullptr)
+        {
+            variable->Set(view);
+            return true;
+        }
+        variable->Set(buffer);
+        return true;
+    };
+
+    return bindView("g_RigidBodyPositionsInvMass", positionsBuffer,
+                    Diligent::BUFFER_VIEW_UNORDERED_ACCESS) &&
+           bindView("g_RigidBodyOrientations", orientationsBuffer,
+                    Diligent::BUFFER_VIEW_UNORDERED_ACCESS) &&
+           bindView("g_RigidBodyLinearVelocities", linearVelocitiesBuffer,
+                    Diligent::BUFFER_VIEW_UNORDERED_ACCESS) &&
+           bindView("g_RigidBodyAngularVelocities", angularVelocitiesBuffer,
+                    Diligent::BUFFER_VIEW_UNORDERED_ACCESS);
+}
+
+bool PhysicsSolver::Impl::ensureCapacity(Diligent::IRenderDevice* renderDevice,
+                                         std::uint32_t bodyCount,
+                                         std::uint32_t physicsContextId)
+{
+    const bool hasAllCoreBuffers = positionsBuffer != nullptr && orientationsBuffer != nullptr &&
+                                   linearVelocitiesBuffer != nullptr &&
+                                   angularVelocitiesBuffer != nullptr &&
+                                   colliderShapeTypesBuffer != nullptr &&
+                                   colliderParamsBuffer != nullptr &&
+                                   positionsReadbackBuffer != nullptr &&
+                                   orientationsReadbackBuffer != nullptr &&
+                                   linearVelocitiesReadbackBuffer != nullptr &&
+                                   angularVelocitiesReadbackBuffer != nullptr;
+    if (hasAllCoreBuffers && bufferCapacity >= bodyCount)
+    {
+        return true;
+    }
+
+    const std::uint32_t newCapacity = std::max<std::uint32_t>(bodyCount, 64u);
+    const Diligent::Uint64 contextMask = contextMaskForId(physicsContextId);
+    if (!ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PositionsInvMass",
+                                sizeof(Diligent::float4), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                positionsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.Orientations",
+                                sizeof(Diligent::float4), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                orientationsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.LinearVelocities",
+                                sizeof(Diligent::float4), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                linearVelocitiesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.AngularVelocities",
+                                sizeof(Diligent::float4), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                angularVelocitiesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderShapeTypes",
+                                sizeof(std::uint32_t), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                colliderShapeTypesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderParams",
+                                sizeof(Diligent::float4), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                colliderParamsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PositionsInvMass.Readback",
+                                sizeof(Diligent::float4), newCapacity, Diligent::BIND_NONE,
+                                Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
+                                positionsReadbackBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.Orientations.Readback",
+                                sizeof(Diligent::float4), newCapacity, Diligent::BIND_NONE,
+                                Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
+                                orientationsReadbackBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.LinearVelocities.Readback",
+                                sizeof(Diligent::float4), newCapacity, Diligent::BIND_NONE,
+                                Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
+                                linearVelocitiesReadbackBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.AngularVelocities.Readback",
+                                sizeof(Diligent::float4), newCapacity, Diligent::BIND_NONE,
+                                Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
+                                angularVelocitiesReadbackBuffer))
+    {
+        return false;
+    }
+
+    bufferCapacity = newCapacity;
+
+    const std::uint32_t newScratchCapacity = std::max<std::uint32_t>(newCapacity * 8u, 64u);
+    if (!ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.BroadphaseKeys",
+                                sizeof(std::uint32_t), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                broadphaseKeysBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SortedIndices",
+                                sizeof(std::uint32_t), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                sortedIndicesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.CandidatePairs", sizeof(GpuPair),
+                                newScratchCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                candidatePairsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.Contacts",
+                                sizeof(Diligent::float4), newScratchCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                contactsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ConstraintScratch",
+                                sizeof(Diligent::float4), newScratchCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                constraintScratchBuffer))
+    {
+        return false;
+    }
+    scratchCapacity = newScratchCapacity;
+
+    return bindIntegrateBuffers();
+}
+
+bool PhysicsSolver::Impl::uploadRigidBodySoA(Diligent::IDeviceContext* computeContext,
+                                             PhysicsWorld& world,
+                                             std::uint32_t bodyCount)
+{
+    if (computeContext == nullptr)
+    {
+        return false;
+    }
+
+    const RigidBodySoAHost& rigidBodies = world.rigidBodySoA();
+    if (static_cast<std::uint32_t>(rigidBodies.size()) != bodyCount)
+    {
+        return false;
+    }
+
+    if (bodyCount == 0u)
+    {
+        return true;
+    }
+
+    const Diligent::Uint64 float4Bytes = static_cast<Diligent::Uint64>(bodyCount) *
+                                         sizeof(Diligent::float4);
+    const Diligent::Uint64 shapeTypeBytes = static_cast<Diligent::Uint64>(bodyCount) *
+                                            sizeof(std::uint32_t);
+
+    // TODO(PBD-GPU): use world.rigidBodyDirtyRange() to upload only changed slices.
+    computeContext->UpdateBuffer(positionsBuffer, 0u, float4Bytes,
+                                 rigidBodies.positionsInvMass.data(),
+                                 Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->UpdateBuffer(orientationsBuffer, 0u, float4Bytes,
+                                 rigidBodies.orientations.data(),
+                                 Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->UpdateBuffer(linearVelocitiesBuffer, 0u, float4Bytes,
+                                 rigidBodies.linearVelocities.data(),
+                                 Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->UpdateBuffer(angularVelocitiesBuffer, 0u, float4Bytes,
+                                 rigidBodies.angularVelocities.data(),
+                                 Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->UpdateBuffer(colliderShapeTypesBuffer, 0u, shapeTypeBytes,
+                                 rigidBodies.colliderShapeTypes.data(),
+                                 Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->UpdateBuffer(colliderParamsBuffer, 0u, float4Bytes,
+                                 rigidBodies.colliderParams.data(),
+                                 Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    world.clearRigidBodyDirtyRange();
+    return true;
+}
+
+namespace
+{
+
+bool writeStepConstants(Diligent::IDeviceContext* computeContext,
+                        Diligent::IBuffer* constantsBuffer,
+                        const PhysicsStepConstants& constants)
+{
+    if (computeContext == nullptr || constantsBuffer == nullptr)
+    {
+        return false;
+    }
+
+    void* mapped = nullptr;
+    computeContext->MapBuffer(constantsBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
+                              mapped);
+    if (mapped == nullptr)
+    {
+        return false;
+    }
+    std::memcpy(mapped, &constants, sizeof(constants));
+    computeContext->UnmapBuffer(constantsBuffer, Diligent::MAP_WRITE);
+    return true;
+}
+
+} // namespace
+
+bool PhysicsSolver::Impl::dispatchIntegratePass(Diligent::IDeviceContext* computeContext,
+                                                std::uint32_t bodyCount)
+{
+    if (computeContext == nullptr || integratePso == nullptr || integrateSrb == nullptr ||
+        bodyCount == 0u)
+    {
+        return false;
+    }
+
+    computeContext->SetPipelineState(integratePso);
+    computeContext->CommitShaderResources(integrateSrb,
+                                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    const std::uint32_t groupCountX = (bodyCount + kComputeThreadGroupSize - 1u) /
+                                      kComputeThreadGroupSize;
+    computeContext->DispatchCompute(Diligent::DispatchComputeAttribs{groupCountX, 1u, 1u});
+    return true;
+}
+
+bool PhysicsSolver::Impl::readbackRigidTransformsBlocking(Diligent::IDeviceContext* computeContext,
+                                                          PhysicsWorld& world,
+                                                          std::uint32_t bodyCount)
+{
+    if (computeContext == nullptr || bodyCount == 0u)
+    {
+        return false;
+    }
+
+    const Diligent::Uint64 bytes = static_cast<Diligent::Uint64>(bodyCount) * sizeof(Diligent::float4);
+    computeContext->CopyBuffer(positionsBuffer, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                               positionsReadbackBuffer, 0, bytes,
+                               Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->CopyBuffer(orientationsBuffer, 0,
+                               Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                               orientationsReadbackBuffer, 0, bytes,
+                               Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->CopyBuffer(linearVelocitiesBuffer, 0,
+                               Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                               linearVelocitiesReadbackBuffer, 0, bytes,
+                               Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->CopyBuffer(angularVelocitiesBuffer, 0,
+                               Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                               angularVelocitiesReadbackBuffer, 0, bytes,
+                               Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    computeContext->Flush();
+    computeContext->WaitForIdle();
+
+    void* mappedPositions = nullptr;
+    void* mappedOrientations = nullptr;
+    void* mappedLinear = nullptr;
+    void* mappedAngular = nullptr;
+
+    computeContext->MapBuffer(positionsReadbackBuffer, Diligent::MAP_READ, Diligent::MAP_FLAG_NONE,
+                              mappedPositions);
+    computeContext->MapBuffer(orientationsReadbackBuffer, Diligent::MAP_READ,
+                              Diligent::MAP_FLAG_NONE, mappedOrientations);
+    computeContext->MapBuffer(linearVelocitiesReadbackBuffer, Diligent::MAP_READ,
+                              Diligent::MAP_FLAG_NONE, mappedLinear);
+    computeContext->MapBuffer(angularVelocitiesReadbackBuffer, Diligent::MAP_READ,
+                              Diligent::MAP_FLAG_NONE, mappedAngular);
+    if (mappedPositions == nullptr || mappedOrientations == nullptr || mappedLinear == nullptr ||
+        mappedAngular == nullptr)
+    {
+        if (mappedPositions != nullptr)
+        {
+            computeContext->UnmapBuffer(positionsReadbackBuffer, Diligent::MAP_READ);
+        }
+        if (mappedOrientations != nullptr)
+        {
+            computeContext->UnmapBuffer(orientationsReadbackBuffer, Diligent::MAP_READ);
+        }
+        if (mappedLinear != nullptr)
+        {
+            computeContext->UnmapBuffer(linearVelocitiesReadbackBuffer, Diligent::MAP_READ);
+        }
+        if (mappedAngular != nullptr)
+        {
+            computeContext->UnmapBuffer(angularVelocitiesReadbackBuffer, Diligent::MAP_READ);
+        }
+        return false;
+    }
+
+    const auto* positions = static_cast<const Diligent::float4*>(mappedPositions);
+    const auto* orientations = static_cast<const Diligent::float4*>(mappedOrientations);
+    const auto* linearVelocities = static_cast<const Diligent::float4*>(mappedLinear);
+    const auto* angularVelocities = static_cast<const Diligent::float4*>(mappedAngular);
+    for (std::uint32_t i = 0; i < bodyCount; ++i)
+    {
+        (void)world.writeBackRigidBodyState(i, positions[i], orientations[i], linearVelocities[i],
+                                            angularVelocities[i]);
+    }
+    world.finalizeRigidBodyWriteback();
+
+    computeContext->UnmapBuffer(positionsReadbackBuffer, Diligent::MAP_READ);
+    computeContext->UnmapBuffer(orientationsReadbackBuffer, Diligent::MAP_READ);
+    computeContext->UnmapBuffer(linearVelocitiesReadbackBuffer, Diligent::MAP_READ);
+    computeContext->UnmapBuffer(angularVelocitiesReadbackBuffer, Diligent::MAP_READ);
+    return true;
+}
 
 bool PhysicsSolver::initialize()
 {
@@ -92,10 +474,10 @@ bool PhysicsSolver::initialize()
         return true;
     }
 
-    gpu::GpuBackendContext backendContext{};
-    if (!mDevice.tryGetBackendContext(backendContext) || backendContext.renderDevice == nullptr)
+    gpu::GpuComputeBackendContext computeContext{};
+    if (!mDevice.tryGetPhysicsBackendContext(computeContext) || computeContext.renderDevice == nullptr)
     {
-        LOG_ERROR_MESSAGE("PhysicsSolver: failed to get GPU backend context.");
+        LOG_ERROR_MESSAGE("PhysicsSolver: failed to get physics GPU context.");
         return false;
     }
 
@@ -127,65 +509,72 @@ bool PhysicsSolver::initialize()
     shaderCreateInfo.pShaderSourceStreamFactory      = streamFactory;
 
     Diligent::RefCntAutoPtr<Diligent::IShader> computeShader;
-    backendContext.renderDevice->CreateShader(shaderCreateInfo, &computeShader);
+    computeContext.renderDevice->CreateShader(shaderCreateInfo, &computeShader);
     if (computeShader == nullptr)
     {
         LOG_ERROR_MESSAGE("PhysicsSolver: failed to compile compute shader.");
         return false;
     }
 
-    // PSO
     Diligent::ComputePipelineStateCreateInfo psoCreateInfo{};
     psoCreateInfo.PSODesc.Name         = "CRESSimNeo.Physics.PlaceholderIntegrate.PSO";
     psoCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType =
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
-
     Diligent::ShaderResourceVariableDesc vars[] = {
         {Diligent::SHADER_TYPE_COMPUTE, "PhysicsStepConstantsBuffer",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodies",
+        {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyPositionsInvMass",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyOrientations",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyLinearVelocities",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyAngularVelocities",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     };
     psoCreateInfo.PSODesc.ResourceLayout.Variables    = vars;
-    psoCreateInfo.PSODesc.ResourceLayout.NumVariables = _countof(vars);
-
+    psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
+        static_cast<Diligent::Uint32>(std::size(vars));
     psoCreateInfo.pCS = computeShader;
 
-    backendContext.renderDevice->CreateComputePipelineState(psoCreateInfo, &mImpl->pso);
-    if (mImpl->pso == nullptr)
+    computeContext.renderDevice->CreateComputePipelineState(psoCreateInfo, &mImpl->integratePso);
+    if (mImpl->integratePso == nullptr)
     {
         LOG_ERROR_MESSAGE("PhysicsSolver: failed to create compute PSO.");
         return false;
     }
 
     Diligent::BufferDesc constantsDesc{};
-    constantsDesc.Name           = "CRESSimNeo.Physics.StepConstants";
-    constantsDesc.Size           = sizeof(PhysicsStepConstants);
-    constantsDesc.Usage          = Diligent::USAGE_DYNAMIC;
-    constantsDesc.BindFlags      = Diligent::BIND_UNIFORM_BUFFER;
-    constantsDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-    backendContext.renderDevice->CreateBuffer(constantsDesc, nullptr, &mImpl->stepConstantsBuffer);
+    constantsDesc.Name                 = "CRESSimNeo.Physics.StepConstants";
+    constantsDesc.Size                 = sizeof(PhysicsStepConstants);
+    constantsDesc.Usage                = Diligent::USAGE_DYNAMIC;
+    constantsDesc.BindFlags            = Diligent::BIND_UNIFORM_BUFFER;
+    constantsDesc.CPUAccessFlags       = Diligent::CPU_ACCESS_WRITE;
+    constantsDesc.ImmediateContextMask = contextMaskForId(computeContext.contextId);
+    computeContext.renderDevice->CreateBuffer(constantsDesc, nullptr, &mImpl->stepConstantsBuffer);
     if (mImpl->stepConstantsBuffer == nullptr)
     {
-        LOG_ERROR_MESSAGE("PhysicsSolver: failed to create step constant buffer.");
+        LOG_ERROR_MESSAGE("PhysicsSolver: failed to create step constants buffer.");
         return false;
     }
 
-    mImpl->pso->CreateShaderResourceBinding(&mImpl->srb, true);
-    if (mImpl->srb == nullptr)
+    mImpl->integratePso->CreateShaderResourceBinding(&mImpl->integrateSrb, true);
+    if (mImpl->integrateSrb == nullptr)
     {
         LOG_ERROR_MESSAGE("PhysicsSolver: failed to create SRB.");
         return false;
     }
-    Diligent::IShaderResourceVariable* stepConstantsVar =
-        mImpl->srb->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "PhysicsStepConstantsBuffer");
-    if (stepConstantsVar == nullptr)
+
+    Diligent::IShaderResourceVariable* constantsVar =
+        mImpl->integrateSrb->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE,
+                                               "PhysicsStepConstantsBuffer");
+    if (constantsVar == nullptr)
     {
         LOG_ERROR_MESSAGE("PhysicsSolver: variable PhysicsStepConstantsBuffer not found.");
         return false;
     }
-    stepConstantsVar->Set(mImpl->stepConstantsBuffer);
+    constantsVar->Set(mImpl->stepConstantsBuffer);
 
     mInitialized = true;
     return true;
@@ -194,7 +583,6 @@ bool PhysicsSolver::initialize()
 void PhysicsSolver::shutdown()
 {
     mImpl        = std::make_unique<Impl>();
-    mBuffers     = {};
     mInitialized = false;
 }
 
@@ -205,137 +593,98 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         return false;
     }
 
+    mImpl->stageStats = PhysicsSolverStageStats{};
+
     if (!mDesc.enableGpuCompute)
     {
-        for (RigidBodyState& rb : world.rigidBodies())
-        {
-            rb.position += rb.linearVelocity * frameContext.deltaSeconds;
-        }
+        world.integrateRigidBodiesCpu(frameContext.deltaSeconds);
+        markStage(mImpl->stageStats, RigidPbdSolverStage::IntegrateExternalForces, true);
+        markStage(mImpl->stageStats, RigidPbdSolverStage::WritebackTransforms, true);
         return true;
     }
 
-    gpu::GpuBackendContext backendContext{};
-    if (!mDevice.tryGetBackendContext(backendContext) || backendContext.renderDevice == nullptr ||
-        backendContext.immediateContext == nullptr)
+    gpu::GpuComputeBackendContext computeBackend{};
+    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) || computeBackend.renderDevice == nullptr ||
+        computeBackend.computeContext == nullptr)
     {
         return false;
     }
 
-    const std::vector<RigidBodyState>& rigidBodies = world.rigidBodies();
-    const std::uint32_t bodyCount                  = static_cast<std::uint32_t>(rigidBodies.size());
-    if (bodyCount == 0)
+    const std::uint32_t bodyCount = world.rigidBodyCount();
+    if (bodyCount == 0u)
     {
         return true;
     }
 
-    if (mImpl->bufferCapacity < bodyCount || mImpl->rigidBodyBuffer == nullptr ||
-        mImpl->readbackBuffer == nullptr)
-    {
-        const std::uint32_t newCapacity = std::max<std::uint32_t>(bodyCount, 64u);
-        const Diligent::Uint64 byteSize =
-            static_cast<Diligent::Uint64>(newCapacity) * sizeof(GpuRigidBodyState);
-
-        Diligent::BufferDesc simBufferDesc{};
-        simBufferDesc.Name      = "CRESSimNeo.Physics.RigidBodies";
-        simBufferDesc.Size      = byteSize;
-        simBufferDesc.Usage     = Diligent::USAGE_DEFAULT;
-        simBufferDesc.BindFlags = Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE;
-        simBufferDesc.Mode      = Diligent::BUFFER_MODE_STRUCTURED;
-        simBufferDesc.ElementByteStride = sizeof(GpuRigidBodyState);
-
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> newSimBuffer;
-        backendContext.renderDevice->CreateBuffer(simBufferDesc, nullptr, &newSimBuffer);
-        if (newSimBuffer == nullptr)
-        {
-            return false;
-        }
-
-        Diligent::BufferDesc readbackDesc{};
-        readbackDesc.Name              = "CRESSimNeo.Physics.RigidBodies.Readback";
-        readbackDesc.Size              = byteSize;
-        readbackDesc.Usage             = Diligent::USAGE_STAGING;
-        readbackDesc.CPUAccessFlags    = Diligent::CPU_ACCESS_READ;
-        readbackDesc.BindFlags         = Diligent::BIND_NONE;
-
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> newReadbackBuffer;
-        backendContext.renderDevice->CreateBuffer(readbackDesc, nullptr, &newReadbackBuffer);
-        if (newReadbackBuffer == nullptr)
-        {
-            return false;
-        }
-
-        Diligent::IShaderResourceVariable* rigidBodiesVar =
-            mImpl->srb->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodies");
-        if (rigidBodiesVar == nullptr)
-        {
-            return false;
-        }
-
-        rigidBodiesVar->Set(newSimBuffer->GetDefaultView(Diligent::BUFFER_VIEW_UNORDERED_ACCESS));
-        mImpl->rigidBodyBuffer = std::move(newSimBuffer);
-        mImpl->readbackBuffer  = std::move(newReadbackBuffer);
-        mImpl->bufferCapacity  = newCapacity;
-    }
-
-    mImpl->stagingStates.resize(bodyCount);
-    for (std::uint32_t i = 0; i < bodyCount; ++i)
-    {
-        mImpl->stagingStates[i] = toGpuState(rigidBodies[i]);
-    }
-
-    const Diligent::Uint64 uploadSize =
-        static_cast<Diligent::Uint64>(bodyCount) * sizeof(GpuRigidBodyState);
-    backendContext.immediateContext->UpdateBuffer(
-        mImpl->rigidBodyBuffer, 0, uploadSize, mImpl->stagingStates.data(),
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    PhysicsStepConstants stepConstants{};
-    stepConstants.dt        = frameContext.deltaSeconds;
-    stepConstants.bodyCount = bodyCount;
-    void* mappedConstants   = nullptr;
-    backendContext.immediateContext->MapBuffer(mImpl->stepConstantsBuffer, Diligent::MAP_WRITE,
-                                               Diligent::MAP_FLAG_DISCARD, mappedConstants);
-    if (mappedConstants == nullptr)
+    if (!mImpl->ensureCapacity(computeBackend.renderDevice, bodyCount, computeBackend.contextId))
     {
         return false;
     }
-    std::memcpy(mappedConstants, &stepConstants, sizeof(stepConstants));
-    backendContext.immediateContext->UnmapBuffer(mImpl->stepConstantsBuffer, Diligent::MAP_WRITE);
-
-    // Set PSO and dispatch
-    backendContext.immediateContext->SetPipelineState(mImpl->pso);
-    backendContext.immediateContext->CommitShaderResources(
-        mImpl->srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    const std::uint32_t groupCountX =
-        (bodyCount + kComputeThreadGroupSize - 1u) / kComputeThreadGroupSize;
-    backendContext.immediateContext->DispatchCompute(
-        Diligent::DispatchComputeAttribs{groupCountX, 1u, 1u});
-
-    backendContext.immediateContext->CopyBuffer(
-        mImpl->rigidBodyBuffer, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-        mImpl->readbackBuffer, 0, uploadSize, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    backendContext.immediateContext->Flush();
-    backendContext.immediateContext->WaitForIdle();
-
-    void* mappedReadback = nullptr;
-    backendContext.immediateContext->MapBuffer(mImpl->readbackBuffer, Diligent::MAP_READ,
-                                               Diligent::MAP_FLAG_DO_NOT_WAIT, mappedReadback);
-
-    if (mappedReadback == nullptr)
+    if (!mImpl->uploadRigidBodySoA(computeBackend.computeContext, world, bodyCount))
+    {
+        return false;
+    }
+    if (!mImpl->bindIntegrateBuffers())
     {
         return false;
     }
 
-    const auto* gpuStates = static_cast<const GpuRigidBodyState*>(mappedReadback);
-    for (std::uint32_t i = 0; i < bodyCount; ++i)
-    {
-        applyGpuState(gpuStates[i], world.rigidBodies()[i]);
-    }
-    backendContext.immediateContext->UnmapBuffer(mImpl->readbackBuffer, Diligent::MAP_READ);
+    const std::uint32_t substeps = std::max<std::uint32_t>(mDesc.substeps, 1u);
+    const std::uint32_t iterations = std::max<std::uint32_t>(mDesc.solverIterations, 1u);
+    const float substepDt = frameContext.deltaSeconds / static_cast<float>(substeps);
 
+    for (std::uint32_t substep = 0; substep < substeps; ++substep)
+    {
+        const PhysicsStepConstants constants{substepDt, bodyCount, substep, 0u};
+        if (!writeStepConstants(computeBackend.computeContext, mImpl->stepConstantsBuffer, constants) ||
+            !mImpl->dispatchIntegratePass(computeBackend.computeContext, bodyCount))
+        {
+            return false;
+        }
+        markStage(mImpl->stageStats, RigidPbdSolverStage::IntegrateExternalForces, true);
+
+        // TODO(PBD-GPU): implement broadphase key generation dispatch and key layout.
+        // TODO(PBD-GPU): implement broadphase sort/bucket stage (radix sort or uniform grid bucket build).
+        // TODO(PBD-GPU): implement contact generation stage and contact pair schema.
+        // TODO(PBD-GPU): implement rigid constraint construction stage.
+        if (mDesc.enableRigidBroadphaseScaffold)
+        {
+            markStage(mImpl->stageStats, RigidPbdSolverStage::BuildBroadphaseKeys, false);
+            markStage(mImpl->stageStats, RigidPbdSolverStage::SortOrBucket, false);
+            markStage(mImpl->stageStats, RigidPbdSolverStage::GenerateContacts, false);
+            markStage(mImpl->stageStats, RigidPbdSolverStage::BuildRigidConstraints, false);
+        }
+
+        for (std::uint32_t iteration = 0; iteration < iterations; ++iteration)
+        {
+            (void)iteration;
+            // TODO(PBD-GPU): implement iterative rigid constraints solve kernels and lambda buffers.
+        }
+        markStage(mImpl->stageStats, RigidPbdSolverStage::SolveConstraints, false);
+
+        // TODO(PBD-GPU): implement velocity update pass from predicted pose deltas.
+        markStage(mImpl->stageStats, RigidPbdSolverStage::UpdateVelocities, false);
+    }
+
+    if (!mDesc.enableBlockingReadback)
+    {
+        // TODO(PBD-GPU): replace blocking readback with async readback ring and fence polling.
+        // TODO(PBD-GPU): add direct physics->render interop path to bypass CPU readback.
+        markStage(mImpl->stageStats, RigidPbdSolverStage::WritebackTransforms, false);
+        return true;
+    }
+
+    if (!mImpl->readbackRigidTransformsBlocking(computeBackend.computeContext, world, bodyCount))
+    {
+        return false;
+    }
+    markStage(mImpl->stageStats, RigidPbdSolverStage::WritebackTransforms, true);
     return true;
+}
+
+const PhysicsSolverStageStats& PhysicsSolver::lastStageStats() const noexcept
+{
+    return mImpl->stageStats;
 }
 
 } // namespace cressim::neo::physics

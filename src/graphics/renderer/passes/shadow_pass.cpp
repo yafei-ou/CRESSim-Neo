@@ -29,7 +29,7 @@ bool ShadowPass::draw(gpu::GpuRenderTargetHandle target, const ForwardDrawComman
     }
 
     gpu::GpuBackendContext backendContext{};
-    if (!mDevice.tryGetBackendContext(backendContext))
+    if (!mDevice.tryGetGraphicsBackendContext(backendContext))
     {
         return false;
     }

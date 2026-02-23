@@ -4,6 +4,9 @@
 #include "common/math_types.h"
 #include "gpu/gpu_types.h"
 #include "graphics/render_resource_manager.h"
+#include "physics/physics_types.h"
+
+#include <cstdint>
 
 namespace cressim::neo::engine
 {
@@ -50,7 +53,10 @@ struct DirectionalLightComponent
 struct RigidBodyComponent
 {
     Diligent::float3 linearVelocity{0.0f, 0.0f, 0.0f};
+    Diligent::float3 angularVelocity{0.0f, 0.0f, 0.0f};
     float inverseMass = 1.0f;
+    physics::ColliderShapeType colliderShape = physics::ColliderShapeType::Sphere;
+    Diligent::float4 colliderParams{0.5f, 0.0f, 0.0f, 0.0f};
     bool simulated    = true;
 };
 

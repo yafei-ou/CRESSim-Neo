@@ -22,6 +22,12 @@ void GpuDeviceImpl::endFrame(const common::FrameContext& frameContext)
     }
 
     mRenderTargets->endFrame(frameContext);
+    if (mInitialized && mBackend == GpuBackend::Vulkan && mPhysicsContext != nullptr &&
+        mPhysicsContext != mImmediateContext)
+    {
+        mPhysicsContext->Flush();
+        mPhysicsContext->FinishFrame();
+    }
 }
 
 bool GpuDeviceImpl::presentPrimarySwapChain()

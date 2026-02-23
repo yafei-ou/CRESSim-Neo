@@ -7,6 +7,8 @@
 #include "physics/physics_types.h"
 #include "physics/physics_world.h"
 
+#include <array>
+#include <cstdint>
 #include <memory>
 
 namespace cressim::neo::physics
@@ -15,6 +17,30 @@ namespace cressim::neo::physics
 struct PhysicsSolverDesc
 {
     bool enableGpuCompute = true;
+    std::uint32_t substeps = 1;
+    std::uint32_t solverIterations = 4;
+    bool enableRigidBroadphaseScaffold = true;
+    bool enableBlockingReadback = true;
+};
+
+enum class RigidPbdSolverStage : std::uint32_t
+{
+    IntegrateExternalForces = 0u,
+    BuildBroadphaseKeys,
+    SortOrBucket,
+    GenerateContacts,
+    BuildRigidConstraints,
+    SolveConstraints,
+    UpdateVelocities,
+    WritebackTransforms,
+    Count,
+};
+
+struct PhysicsSolverStageStats
+{
+    std::array<bool, static_cast<std::size_t>(RigidPbdSolverStage::Count)> executed{};
+    std::uint32_t dispatchedStages = 0;
+    std::uint32_t skippedStages = 0;
 };
 
 class CRESSIM_NEO_PHYSICS_API PhysicsSolver
@@ -26,13 +52,13 @@ public:
     bool initialize();
     void shutdown();
     bool step(const common::FrameContext& frameContext, PhysicsWorld& world);
+    const PhysicsSolverStageStats& lastStageStats() const noexcept;
 
 private:
     struct Impl;
 
     gpu::GpuDevice& mDevice;
     PhysicsSolverDesc mDesc{};
-    PhysicsGpuBuffers mBuffers{};
     std::unique_ptr<Impl> mImpl;
     bool mInitialized = false;
 };

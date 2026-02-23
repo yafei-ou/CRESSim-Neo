@@ -1,76 +1,259 @@
 #include "physics/physics_world.h"
 
-#include <algorithm>
-
 namespace cressim::neo::physics
 {
+
+namespace
+{
+
+Diligent::float4 toPositionInvMass(const RigidBodyState& state)
+{
+    return Diligent::float4{state.position.x, state.position.y, state.position.z, state.inverseMass};
+}
+
+Diligent::float4 toOrientation(const RigidBodyState& state)
+{
+    return Diligent::float4{state.rotation.q.x, state.rotation.q.y, state.rotation.q.z,
+                            state.rotation.q.w};
+}
+
+Diligent::float4 toLinearVelocity(const RigidBodyState& state)
+{
+    return Diligent::float4{state.linearVelocity.x, state.linearVelocity.y, state.linearVelocity.z,
+                            0.0f};
+}
+
+Diligent::float4 toAngularVelocity(const RigidBodyState& state)
+{
+    return Diligent::float4{state.angularVelocity.x, state.angularVelocity.y, state.angularVelocity.z,
+                            0.0f};
+}
+
+} // namespace
 
 void PhysicsWorld::clear()
 {
     mRigidBodies.clear();
+    mEntityToIndex.clear();
+    mRigidBodySnapshot.clear();
+    markAllRigidBodiesDirty();
     ++mRevision;
 }
 
 RigidBodyState& PhysicsWorld::upsertRigidBody(const RigidBodyState& state)
 {
-    auto it = std::find_if(mRigidBodies.begin(), mRigidBodies.end(),
-                           [&](const RigidBodyState& rb) { return rb.entityId == state.entityId; });
-    if (it == mRigidBodies.end())
+    auto it = mEntityToIndex.find(state.entityId);
+    if (it == mEntityToIndex.end())
     {
-        mRigidBodies.push_back(state);
+        const std::uint32_t index = static_cast<std::uint32_t>(mRigidBodies.size());
+        mEntityToIndex.emplace(state.entityId, index);
+        mRigidBodies.entityIds.push_back(state.entityId);
+        mRigidBodies.positionsInvMass.push_back(toPositionInvMass(state));
+        mRigidBodies.orientations.push_back(toOrientation(state));
+        mRigidBodies.linearVelocities.push_back(toLinearVelocity(state));
+        mRigidBodies.angularVelocities.push_back(toAngularVelocity(state));
+        mRigidBodies.colliderShapeTypes.push_back(static_cast<std::uint32_t>(state.colliderShape));
+        mRigidBodies.colliderParams.push_back(state.colliderParams);
+        mRigidBodySnapshot.push_back(state);
+        mRigidBodyDirtyRange.include(index);
         ++mRevision;
-        return mRigidBodies.back();
+        return mRigidBodySnapshot.back();
     }
 
-    *it = state;
+    const std::uint32_t index = it->second;
+    writeRigidBodySoAAt(mRigidBodies, index, state);
+    mRigidBodySnapshot[index] = state;
+    mRigidBodyDirtyRange.include(index);
     ++mRevision;
-    return *it;
+    return mRigidBodySnapshot[index];
 }
 
 bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
 {
-    const auto before = mRigidBodies.size();
-    mRigidBodies.erase(std::remove_if(mRigidBodies.begin(), mRigidBodies.end(),
-                                      [&](const RigidBodyState& rb)
-                                      { return rb.entityId == entityId; }),
-                       mRigidBodies.end());
-
-    if (mRigidBodies.size() == before)
+    const auto it = mEntityToIndex.find(entityId);
+    if (it == mEntityToIndex.end())
     {
         return false;
     }
 
+    const std::uint32_t index = it->second;
+    const std::uint32_t last  = static_cast<std::uint32_t>(mRigidBodies.size() - 1u);
+
+    if (index != last)
+    {
+        mRigidBodies.entityIds[index] = mRigidBodies.entityIds[last];
+        mRigidBodies.positionsInvMass[index] = mRigidBodies.positionsInvMass[last];
+        mRigidBodies.orientations[index] = mRigidBodies.orientations[last];
+        mRigidBodies.linearVelocities[index] = mRigidBodies.linearVelocities[last];
+        mRigidBodies.angularVelocities[index] = mRigidBodies.angularVelocities[last];
+        mRigidBodies.colliderShapeTypes[index] = mRigidBodies.colliderShapeTypes[last];
+        mRigidBodies.colliderParams[index] = mRigidBodies.colliderParams[last];
+        mRigidBodySnapshot[index]          = mRigidBodySnapshot[last];
+        mEntityToIndex[mRigidBodies.entityIds[index]] = index;
+    }
+
+    mEntityToIndex.erase(it);
+    mRigidBodies.entityIds.pop_back();
+    mRigidBodies.positionsInvMass.pop_back();
+    mRigidBodies.orientations.pop_back();
+    mRigidBodies.linearVelocities.pop_back();
+    mRigidBodies.angularVelocities.pop_back();
+    mRigidBodies.colliderShapeTypes.pop_back();
+    mRigidBodies.colliderParams.pop_back();
+    mRigidBodySnapshot.pop_back();
+
+    markAllRigidBodiesDirty();
     ++mRevision;
     return true;
 }
 
 RigidBodyState* PhysicsWorld::tryGetRigidBody(common::EntityId entityId)
 {
-    auto it = std::find_if(mRigidBodies.begin(), mRigidBodies.end(),
-                           [&](const RigidBodyState& rb) { return rb.entityId == entityId; });
-    return it == mRigidBodies.end() ? nullptr : &(*it);
+    const auto it = mEntityToIndex.find(entityId);
+    return it == mEntityToIndex.end() ? nullptr : &mRigidBodySnapshot[it->second];
 }
 
 const RigidBodyState* PhysicsWorld::tryGetRigidBody(common::EntityId entityId) const
 {
-    auto it = std::find_if(mRigidBodies.begin(), mRigidBodies.end(),
-                           [&](const RigidBodyState& rb) { return rb.entityId == entityId; });
-    return it == mRigidBodies.end() ? nullptr : &(*it);
+    const auto it = mEntityToIndex.find(entityId);
+    return it == mEntityToIndex.end() ? nullptr : &mRigidBodySnapshot[it->second];
 }
 
-const std::vector<RigidBodyState>& PhysicsWorld::rigidBodies() const noexcept
+const std::vector<RigidBodyState>& PhysicsWorld::rigidBodySnapshot() const noexcept
+{
+    return mRigidBodySnapshot;
+}
+
+const RigidBodySoAHost& PhysicsWorld::rigidBodySoA() const noexcept
 {
     return mRigidBodies;
 }
 
-std::vector<RigidBodyState>& PhysicsWorld::rigidBodies() noexcept
+const PhysicsSoADirtyRange& PhysicsWorld::rigidBodyDirtyRange() const noexcept
 {
-    return mRigidBodies;
+    return mRigidBodyDirtyRange;
+}
+
+std::uint32_t PhysicsWorld::rigidBodyCount() const noexcept
+{
+    return static_cast<std::uint32_t>(mRigidBodies.size());
+}
+
+void PhysicsWorld::clearRigidBodyDirtyRange() noexcept
+{
+    mRigidBodyDirtyRange.clear();
+}
+
+void PhysicsWorld::integrateRigidBodiesCpu(float dt) noexcept
+{
+    if (mRigidBodies.empty())
+    {
+        return;
+    }
+
+    for (std::uint32_t i = 0; i < rigidBodyCount(); ++i)
+    {
+        Diligent::float4& positionInvMass = mRigidBodies.positionsInvMass[i];
+        const Diligent::float4 linearVelocity = mRigidBodies.linearVelocities[i];
+        positionInvMass.x += linearVelocity.x * dt;
+        positionInvMass.y += linearVelocity.y * dt;
+        positionInvMass.z += linearVelocity.z * dt;
+
+        RigidBodyState& state = mRigidBodySnapshot[i];
+        state.position.x       = positionInvMass.x;
+        state.position.y       = positionInvMass.y;
+        state.position.z       = positionInvMass.z;
+    }
+
+    markAllRigidBodiesDirty();
+    ++mRevision;
+}
+
+bool PhysicsWorld::writeBackRigidBodyState(std::uint32_t index,
+                                           const Diligent::float4& positionInvMass,
+                                           const Diligent::float4& orientation,
+                                           const Diligent::float4& linearVelocity,
+                                           const Diligent::float4& angularVelocity) noexcept
+{
+    if (index >= rigidBodyCount())
+    {
+        return false;
+    }
+
+    mRigidBodies.positionsInvMass[index] = positionInvMass;
+    mRigidBodies.orientations[index]     = orientation;
+    mRigidBodies.linearVelocities[index] = linearVelocity;
+    mRigidBodies.angularVelocities[index] = angularVelocity;
+    mRigidBodyDirtyRange.include(index);
+
+    RigidBodyState& state = mRigidBodySnapshot[index];
+    state.position = Diligent::float3{positionInvMass.x, positionInvMass.y, positionInvMass.z};
+    state.inverseMass = positionInvMass.w;
+    state.rotation =
+        Diligent::QuaternionF{orientation.x, orientation.y, orientation.z, orientation.w};
+    state.linearVelocity = Diligent::float3{linearVelocity.x, linearVelocity.y, linearVelocity.z};
+    state.angularVelocity =
+        Diligent::float3{angularVelocity.x, angularVelocity.y, angularVelocity.z};
+    return true;
+}
+
+void PhysicsWorld::finalizeRigidBodyWriteback() noexcept
+{
+    if (mRigidBodies.empty())
+    {
+        return;
+    }
+    ++mRevision;
 }
 
 std::uint64_t PhysicsWorld::revision() const noexcept
 {
     return mRevision;
+}
+
+void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost& soa, std::uint32_t index,
+                                       const RigidBodyState& state)
+{
+    soa.entityIds[index]          = state.entityId;
+    soa.positionsInvMass[index]   = toPositionInvMass(state);
+    soa.orientations[index]       = toOrientation(state);
+    soa.linearVelocities[index]   = toLinearVelocity(state);
+    soa.angularVelocities[index]  = toAngularVelocity(state);
+    soa.colliderShapeTypes[index] = static_cast<std::uint32_t>(state.colliderShape);
+    soa.colliderParams[index]     = state.colliderParams;
+}
+
+RigidBodyState PhysicsWorld::readRigidBodySoAAt(const RigidBodySoAHost& soa, std::uint32_t index)
+{
+    RigidBodyState state{};
+    state.entityId = soa.entityIds[index];
+
+    const Diligent::float4 positionInvMass = soa.positionsInvMass[index];
+    state.position = Diligent::float3{positionInvMass.x, positionInvMass.y, positionInvMass.z};
+    state.inverseMass = positionInvMass.w;
+
+    const Diligent::float4 orientation = soa.orientations[index];
+    state.rotation =
+        Diligent::QuaternionF{orientation.x, orientation.y, orientation.z, orientation.w};
+
+    const Diligent::float4 linearVelocity = soa.linearVelocities[index];
+    state.linearVelocity =
+        Diligent::float3{linearVelocity.x, linearVelocity.y, linearVelocity.z};
+
+    const Diligent::float4 angularVelocity = soa.angularVelocities[index];
+    state.angularVelocity =
+        Diligent::float3{angularVelocity.x, angularVelocity.y, angularVelocity.z};
+
+    state.colliderShape = static_cast<ColliderShapeType>(soa.colliderShapeTypes[index]);
+    state.colliderParams = soa.colliderParams[index];
+    return state;
+}
+
+void PhysicsWorld::markAllRigidBodiesDirty() noexcept
+{
+    mRigidBodyDirtyRange.valid = true;
+    mRigidBodyDirtyRange.begin = 0;
+    mRigidBodyDirtyRange.end   = rigidBodyCount();
 }
 
 } // namespace cressim::neo::physics

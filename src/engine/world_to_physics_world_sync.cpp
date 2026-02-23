@@ -26,7 +26,11 @@ void syncWorldToPhysicsWorld(const World& world, physics::PhysicsWorld& physicsW
         state.position       = transform->worldTransform.position;
         state.rotation       = transform->worldTransform.rotation;
         state.linearVelocity = rigidBody->linearVelocity;
+        state.angularVelocity = rigidBody->angularVelocity;
         state.inverseMass    = rigidBody->inverseMass;
+        state.colliderShape =
+            static_cast<physics::ColliderShapeType>(static_cast<std::uint32_t>(rigidBody->colliderShape));
+        state.colliderParams = rigidBody->colliderParams;
         (void)physicsWorld.upsertRigidBody(state);
     }
 }

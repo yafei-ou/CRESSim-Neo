@@ -26,7 +26,8 @@ public:
     GpuRenderTargetSystem& renderTargetSystem() override;
 
     GpuBackend backend() const override;
-    bool tryGetBackendContext(GpuBackendContext& outContext) override;
+    bool tryGetGraphicsBackendContext(GpuBackendContext& outContext) override;
+    bool tryGetPhysicsBackendContext(GpuComputeBackendContext& outContext) override;
     const std::string& shaderSourceDirectory() const override;
 
 private:
@@ -42,7 +43,12 @@ private:
 
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> mRenderDevice;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mImmediateContext;
+    Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mPhysicsContext;
     Diligent::RefCntAutoPtr<Diligent::ISwapChain> mPrimarySwapChain;
+    std::uint32_t mGraphicsContextId                    = 0;
+    std::uint32_t mPhysicsContextId                     = 0;
+    Diligent::COMMAND_QUEUE_TYPE mGraphicsQueueType     = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
+    Diligent::COMMAND_QUEUE_TYPE mPhysicsQueueType      = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
 };
 
 } // namespace cressim::neo::gpu

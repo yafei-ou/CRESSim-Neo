@@ -17,7 +17,8 @@ bool ForwardOpaquePass::initialize()
     mProgramRegistry = std::make_unique<MaterialProgramRegistry>(mShaderLibrary);
 
     gpu::GpuBackendContext backendContext{};
-    if (mDevice.tryGetBackendContext(backendContext) && backendContext.renderDevice != nullptr)
+    if (mDevice.tryGetGraphicsBackendContext(backendContext) &&
+        backendContext.renderDevice != nullptr)
     {
         Diligent::SamplerDesc shadowSamplerDesc{};
         shadowSamplerDesc.MinFilter      = Diligent::FILTER_TYPE_COMPARISON_LINEAR;
@@ -65,7 +66,7 @@ bool ForwardOpaquePass::beginCameraFrame(const FrameViewData& frameView)
     }
 
     gpu::GpuBackendContext backendContext{};
-    if (!mDevice.tryGetBackendContext(backendContext))
+    if (!mDevice.tryGetGraphicsBackendContext(backendContext))
     {
         return false;
     }
@@ -134,7 +135,7 @@ bool ForwardOpaquePass::draw(gpu::GpuRenderTargetHandle target,
     }
 
     gpu::GpuBackendContext backendContext{};
-    if (!mDevice.tryGetBackendContext(backendContext))
+    if (!mDevice.tryGetGraphicsBackendContext(backendContext))
     {
         return false;
     }

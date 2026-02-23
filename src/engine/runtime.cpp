@@ -87,7 +87,11 @@ void Runtime::tick(const common::FrameContext& frameContext)
     (void)syncWorldToPhysicsWorld();
     if (mPhysicsSolver)
     {
-        (void)mPhysicsSolver->step(frameContext, mPhysicsWorld);
+        if (!mPhysicsSolver->step(frameContext, mPhysicsWorld))
+        {
+            // Keep simulation moving even when GPU physics staging/readback is temporarily unavailable.
+            mPhysicsWorld.integrateRigidBodiesCpu(frameContext.deltaSeconds);
+        }
     }
     (void)syncPhysicsWorldToWorld();
     const bool syncSkipped = syncWorldToRenderWorld();

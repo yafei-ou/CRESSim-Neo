@@ -5,7 +5,7 @@ namespace cressim::neo::engine::detail
 
 void syncPhysicsWorldToWorld(const physics::PhysicsWorld& physicsWorld, World& world)
 {
-    for (const physics::RigidBodyState& state : physicsWorld.rigidBodies())
+    for (const physics::RigidBodyState& state : physicsWorld.rigidBodySnapshot())
     {
         if (!world.isAlive(state.entityId))
         {

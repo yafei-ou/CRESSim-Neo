@@ -225,6 +225,19 @@ int main(int argc, char** argv)
     meshRenderer.visible = true;
     world.setMeshRenderer(renderableEntity, meshRenderer);
 
+    const auto rigidEntity = world.createEntity();
+    TransformComponent rigidTransform{};
+    rigidTransform.worldTransform.position = {-0.2f, 0.1f, 0.0f};
+    world.setTransform(rigidEntity, rigidTransform);
+    cressim::neo::engine::RigidBodyComponent rigidBody{};
+    rigidBody.simulated = true;
+    rigidBody.inverseMass = 1.0f;
+    rigidBody.linearVelocity = {0.25f, 0.0f, 0.0f};
+    rigidBody.angularVelocity = {0.0f, 0.1f, 0.0f};
+    rigidBody.colliderShape = cressim::neo::physics::ColliderShapeType::Sphere;
+    rigidBody.colliderParams = {0.4f, 0.0f, 0.0f, 0.0f};
+    world.setRigidBody(rigidEntity, rigidBody);
+
     FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
     std::vector<GpuRenderTargetReadbackRequest> readbackRequests;

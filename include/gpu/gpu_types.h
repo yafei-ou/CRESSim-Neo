@@ -27,6 +27,12 @@ enum class GpuRenderTargetUpdateResult
     Recreated,
 };
 
+enum class GpuContextRole
+{
+    Graphics,
+    Physics,
+};
+
 struct GpuRenderTargetHandle
 {
     // Opaque per-device handle for an offscreen target.
@@ -92,6 +98,15 @@ struct GpuBackendContext
     bool hasActiveRenderTarget                             = false;
     bool activeRenderTargetHasDepth                        = false;
     Diligent::TEXTURE_FORMAT activeRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
+};
+
+struct GpuComputeBackendContext
+{
+    Diligent::IRenderDevice* renderDevice        = nullptr;
+    Diligent::IDeviceContext* computeContext     = nullptr;
+    std::uint32_t contextId                      = 0;
+    Diligent::COMMAND_QUEUE_TYPE queueType       = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
+    GpuContextRole role                          = GpuContextRole::Physics;
 };
 
 } // namespace cressim::neo::gpu
