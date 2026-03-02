@@ -102,11 +102,11 @@ struct GpuBackendContext
 
 struct GpuComputeBackendContext
 {
-    Diligent::IRenderDevice* renderDevice        = nullptr;
-    Diligent::IDeviceContext* computeContext     = nullptr;
-    std::uint32_t contextId                      = 0;
-    Diligent::COMMAND_QUEUE_TYPE queueType       = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
-    GpuContextRole role                          = GpuContextRole::Physics;
+    Diligent::IRenderDevice* renderDevice    = nullptr;
+    Diligent::IDeviceContext* computeContext = nullptr;
+    std::uint32_t contextId                  = 0;
+    Diligent::COMMAND_QUEUE_TYPE queueType   = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
+    GpuContextRole role                      = GpuContextRole::Physics;
 };
 
 } // namespace cressim::neo::gpu

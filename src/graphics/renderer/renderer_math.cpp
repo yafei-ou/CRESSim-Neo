@@ -269,6 +269,14 @@ Diligent::float4x4 normalMatrixFromModelMatrix(const Diligent::float4x4& modelMa
 
 ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightData>& lights)
 {
+    /**
+     * This gets the first directional light.
+     */
+
+    // TODO: use the brightest one as the main light
+    // TODO: allow multiple lights
+    // TODO: add other types of lights (spot, point)
+
     ForwardDirectionalLightData out{};
     if (lights.empty())
     {

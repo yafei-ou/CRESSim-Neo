@@ -45,10 +45,10 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mImmediateContext;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mPhysicsContext;
     Diligent::RefCntAutoPtr<Diligent::ISwapChain> mPrimarySwapChain;
-    std::uint32_t mGraphicsContextId                    = 0;
-    std::uint32_t mPhysicsContextId                     = 0;
-    Diligent::COMMAND_QUEUE_TYPE mGraphicsQueueType     = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
-    Diligent::COMMAND_QUEUE_TYPE mPhysicsQueueType      = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
+    std::uint32_t mGraphicsContextId                = 0;
+    std::uint32_t mPhysicsContextId                 = 0;
+    Diligent::COMMAND_QUEUE_TYPE mGraphicsQueueType = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
+    Diligent::COMMAND_QUEUE_TYPE mPhysicsQueueType  = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
 };
 
 } // namespace cressim::neo::gpu

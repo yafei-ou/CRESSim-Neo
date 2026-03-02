@@ -89,7 +89,8 @@ void Runtime::tick(const common::FrameContext& frameContext)
     {
         if (!mPhysicsSolver->step(frameContext, mPhysicsWorld))
         {
-            // Keep simulation moving even when GPU physics staging/readback is temporarily unavailable.
+            // Keep simulation moving even when GPU physics staging/readback is temporarily
+            // unavailable.
             mPhysicsWorld.integrateRigidBodiesCpu(frameContext.deltaSeconds);
         }
     }

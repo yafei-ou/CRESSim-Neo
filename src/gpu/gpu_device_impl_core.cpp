@@ -131,10 +131,10 @@ void GpuDeviceImpl::shutdown()
         mPhysicsContext->FinishFrame();
     }
 
-    mImmediateContext = nullptr;
-    mPhysicsContext   = nullptr;
-    mRenderDevice     = nullptr;
-    mPrimarySwapChain = nullptr;
+    mImmediateContext  = nullptr;
+    mPhysicsContext    = nullptr;
+    mRenderDevice      = nullptr;
+    mPrimarySwapChain  = nullptr;
     mGraphicsContextId = 0;
     mPhysicsContextId  = 0;
     mGraphicsQueueType = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
@@ -216,7 +216,8 @@ bool GpuDeviceImpl::initializeVulkan()
         mPhysicsContext   = nullptr;
 
         Diligent::EngineVkCreateInfo engineCreateInfo{};
-        engineCreateInfo.EnableValidation = static_cast<Diligent::Bool>(mDesc.enableValidation ? 1 : 0);
+        engineCreateInfo.EnableValidation =
+            static_cast<Diligent::Bool>(mDesc.enableValidation ? 1 : 0);
 
         std::array<Diligent::IDeviceContext*, 2> contexts = {nullptr, nullptr};
         if (requestDedicatedPhysicsContext)
@@ -253,7 +254,8 @@ bool GpuDeviceImpl::initializeVulkan()
 
     if (!createDeviceContexts(true))
     {
-        std::cerr << "GpuDeviceImpl: failed to create dedicated physics context; falling back to shared context.\n";
+        std::cerr << "GpuDeviceImpl: failed to create dedicated physics context; falling back to "
+                     "shared context.\n";
         if (!createDeviceContexts(false))
         {
             return false;
