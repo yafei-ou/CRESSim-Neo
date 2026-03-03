@@ -24,8 +24,10 @@ struct RigidBodyState
     common::EntityId entityId = common::kInvalidEntityId;
     Diligent::float3 position{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF rotation{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::float3 scale{1.0f, 1.0f, 1.0f};
     Diligent::float3 linearVelocity{0.0f, 0.0f, 0.0f};
     Diligent::float3 angularVelocity{0.0f, 0.0f, 0.0f};
+    Diligent::float3 inverseInertiaLocal{1.0f, 1.0f, 1.0f};
     float inverseMass               = 1.0f;
     ColliderShapeType colliderShape = ColliderShapeType::Sphere;
     Diligent::float4 colliderParams{0.5f, 0.0f, 0.0f, 0.0f};
@@ -70,8 +72,10 @@ struct RigidBodySoAHost
     std::vector<common::EntityId> entityIds;
     std::vector<Diligent::float4> positionsInvMass;
     std::vector<Diligent::float4> orientations;
+    std::vector<Diligent::float4> scales;
     std::vector<Diligent::float4> linearVelocities;
     std::vector<Diligent::float4> angularVelocities;
+    std::vector<Diligent::float4> inverseInertiaLocal;
     std::vector<std::uint32_t> colliderShapeTypes;
     std::vector<Diligent::float4> colliderParams;
 
@@ -90,8 +94,10 @@ struct RigidBodySoAHost
         entityIds.clear();
         positionsInvMass.clear();
         orientations.clear();
+        scales.clear();
         linearVelocities.clear();
         angularVelocities.clear();
+        inverseInertiaLocal.clear();
         colliderShapeTypes.clear();
         colliderParams.clear();
     }

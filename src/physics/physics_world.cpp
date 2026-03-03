@@ -24,10 +24,21 @@ Diligent::float4 toLinearVelocity(const RigidBodyState& state)
                             0.0f};
 }
 
+Diligent::float4 toScale(const RigidBodyState& state)
+{
+    return Diligent::float4{state.scale.x, state.scale.y, state.scale.z, 0.0f};
+}
+
 Diligent::float4 toAngularVelocity(const RigidBodyState& state)
 {
     return Diligent::float4{state.angularVelocity.x, state.angularVelocity.y,
                             state.angularVelocity.z, 0.0f};
+}
+
+Diligent::float4 toInverseInertiaLocal(const RigidBodyState& state)
+{
+    return Diligent::float4{state.inverseInertiaLocal.x, state.inverseInertiaLocal.y,
+                            state.inverseInertiaLocal.z, 0.0f};
 }
 
 } // namespace
@@ -51,8 +62,10 @@ RigidBodyState& PhysicsWorld::upsertRigidBody(const RigidBodyState& state)
         mRigidBodies.entityIds.push_back(state.entityId);
         mRigidBodies.positionsInvMass.push_back(toPositionInvMass(state));
         mRigidBodies.orientations.push_back(toOrientation(state));
+        mRigidBodies.scales.push_back(toScale(state));
         mRigidBodies.linearVelocities.push_back(toLinearVelocity(state));
         mRigidBodies.angularVelocities.push_back(toAngularVelocity(state));
+        mRigidBodies.inverseInertiaLocal.push_back(toInverseInertiaLocal(state));
         mRigidBodies.colliderShapeTypes.push_back(static_cast<std::uint32_t>(state.colliderShape));
         mRigidBodies.colliderParams.push_back(state.colliderParams);
         mRigidBodySnapshot.push_back(state);
@@ -85,8 +98,10 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
         mRigidBodies.entityIds[index]                 = mRigidBodies.entityIds[last];
         mRigidBodies.positionsInvMass[index]          = mRigidBodies.positionsInvMass[last];
         mRigidBodies.orientations[index]              = mRigidBodies.orientations[last];
+        mRigidBodies.scales[index]                    = mRigidBodies.scales[last];
         mRigidBodies.linearVelocities[index]          = mRigidBodies.linearVelocities[last];
         mRigidBodies.angularVelocities[index]         = mRigidBodies.angularVelocities[last];
+        mRigidBodies.inverseInertiaLocal[index]       = mRigidBodies.inverseInertiaLocal[last];
         mRigidBodies.colliderShapeTypes[index]        = mRigidBodies.colliderShapeTypes[last];
         mRigidBodies.colliderParams[index]            = mRigidBodies.colliderParams[last];
         mRigidBodySnapshot[index]                     = mRigidBodySnapshot[last];
@@ -97,8 +112,10 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     mRigidBodies.entityIds.pop_back();
     mRigidBodies.positionsInvMass.pop_back();
     mRigidBodies.orientations.pop_back();
+    mRigidBodies.scales.pop_back();
     mRigidBodies.linearVelocities.pop_back();
     mRigidBodies.angularVelocities.pop_back();
+    mRigidBodies.inverseInertiaLocal.pop_back();
     mRigidBodies.colliderShapeTypes.pop_back();
     mRigidBodies.colliderParams.pop_back();
     mRigidBodySnapshot.pop_back();
@@ -218,8 +235,10 @@ void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost& soa, std::uint32_t inde
     soa.entityIds[index]          = state.entityId;
     soa.positionsInvMass[index]   = toPositionInvMass(state);
     soa.orientations[index]       = toOrientation(state);
+    soa.scales[index]             = toScale(state);
     soa.linearVelocities[index]   = toLinearVelocity(state);
     soa.angularVelocities[index]  = toAngularVelocity(state);
+    soa.inverseInertiaLocal[index] = toInverseInertiaLocal(state);
     soa.colliderShapeTypes[index] = static_cast<std::uint32_t>(state.colliderShape);
     soa.colliderParams[index]     = state.colliderParams;
 }
@@ -237,12 +256,19 @@ RigidBodyState PhysicsWorld::readRigidBodySoAAt(const RigidBodySoAHost& soa, std
     state.rotation =
         Diligent::QuaternionF{orientation.x, orientation.y, orientation.z, orientation.w};
 
+    const Diligent::float4 scale = soa.scales[index];
+    state.scale = Diligent::float3{scale.x, scale.y, scale.z};
+
     const Diligent::float4 linearVelocity = soa.linearVelocities[index];
     state.linearVelocity = Diligent::float3{linearVelocity.x, linearVelocity.y, linearVelocity.z};
 
     const Diligent::float4 angularVelocity = soa.angularVelocities[index];
     state.angularVelocity =
         Diligent::float3{angularVelocity.x, angularVelocity.y, angularVelocity.z};
+
+    const Diligent::float4 inverseInertiaLocal = soa.inverseInertiaLocal[index];
+    state.inverseInertiaLocal =
+        Diligent::float3{inverseInertiaLocal.x, inverseInertiaLocal.y, inverseInertiaLocal.z};
 
     state.colliderShape  = static_cast<ColliderShapeType>(soa.colliderShapeTypes[index]);
     state.colliderParams = soa.colliderParams[index];

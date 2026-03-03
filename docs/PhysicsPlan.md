@@ -41,6 +41,8 @@ B1) Persistent state buffers (live across frames)
 
 -   (optional) `float3 fExt[Np]`
 
+-   `x` and `invMass` can be put in one buffer
+
 **Soft-body connectivity (optional)**
 
 -   `Edge edges[Ne]` : (i, j, restLen, stiffness, compliance)
@@ -62,6 +64,8 @@ B1) Persistent state buffers (live across frames)
 -   `float invMassR[Nr]`
 
 -   `mat3 invInertiaLocal[Nr]` (or diag)
+
+-   `p` and `invMassR` can be put in one buffer
 
 -   shape info:
 
@@ -86,11 +90,11 @@ B2) Per-substep transient buffers (recomputed each substep)
 
 ### Predicted states
 
--   `float3 xPred[Np]`
+-   `float3 xPred[Np]` or actually `float4`
 
--   `float3 xPrev[Np]` (for velocity update; or store old x)
+-   `float3 xPrev[Np]` or actually `float4` (for velocity update; or store old x)
 
--   `float3 pPred[Nr]`
+-   `float3 pPred[Nr]` or actually `float4`
 
 -   `quat qPred[Nr]`
 

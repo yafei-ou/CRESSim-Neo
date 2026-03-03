@@ -54,6 +54,7 @@ struct RigidBodyComponent
 {
     Diligent::float3 linearVelocity{0.0f, 0.0f, 0.0f};
     Diligent::float3 angularVelocity{0.0f, 0.0f, 0.0f};
+    Diligent::float3 inverseInertiaLocal{1.0f, 1.0f, 1.0f};
     float inverseMass                        = 1.0f;
     physics::ColliderShapeType colliderShape = physics::ColliderShapeType::Sphere;
     Diligent::float4 colliderParams{0.5f, 0.0f, 0.0f, 0.0f};

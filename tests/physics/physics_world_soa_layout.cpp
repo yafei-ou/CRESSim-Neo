@@ -17,8 +17,10 @@ RigidBodyState makeRigidBody(EntityId entityId, float x, float vx, ColliderShape
     state.entityId = entityId;
     state.position = {x, 0.0f, 0.0f};
     state.rotation = {0.0f, 0.0f, 0.0f, 1.0f};
+    state.scale = {1.0f + x, 2.0f + x, 3.0f + x};
     state.linearVelocity = {vx, 0.0f, 0.0f};
     state.angularVelocity = {0.0f, vx, 0.0f};
+    state.inverseInertiaLocal = {0.25f + x, 0.5f + x, 0.75f + x};
     state.inverseMass = 1.0f;
     state.colliderShape = shape;
     state.colliderParams = {0.25f + x, 0.5f, 0.75f, 1.0f};
@@ -52,9 +54,20 @@ bool verifySnapshotMatchesSoA(const PhysicsWorld& world)
         {
             return false;
         }
+        if (state.scale.x != soa.scales[i].x || state.scale.y != soa.scales[i].y ||
+            state.scale.z != soa.scales[i].z)
+        {
+            return false;
+        }
         if (state.angularVelocity.x != soa.angularVelocities[i].x ||
             state.angularVelocity.y != soa.angularVelocities[i].y ||
             state.angularVelocity.z != soa.angularVelocities[i].z)
+        {
+            return false;
+        }
+        if (state.inverseInertiaLocal.x != soa.inverseInertiaLocal[i].x ||
+            state.inverseInertiaLocal.y != soa.inverseInertiaLocal[i].y ||
+            state.inverseInertiaLocal.z != soa.inverseInertiaLocal[i].z)
         {
             return false;
         }
