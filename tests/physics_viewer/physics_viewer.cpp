@@ -92,6 +92,23 @@ MeshResourceDesc makePlaneMesh(float halfExtent)
     return mesh;
 }
 
+Diligent::float3 computeBoxInverseInertia(const Diligent::float3& halfExtents, float inverseMass)
+{
+    if (inverseMass <= 0.0f)
+    {
+        return {0.0f, 0.0f, 0.0f};
+    }
+
+    const float mass = 1.0f / inverseMass;
+    const float ix = mass * (halfExtents.y * halfExtents.y + halfExtents.z * halfExtents.z) / 3.0f;
+    const float iy = mass * (halfExtents.x * halfExtents.x + halfExtents.z * halfExtents.z) / 3.0f;
+    const float iz = mass * (halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y) / 3.0f;
+
+    return {ix > 0.0f ? 1.0f / ix : 0.0f,
+            iy > 0.0f ? 1.0f / iy : 0.0f,
+            iz > 0.0f ? 1.0f / iz : 0.0f};
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -201,10 +218,17 @@ int main(int argc, char** argv)
     ground.material = planeMaterial;
     ground.visible = true;
     world.setMeshRenderer(groundEntity, ground);
+    RigidBodyComponent groundBody{};
+    groundBody.simulated = true;
+    groundBody.inverseMass = 0.0f;
+    groundBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
+    groundBody.colliderShape = cressim::neo::physics::ColliderShapeType::Box;
+    groundBody.colliderParams = {8.0f, 0.05f, 8.0f, 0.0f};
+    world.setRigidBody(groundEntity, groundBody);
 
     const auto frontCubeEntity = world.createEntity();
     TransformComponent frontCubeTransform{};
-    frontCubeTransform.worldTransform.position = {0.65f, -0.32f, -0.25f};
+    frontCubeTransform.worldTransform.position = {0.65f, 1.25f, -0.25f};
     world.setTransform(frontCubeEntity, frontCubeTransform);
     MeshRendererComponent frontCube{};
     frontCube.mesh = cubeMesh;
@@ -214,12 +238,16 @@ int main(int argc, char** argv)
     RigidBodyComponent frontCubeBody{};
     frontCubeBody.simulated = true;
     frontCubeBody.inverseMass = 1.0f;
+    frontCubeBody.inverseInertiaLocal = computeBoxInverseInertia({0.65f, 0.65f, 0.65f},
+                                                                 frontCubeBody.inverseMass);
+    frontCubeBody.colliderShape = cressim::neo::physics::ColliderShapeType::Box;
+    frontCubeBody.colliderParams = {0.65f, 0.65f, 0.65f, 0.0f};
     frontCubeBody.linearVelocity = {0.65f, 0.0f, 0.0f};
     world.setRigidBody(frontCubeEntity, frontCubeBody);
 
     const auto backCubeEntity = world.createEntity();
     TransformComponent backCubeTransform{};
-    backCubeTransform.worldTransform.position = {-1.05f, -0.12f, 1.15f};
+    backCubeTransform.worldTransform.position = {-1.05f, 2.35f, 1.15f};
     backCubeTransform.worldTransform.scale = {1.15f, 1.15f, 1.15f};
     world.setTransform(backCubeEntity, backCubeTransform);
     MeshRendererComponent backCube{};
@@ -230,6 +258,11 @@ int main(int argc, char** argv)
     RigidBodyComponent backCubeBody{};
     backCubeBody.simulated = true;
     backCubeBody.inverseMass = 1.0f;
+    backCubeBody.inverseInertiaLocal = computeBoxInverseInertia({0.65f * 1.15f, 0.65f * 1.15f,
+                                                                 0.65f * 1.15f},
+                                                                backCubeBody.inverseMass);
+    backCubeBody.colliderShape = cressim::neo::physics::ColliderShapeType::Box;
+    backCubeBody.colliderParams = {0.65f, 0.65f, 0.65f, 0.0f};
     backCubeBody.linearVelocity = {-0.35f, 0.0f, 0.0f};
     world.setRigidBody(backCubeEntity, backCubeBody);
 
