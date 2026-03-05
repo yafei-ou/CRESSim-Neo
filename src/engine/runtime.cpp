@@ -4,8 +4,55 @@
 #include "engine/world_to_physics_world_sync.h"
 #include "engine/world_to_render_world_sync.h"
 
+#include <iostream>
+
 namespace cressim::neo::engine
 {
+
+namespace
+{
+
+const char* stageName(physics::PhysicsSolverStage stage)
+{
+    switch (stage)
+    {
+    case physics::PhysicsSolverStage::PredictState:
+        return "PredictState";
+    case physics::PhysicsSolverStage::BuildSpatialIndices:
+        return "BuildSpatialIndices";
+    case physics::PhysicsSolverStage::SortSpatialIndices:
+        return "SortSpatialIndices";
+    case physics::PhysicsSolverStage::GenerateContacts:
+        return "GenerateContacts";
+    case physics::PhysicsSolverStage::BuildConstraintData:
+        return "BuildConstraintData";
+    case physics::PhysicsSolverStage::SolveConstraints:
+        return "SolveConstraints";
+    case physics::PhysicsSolverStage::UpdateVelocities:
+        return "UpdateVelocities";
+    case physics::PhysicsSolverStage::CommitResults:
+        return "CommitResults";
+    case physics::PhysicsSolverStage::Count:
+        break;
+    }
+    return "Unknown";
+}
+
+void logPhysicsStepFailure(const common::FrameContext& frameContext,
+                           const physics::PhysicsSolverStageStats& stats)
+{
+    std::cerr << "Runtime: physics step failed at frame " << frameContext.frameIndex
+              << " (dt=" << frameContext.deltaSeconds << "). Executed stages:";
+    for (std::uint32_t i = 0;
+         i < static_cast<std::uint32_t>(physics::PhysicsSolverStage::Count); ++i)
+    {
+        const auto stage = static_cast<physics::PhysicsSolverStage>(i);
+        std::cerr << ' ' << stageName(stage) << '=' << (stats.executed[i] ? '1' : '0');
+    }
+    std::cerr << '\n';
+}
+
+} // namespace
 
 bool Runtime::initialize(const RuntimeConfig& config)
 {
@@ -85,11 +132,19 @@ void Runtime::tick(const common::FrameContext& frameContext)
     }
 
     (void)syncWorldToPhysicsWorld();
+    bool physicsStepSucceeded = true;
     if (mPhysicsSolver)
     {
-        (void)mPhysicsSolver->step(frameContext, mPhysicsWorld);
+        physicsStepSucceeded = mPhysicsSolver->step(frameContext, mPhysicsWorld);
+        if (!physicsStepSucceeded)
+        {
+            logPhysicsStepFailure(frameContext, mPhysicsSolver->lastStageStats());
+        }
     }
-    (void)syncPhysicsWorldToWorld();
+    if (physicsStepSucceeded)
+    {
+        (void)syncPhysicsWorldToWorld();
+    }
     const bool syncSkipped = syncWorldToRenderWorld();
 
     mLastRenderStats                        = mRenderer->render(frameContext, mRenderWorld);

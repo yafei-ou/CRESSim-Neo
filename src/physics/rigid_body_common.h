@@ -31,11 +31,12 @@ struct GpuRigidContact
     std::uint32_t active = 0;
     std::uint32_t reserved = 0;
     Diligent::float4 normalPenetration{0.0f, 0.0f, 0.0f, 0.0f};
-    Diligent::float4 point{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localPointA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localPointB{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 static_assert(sizeof(GpuRigidDispatchConstants) == 32u);
-static_assert(sizeof(GpuRigidContact) == 48u);
+static_assert(sizeof(GpuRigidContact) == 64u);
 
 struct EffectiveColliderDimensions
 {

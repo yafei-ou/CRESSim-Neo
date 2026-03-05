@@ -18,7 +18,7 @@ struct PhysicsSolverDesc
 {
     bool enableGpuCompute          = true;
     std::uint32_t substeps         = 1;
-    std::uint32_t solverIterations = 4;
+    std::uint32_t solverIterations = 20;
     bool enableBlockingReadback    = true;
 };
 

@@ -242,12 +242,12 @@ int main(int argc, char** argv)
                                                                  frontCubeBody.inverseMass);
     frontCubeBody.colliderShape = cressim::neo::physics::ColliderShapeType::Box;
     frontCubeBody.colliderParams = {0.65f, 0.65f, 0.65f, 0.0f};
-    frontCubeBody.linearVelocity = {0.65f, 0.0f, 0.0f};
+    frontCubeBody.linearVelocity = {0.0f, 0.0f, 0.0f};
     world.setRigidBody(frontCubeEntity, frontCubeBody);
 
     const auto backCubeEntity = world.createEntity();
     TransformComponent backCubeTransform{};
-    backCubeTransform.worldTransform.position = {-1.05f, 2.35f, 1.15f};
+    backCubeTransform.worldTransform.position = {0.85f, 3.35f, -0.15f};
     backCubeTransform.worldTransform.scale = {1.15f, 1.15f, 1.15f};
     world.setTransform(backCubeEntity, backCubeTransform);
     MeshRendererComponent backCube{};
@@ -263,7 +263,7 @@ int main(int argc, char** argv)
                                                                 backCubeBody.inverseMass);
     backCubeBody.colliderShape = cressim::neo::physics::ColliderShapeType::Box;
     backCubeBody.colliderParams = {0.65f, 0.65f, 0.65f, 0.0f};
-    backCubeBody.linearVelocity = {-0.35f, 0.0f, 0.0f};
+    backCubeBody.linearVelocity = {0.0f, 0.0f, 0.0f};
     world.setRigidBody(backCubeEntity, backCubeBody);
 
     std::uint64_t beforeCalls = 0;

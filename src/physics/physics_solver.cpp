@@ -107,6 +107,9 @@ bool bindBufferVariable(Diligent::IShaderResourceBinding* srb, const char* varia
 {
     if (srb == nullptr || buffer == nullptr)
     {
+        LOG_ERROR_MESSAGE("PhysicsSolver: bindBufferVariable invalid input for '", variableName,
+                          "' (srb=", srb != nullptr ? "set" : "null", ", buffer=",
+                          buffer != nullptr ? "set" : "null", ").");
         return false;
     }
 
@@ -114,6 +117,8 @@ bool bindBufferVariable(Diligent::IShaderResourceBinding* srb, const char* varia
         srb->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, variableName);
     if (variable == nullptr)
     {
+        LOG_ERROR_MESSAGE("PhysicsSolver: shader variable not found: '", variableName,
+                          "'. It may have been optimized out of the shader.");
         return false;
     }
 
@@ -1047,6 +1052,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
     if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
         computeBackend.renderDevice == nullptr || computeBackend.computeContext == nullptr)
     {
+        LOG_ERROR_MESSAGE("PhysicsSolver::step failed: missing physics backend context.");
         return false;
     }
 
@@ -1060,10 +1066,15 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
     }
 
     if (!mImpl->ensureCapacity(computeBackend.renderDevice, rigidBodyCount,
-                               computeBackend.contextId) ||
-        !mImpl->uploadPersistentRigidBodyState(computeBackend.computeContext, world,
-                                              rigidBodyCount))
+                               computeBackend.contextId))
     {
+        LOG_ERROR_MESSAGE("PhysicsSolver::step failed: ensureCapacity.");
+        return false;
+    }
+    if (!mImpl->uploadPersistentRigidBodyState(computeBackend.computeContext, world,
+                                               rigidBodyCount))
+    {
+        LOG_ERROR_MESSAGE("PhysicsSolver::step failed: uploadPersistentRigidBodyState.");
         return false;
     }
 
@@ -1089,6 +1100,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
                                     constants) ||
             !mImpl->dispatchPredictPass(computeBackend.computeContext, rigidBodyCount))
         {
+            LOG_ERROR_MESSAGE("PhysicsSolver::step failed: PredictState dispatch.");
             return false;
         }
         markStage(mImpl->stageStats, PhysicsSolverStage::PredictState, true);
@@ -1097,6 +1109,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         {
             if (!mImpl->dispatchGenerateContactsPass(computeBackend.computeContext, pairCount))
             {
+                LOG_ERROR_MESSAGE("PhysicsSolver::step failed: GenerateContacts dispatch.");
                 return false;
             }
             markStage(mImpl->stageStats, PhysicsSolverStage::GenerateContacts, true);
@@ -1104,12 +1117,21 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             for (std::uint32_t iteration = 0; iteration < iterations; ++iteration)
             {
                 constants.iterationIndex = iteration;
+
+                if (!mImpl->dispatchGenerateContactsPass(computeBackend.computeContext, pairCount))
+                {
+                    LOG_ERROR_MESSAGE("PhysicsSolver::step failed: GenerateContacts dispatch.");
+                    return false;
+                }
+
                 if (!writeDispatchConstants(computeBackend.computeContext,
                                             mImpl->dispatchConstantsBuffer, constants) ||
                     !mImpl->dispatchSolveGatherPass(computeBackend.computeContext, rigidBodyCount) ||
                     !mImpl->dispatchApplyCorrectionsPass(computeBackend.computeContext,
                                                          rigidBodyCount))
                 {
+                    LOG_ERROR_MESSAGE(
+                        "PhysicsSolver::step failed: SolveConstraints dispatch loop.");
                     return false;
                 }
             }
@@ -1126,6 +1148,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
                                     constants) ||
             !mImpl->dispatchUpdateVelocitiesPass(computeBackend.computeContext, rigidBodyCount))
         {
+            LOG_ERROR_MESSAGE("PhysicsSolver::step failed: UpdateVelocities dispatch.");
             return false;
         }
         markStage(mImpl->stageStats, PhysicsSolverStage::UpdateVelocities, true);
@@ -1134,6 +1157,8 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             !mImpl->copyPredictedRigidBodiesToPersistentState(computeBackend.computeContext,
                                                               rigidBodyCount))
         {
+            LOG_ERROR_MESSAGE(
+                "PhysicsSolver::step failed: copyPredictedRigidBodiesToPersistentState.");
             return false;
         }
     }
@@ -1147,6 +1172,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
     if (!mImpl->readbackPredictedRigidStateBlocking(computeBackend.computeContext, world,
                                                     rigidBodyCount))
     {
+        LOG_ERROR_MESSAGE("PhysicsSolver::step failed: readbackPredictedRigidStateBlocking.");
         return false;
     }
 

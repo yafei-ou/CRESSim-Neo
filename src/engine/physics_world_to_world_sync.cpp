@@ -22,6 +22,17 @@ void syncPhysicsWorldToWorld(const physics::PhysicsWorld& physicsWorld, World& w
         transform.worldTransform.position = state.position;
         transform.worldTransform.rotation = state.rotation;
         (void)world.setTransform(state.entityId, transform);
+
+        const RigidBodyComponent* existingRigidBody = world.tryGetRigidBody(state.entityId);
+        if (existingRigidBody == nullptr)
+        {
+            continue;
+        }
+
+        RigidBodyComponent rigidBody = *existingRigidBody;
+        rigidBody.linearVelocity     = state.linearVelocity;
+        rigidBody.angularVelocity    = state.angularVelocity;
+        (void)world.setRigidBody(state.entityId, rigidBody);
     }
 }
 
