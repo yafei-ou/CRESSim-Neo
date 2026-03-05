@@ -12,8 +12,8 @@ cbuffer PhysicsDispatchConstantsBuffer
 
 #include "physics/physics_rigid_common.hlsli"
 
-static const float kMaxCorrectionPerIter = 0.5; // world units, tune (e.g. 2 cm)
-static const float kRelaxation = 1.0;            // try 0.8 if jittery
+static const float kMaxCorrectionPerIter = 0.02; // world units, tune (e.g. 2 cm)
+static const float kRelaxation = 0.90;           // try 0.8 if jittery
 
 StructuredBuffer<float4> g_PredictedRigidBodyPositionsInvMass;
 StructuredBuffer<float4> g_PredictedRigidBodyOrientations;
@@ -73,9 +73,7 @@ RWStructuredBuffer<float4> g_RigidBodyRotationCorrections;
             float3 n = SafeNormalize(contact.normalPenetration.xyz, float3(0.0, 1.0, 0.0));
 
             const float measuredPenetration = -dot(pB - pA, n);
-            float penetration =
-                max(measuredPenetration, contact.normalPenetration.w) - kContactSlop;
-            penetration = min(penetration, kMaxCorrectionPerIter);
+            float penetration = min(measuredPenetration - kContactSlop, kMaxCorrectionPerIter);
 
             if (penetration <= 0.0)
                 continue;

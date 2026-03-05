@@ -133,6 +133,27 @@ bool bindBufferVariable(Diligent::IShaderResourceBinding* srb, const char* varia
     return true;
 }
 
+struct BufferBinding
+{
+    const char* variableName;
+    Diligent::IBuffer* buffer;
+    Diligent::BUFFER_VIEW_TYPE viewType;
+};
+
+template <std::size_t N>
+bool bindBufferVariables(Diligent::IShaderResourceBinding* srb,
+                         const std::array<BufferBinding, N>& bindings)
+{
+    for (const BufferBinding& binding : bindings)
+    {
+        if (!bindBufferVariable(srb, binding.variableName, binding.buffer, binding.viewType))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool createComputePipeline(Diligent::IRenderDevice* renderDevice,
                            Diligent::IShaderSourceInputStreamFactory* streamFactory,
                            const char* shaderPath, const char* shaderName, const char* psoName,
@@ -190,6 +211,8 @@ std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
 }
 
 } // namespace
+
+// TODO: Impl is handling too much work.
 
 struct PhysicsSolver::Impl
 {
@@ -292,127 +315,133 @@ PhysicsSolver::~PhysicsSolver() = default;
 
 bool PhysicsSolver::Impl::bindPredictBuffers()
 {
-    return bindBufferVariable(predictSrb, "PhysicsDispatchConstantsBuffer", dispatchConstantsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(predictSrb, "g_RigidBodyPositionsInvMass",
-                              persistentRigidBodies.positionsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(predictSrb, "g_RigidBodyOrientations",
-                              persistentRigidBodies.orientationsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(predictSrb, "g_RigidBodyLinearVelocities",
-                              persistentRigidBodies.linearVelocitiesBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(predictSrb, "g_RigidBodyAngularVelocities",
-                              persistentRigidBodies.angularVelocitiesBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(predictSrb, "g_PreviousRigidBodyPositionsInvMass",
-                              transientState.previousRigidBodies.positionsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS) &&
-           bindBufferVariable(predictSrb, "g_PreviousRigidBodyOrientations",
-                              transientState.previousRigidBodies.orientationsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS) &&
-           bindBufferVariable(predictSrb, "g_PredictedRigidBodyPositionsInvMass",
-                              transientState.predictedRigidBodies.positionsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS) &&
-           bindBufferVariable(predictSrb, "g_PredictedRigidBodyOrientations",
-                              transientState.predictedRigidBodies.orientationsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS) &&
-           bindBufferVariable(predictSrb, "g_PredictedRigidBodyLinearVelocities",
-                              transientState.predictedRigidBodies.linearVelocitiesBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS) &&
-           bindBufferVariable(predictSrb, "g_PredictedRigidBodyAngularVelocities",
-                              transientState.predictedRigidBodies.angularVelocitiesBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS);
+    const std::array bindings{
+        BufferBinding{"PhysicsDispatchConstantsBuffer", dispatchConstantsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_RigidBodyPositionsInvMass", persistentRigidBodies.positionsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_RigidBodyOrientations", persistentRigidBodies.orientationsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_RigidBodyLinearVelocities", persistentRigidBodies.linearVelocitiesBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_RigidBodyAngularVelocities", persistentRigidBodies.angularVelocitiesBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PreviousRigidBodyPositionsInvMass",
+                      transientState.previousRigidBodies.positionsBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_PreviousRigidBodyOrientations",
+                      transientState.previousRigidBodies.orientationsBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+                      transientState.predictedRigidBodies.positionsBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_PredictedRigidBodyOrientations",
+                      transientState.predictedRigidBodies.orientationsBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_PredictedRigidBodyLinearVelocities",
+                      transientState.predictedRigidBodies.linearVelocitiesBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_PredictedRigidBodyAngularVelocities",
+                      transientState.predictedRigidBodies.angularVelocitiesBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+    return bindBufferVariables(predictSrb, bindings);
 }
 
 bool PhysicsSolver::Impl::bindGenerateContactsBuffers()
 {
-    return bindBufferVariable(generateContactsSrb, "PhysicsDispatchConstantsBuffer",
-                              dispatchConstantsBuffer, Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(generateContactsSrb, "g_PredictedRigidBodyPositionsInvMass",
-                              transientState.predictedRigidBodies.positionsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(generateContactsSrb, "g_PredictedRigidBodyOrientations",
-                              transientState.predictedRigidBodies.orientationsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(generateContactsSrb, "g_RigidBodyScales",
-                              persistentRigidBodies.scalesBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(generateContactsSrb, "g_RigidBodyColliderShapeTypes",
-                              persistentRigidBodies.colliderShapeTypesBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(generateContactsSrb, "g_RigidBodyColliderParams",
-                              persistentRigidBodies.colliderParamsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(generateContactsSrb, "g_RigidContacts",
-                              transientState.contactsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS);
+    const std::array bindings{
+        BufferBinding{"PhysicsDispatchConstantsBuffer", dispatchConstantsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+                      transientState.predictedRigidBodies.positionsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PredictedRigidBodyOrientations",
+                      transientState.predictedRigidBodies.orientationsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_RigidBodyScales", persistentRigidBodies.scalesBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_RigidBodyColliderShapeTypes",
+                      persistentRigidBodies.colliderShapeTypesBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_RigidBodyColliderParams", persistentRigidBodies.colliderParamsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_RigidContacts", transientState.contactsBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+    return bindBufferVariables(generateContactsSrb, bindings);
 }
 
 bool PhysicsSolver::Impl::bindSolveGatherBuffers()
 {
-    return bindBufferVariable(solveGatherSrb, "PhysicsDispatchConstantsBuffer",
-                              dispatchConstantsBuffer, Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(solveGatherSrb, "g_PredictedRigidBodyPositionsInvMass",
-                              transientState.predictedRigidBodies.positionsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(solveGatherSrb, "g_PredictedRigidBodyOrientations",
-                              transientState.predictedRigidBodies.orientationsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(solveGatherSrb, "g_RigidBodyInverseInertiaLocal",
-                              persistentRigidBodies.inverseInertiaLocalBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(solveGatherSrb, "g_RigidContacts", transientState.contactsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(solveGatherSrb, "g_RigidBodyTranslationCorrections",
-                              transientState.translationCorrectionsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS) &&
-           bindBufferVariable(solveGatherSrb, "g_RigidBodyRotationCorrections",
-                              transientState.rotationCorrectionsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS);
+    const std::array bindings{
+        BufferBinding{"PhysicsDispatchConstantsBuffer", dispatchConstantsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+                      transientState.predictedRigidBodies.positionsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PredictedRigidBodyOrientations",
+                      transientState.predictedRigidBodies.orientationsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_RigidBodyInverseInertiaLocal",
+                      persistentRigidBodies.inverseInertiaLocalBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_RigidContacts", transientState.contactsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_RigidBodyTranslationCorrections",
+                      transientState.translationCorrectionsBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_RigidBodyRotationCorrections", transientState.rotationCorrectionsBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+    return bindBufferVariables(solveGatherSrb, bindings);
 }
 
 bool PhysicsSolver::Impl::bindApplyCorrectionsBuffers()
 {
-    return bindBufferVariable(applyCorrectionsSrb, "PhysicsDispatchConstantsBuffer",
-                              dispatchConstantsBuffer, Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(applyCorrectionsSrb, "g_PredictedRigidBodyPositionsInvMass",
-                              transientState.predictedRigidBodies.positionsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS) &&
-           bindBufferVariable(applyCorrectionsSrb, "g_PredictedRigidBodyOrientations",
-                              transientState.predictedRigidBodies.orientationsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS) &&
-           bindBufferVariable(applyCorrectionsSrb, "g_RigidBodyTranslationCorrections",
-                              transientState.translationCorrectionsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS) &&
-           bindBufferVariable(applyCorrectionsSrb, "g_RigidBodyRotationCorrections",
-                              transientState.rotationCorrectionsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS);
+    const std::array bindings{
+        BufferBinding{"PhysicsDispatchConstantsBuffer", dispatchConstantsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+                      transientState.predictedRigidBodies.positionsBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_PredictedRigidBodyOrientations",
+                      transientState.predictedRigidBodies.orientationsBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_RigidBodyTranslationCorrections",
+                      transientState.translationCorrectionsBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_RigidBodyRotationCorrections", transientState.rotationCorrectionsBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+    return bindBufferVariables(applyCorrectionsSrb, bindings);
 }
 
 bool PhysicsSolver::Impl::bindUpdateVelocitiesBuffers()
 {
-    return bindBufferVariable(updateVelocitiesSrb, "PhysicsDispatchConstantsBuffer",
-                              dispatchConstantsBuffer, Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(updateVelocitiesSrb, "g_PreviousRigidBodyPositionsInvMass",
-                              transientState.previousRigidBodies.positionsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(updateVelocitiesSrb, "g_PreviousRigidBodyOrientations",
-                              transientState.previousRigidBodies.orientationsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE) &&
-           bindBufferVariable(updateVelocitiesSrb, "g_PredictedRigidBodyPositionsInvMass",
-                              transientState.predictedRigidBodies.positionsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS) &&
-           bindBufferVariable(updateVelocitiesSrb, "g_PredictedRigidBodyOrientations",
-                              transientState.predictedRigidBodies.orientationsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS) &&
-           bindBufferVariable(updateVelocitiesSrb, "g_PredictedRigidBodyLinearVelocities",
-                              transientState.predictedRigidBodies.linearVelocitiesBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS) &&
-           bindBufferVariable(updateVelocitiesSrb, "g_PredictedRigidBodyAngularVelocities",
-                              transientState.predictedRigidBodies.angularVelocitiesBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS);
+    const std::array bindings{
+        BufferBinding{"PhysicsDispatchConstantsBuffer", dispatchConstantsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PreviousRigidBodyPositionsInvMass",
+                      transientState.previousRigidBodies.positionsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PreviousRigidBodyOrientations",
+                      transientState.previousRigidBodies.orientationsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+                      transientState.predictedRigidBodies.positionsBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_PredictedRigidBodyOrientations",
+                      transientState.predictedRigidBodies.orientationsBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_PredictedRigidBodyLinearVelocities",
+                      transientState.predictedRigidBodies.linearVelocitiesBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_PredictedRigidBodyAngularVelocities",
+                      transientState.predictedRigidBodies.angularVelocitiesBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+    return bindBufferVariables(updateVelocitiesSrb, bindings);
 }
 
 bool PhysicsSolver::Impl::bindAllPassBuffers()
@@ -451,6 +480,7 @@ bool PhysicsSolver::Impl::ensureCapacity(Diligent::IRenderDevice* renderDevice,
         return bindAllPassBuffers();
     }
 
+    // TODO: when capacity is full, allocate 1.5x needed to reduce re-allocation
     const std::uint32_t newCapacity    = std::max<std::uint32_t>(bodyCount, 64u);
     const std::uint32_t newPairCount   = computeRigidPairCount(newCapacity);
     const std::uint32_t newContactCap  = std::max<std::uint32_t>(
@@ -738,6 +768,8 @@ bool PhysicsSolver::Impl::dispatchUpdateVelocitiesPass(Diligent::IDeviceContext*
         Diligent::DispatchComputeAttribs{dispatchGroupCount(bodyCount), 1u, 1u});
     return true;
 }
+
+// TODO: readback is stalling GPU; use fences or let engine do this
 
 bool PhysicsSolver::Impl::readbackPredictedRigidStateBlocking(
     Diligent::IDeviceContext* computeContext, PhysicsWorld& world, std::uint32_t bodyCount)
@@ -1118,11 +1150,9 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             {
                 constants.iterationIndex = iteration;
 
-                if (!mImpl->dispatchGenerateContactsPass(computeBackend.computeContext, pairCount))
-                {
-                    LOG_ERROR_MESSAGE("PhysicsSolver::step failed: GenerateContacts dispatch.");
-                    return false;
-                }
+                // TODO: we could possibly regenerate contacts every several iterations,
+                // or we only do narrow-phase again but use cached result from last
+                // gen-contact as a starting point
 
                 if (!writeDispatchConstants(computeBackend.computeContext,
                                             mImpl->dispatchConstantsBuffer, constants) ||
