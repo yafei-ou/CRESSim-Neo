@@ -43,6 +43,8 @@ struct DebugViewerAppDesc
     std::uint32_t height    = 720;
     bool windowEnabled      = true;
     bool windowVisible      = true;
+    bool startFullscreen    = false;
+    bool startFullscreenWindowed = false;
     bool vSync              = true;
 
     float inputSensitivity = 0.08f;

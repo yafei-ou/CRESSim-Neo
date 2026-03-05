@@ -151,6 +151,7 @@ int main(int argc, char** argv)
     const bool windowEnabled = (config.gpuDeviceDesc.preferredBackend != GpuBackend::Null);
     viewerDesc.windowEnabled = windowEnabled;
     viewerDesc.windowVisible = windowEnabled;
+    viewerDesc.startFullscreenWindowed = true;
     viewerDesc.maxFrames = numFrames;
     viewerDesc.showStats = false;
     viewerDesc.width = 640;
@@ -228,7 +229,7 @@ int main(int argc, char** argv)
 
     const auto frontCubeEntity = world.createEntity();
     TransformComponent frontCubeTransform{};
-    frontCubeTransform.worldTransform.position = {0.65f, 1.25f, -0.25f};
+    frontCubeTransform.worldTransform.position = {0.65f, 1.25f, 2.25f};
     world.setTransform(frontCubeEntity, frontCubeTransform);
     MeshRendererComponent frontCube{};
     frontCube.mesh = cubeMesh;
@@ -247,7 +248,7 @@ int main(int argc, char** argv)
 
     const auto backCubeEntity = world.createEntity();
     TransformComponent backCubeTransform{};
-    backCubeTransform.worldTransform.position = {0.85f, 3.35f, -0.15f};
+    backCubeTransform.worldTransform.position = {1.25f, 3.35f, 2.15f};
     backCubeTransform.worldTransform.scale = {1.15f, 1.15f, 1.15f};
     world.setTransform(backCubeEntity, backCubeTransform);
     MeshRendererComponent backCube{};

@@ -92,12 +92,19 @@ public:
             common::runtime_math::clampPositive(mDesc.fixedDeltaSeconds, 1.0f / 60.0f);
         mShowStats = mDesc.showStats;
 
-        inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.width  = mDesc.width;
-        inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.height = mDesc.height;
+        if (mDesc.startFullscreen && mDesc.startFullscreenWindowed)
+        {
+            std::cerr << "DebugViewerApp: fullscreen and fullscreen-windowed cannot both be enabled.\n";
+            return false;
+        }
+
+        std::uint32_t effectiveWidth  = mDesc.width;
+        std::uint32_t effectiveHeight = mDesc.height;
+
         inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.colorFormat =
             Diligent::TEX_FORMAT_UNKNOWN;
-        inOutRuntimeConfig.gpuDeviceDesc.presentation.enabled      = mDesc.windowEnabled;
-        inOutRuntimeConfig.gpuDeviceDesc.presentation.syncInterval = mDesc.vSync ? 1u : 0u;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.enabled            = mDesc.windowEnabled;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.syncInterval       = mDesc.vSync ? 1u : 0u;
         inOutRuntimeConfig.gpuDeviceDesc.presentation.preferredColorFormat =
             Diligent::TEX_FORMAT_UNKNOWN;
         inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeWindow     = nullptr;
@@ -107,6 +114,13 @@ public:
 
         if (!mDesc.windowEnabled)
         {
+            if (mDesc.startFullscreen || mDesc.startFullscreenWindowed)
+            {
+                std::cerr
+                    << "DebugViewerApp: fullscreen options require windowEnabled=true; ignoring.\n";
+            }
+            inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.width  = effectiveWidth;
+            inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.height = effectiveHeight;
             mInitialized = true;
             mExitRequested.store(false);
             return true;
@@ -119,15 +133,65 @@ public:
         }
         mGlfwInitialized = true;
 
+        GLFWmonitor* targetMonitor = nullptr;
+        int monitorPosX             = 0;
+        int monitorPosY             = 0;
+        if (mDesc.startFullscreen || mDesc.startFullscreenWindowed)
+        {
+            GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
+            if (primaryMonitor == nullptr)
+            {
+                std::cerr << "DebugViewerApp: failed to resolve primary monitor for fullscreen.\n";
+                shutdown();
+                return false;
+            }
+
+            const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
+            if (mode == nullptr)
+            {
+                std::cerr << "DebugViewerApp: failed to query monitor mode for fullscreen.\n";
+                shutdown();
+                return false;
+            }
+
+            effectiveWidth  = static_cast<std::uint32_t>(std::max(mode->width, 1));
+            effectiveHeight = static_cast<std::uint32_t>(std::max(mode->height, 1));
+            if (mDesc.startFullscreen)
+            {
+                targetMonitor = primaryMonitor;
+            }
+            else
+            {
+                glfwGetMonitorPos(primaryMonitor, &monitorPosX, &monitorPosY);
+            }
+        }
+
+        mDesc.width  = effectiveWidth;
+        mDesc.height = effectiveHeight;
+        inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.width  = effectiveWidth;
+        inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.height = effectiveHeight;
+
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_VISIBLE, mDesc.windowVisible ? GLFW_TRUE : GLFW_FALSE);
+        if (mDesc.startFullscreenWindowed)
+        {
+            glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+            glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        }
         mWindow = glfwCreateWindow(static_cast<int>(mDesc.width), static_cast<int>(mDesc.height),
-                                   mDesc.windowTitle.c_str(), nullptr, nullptr);
+                                   mDesc.windowTitle.c_str(), targetMonitor, nullptr);
         if (mWindow == nullptr)
         {
             std::cerr << "DebugViewerApp: failed to create window.\n";
             shutdown();
             return false;
+        }
+
+        if (mDesc.startFullscreenWindowed)
+        {
+            glfwSetWindowPos(mWindow, monitorPosX, monitorPosY);
+            glfwSetWindowSize(mWindow, static_cast<int>(mDesc.width),
+                              static_cast<int>(mDesc.height));
         }
 
         glfwSetWindowUserPointer(mWindow, this);
