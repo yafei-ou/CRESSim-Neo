@@ -810,6 +810,8 @@ bool PhysicsSolver::Impl::readbackPredictedRigidStateBlocking(
     void* mappedLinear       = nullptr;
     void* mappedAngular      = nullptr;
 
+    // Use MAP_FLAG_DO_NOT_WAIT. Vulkan won't wait anyway.
+
     computeContext->MapBuffer(readbackRigidBodies.positionsBuffer, Diligent::MAP_READ,
                               Diligent::MAP_FLAG_DO_NOT_WAIT, mappedPositions);
     computeContext->MapBuffer(readbackRigidBodies.orientationsBuffer, Diligent::MAP_READ,
@@ -818,8 +820,6 @@ bool PhysicsSolver::Impl::readbackPredictedRigidStateBlocking(
                               Diligent::MAP_FLAG_DO_NOT_WAIT, mappedLinear);
     computeContext->MapBuffer(readbackRigidBodies.angularVelocitiesBuffer, Diligent::MAP_READ,
                               Diligent::MAP_FLAG_DO_NOT_WAIT, mappedAngular);
-    computeContext->Flush();
-    computeContext->WaitForIdle();
 
     if (mappedPositions == nullptr || mappedOrientations == nullptr || mappedLinear == nullptr ||
         mappedAngular == nullptr)
@@ -1148,6 +1148,8 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
 
             for (std::uint32_t iteration = 0; iteration < iterations; ++iteration)
             {
+                // TODO: this is unused. I don't know if we will ever need it later
+                // If not, we don't need another writeDispatchConstants every iteration.
                 constants.iterationIndex = iteration;
 
                 // TODO: we could possibly regenerate contacts every several iterations,
