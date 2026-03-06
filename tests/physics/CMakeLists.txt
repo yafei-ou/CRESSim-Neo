@@ -34,3 +34,9 @@ add_test(
     NAME cressim_neo_physics_placeholder_soa_compute_vulkan
     COMMAND cressim_neo_physics_placeholder_soa_compute
 )
+
+add_physics_test(cressim_neo_physics_solver_broad_phase_overflow physics_solver_broad_phase_overflow.cpp)
+add_test(
+    NAME cressim_neo_physics_solver_broad_phase_overflow_vulkan
+    COMMAND cressim_neo_physics_solver_broad_phase_overflow
+)

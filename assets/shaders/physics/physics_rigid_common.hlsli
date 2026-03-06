@@ -4,8 +4,11 @@
 static const uint kColliderSphere = 0u;
 static const uint kColliderBox = 1u;
 static const uint kColliderCapsule = 2u;
+static const uint kBodyFlagDynamic = 1u;
+static const uint kInvalidIndex = 0xffffffffu;
 
 static const uint kRigidContactsPerPair = 4u;
+static const float kBroadPhaseMargin = 0.05f;
 
 static const float3 kGravity = float3(0.0, -9.81, 0.0);
 
@@ -34,6 +37,74 @@ struct GpuRigidContact
 
     // xyz = point on surface of B in B-local space
     float4 localPointB;
+};
+
+struct GpuBodyAabb
+{
+    float4 minBounds;
+    float4 maxBounds;
+};
+
+struct GpuBodyMeta
+{
+    uint bodyId;
+    uint flags;
+    uint activeIndex;
+    uint reserved;
+};
+
+struct GpuBroadPhaseElement
+{
+    uint primitiveIdx;
+    float aabbMinX;
+    float aabbMinY;
+    float aabbMinZ;
+    float aabbMaxX;
+    float aabbMaxY;
+    float aabbMaxZ;
+    float reserved;
+};
+
+struct GpuMortonCodeElement
+{
+    uint mortonCode;
+    uint elementIdx;
+};
+
+struct GpuBvhNode
+{
+    int left;
+    int right;
+    uint primitiveIdx;
+    float aabbMinX;
+    float aabbMinY;
+    float aabbMinZ;
+    float aabbMaxX;
+    float aabbMaxY;
+    float aabbMaxZ;
+    float reserved;
+};
+
+struct GpuBvhConstructionInfo
+{
+    uint parent;
+    int visitationCount;
+};
+
+struct GpuCandidatePair
+{
+    uint bodyA;
+    uint bodyB;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuBroadPhaseMeta
+{
+    uint activeDynamicCount;
+    uint candidatePairCount;
+    uint requiredPairCount;
+    uint overflow;
 };
 
 float3 SafeNormalize(float3 value, float3 fallback)

@@ -25,10 +25,10 @@ struct PhysicsSolverDesc
 enum class PhysicsSolverStage : std::uint32_t
 {
     PredictState = 0u,
-    BuildSpatialIndices,
-    SortSpatialIndices,
+    UpdateWorldAabbs,
+    BuildBroadPhase,
     GenerateContacts,
-    BuildConstraintData,
+    GenerateBroadPhasePairs,
     SolveConstraints,
     UpdateVelocities,
     CommitResults,

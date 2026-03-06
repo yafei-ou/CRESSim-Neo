@@ -2,12 +2,12 @@ cbuffer PhysicsDispatchConstantsBuffer
 {
     float dt;
     uint rigidBodyCount;
-    uint pairCount;
+    uint activeDynamicCount;
+    uint candidatePairCount;
+    uint candidatePairCapacity;
     uint substepIndex;
     uint iterationIndex;
     uint solverIterations;
-    uint reserved0;
-    uint reserved1;
 };
 
 #include "physics/physics_rigid_common.hlsli"

@@ -18,14 +18,14 @@ const char* stageName(physics::PhysicsSolverStage stage)
     {
     case physics::PhysicsSolverStage::PredictState:
         return "PredictState";
-    case physics::PhysicsSolverStage::BuildSpatialIndices:
-        return "BuildSpatialIndices";
-    case physics::PhysicsSolverStage::SortSpatialIndices:
-        return "SortSpatialIndices";
+    case physics::PhysicsSolverStage::UpdateWorldAabbs:
+        return "UpdateWorldAabbs";
+    case physics::PhysicsSolverStage::BuildBroadPhase:
+        return "BuildBroadPhase";
     case physics::PhysicsSolverStage::GenerateContacts:
         return "GenerateContacts";
-    case physics::PhysicsSolverStage::BuildConstraintData:
-        return "BuildConstraintData";
+    case physics::PhysicsSolverStage::GenerateBroadPhasePairs:
+        return "GenerateBroadPhasePairs";
     case physics::PhysicsSolverStage::SolveConstraints:
         return "SolveConstraints";
     case physics::PhysicsSolverStage::UpdateVelocities:

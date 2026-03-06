@@ -2,12 +2,12 @@ cbuffer PhysicsDispatchConstantsBuffer
 {
     float dt;
     uint rigidBodyCount;
-    uint pairCount;
+    uint activeDynamicCount;
+    uint candidatePairCount;
+    uint candidatePairCapacity;
     uint substepIndex;
     uint iterationIndex;
     uint solverIterations;
-    uint reserved0;
-    uint reserved1;
 };
 
 #include "physics/physics_rigid_common.hlsli"
@@ -34,7 +34,7 @@ RWStructuredBuffer<float4> g_RigidBodyRotationCorrections;
     float3 translationCorrection = 0.0;
     float3 rotationCorrection = 0.0;
 
-    for (uint pairIdx = 0u; pairIdx < pairCount; ++pairIdx)
+    for (uint pairIdx = 0u; pairIdx < candidatePairCount; ++pairIdx)
     {
         const uint contactBaseIndex = pairIdx * kRigidContactsPerPair;
         [unroll] for (uint contactOffset = 0u; contactOffset < kRigidContactsPerPair; ++contactOffset)

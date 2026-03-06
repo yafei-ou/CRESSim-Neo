@@ -2,12 +2,12 @@ cbuffer PhysicsDispatchConstantsBuffer
 {
     float dt;
     uint rigidBodyCount;
-    uint pairCount;
+    uint activeDynamicCount;
+    uint candidatePairCount;
+    uint candidatePairCapacity;
     uint substepIndex;
     uint iterationIndex;
     uint solverIterations;
-    uint reserved0;
-    uint reserved1;
 };
 
 #include "physics/physics_rigid_common.hlsli"
@@ -17,6 +17,7 @@ StructuredBuffer<float4> g_PredictedRigidBodyOrientations;
 StructuredBuffer<float4> g_RigidBodyScales;
 StructuredBuffer<uint> g_RigidBodyColliderShapeTypes;
 StructuredBuffer<float4> g_RigidBodyColliderParams;
+StructuredBuffer<GpuCandidatePair> g_CandidatePairs;
 
 RWStructuredBuffer<GpuRigidContact> g_RigidContacts;
 
@@ -688,7 +689,7 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint pairIndex = dispatchThreadID.x;
-    if (pairIndex >= pairCount)
+    if (pairIndex >= candidatePairCount)
     {
         return;
     }
@@ -707,9 +708,9 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
         g_RigidContacts[contactBaseIndex + contactOffset] = cleared;
     }
 
-    uint bodyA = 0u;
-    uint bodyB = 0u;
-    PairIndexToBodies(pairIndex, rigidBodyCount, bodyA, bodyB);
+    const GpuCandidatePair pair = g_CandidatePairs[pairIndex];
+    const uint bodyA = pair.bodyA;
+    const uint bodyB = pair.bodyB;
 
     const float4 positionInvMassA = g_PredictedRigidBodyPositionsInvMass[bodyA];
     const float4 positionInvMassB = g_PredictedRigidBodyPositionsInvMass[bodyB];
