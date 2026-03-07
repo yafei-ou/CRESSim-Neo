@@ -22,10 +22,10 @@ const char* stageName(physics::PhysicsSolverStage stage)
         return "UpdateWorldAabbs";
     case physics::PhysicsSolverStage::BuildBroadPhase:
         return "BuildBroadPhase";
-    case physics::PhysicsSolverStage::GenerateContacts:
-        return "GenerateContacts";
     case physics::PhysicsSolverStage::GenerateBroadPhasePairs:
         return "GenerateBroadPhasePairs";
+    case physics::PhysicsSolverStage::GenerateContacts:
+        return "GenerateContacts";
     case physics::PhysicsSolverStage::SolveConstraints:
         return "SolveConstraints";
     case physics::PhysicsSolverStage::UpdateVelocities:

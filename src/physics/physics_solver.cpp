@@ -1694,6 +1694,8 @@ bool PhysicsSolver::initialize()
         return false;
     }
 
+    // TODO: prefix sum is reused but we bind the same constants buffer
+    // and rely on dynamic rebinding; use different PSOs?
     constexpr Diligent::ShaderResourceVariableDesc kScanExclusiveVars[] = {
         {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -2201,6 +2203,8 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         constants.iterationIndex        = 0u;
         constants.solverIterations      = iterations;
 
+        // Rigid body prediction
+
         if (!writeDispatchConstants(computeBackend.computeContext, mImpl->dispatchConstantsBuffer,
                                     constants) ||
             !mImpl->dispatchPredictPass(computeBackend.computeContext, rigidBodyCount))
@@ -2209,6 +2213,8 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             return false;
         }
         markStage(mImpl->stageStats, PhysicsSolverStage::PredictState, true);
+
+        // Rigid body broad phase
 
         if (!writeDispatchConstants(computeBackend.computeContext, mImpl->dispatchConstantsBuffer,
                                     constants) ||
@@ -2230,6 +2236,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             return false;
         }
 
+        // TODO: this is blocking; use indirect dispatch
         GpuBroadPhaseMeta broadPhaseMeta{};
         if (!mImpl->readbackBroadPhaseMetaBlocking(computeBackend.computeContext, broadPhaseMeta))
         {
@@ -2294,6 +2301,8 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
                 return false;
             }
 
+            // This is blocking and early fails the simulation
+            // TODO: use GPU fallback
             if (!mImpl->readbackBroadPhaseMetaBlocking(computeBackend.computeContext, broadPhaseMeta))
             {
                 LOG_ERROR_MESSAGE("PhysicsSolver::step failed: pair meta readback.");
@@ -2336,6 +2345,8 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
                 return false;
             }
             markStage(mImpl->stageStats, PhysicsSolverStage::GenerateContacts, true);
+
+            // PBD solve iteration
 
             for (std::uint32_t iteration = 0; iteration < iterations; ++iteration)
             {

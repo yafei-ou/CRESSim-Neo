@@ -75,6 +75,7 @@ bool NodeOverlapsQuery(GpuBvhNode node, float3 queryMin, float3 queryMax)
         }
     }
 
+    // TODO: use a static BVH for static bodies
     for (uint otherBodyId = 0u; otherBodyId < rigidBodyCount; ++otherBodyId)
     {
         if ((g_BodyMeta[otherBodyId].flags & kBodyFlagDynamic) != 0u)

@@ -14,14 +14,14 @@ constexpr std::uint32_t kRigidContactsPerPair = 4u;
 
 struct GpuRigidDispatchConstants
 {
-    float dt                        = 0.0f;
-    std::uint32_t rigidBodyCount    = 0;
-    std::uint32_t activeDynamicCount = 0;
-    std::uint32_t candidatePairCount = 0;
+    float dt                            = 0.0f;
+    std::uint32_t rigidBodyCount        = 0;
+    std::uint32_t activeDynamicCount    = 0;
+    std::uint32_t candidatePairCount    = 0;
     std::uint32_t candidatePairCapacity = 0;
-    std::uint32_t substepIndex      = 0;
-    std::uint32_t iterationIndex    = 0;
-    std::uint32_t solverIterations = 0;
+    std::uint32_t substepIndex          = 0;
+    std::uint32_t iterationIndex        = 0;
+    std::uint32_t solverIterations      = 0;
 };
 
 struct GpuBodyAabb
@@ -58,21 +58,21 @@ struct GpuMortonCodeElement
 
 struct GpuBvhNode
 {
-    std::int32_t left         = -1;
-    std::int32_t right        = -1;
+    std::int32_t left          = -1;
+    std::int32_t right         = -1;
     std::uint32_t primitiveIdx = 0;
-    float aabbMinX            = 0.0f;
-    float aabbMinY            = 0.0f;
-    float aabbMinZ            = 0.0f;
-    float aabbMaxX            = 0.0f;
-    float aabbMaxY            = 0.0f;
-    float aabbMaxZ            = 0.0f;
-    float reserved            = 0.0f;
+    float aabbMinX             = 0.0f;
+    float aabbMinY             = 0.0f;
+    float aabbMinZ             = 0.0f;
+    float aabbMaxX             = 0.0f;
+    float aabbMaxY             = 0.0f;
+    float aabbMaxZ             = 0.0f;
+    float reserved             = 0.0f;
 };
 
 struct GpuBvhConstructionInfo
 {
-    std::uint32_t parent      = 0;
+    std::uint32_t parent         = 0;
     std::int32_t visitationCount = 0;
 };
 
@@ -94,9 +94,9 @@ struct GpuBroadPhaseMeta
 
 struct GpuRigidContact
 {
-    std::uint32_t bodyA = 0;
-    std::uint32_t bodyB = 0;
-    std::uint32_t active = 0;
+    std::uint32_t bodyA    = 0;
+    std::uint32_t bodyB    = 0;
+    std::uint32_t active   = 0;
     std::uint32_t reserved = 0;
     Diligent::float4 normalPenetration{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localPointA{0.0f, 0.0f, 0.0f, 0.0f};
@@ -134,9 +134,9 @@ Diligent::QuaternionF integrateOrientation(const Diligent::QuaternionF& orientat
                                            const Diligent::float3& angularVelocity,
                                            float dt) noexcept;
 
-Diligent::float3 angularVelocityFromOrientationDelta(
-    const Diligent::QuaternionF& previous, const Diligent::QuaternionF& current,
-    float dt) noexcept;
+Diligent::float3 angularVelocityFromOrientationDelta(const Diligent::QuaternionF& previous,
+                                                     const Diligent::QuaternionF& current,
+                                                     float dt) noexcept;
 
 Diligent::float3 multiplyWorldInverseInertia(const Diligent::float3& inverseInertiaLocal,
                                              const Diligent::QuaternionF& orientation,

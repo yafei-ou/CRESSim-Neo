@@ -13,6 +13,8 @@ cbuffer PhysicsDispatchConstantsBuffer
 StructuredBuffer<uint> g_ScanInput;
 RWStructuredBuffer<uint> g_ScanOutput;
 
+// TODO: naive serial prefix sum; this is not parallelized at all
+
 [numthreads(1, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     if (dispatchThreadID.x != 0u)

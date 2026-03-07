@@ -42,7 +42,7 @@ bool NodeOverlapsQuery(GpuBvhNode node, float3 queryMin, float3 queryMax)
 
     if (activeDynamicCount > 1u)
     {
-        uint stack[128];
+        uint stack[128]; // should be large enough
         uint stackSize = 0u;
         stack[stackSize++] = 0u;
 

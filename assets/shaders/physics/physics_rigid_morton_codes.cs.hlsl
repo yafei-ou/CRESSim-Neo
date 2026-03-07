@@ -35,6 +35,8 @@ uint Morton3D(float x, float y, float z)
     return xx * 4u + yy * 2u + zz;
 }
 
+// TODO: this is a naive serial implementation
+
 [numthreads(1, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     if (dispatchThreadID.x != 0u)

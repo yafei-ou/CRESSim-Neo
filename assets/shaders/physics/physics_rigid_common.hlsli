@@ -405,7 +405,7 @@ float BoxProjectionRadius(float3 axis, float3 axes[3], float3 halfExtents)
 
 static const uint kObbAxisFaceA = 0u;
 static const uint kObbAxisFaceB = 1u;
-static const uint kObbAxisEdge  = 2u;
+static const uint kObbAxisEdge = 2u;
 
 void ClosestPointsSegmentSegment(float3 a0, float3 a1, float3 b0, float3 b1, out float3 outA, out float3 outB);
 
