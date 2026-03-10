@@ -56,6 +56,12 @@ struct GpuMortonCodeElement
     std::uint32_t elementIdx = 0;
 };
 
+struct GpuBroadPhaseExtent
+{
+    Diligent::float4 minBounds{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 maxBounds{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
 struct GpuBvhNode
 {
     std::int32_t left          = -1;
@@ -108,6 +114,7 @@ static_assert(sizeof(GpuBodyAabb) == 32u);
 static_assert(sizeof(GpuBodyMeta) == 16u);
 static_assert(sizeof(GpuBroadPhaseElement) == 32u);
 static_assert(sizeof(GpuMortonCodeElement) == 8u);
+static_assert(sizeof(GpuBroadPhaseExtent) == 32u);
 static_assert(sizeof(GpuBvhNode) == 40u);
 static_assert(sizeof(GpuBvhConstructionInfo) == 8u);
 static_assert(sizeof(GpuCandidatePair) == 16u);

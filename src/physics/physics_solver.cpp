@@ -19,6 +19,7 @@
 #include <cstring>
 #include <limits>
 #include <string>
+#include <vector>
 
 namespace cressim::neo::physics
 {
@@ -210,6 +211,18 @@ std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
     return (threadCount + kComputeThreadGroupSize - 1u) / kComputeThreadGroupSize;
 }
 
+std::vector<std::uint32_t> buildReductionLevelCounts(std::uint32_t elementCount)
+{
+    std::vector<std::uint32_t> counts;
+    std::uint32_t levelCount = std::max<std::uint32_t>(elementCount, 1u);
+    do
+    {
+        levelCount = dispatchGroupCount(levelCount);
+        counts.push_back(std::max<std::uint32_t>(levelCount, 1u));
+    } while (levelCount > 1u);
+    return counts;
+}
+
 } // namespace
 
 // TODO: Impl is handling too much work.
@@ -254,6 +267,10 @@ struct PhysicsSolver::Impl
         Diligent::RefCntAutoPtr<Diligent::IBuffer> broadPhaseElementsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> mortonCodesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> mortonCodesScratchBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> globalBroadPhaseExtentBuffer;
+        std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> scanBlockSumsBuffers;
+        std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> scanScannedBlockSumsBuffers;
+        std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> broadPhaseExtentScratchBuffers;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> radixBitFlagsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> radixBitOffsetsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> radixMetaBuffer;
@@ -283,14 +300,20 @@ struct PhysicsSolver::Impl
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> predictSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> updateWorldAabbsPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> updateWorldAabbsSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> scanExclusivePso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> scanExclusiveSrb;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> scanBlockPso;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> scanBlockSrb;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> scanAddOffsetsPso;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> scanAddOffsetsSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> compactActiveBodiesPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> compactActiveBodiesSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> finalizeActiveBodiesPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> finalizeActiveBodiesSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> buildBroadPhaseElementsPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> buildBroadPhaseElementsSrb;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> reduceExtentElementsPso;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> reduceExtentElementsSrb;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> reduceExtentExtentsPso;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> reduceExtentExtentsSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mortonCodesPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mortonCodesSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> radixClassifyPso;
@@ -331,10 +354,16 @@ struct PhysicsSolver::Impl
 
     bool bindPredictBuffers();
     bool bindUpdateWorldAabbsBuffers();
-    bool bindScanExclusiveBuffers(Diligent::IBuffer* inputBuffer, Diligent::IBuffer* outputBuffer);
+    bool bindScanBlockBuffers(Diligent::IBuffer* inputBuffer, Diligent::IBuffer* outputBuffer,
+                              Diligent::IBuffer* blockSumsBuffer);
+    bool bindScanAddOffsetsBuffers(Diligent::IBuffer* outputBuffer,
+                                   Diligent::IBuffer* scannedBlockOffsetsBuffer);
     bool bindCompactActiveBodiesBuffers();
     bool bindFinalizeActiveBodiesBuffers();
     bool bindBuildBroadPhaseElementsBuffers();
+    bool bindReduceExtentElementsBuffers(Diligent::IBuffer* outputBuffer);
+    bool bindReduceExtentExtentsBuffers(Diligent::IBuffer* inputBuffer,
+                                        Diligent::IBuffer* outputBuffer);
     bool bindMortonCodesBuffers();
     bool bindRadixClassifyBuffers(Diligent::IBuffer* mortonInputBuffer);
     bool bindRadixFinalizeBuffers();
@@ -359,15 +388,26 @@ struct PhysicsSolver::Impl
     bool dispatchPredictPass(Diligent::IDeviceContext* computeContext, std::uint32_t bodyCount);
     bool dispatchUpdateWorldAabbsPass(Diligent::IDeviceContext* computeContext,
                                       std::uint32_t bodyCount);
+    bool dispatchScanBlockPass(Diligent::IDeviceContext* computeContext, Diligent::IBuffer* input,
+                               Diligent::IBuffer* output, Diligent::IBuffer* blockSums,
+                               std::uint32_t count, const GpuRigidDispatchConstants& constants);
+    bool dispatchScanAddOffsetsPass(Diligent::IDeviceContext* computeContext,
+                                    Diligent::IBuffer* output,
+                                    Diligent::IBuffer* scannedBlockOffsets, std::uint32_t count,
+                                    const GpuRigidDispatchConstants& constants);
     bool dispatchExclusiveScanPass(Diligent::IDeviceContext* computeContext, Diligent::IBuffer* input,
                                    Diligent::IBuffer* output, std::uint32_t count,
-                                   const GpuRigidDispatchConstants& constants);
+                                   const GpuRigidDispatchConstants& constants,
+                                   std::uint32_t recursionLevel = 0u);
     bool dispatchCompactActiveBodiesPass(Diligent::IDeviceContext* computeContext,
                                          std::uint32_t bodyCount);
     bool dispatchFinalizeActiveBodiesPass(Diligent::IDeviceContext* computeContext);
     bool dispatchBuildBroadPhaseElementsPass(Diligent::IDeviceContext* computeContext,
                                              std::uint32_t activeDynamicCount);
-    bool dispatchMortonCodesPass(Diligent::IDeviceContext* computeContext);
+    bool dispatchReduceBroadPhaseExtentPass(Diligent::IDeviceContext* computeContext,
+                                            std::uint32_t activeDynamicCount);
+    bool dispatchMortonCodesPass(Diligent::IDeviceContext* computeContext,
+                                 std::uint32_t activeDynamicCount);
     bool dispatchRadixSortPass(Diligent::IDeviceContext* computeContext,
                                std::uint32_t activeDynamicCount,
                                const GpuRigidDispatchConstants& constants);
@@ -464,16 +504,31 @@ bool PhysicsSolver::Impl::bindUpdateWorldAabbsBuffers()
     return bindBufferVariables(updateWorldAabbsSrb, bindings);
 }
 
-bool PhysicsSolver::Impl::bindScanExclusiveBuffers(Diligent::IBuffer* inputBuffer,
-                                                   Diligent::IBuffer* outputBuffer)
+bool PhysicsSolver::Impl::bindScanBlockBuffers(Diligent::IBuffer* inputBuffer,
+                                               Diligent::IBuffer* outputBuffer,
+                                               Diligent::IBuffer* blockSumsBuffer)
 {
     const std::array bindings{
         BufferBinding{"PhysicsDispatchConstantsBuffer", dispatchConstantsBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_ScanInput", inputBuffer, Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_ScanOutput", outputBuffer, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_BlockSums", blockSumsBuffer, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
-    return bindBufferVariables(scanExclusiveSrb, bindings);
+    return bindBufferVariables(scanBlockSrb, bindings);
+}
+
+bool PhysicsSolver::Impl::bindScanAddOffsetsBuffers(Diligent::IBuffer* outputBuffer,
+                                                    Diligent::IBuffer* scannedBlockOffsetsBuffer)
+{
+    const std::array bindings{
+        BufferBinding{"PhysicsDispatchConstantsBuffer", dispatchConstantsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_ScannedBlockOffsets", scannedBlockOffsetsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_ScanOutput", outputBuffer, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+    return bindBufferVariables(scanAddOffsetsSrb, bindings);
 }
 
 bool PhysicsSolver::Impl::bindCompactActiveBodiesBuffers()
@@ -523,12 +578,38 @@ bool PhysicsSolver::Impl::bindBuildBroadPhaseElementsBuffers()
     return bindBufferVariables(buildBroadPhaseElementsSrb, bindings);
 }
 
+bool PhysicsSolver::Impl::bindReduceExtentElementsBuffers(Diligent::IBuffer* outputBuffer)
+{
+    const std::array bindings{
+        BufferBinding{"PhysicsDispatchConstantsBuffer", dispatchConstantsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_BroadPhaseElements", transientState.broadPhaseElementsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_GroupExtents", outputBuffer, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+    return bindBufferVariables(reduceExtentElementsSrb, bindings);
+}
+
+bool PhysicsSolver::Impl::bindReduceExtentExtentsBuffers(Diligent::IBuffer* inputBuffer,
+                                                         Diligent::IBuffer* outputBuffer)
+{
+    const std::array bindings{
+        BufferBinding{"PhysicsDispatchConstantsBuffer", dispatchConstantsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_InputExtents", inputBuffer, Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_OutputExtents", outputBuffer, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+    return bindBufferVariables(reduceExtentExtentsSrb, bindings);
+}
+
 bool PhysicsSolver::Impl::bindMortonCodesBuffers()
 {
     const std::array bindings{
         BufferBinding{"PhysicsDispatchConstantsBuffer", dispatchConstantsBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_BroadPhaseElements", transientState.broadPhaseElementsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_GlobalExtent", transientState.globalBroadPhaseExtentBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_MortonCodes", transientState.mortonCodesBuffer,
                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
@@ -771,8 +852,10 @@ bool PhysicsSolver::Impl::bindAllPassBuffers()
 {
     return bindPredictBuffers() && bindUpdateWorldAabbsBuffers() &&
            bindCompactActiveBodiesBuffers() && bindFinalizeActiveBodiesBuffers() &&
-           bindBuildBroadPhaseElementsBuffers() && bindMortonCodesBuffers() &&
-           bindRadixFinalizeBuffers() && bindBvhHierarchyBuffers() &&
+           bindBuildBroadPhaseElementsBuffers() &&
+           bindMortonCodesBuffers() &&
+           bindRadixFinalizeBuffers() &&
+           bindBvhHierarchyBuffers() &&
            bindBvhBoundingBoxesBuffers() && bindCountPairsBuffers() &&
            bindFinalizePairsBuffers() && bindEmitPairsBuffers() &&
            bindGenerateContactsBuffers() && bindSolveGatherBuffers() &&
@@ -805,6 +888,13 @@ bool PhysicsSolver::Impl::ensureCapacity(Diligent::IRenderDevice* renderDevice,
         transientState.broadPhaseElementsBuffer != nullptr &&
         transientState.mortonCodesBuffer != nullptr &&
         transientState.mortonCodesScratchBuffer != nullptr &&
+        transientState.globalBroadPhaseExtentBuffer != nullptr &&
+        !transientState.scanBlockSumsBuffers.empty() &&
+        transientState.scanBlockSumsBuffers.front() != nullptr &&
+        !transientState.scanScannedBlockSumsBuffers.empty() &&
+        transientState.scanScannedBlockSumsBuffers.front() != nullptr &&
+        !transientState.broadPhaseExtentScratchBuffers.empty() &&
+        transientState.broadPhaseExtentScratchBuffers.front() != nullptr &&
         transientState.radixBitFlagsBuffer != nullptr &&
         transientState.radixBitOffsetsBuffer != nullptr &&
         transientState.radixMetaBuffer != nullptr &&
@@ -836,6 +926,8 @@ bool PhysicsSolver::Impl::ensureCapacity(Diligent::IRenderDevice* renderDevice,
         std::max<std::uint32_t>(newCandidatePairCapacity * kRigidContactsPerPair,
                                 kRigidContactsPerPair);
     const Diligent::Uint64 contextMask = contextMaskForId(physicsContextId);
+    const std::vector<std::uint32_t> reductionLevelCounts =
+        buildReductionLevelCounts(newCapacity);
 
     if (!ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PositionsInvMass",
                                 sizeof(Diligent::float4), newCapacity,
@@ -947,6 +1039,11 @@ bool PhysicsSolver::Impl::ensureCapacity(Diligent::IRenderDevice* renderDevice,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 transientState.mortonCodesScratchBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.GlobalBroadPhaseExtent",
+                                sizeof(GpuBroadPhaseExtent), 1u,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                transientState.globalBroadPhaseExtentBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RadixBitFlags",
                                 sizeof(std::uint32_t), newCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -1031,6 +1128,43 @@ bool PhysicsSolver::Impl::ensureCapacity(Diligent::IRenderDevice* renderDevice,
                                 readbackRigidBodies.broadPhaseMetaBuffer))
     {
         return false;
+    }
+
+    transientState.scanBlockSumsBuffers.resize(reductionLevelCounts.size());
+    transientState.scanScannedBlockSumsBuffers.resize(reductionLevelCounts.size());
+    transientState.broadPhaseExtentScratchBuffers.resize(reductionLevelCounts.size());
+    for (std::size_t level = 0; level < reductionLevelCounts.size(); ++level)
+    {
+        const std::uint32_t levelCount = reductionLevelCounts[level];
+        const std::string scanSumsName =
+            "CRESSimNeo.Physics.ScanBlockSums." + std::to_string(level);
+        const std::string scanOffsetsName =
+            "CRESSimNeo.Physics.ScanScannedBlockSums." + std::to_string(level);
+        const std::string extentName =
+            "CRESSimNeo.Physics.BroadPhaseExtentScratch." + std::to_string(level);
+        if (!ensureStructuredBuffer(renderDevice, scanSumsName.c_str(), sizeof(std::uint32_t),
+                                    levelCount,
+                                    Diligent::BIND_UNORDERED_ACCESS |
+                                        Diligent::BIND_SHADER_RESOURCE,
+                                    Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
+                                    contextMask, transientState.scanBlockSumsBuffers[level]) ||
+            !ensureStructuredBuffer(renderDevice, scanOffsetsName.c_str(),
+                                    sizeof(std::uint32_t), levelCount,
+                                    Diligent::BIND_UNORDERED_ACCESS |
+                                        Diligent::BIND_SHADER_RESOURCE,
+                                    Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
+                                    contextMask,
+                                    transientState.scanScannedBlockSumsBuffers[level]) ||
+            !ensureStructuredBuffer(renderDevice, extentName.c_str(),
+                                    sizeof(GpuBroadPhaseExtent), levelCount,
+                                    Diligent::BIND_UNORDERED_ACCESS |
+                                        Diligent::BIND_SHADER_RESOURCE,
+                                    Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
+                                    contextMask,
+                                    transientState.broadPhaseExtentScratchBuffers[level]))
+        {
+            return false;
+        }
     }
 
     bufferCapacity = newCapacity;
@@ -1156,14 +1290,15 @@ bool PhysicsSolver::Impl::dispatchUpdateWorldAabbsPass(Diligent::IDeviceContext*
     return true;
 }
 
-bool PhysicsSolver::Impl::dispatchExclusiveScanPass(Diligent::IDeviceContext* computeContext,
-                                                    Diligent::IBuffer* input,
-                                                    Diligent::IBuffer* output,
-                                                    std::uint32_t count,
-                                                    const GpuRigidDispatchConstants& constants)
+bool PhysicsSolver::Impl::dispatchScanBlockPass(Diligent::IDeviceContext* computeContext,
+                                                Diligent::IBuffer* input,
+                                                Diligent::IBuffer* output,
+                                                Diligent::IBuffer* blockSums,
+                                                std::uint32_t count,
+                                                const GpuRigidDispatchConstants& constants)
 {
-    if (computeContext == nullptr || scanExclusivePso == nullptr || scanExclusiveSrb == nullptr ||
-        count == 0u || !bindScanExclusiveBuffers(input, output))
+    if (computeContext == nullptr || scanBlockPso == nullptr || scanBlockSrb == nullptr ||
+        count == 0u || !bindScanBlockBuffers(input, output, blockSums))
     {
         return false;
     }
@@ -1175,11 +1310,78 @@ bool PhysicsSolver::Impl::dispatchExclusiveScanPass(Diligent::IDeviceContext* co
         return false;
     }
 
-    computeContext->SetPipelineState(scanExclusivePso);
-    computeContext->CommitShaderResources(scanExclusiveSrb,
+    computeContext->SetPipelineState(scanBlockPso);
+    computeContext->CommitShaderResources(scanBlockSrb,
                                           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    computeContext->DispatchCompute(Diligent::DispatchComputeAttribs{1u, 1u, 1u});
+    computeContext->DispatchCompute(
+        Diligent::DispatchComputeAttribs{dispatchGroupCount(count), 1u, 1u});
     return true;
+}
+
+bool PhysicsSolver::Impl::dispatchScanAddOffsetsPass(
+    Diligent::IDeviceContext* computeContext, Diligent::IBuffer* output,
+    Diligent::IBuffer* scannedBlockOffsets, std::uint32_t count,
+    const GpuRigidDispatchConstants& constants)
+{
+    if (computeContext == nullptr || scanAddOffsetsPso == nullptr || scanAddOffsetsSrb == nullptr ||
+        count == 0u || !bindScanAddOffsetsBuffers(output, scannedBlockOffsets))
+    {
+        return false;
+    }
+
+    GpuRigidDispatchConstants scanConstants = constants;
+    scanConstants.candidatePairCapacity = count;
+    if (!writeDispatchConstants(computeContext, dispatchConstantsBuffer, scanConstants))
+    {
+        return false;
+    }
+
+    computeContext->SetPipelineState(scanAddOffsetsPso);
+    computeContext->CommitShaderResources(scanAddOffsetsSrb,
+                                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->DispatchCompute(
+        Diligent::DispatchComputeAttribs{dispatchGroupCount(count), 1u, 1u});
+    return true;
+}
+
+bool PhysicsSolver::Impl::dispatchExclusiveScanPass(Diligent::IDeviceContext* computeContext,
+                                                    Diligent::IBuffer* input,
+                                                    Diligent::IBuffer* output,
+                                                    std::uint32_t count,
+                                                    const GpuRigidDispatchConstants& constants,
+                                                    std::uint32_t recursionLevel)
+{
+    if (count == 0u)
+    {
+        return true;
+    }
+    if (recursionLevel >= transientState.scanBlockSumsBuffers.size() ||
+        recursionLevel >= transientState.scanScannedBlockSumsBuffers.size())
+    {
+        return false;
+    }
+
+    Diligent::IBuffer* blockSums = transientState.scanBlockSumsBuffers[recursionLevel];
+    Diligent::IBuffer* scannedBlockSums =
+        transientState.scanScannedBlockSumsBuffers[recursionLevel];
+    if (!dispatchScanBlockPass(computeContext, input, output, blockSums, count, constants))
+    {
+        return false;
+    }
+
+    const std::uint32_t groupCount = dispatchGroupCount(count);
+    if (groupCount <= 1u)
+    {
+        return true;
+    }
+
+    if (!dispatchExclusiveScanPass(computeContext, blockSums, scannedBlockSums, groupCount,
+                                   constants, recursionLevel + 1u))
+    {
+        return false;
+    }
+
+    return dispatchScanAddOffsetsPass(computeContext, output, scannedBlockSums, count, constants);
 }
 
 bool PhysicsSolver::Impl::dispatchCompactActiveBodiesPass(Diligent::IDeviceContext* computeContext,
@@ -1232,9 +1434,77 @@ bool PhysicsSolver::Impl::dispatchBuildBroadPhaseElementsPass(
     return true;
 }
 
-bool PhysicsSolver::Impl::dispatchMortonCodesPass(Diligent::IDeviceContext* computeContext)
+bool PhysicsSolver::Impl::dispatchReduceBroadPhaseExtentPass(
+    Diligent::IDeviceContext* computeContext, std::uint32_t activeDynamicCount)
 {
-    if (computeContext == nullptr || mortonCodesPso == nullptr || mortonCodesSrb == nullptr)
+    if (computeContext == nullptr || activeDynamicCount == 0u ||
+        transientState.broadPhaseExtentScratchBuffers.empty() ||
+        transientState.globalBroadPhaseExtentBuffer == nullptr)
+    {
+        return false;
+    }
+
+    const std::uint32_t initialGroupCount = dispatchGroupCount(activeDynamicCount);
+    Diligent::IBuffer* currentOutput =
+        (initialGroupCount <= 1u) ? transientState.globalBroadPhaseExtentBuffer
+                                  : transientState.broadPhaseExtentScratchBuffers.front();
+    GpuRigidDispatchConstants reductionConstants{};
+    reductionConstants.activeDynamicCount = activeDynamicCount;
+    reductionConstants.candidatePairCapacity = activeDynamicCount;
+    if (!writeDispatchConstants(computeContext, dispatchConstantsBuffer, reductionConstants) ||
+        reduceExtentElementsPso == nullptr || reduceExtentElementsSrb == nullptr ||
+        !bindReduceExtentElementsBuffers(currentOutput))
+    {
+        return false;
+    }
+
+    computeContext->SetPipelineState(reduceExtentElementsPso);
+    computeContext->CommitShaderResources(reduceExtentElementsSrb,
+                                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    std::uint32_t currentCount = activeDynamicCount;
+    computeContext->DispatchCompute(
+        Diligent::DispatchComputeAttribs{dispatchGroupCount(currentCount), 1u, 1u});
+
+    currentCount = dispatchGroupCount(currentCount);
+    std::uint32_t level = 1u;
+    Diligent::IBuffer* currentInput = currentOutput;
+    while (currentCount > 1u)
+    {
+        const std::uint32_t nextGroupCount = dispatchGroupCount(currentCount);
+        if (nextGroupCount > 1u && level >= transientState.broadPhaseExtentScratchBuffers.size())
+        {
+            return false;
+        }
+
+        currentOutput = (nextGroupCount <= 1u) ? transientState.globalBroadPhaseExtentBuffer
+                                               : transientState.broadPhaseExtentScratchBuffers[level];
+        reductionConstants.candidatePairCapacity = currentCount;
+        if (!writeDispatchConstants(computeContext, dispatchConstantsBuffer, reductionConstants) ||
+            reduceExtentExtentsPso == nullptr || reduceExtentExtentsSrb == nullptr ||
+            !bindReduceExtentExtentsBuffers(currentInput, currentOutput))
+        {
+            return false;
+        }
+
+        computeContext->SetPipelineState(reduceExtentExtentsPso);
+        computeContext->CommitShaderResources(reduceExtentExtentsSrb,
+                                              Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        computeContext->DispatchCompute(
+            Diligent::DispatchComputeAttribs{dispatchGroupCount(currentCount), 1u, 1u});
+
+        currentInput = currentOutput;
+        currentCount = nextGroupCount;
+        ++level;
+    }
+
+    return true;
+}
+
+bool PhysicsSolver::Impl::dispatchMortonCodesPass(Diligent::IDeviceContext* computeContext,
+                                                  std::uint32_t activeDynamicCount)
+{
+    if (computeContext == nullptr || mortonCodesPso == nullptr || mortonCodesSrb == nullptr ||
+        activeDynamicCount == 0u || !bindMortonCodesBuffers())
     {
         return false;
     }
@@ -1242,7 +1512,8 @@ bool PhysicsSolver::Impl::dispatchMortonCodesPass(Diligent::IDeviceContext* comp
     computeContext->SetPipelineState(mortonCodesPso);
     computeContext->CommitShaderResources(mortonCodesSrb,
                                           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    computeContext->DispatchCompute(Diligent::DispatchComputeAttribs{1u, 1u, 1u});
+    computeContext->DispatchCompute(
+        Diligent::DispatchComputeAttribs{dispatchGroupCount(activeDynamicCount), 1u, 1u});
     return true;
 }
 
@@ -1257,6 +1528,8 @@ bool PhysicsSolver::Impl::dispatchRadixSortPass(Diligent::IDeviceContext* comput
         return false;
     }
 
+    // TODO: Replace this 1-bit classify/scan/finalize/scatter loop with a 4-bit
+    // histogram/scan/scatter radix pipeline to reduce pass count and improve throughput.
     Diligent::IBuffer* currentInput = transientState.mortonCodesBuffer;
     Diligent::IBuffer* currentOutput = transientState.mortonCodesScratchBuffer;
     for (std::uint32_t bit = 0u; bit < 32u; ++bit)
@@ -1694,24 +1967,43 @@ bool PhysicsSolver::initialize()
         return false;
     }
 
-    // TODO: prefix sum is reused but we bind the same constants buffer
-    // and rely on dynamic rebinding; use different PSOs?
-    constexpr Diligent::ShaderResourceVariableDesc kScanExclusiveVars[] = {
+    constexpr Diligent::ShaderResourceVariableDesc kScanBlockVars[] = {
         {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_COMPUTE, "g_ScanInput",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_COMPUTE, "g_ScanOutput",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_BlockSums",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     if (!createComputePipeline(computeContext.renderDevice, streamFactory,
-                               "physics/physics_scan_exclusive.cs.hlsl",
-                               "CRESSimNeo.Physics.ScanExclusive.CS",
-                               "CRESSimNeo.Physics.ScanExclusive.PSO", physicsContextMask,
-                               kScanExclusiveVars, std::size(kScanExclusiveVars),
-                               mImpl->scanExclusivePso, mImpl->scanExclusiveSrb))
+                               "physics/physics_scan_block.cs.hlsl",
+                               "CRESSimNeo.Physics.ScanBlock.CS",
+                               "CRESSimNeo.Physics.ScanBlock.PSO", physicsContextMask,
+                               kScanBlockVars, std::size(kScanBlockVars),
+                               mImpl->scanBlockPso, mImpl->scanBlockSrb))
     {
-        LOG_ERROR_MESSAGE("PhysicsSolver: failed to create scan pipeline.");
+        LOG_ERROR_MESSAGE("PhysicsSolver: failed to create scan block pipeline.");
+        return false;
+    }
+
+    constexpr Diligent::ShaderResourceVariableDesc kScanAddOffsetsVars[] = {
+        {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_ScannedBlockOffsets",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_ScanOutput",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    };
+    if (!createComputePipeline(computeContext.renderDevice, streamFactory,
+                               "physics/physics_scan_add_offsets.cs.hlsl",
+                               "CRESSimNeo.Physics.ScanAddOffsets.CS",
+                               "CRESSimNeo.Physics.ScanAddOffsets.PSO", physicsContextMask,
+                               kScanAddOffsetsVars, std::size(kScanAddOffsetsVars),
+                               mImpl->scanAddOffsetsPso, mImpl->scanAddOffsetsSrb))
+    {
+        LOG_ERROR_MESSAGE("PhysicsSolver: failed to create scan add-offsets pipeline.");
         return false;
     }
 
@@ -1786,13 +2078,57 @@ bool PhysicsSolver::initialize()
         return false;
     }
 
+    constexpr Diligent::ShaderResourceVariableDesc kReduceExtentElementsVars[] = {
+        {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_BroadPhaseElements",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_GroupExtents",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    };
+    if (!createComputePipeline(computeContext.renderDevice, streamFactory,
+                               "physics/physics_rigid_reduce_extent_elements.cs.hlsl",
+                               "CRESSimNeo.Physics.RigidReduceExtentElements.CS",
+                               "CRESSimNeo.Physics.RigidReduceExtentElements.PSO",
+                               physicsContextMask, kReduceExtentElementsVars,
+                               std::size(kReduceExtentElementsVars),
+                               mImpl->reduceExtentElementsPso,
+                               mImpl->reduceExtentElementsSrb))
+    {
+        LOG_ERROR_MESSAGE("PhysicsSolver: failed to create element extent reduction pipeline.");
+        return false;
+    }
+
+    constexpr Diligent::ShaderResourceVariableDesc kReduceExtentExtentsVars[] = {
+        {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_InputExtents",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_OutputExtents",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    };
+    if (!createComputePipeline(computeContext.renderDevice, streamFactory,
+                               "physics/physics_rigid_reduce_extent_extents.cs.hlsl",
+                               "CRESSimNeo.Physics.RigidReduceExtentExtents.CS",
+                               "CRESSimNeo.Physics.RigidReduceExtentExtents.PSO",
+                               physicsContextMask, kReduceExtentExtentsVars,
+                               std::size(kReduceExtentExtentsVars),
+                               mImpl->reduceExtentExtentsPso,
+                               mImpl->reduceExtentExtentsSrb))
+    {
+        LOG_ERROR_MESSAGE("PhysicsSolver: failed to create extent reduction pipeline.");
+        return false;
+    }
+
     constexpr Diligent::ShaderResourceVariableDesc kMortonCodesVars[] = {
         {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_COMPUTE, "g_BroadPhaseElements",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_GlobalExtent",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_COMPUTE, "g_MortonCodes",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     if (!createComputePipeline(computeContext.renderDevice, streamFactory,
                                "physics/physics_rigid_morton_codes.cs.hlsl",
@@ -2255,7 +2591,10 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
                                         constants) ||
                 !mImpl->dispatchBuildBroadPhaseElementsPass(computeBackend.computeContext,
                                                             activeDynamicCount) ||
-                !mImpl->dispatchMortonCodesPass(computeBackend.computeContext) ||
+                !mImpl->dispatchReduceBroadPhaseExtentPass(computeBackend.computeContext,
+                                                          activeDynamicCount) ||
+                !mImpl->dispatchMortonCodesPass(computeBackend.computeContext,
+                                               activeDynamicCount) ||
                 !mImpl->dispatchRadixSortPass(computeBackend.computeContext, activeDynamicCount,
                                              constants) ||
                 !mImpl->dispatchBvhHierarchyPass(computeBackend.computeContext,

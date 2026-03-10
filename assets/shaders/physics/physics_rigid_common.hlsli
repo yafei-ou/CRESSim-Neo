@@ -71,6 +71,12 @@ struct GpuMortonCodeElement
     uint elementIdx;
 };
 
+struct GpuBroadPhaseExtent
+{
+    float4 minBounds;
+    float4 maxBounds;
+};
+
 struct GpuBvhNode
 {
     int left;

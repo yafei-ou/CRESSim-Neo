@@ -13,6 +13,7 @@ cbuffer PhysicsDispatchConstantsBuffer
 #include "physics/physics_rigid_common.hlsli"
 
 StructuredBuffer<GpuBroadPhaseElement> g_BroadPhaseElements;
+StructuredBuffer<GpuBroadPhaseExtent> g_GlobalExtent;
 RWStructuredBuffer<GpuMortonCodeElement> g_MortonCodes;
 
 uint ExpandBits(uint value)
@@ -35,41 +36,26 @@ uint Morton3D(float x, float y, float z)
     return xx * 4u + yy * 2u + zz;
 }
 
-// TODO: this is a naive serial implementation
-
-[numthreads(1, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
+[numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
-    if (dispatchThreadID.x != 0u)
+    const uint index = dispatchThreadID.x;
+    if (index >= activeDynamicCount)
     {
         return;
     }
-    if (activeDynamicCount == 0u)
-    {
-        return;
-    }
 
-    float3 minExtent = float3(3.402823466e+38, 3.402823466e+38, 3.402823466e+38);
-    float3 maxExtent = float3(-3.402823466e+38, -3.402823466e+38, -3.402823466e+38);
-    for (uint i = 0u; i < activeDynamicCount; ++i)
-    {
-        const GpuBroadPhaseElement element = g_BroadPhaseElements[i];
-        minExtent = min(minExtent, float3(element.aabbMinX, element.aabbMinY, element.aabbMinZ));
-        maxExtent = max(maxExtent, float3(element.aabbMaxX, element.aabbMaxY, element.aabbMaxZ));
-    }
+    const GpuBroadPhaseElement element = g_BroadPhaseElements[index];
+    const GpuBroadPhaseExtent globalExtent = g_GlobalExtent[0];
+    const float3 minExtent = globalExtent.minBounds.xyz;
+    const float3 maxExtent = globalExtent.maxBounds.xyz;
+    const float3 extentSize = max(maxExtent - minExtent, float3(1.0e-5, 1.0e-5, 1.0e-5));
+    const float3 center =
+        0.5 * (float3(element.aabbMinX, element.aabbMinY, element.aabbMinZ) +
+               float3(element.aabbMaxX, element.aabbMaxY, element.aabbMaxZ));
+    const float3 mappedCenter = saturate((center - minExtent) / extentSize);
 
-    const float3 extentSize =
-        max(maxExtent - minExtent, float3(1.0e-5, 1.0e-5, 1.0e-5));
-    for (uint i = 0u; i < activeDynamicCount; ++i)
-    {
-        const GpuBroadPhaseElement element = g_BroadPhaseElements[i];
-        const float3 center =
-            0.5 * (float3(element.aabbMinX, element.aabbMinY, element.aabbMinZ) +
-                   float3(element.aabbMaxX, element.aabbMaxY, element.aabbMaxZ));
-        const float3 mappedCenter = (center - minExtent) / extentSize;
-
-        GpuMortonCodeElement morton;
-        morton.mortonCode = Morton3D(mappedCenter.x, mappedCenter.y, mappedCenter.z);
-        morton.elementIdx = i;
-        g_MortonCodes[i] = morton;
-    }
+    GpuMortonCodeElement morton;
+    morton.mortonCode = Morton3D(mappedCenter.x, mappedCenter.y, mappedCenter.z);
+    morton.elementIdx = index;
+    g_MortonCodes[index] = morton;
 }
