@@ -27,3 +27,8 @@ add_physics_viewer_test(
     cressim_neo_physics_viewer_pairs_manual_vulkan
     physics_viewer_pairs.cpp
 )
+
+add_physics_viewer_test(
+    cressim_neo_physics_viewer_large_array_manual_vulkan
+    physics_viewer_large_array.cpp
+)

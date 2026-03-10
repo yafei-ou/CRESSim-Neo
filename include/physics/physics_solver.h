@@ -4,7 +4,6 @@
 #include "common/frame_context.h"
 #include "gpu/gpu_device.h"
 #include "physics/export.h"
-#include "physics/physics_types.h"
 #include "physics/physics_world.h"
 
 #include <array>
