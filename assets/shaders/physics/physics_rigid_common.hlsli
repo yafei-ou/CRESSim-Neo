@@ -6,6 +6,7 @@ static const uint kColliderBox = 1u;
 static const uint kColliderCapsule = 2u;
 static const uint kBodyFlagDynamic = 1u;
 static const uint kInvalidIndex = 0xffffffffu;
+static const uint kRigidPairTypeCount = 6u;
 
 static const uint kRigidContactsPerPair = 4u;
 static const float kBroadPhaseMargin = 0.05f;
@@ -105,6 +106,30 @@ struct GpuCandidatePair
     uint reserved1;
 };
 
+struct GpuRigidPairRange
+{
+    uint type;
+    uint start;
+    uint count;
+    uint reserved;
+};
+
+struct GpuNarrowPhaseChunk
+{
+    uint pairType;
+    uint pairStart;
+    uint pairCount;
+    uint reserved;
+};
+
+struct GpuNarrowPhaseMeta
+{
+    uint chunkCount;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+};
+
 struct GpuBroadPhaseMeta
 {
     uint activeDynamicCount;
@@ -112,6 +137,88 @@ struct GpuBroadPhaseMeta
     uint requiredPairCount;
     uint overflow;
 };
+
+uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)
+{
+    const uint lo = min(shapeTypeA, shapeTypeB);
+    const uint hi = max(shapeTypeA, shapeTypeB);
+
+    if (lo == kColliderSphere && hi == kColliderSphere)
+        return 0u;
+    if (lo == kColliderSphere && hi == kColliderBox)
+        return 1u;
+    if (lo == kColliderSphere && hi == kColliderCapsule)
+        return 2u;
+    if (lo == kColliderBox && hi == kColliderBox)
+        return 3u;
+    if (lo == kColliderBox && hi == kColliderCapsule)
+        return 4u;
+    return 5u;
+}
+
+void CanonicalizeRigidPair(uint bodyA, uint bodyB, uint shapeTypeA, uint shapeTypeB,
+                           out uint outBodyA, out uint outBodyB, out uint pairType)
+{
+    pairType = ComputeRigidPairType(shapeTypeA, shapeTypeB);
+
+    if (shapeTypeA < shapeTypeB)
+    {
+        outBodyA = bodyA;
+        outBodyB = bodyB;
+        return;
+    }
+
+    if (shapeTypeA > shapeTypeB)
+    {
+        outBodyA = bodyB;
+        outBodyB = bodyA;
+        return;
+    }
+
+    outBodyA = bodyA;
+    outBodyB = bodyB;
+}
+
+void PairTypeToShapeTypes(uint pairType, out uint shapeTypeA, out uint shapeTypeB)
+{
+    if (pairType == 0u)
+    {
+        shapeTypeA = kColliderSphere;
+        shapeTypeB = kColliderSphere;
+        return;
+    }
+
+    if (pairType == 1u)
+    {
+        shapeTypeA = kColliderSphere;
+        shapeTypeB = kColliderBox;
+        return;
+    }
+
+    if (pairType == 2u)
+    {
+        shapeTypeA = kColliderSphere;
+        shapeTypeB = kColliderCapsule;
+        return;
+    }
+
+    if (pairType == 3u)
+    {
+        shapeTypeA = kColliderBox;
+        shapeTypeB = kColliderBox;
+        return;
+    }
+
+    if (pairType == 4u)
+    {
+        shapeTypeA = kColliderBox;
+        shapeTypeB = kColliderCapsule;
+        return;
+    }
+
+    shapeTypeA = kColliderCapsule;
+    shapeTypeB = kColliderCapsule;
+}
 
 float3 SafeNormalize(float3 value, float3 fallback)
 {

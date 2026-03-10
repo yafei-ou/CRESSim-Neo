@@ -40,3 +40,9 @@ add_test(
     NAME cressim_neo_physics_solver_broad_phase_overflow_vulkan
     COMMAND cressim_neo_physics_solver_broad_phase_overflow
 )
+
+add_physics_test(cressim_neo_physics_solver_mixed_shape_contacts physics_solver_mixed_shape_contacts.cpp)
+add_test(
+    NAME cressim_neo_physics_solver_mixed_shape_contacts_vulkan
+    COMMAND cressim_neo_physics_solver_mixed_shape_contacts
+)

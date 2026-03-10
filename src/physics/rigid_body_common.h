@@ -11,6 +11,17 @@ namespace cressim::neo::physics
 {
 
 constexpr std::uint32_t kRigidContactsPerPair = 4u;
+constexpr std::uint32_t kRigidPairTypeCount   = 6u;
+
+enum class GpuRigidPairType : std::uint32_t
+{
+    SphereSphere = 0u,
+    SphereBox,
+    SphereCapsule,
+    BoxBox,
+    BoxCapsule,
+    CapsuleCapsule,
+};
 
 struct GpuRigidDispatchConstants
 {
@@ -90,6 +101,30 @@ struct GpuCandidatePair
     std::uint32_t reserved1 = 0;
 };
 
+struct GpuRigidPairRange
+{
+    std::uint32_t type     = 0;
+    std::uint32_t start    = 0;
+    std::uint32_t count    = 0;
+    std::uint32_t reserved = 0;
+};
+
+struct GpuNarrowPhaseChunk
+{
+    std::uint32_t pairType  = 0;
+    std::uint32_t pairStart = 0;
+    std::uint32_t pairCount = 0;
+    std::uint32_t reserved  = 0;
+};
+
+struct GpuNarrowPhaseMeta
+{
+    std::uint32_t chunkCount = 0;
+    std::uint32_t reserved0  = 0;
+    std::uint32_t reserved1  = 0;
+    std::uint32_t reserved2  = 0;
+};
+
 struct GpuBroadPhaseMeta
 {
     std::uint32_t activeDynamicCount = 0;
@@ -118,6 +153,9 @@ static_assert(sizeof(GpuBroadPhaseExtent) == 32u);
 static_assert(sizeof(GpuBvhNode) == 40u);
 static_assert(sizeof(GpuBvhConstructionInfo) == 8u);
 static_assert(sizeof(GpuCandidatePair) == 16u);
+static_assert(sizeof(GpuRigidPairRange) == 16u);
+static_assert(sizeof(GpuNarrowPhaseChunk) == 16u);
+static_assert(sizeof(GpuNarrowPhaseMeta) == 16u);
 static_assert(sizeof(GpuBroadPhaseMeta) == 16u);
 static_assert(sizeof(GpuRigidContact) == 64u);
 

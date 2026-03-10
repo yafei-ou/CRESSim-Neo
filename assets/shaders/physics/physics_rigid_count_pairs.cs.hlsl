@@ -16,12 +16,26 @@ StructuredBuffer<uint> g_ActiveBodyIndices;
 StructuredBuffer<GpuBodyAabb> g_BodyAabbs;
 StructuredBuffer<GpuBodyMeta> g_BodyMeta;
 StructuredBuffer<GpuBvhNode> g_BvhNodes;
-RWStructuredBuffer<uint> g_PairCounts;
+StructuredBuffer<uint> g_RigidBodyColliderShapeTypes;
+RWStructuredBuffer<uint> g_PairCountsSphereSphere;
+RWStructuredBuffer<uint> g_PairCountsSphereBox;
+RWStructuredBuffer<uint> g_PairCountsSphereCapsule;
+RWStructuredBuffer<uint> g_PairCountsBoxBox;
+RWStructuredBuffer<uint> g_PairCountsBoxCapsule;
+RWStructuredBuffer<uint> g_PairCountsCapsuleCapsule;
 
 bool NodeOverlapsQuery(GpuBvhNode node, float3 queryMin, float3 queryMax)
 {
     return AabbOverlaps(queryMin, queryMax, float3(node.aabbMinX, node.aabbMinY, node.aabbMinZ),
                         float3(node.aabbMaxX, node.aabbMaxY, node.aabbMaxZ));
+}
+
+void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
+{
+    if (pairType < kRigidPairTypeCount)
+    {
+        ++counts[pairType];
+    }
 }
 
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -33,11 +47,16 @@ bool NodeOverlapsQuery(GpuBvhNode node, float3 queryMin, float3 queryMax)
     }
 
     const uint bodyId = g_ActiveBodyIndices[activeIndex];
+    const uint shapeTypeA = g_RigidBodyColliderShapeTypes[bodyId];
     const GpuBodyAabb bodyAabb = g_BodyAabbs[bodyId];
     const float3 queryMin = bodyAabb.minBounds.xyz;
     const float3 queryMax = bodyAabb.maxBounds.xyz;
 
-    uint pairCount = 0u;
+    uint typedCounts[kRigidPairTypeCount];
+    [unroll] for (uint i = 0u; i < kRigidPairTypeCount; ++i)
+    {
+        typedCounts[i] = 0u;
+    }
 
     if (activeDynamicCount > 1u)
     {
@@ -59,7 +78,9 @@ bool NodeOverlapsQuery(GpuBvhNode node, float3 queryMin, float3 queryMax)
                 const uint otherBodyId = node.primitiveIdx;
                 if (otherBodyId > bodyId)
                 {
-                    ++pairCount;
+                    IncrementTypedCount(
+                        ComputeRigidPairType(shapeTypeA, g_RigidBodyColliderShapeTypes[otherBodyId]),
+                        typedCounts);
                 }
                 continue;
             }
@@ -75,8 +96,7 @@ bool NodeOverlapsQuery(GpuBvhNode node, float3 queryMin, float3 queryMax)
         }
     }
 
-    // TODO: use a static BVH for static bodies
-    for (uint otherBodyId = 0u; otherBodyId < rigidBodyCount; ++otherBodyId)
+    [loop] for (uint otherBodyId = 0u; otherBodyId < rigidBodyCount; ++otherBodyId)
     {
         if ((g_BodyMeta[otherBodyId].flags & kBodyFlagDynamic) != 0u)
         {
@@ -86,9 +106,16 @@ bool NodeOverlapsQuery(GpuBvhNode node, float3 queryMin, float3 queryMax)
         const GpuBodyAabb otherAabb = g_BodyAabbs[otherBodyId];
         if (AabbOverlaps(queryMin, queryMax, otherAabb.minBounds.xyz, otherAabb.maxBounds.xyz))
         {
-            ++pairCount;
+            IncrementTypedCount(
+                ComputeRigidPairType(shapeTypeA, g_RigidBodyColliderShapeTypes[otherBodyId]),
+                typedCounts);
         }
     }
 
-    g_PairCounts[activeIndex] = pairCount;
+    g_PairCountsSphereSphere[activeIndex] = typedCounts[0];
+    g_PairCountsSphereBox[activeIndex] = typedCounts[1];
+    g_PairCountsSphereCapsule[activeIndex] = typedCounts[2];
+    g_PairCountsBoxBox[activeIndex] = typedCounts[3];
+    g_PairCountsBoxCapsule[activeIndex] = typedCounts[4];
+    g_PairCountsCapsuleCapsule[activeIndex] = typedCounts[5];
 }

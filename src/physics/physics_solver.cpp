@@ -27,6 +27,7 @@ namespace
 {
 
 constexpr std::uint32_t kComputeThreadGroupSize = 64u;
+constexpr std::uint32_t kNarrowPhaseChunkSize   = 128u;
 
 constexpr std::size_t stageIndex(PhysicsSolverStage stage)
 {
@@ -275,10 +276,14 @@ struct PhysicsSolver::Impl
         Diligent::RefCntAutoPtr<Diligent::IBuffer> radixMetaBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bvhBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bvhConstructionInfoBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> pairCountsBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> pairOffsetsBuffer;
+        std::array<Diligent::RefCntAutoPtr<Diligent::IBuffer>, kRigidPairTypeCount> pairCountBuffers;
+        std::array<Diligent::RefCntAutoPtr<Diligent::IBuffer>, kRigidPairTypeCount> pairOffsetBuffers;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidPairRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> candidatePairsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> broadPhaseMetaBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseChunksBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseMetaBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseChunkCounterBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> contactsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> translationCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rotationCorrectionsBuffer;
@@ -331,6 +336,8 @@ struct PhysicsSolver::Impl
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> finalizePairsSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> emitPairsPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> emitPairsSrb;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> buildNarrowPhaseChunksPso;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> buildNarrowPhaseChunksSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> generateContactsPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> generateContactsSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> solveGatherPso;
@@ -373,6 +380,7 @@ struct PhysicsSolver::Impl
     bool bindCountPairsBuffers();
     bool bindFinalizePairsBuffers();
     bool bindEmitPairsBuffers();
+    bool bindBuildNarrowPhaseChunksBuffers();
     bool bindGenerateContactsBuffers();
     bool bindSolveGatherBuffers();
     bool bindApplyCorrectionsBuffers();
@@ -419,8 +427,9 @@ struct PhysicsSolver::Impl
     bool dispatchFinalizePairsPass(Diligent::IDeviceContext* computeContext);
     bool dispatchEmitPairsPass(Diligent::IDeviceContext* computeContext,
                                std::uint32_t activeDynamicCount);
+    bool dispatchBuildNarrowPhaseChunksPass(Diligent::IDeviceContext* computeContext);
     bool dispatchGenerateContactsPass(Diligent::IDeviceContext* computeContext,
-                                      std::uint32_t pairCount);
+                                      std::uint32_t chunkCount);
     bool dispatchSolveGatherPass(Diligent::IDeviceContext* computeContext,
                                  std::uint32_t bodyCount);
     bool dispatchApplyCorrectionsPass(Diligent::IDeviceContext* computeContext,
@@ -707,7 +716,20 @@ bool PhysicsSolver::Impl::bindCountPairsBuffers()
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_BvhNodes", transientState.bvhBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        BufferBinding{"g_PairCounts", transientState.pairCountsBuffer,
+        BufferBinding{"g_RigidBodyColliderShapeTypes",
+                      persistentRigidBodies.colliderShapeTypesBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairCountsSphereSphere", transientState.pairCountBuffers[0],
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_PairCountsSphereBox", transientState.pairCountBuffers[1],
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_PairCountsSphereCapsule", transientState.pairCountBuffers[2],
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_PairCountsBoxBox", transientState.pairCountBuffers[3],
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_PairCountsBoxCapsule", transientState.pairCountBuffers[4],
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_PairCountsCapsuleCapsule", transientState.pairCountBuffers[5],
                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
     return bindBufferVariables(countPairsSrb, bindings);
@@ -718,10 +740,32 @@ bool PhysicsSolver::Impl::bindFinalizePairsBuffers()
     const std::array bindings{
         BufferBinding{"PhysicsDispatchConstantsBuffer", dispatchConstantsBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        BufferBinding{"g_PairCounts", transientState.pairCountsBuffer,
+        BufferBinding{"g_PairCountsSphereSphere", transientState.pairCountBuffers[0],
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        BufferBinding{"g_PairOffsets", transientState.pairOffsetsBuffer,
+        BufferBinding{"g_PairCountsSphereBox", transientState.pairCountBuffers[1],
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairCountsSphereCapsule", transientState.pairCountBuffers[2],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairCountsBoxBox", transientState.pairCountBuffers[3],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairCountsBoxCapsule", transientState.pairCountBuffers[4],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairCountsCapsuleCapsule", transientState.pairCountBuffers[5],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairOffsetsSphereSphere", transientState.pairOffsetBuffers[0],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairOffsetsSphereBox", transientState.pairOffsetBuffers[1],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairOffsetsSphereCapsule", transientState.pairOffsetBuffers[2],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairOffsetsBoxBox", transientState.pairOffsetBuffers[3],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairOffsetsBoxCapsule", transientState.pairOffsetBuffers[4],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairOffsetsCapsuleCapsule", transientState.pairOffsetBuffers[5],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_RigidPairRanges", transientState.rigidPairRangesBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         BufferBinding{"g_BroadPhaseMeta", transientState.broadPhaseMetaBuffer,
                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
@@ -741,7 +785,22 @@ bool PhysicsSolver::Impl::bindEmitPairsBuffers()
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_BvhNodes", transientState.bvhBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        BufferBinding{"g_PairOffsets", transientState.pairOffsetsBuffer,
+        BufferBinding{"g_RigidBodyColliderShapeTypes",
+                      persistentRigidBodies.colliderShapeTypesBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairOffsetsSphereSphere", transientState.pairOffsetBuffers[0],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairOffsetsSphereBox", transientState.pairOffsetBuffers[1],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairOffsetsSphereCapsule", transientState.pairOffsetBuffers[2],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairOffsetsBoxBox", transientState.pairOffsetBuffers[3],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairOffsetsBoxCapsule", transientState.pairOffsetBuffers[4],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_PairOffsetsCapsuleCapsule", transientState.pairOffsetBuffers[5],
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_RigidPairRanges", transientState.rigidPairRangesBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_CandidatePairs", transientState.candidatePairsBuffer,
                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
@@ -749,11 +808,24 @@ bool PhysicsSolver::Impl::bindEmitPairsBuffers()
     return bindBufferVariables(emitPairsSrb, bindings);
 }
 
+bool PhysicsSolver::Impl::bindBuildNarrowPhaseChunksBuffers()
+{
+    const std::array bindings{
+        BufferBinding{"g_RigidPairRanges", transientState.rigidPairRangesBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_NarrowPhaseChunks", transientState.narrowPhaseChunksBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_NarrowPhaseMeta", transientState.narrowPhaseMetaBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_NarrowPhaseChunkCounter", transientState.narrowPhaseChunkCounterBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+    return bindBufferVariables(buildNarrowPhaseChunksSrb, bindings);
+}
+
 bool PhysicsSolver::Impl::bindGenerateContactsBuffers()
 {
     const std::array bindings{
-        BufferBinding{"PhysicsDispatchConstantsBuffer", dispatchConstantsBuffer,
-                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_PredictedRigidBodyPositionsInvMass",
                       transientState.predictedRigidBodies.positionsBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -762,13 +834,16 @@ bool PhysicsSolver::Impl::bindGenerateContactsBuffers()
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_RigidBodyScales", persistentRigidBodies.scalesBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        BufferBinding{"g_RigidBodyColliderShapeTypes",
-                      persistentRigidBodies.colliderShapeTypesBuffer,
-                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_RigidBodyColliderParams", persistentRigidBodies.colliderParamsBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_CandidatePairs", transientState.candidatePairsBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_NarrowPhaseChunks", transientState.narrowPhaseChunksBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_NarrowPhaseMeta", transientState.narrowPhaseMetaBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_NarrowPhaseChunkCounter", transientState.narrowPhaseChunkCounterBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         BufferBinding{"g_RigidContacts", transientState.contactsBuffer,
                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
@@ -857,6 +932,7 @@ bool PhysicsSolver::Impl::bindAllPassBuffers()
            bindBvhHierarchyBuffers() &&
            bindBvhBoundingBoxesBuffers() && bindCountPairsBuffers() &&
            bindFinalizePairsBuffers() && bindEmitPairsBuffers() &&
+           bindBuildNarrowPhaseChunksBuffers() &&
            bindGenerateContactsBuffers() && bindSolveGatherBuffers() &&
            bindApplyCorrectionsBuffers() && bindUpdateVelocitiesBuffers();
 }
@@ -899,10 +975,24 @@ bool PhysicsSolver::Impl::ensureCapacity(Diligent::IRenderDevice* renderDevice,
         transientState.radixMetaBuffer != nullptr &&
         transientState.bvhBuffer != nullptr &&
         transientState.bvhConstructionInfoBuffer != nullptr &&
-        transientState.pairCountsBuffer != nullptr &&
-        transientState.pairOffsetsBuffer != nullptr &&
+        transientState.pairCountBuffers[0] != nullptr &&
+        transientState.pairCountBuffers[1] != nullptr &&
+        transientState.pairCountBuffers[2] != nullptr &&
+        transientState.pairCountBuffers[3] != nullptr &&
+        transientState.pairCountBuffers[4] != nullptr &&
+        transientState.pairCountBuffers[5] != nullptr &&
+        transientState.pairOffsetBuffers[0] != nullptr &&
+        transientState.pairOffsetBuffers[1] != nullptr &&
+        transientState.pairOffsetBuffers[2] != nullptr &&
+        transientState.pairOffsetBuffers[3] != nullptr &&
+        transientState.pairOffsetBuffers[4] != nullptr &&
+        transientState.pairOffsetBuffers[5] != nullptr &&
+        transientState.rigidPairRangesBuffer != nullptr &&
         transientState.candidatePairsBuffer != nullptr &&
         transientState.broadPhaseMetaBuffer != nullptr &&
+        transientState.narrowPhaseChunksBuffer != nullptr &&
+        transientState.narrowPhaseMetaBuffer != nullptr &&
+        transientState.narrowPhaseChunkCounterBuffer != nullptr &&
         transientState.contactsBuffer != nullptr &&
         transientState.translationCorrectionsBuffer != nullptr &&
         transientState.rotationCorrectionsBuffer != nullptr &&
@@ -921,6 +1011,10 @@ bool PhysicsSolver::Impl::ensureCapacity(Diligent::IRenderDevice* renderDevice,
         std::max<std::uint32_t>(newCapacity > 0u ? (newCapacity * 2u - 1u) : 1u, 1u);
     const std::uint32_t newCandidatePairCapacity =
         estimateRigidCandidatePairCapacity(newCapacity);
+    const std::uint32_t newChunkCapacity =
+        std::max<std::uint32_t>((newCandidatePairCapacity + kNarrowPhaseChunkSize - 1u) /
+                                    kNarrowPhaseChunkSize,
+                                1u);
     const std::uint32_t newContactCap =
         std::max<std::uint32_t>(newCandidatePairCapacity * kRigidContactsPerPair,
                                 kRigidContactsPerPair);
@@ -1068,16 +1162,71 @@ bool PhysicsSolver::Impl::ensureCapacity(Diligent::IRenderDevice* renderDevice,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 transientState.bvhConstructionInfoBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PairCounts",
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PairCountsSphereSphere",
                                 sizeof(std::uint32_t), newCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                transientState.pairCountsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PairOffsets",
+                                transientState.pairCountBuffers[0]) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PairCountsSphereBox",
                                 sizeof(std::uint32_t), newCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                transientState.pairOffsetsBuffer) ||
+                                transientState.pairCountBuffers[1]) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PairCountsSphereCapsule",
+                                sizeof(std::uint32_t), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                transientState.pairCountBuffers[2]) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PairCountsBoxBox",
+                                sizeof(std::uint32_t), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                transientState.pairCountBuffers[3]) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PairCountsBoxCapsule",
+                                sizeof(std::uint32_t), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                transientState.pairCountBuffers[4]) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PairCountsCapsuleCapsule",
+                                sizeof(std::uint32_t), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                transientState.pairCountBuffers[5]) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PairOffsetsSphereSphere",
+                                sizeof(std::uint32_t), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                transientState.pairOffsetBuffers[0]) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PairOffsetsSphereBox",
+                                sizeof(std::uint32_t), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                transientState.pairOffsetBuffers[1]) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PairOffsetsSphereCapsule",
+                                sizeof(std::uint32_t), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                transientState.pairOffsetBuffers[2]) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PairOffsetsBoxBox",
+                                sizeof(std::uint32_t), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                transientState.pairOffsetBuffers[3]) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PairOffsetsBoxCapsule",
+                                sizeof(std::uint32_t), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                transientState.pairOffsetBuffers[4]) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PairOffsetsCapsuleCapsule",
+                                sizeof(std::uint32_t), newCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                transientState.pairOffsetBuffers[5]) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidPairRanges",
+                                sizeof(GpuRigidPairRange), kRigidPairTypeCount,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                transientState.rigidPairRangesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.CandidatePairs",
                                 sizeof(GpuCandidatePair), newCandidatePairCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -1088,6 +1237,21 @@ bool PhysicsSolver::Impl::ensureCapacity(Diligent::IRenderDevice* renderDevice,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 transientState.broadPhaseMetaBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.NarrowPhaseChunks",
+                                sizeof(GpuNarrowPhaseChunk), newChunkCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                transientState.narrowPhaseChunksBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.NarrowPhaseMeta",
+                                sizeof(GpuNarrowPhaseMeta), 1u,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                transientState.narrowPhaseMetaBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.NarrowPhaseChunkCounter",
+                                sizeof(std::uint32_t), 1u,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                transientState.narrowPhaseChunkCounterBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidContacts",
                                 sizeof(GpuRigidContact), newContactCap,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -1675,6 +1839,22 @@ bool PhysicsSolver::Impl::dispatchEmitPairsPass(Diligent::IDeviceContext* comput
     return true;
 }
 
+bool PhysicsSolver::Impl::dispatchBuildNarrowPhaseChunksPass(
+    Diligent::IDeviceContext* computeContext)
+{
+    if (computeContext == nullptr || buildNarrowPhaseChunksPso == nullptr ||
+        buildNarrowPhaseChunksSrb == nullptr)
+    {
+        return false;
+    }
+
+    computeContext->SetPipelineState(buildNarrowPhaseChunksPso);
+    computeContext->CommitShaderResources(buildNarrowPhaseChunksSrb,
+                                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->DispatchCompute(Diligent::DispatchComputeAttribs{1u, 1u, 1u});
+    return true;
+}
+
 bool PhysicsSolver::Impl::dispatchGenerateContactsPass(Diligent::IDeviceContext* computeContext,
                                                        std::uint32_t pairCount)
 {
@@ -1687,11 +1867,14 @@ bool PhysicsSolver::Impl::dispatchGenerateContactsPass(Diligent::IDeviceContext*
         return true;
     }
 
+    const std::uint32_t dispatchGroupUpperBound =
+        ((pairCount + kNarrowPhaseChunkSize - 1u) / kNarrowPhaseChunkSize) +
+        (kRigidPairTypeCount - 1u);
     computeContext->SetPipelineState(generateContactsPso);
     computeContext->CommitShaderResources(generateContactsSrb,
                                           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     computeContext->DispatchCompute(
-        Diligent::DispatchComputeAttribs{dispatchGroupCount(pairCount), 1u, 1u});
+        Diligent::DispatchComputeAttribs{dispatchGroupUpperBound, 1u, 1u});
     return true;
 }
 
@@ -2264,7 +2447,19 @@ bool PhysicsSolver::initialize()
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "g_BvhNodes",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "g_PairCounts",
+        {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyColliderShapeTypes",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairCountsSphereSphere",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairCountsSphereBox",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairCountsSphereCapsule",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairCountsBoxBox",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairCountsBoxCapsule",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairCountsCapsuleCapsule",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     };
     if (!createComputePipeline(computeContext.renderDevice, streamFactory,
@@ -2282,9 +2477,31 @@ bool PhysicsSolver::initialize()
     constexpr Diligent::ShaderResourceVariableDesc kFinalizePairsVars[] = {
         {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "g_PairCounts",
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairCountsSphereSphere",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "g_PairOffsets",
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairCountsSphereBox",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairCountsSphereCapsule",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairCountsBoxBox",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairCountsBoxCapsule",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairCountsCapsuleCapsule",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairOffsetsSphereSphere",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairOffsetsSphereBox",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairOffsetsSphereCapsule",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairOffsetsBoxBox",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairOffsetsBoxCapsule",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairOffsetsCapsuleCapsule",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_RigidPairRanges",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "g_BroadPhaseMeta",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2312,7 +2529,21 @@ bool PhysicsSolver::initialize()
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "g_BvhNodes",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "g_PairOffsets",
+        {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyColliderShapeTypes",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairOffsetsSphereSphere",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairOffsetsSphereBox",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairOffsetsSphereCapsule",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairOffsetsBoxBox",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairOffsetsBoxCapsule",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_PairOffsetsCapsuleCapsule",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_RigidPairRanges",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "g_CandidatePairs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2329,6 +2560,31 @@ bool PhysicsSolver::initialize()
         return false;
     }
 
+    constexpr Diligent::ShaderResourceVariableDesc kBuildNarrowPhaseChunksVars[] = {
+        {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_RigidPairRanges",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_NarrowPhaseChunks",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_NarrowPhaseMeta",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_NarrowPhaseChunkCounter",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    };
+    if (!createComputePipeline(computeContext.renderDevice, streamFactory,
+                               "physics/physics_rigid_build_narrow_phase_chunks.cs.hlsl",
+                               "CRESSimNeo.Physics.RigidBuildNarrowPhaseChunks.CS",
+                               "CRESSimNeo.Physics.RigidBuildNarrowPhaseChunks.PSO",
+                               physicsContextMask, kBuildNarrowPhaseChunksVars,
+                               std::size(kBuildNarrowPhaseChunksVars),
+                               mImpl->buildNarrowPhaseChunksPso,
+                               mImpl->buildNarrowPhaseChunksSrb))
+    {
+        LOG_ERROR_MESSAGE("PhysicsSolver: failed to create narrow-phase chunk build pipeline.");
+        return false;
+    }
+
     constexpr Diligent::ShaderResourceVariableDesc kGenerateContactsVars[] = {
         {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2338,11 +2594,15 @@ bool PhysicsSolver::initialize()
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyScales",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyColliderShapeTypes",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyColliderParams",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "g_CandidatePairs",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_NarrowPhaseChunks",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_NarrowPhaseMeta",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_NarrowPhaseChunkCounter",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_COMPUTE, "g_RigidContacts",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2621,13 +2881,17 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
                 return false;
             }
 
-            if (!mImpl->dispatchExclusiveScanPass(computeBackend.computeContext,
-                                                  mImpl->transientState.pairCountsBuffer,
-                                                  mImpl->transientState.pairOffsetsBuffer,
-                                                  activeDynamicCount, constants))
+            for (std::uint32_t pairType = 0u; pairType < kRigidPairTypeCount; ++pairType)
             {
-                LOG_ERROR_MESSAGE("PhysicsSolver::step failed: Pair offset scan dispatch.");
-                return false;
+                if (!mImpl->dispatchExclusiveScanPass(
+                        computeBackend.computeContext,
+                        mImpl->transientState.pairCountBuffers[pairType],
+                        mImpl->transientState.pairOffsetBuffers[pairType],
+                        activeDynamicCount, constants))
+                {
+                    LOG_ERROR_MESSAGE("PhysicsSolver::step failed: typed pair offset scan dispatch.");
+                    return false;
+                }
             }
 
             constants.candidatePairCapacity = mImpl->candidatePairCapacity;
@@ -2658,9 +2922,10 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             constants.candidatePairCount = pairCount;
             if (!writeDispatchConstants(computeBackend.computeContext, mImpl->dispatchConstantsBuffer,
                                         constants) ||
-                !mImpl->dispatchEmitPairsPass(computeBackend.computeContext, activeDynamicCount))
+                !mImpl->dispatchEmitPairsPass(computeBackend.computeContext, activeDynamicCount) ||
+                !mImpl->dispatchBuildNarrowPhaseChunksPass(computeBackend.computeContext))
             {
-                LOG_ERROR_MESSAGE("PhysicsSolver::step failed: EmitPairs dispatch.");
+                LOG_ERROR_MESSAGE("PhysicsSolver::step failed: typed pair emission dispatch.");
                 return false;
             }
             markStage(mImpl->stageStats, PhysicsSolverStage::GenerateBroadPhasePairs, true);

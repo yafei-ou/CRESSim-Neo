@@ -15,9 +15,12 @@ cbuffer PhysicsDispatchConstantsBuffer
 StructuredBuffer<float4> g_PredictedRigidBodyPositionsInvMass;
 StructuredBuffer<float4> g_PredictedRigidBodyOrientations;
 StructuredBuffer<float4> g_RigidBodyScales;
-StructuredBuffer<uint> g_RigidBodyColliderShapeTypes;
 StructuredBuffer<float4> g_RigidBodyColliderParams;
 StructuredBuffer<GpuCandidatePair> g_CandidatePairs;
+StructuredBuffer<GpuNarrowPhaseChunk> g_NarrowPhaseChunks;
+StructuredBuffer<GpuNarrowPhaseMeta> g_NarrowPhaseMeta;
+
+RWStructuredBuffer<uint> g_NarrowPhaseChunkCounter;
 
 RWStructuredBuffer<GpuRigidContact> g_RigidContacts;
 
@@ -686,14 +689,8 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
     return selectedCount;
 }
 
-[numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
+void ClearPairContacts(uint pairIndex)
 {
-    const uint pairIndex = dispatchThreadID.x;
-    if (pairIndex >= candidatePairCount)
-    {
-        return;
-    }
-
     const uint contactBaseIndex = pairIndex * kRigidContactsPerPair;
     [unroll] for (uint contactOffset = 0u; contactOffset < kRigidContactsPerPair; ++contactOffset)
     {
@@ -707,6 +704,12 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
         cleared.localPointB = 0.0;
         g_RigidContacts[contactBaseIndex + contactOffset] = cleared;
     }
+}
+
+void ProcessPair(uint pairIndex, uint pairType)
+{
+    ClearPairContacts(pairIndex);
+    const uint contactBaseIndex = pairIndex * kRigidContactsPerPair;
 
     const GpuCandidatePair pair = g_CandidatePairs[pairIndex];
     const uint bodyA = pair.bodyA;
@@ -721,12 +724,13 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
 
     const float4 orientationA = QuaternionNormalize(g_PredictedRigidBodyOrientations[bodyA]);
     const float4 orientationB = QuaternionNormalize(g_PredictedRigidBodyOrientations[bodyB]);
-    const uint shapeTypeA = g_RigidBodyColliderShapeTypes[bodyA];
-    const uint shapeTypeB = g_RigidBodyColliderShapeTypes[bodyB];
     const float4 colliderParamsA = g_RigidBodyColliderParams[bodyA];
     const float4 colliderParamsB = g_RigidBodyColliderParams[bodyB];
     const float4 scaleA = g_RigidBodyScales[bodyA];
     const float4 scaleB = g_RigidBodyScales[bodyB];
+    uint shapeTypeA = 0u;
+    uint shapeTypeB = 0u;
+    PairTypeToShapeTypes(pairType, shapeTypeA, shapeTypeB);
 
     float3 aabbMinA;
     float3 aabbMaxA;
@@ -746,7 +750,7 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
     float3 pointBWorld = 0.0;
     float penetration = 0.0;
 
-    if (shapeTypeA == kColliderBox && shapeTypeB == kColliderBox)
+    if (pairType == 3u)
     {
         float3 satNormal = 0.0;
         float satPenetration = 0.0;
@@ -814,4 +818,53 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
     contact.localPointA = float4(QuaternionInverseRotate(orientationA, pointAWorld - positionInvMassA.xyz), 1.0);
     contact.localPointB = float4(QuaternionInverseRotate(orientationB, pointBWorld - positionInvMassB.xyz), 1.0);
     g_RigidContacts[contactBaseIndex] = contact;
+}
+
+groupshared uint s_ChunkId;
+groupshared uint s_ChunkPairType;
+groupshared uint s_ChunkPairStart;
+groupshared uint s_ChunkPairCount;
+
+[numthreads(128, 1, 1)] void main(uint3 groupThreadID : SV_GroupThreadID)
+{
+    const uint totalChunks = g_NarrowPhaseMeta[0].chunkCount;
+    if (totalChunks == 0u)
+    {
+        return;
+    }
+
+    while (true)
+    {
+        if (groupThreadID.x == 0u)
+        {
+            InterlockedAdd(g_NarrowPhaseChunkCounter[0], 1u, s_ChunkId);
+            if (s_ChunkId < totalChunks)
+            {
+                const GpuNarrowPhaseChunk chunk = g_NarrowPhaseChunks[s_ChunkId];
+                s_ChunkPairType = chunk.pairType;
+                s_ChunkPairStart = chunk.pairStart;
+                s_ChunkPairCount = chunk.pairCount;
+            }
+            else
+            {
+                s_ChunkPairType = 0u;
+                s_ChunkPairStart = 0u;
+                s_ChunkPairCount = 0u;
+            }
+        }
+        GroupMemoryBarrierWithGroupSync();
+
+        if (s_ChunkId >= totalChunks)
+        {
+            return;
+        }
+
+        const uint localPairOffset = groupThreadID.x;
+        if (localPairOffset < s_ChunkPairCount)
+        {
+            ProcessPair(s_ChunkPairStart + localPairOffset, s_ChunkPairType);
+        }
+
+        GroupMemoryBarrierWithGroupSync();
+    }
 }
