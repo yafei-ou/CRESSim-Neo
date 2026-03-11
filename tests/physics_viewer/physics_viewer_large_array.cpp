@@ -462,7 +462,7 @@ int main(int argc, char** argv)
 
     constexpr int kGridWidth = 10;
     constexpr int kGridDepth = 10;
-    constexpr int kLayers = 5;
+    constexpr int kLayers = 10;
     constexpr float kSpacing = 1.4f;
     constexpr float kBaseHeight = 1.5f;
     constexpr float kLayerHeight = 2.0f;

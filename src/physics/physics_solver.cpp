@@ -340,6 +340,8 @@ struct PhysicsSolver::Impl
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> buildNarrowPhaseChunksSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> generateContactsPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> generateContactsSrb;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> clearCorrectionsPso;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> clearCorrectionsSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> solveGatherPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> solveGatherSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> applyCorrectionsPso;
@@ -356,6 +358,7 @@ struct PhysicsSolver::Impl
     std::uint32_t broadPhaseNodeCapacity = 0;
     std::uint32_t candidatePairCapacity = 0;
     std::uint32_t contactCapacity = 0;
+    bool correctionBuffersNeedClear = false;
     PhysicsSolverStageStats stageStats{};
 
     bool bindPredictBuffers();
@@ -382,6 +385,7 @@ struct PhysicsSolver::Impl
     bool bindEmitPairsBuffers();
     bool bindBuildNarrowPhaseChunksBuffers();
     bool bindGenerateContactsBuffers();
+    bool bindClearCorrectionsBuffers();
     bool bindSolveGatherBuffers();
     bool bindApplyCorrectionsBuffers();
     bool bindUpdateVelocitiesBuffers();
@@ -430,8 +434,10 @@ struct PhysicsSolver::Impl
     bool dispatchBuildNarrowPhaseChunksPass(Diligent::IDeviceContext* computeContext);
     bool dispatchGenerateContactsPass(Diligent::IDeviceContext* computeContext,
                                       std::uint32_t chunkCount);
+    bool dispatchClearCorrectionsPass(Diligent::IDeviceContext* computeContext,
+                                      std::uint32_t bodyCount);
     bool dispatchSolveGatherPass(Diligent::IDeviceContext* computeContext,
-                                 std::uint32_t bodyCount);
+                                 std::uint32_t pairCount);
     bool dispatchApplyCorrectionsPass(Diligent::IDeviceContext* computeContext,
                                       std::uint32_t bodyCount);
     bool dispatchUpdateVelocitiesPass(Diligent::IDeviceContext* computeContext,
@@ -850,6 +856,20 @@ bool PhysicsSolver::Impl::bindGenerateContactsBuffers()
     return bindBufferVariables(generateContactsSrb, bindings);
 }
 
+bool PhysicsSolver::Impl::bindClearCorrectionsBuffers()
+{
+    const std::array bindings{
+        BufferBinding{"PhysicsDispatchConstantsBuffer", dispatchConstantsBuffer,
+                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_RigidBodyTranslationCorrections",
+                      transientState.translationCorrectionsBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_RigidBodyRotationCorrections", transientState.rotationCorrectionsBuffer,
+                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+    return bindBufferVariables(clearCorrectionsSrb, bindings);
+}
+
 bool PhysicsSolver::Impl::bindSolveGatherBuffers()
 {
     const std::array bindings{
@@ -933,7 +953,8 @@ bool PhysicsSolver::Impl::bindAllPassBuffers()
            bindBvhBoundingBoxesBuffers() && bindCountPairsBuffers() &&
            bindFinalizePairsBuffers() && bindEmitPairsBuffers() &&
            bindBuildNarrowPhaseChunksBuffers() &&
-           bindGenerateContactsBuffers() && bindSolveGatherBuffers() &&
+           bindGenerateContactsBuffers() && bindClearCorrectionsBuffers() &&
+           bindSolveGatherBuffers() &&
            bindApplyCorrectionsBuffers() && bindUpdateVelocitiesBuffers();
 }
 
@@ -1258,12 +1279,12 @@ bool PhysicsSolver::Impl::ensureCapacity(Diligent::IRenderDevice* renderDevice,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 transientState.contactsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.TranslationCorrections",
-                                sizeof(Diligent::float4), newCapacity,
+                                sizeof(std::int32_t) * 4u, newCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 transientState.translationCorrectionsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RotationCorrections",
-                                sizeof(Diligent::float4), newCapacity,
+                                sizeof(std::int32_t) * 4u, newCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 transientState.rotationCorrectionsBuffer) ||
@@ -1334,6 +1355,7 @@ bool PhysicsSolver::Impl::ensureCapacity(Diligent::IRenderDevice* renderDevice,
     broadPhaseNodeCapacity = newNodeCapacity;
     candidatePairCapacity = newCandidatePairCapacity;
     contactCapacity = newContactCap;
+    correctionBuffersNeedClear = true;
     return bindAllPassBuffers();
 }
 
@@ -1878,17 +1900,44 @@ bool PhysicsSolver::Impl::dispatchGenerateContactsPass(Diligent::IDeviceContext*
     return true;
 }
 
+// TODO: solve gather currently uses quantized int atomics into per-body correction buffers.
+// This is acceptable as a temporary GPU path, but it trades precision for simplicity and
+// can suffer from contention on heavily connected bodies.
+//
+// Longer term, switch to a contact-centric contribution pipeline:
+// 1. one thread per contact/constraint computes contributions for body A and body B
+// 2. write those contributions into a temporary buffer (2 * N contacts/constraints)
+// 3. reduce contributions per body into final translation/rotation corrections
+// 4. apply the reduced corrections in a separate per-body pass
 bool PhysicsSolver::Impl::dispatchSolveGatherPass(Diligent::IDeviceContext* computeContext,
-                                                  std::uint32_t bodyCount)
+                                                  std::uint32_t pairCount)
 {
     if (computeContext == nullptr || solveGatherPso == nullptr || solveGatherSrb == nullptr ||
-        bodyCount == 0u)
+        pairCount == 0u)
     {
         return false;
     }
 
+    const std::uint32_t contactSlotCount = pairCount * kRigidContactsPerPair;
     computeContext->SetPipelineState(solveGatherPso);
     computeContext->CommitShaderResources(solveGatherSrb,
+                                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->DispatchCompute(
+        Diligent::DispatchComputeAttribs{dispatchGroupCount(contactSlotCount), 1u, 1u});
+    return true;
+}
+
+bool PhysicsSolver::Impl::dispatchClearCorrectionsPass(Diligent::IDeviceContext* computeContext,
+                                                       std::uint32_t bodyCount)
+{
+    if (computeContext == nullptr || clearCorrectionsPso == nullptr ||
+        clearCorrectionsSrb == nullptr || bodyCount == 0u)
+    {
+        return false;
+    }
+
+    computeContext->SetPipelineState(clearCorrectionsPso);
+    computeContext->CommitShaderResources(clearCorrectionsSrb,
                                           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     computeContext->DispatchCompute(
         Diligent::DispatchComputeAttribs{dispatchGroupCount(bodyCount), 1u, 1u});
@@ -2648,6 +2697,26 @@ bool PhysicsSolver::initialize()
         return false;
     }
 
+    constexpr Diligent::ShaderResourceVariableDesc kClearCorrectionsVars[] = {
+        {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTranslationCorrections",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyRotationCorrections",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    };
+    if (!createComputePipeline(computeContext.renderDevice, streamFactory,
+                               "physics/physics_rigid_clear_corrections.cs.hlsl",
+                               "CRESSimNeo.Physics.RigidClearCorrections.CS",
+                               "CRESSimNeo.Physics.RigidClearCorrections.PSO",
+                               physicsContextMask,
+                               kClearCorrectionsVars, std::size(kClearCorrectionsVars),
+                               mImpl->clearCorrectionsPso, mImpl->clearCorrectionsSrb))
+    {
+        LOG_ERROR_MESSAGE("PhysicsSolver: failed to create rigid correction clear pipeline.");
+        return false;
+    }
+
     constexpr Diligent::ShaderResourceVariableDesc kApplyCorrectionsVars[] = {
         {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2797,6 +2866,18 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         constants.substepIndex          = substep;
         constants.iterationIndex        = 0u;
         constants.solverIterations      = iterations;
+
+        if (mImpl->correctionBuffersNeedClear)
+        {
+            if (!writeDispatchConstants(computeBackend.computeContext, mImpl->dispatchConstantsBuffer,
+                                        constants) ||
+                !mImpl->dispatchClearCorrectionsPass(computeBackend.computeContext, rigidBodyCount))
+            {
+                LOG_ERROR_MESSAGE("PhysicsSolver::step failed: ClearCorrections dispatch.");
+                return false;
+            }
+            mImpl->correctionBuffersNeedClear = false;
+        }
 
         // Rigid body prediction
 
@@ -2956,7 +3037,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
                 constants.iterationIndex = iteration;
                 if (!writeDispatchConstants(computeBackend.computeContext,
                                             mImpl->dispatchConstantsBuffer, constants) ||
-                    !mImpl->dispatchSolveGatherPass(computeBackend.computeContext, rigidBodyCount) ||
+                    !mImpl->dispatchSolveGatherPass(computeBackend.computeContext, pairCount) ||
                     !mImpl->dispatchApplyCorrectionsPass(computeBackend.computeContext,
                                                          rigidBodyCount))
                 {

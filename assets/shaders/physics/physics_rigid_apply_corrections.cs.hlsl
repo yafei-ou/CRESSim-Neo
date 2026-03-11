@@ -12,10 +12,12 @@ cbuffer PhysicsDispatchConstantsBuffer
 
 #include "physics/physics_rigid_common.hlsli"
 
+static const float kCorrectionAtomicScale = 100000.0;
+
 RWStructuredBuffer<float4> g_PredictedRigidBodyPositionsInvMass;
 RWStructuredBuffer<float4> g_PredictedRigidBodyOrientations;
-RWStructuredBuffer<float4> g_RigidBodyTranslationCorrections;
-RWStructuredBuffer<float4> g_RigidBodyRotationCorrections;
+RWStructuredBuffer<int4> g_RigidBodyTranslationCorrections;
+RWStructuredBuffer<int4> g_RigidBodyRotationCorrections;
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -28,8 +30,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     float4 positionInvMass = g_PredictedRigidBodyPositionsInvMass[bodyIndex];
     float4 orientation = QuaternionNormalize(g_PredictedRigidBodyOrientations[bodyIndex]);
-    const float3 translationCorrection = g_RigidBodyTranslationCorrections[bodyIndex].xyz;
-    const float3 rotationCorrection = g_RigidBodyRotationCorrections[bodyIndex].xyz;
+    const float3 translationCorrection =
+        float3(g_RigidBodyTranslationCorrections[bodyIndex].xyz) / kCorrectionAtomicScale;
+    const float3 rotationCorrection =
+        float3(g_RigidBodyRotationCorrections[bodyIndex].xyz) / kCorrectionAtomicScale;
 
     if (positionInvMass.w != 0.0)
     {
@@ -41,6 +45,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     g_PredictedRigidBodyPositionsInvMass[bodyIndex] = positionInvMass;
     g_PredictedRigidBodyOrientations[bodyIndex] = orientation;
-    g_RigidBodyTranslationCorrections[bodyIndex] = 0.0;
-    g_RigidBodyRotationCorrections[bodyIndex] = 0.0;
+    g_RigidBodyTranslationCorrections[bodyIndex] = int4(0, 0, 0, 0);
+    g_RigidBodyRotationCorrections[bodyIndex] = int4(0, 0, 0, 0);
 }
