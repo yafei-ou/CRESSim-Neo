@@ -1,0 +1,123 @@
+#ifndef CRESSIM_NEO_PHYSICS_PHYSICS_SCENE_GPU_STATE_H
+#define CRESSIM_NEO_PHYSICS_PHYSICS_SCENE_GPU_STATE_H
+
+#include "physics/rigid_body_common.h"
+#include "physics/physics_world.h"
+
+#include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
+
+#include <array>
+#include <cstdint>
+#include <vector>
+
+namespace cressim::neo::physics
+{
+
+class PhysicsSceneGpuState
+{
+public:
+    struct PersistentRigidBodyBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> orientationsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> scalesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> linearVelocitiesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> angularVelocitiesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> inverseInertiaLocalBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> colliderShapeTypesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> colliderParamsBuffer;
+    };
+
+    struct PredictedRigidBodyBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> orientationsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> linearVelocitiesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> angularVelocitiesBuffer;
+    };
+
+    struct PreviousRigidBodyBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> orientationsBuffer;
+    };
+
+    struct SolverTransientBuffers
+    {
+        PredictedRigidBodyBuffers predictedRigidBodies;
+        PreviousRigidBodyBuffers previousRigidBodies;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyAabbsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyMetaBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> activeBodyFlagsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> activeBodyOffsetsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> activeBodyIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> broadPhaseElementsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> mortonCodesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> mortonCodesScratchBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> globalBroadPhaseExtentBuffer;
+        std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> scanBlockSumsBuffers;
+        std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> scanScannedBlockSumsBuffers;
+        std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> broadPhaseExtentScratchBuffers;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> radixBitFlagsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> radixBitOffsetsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> radixMetaBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> bvhBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> bvhConstructionInfoBuffer;
+        std::array<Diligent::RefCntAutoPtr<Diligent::IBuffer>, kRigidPairTypeCount>
+            pairCountBuffers;
+        std::array<Diligent::RefCntAutoPtr<Diligent::IBuffer>, kRigidPairTypeCount>
+            pairOffsetBuffers;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidPairRangesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> candidatePairsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> broadPhaseMetaBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseChunksBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseMetaBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseChunkCounterBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> contactsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> translationCorrectionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> rotationCorrectionsBuffer;
+    };
+
+    struct RigidBodyReadbackBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> orientationsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> linearVelocitiesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> angularVelocitiesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> broadPhaseMetaBuffer;
+    };
+
+    bool ensureCapacity(Diligent::IRenderDevice* renderDevice, std::uint32_t bodyCount,
+                        std::uint32_t physicsContextId);
+    bool uploadRigidBodyState(Diligent::IDeviceContext* computeContext, PhysicsWorld& world,
+                              std::uint32_t bodyCount);
+    bool copyPredictedRigidBodiesToPersistentState(Diligent::IDeviceContext* computeContext,
+                                                   std::uint32_t bodyCount);
+    bool readbackBroadPhaseMetaBlocking(Diligent::IDeviceContext* computeContext,
+                                        GpuBroadPhaseMeta& outMeta);
+    bool readbackPredictedRigidStateBlocking(Diligent::IDeviceContext* computeContext,
+                                             PhysicsWorld& world, std::uint32_t bodyCount);
+
+    const PersistentRigidBodyBuffers& persistentRigidBodies() const noexcept;
+    const SolverTransientBuffers& transientBuffers() const noexcept;
+    std::uint32_t candidatePairCapacity() const noexcept;
+    bool correctionBuffersNeedClear() const noexcept;
+    void setCorrectionBuffersNeedClear(bool needClear) noexcept;
+
+private:
+    PersistentRigidBodyBuffers mPersistentRigidBodies;
+    SolverTransientBuffers mTransientState;
+    RigidBodyReadbackBuffers mReadbackRigidBodies;
+    std::uint32_t mBufferCapacity         = 0;
+    std::uint32_t mBroadPhaseNodeCapacity = 0;
+    std::uint32_t mCandidatePairCapacity = 0;
+    std::uint32_t mContactCapacity       = 0;
+    bool mCorrectionBuffersNeedClear     = false;
+};
+
+} // namespace cressim::neo::physics
+
+#endif // CRESSIM_NEO_PHYSICS_PHYSICS_SCENE_GPU_STATE_H
