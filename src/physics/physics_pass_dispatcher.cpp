@@ -786,7 +786,7 @@ bool PhysicsPassDispatcher::dispatchScanBlockPass(Diligent::IDeviceContext* comp
     }
 
     GpuRigidDispatchConstants scanConstants = constants;
-    scanConstants.candidatePairCapacity     = count;
+    scanConstants.candidatePairCapacity     = count; // TODO: hack to reuse the scan shader
     if (!writeDispatchConstants(computeContext, scanConstants))
     {
         return false;
@@ -886,9 +886,14 @@ bool PhysicsPassDispatcher::clearCorrections(Diligent::IDeviceContext* computeCo
                                              const GpuRigidDispatchConstants& constants)
 {
     if (computeContext == nullptr || mClearCorrectionsPso == nullptr ||
-        mClearCorrectionsSrb == nullptr || bodyCount == 0u)
+        mClearCorrectionsSrb == nullptr)
     {
         return false;
+    }
+    if (bodyCount == 0u)
+    {
+        sceneState.setCorrectionBuffersNeedClear(false);
+        return true;
     }
 
     const auto& transientState = sceneState.transientBuffers();
@@ -920,10 +925,13 @@ bool PhysicsPassDispatcher::predict(Diligent::IDeviceContext* computeContext,
                                     const PhysicsSceneGpuState& sceneState, std::uint32_t bodyCount,
                                     const GpuRigidDispatchConstants& constants)
 {
-    if (computeContext == nullptr || mPredictPso == nullptr || mPredictSrb == nullptr ||
-        bodyCount == 0u)
+    if (computeContext == nullptr || mPredictPso == nullptr || mPredictSrb == nullptr)
     {
         return false;
+    }
+    if (bodyCount == 0u)
+    {
+        return true;
     }
 
     const auto& persistent = sceneState.persistentRigidBodies();
@@ -978,9 +986,13 @@ bool PhysicsPassDispatcher::updateWorldAabbs(Diligent::IDeviceContext* computeCo
                                              const GpuRigidDispatchConstants& constants)
 {
     if (computeContext == nullptr || mUpdateWorldAabbsPso == nullptr ||
-        mUpdateWorldAabbsSrb == nullptr || bodyCount == 0u)
+        mUpdateWorldAabbsSrb == nullptr)
     {
         return false;
+    }
+    if (bodyCount == 0u)
+    {
+        return true;
     }
 
     const auto& persistent = sceneState.persistentRigidBodies();
@@ -1026,6 +1038,17 @@ bool PhysicsPassDispatcher::compactActiveBodies(Diligent::IDeviceContext* comput
                                                 std::uint32_t bodyCount,
                                                 const GpuRigidDispatchConstants& constants)
 {
+    // Conceptual example:
+    //
+    // full body domain:
+    // - bodyIndex:          0 1 2 3 4 5
+    // - active flags:       0 1 0 1 1 0
+    // - exclusive offsets:  0 0 1 1 2 3
+    //
+    // compact domain:
+    // - activeIndex:        0 1 2
+    // - activeBodyIndices:  1 3 4
+
     if (!dispatchExclusiveScanPass(
             computeContext, sceneState, sceneState.transientBuffers().activeBodyFlagsBuffer,
             sceneState.transientBuffers().activeBodyOffsetsBuffer, bodyCount, constants))
@@ -1267,9 +1290,13 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
                                             std::uint32_t activeDynamicCount,
                                             const GpuRigidDispatchConstants& constants)
 {
-    if (computeContext == nullptr || activeDynamicCount == 0u)
+    if (computeContext == nullptr)
     {
         return false;
+    }
+    if (activeDynamicCount == 0u)
+    {
+        return true;
     }
 
     const auto& transient = sceneState.transientBuffers();
@@ -1372,9 +1399,13 @@ bool PhysicsPassDispatcher::finalizeBroadPhasePairs(Diligent::IDeviceContext* co
                                                     std::uint32_t activeDynamicCount,
                                                     const GpuRigidDispatchConstants& constants)
 {
-    if (computeContext == nullptr || activeDynamicCount == 0u)
+    if (computeContext == nullptr)
     {
         return false;
+    }
+    if (activeDynamicCount == 0u)
+    {
+        return true;
     }
 
     const auto& persistent = sceneState.persistentRigidBodies();
@@ -1474,9 +1505,13 @@ bool PhysicsPassDispatcher::emitBroadPhasePairs(Diligent::IDeviceContext* comput
                                                 std::uint32_t activeDynamicCount,
                                                 const GpuRigidDispatchConstants& constants)
 {
-    if (computeContext == nullptr || activeDynamicCount == 0u)
+    if (computeContext == nullptr)
     {
         return false;
+    }
+    if (activeDynamicCount == 0u)
+    {
+        return true;
     }
 
     const auto& persistent = sceneState.persistentRigidBodies();
@@ -1660,9 +1695,13 @@ bool PhysicsPassDispatcher::solveConstraints(Diligent::IDeviceContext* computeCo
                                              std::uint32_t iterations,
                                              const GpuRigidDispatchConstants& constants)
 {
-    if (computeContext == nullptr || pairCount == 0u || iterations == 0u)
+    if (computeContext == nullptr)
     {
         return false;
+    }
+    if (pairCount == 0u || iterations == 0u)
+    {
+        return true;
     }
 
     const auto& transient = sceneState.transientBuffers();
@@ -1710,9 +1749,13 @@ bool PhysicsPassDispatcher::updateVelocities(Diligent::IDeviceContext* computeCo
                                              const GpuRigidDispatchConstants& constants)
 {
     if (computeContext == nullptr || mUpdateVelocitiesPso == nullptr ||
-        mUpdateVelocitiesSrb == nullptr || bodyCount == 0u)
+        mUpdateVelocitiesSrb == nullptr)
     {
         return false;
+    }
+    if (bodyCount == 0u)
+    {
+        return true;
     }
 
     const auto& transient = sceneState.transientBuffers();
