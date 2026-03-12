@@ -25,8 +25,8 @@ public:
     bool initialize(Diligent::IRenderDevice* renderDevice, std::uint32_t physicsContextId,
                     const char* shaderSourceDirectory);
 
-    bool clearCorrections(Diligent::IDeviceContext* computeContext, PhysicsSceneGpuState& sceneState,
-                          std::uint32_t bodyCount,
+    bool clearCorrections(Diligent::IDeviceContext* computeContext,
+                          PhysicsSceneGpuState& sceneState, std::uint32_t bodyCount,
                           const GpuRigidDispatchConstants& constants);
     bool predict(Diligent::IDeviceContext* computeContext, const PhysicsSceneGpuState& sceneState,
                  std::uint32_t bodyCount, const GpuRigidDispatchConstants& constants);
@@ -37,8 +37,7 @@ public:
                              const PhysicsSceneGpuState& sceneState, std::uint32_t bodyCount,
                              const GpuRigidDispatchConstants& constants);
     bool buildBroadPhase(Diligent::IDeviceContext* computeContext,
-                         const PhysicsSceneGpuState& sceneState,
-                         std::uint32_t activeDynamicCount,
+                         const PhysicsSceneGpuState& sceneState, std::uint32_t activeDynamicCount,
                          const GpuRigidDispatchConstants& constants);
     bool finalizeBroadPhasePairs(Diligent::IDeviceContext* computeContext,
                                  const PhysicsSceneGpuState& sceneState,
@@ -77,8 +76,7 @@ private:
                             Diligent::IBuffer* buffer, Diligent::BUFFER_VIEW_TYPE viewType);
     bool createComputePipeline(Diligent::IRenderDevice* renderDevice,
                                Diligent::IShaderSourceInputStreamFactory* streamFactory,
-                               const char* shaderPath, const char* shaderName,
-                               const char* psoName,
+                               const char* shaderPath, const char* shaderName, const char* psoName,
                                const Diligent::ShaderResourceVariableDesc* variables,
                                std::size_t variableCount,
                                Diligent::RefCntAutoPtr<Diligent::IPipelineState>& outPso,
@@ -86,8 +84,7 @@ private:
     bool dispatchScanBlockPass(Diligent::IDeviceContext* computeContext,
                                const PhysicsSceneGpuState& sceneState, Diligent::IBuffer* input,
                                Diligent::IBuffer* output, Diligent::IBuffer* blockSums,
-                               std::uint32_t count,
-                               const GpuRigidDispatchConstants& constants);
+                               std::uint32_t count, const GpuRigidDispatchConstants& constants);
     bool dispatchScanAddOffsetsPass(Diligent::IDeviceContext* computeContext,
                                     Diligent::IBuffer* output,
                                     Diligent::IBuffer* scannedBlockOffsets, std::uint32_t count,
@@ -108,8 +105,7 @@ private:
                                       const PhysicsSceneGpuState& sceneState,
                                       std::uint32_t pairCount);
     bool dispatchSolveGatherPass(Diligent::IDeviceContext* computeContext,
-                                 const PhysicsSceneGpuState& sceneState,
-                                 std::uint32_t pairCount);
+                                 const PhysicsSceneGpuState& sceneState, std::uint32_t pairCount);
 
     gpu::ShaderLibrary mShaderLibrary{""};
     Diligent::Uint64 mPhysicsContextMask = 0;

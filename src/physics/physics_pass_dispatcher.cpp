@@ -61,8 +61,7 @@ bool PhysicsPassDispatcher::writeDispatchConstants(Diligent::IDeviceContext* com
 }
 
 bool PhysicsPassDispatcher::bindBufferVariable(Diligent::IShaderResourceBinding* srb,
-                                               const char* variableName,
-                                               Diligent::IBuffer* buffer,
+                                               const char* variableName, Diligent::IBuffer* buffer,
                                                Diligent::BUFFER_VIEW_TYPE viewType)
 {
     if (srb == nullptr || buffer == nullptr)
@@ -93,9 +92,8 @@ bool PhysicsPassDispatcher::bindBufferVariable(Diligent::IShaderResourceBinding*
 }
 
 bool PhysicsPassDispatcher::createComputePipeline(
-    Diligent::IRenderDevice* renderDevice,
-    Diligent::IShaderSourceInputStreamFactory* streamFactory, const char* shaderPath,
-    const char* shaderName, const char* psoName,
+    Diligent::IRenderDevice* renderDevice, Diligent::IShaderSourceInputStreamFactory* streamFactory,
+    const char* shaderPath, const char* shaderName, const char* psoName,
     const Diligent::ShaderResourceVariableDesc* variables, std::size_t variableCount,
     Diligent::RefCntAutoPtr<Diligent::IPipelineState>& outPso,
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>& outSrb)
@@ -127,7 +125,7 @@ bool PhysicsPassDispatcher::createComputePipeline(
     psoCreateInfo.PSODesc.ImmediateContextMask = mPhysicsContextMask;
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType =
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
-    psoCreateInfo.PSODesc.ResourceLayout.Variables    = variables;
+    psoCreateInfo.PSODesc.ResourceLayout.Variables = variables;
     psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
         static_cast<Diligent::Uint32>(variableCount);
     psoCreateInfo.pCS = computeShader;
@@ -214,12 +212,11 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_ActiveBodyFlags",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_rigid_update_world_aabbs.cs.hlsl",
-                               "CRESSimNeo.Physics.RigidUpdateWorldAabbs.CS",
-                               "CRESSimNeo.Physics.RigidUpdateWorldAabbs.PSO",
-                               kUpdateWorldAabbsVars, std::size(kUpdateWorldAabbsVars),
-                               mUpdateWorldAabbsPso, mUpdateWorldAabbsSrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_rigid_update_world_aabbs.cs.hlsl",
+            "CRESSimNeo.Physics.RigidUpdateWorldAabbs.CS",
+            "CRESSimNeo.Physics.RigidUpdateWorldAabbs.PSO", kUpdateWorldAabbsVars,
+            std::size(kUpdateWorldAabbsVars), mUpdateWorldAabbsPso, mUpdateWorldAabbsSrb))
     {
         LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to create world AABB pipeline.");
         return false;
@@ -252,12 +249,11 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_ScanOutput",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_scan_add_offsets.cs.hlsl",
-                               "CRESSimNeo.Physics.ScanAddOffsets.CS",
-                               "CRESSimNeo.Physics.ScanAddOffsets.PSO", kScanAddOffsetsVars,
-                               std::size(kScanAddOffsetsVars), mScanAddOffsetsPso,
-                               mScanAddOffsetsSrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_scan_add_offsets.cs.hlsl",
+            "CRESSimNeo.Physics.ScanAddOffsets.CS", "CRESSimNeo.Physics.ScanAddOffsets.PSO",
+            kScanAddOffsetsVars, std::size(kScanAddOffsetsVars), mScanAddOffsetsPso,
+            mScanAddOffsetsSrb))
     {
         LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to create scan add-offsets pipeline.");
         return false;
@@ -275,12 +271,11 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_BodyMeta",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_rigid_compact_active_bodies.cs.hlsl",
-                               "CRESSimNeo.Physics.RigidCompactActiveBodies.CS",
-                               "CRESSimNeo.Physics.RigidCompactActiveBodies.PSO",
-                               kCompactActiveBodiesVars, std::size(kCompactActiveBodiesVars),
-                               mCompactActiveBodiesPso, mCompactActiveBodiesSrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_rigid_compact_active_bodies.cs.hlsl",
+            "CRESSimNeo.Physics.RigidCompactActiveBodies.CS",
+            "CRESSimNeo.Physics.RigidCompactActiveBodies.PSO", kCompactActiveBodiesVars,
+            std::size(kCompactActiveBodiesVars), mCompactActiveBodiesPso, mCompactActiveBodiesSrb))
     {
         LOG_ERROR_MESSAGE(
             "PhysicsPassDispatcher: failed to create active body compaction pipeline.");
@@ -304,8 +299,7 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
                                kFinalizeActiveBodiesVars, std::size(kFinalizeActiveBodiesVars),
                                mFinalizeActiveBodiesPso, mFinalizeActiveBodiesSrb))
     {
-        LOG_ERROR_MESSAGE(
-            "PhysicsPassDispatcher: failed to create active body finalize pipeline.");
+        LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to create active body finalize pipeline.");
         return false;
     }
 
@@ -319,13 +313,12 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_BroadPhaseElements",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_rigid_build_broad_phase_elements.cs.hlsl",
-                               "CRESSimNeo.Physics.RigidBuildBroadPhaseElements.CS",
-                               "CRESSimNeo.Physics.RigidBuildBroadPhaseElements.PSO",
-                               kBuildBroadPhaseElementsVars,
-                               std::size(kBuildBroadPhaseElementsVars),
-                               mBuildBroadPhaseElementsPso, mBuildBroadPhaseElementsSrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_rigid_build_broad_phase_elements.cs.hlsl",
+            "CRESSimNeo.Physics.RigidBuildBroadPhaseElements.CS",
+            "CRESSimNeo.Physics.RigidBuildBroadPhaseElements.PSO", kBuildBroadPhaseElementsVars,
+            std::size(kBuildBroadPhaseElementsVars), mBuildBroadPhaseElementsPso,
+            mBuildBroadPhaseElementsSrb))
     {
         LOG_ERROR_MESSAGE(
             "PhysicsPassDispatcher: failed to create broad-phase element build pipeline.");
@@ -344,8 +337,7 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
                                "physics/physics_rigid_reduce_extent_elements.cs.hlsl",
                                "CRESSimNeo.Physics.RigidReduceExtentElements.CS",
                                "CRESSimNeo.Physics.RigidReduceExtentElements.PSO",
-                               kReduceExtentElementsVars,
-                               std::size(kReduceExtentElementsVars),
+                               kReduceExtentElementsVars, std::size(kReduceExtentElementsVars),
                                mReduceExtentElementsPso, mReduceExtentElementsSrb))
     {
         LOG_ERROR_MESSAGE(
@@ -361,12 +353,11 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_OutputExtents",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_rigid_reduce_extent_extents.cs.hlsl",
-                               "CRESSimNeo.Physics.RigidReduceExtentExtents.CS",
-                               "CRESSimNeo.Physics.RigidReduceExtentExtents.PSO",
-                               kReduceExtentExtentsVars, std::size(kReduceExtentExtentsVars),
-                               mReduceExtentExtentsPso, mReduceExtentExtentsSrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_rigid_reduce_extent_extents.cs.hlsl",
+            "CRESSimNeo.Physics.RigidReduceExtentExtents.CS",
+            "CRESSimNeo.Physics.RigidReduceExtentExtents.PSO", kReduceExtentExtentsVars,
+            std::size(kReduceExtentExtentsVars), mReduceExtentExtentsPso, mReduceExtentExtentsSrb))
     {
         LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to create extent reduction pipeline.");
         return false;
@@ -382,11 +373,10 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_MortonCodes",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_rigid_morton_codes.cs.hlsl",
-                               "CRESSimNeo.Physics.RigidMortonCodes.CS",
-                               "CRESSimNeo.Physics.RigidMortonCodes.PSO", kMortonCodesVars,
-                               std::size(kMortonCodesVars), mMortonCodesPso, mMortonCodesSrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_rigid_morton_codes.cs.hlsl",
+            "CRESSimNeo.Physics.RigidMortonCodes.CS", "CRESSimNeo.Physics.RigidMortonCodes.PSO",
+            kMortonCodesVars, std::size(kMortonCodesVars), mMortonCodesPso, mMortonCodesSrb))
     {
         LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to create morton code pipeline.");
         return false;
@@ -404,8 +394,7 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
                                "physics/physics_rigid_radix_classify.cs.hlsl",
                                "CRESSimNeo.Physics.RigidRadixClassify.CS",
                                "CRESSimNeo.Physics.RigidRadixClassify.PSO", kRadixClassifyVars,
-                               std::size(kRadixClassifyVars), mRadixClassifyPso,
-                               mRadixClassifySrb))
+                               std::size(kRadixClassifyVars), mRadixClassifyPso, mRadixClassifySrb))
     {
         LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to create radix classify pipeline.");
         return false;
@@ -425,8 +414,7 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
                                "physics/physics_rigid_radix_finalize.cs.hlsl",
                                "CRESSimNeo.Physics.RigidRadixFinalize.CS",
                                "CRESSimNeo.Physics.RigidRadixFinalize.PSO", kRadixFinalizeVars,
-                               std::size(kRadixFinalizeVars), mRadixFinalizePso,
-                               mRadixFinalizeSrb))
+                               std::size(kRadixFinalizeVars), mRadixFinalizePso, mRadixFinalizeSrb))
     {
         LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to create radix finalize pipeline.");
         return false;
@@ -446,11 +434,10 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_MortonCodesOut",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_rigid_radix_scatter.cs.hlsl",
-                               "CRESSimNeo.Physics.RigidRadixScatter.CS",
-                               "CRESSimNeo.Physics.RigidRadixScatter.PSO", kRadixScatterVars,
-                               std::size(kRadixScatterVars), mRadixScatterPso, mRadixScatterSrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_rigid_radix_scatter.cs.hlsl",
+            "CRESSimNeo.Physics.RigidRadixScatter.CS", "CRESSimNeo.Physics.RigidRadixScatter.PSO",
+            kRadixScatterVars, std::size(kRadixScatterVars), mRadixScatterPso, mRadixScatterSrb))
     {
         LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to create radix scatter pipeline.");
         return false;
@@ -468,11 +455,10 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_BvhConstructionInfos",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_rigid_bvh_hierarchy.cs.hlsl",
-                               "CRESSimNeo.Physics.RigidBvhHierarchy.CS",
-                               "CRESSimNeo.Physics.RigidBvhHierarchy.PSO", kBvhHierarchyVars,
-                               std::size(kBvhHierarchyVars), mBvhHierarchyPso, mBvhHierarchySrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_rigid_bvh_hierarchy.cs.hlsl",
+            "CRESSimNeo.Physics.RigidBvhHierarchy.CS", "CRESSimNeo.Physics.RigidBvhHierarchy.PSO",
+            kBvhHierarchyVars, std::size(kBvhHierarchyVars), mBvhHierarchyPso, mBvhHierarchySrb))
     {
         LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to create BVH hierarchy pipeline.");
         return false;
@@ -486,12 +472,11 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_BvhConstructionInfos",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_rigid_bvh_bounding_boxes.cs.hlsl",
-                               "CRESSimNeo.Physics.RigidBvhBoundingBoxes.CS",
-                               "CRESSimNeo.Physics.RigidBvhBoundingBoxes.PSO",
-                               kBvhBoundingBoxesVars, std::size(kBvhBoundingBoxesVars),
-                               mBvhBoundingBoxesPso, mBvhBoundingBoxesSrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_rigid_bvh_bounding_boxes.cs.hlsl",
+            "CRESSimNeo.Physics.RigidBvhBoundingBoxes.CS",
+            "CRESSimNeo.Physics.RigidBvhBoundingBoxes.PSO", kBvhBoundingBoxesVars,
+            std::size(kBvhBoundingBoxesVars), mBvhBoundingBoxesPso, mBvhBoundingBoxesSrb))
     {
         LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to create BVH bounding box pipeline.");
         return false;
@@ -523,11 +508,10 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_PairCountsCapsuleCapsule",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_rigid_count_pairs.cs.hlsl",
-                               "CRESSimNeo.Physics.RigidCountPairs.CS",
-                               "CRESSimNeo.Physics.RigidCountPairs.PSO", kCountPairsVars,
-                               std::size(kCountPairsVars), mCountPairsPso, mCountPairsSrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_rigid_count_pairs.cs.hlsl",
+            "CRESSimNeo.Physics.RigidCountPairs.CS", "CRESSimNeo.Physics.RigidCountPairs.PSO",
+            kCountPairsVars, std::size(kCountPairsVars), mCountPairsPso, mCountPairsSrb))
     {
         LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to create pair count pipeline.");
         return false;
@@ -569,8 +553,7 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
                                "physics/physics_rigid_finalize_pairs.cs.hlsl",
                                "CRESSimNeo.Physics.RigidFinalizePairs.CS",
                                "CRESSimNeo.Physics.RigidFinalizePairs.PSO", kFinalizePairsVars,
-                               std::size(kFinalizePairsVars), mFinalizePairsPso,
-                               mFinalizePairsSrb))
+                               std::size(kFinalizePairsVars), mFinalizePairsPso, mFinalizePairsSrb))
     {
         LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to create pair finalize pipeline.");
         return false;
@@ -606,11 +589,10 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_CandidatePairs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_rigid_emit_pairs.cs.hlsl",
-                               "CRESSimNeo.Physics.RigidEmitPairs.CS",
-                               "CRESSimNeo.Physics.RigidEmitPairs.PSO", kEmitPairsVars,
-                               std::size(kEmitPairsVars), mEmitPairsPso, mEmitPairsSrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_rigid_emit_pairs.cs.hlsl",
+            "CRESSimNeo.Physics.RigidEmitPairs.CS", "CRESSimNeo.Physics.RigidEmitPairs.PSO",
+            kEmitPairsVars, std::size(kEmitPairsVars), mEmitPairsPso, mEmitPairsSrb))
     {
         LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to create pair emit pipeline.");
         return false;
@@ -632,8 +614,7 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
                                "physics/physics_rigid_build_narrow_phase_chunks.cs.hlsl",
                                "CRESSimNeo.Physics.RigidBuildNarrowPhaseChunks.CS",
                                "CRESSimNeo.Physics.RigidBuildNarrowPhaseChunks.PSO",
-                               kBuildNarrowPhaseChunksVars,
-                               std::size(kBuildNarrowPhaseChunksVars),
+                               kBuildNarrowPhaseChunksVars, std::size(kBuildNarrowPhaseChunksVars),
                                mBuildNarrowPhaseChunksPso, mBuildNarrowPhaseChunksSrb))
     {
         LOG_ERROR_MESSAGE(
@@ -663,12 +644,11 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_RigidContacts",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_rigid_generate_contacts.cs.hlsl",
-                               "CRESSimNeo.Physics.RigidGenerateContacts.CS",
-                               "CRESSimNeo.Physics.RigidGenerateContacts.PSO",
-                               kGenerateContactsVars, std::size(kGenerateContactsVars),
-                               mGenerateContactsPso, mGenerateContactsSrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_rigid_generate_contacts.cs.hlsl",
+            "CRESSimNeo.Physics.RigidGenerateContacts.CS",
+            "CRESSimNeo.Physics.RigidGenerateContacts.PSO", kGenerateContactsVars,
+            std::size(kGenerateContactsVars), mGenerateContactsPso, mGenerateContactsSrb))
     {
         LOG_ERROR_MESSAGE(
             "PhysicsPassDispatcher: failed to create rigid contact generation pipeline.");
@@ -691,11 +671,10 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyRotationCorrections",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_rigid_solve_gather.cs.hlsl",
-                               "CRESSimNeo.Physics.RigidSolveGather.CS",
-                               "CRESSimNeo.Physics.RigidSolveGather.PSO", kSolveGatherVars,
-                               std::size(kSolveGatherVars), mSolveGatherPso, mSolveGatherSrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_rigid_solve_gather.cs.hlsl",
+            "CRESSimNeo.Physics.RigidSolveGather.CS", "CRESSimNeo.Physics.RigidSolveGather.PSO",
+            kSolveGatherVars, std::size(kSolveGatherVars), mSolveGatherPso, mSolveGatherSrb))
     {
         LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to create rigid solve gather pipeline.");
         return false;
@@ -709,12 +688,11 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyRotationCorrections",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_rigid_clear_corrections.cs.hlsl",
-                               "CRESSimNeo.Physics.RigidClearCorrections.CS",
-                               "CRESSimNeo.Physics.RigidClearCorrections.PSO",
-                               kClearCorrectionsVars, std::size(kClearCorrectionsVars),
-                               mClearCorrectionsPso, mClearCorrectionsSrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_rigid_clear_corrections.cs.hlsl",
+            "CRESSimNeo.Physics.RigidClearCorrections.CS",
+            "CRESSimNeo.Physics.RigidClearCorrections.PSO", kClearCorrectionsVars,
+            std::size(kClearCorrectionsVars), mClearCorrectionsPso, mClearCorrectionsSrb))
     {
         LOG_ERROR_MESSAGE(
             "PhysicsPassDispatcher: failed to create rigid correction clear pipeline.");
@@ -733,12 +711,11 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyRotationCorrections",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_rigid_apply_corrections.cs.hlsl",
-                               "CRESSimNeo.Physics.RigidApplyCorrections.CS",
-                               "CRESSimNeo.Physics.RigidApplyCorrections.PSO",
-                               kApplyCorrectionsVars, std::size(kApplyCorrectionsVars),
-                               mApplyCorrectionsPso, mApplyCorrectionsSrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_rigid_apply_corrections.cs.hlsl",
+            "CRESSimNeo.Physics.RigidApplyCorrections.CS",
+            "CRESSimNeo.Physics.RigidApplyCorrections.PSO", kApplyCorrectionsVars,
+            std::size(kApplyCorrectionsVars), mApplyCorrectionsPso, mApplyCorrectionsSrb))
     {
         LOG_ERROR_MESSAGE(
             "PhysicsPassDispatcher: failed to create rigid correction apply pipeline.");
@@ -761,14 +738,14 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyAngularVelocities",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     };
-    if (!createComputePipeline(renderDevice, streamFactory,
-                               "physics/physics_rigid_update_velocities.cs.hlsl",
-                               "CRESSimNeo.Physics.RigidUpdateVelocities.CS",
-                               "CRESSimNeo.Physics.RigidUpdateVelocities.PSO",
-                               kUpdateVelocitiesVars, std::size(kUpdateVelocitiesVars),
-                               mUpdateVelocitiesPso, mUpdateVelocitiesSrb))
+    if (!createComputePipeline(
+            renderDevice, streamFactory, "physics/physics_rigid_update_velocities.cs.hlsl",
+            "CRESSimNeo.Physics.RigidUpdateVelocities.CS",
+            "CRESSimNeo.Physics.RigidUpdateVelocities.PSO", kUpdateVelocitiesVars,
+            std::size(kUpdateVelocitiesVars), mUpdateVelocitiesPso, mUpdateVelocitiesSrb))
     {
-        LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to create rigid velocity update pipeline.");
+        LOG_ERROR_MESSAGE(
+            "PhysicsPassDispatcher: failed to create rigid velocity update pipeline.");
         return false;
     }
 
@@ -787,8 +764,7 @@ bool PhysicsPassDispatcher::dispatchScanBlockPass(Diligent::IDeviceContext* comp
                                                   const PhysicsSceneGpuState&,
                                                   Diligent::IBuffer* input,
                                                   Diligent::IBuffer* output,
-                                                  Diligent::IBuffer* blockSums,
-                                                  std::uint32_t count,
+                                                  Diligent::IBuffer* blockSums, std::uint32_t count,
                                                   const GpuRigidDispatchConstants& constants)
 {
     if (computeContext == nullptr || mScanBlockPso == nullptr || mScanBlockSrb == nullptr ||
@@ -824,10 +800,11 @@ bool PhysicsPassDispatcher::dispatchScanBlockPass(Diligent::IDeviceContext* comp
     return true;
 }
 
-bool PhysicsPassDispatcher::dispatchScanAddOffsetsPass(
-    Diligent::IDeviceContext* computeContext, Diligent::IBuffer* output,
-    Diligent::IBuffer* scannedBlockOffsets, std::uint32_t count,
-    const GpuRigidDispatchConstants& constants)
+bool PhysicsPassDispatcher::dispatchScanAddOffsetsPass(Diligent::IDeviceContext* computeContext,
+                                                       Diligent::IBuffer* output,
+                                                       Diligent::IBuffer* scannedBlockOffsets,
+                                                       std::uint32_t count,
+                                                       const GpuRigidDispatchConstants& constants)
 {
     if (computeContext == nullptr || mScanAddOffsetsPso == nullptr ||
         mScanAddOffsetsSrb == nullptr || count == 0u)
@@ -862,13 +839,10 @@ bool PhysicsPassDispatcher::dispatchScanAddOffsetsPass(
     return true;
 }
 
-bool PhysicsPassDispatcher::dispatchExclusiveScanPass(Diligent::IDeviceContext* computeContext,
-                                                      const PhysicsSceneGpuState& sceneState,
-                                                      Diligent::IBuffer* input,
-                                                      Diligent::IBuffer* output,
-                                                      std::uint32_t count,
-                                                      const GpuRigidDispatchConstants& constants,
-                                                      std::uint32_t recursionLevel)
+bool PhysicsPassDispatcher::dispatchExclusiveScanPass(
+    Diligent::IDeviceContext* computeContext, const PhysicsSceneGpuState& sceneState,
+    Diligent::IBuffer* input, Diligent::IBuffer* output, std::uint32_t count,
+    const GpuRigidDispatchConstants& constants, std::uint32_t recursionLevel)
 {
     if (count == 0u)
     {
@@ -943,8 +917,7 @@ bool PhysicsPassDispatcher::clearCorrections(Diligent::IDeviceContext* computeCo
 }
 
 bool PhysicsPassDispatcher::predict(Diligent::IDeviceContext* computeContext,
-                                    const PhysicsSceneGpuState& sceneState,
-                                    std::uint32_t bodyCount,
+                                    const PhysicsSceneGpuState& sceneState, std::uint32_t bodyCount,
                                     const GpuRigidDispatchConstants& constants)
 {
     if (computeContext == nullptr || mPredictPso == nullptr || mPredictSrb == nullptr ||
@@ -1053,10 +1026,9 @@ bool PhysicsPassDispatcher::compactActiveBodies(Diligent::IDeviceContext* comput
                                                 std::uint32_t bodyCount,
                                                 const GpuRigidDispatchConstants& constants)
 {
-    if (!dispatchExclusiveScanPass(computeContext, sceneState,
-                                   sceneState.transientBuffers().activeBodyFlagsBuffer,
-                                   sceneState.transientBuffers().activeBodyOffsetsBuffer,
-                                   bodyCount, constants))
+    if (!dispatchExclusiveScanPass(
+            computeContext, sceneState, sceneState.transientBuffers().activeBodyFlagsBuffer,
+            sceneState.transientBuffers().activeBodyOffsetsBuffer, bodyCount, constants))
     {
         return false;
     }
@@ -1117,9 +1089,9 @@ bool PhysicsPassDispatcher::dispatchReduceBroadPhaseExtentPass(
     }
 
     const std::uint32_t initialGroupCount = dispatchGroupCount(activeDynamicCount);
-    Diligent::IBuffer* currentOutput =
-        (initialGroupCount <= 1u) ? transient.globalBroadPhaseExtentBuffer
-                                  : transient.broadPhaseExtentScratchBuffers.front();
+    Diligent::IBuffer* currentOutput      = (initialGroupCount <= 1u)
+                                                ? transient.globalBroadPhaseExtentBuffer
+                                                : transient.broadPhaseExtentScratchBuffers.front();
     GpuRigidDispatchConstants reductionConstants{};
     reductionConstants.activeDynamicCount    = activeDynamicCount;
     reductionConstants.candidatePairCapacity = activeDynamicCount;
@@ -1144,8 +1116,8 @@ bool PhysicsPassDispatcher::dispatchReduceBroadPhaseExtentPass(
     computeContext->DispatchCompute(
         Diligent::DispatchComputeAttribs{dispatchGroupCount(currentCount), 1u, 1u});
 
-    currentCount = dispatchGroupCount(currentCount);
-    std::uint32_t level = 1u;
+    currentCount                    = dispatchGroupCount(currentCount);
+    std::uint32_t level             = 1u;
     Diligent::IBuffer* currentInput = currentOutput;
     while (currentCount > 1u)
     {
@@ -1162,8 +1134,7 @@ bool PhysicsPassDispatcher::dispatchReduceBroadPhaseExtentPass(
             BufferBinding{"PhysicsDispatchConstantsBuffer", mDispatchConstantsBuffer,
                           Diligent::BUFFER_VIEW_SHADER_RESOURCE},
             BufferBinding{"g_InputExtents", currentInput, Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            BufferBinding{"g_OutputExtents", currentOutput,
-                          Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+            BufferBinding{"g_OutputExtents", currentOutput, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
         if (!bindBufferVariables(mReduceExtentExtentsSrb, reduceBindings) ||
             !writeDispatchConstants(computeContext, reductionConstants))
@@ -1196,7 +1167,7 @@ bool PhysicsPassDispatcher::dispatchRadixSortPass(Diligent::IDeviceContext* comp
         return false;
     }
 
-    const auto& transient = sceneState.transientBuffers();
+    const auto& transient            = sceneState.transientBuffers();
     Diligent::IBuffer* currentInput  = transient.mortonCodesBuffer;
     Diligent::IBuffer* currentOutput = transient.mortonCodesScratchBuffer;
     for (std::uint32_t bit = 0u; bit < 32u; ++bit)
@@ -1213,8 +1184,7 @@ bool PhysicsPassDispatcher::dispatchRadixSortPass(Diligent::IDeviceContext* comp
         const std::array classifyBindings{
             BufferBinding{"PhysicsDispatchConstantsBuffer", mDispatchConstantsBuffer,
                           Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            BufferBinding{"g_MortonCodesIn", currentInput,
-                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            BufferBinding{"g_MortonCodesIn", currentInput, Diligent::BUFFER_VIEW_SHADER_RESOURCE},
             BufferBinding{"g_RadixBitFlags", transient.radixBitFlagsBuffer,
                           Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
@@ -1257,8 +1227,7 @@ bool PhysicsPassDispatcher::dispatchRadixSortPass(Diligent::IDeviceContext* comp
         const std::array scatterBindings{
             BufferBinding{"PhysicsDispatchConstantsBuffer", mDispatchConstantsBuffer,
                           Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            BufferBinding{"g_MortonCodesIn", currentInput,
-                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            BufferBinding{"g_MortonCodesIn", currentInput, Diligent::BUFFER_VIEW_SHADER_RESOURCE},
             BufferBinding{"g_RadixBitFlags", transient.radixBitFlagsBuffer,
                           Diligent::BUFFER_VIEW_SHADER_RESOURCE},
             BufferBinding{"g_RadixBitOffsets", transient.radixBitOffsetsBuffer,
@@ -1363,8 +1332,7 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_BroadPhaseElements", transient.broadPhaseElementsBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        BufferBinding{"g_BvhNodes", transient.bvhBuffer,
-                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_BvhNodes", transient.bvhBuffer, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         BufferBinding{"g_BvhConstructionInfos", transient.bvhConstructionInfoBuffer,
                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
@@ -1382,8 +1350,7 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
     const std::array bvhBoundsBindings{
         BufferBinding{"PhysicsDispatchConstantsBuffer", mDispatchConstantsBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        BufferBinding{"g_BvhNodes", transient.bvhBuffer,
-                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        BufferBinding{"g_BvhNodes", transient.bvhBuffer, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         BufferBinding{"g_BvhConstructionInfos", transient.bvhConstructionInfoBuffer,
                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
@@ -1421,8 +1388,7 @@ bool PhysicsPassDispatcher::finalizeBroadPhasePairs(Diligent::IDeviceContext* co
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_BodyMeta", transient.bodyMetaBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        BufferBinding{"g_BvhNodes", transient.bvhBuffer,
-                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_BvhNodes", transient.bvhBuffer, Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_RigidBodyColliderShapeTypes", persistent.colliderShapeTypesBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_PairCountsSphereSphere", transient.pairCountBuffers[0],
@@ -1451,9 +1417,9 @@ bool PhysicsPassDispatcher::finalizeBroadPhasePairs(Diligent::IDeviceContext* co
 
     for (std::uint32_t pairType = 0u; pairType < kRigidPairTypeCount; ++pairType)
     {
-        if (!dispatchExclusiveScanPass(computeContext, sceneState, transient.pairCountBuffers[pairType],
-                                       transient.pairOffsetBuffers[pairType], activeDynamicCount,
-                                       constants))
+        if (!dispatchExclusiveScanPass(
+                computeContext, sceneState, transient.pairCountBuffers[pairType],
+                transient.pairOffsetBuffers[pairType], activeDynamicCount, constants))
         {
             return false;
         }
@@ -1524,8 +1490,7 @@ bool PhysicsPassDispatcher::emitBroadPhasePairs(Diligent::IDeviceContext* comput
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_BodyMeta", transient.bodyMetaBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        BufferBinding{"g_BvhNodes", transient.bvhBuffer,
-                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        BufferBinding{"g_BvhNodes", transient.bvhBuffer, Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_RigidBodyColliderShapeTypes", persistent.colliderShapeTypesBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_PairOffsetsSphereSphere", transient.pairOffsetBuffers[0],
@@ -1558,7 +1523,7 @@ bool PhysicsPassDispatcher::emitBroadPhasePairs(Diligent::IDeviceContext* comput
 
     const std::array chunkBindings{
         // BufferBinding{"PhysicsDispatchConstantsBuffer", mDispatchConstantsBuffer,
-                    //   Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        //   Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_RigidPairRanges", transient.rigidPairRangesBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_NarrowPhaseChunks", transient.narrowPhaseChunksBuffer,
@@ -1580,9 +1545,9 @@ bool PhysicsPassDispatcher::emitBroadPhasePairs(Diligent::IDeviceContext* comput
     return true;
 }
 
-bool PhysicsPassDispatcher::dispatchGenerateContactsPass(
-    Diligent::IDeviceContext* computeContext, const PhysicsSceneGpuState& sceneState,
-    std::uint32_t pairCount)
+bool PhysicsPassDispatcher::dispatchGenerateContactsPass(Diligent::IDeviceContext* computeContext,
+                                                         const PhysicsSceneGpuState& sceneState,
+                                                         std::uint32_t pairCount)
 {
     if (computeContext == nullptr || mGenerateContactsPso == nullptr ||
         mGenerateContactsSrb == nullptr)
@@ -1670,8 +1635,7 @@ bool PhysicsPassDispatcher::dispatchSolveGatherPass(Diligent::IDeviceContext* co
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_RigidContacts", transient.contactsBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        BufferBinding{"g_RigidBodyTranslationCorrections",
-                      transient.translationCorrectionsBuffer,
+        BufferBinding{"g_RigidBodyTranslationCorrections", transient.translationCorrectionsBuffer,
                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         BufferBinding{"g_RigidBodyRotationCorrections", transient.rotationCorrectionsBuffer,
                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
@@ -1692,8 +1656,7 @@ bool PhysicsPassDispatcher::dispatchSolveGatherPass(Diligent::IDeviceContext* co
 
 bool PhysicsPassDispatcher::solveConstraints(Diligent::IDeviceContext* computeContext,
                                              const PhysicsSceneGpuState& sceneState,
-                                             std::uint32_t rigidBodyCount,
-                                             std::uint32_t pairCount,
+                                             std::uint32_t rigidBodyCount, std::uint32_t pairCount,
                                              std::uint32_t iterations,
                                              const GpuRigidDispatchConstants& constants)
 {
@@ -1712,8 +1675,7 @@ bool PhysicsPassDispatcher::solveConstraints(Diligent::IDeviceContext* computeCo
         BufferBinding{"g_PredictedRigidBodyOrientations",
                       transient.predictedRigidBodies.orientationsBuffer,
                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        BufferBinding{"g_RigidBodyTranslationCorrections",
-                      transient.translationCorrectionsBuffer,
+        BufferBinding{"g_RigidBodyTranslationCorrections", transient.translationCorrectionsBuffer,
                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         BufferBinding{"g_RigidBodyRotationCorrections", transient.rotationCorrectionsBuffer,
                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},

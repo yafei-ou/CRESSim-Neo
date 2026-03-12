@@ -232,15 +232,15 @@ std::uint64_t PhysicsWorld::revision() const noexcept
 void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost& soa, std::uint32_t index,
                                        const RigidBodyState& state)
 {
-    soa.entityIds[index]          = state.entityId;
-    soa.positionsInvMass[index]   = toPositionInvMass(state);
-    soa.orientations[index]       = toOrientation(state);
-    soa.scales[index]             = toScale(state);
-    soa.linearVelocities[index]   = toLinearVelocity(state);
-    soa.angularVelocities[index]  = toAngularVelocity(state);
+    soa.entityIds[index]           = state.entityId;
+    soa.positionsInvMass[index]    = toPositionInvMass(state);
+    soa.orientations[index]        = toOrientation(state);
+    soa.scales[index]              = toScale(state);
+    soa.linearVelocities[index]    = toLinearVelocity(state);
+    soa.angularVelocities[index]   = toAngularVelocity(state);
     soa.inverseInertiaLocal[index] = toInverseInertiaLocal(state);
-    soa.colliderShapeTypes[index] = static_cast<std::uint32_t>(state.colliderShape);
-    soa.colliderParams[index]     = state.colliderParams;
+    soa.colliderShapeTypes[index]  = static_cast<std::uint32_t>(state.colliderShape);
+    soa.colliderParams[index]      = state.colliderParams;
 }
 
 RigidBodyState PhysicsWorld::readRigidBodySoAAt(const RigidBodySoAHost& soa, std::uint32_t index)
@@ -257,7 +257,7 @@ RigidBodyState PhysicsWorld::readRigidBodySoAAt(const RigidBodySoAHost& soa, std
         Diligent::QuaternionF{orientation.x, orientation.y, orientation.z, orientation.w};
 
     const Diligent::float4 scale = soa.scales[index];
-    state.scale = Diligent::float3{scale.x, scale.y, scale.z};
+    state.scale                  = Diligent::float3{scale.x, scale.y, scale.z};
 
     const Diligent::float4 linearVelocity = soa.linearVelocities[index];
     state.linearVelocity = Diligent::float3{linearVelocity.x, linearVelocity.y, linearVelocity.z};

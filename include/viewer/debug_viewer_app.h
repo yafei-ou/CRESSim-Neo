@@ -38,14 +38,14 @@ struct DebugViewerKeymap
 
 struct DebugViewerAppDesc
 {
-    std::string windowTitle = "CRESSim Neo Debug Viewer";
-    std::uint32_t width     = 1280;
-    std::uint32_t height    = 720;
-    bool windowEnabled      = true;
-    bool windowVisible      = true;
-    bool startFullscreen    = false;
+    std::string windowTitle      = "CRESSim Neo Debug Viewer";
+    std::uint32_t width          = 1280;
+    std::uint32_t height         = 720;
+    bool windowEnabled           = true;
+    bool windowVisible           = true;
+    bool startFullscreen         = false;
     bool startFullscreenWindowed = false;
-    bool vSync              = true;
+    bool vSync                   = true;
 
     float inputSensitivity = 0.08f;
     float moveSpeed        = 3.0f;

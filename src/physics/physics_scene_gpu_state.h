@@ -1,8 +1,8 @@
 #ifndef CRESSIM_NEO_PHYSICS_PHYSICS_SCENE_GPU_STATE_H
 #define CRESSIM_NEO_PHYSICS_PHYSICS_SCENE_GPU_STATE_H
 
-#include "physics/rigid_body_common.h"
 #include "physics/physics_world.h"
+#include "physics/rigid_body_common.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
@@ -113,9 +113,9 @@ private:
     RigidBodyReadbackBuffers mReadbackRigidBodies;
     std::uint32_t mBufferCapacity         = 0;
     std::uint32_t mBroadPhaseNodeCapacity = 0;
-    std::uint32_t mCandidatePairCapacity = 0;
-    std::uint32_t mContactCapacity       = 0;
-    bool mCorrectionBuffersNeedClear     = false;
+    std::uint32_t mCandidatePairCapacity  = 0;
+    std::uint32_t mContactCapacity        = 0;
+    bool mCorrectionBuffersNeedClear      = false;
 };
 
 } // namespace cressim::neo::physics

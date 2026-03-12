@@ -19,11 +19,10 @@ Diligent::float3 absFloat3(const Diligent::float3& value)
 Diligent::QuaternionF multiplyQuaternions(const Diligent::QuaternionF& a,
                                           const Diligent::QuaternionF& b)
 {
-    return Diligent::QuaternionF{
-        a.q.w * b.q.x + a.q.x * b.q.w + a.q.y * b.q.z - a.q.z * b.q.y,
-        a.q.w * b.q.y - a.q.x * b.q.z + a.q.y * b.q.w + a.q.z * b.q.x,
-        a.q.w * b.q.z + a.q.x * b.q.y - a.q.y * b.q.x + a.q.z * b.q.w,
-        a.q.w * b.q.w - a.q.x * b.q.x - a.q.y * b.q.y - a.q.z * b.q.z};
+    return Diligent::QuaternionF{a.q.w * b.q.x + a.q.x * b.q.w + a.q.y * b.q.z - a.q.z * b.q.y,
+                                 a.q.w * b.q.y - a.q.x * b.q.z + a.q.y * b.q.w + a.q.z * b.q.x,
+                                 a.q.w * b.q.z + a.q.x * b.q.y - a.q.y * b.q.x + a.q.z * b.q.w,
+                                 a.q.w * b.q.w - a.q.x * b.q.x - a.q.y * b.q.y - a.q.z * b.q.z};
 }
 
 Diligent::QuaternionF conjugateQuaternion(const Diligent::QuaternionF& q)
@@ -54,19 +53,18 @@ EffectiveColliderDimensions computeEffectiveColliderDimensions(
 
     switch (shape)
     {
-        case ColliderShapeType::Sphere:
-            result.sphereRadius =
-                colliderParams.x * std::max({absScale.x, absScale.y, absScale.z});
-            break;
-        case ColliderShapeType::Box:
-            result.boxHalfExtents = Diligent::float3{colliderParams.x * absScale.x,
-                                                     colliderParams.y * absScale.y,
-                                                     colliderParams.z * absScale.z};
-            break;
-        case ColliderShapeType::Capsule:
-            result.capsuleRadius = colliderParams.x * std::max(absScale.x, absScale.z);
-            result.capsuleHalfHeight = colliderParams.y * absScale.y;
-            break;
+    case ColliderShapeType::Sphere:
+        result.sphereRadius = colliderParams.x * std::max({absScale.x, absScale.y, absScale.z});
+        break;
+    case ColliderShapeType::Box:
+        result.boxHalfExtents =
+            Diligent::float3{colliderParams.x * absScale.x, colliderParams.y * absScale.y,
+                             colliderParams.z * absScale.z};
+        break;
+    case ColliderShapeType::Capsule:
+        result.capsuleRadius     = colliderParams.x * std::max(absScale.x, absScale.z);
+        result.capsuleHalfHeight = colliderParams.y * absScale.y;
+        break;
     }
 
     return result;
@@ -77,9 +75,8 @@ Diligent::QuaternionF rotationVectorToQuaternion(const Diligent::float3& rotatio
     const float angleSq = Diligent::dot(rotationVector, rotationVector);
     if (angleSq <= common::runtime_math::kEpsilon)
     {
-        return common::runtime_math::normalizeQuaternion(
-            Diligent::QuaternionF{rotationVector.x * 0.5f, rotationVector.y * 0.5f,
-                                  rotationVector.z * 0.5f, 1.0f});
+        return common::runtime_math::normalizeQuaternion(Diligent::QuaternionF{
+            rotationVector.x * 0.5f, rotationVector.y * 0.5f, rotationVector.z * 0.5f, 1.0f});
     }
 
     const float angle     = std::sqrt(angleSq);
@@ -99,8 +96,7 @@ Diligent::QuaternionF integrateOrientation(const Diligent::QuaternionF& orientat
         return common::runtime_math::normalizeQuaternion(orientation);
     }
 
-    const Diligent::QuaternionF delta =
-        rotationVectorToQuaternion(angularVelocity * dt);
+    const Diligent::QuaternionF delta = rotationVectorToQuaternion(angularVelocity * dt);
     return common::runtime_math::normalizeQuaternion(multiplyQuaternions(delta, orientation));
 }
 
@@ -137,12 +133,9 @@ Diligent::float3 multiplyWorldInverseInertia(const Diligent::float3& inverseIner
                                              const Diligent::QuaternionF& orientation,
                                              const Diligent::float3& vector) noexcept
 {
-    const Diligent::float3 axisX =
-        orientation.RotateVector(Diligent::float3{1.0f, 0.0f, 0.0f});
-    const Diligent::float3 axisY =
-        orientation.RotateVector(Diligent::float3{0.0f, 1.0f, 0.0f});
-    const Diligent::float3 axisZ =
-        orientation.RotateVector(Diligent::float3{0.0f, 0.0f, 1.0f});
+    const Diligent::float3 axisX = orientation.RotateVector(Diligent::float3{1.0f, 0.0f, 0.0f});
+    const Diligent::float3 axisY = orientation.RotateVector(Diligent::float3{0.0f, 1.0f, 0.0f});
+    const Diligent::float3 axisZ = orientation.RotateVector(Diligent::float3{0.0f, 0.0f, 1.0f});
 
     return axisX * (inverseInertiaLocal.x * Diligent::dot(axisX, vector)) +
            axisY * (inverseInertiaLocal.y * Diligent::dot(axisY, vector)) +

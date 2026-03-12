@@ -70,8 +70,7 @@ std::vector<std::uint32_t> buildReductionLevelCounts(std::uint32_t elementCount)
 } // namespace
 
 bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
-                                          std::uint32_t bodyCount,
-                                          std::uint32_t physicsContextId)
+                                          std::uint32_t bodyCount, std::uint32_t physicsContextId)
 {
     const bool hasAllBuffers =
         mPersistentRigidBodies.positionsBuffer != nullptr &&
@@ -88,8 +87,7 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
         mTransientState.predictedRigidBodies.angularVelocitiesBuffer != nullptr &&
         mTransientState.previousRigidBodies.positionsBuffer != nullptr &&
         mTransientState.previousRigidBodies.orientationsBuffer != nullptr &&
-        mTransientState.bodyAabbsBuffer != nullptr &&
-        mTransientState.bodyMetaBuffer != nullptr &&
+        mTransientState.bodyAabbsBuffer != nullptr && mTransientState.bodyMetaBuffer != nullptr &&
         mTransientState.activeBodyFlagsBuffer != nullptr &&
         mTransientState.activeBodyOffsetsBuffer != nullptr &&
         mTransientState.activeBodyIndicesBuffer != nullptr &&
@@ -105,8 +103,7 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
         mTransientState.broadPhaseExtentScratchBuffers.front() != nullptr &&
         mTransientState.radixBitFlagsBuffer != nullptr &&
         mTransientState.radixBitOffsetsBuffer != nullptr &&
-        mTransientState.radixMetaBuffer != nullptr &&
-        mTransientState.bvhBuffer != nullptr &&
+        mTransientState.radixMetaBuffer != nullptr && mTransientState.bvhBuffer != nullptr &&
         mTransientState.bvhConstructionInfoBuffer != nullptr &&
         mTransientState.pairCountBuffers[0] != nullptr &&
         mTransientState.pairCountBuffers[1] != nullptr &&
@@ -142,33 +139,25 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
     const std::uint32_t newCapacity = std::max<std::uint32_t>(bodyCount, 64u);
     const std::uint32_t newNodeCapacity =
         std::max<std::uint32_t>(newCapacity > 0u ? (newCapacity * 2u - 1u) : 1u, 1u);
-    const std::uint32_t newCandidatePairCapacity =
-        estimateRigidCandidatePairCapacity(newCapacity);
-    const std::uint32_t newChunkCapacity =
-        std::max<std::uint32_t>((newCandidatePairCapacity + kNarrowPhaseChunkSize - 1u) /
-                                    kNarrowPhaseChunkSize,
-                                1u);
-    const std::uint32_t newContactCapacity =
-        std::max<std::uint32_t>(newCandidatePairCapacity * kRigidContactsPerPair,
-                                kRigidContactsPerPair);
-    const Diligent::Uint64 contextMask = contextMaskForId(physicsContextId);
-    const std::vector<std::uint32_t> reductionLevelCounts =
-        buildReductionLevelCounts(newCapacity);
+    const std::uint32_t newCandidatePairCapacity = estimateRigidCandidatePairCapacity(newCapacity);
+    const std::uint32_t newChunkCapacity         = std::max<std::uint32_t>(
+        (newCandidatePairCapacity + kNarrowPhaseChunkSize - 1u) / kNarrowPhaseChunkSize, 1u);
+    const std::uint32_t newContactCapacity = std::max<std::uint32_t>(
+        newCandidatePairCapacity * kRigidContactsPerPair, kRigidContactsPerPair);
+    const Diligent::Uint64 contextMask                    = contextMaskForId(physicsContextId);
+    const std::vector<std::uint32_t> reductionLevelCounts = buildReductionLevelCounts(newCapacity);
 
-    if (!ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PositionsInvMass",
-                                sizeof(Diligent::float4), newCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentRigidBodies.positionsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.Orientations",
-                                sizeof(Diligent::float4), newCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentRigidBodies.orientationsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.Scales",
-                                sizeof(Diligent::float4), newCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
+    if (!ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.PositionsInvMass", sizeof(Diligent::float4),
+            newCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentRigidBodies.positionsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.Orientations", sizeof(Diligent::float4), newCapacity,
+            Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
+            contextMask, mPersistentRigidBodies.orientationsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.Scales", sizeof(Diligent::float4),
+                                newCapacity, Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.scalesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.LinearVelocities",
                                 sizeof(Diligent::float4), newCapacity,
@@ -186,15 +175,13 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.inverseInertiaLocalBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderShapeTypes",
-                                sizeof(std::uint32_t), newCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                sizeof(std::uint32_t), newCapacity, Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.colliderShapeTypesBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderParams",
-                                sizeof(Diligent::float4), newCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentRigidBodies.colliderParamsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.ColliderParams", sizeof(Diligent::float4),
+            newCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentRigidBodies.colliderParamsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PreviousPositionsInvMass",
                                 sizeof(Diligent::float4), newCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -225,13 +212,13 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.predictedRigidBodies.angularVelocitiesBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.BodyAabbs",
-                                sizeof(GpuBodyAabb), newCapacity,
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.BodyAabbs", sizeof(GpuBodyAabb),
+                                newCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.bodyAabbsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.BodyMeta",
-                                sizeof(GpuBodyMeta), newCapacity,
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.BodyMeta", sizeof(GpuBodyMeta),
+                                newCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.bodyMetaBuffer) ||
@@ -280,13 +267,13 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.radixBitOffsetsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RadixMeta",
-                                sizeof(std::uint32_t), 1u,
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RadixMeta", sizeof(std::uint32_t),
+                                1u,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.radixMetaBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.BvhNodes",
-                                sizeof(GpuBvhNode), newNodeCapacity,
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.BvhNodes", sizeof(GpuBvhNode),
+                                newNodeCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.bvhBuffer) ||
@@ -408,16 +395,14 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
                                 sizeof(Diligent::float4), newCapacity, Diligent::BIND_NONE,
                                 Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
                                 mReadbackRigidBodies.orientationsBuffer) ||
-        !ensureStructuredBuffer(renderDevice,
-                                "CRESSimNeo.Physics.PredictedLinearVelocities.Readback",
-                                sizeof(Diligent::float4), newCapacity, Diligent::BIND_NONE,
-                                Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
-                                mReadbackRigidBodies.linearVelocitiesBuffer) ||
-        !ensureStructuredBuffer(renderDevice,
-                                "CRESSimNeo.Physics.PredictedAngularVelocities.Readback",
-                                sizeof(Diligent::float4), newCapacity, Diligent::BIND_NONE,
-                                Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
-                                mReadbackRigidBodies.angularVelocitiesBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.PredictedLinearVelocities.Readback",
+            sizeof(Diligent::float4), newCapacity, Diligent::BIND_NONE, Diligent::USAGE_STAGING,
+            Diligent::CPU_ACCESS_READ, contextMask, mReadbackRigidBodies.linearVelocitiesBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.PredictedAngularVelocities.Readback",
+            sizeof(Diligent::float4), newCapacity, Diligent::BIND_NONE, Diligent::USAGE_STAGING,
+            Diligent::CPU_ACCESS_READ, contextMask, mReadbackRigidBodies.angularVelocitiesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.BroadPhaseMeta.Readback",
                                 sizeof(GpuBroadPhaseMeta), 1u, Diligent::BIND_NONE,
                                 Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
@@ -438,26 +423,21 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
             "CRESSimNeo.Physics.ScanScannedBlockSums." + std::to_string(level);
         const std::string extentName =
             "CRESSimNeo.Physics.BroadPhaseExtentScratch." + std::to_string(level);
-        if (!ensureStructuredBuffer(renderDevice, scanSumsName.c_str(), sizeof(std::uint32_t),
-                                    levelCount,
-                                    Diligent::BIND_UNORDERED_ACCESS |
-                                        Diligent::BIND_SHADER_RESOURCE,
-                                    Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
-                                    contextMask, mTransientState.scanBlockSumsBuffers[level]) ||
-            !ensureStructuredBuffer(renderDevice, scanOffsetsName.c_str(),
-                                    sizeof(std::uint32_t), levelCount,
-                                    Diligent::BIND_UNORDERED_ACCESS |
-                                        Diligent::BIND_SHADER_RESOURCE,
-                                    Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
-                                    contextMask,
-                                    mTransientState.scanScannedBlockSumsBuffers[level]) ||
-            !ensureStructuredBuffer(renderDevice, extentName.c_str(),
-                                    sizeof(GpuBroadPhaseExtent), levelCount,
-                                    Diligent::BIND_UNORDERED_ACCESS |
-                                        Diligent::BIND_SHADER_RESOURCE,
-                                    Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
-                                    contextMask,
-                                    mTransientState.broadPhaseExtentScratchBuffers[level]))
+        if (!ensureStructuredBuffer(
+                renderDevice, scanSumsName.c_str(), sizeof(std::uint32_t), levelCount,
+                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                mTransientState.scanBlockSumsBuffers[level]) ||
+            !ensureStructuredBuffer(
+                renderDevice, scanOffsetsName.c_str(), sizeof(std::uint32_t), levelCount,
+                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                mTransientState.scanScannedBlockSumsBuffers[level]) ||
+            !ensureStructuredBuffer(
+                renderDevice, extentName.c_str(), sizeof(GpuBroadPhaseExtent), levelCount,
+                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                mTransientState.broadPhaseExtentScratchBuffers[level]))
         {
             return false;
         }
@@ -510,8 +490,8 @@ bool PhysicsSceneGpuState::uploadRigidBodyState(Diligent::IDeviceContext* comput
     computeContext->UpdateBuffer(mPersistentRigidBodies.angularVelocitiesBuffer, 0u, float4Bytes,
                                  rigidBodies.angularVelocities.data(),
                                  Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    computeContext->UpdateBuffer(mPersistentRigidBodies.inverseInertiaLocalBuffer, 0u,
-                                 float4Bytes, rigidBodies.inverseInertiaLocal.data(),
+    computeContext->UpdateBuffer(mPersistentRigidBodies.inverseInertiaLocalBuffer, 0u, float4Bytes,
+                                 rigidBodies.inverseInertiaLocal.data(),
                                  Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     computeContext->UpdateBuffer(mPersistentRigidBodies.colliderShapeTypesBuffer, 0u,
                                  shapeTypeBytes, rigidBodies.colliderShapeTypes.data(),
@@ -673,14 +653,14 @@ bool PhysicsSceneGpuState::readbackPredictedRigidStateBlocking(
     return true;
 }
 
-const PhysicsSceneGpuState::PersistentRigidBodyBuffers&
-PhysicsSceneGpuState::persistentRigidBodies() const noexcept
+const PhysicsSceneGpuState::PersistentRigidBodyBuffers& PhysicsSceneGpuState::
+    persistentRigidBodies() const noexcept
 {
     return mPersistentRigidBodies;
 }
 
-const PhysicsSceneGpuState::SolverTransientBuffers&
-PhysicsSceneGpuState::transientBuffers() const noexcept
+const PhysicsSceneGpuState::SolverTransientBuffers& PhysicsSceneGpuState::transientBuffers()
+    const noexcept
 {
     return mTransientState;
 }

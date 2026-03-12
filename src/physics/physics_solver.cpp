@@ -154,7 +154,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
 
         if (mImpl->sceneState.correctionBuffersNeedClear() &&
             !mImpl->passDispatcher.clearCorrections(computeBackend.computeContext,
-                                                   mImpl->sceneState, rigidBodyCount, constants))
+                                                    mImpl->sceneState, rigidBodyCount, constants))
         {
             LOG_ERROR_MESSAGE("PhysicsSolver::step failed: ClearCorrections dispatch.");
             return false;
@@ -176,12 +176,10 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         }
         markStage(mImpl->stageStats, PhysicsSolverStage::UpdateWorldAabbs, true);
 
-        if (!mImpl->passDispatcher.compactActiveBodies(computeBackend.computeContext,
-                                                       mImpl->sceneState, rigidBodyCount,
-                                                       constants))
+        if (!mImpl->passDispatcher.compactActiveBodies(
+                computeBackend.computeContext, mImpl->sceneState, rigidBodyCount, constants))
         {
-            LOG_ERROR_MESSAGE(
-                "PhysicsSolver::step failed: BuildBroadPhase compaction dispatch.");
+            LOG_ERROR_MESSAGE("PhysicsSolver::step failed: BuildBroadPhase compaction dispatch.");
             return false;
         }
 
@@ -194,7 +192,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         }
 
         const std::uint32_t activeDynamicCount = broadPhaseMeta.activeDynamicCount;
-        bool builtBroadPhase = false;
+        bool builtBroadPhase                   = false;
         if (activeDynamicCount > 0u)
         {
             constants.activeDynamicCount = activeDynamicCount;
@@ -229,8 +227,8 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             if (broadPhaseMeta.overflow != 0u)
             {
                 LOG_ERROR_MESSAGE("PhysicsSolver::step failed: candidate pair overflow (required=",
-                                  broadPhaseMeta.requiredPairCount, ", capacity=",
-                                  mImpl->sceneState.candidatePairCapacity(), ").");
+                                  broadPhaseMeta.requiredPairCount,
+                                  ", capacity=", mImpl->sceneState.candidatePairCapacity(), ").");
                 return false;
             }
 
@@ -240,8 +238,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
                                                            mImpl->sceneState, activeDynamicCount,
                                                            constants))
             {
-                LOG_ERROR_MESSAGE(
-                    "PhysicsSolver::step failed: typed pair emission dispatch.");
+                LOG_ERROR_MESSAGE("PhysicsSolver::step failed: typed pair emission dispatch.");
                 return false;
             }
             markStage(mImpl->stageStats, PhysicsSolverStage::GenerateBroadPhasePairs, true);
@@ -285,9 +282,8 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         }
         markStage(mImpl->stageStats, PhysicsSolverStage::UpdateVelocities, true);
 
-        if (substep + 1u < substeps &&
-            !mImpl->sceneState.copyPredictedRigidBodiesToPersistentState(
-                computeBackend.computeContext, rigidBodyCount))
+        if (substep + 1u < substeps && !mImpl->sceneState.copyPredictedRigidBodiesToPersistentState(
+                                           computeBackend.computeContext, rigidBodyCount))
         {
             LOG_ERROR_MESSAGE(
                 "PhysicsSolver::step failed: copyPredictedRigidBodiesToPersistentState.");
@@ -301,8 +297,8 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         return false;
     }
 
-    if (!mImpl->sceneState.readbackPredictedRigidStateBlocking(computeBackend.computeContext,
-                                                               world, rigidBodyCount))
+    if (!mImpl->sceneState.readbackPredictedRigidStateBlocking(computeBackend.computeContext, world,
+                                                               rigidBodyCount))
     {
         LOG_ERROR_MESSAGE("PhysicsSolver::step failed: readbackPredictedRigidStateBlocking.");
         return false;

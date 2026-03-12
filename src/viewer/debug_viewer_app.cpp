@@ -94,7 +94,8 @@ public:
 
         if (mDesc.startFullscreen && mDesc.startFullscreenWindowed)
         {
-            std::cerr << "DebugViewerApp: fullscreen and fullscreen-windowed cannot both be enabled.\n";
+            std::cerr
+                << "DebugViewerApp: fullscreen and fullscreen-windowed cannot both be enabled.\n";
             return false;
         }
 
@@ -103,8 +104,8 @@ public:
 
         inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.colorFormat =
             Diligent::TEX_FORMAT_UNKNOWN;
-        inOutRuntimeConfig.gpuDeviceDesc.presentation.enabled            = mDesc.windowEnabled;
-        inOutRuntimeConfig.gpuDeviceDesc.presentation.syncInterval       = mDesc.vSync ? 1u : 0u;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.enabled      = mDesc.windowEnabled;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.syncInterval = mDesc.vSync ? 1u : 0u;
         inOutRuntimeConfig.gpuDeviceDesc.presentation.preferredColorFormat =
             Diligent::TEX_FORMAT_UNKNOWN;
         inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeWindow     = nullptr;
@@ -121,7 +122,7 @@ public:
             }
             inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.width  = effectiveWidth;
             inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.height = effectiveHeight;
-            mInitialized = true;
+            mInitialized                                                    = true;
             mExitRequested.store(false);
             return true;
         }
@@ -134,8 +135,8 @@ public:
         mGlfwInitialized = true;
 
         GLFWmonitor* targetMonitor = nullptr;
-        int monitorPosX             = 0;
-        int monitorPosY             = 0;
+        int monitorPosX            = 0;
+        int monitorPosY            = 0;
         if (mDesc.startFullscreen || mDesc.startFullscreenWindowed)
         {
             GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
@@ -166,8 +167,8 @@ public:
             }
         }
 
-        mDesc.width  = effectiveWidth;
-        mDesc.height = effectiveHeight;
+        mDesc.width                                                     = effectiveWidth;
+        mDesc.height                                                    = effectiveHeight;
         inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.width  = effectiveWidth;
         inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.height = effectiveHeight;
 
