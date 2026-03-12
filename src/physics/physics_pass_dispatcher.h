@@ -11,6 +11,7 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Shader.h"
 
 #include <array>
 #include <cstddef>
@@ -66,21 +67,40 @@ private:
         Diligent::BUFFER_VIEW_TYPE viewType;
     };
 
+    struct ComputePass
+    {
+        Diligent::RefCntAutoPtr<Diligent::IPipelineState> pso;
+        Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> srb;
+    };
+
     template <std::size_t N>
     bool bindBufferVariables(Diligent::IShaderResourceBinding* srb,
                              const std::array<BufferBinding, N>& bindings);
+
+    template <std::size_t N>
+    bool bindBufferVariables(const ComputePass& pass, const std::array<BufferBinding, N>& bindings);
 
     bool writeDispatchConstants(Diligent::IDeviceContext* computeContext,
                                 const GpuRigidDispatchConstants& constants);
     bool bindBufferVariable(Diligent::IShaderResourceBinding* srb, const char* variableName,
                             Diligent::IBuffer* buffer, Diligent::BUFFER_VIEW_TYPE viewType);
-    bool createComputePipeline(Diligent::IRenderDevice* renderDevice,
-                               Diligent::IShaderSourceInputStreamFactory* streamFactory,
-                               const char* shaderPath, const char* shaderName, const char* psoName,
-                               const Diligent::ShaderResourceVariableDesc* variables,
-                               std::size_t variableCount,
-                               Diligent::RefCntAutoPtr<Diligent::IPipelineState>& outPso,
-                               Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>& outSrb);
+
+    bool createComputePass(Diligent::IRenderDevice* renderDevice,
+                           Diligent::IShaderSourceInputStreamFactory* streamFactory,
+                           const char* shaderPath, const char* shaderName, const char* psoName,
+                           const Diligent::ShaderResourceVariableDesc* variables,
+                           std::size_t variableCount, ComputePass& outPass);
+
+    bool createShaderResourceBinding(
+        Diligent::IPipelineState* pso,
+        Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>& outSrb);
+
+    template <std::size_t N>
+    bool dispatchComputePass(Diligent::IDeviceContext* computeContext, const ComputePass& pass,
+                             const std::array<BufferBinding, N>& bindings,
+                             const GpuRigidDispatchConstants* constants, std::uint32_t groupCountX,
+                             std::uint32_t groupCountY = 1u, std::uint32_t groupCountZ = 1u);
+
     bool dispatchScanBlockPass(Diligent::IDeviceContext* computeContext,
                                const PhysicsSceneGpuState& sceneState, Diligent::IBuffer* input,
                                Diligent::IBuffer* output, Diligent::IBuffer* blockSums,
@@ -110,61 +130,50 @@ private:
     gpu::ShaderLibrary mShaderLibrary{""};
     Diligent::Uint64 mPhysicsContextMask = 0;
 
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mPredictPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mPredictSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mUpdateWorldAabbsPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mUpdateWorldAabbsSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mScanBlockPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mScanBlockSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mScanAddOffsetsPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mScanAddOffsetsSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mCompactActiveBodiesPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mCompactActiveBodiesSrb;
+    ComputePass mPredictPass;
+    ComputePass mUpdateWorldAabbsPass;
+    ComputePass mScanBlockPass;
+    ComputePass mScanAddOffsetsPass;
+
+    ComputePass mCompactActiveBodiesPass;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mCompactStaticBodiesSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mFinalizeActiveBodiesPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mFinalizeActiveBodiesSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mBuildBroadPhaseElementsPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mBuildBroadPhaseElementsSrb;
+
+    ComputePass mFinalizeActiveBodiesPass;
+
+    ComputePass mBuildBroadPhaseElementsPass;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mBuildStaticBroadPhaseElementsSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mReduceExtentElementsPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mReduceExtentElementsSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mReduceExtentExtentsPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mReduceExtentExtentsSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mMortonCodesPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mMortonCodesSrb;
+
+    ComputePass mReduceExtentElementsPass;
+    ComputePass mReduceExtentExtentsPass;
+
+    ComputePass mMortonCodesPass;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mStaticMortonCodesSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mRadixClassifyPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mRadixClassifySrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mRadixFinalizePso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mRadixFinalizeSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mRadixScatterPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mRadixScatterSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mBvhHierarchyPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mBvhHierarchySrb;
+
+    ComputePass mRadixClassifyPass;
+    ComputePass mRadixFinalizePass;
+    ComputePass mRadixScatterPass;
+
+    ComputePass mBvhHierarchyPass;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mStaticBvhHierarchySrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mBvhBoundingBoxesPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mBvhBoundingBoxesSrb;
+
+    ComputePass mBvhBoundingBoxesPass;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mStaticBvhBoundingBoxesSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mCountPairsPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mCountPairsSrb;
+
+    ComputePass mCountPairsPass;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mCountPairsMovingSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mFinalizePairsPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mFinalizePairsSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mEmitPairsPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mEmitPairsSrb;
+
+    ComputePass mFinalizePairsPass;
+
+    ComputePass mEmitPairsPass;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mEmitPairsMovingSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mBuildNarrowPhaseChunksPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mBuildNarrowPhaseChunksSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mGenerateContactsPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mGenerateContactsSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mClearCorrectionsPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mClearCorrectionsSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mSolveGatherPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mSolveGatherSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mApplyCorrectionsPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mApplyCorrectionsSrb;
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mUpdateVelocitiesPso;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mUpdateVelocitiesSrb;
+
+    ComputePass mBuildNarrowPhaseChunksPass;
+    ComputePass mGenerateContactsPass;
+    ComputePass mClearCorrectionsPass;
+    ComputePass mSolveGatherPass;
+    ComputePass mApplyCorrectionsPass;
+    ComputePass mUpdateVelocitiesPass;
+
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mDispatchConstantsBuffer;
 };
 
