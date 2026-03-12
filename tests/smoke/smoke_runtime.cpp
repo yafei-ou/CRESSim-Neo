@@ -19,22 +19,22 @@ using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::graphics::GraphicsBackend;
-using cressim::neo::graphics::GraphicsDevice;
-using cressim::neo::graphics::RenderTargetDesc;
-using cressim::neo::graphics::RenderTargetHandle;
-using cressim::neo::graphics::RenderTargetReadbackEvent;
-using cressim::neo::graphics::RenderTargetReadbackRequest;
+using cressim::neo::gpu::GpuBackend;
+using cressim::neo::gpu::GpuDevice;
+using cressim::neo::gpu::GpuRenderTargetDesc;
+using cressim::neo::gpu::GpuRenderTargetHandle;
+using cressim::neo::gpu::GpuRenderTargetReadbackEvent;
+using cressim::neo::gpu::GpuRenderTargetReadbackRequest;
 
-GraphicsBackend parseBackend(const std::string& value)
+GpuBackend parseBackend(const std::string& value)
 {
     if (value == "null")
     {
-        return GraphicsBackend::Null;
+        return GpuBackend::Null;
     }
     if (value == "vulkan")
     {
-        return GraphicsBackend::Vulkan;
+        return GpuBackend::Vulkan;
     }
     throw std::invalid_argument("Unsupported backend: " + value);
 }
@@ -50,7 +50,7 @@ bool isNear(std::uint8_t value, std::uint8_t expected, std::uint8_t tolerance)
     return diff >= -static_cast<int>(tolerance) && diff <= static_cast<int>(tolerance);
 }
 
-bool containsNonClearPixel(const RenderTargetReadbackEvent& event)
+bool containsNonClearPixel(const GpuRenderTargetReadbackEvent& event)
 {
     if (event.width == 0 || event.height == 0 || event.rowStrideBytes < event.width * 4u)
     {
@@ -98,8 +98,8 @@ bool containsNonClearPixel(const RenderTargetReadbackEvent& event)
 int main(int argc, char** argv)
 {
     RuntimeConfig config{};
-    config.graphicsDeviceDesc.preferredBackend = GraphicsBackend::Vulkan;
-    config.graphicsDeviceDesc.enableValidation = false;
+    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
+    config.gpuDeviceDesc.enableValidation = false;
 
     std::uint64_t numFrames = 3;
 
@@ -113,7 +113,7 @@ int main(int argc, char** argv)
                 printUsage(argv[0]);
                 return 2;
             }
-            config.graphicsDeviceDesc.preferredBackend = parseBackend(argv[++i]);
+            config.gpuDeviceDesc.preferredBackend = parseBackend(argv[++i]);
             continue;
         }
         if (arg == "--frames")
@@ -136,12 +136,12 @@ int main(int argc, char** argv)
             const std::string value = argv[++i];
             if (value == "on")
             {
-                config.graphicsDeviceDesc.enableValidation = true;
+                config.gpuDeviceDesc.enableValidation = true;
                 continue;
             }
             if (value == "off")
             {
-                config.graphicsDeviceDesc.enableValidation = false;
+                config.gpuDeviceDesc.enableValidation = false;
                 continue;
             }
             printUsage(argv[0]);
@@ -169,18 +169,18 @@ int main(int argc, char** argv)
     world.setTransform(cameraEntity, cameraTransform);
     world.setCamera(cameraEntity, camera);
 
-    GraphicsDevice* graphicsDevice = runtime.getGraphicsDevice();
-    RenderTargetHandle secondaryTarget{};
+    GpuDevice* graphicsDevice = runtime.getGpuDevice();
+    GpuRenderTargetHandle secondaryTarget{};
     if (graphicsDevice != nullptr)
     {
-        RenderTargetDesc secondaryTargetDesc{};
+        GpuRenderTargetDesc secondaryTargetDesc{};
         secondaryTargetDesc.width = 640;
         secondaryTargetDesc.height = 480;
         secondaryTargetDesc.debugName = "Smoke.SecondaryCamera";
-        secondaryTarget = graphicsDevice->createRenderTarget(secondaryTargetDesc);
+        secondaryTarget = graphicsDevice->renderTargetSystem().createRenderTarget(secondaryTargetDesc);
     }
 
-    if (graphicsDevice != nullptr && graphicsDevice->isValidRenderTarget(secondaryTarget))
+    if (graphicsDevice != nullptr && graphicsDevice->renderTargetSystem().isValidRenderTarget(secondaryTarget))
     {
         const auto secondaryCameraEntity = world.createEntity();
         TransformComponent secondaryCameraTransform{};
@@ -225,15 +225,28 @@ int main(int argc, char** argv)
     meshRenderer.visible = true;
     world.setMeshRenderer(renderableEntity, meshRenderer);
 
+    const auto rigidEntity = world.createEntity();
+    TransformComponent rigidTransform{};
+    rigidTransform.worldTransform.position = {-0.2f, 0.1f, 0.0f};
+    world.setTransform(rigidEntity, rigidTransform);
+    cressim::neo::engine::RigidBodyComponent rigidBody{};
+    rigidBody.simulated = true;
+    rigidBody.inverseMass = 1.0f;
+    rigidBody.linearVelocity = {0.25f, 0.0f, 0.0f};
+    rigidBody.angularVelocity = {0.0f, 0.1f, 0.0f};
+    rigidBody.colliderShape = cressim::neo::physics::ColliderShapeType::Sphere;
+    rigidBody.colliderParams = {0.4f, 0.0f, 0.0f, 0.0f};
+    world.setRigidBody(rigidEntity, rigidBody);
+
     FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
-    std::vector<RenderTargetReadbackRequest> readbackRequests;
+    std::vector<GpuRenderTargetReadbackRequest> readbackRequests;
 
     for (std::uint64_t i = 0; i < numFrames; ++i)
     {
-        if (graphicsDevice != nullptr && graphicsDevice->isValidRenderTarget(secondaryTarget))
+        if (graphicsDevice != nullptr && graphicsDevice->renderTargetSystem().isValidRenderTarget(secondaryTarget))
         {
-            const RenderTargetReadbackRequest request = graphicsDevice->requestRenderTargetReadback(secondaryTarget);
+            const GpuRenderTargetReadbackRequest request = graphicsDevice->renderTargetSystem().requestRenderTargetReadback(secondaryTarget);
             if (request.id != 0)
             {
                 readbackRequests.push_back(request);
@@ -249,10 +262,10 @@ int main(int argc, char** argv)
     bool foundNonClearPixel = false;
     if (graphicsDevice != nullptr)
     {
-        for (const RenderTargetReadbackRequest request : readbackRequests)
+        for (const GpuRenderTargetReadbackRequest request : readbackRequests)
         {
-            RenderTargetReadbackEvent event{};
-            if (!graphicsDevice->tryGetRenderTargetReadback(request, event))
+            GpuRenderTargetReadbackEvent event{};
+            if (!graphicsDevice->renderTargetSystem().tryGetRenderTargetReadback(request, event))
             {
                 continue;
             }
@@ -265,7 +278,7 @@ int main(int argc, char** argv)
         }
     }
 
-    if (config.graphicsDeviceDesc.preferredBackend == GraphicsBackend::Vulkan)
+    if (config.gpuDeviceDesc.preferredBackend == GpuBackend::Vulkan)
     {
         if (readbackEvents == 0)
         {

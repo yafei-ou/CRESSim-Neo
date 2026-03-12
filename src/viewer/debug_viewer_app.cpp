@@ -92,22 +92,37 @@ public:
             common::runtime_math::clampPositive(mDesc.fixedDeltaSeconds, 1.0f / 60.0f);
         mShowStats = mDesc.showStats;
 
-        inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.width  = mDesc.width;
-        inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.height = mDesc.height;
-        inOutRuntimeConfig.graphicsDeviceDesc.defaultRenderTargetDesc.colorFormat =
+        if (mDesc.startFullscreen && mDesc.startFullscreenWindowed)
+        {
+            std::cerr
+                << "DebugViewerApp: fullscreen and fullscreen-windowed cannot both be enabled.\n";
+            return false;
+        }
+
+        std::uint32_t effectiveWidth  = mDesc.width;
+        std::uint32_t effectiveHeight = mDesc.height;
+
+        inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.colorFormat =
             Diligent::TEX_FORMAT_UNKNOWN;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.enabled      = mDesc.windowEnabled;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.syncInterval = mDesc.vSync ? 1u : 0u;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.preferredColorFormat =
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.enabled      = mDesc.windowEnabled;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.syncInterval = mDesc.vSync ? 1u : 0u;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.preferredColorFormat =
             Diligent::TEX_FORMAT_UNKNOWN;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindow     = nullptr;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindowId   = 0;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeDisplay    = nullptr;
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeConnection = nullptr;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeWindow     = nullptr;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeWindowId   = 0;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeDisplay    = nullptr;
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeConnection = nullptr;
 
         if (!mDesc.windowEnabled)
         {
-            mInitialized = true;
+            if (mDesc.startFullscreen || mDesc.startFullscreenWindowed)
+            {
+                std::cerr
+                    << "DebugViewerApp: fullscreen options require windowEnabled=true; ignoring.\n";
+            }
+            inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.width  = effectiveWidth;
+            inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.height = effectiveHeight;
+            mInitialized                                                    = true;
             mExitRequested.store(false);
             return true;
         }
@@ -119,10 +134,53 @@ public:
         }
         mGlfwInitialized = true;
 
+        GLFWmonitor* targetMonitor = nullptr;
+        int monitorPosX            = 0;
+        int monitorPosY            = 0;
+        if (mDesc.startFullscreen || mDesc.startFullscreenWindowed)
+        {
+            GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
+            if (primaryMonitor == nullptr)
+            {
+                std::cerr << "DebugViewerApp: failed to resolve primary monitor for fullscreen.\n";
+                shutdown();
+                return false;
+            }
+
+            const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
+            if (mode == nullptr)
+            {
+                std::cerr << "DebugViewerApp: failed to query monitor mode for fullscreen.\n";
+                shutdown();
+                return false;
+            }
+
+            effectiveWidth  = static_cast<std::uint32_t>(std::max(mode->width, 1));
+            effectiveHeight = static_cast<std::uint32_t>(std::max(mode->height, 1));
+            if (mDesc.startFullscreen)
+            {
+                targetMonitor = primaryMonitor;
+            }
+            else
+            {
+                glfwGetMonitorPos(primaryMonitor, &monitorPosX, &monitorPosY);
+            }
+        }
+
+        mDesc.width                                                     = effectiveWidth;
+        mDesc.height                                                    = effectiveHeight;
+        inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.width  = effectiveWidth;
+        inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.height = effectiveHeight;
+
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_VISIBLE, mDesc.windowVisible ? GLFW_TRUE : GLFW_FALSE);
+        if (mDesc.startFullscreenWindowed)
+        {
+            glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+            glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        }
         mWindow = glfwCreateWindow(static_cast<int>(mDesc.width), static_cast<int>(mDesc.height),
-                                   mDesc.windowTitle.c_str(), nullptr, nullptr);
+                                   mDesc.windowTitle.c_str(), targetMonitor, nullptr);
         if (mWindow == nullptr)
         {
             std::cerr << "DebugViewerApp: failed to create window.\n";
@@ -130,19 +188,24 @@ public:
             return false;
         }
 
+        if (mDesc.startFullscreenWindowed)
+        {
+            glfwSetWindowPos(mWindow, monitorPosX, monitorPosY);
+            glfwSetWindowSize(mWindow, static_cast<int>(mDesc.width),
+                              static_cast<int>(mDesc.height));
+        }
+
         glfwSetWindowUserPointer(mWindow, this);
         glfwSetScrollCallback(mWindow, &Impl::scrollCallback);
 
 #if defined(_WIN32)
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindow =
-            glfwGetWin32Window(mWindow);
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeWindow = glfwGetWin32Window(mWindow);
 #elif defined(__linux__)
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindowId =
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeWindowId =
             static_cast<std::uint64_t>(glfwGetX11Window(mWindow));
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeDisplay = glfwGetX11Display();
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeDisplay = glfwGetX11Display();
 #elif defined(__APPLE__)
-        inOutRuntimeConfig.graphicsDeviceDesc.presentation.nativeWindow =
-            glfwGetCocoaWindow(mWindow);
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeWindow = glfwGetCocoaWindow(mWindow);
 #endif
 
         mInitialized = true;
@@ -168,7 +231,7 @@ public:
             return false;
         }
 
-        if (runtime.getGraphicsDevice() == nullptr)
+        if (runtime.getGpuDevice() == nullptr)
         {
             std::cerr << "DebugViewerApp: runtime has no graphics device.\n";
             return false;

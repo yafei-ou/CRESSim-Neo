@@ -238,7 +238,7 @@ Diligent::float3 cameraPosition(const CameraData& camera)
 
 } // namespace
 
-RenderViewport normalizeViewport(const RenderViewport& viewport)
+gpu::GpuRenderViewport normalizeViewport(const gpu::GpuRenderViewport& viewport)
 {
     return common::runtime_math::normalizeViewport(viewport);
 }
@@ -269,6 +269,14 @@ Diligent::float4x4 normalMatrixFromModelMatrix(const Diligent::float4x4& modelMa
 
 ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightData>& lights)
 {
+    /**
+     * This gets the first directional light.
+     */
+
+    // TODO: use the brightest one as the main light
+    // TODO: allow multiple lights
+    // TODO: add other types of lights (spot, point)
+
     ForwardDirectionalLightData out{};
     if (lights.empty())
     {
@@ -286,8 +294,10 @@ ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightDat
     return out;
 }
 
-FrameViewData buildFrameViewData(const CameraData& camera, const RenderTargetDesc& targetDesc,
-                                 RenderTargetHandle target, const RenderViewport& viewport,
+FrameViewData buildFrameViewData(const CameraData& camera,
+                                 const gpu::GpuRenderTargetDesc& targetDesc,
+                                 gpu::GpuRenderTargetHandle target,
+                                 const gpu::GpuRenderViewport& viewport,
                                  const ForwardDirectionalLightData& lightData)
 {
     FrameViewData frameView{};

@@ -29,15 +29,19 @@ public:
     CameraComponent& setCamera(common::EntityId entityId, const CameraComponent& component);
     DirectionalLightComponent& setDirectionalLight(common::EntityId entityId,
                                                    const DirectionalLightComponent& component);
+    RigidBodyComponent& setRigidBody(common::EntityId entityId,
+                                     const RigidBodyComponent& component);
     bool removeTransform(common::EntityId entityId);
     bool removeMeshRenderer(common::EntityId entityId);
     bool removeCamera(common::EntityId entityId);
     bool removeDirectionalLight(common::EntityId entityId);
+    bool removeRigidBody(common::EntityId entityId);
 
     const TransformComponent* tryGetTransform(common::EntityId entityId) const;
     const MeshRendererComponent* tryGetMeshRenderer(common::EntityId entityId) const;
     const CameraComponent* tryGetCamera(common::EntityId entityId) const;
     const DirectionalLightComponent* tryGetDirectionalLight(common::EntityId entityId) const;
+    const RigidBodyComponent* tryGetRigidBody(common::EntityId entityId) const;
 
     std::uint64_t revision() const noexcept;
     const std::vector<common::EntityId>& dirtyEntities() const noexcept;
@@ -55,6 +59,7 @@ private:
     std::unordered_map<common::EntityId, MeshRendererComponent> mMeshRenderers;
     std::unordered_map<common::EntityId, CameraComponent> mCameras;
     std::unordered_map<common::EntityId, DirectionalLightComponent> mDirectionalLights;
+    std::unordered_map<common::EntityId, RigidBodyComponent> mRigidBodies;
     std::uint64_t mRevision = 0;
     std::vector<common::EntityId> mDirtyEntities;
     std::unordered_set<common::EntityId> mDirtySet;

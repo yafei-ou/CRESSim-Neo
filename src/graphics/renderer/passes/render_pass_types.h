@@ -2,7 +2,7 @@
 #define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_RENDER_PASS_TYPES_H
 
 #include "common/id.h"
-#include "graphics/graphics_device.h"
+#include "gpu/gpu_device.h"
 #include "graphics/renderer/passes/forward_draw_types.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/AdvancedMath.hpp"
@@ -22,8 +22,8 @@ enum class MainPassClass
 
 struct FrameViewData
 {
-    RenderTargetHandle target{};
-    RenderViewport viewport{};
+    gpu::GpuRenderTargetHandle target{};
+    gpu::GpuRenderViewport viewport{};
     std::uint32_t outputWidth               = 0;
     std::uint32_t outputHeight              = 0;
     Diligent::float4x4 viewMatrix           = Diligent::float4x4::Identity();

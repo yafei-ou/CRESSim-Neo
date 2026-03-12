@@ -4,10 +4,12 @@
 #include "common/frame_context.h"
 #include "engine/export.h"
 #include "engine/world.h"
-#include "graphics/graphics_device.h"
+#include "gpu/gpu_device.h"
 #include "graphics/render_resource_manager.h"
 #include "graphics/render_world.h"
 #include "graphics/renderer.h"
+#include "physics/physics_solver.h"
+#include "physics/physics_world.h"
 
 #include <cstdint>
 #include <memory>
@@ -17,8 +19,9 @@ namespace cressim::neo::engine
 
 struct RuntimeConfig
 {
-    graphics::GraphicsDeviceDesc graphicsDeviceDesc{};
+    gpu::GpuDeviceDesc gpuDeviceDesc{};
     graphics::RendererDesc rendererDesc{};
+    physics::PhysicsSolverDesc physicsDesc{};
 };
 
 class CRESSIM_NEO_ENGINE_API Runtime
@@ -32,15 +35,10 @@ public:
     World& getWorld() noexcept;
     const World& getWorld() const noexcept;
 
-    // Direct access for explicit target creation and other low-level graphics control.
-    graphics::GraphicsDevice* getGraphicsDevice() noexcept;
-    const graphics::GraphicsDevice* getGraphicsDevice() const noexcept;
-    // Queues a readback request for a target and returns a request handle.
-    graphics::RenderTargetReadbackRequest requestRenderTargetReadback(
-        graphics::RenderTargetHandle target);
-    // Polls a specific readback request for completion metadata and optional payload.
-    bool tryGetRenderTargetReadback(graphics::RenderTargetReadbackRequest request,
-                                    graphics::RenderTargetReadbackEvent& outEvent);
+    gpu::GpuDevice* getGpuDevice() noexcept;
+    const gpu::GpuDevice* getGpuDevice() const noexcept;
+    physics::PhysicsSolver* getPhysicsSolver() noexcept;
+    const physics::PhysicsSolver* getPhysicsSolver() const noexcept;
     const graphics::RenderStats& lastRenderStats() const noexcept;
 
     graphics::RenderResourceManager& getResources() noexcept;
@@ -48,14 +46,19 @@ public:
 
 private:
     bool syncWorldToRenderWorld();
+    bool syncWorldToPhysicsWorld();
+    bool syncPhysicsWorldToWorld();
 
     bool mInitialized = false;
-    std::unique_ptr<graphics::GraphicsDevice> mGraphicsDevice;
+    std::unique_ptr<gpu::GpuDevice> mGpuDevice;
+    std::unique_ptr<physics::PhysicsSolver> mPhysicsSolver;
     std::unique_ptr<graphics::Renderer> mRenderer;
     graphics::RenderStats mLastRenderStats{};
-    std::uint64_t mLastSyncedWorldRevision = ~0ull;
+    std::uint64_t mLastSyncedPhysicsWorldRevision = ~0ull;
+    std::uint64_t mLastSyncedWorldRevision        = ~0ull;
     World mWorld;
     graphics::RenderResourceManager mResources;
+    physics::PhysicsWorld mPhysicsWorld;
     graphics::RenderWorld mRenderWorld;
 };
 

@@ -1,7 +1,7 @@
 #ifndef CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_PIPELINE_H
 #define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_PIPELINE_H
 
-#include "graphics/graphics_device.h"
+#include "gpu/gpu_device.h"
 #include "graphics/renderer/passes/render_pass_types.h"
 
 #include <array>
@@ -9,8 +9,6 @@
 
 namespace cressim::neo::graphics
 {
-
-class GraphicsDeviceImpl;
 
 namespace detail
 {
@@ -22,7 +20,7 @@ class ShadowPass;
 class ForwardPipeline
 {
 public:
-    explicit ForwardPipeline(GraphicsDeviceImpl& device);
+    explicit ForwardPipeline(gpu::GpuDevice& device);
     ~ForwardPipeline();
 
     bool initialize();
@@ -30,11 +28,11 @@ public:
                  const CameraRenderQueues& queues, ForwardPassExecutionStats& outStats);
 
 private:
-    GraphicsDeviceImpl& mDevice;
+    gpu::GpuDevice& mDevice;
     std::unique_ptr<ForwardOpaquePass> mForwardOpaquePass;
     std::unique_ptr<ForwardTransparentPass> mForwardTransparentPass;
     std::unique_ptr<ShadowPass> mShadowPass;
-    std::array<RenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
+    std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
     bool mInitialized = false;
 };
 

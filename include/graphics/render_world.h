@@ -3,8 +3,8 @@
 
 #include "common/id.h"
 #include "common/math_types.h"
+#include "gpu/gpu_device.h"
 #include "graphics/export.h"
-#include "graphics/graphics_device.h"
 #include "graphics/render_resource_manager.h"
 
 #include <cstddef>
@@ -31,10 +31,10 @@ struct CameraData
     float farClip            = 1000.0f;
 
     // Render output and scheduling controls copied from engine::CameraComponent.
-    RenderTargetHandle outputTarget{};
+    gpu::GpuRenderTargetHandle outputTarget{};
     std::uint32_t outputWidth  = 0;
     std::uint32_t outputHeight = 0;
-    RenderViewport viewport{};
+    gpu::GpuRenderViewport viewport{};
 
     std::uint32_t renderOrder = 0;
 };

@@ -3,7 +3,7 @@
 namespace cressim::neo::graphics::detail
 {
 
-ForwardTransparentPass::ForwardTransparentPass(GraphicsDeviceImpl& device) : mDevice(device) {}
+ForwardTransparentPass::ForwardTransparentPass(gpu::GpuDevice& device) : mDevice(device) {}
 
 bool ForwardTransparentPass::initialize()
 {
@@ -11,7 +11,8 @@ bool ForwardTransparentPass::initialize()
     return true;
 }
 
-bool ForwardTransparentPass::draw(RenderTargetHandle target, const ForwardDrawCommand& drawCommand)
+bool ForwardTransparentPass::draw(gpu::GpuRenderTargetHandle target,
+                                  const ForwardDrawCommand& drawCommand)
 {
     (void)target;
     (void)drawCommand;

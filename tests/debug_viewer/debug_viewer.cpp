@@ -19,7 +19,7 @@ using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::graphics::GraphicsBackend;
+using cressim::neo::gpu::GpuBackend;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::viewer::DebugViewerApp;
@@ -27,15 +27,15 @@ using cressim::neo::viewer::DebugViewerAppDesc;
 using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
-GraphicsBackend parseBackend(const std::string& value)
+GpuBackend parseBackend(const std::string& value)
 {
     if (value == "null")
     {
-        return GraphicsBackend::Null;
+        return GpuBackend::Null;
     }
     if (value == "vulkan")
     {
-        return GraphicsBackend::Vulkan;
+        return GpuBackend::Vulkan;
     }
     throw std::invalid_argument("Unsupported backend: " + value);
 }
@@ -96,8 +96,8 @@ MeshResourceDesc makePlaneMesh(float halfExtent)
 int main(int argc, char** argv)
 {
     RuntimeConfig config{};
-    config.graphicsDeviceDesc.preferredBackend = GraphicsBackend::Vulkan;
-    config.graphicsDeviceDesc.enableValidation = false;
+    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
+    config.gpuDeviceDesc.enableValidation = false;
     std::uint64_t numFrames = 4;
 
     for (int i = 1; i < argc; ++i)
@@ -110,7 +110,7 @@ int main(int argc, char** argv)
                 printUsage(argv[0]);
                 return 2;
             }
-            config.graphicsDeviceDesc.preferredBackend = parseBackend(argv[++i]);
+            config.gpuDeviceDesc.preferredBackend = parseBackend(argv[++i]);
             continue;
         }
         if (arg == "--frames")
@@ -130,10 +130,10 @@ int main(int argc, char** argv)
 
     DebugViewerApp viewer;
     DebugViewerAppDesc viewerDesc{};
-    const bool windowEnabled = (config.graphicsDeviceDesc.preferredBackend != GraphicsBackend::Null);
+    const bool windowEnabled = (config.gpuDeviceDesc.preferredBackend != GpuBackend::Null);
     viewerDesc.windowEnabled = windowEnabled;
     viewerDesc.windowVisible = windowEnabled;
-    viewerDesc.maxFrames = std::max<std::uint64_t>(numFrames, 1u);
+    viewerDesc.maxFrames = numFrames;
     viewerDesc.showStats = false;
     viewerDesc.width = 640;
     viewerDesc.height = 480;
@@ -241,7 +241,8 @@ int main(int argc, char** argv)
         std::cerr << "Viewer run failed.\n";
         return 1;
     }
-    if (beforeCalls != viewerDesc.maxFrames || afterCalls != viewerDesc.maxFrames)
+    if (viewerDesc.maxFrames > 0 &&
+        (beforeCalls != viewerDesc.maxFrames || afterCalls != viewerDesc.maxFrames))
     {
         std::cerr << "Unexpected callback counts. before=" << beforeCalls << " after=" << afterCalls
                   << " expected=" << viewerDesc.maxFrames << '\n';

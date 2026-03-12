@@ -54,17 +54,9 @@ target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src)
 set(CRESSIM_NEO_SHADER_SOURCE_DIR "${PROJECT_SOURCE_DIR}/assets/shaders")
 target_compile_definitions(${TARGET_NAME} PRIVATE CRESSIM_NEO_SHADER_SOURCE_DIR="${CRESSIM_NEO_SHADER_SOURCE_DIR}")
 
-target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common)
+target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common cressim_neo_gpu)
 
-# Link with Diligent
 target_link_libraries(${TARGET_NAME} PUBLIC Diligent-PublicBuildSettings)
-if(TARGET Diligent-GraphicsEngineVk-static)
-    target_link_libraries(${TARGET_NAME} PRIVATE Diligent-GraphicsEngineVk-static)
-elseif(TARGET Diligent-GraphicsEngineVk-shared)
-    target_link_libraries(${TARGET_NAME} PRIVATE Diligent-GraphicsEngineVk-shared)
-else()
-    message(FATAL_ERROR "Requires Vulkan Diligent backend target.")
-endif()
 
 set_target_properties(${TARGET_NAME}
     PROPERTIES

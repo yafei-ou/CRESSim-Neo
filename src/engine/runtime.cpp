@@ -1,8 +1,58 @@
 #include "engine/runtime.h"
+
+#include "engine/physics_world_to_world_sync.h"
+#include "engine/world_to_physics_world_sync.h"
 #include "engine/world_to_render_world_sync.h"
+
+#include <iostream>
 
 namespace cressim::neo::engine
 {
+
+namespace
+{
+
+const char* stageName(physics::PhysicsSolverStage stage)
+{
+    switch (stage)
+    {
+    case physics::PhysicsSolverStage::PredictState:
+        return "PredictState";
+    case physics::PhysicsSolverStage::UpdateWorldAabbs:
+        return "UpdateWorldAabbs";
+    case physics::PhysicsSolverStage::BuildBroadPhase:
+        return "BuildBroadPhase";
+    case physics::PhysicsSolverStage::GenerateBroadPhasePairs:
+        return "GenerateBroadPhasePairs";
+    case physics::PhysicsSolverStage::GenerateContacts:
+        return "GenerateContacts";
+    case physics::PhysicsSolverStage::SolveConstraints:
+        return "SolveConstraints";
+    case physics::PhysicsSolverStage::UpdateVelocities:
+        return "UpdateVelocities";
+    case physics::PhysicsSolverStage::CommitResults:
+        return "CommitResults";
+    case physics::PhysicsSolverStage::Count:
+        break;
+    }
+    return "Unknown";
+}
+
+void logPhysicsStepFailure(const common::FrameContext& frameContext,
+                           const physics::PhysicsSolverStageStats& stats)
+{
+    std::cerr << "Runtime: physics step failed at frame " << frameContext.frameIndex
+              << " (dt=" << frameContext.deltaSeconds << "). Executed stages:";
+    for (std::uint32_t i = 0; i < static_cast<std::uint32_t>(physics::PhysicsSolverStage::Count);
+         ++i)
+    {
+        const auto stage = static_cast<physics::PhysicsSolverStage>(i);
+        std::cerr << ' ' << stageName(stage) << '=' << (stats.executed[i] ? '1' : '0');
+    }
+    std::cerr << '\n';
+}
+
+} // namespace
 
 bool Runtime::initialize(const RuntimeConfig& config)
 {
@@ -11,25 +61,35 @@ bool Runtime::initialize(const RuntimeConfig& config)
         return true;
     }
 
-    mGraphicsDevice = graphics::createGraphicsDevice();
-    if (!mGraphicsDevice)
+    mGpuDevice = gpu::createGpuDevice();
+    if (!mGpuDevice)
     {
         return false;
     }
 
-    if (!mGraphicsDevice->initialize(config.graphicsDeviceDesc))
+    if (!mGpuDevice->initialize(config.gpuDeviceDesc))
     {
-        mGraphicsDevice.reset();
+        mGpuDevice.reset();
         return false;
     }
 
-    mRenderer =
-        std::make_unique<graphics::Renderer>(*mGraphicsDevice, mResources, config.rendererDesc);
+    mPhysicsSolver = std::make_unique<physics::PhysicsSolver>(*mGpuDevice, config.physicsDesc);
+    if (!mPhysicsSolver || !mPhysicsSolver->initialize())
+    {
+        mPhysicsSolver.reset();
+        mGpuDevice->shutdown();
+        mGpuDevice.reset();
+        return false;
+    }
+
+    mRenderer = std::make_unique<graphics::Renderer>(*mGpuDevice, mResources, config.rendererDesc);
     if (!mRenderer->initialize())
     {
         mRenderer.reset();
-        mGraphicsDevice->shutdown();
-        mGraphicsDevice.reset();
+        mPhysicsSolver->shutdown();
+        mPhysicsSolver.reset();
+        mGpuDevice->shutdown();
+        mGpuDevice.reset();
         return false;
     }
 
@@ -46,15 +106,22 @@ void Runtime::shutdown()
 
     mRenderer.reset();
 
-    if (mGraphicsDevice)
+    if (mPhysicsSolver)
     {
-        mGraphicsDevice->shutdown();
-        mGraphicsDevice.reset();
+        mPhysicsSolver->shutdown();
+        mPhysicsSolver.reset();
     }
 
-    mLastRenderStats         = {};
-    mLastSyncedWorldRevision = ~0ull;
-    mInitialized             = false;
+    if (mGpuDevice)
+    {
+        mGpuDevice->shutdown();
+        mGpuDevice.reset();
+    }
+
+    mLastRenderStats                = {};
+    mLastSyncedWorldRevision        = ~0ull;
+    mLastSyncedPhysicsWorldRevision = ~0ull;
+    mInitialized                    = false;
 }
 
 void Runtime::tick(const common::FrameContext& frameContext)
@@ -64,7 +131,22 @@ void Runtime::tick(const common::FrameContext& frameContext)
         return;
     }
 
-    const bool syncSkipped                  = syncWorldToRenderWorld();
+    (void)syncWorldToPhysicsWorld();
+    bool physicsStepSucceeded = true;
+    if (mPhysicsSolver)
+    {
+        physicsStepSucceeded = mPhysicsSolver->step(frameContext, mPhysicsWorld);
+        if (!physicsStepSucceeded)
+        {
+            logPhysicsStepFailure(frameContext, mPhysicsSolver->lastStageStats());
+        }
+    }
+    if (physicsStepSucceeded)
+    {
+        (void)syncPhysicsWorldToWorld();
+    }
+    const bool syncSkipped = syncWorldToRenderWorld();
+
     mLastRenderStats                        = mRenderer->render(frameContext, mRenderWorld);
     mLastRenderStats.worldSyncSkippedFrames = syncSkipped ? 1u : 0u;
 }
@@ -79,34 +161,24 @@ const World& Runtime::getWorld() const noexcept
     return mWorld;
 }
 
-graphics::GraphicsDevice* Runtime::getGraphicsDevice() noexcept
+gpu::GpuDevice* Runtime::getGpuDevice() noexcept
 {
-    return mGraphicsDevice.get();
+    return mGpuDevice.get();
 }
 
-const graphics::GraphicsDevice* Runtime::getGraphicsDevice() const noexcept
+const gpu::GpuDevice* Runtime::getGpuDevice() const noexcept
 {
-    return mGraphicsDevice.get();
+    return mGpuDevice.get();
 }
 
-graphics::RenderTargetReadbackRequest Runtime::requestRenderTargetReadback(
-    graphics::RenderTargetHandle target)
+physics::PhysicsSolver* Runtime::getPhysicsSolver() noexcept
 {
-    if (!mGraphicsDevice)
-    {
-        return {};
-    }
-    return mGraphicsDevice->requestRenderTargetReadback(target);
+    return mPhysicsSolver.get();
 }
 
-bool Runtime::tryGetRenderTargetReadback(graphics::RenderTargetReadbackRequest request,
-                                         graphics::RenderTargetReadbackEvent& outEvent)
+const physics::PhysicsSolver* Runtime::getPhysicsSolver() const noexcept
 {
-    if (!mGraphicsDevice)
-    {
-        return false;
-    }
-    return mGraphicsDevice->tryGetRenderTargetReadback(request, outEvent);
+    return mPhysicsSolver.get();
 }
 
 const graphics::RenderStats& Runtime::lastRenderStats() const noexcept
@@ -122,6 +194,24 @@ graphics::RenderResourceManager& Runtime::getResources() noexcept
 const graphics::RenderResourceManager& Runtime::getResources() const noexcept
 {
     return mResources;
+}
+
+bool Runtime::syncWorldToPhysicsWorld()
+{
+    if (mWorld.revision() == mLastSyncedWorldRevision)
+    {
+        return true;
+    }
+
+    detail::syncWorldToPhysicsWorld(mWorld, mPhysicsWorld);
+    return false;
+}
+
+bool Runtime::syncPhysicsWorldToWorld()
+{
+    detail::syncPhysicsWorldToWorld(mPhysicsWorld, mWorld);
+    mLastSyncedPhysicsWorldRevision = mPhysicsWorld.revision();
+    return true;
 }
 
 bool Runtime::syncWorldToRenderWorld()

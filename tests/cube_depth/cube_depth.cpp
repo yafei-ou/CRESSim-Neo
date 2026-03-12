@@ -21,23 +21,23 @@ using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::graphics::GraphicsBackend;
+using cressim::neo::gpu::GpuBackend;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshResourceDesc;
-using cressim::neo::graphics::RenderTargetDesc;
-using cressim::neo::graphics::RenderTargetHandle;
-using cressim::neo::graphics::RenderTargetReadbackEvent;
-using cressim::neo::graphics::RenderTargetReadbackRequest;
+using cressim::neo::gpu::GpuRenderTargetDesc;
+using cressim::neo::gpu::GpuRenderTargetHandle;
+using cressim::neo::gpu::GpuRenderTargetReadbackEvent;
+using cressim::neo::gpu::GpuRenderTargetReadbackRequest;
 
-GraphicsBackend parseBackend(const std::string& value)
+GpuBackend parseBackend(const std::string& value)
 {
     if (value == "null")
     {
-        return GraphicsBackend::Null;
+        return GpuBackend::Null;
     }
     if (value == "vulkan")
     {
-        return GraphicsBackend::Vulkan;
+        return GpuBackend::Vulkan;
     }
     throw std::invalid_argument("Unsupported backend: " + value);
 }
@@ -79,7 +79,7 @@ Diligent::QuaternionF quaternionFromEulerDegrees(float pitchDegrees, float yawDe
         cosRoll * cosPitch * cosYaw + sinRoll * sinPitch * sinYaw};
 }
 
-bool isValidReadback(const RenderTargetReadbackEvent& event)
+bool isValidReadback(const GpuRenderTargetReadbackEvent& event)
 {
     if (event.width == 0 || event.height == 0 || event.rowStrideBytes < event.width * 4u)
     {
@@ -92,7 +92,7 @@ bool isValidReadback(const RenderTargetReadbackEvent& event)
     return true;
 }
 
-bool containsNonClearPixel(const RenderTargetReadbackEvent& event)
+bool containsNonClearPixel(const GpuRenderTargetReadbackEvent& event)
 {
     constexpr std::uint8_t kClearR = 5;
     constexpr std::uint8_t kClearG = 5;
@@ -131,7 +131,7 @@ bool containsNonClearPixel(const RenderTargetReadbackEvent& event)
     return false;
 }
 
-std::array<std::uint8_t, 4> readCenterPixel(const RenderTargetReadbackEvent& event)
+std::array<std::uint8_t, 4> readCenterPixel(const GpuRenderTargetReadbackEvent& event)
 {
     std::array<std::uint8_t, 4> pixel{0u, 0u, 0u, 0u};
     if (!isValidReadback(event))
@@ -175,7 +175,7 @@ struct DominantPixelStats
     std::uint64_t greenDominantCount = 0;
 };
 
-DominantPixelStats analyzeDominantPixels(const RenderTargetReadbackEvent& event)
+DominantPixelStats analyzeDominantPixels(const GpuRenderTargetReadbackEvent& event)
 {
     DominantPixelStats stats{};
     if (!isValidReadback(event))
@@ -238,7 +238,7 @@ std::string withSuffixBeforeExtension(std::string path, const std::string& suffi
     return path;
 }
 
-bool writePpm(const std::string& path, const RenderTargetReadbackEvent& event)
+bool writePpm(const std::string& path, const GpuRenderTargetReadbackEvent& event)
 {
     if (!isValidReadback(event))
     {
@@ -308,8 +308,8 @@ MeshResourceDesc makeCubeMesh(float halfExtent)
 int main(int argc, char** argv)
 {
     RuntimeConfig config{};
-    config.graphicsDeviceDesc.preferredBackend = GraphicsBackend::Vulkan;
-    config.graphicsDeviceDesc.enableValidation = false;
+    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
+    config.gpuDeviceDesc.enableValidation = false;
 
     std::uint64_t numFrames = 2;
     std::string outputPath = "cube_depth_readback.ppm";
@@ -324,7 +324,7 @@ int main(int argc, char** argv)
                 printUsage(argv[0]);
                 return 2;
             }
-            config.graphicsDeviceDesc.preferredBackend = parseBackend(argv[++i]);
+            config.gpuDeviceDesc.preferredBackend = parseBackend(argv[++i]);
             continue;
         }
         if (arg == "--frames")
@@ -357,12 +357,12 @@ int main(int argc, char** argv)
             const std::string value = argv[++i];
             if (value == "on")
             {
-                config.graphicsDeviceDesc.enableValidation = true;
+                config.gpuDeviceDesc.enableValidation = true;
                 continue;
             }
             if (value == "off")
             {
-                config.graphicsDeviceDesc.enableValidation = false;
+                config.gpuDeviceDesc.enableValidation = false;
                 continue;
             }
             printUsage(argv[0]);
@@ -386,7 +386,7 @@ int main(int argc, char** argv)
     }
 
     auto& world = runtime.getWorld();
-    auto* graphicsDevice = runtime.getGraphicsDevice();
+    auto* graphicsDevice = runtime.getGpuDevice();
     if (graphicsDevice == nullptr)
     {
         runtime.shutdown();
@@ -394,12 +394,12 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    RenderTargetDesc targetDesc{};
+    GpuRenderTargetDesc targetDesc{};
     targetDesc.width = 640;
     targetDesc.height = 480;
     targetDesc.debugName = "CubeDepth.Target";
-    const RenderTargetHandle target = graphicsDevice->createRenderTarget(targetDesc);
-    if (!graphicsDevice->isValidRenderTarget(target))
+    const GpuRenderTargetHandle target = graphicsDevice->renderTargetSystem().createRenderTarget(targetDesc);
+    if (!graphicsDevice->renderTargetSystem().isValidRenderTarget(target))
     {
         runtime.shutdown();
         std::cerr << "Failed to create readback target.\n";
@@ -469,7 +469,7 @@ int main(int argc, char** argv)
 
     FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
-    std::vector<RenderTargetReadbackRequest> readbackRequests;
+    std::vector<GpuRenderTargetReadbackRequest> readbackRequests;
     for (std::uint64_t i = 0; i < numFrames; ++i)
     {
         if (i == 1)
@@ -478,7 +478,7 @@ int main(int argc, char** argv)
             world.setMeshRenderer(frontCubeEntity, frontCube);
         }
 
-        const RenderTargetReadbackRequest request = graphicsDevice->requestRenderTargetReadback(target);
+        const GpuRenderTargetReadbackRequest request = graphicsDevice->renderTargetSystem().requestRenderTargetReadback(target);
         if (request.id != 0)
         {
             readbackRequests.push_back(request);
@@ -489,14 +489,14 @@ int main(int argc, char** argv)
         runtime.tick(frame);
     }
 
-    RenderTargetReadbackEvent backOnlyCapture{};
-    RenderTargetReadbackEvent layeredCapture{};
+    GpuRenderTargetReadbackEvent backOnlyCapture{};
+    GpuRenderTargetReadbackEvent layeredCapture{};
     bool hasBackOnlyPayload = false;
     bool hasLayeredPayload = false;
-    for (const RenderTargetReadbackRequest request : readbackRequests)
+    for (const GpuRenderTargetReadbackRequest request : readbackRequests)
     {
-        RenderTargetReadbackEvent event{};
-        if (!graphicsDevice->tryGetRenderTargetReadback(request, event))
+        GpuRenderTargetReadbackEvent event{};
+        if (!graphicsDevice->renderTargetSystem().tryGetRenderTargetReadback(request, event))
         {
             continue;
         }
@@ -517,7 +517,7 @@ int main(int argc, char** argv)
 
     runtime.shutdown();
 
-    if (config.graphicsDeviceDesc.preferredBackend == GraphicsBackend::Null)
+    if (config.gpuDeviceDesc.preferredBackend == GpuBackend::Null)
     {
         std::cout << "Null backend selected; depth capture skipped.\n";
         return 0;

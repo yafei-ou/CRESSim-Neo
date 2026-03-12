@@ -1,23 +1,31 @@
-set(TARGET_NAME "cressim_neo_world_sync_incremental")
+function(add_engine_test target_name source_file)
+    add_executable(${target_name}
+        ${PROJECT_SOURCE_DIR}/tests/engine/${source_file}
+    )
 
-add_executable(${TARGET_NAME}
-    ${PROJECT_SOURCE_DIR}/tests/engine/world_sync_incremental.cpp
-)
+    target_include_directories(${target_name} PRIVATE
+        ${PROJECT_SOURCE_DIR}/include
+        ${PROJECT_SOURCE_DIR}/src
+    )
 
-target_include_directories(${TARGET_NAME} PRIVATE
-    ${PROJECT_SOURCE_DIR}/include
-)
+    target_link_libraries(${target_name} PRIVATE cressim_neo_engine)
 
-target_link_libraries(${TARGET_NAME} PRIVATE cressim_neo_engine)
+    set_target_properties(${target_name}
+        PROPERTIES
+        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    )
+endfunction()
 
-set_target_properties(${TARGET_NAME}
-    PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-)
-
+add_engine_test(cressim_neo_world_sync_incremental world_sync_incremental.cpp)
 add_test(
     NAME cressim_neo_world_sync_incremental_vulkan
-    COMMAND ${TARGET_NAME}
+    COMMAND cressim_neo_world_sync_incremental
+)
+
+add_engine_test(cressim_neo_runtime_physics_sync_fields runtime_physics_sync_fields.cpp)
+add_test(
+    NAME cressim_neo_runtime_physics_sync_fields
+    COMMAND cressim_neo_runtime_physics_sync_fields
 )

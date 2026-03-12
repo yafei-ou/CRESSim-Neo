@@ -16,7 +16,7 @@ using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::graphics::BlendMode;
-using cressim::neo::graphics::GraphicsBackend;
+using cressim::neo::gpu::GpuBackend;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MaterialFeatureFlags;
 using cressim::neo::graphics::MeshResourceDesc;
@@ -50,7 +50,7 @@ bool sameStats(const RenderStats& lhs, const RenderStats& rhs)
 int main()
 {
     RuntimeConfig config{};
-    config.graphicsDeviceDesc.preferredBackend = GraphicsBackend::Vulkan;
+    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
 
     Runtime runtime;
     if (!runtime.initialize(config))
