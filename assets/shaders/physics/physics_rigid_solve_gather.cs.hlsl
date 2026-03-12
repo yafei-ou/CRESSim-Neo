@@ -2,12 +2,15 @@ cbuffer PhysicsDispatchConstantsBuffer
 {
     float dt;
     uint rigidBodyCount;
-    uint activeDynamicCount;
+    uint activeMovingCount;
+    uint staticBodyCount;
     uint candidatePairCount;
     uint candidatePairCapacity;
     uint substepIndex;
     uint iterationIndex;
     uint solverIterations;
+    uint reserved0;
+    uint reserved1;
 };
 
 #include "physics/physics_rigid_common.hlsli"
@@ -19,6 +22,7 @@ static const float kCorrectionAtomicScale = 100000.0;
 StructuredBuffer<float4> g_PredictedRigidBodyPositionsInvMass;
 StructuredBuffer<float4> g_PredictedRigidBodyOrientations;
 StructuredBuffer<float4> g_RigidBodyInverseInertiaLocal;
+StructuredBuffer<uint> g_RigidBodyTypes;
 StructuredBuffer<GpuRigidContact> g_RigidContacts;
 
 RWStructuredBuffer<int4> g_RigidBodyTranslationCorrections;
@@ -49,9 +53,11 @@ int3 QuantizeCorrection(float3 value)
 
     const float4 posInvMassA = g_PredictedRigidBodyPositionsInvMass[bodyA];
     const float4 posInvMassB = g_PredictedRigidBodyPositionsInvMass[bodyB];
+    const uint bodyTypeA = g_RigidBodyTypes[bodyA];
+    const uint bodyTypeB = g_RigidBodyTypes[bodyB];
 
-    const float invMassA = posInvMassA.w;
-    const float invMassB = posInvMassB.w;
+    const float invMassA = bodyTypeA == 2u ? posInvMassA.w : 0.0;
+    const float invMassB = bodyTypeB == 2u ? posInvMassB.w : 0.0;
     if (invMassA == 0.0 && invMassB == 0.0)
         return;
 
@@ -92,7 +98,7 @@ int3 QuantizeCorrection(float3 value)
     const int3 translationB = QuantizeCorrection(n * (invMassB * lambda));
     const int3 rotationB = QuantizeCorrection(angMassB * lambda);
 
-    if (invMassA != 0.0)
+    if (bodyTypeA == 2u && invMassA != 0.0)
     {
         InterlockedAdd(g_RigidBodyTranslationCorrections[bodyA].x, translationA.x);
         InterlockedAdd(g_RigidBodyTranslationCorrections[bodyA].y, translationA.y);
@@ -102,7 +108,7 @@ int3 QuantizeCorrection(float3 value)
         InterlockedAdd(g_RigidBodyRotationCorrections[bodyA].z, rotationA.z);
     }
 
-    if (invMassB != 0.0)
+    if (bodyTypeB == 2u && invMassB != 0.0)
     {
         InterlockedAdd(g_RigidBodyTranslationCorrections[bodyB].x, translationB.x);
         InterlockedAdd(g_RigidBodyTranslationCorrections[bodyB].y, translationB.y);

@@ -9,6 +9,7 @@ namespace
 using cressim::neo::common::EntityId;
 using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::physics::PhysicsWorld;
+using cressim::neo::physics::RigidBodyType;
 using cressim::neo::physics::RigidBodyState;
 
 RigidBodyState makeRigidBody(EntityId entityId, float x, float vx, ColliderShapeType shape)
@@ -21,9 +22,13 @@ RigidBodyState makeRigidBody(EntityId entityId, float x, float vx, ColliderShape
     state.linearVelocity = {vx, 0.0f, 0.0f};
     state.angularVelocity = {0.0f, vx, 0.0f};
     state.inverseInertiaLocal = {0.25f + x, 0.5f + x, 0.75f + x};
+    state.bodyType = (entityId % 2u == 0u) ? RigidBodyType::Kinematic : RigidBodyType::Dynamic;
     state.inverseMass = 1.0f;
     state.colliderShape = shape;
     state.colliderParams = {0.25f + x, 0.5f, 0.75f, 1.0f};
+    state.kinematicTargetPosition = {x + 10.0f, 0.5f, -0.5f};
+    state.kinematicTargetRotation = {0.0f, 0.0f, 0.3826834f, 0.9238795f};
+    state.kinematicTargetEnabled = state.bodyType == RigidBodyType::Kinematic;
     return state;
 }
 
@@ -71,8 +76,12 @@ bool verifySnapshotMatchesSoA(const PhysicsWorld& world)
         {
             return false;
         }
-        if (static_cast<std::uint32_t>(state.colliderShape) != soa.colliderShapeTypes[i] ||
-            state.colliderParams.x != soa.colliderParams[i].x)
+        if (static_cast<std::uint32_t>(state.bodyType) != soa.bodyTypes[i] ||
+            static_cast<std::uint32_t>(state.colliderShape) != soa.colliderShapeTypes[i] ||
+            state.colliderParams.x != soa.colliderParams[i].x ||
+            state.kinematicTargetPosition.x != soa.kinematicTargetPositions[i].x ||
+            state.kinematicTargetRotation.q.z != soa.kinematicTargetOrientations[i].z ||
+            static_cast<std::uint32_t>(state.kinematicTargetEnabled) != soa.kinematicTargetFlags[i])
         {
             return false;
         }

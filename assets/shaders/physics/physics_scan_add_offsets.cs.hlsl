@@ -2,12 +2,15 @@ cbuffer PhysicsDispatchConstantsBuffer
 {
     float dt;
     uint rigidBodyCount;
-    uint activeDynamicCount;
+    uint activeMovingCount;
+    uint staticBodyCount;
     uint candidatePairCount;
     uint candidatePairCapacity;
     uint substepIndex;
     uint iterationIndex;
     uint solverIterations;
+    uint reserved0;
+    uint reserved1;
 };
 
 StructuredBuffer<uint> g_ScannedBlockOffsets;

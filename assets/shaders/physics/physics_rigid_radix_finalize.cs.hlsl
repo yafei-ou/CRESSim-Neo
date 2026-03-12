@@ -2,12 +2,15 @@ cbuffer PhysicsDispatchConstantsBuffer
 {
     float dt;
     uint rigidBodyCount;
-    uint activeDynamicCount;
+    uint activeMovingCount;
+    uint staticBodyCount;
     uint candidatePairCount;
     uint candidatePairCapacity;
     uint substepIndex;
     uint iterationIndex;
     uint solverIterations;
+    uint reserved0;
+    uint reserved1;
 };
 
 StructuredBuffer<uint> g_RadixBitFlags;
@@ -21,13 +24,13 @@ RWStructuredBuffer<uint> g_RadixMeta;
         return;
     }
 
-    if (activeDynamicCount == 0u)
+    if (activeMovingCount == 0u)
     {
         g_RadixMeta[0] = 0u;
         return;
     }
 
     const uint totalOnes =
-        g_RadixBitOffsets[activeDynamicCount - 1u] + g_RadixBitFlags[activeDynamicCount - 1u];
-    g_RadixMeta[0] = activeDynamicCount - totalOnes;
+        g_RadixBitOffsets[activeMovingCount - 1u] + g_RadixBitFlags[activeMovingCount - 1u];
+    g_RadixMeta[0] = activeMovingCount - totalOnes;
 }

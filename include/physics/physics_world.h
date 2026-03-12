@@ -28,6 +28,8 @@ public:
     const PhysicsSoADirtyRange& rigidBodyDirtyRange() const noexcept;
     std::uint32_t rigidBodyCount() const noexcept;
     void clearRigidBodyDirtyRange() noexcept;
+    bool staticBroadPhaseDirty() const noexcept;
+    void clearStaticBroadPhaseDirty() noexcept;
 
     void integrateRigidBodiesCpu(float dt) noexcept;
     bool writeBackRigidBodyState(std::uint32_t index, const Diligent::float4& positionInvMass,
@@ -42,12 +44,17 @@ private:
     static void writeRigidBodySoAAt(RigidBodySoAHost& soa, std::uint32_t index,
                                     const RigidBodyState& state);
     static RigidBodyState readRigidBodySoAAt(const RigidBodySoAHost& soa, std::uint32_t index);
+    static bool isStaticBody(const RigidBodyState& state) noexcept;
+    static bool staticShapeChanged(const RigidBodyState& before,
+                                   const RigidBodyState& after) noexcept;
+    static void normalizeRigidBodyState(RigidBodyState& state) noexcept;
     void markAllRigidBodiesDirty() noexcept;
 
     RigidBodySoAHost mRigidBodies{};
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToIndex{};
     std::vector<RigidBodyState> mRigidBodySnapshot{};
     PhysicsSoADirtyRange mRigidBodyDirtyRange{};
+    bool mStaticBroadPhaseDirty = false;
     std::uint64_t mRevision = 0;
 };
 

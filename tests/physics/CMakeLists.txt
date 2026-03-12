@@ -46,3 +46,9 @@ add_test(
     NAME cressim_neo_physics_solver_mixed_shape_contacts_vulkan
     COMMAND cressim_neo_physics_solver_mixed_shape_contacts
 )
+
+add_physics_test(cressim_neo_physics_body_types physics_body_types.cpp)
+add_test(
+    NAME cressim_neo_physics_body_types_vulkan
+    COMMAND cressim_neo_physics_body_types
+)

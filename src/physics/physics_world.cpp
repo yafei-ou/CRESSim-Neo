@@ -41,6 +41,18 @@ Diligent::float4 toInverseInertiaLocal(const RigidBodyState& state)
                             state.inverseInertiaLocal.z, 0.0f};
 }
 
+Diligent::float4 toKinematicTargetPosition(const RigidBodyState& state)
+{
+    return Diligent::float4{state.kinematicTargetPosition.x, state.kinematicTargetPosition.y,
+                            state.kinematicTargetPosition.z, 0.0f};
+}
+
+Diligent::float4 toKinematicTargetOrientation(const RigidBodyState& state)
+{
+    return Diligent::float4{state.kinematicTargetRotation.q.x, state.kinematicTargetRotation.q.y,
+                            state.kinematicTargetRotation.q.z, state.kinematicTargetRotation.q.w};
+}
+
 } // namespace
 
 void PhysicsWorld::clear()
@@ -49,35 +61,51 @@ void PhysicsWorld::clear()
     mEntityToIndex.clear();
     mRigidBodySnapshot.clear();
     markAllRigidBodiesDirty();
+    mStaticBroadPhaseDirty = true;
     ++mRevision;
 }
 
 RigidBodyState& PhysicsWorld::upsertRigidBody(const RigidBodyState& state)
 {
-    auto it = mEntityToIndex.find(state.entityId);
+    RigidBodyState normalizedState = state;
+    normalizeRigidBodyState(normalizedState);
+
+    auto it = mEntityToIndex.find(normalizedState.entityId);
     if (it == mEntityToIndex.end())
     {
         const std::uint32_t index = static_cast<std::uint32_t>(mRigidBodies.size());
-        mEntityToIndex.emplace(state.entityId, index);
-        mRigidBodies.entityIds.push_back(state.entityId);
-        mRigidBodies.positionsInvMass.push_back(toPositionInvMass(state));
-        mRigidBodies.orientations.push_back(toOrientation(state));
-        mRigidBodies.scales.push_back(toScale(state));
-        mRigidBodies.linearVelocities.push_back(toLinearVelocity(state));
-        mRigidBodies.angularVelocities.push_back(toAngularVelocity(state));
-        mRigidBodies.inverseInertiaLocal.push_back(toInverseInertiaLocal(state));
-        mRigidBodies.colliderShapeTypes.push_back(static_cast<std::uint32_t>(state.colliderShape));
-        mRigidBodies.colliderParams.push_back(state.colliderParams);
-        mRigidBodySnapshot.push_back(state);
+        mEntityToIndex.emplace(normalizedState.entityId, index);
+        mRigidBodies.entityIds.push_back(normalizedState.entityId);
+        mRigidBodies.positionsInvMass.push_back(toPositionInvMass(normalizedState));
+        mRigidBodies.orientations.push_back(toOrientation(normalizedState));
+        mRigidBodies.scales.push_back(toScale(normalizedState));
+        mRigidBodies.linearVelocities.push_back(toLinearVelocity(normalizedState));
+        mRigidBodies.angularVelocities.push_back(toAngularVelocity(normalizedState));
+        mRigidBodies.inverseInertiaLocal.push_back(toInverseInertiaLocal(normalizedState));
+        mRigidBodies.bodyTypes.push_back(static_cast<std::uint32_t>(normalizedState.bodyType));
+        mRigidBodies.colliderShapeTypes.push_back(
+            static_cast<std::uint32_t>(normalizedState.colliderShape));
+        mRigidBodies.colliderParams.push_back(normalizedState.colliderParams);
+        mRigidBodies.kinematicTargetPositions.push_back(
+            toKinematicTargetPosition(normalizedState));
+        mRigidBodies.kinematicTargetOrientations.push_back(
+            toKinematicTargetOrientation(normalizedState));
+        mRigidBodies.kinematicTargetFlags.push_back(normalizedState.kinematicTargetEnabled ? 1u
+                                                                                           : 0u);
+        mRigidBodySnapshot.push_back(normalizedState);
         mRigidBodyDirtyRange.include(index);
+        mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || isStaticBody(normalizedState);
         ++mRevision;
         return mRigidBodySnapshot.back();
     }
 
     const std::uint32_t index = it->second;
-    writeRigidBodySoAAt(mRigidBodies, index, state);
-    mRigidBodySnapshot[index] = state;
+    const RigidBodyState previousState = mRigidBodySnapshot[index];
+    writeRigidBodySoAAt(mRigidBodies, index, normalizedState);
+    mRigidBodySnapshot[index] = normalizedState;
     mRigidBodyDirtyRange.include(index);
+    mStaticBroadPhaseDirty =
+        mStaticBroadPhaseDirty || staticShapeChanged(previousState, normalizedState);
     ++mRevision;
     return mRigidBodySnapshot[index];
 }
@@ -102,12 +130,18 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
         mRigidBodies.linearVelocities[index]          = mRigidBodies.linearVelocities[last];
         mRigidBodies.angularVelocities[index]         = mRigidBodies.angularVelocities[last];
         mRigidBodies.inverseInertiaLocal[index]       = mRigidBodies.inverseInertiaLocal[last];
+        mRigidBodies.bodyTypes[index]                 = mRigidBodies.bodyTypes[last];
         mRigidBodies.colliderShapeTypes[index]        = mRigidBodies.colliderShapeTypes[last];
         mRigidBodies.colliderParams[index]            = mRigidBodies.colliderParams[last];
+        mRigidBodies.kinematicTargetPositions[index]  = mRigidBodies.kinematicTargetPositions[last];
+        mRigidBodies.kinematicTargetOrientations[index] =
+            mRigidBodies.kinematicTargetOrientations[last];
+        mRigidBodies.kinematicTargetFlags[index]      = mRigidBodies.kinematicTargetFlags[last];
         mRigidBodySnapshot[index]                     = mRigidBodySnapshot[last];
         mEntityToIndex[mRigidBodies.entityIds[index]] = index;
     }
 
+    const bool removedStatic = isStaticBody(mRigidBodySnapshot[last]);
     mEntityToIndex.erase(it);
     mRigidBodies.entityIds.pop_back();
     mRigidBodies.positionsInvMass.pop_back();
@@ -116,11 +150,16 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     mRigidBodies.linearVelocities.pop_back();
     mRigidBodies.angularVelocities.pop_back();
     mRigidBodies.inverseInertiaLocal.pop_back();
+    mRigidBodies.bodyTypes.pop_back();
     mRigidBodies.colliderShapeTypes.pop_back();
     mRigidBodies.colliderParams.pop_back();
+    mRigidBodies.kinematicTargetPositions.pop_back();
+    mRigidBodies.kinematicTargetOrientations.pop_back();
+    mRigidBodies.kinematicTargetFlags.pop_back();
     mRigidBodySnapshot.pop_back();
 
     markAllRigidBodiesDirty();
+    mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || removedStatic;
     ++mRevision;
     return true;
 }
@@ -160,6 +199,16 @@ std::uint32_t PhysicsWorld::rigidBodyCount() const noexcept
 void PhysicsWorld::clearRigidBodyDirtyRange() noexcept
 {
     mRigidBodyDirtyRange.clear();
+}
+
+bool PhysicsWorld::staticBroadPhaseDirty() const noexcept
+{
+    return mStaticBroadPhaseDirty;
+}
+
+void PhysicsWorld::clearStaticBroadPhaseDirty() noexcept
+{
+    mStaticBroadPhaseDirty = false;
 }
 
 void PhysicsWorld::integrateRigidBodiesCpu(float dt) noexcept
@@ -239,8 +288,12 @@ void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost& soa, std::uint32_t inde
     soa.linearVelocities[index]    = toLinearVelocity(state);
     soa.angularVelocities[index]   = toAngularVelocity(state);
     soa.inverseInertiaLocal[index] = toInverseInertiaLocal(state);
+    soa.bodyTypes[index]           = static_cast<std::uint32_t>(state.bodyType);
     soa.colliderShapeTypes[index]  = static_cast<std::uint32_t>(state.colliderShape);
     soa.colliderParams[index]      = state.colliderParams;
+    soa.kinematicTargetPositions[index]    = toKinematicTargetPosition(state);
+    soa.kinematicTargetOrientations[index] = toKinematicTargetOrientation(state);
+    soa.kinematicTargetFlags[index]        = state.kinematicTargetEnabled ? 1u : 0u;
 }
 
 RigidBodyState PhysicsWorld::readRigidBodySoAAt(const RigidBodySoAHost& soa, std::uint32_t index)
@@ -270,9 +323,68 @@ RigidBodyState PhysicsWorld::readRigidBodySoAAt(const RigidBodySoAHost& soa, std
     state.inverseInertiaLocal =
         Diligent::float3{inverseInertiaLocal.x, inverseInertiaLocal.y, inverseInertiaLocal.z};
 
+    state.bodyType       = static_cast<RigidBodyType>(soa.bodyTypes[index]);
     state.colliderShape  = static_cast<ColliderShapeType>(soa.colliderShapeTypes[index]);
     state.colliderParams = soa.colliderParams[index];
+    const Diligent::float4 kinematicTargetPosition = soa.kinematicTargetPositions[index];
+    state.kinematicTargetPosition = Diligent::float3{kinematicTargetPosition.x,
+                                                     kinematicTargetPosition.y,
+                                                     kinematicTargetPosition.z};
+    const Diligent::float4 kinematicTargetOrientation = soa.kinematicTargetOrientations[index];
+    state.kinematicTargetRotation =
+        Diligent::QuaternionF{kinematicTargetOrientation.x, kinematicTargetOrientation.y,
+                              kinematicTargetOrientation.z, kinematicTargetOrientation.w};
+    state.kinematicTargetEnabled = soa.kinematicTargetFlags[index] != 0u;
     return state;
+}
+
+bool PhysicsWorld::isStaticBody(const RigidBodyState& state) noexcept
+{
+    return state.bodyType == RigidBodyType::Static;
+}
+
+bool PhysicsWorld::staticShapeChanged(const RigidBodyState& before,
+                                      const RigidBodyState& after) noexcept
+{
+    if (isStaticBody(before) != isStaticBody(after))
+    {
+        return true;
+    }
+    if (!isStaticBody(before))
+    {
+        return false;
+    }
+
+    return before.position.x != after.position.x || before.position.y != after.position.y ||
+           before.position.z != after.position.z || before.rotation.q.x != after.rotation.q.x ||
+           before.rotation.q.y != after.rotation.q.y || before.rotation.q.z != after.rotation.q.z ||
+           before.rotation.q.w != after.rotation.q.w || before.scale.x != after.scale.x ||
+           before.scale.y != after.scale.y || before.scale.z != after.scale.z ||
+           before.colliderShape != after.colliderShape ||
+           before.colliderParams.x != after.colliderParams.x ||
+           before.colliderParams.y != after.colliderParams.y ||
+           before.colliderParams.z != after.colliderParams.z ||
+           before.colliderParams.w != after.colliderParams.w;
+}
+
+void PhysicsWorld::normalizeRigidBodyState(RigidBodyState& state) noexcept
+{
+    if (state.bodyType == RigidBodyType::Dynamic && state.inverseMass <= 0.0f)
+    {
+        state.inverseMass = 1.0f;
+    }
+
+    if (state.bodyType != RigidBodyType::Kinematic)
+    {
+        state.kinematicTargetPosition = state.position;
+        state.kinematicTargetRotation = state.rotation;
+        state.kinematicTargetEnabled  = false;
+    }
+    else if (!state.kinematicTargetEnabled)
+    {
+        state.kinematicTargetPosition = state.position;
+        state.kinematicTargetRotation = state.rotation;
+    }
 }
 
 void PhysicsWorld::markAllRigidBodiesDirty() noexcept

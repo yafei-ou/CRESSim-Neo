@@ -27,8 +27,12 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> linearVelocitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> angularVelocitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> inverseInertiaLocalBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyTypesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> colliderShapeTypesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> colliderParamsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> kinematicTargetPositionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> kinematicTargetOrientationsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> kinematicTargetFlagsBuffer;
     };
 
     struct PredictedRigidBodyBuffers
@@ -54,18 +58,33 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> activeBodyFlagsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> activeBodyOffsetsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> activeBodyIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> staticBodyFlagsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> staticBodyOffsetsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> staticBodyIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> broadPhaseElementsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> mortonCodesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> mortonCodesScratchBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> globalBroadPhaseExtentBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> staticBroadPhaseElementsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> staticMortonCodesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> staticMortonCodesScratchBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> staticGlobalBroadPhaseExtentBuffer;
         std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> scanBlockSumsBuffers;
         std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> scanScannedBlockSumsBuffers;
         std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> broadPhaseExtentScratchBuffers;
+        std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> staticScanBlockSumsBuffers;
+        std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> staticScanScannedBlockSumsBuffers;
+        std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> staticBroadPhaseExtentScratchBuffers;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> radixBitFlagsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> radixBitOffsetsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> radixMetaBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bvhBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bvhConstructionInfoBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> staticRadixBitFlagsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> staticRadixBitOffsetsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> staticRadixMetaBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> staticBvhBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> staticBvhConstructionInfoBuffer;
         std::array<Diligent::RefCntAutoPtr<Diligent::IBuffer>, kRigidPairTypeCount>
             pairCountBuffers;
         std::array<Diligent::RefCntAutoPtr<Diligent::IBuffer>, kRigidPairTypeCount>
@@ -106,6 +125,8 @@ public:
     std::uint32_t candidatePairCapacity() const noexcept;
     bool correctionBuffersNeedClear() const noexcept;
     void setCorrectionBuffersNeedClear(bool needClear) noexcept;
+    bool staticBroadPhaseDirty() const noexcept;
+    void setStaticBroadPhaseDirty(bool dirty) noexcept;
 
 private:
     PersistentRigidBodyBuffers mPersistentRigidBodies;
@@ -116,6 +137,7 @@ private:
     std::uint32_t mCandidatePairCapacity  = 0;
     std::uint32_t mContactCapacity        = 0;
     bool mCorrectionBuffersNeedClear      = false;
+    bool mStaticBroadPhaseDirty          = true;
 };
 
 } // namespace cressim::neo::physics

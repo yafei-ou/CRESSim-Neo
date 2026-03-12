@@ -191,13 +191,14 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             return false;
         }
 
-        const std::uint32_t activeDynamicCount = broadPhaseMeta.activeDynamicCount;
-        bool builtBroadPhase                   = false;
-        if (activeDynamicCount > 0u)
+        const std::uint32_t activeMovingCount = broadPhaseMeta.activeMovingCount;
+        constants.activeMovingCount           = activeMovingCount;
+        constants.staticBodyCount             = broadPhaseMeta.staticBodyCount;
+        bool builtBroadPhase                  = false;
+        if (activeMovingCount > 0u)
         {
-            constants.activeDynamicCount = activeDynamicCount;
             if (!mImpl->passDispatcher.buildBroadPhase(computeBackend.computeContext,
-                                                       mImpl->sceneState, activeDynamicCount,
+                                                       mImpl->sceneState, activeMovingCount,
                                                        constants))
             {
                 LOG_ERROR_MESSAGE("PhysicsSolver::step failed: BuildBroadPhase dispatch.");
@@ -205,14 +206,18 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             }
             builtBroadPhase = true;
         }
+        if (constants.staticBodyCount > 0u && mImpl->sceneState.staticBroadPhaseDirty())
+        {
+            mImpl->sceneState.setStaticBroadPhaseDirty(false);
+        }
         markStage(mImpl->stageStats, PhysicsSolverStage::BuildBroadPhase, builtBroadPhase);
 
         std::uint32_t pairCount = 0u;
-        if (activeDynamicCount > 0u)
+        if (activeMovingCount > 0u)
         {
             if (!mImpl->passDispatcher.finalizeBroadPhasePairs(computeBackend.computeContext,
                                                                mImpl->sceneState,
-                                                               activeDynamicCount, constants))
+                                                               activeMovingCount, constants))
             {
                 LOG_ERROR_MESSAGE("PhysicsSolver::step failed: FinalizePairs dispatch.");
                 return false;
@@ -235,7 +240,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             pairCount                    = broadPhaseMeta.candidatePairCount;
             constants.candidatePairCount = pairCount;
             if (!mImpl->passDispatcher.emitBroadPhasePairs(computeBackend.computeContext,
-                                                           mImpl->sceneState, activeDynamicCount,
+                                                           mImpl->sceneState, activeMovingCount,
                                                            constants))
             {
                 LOG_ERROR_MESSAGE("PhysicsSolver::step failed: typed pair emission dispatch.");

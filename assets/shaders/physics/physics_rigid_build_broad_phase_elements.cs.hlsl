@@ -2,12 +2,15 @@ cbuffer PhysicsDispatchConstantsBuffer
 {
     float dt;
     uint rigidBodyCount;
-    uint activeDynamicCount;
+    uint activeMovingCount;
+    uint staticBodyCount;
     uint candidatePairCount;
     uint candidatePairCapacity;
     uint substepIndex;
     uint iterationIndex;
     uint solverIterations;
+    uint reserved0;
+    uint reserved1;
 };
 
 #include "physics/physics_rigid_common.hlsli"
@@ -19,7 +22,7 @@ RWStructuredBuffer<GpuBroadPhaseElement> g_BroadPhaseElements;
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint activeIndex = dispatchThreadID.x;
-    if (activeIndex >= activeDynamicCount)
+    if (activeIndex >= activeMovingCount)
     {
         return;
     }

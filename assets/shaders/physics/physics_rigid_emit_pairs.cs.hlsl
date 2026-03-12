@@ -2,20 +2,23 @@ cbuffer PhysicsDispatchConstantsBuffer
 {
     float dt;
     uint rigidBodyCount;
-    uint activeDynamicCount;
+    uint activeMovingCount;
+    uint staticBodyCount;
     uint candidatePairCount;
     uint candidatePairCapacity;
     uint substepIndex;
     uint iterationIndex;
     uint solverIterations;
+    uint reserved0;
+    uint reserved1;
 };
 
 #include "physics/physics_rigid_common.hlsli"
 
 StructuredBuffer<uint> g_ActiveBodyIndices;
 StructuredBuffer<GpuBodyAabb> g_BodyAabbs;
-StructuredBuffer<GpuBodyMeta> g_BodyMeta;
 StructuredBuffer<GpuBvhNode> g_BvhNodes;
+StructuredBuffer<GpuBvhNode> g_StaticBvhNodes;
 StructuredBuffer<uint> g_RigidBodyColliderShapeTypes;
 StructuredBuffer<uint> g_PairOffsetsSphereSphere;
 StructuredBuffer<uint> g_PairOffsetsSphereBox;
@@ -59,7 +62,7 @@ void EmitCanonicalPair(uint bodyA, uint bodyB, uint shapeTypeA, uint shapeTypeB,
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint activeIndex = dispatchThreadID.x;
-    if (activeIndex >= activeDynamicCount)
+    if (activeIndex >= activeMovingCount)
     {
         return;
     }
@@ -78,7 +81,7 @@ void EmitCanonicalPair(uint bodyA, uint bodyB, uint shapeTypeA, uint shapeTypeB,
     writeIndices[4] = g_RigidPairRanges[4].start + g_PairOffsetsBoxCapsule[activeIndex];
     writeIndices[5] = g_RigidPairRanges[5].start + g_PairOffsetsCapsuleCapsule[activeIndex];
 
-    if (activeDynamicCount > 1u)
+    if (activeMovingCount > 1u)
     {
         uint stack[128];
         uint stackSize = 0u;
@@ -115,18 +118,37 @@ void EmitCanonicalPair(uint bodyA, uint bodyB, uint shapeTypeA, uint shapeTypeB,
         }
     }
 
-    [loop] for (uint otherBodyId = 0u; otherBodyId < rigidBodyCount; ++otherBodyId)
+    if (staticBodyCount > 0u)
     {
-        if ((g_BodyMeta[otherBodyId].flags & kBodyFlagDynamic) != 0u)
-        {
-            continue;
-        }
+        uint stack[128];
+        uint stackSize = 0u;
+        stack[stackSize++] = 0u;
 
-        const GpuBodyAabb otherAabb = g_BodyAabbs[otherBodyId];
-        if (AabbOverlaps(queryMin, queryMax, otherAabb.minBounds.xyz, otherAabb.maxBounds.xyz))
+        while (stackSize > 0u)
         {
-            EmitCanonicalPair(bodyId, otherBodyId, shapeTypeA,
-                              g_RigidBodyColliderShapeTypes[otherBodyId], writeIndices);
+            const uint nodeIndex = stack[--stackSize];
+            const GpuBvhNode node = g_StaticBvhNodes[nodeIndex];
+            if (!NodeOverlapsQuery(node, queryMin, queryMax))
+            {
+                continue;
+            }
+
+            if (node.left < 0 && node.right < 0)
+            {
+                const uint otherBodyId = node.primitiveIdx;
+                EmitCanonicalPair(bodyId, otherBodyId, shapeTypeA,
+                                  g_RigidBodyColliderShapeTypes[otherBodyId], writeIndices);
+                continue;
+            }
+
+            if (node.left >= 0 && stackSize < 128u)
+            {
+                stack[stackSize++] = (uint)node.left;
+            }
+            if (node.right >= 0 && stackSize < 128u)
+            {
+                stack[stackSize++] = (uint)node.right;
+            }
         }
     }
 }

@@ -2,18 +2,22 @@ cbuffer PhysicsDispatchConstantsBuffer
 {
     float dt;
     uint rigidBodyCount;
-    uint activeDynamicCount;
+    uint activeMovingCount;
+    uint staticBodyCount;
     uint candidatePairCount;
     uint candidatePairCapacity;
     uint substepIndex;
     uint iterationIndex;
     uint solverIterations;
+    uint reserved0;
+    uint reserved1;
 };
 
 #include "physics/physics_rigid_common.hlsli"
 
 StructuredBuffer<float4> g_PreviousRigidBodyPositionsInvMass;
 StructuredBuffer<float4> g_PreviousRigidBodyOrientations;
+StructuredBuffer<uint> g_RigidBodyTypes;
 
 RWStructuredBuffer<float4> g_PredictedRigidBodyPositionsInvMass;
 RWStructuredBuffer<float4> g_PredictedRigidBodyOrientations;
@@ -32,11 +36,12 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float4 previousPositionInvMass = g_PreviousRigidBodyPositionsInvMass[bodyIndex];
     const float4 previousOrientation =
         QuaternionNormalize(g_PreviousRigidBodyOrientations[bodyIndex]);
+    const uint bodyType = g_RigidBodyTypes[bodyIndex];
     float4 predictedPositionInvMass = g_PredictedRigidBodyPositionsInvMass[bodyIndex];
     float4 predictedOrientation =
         QuaternionNormalize(g_PredictedRigidBodyOrientations[bodyIndex]);
 
-    if (predictedPositionInvMass.w == 0.0)
+    if (bodyType == 0u)
     {
         predictedOrientation = QuaternionNormalize(predictedOrientation);
         g_PredictedRigidBodyPositionsInvMass[bodyIndex] = predictedPositionInvMass;

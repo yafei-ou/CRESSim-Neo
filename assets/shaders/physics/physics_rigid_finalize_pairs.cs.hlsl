@@ -2,12 +2,15 @@ cbuffer PhysicsDispatchConstantsBuffer
 {
     float dt;
     uint rigidBodyCount;
-    uint activeDynamicCount;
+    uint activeMovingCount;
+    uint staticBodyCount;
     uint candidatePairCount;
     uint candidatePairCapacity;
     uint substepIndex;
     uint iterationIndex;
     uint solverIterations;
+    uint reserved0;
+    uint reserved1;
 };
 
 #include "physics/physics_rigid_common.hlsli"
@@ -39,9 +42,9 @@ RWStructuredBuffer<GpuBroadPhaseMeta> g_BroadPhaseMeta;
     {
         counts[i] = 0u;
     }
-    if (activeDynamicCount > 0u)
+    if (activeMovingCount > 0u)
     {
-        const uint lastIndex = activeDynamicCount - 1u;
+        const uint lastIndex = activeMovingCount - 1u;
         counts[0] = g_PairOffsetsSphereSphere[lastIndex] + g_PairCountsSphereSphere[lastIndex];
         counts[1] = g_PairOffsetsSphereBox[lastIndex] + g_PairCountsSphereBox[lastIndex];
         counts[2] = g_PairOffsetsSphereCapsule[lastIndex] + g_PairCountsSphereCapsule[lastIndex];

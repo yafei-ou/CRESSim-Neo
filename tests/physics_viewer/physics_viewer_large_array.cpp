@@ -428,6 +428,7 @@ int main(int argc, char** argv)
     world.setMeshRenderer(groundEntity, ground);
     RigidBodyComponent groundBody{};
     groundBody.simulated = true;
+    groundBody.bodyType = cressim::neo::physics::RigidBodyType::Static;
     groundBody.inverseMass = 0.0f;
     groundBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
     groundBody.colliderShape = ColliderShapeType::Box;

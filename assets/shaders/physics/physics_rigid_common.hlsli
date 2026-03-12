@@ -4,7 +4,11 @@
 static const uint kColliderSphere = 0u;
 static const uint kColliderBox = 1u;
 static const uint kColliderCapsule = 2u;
-static const uint kBodyFlagDynamic = 1u;
+static const uint kBodyFlagStatic = 1u << 0u;
+static const uint kBodyFlagKinematic = 1u << 1u;
+static const uint kBodyFlagDynamic = 1u << 2u;
+static const uint kBodyFlagMoving = kBodyFlagKinematic | kBodyFlagDynamic;
+static const uint kKinematicTargetEnabled = 1u << 0u;
 static const uint kInvalidIndex = 0xffffffffu;
 static const uint kRigidPairTypeCount = 6u;
 
@@ -132,10 +136,14 @@ struct GpuNarrowPhaseMeta
 
 struct GpuBroadPhaseMeta
 {
-    uint activeDynamicCount;
+    uint activeMovingCount;
+    uint staticBodyCount;
     uint candidatePairCount;
     uint requiredPairCount;
     uint overflow;
+    uint staticBvhReady;
+    uint reserved0;
+    uint reserved1;
 };
 
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)

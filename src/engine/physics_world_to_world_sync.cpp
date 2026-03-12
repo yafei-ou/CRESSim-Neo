@@ -30,8 +30,12 @@ void syncPhysicsWorldToWorld(const physics::PhysicsWorld& physicsWorld, World& w
         }
 
         RigidBodyComponent rigidBody = *existingRigidBody;
+        rigidBody.bodyType           = state.bodyType;
         rigidBody.linearVelocity     = state.linearVelocity;
         rigidBody.angularVelocity    = state.angularVelocity;
+        rigidBody.kinematicTargetPosition = state.kinematicTargetPosition;
+        rigidBody.kinematicTargetRotation = state.kinematicTargetRotation;
+        rigidBody.kinematicTargetEnabled  = state.kinematicTargetEnabled;
         (void)world.setRigidBody(state.entityId, rigidBody);
     }
 }

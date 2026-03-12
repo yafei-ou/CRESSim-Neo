@@ -2,12 +2,15 @@ cbuffer PhysicsDispatchConstantsBuffer
 {
     float dt;
     uint rigidBodyCount;
-    uint activeDynamicCount;
+    uint activeMovingCount;
+    uint staticBodyCount;
     uint candidatePairCount;
     uint candidatePairCapacity;
     uint substepIndex;
     uint iterationIndex;
     uint solverIterations;
+    uint reserved0;
+    uint reserved1;
 };
 
 #include "physics/physics_rigid_common.hlsli"
@@ -18,12 +21,12 @@ RWStructuredBuffer<GpuBvhConstructionInfo> g_BvhConstructionInfos;
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint globalId = dispatchThreadID.x;
-    if (activeDynamicCount < 2u || globalId >= activeDynamicCount)
+    if (activeMovingCount < 2u || globalId >= activeMovingCount)
     {
         return;
     }
 
-    const uint leafOffset = activeDynamicCount - 1u;
+    const uint leafOffset = activeMovingCount - 1u;
     uint nodeIndex = g_BvhConstructionInfos[leafOffset + globalId].parent;
     while (true)
     {

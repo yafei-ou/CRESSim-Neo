@@ -2,12 +2,15 @@ cbuffer PhysicsDispatchConstantsBuffer
 {
     float dt;
     uint rigidBodyCount;
-    uint activeDynamicCount;
+    uint activeMovingCount;
+    uint staticBodyCount;
     uint candidatePairCount;
     uint candidatePairCapacity;
     uint substepIndex;
     uint iterationIndex;
     uint solverIterations;
+    uint reserved0;
+    uint reserved1;
 };
 
 #include "physics/physics_rigid_common.hlsli"
@@ -19,7 +22,7 @@ RWStructuredBuffer<GpuBvhConstructionInfo> g_BvhConstructionInfos;
 
 int Delta(int i, uint codeI, int j)
 {
-    if (j < 0 || j >= int(activeDynamicCount))
+    if (j < 0 || j >= int(activeMovingCount))
     {
         return -1;
     }
@@ -91,13 +94,41 @@ int FindSplit(int first, int last)
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint globalId = dispatchThreadID.x;
-    if (activeDynamicCount < 2u)
+    if (activeMovingCount == 0u)
     {
         return;
     }
 
-    const int leafOffset = int(activeDynamicCount) - 1;
-    if (globalId < activeDynamicCount)
+    if (activeMovingCount == 1u)
+    {
+        // root as a leaf node
+        if (globalId == 0u)
+        {
+          const GpuBroadPhaseElement element =
+              g_BroadPhaseElements[g_SortedMortonCodes[0].elementIdx];
+          GpuBvhNode node;
+          node.left = -1;
+          node.right = -1;
+          node.primitiveIdx = element.primitiveIdx;
+          node.aabbMinX = element.aabbMinX;
+          node.aabbMinY = element.aabbMinY;
+          node.aabbMinZ = element.aabbMinZ;
+          node.aabbMaxX = element.aabbMaxX;
+          node.aabbMaxY = element.aabbMaxY;
+          node.aabbMaxZ = element.aabbMaxZ;
+          node.reserved = 0.0;
+          g_BvhNodes[0] = node;
+
+          GpuBvhConstructionInfo rootInfo;
+          rootInfo.parent = 0u;
+          rootInfo.visitationCount = 0;
+          g_BvhConstructionInfos[0] = rootInfo;
+        }
+        return;
+    }
+
+    const int leafOffset = int(activeMovingCount) - 1;
+    if (globalId < activeMovingCount)
     {
         const GpuBroadPhaseElement element =
             g_BroadPhaseElements[g_SortedMortonCodes[globalId].elementIdx];
@@ -115,7 +146,7 @@ int FindSplit(int first, int last)
         g_BvhNodes[leafOffset + globalId] = node;
     }
 
-    if (globalId < activeDynamicCount - 1u)
+    if (globalId < activeMovingCount - 1u)
     {
         int first = 0;
         int last = 0;

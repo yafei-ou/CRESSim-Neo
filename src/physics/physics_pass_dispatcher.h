@@ -37,15 +37,15 @@ public:
                              const PhysicsSceneGpuState& sceneState, std::uint32_t bodyCount,
                              const GpuRigidDispatchConstants& constants);
     bool buildBroadPhase(Diligent::IDeviceContext* computeContext,
-                         const PhysicsSceneGpuState& sceneState, std::uint32_t activeDynamicCount,
+                         const PhysicsSceneGpuState& sceneState, std::uint32_t activeMovingCount,
                          const GpuRigidDispatchConstants& constants);
     bool finalizeBroadPhasePairs(Diligent::IDeviceContext* computeContext,
                                  const PhysicsSceneGpuState& sceneState,
-                                 std::uint32_t activeDynamicCount,
+                                 std::uint32_t activeMovingCount,
                                  const GpuRigidDispatchConstants& constants);
     bool emitBroadPhasePairs(Diligent::IDeviceContext* computeContext,
                              const PhysicsSceneGpuState& sceneState,
-                             std::uint32_t activeDynamicCount,
+                             std::uint32_t activeMovingCount,
                              const GpuRigidDispatchConstants& constants);
     bool generateContacts(Diligent::IDeviceContext* computeContext,
                           const PhysicsSceneGpuState& sceneState, std::uint32_t pairCount,
@@ -96,10 +96,10 @@ private:
                                    std::uint32_t recursionLevel = 0u);
     bool dispatchReduceBroadPhaseExtentPass(Diligent::IDeviceContext* computeContext,
                                             const PhysicsSceneGpuState& sceneState,
-                                            std::uint32_t activeDynamicCount);
+                                            std::uint32_t activeMovingCount, bool useStaticSet);
     bool dispatchRadixSortPass(Diligent::IDeviceContext* computeContext,
                                const PhysicsSceneGpuState& sceneState,
-                               std::uint32_t activeDynamicCount,
+                               std::uint32_t activeMovingCount, bool useStaticSet,
                                const GpuRigidDispatchConstants& constants);
     bool dispatchGenerateContactsPass(Diligent::IDeviceContext* computeContext,
                                       const PhysicsSceneGpuState& sceneState,
@@ -120,16 +120,19 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mScanAddOffsetsSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mCompactActiveBodiesPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mCompactActiveBodiesSrb;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mCompactStaticBodiesSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mFinalizeActiveBodiesPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mFinalizeActiveBodiesSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mBuildBroadPhaseElementsPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mBuildBroadPhaseElementsSrb;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mBuildStaticBroadPhaseElementsSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mReduceExtentElementsPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mReduceExtentElementsSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mReduceExtentExtentsPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mReduceExtentExtentsSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mMortonCodesPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mMortonCodesSrb;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mStaticMortonCodesSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mRadixClassifyPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mRadixClassifySrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mRadixFinalizePso;
@@ -138,14 +141,18 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mRadixScatterSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mBvhHierarchyPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mBvhHierarchySrb;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mStaticBvhHierarchySrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mBvhBoundingBoxesPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mBvhBoundingBoxesSrb;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mStaticBvhBoundingBoxesSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mCountPairsPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mCountPairsSrb;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mCountPairsMovingSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mFinalizePairsPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mFinalizePairsSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mEmitPairsPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mEmitPairsSrb;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mEmitPairsMovingSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mBuildNarrowPhaseChunksPso;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mBuildNarrowPhaseChunksSrb;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mGenerateContactsPso;

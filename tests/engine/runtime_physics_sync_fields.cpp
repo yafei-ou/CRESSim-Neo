@@ -23,11 +23,15 @@ int main()
 
     engine::RigidBodyComponent rigidBody{};
     rigidBody.simulated = true;
+    rigidBody.bodyType = physics::RigidBodyType::Kinematic;
     rigidBody.inverseMass = 0.5f;
     rigidBody.linearVelocity = {2.0f, 0.0f, -1.0f};
     rigidBody.angularVelocity = {0.0f, 3.0f, 0.0f};
     rigidBody.colliderShape = physics::ColliderShapeType::Capsule;
     rigidBody.colliderParams = {0.7f, 1.4f, 0.0f, 0.0f};
+    rigidBody.kinematicTargetPosition = {7.0f, 8.0f, 9.0f};
+    rigidBody.kinematicTargetRotation = {0.0f, 0.0f, 0.2588190f, 0.9659258f};
+    rigidBody.kinematicTargetEnabled = true;
     world.setRigidBody(entity, rigidBody);
 
     engine::detail::syncWorldToPhysicsWorld(world, physicsWorld);
@@ -37,10 +41,14 @@ int main()
         std::cerr << "Rigid body missing in physics world.\n";
         return 1;
     }
-    if (state->angularVelocity.y != rigidBody.angularVelocity.y ||
+    if (state->bodyType != rigidBody.bodyType ||
+        state->angularVelocity.y != rigidBody.angularVelocity.y ||
         static_cast<std::uint32_t>(state->colliderShape) !=
             static_cast<std::uint32_t>(physics::ColliderShapeType::Capsule) ||
-        state->colliderParams.x != rigidBody.colliderParams.x)
+        state->colliderParams.x != rigidBody.colliderParams.x ||
+        state->kinematicTargetPosition.x != rigidBody.kinematicTargetPosition.x ||
+        state->kinematicTargetRotation.q.z != rigidBody.kinematicTargetRotation.q.z ||
+        !state->kinematicTargetEnabled)
     {
         std::cerr << "World->physics sync did not preserve new rigid fields.\n";
         return 1;
@@ -80,6 +88,15 @@ int main()
     if (dr > 1e-5f)
     {
         std::cerr << "Physics->world transform rotation sync mismatch.\n";
+        return 1;
+    }
+
+    const engine::RigidBodyComponent* syncedRigidBody = world.tryGetRigidBody(entity);
+    if (syncedRigidBody == nullptr || syncedRigidBody->bodyType != physics::RigidBodyType::Kinematic ||
+        !syncedRigidBody->kinematicTargetEnabled ||
+        std::fabs(syncedRigidBody->kinematicTargetPosition.x - rigidBody.kinematicTargetPosition.x) > 1e-5f)
+    {
+        std::cerr << "Physics->world rigid body sync mismatch.\n";
         return 1;
     }
 

@@ -19,6 +19,13 @@ enum class ColliderShapeType : std::uint32_t
     Capsule = 2u,
 };
 
+enum class RigidBodyType : std::uint32_t
+{
+    Static    = 0u,
+    Kinematic = 1u,
+    Dynamic   = 2u,
+};
+
 struct RigidBodyState
 {
     common::EntityId entityId = common::kInvalidEntityId;
@@ -28,9 +35,13 @@ struct RigidBodyState
     Diligent::float3 linearVelocity{0.0f, 0.0f, 0.0f};
     Diligent::float3 angularVelocity{0.0f, 0.0f, 0.0f};
     Diligent::float3 inverseInertiaLocal{1.0f, 1.0f, 1.0f};
+    RigidBodyType bodyType         = RigidBodyType::Dynamic;
     float inverseMass               = 1.0f;
     ColliderShapeType colliderShape = ColliderShapeType::Sphere;
     Diligent::float4 colliderParams{0.5f, 0.0f, 0.0f, 0.0f};
+    Diligent::float3 kinematicTargetPosition{0.0f, 0.0f, 0.0f};
+    Diligent::QuaternionF kinematicTargetRotation{0.0f, 0.0f, 0.0f, 1.0f};
+    bool kinematicTargetEnabled = false;
 };
 
 struct PhysicsSoADirtyRange
@@ -76,8 +87,12 @@ struct RigidBodySoAHost
     std::vector<Diligent::float4> linearVelocities;
     std::vector<Diligent::float4> angularVelocities;
     std::vector<Diligent::float4> inverseInertiaLocal;
+    std::vector<std::uint32_t> bodyTypes;
     std::vector<std::uint32_t> colliderShapeTypes;
     std::vector<Diligent::float4> colliderParams;
+    std::vector<Diligent::float4> kinematicTargetPositions;
+    std::vector<Diligent::float4> kinematicTargetOrientations;
+    std::vector<std::uint32_t> kinematicTargetFlags;
 
     std::size_t size() const noexcept
     {
@@ -98,8 +113,12 @@ struct RigidBodySoAHost
         linearVelocities.clear();
         angularVelocities.clear();
         inverseInertiaLocal.clear();
+        bodyTypes.clear();
         colliderShapeTypes.clear();
         colliderParams.clear();
+        kinematicTargetPositions.clear();
+        kinematicTargetOrientations.clear();
+        kinematicTargetFlags.clear();
     }
 };
 

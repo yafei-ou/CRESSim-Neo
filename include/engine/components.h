@@ -55,9 +55,13 @@ struct RigidBodyComponent
     Diligent::float3 linearVelocity{0.0f, 0.0f, 0.0f};
     Diligent::float3 angularVelocity{0.0f, 0.0f, 0.0f};
     Diligent::float3 inverseInertiaLocal{1.0f, 1.0f, 1.0f};
+    physics::RigidBodyType bodyType      = physics::RigidBodyType::Dynamic;
     float inverseMass                        = 1.0f;
     physics::ColliderShapeType colliderShape = physics::ColliderShapeType::Sphere;
     Diligent::float4 colliderParams{0.5f, 0.0f, 0.0f, 0.0f};
+    Diligent::float3 kinematicTargetPosition{0.0f, 0.0f, 0.0f};
+    Diligent::QuaternionF kinematicTargetRotation{0.0f, 0.0f, 0.0f, 1.0f};
+    bool kinematicTargetEnabled = false;
     bool simulated = true;
 };
 
