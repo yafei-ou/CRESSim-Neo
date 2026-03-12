@@ -1557,8 +1557,8 @@ bool PhysicsPassDispatcher::emitBroadPhasePairs(Diligent::IDeviceContext* comput
         Diligent::DispatchComputeAttribs{dispatchGroupCount(activeDynamicCount), 1u, 1u});
 
     const std::array chunkBindings{
-        BufferBinding{"PhysicsDispatchConstantsBuffer", mDispatchConstantsBuffer,
-                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        // BufferBinding{"PhysicsDispatchConstantsBuffer", mDispatchConstantsBuffer,
+                    //   Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_RigidPairRanges", transient.rigidPairRangesBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_NarrowPhaseChunks", transient.narrowPhaseChunksBuffer,
@@ -1597,8 +1597,8 @@ bool PhysicsPassDispatcher::dispatchGenerateContactsPass(
     const auto& persistent = sceneState.persistentRigidBodies();
     const auto& transient  = sceneState.transientBuffers();
     const std::array bindings{
-        BufferBinding{"PhysicsDispatchConstantsBuffer", mDispatchConstantsBuffer,
-                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        // BufferBinding{"PhysicsDispatchConstantsBuffer", mDispatchConstantsBuffer,
+        //               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         BufferBinding{"g_PredictedRigidBodyPositionsInvMass",
                       transient.predictedRigidBodies.positionsBuffer,
                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
