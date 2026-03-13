@@ -10,9 +10,12 @@ cbuffer PhysicsRigidDispatchConstantsBuffer
     uint staticBodyCount;
     uint candidatePairCount;
     uint candidatePairCapacity;
+
+    // These 3 are not used for now
     uint substepIndex;
     uint iterationIndex;
     uint solverIterations;
+
     uint reserved0;
     uint reserved1;
 };

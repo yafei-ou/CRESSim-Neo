@@ -1,7 +1,7 @@
 #include "physics/include/physics_rigid_dispatch_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-StructuredBuffer<uint> g_ActiveBodyIndices;
+StructuredBuffer<uint> g_BroadPhaseBodyIndices;
 StructuredBuffer<GpuBodyAabb> g_BodyAabbs;
 StructuredBuffer<GpuBvhNode> g_BvhNodes;
 StructuredBuffer<GpuBvhNode> g_StaticBvhNodes;
@@ -35,7 +35,7 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
         return;
     }
 
-    const uint bodyId = g_ActiveBodyIndices[activeIndex];
+    const uint bodyId = g_BroadPhaseBodyIndices[activeIndex];
     const uint shapeTypeA = g_RigidBodyColliderShapeTypes[bodyId];
     const GpuBodyAabb bodyAabb = g_BodyAabbs[bodyId];
     const float3 queryMin = bodyAabb.minBounds.xyz;

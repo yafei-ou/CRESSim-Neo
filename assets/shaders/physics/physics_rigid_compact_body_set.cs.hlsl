@@ -1,9 +1,9 @@
 #include "physics/include/physics_rigid_dispatch_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-StructuredBuffer<uint> g_ActiveBodyFlags;
-StructuredBuffer<uint> g_ActiveBodyOffsets;
-RWStructuredBuffer<uint> g_ActiveBodyIndices;
+StructuredBuffer<uint> g_BodySetFlags;
+StructuredBuffer<uint> g_BodySetOffsets;
+RWStructuredBuffer<uint> g_BroadPhaseBodyIndices;
 RWStructuredBuffer<GpuBodyMeta> g_BodyMeta;
 
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -15,10 +15,10 @@ RWStructuredBuffer<GpuBodyMeta> g_BodyMeta;
     }
 
     GpuBodyMeta meta = g_BodyMeta[bodyIndex];
-    if (g_ActiveBodyFlags[bodyIndex] != 0u)
+    if (g_BodySetFlags[bodyIndex] != 0u)
     {
-        const uint activeIndex = g_ActiveBodyOffsets[bodyIndex];
-        g_ActiveBodyIndices[activeIndex] = bodyIndex;
+        const uint activeIndex = g_BodySetOffsets[bodyIndex];
+        g_BroadPhaseBodyIndices[activeIndex] = bodyIndex;
         meta.activeIndex = activeIndex;
     }
     else

@@ -176,7 +176,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         }
         markStage(mImpl->stageStats, PhysicsSolverStage::UpdateWorldAabbs, true);
 
-        if (!mImpl->passDispatcher.compactActiveBodies(
+        if (!mImpl->passDispatcher.compactBroadPhaseBodySets(
                 computeBackend.computeContext, mImpl->sceneState, rigidBodyCount, constants))
         {
             LOG_ERROR_MESSAGE("PhysicsSolver::step failed: BuildBroadPhase compaction dispatch.");

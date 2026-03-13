@@ -1,4 +1,4 @@
-#include "physics/include/physics_rigid_dispatch_constants.hlsli"
+#include "physics/include/physics_rigid_broad_phase_reduction_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
 StructuredBuffer<GpuBroadPhaseElement> g_BroadPhaseElements;
@@ -16,7 +16,7 @@ groupshared float3 g_GroupMax[64];
 
     float3 localMin = float3(3.402823466e+38, 3.402823466e+38, 3.402823466e+38);
     float3 localMax = float3(-3.402823466e+38, -3.402823466e+38, -3.402823466e+38);
-    if (index < candidatePairCapacity)
+    if (index < elementCount)
     {
         const GpuBroadPhaseElement element = g_BroadPhaseElements[index];
         localMin = float3(element.aabbMinX, element.aabbMinY, element.aabbMinZ);

@@ -1,19 +1,19 @@
-#include "physics/include/physics_rigid_dispatch_constants.hlsli"
+#include "physics/include/physics_rigid_broad_phase_build_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-StructuredBuffer<uint> g_ActiveBodyIndices;
+StructuredBuffer<uint> g_BroadPhaseBodyIndices;
 StructuredBuffer<GpuBodyAabb> g_BodyAabbs;
 RWStructuredBuffer<GpuBroadPhaseElement> g_BroadPhaseElements;
 
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint activeIndex = dispatchThreadID.x;
-    if (activeIndex >= activeMovingCount)
+    if (activeIndex >= elementCount)
     {
         return;
     }
 
-    const uint bodyId = g_ActiveBodyIndices[activeIndex];
+    const uint bodyId = g_BroadPhaseBodyIndices[activeIndex];
     const GpuBodyAabb bodyAabb = g_BodyAabbs[bodyId];
 
     GpuBroadPhaseElement element;

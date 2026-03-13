@@ -10,7 +10,7 @@ extern const ComputePassDefinition kPredict;
 extern const ComputePassDefinition kUpdateWorldAabbs;
 extern const ComputePassDefinition kScanBlock;
 extern const ComputePassDefinition kScanAddOffsets;
-extern const ComputePassDefinition kCompactActiveBodies;
+extern const ComputePassDefinition kCompactBodySet;
 extern const ComputePassDefinition kFinalizeActiveBodies;
 extern const ComputePassDefinition kBuildBroadPhaseElements;
 extern const ComputePassDefinition kReduceExtentElements;

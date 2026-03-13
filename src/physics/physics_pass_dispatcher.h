@@ -32,9 +32,9 @@ public:
     bool updateWorldAabbs(Diligent::IDeviceContext* computeContext,
                           const PhysicsSceneGpuState& sceneState, std::uint32_t bodyCount,
                           const GpuRigidDispatchConstants& constants);
-    bool compactActiveBodies(Diligent::IDeviceContext* computeContext,
-                             const PhysicsSceneGpuState& sceneState, std::uint32_t bodyCount,
-                             const GpuRigidDispatchConstants& constants);
+    bool compactBroadPhaseBodySets(Diligent::IDeviceContext* computeContext,
+                                   const PhysicsSceneGpuState& sceneState, std::uint32_t bodyCount,
+                                   const GpuRigidDispatchConstants& constants);
     bool buildBroadPhase(Diligent::IDeviceContext* computeContext,
                          const PhysicsSceneGpuState& sceneState, std::uint32_t activeMovingCount,
                          const GpuRigidDispatchConstants& constants);
@@ -63,6 +63,10 @@ private:
                             const GpuPhysicsScanConstants& constants);
     bool writeRadixConstants(Diligent::IDeviceContext* computeContext,
                              const GpuPhysicsRadixConstants& constants);
+    bool writeBroadPhaseBuildConstants(Diligent::IDeviceContext* computeContext,
+                                       const GpuBroadPhaseBuildConstants& constants);
+    bool writeBroadPhaseReductionConstants(Diligent::IDeviceContext* computeContext,
+                                           const GpuBroadPhaseReductionConstants& constants);
     bool writeConstantsBuffer(Diligent::IDeviceContext* computeContext, Diligent::IBuffer* buffer,
                               const void* constants, std::size_t constantsSize);
     bool dispatchScanBlockPass(Diligent::IDeviceContext* computeContext,
@@ -95,7 +99,7 @@ private:
     ComputePass mUpdateWorldAabbsPass;
     ComputePass mScanBlockPass;
     ComputePass mScanAddOffsetsPass;
-    ComputePass mCompactActiveBodiesPass;
+    ComputePass mCompactBodySetPass;
     ComputePass mFinalizeActiveBodiesPass;
     ComputePass mBuildBroadPhaseElementsPass;
     ComputePass mReduceExtentElementsPass;
@@ -119,6 +123,8 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRadixConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mBroadPhaseBuildConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mBroadPhaseReductionConstantsBuffer;
 };
 
 } // namespace cressim::neo::physics
