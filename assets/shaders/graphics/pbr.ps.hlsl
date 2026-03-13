@@ -1,4 +1,4 @@
-#include "include/forward_constants.hlsli"
+#include "graphics/include/graphics_forward_constants.hlsli"
 
 struct VSOutput
 {

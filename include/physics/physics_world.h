@@ -55,7 +55,7 @@ private:
     std::vector<RigidBodyState> mRigidBodySnapshot{};
     PhysicsSoADirtyRange mRigidBodyDirtyRange{};
     bool mStaticBroadPhaseDirty = false;
-    std::uint64_t mRevision = 0;
+    std::uint64_t mRevision     = 0;
 };
 
 } // namespace cressim::neo::physics

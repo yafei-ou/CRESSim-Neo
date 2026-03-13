@@ -1,4 +1,4 @@
-#include "include/shadow_constants.hlsli"
+#include "graphics/include/graphics_shadow_constants.hlsli"
 
 struct VSInput
 {

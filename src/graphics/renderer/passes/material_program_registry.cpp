@@ -135,8 +135,8 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
         return false;
     }
 
-    constexpr const char* kPbrVsRelativePath = "pbr.vs.hlsl";
-    constexpr const char* kPbrPsRelativePath = "pbr.ps.hlsl";
+    constexpr const char* kPbrVsRelativePath = "graphics/pbr.vs.hlsl";
+    constexpr const char* kPbrPsRelativePath = "graphics/pbr.ps.hlsl";
 
     std::string pbrVsPath;
     if (!mShaderLibrary.resolveShaderPath(kPbrVsRelativePath, pbrVsPath))

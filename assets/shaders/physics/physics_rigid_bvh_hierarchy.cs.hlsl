@@ -1,19 +1,5 @@
-cbuffer PhysicsDispatchConstantsBuffer
-{
-    float dt;
-    uint rigidBodyCount;
-    uint activeMovingCount;
-    uint staticBodyCount;
-    uint candidatePairCount;
-    uint candidatePairCapacity;
-    uint substepIndex;
-    uint iterationIndex;
-    uint solverIterations;
-    uint reserved0;
-    uint reserved1;
-};
-
-#include "physics/physics_rigid_common.hlsli"
+#include "physics/include/physics_rigid_broad_phase_build_constants.hlsli"
+#include "physics/include/physics_rigid_common.hlsli"
 
 StructuredBuffer<GpuMortonCodeElement> g_SortedMortonCodes;
 StructuredBuffer<GpuBroadPhaseElement> g_BroadPhaseElements;
@@ -22,7 +8,7 @@ RWStructuredBuffer<GpuBvhConstructionInfo> g_BvhConstructionInfos;
 
 int Delta(int i, uint codeI, int j)
 {
-    if (j < 0 || j >= int(activeMovingCount))
+    if (j < 0 || j >= int(elementCount))
     {
         return -1;
     }
@@ -94,12 +80,12 @@ int FindSplit(int first, int last)
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint globalId = dispatchThreadID.x;
-    if (activeMovingCount == 0u)
+    if (elementCount == 0u)
     {
         return;
     }
 
-    if (activeMovingCount == 1u)
+    if (elementCount == 1u)
     {
         // root as a leaf node
         if (globalId == 0u)
@@ -127,8 +113,8 @@ int FindSplit(int first, int last)
         return;
     }
 
-    const int leafOffset = int(activeMovingCount) - 1;
-    if (globalId < activeMovingCount)
+    const int leafOffset = int(elementCount) - 1;
+    if (globalId < elementCount)
     {
         const GpuBroadPhaseElement element =
             g_BroadPhaseElements[g_SortedMortonCodes[globalId].elementIdx];
@@ -146,7 +132,7 @@ int FindSplit(int first, int last)
         g_BvhNodes[leafOffset + globalId] = node;
     }
 
-    if (globalId < activeMovingCount - 1u)
+    if (globalId < elementCount - 1u)
     {
         int first = 0;
         int last = 0;

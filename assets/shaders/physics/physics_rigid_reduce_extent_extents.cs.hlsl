@@ -1,19 +1,5 @@
-cbuffer PhysicsDispatchConstantsBuffer
-{
-    float dt;
-    uint rigidBodyCount;
-    uint activeMovingCount;
-    uint staticBodyCount;
-    uint candidatePairCount;
-    uint candidatePairCapacity;
-    uint substepIndex;
-    uint iterationIndex;
-    uint solverIterations;
-    uint reserved0;
-    uint reserved1;
-};
-
-#include "physics/physics_rigid_common.hlsli"
+#include "physics/include/physics_rigid_broad_phase_reduction_constants.hlsli"
+#include "physics/include/physics_rigid_common.hlsli"
 
 StructuredBuffer<GpuBroadPhaseExtent> g_InputExtents;
 RWStructuredBuffer<GpuBroadPhaseExtent> g_OutputExtents;
@@ -30,7 +16,7 @@ groupshared float3 g_GroupMax[64];
 
     float3 localMin = float3(3.402823466e+38, 3.402823466e+38, 3.402823466e+38);
     float3 localMax = float3(-3.402823466e+38, -3.402823466e+38, -3.402823466e+38);
-    if (index < candidatePairCapacity)
+    if (index < elementCount)
     {
         const GpuBroadPhaseExtent extent = g_InputExtents[index];
         localMin = extent.minBounds.xyz;

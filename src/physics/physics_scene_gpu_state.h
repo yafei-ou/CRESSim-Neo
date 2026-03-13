@@ -74,7 +74,8 @@ public:
         std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> broadPhaseExtentScratchBuffers;
         std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> staticScanBlockSumsBuffers;
         std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> staticScanScannedBlockSumsBuffers;
-        std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> staticBroadPhaseExtentScratchBuffers;
+        std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>>
+            staticBroadPhaseExtentScratchBuffers;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> radixBitFlagsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> radixBitOffsetsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> radixMetaBuffer;
@@ -137,7 +138,7 @@ private:
     std::uint32_t mCandidatePairCapacity  = 0;
     std::uint32_t mContactCapacity        = 0;
     bool mCorrectionBuffersNeedClear      = false;
-    bool mStaticBroadPhaseDirty          = true;
+    bool mStaticBroadPhaseDirty           = true;
 };
 
 } // namespace cressim::neo::physics

@@ -1,19 +1,9 @@
-cbuffer PhysicsDispatchConstantsBuffer
-{
-    float dt;
-    uint rigidBodyCount;
-    uint activeMovingCount;
-    uint staticBodyCount;
-    uint candidatePairCount;
-    uint candidatePairCapacity;
-    uint substepIndex;
-    uint iterationIndex;
-    uint solverIterations;
-    uint reserved0;
-    uint reserved1;
-};
+#include "physics/include/physics_rigid_dispatch_constants.hlsli"
+#include "physics/include/physics_rigid_common.hlsli"
 
-#include "physics/physics_rigid_common.hlsli"
+// TODO: this is okay for now but with bad accuracy and shrinks
+// the allowed world range a lot
+// We could split this into several stages
 
 static const float kMaxCorrectionPerIter = 0.02; // world units, tune (e.g. 2 cm)
 static const float kRelaxation = 0.90;           // try 0.8 if jittery

@@ -86,8 +86,7 @@ RigidBodyState& PhysicsWorld::upsertRigidBody(const RigidBodyState& state)
         mRigidBodies.colliderShapeTypes.push_back(
             static_cast<std::uint32_t>(normalizedState.colliderShape));
         mRigidBodies.colliderParams.push_back(normalizedState.colliderParams);
-        mRigidBodies.kinematicTargetPositions.push_back(
-            toKinematicTargetPosition(normalizedState));
+        mRigidBodies.kinematicTargetPositions.push_back(toKinematicTargetPosition(normalizedState));
         mRigidBodies.kinematicTargetOrientations.push_back(
             toKinematicTargetOrientation(normalizedState));
         mRigidBodies.kinematicTargetFlags.push_back(normalizedState.kinematicTargetEnabled ? 1u
@@ -99,7 +98,7 @@ RigidBodyState& PhysicsWorld::upsertRigidBody(const RigidBodyState& state)
         return mRigidBodySnapshot.back();
     }
 
-    const std::uint32_t index = it->second;
+    const std::uint32_t index          = it->second;
     const RigidBodyState previousState = mRigidBodySnapshot[index];
     writeRigidBodySoAAt(mRigidBodies, index, normalizedState);
     mRigidBodySnapshot[index] = normalizedState;
@@ -123,17 +122,17 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
 
     if (index != last)
     {
-        mRigidBodies.entityIds[index]                 = mRigidBodies.entityIds[last];
-        mRigidBodies.positionsInvMass[index]          = mRigidBodies.positionsInvMass[last];
-        mRigidBodies.orientations[index]              = mRigidBodies.orientations[last];
-        mRigidBodies.scales[index]                    = mRigidBodies.scales[last];
-        mRigidBodies.linearVelocities[index]          = mRigidBodies.linearVelocities[last];
-        mRigidBodies.angularVelocities[index]         = mRigidBodies.angularVelocities[last];
-        mRigidBodies.inverseInertiaLocal[index]       = mRigidBodies.inverseInertiaLocal[last];
-        mRigidBodies.bodyTypes[index]                 = mRigidBodies.bodyTypes[last];
-        mRigidBodies.colliderShapeTypes[index]        = mRigidBodies.colliderShapeTypes[last];
-        mRigidBodies.colliderParams[index]            = mRigidBodies.colliderParams[last];
-        mRigidBodies.kinematicTargetPositions[index]  = mRigidBodies.kinematicTargetPositions[last];
+        mRigidBodies.entityIds[index]                = mRigidBodies.entityIds[last];
+        mRigidBodies.positionsInvMass[index]         = mRigidBodies.positionsInvMass[last];
+        mRigidBodies.orientations[index]             = mRigidBodies.orientations[last];
+        mRigidBodies.scales[index]                   = mRigidBodies.scales[last];
+        mRigidBodies.linearVelocities[index]         = mRigidBodies.linearVelocities[last];
+        mRigidBodies.angularVelocities[index]        = mRigidBodies.angularVelocities[last];
+        mRigidBodies.inverseInertiaLocal[index]      = mRigidBodies.inverseInertiaLocal[last];
+        mRigidBodies.bodyTypes[index]                = mRigidBodies.bodyTypes[last];
+        mRigidBodies.colliderShapeTypes[index]       = mRigidBodies.colliderShapeTypes[last];
+        mRigidBodies.colliderParams[index]           = mRigidBodies.colliderParams[last];
+        mRigidBodies.kinematicTargetPositions[index] = mRigidBodies.kinematicTargetPositions[last];
         mRigidBodies.kinematicTargetOrientations[index] =
             mRigidBodies.kinematicTargetOrientations[last];
         mRigidBodies.kinematicTargetFlags[index]      = mRigidBodies.kinematicTargetFlags[last];
@@ -281,16 +280,16 @@ std::uint64_t PhysicsWorld::revision() const noexcept
 void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost& soa, std::uint32_t index,
                                        const RigidBodyState& state)
 {
-    soa.entityIds[index]           = state.entityId;
-    soa.positionsInvMass[index]    = toPositionInvMass(state);
-    soa.orientations[index]        = toOrientation(state);
-    soa.scales[index]              = toScale(state);
-    soa.linearVelocities[index]    = toLinearVelocity(state);
-    soa.angularVelocities[index]   = toAngularVelocity(state);
-    soa.inverseInertiaLocal[index] = toInverseInertiaLocal(state);
-    soa.bodyTypes[index]           = static_cast<std::uint32_t>(state.bodyType);
-    soa.colliderShapeTypes[index]  = static_cast<std::uint32_t>(state.colliderShape);
-    soa.colliderParams[index]      = state.colliderParams;
+    soa.entityIds[index]                   = state.entityId;
+    soa.positionsInvMass[index]            = toPositionInvMass(state);
+    soa.orientations[index]                = toOrientation(state);
+    soa.scales[index]                      = toScale(state);
+    soa.linearVelocities[index]            = toLinearVelocity(state);
+    soa.angularVelocities[index]           = toAngularVelocity(state);
+    soa.inverseInertiaLocal[index]         = toInverseInertiaLocal(state);
+    soa.bodyTypes[index]                   = static_cast<std::uint32_t>(state.bodyType);
+    soa.colliderShapeTypes[index]          = static_cast<std::uint32_t>(state.colliderShape);
+    soa.colliderParams[index]              = state.colliderParams;
     soa.kinematicTargetPositions[index]    = toKinematicTargetPosition(state);
     soa.kinematicTargetOrientations[index] = toKinematicTargetOrientation(state);
     soa.kinematicTargetFlags[index]        = state.kinematicTargetEnabled ? 1u : 0u;
@@ -327,9 +326,8 @@ RigidBodyState PhysicsWorld::readRigidBodySoAAt(const RigidBodySoAHost& soa, std
     state.colliderShape  = static_cast<ColliderShapeType>(soa.colliderShapeTypes[index]);
     state.colliderParams = soa.colliderParams[index];
     const Diligent::float4 kinematicTargetPosition = soa.kinematicTargetPositions[index];
-    state.kinematicTargetPosition = Diligent::float3{kinematicTargetPosition.x,
-                                                     kinematicTargetPosition.y,
-                                                     kinematicTargetPosition.z};
+    state.kinematicTargetPosition                  = Diligent::float3{
+        kinematicTargetPosition.x, kinematicTargetPosition.y, kinematicTargetPosition.z};
     const Diligent::float4 kinematicTargetOrientation = soa.kinematicTargetOrientations[index];
     state.kinematicTargetRotation =
         Diligent::QuaternionF{kinematicTargetOrientation.x, kinematicTargetOrientation.y,

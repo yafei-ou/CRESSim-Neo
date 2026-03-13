@@ -129,7 +129,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
         return false;
     }
 
-    constexpr const char* kShadowVsRelativePath = "shadow_depth.vs.hlsl";
+    constexpr const char* kShadowVsRelativePath = "graphics/shadow_depth.vs.hlsl";
 
     std::string shadowVsPath;
     if (!mShaderLibrary.resolveShaderPath(kShadowVsRelativePath, shadowVsPath))
@@ -200,9 +200,9 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
     }
 
     Diligent::IShaderResourceVariable* perObjectVar =
-        mPipelineState->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "CressimPerObject");
+        mPipelineState->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "GraphicsPerObject");
     Diligent::IShaderResourceVariable* shadowPerPassVar = mPipelineState->GetStaticVariableByName(
-        Diligent::SHADER_TYPE_VERTEX, "CressimShadowPerPass");
+        Diligent::SHADER_TYPE_VERTEX, "GraphicsShadowPerPass");
     if (perObjectVar == nullptr || shadowPerPassVar == nullptr)
     {
         LOG_ERROR_MESSAGE(
@@ -227,7 +227,7 @@ bool ShadowPass::ensureConstantBuffers(Diligent::IRenderDevice* renderDevice)
     if (mPerObjectBuffer == nullptr)
     {
         Diligent::BufferDesc constantBufferDesc{};
-        constantBufferDesc.Name           = "CRESSimNeo.ShadowPass.CressimPerObject";
+        constantBufferDesc.Name           = "CRESSimNeo.ShadowPass.GraphicsPerObject";
         constantBufferDesc.Size           = sizeof(PerObjectConstants);
         constantBufferDesc.Usage          = Diligent::USAGE_DYNAMIC;
         constantBufferDesc.BindFlags      = Diligent::BIND_UNIFORM_BUFFER;
@@ -242,7 +242,7 @@ bool ShadowPass::ensureConstantBuffers(Diligent::IRenderDevice* renderDevice)
     if (mShadowPerPassBuffer == nullptr)
     {
         Diligent::BufferDesc constantBufferDesc{};
-        constantBufferDesc.Name           = "CRESSimNeo.ShadowPass.CressimShadowPerPass";
+        constantBufferDesc.Name           = "CRESSimNeo.ShadowPass.GraphicsShadowPerPass";
         constantBufferDesc.Size           = sizeof(ShadowPerPassConstants);
         constantBufferDesc.Usage          = Diligent::USAGE_DYNAMIC;
         constantBufferDesc.BindFlags      = Diligent::BIND_UNIFORM_BUFFER;

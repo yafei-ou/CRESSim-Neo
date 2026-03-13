@@ -1,6 +1,9 @@
-#include "include/per_object.hlsli"
+#ifndef CRESSIM_NEO_GRAPHICS_FORWARD_CONSTANTS_HLSLI
+#define CRESSIM_NEO_GRAPHICS_FORWARD_CONSTANTS_HLSLI
 
-cbuffer CressimForwardPerFrame
+#include "graphics/include/graphics_per_object.hlsli"
+
+cbuffer GriphicsForwardPerFrame
 {
     float4x4 g_ViewMatrix;
     float4x4 g_ViewProjection;
@@ -13,8 +16,10 @@ cbuffer CressimForwardPerFrame
     float4 g_ShadowParams;
 };
 
-cbuffer CressimForwardPerMaterial
+cbuffer GraphicsForwardPerMaterial
 {
     float4 g_BaseColor;
     float4 g_MaterialParams;
 };
+
+#endif // !CRESSIM_NEO_GRAPHICS_FORWARD_CONSTANTS_HLSLI

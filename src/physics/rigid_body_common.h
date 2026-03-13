@@ -10,12 +10,12 @@
 namespace cressim::neo::physics
 {
 
-constexpr std::uint32_t kRigidContactsPerPair = 4u;
-constexpr std::uint32_t kRigidPairTypeCount   = 6u;
-constexpr std::uint32_t kBodyFlagStatic       = 1u << 0u;
-constexpr std::uint32_t kBodyFlagKinematic    = 1u << 1u;
-constexpr std::uint32_t kBodyFlagDynamic      = 1u << 2u;
-constexpr std::uint32_t kBodyFlagMoving       = kBodyFlagKinematic | kBodyFlagDynamic;
+constexpr std::uint32_t kRigidContactsPerPair   = 4u;
+constexpr std::uint32_t kRigidPairTypeCount     = 6u;
+constexpr std::uint32_t kBodyFlagStatic         = 1u << 0u;
+constexpr std::uint32_t kBodyFlagKinematic      = 1u << 1u;
+constexpr std::uint32_t kBodyFlagDynamic        = 1u << 2u;
+constexpr std::uint32_t kBodyFlagMoving         = kBodyFlagKinematic | kBodyFlagDynamic;
 constexpr std::uint32_t kKinematicTargetEnabled = 1u << 0u;
 
 enum class GpuRigidPairType : std::uint32_t
@@ -30,10 +30,10 @@ enum class GpuRigidPairType : std::uint32_t
 
 struct GpuRigidDispatchConstants
 {
-    float dt                             = 0.0f;
-    std::uint32_t rigidBodyCount         = 0;
-    std::uint32_t activeMovingCount      = 0;
-    std::uint32_t staticBodyCount        = 0;
+    float dt                            = 0.0f;
+    std::uint32_t rigidBodyCount        = 0;
+    std::uint32_t activeMovingCount     = 0;
+    std::uint32_t staticBodyCount       = 0;
     std::uint32_t candidatePairCount    = 0;
     std::uint32_t candidatePairCapacity = 0;
     std::uint32_t substepIndex          = 0;
@@ -41,6 +41,38 @@ struct GpuRigidDispatchConstants
     std::uint32_t solverIterations      = 0;
     std::uint32_t reserved0             = 0;
     std::uint32_t reserved1             = 0;
+};
+
+struct GpuPhysicsScanConstants
+{
+    std::uint32_t elementCount = 0;
+    std::uint32_t reserved0    = 0;
+    std::uint32_t reserved1    = 0;
+    std::uint32_t reserved2    = 0;
+};
+
+struct GpuPhysicsRadixConstants
+{
+    std::uint32_t elementCount = 0;
+    std::uint32_t bitIndex     = 0;
+    std::uint32_t reserved0    = 0;
+    std::uint32_t reserved1    = 0;
+};
+
+struct GpuBroadPhaseBuildConstants
+{
+    std::uint32_t elementCount = 0;
+    std::uint32_t reserved0    = 0;
+    std::uint32_t reserved1    = 0;
+    std::uint32_t reserved2    = 0;
+};
+
+struct GpuBroadPhaseReductionConstants
+{
+    std::uint32_t elementCount = 0;
+    std::uint32_t reserved0    = 0;
+    std::uint32_t reserved1    = 0;
+    std::uint32_t reserved2    = 0;
 };
 
 struct GpuBodyAabb
@@ -157,6 +189,10 @@ struct GpuRigidContact
 };
 
 static_assert(sizeof(GpuRigidDispatchConstants) == 44u);
+static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
+static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
+static_assert(sizeof(GpuBroadPhaseBuildConstants) == 16u);
+static_assert(sizeof(GpuBroadPhaseReductionConstants) == 16u);
 static_assert(sizeof(GpuBodyAabb) == 32u);
 static_assert(sizeof(GpuBodyMeta) == 16u);
 static_assert(sizeof(GpuBroadPhaseElement) == 32u);
