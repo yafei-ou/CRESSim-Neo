@@ -1,6 +1,7 @@
 #ifndef CRESSIM_NEO_PHYSICS_PHYSICS_PASS_DISPATCHER_H
 #define CRESSIM_NEO_PHYSICS_PHYSICS_PASS_DISPATCHER_H
 
+#include "physics/physics_compute_pass.h"
 #include "physics/physics_scene_gpu_state.h"
 #include "physics/rigid_body_common.h"
 
@@ -9,9 +10,7 @@
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Shader.h"
 
 #include <array>
 #include <cstddef>
@@ -60,47 +59,15 @@ public:
                           const GpuRigidDispatchConstants& constants);
 
 private:
-    struct BufferBinding
-    {
-        const char* variableName;
-        Diligent::IBuffer* buffer;
-        Diligent::BUFFER_VIEW_TYPE viewType;
-    };
-
-    struct ComputePass
-    {
-        Diligent::RefCntAutoPtr<Diligent::IPipelineState> pso;
-        Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> srb;
-    };
-
     template <std::size_t N>
-    bool bindBufferVariables(Diligent::IShaderResourceBinding* srb,
-                             const std::array<BufferBinding, N>& bindings);
-
-    template <std::size_t N>
-    bool bindBufferVariables(const ComputePass& pass, const std::array<BufferBinding, N>& bindings);
+    bool writeAndDispatch(Diligent::IDeviceContext* computeContext, const ComputePass& pass,
+                          std::size_t variantIndex,
+                          const std::array<ComputeBufferBinding, N>& bindings,
+                          const GpuRigidDispatchConstants* constants, std::uint32_t groupCountX,
+                          std::uint32_t groupCountY = 1u, std::uint32_t groupCountZ = 1u);
 
     bool writeDispatchConstants(Diligent::IDeviceContext* computeContext,
                                 const GpuRigidDispatchConstants& constants);
-    bool bindBufferVariable(Diligent::IShaderResourceBinding* srb, const char* variableName,
-                            Diligent::IBuffer* buffer, Diligent::BUFFER_VIEW_TYPE viewType);
-
-    bool createComputePass(Diligent::IRenderDevice* renderDevice,
-                           Diligent::IShaderSourceInputStreamFactory* streamFactory,
-                           const char* shaderPath, const char* shaderName, const char* psoName,
-                           const Diligent::ShaderResourceVariableDesc* variables,
-                           std::size_t variableCount, ComputePass& outPass);
-
-    bool createShaderResourceBinding(
-        Diligent::IPipelineState* pso,
-        Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>& outSrb);
-
-    template <std::size_t N>
-    bool dispatchComputePass(Diligent::IDeviceContext* computeContext, const ComputePass& pass,
-                             const std::array<BufferBinding, N>& bindings,
-                             const GpuRigidDispatchConstants* constants, std::uint32_t groupCountX,
-                             std::uint32_t groupCountY = 1u, std::uint32_t groupCountZ = 1u);
-
     bool dispatchScanBlockPass(Diligent::IDeviceContext* computeContext,
                                const PhysicsSceneGpuState& sceneState, Diligent::IBuffer* input,
                                Diligent::IBuffer* output, Diligent::IBuffer* blockSums,
@@ -134,39 +101,20 @@ private:
     ComputePass mUpdateWorldAabbsPass;
     ComputePass mScanBlockPass;
     ComputePass mScanAddOffsetsPass;
-
     ComputePass mCompactActiveBodiesPass;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mCompactStaticBodiesSrb;
-
     ComputePass mFinalizeActiveBodiesPass;
-
     ComputePass mBuildBroadPhaseElementsPass;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mBuildStaticBroadPhaseElementsSrb;
-
     ComputePass mReduceExtentElementsPass;
     ComputePass mReduceExtentExtentsPass;
-
     ComputePass mMortonCodesPass;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mStaticMortonCodesSrb;
-
     ComputePass mRadixClassifyPass;
     ComputePass mRadixFinalizePass;
     ComputePass mRadixScatterPass;
-
     ComputePass mBvhHierarchyPass;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mStaticBvhHierarchySrb;
-
     ComputePass mBvhBoundingBoxesPass;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mStaticBvhBoundingBoxesSrb;
-
     ComputePass mCountPairsPass;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mCountPairsMovingSrb;
-
     ComputePass mFinalizePairsPass;
-
     ComputePass mEmitPairsPass;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mEmitPairsMovingSrb;
-
     ComputePass mBuildNarrowPhaseChunksPass;
     ComputePass mGenerateContactsPass;
     ComputePass mClearCorrectionsPass;
