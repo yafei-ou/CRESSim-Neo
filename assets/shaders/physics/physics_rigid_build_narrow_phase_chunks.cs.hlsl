@@ -1,18 +1,3 @@
-cbuffer PhysicsDispatchConstantsBuffer
-{
-    float dt;
-    uint rigidBodyCount;
-    uint activeMovingCount;
-    uint staticBodyCount;
-    uint candidatePairCount;
-    uint candidatePairCapacity;
-    uint substepIndex;
-    uint iterationIndex;
-    uint solverIterations;
-    uint reserved0;
-    uint reserved1;
-};
-
 #include "physics/include/physics_rigid_common.hlsli"
 
 static const uint kNarrowPhaseChunkSize = 128u;

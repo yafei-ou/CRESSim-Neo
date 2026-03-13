@@ -5,7 +5,7 @@ namespace cressim::neo::physics::passdefs
 namespace
 {
 constexpr Diligent::ShaderResourceVariableDesc kPredictVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyPositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -38,7 +38,7 @@ constexpr Diligent::ShaderResourceVariableDesc kPredictVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kUpdateWorldAabbsVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -61,7 +61,7 @@ constexpr Diligent::ShaderResourceVariableDesc kUpdateWorldAabbsVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kScanBlockVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsScanConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ScanInput", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ScanOutput",
@@ -70,7 +70,7 @@ constexpr Diligent::ShaderResourceVariableDesc kScanBlockVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kScanAddOffsetsVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsScanConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ScannedBlockOffsets",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -78,7 +78,7 @@ constexpr Diligent::ShaderResourceVariableDesc kScanAddOffsetsVars[] = {
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
 };
 constexpr Diligent::ShaderResourceVariableDesc kCompactActiveBodiesVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ActiveBodyFlags",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -90,7 +90,7 @@ constexpr Diligent::ShaderResourceVariableDesc kCompactActiveBodiesVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kFinalizeActiveBodiesVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ActiveBodyFlags",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -105,7 +105,7 @@ constexpr Diligent::ShaderResourceVariableDesc kFinalizeActiveBodiesVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kBuildBroadPhaseElementsVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ActiveBodyIndices",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -115,7 +115,7 @@ constexpr Diligent::ShaderResourceVariableDesc kBuildBroadPhaseElementsVars[] = 
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kReduceExtentElementsVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_BroadPhaseElements",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -124,7 +124,7 @@ constexpr Diligent::ShaderResourceVariableDesc kReduceExtentElementsVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kReduceExtentExtentsVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_InputExtents",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -133,7 +133,7 @@ constexpr Diligent::ShaderResourceVariableDesc kReduceExtentExtentsVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kMortonCodesVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_BroadPhaseElements",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -144,7 +144,7 @@ constexpr Diligent::ShaderResourceVariableDesc kMortonCodesVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kRadixClassifyVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRadixConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_MortonCodesIn",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -153,7 +153,7 @@ constexpr Diligent::ShaderResourceVariableDesc kRadixClassifyVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kRadixFinalizeVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRadixConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RadixBitFlags",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -163,7 +163,7 @@ constexpr Diligent::ShaderResourceVariableDesc kRadixFinalizeVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kRadixScatterVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRadixConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_MortonCodesIn",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -177,7 +177,7 @@ constexpr Diligent::ShaderResourceVariableDesc kRadixScatterVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kBvhHierarchyVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SortedMortonCodes",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -189,7 +189,7 @@ constexpr Diligent::ShaderResourceVariableDesc kBvhHierarchyVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kBvhBoundingBoxesVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_BvhNodes", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_BvhConstructionInfos",
@@ -197,7 +197,7 @@ constexpr Diligent::ShaderResourceVariableDesc kBvhBoundingBoxesVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kCountPairsVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ActiveBodyIndices",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -222,7 +222,7 @@ constexpr Diligent::ShaderResourceVariableDesc kCountPairsVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kFinalizePairsVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PairCountsSphereSphere",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -255,7 +255,7 @@ constexpr Diligent::ShaderResourceVariableDesc kFinalizePairsVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kEmitPairsVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ActiveBodyIndices",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -284,8 +284,6 @@ constexpr Diligent::ShaderResourceVariableDesc kEmitPairsVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kBuildNarrowPhaseChunksVars[] = {
-    // {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
-    //  Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidPairRanges",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_NarrowPhaseChunks",
@@ -297,8 +295,6 @@ constexpr Diligent::ShaderResourceVariableDesc kBuildNarrowPhaseChunksVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kGenerateContactsVars[] = {
-    // {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
-    //  Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyOrientations",
@@ -320,7 +316,7 @@ constexpr Diligent::ShaderResourceVariableDesc kGenerateContactsVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kSolveGatherVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -339,7 +335,7 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveGatherVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kClearCorrectionsVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTranslationCorrections",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -348,7 +344,7 @@ constexpr Diligent::ShaderResourceVariableDesc kClearCorrectionsVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kApplyCorrectionsVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -363,7 +359,7 @@ constexpr Diligent::ShaderResourceVariableDesc kApplyCorrectionsVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kUpdateVelocitiesVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsDispatchConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PreviousRigidBodyPositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -464,7 +460,7 @@ const ComputePassDefinition kMortonCodes{
 };
 
 const ComputePassDefinition kRadixClassify{
-    "physics/physics_rigid_radix_classify.cs.hlsl",
+    "physics/physics_radix_classify.cs.hlsl",
     "CRESSimNeo.Physics.RigidRadixClassify.CS",
     "CRESSimNeo.Physics.RigidRadixClassify.PSO",
     kRadixClassifyVars,
@@ -472,7 +468,7 @@ const ComputePassDefinition kRadixClassify{
 };
 
 const ComputePassDefinition kRadixFinalize{
-    "physics/physics_rigid_radix_finalize.cs.hlsl",
+    "physics/physics_radix_finalize.cs.hlsl",
     "CRESSimNeo.Physics.RigidRadixFinalize.CS",
     "CRESSimNeo.Physics.RigidRadixFinalize.PSO",
     kRadixFinalizeVars,
@@ -480,7 +476,7 @@ const ComputePassDefinition kRadixFinalize{
 };
 
 const ComputePassDefinition kRadixScatter{
-    "physics/physics_rigid_radix_scatter.cs.hlsl",
+    "physics/physics_radix_scatter.cs.hlsl",
     "CRESSimNeo.Physics.RigidRadixScatter.CS",
     "CRESSimNeo.Physics.RigidRadixScatter.PSO",
     kRadixScatterVars,

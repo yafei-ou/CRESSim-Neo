@@ -43,6 +43,22 @@ struct GpuRigidDispatchConstants
     std::uint32_t reserved1             = 0;
 };
 
+struct GpuPhysicsScanConstants
+{
+    std::uint32_t elementCount = 0;
+    std::uint32_t reserved0    = 0;
+    std::uint32_t reserved1    = 0;
+    std::uint32_t reserved2    = 0;
+};
+
+struct GpuPhysicsRadixConstants
+{
+    std::uint32_t elementCount = 0;
+    std::uint32_t bitIndex     = 0;
+    std::uint32_t reserved0    = 0;
+    std::uint32_t reserved1    = 0;
+};
+
 struct GpuBodyAabb
 {
     Diligent::float4 minBounds{0.0f, 0.0f, 0.0f, 0.0f};
@@ -157,6 +173,8 @@ struct GpuRigidContact
 };
 
 static_assert(sizeof(GpuRigidDispatchConstants) == 44u);
+static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
+static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
 static_assert(sizeof(GpuBodyAabb) == 32u);
 static_assert(sizeof(GpuBodyMeta) == 16u);
 static_assert(sizeof(GpuBroadPhaseElement) == 32u);

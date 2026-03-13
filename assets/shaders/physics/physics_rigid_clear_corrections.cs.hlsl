@@ -1,18 +1,4 @@
-cbuffer PhysicsDispatchConstantsBuffer
-{
-    float dt;
-    uint rigidBodyCount;
-    uint activeMovingCount;
-    uint staticBodyCount;
-    uint candidatePairCount;
-    uint candidatePairCapacity;
-    uint substepIndex;
-    uint iterationIndex;
-    uint solverIterations;
-    uint reserved0;
-    uint reserved1;
-};
-
+#include "physics/include/physics_rigid_dispatch_constants.hlsli"
 RWStructuredBuffer<int4> g_RigidBodyTranslationCorrections;
 RWStructuredBuffer<int4> g_RigidBodyRotationCorrections;
 

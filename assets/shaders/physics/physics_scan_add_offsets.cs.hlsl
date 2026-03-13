@@ -1,17 +1,4 @@
-cbuffer PhysicsDispatchConstantsBuffer
-{
-    float dt;
-    uint rigidBodyCount;
-    uint activeMovingCount;
-    uint staticBodyCount;
-    uint candidatePairCount;
-    uint candidatePairCapacity;
-    uint substepIndex;
-    uint iterationIndex;
-    uint solverIterations;
-    uint reserved0;
-    uint reserved1;
-};
+#include "physics/include/physics_scan_constants.hlsli"
 
 StructuredBuffer<uint> g_ScannedBlockOffsets;
 RWStructuredBuffer<uint> g_ScanOutput;
@@ -20,7 +7,7 @@ RWStructuredBuffer<uint> g_ScanOutput;
                                  uint3 groupID : SV_GroupID)
 {
     const uint index = dispatchThreadID.x;
-    if (index >= candidatePairCapacity)
+    if (index >= elementCount)
     {
         return;
     }

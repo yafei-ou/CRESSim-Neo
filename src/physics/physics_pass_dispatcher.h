@@ -60,26 +60,47 @@ public:
 
 private:
     template <std::size_t N>
-    bool writeAndDispatch(Diligent::IDeviceContext* computeContext, const ComputePass& pass,
-                          std::size_t variantIndex,
-                          const std::array<ComputeBufferBinding, N>& bindings,
-                          const GpuRigidDispatchConstants* constants, std::uint32_t groupCountX,
-                          std::uint32_t groupCountY = 1u, std::uint32_t groupCountZ = 1u);
+    bool writeAndDispatchRigid(Diligent::IDeviceContext* computeContext, const ComputePass& pass,
+                               std::size_t variantIndex,
+                               const std::array<ComputeBufferBinding, N>& bindings,
+                               const GpuRigidDispatchConstants* constants,
+                               std::uint32_t groupCountX, std::uint32_t groupCountY = 1u,
+                               std::uint32_t groupCountZ = 1u);
 
-    bool writeDispatchConstants(Diligent::IDeviceContext* computeContext,
-                                const GpuRigidDispatchConstants& constants);
+    template <std::size_t N>
+    bool writeAndDispatchScan(Diligent::IDeviceContext* computeContext, const ComputePass& pass,
+                              std::size_t variantIndex,
+                              const std::array<ComputeBufferBinding, N>& bindings,
+                              const GpuPhysicsScanConstants* constants, std::uint32_t groupCountX,
+                              std::uint32_t groupCountY = 1u, std::uint32_t groupCountZ = 1u);
+
+    template <std::size_t N>
+    bool writeAndDispatchRadix(Diligent::IDeviceContext* computeContext, const ComputePass& pass,
+                               std::size_t variantIndex,
+                               const std::array<ComputeBufferBinding, N>& bindings,
+                               const GpuPhysicsRadixConstants* constants,
+                               std::uint32_t groupCountX, std::uint32_t groupCountY = 1u,
+                               std::uint32_t groupCountZ = 1u);
+
+    bool writeRigidDispatchConstants(Diligent::IDeviceContext* computeContext,
+                                     const GpuRigidDispatchConstants& constants);
+    bool writeScanConstants(Diligent::IDeviceContext* computeContext,
+                            const GpuPhysicsScanConstants& constants);
+    bool writeRadixConstants(Diligent::IDeviceContext* computeContext,
+                             const GpuPhysicsRadixConstants& constants);
+    bool writeConstantsBuffer(Diligent::IDeviceContext* computeContext, Diligent::IBuffer* buffer,
+                              const void* constants, std::size_t constantsSize);
     bool dispatchScanBlockPass(Diligent::IDeviceContext* computeContext,
                                const PhysicsSceneGpuState& sceneState, Diligent::IBuffer* input,
                                Diligent::IBuffer* output, Diligent::IBuffer* blockSums,
-                               std::uint32_t count, const GpuRigidDispatchConstants& constants);
+                               std::uint32_t count);
     bool dispatchScanAddOffsetsPass(Diligent::IDeviceContext* computeContext,
                                     Diligent::IBuffer* output,
-                                    Diligent::IBuffer* scannedBlockOffsets, std::uint32_t count,
-                                    const GpuRigidDispatchConstants& constants);
+                                    Diligent::IBuffer* scannedBlockOffsets,
+                                    std::uint32_t count);
     bool dispatchExclusiveScanPass(Diligent::IDeviceContext* computeContext,
                                    const PhysicsSceneGpuState& sceneState, Diligent::IBuffer* input,
                                    Diligent::IBuffer* output, std::uint32_t count,
-                                   const GpuRigidDispatchConstants& constants,
                                    std::uint32_t recursionLevel = 0u);
     bool dispatchReduceBroadPhaseExtentPass(Diligent::IDeviceContext* computeContext,
                                             const PhysicsSceneGpuState& sceneState,
@@ -122,7 +143,9 @@ private:
     ComputePass mApplyCorrectionsPass;
     ComputePass mUpdateVelocitiesPass;
 
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mDispatchConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidDispatchConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mRadixConstantsBuffer;
 };
 
 } // namespace cressim::neo::physics
