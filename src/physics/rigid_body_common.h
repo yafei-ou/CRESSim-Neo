@@ -10,12 +10,12 @@
 namespace cressim::neo::physics
 {
 
-constexpr std::uint32_t kRigidContactsPerPair = 4u;
-constexpr std::uint32_t kRigidPairTypeCount   = 6u;
-constexpr std::uint32_t kBodyFlagStatic       = 1u << 0u;
-constexpr std::uint32_t kBodyFlagKinematic    = 1u << 1u;
-constexpr std::uint32_t kBodyFlagDynamic      = 1u << 2u;
-constexpr std::uint32_t kBodyFlagMoving       = kBodyFlagKinematic | kBodyFlagDynamic;
+constexpr std::uint32_t kRigidContactsPerPair   = 4u;
+constexpr std::uint32_t kRigidPairTypeCount     = 6u;
+constexpr std::uint32_t kBodyFlagStatic         = 1u << 0u;
+constexpr std::uint32_t kBodyFlagKinematic      = 1u << 1u;
+constexpr std::uint32_t kBodyFlagDynamic        = 1u << 2u;
+constexpr std::uint32_t kBodyFlagMoving         = kBodyFlagKinematic | kBodyFlagDynamic;
 constexpr std::uint32_t kKinematicTargetEnabled = 1u << 0u;
 
 enum class GpuRigidPairType : std::uint32_t
@@ -30,10 +30,10 @@ enum class GpuRigidPairType : std::uint32_t
 
 struct GpuRigidDispatchConstants
 {
-    float dt                             = 0.0f;
-    std::uint32_t rigidBodyCount         = 0;
-    std::uint32_t activeMovingCount      = 0;
-    std::uint32_t staticBodyCount        = 0;
+    float dt                            = 0.0f;
+    std::uint32_t rigidBodyCount        = 0;
+    std::uint32_t activeMovingCount     = 0;
+    std::uint32_t staticBodyCount       = 0;
     std::uint32_t candidatePairCount    = 0;
     std::uint32_t candidatePairCapacity = 0;
     std::uint32_t substepIndex          = 0;

@@ -15,6 +15,10 @@ cbuffer PhysicsDispatchConstantsBuffer
 
 #include "physics/physics_rigid_common.hlsli"
 
+// TODO: this is okay for now but with bad accuracy and shrinks
+// the allowed world range a lot
+// We could split this into several stages
+
 static const float kMaxCorrectionPerIter = 0.02; // world units, tune (e.g. 2 cm)
 static const float kRelaxation = 0.90;           // try 0.8 if jittery
 static const float kCorrectionAtomicScale = 100000.0;
