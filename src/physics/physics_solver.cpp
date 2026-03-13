@@ -253,7 +253,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         if (pairCount > 0u)
         {
             if (!mImpl->passDispatcher.generateContacts(computeBackend.computeContext,
-                                                        mImpl->sceneState, pairCount, constants))
+                                                        mImpl->sceneState, pairCount))
             {
                 LOG_ERROR_MESSAGE("PhysicsSolver::step failed: GenerateContacts dispatch.");
                 return false;

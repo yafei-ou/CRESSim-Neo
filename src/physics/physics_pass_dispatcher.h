@@ -12,7 +12,6 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -48,8 +47,7 @@ public:
                              std::uint32_t activeMovingCount,
                              const GpuRigidDispatchConstants& constants);
     bool generateContacts(Diligent::IDeviceContext* computeContext,
-                          const PhysicsSceneGpuState& sceneState, std::uint32_t pairCount,
-                          const GpuRigidDispatchConstants& constants);
+                          const PhysicsSceneGpuState& sceneState, std::uint32_t pairCount);
     bool solveConstraints(Diligent::IDeviceContext* computeContext,
                           const PhysicsSceneGpuState& sceneState, std::uint32_t rigidBodyCount,
                           std::uint32_t pairCount, std::uint32_t iterations,
@@ -59,29 +57,6 @@ public:
                           const GpuRigidDispatchConstants& constants);
 
 private:
-    template <std::size_t N>
-    bool writeAndDispatchRigid(Diligent::IDeviceContext* computeContext, const ComputePass& pass,
-                               std::size_t variantIndex,
-                               const std::array<ComputeBufferBinding, N>& bindings,
-                               const GpuRigidDispatchConstants* constants,
-                               std::uint32_t groupCountX, std::uint32_t groupCountY = 1u,
-                               std::uint32_t groupCountZ = 1u);
-
-    template <std::size_t N>
-    bool writeAndDispatchScan(Diligent::IDeviceContext* computeContext, const ComputePass& pass,
-                              std::size_t variantIndex,
-                              const std::array<ComputeBufferBinding, N>& bindings,
-                              const GpuPhysicsScanConstants* constants, std::uint32_t groupCountX,
-                              std::uint32_t groupCountY = 1u, std::uint32_t groupCountZ = 1u);
-
-    template <std::size_t N>
-    bool writeAndDispatchRadix(Diligent::IDeviceContext* computeContext, const ComputePass& pass,
-                               std::size_t variantIndex,
-                               const std::array<ComputeBufferBinding, N>& bindings,
-                               const GpuPhysicsRadixConstants* constants,
-                               std::uint32_t groupCountX, std::uint32_t groupCountY = 1u,
-                               std::uint32_t groupCountZ = 1u);
-
     bool writeRigidDispatchConstants(Diligent::IDeviceContext* computeContext,
                                      const GpuRigidDispatchConstants& constants);
     bool writeScanConstants(Diligent::IDeviceContext* computeContext,
@@ -96,19 +71,17 @@ private:
                                std::uint32_t count);
     bool dispatchScanAddOffsetsPass(Diligent::IDeviceContext* computeContext,
                                     Diligent::IBuffer* output,
-                                    Diligent::IBuffer* scannedBlockOffsets,
-                                    std::uint32_t count);
+                                    Diligent::IBuffer* scannedBlockOffsets, std::uint32_t count);
     bool dispatchExclusiveScanPass(Diligent::IDeviceContext* computeContext,
                                    const PhysicsSceneGpuState& sceneState, Diligent::IBuffer* input,
                                    Diligent::IBuffer* output, std::uint32_t count,
                                    std::uint32_t recursionLevel = 0u);
     bool dispatchReduceBroadPhaseExtentPass(Diligent::IDeviceContext* computeContext,
                                             const PhysicsSceneGpuState& sceneState,
-                                            std::uint32_t activeMovingCount, bool useStaticSet);
+                                            std::uint32_t bodyCount, bool useStaticSet);
     bool dispatchRadixSortPass(Diligent::IDeviceContext* computeContext,
-                               const PhysicsSceneGpuState& sceneState,
-                               std::uint32_t activeMovingCount, bool useStaticSet,
-                               const GpuRigidDispatchConstants& constants);
+                               const PhysicsSceneGpuState& sceneState, std::uint32_t count,
+                               bool useStaticSet);
     bool dispatchGenerateContactsPass(Diligent::IDeviceContext* computeContext,
                                       const PhysicsSceneGpuState& sceneState,
                                       std::uint32_t pairCount);

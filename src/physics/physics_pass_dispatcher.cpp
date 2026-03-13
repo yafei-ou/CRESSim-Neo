@@ -43,59 +43,12 @@ GpuPhysicsRadixConstants makeRadixConstants(std::uint32_t elementCount, std::uin
 
 } // namespace
 
-template <std::size_t N>
-bool PhysicsPassDispatcher::writeAndDispatchRigid(
-    Diligent::IDeviceContext* computeContext, const ComputePass& pass, std::size_t variantIndex,
-    const std::array<ComputeBufferBinding, N>& bindings,
-    const GpuRigidDispatchConstants* constants, std::uint32_t groupCountX,
-    std::uint32_t groupCountY, std::uint32_t groupCountZ)
-{
-    if (constants != nullptr && !writeRigidDispatchConstants(computeContext, *constants))
-    {
-        return false;
-    }
-
-    return pass.dispatch(computeContext, variantIndex, bindings, groupCountX, groupCountY,
-                         groupCountZ);
-}
-
-template <std::size_t N>
-bool PhysicsPassDispatcher::writeAndDispatchScan(
-    Diligent::IDeviceContext* computeContext, const ComputePass& pass, std::size_t variantIndex,
-    const std::array<ComputeBufferBinding, N>& bindings,
-    const GpuPhysicsScanConstants* constants, std::uint32_t groupCountX,
-    std::uint32_t groupCountY, std::uint32_t groupCountZ)
-{
-    if (constants != nullptr && !writeScanConstants(computeContext, *constants))
-    {
-        return false;
-    }
-
-    return pass.dispatch(computeContext, variantIndex, bindings, groupCountX, groupCountY,
-                         groupCountZ);
-}
-
-template <std::size_t N>
-bool PhysicsPassDispatcher::writeAndDispatchRadix(
-    Diligent::IDeviceContext* computeContext, const ComputePass& pass, std::size_t variantIndex,
-    const std::array<ComputeBufferBinding, N>& bindings,
-    const GpuPhysicsRadixConstants* constants, std::uint32_t groupCountX,
-    std::uint32_t groupCountY, std::uint32_t groupCountZ)
-{
-    if (constants != nullptr && !writeRadixConstants(computeContext, *constants))
-    {
-        return false;
-    }
-
-    return pass.dispatch(computeContext, variantIndex, bindings, groupCountX, groupCountY,
-                         groupCountZ);
-}
-
 bool PhysicsPassDispatcher::writeConstantsBuffer(Diligent::IDeviceContext* computeContext,
                                                  Diligent::IBuffer* buffer, const void* constants,
                                                  std::size_t constantsSize)
 {
-    if (computeContext == nullptr || buffer == nullptr || constants == nullptr || constantsSize == 0u)
+    if (computeContext == nullptr || buffer == nullptr || constants == nullptr ||
+        constantsSize == 0u)
     {
         return false;
     }
@@ -112,8 +65,8 @@ bool PhysicsPassDispatcher::writeConstantsBuffer(Diligent::IDeviceContext* compu
     return true;
 }
 
-bool PhysicsPassDispatcher::writeRigidDispatchConstants(
-    Diligent::IDeviceContext* computeContext, const GpuRigidDispatchConstants& constants)
+bool PhysicsPassDispatcher::writeRigidDispatchConstants(Diligent::IDeviceContext* computeContext,
+                                                        const GpuRigidDispatchConstants& constants)
 {
     return writeConstantsBuffer(computeContext, mRigidDispatchConstantsBuffer, &constants,
                                 sizeof(constants));
@@ -122,7 +75,8 @@ bool PhysicsPassDispatcher::writeRigidDispatchConstants(
 bool PhysicsPassDispatcher::writeScanConstants(Diligent::IDeviceContext* computeContext,
                                                const GpuPhysicsScanConstants& constants)
 {
-    return writeConstantsBuffer(computeContext, mScanConstantsBuffer, &constants, sizeof(constants));
+    return writeConstantsBuffer(computeContext, mScanConstantsBuffer, &constants,
+                                sizeof(constants));
 }
 
 bool PhysicsPassDispatcher::writeRadixConstants(Diligent::IDeviceContext* computeContext,
@@ -217,8 +171,7 @@ bool PhysicsPassDispatcher::dispatchScanBlockPass(Diligent::IDeviceContext* comp
                                                   const PhysicsSceneGpuState&,
                                                   Diligent::IBuffer* input,
                                                   Diligent::IBuffer* output,
-                                                  Diligent::IBuffer* blockSums,
-                                                  std::uint32_t count)
+                                                  Diligent::IBuffer* blockSums, std::uint32_t count)
 {
     if (count == 0u)
     {
@@ -234,8 +187,9 @@ bool PhysicsPassDispatcher::dispatchScanBlockPass(Diligent::IDeviceContext* comp
     };
 
     const GpuPhysicsScanConstants scanConstants = makeScanConstants(count);
-    return writeAndDispatchScan(computeContext, mScanBlockPass, kDefaultVariant, bindings,
-                                &scanConstants, dispatchGroupCount(count));
+    return writeScanConstants(computeContext, scanConstants) &&
+           mScanBlockPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                   dispatchGroupCount(count));
 }
 
 bool PhysicsPassDispatcher::dispatchScanAddOffsetsPass(Diligent::IDeviceContext* computeContext,
@@ -257,14 +211,17 @@ bool PhysicsPassDispatcher::dispatchScanAddOffsetsPass(Diligent::IDeviceContext*
     };
 
     const GpuPhysicsScanConstants scanConstants = makeScanConstants(count);
-    return writeAndDispatchScan(computeContext, mScanAddOffsetsPass, kDefaultVariant, bindings,
-                                &scanConstants, dispatchGroupCount(count));
+    return writeScanConstants(computeContext, scanConstants) &&
+           mScanAddOffsetsPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                        dispatchGroupCount(count));
 }
 
-bool PhysicsPassDispatcher::dispatchExclusiveScanPass(
-    Diligent::IDeviceContext* computeContext, const PhysicsSceneGpuState& sceneState,
-    Diligent::IBuffer* input, Diligent::IBuffer* output, std::uint32_t count,
-    std::uint32_t recursionLevel)
+bool PhysicsPassDispatcher::dispatchExclusiveScanPass(Diligent::IDeviceContext* computeContext,
+                                                      const PhysicsSceneGpuState& sceneState,
+                                                      Diligent::IBuffer* input,
+                                                      Diligent::IBuffer* output,
+                                                      std::uint32_t count,
+                                                      std::uint32_t recursionLevel)
 {
     if (count == 0u)
     {
@@ -324,8 +281,9 @@ bool PhysicsPassDispatcher::clearCorrections(Diligent::IDeviceContext* computeCo
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    if (!writeAndDispatchRigid(computeContext, mClearCorrectionsPass, kDefaultVariant, bindings,
-                               &constants, dispatchGroupCount(bodyCount)))
+    if (!writeRigidDispatchConstants(computeContext, constants) ||
+        !mClearCorrectionsPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                        dispatchGroupCount(bodyCount)))
     {
         return false;
     }
@@ -387,8 +345,9 @@ bool PhysicsPassDispatcher::predict(Diligent::IDeviceContext* computeContext,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    return writeAndDispatchRigid(computeContext, mPredictPass, kDefaultVariant, bindings,
-                                 &constants, dispatchGroupCount(bodyCount));
+    return writeRigidDispatchConstants(computeContext, constants) &&
+           mPredictPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                 dispatchGroupCount(bodyCount));
 }
 
 bool PhysicsPassDispatcher::updateWorldAabbs(Diligent::IDeviceContext* computeContext,
@@ -430,8 +389,9 @@ bool PhysicsPassDispatcher::updateWorldAabbs(Diligent::IDeviceContext* computeCo
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    return writeAndDispatchRigid(computeContext, mUpdateWorldAabbsPass, kDefaultVariant, bindings,
-                                 &constants, dispatchGroupCount(bodyCount));
+    return writeRigidDispatchConstants(computeContext, constants) &&
+           mUpdateWorldAabbsPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                          dispatchGroupCount(bodyCount));
 }
 
 bool PhysicsPassDispatcher::compactActiveBodies(Diligent::IDeviceContext* computeContext,
@@ -450,17 +410,15 @@ bool PhysicsPassDispatcher::compactActiveBodies(Diligent::IDeviceContext* comput
     // - activeIndex:        0 1 2
     // - activeBodyIndices:  1 3 4
 
-    if (!dispatchExclusiveScanPass(computeContext, sceneState,
-                                   sceneState.transientBuffers().activeBodyFlagsBuffer,
-                                   sceneState.transientBuffers().activeBodyOffsetsBuffer,
-                                   bodyCount))
+    if (!dispatchExclusiveScanPass(
+            computeContext, sceneState, sceneState.transientBuffers().activeBodyFlagsBuffer,
+            sceneState.transientBuffers().activeBodyOffsetsBuffer, bodyCount))
     {
         return false;
     }
-    if (!dispatchExclusiveScanPass(computeContext, sceneState,
-                                   sceneState.transientBuffers().staticBodyFlagsBuffer,
-                                   sceneState.transientBuffers().staticBodyOffsetsBuffer,
-                                   bodyCount))
+    if (!dispatchExclusiveScanPass(
+            computeContext, sceneState, sceneState.transientBuffers().staticBodyFlagsBuffer,
+            sceneState.transientBuffers().staticBodyOffsetsBuffer, bodyCount))
     {
         return false;
     }
@@ -508,28 +466,31 @@ bool PhysicsPassDispatcher::compactActiveBodies(Diligent::IDeviceContext* comput
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    if (!writeAndDispatchRigid(computeContext, mCompactActiveBodiesPass, kDefaultVariant,
-                               compactBindings, &constants, dispatchGroupCount(bodyCount)))
+    if (!writeRigidDispatchConstants(computeContext, constants) ||
+        !mCompactActiveBodiesPass.dispatch(computeContext, kDefaultVariant, compactBindings,
+                                           dispatchGroupCount(bodyCount)))
     {
         return false;
     }
 
-    if (!writeAndDispatchRigid(computeContext, mCompactActiveBodiesPass, kAltVariant,
-                               staticCompactBindings, &constants, dispatchGroupCount(bodyCount)))
+    if (!writeRigidDispatchConstants(computeContext, constants) ||
+        !mCompactActiveBodiesPass.dispatch(computeContext, kAltVariant, staticCompactBindings,
+                                           dispatchGroupCount(bodyCount)))
     {
         return false;
     }
 
-    return writeAndDispatchRigid(computeContext, mFinalizeActiveBodiesPass, kDefaultVariant,
-                                 finalizeBindings, &constants, 1u);
+    return writeRigidDispatchConstants(computeContext, constants) &&
+           mFinalizeActiveBodiesPass.dispatch(computeContext, kDefaultVariant, finalizeBindings,
+                                              1u);
 }
 
 bool PhysicsPassDispatcher::dispatchReduceBroadPhaseExtentPass(
     Diligent::IDeviceContext* computeContext, const PhysicsSceneGpuState& sceneState,
-    std::uint32_t activeMovingCount, bool useStaticSet)
+    std::uint32_t bodyCount, bool useStaticSet)
 {
     const auto& transient = sceneState.transientBuffers();
-    if (computeContext == nullptr || activeMovingCount == 0u ||
+    if (computeContext == nullptr || bodyCount == 0u ||
         (useStaticSet ? transient.staticBroadPhaseExtentScratchBuffers.empty()
                       : transient.broadPhaseExtentScratchBuffers.empty()) ||
         (useStaticSet ? transient.staticGlobalBroadPhaseExtentBuffer == nullptr
@@ -538,7 +499,7 @@ bool PhysicsPassDispatcher::dispatchReduceBroadPhaseExtentPass(
         return false;
     }
 
-    const std::uint32_t initialGroupCount = dispatchGroupCount(activeMovingCount);
+    const std::uint32_t initialGroupCount = dispatchGroupCount(bodyCount);
     Diligent::IBuffer* currentOutput =
         (initialGroupCount <= 1u)
             ? (useStaticSet ? transient.staticGlobalBroadPhaseExtentBuffer
@@ -547,9 +508,9 @@ bool PhysicsPassDispatcher::dispatchReduceBroadPhaseExtentPass(
                             : transient.broadPhaseExtentScratchBuffers.front());
 
     GpuRigidDispatchConstants reductionConstants{};
-    reductionConstants.activeMovingCount     = activeMovingCount;
-    reductionConstants.staticBodyCount       = activeMovingCount;
-    reductionConstants.candidatePairCapacity = activeMovingCount;
+    reductionConstants.activeMovingCount     = bodyCount;
+    reductionConstants.staticBodyCount       = bodyCount;
+    reductionConstants.candidatePairCapacity = bodyCount;
 
     const std::size_t variantIndex = kDefaultVariant;
 
@@ -564,14 +525,14 @@ bool PhysicsPassDispatcher::dispatchReduceBroadPhaseExtentPass(
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    if (!writeAndDispatchRigid(computeContext, mReduceExtentElementsPass, variantIndex,
-                               firstBindings, &reductionConstants,
-                               dispatchGroupCount(activeMovingCount)))
+    if (!writeRigidDispatchConstants(computeContext, reductionConstants) ||
+        !mReduceExtentElementsPass.dispatch(computeContext, variantIndex, firstBindings,
+                                            dispatchGroupCount(bodyCount)))
     {
         return false;
     }
 
-    std::uint32_t currentCount      = dispatchGroupCount(activeMovingCount);
+    std::uint32_t currentCount      = dispatchGroupCount(bodyCount);
     std::uint32_t level             = 1u;
     Diligent::IBuffer* currentInput = currentOutput;
 
@@ -603,9 +564,9 @@ bool PhysicsPassDispatcher::dispatchReduceBroadPhaseExtentPass(
                                  Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
 
-        if (!writeAndDispatchRigid(computeContext, mReduceExtentExtentsPass, variantIndex,
-                                   reduceBindings, &reductionConstants,
-                                   dispatchGroupCount(currentCount)))
+        if (!writeRigidDispatchConstants(computeContext, reductionConstants) ||
+            !mReduceExtentExtentsPass.dispatch(computeContext, variantIndex, reduceBindings,
+                                               dispatchGroupCount(currentCount)))
         {
             return false;
         }
@@ -620,51 +581,69 @@ bool PhysicsPassDispatcher::dispatchReduceBroadPhaseExtentPass(
 
 bool PhysicsPassDispatcher::dispatchRadixSortPass(Diligent::IDeviceContext* computeContext,
                                                   const PhysicsSceneGpuState& sceneState,
-                                                  std::uint32_t activeMovingCount,
-                                                  bool useStaticSet,
-                                                  const GpuRigidDispatchConstants& constants)
+                                                  std::uint32_t count, bool useStaticSet)
 {
-    (void)constants;
-
-    if (computeContext == nullptr || activeMovingCount == 0u)
+    if (computeContext == nullptr)
     {
         return false;
     }
+    if (count == 0u)
+    {
+        return true;
+    }
 
     const auto& transient = sceneState.transientBuffers();
-    Diligent::IBuffer* currentInput =
-        useStaticSet ? transient.staticMortonCodesBuffer : transient.mortonCodesBuffer;
-    Diligent::IBuffer* currentOutput = useStaticSet ? transient.staticMortonCodesScratchBuffer
-                                                    : transient.mortonCodesScratchBuffer;
 
-    for (std::uint32_t bit = 0u; bit < 32u; ++bit)
+    Diligent::IBuffer* finalMortonBuffer = nullptr;
+    Diligent::IBuffer* currentInput      = nullptr;
+    Diligent::IBuffer* currentOutput     = nullptr;
+    Diligent::IBuffer* radixBitFlags     = nullptr;
+    Diligent::IBuffer* radixBitOffsets   = nullptr;
+    Diligent::IBuffer* radixMeta         = nullptr;
+
+    if (useStaticSet)
     {
-        const GpuPhysicsRadixConstants radixConstants = makeRadixConstants(activeMovingCount, bit);
+        finalMortonBuffer = transient.staticMortonCodesBuffer;
+        currentInput      = transient.staticMortonCodesBuffer;
+        currentOutput     = transient.staticMortonCodesScratchBuffer;
+        radixBitFlags     = transient.staticRadixBitFlagsBuffer;
+        radixBitOffsets   = transient.staticRadixBitOffsetsBuffer;
+        radixMeta         = transient.staticRadixMetaBuffer;
+    }
+    else
+    {
+        finalMortonBuffer = transient.mortonCodesBuffer;
+        currentInput      = transient.mortonCodesBuffer;
+        currentOutput     = transient.mortonCodesScratchBuffer;
+        radixBitFlags     = transient.radixBitFlagsBuffer;
+        radixBitOffsets   = transient.radixBitOffsetsBuffer;
+        radixMeta         = transient.radixMetaBuffer;
+    }
+
+    constexpr std::uint32_t kRadixBitCount = 32u;
+
+    for (std::uint32_t bit = 0u; bit < kRadixBitCount; ++bit)
+    {
+        const GpuPhysicsRadixConstants radixConstants = makeRadixConstants(count, bit);
 
         const std::array classifyBindings{
             ComputeBufferBinding{"PhysicsRadixConstantsBuffer", mRadixConstantsBuffer,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
             ComputeBufferBinding{"g_MortonCodesIn", currentInput,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_RadixBitFlags",
-                                 useStaticSet ? transient.staticRadixBitFlagsBuffer
-                                              : transient.radixBitFlagsBuffer,
+            ComputeBufferBinding{"g_RadixBitFlags", radixBitFlags,
                                  Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
 
-        if (!writeAndDispatchRadix(computeContext, mRadixClassifyPass, kDefaultVariant,
-                                   classifyBindings, &radixConstants,
-                                   dispatchGroupCount(activeMovingCount)))
+        if (!writeRadixConstants(computeContext, radixConstants) ||
+            !mRadixClassifyPass.dispatch(computeContext, kDefaultVariant, classifyBindings,
+                                         dispatchGroupCount(count)))
         {
             return false;
         }
 
-        if (!dispatchExclusiveScanPass(computeContext, sceneState,
-                                       useStaticSet ? transient.staticRadixBitFlagsBuffer
-                                                    : transient.radixBitFlagsBuffer,
-                                       useStaticSet ? transient.staticRadixBitOffsetsBuffer
-                                                    : transient.radixBitOffsetsBuffer,
-                                       activeMovingCount))
+        if (!dispatchExclusiveScanPass(computeContext, sceneState, radixBitFlags, radixBitOffsets,
+                                       count))
         {
             return false;
         }
@@ -672,22 +651,15 @@ bool PhysicsPassDispatcher::dispatchRadixSortPass(Diligent::IDeviceContext* comp
         const std::array finalizeBindings{
             ComputeBufferBinding{"PhysicsRadixConstantsBuffer", mRadixConstantsBuffer,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_RadixBitFlags",
-                                 useStaticSet ? transient.staticRadixBitFlagsBuffer
-                                              : transient.radixBitFlagsBuffer,
+            ComputeBufferBinding{"g_RadixBitFlags", radixBitFlags,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_RadixBitOffsets",
-                                 useStaticSet ? transient.staticRadixBitOffsetsBuffer
-                                              : transient.radixBitOffsetsBuffer,
+            ComputeBufferBinding{"g_RadixBitOffsets", radixBitOffsets,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_RadixMeta",
-                                 useStaticSet ? transient.staticRadixMetaBuffer
-                                              : transient.radixMetaBuffer,
-                                 Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+            ComputeBufferBinding{"g_RadixMeta", radixMeta, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
 
-        if (!writeAndDispatchRadix(computeContext, mRadixFinalizePass, kDefaultVariant,
-                                   finalizeBindings, &radixConstants, 1u))
+        if (!writeRadixConstants(computeContext, radixConstants) ||
+            !mRadixFinalizePass.dispatch(computeContext, kDefaultVariant, finalizeBindings, 1u))
         {
             return false;
         }
@@ -697,25 +669,18 @@ bool PhysicsPassDispatcher::dispatchRadixSortPass(Diligent::IDeviceContext* comp
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
             ComputeBufferBinding{"g_MortonCodesIn", currentInput,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_RadixBitFlags",
-                                 useStaticSet ? transient.staticRadixBitFlagsBuffer
-                                              : transient.radixBitFlagsBuffer,
+            ComputeBufferBinding{"g_RadixBitFlags", radixBitFlags,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_RadixBitOffsets",
-                                 useStaticSet ? transient.staticRadixBitOffsetsBuffer
-                                              : transient.radixBitOffsetsBuffer,
+            ComputeBufferBinding{"g_RadixBitOffsets", radixBitOffsets,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_RadixMeta",
-                                 useStaticSet ? transient.staticRadixMetaBuffer
-                                              : transient.radixMetaBuffer,
-                                 Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            ComputeBufferBinding{"g_RadixMeta", radixMeta, Diligent::BUFFER_VIEW_SHADER_RESOURCE},
             ComputeBufferBinding{"g_MortonCodesOut", currentOutput,
                                  Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
 
-        if (!writeAndDispatchRadix(computeContext, mRadixScatterPass, kDefaultVariant,
-                                   scatterBindings, &radixConstants,
-                                   dispatchGroupCount(activeMovingCount)))
+        if (!writeRadixConstants(computeContext, radixConstants) ||
+            !mRadixScatterPass.dispatch(computeContext, kDefaultVariant, scatterBindings,
+                                        dispatchGroupCount(count)))
         {
             return false;
         }
@@ -723,12 +688,11 @@ bool PhysicsPassDispatcher::dispatchRadixSortPass(Diligent::IDeviceContext* comp
         std::swap(currentInput, currentOutput);
     }
 
-    Diligent::IBuffer* finalMortonBuffer =
-        useStaticSet ? transient.staticMortonCodesBuffer : transient.mortonCodesBuffer;
     if (currentInput != finalMortonBuffer)
     {
         const Diligent::Uint64 bytes =
-            static_cast<Diligent::Uint64>(activeMovingCount) * sizeof(GpuMortonCodeElement);
+            static_cast<Diligent::Uint64>(count) * sizeof(GpuMortonCodeElement);
+
         computeContext->CopyBuffer(
             currentInput, 0u, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
             finalMortonBuffer, 0u, bytes, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -763,9 +727,10 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
         ComputeBufferBinding{"g_BroadPhaseElements", transient.broadPhaseElementsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
-    if (!writeAndDispatchRigid(computeContext, mBuildBroadPhaseElementsPass, kDefaultVariant,
-                               buildElementsBindings, &constants,
-                               dispatchGroupCount(activeMovingCount)))
+    if (!writeRigidDispatchConstants(computeContext, constants) ||
+        !mBuildBroadPhaseElementsPass.dispatch(computeContext, kDefaultVariant,
+                                               buildElementsBindings,
+                                               dispatchGroupCount(activeMovingCount)))
     {
         return false;
     }
@@ -785,13 +750,14 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
         ComputeBufferBinding{"g_MortonCodes", transient.mortonCodesBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
-    if (!writeAndDispatchRigid(computeContext, mMortonCodesPass, kDefaultVariant, mortonBindings,
-                               &constants, dispatchGroupCount(activeMovingCount)))
+    if (!writeRigidDispatchConstants(computeContext, constants) ||
+        !mMortonCodesPass.dispatch(computeContext, kDefaultVariant, mortonBindings,
+                                   dispatchGroupCount(activeMovingCount)))
     {
         return false;
     }
 
-    if (!dispatchRadixSortPass(computeContext, sceneState, activeMovingCount, false, constants))
+    if (!dispatchRadixSortPass(computeContext, sceneState, activeMovingCount, false))
     {
         return false;
     }
@@ -808,9 +774,9 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
         ComputeBufferBinding{"g_BvhConstructionInfos", transient.bvhConstructionInfoBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
-    if (!writeAndDispatchRigid(computeContext, mBvhHierarchyPass, kDefaultVariant,
-                               bvhHierarchyBindings, &constants,
-                               dispatchGroupCount(activeMovingCount)))
+    if (!writeRigidDispatchConstants(computeContext, constants) ||
+        !mBvhHierarchyPass.dispatch(computeContext, kDefaultVariant, bvhHierarchyBindings,
+                                    dispatchGroupCount(activeMovingCount)))
     {
         return false;
     }
@@ -823,9 +789,9 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
         ComputeBufferBinding{"g_BvhConstructionInfos", transient.bvhConstructionInfoBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
-    if (!writeAndDispatchRigid(computeContext, mBvhBoundingBoxesPass, kDefaultVariant,
-                               bvhBoundsBindings, &constants,
-                               dispatchGroupCount(activeMovingCount)))
+    if (!writeRigidDispatchConstants(computeContext, constants) ||
+        !mBvhBoundingBoxesPass.dispatch(computeContext, kDefaultVariant, bvhBoundsBindings,
+                                        dispatchGroupCount(activeMovingCount)))
     {
         return false;
     }
@@ -848,9 +814,10 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
         ComputeBufferBinding{"g_BroadPhaseElements", transient.staticBroadPhaseElementsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
-    if (!writeAndDispatchRigid(computeContext, mBuildBroadPhaseElementsPass, kAltVariant,
-                               staticBuildElementsBindings, &staticConstants,
-                               dispatchGroupCount(constants.staticBodyCount)))
+    if (!writeRigidDispatchConstants(computeContext, staticConstants) ||
+        !mBuildBroadPhaseElementsPass.dispatch(computeContext, kAltVariant,
+                                               staticBuildElementsBindings,
+                                               dispatchGroupCount(constants.staticBodyCount)))
     {
         return false;
     }
@@ -871,15 +838,14 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
         ComputeBufferBinding{"g_MortonCodes", transient.staticMortonCodesBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
-    if (!writeAndDispatchRigid(computeContext, mMortonCodesPass, kAltVariant,
-                               staticMortonBindings, &staticConstants,
-                               dispatchGroupCount(constants.staticBodyCount)))
+    if (!writeRigidDispatchConstants(computeContext, staticConstants) ||
+        !mMortonCodesPass.dispatch(computeContext, kAltVariant, staticMortonBindings,
+                                   dispatchGroupCount(constants.staticBodyCount)))
     {
         return false;
     }
 
-    if (!dispatchRadixSortPass(computeContext, sceneState, constants.staticBodyCount, true,
-                               staticConstants))
+    if (!dispatchRadixSortPass(computeContext, sceneState, constants.staticBodyCount, true))
     {
         return false;
     }
@@ -896,9 +862,9 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
         ComputeBufferBinding{"g_BvhConstructionInfos", transient.staticBvhConstructionInfoBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
-    if (!writeAndDispatchRigid(computeContext, mBvhHierarchyPass, kAltVariant,
-                               staticBvhHierarchyBindings, &staticConstants,
-                               dispatchGroupCount(constants.staticBodyCount)))
+    if (!writeRigidDispatchConstants(computeContext, staticConstants) ||
+        !mBvhHierarchyPass.dispatch(computeContext, kAltVariant, staticBvhHierarchyBindings,
+                                    dispatchGroupCount(constants.staticBodyCount)))
     {
         return false;
     }
@@ -911,9 +877,9 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
         ComputeBufferBinding{"g_BvhConstructionInfos", transient.staticBvhConstructionInfoBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
-    return writeAndDispatchRigid(computeContext, mBvhBoundingBoxesPass, kAltVariant,
-                                 staticBvhBoundsBindings, &staticConstants,
-                                 dispatchGroupCount(constants.staticBodyCount));
+    return writeRigidDispatchConstants(computeContext, staticConstants) &&
+           mBvhBoundingBoxesPass.dispatch(computeContext, kAltVariant, staticBvhBoundsBindings,
+                                          dispatchGroupCount(constants.staticBodyCount));
 }
 
 bool PhysicsPassDispatcher::finalizeBroadPhasePairs(Diligent::IDeviceContext* computeContext,
@@ -959,8 +925,9 @@ bool PhysicsPassDispatcher::finalizeBroadPhasePairs(Diligent::IDeviceContext* co
         ComputeBufferBinding{"g_PairCountsCapsuleCapsule", transient.pairCountBuffers[5],
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
-    if (!writeAndDispatchRigid(computeContext, mCountPairsPass, kAltVariant, countBindings,
-                               &constants, dispatchGroupCount(activeMovingCount)))
+    if (!writeRigidDispatchConstants(computeContext, constants) ||
+        !mCountPairsPass.dispatch(computeContext, kAltVariant, countBindings,
+                                  dispatchGroupCount(activeMovingCount)))
     {
         return false;
     }
@@ -969,8 +936,7 @@ bool PhysicsPassDispatcher::finalizeBroadPhasePairs(Diligent::IDeviceContext* co
     {
         if (!dispatchExclusiveScanPass(computeContext, sceneState,
                                        transient.pairCountBuffers[pairType],
-                                       transient.pairOffsetBuffers[pairType],
-                                       activeMovingCount))
+                                       transient.pairOffsetBuffers[pairType], activeMovingCount))
         {
             return false;
         }
@@ -1009,8 +975,8 @@ bool PhysicsPassDispatcher::finalizeBroadPhasePairs(Diligent::IDeviceContext* co
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    return writeAndDispatchRigid(computeContext, mFinalizePairsPass, kDefaultVariant,
-                                 finalizeBindings, &constants, 1u);
+    return writeRigidDispatchConstants(computeContext, constants) &&
+           mFinalizePairsPass.dispatch(computeContext, kDefaultVariant, finalizeBindings, 1u);
 }
 
 bool PhysicsPassDispatcher::emitBroadPhasePairs(Diligent::IDeviceContext* computeContext,
@@ -1060,8 +1026,9 @@ bool PhysicsPassDispatcher::emitBroadPhasePairs(Diligent::IDeviceContext* comput
         ComputeBufferBinding{"g_CandidatePairs", transient.candidatePairsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
-    if (!writeAndDispatchRigid(computeContext, mEmitPairsPass, kAltVariant, emitBindings,
-                               &constants, dispatchGroupCount(activeMovingCount)))
+    if (!writeRigidDispatchConstants(computeContext, constants) ||
+        !mEmitPairsPass.dispatch(computeContext, kAltVariant, emitBindings,
+                                 dispatchGroupCount(activeMovingCount)))
     {
         return false;
     }
@@ -1076,8 +1043,7 @@ bool PhysicsPassDispatcher::emitBroadPhasePairs(Diligent::IDeviceContext* comput
         ComputeBufferBinding{"g_NarrowPhaseChunkCounter", transient.narrowPhaseChunkCounterBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
-    return writeAndDispatchRigid(computeContext, mBuildNarrowPhaseChunksPass, kDefaultVariant,
-                                 chunkBindings, nullptr, 1u);
+    return mBuildNarrowPhaseChunksPass.dispatch(computeContext, kDefaultVariant, chunkBindings, 1u);
 }
 
 bool PhysicsPassDispatcher::dispatchGenerateContactsPass(Diligent::IDeviceContext* computeContext,
@@ -1119,17 +1085,14 @@ bool PhysicsPassDispatcher::dispatchGenerateContactsPass(Diligent::IDeviceContex
         ((pairCount + kNarrowPhaseChunkSize - 1u) / kNarrowPhaseChunkSize) +
         (kRigidPairTypeCount - 1u);
 
-    return writeAndDispatchRigid(computeContext, mGenerateContactsPass, kDefaultVariant, bindings,
-                                 nullptr, dispatchGroupUpperBound);
+    return mGenerateContactsPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                          dispatchGroupUpperBound);
 }
 
 bool PhysicsPassDispatcher::generateContacts(Diligent::IDeviceContext* computeContext,
                                              const PhysicsSceneGpuState& sceneState,
-                                             std::uint32_t pairCount,
-                                             const GpuRigidDispatchConstants& constants)
+                                             std::uint32_t pairCount)
 {
-    (void)constants;
-
     return dispatchGenerateContactsPass(computeContext, sceneState, pairCount);
 }
 
@@ -1168,8 +1131,8 @@ bool PhysicsPassDispatcher::dispatchSolveGatherPass(Diligent::IDeviceContext* co
     };
 
     const std::uint32_t contactSlotCount = pairCount * kRigidContactsPerPair;
-    return writeAndDispatchRigid(computeContext, mSolveGatherPass, kDefaultVariant, bindings,
-                                 nullptr, dispatchGroupCount(contactSlotCount));
+    return mSolveGatherPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                     dispatchGroupCount(contactSlotCount));
 }
 
 bool PhysicsPassDispatcher::solveConstraints(Diligent::IDeviceContext* computeContext,
@@ -1270,8 +1233,9 @@ bool PhysicsPassDispatcher::updateVelocities(Diligent::IDeviceContext* computeCo
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    return writeAndDispatchRigid(computeContext, mUpdateVelocitiesPass, kDefaultVariant, bindings,
-                                 &constants, dispatchGroupCount(bodyCount));
+    return writeRigidDispatchConstants(computeContext, constants) &&
+           mUpdateVelocitiesPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                          dispatchGroupCount(bodyCount));
 }
 
 } // namespace cressim::neo::physics
