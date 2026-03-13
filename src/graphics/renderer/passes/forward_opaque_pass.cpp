@@ -345,7 +345,7 @@ bool ForwardOpaquePass::ensureConstantBuffers(Diligent::IRenderDevice* renderDev
     if (mForwardPerMaterialBuffer == nullptr)
     {
         Diligent::BufferDesc constantBufferDesc{};
-        constantBufferDesc.Name      = "CRESSimNeo.ForwardOpaquePass.CressimForwardPerMaterial";
+        constantBufferDesc.Name      = "CRESSimNeo.ForwardOpaquePass.GraphicsForwardPerMaterial";
         constantBufferDesc.Size      = sizeof(ForwardPerMaterialConstants);
         constantBufferDesc.Usage     = Diligent::USAGE_DYNAMIC;
         constantBufferDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
@@ -387,9 +387,9 @@ bool ForwardOpaquePass::bindProgramConstants(MaterialProgramRegistry::ProgramRes
                        mForwardPerFrameBuffer, true) ||
         !bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "GraphicsPerObject", mPerObjectBuffer, true) ||
         !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "GraphicsPerObject", mPerObjectBuffer, false) ||
-        !bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "CressimForwardPerMaterial",
+        !bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "GraphicsForwardPerMaterial",
                        mForwardPerMaterialBuffer, false) ||
-        !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "CressimForwardPerMaterial",
+        !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "GraphicsForwardPerMaterial",
                        mForwardPerMaterialBuffer, true))
     {
         return false;

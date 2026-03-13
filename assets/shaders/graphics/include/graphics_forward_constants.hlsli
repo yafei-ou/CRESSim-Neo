@@ -16,7 +16,7 @@ cbuffer GriphicsForwardPerFrame
     float4 g_ShadowParams;
 };
 
-cbuffer CressimForwardPerMaterial
+cbuffer GraphicsForwardPerMaterial
 {
     float4 g_BaseColor;
     float4 g_MaterialParams;
