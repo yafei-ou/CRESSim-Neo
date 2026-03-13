@@ -315,7 +315,7 @@ bool ForwardOpaquePass::ensureConstantBuffers(Diligent::IRenderDevice* renderDev
     if (mForwardPerFrameBuffer == nullptr)
     {
         Diligent::BufferDesc constantBufferDesc{};
-        constantBufferDesc.Name           = "CRESSimNeo.ForwardOpaquePass.CressimForwardPerFrame";
+        constantBufferDesc.Name           = "CRESSimNeo.ForwardOpaquePass.GriphicsForwardPerFrame";
         constantBufferDesc.Size           = sizeof(ForwardPerFrameConstants);
         constantBufferDesc.Usage          = Diligent::USAGE_DYNAMIC;
         constantBufferDesc.BindFlags      = Diligent::BIND_UNIFORM_BUFFER;
@@ -330,7 +330,7 @@ bool ForwardOpaquePass::ensureConstantBuffers(Diligent::IRenderDevice* renderDev
     if (mPerObjectBuffer == nullptr)
     {
         Diligent::BufferDesc constantBufferDesc{};
-        constantBufferDesc.Name           = "CRESSimNeo.ForwardOpaquePass.CressimPerObject";
+        constantBufferDesc.Name           = "CRESSimNeo.ForwardOpaquePass.GraphicsPerObject";
         constantBufferDesc.Size           = sizeof(PerObjectConstants);
         constantBufferDesc.Usage          = Diligent::USAGE_DYNAMIC;
         constantBufferDesc.BindFlags      = Diligent::BIND_UNIFORM_BUFFER;
@@ -381,12 +381,12 @@ bool ForwardOpaquePass::bindProgramConstants(MaterialProgramRegistry::ProgramRes
         return true;
     };
 
-    if (!bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "CressimForwardPerFrame",
+    if (!bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "GriphicsForwardPerFrame",
                        mForwardPerFrameBuffer, true) ||
-        !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "CressimForwardPerFrame",
+        !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "GriphicsForwardPerFrame",
                        mForwardPerFrameBuffer, true) ||
-        !bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "CressimPerObject", mPerObjectBuffer, true) ||
-        !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "CressimPerObject", mPerObjectBuffer, false) ||
+        !bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "GraphicsPerObject", mPerObjectBuffer, true) ||
+        !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "GraphicsPerObject", mPerObjectBuffer, false) ||
         !bindIfPresent(Diligent::SHADER_TYPE_VERTEX, "CressimForwardPerMaterial",
                        mForwardPerMaterialBuffer, false) ||
         !bindIfPresent(Diligent::SHADER_TYPE_PIXEL, "CressimForwardPerMaterial",
