@@ -13,7 +13,7 @@ cbuffer PhysicsDispatchConstantsBuffer
     uint reserved1;
 };
 
-#include "physics/physics_rigid_common.hlsli"
+#include "physics/include/physics_rigid_common.hlsli"
 
 // TODO: this is okay for now but with bad accuracy and shrinks
 // the allowed world range a lot

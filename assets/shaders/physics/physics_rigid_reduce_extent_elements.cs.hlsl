@@ -13,7 +13,7 @@ cbuffer PhysicsDispatchConstantsBuffer
     uint reserved1;
 };
 
-#include "physics/physics_rigid_common.hlsli"
+#include "physics/include/physics_rigid_common.hlsli"
 
 StructuredBuffer<GpuBroadPhaseElement> g_BroadPhaseElements;
 RWStructuredBuffer<GpuBroadPhaseExtent> g_GroupExtents;

@@ -136,7 +136,7 @@ Replace the placeholder shader with rigid-only multi-pass shaders.
 
 Add:
 
-- `assets/shaders/physics/physics_rigid_common.hlsli`
+- `assets/shaders/physics/include/physics_rigid_common.hlsli`
 - `assets/shaders/physics/physics_rigid_predict.cs.hlsl`
 - `assets/shaders/physics/physics_rigid_generate_contacts.cs.hlsl`
 - `assets/shaders/physics/physics_rigid_solve_gather.cs.hlsl`

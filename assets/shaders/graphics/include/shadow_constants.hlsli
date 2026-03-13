@@ -1,4 +1,4 @@
-#include "include/per_object.hlsli"
+#include "graphics/include/per_object.hlsli"
 
 cbuffer CressimShadowPerPass
 {

@@ -129,7 +129,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
         return false;
     }
 
-    constexpr const char* kShadowVsRelativePath = "shadow_depth.vs.hlsl";
+    constexpr const char* kShadowVsRelativePath = "graphics/shadow_depth.vs.hlsl";
 
     std::string shadowVsPath;
     if (!mShaderLibrary.resolveShaderPath(kShadowVsRelativePath, shadowVsPath))
