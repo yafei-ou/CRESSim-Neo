@@ -72,8 +72,8 @@ int main()
     world.physicsWorld().finalizeRigidBodyWriteback();
 
     world.refreshFromPhysics();
-    const engine::TransformComponent* syncedTransform = world.tryGetTransform(entity);
-    if (syncedTransform == nullptr)
+    const std::optional<engine::TransformComponent> syncedTransform = world.tryGetTransform(entity);
+    if (!syncedTransform)
     {
         std::cerr << "Physics->world sync removed transform unexpectedly.\n";
         return 1;
@@ -94,8 +94,8 @@ int main()
         return 1;
     }
 
-    const engine::RigidBodyComponent* syncedRigidBody = world.tryGetRigidBody(entity);
-    if (syncedRigidBody == nullptr || syncedRigidBody->bodyType != physics::RigidBodyType::Kinematic ||
+    const std::optional<engine::RigidBodyComponent> syncedRigidBody = world.tryGetRigidBody(entity);
+    if (!syncedRigidBody || syncedRigidBody->bodyType != physics::RigidBodyType::Kinematic ||
         !syncedRigidBody->kinematicTargetEnabled ||
         std::fabs(syncedRigidBody->kinematicTargetPosition.x - rigidBody.kinematicTargetPosition.x) > 1e-5f)
     {

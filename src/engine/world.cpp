@@ -1,21 +1,40 @@
 #include "engine/world.h"
 
-#include <algorithm>
-#include <stdexcept>
-
 namespace cressim::neo::engine
 {
 
 namespace
 {
-
-const std::vector<ColliderHandle>& emptyColliderHandleList()
+const std::vector<World::ColliderHandle>& emptyColliderHandleList()
 {
-    static const std::vector<ColliderHandle> kEmpty;
+    static const std::vector<World::ColliderHandle> kEmpty;
     return kEmpty;
 }
-
 } // namespace
+
+template <typename SoAType>
+bool World::removeFromSoA(common::EntityId entityId, SoAType& soa, SparseIndex<SoAType>& index)
+{
+    const auto it = index.entityToIndex.find(entityId);
+    if (it == index.entityToIndex.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t removeIndex    = it->second;
+    const std::uint32_t lastIndex      = static_cast<std::uint32_t>(soa.entityIds.size() - 1u);
+    const common::EntityId movedEntity = soa.entityIds[lastIndex];
+
+    if (removeIndex != lastIndex)
+    {
+        soa.entityIds[removeIndex]       = soa.entityIds[lastIndex];
+        index.entityToIndex[movedEntity] = removeIndex;
+    }
+
+    soa.entityIds.pop_back();
+    index.entityToIndex.erase(it);
+    return true;
+}
 
 common::EntityId World::createEntity()
 {
@@ -33,13 +52,22 @@ bool World::destroyEntity(common::EntityId entityId)
         return false;
     }
 
-    mTransforms.erase(entityId);
-    mMeshRenderers.erase(entityId);
-    mCameras.erase(entityId);
-    mDirectionalLights.erase(entityId);
-    mRigidBodies.erase(entityId);
-    (void)mPhysicsWorld.removeRigidBody(entityId);
-    removeCollidersForEntity(entityId);
+    removeTransform(entityId);
+    removeMeshRenderer(entityId);
+    removeCamera(entityId);
+    removeDirectionalLight(entityId);
+    removeRigidBody(entityId);
+
+    auto physIt = mPhysicsLinks.find(entityId);
+    if (physIt != mPhysicsLinks.end())
+    {
+        const auto colliders = physIt->second.colliders;
+        for (const ColliderHandle h : colliders)
+        {
+            removeCollider(h);
+        }
+        mPhysicsLinks.erase(physIt);
+    }
 
     mEntities.erase(std::remove(mEntities.begin(), mEntities.end(), entityId), mEntities.end());
     markRenderDirty(entityId);
@@ -56,188 +84,297 @@ const std::vector<common::EntityId>& World::entities() const noexcept
     return mEntities;
 }
 
-TransformComponent& World::setTransform(common::EntityId entityId,
-                                        const TransformComponent& component)
+void World::ensureEntity(common::EntityId entityId)
 {
-    if (entityId == common::kInvalidEntityId)
+    if (mAlive.find(entityId) != mAlive.end())
     {
-        throw std::invalid_argument("setTransform requires a valid entity id.");
+        return;
     }
 
-    ensureEntity(entityId);
-    TransformComponent& updated = mTransforms[entityId] = component;
-    syncRigidBodyToPhysics(entityId);
-    const auto handlesIt = mEntityColliderHandles.find(entityId);
-    if (handlesIt != mEntityColliderHandles.end())
+    mAlive.insert(entityId);
+    mEntities.push_back(entityId);
+    if (entityId >= mNextEntityId)
     {
-        for (const ColliderHandle handle : handlesIt->second)
-        {
-            syncColliderToPhysics(handle);
-        }
+        mNextEntityId = entityId + 1;
     }
-    markRenderDirty(entityId);
-    return updated;
 }
 
-MeshRendererComponent& World::setMeshRenderer(common::EntityId entityId,
-                                              const MeshRendererComponent& component)
+void World::markRenderDirty(common::EntityId entityId)
 {
-    if (entityId == common::kInvalidEntityId)
+    ++mRenderRevision;
+    if (mRenderDirtySet.insert(entityId).second)
     {
-        throw std::invalid_argument("setMeshRenderer requires a valid entity id.");
+        mRenderDirtyEntities.push_back(entityId);
     }
-
-    ensureEntity(entityId);
-    MeshRendererComponent& updated = mMeshRenderers[entityId] = component;
-    markRenderDirty(entityId);
-    return updated;
 }
 
-CameraComponent& World::setCamera(common::EntityId entityId, const CameraComponent& component)
+void World::setTransform(common::EntityId entityId, const TransformComponent& component)
 {
     if (entityId == common::kInvalidEntityId)
     {
-        throw std::invalid_argument("setCamera requires a valid entity id.");
-    }
-
-    ensureEntity(entityId);
-    CameraComponent& updated = mCameras[entityId] = component;
-    markRenderDirty(entityId);
-    return updated;
-}
-
-DirectionalLightComponent& World::setDirectionalLight(common::EntityId entityId,
-                                                      const DirectionalLightComponent& component)
-{
-    if (entityId == common::kInvalidEntityId)
-    {
-        throw std::invalid_argument("setDirectionalLight requires a valid entity id.");
-    }
-
-    ensureEntity(entityId);
-    DirectionalLightComponent& updated = mDirectionalLights[entityId] = component;
-    markRenderDirty(entityId);
-    return updated;
-}
-
-RigidBodyComponent& World::setRigidBody(common::EntityId entityId,
-                                        const RigidBodyComponent& component)
-{
-    if (entityId == common::kInvalidEntityId)
-    {
-        throw std::invalid_argument("setRigidBody requires a valid entity id.");
-    }
-
-    ensureEntity(entityId);
-    RigidBodyComponent& updated = mRigidBodies[entityId] = component;
-    if (!updated.simulated)
-    {
-        (void)mPhysicsWorld.removeRigidBody(entityId);
-    }
-    else
-    {
-        mTransforms.try_emplace(entityId, TransformComponent{});
-        syncRigidBodyToPhysics(entityId);
-        const auto handlesIt = mEntityColliderHandles.find(entityId);
-        if (handlesIt != mEntityColliderHandles.end())
-        {
-            for (const ColliderHandle handle : handlesIt->second)
-            {
-                syncColliderToPhysics(handle);
-            }
-        }
-    }
-    markRenderDirty(entityId);
-    return updated;
-}
-
-ColliderHandle World::addCollider(common::EntityId entityId, const ColliderComponent& component)
-{
-    if (entityId == common::kInvalidEntityId)
-    {
-        throw std::invalid_argument("addCollider requires a valid entity id.");
+        throw std::invalid_argument("setTransform requires valid entity id.");
     }
 
     ensureEntity(entityId);
 
-    ColliderHandle handle{mNextColliderId++};
-    mColliders.emplace(handle.id, ColliderRecord{entityId, component});
-    mEntityColliderHandles[entityId].push_back(handle);
-    syncColliderToPhysics(handle);
+    upsertSoA(entityId, mTransforms, mTransformIndex,
+              [&](std::uint32_t index, bool appended)
+              {
+                  if (appended)
+                  {
+                      mTransforms.positions.push_back(packPosition(component));
+                      mTransforms.rotations.push_back(packRotation(component));
+                      mTransforms.scales.push_back(packScale(component));
+                  }
+                  else
+                  {
+                      mTransforms.positions[index] = packPosition(component);
+                      mTransforms.rotations[index] = packRotation(component);
+                      mTransforms.scales[index]    = packScale(component);
+                  }
+              });
+
+    // Update body pose directly in physics. No collider loop.
+    if (auto* rb = mPhysicsWorld.tryGetRigidBody(entityId))
+    {
+        rb->position = component.worldTransform.position;
+        rb->rotation = component.worldTransform.rotation;
+        rb->scale    = component.worldTransform.scale;
+        mPhysicsWorld.upsertRigidBody(*rb);
+    }
+
     markRenderDirty(entityId);
-    return handle;
 }
 
-ColliderComponent& World::updateCollider(ColliderHandle handle, const ColliderComponent& component)
+void World::setMeshRenderer(common::EntityId entityId, const MeshRendererComponent& component)
 {
-    if (!handle.isValid())
+    if (entityId == common::kInvalidEntityId)
     {
-        throw std::invalid_argument("updateCollider requires a valid collider handle.");
+        throw std::invalid_argument("setMeshRenderer requires valid entity id.");
     }
 
-    const auto colliderIt = mColliders.find(handle.id);
-    if (colliderIt == mColliders.end())
-    {
-        throw std::invalid_argument("updateCollider requires an existing collider handle.");
-    }
+    ensureEntity(entityId);
 
-    colliderIt->second.component = component;
-    syncColliderToPhysics(handle);
-    markRenderDirty(colliderIt->second.ownerEntityId);
-    return colliderIt->second.component;
+    upsertSoA(entityId, mMeshRenderers, mMeshRendererIndex,
+              [&](std::uint32_t index, bool appended)
+              {
+                  if (appended)
+                  {
+                      mMeshRenderers.meshIds.push_back(component.mesh.id);
+                      mMeshRenderers.materialIds.push_back(component.material.id);
+                      mMeshRenderers.visibleFlags.push_back(component.visible ? 1u : 0u);
+                  }
+                  else
+                  {
+                      mMeshRenderers.meshIds[index]     = component.mesh.id;
+                      mMeshRenderers.materialIds[index] = component.material.id;
+                      mMeshRenderers.visibleFlags[index] = component.visible ? 1u : 0u;
+                  }
+              });
+
+    markRenderDirty(entityId);
 }
 
-bool World::removeTransform(common::EntityId entityId)
+void World::setCamera(common::EntityId entityId, const CameraComponent& component)
 {
-    if (mTransforms.erase(entityId) == 0)
+    if (entityId == common::kInvalidEntityId)
     {
-        return false;
+        throw std::invalid_argument("setCamera requires valid entity id.");
     }
-    (void)mPhysicsWorld.removeRigidBody(entityId);
+
+    ensureEntity(entityId);
+
+    upsertSoA(entityId, mCameras, mCameraIndex,
+              [&](std::uint32_t index, bool appended)
+              {
+                  if (appended)
+                  {
+                      mCameras.projection0.push_back(packCameraProjection0(component));
+                      mCameras.projection1.push_back(packCameraProjection1(component));
+                      mCameras.outputTargetIds.push_back(component.outputTarget.id);
+                      mCameras.outputWidths.push_back(component.outputWidth);
+                      mCameras.outputHeights.push_back(component.outputHeight);
+                      mCameras.viewports.push_back(Diligent::float4{
+                          component.viewport.x, component.viewport.y, component.viewport.width,
+                          component.viewport.height});
+                      mCameras.renderOrders.push_back(component.renderOrder);
+                  }
+                  else
+                  {
+                      mCameras.projection0[index] = packCameraProjection0(component);
+                      mCameras.projection1[index] = packCameraProjection1(component);
+                      mCameras.outputTargetIds[index] = component.outputTarget.id;
+                      mCameras.outputWidths[index]    = component.outputWidth;
+                      mCameras.outputHeights[index]   = component.outputHeight;
+                      mCameras.viewports[index] = Diligent::float4{component.viewport.x,
+                                                                   component.viewport.y,
+                                                                   component.viewport.width,
+                                                                   component.viewport.height};
+                      mCameras.renderOrders[index] = component.renderOrder;
+                  }
+              });
     markRenderDirty(entityId);
-    return true;
 }
 
-bool World::removeMeshRenderer(common::EntityId entityId)
+void World::setDirectionalLight(common::EntityId entityId,
+                                const DirectionalLightComponent& component)
 {
-    if (mMeshRenderers.erase(entityId) == 0)
+    if (entityId == common::kInvalidEntityId)
     {
-        return false;
+        throw std::invalid_argument("setDirectionalLight requires valid entity id.");
     }
+
+    ensureEntity(entityId);
+
+    upsertSoA(entityId, mDirectionalLights, mDirectionalLightIndex,
+              [&](std::uint32_t index, bool appended)
+              {
+                  if (appended)
+                  {
+                      mDirectionalLights.directionsIntensities.push_back(
+                          packLightDirectionIntensity(component));
+                      mDirectionalLights.colors.push_back(packLightColor(component));
+                      mDirectionalLights.shadowParams.push_back(packLightShadowParams(component));
+                  }
+                  else
+                  {
+                      mDirectionalLights.directionsIntensities[index] =
+                          packLightDirectionIntensity(component);
+                      mDirectionalLights.colors[index] = packLightColor(component);
+                      mDirectionalLights.shadowParams[index] =
+                          packLightShadowParams(component);
+                  }
+              });
+
     markRenderDirty(entityId);
-    return true;
 }
 
-bool World::removeCamera(common::EntityId entityId)
+void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent& component)
 {
-    if (mCameras.erase(entityId) == 0)
+    if (entityId == common::kInvalidEntityId)
     {
-        return false;
+        throw std::invalid_argument("setRigidBody requires valid entity id.");
     }
-    markRenderDirty(entityId);
-    return true;
-}
 
-bool World::removeDirectionalLight(common::EntityId entityId)
-{
-    if (mDirectionalLights.erase(entityId) == 0)
+    ensureEntity(entityId);
+
+    if (!component.simulated)
     {
-        return false;
+        mPhysicsWorld.removeRigidBody(entityId);
+        mPhysicsLinks[entityId].hasRigidBody = false;
+        markRenderDirty(entityId);
+        return;
     }
+
+    TransformComponent transform{};
+    if (const std::optional<TransformComponent> t = tryGetTransform(entityId))
+    {
+        transform = *t;
+    }
+
+    physics::RigidBodyState state{};
+    state.entityId                = entityId;
+    state.position                = transform.worldTransform.position;
+    state.rotation                = transform.worldTransform.rotation;
+    state.scale                   = transform.worldTransform.scale;
+    state.linearVelocity          = component.linearVelocity;
+    state.angularVelocity         = component.angularVelocity;
+    state.inverseMass             = component.inverseMass;
+    state.inverseInertiaLocal     = component.inverseInertiaLocal;
+    state.bodyType                = component.bodyType;
+    state.kinematicTargetPosition = component.kinematicTargetPosition;
+    state.kinematicTargetRotation = component.kinematicTargetRotation;
+    state.kinematicTargetEnabled  = component.kinematicTargetEnabled;
+
+    mPhysicsWorld.upsertRigidBody(state);
+    mPhysicsLinks[entityId].hasRigidBody = true;
     markRenderDirty(entityId);
-    return true;
 }
 
 bool World::removeRigidBody(common::EntityId entityId)
 {
-    if (mRigidBodies.erase(entityId) == 0)
+    auto it = mPhysicsLinks.find(entityId);
+    if (it != mPhysicsLinks.end())
     {
-        return false;
+        it->second.hasRigidBody = false;
     }
 
-    (void)mPhysicsWorld.removeRigidBody(entityId);
+    const bool removed = mPhysicsWorld.removeRigidBody(entityId);
+    if (removed)
+    {
+        markRenderDirty(entityId);
+    }
+    return removed;
+}
+
+World::ColliderHandle World::addCollider(common::EntityId entityId,
+                                         const ColliderComponent& component)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        throw std::invalid_argument("addCollider requires valid entity id.");
+    }
+
+    ensureEntity(entityId);
+
+    auto body = mPhysicsLinks.find(entityId);
+    if (body == mPhysicsLinks.end() || !body->second.hasRigidBody)
+    {
+        throw std::logic_error("addCollider requires a rigid body on the entity.");
+    }
+
+    ColliderHandle handle{mNextColliderId++};
+
+    physics::ColliderState state{};
+    state.colliderId     = handle.id;
+    state.entityId       = entityId;
+    state.shapeType      = component.shapeType;
+    state.shapeParams    = component.shapeParams;
+    state.localPosition  = component.localPosition;
+    state.localRotation  = component.localRotation;
+    state.enabled        = component.enabled;
+    state.friction       = component.friction;
+    state.restitution    = component.restitution;
+    state.collisionLayer = component.collisionLayer;
+    state.collisionMask  = component.collisionMask;
+
+    mPhysicsWorld.upsertCollider(state);
+    mPhysicsLinks[entityId].colliders.push_back(handle);
+    mColliderOwnerEntity[handle.id] = entityId;
     markRenderDirty(entityId);
-    return true;
+    return handle;
+}
+
+void World::updateCollider(ColliderHandle handle, const ColliderComponent& component)
+{
+    if (!handle.isValid())
+    {
+        throw std::invalid_argument("updateCollider requires valid collider handle.");
+    }
+
+    const auto ownerIt = mColliderOwnerEntity.find(handle.id);
+    if (ownerIt == mColliderOwnerEntity.end())
+    {
+        throw std::invalid_argument("Unknown collider handle.");
+    }
+
+    const common::EntityId entityId = ownerIt->second;
+
+    physics::ColliderState state{};
+    state.colliderId     = handle.id;
+    state.entityId       = entityId;
+    state.shapeType      = component.shapeType;
+    state.shapeParams    = component.shapeParams;
+    state.localPosition  = component.localPosition;
+    state.localRotation  = component.localRotation;
+    state.enabled        = component.enabled;
+    state.friction       = component.friction;
+    state.restitution    = component.restitution;
+    state.collisionLayer = component.collisionLayer;
+    state.collisionMask  = component.collisionMask;
+
+    mPhysicsWorld.upsertCollider(state);
+    markRenderDirty(entityId);
 }
 
 bool World::removeCollider(ColliderHandle handle)
@@ -247,74 +384,270 @@ bool World::removeCollider(ColliderHandle handle)
         return false;
     }
 
-    const auto colliderIt = mColliders.find(handle.id);
-    if (colliderIt == mColliders.end())
+    const auto ownerIt = mColliderOwnerEntity.find(handle.id);
+    if (ownerIt == mColliderOwnerEntity.end())
     {
         return false;
     }
 
-    const common::EntityId ownerEntityId = colliderIt->second.ownerEntityId;
-    auto handlesIt = mEntityColliderHandles.find(ownerEntityId);
-    if (handlesIt != mEntityColliderHandles.end())
+    const common::EntityId entityId = ownerIt->second;
+    auto physIt                     = mPhysicsLinks.find(entityId);
+    if (physIt != mPhysicsLinks.end())
     {
-        auto& handles = handlesIt->second;
+        auto& handles = physIt->second.colliders;
         handles.erase(std::remove_if(handles.begin(), handles.end(),
-                                     [handle](const ColliderHandle candidate) {
-                                         return candidate.id == handle.id;
-                                     }),
+                                     [&](const ColliderHandle h) { return h.id == handle.id; }),
                       handles.end());
-        if (handles.empty())
-        {
-            mEntityColliderHandles.erase(handlesIt);
-        }
     }
 
-    mColliders.erase(colliderIt);
-    (void)mPhysicsWorld.removeCollider(handle.id);
-    markRenderDirty(ownerEntityId);
+    mColliderOwnerEntity.erase(ownerIt);
+    const bool removed = mPhysicsWorld.removeCollider(handle.id);
+    if (removed)
+    {
+        markRenderDirty(entityId);
+    }
+    return removed;
+}
+
+bool World::removeTransform(common::EntityId entityId)
+{
+    const auto it = mTransformIndex.entityToIndex.find(entityId);
+    if (it == mTransformIndex.entityToIndex.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t index = it->second;
+    const std::uint32_t last  = static_cast<std::uint32_t>(mTransforms.entityIds.size() - 1u);
+    const common::EntityId movedEntity = mTransforms.entityIds[last];
+
+    if (index != last)
+    {
+        mTransforms.entityIds[index]               = mTransforms.entityIds[last];
+        mTransforms.positions[index]               = mTransforms.positions[last];
+        mTransforms.rotations[index]               = mTransforms.rotations[last];
+        mTransforms.scales[index]                  = mTransforms.scales[last];
+        mTransformIndex.entityToIndex[movedEntity] = index;
+    }
+
+    mTransforms.entityIds.pop_back();
+    mTransforms.positions.pop_back();
+    mTransforms.rotations.pop_back();
+    mTransforms.scales.pop_back();
+    mTransformIndex.entityToIndex.erase(it);
+
+    markRenderDirty(entityId);
     return true;
 }
 
-const TransformComponent* World::tryGetTransform(common::EntityId entityId) const
+bool World::removeMeshRenderer(common::EntityId entityId)
 {
-    const auto it = mTransforms.find(entityId);
-    return it != mTransforms.end() ? &it->second : nullptr;
+    const auto it = mMeshRendererIndex.entityToIndex.find(entityId);
+    if (it == mMeshRendererIndex.entityToIndex.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t index = it->second;
+    const std::uint32_t last  = static_cast<std::uint32_t>(mMeshRenderers.entityIds.size() - 1u);
+    const common::EntityId movedEntity = mMeshRenderers.entityIds[last];
+
+    if (index != last)
+    {
+        mMeshRenderers.entityIds[index]               = mMeshRenderers.entityIds[last];
+        mMeshRenderers.meshIds[index]                 = mMeshRenderers.meshIds[last];
+        mMeshRenderers.materialIds[index]             = mMeshRenderers.materialIds[last];
+        mMeshRenderers.visibleFlags[index]            = mMeshRenderers.visibleFlags[last];
+        mMeshRendererIndex.entityToIndex[movedEntity] = index;
+    }
+
+    mMeshRenderers.entityIds.pop_back();
+    mMeshRenderers.meshIds.pop_back();
+    mMeshRenderers.materialIds.pop_back();
+    mMeshRenderers.visibleFlags.pop_back();
+    mMeshRendererIndex.entityToIndex.erase(it);
+    markRenderDirty(entityId);
+    return true;
 }
 
-const MeshRendererComponent* World::tryGetMeshRenderer(common::EntityId entityId) const
+bool World::removeCamera(common::EntityId entityId)
 {
-    const auto it = mMeshRenderers.find(entityId);
-    return it != mMeshRenderers.end() ? &it->second : nullptr;
+    const auto it = mCameraIndex.entityToIndex.find(entityId);
+    if (it == mCameraIndex.entityToIndex.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t index          = it->second;
+    const std::uint32_t last           = static_cast<std::uint32_t>(mCameras.entityIds.size() - 1u);
+    const common::EntityId movedEntity = mCameras.entityIds[last];
+
+    if (index != last)
+    {
+        mCameras.entityIds[index]               = mCameras.entityIds[last];
+        mCameras.projection0[index]             = mCameras.projection0[last];
+        mCameras.projection1[index]             = mCameras.projection1[last];
+        mCameras.outputTargetIds[index]         = mCameras.outputTargetIds[last];
+        mCameras.outputWidths[index]            = mCameras.outputWidths[last];
+        mCameras.outputHeights[index]           = mCameras.outputHeights[last];
+        mCameras.viewports[index]               = mCameras.viewports[last];
+        mCameras.renderOrders[index]            = mCameras.renderOrders[last];
+        mCameraIndex.entityToIndex[movedEntity] = index;
+    }
+
+    mCameras.entityIds.pop_back();
+    mCameras.projection0.pop_back();
+    mCameras.projection1.pop_back();
+    mCameras.outputTargetIds.pop_back();
+    mCameras.outputWidths.pop_back();
+    mCameras.outputHeights.pop_back();
+    mCameras.viewports.pop_back();
+    mCameras.renderOrders.pop_back();
+    mCameraIndex.entityToIndex.erase(it);
+    markRenderDirty(entityId);
+    return true;
 }
 
-const CameraComponent* World::tryGetCamera(common::EntityId entityId) const
+bool World::removeDirectionalLight(common::EntityId entityId)
 {
-    const auto it = mCameras.find(entityId);
-    return it != mCameras.end() ? &it->second : nullptr;
+    const auto it = mDirectionalLightIndex.entityToIndex.find(entityId);
+    if (it == mDirectionalLightIndex.entityToIndex.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t index = it->second;
+    const std::uint32_t last = static_cast<std::uint32_t>(mDirectionalLights.entityIds.size() - 1u);
+    const common::EntityId movedEntity = mDirectionalLights.entityIds[last];
+
+    if (index != last)
+    {
+        mDirectionalLights.entityIds[index] = mDirectionalLights.entityIds[last];
+        mDirectionalLights.directionsIntensities[index] =
+            mDirectionalLights.directionsIntensities[last];
+        mDirectionalLights.colors[index]                  = mDirectionalLights.colors[last];
+        mDirectionalLights.shadowParams[index]            = mDirectionalLights.shadowParams[last];
+        mDirectionalLightIndex.entityToIndex[movedEntity] = index;
+    }
+
+    mDirectionalLights.entityIds.pop_back();
+    mDirectionalLights.directionsIntensities.pop_back();
+    mDirectionalLights.colors.pop_back();
+    mDirectionalLights.shadowParams.pop_back();
+    mDirectionalLightIndex.entityToIndex.erase(it);
+    markRenderDirty(entityId);
+    return true;
 }
 
-const DirectionalLightComponent* World::tryGetDirectionalLight(common::EntityId entityId) const
+std::optional<TransformComponent> World::tryGetTransform(common::EntityId entityId) const
 {
-    const auto it = mDirectionalLights.find(entityId);
-    return it != mDirectionalLights.end() ? &it->second : nullptr;
+    const auto it = mTransformIndex.entityToIndex.find(entityId);
+    if (it == mTransformIndex.entityToIndex.end())
+    {
+        return std::nullopt;
+    }
+
+    const std::uint32_t index = it->second;
+    return unpackTransform(mTransforms.positions[index], mTransforms.rotations[index],
+                           mTransforms.scales[index]);
 }
 
-const RigidBodyComponent* World::tryGetRigidBody(common::EntityId entityId) const
+std::optional<MeshRendererComponent> World::tryGetMeshRenderer(common::EntityId entityId) const
 {
-    const auto it = mRigidBodies.find(entityId);
-    return it != mRigidBodies.end() ? &it->second : nullptr;
+    const auto it = mMeshRendererIndex.entityToIndex.find(entityId);
+    if (it == mMeshRendererIndex.entityToIndex.end())
+    {
+        return std::nullopt;
+    }
+
+    const std::uint32_t index          = it->second;
+    MeshRendererComponent component{};
+    component.mesh.id     = mMeshRenderers.meshIds[index];
+    component.material.id = mMeshRenderers.materialIds[index];
+    component.visible     = mMeshRenderers.visibleFlags[index] != 0u;
+    return component;
 }
 
-const ColliderComponent* World::tryGetCollider(ColliderHandle handle) const
+std::optional<CameraComponent> World::tryGetCamera(common::EntityId entityId) const
 {
-    const auto it = mColliders.find(handle.id);
-    return it != mColliders.end() ? &it->second.component : nullptr;
+    const auto it = mCameraIndex.entityToIndex.find(entityId);
+    if (it == mCameraIndex.entityToIndex.end())
+    {
+        return std::nullopt;
+    }
+
+    const std::uint32_t index = it->second;
+    return unpackCamera(mCameras.projection0[index], mCameras.outputTargetIds[index],
+                        mCameras.outputWidths[index], mCameras.outputHeights[index],
+                        mCameras.viewports[index], mCameras.renderOrders[index]);
 }
 
-const std::vector<ColliderHandle>& World::colliderHandles(common::EntityId entityId) const
+std::optional<DirectionalLightComponent> World::tryGetDirectionalLight(
+    common::EntityId entityId) const
 {
-    const auto it = mEntityColliderHandles.find(entityId);
-    return it != mEntityColliderHandles.end() ? it->second : emptyColliderHandleList();
+    const auto it = mDirectionalLightIndex.entityToIndex.find(entityId);
+    if (it == mDirectionalLightIndex.entityToIndex.end())
+    {
+        return std::nullopt;
+    }
+
+    const std::uint32_t index = it->second;
+    return unpackDirectionalLight(mDirectionalLights.directionsIntensities[index],
+                                  mDirectionalLights.colors[index],
+                                  mDirectionalLights.shadowParams[index]);
+}
+
+std::optional<RigidBodyComponent> World::tryGetRigidBody(common::EntityId entityId) const
+{
+    const physics::RigidBodyState* rb = mPhysicsWorld.tryGetRigidBody(entityId);
+    if (!rb)
+    {
+        return std::nullopt;
+    }
+
+    RigidBodyComponent component{};
+    component.simulated               = true;
+    component.bodyType                = rb->bodyType;
+    component.linearVelocity          = rb->linearVelocity;
+    component.angularVelocity         = rb->angularVelocity;
+    component.inverseMass             = rb->inverseMass;
+    component.inverseInertiaLocal     = rb->inverseInertiaLocal;
+    component.kinematicTargetPosition = rb->kinematicTargetPosition;
+    component.kinematicTargetRotation = rb->kinematicTargetRotation;
+    component.kinematicTargetEnabled  = rb->kinematicTargetEnabled;
+    return component;
+}
+
+std::optional<ColliderComponent> World::tryGetCollider(ColliderHandle handle) const
+{
+    if (!handle.isValid())
+    {
+        return std::nullopt;
+    }
+
+    const physics::ColliderState* c = mPhysicsWorld.tryGetCollider(handle.id);
+    if (!c)
+    {
+        return std::nullopt;
+    }
+
+    ColliderComponent out{};
+    out.shapeType      = c->shapeType;
+    out.shapeParams    = c->shapeParams;
+    out.localPosition  = c->localPosition;
+    out.localRotation  = c->localRotation;
+    out.enabled        = c->enabled;
+    out.friction       = c->friction;
+    out.restitution    = c->restitution;
+    out.collisionLayer = c->collisionLayer;
+    out.collisionMask  = c->collisionMask;
+    return out;
+}
+
+const std::vector<World::ColliderHandle>& World::colliderHandles(common::EntityId entityId) const
+{
+    const auto it = mPhysicsLinks.find(entityId);
+    return it != mPhysicsLinks.end() ? it->second.colliders : emptyColliderHandleList();
 }
 
 physics::PhysicsWorld& World::physicsWorld() noexcept
@@ -329,43 +662,35 @@ const physics::PhysicsWorld& World::physicsWorld() const noexcept
 
 void World::refreshFromPhysics()
 {
-    const physics::PhysicsSoADirtyRange& dirtyRange = mPhysicsWorld.rigidBodyDirtyRange();
-    if (!dirtyRange.valid)
+    // TODO: this is still not ideal
+    // We could add a GPU pass to write directly to a GPU Entity transform buffer.
+    // We can avoid GPU rb position readback completely and CPU Entity transform
+    // buffer is only on-demand after rendering directly reads the GPU buffer
+    // without entity uploading at all, and after GPU frustum culling is done.
+
+    const physics::PhysicsSoADirtyRange& dirty = mPhysicsWorld.rigidBodyDirtyRange();
+    if (!dirty.valid)
     {
         return;
     }
 
     const auto& states = mPhysicsWorld.rigidBodySnapshot();
     const std::uint32_t end =
-        std::min<std::uint32_t>(dirtyRange.end, static_cast<std::uint32_t>(states.size()));
-    for (std::uint32_t i = dirtyRange.begin; i < end; ++i)
+        std::min<std::uint32_t>(dirty.end, static_cast<std::uint32_t>(states.size()));
+
+    for (std::uint32_t i = dirty.begin; i < end; ++i)
     {
-        const physics::RigidBodyState& state = states[i];
-        if (!isAlive(state.entityId))
+        const physics::RigidBodyState& rb = states[i];
+        if (!isAlive(rb.entityId))
         {
             continue;
         }
 
-        TransformComponent& transform = mTransforms[state.entityId];
-        transform.worldTransform.position = state.position;
-        transform.worldTransform.rotation = state.rotation;
-        transform.worldTransform.scale    = state.scale;
-
-        auto bodyIt = mRigidBodies.find(state.entityId);
-        if (bodyIt != mRigidBodies.end())
-        {
-            RigidBodyComponent& rigidBody = bodyIt->second;
-            rigidBody.bodyType                = state.bodyType;
-            rigidBody.linearVelocity          = state.linearVelocity;
-            rigidBody.angularVelocity         = state.angularVelocity;
-            rigidBody.inverseMass             = state.inverseMass;
-            rigidBody.inverseInertiaLocal     = state.inverseInertiaLocal;
-            rigidBody.kinematicTargetPosition = state.kinematicTargetPosition;
-            rigidBody.kinematicTargetRotation = state.kinematicTargetRotation;
-            rigidBody.kinematicTargetEnabled  = state.kinematicTargetEnabled;
-        }
-
-        markRenderDirty(state.entityId);
+        TransformComponent t{};
+        t.worldTransform.position = rb.position;
+        t.worldTransform.rotation = rb.rotation;
+        t.worldTransform.scale    = rb.scale;
+        setTransform(rb.entityId, t);
     }
 }
 
@@ -383,111 +708,6 @@ void World::clearRenderDirtyEntities() noexcept
 {
     mRenderDirtyEntities.clear();
     mRenderDirtySet.clear();
-}
-
-void World::removeCollidersForEntity(common::EntityId entityId)
-{
-    const auto handlesIt = mEntityColliderHandles.find(entityId);
-    if (handlesIt == mEntityColliderHandles.end())
-    {
-        return;
-    }
-
-    for (const ColliderHandle handle : handlesIt->second)
-    {
-        (void)mPhysicsWorld.removeCollider(handle.id);
-        mColliders.erase(handle.id);
-    }
-    mEntityColliderHandles.erase(handlesIt);
-}
-
-void World::ensureEntity(common::EntityId entityId)
-{
-    if (mAlive.find(entityId) != mAlive.end())
-    {
-        return;
-    }
-
-    mAlive.insert(entityId);
-    mEntities.push_back(entityId);
-
-    if (entityId >= mNextEntityId)
-    {
-        mNextEntityId = entityId + 1;
-    }
-}
-
-void World::markRenderDirty(common::EntityId entityId)
-{
-    ++mRenderRevision;
-    if (mRenderDirtySet.insert(entityId).second)
-    {
-        mRenderDirtyEntities.push_back(entityId);
-    }
-}
-
-void World::syncRigidBodyToPhysics(common::EntityId entityId)
-{
-    const auto transformIt = mTransforms.find(entityId);
-    const auto rigidBodyIt = mRigidBodies.find(entityId);
-    if (transformIt == mTransforms.end() || rigidBodyIt == mRigidBodies.end() ||
-        !rigidBodyIt->second.simulated)
-    {
-        (void)mPhysicsWorld.removeRigidBody(entityId);
-        return;
-    }
-
-    physics::RigidBodyState state{};
-    state.entityId            = entityId;
-    state.position            = transformIt->second.worldTransform.position;
-    state.rotation            = transformIt->second.worldTransform.rotation;
-    state.scale               = transformIt->second.worldTransform.scale;
-    state.linearVelocity      = rigidBodyIt->second.linearVelocity;
-    state.angularVelocity     = rigidBodyIt->second.angularVelocity;
-    state.inverseInertiaLocal = rigidBodyIt->second.inverseInertiaLocal;
-    state.bodyType            = rigidBodyIt->second.bodyType;
-    state.inverseMass         = rigidBodyIt->second.inverseMass;
-    state.kinematicTargetPosition = rigidBodyIt->second.kinematicTargetPosition;
-    state.kinematicTargetRotation = rigidBodyIt->second.kinematicTargetRotation;
-    state.kinematicTargetEnabled  = rigidBodyIt->second.kinematicTargetEnabled;
-    (void)mPhysicsWorld.upsertRigidBody(state);
-}
-
-void World::syncColliderToPhysics(ColliderHandle handle)
-{
-    if (!handle.isValid())
-    {
-        return;
-    }
-
-    const auto colliderIt = mColliders.find(handle.id);
-    if (colliderIt == mColliders.end())
-    {
-        (void)mPhysicsWorld.removeCollider(handle.id);
-        return;
-    }
-
-    const auto bodyIt = mRigidBodies.find(colliderIt->second.ownerEntityId);
-    const auto transformIt = mTransforms.find(colliderIt->second.ownerEntityId);
-    if (bodyIt == mRigidBodies.end() || transformIt == mTransforms.end() || !bodyIt->second.simulated)
-    {
-        (void)mPhysicsWorld.removeCollider(handle.id);
-        return;
-    }
-
-    physics::ColliderState state{};
-    state.colliderId       = handle.id;
-    state.entityId         = colliderIt->second.ownerEntityId;
-    state.shapeType        = colliderIt->second.component.shapeType;
-    state.shapeParams      = colliderIt->second.component.shapeParams;
-    state.localPosition    = colliderIt->second.component.localPosition;
-    state.localRotation    = colliderIt->second.component.localRotation;
-    state.enabled          = colliderIt->second.component.enabled;
-    state.friction         = colliderIt->second.component.friction;
-    state.restitution      = colliderIt->second.component.restitution;
-    state.collisionLayer   = colliderIt->second.component.collisionLayer;
-    state.collisionMask    = colliderIt->second.component.collisionMask;
-    mPhysicsWorld.upsertCollider(state);
 }
 
 } // namespace cressim::neo::engine

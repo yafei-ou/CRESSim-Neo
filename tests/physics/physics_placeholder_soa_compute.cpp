@@ -55,8 +55,9 @@ int main()
         runtime.tick(frame);
     }
 
-    const engine::TransformComponent* finalTransform = world.tryGetTransform(rigidEntity);
-    if (finalTransform == nullptr)
+    const std::optional<engine::TransformComponent> finalTransform =
+        world.tryGetTransform(rigidEntity);
+    if (!finalTransform)
     {
         std::cerr << "Rigid transform missing after simulation.\n";
         runtime.shutdown();
