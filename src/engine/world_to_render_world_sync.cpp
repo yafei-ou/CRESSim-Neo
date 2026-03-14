@@ -5,7 +5,7 @@ namespace cressim::neo::engine::detail
 
 void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWorld)
 {
-    for (const common::EntityId entityId : world.dirtyEntities())
+    for (const common::EntityId entityId : world.renderDirtyEntities())
     {
         if (!world.isAlive(entityId))
         {

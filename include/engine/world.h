@@ -4,9 +4,9 @@
 #include "common/id.h"
 #include "engine/components.h"
 #include "engine/export.h"
+#include "physics/physics_world.h"
 
 #include <cstdint>
-#include <limits>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -48,10 +48,13 @@ public:
     const RigidBodyComponent* tryGetRigidBody(common::EntityId entityId) const;
     const ColliderComponent* tryGetCollider(ColliderHandle handle) const;
     const std::vector<ColliderHandle>& colliderHandles(common::EntityId entityId) const;
+    physics::PhysicsWorld& physicsWorld() noexcept;
+    const physics::PhysicsWorld& physicsWorld() const noexcept;
+    void refreshFromPhysics();
 
-    std::uint64_t revision() const noexcept;
-    const std::vector<common::EntityId>& dirtyEntities() const noexcept;
-    void clearDirtyEntities() noexcept;
+    std::uint64_t renderRevision() const noexcept;
+    const std::vector<common::EntityId>& renderDirtyEntities() const noexcept;
+    void clearRenderDirtyEntities() noexcept;
 
 private:
     struct ColliderRecord
@@ -62,7 +65,9 @@ private:
 
     void removeCollidersForEntity(common::EntityId entityId);
     void ensureEntity(common::EntityId entityId);
-    void markDirty(common::EntityId entityId);
+    void markRenderDirty(common::EntityId entityId);
+    void syncRigidBodyToPhysics(common::EntityId entityId);
+    void syncColliderToPhysics(ColliderHandle handle);
 
     common::EntityId mNextEntityId = 1;
     std::uint32_t mNextColliderId  = 1;
@@ -76,9 +81,10 @@ private:
     std::unordered_map<common::EntityId, RigidBodyComponent> mRigidBodies;
     std::unordered_map<common::EntityId, std::vector<ColliderHandle>> mEntityColliderHandles;
     std::unordered_map<std::uint32_t, ColliderRecord> mColliders;
-    std::uint64_t mRevision = 0;
-    std::vector<common::EntityId> mDirtyEntities;
-    std::unordered_set<common::EntityId> mDirtySet;
+    physics::PhysicsWorld mPhysicsWorld{};
+    std::uint64_t mRenderRevision = 0;
+    std::vector<common::EntityId> mRenderDirtyEntities;
+    std::unordered_set<common::EntityId> mRenderDirtySet;
 };
 
 } // namespace cressim::neo::engine

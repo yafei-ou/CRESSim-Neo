@@ -18,6 +18,8 @@ public:
 
     RigidBodyState& upsertRigidBody(const RigidBodyState& state);
     bool removeRigidBody(common::EntityId entityId);
+    void upsertCollider(const ColliderState& collider);
+    bool removeCollider(ColliderId colliderId);
     void replaceColliders(common::EntityId entityId, const std::vector<ColliderState>& colliders);
 
     RigidBodyState* tryGetRigidBody(common::EntityId entityId);

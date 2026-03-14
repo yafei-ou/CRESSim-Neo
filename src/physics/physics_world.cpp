@@ -198,6 +198,106 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     return true;
 }
 
+void PhysicsWorld::upsertCollider(const ColliderState& state)
+{
+    RigidBodyId ownerRigidBodyId = state.ownerRigidBodyId;
+    std::uint32_t ownerBodyIndex = 0xffffffffu;
+
+    if (ownerRigidBodyId != kInvalidRigidBodyId)
+    {
+        const auto bodyIt = mRigidBodyIdToIndex.find(ownerRigidBodyId);
+        if (bodyIt != mRigidBodyIdToIndex.end())
+        {
+            ownerBodyIndex = bodyIt->second;
+        }
+    }
+
+    if (ownerBodyIndex == 0xffffffffu)
+    {
+        const auto bodyIt = mEntityToRigidBodyIndex.find(state.entityId);
+        if (bodyIt == mEntityToRigidBodyIndex.end())
+        {
+            removeCollider(state.colliderId);
+            return;
+        }
+        ownerBodyIndex = bodyIt->second;
+        ownerRigidBodyId = mRigidBodySnapshot[ownerBodyIndex].rigidBodyId;
+    }
+
+    ColliderState normalizedState = state;
+    normalizeColliderState(normalizedState);
+    normalizedState.entityId         = mRigidBodySnapshot[ownerBodyIndex].entityId;
+    normalizedState.ownerRigidBodyId = ownerRigidBodyId;
+    if (normalizedState.colliderId == kInvalidColliderId)
+    {
+        normalizedState.colliderId = mNextColliderId++;
+    }
+
+    const bool ownerIsStatic = isStaticBody(mRigidBodySnapshot[ownerBodyIndex]);
+    const auto colliderIt = mColliderIdToIndex.find(normalizedState.colliderId);
+    if (colliderIt == mColliderIdToIndex.end())
+    {
+        const std::uint32_t colliderIndex = static_cast<std::uint32_t>(mColliders.size());
+        mColliderSnapshot.push_back(normalizedState);
+        writeColliderSoAAt(mColliders, colliderIndex, normalizedState, ownerBodyIndex);
+        mColliderIdToIndex.emplace(normalizedState.colliderId, colliderIndex);
+        auto& entityColliderIds = mEntityToColliderIds[normalizedState.entityId];
+        entityColliderIds.push_back(normalizedState.colliderId);
+        rebuildBodyColliderMapping();
+        markAllCollidersDirty();
+        mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || ownerIsStatic;
+        ++mRevision;
+        return;
+    }
+
+    const std::uint32_t colliderIndex = colliderIt->second;
+    const ColliderState previousState = mColliderSnapshot[colliderIndex];
+    writeColliderSoAAt(mColliders, colliderIndex, normalizedState, ownerBodyIndex);
+    mColliderSnapshot[colliderIndex] = normalizedState;
+    mColliderDirtyRange.include(colliderIndex);
+    rebuildBodyColliderMapping();
+    if (ownerIsStatic &&
+        (previousState.shapeType != normalizedState.shapeType ||
+         previousState.shapeParams.x != normalizedState.shapeParams.x ||
+         previousState.shapeParams.y != normalizedState.shapeParams.y ||
+         previousState.shapeParams.z != normalizedState.shapeParams.z ||
+         previousState.shapeParams.w != normalizedState.shapeParams.w ||
+         previousState.localPosition.x != normalizedState.localPosition.x ||
+         previousState.localPosition.y != normalizedState.localPosition.y ||
+         previousState.localPosition.z != normalizedState.localPosition.z ||
+         previousState.localRotation.q.x != normalizedState.localRotation.q.x ||
+         previousState.localRotation.q.y != normalizedState.localRotation.q.y ||
+         previousState.localRotation.q.z != normalizedState.localRotation.q.z ||
+         previousState.localRotation.q.w != normalizedState.localRotation.q.w ||
+         previousState.enabled != normalizedState.enabled))
+    {
+        mStaticBroadPhaseDirty = true;
+    }
+    ++mRevision;
+}
+
+bool PhysicsWorld::removeCollider(ColliderId colliderId)
+{
+    const auto it = mColliderIdToIndex.find(colliderId);
+    if (it == mColliderIdToIndex.end())
+    {
+        return false;
+    }
+
+    bool removedStaticOwner = false;
+    const std::uint32_t ownerBodyIndex = mColliders.ownerRigidBodyIndices[it->second];
+    if (ownerBodyIndex != 0xffffffffu && ownerBodyIndex < rigidBodyCount())
+    {
+        removedStaticOwner = isStaticBody(mRigidBodySnapshot[ownerBodyIndex]);
+    }
+    removeColliderAtIndex(it->second);
+    rebuildBodyColliderMapping();
+    markAllCollidersDirty();
+    mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || removedStaticOwner;
+    ++mRevision;
+    return true;
+}
+
 void PhysicsWorld::replaceColliders(common::EntityId entityId,
                                     const std::vector<ColliderState>& colliders)
 {

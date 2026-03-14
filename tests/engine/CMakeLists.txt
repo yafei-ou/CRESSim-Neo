@@ -29,3 +29,9 @@ add_test(
     NAME cressim_neo_runtime_physics_sync_fields
     COMMAND cressim_neo_runtime_physics_sync_fields
 )
+
+add_engine_test(cressim_neo_direct_physics_authoring direct_physics_authoring.cpp)
+add_test(
+    NAME cressim_neo_direct_physics_authoring
+    COMMAND cressim_neo_direct_physics_authoring
+)

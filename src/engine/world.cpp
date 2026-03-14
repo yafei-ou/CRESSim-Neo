@@ -22,7 +22,7 @@ common::EntityId World::createEntity()
     const common::EntityId entityId = mNextEntityId++;
     mAlive.insert(entityId);
     mEntities.push_back(entityId);
-    markDirty(entityId);
+    markRenderDirty(entityId);
     return entityId;
 }
 
@@ -38,10 +38,11 @@ bool World::destroyEntity(common::EntityId entityId)
     mCameras.erase(entityId);
     mDirectionalLights.erase(entityId);
     mRigidBodies.erase(entityId);
+    (void)mPhysicsWorld.removeRigidBody(entityId);
     removeCollidersForEntity(entityId);
 
     mEntities.erase(std::remove(mEntities.begin(), mEntities.end(), entityId), mEntities.end());
-    markDirty(entityId);
+    markRenderDirty(entityId);
     return true;
 }
 
@@ -65,7 +66,16 @@ TransformComponent& World::setTransform(common::EntityId entityId,
 
     ensureEntity(entityId);
     TransformComponent& updated = mTransforms[entityId] = component;
-    markDirty(entityId);
+    syncRigidBodyToPhysics(entityId);
+    const auto handlesIt = mEntityColliderHandles.find(entityId);
+    if (handlesIt != mEntityColliderHandles.end())
+    {
+        for (const ColliderHandle handle : handlesIt->second)
+        {
+            syncColliderToPhysics(handle);
+        }
+    }
+    markRenderDirty(entityId);
     return updated;
 }
 
@@ -79,7 +89,7 @@ MeshRendererComponent& World::setMeshRenderer(common::EntityId entityId,
 
     ensureEntity(entityId);
     MeshRendererComponent& updated = mMeshRenderers[entityId] = component;
-    markDirty(entityId);
+    markRenderDirty(entityId);
     return updated;
 }
 
@@ -92,7 +102,7 @@ CameraComponent& World::setCamera(common::EntityId entityId, const CameraCompone
 
     ensureEntity(entityId);
     CameraComponent& updated = mCameras[entityId] = component;
-    markDirty(entityId);
+    markRenderDirty(entityId);
     return updated;
 }
 
@@ -106,7 +116,7 @@ DirectionalLightComponent& World::setDirectionalLight(common::EntityId entityId,
 
     ensureEntity(entityId);
     DirectionalLightComponent& updated = mDirectionalLights[entityId] = component;
-    markDirty(entityId);
+    markRenderDirty(entityId);
     return updated;
 }
 
@@ -120,7 +130,24 @@ RigidBodyComponent& World::setRigidBody(common::EntityId entityId,
 
     ensureEntity(entityId);
     RigidBodyComponent& updated = mRigidBodies[entityId] = component;
-    markDirty(entityId);
+    if (!updated.simulated)
+    {
+        (void)mPhysicsWorld.removeRigidBody(entityId);
+    }
+    else
+    {
+        mTransforms.try_emplace(entityId, TransformComponent{});
+        syncRigidBodyToPhysics(entityId);
+        const auto handlesIt = mEntityColliderHandles.find(entityId);
+        if (handlesIt != mEntityColliderHandles.end())
+        {
+            for (const ColliderHandle handle : handlesIt->second)
+            {
+                syncColliderToPhysics(handle);
+            }
+        }
+    }
+    markRenderDirty(entityId);
     return updated;
 }
 
@@ -136,7 +163,8 @@ ColliderHandle World::addCollider(common::EntityId entityId, const ColliderCompo
     ColliderHandle handle{mNextColliderId++};
     mColliders.emplace(handle.id, ColliderRecord{entityId, component});
     mEntityColliderHandles[entityId].push_back(handle);
-    markDirty(entityId);
+    syncColliderToPhysics(handle);
+    markRenderDirty(entityId);
     return handle;
 }
 
@@ -154,7 +182,8 @@ ColliderComponent& World::updateCollider(ColliderHandle handle, const ColliderCo
     }
 
     colliderIt->second.component = component;
-    markDirty(colliderIt->second.ownerEntityId);
+    syncColliderToPhysics(handle);
+    markRenderDirty(colliderIt->second.ownerEntityId);
     return colliderIt->second.component;
 }
 
@@ -164,7 +193,8 @@ bool World::removeTransform(common::EntityId entityId)
     {
         return false;
     }
-    markDirty(entityId);
+    (void)mPhysicsWorld.removeRigidBody(entityId);
+    markRenderDirty(entityId);
     return true;
 }
 
@@ -174,7 +204,7 @@ bool World::removeMeshRenderer(common::EntityId entityId)
     {
         return false;
     }
-    markDirty(entityId);
+    markRenderDirty(entityId);
     return true;
 }
 
@@ -184,7 +214,7 @@ bool World::removeCamera(common::EntityId entityId)
     {
         return false;
     }
-    markDirty(entityId);
+    markRenderDirty(entityId);
     return true;
 }
 
@@ -194,7 +224,7 @@ bool World::removeDirectionalLight(common::EntityId entityId)
     {
         return false;
     }
-    markDirty(entityId);
+    markRenderDirty(entityId);
     return true;
 }
 
@@ -205,8 +235,8 @@ bool World::removeRigidBody(common::EntityId entityId)
         return false;
     }
 
-    removeCollidersForEntity(entityId);
-    markDirty(entityId);
+    (void)mPhysicsWorld.removeRigidBody(entityId);
+    markRenderDirty(entityId);
     return true;
 }
 
@@ -240,7 +270,8 @@ bool World::removeCollider(ColliderHandle handle)
     }
 
     mColliders.erase(colliderIt);
-    markDirty(ownerEntityId);
+    (void)mPhysicsWorld.removeCollider(handle.id);
+    markRenderDirty(ownerEntityId);
     return true;
 }
 
@@ -286,20 +317,72 @@ const std::vector<ColliderHandle>& World::colliderHandles(common::EntityId entit
     return it != mEntityColliderHandles.end() ? it->second : emptyColliderHandleList();
 }
 
-std::uint64_t World::revision() const noexcept
+physics::PhysicsWorld& World::physicsWorld() noexcept
 {
-    return mRevision;
+    return mPhysicsWorld;
 }
 
-const std::vector<common::EntityId>& World::dirtyEntities() const noexcept
+const physics::PhysicsWorld& World::physicsWorld() const noexcept
 {
-    return mDirtyEntities;
+    return mPhysicsWorld;
 }
 
-void World::clearDirtyEntities() noexcept
+void World::refreshFromPhysics()
 {
-    mDirtyEntities.clear();
-    mDirtySet.clear();
+    const physics::PhysicsSoADirtyRange& dirtyRange = mPhysicsWorld.rigidBodyDirtyRange();
+    if (!dirtyRange.valid)
+    {
+        return;
+    }
+
+    const auto& states = mPhysicsWorld.rigidBodySnapshot();
+    const std::uint32_t end =
+        std::min<std::uint32_t>(dirtyRange.end, static_cast<std::uint32_t>(states.size()));
+    for (std::uint32_t i = dirtyRange.begin; i < end; ++i)
+    {
+        const physics::RigidBodyState& state = states[i];
+        if (!isAlive(state.entityId))
+        {
+            continue;
+        }
+
+        TransformComponent& transform = mTransforms[state.entityId];
+        transform.worldTransform.position = state.position;
+        transform.worldTransform.rotation = state.rotation;
+        transform.worldTransform.scale    = state.scale;
+
+        auto bodyIt = mRigidBodies.find(state.entityId);
+        if (bodyIt != mRigidBodies.end())
+        {
+            RigidBodyComponent& rigidBody = bodyIt->second;
+            rigidBody.bodyType                = state.bodyType;
+            rigidBody.linearVelocity          = state.linearVelocity;
+            rigidBody.angularVelocity         = state.angularVelocity;
+            rigidBody.inverseMass             = state.inverseMass;
+            rigidBody.inverseInertiaLocal     = state.inverseInertiaLocal;
+            rigidBody.kinematicTargetPosition = state.kinematicTargetPosition;
+            rigidBody.kinematicTargetRotation = state.kinematicTargetRotation;
+            rigidBody.kinematicTargetEnabled  = state.kinematicTargetEnabled;
+        }
+
+        markRenderDirty(state.entityId);
+    }
+}
+
+std::uint64_t World::renderRevision() const noexcept
+{
+    return mRenderRevision;
+}
+
+const std::vector<common::EntityId>& World::renderDirtyEntities() const noexcept
+{
+    return mRenderDirtyEntities;
+}
+
+void World::clearRenderDirtyEntities() noexcept
+{
+    mRenderDirtyEntities.clear();
+    mRenderDirtySet.clear();
 }
 
 void World::removeCollidersForEntity(common::EntityId entityId)
@@ -312,6 +395,7 @@ void World::removeCollidersForEntity(common::EntityId entityId)
 
     for (const ColliderHandle handle : handlesIt->second)
     {
+        (void)mPhysicsWorld.removeCollider(handle.id);
         mColliders.erase(handle.id);
     }
     mEntityColliderHandles.erase(handlesIt);
@@ -333,13 +417,77 @@ void World::ensureEntity(common::EntityId entityId)
     }
 }
 
-void World::markDirty(common::EntityId entityId)
+void World::markRenderDirty(common::EntityId entityId)
 {
-    ++mRevision;
-    if (mDirtySet.insert(entityId).second)
+    ++mRenderRevision;
+    if (mRenderDirtySet.insert(entityId).second)
     {
-        mDirtyEntities.push_back(entityId);
+        mRenderDirtyEntities.push_back(entityId);
     }
+}
+
+void World::syncRigidBodyToPhysics(common::EntityId entityId)
+{
+    const auto transformIt = mTransforms.find(entityId);
+    const auto rigidBodyIt = mRigidBodies.find(entityId);
+    if (transformIt == mTransforms.end() || rigidBodyIt == mRigidBodies.end() ||
+        !rigidBodyIt->second.simulated)
+    {
+        (void)mPhysicsWorld.removeRigidBody(entityId);
+        return;
+    }
+
+    physics::RigidBodyState state{};
+    state.entityId            = entityId;
+    state.position            = transformIt->second.worldTransform.position;
+    state.rotation            = transformIt->second.worldTransform.rotation;
+    state.scale               = transformIt->second.worldTransform.scale;
+    state.linearVelocity      = rigidBodyIt->second.linearVelocity;
+    state.angularVelocity     = rigidBodyIt->second.angularVelocity;
+    state.inverseInertiaLocal = rigidBodyIt->second.inverseInertiaLocal;
+    state.bodyType            = rigidBodyIt->second.bodyType;
+    state.inverseMass         = rigidBodyIt->second.inverseMass;
+    state.kinematicTargetPosition = rigidBodyIt->second.kinematicTargetPosition;
+    state.kinematicTargetRotation = rigidBodyIt->second.kinematicTargetRotation;
+    state.kinematicTargetEnabled  = rigidBodyIt->second.kinematicTargetEnabled;
+    (void)mPhysicsWorld.upsertRigidBody(state);
+}
+
+void World::syncColliderToPhysics(ColliderHandle handle)
+{
+    if (!handle.isValid())
+    {
+        return;
+    }
+
+    const auto colliderIt = mColliders.find(handle.id);
+    if (colliderIt == mColliders.end())
+    {
+        (void)mPhysicsWorld.removeCollider(handle.id);
+        return;
+    }
+
+    const auto bodyIt = mRigidBodies.find(colliderIt->second.ownerEntityId);
+    const auto transformIt = mTransforms.find(colliderIt->second.ownerEntityId);
+    if (bodyIt == mRigidBodies.end() || transformIt == mTransforms.end() || !bodyIt->second.simulated)
+    {
+        (void)mPhysicsWorld.removeCollider(handle.id);
+        return;
+    }
+
+    physics::ColliderState state{};
+    state.colliderId       = handle.id;
+    state.entityId         = colliderIt->second.ownerEntityId;
+    state.shapeType        = colliderIt->second.component.shapeType;
+    state.shapeParams      = colliderIt->second.component.shapeParams;
+    state.localPosition    = colliderIt->second.component.localPosition;
+    state.localRotation    = colliderIt->second.component.localRotation;
+    state.enabled          = colliderIt->second.component.enabled;
+    state.friction         = colliderIt->second.component.friction;
+    state.restitution      = colliderIt->second.component.restitution;
+    state.collisionLayer   = colliderIt->second.component.collisionLayer;
+    state.collisionMask    = colliderIt->second.component.collisionMask;
+    mPhysicsWorld.upsertCollider(state);
 }
 
 } // namespace cressim::neo::engine

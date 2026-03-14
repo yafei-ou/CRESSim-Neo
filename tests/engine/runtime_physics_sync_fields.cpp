@@ -1,8 +1,5 @@
 #include "engine/components.h"
-#include "engine/physics_world_to_world_sync.h"
 #include "engine/world.h"
-#include "engine/world_to_physics_world_sync.h"
-#include "physics/physics_world.h"
 
 #include <cstdint>
 #include <cmath>
@@ -13,7 +10,6 @@ int main()
     using namespace cressim::neo;
 
     engine::World world;
-    physics::PhysicsWorld physicsWorld;
 
     const common::EntityId entity = world.createEntity();
     engine::TransformComponent transform{};
@@ -36,19 +32,18 @@ int main()
     collider.shapeParams = {0.7f, 1.4f, 0.0f, 0.0f};
     world.addCollider(entity, collider);
 
-    engine::detail::syncWorldToPhysicsWorld(world, physicsWorld);
-    const physics::RigidBodyState* state = physicsWorld.tryGetRigidBody(entity);
+    const physics::RigidBodyState* state = world.physicsWorld().tryGetRigidBody(entity);
     if (state == nullptr)
     {
         std::cerr << "Rigid body missing in physics world.\n";
         return 1;
     }
-    if (physicsWorld.colliderCount() != 1u)
+    if (world.physicsWorld().colliderCount() != 1u)
     {
         std::cerr << "Collider missing in physics world.\n";
         return 1;
     }
-    const physics::ColliderState& colliderState = physicsWorld.colliderSnapshot().front();
+    const physics::ColliderState& colliderState = world.physicsWorld().colliderSnapshot().front();
     if (state->bodyType != rigidBody.bodyType ||
         state->angularVelocity.y != rigidBody.angularVelocity.y ||
         static_cast<std::uint32_t>(colliderState.shapeType) !=
@@ -68,15 +63,15 @@ int main()
                                         state->linearVelocity.z, 0.0f};
     const Diligent::float4 writebackAng{state->angularVelocity.x, state->angularVelocity.y,
                                         state->angularVelocity.z, 0.0f};
-    if (!physicsWorld.writeBackRigidBodyState(0u, writebackPos, writebackRot, writebackLin,
-                                              writebackAng))
+    if (!world.physicsWorld().writeBackRigidBodyState(0u, writebackPos, writebackRot, writebackLin,
+                                                      writebackAng))
     {
         std::cerr << "Failed to write back rigid state into physics world.\n";
         return 1;
     }
-    physicsWorld.finalizeRigidBodyWriteback();
+    world.physicsWorld().finalizeRigidBodyWriteback();
 
-    engine::detail::syncPhysicsWorldToWorld(physicsWorld, world);
+    world.refreshFromPhysics();
     const engine::TransformComponent* syncedTransform = world.tryGetTransform(entity);
     if (syncedTransform == nullptr)
     {
