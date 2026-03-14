@@ -15,7 +15,7 @@ RWStructuredBuffer<GpuBroadPhaseMeta> g_BroadPhaseMeta;
     }
 
     GpuBroadPhaseMeta meta = g_BroadPhaseMeta[0];
-    if (rigidBodyCount == 0u)
+    if (colliderCount == 0u)
     {
         meta.activeMovingCount = 0u;
         meta.staticBodyCount = 0u;
@@ -23,9 +23,9 @@ RWStructuredBuffer<GpuBroadPhaseMeta> g_BroadPhaseMeta;
     else
     {
         meta.activeMovingCount =
-            g_ActiveBodyOffsets[rigidBodyCount - 1u] + g_ActiveBodyFlags[rigidBodyCount - 1u];
+            g_ActiveBodyOffsets[colliderCount - 1u] + g_ActiveBodyFlags[colliderCount - 1u];
         meta.staticBodyCount =
-            g_StaticBodyOffsets[rigidBodyCount - 1u] + g_StaticBodyFlags[rigidBodyCount - 1u];
+            g_StaticBodyOffsets[colliderCount - 1u] + g_StaticBodyFlags[colliderCount - 1u];
     }
     meta.candidatePairCount = 0u;
     meta.requiredPairCount = 0u;

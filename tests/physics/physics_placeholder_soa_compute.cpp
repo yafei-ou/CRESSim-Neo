@@ -37,10 +37,12 @@ int main()
     rigidBody.linearVelocity = {1.5f, 0.0f, 0.0f};
     rigidBody.angularVelocity = {0.0f, 1.0f, 0.0f};
     rigidBody.inverseMass    = 1.0f;
-    rigidBody.colliderShape  = physics::ColliderShapeType::Sphere;
-    rigidBody.colliderParams = {0.5f, 0.0f, 0.0f, 0.0f};
     rigidBody.simulated      = true;
     world.setRigidBody(rigidEntity, rigidBody);
+    engine::ColliderComponent rigidCollider{};
+    rigidCollider.shapeType = physics::ColliderShapeType::Sphere;
+    rigidCollider.shapeParams = {0.5f, 0.0f, 0.0f, 0.0f};
+    world.addCollider(rigidEntity, rigidCollider);
 
     common::FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;

@@ -482,9 +482,11 @@ int main(int argc, char** argv)
     groundBody.bodyType = cressim::neo::physics::RigidBodyType::Static;
     groundBody.inverseMass = 0.0f;
     groundBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
-    groundBody.colliderShape = cressim::neo::physics::ColliderShapeType::Box;
-    groundBody.colliderParams = {8.0f, 0.05f, 8.0f, 0.0f};
     world.setRigidBody(groundEntity, groundBody);
+    cressim::neo::engine::ColliderComponent groundCollider{};
+    groundCollider.shapeType = cressim::neo::physics::ColliderShapeType::Box;
+    groundCollider.shapeParams = {8.0f, 0.05f, 8.0f, 0.0f};
+    world.addCollider(groundEntity, groundCollider);
 
     const auto meshForShape = [&](ColliderShapeType shape) {
         switch (shape)
@@ -518,12 +520,14 @@ int main(int argc, char** argv)
     RigidBodyComponent frontBody{};
     frontBody.simulated = true;
     frontBody.inverseMass = 1.0f;
-    frontBody.colliderShape = shapeA;
-    frontBody.colliderParams = colliderParamsForShape(shapeA);
     frontBody.inverseInertiaLocal =
-        inverseInertiaForShape(shapeA, frontBody.colliderParams, frontBody.inverseMass);
+        inverseInertiaForShape(shapeA, colliderParamsForShape(shapeA), frontBody.inverseMass);
     frontBody.linearVelocity = {0.0f, 0.0f, 0.0f};
     world.setRigidBody(frontEntity, frontBody);
+    cressim::neo::engine::ColliderComponent frontCollider{};
+    frontCollider.shapeType = shapeA;
+    frontCollider.shapeParams = colliderParamsForShape(shapeA);
+    world.addCollider(frontEntity, frontCollider);
 
     const auto backEntity = world.createEntity();
     TransformComponent backTransform{};
@@ -538,8 +542,6 @@ int main(int argc, char** argv)
     RigidBodyComponent backBody{};
     backBody.simulated = true;
     backBody.inverseMass = 1.0f;
-    backBody.colliderShape = shapeB;
-    backBody.colliderParams = colliderParamsForShape(shapeB);
     if (legacyBoxPair)
     {
         backBody.inverseInertiaLocal = computeBoxInverseInertia({0.65f * 1.15f, 0.65f * 1.15f,
@@ -549,10 +551,14 @@ int main(int argc, char** argv)
     else
     {
         backBody.inverseInertiaLocal =
-            inverseInertiaForShape(shapeB, backBody.colliderParams, backBody.inverseMass);
+            inverseInertiaForShape(shapeB, colliderParamsForShape(shapeB), backBody.inverseMass);
     }
     backBody.linearVelocity = {0.0f, 0.0f, 0.0f};
     world.setRigidBody(backEntity, backBody);
+    cressim::neo::engine::ColliderComponent backCollider{};
+    backCollider.shapeType = shapeB;
+    backCollider.shapeParams = colliderParamsForShape(shapeB);
+    world.addCollider(backEntity, backCollider);
 
     std::uint64_t beforeCalls = 0;
     std::uint64_t afterCalls = 0;

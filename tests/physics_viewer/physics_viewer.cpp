@@ -224,9 +224,11 @@ int main(int argc, char** argv)
     groundBody.bodyType = cressim::neo::physics::RigidBodyType::Static;
     groundBody.inverseMass = 0.0f;
     groundBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
-    groundBody.colliderShape = cressim::neo::physics::ColliderShapeType::Box;
-    groundBody.colliderParams = {8.0f, 0.05f, 8.0f, 0.0f};
     world.setRigidBody(groundEntity, groundBody);
+    cressim::neo::engine::ColliderComponent groundCollider{};
+    groundCollider.shapeType = cressim::neo::physics::ColliderShapeType::Box;
+    groundCollider.shapeParams = {8.0f, 0.05f, 8.0f, 0.0f};
+    world.addCollider(groundEntity, groundCollider);
 
     const auto frontCubeEntity = world.createEntity();
     TransformComponent frontCubeTransform{};
@@ -242,10 +244,12 @@ int main(int argc, char** argv)
     frontCubeBody.inverseMass = 1.0f;
     frontCubeBody.inverseInertiaLocal = computeBoxInverseInertia({0.65f, 0.65f, 0.65f},
                                                                  frontCubeBody.inverseMass);
-    frontCubeBody.colliderShape = cressim::neo::physics::ColliderShapeType::Box;
-    frontCubeBody.colliderParams = {0.65f, 0.65f, 0.65f, 0.0f};
     frontCubeBody.linearVelocity = {0.0f, 0.0f, 0.0f};
     world.setRigidBody(frontCubeEntity, frontCubeBody);
+    cressim::neo::engine::ColliderComponent frontCubeCollider{};
+    frontCubeCollider.shapeType = cressim::neo::physics::ColliderShapeType::Box;
+    frontCubeCollider.shapeParams = {0.65f, 0.65f, 0.65f, 0.0f};
+    world.addCollider(frontCubeEntity, frontCubeCollider);
 
     const auto backCubeEntity = world.createEntity();
     TransformComponent backCubeTransform{};
@@ -263,10 +267,12 @@ int main(int argc, char** argv)
     backCubeBody.inverseInertiaLocal = computeBoxInverseInertia({0.65f * 1.15f, 0.65f * 1.15f,
                                                                  0.65f * 1.15f},
                                                                 backCubeBody.inverseMass);
-    backCubeBody.colliderShape = cressim::neo::physics::ColliderShapeType::Box;
-    backCubeBody.colliderParams = {0.65f, 0.65f, 0.65f, 0.0f};
     backCubeBody.linearVelocity = {0.0f, 0.0f, 0.0f};
     world.setRigidBody(backCubeEntity, backCubeBody);
+    cressim::neo::engine::ColliderComponent backCubeCollider{};
+    backCubeCollider.shapeType = cressim::neo::physics::ColliderShapeType::Box;
+    backCubeCollider.shapeParams = {0.65f, 0.65f, 0.65f, 0.0f};
+    world.addCollider(backCubeEntity, backCubeCollider);
 
     std::uint64_t beforeCalls = 0;
     std::uint64_t afterCalls = 0;

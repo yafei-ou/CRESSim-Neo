@@ -5,7 +5,8 @@ StructuredBuffer<uint> g_BroadPhaseBodyIndices;
 StructuredBuffer<GpuBodyAabb> g_BodyAabbs;
 StructuredBuffer<GpuBvhNode> g_BvhNodes;
 StructuredBuffer<GpuBvhNode> g_StaticBvhNodes;
-StructuredBuffer<uint> g_RigidBodyColliderShapeTypes;
+StructuredBuffer<uint> g_ColliderOwnerRigidBodyIndices;
+StructuredBuffer<uint> g_ColliderShapeTypes;
 StructuredBuffer<uint> g_PairOffsetsSphereSphere;
 StructuredBuffer<uint> g_PairOffsetsSphereBox;
 StructuredBuffer<uint> g_PairOffsetsSphereCapsule;
@@ -21,14 +22,14 @@ bool NodeOverlapsQuery(GpuBvhNode node, float3 queryMin, float3 queryMax)
                         float3(node.aabbMaxX, node.aabbMaxY, node.aabbMaxZ));
 }
 
-void EmitCanonicalPair(uint bodyA, uint bodyB, uint shapeTypeA, uint shapeTypeB,
+void EmitCanonicalPair(uint colliderA, uint colliderB, uint shapeTypeA, uint shapeTypeB,
                        inout uint writeIndices[kRigidPairTypeCount])
 {
-    uint canonicalBodyA = 0u;
-    uint canonicalBodyB = 0u;
+    uint canonicalColliderA = 0u;
+    uint canonicalColliderB = 0u;
     uint pairType = 0u;
-    CanonicalizeRigidPair(bodyA, bodyB, shapeTypeA, shapeTypeB, canonicalBodyA, canonicalBodyB,
-                          pairType);
+    CanonicalizeRigidPair(colliderA, colliderB, shapeTypeA, shapeTypeB, canonicalColliderA,
+                          canonicalColliderB, pairType);
 
     const uint writeIndex = writeIndices[pairType];
     writeIndices[pairType] = writeIndex + 1u;
@@ -38,8 +39,8 @@ void EmitCanonicalPair(uint bodyA, uint bodyB, uint shapeTypeA, uint shapeTypeB,
     }
 
     GpuCandidatePair pair;
-    pair.bodyA = canonicalBodyA;
-    pair.bodyB = canonicalBodyB;
+    pair.colliderA = canonicalColliderA;
+    pair.colliderB = canonicalColliderB;
     pair.reserved0 = 0u;
     pair.reserved1 = 0u;
     g_CandidatePairs[writeIndex] = pair;
@@ -53,9 +54,10 @@ void EmitCanonicalPair(uint bodyA, uint bodyB, uint shapeTypeA, uint shapeTypeB,
         return;
     }
 
-    const uint bodyId = g_BroadPhaseBodyIndices[activeIndex];
-    const uint shapeTypeA = g_RigidBodyColliderShapeTypes[bodyId];
-    const GpuBodyAabb bodyAabb = g_BodyAabbs[bodyId];
+    const uint colliderId = g_BroadPhaseBodyIndices[activeIndex];
+    const uint ownerBodyA = g_ColliderOwnerRigidBodyIndices[colliderId];
+    const uint shapeTypeA = g_ColliderShapeTypes[colliderId];
+    const GpuBodyAabb bodyAabb = g_BodyAabbs[colliderId];
     const float3 queryMin = bodyAabb.minBounds.xyz;
     const float3 queryMax = bodyAabb.maxBounds.xyz;
 
@@ -84,11 +86,12 @@ void EmitCanonicalPair(uint bodyA, uint bodyB, uint shapeTypeA, uint shapeTypeB,
 
             if (node.left < 0 && node.right < 0)
             {
-                const uint otherBodyId = node.primitiveIdx;
-                if (otherBodyId > bodyId)
+                const uint otherColliderId = node.primitiveIdx;
+                const uint otherOwnerBody = g_ColliderOwnerRigidBodyIndices[otherColliderId];
+                if (otherColliderId > colliderId && otherOwnerBody != ownerBodyA)
                 {
-                    EmitCanonicalPair(bodyId, otherBodyId, shapeTypeA,
-                                      g_RigidBodyColliderShapeTypes[otherBodyId], writeIndices);
+                    EmitCanonicalPair(colliderId, otherColliderId, shapeTypeA,
+                                      g_ColliderShapeTypes[otherColliderId], writeIndices);
                 }
                 continue;
             }
@@ -121,9 +124,13 @@ void EmitCanonicalPair(uint bodyA, uint bodyB, uint shapeTypeA, uint shapeTypeB,
 
             if (node.left < 0 && node.right < 0)
             {
-                const uint otherBodyId = node.primitiveIdx;
-                EmitCanonicalPair(bodyId, otherBodyId, shapeTypeA,
-                                  g_RigidBodyColliderShapeTypes[otherBodyId], writeIndices);
+                const uint otherColliderId = node.primitiveIdx;
+                const uint otherOwnerBody = g_ColliderOwnerRigidBodyIndices[otherColliderId];
+                if (otherOwnerBody != ownerBodyA)
+                {
+                    EmitCanonicalPair(colliderId, otherColliderId, shapeTypeA,
+                                      g_ColliderShapeTypes[otherColliderId], writeIndices);
+                }
                 continue;
             }
 

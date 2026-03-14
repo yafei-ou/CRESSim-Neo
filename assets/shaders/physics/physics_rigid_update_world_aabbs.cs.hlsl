@@ -5,8 +5,12 @@ StructuredBuffer<float4> g_PredictedRigidBodyPositionsInvMass;
 StructuredBuffer<float4> g_PredictedRigidBodyOrientations;
 StructuredBuffer<float4> g_RigidBodyScales;
 StructuredBuffer<uint> g_RigidBodyTypes;
-StructuredBuffer<uint> g_RigidBodyColliderShapeTypes;
-StructuredBuffer<float4> g_RigidBodyColliderParams;
+StructuredBuffer<uint> g_ColliderOwnerRigidBodyIndices;
+StructuredBuffer<uint> g_ColliderShapeTypes;
+StructuredBuffer<float4> g_ColliderShapeParams;
+StructuredBuffer<float4> g_ColliderLocalPositions;
+StructuredBuffer<float4> g_ColliderLocalOrientations;
+StructuredBuffer<uint> g_ColliderEnabledFlags;
 
 RWStructuredBuffer<GpuBodyAabb> g_BodyAabbs;
 RWStructuredBuffer<GpuBodyMeta> g_BodyMeta;
@@ -15,33 +19,58 @@ RWStructuredBuffer<uint> g_StaticBodyFlags;
 
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
-    const uint bodyIndex = dispatchThreadID.x;
-    if (bodyIndex >= rigidBodyCount)
+    const uint colliderIndex = dispatchThreadID.x;
+    if (colliderIndex >= colliderCount)
     {
         return;
     }
 
-    const float4 positionInvMass = g_PredictedRigidBodyPositionsInvMass[bodyIndex];
-    const float4 orientation = QuaternionNormalize(g_PredictedRigidBodyOrientations[bodyIndex]);
-    const float4 scale = g_RigidBodyScales[bodyIndex];
-    const uint bodyType = g_RigidBodyTypes[bodyIndex];
-    const uint shapeType = g_RigidBodyColliderShapeTypes[bodyIndex];
-    const float4 colliderParams = g_RigidBodyColliderParams[bodyIndex];
+    GpuBodyAabb bodyAabb;
+    bodyAabb.minBounds = 0.0;
+    bodyAabb.maxBounds = 0.0;
+
+    GpuBodyMeta meta;
+    meta.bodyId = colliderIndex;
+    meta.flags = 0u;
+    meta.activeIndex = kInvalidIndex;
+    meta.reserved = 0u;
+
+    const uint ownerBodyIndex = g_ColliderOwnerRigidBodyIndices[colliderIndex];
+    if (ownerBodyIndex >= rigidBodyCount || g_ColliderEnabledFlags[colliderIndex] == 0u)
+    {
+        g_BodyAabbs[colliderIndex] = bodyAabb;
+        g_BodyMeta[colliderIndex] = meta;
+        g_ActiveBodyFlags[colliderIndex] = 0u;
+        g_StaticBodyFlags[colliderIndex] = 0u;
+        return;
+    }
+
+    const float4 bodyPositionInvMass = g_PredictedRigidBodyPositionsInvMass[ownerBodyIndex];
+    const float4 bodyOrientation =
+        QuaternionNormalize(g_PredictedRigidBodyOrientations[ownerBodyIndex]);
+    const float4 scale = g_RigidBodyScales[ownerBodyIndex];
+    const uint bodyType = g_RigidBodyTypes[ownerBodyIndex];
+    const uint shapeType = g_ColliderShapeTypes[colliderIndex];
+    const float4 colliderParams = g_ColliderShapeParams[colliderIndex];
+    const float3 localPosition = g_ColliderLocalPositions[colliderIndex].xyz * scale.xyz;
+    const float4 localOrientation =
+        QuaternionNormalize(g_ColliderLocalOrientations[colliderIndex]);
+    const float3 colliderPosition =
+        ComposeColliderWorldPosition(bodyPositionInvMass.xyz, bodyOrientation, localPosition);
+    const float4 colliderOrientation =
+        ComposeColliderWorldOrientation(bodyOrientation, localOrientation);
 
     float3 aabbMin = 0.0;
     float3 aabbMax = 0.0;
-    ComputeBodyAabb(shapeType, positionInvMass.xyz, orientation, colliderParams, scale, aabbMin,
+    ComputeBodyAabb(shapeType, colliderPosition, colliderOrientation, colliderParams, scale, aabbMin,
                     aabbMax);
     aabbMin -= float3(kBroadPhaseMargin, kBroadPhaseMargin, kBroadPhaseMargin);
     aabbMax += float3(kBroadPhaseMargin, kBroadPhaseMargin, kBroadPhaseMargin);
 
-    GpuBodyAabb bodyAabb;
     bodyAabb.minBounds = float4(aabbMin, 0.0);
     bodyAabb.maxBounds = float4(aabbMax, 0.0);
-    g_BodyAabbs[bodyIndex] = bodyAabb;
+    g_BodyAabbs[colliderIndex] = bodyAabb;
 
-    GpuBodyMeta meta;
-    meta.bodyId = bodyIndex;
     meta.flags = 0u;
     if (bodyType == 0u)
     {
@@ -55,9 +84,7 @@ RWStructuredBuffer<uint> g_StaticBodyFlags;
     {
         meta.flags |= kBodyFlagDynamic;
     }
-    meta.activeIndex = kInvalidIndex;
-    meta.reserved = 0u;
-    g_BodyMeta[bodyIndex] = meta;
-    g_ActiveBodyFlags[bodyIndex] = (meta.flags & kBodyFlagMoving) != 0u ? 1u : 0u;
-    g_StaticBodyFlags[bodyIndex] = (meta.flags & kBodyFlagStatic) != 0u ? 1u : 0u;
+    g_BodyMeta[colliderIndex] = meta;
+    g_ActiveBodyFlags[colliderIndex] = (meta.flags & kBodyFlagMoving) != 0u ? 1u : 0u;
+    g_StaticBodyFlags[colliderIndex] = (meta.flags & kBodyFlagStatic) != 0u ? 1u : 0u;
 }

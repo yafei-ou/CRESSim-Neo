@@ -389,12 +389,13 @@ bool PhysicsPassDispatcher::updateWorldAabbs(Diligent::IDeviceContext* computeCo
                                              std::uint32_t bodyCount,
                                              const GpuRigidDispatchConstants& constants)
 {
-    if (bodyCount == 0u)
+    if (constants.colliderCount == 0u)
     {
         return true;
     }
 
-    const auto& persistent = sceneState.persistentRigidBodies();
+    const auto& persistentBodies = sceneState.persistentRigidBodies();
+    const auto& persistentColliders = sceneState.persistentColliders();
     const auto& transient  = sceneState.transientBuffers();
     const std::array bindings{
         ComputeBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
@@ -405,13 +406,24 @@ bool PhysicsPassDispatcher::updateWorldAabbs(Diligent::IDeviceContext* computeCo
         ComputeBufferBinding{"g_PredictedRigidBodyOrientations",
                              transient.predictedRigidBodies.orientationsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyScales", persistent.scalesBuffer,
+        ComputeBufferBinding{"g_RigidBodyScales", persistentBodies.scalesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyTypes", persistent.bodyTypesBuffer,
+        ComputeBufferBinding{"g_RigidBodyTypes", persistentBodies.bodyTypesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyColliderShapeTypes", persistent.colliderShapeTypesBuffer,
+        ComputeBufferBinding{"g_ColliderOwnerRigidBodyIndices",
+                             persistentColliders.ownerRigidBodyIndicesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyColliderParams", persistent.colliderParamsBuffer,
+        ComputeBufferBinding{"g_ColliderShapeTypes", persistentColliders.shapeTypesBuffer,
+                             Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        ComputeBufferBinding{"g_ColliderShapeParams", persistentColliders.shapeParamsBuffer,
+                             Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        ComputeBufferBinding{"g_ColliderLocalPositions",
+                             persistentColliders.localPositionsBuffer,
+                             Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        ComputeBufferBinding{"g_ColliderLocalOrientations",
+                             persistentColliders.localOrientationsBuffer,
+                             Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        ComputeBufferBinding{"g_ColliderEnabledFlags", persistentColliders.enabledFlagsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         ComputeBufferBinding{"g_BodyAabbs", transient.bodyAabbsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
@@ -425,7 +437,7 @@ bool PhysicsPassDispatcher::updateWorldAabbs(Diligent::IDeviceContext* computeCo
 
     return writeRigidDispatchConstants(computeContext, constants) &&
            mUpdateWorldAabbsPass.dispatch(computeContext, kDefaultVariant, bindings,
-                                          dispatchGroupCount(bodyCount));
+                                          dispatchGroupCount(constants.colliderCount));
 }
 
 bool PhysicsPassDispatcher::compactBroadPhaseBodySets(Diligent::IDeviceContext* computeContext,
@@ -446,13 +458,13 @@ bool PhysicsPassDispatcher::compactBroadPhaseBodySets(Diligent::IDeviceContext* 
 
     if (!dispatchExclusiveScanPass(
             computeContext, sceneState, sceneState.transientBuffers().activeBodyFlagsBuffer,
-            sceneState.transientBuffers().activeBodyOffsetsBuffer, bodyCount))
+            sceneState.transientBuffers().activeBodyOffsetsBuffer, constants.colliderCount))
     {
         return false;
     }
     if (!dispatchExclusiveScanPass(
             computeContext, sceneState, sceneState.transientBuffers().staticBodyFlagsBuffer,
-            sceneState.transientBuffers().staticBodyOffsetsBuffer, bodyCount))
+            sceneState.transientBuffers().staticBodyOffsetsBuffer, constants.colliderCount))
     {
         return false;
     }
@@ -502,14 +514,14 @@ bool PhysicsPassDispatcher::compactBroadPhaseBodySets(Diligent::IDeviceContext* 
 
     if (!writeRigidDispatchConstants(computeContext, constants) ||
         !mCompactBodySetPass.dispatch(computeContext, kDefaultVariant, movingSetCompactBindings,
-                                      dispatchGroupCount(bodyCount)))
+                                      dispatchGroupCount(constants.colliderCount)))
     {
         return false;
     }
 
     if (!writeRigidDispatchConstants(computeContext, constants) ||
         !mCompactBodySetPass.dispatch(computeContext, kAltVariant, staticSetCompactBindings,
-                                      dispatchGroupCount(bodyCount)))
+                                      dispatchGroupCount(constants.colliderCount)))
     {
         return false;
     }
@@ -947,7 +959,7 @@ bool PhysicsPassDispatcher::finalizeBroadPhasePairs(Diligent::IDeviceContext* co
         return true;
     }
 
-    const auto& persistent = sceneState.persistentRigidBodies();
+    const auto& persistentColliders = sceneState.persistentColliders();
     const auto& transient  = sceneState.transientBuffers();
 
     const std::array countBindings{
@@ -961,7 +973,10 @@ bool PhysicsPassDispatcher::finalizeBroadPhasePairs(Diligent::IDeviceContext* co
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         ComputeBufferBinding{"g_StaticBvhNodes", transient.staticBvhBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyColliderShapeTypes", persistent.colliderShapeTypesBuffer,
+        ComputeBufferBinding{"g_ColliderOwnerRigidBodyIndices",
+                             persistentColliders.ownerRigidBodyIndicesBuffer,
+                             Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        ComputeBufferBinding{"g_ColliderShapeTypes", persistentColliders.shapeTypesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         ComputeBufferBinding{"g_PairCountsSphereSphere", transient.pairCountBuffers[0],
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
@@ -1044,7 +1059,7 @@ bool PhysicsPassDispatcher::emitBroadPhasePairs(Diligent::IDeviceContext* comput
         return true;
     }
 
-    const auto& persistent = sceneState.persistentRigidBodies();
+    const auto& persistentColliders = sceneState.persistentColliders();
     const auto& transient  = sceneState.transientBuffers();
 
     const std::array emitBindings{
@@ -1058,7 +1073,10 @@ bool PhysicsPassDispatcher::emitBroadPhasePairs(Diligent::IDeviceContext* comput
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         ComputeBufferBinding{"g_StaticBvhNodes", transient.staticBvhBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyColliderShapeTypes", persistent.colliderShapeTypesBuffer,
+        ComputeBufferBinding{"g_ColliderOwnerRigidBodyIndices",
+                             persistentColliders.ownerRigidBodyIndicesBuffer,
+                             Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        ComputeBufferBinding{"g_ColliderShapeTypes", persistentColliders.shapeTypesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         ComputeBufferBinding{"g_PairOffsetsSphereSphere", transient.pairOffsetBuffers[0],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -1107,9 +1125,12 @@ bool PhysicsPassDispatcher::dispatchGenerateContactsPass(Diligent::IDeviceContex
     }
 
     const auto& persistent = sceneState.persistentRigidBodies();
+    const auto& persistentColliders = sceneState.persistentColliders();
     const auto& transient  = sceneState.transientBuffers();
 
     const std::array bindings{
+        ComputeBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+                             Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         ComputeBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
                              transient.predictedRigidBodies.positionsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -1118,7 +1139,18 @@ bool PhysicsPassDispatcher::dispatchGenerateContactsPass(Diligent::IDeviceContex
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         ComputeBufferBinding{"g_RigidBodyScales", persistent.scalesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyColliderParams", persistent.colliderParamsBuffer,
+        ComputeBufferBinding{"g_ColliderOwnerRigidBodyIndices",
+                             persistentColliders.ownerRigidBodyIndicesBuffer,
+                             Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        ComputeBufferBinding{"g_ColliderShapeTypes", persistentColliders.shapeTypesBuffer,
+                             Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        ComputeBufferBinding{"g_ColliderShapeParams", persistentColliders.shapeParamsBuffer,
+                             Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        ComputeBufferBinding{"g_ColliderLocalPositions",
+                             persistentColliders.localPositionsBuffer,
+                             Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        ComputeBufferBinding{"g_ColliderLocalOrientations",
+                             persistentColliders.localOrientationsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         ComputeBufferBinding{"g_CandidatePairs", transient.candidatePairsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},

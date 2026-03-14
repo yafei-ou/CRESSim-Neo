@@ -7,6 +7,7 @@ namespace
 {
 
 using cressim::neo::physics::ColliderShapeType;
+using cressim::neo::physics::ColliderState;
 using cressim::neo::physics::PhysicsWorld;
 using cressim::neo::physics::RigidBodyState;
 using cressim::neo::physics::RigidBodyType;
@@ -23,11 +24,18 @@ RigidBodyState makeBody(cressim::neo::common::EntityId id, RigidBodyType type)
     state.angularVelocity = {0.0f, 1.0f, 0.0f};
     state.inverseInertiaLocal = {1.0f, 1.0f, 1.0f};
     state.inverseMass = 1.0f;
-    state.colliderShape = ColliderShapeType::Box;
-    state.colliderParams = {0.5f, 0.5f, 0.5f, 0.0f};
     state.kinematicTargetPosition = {4.0f, 5.0f, 6.0f};
     state.kinematicTargetRotation = {0.0f, 0.0f, 0.3826834f, 0.9238795f};
     state.kinematicTargetEnabled = type == RigidBodyType::Kinematic;
+    return state;
+}
+
+ColliderState makeCollider(cressim::neo::common::EntityId id)
+{
+    ColliderState state{};
+    state.entityId = id;
+    state.shapeType = ColliderShapeType::Box;
+    state.shapeParams = {0.5f, 0.5f, 0.5f, 0.0f};
     return state;
 }
 
@@ -42,6 +50,7 @@ int main()
     RigidBodyState dynamicBody = makeBody(4001u, RigidBodyType::Dynamic);
     dynamicBody.inverseMass = 0.0f;
     world.upsertRigidBody(dynamicBody);
+    world.replaceColliders(4001u, {makeCollider(4001u)});
     const RigidBodyState* normalizedDynamic = world.tryGetRigidBody(4001u);
     if (normalizedDynamic == nullptr || normalizedDynamic->inverseMass <= 0.0f)
     {
@@ -53,6 +62,7 @@ int main()
     staticBody.inverseMass = 5.0f;
     staticBody.position = {0.0f, -1.0f, 0.0f};
     world.upsertRigidBody(staticBody);
+    world.replaceColliders(4002u, {makeCollider(4002u)});
     if (!world.staticBroadPhaseDirty())
     {
         std::cerr << "Static broad-phase was not marked dirty for a static body insert.\n";
@@ -62,6 +72,7 @@ int main()
 
     RigidBodyState kinematicBody = makeBody(4003u, RigidBodyType::Kinematic);
     world.upsertRigidBody(kinematicBody);
+    world.replaceColliders(4003u, {makeCollider(4003u)});
     const RigidBodyState* persistedKinematic = world.tryGetRigidBody(4003u);
     if (persistedKinematic == nullptr || !persistedKinematic->kinematicTargetEnabled ||
         std::fabs(persistedKinematic->kinematicTargetPosition.x -
@@ -73,17 +84,20 @@ int main()
 
     staticBody.position.x = 2.0f;
     world.upsertRigidBody(staticBody);
+    world.replaceColliders(4002u, {makeCollider(4002u), makeCollider(4002u)});
     if (!world.staticBroadPhaseDirty())
     {
-        std::cerr << "Static broad-phase was not marked dirty for a static shape update.\n";
+        std::cerr << "Static broad-phase was not marked dirty for a static collider update.\n";
         return 1;
     }
 
-    const auto& soa = world.rigidBodySoA();
-    if (soa.bodyTypes.size() != world.rigidBodyCount() ||
-        soa.kinematicTargetFlags.size() != world.rigidBodyCount())
+    const auto& bodySoA = world.rigidBodySoA();
+    const auto& colliderSoA = world.colliderSoA();
+    if (bodySoA.bodyTypes.size() != world.rigidBodyCount() ||
+        bodySoA.kinematicTargetFlags.size() != world.rigidBodyCount() ||
+        colliderSoA.ownerRigidBodyIndices.size() != world.colliderCount())
     {
-        std::cerr << "SoA body type or kinematic target arrays are out of sync.\n";
+        std::cerr << "SoA body/collider arrays are out of sync.\n";
         return 1;
     }
 

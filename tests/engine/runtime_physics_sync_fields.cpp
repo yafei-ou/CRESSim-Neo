@@ -27,12 +27,14 @@ int main()
     rigidBody.inverseMass = 0.5f;
     rigidBody.linearVelocity = {2.0f, 0.0f, -1.0f};
     rigidBody.angularVelocity = {0.0f, 3.0f, 0.0f};
-    rigidBody.colliderShape = physics::ColliderShapeType::Capsule;
-    rigidBody.colliderParams = {0.7f, 1.4f, 0.0f, 0.0f};
     rigidBody.kinematicTargetPosition = {7.0f, 8.0f, 9.0f};
     rigidBody.kinematicTargetRotation = {0.0f, 0.0f, 0.2588190f, 0.9659258f};
     rigidBody.kinematicTargetEnabled = true;
     world.setRigidBody(entity, rigidBody);
+    engine::ColliderComponent collider{};
+    collider.shapeType = physics::ColliderShapeType::Capsule;
+    collider.shapeParams = {0.7f, 1.4f, 0.0f, 0.0f};
+    world.addCollider(entity, collider);
 
     engine::detail::syncWorldToPhysicsWorld(world, physicsWorld);
     const physics::RigidBodyState* state = physicsWorld.tryGetRigidBody(entity);
@@ -41,11 +43,17 @@ int main()
         std::cerr << "Rigid body missing in physics world.\n";
         return 1;
     }
+    if (physicsWorld.colliderCount() != 1u)
+    {
+        std::cerr << "Collider missing in physics world.\n";
+        return 1;
+    }
+    const physics::ColliderState& colliderState = physicsWorld.colliderSnapshot().front();
     if (state->bodyType != rigidBody.bodyType ||
         state->angularVelocity.y != rigidBody.angularVelocity.y ||
-        static_cast<std::uint32_t>(state->colliderShape) !=
+        static_cast<std::uint32_t>(colliderState.shapeType) !=
             static_cast<std::uint32_t>(physics::ColliderShapeType::Capsule) ||
-        state->colliderParams.x != rigidBody.colliderParams.x ||
+        colliderState.shapeParams.x != collider.shapeParams.x ||
         state->kinematicTargetPosition.x != rigidBody.kinematicTargetPosition.x ||
         state->kinematicTargetRotation.q.z != rigidBody.kinematicTargetRotation.q.z ||
         !state->kinematicTargetEnabled)

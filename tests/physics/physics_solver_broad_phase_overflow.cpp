@@ -22,8 +22,15 @@ cressim::neo::physics::RigidBodyState makeOverlappingRigidBody(cressim::neo::com
     state.angularVelocity = {0.0f, 0.0f, 0.0f};
     state.inverseInertiaLocal = {1.0f, 1.0f, 1.0f};
     state.inverseMass = 1.0f;
-    state.colliderShape = physics::ColliderShapeType::Sphere;
-    state.colliderParams = {0.5f, 0.0f, 0.0f, 0.0f};
+    return state;
+}
+
+cressim::neo::physics::ColliderState makeSphereCollider(cressim::neo::common::EntityId id)
+{
+    cressim::neo::physics::ColliderState state{};
+    state.entityId = id;
+    state.shapeType = cressim::neo::physics::ColliderShapeType::Sphere;
+    state.shapeParams = {0.5f, 0.0f, 0.0f, 0.0f};
     return state;
 }
 
@@ -64,7 +71,10 @@ int main()
     constexpr std::uint32_t kBodyCount = 128u;
     for (std::uint32_t i = 0u; i < kBodyCount; ++i)
     {
-        world.upsertRigidBody(makeOverlappingRigidBody(1000u + i, static_cast<float>(i % 4u) * 0.01f));
+        const common::EntityId entityId = 1000u + i;
+        world.upsertRigidBody(
+            makeOverlappingRigidBody(entityId, static_cast<float>(i % 4u) * 0.01f));
+        world.replaceColliders(entityId, {makeSphereCollider(entityId)});
     }
 
     common::FrameContext frame{};

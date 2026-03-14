@@ -431,9 +431,11 @@ int main(int argc, char** argv)
     groundBody.bodyType = cressim::neo::physics::RigidBodyType::Static;
     groundBody.inverseMass = 0.0f;
     groundBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
-    groundBody.colliderShape = ColliderShapeType::Box;
-    groundBody.colliderParams = {28.0f, 0.05f, 28.0f, 0.0f};
     world.setRigidBody(groundEntity, groundBody);
+    cressim::neo::engine::ColliderComponent groundCollider{};
+    groundCollider.shapeType = ColliderShapeType::Box;
+    groundCollider.shapeParams = {28.0f, 0.05f, 28.0f, 0.0f};
+    world.addCollider(groundEntity, groundCollider);
 
     const auto meshForShape = [&](ColliderShapeType shape) {
         switch (shape)
@@ -504,15 +506,17 @@ int main(int argc, char** argv)
                 RigidBodyComponent body{};
                 body.simulated = true;
                 body.inverseMass = 1.0f;
-                body.colliderShape = shape;
-                body.colliderParams = colliderParamsForShape(shape);
                 body.inverseInertiaLocal =
-                    inverseInertiaForShape(shape, body.colliderParams, body.inverseMass);
+                    inverseInertiaForShape(shape, colliderParamsForShape(shape), body.inverseMass);
                 body.linearVelocity = {
                     (static_cast<float>((x % 3) - 1) * 0.08f),
                     0.0f,
                     (static_cast<float>((z % 3) - 1) * 0.08f)};
                 world.setRigidBody(entity, body);
+                cressim::neo::engine::ColliderComponent collider{};
+                collider.shapeType = shape;
+                collider.shapeParams = colliderParamsForShape(shape);
+                world.addCollider(entity, collider);
             }
         }
     }

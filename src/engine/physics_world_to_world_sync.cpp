@@ -33,6 +33,8 @@ void syncPhysicsWorldToWorld(const physics::PhysicsWorld& physicsWorld, World& w
         rigidBody.bodyType                = state.bodyType;
         rigidBody.linearVelocity          = state.linearVelocity;
         rigidBody.angularVelocity         = state.angularVelocity;
+        rigidBody.inverseMass             = state.inverseMass;
+        rigidBody.inverseInertiaLocal     = state.inverseInertiaLocal;
         rigidBody.kinematicTargetPosition = state.kinematicTargetPosition;
         rigidBody.kinematicTargetRotation = state.kinematicTargetRotation;
         rigidBody.kinematicTargetEnabled  = state.kinematicTargetEnabled;

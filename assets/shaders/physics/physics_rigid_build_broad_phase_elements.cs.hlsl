@@ -13,11 +13,11 @@ RWStructuredBuffer<GpuBroadPhaseElement> g_BroadPhaseElements;
         return;
     }
 
-    const uint bodyId = g_BroadPhaseBodyIndices[activeIndex];
-    const GpuBodyAabb bodyAabb = g_BodyAabbs[bodyId];
+    const uint primitiveId = g_BroadPhaseBodyIndices[activeIndex];
+    const GpuBodyAabb bodyAabb = g_BodyAabbs[primitiveId];
 
     GpuBroadPhaseElement element;
-    element.primitiveIdx = bodyId;
+    element.primitiveIdx = primitiveId;
     element.aabbMinX = bodyAabb.minBounds.x;
     element.aabbMinY = bodyAabb.minBounds.y;
     element.aabbMinZ = bodyAabb.minBounds.z;

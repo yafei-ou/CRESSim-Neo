@@ -31,13 +31,38 @@ void syncWorldToPhysicsWorld(const World& world, physics::PhysicsWorld& physicsW
         state.inverseInertiaLocal = rigidBody->inverseInertiaLocal;
         state.bodyType            = rigidBody->bodyType;
         state.inverseMass         = rigidBody->inverseMass;
-        state.colliderShape       = static_cast<physics::ColliderShapeType>(
-            static_cast<std::uint32_t>(rigidBody->colliderShape));
-        state.colliderParams          = rigidBody->colliderParams;
         state.kinematicTargetPosition = rigidBody->kinematicTargetPosition;
         state.kinematicTargetRotation = rigidBody->kinematicTargetRotation;
         state.kinematicTargetEnabled  = rigidBody->kinematicTargetEnabled;
-        (void)physicsWorld.upsertRigidBody(state);
+        const physics::RigidBodyState& persistedBody = physicsWorld.upsertRigidBody(state);
+
+        std::vector<physics::ColliderState> colliders;
+        const auto& colliderHandles = world.colliderHandles(entityId);
+        colliders.reserve(colliderHandles.size());
+        for (const ColliderHandle handle : colliderHandles)
+        {
+            const ColliderComponent* collider = world.tryGetCollider(handle);
+            if (collider == nullptr)
+            {
+                continue;
+            }
+
+            physics::ColliderState colliderState{};
+            colliderState.entityId         = entityId;
+            colliderState.ownerRigidBodyId = persistedBody.rigidBodyId;
+            colliderState.shapeType        = collider->shapeType;
+            colliderState.shapeParams      = collider->shapeParams;
+            colliderState.localPosition    = collider->localPosition;
+            colliderState.localRotation    = collider->localRotation;
+            colliderState.enabled          = collider->enabled;
+            colliderState.friction         = collider->friction;
+            colliderState.restitution      = collider->restitution;
+            colliderState.collisionLayer   = collider->collisionLayer;
+            colliderState.collisionMask    = collider->collisionMask;
+            colliders.push_back(colliderState);
+        }
+
+        physicsWorld.replaceColliders(entityId, colliders);
     }
 }
 

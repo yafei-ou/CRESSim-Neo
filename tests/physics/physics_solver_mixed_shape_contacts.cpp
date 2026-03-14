@@ -11,9 +11,10 @@ namespace
 
 using cressim::neo::common::EntityId;
 using cressim::neo::physics::ColliderShapeType;
+using cressim::neo::physics::ColliderState;
 using cressim::neo::physics::RigidBodyState;
 
-RigidBodyState makeBody(EntityId id, ColliderShapeType shape, const Diligent::float3& position)
+RigidBodyState makeBody(EntityId id, const Diligent::float3& position)
 {
     RigidBodyState state{};
     state.entityId = id;
@@ -24,19 +25,26 @@ RigidBodyState makeBody(EntityId id, ColliderShapeType shape, const Diligent::fl
     state.angularVelocity = {0.0f, 0.0f, 0.0f};
     state.inverseInertiaLocal = {1.0f, 1.0f, 1.0f};
     state.inverseMass = 1.0f;
-    state.colliderShape = shape;
+    return state;
+}
+
+ColliderState makeCollider(EntityId id, ColliderShapeType shape)
+{
+    ColliderState state{};
+    state.entityId = id;
+    state.shapeType = shape;
 
     switch (shape)
     {
-        case ColliderShapeType::Sphere:
-            state.colliderParams = {0.6f, 0.0f, 0.0f, 0.0f};
-            break;
-        case ColliderShapeType::Box:
-            state.colliderParams = {0.55f, 0.45f, 0.5f, 0.0f};
-            break;
-        case ColliderShapeType::Capsule:
-            state.colliderParams = {0.35f, 0.55f, 0.0f, 0.0f};
-            break;
+    case ColliderShapeType::Sphere:
+        state.shapeParams = {0.6f, 0.0f, 0.0f, 0.0f};
+        break;
+    case ColliderShapeType::Box:
+        state.shapeParams = {0.55f, 0.45f, 0.5f, 0.0f};
+        break;
+    case ColliderShapeType::Capsule:
+        state.shapeParams = {0.35f, 0.55f, 0.0f, 0.0f};
+        break;
     }
 
     return state;
@@ -89,12 +97,18 @@ int main()
     }
 
     physics::PhysicsWorld world;
-    world.upsertRigidBody(makeBody(2001u, ColliderShapeType::Sphere, {-0.20f, 0.0f, 0.0f}));
-    world.upsertRigidBody(makeBody(2002u, ColliderShapeType::Sphere, {0.15f, 0.0f, 0.0f}));
-    world.upsertRigidBody(makeBody(2003u, ColliderShapeType::Box, {0.0f, 0.10f, 0.0f}));
-    world.upsertRigidBody(makeBody(2004u, ColliderShapeType::Box, {0.10f, -0.10f, 0.05f}));
-    world.upsertRigidBody(makeBody(2005u, ColliderShapeType::Capsule, {-0.05f, 0.0f, 0.10f}));
-    world.upsertRigidBody(makeBody(2006u, ColliderShapeType::Capsule, {0.05f, 0.0f, -0.10f}));
+    world.upsertRigidBody(makeBody(2001u, {-0.20f, 0.0f, 0.0f}));
+    world.replaceColliders(2001u, {makeCollider(2001u, ColliderShapeType::Sphere)});
+    world.upsertRigidBody(makeBody(2002u, {0.15f, 0.0f, 0.0f}));
+    world.replaceColliders(2002u, {makeCollider(2002u, ColliderShapeType::Sphere)});
+    world.upsertRigidBody(makeBody(2003u, {0.0f, 0.10f, 0.0f}));
+    world.replaceColliders(2003u, {makeCollider(2003u, ColliderShapeType::Box)});
+    world.upsertRigidBody(makeBody(2004u, {0.10f, -0.10f, 0.05f}));
+    world.replaceColliders(2004u, {makeCollider(2004u, ColliderShapeType::Box)});
+    world.upsertRigidBody(makeBody(2005u, {-0.05f, 0.0f, 0.10f}));
+    world.replaceColliders(2005u, {makeCollider(2005u, ColliderShapeType::Capsule)});
+    world.upsertRigidBody(makeBody(2006u, {0.05f, 0.0f, -0.10f}));
+    world.replaceColliders(2006u, {makeCollider(2006u, ColliderShapeType::Capsule)});
 
     common::FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
@@ -110,7 +124,8 @@ int main()
         }
 
         const physics::PhysicsSolverStageStats& stats = solver.lastStageStats();
-        if (!stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::GenerateBroadPhasePairs)] ||
+        if (!stats.executed[static_cast<std::size_t>(
+                physics::PhysicsSolverStage::GenerateBroadPhasePairs)] ||
             !stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::GenerateContacts)])
         {
             std::cerr << "Expected broad-phase pair/contact stages were skipped at iteration "

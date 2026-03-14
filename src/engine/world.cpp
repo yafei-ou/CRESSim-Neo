@@ -6,6 +6,17 @@
 namespace cressim::neo::engine
 {
 
+namespace
+{
+
+const std::vector<ColliderHandle>& emptyColliderHandleList()
+{
+    static const std::vector<ColliderHandle> kEmpty;
+    return kEmpty;
+}
+
+} // namespace
+
 common::EntityId World::createEntity()
 {
     const common::EntityId entityId = mNextEntityId++;
@@ -27,6 +38,7 @@ bool World::destroyEntity(common::EntityId entityId)
     mCameras.erase(entityId);
     mDirectionalLights.erase(entityId);
     mRigidBodies.erase(entityId);
+    removeCollidersForEntity(entityId);
 
     mEntities.erase(std::remove(mEntities.begin(), mEntities.end(), entityId), mEntities.end());
     markDirty(entityId);
@@ -112,6 +124,40 @@ RigidBodyComponent& World::setRigidBody(common::EntityId entityId,
     return updated;
 }
 
+ColliderHandle World::addCollider(common::EntityId entityId, const ColliderComponent& component)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        throw std::invalid_argument("addCollider requires a valid entity id.");
+    }
+
+    ensureEntity(entityId);
+
+    ColliderHandle handle{mNextColliderId++};
+    mColliders.emplace(handle.id, ColliderRecord{entityId, component});
+    mEntityColliderHandles[entityId].push_back(handle);
+    markDirty(entityId);
+    return handle;
+}
+
+ColliderComponent& World::updateCollider(ColliderHandle handle, const ColliderComponent& component)
+{
+    if (!handle.isValid())
+    {
+        throw std::invalid_argument("updateCollider requires a valid collider handle.");
+    }
+
+    const auto colliderIt = mColliders.find(handle.id);
+    if (colliderIt == mColliders.end())
+    {
+        throw std::invalid_argument("updateCollider requires an existing collider handle.");
+    }
+
+    colliderIt->second.component = component;
+    markDirty(colliderIt->second.ownerEntityId);
+    return colliderIt->second.component;
+}
+
 bool World::removeTransform(common::EntityId entityId)
 {
     if (mTransforms.erase(entityId) == 0)
@@ -158,7 +204,43 @@ bool World::removeRigidBody(common::EntityId entityId)
     {
         return false;
     }
+
+    removeCollidersForEntity(entityId);
     markDirty(entityId);
+    return true;
+}
+
+bool World::removeCollider(ColliderHandle handle)
+{
+    if (!handle.isValid())
+    {
+        return false;
+    }
+
+    const auto colliderIt = mColliders.find(handle.id);
+    if (colliderIt == mColliders.end())
+    {
+        return false;
+    }
+
+    const common::EntityId ownerEntityId = colliderIt->second.ownerEntityId;
+    auto handlesIt = mEntityColliderHandles.find(ownerEntityId);
+    if (handlesIt != mEntityColliderHandles.end())
+    {
+        auto& handles = handlesIt->second;
+        handles.erase(std::remove_if(handles.begin(), handles.end(),
+                                     [handle](const ColliderHandle candidate) {
+                                         return candidate.id == handle.id;
+                                     }),
+                      handles.end());
+        if (handles.empty())
+        {
+            mEntityColliderHandles.erase(handlesIt);
+        }
+    }
+
+    mColliders.erase(colliderIt);
+    markDirty(ownerEntityId);
     return true;
 }
 
@@ -192,6 +274,18 @@ const RigidBodyComponent* World::tryGetRigidBody(common::EntityId entityId) cons
     return it != mRigidBodies.end() ? &it->second : nullptr;
 }
 
+const ColliderComponent* World::tryGetCollider(ColliderHandle handle) const
+{
+    const auto it = mColliders.find(handle.id);
+    return it != mColliders.end() ? &it->second.component : nullptr;
+}
+
+const std::vector<ColliderHandle>& World::colliderHandles(common::EntityId entityId) const
+{
+    const auto it = mEntityColliderHandles.find(entityId);
+    return it != mEntityColliderHandles.end() ? it->second : emptyColliderHandleList();
+}
+
 std::uint64_t World::revision() const noexcept
 {
     return mRevision;
@@ -206,6 +300,21 @@ void World::clearDirtyEntities() noexcept
 {
     mDirtyEntities.clear();
     mDirtySet.clear();
+}
+
+void World::removeCollidersForEntity(common::EntityId entityId)
+{
+    const auto handlesIt = mEntityColliderHandles.find(entityId);
+    if (handlesIt == mEntityColliderHandles.end())
+    {
+        return;
+    }
+
+    for (const ColliderHandle handle : handlesIt->second)
+    {
+        mColliders.erase(handle.id);
+    }
+    mEntityColliderHandles.erase(handlesIt);
 }
 
 void World::ensureEntity(common::EntityId entityId)

@@ -5,7 +5,8 @@ StructuredBuffer<uint> g_BroadPhaseBodyIndices;
 StructuredBuffer<GpuBodyAabb> g_BodyAabbs;
 StructuredBuffer<GpuBvhNode> g_BvhNodes;
 StructuredBuffer<GpuBvhNode> g_StaticBvhNodes;
-StructuredBuffer<uint> g_RigidBodyColliderShapeTypes;
+StructuredBuffer<uint> g_ColliderOwnerRigidBodyIndices;
+StructuredBuffer<uint> g_ColliderShapeTypes;
 RWStructuredBuffer<uint> g_PairCountsSphereSphere;
 RWStructuredBuffer<uint> g_PairCountsSphereBox;
 RWStructuredBuffer<uint> g_PairCountsSphereCapsule;
@@ -35,9 +36,10 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
         return;
     }
 
-    const uint bodyId = g_BroadPhaseBodyIndices[activeIndex];
-    const uint shapeTypeA = g_RigidBodyColliderShapeTypes[bodyId];
-    const GpuBodyAabb bodyAabb = g_BodyAabbs[bodyId];
+    const uint colliderId = g_BroadPhaseBodyIndices[activeIndex];
+    const uint ownerBodyA = g_ColliderOwnerRigidBodyIndices[colliderId];
+    const uint shapeTypeA = g_ColliderShapeTypes[colliderId];
+    const GpuBodyAabb bodyAabb = g_BodyAabbs[colliderId];
     const float3 queryMin = bodyAabb.minBounds.xyz;
     const float3 queryMax = bodyAabb.maxBounds.xyz;
 
@@ -64,12 +66,13 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
 
             if (node.left < 0 && node.right < 0)
             {
-                const uint otherBodyId = node.primitiveIdx;
-                if (otherBodyId > bodyId)
+                const uint otherColliderId = node.primitiveIdx;
+                const uint otherOwnerBody = g_ColliderOwnerRigidBodyIndices[otherColliderId];
+                if (otherColliderId > colliderId && otherOwnerBody != ownerBodyA)
                 {
-                    IncrementTypedCount(
-                        ComputeRigidPairType(shapeTypeA, g_RigidBodyColliderShapeTypes[otherBodyId]),
-                        typedCounts);
+                    IncrementTypedCount(ComputeRigidPairType(
+                                            shapeTypeA, g_ColliderShapeTypes[otherColliderId]),
+                                        typedCounts);
                 }
                 continue;
             }
@@ -102,10 +105,14 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
 
             if (node.left < 0 && node.right < 0)
             {
-                const uint otherBodyId = node.primitiveIdx;
-                IncrementTypedCount(
-                    ComputeRigidPairType(shapeTypeA, g_RigidBodyColliderShapeTypes[otherBodyId]),
-                    typedCounts);
+                const uint otherColliderId = node.primitiveIdx;
+                const uint otherOwnerBody = g_ColliderOwnerRigidBodyIndices[otherColliderId];
+                if (otherOwnerBody != ownerBodyA)
+                {
+                    IncrementTypedCount(ComputeRigidPairType(
+                                            shapeTypeA, g_ColliderShapeTypes[otherColliderId]),
+                                        typedCounts);
+                }
                 continue;
             }
 
