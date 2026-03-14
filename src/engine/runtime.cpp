@@ -1,7 +1,5 @@
 #include "engine/runtime.h"
 
-#include "engine/physics_world_to_world_sync.h"
-#include "engine/world_to_physics_world_sync.h"
 #include "engine/world_to_render_world_sync.h"
 
 #include <iostream>
@@ -118,10 +116,9 @@ void Runtime::shutdown()
         mGpuDevice.reset();
     }
 
-    mLastRenderStats                = {};
-    mLastSyncedWorldRevision        = ~0ull;
-    mLastSyncedPhysicsWorldRevision = ~0ull;
-    mInitialized                    = false;
+    mLastRenderStats          = {};
+    mLastSyncedRenderRevision = ~0ull;
+    mInitialized              = false;
 }
 
 void Runtime::tick(const common::FrameContext& frameContext)
@@ -131,11 +128,10 @@ void Runtime::tick(const common::FrameContext& frameContext)
         return;
     }
 
-    (void)syncWorldToPhysicsWorld();
     bool physicsStepSucceeded = true;
     if (mPhysicsSolver)
     {
-        physicsStepSucceeded = mPhysicsSolver->step(frameContext, mPhysicsWorld);
+        physicsStepSucceeded = mPhysicsSolver->step(frameContext, mWorld.physicsWorld());
         if (!physicsStepSucceeded)
         {
             logPhysicsStepFailure(frameContext, mPhysicsSolver->lastStageStats());
@@ -143,7 +139,7 @@ void Runtime::tick(const common::FrameContext& frameContext)
     }
     if (physicsStepSucceeded)
     {
-        (void)syncPhysicsWorldToWorld();
+        mWorld.refreshFromPhysics();
     }
     const bool syncSkipped = syncWorldToRenderWorld();
 
@@ -196,34 +192,16 @@ const graphics::RenderResourceManager& Runtime::getResources() const noexcept
     return mResources;
 }
 
-bool Runtime::syncWorldToPhysicsWorld()
-{
-    if (mWorld.revision() == mLastSyncedWorldRevision)
-    {
-        return true;
-    }
-
-    detail::syncWorldToPhysicsWorld(mWorld, mPhysicsWorld);
-    return false;
-}
-
-bool Runtime::syncPhysicsWorldToWorld()
-{
-    detail::syncPhysicsWorldToWorld(mPhysicsWorld, mWorld);
-    mLastSyncedPhysicsWorldRevision = mPhysicsWorld.revision();
-    return true;
-}
-
 bool Runtime::syncWorldToRenderWorld()
 {
-    if (mWorld.revision() == mLastSyncedWorldRevision)
+    if (mWorld.renderRevision() == mLastSyncedRenderRevision)
     {
         return true;
     }
 
     detail::syncWorldToRenderWorld(mWorld, mRenderWorld);
-    mWorld.clearDirtyEntities();
-    mLastSyncedWorldRevision = mWorld.revision();
+    mWorld.clearRenderDirtyEntities();
+    mLastSyncedRenderRevision = mWorld.renderRevision();
     return false;
 }
 

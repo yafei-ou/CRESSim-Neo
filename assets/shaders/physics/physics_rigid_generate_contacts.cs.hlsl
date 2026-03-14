@@ -1,9 +1,14 @@
 #include "physics/include/physics_rigid_common.hlsli"
+#include "physics/include/physics_rigid_dispatch_constants.hlsli"
 
 StructuredBuffer<float4> g_PredictedRigidBodyPositionsInvMass;
 StructuredBuffer<float4> g_PredictedRigidBodyOrientations;
 StructuredBuffer<float4> g_RigidBodyScales;
-StructuredBuffer<float4> g_RigidBodyColliderParams;
+StructuredBuffer<uint> g_ColliderOwnerRigidBodyIndices;
+StructuredBuffer<uint> g_ColliderShapeTypes;
+StructuredBuffer<float4> g_ColliderShapeParams;
+StructuredBuffer<float4> g_ColliderLocalPositions;
+StructuredBuffer<float4> g_ColliderLocalOrientations;
 StructuredBuffer<GpuCandidatePair> g_CandidatePairs;
 StructuredBuffer<GpuNarrowPhaseChunk> g_NarrowPhaseChunks;
 StructuredBuffer<GpuNarrowPhaseMeta> g_NarrowPhaseMeta;
@@ -410,8 +415,11 @@ void TryInsertManifoldCandidate(float3 pointAWorld, float3 pointBWorld, float pe
 }
 
 uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
-                                    float3 centerA, float4 orientationA, float4 colliderParamsA, float4 scaleA,
-                                    float3 centerB, float4 orientationB, float4 colliderParamsB, float4 scaleB,
+                                    float3 bodyPositionA, float4 bodyOrientationA,
+                                    float3 centerA, float4 orientationA, float4 colliderParamsA,
+                                    float4 scaleA, float3 bodyPositionB, float4 bodyOrientationB,
+                                    float3 centerB, float4 orientationB, float4 colliderParamsB,
+                                    float4 scaleB,
                                     float3 normalAtoB,
                                     inout GpuRigidContact contacts[kRigidContactsPerPair])
 {
@@ -619,9 +627,13 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
     contacts[selectedCount].reserved = 0u;
     contacts[selectedCount].normalPenetration = float4(n, candidates[deepestIndex].penetration);
     contacts[selectedCount].localPointA =
-        float4(QuaternionInverseRotate(orientationA, candidates[deepestIndex].pointAWorld - centerA), 1.0);
+        float4(QuaternionInverseRotate(bodyOrientationA,
+                                       candidates[deepestIndex].pointAWorld - bodyPositionA),
+               1.0);
     contacts[selectedCount].localPointB =
-        float4(QuaternionInverseRotate(orientationB, candidates[deepestIndex].pointBWorld - centerB), 1.0);
+        float4(QuaternionInverseRotate(bodyOrientationB,
+                                       candidates[deepestIndex].pointBWorld - bodyPositionB),
+               1.0);
     ++selectedCount;
 
     // Fill remaining contacts by maximizing planar spread.
@@ -668,9 +680,13 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
         contacts[selectedCount].reserved = 0u;
         contacts[selectedCount].normalPenetration = float4(n, candidates[bestIndex].penetration);
         contacts[selectedCount].localPointA =
-            float4(QuaternionInverseRotate(orientationA, candidates[bestIndex].pointAWorld - centerA), 1.0);
+            float4(QuaternionInverseRotate(bodyOrientationA,
+                                           candidates[bestIndex].pointAWorld - bodyPositionA),
+                   1.0);
         contacts[selectedCount].localPointB =
-            float4(QuaternionInverseRotate(orientationB, candidates[bestIndex].pointBWorld - centerB), 1.0);
+            float4(QuaternionInverseRotate(bodyOrientationB,
+                                           candidates[bestIndex].pointBWorld - bodyPositionB),
+                   1.0);
         ++selectedCount;
     }
 
@@ -700,33 +716,48 @@ void ProcessPair(uint pairIndex, uint pairType)
     const uint contactBaseIndex = pairIndex * kRigidContactsPerPair;
 
     const GpuCandidatePair pair = g_CandidatePairs[pairIndex];
-    const uint bodyA = pair.bodyA;
-    const uint bodyB = pair.bodyB;
-
-    const float4 positionInvMassA = g_PredictedRigidBodyPositionsInvMass[bodyA];
-    const float4 positionInvMassB = g_PredictedRigidBodyPositionsInvMass[bodyB];
-    if (positionInvMassA.w == 0.0 && positionInvMassB.w == 0.0)
+    const uint colliderA = pair.colliderA;
+    const uint colliderB = pair.colliderB;
+    const uint bodyA = g_ColliderOwnerRigidBodyIndices[colliderA];
+    const uint bodyB = g_ColliderOwnerRigidBodyIndices[colliderB];
+    if (bodyA >= rigidBodyCount || bodyB >= rigidBodyCount || bodyA == bodyB)
     {
         return;
     }
 
-    const float4 orientationA = QuaternionNormalize(g_PredictedRigidBodyOrientations[bodyA]);
-    const float4 orientationB = QuaternionNormalize(g_PredictedRigidBodyOrientations[bodyB]);
-    const float4 colliderParamsA = g_RigidBodyColliderParams[bodyA];
-    const float4 colliderParamsB = g_RigidBodyColliderParams[bodyB];
+    const float4 bodyPositionInvMassA = g_PredictedRigidBodyPositionsInvMass[bodyA];
+    const float4 bodyPositionInvMassB = g_PredictedRigidBodyPositionsInvMass[bodyB];
+    if (bodyPositionInvMassA.w == 0.0 && bodyPositionInvMassB.w == 0.0)
+    {
+        return;
+    }
+
+    const float4 bodyOrientationA =
+        QuaternionNormalize(g_PredictedRigidBodyOrientations[bodyA]);
+    const float4 bodyOrientationB =
+        QuaternionNormalize(g_PredictedRigidBodyOrientations[bodyB]);
+    const float4 colliderParamsA = g_ColliderShapeParams[colliderA];
+    const float4 colliderParamsB = g_ColliderShapeParams[colliderB];
     const float4 scaleA = g_RigidBodyScales[bodyA];
     const float4 scaleB = g_RigidBodyScales[bodyB];
-    uint shapeTypeA = 0u;
-    uint shapeTypeB = 0u;
-    PairTypeToShapeTypes(pairType, shapeTypeA, shapeTypeB);
+    const uint shapeTypeA = g_ColliderShapeTypes[colliderA];
+    const uint shapeTypeB = g_ColliderShapeTypes[colliderB];
+    const float3 colliderPositionA = ComposeColliderWorldPosition(
+        bodyPositionInvMassA.xyz, bodyOrientationA, g_ColliderLocalPositions[colliderA].xyz * scaleA.xyz);
+    const float3 colliderPositionB = ComposeColliderWorldPosition(
+        bodyPositionInvMassB.xyz, bodyOrientationB, g_ColliderLocalPositions[colliderB].xyz * scaleB.xyz);
+    const float4 colliderOrientationA = ComposeColliderWorldOrientation(
+        bodyOrientationA, QuaternionNormalize(g_ColliderLocalOrientations[colliderA]));
+    const float4 colliderOrientationB = ComposeColliderWorldOrientation(
+        bodyOrientationB, QuaternionNormalize(g_ColliderLocalOrientations[colliderB]));
 
     float3 aabbMinA;
     float3 aabbMaxA;
     float3 aabbMinB;
     float3 aabbMaxB;
-    ComputeBodyAabb(shapeTypeA, positionInvMassA.xyz, orientationA, colliderParamsA, scaleA,
+    ComputeBodyAabb(shapeTypeA, colliderPositionA, colliderOrientationA, colliderParamsA, scaleA,
                     aabbMinA, aabbMaxA);
-    ComputeBodyAabb(shapeTypeB, positionInvMassB.xyz, orientationB, colliderParamsB, scaleB,
+    ComputeBodyAabb(shapeTypeB, colliderPositionB, colliderOrientationB, colliderParamsB, scaleB,
                     aabbMinB, aabbMaxB);
     if (!AabbOverlaps(aabbMinA, aabbMaxA, aabbMinB, aabbMaxB))
     {
@@ -745,8 +776,9 @@ void ProcessPair(uint pairIndex, uint pairType)
         uint satAxisType = kObbAxisFaceA;
         uint satAxisA = 0u;
         uint satAxisB = 0u;
-        if (!ComputeBoxBoxSat(positionInvMassA.xyz, orientationA, BoxHalfExtents(colliderParamsA, scaleA),
-                              positionInvMassB.xyz, orientationB, BoxHalfExtents(colliderParamsB, scaleB),
+        if (!ComputeBoxBoxSat(colliderPositionA, colliderOrientationA,
+                              BoxHalfExtents(colliderParamsA, scaleA), colliderPositionB,
+                              colliderOrientationB, BoxHalfExtents(colliderParamsB, scaleB),
                               satNormal, satPenetration, satAxisType, satAxisA, satAxisB))
         {
             return;
@@ -769,9 +801,12 @@ void ProcessPair(uint pairIndex, uint pairType)
         }
 
         const uint manifoldCount =
-            GenerateBoxBoxManifoldContacts(bodyA, bodyB, positionInvMassA.xyz, orientationA,
-                                           colliderParamsA, scaleA, positionInvMassB.xyz,
-                                           orientationB, colliderParamsB, scaleB, contactNormal,
+            GenerateBoxBoxManifoldContacts(bodyA, bodyB, bodyPositionInvMassA.xyz,
+                                           bodyOrientationA, colliderPositionA,
+                                           colliderOrientationA, colliderParamsA, scaleA,
+                                           bodyPositionInvMassB.xyz, bodyOrientationB,
+                                           colliderPositionB, colliderOrientationB,
+                                           colliderParamsB, scaleB, contactNormal,
                                            manifoldContacts);
         if (manifoldCount > 0u)
         {
@@ -787,8 +822,9 @@ void ProcessPair(uint pairIndex, uint pairType)
         }
     }
 
-    if (!GenerateRigidContact(shapeTypeA, positionInvMassA.xyz, orientationA, colliderParamsA, scaleA,
-                              shapeTypeB, positionInvMassB.xyz, orientationB, colliderParamsB, scaleB,
+    if (!GenerateRigidContact(shapeTypeA, colliderPositionA, colliderOrientationA, colliderParamsA,
+                              scaleA, shapeTypeB, colliderPositionB, colliderOrientationB,
+                              colliderParamsB, scaleB,
                               normalAtoB, pointAWorld, pointBWorld, penetration) ||
         penetration <= 0.0)
     {
@@ -803,8 +839,12 @@ void ProcessPair(uint pairIndex, uint pairType)
     contact.active = 1u;
     contact.reserved = 0u;
     contact.normalPenetration = float4(contactNormal, penetration);
-    contact.localPointA = float4(QuaternionInverseRotate(orientationA, pointAWorld - positionInvMassA.xyz), 1.0);
-    contact.localPointB = float4(QuaternionInverseRotate(orientationB, pointBWorld - positionInvMassB.xyz), 1.0);
+    contact.localPointA =
+        float4(QuaternionInverseRotate(bodyOrientationA, pointAWorld - bodyPositionInvMassA.xyz),
+               1.0);
+    contact.localPointB =
+        float4(QuaternionInverseRotate(bodyOrientationB, pointBWorld - bodyPositionInvMassB.xyz),
+               1.0);
     g_RigidContacts[contactBaseIndex] = contact;
 }
 

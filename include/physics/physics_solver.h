@@ -4,6 +4,7 @@
 #include "common/frame_context.h"
 #include "gpu/gpu_device.h"
 #include "physics/export.h"
+#include "physics/physics_gpu_scene_view.h"
 #include "physics/physics_world.h"
 
 #include <array>
@@ -51,6 +52,7 @@ public:
     void shutdown();
     bool step(const common::FrameContext& frameContext, PhysicsWorld& world);
     const PhysicsSolverStageStats& lastStageStats() const noexcept;
+    PhysicsGpuSceneView gpuSceneView() const noexcept;
 
 private:
     struct Impl;

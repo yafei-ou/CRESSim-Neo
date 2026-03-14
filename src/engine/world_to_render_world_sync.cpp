@@ -5,7 +5,7 @@ namespace cressim::neo::engine::detail
 
 void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWorld)
 {
-    for (const common::EntityId entityId : world.dirtyEntities())
+    for (const common::EntityId entityId : world.renderDirtyEntities())
     {
         if (!world.isAlive(entityId))
         {
@@ -16,12 +16,12 @@ void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWor
             continue;
         }
 
-        const TransformComponent* transform = world.tryGetTransform(entityId);
-        const common::Transform worldTransform =
-            transform ? transform->worldTransform : common::Transform{};
+        const std::optional<TransformComponent> transform = world.tryGetTransform(entityId);
+        const common::Transform worldTransform = transform ? transform->worldTransform
+                                                           : common::Transform{};
 
-        const MeshRendererComponent* meshRenderer = world.tryGetMeshRenderer(entityId);
-        if (meshRenderer != nullptr && meshRenderer->visible)
+        const std::optional<MeshRendererComponent> meshRenderer = world.tryGetMeshRenderer(entityId);
+        if (meshRenderer && meshRenderer->visible)
         {
             graphics::RenderableInstance renderable{};
             renderable.entityId       = entityId;
@@ -35,8 +35,8 @@ void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWor
             (void)renderWorld.removeRenderable(entityId);
         }
 
-        const CameraComponent* camera = world.tryGetCamera(entityId);
-        if (camera != nullptr)
+        const std::optional<CameraComponent> camera = world.tryGetCamera(entityId);
+        if (camera)
         {
             graphics::CameraData cameraData{};
             cameraData.entityId           = entityId;
@@ -56,8 +56,9 @@ void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWor
             (void)renderWorld.removeCamera(entityId);
         }
 
-        const DirectionalLightComponent* directionalLight = world.tryGetDirectionalLight(entityId);
-        if (directionalLight != nullptr)
+        const std::optional<DirectionalLightComponent> directionalLight =
+            world.tryGetDirectionalLight(entityId);
+        if (directionalLight)
         {
             graphics::DirectionalLightData lightData{};
             lightData.entityId           = entityId;

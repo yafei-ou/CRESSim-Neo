@@ -11,6 +11,16 @@
 namespace cressim::neo::engine
 {
 
+struct ColliderHandle
+{
+    std::uint32_t id = 0;
+
+    [[nodiscard]] bool isValid() const noexcept
+    {
+        return id != 0u;
+    }
+};
+
 struct TransformComponent
 {
     common::Transform worldTransform{};
@@ -26,6 +36,7 @@ struct MeshRendererComponent
 struct CameraComponent
 {
     float verticalFovDegrees = 60.0f;
+    float aspectRatio        = 1.0f;
     float nearClip           = 0.01f;
     float farClip            = 1000.0f;
 
@@ -57,12 +68,25 @@ struct RigidBodyComponent
     Diligent::float3 inverseInertiaLocal{1.0f, 1.0f, 1.0f};
     physics::RigidBodyType bodyType          = physics::RigidBodyType::Dynamic;
     float inverseMass                        = 1.0f;
-    physics::ColliderShapeType colliderShape = physics::ColliderShapeType::Sphere;
-    Diligent::float4 colliderParams{0.5f, 0.0f, 0.0f, 0.0f};
     Diligent::float3 kinematicTargetPosition{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF kinematicTargetRotation{0.0f, 0.0f, 0.0f, 1.0f};
     bool kinematicTargetEnabled = false;
     bool simulated              = true;
+};
+
+struct ColliderComponent
+{
+    physics::ColliderShapeType shapeType = physics::ColliderShapeType::Sphere;
+    Diligent::float4 shapeParams{0.5f, 0.0f, 0.0f, 0.0f};
+    Diligent::float3 localPosition{0.0f, 0.0f, 0.0f};
+    Diligent::QuaternionF localRotation{0.0f, 0.0f, 0.0f, 1.0f};
+    bool enabled = true;
+
+    // Reserved for later material/filtering support.
+    float friction                = 0.5f;
+    float restitution             = 0.0f;
+    std::uint32_t collisionLayer  = 1u;
+    std::uint32_t collisionMask   = 0xffffffffu;
 };
 
 } // namespace cressim::neo::engine

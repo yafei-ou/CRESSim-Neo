@@ -1,6 +1,7 @@
 #ifndef CRESSIM_NEO_PHYSICS_PHYSICS_SCENE_GPU_STATE_H
 #define CRESSIM_NEO_PHYSICS_PHYSICS_SCENE_GPU_STATE_H
 
+#include "physics/physics_gpu_scene_view.h"
 #include "physics/physics_world.h"
 #include "physics/rigid_body_common.h"
 
@@ -28,11 +29,19 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> angularVelocitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> inverseInertiaLocalBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyTypesBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> colliderShapeTypesBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> colliderParamsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> kinematicTargetPositionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> kinematicTargetOrientationsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> kinematicTargetFlagsBuffer;
+    };
+
+    struct PersistentColliderBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> ownerRigidBodyIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeTypesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeParamsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> localPositionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> localOrientationsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> enabledFlagsBuffer;
     };
 
     struct PredictedRigidBodyBuffers
@@ -111,9 +120,9 @@ public:
     };
 
     bool ensureCapacity(Diligent::IRenderDevice* renderDevice, std::uint32_t bodyCount,
-                        std::uint32_t physicsContextId);
-    bool uploadRigidBodyState(Diligent::IDeviceContext* computeContext, PhysicsWorld& world,
-                              std::uint32_t bodyCount);
+                        std::uint32_t colliderCount, std::uint32_t physicsContextId);
+    bool uploadWorldState(Diligent::IDeviceContext* computeContext, PhysicsWorld& world,
+                          std::uint32_t bodyCount, std::uint32_t colliderCount);
     bool copyPredictedRigidBodiesToPersistentState(Diligent::IDeviceContext* computeContext,
                                                    std::uint32_t bodyCount);
     bool readbackBroadPhaseMetaBlocking(Diligent::IDeviceContext* computeContext,
@@ -122,18 +131,24 @@ public:
                                              PhysicsWorld& world, std::uint32_t bodyCount);
 
     const PersistentRigidBodyBuffers& persistentRigidBodies() const noexcept;
+    const PersistentColliderBuffers& persistentColliders() const noexcept;
     const SolverTransientBuffers& transientBuffers() const noexcept;
     std::uint32_t candidatePairCapacity() const noexcept;
     bool correctionBuffersNeedClear() const noexcept;
     void setCorrectionBuffersNeedClear(bool needClear) noexcept;
     bool staticBroadPhaseDirty() const noexcept;
     void setStaticBroadPhaseDirty(bool dirty) noexcept;
+    PhysicsGpuSceneView sceneView() const noexcept;
 
 private:
     PersistentRigidBodyBuffers mPersistentRigidBodies;
+    PersistentColliderBuffers mPersistentColliders;
     SolverTransientBuffers mTransientState;
     RigidBodyReadbackBuffers mReadbackRigidBodies;
-    std::uint32_t mBufferCapacity         = 0;
+    std::uint32_t mRigidBodyCapacity      = 0;
+    std::uint32_t mColliderCapacity       = 0;
+    std::uint32_t mRigidBodyCount         = 0;
+    std::uint32_t mColliderCount          = 0;
     std::uint32_t mBroadPhaseNodeCapacity = 0;
     std::uint32_t mCandidatePairCapacity  = 0;
     std::uint32_t mContactCapacity        = 0;

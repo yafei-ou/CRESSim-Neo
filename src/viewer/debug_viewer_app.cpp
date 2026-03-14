@@ -244,17 +244,18 @@ public:
             return false;
         }
 
-        const CameraComponent* existingCamera = world.tryGetCamera(cameraBinding.cameraEntity);
-        if (existingCamera == nullptr)
+        const std::optional<CameraComponent> existingCamera =
+            world.tryGetCamera(cameraBinding.cameraEntity);
+        if (!existingCamera)
         {
             std::cerr << "DebugViewerApp: bound entity has no CameraComponent.\n";
             return false;
         }
 
         TransformComponent transform{};
-        const TransformComponent* existingTransform =
+        const std::optional<TransformComponent> existingTransform =
             world.tryGetTransform(cameraBinding.cameraEntity);
-        if (existingTransform != nullptr)
+        if (existingTransform)
         {
             transform = *existingTransform;
         }

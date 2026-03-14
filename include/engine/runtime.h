@@ -9,7 +9,6 @@
 #include "graphics/render_world.h"
 #include "graphics/renderer.h"
 #include "physics/physics_solver.h"
-#include "physics/physics_world.h"
 
 #include <cstdint>
 #include <memory>
@@ -46,19 +45,15 @@ public:
 
 private:
     bool syncWorldToRenderWorld();
-    bool syncWorldToPhysicsWorld();
-    bool syncPhysicsWorldToWorld();
 
     bool mInitialized = false;
     std::unique_ptr<gpu::GpuDevice> mGpuDevice;
     std::unique_ptr<physics::PhysicsSolver> mPhysicsSolver;
     std::unique_ptr<graphics::Renderer> mRenderer;
     graphics::RenderStats mLastRenderStats{};
-    std::uint64_t mLastSyncedPhysicsWorldRevision = ~0ull;
-    std::uint64_t mLastSyncedWorldRevision        = ~0ull;
+    std::uint64_t mLastSyncedRenderRevision       = ~0ull;
     World mWorld;
     graphics::RenderResourceManager mResources;
-    physics::PhysicsWorld mPhysicsWorld;
     graphics::RenderWorld mRenderWorld;
 };
 

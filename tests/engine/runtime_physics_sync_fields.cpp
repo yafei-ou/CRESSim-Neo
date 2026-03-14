@@ -1,8 +1,5 @@
 #include "engine/components.h"
-#include "engine/physics_world_to_world_sync.h"
 #include "engine/world.h"
-#include "engine/world_to_physics_world_sync.h"
-#include "physics/physics_world.h"
 
 #include <cstdint>
 #include <cmath>
@@ -13,7 +10,6 @@ int main()
     using namespace cressim::neo;
 
     engine::World world;
-    physics::PhysicsWorld physicsWorld;
 
     const common::EntityId entity = world.createEntity();
     engine::TransformComponent transform{};
@@ -27,25 +23,32 @@ int main()
     rigidBody.inverseMass = 0.5f;
     rigidBody.linearVelocity = {2.0f, 0.0f, -1.0f};
     rigidBody.angularVelocity = {0.0f, 3.0f, 0.0f};
-    rigidBody.colliderShape = physics::ColliderShapeType::Capsule;
-    rigidBody.colliderParams = {0.7f, 1.4f, 0.0f, 0.0f};
     rigidBody.kinematicTargetPosition = {7.0f, 8.0f, 9.0f};
     rigidBody.kinematicTargetRotation = {0.0f, 0.0f, 0.2588190f, 0.9659258f};
     rigidBody.kinematicTargetEnabled = true;
     world.setRigidBody(entity, rigidBody);
+    engine::ColliderComponent collider{};
+    collider.shapeType = physics::ColliderShapeType::Capsule;
+    collider.shapeParams = {0.7f, 1.4f, 0.0f, 0.0f};
+    world.addCollider(entity, collider);
 
-    engine::detail::syncWorldToPhysicsWorld(world, physicsWorld);
-    const physics::RigidBodyState* state = physicsWorld.tryGetRigidBody(entity);
+    const physics::RigidBodyState* state = world.physicsWorld().tryGetRigidBody(entity);
     if (state == nullptr)
     {
         std::cerr << "Rigid body missing in physics world.\n";
         return 1;
     }
+    if (world.physicsWorld().colliderCount() != 1u)
+    {
+        std::cerr << "Collider missing in physics world.\n";
+        return 1;
+    }
+    const physics::ColliderState& colliderState = world.physicsWorld().colliderSnapshot().front();
     if (state->bodyType != rigidBody.bodyType ||
         state->angularVelocity.y != rigidBody.angularVelocity.y ||
-        static_cast<std::uint32_t>(state->colliderShape) !=
+        static_cast<std::uint32_t>(colliderState.shapeType) !=
             static_cast<std::uint32_t>(physics::ColliderShapeType::Capsule) ||
-        state->colliderParams.x != rigidBody.colliderParams.x ||
+        colliderState.shapeParams.x != collider.shapeParams.x ||
         state->kinematicTargetPosition.x != rigidBody.kinematicTargetPosition.x ||
         state->kinematicTargetRotation.q.z != rigidBody.kinematicTargetRotation.q.z ||
         !state->kinematicTargetEnabled)
@@ -60,17 +63,17 @@ int main()
                                         state->linearVelocity.z, 0.0f};
     const Diligent::float4 writebackAng{state->angularVelocity.x, state->angularVelocity.y,
                                         state->angularVelocity.z, 0.0f};
-    if (!physicsWorld.writeBackRigidBodyState(0u, writebackPos, writebackRot, writebackLin,
-                                              writebackAng))
+    if (!world.physicsWorld().writeBackRigidBodyState(0u, writebackPos, writebackRot, writebackLin,
+                                                      writebackAng))
     {
         std::cerr << "Failed to write back rigid state into physics world.\n";
         return 1;
     }
-    physicsWorld.finalizeRigidBodyWriteback();
+    world.physicsWorld().finalizeRigidBodyWriteback();
 
-    engine::detail::syncPhysicsWorldToWorld(physicsWorld, world);
-    const engine::TransformComponent* syncedTransform = world.tryGetTransform(entity);
-    if (syncedTransform == nullptr)
+    world.refreshFromPhysics();
+    const std::optional<engine::TransformComponent> syncedTransform = world.tryGetTransform(entity);
+    if (!syncedTransform)
     {
         std::cerr << "Physics->world sync removed transform unexpectedly.\n";
         return 1;
@@ -91,8 +94,8 @@ int main()
         return 1;
     }
 
-    const engine::RigidBodyComponent* syncedRigidBody = world.tryGetRigidBody(entity);
-    if (syncedRigidBody == nullptr || syncedRigidBody->bodyType != physics::RigidBodyType::Kinematic ||
+    const std::optional<engine::RigidBodyComponent> syncedRigidBody = world.tryGetRigidBody(entity);
+    if (!syncedRigidBody || syncedRigidBody->bodyType != physics::RigidBodyType::Kinematic ||
         !syncedRigidBody->kinematicTargetEnabled ||
         std::fabs(syncedRigidBody->kinematicTargetPosition.x - rigidBody.kinematicTargetPosition.x) > 1e-5f)
     {

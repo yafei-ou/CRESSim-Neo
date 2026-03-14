@@ -234,9 +234,11 @@ int main(int argc, char** argv)
     rigidBody.inverseMass = 1.0f;
     rigidBody.linearVelocity = {0.25f, 0.0f, 0.0f};
     rigidBody.angularVelocity = {0.0f, 0.1f, 0.0f};
-    rigidBody.colliderShape = cressim::neo::physics::ColliderShapeType::Sphere;
-    rigidBody.colliderParams = {0.4f, 0.0f, 0.0f, 0.0f};
     world.setRigidBody(rigidEntity, rigidBody);
+    cressim::neo::engine::ColliderComponent rigidCollider{};
+    rigidCollider.shapeType = cressim::neo::physics::ColliderShapeType::Sphere;
+    rigidCollider.shapeParams = {0.4f, 0.0f, 0.0f, 0.0f};
+    world.addCollider(rigidEntity, rigidCollider);
 
     FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;

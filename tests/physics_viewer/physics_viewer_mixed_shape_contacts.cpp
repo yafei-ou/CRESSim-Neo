@@ -17,6 +17,7 @@ namespace
 
 using cressim::neo::common::FrameContext;
 using cressim::neo::engine::CameraComponent;
+using cressim::neo::engine::ColliderComponent;
 using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::RigidBodyComponent;
@@ -33,6 +34,9 @@ using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
 constexpr float kPi = 3.14159265358979323846f;
+constexpr float kCompositeChildHalfExtent = 0.60f;
+constexpr float kCompositeHalfExtent = 1.0f;
+constexpr float kCompositeChildOffset = kCompositeHalfExtent - kCompositeChildHalfExtent;
 
 GpuBackend parseBackend(const std::string& value)
 {
@@ -47,56 +51,21 @@ GpuBackend parseBackend(const std::string& value)
     throw std::invalid_argument("Unsupported backend: " + value);
 }
 
-ColliderShapeType parseColliderShape(const std::string& value)
-{
-    if (value == "sphere")
-    {
-        return ColliderShapeType::Sphere;
-    }
-    if (value == "box")
-    {
-        return ColliderShapeType::Box;
-    }
-    if (value == "capsule")
-    {
-        return ColliderShapeType::Capsule;
-    }
-    throw std::invalid_argument("Unsupported shape: " + value);
-}
-
-bool parseShapePair(const std::string& value, ColliderShapeType& outA,
-                    ColliderShapeType& outB)
-{
-    const std::size_t split = value.find('-');
-    if (split == std::string::npos || split == 0u || split + 1u >= value.size())
-    {
-        return false;
-    }
-
-    const std::string a = value.substr(0u, split);
-    const std::string b = value.substr(split + 1u);
-    outA = parseColliderShape(a);
-    outB = parseColliderShape(b);
-    return true;
-}
-
 void printUsage(const char* appName)
 {
-    std::cerr << "Usage: " << appName
-              << " [--backend vulkan|null] [--frames N] [--pair A-B]\n"
-              << "  Shapes: box, sphere, capsule\n"
-              << "  Unique pairs: box-box, box-sphere, box-capsule, sphere-sphere,\n"
-              << "                sphere-capsule, capsule-capsule\n";
+    std::cerr << "Usage: " << appName << " [--backend vulkan|null] [--frames N]\n";
 }
 
 MeshResourceDesc makeCubeMesh(float halfExtent)
 {
     MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerIntegration.CubeMesh";
+    mesh.debugName = "MixedShapeViewer.CubeMesh";
     mesh.vertices.reserve(24);
     mesh.indices.reserve(36);
 
-    const auto addFace = [&](const Diligent::float3& normal, const Diligent::float3& v0, const Diligent::float3& v1, const Diligent::float3& v2, const Diligent::float3& v3) {
+    const auto addFace = [&](const Diligent::float3& normal, const Diligent::float3& v0,
+                             const Diligent::float3& v1, const Diligent::float3& v2,
+                             const Diligent::float3& v3) {
         const std::uint32_t base = static_cast<std::uint32_t>(mesh.vertices.size());
         mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
         mesh.vertices.push_back({v1, normal, 1.0f, 0.0f});
@@ -124,7 +93,7 @@ MeshResourceDesc makeCubeMesh(float halfExtent)
 MeshResourceDesc makePlaneMesh(float halfExtent)
 {
     MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerIntegration.PlaneMesh";
+    mesh.debugName = "MixedShapeViewer.PlaneMesh";
     const float h = halfExtent;
     mesh.vertices = {
         {{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f},
@@ -138,7 +107,7 @@ MeshResourceDesc makePlaneMesh(float halfExtent)
 MeshResourceDesc makeSphereMesh(float radius, std::uint32_t slices, std::uint32_t stacks)
 {
     MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerIntegration.SphereMesh";
+    mesh.debugName = "MixedShapeViewer.SphereMesh";
     mesh.vertices.reserve((stacks + 1u) * (slices + 1u));
     mesh.indices.reserve(stacks * slices * 6u);
 
@@ -192,7 +161,7 @@ MeshResourceDesc makeCapsuleMesh(float radius, float halfHeight, std::uint32_t s
     };
 
     MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerIntegration.CapsuleMesh";
+    mesh.debugName = "MixedShapeViewer.CapsuleMesh";
     std::vector<Ring> rings;
     rings.reserve(2u * hemisphereRings + bodyRings + 2u);
 
@@ -310,14 +279,14 @@ Diligent::float4 colliderParamsForShape(ColliderShapeType shape)
     switch (shape)
     {
         case ColliderShapeType::Sphere:
-            return {0.65f, 0.0f, 0.0f, 0.0f};
+            return {0.6f, 0.0f, 0.0f, 0.0f};
         case ColliderShapeType::Box:
-            return {0.65f, 0.65f, 0.65f, 0.0f};
+            return {0.55f, 0.45f, 0.5f, 0.0f};
         case ColliderShapeType::Capsule:
-            return {0.40f, 0.60f, 0.0f, 0.0f};
+            return {0.35f, 0.55f, 0.0f, 0.0f};
     }
 
-    return {0.65f, 0.65f, 0.65f, 0.0f};
+    return {0.55f, 0.45f, 0.5f, 0.0f};
 }
 
 Diligent::float3 inverseInertiaForShape(ColliderShapeType shape,
@@ -340,6 +309,13 @@ Diligent::float3 inverseInertiaForShape(ColliderShapeType shape,
     return {0.0f, 0.0f, 0.0f};
 }
 
+struct BodySpawn
+{
+    ColliderShapeType shape = ColliderShapeType::Box;
+    Diligent::float3 position{0.0f, 0.0f, 0.0f};
+    cressim::neo::graphics::MaterialHandle material{};
+};
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -348,8 +324,6 @@ int main(int argc, char** argv)
     config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
     config.gpuDeviceDesc.enableValidation = false;
     std::uint64_t numFrames = 0;
-    ColliderShapeType shapeA = ColliderShapeType::Box;
-    ColliderShapeType shapeB = ColliderShapeType::Box;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -374,29 +348,6 @@ int main(int argc, char** argv)
             numFrames = static_cast<std::uint64_t>(std::strtoull(argv[++i], nullptr, 10));
             continue;
         }
-        if (arg == "--pair")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-
-            try
-            {
-                if (!parseShapePair(argv[++i], shapeA, shapeB))
-                {
-                    printUsage(argv[0]);
-                    return 2;
-                }
-            }
-            catch (const std::invalid_argument&)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            continue;
-        }
 
         printUsage(argv[0]);
         return 2;
@@ -410,8 +361,8 @@ int main(int argc, char** argv)
     viewerDesc.startFullscreenWindowed = true;
     viewerDesc.maxFrames = numFrames;
     viewerDesc.showStats = false;
-    viewerDesc.width = 640;
-    viewerDesc.height = 480;
+    viewerDesc.width = 960;
+    viewerDesc.height = 540;
 
     if (!viewer.initialize(viewerDesc, config))
     {
@@ -430,9 +381,11 @@ int main(int argc, char** argv)
     auto& world = runtime.getWorld();
     const auto cameraEntity = world.createEntity();
     TransformComponent cameraTransform{};
-    cameraTransform.worldTransform.position = {0.0f, 1.8f, -4.2f};
+    cameraTransform.worldTransform.position = {0.0f, 2.6f, -6.2f};
     world.setTransform(cameraEntity, cameraTransform);
-    world.setCamera(cameraEntity, CameraComponent{});
+    CameraComponent camera{};
+    camera.verticalFovDegrees = 52.0f;
+    world.setCamera(cameraEntity, camera);
 
     const auto lightEntity = world.createEntity();
     DirectionalLightComponent light{};
@@ -442,27 +395,26 @@ int main(int argc, char** argv)
     world.setDirectionalLight(lightEntity, light);
 
     auto& resources = runtime.getResources();
-    const auto cubeMesh = resources.registerMesh(makeCubeMesh(0.65f));
+    const auto cubeMesh = resources.registerMesh(makeCubeMesh(0.5f));
+    const auto largeCubeMesh = resources.registerMesh(makeCubeMesh(kCompositeHalfExtent));
     const auto planeMesh = resources.registerMesh(makePlaneMesh(8.0f));
-    const auto sphereMesh = resources.registerMesh(makeSphereMesh(0.65f, 20u, 12u));
-    const auto capsuleMesh = resources.registerMesh(makeCapsuleMesh(0.40f, 0.60f, 20u, 6u, 2u));
 
-    MaterialResourceDesc frontMaterialDesc{};
-    frontMaterialDesc.debugName = "ViewerIntegration.FrontMaterial";
-    frontMaterialDesc.baseColor = {0.95f, 0.10f, 0.08f};
-    frontMaterialDesc.metallic = 0.0f;
-    frontMaterialDesc.roughness = 0.45f;
-    const auto frontMaterial = resources.registerMaterial(frontMaterialDesc);
+    MaterialResourceDesc compositeMaterialDesc{};
+    compositeMaterialDesc.debugName = "MixedShapeViewer.CompositeBodyMaterial";
+    compositeMaterialDesc.baseColor = {0.16f, 0.62f, 0.96f};
+    compositeMaterialDesc.metallic = 0.0f;
+    compositeMaterialDesc.roughness = 0.40f;
+    const auto compositeMaterial = resources.registerMaterial(compositeMaterialDesc);
 
-    MaterialResourceDesc backMaterialDesc{};
-    backMaterialDesc.debugName = "ViewerIntegration.BackMaterial";
-    backMaterialDesc.baseColor = {0.10f, 0.85f, 0.12f};
-    backMaterialDesc.metallic = 0.0f;
-    backMaterialDesc.roughness = 0.45f;
-    const auto backMaterial = resources.registerMaterial(backMaterialDesc);
+    MaterialResourceDesc probeMaterialDesc{};
+    probeMaterialDesc.debugName = "MixedShapeViewer.ProbeBodyMaterial";
+    probeMaterialDesc.baseColor = {0.92f, 0.26f, 0.18f};
+    probeMaterialDesc.metallic = 0.0f;
+    probeMaterialDesc.roughness = 0.42f;
+    const auto probeMaterial = resources.registerMaterial(probeMaterialDesc);
 
     MaterialResourceDesc planeMaterialDesc{};
-    planeMaterialDesc.debugName = "ViewerIntegration.GroundMaterial";
+    planeMaterialDesc.debugName = "MixedShapeViewer.GroundMaterial";
     planeMaterialDesc.baseColor = {0.72f, 0.74f, 0.77f};
     planeMaterialDesc.metallic = 0.0f;
     planeMaterialDesc.roughness = 0.85f;
@@ -472,93 +424,110 @@ int main(int argc, char** argv)
     TransformComponent groundTransform{};
     groundTransform.worldTransform.position = {0.0f, -1.0f, 0.0f};
     world.setTransform(groundEntity, groundTransform);
-    MeshRendererComponent ground{};
-    ground.mesh = planeMesh;
-    ground.material = planeMaterial;
-    ground.visible = true;
-    world.setMeshRenderer(groundEntity, ground);
+    MeshRendererComponent groundMesh{};
+    groundMesh.mesh = planeMesh;
+    groundMesh.material = planeMaterial;
+    groundMesh.visible = true;
+    world.setMeshRenderer(groundEntity, groundMesh);
     RigidBodyComponent groundBody{};
     groundBody.simulated = true;
     groundBody.bodyType = cressim::neo::physics::RigidBodyType::Static;
     groundBody.inverseMass = 0.0f;
     groundBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
     world.setRigidBody(groundEntity, groundBody);
-    cressim::neo::engine::ColliderComponent groundCollider{};
-    groundCollider.shapeType = cressim::neo::physics::ColliderShapeType::Box;
+    ColliderComponent groundCollider{};
+    groundCollider.shapeType = ColliderShapeType::Box;
     groundCollider.shapeParams = {8.0f, 0.05f, 8.0f, 0.0f};
     world.addCollider(groundEntity, groundCollider);
 
-    const auto meshForShape = [&](ColliderShapeType shape) {
-        switch (shape)
-        {
-            case ColliderShapeType::Sphere:
-                return sphereMesh;
-            case ColliderShapeType::Box:
-                return cubeMesh;
-            case ColliderShapeType::Capsule:
-                return capsuleMesh;
-        }
-        return cubeMesh;
+    const auto compositeEntity = world.createEntity();
+    TransformComponent compositeTransform{};
+    compositeTransform.worldTransform.position = {0.0f, 1.85f, 2.0f};
+    world.setTransform(compositeEntity, compositeTransform);
+
+    MeshRendererComponent compositeMesh{};
+    compositeMesh.mesh = largeCubeMesh;
+    compositeMesh.material = compositeMaterial;
+    compositeMesh.visible = true;
+    world.setMeshRenderer(compositeEntity, compositeMesh);
+
+    RigidBodyComponent compositeBody{};
+    compositeBody.simulated = true;
+    compositeBody.inverseMass = 1.0f;
+    compositeBody.inverseInertiaLocal =
+        computeBoxInverseInertia({kCompositeHalfExtent, kCompositeHalfExtent, kCompositeHalfExtent},
+                                 compositeBody.inverseMass);
+    world.setRigidBody(compositeEntity, compositeBody);
+
+    const std::vector<Diligent::float3> colliderOffsets = {
+        {-kCompositeChildOffset, -kCompositeChildOffset, -kCompositeChildOffset},
+        {kCompositeChildOffset, -kCompositeChildOffset, -kCompositeChildOffset},
+        {-kCompositeChildOffset, kCompositeChildOffset, -kCompositeChildOffset},
+        {kCompositeChildOffset, kCompositeChildOffset, -kCompositeChildOffset},
+        {-kCompositeChildOffset, -kCompositeChildOffset, kCompositeChildOffset},
+        {kCompositeChildOffset, -kCompositeChildOffset, kCompositeChildOffset},
+        {-kCompositeChildOffset, kCompositeChildOffset, kCompositeChildOffset},
+        {kCompositeChildOffset, kCompositeChildOffset, kCompositeChildOffset},
     };
 
-    const bool legacyBoxPair = (shapeA == ColliderShapeType::Box && shapeB == ColliderShapeType::Box);
-    const Diligent::float3 frontPosition = {0.65f, 1.25f, 2.25f};
-    const Diligent::float3 backPosition = {1.25f, 3.35f, 2.15f};
-    const Diligent::float3 backScale = legacyBoxPair
-                                           ? Diligent::float3{1.15f, 1.15f, 1.15f}
-                                           : Diligent::float3{1.0f, 1.0f, 1.0f};
-
-    const auto frontEntity = world.createEntity();
-    TransformComponent frontTransform{};
-    frontTransform.worldTransform.position = frontPosition;
-    world.setTransform(frontEntity, frontTransform);
-    MeshRendererComponent frontMesh{};
-    frontMesh.mesh = meshForShape(shapeA);
-    frontMesh.material = frontMaterial;
-    frontMesh.visible = true;
-    world.setMeshRenderer(frontEntity, frontMesh);
-    RigidBodyComponent frontBody{};
-    frontBody.simulated = true;
-    frontBody.inverseMass = 1.0f;
-    frontBody.inverseInertiaLocal =
-        inverseInertiaForShape(shapeA, colliderParamsForShape(shapeA), frontBody.inverseMass);
-    frontBody.linearVelocity = {0.0f, 0.0f, 0.0f};
-    world.setRigidBody(frontEntity, frontBody);
-    cressim::neo::engine::ColliderComponent frontCollider{};
-    frontCollider.shapeType = shapeA;
-    frontCollider.shapeParams = colliderParamsForShape(shapeA);
-    world.addCollider(frontEntity, frontCollider);
-
-    const auto backEntity = world.createEntity();
-    TransformComponent backTransform{};
-    backTransform.worldTransform.position = backPosition;
-    backTransform.worldTransform.scale = backScale;
-    world.setTransform(backEntity, backTransform);
-    MeshRendererComponent backMesh{};
-    backMesh.mesh = meshForShape(shapeB);
-    backMesh.material = backMaterial;
-    backMesh.visible = true;
-    world.setMeshRenderer(backEntity, backMesh);
-    RigidBodyComponent backBody{};
-    backBody.simulated = true;
-    backBody.inverseMass = 1.0f;
-    if (legacyBoxPair)
+    for (const Diligent::float3& offset : colliderOffsets)
     {
-        backBody.inverseInertiaLocal = computeBoxInverseInertia({0.65f * 1.15f, 0.65f * 1.15f,
-                                                                 0.65f * 1.15f},
-                                                                backBody.inverseMass);
+        ColliderComponent collider{};
+        collider.shapeType = ColliderShapeType::Box;
+        collider.shapeParams = {kCompositeChildHalfExtent, kCompositeChildHalfExtent,
+                                kCompositeChildHalfExtent, 0.0f};
+        collider.localPosition = offset;
+        world.addCollider(compositeEntity, collider);
     }
-    else
-    {
-        backBody.inverseInertiaLocal =
-            inverseInertiaForShape(shapeB, colliderParamsForShape(shapeB), backBody.inverseMass);
-    }
-    backBody.linearVelocity = {0.0f, 0.0f, 0.0f};
-    world.setRigidBody(backEntity, backBody);
-    cressim::neo::engine::ColliderComponent backCollider{};
-    backCollider.shapeType = shapeB;
-    backCollider.shapeParams = colliderParamsForShape(shapeB);
-    world.addCollider(backEntity, backCollider);
+
+    const auto singleColliderEntity = world.createEntity();
+    TransformComponent singleColliderTransform{};
+    singleColliderTransform.worldTransform.position = {3.6f, 1.85f, 2.0f};
+    world.setTransform(singleColliderEntity, singleColliderTransform);
+
+    MeshRendererComponent singleColliderMesh{};
+    singleColliderMesh.mesh = largeCubeMesh;
+    singleColliderMesh.material = probeMaterial;
+    singleColliderMesh.visible = true;
+    world.setMeshRenderer(singleColliderEntity, singleColliderMesh);
+
+    RigidBodyComponent singleColliderBody{};
+    singleColliderBody.simulated = true;
+    singleColliderBody.inverseMass = 1.0f;
+    singleColliderBody.inverseInertiaLocal =
+        computeBoxInverseInertia({kCompositeHalfExtent, kCompositeHalfExtent, kCompositeHalfExtent},
+                                 singleColliderBody.inverseMass);
+    world.setRigidBody(singleColliderEntity, singleColliderBody);
+
+    ColliderComponent singleCollider{};
+    singleCollider.shapeType = ColliderShapeType::Box;
+    singleCollider.shapeParams = {kCompositeHalfExtent, kCompositeHalfExtent,
+                                  kCompositeHalfExtent, 0.0f};
+    world.addCollider(singleColliderEntity, singleCollider);
+
+    // const auto probeEntity = world.createEntity();
+    // TransformComponent probeTransform{};
+    // probeTransform.worldTransform.position = {1.55f, 1.15f, 2.0f};
+    // probeTransform.worldTransform.scale = {0.9f, 0.9f, 0.9f};
+    // world.setTransform(probeEntity, probeTransform);
+
+    // MeshRendererComponent probeMesh{};
+    // probeMesh.mesh = cubeMesh;
+    // probeMesh.material = probeMaterial;
+    // probeMesh.visible = true;
+    // world.setMeshRenderer(probeEntity, probeMesh);
+
+    // RigidBodyComponent probeBody{};
+    // probeBody.simulated = true;
+    // probeBody.inverseMass = 1.0f;
+    // probeBody.inverseInertiaLocal = computeBoxInverseInertia({0.45f, 0.45f, 0.45f},
+    //                                                          probeBody.inverseMass);
+    // world.setRigidBody(probeEntity, probeBody);
+
+    // ColliderComponent probeCollider{};
+    // probeCollider.shapeType = ColliderShapeType::Box;
+    // probeCollider.shapeParams = {0.45f, 0.45f, 0.45f, 0.0f};
+    // world.addCollider(probeEntity, probeCollider);
 
     std::uint64_t beforeCalls = 0;
     std::uint64_t afterCalls = 0;
@@ -587,6 +556,6 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    std::cout << "Physics viewer passed. Frames=" << viewerDesc.maxFrames << '\n';
+    std::cout << "Physics mixed-shape viewer passed. Frames=" << viewerDesc.maxFrames << '\n';
     return 0;
 }

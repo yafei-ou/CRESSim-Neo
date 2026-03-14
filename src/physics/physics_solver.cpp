@@ -120,6 +120,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
     }
 
     const std::uint32_t rigidBodyCount = world.rigidBodyCount();
+    const std::uint32_t colliderCount  = world.colliderCount();
     if (rigidBodyCount == 0u)
     {
         markAllStagesSkipped(mImpl->stageStats);
@@ -127,15 +128,15 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
     }
 
     if (!mImpl->sceneState.ensureCapacity(computeBackend.renderDevice, rigidBodyCount,
-                                          computeBackend.contextId))
+                                          colliderCount, computeBackend.contextId))
     {
         LOG_ERROR_MESSAGE("PhysicsSolver::step failed: ensureCapacity.");
         return false;
     }
-    if (!mImpl->sceneState.uploadRigidBodyState(computeBackend.computeContext, world,
-                                                rigidBodyCount))
+    if (!mImpl->sceneState.uploadWorldState(computeBackend.computeContext, world, rigidBodyCount,
+                                            colliderCount))
     {
-        LOG_ERROR_MESSAGE("PhysicsSolver::step failed: uploadRigidBodyState.");
+        LOG_ERROR_MESSAGE("PhysicsSolver::step failed: uploadWorldState.");
         return false;
     }
 
@@ -148,6 +149,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         GpuRigidDispatchConstants constants{};
         constants.dt                    = substepDt;
         constants.rigidBodyCount        = rigidBodyCount;
+        constants.colliderCount         = colliderCount;
         constants.candidatePairCapacity = mImpl->sceneState.candidatePairCapacity();
         constants.substepIndex          = substep;
         constants.solverIterations      = iterations;
@@ -169,31 +171,34 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         markStage(mImpl->stageStats, PhysicsSolverStage::PredictState, true);
 
         if (!mImpl->passDispatcher.updateWorldAabbs(computeBackend.computeContext,
-                                                    mImpl->sceneState, rigidBodyCount, constants))
+                                                    mImpl->sceneState, colliderCount, constants))
         {
             LOG_ERROR_MESSAGE("PhysicsSolver::step failed: UpdateWorldAabbs dispatch.");
             return false;
         }
         markStage(mImpl->stageStats, PhysicsSolverStage::UpdateWorldAabbs, true);
 
-        if (!mImpl->passDispatcher.compactBroadPhaseBodySets(
-                computeBackend.computeContext, mImpl->sceneState, rigidBodyCount, constants))
+        if (colliderCount > 0u &&
+            !mImpl->passDispatcher.compactBroadPhaseBodySets(
+                computeBackend.computeContext, mImpl->sceneState, colliderCount, constants))
         {
             LOG_ERROR_MESSAGE("PhysicsSolver::step failed: BuildBroadPhase compaction dispatch.");
             return false;
         }
 
         GpuBroadPhaseMeta broadPhaseMeta{};
-        if (!mImpl->sceneState.readbackBroadPhaseMetaBlocking(computeBackend.computeContext,
+        if (colliderCount > 0u &&
+            !mImpl->sceneState.readbackBroadPhaseMetaBlocking(computeBackend.computeContext,
                                                               broadPhaseMeta))
         {
             LOG_ERROR_MESSAGE("PhysicsSolver::step failed: readbackBroadPhaseMetaBlocking.");
             return false;
         }
 
-        const std::uint32_t activeMovingCount = broadPhaseMeta.activeMovingCount;
-        constants.activeMovingCount           = activeMovingCount;
-        constants.staticBodyCount             = broadPhaseMeta.staticBodyCount;
+        const std::uint32_t activeMovingCount =
+            colliderCount > 0u ? broadPhaseMeta.activeMovingCount : 0u;
+        constants.activeMovingCount = activeMovingCount;
+        constants.staticBodyCount   = colliderCount > 0u ? broadPhaseMeta.staticBodyCount : 0u;
         bool builtBroadPhase                  = false;
         if (activeMovingCount > 0u)
         {
@@ -313,6 +318,11 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
 const PhysicsSolverStageStats& PhysicsSolver::lastStageStats() const noexcept
 {
     return mImpl->stageStats;
+}
+
+PhysicsGpuSceneView PhysicsSolver::gpuSceneView() const noexcept
+{
+    return mImpl != nullptr ? mImpl->sceneState.sceneView() : PhysicsGpuSceneView{};
 }
 
 } // namespace cressim::neo::physics

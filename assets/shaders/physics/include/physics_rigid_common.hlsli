@@ -104,8 +104,8 @@ struct GpuBvhConstructionInfo
 
 struct GpuCandidatePair
 {
-    uint bodyA;
-    uint bodyB;
+    uint colliderA;
+    uint colliderB;
     uint reserved0;
     uint reserved1;
 };
@@ -259,6 +259,17 @@ float3 QuaternionRotate(float4 q, float3 v)
 {
     const float3 t = 2.0 * cross(q.xyz, v);
     return v + q.w * t + cross(q.xyz, t);
+}
+
+float3 ComposeColliderWorldPosition(float3 bodyPosition, float4 bodyOrientation,
+                                    float3 colliderLocalPosition)
+{
+    return bodyPosition + QuaternionRotate(bodyOrientation, colliderLocalPosition);
+}
+
+float4 ComposeColliderWorldOrientation(float4 bodyOrientation, float4 colliderLocalOrientation)
+{
+    return QuaternionNormalize(QuaternionMul(bodyOrientation, colliderLocalOrientation));
 }
 
 float3 QuaternionInverseRotate(float4 q, float3 v)

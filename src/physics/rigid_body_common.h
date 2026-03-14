@@ -32,6 +32,7 @@ struct GpuRigidDispatchConstants
 {
     float dt                            = 0.0f;
     std::uint32_t rigidBodyCount        = 0;
+    std::uint32_t colliderCount         = 0;
     std::uint32_t activeMovingCount     = 0;
     std::uint32_t staticBodyCount       = 0;
     std::uint32_t candidatePairCount    = 0;
@@ -135,8 +136,8 @@ struct GpuBvhConstructionInfo
 
 struct GpuCandidatePair
 {
-    std::uint32_t bodyA     = 0;
-    std::uint32_t bodyB     = 0;
+    std::uint32_t colliderA = 0;
+    std::uint32_t colliderB = 0;
     std::uint32_t reserved0 = 0;
     std::uint32_t reserved1 = 0;
 };
@@ -188,7 +189,7 @@ struct GpuRigidContact
     Diligent::float4 localPointB{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
-static_assert(sizeof(GpuRigidDispatchConstants) == 44u);
+static_assert(sizeof(GpuRigidDispatchConstants) == 48u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
 static_assert(sizeof(GpuBroadPhaseBuildConstants) == 16u);

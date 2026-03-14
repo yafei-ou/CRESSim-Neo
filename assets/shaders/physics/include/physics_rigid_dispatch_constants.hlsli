@@ -6,6 +6,7 @@ cbuffer PhysicsRigidDispatchConstantsBuffer
 {
     float dt;
     uint rigidBodyCount;
+    uint colliderCount;
     uint activeMovingCount;
     uint staticBodyCount;
     uint candidatePairCount;
