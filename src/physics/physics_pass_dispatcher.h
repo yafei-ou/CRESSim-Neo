@@ -1,10 +1,10 @@
 #ifndef CRESSIM_NEO_PHYSICS_PHYSICS_PASS_DISPATCHER_H
 #define CRESSIM_NEO_PHYSICS_PHYSICS_PASS_DISPATCHER_H
 
-#include "physics/physics_compute_pass.h"
 #include "physics/physics_scene_gpu_state.h"
 #include "physics/rigid_body_common.h"
 
+#include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
@@ -95,30 +95,30 @@ private:
     gpu::ShaderLibrary mShaderLibrary{""};
     Diligent::Uint64 mPhysicsContextMask = 0;
 
-    ComputePass mPredictPass;
-    ComputePass mUpdateWorldAabbsPass;
-    ComputePass mScanBlockPass;
-    ComputePass mScanAddOffsetsPass;
-    ComputePass mCompactBodySetPass;
-    ComputePass mFinalizeActiveBodiesPass;
-    ComputePass mBuildBroadPhaseElementsPass;
-    ComputePass mReduceExtentElementsPass;
-    ComputePass mReduceExtentExtentsPass;
-    ComputePass mMortonCodesPass;
-    ComputePass mRadixClassifyPass;
-    ComputePass mRadixFinalizePass;
-    ComputePass mRadixScatterPass;
-    ComputePass mBvhHierarchyPass;
-    ComputePass mBvhBoundingBoxesPass;
-    ComputePass mCountPairsPass;
-    ComputePass mFinalizePairsPass;
-    ComputePass mEmitPairsPass;
-    ComputePass mBuildNarrowPhaseChunksPass;
-    ComputePass mGenerateContactsPass;
-    ComputePass mClearCorrectionsPass;
-    ComputePass mSolveGatherPass;
-    ComputePass mApplyCorrectionsPass;
-    ComputePass mUpdateVelocitiesPass;
+    gpu::GpuComputePass mPredictPass;
+    gpu::GpuComputePass mUpdateWorldAabbsPass;
+    gpu::GpuComputePass mScanBlockPass;
+    gpu::GpuComputePass mScanAddOffsetsPass;
+    gpu::GpuComputePass mCompactBodySetPass;
+    gpu::GpuComputePass mFinalizeActiveBodiesPass;
+    gpu::GpuComputePass mBuildBroadPhaseElementsPass;
+    gpu::GpuComputePass mReduceExtentElementsPass;
+    gpu::GpuComputePass mReduceExtentExtentsPass;
+    gpu::GpuComputePass mMortonCodesPass;
+    gpu::GpuComputePass mRadixClassifyPass;
+    gpu::GpuComputePass mRadixFinalizePass;
+    gpu::GpuComputePass mRadixScatterPass;
+    gpu::GpuComputePass mBvhHierarchyPass;
+    gpu::GpuComputePass mBvhBoundingBoxesPass;
+    gpu::GpuComputePass mCountPairsPass;
+    gpu::GpuComputePass mFinalizePairsPass;
+    gpu::GpuComputePass mEmitPairsPass;
+    gpu::GpuComputePass mBuildNarrowPhaseChunksPass;
+    gpu::GpuComputePass mGenerateContactsPass;
+    gpu::GpuComputePass mClearCorrectionsPass;
+    gpu::GpuComputePass mSolveGatherPass;
+    gpu::GpuComputePass mApplyCorrectionsPass;
+    gpu::GpuComputePass mUpdateVelocitiesPass;
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanConstantsBuffer;

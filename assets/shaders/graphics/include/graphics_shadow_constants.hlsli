@@ -6,6 +6,9 @@
 cbuffer GraphicsShadowPerPass
 {
     float4x4 g_LightViewProjection;
+    uint4 g_ShadowPassParams;
 };
+
+#define g_CascadeIndex g_ShadowPassParams.x
 
 #endif // !CRESSIM_NEO_GRAPHICS_SHADOW_CONSTANTS_HLSLI

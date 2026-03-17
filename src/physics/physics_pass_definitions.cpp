@@ -401,7 +401,7 @@ constexpr Diligent::ShaderResourceVariableDesc kUpdateVelocitiesVars[] = {
 
 } // namespace
 
-const ComputePassDefinition kPredict{
+const gpu::GpuComputePassDefinition kPredict{
     "physics/physics_rigid_predict.cs.hlsl",
     "CRESSimNeo.Physics.RigidPredict.CS",
     "CRESSimNeo.Physics.RigidPredict.PSO",
@@ -409,7 +409,7 @@ const ComputePassDefinition kPredict{
     std::size(kPredictVars),
 };
 
-const ComputePassDefinition kUpdateWorldAabbs{
+const gpu::GpuComputePassDefinition kUpdateWorldAabbs{
     "physics/physics_rigid_update_world_aabbs.cs.hlsl",
     "CRESSimNeo.Physics.RigidUpdateWorldAabbs.CS",
     "CRESSimNeo.Physics.RigidUpdateWorldAabbs.PSO",
@@ -417,7 +417,7 @@ const ComputePassDefinition kUpdateWorldAabbs{
     std::size(kUpdateWorldAabbsVars),
 };
 
-const ComputePassDefinition kScanBlock{
+const gpu::GpuComputePassDefinition kScanBlock{
     "physics/physics_scan_block.cs.hlsl",
     "CRESSimNeo.Physics.ScanBlock.CS",
     "CRESSimNeo.Physics.ScanBlock.PSO",
@@ -425,7 +425,7 @@ const ComputePassDefinition kScanBlock{
     std::size(kScanBlockVars),
 };
 
-const ComputePassDefinition kScanAddOffsets{
+const gpu::GpuComputePassDefinition kScanAddOffsets{
     "physics/physics_scan_add_offsets.cs.hlsl",
     "CRESSimNeo.Physics.ScanAddOffsets.CS",
     "CRESSimNeo.Physics.ScanAddOffsets.PSO",
@@ -433,7 +433,7 @@ const ComputePassDefinition kScanAddOffsets{
     std::size(kScanAddOffsetsVars),
 };
 
-const ComputePassDefinition kCompactBodySet{
+const gpu::GpuComputePassDefinition kCompactBodySet{
     "physics/physics_rigid_compact_body_set.cs.hlsl",
     "CRESSimNeo.Physics.RigidCompactBodySet.CS",
     "CRESSimNeo.Physics.RigidCompactBodySet.PSO",
@@ -441,7 +441,7 @@ const ComputePassDefinition kCompactBodySet{
     std::size(kCompactBodySetVars),
 };
 
-const ComputePassDefinition kFinalizeActiveBodies{
+const gpu::GpuComputePassDefinition kFinalizeActiveBodies{
     "physics/physics_rigid_finalize_active_bodies.cs.hlsl",
     "CRESSimNeo.Physics.RigidFinalizeActiveBodies.CS",
     "CRESSimNeo.Physics.RigidFinalizeActiveBodies.PSO",
@@ -449,7 +449,7 @@ const ComputePassDefinition kFinalizeActiveBodies{
     std::size(kFinalizeActiveBodiesVars),
 };
 
-const ComputePassDefinition kBuildBroadPhaseElements{
+const gpu::GpuComputePassDefinition kBuildBroadPhaseElements{
     "physics/physics_rigid_build_broad_phase_elements.cs.hlsl",
     "CRESSimNeo.Physics.RigidBuildBroadPhaseElements.CS",
     "CRESSimNeo.Physics.RigidBuildBroadPhaseElements.PSO",
@@ -457,7 +457,7 @@ const ComputePassDefinition kBuildBroadPhaseElements{
     std::size(kBuildBroadPhaseElementsVars),
 };
 
-const ComputePassDefinition kReduceExtentElements{
+const gpu::GpuComputePassDefinition kReduceExtentElements{
     "physics/physics_rigid_reduce_extent_elements.cs.hlsl",
     "CRESSimNeo.Physics.RigidReduceExtentElements.CS",
     "CRESSimNeo.Physics.RigidReduceExtentElements.PSO",
@@ -465,7 +465,7 @@ const ComputePassDefinition kReduceExtentElements{
     std::size(kReduceExtentElementsVars),
 };
 
-const ComputePassDefinition kReduceExtentExtents{
+const gpu::GpuComputePassDefinition kReduceExtentExtents{
     "physics/physics_rigid_reduce_extent_extents.cs.hlsl",
     "CRESSimNeo.Physics.RigidReduceExtentExtents.CS",
     "CRESSimNeo.Physics.RigidReduceExtentExtents.PSO",
@@ -473,7 +473,7 @@ const ComputePassDefinition kReduceExtentExtents{
     std::size(kReduceExtentExtentsVars),
 };
 
-const ComputePassDefinition kMortonCodes{
+const gpu::GpuComputePassDefinition kMortonCodes{
     "physics/physics_rigid_morton_codes.cs.hlsl",
     "CRESSimNeo.Physics.RigidMortonCodes.CS",
     "CRESSimNeo.Physics.RigidMortonCodes.PSO",
@@ -481,7 +481,7 @@ const ComputePassDefinition kMortonCodes{
     std::size(kMortonCodesVars),
 };
 
-const ComputePassDefinition kRadixClassify{
+const gpu::GpuComputePassDefinition kRadixClassify{
     "physics/physics_radix_classify.cs.hlsl",
     "CRESSimNeo.Physics.RigidRadixClassify.CS",
     "CRESSimNeo.Physics.RigidRadixClassify.PSO",
@@ -489,7 +489,7 @@ const ComputePassDefinition kRadixClassify{
     std::size(kRadixClassifyVars),
 };
 
-const ComputePassDefinition kRadixFinalize{
+const gpu::GpuComputePassDefinition kRadixFinalize{
     "physics/physics_radix_finalize.cs.hlsl",
     "CRESSimNeo.Physics.RigidRadixFinalize.CS",
     "CRESSimNeo.Physics.RigidRadixFinalize.PSO",
@@ -497,7 +497,7 @@ const ComputePassDefinition kRadixFinalize{
     std::size(kRadixFinalizeVars),
 };
 
-const ComputePassDefinition kRadixScatter{
+const gpu::GpuComputePassDefinition kRadixScatter{
     "physics/physics_radix_scatter.cs.hlsl",
     "CRESSimNeo.Physics.RigidRadixScatter.CS",
     "CRESSimNeo.Physics.RigidRadixScatter.PSO",
@@ -505,14 +505,14 @@ const ComputePassDefinition kRadixScatter{
     std::size(kRadixScatterVars),
 };
 
-const ComputePassDefinition kBvhHierarchy{
+const gpu::GpuComputePassDefinition kBvhHierarchy{
     "physics/physics_rigid_bvh_hierarchy.cs.hlsl",
     "CRESSimNeo.Physics.RigidBvhHierarchy.CS",
     "CRESSimNeo.Physics.RigidBvhHierarchy.PSO",
     kBvhHierarchyVars,
     std::size(kBvhHierarchyVars),
 };
-const ComputePassDefinition kBvhBoundingBoxes{
+const gpu::GpuComputePassDefinition kBvhBoundingBoxes{
     "physics/physics_rigid_bvh_bounding_boxes.cs.hlsl",
     "CRESSimNeo.Physics.RigidBvhBoundingBoxes.CS",
     "CRESSimNeo.Physics.RigidBvhBoundingBoxes.PSO",
@@ -520,7 +520,7 @@ const ComputePassDefinition kBvhBoundingBoxes{
     std::size(kBvhBoundingBoxesVars),
 };
 
-const ComputePassDefinition kCountPairs{
+const gpu::GpuComputePassDefinition kCountPairs{
     "physics/physics_rigid_count_pairs.cs.hlsl",
     "CRESSimNeo.Physics.RigidCountPairs.CS",
     "CRESSimNeo.Physics.RigidCountPairs.PSO",
@@ -528,7 +528,7 @@ const ComputePassDefinition kCountPairs{
     std::size(kCountPairsVars),
 };
 
-const ComputePassDefinition kFinalizePairs{
+const gpu::GpuComputePassDefinition kFinalizePairs{
     "physics/physics_rigid_finalize_pairs.cs.hlsl",
     "CRESSimNeo.Physics.RigidFinalizePairs.CS",
     "CRESSimNeo.Physics.RigidFinalizePairs.PSO",
@@ -536,7 +536,7 @@ const ComputePassDefinition kFinalizePairs{
     std::size(kFinalizePairsVars),
 };
 
-const ComputePassDefinition kEmitPairs{
+const gpu::GpuComputePassDefinition kEmitPairs{
     "physics/physics_rigid_emit_pairs.cs.hlsl",
     "CRESSimNeo.Physics.RigidEmitPairs.CS",
     "CRESSimNeo.Physics.RigidEmitPairs.PSO",
@@ -544,7 +544,7 @@ const ComputePassDefinition kEmitPairs{
     std::size(kEmitPairsVars),
 };
 
-const ComputePassDefinition kBuildNarrowPhaseChunks{
+const gpu::GpuComputePassDefinition kBuildNarrowPhaseChunks{
     "physics/physics_rigid_build_narrow_phase_chunks.cs.hlsl",
     "CRESSimNeo.Physics.RigidBuildNarrowPhaseChunks.CS",
     "CRESSimNeo.Physics.RigidBuildNarrowPhaseChunks.PSO",
@@ -552,7 +552,7 @@ const ComputePassDefinition kBuildNarrowPhaseChunks{
     std::size(kBuildNarrowPhaseChunksVars),
 };
 
-const ComputePassDefinition kGenerateContacts{
+const gpu::GpuComputePassDefinition kGenerateContacts{
     "physics/physics_rigid_generate_contacts.cs.hlsl",
     "CRESSimNeo.Physics.RigidGenerateContacts.CS",
     "CRESSimNeo.Physics.RigidGenerateContacts.PSO",
@@ -560,7 +560,7 @@ const ComputePassDefinition kGenerateContacts{
     std::size(kGenerateContactsVars),
 };
 
-const ComputePassDefinition kSolveGather{
+const gpu::GpuComputePassDefinition kSolveGather{
     "physics/physics_rigid_solve_gather.cs.hlsl",
     "CRESSimNeo.Physics.RigidSolveGather.CS",
     "CRESSimNeo.Physics.RigidSolveGather.PSO",
@@ -568,7 +568,7 @@ const ComputePassDefinition kSolveGather{
     std::size(kSolveGatherVars),
 };
 
-const ComputePassDefinition kClearCorrections{
+const gpu::GpuComputePassDefinition kClearCorrections{
     "physics/physics_rigid_clear_corrections.cs.hlsl",
     "CRESSimNeo.Physics.RigidClearCorrections.CS",
     "CRESSimNeo.Physics.RigidClearCorrections.PSO",
@@ -576,7 +576,7 @@ const ComputePassDefinition kClearCorrections{
     std::size(kClearCorrectionsVars),
 };
 
-const ComputePassDefinition kApplyCorrections{
+const gpu::GpuComputePassDefinition kApplyCorrections{
     "physics/physics_rigid_apply_corrections.cs.hlsl",
     "CRESSimNeo.Physics.RigidApplyCorrections.CS",
     "CRESSimNeo.Physics.RigidApplyCorrections.PSO",
@@ -584,7 +584,7 @@ const ComputePassDefinition kApplyCorrections{
     std::size(kApplyCorrectionsVars),
 };
 
-const ComputePassDefinition kUpdateVelocities{
+const gpu::GpuComputePassDefinition kUpdateVelocities{
     "physics/physics_rigid_update_velocities.cs.hlsl",
     "CRESSimNeo.Physics.RigidUpdateVelocities.CS",
     "CRESSimNeo.Physics.RigidUpdateVelocities.PSO",

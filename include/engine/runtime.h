@@ -5,6 +5,7 @@
 #include "engine/export.h"
 #include "engine/world.h"
 #include "gpu/gpu_device.h"
+#include "gpu/gpu_scene_sync.h"
 #include "graphics/render_resource_manager.h"
 #include "graphics/render_world.h"
 #include "graphics/renderer.h"
@@ -48,6 +49,7 @@ private:
 
     bool mInitialized = false;
     std::unique_ptr<gpu::GpuDevice> mGpuDevice;
+    std::unique_ptr<gpu::GpuSceneSync> mGpuSceneSync;
     std::unique_ptr<physics::PhysicsSolver> mPhysicsSolver;
     std::unique_ptr<graphics::Renderer> mRenderer;
     graphics::RenderStats mLastRenderStats{};

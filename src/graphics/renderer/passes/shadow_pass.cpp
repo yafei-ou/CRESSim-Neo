@@ -20,8 +20,14 @@ bool ShadowPass::initialize()
     return true;
 }
 
+void ShadowPass::setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept
+{
+    mSceneView = sceneView;
+}
+
 bool ShadowPass::draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
-                      const Diligent::float4x4& lightViewProjectionMatrix)
+                      const Diligent::float4x4& lightViewProjectionMatrix,
+                      std::uint32_t cascadeIndex)
 {
     if (!mInitialized)
     {
@@ -75,12 +81,57 @@ bool ShadowPass::draw(gpu::GpuRenderTargetHandle target, const ForwardDrawComman
         return false;
     }
 
+    const bool useSceneBuffers = drawCommand.instanceIndex != 0xffffffffu &&
+                                 mSceneView.poses.positionsBuffer != nullptr &&
+                                 mSceneView.poses.orientationsBuffer != nullptr &&
+                                 mSceneView.poses.scalesBuffer != nullptr &&
+                                 mSceneView.renderableMetadataBuffer != nullptr &&
+                                 mSceneView.renderableVisibilityFlagsBuffer != nullptr &&
+                                 mSceneView.renderableShadowCascadeMasksBuffer != nullptr;
+    if (useSceneBuffers)
+    {
+        struct VariableBinding
+        {
+            const char* name;
+            Diligent::IBuffer* buffer;
+        };
+        const VariableBinding bindings[] = {
+            {"g_EntityPositions", mSceneView.poses.positionsBuffer},
+            {"g_EntityOrientations", mSceneView.poses.orientationsBuffer},
+            {"g_EntityScales", mSceneView.poses.scalesBuffer},
+            {"g_RenderableMetadata", mSceneView.renderableMetadataBuffer},
+            // g_RenderableVisibilityFlags is not used and optimized away
+            // {"g_RenderableVisibilityFlags", mSceneView.renderableVisibilityFlagsBuffer},
+            {"g_RenderableShadowCascadeMasks", mSceneView.renderableShadowCascadeMasksBuffer},
+        };
+        for (const VariableBinding& binding : bindings)
+        {
+            Diligent::IShaderResourceVariable* variable =
+                mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                                          binding.name);
+            if (variable == nullptr || binding.buffer == nullptr)
+            {
+                return false;
+            }
+            Diligent::IBufferView* srv =
+                binding.buffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+            if (srv == nullptr)
+            {
+                return false;
+            }
+            variable->Set(srv);
+        }
+    }
+
     PerObjectConstants objectConstants{};
     objectConstants.modelMatrix  = drawCommand.modelMatrix.Transpose();
     objectConstants.normalMatrix = drawCommand.normalMatrix.Transpose();
+    objectConstants.instanceIndex = drawCommand.instanceIndex;
+    objectConstants.useSceneBuffers = useSceneBuffers ? 1u : 0u;
 
     ShadowPerPassConstants shadowPassConstants{};
     shadowPassConstants.lightViewProjectionMatrix = lightViewProjectionMatrix.Transpose();
+    shadowPassConstants.shadowPassParams[0] = cascadeIndex;
 
     void* mappedConstants = nullptr;
     backendContext.immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE,
@@ -177,6 +228,23 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable    = Diligent::True;
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType =
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+    constexpr Diligent::ShaderResourceVariableDesc kVars[] = {
+        {Diligent::SHADER_TYPE_VERTEX, "g_EntityPositions",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_EntityOrientations",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_EntityScales",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_RenderableMetadata",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_RenderableVisibilityFlags",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_RenderableShadowCascadeMasks",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    };
+    psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
+    psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
+        static_cast<Diligent::Uint32>(std::size(kVars));
 
     constexpr Diligent::LayoutElement kLayoutElements[] = {
         Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, Diligent::False},

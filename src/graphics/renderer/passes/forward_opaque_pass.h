@@ -2,6 +2,7 @@
 #define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_OPAQUE_PASS_H
 
 #include "gpu/gpu_device.h"
+#include "gpu/gpu_scene.h"
 #include "gpu/shader_library.h"
 #include "graphics/renderer/passes/forward_draw_types.h"
 #include "graphics/renderer/passes/material_program_registry.h"
@@ -31,6 +32,7 @@ public:
 
     bool initialize();
     bool beginCameraFrame(const FrameViewData& frameView);
+    void setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept;
     void setShadowMapTargets(
         const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount>& shadowMapTargets,
         std::uint32_t shadowMapCount);
@@ -55,6 +57,10 @@ private:
     {
         Diligent::float4x4 modelMatrix  = Diligent::float4x4::Identity();
         Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
+        std::uint32_t instanceIndex = 0xffffffffu;
+        std::uint32_t useSceneBuffers = 0u;
+        std::uint32_t padding0 = 0u;
+        std::uint32_t padding1 = 0u;
     };
 
     struct ForwardPerMaterialConstants
@@ -81,6 +87,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackShadowMapSrv;
     std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
     std::uint32_t mShadowMapCount = 0;
+    gpu::GpuEntitySceneView mSceneView{};
 };
 
 } // namespace detail

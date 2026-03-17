@@ -133,7 +133,7 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         return false;
     }
 
-    auto initPass = [&](ComputePass& pass, const ComputePassDefinition& definition,
+    auto initPass = [&](gpu::GpuComputePass& pass, const gpu::GpuComputePassDefinition& definition,
                         std::size_t variantCount = 1u) -> bool
     {
         if (!pass.initialize(renderDevice, streamFactory, mPhysicsContextMask, definition))
@@ -213,11 +213,11 @@ bool PhysicsPassDispatcher::dispatchScanBlockPass(Diligent::IDeviceContext* comp
     }
 
     const std::array bindings{
-        ComputeBufferBinding{"PhysicsScanConstantsBuffer", mScanConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsScanConstantsBuffer", mScanConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ScanInput", input, Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ScanOutput", output, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_BlockSums", blockSums, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_ScanInput", input, Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ScanOutput", output, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_BlockSums", blockSums, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
     const GpuPhysicsScanConstants scanConstants = makeScanConstants(count);
@@ -237,11 +237,11 @@ bool PhysicsPassDispatcher::dispatchScanAddOffsetsPass(Diligent::IDeviceContext*
     }
 
     const std::array bindings{
-        ComputeBufferBinding{"PhysicsScanConstantsBuffer", mScanConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsScanConstantsBuffer", mScanConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ScannedBlockOffsets", scannedBlockOffsets,
+        gpu::GpuBufferBinding{"g_ScannedBlockOffsets", scannedBlockOffsets,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ScanOutput", output, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_ScanOutput", output, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
     const GpuPhysicsScanConstants scanConstants = makeScanConstants(count);
@@ -305,12 +305,12 @@ bool PhysicsPassDispatcher::clearCorrections(Diligent::IDeviceContext* computeCo
 
     const auto& transientState = sceneState.transientBuffers();
     const std::array bindings{
-        ComputeBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyTranslationCorrections",
+        gpu::GpuBufferBinding{"g_RigidBodyTranslationCorrections",
                              transientState.translationCorrectionsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_RigidBodyRotationCorrections",
+        gpu::GpuBufferBinding{"g_RigidBodyRotationCorrections",
                              transientState.rotationCorrectionsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
@@ -338,43 +338,43 @@ bool PhysicsPassDispatcher::predict(Diligent::IDeviceContext* computeContext,
     const auto& persistent = sceneState.persistentRigidBodies();
     const auto& transient  = sceneState.transientBuffers();
     const std::array bindings{
-        ComputeBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyPositionsInvMass", persistent.positionsBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyPositionsInvMass", persistent.positionsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyOrientations", persistent.orientationsBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyOrientations", persistent.orientationsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyLinearVelocities", persistent.linearVelocitiesBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyLinearVelocities", persistent.linearVelocitiesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyAngularVelocities", persistent.angularVelocitiesBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyAngularVelocities", persistent.angularVelocitiesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyTypes", persistent.bodyTypesBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyTypes", persistent.bodyTypesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyKinematicTargetPositions",
+        gpu::GpuBufferBinding{"g_RigidBodyKinematicTargetPositions",
                              persistent.kinematicTargetPositionsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyKinematicTargetOrientations",
+        gpu::GpuBufferBinding{"g_RigidBodyKinematicTargetOrientations",
                              persistent.kinematicTargetOrientationsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyKinematicTargetFlags",
+        gpu::GpuBufferBinding{"g_RigidBodyKinematicTargetFlags",
                              persistent.kinematicTargetFlagsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PreviousRigidBodyPositionsInvMass",
+        gpu::GpuBufferBinding{"g_PreviousRigidBodyPositionsInvMass",
                              transient.previousRigidBodies.positionsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_PreviousRigidBodyOrientations",
+        gpu::GpuBufferBinding{"g_PreviousRigidBodyOrientations",
                              transient.previousRigidBodies.orientationsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
                              transient.predictedRigidBodies.positionsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_PredictedRigidBodyOrientations",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
                              transient.predictedRigidBodies.orientationsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_PredictedRigidBodyLinearVelocities",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyLinearVelocities",
                              transient.predictedRigidBodies.linearVelocitiesBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_PredictedRigidBodyAngularVelocities",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyAngularVelocities",
                              transient.predictedRigidBodies.angularVelocitiesBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
@@ -398,40 +398,40 @@ bool PhysicsPassDispatcher::updateWorldAabbs(Diligent::IDeviceContext* computeCo
     const auto& persistentColliders = sceneState.persistentColliders();
     const auto& transient  = sceneState.transientBuffers();
     const std::array bindings{
-        ComputeBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
                              transient.predictedRigidBodies.positionsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PredictedRigidBodyOrientations",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
                              transient.predictedRigidBodies.orientationsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyScales", persistentBodies.scalesBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyScales", persistentBodies.scalesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyTypes", persistentBodies.bodyTypesBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyTypes", persistentBodies.bodyTypesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ColliderOwnerRigidBodyIndices",
+        gpu::GpuBufferBinding{"g_ColliderOwnerRigidBodyIndices",
                              persistentColliders.ownerRigidBodyIndicesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ColliderShapeTypes", persistentColliders.shapeTypesBuffer,
+        gpu::GpuBufferBinding{"g_ColliderShapeTypes", persistentColliders.shapeTypesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ColliderShapeParams", persistentColliders.shapeParamsBuffer,
+        gpu::GpuBufferBinding{"g_ColliderShapeParams", persistentColliders.shapeParamsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ColliderLocalPositions",
+        gpu::GpuBufferBinding{"g_ColliderLocalPositions",
                              persistentColliders.localPositionsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ColliderLocalOrientations",
+        gpu::GpuBufferBinding{"g_ColliderLocalOrientations",
                              persistentColliders.localOrientationsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ColliderEnabledFlags", persistentColliders.enabledFlagsBuffer,
+        gpu::GpuBufferBinding{"g_ColliderEnabledFlags", persistentColliders.enabledFlagsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BodyAabbs", transient.bodyAabbsBuffer,
+        gpu::GpuBufferBinding{"g_BodyAabbs", transient.bodyAabbsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_BodyMeta", transient.bodyMetaBuffer,
+        gpu::GpuBufferBinding{"g_BodyMeta", transient.bodyMetaBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_ActiveBodyFlags", transient.activeBodyFlagsBuffer,
+        gpu::GpuBufferBinding{"g_ActiveBodyFlags", transient.activeBodyFlagsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_StaticBodyFlags", transient.staticBodyFlagsBuffer,
+        gpu::GpuBufferBinding{"g_StaticBodyFlags", transient.staticBodyFlagsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
@@ -472,43 +472,43 @@ bool PhysicsPassDispatcher::compactBroadPhaseBodySets(Diligent::IDeviceContext* 
     const auto& transient = sceneState.transientBuffers();
 
     const std::array movingSetCompactBindings{
-        ComputeBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BodySetFlags", transient.activeBodyFlagsBuffer,
+        gpu::GpuBufferBinding{"g_BodySetFlags", transient.activeBodyFlagsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BodySetOffsets", transient.activeBodyOffsetsBuffer,
+        gpu::GpuBufferBinding{"g_BodySetOffsets", transient.activeBodyOffsetsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BroadPhaseBodyIndices", transient.activeBodyIndicesBuffer,
+        gpu::GpuBufferBinding{"g_BroadPhaseBodyIndices", transient.activeBodyIndicesBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_BodyMeta", transient.bodyMetaBuffer,
+        gpu::GpuBufferBinding{"g_BodyMeta", transient.bodyMetaBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
     const std::array staticSetCompactBindings{
-        ComputeBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BodySetFlags", transient.staticBodyFlagsBuffer,
+        gpu::GpuBufferBinding{"g_BodySetFlags", transient.staticBodyFlagsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BodySetOffsets", transient.staticBodyOffsetsBuffer,
+        gpu::GpuBufferBinding{"g_BodySetOffsets", transient.staticBodyOffsetsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BroadPhaseBodyIndices", transient.staticBodyIndicesBuffer,
+        gpu::GpuBufferBinding{"g_BroadPhaseBodyIndices", transient.staticBodyIndicesBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_BodyMeta", transient.bodyMetaBuffer,
+        gpu::GpuBufferBinding{"g_BodyMeta", transient.bodyMetaBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
     const std::array finalizeBindings{
-        ComputeBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ActiveBodyFlags", transient.activeBodyFlagsBuffer,
+        gpu::GpuBufferBinding{"g_ActiveBodyFlags", transient.activeBodyFlagsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ActiveBodyOffsets", transient.activeBodyOffsetsBuffer,
+        gpu::GpuBufferBinding{"g_ActiveBodyOffsets", transient.activeBodyOffsetsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_StaticBodyFlags", transient.staticBodyFlagsBuffer,
+        gpu::GpuBufferBinding{"g_StaticBodyFlags", transient.staticBodyFlagsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_StaticBodyOffsets", transient.staticBodyOffsetsBuffer,
+        gpu::GpuBufferBinding{"g_StaticBodyOffsets", transient.staticBodyOffsetsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BroadPhaseMeta", transient.broadPhaseMetaBuffer,
+        gpu::GpuBufferBinding{"g_BroadPhaseMeta", transient.broadPhaseMetaBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
@@ -573,12 +573,12 @@ bool PhysicsPassDispatcher::dispatchReduceBroadPhaseExtentPass(
     const std::size_t variantIndex = kDefaultVariant;
 
     const std::array firstBindings{
-        ComputeBufferBinding{"PhysicsRigidBroadPhaseReductionConstantsBuffer",
+        gpu::GpuBufferBinding{"PhysicsRigidBroadPhaseReductionConstantsBuffer",
                              mBroadPhaseReductionConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BroadPhaseElements", broadPhaseElementsBuffer,
+        gpu::GpuBufferBinding{"g_BroadPhaseElements", broadPhaseElementsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_GroupExtents", currentOutput,
+        gpu::GpuBufferBinding{"g_GroupExtents", currentOutput,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
@@ -608,12 +608,12 @@ bool PhysicsPassDispatcher::dispatchReduceBroadPhaseExtentPass(
         reductionConstants = makeBroadPhaseReductionConstants(currentCount);
 
         const std::array reduceBindings{
-            ComputeBufferBinding{"PhysicsRigidBroadPhaseReductionConstantsBuffer",
+            gpu::GpuBufferBinding{"PhysicsRigidBroadPhaseReductionConstantsBuffer",
                                  mBroadPhaseReductionConstantsBuffer,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_InputExtents", currentInput,
+            gpu::GpuBufferBinding{"g_InputExtents", currentInput,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_OutputExtents", currentOutput,
+            gpu::GpuBufferBinding{"g_OutputExtents", currentOutput,
                                  Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
 
@@ -680,11 +680,11 @@ bool PhysicsPassDispatcher::dispatchRadixSortPass(Diligent::IDeviceContext* comp
         const GpuPhysicsRadixConstants radixConstants = makeRadixConstants(count, bit);
 
         const std::array classifyBindings{
-            ComputeBufferBinding{"PhysicsRadixConstantsBuffer", mRadixConstantsBuffer,
+            gpu::GpuBufferBinding{"PhysicsRadixConstantsBuffer", mRadixConstantsBuffer,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_MortonCodesIn", currentInput,
+            gpu::GpuBufferBinding{"g_MortonCodesIn", currentInput,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_RadixBitFlags", radixBitFlags,
+            gpu::GpuBufferBinding{"g_RadixBitFlags", radixBitFlags,
                                  Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
 
@@ -702,13 +702,13 @@ bool PhysicsPassDispatcher::dispatchRadixSortPass(Diligent::IDeviceContext* comp
         }
 
         const std::array finalizeBindings{
-            ComputeBufferBinding{"PhysicsRadixConstantsBuffer", mRadixConstantsBuffer,
+            gpu::GpuBufferBinding{"PhysicsRadixConstantsBuffer", mRadixConstantsBuffer,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_RadixBitFlags", radixBitFlags,
+            gpu::GpuBufferBinding{"g_RadixBitFlags", radixBitFlags,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_RadixBitOffsets", radixBitOffsets,
+            gpu::GpuBufferBinding{"g_RadixBitOffsets", radixBitOffsets,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_RadixMeta", radixMeta, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+            gpu::GpuBufferBinding{"g_RadixMeta", radixMeta, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
 
         if (!writeRadixConstants(computeContext, radixConstants) ||
@@ -718,16 +718,16 @@ bool PhysicsPassDispatcher::dispatchRadixSortPass(Diligent::IDeviceContext* comp
         }
 
         const std::array scatterBindings{
-            ComputeBufferBinding{"PhysicsRadixConstantsBuffer", mRadixConstantsBuffer,
+            gpu::GpuBufferBinding{"PhysicsRadixConstantsBuffer", mRadixConstantsBuffer,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_MortonCodesIn", currentInput,
+            gpu::GpuBufferBinding{"g_MortonCodesIn", currentInput,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_RadixBitFlags", radixBitFlags,
+            gpu::GpuBufferBinding{"g_RadixBitFlags", radixBitFlags,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_RadixBitOffsets", radixBitOffsets,
+            gpu::GpuBufferBinding{"g_RadixBitOffsets", radixBitOffsets,
                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_RadixMeta", radixMeta, Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            ComputeBufferBinding{"g_MortonCodesOut", currentOutput,
+            gpu::GpuBufferBinding{"g_RadixMeta", radixMeta, Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_MortonCodesOut", currentOutput,
                                  Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
 
@@ -773,14 +773,14 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
         makeBroadPhaseBuildConstants(activeMovingCount);
 
     const std::array buildElementsBindings{
-        ComputeBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
+        gpu::GpuBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
                              mBroadPhaseBuildConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BroadPhaseBodyIndices", transient.activeBodyIndicesBuffer,
+        gpu::GpuBufferBinding{"g_BroadPhaseBodyIndices", transient.activeBodyIndicesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BodyAabbs", transient.bodyAabbsBuffer,
+        gpu::GpuBufferBinding{"g_BodyAabbs", transient.bodyAabbsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BroadPhaseElements", transient.broadPhaseElementsBuffer,
+        gpu::GpuBufferBinding{"g_BroadPhaseElements", transient.broadPhaseElementsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
     if (!writeBroadPhaseBuildConstants(computeContext, dynamicBuildConstants) ||
@@ -797,14 +797,14 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
     }
 
     const std::array mortonBindings{
-        ComputeBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
+        gpu::GpuBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
                              mBroadPhaseBuildConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BroadPhaseElements", transient.broadPhaseElementsBuffer,
+        gpu::GpuBufferBinding{"g_BroadPhaseElements", transient.broadPhaseElementsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_GlobalExtent", transient.globalBroadPhaseExtentBuffer,
+        gpu::GpuBufferBinding{"g_GlobalExtent", transient.globalBroadPhaseExtentBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_MortonCodes", transient.mortonCodesBuffer,
+        gpu::GpuBufferBinding{"g_MortonCodes", transient.mortonCodesBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
     if (!writeBroadPhaseBuildConstants(computeContext, dynamicBuildConstants) ||
@@ -820,16 +820,16 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
     }
 
     const std::array bvhHierarchyBindings{
-        ComputeBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
+        gpu::GpuBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
                              mBroadPhaseBuildConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_SortedMortonCodes", transient.mortonCodesBuffer,
+        gpu::GpuBufferBinding{"g_SortedMortonCodes", transient.mortonCodesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BroadPhaseElements", transient.broadPhaseElementsBuffer,
+        gpu::GpuBufferBinding{"g_BroadPhaseElements", transient.broadPhaseElementsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BvhNodes", transient.bvhBuffer,
+        gpu::GpuBufferBinding{"g_BvhNodes", transient.bvhBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_BvhConstructionInfos", transient.bvhConstructionInfoBuffer,
+        gpu::GpuBufferBinding{"g_BvhConstructionInfos", transient.bvhConstructionInfoBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
     if (!writeBroadPhaseBuildConstants(computeContext, dynamicBuildConstants) ||
@@ -840,12 +840,12 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
     }
 
     const std::array bvhBoundsBindings{
-        ComputeBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
+        gpu::GpuBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
                              mBroadPhaseBuildConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BvhNodes", transient.bvhBuffer,
+        gpu::GpuBufferBinding{"g_BvhNodes", transient.bvhBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_BvhConstructionInfos", transient.bvhConstructionInfoBuffer,
+        gpu::GpuBufferBinding{"g_BvhConstructionInfos", transient.bvhConstructionInfoBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
     if (!writeBroadPhaseBuildConstants(computeContext, dynamicBuildConstants) ||
@@ -864,14 +864,14 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
         makeBroadPhaseBuildConstants(constants.staticBodyCount);
 
     const std::array staticBuildElementsBindings{
-        ComputeBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
+        gpu::GpuBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
                              mBroadPhaseBuildConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BroadPhaseBodyIndices", transient.staticBodyIndicesBuffer,
+        gpu::GpuBufferBinding{"g_BroadPhaseBodyIndices", transient.staticBodyIndicesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BodyAabbs", transient.bodyAabbsBuffer,
+        gpu::GpuBufferBinding{"g_BodyAabbs", transient.bodyAabbsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BroadPhaseElements", transient.staticBroadPhaseElementsBuffer,
+        gpu::GpuBufferBinding{"g_BroadPhaseElements", transient.staticBroadPhaseElementsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
     if (!writeBroadPhaseBuildConstants(computeContext, staticBuildConstants) ||
@@ -889,14 +889,14 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
     }
 
     const std::array staticMortonBindings{
-        ComputeBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
+        gpu::GpuBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
                              mBroadPhaseBuildConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BroadPhaseElements", transient.staticBroadPhaseElementsBuffer,
+        gpu::GpuBufferBinding{"g_BroadPhaseElements", transient.staticBroadPhaseElementsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_GlobalExtent", transient.staticGlobalBroadPhaseExtentBuffer,
+        gpu::GpuBufferBinding{"g_GlobalExtent", transient.staticGlobalBroadPhaseExtentBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_MortonCodes", transient.staticMortonCodesBuffer,
+        gpu::GpuBufferBinding{"g_MortonCodes", transient.staticMortonCodesBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
     if (!writeBroadPhaseBuildConstants(computeContext, staticBuildConstants) ||
@@ -912,16 +912,16 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
     }
 
     const std::array staticBvhHierarchyBindings{
-        ComputeBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
+        gpu::GpuBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
                              mBroadPhaseBuildConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_SortedMortonCodes", transient.staticMortonCodesBuffer,
+        gpu::GpuBufferBinding{"g_SortedMortonCodes", transient.staticMortonCodesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BroadPhaseElements", transient.staticBroadPhaseElementsBuffer,
+        gpu::GpuBufferBinding{"g_BroadPhaseElements", transient.staticBroadPhaseElementsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BvhNodes", transient.staticBvhBuffer,
+        gpu::GpuBufferBinding{"g_BvhNodes", transient.staticBvhBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_BvhConstructionInfos", transient.staticBvhConstructionInfoBuffer,
+        gpu::GpuBufferBinding{"g_BvhConstructionInfos", transient.staticBvhConstructionInfoBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
     if (!writeBroadPhaseBuildConstants(computeContext, staticBuildConstants) ||
@@ -932,12 +932,12 @@ bool PhysicsPassDispatcher::buildBroadPhase(Diligent::IDeviceContext* computeCon
     }
 
     const std::array staticBvhBoundsBindings{
-        ComputeBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
+        gpu::GpuBufferBinding{"PhysicsRigidBroadPhaseBuildConstantsBuffer",
                              mBroadPhaseBuildConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BvhNodes", transient.staticBvhBuffer,
+        gpu::GpuBufferBinding{"g_BvhNodes", transient.staticBvhBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_BvhConstructionInfos", transient.staticBvhConstructionInfoBuffer,
+        gpu::GpuBufferBinding{"g_BvhConstructionInfos", transient.staticBvhConstructionInfoBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
     return writeBroadPhaseBuildConstants(computeContext, staticBuildConstants) &&
@@ -963,32 +963,32 @@ bool PhysicsPassDispatcher::finalizeBroadPhasePairs(Diligent::IDeviceContext* co
     const auto& transient  = sceneState.transientBuffers();
 
     const std::array countBindings{
-        ComputeBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BroadPhaseBodyIndices", transient.activeBodyIndicesBuffer,
+        gpu::GpuBufferBinding{"g_BroadPhaseBodyIndices", transient.activeBodyIndicesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BodyAabbs", transient.bodyAabbsBuffer,
+        gpu::GpuBufferBinding{"g_BodyAabbs", transient.bodyAabbsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BvhNodes", transient.bvhBuffer,
+        gpu::GpuBufferBinding{"g_BvhNodes", transient.bvhBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_StaticBvhNodes", transient.staticBvhBuffer,
+        gpu::GpuBufferBinding{"g_StaticBvhNodes", transient.staticBvhBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ColliderOwnerRigidBodyIndices",
+        gpu::GpuBufferBinding{"g_ColliderOwnerRigidBodyIndices",
                              persistentColliders.ownerRigidBodyIndicesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ColliderShapeTypes", persistentColliders.shapeTypesBuffer,
+        gpu::GpuBufferBinding{"g_ColliderShapeTypes", persistentColliders.shapeTypesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairCountsSphereSphere", transient.pairCountBuffers[0],
+        gpu::GpuBufferBinding{"g_PairCountsSphereSphere", transient.pairCountBuffers[0],
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_PairCountsSphereBox", transient.pairCountBuffers[1],
+        gpu::GpuBufferBinding{"g_PairCountsSphereBox", transient.pairCountBuffers[1],
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_PairCountsSphereCapsule", transient.pairCountBuffers[2],
+        gpu::GpuBufferBinding{"g_PairCountsSphereCapsule", transient.pairCountBuffers[2],
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_PairCountsBoxBox", transient.pairCountBuffers[3],
+        gpu::GpuBufferBinding{"g_PairCountsBoxBox", transient.pairCountBuffers[3],
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_PairCountsBoxCapsule", transient.pairCountBuffers[4],
+        gpu::GpuBufferBinding{"g_PairCountsBoxCapsule", transient.pairCountBuffers[4],
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_PairCountsCapsuleCapsule", transient.pairCountBuffers[5],
+        gpu::GpuBufferBinding{"g_PairCountsCapsuleCapsule", transient.pairCountBuffers[5],
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
     if (!writeRigidDispatchConstants(computeContext, constants) ||
@@ -1009,35 +1009,35 @@ bool PhysicsPassDispatcher::finalizeBroadPhasePairs(Diligent::IDeviceContext* co
     }
 
     const std::array finalizeBindings{
-        ComputeBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairCountsSphereSphere", transient.pairCountBuffers[0],
+        gpu::GpuBufferBinding{"g_PairCountsSphereSphere", transient.pairCountBuffers[0],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairCountsSphereBox", transient.pairCountBuffers[1],
+        gpu::GpuBufferBinding{"g_PairCountsSphereBox", transient.pairCountBuffers[1],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairCountsSphereCapsule", transient.pairCountBuffers[2],
+        gpu::GpuBufferBinding{"g_PairCountsSphereCapsule", transient.pairCountBuffers[2],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairCountsBoxBox", transient.pairCountBuffers[3],
+        gpu::GpuBufferBinding{"g_PairCountsBoxBox", transient.pairCountBuffers[3],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairCountsBoxCapsule", transient.pairCountBuffers[4],
+        gpu::GpuBufferBinding{"g_PairCountsBoxCapsule", transient.pairCountBuffers[4],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairCountsCapsuleCapsule", transient.pairCountBuffers[5],
+        gpu::GpuBufferBinding{"g_PairCountsCapsuleCapsule", transient.pairCountBuffers[5],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairOffsetsSphereSphere", transient.pairOffsetBuffers[0],
+        gpu::GpuBufferBinding{"g_PairOffsetsSphereSphere", transient.pairOffsetBuffers[0],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairOffsetsSphereBox", transient.pairOffsetBuffers[1],
+        gpu::GpuBufferBinding{"g_PairOffsetsSphereBox", transient.pairOffsetBuffers[1],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairOffsetsSphereCapsule", transient.pairOffsetBuffers[2],
+        gpu::GpuBufferBinding{"g_PairOffsetsSphereCapsule", transient.pairOffsetBuffers[2],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairOffsetsBoxBox", transient.pairOffsetBuffers[3],
+        gpu::GpuBufferBinding{"g_PairOffsetsBoxBox", transient.pairOffsetBuffers[3],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairOffsetsBoxCapsule", transient.pairOffsetBuffers[4],
+        gpu::GpuBufferBinding{"g_PairOffsetsBoxCapsule", transient.pairOffsetBuffers[4],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairOffsetsCapsuleCapsule", transient.pairOffsetBuffers[5],
+        gpu::GpuBufferBinding{"g_PairOffsetsCapsuleCapsule", transient.pairOffsetBuffers[5],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidPairRanges", transient.rigidPairRangesBuffer,
+        gpu::GpuBufferBinding{"g_RigidPairRanges", transient.rigidPairRangesBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_BroadPhaseMeta", transient.broadPhaseMetaBuffer,
+        gpu::GpuBufferBinding{"g_BroadPhaseMeta", transient.broadPhaseMetaBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
@@ -1063,36 +1063,36 @@ bool PhysicsPassDispatcher::emitBroadPhasePairs(Diligent::IDeviceContext* comput
     const auto& transient  = sceneState.transientBuffers();
 
     const std::array emitBindings{
-        ComputeBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BroadPhaseBodyIndices", transient.activeBodyIndicesBuffer,
+        gpu::GpuBufferBinding{"g_BroadPhaseBodyIndices", transient.activeBodyIndicesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BodyAabbs", transient.bodyAabbsBuffer,
+        gpu::GpuBufferBinding{"g_BodyAabbs", transient.bodyAabbsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_BvhNodes", transient.bvhBuffer,
+        gpu::GpuBufferBinding{"g_BvhNodes", transient.bvhBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_StaticBvhNodes", transient.staticBvhBuffer,
+        gpu::GpuBufferBinding{"g_StaticBvhNodes", transient.staticBvhBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ColliderOwnerRigidBodyIndices",
+        gpu::GpuBufferBinding{"g_ColliderOwnerRigidBodyIndices",
                              persistentColliders.ownerRigidBodyIndicesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ColliderShapeTypes", persistentColliders.shapeTypesBuffer,
+        gpu::GpuBufferBinding{"g_ColliderShapeTypes", persistentColliders.shapeTypesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairOffsetsSphereSphere", transient.pairOffsetBuffers[0],
+        gpu::GpuBufferBinding{"g_PairOffsetsSphereSphere", transient.pairOffsetBuffers[0],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairOffsetsSphereBox", transient.pairOffsetBuffers[1],
+        gpu::GpuBufferBinding{"g_PairOffsetsSphereBox", transient.pairOffsetBuffers[1],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairOffsetsSphereCapsule", transient.pairOffsetBuffers[2],
+        gpu::GpuBufferBinding{"g_PairOffsetsSphereCapsule", transient.pairOffsetBuffers[2],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairOffsetsBoxBox", transient.pairOffsetBuffers[3],
+        gpu::GpuBufferBinding{"g_PairOffsetsBoxBox", transient.pairOffsetBuffers[3],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairOffsetsBoxCapsule", transient.pairOffsetBuffers[4],
+        gpu::GpuBufferBinding{"g_PairOffsetsBoxCapsule", transient.pairOffsetBuffers[4],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PairOffsetsCapsuleCapsule", transient.pairOffsetBuffers[5],
+        gpu::GpuBufferBinding{"g_PairOffsetsCapsuleCapsule", transient.pairOffsetBuffers[5],
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidPairRanges", transient.rigidPairRangesBuffer,
+        gpu::GpuBufferBinding{"g_RigidPairRanges", transient.rigidPairRangesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_CandidatePairs", transient.candidatePairsBuffer,
+        gpu::GpuBufferBinding{"g_CandidatePairs", transient.candidatePairsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
     if (!writeRigidDispatchConstants(computeContext, constants) ||
@@ -1103,13 +1103,13 @@ bool PhysicsPassDispatcher::emitBroadPhasePairs(Diligent::IDeviceContext* comput
     }
 
     const std::array chunkBindings{
-        ComputeBufferBinding{"g_RigidPairRanges", transient.rigidPairRangesBuffer,
+        gpu::GpuBufferBinding{"g_RigidPairRanges", transient.rigidPairRangesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_NarrowPhaseChunks", transient.narrowPhaseChunksBuffer,
+        gpu::GpuBufferBinding{"g_NarrowPhaseChunks", transient.narrowPhaseChunksBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_NarrowPhaseMeta", transient.narrowPhaseMetaBuffer,
+        gpu::GpuBufferBinding{"g_NarrowPhaseMeta", transient.narrowPhaseMetaBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_NarrowPhaseChunkCounter", transient.narrowPhaseChunkCounterBuffer,
+        gpu::GpuBufferBinding{"g_NarrowPhaseChunkCounter", transient.narrowPhaseChunkCounterBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
     return mBuildNarrowPhaseChunksPass.dispatch(computeContext, kDefaultVariant, chunkBindings, 1u);
@@ -1129,38 +1129,38 @@ bool PhysicsPassDispatcher::dispatchGenerateContactsPass(Diligent::IDeviceContex
     const auto& transient  = sceneState.transientBuffers();
 
     const std::array bindings{
-        ComputeBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
                              transient.predictedRigidBodies.positionsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PredictedRigidBodyOrientations",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
                              transient.predictedRigidBodies.orientationsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyScales", persistent.scalesBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyScales", persistent.scalesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ColliderOwnerRigidBodyIndices",
+        gpu::GpuBufferBinding{"g_ColliderOwnerRigidBodyIndices",
                              persistentColliders.ownerRigidBodyIndicesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ColliderShapeTypes", persistentColliders.shapeTypesBuffer,
+        gpu::GpuBufferBinding{"g_ColliderShapeTypes", persistentColliders.shapeTypesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ColliderShapeParams", persistentColliders.shapeParamsBuffer,
+        gpu::GpuBufferBinding{"g_ColliderShapeParams", persistentColliders.shapeParamsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ColliderLocalPositions",
+        gpu::GpuBufferBinding{"g_ColliderLocalPositions",
                              persistentColliders.localPositionsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_ColliderLocalOrientations",
+        gpu::GpuBufferBinding{"g_ColliderLocalOrientations",
                              persistentColliders.localOrientationsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_CandidatePairs", transient.candidatePairsBuffer,
+        gpu::GpuBufferBinding{"g_CandidatePairs", transient.candidatePairsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_NarrowPhaseChunks", transient.narrowPhaseChunksBuffer,
+        gpu::GpuBufferBinding{"g_NarrowPhaseChunks", transient.narrowPhaseChunksBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_NarrowPhaseMeta", transient.narrowPhaseMetaBuffer,
+        gpu::GpuBufferBinding{"g_NarrowPhaseMeta", transient.narrowPhaseMetaBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_NarrowPhaseChunkCounter", transient.narrowPhaseChunkCounterBuffer,
+        gpu::GpuBufferBinding{"g_NarrowPhaseChunkCounter", transient.narrowPhaseChunkCounterBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_RigidContacts", transient.contactsBuffer,
+        gpu::GpuBufferBinding{"g_RigidContacts", transient.contactsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
@@ -1192,24 +1192,24 @@ bool PhysicsPassDispatcher::dispatchSolveGatherPass(Diligent::IDeviceContext* co
     const auto& transient  = sceneState.transientBuffers();
 
     const std::array bindings{
-        ComputeBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
                              transient.predictedRigidBodies.positionsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PredictedRigidBodyOrientations",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
                              transient.predictedRigidBodies.orientationsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyInverseInertiaLocal", persistent.inverseInertiaLocalBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyInverseInertiaLocal", persistent.inverseInertiaLocalBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyTypes", persistent.bodyTypesBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyTypes", persistent.bodyTypesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidContacts", transient.contactsBuffer,
+        gpu::GpuBufferBinding{"g_RigidContacts", transient.contactsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyTranslationCorrections",
+        gpu::GpuBufferBinding{"g_RigidBodyTranslationCorrections",
                              transient.translationCorrectionsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_RigidBodyRotationCorrections", transient.rotationCorrectionsBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyRotationCorrections", transient.rotationCorrectionsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
@@ -1235,20 +1235,20 @@ bool PhysicsPassDispatcher::solveConstraints(Diligent::IDeviceContext* computeCo
 
     const auto& transient = sceneState.transientBuffers();
     const std::array applyBindings{
-        ComputeBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
                              transient.predictedRigidBodies.positionsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_PredictedRigidBodyOrientations",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
                              transient.predictedRigidBodies.orientationsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_RigidBodyTypes", sceneState.persistentRigidBodies().bodyTypesBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyTypes", sceneState.persistentRigidBodies().bodyTypesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyTranslationCorrections",
+        gpu::GpuBufferBinding{"g_RigidBodyTranslationCorrections",
                              transient.translationCorrectionsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_RigidBodyRotationCorrections", transient.rotationCorrectionsBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyRotationCorrections", transient.rotationCorrectionsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
@@ -1292,26 +1292,26 @@ bool PhysicsPassDispatcher::updateVelocities(Diligent::IDeviceContext* computeCo
     const auto& persistent = sceneState.persistentRigidBodies();
 
     const std::array bindings{
-        ComputeBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PreviousRigidBodyPositionsInvMass",
+        gpu::GpuBufferBinding{"g_PreviousRigidBodyPositionsInvMass",
                              transient.previousRigidBodies.positionsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PreviousRigidBodyOrientations",
+        gpu::GpuBufferBinding{"g_PreviousRigidBodyOrientations",
                              transient.previousRigidBodies.orientationsBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_RigidBodyTypes", persistent.bodyTypesBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyTypes", persistent.bodyTypesBuffer,
                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        ComputeBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
                              transient.predictedRigidBodies.positionsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_PredictedRigidBodyOrientations",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
                              transient.predictedRigidBodies.orientationsBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_PredictedRigidBodyLinearVelocities",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyLinearVelocities",
                              transient.predictedRigidBodies.linearVelocitiesBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        ComputeBufferBinding{"g_PredictedRigidBodyAngularVelocities",
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyAngularVelocities",
                              transient.predictedRigidBodies.angularVelocitiesBuffer,
                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };

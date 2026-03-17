@@ -18,6 +18,8 @@ namespace detail
 class ForwardPipeline;
 }
 
+struct FrameViewData;
+
 struct RendererDesc
 {
 };
@@ -55,10 +57,15 @@ public:
     RenderStats render(const common::FrameContext& frameContext, const RenderWorld& world);
 
 private:
+    struct GpuScenePrepareState;
+    bool ensureGpuScenePrepareState();
+    bool prepareGpuScene(const FrameViewData& frameView, const gpu::GpuEntitySceneView& sceneView);
+
     gpu::GpuDevice& mDevice;
     RenderResourceManager& mResourceManager;
     RendererDesc mDesc{};
     std::unique_ptr<detail::ForwardPipeline> mForwardPipeline;
+    std::unique_ptr<GpuScenePrepareState> mGpuScenePrepare;
     bool mInitialized = false;
 };
 

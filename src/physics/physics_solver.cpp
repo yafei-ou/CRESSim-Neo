@@ -301,7 +301,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
     if (!mDesc.enableBlockingReadback)
     {
         markStage(mImpl->stageStats, PhysicsSolverStage::CommitResults, false);
-        return false;
+        return true;
     }
 
     if (!mImpl->sceneState.readbackPredictedRigidStateBlocking(computeBackend.computeContext, world,

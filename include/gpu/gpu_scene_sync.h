@@ -1,0 +1,58 @@
+#ifndef CRESSIM_NEO_GPU_GPU_SCENE_SYNC_H
+#define CRESSIM_NEO_GPU_GPU_SCENE_SYNC_H
+
+#include "gpu/export.h"
+#include "gpu/gpu_device.h"
+#include "gpu/gpu_scene.h"
+
+#include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
+
+#include <cstdint>
+#include <vector>
+
+namespace cressim::neo::gpu
+{
+
+class CRESSIM_NEO_GPU_API GpuSceneSync
+{
+public:
+    explicit GpuSceneSync(GpuDevice& device);
+
+    bool initialize();
+    void shutdown();
+
+    bool syncEntityPoses(const GpuPoseBufferView& sourcePoses,
+                         const std::vector<GpuEntityPoseMappingEntry>& mappings);
+    bool syncRenderableMetadata(const std::vector<GpuRenderableMetadata>& renderables);
+
+    GpuEntitySceneView sceneView() const noexcept;
+
+private:
+    bool ensureCapacity(Diligent::IRenderDevice* renderDevice, std::uint32_t entityCount,
+                        std::uint32_t contextId);
+    bool writeBuffer(Diligent::IDeviceContext* computeContext, Diligent::IBuffer* buffer,
+                     const void* data, std::size_t sizeBytes);
+
+    GpuDevice& mDevice;
+    bool mInitialized = false;
+    std::uint32_t mCapacity = 0;
+    std::uint32_t mEntityCount = 0;
+    std::uint32_t mRenderableCapacity = 0;
+    std::uint32_t mRenderableCount = 0;
+    Diligent::Uint64 mContextMask = 0;
+
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mMappingBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mEntityPositionsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mEntityOrientationsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mEntityScalesBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableMetadataBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableModelMatricesBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableNormalMatricesBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableVisibilityFlagsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableShadowCascadeMasksBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mConstantsBuffer;
+};
+
+} // namespace cressim::neo::gpu
+
+#endif // CRESSIM_NEO_GPU_GPU_SCENE_SYNC_H

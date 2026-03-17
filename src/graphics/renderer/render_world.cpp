@@ -54,6 +54,8 @@ void RenderWorld::clear()
     mRenderables.clear();
     mCameras.clear();
     mDirectionalLights.clear();
+    mGpuEntityScene = {};
+    mGpuEntityPoseIndices.clear();
 
     mRenderableIndices.clear();
     mCameraIndices.clear();
@@ -90,6 +92,14 @@ bool RenderWorld::removeDirectionalLight(common::EntityId entityId)
     return removeByEntityId(mDirectionalLights, mDirectionalLightIndices, entityId);
 }
 
+void RenderWorld::setGpuEntityScene(
+    const gpu::GpuEntitySceneView& sceneView,
+    const std::unordered_map<common::EntityId, std::uint32_t>& poseIndices) noexcept
+{
+    mGpuEntityScene = sceneView;
+    mGpuEntityPoseIndices = poseIndices;
+}
+
 const std::vector<RenderableInstance>& RenderWorld::renderables() const noexcept
 {
     return mRenderables;
@@ -103,6 +113,16 @@ const std::vector<CameraData>& RenderWorld::cameras() const noexcept
 const std::vector<DirectionalLightData>& RenderWorld::directionalLights() const noexcept
 {
     return mDirectionalLights;
+}
+
+const gpu::GpuEntitySceneView& RenderWorld::gpuEntityScene() const noexcept
+{
+    return mGpuEntityScene;
+}
+
+const std::unordered_map<common::EntityId, std::uint32_t>& RenderWorld::gpuEntityPoseIndices() const noexcept
+{
+    return mGpuEntityPoseIndices;
 }
 
 } // namespace cressim::neo::graphics

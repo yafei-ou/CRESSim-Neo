@@ -911,11 +911,11 @@ void PhysicsSceneGpuState::setStaticBroadPhaseDirty(bool dirty) noexcept
 PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
 {
     PhysicsGpuSceneView view{};
-    view.rigid.positionsBuffer    = mPersistentRigidBodies.positionsBuffer;
-    view.rigid.orientationsBuffer = mPersistentRigidBodies.orientationsBuffer;
-    view.rigid.scalesBuffer       = mPersistentRigidBodies.scalesBuffer;
-    view.rigid.rigidBodyCount     = mRigidBodyCount;
-    view.rigid.colliderCount      = mColliderCount;
+    view.rigid.poses.positionsBuffer = mTransientState.predictedRigidBodies.positionsBuffer;
+    view.rigid.poses.orientationsBuffer = mTransientState.predictedRigidBodies.orientationsBuffer;
+    view.rigid.poses.scalesBuffer = mPersistentRigidBodies.scalesBuffer;
+    view.rigid.poses.count = mRigidBodyCount;
+    view.rigid.colliderCount = mColliderCount;
     return view;
 }
 

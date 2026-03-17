@@ -36,6 +36,7 @@ bool buildDrawCommand(const PreparedRenderable& renderable, const RenderResource
     }
 
     outCommand                      = {};
+    outCommand.instanceIndex        = renderable.instanceIndex;
     outCommand.programFamily        = material.pipeline.programFamily;
     outCommand.materialFeatureFlags = material.pipeline.featureFlags;
     outCommand.meshId               = renderable.instance->mesh.id;
@@ -60,13 +61,15 @@ bool buildDrawCommand(const PreparedRenderable& renderable, const RenderResource
 } // namespace
 
 std::vector<PreparedRenderable> buildPreparedRenderables(
-    const std::vector<RenderableInstance>& renderables, const RenderResourceManager& resources)
+    const std::vector<RenderableInstance>& renderables, const RenderResourceManager& resources,
+    const std::unordered_map<common::EntityId, std::uint32_t>& gpuPoseIndices)
 {
     std::vector<PreparedRenderable> prepared;
     prepared.reserve(renderables.size());
 
-    for (const RenderableInstance& renderable : renderables)
+    for (std::size_t renderableIndex = 0; renderableIndex < renderables.size(); ++renderableIndex)
     {
+        const RenderableInstance& renderable = renderables[renderableIndex];
         const MeshResourceDesc* mesh         = resources.tryGetMesh(renderable.mesh);
         const MaterialResourceDesc* material = resources.tryGetMaterial(renderable.material);
         if (mesh == nullptr || material == nullptr)
@@ -79,11 +82,23 @@ std::vector<PreparedRenderable> buildPreparedRenderables(
         }
 
         PreparedRenderable entry{};
-        entry.instance     = &renderable;
-        entry.mesh         = mesh;
-        entry.material     = material;
-        entry.modelMatrix  = worldMatrixFromTransform(renderable.worldTransform);
-        entry.normalMatrix = normalMatrixFromModelMatrix(entry.modelMatrix);
+        entry.instance = &renderable;
+        entry.mesh = mesh;
+        entry.material = material;
+        entry.instanceIndex = 0xffffffffu;
+        entry.worldTransform = renderable.worldTransform;
+        const auto gpuPoseIt = gpuPoseIndices.find(renderable.entityId);
+        if (gpuPoseIt != gpuPoseIndices.end() && material->blendMode != BlendMode::Transparent)
+        {
+            entry.instanceIndex = static_cast<std::uint32_t>(renderableIndex);
+            entry.modelMatrix = Diligent::float4x4::Identity();
+            entry.normalMatrix = Diligent::float4x4::Identity();
+        }
+        else
+        {
+            entry.modelMatrix = worldMatrixFromTransform(entry.worldTransform);
+            entry.normalMatrix = normalMatrixFromModelMatrix(entry.modelMatrix);
+        }
 
         Diligent::float3 localBoundsMin{};
         Diligent::float3 localBoundsMax{};
@@ -116,11 +131,13 @@ CameraRenderQueues buildCameraRenderQueues(
             continue;
         }
 
-        const bool cameraVisible  = isVisibleByFrustum(renderable, frameView.viewFrustum);
+        const bool gpuDriven      = renderable.instanceIndex != 0xffffffffu;
+        const bool cameraVisible  = gpuDriven ? true
+                                              : isVisibleByFrustum(renderable, frameView.viewFrustum);
         const bool transparent    = (renderable.material->blendMode == BlendMode::Transparent);
         const bool canCastShadows = renderable.material->castsShadows && !transparent;
-        std::uint32_t shadowCascadeMask = 0;
-        if (frameView.hasDirectionalLight)
+        std::uint32_t shadowCascadeMask = gpuDriven ? ((1u << kShadowCascadeCount) - 1u) : 0u;
+        if (!gpuDriven && frameView.hasDirectionalLight)
         {
             for (std::uint32_t cascadeIdx = 0; cascadeIdx < frameView.shadowCascadeCount;
                  ++cascadeIdx)
@@ -155,7 +172,7 @@ CameraRenderQueues buildCameraRenderQueues(
         queuedDraw.entityId        = renderable.instance->entityId;
         queuedDraw.meshId          = renderable.instance->mesh.id;
         queuedDraw.materialId      = renderable.instance->material.id;
-        queuedDraw.depth           = squaredDistanceToCamera(renderable.instance->worldTransform,
+        queuedDraw.depth           = squaredDistanceToCamera(renderable.worldTransform,
                                                              frameView.cameraWorldPosition);
         queuedDraw.castsShadows    = renderable.material->castsShadows;
         queuedDraw.receivesShadows = renderable.material->receivesShadows;

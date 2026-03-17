@@ -70,7 +70,9 @@ bool ForwardPipeline::initialize()
 }
 
 bool ForwardPipeline::execute(const common::FrameContext& frameContext,
-                              const FrameViewData& frameView, const CameraRenderQueues& queues,
+                              const FrameViewData& frameView,
+                              const gpu::GpuEntitySceneView& sceneView,
+                              const CameraRenderQueues& queues,
                               ForwardPassExecutionStats& outStats)
 {
     if (!mInitialized || mForwardOpaquePass == nullptr)
@@ -79,6 +81,11 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
     }
 
     outStats = {};
+    mForwardOpaquePass->setGpuSceneView(sceneView);
+    if (mShadowPass != nullptr)
+    {
+        mShadowPass->setGpuSceneView(sceneView);
+    }
 
     std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> activeShadowMaps{};
     std::uint32_t activeShadowMapCount = 0;
@@ -110,7 +117,8 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
                     continue;
                 }
                 if (mShadowPass->draw(cascadeShadowMap, draw.drawCommand,
-                                      frameView.lightViewProjectionMatrices[cascadeIdx]))
+                                      frameView.lightViewProjectionMatrices[cascadeIdx],
+                                      cascadeIdx))
                 {
                     ++outStats.shadowDrawCalls;
                 }

@@ -2,6 +2,7 @@
 #define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_SHADOW_PASS_H
 
 #include "gpu/gpu_device.h"
+#include "gpu/gpu_scene.h"
 #include "gpu/shader_library.h"
 #include "graphics/renderer/passes/forward_draw_types.h"
 #include "graphics/renderer/services/mesh_gpu_cache.h"
@@ -24,19 +25,25 @@ public:
     explicit ShadowPass(gpu::GpuDevice& device);
 
     bool initialize();
+    void setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept;
     bool draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
-              const Diligent::float4x4& lightViewProjectionMatrix);
+              const Diligent::float4x4& lightViewProjectionMatrix, std::uint32_t cascadeIndex);
 
 private:
     struct PerObjectConstants
     {
         Diligent::float4x4 modelMatrix  = Diligent::float4x4::Identity();
         Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
+        std::uint32_t instanceIndex = 0xffffffffu;
+        std::uint32_t useSceneBuffers = 0u;
+        std::uint32_t padding0 = 0u;
+        std::uint32_t padding1 = 0u;
     };
 
     struct ShadowPerPassConstants
     {
         Diligent::float4x4 lightViewProjectionMatrix = Diligent::float4x4::Identity();
+        std::uint32_t shadowPassParams[4] = {0u, 0u, 0u, 0u};
     };
 
     bool createPipeline(Diligent::IRenderDevice* renderDevice);
@@ -52,6 +59,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mShaderResourceBinding;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mShadowPerPassBuffer;
+    gpu::GpuEntitySceneView mSceneView{};
 };
 
 } // namespace detail

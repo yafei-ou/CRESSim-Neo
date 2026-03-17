@@ -2,6 +2,7 @@
 #define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_PIPELINE_H
 
 #include "gpu/gpu_device.h"
+#include "gpu/gpu_scene.h"
 #include "graphics/renderer/passes/render_pass_types.h"
 
 #include <array>
@@ -25,7 +26,8 @@ public:
 
     bool initialize();
     bool execute(const common::FrameContext& frameContext, const FrameViewData& frameView,
-                 const CameraRenderQueues& queues, ForwardPassExecutionStats& outStats);
+                 const gpu::GpuEntitySceneView& sceneView, const CameraRenderQueues& queues,
+                 ForwardPassExecutionStats& outStats);
 
 private:
     gpu::GpuDevice& mDevice;

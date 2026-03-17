@@ -118,6 +118,11 @@ bool ForwardOpaquePass::beginCameraFrame(const FrameViewData& frameView)
     return true;
 }
 
+void ForwardOpaquePass::setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept
+{
+    mSceneView = sceneView;
+}
+
 void ForwardOpaquePass::setShadowMapTargets(
     const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount>& shadowMapTargets,
     std::uint32_t shadowMapCount)
@@ -248,9 +253,57 @@ bool ForwardOpaquePass::draw(gpu::GpuRenderTargetHandle target,
         shadowMapVar->Set(shadowMapSrvs[cascadeIdx]);
     }
 
+    const bool useSceneBuffers = drawCommand.instanceIndex != 0xffffffffu &&
+                                 mSceneView.poses.positionsBuffer != nullptr &&
+                                 mSceneView.poses.orientationsBuffer != nullptr &&
+                                 mSceneView.poses.scalesBuffer != nullptr &&
+                                 mSceneView.renderableMetadataBuffer != nullptr &&
+                                 mSceneView.renderableVisibilityFlagsBuffer != nullptr;
+    if (useSceneBuffers)
+    {
+        struct VariableBinding
+        {
+            const char* name;
+            Diligent::IBuffer* buffer;
+        };
+        constexpr VariableBinding kSceneBindings[] = {
+            {"g_EntityPositions", nullptr},
+            {"g_EntityOrientations", nullptr},
+            {"g_EntityScales", nullptr},
+            {"g_RenderableMetadata", nullptr},
+            {"g_RenderableVisibilityFlags", nullptr},
+        };
+        const VariableBinding bindings[] = {
+            {kSceneBindings[0].name, mSceneView.poses.positionsBuffer},
+            {kSceneBindings[1].name, mSceneView.poses.orientationsBuffer},
+            {kSceneBindings[2].name, mSceneView.poses.scalesBuffer},
+            {kSceneBindings[3].name, mSceneView.renderableMetadataBuffer},
+            {kSceneBindings[4].name, mSceneView.renderableVisibilityFlagsBuffer},
+        };
+        for (const VariableBinding& binding : bindings)
+        {
+            Diligent::IShaderResourceVariable* variable =
+                program->shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                                                  binding.name);
+            if (variable == nullptr || binding.buffer == nullptr)
+            {
+                return false;
+            }
+            Diligent::IBufferView* srv =
+                binding.buffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+            if (srv == nullptr)
+            {
+                return false;
+            }
+            variable->Set(srv);
+        }
+    }
+
     PerObjectConstants objectConstants{};
     objectConstants.modelMatrix  = drawCommand.modelMatrix.Transpose();
     objectConstants.normalMatrix = drawCommand.normalMatrix.Transpose();
+    objectConstants.instanceIndex = drawCommand.instanceIndex;
+    objectConstants.useSceneBuffers = useSceneBuffers ? 1u : 0u;
 
     ForwardPerMaterialConstants materialConstants{};
     materialConstants.baseColor =

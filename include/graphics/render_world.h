@@ -4,6 +4,7 @@
 #include "common/id.h"
 #include "common/math_types.h"
 #include "gpu/gpu_device.h"
+#include "gpu/gpu_scene.h"
 #include "graphics/export.h"
 #include "graphics/render_resource_manager.h"
 
@@ -60,15 +61,22 @@ public:
     bool removeRenderable(common::EntityId entityId);
     bool removeCamera(common::EntityId entityId);
     bool removeDirectionalLight(common::EntityId entityId);
+    void setGpuEntityScene(const gpu::GpuEntitySceneView& sceneView,
+                           const std::unordered_map<common::EntityId, std::uint32_t>& poseIndices)
+        noexcept;
 
     const std::vector<RenderableInstance>& renderables() const noexcept;
     const std::vector<CameraData>& cameras() const noexcept;
     const std::vector<DirectionalLightData>& directionalLights() const noexcept;
+    const gpu::GpuEntitySceneView& gpuEntityScene() const noexcept;
+    const std::unordered_map<common::EntityId, std::uint32_t>& gpuEntityPoseIndices() const noexcept;
 
 private:
     std::vector<RenderableInstance> mRenderables;
     std::vector<CameraData> mCameras;
     std::vector<DirectionalLightData> mDirectionalLights;
+    gpu::GpuEntitySceneView mGpuEntityScene{};
+    std::unordered_map<common::EntityId, std::uint32_t> mGpuEntityPoseIndices;
 
     std::unordered_map<common::EntityId, std::size_t> mRenderableIndices;
     std::unordered_map<common::EntityId, std::size_t> mCameraIndices;
