@@ -166,8 +166,8 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
                   }
                   else
                   {
-                      mMeshRenderers.meshIds[index]     = component.mesh.id;
-                      mMeshRenderers.materialIds[index] = component.material.id;
+                      mMeshRenderers.meshIds[index]      = component.mesh.id;
+                      mMeshRenderers.materialIds[index]  = component.material.id;
                       mMeshRenderers.visibleFlags[index] = component.visible ? 1u : 0u;
                   }
               });
@@ -194,22 +194,21 @@ void World::setCamera(common::EntityId entityId, const CameraComponent& componen
                       mCameras.outputTargetIds.push_back(component.outputTarget.id);
                       mCameras.outputWidths.push_back(component.outputWidth);
                       mCameras.outputHeights.push_back(component.outputHeight);
-                      mCameras.viewports.push_back(Diligent::float4{
-                          component.viewport.x, component.viewport.y, component.viewport.width,
-                          component.viewport.height});
+                      mCameras.viewports.push_back(
+                          Diligent::float4{component.viewport.x, component.viewport.y,
+                                           component.viewport.width, component.viewport.height});
                       mCameras.renderOrders.push_back(component.renderOrder);
                   }
                   else
                   {
-                      mCameras.projection0[index] = packCameraProjection0(component);
-                      mCameras.projection1[index] = packCameraProjection1(component);
+                      mCameras.projection0[index]     = packCameraProjection0(component);
+                      mCameras.projection1[index]     = packCameraProjection1(component);
                       mCameras.outputTargetIds[index] = component.outputTarget.id;
                       mCameras.outputWidths[index]    = component.outputWidth;
                       mCameras.outputHeights[index]   = component.outputHeight;
-                      mCameras.viewports[index] = Diligent::float4{component.viewport.x,
-                                                                   component.viewport.y,
-                                                                   component.viewport.width,
-                                                                   component.viewport.height};
+                      mCameras.viewports[index] =
+                          Diligent::float4{component.viewport.x, component.viewport.y,
+                                           component.viewport.width, component.viewport.height};
                       mCameras.renderOrders[index] = component.renderOrder;
                   }
               });
@@ -240,9 +239,8 @@ void World::setDirectionalLight(common::EntityId entityId,
                   {
                       mDirectionalLights.directionsIntensities[index] =
                           packLightDirectionIntensity(component);
-                      mDirectionalLights.colors[index] = packLightColor(component);
-                      mDirectionalLights.shadowParams[index] =
-                          packLightShadowParams(component);
+                      mDirectionalLights.colors[index]       = packLightColor(component);
+                      mDirectionalLights.shadowParams[index] = packLightShadowParams(component);
                   }
               });
 
@@ -560,7 +558,7 @@ std::optional<MeshRendererComponent> World::tryGetMeshRenderer(common::EntityId 
         return std::nullopt;
     }
 
-    const std::uint32_t index          = it->second;
+    const std::uint32_t index = it->second;
     MeshRendererComponent component{};
     component.mesh.id     = mMeshRenderers.meshIds[index];
     component.material.id = mMeshRenderers.materialIds[index];

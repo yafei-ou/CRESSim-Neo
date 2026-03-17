@@ -53,7 +53,7 @@ private:
     std::unique_ptr<physics::PhysicsSolver> mPhysicsSolver;
     std::unique_ptr<graphics::Renderer> mRenderer;
     graphics::RenderStats mLastRenderStats{};
-    std::uint64_t mLastSyncedRenderRevision       = ~0ull;
+    std::uint64_t mLastSyncedRenderRevision = ~0ull;
     World mWorld;
     graphics::RenderResourceManager mResources;
     graphics::RenderWorld mRenderWorld;

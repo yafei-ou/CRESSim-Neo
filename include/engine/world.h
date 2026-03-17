@@ -29,8 +29,7 @@ public:
     void setTransform(common::EntityId entityId, const TransformComponent& component);
     void setMeshRenderer(common::EntityId entityId, const MeshRendererComponent& component);
     void setCamera(common::EntityId entityId, const CameraComponent& component);
-    void setDirectionalLight(common::EntityId entityId,
-                             const DirectionalLightComponent& component);
+    void setDirectionalLight(common::EntityId entityId, const DirectionalLightComponent& component);
 
     // Physics is owned by PhysicsWorld now.
     void setRigidBody(common::EntityId entityId, const RigidBodyComponent& component);
@@ -48,7 +47,8 @@ public:
     std::optional<TransformComponent> tryGetTransform(common::EntityId entityId) const;
     std::optional<MeshRendererComponent> tryGetMeshRenderer(common::EntityId entityId) const;
     std::optional<CameraComponent> tryGetCamera(common::EntityId entityId) const;
-    std::optional<DirectionalLightComponent> tryGetDirectionalLight(common::EntityId entityId) const;
+    std::optional<DirectionalLightComponent> tryGetDirectionalLight(
+        common::EntityId entityId) const;
 
     // Read rigid body/collider through physics.
     std::optional<RigidBodyComponent> tryGetRigidBody(common::EntityId entityId) const;
@@ -90,7 +90,7 @@ public:
         std::vector<common::EntityId> entityIds;
         std::vector<Diligent::float4> directionsIntensities; // xyz=dir, w=intensity
         std::vector<Diligent::float4> colors;                // xyz=color, w=unused
-        std::vector<Diligent::float4> shadowParams; // x=distance, y=fadeDistance
+        std::vector<Diligent::float4> shadowParams;          // x=distance, y=fadeDistance
     };
 
     struct MeshRendererSoA
@@ -179,8 +179,7 @@ private:
     static CameraComponent unpackCamera(const Diligent::float4& projection0,
                                         std::uint32_t outputTargetId, std::uint32_t outputWidth,
                                         std::uint32_t outputHeight,
-                                        const Diligent::float4& viewport,
-                                        std::uint32_t renderOrder)
+                                        const Diligent::float4& viewport, std::uint32_t renderOrder)
     {
         CameraComponent component{};
         component.verticalFovDegrees = projection0.x;
@@ -190,8 +189,7 @@ private:
         component.outputTarget.id    = outputTargetId;
         component.outputWidth        = outputWidth;
         component.outputHeight       = outputHeight;
-        component.viewport =
-            gpu::GpuRenderViewport{viewport.x, viewport.y, viewport.z, viewport.w};
+        component.viewport = gpu::GpuRenderViewport{viewport.x, viewport.y, viewport.z, viewport.w};
         component.renderOrder = renderOrder;
         return component;
     }
@@ -216,9 +214,9 @@ private:
                                                             const Diligent::float4& shadowParams)
     {
         DirectionalLightComponent component{};
-        component.direction = Diligent::float3{direction.x, direction.y, direction.z};
-        component.intensity = direction.w;
-        component.color     = Diligent::float3{color.x, color.y, color.z};
+        component.direction          = Diligent::float3{direction.x, direction.y, direction.z};
+        component.intensity          = direction.w;
+        component.color              = Diligent::float3{color.x, color.y, color.z};
         component.shadowDistance     = shadowParams.x;
         component.shadowFadeDistance = shadowParams.y;
         return component;
@@ -268,7 +266,6 @@ private:
     std::uint64_t mRenderRevision = 0;
     std::vector<common::EntityId> mRenderDirtyEntities;
     std::unordered_set<common::EntityId> mRenderDirtySet;
-
 };
 
 } // namespace cressim::neo::engine

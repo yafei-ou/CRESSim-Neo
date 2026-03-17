@@ -93,7 +93,8 @@ bool ForwardOpaquePass::beginCameraFrame(const FrameViewData& frameView)
     frameConstants.shadowParams =
         Diligent::float4{0.0015f, hasAnyShadowMap() ? 1.0f : 0.0f, 0.35f, 0.0f};
     frameConstants.currentCameraIndex =
-        frameView.envIndex * std::max(mSceneView.layout.maxCamerasPerEnv, 1u) + frameView.cameraSlot;
+        frameView.envIndex * std::max(mSceneView.layout.maxCamerasPerEnv, 1u) +
+        frameView.cameraSlot;
 
     void* mappedConstants = nullptr;
     backendContext.immediateContext->MapBuffer(mForwardPerFrameBuffer, Diligent::MAP_WRITE,
@@ -202,9 +203,9 @@ bool ForwardOpaquePass::prepareDraw(gpu::GpuRenderTargetHandle target,
         return false;
     }
 
-    outSetup.backendContext = backendContext;
-    outSetup.meshBuffers = meshBuffers;
-    outSetup.program = program;
+    outSetup.backendContext  = backendContext;
+    outSetup.meshBuffers     = meshBuffers;
+    outSetup.program         = program;
     outSetup.useSceneBuffers = drawCommand.instanceIndex != 0xffffffffu &&
                                mSceneView.poses.positionsBuffer != nullptr &&
                                mSceneView.poses.orientationsBuffer != nullptr &&
@@ -343,11 +344,11 @@ bool ForwardOpaquePass::updatePerDrawConstants(Diligent::IDeviceContext* immedia
                                                bool useSceneBuffers)
 {
     PerObjectConstants objectConstants{};
-    objectConstants.modelMatrix  = drawCommand.modelMatrix.Transpose();
-    objectConstants.normalMatrix = drawCommand.normalMatrix.Transpose();
-    objectConstants.instanceIndex = drawCommand.instanceIndex;
-    objectConstants.useSceneBuffers = useSceneBuffers ? 1u : 0u;
-    objectConstants.drawListOffset = drawCommand.drawListOffset;
+    objectConstants.modelMatrix       = drawCommand.modelMatrix.Transpose();
+    objectConstants.normalMatrix      = drawCommand.normalMatrix.Transpose();
+    objectConstants.instanceIndex     = drawCommand.instanceIndex;
+    objectConstants.useSceneBuffers   = useSceneBuffers ? 1u : 0u;
+    objectConstants.drawListOffset    = drawCommand.drawListOffset;
     objectConstants.useDrawListBuffer = drawCommand.useDrawListBuffer;
 
     ForwardPerMaterialConstants materialConstants{};
@@ -385,11 +386,11 @@ void ForwardOpaquePass::bindGeometry(Diligent::IDeviceContext* immediateContext,
 {
     const Diligent::Uint64 vertexOffset = 0;
     Diligent::IBuffer* vertexBuffers[]  = {meshBuffers.vertexBuffer};
-    immediateContext->SetVertexBuffers(
-        0, 1, vertexBuffers, &vertexOffset, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-        Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
-    immediateContext->SetIndexBuffer(
-        meshBuffers.indexBuffer, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    immediateContext->SetVertexBuffers(0, 1, vertexBuffers, &vertexOffset,
+                                       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                                       Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
+    immediateContext->SetIndexBuffer(meshBuffers.indexBuffer, 0,
+                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 bool ForwardOpaquePass::draw(gpu::GpuRenderTargetHandle target,
@@ -449,11 +450,12 @@ bool ForwardOpaquePass::drawIndirect(gpu::GpuRenderTargetHandle target,
         setup.program->shaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     Diligent::DrawIndexedIndirectAttribs drawAttrs{};
-    drawAttrs.IndexType = Diligent::VT_UINT32;
+    drawAttrs.IndexType      = Diligent::VT_UINT32;
     drawAttrs.pAttribsBuffer = indirectArgsBuffer;
     drawAttrs.DrawArgsOffset = argsOffsetBytes;
-    drawAttrs.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
-    drawAttrs.AttribsBufferStateTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    drawAttrs.Flags          = Diligent::DRAW_FLAG_VERIFY_ALL;
+    drawAttrs.AttribsBufferStateTransitionMode =
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
     setup.backendContext.immediateContext->DrawIndexedIndirect(drawAttrs);
     return true;
 }

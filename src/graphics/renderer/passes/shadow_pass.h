@@ -41,23 +41,23 @@ private:
     {
         gpu::GpuBackendContext backendContext{};
         MeshGpuCache::CachedBuffers* meshBuffers = nullptr;
-        bool useSceneBuffers = false;
+        bool useSceneBuffers                     = false;
     };
 
     struct PerObjectConstants
     {
         Diligent::float4x4 modelMatrix  = Diligent::float4x4::Identity();
         Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
-        std::uint32_t instanceIndex = 0xffffffffu;
-        std::uint32_t useSceneBuffers = 0u;
-        std::uint32_t drawListOffset = 0u;
+        std::uint32_t instanceIndex     = 0xffffffffu;
+        std::uint32_t useSceneBuffers   = 0u;
+        std::uint32_t drawListOffset    = 0u;
         std::uint32_t useDrawListBuffer = 0u;
     };
 
     struct ShadowPerPassConstants
     {
         Diligent::float4x4 lightViewProjectionMatrix = Diligent::float4x4::Identity();
-        std::uint32_t shadowPassParams[4] = {0u, 0u, 0u, 0u};
+        std::uint32_t shadowPassParams[4]            = {0u, 0u, 0u, 0u};
     };
 
     bool createPipeline(Diligent::IRenderDevice* renderDevice);

@@ -18,18 +18,18 @@ namespace cressim::neo::gpu
 
 struct GpuBufferBinding
 {
-    const char* variableName = nullptr;
-    Diligent::IBuffer* buffer = nullptr;
+    const char* variableName            = nullptr;
+    Diligent::IBuffer* buffer           = nullptr;
     Diligent::BUFFER_VIEW_TYPE viewType = Diligent::BUFFER_VIEW_UNDEFINED;
 };
 
 struct GpuComputePassDefinition
 {
-    const char* shaderPath = nullptr;
-    const char* shaderName = nullptr;
-    const char* psoName = nullptr;
+    const char* shaderPath                                = nullptr;
+    const char* shaderName                                = nullptr;
+    const char* psoName                                   = nullptr;
     const Diligent::ShaderResourceVariableDesc* variables = nullptr;
-    std::size_t variableCount = 0u;
+    std::size_t variableCount                             = 0u;
 };
 
 class GpuComputePass
@@ -64,8 +64,7 @@ public:
 
 private:
     static bool bindBufferVariable(Diligent::IShaderResourceBinding* srb, const char* variableName,
-                                   Diligent::IBuffer* buffer,
-                                   Diligent::BUFFER_VIEW_TYPE viewType);
+                                   Diligent::IBuffer* buffer, Diligent::BUFFER_VIEW_TYPE viewType);
 
     template <std::size_t N>
     static bool bindBufferVariables(Diligent::IShaderResourceBinding* srb,

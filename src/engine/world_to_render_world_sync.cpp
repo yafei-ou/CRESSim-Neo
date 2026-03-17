@@ -17,10 +17,11 @@ void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWor
         }
 
         const std::optional<TransformComponent> transform = world.tryGetTransform(entityId);
-        const common::Transform worldTransform = transform ? transform->worldTransform
-                                                           : common::Transform{};
+        const common::Transform worldTransform =
+            transform ? transform->worldTransform : common::Transform{};
 
-        const std::optional<MeshRendererComponent> meshRenderer = world.tryGetMeshRenderer(entityId);
+        const std::optional<MeshRendererComponent> meshRenderer =
+            world.tryGetMeshRenderer(entityId);
         if (meshRenderer && meshRenderer->visible)
         {
             graphics::RenderableInstance renderable{};

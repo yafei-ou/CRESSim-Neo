@@ -24,8 +24,8 @@ struct FrameViewData
 {
     gpu::GpuRenderTargetHandle target{};
     gpu::GpuRenderViewport viewport{};
-    std::uint32_t envIndex = 0u;
-    std::uint32_t cameraSlot = 0u;
+    std::uint32_t envIndex                  = 0u;
+    std::uint32_t cameraSlot                = 0u;
     std::uint32_t outputWidth               = 0;
     std::uint32_t outputHeight              = 0;
     Diligent::float4x4 viewMatrix           = Diligent::float4x4::Identity();
@@ -58,19 +58,19 @@ struct QueuedDraw
 
 struct GpuIndirectCandidate
 {
-    std::uint32_t objectIndex = 0xffffffffu;
-    std::uint32_t commandIndex = 0u;
+    std::uint32_t objectIndex    = 0xffffffffu;
+    std::uint32_t commandIndex   = 0u;
     std::uint32_t visibilityMask = 0u;
-    std::uint32_t reserved = 0u;
+    std::uint32_t reserved       = 0u;
 };
 
 struct GpuIndirectBucket
 {
     ForwardDrawCommand drawCommand{};
     std::uint32_t candidateOffset = 0u;
-    std::uint32_t candidateCount = 0u;
-    std::uint32_t drawListOffset = 0u;
-    std::uint32_t commandIndex = 0u;
+    std::uint32_t candidateCount  = 0u;
+    std::uint32_t drawListOffset  = 0u;
+    std::uint32_t commandIndex    = 0u;
 };
 
 struct CameraRenderQueues

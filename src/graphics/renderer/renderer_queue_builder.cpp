@@ -60,10 +60,10 @@ bool buildDrawCommand(const PreparedRenderable& renderable, const RenderResource
 
 struct GpuBucketKey
 {
-    std::uint32_t programFamily = 0u;
+    std::uint32_t programFamily        = 0u;
     std::uint32_t materialFeatureFlags = 0u;
-    common::ResourceId materialId = common::kInvalidResourceId;
-    common::ResourceId meshId = common::kInvalidResourceId;
+    common::ResourceId materialId      = common::kInvalidResourceId;
+    common::ResourceId meshId          = common::kInvalidResourceId;
 };
 
 bool sameGpuBucket(const ForwardDrawCommand& lhsDraw, common::ResourceId lhsMaterialId,
@@ -76,8 +76,7 @@ bool sameGpuBucket(const ForwardDrawCommand& lhsDraw, common::ResourceId lhsMate
 
 void buildGpuBuckets(const std::vector<QueuedDraw>& sortedDraws,
                      std::vector<GpuIndirectBucket>& outBuckets,
-                     std::vector<GpuIndirectCandidate>& outCandidates,
-                     bool shadowMode)
+                     std::vector<GpuIndirectCandidate>& outCandidates, bool shadowMode)
 {
     outBuckets.clear();
     outCandidates.clear();
@@ -97,12 +96,12 @@ void buildGpuBuckets(const std::vector<QueuedDraw>& sortedDraws,
                            outBuckets.back().drawCommand.meshId, draw))
         {
             GpuIndirectBucket bucket{};
-            bucket.drawCommand = draw.drawCommand;
+            bucket.drawCommand                   = draw.drawCommand;
             bucket.drawCommand.useDrawListBuffer = 1u;
             bucket.candidateOffset = static_cast<std::uint32_t>(sortedDraws.size()); // placeholder
-            bucket.candidateCount = 0u;
-            bucket.drawListOffset = nextDrawListOffset;
-            bucket.commandIndex = static_cast<std::uint32_t>(outBuckets.size());
+            bucket.candidateCount  = 0u;
+            bucket.drawListOffset  = nextDrawListOffset;
+            bucket.commandIndex    = static_cast<std::uint32_t>(outBuckets.size());
             outBuckets.push_back(bucket);
         }
 
@@ -124,8 +123,8 @@ void buildGpuBuckets(const std::vector<QueuedDraw>& sortedDraws,
         for (std::uint32_t cascadeIndex = 0u; cascadeIndex < kShadowCascadeCount; ++cascadeIndex)
         {
             outCandidates.push_back(GpuIndirectCandidate{
-                draw.drawCommand.instanceIndex, bucket.commandIndex * kShadowCascadeCount + cascadeIndex,
-                1u << cascadeIndex, 0u});
+                draw.drawCommand.instanceIndex,
+                bucket.commandIndex * kShadowCascadeCount + cascadeIndex, 1u << cascadeIndex, 0u});
             ++nextDrawListOffset;
         }
         ++bucket.candidateCount;
@@ -138,11 +137,12 @@ void buildGpuBuckets(const std::vector<QueuedDraw>& sortedDraws,
         std::uint32_t nextShadowOffset = 0u;
         for (const GpuIndirectBucket& sourceBucket : outBuckets)
         {
-            for (std::uint32_t cascadeIndex = 0u; cascadeIndex < kShadowCascadeCount; ++cascadeIndex)
+            for (std::uint32_t cascadeIndex = 0u; cascadeIndex < kShadowCascadeCount;
+                 ++cascadeIndex)
             {
                 GpuIndirectBucket bucket = sourceBucket;
-                bucket.commandIndex = static_cast<std::uint32_t>(expandedBuckets.size());
-                bucket.drawListOffset = nextShadowOffset;
+                bucket.commandIndex      = static_cast<std::uint32_t>(expandedBuckets.size());
+                bucket.drawListOffset    = nextShadowOffset;
                 nextShadowOffset += sourceBucket.candidateCount;
                 expandedBuckets.push_back(bucket);
             }
@@ -175,21 +175,21 @@ std::vector<PreparedRenderable> buildPreparedRenderables(
         }
 
         PreparedRenderable entry{};
-        entry.instance = &renderable;
-        entry.mesh = mesh;
-        entry.material = material;
-        entry.instanceIndex = 0xffffffffu;
+        entry.instance       = &renderable;
+        entry.mesh           = mesh;
+        entry.material       = material;
+        entry.instanceIndex  = 0xffffffffu;
         entry.worldTransform = renderable.worldTransform;
         const auto gpuPoseIt = gpuPoseIndices.find(renderable.entityId);
         if (gpuPoseIt != gpuPoseIndices.end() && material->blendMode != BlendMode::Transparent)
         {
             entry.instanceIndex = gpuPoseIt->second;
-            entry.modelMatrix = Diligent::float4x4::Identity();
-            entry.normalMatrix = Diligent::float4x4::Identity();
+            entry.modelMatrix   = Diligent::float4x4::Identity();
+            entry.normalMatrix  = Diligent::float4x4::Identity();
         }
         else
         {
-            entry.modelMatrix = worldMatrixFromTransform(entry.worldTransform);
+            entry.modelMatrix  = worldMatrixFromTransform(entry.worldTransform);
             entry.normalMatrix = normalMatrixFromModelMatrix(entry.modelMatrix);
         }
 
@@ -228,9 +228,9 @@ CameraRenderQueues buildCameraRenderQueues(
             continue;
         }
 
-        const bool gpuDriven      = renderable.instanceIndex != 0xffffffffu;
-        const bool cameraVisible  = gpuDriven ? true
-                                              : isVisibleByFrustum(renderable, frameView.viewFrustum);
+        const bool gpuDriven = renderable.instanceIndex != 0xffffffffu;
+        const bool cameraVisible =
+            gpuDriven ? true : isVisibleByFrustum(renderable, frameView.viewFrustum);
         const bool transparent    = (renderable.material->blendMode == BlendMode::Transparent);
         const bool canCastShadows = renderable.material->castsShadows && !transparent;
         std::uint32_t shadowCascadeMask = gpuDriven ? ((1u << kShadowCascadeCount) - 1u) : 0u;
@@ -266,11 +266,11 @@ CameraRenderQueues buildCameraRenderQueues(
         }
 
         QueuedDraw queuedDraw{};
-        queuedDraw.entityId        = renderable.instance->entityId;
-        queuedDraw.meshId          = renderable.instance->mesh.id;
-        queuedDraw.materialId      = renderable.instance->material.id;
-        queuedDraw.depth           = squaredDistanceToCamera(renderable.worldTransform,
-                                                             frameView.cameraWorldPosition);
+        queuedDraw.entityId   = renderable.instance->entityId;
+        queuedDraw.meshId     = renderable.instance->mesh.id;
+        queuedDraw.materialId = renderable.instance->material.id;
+        queuedDraw.depth =
+            squaredDistanceToCamera(renderable.worldTransform, frameView.cameraWorldPosition);
         queuedDraw.castsShadows    = renderable.material->castsShadows;
         queuedDraw.receivesShadows = renderable.material->receivesShadows;
         queuedDraw.transparent     = transparent;
@@ -311,7 +311,6 @@ CameraRenderQueues buildCameraRenderQueues(
                   }
                   return lhs.entityId < rhs.entityId;
               });
-
 
     std::sort(gpuOpaqueDraws.begin(), gpuOpaqueDraws.end(),
               [](const QueuedDraw& lhs, const QueuedDraw& rhs)

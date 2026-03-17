@@ -21,9 +21,9 @@ struct PreparedRenderable
     const MaterialResourceDesc* material = nullptr;
     std::uint32_t instanceIndex          = 0xffffffffu;
     common::Transform worldTransform{};
-    Diligent::float4x4 modelMatrix       = Diligent::float4x4::Identity();
-    Diligent::float4x4 normalMatrix      = Diligent::float4x4::Identity();
-    bool hasWorldBounds                  = false;
+    Diligent::float4x4 modelMatrix  = Diligent::float4x4::Identity();
+    Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
+    bool hasWorldBounds             = false;
     Diligent::BoundBox worldBounds{};
 };
 

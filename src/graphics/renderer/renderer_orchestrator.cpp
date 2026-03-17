@@ -19,18 +19,18 @@ constexpr std::uint32_t kScenePrepareThreadGroupSize = 64u;
 
 struct GraphicsCameraPrepareConstants
 {
-    std::uint32_t currentCameraIndex = 0u;
-    std::uint32_t maxLightsPerEnv = 0u;
+    std::uint32_t currentCameraIndex  = 0u;
+    std::uint32_t maxLightsPerEnv     = 0u;
     std::uint32_t shadowMapResolution = kShadowMapResolution;
-    float frameAspectRatio = 1.0f;
+    float frameAspectRatio            = 1.0f;
 };
 
 struct GraphicsScenePrepareConstants
 {
     std::uint32_t currentCameraIndex = 0u;
-    std::uint32_t renderableCount = 0u;
-    std::uint32_t padding0 = 0u;
-    std::uint32_t padding1 = 0u;
+    std::uint32_t renderableCount    = 0u;
+    std::uint32_t padding0           = 0u;
+    std::uint32_t padding1           = 0u;
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kCameraPrepareVars[] = {
@@ -120,7 +120,8 @@ bool Renderer::ensureGpuScenePrepareState()
     }
 
     gpu::GpuBackendContext backendContext{};
-    if (!mDevice.tryGetGraphicsBackendContext(backendContext) || backendContext.renderDevice == nullptr)
+    if (!mDevice.tryGetGraphicsBackendContext(backendContext) ||
+        backendContext.renderDevice == nullptr)
     {
         return false;
     }
@@ -141,11 +142,11 @@ bool Renderer::ensureGpuScenePrepareState()
     }
 
     Diligent::BufferDesc desc{};
-    desc.Name = "CRESSimNeo.Graphics.CameraPrepare.Constants";
-    desc.Size = sizeof(GraphicsCameraPrepareConstants);
-    desc.Usage = Diligent::USAGE_DYNAMIC;
-    desc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-    desc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+    desc.Name                 = "CRESSimNeo.Graphics.CameraPrepare.Constants";
+    desc.Size                 = sizeof(GraphicsCameraPrepareConstants);
+    desc.Usage                = Diligent::USAGE_DYNAMIC;
+    desc.BindFlags            = Diligent::BIND_UNIFORM_BUFFER;
+    desc.CPUAccessFlags       = Diligent::CPU_ACCESS_WRITE;
     desc.ImmediateContextMask = 1ull;
     backendContext.renderDevice->CreateBuffer(desc, nullptr,
                                               &mGpuScenePrepare->cameraPrepareConstantsBuffer);
@@ -174,10 +175,10 @@ bool Renderer::prepareGpuScene(const FrameViewData& frameView,
     {
         return true;
     }
-    if (sceneView.poses.positionsBuffer == nullptr || sceneView.poses.orientationsBuffer == nullptr ||
-        sceneView.poses.scalesBuffer == nullptr || sceneView.renderableMetadataBuffer == nullptr ||
-        sceneView.cameraInputsBuffer == nullptr || sceneView.preparedCamerasBuffer == nullptr ||
-        sceneView.lightInputsBuffer == nullptr ||
+    if (sceneView.poses.positionsBuffer == nullptr ||
+        sceneView.poses.orientationsBuffer == nullptr || sceneView.poses.scalesBuffer == nullptr ||
+        sceneView.renderableMetadataBuffer == nullptr || sceneView.cameraInputsBuffer == nullptr ||
+        sceneView.preparedCamerasBuffer == nullptr || sceneView.lightInputsBuffer == nullptr ||
         sceneView.renderableVisibilityFlagsBuffer == nullptr ||
         sceneView.renderableShadowCascadeMasksBuffer == nullptr)
     {
@@ -189,7 +190,8 @@ bool Renderer::prepareGpuScene(const FrameViewData& frameView,
     }
 
     gpu::GpuBackendContext backendContext{};
-    if (!mDevice.tryGetGraphicsBackendContext(backendContext) || backendContext.immediateContext == nullptr)
+    if (!mDevice.tryGetGraphicsBackendContext(backendContext) ||
+        backendContext.immediateContext == nullptr)
     {
         return false;
     }
@@ -202,14 +204,13 @@ bool Renderer::prepareGpuScene(const FrameViewData& frameView,
     }
 
     GraphicsCameraPrepareConstants cameraPrepareConstants{};
-    cameraPrepareConstants.currentCameraIndex = currentCameraIndex;
-    cameraPrepareConstants.maxLightsPerEnv = sceneView.layout.maxLightsPerEnv;
+    cameraPrepareConstants.currentCameraIndex  = currentCameraIndex;
+    cameraPrepareConstants.maxLightsPerEnv     = sceneView.layout.maxLightsPerEnv;
     cameraPrepareConstants.shadowMapResolution = kShadowMapResolution;
     cameraPrepareConstants.frameAspectRatio =
-        frameView.outputHeight > 0u
-            ? static_cast<float>(frameView.outputWidth) /
-                  static_cast<float>(std::max(frameView.outputHeight, 1u))
-            : 1.0f;
+        frameView.outputHeight > 0u ? static_cast<float>(frameView.outputWidth) /
+                                          static_cast<float>(std::max(frameView.outputHeight, 1u))
+                                    : 1.0f;
 
     void* mappedConstants = nullptr;
     backendContext.immediateContext->MapBuffer(mGpuScenePrepare->cameraPrepareConstantsBuffer,
@@ -242,8 +243,8 @@ bool Renderer::prepareGpuScene(const FrameViewData& frameView,
 
     GraphicsScenePrepareConstants constants{};
     constants.currentCameraIndex = currentCameraIndex;
-    constants.renderableCount = sceneView.renderableCount;
-    mappedConstants = nullptr;
+    constants.renderableCount    = sceneView.renderableCount;
+    mappedConstants              = nullptr;
     backendContext.immediateContext->MapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
                                                Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
                                                mappedConstants);
@@ -277,8 +278,9 @@ bool Renderer::prepareGpuScene(const FrameViewData& frameView,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    return mGpuScenePrepare->scenePreparePass.dispatch(backendContext.immediateContext, 0u, bindings,
-                                                       dispatchGroupCount(sceneView.renderableCount));
+    return mGpuScenePrepare->scenePreparePass.dispatch(
+        backendContext.immediateContext, 0u, bindings,
+        dispatchGroupCount(sceneView.renderableCount));
 }
 
 bool Renderer::initialize()
@@ -311,14 +313,14 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
 
     mDevice.beginFrame(frameContext);
 
-    const auto& renderables = world.renderables();
-    const auto preparedRenderables = detail::buildPreparedRenderables(
-        renderables, mResourceManager, world.gpuEntityPoseIndices());
+    const auto& renderables        = world.renderables();
+    const auto preparedRenderables = detail::buildPreparedRenderables(renderables, mResourceManager,
+                                                                      world.gpuEntityPoseIndices());
     const ForwardDirectionalLightData lightData = detail::buildMainLight(world.directionalLights());
 
-    stats.renderableCount = static_cast<std::uint32_t>(renderables.size());
+    stats.renderableCount      = static_cast<std::uint32_t>(renderables.size());
     stats.validRenderableCount = static_cast<std::uint32_t>(preparedRenderables.size());
-    stats.lightCount = static_cast<std::uint32_t>(world.directionalLights().size());
+    stats.lightCount           = static_cast<std::uint32_t>(world.directionalLights().size());
 
     std::vector<CameraData> cameras = detail::sortedCameras(world);
     if (cameras.empty())
@@ -328,7 +330,7 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
 
     struct RequestedExtent
     {
-        std::uint32_t width = 0;
+        std::uint32_t width  = 0;
         std::uint32_t height = 0;
     };
     std::unordered_map<common::ResourceId, RequestedExtent> requestedExtents;
@@ -356,7 +358,7 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
             ++stats.renderTargetResizeRequests;
 
             RequestedExtent desired{};
-            desired.width = (camera.outputWidth == 0 ? targetDesc.width : camera.outputWidth);
+            desired.width  = (camera.outputWidth == 0 ? targetDesc.width : camera.outputWidth);
             desired.height = (camera.outputHeight == 0 ? targetDesc.height : camera.outputHeight);
 
             const auto requestedIt = requestedExtents.find(target.id);

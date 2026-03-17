@@ -46,9 +46,9 @@ private:
     struct DrawSetup
     {
         gpu::GpuBackendContext backendContext{};
-        MeshGpuCache::CachedBuffers* meshBuffers = nullptr;
+        MeshGpuCache::CachedBuffers* meshBuffers           = nullptr;
         MaterialProgramRegistry::ProgramResources* program = nullptr;
-        bool useSceneBuffers = false;
+        bool useSceneBuffers                               = false;
     };
 
     struct ForwardPerFrameConstants
@@ -60,18 +60,18 @@ private:
         Diligent::float4 lightColor{1.0f, 1.0f, 1.0f, 0.0f};
         Diligent::float4 shadowParams{0.0015f, 0.0f, 0.0f, 0.0f};
         std::uint32_t currentCameraIndex = 0u;
-        std::uint32_t padding0 = 0u;
-        std::uint32_t padding1 = 0u;
-        std::uint32_t padding2 = 0u;
+        std::uint32_t padding0           = 0u;
+        std::uint32_t padding1           = 0u;
+        std::uint32_t padding2           = 0u;
     };
 
     struct PerObjectConstants
     {
         Diligent::float4x4 modelMatrix  = Diligent::float4x4::Identity();
         Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
-        std::uint32_t instanceIndex = 0xffffffffu;
-        std::uint32_t useSceneBuffers = 0u;
-        std::uint32_t drawListOffset = 0u;
+        std::uint32_t instanceIndex     = 0xffffffffu;
+        std::uint32_t useSceneBuffers   = 0u;
+        std::uint32_t drawListOffset    = 0u;
         std::uint32_t useDrawListBuffer = 0u;
     };
 

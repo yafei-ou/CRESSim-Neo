@@ -258,7 +258,7 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap3",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
-    psoCreateInfo.PSODesc.ResourceLayout.Variables    = kVars;
+    psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
     psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
         static_cast<Diligent::Uint32>(std::size(kVars));
 

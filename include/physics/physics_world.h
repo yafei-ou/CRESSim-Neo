@@ -77,8 +77,8 @@ private:
     std::vector<ColliderState> mColliderSnapshot{};
     PhysicsSoADirtyRange mRigidBodyDirtyRange{};
     PhysicsSoADirtyRange mColliderDirtyRange{};
-    bool mStaticBroadPhaseDirty = false;
-    std::uint64_t mRevision     = 0;
+    bool mStaticBroadPhaseDirty  = false;
+    std::uint64_t mRevision      = 0;
     RigidBodyId mNextRigidBodyId = 1u;
     ColliderId mNextColliderId   = 1u;
 };

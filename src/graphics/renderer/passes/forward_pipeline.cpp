@@ -21,15 +21,15 @@ constexpr std::uint32_t kIndirectThreadGroupSize = 64u;
 
 struct IndirectCommandDesc
 {
-    std::uint32_t visibleOffset = 0u;
+    std::uint32_t visibleOffset   = 0u;
     std::uint32_t maxVisibleCount = 0u;
-    std::uint32_t indexCount = 0u;
-    std::uint32_t reserved = 0u;
+    std::uint32_t indexCount      = 0u;
+    std::uint32_t reserved        = 0u;
 };
 
 struct GraphicsIndirectPassConstants
 {
-    std::uint32_t count = 0u;
+    std::uint32_t count    = 0u;
     std::uint32_t padding0 = 0u;
     std::uint32_t padding1 = 0u;
     std::uint32_t padding2 = 0u;
@@ -112,11 +112,11 @@ bool ensureStructuredBuffer(Diligent::IRenderDevice* renderDevice, const char* n
     }
 
     Diligent::BufferDesc desc{};
-    desc.Name = name;
-    desc.Size = static_cast<Diligent::Uint64>(std::max(elementCount, 1u)) * elementStride;
+    desc.Name      = name;
+    desc.Size      = static_cast<Diligent::Uint64>(std::max(elementCount, 1u)) * elementStride;
     desc.BindFlags = bindFlags;
-    desc.Usage = Diligent::USAGE_DEFAULT;
-    desc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+    desc.Usage     = Diligent::USAGE_DEFAULT;
+    desc.Mode      = Diligent::BUFFER_MODE_STRUCTURED;
     desc.ElementByteStride = elementStride;
     renderDevice->CreateBuffer(desc, nullptr, &outBuffer);
     return outBuffer != nullptr;
@@ -146,8 +146,8 @@ struct ForwardPipeline::GpuIndirectState
         Diligent::RefCntAutoPtr<Diligent::IBuffer> visibleObjectIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> commandCountsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> drawIndexedCommandsBuffer;
-        std::uint32_t candidateCapacity = 0u;
-        std::uint32_t commandCapacity = 0u;
+        std::uint32_t candidateCapacity    = 0u;
+        std::uint32_t commandCapacity      = 0u;
         std::uint32_t visibleIndexCapacity = 0u;
     };
 
@@ -205,7 +205,8 @@ bool ForwardPipeline::initialize()
     }
 
     gpu::GpuBackendContext backendContext{};
-    if (!mDevice.tryGetGraphicsBackendContext(backendContext) || backendContext.renderDevice == nullptr)
+    if (!mDevice.tryGetGraphicsBackendContext(backendContext) ||
+        backendContext.renderDevice == nullptr)
     {
         return false;
     }
@@ -226,8 +227,8 @@ bool ForwardPipeline::initialize()
     }
 
     Diligent::BufferDesc constantsDesc{};
-    constantsDesc.Usage = Diligent::USAGE_DYNAMIC;
-    constantsDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
+    constantsDesc.Usage          = Diligent::USAGE_DYNAMIC;
+    constantsDesc.BindFlags      = Diligent::BIND_UNIFORM_BUFFER;
     constantsDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
 
     constantsDesc.Name = "CRESSimNeo.ForwardPipeline.IndirectResetConstants";
@@ -279,8 +280,7 @@ bool ForwardPipeline::initialize()
 bool ForwardPipeline::execute(const common::FrameContext& frameContext,
                               const FrameViewData& frameView,
                               const gpu::GpuEntitySceneView& sceneView,
-                              const CameraRenderQueues& queues,
-                              ForwardPassExecutionStats& outStats)
+                              const CameraRenderQueues& queues, ForwardPassExecutionStats& outStats)
 {
     if (!mInitialized || mForwardOpaquePass == nullptr)
     {
@@ -295,9 +295,9 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
     }
 
     gpu::GpuBackendContext backendContext{};
-    if (!mDevice.tryGetGraphicsBackendContext(backendContext) || backendContext.renderDevice == nullptr ||
-        backendContext.immediateContext == nullptr || mGpuIndirectState == nullptr ||
-        !mGpuIndirectState->initialized)
+    if (!mDevice.tryGetGraphicsBackendContext(backendContext) ||
+        backendContext.renderDevice == nullptr || backendContext.immediateContext == nullptr ||
+        mGpuIndirectState == nullptr || !mGpuIndirectState->initialized)
     {
         return false;
     }
@@ -311,12 +311,13 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
         [&](GpuIndirectState::BufferSet& bufferSet, const std::vector<GpuIndirectBucket>& buckets,
             const std::vector<GpuIndirectCandidate>& candidates, const char* namePrefix) -> bool
     {
-        const std::uint32_t commandCount = static_cast<std::uint32_t>(buckets.size());
+        const std::uint32_t commandCount   = static_cast<std::uint32_t>(buckets.size());
         const std::uint32_t candidateCount = static_cast<std::uint32_t>(candidates.size());
-        std::uint32_t visibleCapacity = 0u;
+        std::uint32_t visibleCapacity      = 0u;
         for (const GpuIndirectBucket& bucket : buckets)
         {
-            visibleCapacity = std::max(visibleCapacity, bucket.drawListOffset + bucket.candidateCount);
+            visibleCapacity =
+                std::max(visibleCapacity, bucket.drawListOffset + bucket.candidateCount);
         }
 
         if (commandCount == 0u || candidateCount == 0u || visibleCapacity == 0u)
@@ -325,19 +326,19 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
         }
 
         if (bufferSet.commandCapacity < commandCount || bufferSet.commandDescBuffer == nullptr ||
-            bufferSet.commandCountsBuffer == nullptr || bufferSet.drawIndexedCommandsBuffer == nullptr)
+            bufferSet.commandCountsBuffer == nullptr ||
+            bufferSet.drawIndexedCommandsBuffer == nullptr)
         {
-            const std::string descName = std::string{namePrefix} + ".CommandDescs";
+            const std::string descName  = std::string{namePrefix} + ".CommandDescs";
             const std::string countName = std::string{namePrefix} + ".CommandCounts";
-            const std::string argsName = std::string{namePrefix} + ".DrawArgs";
-            if (!ensureStructuredBuffer(backendContext.renderDevice, descName.c_str(),
-                                        sizeof(IndirectCommandDesc), commandCount,
-                                        Diligent::BIND_SHADER_RESOURCE, bufferSet.commandDescBuffer) ||
-                !ensureStructuredBuffer(backendContext.renderDevice, countName.c_str(),
-                                        sizeof(std::uint32_t), commandCount,
-                                        Diligent::BIND_SHADER_RESOURCE |
-                                            Diligent::BIND_UNORDERED_ACCESS,
-                                        bufferSet.commandCountsBuffer) ||
+            const std::string argsName  = std::string{namePrefix} + ".DrawArgs";
+            if (!ensureStructuredBuffer(
+                    backendContext.renderDevice, descName.c_str(), sizeof(IndirectCommandDesc),
+                    commandCount, Diligent::BIND_SHADER_RESOURCE, bufferSet.commandDescBuffer) ||
+                !ensureStructuredBuffer(
+                    backendContext.renderDevice, countName.c_str(), sizeof(std::uint32_t),
+                    commandCount, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                    bufferSet.commandCountsBuffer) ||
                 !ensureStructuredBuffer(backendContext.renderDevice, argsName.c_str(),
                                         sizeof(std::uint32_t) * 5u, commandCount,
                                         Diligent::BIND_UNORDERED_ACCESS |
@@ -379,15 +380,14 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
         std::vector<IndirectCommandDesc> commandDescs(commandCount);
         for (const GpuIndirectBucket& bucket : buckets)
         {
-            commandDescs[bucket.commandIndex] =
-                IndirectCommandDesc{bucket.drawListOffset, bucket.candidateCount,
-                                    bucket.drawCommand.indexCount, 0u};
+            commandDescs[bucket.commandIndex] = IndirectCommandDesc{
+                bucket.drawListOffset, bucket.candidateCount, bucket.drawCommand.indexCount, 0u};
         }
 
-        if (!writeBuffer(backendContext.immediateContext, bufferSet.commandDescBuffer, commandDescs.data(),
-                         commandDescs.size() * sizeof(IndirectCommandDesc)) ||
-            !writeBuffer(backendContext.immediateContext, bufferSet.candidateBuffer, candidates.data(),
-                         candidates.size() * sizeof(GpuIndirectCandidate)))
+        if (!writeBuffer(backendContext.immediateContext, bufferSet.commandDescBuffer,
+                         commandDescs.data(), commandDescs.size() * sizeof(IndirectCommandDesc)) ||
+            !writeBuffer(backendContext.immediateContext, bufferSet.candidateBuffer,
+                         candidates.data(), candidates.size() * sizeof(GpuIndirectCandidate)))
         {
             return false;
         }
@@ -423,8 +423,8 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
             gpu::GpuBufferBinding{"g_DrawIndexedCommandsRW", bufferSet.drawIndexedCommandsBuffer,
                                   Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
-        if (!mGpuIndirectState->resetPass.dispatch(backendContext.immediateContext, 0u, resetBindings,
-                                                   dispatchGroupCount(commandCount)))
+        if (!mGpuIndirectState->resetPass.dispatch(backendContext.immediateContext, 0u,
+                                                   resetBindings, dispatchGroupCount(commandCount)))
         {
             return false;
         }
@@ -449,8 +449,7 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
                                   Diligent::BUFFER_VIEW_SHADER_RESOURCE},
             gpu::GpuBufferBinding{"g_CommandCountsRW", bufferSet.commandCountsBuffer,
                                   Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-            gpu::GpuBufferBinding{"g_VisibleObjectIndicesRW",
-                                  bufferSet.visibleObjectIndicesBuffer,
+            gpu::GpuBufferBinding{"g_VisibleObjectIndicesRW", bufferSet.visibleObjectIndicesBuffer,
                                   Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
         if (!mGpuIndirectState->filterPass.dispatch(backendContext.immediateContext, 0u,
@@ -473,9 +472,8 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
             gpu::GpuBufferBinding{"g_DrawIndexedCommandsRW", bufferSet.drawIndexedCommandsBuffer,
                                   Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
-        return mGpuIndirectState->composePass.dispatch(backendContext.immediateContext, 0u,
-                                                       composeBindings,
-                                                       dispatchGroupCount(commandCount));
+        return mGpuIndirectState->composePass.dispatch(
+            backendContext.immediateContext, 0u, composeBindings, dispatchGroupCount(commandCount));
     };
 
     if (!uploadIndirectSet(mGpuIndirectState->opaque, queues.gpuOpaqueBuckets,
@@ -489,10 +487,11 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
         return false;
     }
 
-    if (frameView.hasDirectionalLight && frameView.shadowCascadeCount > 0 && mShadowPass != nullptr &&
-        !queues.gpuShadowBuckets.empty())
+    if (frameView.hasDirectionalLight && frameView.shadowCascadeCount > 0 &&
+        mShadowPass != nullptr && !queues.gpuShadowBuckets.empty())
     {
-        mShadowPass->setVisibleObjectIndexBuffer(mGpuIndirectState->shadow.visibleObjectIndicesBuffer);
+        mShadowPass->setVisibleObjectIndexBuffer(
+            mGpuIndirectState->shadow.visibleObjectIndicesBuffer);
         for (std::uint32_t cascadeIdx = 0; cascadeIdx < frameView.shadowCascadeCount; ++cascadeIdx)
         {
             const gpu::GpuRenderTargetHandle cascadeShadowMap = mShadowMapTargets[cascadeIdx];
@@ -519,14 +518,14 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
                 }
 
                 ForwardDrawCommand drawCommand = bucket.drawCommand;
-                drawCommand.drawListOffset = bucket.drawListOffset;
-                drawCommand.useDrawListBuffer = 1u;
-                if (mShadowPass->drawIndirect(
-                        cascadeShadowMap, drawCommand, currentCameraIndex,
-                        frameView.lightViewProjectionMatrices[cascadeIdx], cascadeIdx,
-                        mGpuIndirectState->shadow.drawIndexedCommandsBuffer,
-                        static_cast<Diligent::Uint64>(bucket.commandIndex) *
-                            sizeof(std::uint32_t) * 5u))
+                drawCommand.drawListOffset     = bucket.drawListOffset;
+                drawCommand.useDrawListBuffer  = 1u;
+                if (mShadowPass->drawIndirect(cascadeShadowMap, drawCommand, currentCameraIndex,
+                                              frameView.lightViewProjectionMatrices[cascadeIdx],
+                                              cascadeIdx,
+                                              mGpuIndirectState->shadow.drawIndexedCommandsBuffer,
+                                              static_cast<Diligent::Uint64>(bucket.commandIndex) *
+                                                  sizeof(std::uint32_t) * 5u))
                 {
                     ++outStats.shadowDrawCalls;
                 }
@@ -552,8 +551,8 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
     for (const GpuIndirectBucket& bucket : queues.gpuOpaqueBuckets)
     {
         ForwardDrawCommand drawCommand = bucket.drawCommand;
-        drawCommand.drawListOffset = bucket.drawListOffset;
-        drawCommand.useDrawListBuffer = 1u;
+        drawCommand.drawListOffset     = bucket.drawListOffset;
+        drawCommand.useDrawListBuffer  = 1u;
         if (mForwardOpaquePass->drawIndirect(
                 frameView.target, drawCommand, mGpuIndirectState->opaque.drawIndexedCommandsBuffer,
                 static_cast<Diligent::Uint64>(bucket.commandIndex) * sizeof(std::uint32_t) * 5u))

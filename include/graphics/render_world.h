@@ -18,8 +18,8 @@ namespace cressim::neo::graphics
 struct RenderableInstance
 {
     common::EntityId entityId = common::kInvalidEntityId;
-    std::uint32_t envIndex = 0u;
-    std::uint32_t objectSlot = 0xffffffffu;
+    std::uint32_t envIndex    = 0u;
+    std::uint32_t objectSlot  = 0xffffffffu;
     common::Transform worldTransform{};
     MeshHandle mesh{};
     MaterialHandle material{};
@@ -28,8 +28,8 @@ struct RenderableInstance
 struct CameraData
 {
     common::EntityId entityId = common::kInvalidEntityId;
-    std::uint32_t envIndex = 0u;
-    std::uint32_t cameraSlot = 0xffffffffu;
+    std::uint32_t envIndex    = 0u;
+    std::uint32_t cameraSlot  = 0xffffffffu;
     common::Transform worldTransform{};
     float verticalFovDegrees = 60.0f;
     float aspectRatio        = 1.0f;
@@ -48,8 +48,8 @@ struct CameraData
 struct DirectionalLightData
 {
     common::EntityId entityId = common::kInvalidEntityId;
-    std::uint32_t envIndex = 0u;
-    std::uint32_t lightSlot = 0xffffffffu;
+    std::uint32_t envIndex    = 0u;
+    std::uint32_t lightSlot   = 0xffffffffu;
     Diligent::float3 direction{0.0f, -1.0f, 0.0f};
     Diligent::float3 color{1.0f, 1.0f, 1.0f};
     float intensity          = 1.0f;
@@ -68,15 +68,16 @@ public:
     bool removeRenderable(common::EntityId entityId);
     bool removeCamera(common::EntityId entityId);
     bool removeDirectionalLight(common::EntityId entityId);
-    void setGpuEntityScene(const gpu::GpuEntitySceneView& sceneView,
-                           const std::unordered_map<common::EntityId, std::uint32_t>& poseIndices)
-        noexcept;
+    void setGpuEntityScene(
+        const gpu::GpuEntitySceneView& sceneView,
+        const std::unordered_map<common::EntityId, std::uint32_t>& poseIndices) noexcept;
 
     const std::vector<RenderableInstance>& renderables() const noexcept;
     const std::vector<CameraData>& cameras() const noexcept;
     const std::vector<DirectionalLightData>& directionalLights() const noexcept;
     const gpu::GpuEntitySceneView& gpuEntityScene() const noexcept;
-    const std::unordered_map<common::EntityId, std::uint32_t>& gpuEntityPoseIndices() const noexcept;
+    const std::unordered_map<common::EntityId, std::uint32_t>& gpuEntityPoseIndices()
+        const noexcept;
 
 private:
     std::vector<RenderableInstance> mRenderables;

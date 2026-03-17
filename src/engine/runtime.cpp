@@ -47,8 +47,7 @@ RenderObjectPoseData buildRenderObjectPoseData(const graphics::RenderWorld& rend
     poseData.positions.resize(layout.totalObjectCapacity());
     poseData.orientations.resize(layout.totalObjectCapacity(),
                                  Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f});
-    poseData.scales.resize(layout.totalObjectCapacity(),
-                           Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f});
+    poseData.scales.resize(layout.totalObjectCapacity(), Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f});
 
     for (const graphics::RenderableInstance& renderable : renderWorld.renderables())
     {
@@ -63,15 +62,12 @@ RenderObjectPoseData buildRenderObjectPoseData(const graphics::RenderWorld& rend
             continue;
         }
 
-        poseData.positions[objectIndex] =
-            Diligent::float4{renderable.worldTransform.position.x,
-                             renderable.worldTransform.position.y,
-                             renderable.worldTransform.position.z, 1.0f};
-        poseData.orientations[objectIndex] =
-            Diligent::float4{renderable.worldTransform.rotation.q.x,
-                             renderable.worldTransform.rotation.q.y,
-                             renderable.worldTransform.rotation.q.z,
-                             renderable.worldTransform.rotation.q.w};
+        poseData.positions[objectIndex] = Diligent::float4{
+            renderable.worldTransform.position.x, renderable.worldTransform.position.y,
+            renderable.worldTransform.position.z, 1.0f};
+        poseData.orientations[objectIndex] = Diligent::float4{
+            renderable.worldTransform.rotation.q.x, renderable.worldTransform.rotation.q.y,
+            renderable.worldTransform.rotation.q.z, renderable.worldTransform.rotation.q.w};
         poseData.scales[objectIndex] =
             Diligent::float4{renderable.worldTransform.scale.x, renderable.worldTransform.scale.y,
                              renderable.worldTransform.scale.z, 0.0f};
@@ -135,17 +131,18 @@ std::vector<gpu::GpuRenderableMetadata> buildRenderableMetadata(
         {
             continue;
         }
-        const std::uint32_t objectIndex = renderable.envIndex * layout.maxObjectsPerEnv +
-                                          renderable.objectSlot;
+        const std::uint32_t objectIndex =
+            renderable.envIndex * layout.maxObjectsPerEnv + renderable.objectSlot;
         if (objectIndex >= metadata.size())
         {
             continue;
         }
         gpu::GpuRenderableMetadata entry{};
         entry.objectSlot = renderable.objectSlot;
-        entry.envIndex = renderable.envIndex;
+        entry.envIndex   = renderable.envIndex;
         entry.flags |= gpu::GpuRenderableFlag_Active;
-        const graphics::MaterialResourceDesc* material = resources.tryGetMaterial(renderable.material);
+        const graphics::MaterialResourceDesc* material =
+            resources.tryGetMaterial(renderable.material);
         if (material != nullptr)
         {
             if (material->blendMode == graphics::BlendMode::Transparent)
@@ -193,23 +190,24 @@ std::vector<gpu::GpuCameraInput> buildCameraInputs(const graphics::RenderWorld& 
         {
             continue;
         }
-        const std::uint32_t cameraIndex = camera.envIndex * layout.maxCamerasPerEnv + camera.cameraSlot;
+        const std::uint32_t cameraIndex =
+            camera.envIndex * layout.maxCamerasPerEnv + camera.cameraSlot;
         if (cameraIndex >= inputs.size())
         {
             continue;
         }
         gpu::GpuCameraInput input{};
-        input.position = Diligent::float4{camera.worldTransform.position.x,
-                                          camera.worldTransform.position.y,
-                                          camera.worldTransform.position.z, 1.0f};
-        input.orientation = Diligent::float4{camera.worldTransform.rotation.q.x,
-                                             camera.worldTransform.rotation.q.y,
-                                             camera.worldTransform.rotation.q.z,
-                                             camera.worldTransform.rotation.q.w};
+        input.position =
+            Diligent::float4{camera.worldTransform.position.x, camera.worldTransform.position.y,
+                             camera.worldTransform.position.z, 1.0f};
+        input.orientation = Diligent::float4{
+            camera.worldTransform.rotation.q.x, camera.worldTransform.rotation.q.y,
+            camera.worldTransform.rotation.q.z, camera.worldTransform.rotation.q.w};
         float aspect = camera.aspectRatio;
         if (aspect <= 0.0f && camera.outputWidth > 0u && camera.outputHeight > 0u)
         {
-            aspect = static_cast<float>(camera.outputWidth) / static_cast<float>(camera.outputHeight);
+            aspect =
+                static_cast<float>(camera.outputWidth) / static_cast<float>(camera.outputHeight);
         }
         if (aspect <= 0.0f)
         {
@@ -217,9 +215,9 @@ std::vector<gpu::GpuCameraInput> buildCameraInputs(const graphics::RenderWorld& 
         }
         input.projectionParams =
             Diligent::float4{camera.verticalFovDegrees, aspect, camera.nearClip, camera.farClip};
-        input.envIndex = camera.envIndex;
-        input.cameraSlot = camera.cameraSlot;
-        input.active = 1u;
+        input.envIndex      = camera.envIndex;
+        input.cameraSlot    = camera.cameraSlot;
+        input.active        = 1u;
         inputs[cameraIndex] = input;
     }
     return inputs;
@@ -241,14 +239,14 @@ std::vector<gpu::GpuDirectionalLightInput> buildLightInputs(
             continue;
         }
         gpu::GpuDirectionalLightInput input{};
-        input.directionIntensity =
-            Diligent::float4{light.direction.x, light.direction.y, light.direction.z, light.intensity};
+        input.directionIntensity = Diligent::float4{light.direction.x, light.direction.y,
+                                                    light.direction.z, light.intensity};
         input.color = Diligent::float4{light.color.x, light.color.y, light.color.z, 0.0f};
         input.shadowParams =
             Diligent::float4{light.shadowDistance, light.shadowFadeDistance, 0.0f, 0.0f};
-        input.envIndex = light.envIndex;
-        input.lightSlot = light.lightSlot;
-        input.active = 1u;
+        input.envIndex     = light.envIndex;
+        input.lightSlot    = light.lightSlot;
+        input.active       = 1u;
         inputs[lightIndex] = input;
     }
     return inputs;
@@ -409,9 +407,8 @@ void Runtime::tick(const common::FrameContext& frameContext)
         poseIndices = buildRenderObjectPoseIndices(mRenderWorld, mGpuSceneSync->layout());
         const RenderObjectPoseData poseData =
             buildRenderObjectPoseData(mRenderWorld, mGpuSceneSync->layout());
-        gpuSceneReady =
-            mGpuSceneSync->syncEntityPoseData(poseData.positions, poseData.orientations,
-                                              poseData.scales);
+        gpuSceneReady = mGpuSceneSync->syncEntityPoseData(poseData.positions, poseData.orientations,
+                                                          poseData.scales);
     }
     if (gpuSceneReady && physicsStepSucceeded && mGpuSceneSync && mPhysicsSolver)
     {

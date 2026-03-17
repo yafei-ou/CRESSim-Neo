@@ -44,16 +44,16 @@ private:
 
     GpuDevice& mDevice;
     GpuSceneLayoutDesc mLayout{};
-    bool mInitialized = false;
-    std::uint32_t mCapacity = 0;
-    std::uint32_t mEntityCount = 0;
+    bool mInitialized                 = false;
+    std::uint32_t mCapacity           = 0;
+    std::uint32_t mEntityCount        = 0;
     std::uint32_t mRenderableCapacity = 0;
-    std::uint32_t mRenderableCount = 0;
-    std::uint32_t mCameraCapacity = 0;
-    std::uint32_t mCameraCount = 0;
-    std::uint32_t mLightCapacity = 0;
-    std::uint32_t mLightCount = 0;
-    Diligent::Uint64 mContextMask = 0;
+    std::uint32_t mRenderableCount    = 0;
+    std::uint32_t mCameraCapacity     = 0;
+    std::uint32_t mCameraCount        = 0;
+    std::uint32_t mLightCapacity      = 0;
+    std::uint32_t mLightCount         = 0;
+    Diligent::Uint64 mContextMask     = 0;
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mMappingBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mEntityPositionsBuffer;

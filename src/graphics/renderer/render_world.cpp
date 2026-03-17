@@ -99,13 +99,13 @@ void RenderWorld::clear()
 void RenderWorld::upsertRenderable(const RenderableInstance& instance)
 {
     RenderableInstance assigned = instance;
-    const auto indexIt = mRenderableIndices.find(instance.entityId);
+    const auto indexIt          = mRenderableIndices.find(instance.entityId);
     if (indexIt == mRenderableIndices.end())
     {
         if (assigned.objectSlot == kInvalidSlot)
         {
-            assigned.objectSlot = allocateDenseSlot(mFreeRenderableSlotsByEnv, mNextRenderableSlotByEnv,
-                                                    assigned.envIndex);
+            assigned.objectSlot = allocateDenseSlot(mFreeRenderableSlotsByEnv,
+                                                    mNextRenderableSlotByEnv, assigned.envIndex);
         }
     }
     else
@@ -118,13 +118,13 @@ void RenderWorld::upsertRenderable(const RenderableInstance& instance)
 void RenderWorld::upsertCamera(const CameraData& camera)
 {
     CameraData assigned = camera;
-    const auto indexIt = mCameraIndices.find(camera.entityId);
+    const auto indexIt  = mCameraIndices.find(camera.entityId);
     if (indexIt == mCameraIndices.end())
     {
         if (assigned.cameraSlot == kInvalidSlot)
         {
-            assigned.cameraSlot = allocateDenseSlot(mFreeCameraSlotsByEnv, mNextCameraSlotByEnv,
-                                                    assigned.envIndex);
+            assigned.cameraSlot =
+                allocateDenseSlot(mFreeCameraSlotsByEnv, mNextCameraSlotByEnv, assigned.envIndex);
         }
     }
     else
@@ -137,14 +137,13 @@ void RenderWorld::upsertCamera(const CameraData& camera)
 void RenderWorld::upsertDirectionalLight(const DirectionalLightData& light)
 {
     DirectionalLightData assigned = light;
-    const auto indexIt = mDirectionalLightIndices.find(light.entityId);
+    const auto indexIt            = mDirectionalLightIndices.find(light.entityId);
     if (indexIt == mDirectionalLightIndices.end())
     {
         if (assigned.lightSlot == kInvalidSlot)
         {
-            assigned.lightSlot =
-                allocateDenseSlot(mFreeDirectionalLightSlotsByEnv, mNextDirectionalLightSlotByEnv,
-                                  assigned.envIndex);
+            assigned.lightSlot = allocateDenseSlot(
+                mFreeDirectionalLightSlotsByEnv, mNextDirectionalLightSlotByEnv, assigned.envIndex);
         }
     }
     else
@@ -191,7 +190,7 @@ void RenderWorld::setGpuEntityScene(
     const gpu::GpuEntitySceneView& sceneView,
     const std::unordered_map<common::EntityId, std::uint32_t>& poseIndices) noexcept
 {
-    mGpuEntityScene = sceneView;
+    mGpuEntityScene       = sceneView;
     mGpuEntityPoseIndices = poseIndices;
 }
 
@@ -215,7 +214,8 @@ const gpu::GpuEntitySceneView& RenderWorld::gpuEntityScene() const noexcept
     return mGpuEntityScene;
 }
 
-const std::unordered_map<common::EntityId, std::uint32_t>& RenderWorld::gpuEntityPoseIndices() const noexcept
+const std::unordered_map<common::EntityId, std::uint32_t>& RenderWorld::gpuEntityPoseIndices()
+    const noexcept
 {
     return mGpuEntityPoseIndices;
 }

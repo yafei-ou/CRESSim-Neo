@@ -85,8 +85,8 @@ bool ShadowPass::prepareDraw(gpu::GpuRenderTargetHandle target,
         return false;
     }
 
-    outSetup.backendContext = backendContext;
-    outSetup.meshBuffers = meshBuffers;
+    outSetup.backendContext  = backendContext;
+    outSetup.meshBuffers     = meshBuffers;
     outSetup.useSceneBuffers = drawCommand.instanceIndex != 0xffffffffu &&
                                mSceneView.poses.positionsBuffer != nullptr &&
                                mSceneView.poses.orientationsBuffer != nullptr &&
@@ -119,8 +119,7 @@ bool ShadowPass::bindSceneBuffers() const
     for (const VariableBinding& binding : bindings)
     {
         Diligent::IShaderResourceVariable* variable =
-            mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
-                                                      binding.name);
+            mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, binding.name);
         if (variable == nullptr || binding.buffer == nullptr)
         {
             return false;
@@ -139,9 +138,9 @@ bool ShadowPass::bindSceneBuffers() const
                                                   "g_VisibleObjectIndices");
     if (visibleObjectsVar != nullptr)
     {
-        Diligent::IBuffer* visibleObjectBuffer = mVisibleObjectIndexBuffer != nullptr
-                                                     ? mVisibleObjectIndexBuffer
-                                                     : mSceneView.renderableShadowCascadeMasksBuffer;
+        Diligent::IBuffer* visibleObjectBuffer =
+            mVisibleObjectIndexBuffer != nullptr ? mVisibleObjectIndexBuffer
+                                                 : mSceneView.renderableShadowCascadeMasksBuffer;
         if (visibleObjectBuffer == nullptr)
         {
             return false;
@@ -158,24 +157,23 @@ bool ShadowPass::bindSceneBuffers() const
 }
 
 bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,
-                                        const ForwardDrawCommand& drawCommand,
-                                        bool useSceneBuffers,
+                                        const ForwardDrawCommand& drawCommand, bool useSceneBuffers,
                                         std::uint32_t currentCameraIndex,
                                         const Diligent::float4x4& lightViewProjectionMatrix,
                                         std::uint32_t cascadeIndex)
 {
     PerObjectConstants objectConstants{};
-    objectConstants.modelMatrix  = drawCommand.modelMatrix.Transpose();
-    objectConstants.normalMatrix = drawCommand.normalMatrix.Transpose();
-    objectConstants.instanceIndex = drawCommand.instanceIndex;
-    objectConstants.useSceneBuffers = useSceneBuffers ? 1u : 0u;
-    objectConstants.drawListOffset = drawCommand.drawListOffset;
+    objectConstants.modelMatrix       = drawCommand.modelMatrix.Transpose();
+    objectConstants.normalMatrix      = drawCommand.normalMatrix.Transpose();
+    objectConstants.instanceIndex     = drawCommand.instanceIndex;
+    objectConstants.useSceneBuffers   = useSceneBuffers ? 1u : 0u;
+    objectConstants.drawListOffset    = drawCommand.drawListOffset;
     objectConstants.useDrawListBuffer = drawCommand.useDrawListBuffer;
 
     ShadowPerPassConstants shadowPassConstants{};
     shadowPassConstants.lightViewProjectionMatrix = lightViewProjectionMatrix.Transpose();
-    shadowPassConstants.shadowPassParams[0] = cascadeIndex;
-    shadowPassConstants.shadowPassParams[1] = currentCameraIndex;
+    shadowPassConstants.shadowPassParams[0]       = cascadeIndex;
+    shadowPassConstants.shadowPassParams[1]       = currentCameraIndex;
 
     void* mappedConstants = nullptr;
     immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
@@ -204,11 +202,11 @@ void ShadowPass::bindGeometry(Diligent::IDeviceContext* immediateContext,
 {
     const Diligent::Uint64 vertexOffset = 0;
     Diligent::IBuffer* vertexBuffers[]  = {meshBuffers.vertexBuffer};
-    immediateContext->SetVertexBuffers(
-        0, 1, vertexBuffers, &vertexOffset, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-        Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
-    immediateContext->SetIndexBuffer(
-        meshBuffers.indexBuffer, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    immediateContext->SetVertexBuffers(0, 1, vertexBuffers, &vertexOffset,
+                                       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                                       Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
+    immediateContext->SetIndexBuffer(meshBuffers.indexBuffer, 0,
+                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 bool ShadowPass::draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
@@ -273,11 +271,12 @@ bool ShadowPass::drawIndirect(gpu::GpuRenderTargetHandle target,
         mShaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     Diligent::DrawIndexedIndirectAttribs drawAttrs{};
-    drawAttrs.IndexType = Diligent::VT_UINT32;
+    drawAttrs.IndexType      = Diligent::VT_UINT32;
     drawAttrs.pAttribsBuffer = indirectArgsBuffer;
     drawAttrs.DrawArgsOffset = argsOffsetBytes;
-    drawAttrs.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
-    drawAttrs.AttribsBufferStateTransitionMode = Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    drawAttrs.Flags          = Diligent::DRAW_FLAG_VERIFY_ALL;
+    drawAttrs.AttribsBufferStateTransitionMode =
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
     setup.backendContext.immediateContext->DrawIndexedIndirect(drawAttrs);
     return true;
 }

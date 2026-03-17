@@ -72,7 +72,7 @@ CameraFrustumInfo buildCameraFrustumInfo(const CameraData& camera, float outputW
     CameraFrustumInfo info{};
     info.position = camera.worldTransform.position;
     info.aspect   = common::runtime_math::clampPositive(outputWidth, 1.0f) /
-                  common::runtime_math::clampPositive(outputHeight, 1.0f);
+                    common::runtime_math::clampPositive(outputHeight, 1.0f);
     info.fovRadians =
         std::max(camera.verticalFovDegrees, 1.0f) * common::runtime_math::degreesToRadians(1.0f);
     info.nearPlane = std::max(camera.nearClip, 0.001f);
@@ -323,8 +323,8 @@ FrameViewData buildFrameViewData(const CameraData& camera,
 CameraData defaultCamera()
 {
     CameraData camera{};
-    camera.envIndex = 0u;
-    camera.cameraSlot = 0u;
+    camera.envIndex           = 0u;
+    camera.cameraSlot         = 0u;
     camera.verticalFovDegrees = 60.0f;
     camera.aspectRatio        = 1.0f;
     camera.nearClip           = 0.01f;

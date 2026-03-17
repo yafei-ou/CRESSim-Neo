@@ -26,24 +26,24 @@ enum class RigidBodyType : std::uint32_t
     Dynamic   = 2u,
 };
 
-using RigidBodyId = std::uint32_t;
+using RigidBodyId                         = std::uint32_t;
 constexpr RigidBodyId kInvalidRigidBodyId = 0u;
 
-using ColliderId = std::uint32_t;
+using ColliderId                        = std::uint32_t;
 constexpr ColliderId kInvalidColliderId = 0u;
 
 struct RigidBodyState
 {
-    RigidBodyId rigidBodyId       = kInvalidRigidBodyId;
-    common::EntityId entityId     = common::kInvalidEntityId;
+    RigidBodyId rigidBodyId   = kInvalidRigidBodyId;
+    common::EntityId entityId = common::kInvalidEntityId;
     Diligent::float3 position{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF rotation{0.0f, 0.0f, 0.0f, 1.0f};
     Diligent::float3 scale{1.0f, 1.0f, 1.0f};
     Diligent::float3 linearVelocity{0.0f, 0.0f, 0.0f};
     Diligent::float3 angularVelocity{0.0f, 0.0f, 0.0f};
     Diligent::float3 inverseInertiaLocal{1.0f, 1.0f, 1.0f};
-    RigidBodyType bodyType          = RigidBodyType::Dynamic;
-    float inverseMass               = 1.0f;
+    RigidBodyType bodyType = RigidBodyType::Dynamic;
+    float inverseMass      = 1.0f;
     Diligent::float3 kinematicTargetPosition{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF kinematicTargetRotation{0.0f, 0.0f, 0.0f, 1.0f};
     bool kinematicTargetEnabled = false;
@@ -51,18 +51,18 @@ struct RigidBodyState
 
 struct ColliderState
 {
-    ColliderId colliderId         = kInvalidColliderId;
-    common::EntityId entityId     = common::kInvalidEntityId;
-    RigidBodyId ownerRigidBodyId  = kInvalidRigidBodyId;
-    ColliderShapeType shapeType   = ColliderShapeType::Sphere;
+    ColliderId colliderId        = kInvalidColliderId;
+    common::EntityId entityId    = common::kInvalidEntityId;
+    RigidBodyId ownerRigidBodyId = kInvalidRigidBodyId;
+    ColliderShapeType shapeType  = ColliderShapeType::Sphere;
     Diligent::float4 shapeParams{0.5f, 0.0f, 0.0f, 0.0f};
     Diligent::float3 localPosition{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF localRotation{0.0f, 0.0f, 0.0f, 1.0f};
-    bool enabled                  = true;
-    float friction                = 0.5f;
-    float restitution             = 0.0f;
-    std::uint32_t collisionLayer  = 1u;
-    std::uint32_t collisionMask   = 0xffffffffu;
+    bool enabled                 = true;
+    float friction               = 0.5f;
+    float restitution            = 0.0f;
+    std::uint32_t collisionLayer = 1u;
+    std::uint32_t collisionMask  = 0xffffffffu;
 };
 
 struct PhysicsSoADirtyRange

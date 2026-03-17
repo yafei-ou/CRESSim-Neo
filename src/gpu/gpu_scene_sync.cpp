@@ -21,9 +21,9 @@ constexpr std::uint32_t kComputeThreadGroupSize = 64u;
 struct GpuEntityPoseSyncConstants
 {
     std::uint32_t mappingCount = 0;
-    std::uint32_t _padding0 = 0;
-    std::uint32_t _padding1 = 0;
-    std::uint32_t _padding2 = 0;
+    std::uint32_t _padding0    = 0;
+    std::uint32_t _padding1    = 0;
+    std::uint32_t _padding2    = 0;
 };
 
 std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
@@ -79,10 +79,8 @@ const Diligent::ShaderResourceVariableDesc kEntityPoseSyncVars[] = {
 };
 
 const GpuComputePassDefinition kEntityPoseSyncPassDefinition = {
-    "gpu/gpu_entity_pose_sync.cs.hlsl",
-    "CRESSimNeo.Gpu.EntityPoseSync",
-    "CRESSimNeo.Gpu.EntityPoseSync.PSO",
-    kEntityPoseSyncVars,
+    "gpu/gpu_entity_pose_sync.cs.hlsl",  "CRESSimNeo.Gpu.EntityPoseSync",
+    "CRESSimNeo.Gpu.EntityPoseSync.PSO", kEntityPoseSyncVars,
     std::size(kEntityPoseSyncVars),
 };
 
@@ -110,7 +108,8 @@ bool GpuSceneSync::initialize(const GpuSceneLayoutDesc& layout)
     mLayout = layout;
 
     GpuComputeBackendContext computeContext{};
-    if (!mDevice.tryGetPhysicsBackendContext(computeContext) || computeContext.renderDevice == nullptr)
+    if (!mDevice.tryGetPhysicsBackendContext(computeContext) ||
+        computeContext.renderDevice == nullptr)
     {
         return false;
     }
@@ -148,30 +147,30 @@ bool GpuSceneSync::initialize(const GpuSceneLayoutDesc& layout)
 
 void GpuSceneSync::shutdown()
 {
-    mLayout = {};
-    mInitialized = false;
-    mCapacity = 0;
-    mEntityCount = 0;
-    mRenderableCapacity = 0;
-    mRenderableCount = 0;
-    mCameraCapacity = 0;
-    mCameraCount = 0;
-    mLightCapacity = 0;
-    mLightCount = 0;
-    mContextMask = 0;
-    mMappingBuffer = nullptr;
-    mEntityPositionsBuffer = nullptr;
-    mEntityOrientationsBuffer = nullptr;
-    mEntityScalesBuffer = nullptr;
-    mRenderableMetadataBuffer = nullptr;
-    mRenderableModelMatricesBuffer = nullptr;
-    mRenderableNormalMatricesBuffer = nullptr;
-    mRenderableVisibilityFlagsBuffer = nullptr;
+    mLayout                             = {};
+    mInitialized                        = false;
+    mCapacity                           = 0;
+    mEntityCount                        = 0;
+    mRenderableCapacity                 = 0;
+    mRenderableCount                    = 0;
+    mCameraCapacity                     = 0;
+    mCameraCount                        = 0;
+    mLightCapacity                      = 0;
+    mLightCount                         = 0;
+    mContextMask                        = 0;
+    mMappingBuffer                      = nullptr;
+    mEntityPositionsBuffer              = nullptr;
+    mEntityOrientationsBuffer           = nullptr;
+    mEntityScalesBuffer                 = nullptr;
+    mRenderableMetadataBuffer           = nullptr;
+    mRenderableModelMatricesBuffer      = nullptr;
+    mRenderableNormalMatricesBuffer     = nullptr;
+    mRenderableVisibilityFlagsBuffer    = nullptr;
     mRenderableShadowCascadeMasksBuffer = nullptr;
-    mCameraInputsBuffer = nullptr;
-    mPreparedCamerasBuffer = nullptr;
-    mLightInputsBuffer = nullptr;
-    mConstantsBuffer = nullptr;
+    mCameraInputsBuffer                 = nullptr;
+    mPreparedCamerasBuffer              = nullptr;
+    mLightInputsBuffer                  = nullptr;
+    mConstantsBuffer                    = nullptr;
 }
 
 bool GpuSceneSync::ensureCapacity(Diligent::IRenderDevice* renderDevice, std::uint32_t entityCount,
@@ -190,7 +189,7 @@ bool GpuSceneSync::ensureCapacity(Diligent::IRenderDevice* renderDevice, std::ui
         return true;
     }
 
-    const std::uint32_t newCapacity = std::max<std::uint32_t>(requiredCapacity, 64u);
+    const std::uint32_t newCapacity    = std::max<std::uint32_t>(requiredCapacity, 64u);
     const Diligent::Uint64 contextMask = static_cast<Diligent::Uint64>(1ull) << contextId;
 
     return ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.EntityPoseMappings",
@@ -223,49 +222,51 @@ bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadat
     }
 
     GpuComputeBackendContext computeContext{};
-    if (!mDevice.tryGetPhysicsBackendContext(computeContext) || computeContext.renderDevice == nullptr ||
-        computeContext.computeContext == nullptr)
+    if (!mDevice.tryGetPhysicsBackendContext(computeContext) ||
+        computeContext.renderDevice == nullptr || computeContext.computeContext == nullptr)
     {
         return false;
     }
 
-    mRenderableCount = static_cast<std::uint32_t>(renderables.size());
+    mRenderableCount                     = static_cast<std::uint32_t>(renderables.size());
     const std::uint32_t requiredCapacity = std::max<std::uint32_t>(mRenderableCount, 1u);
     if (mRenderableCapacity < requiredCapacity || mRenderableMetadataBuffer == nullptr ||
         mRenderableModelMatricesBuffer == nullptr || mRenderableNormalMatricesBuffer == nullptr ||
-        mRenderableVisibilityFlagsBuffer == nullptr || mRenderableShadowCascadeMasksBuffer == nullptr)
+        mRenderableVisibilityFlagsBuffer == nullptr ||
+        mRenderableShadowCascadeMasksBuffer == nullptr)
     {
-        const std::uint32_t newCapacity = std::max<std::uint32_t>(requiredCapacity, 64u);
-        const Diligent::Uint64 contextMask =
-            static_cast<Diligent::Uint64>(1ull) << computeContext.contextId;
-        if (!ensureStructuredBuffer(computeContext.renderDevice, "CRESSimNeo.Gpu.RenderableMetadata",
-                                    sizeof(GpuRenderableMetadata), newCapacity,
-                                    Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                    Diligent::CPU_ACCESS_NONE, contextMask, mRenderableMetadataBuffer) ||
-            !ensureStructuredBuffer(computeContext.renderDevice,
-                                    "CRESSimNeo.Gpu.RenderableModelMatrices",
-                                    sizeof(Diligent::float4x4), newCapacity,
-                                    Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-                                    Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                    mRenderableModelMatricesBuffer) ||
-            !ensureStructuredBuffer(computeContext.renderDevice,
-                                    "CRESSimNeo.Gpu.RenderableNormalMatrices",
-                                    sizeof(Diligent::float4x4), newCapacity,
-                                    Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-                                    Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                    mRenderableNormalMatricesBuffer) ||
-            !ensureStructuredBuffer(computeContext.renderDevice,
-                                    "CRESSimNeo.Gpu.RenderableVisibilityFlags",
-                                    sizeof(std::uint32_t), newCapacity,
-                                    Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-                                    Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                    mRenderableVisibilityFlagsBuffer) ||
-            !ensureStructuredBuffer(computeContext.renderDevice,
-                                    "CRESSimNeo.Gpu.RenderableShadowCascadeMasks",
-                                    sizeof(std::uint32_t), newCapacity,
-                                    Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-                                    Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                    mRenderableShadowCascadeMasksBuffer))
+        const std::uint32_t newCapacity    = std::max<std::uint32_t>(requiredCapacity, 64u);
+        const Diligent::Uint64 contextMask = static_cast<Diligent::Uint64>(1ull)
+                                             << computeContext.contextId;
+        if (!ensureStructuredBuffer(
+                computeContext.renderDevice, "CRESSimNeo.Gpu.RenderableMetadata",
+                sizeof(GpuRenderableMetadata), newCapacity, Diligent::BIND_SHADER_RESOURCE,
+                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                mRenderableMetadataBuffer) ||
+            !ensureStructuredBuffer(
+                computeContext.renderDevice, "CRESSimNeo.Gpu.RenderableModelMatrices",
+                sizeof(Diligent::float4x4), newCapacity,
+                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                mRenderableModelMatricesBuffer) ||
+            !ensureStructuredBuffer(
+                computeContext.renderDevice, "CRESSimNeo.Gpu.RenderableNormalMatrices",
+                sizeof(Diligent::float4x4), newCapacity,
+                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                mRenderableNormalMatricesBuffer) ||
+            !ensureStructuredBuffer(
+                computeContext.renderDevice, "CRESSimNeo.Gpu.RenderableVisibilityFlags",
+                sizeof(std::uint32_t), newCapacity,
+                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                mRenderableVisibilityFlagsBuffer) ||
+            !ensureStructuredBuffer(
+                computeContext.renderDevice, "CRESSimNeo.Gpu.RenderableShadowCascadeMasks",
+                sizeof(std::uint32_t), newCapacity,
+                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                mRenderableShadowCascadeMasksBuffer))
         {
             return false;
         }
@@ -289,27 +290,28 @@ bool GpuSceneSync::syncCameraInputs(const std::vector<GpuCameraInput>& cameras)
     }
 
     GpuComputeBackendContext computeContext{};
-    if (!mDevice.tryGetPhysicsBackendContext(computeContext) || computeContext.renderDevice == nullptr ||
-        computeContext.computeContext == nullptr)
+    if (!mDevice.tryGetPhysicsBackendContext(computeContext) ||
+        computeContext.renderDevice == nullptr || computeContext.computeContext == nullptr)
     {
         return false;
     }
 
-    mCameraCount = static_cast<std::uint32_t>(cameras.size());
+    mCameraCount                         = static_cast<std::uint32_t>(cameras.size());
     const std::uint32_t requiredCapacity = std::max<std::uint32_t>(mCameraCount, 1u);
     if (mCameraCapacity < requiredCapacity || mCameraInputsBuffer == nullptr ||
         mPreparedCamerasBuffer == nullptr)
     {
-        const std::uint32_t newCapacity = std::max<std::uint32_t>(requiredCapacity, 1u);
-        const Diligent::Uint64 contextMask =
-            static_cast<Diligent::Uint64>(1ull) << computeContext.contextId;
+        const std::uint32_t newCapacity    = std::max<std::uint32_t>(requiredCapacity, 1u);
+        const Diligent::Uint64 contextMask = static_cast<Diligent::Uint64>(1ull)
+                                             << computeContext.contextId;
         if (!ensureStructuredBuffer(computeContext.renderDevice, "CRESSimNeo.Gpu.CameraInputs",
                                     sizeof(GpuCameraInput), newCapacity,
                                     Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                     Diligent::CPU_ACCESS_NONE, contextMask, mCameraInputsBuffer) ||
             !ensureStructuredBuffer(computeContext.renderDevice, "CRESSimNeo.Gpu.PreparedCameras",
                                     sizeof(GpuPreparedCamera), newCapacity,
-                                    Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                                    Diligent::BIND_SHADER_RESOURCE |
+                                        Diligent::BIND_UNORDERED_ACCESS,
                                     Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                     mPreparedCamerasBuffer))
         {
@@ -335,19 +337,19 @@ bool GpuSceneSync::syncLightInputs(const std::vector<GpuDirectionalLightInput>& 
     }
 
     GpuComputeBackendContext computeContext{};
-    if (!mDevice.tryGetPhysicsBackendContext(computeContext) || computeContext.renderDevice == nullptr ||
-        computeContext.computeContext == nullptr)
+    if (!mDevice.tryGetPhysicsBackendContext(computeContext) ||
+        computeContext.renderDevice == nullptr || computeContext.computeContext == nullptr)
     {
         return false;
     }
 
-    mLightCount = static_cast<std::uint32_t>(lights.size());
+    mLightCount                          = static_cast<std::uint32_t>(lights.size());
     const std::uint32_t requiredCapacity = std::max<std::uint32_t>(mLightCount, 1u);
     if (mLightCapacity < requiredCapacity || mLightInputsBuffer == nullptr)
     {
-        const std::uint32_t newCapacity = std::max<std::uint32_t>(requiredCapacity, 1u);
-        const Diligent::Uint64 contextMask =
-            static_cast<Diligent::Uint64>(1ull) << computeContext.contextId;
+        const std::uint32_t newCapacity    = std::max<std::uint32_t>(requiredCapacity, 1u);
+        const Diligent::Uint64 contextMask = static_cast<Diligent::Uint64>(1ull)
+                                             << computeContext.contextId;
         if (!ensureStructuredBuffer(computeContext.renderDevice, "CRESSimNeo.Gpu.LightInputs",
                                     sizeof(GpuDirectionalLightInput), newCapacity,
                                     Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -409,8 +411,8 @@ bool GpuSceneSync::syncEntityPoseData(const std::vector<Diligent::float4>& posit
     }
 
     GpuComputeBackendContext computeContext{};
-    if (!mDevice.tryGetPhysicsBackendContext(computeContext) || computeContext.renderDevice == nullptr ||
-        computeContext.computeContext == nullptr)
+    if (!mDevice.tryGetPhysicsBackendContext(computeContext) ||
+        computeContext.renderDevice == nullptr || computeContext.computeContext == nullptr)
     {
         return false;
     }
@@ -427,8 +429,8 @@ bool GpuSceneSync::syncEntityPoseData(const std::vector<Diligent::float4>& posit
 
     return writeBuffer(computeContext.computeContext, mEntityPositionsBuffer, positions.data(),
                        positions.size() * sizeof(Diligent::float4)) &&
-           writeBuffer(computeContext.computeContext, mEntityOrientationsBuffer, orientations.data(),
-                       orientations.size() * sizeof(Diligent::float4)) &&
+           writeBuffer(computeContext.computeContext, mEntityOrientationsBuffer,
+                       orientations.data(), orientations.size() * sizeof(Diligent::float4)) &&
            writeBuffer(computeContext.computeContext, mEntityScalesBuffer, scales.data(),
                        scales.size() * sizeof(Diligent::float4));
 }
@@ -442,8 +444,8 @@ bool GpuSceneSync::syncEntityPoses(const GpuPoseBufferView& sourcePoses,
     }
 
     GpuComputeBackendContext computeContext{};
-    if (!mDevice.tryGetPhysicsBackendContext(computeContext) || computeContext.renderDevice == nullptr ||
-        computeContext.computeContext == nullptr)
+    if (!mDevice.tryGetPhysicsBackendContext(computeContext) ||
+        computeContext.renderDevice == nullptr || computeContext.computeContext == nullptr)
     {
         return false;
     }
@@ -470,7 +472,8 @@ bool GpuSceneSync::syncEntityPoses(const GpuPoseBufferView& sourcePoses,
     }
 
     const GpuEntityPoseSyncConstants constants{mEntityCount, 0u, 0u, 0u};
-    if (!writeBuffer(computeContext.computeContext, mConstantsBuffer, &constants, sizeof(constants)))
+    if (!writeBuffer(computeContext.computeContext, mConstantsBuffer, &constants,
+                     sizeof(constants)))
     {
         return false;
     }
@@ -500,23 +503,23 @@ bool GpuSceneSync::syncEntityPoses(const GpuPoseBufferView& sourcePoses,
 GpuEntitySceneView GpuSceneSync::sceneView() const noexcept
 {
     GpuEntitySceneView view{};
-    view.layout = mLayout;
-    view.poses.positionsBuffer = mEntityPositionsBuffer;
-    view.poses.orientationsBuffer = mEntityOrientationsBuffer;
-    view.poses.scalesBuffer = mEntityScalesBuffer;
-    view.poses.count = mEntityCount;
-    view.renderableMetadataBuffer = mRenderableMetadataBuffer;
-    view.renderableModelMatricesBuffer = mRenderableModelMatricesBuffer;
-    view.renderableNormalMatricesBuffer = mRenderableNormalMatricesBuffer;
-    view.renderableVisibilityFlagsBuffer = mRenderableVisibilityFlagsBuffer;
+    view.layout                             = mLayout;
+    view.poses.positionsBuffer              = mEntityPositionsBuffer;
+    view.poses.orientationsBuffer           = mEntityOrientationsBuffer;
+    view.poses.scalesBuffer                 = mEntityScalesBuffer;
+    view.poses.count                        = mEntityCount;
+    view.renderableMetadataBuffer           = mRenderableMetadataBuffer;
+    view.renderableModelMatricesBuffer      = mRenderableModelMatricesBuffer;
+    view.renderableNormalMatricesBuffer     = mRenderableNormalMatricesBuffer;
+    view.renderableVisibilityFlagsBuffer    = mRenderableVisibilityFlagsBuffer;
     view.renderableShadowCascadeMasksBuffer = mRenderableShadowCascadeMasksBuffer;
-    view.cameraInputsBuffer = mCameraInputsBuffer;
-    view.preparedCamerasBuffer = mPreparedCamerasBuffer;
-    view.lightInputsBuffer = mLightInputsBuffer;
-    view.entityCount = mEntityCount;
-    view.renderableCount = mRenderableCount;
-    view.cameraCount = mCameraCount;
-    view.lightCount = mLightCount;
+    view.cameraInputsBuffer                 = mCameraInputsBuffer;
+    view.preparedCamerasBuffer              = mPreparedCamerasBuffer;
+    view.lightInputsBuffer                  = mLightInputsBuffer;
+    view.entityCount                        = mEntityCount;
+    view.renderableCount                    = mRenderableCount;
+    view.cameraCount                        = mCameraCount;
+    view.lightCount                         = mLightCount;
     return view;
 }
 
