@@ -2,7 +2,7 @@
 #define CRESSIM_NEO_GRAPHICS_RENDERER_INTERNAL_H
 
 #include "graphics/render_resource_manager.h"
-#include "graphics/render_world.h"
+#include "graphics/host_scene.h"
 #include "graphics/renderer.h"
 #include "graphics/renderer/passes/render_pass_types.h"
 
@@ -44,7 +44,7 @@ CameraRenderQueues buildCameraRenderQueues(
     const std::vector<PreparedRenderable>& preparedRenderables, const FrameViewData& frameView,
     const RenderResourceManager& resources, RenderStats& stats);
 CameraData defaultCamera();
-std::vector<CameraData> sortedCameras(const RenderWorld& world);
+std::vector<CameraData> sortedCameras(const HostSceneView& sceneView);
 
 } // namespace cressim::neo::graphics::detail
 

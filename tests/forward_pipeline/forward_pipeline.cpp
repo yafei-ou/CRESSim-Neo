@@ -41,8 +41,7 @@ bool sameStats(const RenderStats& lhs, const RenderStats& rhs)
         lhs.renderTargetResizeRequests == rhs.renderTargetResizeRequests &&
         lhs.renderTargetResizeNoOps == rhs.renderTargetResizeNoOps &&
         lhs.renderTargetRecreateCount == rhs.renderTargetRecreateCount &&
-        lhs.renderTargetResizeConflicts == rhs.renderTargetResizeConflicts &&
-        lhs.worldSyncSkippedFrames == rhs.worldSyncSkippedFrames;
+        lhs.renderTargetResizeConflicts == rhs.renderTargetResizeConflicts;
 }
 
 } // namespace
@@ -171,11 +170,6 @@ int main()
     if (firstFrame.cameraCount != 1 || firstFrame.lightCount != 1)
     {
         std::cerr << "Unexpected camera/light counters.\n";
-        return 1;
-    }
-    if (firstFrame.worldSyncSkippedFrames != 0 || secondFrame.worldSyncSkippedFrames != 1 || thirdFrame.worldSyncSkippedFrames != 1)
-    {
-        std::cerr << "Unexpected world sync skip counters across frames.\n";
         return 1;
     }
     if (!sameStats(secondFrame, thirdFrame))

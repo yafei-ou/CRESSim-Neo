@@ -5,7 +5,7 @@
 #include "gpu/gpu_device.h"
 #include "graphics/export.h"
 #include "graphics/render_resource_manager.h"
-#include "graphics/render_world.h"
+#include "graphics/host_scene.h"
 
 #include <cstdint>
 #include <memory>
@@ -22,7 +22,6 @@ struct FrameViewData;
 
 struct RendererDesc
 {
-    gpu::GpuSceneLayoutDesc sceneLayout{};
 };
 
 struct RenderStats
@@ -44,7 +43,6 @@ struct RenderStats
     std::uint32_t renderTargetResizeNoOps     = 0;
     std::uint32_t renderTargetRecreateCount   = 0;
     std::uint32_t renderTargetResizeConflicts = 0;
-    std::uint32_t worldSyncSkippedFrames      = 0;
 };
 
 class CRESSIM_NEO_GRAPHICS_API Renderer
@@ -55,7 +53,7 @@ public:
     ~Renderer();
 
     bool initialize();
-    RenderStats render(const common::FrameContext& frameContext, const RenderWorld& world);
+    RenderStats render(const common::FrameContext& frameContext, const HostSceneView& sceneView);
 
 private:
     struct GpuScenePrepareState;

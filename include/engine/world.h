@@ -4,6 +4,7 @@
 #include "common/id.h"
 #include "engine/components.h"
 #include "engine/export.h"
+#include "graphics/host_scene.h"
 #include "physics/physics_world.h"
 
 #include <cstdint>
@@ -20,8 +21,12 @@ class CRESSIM_NEO_ENGINE_API World
 public:
     using ColliderHandle = engine::ColliderHandle;
 
-    common::EntityId createEntity();
+    common::EntityId createEntity(std::uint32_t envIndex = 0u);
     bool destroyEntity(common::EntityId entityId);
+    void setSceneLayout(const gpu::GpuSceneLayoutDesc& layout);
+    const gpu::GpuSceneLayoutDesc& sceneLayout() const noexcept;
+    bool setEntityEnvironment(common::EntityId entityId, std::uint32_t envIndex);
+    std::uint32_t entityEnvironment(common::EntityId entityId) const noexcept;
 
     bool isAlive(common::EntityId entityId) const;
     const std::vector<common::EntityId>& entities() const noexcept;
@@ -59,6 +64,16 @@ public:
     const physics::PhysicsWorld& physicsWorld() const noexcept;
 
     void refreshFromPhysics();
+    void setGpuEntityScene(
+        const gpu::GpuEntitySceneView& sceneView,
+        const std::unordered_map<common::EntityId, std::uint32_t>& poseIndices) noexcept;
+
+    const std::vector<graphics::RenderableInstance>& renderables() const noexcept;
+    const std::vector<graphics::CameraData>& cameras() const noexcept;
+    const std::vector<graphics::DirectionalLightData>& directionalLights() const noexcept;
+    const gpu::GpuEntitySceneView& gpuEntityScene() const noexcept;
+    const std::unordered_map<common::EntityId, std::uint32_t>& gpuEntityPoseIndices() const noexcept;
+    graphics::HostSceneView hostSceneView() const noexcept;
 
     std::uint64_t renderRevision() const noexcept;
     const std::vector<common::EntityId>& renderDirtyEntities() const noexcept;
@@ -135,6 +150,12 @@ private:
 
     void ensureEntity(common::EntityId entityId);
     void markRenderDirty(common::EntityId entityId);
+    void syncRenderableEntry(common::EntityId entityId);
+    void syncCameraEntry(common::EntityId entityId);
+    void syncDirectionalLightEntry(common::EntityId entityId);
+    void moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
+    void moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
+    void moveDirectionalLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
 
     static Diligent::float4 packPosition(const TransformComponent& c)
     {
@@ -262,6 +283,24 @@ private:
     std::unordered_map<std::uint32_t, common::EntityId> mColliderOwnerEntity{};
 
     physics::PhysicsWorld mPhysicsWorld{};
+    gpu::GpuSceneLayoutDesc mSceneLayout{};
+    std::unordered_map<common::EntityId, std::uint32_t> mEntityEnvironments{};
+
+    std::vector<graphics::RenderableInstance> mRenderables{};
+    std::vector<graphics::CameraData> mRenderCameras{};
+    std::vector<graphics::DirectionalLightData> mRenderDirectionalLights{};
+    gpu::GpuEntitySceneView mGpuEntityScene{};
+    std::unordered_map<common::EntityId, std::uint32_t> mGpuEntityPoseIndices{};
+
+    std::unordered_map<common::EntityId, std::size_t> mRenderableIndices{};
+    std::unordered_map<common::EntityId, std::size_t> mRenderCameraIndices{};
+    std::unordered_map<common::EntityId, std::size_t> mRenderDirectionalLightIndices{};
+    std::unordered_map<std::uint32_t, std::uint32_t> mNextRenderableSlotByEnv{};
+    std::unordered_map<std::uint32_t, std::uint32_t> mNextCameraSlotByEnv{};
+    std::unordered_map<std::uint32_t, std::uint32_t> mNextDirectionalLightSlotByEnv{};
+    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeRenderableSlotsByEnv{};
+    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeCameraSlotsByEnv{};
+    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeDirectionalLightSlotsByEnv{};
 
     std::uint64_t mRenderRevision = 0;
     std::vector<common::EntityId> mRenderDirtyEntities;

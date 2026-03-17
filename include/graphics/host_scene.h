@@ -1,0 +1,70 @@
+#ifndef CRESSIM_NEO_GRAPHICS_HOST_SCENE_H
+#define CRESSIM_NEO_GRAPHICS_HOST_SCENE_H
+
+#include "common/id.h"
+#include "common/math_types.h"
+#include "gpu/gpu_device.h"
+#include "gpu/gpu_scene.h"
+#include "graphics/export.h"
+#include "graphics/render_resource_manager.h"
+
+#include <unordered_map>
+#include <vector>
+
+namespace cressim::neo::graphics
+{
+
+struct RenderableInstance
+{
+    common::EntityId entityId = common::kInvalidEntityId;
+    std::uint32_t envIndex    = 0u;
+    std::uint32_t objectSlot  = 0xffffffffu;
+    common::Transform worldTransform{};
+    MeshHandle mesh{};
+    MaterialHandle material{};
+};
+
+struct CameraData
+{
+    common::EntityId entityId = common::kInvalidEntityId;
+    std::uint32_t envIndex    = 0u;
+    std::uint32_t cameraSlot  = 0xffffffffu;
+    common::Transform worldTransform{};
+    float verticalFovDegrees = 60.0f;
+    float aspectRatio        = 1.0f;
+    float nearClip           = 0.01f;
+    float farClip            = 1000.0f;
+
+    // Render output and scheduling controls copied from engine::CameraComponent.
+    gpu::GpuRenderTargetHandle outputTarget{};
+    std::uint32_t outputWidth  = 0;
+    std::uint32_t outputHeight = 0;
+    gpu::GpuRenderViewport viewport{};
+
+    std::uint32_t renderOrder = 0;
+};
+
+struct DirectionalLightData
+{
+    common::EntityId entityId = common::kInvalidEntityId;
+    std::uint32_t envIndex    = 0u;
+    std::uint32_t lightSlot   = 0xffffffffu;
+    Diligent::float3 direction{0.0f, -1.0f, 0.0f};
+    Diligent::float3 color{1.0f, 1.0f, 1.0f};
+    float intensity          = 1.0f;
+    float shadowDistance     = 120.0f;
+    float shadowFadeDistance = 20.0f;
+};
+
+struct HostSceneView
+{
+    const std::vector<RenderableInstance>* renderables = nullptr;
+    const std::vector<CameraData>* cameras = nullptr;
+    const std::vector<DirectionalLightData>* directionalLights = nullptr;
+    const gpu::GpuEntitySceneView* gpuEntityScene = nullptr;
+    const std::unordered_map<common::EntityId, std::uint32_t>* gpuEntityPoseIndices = nullptr;
+};
+
+} // namespace cressim::neo::graphics
+
+#endif // CRESSIM_NEO_GRAPHICS_HOST_SCENE_H

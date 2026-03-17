@@ -333,9 +333,10 @@ CameraData defaultCamera()
     return camera;
 }
 
-std::vector<CameraData> sortedCameras(const RenderWorld& world)
+std::vector<CameraData> sortedCameras(const HostSceneView& sceneView)
 {
-    std::vector<CameraData> cameras = world.cameras();
+    std::vector<CameraData> cameras =
+        sceneView.cameras != nullptr ? *sceneView.cameras : std::vector<CameraData>{};
     std::sort(cameras.begin(), cameras.end(),
               [](const CameraData& lhs, const CameraData& rhs)
               {

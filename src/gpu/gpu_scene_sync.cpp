@@ -450,8 +450,8 @@ bool GpuSceneSync::syncEntityPoses(const GpuPoseBufferView& sourcePoses,
         return false;
     }
 
-    mEntityCount = static_cast<std::uint32_t>(mappings.size());
-    if (mEntityCount == 0u)
+    const std::uint32_t mappingCount = static_cast<std::uint32_t>(mappings.size());
+    if (mappingCount == 0u)
     {
         return true;
     }
@@ -460,7 +460,8 @@ bool GpuSceneSync::syncEntityPoses(const GpuPoseBufferView& sourcePoses,
     {
         return false;
     }
-    if (!ensureCapacity(computeContext.renderDevice, mEntityCount, computeContext.contextId))
+    if (!ensureCapacity(computeContext.renderDevice, std::max(mEntityCount, mappingCount),
+                        computeContext.contextId))
     {
         return false;
     }
@@ -471,7 +472,7 @@ bool GpuSceneSync::syncEntityPoses(const GpuPoseBufferView& sourcePoses,
         return false;
     }
 
-    const GpuEntityPoseSyncConstants constants{mEntityCount, 0u, 0u, 0u};
+    const GpuEntityPoseSyncConstants constants{mappingCount, 0u, 0u, 0u};
     if (!writeBuffer(computeContext.computeContext, mConstantsBuffer, &constants,
                      sizeof(constants)))
     {
@@ -497,7 +498,7 @@ bool GpuSceneSync::syncEntityPoses(const GpuPoseBufferView& sourcePoses,
     };
 
     return entityPoseSyncPass().dispatch(computeContext.computeContext, 0u, bindings,
-                                         dispatchGroupCount(mEntityCount));
+                                         dispatchGroupCount(mappingCount));
 }
 
 GpuEntitySceneView GpuSceneSync::sceneView() const noexcept

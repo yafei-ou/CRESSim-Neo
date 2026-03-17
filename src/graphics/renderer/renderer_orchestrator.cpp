@@ -302,7 +302,7 @@ bool Renderer::initialize()
     return mInitialized;
 }
 
-RenderStats Renderer::render(const common::FrameContext& frameContext, const RenderWorld& world)
+RenderStats Renderer::render(const common::FrameContext& frameContext, const HostSceneView& world)
 {
     RenderStats stats{};
 
@@ -313,14 +313,21 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
 
     mDevice.beginFrame(frameContext);
 
-    const auto& renderables        = world.renderables();
-    const auto preparedRenderables = detail::buildPreparedRenderables(renderables, mResourceManager,
-                                                                      world.gpuEntityPoseIndices());
-    const ForwardDirectionalLightData lightData = detail::buildMainLight(world.directionalLights());
+    const std::vector<RenderableInstance>& renderables =
+        world.renderables != nullptr ? *world.renderables : std::vector<RenderableInstance>{};
+    const std::unordered_map<common::EntityId, std::uint32_t> emptyPoseIndices;
+    const std::unordered_map<common::EntityId, std::uint32_t>& poseIndices =
+        world.gpuEntityPoseIndices != nullptr ? *world.gpuEntityPoseIndices : emptyPoseIndices;
+    const std::vector<DirectionalLightData> emptyLights;
+    const std::vector<DirectionalLightData>& directionalLights =
+        world.directionalLights != nullptr ? *world.directionalLights : emptyLights;
+    const auto preparedRenderables =
+        detail::buildPreparedRenderables(renderables, mResourceManager, poseIndices);
+    const ForwardDirectionalLightData lightData = detail::buildMainLight(directionalLights);
 
     stats.renderableCount      = static_cast<std::uint32_t>(renderables.size());
     stats.validRenderableCount = static_cast<std::uint32_t>(preparedRenderables.size());
-    stats.lightCount           = static_cast<std::uint32_t>(world.directionalLights().size());
+    stats.lightCount           = static_cast<std::uint32_t>(directionalLights.size());
 
     std::vector<CameraData> cameras = detail::sortedCameras(world);
     if (cameras.empty())
@@ -410,7 +417,11 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
         const CameraRenderQueues queues = detail::buildCameraRenderQueues(
             preparedRenderables, frameView, mResourceManager, stats);
 
-        if (!prepareGpuScene(frameView, world.gpuEntityScene()))
+        const gpu::GpuEntitySceneView emptySceneView{};
+        const gpu::GpuEntitySceneView& gpuScene =
+            world.gpuEntityScene != nullptr ? *world.gpuEntityScene : emptySceneView;
+
+        if (!prepareGpuScene(frameView, gpuScene))
         {
             return;
         }
@@ -418,8 +429,7 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Ren
         ForwardPassExecutionStats passStats{};
         if (mForwardPipeline != nullptr)
         {
-            (void)mForwardPipeline->execute(frameContext, frameView, world.gpuEntityScene(), queues,
-                                            passStats);
+            (void)mForwardPipeline->execute(frameContext, frameView, gpuScene, queues, passStats);
         }
 
         stats.opaqueDrawCalls += passStats.opaqueDrawCalls;

@@ -1,7 +1,5 @@
 #include "engine/runtime.h"
 
-#include "engine/world_to_render_world_sync.h"
-
 #include <iostream>
 #include <unordered_map>
 
@@ -19,11 +17,11 @@ struct RenderObjectPoseData
 };
 
 std::unordered_map<common::EntityId, std::uint32_t> buildRenderObjectPoseIndices(
-    const graphics::RenderWorld& renderWorld, const gpu::GpuSceneLayoutDesc& layout)
+    const World& world, const gpu::GpuSceneLayoutDesc& layout)
 {
     std::unordered_map<common::EntityId, std::uint32_t> poseIndices;
-    poseIndices.reserve(renderWorld.renderables().size());
-    for (const graphics::RenderableInstance& renderable : renderWorld.renderables())
+    poseIndices.reserve(world.renderables().size());
+    for (const graphics::RenderableInstance& renderable : world.renderables())
     {
         if (renderable.objectSlot == 0xffffffffu)
         {
@@ -40,7 +38,7 @@ std::unordered_map<common::EntityId, std::uint32_t> buildRenderObjectPoseIndices
     return poseIndices;
 }
 
-RenderObjectPoseData buildRenderObjectPoseData(const graphics::RenderWorld& renderWorld,
+RenderObjectPoseData buildRenderObjectPoseData(const World& world,
                                                const gpu::GpuSceneLayoutDesc& layout)
 {
     RenderObjectPoseData poseData{};
@@ -49,7 +47,7 @@ RenderObjectPoseData buildRenderObjectPoseData(const graphics::RenderWorld& rend
                                  Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f});
     poseData.scales.resize(layout.totalObjectCapacity(), Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f});
 
-    for (const graphics::RenderableInstance& renderable : renderWorld.renderables())
+    for (const graphics::RenderableInstance& renderable : world.renderables())
     {
         if (renderable.objectSlot == 0xffffffffu)
         {
@@ -77,13 +75,12 @@ RenderObjectPoseData buildRenderObjectPoseData(const graphics::RenderWorld& rend
 }
 
 std::vector<gpu::GpuEntityPoseMappingEntry> buildPhysicsRenderableMappings(
-    const World& world, const graphics::RenderWorld& renderWorld,
-    const gpu::GpuSceneLayoutDesc& layout)
+    const World& world, const gpu::GpuSceneLayoutDesc& layout)
 {
     std::vector<gpu::GpuEntityPoseMappingEntry> mappings;
 
     const auto& rigidBodies = world.physicsWorld().rigidBodySoA();
-    const auto& renderables = renderWorld.renderables();
+    const auto& renderables = world.renderables();
     if (rigidBodies.entityIds.empty() || renderables.empty())
     {
         return mappings;
@@ -119,11 +116,11 @@ std::vector<gpu::GpuEntityPoseMappingEntry> buildPhysicsRenderableMappings(
 }
 
 std::vector<gpu::GpuRenderableMetadata> buildRenderableMetadata(
-    const graphics::RenderWorld& renderWorld, const graphics::RenderResourceManager& resources,
+    const World& world, const graphics::RenderResourceManager& resources,
     const gpu::GpuSceneLayoutDesc& layout)
 {
     std::vector<gpu::GpuRenderableMetadata> metadata(layout.totalObjectCapacity());
-    const auto& renderables = renderWorld.renderables();
+    const auto& renderables = world.renderables();
 
     for (const graphics::RenderableInstance& renderable : renderables)
     {
@@ -180,11 +177,11 @@ std::vector<gpu::GpuRenderableMetadata> buildRenderableMetadata(
     return metadata;
 }
 
-std::vector<gpu::GpuCameraInput> buildCameraInputs(const graphics::RenderWorld& renderWorld,
+std::vector<gpu::GpuCameraInput> buildCameraInputs(const World& world,
                                                    const gpu::GpuSceneLayoutDesc& layout)
 {
     std::vector<gpu::GpuCameraInput> inputs(layout.totalCameraCapacity());
-    for (const graphics::CameraData& camera : renderWorld.cameras())
+    for (const graphics::CameraData& camera : world.cameras())
     {
         if (camera.cameraSlot == 0xffffffffu)
         {
@@ -224,10 +221,10 @@ std::vector<gpu::GpuCameraInput> buildCameraInputs(const graphics::RenderWorld& 
 }
 
 std::vector<gpu::GpuDirectionalLightInput> buildLightInputs(
-    const graphics::RenderWorld& renderWorld, const gpu::GpuSceneLayoutDesc& layout)
+    const World& world, const gpu::GpuSceneLayoutDesc& layout)
 {
     std::vector<gpu::GpuDirectionalLightInput> inputs(layout.totalLightCapacity());
-    for (const graphics::DirectionalLightData& light : renderWorld.directionalLights())
+    for (const graphics::DirectionalLightData& light : world.directionalLights())
     {
         if (light.lightSlot == 0xffffffffu)
         {
@@ -322,8 +319,10 @@ bool Runtime::initialize(const RuntimeConfig& config)
         return false;
     }
 
+    mWorld.setSceneLayout(config.sceneLayout);
+
     mGpuSceneSync = std::make_unique<gpu::GpuSceneSync>(*mGpuDevice);
-    if (!mGpuSceneSync || !mGpuSceneSync->initialize(config.rendererDesc.sceneLayout))
+    if (!mGpuSceneSync || !mGpuSceneSync->initialize(config.sceneLayout))
     {
         mGpuSceneSync.reset();
         mPhysicsSolver->shutdown();
@@ -377,9 +376,11 @@ void Runtime::shutdown()
         mGpuDevice.reset();
     }
 
-    mLastRenderStats          = {};
-    mLastSyncedRenderRevision = ~0ull;
-    mInitialized              = false;
+    mLastRenderStats = {};
+    mCachedPoseMappingWorldRevision = ~0ull;
+    mCachedPoseMappingRigidBodyCount = 0u;
+    mCachedPoseMappings.clear();
+    mInitialized = false;
 }
 
 void Runtime::tick(const common::FrameContext& frameContext)
@@ -398,23 +399,30 @@ void Runtime::tick(const common::FrameContext& frameContext)
             logPhysicsStepFailure(frameContext, mPhysicsSolver->lastStageStats());
         }
     }
-    const bool syncSkipped = syncWorldToRenderWorld();
-
     std::unordered_map<common::EntityId, std::uint32_t> poseIndices;
     bool gpuSceneReady = false;
     if (mGpuSceneSync)
     {
-        poseIndices = buildRenderObjectPoseIndices(mRenderWorld, mGpuSceneSync->layout());
+        poseIndices = buildRenderObjectPoseIndices(mWorld, mGpuSceneSync->layout());
         const RenderObjectPoseData poseData =
-            buildRenderObjectPoseData(mRenderWorld, mGpuSceneSync->layout());
+            buildRenderObjectPoseData(mWorld, mGpuSceneSync->layout());
         gpuSceneReady = mGpuSceneSync->syncEntityPoseData(poseData.positions, poseData.orientations,
                                                           poseData.scales);
     }
     if (gpuSceneReady && physicsStepSucceeded && mGpuSceneSync && mPhysicsSolver)
     {
-        const std::vector<gpu::GpuEntityPoseMappingEntry> mappings =
-            buildPhysicsRenderableMappings(mWorld, mRenderWorld, mGpuSceneSync->layout());
-        if (mGpuSceneSync->syncEntityPoses(mPhysicsSolver->gpuSceneView().rigid.poses, mappings))
+        const std::uint32_t rigidBodyCount =
+            static_cast<std::uint32_t>(mWorld.physicsWorld().rigidBodySoA().entityIds.size());
+        if (mCachedPoseMappingWorldRevision != mWorld.renderRevision() ||
+            mCachedPoseMappingRigidBodyCount != rigidBodyCount)
+        {
+            mCachedPoseMappings = buildPhysicsRenderableMappings(mWorld, mGpuSceneSync->layout());
+            mCachedPoseMappingWorldRevision = mWorld.renderRevision();
+            mCachedPoseMappingRigidBodyCount = rigidBodyCount;
+        }
+
+        if (mGpuSceneSync->syncEntityPoses(mPhysicsSolver->gpuSceneView().rigid.poses,
+                                           mCachedPoseMappings))
         {
             gpu::GpuComputeBackendContext computeBackend{};
             if (mGpuDevice && mGpuDevice->tryGetPhysicsBackendContext(computeBackend) &&
@@ -431,29 +439,28 @@ void Runtime::tick(const common::FrameContext& frameContext)
     if (gpuSceneReady && mGpuSceneSync)
     {
         const std::vector<gpu::GpuRenderableMetadata> renderableMetadata =
-            buildRenderableMetadata(mRenderWorld, mResources, mGpuSceneSync->layout());
+            buildRenderableMetadata(mWorld, mResources, mGpuSceneSync->layout());
         const std::vector<gpu::GpuCameraInput> cameraInputs =
-            buildCameraInputs(mRenderWorld, mGpuSceneSync->layout());
+            buildCameraInputs(mWorld, mGpuSceneSync->layout());
         const std::vector<gpu::GpuDirectionalLightInput> lightInputs =
-            buildLightInputs(mRenderWorld, mGpuSceneSync->layout());
+            buildLightInputs(mWorld, mGpuSceneSync->layout());
         if (mGpuSceneSync->syncRenderableMetadata(renderableMetadata) &&
             mGpuSceneSync->syncCameraInputs(cameraInputs) &&
             mGpuSceneSync->syncLightInputs(lightInputs))
         {
-            mRenderWorld.setGpuEntityScene(mGpuSceneSync->sceneView(), poseIndices);
+            mWorld.setGpuEntityScene(mGpuSceneSync->sceneView(), poseIndices);
         }
         else
         {
-            mRenderWorld.setGpuEntityScene({}, {});
+            mWorld.setGpuEntityScene({}, {});
         }
     }
     else
     {
-        mRenderWorld.setGpuEntityScene({}, {});
+        mWorld.setGpuEntityScene({}, {});
     }
 
-    mLastRenderStats                        = mRenderer->render(frameContext, mRenderWorld);
-    mLastRenderStats.worldSyncSkippedFrames = syncSkipped ? 1u : 0u;
+    mLastRenderStats = mRenderer->render(frameContext, mWorld.hostSceneView());
 }
 
 World& Runtime::getWorld() noexcept
@@ -499,19 +506,6 @@ graphics::RenderResourceManager& Runtime::getResources() noexcept
 const graphics::RenderResourceManager& Runtime::getResources() const noexcept
 {
     return mResources;
-}
-
-bool Runtime::syncWorldToRenderWorld()
-{
-    if (mWorld.renderRevision() == mLastSyncedRenderRevision)
-    {
-        return true;
-    }
-
-    detail::syncWorldToRenderWorld(mWorld, mRenderWorld);
-    mWorld.clearRenderDirtyEntities();
-    mLastSyncedRenderRevision = mWorld.renderRevision();
-    return false;
 }
 
 } // namespace cressim::neo::engine
