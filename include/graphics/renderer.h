@@ -22,6 +22,7 @@ struct FrameViewData;
 
 struct RendererDesc
 {
+    gpu::GpuSceneLayoutDesc sceneLayout{};
 };
 
 struct RenderStats

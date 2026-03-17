@@ -1,4 +1,5 @@
 #include "graphics/include/graphics_forward_constants.hlsli"
+#include "graphics/include/graphics_scene_buffers.hlsli"
 
 struct VSOutput
 {
@@ -54,24 +55,23 @@ float3 FresnelSchlick(float cosTheta, float3 F0)
     return F0 + (1.0 - F0) * pow(saturate(1.0 - cosTheta), 5.0);
 }
 
-int SelectCascade(float viewDepth)
+int SelectCascade(float viewDepth, float4 cascadeSplits, int cascadeCount)
 {
-    int cascadeCount = clamp((int)round(g_ShadowTexelSizeCascadeCount.z), 0, 4);
     if (cascadeCount <= 0)
     {
         return -1;
     }
 
     int cascadeIdx = 0;
-    if (cascadeCount > 1 && viewDepth > g_CascadeSplits.x)
+    if (cascadeCount > 1 && viewDepth > cascadeSplits.x)
     {
         cascadeIdx = 1;
     }
-    if (cascadeCount > 2 && viewDepth > g_CascadeSplits.y)
+    if (cascadeCount > 2 && viewDepth > cascadeSplits.y)
     {
         cascadeIdx = 2;
     }
-    if (cascadeCount > 3 && viewDepth > g_CascadeSplits.z)
+    if (cascadeCount > 3 && viewDepth > cascadeSplits.z)
     {
         cascadeIdx = 3;
     }
@@ -131,16 +131,23 @@ float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir)
         return 1.0;
     }
 
-    float viewDepth = mul(float4(worldPos, 1.0), g_ViewMatrix).z;
-    float shadowDistance = g_CascadeSplits.w;
-    float fadeBand = max(g_ShadowTexelSizeCascadeCount.w, 1e-5);
+    PreparedCamera preparedCamera = g_PreparedCameras[g_CurrentCameraIndex];
+    if (preparedCamera.active == 0u)
+    {
+        return 1.0;
+    }
+
+    float viewDepth = abs(mul(float4(worldPos, 1.0), preparedCamera.viewMatrix).z);
+    float shadowDistance = preparedCamera.cascadeSplits.w;
+    float fadeBand = max(preparedCamera.shadowParams.w, 1e-5);
     float distanceFade = saturate((shadowDistance - viewDepth) / fadeBand);
     if (distanceFade <= 0.0)
     {
         return 1.0;
     }
 
-    int cascadeIdx = SelectCascade(viewDepth);
+    int cascadeCount = clamp((int)round(preparedCamera.shadowParams.z), 0, 4);
+    int cascadeIdx = SelectCascade(viewDepth, preparedCamera.cascadeSplits, cascadeCount);
     if (cascadeIdx < 0)
     {
         return 1.0;
@@ -148,24 +155,32 @@ float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir)
 
     float slopeScale = 1.0 - saturate(dot(normal, lightDir));
     float shadowBias = g_ShadowParams.x * (1.0 + 2.5 * slopeScale);
-    float2 texelSize = max(g_ShadowTexelSizeCascadeCount.xy, float2(1e-5, 1e-5));
+    float2 texelSize = max(preparedCamera.shadowParams.xy, float2(1e-5, 1e-5));
     float visibility = 1.0;
 
     if (cascadeIdx == 0)
     {
-        visibility = SampleCascadeShadow(g_ShadowMap0, g_ShadowMap0_sampler, g_LightViewProjection[0], worldPos, shadowBias, texelSize);
+        visibility = SampleCascadeShadow(g_ShadowMap0, g_ShadowMap0_sampler,
+                                         preparedCamera.lightViewProjectionMatrices[0], worldPos,
+                                         shadowBias, texelSize);
     }
     else if (cascadeIdx == 1)
     {
-        visibility = SampleCascadeShadow(g_ShadowMap1, g_ShadowMap1_sampler, g_LightViewProjection[1], worldPos, shadowBias, texelSize);
+        visibility = SampleCascadeShadow(g_ShadowMap1, g_ShadowMap1_sampler,
+                                         preparedCamera.lightViewProjectionMatrices[1], worldPos,
+                                         shadowBias, texelSize);
     }
     else if (cascadeIdx == 2)
     {
-        visibility = SampleCascadeShadow(g_ShadowMap2, g_ShadowMap2_sampler, g_LightViewProjection[2], worldPos, shadowBias, texelSize);
+        visibility = SampleCascadeShadow(g_ShadowMap2, g_ShadowMap2_sampler,
+                                         preparedCamera.lightViewProjectionMatrices[2], worldPos,
+                                         shadowBias, texelSize);
     }
     else
     {
-        visibility = SampleCascadeShadow(g_ShadowMap3, g_ShadowMap3_sampler, g_LightViewProjection[3], worldPos, shadowBias, texelSize);
+        visibility = SampleCascadeShadow(g_ShadowMap3, g_ShadowMap3_sampler,
+                                         preparedCamera.lightViewProjectionMatrices[3], worldPos,
+                                         shadowBias, texelSize);
     }
 
     float shadowTerm = lerp(g_ShadowParams.z, 1.0, visibility);

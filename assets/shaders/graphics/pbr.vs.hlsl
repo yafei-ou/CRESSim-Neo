@@ -15,18 +15,23 @@ struct VSOutput
     float3 WorldNormal : TEXCOORD1;
 };
 
-void main(in VSInput In, out VSOutput Out)
+void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
 {
     float4 worldPos = float4(0.0, 0.0, 0.0, 1.0);
     float3 worldNormal = float3(0.0, 1.0, 0.0);
     if (g_UseSceneBuffers != 0u)
     {
+        uint objectIndex = g_InstanceIndex;
+        if (g_UseDrawListBuffer != 0u)
+        {
+            objectIndex = g_VisibleObjectIndices[g_DrawListOffset + instanceId];
+        }
         bool poseValid = false;
         float3 position = float3(0.0, 0.0, 0.0);
         float4 orientation = float4(0.0, 0.0, 0.0, 1.0);
         float3 scale = float3(1.0, 1.0, 1.0);
-        loadRenderablePose(g_InstanceIndex, poseValid, position, orientation, scale);
-        if (!poseValid || g_RenderableVisibilityFlags[g_InstanceIndex] == 0u)
+        loadRenderablePose(objectIndex, poseValid, position, orientation, scale);
+        if (!poseValid || g_RenderableVisibilityFlags[objectIndex] == 0u)
         {
             Out.Position = float4(2.0, 2.0, 2.0, 1.0);
             Out.WorldPos = float3(0.0, 0.0, 0.0);

@@ -2,12 +2,10 @@
 
 cbuffer GraphicsScenePrepareConstants
 {
-    float4x4 g_ViewProjection;
-    float4x4 g_LightViewProjection[4];
+    uint g_CurrentCameraIndex;
     uint g_RenderableCount;
-    uint g_ShadowCascadeCount;
-    uint g_CameraEnvIndex;
-    uint g_PreparePadding;
+    uint g_PreparePadding0;
+    uint g_PreparePadding1;
 };
 
 RWStructuredBuffer<uint> g_RenderableVisibilityFlagsRW;
@@ -22,18 +20,27 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    const RenderableMetadata metadata = g_RenderableMetadata[renderableIndex];
-    if ((metadata.flags & CRESSIM_RENDERABLE_FLAG_GPU_POSE) == 0u ||
-        metadata.entityPoseIndex == 0xffffffffu || metadata.envIndex != g_CameraEnvIndex)
+    const PreparedCamera preparedCamera = g_PreparedCameras[g_CurrentCameraIndex];
+    if (preparedCamera.active == 0u)
     {
         g_RenderableVisibilityFlagsRW[renderableIndex] = 0u;
         g_RenderableShadowCascadeMasksRW[renderableIndex] = 0u;
         return;
     }
 
-    const float3 position = g_EntityPositions[metadata.entityPoseIndex].xyz;
-    const float4 orientation = normalize(g_EntityOrientations[metadata.entityPoseIndex]);
-    const float3 scale = g_EntityScales[metadata.entityPoseIndex].xyz;
+    const RenderableMetadata metadata = g_RenderableMetadata[renderableIndex];
+    if ((metadata.flags & CRESSIM_RENDERABLE_FLAG_ACTIVE) == 0u ||
+        (metadata.flags & CRESSIM_RENDERABLE_FLAG_GPU_POSE) == 0u ||
+        metadata.envIndex != preparedCamera.envIndex)
+    {
+        g_RenderableVisibilityFlagsRW[renderableIndex] = 0u;
+        g_RenderableShadowCascadeMasksRW[renderableIndex] = 0u;
+        return;
+    }
+
+    const float3 position = g_EntityPositions[renderableIndex].xyz;
+    const float4 orientation = normalize(g_EntityOrientations[renderableIndex]);
+    const float3 scale = g_EntityScales[renderableIndex].xyz;
 
     float3 corners[8];
     corners[0] = metadata.localBoundsMin.xyz;
@@ -60,7 +67,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     [unroll]
     for (int i = 0; i < 8; ++i)
     {
-        const float4 clip = mul(float4(corners[i], 1.0), g_ViewProjection);
+        const float4 clip = mul(float4(corners[i], 1.0), preparedCamera.viewProjectionMatrix);
         allLeft = allLeft && (clip.x < -clip.w);
         allRight = allRight && (clip.x > clip.w);
         allBottom = allBottom && (clip.y < -clip.w);
@@ -73,10 +80,11 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     g_RenderableVisibilityFlagsRW[renderableIndex] = visible ? 1u : 0u;
 
     uint shadowMask = 0u;
-    if ((metadata.flags & (1u << 1u)) != 0u)
+    const uint shadowCascadeCount = (uint)round(preparedCamera.shadowParams.z);
+    if ((metadata.flags & CRESSIM_RENDERABLE_FLAG_SHADOW_CASTER) != 0u && shadowCascadeCount > 0u)
     {
         [loop]
-        for (uint cascadeIndex = 0u; cascadeIndex < min(g_ShadowCascadeCount, 4u); ++cascadeIndex)
+        for (uint cascadeIndex = 0u; cascadeIndex < min(shadowCascadeCount, 4u); ++cascadeIndex)
         {
             bool cascadeAllLeft = true;
             bool cascadeAllRight = true;
@@ -87,7 +95,8 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             [unroll]
             for (int i = 0; i < 8; ++i)
             {
-                const float4 clip = mul(float4(corners[i], 1.0), g_LightViewProjection[cascadeIndex]);
+                const float4 clip =
+                    mul(float4(corners[i], 1.0), preparedCamera.lightViewProjectionMatrices[cascadeIndex]);
                 cascadeAllLeft = cascadeAllLeft && (clip.x < -clip.w);
                 cascadeAllRight = cascadeAllRight && (clip.x > clip.w);
                 cascadeAllBottom = cascadeAllBottom && (clip.y < -clip.w);

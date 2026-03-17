@@ -303,6 +303,8 @@ FrameViewData buildFrameViewData(const CameraData& camera,
     FrameViewData frameView{};
     frameView.target       = target;
     frameView.viewport     = viewport;
+    frameView.envIndex     = camera.envIndex;
+    frameView.cameraSlot   = camera.cameraSlot;
     frameView.outputWidth  = targetDesc.width;
     frameView.outputHeight = targetDesc.height;
     frameView.light        = lightData;
@@ -321,7 +323,10 @@ FrameViewData buildFrameViewData(const CameraData& camera,
 CameraData defaultCamera()
 {
     CameraData camera{};
+    camera.envIndex = 0u;
+    camera.cameraSlot = 0u;
     camera.verticalFovDegrees = 60.0f;
+    camera.aspectRatio        = 1.0f;
     camera.nearClip           = 0.01f;
     camera.farClip            = 1000.0f;
     camera.viewport           = {};

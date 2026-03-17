@@ -42,6 +42,7 @@ void syncWorldToRenderWorld(const World& world, graphics::RenderWorld& renderWor
             cameraData.entityId           = entityId;
             cameraData.worldTransform     = worldTransform;
             cameraData.verticalFovDegrees = camera->verticalFovDegrees;
+            cameraData.aspectRatio        = camera->aspectRatio;
             cameraData.nearClip           = camera->nearClip;
             cameraData.farClip            = camera->farClip;
             cameraData.outputTarget       = camera->outputTarget;

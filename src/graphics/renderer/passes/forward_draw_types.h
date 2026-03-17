@@ -36,6 +36,9 @@ struct ForwardDirectionalLightData
 struct ForwardDrawCommand
 {
     std::uint32_t instanceIndex             = 0xffffffffu;
+    std::uint32_t drawListOffset            = 0u;
+    std::uint32_t useDrawListBuffer         = 0u;
+    std::uint32_t reserved0                 = 0u;
     MaterialProgramFamily programFamily       = MaterialProgramFamily::StandardLit;
     MaterialFeatureFlags materialFeatureFlags = MaterialFeatureFlags::None;
     // Stable id/version pair used by pass-level mesh buffer caches.

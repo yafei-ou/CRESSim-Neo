@@ -30,10 +30,13 @@ public:
                  ForwardPassExecutionStats& outStats);
 
 private:
+    struct GpuIndirectState;
+
     gpu::GpuDevice& mDevice;
     std::unique_ptr<ForwardOpaquePass> mForwardOpaquePass;
     std::unique_ptr<ForwardTransparentPass> mForwardTransparentPass;
     std::unique_ptr<ShadowPass> mShadowPass;
+    std::unique_ptr<GpuIndirectState> mGpuIndirectState;
     std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
     bool mInitialized = false;
 };

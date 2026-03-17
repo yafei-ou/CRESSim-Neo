@@ -17,14 +17,39 @@ namespace
 
 constexpr std::uint32_t kScenePrepareThreadGroupSize = 64u;
 
+struct GraphicsCameraPrepareConstants
+{
+    std::uint32_t currentCameraIndex = 0u;
+    std::uint32_t maxLightsPerEnv = 0u;
+    std::uint32_t shadowMapResolution = kShadowMapResolution;
+    float frameAspectRatio = 1.0f;
+};
+
 struct GraphicsScenePrepareConstants
 {
-    Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
-    std::array<Diligent::float4x4, kShadowCascadeCount> lightViewProjectionMatrices{};
+    std::uint32_t currentCameraIndex = 0u;
     std::uint32_t renderableCount = 0u;
-    std::uint32_t shadowCascadeCount = 0u;
-    std::uint32_t cameraEnvIndex = 0u;
-    std::uint32_t padding = 0u;
+    std::uint32_t padding0 = 0u;
+    std::uint32_t padding1 = 0u;
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kCameraPrepareVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "GraphicsCameraPrepareConstants",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_CameraInputs",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_LightInputs",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PreparedCamerasRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr gpu::GpuComputePassDefinition kCameraPreparePassDefinition = {
+    "graphics/graphics_camera_prepare.cs.hlsl",
+    "CRESSimNeo.Graphics.CameraPrepare",
+    "CRESSimNeo.Graphics.CameraPrepare.PSO",
+    kCameraPrepareVars,
+    std::size(kCameraPrepareVars),
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kScenePrepareVars[] = {
@@ -37,6 +62,8 @@ constexpr Diligent::ShaderResourceVariableDesc kScenePrepareVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "g_EntityScales",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RenderableMetadata",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PreparedCameras",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RenderableVisibilityFlagsRW",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -61,8 +88,10 @@ std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
 
 struct Renderer::GpuScenePrepareState
 {
-    gpu::GpuComputePass pass;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> constantsBuffer;
+    gpu::GpuComputePass cameraPreparePass;
+    gpu::GpuComputePass scenePreparePass;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> cameraPrepareConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> scenePrepareConstantsBuffer;
     bool initialized = false;
 };
 
@@ -103,21 +132,33 @@ bool Renderer::ensureGpuScenePrepareState()
         return false;
     }
 
-    if (!mGpuScenePrepare->pass.initialize(backendContext.renderDevice, streamFactory, 1ull,
-                                           kScenePreparePassDefinition))
+    if (!mGpuScenePrepare->cameraPreparePass.initialize(backendContext.renderDevice, streamFactory,
+                                                        1ull, kCameraPreparePassDefinition) ||
+        !mGpuScenePrepare->scenePreparePass.initialize(backendContext.renderDevice, streamFactory,
+                                                       1ull, kScenePreparePassDefinition))
     {
         return false;
     }
 
     Diligent::BufferDesc desc{};
-    desc.Name = "CRESSimNeo.Graphics.ScenePrepare.Constants";
-    desc.Size = sizeof(GraphicsScenePrepareConstants);
+    desc.Name = "CRESSimNeo.Graphics.CameraPrepare.Constants";
+    desc.Size = sizeof(GraphicsCameraPrepareConstants);
     desc.Usage = Diligent::USAGE_DYNAMIC;
     desc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
     desc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
     desc.ImmediateContextMask = 1ull;
-    backendContext.renderDevice->CreateBuffer(desc, nullptr, &mGpuScenePrepare->constantsBuffer);
-    if (mGpuScenePrepare->constantsBuffer == nullptr)
+    backendContext.renderDevice->CreateBuffer(desc, nullptr,
+                                              &mGpuScenePrepare->cameraPrepareConstantsBuffer);
+    if (mGpuScenePrepare->cameraPrepareConstantsBuffer == nullptr)
+    {
+        return false;
+    }
+
+    desc.Name = "CRESSimNeo.Graphics.ScenePrepare.Constants";
+    desc.Size = sizeof(GraphicsScenePrepareConstants);
+    backendContext.renderDevice->CreateBuffer(desc, nullptr,
+                                              &mGpuScenePrepare->scenePrepareConstantsBuffer);
+    if (mGpuScenePrepare->scenePrepareConstantsBuffer == nullptr)
     {
         return false;
     }
@@ -135,6 +176,8 @@ bool Renderer::prepareGpuScene(const FrameViewData& frameView,
     }
     if (sceneView.poses.positionsBuffer == nullptr || sceneView.poses.orientationsBuffer == nullptr ||
         sceneView.poses.scalesBuffer == nullptr || sceneView.renderableMetadataBuffer == nullptr ||
+        sceneView.cameraInputsBuffer == nullptr || sceneView.preparedCamerasBuffer == nullptr ||
+        sceneView.lightInputsBuffer == nullptr ||
         sceneView.renderableVisibilityFlagsBuffer == nullptr ||
         sceneView.renderableShadowCascadeMasksBuffer == nullptr)
     {
@@ -151,30 +194,70 @@ bool Renderer::prepareGpuScene(const FrameViewData& frameView,
         return false;
     }
 
-    GraphicsScenePrepareConstants constants{};
-    constants.viewProjectionMatrix = frameView.viewProjectionMatrix.Transpose();
-    for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
+    const std::uint32_t currentCameraIndex =
+        frameView.envIndex * sceneView.layout.maxCamerasPerEnv + frameView.cameraSlot;
+    if (currentCameraIndex >= sceneView.cameraCount)
     {
-        constants.lightViewProjectionMatrices[cascadeIdx] =
-            frameView.lightViewProjectionMatrices[cascadeIdx].Transpose();
+        return true;
     }
-    constants.renderableCount = sceneView.renderableCount;
-    constants.shadowCascadeCount = frameView.shadowCascadeCount;
-    constants.cameraEnvIndex = 0u;
+
+    GraphicsCameraPrepareConstants cameraPrepareConstants{};
+    cameraPrepareConstants.currentCameraIndex = currentCameraIndex;
+    cameraPrepareConstants.maxLightsPerEnv = sceneView.layout.maxLightsPerEnv;
+    cameraPrepareConstants.shadowMapResolution = kShadowMapResolution;
+    cameraPrepareConstants.frameAspectRatio =
+        frameView.outputHeight > 0u
+            ? static_cast<float>(frameView.outputWidth) /
+                  static_cast<float>(std::max(frameView.outputHeight, 1u))
+            : 1.0f;
 
     void* mappedConstants = nullptr;
-    backendContext.immediateContext->MapBuffer(mGpuScenePrepare->constantsBuffer, Diligent::MAP_WRITE,
-                                               Diligent::MAP_FLAG_DISCARD, mappedConstants);
+    backendContext.immediateContext->MapBuffer(mGpuScenePrepare->cameraPrepareConstantsBuffer,
+                                               Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
+                                               mappedConstants);
+    if (mappedConstants == nullptr)
+    {
+        return false;
+    }
+    std::memcpy(mappedConstants, &cameraPrepareConstants, sizeof(cameraPrepareConstants));
+    backendContext.immediateContext->UnmapBuffer(mGpuScenePrepare->cameraPrepareConstantsBuffer,
+                                                 Diligent::MAP_WRITE);
+
+    const std::array cameraPrepareBindings{
+        gpu::GpuBufferBinding{"GraphicsCameraPrepareConstants",
+                              mGpuScenePrepare->cameraPrepareConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_CameraInputs", sceneView.cameraInputsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_LightInputs", sceneView.lightInputsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PreparedCamerasRW", sceneView.preparedCamerasBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+    if (!mGpuScenePrepare->cameraPreparePass.dispatch(backendContext.immediateContext, 0u,
+                                                      cameraPrepareBindings, 1u))
+    {
+        return false;
+    }
+
+    GraphicsScenePrepareConstants constants{};
+    constants.currentCameraIndex = currentCameraIndex;
+    constants.renderableCount = sceneView.renderableCount;
+    mappedConstants = nullptr;
+    backendContext.immediateContext->MapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
+                                               Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
+                                               mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
     }
     std::memcpy(mappedConstants, &constants, sizeof(constants));
-    backendContext.immediateContext->UnmapBuffer(mGpuScenePrepare->constantsBuffer,
+    backendContext.immediateContext->UnmapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
                                                  Diligent::MAP_WRITE);
 
     const std::array bindings{
-        gpu::GpuBufferBinding{"GraphicsScenePrepareConstants", mGpuScenePrepare->constantsBuffer,
+        gpu::GpuBufferBinding{"GraphicsScenePrepareConstants",
+                              mGpuScenePrepare->scenePrepareConstantsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_EntityPositions", sceneView.poses.positionsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -184,6 +267,8 @@ bool Renderer::prepareGpuScene(const FrameViewData& frameView,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RenderableMetadata", sceneView.renderableMetadataBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PreparedCameras", sceneView.preparedCamerasBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RenderableVisibilityFlagsRW",
                               sceneView.renderableVisibilityFlagsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
@@ -192,8 +277,8 @@ bool Renderer::prepareGpuScene(const FrameViewData& frameView,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    return mGpuScenePrepare->pass.dispatch(backendContext.immediateContext, 0u, bindings,
-                                           dispatchGroupCount(sceneView.renderableCount));
+    return mGpuScenePrepare->scenePreparePass.dispatch(backendContext.immediateContext, 0u, bindings,
+                                                       dispatchGroupCount(sceneView.renderableCount));
 }
 
 bool Renderer::initialize()

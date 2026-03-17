@@ -58,6 +58,99 @@ bool buildDrawCommand(const PreparedRenderable& renderable, const RenderResource
     return true;
 }
 
+struct GpuBucketKey
+{
+    std::uint32_t programFamily = 0u;
+    std::uint32_t materialFeatureFlags = 0u;
+    common::ResourceId materialId = common::kInvalidResourceId;
+    common::ResourceId meshId = common::kInvalidResourceId;
+};
+
+bool sameGpuBucket(const ForwardDrawCommand& lhsDraw, common::ResourceId lhsMaterialId,
+                   common::ResourceId lhsMeshId, const QueuedDraw& rhs)
+{
+    return lhsDraw.programFamily == rhs.drawCommand.programFamily &&
+           lhsDraw.materialFeatureFlags == rhs.drawCommand.materialFeatureFlags &&
+           lhsMaterialId == rhs.materialId && lhsMeshId == rhs.meshId;
+}
+
+void buildGpuBuckets(const std::vector<QueuedDraw>& sortedDraws,
+                     std::vector<GpuIndirectBucket>& outBuckets,
+                     std::vector<GpuIndirectCandidate>& outCandidates,
+                     bool shadowMode)
+{
+    outBuckets.clear();
+    outCandidates.clear();
+    outBuckets.reserve(sortedDraws.size());
+    outCandidates.reserve(sortedDraws.size() * (shadowMode ? kShadowCascadeCount : 1u));
+
+    std::uint32_t nextDrawListOffset = 0u;
+    for (const QueuedDraw& draw : sortedDraws)
+    {
+        if (draw.drawCommand.instanceIndex == 0xffffffffu)
+        {
+            continue;
+        }
+
+        if (outBuckets.empty() ||
+            !sameGpuBucket(outBuckets.back().drawCommand, outBuckets.back().drawCommand.materialId,
+                           outBuckets.back().drawCommand.meshId, draw))
+        {
+            GpuIndirectBucket bucket{};
+            bucket.drawCommand = draw.drawCommand;
+            bucket.drawCommand.useDrawListBuffer = 1u;
+            bucket.candidateOffset = static_cast<std::uint32_t>(sortedDraws.size()); // placeholder
+            bucket.candidateCount = 0u;
+            bucket.drawListOffset = nextDrawListOffset;
+            bucket.commandIndex = static_cast<std::uint32_t>(outBuckets.size());
+            outBuckets.push_back(bucket);
+        }
+
+        GpuIndirectBucket& bucket = outBuckets.back();
+        if (bucket.candidateCount == 0u)
+        {
+            bucket.candidateOffset = static_cast<std::uint32_t>(outCandidates.size());
+        }
+
+        if (!shadowMode)
+        {
+            outCandidates.push_back(
+                GpuIndirectCandidate{draw.drawCommand.instanceIndex, bucket.commandIndex, 0u, 0u});
+            ++bucket.candidateCount;
+            ++nextDrawListOffset;
+            continue;
+        }
+
+        for (std::uint32_t cascadeIndex = 0u; cascadeIndex < kShadowCascadeCount; ++cascadeIndex)
+        {
+            outCandidates.push_back(GpuIndirectCandidate{
+                draw.drawCommand.instanceIndex, bucket.commandIndex * kShadowCascadeCount + cascadeIndex,
+                1u << cascadeIndex, 0u});
+            ++nextDrawListOffset;
+        }
+        ++bucket.candidateCount;
+    }
+
+    if (shadowMode && !outBuckets.empty())
+    {
+        std::vector<GpuIndirectBucket> expandedBuckets;
+        expandedBuckets.reserve(outBuckets.size() * kShadowCascadeCount);
+        std::uint32_t nextShadowOffset = 0u;
+        for (const GpuIndirectBucket& sourceBucket : outBuckets)
+        {
+            for (std::uint32_t cascadeIndex = 0u; cascadeIndex < kShadowCascadeCount; ++cascadeIndex)
+            {
+                GpuIndirectBucket bucket = sourceBucket;
+                bucket.commandIndex = static_cast<std::uint32_t>(expandedBuckets.size());
+                bucket.drawListOffset = nextShadowOffset;
+                nextShadowOffset += sourceBucket.candidateCount;
+                expandedBuckets.push_back(bucket);
+            }
+        }
+        outBuckets = std::move(expandedBuckets);
+    }
+}
+
 } // namespace
 
 std::vector<PreparedRenderable> buildPreparedRenderables(
@@ -90,7 +183,7 @@ std::vector<PreparedRenderable> buildPreparedRenderables(
         const auto gpuPoseIt = gpuPoseIndices.find(renderable.entityId);
         if (gpuPoseIt != gpuPoseIndices.end() && material->blendMode != BlendMode::Transparent)
         {
-            entry.instanceIndex = static_cast<std::uint32_t>(renderableIndex);
+            entry.instanceIndex = gpuPoseIt->second;
             entry.modelMatrix = Diligent::float4x4::Identity();
             entry.normalMatrix = Diligent::float4x4::Identity();
         }
@@ -123,6 +216,10 @@ CameraRenderQueues buildCameraRenderQueues(
     queues.opaque.reserve(preparedRenderables.size());
     queues.transparent.reserve(preparedRenderables.size());
     queues.shadowCasters.reserve(preparedRenderables.size());
+    std::vector<QueuedDraw> gpuOpaqueDraws;
+    std::vector<QueuedDraw> gpuShadowDraws;
+    gpuOpaqueDraws.reserve(preparedRenderables.size());
+    gpuShadowDraws.reserve(preparedRenderables.size());
 
     for (const PreparedRenderable& renderable : preparedRenderables)
     {
@@ -188,16 +285,35 @@ CameraRenderQueues buildCameraRenderQueues(
         }
         else if (needsMainPass)
         {
-            queues.opaque.push_back(queuedDraw);
+            gpuOpaqueDraws.push_back(queuedDraw);
         }
 
         if (needsShadowPass)
         {
-            queues.shadowCasters.push_back(queuedDraw);
+            gpuShadowDraws.push_back(queuedDraw);
         }
     }
 
-    std::sort(queues.opaque.begin(), queues.opaque.end(),
+    std::sort(queues.transparent.begin(), queues.transparent.end(),
+              [](const QueuedDraw& lhs, const QueuedDraw& rhs)
+              {
+                  if (lhs.depth != rhs.depth)
+                  {
+                      return lhs.depth > rhs.depth;
+                  }
+                  if (lhs.materialId != rhs.materialId)
+                  {
+                      return lhs.materialId < rhs.materialId;
+                  }
+                  if (lhs.meshId != rhs.meshId)
+                  {
+                      return lhs.meshId < rhs.meshId;
+                  }
+                  return lhs.entityId < rhs.entityId;
+              });
+
+
+    std::sort(gpuOpaqueDraws.begin(), gpuOpaqueDraws.end(),
               [](const QueuedDraw& lhs, const QueuedDraw& rhs)
               {
                   if (lhs.drawCommand.programFamily != rhs.drawCommand.programFamily)
@@ -218,19 +334,21 @@ CameraRenderQueues buildCameraRenderQueues(
                   {
                       return lhs.meshId < rhs.meshId;
                   }
-                  if (lhs.depth != rhs.depth)
-                  {
-                      return lhs.depth < rhs.depth;
-                  }
                   return lhs.entityId < rhs.entityId;
               });
 
-    std::sort(queues.transparent.begin(), queues.transparent.end(),
+    std::sort(gpuShadowDraws.begin(), gpuShadowDraws.end(),
               [](const QueuedDraw& lhs, const QueuedDraw& rhs)
               {
-                  if (lhs.depth != rhs.depth)
+                  if (lhs.drawCommand.programFamily != rhs.drawCommand.programFamily)
                   {
-                      return lhs.depth > rhs.depth;
+                      return static_cast<std::uint32_t>(lhs.drawCommand.programFamily) <
+                             static_cast<std::uint32_t>(rhs.drawCommand.programFamily);
+                  }
+                  if (lhs.drawCommand.materialFeatureFlags != rhs.drawCommand.materialFeatureFlags)
+                  {
+                      return lhs.drawCommand.materialFeatureFlags <
+                             rhs.drawCommand.materialFeatureFlags;
                   }
                   if (lhs.materialId != rhs.materialId)
                   {
@@ -243,23 +361,12 @@ CameraRenderQueues buildCameraRenderQueues(
                   return lhs.entityId < rhs.entityId;
               });
 
-    std::sort(queues.shadowCasters.begin(), queues.shadowCasters.end(),
-              [](const QueuedDraw& lhs, const QueuedDraw& rhs)
-              {
-                  if (lhs.materialId != rhs.materialId)
-                  {
-                      return lhs.materialId < rhs.materialId;
-                  }
-                  if (lhs.meshId != rhs.meshId)
-                  {
-                      return lhs.meshId < rhs.meshId;
-                  }
-                  return lhs.entityId < rhs.entityId;
-              });
+    buildGpuBuckets(gpuOpaqueDraws, queues.gpuOpaqueBuckets, queues.gpuOpaqueCandidates, false);
+    buildGpuBuckets(gpuShadowDraws, queues.gpuShadowBuckets, queues.gpuShadowCandidates, true);
 
-    stats.opaqueQueueCount += static_cast<std::uint32_t>(queues.opaque.size());
+    stats.opaqueQueueCount += static_cast<std::uint32_t>(gpuOpaqueDraws.size());
     stats.transparentQueueCount += static_cast<std::uint32_t>(queues.transparent.size());
-    stats.shadowCasterQueueCount += static_cast<std::uint32_t>(queues.shadowCasters.size());
+    stats.shadowCasterQueueCount += static_cast<std::uint32_t>(gpuShadowDraws.size());
     return queues;
 }
 

@@ -18,6 +18,8 @@ namespace cressim::neo::graphics
 struct RenderableInstance
 {
     common::EntityId entityId = common::kInvalidEntityId;
+    std::uint32_t envIndex = 0u;
+    std::uint32_t objectSlot = 0xffffffffu;
     common::Transform worldTransform{};
     MeshHandle mesh{};
     MaterialHandle material{};
@@ -26,8 +28,11 @@ struct RenderableInstance
 struct CameraData
 {
     common::EntityId entityId = common::kInvalidEntityId;
+    std::uint32_t envIndex = 0u;
+    std::uint32_t cameraSlot = 0xffffffffu;
     common::Transform worldTransform{};
     float verticalFovDegrees = 60.0f;
+    float aspectRatio        = 1.0f;
     float nearClip           = 0.01f;
     float farClip            = 1000.0f;
 
@@ -43,6 +48,8 @@ struct CameraData
 struct DirectionalLightData
 {
     common::EntityId entityId = common::kInvalidEntityId;
+    std::uint32_t envIndex = 0u;
+    std::uint32_t lightSlot = 0xffffffffu;
     Diligent::float3 direction{0.0f, -1.0f, 0.0f};
     Diligent::float3 color{1.0f, 1.0f, 1.0f};
     float intensity          = 1.0f;
@@ -81,6 +88,12 @@ private:
     std::unordered_map<common::EntityId, std::size_t> mRenderableIndices;
     std::unordered_map<common::EntityId, std::size_t> mCameraIndices;
     std::unordered_map<common::EntityId, std::size_t> mDirectionalLightIndices;
+    std::unordered_map<std::uint32_t, std::uint32_t> mNextRenderableSlotByEnv;
+    std::unordered_map<std::uint32_t, std::uint32_t> mNextCameraSlotByEnv;
+    std::unordered_map<std::uint32_t, std::uint32_t> mNextDirectionalLightSlotByEnv;
+    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeRenderableSlotsByEnv;
+    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeCameraSlotsByEnv;
+    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeDirectionalLightSlotsByEnv;
 };
 
 } // namespace cressim::neo::graphics
