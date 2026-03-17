@@ -1,8 +1,6 @@
 #ifndef CRESSIM_NEO_GPU_GPU_SCENE_H
 #define CRESSIM_NEO_GPU_GPU_SCENE_H
 
-#include "gpu/export.h"
-
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 
@@ -82,8 +80,6 @@ struct GpuEntitySceneView
     GpuSceneLayoutDesc layout{};
     GpuPoseBufferView poses{};
     Diligent::IBuffer* renderableMetadataBuffer           = nullptr;
-    Diligent::IBuffer* renderableModelMatricesBuffer      = nullptr;
-    Diligent::IBuffer* renderableNormalMatricesBuffer     = nullptr;
     Diligent::IBuffer* renderableVisibilityFlagsBuffer    = nullptr;
     Diligent::IBuffer* renderableShadowCascadeMasksBuffer = nullptr;
     Diligent::IBuffer* cameraInputsBuffer                 = nullptr;

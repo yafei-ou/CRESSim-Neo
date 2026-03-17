@@ -163,6 +163,11 @@ std::vector<PreparedRenderable> buildPreparedRenderables(
     for (std::size_t renderableIndex = 0; renderableIndex < renderables.size(); ++renderableIndex)
     {
         const RenderableInstance& renderable = renderables[renderableIndex];
+        if (renderable.entityId == common::kInvalidEntityId || renderable.objectSlot == 0xffffffffu ||
+            !renderable.visible)
+        {
+            continue;
+        }
         const MeshResourceDesc* mesh         = resources.tryGetMesh(renderable.mesh);
         const MaterialResourceDesc* material = resources.tryGetMaterial(renderable.material);
         if (mesh == nullptr || material == nullptr)

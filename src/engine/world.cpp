@@ -44,69 +44,7 @@ void reclaimDenseSlot(std::unordered_map<std::uint32_t, std::vector<std::uint32_
     freeSlotsByEnv[envIndex].push_back(slot);
 }
 
-template <typename T>
-void upsertByEntityId(std::vector<T>& entries,
-                      std::unordered_map<common::EntityId, std::size_t>& indices, const T& value)
-{
-    const auto indexIt = indices.find(value.entityId);
-    if (indexIt == indices.end())
-    {
-        const std::size_t newIndex = entries.size();
-        entries.push_back(value);
-        indices.emplace(value.entityId, newIndex);
-        return;
-    }
-
-    entries[indexIt->second] = value;
-}
-
-template <typename T>
-bool removeByEntityId(std::vector<T>& entries,
-                      std::unordered_map<common::EntityId, std::size_t>& indices,
-                      common::EntityId entityId)
-{
-    const auto indexIt = indices.find(entityId);
-    if (indexIt == indices.end())
-    {
-        return false;
-    }
-
-    const std::size_t removedIndex = indexIt->second;
-    const std::size_t lastIndex = entries.size() - 1u;
-    if (removedIndex != lastIndex)
-    {
-        entries[removedIndex] = std::move(entries[lastIndex]);
-        indices[entries[removedIndex].entityId] = removedIndex;
-    }
-    entries.pop_back();
-    indices.erase(indexIt);
-    return true;
-}
 } // namespace
-
-template <typename SoAType>
-bool World::removeFromSoA(common::EntityId entityId, SoAType& soa, SparseIndex<SoAType>& index)
-{
-    const auto it = index.entityToIndex.find(entityId);
-    if (it == index.entityToIndex.end())
-    {
-        return false;
-    }
-
-    const std::uint32_t removeIndex    = it->second;
-    const std::uint32_t lastIndex      = static_cast<std::uint32_t>(soa.entityIds.size() - 1u);
-    const common::EntityId movedEntity = soa.entityIds[lastIndex];
-
-    if (removeIndex != lastIndex)
-    {
-        soa.entityIds[removeIndex]       = soa.entityIds[lastIndex];
-        index.entityToIndex[movedEntity] = removeIndex;
-    }
-
-    soa.entityIds.pop_back();
-    index.entityToIndex.erase(it);
-    return true;
-}
 
 common::EntityId World::createEntity(std::uint32_t envIndex)
 {
@@ -156,6 +94,7 @@ bool World::destroyEntity(common::EntityId entityId)
 void World::setSceneLayout(const gpu::GpuSceneLayoutDesc& layout)
 {
     mSceneLayout = layout;
+    ensureHostSceneStorage();
 }
 
 const gpu::GpuSceneLayoutDesc& World::sceneLayout() const noexcept
@@ -220,12 +159,57 @@ void World::ensureEntity(common::EntityId entityId)
     }
 }
 
+void World::ensureHostSceneStorage()
+{
+    const std::size_t objectCapacity = mSceneLayout.totalObjectCapacity();
+    if (mRenderables.size() != objectCapacity)
+    {
+        mRenderables.assign(objectCapacity, graphics::RenderableInstance{});
+        mRenderObjectPositions.assign(objectCapacity, Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
+        mRenderObjectOrientations.assign(objectCapacity,
+                                         Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f});
+        mRenderObjectScales.assign(objectCapacity, Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f});
+        mRenderableMetadataHost.assign(objectCapacity, gpu::GpuRenderableMetadata{});
+        mDirtyRenderableMetadataIndices.clear();
+        mDirtyRenderableMetadataSet.clear();
+        mDirtyRenderableMetadataIndices.reserve(objectCapacity);
+        for (std::uint32_t i = 0; i < objectCapacity; ++i)
+        {
+            mDirtyRenderableMetadataIndices.push_back(i);
+            mDirtyRenderableMetadataSet.insert(i);
+        }
+    }
+
+    const std::size_t cameraCapacity = mSceneLayout.totalCameraCapacity();
+    if (mRenderCameras.size() != cameraCapacity)
+    {
+        mRenderCameras.assign(cameraCapacity, graphics::CameraData{});
+        mCameraInputsHost.assign(cameraCapacity, gpu::GpuCameraInput{});
+    }
+
+    const std::size_t lightCapacity = mSceneLayout.totalLightCapacity();
+    if (mRenderDirectionalLights.size() != lightCapacity)
+    {
+        mRenderDirectionalLights.assign(lightCapacity, graphics::DirectionalLightData{});
+        mLightInputsHost.assign(lightCapacity, gpu::GpuDirectionalLightInput{});
+    }
+}
+
 void World::markRenderDirty(common::EntityId entityId)
 {
+    (void)entityId;
     ++mRenderRevision;
-    if (mRenderDirtySet.insert(entityId).second)
+}
+
+void World::markRenderableMetadataDirty(std::uint32_t objectIndex)
+{
+    if (objectIndex >= mRenderableMetadataHost.size())
     {
-        mRenderDirtyEntities.push_back(entityId);
+        return;
+    }
+    if (mDirtyRenderableMetadataSet.insert(objectIndex).second)
+    {
+        mDirtyRenderableMetadataIndices.push_back(objectIndex);
     }
 }
 
@@ -277,24 +261,33 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
     }
 
     ensureEntity(entityId);
+    ensureHostSceneStorage();
 
-    upsertSoA(entityId, mMeshRenderers, mMeshRendererIndex,
-              [&](std::uint32_t index, bool appended)
-              {
-                  if (appended)
-                  {
-                      mMeshRenderers.meshIds.push_back(component.mesh.id);
-                      mMeshRenderers.materialIds.push_back(component.material.id);
-                      mMeshRenderers.visibleFlags.push_back(component.visible ? 1u : 0u);
-                  }
-                  else
-                  {
-                      mMeshRenderers.meshIds[index]      = component.mesh.id;
-                      mMeshRenderers.materialIds[index]  = component.material.id;
-                      mMeshRenderers.visibleFlags[index] = component.visible ? 1u : 0u;
-                  }
-              });
+    const auto indexIt = mRenderableIndices.find(entityId);
+    std::uint32_t objectIndex = 0u;
+    if (indexIt == mRenderableIndices.end())
+    {
+        const std::uint32_t envIndex = entityEnvironment(entityId);
+        const std::uint32_t objectSlot =
+            allocateDenseSlot(mFreeRenderableSlotsByEnv, mNextRenderableSlotByEnv, envIndex,
+                              mSceneLayout.maxObjectsPerEnv, "renderable");
+        objectIndex = envIndex * mSceneLayout.maxObjectsPerEnv + objectSlot;
+        mRenderableIndices[entityId] = objectIndex;
+        mRenderables[objectIndex].entityId = entityId;
+        mRenderables[objectIndex].envIndex = envIndex;
+        mRenderables[objectIndex].objectSlot = objectSlot;
+    }
+    else
+    {
+        objectIndex = static_cast<std::uint32_t>(indexIt->second);
+    }
 
+    graphics::RenderableInstance& renderable = mRenderables[objectIndex];
+    renderable.mesh = component.mesh;
+    renderable.material = component.material;
+    renderable.visible = component.visible;
+    renderable.worldTransform = tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
+    markRenderableMetadataDirty(objectIndex);
     syncRenderableEntry(entityId);
     markRenderDirty(entityId);
 }
@@ -307,35 +300,38 @@ void World::setCamera(common::EntityId entityId, const CameraComponent& componen
     }
 
     ensureEntity(entityId);
+    ensureHostSceneStorage();
 
-    upsertSoA(entityId, mCameras, mCameraIndex,
-              [&](std::uint32_t index, bool appended)
-              {
-                  if (appended)
-                  {
-                      mCameras.projection0.push_back(packCameraProjection0(component));
-                      mCameras.projection1.push_back(packCameraProjection1(component));
-                      mCameras.outputTargetIds.push_back(component.outputTarget.id);
-                      mCameras.outputWidths.push_back(component.outputWidth);
-                      mCameras.outputHeights.push_back(component.outputHeight);
-                      mCameras.viewports.push_back(
-                          Diligent::float4{component.viewport.x, component.viewport.y,
-                                           component.viewport.width, component.viewport.height});
-                      mCameras.renderOrders.push_back(component.renderOrder);
-                  }
-                  else
-                  {
-                      mCameras.projection0[index]     = packCameraProjection0(component);
-                      mCameras.projection1[index]     = packCameraProjection1(component);
-                      mCameras.outputTargetIds[index] = component.outputTarget.id;
-                      mCameras.outputWidths[index]    = component.outputWidth;
-                      mCameras.outputHeights[index]   = component.outputHeight;
-                      mCameras.viewports[index] =
-                          Diligent::float4{component.viewport.x, component.viewport.y,
-                                           component.viewport.width, component.viewport.height};
-                      mCameras.renderOrders[index] = component.renderOrder;
-                  }
-              });
+    const auto indexIt = mRenderCameraIndices.find(entityId);
+    std::uint32_t cameraIndex = 0u;
+    if (indexIt == mRenderCameraIndices.end())
+    {
+        const std::uint32_t envIndex = entityEnvironment(entityId);
+        const std::uint32_t cameraSlot =
+            allocateDenseSlot(mFreeCameraSlotsByEnv, mNextCameraSlotByEnv, envIndex,
+                              mSceneLayout.maxCamerasPerEnv, "camera");
+        cameraIndex = envIndex * mSceneLayout.maxCamerasPerEnv + cameraSlot;
+        mRenderCameraIndices[entityId] = cameraIndex;
+        mRenderCameras[cameraIndex].entityId = entityId;
+        mRenderCameras[cameraIndex].envIndex = envIndex;
+        mRenderCameras[cameraIndex].cameraSlot = cameraSlot;
+    }
+    else
+    {
+        cameraIndex = static_cast<std::uint32_t>(indexIt->second);
+    }
+
+    graphics::CameraData& cameraData = mRenderCameras[cameraIndex];
+    cameraData.worldTransform = tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
+    cameraData.verticalFovDegrees = component.verticalFovDegrees;
+    cameraData.aspectRatio = component.aspectRatio;
+    cameraData.nearClip = component.nearClip;
+    cameraData.farClip = component.farClip;
+    cameraData.outputTarget = component.outputTarget;
+    cameraData.outputWidth = component.outputWidth;
+    cameraData.outputHeight = component.outputHeight;
+    cameraData.viewport = component.viewport;
+    cameraData.renderOrder = component.renderOrder;
     syncCameraEntry(entityId);
     markRenderDirty(entityId);
 }
@@ -349,25 +345,33 @@ void World::setDirectionalLight(common::EntityId entityId,
     }
 
     ensureEntity(entityId);
+    ensureHostSceneStorage();
 
-    upsertSoA(entityId, mDirectionalLights, mDirectionalLightIndex,
-              [&](std::uint32_t index, bool appended)
-              {
-                  if (appended)
-                  {
-                      mDirectionalLights.directionsIntensities.push_back(
-                          packLightDirectionIntensity(component));
-                      mDirectionalLights.colors.push_back(packLightColor(component));
-                      mDirectionalLights.shadowParams.push_back(packLightShadowParams(component));
-                  }
-                  else
-                  {
-                      mDirectionalLights.directionsIntensities[index] =
-                          packLightDirectionIntensity(component);
-                      mDirectionalLights.colors[index]       = packLightColor(component);
-                      mDirectionalLights.shadowParams[index] = packLightShadowParams(component);
-                  }
-              });
+    const auto indexIt = mRenderDirectionalLightIndices.find(entityId);
+    std::uint32_t lightIndex = 0u;
+    if (indexIt == mRenderDirectionalLightIndices.end())
+    {
+        const std::uint32_t envIndex = entityEnvironment(entityId);
+        const std::uint32_t lightSlot = allocateDenseSlot(
+            mFreeDirectionalLightSlotsByEnv, mNextDirectionalLightSlotByEnv, envIndex,
+            mSceneLayout.maxLightsPerEnv, "directional light");
+        lightIndex = envIndex * mSceneLayout.maxLightsPerEnv + lightSlot;
+        mRenderDirectionalLightIndices[entityId] = lightIndex;
+        mRenderDirectionalLights[lightIndex].entityId = entityId;
+        mRenderDirectionalLights[lightIndex].envIndex = envIndex;
+        mRenderDirectionalLights[lightIndex].lightSlot = lightSlot;
+    }
+    else
+    {
+        lightIndex = static_cast<std::uint32_t>(indexIt->second);
+    }
+
+    graphics::DirectionalLightData& lightData = mRenderDirectionalLights[lightIndex];
+    lightData.direction = component.direction;
+    lightData.color = component.color;
+    lightData.intensity = component.intensity;
+    lightData.shadowDistance = component.shadowDistance;
+    lightData.shadowFadeDistance = component.shadowFadeDistance;
 
     syncDirectionalLightEntry(entityId);
     markRenderDirty(entityId);
@@ -568,102 +572,59 @@ bool World::removeTransform(common::EntityId entityId)
 
 bool World::removeMeshRenderer(common::EntityId entityId)
 {
-    const auto it = mMeshRendererIndex.entityToIndex.find(entityId);
-    if (it == mMeshRendererIndex.entityToIndex.end())
+    const auto it = mRenderableIndices.find(entityId);
+    if (it == mRenderableIndices.end())
     {
         return false;
     }
 
-    const std::uint32_t index = it->second;
-    const std::uint32_t last  = static_cast<std::uint32_t>(mMeshRenderers.entityIds.size() - 1u);
-    const common::EntityId movedEntity = mMeshRenderers.entityIds[last];
-
-    if (index != last)
-    {
-        mMeshRenderers.entityIds[index]               = mMeshRenderers.entityIds[last];
-        mMeshRenderers.meshIds[index]                 = mMeshRenderers.meshIds[last];
-        mMeshRenderers.materialIds[index]             = mMeshRenderers.materialIds[last];
-        mMeshRenderers.visibleFlags[index]            = mMeshRenderers.visibleFlags[last];
-        mMeshRendererIndex.entityToIndex[movedEntity] = index;
-    }
-
-    mMeshRenderers.entityIds.pop_back();
-    mMeshRenderers.meshIds.pop_back();
-    mMeshRenderers.materialIds.pop_back();
-    mMeshRenderers.visibleFlags.pop_back();
-    mMeshRendererIndex.entityToIndex.erase(it);
-    syncRenderableEntry(entityId);
+    const std::uint32_t objectIndex = static_cast<std::uint32_t>(it->second);
+    const graphics::RenderableInstance& instance = mRenderables[objectIndex];
+    reclaimDenseSlot(mFreeRenderableSlotsByEnv, instance.envIndex, instance.objectSlot);
+    mRenderables[objectIndex] = {};
+    mRenderObjectPositions[objectIndex] = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
+    mRenderObjectOrientations[objectIndex] = Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f};
+    mRenderObjectScales[objectIndex] = Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f};
+    mRenderableMetadataHost[objectIndex] = {};
+    markRenderableMetadataDirty(objectIndex);
+    mRenderableIndices.erase(it);
+    mGpuEntityPoseIndices.erase(entityId);
     markRenderDirty(entityId);
     return true;
 }
 
 bool World::removeCamera(common::EntityId entityId)
 {
-    const auto it = mCameraIndex.entityToIndex.find(entityId);
-    if (it == mCameraIndex.entityToIndex.end())
+    const auto it = mRenderCameraIndices.find(entityId);
+    if (it == mRenderCameraIndices.end())
     {
         return false;
     }
 
-    const std::uint32_t index          = it->second;
-    const std::uint32_t last           = static_cast<std::uint32_t>(mCameras.entityIds.size() - 1u);
-    const common::EntityId movedEntity = mCameras.entityIds[last];
-
-    if (index != last)
-    {
-        mCameras.entityIds[index]               = mCameras.entityIds[last];
-        mCameras.projection0[index]             = mCameras.projection0[last];
-        mCameras.projection1[index]             = mCameras.projection1[last];
-        mCameras.outputTargetIds[index]         = mCameras.outputTargetIds[last];
-        mCameras.outputWidths[index]            = mCameras.outputWidths[last];
-        mCameras.outputHeights[index]           = mCameras.outputHeights[last];
-        mCameras.viewports[index]               = mCameras.viewports[last];
-        mCameras.renderOrders[index]            = mCameras.renderOrders[last];
-        mCameraIndex.entityToIndex[movedEntity] = index;
-    }
-
-    mCameras.entityIds.pop_back();
-    mCameras.projection0.pop_back();
-    mCameras.projection1.pop_back();
-    mCameras.outputTargetIds.pop_back();
-    mCameras.outputWidths.pop_back();
-    mCameras.outputHeights.pop_back();
-    mCameras.viewports.pop_back();
-    mCameras.renderOrders.pop_back();
-    mCameraIndex.entityToIndex.erase(it);
-    syncCameraEntry(entityId);
+    const std::uint32_t cameraIndex = static_cast<std::uint32_t>(it->second);
+    const graphics::CameraData& camera = mRenderCameras[cameraIndex];
+    reclaimDenseSlot(mFreeCameraSlotsByEnv, camera.envIndex, camera.cameraSlot);
+    mRenderCameras[cameraIndex] = {};
+    mCameraInputsHost[cameraIndex] = {};
+    mRenderCameraIndices.erase(it);
     markRenderDirty(entityId);
     return true;
 }
 
 bool World::removeDirectionalLight(common::EntityId entityId)
 {
-    const auto it = mDirectionalLightIndex.entityToIndex.find(entityId);
-    if (it == mDirectionalLightIndex.entityToIndex.end())
+    const auto it = mRenderDirectionalLightIndices.find(entityId);
+    if (it == mRenderDirectionalLightIndices.end())
     {
         return false;
     }
 
-    const std::uint32_t index = it->second;
-    const std::uint32_t last = static_cast<std::uint32_t>(mDirectionalLights.entityIds.size() - 1u);
-    const common::EntityId movedEntity = mDirectionalLights.entityIds[last];
-
-    if (index != last)
-    {
-        mDirectionalLights.entityIds[index] = mDirectionalLights.entityIds[last];
-        mDirectionalLights.directionsIntensities[index] =
-            mDirectionalLights.directionsIntensities[last];
-        mDirectionalLights.colors[index]                  = mDirectionalLights.colors[last];
-        mDirectionalLights.shadowParams[index]            = mDirectionalLights.shadowParams[last];
-        mDirectionalLightIndex.entityToIndex[movedEntity] = index;
-    }
-
-    mDirectionalLights.entityIds.pop_back();
-    mDirectionalLights.directionsIntensities.pop_back();
-    mDirectionalLights.colors.pop_back();
-    mDirectionalLights.shadowParams.pop_back();
-    mDirectionalLightIndex.entityToIndex.erase(it);
-    syncDirectionalLightEntry(entityId);
+    const std::uint32_t lightIndex = static_cast<std::uint32_t>(it->second);
+    const graphics::DirectionalLightData& light = mRenderDirectionalLights[lightIndex];
+    reclaimDenseSlot(mFreeDirectionalLightSlotsByEnv, light.envIndex, light.lightSlot);
+    mRenderDirectionalLights[lightIndex] = {};
+    mLightInputsHost[lightIndex] = {};
+    mRenderDirectionalLightIndices.erase(it);
     markRenderDirty(entityId);
     return true;
 }
@@ -683,47 +644,60 @@ std::optional<TransformComponent> World::tryGetTransform(common::EntityId entity
 
 std::optional<MeshRendererComponent> World::tryGetMeshRenderer(common::EntityId entityId) const
 {
-    const auto it = mMeshRendererIndex.entityToIndex.find(entityId);
-    if (it == mMeshRendererIndex.entityToIndex.end())
+    const auto it = mRenderableIndices.find(entityId);
+    if (it == mRenderableIndices.end())
     {
         return std::nullopt;
     }
 
-    const std::uint32_t index = it->second;
+    const std::uint32_t index = static_cast<std::uint32_t>(it->second);
     MeshRendererComponent component{};
-    component.mesh.id     = mMeshRenderers.meshIds[index];
-    component.material.id = mMeshRenderers.materialIds[index];
-    component.visible     = mMeshRenderers.visibleFlags[index] != 0u;
+    component.mesh     = mRenderables[index].mesh;
+    component.material = mRenderables[index].material;
+    component.visible  = mRenderables[index].visible;
     return component;
 }
 
 std::optional<CameraComponent> World::tryGetCamera(common::EntityId entityId) const
 {
-    const auto it = mCameraIndex.entityToIndex.find(entityId);
-    if (it == mCameraIndex.entityToIndex.end())
+    const auto it = mRenderCameraIndices.find(entityId);
+    if (it == mRenderCameraIndices.end())
     {
         return std::nullopt;
     }
 
-    const std::uint32_t index = it->second;
-    return unpackCamera(mCameras.projection0[index], mCameras.outputTargetIds[index],
-                        mCameras.outputWidths[index], mCameras.outputHeights[index],
-                        mCameras.viewports[index], mCameras.renderOrders[index]);
+    const graphics::CameraData& camera = mRenderCameras[static_cast<std::uint32_t>(it->second)];
+    CameraComponent component{};
+    component.verticalFovDegrees = camera.verticalFovDegrees;
+    component.aspectRatio = camera.aspectRatio;
+    component.nearClip = camera.nearClip;
+    component.farClip = camera.farClip;
+    component.outputTarget = camera.outputTarget;
+    component.outputWidth = camera.outputWidth;
+    component.outputHeight = camera.outputHeight;
+    component.viewport = camera.viewport;
+    component.renderOrder = camera.renderOrder;
+    return component;
 }
 
 std::optional<DirectionalLightComponent> World::tryGetDirectionalLight(
     common::EntityId entityId) const
 {
-    const auto it = mDirectionalLightIndex.entityToIndex.find(entityId);
-    if (it == mDirectionalLightIndex.entityToIndex.end())
+    const auto it = mRenderDirectionalLightIndices.find(entityId);
+    if (it == mRenderDirectionalLightIndices.end())
     {
         return std::nullopt;
     }
 
-    const std::uint32_t index = it->second;
-    return unpackDirectionalLight(mDirectionalLights.directionsIntensities[index],
-                                  mDirectionalLights.colors[index],
-                                  mDirectionalLights.shadowParams[index]);
+    const graphics::DirectionalLightData& light =
+        mRenderDirectionalLights[static_cast<std::uint32_t>(it->second)];
+    DirectionalLightComponent component{};
+    component.direction = light.direction;
+    component.color = light.color;
+    component.intensity = light.intensity;
+    component.shadowDistance = light.shadowDistance;
+    component.shadowFadeDistance = light.shadowFadeDistance;
+    return component;
 }
 
 std::optional<RigidBodyComponent> World::tryGetRigidBody(common::EntityId entityId) const
@@ -791,11 +765,7 @@ const physics::PhysicsWorld& World::physicsWorld() const noexcept
 
 void World::refreshFromPhysics()
 {
-    // TODO: this is still not ideal
-    // We could add a GPU pass to write directly to a GPU Entity transform buffer.
-    // We can avoid GPU rb position readback completely and CPU Entity transform
-    // buffer is only on-demand after rendering directly reads the GPU buffer
-    // without entity uploading at all, and after GPU frustum culling is done.
+    // TODO: this is not needed anymore, but we keep it for debug
 
     const physics::PhysicsSoADirtyRange& dirty = mPhysicsWorld.rigidBodyDirtyRange();
     if (!dirty.valid)
@@ -846,6 +816,116 @@ const std::vector<graphics::DirectionalLightData>& World::directionalLights() co
     return mRenderDirectionalLights;
 }
 
+const std::vector<Diligent::float4>& World::renderObjectPositions() const noexcept
+{
+    return mRenderObjectPositions;
+}
+
+const std::vector<Diligent::float4>& World::renderObjectOrientations() const noexcept
+{
+    return mRenderObjectOrientations;
+}
+
+const std::vector<Diligent::float4>& World::renderObjectScales() const noexcept
+{
+    return mRenderObjectScales;
+}
+
+const std::vector<gpu::GpuRenderableMetadata>& World::renderableMetadata() const noexcept
+{
+    return mRenderableMetadataHost;
+}
+
+const std::vector<gpu::GpuCameraInput>& World::cameraInputs() const noexcept
+{
+    return mCameraInputsHost;
+}
+
+const std::vector<gpu::GpuDirectionalLightInput>& World::lightInputs() const noexcept
+{
+    return mLightInputsHost;
+}
+
+const std::unordered_map<common::EntityId, std::uint32_t>& World::renderObjectPoseIndices()
+{
+    if (mCachedRenderObjectPoseIndicesRevision == mRenderRevision)
+    {
+        return mRenderObjectPoseIndicesCache;
+    }
+
+    mRenderObjectPoseIndicesCache.clear();
+    mRenderObjectPoseIndicesCache.reserve(mRenderables.size());
+    for (const graphics::RenderableInstance& renderable : mRenderables)
+    {
+        if (renderable.entityId == common::kInvalidEntityId || renderable.objectSlot == kInvalidSlot ||
+            !renderable.visible)
+        {
+            continue;
+        }
+
+        const std::uint32_t objectIndex =
+            renderable.envIndex * mSceneLayout.maxObjectsPerEnv + renderable.objectSlot;
+        if (objectIndex >= mSceneLayout.totalObjectCapacity())
+        {
+            continue;
+        }
+        mRenderObjectPoseIndicesCache[renderable.entityId] = objectIndex;
+    }
+
+    mCachedRenderObjectPoseIndicesRevision = mRenderRevision;
+    return mRenderObjectPoseIndicesCache;
+}
+
+const std::vector<gpu::GpuEntityPoseMappingEntry>& World::physicsRenderableMappings()
+{
+    const std::uint32_t rigidBodyCount =
+        static_cast<std::uint32_t>(mPhysicsWorld.rigidBodySoA().entityIds.size());
+    if (mCachedPhysicsRenderableMappingsRevision == mRenderRevision &&
+        mCachedPoseMappingRigidBodyCount == rigidBodyCount)
+    {
+        return mPhysicsRenderableMappingsCache;
+    }
+
+    mPhysicsRenderableMappingsCache.clear();
+
+    const auto& rigidBodies = mPhysicsWorld.rigidBodySoA();
+    if (!rigidBodies.entityIds.empty() && !mRenderables.empty())
+    {
+        std::unordered_map<common::EntityId, std::uint32_t> rigidBodyIndexByEntity;
+        rigidBodyIndexByEntity.reserve(rigidBodies.entityIds.size());
+        for (std::uint32_t i = 0; i < static_cast<std::uint32_t>(rigidBodies.entityIds.size()); ++i)
+        {
+            rigidBodyIndexByEntity.emplace(rigidBodies.entityIds[i], i);
+        }
+
+        mPhysicsRenderableMappingsCache.reserve(mRenderables.size());
+        for (const graphics::RenderableInstance& renderable : mRenderables)
+        {
+            if (renderable.entityId == common::kInvalidEntityId ||
+                renderable.objectSlot == kInvalidSlot || !renderable.visible)
+            {
+                continue;
+            }
+
+            const auto rigidBodyIt = rigidBodyIndexByEntity.find(renderable.entityId);
+            if (rigidBodyIt == rigidBodyIndexByEntity.end())
+            {
+                continue;
+            }
+
+            gpu::GpuEntityPoseMappingEntry entry{};
+            entry.sourcePoseIndex = rigidBodyIt->second;
+            entry.objectIndex =
+                renderable.envIndex * mSceneLayout.maxObjectsPerEnv + renderable.objectSlot;
+            mPhysicsRenderableMappingsCache.push_back(entry);
+        }
+    }
+
+    mCachedPhysicsRenderableMappingsRevision = mRenderRevision;
+    mCachedPoseMappingRigidBodyCount = rigidBodyCount;
+    return mPhysicsRenderableMappingsCache;
+}
+
 const gpu::GpuEntitySceneView& World::gpuEntityScene() const noexcept
 {
     return mGpuEntityScene;
@@ -867,141 +947,173 @@ graphics::HostSceneView World::hostSceneView() const noexcept
     };
 }
 
+void World::refreshRenderableMetadata(const graphics::RenderResourceManager& resources)
+{
+
+    // TODO: some metadata depends on resources too, not just world state:
+    // material blend mode
+    // material shadow-caster flags
+    // mesh local bounds
+    // if a mesh or material changes later inside RenderResourceManager, World does 
+    // not currently know which object slots should become dirty.
+
+    for (const std::uint32_t objectIndex : mDirtyRenderableMetadataIndices)
+    {
+        if (objectIndex >= mRenderableMetadataHost.size() || objectIndex >= mRenderables.size())
+        {
+            continue;
+        }
+
+        const graphics::RenderableInstance& renderable = mRenderables[objectIndex];
+        gpu::GpuRenderableMetadata entry{};
+        if (renderable.entityId != common::kInvalidEntityId && renderable.objectSlot != kInvalidSlot)
+        {
+            entry.objectSlot = renderable.objectSlot;
+            entry.envIndex = renderable.envIndex;
+            if (renderable.visible)
+            {
+                entry.flags |= gpu::GpuRenderableFlag_Active;
+            }
+
+            const graphics::MaterialResourceDesc* material =
+                resources.tryGetMaterial(renderable.material);
+            if (material != nullptr && renderable.visible)
+            {
+                if (material->blendMode == graphics::BlendMode::Transparent)
+                {
+                    entry.flags |= gpu::GpuRenderableFlag_Transparent;
+                }
+                else
+                {
+                    entry.flags |= gpu::GpuRenderableFlag_Opaque;
+                }
+                if (material->castsShadows &&
+                    material->blendMode != graphics::BlendMode::Transparent)
+                {
+                    entry.flags |= gpu::GpuRenderableFlag_ShadowCaster;
+                }
+                if (material->blendMode != graphics::BlendMode::Transparent)
+                {
+                    entry.flags |= gpu::GpuRenderableFlag_UsesGpuPose;
+                }
+            }
+
+            Diligent::float3 localBoundsMin{};
+            Diligent::float3 localBoundsMax{};
+            if (resources.tryGetMeshLocalBounds(renderable.mesh, localBoundsMin, localBoundsMax))
+            {
+                entry.localBoundsMin = Diligent::float4{localBoundsMin.x, localBoundsMin.y,
+                                                        localBoundsMin.z, 1.0f};
+                entry.localBoundsMax = Diligent::float4{localBoundsMax.x, localBoundsMax.y,
+                                                        localBoundsMax.z, 1.0f};
+            }
+        }
+
+        mRenderableMetadataHost[objectIndex] = entry;
+    }
+
+    mDirtyRenderableMetadataIndices.clear();
+    mDirtyRenderableMetadataSet.clear();
+}
+
 std::uint64_t World::renderRevision() const noexcept
 {
     return mRenderRevision;
 }
 
-const std::vector<common::EntityId>& World::renderDirtyEntities() const noexcept
-{
-    return mRenderDirtyEntities;
-}
-
-void World::clearRenderDirtyEntities() noexcept
-{
-    mRenderDirtyEntities.clear();
-    mRenderDirtySet.clear();
-}
-
 void World::syncRenderableEntry(common::EntityId entityId)
 {
-    const std::optional<MeshRendererComponent> meshRenderer = tryGetMeshRenderer(entityId);
-    if (!meshRenderer || !meshRenderer->visible)
-    {
-        const auto indexIt = mRenderableIndices.find(entityId);
-        if (indexIt != mRenderableIndices.end())
-        {
-            const graphics::RenderableInstance& instance = mRenderables[indexIt->second];
-            reclaimDenseSlot(mFreeRenderableSlotsByEnv, instance.envIndex, instance.objectSlot);
-            (void)removeByEntityId(mRenderables, mRenderableIndices, entityId);
-            mGpuEntityPoseIndices.erase(entityId);
-        }
-        return;
-    }
+    // TODO: we could use a delayed sync for everything that is dirty
+    // TransformSoA stays authoritative for generic transform state
+    // render host arrays are derived caches for rendering/upload
+    // updates into render host arrays on setX() marks dirty
+    // sync happens before ticking
 
-    graphics::RenderableInstance renderable{};
-    renderable.entityId = entityId;
-    renderable.envIndex = entityEnvironment(entityId);
-    renderable.worldTransform = tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
-    renderable.mesh = meshRenderer->mesh;
-    renderable.material = meshRenderer->material;
-
+    ensureHostSceneStorage();
     const auto indexIt = mRenderableIndices.find(entityId);
     if (indexIt == mRenderableIndices.end())
     {
-        renderable.objectSlot = allocateDenseSlot(mFreeRenderableSlotsByEnv, mNextRenderableSlotByEnv,
-                                                  renderable.envIndex, mSceneLayout.maxObjectsPerEnv,
-                                                  "renderable");
+        return;
     }
-    else
-    {
-        renderable.objectSlot = mRenderables[indexIt->second].objectSlot;
-    }
-    upsertByEntityId(mRenderables, mRenderableIndices, renderable);
+
+    const std::uint32_t objectIndex = static_cast<std::uint32_t>(indexIt->second);
+    graphics::RenderableInstance& renderable = mRenderables[objectIndex];
+    renderable.worldTransform = tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
+    mRenderObjectPositions[objectIndex] = Diligent::float4{
+        renderable.worldTransform.position.x, renderable.worldTransform.position.y,
+        renderable.worldTransform.position.z, 1.0f};
+    mRenderObjectOrientations[objectIndex] = Diligent::float4{
+        renderable.worldTransform.rotation.q.x, renderable.worldTransform.rotation.q.y,
+        renderable.worldTransform.rotation.q.z, renderable.worldTransform.rotation.q.w};
+    mRenderObjectScales[objectIndex] = Diligent::float4{
+        renderable.worldTransform.scale.x, renderable.worldTransform.scale.y,
+        renderable.worldTransform.scale.z, 0.0f};
 }
 
 void World::syncCameraEntry(common::EntityId entityId)
 {
-    const std::optional<CameraComponent> camera = tryGetCamera(entityId);
-    if (!camera)
-    {
-        const auto indexIt = mRenderCameraIndices.find(entityId);
-        if (indexIt != mRenderCameraIndices.end())
-        {
-            const graphics::CameraData& renderCamera = mRenderCameras[indexIt->second];
-            reclaimDenseSlot(mFreeCameraSlotsByEnv, renderCamera.envIndex, renderCamera.cameraSlot);
-            (void)removeByEntityId(mRenderCameras, mRenderCameraIndices, entityId);
-        }
-        return;
-    }
-
-    graphics::CameraData cameraData{};
-    cameraData.entityId = entityId;
-    cameraData.envIndex = entityEnvironment(entityId);
-    cameraData.worldTransform = tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
-    cameraData.verticalFovDegrees = camera->verticalFovDegrees;
-    cameraData.aspectRatio = camera->aspectRatio;
-    cameraData.nearClip = camera->nearClip;
-    cameraData.farClip = camera->farClip;
-    cameraData.outputTarget = camera->outputTarget;
-    cameraData.outputWidth = camera->outputWidth;
-    cameraData.outputHeight = camera->outputHeight;
-    cameraData.viewport = camera->viewport;
-    cameraData.renderOrder = camera->renderOrder;
-
+    ensureHostSceneStorage();
     const auto indexIt = mRenderCameraIndices.find(entityId);
     if (indexIt == mRenderCameraIndices.end())
     {
-        cameraData.cameraSlot = allocateDenseSlot(mFreeCameraSlotsByEnv, mNextCameraSlotByEnv,
-                                                  cameraData.envIndex, mSceneLayout.maxCamerasPerEnv,
-                                                  "camera");
+        return;
     }
-    else
+
+    const std::uint32_t cameraIndex = static_cast<std::uint32_t>(indexIt->second);
+    graphics::CameraData& cameraData = mRenderCameras[cameraIndex];
+    cameraData.worldTransform = tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
+
+    float aspect = cameraData.aspectRatio;
+    if (aspect <= 0.0f && cameraData.outputWidth > 0u && cameraData.outputHeight > 0u)
     {
-        cameraData.cameraSlot = mRenderCameras[indexIt->second].cameraSlot;
+        aspect = static_cast<float>(cameraData.outputWidth) /
+                 static_cast<float>(cameraData.outputHeight);
     }
-    upsertByEntityId(mRenderCameras, mRenderCameraIndices, cameraData);
+    if (aspect <= 0.0f)
+    {
+        aspect = 1.0f;
+    }
+
+    gpu::GpuCameraInput input{};
+    input.position = Diligent::float4{cameraData.worldTransform.position.x,
+                                      cameraData.worldTransform.position.y,
+                                      cameraData.worldTransform.position.z, 1.0f};
+    input.orientation = Diligent::float4{cameraData.worldTransform.rotation.q.x,
+                                         cameraData.worldTransform.rotation.q.y,
+                                         cameraData.worldTransform.rotation.q.z,
+                                         cameraData.worldTransform.rotation.q.w};
+    input.projectionParams =
+        Diligent::float4{cameraData.verticalFovDegrees, aspect, cameraData.nearClip,
+                         cameraData.farClip};
+    input.envIndex = cameraData.envIndex;
+    input.cameraSlot = cameraData.cameraSlot;
+    input.active = 1u;
+    mCameraInputsHost[cameraIndex] = input;
 }
 
 void World::syncDirectionalLightEntry(common::EntityId entityId)
 {
-    const std::optional<DirectionalLightComponent> light = tryGetDirectionalLight(entityId);
-    if (!light)
-    {
-        const auto indexIt = mRenderDirectionalLightIndices.find(entityId);
-        if (indexIt != mRenderDirectionalLightIndices.end())
-        {
-            const graphics::DirectionalLightData& renderLight =
-                mRenderDirectionalLights[indexIt->second];
-            reclaimDenseSlot(mFreeDirectionalLightSlotsByEnv, renderLight.envIndex,
-                             renderLight.lightSlot);
-            (void)removeByEntityId(mRenderDirectionalLights, mRenderDirectionalLightIndices,
-                                   entityId);
-        }
-        return;
-    }
-
-    graphics::DirectionalLightData lightData{};
-    lightData.entityId = entityId;
-    lightData.envIndex = entityEnvironment(entityId);
-    lightData.direction = light->direction;
-    lightData.color = light->color;
-    lightData.intensity = light->intensity;
-    lightData.shadowDistance = light->shadowDistance;
-    lightData.shadowFadeDistance = light->shadowFadeDistance;
-
+    ensureHostSceneStorage();
     const auto indexIt = mRenderDirectionalLightIndices.find(entityId);
     if (indexIt == mRenderDirectionalLightIndices.end())
     {
-        lightData.lightSlot = allocateDenseSlot(mFreeDirectionalLightSlotsByEnv,
-                                                mNextDirectionalLightSlotByEnv, lightData.envIndex,
-                                                mSceneLayout.maxLightsPerEnv, "directional light");
+        return;
     }
-    else
-    {
-        lightData.lightSlot = mRenderDirectionalLights[indexIt->second].lightSlot;
-    }
-    upsertByEntityId(mRenderDirectionalLights, mRenderDirectionalLightIndices, lightData);
+
+    const std::uint32_t lightIndex = static_cast<std::uint32_t>(indexIt->second);
+    const graphics::DirectionalLightData& lightData = mRenderDirectionalLights[lightIndex];
+
+    gpu::GpuDirectionalLightInput input{};
+    input.directionIntensity =
+        Diligent::float4{lightData.direction.x, lightData.direction.y, lightData.direction.z,
+                         lightData.intensity};
+    input.color = Diligent::float4{lightData.color.x, lightData.color.y, lightData.color.z, 0.0f};
+    input.shadowParams =
+        Diligent::float4{lightData.shadowDistance, lightData.shadowFadeDistance, 0.0f, 0.0f};
+    input.envIndex = lightData.envIndex;
+    input.lightSlot = lightData.lightSlot;
+    input.active = 1u;
+    mLightInputsHost[lightIndex] = input;
 }
 
 void World::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
@@ -1012,13 +1124,30 @@ void World::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t
         return;
     }
 
-    graphics::RenderableInstance renderable = mRenderables[indexIt->second];
+    const std::uint32_t oldObjectIndex = static_cast<std::uint32_t>(indexIt->second);
+    graphics::RenderableInstance renderable = mRenderables[oldObjectIndex];
     reclaimDenseSlot(mFreeRenderableSlotsByEnv, renderable.envIndex, renderable.objectSlot);
+    const Diligent::float4 position = mRenderObjectPositions[oldObjectIndex];
+    const Diligent::float4 orientation = mRenderObjectOrientations[oldObjectIndex];
+    const Diligent::float4 scale = mRenderObjectScales[oldObjectIndex];
+    mRenderables[oldObjectIndex] = {};
+    mRenderObjectPositions[oldObjectIndex] = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
+    mRenderObjectOrientations[oldObjectIndex] = Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f};
+    mRenderObjectScales[oldObjectIndex] = Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f};
     renderable.envIndex = envIndex;
     renderable.objectSlot = allocateDenseSlot(mFreeRenderableSlotsByEnv, mNextRenderableSlotByEnv,
                                               envIndex, mSceneLayout.maxObjectsPerEnv,
                                               "renderable");
-    mRenderables[indexIt->second] = renderable;
+    const std::uint32_t newObjectIndex =
+        envIndex * mSceneLayout.maxObjectsPerEnv + renderable.objectSlot;
+    mRenderables[newObjectIndex] = renderable;
+    mRenderObjectPositions[newObjectIndex] = position;
+    mRenderObjectOrientations[newObjectIndex] = orientation;
+    mRenderObjectScales[newObjectIndex] = scale;
+    mRenderableMetadataHost[oldObjectIndex] = {};
+    markRenderableMetadataDirty(oldObjectIndex);
+    markRenderableMetadataDirty(newObjectIndex);
+    indexIt->second = newObjectIndex;
 }
 
 void World::moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
@@ -1029,12 +1158,22 @@ void World::moveCameraToEnvironment(common::EntityId entityId, std::uint32_t env
         return;
     }
 
-    graphics::CameraData camera = mRenderCameras[indexIt->second];
+    const std::uint32_t oldCameraIndex = static_cast<std::uint32_t>(indexIt->second);
+    graphics::CameraData camera = mRenderCameras[oldCameraIndex];
     reclaimDenseSlot(mFreeCameraSlotsByEnv, camera.envIndex, camera.cameraSlot);
+    const gpu::GpuCameraInput input = mCameraInputsHost[oldCameraIndex];
+    mRenderCameras[oldCameraIndex] = {};
+    mCameraInputsHost[oldCameraIndex] = {};
     camera.envIndex = envIndex;
     camera.cameraSlot = allocateDenseSlot(mFreeCameraSlotsByEnv, mNextCameraSlotByEnv, envIndex,
                                           mSceneLayout.maxCamerasPerEnv, "camera");
-    mRenderCameras[indexIt->second] = camera;
+    const std::uint32_t newCameraIndex =
+        envIndex * mSceneLayout.maxCamerasPerEnv + camera.cameraSlot;
+    mRenderCameras[newCameraIndex] = camera;
+    mCameraInputsHost[newCameraIndex] = input;
+    mCameraInputsHost[newCameraIndex].envIndex = envIndex;
+    mCameraInputsHost[newCameraIndex].cameraSlot = camera.cameraSlot;
+    indexIt->second = newCameraIndex;
 }
 
 void World::moveDirectionalLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
@@ -1045,13 +1184,23 @@ void World::moveDirectionalLightToEnvironment(common::EntityId entityId, std::ui
         return;
     }
 
-    graphics::DirectionalLightData light = mRenderDirectionalLights[indexIt->second];
+    const std::uint32_t oldLightIndex = static_cast<std::uint32_t>(indexIt->second);
+    graphics::DirectionalLightData light = mRenderDirectionalLights[oldLightIndex];
     reclaimDenseSlot(mFreeDirectionalLightSlotsByEnv, light.envIndex, light.lightSlot);
+    const gpu::GpuDirectionalLightInput input = mLightInputsHost[oldLightIndex];
+    mRenderDirectionalLights[oldLightIndex] = {};
+    mLightInputsHost[oldLightIndex] = {};
     light.envIndex = envIndex;
     light.lightSlot = allocateDenseSlot(mFreeDirectionalLightSlotsByEnv,
                                         mNextDirectionalLightSlotByEnv, envIndex,
                                         mSceneLayout.maxLightsPerEnv, "directional light");
-    mRenderDirectionalLights[indexIt->second] = light;
+    const std::uint32_t newLightIndex =
+        envIndex * mSceneLayout.maxLightsPerEnv + light.lightSlot;
+    mRenderDirectionalLights[newLightIndex] = light;
+    mLightInputsHost[newLightIndex] = input;
+    mLightInputsHost[newLightIndex].envIndex = envIndex;
+    mLightInputsHost[newLightIndex].lightSlot = light.lightSlot;
+    indexIt->second = newLightIndex;
 }
 
 } // namespace cressim::neo::engine

@@ -278,19 +278,22 @@ ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightDat
     // TODO: add other types of lights (spot, point)
 
     ForwardDirectionalLightData out{};
-    if (lights.empty())
+    for (const DirectionalLightData& light : lights)
     {
-        out.direction = Diligent::float3{0.0f, 0.0f, 0.0f};
-        out.intensity = 0.0f;
+        if (light.entityId == common::kInvalidEntityId || light.lightSlot == 0xffffffffu)
+        {
+            continue;
+        }
+        out.direction = light.direction;
+        out.color = light.color;
+        out.intensity = light.intensity;
+        out.shadowDistance = light.shadowDistance;
+        out.shadowFadeDistance = light.shadowFadeDistance;
         return out;
     }
 
-    const DirectionalLightData& light = lights.front();
-    out.direction                     = light.direction;
-    out.color                         = light.color;
-    out.intensity                     = light.intensity;
-    out.shadowDistance                = light.shadowDistance;
-    out.shadowFadeDistance            = light.shadowFadeDistance;
+    out.direction = Diligent::float3{0.0f, 0.0f, 0.0f};
+    out.intensity = 0.0f;
     return out;
 }
 
@@ -335,8 +338,19 @@ CameraData defaultCamera()
 
 std::vector<CameraData> sortedCameras(const HostSceneView& sceneView)
 {
-    std::vector<CameraData> cameras =
-        sceneView.cameras != nullptr ? *sceneView.cameras : std::vector<CameraData>{};
+    std::vector<CameraData> cameras;
+    if (sceneView.cameras != nullptr)
+    {
+        cameras.reserve(sceneView.cameras->size());
+        for (const CameraData& camera : *sceneView.cameras)
+        {
+            if (camera.entityId == common::kInvalidEntityId || camera.cameraSlot == 0xffffffffu)
+            {
+                continue;
+            }
+            cameras.push_back(camera);
+        }
+    }
     std::sort(cameras.begin(), cameras.end(),
               [](const CameraData& lhs, const CameraData& rhs)
               {

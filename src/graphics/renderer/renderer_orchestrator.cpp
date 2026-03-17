@@ -84,6 +84,33 @@ std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
     return (threadCount + kScenePrepareThreadGroupSize - 1u) / kScenePrepareThreadGroupSize;
 }
 
+std::uint32_t countActiveRenderables(const std::vector<RenderableInstance>& renderables)
+{
+    std::uint32_t count = 0u;
+    for (const RenderableInstance& renderable : renderables)
+    {
+        if (renderable.entityId != common::kInvalidEntityId && renderable.objectSlot != 0xffffffffu &&
+            renderable.visible)
+        {
+            ++count;
+        }
+    }
+    return count;
+}
+
+std::uint32_t countActiveLights(const std::vector<DirectionalLightData>& lights)
+{
+    std::uint32_t count = 0u;
+    for (const DirectionalLightData& light : lights)
+    {
+        if (light.entityId != common::kInvalidEntityId && light.lightSlot != 0xffffffffu)
+        {
+            ++count;
+        }
+    }
+    return count;
+}
+
 } // namespace
 
 struct Renderer::GpuScenePrepareState
@@ -325,9 +352,9 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
         detail::buildPreparedRenderables(renderables, mResourceManager, poseIndices);
     const ForwardDirectionalLightData lightData = detail::buildMainLight(directionalLights);
 
-    stats.renderableCount      = static_cast<std::uint32_t>(renderables.size());
+    stats.renderableCount      = countActiveRenderables(renderables);
     stats.validRenderableCount = static_cast<std::uint32_t>(preparedRenderables.size());
-    stats.lightCount           = static_cast<std::uint32_t>(directionalLights.size());
+    stats.lightCount           = countActiveLights(directionalLights);
 
     std::vector<CameraData> cameras = detail::sortedCameras(world);
     if (cameras.empty())

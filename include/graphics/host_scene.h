@@ -3,9 +3,8 @@
 
 #include "common/id.h"
 #include "common/math_types.h"
-#include "gpu/gpu_device.h"
+#include "gpu/gpu_types.h"
 #include "gpu/gpu_scene.h"
-#include "graphics/export.h"
 #include "graphics/render_resource_manager.h"
 
 #include <unordered_map>
@@ -19,6 +18,7 @@ struct RenderableInstance
     common::EntityId entityId = common::kInvalidEntityId;
     std::uint32_t envIndex    = 0u;
     std::uint32_t objectSlot  = 0xffffffffu;
+    bool visible              = true;
     common::Transform worldTransform{};
     MeshHandle mesh{};
     MaterialHandle material{};

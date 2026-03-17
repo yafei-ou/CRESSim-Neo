@@ -2,7 +2,7 @@
 #define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_RENDER_PASS_TYPES_H
 
 #include "common/id.h"
-#include "gpu/gpu_device.h"
+#include "gpu/gpu_types.h"
 #include "graphics/renderer/passes/forward_draw_types.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/AdvancedMath.hpp"

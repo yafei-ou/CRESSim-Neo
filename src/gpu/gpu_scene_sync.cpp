@@ -5,7 +5,6 @@
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/GraphicsTypes.h"
-#include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
 
 #include <array>
 #include <cstring>
@@ -21,9 +20,9 @@ constexpr std::uint32_t kComputeThreadGroupSize = 64u;
 struct GpuEntityPoseSyncConstants
 {
     std::uint32_t mappingCount = 0;
-    std::uint32_t _padding0    = 0;
-    std::uint32_t _padding1    = 0;
-    std::uint32_t _padding2    = 0;
+    std::uint32_t padding0    = 0;
+    std::uint32_t padding1    = 0;
+    std::uint32_t padding2    = 0;
 };
 
 std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
@@ -163,8 +162,6 @@ void GpuSceneSync::shutdown()
     mEntityOrientationsBuffer           = nullptr;
     mEntityScalesBuffer                 = nullptr;
     mRenderableMetadataBuffer           = nullptr;
-    mRenderableModelMatricesBuffer      = nullptr;
-    mRenderableNormalMatricesBuffer     = nullptr;
     mRenderableVisibilityFlagsBuffer    = nullptr;
     mRenderableShadowCascadeMasksBuffer = nullptr;
     mCameraInputsBuffer                 = nullptr;
@@ -231,7 +228,6 @@ bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadat
     mRenderableCount                     = static_cast<std::uint32_t>(renderables.size());
     const std::uint32_t requiredCapacity = std::max<std::uint32_t>(mRenderableCount, 1u);
     if (mRenderableCapacity < requiredCapacity || mRenderableMetadataBuffer == nullptr ||
-        mRenderableModelMatricesBuffer == nullptr || mRenderableNormalMatricesBuffer == nullptr ||
         mRenderableVisibilityFlagsBuffer == nullptr ||
         mRenderableShadowCascadeMasksBuffer == nullptr)
     {
@@ -243,18 +239,6 @@ bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadat
                 sizeof(GpuRenderableMetadata), newCapacity, Diligent::BIND_SHADER_RESOURCE,
                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                 mRenderableMetadataBuffer) ||
-            !ensureStructuredBuffer(
-                computeContext.renderDevice, "CRESSimNeo.Gpu.RenderableModelMatrices",
-                sizeof(Diligent::float4x4), newCapacity,
-                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                mRenderableModelMatricesBuffer) ||
-            !ensureStructuredBuffer(
-                computeContext.renderDevice, "CRESSimNeo.Gpu.RenderableNormalMatrices",
-                sizeof(Diligent::float4x4), newCapacity,
-                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                mRenderableNormalMatricesBuffer) ||
             !ensureStructuredBuffer(
                 computeContext.renderDevice, "CRESSimNeo.Gpu.RenderableVisibilityFlags",
                 sizeof(std::uint32_t), newCapacity,
@@ -510,8 +494,6 @@ GpuEntitySceneView GpuSceneSync::sceneView() const noexcept
     view.poses.scalesBuffer                 = mEntityScalesBuffer;
     view.poses.count                        = mEntityCount;
     view.renderableMetadataBuffer           = mRenderableMetadataBuffer;
-    view.renderableModelMatricesBuffer      = mRenderableModelMatricesBuffer;
-    view.renderableNormalMatricesBuffer     = mRenderableNormalMatricesBuffer;
     view.renderableVisibilityFlagsBuffer    = mRenderableVisibilityFlagsBuffer;
     view.renderableShadowCascadeMasksBuffer = mRenderableShadowCascadeMasksBuffer;
     view.cameraInputsBuffer                 = mCameraInputsBuffer;

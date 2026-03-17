@@ -60,8 +60,6 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mEntityOrientationsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mEntityScalesBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableMetadataBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableModelMatricesBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableNormalMatricesBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableVisibilityFlagsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableShadowCascadeMasksBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mCameraInputsBuffer;

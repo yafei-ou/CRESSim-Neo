@@ -10,9 +10,7 @@
 #include "graphics/renderer.h"
 #include "physics/physics_solver.h"
 
-#include <cstdint>
 #include <memory>
-#include <vector>
 
 namespace cressim::neo::engine
 {
@@ -52,9 +50,6 @@ private:
     std::unique_ptr<physics::PhysicsSolver> mPhysicsSolver;
     std::unique_ptr<graphics::Renderer> mRenderer;
     graphics::RenderStats mLastRenderStats{};
-    std::uint64_t mCachedPoseMappingWorldRevision = ~0ull;
-    std::uint32_t mCachedPoseMappingRigidBodyCount = 0u;
-    std::vector<gpu::GpuEntityPoseMappingEntry> mCachedPoseMappings;
     World mWorld;
     graphics::RenderResourceManager mResources;
 };
