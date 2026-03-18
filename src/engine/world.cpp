@@ -48,6 +48,8 @@ void reclaimDenseSlot(std::unordered_map<std::uint32_t, std::vector<std::uint32_
 
 common::EntityId World::createEntity(std::uint32_t envIndex)
 {
+    // A globally unique EntityId within this World.
+
     if (envIndex >= mSceneLayout.envCount)
     {
         throw std::out_of_range("createEntity envIndex exceeds configured environment count.");
@@ -110,7 +112,8 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
     }
     if (envIndex >= mSceneLayout.envCount)
     {
-        throw std::out_of_range("setEntityEnvironment envIndex exceeds configured environment count.");
+        throw std::out_of_range(
+            "setEntityEnvironment envIndex exceeds configured environment count.");
     }
 
     const std::uint32_t previousEnv = entityEnvironment(entityId);
@@ -166,8 +169,7 @@ void World::ensureHostSceneStorage()
     {
         mRenderables.assign(objectCapacity, graphics::RenderableInstance{});
         mRenderObjectPositions.assign(objectCapacity, Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
-        mRenderObjectOrientations.assign(objectCapacity,
-                                         Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f});
+        mRenderObjectOrientations.assign(objectCapacity, Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f});
         mRenderObjectScales.assign(objectCapacity, Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f});
         mRenderableMetadataHost.assign(objectCapacity, gpu::GpuRenderableMetadata{});
         mDirtyRenderableMetadataIndices.clear();
@@ -263,7 +265,7 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
     ensureEntity(entityId);
     ensureHostSceneStorage();
 
-    const auto indexIt = mRenderableIndices.find(entityId);
+    const auto indexIt        = mRenderableIndices.find(entityId);
     std::uint32_t objectIndex = 0u;
     if (indexIt == mRenderableIndices.end())
     {
@@ -271,8 +273,8 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
         const std::uint32_t objectSlot =
             allocateDenseSlot(mFreeRenderableSlotsByEnv, mNextRenderableSlotByEnv, envIndex,
                               mSceneLayout.maxObjectsPerEnv, "renderable");
-        objectIndex = envIndex * mSceneLayout.maxObjectsPerEnv + objectSlot;
-        mRenderableIndices[entityId] = objectIndex;
+        objectIndex                        = envIndex * mSceneLayout.maxObjectsPerEnv + objectSlot;
+        mRenderableIndices[entityId]       = objectIndex;
         mRenderables[objectIndex].entityId = entityId;
         mRenderables[objectIndex].envIndex = envIndex;
         mRenderables[objectIndex].objectSlot = objectSlot;
@@ -283,10 +285,11 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
     }
 
     graphics::RenderableInstance& renderable = mRenderables[objectIndex];
-    renderable.mesh = component.mesh;
-    renderable.material = component.material;
-    renderable.visible = component.visible;
-    renderable.worldTransform = tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
+    renderable.mesh                          = component.mesh;
+    renderable.material                      = component.material;
+    renderable.visible                       = component.visible;
+    renderable.worldTransform =
+        tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
     markRenderableMetadataDirty(objectIndex);
     syncRenderableEntry(entityId);
     markRenderDirty(entityId);
@@ -302,7 +305,7 @@ void World::setCamera(common::EntityId entityId, const CameraComponent& componen
     ensureEntity(entityId);
     ensureHostSceneStorage();
 
-    const auto indexIt = mRenderCameraIndices.find(entityId);
+    const auto indexIt        = mRenderCameraIndices.find(entityId);
     std::uint32_t cameraIndex = 0u;
     if (indexIt == mRenderCameraIndices.end())
     {
@@ -310,10 +313,10 @@ void World::setCamera(common::EntityId entityId, const CameraComponent& componen
         const std::uint32_t cameraSlot =
             allocateDenseSlot(mFreeCameraSlotsByEnv, mNextCameraSlotByEnv, envIndex,
                               mSceneLayout.maxCamerasPerEnv, "camera");
-        cameraIndex = envIndex * mSceneLayout.maxCamerasPerEnv + cameraSlot;
+        cameraIndex                    = envIndex * mSceneLayout.maxCamerasPerEnv + cameraSlot;
         mRenderCameraIndices[entityId] = cameraIndex;
-        mRenderCameras[cameraIndex].entityId = entityId;
-        mRenderCameras[cameraIndex].envIndex = envIndex;
+        mRenderCameras[cameraIndex].entityId   = entityId;
+        mRenderCameras[cameraIndex].envIndex   = envIndex;
         mRenderCameras[cameraIndex].cameraSlot = cameraSlot;
     }
     else
@@ -322,20 +325,20 @@ void World::setCamera(common::EntityId entityId, const CameraComponent& componen
     }
 
     graphics::CameraData& cameraData = mRenderCameras[cameraIndex];
-    cameraData.worldTransform = tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
+    cameraData.worldTransform =
+        tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
     cameraData.verticalFovDegrees = component.verticalFovDegrees;
-    cameraData.aspectRatio = component.aspectRatio;
-    cameraData.nearClip = component.nearClip;
-    cameraData.farClip = component.farClip;
-    cameraData.outputTarget = component.outputTarget;
-    cameraData.outputWidth = component.outputWidth;
-    cameraData.outputHeight = component.outputHeight;
-    cameraData.viewport = component.viewport;
-    cameraData.clearColor = component.clearColor;
-    cameraData.clearDepth = component.clearDepth;
-    cameraData.clearColorValue = component.clearColorValue;
-    cameraData.clearDepthValue = component.clearDepthValue;
-    cameraData.renderOrder = component.renderOrder;
+    cameraData.nearClip           = component.nearClip;
+    cameraData.farClip            = component.farClip;
+    cameraData.outputTarget       = component.outputTarget;
+    cameraData.outputWidth        = component.outputWidth;
+    cameraData.outputHeight       = component.outputHeight;
+    cameraData.viewport           = component.viewport;
+    cameraData.clearColor         = component.clearColor;
+    cameraData.clearDepth         = component.clearDepth;
+    cameraData.clearColorValue    = component.clearColorValue;
+    cameraData.clearDepthValue    = component.clearDepthValue;
+    cameraData.renderOrder        = component.renderOrder;
     syncCameraEntry(entityId);
     markRenderDirty(entityId);
 }
@@ -351,18 +354,18 @@ void World::setDirectionalLight(common::EntityId entityId,
     ensureEntity(entityId);
     ensureHostSceneStorage();
 
-    const auto indexIt = mRenderDirectionalLightIndices.find(entityId);
+    const auto indexIt       = mRenderDirectionalLightIndices.find(entityId);
     std::uint32_t lightIndex = 0u;
     if (indexIt == mRenderDirectionalLightIndices.end())
     {
         const std::uint32_t envIndex = entityEnvironment(entityId);
-        const std::uint32_t lightSlot = allocateDenseSlot(
-            mFreeDirectionalLightSlotsByEnv, mNextDirectionalLightSlotByEnv, envIndex,
-            mSceneLayout.maxLightsPerEnv, "directional light");
+        const std::uint32_t lightSlot =
+            allocateDenseSlot(mFreeDirectionalLightSlotsByEnv, mNextDirectionalLightSlotByEnv,
+                              envIndex, mSceneLayout.maxLightsPerEnv, "directional light");
         lightIndex = envIndex * mSceneLayout.maxLightsPerEnv + lightSlot;
-        mRenderDirectionalLightIndices[entityId] = lightIndex;
-        mRenderDirectionalLights[lightIndex].entityId = entityId;
-        mRenderDirectionalLights[lightIndex].envIndex = envIndex;
+        mRenderDirectionalLightIndices[entityId]       = lightIndex;
+        mRenderDirectionalLights[lightIndex].entityId  = entityId;
+        mRenderDirectionalLights[lightIndex].envIndex  = envIndex;
         mRenderDirectionalLights[lightIndex].lightSlot = lightSlot;
     }
     else
@@ -371,11 +374,11 @@ void World::setDirectionalLight(common::EntityId entityId,
     }
 
     graphics::DirectionalLightData& lightData = mRenderDirectionalLights[lightIndex];
-    lightData.direction = component.direction;
-    lightData.color = component.color;
-    lightData.intensity = component.intensity;
-    lightData.shadowDistance = component.shadowDistance;
-    lightData.shadowFadeDistance = component.shadowFadeDistance;
+    lightData.direction                       = component.direction;
+    lightData.color                           = component.color;
+    lightData.intensity                       = component.intensity;
+    lightData.shadowDistance                  = component.shadowDistance;
+    lightData.shadowFadeDistance              = component.shadowFadeDistance;
 
     syncDirectionalLightEntry(entityId);
     markRenderDirty(entityId);
@@ -582,14 +585,14 @@ bool World::removeMeshRenderer(common::EntityId entityId)
         return false;
     }
 
-    const std::uint32_t objectIndex = static_cast<std::uint32_t>(it->second);
+    const std::uint32_t objectIndex              = static_cast<std::uint32_t>(it->second);
     const graphics::RenderableInstance& instance = mRenderables[objectIndex];
     reclaimDenseSlot(mFreeRenderableSlotsByEnv, instance.envIndex, instance.objectSlot);
-    mRenderables[objectIndex] = {};
-    mRenderObjectPositions[objectIndex] = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
+    mRenderables[objectIndex]              = {};
+    mRenderObjectPositions[objectIndex]    = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
     mRenderObjectOrientations[objectIndex] = Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f};
-    mRenderObjectScales[objectIndex] = Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f};
-    mRenderableMetadataHost[objectIndex] = {};
+    mRenderObjectScales[objectIndex]       = Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f};
+    mRenderableMetadataHost[objectIndex]   = {};
     markRenderableMetadataDirty(objectIndex);
     mRenderableIndices.erase(it);
     mGpuEntityPoseIndices.erase(entityId);
@@ -605,10 +608,10 @@ bool World::removeCamera(common::EntityId entityId)
         return false;
     }
 
-    const std::uint32_t cameraIndex = static_cast<std::uint32_t>(it->second);
+    const std::uint32_t cameraIndex    = static_cast<std::uint32_t>(it->second);
     const graphics::CameraData& camera = mRenderCameras[cameraIndex];
     reclaimDenseSlot(mFreeCameraSlotsByEnv, camera.envIndex, camera.cameraSlot);
-    mRenderCameras[cameraIndex] = {};
+    mRenderCameras[cameraIndex]    = {};
     mCameraInputsHost[cameraIndex] = {};
     mRenderCameraIndices.erase(it);
     markRenderDirty(entityId);
@@ -623,11 +626,11 @@ bool World::removeDirectionalLight(common::EntityId entityId)
         return false;
     }
 
-    const std::uint32_t lightIndex = static_cast<std::uint32_t>(it->second);
+    const std::uint32_t lightIndex              = static_cast<std::uint32_t>(it->second);
     const graphics::DirectionalLightData& light = mRenderDirectionalLights[lightIndex];
     reclaimDenseSlot(mFreeDirectionalLightSlotsByEnv, light.envIndex, light.lightSlot);
     mRenderDirectionalLights[lightIndex] = {};
-    mLightInputsHost[lightIndex] = {};
+    mLightInputsHost[lightIndex]         = {};
     mRenderDirectionalLightIndices.erase(it);
     markRenderDirty(entityId);
     return true;
@@ -673,18 +676,17 @@ std::optional<CameraComponent> World::tryGetCamera(common::EntityId entityId) co
     const graphics::CameraData& camera = mRenderCameras[static_cast<std::uint32_t>(it->second)];
     CameraComponent component{};
     component.verticalFovDegrees = camera.verticalFovDegrees;
-    component.aspectRatio = camera.aspectRatio;
-    component.nearClip = camera.nearClip;
-    component.farClip = camera.farClip;
-    component.outputTarget = camera.outputTarget;
-    component.outputWidth = camera.outputWidth;
-    component.outputHeight = camera.outputHeight;
-    component.viewport = camera.viewport;
-    component.clearColor = camera.clearColor;
-    component.clearDepth = camera.clearDepth;
-    component.clearColorValue = camera.clearColorValue;
-    component.clearDepthValue = camera.clearDepthValue;
-    component.renderOrder = camera.renderOrder;
+    component.nearClip           = camera.nearClip;
+    component.farClip            = camera.farClip;
+    component.outputTarget       = camera.outputTarget;
+    component.outputWidth        = camera.outputWidth;
+    component.outputHeight       = camera.outputHeight;
+    component.viewport           = camera.viewport;
+    component.clearColor         = camera.clearColor;
+    component.clearDepth         = camera.clearDepth;
+    component.clearColorValue    = camera.clearColorValue;
+    component.clearDepthValue    = camera.clearDepthValue;
+    component.renderOrder        = camera.renderOrder;
     return component;
 }
 
@@ -700,10 +702,10 @@ std::optional<DirectionalLightComponent> World::tryGetDirectionalLight(
     const graphics::DirectionalLightData& light =
         mRenderDirectionalLights[static_cast<std::uint32_t>(it->second)];
     DirectionalLightComponent component{};
-    component.direction = light.direction;
-    component.color = light.color;
-    component.intensity = light.intensity;
-    component.shadowDistance = light.shadowDistance;
+    component.direction          = light.direction;
+    component.color              = light.color;
+    component.intensity          = light.intensity;
+    component.shadowDistance     = light.shadowDistance;
     component.shadowFadeDistance = light.shadowFadeDistance;
     return component;
 }
@@ -805,7 +807,7 @@ void World::setGpuEntityScene(
     const gpu::GpuEntitySceneView& sceneView,
     const std::unordered_map<common::EntityId, std::uint32_t>& poseIndices) noexcept
 {
-    mGpuEntityScene = sceneView;
+    mGpuEntityScene       = sceneView;
     mGpuEntityPoseIndices = poseIndices;
 }
 
@@ -865,8 +867,8 @@ const std::unordered_map<common::EntityId, std::uint32_t>& World::renderObjectPo
     mRenderObjectPoseIndicesCache.reserve(mRenderables.size());
     for (const graphics::RenderableInstance& renderable : mRenderables)
     {
-        if (renderable.entityId == common::kInvalidEntityId || renderable.objectSlot == kInvalidSlot ||
-            !renderable.visible)
+        if (renderable.entityId == common::kInvalidEntityId ||
+            renderable.objectSlot == kInvalidSlot || !renderable.visible)
         {
             continue;
         }
@@ -930,7 +932,7 @@ const std::vector<gpu::GpuEntityPoseMappingEntry>& World::physicsRenderableMappi
     }
 
     mCachedPhysicsRenderableMappingsRevision = mRenderRevision;
-    mCachedPoseMappingRigidBodyCount = rigidBodyCount;
+    mCachedPoseMappingRigidBodyCount         = rigidBodyCount;
     return mPhysicsRenderableMappingsCache;
 }
 
@@ -939,7 +941,8 @@ const gpu::GpuEntitySceneView& World::gpuEntityScene() const noexcept
     return mGpuEntityScene;
 }
 
-const std::unordered_map<common::EntityId, std::uint32_t>& World::gpuEntityPoseIndices() const noexcept
+const std::unordered_map<common::EntityId, std::uint32_t>& World::gpuEntityPoseIndices()
+    const noexcept
 {
     return mGpuEntityPoseIndices;
 }
@@ -947,11 +950,8 @@ const std::unordered_map<common::EntityId, std::uint32_t>& World::gpuEntityPoseI
 graphics::HostSceneView World::hostSceneView() const noexcept
 {
     return graphics::HostSceneView{
-        &mRenderables,
-        &mRenderCameras,
-        &mRenderDirectionalLights,
-        &mGpuEntityScene,
-        &mGpuEntityPoseIndices,
+        &mRenderables,    &mRenderCameras,        &mRenderDirectionalLights,
+        &mGpuEntityScene, &mGpuEntityPoseIndices,
     };
 }
 
@@ -962,7 +962,7 @@ void World::refreshRenderableMetadata(const graphics::RenderResourceManager& res
     // material blend mode
     // material shadow-caster flags
     // mesh local bounds
-    // if a mesh or material changes later inside RenderResourceManager, World does 
+    // if a mesh or material changes later inside RenderResourceManager, World does
     // not currently know which object slots should become dirty.
 
     for (const std::uint32_t objectIndex : mDirtyRenderableMetadataIndices)
@@ -974,10 +974,11 @@ void World::refreshRenderableMetadata(const graphics::RenderResourceManager& res
 
         const graphics::RenderableInstance& renderable = mRenderables[objectIndex];
         gpu::GpuRenderableMetadata entry{};
-        if (renderable.entityId != common::kInvalidEntityId && renderable.objectSlot != kInvalidSlot)
+        if (renderable.entityId != common::kInvalidEntityId &&
+            renderable.objectSlot != kInvalidSlot)
         {
             entry.objectSlot = renderable.objectSlot;
-            entry.envIndex = renderable.envIndex;
+            entry.envIndex   = renderable.envIndex;
             if (renderable.visible)
             {
                 entry.flags |= gpu::GpuRenderableFlag_Active;
@@ -1010,10 +1011,10 @@ void World::refreshRenderableMetadata(const graphics::RenderResourceManager& res
             Diligent::float3 localBoundsMax{};
             if (resources.tryGetMeshLocalBounds(renderable.mesh, localBoundsMin, localBoundsMax))
             {
-                entry.localBoundsMin = Diligent::float4{localBoundsMin.x, localBoundsMin.y,
-                                                        localBoundsMin.z, 1.0f};
-                entry.localBoundsMax = Diligent::float4{localBoundsMax.x, localBoundsMax.y,
-                                                        localBoundsMax.z, 1.0f};
+                entry.localBoundsMin =
+                    Diligent::float4{localBoundsMin.x, localBoundsMin.y, localBoundsMin.z, 1.0f};
+                entry.localBoundsMax =
+                    Diligent::float4{localBoundsMax.x, localBoundsMax.y, localBoundsMax.z, 1.0f};
             }
         }
 
@@ -1044,18 +1045,19 @@ void World::syncRenderableEntry(common::EntityId entityId)
         return;
     }
 
-    const std::uint32_t objectIndex = static_cast<std::uint32_t>(indexIt->second);
+    const std::uint32_t objectIndex          = static_cast<std::uint32_t>(indexIt->second);
     graphics::RenderableInstance& renderable = mRenderables[objectIndex];
-    renderable.worldTransform = tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
-    mRenderObjectPositions[objectIndex] = Diligent::float4{
-        renderable.worldTransform.position.x, renderable.worldTransform.position.y,
-        renderable.worldTransform.position.z, 1.0f};
+    renderable.worldTransform =
+        tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
+    mRenderObjectPositions[objectIndex] =
+        Diligent::float4{renderable.worldTransform.position.x, renderable.worldTransform.position.y,
+                         renderable.worldTransform.position.z, 1.0f};
     mRenderObjectOrientations[objectIndex] = Diligent::float4{
         renderable.worldTransform.rotation.q.x, renderable.worldTransform.rotation.q.y,
         renderable.worldTransform.rotation.q.z, renderable.worldTransform.rotation.q.w};
-    mRenderObjectScales[objectIndex] = Diligent::float4{
-        renderable.worldTransform.scale.x, renderable.worldTransform.scale.y,
-        renderable.worldTransform.scale.z, 0.0f};
+    mRenderObjectScales[objectIndex] =
+        Diligent::float4{renderable.worldTransform.scale.x, renderable.worldTransform.scale.y,
+                         renderable.worldTransform.scale.z, 0.0f};
 }
 
 void World::syncCameraEntry(common::EntityId entityId)
@@ -1067,35 +1069,29 @@ void World::syncCameraEntry(common::EntityId entityId)
         return;
     }
 
-    const std::uint32_t cameraIndex = static_cast<std::uint32_t>(indexIt->second);
+    const std::uint32_t cameraIndex  = static_cast<std::uint32_t>(indexIt->second);
     graphics::CameraData& cameraData = mRenderCameras[cameraIndex];
-    cameraData.worldTransform = tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
-
-    float aspect = cameraData.aspectRatio;
-    if (aspect <= 0.0f && cameraData.outputWidth > 0u && cameraData.outputHeight > 0u)
+    cameraData.worldTransform =
+        tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
+    float aspect = 1.0f;
+    if (cameraData.outputWidth > 0u && cameraData.outputHeight > 0u)
     {
         aspect = static_cast<float>(cameraData.outputWidth) /
                  static_cast<float>(cameraData.outputHeight);
     }
-    if (aspect <= 0.0f)
-    {
-        aspect = 1.0f;
-    }
 
     gpu::GpuCameraInput input{};
-    input.position = Diligent::float4{cameraData.worldTransform.position.x,
-                                      cameraData.worldTransform.position.y,
-                                      cameraData.worldTransform.position.z, 1.0f};
-    input.orientation = Diligent::float4{cameraData.worldTransform.rotation.q.x,
-                                         cameraData.worldTransform.rotation.q.y,
-                                         cameraData.worldTransform.rotation.q.z,
-                                         cameraData.worldTransform.rotation.q.w};
-    input.projectionParams =
-        Diligent::float4{cameraData.verticalFovDegrees, aspect, cameraData.nearClip,
-                         cameraData.farClip};
-    input.envIndex = cameraData.envIndex;
-    input.cameraSlot = cameraData.cameraSlot;
-    input.active = 1u;
+    input.position =
+        Diligent::float4{cameraData.worldTransform.position.x, cameraData.worldTransform.position.y,
+                         cameraData.worldTransform.position.z, 1.0f};
+    input.orientation = Diligent::float4{
+        cameraData.worldTransform.rotation.q.x, cameraData.worldTransform.rotation.q.y,
+        cameraData.worldTransform.rotation.q.z, cameraData.worldTransform.rotation.q.w};
+    input.projectionParams         = Diligent::float4{cameraData.verticalFovDegrees, aspect,
+                                                      cameraData.nearClip, cameraData.farClip};
+    input.envIndex                 = cameraData.envIndex;
+    input.cameraSlot               = cameraData.cameraSlot;
+    input.active                   = 1u;
     mCameraInputsHost[cameraIndex] = input;
 }
 
@@ -1108,19 +1104,18 @@ void World::syncDirectionalLightEntry(common::EntityId entityId)
         return;
     }
 
-    const std::uint32_t lightIndex = static_cast<std::uint32_t>(indexIt->second);
+    const std::uint32_t lightIndex                  = static_cast<std::uint32_t>(indexIt->second);
     const graphics::DirectionalLightData& lightData = mRenderDirectionalLights[lightIndex];
 
     gpu::GpuDirectionalLightInput input{};
-    input.directionIntensity =
-        Diligent::float4{lightData.direction.x, lightData.direction.y, lightData.direction.z,
-                         lightData.intensity};
+    input.directionIntensity = Diligent::float4{lightData.direction.x, lightData.direction.y,
+                                                lightData.direction.z, lightData.intensity};
     input.color = Diligent::float4{lightData.color.x, lightData.color.y, lightData.color.z, 0.0f};
     input.shadowParams =
         Diligent::float4{lightData.shadowDistance, lightData.shadowFadeDistance, 0.0f, 0.0f};
-    input.envIndex = lightData.envIndex;
-    input.lightSlot = lightData.lightSlot;
-    input.active = 1u;
+    input.envIndex               = lightData.envIndex;
+    input.lightSlot              = lightData.lightSlot;
+    input.active                 = 1u;
     mLightInputsHost[lightIndex] = input;
 }
 
@@ -1132,27 +1127,27 @@ void World::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t
         return;
     }
 
-    const std::uint32_t oldObjectIndex = static_cast<std::uint32_t>(indexIt->second);
+    const std::uint32_t oldObjectIndex      = static_cast<std::uint32_t>(indexIt->second);
     graphics::RenderableInstance renderable = mRenderables[oldObjectIndex];
     reclaimDenseSlot(mFreeRenderableSlotsByEnv, renderable.envIndex, renderable.objectSlot);
-    const Diligent::float4 position = mRenderObjectPositions[oldObjectIndex];
-    const Diligent::float4 orientation = mRenderObjectOrientations[oldObjectIndex];
-    const Diligent::float4 scale = mRenderObjectScales[oldObjectIndex];
-    mRenderables[oldObjectIndex] = {};
-    mRenderObjectPositions[oldObjectIndex] = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
+    const Diligent::float4 position           = mRenderObjectPositions[oldObjectIndex];
+    const Diligent::float4 orientation        = mRenderObjectOrientations[oldObjectIndex];
+    const Diligent::float4 scale              = mRenderObjectScales[oldObjectIndex];
+    mRenderables[oldObjectIndex]              = {};
+    mRenderObjectPositions[oldObjectIndex]    = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
     mRenderObjectOrientations[oldObjectIndex] = Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f};
-    mRenderObjectScales[oldObjectIndex] = Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f};
-    renderable.envIndex = envIndex;
-    renderable.objectSlot = allocateDenseSlot(mFreeRenderableSlotsByEnv, mNextRenderableSlotByEnv,
-                                              envIndex, mSceneLayout.maxObjectsPerEnv,
-                                              "renderable");
+    mRenderObjectScales[oldObjectIndex]       = Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f};
+    renderable.envIndex                       = envIndex;
+    renderable.objectSlot =
+        allocateDenseSlot(mFreeRenderableSlotsByEnv, mNextRenderableSlotByEnv, envIndex,
+                          mSceneLayout.maxObjectsPerEnv, "renderable");
     const std::uint32_t newObjectIndex =
         envIndex * mSceneLayout.maxObjectsPerEnv + renderable.objectSlot;
-    mRenderables[newObjectIndex] = renderable;
-    mRenderObjectPositions[newObjectIndex] = position;
+    mRenderables[newObjectIndex]              = renderable;
+    mRenderObjectPositions[newObjectIndex]    = position;
     mRenderObjectOrientations[newObjectIndex] = orientation;
-    mRenderObjectScales[newObjectIndex] = scale;
-    mRenderableMetadataHost[oldObjectIndex] = {};
+    mRenderObjectScales[newObjectIndex]       = scale;
+    mRenderableMetadataHost[oldObjectIndex]   = {};
     markRenderableMetadataDirty(oldObjectIndex);
     markRenderableMetadataDirty(newObjectIndex);
     indexIt->second = newObjectIndex;
@@ -1167,21 +1162,21 @@ void World::moveCameraToEnvironment(common::EntityId entityId, std::uint32_t env
     }
 
     const std::uint32_t oldCameraIndex = static_cast<std::uint32_t>(indexIt->second);
-    graphics::CameraData camera = mRenderCameras[oldCameraIndex];
+    graphics::CameraData camera        = mRenderCameras[oldCameraIndex];
     reclaimDenseSlot(mFreeCameraSlotsByEnv, camera.envIndex, camera.cameraSlot);
-    const gpu::GpuCameraInput input = mCameraInputsHost[oldCameraIndex];
-    mRenderCameras[oldCameraIndex] = {};
+    const gpu::GpuCameraInput input   = mCameraInputsHost[oldCameraIndex];
+    mRenderCameras[oldCameraIndex]    = {};
     mCameraInputsHost[oldCameraIndex] = {};
-    camera.envIndex = envIndex;
+    camera.envIndex                   = envIndex;
     camera.cameraSlot = allocateDenseSlot(mFreeCameraSlotsByEnv, mNextCameraSlotByEnv, envIndex,
                                           mSceneLayout.maxCamerasPerEnv, "camera");
     const std::uint32_t newCameraIndex =
         envIndex * mSceneLayout.maxCamerasPerEnv + camera.cameraSlot;
-    mRenderCameras[newCameraIndex] = camera;
-    mCameraInputsHost[newCameraIndex] = input;
-    mCameraInputsHost[newCameraIndex].envIndex = envIndex;
+    mRenderCameras[newCameraIndex]               = camera;
+    mCameraInputsHost[newCameraIndex]            = input;
+    mCameraInputsHost[newCameraIndex].envIndex   = envIndex;
     mCameraInputsHost[newCameraIndex].cameraSlot = camera.cameraSlot;
-    indexIt->second = newCameraIndex;
+    indexIt->second                              = newCameraIndex;
 }
 
 void World::moveDirectionalLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
@@ -1192,23 +1187,22 @@ void World::moveDirectionalLightToEnvironment(common::EntityId entityId, std::ui
         return;
     }
 
-    const std::uint32_t oldLightIndex = static_cast<std::uint32_t>(indexIt->second);
+    const std::uint32_t oldLightIndex    = static_cast<std::uint32_t>(indexIt->second);
     graphics::DirectionalLightData light = mRenderDirectionalLights[oldLightIndex];
     reclaimDenseSlot(mFreeDirectionalLightSlotsByEnv, light.envIndex, light.lightSlot);
     const gpu::GpuDirectionalLightInput input = mLightInputsHost[oldLightIndex];
-    mRenderDirectionalLights[oldLightIndex] = {};
-    mLightInputsHost[oldLightIndex] = {};
-    light.envIndex = envIndex;
-    light.lightSlot = allocateDenseSlot(mFreeDirectionalLightSlotsByEnv,
-                                        mNextDirectionalLightSlotByEnv, envIndex,
-                                        mSceneLayout.maxLightsPerEnv, "directional light");
-    const std::uint32_t newLightIndex =
-        envIndex * mSceneLayout.maxLightsPerEnv + light.lightSlot;
-    mRenderDirectionalLights[newLightIndex] = light;
-    mLightInputsHost[newLightIndex] = input;
-    mLightInputsHost[newLightIndex].envIndex = envIndex;
+    mRenderDirectionalLights[oldLightIndex]   = {};
+    mLightInputsHost[oldLightIndex]           = {};
+    light.envIndex                            = envIndex;
+    light.lightSlot =
+        allocateDenseSlot(mFreeDirectionalLightSlotsByEnv, mNextDirectionalLightSlotByEnv, envIndex,
+                          mSceneLayout.maxLightsPerEnv, "directional light");
+    const std::uint32_t newLightIndex = envIndex * mSceneLayout.maxLightsPerEnv + light.lightSlot;
+    mRenderDirectionalLights[newLightIndex]   = light;
+    mLightInputsHost[newLightIndex]           = input;
+    mLightInputsHost[newLightIndex].envIndex  = envIndex;
     mLightInputsHost[newLightIndex].lightSlot = light.lightSlot;
-    indexIt->second = newLightIndex;
+    indexIt->second                           = newLightIndex;
 }
 
 } // namespace cressim::neo::engine

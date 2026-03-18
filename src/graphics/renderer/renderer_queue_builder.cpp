@@ -163,8 +163,8 @@ std::vector<PreparedRenderable> buildPreparedRenderables(
     for (std::size_t renderableIndex = 0; renderableIndex < renderables.size(); ++renderableIndex)
     {
         const RenderableInstance& renderable = renderables[renderableIndex];
-        if (renderable.entityId == common::kInvalidEntityId || renderable.objectSlot == 0xffffffffu ||
-            !renderable.visible)
+        if (renderable.entityId == common::kInvalidEntityId ||
+            renderable.objectSlot == 0xffffffffu || !renderable.visible)
         {
             continue;
         }

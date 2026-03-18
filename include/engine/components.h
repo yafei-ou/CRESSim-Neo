@@ -36,7 +36,6 @@ struct MeshRendererComponent
 struct CameraComponent
 {
     float verticalFovDegrees = 60.0f;
-    float aspectRatio        = 1.0f;
     float nearClip           = 0.01f;
     float farClip            = 1000.0f;
 

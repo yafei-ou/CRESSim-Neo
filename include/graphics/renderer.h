@@ -4,8 +4,8 @@
 #include "common/frame_context.h"
 #include "gpu/gpu_device.h"
 #include "graphics/export.h"
-#include "graphics/render_resource_manager.h"
 #include "graphics/host_scene.h"
+#include "graphics/render_resource_manager.h"
 
 #include <cstdint>
 #include <memory>

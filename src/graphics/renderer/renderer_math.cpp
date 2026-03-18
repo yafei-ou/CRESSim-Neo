@@ -284,10 +284,10 @@ ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightDat
         {
             continue;
         }
-        out.direction = light.direction;
-        out.color = light.color;
-        out.intensity = light.intensity;
-        out.shadowDistance = light.shadowDistance;
+        out.direction          = light.direction;
+        out.color              = light.color;
+        out.intensity          = light.intensity;
+        out.shadowDistance     = light.shadowDistance;
         out.shadowFadeDistance = light.shadowFadeDistance;
         return out;
     }
@@ -304,17 +304,17 @@ FrameViewData buildFrameViewData(const CameraData& camera,
                                  const ForwardDirectionalLightData& lightData)
 {
     FrameViewData frameView{};
-    frameView.target       = target;
-    frameView.viewport     = viewport;
-    frameView.clearColor   = camera.clearColor;
-    frameView.clearDepth   = camera.clearDepth;
+    frameView.target          = target;
+    frameView.viewport        = viewport;
+    frameView.clearColor      = camera.clearColor;
+    frameView.clearDepth      = camera.clearDepth;
     frameView.clearColorValue = camera.clearColorValue;
     frameView.clearDepthValue = camera.clearDepthValue;
-    frameView.envIndex     = camera.envIndex;
-    frameView.cameraSlot   = camera.cameraSlot;
-    frameView.outputWidth  = targetDesc.width;
-    frameView.outputHeight = targetDesc.height;
-    frameView.light        = lightData;
+    frameView.envIndex        = camera.envIndex;
+    frameView.cameraSlot      = camera.cameraSlot;
+    frameView.outputWidth     = targetDesc.width;
+    frameView.outputHeight    = targetDesc.height;
+    frameView.light           = lightData;
 
     const CameraFrustumInfo cameraInfo = buildCameraFrustumInfo(
         camera, static_cast<float>(targetDesc.width), static_cast<float>(targetDesc.height));
@@ -333,7 +333,6 @@ CameraData defaultCamera()
     camera.envIndex           = 0u;
     camera.cameraSlot         = 0u;
     camera.verticalFovDegrees = 60.0f;
-    camera.aspectRatio        = 1.0f;
     camera.nearClip           = 0.01f;
     camera.farClip            = 1000.0f;
     camera.viewport           = {};

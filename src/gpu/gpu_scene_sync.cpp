@@ -20,9 +20,9 @@ constexpr std::uint32_t kComputeThreadGroupSize = 64u;
 struct GpuEntityPoseSyncConstants
 {
     std::uint32_t mappingCount = 0;
-    std::uint32_t padding0    = 0;
-    std::uint32_t padding1    = 0;
-    std::uint32_t padding2    = 0;
+    std::uint32_t padding0     = 0;
+    std::uint32_t padding1     = 0;
+    std::uint32_t padding2     = 0;
 };
 
 std::uint32_t dispatchGroupCount(std::uint32_t threadCount)

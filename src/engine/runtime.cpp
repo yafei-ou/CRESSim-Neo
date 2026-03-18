@@ -137,7 +137,7 @@ void Runtime::shutdown()
     }
 
     mLastRenderStats = {};
-    mInitialized = false;
+    mInitialized     = false;
 }
 
 void Runtime::tick(const common::FrameContext& frameContext)
@@ -160,7 +160,7 @@ void Runtime::tick(const common::FrameContext& frameContext)
     bool gpuSceneReady = false;
     if (mGpuSceneSync)
     {
-        poseIndices = mWorld.renderObjectPoseIndices();
+        poseIndices   = mWorld.renderObjectPoseIndices();
         gpuSceneReady = mGpuSceneSync->syncEntityPoseData(mWorld.renderObjectPositions(),
                                                           mWorld.renderObjectOrientations(),
                                                           mWorld.renderObjectScales());

@@ -280,8 +280,7 @@ bool ForwardPipeline::initialize()
 bool ForwardPipeline::execute(const common::FrameContext& frameContext,
                               const FrameViewData& frameView,
                               const gpu::GpuEntitySceneView& sceneView,
-                              const CameraRenderQueues& queues,
-                              ForwardPassExecutionStats& outStats)
+                              const CameraRenderQueues& queues, ForwardPassExecutionStats& outStats)
 {
     if (!mInitialized || mForwardOpaquePass == nullptr)
     {
@@ -547,13 +546,13 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
 
     mDevice.renderTargetSystem().setRenderTargetViewport(frameView.target, frameView.viewport);
     gpu::GpuRenderPassBeginDesc mainBegin{};
-    mainBegin.clearColor = frameView.clearColor;
-    mainBegin.clearDepth = frameView.clearDepth;
+    mainBegin.clearColor         = frameView.clearColor;
+    mainBegin.clearDepth         = frameView.clearDepth;
     mainBegin.clearColorValue[0] = frameView.clearColorValue.x;
     mainBegin.clearColorValue[1] = frameView.clearColorValue.y;
     mainBegin.clearColorValue[2] = frameView.clearColorValue.z;
     mainBegin.clearColorValue[3] = frameView.clearColorValue.w;
-    mainBegin.clearDepthValue = frameView.clearDepthValue;
+    mainBegin.clearDepthValue    = frameView.clearDepthValue;
     mDevice.renderTargetSystem().beginRenderTarget(frameView.target, frameContext, mainBegin);
 
     for (const GpuIndirectBucket& bucket : queues.gpuOpaqueBuckets)

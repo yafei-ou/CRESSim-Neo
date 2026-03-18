@@ -3,8 +3,8 @@
 
 #include "common/id.h"
 #include "common/math_types.h"
-#include "gpu/gpu_types.h"
 #include "gpu/gpu_scene.h"
+#include "gpu/gpu_types.h"
 #include "graphics/render_resource_manager.h"
 
 #include <unordered_map>
@@ -31,7 +31,6 @@ struct CameraData
     std::uint32_t cameraSlot  = 0xffffffffu;
     common::Transform worldTransform{};
     float verticalFovDegrees = 60.0f;
-    float aspectRatio        = 1.0f;
     float nearClip           = 0.01f;
     float farClip            = 1000.0f;
 
@@ -62,10 +61,10 @@ struct DirectionalLightData
 
 struct HostSceneView
 {
-    const std::vector<RenderableInstance>* renderables = nullptr;
-    const std::vector<CameraData>* cameras = nullptr;
-    const std::vector<DirectionalLightData>* directionalLights = nullptr;
-    const gpu::GpuEntitySceneView* gpuEntityScene = nullptr;
+    const std::vector<RenderableInstance>* renderables                              = nullptr;
+    const std::vector<CameraData>* cameras                                          = nullptr;
+    const std::vector<DirectionalLightData>* directionalLights                      = nullptr;
+    const gpu::GpuEntitySceneView* gpuEntityScene                                   = nullptr;
     const std::unordered_map<common::EntityId, std::uint32_t>* gpuEntityPoseIndices = nullptr;
 };
 

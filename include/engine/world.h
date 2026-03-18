@@ -80,7 +80,8 @@ public:
     const std::unordered_map<common::EntityId, std::uint32_t>& renderObjectPoseIndices();
     const std::vector<gpu::GpuEntityPoseMappingEntry>& physicsRenderableMappings();
     const gpu::GpuEntitySceneView& gpuEntityScene() const noexcept;
-    const std::unordered_map<common::EntityId, std::uint32_t>& gpuEntityPoseIndices() const noexcept;
+    const std::unordered_map<common::EntityId, std::uint32_t>& gpuEntityPoseIndices()
+        const noexcept;
     graphics::HostSceneView hostSceneView() const noexcept;
     void refreshRenderableMetadata(const graphics::RenderResourceManager& resources);
 
@@ -216,10 +217,10 @@ private:
     std::vector<std::uint32_t> mDirtyRenderableMetadataIndices{};
     std::unordered_set<std::uint32_t> mDirtyRenderableMetadataSet{};
 
-    std::uint64_t mRenderRevision = 0;
-    std::uint64_t mCachedRenderObjectPoseIndicesRevision = ~0ull;
+    std::uint64_t mRenderRevision                          = 0;
+    std::uint64_t mCachedRenderObjectPoseIndicesRevision   = ~0ull;
     std::uint64_t mCachedPhysicsRenderableMappingsRevision = ~0ull;
-    std::uint32_t mCachedPoseMappingRigidBodyCount = 0u;
+    std::uint32_t mCachedPoseMappingRigidBodyCount         = 0u;
 };
 
 } // namespace cressim::neo::engine

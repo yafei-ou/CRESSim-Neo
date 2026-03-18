@@ -89,8 +89,8 @@ std::uint32_t countActiveRenderables(const std::vector<RenderableInstance>& rend
     std::uint32_t count = 0u;
     for (const RenderableInstance& renderable : renderables)
     {
-        if (renderable.entityId != common::kInvalidEntityId && renderable.objectSlot != 0xffffffffu &&
-            renderable.visible)
+        if (renderable.entityId != common::kInvalidEntityId &&
+            renderable.objectSlot != 0xffffffffu && renderable.visible)
         {
             ++count;
         }
