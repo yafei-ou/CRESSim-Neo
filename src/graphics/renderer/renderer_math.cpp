@@ -306,6 +306,10 @@ FrameViewData buildFrameViewData(const CameraData& camera,
     FrameViewData frameView{};
     frameView.target       = target;
     frameView.viewport     = viewport;
+    frameView.clearColor   = camera.clearColor;
+    frameView.clearDepth   = camera.clearDepth;
+    frameView.clearColorValue = camera.clearColorValue;
+    frameView.clearDepthValue = camera.clearDepthValue;
     frameView.envIndex     = camera.envIndex;
     frameView.cameraSlot   = camera.cameraSlot;
     frameView.outputWidth  = targetDesc.width;
@@ -333,6 +337,10 @@ CameraData defaultCamera()
     camera.nearClip           = 0.01f;
     camera.farClip            = 1000.0f;
     camera.viewport           = {};
+    camera.clearColor         = true;
+    camera.clearDepth         = true;
+    camera.clearColorValue    = Diligent::float4{0.02f, 0.02f, 0.03f, 1.0f};
+    camera.clearDepthValue    = 1.0f;
     return camera;
 }
 

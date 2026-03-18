@@ -47,6 +47,10 @@ struct CameraComponent
     std::uint32_t outputHeight = 0;
     // Normalized viewport on the chosen output target.
     gpu::GpuRenderViewport viewport{};
+    bool clearColor = true;
+    bool clearDepth = true;
+    Diligent::float4 clearColorValue{0.02f, 0.02f, 0.03f, 1.0f};
+    float clearDepthValue = 1.0f;
 
     // Cameras are rendered in ascending order.
     std::uint32_t renderOrder = 0;

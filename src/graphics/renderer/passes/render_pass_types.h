@@ -24,6 +24,10 @@ struct FrameViewData
 {
     gpu::GpuRenderTargetHandle target{};
     gpu::GpuRenderViewport viewport{};
+    bool clearColor                     = true;
+    bool clearDepth                     = true;
+    Diligent::float4 clearColorValue    = {0.02f, 0.02f, 0.03f, 1.0f};
+    float clearDepthValue               = 1.0f;
     std::uint32_t envIndex                  = 0u;
     std::uint32_t cameraSlot                = 0u;
     std::uint32_t outputWidth               = 0;

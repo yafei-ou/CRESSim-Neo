@@ -331,6 +331,10 @@ void World::setCamera(common::EntityId entityId, const CameraComponent& componen
     cameraData.outputWidth = component.outputWidth;
     cameraData.outputHeight = component.outputHeight;
     cameraData.viewport = component.viewport;
+    cameraData.clearColor = component.clearColor;
+    cameraData.clearDepth = component.clearDepth;
+    cameraData.clearColorValue = component.clearColorValue;
+    cameraData.clearDepthValue = component.clearDepthValue;
     cameraData.renderOrder = component.renderOrder;
     syncCameraEntry(entityId);
     markRenderDirty(entityId);
@@ -676,6 +680,10 @@ std::optional<CameraComponent> World::tryGetCamera(common::EntityId entityId) co
     component.outputWidth = camera.outputWidth;
     component.outputHeight = camera.outputHeight;
     component.viewport = camera.viewport;
+    component.clearColor = camera.clearColor;
+    component.clearDepth = camera.clearDepth;
+    component.clearColorValue = camera.clearColorValue;
+    component.clearDepthValue = camera.clearDepthValue;
     component.renderOrder = camera.renderOrder;
     return component;
 }
