@@ -20,8 +20,18 @@ bool ShadowPass::initialize()
     return true;
 }
 
-bool ShadowPass::draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
-                      const Diligent::float4x4& lightViewProjectionMatrix)
+void ShadowPass::setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept
+{
+    mSceneView = sceneView;
+}
+
+void ShadowPass::setVisibleObjectIndexBuffer(Diligent::IBuffer* buffer) noexcept
+{
+    mVisibleObjectIndexBuffer = buffer;
+}
+
+bool ShadowPass::prepareDraw(gpu::GpuRenderTargetHandle target,
+                             const ForwardDrawCommand& drawCommand, DrawSetup& outSetup)
 {
     if (!mInitialized)
     {
@@ -75,50 +85,199 @@ bool ShadowPass::draw(gpu::GpuRenderTargetHandle target, const ForwardDrawComman
         return false;
     }
 
+    outSetup.backendContext  = backendContext;
+    outSetup.meshBuffers     = meshBuffers;
+    outSetup.useSceneBuffers = drawCommand.instanceIndex != 0xffffffffu &&
+                               mSceneView.poses.positionsBuffer != nullptr &&
+                               mSceneView.poses.orientationsBuffer != nullptr &&
+                               mSceneView.poses.scalesBuffer != nullptr &&
+                               mSceneView.renderableMetadataBuffer != nullptr &&
+                               mSceneView.renderableShadowCascadeMasksBuffer != nullptr &&
+                               mSceneView.preparedCamerasBuffer != nullptr;
+    return true;
+}
+
+bool ShadowPass::bindSceneBuffers() const
+{
+    if (mShaderResourceBinding == nullptr)
+    {
+        return false;
+    }
+    struct VariableBinding
+    {
+        const char* name;
+        Diligent::IBuffer* buffer;
+    };
+    const VariableBinding bindings[] = {
+        {"g_EntityPositions", mSceneView.poses.positionsBuffer},
+        {"g_EntityOrientations", mSceneView.poses.orientationsBuffer},
+        {"g_EntityScales", mSceneView.poses.scalesBuffer},
+        {"g_RenderableMetadata", mSceneView.renderableMetadataBuffer},
+        {"g_RenderableShadowCascadeMasks", mSceneView.renderableShadowCascadeMasksBuffer},
+        {"g_PreparedCameras", mSceneView.preparedCamerasBuffer},
+    };
+    for (const VariableBinding& binding : bindings)
+    {
+        Diligent::IShaderResourceVariable* variable =
+            mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, binding.name);
+        if (variable == nullptr || binding.buffer == nullptr)
+        {
+            return false;
+        }
+        Diligent::IBufferView* srv =
+            binding.buffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        if (srv == nullptr)
+        {
+            return false;
+        }
+        variable->Set(srv);
+    }
+
+    Diligent::IShaderResourceVariable* visibleObjectsVar =
+        mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                                  "g_VisibleObjectIndices");
+    if (visibleObjectsVar != nullptr)
+    {
+        Diligent::IBuffer* visibleObjectBuffer =
+            mVisibleObjectIndexBuffer != nullptr ? mVisibleObjectIndexBuffer
+                                                 : mSceneView.renderableShadowCascadeMasksBuffer;
+        if (visibleObjectBuffer == nullptr)
+        {
+            return false;
+        }
+        Diligent::IBufferView* visibleObjectsSrv =
+            visibleObjectBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        if (visibleObjectsSrv == nullptr)
+        {
+            return false;
+        }
+        visibleObjectsVar->Set(visibleObjectsSrv);
+    }
+    return true;
+}
+
+bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,
+                                        const ForwardDrawCommand& drawCommand, bool useSceneBuffers,
+                                        std::uint32_t currentCameraIndex,
+                                        const Diligent::float4x4& lightViewProjectionMatrix,
+                                        std::uint32_t cascadeIndex)
+{
     PerObjectConstants objectConstants{};
-    objectConstants.modelMatrix  = drawCommand.modelMatrix.Transpose();
-    objectConstants.normalMatrix = drawCommand.normalMatrix.Transpose();
+    objectConstants.modelMatrix       = drawCommand.modelMatrix.Transpose();
+    objectConstants.normalMatrix      = drawCommand.normalMatrix.Transpose();
+    objectConstants.instanceIndex     = drawCommand.instanceIndex;
+    objectConstants.useSceneBuffers   = useSceneBuffers ? 1u : 0u;
+    objectConstants.drawListOffset    = drawCommand.drawListOffset;
+    objectConstants.useDrawListBuffer = drawCommand.useDrawListBuffer;
 
     ShadowPerPassConstants shadowPassConstants{};
     shadowPassConstants.lightViewProjectionMatrix = lightViewProjectionMatrix.Transpose();
+    shadowPassConstants.shadowPassParams[0]       = cascadeIndex;
+    shadowPassConstants.shadowPassParams[1]       = currentCameraIndex;
 
     void* mappedConstants = nullptr;
-    backendContext.immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE,
-                                               Diligent::MAP_FLAG_DISCARD, mappedConstants);
+    immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
+                                mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
     }
     std::memcpy(mappedConstants, &objectConstants, sizeof(objectConstants));
-    backendContext.immediateContext->UnmapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE);
+    immediateContext->UnmapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE);
 
     mappedConstants = nullptr;
-    backendContext.immediateContext->MapBuffer(mShadowPerPassBuffer, Diligent::MAP_WRITE,
-                                               Diligent::MAP_FLAG_DISCARD, mappedConstants);
+    immediateContext->MapBuffer(mShadowPerPassBuffer, Diligent::MAP_WRITE,
+                                Diligent::MAP_FLAG_DISCARD, mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
     }
     std::memcpy(mappedConstants, &shadowPassConstants, sizeof(shadowPassConstants));
-    backendContext.immediateContext->UnmapBuffer(mShadowPerPassBuffer, Diligent::MAP_WRITE);
+    immediateContext->UnmapBuffer(mShadowPerPassBuffer, Diligent::MAP_WRITE);
+    return true;
+}
 
+void ShadowPass::bindGeometry(Diligent::IDeviceContext* immediateContext,
+                              const MeshGpuCache::CachedBuffers& meshBuffers) const
+{
     const Diligent::Uint64 vertexOffset = 0;
-    Diligent::IBuffer* vertexBuffers[]  = {meshBuffers->vertexBuffer};
-    backendContext.immediateContext->SetVertexBuffers(
-        0, 1, vertexBuffers, &vertexOffset, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-        Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
-    backendContext.immediateContext->SetIndexBuffer(
-        meshBuffers->indexBuffer, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    Diligent::IBuffer* vertexBuffers[]  = {meshBuffers.vertexBuffer};
+    immediateContext->SetVertexBuffers(0, 1, vertexBuffers, &vertexOffset,
+                                       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                                       Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
+    immediateContext->SetIndexBuffer(meshBuffers.indexBuffer, 0,
+                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+}
 
-    backendContext.immediateContext->SetPipelineState(mPipelineState);
-    backendContext.immediateContext->CommitShaderResources(
+bool ShadowPass::draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
+                      std::uint32_t currentCameraIndex,
+                      const Diligent::float4x4& lightViewProjectionMatrix,
+                      std::uint32_t cascadeIndex)
+{
+    DrawSetup setup{};
+    if (!prepareDraw(target, drawCommand, setup))
+    {
+        return false;
+    }
+    if (setup.useSceneBuffers && !bindSceneBuffers())
+    {
+        return false;
+    }
+    if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand,
+                                setup.useSceneBuffers, currentCameraIndex,
+                                lightViewProjectionMatrix, cascadeIndex))
+    {
+        return false;
+    }
+    bindGeometry(setup.backendContext.immediateContext, *setup.meshBuffers);
+
+    setup.backendContext.immediateContext->SetPipelineState(mPipelineState);
+    setup.backendContext.immediateContext->CommitShaderResources(
         mShaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     Diligent::DrawIndexedAttribs drawAttrs{};
     drawAttrs.IndexType  = Diligent::VT_UINT32;
-    drawAttrs.NumIndices = meshBuffers->indexCount;
+    drawAttrs.NumIndices = setup.meshBuffers->indexCount;
     drawAttrs.Flags      = Diligent::DRAW_FLAG_VERIFY_ALL;
-    backendContext.immediateContext->DrawIndexed(drawAttrs);
+    setup.backendContext.immediateContext->DrawIndexed(drawAttrs);
+    return true;
+}
+
+bool ShadowPass::drawIndirect(gpu::GpuRenderTargetHandle target,
+                              const ForwardDrawCommand& drawCommand,
+                              std::uint32_t currentCameraIndex,
+                              const Diligent::float4x4& lightViewProjectionMatrix,
+                              std::uint32_t cascadeIndex, Diligent::IBuffer* indirectArgsBuffer,
+                              Diligent::Uint64 argsOffsetBytes)
+{
+    DrawSetup setup{};
+    if (!prepareDraw(target, drawCommand, setup) || indirectArgsBuffer == nullptr)
+    {
+        return false;
+    }
+    if (setup.useSceneBuffers && !bindSceneBuffers())
+    {
+        return false;
+    }
+    if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand,
+                                setup.useSceneBuffers, currentCameraIndex,
+                                lightViewProjectionMatrix, cascadeIndex))
+    {
+        return false;
+    }
+    bindGeometry(setup.backendContext.immediateContext, *setup.meshBuffers);
+    setup.backendContext.immediateContext->SetPipelineState(mPipelineState);
+    setup.backendContext.immediateContext->CommitShaderResources(
+        mShaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    Diligent::DrawIndexedIndirectAttribs drawAttrs{};
+    drawAttrs.IndexType      = Diligent::VT_UINT32;
+    drawAttrs.pAttribsBuffer = indirectArgsBuffer;
+    drawAttrs.DrawArgsOffset = argsOffsetBytes;
+    drawAttrs.Flags          = Diligent::DRAW_FLAG_VERIFY_ALL;
+    drawAttrs.AttribsBufferStateTransitionMode =
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    setup.backendContext.immediateContext->DrawIndexedIndirect(drawAttrs);
     return true;
 }
 
@@ -177,6 +336,27 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable    = Diligent::True;
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType =
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+    constexpr Diligent::ShaderResourceVariableDesc kVars[] = {
+        {Diligent::SHADER_TYPE_VERTEX, "g_EntityPositions",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_EntityOrientations",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_EntityScales",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_RenderableMetadata",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_RenderableVisibilityFlags",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_RenderableShadowCascadeMasks",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_VisibleObjectIndices",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    };
+    psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
+    psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
+        static_cast<Diligent::Uint32>(std::size(kVars));
 
     constexpr Diligent::LayoutElement kLayoutElements[] = {
         Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, Diligent::False},

@@ -4,6 +4,7 @@
 #include "common/id.h"
 #include "engine/components.h"
 #include "engine/export.h"
+#include "graphics/host_scene.h"
 #include "physics/physics_world.h"
 
 #include <cstdint>
@@ -20,8 +21,12 @@ class CRESSIM_NEO_ENGINE_API World
 public:
     using ColliderHandle = engine::ColliderHandle;
 
-    common::EntityId createEntity();
+    common::EntityId createEntity(std::uint32_t envIndex = 0u);
     bool destroyEntity(common::EntityId entityId);
+    void setSceneLayout(const gpu::GpuSceneLayoutDesc& layout);
+    const gpu::GpuSceneLayoutDesc& sceneLayout() const noexcept;
+    bool setEntityEnvironment(common::EntityId entityId, std::uint32_t envIndex);
+    std::uint32_t entityEnvironment(common::EntityId entityId) const noexcept;
 
     bool isAlive(common::EntityId entityId) const;
     const std::vector<common::EntityId>& entities() const noexcept;
@@ -29,8 +34,7 @@ public:
     void setTransform(common::EntityId entityId, const TransformComponent& component);
     void setMeshRenderer(common::EntityId entityId, const MeshRendererComponent& component);
     void setCamera(common::EntityId entityId, const CameraComponent& component);
-    void setDirectionalLight(common::EntityId entityId,
-                             const DirectionalLightComponent& component);
+    void setDirectionalLight(common::EntityId entityId, const DirectionalLightComponent& component);
 
     // Physics is owned by PhysicsWorld now.
     void setRigidBody(common::EntityId entityId, const RigidBodyComponent& component);
@@ -48,7 +52,8 @@ public:
     std::optional<TransformComponent> tryGetTransform(common::EntityId entityId) const;
     std::optional<MeshRendererComponent> tryGetMeshRenderer(common::EntityId entityId) const;
     std::optional<CameraComponent> tryGetCamera(common::EntityId entityId) const;
-    std::optional<DirectionalLightComponent> tryGetDirectionalLight(common::EntityId entityId) const;
+    std::optional<DirectionalLightComponent> tryGetDirectionalLight(
+        common::EntityId entityId) const;
 
     // Read rigid body/collider through physics.
     std::optional<RigidBodyComponent> tryGetRigidBody(common::EntityId entityId) const;
@@ -59,10 +64,27 @@ public:
     const physics::PhysicsWorld& physicsWorld() const noexcept;
 
     void refreshFromPhysics();
+    void setGpuEntityScene(
+        const gpu::GpuEntitySceneView& sceneView,
+        const std::unordered_map<common::EntityId, std::uint32_t>& poseIndices) noexcept;
+
+    const std::vector<graphics::RenderableInstance>& renderables() const noexcept;
+    const std::vector<graphics::CameraData>& cameras() const noexcept;
+    const std::vector<graphics::DirectionalLightData>& directionalLights() const noexcept;
+    const std::vector<Diligent::float4>& renderObjectPositions() const noexcept;
+    const std::vector<Diligent::float4>& renderObjectOrientations() const noexcept;
+    const std::vector<Diligent::float4>& renderObjectScales() const noexcept;
+    const std::vector<gpu::GpuRenderableMetadata>& renderableMetadata() const noexcept;
+    const std::vector<gpu::GpuCameraInput>& cameraInputs() const noexcept;
+    const std::vector<gpu::GpuDirectionalLightInput>& lightInputs() const noexcept;
+    const std::unordered_map<common::EntityId, std::uint32_t>& renderObjectPoseIndices();
+    const std::vector<gpu::GpuEntityPoseMappingEntry>& physicsRenderableMappings();
+    const gpu::GpuEntitySceneView& gpuEntityScene() const noexcept;
+    const std::unordered_map<common::EntityId, std::uint32_t>& gpuEntityPoseIndices() const noexcept;
+    graphics::HostSceneView hostSceneView() const noexcept;
+    void refreshRenderableMetadata(const graphics::RenderResourceManager& resources);
 
     std::uint64_t renderRevision() const noexcept;
-    const std::vector<common::EntityId>& renderDirtyEntities() const noexcept;
-    void clearRenderDirtyEntities() noexcept;
 
     // ---------- GPU-friendly SoA views ----------
     struct TransformSoA
@@ -73,49 +95,9 @@ public:
         std::vector<Diligent::float4> scales;
     };
 
-    struct CameraSoA
-    {
-        std::vector<common::EntityId> entityIds;
-        std::vector<Diligent::float4> projection0; // x=fovYRadians, y=aspect, z=near, w=far
-        std::vector<Diligent::float4> projection1; // reserved for jitter / flags / future
-        std::vector<std::uint32_t> outputTargetIds;
-        std::vector<std::uint32_t> outputWidths;
-        std::vector<std::uint32_t> outputHeights;
-        std::vector<Diligent::float4> viewports; // x, y, width, height
-        std::vector<std::uint32_t> renderOrders;
-    };
-
-    struct DirectionalLightSoA
-    {
-        std::vector<common::EntityId> entityIds;
-        std::vector<Diligent::float4> directionsIntensities; // xyz=dir, w=intensity
-        std::vector<Diligent::float4> colors;                // xyz=color, w=unused
-        std::vector<Diligent::float4> shadowParams; // x=distance, y=fadeDistance
-    };
-
-    struct MeshRendererSoA
-    {
-        std::vector<common::EntityId> entityIds;
-        std::vector<std::uint32_t> meshIds;
-        std::vector<std::uint32_t> materialIds;
-        std::vector<std::uint32_t> visibleFlags;
-    };
-
     const TransformSoA& transformSoA() const noexcept
     {
         return mTransforms;
-    }
-    const CameraSoA& cameraSoA() const noexcept
-    {
-        return mCameras;
-    }
-    const DirectionalLightSoA& directionalLightSoA() const noexcept
-    {
-        return mDirectionalLights;
-    }
-    const MeshRendererSoA& meshRendererSoA() const noexcept
-    {
-        return mMeshRenderers;
     }
 
 private:
@@ -134,7 +116,15 @@ private:
     };
 
     void ensureEntity(common::EntityId entityId);
+    void ensureHostSceneStorage();
     void markRenderDirty(common::EntityId entityId);
+    void syncRenderableEntry(common::EntityId entityId);
+    void syncCameraEntry(common::EntityId entityId);
+    void syncDirectionalLightEntry(common::EntityId entityId);
+    void markRenderableMetadataDirty(std::uint32_t objectIndex);
+    void moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
+    void moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
+    void moveDirectionalLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
 
     static Diligent::float4 packPosition(const TransformComponent& c)
     {
@@ -166,64 +156,6 @@ private:
         return component;
     }
 
-    static Diligent::float4 packCameraProjection0(const CameraComponent& c)
-    {
-        return Diligent::float4{c.verticalFovDegrees, c.aspectRatio, c.nearClip, c.farClip};
-    }
-
-    static Diligent::float4 packCameraProjection1(const CameraComponent&)
-    {
-        return Diligent::float4{0, 0, 0, 0};
-    }
-
-    static CameraComponent unpackCamera(const Diligent::float4& projection0,
-                                        std::uint32_t outputTargetId, std::uint32_t outputWidth,
-                                        std::uint32_t outputHeight,
-                                        const Diligent::float4& viewport,
-                                        std::uint32_t renderOrder)
-    {
-        CameraComponent component{};
-        component.verticalFovDegrees = projection0.x;
-        component.aspectRatio        = projection0.y;
-        component.nearClip           = projection0.z;
-        component.farClip            = projection0.w;
-        component.outputTarget.id    = outputTargetId;
-        component.outputWidth        = outputWidth;
-        component.outputHeight       = outputHeight;
-        component.viewport =
-            gpu::GpuRenderViewport{viewport.x, viewport.y, viewport.z, viewport.w};
-        component.renderOrder = renderOrder;
-        return component;
-    }
-
-    static Diligent::float4 packLightDirectionIntensity(const DirectionalLightComponent& c)
-    {
-        return Diligent::float4{c.direction.x, c.direction.y, c.direction.z, c.intensity};
-    }
-
-    static Diligent::float4 packLightColor(const DirectionalLightComponent& c)
-    {
-        return Diligent::float4{c.color.x, c.color.y, c.color.z, 0.0f};
-    }
-
-    static Diligent::float4 packLightShadowParams(const DirectionalLightComponent& c)
-    {
-        return Diligent::float4{c.shadowDistance, c.shadowFadeDistance, 0.0f, 0.0f};
-    }
-
-    static DirectionalLightComponent unpackDirectionalLight(const Diligent::float4& direction,
-                                                            const Diligent::float4& color,
-                                                            const Diligent::float4& shadowParams)
-    {
-        DirectionalLightComponent component{};
-        component.direction = Diligent::float3{direction.x, direction.y, direction.z};
-        component.intensity = direction.w;
-        component.color     = Diligent::float3{color.x, color.y, color.z};
-        component.shadowDistance     = shadowParams.x;
-        component.shadowFadeDistance = shadowParams.y;
-        return component;
-    }
-
     template <typename SoAType, typename WriterFn>
     static void upsertSoA(common::EntityId entityId, SoAType& soa, SparseIndex<SoAType>& index,
                           WriterFn&& writer)
@@ -241,9 +173,6 @@ private:
         writer(it->second, false);
     }
 
-    template <typename SoAType>
-    static bool removeFromSoA(common::EntityId entityId, SoAType& soa, SparseIndex<SoAType>& index);
-
     common::EntityId mNextEntityId = 1;
     std::uint32_t mNextColliderId  = 1;
 
@@ -251,24 +180,46 @@ private:
     std::unordered_set<common::EntityId> mAlive;
 
     TransformSoA mTransforms{};
-    CameraSoA mCameras{};
-    DirectionalLightSoA mDirectionalLights{};
-    MeshRendererSoA mMeshRenderers{};
 
     SparseIndex<TransformSoA> mTransformIndex{};
-    SparseIndex<CameraSoA> mCameraIndex{};
-    SparseIndex<DirectionalLightSoA> mDirectionalLightIndex{};
-    SparseIndex<MeshRendererSoA> mMeshRendererIndex{};
 
     std::unordered_map<common::EntityId, PhysicsLink> mPhysicsLinks{};
     std::unordered_map<std::uint32_t, common::EntityId> mColliderOwnerEntity{};
 
     physics::PhysicsWorld mPhysicsWorld{};
+    gpu::GpuSceneLayoutDesc mSceneLayout{};
+    std::unordered_map<common::EntityId, std::uint32_t> mEntityEnvironments{};
+
+    std::vector<graphics::RenderableInstance> mRenderables{};
+    std::vector<graphics::CameraData> mRenderCameras{};
+    std::vector<graphics::DirectionalLightData> mRenderDirectionalLights{};
+    std::vector<Diligent::float4> mRenderObjectPositions{};
+    std::vector<Diligent::float4> mRenderObjectOrientations{};
+    std::vector<Diligent::float4> mRenderObjectScales{};
+    std::vector<gpu::GpuRenderableMetadata> mRenderableMetadataHost{};
+    std::vector<gpu::GpuCameraInput> mCameraInputsHost{};
+    std::vector<gpu::GpuDirectionalLightInput> mLightInputsHost{};
+    gpu::GpuEntitySceneView mGpuEntityScene{};
+    std::unordered_map<common::EntityId, std::uint32_t> mGpuEntityPoseIndices{};
+    std::unordered_map<common::EntityId, std::uint32_t> mRenderObjectPoseIndicesCache{};
+    std::vector<gpu::GpuEntityPoseMappingEntry> mPhysicsRenderableMappingsCache{};
+
+    std::unordered_map<common::EntityId, std::size_t> mRenderableIndices{};
+    std::unordered_map<common::EntityId, std::size_t> mRenderCameraIndices{};
+    std::unordered_map<common::EntityId, std::size_t> mRenderDirectionalLightIndices{};
+    std::unordered_map<std::uint32_t, std::uint32_t> mNextRenderableSlotByEnv{};
+    std::unordered_map<std::uint32_t, std::uint32_t> mNextCameraSlotByEnv{};
+    std::unordered_map<std::uint32_t, std::uint32_t> mNextDirectionalLightSlotByEnv{};
+    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeRenderableSlotsByEnv{};
+    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeCameraSlotsByEnv{};
+    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeDirectionalLightSlotsByEnv{};
+    std::vector<std::uint32_t> mDirtyRenderableMetadataIndices{};
+    std::unordered_set<std::uint32_t> mDirtyRenderableMetadataSet{};
 
     std::uint64_t mRenderRevision = 0;
-    std::vector<common::EntityId> mRenderDirtyEntities;
-    std::unordered_set<common::EntityId> mRenderDirtySet;
-
+    std::uint64_t mCachedRenderObjectPoseIndicesRevision = ~0ull;
+    std::uint64_t mCachedPhysicsRenderableMappingsRevision = ~0ull;
+    std::uint32_t mCachedPoseMappingRigidBodyCount = 0u;
 };
 
 } // namespace cressim::neo::engine

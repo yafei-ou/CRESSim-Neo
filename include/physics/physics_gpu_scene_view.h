@@ -3,7 +3,7 @@
 
 #include "physics/export.h"
 
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
+#include "gpu/gpu_scene.h"
 
 #include <cstdint>
 
@@ -12,11 +12,8 @@ namespace cressim::neo::physics
 
 struct PhysicsGpuRigidSceneView
 {
-    Diligent::IBuffer* positionsBuffer    = nullptr;
-    Diligent::IBuffer* orientationsBuffer = nullptr;
-    Diligent::IBuffer* scalesBuffer       = nullptr;
-    std::uint32_t rigidBodyCount          = 0;
-    std::uint32_t colliderCount           = 0;
+    gpu::GpuPoseBufferView poses{};
+    std::uint32_t colliderCount = 0;
 };
 
 struct CRESSIM_NEO_PHYSICS_API PhysicsGpuSceneView

@@ -72,7 +72,7 @@ CameraFrustumInfo buildCameraFrustumInfo(const CameraData& camera, float outputW
     CameraFrustumInfo info{};
     info.position = camera.worldTransform.position;
     info.aspect   = common::runtime_math::clampPositive(outputWidth, 1.0f) /
-                  common::runtime_math::clampPositive(outputHeight, 1.0f);
+                    common::runtime_math::clampPositive(outputHeight, 1.0f);
     info.fovRadians =
         std::max(camera.verticalFovDegrees, 1.0f) * common::runtime_math::degreesToRadians(1.0f);
     info.nearPlane = std::max(camera.nearClip, 0.001f);
@@ -278,19 +278,22 @@ ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightDat
     // TODO: add other types of lights (spot, point)
 
     ForwardDirectionalLightData out{};
-    if (lights.empty())
+    for (const DirectionalLightData& light : lights)
     {
-        out.direction = Diligent::float3{0.0f, 0.0f, 0.0f};
-        out.intensity = 0.0f;
+        if (light.entityId == common::kInvalidEntityId || light.lightSlot == 0xffffffffu)
+        {
+            continue;
+        }
+        out.direction = light.direction;
+        out.color = light.color;
+        out.intensity = light.intensity;
+        out.shadowDistance = light.shadowDistance;
+        out.shadowFadeDistance = light.shadowFadeDistance;
         return out;
     }
 
-    const DirectionalLightData& light = lights.front();
-    out.direction                     = light.direction;
-    out.color                         = light.color;
-    out.intensity                     = light.intensity;
-    out.shadowDistance                = light.shadowDistance;
-    out.shadowFadeDistance            = light.shadowFadeDistance;
+    out.direction = Diligent::float3{0.0f, 0.0f, 0.0f};
+    out.intensity = 0.0f;
     return out;
 }
 
@@ -303,6 +306,12 @@ FrameViewData buildFrameViewData(const CameraData& camera,
     FrameViewData frameView{};
     frameView.target       = target;
     frameView.viewport     = viewport;
+    frameView.clearColor   = camera.clearColor;
+    frameView.clearDepth   = camera.clearDepth;
+    frameView.clearColorValue = camera.clearColorValue;
+    frameView.clearDepthValue = camera.clearDepthValue;
+    frameView.envIndex     = camera.envIndex;
+    frameView.cameraSlot   = camera.cameraSlot;
     frameView.outputWidth  = targetDesc.width;
     frameView.outputHeight = targetDesc.height;
     frameView.light        = lightData;
@@ -321,16 +330,35 @@ FrameViewData buildFrameViewData(const CameraData& camera,
 CameraData defaultCamera()
 {
     CameraData camera{};
+    camera.envIndex           = 0u;
+    camera.cameraSlot         = 0u;
     camera.verticalFovDegrees = 60.0f;
+    camera.aspectRatio        = 1.0f;
     camera.nearClip           = 0.01f;
     camera.farClip            = 1000.0f;
     camera.viewport           = {};
+    camera.clearColor         = true;
+    camera.clearDepth         = true;
+    camera.clearColorValue    = Diligent::float4{0.02f, 0.02f, 0.03f, 1.0f};
+    camera.clearDepthValue    = 1.0f;
     return camera;
 }
 
-std::vector<CameraData> sortedCameras(const RenderWorld& world)
+std::vector<CameraData> sortedCameras(const HostSceneView& sceneView)
 {
-    std::vector<CameraData> cameras = world.cameras();
+    std::vector<CameraData> cameras;
+    if (sceneView.cameras != nullptr)
+    {
+        cameras.reserve(sceneView.cameras->size());
+        for (const CameraData& camera : *sceneView.cameras)
+        {
+            if (camera.entityId == common::kInvalidEntityId || camera.cameraSlot == 0xffffffffu)
+            {
+                continue;
+            }
+            cameras.push_back(camera);
+        }
+    }
     std::sort(cameras.begin(), cameras.end(),
               [](const CameraData& lhs, const CameraData& rhs)
               {

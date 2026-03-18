@@ -1,14 +1,14 @@
-#include "physics/physics_compute_pass.h"
+#include "gpu/gpu_compute_pass.h"
 
 #include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
 
-namespace cressim::neo::physics
+namespace cressim::neo::gpu
 {
 
-bool ComputePass::initialize(Diligent::IRenderDevice* renderDevice,
-                             Diligent::IShaderSourceInputStreamFactory* streamFactory,
-                             Diligent::Uint64 immediateContextMask,
-                             const ComputePassDefinition& definition)
+bool GpuComputePass::initialize(Diligent::IRenderDevice* renderDevice,
+                                Diligent::IShaderSourceInputStreamFactory* streamFactory,
+                                Diligent::Uint64 immediateContextMask,
+                                const GpuComputePassDefinition& definition)
 {
     mPso = nullptr;
     mSrbs.clear();
@@ -54,7 +54,7 @@ bool ComputePass::initialize(Diligent::IRenderDevice* renderDevice,
     return createVariant();
 }
 
-bool ComputePass::createVariant()
+bool GpuComputePass::createVariant()
 {
     if (mPso == nullptr)
     {
@@ -72,7 +72,7 @@ bool ComputePass::createVariant()
     return true;
 }
 
-bool ComputePass::createVariants(std::size_t totalVariantCount)
+bool GpuComputePass::createVariants(std::size_t totalVariantCount)
 {
     if (totalVariantCount == 0u)
     {
@@ -89,7 +89,7 @@ bool ComputePass::createVariants(std::size_t totalVariantCount)
     return true;
 }
 
-Diligent::IShaderResourceBinding* ComputePass::variantSrb(std::size_t index) const
+Diligent::IShaderResourceBinding* GpuComputePass::variantSrb(std::size_t index) const
 {
     if (index >= mSrbs.size())
     {
@@ -98,13 +98,13 @@ Diligent::IShaderResourceBinding* ComputePass::variantSrb(std::size_t index) con
     return mSrbs[index];
 }
 
-bool ComputePass::bindBufferVariable(Diligent::IShaderResourceBinding* srb,
-                                     const char* variableName, Diligent::IBuffer* buffer,
-                                     Diligent::BUFFER_VIEW_TYPE viewType)
+bool GpuComputePass::bindBufferVariable(Diligent::IShaderResourceBinding* srb,
+                                        const char* variableName, Diligent::IBuffer* buffer,
+                                        Diligent::BUFFER_VIEW_TYPE viewType)
 {
     if (srb == nullptr || buffer == nullptr)
     {
-        LOG_ERROR_MESSAGE("ComputePass: invalid buffer binding for '", variableName, "'.");
+        LOG_ERROR_MESSAGE("GpuComputePass: invalid buffer binding for '", variableName, "'.");
         return false;
     }
 
@@ -112,7 +112,7 @@ bool ComputePass::bindBufferVariable(Diligent::IShaderResourceBinding* srb,
         srb->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, variableName);
     if (variable == nullptr)
     {
-        LOG_ERROR_MESSAGE("ComputePass: shader variable not found: '", variableName, "'.");
+        LOG_ERROR_MESSAGE("GpuComputePass: shader variable not found: '", variableName, "'.");
         return false;
     }
 
@@ -128,4 +128,4 @@ bool ComputePass::bindBufferVariable(Diligent::IShaderResourceBinding* srb,
     return true;
 }
 
-} // namespace cressim::neo::physics
+} // namespace cressim::neo::gpu

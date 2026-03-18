@@ -77,7 +77,7 @@ int main()
 
     tick(runtime, frame);
     const auto stats0 = runtime.lastRenderStats();
-    if (stats0.worldSyncSkippedFrames != 0 || stats0.renderableCount != 1)
+    if (stats0.renderableCount != 1)
     {
         std::cerr << "Unexpected stats after initial frame.\n";
         runtime.shutdown();
@@ -86,9 +86,9 @@ int main()
 
     tick(runtime, frame);
     const auto stats1 = runtime.lastRenderStats();
-    if (stats1.worldSyncSkippedFrames != 1 || stats1.renderableCount != 1)
+    if (stats1.renderableCount != 1)
     {
-        std::cerr << "Expected sync skip on unchanged frame.\n";
+        std::cerr << "Expected stable render count on unchanged frame.\n";
         runtime.shutdown();
         return 1;
     }
@@ -98,7 +98,7 @@ int main()
     world.setTransform(renderableEntity, movedTransform);
     tick(runtime, frame);
     const auto stats2 = runtime.lastRenderStats();
-    if (stats2.worldSyncSkippedFrames != 0 || stats2.renderableCount != 1)
+    if (stats2.renderableCount != 1)
     {
         std::cerr << "Expected sync execution after transform update.\n";
         runtime.shutdown();
@@ -113,18 +113,18 @@ int main()
     }
     tick(runtime, frame);
     const auto stats3 = runtime.lastRenderStats();
-    if (stats3.worldSyncSkippedFrames != 0 || stats3.renderableCount != 0)
+    if (stats3.renderableCount != 0)
     {
-        std::cerr << "Expected renderable removal to be reflected in render world.\n";
+        std::cerr << "Expected renderable removal to be reflected in world-owned host scene.\n";
         runtime.shutdown();
         return 1;
     }
 
     tick(runtime, frame);
     const auto stats4 = runtime.lastRenderStats();
-    if (stats4.worldSyncSkippedFrames != 1 || stats4.renderableCount != 0)
+    if (stats4.renderableCount != 0)
     {
-        std::cerr << "Expected sync skip after stable post-removal frame.\n";
+        std::cerr << "Expected stable post-removal render count.\n";
         runtime.shutdown();
         return 1;
     }

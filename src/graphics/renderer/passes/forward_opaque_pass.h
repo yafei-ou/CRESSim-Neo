@@ -2,6 +2,7 @@
 #define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_OPAQUE_PASS_H
 
 #include "gpu/gpu_device.h"
+#include "gpu/gpu_scene.h"
 #include "gpu/shader_library.h"
 #include "graphics/renderer/passes/forward_draw_types.h"
 #include "graphics/renderer/passes/material_program_registry.h"
@@ -31,30 +32,47 @@ public:
 
     bool initialize();
     bool beginCameraFrame(const FrameViewData& frameView);
+    void setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept;
+    void setVisibleObjectIndexBuffer(Diligent::IBuffer* buffer) noexcept;
     void setShadowMapTargets(
         const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount>& shadowMapTargets,
         std::uint32_t shadowMapCount);
     bool draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand);
+    bool drawIndirect(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
+                      Diligent::IBuffer* indirectArgsBuffer, Diligent::Uint64 argsOffsetBytes);
     std::size_t cachedProgramCount() const noexcept;
 
 private:
+    struct DrawSetup
+    {
+        gpu::GpuBackendContext backendContext{};
+        MeshGpuCache::CachedBuffers* meshBuffers           = nullptr;
+        MaterialProgramRegistry::ProgramResources* program = nullptr;
+        bool useSceneBuffers                               = false;
+    };
+
     struct ForwardPerFrameConstants
     {
         Diligent::float4x4 viewMatrix           = Diligent::float4x4::Identity();
         Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
-        std::array<Diligent::float4x4, kShadowCascadeCount> lightViewProjectionMatrices{};
         Diligent::float4 cameraPosition{0.0f, 0.0f, 0.0f, 0.0f};
         Diligent::float4 lightDirectionIntensity{0.0f, -1.0f, 0.0f, 1.0f};
         Diligent::float4 lightColor{1.0f, 1.0f, 1.0f, 0.0f};
-        Diligent::float4 cascadeSplits{1000.0f, 1000.0f, 1000.0f, 1000.0f};
-        Diligent::float4 shadowTexelSizeCascadeCount{0.0f, 0.0f, 0.0f, 0.0f};
         Diligent::float4 shadowParams{0.0015f, 0.0f, 0.0f, 0.0f};
+        std::uint32_t currentCameraIndex = 0u;
+        std::uint32_t padding0           = 0u;
+        std::uint32_t padding1           = 0u;
+        std::uint32_t padding2           = 0u;
     };
 
     struct PerObjectConstants
     {
         Diligent::float4x4 modelMatrix  = Diligent::float4x4::Identity();
         Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
+        std::uint32_t instanceIndex     = 0xffffffffu;
+        std::uint32_t useSceneBuffers   = 0u;
+        std::uint32_t drawListOffset    = 0u;
+        std::uint32_t useDrawListBuffer = 0u;
     };
 
     struct ForwardPerMaterialConstants
@@ -66,6 +84,14 @@ private:
     bool ensureConstantBuffers(Diligent::IRenderDevice* renderDevice);
     bool bindProgramConstants(MaterialProgramRegistry::ProgramResources& program);
     bool hasAnyShadowMap() const;
+    bool prepareDraw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
+                     DrawSetup& outSetup);
+    bool bindShadowMaps(MaterialProgramRegistry::ProgramResources& program);
+    bool bindSceneBuffers(MaterialProgramRegistry::ProgramResources& program) const;
+    bool updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,
+                                const ForwardDrawCommand& drawCommand, bool useSceneBuffers);
+    void bindGeometry(Diligent::IDeviceContext* immediateContext,
+                      const MeshGpuCache::CachedBuffers& meshBuffers) const;
 
 private:
     gpu::GpuDevice& mDevice;
@@ -81,6 +107,8 @@ private:
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackShadowMapSrv;
     std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
     std::uint32_t mShadowMapCount = 0;
+    gpu::GpuEntitySceneView mSceneView{};
+    Diligent::IBuffer* mVisibleObjectIndexBuffer = nullptr;
 };
 
 } // namespace detail

@@ -47,6 +47,10 @@ struct CameraComponent
     std::uint32_t outputHeight = 0;
     // Normalized viewport on the chosen output target.
     gpu::GpuRenderViewport viewport{};
+    bool clearColor = true;
+    bool clearDepth = true;
+    Diligent::float4 clearColorValue{0.02f, 0.02f, 0.03f, 1.0f};
+    float clearDepthValue = 1.0f;
 
     // Cameras are rendered in ascending order.
     std::uint32_t renderOrder = 0;
@@ -66,8 +70,8 @@ struct RigidBodyComponent
     Diligent::float3 linearVelocity{0.0f, 0.0f, 0.0f};
     Diligent::float3 angularVelocity{0.0f, 0.0f, 0.0f};
     Diligent::float3 inverseInertiaLocal{1.0f, 1.0f, 1.0f};
-    physics::RigidBodyType bodyType          = physics::RigidBodyType::Dynamic;
-    float inverseMass                        = 1.0f;
+    physics::RigidBodyType bodyType = physics::RigidBodyType::Dynamic;
+    float inverseMass               = 1.0f;
     Diligent::float3 kinematicTargetPosition{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF kinematicTargetRotation{0.0f, 0.0f, 0.0f, 1.0f};
     bool kinematicTargetEnabled = false;
@@ -83,10 +87,10 @@ struct ColliderComponent
     bool enabled = true;
 
     // Reserved for later material/filtering support.
-    float friction                = 0.5f;
-    float restitution             = 0.0f;
-    std::uint32_t collisionLayer  = 1u;
-    std::uint32_t collisionMask   = 0xffffffffu;
+    float friction               = 0.5f;
+    float restitution            = 0.0f;
+    std::uint32_t collisionLayer = 1u;
+    std::uint32_t collisionMask  = 0xffffffffu;
 };
 
 } // namespace cressim::neo::engine

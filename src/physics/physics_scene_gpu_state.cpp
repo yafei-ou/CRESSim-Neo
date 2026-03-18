@@ -165,16 +165,15 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
 
     const std::uint32_t newRigidBodyCapacity = std::max<std::uint32_t>(bodyCount, 64u);
     const std::uint32_t newColliderCapacity  = std::max<std::uint32_t>(colliderCount, 64u);
-    const std::uint32_t newNodeCapacity =
-        std::max<std::uint32_t>(newColliderCapacity > 0u ? (newColliderCapacity * 2u - 1u) : 1u,
-                                1u);
+    const std::uint32_t newNodeCapacity      = std::max<std::uint32_t>(
+        newColliderCapacity > 0u ? (newColliderCapacity * 2u - 1u) : 1u, 1u);
     const std::uint32_t newCandidatePairCapacity =
         estimateRigidCandidatePairCapacity(newColliderCapacity);
-    const std::uint32_t newChunkCapacity         = std::max<std::uint32_t>(
+    const std::uint32_t newChunkCapacity = std::max<std::uint32_t>(
         (newCandidatePairCapacity + kNarrowPhaseChunkSize - 1u) / kNarrowPhaseChunkSize, 1u);
     const std::uint32_t newContactCapacity = std::max<std::uint32_t>(
         newCandidatePairCapacity * kRigidContactsPerPair, kRigidContactsPerPair);
-    const Diligent::Uint64 contextMask                    = contextMaskForId(physicsContextId);
+    const Diligent::Uint64 contextMask = contextMaskForId(physicsContextId);
     const std::vector<std::uint32_t> reductionLevelCounts =
         buildReductionLevelCounts(newColliderCapacity);
 
@@ -184,9 +183,8 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
             Diligent::CPU_ACCESS_NONE, contextMask, mPersistentRigidBodies.positionsBuffer) ||
         !ensureStructuredBuffer(
             renderDevice, "CRESSimNeo.Physics.Orientations", sizeof(Diligent::float4),
-            newRigidBodyCapacity,
-            Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
-            contextMask, mPersistentRigidBodies.orientationsBuffer) ||
+            newRigidBodyCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentRigidBodies.orientationsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.Scales", sizeof(Diligent::float4),
                                 newRigidBodyCapacity, Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
@@ -212,8 +210,8 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
                                 mPersistentRigidBodies.bodyTypesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.KinematicTargetPositions",
                                 sizeof(Diligent::float4), newRigidBodyCapacity,
-                                Diligent::BIND_SHADER_RESOURCE,
-                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.kinematicTargetPositionsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.KinematicTargetOrientations",
                                 sizeof(Diligent::float4), newRigidBodyCapacity,
@@ -222,39 +220,34 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
                                 mPersistentRigidBodies.kinematicTargetOrientationsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.KinematicTargetFlags",
                                 sizeof(std::uint32_t), newRigidBodyCapacity,
-                                Diligent::BIND_SHADER_RESOURCE,
-                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.kinematicTargetFlagsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderOwnerBodyIndices",
                                 sizeof(std::uint32_t), newColliderCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentColliders.ownerRigidBodyIndicesBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderShapeTypes",
-                                sizeof(std::uint32_t), newColliderCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentColliders.shapeTypesBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderShapeParams",
-                                sizeof(Diligent::float4), newColliderCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentColliders.shapeParamsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderLocalPositions",
-                                sizeof(Diligent::float4), newColliderCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentColliders.localPositionsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderLocalOrientations",
-                                sizeof(Diligent::float4), newColliderCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentColliders.localOrientationsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderEnabledFlags",
-                                sizeof(std::uint32_t), newColliderCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentColliders.enabledFlagsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.ColliderShapeTypes", sizeof(std::uint32_t),
+            newColliderCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentColliders.shapeTypesBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.ColliderShapeParams", sizeof(Diligent::float4),
+            newColliderCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentColliders.shapeParamsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.ColliderLocalPositions", sizeof(Diligent::float4),
+            newColliderCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentColliders.localPositionsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.ColliderLocalOrientations", sizeof(Diligent::float4),
+            newColliderCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentColliders.localOrientationsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.ColliderEnabledFlags", sizeof(std::uint32_t),
+            newColliderCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentColliders.enabledFlagsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PreviousPositionsInvMass",
                                 sizeof(Diligent::float4), newRigidBodyCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -521,25 +514,23 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.rotationCorrectionsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PredictedPositions.Readback",
-                                sizeof(Diligent::float4), newRigidBodyCapacity,
-                                Diligent::BIND_NONE,
+                                sizeof(Diligent::float4), newRigidBodyCapacity, Diligent::BIND_NONE,
                                 Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
                                 mReadbackRigidBodies.positionsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PredictedOrientations.Readback",
-                                sizeof(Diligent::float4), newRigidBodyCapacity,
-                                Diligent::BIND_NONE,
+                                sizeof(Diligent::float4), newRigidBodyCapacity, Diligent::BIND_NONE,
                                 Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
                                 mReadbackRigidBodies.orientationsBuffer) ||
-        !ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.PredictedLinearVelocities.Readback",
-            sizeof(Diligent::float4), newRigidBodyCapacity, Diligent::BIND_NONE,
-            Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
-            mReadbackRigidBodies.linearVelocitiesBuffer) ||
-        !ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.PredictedAngularVelocities.Readback",
-            sizeof(Diligent::float4), newRigidBodyCapacity, Diligent::BIND_NONE,
-            Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
-            mReadbackRigidBodies.angularVelocitiesBuffer) ||
+        !ensureStructuredBuffer(renderDevice,
+                                "CRESSimNeo.Physics.PredictedLinearVelocities.Readback",
+                                sizeof(Diligent::float4), newRigidBodyCapacity, Diligent::BIND_NONE,
+                                Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
+                                mReadbackRigidBodies.linearVelocitiesBuffer) ||
+        !ensureStructuredBuffer(renderDevice,
+                                "CRESSimNeo.Physics.PredictedAngularVelocities.Readback",
+                                sizeof(Diligent::float4), newRigidBodyCapacity, Diligent::BIND_NONE,
+                                Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
+                                mReadbackRigidBodies.angularVelocitiesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.BroadPhaseMeta.Readback",
                                 sizeof(GpuBroadPhaseMeta), 1u, Diligent::BIND_NONE,
                                 Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
@@ -624,7 +615,7 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext* computeCon
     }
 
     const RigidBodySoAHost& rigidBodies = world.rigidBodySoA();
-    const ColliderSoAHost& colliders = world.colliderSoA();
+    const ColliderSoAHost& colliders    = world.colliderSoA();
     if (static_cast<std::uint32_t>(rigidBodies.size()) != bodyCount ||
         static_cast<std::uint32_t>(colliders.size()) != colliderCount)
     {
@@ -633,8 +624,8 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext* computeCon
 
     if (bodyCount == 0u && colliderCount == 0u)
     {
-        mRigidBodyCount = 0u;
-        mColliderCount  = 0u;
+        mRigidBodyCount        = 0u;
+        mColliderCount         = 0u;
         mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || world.staticBroadPhaseDirty();
         world.clearStaticBroadPhaseDirty();
         return true;
@@ -654,8 +645,8 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext* computeCon
         computeContext->UpdateBuffer(mPersistentRigidBodies.positionsBuffer, 0u, bodyFloat4Bytes,
                                      rigidBodies.positionsInvMass.data(),
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentRigidBodies.orientationsBuffer, 0u,
-                                     bodyFloat4Bytes, rigidBodies.orientations.data(),
+        computeContext->UpdateBuffer(mPersistentRigidBodies.orientationsBuffer, 0u, bodyFloat4Bytes,
+                                     rigidBodies.orientations.data(),
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         computeContext->UpdateBuffer(mPersistentRigidBodies.scalesBuffer, 0u, bodyFloat4Bytes,
                                      rigidBodies.scales.data(),
@@ -675,10 +666,10 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext* computeCon
         computeContext->UpdateBuffer(mPersistentRigidBodies.kinematicTargetPositionsBuffer, 0u,
                                      bodyFloat4Bytes, rigidBodies.kinematicTargetPositions.data(),
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(
-            mPersistentRigidBodies.kinematicTargetOrientationsBuffer, 0u, bodyFloat4Bytes,
-            rigidBodies.kinematicTargetOrientations.data(),
-            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        computeContext->UpdateBuffer(mPersistentRigidBodies.kinematicTargetOrientationsBuffer, 0u,
+                                     bodyFloat4Bytes,
+                                     rigidBodies.kinematicTargetOrientations.data(),
+                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         computeContext->UpdateBuffer(mPersistentRigidBodies.kinematicTargetFlagsBuffer, 0u,
                                      bodyUintBytes, rigidBodies.kinematicTargetFlags.data(),
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -701,15 +692,15 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext* computeCon
         computeContext->UpdateBuffer(mPersistentColliders.localOrientationsBuffer, 0u,
                                      colliderFloat4Bytes, colliders.localOrientations.data(),
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentColliders.enabledFlagsBuffer, 0u,
-                                     colliderUintBytes, colliders.enabledFlags.data(),
+        computeContext->UpdateBuffer(mPersistentColliders.enabledFlagsBuffer, 0u, colliderUintBytes,
+                                     colliders.enabledFlags.data(),
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
 
     world.clearRigidBodyDirtyRange();
     world.clearColliderDirtyRange();
-    mRigidBodyCount      = bodyCount;
-    mColliderCount       = colliderCount;
+    mRigidBodyCount        = bodyCount;
+    mColliderCount         = colliderCount;
     mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || world.staticBroadPhaseDirty();
     world.clearStaticBroadPhaseDirty();
     return true;
@@ -871,8 +862,8 @@ const PhysicsSceneGpuState::PersistentRigidBodyBuffers& PhysicsSceneGpuState::
     return mPersistentRigidBodies;
 }
 
-const PhysicsSceneGpuState::PersistentColliderBuffers& PhysicsSceneGpuState::
-    persistentColliders() const noexcept
+const PhysicsSceneGpuState::PersistentColliderBuffers& PhysicsSceneGpuState::persistentColliders()
+    const noexcept
 {
     return mPersistentColliders;
 }
@@ -911,11 +902,11 @@ void PhysicsSceneGpuState::setStaticBroadPhaseDirty(bool dirty) noexcept
 PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
 {
     PhysicsGpuSceneView view{};
-    view.rigid.positionsBuffer    = mPersistentRigidBodies.positionsBuffer;
-    view.rigid.orientationsBuffer = mPersistentRigidBodies.orientationsBuffer;
-    view.rigid.scalesBuffer       = mPersistentRigidBodies.scalesBuffer;
-    view.rigid.rigidBodyCount     = mRigidBodyCount;
-    view.rigid.colliderCount      = mColliderCount;
+    view.rigid.poses.positionsBuffer    = mTransientState.predictedRigidBodies.positionsBuffer;
+    view.rigid.poses.orientationsBuffer = mTransientState.predictedRigidBodies.orientationsBuffer;
+    view.rigid.poses.scalesBuffer       = mPersistentRigidBodies.scalesBuffer;
+    view.rigid.poses.count              = mRigidBodyCount;
+    view.rigid.colliderCount            = mColliderCount;
     return view;
 }
 

@@ -1,8 +1,7 @@
 #include "engine/runtime.h"
 
-#include "engine/world_to_render_world_sync.h"
-
 #include <iostream>
+#include <unordered_map>
 
 namespace cressim::neo::engine
 {
@@ -80,10 +79,25 @@ bool Runtime::initialize(const RuntimeConfig& config)
         return false;
     }
 
+    mWorld.setSceneLayout(config.sceneLayout);
+
+    mGpuSceneSync = std::make_unique<gpu::GpuSceneSync>(*mGpuDevice);
+    if (!mGpuSceneSync || !mGpuSceneSync->initialize(config.sceneLayout))
+    {
+        mGpuSceneSync.reset();
+        mPhysicsSolver->shutdown();
+        mPhysicsSolver.reset();
+        mGpuDevice->shutdown();
+        mGpuDevice.reset();
+        return false;
+    }
+
     mRenderer = std::make_unique<graphics::Renderer>(*mGpuDevice, mResources, config.rendererDesc);
     if (!mRenderer->initialize())
     {
         mRenderer.reset();
+        mGpuSceneSync->shutdown();
+        mGpuSceneSync.reset();
         mPhysicsSolver->shutdown();
         mPhysicsSolver.reset();
         mGpuDevice->shutdown();
@@ -104,6 +118,12 @@ void Runtime::shutdown()
 
     mRenderer.reset();
 
+    if (mGpuSceneSync)
+    {
+        mGpuSceneSync->shutdown();
+        mGpuSceneSync.reset();
+    }
+
     if (mPhysicsSolver)
     {
         mPhysicsSolver->shutdown();
@@ -116,9 +136,8 @@ void Runtime::shutdown()
         mGpuDevice.reset();
     }
 
-    mLastRenderStats          = {};
-    mLastSyncedRenderRevision = ~0ull;
-    mInitialized              = false;
+    mLastRenderStats = {};
+    mInitialized = false;
 }
 
 void Runtime::tick(const common::FrameContext& frameContext)
@@ -137,14 +156,52 @@ void Runtime::tick(const common::FrameContext& frameContext)
             logPhysicsStepFailure(frameContext, mPhysicsSolver->lastStageStats());
         }
     }
-    if (physicsStepSucceeded)
+    std::unordered_map<common::EntityId, std::uint32_t> poseIndices;
+    bool gpuSceneReady = false;
+    if (mGpuSceneSync)
     {
-        mWorld.refreshFromPhysics();
+        poseIndices = mWorld.renderObjectPoseIndices();
+        gpuSceneReady = mGpuSceneSync->syncEntityPoseData(mWorld.renderObjectPositions(),
+                                                          mWorld.renderObjectOrientations(),
+                                                          mWorld.renderObjectScales());
     }
-    const bool syncSkipped = syncWorldToRenderWorld();
+    if (gpuSceneReady && physicsStepSucceeded && mGpuSceneSync && mPhysicsSolver)
+    {
+        if (mGpuSceneSync->syncEntityPoses(mPhysicsSolver->gpuSceneView().rigid.poses,
+                                           mWorld.physicsRenderableMappings()))
+        {
+            gpu::GpuComputeBackendContext computeBackend{};
+            if (mGpuDevice && mGpuDevice->tryGetPhysicsBackendContext(computeBackend) &&
+                computeBackend.computeContext != nullptr)
+            {
+                computeBackend.computeContext->Flush();
+            }
+        }
+        else
+        {
+            gpuSceneReady = false;
+        }
+    }
+    if (gpuSceneReady && mGpuSceneSync)
+    {
+        mWorld.refreshRenderableMetadata(mResources);
+        if (mGpuSceneSync->syncRenderableMetadata(mWorld.renderableMetadata()) &&
+            mGpuSceneSync->syncCameraInputs(mWorld.cameraInputs()) &&
+            mGpuSceneSync->syncLightInputs(mWorld.lightInputs()))
+        {
+            mWorld.setGpuEntityScene(mGpuSceneSync->sceneView(), poseIndices);
+        }
+        else
+        {
+            mWorld.setGpuEntityScene({}, {});
+        }
+    }
+    else
+    {
+        mWorld.setGpuEntityScene({}, {});
+    }
 
-    mLastRenderStats                        = mRenderer->render(frameContext, mRenderWorld);
-    mLastRenderStats.worldSyncSkippedFrames = syncSkipped ? 1u : 0u;
+    mLastRenderStats = mRenderer->render(frameContext, mWorld.hostSceneView());
 }
 
 World& Runtime::getWorld() noexcept
@@ -190,19 +247,6 @@ graphics::RenderResourceManager& Runtime::getResources() noexcept
 const graphics::RenderResourceManager& Runtime::getResources() const noexcept
 {
     return mResources;
-}
-
-bool Runtime::syncWorldToRenderWorld()
-{
-    if (mWorld.renderRevision() == mLastSyncedRenderRevision)
-    {
-        return true;
-    }
-
-    detail::syncWorldToRenderWorld(mWorld, mRenderWorld);
-    mWorld.clearRenderDirtyEntities();
-    mLastSyncedRenderRevision = mWorld.renderRevision();
-    return false;
 }
 
 } // namespace cressim::neo::engine

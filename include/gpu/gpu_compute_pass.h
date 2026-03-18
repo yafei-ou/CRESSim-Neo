@@ -1,5 +1,5 @@
-#ifndef CRESSIM_NEO_PHYSICS_PHYSICS_COMPUTE_PASS_H
-#define CRESSIM_NEO_PHYSICS_PHYSICS_COMPUTE_PASS_H
+#ifndef CRESSIM_NEO_GPU_GPU_COMPUTE_PASS_H
+#define CRESSIM_NEO_GPU_GPU_COMPUTE_PASS_H
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
@@ -13,31 +13,32 @@
 #include <cstdint>
 #include <vector>
 
-namespace cressim::neo::physics
+namespace cressim::neo::gpu
 {
 
-struct ComputeBufferBinding
+struct GpuBufferBinding
 {
-    const char* variableName;
-    Diligent::IBuffer* buffer;
-    Diligent::BUFFER_VIEW_TYPE viewType;
+    const char* variableName            = nullptr;
+    Diligent::IBuffer* buffer           = nullptr;
+    Diligent::BUFFER_VIEW_TYPE viewType = Diligent::BUFFER_VIEW_UNDEFINED;
 };
 
-struct ComputePassDefinition
+struct GpuComputePassDefinition
 {
-    const char* shaderPath;
-    const char* shaderName;
-    const char* psoName;
-    const Diligent::ShaderResourceVariableDesc* variables;
-    std::size_t variableCount;
+    const char* shaderPath                                = nullptr;
+    const char* shaderName                                = nullptr;
+    const char* psoName                                   = nullptr;
+    const Diligent::ShaderResourceVariableDesc* variables = nullptr;
+    std::size_t variableCount                             = 0u;
 };
 
-class ComputePass
+class GpuComputePass
 {
 public:
     bool initialize(Diligent::IRenderDevice* renderDevice,
                     Diligent::IShaderSourceInputStreamFactory* streamFactory,
-                    Diligent::Uint64 immediateContextMask, const ComputePassDefinition& definition);
+                    Diligent::Uint64 immediateContextMask,
+                    const GpuComputePassDefinition& definition);
 
     bool createVariant();
     bool createVariants(std::size_t totalVariantCount);
@@ -54,11 +55,11 @@ public:
 
     template <std::size_t N>
     bool bindVariant(std::size_t variantIndex,
-                     const std::array<ComputeBufferBinding, N>& bindings) const;
+                     const std::array<GpuBufferBinding, N>& bindings) const;
 
     template <std::size_t N>
     bool dispatch(Diligent::IDeviceContext* computeContext, std::size_t variantIndex,
-                  const std::array<ComputeBufferBinding, N>& bindings, std::uint32_t groupCountX,
+                  const std::array<GpuBufferBinding, N>& bindings, std::uint32_t groupCountX,
                   std::uint32_t groupCountY = 1u, std::uint32_t groupCountZ = 1u) const;
 
 private:
@@ -67,7 +68,7 @@ private:
 
     template <std::size_t N>
     static bool bindBufferVariables(Diligent::IShaderResourceBinding* srb,
-                                    const std::array<ComputeBufferBinding, N>& bindings);
+                                    const std::array<GpuBufferBinding, N>& bindings);
 
 private:
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mPso;
@@ -75,10 +76,10 @@ private:
 };
 
 template <std::size_t N>
-bool ComputePass::bindBufferVariables(Diligent::IShaderResourceBinding* srb,
-                                      const std::array<ComputeBufferBinding, N>& bindings)
+bool GpuComputePass::bindBufferVariables(Diligent::IShaderResourceBinding* srb,
+                                         const std::array<GpuBufferBinding, N>& bindings)
 {
-    for (const ComputeBufferBinding& binding : bindings)
+    for (const GpuBufferBinding& binding : bindings)
     {
         if (!bindBufferVariable(srb, binding.variableName, binding.buffer, binding.viewType))
         {
@@ -89,17 +90,17 @@ bool ComputePass::bindBufferVariables(Diligent::IShaderResourceBinding* srb,
 }
 
 template <std::size_t N>
-bool ComputePass::bindVariant(std::size_t variantIndex,
-                              const std::array<ComputeBufferBinding, N>& bindings) const
+bool GpuComputePass::bindVariant(std::size_t variantIndex,
+                                 const std::array<GpuBufferBinding, N>& bindings) const
 {
     return bindBufferVariables(variantSrb(variantIndex), bindings);
 }
 
 template <std::size_t N>
-bool ComputePass::dispatch(Diligent::IDeviceContext* computeContext, std::size_t variantIndex,
-                           const std::array<ComputeBufferBinding, N>& bindings,
-                           std::uint32_t groupCountX, std::uint32_t groupCountY,
-                           std::uint32_t groupCountZ) const
+bool GpuComputePass::dispatch(Diligent::IDeviceContext* computeContext, std::size_t variantIndex,
+                              const std::array<GpuBufferBinding, N>& bindings,
+                              std::uint32_t groupCountX, std::uint32_t groupCountY,
+                              std::uint32_t groupCountZ) const
 {
     Diligent::IShaderResourceBinding* srb = variantSrb(variantIndex);
     if (computeContext == nullptr || mPso == nullptr || srb == nullptr)
@@ -119,6 +120,6 @@ bool ComputePass::dispatch(Diligent::IDeviceContext* computeContext, std::size_t
     return true;
 }
 
-} // namespace cressim::neo::physics
+} // namespace cressim::neo::gpu
 
-#endif // !CRESSIM_NEO_PHYSICS_PHYSICS_COMPUTE_PASS_H
+#endif // CRESSIM_NEO_GPU_GPU_COMPUTE_PASS_H

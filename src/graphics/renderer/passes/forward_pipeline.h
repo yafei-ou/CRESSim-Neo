@@ -2,6 +2,7 @@
 #define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_PIPELINE_H
 
 #include "gpu/gpu_device.h"
+#include "gpu/gpu_scene.h"
 #include "graphics/renderer/passes/render_pass_types.h"
 
 #include <array>
@@ -25,13 +26,17 @@ public:
 
     bool initialize();
     bool execute(const common::FrameContext& frameContext, const FrameViewData& frameView,
-                 const CameraRenderQueues& queues, ForwardPassExecutionStats& outStats);
+                 const gpu::GpuEntitySceneView& sceneView, const CameraRenderQueues& queues,
+                 ForwardPassExecutionStats& outStats);
 
 private:
+    struct GpuIndirectState;
+
     gpu::GpuDevice& mDevice;
     std::unique_ptr<ForwardOpaquePass> mForwardOpaquePass;
     std::unique_ptr<ForwardTransparentPass> mForwardTransparentPass;
     std::unique_ptr<ShadowPass> mShadowPass;
+    std::unique_ptr<GpuIndirectState> mGpuIndirectState;
     std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
     bool mInitialized = false;
 };

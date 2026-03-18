@@ -187,9 +187,8 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         }
 
         GpuBroadPhaseMeta broadPhaseMeta{};
-        if (colliderCount > 0u &&
-            !mImpl->sceneState.readbackBroadPhaseMetaBlocking(computeBackend.computeContext,
-                                                              broadPhaseMeta))
+        if (colliderCount > 0u && !mImpl->sceneState.readbackBroadPhaseMetaBlocking(
+                                      computeBackend.computeContext, broadPhaseMeta))
         {
             LOG_ERROR_MESSAGE("PhysicsSolver::step failed: readbackBroadPhaseMetaBlocking.");
             return false;
@@ -199,7 +198,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             colliderCount > 0u ? broadPhaseMeta.activeMovingCount : 0u;
         constants.activeMovingCount = activeMovingCount;
         constants.staticBodyCount   = colliderCount > 0u ? broadPhaseMeta.staticBodyCount : 0u;
-        bool builtBroadPhase                  = false;
+        bool builtBroadPhase        = false;
         if (activeMovingCount > 0u)
         {
             if (!mImpl->passDispatcher.buildBroadPhase(
@@ -301,7 +300,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
     if (!mDesc.enableBlockingReadback)
     {
         markStage(mImpl->stageStats, PhysicsSolverStage::CommitResults, false);
-        return false;
+        return true;
     }
 
     if (!mImpl->sceneState.readbackPredictedRigidStateBlocking(computeBackend.computeContext, world,

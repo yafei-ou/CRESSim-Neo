@@ -114,8 +114,7 @@ RigidBodyState& PhysicsWorld::upsertRigidBody(const RigidBodyState& state)
         mRigidBodies.angularVelocities.push_back(toAngularVelocity(normalizedState));
         mRigidBodies.inverseInertiaLocal.push_back(toInverseInertiaLocal(normalizedState));
         mRigidBodies.bodyTypes.push_back(static_cast<std::uint32_t>(normalizedState.bodyType));
-        mRigidBodies.kinematicTargetPositions.push_back(
-            toKinematicTargetPosition(normalizedState));
+        mRigidBodies.kinematicTargetPositions.push_back(toKinematicTargetPosition(normalizedState));
         mRigidBodies.kinematicTargetOrientations.push_back(
             toKinematicTargetOrientation(normalizedState));
         mRigidBodies.kinematicTargetFlags.push_back(normalizedState.kinematicTargetEnabled ? 1u
@@ -129,8 +128,8 @@ RigidBodyState& PhysicsWorld::upsertRigidBody(const RigidBodyState& state)
         return mRigidBodySnapshot.back();
     }
 
-    const std::uint32_t index = it->second;
-    normalizedState.rigidBodyId = mRigidBodySnapshot[index].rigidBodyId;
+    const std::uint32_t index          = it->second;
+    normalizedState.rigidBodyId        = mRigidBodySnapshot[index].rigidBodyId;
     const RigidBodyState previousState = mRigidBodySnapshot[index];
     writeRigidBodySoAAt(mRigidBodies, index, normalizedState);
     mRigidBodySnapshot[index] = normalizedState;
@@ -220,7 +219,7 @@ void PhysicsWorld::upsertCollider(const ColliderState& state)
             removeCollider(state.colliderId);
             return;
         }
-        ownerBodyIndex = bodyIt->second;
+        ownerBodyIndex   = bodyIt->second;
         ownerRigidBodyId = mRigidBodySnapshot[ownerBodyIndex].rigidBodyId;
     }
 
@@ -234,7 +233,7 @@ void PhysicsWorld::upsertCollider(const ColliderState& state)
     }
 
     const bool ownerIsStatic = isStaticBody(mRigidBodySnapshot[ownerBodyIndex]);
-    const auto colliderIt = mColliderIdToIndex.find(normalizedState.colliderId);
+    const auto colliderIt    = mColliderIdToIndex.find(normalizedState.colliderId);
     if (colliderIt == mColliderIdToIndex.end())
     {
         const std::uint32_t colliderIndex = static_cast<std::uint32_t>(mColliders.size());
@@ -256,20 +255,19 @@ void PhysicsWorld::upsertCollider(const ColliderState& state)
     mColliderSnapshot[colliderIndex] = normalizedState;
     mColliderDirtyRange.include(colliderIndex);
     rebuildBodyColliderMapping();
-    if (ownerIsStatic &&
-        (previousState.shapeType != normalizedState.shapeType ||
-         previousState.shapeParams.x != normalizedState.shapeParams.x ||
-         previousState.shapeParams.y != normalizedState.shapeParams.y ||
-         previousState.shapeParams.z != normalizedState.shapeParams.z ||
-         previousState.shapeParams.w != normalizedState.shapeParams.w ||
-         previousState.localPosition.x != normalizedState.localPosition.x ||
-         previousState.localPosition.y != normalizedState.localPosition.y ||
-         previousState.localPosition.z != normalizedState.localPosition.z ||
-         previousState.localRotation.q.x != normalizedState.localRotation.q.x ||
-         previousState.localRotation.q.y != normalizedState.localRotation.q.y ||
-         previousState.localRotation.q.z != normalizedState.localRotation.q.z ||
-         previousState.localRotation.q.w != normalizedState.localRotation.q.w ||
-         previousState.enabled != normalizedState.enabled))
+    if (ownerIsStatic && (previousState.shapeType != normalizedState.shapeType ||
+                          previousState.shapeParams.x != normalizedState.shapeParams.x ||
+                          previousState.shapeParams.y != normalizedState.shapeParams.y ||
+                          previousState.shapeParams.z != normalizedState.shapeParams.z ||
+                          previousState.shapeParams.w != normalizedState.shapeParams.w ||
+                          previousState.localPosition.x != normalizedState.localPosition.x ||
+                          previousState.localPosition.y != normalizedState.localPosition.y ||
+                          previousState.localPosition.z != normalizedState.localPosition.z ||
+                          previousState.localRotation.q.x != normalizedState.localRotation.q.x ||
+                          previousState.localRotation.q.y != normalizedState.localRotation.q.y ||
+                          previousState.localRotation.q.z != normalizedState.localRotation.q.z ||
+                          previousState.localRotation.q.w != normalizedState.localRotation.q.w ||
+                          previousState.enabled != normalizedState.enabled))
     {
         mStaticBroadPhaseDirty = true;
     }
@@ -284,7 +282,7 @@ bool PhysicsWorld::removeCollider(ColliderId colliderId)
         return false;
     }
 
-    bool removedStaticOwner = false;
+    bool removedStaticOwner            = false;
     const std::uint32_t ownerBodyIndex = mColliders.ownerRigidBodyIndices[it->second];
     if (ownerBodyIndex != 0xffffffffu && ownerBodyIndex < rigidBodyCount())
     {
@@ -490,18 +488,18 @@ std::uint64_t PhysicsWorld::revision() const noexcept
 void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost& soa, std::uint32_t index,
                                        const RigidBodyState& state)
 {
-    soa.rigidBodyIds[index]               = state.rigidBodyId;
-    soa.entityIds[index]                  = state.entityId;
-    soa.positionsInvMass[index]           = toPositionInvMass(state);
-    soa.orientations[index]               = toOrientation(state);
-    soa.scales[index]                     = toScale(state);
-    soa.linearVelocities[index]           = toLinearVelocity(state);
-    soa.angularVelocities[index]          = toAngularVelocity(state);
-    soa.inverseInertiaLocal[index]        = toInverseInertiaLocal(state);
-    soa.bodyTypes[index]                  = static_cast<std::uint32_t>(state.bodyType);
-    soa.kinematicTargetPositions[index]   = toKinematicTargetPosition(state);
+    soa.rigidBodyIds[index]                = state.rigidBodyId;
+    soa.entityIds[index]                   = state.entityId;
+    soa.positionsInvMass[index]            = toPositionInvMass(state);
+    soa.orientations[index]                = toOrientation(state);
+    soa.scales[index]                      = toScale(state);
+    soa.linearVelocities[index]            = toLinearVelocity(state);
+    soa.angularVelocities[index]           = toAngularVelocity(state);
+    soa.inverseInertiaLocal[index]         = toInverseInertiaLocal(state);
+    soa.bodyTypes[index]                   = static_cast<std::uint32_t>(state.bodyType);
+    soa.kinematicTargetPositions[index]    = toKinematicTargetPosition(state);
     soa.kinematicTargetOrientations[index] = toKinematicTargetOrientation(state);
-    soa.kinematicTargetFlags[index]       = state.kinematicTargetEnabled ? 1u : 0u;
+    soa.kinematicTargetFlags[index]        = state.kinematicTargetEnabled ? 1u : 0u;
 }
 
 void PhysicsWorld::writeColliderSoAAt(ColliderSoAHost& soa, std::uint32_t index,
@@ -524,18 +522,18 @@ void PhysicsWorld::writeColliderSoAAt(ColliderSoAHost& soa, std::uint32_t index,
         return;
     }
 
-    soa.colliderIds[index]          = state.colliderId;
-    soa.entityIds[index]            = state.entityId;
-    soa.ownerRigidBodyIds[index]    = state.ownerRigidBodyId;
+    soa.colliderIds[index]           = state.colliderId;
+    soa.entityIds[index]             = state.entityId;
+    soa.ownerRigidBodyIds[index]     = state.ownerRigidBodyId;
     soa.ownerRigidBodyIndices[index] = ownerBodyIndex;
-    soa.shapeTypes[index]           = static_cast<std::uint32_t>(state.shapeType);
-    soa.shapeParams[index]          = state.shapeParams;
-    soa.localPositions[index]       = toColliderLocalPosition(state);
-    soa.localOrientations[index]    = toColliderLocalOrientation(state);
-    soa.enabledFlags[index]         = state.enabled ? 1u : 0u;
-    soa.frictionRestitution[index]  = toColliderMaterial(state);
-    soa.collisionLayers[index]      = state.collisionLayer;
-    soa.collisionMasks[index]       = state.collisionMask;
+    soa.shapeTypes[index]            = static_cast<std::uint32_t>(state.shapeType);
+    soa.shapeParams[index]           = state.shapeParams;
+    soa.localPositions[index]        = toColliderLocalPosition(state);
+    soa.localOrientations[index]     = toColliderLocalOrientation(state);
+    soa.enabledFlags[index]          = state.enabled ? 1u : 0u;
+    soa.frictionRestitution[index]   = toColliderMaterial(state);
+    soa.collisionLayers[index]       = state.collisionLayer;
+    soa.collisionMasks[index]        = state.collisionMask;
 }
 
 bool PhysicsWorld::isStaticBody(const RigidBodyState& state) noexcept
@@ -601,7 +599,7 @@ void PhysicsWorld::removeCollidersForEntity(common::EntityId entityId) noexcept
     while (!idsIt->second.empty())
     {
         const ColliderId colliderId = idsIt->second.back();
-        const auto colliderIt = mColliderIdToIndex.find(colliderId);
+        const auto colliderIt       = mColliderIdToIndex.find(colliderId);
         if (colliderIt == mColliderIdToIndex.end())
         {
             idsIt->second.pop_back();
@@ -620,10 +618,11 @@ void PhysicsWorld::removeColliderAtIndex(std::uint32_t index) noexcept
         return;
     }
 
-    const std::uint32_t last = colliderCount() - 1u;
+    const std::uint32_t last    = colliderCount() - 1u;
     const ColliderState removed = mColliderSnapshot[index];
 
-    auto removeHandleFromEntity = [&](common::EntityId entityId, ColliderId colliderId) {
+    auto removeHandleFromEntity = [&](common::EntityId entityId, ColliderId colliderId)
+    {
         const auto handlesIt = mEntityToColliderIds.find(entityId);
         if (handlesIt == mEntityToColliderIds.end())
         {
@@ -638,21 +637,21 @@ void PhysicsWorld::removeColliderAtIndex(std::uint32_t index) noexcept
 
     if (index != last)
     {
-        const ColliderState moved = mColliderSnapshot[last];
-        mColliderSnapshot[index]        = moved;
-        mColliders.colliderIds[index]   = mColliders.colliderIds[last];
-        mColliders.entityIds[index]     = mColliders.entityIds[last];
-        mColliders.ownerRigidBodyIds[index] = mColliders.ownerRigidBodyIds[last];
+        const ColliderState moved               = mColliderSnapshot[last];
+        mColliderSnapshot[index]                = moved;
+        mColliders.colliderIds[index]           = mColliders.colliderIds[last];
+        mColliders.entityIds[index]             = mColliders.entityIds[last];
+        mColliders.ownerRigidBodyIds[index]     = mColliders.ownerRigidBodyIds[last];
         mColliders.ownerRigidBodyIndices[index] = mColliders.ownerRigidBodyIndices[last];
-        mColliders.shapeTypes[index]    = mColliders.shapeTypes[last];
-        mColliders.shapeParams[index]   = mColliders.shapeParams[last];
-        mColliders.localPositions[index] = mColliders.localPositions[last];
-        mColliders.localOrientations[index] = mColliders.localOrientations[last];
-        mColliders.enabledFlags[index]  = mColliders.enabledFlags[last];
-        mColliders.frictionRestitution[index] = mColliders.frictionRestitution[last];
-        mColliders.collisionLayers[index] = mColliders.collisionLayers[last];
-        mColliders.collisionMasks[index] = mColliders.collisionMasks[last];
-        mColliderIdToIndex[moved.colliderId] = index;
+        mColliders.shapeTypes[index]            = mColliders.shapeTypes[last];
+        mColliders.shapeParams[index]           = mColliders.shapeParams[last];
+        mColliders.localPositions[index]        = mColliders.localPositions[last];
+        mColliders.localOrientations[index]     = mColliders.localOrientations[last];
+        mColliders.enabledFlags[index]          = mColliders.enabledFlags[last];
+        mColliders.frictionRestitution[index]   = mColliders.frictionRestitution[last];
+        mColliders.collisionLayers[index]       = mColliders.collisionLayers[last];
+        mColliders.collisionMasks[index]        = mColliders.collisionMasks[last];
+        mColliderIdToIndex[moved.colliderId]    = index;
     }
 
     mColliderSnapshot.pop_back();
@@ -679,7 +678,7 @@ void PhysicsWorld::rebuildBodyColliderMapping() noexcept
     for (std::uint32_t colliderIndex = 0; colliderIndex < colliderCount(); ++colliderIndex)
     {
         const RigidBodyId ownerRigidBodyId = mColliderSnapshot[colliderIndex].ownerRigidBodyId;
-        const auto bodyIt = mRigidBodyIdToIndex.find(ownerRigidBodyId);
+        const auto bodyIt                  = mRigidBodyIdToIndex.find(ownerRigidBodyId);
         const std::uint32_t bodyIndex =
             bodyIt != mRigidBodyIdToIndex.end() ? bodyIt->second : 0xffffffffu;
         mColliders.ownerRigidBodyIndices[colliderIndex] = bodyIndex;

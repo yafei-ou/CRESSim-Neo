@@ -236,6 +236,20 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType =
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     constexpr Diligent::ShaderResourceVariableDesc kVars[] = {
+        {Diligent::SHADER_TYPE_VERTEX, "g_EntityPositions",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_EntityOrientations",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_EntityScales",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_RenderableMetadata",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_RenderableVisibilityFlags",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_VisibleObjectIndices",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_PIXEL, "g_PreparedCameras",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap0",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap1",
@@ -244,8 +258,9 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap3",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
-    psoCreateInfo.PSODesc.ResourceLayout.Variables    = kVars;
-    psoCreateInfo.PSODesc.ResourceLayout.NumVariables = 4;
+    psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
+    psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
+        static_cast<Diligent::Uint32>(std::size(kVars));
 
     // Fixed vertex layout for this milestone: position, normal, uv.
     constexpr Diligent::LayoutElement kLayoutElements[] = {

@@ -5,7 +5,7 @@
 #include "gpu/gpu_device.h"
 #include "graphics/export.h"
 #include "graphics/render_resource_manager.h"
-#include "graphics/render_world.h"
+#include "graphics/host_scene.h"
 
 #include <cstdint>
 #include <memory>
@@ -17,6 +17,8 @@ namespace detail
 {
 class ForwardPipeline;
 }
+
+struct FrameViewData;
 
 struct RendererDesc
 {
@@ -41,7 +43,6 @@ struct RenderStats
     std::uint32_t renderTargetResizeNoOps     = 0;
     std::uint32_t renderTargetRecreateCount   = 0;
     std::uint32_t renderTargetResizeConflicts = 0;
-    std::uint32_t worldSyncSkippedFrames      = 0;
 };
 
 class CRESSIM_NEO_GRAPHICS_API Renderer
@@ -52,13 +53,18 @@ public:
     ~Renderer();
 
     bool initialize();
-    RenderStats render(const common::FrameContext& frameContext, const RenderWorld& world);
+    RenderStats render(const common::FrameContext& frameContext, const HostSceneView& sceneView);
 
 private:
+    struct GpuScenePrepareState;
+    bool ensureGpuScenePrepareState();
+    bool prepareGpuScene(const FrameViewData& frameView, const gpu::GpuEntitySceneView& sceneView);
+
     gpu::GpuDevice& mDevice;
     RenderResourceManager& mResourceManager;
     RendererDesc mDesc{};
     std::unique_ptr<detail::ForwardPipeline> mForwardPipeline;
+    std::unique_ptr<GpuScenePrepareState> mGpuScenePrepare;
     bool mInitialized = false;
 };
 

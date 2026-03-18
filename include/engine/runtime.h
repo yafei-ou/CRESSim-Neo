@@ -5,12 +5,11 @@
 #include "engine/export.h"
 #include "engine/world.h"
 #include "gpu/gpu_device.h"
+#include "gpu/gpu_scene_sync.h"
 #include "graphics/render_resource_manager.h"
-#include "graphics/render_world.h"
 #include "graphics/renderer.h"
 #include "physics/physics_solver.h"
 
-#include <cstdint>
 #include <memory>
 
 namespace cressim::neo::engine
@@ -19,6 +18,7 @@ namespace cressim::neo::engine
 struct RuntimeConfig
 {
     gpu::GpuDeviceDesc gpuDeviceDesc{};
+    gpu::GpuSceneLayoutDesc sceneLayout{};
     graphics::RendererDesc rendererDesc{};
     physics::PhysicsSolverDesc physicsDesc{};
 };
@@ -44,17 +44,14 @@ public:
     const graphics::RenderResourceManager& getResources() const noexcept;
 
 private:
-    bool syncWorldToRenderWorld();
-
     bool mInitialized = false;
     std::unique_ptr<gpu::GpuDevice> mGpuDevice;
+    std::unique_ptr<gpu::GpuSceneSync> mGpuSceneSync;
     std::unique_ptr<physics::PhysicsSolver> mPhysicsSolver;
     std::unique_ptr<graphics::Renderer> mRenderer;
     graphics::RenderStats mLastRenderStats{};
-    std::uint64_t mLastSyncedRenderRevision       = ~0ull;
     World mWorld;
     graphics::RenderResourceManager mResources;
-    graphics::RenderWorld mRenderWorld;
 };
 
 } // namespace cressim::neo::engine
