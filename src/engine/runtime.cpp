@@ -1,7 +1,6 @@
 #include "engine/runtime.h"
 
 #include <iostream>
-#include <unordered_map>
 
 namespace cressim::neo::engine
 {

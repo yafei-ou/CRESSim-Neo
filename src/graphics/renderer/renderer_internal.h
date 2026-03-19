@@ -2,7 +2,6 @@
 #define CRESSIM_NEO_GRAPHICS_RENDERER_INTERNAL_H
 
 #include "graphics/host_scene.h"
-#include "graphics/render_resource_manager.h"
 #include "graphics/renderer.h"
 #include "graphics/renderer/passes/render_pass_types.h"
 

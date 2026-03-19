@@ -3,9 +3,6 @@
 #include "common/math_utils_runtime.h"
 
 #include <algorithm>
-#include <array>
-#include <cmath>
-#include <limits>
 
 namespace cressim::neo::graphics::detail
 {
