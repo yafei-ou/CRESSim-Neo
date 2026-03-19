@@ -39,9 +39,18 @@ constexpr int kLayers = 5;
 constexpr float kSpacing = 1.4f;
 constexpr float kBaseHeight = 1.5f;
 constexpr float kLayerHeight = 2.0f;
+constexpr float kEnvWorldSpacing = 72.0f;
 constexpr std::uint32_t kDynamicBodiesPerEnv =
     static_cast<std::uint32_t>(kGridWidth * kGridDepth * kLayers);
 constexpr std::uint32_t kObjectsPerEnvBudget = kDynamicBodiesPerEnv + 8u;
+
+struct EnvMaterialSet
+{
+    cressim::neo::graphics::MaterialHandle box;
+    cressim::neo::graphics::MaterialHandle sphere;
+    cressim::neo::graphics::MaterialHandle capsule;
+    cressim::neo::graphics::MaterialHandle plane;
+};
 
 GpuBackend parseBackend(const std::string& value)
 {
@@ -327,20 +336,40 @@ cressim::neo::gpu::GpuRenderViewport tiledViewport(std::uint32_t envIndex, std::
     return {static_cast<float>(col) * width, static_cast<float>(row) * height, width, height};
 }
 
+Diligent::float3 envWorldOrigin(std::uint32_t envIndex, std::uint32_t envCount)
+{
+    const std::uint32_t cols = std::max(1u, static_cast<std::uint32_t>(
+        std::ceil(std::sqrt(static_cast<float>(envCount)))));
+    const std::uint32_t rows = std::max(1u, (envCount + cols - 1u) / cols);
+    const std::uint32_t col = envIndex % cols;
+    const std::uint32_t row = envIndex / cols;
+
+    const float xCenter = (static_cast<float>(cols) - 1.0f) * 0.5f;
+    const float zCenter = (static_cast<float>(rows) - 1.0f) * 0.5f;
+    return {(static_cast<float>(col) - xCenter) * kEnvWorldSpacing,
+            0.0f,
+            (static_cast<float>(row) - zCenter) * kEnvWorldSpacing};
+}
+
 void authorEnvironment(cressim::neo::engine::World& world, std::uint32_t envIndex,
                        std::uint32_t envCount, cressim::neo::graphics::MeshHandle cubeMesh,
                        cressim::neo::graphics::MeshHandle planeMesh,
                        cressim::neo::graphics::MeshHandle sphereMesh,
                        cressim::neo::graphics::MeshHandle capsuleMesh,
-                       cressim::neo::graphics::MaterialHandle boxMaterial,
-                       cressim::neo::graphics::MaterialHandle sphereMaterial,
-                       cressim::neo::graphics::MaterialHandle capsuleMaterial,
-                       cressim::neo::graphics::MaterialHandle planeMaterial,
+                       const EnvMaterialSet& materials,
                        cressim::neo::common::EntityId& outCameraEntity)
 {
+    const Diligent::float3 envOrigin = envWorldOrigin(envIndex, envCount);
+    const float envPhase = static_cast<float>(envIndex) * 0.45f;
+    const float envVelocityBiasX = std::cos(envPhase) * 0.05f;
+    const float envVelocityBiasZ = std::sin(envPhase) * 0.05f;
+    const float envAngularBias = 0.20f + 0.05f * static_cast<float>(envIndex % 5u);
+    const float envRestitution = 0.02f * static_cast<float>(envIndex % 4u);
+    const float envFriction = 0.35f + 0.08f * static_cast<float>(envIndex % 4u);
+
     outCameraEntity = world.createEntity(envIndex);
     TransformComponent cameraTransform{};
-    cameraTransform.worldTransform.position = {0.0f, 5.0f, -26.0f};
+    cameraTransform.worldTransform.position = envOrigin + Diligent::float3{0.0f, 5.0f, -26.0f};
     world.setTransform(outCameraEntity, cameraTransform);
     CameraComponent camera{};
     camera.verticalFovDegrees = 55.0f;
@@ -352,18 +381,20 @@ void authorEnvironment(cressim::neo::engine::World& world, std::uint32_t envInde
 
     const auto lightEntity = world.createEntity(envIndex);
     DirectionalLightComponent light{};
-    light.direction = {-0.45f, -1.0f, 0.35f};
+    light.direction = Diligent::normalize(
+        Diligent::float3{-0.45f + 0.08f * std::sin(envPhase), -1.0f,
+                          0.35f + 0.08f * std::cos(envPhase)});
     light.color = {1.0f, 1.0f, 1.0f};
     light.intensity = 8.0f;
     world.setDirectionalLight(lightEntity, light);
 
     const auto groundEntity = world.createEntity(envIndex);
     TransformComponent groundTransform{};
-    groundTransform.worldTransform.position = {0.0f, -1.0f, 0.0f};
+    groundTransform.worldTransform.position = envOrigin + Diligent::float3{0.0f, -1.0f, 0.0f};
     world.setTransform(groundEntity, groundTransform);
     MeshRendererComponent ground{};
     ground.mesh = planeMesh;
-    ground.material = planeMaterial;
+    ground.material = materials.plane;
     ground.visible = true;
     world.setMeshRenderer(groundEntity, ground);
     RigidBodyComponent groundBody{};
@@ -394,13 +425,13 @@ void authorEnvironment(cressim::neo::engine::World& world, std::uint32_t envInde
         switch (shape)
         {
         case ColliderShapeType::Sphere:
-            return sphereMaterial;
+            return materials.sphere;
         case ColliderShapeType::Box:
-            return boxMaterial;
+            return materials.box;
         case ColliderShapeType::Capsule:
-            return capsuleMaterial;
+            return materials.capsule;
         }
-        return boxMaterial;
+        return materials.box;
     };
 
     const float xOrigin = -0.5f * static_cast<float>(kGridWidth - 1) * kSpacing;
@@ -412,7 +443,7 @@ void authorEnvironment(cressim::neo::engine::World& world, std::uint32_t envInde
         {
             for (int x = 0; x < kGridWidth; ++x)
             {
-                const int shapeIndex = (x + z + layer) % 3;
+                const int shapeIndex = (x + z + layer + static_cast<int>(envIndex)) % 3;
                 const ColliderShapeType shape =
                     shapeIndex == 0 ? ColliderShapeType::Box
                                     : (shapeIndex == 1 ? ColliderShapeType::Sphere
@@ -421,10 +452,11 @@ void authorEnvironment(cressim::neo::engine::World& world, std::uint32_t envInde
                 const auto entity = world.createEntity(envIndex);
                 TransformComponent transform{};
                 transform.worldTransform.position = {
-                    xOrigin + static_cast<float>(x) * kSpacing,
+                    envOrigin.x + xOrigin + static_cast<float>(x) * kSpacing,
                     kBaseHeight + static_cast<float>(layer) * kLayerHeight +
-                        ((x + z) % 2 == 0 ? 0.0f : 0.25f),
-                    zOrigin + static_cast<float>(z) * kSpacing};
+                        ((x + z + static_cast<int>(envIndex)) % 2 == 0 ? 0.0f : 0.25f) +
+                        0.05f * static_cast<float>(envIndex % 3u),
+                    envOrigin.z + zOrigin + static_cast<float>(z) * kSpacing};
                 world.setTransform(entity, transform);
 
                 MeshRendererComponent meshRenderer{};
@@ -439,14 +471,17 @@ void authorEnvironment(cressim::neo::engine::World& world, std::uint32_t envInde
                 body.inverseInertiaLocal =
                     inverseInertiaForShape(shape, colliderParamsForShape(shape), body.inverseMass);
                 body.linearVelocity = {
-                    static_cast<float>((x % 3) - 1) * 0.08f,
+                    static_cast<float>((x % 3) - 1) * 0.08f + envVelocityBiasX,
                     0.0f,
-                    static_cast<float>((z % 3) - 1) * 0.08f};
+                    static_cast<float>((z % 3) - 1) * 0.08f + envVelocityBiasZ};
+                body.angularVelocity = {0.0f, envAngularBias, 0.0f};
                 world.setRigidBody(entity, body);
 
                 cressim::neo::engine::ColliderComponent collider{};
                 collider.shapeType = shape;
                 collider.shapeParams = colliderParamsForShape(shape);
+                collider.friction = envFriction;
+                collider.restitution = envRestitution;
                 world.addCollider(entity, collider);
             }
         }
@@ -545,41 +580,68 @@ int main(int argc, char** argv)
     const auto sphereMesh = resources.registerMesh(makeSphereMesh(0.45f, 20u, 12u));
     const auto capsuleMesh = resources.registerMesh(makeCapsuleMesh(0.28f, 0.52f, 20u, 6u, 2u));
 
-    MaterialResourceDesc boxMaterialDesc{};
-    boxMaterialDesc.debugName = "ViewerIntegration.BoxMaterial";
-    boxMaterialDesc.baseColor = {0.85f, 0.28f, 0.18f};
-    boxMaterialDesc.metallic = 0.0f;
-    boxMaterialDesc.roughness = 0.55f;
-    const auto boxMaterial = resources.registerMaterial(boxMaterialDesc);
+    struct EnvPalette
+    {
+        Diligent::float3 box;
+        Diligent::float3 sphere;
+        Diligent::float3 capsule;
+        Diligent::float3 plane;
+    };
 
-    MaterialResourceDesc sphereMaterialDesc{};
-    sphereMaterialDesc.debugName = "ViewerIntegration.SphereMaterial";
-    sphereMaterialDesc.baseColor = {0.18f, 0.58f, 0.90f};
-    sphereMaterialDesc.metallic = 0.0f;
-    sphereMaterialDesc.roughness = 0.35f;
-    const auto sphereMaterial = resources.registerMaterial(sphereMaterialDesc);
+    const std::vector<EnvPalette> palettes = {
+        {{0.85f, 0.28f, 0.18f}, {0.18f, 0.58f, 0.90f}, {0.28f, 0.82f, 0.36f}, {0.72f, 0.74f, 0.77f}},
+        {{0.95f, 0.56f, 0.14f}, {0.14f, 0.76f, 0.90f}, {0.56f, 0.34f, 0.88f}, {0.80f, 0.75f, 0.63f}},
+        {{0.82f, 0.18f, 0.48f}, {0.12f, 0.66f, 0.44f}, {0.94f, 0.82f, 0.20f}, {0.64f, 0.74f, 0.84f}},
+        {{0.26f, 0.46f, 0.92f}, {0.92f, 0.24f, 0.24f}, {0.20f, 0.72f, 0.66f}, {0.66f, 0.68f, 0.78f}},
+        {{0.84f, 0.34f, 0.16f}, {0.38f, 0.52f, 0.94f}, {0.16f, 0.78f, 0.30f}, {0.76f, 0.70f, 0.60f}},
+        {{0.72f, 0.20f, 0.20f}, {0.20f, 0.76f, 0.88f}, {0.58f, 0.30f, 0.82f}, {0.70f, 0.78f, 0.70f}},
+    };
 
-    MaterialResourceDesc capsuleMaterialDesc{};
-    capsuleMaterialDesc.debugName = "ViewerIntegration.CapsuleMaterial";
-    capsuleMaterialDesc.baseColor = {0.28f, 0.82f, 0.36f};
-    capsuleMaterialDesc.metallic = 0.0f;
-    capsuleMaterialDesc.roughness = 0.45f;
-    const auto capsuleMaterial = resources.registerMaterial(capsuleMaterialDesc);
+    std::vector<EnvMaterialSet> envMaterials;
+    envMaterials.reserve(palettes.size());
+    for (std::size_t i = 0; i < palettes.size(); ++i)
+    {
+        const EnvPalette& palette = palettes[i];
 
-    MaterialResourceDesc planeMaterialDesc{};
-    planeMaterialDesc.debugName = "ViewerIntegration.GroundMaterial";
-    planeMaterialDesc.baseColor = {0.72f, 0.74f, 0.77f};
-    planeMaterialDesc.metallic = 0.0f;
-    planeMaterialDesc.roughness = 0.90f;
-    const auto planeMaterial = resources.registerMaterial(planeMaterialDesc);
+        MaterialResourceDesc boxMaterialDesc{};
+        boxMaterialDesc.debugName = "ViewerIntegration.BoxMaterial." + std::to_string(i);
+        boxMaterialDesc.baseColor = palette.box;
+        boxMaterialDesc.metallic = 0.0f;
+        boxMaterialDesc.roughness = 0.55f;
+
+        MaterialResourceDesc sphereMaterialDesc{};
+        sphereMaterialDesc.debugName = "ViewerIntegration.SphereMaterial." + std::to_string(i);
+        sphereMaterialDesc.baseColor = palette.sphere;
+        sphereMaterialDesc.metallic = 0.0f;
+        sphereMaterialDesc.roughness = 0.35f;
+
+        MaterialResourceDesc capsuleMaterialDesc{};
+        capsuleMaterialDesc.debugName = "ViewerIntegration.CapsuleMaterial." + std::to_string(i);
+        capsuleMaterialDesc.baseColor = palette.capsule;
+        capsuleMaterialDesc.metallic = 0.0f;
+        capsuleMaterialDesc.roughness = 0.45f;
+
+        MaterialResourceDesc planeMaterialDesc{};
+        planeMaterialDesc.debugName = "ViewerIntegration.GroundMaterial." + std::to_string(i);
+        planeMaterialDesc.baseColor = palette.plane;
+        planeMaterialDesc.metallic = 0.0f;
+        planeMaterialDesc.roughness = 0.90f;
+
+        envMaterials.push_back({
+            resources.registerMaterial(boxMaterialDesc),
+            resources.registerMaterial(sphereMaterialDesc),
+            resources.registerMaterial(capsuleMaterialDesc),
+            resources.registerMaterial(planeMaterialDesc),
+        });
+    }
 
     cressim::neo::common::EntityId primaryCamera = cressim::neo::common::kInvalidEntityId;
     for (std::uint32_t envIndex = 0u; envIndex < envCount; ++envIndex)
     {
         cressim::neo::common::EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;
+        const EnvMaterialSet& materials = envMaterials[envIndex % envMaterials.size()];
         authorEnvironment(world, envIndex, envCount, cubeMesh, planeMesh, sphereMesh, capsuleMesh,
-                          boxMaterial, sphereMaterial, capsuleMaterial, planeMaterial,
-                          cameraEntity);
+                          materials, cameraEntity);
         if (envIndex == 0u)
         {
             primaryCamera = cameraEntity;
