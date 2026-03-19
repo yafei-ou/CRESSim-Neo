@@ -64,8 +64,8 @@ CameraFrustumInfo buildCameraFrustumInfo(const CameraData& camera, float outputW
 {
     CameraFrustumInfo info{};
     info.position = camera.worldTransform.position;
-    info.aspect   = common::runtime_math::clampPositive(outputWidth, 1.0f) /
-                    common::runtime_math::clampPositive(outputHeight, 1.0f);
+    info.aspect =
+        common::runtime_math::effectiveViewportAspect(outputWidth, outputHeight, camera.viewport);
     info.fovRadians =
         std::max(camera.verticalFovDegrees, 1.0f) * common::runtime_math::degreesToRadians(1.0f);
     info.nearPlane = std::max(camera.nearClip, 0.001f);

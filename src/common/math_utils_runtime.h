@@ -110,6 +110,22 @@ inline gpu::GpuRenderViewport normalizeViewport(const gpu::GpuRenderViewport& vi
     return normalized;
 }
 
+inline Diligent::float2 effectiveViewportSize(float outputWidth, float outputHeight,
+                                              const gpu::GpuRenderViewport& viewport)
+{
+    const gpu::GpuRenderViewport normalized = normalizeViewport(viewport);
+    return Diligent::float2{
+        clampPositive(outputWidth, 1.0f) * clampPositive(normalized.width, 1.0f),
+        clampPositive(outputHeight, 1.0f) * clampPositive(normalized.height, 1.0f)};
+}
+
+inline float effectiveViewportAspect(float outputWidth, float outputHeight,
+                                     const gpu::GpuRenderViewport& viewport)
+{
+    const Diligent::float2 size = effectiveViewportSize(outputWidth, outputHeight, viewport);
+    return clampPositive(size.x, 1.0f) / clampPositive(size.y, 1.0f);
+}
+
 } // namespace cressim::neo::common::runtime_math
 
 #endif // CRESSIM_NEO_COMMON_MATH_UTILS_RUNTIME_H

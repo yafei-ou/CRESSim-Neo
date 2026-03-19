@@ -347,6 +347,35 @@ public:
             }
             world.setCamera(cameraBinding.cameraEntity, camera);
 
+            const std::uint32_t effectiveOutputWidth =
+                static_cast<std::uint32_t>(std::max(outputWidth, 1));
+            const std::uint32_t effectiveOutputHeight =
+                static_cast<std::uint32_t>(std::max(outputHeight, 1));
+            for (const graphics::CameraData& cameraData : world.cameras())
+            {
+                if (cameraData.entityId == common::kInvalidEntityId ||
+                    cameraData.entityId == cameraBinding.cameraEntity)
+                {
+                    continue;
+                }
+
+                const std::optional<CameraComponent> existing =
+                    world.tryGetCamera(cameraData.entityId);
+                if (!existing)
+                {
+                    continue;
+                }
+
+                CameraComponent updated = *existing;
+                updated.outputWidth     = effectiveOutputWidth;
+                updated.outputHeight    = effectiveOutputHeight;
+                if (mDesc.windowEnabled)
+                {
+                    updated.outputTarget = {};
+                }
+                world.setCamera(cameraData.entityId, updated);
+            }
+
             frame.frameIndex += 1u;
 
             if (callbacks.beforeTick)

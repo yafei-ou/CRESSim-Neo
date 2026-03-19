@@ -43,7 +43,8 @@ struct GpuCameraInput
 {
     Diligent::float4 position{};
     Diligent::float4 orientation{0.0f, 0.0f, 0.0f, 1.0f};
-    Diligent::float4 projectionParams{};
+    Diligent::float4 projectionParams{60.0f, 0.01f, 1000.0f, 0.0f};
+    Diligent::float4 viewportAndOutputSize{0.0f, 0.0f, 1.0f, 1.0f};
     std::uint32_t envIndex   = 0u;
     std::uint32_t cameraSlot = 0u;
     std::uint32_t active     = 0u;

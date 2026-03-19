@@ -1195,12 +1195,6 @@ void World::syncCameraEntry(common::EntityId entityId)
     graphics::CameraData& cameraData = mRenderCameras[cameraIndex];
     cameraData.worldTransform =
         tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
-    float aspect = 1.0f;
-    if (cameraData.outputWidth > 0u && cameraData.outputHeight > 0u)
-    {
-        aspect = static_cast<float>(cameraData.outputWidth) /
-                 static_cast<float>(cameraData.outputHeight);
-    }
 
     gpu::GpuCameraInput input{};
     input.position =
@@ -1209,8 +1203,11 @@ void World::syncCameraEntry(common::EntityId entityId)
     input.orientation = Diligent::float4{
         cameraData.worldTransform.rotation.q.x, cameraData.worldTransform.rotation.q.y,
         cameraData.worldTransform.rotation.q.z, cameraData.worldTransform.rotation.q.w};
-    input.projectionParams         = Diligent::float4{cameraData.verticalFovDegrees, aspect,
-                                                      cameraData.nearClip, cameraData.farClip};
+    input.projectionParams = Diligent::float4{cameraData.verticalFovDegrees, cameraData.nearClip,
+                                              cameraData.farClip, 0.0f};
+    input.viewportAndOutputSize = Diligent::float4{
+        cameraData.viewport.width, cameraData.viewport.height,
+        static_cast<float>(cameraData.outputWidth), static_cast<float>(cameraData.outputHeight)};
     input.envIndex                 = cameraData.envIndex;
     input.cameraSlot               = cameraData.cameraSlot;
     input.active                   = 1u;

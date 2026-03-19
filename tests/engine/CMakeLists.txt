@@ -30,6 +30,12 @@ add_test(
     COMMAND cressim_neo_runtime_physics_sync_fields
 )
 
+add_engine_test(cressim_neo_camera_viewport_aspect_policy camera_viewport_aspect_policy.cpp)
+add_test(
+    NAME cressim_neo_camera_viewport_aspect_policy
+    COMMAND cressim_neo_camera_viewport_aspect_policy
+)
+
 add_engine_test(cressim_neo_direct_physics_authoring direct_physics_authoring.cpp)
 add_test(
     NAME cressim_neo_direct_physics_authoring

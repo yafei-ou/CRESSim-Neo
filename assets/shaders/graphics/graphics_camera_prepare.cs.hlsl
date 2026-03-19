@@ -5,6 +5,7 @@ struct CameraInput
     float4 position;
     float4 orientation;
     float4 projectionParams;
+    float4 viewportAndOutputSize;
     uint envIndex;
     uint cameraSlot;
     uint active;
@@ -94,6 +95,17 @@ float4x4 buildProjectionMatrix(float verticalFovDegrees, float aspect, float nea
         0.0,    yScale, 0.0,       0.0,
         0.0,    0.0,    zScale,    1.0,
         0.0,    0.0,    zTranslate, 0.0);
+}
+
+float computeEffectiveViewportAspect(float4 viewportAndOutputSize)
+{
+    const float viewportWidth = clamp(viewportAndOutputSize.x, 0.0, 1.0);
+    const float viewportHeight = clamp(viewportAndOutputSize.y, 0.0, 1.0);
+    const float outputWidth = max(viewportAndOutputSize.z, 1.0);
+    const float outputHeight = max(viewportAndOutputSize.w, 1.0);
+    const float effectiveWidth = outputWidth * max(viewportWidth, 1.0e-5);
+    const float effectiveHeight = outputHeight * max(viewportHeight, 1.0e-5);
+    return max(effectiveWidth / max(effectiveHeight, 1.0e-5), 1.0e-5);
 }
 
 void computeCascadeSplits(float nearPlane, float farPlane, out float4 outSplits)
@@ -260,9 +272,9 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     const float3 position = camera.position.xyz;
     const float4 orientation = normalize(camera.orientation);
-    const float aspect = max(camera.projectionParams.y, 1e-5);
-    const float nearClip = max(camera.projectionParams.z, 0.001);
-    const float farClip = max(camera.projectionParams.w, nearClip + 0.001);
+    const float aspect = computeEffectiveViewportAspect(camera.viewportAndOutputSize);
+    const float nearClip = max(camera.projectionParams.y, 0.001);
+    const float farClip = max(camera.projectionParams.z, nearClip + 0.001);
     const float fovRadians = max(degreesToRadians(camera.projectionParams.x), degreesToRadians(1.0));
     const float3 cameraForward =
         safeNormalize(quaternionRotateVector(orientation, float3(0.0, 0.0, 1.0)),

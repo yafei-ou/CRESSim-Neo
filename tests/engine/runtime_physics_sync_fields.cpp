@@ -15,10 +15,20 @@ int main()
     world.setSceneLayout(layout);
 
     const common::EntityId entity = world.createEntity();
+    const common::EntityId cameraEntity = world.createEntity();
     engine::TransformComponent transform{};
     transform.worldTransform.position = {1.0f, 2.0f, 3.0f};
     transform.worldTransform.rotation = {0.0f, 0.0f, 0.0f, 1.0f};
     world.setTransform(entity, transform);
+
+    engine::TransformComponent cameraTransform{};
+    cameraTransform.worldTransform.position = {0.0f, 1.0f, -4.0f};
+    world.setTransform(cameraEntity, cameraTransform);
+    engine::CameraComponent camera{};
+    camera.outputWidth = 1600u;
+    camera.outputHeight = 900u;
+    camera.viewport = {0.5f, 0.0f, 0.5f, 1.0f};
+    world.setCamera(cameraEntity, camera);
 
     engine::RigidBodyComponent rigidBody{};
     rigidBody.simulated = true;
@@ -79,6 +89,38 @@ int main()
     if (updatedColliderState.environmentIndex != 0u)
     {
         std::cerr << "Entity environment change did not propagate to collider state.\n";
+        return 1;
+    }
+
+    const auto& cameraInputs = world.cameraInputs();
+    bool foundCamera = false;
+    for (const gpu::GpuCameraInput& input : cameraInputs)
+    {
+        if (input.active == 0u)
+        {
+            continue;
+        }
+        foundCamera = true;
+        const float expectedViewportWidth = 0.5f;
+        const float expectedViewportHeight = 1.0f;
+        const float expectedOutputWidth = 1600.0f;
+        const float expectedOutputHeight = 900.0f;
+        if (std::fabs(input.projectionParams.x - camera.verticalFovDegrees) > 1e-5f ||
+            std::fabs(input.projectionParams.y - camera.nearClip) > 1e-5f ||
+            std::fabs(input.projectionParams.z - camera.farClip) > 1e-5f ||
+            std::fabs(input.viewportAndOutputSize.x - expectedViewportWidth) > 1e-5f ||
+            std::fabs(input.viewportAndOutputSize.y - expectedViewportHeight) > 1e-5f ||
+            std::fabs(input.viewportAndOutputSize.z - expectedOutputWidth) > 1e-5f ||
+            std::fabs(input.viewportAndOutputSize.w - expectedOutputHeight) > 1e-5f)
+        {
+            std::cerr << "World->GPU camera sync did not preserve viewport-aware projection data.\n";
+            return 1;
+        }
+        break;
+    }
+    if (!foundCamera)
+    {
+        std::cerr << "Camera input missing in world GPU sync data.\n";
         return 1;
     }
 
