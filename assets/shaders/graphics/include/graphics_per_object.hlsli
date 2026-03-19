@@ -3,12 +3,10 @@
 
 cbuffer GraphicsPerObject
 {
-    float4x4 g_Model;
-    float4x4 g_NormalMatrix;
     uint g_InstanceIndex;
-    uint g_UseSceneBuffers;
     uint g_DrawListOffset;
     uint g_UseDrawListBuffer;
+    uint g_PerObjectPadding0;
 };
 
 #endif // !CRESSIM_NEO_GRAPHICS_PER_OBJECT_HLSLI

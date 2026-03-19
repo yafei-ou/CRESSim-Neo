@@ -28,36 +28,29 @@ public:
     void setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept;
     void setVisibleObjectIndexBuffer(Diligent::IBuffer* buffer) noexcept;
     bool draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
-              std::uint32_t currentCameraIndex, const Diligent::float4x4& lightViewProjectionMatrix,
-              std::uint32_t cascadeIndex);
+              std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex);
     bool drawIndirect(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
-                      std::uint32_t currentCameraIndex,
-                      const Diligent::float4x4& lightViewProjectionMatrix,
-                      std::uint32_t cascadeIndex, Diligent::IBuffer* indirectArgsBuffer,
-                      Diligent::Uint64 argsOffsetBytes);
+                      std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex,
+                      Diligent::IBuffer* indirectArgsBuffer, Diligent::Uint64 argsOffsetBytes);
 
 private:
     struct DrawSetup
     {
         gpu::GpuBackendContext backendContext{};
         MeshGpuCache::CachedBuffers* meshBuffers = nullptr;
-        bool useSceneBuffers                     = false;
     };
 
     struct PerObjectConstants
     {
-        Diligent::float4x4 modelMatrix  = Diligent::float4x4::Identity();
-        Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
         std::uint32_t instanceIndex     = 0xffffffffu;
-        std::uint32_t useSceneBuffers   = 0u;
         std::uint32_t drawListOffset    = 0u;
         std::uint32_t useDrawListBuffer = 0u;
+        std::uint32_t padding0          = 0u;
     };
 
     struct ShadowPerPassConstants
     {
-        Diligent::float4x4 lightViewProjectionMatrix = Diligent::float4x4::Identity();
-        std::uint32_t shadowPassParams[4]            = {0u, 0u, 0u, 0u};
+        std::uint32_t shadowPassParams[4] = {0u, 0u, 0u, 0u};
     };
 
     bool createPipeline(Diligent::IRenderDevice* renderDevice);
@@ -66,10 +59,8 @@ private:
                      DrawSetup& outSetup);
     bool bindSceneBuffers() const;
     bool updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,
-                                const ForwardDrawCommand& drawCommand, bool useSceneBuffers,
-                                std::uint32_t currentCameraIndex,
-                                const Diligent::float4x4& lightViewProjectionMatrix,
-                                std::uint32_t cascadeIndex);
+                                const ForwardDrawCommand& drawCommand,
+                                std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex);
     void bindGeometry(Diligent::IDeviceContext* immediateContext,
                       const MeshGpuCache::CachedBuffers& meshBuffers) const;
 

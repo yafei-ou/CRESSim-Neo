@@ -64,9 +64,7 @@ public:
     const physics::PhysicsWorld& physicsWorld() const noexcept;
 
     void refreshFromPhysics();
-    void setGpuEntityScene(
-        const gpu::GpuEntitySceneView& sceneView,
-        const std::unordered_map<common::EntityId, std::uint32_t>& poseIndices) noexcept;
+    void setGpuEntityScene(const gpu::GpuEntitySceneView& sceneView) noexcept;
 
     const std::vector<graphics::RenderableInstance>& renderables() const noexcept;
     const std::vector<graphics::CameraData>& cameras() const noexcept;
@@ -77,11 +75,8 @@ public:
     const std::vector<gpu::GpuRenderableMetadata>& renderableMetadata() const noexcept;
     const std::vector<gpu::GpuCameraInput>& cameraInputs() const noexcept;
     const std::vector<gpu::GpuDirectionalLightInput>& lightInputs() const noexcept;
-    const std::unordered_map<common::EntityId, std::uint32_t>& renderObjectPoseIndices();
     const std::vector<gpu::GpuEntityPoseMappingEntry>& physicsRenderableMappings();
     const gpu::GpuEntitySceneView& gpuEntityScene() const noexcept;
-    const std::unordered_map<common::EntityId, std::uint32_t>& gpuEntityPoseIndices()
-        const noexcept;
     graphics::HostSceneView hostSceneView() const noexcept;
     void refreshRenderableMetadata(const graphics::RenderResourceManager& resources);
 
@@ -201,8 +196,6 @@ private:
     std::vector<gpu::GpuCameraInput> mCameraInputsHost{};
     std::vector<gpu::GpuDirectionalLightInput> mLightInputsHost{};
     gpu::GpuEntitySceneView mGpuEntityScene{};
-    std::unordered_map<common::EntityId, std::uint32_t> mGpuEntityPoseIndices{};
-    std::unordered_map<common::EntityId, std::uint32_t> mRenderObjectPoseIndicesCache{};
     std::vector<gpu::GpuEntityPoseMappingEntry> mPhysicsRenderableMappingsCache{};
 
     std::unordered_map<common::EntityId, std::size_t> mRenderableIndices{};
@@ -218,7 +211,6 @@ private:
     std::unordered_set<std::uint32_t> mDirtyRenderableMetadataSet{};
 
     std::uint64_t mRenderRevision                          = 0;
-    std::uint64_t mCachedRenderObjectPoseIndicesRevision   = ~0ull;
     std::uint64_t mCachedPhysicsRenderableMappingsRevision = ~0ull;
     std::uint32_t mCachedPoseMappingRigidBodyCount         = 0u;
 };

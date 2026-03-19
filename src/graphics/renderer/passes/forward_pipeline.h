@@ -15,7 +15,6 @@ namespace detail
 {
 
 class ForwardOpaquePass;
-class ForwardTransparentPass;
 class ShadowPass;
 
 class ForwardPipeline
@@ -34,7 +33,6 @@ private:
 
     gpu::GpuDevice& mDevice;
     std::unique_ptr<ForwardOpaquePass> mForwardOpaquePass;
-    std::unique_ptr<ForwardTransparentPass> mForwardTransparentPass;
     std::unique_ptr<ShadowPass> mShadowPass;
     std::unique_ptr<GpuIndirectState> mGpuIndirectState;
     std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};

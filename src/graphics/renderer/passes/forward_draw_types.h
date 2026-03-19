@@ -53,9 +53,6 @@ struct ForwardDrawCommand
     const std::uint32_t* indexData = nullptr;
     std::uint32_t indexCount       = 0;
 
-    Diligent::float4x4 modelMatrix  = Diligent::float4x4::Identity();
-    Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
-
     ForwardMaterialData material{};
 };
 

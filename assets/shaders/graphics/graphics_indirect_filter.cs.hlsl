@@ -17,8 +17,8 @@ struct IndirectCandidate
 cbuffer GraphicsIndirectFilterConstants
 {
     uint g_CandidateCount;
-    uint g_FilterPadding0;
-    uint g_FilterPadding1;
+    uint g_CurrentCameraIndex;
+    uint g_RenderableCount;
     uint g_FilterPadding2;
 };
 
@@ -39,14 +39,15 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     }
 
     const IndirectCandidate candidate = g_Candidates[candidateIndex];
+    const uint visibilityIndex = g_CurrentCameraIndex * g_RenderableCount + candidate.objectIndex;
     bool visible = false;
     if (candidate.visibilityMask == 0u)
     {
-        visible = g_RenderableVisibilityFlags[candidate.objectIndex] != 0u;
+        visible = g_RenderableVisibilityFlags[visibilityIndex] != 0u;
     }
     else
     {
-        visible = (g_RenderableShadowCascadeMasks[candidate.objectIndex] &
+        visible = (g_RenderableShadowCascadeMasks[visibilityIndex] &
                    candidate.visibilityMask) != 0u;
     }
 

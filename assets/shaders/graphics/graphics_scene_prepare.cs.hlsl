@@ -2,8 +2,8 @@
 
 cbuffer GraphicsScenePrepareConstants
 {
-    uint g_CurrentCameraIndex;
     uint g_RenderableCount;
+    uint g_CameraCount;
     uint g_PreparePadding0;
     uint g_PreparePadding1;
 };
@@ -14,17 +14,22 @@ RWStructuredBuffer<uint> g_RenderableShadowCascadeMasksRW;
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
-    const uint renderableIndex = dispatchThreadId.x;
-    if (renderableIndex >= g_RenderableCount)
+    const uint globalIndex = dispatchThreadId.x;
+    const uint totalCount = g_RenderableCount * g_CameraCount;
+    if (globalIndex >= totalCount || g_RenderableCount == 0u)
     {
         return;
     }
 
-    const PreparedCamera preparedCamera = g_PreparedCameras[g_CurrentCameraIndex];
+    const uint currentCameraIndex = globalIndex / g_RenderableCount;
+    const uint renderableIndex = globalIndex % g_RenderableCount;
+    const uint outputIndex = currentCameraIndex * g_RenderableCount + renderableIndex;
+
+    const PreparedCamera preparedCamera = g_PreparedCameras[currentCameraIndex];
     if (preparedCamera.active == 0u)
     {
-        g_RenderableVisibilityFlagsRW[renderableIndex] = 0u;
-        g_RenderableShadowCascadeMasksRW[renderableIndex] = 0u;
+        g_RenderableVisibilityFlagsRW[outputIndex] = 0u;
+        g_RenderableShadowCascadeMasksRW[outputIndex] = 0u;
         return;
     }
 
@@ -33,8 +38,8 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         (metadata.flags & CRESSIM_RENDERABLE_FLAG_GPU_POSE) == 0u ||
         metadata.envIndex != preparedCamera.envIndex)
     {
-        g_RenderableVisibilityFlagsRW[renderableIndex] = 0u;
-        g_RenderableShadowCascadeMasksRW[renderableIndex] = 0u;
+        g_RenderableVisibilityFlagsRW[outputIndex] = 0u;
+        g_RenderableShadowCascadeMasksRW[outputIndex] = 0u;
         return;
     }
 
@@ -77,7 +82,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     }
 
     const bool visible = !(allLeft || allRight || allBottom || allTop || allNear || allFar);
-    g_RenderableVisibilityFlagsRW[renderableIndex] = visible ? 1u : 0u;
+    g_RenderableVisibilityFlagsRW[outputIndex] = visible ? 1u : 0u;
 
     uint shadowMask = 0u;
     const uint shadowCascadeCount = (uint)round(preparedCamera.shadowParams.z);
@@ -113,5 +118,5 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         }
     }
 
-    g_RenderableShadowCascadeMasksRW[renderableIndex] = shadowMask;
+    g_RenderableShadowCascadeMasksRW[outputIndex] = shadowMask;
 }

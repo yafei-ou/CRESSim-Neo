@@ -17,7 +17,6 @@ namespace cressim::neo::graphics
 enum class MainPassClass
 {
     ForwardOpaque,
-    ForwardTransparent,
 };
 
 struct FrameViewData
@@ -34,29 +33,16 @@ struct FrameViewData
     std::uint32_t outputHeight              = 0;
     Diligent::float4x4 viewMatrix           = Diligent::float4x4::Identity();
     Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
-    std::array<Diligent::float4x4, kShadowCascadeCount> lightViewProjectionMatrices{};
-    std::array<float, kShadowCascadeCount> cascadeSplits{};
     ForwardDirectionalLightData light{};
     Diligent::float3 cameraWorldPosition = {0.0f, 0.0f, 0.0f};
-    Diligent::ViewFrustum viewFrustum{};
-    std::array<Diligent::ViewFrustum, kShadowCascadeCount> lightFrustums{};
-    std::uint32_t shadowCascadeCount = 0;
-    float shadowMapInvSizeX          = 0.0f;
-    float shadowMapInvSizeY          = 0.0f;
-    bool hasDirectionalLight         = false;
 };
 
 struct QueuedDraw
 {
-    common::EntityId entityId       = common::kInvalidEntityId;
-    common::ResourceId meshId       = common::kInvalidResourceId;
-    common::ResourceId materialId   = common::kInvalidResourceId;
-    float depth                     = 0.0f;
-    bool castsShadows               = true;
-    bool receivesShadows            = true;
-    bool transparent                = false;
-    MainPassClass mainPassClass     = MainPassClass::ForwardOpaque;
-    std::uint32_t shadowCascadeMask = 0;
+    std::uint32_t objectIndex     = 0xffffffffu;
+    common::ResourceId meshId     = common::kInvalidResourceId;
+    common::ResourceId materialId = common::kInvalidResourceId;
+    bool castsShadows             = true;
     ForwardDrawCommand drawCommand{};
 };
 
@@ -79,9 +65,6 @@ struct GpuIndirectBucket
 
 struct CameraRenderQueues
 {
-    std::vector<QueuedDraw> opaque;
-    std::vector<QueuedDraw> shadowCasters;
-    std::vector<QueuedDraw> transparent;
     std::vector<GpuIndirectBucket> gpuOpaqueBuckets;
     std::vector<GpuIndirectCandidate> gpuOpaqueCandidates;
     std::vector<GpuIndirectBucket> gpuShadowBuckets;
@@ -90,9 +73,8 @@ struct CameraRenderQueues
 
 struct ForwardPassExecutionStats
 {
-    std::uint32_t opaqueDrawCalls      = 0;
-    std::uint32_t shadowDrawCalls      = 0;
-    std::uint32_t transparentDrawCalls = 0;
+    std::uint32_t opaqueDrawCalls = 0;
+    std::uint32_t shadowDrawCalls = 0;
 };
 
 } // namespace cressim::neo::graphics

@@ -15,7 +15,6 @@ using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::graphics::BlendMode;
 using cressim::neo::gpu::GpuBackend;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MaterialFeatureFlags;
@@ -29,13 +28,11 @@ bool sameStats(const RenderStats& lhs, const RenderStats& rhs)
     return lhs.drawCalls == rhs.drawCalls &&
         lhs.opaqueDrawCalls == rhs.opaqueDrawCalls &&
         lhs.shadowDrawCalls == rhs.shadowDrawCalls &&
-        lhs.transparentDrawCalls == rhs.transparentDrawCalls &&
         lhs.renderableCount == rhs.renderableCount &&
         lhs.validRenderableCount == rhs.validRenderableCount &&
         lhs.culledRenderableCount == rhs.culledRenderableCount &&
         lhs.opaqueQueueCount == rhs.opaqueQueueCount &&
         lhs.shadowCasterQueueCount == rhs.shadowCasterQueueCount &&
-        lhs.transparentQueueCount == rhs.transparentQueueCount &&
         lhs.lightCount == rhs.lightCount &&
         lhs.cameraCount == rhs.cameraCount &&
         lhs.renderTargetResizeRequests == rhs.renderTargetResizeRequests &&
@@ -86,7 +83,7 @@ int main()
 
     MaterialResourceDesc transparentMaterialDesc{};
     transparentMaterialDesc.debugName = "ForwardPipeline.Transparent";
-    transparentMaterialDesc.blendMode = BlendMode::Transparent;
+    transparentMaterialDesc.blendMode = cressim::neo::graphics::BlendMode::Transparent;
     transparentMaterialDesc.opacity = 0.5f;
     transparentMaterialDesc.castsShadows = false;
     const auto transparentMaterial = resources.registerMaterial(transparentMaterialDesc);
@@ -140,29 +137,23 @@ int main()
 
     runtime.shutdown();
 
-    if (firstFrame.renderableCount != 3 || firstFrame.validRenderableCount != 3)
+    if (firstFrame.renderableCount != 3 || firstFrame.validRenderableCount != 2)
     {
         std::cerr << "Unexpected renderable counters.\n";
         return 1;
     }
-    if (firstFrame.culledRenderableCount != 1)
+    if (firstFrame.culledRenderableCount != 0)
     {
-        std::cerr << "Unexpected culling count. expected=1 got=" << firstFrame.culledRenderableCount << '\n';
+        std::cerr << "Unexpected culling count. expected=0 got=" << firstFrame.culledRenderableCount << '\n';
         return 1;
     }
-    if (firstFrame.opaqueQueueCount != 1 || firstFrame.transparentQueueCount != 1 || firstFrame.shadowCasterQueueCount != 2)
+    if (firstFrame.opaqueQueueCount != 2 || firstFrame.shadowCasterQueueCount != 2)
     {
         std::cerr << "Unexpected queue counters. opaque=" << firstFrame.opaqueQueueCount
-                  << " transparent=" << firstFrame.transparentQueueCount
                   << " shadow=" << firstFrame.shadowCasterQueueCount << '\n';
         return 1;
     }
-    if (firstFrame.transparentDrawCalls != 0)
-    {
-        std::cerr << "Transparent pass should remain hook-only.\n";
-        return 1;
-    }
-    if (firstFrame.shadowDrawCalls != 8) // 2 objects * 4 cascades
+    if (firstFrame.shadowDrawCalls != 4)
     {
         std::cerr << "Unexpected shadow draws.\n";
         return 1;

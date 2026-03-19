@@ -227,6 +227,8 @@ bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadat
 
     mRenderableCount                     = static_cast<std::uint32_t>(renderables.size());
     const std::uint32_t requiredCapacity = std::max<std::uint32_t>(mRenderableCount, 1u);
+    const std::uint32_t visibilityCapacity =
+        std::max<std::uint32_t>(requiredCapacity * std::max(mLayout.totalCameraCapacity(), 1u), 1u);
     if (mRenderableCapacity < requiredCapacity || mRenderableMetadataBuffer == nullptr ||
         mRenderableVisibilityFlagsBuffer == nullptr ||
         mRenderableShadowCascadeMasksBuffer == nullptr)
@@ -241,13 +243,13 @@ bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadat
                 mRenderableMetadataBuffer) ||
             !ensureStructuredBuffer(
                 computeContext.renderDevice, "CRESSimNeo.Gpu.RenderableVisibilityFlags",
-                sizeof(std::uint32_t), newCapacity,
+                sizeof(std::uint32_t), visibilityCapacity,
                 Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                 mRenderableVisibilityFlagsBuffer) ||
             !ensureStructuredBuffer(
                 computeContext.renderDevice, "CRESSimNeo.Gpu.RenderableShadowCascadeMasks",
-                sizeof(std::uint32_t), newCapacity,
+                sizeof(std::uint32_t), visibilityCapacity,
                 Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                 mRenderableShadowCascadeMasksBuffer))

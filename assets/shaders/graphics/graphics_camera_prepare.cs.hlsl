@@ -24,10 +24,10 @@ struct DirectionalLightInput
 
 cbuffer GraphicsCameraPrepareConstants
 {
-    uint g_CurrentCameraIndex;
+    uint g_CameraCount;
     uint g_MaxLightsPerEnv;
     uint g_ShadowMapResolution;
-    float g_FrameAspectRatio;
+    uint g_RenderableCount;
 };
 
 StructuredBuffer<CameraInput> g_CameraInputs;
@@ -225,12 +225,13 @@ float4x4 buildDirectionalLightCascadeViewProjection(float3 lightDirection, float
 [numthreads(1, 1, 1)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
-    if (dispatchThreadId.x != 0u)
+    const uint currentCameraIndex = dispatchThreadId.x;
+    if (currentCameraIndex >= g_CameraCount)
     {
         return;
     }
 
-    const CameraInput camera = g_CameraInputs[g_CurrentCameraIndex];
+    const CameraInput camera = g_CameraInputs[currentCameraIndex];
     PreparedCamera prepared = (PreparedCamera)0;
     prepared.viewMatrix = float4x4(
         1.0, 0.0, 0.0, 0.0,
@@ -245,23 +246,19 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     }
     prepared.envIndex = camera.envIndex;
     prepared.active = camera.active;
+    prepared.renderableDataOffset = currentCameraIndex * g_RenderableCount;
     prepared.cascadeSplits = float4(0.0, 0.0, 0.0, 0.0);
     prepared.shadowParams = float4(0.0, 0.0, 0.0, 0.0);
 
     if (camera.active == 0u)
     {
-        g_PreparedCamerasRW[g_CurrentCameraIndex] = prepared;
+        g_PreparedCamerasRW[currentCameraIndex] = prepared;
         return;
     }
 
     const float3 position = camera.position.xyz;
     const float4 orientation = normalize(camera.orientation);
-    float aspect = camera.projectionParams.y;
-    if (g_FrameAspectRatio > 1e-5)
-    {
-        aspect = g_FrameAspectRatio;
-    }
-    aspect = max(aspect, 1e-5);
+    const float aspect = max(camera.projectionParams.y, 1e-5);
     const float nearClip = max(camera.projectionParams.z, 0.001);
     const float farClip = max(camera.projectionParams.w, nearClip + 0.001);
     const float fovRadians = max(degreesToRadians(camera.projectionParams.x), degreesToRadians(1.0));
@@ -315,5 +312,5 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         }
     }
 
-    g_PreparedCamerasRW[g_CurrentCameraIndex] = prepared;
+    g_PreparedCamerasRW[currentCameraIndex] = prepared;
 }

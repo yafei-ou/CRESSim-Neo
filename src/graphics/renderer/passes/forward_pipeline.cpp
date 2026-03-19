@@ -3,7 +3,6 @@
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
 #include "graphics/renderer/passes/forward_opaque_pass.h"
-#include "graphics/renderer/passes/forward_transparent_pass.h"
 #include "graphics/renderer/passes/shadow_pass.h"
 
 #include <algorithm>
@@ -29,10 +28,10 @@ struct IndirectCommandDesc
 
 struct GraphicsIndirectPassConstants
 {
-    std::uint32_t count    = 0u;
-    std::uint32_t padding0 = 0u;
-    std::uint32_t padding1 = 0u;
-    std::uint32_t padding2 = 0u;
+    std::uint32_t count              = 0u;
+    std::uint32_t currentCameraIndex = 0u;
+    std::uint32_t renderableCount    = 0u;
+    std::uint32_t padding0           = 0u;
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kIndirectResetVars[] = {
@@ -187,19 +186,10 @@ bool ForwardPipeline::initialize()
         return false;
     }
 
-    mForwardTransparentPass = std::make_unique<ForwardTransparentPass>(mDevice);
-    if (!mForwardTransparentPass->initialize())
-    {
-        mForwardTransparentPass.reset();
-        mForwardOpaquePass.reset();
-        return false;
-    }
-
     mShadowPass = std::make_unique<ShadowPass>(mDevice);
     if (!mShadowPass->initialize())
     {
         mShadowPass.reset();
-        mForwardTransparentPass.reset();
         mForwardOpaquePass.reset();
         return false;
     }
@@ -392,8 +382,9 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
             return false;
         }
 
-        const auto updateConstants = [&](Diligent::IBuffer* constantBuffer,
-                                         std::uint32_t count) -> bool
+        const auto updateConstants = [&](Diligent::IBuffer* constantBuffer, std::uint32_t count,
+                                         std::uint32_t cameraIndex,
+                                         std::uint32_t renderableCount) -> bool
         {
             void* mapped = nullptr;
             backendContext.immediateContext->MapBuffer(constantBuffer, Diligent::MAP_WRITE,
@@ -402,13 +393,13 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
             {
                 return false;
             }
-            const GraphicsIndirectPassConstants constants{count, 0u, 0u, 0u};
+            const GraphicsIndirectPassConstants constants{count, cameraIndex, renderableCount, 0u};
             std::memcpy(mapped, &constants, sizeof(constants));
             backendContext.immediateContext->UnmapBuffer(constantBuffer, Diligent::MAP_WRITE);
             return true;
         };
 
-        if (!updateConstants(mGpuIndirectState->resetConstantsBuffer, commandCount))
+        if (!updateConstants(mGpuIndirectState->resetConstantsBuffer, commandCount, 0u, 0u))
         {
             return false;
         }
@@ -429,7 +420,8 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
             return false;
         }
 
-        if (!updateConstants(mGpuIndirectState->filterConstantsBuffer, candidateCount))
+        if (!updateConstants(mGpuIndirectState->filterConstantsBuffer, candidateCount,
+                             currentCameraIndex, sceneView.renderableCount))
         {
             return false;
         }
@@ -459,7 +451,7 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
             return false;
         }
 
-        if (!updateConstants(mGpuIndirectState->composeConstantsBuffer, commandCount))
+        if (!updateConstants(mGpuIndirectState->composeConstantsBuffer, commandCount, 0u, 0u))
         {
             return false;
         }
@@ -487,12 +479,12 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
         return false;
     }
 
-    if (frameView.hasDirectionalLight && frameView.shadowCascadeCount > 0 &&
-        mShadowPass != nullptr && !queues.gpuShadowBuckets.empty())
+    if (frameView.light.intensity > 0.0f && mShadowPass != nullptr &&
+        !queues.gpuShadowBuckets.empty())
     {
         mShadowPass->setVisibleObjectIndexBuffer(
             mGpuIndirectState->shadow.visibleObjectIndicesBuffer);
-        for (std::uint32_t cascadeIdx = 0; cascadeIdx < frameView.shadowCascadeCount; ++cascadeIdx)
+        for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
         {
             const gpu::GpuRenderTargetHandle cascadeShadowMap = mShadowMapTargets[cascadeIdx];
             if (!mDevice.renderTargetSystem().isValidRenderTarget(cascadeShadowMap))
@@ -521,7 +513,6 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
                 drawCommand.drawListOffset     = bucket.drawListOffset;
                 drawCommand.useDrawListBuffer  = 1u;
                 if (mShadowPass->drawIndirect(cascadeShadowMap, drawCommand, currentCameraIndex,
-                                              frameView.lightViewProjectionMatrices[cascadeIdx],
                                               cascadeIdx,
                                               mGpuIndirectState->shadow.drawIndexedCommandsBuffer,
                                               static_cast<Diligent::Uint64>(bucket.commandIndex) *
@@ -565,17 +556,6 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
                 static_cast<Diligent::Uint64>(bucket.commandIndex) * sizeof(std::uint32_t) * 5u))
         {
             ++outStats.opaqueDrawCalls;
-        }
-    }
-
-    if (mForwardTransparentPass != nullptr)
-    {
-        for (const QueuedDraw& draw : queues.transparent)
-        {
-            if (mForwardTransparentPass->draw(frameView.target, draw.drawCommand))
-            {
-                ++outStats.transparentDrawCalls;
-            }
         }
     }
 

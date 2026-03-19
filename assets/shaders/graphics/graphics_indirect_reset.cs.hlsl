@@ -20,9 +20,9 @@ struct DrawIndexedCommand
 cbuffer GraphicsIndirectResetConstants
 {
     uint g_CommandCount;
+    uint g_CurrentCameraIndex;
+    uint g_RenderableCount;
     uint g_ResetPadding0;
-    uint g_ResetPadding1;
-    uint g_ResetPadding2;
 };
 
 StructuredBuffer<IndirectCommandDesc> g_CommandDescs;

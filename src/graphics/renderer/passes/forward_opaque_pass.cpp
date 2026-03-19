@@ -203,16 +203,19 @@ bool ForwardOpaquePass::prepareDraw(gpu::GpuRenderTargetHandle target,
         return false;
     }
 
-    outSetup.backendContext  = backendContext;
-    outSetup.meshBuffers     = meshBuffers;
-    outSetup.program         = program;
-    outSetup.useSceneBuffers = drawCommand.instanceIndex != 0xffffffffu &&
-                               mSceneView.poses.positionsBuffer != nullptr &&
-                               mSceneView.poses.orientationsBuffer != nullptr &&
-                               mSceneView.poses.scalesBuffer != nullptr &&
-                               mSceneView.renderableMetadataBuffer != nullptr &&
-                               mSceneView.renderableVisibilityFlagsBuffer != nullptr &&
-                               mSceneView.preparedCamerasBuffer != nullptr;
+    if (drawCommand.instanceIndex == 0xffffffffu || mSceneView.poses.positionsBuffer == nullptr ||
+        mSceneView.poses.orientationsBuffer == nullptr ||
+        mSceneView.poses.scalesBuffer == nullptr ||
+        mSceneView.renderableMetadataBuffer == nullptr ||
+        mSceneView.renderableVisibilityFlagsBuffer == nullptr ||
+        mSceneView.preparedCamerasBuffer == nullptr)
+    {
+        return false;
+    }
+
+    outSetup.backendContext = backendContext;
+    outSetup.meshBuffers    = meshBuffers;
+    outSetup.program        = program;
     return true;
 }
 
@@ -322,10 +325,7 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
         visibleObjectsVar->Set(visibleObjectsSrv);
     }
 
-    Diligent::IShaderResourceVariable* preparedCameraVar =
-        program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
-                                                         "g_PreparedCameras");
-    if (preparedCameraVar == nullptr)
+    if (mSceneView.preparedCamerasBuffer == nullptr)
     {
         return false;
     }
@@ -335,19 +335,24 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
     {
         return false;
     }
-    preparedCameraVar->Set(preparedCameraSrv);
+    for (const Diligent::SHADER_TYPE shaderType :
+         {Diligent::SHADER_TYPE_VERTEX, Diligent::SHADER_TYPE_PIXEL})
+    {
+        Diligent::IShaderResourceVariable* preparedCameraVar =
+            program.shaderResourceBinding->GetVariableByName(shaderType, "g_PreparedCameras");
+        if (preparedCameraVar != nullptr)
+        {
+            preparedCameraVar->Set(preparedCameraSrv);
+        }
+    }
     return true;
 }
 
 bool ForwardOpaquePass::updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,
-                                               const ForwardDrawCommand& drawCommand,
-                                               bool useSceneBuffers)
+                                               const ForwardDrawCommand& drawCommand)
 {
     PerObjectConstants objectConstants{};
-    objectConstants.modelMatrix       = drawCommand.modelMatrix.Transpose();
-    objectConstants.normalMatrix      = drawCommand.normalMatrix.Transpose();
     objectConstants.instanceIndex     = drawCommand.instanceIndex;
-    objectConstants.useSceneBuffers   = useSceneBuffers ? 1u : 0u;
     objectConstants.drawListOffset    = drawCommand.drawListOffset;
     objectConstants.useDrawListBuffer = drawCommand.useDrawListBuffer;
 
@@ -401,12 +406,11 @@ bool ForwardOpaquePass::draw(gpu::GpuRenderTargetHandle target,
     {
         return false;
     }
-    if (setup.useSceneBuffers && !bindSceneBuffers(*setup.program))
+    if (!bindSceneBuffers(*setup.program))
     {
         return false;
     }
-    if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand,
-                                setup.useSceneBuffers))
+    if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand))
     {
         return false;
     }
@@ -435,12 +439,11 @@ bool ForwardOpaquePass::drawIndirect(gpu::GpuRenderTargetHandle target,
     {
         return false;
     }
-    if (setup.useSceneBuffers && !bindSceneBuffers(*setup.program))
+    if (!bindSceneBuffers(*setup.program))
     {
         return false;
     }
-    if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand,
-                                setup.useSceneBuffers))
+    if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand))
     {
         return false;
     }

@@ -69,10 +69,10 @@ struct GpuPreparedCamera
     Diligent::float4 cameraPosition{};
     Diligent::float4 cascadeSplits{};
     Diligent::float4 shadowParams{};
-    std::uint32_t envIndex  = 0u;
-    std::uint32_t active    = 0u;
-    std::uint32_t reserved0 = 0u;
-    std::uint32_t reserved1 = 0u;
+    std::uint32_t envIndex             = 0u;
+    std::uint32_t active               = 0u;
+    std::uint32_t renderableDataOffset = 0u;
+    std::uint32_t reserved0            = 0u;
 };
 
 struct GpuEntitySceneView
@@ -103,8 +103,7 @@ enum GpuRenderableFlags : std::uint32_t
     GpuRenderableFlag_Active       = 1u << 0u,
     GpuRenderableFlag_Opaque       = 1u << 1u,
     GpuRenderableFlag_ShadowCaster = 1u << 2u,
-    GpuRenderableFlag_Transparent  = 1u << 3u,
-    GpuRenderableFlag_UsesGpuPose  = 1u << 4u,
+    GpuRenderableFlag_UsesGpuPose  = 1u << 3u,
 };
 
 struct GpuRenderableMetadata

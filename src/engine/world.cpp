@@ -88,7 +88,6 @@ bool World::destroyEntity(common::EntityId entityId)
 
     mEntities.erase(std::remove(mEntities.begin(), mEntities.end(), entityId), mEntities.end());
     mEntityEnvironments.erase(entityId);
-    mGpuEntityPoseIndices.erase(entityId);
     markRenderDirty(entityId);
     return true;
 }
@@ -595,7 +594,6 @@ bool World::removeMeshRenderer(common::EntityId entityId)
     mRenderableMetadataHost[objectIndex]   = {};
     markRenderableMetadataDirty(objectIndex);
     mRenderableIndices.erase(it);
-    mGpuEntityPoseIndices.erase(entityId);
     markRenderDirty(entityId);
     return true;
 }
@@ -803,12 +801,9 @@ void World::refreshFromPhysics()
     }
 }
 
-void World::setGpuEntityScene(
-    const gpu::GpuEntitySceneView& sceneView,
-    const std::unordered_map<common::EntityId, std::uint32_t>& poseIndices) noexcept
+void World::setGpuEntityScene(const gpu::GpuEntitySceneView& sceneView) noexcept
 {
-    mGpuEntityScene       = sceneView;
-    mGpuEntityPoseIndices = poseIndices;
+    mGpuEntityScene = sceneView;
 }
 
 const std::vector<graphics::RenderableInstance>& World::renderables() const noexcept
@@ -854,36 +849,6 @@ const std::vector<gpu::GpuCameraInput>& World::cameraInputs() const noexcept
 const std::vector<gpu::GpuDirectionalLightInput>& World::lightInputs() const noexcept
 {
     return mLightInputsHost;
-}
-
-const std::unordered_map<common::EntityId, std::uint32_t>& World::renderObjectPoseIndices()
-{
-    if (mCachedRenderObjectPoseIndicesRevision == mRenderRevision)
-    {
-        return mRenderObjectPoseIndicesCache;
-    }
-
-    mRenderObjectPoseIndicesCache.clear();
-    mRenderObjectPoseIndicesCache.reserve(mRenderables.size());
-    for (const graphics::RenderableInstance& renderable : mRenderables)
-    {
-        if (renderable.entityId == common::kInvalidEntityId ||
-            renderable.objectSlot == kInvalidSlot || !renderable.visible)
-        {
-            continue;
-        }
-
-        const std::uint32_t objectIndex =
-            renderable.envIndex * mSceneLayout.maxObjectsPerEnv + renderable.objectSlot;
-        if (objectIndex >= mSceneLayout.totalObjectCapacity())
-        {
-            continue;
-        }
-        mRenderObjectPoseIndicesCache[renderable.entityId] = objectIndex;
-    }
-
-    mCachedRenderObjectPoseIndicesRevision = mRenderRevision;
-    return mRenderObjectPoseIndicesCache;
 }
 
 const std::vector<gpu::GpuEntityPoseMappingEntry>& World::physicsRenderableMappings()
@@ -941,17 +906,13 @@ const gpu::GpuEntitySceneView& World::gpuEntityScene() const noexcept
     return mGpuEntityScene;
 }
 
-const std::unordered_map<common::EntityId, std::uint32_t>& World::gpuEntityPoseIndices()
-    const noexcept
-{
-    return mGpuEntityPoseIndices;
-}
-
 graphics::HostSceneView World::hostSceneView() const noexcept
 {
     return graphics::HostSceneView{
-        &mRenderables,    &mRenderCameras,        &mRenderDirectionalLights,
-        &mGpuEntityScene, &mGpuEntityPoseIndices,
+        &mRenderables,
+        &mRenderCameras,
+        &mRenderDirectionalLights,
+        &mGpuEntityScene,
     };
 }
 
@@ -988,21 +949,13 @@ void World::refreshRenderableMetadata(const graphics::RenderResourceManager& res
                 resources.tryGetMaterial(renderable.material);
             if (material != nullptr && renderable.visible)
             {
-                if (material->blendMode == graphics::BlendMode::Transparent)
-                {
-                    entry.flags |= gpu::GpuRenderableFlag_Transparent;
-                }
-                else
-                {
-                    entry.flags |= gpu::GpuRenderableFlag_Opaque;
-                }
-                if (material->castsShadows &&
-                    material->blendMode != graphics::BlendMode::Transparent)
-                {
-                    entry.flags |= gpu::GpuRenderableFlag_ShadowCaster;
-                }
                 if (material->blendMode != graphics::BlendMode::Transparent)
                 {
+                    entry.flags |= gpu::GpuRenderableFlag_Opaque;
+                    if (material->castsShadows)
+                    {
+                        entry.flags |= gpu::GpuRenderableFlag_ShadowCaster;
+                    }
                     entry.flags |= gpu::GpuRenderableFlag_UsesGpuPose;
                 }
             }

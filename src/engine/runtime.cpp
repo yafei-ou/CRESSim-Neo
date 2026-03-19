@@ -156,11 +156,9 @@ void Runtime::tick(const common::FrameContext& frameContext)
             logPhysicsStepFailure(frameContext, mPhysicsSolver->lastStageStats());
         }
     }
-    std::unordered_map<common::EntityId, std::uint32_t> poseIndices;
     bool gpuSceneReady = false;
     if (mGpuSceneSync)
     {
-        poseIndices   = mWorld.renderObjectPoseIndices();
         gpuSceneReady = mGpuSceneSync->syncEntityPoseData(mWorld.renderObjectPositions(),
                                                           mWorld.renderObjectOrientations(),
                                                           mWorld.renderObjectScales());
@@ -189,16 +187,16 @@ void Runtime::tick(const common::FrameContext& frameContext)
             mGpuSceneSync->syncCameraInputs(mWorld.cameraInputs()) &&
             mGpuSceneSync->syncLightInputs(mWorld.lightInputs()))
         {
-            mWorld.setGpuEntityScene(mGpuSceneSync->sceneView(), poseIndices);
+            mWorld.setGpuEntityScene(mGpuSceneSync->sceneView());
         }
         else
         {
-            mWorld.setGpuEntityScene({}, {});
+            mWorld.setGpuEntityScene({});
         }
     }
     else
     {
-        mWorld.setGpuEntityScene({}, {});
+        mWorld.setGpuEntityScene({});
     }
 
     mLastRenderStats = mRenderer->render(frameContext, mWorld.hostSceneView());

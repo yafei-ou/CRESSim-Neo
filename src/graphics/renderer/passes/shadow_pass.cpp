@@ -85,15 +85,18 @@ bool ShadowPass::prepareDraw(gpu::GpuRenderTargetHandle target,
         return false;
     }
 
-    outSetup.backendContext  = backendContext;
-    outSetup.meshBuffers     = meshBuffers;
-    outSetup.useSceneBuffers = drawCommand.instanceIndex != 0xffffffffu &&
-                               mSceneView.poses.positionsBuffer != nullptr &&
-                               mSceneView.poses.orientationsBuffer != nullptr &&
-                               mSceneView.poses.scalesBuffer != nullptr &&
-                               mSceneView.renderableMetadataBuffer != nullptr &&
-                               mSceneView.renderableShadowCascadeMasksBuffer != nullptr &&
-                               mSceneView.preparedCamerasBuffer != nullptr;
+    if (drawCommand.instanceIndex == 0xffffffffu || mSceneView.poses.positionsBuffer == nullptr ||
+        mSceneView.poses.orientationsBuffer == nullptr ||
+        mSceneView.poses.scalesBuffer == nullptr ||
+        mSceneView.renderableMetadataBuffer == nullptr ||
+        mSceneView.renderableShadowCascadeMasksBuffer == nullptr ||
+        mSceneView.preparedCamerasBuffer == nullptr)
+    {
+        return false;
+    }
+
+    outSetup.backendContext = backendContext;
+    outSetup.meshBuffers    = meshBuffers;
     return true;
 }
 
@@ -157,23 +160,18 @@ bool ShadowPass::bindSceneBuffers() const
 }
 
 bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,
-                                        const ForwardDrawCommand& drawCommand, bool useSceneBuffers,
+                                        const ForwardDrawCommand& drawCommand,
                                         std::uint32_t currentCameraIndex,
-                                        const Diligent::float4x4& lightViewProjectionMatrix,
                                         std::uint32_t cascadeIndex)
 {
     PerObjectConstants objectConstants{};
-    objectConstants.modelMatrix       = drawCommand.modelMatrix.Transpose();
-    objectConstants.normalMatrix      = drawCommand.normalMatrix.Transpose();
     objectConstants.instanceIndex     = drawCommand.instanceIndex;
-    objectConstants.useSceneBuffers   = useSceneBuffers ? 1u : 0u;
     objectConstants.drawListOffset    = drawCommand.drawListOffset;
     objectConstants.useDrawListBuffer = drawCommand.useDrawListBuffer;
 
     ShadowPerPassConstants shadowPassConstants{};
-    shadowPassConstants.lightViewProjectionMatrix = lightViewProjectionMatrix.Transpose();
-    shadowPassConstants.shadowPassParams[0]       = cascadeIndex;
-    shadowPassConstants.shadowPassParams[1]       = currentCameraIndex;
+    shadowPassConstants.shadowPassParams[0] = cascadeIndex;
+    shadowPassConstants.shadowPassParams[1] = currentCameraIndex;
 
     void* mappedConstants = nullptr;
     immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
@@ -210,22 +208,19 @@ void ShadowPass::bindGeometry(Diligent::IDeviceContext* immediateContext,
 }
 
 bool ShadowPass::draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
-                      std::uint32_t currentCameraIndex,
-                      const Diligent::float4x4& lightViewProjectionMatrix,
-                      std::uint32_t cascadeIndex)
+                      std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex)
 {
     DrawSetup setup{};
     if (!prepareDraw(target, drawCommand, setup))
     {
         return false;
     }
-    if (setup.useSceneBuffers && !bindSceneBuffers())
+    if (!bindSceneBuffers())
     {
         return false;
     }
     if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand,
-                                setup.useSceneBuffers, currentCameraIndex,
-                                lightViewProjectionMatrix, cascadeIndex))
+                                currentCameraIndex, cascadeIndex))
     {
         return false;
     }
@@ -245,9 +240,8 @@ bool ShadowPass::draw(gpu::GpuRenderTargetHandle target, const ForwardDrawComman
 
 bool ShadowPass::drawIndirect(gpu::GpuRenderTargetHandle target,
                               const ForwardDrawCommand& drawCommand,
-                              std::uint32_t currentCameraIndex,
-                              const Diligent::float4x4& lightViewProjectionMatrix,
-                              std::uint32_t cascadeIndex, Diligent::IBuffer* indirectArgsBuffer,
+                              std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex,
+                              Diligent::IBuffer* indirectArgsBuffer,
                               Diligent::Uint64 argsOffsetBytes)
 {
     DrawSetup setup{};
@@ -255,13 +249,12 @@ bool ShadowPass::drawIndirect(gpu::GpuRenderTargetHandle target,
     {
         return false;
     }
-    if (setup.useSceneBuffers && !bindSceneBuffers())
+    if (!bindSceneBuffers())
     {
         return false;
     }
     if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand,
-                                setup.useSceneBuffers, currentCameraIndex,
-                                lightViewProjectionMatrix, cascadeIndex))
+                                currentCameraIndex, cascadeIndex))
     {
         return false;
     }

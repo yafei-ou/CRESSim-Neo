@@ -21,8 +21,8 @@ struct PreparedCamera
     float4 shadowParams;
     uint envIndex;
     uint active;
+    uint renderableDataOffset;
     uint reserved0;
-    uint reserved1;
 };
 
 StructuredBuffer<float4> g_EntityPositions;
@@ -36,7 +36,7 @@ StructuredBuffer<uint> g_VisibleObjectIndices;
 
 static const uint CRESSIM_RENDERABLE_FLAG_ACTIVE = 1u << 0u;
 static const uint CRESSIM_RENDERABLE_FLAG_SHADOW_CASTER = 1u << 2u;
-static const uint CRESSIM_RENDERABLE_FLAG_GPU_POSE = 1u << 4u;
+static const uint CRESSIM_RENDERABLE_FLAG_GPU_POSE = 1u << 3u;
 
 float3 quaternionRotateVector(float4 q, float3 v)
 {
