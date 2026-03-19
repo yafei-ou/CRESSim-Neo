@@ -34,6 +34,11 @@ add_physics_viewer_test(
 )
 
 add_physics_viewer_test(
+    cressim_neo_physics_viewer_large_array_multi_env_manual_vulkan
+    physics_viewer_large_array_multi_env.cpp
+)
+
+add_physics_viewer_test(
     cressim_neo_physics_viewer_mixed_shape_contacts_manual_vulkan
     physics_viewer_mixed_shape_contacts.cpp
 )
