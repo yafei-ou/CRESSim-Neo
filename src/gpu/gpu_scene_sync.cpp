@@ -226,14 +226,12 @@ bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadat
         return false;
     }
 
-    mRenderableCount                     = static_cast<std::uint32_t>(renderables.size());
-    const std::uint32_t requiredCapacity = std::max<std::uint32_t>(mRenderableCount, 1u);
-    const std::uint32_t visibilityCapacity =
-        std::max<std::uint32_t>(mLayout.maxObjectsPerEnv * std::max(mLayout.totalCameraCapacity(), 1u),
-                                1u);
+    mRenderableCount                       = static_cast<std::uint32_t>(renderables.size());
+    const std::uint32_t requiredCapacity   = std::max<std::uint32_t>(mRenderableCount, 1u);
+    const std::uint32_t visibilityCapacity = std::max<std::uint32_t>(
+        mLayout.maxObjectsPerEnv * std::max(mLayout.totalCameraCapacity(), 1u), 1u);
     if (mRenderableCapacity < requiredCapacity || mRenderableMetadataBuffer == nullptr ||
-        mRenderableQueueInfoBuffer == nullptr ||
-        mRenderableVisibilityFlagsBuffer == nullptr ||
+        mRenderableQueueInfoBuffer == nullptr || mRenderableVisibilityFlagsBuffer == nullptr ||
         mRenderableShadowCascadeMasksBuffer == nullptr)
     {
         const std::uint32_t newCapacity    = std::max<std::uint32_t>(requiredCapacity, 64u);

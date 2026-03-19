@@ -49,7 +49,6 @@ StructuredBuffer<uint> g_VisibleObjectIndices;
 
 static const uint CRESSIM_RENDERABLE_FLAG_ACTIVE = 1u << 0u;
 static const uint CRESSIM_RENDERABLE_FLAG_SHADOW_CASTER = 1u << 2u;
-static const uint CRESSIM_RENDERABLE_FLAG_GPU_POSE = 1u << 3u;
 
 float3 quaternionRotateVector(float4 q, float3 v)
 {
@@ -66,8 +65,7 @@ void loadRenderablePose(uint instanceIndex, out bool isValid, out float3 positio
     scale = float3(1.0, 1.0, 1.0);
 
     RenderableMetadata metadata = g_RenderableMetadata[instanceIndex];
-    if ((metadata.flags & CRESSIM_RENDERABLE_FLAG_ACTIVE) == 0u ||
-        (metadata.flags & CRESSIM_RENDERABLE_FLAG_GPU_POSE) == 0u)
+    if ((metadata.flags & CRESSIM_RENDERABLE_FLAG_ACTIVE) == 0u)
     {
         return;
     }

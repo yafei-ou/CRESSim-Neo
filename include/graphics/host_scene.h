@@ -61,12 +61,12 @@ struct DirectionalLightData
 
 struct HostSceneView
 {
-    const std::vector<RenderableInstance>* renderables         = nullptr;
-    const std::vector<CameraData>* cameras                     = nullptr;
-    const std::vector<DirectionalLightData>* directionalLights = nullptr;
+    const std::vector<RenderableInstance>* renderables                  = nullptr;
+    const std::vector<CameraData>* cameras                              = nullptr;
+    const std::vector<DirectionalLightData>* directionalLights          = nullptr;
     const std::vector<IndirectCommandRegistryEntry>* opaqueDrawRegistry = nullptr;
     const std::vector<IndirectCommandRegistryEntry>* shadowDrawRegistry = nullptr;
-    const gpu::GpuEntitySceneView* gpuEntityScene              = nullptr;
+    const gpu::GpuEntitySceneView* gpuEntityScene                       = nullptr;
 };
 
 } // namespace cressim::neo::graphics

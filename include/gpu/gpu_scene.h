@@ -116,7 +116,6 @@ enum GpuRenderableFlags : std::uint32_t
     GpuRenderableFlag_Active       = 1u << 0u,
     GpuRenderableFlag_Opaque       = 1u << 1u,
     GpuRenderableFlag_ShadowCaster = 1u << 2u,
-    GpuRenderableFlag_UsesGpuPose  = 1u << 3u,
 };
 
 struct GpuRenderableMetadata

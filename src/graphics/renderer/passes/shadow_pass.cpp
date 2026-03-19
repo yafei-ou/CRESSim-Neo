@@ -84,7 +84,8 @@ bool ShadowPass::prepareDraw(gpu::GpuRenderTargetHandle target,
         return false;
     }
 
-    if (mSceneView.poses.positionsBuffer == nullptr || mSceneView.poses.orientationsBuffer == nullptr ||
+    if (mSceneView.poses.positionsBuffer == nullptr ||
+        mSceneView.poses.orientationsBuffer == nullptr ||
         mSceneView.poses.scalesBuffer == nullptr ||
         mSceneView.renderableMetadataBuffer == nullptr ||
         mSceneView.renderableShadowCascadeMasksBuffer == nullptr ||

@@ -34,8 +34,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     const uint renderableIndex = preparedCamera.objectRangeStart + localObjectIndex;
     const RenderableMetadata metadata = g_RenderableMetadata[renderableIndex];
-    if ((metadata.flags & CRESSIM_RENDERABLE_FLAG_ACTIVE) == 0u ||
-        (metadata.flags & CRESSIM_RENDERABLE_FLAG_GPU_POSE) == 0u)
+    if ((metadata.flags & CRESSIM_RENDERABLE_FLAG_ACTIVE) == 0u)
     {
         g_RenderableVisibilityFlagsRW[outputIndex] = 0u;
         g_RenderableShadowCascadeMasksRW[outputIndex] = 0u;

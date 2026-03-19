@@ -35,8 +35,7 @@ MeshGpuCache::CachedBuffers* MeshGpuCache::getOrCreate(const RenderResourceManag
     vertexBufferDesc.Usage       = Diligent::USAGE_IMMUTABLE;
     vertexBufferDesc.BindFlags   = Diligent::BIND_VERTEX_BUFFER;
     vertexBufferDesc.Size =
-        static_cast<Diligent::Uint64>(meshDesc->vertices.size()) *
-        sizeof(MeshResourceDesc::Vertex);
+        static_cast<Diligent::Uint64>(meshDesc->vertices.size()) * sizeof(MeshResourceDesc::Vertex);
 
     Diligent::BufferData vertexData{};
     vertexData.pData    = meshDesc->vertices.data();

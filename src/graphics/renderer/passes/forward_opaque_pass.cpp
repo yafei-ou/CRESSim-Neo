@@ -6,8 +6,7 @@
 namespace cressim::neo::graphics::detail
 {
 
-ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice& device,
-                                     RenderResourceManager& resourceManager)
+ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice& device, RenderResourceManager& resourceManager)
     : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
       mMeshGpuCache("CRESSimNeo.ForwardOpaquePass")
 {
@@ -204,7 +203,8 @@ bool ForwardOpaquePass::prepareDraw(gpu::GpuRenderTargetHandle target,
         return false;
     }
 
-    if (mSceneView.poses.positionsBuffer == nullptr || mSceneView.poses.orientationsBuffer == nullptr ||
+    if (mSceneView.poses.positionsBuffer == nullptr ||
+        mSceneView.poses.orientationsBuffer == nullptr ||
         mSceneView.poses.scalesBuffer == nullptr ||
         mSceneView.renderableMetadataBuffer == nullptr ||
         mSceneView.renderableVisibilityFlagsBuffer == nullptr ||
@@ -367,8 +367,8 @@ bool ForwardOpaquePass::updatePerDrawConstants(Diligent::IDeviceContext* immedia
     materialConstants.baseColor = Diligent::float4{material->baseColor.x, material->baseColor.y,
                                                    material->baseColor.z, material->opacity};
     materialConstants.materialParams =
-        Diligent::float4{material->metallic, material->roughness,
-                         material->pipeline.alphaCutoff, material->receivesShadows ? 1.0f : 0.0f};
+        Diligent::float4{material->metallic, material->roughness, material->pipeline.alphaCutoff,
+                         material->receivesShadows ? 1.0f : 0.0f};
 
     void* mappedConstants = nullptr;
     immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,

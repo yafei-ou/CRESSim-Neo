@@ -260,7 +260,7 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView& sceneView)
     GraphicsScenePrepareConstants constants{};
     constants.cameraCount      = sceneView.cameraCount;
     constants.maxObjectsPerEnv = sceneView.layout.maxObjectsPerEnv;
-    mappedConstants           = nullptr;
+    mappedConstants            = nullptr;
     backendContext.immediateContext->MapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
                                                Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
                                                mappedConstants);

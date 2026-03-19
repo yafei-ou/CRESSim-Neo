@@ -273,8 +273,8 @@ bool ForwardPipeline::initialize()
 }
 
 bool ForwardPipeline::execute(const common::FrameContext& frameContext,
-                              const FrameViewData& frameView,
-                              const HostSceneView& sceneView, ForwardPassExecutionStats& outStats)
+                              const FrameViewData& frameView, const HostSceneView& sceneView,
+                              ForwardPassExecutionStats& outStats)
 {
     if (!mInitialized || mForwardOpaquePass == nullptr)
     {
@@ -310,21 +310,20 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
     const std::uint32_t currentCameraIndex =
         frameView.envIndex * std::max(gpuScene.layout.maxCamerasPerEnv, 1u) + frameView.cameraSlot;
 
-    const auto uploadIndirectSet =
-        [&](GpuIndirectState::BufferSet& bufferSet,
-            const std::vector<IndirectCommandRegistryEntry>& registry, const char* namePrefix,
-            std::uint32_t queueMode) -> bool
+    const auto uploadIndirectSet = [&](GpuIndirectState::BufferSet& bufferSet,
+                                       const std::vector<IndirectCommandRegistryEntry>& registry,
+                                       const char* namePrefix, std::uint32_t queueMode) -> bool
     {
         const std::uint32_t commandCount = static_cast<std::uint32_t>(registry.size());
-        std::uint32_t visibleCapacity      = 0u;
+        std::uint32_t visibleCapacity    = 0u;
         std::vector<IndirectCommandDesc> commandDescs(commandCount);
         bufferSet.drawListOffsets.assign(commandCount, 0u);
         for (std::uint32_t commandIndex = 0u; commandIndex < commandCount; ++commandIndex)
         {
             bufferSet.drawListOffsets[commandIndex] = visibleCapacity;
-            commandDescs[commandIndex] = IndirectCommandDesc{
-                visibleCapacity, registry[commandIndex].maxVisibleCount,
-                registry[commandIndex].drawCommand.indexCount, 0u};
+            commandDescs[commandIndex] =
+                IndirectCommandDesc{visibleCapacity, registry[commandIndex].maxVisibleCount,
+                                    registry[commandIndex].drawCommand.indexCount, 0u};
             visibleCapacity += registry[commandIndex].maxVisibleCount;
         }
 
@@ -443,9 +442,9 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
             gpu::GpuBufferBinding{"g_VisibleObjectIndicesRW", bufferSet.visibleObjectIndicesBuffer,
                                   Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
-        if (!mGpuIndirectState->filterPass.dispatch(backendContext.immediateContext, 0u,
-                                                    filterBindings,
-                                                    dispatchGroupCount(gpuScene.layout.maxObjectsPerEnv)))
+        if (!mGpuIndirectState->filterPass.dispatch(
+                backendContext.immediateContext, 0u, filterBindings,
+                dispatchGroupCount(gpuScene.layout.maxObjectsPerEnv)))
         {
             return false;
         }
@@ -478,8 +477,7 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
         return false;
     }
 
-    if (frameView.light.intensity > 0.0f && mShadowPass != nullptr &&
-        !shadowRegistry.empty())
+    if (frameView.light.intensity > 0.0f && mShadowPass != nullptr && !shadowRegistry.empty())
     {
         mShadowPass->setVisibleObjectIndexBuffer(
             mGpuIndirectState->shadow.visibleObjectIndicesBuffer);
@@ -510,13 +508,13 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
                 }
 
                 ForwardDrawCommand drawCommand = shadowRegistry[commandIndex].drawCommand;
-                drawCommand.drawListOffset = mGpuIndirectState->shadow.drawListOffsets[commandIndex];
+                drawCommand.drawListOffset =
+                    mGpuIndirectState->shadow.drawListOffsets[commandIndex];
                 drawCommand.useDrawListBuffer = 1u;
-                if (mShadowPass->drawIndirect(cascadeShadowMap, drawCommand, currentCameraIndex,
-                                              cascadeIdx,
-                                              mGpuIndirectState->shadow.drawIndexedCommandsBuffer,
-                                              static_cast<Diligent::Uint64>(commandIndex) *
-                                                  sizeof(std::uint32_t) * 5u))
+                if (mShadowPass->drawIndirect(
+                        cascadeShadowMap, drawCommand, currentCameraIndex, cascadeIdx,
+                        mGpuIndirectState->shadow.drawIndexedCommandsBuffer,
+                        static_cast<Diligent::Uint64>(commandIndex) * sizeof(std::uint32_t) * 5u))
                 {
                     ++outStats.shadowDrawCalls;
                 }
@@ -550,8 +548,8 @@ bool ForwardPipeline::execute(const common::FrameContext& frameContext,
          commandIndex < static_cast<std::uint32_t>(opaqueRegistry.size()); ++commandIndex)
     {
         ForwardDrawCommand drawCommand = opaqueRegistry[commandIndex].drawCommand;
-        drawCommand.drawListOffset = mGpuIndirectState->opaque.drawListOffsets[commandIndex];
-        drawCommand.useDrawListBuffer = 1u;
+        drawCommand.drawListOffset     = mGpuIndirectState->opaque.drawListOffsets[commandIndex];
+        drawCommand.useDrawListBuffer  = 1u;
         if (mForwardOpaquePass->drawIndirect(
                 frameView.target, drawCommand, mGpuIndirectState->opaque.drawIndexedCommandsBuffer,
                 static_cast<Diligent::Uint64>(commandIndex) * sizeof(std::uint32_t) * 5u))

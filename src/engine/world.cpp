@@ -7,7 +7,7 @@ namespace cressim::neo::engine
 
 namespace
 {
-constexpr std::uint32_t kInvalidSlot = 0xffffffffu;
+constexpr std::uint32_t kInvalidSlot         = 0xffffffffu;
 constexpr std::uint32_t kInvalidCommandIndex = 0xffffffffu;
 
 struct DrawBucketKey
@@ -888,12 +888,14 @@ const std::vector<gpu::GpuDirectionalLightInput>& World::lightInputs() const noe
     return mLightInputsHost;
 }
 
-const std::vector<graphics::IndirectCommandRegistryEntry>& World::opaqueDrawRegistry() const noexcept
+const std::vector<graphics::IndirectCommandRegistryEntry>& World::opaqueDrawRegistry()
+    const noexcept
 {
     return mOpaqueDrawRegistryHost;
 }
 
-const std::vector<graphics::IndirectCommandRegistryEntry>& World::shadowDrawRegistry() const noexcept
+const std::vector<graphics::IndirectCommandRegistryEntry>& World::shadowDrawRegistry()
+    const noexcept
 {
     return mShadowDrawRegistryHost;
 }
@@ -998,7 +1000,6 @@ void World::refreshRenderableMetadata(const graphics::RenderResourceManager& res
                 {
                     entry.flags |= gpu::GpuRenderableFlag_ShadowCaster;
                 }
-                entry.flags |= gpu::GpuRenderableFlag_UsesGpuPose;
             }
 
             Diligent::float3 localBoundsMin{};
@@ -1028,16 +1029,18 @@ void World::refreshRenderableMetadata(const graphics::RenderResourceManager& res
          objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
     {
         const graphics::RenderableInstance& renderable = mRenderables[objectIndex];
-        if (renderable.entityId == common::kInvalidEntityId || renderable.objectSlot == kInvalidSlot ||
-            !renderable.visible)
+        if (renderable.entityId == common::kInvalidEntityId ||
+            renderable.objectSlot == kInvalidSlot || !renderable.visible)
         {
             continue;
         }
 
         const graphics::MeshResourceDesc* mesh = resources.tryGetMesh(renderable.mesh);
-        const graphics::MaterialResourceDesc* material = resources.tryGetMaterial(renderable.material);
-        if (mesh == nullptr || material == nullptr || material->blendMode == graphics::BlendMode::Transparent ||
-            mesh->vertices.empty() || mesh->indices.size() < 3)
+        const graphics::MaterialResourceDesc* material =
+            resources.tryGetMaterial(renderable.material);
+        if (mesh == nullptr || material == nullptr ||
+            material->blendMode == graphics::BlendMode::Transparent || mesh->vertices.empty() ||
+            mesh->indices.size() < 3)
         {
             continue;
         }
@@ -1063,7 +1066,8 @@ void World::refreshRenderableMetadata(const graphics::RenderResourceManager& res
             continue;
         }
 
-        const graphics::MeshResourceDesc* mesh = resources.tryGetMesh(graphics::MeshHandle{key.meshId});
+        const graphics::MeshResourceDesc* mesh =
+            resources.tryGetMesh(graphics::MeshHandle{key.meshId});
         if (mesh == nullptr)
         {
             continue;
@@ -1071,14 +1075,14 @@ void World::refreshRenderableMetadata(const graphics::RenderResourceManager& res
 
         graphics::IndirectCommandRegistryEntry entry{};
         entry.drawCommand.useDrawListBuffer = 1u;
-        entry.drawCommand.programFamily = key.programFamily;
+        entry.drawCommand.programFamily     = key.programFamily;
         entry.drawCommand.materialFeatureFlags =
             static_cast<graphics::MaterialFeatureFlags>(key.materialFeatureFlags);
-        entry.drawCommand.meshId = key.meshId;
-        entry.drawCommand.materialId = key.materialId;
+        entry.drawCommand.meshId      = key.meshId;
+        entry.drawCommand.materialId  = key.materialId;
         entry.drawCommand.meshVersion = resources.meshVersion(graphics::MeshHandle{key.meshId});
-        entry.drawCommand.indexCount = static_cast<std::uint32_t>(mesh->indices.size());
-        entry.maxVisibleCount = static_cast<std::uint32_t>(objectIndices.size());
+        entry.drawCommand.indexCount  = static_cast<std::uint32_t>(mesh->indices.size());
+        entry.maxVisibleCount         = static_cast<std::uint32_t>(objectIndices.size());
         mOpaqueDrawRegistryHost.push_back(entry);
         for (const std::uint32_t objectIndex : objectIndices)
         {
@@ -1095,7 +1099,8 @@ void World::refreshRenderableMetadata(const graphics::RenderResourceManager& res
             continue;
         }
 
-        const graphics::MeshResourceDesc* mesh = resources.tryGetMesh(graphics::MeshHandle{key.meshId});
+        const graphics::MeshResourceDesc* mesh =
+            resources.tryGetMesh(graphics::MeshHandle{key.meshId});
         if (mesh == nullptr)
         {
             continue;
@@ -1106,14 +1111,14 @@ void World::refreshRenderableMetadata(const graphics::RenderResourceManager& res
         {
             graphics::IndirectCommandRegistryEntry entry{};
             entry.drawCommand.useDrawListBuffer = 1u;
-            entry.drawCommand.programFamily = key.programFamily;
+            entry.drawCommand.programFamily     = key.programFamily;
             entry.drawCommand.materialFeatureFlags =
                 static_cast<graphics::MaterialFeatureFlags>(key.materialFeatureFlags);
-            entry.drawCommand.meshId = key.meshId;
-            entry.drawCommand.materialId = key.materialId;
+            entry.drawCommand.meshId      = key.meshId;
+            entry.drawCommand.materialId  = key.materialId;
             entry.drawCommand.meshVersion = resources.meshVersion(graphics::MeshHandle{key.meshId});
-            entry.drawCommand.indexCount = static_cast<std::uint32_t>(mesh->indices.size());
-            entry.maxVisibleCount = static_cast<std::uint32_t>(objectIndices.size());
+            entry.drawCommand.indexCount  = static_cast<std::uint32_t>(mesh->indices.size());
+            entry.maxVisibleCount         = static_cast<std::uint32_t>(objectIndices.size());
             mShadowDrawRegistryHost.push_back(entry);
         }
 
