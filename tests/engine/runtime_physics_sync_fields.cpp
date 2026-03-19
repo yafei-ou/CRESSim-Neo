@@ -1,5 +1,6 @@
 #include "engine/components.h"
 #include "engine/world.h"
+#include "graphics/render_resource_manager.h"
 
 #include <cstdint>
 #include <cmath>
@@ -91,6 +92,9 @@ int main()
         std::cerr << "Entity environment change did not propagate to collider state.\n";
         return 1;
     }
+
+    graphics::RenderResourceManager resources;
+    world.ensureRenderStateUpToDate(resources);
 
     const auto& cameraInputs = world.cameraInputs();
     bool foundCamera = false;

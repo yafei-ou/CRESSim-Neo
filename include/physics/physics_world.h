@@ -31,6 +31,7 @@ public:
     const RigidBodySoAHost& rigidBodySoA() const noexcept;
     const ColliderSoAHost& colliderSoA() const noexcept;
     const BodyColliderMappingHost& bodyColliderMapping() const noexcept;
+    void ensureDerivedStateUpToDate() const noexcept;
     const PhysicsSoADirtyRange& rigidBodyDirtyRange() const noexcept;
     const PhysicsSoADirtyRange& colliderDirtyRange() const noexcept;
     std::uint32_t rigidBodyCount() const noexcept;
@@ -48,6 +49,7 @@ public:
     void finalizeRigidBodyWriteback() noexcept;
 
     std::uint64_t revision() const noexcept;
+    std::uint64_t rigidBodyTopologyRevision() const noexcept;
 
 private:
     static void writeRigidBodySoAAt(RigidBodySoAHost& soa, std::uint32_t index,
@@ -62,13 +64,13 @@ private:
 
     void removeCollidersForEntity(common::EntityId entityId) noexcept;
     void removeColliderAtIndex(std::uint32_t index) noexcept;
-    void rebuildBodyColliderMapping() noexcept;
+    void rebuildBodyColliderMapping() const noexcept;
     void markAllRigidBodiesDirty() noexcept;
     void markAllCollidersDirty() noexcept;
 
     RigidBodySoAHost mRigidBodies{};
-    ColliderSoAHost mColliders{};
-    BodyColliderMappingHost mBodyColliderMapping{};
+    mutable ColliderSoAHost mColliders{};
+    mutable BodyColliderMappingHost mBodyColliderMapping{};
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToRigidBodyIndex{};
     std::unordered_map<RigidBodyId, std::uint32_t> mRigidBodyIdToIndex{};
     std::unordered_map<ColliderId, std::uint32_t> mColliderIdToIndex{};
@@ -77,10 +79,12 @@ private:
     std::vector<ColliderState> mColliderSnapshot{};
     PhysicsSoADirtyRange mRigidBodyDirtyRange{};
     PhysicsSoADirtyRange mColliderDirtyRange{};
-    bool mStaticBroadPhaseDirty  = false;
-    std::uint64_t mRevision      = 0;
-    RigidBodyId mNextRigidBodyId = 1u;
-    ColliderId mNextColliderId   = 1u;
+    mutable bool mBodyColliderMappingDirty   = true;
+    bool mStaticBroadPhaseDirty              = false;
+    std::uint64_t mRevision                  = 0;
+    std::uint64_t mRigidBodyTopologyRevision = 0;
+    RigidBodyId mNextRigidBodyId             = 1u;
+    ColliderId mNextColliderId               = 1u;
 };
 
 } // namespace cressim::neo::physics

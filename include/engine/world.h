@@ -81,7 +81,7 @@ public:
     const std::vector<gpu::GpuEntityPoseMappingEntry>& physicsRenderableMappings();
     const gpu::GpuEntitySceneView& gpuEntityScene() const noexcept;
     graphics::HostSceneView hostSceneView() const noexcept;
-    void refreshRenderableMetadata(const graphics::RenderResourceManager& resources);
+    void ensureRenderStateUpToDate(const graphics::RenderResourceManager& resources);
 
     // ---------- GPU-friendly SoA views ----------
     struct TransformSoA
@@ -114,10 +114,16 @@ private:
 
     void ensureEntity(common::EntityId entityId);
     void ensureHostSceneStorage();
-    void markRenderDirty(common::EntityId entityId);
-    void syncRenderableEntry(common::EntityId entityId);
-    void syncCameraEntry(common::EntityId entityId);
-    void syncDirectionalLightEntry(common::EntityId entityId);
+    void refreshRenderablePose(std::uint32_t objectIndex);
+    void refreshCameraEntry(std::uint32_t cameraIndex);
+    void refreshDirectionalLightEntry(std::uint32_t lightIndex);
+    void refreshDirtyRenderableMetadata(const graphics::RenderResourceManager& resources);
+    void rebuildDrawRegistries(const graphics::RenderResourceManager& resources);
+    void clearDirtyIndexSet(std::vector<std::uint32_t>& dirtyIndices,
+                            std::vector<std::uint8_t>& dirtyBits);
+    void markRenderablePoseDirty(std::uint32_t objectIndex);
+    void markCameraDirty(std::uint32_t cameraIndex);
+    void markLightDirty(std::uint32_t lightIndex);
     void markRenderableMetadataDirty(std::uint32_t objectIndex);
     void moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
     void moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
@@ -211,12 +217,18 @@ private:
     std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeRenderableSlotsByEnv{};
     std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeCameraSlotsByEnv{};
     std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeDirectionalLightSlotsByEnv{};
+    std::vector<std::uint32_t> mDirtyRenderablePoseIndices{};
+    std::vector<std::uint8_t> mDirtyRenderablePoseBits{};
     std::vector<std::uint32_t> mDirtyRenderableMetadataIndices{};
-    std::unordered_set<std::uint32_t> mDirtyRenderableMetadataSet{};
+    std::vector<std::uint8_t> mDirtyRenderableMetadataBits{};
+    std::vector<std::uint32_t> mDirtyCameraIndices{};
+    std::vector<std::uint8_t> mDirtyCameraBits{};
+    std::vector<std::uint32_t> mDirtyLightIndices{};
+    std::vector<std::uint8_t> mDirtyLightBits{};
+    bool mDrawRegistryDirty              = true;
+    bool mPhysicsRenderableMappingsDirty = true;
 
-    std::uint64_t mRenderRevision                          = 0;
-    std::uint64_t mCachedPhysicsRenderableMappingsRevision = ~0ull;
-    std::uint32_t mCachedPoseMappingRigidBodyCount         = 0u;
+    std::uint64_t mCachedPhysicsRenderableMappingsBodyTopologyRevision = ~0ull;
 };
 
 } // namespace cressim::neo::engine

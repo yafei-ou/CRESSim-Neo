@@ -87,7 +87,9 @@ void PhysicsWorld::clear()
     mColliderSnapshot.clear();
     mRigidBodyDirtyRange.clear();
     mColliderDirtyRange.clear();
-    mStaticBroadPhaseDirty = true;
+    mBodyColliderMappingDirty = true;
+    mStaticBroadPhaseDirty    = true;
+    ++mRigidBodyTopologyRevision;
     ++mRevision;
 }
 
@@ -119,11 +121,10 @@ RigidBodyState& PhysicsWorld::upsertRigidBody(const RigidBodyState& state)
             toKinematicTargetOrientation(normalizedState));
         mRigidBodies.kinematicTargetFlags.push_back(normalizedState.kinematicTargetEnabled ? 1u
                                                                                            : 0u);
-        mBodyColliderMapping.colliderOffsets.push_back(
-            static_cast<std::uint32_t>(mBodyColliderMapping.colliderIndices.size()));
-        mBodyColliderMapping.colliderCounts.push_back(0u);
         mRigidBodyDirtyRange.include(index);
-        mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || isStaticBody(normalizedState);
+        mBodyColliderMappingDirty = true;
+        mStaticBroadPhaseDirty    = mStaticBroadPhaseDirty || isStaticBody(normalizedState);
+        ++mRigidBodyTopologyRevision;
         ++mRevision;
         return mRigidBodySnapshot.back();
     }
@@ -190,9 +191,11 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     mRigidBodies.kinematicTargetOrientations.pop_back();
     mRigidBodies.kinematicTargetFlags.pop_back();
 
-    rebuildBodyColliderMapping();
     markAllRigidBodiesDirty();
-    mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || removedStatic;
+    markAllCollidersDirty();
+    mBodyColliderMappingDirty = true;
+    mStaticBroadPhaseDirty    = mStaticBroadPhaseDirty || removedStatic;
+    ++mRigidBodyTopologyRevision;
     ++mRevision;
     return true;
 }
@@ -242,9 +245,9 @@ void PhysicsWorld::upsertCollider(const ColliderState& state)
         mColliderIdToIndex.emplace(normalizedState.colliderId, colliderIndex);
         auto& entityColliderIds = mEntityToColliderIds[normalizedState.entityId];
         entityColliderIds.push_back(normalizedState.colliderId);
-        rebuildBodyColliderMapping();
         markAllCollidersDirty();
-        mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || ownerIsStatic;
+        mBodyColliderMappingDirty = true;
+        mStaticBroadPhaseDirty    = mStaticBroadPhaseDirty || ownerIsStatic;
         ++mRevision;
         return;
     }
@@ -254,7 +257,10 @@ void PhysicsWorld::upsertCollider(const ColliderState& state)
     writeColliderSoAAt(mColliders, colliderIndex, normalizedState, ownerBodyIndex);
     mColliderSnapshot[colliderIndex] = normalizedState;
     mColliderDirtyRange.include(colliderIndex);
-    rebuildBodyColliderMapping();
+    if (previousState.ownerRigidBodyId != normalizedState.ownerRigidBodyId)
+    {
+        mBodyColliderMappingDirty = true;
+    }
     if (ownerIsStatic && (previousState.shapeType != normalizedState.shapeType ||
                           previousState.shapeParams.x != normalizedState.shapeParams.x ||
                           previousState.shapeParams.y != normalizedState.shapeParams.y ||
@@ -289,9 +295,9 @@ bool PhysicsWorld::removeCollider(ColliderId colliderId)
         removedStaticOwner = isStaticBody(mRigidBodySnapshot[ownerBodyIndex]);
     }
     removeColliderAtIndex(it->second);
-    rebuildBodyColliderMapping();
     markAllCollidersDirty();
-    mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || removedStaticOwner;
+    mBodyColliderMappingDirty = true;
+    mStaticBroadPhaseDirty    = mStaticBroadPhaseDirty || removedStaticOwner;
     ++mRevision;
     return true;
 }
@@ -304,7 +310,7 @@ void PhysicsWorld::replaceColliders(common::EntityId entityId,
     const auto bodyIt = mEntityToRigidBodyIndex.find(entityId);
     if (bodyIt == mEntityToRigidBodyIndex.end() || colliders.empty())
     {
-        rebuildBodyColliderMapping();
+        mBodyColliderMappingDirty = true;
         ++mRevision;
         return;
     }
@@ -329,9 +335,9 @@ void PhysicsWorld::replaceColliders(common::EntityId entityId,
         entityColliderIds.push_back(collider.colliderId);
     }
 
-    rebuildBodyColliderMapping();
     markAllCollidersDirty();
-    mStaticBroadPhaseDirty = true;
+    mBodyColliderMappingDirty = true;
+    mStaticBroadPhaseDirty    = true;
     ++mRevision;
 }
 
@@ -370,12 +376,25 @@ const RigidBodySoAHost& PhysicsWorld::rigidBodySoA() const noexcept
 
 const ColliderSoAHost& PhysicsWorld::colliderSoA() const noexcept
 {
+    ensureDerivedStateUpToDate();
     return mColliders;
 }
 
 const BodyColliderMappingHost& PhysicsWorld::bodyColliderMapping() const noexcept
 {
+    ensureDerivedStateUpToDate();
     return mBodyColliderMapping;
+}
+
+void PhysicsWorld::ensureDerivedStateUpToDate() const noexcept
+{
+    if (!mBodyColliderMappingDirty)
+    {
+        return;
+    }
+
+    rebuildBodyColliderMapping();
+    mBodyColliderMappingDirty = false;
 }
 
 const PhysicsSoADirtyRange& PhysicsWorld::rigidBodyDirtyRange() const noexcept
@@ -483,6 +502,11 @@ void PhysicsWorld::finalizeRigidBodyWriteback() noexcept
 std::uint64_t PhysicsWorld::revision() const noexcept
 {
     return mRevision;
+}
+
+std::uint64_t PhysicsWorld::rigidBodyTopologyRevision() const noexcept
+{
+    return mRigidBodyTopologyRevision;
 }
 
 void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost& soa, std::uint32_t index,
@@ -673,7 +697,7 @@ void PhysicsWorld::removeColliderAtIndex(std::uint32_t index) noexcept
     mColliders.collisionMasks.pop_back();
 }
 
-void PhysicsWorld::rebuildBodyColliderMapping() noexcept
+void PhysicsWorld::rebuildBodyColliderMapping() const noexcept
 {
     mBodyColliderMapping.colliderOffsets.assign(rigidBodyCount(), 0u);
     mBodyColliderMapping.colliderCounts.assign(rigidBodyCount(), 0u);

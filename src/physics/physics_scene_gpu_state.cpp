@@ -620,6 +620,8 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext* computeCon
         return false;
     }
 
+    world.ensureDerivedStateUpToDate();
+
     const RigidBodySoAHost& rigidBodies = world.rigidBodySoA();
     const ColliderSoAHost& colliders    = world.colliderSoA();
     if (static_cast<std::uint32_t>(rigidBodies.size()) != bodyCount ||

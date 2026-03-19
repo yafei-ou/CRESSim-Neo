@@ -41,3 +41,9 @@ add_test(
     NAME cressim_neo_direct_physics_authoring
     COMMAND cressim_neo_direct_physics_authoring
 )
+
+add_engine_test(cressim_neo_world_deferred_render_reconciliation world_deferred_render_reconciliation.cpp)
+add_test(
+    NAME cressim_neo_world_deferred_render_reconciliation
+    COMMAND cressim_neo_world_deferred_render_reconciliation
+)

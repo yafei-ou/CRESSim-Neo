@@ -155,6 +155,9 @@ void Runtime::tick(const common::FrameContext& frameContext)
             logPhysicsStepFailure(frameContext, mPhysicsSolver->lastStageStats());
         }
     }
+
+    mWorld.ensureRenderStateUpToDate(mResources);
+
     bool gpuSceneReady = false;
     if (mGpuSceneSync)
     {
@@ -181,7 +184,6 @@ void Runtime::tick(const common::FrameContext& frameContext)
     }
     if (gpuSceneReady && mGpuSceneSync)
     {
-        mWorld.refreshRenderableMetadata(mResources);
         if (mGpuSceneSync->syncRenderableMetadata(mWorld.renderableMetadata()) &&
             mGpuSceneSync->syncRenderableQueueInfo(mWorld.renderableQueueInfo()) &&
             mGpuSceneSync->syncCameraInputs(mWorld.cameraInputs()) &&
