@@ -8,8 +8,9 @@
 namespace cressim::neo::graphics::detail
 {
 
-ShadowPass::ShadowPass(gpu::GpuDevice& device)
-    : mDevice(device), mShaderLibrary(""), mMeshGpuCache("CRESSimNeo.ShadowPass")
+ShadowPass::ShadowPass(gpu::GpuDevice& device, RenderResourceManager& resourceManager)
+    : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
+      mMeshGpuCache("CRESSimNeo.ShadowPass")
 {
 }
 
@@ -53,19 +54,17 @@ bool ShadowPass::prepareDraw(gpu::GpuRenderTargetHandle target,
         return false;
     }
 
-    if (drawCommand.meshId == common::kInvalidResourceId || drawCommand.vertexData == nullptr ||
-        drawCommand.indexData == nullptr)
+    if (drawCommand.meshId == common::kInvalidResourceId)
     {
         return false;
     }
-    if (drawCommand.vertexCount == 0 || drawCommand.indexCount < 3 ||
-        drawCommand.vertexStrideBytes == 0)
+    if (drawCommand.indexCount < 3)
     {
         return false;
     }
 
     MeshGpuCache::CachedBuffers* meshBuffers =
-        mMeshGpuCache.getOrCreate(drawCommand, backendContext.renderDevice);
+        mMeshGpuCache.getOrCreate(mResourceManager, drawCommand, backendContext.renderDevice);
     if (meshBuffers == nullptr || meshBuffers->vertexBuffer == nullptr ||
         meshBuffers->indexBuffer == nullptr || meshBuffers->indexCount == 0)
     {
@@ -85,8 +84,7 @@ bool ShadowPass::prepareDraw(gpu::GpuRenderTargetHandle target,
         return false;
     }
 
-    if (drawCommand.instanceIndex == 0xffffffffu || mSceneView.poses.positionsBuffer == nullptr ||
-        mSceneView.poses.orientationsBuffer == nullptr ||
+    if (mSceneView.poses.positionsBuffer == nullptr || mSceneView.poses.orientationsBuffer == nullptr ||
         mSceneView.poses.scalesBuffer == nullptr ||
         mSceneView.renderableMetadataBuffer == nullptr ||
         mSceneView.renderableShadowCascadeMasksBuffer == nullptr ||
@@ -205,37 +203,6 @@ void ShadowPass::bindGeometry(Diligent::IDeviceContext* immediateContext,
                                        Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
     immediateContext->SetIndexBuffer(meshBuffers.indexBuffer, 0,
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-}
-
-bool ShadowPass::draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
-                      std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex)
-{
-    DrawSetup setup{};
-    if (!prepareDraw(target, drawCommand, setup))
-    {
-        return false;
-    }
-    if (!bindSceneBuffers())
-    {
-        return false;
-    }
-    if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand,
-                                currentCameraIndex, cascadeIndex))
-    {
-        return false;
-    }
-    bindGeometry(setup.backendContext.immediateContext, *setup.meshBuffers);
-
-    setup.backendContext.immediateContext->SetPipelineState(mPipelineState);
-    setup.backendContext.immediateContext->CommitShaderResources(
-        mShaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    Diligent::DrawIndexedAttribs drawAttrs{};
-    drawAttrs.IndexType  = Diligent::VT_UINT32;
-    drawAttrs.NumIndices = setup.meshBuffers->indexCount;
-    drawAttrs.Flags      = Diligent::DRAW_FLAG_VERIFY_ALL;
-    setup.backendContext.immediateContext->DrawIndexed(drawAttrs);
-    return true;
 }
 
 bool ShadowPass::drawIndirect(gpu::GpuRenderTargetHandle target,

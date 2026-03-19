@@ -28,7 +28,8 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
     float4 orientation = float4(0.0, 0.0, 0.0, 1.0);
     float3 scale = float3(1.0, 1.0, 1.0);
     loadRenderablePose(objectIndex, poseValid, position, orientation, scale);
-    const uint visibilityIndex = preparedCamera.renderableDataOffset + objectIndex;
+    const uint localObjectIndex = objectIndex - preparedCamera.objectRangeStart;
+    const uint visibilityIndex = preparedCamera.visibilityDataOffset + localObjectIndex;
     if (!poseValid || g_RenderableVisibilityFlags[visibilityIndex] == 0u ||
         preparedCamera.active == 0u)
     {

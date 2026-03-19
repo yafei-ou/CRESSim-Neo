@@ -3,10 +3,10 @@
 
 struct RenderableMetadata
 {
-    uint objectSlot;
-    uint envIndex;
     uint flags;
-    uint reserved;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
     float4 localBoundsMin;
     float4 localBoundsMax;
 };
@@ -21,14 +21,27 @@ struct PreparedCamera
     float4 shadowParams;
     uint envIndex;
     uint active;
-    uint renderableDataOffset;
+    uint objectRangeStart;
+    uint objectRangeCount;
+    uint visibilityDataOffset;
     uint reserved0;
+    uint reserved1;
+    uint reserved2;
+};
+
+struct RenderableQueueInfo
+{
+    uint opaqueCommandIndex;
+    uint shadowCommandBaseIndex;
+    uint reserved0;
+    uint reserved1;
 };
 
 StructuredBuffer<float4> g_EntityPositions;
 StructuredBuffer<float4> g_EntityOrientations;
 StructuredBuffer<float4> g_EntityScales;
 StructuredBuffer<RenderableMetadata> g_RenderableMetadata;
+StructuredBuffer<RenderableQueueInfo> g_RenderableQueueInfo;
 StructuredBuffer<uint> g_RenderableVisibilityFlags;
 StructuredBuffer<uint> g_RenderableShadowCascadeMasks;
 StructuredBuffer<PreparedCamera> g_PreparedCameras;

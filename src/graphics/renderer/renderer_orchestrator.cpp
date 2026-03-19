@@ -20,17 +20,17 @@ constexpr std::uint32_t kScenePrepareThreadGroupSize = 64u;
 struct GraphicsCameraPrepareConstants
 {
     std::uint32_t cameraCount         = 0u;
+    std::uint32_t maxObjectsPerEnv    = 0u;
     std::uint32_t maxLightsPerEnv     = 0u;
     std::uint32_t shadowMapResolution = kShadowMapResolution;
-    std::uint32_t renderableCount     = 0u;
 };
 
 struct GraphicsScenePrepareConstants
 {
-    std::uint32_t renderableCount = 0u;
-    std::uint32_t cameraCount     = 0u;
-    std::uint32_t padding0        = 0u;
-    std::uint32_t padding1        = 0u;
+    std::uint32_t cameraCount      = 0u;
+    std::uint32_t maxObjectsPerEnv = 0u;
+    std::uint32_t padding0         = 0u;
+    std::uint32_t padding1         = 0u;
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kCameraPrepareVars[] = {
@@ -224,9 +224,9 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView& sceneView)
 
     GraphicsCameraPrepareConstants cameraPrepareConstants{};
     cameraPrepareConstants.cameraCount         = sceneView.cameraCount;
+    cameraPrepareConstants.maxObjectsPerEnv    = sceneView.layout.maxObjectsPerEnv;
     cameraPrepareConstants.maxLightsPerEnv     = sceneView.layout.maxLightsPerEnv;
     cameraPrepareConstants.shadowMapResolution = kShadowMapResolution;
-    cameraPrepareConstants.renderableCount     = sceneView.renderableCount;
 
     void* mappedConstants = nullptr;
     backendContext.immediateContext->MapBuffer(mGpuScenePrepare->cameraPrepareConstantsBuffer,
@@ -258,8 +258,8 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView& sceneView)
     }
 
     GraphicsScenePrepareConstants constants{};
-    constants.renderableCount = sceneView.renderableCount;
-    constants.cameraCount     = sceneView.cameraCount;
+    constants.cameraCount      = sceneView.cameraCount;
+    constants.maxObjectsPerEnv = sceneView.layout.maxObjectsPerEnv;
     mappedConstants           = nullptr;
     backendContext.immediateContext->MapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
                                                Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
@@ -296,12 +296,12 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView& sceneView)
 
     return mGpuScenePrepare->scenePreparePass.dispatch(
         backendContext.immediateContext, 0u, bindings,
-        dispatchGroupCount(sceneView.renderableCount * sceneView.cameraCount));
+        dispatchGroupCount(sceneView.layout.maxObjectsPerEnv * sceneView.cameraCount));
 }
 
 bool Renderer::initialize()
 {
-    mForwardPipeline = std::make_unique<detail::ForwardPipeline>(mDevice);
+    mForwardPipeline = std::make_unique<detail::ForwardPipeline>(mDevice, mResourceManager);
     if (!mForwardPipeline->initialize())
     {
         mForwardPipeline.reset();
@@ -353,9 +353,6 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
         mDevice.endFrame(frameContext);
         return stats;
     }
-    const CameraRenderQueues queues =
-        detail::buildCameraRenderQueues(renderables, mResourceManager, stats);
-
     struct RequestedExtent
     {
         std::uint32_t width  = 0;
@@ -439,7 +436,7 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
         ForwardPassExecutionStats passStats{};
         if (mForwardPipeline != nullptr)
         {
-            (void)mForwardPipeline->execute(frameContext, frameView, gpuScene, queues, passStats);
+            (void)mForwardPipeline->execute(frameContext, frameView, world, passStats);
         }
 
         stats.opaqueDrawCalls += passStats.opaqueDrawCalls;

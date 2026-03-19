@@ -6,8 +6,10 @@
 namespace cressim::neo::graphics::detail
 {
 
-ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice& device)
-    : mDevice(device), mShaderLibrary(""), mMeshGpuCache("CRESSimNeo.ForwardOpaquePass")
+ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice& device,
+                                     RenderResourceManager& resourceManager)
+    : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
+      mMeshGpuCache("CRESSimNeo.ForwardOpaquePass")
 {
 }
 
@@ -152,19 +154,18 @@ bool ForwardOpaquePass::prepareDraw(gpu::GpuRenderTargetHandle target,
         return false;
     }
 
-    if (drawCommand.meshId == common::kInvalidResourceId || drawCommand.vertexData == nullptr ||
-        drawCommand.indexData == nullptr)
+    if (drawCommand.meshId == common::kInvalidResourceId ||
+        drawCommand.materialId == common::kInvalidResourceId)
     {
         return false;
     }
-    if (drawCommand.vertexCount == 0 || drawCommand.indexCount < 3 ||
-        drawCommand.vertexStrideBytes == 0)
+    if (drawCommand.indexCount < 3)
     {
         return false;
     }
 
     MeshGpuCache::CachedBuffers* meshBuffers =
-        mMeshGpuCache.getOrCreate(drawCommand, backendContext.renderDevice);
+        mMeshGpuCache.getOrCreate(mResourceManager, drawCommand, backendContext.renderDevice);
     if (meshBuffers == nullptr || meshBuffers->vertexBuffer == nullptr ||
         meshBuffers->indexBuffer == nullptr || meshBuffers->indexCount == 0)
     {
@@ -203,8 +204,7 @@ bool ForwardOpaquePass::prepareDraw(gpu::GpuRenderTargetHandle target,
         return false;
     }
 
-    if (drawCommand.instanceIndex == 0xffffffffu || mSceneView.poses.positionsBuffer == nullptr ||
-        mSceneView.poses.orientationsBuffer == nullptr ||
+    if (mSceneView.poses.positionsBuffer == nullptr || mSceneView.poses.orientationsBuffer == nullptr ||
         mSceneView.poses.scalesBuffer == nullptr ||
         mSceneView.renderableMetadataBuffer == nullptr ||
         mSceneView.renderableVisibilityFlagsBuffer == nullptr ||
@@ -356,13 +356,19 @@ bool ForwardOpaquePass::updatePerDrawConstants(Diligent::IDeviceContext* immedia
     objectConstants.drawListOffset    = drawCommand.drawListOffset;
     objectConstants.useDrawListBuffer = drawCommand.useDrawListBuffer;
 
+    const MaterialResourceDesc* material =
+        mResourceManager.tryGetMaterial(MaterialHandle{drawCommand.materialId});
+    if (material == nullptr)
+    {
+        return false;
+    }
+
     ForwardPerMaterialConstants materialConstants{};
-    materialConstants.baseColor =
-        Diligent::float4{drawCommand.material.baseColor.x, drawCommand.material.baseColor.y,
-                         drawCommand.material.baseColor.z, drawCommand.material.opacity};
+    materialConstants.baseColor = Diligent::float4{material->baseColor.x, material->baseColor.y,
+                                                   material->baseColor.z, material->opacity};
     materialConstants.materialParams =
-        Diligent::float4{drawCommand.material.metallic, drawCommand.material.roughness,
-                         drawCommand.material.alphaCutoff, drawCommand.material.receivesShadows};
+        Diligent::float4{material->metallic, material->roughness,
+                         material->pipeline.alphaCutoff, material->receivesShadows ? 1.0f : 0.0f};
 
     void* mappedConstants = nullptr;
     immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
@@ -396,36 +402,6 @@ void ForwardOpaquePass::bindGeometry(Diligent::IDeviceContext* immediateContext,
                                        Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
     immediateContext->SetIndexBuffer(meshBuffers.indexBuffer, 0,
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-}
-
-bool ForwardOpaquePass::draw(gpu::GpuRenderTargetHandle target,
-                             const ForwardDrawCommand& drawCommand)
-{
-    DrawSetup setup{};
-    if (!prepareDraw(target, drawCommand, setup) || !bindShadowMaps(*setup.program))
-    {
-        return false;
-    }
-    if (!bindSceneBuffers(*setup.program))
-    {
-        return false;
-    }
-    if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand))
-    {
-        return false;
-    }
-    bindGeometry(setup.backendContext.immediateContext, *setup.meshBuffers);
-
-    setup.backendContext.immediateContext->SetPipelineState(setup.program->pipelineState);
-    setup.backendContext.immediateContext->CommitShaderResources(
-        setup.program->shaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    Diligent::DrawIndexedAttribs drawAttrs{};
-    drawAttrs.IndexType  = Diligent::VT_UINT32;
-    drawAttrs.NumIndices = setup.meshBuffers->indexCount;
-    drawAttrs.Flags      = Diligent::DRAW_FLAG_VERIFY_ALL;
-    setup.backendContext.immediateContext->DrawIndexed(drawAttrs);
-    return true;
 }
 
 bool ForwardOpaquePass::drawIndirect(gpu::GpuRenderTargetHandle target,

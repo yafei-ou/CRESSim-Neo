@@ -2,8 +2,8 @@
 
 cbuffer GraphicsScenePrepareConstants
 {
-    uint g_RenderableCount;
     uint g_CameraCount;
+    uint g_MaxObjectsPerEnv;
     uint g_PreparePadding0;
     uint g_PreparePadding1;
 };
@@ -15,17 +15,16 @@ RWStructuredBuffer<uint> g_RenderableShadowCascadeMasksRW;
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
     const uint globalIndex = dispatchThreadId.x;
-    const uint totalCount = g_RenderableCount * g_CameraCount;
-    if (globalIndex >= totalCount || g_RenderableCount == 0u)
+    const uint totalCount = g_MaxObjectsPerEnv * g_CameraCount;
+    if (globalIndex >= totalCount || g_MaxObjectsPerEnv == 0u)
     {
         return;
     }
 
-    const uint currentCameraIndex = globalIndex / g_RenderableCount;
-    const uint renderableIndex = globalIndex % g_RenderableCount;
-    const uint outputIndex = currentCameraIndex * g_RenderableCount + renderableIndex;
-
+    const uint currentCameraIndex = globalIndex / g_MaxObjectsPerEnv;
+    const uint localObjectIndex = globalIndex % g_MaxObjectsPerEnv;
     const PreparedCamera preparedCamera = g_PreparedCameras[currentCameraIndex];
+    const uint outputIndex = preparedCamera.visibilityDataOffset + localObjectIndex;
     if (preparedCamera.active == 0u)
     {
         g_RenderableVisibilityFlagsRW[outputIndex] = 0u;
@@ -33,10 +32,10 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
+    const uint renderableIndex = preparedCamera.objectRangeStart + localObjectIndex;
     const RenderableMetadata metadata = g_RenderableMetadata[renderableIndex];
     if ((metadata.flags & CRESSIM_RENDERABLE_FLAG_ACTIVE) == 0u ||
-        (metadata.flags & CRESSIM_RENDERABLE_FLAG_GPU_POSE) == 0u ||
-        metadata.envIndex != preparedCamera.envIndex)
+        (metadata.flags & CRESSIM_RENDERABLE_FLAG_GPU_POSE) == 0u)
     {
         g_RenderableVisibilityFlagsRW[outputIndex] = 0u;
         g_RenderableShadowCascadeMasksRW[outputIndex] = 0u;

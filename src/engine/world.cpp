@@ -1,11 +1,40 @@
 #include "engine/world.h"
 
+#include <map>
+
 namespace cressim::neo::engine
 {
 
 namespace
 {
 constexpr std::uint32_t kInvalidSlot = 0xffffffffu;
+constexpr std::uint32_t kInvalidCommandIndex = 0xffffffffu;
+
+struct DrawBucketKey
+{
+    graphics::MaterialProgramFamily programFamily = graphics::MaterialProgramFamily::StandardLit;
+    std::uint32_t materialFeatureFlags            = 0u;
+    common::ResourceId materialId                 = common::kInvalidResourceId;
+    common::ResourceId meshId                     = common::kInvalidResourceId;
+
+    [[nodiscard]] bool operator<(const DrawBucketKey& rhs) const noexcept
+    {
+        if (programFamily != rhs.programFamily)
+        {
+            return static_cast<std::uint32_t>(programFamily) <
+                   static_cast<std::uint32_t>(rhs.programFamily);
+        }
+        if (materialFeatureFlags != rhs.materialFeatureFlags)
+        {
+            return materialFeatureFlags < rhs.materialFeatureFlags;
+        }
+        if (materialId != rhs.materialId)
+        {
+            return materialId < rhs.materialId;
+        }
+        return meshId < rhs.meshId;
+    }
+};
 
 const std::vector<World::ColliderHandle>& emptyColliderHandleList()
 {
@@ -171,6 +200,9 @@ void World::ensureHostSceneStorage()
         mRenderObjectOrientations.assign(objectCapacity, Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f});
         mRenderObjectScales.assign(objectCapacity, Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f});
         mRenderableMetadataHost.assign(objectCapacity, gpu::GpuRenderableMetadata{});
+        mRenderableQueueInfoHost.assign(objectCapacity, gpu::GpuRenderableQueueInfo{});
+        mOpaqueDrawRegistryHost.clear();
+        mShadowDrawRegistryHost.clear();
         mDirtyRenderableMetadataIndices.clear();
         mDirtyRenderableMetadataSet.clear();
         mDirtyRenderableMetadataIndices.reserve(objectCapacity);
@@ -841,6 +873,11 @@ const std::vector<gpu::GpuRenderableMetadata>& World::renderableMetadata() const
     return mRenderableMetadataHost;
 }
 
+const std::vector<gpu::GpuRenderableQueueInfo>& World::renderableQueueInfo() const noexcept
+{
+    return mRenderableQueueInfoHost;
+}
+
 const std::vector<gpu::GpuCameraInput>& World::cameraInputs() const noexcept
 {
     return mCameraInputsHost;
@@ -849,6 +886,16 @@ const std::vector<gpu::GpuCameraInput>& World::cameraInputs() const noexcept
 const std::vector<gpu::GpuDirectionalLightInput>& World::lightInputs() const noexcept
 {
     return mLightInputsHost;
+}
+
+const std::vector<graphics::IndirectCommandRegistryEntry>& World::opaqueDrawRegistry() const noexcept
+{
+    return mOpaqueDrawRegistryHost;
+}
+
+const std::vector<graphics::IndirectCommandRegistryEntry>& World::shadowDrawRegistry() const noexcept
+{
+    return mShadowDrawRegistryHost;
 }
 
 const std::vector<gpu::GpuEntityPoseMappingEntry>& World::physicsRenderableMappings()
@@ -912,17 +959,15 @@ graphics::HostSceneView World::hostSceneView() const noexcept
         &mRenderables,
         &mRenderCameras,
         &mRenderDirectionalLights,
+        &mOpaqueDrawRegistryHost,
+        &mShadowDrawRegistryHost,
         &mGpuEntityScene,
     };
 }
 
 void World::refreshRenderableMetadata(const graphics::RenderResourceManager& resources)
 {
-
     // TODO: some metadata depends on resources too, not just world state:
-    // material blend mode
-    // material shadow-caster flags
-    // mesh local bounds
     // if a mesh or material changes later inside RenderResourceManager, World does
     // not currently know which object slots should become dirty.
 
@@ -938,8 +983,6 @@ void World::refreshRenderableMetadata(const graphics::RenderResourceManager& res
         if (renderable.entityId != common::kInvalidEntityId &&
             renderable.objectSlot != kInvalidSlot)
         {
-            entry.objectSlot = renderable.objectSlot;
-            entry.envIndex   = renderable.envIndex;
             if (renderable.visible)
             {
                 entry.flags |= gpu::GpuRenderableFlag_Active;
@@ -947,17 +990,15 @@ void World::refreshRenderableMetadata(const graphics::RenderResourceManager& res
 
             const graphics::MaterialResourceDesc* material =
                 resources.tryGetMaterial(renderable.material);
-            if (material != nullptr && renderable.visible)
+            if (material != nullptr && renderable.visible &&
+                material->blendMode != graphics::BlendMode::Transparent)
             {
-                if (material->blendMode != graphics::BlendMode::Transparent)
+                entry.flags |= gpu::GpuRenderableFlag_Opaque;
+                if (material->castsShadows)
                 {
-                    entry.flags |= gpu::GpuRenderableFlag_Opaque;
-                    if (material->castsShadows)
-                    {
-                        entry.flags |= gpu::GpuRenderableFlag_ShadowCaster;
-                    }
-                    entry.flags |= gpu::GpuRenderableFlag_UsesGpuPose;
+                    entry.flags |= gpu::GpuRenderableFlag_ShadowCaster;
                 }
+                entry.flags |= gpu::GpuRenderableFlag_UsesGpuPose;
             }
 
             Diligent::float3 localBoundsMin{};
@@ -974,13 +1015,117 @@ void World::refreshRenderableMetadata(const graphics::RenderResourceManager& res
         mRenderableMetadataHost[objectIndex] = entry;
     }
 
+    // TODO: mesh/material resources still authored on CPU.
+    // I don't know if we can let GPU do this part completely.
+
+    std::map<DrawBucketKey, std::vector<std::uint32_t>> opaqueObjectsByKey;
+    std::map<DrawBucketKey, std::vector<std::uint32_t>> shadowObjectsByKey;
+    mRenderableQueueInfoHost.assign(mRenderables.size(), gpu::GpuRenderableQueueInfo{});
+    mOpaqueDrawRegistryHost.clear();
+    mShadowDrawRegistryHost.clear();
+
+    for (std::uint32_t objectIndex = 0u;
+         objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
+    {
+        const graphics::RenderableInstance& renderable = mRenderables[objectIndex];
+        if (renderable.entityId == common::kInvalidEntityId || renderable.objectSlot == kInvalidSlot ||
+            !renderable.visible)
+        {
+            continue;
+        }
+
+        const graphics::MeshResourceDesc* mesh = resources.tryGetMesh(renderable.mesh);
+        const graphics::MaterialResourceDesc* material = resources.tryGetMaterial(renderable.material);
+        if (mesh == nullptr || material == nullptr || material->blendMode == graphics::BlendMode::Transparent ||
+            mesh->vertices.empty() || mesh->indices.size() < 3)
+        {
+            continue;
+        }
+
+        const DrawBucketKey key{
+            material->pipeline.programFamily,
+            static_cast<std::uint32_t>(material->pipeline.featureFlags),
+            renderable.material.id,
+            renderable.mesh.id,
+        };
+        opaqueObjectsByKey[key].push_back(objectIndex);
+        if (material->castsShadows)
+        {
+            shadowObjectsByKey[key].push_back(objectIndex);
+        }
+    }
+
+    std::uint32_t opaqueCommandIndex = 0u;
+    for (const auto& [key, objectIndices] : opaqueObjectsByKey)
+    {
+        if (objectIndices.empty())
+        {
+            continue;
+        }
+
+        const graphics::MeshResourceDesc* mesh = resources.tryGetMesh(graphics::MeshHandle{key.meshId});
+        if (mesh == nullptr)
+        {
+            continue;
+        }
+
+        graphics::IndirectCommandRegistryEntry entry{};
+        entry.drawCommand.useDrawListBuffer = 1u;
+        entry.drawCommand.programFamily = key.programFamily;
+        entry.drawCommand.materialFeatureFlags =
+            static_cast<graphics::MaterialFeatureFlags>(key.materialFeatureFlags);
+        entry.drawCommand.meshId = key.meshId;
+        entry.drawCommand.materialId = key.materialId;
+        entry.drawCommand.meshVersion = resources.meshVersion(graphics::MeshHandle{key.meshId});
+        entry.drawCommand.indexCount = static_cast<std::uint32_t>(mesh->indices.size());
+        entry.maxVisibleCount = static_cast<std::uint32_t>(objectIndices.size());
+        mOpaqueDrawRegistryHost.push_back(entry);
+        for (const std::uint32_t objectIndex : objectIndices)
+        {
+            mRenderableQueueInfoHost[objectIndex].opaqueCommandIndex = opaqueCommandIndex;
+        }
+        ++opaqueCommandIndex;
+    }
+
+    std::uint32_t shadowCommandBaseIndex = 0u;
+    for (const auto& [key, objectIndices] : shadowObjectsByKey)
+    {
+        if (objectIndices.empty())
+        {
+            continue;
+        }
+
+        const graphics::MeshResourceDesc* mesh = resources.tryGetMesh(graphics::MeshHandle{key.meshId});
+        if (mesh == nullptr)
+        {
+            continue;
+        }
+
+        for (std::uint32_t cascadeIndex = 0u; cascadeIndex < graphics::kShadowCascadeCount;
+             ++cascadeIndex)
+        {
+            graphics::IndirectCommandRegistryEntry entry{};
+            entry.drawCommand.useDrawListBuffer = 1u;
+            entry.drawCommand.programFamily = key.programFamily;
+            entry.drawCommand.materialFeatureFlags =
+                static_cast<graphics::MaterialFeatureFlags>(key.materialFeatureFlags);
+            entry.drawCommand.meshId = key.meshId;
+            entry.drawCommand.materialId = key.materialId;
+            entry.drawCommand.meshVersion = resources.meshVersion(graphics::MeshHandle{key.meshId});
+            entry.drawCommand.indexCount = static_cast<std::uint32_t>(mesh->indices.size());
+            entry.maxVisibleCount = static_cast<std::uint32_t>(objectIndices.size());
+            mShadowDrawRegistryHost.push_back(entry);
+        }
+
+        for (const std::uint32_t objectIndex : objectIndices)
+        {
+            mRenderableQueueInfoHost[objectIndex].shadowCommandBaseIndex = shadowCommandBaseIndex;
+        }
+        shadowCommandBaseIndex += graphics::kShadowCascadeCount;
+    }
+
     mDirtyRenderableMetadataIndices.clear();
     mDirtyRenderableMetadataSet.clear();
-}
-
-std::uint64_t World::renderRevision() const noexcept
-{
-    return mRenderRevision;
 }
 
 void World::syncRenderableEntry(common::EntityId entityId)

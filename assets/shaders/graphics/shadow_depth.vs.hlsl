@@ -26,8 +26,9 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
     float4 orientation = float4(0.0, 0.0, 0.0, 1.0);
     float3 scale = float3(1.0, 1.0, 1.0);
     loadRenderablePose(objectIndex, poseValid, position, orientation, scale);
+    const uint localObjectIndex = objectIndex - preparedCamera.objectRangeStart;
     const uint shadowMask =
-        g_RenderableShadowCascadeMasks[preparedCamera.renderableDataOffset + objectIndex];
+        g_RenderableShadowCascadeMasks[preparedCamera.visibilityDataOffset + localObjectIndex];
     if (!poseValid || preparedCamera.active == 0u || ((shadowMask & (1u << g_CascadeIndex)) == 0u))
     {
         Out.Position = float4(2.0, 2.0, 2.0, 1.0);

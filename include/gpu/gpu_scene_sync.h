@@ -27,6 +27,7 @@ public:
     bool syncEntityPoses(const GpuPoseBufferView& sourcePoses,
                          const std::vector<GpuEntityPoseMappingEntry>& mappings);
     bool syncRenderableMetadata(const std::vector<GpuRenderableMetadata>& renderables);
+    bool syncRenderableQueueInfo(const std::vector<GpuRenderableQueueInfo>& queueInfo);
     bool syncCameraInputs(const std::vector<GpuCameraInput>& cameras);
     bool syncLightInputs(const std::vector<GpuDirectionalLightInput>& lights);
 
@@ -60,6 +61,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mEntityOrientationsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mEntityScalesBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableMetadataBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableQueueInfoBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableVisibilityFlagsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableShadowCascadeMasksBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mCameraInputsBuffer;

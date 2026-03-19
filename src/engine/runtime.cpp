@@ -184,6 +184,7 @@ void Runtime::tick(const common::FrameContext& frameContext)
     {
         mWorld.refreshRenderableMetadata(mResources);
         if (mGpuSceneSync->syncRenderableMetadata(mWorld.renderableMetadata()) &&
+            mGpuSceneSync->syncRenderableQueueInfo(mWorld.renderableQueueInfo()) &&
             mGpuSceneSync->syncCameraInputs(mWorld.cameraInputs()) &&
             mGpuSceneSync->syncLightInputs(mWorld.lightInputs()))
         {

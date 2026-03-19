@@ -28,7 +28,7 @@ namespace detail
 class ForwardOpaquePass
 {
 public:
-    explicit ForwardOpaquePass(gpu::GpuDevice& device);
+    ForwardOpaquePass(gpu::GpuDevice& device, RenderResourceManager& resourceManager);
 
     bool initialize();
     bool beginCameraFrame(const FrameViewData& frameView);
@@ -37,7 +37,6 @@ public:
     void setShadowMapTargets(
         const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount>& shadowMapTargets,
         std::uint32_t shadowMapCount);
-    bool draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand);
     bool drawIndirect(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
                       Diligent::IBuffer* indirectArgsBuffer, Diligent::Uint64 argsOffsetBytes);
     std::size_t cachedProgramCount() const noexcept;
@@ -92,6 +91,7 @@ private:
 
 private:
     gpu::GpuDevice& mDevice;
+    RenderResourceManager& mResourceManager;
     bool mInitialized = false;
     gpu::ShaderLibrary mShaderLibrary;
     std::unique_ptr<MaterialProgramRegistry> mProgramRegistry;

@@ -25,9 +25,9 @@ struct DirectionalLightInput
 cbuffer GraphicsCameraPrepareConstants
 {
     uint g_CameraCount;
+    uint g_MaxObjectsPerEnv;
     uint g_MaxLightsPerEnv;
     uint g_ShadowMapResolution;
-    uint g_RenderableCount;
 };
 
 StructuredBuffer<CameraInput> g_CameraInputs;
@@ -246,7 +246,9 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     }
     prepared.envIndex = camera.envIndex;
     prepared.active = camera.active;
-    prepared.renderableDataOffset = currentCameraIndex * g_RenderableCount;
+    prepared.objectRangeStart = camera.envIndex * g_MaxObjectsPerEnv;
+    prepared.objectRangeCount = g_MaxObjectsPerEnv;
+    prepared.visibilityDataOffset = currentCameraIndex * g_MaxObjectsPerEnv;
     prepared.cascadeSplits = float4(0.0, 0.0, 0.0, 0.0);
     prepared.shadowParams = float4(0.0, 0.0, 0.0, 0.0);
 

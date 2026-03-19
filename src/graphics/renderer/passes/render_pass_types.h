@@ -37,40 +37,6 @@ struct FrameViewData
     Diligent::float3 cameraWorldPosition = {0.0f, 0.0f, 0.0f};
 };
 
-struct QueuedDraw
-{
-    std::uint32_t objectIndex     = 0xffffffffu;
-    common::ResourceId meshId     = common::kInvalidResourceId;
-    common::ResourceId materialId = common::kInvalidResourceId;
-    bool castsShadows             = true;
-    ForwardDrawCommand drawCommand{};
-};
-
-struct GpuIndirectCandidate
-{
-    std::uint32_t objectIndex    = 0xffffffffu;
-    std::uint32_t commandIndex   = 0u;
-    std::uint32_t visibilityMask = 0u;
-    std::uint32_t reserved       = 0u;
-};
-
-struct GpuIndirectBucket
-{
-    ForwardDrawCommand drawCommand{};
-    std::uint32_t candidateOffset = 0u;
-    std::uint32_t candidateCount  = 0u;
-    std::uint32_t drawListOffset  = 0u;
-    std::uint32_t commandIndex    = 0u;
-};
-
-struct CameraRenderQueues
-{
-    std::vector<GpuIndirectBucket> gpuOpaqueBuckets;
-    std::vector<GpuIndirectCandidate> gpuOpaqueCandidates;
-    std::vector<GpuIndirectBucket> gpuShadowBuckets;
-    std::vector<GpuIndirectCandidate> gpuShadowCandidates;
-};
-
 struct ForwardPassExecutionStats
 {
     std::uint32_t opaqueDrawCalls = 0;

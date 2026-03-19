@@ -29,10 +29,6 @@ bool sameStats(const RenderStats& lhs, const RenderStats& rhs)
         lhs.opaqueDrawCalls == rhs.opaqueDrawCalls &&
         lhs.shadowDrawCalls == rhs.shadowDrawCalls &&
         lhs.renderableCount == rhs.renderableCount &&
-        lhs.validRenderableCount == rhs.validRenderableCount &&
-        lhs.culledRenderableCount == rhs.culledRenderableCount &&
-        lhs.opaqueQueueCount == rhs.opaqueQueueCount &&
-        lhs.shadowCasterQueueCount == rhs.shadowCasterQueueCount &&
         lhs.lightCount == rhs.lightCount &&
         lhs.cameraCount == rhs.cameraCount &&
         lhs.renderTargetResizeRequests == rhs.renderTargetResizeRequests &&
@@ -137,20 +133,9 @@ int main()
 
     runtime.shutdown();
 
-    if (firstFrame.renderableCount != 3 || firstFrame.validRenderableCount != 2)
+    if (firstFrame.renderableCount != 3)
     {
         std::cerr << "Unexpected renderable counters.\n";
-        return 1;
-    }
-    if (firstFrame.culledRenderableCount != 0)
-    {
-        std::cerr << "Unexpected culling count. expected=0 got=" << firstFrame.culledRenderableCount << '\n';
-        return 1;
-    }
-    if (firstFrame.opaqueQueueCount != 2 || firstFrame.shadowCasterQueueCount != 2)
-    {
-        std::cerr << "Unexpected queue counters. opaque=" << firstFrame.opaqueQueueCount
-                  << " shadow=" << firstFrame.shadowCasterQueueCount << '\n';
         return 1;
     }
     if (firstFrame.shadowDrawCalls != 4)

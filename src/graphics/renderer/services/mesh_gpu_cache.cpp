@@ -7,10 +7,16 @@ namespace cressim::neo::graphics::detail
 
 MeshGpuCache::MeshGpuCache(std::string debugPrefix) : mDebugPrefix(std::move(debugPrefix)) {}
 
-MeshGpuCache::CachedBuffers* MeshGpuCache::getOrCreate(const ForwardDrawCommand& drawCommand,
+MeshGpuCache::CachedBuffers* MeshGpuCache::getOrCreate(const RenderResourceManager& resources,
+                                                       const ForwardDrawCommand& drawCommand,
                                                        Diligent::IRenderDevice* renderDevice)
 {
     if (renderDevice == nullptr)
+    {
+        return nullptr;
+    }
+    const MeshResourceDesc* meshDesc = resources.tryGetMesh(MeshHandle{drawCommand.meshId});
+    if (meshDesc == nullptr || meshDesc->vertices.empty() || meshDesc->indices.size() < 3)
     {
         return nullptr;
     }
@@ -29,10 +35,11 @@ MeshGpuCache::CachedBuffers* MeshGpuCache::getOrCreate(const ForwardDrawCommand&
     vertexBufferDesc.Usage       = Diligent::USAGE_IMMUTABLE;
     vertexBufferDesc.BindFlags   = Diligent::BIND_VERTEX_BUFFER;
     vertexBufferDesc.Size =
-        static_cast<Diligent::Uint64>(drawCommand.vertexCount) * drawCommand.vertexStrideBytes;
+        static_cast<Diligent::Uint64>(meshDesc->vertices.size()) *
+        sizeof(MeshResourceDesc::Vertex);
 
     Diligent::BufferData vertexData{};
-    vertexData.pData    = drawCommand.vertexData;
+    vertexData.pData    = meshDesc->vertices.data();
     vertexData.DataSize = vertexBufferDesc.Size;
     renderDevice->CreateBuffer(vertexBufferDesc, &vertexData, &mesh.vertexBuffer);
     if (mesh.vertexBuffer == nullptr)
@@ -47,10 +54,10 @@ MeshGpuCache::CachedBuffers* MeshGpuCache::getOrCreate(const ForwardDrawCommand&
     indexBufferDesc.Usage       = Diligent::USAGE_IMMUTABLE;
     indexBufferDesc.BindFlags   = Diligent::BIND_INDEX_BUFFER;
     indexBufferDesc.Size =
-        static_cast<Diligent::Uint64>(drawCommand.indexCount) * sizeof(std::uint32_t);
+        static_cast<Diligent::Uint64>(meshDesc->indices.size()) * sizeof(std::uint32_t);
 
     Diligent::BufferData indexData{};
-    indexData.pData    = drawCommand.indexData;
+    indexData.pData    = meshDesc->indices.data();
     indexData.DataSize = indexBufferDesc.Size;
     renderDevice->CreateBuffer(indexBufferDesc, &indexData, &mesh.indexBuffer);
     if (mesh.indexBuffer == nullptr)
@@ -60,7 +67,7 @@ MeshGpuCache::CachedBuffers* MeshGpuCache::getOrCreate(const ForwardDrawCommand&
     }
 
     mesh.version    = drawCommand.meshVersion;
-    mesh.indexCount = drawCommand.indexCount;
+    mesh.indexCount = static_cast<std::uint32_t>(meshDesc->indices.size());
     return &mesh;
 }
 

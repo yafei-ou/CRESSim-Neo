@@ -162,6 +162,7 @@ void GpuSceneSync::shutdown()
     mEntityOrientationsBuffer           = nullptr;
     mEntityScalesBuffer                 = nullptr;
     mRenderableMetadataBuffer           = nullptr;
+    mRenderableQueueInfoBuffer          = nullptr;
     mRenderableVisibilityFlagsBuffer    = nullptr;
     mRenderableShadowCascadeMasksBuffer = nullptr;
     mCameraInputsBuffer                 = nullptr;
@@ -228,8 +229,10 @@ bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadat
     mRenderableCount                     = static_cast<std::uint32_t>(renderables.size());
     const std::uint32_t requiredCapacity = std::max<std::uint32_t>(mRenderableCount, 1u);
     const std::uint32_t visibilityCapacity =
-        std::max<std::uint32_t>(requiredCapacity * std::max(mLayout.totalCameraCapacity(), 1u), 1u);
+        std::max<std::uint32_t>(mLayout.maxObjectsPerEnv * std::max(mLayout.totalCameraCapacity(), 1u),
+                                1u);
     if (mRenderableCapacity < requiredCapacity || mRenderableMetadataBuffer == nullptr ||
+        mRenderableQueueInfoBuffer == nullptr ||
         mRenderableVisibilityFlagsBuffer == nullptr ||
         mRenderableShadowCascadeMasksBuffer == nullptr)
     {
@@ -241,6 +244,11 @@ bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadat
                 sizeof(GpuRenderableMetadata), newCapacity, Diligent::BIND_SHADER_RESOURCE,
                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                 mRenderableMetadataBuffer) ||
+            !ensureStructuredBuffer(
+                computeContext.renderDevice, "CRESSimNeo.Gpu.RenderableQueueInfo",
+                sizeof(GpuRenderableQueueInfo), newCapacity, Diligent::BIND_SHADER_RESOURCE,
+                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                mRenderableQueueInfoBuffer) ||
             !ensureStructuredBuffer(
                 computeContext.renderDevice, "CRESSimNeo.Gpu.RenderableVisibilityFlags",
                 sizeof(std::uint32_t), visibilityCapacity,
@@ -266,6 +274,29 @@ bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadat
 
     return writeBuffer(computeContext.computeContext, mRenderableMetadataBuffer, renderables.data(),
                        renderables.size() * sizeof(GpuRenderableMetadata));
+}
+
+bool GpuSceneSync::syncRenderableQueueInfo(const std::vector<GpuRenderableQueueInfo>& queueInfo)
+{
+    if (!mInitialized)
+    {
+        return false;
+    }
+
+    GpuComputeBackendContext computeContext{};
+    if (!mDevice.tryGetPhysicsBackendContext(computeContext) ||
+        computeContext.computeContext == nullptr || mRenderableQueueInfoBuffer == nullptr)
+    {
+        return false;
+    }
+
+    if (queueInfo.empty())
+    {
+        return true;
+    }
+
+    return writeBuffer(computeContext.computeContext, mRenderableQueueInfoBuffer, queueInfo.data(),
+                       queueInfo.size() * sizeof(GpuRenderableQueueInfo));
 }
 
 bool GpuSceneSync::syncCameraInputs(const std::vector<GpuCameraInput>& cameras)
@@ -496,6 +527,7 @@ GpuEntitySceneView GpuSceneSync::sceneView() const noexcept
     view.poses.scalesBuffer                 = mEntityScalesBuffer;
     view.poses.count                        = mEntityCount;
     view.renderableMetadataBuffer           = mRenderableMetadataBuffer;
+    view.renderableQueueInfoBuffer          = mRenderableQueueInfoBuffer;
     view.renderableVisibilityFlagsBuffer    = mRenderableVisibilityFlagsBuffer;
     view.renderableShadowCascadeMasksBuffer = mRenderableShadowCascadeMasksBuffer;
     view.cameraInputsBuffer                 = mCameraInputsBuffer;

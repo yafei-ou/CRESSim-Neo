@@ -22,13 +22,11 @@ namespace detail
 class ShadowPass
 {
 public:
-    explicit ShadowPass(gpu::GpuDevice& device);
+    ShadowPass(gpu::GpuDevice& device, RenderResourceManager& resourceManager);
 
     bool initialize();
     void setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept;
     void setVisibleObjectIndexBuffer(Diligent::IBuffer* buffer) noexcept;
-    bool draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
-              std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex);
     bool drawIndirect(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
                       std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex,
                       Diligent::IBuffer* indirectArgsBuffer, Diligent::Uint64 argsOffsetBytes);
@@ -66,6 +64,7 @@ private:
 
 private:
     gpu::GpuDevice& mDevice;
+    RenderResourceManager& mResourceManager;
     bool mInitialized = false;
     gpu::ShaderLibrary mShaderLibrary;
 

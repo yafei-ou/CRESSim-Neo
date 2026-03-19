@@ -18,9 +18,6 @@ FrameViewData buildFrameViewData(const CameraData& camera,
                                  gpu::GpuRenderTargetHandle target,
                                  const gpu::GpuRenderViewport& viewport,
                                  const ForwardDirectionalLightData& lightData);
-CameraRenderQueues buildCameraRenderQueues(const std::vector<RenderableInstance>& renderables,
-                                           const RenderResourceManager& resources,
-                                           RenderStats& stats);
 CameraData defaultCamera();
 std::vector<CameraData> sortedCameras(const HostSceneView& sceneView);
 
