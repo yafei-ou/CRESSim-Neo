@@ -5,7 +5,6 @@
 
 cbuffer GraphicsShadowPerPass
 {
-    float4x4 g_LightViewProjection;
     uint4 g_ShadowPassParams;
 };
 

@@ -8,8 +8,9 @@
 namespace cressim::neo::graphics::detail
 {
 
-ShadowPass::ShadowPass(gpu::GpuDevice& device)
-    : mDevice(device), mShaderLibrary(""), mMeshGpuCache("CRESSimNeo.ShadowPass")
+ShadowPass::ShadowPass(gpu::GpuDevice& device, RenderResourceManager& resourceManager)
+    : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
+      mMeshGpuCache("CRESSimNeo.ShadowPass")
 {
 }
 
@@ -53,19 +54,17 @@ bool ShadowPass::prepareDraw(gpu::GpuRenderTargetHandle target,
         return false;
     }
 
-    if (drawCommand.meshId == common::kInvalidResourceId || drawCommand.vertexData == nullptr ||
-        drawCommand.indexData == nullptr)
+    if (drawCommand.meshId == common::kInvalidResourceId)
     {
         return false;
     }
-    if (drawCommand.vertexCount == 0 || drawCommand.indexCount < 3 ||
-        drawCommand.vertexStrideBytes == 0)
+    if (drawCommand.indexCount < 3)
     {
         return false;
     }
 
     MeshGpuCache::CachedBuffers* meshBuffers =
-        mMeshGpuCache.getOrCreate(drawCommand, backendContext.renderDevice);
+        mMeshGpuCache.getOrCreate(mResourceManager, drawCommand, backendContext.renderDevice);
     if (meshBuffers == nullptr || meshBuffers->vertexBuffer == nullptr ||
         meshBuffers->indexBuffer == nullptr || meshBuffers->indexCount == 0)
     {
@@ -85,15 +84,18 @@ bool ShadowPass::prepareDraw(gpu::GpuRenderTargetHandle target,
         return false;
     }
 
-    outSetup.backendContext  = backendContext;
-    outSetup.meshBuffers     = meshBuffers;
-    outSetup.useSceneBuffers = drawCommand.instanceIndex != 0xffffffffu &&
-                               mSceneView.poses.positionsBuffer != nullptr &&
-                               mSceneView.poses.orientationsBuffer != nullptr &&
-                               mSceneView.poses.scalesBuffer != nullptr &&
-                               mSceneView.renderableMetadataBuffer != nullptr &&
-                               mSceneView.renderableShadowCascadeMasksBuffer != nullptr &&
-                               mSceneView.preparedCamerasBuffer != nullptr;
+    if (mSceneView.poses.positionsBuffer == nullptr ||
+        mSceneView.poses.orientationsBuffer == nullptr ||
+        mSceneView.poses.scalesBuffer == nullptr ||
+        mSceneView.renderableMetadataBuffer == nullptr ||
+        mSceneView.renderableShadowCascadeMasksBuffer == nullptr ||
+        mSceneView.preparedCamerasBuffer == nullptr)
+    {
+        return false;
+    }
+
+    outSetup.backendContext = backendContext;
+    outSetup.meshBuffers    = meshBuffers;
     return true;
 }
 
@@ -157,23 +159,18 @@ bool ShadowPass::bindSceneBuffers() const
 }
 
 bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,
-                                        const ForwardDrawCommand& drawCommand, bool useSceneBuffers,
+                                        const ForwardDrawCommand& drawCommand,
                                         std::uint32_t currentCameraIndex,
-                                        const Diligent::float4x4& lightViewProjectionMatrix,
                                         std::uint32_t cascadeIndex)
 {
     PerObjectConstants objectConstants{};
-    objectConstants.modelMatrix       = drawCommand.modelMatrix.Transpose();
-    objectConstants.normalMatrix      = drawCommand.normalMatrix.Transpose();
     objectConstants.instanceIndex     = drawCommand.instanceIndex;
-    objectConstants.useSceneBuffers   = useSceneBuffers ? 1u : 0u;
     objectConstants.drawListOffset    = drawCommand.drawListOffset;
     objectConstants.useDrawListBuffer = drawCommand.useDrawListBuffer;
 
     ShadowPerPassConstants shadowPassConstants{};
-    shadowPassConstants.lightViewProjectionMatrix = lightViewProjectionMatrix.Transpose();
-    shadowPassConstants.shadowPassParams[0]       = cascadeIndex;
-    shadowPassConstants.shadowPassParams[1]       = currentCameraIndex;
+    shadowPassConstants.shadowPassParams[0] = cascadeIndex;
+    shadowPassConstants.shadowPassParams[1] = currentCameraIndex;
 
     void* mappedConstants = nullptr;
     immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
@@ -209,45 +206,10 @@ void ShadowPass::bindGeometry(Diligent::IDeviceContext* immediateContext,
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
-bool ShadowPass::draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
-                      std::uint32_t currentCameraIndex,
-                      const Diligent::float4x4& lightViewProjectionMatrix,
-                      std::uint32_t cascadeIndex)
-{
-    DrawSetup setup{};
-    if (!prepareDraw(target, drawCommand, setup))
-    {
-        return false;
-    }
-    if (setup.useSceneBuffers && !bindSceneBuffers())
-    {
-        return false;
-    }
-    if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand,
-                                setup.useSceneBuffers, currentCameraIndex,
-                                lightViewProjectionMatrix, cascadeIndex))
-    {
-        return false;
-    }
-    bindGeometry(setup.backendContext.immediateContext, *setup.meshBuffers);
-
-    setup.backendContext.immediateContext->SetPipelineState(mPipelineState);
-    setup.backendContext.immediateContext->CommitShaderResources(
-        mShaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    Diligent::DrawIndexedAttribs drawAttrs{};
-    drawAttrs.IndexType  = Diligent::VT_UINT32;
-    drawAttrs.NumIndices = setup.meshBuffers->indexCount;
-    drawAttrs.Flags      = Diligent::DRAW_FLAG_VERIFY_ALL;
-    setup.backendContext.immediateContext->DrawIndexed(drawAttrs);
-    return true;
-}
-
 bool ShadowPass::drawIndirect(gpu::GpuRenderTargetHandle target,
                               const ForwardDrawCommand& drawCommand,
-                              std::uint32_t currentCameraIndex,
-                              const Diligent::float4x4& lightViewProjectionMatrix,
-                              std::uint32_t cascadeIndex, Diligent::IBuffer* indirectArgsBuffer,
+                              std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex,
+                              Diligent::IBuffer* indirectArgsBuffer,
                               Diligent::Uint64 argsOffsetBytes)
 {
     DrawSetup setup{};
@@ -255,13 +217,12 @@ bool ShadowPass::drawIndirect(gpu::GpuRenderTargetHandle target,
     {
         return false;
     }
-    if (setup.useSceneBuffers && !bindSceneBuffers())
+    if (!bindSceneBuffers())
     {
         return false;
     }
     if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand,
-                                setup.useSceneBuffers, currentCameraIndex,
-                                lightViewProjectionMatrix, cascadeIndex))
+                                currentCameraIndex, cascadeIndex))
     {
         return false;
     }

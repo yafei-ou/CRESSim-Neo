@@ -17,39 +17,34 @@ struct VSOutput
 
 void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
 {
-    float4 worldPos = float4(0.0, 0.0, 0.0, 1.0);
-    float3 worldNormal = float3(0.0, 1.0, 0.0);
-    if (g_UseSceneBuffers != 0u)
+    uint objectIndex = g_InstanceIndex;
+    if (g_UseDrawListBuffer != 0u)
     {
-        uint objectIndex = g_InstanceIndex;
-        if (g_UseDrawListBuffer != 0u)
-        {
-            objectIndex = g_VisibleObjectIndices[g_DrawListOffset + instanceId];
-        }
-        bool poseValid = false;
-        float3 position = float3(0.0, 0.0, 0.0);
-        float4 orientation = float4(0.0, 0.0, 0.0, 1.0);
-        float3 scale = float3(1.0, 1.0, 1.0);
-        loadRenderablePose(objectIndex, poseValid, position, orientation, scale);
-        if (!poseValid || g_RenderableVisibilityFlags[objectIndex] == 0u)
-        {
-            Out.Position = float4(2.0, 2.0, 2.0, 1.0);
-            Out.WorldPos = float3(0.0, 0.0, 0.0);
-            Out.WorldNormal = float3(0.0, 1.0, 0.0);
-            return;
-        }
-
-        worldPos = float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
-        float3 safeScale = max(abs(scale), float3(1e-6, 1e-6, 1e-6));
-        worldNormal = normalize(quaternionRotateVector(orientation, In.Normal / safeScale));
+        objectIndex = g_VisibleObjectIndices[g_DrawListOffset + instanceId];
     }
-    else
+    const PreparedCamera preparedCamera = g_PreparedCameras[g_CurrentCameraIndex];
+    bool poseValid = false;
+    float3 position = float3(0.0, 0.0, 0.0);
+    float4 orientation = float4(0.0, 0.0, 0.0, 1.0);
+    float3 scale = float3(1.0, 1.0, 1.0);
+    loadRenderablePose(objectIndex, poseValid, position, orientation, scale);
+    const uint localObjectIndex = objectIndex - preparedCamera.objectRangeStart;
+    const uint visibilityIndex = preparedCamera.visibilityDataOffset + localObjectIndex;
+    if (!poseValid || g_RenderableVisibilityFlags[visibilityIndex] == 0u ||
+        preparedCamera.active == 0u)
     {
-        worldPos = mul(float4(In.Position, 1.0), g_Model);
-        worldNormal = normalize(mul(float4(In.Normal, 0.0), g_NormalMatrix).xyz);
+        Out.Position = float4(2.0, 2.0, 2.0, 1.0);
+        Out.WorldPos = float3(0.0, 0.0, 0.0);
+        Out.WorldNormal = float3(0.0, 1.0, 0.0);
+        return;
     }
 
-    Out.Position = mul(worldPos, g_ViewProjection);
+    const float4 worldPos =
+        float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
+    float3 safeScale = max(abs(scale), float3(1e-6, 1e-6, 1e-6));
+    const float3 worldNormal = normalize(quaternionRotateVector(orientation, In.Normal / safeScale));
+
+    Out.Position = mul(worldPos, preparedCamera.viewProjectionMatrix);
     Out.WorldPos = worldPos.xyz;
     Out.WorldNormal = worldNormal;
 }

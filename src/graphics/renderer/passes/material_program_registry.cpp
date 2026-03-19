@@ -25,8 +25,6 @@ const char* passClassName(MainPassClass passClass)
     {
     case MainPassClass::ForwardOpaque:
         return "ForwardOpaque";
-    case MainPassClass::ForwardTransparent:
-        return "ForwardTransparent";
     default:
         return "Unknown";
     }
@@ -247,6 +245,8 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
         {Diligent::SHADER_TYPE_VERTEX, "g_RenderableVisibilityFlags",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_VERTEX, "g_VisibleObjectIndices",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_PIXEL, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},

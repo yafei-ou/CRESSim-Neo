@@ -28,7 +28,7 @@ namespace detail
 class ForwardOpaquePass
 {
 public:
-    explicit ForwardOpaquePass(gpu::GpuDevice& device);
+    ForwardOpaquePass(gpu::GpuDevice& device, RenderResourceManager& resourceManager);
 
     bool initialize();
     bool beginCameraFrame(const FrameViewData& frameView);
@@ -37,7 +37,6 @@ public:
     void setShadowMapTargets(
         const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount>& shadowMapTargets,
         std::uint32_t shadowMapCount);
-    bool draw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand);
     bool drawIndirect(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
                       Diligent::IBuffer* indirectArgsBuffer, Diligent::Uint64 argsOffsetBytes);
     std::size_t cachedProgramCount() const noexcept;
@@ -48,7 +47,6 @@ private:
         gpu::GpuBackendContext backendContext{};
         MeshGpuCache::CachedBuffers* meshBuffers           = nullptr;
         MaterialProgramRegistry::ProgramResources* program = nullptr;
-        bool useSceneBuffers                               = false;
     };
 
     struct ForwardPerFrameConstants
@@ -67,12 +65,10 @@ private:
 
     struct PerObjectConstants
     {
-        Diligent::float4x4 modelMatrix  = Diligent::float4x4::Identity();
-        Diligent::float4x4 normalMatrix = Diligent::float4x4::Identity();
         std::uint32_t instanceIndex     = 0xffffffffu;
-        std::uint32_t useSceneBuffers   = 0u;
         std::uint32_t drawListOffset    = 0u;
         std::uint32_t useDrawListBuffer = 0u;
+        std::uint32_t padding0          = 0u;
     };
 
     struct ForwardPerMaterialConstants
@@ -89,12 +85,13 @@ private:
     bool bindShadowMaps(MaterialProgramRegistry::ProgramResources& program);
     bool bindSceneBuffers(MaterialProgramRegistry::ProgramResources& program) const;
     bool updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,
-                                const ForwardDrawCommand& drawCommand, bool useSceneBuffers);
+                                const ForwardDrawCommand& drawCommand);
     void bindGeometry(Diligent::IDeviceContext* immediateContext,
                       const MeshGpuCache::CachedBuffers& meshBuffers) const;
 
 private:
     gpu::GpuDevice& mDevice;
+    RenderResourceManager& mResourceManager;
     bool mInitialized = false;
     gpu::ShaderLibrary mShaderLibrary;
     std::unique_ptr<MaterialProgramRegistry> mProgramRegistry;

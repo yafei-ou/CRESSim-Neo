@@ -10,9 +10,9 @@ struct DrawIndexedCommand
 cbuffer GraphicsIndirectComposeConstants
 {
     uint g_CommandCount;
+    uint g_CurrentCameraIndex;
+    uint g_RenderableCount;
     uint g_ComposePadding0;
-    uint g_ComposePadding1;
-    uint g_ComposePadding2;
 };
 
 StructuredBuffer<uint> g_CommandCounts;

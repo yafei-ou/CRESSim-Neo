@@ -3,6 +3,7 @@
 
 #include "gpu/gpu_device.h"
 #include "gpu/gpu_scene.h"
+#include "graphics/host_scene.h"
 #include "graphics/renderer/passes/render_pass_types.h"
 
 #include <array>
@@ -15,26 +16,24 @@ namespace detail
 {
 
 class ForwardOpaquePass;
-class ForwardTransparentPass;
 class ShadowPass;
 
 class ForwardPipeline
 {
 public:
-    explicit ForwardPipeline(gpu::GpuDevice& device);
+    ForwardPipeline(gpu::GpuDevice& device, RenderResourceManager& resourceManager);
     ~ForwardPipeline();
 
     bool initialize();
     bool execute(const common::FrameContext& frameContext, const FrameViewData& frameView,
-                 const gpu::GpuEntitySceneView& sceneView, const CameraRenderQueues& queues,
-                 ForwardPassExecutionStats& outStats);
+                 const HostSceneView& sceneView, ForwardPassExecutionStats& outStats);
 
 private:
     struct GpuIndirectState;
 
     gpu::GpuDevice& mDevice;
+    RenderResourceManager& mResourceManager;
     std::unique_ptr<ForwardOpaquePass> mForwardOpaquePass;
-    std::unique_ptr<ForwardTransparentPass> mForwardTransparentPass;
     std::unique_ptr<ShadowPass> mShadowPass;
     std::unique_ptr<GpuIndirectState> mGpuIndirectState;
     std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};

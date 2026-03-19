@@ -6,8 +6,8 @@
 #include "gpu/gpu_scene.h"
 #include "gpu/gpu_types.h"
 #include "graphics/render_resource_manager.h"
+#include "graphics/renderer/passes/forward_draw_types.h"
 
-#include <unordered_map>
 #include <vector>
 
 namespace cressim::neo::graphics
@@ -61,11 +61,12 @@ struct DirectionalLightData
 
 struct HostSceneView
 {
-    const std::vector<RenderableInstance>* renderables                              = nullptr;
-    const std::vector<CameraData>* cameras                                          = nullptr;
-    const std::vector<DirectionalLightData>* directionalLights                      = nullptr;
-    const gpu::GpuEntitySceneView* gpuEntityScene                                   = nullptr;
-    const std::unordered_map<common::EntityId, std::uint32_t>* gpuEntityPoseIndices = nullptr;
+    const std::vector<RenderableInstance>* renderables                  = nullptr;
+    const std::vector<CameraData>* cameras                              = nullptr;
+    const std::vector<DirectionalLightData>* directionalLights          = nullptr;
+    const std::vector<IndirectCommandRegistryEntry>* opaqueDrawRegistry = nullptr;
+    const std::vector<IndirectCommandRegistryEntry>* shadowDrawRegistry = nullptr;
+    const gpu::GpuEntitySceneView* gpuEntityScene                       = nullptr;
 };
 
 } // namespace cressim::neo::graphics

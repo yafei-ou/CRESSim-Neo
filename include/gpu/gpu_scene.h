@@ -69,10 +69,22 @@ struct GpuPreparedCamera
     Diligent::float4 cameraPosition{};
     Diligent::float4 cascadeSplits{};
     Diligent::float4 shadowParams{};
-    std::uint32_t envIndex  = 0u;
-    std::uint32_t active    = 0u;
-    std::uint32_t reserved0 = 0u;
-    std::uint32_t reserved1 = 0u;
+    std::uint32_t envIndex             = 0u;
+    std::uint32_t active               = 0u;
+    std::uint32_t objectRangeStart     = 0u;
+    std::uint32_t objectRangeCount     = 0u;
+    std::uint32_t visibilityDataOffset = 0u;
+    std::uint32_t reserved0            = 0u;
+    std::uint32_t reserved1            = 0u;
+    std::uint32_t reserved2            = 0u;
+};
+
+struct GpuRenderableQueueInfo
+{
+    std::uint32_t opaqueCommandIndex     = 0xffffffffu;
+    std::uint32_t shadowCommandBaseIndex = 0xffffffffu;
+    std::uint32_t reserved0              = 0u;
+    std::uint32_t reserved1              = 0u;
 };
 
 struct GpuEntitySceneView
@@ -80,6 +92,7 @@ struct GpuEntitySceneView
     GpuSceneLayoutDesc layout{};
     GpuPoseBufferView poses{};
     Diligent::IBuffer* renderableMetadataBuffer           = nullptr;
+    Diligent::IBuffer* renderableQueueInfoBuffer          = nullptr;
     Diligent::IBuffer* renderableVisibilityFlagsBuffer    = nullptr;
     Diligent::IBuffer* renderableShadowCascadeMasksBuffer = nullptr;
     Diligent::IBuffer* cameraInputsBuffer                 = nullptr;
@@ -103,16 +116,14 @@ enum GpuRenderableFlags : std::uint32_t
     GpuRenderableFlag_Active       = 1u << 0u,
     GpuRenderableFlag_Opaque       = 1u << 1u,
     GpuRenderableFlag_ShadowCaster = 1u << 2u,
-    GpuRenderableFlag_Transparent  = 1u << 3u,
-    GpuRenderableFlag_UsesGpuPose  = 1u << 4u,
 };
 
 struct GpuRenderableMetadata
 {
-    std::uint32_t objectSlot = 0xffffffffu;
-    std::uint32_t envIndex   = 0u;
-    std::uint32_t flags      = GpuRenderableFlag_None;
-    std::uint32_t reserved   = 0u;
+    std::uint32_t flags     = GpuRenderableFlag_None;
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
+    std::uint32_t reserved2 = 0u;
     Diligent::float4 localBoundsMin{};
     Diligent::float4 localBoundsMax{};
 };
