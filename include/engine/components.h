@@ -85,7 +85,6 @@ struct ColliderComponent
     Diligent::QuaternionF localRotation{0.0f, 0.0f, 0.0f, 1.0f};
     bool enabled = true;
 
-    // Reserved for later material/filtering support.
     float friction               = 0.5f;
     float restitution            = 0.0f;
     std::uint32_t collisionLayer = 1u;

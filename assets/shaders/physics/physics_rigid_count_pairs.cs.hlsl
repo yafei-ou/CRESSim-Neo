@@ -5,8 +5,7 @@ StructuredBuffer<uint> g_BroadPhaseBodyIndices;
 StructuredBuffer<GpuBodyAabb> g_BodyAabbs;
 StructuredBuffer<GpuBvhNode> g_BvhNodes;
 StructuredBuffer<GpuBvhNode> g_StaticBvhNodes;
-StructuredBuffer<uint> g_ColliderOwnerRigidBodyIndices;
-StructuredBuffer<uint> g_ColliderShapeTypes;
+StructuredBuffer<GpuColliderBroadPhaseData> g_ColliderBroadPhaseData;
 RWStructuredBuffer<uint> g_PairCountsSphereSphere;
 RWStructuredBuffer<uint> g_PairCountsSphereBox;
 RWStructuredBuffer<uint> g_PairCountsSphereCapsule;
@@ -37,8 +36,12 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
     }
 
     const uint colliderId = g_BroadPhaseBodyIndices[activeIndex];
-    const uint ownerBodyA = g_ColliderOwnerRigidBodyIndices[colliderId];
-    const uint shapeTypeA = g_ColliderShapeTypes[colliderId];
+    const GpuColliderBroadPhaseData colliderA = g_ColliderBroadPhaseData[colliderId];
+    const uint ownerBodyA = colliderA.ownerBody;
+    const uint environmentA = colliderA.environmentIndex;
+    const uint shapeTypeA = colliderA.shapeType;
+    const uint layerA = colliderA.collisionLayer;
+    const uint maskA = colliderA.collisionMask;
     const GpuBodyAabb bodyAabb = g_BodyAabbs[colliderId];
     const float3 queryMin = bodyAabb.minBounds.xyz;
     const float3 queryMax = bodyAabb.maxBounds.xyz;
@@ -67,12 +70,19 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
             if (node.left < 0 && node.right < 0)
             {
                 const uint otherColliderId = node.primitiveIdx;
-                const uint otherOwnerBody = g_ColliderOwnerRigidBodyIndices[otherColliderId];
+                const GpuColliderBroadPhaseData otherCollider =
+                    g_ColliderBroadPhaseData[otherColliderId];
+                const uint otherOwnerBody = otherCollider.ownerBody;
                 if (otherColliderId > colliderId && otherOwnerBody != ownerBodyA)
                 {
-                    IncrementTypedCount(ComputeRigidPairType(
-                                            shapeTypeA, g_ColliderShapeTypes[otherColliderId]),
-                                        typedCounts);
+                    if (ShouldBroadPhaseCollide(environmentA, otherCollider.environmentIndex, layerA,
+                                                maskA, otherCollider.collisionLayer,
+                                                otherCollider.collisionMask))
+                    {
+                        IncrementTypedCount(ComputeRigidPairType(shapeTypeA,
+                                                                 otherCollider.shapeType),
+                                            typedCounts);
+                    }
                 }
                 continue;
             }
@@ -106,12 +116,19 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
             if (node.left < 0 && node.right < 0)
             {
                 const uint otherColliderId = node.primitiveIdx;
-                const uint otherOwnerBody = g_ColliderOwnerRigidBodyIndices[otherColliderId];
+                const GpuColliderBroadPhaseData otherCollider =
+                    g_ColliderBroadPhaseData[otherColliderId];
+                const uint otherOwnerBody = otherCollider.ownerBody;
                 if (otherOwnerBody != ownerBodyA)
                 {
-                    IncrementTypedCount(ComputeRigidPairType(
-                                            shapeTypeA, g_ColliderShapeTypes[otherColliderId]),
-                                        typedCounts);
+                    if (ShouldBroadPhaseCollide(environmentA, otherCollider.environmentIndex, layerA,
+                                                maskA, otherCollider.collisionLayer,
+                                                otherCollider.collisionMask))
+                    {
+                        IncrementTypedCount(ComputeRigidPairType(shapeTypeA,
+                                                                 otherCollider.shapeType),
+                                            typedCounts);
+                    }
                 }
                 continue;
             }

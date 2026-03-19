@@ -511,6 +511,7 @@ void PhysicsWorld::writeColliderSoAAt(ColliderSoAHost& soa, std::uint32_t index,
         soa.entityIds.push_back(state.entityId);
         soa.ownerRigidBodyIds.push_back(state.ownerRigidBodyId);
         soa.ownerRigidBodyIndices.push_back(ownerBodyIndex);
+        soa.environmentIndices.push_back(state.environmentIndex);
         soa.shapeTypes.push_back(static_cast<std::uint32_t>(state.shapeType));
         soa.shapeParams.push_back(state.shapeParams);
         soa.localPositions.push_back(toColliderLocalPosition(state));
@@ -526,6 +527,7 @@ void PhysicsWorld::writeColliderSoAAt(ColliderSoAHost& soa, std::uint32_t index,
     soa.entityIds[index]             = state.entityId;
     soa.ownerRigidBodyIds[index]     = state.ownerRigidBodyId;
     soa.ownerRigidBodyIndices[index] = ownerBodyIndex;
+    soa.environmentIndices[index]    = state.environmentIndex;
     soa.shapeTypes[index]            = static_cast<std::uint32_t>(state.shapeType);
     soa.shapeParams[index]           = state.shapeParams;
     soa.localPositions[index]        = toColliderLocalPosition(state);
@@ -643,6 +645,7 @@ void PhysicsWorld::removeColliderAtIndex(std::uint32_t index) noexcept
         mColliders.entityIds[index]             = mColliders.entityIds[last];
         mColliders.ownerRigidBodyIds[index]     = mColliders.ownerRigidBodyIds[last];
         mColliders.ownerRigidBodyIndices[index] = mColliders.ownerRigidBodyIndices[last];
+        mColliders.environmentIndices[index]    = mColliders.environmentIndices[last];
         mColliders.shapeTypes[index]            = mColliders.shapeTypes[last];
         mColliders.shapeParams[index]           = mColliders.shapeParams[last];
         mColliders.localPositions[index]        = mColliders.localPositions[last];
@@ -659,6 +662,7 @@ void PhysicsWorld::removeColliderAtIndex(std::uint32_t index) noexcept
     mColliders.entityIds.pop_back();
     mColliders.ownerRigidBodyIds.pop_back();
     mColliders.ownerRigidBodyIndices.pop_back();
+    mColliders.environmentIndices.pop_back();
     mColliders.shapeTypes.pop_back();
     mColliders.shapeParams.pop_back();
     mColliders.localPositions.pop_back();

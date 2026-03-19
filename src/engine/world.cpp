@@ -151,6 +151,22 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
     }
 
     mEntityEnvironments[entityId] = envIndex;
+    const auto physIt             = mPhysicsLinks.find(entityId);
+    if (physIt != mPhysicsLinks.end())
+    {
+        for (const ColliderHandle handle : physIt->second.colliders)
+        {
+            const physics::ColliderState* existing = mPhysicsWorld.tryGetCollider(handle.id);
+            if (existing == nullptr)
+            {
+                continue;
+            }
+
+            physics::ColliderState updated = *existing;
+            updated.environmentIndex       = envIndex;
+            mPhysicsWorld.upsertCollider(updated);
+        }
+    }
     moveRenderableToEnvironment(entityId, envIndex);
     moveCameraToEnvironment(entityId, envIndex);
     moveDirectionalLightToEnvironment(entityId, envIndex);
@@ -492,17 +508,18 @@ World::ColliderHandle World::addCollider(common::EntityId entityId,
     ColliderHandle handle{mNextColliderId++};
 
     physics::ColliderState state{};
-    state.colliderId     = handle.id;
-    state.entityId       = entityId;
-    state.shapeType      = component.shapeType;
-    state.shapeParams    = component.shapeParams;
-    state.localPosition  = component.localPosition;
-    state.localRotation  = component.localRotation;
-    state.enabled        = component.enabled;
-    state.friction       = component.friction;
-    state.restitution    = component.restitution;
-    state.collisionLayer = component.collisionLayer;
-    state.collisionMask  = component.collisionMask;
+    state.colliderId       = handle.id;
+    state.entityId         = entityId;
+    state.shapeType        = component.shapeType;
+    state.shapeParams      = component.shapeParams;
+    state.localPosition    = component.localPosition;
+    state.localRotation    = component.localRotation;
+    state.environmentIndex = entityEnvironment(entityId);
+    state.enabled          = component.enabled;
+    state.friction         = component.friction;
+    state.restitution      = component.restitution;
+    state.collisionLayer   = component.collisionLayer;
+    state.collisionMask    = component.collisionMask;
 
     mPhysicsWorld.upsertCollider(state);
     mPhysicsLinks[entityId].colliders.push_back(handle);
@@ -527,17 +544,18 @@ void World::updateCollider(ColliderHandle handle, const ColliderComponent& compo
     const common::EntityId entityId = ownerIt->second;
 
     physics::ColliderState state{};
-    state.colliderId     = handle.id;
-    state.entityId       = entityId;
-    state.shapeType      = component.shapeType;
-    state.shapeParams    = component.shapeParams;
-    state.localPosition  = component.localPosition;
-    state.localRotation  = component.localRotation;
-    state.enabled        = component.enabled;
-    state.friction       = component.friction;
-    state.restitution    = component.restitution;
-    state.collisionLayer = component.collisionLayer;
-    state.collisionMask  = component.collisionMask;
+    state.colliderId       = handle.id;
+    state.entityId         = entityId;
+    state.shapeType        = component.shapeType;
+    state.shapeParams      = component.shapeParams;
+    state.localPosition    = component.localPosition;
+    state.localRotation    = component.localRotation;
+    state.environmentIndex = entityEnvironment(entityId);
+    state.enabled          = component.enabled;
+    state.friction         = component.friction;
+    state.restitution      = component.restitution;
+    state.collisionLayer   = component.collisionLayer;
+    state.collisionMask    = component.collisionMask;
 
     mPhysicsWorld.upsertCollider(state);
     markRenderDirty(entityId);
@@ -1018,6 +1036,7 @@ void World::refreshRenderableMetadata(const graphics::RenderResourceManager& res
 
     // TODO: mesh/material resources still authored on CPU.
     // I don't know if we can let GPU do this part completely.
+    // TODO: this is not dirty-driven
 
     std::map<DrawBucketKey, std::vector<std::uint32_t>> opaqueObjectsByKey;
     std::map<DrawBucketKey, std::vector<std::uint32_t>> shadowObjectsByKey;

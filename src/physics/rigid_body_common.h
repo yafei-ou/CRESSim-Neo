@@ -178,6 +178,18 @@ struct GpuBroadPhaseMeta
     std::uint32_t reserved1          = 0;
 };
 
+struct GpuColliderBroadPhaseData
+{
+    std::uint32_t ownerBody        = 0;
+    std::uint32_t shapeType        = 0;
+    std::uint32_t environmentIndex = 0;
+    std::uint32_t collisionLayer   = 0;
+    std::uint32_t collisionMask    = 0;
+    std::uint32_t reserved0        = 0;
+    std::uint32_t reserved1        = 0;
+    std::uint32_t reserved2        = 0;
+};
+
 struct GpuRigidContact
 {
     std::uint32_t bodyA    = 0;
@@ -206,6 +218,7 @@ static_assert(sizeof(GpuRigidPairRange) == 16u);
 static_assert(sizeof(GpuNarrowPhaseChunk) == 16u);
 static_assert(sizeof(GpuNarrowPhaseMeta) == 16u);
 static_assert(sizeof(GpuBroadPhaseMeta) == 32u);
+static_assert(sizeof(GpuColliderBroadPhaseData) == 32u);
 static_assert(sizeof(GpuRigidContact) == 64u);
 
 struct EffectiveColliderDimensions

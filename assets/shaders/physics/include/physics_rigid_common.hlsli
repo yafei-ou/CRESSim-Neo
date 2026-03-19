@@ -146,6 +146,18 @@ struct GpuBroadPhaseMeta
     uint reserved1;
 };
 
+struct GpuColliderBroadPhaseData
+{
+    uint ownerBody;
+    uint shapeType;
+    uint environmentIndex;
+    uint collisionLayer;
+    uint collisionMask;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+};
+
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)
 {
     const uint lo = min(shapeTypeA, shapeTypeB);
@@ -162,6 +174,17 @@ uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)
     if (lo == kColliderBox && hi == kColliderCapsule)
         return 4u;
     return 5u;
+}
+
+bool ShouldBroadPhaseCollide(uint environmentA, uint environmentB, uint layerA, uint maskA,
+                             uint layerB, uint maskB)
+{
+    if (environmentA != environmentB)
+    {
+        return false;
+    }
+
+    return (maskA & layerB) != 0u && (maskB & layerA) != 0u;
 }
 
 void CanonicalizeRigidPair(uint bodyA, uint bodyB, uint shapeTypeA, uint shapeTypeB,

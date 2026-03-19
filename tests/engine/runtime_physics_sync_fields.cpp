@@ -10,6 +10,9 @@ int main()
     using namespace cressim::neo;
 
     engine::World world;
+    gpu::GpuSceneLayoutDesc layout{};
+    layout.envCount = 2u;
+    world.setSceneLayout(layout);
 
     const common::EntityId entity = world.createEntity();
     engine::TransformComponent transform{};
@@ -30,7 +33,14 @@ int main()
     engine::ColliderComponent collider{};
     collider.shapeType = physics::ColliderShapeType::Capsule;
     collider.shapeParams = {0.7f, 1.4f, 0.0f, 0.0f};
+    collider.collisionLayer = 1u << 2u;
+    collider.collisionMask = (1u << 0u) | (1u << 2u);
     world.addCollider(entity, collider);
+    if (!world.setEntityEnvironment(entity, 1u))
+    {
+        std::cerr << "Failed to update entity environment.\n";
+        return 1;
+    }
 
     const physics::RigidBodyState* state = world.physicsWorld().tryGetRigidBody(entity);
     if (state == nullptr)
@@ -49,11 +59,26 @@ int main()
         static_cast<std::uint32_t>(colliderState.shapeType) !=
             static_cast<std::uint32_t>(physics::ColliderShapeType::Capsule) ||
         colliderState.shapeParams.x != collider.shapeParams.x ||
+        colliderState.environmentIndex != 1u ||
+        colliderState.collisionLayer != collider.collisionLayer ||
+        colliderState.collisionMask != collider.collisionMask ||
         state->kinematicTargetPosition.x != rigidBody.kinematicTargetPosition.x ||
         state->kinematicTargetRotation.q.z != rigidBody.kinematicTargetRotation.q.z ||
         !state->kinematicTargetEnabled)
     {
         std::cerr << "World->physics sync did not preserve new rigid fields.\n";
+        return 1;
+    }
+
+    if (!world.setEntityEnvironment(entity, 0u))
+    {
+        std::cerr << "Failed to restore entity environment.\n";
+        return 1;
+    }
+    const physics::ColliderState& updatedColliderState = world.physicsWorld().colliderSnapshot().front();
+    if (updatedColliderState.environmentIndex != 0u)
+    {
+        std::cerr << "Entity environment change did not propagate to collider state.\n";
         return 1;
     }
 

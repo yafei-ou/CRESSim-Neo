@@ -51,10 +51,11 @@ struct RigidBodyState
 
 struct ColliderState
 {
-    ColliderId colliderId        = kInvalidColliderId;
-    common::EntityId entityId    = common::kInvalidEntityId;
-    RigidBodyId ownerRigidBodyId = kInvalidRigidBodyId;
-    ColliderShapeType shapeType  = ColliderShapeType::Sphere;
+    ColliderId colliderId          = kInvalidColliderId;
+    common::EntityId entityId      = common::kInvalidEntityId;
+    RigidBodyId ownerRigidBodyId   = kInvalidRigidBodyId;
+    std::uint32_t environmentIndex = 0u;
+    ColliderShapeType shapeType    = ColliderShapeType::Sphere;
     Diligent::float4 shapeParams{0.5f, 0.0f, 0.0f, 0.0f};
     Diligent::float3 localPosition{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF localRotation{0.0f, 0.0f, 0.0f, 1.0f};
@@ -153,6 +154,7 @@ struct ColliderSoAHost
     std::vector<Diligent::float4> localOrientations;
     std::vector<std::uint32_t> enabledFlags;
     std::vector<Diligent::float4> frictionRestitution;
+    std::vector<std::uint32_t> environmentIndices;
     std::vector<std::uint32_t> collisionLayers;
     std::vector<std::uint32_t> collisionMasks;
 
@@ -178,6 +180,7 @@ struct ColliderSoAHost
         localOrientations.clear();
         enabledFlags.clear();
         frictionRestitution.clear();
+        environmentIndices.clear();
         collisionLayers.clear();
         collisionMasks.clear();
     }

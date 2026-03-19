@@ -85,6 +85,7 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
         mPersistentRigidBodies.kinematicTargetOrientationsBuffer != nullptr &&
         mPersistentRigidBodies.kinematicTargetFlagsBuffer != nullptr &&
         mPersistentColliders.ownerRigidBodyIndicesBuffer != nullptr &&
+        mPersistentColliders.broadPhaseDataBuffer != nullptr &&
         mPersistentColliders.shapeTypesBuffer != nullptr &&
         mPersistentColliders.shapeParamsBuffer != nullptr &&
         mPersistentColliders.localPositionsBuffer != nullptr &&
@@ -228,6 +229,11 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentColliders.ownerRigidBodyIndicesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderBroadPhaseData",
+                                sizeof(GpuColliderBroadPhaseData), newColliderCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentColliders.broadPhaseDataBuffer) ||
         !ensureStructuredBuffer(
             renderDevice, "CRESSimNeo.Physics.ColliderShapeTypes", sizeof(std::uint32_t),
             newColliderCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -677,9 +683,24 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext* computeCon
 
     if (colliderCount > 0u)
     {
+        std::vector<GpuColliderBroadPhaseData> broadPhaseData(colliderCount);
+        for (std::uint32_t i = 0; i < colliderCount; ++i)
+        {
+            GpuColliderBroadPhaseData& entry = broadPhaseData[i];
+            entry.ownerBody                  = colliders.ownerRigidBodyIndices[i];
+            entry.shapeType                  = colliders.shapeTypes[i];
+            entry.environmentIndex           = colliders.environmentIndices[i];
+            entry.collisionLayer             = colliders.collisionLayers[i];
+            entry.collisionMask              = colliders.collisionMasks[i];
+        }
+
         computeContext->UpdateBuffer(mPersistentColliders.ownerRigidBodyIndicesBuffer, 0u,
                                      colliderUintBytes, colliders.ownerRigidBodyIndices.data(),
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        computeContext->UpdateBuffer(
+            mPersistentColliders.broadPhaseDataBuffer, 0u,
+            static_cast<Diligent::Uint64>(colliderCount) * sizeof(GpuColliderBroadPhaseData),
+            broadPhaseData.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         computeContext->UpdateBuffer(mPersistentColliders.shapeTypesBuffer, 0u, colliderUintBytes,
                                      colliders.shapeTypes.data(),
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

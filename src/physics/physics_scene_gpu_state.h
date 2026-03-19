@@ -37,6 +37,7 @@ public:
     struct PersistentColliderBuffers
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> ownerRigidBodyIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> broadPhaseDataBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeTypesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeParamsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> localPositionsBuffer;
