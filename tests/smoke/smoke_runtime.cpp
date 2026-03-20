@@ -187,7 +187,8 @@ int main(int argc, char** argv)
         secondaryCameraTransform.worldTransform.position = {-1.0f, 1.5f, -2.5f};
 
         CameraComponent secondaryCamera{};
-        secondaryCamera.outputTarget = secondaryTarget;
+        secondaryCamera.output.mode = cressim::neo::gpu::CameraOutputMode::ExplicitSurface;
+        secondaryCamera.output.binding = cressim::neo::gpu::GpuRenderTargetBinding{secondaryTarget, 0u, 1u};
         secondaryCamera.outputWidth = 800;
         secondaryCamera.outputHeight = 600;
         secondaryCamera.viewport = {0.0f, 0.0f, 1.0f, 1.0f};
@@ -248,7 +249,9 @@ int main(int argc, char** argv)
     {
         if (graphicsDevice != nullptr && graphicsDevice->renderTargetSystem().isValidRenderTarget(secondaryTarget))
         {
-            const GpuRenderTargetReadbackRequest request = graphicsDevice->renderTargetSystem().requestRenderTargetReadback(secondaryTarget);
+            const GpuRenderTargetReadbackRequest request =
+                graphicsDevice->renderTargetSystem().requestRenderTargetReadback(
+                    cressim::neo::gpu::GpuRenderTargetBinding{secondaryTarget, 0u, 1u});
             if (request.id != 0)
             {
                 readbackRequests.push_back(request);

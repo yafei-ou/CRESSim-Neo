@@ -6,6 +6,7 @@
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 
+#include <optional>
 #include <vector>
 
 namespace cressim::neo::graphics
@@ -16,28 +17,11 @@ enum class MainPassClass
     ForwardOpaque,
 };
 
-struct FrameViewData
+struct ResolvedCameraView
 {
-    gpu::GpuRenderTargetHandle target{};
-    gpu::GpuRenderViewport viewport{};
-    bool clearColor                         = true;
-    bool clearDepth                         = true;
-    Diligent::float4 clearColorValue        = {0.02f, 0.02f, 0.03f, 1.0f};
-    float clearDepthValue                   = 1.0f;
-    std::uint32_t envIndex                  = 0u;
-    std::uint32_t cameraSlot                = 0u;
-    std::uint32_t outputWidth               = 0;
-    std::uint32_t outputHeight              = 0;
-    Diligent::float4x4 viewMatrix           = Diligent::float4x4::Identity();
-    Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
-    ForwardDirectionalLightData light{};
-    Diligent::float3 cameraWorldPosition = {0.0f, 0.0f, 0.0f};
-};
-
-struct BatchCameraView
-{
-    gpu::GpuRenderTargetHandle finalTarget{};
-    gpu::GpuRenderTargetDesc finalTargetDesc{};
+    common::EntityId entityId = common::kInvalidEntityId;
+    gpu::GpuRenderTargetBinding outputBinding{};
+    gpu::GpuRenderTargetDesc outputTargetDesc{};
     gpu::GpuRenderViewport viewport{};
     bool clearColor                  = true;
     bool clearDepth                  = true;
@@ -50,9 +34,28 @@ struct BatchCameraView
 
 struct CameraBatchView
 {
-    gpu::GpuRenderTargetDesc layeredTargetDesc{};
+    gpu::GpuRenderTargetBinding renderBinding{};
+    gpu::GpuRenderTargetDesc renderTargetDesc{};
     ForwardDirectionalLightData light{};
-    std::vector<BatchCameraView> cameras{};
+    std::vector<ResolvedCameraView> cameras{};
+};
+
+struct DisplayResolveRequest
+{
+    gpu::GpuRenderTargetBinding sourceBinding{};
+    gpu::GpuRenderTargetDesc sourceTargetDesc{};
+    gpu::GpuRenderTargetBinding targetBinding{};
+    gpu::GpuRenderTargetDesc targetTargetDesc{};
+    bool clearColor                  = false;
+    bool clearDepth                  = false;
+    Diligent::float4 clearColorValue = {0.02f, 0.02f, 0.03f, 1.0f};
+    float clearDepthValue            = 1.0f;
+};
+
+struct FrameRenderPlan
+{
+    std::vector<CameraBatchView> cameraBatches{};
+    std::optional<DisplayResolveRequest> displayResolve{};
 };
 
 struct ForwardPassExecutionStats

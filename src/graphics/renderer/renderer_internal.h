@@ -12,11 +12,6 @@ namespace cressim::neo::graphics::detail
 
 gpu::GpuRenderViewport normalizeViewport(const gpu::GpuRenderViewport& viewport);
 ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightData>& lights);
-FrameViewData buildFrameViewData(const CameraData& camera,
-                                 const gpu::GpuRenderTargetDesc& targetDesc,
-                                 gpu::GpuRenderTargetHandle target,
-                                 const gpu::GpuRenderViewport& viewport,
-                                 const ForwardDirectionalLightData& lightData);
 CameraData defaultCamera();
 std::vector<CameraData> sortedCameras(const HostSceneView& sceneView);
 

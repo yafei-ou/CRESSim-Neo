@@ -412,7 +412,8 @@ int main(int argc, char** argv)
     world.setTransform(cameraEntity, cameraTransform);
     CameraComponent camera{};
     camera.verticalFovDegrees = 52.0f;
-    camera.outputTarget = target;
+    camera.output.mode = cressim::neo::gpu::CameraOutputMode::ExplicitSurface;
+    camera.output.binding = cressim::neo::gpu::GpuRenderTargetBinding{target, 0u, 1u};
     camera.outputWidth = targetDesc.width;
     camera.outputHeight = targetDesc.height;
     camera.viewport = {0.0f, 0.0f, 1.0f, 1.0f};
@@ -478,7 +479,9 @@ int main(int argc, char** argv)
             world.setMeshRenderer(frontCubeEntity, frontCube);
         }
 
-        const GpuRenderTargetReadbackRequest request = graphicsDevice->renderTargetSystem().requestRenderTargetReadback(target);
+        const GpuRenderTargetReadbackRequest request =
+            graphicsDevice->renderTargetSystem().requestRenderTargetReadback(
+                cressim::neo::gpu::GpuRenderTargetBinding{target, 0u, 1u});
         if (request.id != 0)
         {
             readbackRequests.push_back(request);
@@ -500,7 +503,7 @@ int main(int argc, char** argv)
         {
             continue;
         }
-        if (event.target.id == target.id && !event.colorBytes.empty() && isValidReadback(event))
+        if (event.binding.target.id == target.id && !event.colorBytes.empty() && isValidReadback(event))
         {
             if (!hasBackOnlyPayload || event.frameIndex < backOnlyCapture.frameIndex)
             {

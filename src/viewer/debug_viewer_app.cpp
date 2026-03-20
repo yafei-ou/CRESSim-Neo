@@ -343,7 +343,8 @@ public:
             camera.outputHeight = static_cast<std::uint32_t>(std::max(outputHeight, 1));
             if (mDesc.windowEnabled)
             {
-                camera.outputTarget = {};
+                camera.output.mode = gpu::CameraOutputMode::ManagedPrimary;
+                camera.output.binding = {};
             }
             world.setCamera(cameraBinding.cameraEntity, camera);
 
@@ -369,10 +370,6 @@ public:
                 CameraComponent updated = *existing;
                 updated.outputWidth     = effectiveOutputWidth;
                 updated.outputHeight    = effectiveOutputHeight;
-                if (mDesc.windowEnabled)
-                {
-                    updated.outputTarget = {};
-                }
                 world.setCamera(cameraData.entityId, updated);
             }
 

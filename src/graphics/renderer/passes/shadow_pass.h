@@ -27,7 +27,8 @@ public:
     bool initialize();
     void setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept;
     void setVisiblePairBuffer(Diligent::IBuffer* buffer) noexcept;
-    bool drawIndirect(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
+    bool drawIndirect(const gpu::GpuRenderTargetBinding& targetBinding,
+                      const ForwardDrawCommand& drawCommand,
                       std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex,
                       Diligent::IBuffer* indirectArgsBuffer, Diligent::Uint64 argsOffsetBytes);
 
@@ -53,7 +54,8 @@ private:
 
     bool createPipeline(Diligent::IRenderDevice* renderDevice);
     bool ensureConstantBuffers(Diligent::IRenderDevice* renderDevice);
-    bool prepareDraw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
+    bool prepareDraw(const gpu::GpuRenderTargetBinding& targetBinding,
+                     const ForwardDrawCommand& drawCommand,
                      DrawSetup& outSetup);
     bool bindSceneBuffers() const;
     bool updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,

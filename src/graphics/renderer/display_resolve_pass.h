@@ -1,10 +1,10 @@
-#ifndef CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_CAMERA_BATCH_PRESENT_PASS_H
-#define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_CAMERA_BATCH_PRESENT_PASS_H
+#ifndef CRESSIM_NEO_GRAPHICS_RENDERER_DISPLAY_RESOLVE_PASS_H
+#define CRESSIM_NEO_GRAPHICS_RENDERER_DISPLAY_RESOLVE_PASS_H
 
-#include "common/frame_context.h"
+#include "graphics/renderer/passes/render_pass_types.h"
+
 #include "gpu/gpu_device.h"
 
-#include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
@@ -12,31 +12,20 @@
 
 #include <cstdint>
 #include <unordered_map>
-#include <vector>
 
 namespace cressim::neo::graphics::detail
 {
 
-class CameraBatchPresentPass
+class DisplayResolvePass
 {
 public:
-    explicit CameraBatchPresentPass(gpu::GpuDevice& device);
-
-    struct PresentRect
-    {
-        std::uint32_t layer = 0u;
-        gpu::GpuRenderViewport viewport{};
-    };
+    explicit DisplayResolvePass(gpu::GpuDevice& device);
 
     bool initialize();
-    bool present(const common::FrameContext& frameContext, gpu::GpuRenderTargetHandle target,
-                 Diligent::ITexture* sourceTexture,
-                 const gpu::GpuRenderTargetDesc& targetDesc, const std::vector<PresentRect>& rects,
-                 bool clearColor, bool clearDepth, const Diligent::float4& clearColorValue,
-                 float clearDepthValue);
+    bool resolve(const common::FrameContext& frameContext, const DisplayResolveRequest& request);
 
 private:
-    struct PresentConstants
+    struct ResolveConstants
     {
         std::uint32_t layer = 0u;
         std::uint32_t padding0 = 0u;
@@ -76,4 +65,4 @@ private:
 
 } // namespace cressim::neo::graphics::detail
 
-#endif
+#endif // CRESSIM_NEO_GRAPHICS_RENDERER_DISPLAY_RESOLVE_PASS_H

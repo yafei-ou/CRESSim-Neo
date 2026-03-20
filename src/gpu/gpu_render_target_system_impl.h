@@ -37,16 +37,18 @@ public:
     bool tryGetRenderTargetDesc(GpuRenderTargetHandle target,
                                 GpuRenderTargetDesc& outDesc) const override;
     GpuRenderTargetHandle defaultRenderTarget() const override;
+    GpuRenderTargetBinding defaultRenderTargetBinding() const override;
 
-    void setRenderTargetViewport(GpuRenderTargetHandle target,
+    void setRenderTargetViewport(const GpuRenderTargetBinding& binding,
                                  const GpuRenderViewport& viewport) override;
-    void beginRenderTarget(GpuRenderTargetHandle target, const common::FrameContext& frameContext,
+    void beginRenderTarget(const GpuRenderTargetBinding& binding,
+                           const common::FrameContext& frameContext,
                            const GpuRenderPassBeginDesc& beginDesc) override;
-    void endRenderTarget(GpuRenderTargetHandle target,
+    void endRenderTarget(const GpuRenderTargetBinding& binding,
                          const common::FrameContext& frameContext) override;
 
     GpuRenderTargetReadbackRequest requestRenderTargetReadback(
-        GpuRenderTargetHandle target) override;
+        const GpuRenderTargetBinding& binding) override;
     bool tryGetRenderTargetReadback(GpuRenderTargetReadbackRequest request,
                                     GpuRenderTargetReadbackEvent& outEvent) override;
     bool tryGetRenderTargetColorTexture(GpuRenderTargetHandle target,
@@ -58,19 +60,21 @@ private:
     struct RenderTargetResources
     {
         GpuRenderTargetDesc desc{};
-        GpuRenderViewport viewport{};
         Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
         Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_D32_FLOAT;
         Diligent::RefCntAutoPtr<Diligent::ITexture> colorTexture;
         Diligent::RefCntAutoPtr<Diligent::ITexture> depthTexture;
-        Diligent::RefCntAutoPtr<Diligent::ITextureView> colorRenderTargetView;
-        Diligent::RefCntAutoPtr<Diligent::ITextureView> depthStencilView;
+        std::unordered_map<std::uint64_t, GpuRenderViewport> viewports;
+        std::unordered_map<std::uint64_t, Diligent::RefCntAutoPtr<Diligent::ITextureView>>
+            colorRenderTargetViews;
+        std::unordered_map<std::uint64_t, Diligent::RefCntAutoPtr<Diligent::ITextureView>>
+            depthStencilViews;
     };
 
     struct PendingReadbackCopy
     {
-        std::vector<std::uint64_t> requestIds{};
-        GpuRenderTargetHandle target{};
+        std::uint64_t requestId                = 0;
+        GpuRenderTargetBinding binding{};
         std::uint64_t frameIndex             = 0;
         std::uint64_t fenceValue             = 0;
         std::uint32_t width                  = 0;
@@ -83,8 +87,15 @@ private:
     GpuRenderTargetDesc normalizeTargetDesc(const GpuRenderTargetDesc& desc) const;
     bool createRenderTargetTextures(const GpuRenderTargetDesc& desc,
                                     RenderTargetResources& resources);
-    bool queueReadbackCopy(GpuRenderTargetHandle target, std::uint64_t frameIndex,
-                           const std::vector<std::uint64_t>& requestIds);
+    static std::uint64_t bindingKey(const GpuRenderTargetBinding& binding) noexcept;
+    GpuRenderTargetBinding normalizeBinding(const GpuRenderTargetBinding& binding,
+                                            const RenderTargetResources& resources) const;
+    Diligent::ITextureView* getOrCreateRenderTargetView(RenderTargetResources& resources,
+                                                        const GpuRenderTargetBinding& binding);
+    Diligent::ITextureView* getOrCreateDepthStencilView(RenderTargetResources& resources,
+                                                        const GpuRenderTargetBinding& binding);
+    bool queueReadbackCopy(const GpuRenderTargetBinding& binding, std::uint64_t frameIndex,
+                           std::uint64_t requestId);
 
 private:
     bool mInitialized                                       = false;
@@ -98,10 +109,10 @@ private:
 
     GpuRenderTargetDesc mDefaultRenderTargetDesc{};
     GpuRenderTargetHandle mDefaultRenderTarget{};
-    GpuRenderTargetHandle mActiveRenderTarget{};
+    GpuRenderTargetBinding mActiveRenderTargetBinding{};
 
     std::unordered_map<common::ResourceId, RenderTargetResources> mRenderTargets;
-    std::unordered_map<common::ResourceId, std::vector<std::uint64_t>> mPendingReadbackRequests;
+    std::unordered_map<std::uint64_t, GpuRenderTargetBinding> mPendingReadbackRequests;
     std::vector<PendingReadbackCopy> mPendingReadbackCopies;
     std::unordered_map<std::uint64_t, GpuRenderTargetReadbackEvent> mCompletedReadbacks;
 

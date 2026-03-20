@@ -2,14 +2,15 @@
 
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
+#include "graphics/renderer/display_resolve_pass.h"
 #include "graphics/renderer/passes/forward_pipeline.h"
+#include "graphics/renderer/render_plan_builder.h"
 #include "graphics/renderer/renderer_internal.h"
 
 #include <array>
 #include <cstring>
-#include <limits>
+#include <string>
 #include <unordered_map>
-#include <unordered_set>
 
 namespace cressim::neo::graphics
 {
@@ -113,6 +114,51 @@ std::uint32_t countActiveLights(const std::vector<DirectionalLightData>& lights)
     return count;
 }
 
+struct ManagedTargetKey
+{
+    std::uint32_t width = 0u;
+    std::uint32_t height = 0u;
+    std::uint32_t arraySize = 1u;
+    bool color = true;
+    bool depth = true;
+    bool shaderReadable = true;
+    bool layeredRendering = true;
+    Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
+    Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
+    std::string debugName{};
+
+    bool operator==(const ManagedTargetKey& rhs) const noexcept
+    {
+        return width == rhs.width && height == rhs.height && arraySize == rhs.arraySize &&
+               color == rhs.color && depth == rhs.depth &&
+               shaderReadable == rhs.shaderReadable &&
+               layeredRendering == rhs.layeredRendering &&
+               colorFormat == rhs.colorFormat && depthFormat == rhs.depthFormat &&
+               debugName == rhs.debugName;
+    }
+};
+
+struct ManagedTargetKeyHasher
+{
+    std::size_t operator()(const ManagedTargetKey& key) const noexcept
+    {
+        std::size_t seed = 0u;
+        auto hashCombine = [&](std::size_t value)
+        { seed ^= value + 0x9e3779b97f4a7c15ull + (seed << 6u) + (seed >> 2u); };
+        hashCombine(std::hash<std::uint32_t>{}(key.width));
+        hashCombine(std::hash<std::uint32_t>{}(key.height));
+        hashCombine(std::hash<std::uint32_t>{}(key.arraySize));
+        hashCombine(std::hash<bool>{}(key.color));
+        hashCombine(std::hash<bool>{}(key.depth));
+        hashCombine(std::hash<bool>{}(key.shaderReadable));
+        hashCombine(std::hash<bool>{}(key.layeredRendering));
+        hashCombine(std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.colorFormat)));
+        hashCombine(std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.depthFormat)));
+        hashCombine(std::hash<std::string>{}(key.debugName));
+        return seed;
+    }
+};
+
 } // namespace
 
 struct Renderer::GpuScenePrepareState
@@ -124,14 +170,34 @@ struct Renderer::GpuScenePrepareState
     bool initialized = false;
 };
 
+struct RendererOutputPlanningState
+{
+    std::unordered_map<ManagedTargetKey, gpu::GpuRenderTargetHandle, ManagedTargetKeyHasher>
+        managedPrimaryTargets;
+};
+
 Renderer::Renderer(gpu::GpuDevice& device, RenderResourceManager& resourceManager,
                    const RendererDesc& desc)
     : mDevice(device), mResourceManager(resourceManager), mDesc(desc),
-      mGpuScenePrepare(std::make_unique<GpuScenePrepareState>())
+      mGpuScenePrepare(std::make_unique<GpuScenePrepareState>()),
+      mOutputPlanningState(std::make_unique<RendererOutputPlanningState>())
 {
 }
 
-Renderer::~Renderer() = default;
+Renderer::~Renderer()
+{
+    if (mOutputPlanningState != nullptr)
+    {
+        for (const auto& [key, target] : mOutputPlanningState->managedPrimaryTargets)
+        {
+            (void)key;
+            if (mDevice.renderTargetSystem().isValidRenderTarget(target))
+            {
+                mDevice.renderTargetSystem().destroyRenderTarget(target);
+            }
+        }
+    }
+}
 
 bool Renderer::ensureGpuScenePrepareState()
 {
@@ -310,8 +376,17 @@ bool Renderer::initialize()
         return false;
     }
 
+    mDisplayResolvePass = std::make_unique<detail::DisplayResolvePass>(mDevice);
+    if (!mDisplayResolvePass->initialize())
+    {
+        mDisplayResolvePass.reset();
+        mForwardPipeline.reset();
+        return false;
+    }
+
     if (!ensureGpuScenePrepareState())
     {
+        mDisplayResolvePass.reset();
         mForwardPipeline.reset();
         return false;
     }
@@ -357,57 +432,101 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
         mDevice.endFrame(frameContext);
         return stats;
     }
+
     struct RequestedExtent
     {
         std::uint32_t width  = 0;
         std::uint32_t height = 0;
     };
     std::unordered_map<common::ResourceId, RequestedExtent> requestedExtents;
-    std::unordered_set<common::ResourceId> clearedPresentationTargets;
+    gpu::GpuRenderTargetDesc defaultTargetDesc{};
+    const gpu::GpuRenderTargetHandle defaultTarget = mDevice.renderTargetSystem().defaultRenderTarget();
+    const bool hasDefaultTarget =
+        mDevice.renderTargetSystem().isValidRenderTarget(defaultTarget) &&
+        mDevice.renderTargetSystem().tryGetRenderTargetDesc(defaultTarget, defaultTargetDesc);
 
-    struct BatchCompatibilityKey
+    if (mOutputPlanningState == nullptr)
     {
-        std::uint32_t width = 0u;
-        std::uint32_t height = 0u;
-        Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
-        Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
-        bool color = true;
-        bool depth = true;
-        bool shaderReadable = true;
+        mOutputPlanningState = std::make_unique<RendererOutputPlanningState>();
+    }
+
+    const auto acquireManagedPrimaryTarget =
+        [&](const gpu::GpuRenderTargetDesc& desc) -> gpu::GpuRenderTargetHandle
+    {
+        if (mOutputPlanningState == nullptr)
+        {
+            return {};
+        }
+
+        const ManagedTargetKey key{desc.width,          desc.height,         desc.arraySize,
+                                   desc.color,          desc.depth,          desc.shaderReadable,
+                                   desc.layeredRendering, desc.colorFormat, desc.depthFormat,
+                                   desc.debugName};
+        const auto it = mOutputPlanningState->managedPrimaryTargets.find(key);
+        if (it != mOutputPlanningState->managedPrimaryTargets.end() &&
+            mDevice.renderTargetSystem().isValidRenderTarget(it->second))
+        {
+            return it->second;
+        }
+
+        gpu::GpuRenderTargetHandle handle = mDevice.renderTargetSystem().createRenderTarget(desc);
+        if (mDevice.renderTargetSystem().isValidRenderTarget(handle))
+        {
+            mOutputPlanningState->managedPrimaryTargets[key] = handle;
+        }
+        return handle;
     };
 
-    auto sameBatch = [](const BatchCompatibilityKey& lhs, const BatchCompatibilityKey& rhs)
+    std::vector<ResolvedCameraView> resolvedCameras;
+    resolvedCameras.reserve(cameras.size());
+    std::optional<DisplayResolveRequest> displayResolve;
+
+    const auto buildManagedDesc = [&](const CameraData& camera)
     {
-        return lhs.width == rhs.width && lhs.height == rhs.height &&
-               lhs.colorFormat == rhs.colorFormat && lhs.depthFormat == rhs.depthFormat &&
-               lhs.color == rhs.color && lhs.depth == rhs.depth &&
-               lhs.shaderReadable == rhs.shaderReadable;
+        gpu::GpuRenderTargetDesc desc = defaultTargetDesc;
+        desc.width = camera.outputWidth == 0 ? defaultTargetDesc.width : camera.outputWidth;
+        desc.height = camera.outputHeight == 0 ? defaultTargetDesc.height : camera.outputHeight;
+        desc.arraySize = 1u;
+        desc.layeredRendering = true;
+        desc.shaderReadable = true;
+        desc.debugName = "CRESSimNeo.ManagedPrimary";
+        return desc;
     };
 
-    const auto isFullViewport = [](const gpu::GpuRenderViewport& viewport)
+    const auto sameManagedCompatibility = [&](const CameraData& lhs, const CameraData& rhs)
     {
-        return viewport.x == 0.0f && viewport.y == 0.0f && viewport.width == 1.0f &&
-               viewport.height == 1.0f;
+        const gpu::GpuRenderTargetDesc lhsDesc = buildManagedDesc(lhs);
+        const gpu::GpuRenderTargetDesc rhsDesc = buildManagedDesc(rhs);
+        return lhsDesc.width == rhsDesc.width && lhsDesc.height == rhsDesc.height &&
+               lhsDesc.color == rhsDesc.color && lhsDesc.depth == rhsDesc.depth &&
+               lhsDesc.shaderReadable == rhsDesc.shaderReadable &&
+               lhsDesc.colorFormat == rhsDesc.colorFormat &&
+               lhsDesc.depthFormat == rhsDesc.depthFormat &&
+               lhs.clearColor == rhs.clearColor && lhs.clearDepth == rhs.clearDepth &&
+               lhs.clearColorValue.x == rhs.clearColorValue.x &&
+               lhs.clearColorValue.y == rhs.clearColorValue.y &&
+               lhs.clearColorValue.z == rhs.clearColorValue.z &&
+               lhs.clearColorValue.w == rhs.clearColorValue.w &&
+               lhs.clearDepthValue == rhs.clearDepthValue;
     };
 
-    std::vector<CameraBatchView> cameraBatches;
-
-    const auto queueCamera = [&](const CameraData& camera)
+    const auto resolveExplicitTarget = [&](const CameraData& camera,
+                                           ResolvedCameraView& outView) -> bool
     {
-        gpu::GpuRenderTargetHandle target = camera.outputTarget;
+        gpu::GpuRenderTargetHandle target = camera.output.binding.target;
         if (!mDevice.renderTargetSystem().isValidRenderTarget(target))
         {
-            target = mDevice.renderTargetSystem().defaultRenderTarget();
+            target = defaultTarget;
         }
         if (!mDevice.renderTargetSystem().isValidRenderTarget(target))
         {
-            return;
+            return false;
         }
 
         gpu::GpuRenderTargetDesc targetDesc{};
         if (!mDevice.renderTargetSystem().tryGetRenderTargetDesc(target, targetDesc))
         {
-            return;
+            return false;
         }
 
         if (camera.outputWidth > 0 || camera.outputHeight > 0)
@@ -415,8 +534,8 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
             ++stats.renderTargetResizeRequests;
 
             RequestedExtent desired{};
-            desired.width  = (camera.outputWidth == 0 ? targetDesc.width : camera.outputWidth);
-            desired.height = (camera.outputHeight == 0 ? targetDesc.height : camera.outputHeight);
+            desired.width  = camera.outputWidth == 0 ? targetDesc.width : camera.outputWidth;
+            desired.height = camera.outputHeight == 0 ? targetDesc.height : camera.outputHeight;
 
             const auto requestedIt = requestedExtents.find(target.id);
             if (requestedIt == requestedExtents.end())
@@ -447,12 +566,10 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
                 {
                     ++stats.renderTargetRecreateCount;
                 }
-                if (updateResult != gpu::GpuRenderTargetUpdateResult::Failed)
+                if (updateResult == gpu::GpuRenderTargetUpdateResult::Failed ||
+                    !mDevice.renderTargetSystem().tryGetRenderTargetDesc(target, targetDesc))
                 {
-                    if (!mDevice.renderTargetSystem().tryGetRenderTargetDesc(target, targetDesc))
-                    {
-                        return;
-                    }
+                    return false;
                 }
             }
             else
@@ -461,75 +578,97 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
             }
         }
 
-        const gpu::GpuRenderViewport viewport = detail::normalizeViewport(camera.viewport);
-        const BatchCompatibilityKey key{
-            targetDesc.width,
-            targetDesc.height,
-            targetDesc.colorFormat,
-            targetDesc.depthFormat,
-            targetDesc.color,
-            targetDesc.depth,
-            targetDesc.shaderReadable};
-
-        BatchCameraView batchCamera{};
-        batchCamera.finalTarget      = target;
-        batchCamera.finalTargetDesc  = targetDesc;
-        batchCamera.viewport         = viewport;
-        const bool firstPresentationForTarget = clearedPresentationTargets.insert(target.id).second;
-        batchCamera.clearColor       = firstPresentationForTarget && camera.clearColor;
-        batchCamera.clearDepth       = firstPresentationForTarget && camera.clearDepth;
-        batchCamera.clearColorValue  = camera.clearColorValue;
-        batchCamera.clearDepthValue  = camera.clearDepthValue;
-        batchCamera.envIndex         = camera.envIndex;
-        batchCamera.cameraSlot       = camera.cameraSlot;
-        batchCamera.globalCameraIndex =
+        outView.entityId          = camera.entityId;
+        outView.outputBinding     = camera.output.binding;
+        outView.outputBinding.target = target;
+        outView.outputBinding.layerCount = 1u;
+        outView.outputBinding.firstLayer =
+            std::min(outView.outputBinding.firstLayer, targetDesc.arraySize - 1u);
+        outView.outputTargetDesc  = targetDesc;
+        outView.viewport          = detail::normalizeViewport(camera.viewport);
+        outView.clearColor        = camera.clearColor;
+        outView.clearDepth        = camera.clearDepth;
+        outView.clearColorValue   = camera.clearColorValue;
+        outView.clearDepthValue   = camera.clearDepthValue;
+        outView.envIndex          = camera.envIndex;
+        outView.cameraSlot        = camera.cameraSlot;
+        outView.globalCameraIndex =
             camera.envIndex * std::max(gpuScene.layout.maxCamerasPerEnv, 1u) + camera.cameraSlot;
-
-        const bool canJoinSharedBatch = isFullViewport(viewport);
-        auto batchIt = canJoinSharedBatch
-                           ? std::find_if(cameraBatches.begin(), cameraBatches.end(),
-                                          [&](const CameraBatchView& batch)
-                                          {
-                                              if (!isFullViewport(batch.cameras.front().viewport))
-                                              {
-                                                  return false;
-                                              }
-                                              const auto& desc = batch.layeredTargetDesc;
-                                              BatchCompatibilityKey batchKey{
-                                                  desc.width,
-                                                  desc.height,
-                                                  desc.colorFormat,
-                                                  desc.depthFormat,
-                                                  desc.color,
-                                                  desc.depth,
-                                                  desc.shaderReadable};
-                                              return sameBatch(batchKey, key);
-                                          })
-                           : cameraBatches.end();
-        if (batchIt == cameraBatches.end() || !canJoinSharedBatch)
-        {
-            CameraBatchView batch{};
-            batch.layeredTargetDesc        = targetDesc;
-            batch.layeredTargetDesc.arraySize = 1u;
-            batch.layeredTargetDesc.layeredRendering = false;
-            batch.layeredTargetDesc.debugName = "CRESSimNeo.CameraBatch";
-            batch.light = lightData;
-            batch.cameras.push_back(batchCamera);
-            cameraBatches.push_back(std::move(batch));
-        }
-        else
-        {
-            batchIt->cameras.push_back(batchCamera);
-        }
-        ++stats.cameraCount;
+        return true;
     };
 
-    for (const CameraData& camera : cameras)
+    for (std::size_t cameraIndex = 0; cameraIndex < cameras.size();)
     {
-        queueCamera(camera);
+        const CameraData& camera = cameras[cameraIndex];
+        if (camera.output.mode == gpu::CameraOutputMode::ManagedPrimary && hasDefaultTarget)
+        {
+            std::size_t runEnd = cameraIndex + 1u;
+            while (runEnd < cameras.size() &&
+                   cameras[runEnd].output.mode == gpu::CameraOutputMode::ManagedPrimary &&
+                   sameManagedCompatibility(cameras[cameraIndex], cameras[runEnd]))
+            {
+                ++runEnd;
+            }
+
+            gpu::GpuRenderTargetDesc managedDesc = buildManagedDesc(cameras[cameraIndex]);
+            managedDesc.arraySize = static_cast<std::uint32_t>(runEnd - cameraIndex);
+            managedDesc.layeredRendering = true;
+            const gpu::GpuRenderTargetHandle managedTarget = acquireManagedPrimaryTarget(managedDesc);
+            if (mDevice.renderTargetSystem().isValidRenderTarget(managedTarget))
+            {
+                for (std::size_t runIndex = cameraIndex; runIndex < runEnd; ++runIndex)
+                {
+                    const CameraData& managedCamera = cameras[runIndex];
+                    ResolvedCameraView resolved{};
+                    resolved.entityId = managedCamera.entityId;
+                    resolved.outputBinding = gpu::GpuRenderTargetBinding{
+                        managedTarget, static_cast<std::uint32_t>(runIndex - cameraIndex), 1u};
+                    resolved.outputTargetDesc  = managedDesc;
+                    resolved.viewport          = detail::normalizeViewport(managedCamera.viewport);
+                    resolved.clearColor        = managedCamera.clearColor;
+                    resolved.clearDepth        = managedCamera.clearDepth;
+                    resolved.clearColorValue   = managedCamera.clearColorValue;
+                    resolved.clearDepthValue   = managedCamera.clearDepthValue;
+                    resolved.envIndex          = managedCamera.envIndex;
+                    resolved.cameraSlot        = managedCamera.cameraSlot;
+                    resolved.globalCameraIndex = managedCamera.envIndex *
+                                                     std::max(gpuScene.layout.maxCamerasPerEnv, 1u) +
+                                                 managedCamera.cameraSlot;
+                    resolvedCameras.push_back(resolved);
+                    ++stats.cameraCount;
+
+                    if (!displayResolve.has_value())
+                    {
+                        displayResolve = DisplayResolveRequest{
+                            resolved.outputBinding,
+                            managedDesc,
+                            mDevice.renderTargetSystem().defaultRenderTargetBinding(),
+                            defaultTargetDesc,
+                            false,
+                            false,
+                            resolved.clearColorValue,
+                            resolved.clearDepthValue};
+                    }
+                }
+            }
+
+            cameraIndex = runEnd;
+            continue;
+        }
+
+        ResolvedCameraView resolved{};
+        if (resolveExplicitTarget(camera, resolved))
+        {
+            resolvedCameras.push_back(resolved);
+            ++stats.cameraCount;
+        }
+        ++cameraIndex;
     }
 
-    for (const CameraBatchView& batch : cameraBatches)
+    const FrameRenderPlan renderPlan =
+        detail::buildFrameRenderPlan(std::move(resolvedCameras), lightData, displayResolve);
+
+    for (const CameraBatchView& batch : renderPlan.cameraBatches)
     {
         ForwardPassExecutionStats passStats{};
         if (mForwardPipeline != nullptr)
@@ -538,6 +677,11 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
         }
         stats.opaqueDrawCalls += passStats.opaqueDrawCalls;
         stats.shadowDrawCalls += passStats.shadowDrawCalls;
+    }
+
+    if (renderPlan.displayResolve.has_value() && mDisplayResolvePass != nullptr)
+    {
+        (void)mDisplayResolvePass->resolve(frameContext, *renderPlan.displayResolve);
     }
 
     stats.drawCalls = stats.opaqueDrawCalls + stats.shadowDrawCalls;

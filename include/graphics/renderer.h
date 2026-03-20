@@ -16,9 +16,8 @@ namespace cressim::neo::graphics
 namespace detail
 {
 class ForwardPipeline;
+class DisplayResolvePass;
 }
-
-struct FrameViewData;
 
 struct RendererDesc
 {
@@ -58,7 +57,9 @@ private:
     RenderResourceManager& mResourceManager;
     RendererDesc mDesc{};
     std::unique_ptr<detail::ForwardPipeline> mForwardPipeline;
+    std::unique_ptr<detail::DisplayResolvePass> mDisplayResolvePass;
     std::unique_ptr<GpuScenePrepareState> mGpuScenePrepare;
+    std::unique_ptr<struct RendererOutputPlanningState> mOutputPlanningState;
     bool mInitialized = false;
 };
 

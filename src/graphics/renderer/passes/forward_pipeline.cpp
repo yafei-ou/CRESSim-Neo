@@ -2,13 +2,11 @@
 
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
-#include "graphics/renderer/passes/camera_batch_present_pass.h"
 #include "graphics/renderer/passes/forward_opaque_pass.h"
 #include "graphics/renderer/passes/shadow_pass.h"
 
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -71,6 +69,8 @@ constexpr Diligent::ShaderResourceVariableDesc kIndirectFilterVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "g_RenderableShadowCascadeMasks",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_BatchCameraIndices",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_BatchCameraLayers",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_CommandDescs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -163,33 +163,6 @@ bool updateConstants(Diligent::IDeviceContext* context, Diligent::IBuffer* const
     return true;
 }
 
-bool isFullViewport(const gpu::GpuRenderViewport& viewport)
-{
-    return viewport.x == 0.0f && viewport.y == 0.0f && viewport.width == 1.0f &&
-           viewport.height == 1.0f;
-}
-
-gpu::GpuRenderViewport gridViewport(std::uint32_t index, std::uint32_t count)
-{
-    if (count <= 1u)
-    {
-        return {};
-    }
-
-    const std::uint32_t columns =
-        std::max<std::uint32_t>(1u, static_cast<std::uint32_t>(std::ceil(std::sqrt((float)count))));
-    const std::uint32_t rows = (count + columns - 1u) / columns;
-    const std::uint32_t column = index % columns;
-    const std::uint32_t row = index / columns;
-
-    gpu::GpuRenderViewport viewport{};
-    viewport.x      = static_cast<float>(column) / static_cast<float>(columns);
-    viewport.y      = static_cast<float>(row) / static_cast<float>(rows);
-    viewport.width  = 1.0f / static_cast<float>(columns);
-    viewport.height = 1.0f / static_cast<float>(rows);
-    return viewport;
-}
-
 } // namespace
 
 struct ForwardPipeline::GpuIndirectState
@@ -212,6 +185,7 @@ struct ForwardPipeline::GpuIndirectState
     Diligent::RefCntAutoPtr<Diligent::IBuffer> filterConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> composeConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> batchCameraIndicesBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> batchCameraLayersBuffer;
     std::uint32_t batchCameraCapacity = 0u;
     BufferSet opaque;
     BufferSet shadow;
@@ -267,15 +241,6 @@ bool ForwardPipeline::initialize()
     mShadowPass = std::make_unique<ShadowPass>(mDevice, mResourceManager);
     if (!mShadowPass->initialize())
     {
-        mShadowPass.reset();
-        mForwardOpaquePass.reset();
-        return false;
-    }
-
-    mCameraBatchPresentPass = std::make_unique<CameraBatchPresentPass>(mDevice);
-    if (!mCameraBatchPresentPass || !mCameraBatchPresentPass->initialize())
-    {
-        mCameraBatchPresentPass.reset();
         mShadowPass.reset();
         mForwardOpaquePass.reset();
         return false;
@@ -382,19 +347,28 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
 
     const std::uint32_t batchCameraCount = static_cast<std::uint32_t>(batchView.cameras.size());
     std::vector<std::uint32_t> batchCameraIndices(batchCameraCount, 0u);
+    std::vector<std::uint32_t> batchCameraLayers(batchCameraCount, 0u);
     for (std::uint32_t i = 0u; i < batchCameraCount; ++i)
     {
         batchCameraIndices[i] = batchView.cameras[i].globalCameraIndex;
+        batchCameraLayers[i] =
+            batchView.cameras[i].outputBinding.firstLayer - batchView.renderBinding.firstLayer;
     }
 
     if (mGpuIndirectState->batchCameraCapacity < batchCameraCount ||
-        mGpuIndirectState->batchCameraIndicesBuffer == nullptr)
+        mGpuIndirectState->batchCameraIndicesBuffer == nullptr ||
+        mGpuIndirectState->batchCameraLayersBuffer == nullptr)
     {
         if (!ensureStructuredBuffer(backendContext.renderDevice,
                                     "CRESSimNeo.ForwardPipeline.BatchCameraIndices",
                                     sizeof(std::uint32_t), batchCameraCount,
                                     Diligent::BIND_SHADER_RESOURCE,
-                                    mGpuIndirectState->batchCameraIndicesBuffer))
+                                    mGpuIndirectState->batchCameraIndicesBuffer) ||
+            !ensureStructuredBuffer(backendContext.renderDevice,
+                                    "CRESSimNeo.ForwardPipeline.BatchCameraLayers",
+                                    sizeof(std::uint32_t), batchCameraCount,
+                                    Diligent::BIND_SHADER_RESOURCE,
+                                    mGpuIndirectState->batchCameraLayersBuffer))
         {
             return false;
         }
@@ -403,6 +377,11 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
     if (!writeBuffer(backendContext.immediateContext, mGpuIndirectState->batchCameraIndicesBuffer,
                      batchCameraIndices.data(),
                      batchCameraIndices.size() * sizeof(std::uint32_t)))
+    {
+        return false;
+    }
+    if (!writeBuffer(backendContext.immediateContext, mGpuIndirectState->batchCameraLayersBuffer,
+                     batchCameraLayers.data(), batchCameraLayers.size() * sizeof(std::uint32_t)))
     {
         return false;
     }
@@ -521,6 +500,9 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
             gpu::GpuBufferBinding{"g_BatchCameraIndices",
                                   mGpuIndirectState->batchCameraIndicesBuffer,
                                   Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_BatchCameraLayers",
+                                  mGpuIndirectState->batchCameraLayersBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
             gpu::GpuBufferBinding{"g_CommandDescs", bufferSet.commandDescBuffer,
                                   Diligent::BUFFER_VIEW_SHADER_RESOURCE},
             gpu::GpuBufferBinding{"g_CommandCountsRW", bufferSet.commandCountsBuffer,
@@ -585,16 +567,6 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
         return handle;
     };
 
-    gpu::GpuRenderTargetDesc layeredDesc = batchView.layeredTargetDesc;
-    layeredDesc.arraySize                = batchCameraCount;
-    layeredDesc.layeredRendering         = true;
-    layeredDesc.debugName                = layeredDesc.debugName + ".Batch";
-    const gpu::GpuRenderTargetHandle batchTarget = acquireCachedTarget(layeredDesc);
-    if (!mDevice.renderTargetSystem().isValidRenderTarget(batchTarget))
-    {
-        return false;
-    }
-
     std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> shadowTargets{};
     for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
     {
@@ -620,13 +592,14 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
         mShadowPass->setVisiblePairBuffer(mGpuIndirectState->shadow.visiblePairBuffer);
         for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
         {
-            mDevice.renderTargetSystem().setRenderTargetViewport(shadowTargets[cascadeIdx],
-                                                                 gpu::GpuRenderViewport{});
+            const gpu::GpuRenderTargetBinding shadowBinding{shadowTargets[cascadeIdx], 0u,
+                                                            batchCameraCount};
+            mDevice.renderTargetSystem().setRenderTargetViewport(shadowBinding, gpu::GpuRenderViewport{});
             gpu::GpuRenderPassBeginDesc shadowBegin{};
             shadowBegin.clearColor      = false;
             shadowBegin.clearDepth      = true;
             shadowBegin.clearDepthValue = 1.0f;
-            mDevice.renderTargetSystem().beginRenderTarget(shadowTargets[cascadeIdx], frameContext,
+            mDevice.renderTargetSystem().beginRenderTarget(shadowBinding, frameContext,
                                                            shadowBegin);
             for (std::uint32_t commandIndex = 0u;
                  commandIndex < static_cast<std::uint32_t>(shadowRegistry.size()); ++commandIndex)
@@ -640,14 +613,14 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
                 drawCommand.drawListOffset     = mGpuIndirectState->shadow.drawListOffsets[commandIndex];
                 drawCommand.useDrawListBuffer  = 1u;
                 if (mShadowPass->drawIndirect(
-                        shadowTargets[cascadeIdx], drawCommand, 0u, cascadeIdx,
+                        shadowBinding, drawCommand, 0u, cascadeIdx,
                         mGpuIndirectState->shadow.drawIndexedCommandsBuffer,
                         static_cast<Diligent::Uint64>(commandIndex) * sizeof(std::uint32_t) * 5u))
                 {
                     ++outStats.shadowDrawCalls;
                 }
             }
-            mDevice.renderTargetSystem().endRenderTarget(shadowTargets[cascadeIdx], frameContext);
+            mDevice.renderTargetSystem().endRenderTarget(shadowBinding, frameContext);
         }
     }
 
@@ -658,18 +631,17 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
         return false;
     }
 
-    mDevice.renderTargetSystem().setRenderTargetViewport(batchTarget, gpu::GpuRenderViewport{});
+    mDevice.renderTargetSystem().setRenderTargetViewport(batchView.renderBinding,
+                                                         gpu::GpuRenderViewport{});
     gpu::GpuRenderPassBeginDesc mainBegin{};
-    // The intermediate batch target is reused across cameras/batches, so it must
-    // always be cleared independently of the final target's presentation policy.
-    mainBegin.clearColor         = true;
-    mainBegin.clearDepth         = true;
+    mainBegin.clearColor         = batchView.cameras.front().clearColor;
+    mainBegin.clearDepth         = batchView.cameras.front().clearDepth;
     mainBegin.clearColorValue[0] = batchView.cameras.front().clearColorValue.x;
     mainBegin.clearColorValue[1] = batchView.cameras.front().clearColorValue.y;
     mainBegin.clearColorValue[2] = batchView.cameras.front().clearColorValue.z;
     mainBegin.clearColorValue[3] = batchView.cameras.front().clearColorValue.w;
     mainBegin.clearDepthValue    = batchView.cameras.front().clearDepthValue;
-    mDevice.renderTargetSystem().beginRenderTarget(batchTarget, frameContext, mainBegin);
+    mDevice.renderTargetSystem().beginRenderTarget(batchView.renderBinding, frameContext, mainBegin);
 
     for (std::uint32_t commandIndex = 0u;
          commandIndex < static_cast<std::uint32_t>(opaqueRegistry.size()); ++commandIndex)
@@ -678,57 +650,13 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
         drawCommand.drawListOffset     = mGpuIndirectState->opaque.drawListOffsets[commandIndex];
         drawCommand.useDrawListBuffer  = 1u;
         if (mForwardOpaquePass->drawIndirect(
-                batchTarget, drawCommand, mGpuIndirectState->opaque.drawIndexedCommandsBuffer,
+                batchView.renderBinding, drawCommand, mGpuIndirectState->opaque.drawIndexedCommandsBuffer,
                 static_cast<Diligent::Uint64>(commandIndex) * sizeof(std::uint32_t) * 5u))
         {
             ++outStats.opaqueDrawCalls;
         }
     }
-    mDevice.renderTargetSystem().endRenderTarget(batchTarget, frameContext);
-
-    Diligent::ITexture* batchColorTexture = nullptr;
-    if (!mDevice.renderTargetSystem().tryGetRenderTargetColorTexture(batchTarget, batchColorTexture) ||
-        batchColorTexture == nullptr || mCameraBatchPresentPass == nullptr)
-    {
-        return false;
-    }
-
-    std::unordered_map<common::ResourceId, std::vector<std::uint32_t>> groupsByTarget;
-    for (std::uint32_t cameraLayer = 0u; cameraLayer < batchCameraCount; ++cameraLayer)
-    {
-        groupsByTarget[batchView.cameras[cameraLayer].finalTarget.id].push_back(cameraLayer);
-    }
-
-    for (const auto& [targetId, layers] : groupsByTarget)
-    {
-        if (layers.empty())
-        {
-            continue;
-        }
-        const BatchCameraView& firstCamera = batchView.cameras[layers.front()];
-        gpu::GpuRenderTargetDesc targetDesc = firstCamera.finalTargetDesc;
-        std::vector<CameraBatchPresentPass::PresentRect> rects;
-        rects.reserve(layers.size());
-
-        const bool visualizeAsGrid = layers.size() > 1u;
-        for (std::uint32_t groupIndex = 0u; groupIndex < static_cast<std::uint32_t>(layers.size()); ++groupIndex)
-        {
-            CameraBatchPresentPass::PresentRect rect{};
-            rect.layer = layers[groupIndex];
-            rect.viewport = visualizeAsGrid ? gridViewport(groupIndex, static_cast<std::uint32_t>(layers.size()))
-                                            : batchView.cameras[layers[groupIndex]].viewport;
-            rects.push_back(rect);
-        }
-
-        const bool clearColor = firstCamera.clearColor;
-        const bool clearDepth = firstCamera.clearDepth;
-        if (!mCameraBatchPresentPass->present(frameContext, firstCamera.finalTarget, batchColorTexture, targetDesc,
-                                              rects, clearColor, clearDepth,
-                                              firstCamera.clearColorValue, firstCamera.clearDepthValue))
-        {
-            return false;
-        }
-    }
+    mDevice.renderTargetSystem().endRenderTarget(batchView.renderBinding, frameContext);
 
     return true;
 }

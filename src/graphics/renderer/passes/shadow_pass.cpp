@@ -31,7 +31,7 @@ void ShadowPass::setVisiblePairBuffer(Diligent::IBuffer* buffer) noexcept
     mVisiblePairBuffer = buffer;
 }
 
-bool ShadowPass::prepareDraw(gpu::GpuRenderTargetHandle target,
+bool ShadowPass::prepareDraw(const gpu::GpuRenderTargetBinding& targetBinding,
                              const ForwardDrawCommand& drawCommand, DrawSetup& outSetup)
 {
     if (!mInitialized)
@@ -44,7 +44,8 @@ bool ShadowPass::prepareDraw(gpu::GpuRenderTargetHandle target,
     {
         return false;
     }
-    if (!backendContext.hasActiveRenderTarget || backendContext.activeRenderTargetId != target.id)
+    if (!backendContext.hasActiveRenderTarget ||
+        !(backendContext.activeRenderTargetBinding == targetBinding))
     {
         return false;
     }
@@ -206,14 +207,14 @@ void ShadowPass::bindGeometry(Diligent::IDeviceContext* immediateContext,
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
-bool ShadowPass::drawIndirect(gpu::GpuRenderTargetHandle target,
+bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding& targetBinding,
                               const ForwardDrawCommand& drawCommand,
                               std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex,
                               Diligent::IBuffer* indirectArgsBuffer,
                               Diligent::Uint64 argsOffsetBytes)
 {
     DrawSetup setup{};
-    if (!prepareDraw(target, drawCommand, setup) || indirectArgsBuffer == nullptr)
+    if (!prepareDraw(targetBinding, drawCommand, setup) || indirectArgsBuffer == nullptr)
     {
         return false;
     }

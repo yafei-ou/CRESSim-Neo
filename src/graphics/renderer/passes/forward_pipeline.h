@@ -19,7 +19,6 @@ namespace detail
 
 class ForwardOpaquePass;
 class ShadowPass;
-class CameraBatchPresentPass;
 
 class ForwardPipeline
 {
@@ -65,7 +64,6 @@ private:
     RenderResourceManager& mResourceManager;
     std::unique_ptr<ForwardOpaquePass> mForwardOpaquePass;
     std::unique_ptr<ShadowPass> mShadowPass;
-    std::unique_ptr<CameraBatchPresentPass> mCameraBatchPresentPass;
     std::unique_ptr<GpuIndirectState> mGpuIndirectState;
     std::unordered_map<LayeredTargetKey, gpu::GpuRenderTargetHandle, LayeredTargetKeyHasher>
         mLayeredTargetCache;

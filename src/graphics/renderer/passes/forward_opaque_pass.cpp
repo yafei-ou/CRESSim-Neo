@@ -120,7 +120,7 @@ bool ForwardOpaquePass::beginBatchFrame(const CameraBatchView& batchView)
     ForwardPerFrameConstants frameConstants{};
     if (!batchView.cameras.empty())
     {
-        const BatchCameraView& firstCamera = batchView.cameras.front();
+        const ResolvedCameraView& firstCamera = batchView.cameras.front();
         frameConstants.currentCameraIndex  = firstCamera.globalCameraIndex;
     }
     frameConstants.lightDirectionIntensity =
@@ -161,7 +161,7 @@ void ForwardOpaquePass::setShadowMapTargets(
     mShadowMapCount   = std::min<std::uint32_t>(shadowMapCount, kShadowCascadeCount);
 }
 
-bool ForwardOpaquePass::prepareDraw(gpu::GpuRenderTargetHandle target,
+bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding& targetBinding,
                                     const ForwardDrawCommand& drawCommand, DrawSetup& outSetup)
 {
     if (!mInitialized)
@@ -174,7 +174,8 @@ bool ForwardOpaquePass::prepareDraw(gpu::GpuRenderTargetHandle target,
     {
         return false;
     }
-    if (!backendContext.hasActiveRenderTarget || backendContext.activeRenderTargetId != target.id)
+    if (!backendContext.hasActiveRenderTarget ||
+        !(backendContext.activeRenderTargetBinding == targetBinding))
     {
         return false;
     }
@@ -433,13 +434,13 @@ void ForwardOpaquePass::bindGeometry(Diligent::IDeviceContext* immediateContext,
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
-bool ForwardOpaquePass::drawIndirect(gpu::GpuRenderTargetHandle target,
+bool ForwardOpaquePass::drawIndirect(const gpu::GpuRenderTargetBinding& targetBinding,
                                      const ForwardDrawCommand& drawCommand,
                                      Diligent::IBuffer* indirectArgsBuffer,
                                      Diligent::Uint64 argsOffsetBytes)
 {
     DrawSetup setup{};
-    if (!prepareDraw(target, drawCommand, setup) || indirectArgsBuffer == nullptr ||
+    if (!prepareDraw(targetBinding, drawCommand, setup) || indirectArgsBuffer == nullptr ||
         !bindShadowMaps(*setup.program))
     {
         return false;

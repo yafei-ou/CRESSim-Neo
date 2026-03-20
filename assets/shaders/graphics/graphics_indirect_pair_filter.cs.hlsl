@@ -17,6 +17,7 @@ cbuffer GraphicsIndirectFilterConstants
 };
 
 StructuredBuffer<uint> g_BatchCameraIndices;
+StructuredBuffer<uint> g_BatchCameraLayers;
 StructuredBuffer<IndirectCommandDesc> g_CommandDescs;
 RWStructuredBuffer<uint> g_CommandCountsRW;
 RWStructuredBuffer<VisiblePairInstance> g_VisiblePairsRW;
@@ -43,6 +44,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     const uint batchCameraIndex = globalIndex / g_ObjectCount;
     const uint localObjectIndex = globalIndex % g_ObjectCount;
     const uint cameraIndex = g_BatchCameraIndices[batchCameraIndex];
+    const uint cameraLayer = g_BatchCameraLayers[batchCameraIndex];
     const PreparedCamera preparedCamera = g_PreparedCameras[cameraIndex];
     if (preparedCamera.active == 0u || localObjectIndex >= preparedCamera.objectRangeCount)
     {
@@ -70,7 +72,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             VisiblePairInstance pair;
             pair.objectIndex = globalObjectIndex;
             pair.cameraIndex = cameraIndex;
-            pair.cameraLayer = batchCameraIndex;
+            pair.cameraLayer = cameraLayer;
             pair.bucketIndex = commandIndex;
             g_VisiblePairsRW[desc.visibleOffset + visibleSlot] = pair;
         }
@@ -100,7 +102,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             VisiblePairInstance pair;
             pair.objectIndex = globalObjectIndex;
             pair.cameraIndex = cameraIndex;
-            pair.cameraLayer = batchCameraIndex;
+            pair.cameraLayer = cameraLayer;
             pair.bucketIndex = commandIndex;
             g_VisiblePairsRW[desc.visibleOffset + visibleSlot] = pair;
         }

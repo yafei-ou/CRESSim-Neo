@@ -1,4 +1,4 @@
-#include "graphics/renderer/passes/camera_batch_present_pass.h"
+#include "graphics/renderer/display_resolve_pass.h"
 
 #include "gpu/shader_library.h"
 
@@ -8,16 +8,16 @@
 namespace cressim::neo::graphics::detail
 {
 
-CameraBatchPresentPass::CameraBatchPresentPass(gpu::GpuDevice& device) : mDevice(device) {}
+DisplayResolvePass::DisplayResolvePass(gpu::GpuDevice& device) : mDevice(device) {}
 
-std::size_t CameraBatchPresentPass::PipelineKeyHasher::operator()(const PipelineKey& key) const noexcept
+std::size_t DisplayResolvePass::PipelineKeyHasher::operator()(const PipelineKey& key) const noexcept
 {
     const std::size_t colorHash = std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.colorFormat));
     const std::size_t depthHash = std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.depthFormat));
     return colorHash ^ (depthHash << 1u);
 }
 
-bool CameraBatchPresentPass::initialize()
+bool DisplayResolvePass::initialize()
 {
     gpu::GpuBackendContext backendContext{};
     if (!mDevice.tryGetGraphicsBackendContext(backendContext) || backendContext.renderDevice == nullptr)
@@ -38,7 +38,7 @@ bool CameraBatchPresentPass::initialize()
     return mInitialized;
 }
 
-bool CameraBatchPresentPass::ensureConstants(Diligent::IRenderDevice* renderDevice)
+bool DisplayResolvePass::ensureConstants(Diligent::IRenderDevice* renderDevice)
 {
     if (renderDevice == nullptr)
     {
@@ -50,8 +50,8 @@ bool CameraBatchPresentPass::ensureConstants(Diligent::IRenderDevice* renderDevi
     }
 
     Diligent::BufferDesc constantBufferDesc{};
-    constantBufferDesc.Name           = "CRESSimNeo.CameraBatchPresent.GraphicsBatchPresent";
-    constantBufferDesc.Size           = sizeof(PresentConstants);
+    constantBufferDesc.Name           = "CRESSimNeo.DisplayResolve.GraphicsDisplayResolve";
+    constantBufferDesc.Size           = sizeof(ResolveConstants);
     constantBufferDesc.Usage          = Diligent::USAGE_DYNAMIC;
     constantBufferDesc.BindFlags      = Diligent::BIND_UNIFORM_BUFFER;
     constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
@@ -59,8 +59,8 @@ bool CameraBatchPresentPass::ensureConstants(Diligent::IRenderDevice* renderDevi
     return mConstantsBuffer != nullptr;
 }
 
-Diligent::IPipelineState* CameraBatchPresentPass::getOrCreatePipeline(Diligent::IRenderDevice* renderDevice,
-                                                                      const PipelineKey& key)
+Diligent::IPipelineState* DisplayResolvePass::getOrCreatePipeline(Diligent::IRenderDevice* renderDevice,
+                                                                  const PipelineKey& key)
 {
     auto it = mPipelines.find(key);
     if (it != mPipelines.end())
@@ -87,8 +87,8 @@ Diligent::IPipelineState* CameraBatchPresentPass::getOrCreatePipeline(Diligent::
 
     Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
-    shaderCreateInfo.Desc.Name       = "CRESSimNeo.CameraBatchPresent.VS";
-    shaderCreateInfo.FilePath        = "graphics/camera_batch_present.vs.hlsl";
+    shaderCreateInfo.Desc.Name       = "CRESSimNeo.DisplayResolve.VS";
+    shaderCreateInfo.FilePath        = "graphics/display_resolve.vs.hlsl";
     renderDevice->CreateShader(shaderCreateInfo, &vertexShader);
     if (vertexShader == nullptr)
     {
@@ -97,8 +97,8 @@ Diligent::IPipelineState* CameraBatchPresentPass::getOrCreatePipeline(Diligent::
 
     Diligent::RefCntAutoPtr<Diligent::IShader> pixelShader;
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
-    shaderCreateInfo.Desc.Name       = "CRESSimNeo.CameraBatchPresent.PS";
-    shaderCreateInfo.FilePath        = "graphics/camera_batch_present.ps.hlsl";
+    shaderCreateInfo.Desc.Name       = "CRESSimNeo.DisplayResolve.PS";
+    shaderCreateInfo.FilePath        = "graphics/display_resolve.ps.hlsl";
     renderDevice->CreateShader(shaderCreateInfo, &pixelShader);
     if (pixelShader == nullptr)
     {
@@ -106,23 +106,21 @@ Diligent::IPipelineState* CameraBatchPresentPass::getOrCreatePipeline(Diligent::
     }
 
     Diligent::GraphicsPipelineStateCreateInfo psoCreateInfo{};
-    psoCreateInfo.PSODesc.Name                      = "CRESSimNeo.CameraBatchPresent.PSO";
+    psoCreateInfo.PSODesc.Name                      = "CRESSimNeo.DisplayResolve.PSO";
     psoCreateInfo.PSODesc.PipelineType              = Diligent::PIPELINE_TYPE_GRAPHICS;
     psoCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
     psoCreateInfo.GraphicsPipeline.RTVFormats[0]    = key.colorFormat;
     psoCreateInfo.GraphicsPipeline.DSVFormat        = key.depthFormat;
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology =
         Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    // This pass draws a generated fullscreen triangle; disabling culling avoids
-    // relying on backend-specific default front-face winding.
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_NONE;
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = Diligent::False;
     psoCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0].BlendEnable = Diligent::False;
-
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType =
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
+
     constexpr Diligent::ShaderResourceVariableDesc kVars[] = {
-        {Diligent::SHADER_TYPE_PIXEL, "g_BatchColor",
+        {Diligent::SHADER_TYPE_PIXEL, "g_SourceColor",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
@@ -139,7 +137,7 @@ Diligent::IPipelineState* CameraBatchPresentPass::getOrCreatePipeline(Diligent::
     }
 
     if (Diligent::IShaderResourceVariable* constantsVar =
-            pipeline->GetStaticVariableByName(Diligent::SHADER_TYPE_PIXEL, "GraphicsBatchPresent"))
+            pipeline->GetStaticVariableByName(Diligent::SHADER_TYPE_PIXEL, "GraphicsDisplayResolve"))
     {
         constantsVar->Set(mConstantsBuffer);
     }
@@ -148,7 +146,7 @@ Diligent::IPipelineState* CameraBatchPresentPass::getOrCreatePipeline(Diligent::
     return insertResult.first->second;
 }
 
-Diligent::RefCntAutoPtr<Diligent::ITextureView> CameraBatchPresentPass::createArraySrv(
+Diligent::RefCntAutoPtr<Diligent::ITextureView> DisplayResolvePass::createArraySrv(
     Diligent::ITexture* texture) const
 {
     if (texture == nullptr)
@@ -163,7 +161,7 @@ Diligent::RefCntAutoPtr<Diligent::ITextureView> CameraBatchPresentPass::createAr
     viewDesc.MostDetailedMip = 0u;
     viewDesc.NumMipLevels    = 1u;
     viewDesc.FirstArraySlice = 0u;
-    viewDesc.NumArraySlices  =
+    viewDesc.NumArraySlices =
         textureDesc.Type == Diligent::RESOURCE_DIM_TEX_2D_ARRAY ? textureDesc.ArraySize : 1u;
 
     Diligent::RefCntAutoPtr<Diligent::ITextureView> srv;
@@ -175,14 +173,10 @@ Diligent::RefCntAutoPtr<Diligent::ITextureView> CameraBatchPresentPass::createAr
     return srv;
 }
 
-bool CameraBatchPresentPass::present(const common::FrameContext& frameContext,
-                                     gpu::GpuRenderTargetHandle target, Diligent::ITexture* sourceTexture,
-                                     const gpu::GpuRenderTargetDesc& targetDesc,
-                                     const std::vector<PresentRect>& rects, bool clearColor,
-                                     bool clearDepth, const Diligent::float4& clearColorValue,
-                                     float clearDepthValue)
+bool DisplayResolvePass::resolve(const common::FrameContext& frameContext,
+                                 const DisplayResolveRequest& request)
 {
-    if (!mInitialized || sourceTexture == nullptr || rects.empty())
+    if (!mInitialized)
     {
         return false;
     }
@@ -194,10 +188,19 @@ bool CameraBatchPresentPass::present(const common::FrameContext& frameContext,
         return false;
     }
 
-    const Diligent::TEXTURE_FORMAT depthFormat =
-        targetDesc.depth ? targetDesc.depthFormat : Diligent::TEX_FORMAT_UNKNOWN;
-    Diligent::IPipelineState* pipeline =
-        getOrCreatePipeline(backendContext.renderDevice, PipelineKey{targetDesc.colorFormat, depthFormat});
+    Diligent::ITexture* sourceTexture = nullptr;
+    if (!mDevice.renderTargetSystem().tryGetRenderTargetColorTexture(request.sourceBinding.target,
+                                                                     sourceTexture) ||
+        sourceTexture == nullptr)
+    {
+        return false;
+    }
+
+    const Diligent::TEXTURE_FORMAT depthFormat = request.targetTargetDesc.depth
+                                                     ? request.targetTargetDesc.depthFormat
+                                                     : Diligent::TEX_FORMAT_UNKNOWN;
+    Diligent::IPipelineState* pipeline = getOrCreatePipeline(
+        backendContext.renderDevice, PipelineKey{request.targetTargetDesc.colorFormat, depthFormat});
     if (pipeline == nullptr)
     {
         return false;
@@ -215,60 +218,47 @@ bool CameraBatchPresentPass::present(const common::FrameContext& frameContext,
     {
         return false;
     }
-    Diligent::IShaderResourceVariable* batchColorVar =
-        srb->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_BatchColor");
-    if (batchColorVar == nullptr)
+    Diligent::IShaderResourceVariable* sourceColorVar =
+        srb->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_SourceColor");
+    if (sourceColorVar == nullptr)
     {
         return false;
     }
-    batchColorVar->Set(sourceSrv);
+    sourceColorVar->Set(sourceSrv);
 
-    mDevice.renderTargetSystem().setRenderTargetViewport(target, gpu::GpuRenderViewport{});
+    ResolveConstants constants{};
+    constants.layer = request.sourceBinding.firstLayer;
+    void* mapped = nullptr;
+    backendContext.immediateContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,
+                                               Diligent::MAP_FLAG_DISCARD, mapped);
+    if (mapped == nullptr)
+    {
+        return false;
+    }
+    std::memcpy(mapped, &constants, sizeof(constants));
+    backendContext.immediateContext->UnmapBuffer(mConstantsBuffer, Diligent::MAP_WRITE);
+
+    mDevice.renderTargetSystem().setRenderTargetViewport(request.targetBinding, gpu::GpuRenderViewport{});
     gpu::GpuRenderPassBeginDesc beginDesc{};
-    beginDesc.clearColor         = clearColor;
-    beginDesc.clearDepth         = clearDepth;
-    beginDesc.clearColorValue[0] = clearColorValue.x;
-    beginDesc.clearColorValue[1] = clearColorValue.y;
-    beginDesc.clearColorValue[2] = clearColorValue.z;
-    beginDesc.clearColorValue[3] = clearColorValue.w;
-    beginDesc.clearDepthValue    = clearDepthValue;
-    mDevice.renderTargetSystem().beginRenderTarget(target, frameContext, beginDesc);
+    beginDesc.clearColor         = request.clearColor;
+    beginDesc.clearDepth         = request.clearDepth;
+    beginDesc.clearColorValue[0] = request.clearColorValue.x;
+    beginDesc.clearColorValue[1] = request.clearColorValue.y;
+    beginDesc.clearColorValue[2] = request.clearColorValue.z;
+    beginDesc.clearColorValue[3] = request.clearColorValue.w;
+    beginDesc.clearDepthValue    = request.clearDepthValue;
+    mDevice.renderTargetSystem().beginRenderTarget(request.targetBinding, frameContext, beginDesc);
 
     backendContext.immediateContext->SetPipelineState(pipeline);
     backendContext.immediateContext->CommitShaderResources(
         srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    for (const PresentRect& rect : rects)
-    {
-        PresentConstants constants{};
-        constants.layer = rect.layer;
-        void* mapped = nullptr;
-        backendContext.immediateContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,
-                                                   Diligent::MAP_FLAG_DISCARD, mapped);
-        if (mapped == nullptr)
-        {
-            continue;
-        }
-        std::memcpy(mapped, &constants, sizeof(constants));
-        backendContext.immediateContext->UnmapBuffer(mConstantsBuffer, Diligent::MAP_WRITE);
+    Diligent::DrawAttribs drawAttrs{};
+    drawAttrs.NumVertices = 3u;
+    drawAttrs.Flags       = Diligent::DRAW_FLAG_VERIFY_ALL;
+    backendContext.immediateContext->Draw(drawAttrs);
 
-        Diligent::Viewport viewport{};
-        viewport.TopLeftX = rect.viewport.x * static_cast<float>(targetDesc.width);
-        viewport.TopLeftY = rect.viewport.y * static_cast<float>(targetDesc.height);
-        viewport.Width    = rect.viewport.width * static_cast<float>(targetDesc.width);
-        viewport.Height   = rect.viewport.height * static_cast<float>(targetDesc.height);
-        viewport.MinDepth = 0.0f;
-        viewport.MaxDepth = 1.0f;
-        backendContext.immediateContext->SetViewports(1, &viewport, targetDesc.width,
-                                                      targetDesc.height);
-
-        Diligent::DrawAttribs drawAttrs{};
-        drawAttrs.NumVertices = 3u;
-        drawAttrs.Flags       = Diligent::DRAW_FLAG_VERIFY_ALL;
-        backendContext.immediateContext->Draw(drawAttrs);
-    }
-
-    mDevice.renderTargetSystem().endRenderTarget(target, frameContext);
+    mDevice.renderTargetSystem().endRenderTarget(request.targetBinding, frameContext);
     return true;
 }
 
