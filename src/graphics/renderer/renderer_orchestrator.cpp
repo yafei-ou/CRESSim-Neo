@@ -7,7 +7,9 @@
 
 #include <array>
 #include <cstring>
+#include <limits>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace cressim::neo::graphics
 {
@@ -334,6 +336,8 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
     const std::vector<DirectionalLightData> emptyLights;
     const std::vector<DirectionalLightData>& directionalLights =
         world.directionalLights != nullptr ? *world.directionalLights : emptyLights;
+
+    // TODO: we are only using one global light
     const ForwardDirectionalLightData lightData = detail::buildMainLight(directionalLights);
     const gpu::GpuEntitySceneView emptySceneView{};
     const gpu::GpuEntitySceneView& gpuScene =
@@ -359,8 +363,36 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
         std::uint32_t height = 0;
     };
     std::unordered_map<common::ResourceId, RequestedExtent> requestedExtents;
+    std::unordered_set<common::ResourceId> clearedPresentationTargets;
 
-    const auto renderCamera = [&](const CameraData& camera)
+    struct BatchCompatibilityKey
+    {
+        std::uint32_t width = 0u;
+        std::uint32_t height = 0u;
+        Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
+        Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
+        bool color = true;
+        bool depth = true;
+        bool shaderReadable = true;
+    };
+
+    auto sameBatch = [](const BatchCompatibilityKey& lhs, const BatchCompatibilityKey& rhs)
+    {
+        return lhs.width == rhs.width && lhs.height == rhs.height &&
+               lhs.colorFormat == rhs.colorFormat && lhs.depthFormat == rhs.depthFormat &&
+               lhs.color == rhs.color && lhs.depth == rhs.depth &&
+               lhs.shaderReadable == rhs.shaderReadable;
+    };
+
+    const auto isFullViewport = [](const gpu::GpuRenderViewport& viewport)
+    {
+        return viewport.x == 0.0f && viewport.y == 0.0f && viewport.width == 1.0f &&
+               viewport.height == 1.0f;
+    };
+
+    std::vector<CameraBatchView> cameraBatches;
+
+    const auto queueCamera = [&](const CameraData& camera)
     {
         gpu::GpuRenderTargetHandle target = camera.outputTarget;
         if (!mDevice.renderTargetSystem().isValidRenderTarget(target))
@@ -430,23 +462,82 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
         }
 
         const gpu::GpuRenderViewport viewport = detail::normalizeViewport(camera.viewport);
-        const FrameViewData frameView =
-            detail::buildFrameViewData(camera, targetDesc, target, viewport, lightData);
+        const BatchCompatibilityKey key{
+            targetDesc.width,
+            targetDesc.height,
+            targetDesc.colorFormat,
+            targetDesc.depthFormat,
+            targetDesc.color,
+            targetDesc.depth,
+            targetDesc.shaderReadable};
 
-        ForwardPassExecutionStats passStats{};
-        if (mForwardPipeline != nullptr)
+        BatchCameraView batchCamera{};
+        batchCamera.finalTarget      = target;
+        batchCamera.finalTargetDesc  = targetDesc;
+        batchCamera.viewport         = viewport;
+        const bool firstPresentationForTarget = clearedPresentationTargets.insert(target.id).second;
+        batchCamera.clearColor       = firstPresentationForTarget && camera.clearColor;
+        batchCamera.clearDepth       = firstPresentationForTarget && camera.clearDepth;
+        batchCamera.clearColorValue  = camera.clearColorValue;
+        batchCamera.clearDepthValue  = camera.clearDepthValue;
+        batchCamera.envIndex         = camera.envIndex;
+        batchCamera.cameraSlot       = camera.cameraSlot;
+        batchCamera.globalCameraIndex =
+            camera.envIndex * std::max(gpuScene.layout.maxCamerasPerEnv, 1u) + camera.cameraSlot;
+
+        const bool canJoinSharedBatch = isFullViewport(viewport);
+        auto batchIt = canJoinSharedBatch
+                           ? std::find_if(cameraBatches.begin(), cameraBatches.end(),
+                                          [&](const CameraBatchView& batch)
+                                          {
+                                              if (!isFullViewport(batch.cameras.front().viewport))
+                                              {
+                                                  return false;
+                                              }
+                                              const auto& desc = batch.layeredTargetDesc;
+                                              BatchCompatibilityKey batchKey{
+                                                  desc.width,
+                                                  desc.height,
+                                                  desc.colorFormat,
+                                                  desc.depthFormat,
+                                                  desc.color,
+                                                  desc.depth,
+                                                  desc.shaderReadable};
+                                              return sameBatch(batchKey, key);
+                                          })
+                           : cameraBatches.end();
+        if (batchIt == cameraBatches.end() || !canJoinSharedBatch)
         {
-            (void)mForwardPipeline->execute(frameContext, frameView, world, passStats);
+            CameraBatchView batch{};
+            batch.layeredTargetDesc        = targetDesc;
+            batch.layeredTargetDesc.arraySize = 1u;
+            batch.layeredTargetDesc.layeredRendering = false;
+            batch.layeredTargetDesc.debugName = "CRESSimNeo.CameraBatch";
+            batch.light = lightData;
+            batch.cameras.push_back(batchCamera);
+            cameraBatches.push_back(std::move(batch));
         }
-
-        stats.opaqueDrawCalls += passStats.opaqueDrawCalls;
-        stats.shadowDrawCalls += passStats.shadowDrawCalls;
+        else
+        {
+            batchIt->cameras.push_back(batchCamera);
+        }
         ++stats.cameraCount;
     };
 
     for (const CameraData& camera : cameras)
     {
-        renderCamera(camera);
+        queueCamera(camera);
+    }
+
+    for (const CameraBatchView& batch : cameraBatches)
+    {
+        ForwardPassExecutionStats passStats{};
+        if (mForwardPipeline != nullptr)
+        {
+            (void)mForwardPipeline->executeBatch(frameContext, batch, world, passStats);
+        }
+        stats.opaqueDrawCalls += passStats.opaqueDrawCalls;
+        stats.shadowDrawCalls += passStats.shadowDrawCalls;
     }
 
     stats.drawCalls = stats.opaqueDrawCalls + stats.shadowDrawCalls;

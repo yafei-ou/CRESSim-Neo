@@ -44,8 +44,10 @@ struct GpuRenderTargetDesc
     // Zero means "use the current default target size".
     std::uint32_t width                  = 0;
     std::uint32_t height                 = 0;
+    std::uint32_t arraySize              = 1;
     bool color                           = true;
     bool depth                           = true;
+    bool layeredRendering                = false;
     // TEX_FORMAT_UNKNOWN means "auto".
     Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
     Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_D32_FLOAT;

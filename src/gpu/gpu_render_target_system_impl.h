@@ -63,6 +63,8 @@ private:
         Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_D32_FLOAT;
         Diligent::RefCntAutoPtr<Diligent::ITexture> colorTexture;
         Diligent::RefCntAutoPtr<Diligent::ITexture> depthTexture;
+        Diligent::RefCntAutoPtr<Diligent::ITextureView> colorRenderTargetView;
+        Diligent::RefCntAutoPtr<Diligent::ITextureView> depthStencilView;
     };
 
     struct PendingReadbackCopy

@@ -26,7 +26,7 @@ public:
 
     bool initialize();
     void setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept;
-    void setVisibleObjectIndexBuffer(Diligent::IBuffer* buffer) noexcept;
+    void setVisiblePairBuffer(Diligent::IBuffer* buffer) noexcept;
     bool drawIndirect(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
                       std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex,
                       Diligent::IBuffer* indirectArgsBuffer, Diligent::Uint64 argsOffsetBytes);
@@ -74,7 +74,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mShadowPerPassBuffer;
     gpu::GpuEntitySceneView mSceneView{};
-    Diligent::IBuffer* mVisibleObjectIndexBuffer = nullptr;
+    Diligent::IBuffer* mVisiblePairBuffer = nullptr;
 };
 
 } // namespace detail

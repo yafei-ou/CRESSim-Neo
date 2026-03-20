@@ -18,6 +18,8 @@ bool requiresTextureRecreate(const GpuRenderTargetDesc& currentDesc,
                              const GpuRenderTargetDesc& updatedDesc)
 {
     return currentDesc.width != updatedDesc.width || currentDesc.height != updatedDesc.height ||
+           currentDesc.arraySize != updatedDesc.arraySize ||
+           currentDesc.layeredRendering != updatedDesc.layeredRendering ||
            currentDesc.color != updatedDesc.color || currentDesc.depth != updatedDesc.depth ||
            currentDesc.colorFormat != updatedDesc.colorFormat ||
            currentDesc.depthFormat != updatedDesc.depthFormat ||
@@ -407,12 +409,12 @@ void GpuRenderTargetSystemImpl::beginRenderTarget(GpuRenderTargetHandle target,
     Diligent::ITextureView* depthDsv = nullptr;
     if (it->second.colorTexture != nullptr)
     {
-        colorRtv = it->second.colorTexture->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+        colorRtv = it->second.colorRenderTargetView;
         mActiveRenderTargetColorFormat = it->second.colorTexture->GetDesc().Format;
     }
     if (it->second.depthTexture != nullptr)
     {
-        depthDsv = it->second.depthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL);
+        depthDsv = it->second.depthStencilView;
     }
 
     if (colorRtv == nullptr && depthDsv == nullptr)
@@ -597,6 +599,8 @@ GpuRenderTargetDesc GpuRenderTargetSystemImpl::normalizeDefaultRenderTargetDesc(
     normalized.height = common::runtime_math::clampExtent(
         normalized.height == 0 ? kDefaultRenderTargetHeight : normalized.height);
     normalized.color = true;
+    normalized.arraySize = 1u;
+    normalized.layeredRendering = false;
     if (normalized.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
     {
         normalized.colorFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
@@ -630,6 +634,7 @@ GpuRenderTargetDesc GpuRenderTargetSystemImpl::normalizeTargetDesc(
     {
         normalized.color = true;
     }
+    normalized.arraySize        = std::max<std::uint32_t>(normalized.arraySize, 1u);
     if (normalized.debugName.empty())
     {
         normalized.debugName = "CRESSimNeo.RenderTarget";
@@ -645,8 +650,10 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
         return false;
     }
 
-    resources.colorTexture = nullptr;
-    resources.depthTexture = nullptr;
+    resources.colorTexture          = nullptr;
+    resources.depthTexture          = nullptr;
+    resources.colorRenderTargetView = nullptr;
+    resources.depthStencilView      = nullptr;
 
     if (desc.color)
     {
@@ -659,11 +666,13 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
         Diligent::TextureDesc colorDesc{};
         const std::string colorName = desc.debugName + ".Color";
         colorDesc.Name              = colorName.c_str();
-        colorDesc.Type              = Diligent::RESOURCE_DIM_TEX_2D;
+        colorDesc.Type = (desc.layeredRendering || desc.arraySize > 1u)
+                             ? Diligent::RESOURCE_DIM_TEX_2D_ARRAY
+                             : Diligent::RESOURCE_DIM_TEX_2D;
         colorDesc.Width             = desc.width;
         colorDesc.Height            = desc.height;
         colorDesc.MipLevels         = 1;
-        colorDesc.ArraySize         = 1;
+        colorDesc.ArraySize         = desc.arraySize;
         colorDesc.Format            = colorFormat;
         colorDesc.BindFlags         = Diligent::BIND_RENDER_TARGET;
         if (desc.shaderReadable)
@@ -673,8 +682,29 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
         colorDesc.Usage = Diligent::USAGE_DEFAULT;
 
         mRenderDevice->CreateTexture(colorDesc, nullptr, &resources.colorTexture);
-        if (!resources.colorTexture ||
-            resources.colorTexture->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET) == nullptr)
+        if (!resources.colorTexture)
+        {
+            return false;
+        }
+
+        if (desc.layeredRendering && colorDesc.Type == Diligent::RESOURCE_DIM_TEX_2D_ARRAY)
+        {
+            Diligent::TextureViewDesc rtvDesc{};
+            rtvDesc.ViewType        = Diligent::TEXTURE_VIEW_RENDER_TARGET;
+            rtvDesc.TextureDim      = Diligent::RESOURCE_DIM_TEX_2D_ARRAY;
+            rtvDesc.MostDetailedMip = 0u;
+            rtvDesc.NumMipLevels    = 1u;
+            rtvDesc.FirstArraySlice = 0u;
+            rtvDesc.NumArraySlices  = colorDesc.ArraySize;
+            resources.colorTexture->CreateView(rtvDesc, &resources.colorRenderTargetView);
+        }
+        else
+        {
+            resources.colorRenderTargetView =
+                resources.colorTexture->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+        }
+
+        if (resources.colorRenderTargetView == nullptr)
         {
             return false;
         }
@@ -691,11 +721,13 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
         Diligent::TextureDesc depthDesc{};
         const std::string depthName = desc.debugName + ".Depth";
         depthDesc.Name              = depthName.c_str();
-        depthDesc.Type              = Diligent::RESOURCE_DIM_TEX_2D;
+        depthDesc.Type = (desc.layeredRendering || desc.arraySize > 1u)
+                             ? Diligent::RESOURCE_DIM_TEX_2D_ARRAY
+                             : Diligent::RESOURCE_DIM_TEX_2D;
         depthDesc.Width             = desc.width;
         depthDesc.Height            = desc.height;
         depthDesc.MipLevels         = 1;
-        depthDesc.ArraySize         = 1;
+        depthDesc.ArraySize         = desc.arraySize;
         depthDesc.Format            = depthFormat;
         depthDesc.BindFlags         = Diligent::BIND_DEPTH_STENCIL;
         if (desc.shaderReadable)
@@ -705,8 +737,29 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
         depthDesc.Usage = Diligent::USAGE_DEFAULT;
 
         mRenderDevice->CreateTexture(depthDesc, nullptr, &resources.depthTexture);
-        if (!resources.depthTexture ||
-            resources.depthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL) == nullptr)
+        if (!resources.depthTexture)
+        {
+            return false;
+        }
+
+        if (desc.layeredRendering && depthDesc.Type == Diligent::RESOURCE_DIM_TEX_2D_ARRAY)
+        {
+            Diligent::TextureViewDesc dsvDesc{};
+            dsvDesc.ViewType        = Diligent::TEXTURE_VIEW_DEPTH_STENCIL;
+            dsvDesc.TextureDim      = Diligent::RESOURCE_DIM_TEX_2D_ARRAY;
+            dsvDesc.MostDetailedMip = 0u;
+            dsvDesc.NumMipLevels    = 1u;
+            dsvDesc.FirstArraySlice = 0u;
+            dsvDesc.NumArraySlices  = depthDesc.ArraySize;
+            resources.depthTexture->CreateView(dsvDesc, &resources.depthStencilView);
+        }
+        else
+        {
+            resources.depthStencilView =
+                resources.depthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL);
+        }
+
+        if (resources.depthStencilView == nullptr)
         {
             return false;
         }

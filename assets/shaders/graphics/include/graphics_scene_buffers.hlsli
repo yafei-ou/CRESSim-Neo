@@ -37,6 +37,14 @@ struct RenderableQueueInfo
     uint reserved1;
 };
 
+struct VisiblePairInstance
+{
+    uint objectIndex;
+    uint cameraIndex;
+    uint cameraLayer;
+    uint bucketIndex;
+};
+
 StructuredBuffer<float4> g_EntityPositions;
 StructuredBuffer<float4> g_EntityOrientations;
 StructuredBuffer<float4> g_EntityScales;
@@ -46,6 +54,7 @@ StructuredBuffer<uint> g_RenderableVisibilityFlags;
 StructuredBuffer<uint> g_RenderableShadowCascadeMasks;
 StructuredBuffer<PreparedCamera> g_PreparedCameras;
 StructuredBuffer<uint> g_VisibleObjectIndices;
+StructuredBuffer<VisiblePairInstance> g_VisiblePairs;
 
 static const uint CRESSIM_RENDERABLE_FLAG_ACTIVE = 1u << 0u;
 static const uint CRESSIM_RENDERABLE_FLAG_SHADOW_CASTER = 1u << 2u;

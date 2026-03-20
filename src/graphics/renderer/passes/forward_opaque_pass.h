@@ -31,9 +31,9 @@ public:
     ForwardOpaquePass(gpu::GpuDevice& device, RenderResourceManager& resourceManager);
 
     bool initialize();
-    bool beginCameraFrame(const FrameViewData& frameView);
+    bool beginBatchFrame(const CameraBatchView& batchView);
     void setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept;
-    void setVisibleObjectIndexBuffer(Diligent::IBuffer* buffer) noexcept;
+    void setVisiblePairBuffer(Diligent::IBuffer* buffer) noexcept;
     void setShadowMapTargets(
         const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount>& shadowMapTargets,
         std::uint32_t shadowMapCount);
@@ -105,7 +105,7 @@ private:
     std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
     std::uint32_t mShadowMapCount = 0;
     gpu::GpuEntitySceneView mSceneView{};
-    Diligent::IBuffer* mVisibleObjectIndexBuffer = nullptr;
+    Diligent::IBuffer* mVisiblePairBuffer = nullptr;
 };
 
 } // namespace detail

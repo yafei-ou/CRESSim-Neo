@@ -26,9 +26,9 @@ void ShadowPass::setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexc
     mSceneView = sceneView;
 }
 
-void ShadowPass::setVisibleObjectIndexBuffer(Diligent::IBuffer* buffer) noexcept
+void ShadowPass::setVisiblePairBuffer(Diligent::IBuffer* buffer) noexcept
 {
-    mVisibleObjectIndexBuffer = buffer;
+    mVisiblePairBuffer = buffer;
 }
 
 bool ShadowPass::prepareDraw(gpu::GpuRenderTargetHandle target,
@@ -135,25 +135,25 @@ bool ShadowPass::bindSceneBuffers() const
         variable->Set(srv);
     }
 
-    Diligent::IShaderResourceVariable* visibleObjectsVar =
+    Diligent::IShaderResourceVariable* visiblePairsVar =
         mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
-                                                  "g_VisibleObjectIndices");
-    if (visibleObjectsVar != nullptr)
+                                                  "g_VisiblePairs");
+    if (visiblePairsVar != nullptr)
     {
-        Diligent::IBuffer* visibleObjectBuffer =
-            mVisibleObjectIndexBuffer != nullptr ? mVisibleObjectIndexBuffer
-                                                 : mSceneView.renderableShadowCascadeMasksBuffer;
-        if (visibleObjectBuffer == nullptr)
+        Diligent::IBuffer* visiblePairBuffer =
+            mVisiblePairBuffer != nullptr ? mVisiblePairBuffer
+                                          : mSceneView.renderableShadowCascadeMasksBuffer;
+        if (visiblePairBuffer == nullptr)
         {
             return false;
         }
-        Diligent::IBufferView* visibleObjectsSrv =
-            visibleObjectBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
-        if (visibleObjectsSrv == nullptr)
+        Diligent::IBufferView* visiblePairsSrv =
+            visiblePairBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        if (visiblePairsSrv == nullptr)
         {
             return false;
         }
-        visibleObjectsVar->Set(visibleObjectsSrv);
+        visiblePairsVar->Set(visiblePairsSrv);
     }
     return true;
 }
@@ -274,6 +274,10 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
     shaderCreateInfo.Desc.Name                       = "CRESSimNeo.ShadowPass.VS";
     shaderCreateInfo.FilePath                        = kShadowVsRelativePath;
     shaderCreateInfo.pShaderSourceStreamFactory      = streamFactory;
+    Diligent::ShaderMacro shadowMacros[]             = {
+        {"MANUAL_LAYER_EXPORT", "1"},
+    };
+    shaderCreateInfo.Macros = Diligent::ShaderMacroArray{shadowMacros, 1};
 
     Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
     renderDevice->CreateShader(shaderCreateInfo, &vertexShader);
@@ -310,7 +314,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_VERTEX, "g_RenderableShadowCascadeMasks",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_VERTEX, "g_VisibleObjectIndices",
+        {Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},

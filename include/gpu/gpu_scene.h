@@ -80,6 +80,14 @@ struct GpuPreparedCamera
     std::uint32_t reserved2            = 0u;
 };
 
+struct GpuVisiblePairInstance
+{
+    std::uint32_t objectIndex = 0u;
+    std::uint32_t cameraIndex = 0u;
+    std::uint32_t cameraLayer = 0u;
+    std::uint32_t bucketIndex = 0u;
+};
+
 struct GpuRenderableQueueInfo
 {
     std::uint32_t opaqueCommandIndex     = 0xffffffffu;

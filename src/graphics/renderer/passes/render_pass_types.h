@@ -6,6 +6,8 @@
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 
+#include <vector>
+
 namespace cressim::neo::graphics
 {
 
@@ -30,6 +32,27 @@ struct FrameViewData
     Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
     ForwardDirectionalLightData light{};
     Diligent::float3 cameraWorldPosition = {0.0f, 0.0f, 0.0f};
+};
+
+struct BatchCameraView
+{
+    gpu::GpuRenderTargetHandle finalTarget{};
+    gpu::GpuRenderTargetDesc finalTargetDesc{};
+    gpu::GpuRenderViewport viewport{};
+    bool clearColor                  = true;
+    bool clearDepth                  = true;
+    Diligent::float4 clearColorValue = {0.02f, 0.02f, 0.03f, 1.0f};
+    float clearDepthValue            = 1.0f;
+    std::uint32_t envIndex           = 0u;
+    std::uint32_t cameraSlot         = 0u;
+    std::uint32_t globalCameraIndex  = 0u;
+};
+
+struct CameraBatchView
+{
+    gpu::GpuRenderTargetDesc layeredTargetDesc{};
+    ForwardDirectionalLightData light{};
+    std::vector<BatchCameraView> cameras{};
 };
 
 struct ForwardPassExecutionStats
