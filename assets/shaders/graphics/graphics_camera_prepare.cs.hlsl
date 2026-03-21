@@ -234,7 +234,7 @@ float4x4 buildDirectionalLightCascadeViewProjection(float3 lightDirection, float
     return mul(lightView, buildOrthoOffCenterMatrix(left, right, bottom, top, nearPlane, farPlane));
 }
 
-[numthreads(1, 1, 1)]
+[numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
     const uint currentCameraIndex = dispatchThreadId.x;

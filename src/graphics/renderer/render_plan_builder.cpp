@@ -66,8 +66,8 @@ FrameRenderPlan buildFrameRenderPlan(std::vector<ResolvedCameraView> cameras,
         const bool duplicateLayer = std::find(usedLayers.begin(), usedLayers.end(),
                                               camera.outputBinding.firstLayer) != usedLayers.end();
         const bool canJoin        = hasOpenBatch &&
-                                    sameBatchCompatibility(currentBatch.cameras.front(), camera) &&
-                                    !duplicateLayer;
+                             sameBatchCompatibility(currentBatch.cameras.front(), camera) &&
+                             !duplicateLayer;
         if (!canJoin)
         {
             flushBatch();

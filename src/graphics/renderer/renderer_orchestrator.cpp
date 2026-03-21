@@ -275,7 +275,8 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView& sceneView)
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
     if (!mGpuScenePrepare->cameraPreparePass.dispatch(backendContext.immediateContext, 0u,
-                                                      cameraPrepareBindings, sceneView.cameraCount))
+                                                      cameraPrepareBindings,
+                                                      dispatchGroupCount(sceneView.cameraCount)))
     {
         return false;
     }
