@@ -7,7 +7,6 @@
 #include "graphics/renderer/passes/forward_draw_types.h"
 #include "graphics/renderer/services/mesh_gpu_cache.h"
 
-#include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"

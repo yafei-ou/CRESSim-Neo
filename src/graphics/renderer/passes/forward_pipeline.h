@@ -2,12 +2,10 @@
 #define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_PIPELINE_H
 
 #include "gpu/gpu_device.h"
-#include "gpu/gpu_scene.h"
 #include "graphics/host_scene.h"
 #include "graphics/renderer/passes/render_pass_types.h"
 #include "graphics/renderer/render_target_cache_key.h"
 
-#include <array>
 #include <memory>
 #include <unordered_map>
 

@@ -6,7 +6,6 @@
 #include "graphics/renderer/passes/forward_opaque_pass.h"
 #include "graphics/renderer/passes/shadow_pass.h"
 
-#include <algorithm>
 #include <array>
 #include <cstring>
 #include <string>
