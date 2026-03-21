@@ -323,19 +323,6 @@ Diligent::float3 inverseInertiaForShape(ColliderShapeType shape,
     return {0.0f, 0.0f, 0.0f};
 }
 
-cressim::neo::gpu::GpuRenderViewport tiledViewport(std::uint32_t envIndex, std::uint32_t envCount)
-{
-    const std::uint32_t cols = std::max(1u, static_cast<std::uint32_t>(
-        std::ceil(std::sqrt(static_cast<float>(envCount)))));
-    const std::uint32_t rows = std::max(1u, (envCount + cols - 1u) / cols);
-    const std::uint32_t col = envIndex % cols;
-    const std::uint32_t row = envIndex / cols;
-
-    const float width = 1.0f / static_cast<float>(cols);
-    const float height = 1.0f / static_cast<float>(rows);
-    return {static_cast<float>(col) * width, static_cast<float>(row) * height, width, height};
-}
-
 Diligent::float3 envWorldOrigin(std::uint32_t envIndex, std::uint32_t envCount)
 {
     const std::uint32_t cols = std::max(1u, static_cast<std::uint32_t>(
@@ -373,9 +360,9 @@ void authorEnvironment(cressim::neo::engine::World& world, std::uint32_t envInde
     world.setTransform(outCameraEntity, cameraTransform);
     CameraComponent camera{};
     camera.verticalFovDegrees = 55.0f;
-    camera.viewport = tiledViewport(envIndex, envCount);
-    camera.clearColor = (envIndex == 0u);
-    camera.clearDepth = (envIndex == 0u);
+    camera.viewport = {};
+    camera.clearColor = true;
+    camera.clearDepth = true;
     camera.renderOrder = static_cast<int>(envIndex);
     world.setCamera(outCameraEntity, camera);
 

@@ -1,5 +1,6 @@
 #include "graphics/renderer/passes/forward_pipeline.h"
 
+#include "gpu/gpu_buffer_utils.h"
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
 #include "graphics/renderer/passes/forward_opaque_pass.h"
@@ -113,22 +114,12 @@ std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
 bool ensureStructuredBuffer(Diligent::IRenderDevice* renderDevice, const char* name,
                             std::uint32_t elementStride, std::uint32_t elementCount,
                             Diligent::BIND_FLAGS bindFlags,
-                            Diligent::RefCntAutoPtr<Diligent::IBuffer>& outBuffer)
+                            Diligent::RefCntAutoPtr<Diligent::IBuffer>& outBuffer,
+                            std::uint32_t& inOutCapacity, std::uint32_t minimumCapacity)
 {
-    if (renderDevice == nullptr)
-    {
-        return false;
-    }
-
-    Diligent::BufferDesc desc{};
-    desc.Name              = name;
-    desc.Size              = static_cast<Diligent::Uint64>(std::max(elementCount, 1u)) * elementStride;
-    desc.BindFlags         = bindFlags;
-    desc.Usage             = Diligent::USAGE_DEFAULT;
-    desc.Mode              = Diligent::BUFFER_MODE_STRUCTURED;
-    desc.ElementByteStride = elementStride;
-    renderDevice->CreateBuffer(desc, nullptr, &outBuffer);
-    return outBuffer != nullptr;
+    return gpu::detail::ensureStructuredBufferCapacity(
+        renderDevice, name, elementStride, elementCount, minimumCapacity, bindFlags,
+        Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, 1ull, outBuffer, inOutCapacity);
 }
 
 bool writeBuffer(Diligent::IDeviceContext* context, Diligent::IBuffer* buffer, const void* data,
@@ -196,25 +187,6 @@ ForwardPipeline::ForwardPipeline(gpu::GpuDevice& device, RenderResourceManager& 
     : mDevice(device), mResourceManager(resourceManager),
       mGpuIndirectState(std::make_unique<GpuIndirectState>())
 {
-}
-
-std::size_t ForwardPipeline::LayeredTargetKeyHasher::operator()(
-    const LayeredTargetKey& key) const noexcept
-{
-    std::size_t seed = 0u;
-    auto hashCombine = [&](std::size_t value)
-    { seed ^= value + 0x9e3779b97f4a7c15ull + (seed << 6u) + (seed >> 2u); };
-    hashCombine(std::hash<std::uint32_t>{}(key.width));
-    hashCombine(std::hash<std::uint32_t>{}(key.height));
-    hashCombine(std::hash<std::uint32_t>{}(key.arraySize));
-    hashCombine(std::hash<bool>{}(key.color));
-    hashCombine(std::hash<bool>{}(key.depth));
-    hashCombine(std::hash<bool>{}(key.shaderReadable));
-    hashCombine(std::hash<bool>{}(key.layeredRendering));
-    hashCombine(std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.colorFormat)));
-    hashCombine(std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.depthFormat)));
-    hashCombine(std::hash<std::string>{}(key.debugName));
-    return seed;
 }
 
 ForwardPipeline::~ForwardPipeline()
@@ -363,16 +335,17 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
                                     "CRESSimNeo.ForwardPipeline.BatchCameraIndices",
                                     sizeof(std::uint32_t), batchCameraCount,
                                     Diligent::BIND_SHADER_RESOURCE,
-                                    mGpuIndirectState->batchCameraIndicesBuffer) ||
+                                    mGpuIndirectState->batchCameraIndicesBuffer,
+                                    mGpuIndirectState->batchCameraCapacity, 1u) ||
             !ensureStructuredBuffer(backendContext.renderDevice,
                                     "CRESSimNeo.ForwardPipeline.BatchCameraLayers",
                                     sizeof(std::uint32_t), batchCameraCount,
                                     Diligent::BIND_SHADER_RESOURCE,
-                                    mGpuIndirectState->batchCameraLayersBuffer))
+                                    mGpuIndirectState->batchCameraLayersBuffer,
+                                    mGpuIndirectState->batchCameraCapacity, 1u))
         {
             return false;
         }
-        mGpuIndirectState->batchCameraCapacity = batchCameraCount;
     }
     if (!writeBuffer(backendContext.immediateContext, mGpuIndirectState->batchCameraIndicesBuffer,
                      batchCameraIndices.data(),
@@ -419,20 +392,21 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
             const std::string argsName  = std::string{namePrefix} + ".DrawArgs";
             if (!ensureStructuredBuffer(
                     backendContext.renderDevice, descName.c_str(), sizeof(IndirectCommandDesc),
-                    commandCount, Diligent::BIND_SHADER_RESOURCE, bufferSet.commandDescBuffer) ||
+                    commandCount, Diligent::BIND_SHADER_RESOURCE, bufferSet.commandDescBuffer,
+                    bufferSet.commandCapacity, 1u) ||
                 !ensureStructuredBuffer(
                     backendContext.renderDevice, countName.c_str(), sizeof(std::uint32_t),
                     commandCount, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-                    bufferSet.commandCountsBuffer) ||
+                    bufferSet.commandCountsBuffer, bufferSet.commandCapacity, 1u) ||
                 !ensureStructuredBuffer(backendContext.renderDevice, argsName.c_str(),
                                         sizeof(std::uint32_t) * 5u, commandCount,
                                         Diligent::BIND_UNORDERED_ACCESS |
                                             Diligent::BIND_INDIRECT_DRAW_ARGS,
-                                        bufferSet.drawIndexedCommandsBuffer))
+                                        bufferSet.drawIndexedCommandsBuffer,
+                                        bufferSet.commandCapacity, 1u))
             {
                 return false;
             }
-            bufferSet.commandCapacity = commandCount;
         }
 
         if (bufferSet.visiblePairCapacity < visibleCapacity || bufferSet.visiblePairBuffer == nullptr)
@@ -442,11 +416,11 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
                                         sizeof(gpu::GpuVisiblePairInstance), visibleCapacity,
                                         Diligent::BIND_SHADER_RESOURCE |
                                             Diligent::BIND_UNORDERED_ACCESS,
-                                        bufferSet.visiblePairBuffer))
+                                        bufferSet.visiblePairBuffer,
+                                        bufferSet.visiblePairCapacity, 1u))
             {
                 return false;
             }
-            bufferSet.visiblePairCapacity = visibleCapacity;
         }
 
         if (!writeBuffer(backendContext.immediateContext, bufferSet.commandDescBuffer,
@@ -548,10 +522,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
 
     auto acquireCachedTarget = [&](const gpu::GpuRenderTargetDesc& desc) -> gpu::GpuRenderTargetHandle
     {
-        const LayeredTargetKey key{desc.width,       desc.height,    desc.arraySize,
-                                   desc.color,       desc.depth,     desc.shaderReadable,
-                                   desc.layeredRendering, desc.colorFormat, desc.depthFormat,
-                                   desc.debugName};
+        const RenderTargetCacheKey key = makeRenderTargetCacheKey(desc);
         const auto it = mLayeredTargetCache.find(key);
         if (it != mLayeredTargetCache.end() &&
             mDevice.renderTargetSystem().isValidRenderTarget(it->second))

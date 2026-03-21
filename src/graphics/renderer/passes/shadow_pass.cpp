@@ -304,21 +304,21 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     constexpr Diligent::ShaderResourceVariableDesc kVars[] = {
         {Diligent::SHADER_TYPE_VERTEX, "g_EntityPositions",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_EntityOrientations",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_EntityScales",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_RenderableMetadata",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_RenderableVisibilityFlags",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_RenderableShadowCascadeMasks",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
     psoCreateInfo.PSODesc.ResourceLayout.NumVariables =

@@ -124,15 +124,16 @@ void authorEnvironment(cressim::neo::engine::World& world,
                        bool firstCubeIsRigidBody, int renderOrder = 0)
 {
     (void)resources;
+    (void)viewportX;
     outCameraEntity = world.createEntity(envIndex);
     TransformComponent cameraTransform{};
     cameraTransform.worldTransform.position = cameraPos;
     world.setTransform(outCameraEntity, cameraTransform);
 
     CameraComponent camera{};
-    camera.viewport = {viewportX, 0.0f, 0.5f, 1.0f};
-    camera.clearColor = (viewportX == 0.0f);
-    camera.clearDepth = (viewportX == 0.0f);
+    camera.viewport = {};
+    camera.clearColor = true;
+    camera.clearDepth = true;
     camera.renderOrder = renderOrder;
     world.setCamera(outCameraEntity, camera);
 

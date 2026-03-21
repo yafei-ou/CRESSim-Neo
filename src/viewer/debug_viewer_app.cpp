@@ -24,6 +24,60 @@ namespace
 using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::TransformComponent;
 
+std::vector<common::EntityId> sortedCameraEntities(const cressim::neo::engine::World& world)
+{
+    std::vector<graphics::CameraData> cameras;
+    cameras.reserve(world.cameras().size());
+    for (const graphics::CameraData& camera : world.cameras())
+    {
+        if (camera.entityId == common::kInvalidEntityId || camera.cameraSlot == 0xffffffffu)
+        {
+            continue;
+        }
+        cameras.push_back(camera);
+    }
+
+    std::sort(cameras.begin(), cameras.end(),
+              [](const graphics::CameraData& lhs, const graphics::CameraData& rhs)
+              {
+                  if (lhs.renderOrder != rhs.renderOrder)
+                  {
+                      return lhs.renderOrder < rhs.renderOrder;
+                  }
+                  return lhs.entityId < rhs.entityId;
+              });
+
+    std::vector<common::EntityId> entities;
+    entities.reserve(cameras.size());
+    for (const graphics::CameraData& camera : cameras)
+    {
+        entities.push_back(camera.entityId);
+    }
+    return entities;
+}
+
+common::EntityId cyclePresentedCamera(const cressim::neo::engine::World& world,
+                                      common::EntityId currentCameraEntity, int direction)
+{
+    const std::vector<common::EntityId> cameras = sortedCameraEntities(world);
+    if (cameras.empty())
+    {
+        return common::kInvalidEntityId;
+    }
+
+    const auto currentIt = std::find(cameras.begin(), cameras.end(), currentCameraEntity);
+    if (currentIt == cameras.end())
+    {
+        return cameras.front();
+    }
+
+    const std::ptrdiff_t count = static_cast<std::ptrdiff_t>(cameras.size());
+    const std::ptrdiff_t currentIndex = std::distance(cameras.begin(), currentIt);
+    const std::ptrdiff_t wrappedIndex =
+        (currentIndex + static_cast<std::ptrdiff_t>(direction) + count) % count;
+    return cameras[static_cast<std::size_t>(wrappedIndex)];
+}
+
 float clampSpeed(float speed, float minSpeed, float maxSpeed)
 {
     const float clampedMin = std::max(minSpeed, 0.001f);
@@ -295,6 +349,9 @@ public:
         mLastTickTime = std::chrono::steady_clock::now();
         common::FrameContext frame{};
         frame.deltaSeconds = mDesc.fixedDeltaSeconds;
+        common::EntityId presentedCameraEntity = cameraBinding.cameraEntity;
+        runtime.setRenderFrameOptions(
+            graphics::RenderFrameOptions{presentedCameraEntity});
 
         while (!mExitRequested.load())
         {
@@ -323,6 +380,32 @@ public:
             if (consumeKeyPress(mDesc.keymap.resetCamera))
             {
                 cameraState = initialCameraState;
+            }
+            if (consumeKeyPress(mDesc.keymap.cyclePresentedCameraPrevious))
+            {
+                const common::EntityId nextEntity =
+                    cyclePresentedCamera(world, presentedCameraEntity, -1);
+                if (nextEntity != presentedCameraEntity)
+                {
+                    presentedCameraEntity = nextEntity;
+                    std::cout << "viewer presenting camera entity=" << presentedCameraEntity
+                              << '\n';
+                }
+            }
+            if (consumeKeyPress(mDesc.keymap.cyclePresentedCameraNext))
+            {
+                const common::EntityId nextEntity =
+                    cyclePresentedCamera(world, presentedCameraEntity, 1);
+                if (nextEntity != presentedCameraEntity)
+                {
+                    presentedCameraEntity = nextEntity;
+                    std::cout << "viewer presenting camera entity=" << presentedCameraEntity
+                              << '\n';
+                }
+            }
+            if (!world.isAlive(presentedCameraEntity))
+            {
+                presentedCameraEntity = cameraBinding.cameraEntity;
             }
 
             const InputState input = sampleInput();
@@ -373,6 +456,9 @@ public:
                 world.setCamera(cameraData.entityId, updated);
             }
 
+            runtime.setRenderFrameOptions(
+                graphics::RenderFrameOptions{presentedCameraEntity});
+
             frame.frameIndex += 1u;
 
             if (callbacks.beforeTick)
@@ -409,6 +495,7 @@ public:
         {
             glfwSetInputMode(mWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         }
+        runtime.setRenderFrameOptions(graphics::RenderFrameOptions{});
         mLookActive = false;
         return true;
     }

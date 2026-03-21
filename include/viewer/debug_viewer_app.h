@@ -33,6 +33,8 @@ struct DebugViewerKeymap
 
     int resetCamera = 70;  // F
     int toggleStats = 72;  // H
+    int cyclePresentedCameraPrevious = 91; // [
+    int cyclePresentedCameraNext     = 93; // ]
     int quit        = 256; // Escape
 };
 

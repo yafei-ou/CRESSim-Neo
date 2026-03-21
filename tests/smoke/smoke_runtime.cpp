@@ -1,4 +1,5 @@
 #include "common/frame_context.h"
+#include "common/id.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
 
@@ -176,6 +177,8 @@ int main(int argc, char** argv)
         GpuRenderTargetDesc secondaryTargetDesc{};
         secondaryTargetDesc.width = 640;
         secondaryTargetDesc.height = 480;
+        secondaryTargetDesc.arraySize = 2u;
+        secondaryTargetDesc.layeredRendering = true;
         secondaryTargetDesc.debugName = "Smoke.SecondaryCamera";
         secondaryTarget = graphicsDevice->renderTargetSystem().createRenderTarget(secondaryTargetDesc);
     }
@@ -197,6 +200,9 @@ int main(int argc, char** argv)
         world.setTransform(secondaryCameraEntity, secondaryCameraTransform);
         world.setCamera(secondaryCameraEntity, secondaryCamera);
     }
+
+    cressim::neo::common::EntityId extraSecondaryCameraEntity =
+        cressim::neo::common::kInvalidEntityId;
 
     const auto lightEntity = world.createEntity();
     world.setDirectionalLight(lightEntity, DirectionalLightComponent{});
@@ -256,6 +262,37 @@ int main(int argc, char** argv)
             {
                 readbackRequests.push_back(request);
             }
+            if (extraSecondaryCameraEntity != cressim::neo::common::kInvalidEntityId)
+            {
+                const GpuRenderTargetReadbackRequest layerOneRequest =
+                    graphicsDevice->renderTargetSystem().requestRenderTargetReadback(
+                        cressim::neo::gpu::GpuRenderTargetBinding{secondaryTarget, 1u, 1u});
+                if (layerOneRequest.id != 0)
+                {
+                    readbackRequests.push_back(layerOneRequest);
+                }
+            }
+        }
+
+        if (i == 1u && graphicsDevice != nullptr &&
+            graphicsDevice->renderTargetSystem().isValidRenderTarget(secondaryTarget) &&
+            extraSecondaryCameraEntity == cressim::neo::common::kInvalidEntityId)
+        {
+            extraSecondaryCameraEntity = world.createEntity();
+            TransformComponent extraCameraTransform{};
+            extraCameraTransform.worldTransform.position = {1.0f, 1.2f, -2.8f};
+
+            CameraComponent extraCamera{};
+            extraCamera.output.mode = cressim::neo::gpu::CameraOutputMode::ExplicitSurface;
+            extraCamera.output.binding =
+                cressim::neo::gpu::GpuRenderTargetBinding{secondaryTarget, 1u, 1u};
+            extraCamera.outputWidth = 800;
+            extraCamera.outputHeight = 600;
+            extraCamera.viewport = {0.0f, 0.0f, 1.0f, 1.0f};
+            extraCamera.renderOrder = 2;
+
+            world.setTransform(extraSecondaryCameraEntity, extraCameraTransform);
+            world.setCamera(extraSecondaryCameraEntity, extraCamera);
         }
         frame.frameIndex = i;
         frame.timeSeconds = static_cast<double>(i) * static_cast<double>(frame.deltaSeconds);

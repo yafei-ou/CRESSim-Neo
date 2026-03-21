@@ -39,6 +39,8 @@ public:
     physics::PhysicsSolver* getPhysicsSolver() noexcept;
     const physics::PhysicsSolver* getPhysicsSolver() const noexcept;
     const graphics::RenderStats& lastRenderStats() const noexcept;
+    void setRenderFrameOptions(const graphics::RenderFrameOptions& options) noexcept;
+    const graphics::RenderFrameOptions& renderFrameOptions() const noexcept;
 
     graphics::RenderResourceManager& getResources() noexcept;
     const graphics::RenderResourceManager& getResources() const noexcept;
@@ -49,6 +51,7 @@ private:
     std::unique_ptr<gpu::GpuSceneSync> mGpuSceneSync;
     std::unique_ptr<physics::PhysicsSolver> mPhysicsSolver;
     std::unique_ptr<graphics::Renderer> mRenderer;
+    graphics::RenderFrameOptions mRenderFrameOptions{};
     graphics::RenderStats mLastRenderStats{};
     World mWorld;
     graphics::RenderResourceManager mResources;
