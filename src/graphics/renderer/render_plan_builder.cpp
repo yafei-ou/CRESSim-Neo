@@ -70,11 +70,10 @@ FrameRenderPlan buildFrameRenderPlan(std::vector<ResolvedCameraView> cameras,
     {
         const bool duplicateLayer = std::find(usedLayers.begin(), usedLayers.end(),
                                               camera.outputBinding.firstLayer) != usedLayers.end();
-        const bool dedicatedBatch = requiresDedicatedBatch(camera) ||
-                                    (hasOpenBatch &&
-                                     requiresDedicatedBatch(currentBatch.cameras.front()));
-        const bool canJoin        = hasOpenBatch &&
-                             !dedicatedBatch &&
+        const bool dedicatedBatch =
+            requiresDedicatedBatch(camera) ||
+            (hasOpenBatch && requiresDedicatedBatch(currentBatch.cameras.front()));
+        const bool canJoin = hasOpenBatch && !dedicatedBatch &&
                              sameBatchCompatibility(currentBatch.cameras.front(), camera) &&
                              !duplicateLayer;
         if (!canJoin)

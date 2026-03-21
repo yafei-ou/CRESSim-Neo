@@ -212,7 +212,7 @@ CameraOutputPlanningResult planCameraOutputs(
             populateResolvedCameraView(camera, gpuScene, resolved);
             resolved.outputBinding =
                 gpu::GpuRenderTargetBinding{family.target, family.nextLayer, 1u};
-            resolved.outputTargetDesc = family.desc;
+            resolved.outputTargetDesc  = family.desc;
             resolved.useOutputViewport = false;
             if (!isDefaultViewport(resolved.viewport))
             {
@@ -309,9 +309,9 @@ CameraOutputPlanningResult planCameraOutputs(
         resolved.outputBinding.layerCount = 1u;
         resolved.outputBinding.firstLayer =
             std::min(resolved.outputBinding.firstLayer, targetDesc.arraySize - 1u);
-        resolved.outputTargetDesc = targetDesc;
-        resolved.useOutputViewport =
-            !targetDesc.layeredRendering && camera.output.mode == gpu::CameraOutputMode::ExplicitSurface;
+        resolved.outputTargetDesc  = targetDesc;
+        resolved.useOutputViewport = !targetDesc.layeredRendering &&
+                                     camera.output.mode == gpu::CameraOutputMode::ExplicitSurface;
         if (!resolved.useOutputViewport && !isDefaultViewport(resolved.viewport))
         {
             logUnsupportedViewport(camera);
