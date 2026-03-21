@@ -25,6 +25,12 @@ struct ManagedFamilyInfo
     std::uint32_t nextLayer = 0u;
 };
 
+bool isDefaultViewport(const gpu::GpuRenderViewport& viewport)
+{
+    return viewport.x == 0.0f && viewport.y == 0.0f && viewport.width == 1.0f &&
+           viewport.height == 1.0f;
+}
+
 std::uint32_t buildGlobalCameraIndex(const CameraData& camera,
                                      const gpu::GpuEntitySceneView& gpuScene)
 {
@@ -56,6 +62,14 @@ void populateResolvedCameraView(const CameraData& camera, const gpu::GpuEntitySc
     outView.envIndex          = camera.envIndex;
     outView.cameraSlot        = camera.cameraSlot;
     outView.globalCameraIndex = buildGlobalCameraIndex(camera, gpuScene);
+}
+
+void logUnsupportedViewport(const CameraData& camera)
+{
+    std::cerr << "Renderer: camera entity " << camera.entityId
+              << " requested a viewport, but viewports are only supported for ExplicitSurface "
+                 "cameras targeting non-layered render targets. Whole-target rendering will be "
+                 "used.\n";
 }
 
 void logInvalidExplicitTarget(const CameraData& camera)
@@ -199,6 +213,12 @@ CameraOutputPlanningResult planCameraOutputs(
             resolved.outputBinding =
                 gpu::GpuRenderTargetBinding{family.target, family.nextLayer, 1u};
             resolved.outputTargetDesc = family.desc;
+            resolved.useOutputViewport = false;
+            if (!isDefaultViewport(resolved.viewport))
+            {
+                logUnsupportedViewport(camera);
+                resolved.viewport = gpu::GpuRenderViewport{};
+            }
             ++family.nextLayer;
 
             if (camera.entityId == options.presentedCameraEntity)
@@ -290,6 +310,13 @@ CameraOutputPlanningResult planCameraOutputs(
         resolved.outputBinding.firstLayer =
             std::min(resolved.outputBinding.firstLayer, targetDesc.arraySize - 1u);
         resolved.outputTargetDesc = targetDesc;
+        resolved.useOutputViewport =
+            !targetDesc.layeredRendering && camera.output.mode == gpu::CameraOutputMode::ExplicitSurface;
+        if (!resolved.useOutputViewport && !isDefaultViewport(resolved.viewport))
+        {
+            logUnsupportedViewport(camera);
+            resolved.viewport = gpu::GpuRenderViewport{};
+        }
         result.resolvedCameras.push_back(resolved);
         ++inOutStats.cameraCount;
     }

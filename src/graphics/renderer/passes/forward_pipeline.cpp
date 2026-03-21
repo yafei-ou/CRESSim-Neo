@@ -153,6 +153,16 @@ bool updateConstants(Diligent::IDeviceContext* context, Diligent::IBuffer* const
     return true;
 }
 
+gpu::GpuRenderViewport viewportForBatch(const CameraBatchView& batchView)
+{
+    if (batchView.cameras.size() == 1u && batchView.cameras.front().useOutputViewport)
+    {
+        return batchView.cameras.front().viewport;
+    }
+
+    return {};
+}
+
 } // namespace
 
 struct ForwardPipeline::GpuIndirectState
@@ -601,7 +611,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
     }
 
     mDevice.renderTargetSystem().setRenderTargetViewport(batchView.renderBinding,
-                                                         gpu::GpuRenderViewport{});
+                                                         viewportForBatch(batchView));
     gpu::GpuRenderPassBeginDesc mainBegin{};
     mainBegin.clearColor         = batchView.cameras.front().clearColor;
     mainBegin.clearDepth         = batchView.cameras.front().clearDepth;

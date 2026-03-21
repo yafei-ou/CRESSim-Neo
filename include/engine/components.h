@@ -47,6 +47,11 @@ struct CameraComponent
     std::uint32_t outputWidth  = 0;
     std::uint32_t outputHeight = 0;
     // Normalized viewport on the chosen output target.
+    // Renderer support is intentionally narrow: sub-rect viewport rendering is only honored for
+    // ExplicitSurface cameras targeting non-layered render targets. ManagedPrimary and layered
+    // targets still render to the full target.
+    // Clears are still whole-target clears, not viewport-scoped clears, so viewport users should
+    // disable clearColor / clearDepth when preserving surrounding pixels matters.
     gpu::GpuRenderViewport viewport{};
     bool clearColor = true;
     bool clearDepth = true;

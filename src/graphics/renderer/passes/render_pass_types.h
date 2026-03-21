@@ -23,6 +23,7 @@ struct ResolvedCameraView
     gpu::GpuRenderTargetBinding outputBinding{};
     gpu::GpuRenderTargetDesc outputTargetDesc{};
     gpu::GpuRenderViewport viewport{};
+    bool useOutputViewport          = false;
     bool clearColor                  = true;
     bool clearDepth                  = true;
     Diligent::float4 clearColorValue = {0.02f, 0.02f, 0.03f, 1.0f};
