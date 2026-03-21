@@ -52,6 +52,7 @@ private:
     bool ensureConstants(Diligent::IRenderDevice* renderDevice);
     Diligent::IPipelineState* getOrCreatePipeline(Diligent::IRenderDevice* renderDevice,
                                                   const PipelineKey& key);
+    Diligent::IShaderResourceBinding* getOrCreateResolveBinding(Diligent::IPipelineState* pipeline);
     Diligent::RefCntAutoPtr<Diligent::ITextureView> createArraySrv(
         Diligent::ITexture* texture) const;
 
@@ -62,6 +63,9 @@ private:
     std::unordered_map<PipelineKey, Diligent::RefCntAutoPtr<Diligent::IPipelineState>,
                        PipelineKeyHasher>
         mPipelines;
+    std::unordered_map<Diligent::IPipelineState*,
+                       Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>>
+        mResolveBindings;
 };
 
 } // namespace cressim::neo::graphics::detail

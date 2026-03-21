@@ -8,6 +8,24 @@
 namespace cressim::neo::graphics::detail
 {
 
+namespace
+{
+
+Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> createResolveBinding(
+    Diligent::IPipelineState* pipeline)
+{
+    if (pipeline == nullptr)
+    {
+        return {};
+    }
+
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> srb;
+    pipeline->CreateShaderResourceBinding(&srb, true);
+    return srb;
+}
+
+} // namespace
+
 DisplayResolvePass::DisplayResolvePass(gpu::GpuDevice& device) : mDevice(device) {}
 
 std::size_t DisplayResolvePass::PipelineKeyHasher::operator()(const PipelineKey& key) const noexcept
@@ -148,6 +166,30 @@ Diligent::IPipelineState* DisplayResolvePass::getOrCreatePipeline(
     return insertResult.first->second;
 }
 
+Diligent::IShaderResourceBinding* DisplayResolvePass::getOrCreateResolveBinding(
+    Diligent::IPipelineState* pipeline)
+{
+    if (pipeline == nullptr)
+    {
+        return nullptr;
+    }
+
+    auto it = mResolveBindings.find(pipeline);
+    if (it != mResolveBindings.end())
+    {
+        return it->second;
+    }
+
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> srb = createResolveBinding(pipeline);
+    if (srb == nullptr)
+    {
+        return nullptr;
+    }
+
+    auto insertResult = mResolveBindings.emplace(pipeline, std::move(srb));
+    return insertResult.first->second;
+}
+
 Diligent::RefCntAutoPtr<Diligent::ITextureView> DisplayResolvePass::createArraySrv(
     Diligent::ITexture* texture) const
 {
@@ -215,14 +257,13 @@ bool DisplayResolvePass::resolve(const common::FrameContext& frameContext,
         return false;
     }
 
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> srb;
-    pipeline->CreateShaderResourceBinding(&srb, true);
-    if (srb == nullptr)
+    Diligent::IShaderResourceBinding* resolveBinding = getOrCreateResolveBinding(pipeline);
+    if (resolveBinding == nullptr)
     {
         return false;
     }
     Diligent::IShaderResourceVariable* sourceColorVar =
-        srb->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_SourceColor");
+        resolveBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_SourceColor");
     if (sourceColorVar == nullptr)
     {
         return false;
@@ -255,7 +296,7 @@ bool DisplayResolvePass::resolve(const common::FrameContext& frameContext,
 
     backendContext.immediateContext->SetPipelineState(pipeline);
     backendContext.immediateContext->CommitShaderResources(
-        srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        resolveBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     Diligent::DrawAttribs drawAttrs{};
     drawAttrs.NumVertices = 3u;
