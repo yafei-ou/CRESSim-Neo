@@ -31,9 +31,11 @@ struct DebugViewerKeymap
 
     int lookButton = 1; // Right mouse button
 
-    int resetCamera = 70;  // F
-    int toggleStats = 72;  // H
-    int quit        = 256; // Escape
+    int resetCamera                  = 70;  // F
+    int toggleStats                  = 72;  // H
+    int cyclePresentedCameraPrevious = 91;  // [
+    int cyclePresentedCameraNext     = 93;  // ]
+    int quit                         = 256; // Escape
 };
 
 struct DebugViewerAppDesc

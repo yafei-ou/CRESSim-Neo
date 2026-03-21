@@ -430,7 +430,7 @@ void World::setCamera(common::EntityId entityId, const CameraComponent& componen
     cameraData.verticalFovDegrees = component.verticalFovDegrees;
     cameraData.nearClip           = component.nearClip;
     cameraData.farClip            = component.farClip;
-    cameraData.outputTarget       = component.outputTarget;
+    cameraData.output             = component.output;
     cameraData.outputWidth        = component.outputWidth;
     cameraData.outputHeight       = component.outputHeight;
     cameraData.viewport           = component.viewport;
@@ -770,7 +770,7 @@ std::optional<CameraComponent> World::tryGetCamera(common::EntityId entityId) co
     component.verticalFovDegrees = camera.verticalFovDegrees;
     component.nearClip           = camera.nearClip;
     component.farClip            = camera.farClip;
-    component.outputTarget       = camera.outputTarget;
+    component.output             = camera.output;
     component.outputWidth        = camera.outputWidth;
     component.outputHeight       = camera.outputHeight;
     component.viewport           = camera.viewport;

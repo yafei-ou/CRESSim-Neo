@@ -7,7 +7,6 @@
 #include "graphics/renderer/passes/forward_draw_types.h"
 #include "graphics/renderer/services/mesh_gpu_cache.h"
 
-#include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
@@ -26,10 +25,11 @@ public:
 
     bool initialize();
     void setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept;
-    void setVisibleObjectIndexBuffer(Diligent::IBuffer* buffer) noexcept;
-    bool drawIndirect(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
-                      std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex,
-                      Diligent::IBuffer* indirectArgsBuffer, Diligent::Uint64 argsOffsetBytes);
+    void setVisiblePairBuffer(Diligent::IBuffer* buffer) noexcept;
+    bool drawIndirect(const gpu::GpuRenderTargetBinding& targetBinding,
+                      const ForwardDrawCommand& drawCommand, std::uint32_t currentCameraIndex,
+                      std::uint32_t cascadeIndex, Diligent::IBuffer* indirectArgsBuffer,
+                      Diligent::Uint64 argsOffsetBytes);
 
 private:
     struct DrawSetup
@@ -53,8 +53,8 @@ private:
 
     bool createPipeline(Diligent::IRenderDevice* renderDevice);
     bool ensureConstantBuffers(Diligent::IRenderDevice* renderDevice);
-    bool prepareDraw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
-                     DrawSetup& outSetup);
+    bool prepareDraw(const gpu::GpuRenderTargetBinding& targetBinding,
+                     const ForwardDrawCommand& drawCommand, DrawSetup& outSetup);
     bool bindSceneBuffers() const;
     bool updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,
                                 const ForwardDrawCommand& drawCommand,
@@ -74,7 +74,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mShadowPerPassBuffer;
     gpu::GpuEntitySceneView mSceneView{};
-    Diligent::IBuffer* mVisibleObjectIndexBuffer = nullptr;
+    Diligent::IBuffer* mVisiblePairBuffer = nullptr;
 };
 
 } // namespace detail

@@ -31,14 +31,15 @@ public:
     ForwardOpaquePass(gpu::GpuDevice& device, RenderResourceManager& resourceManager);
 
     bool initialize();
-    bool beginCameraFrame(const FrameViewData& frameView);
+    bool beginBatchFrame(const CameraBatchView& batchView);
     void setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept;
-    void setVisibleObjectIndexBuffer(Diligent::IBuffer* buffer) noexcept;
+    void setVisiblePairBuffer(Diligent::IBuffer* buffer) noexcept;
     void setShadowMapTargets(
         const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount>& shadowMapTargets,
         std::uint32_t shadowMapCount);
-    bool drawIndirect(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
-                      Diligent::IBuffer* indirectArgsBuffer, Diligent::Uint64 argsOffsetBytes);
+    bool drawIndirect(const gpu::GpuRenderTargetBinding& targetBinding,
+                      const ForwardDrawCommand& drawCommand, Diligent::IBuffer* indirectArgsBuffer,
+                      Diligent::Uint64 argsOffsetBytes);
     std::size_t cachedProgramCount() const noexcept;
 
 private:
@@ -80,8 +81,8 @@ private:
     bool ensureConstantBuffers(Diligent::IRenderDevice* renderDevice);
     bool bindProgramConstants(MaterialProgramRegistry::ProgramResources& program);
     bool hasAnyShadowMap() const;
-    bool prepareDraw(gpu::GpuRenderTargetHandle target, const ForwardDrawCommand& drawCommand,
-                     DrawSetup& outSetup);
+    bool prepareDraw(const gpu::GpuRenderTargetBinding& targetBinding,
+                     const ForwardDrawCommand& drawCommand, DrawSetup& outSetup);
     bool bindShadowMaps(MaterialProgramRegistry::ProgramResources& program);
     bool bindSceneBuffers(MaterialProgramRegistry::ProgramResources& program) const;
     bool updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,
@@ -105,7 +106,7 @@ private:
     std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
     std::uint32_t mShadowMapCount = 0;
     gpu::GpuEntitySceneView mSceneView{};
-    Diligent::IBuffer* mVisibleObjectIndexBuffer = nullptr;
+    Diligent::IBuffer* mVisiblePairBuffer = nullptr;
 };
 
 } // namespace detail

@@ -13,16 +13,26 @@ struct VSOutput
     float4 Position : SV_Position;
     float3 WorldPos : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
+    nointerpolation uint CameraIndex : TEXCOORD2;
+    nointerpolation uint CameraLayer : TEXCOORD3;
+#if MANUAL_LAYER_EXPORT
+    uint Layer : SV_RenderTargetArrayIndex;
+#endif
 };
 
 void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
 {
     uint objectIndex = g_InstanceIndex;
+    uint cameraIndex = g_CurrentCameraIndex;
+    uint cameraLayer = 0u;
     if (g_UseDrawListBuffer != 0u)
     {
-        objectIndex = g_VisibleObjectIndices[g_DrawListOffset + instanceId];
+        const VisiblePairInstance pair = g_VisiblePairs[g_DrawListOffset + instanceId];
+        objectIndex = pair.objectIndex;
+        cameraIndex = pair.cameraIndex;
+        cameraLayer = pair.cameraLayer;
     }
-    const PreparedCamera preparedCamera = g_PreparedCameras[g_CurrentCameraIndex];
+    const PreparedCamera preparedCamera = g_PreparedCameras[cameraIndex];
     bool poseValid = false;
     float3 position = float3(0.0, 0.0, 0.0);
     float4 orientation = float4(0.0, 0.0, 0.0, 1.0);
@@ -36,6 +46,11 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
         Out.Position = float4(2.0, 2.0, 2.0, 1.0);
         Out.WorldPos = float3(0.0, 0.0, 0.0);
         Out.WorldNormal = float3(0.0, 1.0, 0.0);
+        Out.CameraIndex = cameraIndex;
+        Out.CameraLayer = cameraLayer;
+#if MANUAL_LAYER_EXPORT
+        Out.Layer = cameraLayer;
+#endif
         return;
     }
 
@@ -47,4 +62,9 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
     Out.Position = mul(worldPos, preparedCamera.viewProjectionMatrix);
     Out.WorldPos = worldPos.xyz;
     Out.WorldNormal = worldNormal;
+    Out.CameraIndex = cameraIndex;
+    Out.CameraLayer = cameraLayer;
+#if MANUAL_LAYER_EXPORT
+    Out.Layer = cameraLayer;
+#endif
 }

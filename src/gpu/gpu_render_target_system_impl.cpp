@@ -18,6 +18,8 @@ bool requiresTextureRecreate(const GpuRenderTargetDesc& currentDesc,
                              const GpuRenderTargetDesc& updatedDesc)
 {
     return currentDesc.width != updatedDesc.width || currentDesc.height != updatedDesc.height ||
+           currentDesc.arraySize != updatedDesc.arraySize ||
+           currentDesc.layeredRendering != updatedDesc.layeredRendering ||
            currentDesc.color != updatedDesc.color || currentDesc.depth != updatedDesc.depth ||
            currentDesc.colorFormat != updatedDesc.colorFormat ||
            currentDesc.depthFormat != updatedDesc.depthFormat ||
@@ -25,6 +27,24 @@ bool requiresTextureRecreate(const GpuRenderTargetDesc& currentDesc,
 }
 
 } // namespace
+
+std::uint64_t GpuRenderTargetSystemImpl::bindingKey(const GpuRenderTargetBinding& binding) noexcept
+{
+    return (static_cast<std::uint64_t>(binding.firstLayer) << 32u) |
+           static_cast<std::uint64_t>(std::max(binding.layerCount, 1u));
+}
+
+GpuRenderTargetBinding GpuRenderTargetSystemImpl::normalizeBinding(
+    const GpuRenderTargetBinding& binding, const RenderTargetResources& resources) const
+{
+    GpuRenderTargetBinding normalized = binding;
+    normalized.target                 = GpuRenderTargetHandle{binding.target.id};
+    normalized.firstLayer = std::min(normalized.firstLayer, resources.desc.arraySize - 1u);
+    normalized.layerCount = std::max(normalized.layerCount, 1u);
+    normalized.layerCount =
+        std::min(normalized.layerCount, resources.desc.arraySize - normalized.firstLayer);
+    return normalized;
+}
 
 bool GpuRenderTargetSystemImpl::initialize(const GpuRenderTargetDesc& defaultDesc,
                                            bool isVulkanBackend,
@@ -84,7 +104,7 @@ void GpuRenderTargetSystemImpl::shutdown()
     mNextReadbackRequestId         = 1;
     mNextReadbackFenceValue        = 1;
     mDefaultRenderTarget           = {};
-    mActiveRenderTarget            = {};
+    mActiveRenderTargetBinding     = {};
     mDefaultRenderTargetDesc       = {};
     mRenderTargets.clear();
     mPendingReadbackRequests.clear();
@@ -104,13 +124,10 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext& frameContex
         for (const PendingReadbackCopy& copy : mPendingReadbackCopies)
         {
             GpuRenderTargetReadbackEvent event{};
-            event.target      = copy.target;
-            event.frameIndex  = copy.frameIndex;
-            event.colorFormat = copy.colorFormat;
-            for (const std::uint64_t requestId : copy.requestIds)
-            {
-                mCompletedReadbacks[requestId] = event;
-            }
+            event.binding                       = copy.binding;
+            event.frameIndex                    = copy.frameIndex;
+            event.colorFormat                   = copy.colorFormat;
+            mCompletedReadbacks[copy.requestId] = event;
         }
         mPendingReadbackCopies.clear();
         return;
@@ -122,7 +139,7 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext& frameContex
     for (const PendingReadbackCopy& copy : mPendingReadbackCopies)
     {
         GpuRenderTargetReadbackEvent event{};
-        event.target      = copy.target;
+        event.binding     = copy.binding;
         event.frameIndex  = copy.frameIndex;
         event.colorFormat = copy.colorFormat;
 
@@ -160,10 +177,7 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext& frameContex
             }
         }
 
-        for (const std::uint64_t requestId : copy.requestIds)
-        {
-            mCompletedReadbacks[requestId] = event;
-        }
+        mCompletedReadbacks[copy.requestId] = event;
     }
 
     mPendingReadbackCopies.clear();
@@ -172,8 +186,8 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext& frameContex
 void GpuRenderTargetSystemImpl::fillBackendContextState(GpuBackendContext& outContext) const
 {
     outContext.hasActiveRenderTarget = mHasActiveRenderTarget;
-    outContext.activeRenderTargetId =
-        mHasActiveRenderTarget ? mActiveRenderTarget.id : common::kInvalidResourceId;
+    outContext.activeRenderTargetBinding =
+        mHasActiveRenderTarget ? mActiveRenderTargetBinding : GpuRenderTargetBinding{};
     outContext.activeRenderTargetHasDepth    = mActiveRenderTargetHasDepth;
     outContext.activeRenderTargetColorFormat = mActiveRenderTargetColorFormat;
 }
@@ -187,7 +201,6 @@ GpuRenderTargetHandle GpuRenderTargetSystemImpl::createRenderTarget(const GpuRen
 
     RenderTargetResources resources{};
     resources.desc        = normalizeTargetDesc(desc);
-    resources.viewport    = common::runtime_math::normalizeViewport(GpuRenderViewport{});
     resources.colorFormat = resources.desc.colorFormat;
     resources.depthFormat = resources.desc.depthFormat;
 
@@ -274,7 +287,7 @@ GpuRenderTargetUpdateResult GpuRenderTargetSystemImpl::reconfigureRenderTarget(
         mDefaultRenderTargetDesc = it->second.desc;
     }
 
-    if (mHasActiveRenderTarget && mActiveRenderTarget.id == target.id)
+    if (mHasActiveRenderTarget && mActiveRenderTargetBinding.target.id == target.id)
     {
         mActiveRenderTargetHasDepth    = it->second.desc.depth;
         mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
@@ -295,11 +308,11 @@ void GpuRenderTargetSystemImpl::destroyRenderTarget(GpuRenderTargetHandle target
         return;
     }
 
-    if (mHasActiveRenderTarget && mActiveRenderTarget.id == target.id)
+    if (mHasActiveRenderTarget && mActiveRenderTargetBinding.target.id == target.id)
     {
         mHasActiveRenderTarget      = false;
         mActiveRenderTargetHasDepth = false;
-        mActiveRenderTarget         = {};
+        mActiveRenderTargetBinding  = {};
     }
 
     Diligent::TEXTURE_FORMAT targetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
@@ -312,36 +325,35 @@ void GpuRenderTargetSystemImpl::destroyRenderTarget(GpuRenderTargetHandle target
     auto completeRequestWithEmptyResult = [&](std::uint64_t requestId)
     {
         GpuRenderTargetReadbackEvent event{};
-        event.target                   = target;
+        event.binding                  = GpuRenderTargetBinding{target, 0u, 1u};
         event.colorFormat              = targetColorFormat;
         mCompletedReadbacks[requestId] = std::move(event);
     };
 
-    const auto pendingRequestsIt = mPendingReadbackRequests.find(target.id);
-    if (pendingRequestsIt != mPendingReadbackRequests.end())
+    for (auto it = mPendingReadbackRequests.begin(); it != mPendingReadbackRequests.end();)
     {
-        for (const std::uint64_t requestId : pendingRequestsIt->second)
+        if (it->second.target.id != target.id)
         {
-            completeRequestWithEmptyResult(requestId);
+            ++it;
+            continue;
         }
-        mPendingReadbackRequests.erase(pendingRequestsIt);
+
+        completeRequestWithEmptyResult(it->first);
+        it = mPendingReadbackRequests.erase(it);
     }
 
-    mPendingReadbackCopies.erase(
-        std::remove_if(mPendingReadbackCopies.begin(), mPendingReadbackCopies.end(),
-                       [&](const PendingReadbackCopy& copy)
-                       {
-                           if (copy.target.id != target.id)
-                           {
-                               return false;
-                           }
-                           for (const std::uint64_t requestId : copy.requestIds)
-                           {
-                               completeRequestWithEmptyResult(requestId);
-                           }
-                           return true;
-                       }),
-        mPendingReadbackCopies.end());
+    mPendingReadbackCopies.erase(std::remove_if(mPendingReadbackCopies.begin(),
+                                                mPendingReadbackCopies.end(),
+                                                [&](const PendingReadbackCopy& copy)
+                                                {
+                                                    if (copy.binding.target.id != target.id)
+                                                    {
+                                                        return false;
+                                                    }
+                                                    completeRequestWithEmptyResult(copy.requestId);
+                                                    return true;
+                                                }),
+                                 mPendingReadbackCopies.end());
     mRenderTargets.erase(target.id);
 }
 
@@ -373,19 +385,96 @@ GpuRenderTargetHandle GpuRenderTargetSystemImpl::defaultRenderTarget() const
     return mDefaultRenderTarget;
 }
 
-void GpuRenderTargetSystemImpl::setRenderTargetViewport(GpuRenderTargetHandle target,
+GpuRenderTargetBinding GpuRenderTargetSystemImpl::defaultRenderTargetBinding() const
+{
+    return GpuRenderTargetBinding{mDefaultRenderTarget, 0u, 1u};
+}
+
+Diligent::ITextureView* GpuRenderTargetSystemImpl::getOrCreateRenderTargetView(
+    RenderTargetResources& resources, const GpuRenderTargetBinding& binding)
+{
+    if (resources.colorTexture == nullptr)
+    {
+        return nullptr;
+    }
+
+    const GpuRenderTargetBinding normalized = normalizeBinding(binding, resources);
+    const std::uint64_t key                 = bindingKey(normalized);
+    const auto existingIt                   = resources.colorRenderTargetViews.find(key);
+    if (existingIt != resources.colorRenderTargetViews.end())
+    {
+        return existingIt->second;
+    }
+
+    Diligent::TextureViewDesc viewDesc{};
+    viewDesc.ViewType        = Diligent::TEXTURE_VIEW_RENDER_TARGET;
+    viewDesc.TextureDim      = resources.colorTexture->GetDesc().Type;
+    viewDesc.MostDetailedMip = 0u;
+    viewDesc.NumMipLevels    = 1u;
+    viewDesc.FirstArraySlice = normalized.firstLayer;
+    viewDesc.NumArraySlices  = normalized.layerCount;
+
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> view;
+    resources.colorTexture->CreateView(viewDesc, &view);
+    if (view == nullptr)
+    {
+        return nullptr;
+    }
+
+    resources.colorRenderTargetViews.emplace(key, view);
+    return view;
+}
+
+Diligent::ITextureView* GpuRenderTargetSystemImpl::getOrCreateDepthStencilView(
+    RenderTargetResources& resources, const GpuRenderTargetBinding& binding)
+{
+    if (resources.depthTexture == nullptr)
+    {
+        return nullptr;
+    }
+
+    const GpuRenderTargetBinding normalized = normalizeBinding(binding, resources);
+    const std::uint64_t key                 = bindingKey(normalized);
+    const auto existingIt                   = resources.depthStencilViews.find(key);
+    if (existingIt != resources.depthStencilViews.end())
+    {
+        return existingIt->second;
+    }
+
+    Diligent::TextureViewDesc viewDesc{};
+    viewDesc.ViewType        = Diligent::TEXTURE_VIEW_DEPTH_STENCIL;
+    viewDesc.TextureDim      = resources.depthTexture->GetDesc().Type;
+    viewDesc.MostDetailedMip = 0u;
+    viewDesc.NumMipLevels    = 1u;
+    viewDesc.FirstArraySlice = normalized.firstLayer;
+    viewDesc.NumArraySlices  = normalized.layerCount;
+
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> view;
+    resources.depthTexture->CreateView(viewDesc, &view);
+    if (view == nullptr)
+    {
+        return nullptr;
+    }
+
+    resources.depthStencilViews.emplace(key, view);
+    return view;
+}
+
+void GpuRenderTargetSystemImpl::setRenderTargetViewport(const GpuRenderTargetBinding& binding,
                                                         const GpuRenderViewport& viewport)
 {
-    const auto it = mRenderTargets.find(target.id);
+    const auto it = mRenderTargets.find(binding.target.id);
     if (it == mRenderTargets.end())
     {
         return;
     }
 
-    it->second.viewport = common::runtime_math::normalizeViewport(viewport);
+    const GpuRenderTargetBinding normalized = normalizeBinding(binding, it->second);
+    it->second.viewports[bindingKey(normalized)] =
+        common::runtime_math::normalizeViewport(viewport);
 }
 
-void GpuRenderTargetSystemImpl::beginRenderTarget(GpuRenderTargetHandle target,
+void GpuRenderTargetSystemImpl::beginRenderTarget(const GpuRenderTargetBinding& binding,
                                                   const common::FrameContext& frameContext,
                                                   const GpuRenderPassBeginDesc& beginDesc)
 {
@@ -397,22 +486,25 @@ void GpuRenderTargetSystemImpl::beginRenderTarget(GpuRenderTargetHandle target,
         return;
     }
 
-    const auto it = mRenderTargets.find(target.id);
+    auto it = mRenderTargets.find(binding.target.id);
     if (it == mRenderTargets.end())
     {
         return;
     }
 
+    RenderTargetResources& resources        = it->second;
+    const GpuRenderTargetBinding normalized = normalizeBinding(binding, resources);
+
     Diligent::ITextureView* colorRtv = nullptr;
     Diligent::ITextureView* depthDsv = nullptr;
-    if (it->second.colorTexture != nullptr)
+    if (resources.colorTexture != nullptr)
     {
-        colorRtv = it->second.colorTexture->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
-        mActiveRenderTargetColorFormat = it->second.colorTexture->GetDesc().Format;
+        colorRtv                       = getOrCreateRenderTargetView(resources, normalized);
+        mActiveRenderTargetColorFormat = resources.colorTexture->GetDesc().Format;
     }
-    if (it->second.depthTexture != nullptr)
+    if (resources.depthTexture != nullptr)
     {
-        depthDsv = it->second.depthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL);
+        depthDsv = getOrCreateDepthStencilView(resources, normalized);
     }
 
     if (colorRtv == nullptr && depthDsv == nullptr)
@@ -444,9 +536,11 @@ void GpuRenderTargetSystemImpl::beginRenderTarget(GpuRenderTargetHandle target,
                                              Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
 
-    const float targetWidth          = static_cast<float>(it->second.desc.width);
-    const float targetHeight         = static_cast<float>(it->second.desc.height);
-    const GpuRenderViewport viewport = it->second.viewport;
+    const float targetWidth  = static_cast<float>(resources.desc.width);
+    const float targetHeight = static_cast<float>(resources.desc.height);
+    const auto viewportIt    = resources.viewports.find(bindingKey(normalized));
+    const GpuRenderViewport viewport =
+        viewportIt != resources.viewports.end() ? viewportIt->second : GpuRenderViewport{};
 
     Diligent::Viewport diligentViewport{};
     diligentViewport.TopLeftX = viewport.x * targetWidth;
@@ -455,23 +549,30 @@ void GpuRenderTargetSystemImpl::beginRenderTarget(GpuRenderTargetHandle target,
     diligentViewport.Height   = viewport.height * targetHeight;
     diligentViewport.MinDepth = 0.0f;
     diligentViewport.MaxDepth = 1.0f;
-    mImmediateContext->SetViewports(1, &diligentViewport, it->second.desc.width,
-                                    it->second.desc.height);
+    mImmediateContext->SetViewports(1, &diligentViewport, resources.desc.width,
+                                    resources.desc.height);
 
-    mActiveRenderTarget         = target;
+    mActiveRenderTargetBinding  = normalized;
     mHasActiveRenderTarget      = true;
     mActiveRenderTargetHasDepth = (depthDsv != nullptr);
 }
 
-void GpuRenderTargetSystemImpl::endRenderTarget(GpuRenderTargetHandle target,
+void GpuRenderTargetSystemImpl::endRenderTarget(const GpuRenderTargetBinding& binding,
                                                 const common::FrameContext& frameContext)
 {
-    if (mHasActiveRenderTarget && mActiveRenderTarget.id == target.id)
+    GpuRenderTargetBinding normalized = binding;
+    const auto targetItForBinding     = mRenderTargets.find(binding.target.id);
+    if (targetItForBinding != mRenderTargets.end())
+    {
+        normalized = normalizeBinding(binding, targetItForBinding->second);
+    }
+
+    if (mHasActiveRenderTarget && mActiveRenderTargetBinding == normalized)
     {
         mHasActiveRenderTarget         = false;
         mActiveRenderTargetHasDepth    = false;
         mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
-        mActiveRenderTarget            = {};
+        mActiveRenderTargetBinding     = {};
     }
 
     if (mIsVulkanBackend && mImmediateContext != nullptr)
@@ -480,41 +581,49 @@ void GpuRenderTargetSystemImpl::endRenderTarget(GpuRenderTargetHandle target,
                                             Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
     }
 
-    const auto pendingRequestsIt = mPendingReadbackRequests.find(target.id);
-    if (pendingRequestsIt == mPendingReadbackRequests.end() || pendingRequestsIt->second.empty())
+    std::vector<std::uint64_t> completedRequests;
+    for (const auto& [requestId, requestBinding] : mPendingReadbackRequests)
     {
-        return;
+        if (requestBinding.target.id == normalized.target.id)
+        {
+            completedRequests.push_back(requestId);
+        }
     }
 
-    const std::vector<std::uint64_t> requestIds = pendingRequestsIt->second;
-    mPendingReadbackRequests.erase(pendingRequestsIt);
+    for (const std::uint64_t requestId : completedRequests)
+    {
+        const GpuRenderTargetBinding requestBinding = mPendingReadbackRequests[requestId];
+        mPendingReadbackRequests.erase(requestId);
+        if (queueReadbackCopy(requestBinding, frameContext.frameIndex, requestId))
+        {
+            continue;
+        }
 
-    if (queueReadbackCopy(target, frameContext.frameIndex, requestIds))
-    {
-        return;
-    }
-
-    GpuRenderTargetReadbackEvent event{};
-    event.target        = target;
-    event.frameIndex    = frameContext.frameIndex;
-    const auto targetIt = mRenderTargets.find(target.id);
-    if (targetIt != mRenderTargets.end())
-    {
-        event.colorFormat = targetIt->second.desc.colorFormat;
-    }
-    for (const std::uint64_t requestId : requestIds)
-    {
+        GpuRenderTargetReadbackEvent event{};
+        event.binding       = requestBinding;
+        event.frameIndex    = frameContext.frameIndex;
+        const auto targetIt = mRenderTargets.find(requestBinding.target.id);
+        if (targetIt != mRenderTargets.end())
+        {
+            event.colorFormat = targetIt->second.desc.colorFormat;
+        }
         mCompletedReadbacks[requestId] = event;
     }
 }
 
 GpuRenderTargetReadbackRequest GpuRenderTargetSystemImpl::requestRenderTargetReadback(
-    GpuRenderTargetHandle target)
+    const GpuRenderTargetBinding& binding)
 {
     GpuRenderTargetReadbackRequest request{};
 
-    const auto it = mRenderTargets.find(target.id);
+    const auto it = mRenderTargets.find(binding.target.id);
     if (it == mRenderTargets.end())
+    {
+        return request;
+    }
+
+    const GpuRenderTargetBinding normalized = normalizeBinding(binding, it->second);
+    if (normalized.layerCount != 1u)
     {
         return request;
     }
@@ -525,7 +634,7 @@ GpuRenderTargetReadbackRequest GpuRenderTargetSystemImpl::requestRenderTargetRea
         requestId = mNextReadbackRequestId++;
     }
     request.id = requestId;
-    mPendingReadbackRequests[target.id].push_back(requestId);
+    mPendingReadbackRequests.emplace(requestId, normalized);
     return request;
 }
 
@@ -596,7 +705,9 @@ GpuRenderTargetDesc GpuRenderTargetSystemImpl::normalizeDefaultRenderTargetDesc(
         normalized.width == 0 ? kDefaultRenderTargetWidth : normalized.width);
     normalized.height = common::runtime_math::clampExtent(
         normalized.height == 0 ? kDefaultRenderTargetHeight : normalized.height);
-    normalized.color = true;
+    normalized.color            = true;
+    normalized.arraySize        = 1u;
+    normalized.layeredRendering = false;
     if (normalized.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
     {
         normalized.colorFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
@@ -630,6 +741,7 @@ GpuRenderTargetDesc GpuRenderTargetSystemImpl::normalizeTargetDesc(
     {
         normalized.color = true;
     }
+    normalized.arraySize = std::max<std::uint32_t>(normalized.arraySize, 1u);
     if (normalized.debugName.empty())
     {
         normalized.debugName = "CRESSimNeo.RenderTarget";
@@ -647,6 +759,9 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
 
     resources.colorTexture = nullptr;
     resources.depthTexture = nullptr;
+    resources.colorRenderTargetViews.clear();
+    resources.depthStencilViews.clear();
+    resources.viewports.clear();
 
     if (desc.color)
     {
@@ -659,11 +774,13 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
         Diligent::TextureDesc colorDesc{};
         const std::string colorName = desc.debugName + ".Color";
         colorDesc.Name              = colorName.c_str();
-        colorDesc.Type              = Diligent::RESOURCE_DIM_TEX_2D;
+        colorDesc.Type              = (desc.layeredRendering || desc.arraySize > 1u)
+                                          ? Diligent::RESOURCE_DIM_TEX_2D_ARRAY
+                                          : Diligent::RESOURCE_DIM_TEX_2D;
         colorDesc.Width             = desc.width;
         colorDesc.Height            = desc.height;
         colorDesc.MipLevels         = 1;
-        colorDesc.ArraySize         = 1;
+        colorDesc.ArraySize         = desc.arraySize;
         colorDesc.Format            = colorFormat;
         colorDesc.BindFlags         = Diligent::BIND_RENDER_TARGET;
         if (desc.shaderReadable)
@@ -673,8 +790,13 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
         colorDesc.Usage = Diligent::USAGE_DEFAULT;
 
         mRenderDevice->CreateTexture(colorDesc, nullptr, &resources.colorTexture);
-        if (!resources.colorTexture ||
-            resources.colorTexture->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET) == nullptr)
+        if (!resources.colorTexture)
+        {
+            return false;
+        }
+
+        if (getOrCreateRenderTargetView(
+                resources, GpuRenderTargetBinding{{}, 0u, colorDesc.ArraySize}) == nullptr)
         {
             return false;
         }
@@ -691,11 +813,13 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
         Diligent::TextureDesc depthDesc{};
         const std::string depthName = desc.debugName + ".Depth";
         depthDesc.Name              = depthName.c_str();
-        depthDesc.Type              = Diligent::RESOURCE_DIM_TEX_2D;
+        depthDesc.Type              = (desc.layeredRendering || desc.arraySize > 1u)
+                                          ? Diligent::RESOURCE_DIM_TEX_2D_ARRAY
+                                          : Diligent::RESOURCE_DIM_TEX_2D;
         depthDesc.Width             = desc.width;
         depthDesc.Height            = desc.height;
         depthDesc.MipLevels         = 1;
-        depthDesc.ArraySize         = 1;
+        depthDesc.ArraySize         = desc.arraySize;
         depthDesc.Format            = depthFormat;
         depthDesc.BindFlags         = Diligent::BIND_DEPTH_STENCIL;
         if (desc.shaderReadable)
@@ -705,8 +829,13 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
         depthDesc.Usage = Diligent::USAGE_DEFAULT;
 
         mRenderDevice->CreateTexture(depthDesc, nullptr, &resources.depthTexture);
-        if (!resources.depthTexture ||
-            resources.depthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL) == nullptr)
+        if (!resources.depthTexture)
+        {
+            return false;
+        }
+
+        if (getOrCreateDepthStencilView(
+                resources, GpuRenderTargetBinding{{}, 0u, depthDesc.ArraySize}) == nullptr)
         {
             return false;
         }
@@ -715,26 +844,30 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
     return true;
 }
 
-bool GpuRenderTargetSystemImpl::queueReadbackCopy(GpuRenderTargetHandle target,
-                                                  std::uint64_t frameIndex,
-                                                  const std::vector<std::uint64_t>& requestIds)
+bool GpuRenderTargetSystemImpl::queueReadbackCopy(const GpuRenderTargetBinding& binding,
+                                                  std::uint64_t frameIndex, std::uint64_t requestId)
 {
     if (!mRenderDevice || !mImmediateContext || !mReadbackFence || !mIsVulkanBackend)
     {
         return false;
     }
-    if (requestIds.empty())
+    if (requestId == 0)
     {
         return false;
     }
 
-    const auto targetIt = mRenderTargets.find(target.id);
+    const auto targetIt = mRenderTargets.find(binding.target.id);
     if (targetIt == mRenderTargets.end())
     {
         return false;
     }
 
-    const RenderTargetResources& resources = targetIt->second;
+    const RenderTargetResources& resources  = targetIt->second;
+    const GpuRenderTargetBinding normalized = normalizeBinding(binding, resources);
+    if (normalized.layerCount != 1u)
+    {
+        return false;
+    }
     if (resources.colorTexture == nullptr)
     {
         return false;
@@ -743,6 +876,8 @@ bool GpuRenderTargetSystemImpl::queueReadbackCopy(GpuRenderTargetHandle target,
     Diligent::TextureDesc stagingDesc = resources.colorTexture->GetDesc();
     const std::string stagingName     = resources.desc.debugName + ".Readback";
     stagingDesc.Name                  = stagingName.c_str();
+    stagingDesc.Type                  = Diligent::RESOURCE_DIM_TEX_2D;
+    stagingDesc.ArraySize             = 1u;
     stagingDesc.BindFlags             = Diligent::BIND_NONE;
     stagingDesc.Usage                 = Diligent::USAGE_STAGING;
     stagingDesc.CPUAccessFlags        = Diligent::CPU_ACCESS_READ;
@@ -758,14 +893,15 @@ bool GpuRenderTargetSystemImpl::queueReadbackCopy(GpuRenderTargetHandle target,
     Diligent::CopyTextureAttribs copyAttribs{
         resources.colorTexture, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, stagingTexture,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
+    copyAttribs.SrcSlice = normalized.firstLayer;
     mImmediateContext->CopyTexture(copyAttribs);
 
     const std::uint64_t fenceValue = mNextReadbackFenceValue++;
     mImmediateContext->EnqueueSignal(mReadbackFence, fenceValue);
 
     PendingReadbackCopy readbackCopy{};
-    readbackCopy.requestIds     = requestIds;
-    readbackCopy.target         = target;
+    readbackCopy.requestId      = requestId;
+    readbackCopy.binding        = normalized;
     readbackCopy.frameIndex     = frameIndex;
     readbackCopy.fenceValue     = fenceValue;
     readbackCopy.width          = resources.desc.width;

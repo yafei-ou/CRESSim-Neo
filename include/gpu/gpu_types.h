@@ -39,13 +39,45 @@ struct GpuRenderTargetHandle
     common::ResourceId id = common::kInvalidResourceId;
 };
 
+struct GpuRenderTargetBinding
+{
+    GpuRenderTargetHandle target{};
+    std::uint32_t firstLayer = 0u;
+    std::uint32_t layerCount = 1u;
+
+    [[nodiscard]] bool isValid() const noexcept
+    {
+        return target.id != common::kInvalidResourceId && layerCount > 0u;
+    }
+
+    bool operator==(const GpuRenderTargetBinding& rhs) const noexcept
+    {
+        return target.id == rhs.target.id && firstLayer == rhs.firstLayer &&
+               layerCount == rhs.layerCount;
+    }
+};
+
+enum class CameraOutputMode
+{
+    ManagedPrimary,
+    ExplicitSurface,
+};
+
+struct CameraOutputBinding
+{
+    CameraOutputMode mode = CameraOutputMode::ManagedPrimary;
+    GpuRenderTargetBinding binding{};
+};
+
 struct GpuRenderTargetDesc
 {
     // Zero means "use the current default target size".
     std::uint32_t width                  = 0;
     std::uint32_t height                 = 0;
+    std::uint32_t arraySize              = 1;
     bool color                           = true;
     bool depth                           = true;
+    bool layeredRendering                = false;
     // TEX_FORMAT_UNKNOWN means "auto".
     Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
     Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_D32_FLOAT;
@@ -73,7 +105,7 @@ struct GpuRenderPassBeginDesc
 
 struct GpuRenderTargetReadbackEvent
 {
-    GpuRenderTargetHandle target{};
+    GpuRenderTargetBinding binding{};
     std::uint64_t frameIndex             = 0;
     // Format of color payload when available.
     Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
@@ -92,9 +124,9 @@ struct GpuRenderTargetReadbackRequest
 
 struct GpuBackendContext
 {
-    Diligent::IRenderDevice* renderDevice                  = nullptr;
-    Diligent::IDeviceContext* immediateContext             = nullptr;
-    common::ResourceId activeRenderTargetId                = common::kInvalidResourceId;
+    Diligent::IRenderDevice* renderDevice      = nullptr;
+    Diligent::IDeviceContext* immediateContext = nullptr;
+    GpuRenderTargetBinding activeRenderTargetBinding{};
     bool hasActiveRenderTarget                             = false;
     bool activeRenderTargetHasDepth                        = false;
     Diligent::TEXTURE_FORMAT activeRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;

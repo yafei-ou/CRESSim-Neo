@@ -2,12 +2,14 @@
 
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
+#include "graphics/renderer/display_resolve_pass.h"
+#include "graphics/renderer/output_planner.h"
 #include "graphics/renderer/passes/forward_pipeline.h"
+#include "graphics/renderer/render_plan_builder.h"
 #include "graphics/renderer/renderer_internal.h"
 
 #include <array>
 #include <cstring>
-#include <unordered_map>
 
 namespace cressim::neo::graphics
 {
@@ -122,14 +124,35 @@ struct Renderer::GpuScenePrepareState
     bool initialized = false;
 };
 
+struct RendererOutputPlanningState
+{
+    std::unordered_map<detail::RenderTargetFamilyKey, gpu::GpuRenderTargetHandle,
+                       detail::RenderTargetFamilyKeyHasher>
+        managedPrimaryTargets;
+};
+
 Renderer::Renderer(gpu::GpuDevice& device, RenderResourceManager& resourceManager,
                    const RendererDesc& desc)
     : mDevice(device), mResourceManager(resourceManager), mDesc(desc),
-      mGpuScenePrepare(std::make_unique<GpuScenePrepareState>())
+      mGpuScenePrepare(std::make_unique<GpuScenePrepareState>()),
+      mOutputPlanningState(std::make_unique<RendererOutputPlanningState>())
 {
 }
 
-Renderer::~Renderer() = default;
+Renderer::~Renderer()
+{
+    if (mOutputPlanningState != nullptr)
+    {
+        for (const auto& [key, target] : mOutputPlanningState->managedPrimaryTargets)
+        {
+            (void)key;
+            if (mDevice.renderTargetSystem().isValidRenderTarget(target))
+            {
+                mDevice.renderTargetSystem().destroyRenderTarget(target);
+            }
+        }
+    }
+}
 
 bool Renderer::ensureGpuScenePrepareState()
 {
@@ -252,7 +275,8 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView& sceneView)
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
     if (!mGpuScenePrepare->cameraPreparePass.dispatch(backendContext.immediateContext, 0u,
-                                                      cameraPrepareBindings, sceneView.cameraCount))
+                                                      cameraPrepareBindings,
+                                                      dispatchGroupCount(sceneView.cameraCount)))
     {
         return false;
     }
@@ -308,8 +332,17 @@ bool Renderer::initialize()
         return false;
     }
 
+    mDisplayResolvePass = std::make_unique<detail::DisplayResolvePass>(mDevice);
+    if (!mDisplayResolvePass->initialize())
+    {
+        mDisplayResolvePass.reset();
+        mForwardPipeline.reset();
+        return false;
+    }
+
     if (!ensureGpuScenePrepareState())
     {
+        mDisplayResolvePass.reset();
         mForwardPipeline.reset();
         return false;
     }
@@ -318,7 +351,8 @@ bool Renderer::initialize()
     return mInitialized;
 }
 
-RenderStats Renderer::render(const common::FrameContext& frameContext, const HostSceneView& world)
+RenderStats Renderer::render(const common::FrameContext& frameContext, const HostSceneView& world,
+                             const RenderFrameOptions& options)
 {
     RenderStats stats{};
 
@@ -334,6 +368,8 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
     const std::vector<DirectionalLightData> emptyLights;
     const std::vector<DirectionalLightData>& directionalLights =
         world.directionalLights != nullptr ? *world.directionalLights : emptyLights;
+
+    // TODO: we are only using one global light
     const ForwardDirectionalLightData lightData = detail::buildMainLight(directionalLights);
     const gpu::GpuEntitySceneView emptySceneView{};
     const gpu::GpuEntitySceneView& gpuScene =
@@ -353,100 +389,58 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
         mDevice.endFrame(frameContext);
         return stats;
     }
-    struct RequestedExtent
+
+    gpu::GpuRenderTargetDesc defaultTargetDesc{};
+    const gpu::GpuRenderTargetHandle defaultTarget =
+        mDevice.renderTargetSystem().defaultRenderTarget();
+    const gpu::GpuRenderTargetBinding defaultTargetBinding =
+        mDevice.renderTargetSystem().defaultRenderTargetBinding();
+    const bool hasDefaultTarget =
+        mDevice.renderTargetSystem().isValidRenderTarget(defaultTarget) &&
+        mDevice.renderTargetSystem().tryGetRenderTargetDesc(defaultTarget, defaultTargetDesc);
+
+    if (mOutputPlanningState == nullptr)
     {
-        std::uint32_t width  = 0;
-        std::uint32_t height = 0;
-    };
-    std::unordered_map<common::ResourceId, RequestedExtent> requestedExtents;
+        mOutputPlanningState = std::make_unique<RendererOutputPlanningState>();
+    }
 
-    const auto renderCamera = [&](const CameraData& camera)
+    detail::CameraOutputPlanningResult outputPlan = detail::planCameraOutputs(
+        cameras, gpuScene, mDevice.renderTargetSystem(), defaultTargetDesc, defaultTargetBinding,
+        hasDefaultTarget, options, mOutputPlanningState->managedPrimaryTargets, stats);
+
+    for (auto it = mOutputPlanningState->managedPrimaryTargets.begin();
+         it != mOutputPlanningState->managedPrimaryTargets.end();)
     {
-        gpu::GpuRenderTargetHandle target = camera.outputTarget;
-        if (!mDevice.renderTargetSystem().isValidRenderTarget(target))
+        if (outputPlan.usedManagedFamilies.find(it->first) != outputPlan.usedManagedFamilies.end())
         {
-            target = mDevice.renderTargetSystem().defaultRenderTarget();
-        }
-        if (!mDevice.renderTargetSystem().isValidRenderTarget(target))
-        {
-            return;
+            ++it;
+            continue;
         }
 
-        gpu::GpuRenderTargetDesc targetDesc{};
-        if (!mDevice.renderTargetSystem().tryGetRenderTargetDesc(target, targetDesc))
+        if (mDevice.renderTargetSystem().isValidRenderTarget(it->second))
         {
-            return;
+            mDevice.renderTargetSystem().destroyRenderTarget(it->second);
         }
+        it = mOutputPlanningState->managedPrimaryTargets.erase(it);
+    }
 
-        if (camera.outputWidth > 0 || camera.outputHeight > 0)
-        {
-            ++stats.renderTargetResizeRequests;
+    const FrameRenderPlan renderPlan = detail::buildFrameRenderPlan(
+        std::move(outputPlan.resolvedCameras), lightData, outputPlan.displayResolve);
 
-            RequestedExtent desired{};
-            desired.width  = (camera.outputWidth == 0 ? targetDesc.width : camera.outputWidth);
-            desired.height = (camera.outputHeight == 0 ? targetDesc.height : camera.outputHeight);
-
-            const auto requestedIt = requestedExtents.find(target.id);
-            if (requestedIt == requestedExtents.end())
-            {
-                requestedExtents.emplace(target.id, desired);
-            }
-            else
-            {
-                const bool conflict = requestedIt->second.width != desired.width ||
-                                      requestedIt->second.height != desired.height;
-                if (conflict)
-                {
-                    ++stats.renderTargetResizeConflicts;
-                }
-                desired = requestedIt->second;
-            }
-
-            if (targetDesc.width != desired.width || targetDesc.height != desired.height)
-            {
-                const gpu::GpuRenderTargetUpdateResult updateResult =
-                    mDevice.renderTargetSystem().resizeRenderTarget(target, desired.width,
-                                                                    desired.height);
-                if (updateResult == gpu::GpuRenderTargetUpdateResult::Unchanged)
-                {
-                    ++stats.renderTargetResizeNoOps;
-                }
-                else if (updateResult == gpu::GpuRenderTargetUpdateResult::Recreated)
-                {
-                    ++stats.renderTargetRecreateCount;
-                }
-                if (updateResult != gpu::GpuRenderTargetUpdateResult::Failed)
-                {
-                    if (!mDevice.renderTargetSystem().tryGetRenderTargetDesc(target, targetDesc))
-                    {
-                        return;
-                    }
-                }
-            }
-            else
-            {
-                ++stats.renderTargetResizeNoOps;
-            }
-        }
-
-        const gpu::GpuRenderViewport viewport = detail::normalizeViewport(camera.viewport);
-        const FrameViewData frameView =
-            detail::buildFrameViewData(camera, targetDesc, target, viewport, lightData);
-
+    for (const CameraBatchView& batch : renderPlan.cameraBatches)
+    {
         ForwardPassExecutionStats passStats{};
         if (mForwardPipeline != nullptr)
         {
-            (void)mForwardPipeline->execute(frameContext, frameView, world, passStats);
+            (void)mForwardPipeline->executeBatch(frameContext, batch, world, passStats);
         }
-
         stats.opaqueDrawCalls += passStats.opaqueDrawCalls;
         stats.shadowDrawCalls += passStats.shadowDrawCalls;
-        ++stats.cameraCount;
-    };
+    }
 
-    for (const CameraData& camera : cameras)
+    if (renderPlan.displayResolve.has_value() && mDisplayResolvePass != nullptr)
     {
-        renderCamera(camera);
+        (void)mDisplayResolvePass->resolve(frameContext, *renderPlan.displayResolve);
     }
 
     stats.drawCalls = stats.opaqueDrawCalls + stats.shadowDrawCalls;

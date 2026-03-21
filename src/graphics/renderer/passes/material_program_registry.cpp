@@ -30,10 +30,11 @@ const char* passClassName(MainPassClass passClass)
     }
 }
 
-Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 4>& macros,
+Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 5>& macros,
                                               MaterialFeatureFlags featureFlags)
 {
     Diligent::Uint32 count = 0;
+    macros[count++]        = Diligent::ShaderMacro{"MANUAL_LAYER_EXPORT", "1"};
     if (hasFlag(featureFlags, MaterialFeatureFlags::AlphaTest))
     {
         macros[count++] = Diligent::ShaderMacro{"CRESSIM_FEATURE_ALPHA_TEST", "1"};
@@ -160,7 +161,7 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
         return false;
     }
 
-    std::array<Diligent::ShaderMacro, 4> macros{};
+    std::array<Diligent::ShaderMacro, 5> macros{};
     const Diligent::ShaderMacroArray macroArray = buildFeatureMacros(macros, key.featureFlags);
 
     Diligent::ShaderCreateInfo shaderCreateInfo{};
@@ -235,29 +236,29 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     constexpr Diligent::ShaderResourceVariableDesc kVars[] = {
         {Diligent::SHADER_TYPE_VERTEX, "g_EntityPositions",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_EntityOrientations",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_EntityScales",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_RenderableMetadata",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_RenderableVisibilityFlags",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-        {Diligent::SHADER_TYPE_VERTEX, "g_VisibleObjectIndices",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_PreparedCameras",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap0",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap1",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap2",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap3",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE}};
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}};
     psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
     psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
         static_cast<Diligent::Uint32>(std::size(kVars));

@@ -135,8 +135,9 @@ void Runtime::shutdown()
         mGpuDevice.reset();
     }
 
-    mLastRenderStats = {};
-    mInitialized     = false;
+    mLastRenderStats    = {};
+    mRenderFrameOptions = {};
+    mInitialized        = false;
 }
 
 void Runtime::tick(const common::FrameContext& frameContext)
@@ -201,7 +202,7 @@ void Runtime::tick(const common::FrameContext& frameContext)
         mWorld.setGpuEntityScene({});
     }
 
-    mLastRenderStats = mRenderer->render(frameContext, mWorld.hostSceneView());
+    mLastRenderStats = mRenderer->render(frameContext, mWorld.hostSceneView(), mRenderFrameOptions);
 }
 
 World& Runtime::getWorld() noexcept
@@ -237,6 +238,16 @@ const physics::PhysicsSolver* Runtime::getPhysicsSolver() const noexcept
 const graphics::RenderStats& Runtime::lastRenderStats() const noexcept
 {
     return mLastRenderStats;
+}
+
+void Runtime::setRenderFrameOptions(const graphics::RenderFrameOptions& options) noexcept
+{
+    mRenderFrameOptions = options;
+}
+
+const graphics::RenderFrameOptions& Runtime::renderFrameOptions() const noexcept
+{
+    return mRenderFrameOptions;
 }
 
 graphics::RenderResourceManager& Runtime::getResources() noexcept

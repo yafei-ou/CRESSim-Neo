@@ -11,16 +11,24 @@ struct VSInput
 struct VSOutput
 {
     float4 Position : SV_Position;
+#if MANUAL_LAYER_EXPORT
+    uint Layer : SV_RenderTargetArrayIndex;
+#endif
 };
 
 void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
 {
     uint objectIndex = g_InstanceIndex;
+    uint cameraIndex = g_CurrentCameraIndex;
+    uint cameraLayer = 0u;
     if (g_UseDrawListBuffer != 0u)
     {
-        objectIndex = g_VisibleObjectIndices[g_DrawListOffset + instanceId];
+        const VisiblePairInstance pair = g_VisiblePairs[g_DrawListOffset + instanceId];
+        objectIndex = pair.objectIndex;
+        cameraIndex = pair.cameraIndex;
+        cameraLayer = pair.cameraLayer;
     }
-    const PreparedCamera preparedCamera = g_PreparedCameras[g_CurrentCameraIndex];
+    const PreparedCamera preparedCamera = g_PreparedCameras[cameraIndex];
     bool poseValid = false;
     float3 position = float3(0.0, 0.0, 0.0);
     float4 orientation = float4(0.0, 0.0, 0.0, 1.0);
@@ -32,9 +40,15 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
     if (!poseValid || preparedCamera.active == 0u || ((shadowMask & (1u << g_CascadeIndex)) == 0u))
     {
         Out.Position = float4(2.0, 2.0, 2.0, 1.0);
+#if MANUAL_LAYER_EXPORT
+        Out.Layer = cameraLayer;
+#endif
         return;
     }
     const float4 worldPos =
         float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
     Out.Position = mul(worldPos, preparedCamera.lightViewProjectionMatrices[g_CascadeIndex]);
+#if MANUAL_LAYER_EXPORT
+    Out.Layer = cameraLayer;
+#endif
 }

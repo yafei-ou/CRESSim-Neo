@@ -28,17 +28,18 @@ public:
     virtual bool tryGetRenderTargetDesc(GpuRenderTargetHandle target,
                                         GpuRenderTargetDesc& outDesc) const = 0;
     virtual GpuRenderTargetHandle defaultRenderTarget() const               = 0;
+    virtual GpuRenderTargetBinding defaultRenderTargetBinding() const       = 0;
 
-    virtual void setRenderTargetViewport(GpuRenderTargetHandle target,
+    virtual void setRenderTargetViewport(const GpuRenderTargetBinding& binding,
                                          const GpuRenderViewport& viewport) = 0;
-    virtual void beginRenderTarget(GpuRenderTargetHandle target,
+    virtual void beginRenderTarget(const GpuRenderTargetBinding& binding,
                                    const common::FrameContext& frameContext,
                                    const GpuRenderPassBeginDesc& beginDesc) = 0;
-    virtual void endRenderTarget(GpuRenderTargetHandle target,
+    virtual void endRenderTarget(const GpuRenderTargetBinding& binding,
                                  const common::FrameContext& frameContext)  = 0;
 
     virtual GpuRenderTargetReadbackRequest requestRenderTargetReadback(
-        GpuRenderTargetHandle target)                                               = 0;
+        const GpuRenderTargetBinding& binding)                                      = 0;
     virtual bool tryGetRenderTargetReadback(GpuRenderTargetReadbackRequest request,
                                             GpuRenderTargetReadbackEvent& outEvent) = 0;
     virtual bool tryGetRenderTargetColorTexture(GpuRenderTargetHandle target,

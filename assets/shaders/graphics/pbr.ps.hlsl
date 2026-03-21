@@ -6,12 +6,14 @@ struct VSOutput
     float4 Position : SV_Position;
     float3 WorldPos : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
+    nointerpolation uint CameraIndex : TEXCOORD2;
+    nointerpolation uint CameraLayer : TEXCOORD3;
 };
 
-Texture2D g_ShadowMap0;
-Texture2D g_ShadowMap1;
-Texture2D g_ShadowMap2;
-Texture2D g_ShadowMap3;
+Texture2DArray g_ShadowMap0;
+Texture2DArray g_ShadowMap1;
+Texture2DArray g_ShadowMap2;
+Texture2DArray g_ShadowMap3;
 SamplerComparisonState g_ShadowMap0_sampler;
 SamplerComparisonState g_ShadowMap1_sampler;
 SamplerComparisonState g_ShadowMap2_sampler;
@@ -101,11 +103,37 @@ float SampleShadowPCF(Texture2D shadowMap, SamplerComparisonState shadowSampler,
     return visibility / 9.0;
 }
 
+float SampleShadowPCF(Texture2DArray shadowMap, SamplerComparisonState shadowSampler, float3 uvw,
+                      float receiverDepth, float bias, float2 texelSize)
+{
+    float visibility = 0.0;
+    float compareDepth = receiverDepth - bias;
+    [unroll]
+    for (int y = -1; y <= 1; ++y)
+    {
+        [unroll]
+        for (int x = -1; x <= 1; ++x)
+        {
+            float2 sampleUv = uvw.xy + float2((float)x, (float)y) * texelSize;
+            if (sampleUv.x < 0.0 || sampleUv.x > 1.0 || sampleUv.y < 0.0 || sampleUv.y > 1.0)
+            {
+                visibility += 1.0;
+                continue;
+            }
+
+            visibility += shadowMap.SampleCmpLevelZero(shadowSampler, float3(sampleUv, uvw.z),
+                                                       compareDepth);
+        }
+    }
+    return visibility / 9.0;
+}
+
 float SampleCascadeShadow(
-    Texture2D shadowMap,
+    Texture2DArray shadowMap,
     SamplerComparisonState shadowSampler,
     float4x4 lightViewProjection,
     float3 worldPos,
+    float layer,
     float bias,
     float2 texelSize)
 {
@@ -119,10 +147,10 @@ float SampleCascadeShadow(
         return 1.0;
     }
 
-    return SampleShadowPCF(shadowMap, shadowSampler, uv, proj.z, bias, texelSize);
+    return SampleShadowPCF(shadowMap, shadowSampler, float3(uv, layer), proj.z, bias, texelSize);
 }
 
-float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir)
+float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir, uint cameraIndex, float cameraLayer)
 {
     // x: bias, y: hasShadowMap, z: minimum shadow visibility, w: reserved
     // g_MaterialParams.w controls receivesShadows per material.
@@ -131,7 +159,7 @@ float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir)
         return 1.0;
     }
 
-    PreparedCamera preparedCamera = g_PreparedCameras[g_CurrentCameraIndex];
+    PreparedCamera preparedCamera = g_PreparedCameras[cameraIndex];
     if (preparedCamera.active == 0u)
     {
         return 1.0;
@@ -162,25 +190,25 @@ float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir)
     {
         visibility = SampleCascadeShadow(g_ShadowMap0, g_ShadowMap0_sampler,
                                          preparedCamera.lightViewProjectionMatrices[0], worldPos,
-                                         shadowBias, texelSize);
+                                         cameraLayer, shadowBias, texelSize);
     }
     else if (cascadeIdx == 1)
     {
         visibility = SampleCascadeShadow(g_ShadowMap1, g_ShadowMap1_sampler,
                                          preparedCamera.lightViewProjectionMatrices[1], worldPos,
-                                         shadowBias, texelSize);
+                                         cameraLayer, shadowBias, texelSize);
     }
     else if (cascadeIdx == 2)
     {
         visibility = SampleCascadeShadow(g_ShadowMap2, g_ShadowMap2_sampler,
                                          preparedCamera.lightViewProjectionMatrices[2], worldPos,
-                                         shadowBias, texelSize);
+                                         cameraLayer, shadowBias, texelSize);
     }
     else
     {
         visibility = SampleCascadeShadow(g_ShadowMap3, g_ShadowMap3_sampler,
                                          preparedCamera.lightViewProjectionMatrices[3], worldPos,
-                                         shadowBias, texelSize);
+                                         cameraLayer, shadowBias, texelSize);
     }
 
     float shadowTerm = lerp(g_ShadowParams.z, 1.0, visibility);
@@ -196,8 +224,9 @@ float4 main(in VSOutput In) : SV_Target
     }
 #endif
 
+    PreparedCamera preparedCamera = g_PreparedCameras[In.CameraIndex];
     float3 N = normalize(In.WorldNormal);
-    float3 V = normalize(g_CameraPosition.xyz - In.WorldPos);
+    float3 V = normalize(preparedCamera.cameraPosition.xyz - In.WorldPos);
     float3 L = normalize(-g_LightDirectionIntensity.xyz);
     float3 H = normalize(V + L);
 
@@ -220,7 +249,8 @@ float4 main(in VSOutput In) : SV_Target
     float3 kD = (1.0 - kS) * (1.0 - metallic);
     float NdotL = max(dot(N, L), 0.0);
 
-    float shadowFactor = ComputeShadowFactor(In.WorldPos, N, L);
+    float shadowFactor = ComputeShadowFactor(In.WorldPos, N, L, In.CameraIndex,
+                                             (float)In.CameraLayer);
 
     float3 radiance = g_LightColor.xyz * g_LightDirectionIntensity.w;
     float3 diffuse = kD * albedo / PI;

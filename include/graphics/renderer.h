@@ -2,6 +2,7 @@
 #define CRESSIM_NEO_GRAPHICS_RENDERER_H
 
 #include "common/frame_context.h"
+#include "common/id.h"
 #include "gpu/gpu_device.h"
 #include "graphics/export.h"
 #include "graphics/host_scene.h"
@@ -16,12 +17,16 @@ namespace cressim::neo::graphics
 namespace detail
 {
 class ForwardPipeline;
-}
-
-struct FrameViewData;
+class DisplayResolvePass;
+} // namespace detail
 
 struct RendererDesc
 {
+};
+
+struct RenderFrameOptions
+{
+    common::EntityId presentedCameraEntity = common::kInvalidEntityId;
 };
 
 struct RenderStats
@@ -47,7 +52,8 @@ public:
     ~Renderer();
 
     bool initialize();
-    RenderStats render(const common::FrameContext& frameContext, const HostSceneView& sceneView);
+    RenderStats render(const common::FrameContext& frameContext, const HostSceneView& sceneView,
+                       const RenderFrameOptions& options = RenderFrameOptions{});
 
 private:
     struct GpuScenePrepareState;
@@ -58,7 +64,9 @@ private:
     RenderResourceManager& mResourceManager;
     RendererDesc mDesc{};
     std::unique_ptr<detail::ForwardPipeline> mForwardPipeline;
+    std::unique_ptr<detail::DisplayResolvePass> mDisplayResolvePass;
     std::unique_ptr<GpuScenePrepareState> mGpuScenePrepare;
+    std::unique_ptr<struct RendererOutputPlanningState> mOutputPlanningState;
     bool mInitialized = false;
 };
 

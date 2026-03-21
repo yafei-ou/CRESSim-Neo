@@ -39,12 +39,19 @@ struct CameraComponent
     float nearClip           = 0.01f;
     float farClip            = 1000.0f;
 
-    // If invalid, renderer falls back to device.renderTargets().defaultRenderTarget().
-    gpu::GpuRenderTargetHandle outputTarget{};
+    // ManagedPrimary renders into the renderer-managed primary layered surface.
+    // ExplicitSurface renders directly into the bound target layer. Binding a non-array target
+    // still means every camera targeting it shares layer 0.
+    gpu::CameraOutputBinding output{};
     // Optional per-camera output resize request (0 keeps current target size).
     std::uint32_t outputWidth  = 0;
     std::uint32_t outputHeight = 0;
     // Normalized viewport on the chosen output target.
+    // Renderer support is intentionally narrow: sub-rect viewport rendering is only honored for
+    // ExplicitSurface cameras targeting non-layered render targets. ManagedPrimary and layered
+    // targets still render to the full target.
+    // Clears are still whole-target clears, not viewport-scoped clears, so viewport users should
+    // disable clearColor / clearDepth when preserving surrounding pixels matters.
     gpu::GpuRenderViewport viewport{};
     bool clearColor = true;
     bool clearDepth = true;

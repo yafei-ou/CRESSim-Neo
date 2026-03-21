@@ -6,6 +6,48 @@
 namespace cressim::neo::graphics::detail
 {
 
+namespace
+{
+
+Diligent::RefCntAutoPtr<Diligent::ITextureView> createArrayShadowSrv(Diligent::ITexture* texture,
+                                                                     Diligent::ISampler* sampler)
+{
+    if (texture == nullptr)
+    {
+        return {};
+    }
+
+    const Diligent::TextureDesc& textureDesc = texture->GetDesc();
+    if (textureDesc.Type != Diligent::RESOURCE_DIM_TEX_2D_ARRAY)
+    {
+        Diligent::RefCntAutoPtr<Diligent::ITextureView> view{
+            texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE)};
+        if (view != nullptr && sampler != nullptr)
+        {
+            view->SetSampler(sampler);
+        }
+        return view;
+    }
+
+    Diligent::TextureViewDesc viewDesc{};
+    viewDesc.ViewType        = Diligent::TEXTURE_VIEW_SHADER_RESOURCE;
+    viewDesc.TextureDim      = textureDesc.Type;
+    viewDesc.MostDetailedMip = 0u;
+    viewDesc.NumMipLevels    = 1u;
+    viewDesc.FirstArraySlice = 0u;
+    viewDesc.NumArraySlices  = textureDesc.ArraySize;
+
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> arraySrv;
+    texture->CreateView(viewDesc, &arraySrv);
+    if (arraySrv != nullptr && sampler != nullptr)
+    {
+        arraySrv->SetSampler(sampler);
+    }
+    return arraySrv;
+}
+
+} // namespace
+
 ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice& device, RenderResourceManager& resourceManager)
     : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
       mMeshGpuCache("CRESSimNeo.ForwardOpaquePass")
@@ -33,7 +75,7 @@ bool ForwardOpaquePass::initialize()
 
         Diligent::TextureDesc textureDesc{};
         textureDesc.Name      = "CRESSimNeo.ForwardOpaquePass.FallbackShadow";
-        textureDesc.Type      = Diligent::RESOURCE_DIM_TEX_2D;
+        textureDesc.Type      = Diligent::RESOURCE_DIM_TEX_2D_ARRAY;
         textureDesc.Width     = 1;
         textureDesc.Height    = 1;
         textureDesc.MipLevels = 1;
@@ -46,12 +88,7 @@ bool ForwardOpaquePass::initialize()
         backendContext.renderDevice->CreateTexture(textureDesc, nullptr, &fallbackTexture);
         if (fallbackTexture != nullptr)
         {
-            mFallbackShadowMapSrv =
-                fallbackTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
-            if (mFallbackShadowMapSrv != nullptr && mShadowSampler != nullptr)
-            {
-                mFallbackShadowMapSrv->SetSampler(mShadowSampler);
-            }
+            mFallbackShadowMapSrv = createArrayShadowSrv(fallbackTexture, mShadowSampler);
         }
     }
 
@@ -59,7 +96,7 @@ bool ForwardOpaquePass::initialize()
     return true;
 }
 
-bool ForwardOpaquePass::beginCameraFrame(const FrameViewData& frameView)
+bool ForwardOpaquePass::beginBatchFrame(const CameraBatchView& batchView)
 {
     if (!mInitialized)
     {
@@ -81,21 +118,18 @@ bool ForwardOpaquePass::beginCameraFrame(const FrameViewData& frameView)
     }
 
     ForwardPerFrameConstants frameConstants{};
-    frameConstants.viewMatrix           = frameView.viewMatrix.Transpose();
-    frameConstants.viewProjectionMatrix = frameView.viewProjectionMatrix.Transpose();
-    frameConstants.cameraPosition =
-        Diligent::float4{frameView.cameraWorldPosition.x, frameView.cameraWorldPosition.y,
-                         frameView.cameraWorldPosition.z, 0.0f};
+    if (!batchView.cameras.empty())
+    {
+        const ResolvedCameraView& firstCamera = batchView.cameras.front();
+        frameConstants.currentCameraIndex     = firstCamera.globalCameraIndex;
+    }
     frameConstants.lightDirectionIntensity =
-        Diligent::float4{frameView.light.direction.x, frameView.light.direction.y,
-                         frameView.light.direction.z, frameView.light.intensity};
-    frameConstants.lightColor = Diligent::float4{frameView.light.color.x, frameView.light.color.y,
-                                                 frameView.light.color.z, 0.0f};
+        Diligent::float4{batchView.light.direction.x, batchView.light.direction.y,
+                         batchView.light.direction.z, batchView.light.intensity};
+    frameConstants.lightColor = Diligent::float4{batchView.light.color.x, batchView.light.color.y,
+                                                 batchView.light.color.z, 0.0f};
     frameConstants.shadowParams =
         Diligent::float4{0.0015f, hasAnyShadowMap() ? 1.0f : 0.0f, 0.35f, 0.0f};
-    frameConstants.currentCameraIndex =
-        frameView.envIndex * std::max(mSceneView.layout.maxCamerasPerEnv, 1u) +
-        frameView.cameraSlot;
 
     void* mappedConstants = nullptr;
     backendContext.immediateContext->MapBuffer(mForwardPerFrameBuffer, Diligent::MAP_WRITE,
@@ -114,9 +148,9 @@ void ForwardOpaquePass::setGpuSceneView(const gpu::GpuEntitySceneView& sceneView
     mSceneView = sceneView;
 }
 
-void ForwardOpaquePass::setVisibleObjectIndexBuffer(Diligent::IBuffer* buffer) noexcept
+void ForwardOpaquePass::setVisiblePairBuffer(Diligent::IBuffer* buffer) noexcept
 {
-    mVisibleObjectIndexBuffer = buffer;
+    mVisiblePairBuffer = buffer;
 }
 
 void ForwardOpaquePass::setShadowMapTargets(
@@ -127,7 +161,7 @@ void ForwardOpaquePass::setShadowMapTargets(
     mShadowMapCount   = std::min<std::uint32_t>(shadowMapCount, kShadowCascadeCount);
 }
 
-bool ForwardOpaquePass::prepareDraw(gpu::GpuRenderTargetHandle target,
+bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding& targetBinding,
                                     const ForwardDrawCommand& drawCommand, DrawSetup& outSetup)
 {
     if (!mInitialized)
@@ -140,7 +174,8 @@ bool ForwardOpaquePass::prepareDraw(gpu::GpuRenderTargetHandle target,
     {
         return false;
     }
-    if (!backendContext.hasActiveRenderTarget || backendContext.activeRenderTargetId != target.id)
+    if (!backendContext.hasActiveRenderTarget ||
+        !(backendContext.activeRenderTargetBinding == targetBinding))
     {
         return false;
     }
@@ -221,10 +256,11 @@ bool ForwardOpaquePass::prepareDraw(gpu::GpuRenderTargetHandle target,
 
 bool ForwardOpaquePass::bindShadowMaps(MaterialProgramRegistry::ProgramResources& program)
 {
-    std::array<Diligent::ITextureView*, kShadowCascadeCount> shadowMapSrvs{};
+    std::array<Diligent::RefCntAutoPtr<Diligent::ITextureView>, kShadowCascadeCount>
+        shadowMapSrvs{};
     for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
     {
-        Diligent::ITextureView* shadowMapSrv = mFallbackShadowMapSrv;
+        Diligent::RefCntAutoPtr<Diligent::ITextureView> shadowMapSrv = mFallbackShadowMapSrv;
         if (cascadeIdx < mShadowMapCount &&
             mShadowMapTargets[cascadeIdx].id != common::kInvalidResourceId)
         {
@@ -233,14 +269,10 @@ bool ForwardOpaquePass::bindShadowMaps(MaterialProgramRegistry::ProgramResources
                     mShadowMapTargets[cascadeIdx], depthTexture) &&
                 depthTexture != nullptr)
             {
-                Diligent::ITextureView* depthSrv =
-                    depthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+                Diligent::RefCntAutoPtr<Diligent::ITextureView> depthSrv =
+                    createArrayShadowSrv(depthTexture, mShadowSampler);
                 if (depthSrv != nullptr)
                 {
-                    if (mShadowSampler != nullptr)
-                    {
-                        depthSrv->SetSampler(mShadowSampler);
-                    }
                     shadowMapSrv = depthSrv;
                 }
             }
@@ -304,25 +336,25 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
         variable->Set(srv);
     }
 
-    Diligent::IShaderResourceVariable* visibleObjectsVar =
+    Diligent::IShaderResourceVariable* visiblePairsVar =
         program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
-                                                         "g_VisibleObjectIndices");
-    if (visibleObjectsVar != nullptr)
+                                                         "g_VisiblePairs");
+    if (visiblePairsVar != nullptr)
     {
-        Diligent::IBuffer* visibleObjectBuffer = mVisibleObjectIndexBuffer != nullptr
-                                                     ? mVisibleObjectIndexBuffer
-                                                     : mSceneView.renderableVisibilityFlagsBuffer;
-        if (visibleObjectBuffer == nullptr)
+        Diligent::IBuffer* visiblePairBuffer = mVisiblePairBuffer != nullptr
+                                                   ? mVisiblePairBuffer
+                                                   : mSceneView.renderableVisibilityFlagsBuffer;
+        if (visiblePairBuffer == nullptr)
         {
             return false;
         }
-        Diligent::IBufferView* visibleObjectsSrv =
-            visibleObjectBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
-        if (visibleObjectsSrv == nullptr)
+        Diligent::IBufferView* visiblePairsSrv =
+            visiblePairBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        if (visiblePairsSrv == nullptr)
         {
             return false;
         }
-        visibleObjectsVar->Set(visibleObjectsSrv);
+        visiblePairsVar->Set(visiblePairsSrv);
     }
 
     if (mSceneView.preparedCamerasBuffer == nullptr)
@@ -404,13 +436,13 @@ void ForwardOpaquePass::bindGeometry(Diligent::IDeviceContext* immediateContext,
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
-bool ForwardOpaquePass::drawIndirect(gpu::GpuRenderTargetHandle target,
+bool ForwardOpaquePass::drawIndirect(const gpu::GpuRenderTargetBinding& targetBinding,
                                      const ForwardDrawCommand& drawCommand,
                                      Diligent::IBuffer* indirectArgsBuffer,
                                      Diligent::Uint64 argsOffsetBytes)
 {
     DrawSetup setup{};
-    if (!prepareDraw(target, drawCommand, setup) || indirectArgsBuffer == nullptr ||
+    if (!prepareDraw(targetBinding, drawCommand, setup) || indirectArgsBuffer == nullptr ||
         !bindShadowMaps(*setup.program))
     {
         return false;
