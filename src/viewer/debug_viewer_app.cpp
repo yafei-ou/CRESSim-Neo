@@ -11,7 +11,9 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <unordered_map>
 #include <utility>
 
@@ -115,6 +117,35 @@ bool isPressed(GLFWwindow* window, int key)
     return key >= 0 && glfwGetKey(window, key) == GLFW_PRESS;
 }
 
+gpu::GpuRenderTargetDesc resolveDefaultPresentationTargetDesc(engine::Runtime& runtime,
+                                                              std::uint32_t requestedWidth,
+                                                              std::uint32_t requestedHeight)
+{
+    gpu::GpuRenderTargetDesc resolvedDesc{};
+    gpu::GpuDevice* const device = runtime.getGpuDevice();
+    if (device == nullptr)
+    {
+        resolvedDesc.width = requestedWidth;
+        resolvedDesc.height = requestedHeight;
+        return resolvedDesc;
+    }
+
+    gpu::GpuRenderTargetSystem& renderTargets = device->renderTargetSystem();
+    const gpu::GpuRenderTargetHandle defaultTarget = renderTargets.defaultRenderTarget();
+    if (renderTargets.isValidRenderTarget(defaultTarget))
+    {
+        (void)renderTargets.resizeRenderTarget(defaultTarget, requestedWidth, requestedHeight);
+        if (renderTargets.tryGetRenderTargetDesc(defaultTarget, resolvedDesc))
+        {
+            return resolvedDesc;
+        }
+    }
+
+    resolvedDesc.width = requestedWidth;
+    resolvedDesc.height = requestedHeight;
+    return resolvedDesc;
+}
+
 } // namespace
 
 class DebugViewerApp::Impl
@@ -129,6 +160,13 @@ public:
         float inputSensitivity = 0.08f;
         float speedBoostScale  = 3.0f;
         float speedSlowScale   = 0.35f;
+    };
+
+    struct CameraOutputSettings
+    {
+        gpu::CameraOutputBinding output{};
+        std::uint32_t outputWidth  = 0u;
+        std::uint32_t outputHeight = 0u;
     };
 
     bool initialize(DebugViewerAppDesc desc, engine::RuntimeConfig& inOutRuntimeConfig)
@@ -350,6 +388,7 @@ public:
         common::FrameContext frame{};
         frame.deltaSeconds = mDesc.fixedDeltaSeconds;
         common::EntityId presentedCameraEntity = cameraBinding.cameraEntity;
+        common::EntityId outputOverrideCameraEntity = common::kInvalidEntityId;
         runtime.setRenderFrameOptions(
             graphics::RenderFrameOptions{presentedCameraEntity});
 
@@ -422,38 +461,28 @@ public:
             {
                 glfwGetFramebufferSize(mWindow, &outputWidth, &outputHeight);
             }
-            camera.outputWidth  = static_cast<std::uint32_t>(std::max(outputWidth, 1));
-            camera.outputHeight = static_cast<std::uint32_t>(std::max(outputHeight, 1));
-            if (mDesc.windowEnabled)
-            {
-                camera.output.mode = gpu::CameraOutputMode::ManagedPrimary;
-                camera.output.binding = {};
-            }
             world.setCamera(cameraBinding.cameraEntity, camera);
 
-            const std::uint32_t effectiveOutputWidth =
+            gpu::GpuRenderTargetDesc presentationTargetDesc{};
+            presentationTargetDesc.width =
                 static_cast<std::uint32_t>(std::max(outputWidth, 1));
-            const std::uint32_t effectiveOutputHeight =
+            presentationTargetDesc.height =
                 static_cast<std::uint32_t>(std::max(outputHeight, 1));
-            for (const graphics::CameraData& cameraData : world.cameras())
+            if (mDesc.windowEnabled)
             {
-                if (cameraData.entityId == common::kInvalidEntityId ||
-                    cameraData.entityId == cameraBinding.cameraEntity)
+                presentationTargetDesc = resolveDefaultPresentationTargetDesc(
+                    runtime, presentationTargetDesc.width, presentationTargetDesc.height);
+
+                if (outputOverrideCameraEntity != common::kInvalidEntityId &&
+                    outputOverrideCameraEntity != presentedCameraEntity)
                 {
-                    continue;
+                    restorePresentedCameraOutput(world, outputOverrideCameraEntity);
+                    outputOverrideCameraEntity = common::kInvalidEntityId;
                 }
 
-                const std::optional<CameraComponent> existing =
-                    world.tryGetCamera(cameraData.entityId);
-                if (!existing)
-                {
-                    continue;
-                }
-
-                CameraComponent updated = *existing;
-                updated.outputWidth     = effectiveOutputWidth;
-                updated.outputHeight    = effectiveOutputHeight;
-                world.setCamera(cameraData.entityId, updated);
+                applyPresentedCameraOutput(world, presentedCameraEntity, presentationTargetDesc.width,
+                                           presentationTargetDesc.height);
+                outputOverrideCameraEntity = presentedCameraEntity;
             }
 
             runtime.setRenderFrameOptions(
@@ -472,6 +501,8 @@ public:
             {
                 callbacks.afterTick(frame, runtime);
             }
+
+            updateWindowTitle(frame.deltaSeconds);
 
             if (mShowStats && mDesc.statsIntervalFrames > 0 &&
                 frame.frameIndex % mDesc.statsIntervalFrames == 0)
@@ -493,8 +524,13 @@ public:
 
         if (mWindow != nullptr)
         {
+            if (mWindowTitleStatsActive)
+            {
+                glfwSetWindowTitle(mWindow, mDesc.windowTitle.c_str());
+            }
             glfwSetInputMode(mWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         }
+        restorePresentedCameraOutput(world, outputOverrideCameraEntity);
         runtime.setRenderFrameOptions(graphics::RenderFrameOptions{});
         mLookActive = false;
         return true;
@@ -520,6 +556,10 @@ public:
         mInitialized        = false;
         mLookActive         = false;
         mAccumulatedScrollY = 0.0;
+        mWindowTitleStatsActive = false;
+        mWindowTitleAccumulatedSeconds = 0.0f;
+        mWindowTitleAccumulatedFrames = 0u;
+        mPresentedCameraOverrides.clear();
         mKeyIsDown.clear();
     }
 
@@ -533,6 +573,103 @@ private:
         bool boost        = false;
         bool slow         = false;
     };
+
+    void updateWindowTitle(float deltaSeconds)
+    {
+        if (!mDesc.windowEnabled || mWindow == nullptr)
+        {
+            return;
+        }
+
+        if (!mShowStats)
+        {
+            if (mWindowTitleStatsActive)
+            {
+                glfwSetWindowTitle(mWindow, mDesc.windowTitle.c_str());
+                mWindowTitleStatsActive = false;
+            }
+            return;
+        }
+
+        mWindowTitleAccumulatedSeconds += deltaSeconds;
+        mWindowTitleAccumulatedFrames += 1u;
+        if (mWindowTitleAccumulatedSeconds < 0.25f)
+        {
+            return;
+        }
+
+        const float averageFrameSeconds =
+            mWindowTitleAccumulatedSeconds /
+            static_cast<float>(std::max(mWindowTitleAccumulatedFrames, 1u));
+        const float fps = averageFrameSeconds > 0.0f ? (1.0f / averageFrameSeconds) : 0.0f;
+        const float frameMilliseconds = averageFrameSeconds * 1000.0f;
+
+        std::ostringstream title;
+        title << mDesc.windowTitle << " | " << std::fixed << std::setprecision(1) << fps
+              << " FPS | " << std::setprecision(2) << frameMilliseconds << " ms";
+        glfwSetWindowTitle(mWindow, title.str().c_str());
+
+        mWindowTitleStatsActive = true;
+        mWindowTitleAccumulatedSeconds = 0.0f;
+        mWindowTitleAccumulatedFrames = 0u;
+    }
+
+    void applyPresentedCameraOutput(engine::World& world, common::EntityId cameraEntity,
+                                    std::uint32_t width, std::uint32_t height)
+    {
+        if (cameraEntity == common::kInvalidEntityId)
+        {
+            return;
+        }
+
+        const std::optional<CameraComponent> existing = world.tryGetCamera(cameraEntity);
+        if (!existing)
+        {
+            mPresentedCameraOverrides.erase(cameraEntity);
+            return;
+        }
+
+        if (mPresentedCameraOverrides.find(cameraEntity) == mPresentedCameraOverrides.end())
+        {
+            mPresentedCameraOverrides.emplace(cameraEntity,
+                                             CameraOutputSettings{existing->output,
+                                                                  existing->outputWidth,
+                                                                  existing->outputHeight});
+        }
+
+        CameraComponent updated = *existing;
+        updated.outputWidth     = width;
+        updated.outputHeight    = height;
+        updated.output.mode     = gpu::CameraOutputMode::ManagedPrimary;
+        updated.output.binding  = {};
+        world.setCamera(cameraEntity, updated);
+    }
+
+    void restorePresentedCameraOutput(engine::World& world, common::EntityId cameraEntity)
+    {
+        if (cameraEntity == common::kInvalidEntityId)
+        {
+            return;
+        }
+
+        const auto it = mPresentedCameraOverrides.find(cameraEntity);
+        if (it == mPresentedCameraOverrides.end())
+        {
+            return;
+        }
+
+        const std::optional<CameraComponent> existing = world.tryGetCamera(cameraEntity);
+        if (existing)
+        {
+            CameraComponent restored = *existing;
+            restored.output          = it->second.output;
+            restored.outputWidth     = it->second.outputWidth;
+            restored.outputHeight    = it->second.outputHeight;
+            world.setCamera(cameraEntity, restored);
+        }
+
+        mPresentedCameraOverrides.erase(it);
+    }
 
     static void scrollCallback(GLFWwindow* window, double, double yOffset)
     {
@@ -688,10 +825,14 @@ private:
     bool mInitialized          = false;
     bool mGlfwInitialized      = false;
     bool mShowStats            = true;
+    bool mWindowTitleStatsActive = false;
     bool mLookActive           = false;
     double mLastCursorX        = 0.0;
     double mLastCursorY        = 0.0;
     double mAccumulatedScrollY = 0.0;
+    float mWindowTitleAccumulatedSeconds = 0.0f;
+    std::uint32_t mWindowTitleAccumulatedFrames = 0u;
+    std::unordered_map<common::EntityId, CameraOutputSettings> mPresentedCameraOverrides;
     std::unordered_map<int, bool> mKeyIsDown;
     std::chrono::steady_clock::time_point mLastTickTime{};
     std::atomic<bool> mExitRequested{false};

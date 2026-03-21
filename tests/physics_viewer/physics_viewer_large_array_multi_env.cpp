@@ -538,11 +538,11 @@ int main(int argc, char** argv)
     const bool windowEnabled = (config.gpuDeviceDesc.preferredBackend != GpuBackend::Null);
     viewerDesc.windowEnabled = windowEnabled;
     viewerDesc.windowVisible = windowEnabled;
-    viewerDesc.startFullscreenWindowed = true;
+    viewerDesc.startFullscreenWindowed = false;
     viewerDesc.maxFrames = numFrames;
-    viewerDesc.showStats = false;
-    viewerDesc.width = 1280;
-    viewerDesc.height = 720;
+    viewerDesc.showStats = true;
+    viewerDesc.width = 640;
+    viewerDesc.height = 480;
     viewerDesc.windowTitle = "CRESSim Neo Physics Viewer Large Array Multi Env";
 
     if (!viewer.initialize(viewerDesc, config))
