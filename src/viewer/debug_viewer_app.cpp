@@ -73,7 +73,7 @@ common::EntityId cyclePresentedCamera(const cressim::neo::engine::World& world,
         return cameras.front();
     }
 
-    const std::ptrdiff_t count = static_cast<std::ptrdiff_t>(cameras.size());
+    const std::ptrdiff_t count        = static_cast<std::ptrdiff_t>(cameras.size());
     const std::ptrdiff_t currentIndex = std::distance(cameras.begin(), currentIt);
     const std::ptrdiff_t wrappedIndex =
         (currentIndex + static_cast<std::ptrdiff_t>(direction) + count) % count;
@@ -125,12 +125,12 @@ gpu::GpuRenderTargetDesc resolveDefaultPresentationTargetDesc(engine::Runtime& r
     gpu::GpuDevice* const device = runtime.getGpuDevice();
     if (device == nullptr)
     {
-        resolvedDesc.width = requestedWidth;
+        resolvedDesc.width  = requestedWidth;
         resolvedDesc.height = requestedHeight;
         return resolvedDesc;
     }
 
-    gpu::GpuRenderTargetSystem& renderTargets = device->renderTargetSystem();
+    gpu::GpuRenderTargetSystem& renderTargets      = device->renderTargetSystem();
     const gpu::GpuRenderTargetHandle defaultTarget = renderTargets.defaultRenderTarget();
     if (renderTargets.isValidRenderTarget(defaultTarget))
     {
@@ -141,7 +141,7 @@ gpu::GpuRenderTargetDesc resolveDefaultPresentationTargetDesc(engine::Runtime& r
         }
     }
 
-    resolvedDesc.width = requestedWidth;
+    resolvedDesc.width  = requestedWidth;
     resolvedDesc.height = requestedHeight;
     return resolvedDesc;
 }
@@ -386,11 +386,10 @@ public:
 
         mLastTickTime = std::chrono::steady_clock::now();
         common::FrameContext frame{};
-        frame.deltaSeconds = mDesc.fixedDeltaSeconds;
-        common::EntityId presentedCameraEntity = cameraBinding.cameraEntity;
+        frame.deltaSeconds                          = mDesc.fixedDeltaSeconds;
+        common::EntityId presentedCameraEntity      = cameraBinding.cameraEntity;
         common::EntityId outputOverrideCameraEntity = common::kInvalidEntityId;
-        runtime.setRenderFrameOptions(
-            graphics::RenderFrameOptions{presentedCameraEntity});
+        runtime.setRenderFrameOptions(graphics::RenderFrameOptions{presentedCameraEntity});
 
         while (!mExitRequested.load())
         {
@@ -464,10 +463,8 @@ public:
             world.setCamera(cameraBinding.cameraEntity, camera);
 
             gpu::GpuRenderTargetDesc presentationTargetDesc{};
-            presentationTargetDesc.width =
-                static_cast<std::uint32_t>(std::max(outputWidth, 1));
-            presentationTargetDesc.height =
-                static_cast<std::uint32_t>(std::max(outputHeight, 1));
+            presentationTargetDesc.width  = static_cast<std::uint32_t>(std::max(outputWidth, 1));
+            presentationTargetDesc.height = static_cast<std::uint32_t>(std::max(outputHeight, 1));
             if (mDesc.windowEnabled)
             {
                 presentationTargetDesc = resolveDefaultPresentationTargetDesc(
@@ -480,13 +477,13 @@ public:
                     outputOverrideCameraEntity = common::kInvalidEntityId;
                 }
 
-                applyPresentedCameraOutput(world, presentedCameraEntity, presentationTargetDesc.width,
+                applyPresentedCameraOutput(world, presentedCameraEntity,
+                                           presentationTargetDesc.width,
                                            presentationTargetDesc.height);
                 outputOverrideCameraEntity = presentedCameraEntity;
             }
 
-            runtime.setRenderFrameOptions(
-                graphics::RenderFrameOptions{presentedCameraEntity});
+            runtime.setRenderFrameOptions(graphics::RenderFrameOptions{presentedCameraEntity});
 
             frame.frameIndex += 1u;
 
@@ -553,12 +550,12 @@ public:
             glfwTerminate();
             mGlfwInitialized = false;
         }
-        mInitialized        = false;
-        mLookActive         = false;
-        mAccumulatedScrollY = 0.0;
-        mWindowTitleStatsActive = false;
+        mInitialized                   = false;
+        mLookActive                    = false;
+        mAccumulatedScrollY            = 0.0;
+        mWindowTitleStatsActive        = false;
         mWindowTitleAccumulatedSeconds = 0.0f;
-        mWindowTitleAccumulatedFrames = 0u;
+        mWindowTitleAccumulatedFrames  = 0u;
         mPresentedCameraOverrides.clear();
         mKeyIsDown.clear();
     }
@@ -609,9 +606,9 @@ private:
               << " FPS | " << std::setprecision(2) << frameMilliseconds << " ms";
         glfwSetWindowTitle(mWindow, title.str().c_str());
 
-        mWindowTitleStatsActive = true;
+        mWindowTitleStatsActive        = true;
         mWindowTitleAccumulatedSeconds = 0.0f;
-        mWindowTitleAccumulatedFrames = 0u;
+        mWindowTitleAccumulatedFrames  = 0u;
     }
 
     void applyPresentedCameraOutput(engine::World& world, common::EntityId cameraEntity,
@@ -631,10 +628,9 @@ private:
 
         if (mPresentedCameraOverrides.find(cameraEntity) == mPresentedCameraOverrides.end())
         {
-            mPresentedCameraOverrides.emplace(cameraEntity,
-                                             CameraOutputSettings{existing->output,
-                                                                  existing->outputWidth,
-                                                                  existing->outputHeight});
+            mPresentedCameraOverrides.emplace(
+                cameraEntity, CameraOutputSettings{existing->output, existing->outputWidth,
+                                                   existing->outputHeight});
         }
 
         CameraComponent updated = *existing;
@@ -821,16 +817,16 @@ private:
 
 private:
     DebugViewerAppDesc mDesc{};
-    GLFWwindow* mWindow        = nullptr;
-    bool mInitialized          = false;
-    bool mGlfwInitialized      = false;
-    bool mShowStats            = true;
-    bool mWindowTitleStatsActive = false;
-    bool mLookActive           = false;
-    double mLastCursorX        = 0.0;
-    double mLastCursorY        = 0.0;
-    double mAccumulatedScrollY = 0.0;
-    float mWindowTitleAccumulatedSeconds = 0.0f;
+    GLFWwindow* mWindow                         = nullptr;
+    bool mInitialized                           = false;
+    bool mGlfwInitialized                       = false;
+    bool mShowStats                             = true;
+    bool mWindowTitleStatsActive                = false;
+    bool mLookActive                            = false;
+    double mLastCursorX                         = 0.0;
+    double mLastCursorY                         = 0.0;
+    double mAccumulatedScrollY                  = 0.0;
+    float mWindowTitleAccumulatedSeconds        = 0.0f;
     std::uint32_t mWindowTitleAccumulatedFrames = 0u;
     std::unordered_map<common::EntityId, CameraOutputSettings> mPresentedCameraOverrides;
     std::unordered_map<int, bool> mKeyIsDown;

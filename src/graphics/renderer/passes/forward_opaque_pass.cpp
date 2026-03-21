@@ -121,7 +121,7 @@ bool ForwardOpaquePass::beginBatchFrame(const CameraBatchView& batchView)
     if (!batchView.cameras.empty())
     {
         const ResolvedCameraView& firstCamera = batchView.cameras.front();
-        frameConstants.currentCameraIndex  = firstCamera.globalCameraIndex;
+        frameConstants.currentCameraIndex     = firstCamera.globalCameraIndex;
     }
     frameConstants.lightDirectionIntensity =
         Diligent::float4{batchView.light.direction.x, batchView.light.direction.y,
@@ -256,7 +256,8 @@ bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding& targetBin
 
 bool ForwardOpaquePass::bindShadowMaps(MaterialProgramRegistry::ProgramResources& program)
 {
-    std::array<Diligent::RefCntAutoPtr<Diligent::ITextureView>, kShadowCascadeCount> shadowMapSrvs{};
+    std::array<Diligent::RefCntAutoPtr<Diligent::ITextureView>, kShadowCascadeCount>
+        shadowMapSrvs{};
     for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
     {
         Diligent::RefCntAutoPtr<Diligent::ITextureView> shadowMapSrv = mFallbackShadowMapSrv;
@@ -340,8 +341,9 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
                                                          "g_VisiblePairs");
     if (visiblePairsVar != nullptr)
     {
-        Diligent::IBuffer* visiblePairBuffer =
-            mVisiblePairBuffer != nullptr ? mVisiblePairBuffer : mSceneView.renderableVisibilityFlagsBuffer;
+        Diligent::IBuffer* visiblePairBuffer = mVisiblePairBuffer != nullptr
+                                                   ? mVisiblePairBuffer
+                                                   : mSceneView.renderableVisibilityFlagsBuffer;
         if (visiblePairBuffer == nullptr)
         {
             return false;

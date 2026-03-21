@@ -12,15 +12,18 @@ DisplayResolvePass::DisplayResolvePass(gpu::GpuDevice& device) : mDevice(device)
 
 std::size_t DisplayResolvePass::PipelineKeyHasher::operator()(const PipelineKey& key) const noexcept
 {
-    const std::size_t colorHash = std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.colorFormat));
-    const std::size_t depthHash = std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.depthFormat));
+    const std::size_t colorHash =
+        std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.colorFormat));
+    const std::size_t depthHash =
+        std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.depthFormat));
     return colorHash ^ (depthHash << 1u);
 }
 
 bool DisplayResolvePass::initialize()
 {
     gpu::GpuBackendContext backendContext{};
-    if (!mDevice.tryGetGraphicsBackendContext(backendContext) || backendContext.renderDevice == nullptr)
+    if (!mDevice.tryGetGraphicsBackendContext(backendContext) ||
+        backendContext.renderDevice == nullptr)
     {
         return false;
     }
@@ -59,8 +62,8 @@ bool DisplayResolvePass::ensureConstants(Diligent::IRenderDevice* renderDevice)
     return mConstantsBuffer != nullptr;
 }
 
-Diligent::IPipelineState* DisplayResolvePass::getOrCreatePipeline(Diligent::IRenderDevice* renderDevice,
-                                                                  const PipelineKey& key)
+Diligent::IPipelineState* DisplayResolvePass::getOrCreatePipeline(
+    Diligent::IRenderDevice* renderDevice, const PipelineKey& key)
 {
     auto it = mPipelines.find(key);
     if (it != mPipelines.end())
@@ -106,14 +109,13 @@ Diligent::IPipelineState* DisplayResolvePass::getOrCreatePipeline(Diligent::IRen
     }
 
     Diligent::GraphicsPipelineStateCreateInfo psoCreateInfo{};
-    psoCreateInfo.PSODesc.Name                      = "CRESSimNeo.DisplayResolve.PSO";
-    psoCreateInfo.PSODesc.PipelineType              = Diligent::PIPELINE_TYPE_GRAPHICS;
-    psoCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
-    psoCreateInfo.GraphicsPipeline.RTVFormats[0]    = key.colorFormat;
-    psoCreateInfo.GraphicsPipeline.DSVFormat        = key.depthFormat;
-    psoCreateInfo.GraphicsPipeline.PrimitiveTopology =
-        Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode = Diligent::CULL_MODE_NONE;
+    psoCreateInfo.PSODesc.Name                       = "CRESSimNeo.DisplayResolve.PSO";
+    psoCreateInfo.PSODesc.PipelineType               = Diligent::PIPELINE_TYPE_GRAPHICS;
+    psoCreateInfo.GraphicsPipeline.NumRenderTargets  = 1;
+    psoCreateInfo.GraphicsPipeline.RTVFormats[0]     = key.colorFormat;
+    psoCreateInfo.GraphicsPipeline.DSVFormat         = key.depthFormat;
+    psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode      = Diligent::CULL_MODE_NONE;
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = Diligent::False;
     psoCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0].BlendEnable = Diligent::False;
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType =
@@ -136,8 +138,8 @@ Diligent::IPipelineState* DisplayResolvePass::getOrCreatePipeline(Diligent::IRen
         return nullptr;
     }
 
-    if (Diligent::IShaderResourceVariable* constantsVar =
-            pipeline->GetStaticVariableByName(Diligent::SHADER_TYPE_PIXEL, "GraphicsDisplayResolve"))
+    if (Diligent::IShaderResourceVariable* constantsVar = pipeline->GetStaticVariableByName(
+            Diligent::SHADER_TYPE_PIXEL, "GraphicsDisplayResolve"))
     {
         constantsVar->Set(mConstantsBuffer);
     }
@@ -182,8 +184,8 @@ bool DisplayResolvePass::resolve(const common::FrameContext& frameContext,
     }
 
     gpu::GpuBackendContext backendContext{};
-    if (!mDevice.tryGetGraphicsBackendContext(backendContext) || backendContext.renderDevice == nullptr ||
-        backendContext.immediateContext == nullptr)
+    if (!mDevice.tryGetGraphicsBackendContext(backendContext) ||
+        backendContext.renderDevice == nullptr || backendContext.immediateContext == nullptr)
     {
         return false;
     }
@@ -199,8 +201,9 @@ bool DisplayResolvePass::resolve(const common::FrameContext& frameContext,
     const Diligent::TEXTURE_FORMAT depthFormat = request.targetTargetDesc.depth
                                                      ? request.targetTargetDesc.depthFormat
                                                      : Diligent::TEX_FORMAT_UNKNOWN;
-    Diligent::IPipelineState* pipeline = getOrCreatePipeline(
-        backendContext.renderDevice, PipelineKey{request.targetTargetDesc.colorFormat, depthFormat});
+    Diligent::IPipelineState* pipeline =
+        getOrCreatePipeline(backendContext.renderDevice,
+                            PipelineKey{request.targetTargetDesc.colorFormat, depthFormat});
     if (pipeline == nullptr)
     {
         return false;
@@ -228,7 +231,7 @@ bool DisplayResolvePass::resolve(const common::FrameContext& frameContext,
 
     ResolveConstants constants{};
     constants.layer = request.sourceBinding.firstLayer;
-    void* mapped = nullptr;
+    void* mapped    = nullptr;
     backendContext.immediateContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,
                                                Diligent::MAP_FLAG_DISCARD, mapped);
     if (mapped == nullptr)
@@ -238,7 +241,8 @@ bool DisplayResolvePass::resolve(const common::FrameContext& frameContext,
     std::memcpy(mapped, &constants, sizeof(constants));
     backendContext.immediateContext->UnmapBuffer(mConstantsBuffer, Diligent::MAP_WRITE);
 
-    mDevice.renderTargetSystem().setRenderTargetViewport(request.targetBinding, gpu::GpuRenderViewport{});
+    mDevice.renderTargetSystem().setRenderTargetViewport(request.targetBinding,
+                                                         gpu::GpuRenderViewport{});
     gpu::GpuRenderPassBeginDesc beginDesc{};
     beginDesc.clearColor         = request.clearColor;
     beginDesc.clearDepth         = request.clearDepth;

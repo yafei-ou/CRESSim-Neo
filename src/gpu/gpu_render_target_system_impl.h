@@ -73,7 +73,7 @@ private:
 
     struct PendingReadbackCopy
     {
-        std::uint64_t requestId                = 0;
+        std::uint64_t requestId = 0;
         GpuRenderTargetBinding binding{};
         std::uint64_t frameIndex             = 0;
         std::uint64_t fenceValue             = 0;

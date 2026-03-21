@@ -34,7 +34,7 @@ Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 
                                               MaterialFeatureFlags featureFlags)
 {
     Diligent::Uint32 count = 0;
-    macros[count++] = Diligent::ShaderMacro{"MANUAL_LAYER_EXPORT", "1"};
+    macros[count++]        = Diligent::ShaderMacro{"MANUAL_LAYER_EXPORT", "1"};
     if (hasFlag(featureFlags, MaterialFeatureFlags::AlphaTest))
     {
         macros[count++] = Diligent::ShaderMacro{"CRESSIM_FEATURE_ALPHA_TEST", "1"};

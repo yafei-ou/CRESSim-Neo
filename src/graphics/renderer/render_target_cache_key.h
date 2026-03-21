@@ -19,12 +19,12 @@ inline void hashCombine(std::size_t& seed, const T& value) noexcept
 
 struct RenderTargetFamilyKey
 {
-    std::uint32_t width = 0u;
-    std::uint32_t height = 0u;
-    bool color = true;
-    bool depth = true;
-    bool shaderReadable = true;
-    bool layeredRendering = true;
+    std::uint32_t width                  = 0u;
+    std::uint32_t height                 = 0u;
+    bool color                           = true;
+    bool depth                           = true;
+    bool shaderReadable                  = true;
+    bool layeredRendering                = true;
     Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
     Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
     std::string debugName{};
@@ -33,9 +33,8 @@ struct RenderTargetFamilyKey
     {
         return width == rhs.width && height == rhs.height && color == rhs.color &&
                depth == rhs.depth && shaderReadable == rhs.shaderReadable &&
-               layeredRendering == rhs.layeredRendering &&
-               colorFormat == rhs.colorFormat && depthFormat == rhs.depthFormat &&
-               debugName == rhs.debugName;
+               layeredRendering == rhs.layeredRendering && colorFormat == rhs.colorFormat &&
+               depthFormat == rhs.depthFormat && debugName == rhs.debugName;
     }
 };
 
@@ -80,15 +79,9 @@ struct RenderTargetCacheKeyHasher
 
 inline RenderTargetFamilyKey makeRenderTargetFamilyKey(const gpu::GpuRenderTargetDesc& desc)
 {
-    return RenderTargetFamilyKey{desc.width,
-                                 desc.height,
-                                 desc.color,
-                                 desc.depth,
-                                 desc.shaderReadable,
-                                 desc.layeredRendering,
-                                 desc.colorFormat,
-                                 desc.depthFormat,
-                                 desc.debugName};
+    return RenderTargetFamilyKey{desc.width,       desc.height,         desc.color,
+                                 desc.depth,       desc.shaderReadable, desc.layeredRendering,
+                                 desc.colorFormat, desc.depthFormat,    desc.debugName};
 }
 
 inline RenderTargetCacheKey makeRenderTargetCacheKey(const gpu::GpuRenderTargetDesc& desc)

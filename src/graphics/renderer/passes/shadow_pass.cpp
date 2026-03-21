@@ -137,13 +137,12 @@ bool ShadowPass::bindSceneBuffers() const
     }
 
     Diligent::IShaderResourceVariable* visiblePairsVar =
-        mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
-                                                  "g_VisiblePairs");
+        mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs");
     if (visiblePairsVar != nullptr)
     {
-        Diligent::IBuffer* visiblePairBuffer =
-            mVisiblePairBuffer != nullptr ? mVisiblePairBuffer
-                                          : mSceneView.renderableShadowCascadeMasksBuffer;
+        Diligent::IBuffer* visiblePairBuffer = mVisiblePairBuffer != nullptr
+                                                   ? mVisiblePairBuffer
+                                                   : mSceneView.renderableShadowCascadeMasksBuffer;
         if (visiblePairBuffer == nullptr)
         {
             return false;

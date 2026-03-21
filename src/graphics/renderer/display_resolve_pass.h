@@ -27,7 +27,7 @@ public:
 private:
     struct ResolveConstants
     {
-        std::uint32_t layer = 0u;
+        std::uint32_t layer    = 0u;
         std::uint32_t padding0 = 0u;
         std::uint32_t padding1 = 0u;
         std::uint32_t padding2 = 0u;
@@ -52,7 +52,8 @@ private:
     bool ensureConstants(Diligent::IRenderDevice* renderDevice);
     Diligent::IPipelineState* getOrCreatePipeline(Diligent::IRenderDevice* renderDevice,
                                                   const PipelineKey& key);
-    Diligent::RefCntAutoPtr<Diligent::ITextureView> createArraySrv(Diligent::ITexture* texture) const;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> createArraySrv(
+        Diligent::ITexture* texture) const;
 
     gpu::GpuDevice& mDevice;
     bool mInitialized = false;

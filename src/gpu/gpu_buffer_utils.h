@@ -14,9 +14,9 @@ namespace cressim::neo::gpu::detail
 inline bool ensureStructuredBufferCapacity(
     Diligent::IRenderDevice* renderDevice, const char* name, std::uint32_t elementStride,
     std::uint32_t requiredElementCount, std::uint32_t minimumCapacity,
-    Diligent::BIND_FLAGS bindFlags, Diligent::USAGE usage,
-    Diligent::CPU_ACCESS_FLAGS cpuAccess, Diligent::Uint64 immediateContextMask,
-    Diligent::RefCntAutoPtr<Diligent::IBuffer>& inOutBuffer, std::uint32_t& inOutCapacity)
+    Diligent::BIND_FLAGS bindFlags, Diligent::USAGE usage, Diligent::CPU_ACCESS_FLAGS cpuAccess,
+    Diligent::Uint64 immediateContextMask, Diligent::RefCntAutoPtr<Diligent::IBuffer>& inOutBuffer,
+    std::uint32_t& inOutCapacity)
 {
     if (renderDevice == nullptr)
     {
@@ -27,8 +27,8 @@ inline bool ensureStructuredBufferCapacity(
     if (inOutBuffer != nullptr && elementStride > 0u)
     {
         const Diligent::BufferDesc& desc = inOutBuffer->GetDesc();
-        currentCapacity = static_cast<std::uint32_t>(desc.Size / elementStride);
-        inOutCapacity   = currentCapacity;
+        currentCapacity                  = static_cast<std::uint32_t>(desc.Size / elementStride);
+        inOutCapacity                    = currentCapacity;
     }
 
     const std::uint32_t requiredCapacity =

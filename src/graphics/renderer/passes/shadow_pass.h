@@ -28,9 +28,9 @@ public:
     void setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept;
     void setVisiblePairBuffer(Diligent::IBuffer* buffer) noexcept;
     bool drawIndirect(const gpu::GpuRenderTargetBinding& targetBinding,
-                      const ForwardDrawCommand& drawCommand,
-                      std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex,
-                      Diligent::IBuffer* indirectArgsBuffer, Diligent::Uint64 argsOffsetBytes);
+                      const ForwardDrawCommand& drawCommand, std::uint32_t currentCameraIndex,
+                      std::uint32_t cascadeIndex, Diligent::IBuffer* indirectArgsBuffer,
+                      Diligent::Uint64 argsOffsetBytes);
 
 private:
     struct DrawSetup
@@ -55,8 +55,7 @@ private:
     bool createPipeline(Diligent::IRenderDevice* renderDevice);
     bool ensureConstantBuffers(Diligent::IRenderDevice* renderDevice);
     bool prepareDraw(const gpu::GpuRenderTargetBinding& targetBinding,
-                     const ForwardDrawCommand& drawCommand,
-                     DrawSetup& outSetup);
+                     const ForwardDrawCommand& drawCommand, DrawSetup& outSetup);
     bool bindSceneBuffers() const;
     bool updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,
                                 const ForwardDrawCommand& drawCommand,

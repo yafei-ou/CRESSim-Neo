@@ -390,7 +390,8 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
     }
 
     gpu::GpuRenderTargetDesc defaultTargetDesc{};
-    const gpu::GpuRenderTargetHandle defaultTarget = mDevice.renderTargetSystem().defaultRenderTarget();
+    const gpu::GpuRenderTargetHandle defaultTarget =
+        mDevice.renderTargetSystem().defaultRenderTarget();
     const gpu::GpuRenderTargetBinding defaultTargetBinding =
         mDevice.renderTargetSystem().defaultRenderTargetBinding();
     const bool hasDefaultTarget =

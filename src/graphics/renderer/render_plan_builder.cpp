@@ -18,8 +18,7 @@ bool sameBatchCompatibility(const ResolvedCameraView& lhs, const ResolvedCameraV
            lhsDesc.shaderReadable == rhsDesc.shaderReadable &&
            lhsDesc.colorFormat == rhsDesc.colorFormat &&
            lhsDesc.depthFormat == rhsDesc.depthFormat && lhs.clearColor == rhs.clearColor &&
-           lhs.clearDepth == rhs.clearDepth &&
-           lhs.clearColorValue.x == rhs.clearColorValue.x &&
+           lhs.clearDepth == rhs.clearDepth && lhs.clearColorValue.x == rhs.clearColorValue.x &&
            lhs.clearColorValue.y == rhs.clearColorValue.y &&
            lhs.clearColorValue.z == rhs.clearColorValue.z &&
            lhs.clearColorValue.w == rhs.clearColorValue.w &&
@@ -64,17 +63,17 @@ FrameRenderPlan buildFrameRenderPlan(std::vector<ResolvedCameraView> cameras,
 
     for (ResolvedCameraView& camera : cameras)
     {
-        const bool duplicateLayer =
-            std::find(usedLayers.begin(), usedLayers.end(), camera.outputBinding.firstLayer) !=
-            usedLayers.end();
-        const bool canJoin = hasOpenBatch && sameBatchCompatibility(currentBatch.cameras.front(), camera) &&
-                             !duplicateLayer;
+        const bool duplicateLayer = std::find(usedLayers.begin(), usedLayers.end(),
+                                              camera.outputBinding.firstLayer) != usedLayers.end();
+        const bool canJoin        = hasOpenBatch &&
+                                    sameBatchCompatibility(currentBatch.cameras.front(), camera) &&
+                                    !duplicateLayer;
         if (!canJoin)
         {
             flushBatch();
-            currentBatch.light           = light;
+            currentBatch.light            = light;
             currentBatch.renderTargetDesc = camera.outputTargetDesc;
-            hasOpenBatch                 = true;
+            hasOpenBatch                  = true;
         }
 
         usedLayers.push_back(camera.outputBinding.firstLayer);

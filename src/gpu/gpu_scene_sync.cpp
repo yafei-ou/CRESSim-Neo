@@ -39,9 +39,9 @@ bool ensureStructuredBuffer(Diligent::IRenderDevice* renderDevice, const char* n
                             Diligent::RefCntAutoPtr<Diligent::IBuffer>& outBuffer,
                             std::uint32_t& inOutCapacity, std::uint32_t minimumCapacity)
 {
-    return detail::ensureStructuredBufferCapacity(
-        renderDevice, name, elementStride, elementCount, minimumCapacity, bindFlags, usage,
-        cpuAccess, immediateContextMask, outBuffer, inOutCapacity);
+    return detail::ensureStructuredBufferCapacity(renderDevice, name, elementStride, elementCount,
+                                                  minimumCapacity, bindFlags, usage, cpuAccess,
+                                                  immediateContextMask, outBuffer, inOutCapacity);
 }
 
 const Diligent::ShaderResourceVariableDesc kEntityPoseSyncVars[] = {
@@ -175,11 +175,10 @@ bool GpuSceneSync::ensureCapacity(Diligent::IRenderDevice* renderDevice, std::ui
     const std::uint32_t newCapacity    = std::max<std::uint32_t>(requiredCapacity, 64u);
     const Diligent::Uint64 contextMask = static_cast<Diligent::Uint64>(1ull) << contextId;
 
-    return ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.EntityPoseMappings",
-                                  sizeof(GpuEntityPoseMappingEntry), newCapacity,
-                                  Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                  Diligent::CPU_ACCESS_NONE, contextMask, mMappingBuffer,
-                                  mCapacity, 64u) &&
+    return ensureStructuredBuffer(
+               renderDevice, "CRESSimNeo.Gpu.EntityPoseMappings", sizeof(GpuEntityPoseMappingEntry),
+               newCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+               Diligent::CPU_ACCESS_NONE, contextMask, mMappingBuffer, mCapacity, 64u) &&
            ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.EntityPositions",
                                   sizeof(Diligent::float4), newCapacity,
                                   Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
@@ -219,9 +218,9 @@ bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadat
         mRenderableQueueInfoBuffer == nullptr || mRenderableVisibilityFlagsBuffer == nullptr ||
         mRenderableShadowCascadeMasksBuffer == nullptr)
     {
-        const std::uint32_t newCapacity    = std::max<std::uint32_t>(requiredCapacity, 64u);
-        const Diligent::Uint64 contextMask = static_cast<Diligent::Uint64>(1ull)
-                                             << computeContext.contextId;
+        const std::uint32_t newCapacity        = std::max<std::uint32_t>(requiredCapacity, 64u);
+        const Diligent::Uint64 contextMask     = static_cast<Diligent::Uint64>(1ull)
+                                                 << computeContext.contextId;
         std::uint32_t visibilityBufferCapacity = visibilityCapacity;
         if (!ensureStructuredBuffer(
                 computeContext.renderDevice, "CRESSimNeo.Gpu.RenderableMetadata",
@@ -304,17 +303,16 @@ bool GpuSceneSync::syncCameraInputs(const std::vector<GpuCameraInput>& cameras)
         const std::uint32_t newCapacity    = std::max<std::uint32_t>(requiredCapacity, 1u);
         const Diligent::Uint64 contextMask = static_cast<Diligent::Uint64>(1ull)
                                              << computeContext.contextId;
-        if (!ensureStructuredBuffer(computeContext.renderDevice, "CRESSimNeo.Gpu.CameraInputs",
-                                    sizeof(GpuCameraInput), newCapacity,
-                                    Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                    Diligent::CPU_ACCESS_NONE, contextMask, mCameraInputsBuffer,
-                                    mCameraCapacity, 1u) ||
+        if (!ensureStructuredBuffer(
+                computeContext.renderDevice, "CRESSimNeo.Gpu.CameraInputs", sizeof(GpuCameraInput),
+                newCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                Diligent::CPU_ACCESS_NONE, contextMask, mCameraInputsBuffer, mCameraCapacity, 1u) ||
             !ensureStructuredBuffer(computeContext.renderDevice, "CRESSimNeo.Gpu.PreparedCameras",
                                     sizeof(GpuPreparedCamera), newCapacity,
                                     Diligent::BIND_SHADER_RESOURCE |
                                         Diligent::BIND_UNORDERED_ACCESS,
-                                    Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
-                                    contextMask, mPreparedCamerasBuffer, mCameraCapacity, 1u))
+                                    Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                    mPreparedCamerasBuffer, mCameraCapacity, 1u))
         {
             return false;
         }

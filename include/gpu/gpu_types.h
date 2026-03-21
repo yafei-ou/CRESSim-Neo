@@ -124,8 +124,8 @@ struct GpuRenderTargetReadbackRequest
 
 struct GpuBackendContext
 {
-    Diligent::IRenderDevice* renderDevice                  = nullptr;
-    Diligent::IDeviceContext* immediateContext             = nullptr;
+    Diligent::IRenderDevice* renderDevice      = nullptr;
+    Diligent::IDeviceContext* immediateContext = nullptr;
     GpuRenderTargetBinding activeRenderTargetBinding{};
     bool hasActiveRenderTarget                             = false;
     bool activeRenderTargetHasDepth                        = false;

@@ -135,9 +135,9 @@ void Runtime::shutdown()
         mGpuDevice.reset();
     }
 
-    mLastRenderStats = {};
+    mLastRenderStats    = {};
     mRenderFrameOptions = {};
-    mInitialized     = false;
+    mInitialized        = false;
 }
 
 void Runtime::tick(const common::FrameContext& frameContext)

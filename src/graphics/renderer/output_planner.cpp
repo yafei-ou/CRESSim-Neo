@@ -14,7 +14,7 @@ namespace
 
 struct RequestedExtent
 {
-    std::uint32_t width = 0u;
+    std::uint32_t width  = 0u;
     std::uint32_t height = 0u;
 };
 
@@ -35,12 +35,12 @@ gpu::GpuRenderTargetDesc buildManagedPrimaryDesc(const CameraData& camera,
                                                  const gpu::GpuRenderTargetDesc& defaultTargetDesc)
 {
     gpu::GpuRenderTargetDesc desc = defaultTargetDesc;
-    desc.width = camera.outputWidth == 0u ? defaultTargetDesc.width : camera.outputWidth;
-    desc.height = camera.outputHeight == 0u ? defaultTargetDesc.height : camera.outputHeight;
+    desc.width     = camera.outputWidth == 0u ? defaultTargetDesc.width : camera.outputWidth;
+    desc.height    = camera.outputHeight == 0u ? defaultTargetDesc.height : camera.outputHeight;
     desc.arraySize = 1u;
     desc.layeredRendering = true;
-    desc.shaderReadable = true;
-    desc.debugName = "CRESSimNeo.ManagedPrimary";
+    desc.shaderReadable   = true;
+    desc.debugName        = "CRESSimNeo.ManagedPrimary";
     return desc;
 }
 
@@ -115,16 +115,16 @@ CameraOutputPlanningResult planCameraOutputs(
     for (const RenderTargetFamilyKey& key : managedFamilyOrder)
     {
         gpu::GpuRenderTargetDesc familyDesc{};
-        familyDesc.width = key.width;
-        familyDesc.height = key.height;
-        familyDesc.arraySize = managedFamilyCounts[key];
-        familyDesc.color = key.color;
-        familyDesc.depth = key.depth;
-        familyDesc.shaderReadable = key.shaderReadable;
+        familyDesc.width            = key.width;
+        familyDesc.height           = key.height;
+        familyDesc.arraySize        = managedFamilyCounts[key];
+        familyDesc.color            = key.color;
+        familyDesc.depth            = key.depth;
+        familyDesc.shaderReadable   = key.shaderReadable;
         familyDesc.layeredRendering = key.layeredRendering;
-        familyDesc.colorFormat = key.colorFormat;
-        familyDesc.depthFormat = key.depthFormat;
-        familyDesc.debugName = key.debugName;
+        familyDesc.colorFormat      = key.colorFormat;
+        familyDesc.depthFormat      = key.depthFormat;
+        familyDesc.debugName        = key.debugName;
 
         gpu::GpuRenderTargetHandle target{};
         const auto targetIt = managedPrimaryTargets.find(key);
@@ -134,7 +134,8 @@ CameraOutputPlanningResult planCameraOutputs(
             target = targetIt->second;
             gpu::GpuRenderTargetDesc existingDesc{};
             if (!renderTargetSystem.tryGetRenderTargetDesc(target, existingDesc) ||
-                existingDesc.width != familyDesc.width || existingDesc.height != familyDesc.height ||
+                existingDesc.width != familyDesc.width ||
+                existingDesc.height != familyDesc.height ||
                 existingDesc.arraySize != familyDesc.arraySize ||
                 existingDesc.color != familyDesc.color || existingDesc.depth != familyDesc.depth ||
                 existingDesc.shaderReadable != familyDesc.shaderReadable ||
@@ -195,15 +196,21 @@ CameraOutputPlanningResult planCameraOutputs(
             ManagedFamilyInfo& family = familyIt->second;
             ResolvedCameraView resolved{};
             populateResolvedCameraView(camera, gpuScene, resolved);
-            resolved.outputBinding = gpu::GpuRenderTargetBinding{family.target, family.nextLayer, 1u};
+            resolved.outputBinding =
+                gpu::GpuRenderTargetBinding{family.target, family.nextLayer, 1u};
             resolved.outputTargetDesc = family.desc;
             ++family.nextLayer;
 
             if (camera.entityId == options.presentedCameraEntity)
             {
-                result.displayResolve = DisplayResolveRequest{
-                    resolved.outputBinding, family.desc, defaultTargetBinding, defaultTargetDesc,
-                    false, false, resolved.clearColorValue, resolved.clearDepthValue};
+                result.displayResolve = DisplayResolveRequest{resolved.outputBinding,
+                                                              family.desc,
+                                                              defaultTargetBinding,
+                                                              defaultTargetDesc,
+                                                              false,
+                                                              false,
+                                                              resolved.clearColorValue,
+                                                              resolved.clearDepthValue};
             }
 
             result.resolvedCameras.push_back(resolved);
@@ -230,7 +237,7 @@ CameraOutputPlanningResult planCameraOutputs(
             ++inOutStats.renderTargetResizeRequests;
 
             RequestedExtent desired{};
-            desired.width = camera.outputWidth == 0u ? targetDesc.width : camera.outputWidth;
+            desired.width  = camera.outputWidth == 0u ? targetDesc.width : camera.outputWidth;
             desired.height = camera.outputHeight == 0u ? targetDesc.height : camera.outputHeight;
 
             const auto requestedIt = requestedExtents.find(target.id);
@@ -265,8 +272,7 @@ CameraOutputPlanningResult planCameraOutputs(
                     !renderTargetSystem.tryGetRenderTargetDesc(target, targetDesc))
                 {
                     std::cerr << "Renderer: skipping ExplicitSurface camera entity "
-                              << camera.entityId
-                              << " because its render target resize failed.\n";
+                              << camera.entityId << " because its render target resize failed.\n";
                     continue;
                 }
             }
@@ -278,8 +284,8 @@ CameraOutputPlanningResult planCameraOutputs(
 
         ResolvedCameraView resolved{};
         populateResolvedCameraView(camera, gpuScene, resolved);
-        resolved.outputBinding = camera.output.binding;
-        resolved.outputBinding.target = target;
+        resolved.outputBinding            = camera.output.binding;
+        resolved.outputBinding.target     = target;
         resolved.outputBinding.layerCount = 1u;
         resolved.outputBinding.firstLayer =
             std::min(resolved.outputBinding.firstLayer, targetDesc.arraySize - 1u);

@@ -38,8 +38,8 @@ public:
         const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount>& shadowMapTargets,
         std::uint32_t shadowMapCount);
     bool drawIndirect(const gpu::GpuRenderTargetBinding& targetBinding,
-                      const ForwardDrawCommand& drawCommand,
-                      Diligent::IBuffer* indirectArgsBuffer, Diligent::Uint64 argsOffsetBytes);
+                      const ForwardDrawCommand& drawCommand, Diligent::IBuffer* indirectArgsBuffer,
+                      Diligent::Uint64 argsOffsetBytes);
     std::size_t cachedProgramCount() const noexcept;
 
 private:
@@ -82,8 +82,7 @@ private:
     bool bindProgramConstants(MaterialProgramRegistry::ProgramResources& program);
     bool hasAnyShadowMap() const;
     bool prepareDraw(const gpu::GpuRenderTargetBinding& targetBinding,
-                     const ForwardDrawCommand& drawCommand,
-                     DrawSetup& outSetup);
+                     const ForwardDrawCommand& drawCommand, DrawSetup& outSetup);
     bool bindShadowMaps(MaterialProgramRegistry::ProgramResources& program);
     bool bindSceneBuffers(MaterialProgramRegistry::ProgramResources& program) const;
     bool updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,

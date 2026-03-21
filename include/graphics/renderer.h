@@ -18,7 +18,7 @@ namespace detail
 {
 class ForwardPipeline;
 class DisplayResolvePass;
-}
+} // namespace detail
 
 struct RendererDesc
 {
