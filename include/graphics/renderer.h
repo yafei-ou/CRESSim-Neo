@@ -47,21 +47,21 @@ struct RenderStats
 class CRESSIM_NEO_GRAPHICS_API Renderer
 {
 public:
-    Renderer(gpu::GpuDevice& device, RenderResourceManager& resourceManager,
-             const RendererDesc& desc = RendererDesc{});
+    Renderer(gpu::GpuDevice &device, RenderResourceManager &resourceManager,
+             const RendererDesc &desc = RendererDesc{});
     ~Renderer();
 
     bool initialize();
-    RenderStats render(const common::FrameContext& frameContext, const HostSceneView& sceneView,
-                       const RenderFrameOptions& options = RenderFrameOptions{});
+    RenderStats render(const common::FrameContext &frameContext, const HostSceneView &sceneView,
+                       const RenderFrameOptions &options = RenderFrameOptions{});
 
 private:
     struct GpuScenePrepareState;
     bool ensureGpuScenePrepareState();
-    bool prepareGpuScene(const gpu::GpuEntitySceneView& sceneView);
+    bool prepareGpuScene(const gpu::GpuEntitySceneView &sceneView);
 
-    gpu::GpuDevice& mDevice;
-    RenderResourceManager& mResourceManager;
+    gpu::GpuDevice &mDevice;
+    RenderResourceManager &mResourceManager;
     RendererDesc mDesc{};
     std::unique_ptr<detail::ForwardPipeline> mForwardPipeline;
     std::unique_ptr<detail::DisplayResolvePass> mDisplayResolvePass;

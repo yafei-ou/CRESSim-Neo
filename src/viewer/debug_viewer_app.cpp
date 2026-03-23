@@ -26,11 +26,11 @@ namespace
 using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::TransformComponent;
 
-std::vector<common::EntityId> sortedCameraEntities(const cressim::neo::engine::World& world)
+std::vector<common::EntityId> sortedCameraEntities(const cressim::neo::engine::World &world)
 {
     std::vector<graphics::CameraData> cameras;
     cameras.reserve(world.cameras().size());
-    for (const graphics::CameraData& camera : world.cameras())
+    for (const graphics::CameraData &camera : world.cameras())
     {
         if (camera.entityId == common::kInvalidEntityId || camera.cameraSlot == 0xffffffffu)
         {
@@ -40,7 +40,7 @@ std::vector<common::EntityId> sortedCameraEntities(const cressim::neo::engine::W
     }
 
     std::sort(cameras.begin(), cameras.end(),
-              [](const graphics::CameraData& lhs, const graphics::CameraData& rhs)
+              [](const graphics::CameraData &lhs, const graphics::CameraData &rhs)
               {
                   if (lhs.renderOrder != rhs.renderOrder)
                   {
@@ -51,14 +51,14 @@ std::vector<common::EntityId> sortedCameraEntities(const cressim::neo::engine::W
 
     std::vector<common::EntityId> entities;
     entities.reserve(cameras.size());
-    for (const graphics::CameraData& camera : cameras)
+    for (const graphics::CameraData &camera : cameras)
     {
         entities.push_back(camera.entityId);
     }
     return entities;
 }
 
-common::EntityId cyclePresentedCamera(const cressim::neo::engine::World& world,
+common::EntityId cyclePresentedCamera(const cressim::neo::engine::World &world,
                                       common::EntityId currentCameraEntity, int direction)
 {
     const std::vector<common::EntityId> cameras = sortedCameraEntities(world);
@@ -97,13 +97,13 @@ Diligent::QuaternionF cameraOrientationFromYawPitch(float yawDegrees, float pitc
     return common::runtime_math::quaternionFromEulerDegrees(yawDegrees, 0.0f, -pitchDegrees);
 }
 
-Diligent::float3 rotateVector(const Diligent::QuaternionF& rotation, const Diligent::float3& vector)
+Diligent::float3 rotateVector(const Diligent::QuaternionF &rotation, const Diligent::float3 &vector)
 {
     return rotation.RotateVector(vector);
 }
 
-void yawPitchFromRotation(const Diligent::QuaternionF& rotation, float& outYawDegrees,
-                          float& outPitchDegrees)
+void yawPitchFromRotation(const Diligent::QuaternionF &rotation, float &outYawDegrees,
+                          float &outPitchDegrees)
 {
     const Diligent::float3 forward = common::runtime_math::safeNormalize(
         rotateVector(rotation, {0.0f, 0.0f, 1.0f}), Diligent::float3{0.0f, 0.0f, 1.0f});
@@ -112,17 +112,17 @@ void yawPitchFromRotation(const Diligent::QuaternionF& rotation, float& outYawDe
         std::asin(std::max(-1.0f, std::min(forward.y, 1.0f))));
 }
 
-bool isPressed(GLFWwindow* window, int key)
+bool isPressed(GLFWwindow *window, int key)
 {
     return key >= 0 && glfwGetKey(window, key) == GLFW_PRESS;
 }
 
-gpu::GpuRenderTargetDesc resolveDefaultPresentationTargetDesc(engine::Runtime& runtime,
+gpu::GpuRenderTargetDesc resolveDefaultPresentationTargetDesc(engine::Runtime &runtime,
                                                               std::uint32_t requestedWidth,
                                                               std::uint32_t requestedHeight)
 {
     gpu::GpuRenderTargetDesc resolvedDesc{};
-    gpu::GpuDevice* const device = runtime.getGpuDevice();
+    gpu::GpuDevice *const device = runtime.getGpuDevice();
     if (device == nullptr)
     {
         resolvedDesc.width  = requestedWidth;
@@ -130,7 +130,7 @@ gpu::GpuRenderTargetDesc resolveDefaultPresentationTargetDesc(engine::Runtime& r
         return resolvedDesc;
     }
 
-    gpu::GpuRenderTargetSystem& renderTargets      = device->renderTargetSystem();
+    gpu::GpuRenderTargetSystem &renderTargets      = device->renderTargetSystem();
     const gpu::GpuRenderTargetHandle defaultTarget = renderTargets.defaultRenderTarget();
     if (renderTargets.isValidRenderTarget(defaultTarget))
     {
@@ -169,7 +169,7 @@ public:
         std::uint32_t outputHeight = 0u;
     };
 
-    bool initialize(DebugViewerAppDesc desc, engine::RuntimeConfig& inOutRuntimeConfig)
+    bool initialize(DebugViewerAppDesc desc, engine::RuntimeConfig &inOutRuntimeConfig)
     {
         shutdown();
 
@@ -226,12 +226,12 @@ public:
         }
         mGlfwInitialized = true;
 
-        GLFWmonitor* targetMonitor = nullptr;
+        GLFWmonitor *targetMonitor = nullptr;
         int monitorPosX            = 0;
         int monitorPosY            = 0;
         if (mDesc.startFullscreen || mDesc.startFullscreenWindowed)
         {
-            GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
+            GLFWmonitor *primaryMonitor = glfwGetPrimaryMonitor();
             if (primaryMonitor == nullptr)
             {
                 CRESSIM_LOG_ERROR(
@@ -240,7 +240,7 @@ public:
                 return false;
             }
 
-            const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
+            const GLFWvidmode *mode = glfwGetVideoMode(primaryMonitor);
             if (mode == nullptr)
             {
                 CRESSIM_LOG_ERROR("DebugViewerApp: failed to query monitor mode for fullscreen.");
@@ -306,7 +306,7 @@ public:
         return true;
     }
 
-    bool run(engine::Runtime& runtime, DebugViewerCameraBinding cameraBinding,
+    bool run(engine::Runtime &runtime, DebugViewerCameraBinding cameraBinding,
              DebugViewerCallbacks callbacks)
     {
         if (!mInitialized)
@@ -330,7 +330,7 @@ public:
             return false;
         }
 
-        auto& world = runtime.getWorld();
+        auto &world = runtime.getWorld();
         if (!world.isAlive(cameraBinding.cameraEntity))
         {
             CRESSIM_LOG_ERROR("DebugViewerApp: bound camera entity does not exist.");
@@ -609,7 +609,7 @@ private:
         mWindowTitleAccumulatedFrames  = 0u;
     }
 
-    void applyPresentedCameraOutput(engine::World& world, common::EntityId cameraEntity,
+    void applyPresentedCameraOutput(engine::World &world, common::EntityId cameraEntity,
                                     std::uint32_t width, std::uint32_t height)
     {
         if (cameraEntity == common::kInvalidEntityId)
@@ -639,7 +639,7 @@ private:
         world.setCamera(cameraEntity, updated);
     }
 
-    void restorePresentedCameraOutput(engine::World& world, common::EntityId cameraEntity)
+    void restorePresentedCameraOutput(engine::World &world, common::EntityId cameraEntity)
     {
         if (cameraEntity == common::kInvalidEntityId)
         {
@@ -665,13 +665,13 @@ private:
         mPresentedCameraOverrides.erase(it);
     }
 
-    static void scrollCallback(GLFWwindow* window, double, double yOffset)
+    static void scrollCallback(GLFWwindow *window, double, double yOffset)
     {
         if (window == nullptr)
         {
             return;
         }
-        auto* self = static_cast<Impl*>(glfwGetWindowUserPointer(window));
+        auto *self = static_cast<Impl *>(glfwGetWindowUserPointer(window));
         if (self != nullptr)
         {
             self->mAccumulatedScrollY += yOffset;
@@ -774,7 +774,7 @@ private:
         return out;
     }
 
-    void applyInputToCamera(CameraState& camera, const InputState& input, float deltaSeconds) const
+    void applyInputToCamera(CameraState &camera, const InputState &input, float deltaSeconds) const
     {
         if (input.scrollDelta != 0.0f)
         {
@@ -815,7 +815,7 @@ private:
 
 private:
     DebugViewerAppDesc mDesc{};
-    GLFWwindow* mWindow                         = nullptr;
+    GLFWwindow *mWindow                         = nullptr;
     bool mInitialized                           = false;
     bool mGlfwInitialized                       = false;
     bool mShowStats                             = true;
@@ -836,15 +836,15 @@ DebugViewerApp::DebugViewerApp() : mImpl(std::make_unique<Impl>()) {}
 
 DebugViewerApp::~DebugViewerApp() = default;
 
-DebugViewerApp::DebugViewerApp(DebugViewerApp&&) noexcept            = default;
-DebugViewerApp& DebugViewerApp::operator=(DebugViewerApp&&) noexcept = default;
+DebugViewerApp::DebugViewerApp(DebugViewerApp &&) noexcept            = default;
+DebugViewerApp &DebugViewerApp::operator=(DebugViewerApp &&) noexcept = default;
 
-bool DebugViewerApp::initialize(DebugViewerAppDesc desc, engine::RuntimeConfig& inOutRuntimeConfig)
+bool DebugViewerApp::initialize(DebugViewerAppDesc desc, engine::RuntimeConfig &inOutRuntimeConfig)
 {
     return mImpl->initialize(std::move(desc), inOutRuntimeConfig);
 }
 
-bool DebugViewerApp::run(engine::Runtime& runtime, DebugViewerCameraBinding camera,
+bool DebugViewerApp::run(engine::Runtime &runtime, DebugViewerCameraBinding camera,
                          DebugViewerCallbacks callbacks)
 {
     return mImpl->run(runtime, camera, std::move(callbacks));

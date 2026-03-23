@@ -12,7 +12,7 @@ namespace cressim::neo::graphics::detail
 {
 
 template <typename T>
-inline void hashCombine(std::size_t& seed, const T& value) noexcept
+inline void hashCombine(std::size_t &seed, const T &value) noexcept
 {
     seed ^= std::hash<T>{}(value) + 0x9e3779b97f4a7c15ull + (seed << 6u) + (seed >> 2u);
 }
@@ -29,7 +29,7 @@ struct RenderTargetFamilyKey
     Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
     std::string debugName{};
 
-    bool operator==(const RenderTargetFamilyKey& rhs) const noexcept
+    bool operator==(const RenderTargetFamilyKey &rhs) const noexcept
     {
         return width == rhs.width && height == rhs.height && color == rhs.color &&
                depth == rhs.depth && shaderReadable == rhs.shaderReadable &&
@@ -40,7 +40,7 @@ struct RenderTargetFamilyKey
 
 struct RenderTargetFamilyKeyHasher
 {
-    std::size_t operator()(const RenderTargetFamilyKey& key) const noexcept
+    std::size_t operator()(const RenderTargetFamilyKey &key) const noexcept
     {
         std::size_t seed = 0u;
         hashCombine(seed, key.width);
@@ -61,7 +61,7 @@ struct RenderTargetCacheKey
     RenderTargetFamilyKey family{};
     std::uint32_t arraySize = 1u;
 
-    bool operator==(const RenderTargetCacheKey& rhs) const noexcept
+    bool operator==(const RenderTargetCacheKey &rhs) const noexcept
     {
         return family == rhs.family && arraySize == rhs.arraySize;
     }
@@ -69,7 +69,7 @@ struct RenderTargetCacheKey
 
 struct RenderTargetCacheKeyHasher
 {
-    std::size_t operator()(const RenderTargetCacheKey& key) const noexcept
+    std::size_t operator()(const RenderTargetCacheKey &key) const noexcept
     {
         std::size_t seed = RenderTargetFamilyKeyHasher{}(key.family);
         hashCombine(seed, key.arraySize);
@@ -77,14 +77,14 @@ struct RenderTargetCacheKeyHasher
     }
 };
 
-inline RenderTargetFamilyKey makeRenderTargetFamilyKey(const gpu::GpuRenderTargetDesc& desc)
+inline RenderTargetFamilyKey makeRenderTargetFamilyKey(const gpu::GpuRenderTargetDesc &desc)
 {
     return RenderTargetFamilyKey{desc.width,       desc.height,         desc.color,
                                  desc.depth,       desc.shaderReadable, desc.layeredRendering,
                                  desc.colorFormat, desc.depthFormat,    desc.debugName};
 }
 
-inline RenderTargetCacheKey makeRenderTargetCacheKey(const gpu::GpuRenderTargetDesc& desc)
+inline RenderTargetCacheKey makeRenderTargetCacheKey(const gpu::GpuRenderTargetDesc &desc)
 {
     return RenderTargetCacheKey{makeRenderTargetFamilyKey(desc), desc.arraySize};
 }

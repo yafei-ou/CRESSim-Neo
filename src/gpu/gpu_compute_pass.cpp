@@ -5,10 +5,10 @@
 namespace cressim::neo::gpu
 {
 
-bool GpuComputePass::initialize(Diligent::IRenderDevice* renderDevice,
-                                Diligent::IShaderSourceInputStreamFactory* streamFactory,
+bool GpuComputePass::initialize(Diligent::IRenderDevice *renderDevice,
+                                Diligent::IShaderSourceInputStreamFactory *streamFactory,
                                 Diligent::Uint64 immediateContextMask,
-                                const GpuComputePassDefinition& definition)
+                                const GpuComputePassDefinition &definition)
 {
     mPso = nullptr;
     mSrbs.clear();
@@ -89,7 +89,7 @@ bool GpuComputePass::createVariants(std::size_t totalVariantCount)
     return true;
 }
 
-Diligent::IShaderResourceBinding* GpuComputePass::variantSrb(std::size_t index) const
+Diligent::IShaderResourceBinding *GpuComputePass::variantSrb(std::size_t index) const
 {
     if (index >= mSrbs.size())
     {
@@ -98,8 +98,8 @@ Diligent::IShaderResourceBinding* GpuComputePass::variantSrb(std::size_t index) 
     return mSrbs[index];
 }
 
-bool GpuComputePass::bindBufferVariable(Diligent::IShaderResourceBinding* srb,
-                                        const char* variableName, Diligent::IBuffer* buffer,
+bool GpuComputePass::bindBufferVariable(Diligent::IShaderResourceBinding *srb,
+                                        const char *variableName, Diligent::IBuffer *buffer,
                                         Diligent::BUFFER_VIEW_TYPE viewType)
 {
     if (srb == nullptr || buffer == nullptr)
@@ -108,7 +108,7 @@ bool GpuComputePass::bindBufferVariable(Diligent::IShaderResourceBinding* srb,
         return false;
     }
 
-    Diligent::IShaderResourceVariable* variable =
+    Diligent::IShaderResourceVariable *variable =
         srb->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, variableName);
     if (variable == nullptr)
     {
@@ -116,7 +116,7 @@ bool GpuComputePass::bindBufferVariable(Diligent::IShaderResourceBinding* srb,
         return false;
     }
 
-    Diligent::IBufferView* view = buffer->GetDefaultView(viewType);
+    Diligent::IBufferView *view = buffer->GetDefaultView(viewType);
     if (view != nullptr)
     {
         variable->Set(view);

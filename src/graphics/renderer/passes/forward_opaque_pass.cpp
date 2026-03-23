@@ -9,15 +9,15 @@ namespace cressim::neo::graphics::detail
 namespace
 {
 
-Diligent::RefCntAutoPtr<Diligent::ITextureView> createArrayShadowSrv(Diligent::ITexture* texture,
-                                                                     Diligent::ISampler* sampler)
+Diligent::RefCntAutoPtr<Diligent::ITextureView> createArrayShadowSrv(Diligent::ITexture *texture,
+                                                                     Diligent::ISampler *sampler)
 {
     if (texture == nullptr)
     {
         return {};
     }
 
-    const Diligent::TextureDesc& textureDesc = texture->GetDesc();
+    const Diligent::TextureDesc &textureDesc = texture->GetDesc();
     if (textureDesc.Type != Diligent::RESOURCE_DIM_TEX_2D_ARRAY)
     {
         Diligent::RefCntAutoPtr<Diligent::ITextureView> view{
@@ -48,7 +48,7 @@ Diligent::RefCntAutoPtr<Diligent::ITextureView> createArrayShadowSrv(Diligent::I
 
 } // namespace
 
-ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice& device, RenderResourceManager& resourceManager)
+ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice &device, RenderResourceManager &resourceManager)
     : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
       mMeshGpuCache("CRESSimNeo.ForwardOpaquePass")
 {
@@ -96,7 +96,7 @@ bool ForwardOpaquePass::initialize()
     return true;
 }
 
-bool ForwardOpaquePass::beginBatchFrame(const CameraBatchView& batchView)
+bool ForwardOpaquePass::beginBatchFrame(const CameraBatchView &batchView)
 {
     if (!mInitialized)
     {
@@ -120,7 +120,7 @@ bool ForwardOpaquePass::beginBatchFrame(const CameraBatchView& batchView)
     ForwardPerFrameConstants frameConstants{};
     if (!batchView.cameras.empty())
     {
-        const ResolvedCameraView& firstCamera = batchView.cameras.front();
+        const ResolvedCameraView &firstCamera = batchView.cameras.front();
         frameConstants.currentCameraIndex     = firstCamera.globalCameraIndex;
     }
     frameConstants.lightDirectionIntensity =
@@ -131,7 +131,7 @@ bool ForwardOpaquePass::beginBatchFrame(const CameraBatchView& batchView)
     frameConstants.shadowParams =
         Diligent::float4{0.0015f, hasAnyShadowMap() ? 1.0f : 0.0f, 0.35f, 0.0f};
 
-    void* mappedConstants = nullptr;
+    void *mappedConstants = nullptr;
     backendContext.immediateContext->MapBuffer(mForwardPerFrameBuffer, Diligent::MAP_WRITE,
                                                Diligent::MAP_FLAG_DISCARD, mappedConstants);
     if (mappedConstants == nullptr)
@@ -143,26 +143,26 @@ bool ForwardOpaquePass::beginBatchFrame(const CameraBatchView& batchView)
     return true;
 }
 
-void ForwardOpaquePass::setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept
+void ForwardOpaquePass::setGpuSceneView(const gpu::GpuEntitySceneView &sceneView) noexcept
 {
     mSceneView = sceneView;
 }
 
-void ForwardOpaquePass::setVisiblePairBuffer(Diligent::IBuffer* buffer) noexcept
+void ForwardOpaquePass::setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept
 {
     mVisiblePairBuffer = buffer;
 }
 
 void ForwardOpaquePass::setShadowMapTargets(
-    const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount>& shadowMapTargets,
+    const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> &shadowMapTargets,
     std::uint32_t shadowMapCount)
 {
     mShadowMapTargets = shadowMapTargets;
     mShadowMapCount   = std::min<std::uint32_t>(shadowMapCount, kShadowCascadeCount);
 }
 
-bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding& targetBinding,
-                                    const ForwardDrawCommand& drawCommand, DrawSetup& outSetup)
+bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
+                                    const ForwardDrawCommand &drawCommand, DrawSetup &outSetup)
 {
     if (!mInitialized)
     {
@@ -198,7 +198,7 @@ bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding& targetBin
         return false;
     }
 
-    MeshGpuCache::CachedBuffers* meshBuffers =
+    MeshGpuCache::CachedBuffers *meshBuffers =
         mMeshGpuCache.getOrCreate(mResourceManager, drawCommand, backendContext.renderDevice);
     if (meshBuffers == nullptr || meshBuffers->vertexBuffer == nullptr ||
         meshBuffers->indexBuffer == nullptr || meshBuffers->indexCount == 0)
@@ -219,7 +219,7 @@ bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding& targetBin
         backendContext.activeRenderTargetColorFormat, depthFormat,
         backendContext.activeRenderTargetHasDepth, backendContext.activeRenderTargetHasDepth,
         false);
-    MaterialProgramRegistry::ProgramResources* program =
+    MaterialProgramRegistry::ProgramResources *program =
         mProgramRegistry->getOrCreateProgram(backendContext.renderDevice, key);
     if (program == nullptr || program->pipelineState == nullptr)
     {
@@ -254,7 +254,7 @@ bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding& targetBin
     return true;
 }
 
-bool ForwardOpaquePass::bindShadowMaps(MaterialProgramRegistry::ProgramResources& program)
+bool ForwardOpaquePass::bindShadowMaps(MaterialProgramRegistry::ProgramResources &program)
 {
     std::array<Diligent::RefCntAutoPtr<Diligent::ITextureView>, kShadowCascadeCount>
         shadowMapSrvs{};
@@ -264,7 +264,7 @@ bool ForwardOpaquePass::bindShadowMaps(MaterialProgramRegistry::ProgramResources
         if (cascadeIdx < mShadowMapCount &&
             mShadowMapTargets[cascadeIdx].id != common::kInvalidResourceId)
         {
-            Diligent::ITexture* depthTexture = nullptr;
+            Diligent::ITexture *depthTexture = nullptr;
             if (mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(
                     mShadowMapTargets[cascadeIdx], depthTexture) &&
                 depthTexture != nullptr)
@@ -284,11 +284,11 @@ bool ForwardOpaquePass::bindShadowMaps(MaterialProgramRegistry::ProgramResources
         shadowMapSrvs[cascadeIdx] = shadowMapSrv;
     }
 
-    constexpr const char* kShadowMapVarNames[kShadowCascadeCount] = {
+    constexpr const char *kShadowMapVarNames[kShadowCascadeCount] = {
         "g_ShadowMap0", "g_ShadowMap1", "g_ShadowMap2", "g_ShadowMap3"};
     for (std::uint32_t cascadeIdx = 0; cascadeIdx < kShadowCascadeCount; ++cascadeIdx)
     {
-        Diligent::IShaderResourceVariable* shadowMapVar =
+        Diligent::IShaderResourceVariable *shadowMapVar =
             program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
                                                              kShadowMapVarNames[cascadeIdx]);
         if (shadowMapVar == nullptr)
@@ -300,7 +300,7 @@ bool ForwardOpaquePass::bindShadowMaps(MaterialProgramRegistry::ProgramResources
     return true;
 }
 
-bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResources& program) const
+bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResources &program) const
 {
     if (program.shaderResourceBinding == nullptr)
     {
@@ -308,8 +308,8 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
     }
     struct VariableBinding
     {
-        const char* name;
-        Diligent::IBuffer* buffer;
+        const char *name;
+        Diligent::IBuffer *buffer;
     };
     const VariableBinding bindings[] = {
         {"g_EntityPositions", mSceneView.poses.positionsBuffer},
@@ -318,16 +318,16 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
         {"g_RenderableMetadata", mSceneView.renderableMetadataBuffer},
         {"g_RenderableVisibilityFlags", mSceneView.renderableVisibilityFlagsBuffer},
     };
-    for (const VariableBinding& binding : bindings)
+    for (const VariableBinding &binding : bindings)
     {
-        Diligent::IShaderResourceVariable* variable =
+        Diligent::IShaderResourceVariable *variable =
             program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
                                                              binding.name);
         if (variable == nullptr || binding.buffer == nullptr)
         {
             return false;
         }
-        Diligent::IBufferView* srv =
+        Diligent::IBufferView *srv =
             binding.buffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
         if (srv == nullptr)
         {
@@ -336,19 +336,19 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
         variable->Set(srv);
     }
 
-    Diligent::IShaderResourceVariable* visiblePairsVar =
+    Diligent::IShaderResourceVariable *visiblePairsVar =
         program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
                                                          "g_VisiblePairs");
     if (visiblePairsVar != nullptr)
     {
-        Diligent::IBuffer* visiblePairBuffer = mVisiblePairBuffer != nullptr
+        Diligent::IBuffer *visiblePairBuffer = mVisiblePairBuffer != nullptr
                                                    ? mVisiblePairBuffer
                                                    : mSceneView.renderableVisibilityFlagsBuffer;
         if (visiblePairBuffer == nullptr)
         {
             return false;
         }
-        Diligent::IBufferView* visiblePairsSrv =
+        Diligent::IBufferView *visiblePairsSrv =
             visiblePairBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
         if (visiblePairsSrv == nullptr)
         {
@@ -361,7 +361,7 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
     {
         return false;
     }
-    Diligent::IBufferView* preparedCameraSrv =
+    Diligent::IBufferView *preparedCameraSrv =
         mSceneView.preparedCamerasBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
     if (preparedCameraSrv == nullptr)
     {
@@ -370,7 +370,7 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
     for (const Diligent::SHADER_TYPE shaderType :
          {Diligent::SHADER_TYPE_VERTEX, Diligent::SHADER_TYPE_PIXEL})
     {
-        Diligent::IShaderResourceVariable* preparedCameraVar =
+        Diligent::IShaderResourceVariable *preparedCameraVar =
             program.shaderResourceBinding->GetVariableByName(shaderType, "g_PreparedCameras");
         if (preparedCameraVar != nullptr)
         {
@@ -380,15 +380,15 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
     return true;
 }
 
-bool ForwardOpaquePass::updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,
-                                               const ForwardDrawCommand& drawCommand)
+bool ForwardOpaquePass::updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
+                                               const ForwardDrawCommand &drawCommand)
 {
     PerObjectConstants objectConstants{};
     objectConstants.instanceIndex     = drawCommand.instanceIndex;
     objectConstants.drawListOffset    = drawCommand.drawListOffset;
     objectConstants.useDrawListBuffer = drawCommand.useDrawListBuffer;
 
-    const MaterialResourceDesc* material =
+    const MaterialResourceDesc *material =
         mResourceManager.tryGetMaterial(MaterialHandle{drawCommand.materialId});
     if (material == nullptr)
     {
@@ -402,7 +402,7 @@ bool ForwardOpaquePass::updatePerDrawConstants(Diligent::IDeviceContext* immedia
         Diligent::float4{material->metallic, material->roughness, material->pipeline.alphaCutoff,
                          material->receivesShadows ? 1.0f : 0.0f};
 
-    void* mappedConstants = nullptr;
+    void *mappedConstants = nullptr;
     immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
                                 mappedConstants);
     if (mappedConstants == nullptr)
@@ -424,11 +424,11 @@ bool ForwardOpaquePass::updatePerDrawConstants(Diligent::IDeviceContext* immedia
     return true;
 }
 
-void ForwardOpaquePass::bindGeometry(Diligent::IDeviceContext* immediateContext,
-                                     const MeshGpuCache::CachedBuffers& meshBuffers) const
+void ForwardOpaquePass::bindGeometry(Diligent::IDeviceContext *immediateContext,
+                                     const MeshGpuCache::CachedBuffers &meshBuffers) const
 {
     const Diligent::Uint64 vertexOffset = 0;
-    Diligent::IBuffer* vertexBuffers[]  = {meshBuffers.vertexBuffer};
+    Diligent::IBuffer *vertexBuffers[]  = {meshBuffers.vertexBuffer};
     immediateContext->SetVertexBuffers(0, 1, vertexBuffers, &vertexOffset,
                                        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                                        Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
@@ -436,9 +436,9 @@ void ForwardOpaquePass::bindGeometry(Diligent::IDeviceContext* immediateContext,
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
-bool ForwardOpaquePass::drawIndirect(const gpu::GpuRenderTargetBinding& targetBinding,
-                                     const ForwardDrawCommand& drawCommand,
-                                     Diligent::IBuffer* indirectArgsBuffer,
+bool ForwardOpaquePass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
+                                     const ForwardDrawCommand &drawCommand,
+                                     Diligent::IBuffer *indirectArgsBuffer,
                                      Diligent::Uint64 argsOffsetBytes)
 {
     DrawSetup setup{};
@@ -476,7 +476,7 @@ std::size_t ForwardOpaquePass::cachedProgramCount() const noexcept
     return mProgramRegistry != nullptr ? mProgramRegistry->cachedProgramCount() : 0u;
 }
 
-bool ForwardOpaquePass::ensureConstantBuffers(Diligent::IRenderDevice* renderDevice)
+bool ForwardOpaquePass::ensureConstantBuffers(Diligent::IRenderDevice *renderDevice)
 {
     if (renderDevice == nullptr)
     {
@@ -531,7 +531,7 @@ bool ForwardOpaquePass::ensureConstantBuffers(Diligent::IRenderDevice* renderDev
     return true;
 }
 
-bool ForwardOpaquePass::bindProgramConstants(MaterialProgramRegistry::ProgramResources& program)
+bool ForwardOpaquePass::bindProgramConstants(MaterialProgramRegistry::ProgramResources &program)
 {
     if (program.pipelineState == nullptr || mForwardPerFrameBuffer == nullptr ||
         mPerObjectBuffer == nullptr || mForwardPerMaterialBuffer == nullptr)
@@ -539,10 +539,10 @@ bool ForwardOpaquePass::bindProgramConstants(MaterialProgramRegistry::ProgramRes
         return false;
     }
 
-    auto bindIfPresent = [&](Diligent::SHADER_TYPE shaderType, const char* varName,
-                             Diligent::IBuffer* buffer, bool required)
+    auto bindIfPresent = [&](Diligent::SHADER_TYPE shaderType, const char *varName,
+                             Diligent::IBuffer *buffer, bool required)
     {
-        Diligent::IShaderResourceVariable* variable =
+        Diligent::IShaderResourceVariable *variable =
             program.pipelineState->GetStaticVariableByName(shaderType, varName);
         if (variable == nullptr)
         {
@@ -573,7 +573,7 @@ bool ForwardOpaquePass::hasAnyShadowMap() const
 {
     for (std::uint32_t cascadeIdx = 0; cascadeIdx < mShadowMapCount; ++cascadeIdx)
     {
-        Diligent::ITexture* depthTexture = nullptr;
+        Diligent::ITexture *depthTexture = nullptr;
         if (mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(
                 mShadowMapTargets[cascadeIdx], depthTexture) &&
             depthTexture != nullptr)

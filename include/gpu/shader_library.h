@@ -16,8 +16,8 @@ class CRESSIM_NEO_GPU_API ShaderLibrary
 public:
     explicit ShaderLibrary(std::string shaderDirectory);
 
-    bool resolveShaderPath(const char* relativePath, std::string& outPath);
-    Diligent::IShaderSourceInputStreamFactory* streamFactory();
+    bool resolveShaderPath(const char *relativePath, std::string &outPath);
+    Diligent::IShaderSourceInputStreamFactory *streamFactory();
 
 private:
     bool resolveShaderDirectory();

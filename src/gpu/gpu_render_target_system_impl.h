@@ -18,43 +18,43 @@ namespace cressim::neo::gpu
 class GpuRenderTargetSystemImpl final : public GpuRenderTargetSystem
 {
 public:
-    bool initialize(const GpuRenderTargetDesc& defaultDesc, bool isVulkanBackend,
-                    Diligent::IRenderDevice* renderDevice,
-                    Diligent::IDeviceContext* immediateContext);
+    bool initialize(const GpuRenderTargetDesc &defaultDesc, bool isVulkanBackend,
+                    Diligent::IRenderDevice *renderDevice,
+                    Diligent::IDeviceContext *immediateContext);
     void shutdown();
-    void endFrame(const common::FrameContext& frameContext);
+    void endFrame(const common::FrameContext &frameContext);
 
-    void fillBackendContextState(GpuBackendContext& outContext) const;
+    void fillBackendContextState(GpuBackendContext &outContext) const;
 
-    GpuRenderTargetHandle createRenderTarget(const GpuRenderTargetDesc& desc) override;
+    GpuRenderTargetHandle createRenderTarget(const GpuRenderTargetDesc &desc) override;
     GpuRenderTargetUpdateResult resizeRenderTarget(GpuRenderTargetHandle target,
                                                    std::uint32_t width,
                                                    std::uint32_t height) override;
     GpuRenderTargetUpdateResult reconfigureRenderTarget(GpuRenderTargetHandle target,
-                                                        const GpuRenderTargetDesc& desc) override;
+                                                        const GpuRenderTargetDesc &desc) override;
     void destroyRenderTarget(GpuRenderTargetHandle target) override;
     bool isValidRenderTarget(GpuRenderTargetHandle target) const override;
     bool tryGetRenderTargetDesc(GpuRenderTargetHandle target,
-                                GpuRenderTargetDesc& outDesc) const override;
+                                GpuRenderTargetDesc &outDesc) const override;
     GpuRenderTargetHandle defaultRenderTarget() const override;
     GpuRenderTargetBinding defaultRenderTargetBinding() const override;
 
-    void setRenderTargetViewport(const GpuRenderTargetBinding& binding,
-                                 const GpuRenderViewport& viewport) override;
-    void beginRenderTarget(const GpuRenderTargetBinding& binding,
-                           const common::FrameContext& frameContext,
-                           const GpuRenderPassBeginDesc& beginDesc) override;
-    void endRenderTarget(const GpuRenderTargetBinding& binding,
-                         const common::FrameContext& frameContext) override;
+    void setRenderTargetViewport(const GpuRenderTargetBinding &binding,
+                                 const GpuRenderViewport &viewport) override;
+    void beginRenderTarget(const GpuRenderTargetBinding &binding,
+                           const common::FrameContext &frameContext,
+                           const GpuRenderPassBeginDesc &beginDesc) override;
+    void endRenderTarget(const GpuRenderTargetBinding &binding,
+                         const common::FrameContext &frameContext) override;
 
     GpuRenderTargetReadbackRequest requestRenderTargetReadback(
-        const GpuRenderTargetBinding& binding) override;
+        const GpuRenderTargetBinding &binding) override;
     bool tryGetRenderTargetReadback(GpuRenderTargetReadbackRequest request,
-                                    GpuRenderTargetReadbackEvent& outEvent) override;
+                                    GpuRenderTargetReadbackEvent &outEvent) override;
     bool tryGetRenderTargetColorTexture(GpuRenderTargetHandle target,
-                                        Diligent::ITexture*& outTexture) override;
+                                        Diligent::ITexture *&outTexture) override;
     bool tryGetRenderTargetDepthTexture(GpuRenderTargetHandle target,
-                                        Diligent::ITexture*& outTexture) override;
+                                        Diligent::ITexture *&outTexture) override;
 
 private:
     struct RenderTargetResources
@@ -83,18 +83,18 @@ private:
         Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
     };
 
-    GpuRenderTargetDesc normalizeDefaultRenderTargetDesc(const GpuRenderTargetDesc& desc) const;
-    GpuRenderTargetDesc normalizeTargetDesc(const GpuRenderTargetDesc& desc) const;
-    bool createRenderTargetTextures(const GpuRenderTargetDesc& desc,
-                                    RenderTargetResources& resources);
-    static std::uint64_t bindingKey(const GpuRenderTargetBinding& binding) noexcept;
-    GpuRenderTargetBinding normalizeBinding(const GpuRenderTargetBinding& binding,
-                                            const RenderTargetResources& resources) const;
-    Diligent::ITextureView* getOrCreateRenderTargetView(RenderTargetResources& resources,
-                                                        const GpuRenderTargetBinding& binding);
-    Diligent::ITextureView* getOrCreateDepthStencilView(RenderTargetResources& resources,
-                                                        const GpuRenderTargetBinding& binding);
-    bool queueReadbackCopy(const GpuRenderTargetBinding& binding, std::uint64_t frameIndex,
+    GpuRenderTargetDesc normalizeDefaultRenderTargetDesc(const GpuRenderTargetDesc &desc) const;
+    GpuRenderTargetDesc normalizeTargetDesc(const GpuRenderTargetDesc &desc) const;
+    bool createRenderTargetTextures(const GpuRenderTargetDesc &desc,
+                                    RenderTargetResources &resources);
+    static std::uint64_t bindingKey(const GpuRenderTargetBinding &binding) noexcept;
+    GpuRenderTargetBinding normalizeBinding(const GpuRenderTargetBinding &binding,
+                                            const RenderTargetResources &resources) const;
+    Diligent::ITextureView *getOrCreateRenderTargetView(RenderTargetResources &resources,
+                                                        const GpuRenderTargetBinding &binding);
+    Diligent::ITextureView *getOrCreateDepthStencilView(RenderTargetResources &resources,
+                                                        const GpuRenderTargetBinding &binding);
+    bool queueReadbackCopy(const GpuRenderTargetBinding &binding, std::uint64_t frameIndex,
                            std::uint64_t requestId);
 
 private:

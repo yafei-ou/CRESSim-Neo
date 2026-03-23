@@ -26,24 +26,24 @@ struct RuntimeConfig
 class CRESSIM_NEO_ENGINE_API Runtime
 {
 public:
-    bool initialize(const RuntimeConfig& config = RuntimeConfig{});
+    bool initialize(const RuntimeConfig &config = RuntimeConfig{});
     void shutdown();
 
-    void tick(const common::FrameContext& frameContext);
+    void tick(const common::FrameContext &frameContext);
 
-    World& getWorld() noexcept;
-    const World& getWorld() const noexcept;
+    World &getWorld() noexcept;
+    const World &getWorld() const noexcept;
 
-    gpu::GpuDevice* getGpuDevice() noexcept;
-    const gpu::GpuDevice* getGpuDevice() const noexcept;
-    physics::PhysicsSolver* getPhysicsSolver() noexcept;
-    const physics::PhysicsSolver* getPhysicsSolver() const noexcept;
-    const graphics::RenderStats& lastRenderStats() const noexcept;
-    void setRenderFrameOptions(const graphics::RenderFrameOptions& options) noexcept;
-    const graphics::RenderFrameOptions& renderFrameOptions() const noexcept;
+    gpu::GpuDevice *getGpuDevice() noexcept;
+    const gpu::GpuDevice *getGpuDevice() const noexcept;
+    physics::PhysicsSolver *getPhysicsSolver() noexcept;
+    const physics::PhysicsSolver *getPhysicsSolver() const noexcept;
+    const graphics::RenderStats &lastRenderStats() const noexcept;
+    void setRenderFrameOptions(const graphics::RenderFrameOptions &options) noexcept;
+    const graphics::RenderFrameOptions &renderFrameOptions() const noexcept;
 
-    graphics::RenderResourceManager& getResources() noexcept;
-    const graphics::RenderResourceManager& getResources() const noexcept;
+    graphics::RenderResourceManager &getResources() noexcept;
+    const graphics::RenderResourceManager &getResources() const noexcept;
 
 private:
     bool mInitialized = false;

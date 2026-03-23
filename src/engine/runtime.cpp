@@ -10,7 +10,7 @@ namespace cressim::neo::engine
 namespace
 {
 
-const char* stageName(physics::PhysicsSolverStage stage)
+const char *stageName(physics::PhysicsSolverStage stage)
 {
     switch (stage)
     {
@@ -36,8 +36,8 @@ const char* stageName(physics::PhysicsSolverStage stage)
     return "Unknown";
 }
 
-void logPhysicsStepFailure(const common::FrameContext& frameContext,
-                           const physics::PhysicsSolverStageStats& stats)
+void logPhysicsStepFailure(const common::FrameContext &frameContext,
+                           const physics::PhysicsSolverStageStats &stats)
 {
     std::ostringstream stream;
     stream << "Runtime: physics step failed at frame " << frameContext.frameIndex
@@ -53,7 +53,7 @@ void logPhysicsStepFailure(const common::FrameContext& frameContext,
 
 } // namespace
 
-bool Runtime::initialize(const RuntimeConfig& config)
+bool Runtime::initialize(const RuntimeConfig &config)
 {
     if (mInitialized)
     {
@@ -143,7 +143,7 @@ void Runtime::shutdown()
     mInitialized        = false;
 }
 
-void Runtime::tick(const common::FrameContext& frameContext)
+void Runtime::tick(const common::FrameContext &frameContext)
 {
     if (!mInitialized)
     {
@@ -208,57 +208,57 @@ void Runtime::tick(const common::FrameContext& frameContext)
     mLastRenderStats = mRenderer->render(frameContext, mWorld.hostSceneView(), mRenderFrameOptions);
 }
 
-World& Runtime::getWorld() noexcept
+World &Runtime::getWorld() noexcept
 {
     return mWorld;
 }
 
-const World& Runtime::getWorld() const noexcept
+const World &Runtime::getWorld() const noexcept
 {
     return mWorld;
 }
 
-gpu::GpuDevice* Runtime::getGpuDevice() noexcept
+gpu::GpuDevice *Runtime::getGpuDevice() noexcept
 {
     return mGpuDevice.get();
 }
 
-const gpu::GpuDevice* Runtime::getGpuDevice() const noexcept
+const gpu::GpuDevice *Runtime::getGpuDevice() const noexcept
 {
     return mGpuDevice.get();
 }
 
-physics::PhysicsSolver* Runtime::getPhysicsSolver() noexcept
+physics::PhysicsSolver *Runtime::getPhysicsSolver() noexcept
 {
     return mPhysicsSolver.get();
 }
 
-const physics::PhysicsSolver* Runtime::getPhysicsSolver() const noexcept
+const physics::PhysicsSolver *Runtime::getPhysicsSolver() const noexcept
 {
     return mPhysicsSolver.get();
 }
 
-const graphics::RenderStats& Runtime::lastRenderStats() const noexcept
+const graphics::RenderStats &Runtime::lastRenderStats() const noexcept
 {
     return mLastRenderStats;
 }
 
-void Runtime::setRenderFrameOptions(const graphics::RenderFrameOptions& options) noexcept
+void Runtime::setRenderFrameOptions(const graphics::RenderFrameOptions &options) noexcept
 {
     mRenderFrameOptions = options;
 }
 
-const graphics::RenderFrameOptions& Runtime::renderFrameOptions() const noexcept
+const graphics::RenderFrameOptions &Runtime::renderFrameOptions() const noexcept
 {
     return mRenderFrameOptions;
 }
 
-graphics::RenderResourceManager& Runtime::getResources() noexcept
+graphics::RenderResourceManager &Runtime::getResources() noexcept
 {
     return mResources;
 }
 
-const graphics::RenderResourceManager& Runtime::getResources() const noexcept
+const graphics::RenderResourceManager &Runtime::getResources() const noexcept
 {
     return mResources;
 }

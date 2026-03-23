@@ -19,10 +19,10 @@ namespace cressim::neo::graphics::detail
 class DisplayResolvePass
 {
 public:
-    explicit DisplayResolvePass(gpu::GpuDevice& device);
+    explicit DisplayResolvePass(gpu::GpuDevice &device);
 
     bool initialize();
-    bool resolve(const common::FrameContext& frameContext, const DisplayResolveRequest& request);
+    bool resolve(const common::FrameContext &frameContext, const DisplayResolveRequest &request);
 
 private:
     struct ResolveConstants
@@ -38,7 +38,7 @@ private:
         Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
         Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
 
-        bool operator==(const PipelineKey& rhs) const noexcept
+        bool operator==(const PipelineKey &rhs) const noexcept
         {
             return colorFormat == rhs.colorFormat && depthFormat == rhs.depthFormat;
         }
@@ -46,24 +46,24 @@ private:
 
     struct PipelineKeyHasher
     {
-        std::size_t operator()(const PipelineKey& key) const noexcept;
+        std::size_t operator()(const PipelineKey &key) const noexcept;
     };
 
-    bool ensureConstants(Diligent::IRenderDevice* renderDevice);
-    Diligent::IPipelineState* getOrCreatePipeline(Diligent::IRenderDevice* renderDevice,
-                                                  const PipelineKey& key);
-    Diligent::IShaderResourceBinding* getOrCreateResolveBinding(Diligent::IPipelineState* pipeline);
+    bool ensureConstants(Diligent::IRenderDevice *renderDevice);
+    Diligent::IPipelineState *getOrCreatePipeline(Diligent::IRenderDevice *renderDevice,
+                                                  const PipelineKey &key);
+    Diligent::IShaderResourceBinding *getOrCreateResolveBinding(Diligent::IPipelineState *pipeline);
     Diligent::RefCntAutoPtr<Diligent::ITextureView> createArraySrv(
-        Diligent::ITexture* texture) const;
+        Diligent::ITexture *texture) const;
 
-    gpu::GpuDevice& mDevice;
+    gpu::GpuDevice &mDevice;
     bool mInitialized = false;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::ISampler> mSampler;
     std::unordered_map<PipelineKey, Diligent::RefCntAutoPtr<Diligent::IPipelineState>,
                        PipelineKeyHasher>
         mPipelines;
-    std::unordered_map<Diligent::IPipelineState*,
+    std::unordered_map<Diligent::IPipelineState *,
                        Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>>
         mResolveBindings;
 };

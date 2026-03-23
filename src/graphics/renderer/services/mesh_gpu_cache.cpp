@@ -7,21 +7,21 @@ namespace cressim::neo::graphics::detail
 
 MeshGpuCache::MeshGpuCache(std::string debugPrefix) : mDebugPrefix(std::move(debugPrefix)) {}
 
-MeshGpuCache::CachedBuffers* MeshGpuCache::getOrCreate(const RenderResourceManager& resources,
-                                                       const ForwardDrawCommand& drawCommand,
-                                                       Diligent::IRenderDevice* renderDevice)
+MeshGpuCache::CachedBuffers *MeshGpuCache::getOrCreate(const RenderResourceManager &resources,
+                                                       const ForwardDrawCommand &drawCommand,
+                                                       Diligent::IRenderDevice *renderDevice)
 {
     if (renderDevice == nullptr)
     {
         return nullptr;
     }
-    const MeshResourceDesc* meshDesc = resources.tryGetMesh(MeshHandle{drawCommand.meshId});
+    const MeshResourceDesc *meshDesc = resources.tryGetMesh(MeshHandle{drawCommand.meshId});
     if (meshDesc == nullptr || meshDesc->vertices.empty() || meshDesc->indices.size() < 3)
     {
         return nullptr;
     }
 
-    auto& mesh          = mCachedMeshes[drawCommand.meshId];
+    auto &mesh          = mCachedMeshes[drawCommand.meshId];
     const bool recreate = mesh.vertexBuffer == nullptr || mesh.indexBuffer == nullptr ||
                           mesh.version != drawCommand.meshVersion;
     if (!recreate)

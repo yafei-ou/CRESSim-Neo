@@ -23,25 +23,25 @@ public:
 
     common::EntityId createEntity(std::uint32_t envIndex = 0u);
     bool destroyEntity(common::EntityId entityId);
-    void setSceneLayout(const gpu::GpuSceneLayoutDesc& layout);
-    const gpu::GpuSceneLayoutDesc& sceneLayout() const noexcept;
+    void setSceneLayout(const gpu::GpuSceneLayoutDesc &layout);
+    const gpu::GpuSceneLayoutDesc &sceneLayout() const noexcept;
     bool setEntityEnvironment(common::EntityId entityId, std::uint32_t envIndex);
     std::uint32_t entityEnvironment(common::EntityId entityId) const noexcept;
 
     bool isAlive(common::EntityId entityId) const;
-    const std::vector<common::EntityId>& entities() const noexcept;
+    const std::vector<common::EntityId> &entities() const noexcept;
 
-    void setTransform(common::EntityId entityId, const TransformComponent& component);
-    void setMeshRenderer(common::EntityId entityId, const MeshRendererComponent& component);
-    void setCamera(common::EntityId entityId, const CameraComponent& component);
-    void setDirectionalLight(common::EntityId entityId, const DirectionalLightComponent& component);
+    void setTransform(common::EntityId entityId, const TransformComponent &component);
+    void setMeshRenderer(common::EntityId entityId, const MeshRendererComponent &component);
+    void setCamera(common::EntityId entityId, const CameraComponent &component);
+    void setDirectionalLight(common::EntityId entityId, const DirectionalLightComponent &component);
 
     // Physics is owned by PhysicsWorld now.
-    void setRigidBody(common::EntityId entityId, const RigidBodyComponent& component);
+    void setRigidBody(common::EntityId entityId, const RigidBodyComponent &component);
     bool removeRigidBody(common::EntityId entityId);
 
-    ColliderHandle addCollider(common::EntityId entityId, const ColliderComponent& component);
-    void updateCollider(ColliderHandle handle, const ColliderComponent& component);
+    ColliderHandle addCollider(common::EntityId entityId, const ColliderComponent &component);
+    void updateCollider(ColliderHandle handle, const ColliderComponent &component);
     bool removeCollider(ColliderHandle handle);
 
     bool removeTransform(common::EntityId entityId);
@@ -58,30 +58,30 @@ public:
     // Read rigid body/collider through physics.
     std::optional<RigidBodyComponent> tryGetRigidBody(common::EntityId entityId) const;
     std::optional<ColliderComponent> tryGetCollider(ColliderHandle handle) const;
-    const std::vector<ColliderHandle>& colliderHandles(common::EntityId entityId) const;
+    const std::vector<ColliderHandle> &colliderHandles(common::EntityId entityId) const;
 
-    physics::PhysicsWorld& physicsWorld() noexcept;
-    const physics::PhysicsWorld& physicsWorld() const noexcept;
+    physics::PhysicsWorld &physicsWorld() noexcept;
+    const physics::PhysicsWorld &physicsWorld() const noexcept;
 
     void refreshFromPhysics();
-    void setGpuEntityScene(const gpu::GpuEntitySceneView& sceneView) noexcept;
+    void setGpuEntityScene(const gpu::GpuEntitySceneView &sceneView) noexcept;
 
-    const std::vector<graphics::RenderableInstance>& renderables() const noexcept;
-    const std::vector<graphics::CameraData>& cameras() const noexcept;
-    const std::vector<graphics::DirectionalLightData>& directionalLights() const noexcept;
-    const std::vector<Diligent::float4>& renderObjectPositions() const noexcept;
-    const std::vector<Diligent::float4>& renderObjectOrientations() const noexcept;
-    const std::vector<Diligent::float4>& renderObjectScales() const noexcept;
-    const std::vector<gpu::GpuRenderableMetadata>& renderableMetadata() const noexcept;
-    const std::vector<gpu::GpuRenderableQueueInfo>& renderableQueueInfo() const noexcept;
-    const std::vector<gpu::GpuCameraInput>& cameraInputs() const noexcept;
-    const std::vector<gpu::GpuDirectionalLightInput>& lightInputs() const noexcept;
-    const std::vector<graphics::IndirectCommandRegistryEntry>& opaqueDrawRegistry() const noexcept;
-    const std::vector<graphics::IndirectCommandRegistryEntry>& shadowDrawRegistry() const noexcept;
-    const std::vector<gpu::GpuEntityPoseMappingEntry>& physicsRenderableMappings();
-    const gpu::GpuEntitySceneView& gpuEntityScene() const noexcept;
+    const std::vector<graphics::RenderableInstance> &renderables() const noexcept;
+    const std::vector<graphics::CameraData> &cameras() const noexcept;
+    const std::vector<graphics::DirectionalLightData> &directionalLights() const noexcept;
+    const std::vector<Diligent::float4> &renderObjectPositions() const noexcept;
+    const std::vector<Diligent::float4> &renderObjectOrientations() const noexcept;
+    const std::vector<Diligent::float4> &renderObjectScales() const noexcept;
+    const std::vector<gpu::GpuRenderableMetadata> &renderableMetadata() const noexcept;
+    const std::vector<gpu::GpuRenderableQueueInfo> &renderableQueueInfo() const noexcept;
+    const std::vector<gpu::GpuCameraInput> &cameraInputs() const noexcept;
+    const std::vector<gpu::GpuDirectionalLightInput> &lightInputs() const noexcept;
+    const std::vector<graphics::IndirectCommandRegistryEntry> &opaqueDrawRegistry() const noexcept;
+    const std::vector<graphics::IndirectCommandRegistryEntry> &shadowDrawRegistry() const noexcept;
+    const std::vector<gpu::GpuEntityPoseMappingEntry> &physicsRenderableMappings();
+    const gpu::GpuEntitySceneView &gpuEntityScene() const noexcept;
     graphics::HostSceneView hostSceneView() const noexcept;
-    void ensureRenderStateUpToDate(const graphics::RenderResourceManager& resources);
+    void ensureRenderStateUpToDate(const graphics::RenderResourceManager &resources);
 
     // ---------- GPU-friendly SoA views ----------
     struct TransformSoA
@@ -92,7 +92,7 @@ public:
         std::vector<Diligent::float4> scales;
     };
 
-    const TransformSoA& transformSoA() const noexcept
+    const TransformSoA &transformSoA() const noexcept
     {
         return mTransforms;
     }
@@ -117,10 +117,10 @@ private:
     void refreshRenderablePose(std::uint32_t objectIndex);
     void refreshCameraEntry(std::uint32_t cameraIndex);
     void refreshDirectionalLightEntry(std::uint32_t lightIndex);
-    void refreshDirtyRenderableMetadata(const graphics::RenderResourceManager& resources);
-    void rebuildDrawRegistries(const graphics::RenderResourceManager& resources);
-    void clearDirtyIndexSet(std::vector<std::uint32_t>& dirtyIndices,
-                            std::vector<std::uint8_t>& dirtyBits);
+    void refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources);
+    void rebuildDrawRegistries(const graphics::RenderResourceManager &resources);
+    void clearDirtyIndexSet(std::vector<std::uint32_t> &dirtyIndices,
+                            std::vector<std::uint8_t> &dirtyBits);
     void markRenderablePoseDirty(std::uint32_t objectIndex);
     void markCameraDirty(std::uint32_t cameraIndex);
     void markLightDirty(std::uint32_t lightIndex);
@@ -129,27 +129,27 @@ private:
     void moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
     void moveDirectionalLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
 
-    static Diligent::float4 packPosition(const TransformComponent& c)
+    static Diligent::float4 packPosition(const TransformComponent &c)
     {
         return Diligent::float4{c.worldTransform.position.x, c.worldTransform.position.y,
                                 c.worldTransform.position.z, 0.0f};
     }
 
-    static Diligent::float4 packRotation(const TransformComponent& c)
+    static Diligent::float4 packRotation(const TransformComponent &c)
     {
         return Diligent::float4{c.worldTransform.rotation.q.x, c.worldTransform.rotation.q.y,
                                 c.worldTransform.rotation.q.z, c.worldTransform.rotation.q.w};
     }
 
-    static Diligent::float4 packScale(const TransformComponent& c)
+    static Diligent::float4 packScale(const TransformComponent &c)
     {
         return Diligent::float4{c.worldTransform.scale.x, c.worldTransform.scale.y,
                                 c.worldTransform.scale.z, 0.0f};
     }
 
-    static TransformComponent unpackTransform(const Diligent::float4& position,
-                                              const Diligent::float4& rotation,
-                                              const Diligent::float4& scale)
+    static TransformComponent unpackTransform(const Diligent::float4 &position,
+                                              const Diligent::float4 &rotation,
+                                              const Diligent::float4 &scale)
     {
         TransformComponent component{};
         component.worldTransform.position = Diligent::float3{position.x, position.y, position.z};
@@ -160,8 +160,8 @@ private:
     }
 
     template <typename SoAType, typename WriterFn>
-    static void upsertSoA(common::EntityId entityId, SoAType& soa, SparseIndex<SoAType>& index,
-                          WriterFn&& writer)
+    static void upsertSoA(common::EntityId entityId, SoAType &soa, SparseIndex<SoAType> &index,
+                          WriterFn &&writer)
     {
         const auto it = index.entityToIndex.find(entityId);
         if (it == index.entityToIndex.end())

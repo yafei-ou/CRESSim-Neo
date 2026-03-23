@@ -31,13 +31,13 @@ std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
     return (threadCount + kComputeThreadGroupSize - 1u) / kComputeThreadGroupSize;
 }
 
-bool ensureStructuredBuffer(Diligent::IRenderDevice* renderDevice, const char* name,
+bool ensureStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
                             std::uint32_t elementStride, std::uint32_t elementCount,
                             Diligent::BIND_FLAGS bindFlags, Diligent::USAGE usage,
                             Diligent::CPU_ACCESS_FLAGS cpuAccess,
                             Diligent::Uint64 immediateContextMask,
-                            Diligent::RefCntAutoPtr<Diligent::IBuffer>& outBuffer,
-                            std::uint32_t& inOutCapacity, std::uint32_t minimumCapacity)
+                            Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer,
+                            std::uint32_t &inOutCapacity, std::uint32_t minimumCapacity)
 {
     return detail::ensureStructuredBufferCapacity(renderDevice, name, elementStride, elementCount,
                                                   minimumCapacity, bindFlags, usage, cpuAccess,
@@ -68,14 +68,14 @@ const GpuComputePassDefinition kEntityPoseSyncPassDefinition = {
     std::size(kEntityPoseSyncVars),
 };
 
-GpuComputePass& entityPoseSyncPass()
+GpuComputePass &entityPoseSyncPass()
 {
     static GpuComputePass pass;
     return pass;
 }
 
-bool initializeEntityPoseSyncPass(Diligent::IRenderDevice* renderDevice,
-                                  Diligent::IShaderSourceInputStreamFactory* streamFactory,
+bool initializeEntityPoseSyncPass(Diligent::IRenderDevice *renderDevice,
+                                  Diligent::IShaderSourceInputStreamFactory *streamFactory,
                                   Diligent::Uint64 contextMask)
 {
     return entityPoseSyncPass().initialize(renderDevice, streamFactory, contextMask,
@@ -84,9 +84,9 @@ bool initializeEntityPoseSyncPass(Diligent::IRenderDevice* renderDevice,
 
 } // namespace
 
-GpuSceneSync::GpuSceneSync(GpuDevice& device) : mDevice(device) {}
+GpuSceneSync::GpuSceneSync(GpuDevice &device) : mDevice(device) {}
 
-bool GpuSceneSync::initialize(const GpuSceneLayoutDesc& layout)
+bool GpuSceneSync::initialize(const GpuSceneLayoutDesc &layout)
 {
     shutdown();
     mLayout = layout;
@@ -101,7 +101,7 @@ bool GpuSceneSync::initialize(const GpuSceneLayoutDesc& layout)
     mContextMask = static_cast<Diligent::Uint64>(1ull) << computeContext.contextId;
 
     ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
-    Diligent::IShaderSourceInputStreamFactory* streamFactory = shaderLibrary.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
     if (streamFactory == nullptr)
     {
         return false;
@@ -156,7 +156,7 @@ void GpuSceneSync::shutdown()
     mConstantsBuffer                    = nullptr;
 }
 
-bool GpuSceneSync::ensureCapacity(Diligent::IRenderDevice* renderDevice, std::uint32_t entityCount,
+bool GpuSceneSync::ensureCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t entityCount,
                                   std::uint32_t contextId)
 {
     if (renderDevice == nullptr)
@@ -196,7 +196,7 @@ bool GpuSceneSync::ensureCapacity(Diligent::IRenderDevice* renderDevice, std::ui
                                   mEntityScalesBuffer, mCapacity, 64u);
 }
 
-bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadata>& renderables)
+bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadata> &renderables)
 {
     if (!mInitialized)
     {
@@ -258,7 +258,7 @@ bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadat
                        renderables.size() * sizeof(GpuRenderableMetadata));
 }
 
-bool GpuSceneSync::syncRenderableQueueInfo(const std::vector<GpuRenderableQueueInfo>& queueInfo)
+bool GpuSceneSync::syncRenderableQueueInfo(const std::vector<GpuRenderableQueueInfo> &queueInfo)
 {
     if (!mInitialized)
     {
@@ -281,7 +281,7 @@ bool GpuSceneSync::syncRenderableQueueInfo(const std::vector<GpuRenderableQueueI
                        queueInfo.size() * sizeof(GpuRenderableQueueInfo));
 }
 
-bool GpuSceneSync::syncCameraInputs(const std::vector<GpuCameraInput>& cameras)
+bool GpuSceneSync::syncCameraInputs(const std::vector<GpuCameraInput> &cameras)
 {
     if (!mInitialized)
     {
@@ -327,7 +327,7 @@ bool GpuSceneSync::syncCameraInputs(const std::vector<GpuCameraInput>& cameras)
                        cameras.size() * sizeof(GpuCameraInput));
 }
 
-bool GpuSceneSync::syncLightInputs(const std::vector<GpuDirectionalLightInput>& lights)
+bool GpuSceneSync::syncLightInputs(const std::vector<GpuDirectionalLightInput> &lights)
 {
     if (!mInitialized)
     {
@@ -367,15 +367,15 @@ bool GpuSceneSync::syncLightInputs(const std::vector<GpuDirectionalLightInput>& 
                        lights.size() * sizeof(GpuDirectionalLightInput));
 }
 
-bool GpuSceneSync::writeBuffer(Diligent::IDeviceContext* computeContext, Diligent::IBuffer* buffer,
-                               const void* data, std::size_t sizeBytes)
+bool GpuSceneSync::writeBuffer(Diligent::IDeviceContext *computeContext, Diligent::IBuffer *buffer,
+                               const void *data, std::size_t sizeBytes)
 {
     if (computeContext == nullptr || buffer == nullptr || data == nullptr || sizeBytes == 0u)
     {
         return false;
     }
 
-    const Diligent::BufferDesc& desc = buffer->GetDesc();
+    const Diligent::BufferDesc &desc = buffer->GetDesc();
     if (desc.Usage != Diligent::USAGE_DYNAMIC)
     {
         computeContext->UpdateBuffer(buffer, 0u, static_cast<Diligent::Uint32>(sizeBytes), data,
@@ -383,7 +383,7 @@ bool GpuSceneSync::writeBuffer(Diligent::IDeviceContext* computeContext, Diligen
         return true;
     }
 
-    void* mapped = nullptr;
+    void *mapped = nullptr;
     computeContext->MapBuffer(buffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mapped);
     if (mapped == nullptr)
     {
@@ -395,9 +395,9 @@ bool GpuSceneSync::writeBuffer(Diligent::IDeviceContext* computeContext, Diligen
     return true;
 }
 
-bool GpuSceneSync::syncEntityPoseData(const std::vector<Diligent::float4>& positions,
-                                      const std::vector<Diligent::float4>& orientations,
-                                      const std::vector<Diligent::float4>& scales)
+bool GpuSceneSync::syncEntityPoseData(const std::vector<Diligent::float4> &positions,
+                                      const std::vector<Diligent::float4> &orientations,
+                                      const std::vector<Diligent::float4> &scales)
 {
     if (!mInitialized)
     {
@@ -433,8 +433,8 @@ bool GpuSceneSync::syncEntityPoseData(const std::vector<Diligent::float4>& posit
                        scales.size() * sizeof(Diligent::float4));
 }
 
-bool GpuSceneSync::syncEntityPoses(const GpuPoseBufferView& sourcePoses,
-                                   const std::vector<GpuEntityPoseMappingEntry>& mappings)
+bool GpuSceneSync::syncEntityPoses(const GpuPoseBufferView &sourcePoses,
+                                   const std::vector<GpuEntityPoseMappingEntry> &mappings)
 {
     if (!mInitialized)
     {

@@ -18,16 +18,16 @@ struct LoggerState
     std::mutex mutex;
     LogSeverity minSeverity = LogSeverity::Info;
     LogCallback callback    = nullptr;
-    void* callbackUserData  = nullptr;
+    void *callbackUserData  = nullptr;
 };
 
-LoggerState& loggerState()
+LoggerState &loggerState()
 {
     static LoggerState state;
     return state;
 }
 
-const char* severityLabel(LogSeverity severity) noexcept
+const char *severityLabel(LogSeverity severity) noexcept
 {
     switch (severity)
     {
@@ -47,15 +47,15 @@ const char* severityLabel(LogSeverity severity) noexcept
     return "Unknown";
 }
 
-const char* fileBasename(const char* path) noexcept
+const char *fileBasename(const char *path) noexcept
 {
     if (path == nullptr)
     {
         return "";
     }
 
-    const char* fileName = path;
-    for (const char* cursor = path; *cursor != '\0'; ++cursor)
+    const char *fileName = path;
+    for (const char *cursor = path; *cursor != '\0'; ++cursor)
     {
         if (*cursor == '/' || *cursor == '\\')
         {
@@ -65,8 +65,8 @@ const char* fileBasename(const char* path) noexcept
     return fileName;
 }
 
-std::string formatMessage(LogSeverity severity, const SourceLocation& location,
-                          const std::string& message)
+std::string formatMessage(LogSeverity severity, const SourceLocation &location,
+                          const std::string &message)
 {
     std::string normalizedMessage = message;
     while (!normalizedMessage.empty() &&
@@ -86,10 +86,10 @@ std::string formatMessage(LogSeverity severity, const SourceLocation& location,
     return stream.str();
 }
 
-void writeToDefaultSink(LogSeverity severity, const std::string& formattedMessage)
+void writeToDefaultSink(LogSeverity severity, const std::string &formattedMessage)
 {
-    std::ostream& stream =
-        severity >= LogSeverity::Warning ? static_cast<std::ostream&>(std::cerr) : std::cout;
+    std::ostream &stream =
+        severity >= LogSeverity::Warning ? static_cast<std::ostream &>(std::cerr) : std::cout;
     stream << formattedMessage << '\n';
     stream.flush();
 
@@ -104,14 +104,14 @@ void writeToDefaultSink(LogSeverity severity, const std::string& formattedMessag
 
 void setMinLogSeverity(LogSeverity severity) noexcept
 {
-    LoggerState& state = loggerState();
+    LoggerState &state = loggerState();
     std::lock_guard<std::mutex> lock(state.mutex);
     state.minSeverity = severity;
 }
 
 LogSeverity minLogSeverity() noexcept
 {
-    LoggerState& state = loggerState();
+    LoggerState &state = loggerState();
     std::lock_guard<std::mutex> lock(state.mutex);
     return state.minSeverity;
 }
@@ -121,9 +121,9 @@ bool shouldLog(LogSeverity severity) noexcept
     return static_cast<int>(severity) >= static_cast<int>(minLogSeverity());
 }
 
-void setLogCallback(LogCallback callback, void* userData) noexcept
+void setLogCallback(LogCallback callback, void *userData) noexcept
 {
-    LoggerState& state = loggerState();
+    LoggerState &state = loggerState();
     std::lock_guard<std::mutex> lock(state.mutex);
     state.callback         = callback;
     state.callbackUserData = userData;
@@ -134,10 +134,10 @@ void clearLogCallback() noexcept
     setLogCallback(nullptr, nullptr);
 }
 
-void writeLogMessage(LogSeverity severity, const SourceLocation& location,
-                     const std::string& message)
+void writeLogMessage(LogSeverity severity, const SourceLocation &location,
+                     const std::string &message)
 {
-    LoggerState& state = loggerState();
+    LoggerState &state = loggerState();
     std::lock_guard<std::mutex> lock(state.mutex);
 
     const std::string formatted = formatMessage(severity, location, message);

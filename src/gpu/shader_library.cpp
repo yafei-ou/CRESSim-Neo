@@ -37,7 +37,7 @@ bool ShaderLibrary::resolveShaderDirectory()
 
     candidates.emplace_back("shaders");
 
-    for (const auto& candidate : candidates)
+    for (const auto &candidate : candidates)
     {
         std::error_code error;
         if (!std::filesystem::exists(candidate, error))
@@ -56,7 +56,7 @@ bool ShaderLibrary::resolveShaderDirectory()
     return false;
 }
 
-bool ShaderLibrary::resolveShaderPath(const char* relativePath, std::string& outPath)
+bool ShaderLibrary::resolveShaderPath(const char *relativePath, std::string &outPath)
 {
     if (relativePath == nullptr || relativePath[0] == '\0')
     {
@@ -85,7 +85,7 @@ bool ShaderLibrary::resolveShaderPath(const char* relativePath, std::string& out
     return true;
 }
 
-Diligent::IShaderSourceInputStreamFactory* ShaderLibrary::streamFactory()
+Diligent::IShaderSourceInputStreamFactory *ShaderLibrary::streamFactory()
 {
     if (!ensureStreamFactory())
     {

@@ -18,7 +18,7 @@ constexpr std::size_t stageIndex(PhysicsSolverStage stage)
     return static_cast<std::size_t>(stage);
 }
 
-void markStage(PhysicsSolverStageStats& stats, PhysicsSolverStage stage, bool executed)
+void markStage(PhysicsSolverStageStats &stats, PhysicsSolverStage stage, bool executed)
 {
     stats.executed[stageIndex(stage)] = executed;
     if (executed)
@@ -31,7 +31,7 @@ void markStage(PhysicsSolverStageStats& stats, PhysicsSolverStage stage, bool ex
     }
 }
 
-void markAllStagesSkipped(PhysicsSolverStageStats& stats)
+void markAllStagesSkipped(PhysicsSolverStageStats &stats)
 {
     markStage(stats, PhysicsSolverStage::PredictState, false);
     markStage(stats, PhysicsSolverStage::UpdateWorldAabbs, false);
@@ -52,7 +52,7 @@ struct PhysicsSolver::Impl
     PhysicsSolverStageStats stageStats{};
 };
 
-PhysicsSolver::PhysicsSolver(gpu::GpuDevice& device, const PhysicsSolverDesc& desc)
+PhysicsSolver::PhysicsSolver(gpu::GpuDevice &device, const PhysicsSolverDesc &desc)
     : mDevice(device), mDesc(desc), mImpl(std::make_unique<Impl>())
 {
 }
@@ -95,7 +95,7 @@ void PhysicsSolver::shutdown()
     mInitialized = false;
 }
 
-bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld& world)
+bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld &world)
 {
     if (!mInitialized)
     {
@@ -313,7 +313,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
     return true;
 }
 
-const PhysicsSolverStageStats& PhysicsSolver::lastStageStats() const noexcept
+const PhysicsSolverStageStats &PhysicsSolver::lastStageStats() const noexcept
 {
     return mImpl->stageStats;
 }

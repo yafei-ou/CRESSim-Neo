@@ -110,18 +110,18 @@ std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
     return (threadCount + kIndirectThreadGroupSize - 1u) / kIndirectThreadGroupSize;
 }
 
-bool ensureStructuredBuffer(Diligent::IRenderDevice* renderDevice, const char* name,
+bool ensureStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
                             std::uint32_t elementStride, std::uint32_t elementCount,
                             Diligent::BIND_FLAGS bindFlags,
-                            Diligent::RefCntAutoPtr<Diligent::IBuffer>& outBuffer,
-                            std::uint32_t& inOutCapacity, std::uint32_t minimumCapacity)
+                            Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer,
+                            std::uint32_t &inOutCapacity, std::uint32_t minimumCapacity)
 {
     return gpu::detail::ensureStructuredBufferCapacity(
         renderDevice, name, elementStride, elementCount, minimumCapacity, bindFlags,
         Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, 1ull, outBuffer, inOutCapacity);
 }
 
-bool writeBuffer(Diligent::IDeviceContext* context, Diligent::IBuffer* buffer, const void* data,
+bool writeBuffer(Diligent::IDeviceContext *context, Diligent::IBuffer *buffer, const void *data,
                  std::size_t sizeBytes)
 {
     if (context == nullptr || buffer == nullptr || data == nullptr || sizeBytes == 0u)
@@ -134,15 +134,15 @@ bool writeBuffer(Diligent::IDeviceContext* context, Diligent::IBuffer* buffer, c
     return true;
 }
 
-bool updateConstants(Diligent::IDeviceContext* context, Diligent::IBuffer* constantBuffer,
-                     const GraphicsIndirectPassConstants& constants)
+bool updateConstants(Diligent::IDeviceContext *context, Diligent::IBuffer *constantBuffer,
+                     const GraphicsIndirectPassConstants &constants)
 {
     if (context == nullptr || constantBuffer == nullptr)
     {
         return false;
     }
 
-    void* mapped = nullptr;
+    void *mapped = nullptr;
     context->MapBuffer(constantBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mapped);
     if (mapped == nullptr)
     {
@@ -153,7 +153,7 @@ bool updateConstants(Diligent::IDeviceContext* context, Diligent::IBuffer* const
     return true;
 }
 
-gpu::GpuRenderViewport viewportForBatch(const CameraBatchView& batchView)
+gpu::GpuRenderViewport viewportForBatch(const CameraBatchView &batchView)
 {
     if (batchView.cameras.size() == 1u && batchView.cameras.front().useOutputViewport)
     {
@@ -192,7 +192,7 @@ struct ForwardPipeline::GpuIndirectState
     bool initialized = false;
 };
 
-ForwardPipeline::ForwardPipeline(gpu::GpuDevice& device, RenderResourceManager& resourceManager)
+ForwardPipeline::ForwardPipeline(gpu::GpuDevice &device, RenderResourceManager &resourceManager)
     : mDevice(device), mResourceManager(resourceManager),
       mGpuIndirectState(std::make_unique<GpuIndirectState>())
 {
@@ -200,7 +200,7 @@ ForwardPipeline::ForwardPipeline(gpu::GpuDevice& device, RenderResourceManager& 
 
 ForwardPipeline::~ForwardPipeline()
 {
-    for (const auto& [key, target] : mLayeredTargetCache)
+    for (const auto &[key, target] : mLayeredTargetCache)
     {
         (void)key;
         if (mDevice.renderTargetSystem().isValidRenderTarget(target))
@@ -235,7 +235,7 @@ bool ForwardPipeline::initialize()
     }
 
     gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
-    Diligent::IShaderSourceInputStreamFactory* streamFactory = shaderLibrary.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
     if (streamFactory == nullptr || mGpuIndirectState == nullptr)
     {
         return false;
@@ -285,9 +285,9 @@ bool ForwardPipeline::initialize()
     return true;
 }
 
-bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
-                                   const CameraBatchView& batchView, const HostSceneView& sceneView,
-                                   ForwardPassExecutionStats& outStats)
+bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
+                                   const CameraBatchView &batchView, const HostSceneView &sceneView,
+                                   ForwardPassExecutionStats &outStats)
 {
     outStats = {};
     if (!mInitialized || mForwardOpaquePass == nullptr || batchView.cameras.empty())
@@ -296,12 +296,12 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
     }
 
     const gpu::GpuEntitySceneView emptyGpuScene{};
-    const gpu::GpuEntitySceneView& gpuScene =
+    const gpu::GpuEntitySceneView &gpuScene =
         sceneView.gpuEntityScene != nullptr ? *sceneView.gpuEntityScene : emptyGpuScene;
     const std::vector<IndirectCommandRegistryEntry> emptyRegistry;
-    const std::vector<IndirectCommandRegistryEntry>& opaqueRegistry =
+    const std::vector<IndirectCommandRegistryEntry> &opaqueRegistry =
         sceneView.opaqueDrawRegistry != nullptr ? *sceneView.opaqueDrawRegistry : emptyRegistry;
-    const std::vector<IndirectCommandRegistryEntry>& shadowRegistry =
+    const std::vector<IndirectCommandRegistryEntry> &shadowRegistry =
         sceneView.shadowDrawRegistry != nullptr ? *sceneView.shadowDrawRegistry : emptyRegistry;
 
     if (gpuScene.preparedCamerasBuffer == nullptr ||
@@ -365,9 +365,9 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
         return false;
     }
 
-    const auto uploadIndirectSet = [&](GpuIndirectState::BufferSet& bufferSet,
-                                       const std::vector<IndirectCommandRegistryEntry>& registry,
-                                       const char* namePrefix, std::uint32_t queueMode) -> bool
+    const auto uploadIndirectSet = [&](GpuIndirectState::BufferSet &bufferSet,
+                                       const std::vector<IndirectCommandRegistryEntry> &registry,
+                                       const char *namePrefix, std::uint32_t queueMode) -> bool
     {
         const std::uint32_t commandCount = static_cast<std::uint32_t>(registry.size());
         std::uint32_t visibleCapacity    = 0u;
@@ -527,7 +527,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext& frameContext,
     }
 
     auto acquireCachedTarget =
-        [&](const gpu::GpuRenderTargetDesc& desc) -> gpu::GpuRenderTargetHandle
+        [&](const gpu::GpuRenderTargetDesc &desc) -> gpu::GpuRenderTargetHandle
     {
         const RenderTargetCacheKey key = makeRenderTargetCacheKey(desc);
         const auto it                  = mLayeredTargetCache.find(key);

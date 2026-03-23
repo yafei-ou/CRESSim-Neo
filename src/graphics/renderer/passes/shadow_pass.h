@@ -21,21 +21,21 @@ namespace detail
 class ShadowPass
 {
 public:
-    ShadowPass(gpu::GpuDevice& device, RenderResourceManager& resourceManager);
+    ShadowPass(gpu::GpuDevice &device, RenderResourceManager &resourceManager);
 
     bool initialize();
-    void setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept;
-    void setVisiblePairBuffer(Diligent::IBuffer* buffer) noexcept;
-    bool drawIndirect(const gpu::GpuRenderTargetBinding& targetBinding,
-                      const ForwardDrawCommand& drawCommand, std::uint32_t currentCameraIndex,
-                      std::uint32_t cascadeIndex, Diligent::IBuffer* indirectArgsBuffer,
+    void setGpuSceneView(const gpu::GpuEntitySceneView &sceneView) noexcept;
+    void setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept;
+    bool drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
+                      const ForwardDrawCommand &drawCommand, std::uint32_t currentCameraIndex,
+                      std::uint32_t cascadeIndex, Diligent::IBuffer *indirectArgsBuffer,
                       Diligent::Uint64 argsOffsetBytes);
 
 private:
     struct DrawSetup
     {
         gpu::GpuBackendContext backendContext{};
-        MeshGpuCache::CachedBuffers* meshBuffers = nullptr;
+        MeshGpuCache::CachedBuffers *meshBuffers = nullptr;
     };
 
     struct PerObjectConstants
@@ -51,20 +51,20 @@ private:
         std::uint32_t shadowPassParams[4] = {0u, 0u, 0u, 0u};
     };
 
-    bool createPipeline(Diligent::IRenderDevice* renderDevice);
-    bool ensureConstantBuffers(Diligent::IRenderDevice* renderDevice);
-    bool prepareDraw(const gpu::GpuRenderTargetBinding& targetBinding,
-                     const ForwardDrawCommand& drawCommand, DrawSetup& outSetup);
+    bool createPipeline(Diligent::IRenderDevice *renderDevice);
+    bool ensureConstantBuffers(Diligent::IRenderDevice *renderDevice);
+    bool prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
+                     const ForwardDrawCommand &drawCommand, DrawSetup &outSetup);
     bool bindSceneBuffers() const;
-    bool updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,
-                                const ForwardDrawCommand& drawCommand,
+    bool updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
+                                const ForwardDrawCommand &drawCommand,
                                 std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex);
-    void bindGeometry(Diligent::IDeviceContext* immediateContext,
-                      const MeshGpuCache::CachedBuffers& meshBuffers) const;
+    void bindGeometry(Diligent::IDeviceContext *immediateContext,
+                      const MeshGpuCache::CachedBuffers &meshBuffers) const;
 
 private:
-    gpu::GpuDevice& mDevice;
-    RenderResourceManager& mResourceManager;
+    gpu::GpuDevice &mDevice;
+    RenderResourceManager &mResourceManager;
     bool mInitialized = false;
     gpu::ShaderLibrary mShaderLibrary;
 
@@ -74,7 +74,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mShadowPerPassBuffer;
     gpu::GpuEntitySceneView mSceneView{};
-    Diligent::IBuffer* mVisiblePairBuffer = nullptr;
+    Diligent::IBuffer *mVisiblePairBuffer = nullptr;
 };
 
 } // namespace detail

@@ -12,12 +12,12 @@ namespace
 
 } // namespace
 
-gpu::GpuRenderViewport normalizeViewport(const gpu::GpuRenderViewport& viewport)
+gpu::GpuRenderViewport normalizeViewport(const gpu::GpuRenderViewport &viewport)
 {
     return common::runtime_math::normalizeViewport(viewport);
 }
 
-ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightData>& lights)
+ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightData> &lights)
 {
     /**
      * This gets the first directional light.
@@ -28,7 +28,7 @@ ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightDat
     // TODO: add other types of lights (spot, point)
 
     ForwardDirectionalLightData out{};
-    for (const DirectionalLightData& light : lights)
+    for (const DirectionalLightData &light : lights)
     {
         if (light.entityId == common::kInvalidEntityId || light.lightSlot == 0xffffffffu)
         {
@@ -63,13 +63,13 @@ CameraData defaultCamera()
     return camera;
 }
 
-std::vector<CameraData> sortedCameras(const HostSceneView& sceneView)
+std::vector<CameraData> sortedCameras(const HostSceneView &sceneView)
 {
     std::vector<CameraData> cameras;
     if (sceneView.cameras != nullptr)
     {
         cameras.reserve(sceneView.cameras->size());
-        for (const CameraData& camera : *sceneView.cameras)
+        for (const CameraData &camera : *sceneView.cameras)
         {
             if (camera.entityId == common::kInvalidEntityId || camera.cameraSlot == 0xffffffffu)
             {
@@ -79,7 +79,7 @@ std::vector<CameraData> sortedCameras(const HostSceneView& sceneView)
         }
     }
     std::sort(cameras.begin(), cameras.end(),
-              [](const CameraData& lhs, const CameraData& rhs)
+              [](const CameraData &lhs, const CameraData &rhs)
               {
                   if (lhs.renderOrder != rhs.renderOrder)
                   {

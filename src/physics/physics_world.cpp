@@ -8,66 +8,66 @@ namespace cressim::neo::physics
 namespace
 {
 
-Diligent::float4 toPositionInvMass(const RigidBodyState& state)
+Diligent::float4 toPositionInvMass(const RigidBodyState &state)
 {
     return Diligent::float4{state.position.x, state.position.y, state.position.z,
                             state.inverseMass};
 }
 
-Diligent::float4 toOrientation(const RigidBodyState& state)
+Diligent::float4 toOrientation(const RigidBodyState &state)
 {
     return Diligent::float4{state.rotation.q.x, state.rotation.q.y, state.rotation.q.z,
                             state.rotation.q.w};
 }
 
-Diligent::float4 toLinearVelocity(const RigidBodyState& state)
+Diligent::float4 toLinearVelocity(const RigidBodyState &state)
 {
     return Diligent::float4{state.linearVelocity.x, state.linearVelocity.y, state.linearVelocity.z,
                             0.0f};
 }
 
-Diligent::float4 toScale(const RigidBodyState& state)
+Diligent::float4 toScale(const RigidBodyState &state)
 {
     return Diligent::float4{state.scale.x, state.scale.y, state.scale.z, 0.0f};
 }
 
-Diligent::float4 toAngularVelocity(const RigidBodyState& state)
+Diligent::float4 toAngularVelocity(const RigidBodyState &state)
 {
     return Diligent::float4{state.angularVelocity.x, state.angularVelocity.y,
                             state.angularVelocity.z, 0.0f};
 }
 
-Diligent::float4 toInverseInertiaLocal(const RigidBodyState& state)
+Diligent::float4 toInverseInertiaLocal(const RigidBodyState &state)
 {
     return Diligent::float4{state.inverseInertiaLocal.x, state.inverseInertiaLocal.y,
                             state.inverseInertiaLocal.z, 0.0f};
 }
 
-Diligent::float4 toKinematicTargetPosition(const RigidBodyState& state)
+Diligent::float4 toKinematicTargetPosition(const RigidBodyState &state)
 {
     return Diligent::float4{state.kinematicTargetPosition.x, state.kinematicTargetPosition.y,
                             state.kinematicTargetPosition.z, 0.0f};
 }
 
-Diligent::float4 toKinematicTargetOrientation(const RigidBodyState& state)
+Diligent::float4 toKinematicTargetOrientation(const RigidBodyState &state)
 {
     return Diligent::float4{state.kinematicTargetRotation.q.x, state.kinematicTargetRotation.q.y,
                             state.kinematicTargetRotation.q.z, state.kinematicTargetRotation.q.w};
 }
 
-Diligent::float4 toColliderLocalPosition(const ColliderState& state)
+Diligent::float4 toColliderLocalPosition(const ColliderState &state)
 {
     return Diligent::float4{state.localPosition.x, state.localPosition.y, state.localPosition.z,
                             0.0f};
 }
 
-Diligent::float4 toColliderLocalOrientation(const ColliderState& state)
+Diligent::float4 toColliderLocalOrientation(const ColliderState &state)
 {
     return Diligent::float4{state.localRotation.q.x, state.localRotation.q.y,
                             state.localRotation.q.z, state.localRotation.q.w};
 }
 
-Diligent::float4 toColliderMaterial(const ColliderState& state)
+Diligent::float4 toColliderMaterial(const ColliderState &state)
 {
     return Diligent::float4{state.friction, state.restitution, 0.0f, 0.0f};
 }
@@ -93,7 +93,7 @@ void PhysicsWorld::clear()
     ++mRevision;
 }
 
-RigidBodyState& PhysicsWorld::upsertRigidBody(const RigidBodyState& state)
+RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
 {
     RigidBodyState normalizedState = state;
     normalizeRigidBodyState(normalizedState);
@@ -200,7 +200,7 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     return true;
 }
 
-void PhysicsWorld::upsertCollider(const ColliderState& state)
+void PhysicsWorld::upsertCollider(const ColliderState &state)
 {
     RigidBodyId ownerRigidBodyId = state.ownerRigidBodyId;
     std::uint32_t ownerBodyIndex = 0xffffffffu;
@@ -243,7 +243,7 @@ void PhysicsWorld::upsertCollider(const ColliderState& state)
         mColliderSnapshot.push_back(normalizedState);
         writeColliderSoAAt(mColliders, colliderIndex, normalizedState, ownerBodyIndex);
         mColliderIdToIndex.emplace(normalizedState.colliderId, colliderIndex);
-        auto& entityColliderIds = mEntityToColliderIds[normalizedState.entityId];
+        auto &entityColliderIds = mEntityToColliderIds[normalizedState.entityId];
         entityColliderIds.push_back(normalizedState.colliderId);
         markAllCollidersDirty();
         mBodyColliderMappingDirty = true;
@@ -303,7 +303,7 @@ bool PhysicsWorld::removeCollider(ColliderId colliderId)
 }
 
 void PhysicsWorld::replaceColliders(common::EntityId entityId,
-                                    const std::vector<ColliderState>& colliders)
+                                    const std::vector<ColliderState> &colliders)
 {
     removeCollidersForEntity(entityId);
 
@@ -318,7 +318,7 @@ void PhysicsWorld::replaceColliders(common::EntityId entityId,
     const std::uint32_t ownerBodyIndex = bodyIt->second;
     const RigidBodyId ownerRigidBodyId = mRigidBodySnapshot[ownerBodyIndex].rigidBodyId;
 
-    auto& entityColliderIds = mEntityToColliderIds[entityId];
+    auto &entityColliderIds = mEntityToColliderIds[entityId];
     entityColliderIds.reserve(colliders.size());
 
     for (ColliderState collider : colliders)
@@ -341,46 +341,46 @@ void PhysicsWorld::replaceColliders(common::EntityId entityId,
     ++mRevision;
 }
 
-RigidBodyState* PhysicsWorld::tryGetRigidBody(common::EntityId entityId)
+RigidBodyState *PhysicsWorld::tryGetRigidBody(common::EntityId entityId)
 {
     const auto it = mEntityToRigidBodyIndex.find(entityId);
     return it == mEntityToRigidBodyIndex.end() ? nullptr : &mRigidBodySnapshot[it->second];
 }
 
-const RigidBodyState* PhysicsWorld::tryGetRigidBody(common::EntityId entityId) const
+const RigidBodyState *PhysicsWorld::tryGetRigidBody(common::EntityId entityId) const
 {
     const auto it = mEntityToRigidBodyIndex.find(entityId);
     return it == mEntityToRigidBodyIndex.end() ? nullptr : &mRigidBodySnapshot[it->second];
 }
 
-const ColliderState* PhysicsWorld::tryGetCollider(ColliderId colliderId) const
+const ColliderState *PhysicsWorld::tryGetCollider(ColliderId colliderId) const
 {
     const auto it = mColliderIdToIndex.find(colliderId);
     return it == mColliderIdToIndex.end() ? nullptr : &mColliderSnapshot[it->second];
 }
 
-const std::vector<RigidBodyState>& PhysicsWorld::rigidBodySnapshot() const noexcept
+const std::vector<RigidBodyState> &PhysicsWorld::rigidBodySnapshot() const noexcept
 {
     return mRigidBodySnapshot;
 }
 
-const std::vector<ColliderState>& PhysicsWorld::colliderSnapshot() const noexcept
+const std::vector<ColliderState> &PhysicsWorld::colliderSnapshot() const noexcept
 {
     return mColliderSnapshot;
 }
 
-const RigidBodySoAHost& PhysicsWorld::rigidBodySoA() const noexcept
+const RigidBodySoAHost &PhysicsWorld::rigidBodySoA() const noexcept
 {
     return mRigidBodies;
 }
 
-const ColliderSoAHost& PhysicsWorld::colliderSoA() const noexcept
+const ColliderSoAHost &PhysicsWorld::colliderSoA() const noexcept
 {
     ensureDerivedStateUpToDate();
     return mColliders;
 }
 
-const BodyColliderMappingHost& PhysicsWorld::bodyColliderMapping() const noexcept
+const BodyColliderMappingHost &PhysicsWorld::bodyColliderMapping() const noexcept
 {
     ensureDerivedStateUpToDate();
     return mBodyColliderMapping;
@@ -397,12 +397,12 @@ void PhysicsWorld::ensureDerivedStateUpToDate() const noexcept
     mBodyColliderMappingDirty = false;
 }
 
-const PhysicsSoADirtyRange& PhysicsWorld::rigidBodyDirtyRange() const noexcept
+const PhysicsSoADirtyRange &PhysicsWorld::rigidBodyDirtyRange() const noexcept
 {
     return mRigidBodyDirtyRange;
 }
 
-const PhysicsSoADirtyRange& PhysicsWorld::colliderDirtyRange() const noexcept
+const PhysicsSoADirtyRange &PhysicsWorld::colliderDirtyRange() const noexcept
 {
     return mColliderDirtyRange;
 }
@@ -446,13 +446,13 @@ void PhysicsWorld::integrateRigidBodiesCpu(float dt) noexcept
 
     for (std::uint32_t i = 0; i < rigidBodyCount(); ++i)
     {
-        Diligent::float4& positionInvMass     = mRigidBodies.positionsInvMass[i];
+        Diligent::float4 &positionInvMass     = mRigidBodies.positionsInvMass[i];
         const Diligent::float4 linearVelocity = mRigidBodies.linearVelocities[i];
         positionInvMass.x += linearVelocity.x * dt;
         positionInvMass.y += linearVelocity.y * dt;
         positionInvMass.z += linearVelocity.z * dt;
 
-        RigidBodyState& state = mRigidBodySnapshot[i];
+        RigidBodyState &state = mRigidBodySnapshot[i];
         state.position.x      = positionInvMass.x;
         state.position.y      = positionInvMass.y;
         state.position.z      = positionInvMass.z;
@@ -463,10 +463,10 @@ void PhysicsWorld::integrateRigidBodiesCpu(float dt) noexcept
 }
 
 bool PhysicsWorld::writeBackRigidBodyState(std::uint32_t index,
-                                           const Diligent::float4& positionInvMass,
-                                           const Diligent::float4& orientation,
-                                           const Diligent::float4& linearVelocity,
-                                           const Diligent::float4& angularVelocity) noexcept
+                                           const Diligent::float4 &positionInvMass,
+                                           const Diligent::float4 &orientation,
+                                           const Diligent::float4 &linearVelocity,
+                                           const Diligent::float4 &angularVelocity) noexcept
 {
     if (index >= rigidBodyCount())
     {
@@ -479,7 +479,7 @@ bool PhysicsWorld::writeBackRigidBodyState(std::uint32_t index,
     mRigidBodies.angularVelocities[index] = angularVelocity;
     mRigidBodyDirtyRange.include(index);
 
-    RigidBodyState& state = mRigidBodySnapshot[index];
+    RigidBodyState &state = mRigidBodySnapshot[index];
     state.position    = Diligent::float3{positionInvMass.x, positionInvMass.y, positionInvMass.z};
     state.inverseMass = positionInvMass.w;
     state.rotation =
@@ -509,8 +509,8 @@ std::uint64_t PhysicsWorld::rigidBodyTopologyRevision() const noexcept
     return mRigidBodyTopologyRevision;
 }
 
-void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost& soa, std::uint32_t index,
-                                       const RigidBodyState& state)
+void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost &soa, std::uint32_t index,
+                                       const RigidBodyState &state)
 {
     soa.rigidBodyIds[index]                = state.rigidBodyId;
     soa.entityIds[index]                   = state.entityId;
@@ -526,8 +526,8 @@ void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost& soa, std::uint32_t inde
     soa.kinematicTargetFlags[index]        = state.kinematicTargetEnabled ? 1u : 0u;
 }
 
-void PhysicsWorld::writeColliderSoAAt(ColliderSoAHost& soa, std::uint32_t index,
-                                      const ColliderState& state, std::uint32_t ownerBodyIndex)
+void PhysicsWorld::writeColliderSoAAt(ColliderSoAHost &soa, std::uint32_t index,
+                                      const ColliderState &state, std::uint32_t ownerBodyIndex)
 {
     if (index == soa.size())
     {
@@ -562,13 +562,13 @@ void PhysicsWorld::writeColliderSoAAt(ColliderSoAHost& soa, std::uint32_t index,
     soa.collisionMasks[index]        = state.collisionMask;
 }
 
-bool PhysicsWorld::isStaticBody(const RigidBodyState& state) noexcept
+bool PhysicsWorld::isStaticBody(const RigidBodyState &state) noexcept
 {
     return state.bodyType == RigidBodyType::Static;
 }
 
-bool PhysicsWorld::staticBodyPoseChanged(const RigidBodyState& before,
-                                         const RigidBodyState& after) noexcept
+bool PhysicsWorld::staticBodyPoseChanged(const RigidBodyState &before,
+                                         const RigidBodyState &after) noexcept
 {
     if (isStaticBody(before) != isStaticBody(after))
     {
@@ -586,7 +586,7 @@ bool PhysicsWorld::staticBodyPoseChanged(const RigidBodyState& before,
            before.scale.y != after.scale.y || before.scale.z != after.scale.z;
 }
 
-void PhysicsWorld::normalizeRigidBodyState(RigidBodyState& state) noexcept
+void PhysicsWorld::normalizeRigidBodyState(RigidBodyState &state) noexcept
 {
     if (state.bodyType == RigidBodyType::Dynamic && state.inverseMass <= 0.0f)
     {
@@ -606,7 +606,7 @@ void PhysicsWorld::normalizeRigidBodyState(RigidBodyState& state) noexcept
     }
 }
 
-void PhysicsWorld::normalizeColliderState(ColliderState& state) noexcept
+void PhysicsWorld::normalizeColliderState(ColliderState &state) noexcept
 {
     if (state.collisionLayer == 0u)
     {
@@ -654,7 +654,7 @@ void PhysicsWorld::removeColliderAtIndex(std::uint32_t index) noexcept
         {
             return;
         }
-        auto& handles = handlesIt->second;
+        auto &handles = handlesIt->second;
         handles.erase(std::remove(handles.begin(), handles.end(), colliderId), handles.end());
     };
 

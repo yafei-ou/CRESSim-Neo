@@ -21,17 +21,17 @@ class ShadowPass;
 class ForwardPipeline
 {
 public:
-    ForwardPipeline(gpu::GpuDevice& device, RenderResourceManager& resourceManager);
+    ForwardPipeline(gpu::GpuDevice &device, RenderResourceManager &resourceManager);
     ~ForwardPipeline();
 
     bool initialize();
-    bool executeBatch(const common::FrameContext& frameContext, const CameraBatchView& batchView,
-                      const HostSceneView& sceneView, ForwardPassExecutionStats& outStats);
+    bool executeBatch(const common::FrameContext &frameContext, const CameraBatchView &batchView,
+                      const HostSceneView &sceneView, ForwardPassExecutionStats &outStats);
 
 private:
     struct GpuIndirectState;
-    gpu::GpuDevice& mDevice;
-    RenderResourceManager& mResourceManager;
+    gpu::GpuDevice &mDevice;
+    RenderResourceManager &mResourceManager;
     std::unique_ptr<ForwardOpaquePass> mForwardOpaquePass;
     std::unique_ptr<ShadowPass> mShadowPass;
     std::unique_ptr<GpuIndirectState> mGpuIndirectState;

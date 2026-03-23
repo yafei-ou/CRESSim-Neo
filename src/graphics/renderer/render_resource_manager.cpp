@@ -6,7 +6,7 @@
 namespace cressim::neo::graphics
 {
 
-MeshHandle RenderResourceManager::registerMesh(const MeshResourceDesc& desc)
+MeshHandle RenderResourceManager::registerMesh(const MeshResourceDesc &desc)
 {
     const common::ResourceId id = mNextMeshId++;
     MeshResource resource{};
@@ -15,7 +15,7 @@ MeshHandle RenderResourceManager::registerMesh(const MeshResourceDesc& desc)
     {
         resource.localBoundsMin = desc.vertices.front().position;
         resource.localBoundsMax = desc.vertices.front().position;
-        for (const MeshResourceDesc::Vertex& vertex : desc.vertices)
+        for (const MeshResourceDesc::Vertex &vertex : desc.vertices)
         {
             resource.localBoundsMin.x = std::min(resource.localBoundsMin.x, vertex.position.x);
             resource.localBoundsMin.y = std::min(resource.localBoundsMin.y, vertex.position.y);
@@ -30,14 +30,14 @@ MeshHandle RenderResourceManager::registerMesh(const MeshResourceDesc& desc)
     return MeshHandle{id};
 }
 
-MaterialHandle RenderResourceManager::registerMaterial(const MaterialResourceDesc& desc)
+MaterialHandle RenderResourceManager::registerMaterial(const MaterialResourceDesc &desc)
 {
     const common::ResourceId id = mNextMaterialId++;
     mMaterials.emplace(id, desc);
     return MaterialHandle{id};
 }
 
-TextureHandle RenderResourceManager::registerTexture(const TextureResourceDesc& desc)
+TextureHandle RenderResourceManager::registerTexture(const TextureResourceDesc &desc)
 {
     const common::ResourceId id = mNextTextureId++;
     mTextures.emplace(id, desc);
@@ -59,7 +59,7 @@ bool RenderResourceManager::isValid(TextureHandle texture) const
     return mTextures.find(texture.id) != mTextures.end();
 }
 
-const MeshResourceDesc* RenderResourceManager::tryGetMesh(MeshHandle mesh) const noexcept
+const MeshResourceDesc *RenderResourceManager::tryGetMesh(MeshHandle mesh) const noexcept
 {
     const auto it = mMeshes.find(mesh.id);
     if (it == mMeshes.end())
@@ -69,7 +69,7 @@ const MeshResourceDesc* RenderResourceManager::tryGetMesh(MeshHandle mesh) const
     return &it->second.desc;
 }
 
-const MaterialResourceDesc* RenderResourceManager::tryGetMaterial(
+const MaterialResourceDesc *RenderResourceManager::tryGetMaterial(
     MaterialHandle material) const noexcept
 {
     const auto it = mMaterials.find(material.id);
@@ -80,7 +80,7 @@ const MaterialResourceDesc* RenderResourceManager::tryGetMaterial(
     return &it->second;
 }
 
-const TextureResourceDesc* RenderResourceManager::tryGetTexture(
+const TextureResourceDesc *RenderResourceManager::tryGetTexture(
     TextureHandle texture) const noexcept
 {
     const auto it = mTextures.find(texture.id);
@@ -91,8 +91,8 @@ const TextureResourceDesc* RenderResourceManager::tryGetTexture(
     return &it->second;
 }
 
-bool RenderResourceManager::tryGetMeshLocalBounds(MeshHandle mesh, Diligent::float3& outMin,
-                                                  Diligent::float3& outMax) const noexcept
+bool RenderResourceManager::tryGetMeshLocalBounds(MeshHandle mesh, Diligent::float3 &outMin,
+                                                  Diligent::float3 &outMax) const noexcept
 {
     const auto it = mMeshes.find(mesh.id);
     if (it == mMeshes.end() || !it->second.hasLocalBounds)

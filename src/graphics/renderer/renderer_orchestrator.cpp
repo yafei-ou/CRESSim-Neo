@@ -86,10 +86,10 @@ std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
     return (threadCount + kScenePrepareThreadGroupSize - 1u) / kScenePrepareThreadGroupSize;
 }
 
-std::uint32_t countActiveRenderables(const std::vector<RenderableInstance>& renderables)
+std::uint32_t countActiveRenderables(const std::vector<RenderableInstance> &renderables)
 {
     std::uint32_t count = 0u;
-    for (const RenderableInstance& renderable : renderables)
+    for (const RenderableInstance &renderable : renderables)
     {
         if (renderable.entityId != common::kInvalidEntityId &&
             renderable.objectSlot != 0xffffffffu && renderable.visible)
@@ -100,10 +100,10 @@ std::uint32_t countActiveRenderables(const std::vector<RenderableInstance>& rend
     return count;
 }
 
-std::uint32_t countActiveLights(const std::vector<DirectionalLightData>& lights)
+std::uint32_t countActiveLights(const std::vector<DirectionalLightData> &lights)
 {
     std::uint32_t count = 0u;
-    for (const DirectionalLightData& light : lights)
+    for (const DirectionalLightData &light : lights)
     {
         if (light.entityId != common::kInvalidEntityId && light.lightSlot != 0xffffffffu)
         {
@@ -131,8 +131,8 @@ struct RendererOutputPlanningState
         managedPrimaryTargets;
 };
 
-Renderer::Renderer(gpu::GpuDevice& device, RenderResourceManager& resourceManager,
-                   const RendererDesc& desc)
+Renderer::Renderer(gpu::GpuDevice &device, RenderResourceManager &resourceManager,
+                   const RendererDesc &desc)
     : mDevice(device), mResourceManager(resourceManager), mDesc(desc),
       mGpuScenePrepare(std::make_unique<GpuScenePrepareState>()),
       mOutputPlanningState(std::make_unique<RendererOutputPlanningState>())
@@ -143,7 +143,7 @@ Renderer::~Renderer()
 {
     if (mOutputPlanningState != nullptr)
     {
-        for (const auto& [key, target] : mOutputPlanningState->managedPrimaryTargets)
+        for (const auto &[key, target] : mOutputPlanningState->managedPrimaryTargets)
         {
             (void)key;
             if (mDevice.renderTargetSystem().isValidRenderTarget(target))
@@ -177,7 +177,7 @@ bool Renderer::ensureGpuScenePrepareState()
     }
 
     gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
-    Diligent::IShaderSourceInputStreamFactory* streamFactory = shaderLibrary.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
     if (streamFactory == nullptr)
     {
         return false;
@@ -218,7 +218,7 @@ bool Renderer::ensureGpuScenePrepareState()
     return true;
 }
 
-bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView& sceneView)
+bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView &sceneView)
 {
     if (sceneView.renderableCount == 0u || sceneView.cameraCount == 0u)
     {
@@ -251,7 +251,7 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView& sceneView)
     cameraPrepareConstants.maxLightsPerEnv     = sceneView.layout.maxLightsPerEnv;
     cameraPrepareConstants.shadowMapResolution = kShadowMapResolution;
 
-    void* mappedConstants = nullptr;
+    void *mappedConstants = nullptr;
     backendContext.immediateContext->MapBuffer(mGpuScenePrepare->cameraPrepareConstantsBuffer,
                                                Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
                                                mappedConstants);
@@ -351,8 +351,8 @@ bool Renderer::initialize()
     return mInitialized;
 }
 
-RenderStats Renderer::render(const common::FrameContext& frameContext, const HostSceneView& world,
-                             const RenderFrameOptions& options)
+RenderStats Renderer::render(const common::FrameContext &frameContext, const HostSceneView &world,
+                             const RenderFrameOptions &options)
 {
     RenderStats stats{};
 
@@ -363,16 +363,16 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
 
     mDevice.beginFrame(frameContext);
 
-    const std::vector<RenderableInstance>& renderables =
+    const std::vector<RenderableInstance> &renderables =
         world.renderables != nullptr ? *world.renderables : std::vector<RenderableInstance>{};
     const std::vector<DirectionalLightData> emptyLights;
-    const std::vector<DirectionalLightData>& directionalLights =
+    const std::vector<DirectionalLightData> &directionalLights =
         world.directionalLights != nullptr ? *world.directionalLights : emptyLights;
 
     // TODO: we are only using one global light
     const ForwardDirectionalLightData lightData = detail::buildMainLight(directionalLights);
     const gpu::GpuEntitySceneView emptySceneView{};
-    const gpu::GpuEntitySceneView& gpuScene =
+    const gpu::GpuEntitySceneView &gpuScene =
         world.gpuEntityScene != nullptr ? *world.gpuEntityScene : emptySceneView;
 
     stats.renderableCount = countActiveRenderables(renderables);
@@ -427,7 +427,7 @@ RenderStats Renderer::render(const common::FrameContext& frameContext, const Hos
     const FrameRenderPlan renderPlan = detail::buildFrameRenderPlan(
         std::move(outputPlan.resolvedCameras), lightData, outputPlan.displayResolve);
 
-    for (const CameraBatchView& batch : renderPlan.cameraBatches)
+    for (const CameraBatchView &batch : renderPlan.cameraBatches)
     {
         ForwardPassExecutionStats passStats{};
         if (mForwardPipeline != nullptr)

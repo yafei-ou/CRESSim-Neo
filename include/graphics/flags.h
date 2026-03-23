@@ -44,7 +44,7 @@ constexpr E operator&(E lhs, E rhs) noexcept
 }
 
 template <typename E, std::enable_if_t<EnableBitMaskOps_v<E>, int> = 0>
-constexpr E& operator|=(E& lhs, E rhs) noexcept
+constexpr E &operator|=(E &lhs, E rhs) noexcept
 {
     lhs = lhs | rhs;
     return lhs;

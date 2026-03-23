@@ -33,9 +33,9 @@ struct GpuSceneLayoutDesc
 
 struct GpuPoseBufferView
 {
-    Diligent::IBuffer* positionsBuffer    = nullptr;
-    Diligent::IBuffer* orientationsBuffer = nullptr;
-    Diligent::IBuffer* scalesBuffer       = nullptr;
+    Diligent::IBuffer *positionsBuffer    = nullptr;
+    Diligent::IBuffer *orientationsBuffer = nullptr;
+    Diligent::IBuffer *scalesBuffer       = nullptr;
     std::uint32_t count                   = 0;
 };
 
@@ -100,13 +100,13 @@ struct GpuEntitySceneView
 {
     GpuSceneLayoutDesc layout{};
     GpuPoseBufferView poses{};
-    Diligent::IBuffer* renderableMetadataBuffer           = nullptr;
-    Diligent::IBuffer* renderableQueueInfoBuffer          = nullptr;
-    Diligent::IBuffer* renderableVisibilityFlagsBuffer    = nullptr;
-    Diligent::IBuffer* renderableShadowCascadeMasksBuffer = nullptr;
-    Diligent::IBuffer* cameraInputsBuffer                 = nullptr;
-    Diligent::IBuffer* preparedCamerasBuffer              = nullptr;
-    Diligent::IBuffer* lightInputsBuffer                  = nullptr;
+    Diligent::IBuffer *renderableMetadataBuffer           = nullptr;
+    Diligent::IBuffer *renderableQueueInfoBuffer          = nullptr;
+    Diligent::IBuffer *renderableVisibilityFlagsBuffer    = nullptr;
+    Diligent::IBuffer *renderableShadowCascadeMasksBuffer = nullptr;
+    Diligent::IBuffer *cameraInputsBuffer                 = nullptr;
+    Diligent::IBuffer *preparedCamerasBuffer              = nullptr;
+    Diligent::IBuffer *lightInputsBuffer                  = nullptr;
     std::uint32_t entityCount                             = 0;
     std::uint32_t renderableCount                         = 0;
     std::uint32_t cameraCount                             = 0;

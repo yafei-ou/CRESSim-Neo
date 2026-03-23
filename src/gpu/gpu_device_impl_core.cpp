@@ -31,15 +31,15 @@ Diligent::Uint32 clampWindowId(std::uint64_t value)
     return static_cast<Diligent::Uint32>(std::min<std::uint64_t>(value, kMax));
 }
 
-GpuRenderTargetDesc normalizeDefaultRenderTargetForDevice(const GpuRenderTargetDesc& desc,
-                                                          Diligent::ISwapChain* swapChain)
+GpuRenderTargetDesc normalizeDefaultRenderTargetForDevice(const GpuRenderTargetDesc &desc,
+                                                          Diligent::ISwapChain *swapChain)
 {
     GpuRenderTargetDesc normalized = desc;
     std::uint32_t fallbackWidth    = kDefaultRenderTargetWidth;
     std::uint32_t fallbackHeight   = kDefaultRenderTargetHeight;
     if (swapChain != nullptr)
     {
-        const auto& swapChainDesc = swapChain->GetDesc();
+        const auto &swapChainDesc = swapChain->GetDesc();
         if (swapChainDesc.Width > 0)
         {
             fallbackWidth = swapChainDesc.Width;
@@ -72,7 +72,7 @@ GpuRenderTargetDesc normalizeDefaultRenderTargetForDevice(const GpuRenderTargetD
 
 } // namespace
 
-bool GpuDeviceImpl::initialize(const GpuDeviceDesc& desc)
+bool GpuDeviceImpl::initialize(const GpuDeviceDesc &desc)
 {
     shutdown();
 
@@ -144,12 +144,12 @@ void GpuDeviceImpl::shutdown()
     mInitialized = false;
 }
 
-void GpuDeviceImpl::beginFrame(const common::FrameContext& frameContext)
+void GpuDeviceImpl::beginFrame(const common::FrameContext &frameContext)
 {
     (void)frameContext;
 }
 
-GpuRenderTargetSystem& GpuDeviceImpl::renderTargetSystem()
+GpuRenderTargetSystem &GpuDeviceImpl::renderTargetSystem()
 {
     return *mRenderTargets;
 }
@@ -159,7 +159,7 @@ GpuBackend GpuDeviceImpl::backend() const
     return mBackend;
 }
 
-bool GpuDeviceImpl::tryGetGraphicsBackendContext(GpuBackendContext& outContext)
+bool GpuDeviceImpl::tryGetGraphicsBackendContext(GpuBackendContext &outContext)
 {
     outContext = GpuBackendContext{};
 
@@ -178,7 +178,7 @@ bool GpuDeviceImpl::tryGetGraphicsBackendContext(GpuBackendContext& outContext)
     return true;
 }
 
-bool GpuDeviceImpl::tryGetPhysicsBackendContext(GpuComputeBackendContext& outContext)
+bool GpuDeviceImpl::tryGetPhysicsBackendContext(GpuComputeBackendContext &outContext)
 {
     outContext = GpuComputeBackendContext{};
 
@@ -196,14 +196,14 @@ bool GpuDeviceImpl::tryGetPhysicsBackendContext(GpuComputeBackendContext& outCon
     return true;
 }
 
-const std::string& GpuDeviceImpl::shaderSourceDirectory() const
+const std::string &GpuDeviceImpl::shaderSourceDirectory() const
 {
     return mDesc.shaderDirectory;
 }
 
 bool GpuDeviceImpl::initializeVulkan()
 {
-    Diligent::IEngineFactoryVk* factoryVk = Diligent::LoadAndGetEngineFactoryVk();
+    Diligent::IEngineFactoryVk *factoryVk = Diligent::LoadAndGetEngineFactoryVk();
     if (factoryVk == nullptr)
     {
         return false;
@@ -219,7 +219,7 @@ bool GpuDeviceImpl::initializeVulkan()
         engineCreateInfo.EnableValidation =
             static_cast<Diligent::Bool>(mDesc.enableValidation ? 1 : 0);
 
-        std::array<Diligent::IDeviceContext*, 2> contexts = {nullptr, nullptr};
+        std::array<Diligent::IDeviceContext *, 2> contexts = {nullptr, nullptr};
         if (requestDedicatedPhysicsContext)
         {
             static constexpr Diligent::ImmediateContextCreateInfo kContextInfo[2] = {
@@ -289,7 +289,7 @@ bool GpuDeviceImpl::createPrimarySwapChain()
         return false;
     }
 
-    Diligent::IEngineFactoryVk* factoryVk = Diligent::LoadAndGetEngineFactoryVk();
+    Diligent::IEngineFactoryVk *factoryVk = Diligent::LoadAndGetEngineFactoryVk();
     if (factoryVk == nullptr)
     {
         return false;

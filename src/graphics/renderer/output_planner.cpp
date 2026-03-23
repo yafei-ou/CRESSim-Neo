@@ -25,20 +25,20 @@ struct ManagedFamilyInfo
     std::uint32_t nextLayer = 0u;
 };
 
-bool isDefaultViewport(const gpu::GpuRenderViewport& viewport)
+bool isDefaultViewport(const gpu::GpuRenderViewport &viewport)
 {
     return viewport.x == 0.0f && viewport.y == 0.0f && viewport.width == 1.0f &&
            viewport.height == 1.0f;
 }
 
-std::uint32_t buildGlobalCameraIndex(const CameraData& camera,
-                                     const gpu::GpuEntitySceneView& gpuScene)
+std::uint32_t buildGlobalCameraIndex(const CameraData &camera,
+                                     const gpu::GpuEntitySceneView &gpuScene)
 {
     return camera.envIndex * std::max(gpuScene.layout.maxCamerasPerEnv, 1u) + camera.cameraSlot;
 }
 
-gpu::GpuRenderTargetDesc buildManagedPrimaryDesc(const CameraData& camera,
-                                                 const gpu::GpuRenderTargetDesc& defaultTargetDesc)
+gpu::GpuRenderTargetDesc buildManagedPrimaryDesc(const CameraData &camera,
+                                                 const gpu::GpuRenderTargetDesc &defaultTargetDesc)
 {
     gpu::GpuRenderTargetDesc desc = defaultTargetDesc;
     desc.width     = camera.outputWidth == 0u ? defaultTargetDesc.width : camera.outputWidth;
@@ -50,8 +50,8 @@ gpu::GpuRenderTargetDesc buildManagedPrimaryDesc(const CameraData& camera,
     return desc;
 }
 
-void populateResolvedCameraView(const CameraData& camera, const gpu::GpuEntitySceneView& gpuScene,
-                                ResolvedCameraView& outView)
+void populateResolvedCameraView(const CameraData &camera, const gpu::GpuEntitySceneView &gpuScene,
+                                ResolvedCameraView &outView)
 {
     outView.entityId          = camera.entityId;
     outView.viewport          = normalizeViewport(camera.viewport);
@@ -64,7 +64,7 @@ void populateResolvedCameraView(const CameraData& camera, const gpu::GpuEntitySc
     outView.globalCameraIndex = buildGlobalCameraIndex(camera, gpuScene);
 }
 
-void logUnsupportedViewport(const CameraData& camera)
+void logUnsupportedViewport(const CameraData &camera)
 {
     CRESSIM_LOG_WARNING("Renderer: camera entity ", camera.entityId,
                         " requested a viewport, but viewports are only supported for "
@@ -72,13 +72,13 @@ void logUnsupportedViewport(const CameraData& camera)
                         "Whole-target rendering will be used.");
 }
 
-void logInvalidExplicitTarget(const CameraData& camera)
+void logInvalidExplicitTarget(const CameraData &camera)
 {
     CRESSIM_LOG_WARNING("Renderer: skipping ExplicitSurface camera entity ", camera.entityId,
                         " because its render target binding is invalid.");
 }
 
-void logManagedPrimaryUnavailable(const CameraData& camera)
+void logManagedPrimaryUnavailable(const CameraData &camera)
 {
     CRESSIM_LOG_WARNING("Renderer: skipping ManagedPrimary camera entity ", camera.entityId,
                         " because no default target is available.");
@@ -87,14 +87,14 @@ void logManagedPrimaryUnavailable(const CameraData& camera)
 } // namespace
 
 CameraOutputPlanningResult planCameraOutputs(
-    const std::vector<CameraData>& cameras, const gpu::GpuEntitySceneView& gpuScene,
-    gpu::GpuRenderTargetSystem& renderTargetSystem,
-    const gpu::GpuRenderTargetDesc& defaultTargetDesc,
-    const gpu::GpuRenderTargetBinding& defaultTargetBinding, bool hasDefaultTarget,
-    const RenderFrameOptions& options,
+    const std::vector<CameraData> &cameras, const gpu::GpuEntitySceneView &gpuScene,
+    gpu::GpuRenderTargetSystem &renderTargetSystem,
+    const gpu::GpuRenderTargetDesc &defaultTargetDesc,
+    const gpu::GpuRenderTargetBinding &defaultTargetBinding, bool hasDefaultTarget,
+    const RenderFrameOptions &options,
     std::unordered_map<RenderTargetFamilyKey, gpu::GpuRenderTargetHandle,
-                       RenderTargetFamilyKeyHasher>& managedPrimaryTargets,
-    RenderStats& inOutStats)
+                       RenderTargetFamilyKeyHasher> &managedPrimaryTargets,
+    RenderStats &inOutStats)
 {
     CameraOutputPlanningResult result{};
     result.resolvedCameras.reserve(cameras.size());
@@ -106,7 +106,7 @@ CameraOutputPlanningResult planCameraOutputs(
 
     if (hasDefaultTarget)
     {
-        for (const CameraData& camera : cameras)
+        for (const CameraData &camera : cameras)
         {
             if (camera.output.mode != gpu::CameraOutputMode::ManagedPrimary)
             {
@@ -126,7 +126,7 @@ CameraOutputPlanningResult planCameraOutputs(
 
     std::unordered_map<RenderTargetFamilyKey, ManagedFamilyInfo, RenderTargetFamilyKeyHasher>
         managedFamilies;
-    for (const RenderTargetFamilyKey& key : managedFamilyOrder)
+    for (const RenderTargetFamilyKey &key : managedFamilyOrder)
     {
         gpu::GpuRenderTargetDesc familyDesc{};
         familyDesc.width            = key.width;
@@ -186,7 +186,7 @@ CameraOutputPlanningResult planCameraOutputs(
         }
     }
 
-    for (const CameraData& camera : cameras)
+    for (const CameraData &camera : cameras)
     {
         if (camera.output.mode == gpu::CameraOutputMode::ManagedPrimary)
         {
@@ -208,7 +208,7 @@ CameraOutputPlanningResult planCameraOutputs(
                 continue;
             }
 
-            ManagedFamilyInfo& family = familyIt->second;
+            ManagedFamilyInfo &family = familyIt->second;
             ResolvedCameraView resolved{};
             populateResolvedCameraView(camera, gpuScene, resolved);
             resolved.outputBinding =

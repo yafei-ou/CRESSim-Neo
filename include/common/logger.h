@@ -22,8 +22,8 @@ enum class LogSeverity
 
 struct SourceLocation
 {
-    const char* file     = "";
-    const char* function = "";
+    const char *file     = "";
+    const char *function = "";
     int line             = 0;
 };
 
@@ -31,24 +31,24 @@ struct LogMessageView
 {
     LogSeverity severity{};
     SourceLocation location{};
-    const char* message = "";
+    const char *message = "";
 };
 
-using LogCallback = void (*)(const LogMessageView& message, void* userData);
+using LogCallback = void (*)(const LogMessageView &message, void *userData);
 
 CRESSIM_NEO_COMMON_API void setMinLogSeverity(LogSeverity severity) noexcept;
 CRESSIM_NEO_COMMON_API LogSeverity minLogSeverity() noexcept;
 CRESSIM_NEO_COMMON_API bool shouldLog(LogSeverity severity) noexcept;
-CRESSIM_NEO_COMMON_API void setLogCallback(LogCallback callback, void* userData) noexcept;
+CRESSIM_NEO_COMMON_API void setLogCallback(LogCallback callback, void *userData) noexcept;
 CRESSIM_NEO_COMMON_API void clearLogCallback() noexcept;
-CRESSIM_NEO_COMMON_API void writeLogMessage(LogSeverity severity, const SourceLocation& location,
-                                            const std::string& message);
+CRESSIM_NEO_COMMON_API void writeLogMessage(LogSeverity severity, const SourceLocation &location,
+                                            const std::string &message);
 
 namespace detail
 {
 
 template <typename... Args>
-std::string buildLogMessage(Args&&... args)
+std::string buildLogMessage(Args &&...args)
 {
     std::ostringstream stream;
     (stream << ... << std::forward<Args>(args));
@@ -56,7 +56,7 @@ std::string buildLogMessage(Args&&... args)
 }
 
 template <typename... Args>
-void logMessage(LogSeverity severity, const SourceLocation& location, Args&&... args)
+void logMessage(LogSeverity severity, const SourceLocation &location, Args &&...args)
 {
     if (!shouldLog(severity))
     {

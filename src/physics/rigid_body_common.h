@@ -232,22 +232,22 @@ struct EffectiveColliderDimensions
 std::uint32_t estimateRigidCandidatePairCapacity(std::uint32_t bodyCount) noexcept;
 
 EffectiveColliderDimensions computeEffectiveColliderDimensions(
-    ColliderShapeType shape, const Diligent::float4& colliderParams,
-    const Diligent::float3& scale) noexcept;
+    ColliderShapeType shape, const Diligent::float4 &colliderParams,
+    const Diligent::float3 &scale) noexcept;
 
-Diligent::QuaternionF rotationVectorToQuaternion(const Diligent::float3& rotationVector) noexcept;
+Diligent::QuaternionF rotationVectorToQuaternion(const Diligent::float3 &rotationVector) noexcept;
 
-Diligent::QuaternionF integrateOrientation(const Diligent::QuaternionF& orientation,
-                                           const Diligent::float3& angularVelocity,
+Diligent::QuaternionF integrateOrientation(const Diligent::QuaternionF &orientation,
+                                           const Diligent::float3 &angularVelocity,
                                            float dt) noexcept;
 
-Diligent::float3 angularVelocityFromOrientationDelta(const Diligent::QuaternionF& previous,
-                                                     const Diligent::QuaternionF& current,
+Diligent::float3 angularVelocityFromOrientationDelta(const Diligent::QuaternionF &previous,
+                                                     const Diligent::QuaternionF &current,
                                                      float dt) noexcept;
 
-Diligent::float3 multiplyWorldInverseInertia(const Diligent::float3& inverseInertiaLocal,
-                                             const Diligent::QuaternionF& orientation,
-                                             const Diligent::float3& vector) noexcept;
+Diligent::float3 multiplyWorldInverseInertia(const Diligent::float3 &inverseInertiaLocal,
+                                             const Diligent::QuaternionF &orientation,
+                                             const Diligent::float3 &vector) noexcept;
 
 } // namespace cressim::neo::physics
 

@@ -21,12 +21,12 @@ Diligent::Uint64 contextMaskForId(std::uint32_t contextId)
     return static_cast<Diligent::Uint64>(1ull) << contextId;
 }
 
-bool ensureStructuredBuffer(Diligent::IRenderDevice* renderDevice, const char* name,
+bool ensureStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
                             std::uint32_t elementStride, std::uint32_t elementCount,
                             Diligent::BIND_FLAGS bindFlags, Diligent::USAGE usage,
                             Diligent::CPU_ACCESS_FLAGS cpuAccess,
                             Diligent::Uint64 immediateContextMask,
-                            Diligent::RefCntAutoPtr<Diligent::IBuffer>& outBuffer)
+                            Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer)
 {
     if (renderDevice == nullptr)
     {
@@ -69,7 +69,7 @@ std::vector<std::uint32_t> buildReductionLevelCounts(std::uint32_t elementCount)
 
 } // namespace
 
-bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
+bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
                                           std::uint32_t bodyCount, std::uint32_t colliderCount,
                                           std::uint32_t physicsContextId)
 {
@@ -611,8 +611,8 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice* renderDevice,
     return true;
 }
 
-bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext* computeContext,
-                                            PhysicsWorld& world, std::uint32_t bodyCount,
+bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeContext,
+                                            PhysicsWorld &world, std::uint32_t bodyCount,
                                             std::uint32_t colliderCount)
 {
     if (computeContext == nullptr)
@@ -622,8 +622,8 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext* computeCon
 
     world.ensureDerivedStateUpToDate();
 
-    const RigidBodySoAHost& rigidBodies = world.rigidBodySoA();
-    const ColliderSoAHost& colliders    = world.colliderSoA();
+    const RigidBodySoAHost &rigidBodies = world.rigidBodySoA();
+    const ColliderSoAHost &colliders    = world.colliderSoA();
     if (static_cast<std::uint32_t>(rigidBodies.size()) != bodyCount ||
         static_cast<std::uint32_t>(colliders.size()) != colliderCount)
     {
@@ -688,7 +688,7 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext* computeCon
         std::vector<GpuColliderBroadPhaseData> broadPhaseData(colliderCount);
         for (std::uint32_t i = 0; i < colliderCount; ++i)
         {
-            GpuColliderBroadPhaseData& entry = broadPhaseData[i];
+            GpuColliderBroadPhaseData &entry = broadPhaseData[i];
             entry.ownerBody                  = colliders.ownerRigidBodyIndices[i];
             entry.shapeType                  = colliders.shapeTypes[i];
             entry.environmentIndex           = colliders.environmentIndices[i];
@@ -730,7 +730,7 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext* computeCon
 }
 
 bool PhysicsSceneGpuState::copyPredictedRigidBodiesToPersistentState(
-    Diligent::IDeviceContext* computeContext, std::uint32_t bodyCount)
+    Diligent::IDeviceContext *computeContext, std::uint32_t bodyCount)
 {
     if (computeContext == nullptr || bodyCount == 0u)
     {
@@ -758,8 +758,8 @@ bool PhysicsSceneGpuState::copyPredictedRigidBodiesToPersistentState(
     return true;
 }
 
-bool PhysicsSceneGpuState::readbackBroadPhaseMetaBlocking(Diligent::IDeviceContext* computeContext,
-                                                          GpuBroadPhaseMeta& outMeta)
+bool PhysicsSceneGpuState::readbackBroadPhaseMetaBlocking(Diligent::IDeviceContext *computeContext,
+                                                          GpuBroadPhaseMeta &outMeta)
 {
     if (computeContext == nullptr || mTransientState.broadPhaseMetaBuffer == nullptr ||
         mReadbackRigidBodies.broadPhaseMetaBuffer == nullptr)
@@ -775,7 +775,7 @@ bool PhysicsSceneGpuState::readbackBroadPhaseMetaBlocking(Diligent::IDeviceConte
     computeContext->Flush();
     computeContext->WaitForIdle();
 
-    void* mappedMeta = nullptr;
+    void *mappedMeta = nullptr;
     computeContext->MapBuffer(mReadbackRigidBodies.broadPhaseMetaBuffer, Diligent::MAP_READ,
                               Diligent::MAP_FLAG_DO_NOT_WAIT, mappedMeta);
     if (mappedMeta == nullptr)
@@ -783,13 +783,13 @@ bool PhysicsSceneGpuState::readbackBroadPhaseMetaBlocking(Diligent::IDeviceConte
         return false;
     }
 
-    outMeta = *static_cast<const GpuBroadPhaseMeta*>(mappedMeta);
+    outMeta = *static_cast<const GpuBroadPhaseMeta *>(mappedMeta);
     computeContext->UnmapBuffer(mReadbackRigidBodies.broadPhaseMetaBuffer, Diligent::MAP_READ);
     return true;
 }
 
 bool PhysicsSceneGpuState::readbackPredictedRigidStateBlocking(
-    Diligent::IDeviceContext* computeContext, PhysicsWorld& world, std::uint32_t bodyCount)
+    Diligent::IDeviceContext *computeContext, PhysicsWorld &world, std::uint32_t bodyCount)
 {
     if (computeContext == nullptr)
     {
@@ -822,10 +822,10 @@ bool PhysicsSceneGpuState::readbackPredictedRigidStateBlocking(
     computeContext->Flush();
     computeContext->WaitForIdle();
 
-    void* mappedPositions    = nullptr;
-    void* mappedOrientations = nullptr;
-    void* mappedLinear       = nullptr;
-    void* mappedAngular      = nullptr;
+    void *mappedPositions    = nullptr;
+    void *mappedOrientations = nullptr;
+    void *mappedLinear       = nullptr;
+    void *mappedAngular      = nullptr;
 
     computeContext->MapBuffer(mReadbackRigidBodies.positionsBuffer, Diligent::MAP_READ,
                               Diligent::MAP_FLAG_DO_NOT_WAIT, mappedPositions);
@@ -861,10 +861,10 @@ bool PhysicsSceneGpuState::readbackPredictedRigidStateBlocking(
         return false;
     }
 
-    const auto* positions         = static_cast<const Diligent::float4*>(mappedPositions);
-    const auto* orientations      = static_cast<const Diligent::float4*>(mappedOrientations);
-    const auto* linearVelocities  = static_cast<const Diligent::float4*>(mappedLinear);
-    const auto* angularVelocities = static_cast<const Diligent::float4*>(mappedAngular);
+    const auto *positions         = static_cast<const Diligent::float4 *>(mappedPositions);
+    const auto *orientations      = static_cast<const Diligent::float4 *>(mappedOrientations);
+    const auto *linearVelocities  = static_cast<const Diligent::float4 *>(mappedLinear);
+    const auto *angularVelocities = static_cast<const Diligent::float4 *>(mappedAngular);
     for (std::uint32_t i = 0; i < bodyCount; ++i)
     {
         (void)world.writeBackRigidBodyState(i, positions[i], orientations[i], linearVelocities[i],
@@ -879,19 +879,19 @@ bool PhysicsSceneGpuState::readbackPredictedRigidStateBlocking(
     return true;
 }
 
-const PhysicsSceneGpuState::PersistentRigidBodyBuffers& PhysicsSceneGpuState::
+const PhysicsSceneGpuState::PersistentRigidBodyBuffers &PhysicsSceneGpuState::
     persistentRigidBodies() const noexcept
 {
     return mPersistentRigidBodies;
 }
 
-const PhysicsSceneGpuState::PersistentColliderBuffers& PhysicsSceneGpuState::persistentColliders()
+const PhysicsSceneGpuState::PersistentColliderBuffers &PhysicsSceneGpuState::persistentColliders()
     const noexcept
 {
     return mPersistentColliders;
 }
 
-const PhysicsSceneGpuState::SolverTransientBuffers& PhysicsSceneGpuState::transientBuffers()
+const PhysicsSceneGpuState::SolverTransientBuffers &PhysicsSceneGpuState::transientBuffers()
     const noexcept
 {
     return mTransientState;
