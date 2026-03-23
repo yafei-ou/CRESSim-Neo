@@ -1,8 +1,8 @@
-#ifndef CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_RENDER_PASS_TYPES_H
-#define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_RENDER_PASS_TYPES_H
+#ifndef CRESSIM_NEO_GRAPHICS_PASSES_RENDER_PASS_TYPES_H
+#define CRESSIM_NEO_GRAPHICS_PASSES_RENDER_PASS_TYPES_H
 
 #include "gpu/gpu_types.h"
-#include "graphics/renderer/passes/forward_draw_types.h"
+#include "graphics/passes/forward_draw_types.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 
@@ -67,4 +67,4 @@ struct ForwardPassExecutionStats
 
 } // namespace cressim::neo::graphics
 
-#endif // CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_RENDER_PASS_TYPES_H
+#endif // CRESSIM_NEO_GRAPHICS_PASSES_RENDER_PASS_TYPES_H

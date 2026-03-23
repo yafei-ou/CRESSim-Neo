@@ -1,4 +1,4 @@
-#include "graphics/renderer/passes/shadow_pass.h"
+#include "graphics/passes/shadow_pass.h"
 
 #include "common/logger.h"
 

@@ -1,10 +1,10 @@
-#include "graphics/renderer/passes/forward_pipeline.h"
+#include "graphics/passes/forward_pipeline.h"
 
 #include "gpu/gpu_buffer_utils.h"
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
-#include "graphics/renderer/passes/forward_opaque_pass.h"
-#include "graphics/renderer/passes/shadow_pass.h"
+#include "graphics/passes/forward_opaque_pass.h"
+#include "graphics/passes/shadow_pass.h"
 
 #include <array>
 #include <cstring>

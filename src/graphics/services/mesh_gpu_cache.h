@@ -1,7 +1,7 @@
-#ifndef CRESSIM_NEO_GRAPHICS_RENDERER_SERVICES_MESH_GPU_CACHE_H
-#define CRESSIM_NEO_GRAPHICS_RENDERER_SERVICES_MESH_GPU_CACHE_H
+#ifndef CRESSIM_NEO_GRAPHICS_SERVICES_MESH_GPU_CACHE_H
+#define CRESSIM_NEO_GRAPHICS_SERVICES_MESH_GPU_CACHE_H
 
-#include "graphics/renderer/passes/forward_draw_types.h"
+#include "graphics/passes/forward_draw_types.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
@@ -38,4 +38,4 @@ private:
 
 } // namespace cressim::neo::graphics::detail
 
-#endif // CRESSIM_NEO_GRAPHICS_RENDERER_SERVICES_MESH_GPU_CACHE_H
+#endif // CRESSIM_NEO_GRAPHICS_SERVICES_MESH_GPU_CACHE_H

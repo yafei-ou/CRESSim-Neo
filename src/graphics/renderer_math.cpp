@@ -1,4 +1,4 @@
-#include "graphics/renderer/renderer_internal.h"
+#include "graphics/renderer_internal.h"
 
 #include "common/math_utils_runtime.h"
 

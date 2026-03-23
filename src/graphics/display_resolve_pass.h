@@ -1,7 +1,7 @@
-#ifndef CRESSIM_NEO_GRAPHICS_RENDERER_DISPLAY_RESOLVE_PASS_H
-#define CRESSIM_NEO_GRAPHICS_RENDERER_DISPLAY_RESOLVE_PASS_H
+#ifndef CRESSIM_NEO_GRAPHICS_DISPLAY_RESOLVE_PASS_H
+#define CRESSIM_NEO_GRAPHICS_DISPLAY_RESOLVE_PASS_H
 
-#include "graphics/renderer/passes/render_pass_types.h"
+#include "graphics/passes/render_pass_types.h"
 
 #include "gpu/gpu_device.h"
 
@@ -70,4 +70,4 @@ private:
 
 } // namespace cressim::neo::graphics::detail
 
-#endif // CRESSIM_NEO_GRAPHICS_RENDERER_DISPLAY_RESOLVE_PASS_H
+#endif // CRESSIM_NEO_GRAPHICS_DISPLAY_RESOLVE_PASS_H

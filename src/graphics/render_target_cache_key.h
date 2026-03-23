@@ -1,5 +1,5 @@
-#ifndef CRESSIM_NEO_GRAPHICS_RENDERER_RENDER_TARGET_CACHE_KEY_H
-#define CRESSIM_NEO_GRAPHICS_RENDERER_RENDER_TARGET_CACHE_KEY_H
+#ifndef CRESSIM_NEO_GRAPHICS_RENDER_TARGET_CACHE_KEY_H
+#define CRESSIM_NEO_GRAPHICS_RENDER_TARGET_CACHE_KEY_H
 
 #include "gpu/gpu_types.h"
 
@@ -91,4 +91,4 @@ inline RenderTargetCacheKey makeRenderTargetCacheKey(const gpu::GpuRenderTargetD
 
 } // namespace cressim::neo::graphics::detail
 
-#endif // CRESSIM_NEO_GRAPHICS_RENDERER_RENDER_TARGET_CACHE_KEY_H
+#endif // CRESSIM_NEO_GRAPHICS_RENDER_TARGET_CACHE_KEY_H

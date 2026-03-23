@@ -1,4 +1,4 @@
-#include "graphics/renderer/services/mesh_gpu_cache.h"
+#include "graphics/services/mesh_gpu_cache.h"
 
 #include <utility>
 

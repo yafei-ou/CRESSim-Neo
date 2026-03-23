@@ -1,4 +1,4 @@
-#include "graphics/renderer/passes/forward_opaque_pass.h"
+#include "graphics/passes/forward_opaque_pass.h"
 
 #include <algorithm>
 #include <cstring>

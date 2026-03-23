@@ -1,5 +1,5 @@
-#ifndef CRESSIM_NEO_GRAPHICS_RENDERER_H
-#define CRESSIM_NEO_GRAPHICS_RENDERER_H
+#ifndef CRESSIM_NEO_GRAPHICS_H
+#define CRESSIM_NEO_GRAPHICS_H
 
 #include "common/frame_context.h"
 #include "common/id.h"
@@ -72,4 +72,4 @@ private:
 
 } // namespace cressim::neo::graphics
 
-#endif // CRESSIM_NEO_GRAPHICS_RENDERER_H
+#endif // CRESSIM_NEO_GRAPHICS_H

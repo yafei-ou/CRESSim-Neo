@@ -1,7 +1,7 @@
-#ifndef CRESSIM_NEO_GRAPHICS_RENDERER_RENDER_PLAN_BUILDER_H
-#define CRESSIM_NEO_GRAPHICS_RENDERER_RENDER_PLAN_BUILDER_H
+#ifndef CRESSIM_NEO_GRAPHICS_RENDER_PLAN_BUILDER_H
+#define CRESSIM_NEO_GRAPHICS_RENDER_PLAN_BUILDER_H
 
-#include "graphics/renderer/passes/render_pass_types.h"
+#include "graphics/passes/render_pass_types.h"
 
 namespace cressim::neo::graphics::detail
 {
@@ -12,4 +12,4 @@ FrameRenderPlan buildFrameRenderPlan(std::vector<ResolvedCameraView> cameras,
 
 } // namespace cressim::neo::graphics::detail
 
-#endif // CRESSIM_NEO_GRAPHICS_RENDERER_RENDER_PLAN_BUILDER_H
+#endif // CRESSIM_NEO_GRAPHICS_RENDER_PLAN_BUILDER_H

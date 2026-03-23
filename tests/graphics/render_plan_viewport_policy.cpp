@@ -1,4 +1,4 @@
-#include "graphics/renderer/render_plan_builder.h"
+#include "graphics/render_plan_builder.h"
 #include "common/logger.h"
 
 #include <optional>

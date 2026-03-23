@@ -1,13 +1,13 @@
-#ifndef CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_OPAQUE_PASS_H
-#define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_OPAQUE_PASS_H
+#ifndef CRESSIM_NEO_GRAPHICS_PASSES_FORWARD_OPAQUE_PASS_H
+#define CRESSIM_NEO_GRAPHICS_PASSES_FORWARD_OPAQUE_PASS_H
 
 #include "gpu/gpu_device.h"
 #include "gpu/gpu_scene.h"
 #include "gpu/shader_library.h"
-#include "graphics/renderer/passes/forward_draw_types.h"
-#include "graphics/renderer/passes/material_program_registry.h"
-#include "graphics/renderer/passes/render_pass_types.h"
-#include "graphics/renderer/services/mesh_gpu_cache.h"
+#include "graphics/passes/forward_draw_types.h"
+#include "graphics/passes/material_program_registry.h"
+#include "graphics/passes/render_pass_types.h"
+#include "graphics/services/mesh_gpu_cache.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
@@ -112,4 +112,4 @@ private:
 } // namespace detail
 } // namespace cressim::neo::graphics
 
-#endif // CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_OPAQUE_PASS_H
+#endif // CRESSIM_NEO_GRAPHICS_PASSES_FORWARD_OPAQUE_PASS_H

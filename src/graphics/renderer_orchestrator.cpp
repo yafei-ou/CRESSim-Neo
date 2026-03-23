@@ -2,11 +2,11 @@
 
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
-#include "graphics/renderer/display_resolve_pass.h"
-#include "graphics/renderer/output_planner.h"
-#include "graphics/renderer/passes/forward_pipeline.h"
-#include "graphics/renderer/render_plan_builder.h"
-#include "graphics/renderer/renderer_internal.h"
+#include "graphics/display_resolve_pass.h"
+#include "graphics/output_planner.h"
+#include "graphics/passes/forward_pipeline.h"
+#include "graphics/render_plan_builder.h"
+#include "graphics/renderer_internal.h"
 
 #include <array>
 #include <cstring>

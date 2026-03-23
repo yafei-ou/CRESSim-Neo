@@ -1,7 +1,7 @@
-#include "graphics/renderer/output_planner.h"
+#include "graphics/output_planner.h"
 
 #include "common/logger.h"
-#include "graphics/renderer/renderer_internal.h"
+#include "graphics/renderer_internal.h"
 
 #include <algorithm>
 #include <unordered_map>

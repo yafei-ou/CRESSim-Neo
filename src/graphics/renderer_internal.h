@@ -1,5 +1,5 @@
-#ifndef CRESSIM_NEO_GRAPHICS_RENDERER_INTERNAL_H
-#define CRESSIM_NEO_GRAPHICS_RENDERER_INTERNAL_H
+#ifndef CRESSIM_NEO_GRAPHICS_INTERNAL_H
+#define CRESSIM_NEO_GRAPHICS_INTERNAL_H
 
 #include "graphics/host_scene.h"
 
@@ -15,4 +15,4 @@ std::vector<CameraData> sortedCameras(const HostSceneView &sceneView);
 
 } // namespace cressim::neo::graphics::detail
 
-#endif // CRESSIM_NEO_GRAPHICS_RENDERER_INTERNAL_H
+#endif // CRESSIM_NEO_GRAPHICS_INTERNAL_H

@@ -1,4 +1,4 @@
-#include "graphics/renderer/display_resolve_pass.h"
+#include "graphics/display_resolve_pass.h"
 
 #include "gpu/shader_library.h"
 

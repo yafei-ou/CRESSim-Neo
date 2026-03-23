@@ -1,10 +1,10 @@
-#ifndef CRESSIM_NEO_GRAPHICS_RENDERER_OUTPUT_PLANNER_H
-#define CRESSIM_NEO_GRAPHICS_RENDERER_OUTPUT_PLANNER_H
+#ifndef CRESSIM_NEO_GRAPHICS_OUTPUT_PLANNER_H
+#define CRESSIM_NEO_GRAPHICS_OUTPUT_PLANNER_H
 
 #include "gpu/gpu_render_target_system.h"
+#include "graphics/passes/render_pass_types.h"
+#include "graphics/render_target_cache_key.h"
 #include "graphics/renderer.h"
-#include "graphics/renderer/passes/render_pass_types.h"
-#include "graphics/renderer/render_target_cache_key.h"
 
 #include <optional>
 #include <unordered_map>
@@ -33,4 +33,4 @@ CameraOutputPlanningResult planCameraOutputs(
 
 } // namespace cressim::neo::graphics::detail
 
-#endif // CRESSIM_NEO_GRAPHICS_RENDERER_OUTPUT_PLANNER_H
+#endif // CRESSIM_NEO_GRAPHICS_OUTPUT_PLANNER_H

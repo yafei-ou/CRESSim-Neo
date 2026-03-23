@@ -1,4 +1,4 @@
-#include "graphics/renderer/passes/material_program_registry.h"
+#include "graphics/passes/material_program_registry.h"
 
 #include "common/logger.h"
 

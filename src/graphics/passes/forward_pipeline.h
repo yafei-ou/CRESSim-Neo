@@ -1,10 +1,10 @@
-#ifndef CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_PIPELINE_H
-#define CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_PIPELINE_H
+#ifndef CRESSIM_NEO_GRAPHICS_PASSES_FORWARD_PIPELINE_H
+#define CRESSIM_NEO_GRAPHICS_PASSES_FORWARD_PIPELINE_H
 
 #include "gpu/gpu_device.h"
 #include "graphics/host_scene.h"
-#include "graphics/renderer/passes/render_pass_types.h"
-#include "graphics/renderer/render_target_cache_key.h"
+#include "graphics/passes/render_pass_types.h"
+#include "graphics/render_target_cache_key.h"
 
 #include <memory>
 #include <unordered_map>
@@ -43,4 +43,4 @@ private:
 } // namespace detail
 } // namespace cressim::neo::graphics
 
-#endif // CRESSIM_NEO_GRAPHICS_RENDERER_PASSES_FORWARD_PIPELINE_H
+#endif // CRESSIM_NEO_GRAPHICS_PASSES_FORWARD_PIPELINE_H

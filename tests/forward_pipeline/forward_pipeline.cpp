@@ -1,7 +1,7 @@
 #include "common/frame_context.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
-#include "graphics/renderer/passes/material_program_registry.h"
+#include "graphics/passes/material_program_registry.h"
 #include "common/logger.h"
 
 

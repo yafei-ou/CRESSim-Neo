@@ -5,8 +5,8 @@
 #include "common/math_types.h"
 #include "gpu/gpu_scene.h"
 #include "gpu/gpu_types.h"
+#include "graphics/passes/forward_draw_types.h"
 #include "graphics/render_resource_manager.h"
-#include "graphics/renderer/passes/forward_draw_types.h"
 
 #include <vector>
 
