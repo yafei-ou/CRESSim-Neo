@@ -113,6 +113,49 @@ std::uint32_t countActiveLights(const std::vector<DirectionalLightData> &lights)
     return count;
 }
 
+bool isMainDirectionalLightActive(const DirectionalLightData &light)
+{
+    if (light.entityId == common::kInvalidEntityId ||
+        light.lightSlot != gpu::kMainDirectionalLightSlot)
+    {
+        return false;
+    }
+
+    const float directionLengthSq = light.direction.x * light.direction.x +
+                                    light.direction.y * light.direction.y +
+                                    light.direction.z * light.direction.z;
+    return directionLengthSq > 1.0e-6f && light.intensity > 0.0f;
+}
+
+std::vector<EnvMainLightState> buildEnvMainLightStates(const HostSceneView &sceneView,
+                                                       const gpu::GpuEntitySceneView &gpuScene)
+{
+    std::vector<EnvMainLightState> states(gpuScene.layout.envCount);
+    for (std::uint32_t envIndex = 0u; envIndex < gpuScene.layout.envCount; ++envIndex)
+    {
+        states[envIndex].mainLightIndex = gpu::mainDirectionalLightIndex(gpuScene.layout, envIndex);
+    }
+
+    if (sceneView.directionalLights == nullptr)
+    {
+        return states;
+    }
+
+    for (const DirectionalLightData &light : *sceneView.directionalLights)
+    {
+        if (light.envIndex >= states.size() || light.lightSlot != gpu::kMainDirectionalLightSlot)
+        {
+            continue;
+        }
+
+        const bool active                   = isMainDirectionalLightActive(light);
+        states[light.envIndex].active       = active;
+        states[light.envIndex].castsShadows = active && light.castsShadows;
+    }
+
+    return states;
+}
+
 } // namespace
 
 struct Renderer::GpuScenePrepareState
@@ -368,9 +411,6 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
     const std::vector<DirectionalLightData> emptyLights;
     const std::vector<DirectionalLightData> &directionalLights =
         world.directionalLights != nullptr ? *world.directionalLights : emptyLights;
-
-    // TODO: we are only using one global light
-    const ForwardDirectionalLightData lightData = detail::buildMainLight(directionalLights);
     const gpu::GpuEntitySceneView emptySceneView{};
     const gpu::GpuEntitySceneView &gpuScene =
         world.gpuEntityScene != nullptr ? *world.gpuEntityScene : emptySceneView;
@@ -424,15 +464,17 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
         it = mOutputPlanningState->managedPrimaryTargets.erase(it);
     }
 
-    const FrameRenderPlan renderPlan = detail::buildFrameRenderPlan(
-        std::move(outputPlan.resolvedCameras), lightData, outputPlan.displayResolve);
+    FrameRenderPlan renderPlan = detail::buildFrameRenderPlan(std::move(outputPlan.resolvedCameras),
+                                                              outputPlan.displayResolve);
+    renderPlan.envMainLights   = buildEnvMainLightStates(world, gpuScene);
 
     for (const CameraBatchView &batch : renderPlan.cameraBatches)
     {
         ForwardPassExecutionStats passStats{};
         if (mForwardPipeline != nullptr)
         {
-            (void)mForwardPipeline->executeBatch(frameContext, batch, world, passStats);
+            (void)mForwardPipeline->executeBatch(frameContext, batch, world,
+                                                 renderPlan.envMainLights, passStats);
         }
         stats.opaqueDrawCalls += passStats.opaqueDrawCalls;
         stats.shadowDrawCalls += passStats.shadowDrawCalls;

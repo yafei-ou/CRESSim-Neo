@@ -26,7 +26,9 @@ public:
 
     bool initialize();
     bool executeBatch(const common::FrameContext &frameContext, const CameraBatchView &batchView,
-                      const HostSceneView &sceneView, ForwardPassExecutionStats &outStats);
+                      const HostSceneView &sceneView,
+                      const std::vector<EnvMainLightState> &envMainLights,
+                      ForwardPassExecutionStats &outStats);
 
 private:
     struct GpuIndirectState;

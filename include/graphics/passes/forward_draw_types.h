@@ -14,15 +14,6 @@ namespace cressim::neo::graphics
 constexpr std::uint32_t kShadowCascadeCount  = 4;
 constexpr std::uint32_t kShadowMapResolution = 2048;
 
-struct ForwardDirectionalLightData
-{
-    Diligent::float3 direction{0.0f, -1.0f, 0.0f};
-    float intensity = 1.0f;
-    Diligent::float3 color{1.0f, 1.0f, 1.0f};
-    float shadowDistance     = 120.0f;
-    float shadowFadeDistance = 20.0f;
-};
-
 struct ForwardDrawCommand
 {
     std::uint32_t instanceIndex               = 0xffffffffu;

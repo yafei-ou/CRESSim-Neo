@@ -96,7 +96,7 @@ bool ForwardOpaquePass::initialize()
     return true;
 }
 
-bool ForwardOpaquePass::beginBatchFrame(const CameraBatchView &batchView)
+bool ForwardOpaquePass::beginBatchFrame(std::uint32_t currentCameraIndex)
 {
     if (!mInitialized)
     {
@@ -118,16 +118,7 @@ bool ForwardOpaquePass::beginBatchFrame(const CameraBatchView &batchView)
     }
 
     ForwardPerFrameConstants frameConstants{};
-    if (!batchView.cameras.empty())
-    {
-        const ResolvedCameraView &firstCamera = batchView.cameras.front();
-        frameConstants.currentCameraIndex     = firstCamera.globalCameraIndex;
-    }
-    frameConstants.lightDirectionIntensity =
-        Diligent::float4{batchView.light.direction.x, batchView.light.direction.y,
-                         batchView.light.direction.z, batchView.light.intensity};
-    frameConstants.lightColor = Diligent::float4{batchView.light.color.x, batchView.light.color.y,
-                                                 batchView.light.color.z, 0.0f};
+    frameConstants.currentCameraIndex = currentCameraIndex;
     frameConstants.shadowParams =
         Diligent::float4{0.0015f, hasAnyShadowMap() ? 1.0f : 0.0f, 0.35f, 0.0f};
 
@@ -151,6 +142,11 @@ void ForwardOpaquePass::setGpuSceneView(const gpu::GpuEntitySceneView &sceneView
 void ForwardOpaquePass::setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept
 {
     mVisiblePairBuffer = buffer;
+}
+
+void ForwardOpaquePass::setBatchCameraBuffer(Diligent::IBuffer *buffer) noexcept
+{
+    mBatchCameraBuffer = buffer;
 }
 
 void ForwardOpaquePass::setShadowMapTargets(
@@ -311,14 +307,14 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
         const char *name;
         Diligent::IBuffer *buffer;
     };
-    const VariableBinding bindings[] = {
+    const VariableBinding vertexBindings[] = {
         {"g_EntityPositions", mSceneView.poses.positionsBuffer},
         {"g_EntityOrientations", mSceneView.poses.orientationsBuffer},
         {"g_EntityScales", mSceneView.poses.scalesBuffer},
         {"g_RenderableMetadata", mSceneView.renderableMetadataBuffer},
         {"g_RenderableVisibilityFlags", mSceneView.renderableVisibilityFlagsBuffer},
     };
-    for (const VariableBinding &binding : bindings)
+    for (const VariableBinding &binding : vertexBindings)
     {
         Diligent::IShaderResourceVariable *variable =
             program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
@@ -377,6 +373,33 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
             preparedCameraVar->Set(preparedCameraSrv);
         }
     }
+
+    if (mBatchCameraBuffer == nullptr || mSceneView.lightInputsBuffer == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::IBufferView *batchCameraSrv =
+        mBatchCameraBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+    Diligent::IBufferView *lightInputsSrv =
+        mSceneView.lightInputsBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+    if (batchCameraSrv == nullptr || lightInputsSrv == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::IShaderResourceVariable *batchCameraVar =
+        program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                                         "g_BatchCameras");
+    Diligent::IShaderResourceVariable *lightInputsVar =
+        program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                                         "g_LightInputs");
+    if (batchCameraVar == nullptr || lightInputsVar == nullptr)
+    {
+        return false;
+    }
+    batchCameraVar->Set(batchCameraSrv);
+    lightInputsVar->Set(lightInputsSrv);
     return true;
 }
 

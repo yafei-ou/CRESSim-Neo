@@ -17,36 +17,6 @@ gpu::GpuRenderViewport normalizeViewport(const gpu::GpuRenderViewport &viewport)
     return common::runtime_math::normalizeViewport(viewport);
 }
 
-ForwardDirectionalLightData buildMainLight(const std::vector<DirectionalLightData> &lights)
-{
-    /**
-     * This gets the first directional light.
-     */
-
-    // TODO: use the brightest one as the main light
-    // TODO: allow multiple lights
-    // TODO: add other types of lights (spot, point)
-
-    ForwardDirectionalLightData out{};
-    for (const DirectionalLightData &light : lights)
-    {
-        if (light.entityId == common::kInvalidEntityId || light.lightSlot == 0xffffffffu)
-        {
-            continue;
-        }
-        out.direction          = light.direction;
-        out.color              = light.color;
-        out.intensity          = light.intensity;
-        out.shadowDistance     = light.shadowDistance;
-        out.shadowFadeDistance = light.shadowFadeDistance;
-        return out;
-    }
-
-    out.direction = Diligent::float3{0.0f, 0.0f, 0.0f};
-    out.intensity = 0.0f;
-    return out;
-}
-
 CameraData defaultCamera()
 {
     CameraData camera{};

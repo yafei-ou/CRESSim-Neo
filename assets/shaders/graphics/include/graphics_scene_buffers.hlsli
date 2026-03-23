@@ -37,12 +37,36 @@ struct RenderableQueueInfo
     uint reserved1;
 };
 
+// Forward-path main directional light selection is explicit slot 0 per environment.
+struct DirectionalLightInput
+{
+    float4 directionIntensity;
+    float4 color;
+    float4 shadowParams;
+    uint envIndex;
+    uint lightSlot;
+    uint active;
+    uint castsShadows;
+};
+
+struct BatchCameraMetadata
+{
+    uint globalCameraIndex;
+    uint envIndex;
+    uint mainLightIndex;
+    uint colorLayer;
+    uint shadowLayer;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+};
+
 struct VisiblePairInstance
 {
     uint objectIndex;
-    uint cameraIndex;
-    uint cameraLayer;
+    uint batchCameraIndex;
     uint bucketIndex;
+    uint reserved0;
 };
 
 StructuredBuffer<float4> g_EntityPositions;
@@ -53,11 +77,15 @@ StructuredBuffer<RenderableQueueInfo> g_RenderableQueueInfo;
 StructuredBuffer<uint> g_RenderableVisibilityFlags;
 StructuredBuffer<uint> g_RenderableShadowCascadeMasks;
 StructuredBuffer<PreparedCamera> g_PreparedCameras;
+StructuredBuffer<DirectionalLightInput> g_LightInputs;
+StructuredBuffer<BatchCameraMetadata> g_BatchCameras;
 StructuredBuffer<uint> g_VisibleObjectIndices;
 StructuredBuffer<VisiblePairInstance> g_VisiblePairs;
 
 static const uint CRESSIM_RENDERABLE_FLAG_ACTIVE = 1u << 0u;
 static const uint CRESSIM_RENDERABLE_FLAG_SHADOW_CASTER = 1u << 2u;
+static const uint CRESSIM_INVALID_GPU_SCENE_INDEX = 0xffffffffu;
+static const uint CRESSIM_INVALID_BATCH_CAMERA_LAYER = 0xffffffffu;
 
 float3 quaternionRotateVector(float4 q, float3 v)
 {

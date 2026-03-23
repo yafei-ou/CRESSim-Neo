@@ -13,7 +13,6 @@ using cressim::neo::gpu::GpuRenderTargetBinding;
 using cressim::neo::gpu::GpuRenderTargetDesc;
 using cressim::neo::gpu::GpuRenderTargetHandle;
 using cressim::neo::graphics::CameraBatchView;
-using cressim::neo::graphics::ForwardDirectionalLightData;
 using cressim::neo::graphics::FrameRenderPlan;
 using cressim::neo::graphics::ResolvedCameraView;
 using cressim::neo::graphics::detail::buildFrameRenderPlan;
@@ -52,7 +51,6 @@ bool isSingleCameraBatches(const FrameRenderPlan& plan)
 
 int main()
 {
-    const ForwardDirectionalLightData light{};
     const GpuRenderTargetHandle target{42u};
 
     std::vector<ResolvedCameraView> explicitNonLayeredCameras;
@@ -60,7 +58,7 @@ int main()
     explicitNonLayeredCameras.push_back(makeCamera(2u, target, 0u, false, true));
 
     const FrameRenderPlan explicitPlan =
-        buildFrameRenderPlan(std::move(explicitNonLayeredCameras), light, std::nullopt);
+        buildFrameRenderPlan(std::move(explicitNonLayeredCameras), std::nullopt);
     if (explicitPlan.cameraBatches.size() != 2u || !isSingleCameraBatches(explicitPlan))
     {
         CRESSIM_LOG_ERROR( "Expected explicit non-layered viewport cameras to remain single-camera batches.\n");
@@ -72,7 +70,7 @@ int main()
     layeredCameras.push_back(makeCamera(4u, target, 1u, true, false));
 
     const FrameRenderPlan layeredPlan =
-        buildFrameRenderPlan(std::move(layeredCameras), light, std::nullopt);
+        buildFrameRenderPlan(std::move(layeredCameras), std::nullopt);
     if (layeredPlan.cameraBatches.size() != 1u || layeredPlan.cameraBatches.front().cameras.size() != 2u)
     {
         CRESSIM_LOG_ERROR( "Expected layered cameras to preserve existing batching behavior.\n");

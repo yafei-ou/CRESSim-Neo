@@ -7,7 +7,8 @@ struct VSOutput
     float3 WorldPos : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
     nointerpolation uint CameraIndex : TEXCOORD2;
-    nointerpolation uint CameraLayer : TEXCOORD3;
+    nointerpolation uint MainLightIndex : TEXCOORD3;
+    nointerpolation uint ShadowLayer : TEXCOORD4;
 };
 
 Texture2DArray g_ShadowMap0;
@@ -150,11 +151,13 @@ float SampleCascadeShadow(
     return SampleShadowPCF(shadowMap, shadowSampler, float3(uv, layer), proj.z, bias, texelSize);
 }
 
-float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir, uint cameraIndex, float cameraLayer)
+float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir, uint cameraIndex,
+                          uint shadowLayer)
 {
     // x: bias, y: hasShadowMap, z: minimum shadow visibility, w: reserved
     // g_MaterialParams.w controls receivesShadows per material.
-    if (g_ShadowParams.y < 0.5 || g_MaterialParams.w < 0.5)
+    if (g_ShadowParams.y < 0.5 || g_MaterialParams.w < 0.5 ||
+        shadowLayer == CRESSIM_INVALID_BATCH_CAMERA_LAYER)
     {
         return 1.0;
     }
@@ -190,25 +193,25 @@ float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir, uint 
     {
         visibility = SampleCascadeShadow(g_ShadowMap0, g_ShadowMap0_sampler,
                                          preparedCamera.lightViewProjectionMatrices[0], worldPos,
-                                         cameraLayer, shadowBias, texelSize);
+                                         (float)shadowLayer, shadowBias, texelSize);
     }
     else if (cascadeIdx == 1)
     {
         visibility = SampleCascadeShadow(g_ShadowMap1, g_ShadowMap1_sampler,
                                          preparedCamera.lightViewProjectionMatrices[1], worldPos,
-                                         cameraLayer, shadowBias, texelSize);
+                                         (float)shadowLayer, shadowBias, texelSize);
     }
     else if (cascadeIdx == 2)
     {
         visibility = SampleCascadeShadow(g_ShadowMap2, g_ShadowMap2_sampler,
                                          preparedCamera.lightViewProjectionMatrices[2], worldPos,
-                                         cameraLayer, shadowBias, texelSize);
+                                         (float)shadowLayer, shadowBias, texelSize);
     }
     else
     {
         visibility = SampleCascadeShadow(g_ShadowMap3, g_ShadowMap3_sampler,
                                          preparedCamera.lightViewProjectionMatrices[3], worldPos,
-                                         cameraLayer, shadowBias, texelSize);
+                                         (float)shadowLayer, shadowBias, texelSize);
     }
 
     float shadowTerm = lerp(g_ShadowParams.z, 1.0, visibility);
@@ -227,8 +230,6 @@ float4 main(in VSOutput In) : SV_Target
     PreparedCamera preparedCamera = g_PreparedCameras[In.CameraIndex];
     float3 N = normalize(In.WorldNormal);
     float3 V = normalize(preparedCamera.cameraPosition.xyz - In.WorldPos);
-    float3 L = normalize(-g_LightDirectionIntensity.xyz);
-    float3 H = normalize(V + L);
 
     float roughness = clamp(g_MaterialParams.y, 0.04, 1.0);
     float metallic = clamp(g_MaterialParams.x, 0.0, 1.0);
@@ -237,24 +238,36 @@ float4 main(in VSOutput In) : SV_Target
     float3 F0 = float3(0.04, 0.04, 0.04);
     F0 = lerp(F0, albedo, metallic);
 
-    float NDF = DistributionGGX(N, H, roughness);
-    float G = GeometrySmith(N, V, L, roughness);
-    float3 F = FresnelSchlick(max(dot(H, V), 0.0), F0);
+    float3 Lo = float3(0.0, 0.0, 0.0);
+    if (In.MainLightIndex != CRESSIM_INVALID_GPU_SCENE_INDEX)
+    {
+        const DirectionalLightInput mainLight = g_LightInputs[In.MainLightIndex];
+        const bool hasMainLight =
+            mainLight.active != 0u &&
+            dot(mainLight.directionIntensity.xyz, mainLight.directionIntensity.xyz) > 1e-6 &&
+            mainLight.directionIntensity.w > 0.0;
+        if (hasMainLight)
+        {
+            float3 L = normalize(-mainLight.directionIntensity.xyz);
+            float3 H = normalize(V + L);
+            float NDF = DistributionGGX(N, H, roughness);
+            float G = GeometrySmith(N, V, L, roughness);
+            float3 F = FresnelSchlick(max(dot(H, V), 0.0), F0);
 
-    float3 numerator = NDF * G * F;
-    float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
-    float3 specular = numerator / denominator;
+            float3 numerator = NDF * G * F;
+            float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
+            float3 specular = numerator / denominator;
 
-    float3 kS = F;
-    float3 kD = (1.0 - kS) * (1.0 - metallic);
-    float NdotL = max(dot(N, L), 0.0);
-
-    float shadowFactor = ComputeShadowFactor(In.WorldPos, N, L, In.CameraIndex,
-                                             (float)In.CameraLayer);
-
-    float3 radiance = g_LightColor.xyz * g_LightDirectionIntensity.w;
-    float3 diffuse = kD * albedo / PI;
-    float3 Lo = (diffuse + specular) * radiance * NdotL * shadowFactor;
+            float3 kS = F;
+            float3 kD = (1.0 - kS) * (1.0 - metallic);
+            float NdotL = max(dot(N, L), 0.0);
+            float shadowFactor =
+                ComputeShadowFactor(In.WorldPos, N, L, In.CameraIndex, In.ShadowLayer);
+            float3 radiance = mainLight.color.xyz * mainLight.directionIntensity.w;
+            float3 diffuse = kD * albedo / PI;
+            Lo = (diffuse + specular) * radiance * NdotL * shadowFactor;
+        }
+    }
 
     float3 ambient = 0.03 * albedo;
     float3 color = ambient + Lo;

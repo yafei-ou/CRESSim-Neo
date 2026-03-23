@@ -1,10 +1,10 @@
 #ifndef CRESSIM_NEO_GRAPHICS_PASSES_RENDER_PASS_TYPES_H
 #define CRESSIM_NEO_GRAPHICS_PASSES_RENDER_PASS_TYPES_H
 
-#include "gpu/gpu_types.h"
-#include "graphics/passes/forward_draw_types.h"
-
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
+#include "common/id.h"
+#include "gpu/gpu_scene.h"
+#include "gpu/gpu_types.h"
 
 #include <optional>
 #include <vector>
@@ -37,7 +37,6 @@ struct CameraBatchView
 {
     gpu::GpuRenderTargetBinding renderBinding{};
     gpu::GpuRenderTargetDesc renderTargetDesc{};
-    ForwardDirectionalLightData light{};
     std::vector<ResolvedCameraView> cameras{};
 };
 
@@ -53,9 +52,17 @@ struct DisplayResolveRequest
     float clearDepthValue            = 1.0f;
 };
 
+struct EnvMainLightState
+{
+    std::uint32_t mainLightIndex = gpu::kInvalidGpuSceneIndex;
+    bool active                  = false;
+    bool castsShadows            = false;
+};
+
 struct FrameRenderPlan
 {
     std::vector<CameraBatchView> cameraBatches{};
+    std::vector<EnvMainLightState> envMainLights{};
     std::optional<DisplayResolveRequest> displayResolve{};
 };
 

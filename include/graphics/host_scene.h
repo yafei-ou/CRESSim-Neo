@@ -57,6 +57,7 @@ struct DirectionalLightData
     float intensity          = 1.0f;
     float shadowDistance     = 120.0f;
     float shadowFadeDistance = 20.0f;
+    bool castsShadows        = true;
 };
 
 struct HostSceneView

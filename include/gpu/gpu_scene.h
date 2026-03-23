@@ -10,6 +10,10 @@
 namespace cressim::neo::gpu
 {
 
+inline constexpr std::uint32_t kInvalidGpuSceneIndex     = 0xffffffffu;
+inline constexpr std::uint32_t kMainDirectionalLightSlot = 0u;
+inline constexpr std::uint32_t kInvalidBatchCameraLayer  = 0xffffffffu;
+
 struct GpuSceneLayoutDesc
 {
     std::uint32_t envCount         = 1u;
@@ -30,6 +34,14 @@ struct GpuSceneLayoutDesc
         return envCount * maxCamerasPerEnv;
     }
 };
+
+[[nodiscard]] constexpr std::uint32_t mainDirectionalLightIndex(const GpuSceneLayoutDesc &layout,
+                                                                std::uint32_t envIndex) noexcept
+{
+    return layout.maxLightsPerEnv == 0u
+               ? kInvalidGpuSceneIndex
+               : envIndex * layout.maxLightsPerEnv + kMainDirectionalLightSlot;
+}
 
 struct GpuPoseBufferView
 {
@@ -56,10 +68,10 @@ struct GpuDirectionalLightInput
     Diligent::float4 directionIntensity{};
     Diligent::float4 color{};
     Diligent::float4 shadowParams{};
-    std::uint32_t envIndex  = 0u;
-    std::uint32_t lightSlot = 0u;
-    std::uint32_t active    = 0u;
-    std::uint32_t reserved  = 0u;
+    std::uint32_t envIndex     = 0u;
+    std::uint32_t lightSlot    = 0u;
+    std::uint32_t active       = 0u;
+    std::uint32_t castsShadows = 0u;
 };
 
 struct GpuPreparedCamera
@@ -80,12 +92,24 @@ struct GpuPreparedCamera
     std::uint32_t reserved2            = 0u;
 };
 
+struct GpuBatchCameraMetadata
+{
+    std::uint32_t globalCameraIndex = 0u;
+    std::uint32_t envIndex          = 0u;
+    std::uint32_t mainLightIndex    = kInvalidGpuSceneIndex;
+    std::uint32_t colorLayer        = 0u;
+    std::uint32_t shadowLayer       = kInvalidBatchCameraLayer;
+    std::uint32_t reserved0         = 0u;
+    std::uint32_t reserved1         = 0u;
+    std::uint32_t reserved2         = 0u;
+};
+
 struct GpuVisiblePairInstance
 {
-    std::uint32_t objectIndex = 0u;
-    std::uint32_t cameraIndex = 0u;
-    std::uint32_t cameraLayer = 0u;
-    std::uint32_t bucketIndex = 0u;
+    std::uint32_t objectIndex      = 0u;
+    std::uint32_t batchCameraIndex = 0u;
+    std::uint32_t bucketIndex      = 0u;
+    std::uint32_t reserved0        = 0u;
 };
 
 struct GpuRenderableQueueInfo

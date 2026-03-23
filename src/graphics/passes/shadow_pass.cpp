@@ -31,6 +31,11 @@ void ShadowPass::setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept
     mVisiblePairBuffer = buffer;
 }
 
+void ShadowPass::setBatchCameraBuffer(Diligent::IBuffer *buffer) noexcept
+{
+    mBatchCameraBuffer = buffer;
+}
+
 bool ShadowPass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
                              const ForwardDrawCommand &drawCommand, DrawSetup &outSetup)
 {
@@ -136,6 +141,20 @@ bool ShadowPass::bindSceneBuffers() const
         variable->Set(srv);
     }
 
+    if (mBatchCameraBuffer == nullptr)
+    {
+        return false;
+    }
+    Diligent::IShaderResourceVariable *batchCamerasVar =
+        mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras");
+    Diligent::IBufferView *batchCamerasSrv =
+        mBatchCameraBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+    if (batchCamerasVar == nullptr || batchCamerasSrv == nullptr)
+    {
+        return false;
+    }
+    batchCamerasVar->Set(batchCamerasSrv);
+
     Diligent::IShaderResourceVariable *visiblePairsVar =
         mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs");
     if (visiblePairsVar != nullptr)
@@ -160,7 +179,6 @@ bool ShadowPass::bindSceneBuffers() const
 
 bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
                                         const ForwardDrawCommand &drawCommand,
-                                        std::uint32_t currentCameraIndex,
                                         std::uint32_t cascadeIndex)
 {
     PerObjectConstants objectConstants{};
@@ -170,7 +188,6 @@ bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext *immediateConte
 
     ShadowPerPassConstants shadowPassConstants{};
     shadowPassConstants.shadowPassParams[0] = cascadeIndex;
-    shadowPassConstants.shadowPassParams[1] = currentCameraIndex;
 
     void *mappedConstants = nullptr;
     immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
@@ -207,8 +224,7 @@ void ShadowPass::bindGeometry(Diligent::IDeviceContext *immediateContext,
 }
 
 bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
-                              const ForwardDrawCommand &drawCommand,
-                              std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex,
+                              const ForwardDrawCommand &drawCommand, std::uint32_t cascadeIndex,
                               Diligent::IBuffer *indirectArgsBuffer,
                               Diligent::Uint64 argsOffsetBytes)
 {
@@ -221,8 +237,7 @@ bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
     {
         return false;
     }
-    if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand,
-                                currentCameraIndex, cascadeIndex))
+    if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand, cascadeIndex))
     {
         return false;
     }
@@ -315,6 +330,8 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
         {Diligent::SHADER_TYPE_VERTEX, "g_RenderableShadowCascadeMasks",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},

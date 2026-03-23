@@ -31,9 +31,10 @@ public:
     ForwardOpaquePass(gpu::GpuDevice &device, RenderResourceManager &resourceManager);
 
     bool initialize();
-    bool beginBatchFrame(const CameraBatchView &batchView);
+    bool beginBatchFrame(std::uint32_t currentCameraIndex);
     void setGpuSceneView(const gpu::GpuEntitySceneView &sceneView) noexcept;
     void setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept;
+    void setBatchCameraBuffer(Diligent::IBuffer *buffer) noexcept;
     void setShadowMapTargets(
         const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> &shadowMapTargets,
         std::uint32_t shadowMapCount);
@@ -52,11 +53,6 @@ private:
 
     struct ForwardPerFrameConstants
     {
-        Diligent::float4x4 viewMatrix           = Diligent::float4x4::Identity();
-        Diligent::float4x4 viewProjectionMatrix = Diligent::float4x4::Identity();
-        Diligent::float4 cameraPosition{0.0f, 0.0f, 0.0f, 0.0f};
-        Diligent::float4 lightDirectionIntensity{0.0f, -1.0f, 0.0f, 1.0f};
-        Diligent::float4 lightColor{1.0f, 1.0f, 1.0f, 0.0f};
         Diligent::float4 shadowParams{0.0015f, 0.0f, 0.0f, 0.0f};
         std::uint32_t currentCameraIndex = 0u;
         std::uint32_t padding0           = 0u;
@@ -107,6 +103,7 @@ private:
     std::uint32_t mShadowMapCount = 0;
     gpu::GpuEntitySceneView mSceneView{};
     Diligent::IBuffer *mVisiblePairBuffer = nullptr;
+    Diligent::IBuffer *mBatchCameraBuffer = nullptr;
 };
 
 } // namespace detail

@@ -33,7 +33,6 @@ bool requiresDedicatedBatch(const ResolvedCameraView &camera)
 } // namespace
 
 FrameRenderPlan buildFrameRenderPlan(std::vector<ResolvedCameraView> cameras,
-                                     const ForwardDirectionalLightData &light,
                                      std::optional<DisplayResolveRequest> displayResolve)
 {
     FrameRenderPlan plan{};
@@ -79,7 +78,6 @@ FrameRenderPlan buildFrameRenderPlan(std::vector<ResolvedCameraView> cameras,
         if (!canJoin)
         {
             flushBatch();
-            currentBatch.light            = light;
             currentBatch.renderTargetDesc = camera.outputTargetDesc;
             hasOpenBatch                  = true;
         }

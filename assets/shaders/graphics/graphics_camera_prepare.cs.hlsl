@@ -12,17 +12,6 @@ struct CameraInput
     uint reserved;
 };
 
-struct DirectionalLightInput
-{
-    float4 directionIntensity;
-    float4 color;
-    float4 shadowParams;
-    uint envIndex;
-    uint lightSlot;
-    uint active;
-    uint reserved;
-};
-
 cbuffer GraphicsCameraPrepareConstants
 {
     uint g_CameraCount;
@@ -32,7 +21,6 @@ cbuffer GraphicsCameraPrepareConstants
 };
 
 StructuredBuffer<CameraInput> g_CameraInputs;
-StructuredBuffer<DirectionalLightInput> g_LightInputs;
 RWStructuredBuffer<PreparedCamera> g_PreparedCamerasRW;
 
 static const float PI = 3.14159265359f;
@@ -302,7 +290,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             dot(light.directionIntensity.xyz, light.directionIntensity.xyz) > 1e-6 &&
             light.directionIntensity.w > 0.0;
     }
-    if (hasDirectionalLight)
+    if (hasDirectionalLight && light.castsShadows != 0u)
     {
         const float3 lightDirection = safeNormalize(light.directionIntensity.xyz, float3(0.0, -1.0, 0.0));
         const float shadowDistance = min(farClip, max(light.shadowParams.x, nearClip + 0.001));

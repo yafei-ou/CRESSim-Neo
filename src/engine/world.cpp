@@ -478,6 +478,7 @@ void World::setDirectionalLight(common::EntityId entityId,
     lightData.intensity                       = component.intensity;
     lightData.shadowDistance                  = component.shadowDistance;
     lightData.shadowFadeDistance              = component.shadowFadeDistance;
+    lightData.castsShadows                    = component.castsShadows;
     markLightDirty(lightIndex);
 }
 
@@ -799,6 +800,7 @@ std::optional<DirectionalLightComponent> World::tryGetDirectionalLight(
     component.intensity          = light.intensity;
     component.shadowDistance     = light.shadowDistance;
     component.shadowFadeDistance = light.shadowFadeDistance;
+    component.castsShadows       = light.castsShadows;
     return component;
 }
 
@@ -1313,6 +1315,7 @@ void World::refreshDirectionalLightEntry(std::uint32_t lightIndex)
     input.envIndex               = lightData.envIndex;
     input.lightSlot              = lightData.lightSlot;
     input.active                 = 1u;
+    input.castsShadows           = lightData.castsShadows ? 1u : 0u;
     mLightInputsHost[lightIndex] = input;
 }
 

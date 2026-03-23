@@ -14,7 +14,8 @@ struct VSOutput
     float3 WorldPos : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
     nointerpolation uint CameraIndex : TEXCOORD2;
-    nointerpolation uint CameraLayer : TEXCOORD3;
+    nointerpolation uint MainLightIndex : TEXCOORD3;
+    nointerpolation uint ShadowLayer : TEXCOORD4;
 #if MANUAL_LAYER_EXPORT
     uint Layer : SV_RenderTargetArrayIndex;
 #endif
@@ -24,13 +25,18 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
 {
     uint objectIndex = g_InstanceIndex;
     uint cameraIndex = g_CurrentCameraIndex;
-    uint cameraLayer = 0u;
+    uint colorLayer = 0u;
+    uint shadowLayer = CRESSIM_INVALID_BATCH_CAMERA_LAYER;
+    uint mainLightIndex = CRESSIM_INVALID_GPU_SCENE_INDEX;
     if (g_UseDrawListBuffer != 0u)
     {
         const VisiblePairInstance pair = g_VisiblePairs[g_DrawListOffset + instanceId];
+        const BatchCameraMetadata batchCamera = g_BatchCameras[pair.batchCameraIndex];
         objectIndex = pair.objectIndex;
-        cameraIndex = pair.cameraIndex;
-        cameraLayer = pair.cameraLayer;
+        cameraIndex = batchCamera.globalCameraIndex;
+        colorLayer = batchCamera.colorLayer;
+        shadowLayer = batchCamera.shadowLayer;
+        mainLightIndex = batchCamera.mainLightIndex;
     }
     const PreparedCamera preparedCamera = g_PreparedCameras[cameraIndex];
     bool poseValid = false;
@@ -47,9 +53,10 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
         Out.WorldPos = float3(0.0, 0.0, 0.0);
         Out.WorldNormal = float3(0.0, 1.0, 0.0);
         Out.CameraIndex = cameraIndex;
-        Out.CameraLayer = cameraLayer;
+        Out.MainLightIndex = mainLightIndex;
+        Out.ShadowLayer = shadowLayer;
 #if MANUAL_LAYER_EXPORT
-        Out.Layer = cameraLayer;
+        Out.Layer = colorLayer;
 #endif
         return;
     }
@@ -63,8 +70,9 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
     Out.WorldPos = worldPos.xyz;
     Out.WorldNormal = worldNormal;
     Out.CameraIndex = cameraIndex;
-    Out.CameraLayer = cameraLayer;
+    Out.MainLightIndex = mainLightIndex;
+    Out.ShadowLayer = shadowLayer;
 #if MANUAL_LAYER_EXPORT
-    Out.Layer = cameraLayer;
+    Out.Layer = colorLayer;
 #endif
 }
