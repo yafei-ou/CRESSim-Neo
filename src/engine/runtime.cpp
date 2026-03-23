@@ -1,6 +1,8 @@
 #include "engine/runtime.h"
 
-#include <iostream>
+#include "common/logger.h"
+
+#include <sstream>
 
 namespace cressim::neo::engine
 {
@@ -37,15 +39,16 @@ const char* stageName(physics::PhysicsSolverStage stage)
 void logPhysicsStepFailure(const common::FrameContext& frameContext,
                            const physics::PhysicsSolverStageStats& stats)
 {
-    std::cerr << "Runtime: physics step failed at frame " << frameContext.frameIndex
-              << " (dt=" << frameContext.deltaSeconds << "). Executed stages:";
+    std::ostringstream stream;
+    stream << "Runtime: physics step failed at frame " << frameContext.frameIndex
+           << " (dt=" << frameContext.deltaSeconds << "). Executed stages:";
     for (std::uint32_t i = 0; i < static_cast<std::uint32_t>(physics::PhysicsSolverStage::Count);
          ++i)
     {
         const auto stage = static_cast<physics::PhysicsSolverStage>(i);
-        std::cerr << ' ' << stageName(stage) << '=' << (stats.executed[i] ? '1' : '0');
+        stream << ' ' << stageName(stage) << '=' << (stats.executed[i] ? '1' : '0');
     }
-    std::cerr << '\n';
+    CRESSIM_LOG_ERROR(stream.str());
 }
 
 } // namespace

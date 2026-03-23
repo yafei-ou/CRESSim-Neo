@@ -1,6 +1,6 @@
 #include "graphics/renderer/passes/shadow_pass.h"
 
-#include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
+#include "common/logger.h"
 
 #include <cstring>
 #include <string>
@@ -254,7 +254,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
     std::string shadowVsPath;
     if (!mShaderLibrary.resolveShaderPath(kShadowVsRelativePath, shadowVsPath))
     {
-        LOG_ERROR_MESSAGE("ShadowPass shader path resolution failed for relative path '",
+        CRESSIM_LOG_ERROR("ShadowPass shader path resolution failed for relative path '",
                           kShadowVsRelativePath, "'.");
         return false;
     }
@@ -262,7 +262,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
     Diligent::IShaderSourceInputStreamFactory* streamFactory = mShaderLibrary.streamFactory();
     if (streamFactory == nullptr)
     {
-        LOG_ERROR_MESSAGE("ShadowPass could not acquire shader source stream factory.");
+        CRESSIM_LOG_ERROR("ShadowPass could not acquire shader source stream factory.");
         return false;
     }
 
@@ -283,7 +283,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
     renderDevice->CreateShader(shaderCreateInfo, &vertexShader);
     if (vertexShader == nullptr)
     {
-        LOG_ERROR_MESSAGE("ShadowPass failed to compile shader: '", shadowVsPath, "'.");
+        CRESSIM_LOG_ERROR("ShadowPass failed to compile shader: '", shadowVsPath, "'.");
         return false;
     }
 
@@ -334,13 +334,13 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
     renderDevice->CreateGraphicsPipelineState(psoCreateInfo, &mPipelineState);
     if (mPipelineState == nullptr)
     {
-        LOG_ERROR_MESSAGE("ShadowPass failed to create PSO.");
+        CRESSIM_LOG_ERROR("ShadowPass failed to create PSO.");
         return false;
     }
 
     if (!ensureConstantBuffers(renderDevice))
     {
-        LOG_ERROR_MESSAGE("ShadowPass failed to allocate constant buffers.");
+        CRESSIM_LOG_ERROR("ShadowPass failed to allocate constant buffers.");
         return false;
     }
 
@@ -350,7 +350,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
         Diligent::SHADER_TYPE_VERTEX, "GraphicsShadowPerPass");
     if (perObjectVar == nullptr || shadowPerPassVar == nullptr)
     {
-        LOG_ERROR_MESSAGE(
+        CRESSIM_LOG_ERROR(
             "ShadowPass static constant bindings are missing from shader reflection.");
         return false;
     }

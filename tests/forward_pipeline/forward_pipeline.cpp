@@ -2,8 +2,8 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 #include "graphics/renderer/passes/material_program_registry.h"
+#include "common/logger.h"
 
-#include <iostream>
 
 namespace
 {
@@ -47,7 +47,7 @@ int main()
     Runtime runtime;
     if (!runtime.initialize(config))
     {
-        std::cerr << "Runtime initialization failed.\n";
+        CRESSIM_LOG_ERROR( "Runtime initialization failed.\n");
         return 1;
     }
 
@@ -135,22 +135,22 @@ int main()
 
     if (firstFrame.renderableCount != 3)
     {
-        std::cerr << "Unexpected renderable counters.\n";
+        CRESSIM_LOG_ERROR( "Unexpected renderable counters.\n");
         return 1;
     }
     if (firstFrame.shadowDrawCalls != 4)
     {
-        std::cerr << "Unexpected shadow draws.\n";
+        CRESSIM_LOG_ERROR( "Unexpected shadow draws.\n");
         return 1;
     }
     if (firstFrame.cameraCount != 1 || firstFrame.lightCount != 1)
     {
-        std::cerr << "Unexpected camera/light counters.\n";
+        CRESSIM_LOG_ERROR( "Unexpected camera/light counters.\n");
         return 1;
     }
     if (!sameStats(secondFrame, thirdFrame))
     {
-        std::cerr << "Forward queue statistics were not stable across identical frames.\n";
+        CRESSIM_LOG_ERROR( "Forward queue statistics were not stable across identical frames.\n");
         return 1;
     }
 
@@ -184,7 +184,7 @@ int main()
         false);
     if (!(keyA == keyB))
     {
-        std::cerr << "Program key unexpectedly changed with runtime-only material parameters.\n";
+        CRESSIM_LOG_ERROR( "Program key unexpectedly changed with runtime-only material parameters.\n");
         return 1;
     }
 
@@ -201,10 +201,10 @@ int main()
         false);
     if (keyA == keyC)
     {
-        std::cerr << "Program key should differ when compile-time feature flags differ.\n";
+        CRESSIM_LOG_ERROR( "Program key should differ when compile-time feature flags differ.\n");
         return 1;
     }
 
-    std::cout << "Forward pipeline vulkan-backend checks passed.\n";
+    CRESSIM_LOG_INFO( "Forward pipeline vulkan-backend checks passed.\n");
     return 0;
 }

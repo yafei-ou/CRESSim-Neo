@@ -1,7 +1,7 @@
 #include "physics/physics_world.h"
+#include "common/logger.h"
 
 #include <cstdint>
-#include <iostream>
 
 namespace
 {
@@ -118,28 +118,28 @@ int main()
     if (world.rigidBodyCount() != 3u || world.colliderCount() != 3u ||
         !verifySnapshotMatchesSoA(world))
     {
-        std::cerr << "Initial SoA layout mismatch.\n";
+        CRESSIM_LOG_ERROR( "Initial SoA layout mismatch.\n");
         return 1;
     }
 
     if (!world.removeRigidBody(e2))
     {
-        std::cerr << "Failed to remove middle body.\n";
+        CRESSIM_LOG_ERROR( "Failed to remove middle body.\n");
         return 1;
     }
     if (world.rigidBodyCount() != 2u || world.colliderCount() != 2u)
     {
-        std::cerr << "Unexpected body/collider count after removal.\n";
+        CRESSIM_LOG_ERROR( "Unexpected body/collider count after removal.\n");
         return 1;
     }
     if (world.tryGetRigidBody(e2) != nullptr || world.tryGetRigidBody(e3) == nullptr)
     {
-        std::cerr << "Entity-index remap failed after compaction.\n";
+        CRESSIM_LOG_ERROR( "Entity-index remap failed after compaction.\n");
         return 1;
     }
     if (!verifySnapshotMatchesSoA(world))
     {
-        std::cerr << "SoA/snapshot mismatch after compaction.\n";
+        CRESSIM_LOG_ERROR( "SoA/snapshot mismatch after compaction.\n");
         return 1;
     }
 
@@ -149,15 +149,15 @@ int main()
     const RigidBodyState* updated = world.tryGetRigidBody(e3);
     if (updated == nullptr || updated->position.x != 9.0f || updated->linearVelocity.x != 5.0f)
     {
-        std::cerr << "Upsert update did not persist.\n";
+        CRESSIM_LOG_ERROR( "Upsert update did not persist.\n");
         return 1;
     }
     if (world.colliderCount() != 3u || !verifySnapshotMatchesSoA(world))
     {
-        std::cerr << "SoA/snapshot mismatch after upsert update.\n";
+        CRESSIM_LOG_ERROR( "SoA/snapshot mismatch after upsert update.\n");
         return 1;
     }
 
-    std::cout << "Physics world SoA layout checks passed.\n";
+    CRESSIM_LOG_INFO( "Physics world SoA layout checks passed.\n");
     return 0;
 }

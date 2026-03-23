@@ -1,7 +1,7 @@
 #include "physics/physics_world.h"
+#include "common/logger.h"
 
 #include <cmath>
-#include <iostream>
 
 namespace
 {
@@ -54,7 +54,7 @@ int main()
     const RigidBodyState* normalizedDynamic = world.tryGetRigidBody(4001u);
     if (normalizedDynamic == nullptr || normalizedDynamic->inverseMass <= 0.0f)
     {
-        std::cerr << "Dynamic body inverse-mass normalization failed.\n";
+        CRESSIM_LOG_ERROR( "Dynamic body inverse-mass normalization failed.\n");
         return 1;
     }
 
@@ -65,7 +65,7 @@ int main()
     world.replaceColliders(4002u, {makeCollider(4002u)});
     if (!world.staticBroadPhaseDirty())
     {
-        std::cerr << "Static broad-phase was not marked dirty for a static body insert.\n";
+        CRESSIM_LOG_ERROR( "Static broad-phase was not marked dirty for a static body insert.\n");
         return 1;
     }
     world.clearStaticBroadPhaseDirty();
@@ -78,7 +78,7 @@ int main()
         std::fabs(persistedKinematic->kinematicTargetPosition.x -
                   kinematicBody.kinematicTargetPosition.x) > 1e-5f)
     {
-        std::cerr << "Kinematic target state was not preserved.\n";
+        CRESSIM_LOG_ERROR( "Kinematic target state was not preserved.\n");
         return 1;
     }
 
@@ -87,7 +87,7 @@ int main()
     world.replaceColliders(4002u, {makeCollider(4002u), makeCollider(4002u)});
     if (!world.staticBroadPhaseDirty())
     {
-        std::cerr << "Static broad-phase was not marked dirty for a static collider update.\n";
+        CRESSIM_LOG_ERROR( "Static broad-phase was not marked dirty for a static collider update.\n");
         return 1;
     }
 
@@ -97,10 +97,10 @@ int main()
         bodySoA.kinematicTargetFlags.size() != world.rigidBodyCount() ||
         colliderSoA.ownerRigidBodyIndices.size() != world.colliderCount())
     {
-        std::cerr << "SoA body/collider arrays are out of sync.\n";
+        CRESSIM_LOG_ERROR( "SoA body/collider arrays are out of sync.\n");
         return 1;
     }
 
-    std::cout << "Physics body type checks passed.\n";
+    CRESSIM_LOG_INFO( "Physics body type checks passed.\n");
     return 0;
 }

@@ -1,7 +1,7 @@
 #include "engine/components.h"
 #include "engine/world.h"
+#include "common/logger.h"
 
-#include <iostream>
 
 int main()
 {
@@ -27,14 +27,14 @@ int main()
     const physics::PhysicsWorld& physicsWorld = world.physicsWorld();
     if (physicsWorld.colliderCount() != 1u)
     {
-        std::cerr << "Expected one collider after direct authoring.\n";
+        CRESSIM_LOG_ERROR( "Expected one collider after direct authoring.\n");
         return 1;
     }
 
     const physics::ColliderState* initialCollider = physicsWorld.tryGetCollider(handle.id);
     if (initialCollider == nullptr || initialCollider->colliderId != handle.id)
     {
-        std::cerr << "World collider handle was not preserved in physics storage.\n";
+        CRESSIM_LOG_ERROR( "World collider handle was not preserved in physics storage.\n");
         return 1;
     }
 
@@ -48,12 +48,12 @@ int main()
     if (movedCollider == nullptr || movedBody == nullptr ||
         movedCollider->colliderId != handle.id || movedBody->position.x != 4.0f)
     {
-        std::cerr << "Dynamic transform update did not preserve collider/body identity.\n";
+        CRESSIM_LOG_ERROR( "Dynamic transform update did not preserve collider/body identity.\n");
         return 1;
     }
     if (physicsWorld.staticBroadPhaseDirty())
     {
-        std::cerr << "Dynamic transform update dirtied the static broad phase.\n";
+        CRESSIM_LOG_ERROR( "Dynamic transform update dirtied the static broad phase.\n");
         return 1;
     }
 
@@ -67,15 +67,15 @@ int main()
     if (updatedCollider == nullptr || updatedBody == nullptr ||
         updatedCollider->colliderId != handle.id || updatedBody->linearVelocity.x != 3.0f)
     {
-        std::cerr << "Rigid body update recreated collider state unexpectedly.\n";
+        CRESSIM_LOG_ERROR( "Rigid body update recreated collider state unexpectedly.\n");
         return 1;
     }
     if (physicsWorld.staticBroadPhaseDirty())
     {
-        std::cerr << "Dynamic rigid body update dirtied the static broad phase.\n";
+        CRESSIM_LOG_ERROR( "Dynamic rigid body update dirtied the static broad phase.\n");
         return 1;
     }
 
-    std::cout << "Direct physics authoring checks passed.\n";
+    CRESSIM_LOG_INFO( "Direct physics authoring checks passed.\n");
     return 0;
 }

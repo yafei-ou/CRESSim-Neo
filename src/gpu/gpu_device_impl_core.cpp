@@ -1,3 +1,4 @@
+#include "common/logger.h"
 #include "common/math_utils_runtime.h"
 #include "gpu/gpu_device_impl.h"
 #include "gpu/gpu_render_target_system_impl.h"
@@ -7,7 +8,6 @@
 
 #include <algorithm>
 #include <array>
-#include <iostream>
 #include <limits>
 
 namespace cressim::neo::gpu
@@ -254,8 +254,8 @@ bool GpuDeviceImpl::initializeVulkan()
 
     if (!createDeviceContexts(true))
     {
-        std::cerr << "GpuDeviceImpl: failed to create dedicated physics context; falling back to "
-                     "shared context.\n";
+        CRESSIM_LOG_WARNING("GpuDeviceImpl: failed to create dedicated physics context; falling "
+                            "back to shared context.");
         if (!createDeviceContexts(false))
         {
             return false;
@@ -264,7 +264,7 @@ bool GpuDeviceImpl::initializeVulkan()
 
     if (mPhysicsContext == mImmediateContext)
     {
-        std::cerr << "GpuDeviceImpl: physics context is shared with graphics context.\n";
+        CRESSIM_LOG_WARNING("GpuDeviceImpl: physics context is shared with graphics context.");
     }
 
     const auto graphicsDesc = mImmediateContext->GetDesc();
@@ -299,14 +299,14 @@ bool GpuDeviceImpl::createPrimarySwapChain()
 #if PLATFORM_WIN32
     if (mDesc.presentation.nativeWindow == nullptr)
     {
-        std::cerr << "GpuDeviceImpl: presentation nativeWindow must be set on Win32.\n";
+        CRESSIM_LOG_ERROR("GpuDeviceImpl: presentation nativeWindow must be set on Win32.");
         return false;
     }
     window.hWnd = mDesc.presentation.nativeWindow;
 #elif PLATFORM_LINUX
     if (mDesc.presentation.nativeWindowId == 0)
     {
-        std::cerr << "GpuDeviceImpl: presentation nativeWindowId must be set on Linux.\n";
+        CRESSIM_LOG_ERROR("GpuDeviceImpl: presentation nativeWindowId must be set on Linux.");
         return false;
     }
     window.WindowId = clampWindowId(mDesc.presentation.nativeWindowId);
@@ -320,18 +320,19 @@ bool GpuDeviceImpl::createPrimarySwapChain()
     }
     else
     {
-        std::cerr << "GpuDeviceImpl: presentation native display/connection is missing on Linux.\n";
+        CRESSIM_LOG_ERROR(
+            "GpuDeviceImpl: presentation native display/connection is missing on Linux.");
         return false;
     }
 #elif PLATFORM_MACOS
     if (mDesc.presentation.nativeWindow == nullptr)
     {
-        std::cerr << "GpuDeviceImpl: presentation nativeWindow must be set on macOS.\n";
+        CRESSIM_LOG_ERROR("GpuDeviceImpl: presentation nativeWindow must be set on macOS.");
         return false;
     }
     window.pNSView = mDesc.presentation.nativeWindow;
 #else
-    std::cerr << "GpuDeviceImpl: presentation is unsupported on this platform.\n";
+    CRESSIM_LOG_ERROR("GpuDeviceImpl: presentation is unsupported on this platform.");
     return false;
 #endif
 
@@ -356,7 +357,7 @@ bool GpuDeviceImpl::createPrimarySwapChain()
                                  &mPrimarySwapChain);
     if (mPrimarySwapChain == nullptr)
     {
-        std::cerr << "GpuDeviceImpl: failed to create primary swapchain.\n";
+        CRESSIM_LOG_ERROR("GpuDeviceImpl: failed to create primary swapchain.");
         return false;
     }
 

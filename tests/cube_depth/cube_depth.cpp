@@ -1,6 +1,7 @@
 #include "common/frame_context.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "common/logger.h"
 
 #include <array>
 #include <cmath>
@@ -44,8 +45,8 @@ GpuBackend parseBackend(const std::string& value)
 
 void printUsage(const char* appName)
 {
-    std::cerr << "Usage: " << appName
-              << " [--backend vulkan|null] [--frames N] [--output path.ppm] [--validation on|off]\n";
+    CRESSIM_LOG_ERROR( "Usage: " , appName
+              , " [--backend vulkan|null] [--frames N] [--output path.ppm] [--validation on|off]\n");
 }
 
 bool isNear(std::uint8_t value, std::uint8_t expected, std::uint8_t tolerance)
@@ -381,7 +382,7 @@ int main(int argc, char** argv)
     Runtime runtime;
     if (!runtime.initialize(config))
     {
-        std::cerr << "Runtime initialization failed.\n";
+        CRESSIM_LOG_ERROR( "Runtime initialization failed.\n");
         return 1;
     }
 
@@ -390,7 +391,7 @@ int main(int argc, char** argv)
     if (graphicsDevice == nullptr)
     {
         runtime.shutdown();
-        std::cerr << "Graphics device unavailable.\n";
+        CRESSIM_LOG_ERROR( "Graphics device unavailable.\n");
         return 1;
     }
 
@@ -402,7 +403,7 @@ int main(int argc, char** argv)
     if (!graphicsDevice->renderTargetSystem().isValidRenderTarget(target))
     {
         runtime.shutdown();
-        std::cerr << "Failed to create readback target.\n";
+        CRESSIM_LOG_ERROR( "Failed to create readback target.\n");
         return 1;
     }
 
@@ -522,19 +523,19 @@ int main(int argc, char** argv)
 
     if (config.gpuDeviceDesc.preferredBackend == GpuBackend::Null)
     {
-        std::cout << "Null backend selected; depth capture skipped.\n";
+        CRESSIM_LOG_INFO("Null backend selected; depth capture skipped.\n");
         return 0;
     }
 
     if (!hasBackOnlyPayload || !hasLayeredPayload)
     {
-        std::cerr << "Expected two readback payloads (back-only and layered), but did not receive them.\n";
+        CRESSIM_LOG_ERROR( "Expected two readback payloads (back-only and layered), but did not receive them.\n");
         return 1;
     }
 
     if (!containsNonClearPixel(layeredCapture))
     {
-        std::cerr << "Captured image appears to contain only clear color.\n";
+        CRESSIM_LOG_ERROR( "Captured image appears to contain only clear color.\n");
         return 1;
     }
 
@@ -542,46 +543,46 @@ int main(int argc, char** argv)
     const auto layeredCenter = readCenterPixel(layeredCapture);
     if (!isGreenDominant(backOnlyCenter))
     {
-        std::cerr << "Back-only frame center pixel expected green dominance. Observed RGBA=("
-                  << static_cast<unsigned>(backOnlyCenter[0]) << ", " << static_cast<unsigned>(backOnlyCenter[1]) << ", "
-                  << static_cast<unsigned>(backOnlyCenter[2]) << ", " << static_cast<unsigned>(backOnlyCenter[3]) << ")\n";
+        CRESSIM_LOG_ERROR( "Back-only frame center pixel expected green dominance. Observed RGBA=("
+                  , static_cast<unsigned>(backOnlyCenter[0]) , ", " , static_cast<unsigned>(backOnlyCenter[1]) , ", "
+                  , static_cast<unsigned>(backOnlyCenter[2]) , ", " , static_cast<unsigned>(backOnlyCenter[3]) , ")\n");
         return 1;
     }
     if (!isRedDominant(layeredCenter))
     {
-        std::cerr << "Layered frame center pixel expected red dominance from near cube. Observed RGBA=("
-                  << static_cast<unsigned>(layeredCenter[0]) << ", " << static_cast<unsigned>(layeredCenter[1]) << ", "
-                  << static_cast<unsigned>(layeredCenter[2]) << ", " << static_cast<unsigned>(layeredCenter[3]) << ")\n";
+        CRESSIM_LOG_ERROR( "Layered frame center pixel expected red dominance from near cube. Observed RGBA=("
+                  , static_cast<unsigned>(layeredCenter[0]) , ", " , static_cast<unsigned>(layeredCenter[1]) , ", "
+                  , static_cast<unsigned>(layeredCenter[2]) , ", " , static_cast<unsigned>(layeredCenter[3]) , ")\n");
         return 1;
     }
 
     const DominantPixelStats layeredStats = analyzeDominantPixels(layeredCapture);
     if (layeredStats.redDominantCount < 200u || layeredStats.greenDominantCount < 80u)
     {
-        std::cerr << "Layered frame expected substantial red and green regions, but counts were red="
-                  << layeredStats.redDominantCount << ", green=" << layeredStats.greenDominantCount
-                  << ", non-clear=" << layeredStats.nonClearCount << '\n';
+        CRESSIM_LOG_ERROR( "Layered frame expected substantial red and green regions, but counts were red="
+                  , layeredStats.redDominantCount , ", green=" , layeredStats.greenDominantCount
+                  , ", non-clear=" , layeredStats.nonClearCount , '\n');
         return 1;
     }
 
     if (!writePpm(outputPath, layeredCapture))
     {
-        std::cerr << "Failed to write image: " << outputPath << '\n';
+        CRESSIM_LOG_ERROR( "Failed to write image: " , outputPath , '\n');
         return 1;
     }
     const std::string backOnlyPath = withSuffixBeforeExtension(outputPath, "_back_only");
     if (!writePpm(backOnlyPath, backOnlyCapture))
     {
-        std::cerr << "Failed to write image: " << backOnlyPath << '\n';
+        CRESSIM_LOG_ERROR( "Failed to write image: " , backOnlyPath , '\n');
         return 1;
     }
 
-    std::cout << "Cube depth capture passed. back-only center RGBA=(" << static_cast<unsigned>(backOnlyCenter[0]) << ", "
-              << static_cast<unsigned>(backOnlyCenter[1]) << ", " << static_cast<unsigned>(backOnlyCenter[2]) << ", "
-              << static_cast<unsigned>(backOnlyCenter[3]) << "), layered center RGBA=("
-              << static_cast<unsigned>(layeredCenter[0]) << ", " << static_cast<unsigned>(layeredCenter[1]) << ", "
-              << static_cast<unsigned>(layeredCenter[2]) << ", " << static_cast<unsigned>(layeredCenter[3]) << "), "
-              << "layered dominant counts red=" << layeredStats.redDominantCount << ", green=" << layeredStats.greenDominantCount << ", "
-              << "wrote layered image to " << outputPath << " and back-only image to " << backOnlyPath << '\n';
+    CRESSIM_LOG_INFO( "Cube depth capture passed. back-only center RGBA=(" , static_cast<unsigned>(backOnlyCenter[0]) , ", "
+              , static_cast<unsigned>(backOnlyCenter[1]) , ", " , static_cast<unsigned>(backOnlyCenter[2]) , ", "
+              , static_cast<unsigned>(backOnlyCenter[3]) , "), layered center RGBA=("
+              , static_cast<unsigned>(layeredCenter[0]) , ", " , static_cast<unsigned>(layeredCenter[1]) , ", "
+              , static_cast<unsigned>(layeredCenter[2]) , ", " , static_cast<unsigned>(layeredCenter[3]) , "), "
+              , "layered dominant counts red=" , layeredStats.redDominantCount , ", green=" , layeredStats.greenDominantCount , ", "
+              , "wrote layered image to " , outputPath , " and back-only image to " , backOnlyPath , '\n');
     return 0;
 }

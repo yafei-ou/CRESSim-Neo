@@ -1,5 +1,6 @@
 #include "viewer/debug_viewer_app.h"
 
+#include "common/logger.h"
 #include "common/math_utils_runtime.h"
 #include "engine/components.h"
 
@@ -12,7 +13,6 @@
 #include <cmath>
 #include <cstdint>
 #include <iomanip>
-#include <iostream>
 #include <sstream>
 #include <unordered_map>
 #include <utility>
@@ -186,8 +186,8 @@ public:
 
         if (mDesc.startFullscreen && mDesc.startFullscreenWindowed)
         {
-            std::cerr
-                << "DebugViewerApp: fullscreen and fullscreen-windowed cannot both be enabled.\n";
+            CRESSIM_LOG_ERROR(
+                "DebugViewerApp: fullscreen and fullscreen-windowed cannot both be enabled.");
             return false;
         }
 
@@ -209,8 +209,8 @@ public:
         {
             if (mDesc.startFullscreen || mDesc.startFullscreenWindowed)
             {
-                std::cerr
-                    << "DebugViewerApp: fullscreen options require windowEnabled=true; ignoring.\n";
+                CRESSIM_LOG_WARNING(
+                    "DebugViewerApp: fullscreen options require windowEnabled=true; ignoring.");
             }
             inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.width  = effectiveWidth;
             inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.height = effectiveHeight;
@@ -221,7 +221,7 @@ public:
 
         if (glfwInit() != GLFW_TRUE)
         {
-            std::cerr << "DebugViewerApp: failed to initialize GLFW.\n";
+            CRESSIM_LOG_ERROR("DebugViewerApp: failed to initialize GLFW.");
             return false;
         }
         mGlfwInitialized = true;
@@ -234,7 +234,8 @@ public:
             GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
             if (primaryMonitor == nullptr)
             {
-                std::cerr << "DebugViewerApp: failed to resolve primary monitor for fullscreen.\n";
+                CRESSIM_LOG_ERROR(
+                    "DebugViewerApp: failed to resolve primary monitor for fullscreen.");
                 shutdown();
                 return false;
             }
@@ -242,7 +243,7 @@ public:
             const GLFWvidmode* mode = glfwGetVideoMode(primaryMonitor);
             if (mode == nullptr)
             {
-                std::cerr << "DebugViewerApp: failed to query monitor mode for fullscreen.\n";
+                CRESSIM_LOG_ERROR("DebugViewerApp: failed to query monitor mode for fullscreen.");
                 shutdown();
                 return false;
             }
@@ -275,7 +276,7 @@ public:
                                    mDesc.windowTitle.c_str(), targetMonitor, nullptr);
         if (mWindow == nullptr)
         {
-            std::cerr << "DebugViewerApp: failed to create window.\n";
+            CRESSIM_LOG_ERROR("DebugViewerApp: failed to create window.");
             shutdown();
             return false;
         }
@@ -314,25 +315,25 @@ public:
         }
         if (cameraBinding.cameraEntity == common::kInvalidEntityId)
         {
-            std::cerr << "DebugViewerApp: camera binding requires a valid entity id.\n";
+            CRESSIM_LOG_ERROR("DebugViewerApp: camera binding requires a valid entity id.");
             return false;
         }
         if (!mDesc.windowEnabled && mDesc.maxFrames == 0)
         {
-            std::cerr << "DebugViewerApp: maxFrames must be > 0 when window is disabled.\n";
+            CRESSIM_LOG_ERROR("DebugViewerApp: maxFrames must be > 0 when window is disabled.");
             return false;
         }
 
         if (runtime.getGpuDevice() == nullptr)
         {
-            std::cerr << "DebugViewerApp: runtime has no graphics device.\n";
+            CRESSIM_LOG_ERROR("DebugViewerApp: runtime has no graphics device.");
             return false;
         }
 
         auto& world = runtime.getWorld();
         if (!world.isAlive(cameraBinding.cameraEntity))
         {
-            std::cerr << "DebugViewerApp: bound camera entity does not exist.\n";
+            CRESSIM_LOG_ERROR("DebugViewerApp: bound camera entity does not exist.");
             return false;
         }
 
@@ -340,7 +341,7 @@ public:
             world.tryGetCamera(cameraBinding.cameraEntity);
         if (!existingCamera)
         {
-            std::cerr << "DebugViewerApp: bound entity has no CameraComponent.\n";
+            CRESSIM_LOG_ERROR("DebugViewerApp: bound entity has no CameraComponent.");
             return false;
         }
 
@@ -426,8 +427,7 @@ public:
                 if (nextEntity != presentedCameraEntity)
                 {
                     presentedCameraEntity = nextEntity;
-                    std::cout << "viewer presenting camera entity=" << presentedCameraEntity
-                              << '\n';
+                    CRESSIM_LOG_INFO("viewer presenting camera entity=", presentedCameraEntity);
                 }
             }
             if (consumeKeyPress(mDesc.keymap.cyclePresentedCameraNext))
@@ -437,8 +437,7 @@ public:
                 if (nextEntity != presentedCameraEntity)
                 {
                     presentedCameraEntity = nextEntity;
-                    std::cout << "viewer presenting camera entity=" << presentedCameraEntity
-                              << '\n';
+                    CRESSIM_LOG_INFO("viewer presenting camera entity=", presentedCameraEntity);
                 }
             }
             if (!world.isAlive(presentedCameraEntity))
@@ -505,12 +504,11 @@ public:
                 frame.frameIndex % mDesc.statsIntervalFrames == 0)
             {
                 const float fps = frame.deltaSeconds > 0.0f ? (1.0f / frame.deltaSeconds) : 0.0f;
-                std::cout << "viewer frame=" << frame.frameIndex << " fps=" << fps << " camPos=("
-                          << cameraState.position.x << ", " << cameraState.position.y << ", "
-                          << cameraState.position.z << ")"
-                          << " yaw=" << cameraState.yawDegrees
-                          << " pitch=" << cameraState.pitchDegrees
-                          << " speed=" << cameraState.moveSpeed << '\n';
+                CRESSIM_LOG_INFO("viewer frame=", frame.frameIndex, " fps=", fps, " camPos=(",
+                                 cameraState.position.x, ", ", cameraState.position.y, ", ",
+                                 cameraState.position.z, ") yaw=", cameraState.yawDegrees,
+                                 " pitch=", cameraState.pitchDegrees,
+                                 " speed=", cameraState.moveSpeed);
             }
 
             if (mDesc.maxFrames > 0 && frame.frameIndex >= mDesc.maxFrames)
@@ -800,7 +798,7 @@ private:
         Diligent::float3 worldDirection = right * input.moveDirection.x +
                                           worldUp * input.moveDirection.y +
                                           forward * input.moveDirection.z;
-        worldDirection = common::runtime_math::safeNormalize(worldDirection);
+        worldDirection                  = common::runtime_math::safeNormalize(worldDirection);
 
         float movementSpeed = camera.moveSpeed;
         if (input.boost)

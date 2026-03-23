@@ -1,7 +1,8 @@
 #include "gpu/shader_library.h"
 
+#include "common/logger.h"
+
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/include/DefaultShaderSourceStreamFactory.h"
-#include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
 
 #include <filesystem>
 #include <utility>
@@ -59,12 +60,12 @@ bool ShaderLibrary::resolveShaderPath(const char* relativePath, std::string& out
 {
     if (relativePath == nullptr || relativePath[0] == '\0')
     {
-        LOG_ERROR_MESSAGE("Shader path resolution failed: empty shader relative path.");
+        CRESSIM_LOG_ERROR("Shader path resolution failed: empty shader relative path.");
         return false;
     }
     if (!resolveShaderDirectory())
     {
-        LOG_ERROR_MESSAGE("Shader path resolution failed for '", relativePath,
+        CRESSIM_LOG_ERROR("Shader path resolution failed for '", relativePath,
                           "': shader directory could not be resolved.");
         return false;
     }
@@ -75,7 +76,7 @@ bool ShaderLibrary::resolveShaderPath(const char* relativePath, std::string& out
     if (!std::filesystem::exists(shaderPath, error) ||
         !std::filesystem::is_regular_file(shaderPath, error))
     {
-        LOG_ERROR_MESSAGE("Shader file not found: relative='", relativePath, "' resolved='",
+        CRESSIM_LOG_ERROR("Shader file not found: relative='", relativePath, "' resolved='",
                           shaderPath.lexically_normal().string(), "'");
         return false;
     }
@@ -101,7 +102,7 @@ bool ShaderLibrary::ensureStreamFactory()
     }
     if (!resolveShaderDirectory())
     {
-        LOG_ERROR_MESSAGE("Failed to create shader source stream factory: shader directory could "
+        CRESSIM_LOG_ERROR("Failed to create shader source stream factory: shader directory could "
                           "not be resolved.");
         return false;
     }
@@ -110,7 +111,7 @@ bool ShaderLibrary::ensureStreamFactory()
                                                      &mStreamFactory);
     if (mStreamFactory == nullptr)
     {
-        LOG_ERROR_MESSAGE("Failed to create shader source stream factory for directory '",
+        CRESSIM_LOG_ERROR("Failed to create shader source stream factory for directory '",
                           mResolvedShaderDirectory, "'.");
         return false;
     }

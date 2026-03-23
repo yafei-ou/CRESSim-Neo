@@ -47,3 +47,9 @@ add_test(
     NAME cressim_neo_world_deferred_render_reconciliation
     COMMAND cressim_neo_world_deferred_render_reconciliation
 )
+
+add_engine_test(cressim_neo_logger logger.cpp)
+add_test(
+    NAME cressim_neo_logger
+    COMMAND cressim_neo_logger
+)

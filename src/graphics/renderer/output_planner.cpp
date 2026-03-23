@@ -1,9 +1,9 @@
 #include "graphics/renderer/output_planner.h"
 
+#include "common/logger.h"
 #include "graphics/renderer/renderer_internal.h"
 
 #include <algorithm>
-#include <iostream>
 #include <unordered_map>
 
 namespace cressim::neo::graphics::detail
@@ -66,22 +66,22 @@ void populateResolvedCameraView(const CameraData& camera, const gpu::GpuEntitySc
 
 void logUnsupportedViewport(const CameraData& camera)
 {
-    std::cerr << "Renderer: camera entity " << camera.entityId
-              << " requested a viewport, but viewports are only supported for ExplicitSurface "
-                 "cameras targeting non-layered render targets. Whole-target rendering will be "
-                 "used.\n";
+    CRESSIM_LOG_WARNING("Renderer: camera entity ", camera.entityId,
+                        " requested a viewport, but viewports are only supported for "
+                        "ExplicitSurface cameras targeting non-layered render targets. "
+                        "Whole-target rendering will be used.");
 }
 
 void logInvalidExplicitTarget(const CameraData& camera)
 {
-    std::cerr << "Renderer: skipping ExplicitSurface camera entity " << camera.entityId
-              << " because its render target binding is invalid.\n";
+    CRESSIM_LOG_WARNING("Renderer: skipping ExplicitSurface camera entity ", camera.entityId,
+                        " because its render target binding is invalid.");
 }
 
 void logManagedPrimaryUnavailable(const CameraData& camera)
 {
-    std::cerr << "Renderer: skipping ManagedPrimary camera entity " << camera.entityId
-              << " because no default target is available.\n";
+    CRESSIM_LOG_WARNING("Renderer: skipping ManagedPrimary camera entity ", camera.entityId,
+                        " because no default target is available.");
 }
 
 } // namespace
@@ -202,8 +202,9 @@ CameraOutputPlanningResult planCameraOutputs(
             if (familyIt == managedFamilies.end() ||
                 !renderTargetSystem.isValidRenderTarget(familyIt->second.target))
             {
-                std::cerr << "Renderer: skipping ManagedPrimary camera entity " << camera.entityId
-                          << " because its managed render target could not be created.\n";
+                CRESSIM_LOG_ERROR("Renderer: skipping ManagedPrimary camera entity ",
+                                  camera.entityId,
+                                  " because its managed render target could not be created.\n");
                 continue;
             }
 
@@ -291,8 +292,9 @@ CameraOutputPlanningResult planCameraOutputs(
                 if (updateResult == gpu::GpuRenderTargetUpdateResult::Failed ||
                     !renderTargetSystem.tryGetRenderTargetDesc(target, targetDesc))
                 {
-                    std::cerr << "Renderer: skipping ExplicitSurface camera entity "
-                              << camera.entityId << " because its render target resize failed.\n";
+                    CRESSIM_LOG_ERROR("Renderer: skipping ExplicitSurface camera entity ",
+                                      camera.entityId,
+                                      " because its render target resize failed.\n");
                     continue;
                 }
             }

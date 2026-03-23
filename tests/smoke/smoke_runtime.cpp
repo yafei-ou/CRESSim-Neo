@@ -2,11 +2,11 @@
 #include "common/id.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "common/logger.h"
 
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <iostream>
 #include <string>
 #include <vector>
 
@@ -42,7 +42,7 @@ GpuBackend parseBackend(const std::string& value)
 
 void printUsage(const char* appName)
 {
-    std::cerr << "Usage: " << appName << " [--backend vulkan|null] [--frames N] [--validation on|off]\n";
+    CRESSIM_LOG_ERROR( "Usage: " , appName , " [--backend vulkan|null] [--frames N] [--validation on|off]\n");
 }
 
 bool isNear(std::uint8_t value, std::uint8_t expected, std::uint8_t tolerance)
@@ -156,7 +156,7 @@ int main(int argc, char** argv)
     Runtime runtime;
     if (!runtime.initialize(config))
     {
-        std::cerr << "Runtime initialization failed.\n";
+        CRESSIM_LOG_ERROR( "Runtime initialization failed.\n");
         return 1;
     }
 
@@ -325,26 +325,26 @@ int main(int argc, char** argv)
         if (readbackEvents == 0)
         {
             runtime.shutdown();
-            std::cerr << "Smoke run failed: expected at least one readback event.\n";
+            CRESSIM_LOG_ERROR( "Smoke run failed: expected at least one readback event.\n");
             return 1;
         }
         if (payloadEvents == 0)
         {
             runtime.shutdown();
-            std::cerr << "Smoke run failed: expected readback payload for Vulkan backend.\n";
+            CRESSIM_LOG_ERROR( "Smoke run failed: expected readback payload for Vulkan backend.\n");
             return 1;
         }
         if (!foundNonClearPixel)
         {
             runtime.shutdown();
-            std::cerr << "Smoke run failed: readback payload contains only clear color.\n";
+            CRESSIM_LOG_ERROR( "Smoke run failed: readback payload contains only clear color.\n");
             return 1;
         }
     }
 
     runtime.shutdown();
 
-    std::cout << "Smoke run passed. Frames: " << numFrames << ", Readback events: " << readbackEvents
-              << ", Payload events: " << payloadEvents << '\n';
+    CRESSIM_LOG_INFO( "Smoke run passed. Frames: " , numFrames , ", Readback events: " , readbackEvents
+              , ", Payload events: " , payloadEvents , '\n');
     return 0;
 }

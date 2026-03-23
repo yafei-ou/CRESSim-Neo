@@ -3,7 +3,7 @@
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/GraphicsTypes.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Shader.h"
-#include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
+#include "common/logger.h"
 
 #include <algorithm>
 #include <array>
@@ -129,7 +129,7 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
     Diligent::IShaderSourceInputStreamFactory* streamFactory = mShaderLibrary.streamFactory();
     if (streamFactory == nullptr)
     {
-        LOG_ERROR_MESSAGE("PhysicsPassDispatcher: shader stream factory is null.");
+        CRESSIM_LOG_ERROR("PhysicsPassDispatcher: shader stream factory is null.");
         return false;
     }
 
@@ -168,7 +168,7 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice* renderDevice,
         !initPass(mApplyCorrectionsPass, kApplyCorrections) ||
         !initPass(mUpdateVelocitiesPass, kUpdateVelocities))
     {
-        LOG_ERROR_MESSAGE("PhysicsPassDispatcher: failed to initialize compute passes.");
+        CRESSIM_LOG_ERROR("PhysicsPassDispatcher: failed to initialize compute passes.");
         return false;
     }
 

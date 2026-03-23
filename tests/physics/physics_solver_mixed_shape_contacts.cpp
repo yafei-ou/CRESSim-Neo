@@ -2,9 +2,9 @@
 #include "engine/runtime.h"
 #include "physics/physics_solver.h"
 #include "physics/physics_world.h"
+#include "common/logger.h"
 
 #include <cmath>
-#include <iostream>
 
 namespace
 {
@@ -76,14 +76,14 @@ int main()
     engine::Runtime runtime;
     if (!runtime.initialize(config))
     {
-        std::cerr << "Runtime initialization failed.\n";
+        CRESSIM_LOG_ERROR( "Runtime initialization failed.\n");
         return 1;
     }
 
     gpu::GpuDevice* device = runtime.getGpuDevice();
     if (device == nullptr)
     {
-        std::cerr << "Runtime returned null GPU device.\n";
+        CRESSIM_LOG_ERROR( "Runtime returned null GPU device.\n");
         runtime.shutdown();
         return 1;
     }
@@ -91,7 +91,7 @@ int main()
     physics::PhysicsSolver solver(*device);
     if (!solver.initialize())
     {
-        std::cerr << "Physics solver initialization failed.\n";
+        CRESSIM_LOG_ERROR( "Physics solver initialization failed.\n");
         runtime.shutdown();
         return 1;
     }
@@ -117,7 +117,7 @@ int main()
     {
         if (!solver.step(frame, world))
         {
-            std::cerr << "Solver step failed at iteration " << stepIndex << ".\n";
+            CRESSIM_LOG_ERROR( "Solver step failed at iteration " , stepIndex , ".\n");
             solver.shutdown();
             runtime.shutdown();
             return 1;
@@ -128,8 +128,8 @@ int main()
                 physics::PhysicsSolverStage::GenerateBroadPhasePairs)] ||
             !stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::GenerateContacts)])
         {
-            std::cerr << "Expected broad-phase pair/contact stages were skipped at iteration "
-                      << stepIndex << ".\n";
+            CRESSIM_LOG_ERROR( "Expected broad-phase pair/contact stages were skipped at iteration "
+                      , stepIndex , ".\n");
             solver.shutdown();
             runtime.shutdown();
             return 1;
@@ -139,8 +139,8 @@ int main()
         {
             if (!isFinite(body))
             {
-                std::cerr << "Non-finite rigid body state detected after iteration "
-                          << stepIndex << ".\n";
+                CRESSIM_LOG_ERROR( "Non-finite rigid body state detected after iteration "
+                          , stepIndex , ".\n");
                 solver.shutdown();
                 runtime.shutdown();
                 return 1;
@@ -150,6 +150,6 @@ int main()
 
     solver.shutdown();
     runtime.shutdown();
-    std::cout << "Physics mixed-shape contact checks passed.\n";
+    CRESSIM_LOG_INFO( "Physics mixed-shape contact checks passed.\n");
     return 0;
 }

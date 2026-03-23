@@ -1,6 +1,6 @@
 #include "gpu/gpu_compute_pass.h"
 
-#include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
+#include "common/logger.h"
 
 namespace cressim::neo::gpu
 {
@@ -104,7 +104,7 @@ bool GpuComputePass::bindBufferVariable(Diligent::IShaderResourceBinding* srb,
 {
     if (srb == nullptr || buffer == nullptr)
     {
-        LOG_ERROR_MESSAGE("GpuComputePass: invalid buffer binding for '", variableName, "'.");
+        CRESSIM_LOG_ERROR("GpuComputePass: invalid buffer binding for '", variableName, "'.");
         return false;
     }
 
@@ -112,7 +112,7 @@ bool GpuComputePass::bindBufferVariable(Diligent::IShaderResourceBinding* srb,
         srb->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, variableName);
     if (variable == nullptr)
     {
-        LOG_ERROR_MESSAGE("GpuComputePass: shader variable not found: '", variableName, "'.");
+        CRESSIM_LOG_ERROR("GpuComputePass: shader variable not found: '", variableName, "'.");
         return false;
     }
 

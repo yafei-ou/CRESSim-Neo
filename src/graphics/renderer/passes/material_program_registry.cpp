@@ -1,6 +1,6 @@
 #include "graphics/renderer/passes/material_program_registry.h"
 
-#include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
+#include "common/logger.h"
 
 #include <array>
 #include <functional>
@@ -140,7 +140,7 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
     std::string pbrVsPath;
     if (!mShaderLibrary.resolveShaderPath(kPbrVsRelativePath, pbrVsPath))
     {
-        LOG_ERROR_MESSAGE("MaterialProgramRegistry failed to resolve vertex shader path for pass=",
+        CRESSIM_LOG_ERROR("MaterialProgramRegistry failed to resolve vertex shader path for pass=",
                           passClassName(key.passClass), " relative='", kPbrVsRelativePath, "'.");
         return false;
     }
@@ -148,7 +148,7 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
     std::string pbrPsPath;
     if (!mShaderLibrary.resolveShaderPath(kPbrPsRelativePath, pbrPsPath))
     {
-        LOG_ERROR_MESSAGE("MaterialProgramRegistry failed to resolve pixel shader path for pass=",
+        CRESSIM_LOG_ERROR("MaterialProgramRegistry failed to resolve pixel shader path for pass=",
                           passClassName(key.passClass), " relative='", kPbrPsRelativePath, "'.");
         return false;
     }
@@ -156,7 +156,7 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
     Diligent::IShaderSourceInputStreamFactory* streamFactory = mShaderLibrary.streamFactory();
     if (streamFactory == nullptr)
     {
-        LOG_ERROR_MESSAGE("MaterialProgramRegistry failed to get stream factory for pass=",
+        CRESSIM_LOG_ERROR("MaterialProgramRegistry failed to get stream factory for pass=",
                           passClassName(key.passClass), ".");
         return false;
     }
@@ -179,7 +179,7 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
     renderDevice->CreateShader(shaderCreateInfo, &vertexShader);
     if (vertexShader == nullptr)
     {
-        LOG_ERROR_MESSAGE(
+        CRESSIM_LOG_ERROR(
             "MaterialProgramRegistry failed to compile VS. pass=", passClassName(key.passClass),
             " programFamily=", static_cast<std::uint32_t>(key.programFamily),
             " featureFlags=", static_cast<std::uint32_t>(key.featureFlags), " shader='", pbrVsPath,
@@ -195,7 +195,7 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
     renderDevice->CreateShader(shaderCreateInfo, &pixelShader);
     if (pixelShader == nullptr)
     {
-        LOG_ERROR_MESSAGE(
+        CRESSIM_LOG_ERROR(
             "MaterialProgramRegistry failed to compile PS. pass=", passClassName(key.passClass),
             " programFamily=", static_cast<std::uint32_t>(key.programFamily),
             " featureFlags=", static_cast<std::uint32_t>(key.featureFlags), " shader='", pbrPsPath,
@@ -276,7 +276,7 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
     renderDevice->CreateGraphicsPipelineState(psoCreateInfo, &outResources.pipelineState);
     if (outResources.pipelineState == nullptr)
     {
-        LOG_ERROR_MESSAGE(
+        CRESSIM_LOG_ERROR(
             "MaterialProgramRegistry failed to create PSO. pass=", passClassName(key.passClass),
             " programFamily=", static_cast<std::uint32_t>(key.programFamily),
             " featureFlags=", static_cast<std::uint32_t>(key.featureFlags), ".");

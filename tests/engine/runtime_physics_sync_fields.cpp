@@ -1,10 +1,10 @@
 #include "engine/components.h"
 #include "engine/world.h"
 #include "graphics/render_resource_manager.h"
+#include "common/logger.h"
 
 #include <cstdint>
 #include <cmath>
-#include <iostream>
 
 int main()
 {
@@ -49,19 +49,19 @@ int main()
     world.addCollider(entity, collider);
     if (!world.setEntityEnvironment(entity, 1u))
     {
-        std::cerr << "Failed to update entity environment.\n";
+        CRESSIM_LOG_ERROR( "Failed to update entity environment.\n");
         return 1;
     }
 
     const physics::RigidBodyState* state = world.physicsWorld().tryGetRigidBody(entity);
     if (state == nullptr)
     {
-        std::cerr << "Rigid body missing in physics world.\n";
+        CRESSIM_LOG_ERROR( "Rigid body missing in physics world.\n");
         return 1;
     }
     if (world.physicsWorld().colliderCount() != 1u)
     {
-        std::cerr << "Collider missing in physics world.\n";
+        CRESSIM_LOG_ERROR( "Collider missing in physics world.\n");
         return 1;
     }
     const physics::ColliderState& colliderState = world.physicsWorld().colliderSnapshot().front();
@@ -77,19 +77,19 @@ int main()
         state->kinematicTargetRotation.q.z != rigidBody.kinematicTargetRotation.q.z ||
         !state->kinematicTargetEnabled)
     {
-        std::cerr << "World->physics sync did not preserve new rigid fields.\n";
+        CRESSIM_LOG_ERROR( "World->physics sync did not preserve new rigid fields.\n");
         return 1;
     }
 
     if (!world.setEntityEnvironment(entity, 0u))
     {
-        std::cerr << "Failed to restore entity environment.\n";
+        CRESSIM_LOG_ERROR( "Failed to restore entity environment.\n");
         return 1;
     }
     const physics::ColliderState& updatedColliderState = world.physicsWorld().colliderSnapshot().front();
     if (updatedColliderState.environmentIndex != 0u)
     {
-        std::cerr << "Entity environment change did not propagate to collider state.\n";
+        CRESSIM_LOG_ERROR( "Entity environment change did not propagate to collider state.\n");
         return 1;
     }
 
@@ -117,14 +117,14 @@ int main()
             std::fabs(input.viewportAndOutputSize.z - expectedOutputWidth) > 1e-5f ||
             std::fabs(input.viewportAndOutputSize.w - expectedOutputHeight) > 1e-5f)
         {
-            std::cerr << "World->GPU camera sync did not preserve viewport-aware projection data.\n";
+            CRESSIM_LOG_ERROR( "World->GPU camera sync did not preserve viewport-aware projection data.\n");
             return 1;
         }
         break;
     }
     if (!foundCamera)
     {
-        std::cerr << "Camera input missing in world GPU sync data.\n";
+        CRESSIM_LOG_ERROR( "Camera input missing in world GPU sync data.\n");
         return 1;
     }
 
@@ -137,7 +137,7 @@ int main()
     if (!world.physicsWorld().writeBackRigidBodyState(0u, writebackPos, writebackRot, writebackLin,
                                                       writebackAng))
     {
-        std::cerr << "Failed to write back rigid state into physics world.\n";
+        CRESSIM_LOG_ERROR( "Failed to write back rigid state into physics world.\n");
         return 1;
     }
     world.physicsWorld().finalizeRigidBodyWriteback();
@@ -146,7 +146,7 @@ int main()
     const std::optional<engine::TransformComponent> syncedTransform = world.tryGetTransform(entity);
     if (!syncedTransform)
     {
-        std::cerr << "Physics->world sync removed transform unexpectedly.\n";
+        CRESSIM_LOG_ERROR( "Physics->world sync removed transform unexpectedly.\n");
         return 1;
     }
 
@@ -155,13 +155,13 @@ int main()
     const float dz = std::fabs(syncedTransform->worldTransform.position.z - writebackPos.z);
     if (dx > 1e-5f || dy > 1e-5f || dz > 1e-5f)
     {
-        std::cerr << "Physics->world transform position sync mismatch.\n";
+        CRESSIM_LOG_ERROR( "Physics->world transform position sync mismatch.\n");
         return 1;
     }
     const float dr = std::fabs(syncedTransform->worldTransform.rotation.q.z - writebackRot.z);
     if (dr > 1e-5f)
     {
-        std::cerr << "Physics->world transform rotation sync mismatch.\n";
+        CRESSIM_LOG_ERROR( "Physics->world transform rotation sync mismatch.\n");
         return 1;
     }
 
@@ -170,10 +170,10 @@ int main()
         !syncedRigidBody->kinematicTargetEnabled ||
         std::fabs(syncedRigidBody->kinematicTargetPosition.x - rigidBody.kinematicTargetPosition.x) > 1e-5f)
     {
-        std::cerr << "Physics->world rigid body sync mismatch.\n";
+        CRESSIM_LOG_ERROR( "Physics->world rigid body sync mismatch.\n");
         return 1;
     }
 
-    std::cout << "Runtime physics sync field checks passed.\n";
+    CRESSIM_LOG_INFO( "Runtime physics sync field checks passed.\n");
     return 0;
 }
