@@ -31,45 +31,6 @@ Diligent::Uint32 clampWindowId(std::uint64_t value)
     return static_cast<Diligent::Uint32>(std::min<std::uint64_t>(value, kMax));
 }
 
-GpuRenderTargetDesc normalizeDefaultRenderTargetForDevice(const GpuRenderTargetDesc &desc,
-                                                          Diligent::ISwapChain *swapChain)
-{
-    GpuRenderTargetDesc normalized = desc;
-    std::uint32_t fallbackWidth    = kDefaultRenderTargetWidth;
-    std::uint32_t fallbackHeight   = kDefaultRenderTargetHeight;
-    if (swapChain != nullptr)
-    {
-        const auto &swapChainDesc = swapChain->GetDesc();
-        if (swapChainDesc.Width > 0)
-        {
-            fallbackWidth = swapChainDesc.Width;
-        }
-        if (swapChainDesc.Height > 0)
-        {
-            fallbackHeight = swapChainDesc.Height;
-        }
-        if (swapChainDesc.ColorBufferFormat != Diligent::TEX_FORMAT_UNKNOWN)
-        {
-            normalized.colorFormat = swapChainDesc.ColorBufferFormat;
-        }
-    }
-
-    normalized.width =
-        common::runtime_math::clampExtent(normalized.width == 0 ? fallbackWidth : normalized.width);
-    normalized.height = common::runtime_math::clampExtent(
-        normalized.height == 0 ? fallbackHeight : normalized.height);
-    normalized.color = true;
-    if (normalized.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
-    {
-        normalized.colorFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
-    }
-    if (normalized.debugName.empty())
-    {
-        normalized.debugName = "CRESSimNeo.Default";
-    }
-    return normalized;
-}
-
 } // namespace
 
 bool GpuDeviceImpl::initialize(const GpuDeviceDesc &desc)
@@ -95,12 +56,9 @@ bool GpuDeviceImpl::initialize(const GpuDeviceDesc &desc)
         return false;
     }
 
-    mDesc.defaultRenderTargetDesc =
-        normalizeDefaultRenderTargetForDevice(mDesc.defaultRenderTargetDesc, mPrimarySwapChain);
-
     mRenderTargets = std::make_unique<GpuRenderTargetSystemImpl>();
-    if (!mRenderTargets->initialize(mDesc.defaultRenderTargetDesc, mBackend == GpuBackend::Vulkan,
-                                    mRenderDevice, mImmediateContext))
+    if (!mRenderTargets->initialize(mBackend == GpuBackend::Vulkan, mRenderDevice,
+                                    mImmediateContext))
     {
         shutdown();
         return false;
@@ -131,14 +89,20 @@ void GpuDeviceImpl::shutdown()
         mPhysicsContext->FinishFrame();
     }
 
-    mImmediateContext  = nullptr;
-    mPhysicsContext    = nullptr;
-    mRenderDevice      = nullptr;
-    mPrimarySwapChain  = nullptr;
-    mGraphicsContextId = 0;
-    mPhysicsContextId  = 0;
-    mGraphicsQueueType = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
-    mPhysicsQueueType  = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
+    mImmediateContext                   = nullptr;
+    mPhysicsContext                     = nullptr;
+    mRenderDevice                       = nullptr;
+    mPrimarySwapChain                   = nullptr;
+    mPresentationReadbackFence          = nullptr;
+    mGraphicsContextId                  = 0;
+    mPhysicsContextId                   = 0;
+    mGraphicsQueueType                  = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
+    mPhysicsQueueType                   = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
+    mNextPresentationReadbackRequestId  = 1;
+    mNextPresentationReadbackFenceValue = 1;
+    mPendingPresentationReadbackRequests.clear();
+    mPendingPresentationReadbackCopies.clear();
+    mCompletedPresentationReadbacks.clear();
 
     mBackend     = GpuBackend::Null;
     mInitialized = false;
@@ -171,6 +135,7 @@ bool GpuDeviceImpl::tryGetGraphicsBackendContext(GpuBackendContext &outContext)
 
     outContext.renderDevice     = mRenderDevice;
     outContext.immediateContext = mImmediateContext;
+    outContext.primarySwapChain = mPrimarySwapChain;
     if (mRenderTargets != nullptr)
     {
         mRenderTargets->fillBackendContextState(outContext);
@@ -193,6 +158,55 @@ bool GpuDeviceImpl::tryGetPhysicsBackendContext(GpuComputeBackendContext &outCon
     outContext.contextId      = mPhysicsContextId;
     outContext.queueType      = mPhysicsQueueType;
     outContext.role           = GpuContextRole::Physics;
+    return true;
+}
+
+bool GpuDeviceImpl::tryGetPresentationTargetDesc(GpuPresentationTargetDesc &outDesc)
+{
+    outDesc = {};
+    if (!mInitialized || mBackend != GpuBackend::Vulkan || mPrimarySwapChain == nullptr)
+    {
+        return false;
+    }
+
+    const auto &swapChainDesc = mPrimarySwapChain->GetDesc();
+    outDesc.width             = swapChainDesc.Width;
+    outDesc.height            = swapChainDesc.Height;
+    outDesc.colorFormat       = swapChainDesc.ColorBufferFormat;
+    outDesc.depthFormat       = swapChainDesc.DepthBufferFormat;
+    outDesc.hasDepth          = swapChainDesc.DepthBufferFormat != Diligent::TEX_FORMAT_UNKNOWN;
+    return true;
+}
+
+GpuPresentationReadbackRequest GpuDeviceImpl::requestPresentationReadback()
+{
+    if (!mInitialized || mBackend != GpuBackend::Vulkan || mPrimarySwapChain == nullptr)
+    {
+        return {};
+    }
+
+    const std::uint64_t requestId = mNextPresentationReadbackRequestId++;
+    mPendingPresentationReadbackRequests.emplace(requestId, requestId);
+    return GpuPresentationReadbackRequest{requestId};
+}
+
+bool GpuDeviceImpl::tryGetPresentationReadback(GpuPresentationReadbackRequest request,
+                                               GpuPresentationReadbackEvent &outEvent)
+{
+    outEvent = {};
+    if (request.id == 0)
+    {
+        return false;
+    }
+
+    const auto it = mCompletedPresentationReadbacks.find(request.id);
+    if (it == mCompletedPresentationReadbacks.end())
+    {
+        return false;
+    }
+
+    outEvent = std::move(it->second);
+    mCompletedPresentationReadbacks.erase(it);
     return true;
 }
 
@@ -275,6 +289,14 @@ bool GpuDeviceImpl::initializeVulkan()
     mPhysicsQueueType       = physicsDesc.QueueType;
 
     mBackend = GpuBackend::Vulkan;
+
+    if (mRenderDevice != nullptr)
+    {
+        Diligent::FenceDesc readbackFenceDesc{};
+        readbackFenceDesc.Name = "CRESSimNeo.PresentationReadbackFence";
+        readbackFenceDesc.Type = Diligent::FENCE_TYPE_CPU_WAIT_ONLY;
+        mRenderDevice->CreateFence(readbackFenceDesc, &mPresentationReadbackFence);
+    }
     return true;
 }
 

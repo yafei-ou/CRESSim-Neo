@@ -3,6 +3,16 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 
+#if PLATFORM_WIN32
+#define GLFW_EXPOSE_NATIVE_WIN32
+#elif PLATFORM_LINUX
+#define GLFW_EXPOSE_NATIVE_X11
+#elif PLATFORM_MACOS
+#define GLFW_EXPOSE_NATIVE_COCOA
+#endif
+#include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -18,13 +28,12 @@ using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::gpu::GpuBackend;
 using cressim::neo::gpu::GpuDevice;
-using cressim::neo::gpu::GpuRenderTargetBinding;
-using cressim::neo::gpu::GpuRenderTargetHandle;
-using cressim::neo::gpu::GpuRenderTargetReadbackEvent;
-using cressim::neo::gpu::GpuRenderTargetReadbackRequest;
+using cressim::neo::gpu::GpuPresentationReadbackEvent;
+using cressim::neo::gpu::GpuPresentationReadbackRequest;
+using cressim::neo::gpu::GpuPresentationTargetDesc;
 using cressim::neo::graphics::RenderFrameOptions;
 
-bool isValidReadback(const GpuRenderTargetReadbackEvent &event)
+bool isValidReadback(const GpuPresentationReadbackEvent &event)
 {
     if (event.width == 0u || event.height == 0u || event.rowStrideBytes < event.width * 4u)
     {
@@ -34,17 +43,14 @@ bool isValidReadback(const GpuRenderTargetReadbackEvent &event)
            static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height);
 }
 
-GpuRenderTargetReadbackEvent renderAndReadback(Runtime &runtime, GpuDevice &graphicsDevice,
-                                               const GpuRenderTargetHandle target,
+GpuPresentationReadbackEvent renderAndReadback(Runtime &runtime, GpuDevice &graphicsDevice,
                                                FrameContext &frame)
 {
-    const GpuRenderTargetReadbackRequest request =
-        graphicsDevice.renderTargetSystem().requestRenderTargetReadback(
-            GpuRenderTargetBinding{target, 0u, 1u});
+    const GpuPresentationReadbackRequest request = graphicsDevice.requestPresentationReadback();
     runtime.tick(frame);
 
-    GpuRenderTargetReadbackEvent event{};
-    if (request.id == 0u || !graphicsDevice.renderTargetSystem().tryGetRenderTargetReadback(request, event))
+    GpuPresentationReadbackEvent event{};
+    if (request.id == 0u || !graphicsDevice.tryGetPresentationReadback(request, event))
     {
         return {};
     }
@@ -81,13 +87,42 @@ bool isNear(std::uint8_t value, std::uint8_t expected, std::uint8_t tolerance)
 
 int main()
 {
+    if (glfwInit() != GLFW_TRUE)
+    {
+        CRESSIM_LOG_WARNING("Skipping display-resolve color-space test because GLFW init failed.\n");
+        return 0;
+    }
+
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    GLFWwindow *window = glfwCreateWindow(320, 240, "display_resolve_color_space", nullptr, nullptr);
+    if (window == nullptr)
+    {
+        CRESSIM_LOG_WARNING(
+            "Skipping display-resolve color-space test because a hidden GLFW window could not be created.\n");
+        glfwTerminate();
+        return 0;
+    }
+
     RuntimeConfig config{};
     config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
+    config.gpuDeviceDesc.presentation.enabled = true;
+#if PLATFORM_WIN32
+    config.gpuDeviceDesc.presentation.nativeWindow = glfwGetWin32Window(window);
+#elif PLATFORM_LINUX
+    config.gpuDeviceDesc.presentation.nativeWindowId =
+        static_cast<std::uint64_t>(glfwGetX11Window(window));
+    config.gpuDeviceDesc.presentation.nativeDisplay = glfwGetX11Display();
+#elif PLATFORM_MACOS
+    config.gpuDeviceDesc.presentation.nativeWindow = glfwGetCocoaWindow(window);
+#endif
 
     Runtime runtime;
     if (!runtime.initialize(config))
     {
         CRESSIM_LOG_ERROR("Runtime initialization failed.\n");
+        glfwDestroyWindow(window);
+        glfwTerminate();
         return 1;
     }
 
@@ -96,6 +131,17 @@ int main()
     {
         CRESSIM_LOG_ERROR("Graphics device not available.\n");
         runtime.shutdown();
+        glfwDestroyWindow(window);
+        glfwTerminate();
+        return 1;
+    }
+    GpuPresentationTargetDesc presentationDesc{};
+    if (!graphicsDevice->tryGetPresentationTargetDesc(presentationDesc))
+    {
+        CRESSIM_LOG_ERROR("Presentation target not available for display-resolve test.\n");
+        runtime.shutdown();
+        glfwDestroyWindow(window);
+        glfwTerminate();
         return 1;
     }
 
@@ -114,7 +160,7 @@ int main()
 
     world.setTransform(cameraEntity, cameraTransform);
     world.setCamera(cameraEntity, camera);
-    runtime.setRenderFrameOptions(RenderFrameOptions{cameraEntity});
+    runtime.setRenderFrameOptions(RenderFrameOptions{cameraEntity, presentationDesc});
 
     FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
@@ -124,13 +170,13 @@ int main()
 
     frame.frameIndex = 1u;
     frame.timeSeconds = static_cast<double>(frame.deltaSeconds);
-    const GpuRenderTargetHandle defaultTarget = graphicsDevice->renderTargetSystem().defaultRenderTarget();
-    const GpuRenderTargetReadbackEvent event =
-        renderAndReadback(runtime, *graphicsDevice, defaultTarget, frame);
+    const GpuPresentationReadbackEvent event = renderAndReadback(runtime, *graphicsDevice, frame);
     if (!isValidReadback(event))
     {
-        CRESSIM_LOG_ERROR("Expected valid readback for default presentation target.\n");
+        CRESSIM_LOG_ERROR("Expected valid readback for presentation target.\n");
         runtime.shutdown();
+        glfwDestroyWindow(window);
+        glfwTerminate();
         return 1;
     }
 
@@ -157,10 +203,14 @@ int main()
                           static_cast<int>(expected[2]), "), got (", static_cast<int>(pixel[0]), ", ",
                           static_cast<int>(pixel[1]), ", ", static_cast<int>(pixel[2]), ").\n");
         runtime.shutdown();
+        glfwDestroyWindow(window);
+        glfwTerminate();
         return 1;
     }
 
     runtime.shutdown();
+    glfwDestroyWindow(window);
+    glfwTerminate();
     CRESSIM_LOG_INFO("Display resolve color-space checks passed.\n");
     return 0;
 }

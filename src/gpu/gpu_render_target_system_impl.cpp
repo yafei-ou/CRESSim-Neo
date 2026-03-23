@@ -46,8 +46,7 @@ GpuRenderTargetBinding GpuRenderTargetSystemImpl::normalizeBinding(
     return normalized;
 }
 
-bool GpuRenderTargetSystemImpl::initialize(const GpuRenderTargetDesc &defaultDesc,
-                                           bool isVulkanBackend,
+bool GpuRenderTargetSystemImpl::initialize(bool isVulkanBackend,
                                            Diligent::IRenderDevice *renderDevice,
                                            Diligent::IDeviceContext *immediateContext)
 {
@@ -75,15 +74,7 @@ bool GpuRenderTargetSystemImpl::initialize(const GpuRenderTargetDesc &defaultDes
         }
     }
 
-    mDefaultRenderTargetDesc = normalizeDefaultRenderTargetDesc(defaultDesc);
-    mInitialized             = true;
-    mDefaultRenderTarget     = createRenderTarget(mDefaultRenderTargetDesc);
-    if (!isValidRenderTarget(mDefaultRenderTarget))
-    {
-        shutdown();
-        return false;
-    }
-
+    mInitialized = true;
     return true;
 }
 
@@ -103,9 +94,7 @@ void GpuRenderTargetSystemImpl::shutdown()
     mNextRenderTargetId            = 1;
     mNextReadbackRequestId         = 1;
     mNextReadbackFenceValue        = 1;
-    mDefaultRenderTarget           = {};
     mActiveRenderTargetBinding     = {};
-    mDefaultRenderTargetDesc       = {};
     mRenderTargets.clear();
     mPendingReadbackRequests.clear();
     mPendingReadbackCopies.clear();
@@ -255,11 +244,7 @@ GpuRenderTargetUpdateResult GpuRenderTargetSystemImpl::reconfigureRenderTarget(
     }
 
     GpuRenderTargetDesc updatedDesc = normalizeTargetDesc(desc);
-    if (target.id == mDefaultRenderTarget.id)
-    {
-        updatedDesc = normalizeDefaultRenderTargetDesc(updatedDesc);
-    }
-    const bool recreateTextures = requiresTextureRecreate(it->second.desc, updatedDesc);
+    const bool recreateTextures     = requiresTextureRecreate(it->second.desc, updatedDesc);
 
     RenderTargetResources updatedResources = it->second;
     updatedResources.desc                  = updatedDesc;
@@ -282,11 +267,6 @@ GpuRenderTargetUpdateResult GpuRenderTargetSystemImpl::reconfigureRenderTarget(
 
     it->second = std::move(updatedResources);
 
-    if (target.id == mDefaultRenderTarget.id)
-    {
-        mDefaultRenderTargetDesc = it->second.desc;
-    }
-
     if (mHasActiveRenderTarget && mActiveRenderTargetBinding.target.id == target.id)
     {
         mActiveRenderTargetHasDepth    = it->second.desc.depth;
@@ -303,7 +283,7 @@ GpuRenderTargetUpdateResult GpuRenderTargetSystemImpl::reconfigureRenderTarget(
 
 void GpuRenderTargetSystemImpl::destroyRenderTarget(GpuRenderTargetHandle target)
 {
-    if (target.id == common::kInvalidResourceId || target.id == mDefaultRenderTarget.id)
+    if (target.id == common::kInvalidResourceId)
     {
         return;
     }
@@ -378,16 +358,6 @@ bool GpuRenderTargetSystemImpl::tryGetRenderTargetDesc(GpuRenderTargetHandle tar
 
     outDesc = it->second.desc;
     return true;
-}
-
-GpuRenderTargetHandle GpuRenderTargetSystemImpl::defaultRenderTarget() const
-{
-    return mDefaultRenderTarget;
-}
-
-GpuRenderTargetBinding GpuRenderTargetSystemImpl::defaultRenderTargetBinding() const
-{
-    return GpuRenderTargetBinding{mDefaultRenderTarget, 0u, 1u};
 }
 
 Diligent::ITextureView *GpuRenderTargetSystemImpl::getOrCreateRenderTargetView(
@@ -697,7 +667,7 @@ bool GpuRenderTargetSystemImpl::tryGetRenderTargetDepthTexture(GpuRenderTargetHa
     return true;
 }
 
-GpuRenderTargetDesc GpuRenderTargetSystemImpl::normalizeDefaultRenderTargetDesc(
+GpuRenderTargetDesc GpuRenderTargetSystemImpl::normalizeTargetDesc(
     const GpuRenderTargetDesc &desc) const
 {
     GpuRenderTargetDesc normalized = desc;
@@ -705,37 +675,9 @@ GpuRenderTargetDesc GpuRenderTargetSystemImpl::normalizeDefaultRenderTargetDesc(
         normalized.width == 0 ? kDefaultRenderTargetWidth : normalized.width);
     normalized.height = common::runtime_math::clampExtent(
         normalized.height == 0 ? kDefaultRenderTargetHeight : normalized.height);
-    normalized.color            = true;
-    normalized.arraySize        = 1u;
-    normalized.layeredRendering = false;
     if (normalized.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
     {
         normalized.colorFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
-    }
-    if (normalized.debugName.empty())
-    {
-        normalized.debugName = "CRESSimNeo.Default";
-    }
-    return normalized;
-}
-
-GpuRenderTargetDesc GpuRenderTargetSystemImpl::normalizeTargetDesc(
-    const GpuRenderTargetDesc &desc) const
-{
-    GpuRenderTargetDesc normalized    = desc;
-    const std::uint32_t fallbackWidth = common::runtime_math::clampExtent(
-        mDefaultRenderTargetDesc.width == 0 ? kDefaultRenderTargetWidth
-                                            : mDefaultRenderTargetDesc.width);
-    const std::uint32_t fallbackHeight = common::runtime_math::clampExtent(
-        mDefaultRenderTargetDesc.height == 0 ? kDefaultRenderTargetHeight
-                                             : mDefaultRenderTargetDesc.height);
-    normalized.width =
-        common::runtime_math::clampExtent(normalized.width == 0 ? fallbackWidth : normalized.width);
-    normalized.height = common::runtime_math::clampExtent(
-        normalized.height == 0 ? fallbackHeight : normalized.height);
-    if (normalized.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
-    {
-        normalized.colorFormat = mDefaultRenderTargetDesc.colorFormat;
     }
     if (!normalized.color && !normalized.depth)
     {

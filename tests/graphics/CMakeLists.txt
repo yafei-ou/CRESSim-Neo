@@ -105,7 +105,7 @@ target_include_directories(${TARGET_NAME} PRIVATE
     ${PROJECT_SOURCE_DIR}/include
 )
 
-target_link_libraries(${TARGET_NAME} PRIVATE cressim_neo_engine)
+target_link_libraries(${TARGET_NAME} PRIVATE cressim_neo_engine glfw)
 
 set_target_properties(${TARGET_NAME}
     PROPERTIES

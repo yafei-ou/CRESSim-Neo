@@ -12,6 +12,9 @@ namespace cressim::neo::graphics::detail
 namespace
 {
 
+constexpr std::uint32_t kManagedPrimaryFallbackWidth  = 1280u;
+constexpr std::uint32_t kManagedPrimaryFallbackHeight = 720u;
+
 struct RequestedExtent
 {
     std::uint32_t width  = 0u;
@@ -37,15 +40,31 @@ std::uint32_t buildGlobalCameraIndex(const CameraData &camera,
     return camera.envIndex * std::max(gpuScene.layout.maxCamerasPerEnv, 1u) + camera.cameraSlot;
 }
 
-gpu::GpuRenderTargetDesc buildManagedPrimaryDesc(const CameraData &camera,
-                                                 const gpu::GpuRenderTargetDesc &defaultTargetDesc)
+gpu::GpuRenderTargetDesc buildManagedPrimaryDesc(
+    const CameraData &camera,
+    const std::optional<gpu::GpuPresentationTargetDesc> &presentationTarget)
 {
-    gpu::GpuRenderTargetDesc desc = defaultTargetDesc;
-    desc.width     = camera.outputWidth == 0u ? defaultTargetDesc.width : camera.outputWidth;
-    desc.height    = camera.outputHeight == 0u ? defaultTargetDesc.height : camera.outputHeight;
-    desc.arraySize = 1u;
+    gpu::GpuRenderTargetDesc desc{};
+    const std::uint32_t fallbackWidth =
+        presentationTarget.has_value() && presentationTarget->width > 0u
+            ? presentationTarget->width
+            : kManagedPrimaryFallbackWidth;
+    const std::uint32_t fallbackHeight =
+        presentationTarget.has_value() && presentationTarget->height > 0u
+            ? presentationTarget->height
+            : kManagedPrimaryFallbackHeight;
+    desc.width            = camera.outputWidth == 0u ? fallbackWidth : camera.outputWidth;
+    desc.height           = camera.outputHeight == 0u ? fallbackHeight : camera.outputHeight;
+    desc.arraySize        = 1u;
+    desc.color            = true;
+    desc.depth            = true;
     desc.layeredRendering = true;
     desc.shaderReadable   = true;
+    desc.colorFormat      = presentationTarget.has_value() ? presentationTarget->colorFormat
+                                                           : Diligent::TEX_FORMAT_RGBA8_UNORM;
+    desc.depthFormat      = presentationTarget.has_value() && presentationTarget->hasDepth
+                                ? presentationTarget->depthFormat
+                                : Diligent::TEX_FORMAT_D32_FLOAT;
     desc.debugName        = "CRESSimNeo.ManagedPrimary";
     return desc;
 }
@@ -78,19 +97,12 @@ void logInvalidExplicitTarget(const CameraData &camera)
                         " because its render target binding is invalid.");
 }
 
-void logManagedPrimaryUnavailable(const CameraData &camera)
-{
-    CRESSIM_LOG_WARNING("Renderer: skipping ManagedPrimary camera entity ", camera.entityId,
-                        " because no default target is available.");
-}
-
 } // namespace
 
 CameraOutputPlanningResult planCameraOutputs(
     const std::vector<CameraData> &cameras, const gpu::GpuEntitySceneView &gpuScene,
     gpu::GpuRenderTargetSystem &renderTargetSystem,
-    const gpu::GpuRenderTargetDesc &defaultTargetDesc,
-    const gpu::GpuRenderTargetBinding &defaultTargetBinding, bool hasDefaultTarget,
+    const std::optional<gpu::GpuPresentationTargetDesc> &presentationTarget,
     const RenderFrameOptions &options,
     std::unordered_map<RenderTargetFamilyKey, gpu::GpuRenderTargetHandle,
                        RenderTargetFamilyKeyHasher> &managedPrimaryTargets,
@@ -104,23 +116,20 @@ CameraOutputPlanningResult planCameraOutputs(
         managedFamilyCounts;
     std::vector<RenderTargetFamilyKey> managedFamilyOrder;
 
-    if (hasDefaultTarget)
+    for (const CameraData &camera : cameras)
     {
-        for (const CameraData &camera : cameras)
+        if (camera.output.mode != gpu::CameraOutputMode::ManagedPrimary)
         {
-            if (camera.output.mode != gpu::CameraOutputMode::ManagedPrimary)
-            {
-                continue;
-            }
+            continue;
+        }
 
-            const RenderTargetFamilyKey key =
-                makeRenderTargetFamilyKey(buildManagedPrimaryDesc(camera, defaultTargetDesc));
-            auto [it, inserted] = managedFamilyCounts.emplace(key, 0u);
-            ++it->second;
-            if (inserted)
-            {
-                managedFamilyOrder.push_back(key);
-            }
+        const RenderTargetFamilyKey key =
+            makeRenderTargetFamilyKey(buildManagedPrimaryDesc(camera, presentationTarget));
+        auto [it, inserted] = managedFamilyCounts.emplace(key, 0u);
+        ++it->second;
+        if (inserted)
+        {
+            managedFamilyOrder.push_back(key);
         }
     }
 
@@ -190,14 +199,8 @@ CameraOutputPlanningResult planCameraOutputs(
     {
         if (camera.output.mode == gpu::CameraOutputMode::ManagedPrimary)
         {
-            if (!hasDefaultTarget)
-            {
-                logManagedPrimaryUnavailable(camera);
-                continue;
-            }
-
             const RenderTargetFamilyKey key =
-                makeRenderTargetFamilyKey(buildManagedPrimaryDesc(camera, defaultTargetDesc));
+                makeRenderTargetFamilyKey(buildManagedPrimaryDesc(camera, presentationTarget));
             const auto familyIt = managedFamilies.find(key);
             if (familyIt == managedFamilies.end() ||
                 !renderTargetSystem.isValidRenderTarget(familyIt->second.target))
@@ -224,14 +227,16 @@ CameraOutputPlanningResult planCameraOutputs(
 
             if (camera.entityId == options.presentedCameraEntity)
             {
-                result.displayResolve = DisplayResolveRequest{resolved.outputBinding,
-                                                              family.desc,
-                                                              defaultTargetBinding,
-                                                              defaultTargetDesc,
-                                                              false,
-                                                              false,
-                                                              resolved.clearColorValue,
-                                                              resolved.clearDepthValue};
+                if (presentationTarget.has_value())
+                {
+                    result.displayResolve = DisplayResolveRequest{resolved.outputBinding,
+                                                                  family.desc,
+                                                                  *presentationTarget,
+                                                                  false,
+                                                                  false,
+                                                                  resolved.clearColorValue,
+                                                                  resolved.clearDepthValue};
+                }
             }
 
             result.resolvedCameras.push_back(resolved);

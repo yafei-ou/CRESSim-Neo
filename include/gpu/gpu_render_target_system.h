@@ -27,8 +27,6 @@ public:
     virtual bool isValidRenderTarget(GpuRenderTargetHandle target) const    = 0;
     virtual bool tryGetRenderTargetDesc(GpuRenderTargetHandle target,
                                         GpuRenderTargetDesc &outDesc) const = 0;
-    virtual GpuRenderTargetHandle defaultRenderTarget() const               = 0;
-    virtual GpuRenderTargetBinding defaultRenderTargetBinding() const       = 0;
 
     virtual void setRenderTargetViewport(const GpuRenderTargetBinding &binding,
                                          const GpuRenderViewport &viewport) = 0;

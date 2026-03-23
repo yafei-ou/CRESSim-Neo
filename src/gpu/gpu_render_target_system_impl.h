@@ -18,8 +18,7 @@ namespace cressim::neo::gpu
 class GpuRenderTargetSystemImpl final : public GpuRenderTargetSystem
 {
 public:
-    bool initialize(const GpuRenderTargetDesc &defaultDesc, bool isVulkanBackend,
-                    Diligent::IRenderDevice *renderDevice,
+    bool initialize(bool isVulkanBackend, Diligent::IRenderDevice *renderDevice,
                     Diligent::IDeviceContext *immediateContext);
     void shutdown();
     void endFrame(const common::FrameContext &frameContext);
@@ -36,9 +35,6 @@ public:
     bool isValidRenderTarget(GpuRenderTargetHandle target) const override;
     bool tryGetRenderTargetDesc(GpuRenderTargetHandle target,
                                 GpuRenderTargetDesc &outDesc) const override;
-    GpuRenderTargetHandle defaultRenderTarget() const override;
-    GpuRenderTargetBinding defaultRenderTargetBinding() const override;
-
     void setRenderTargetViewport(const GpuRenderTargetBinding &binding,
                                  const GpuRenderViewport &viewport) override;
     void beginRenderTarget(const GpuRenderTargetBinding &binding,
@@ -83,7 +79,6 @@ private:
         Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
     };
 
-    GpuRenderTargetDesc normalizeDefaultRenderTargetDesc(const GpuRenderTargetDesc &desc) const;
     GpuRenderTargetDesc normalizeTargetDesc(const GpuRenderTargetDesc &desc) const;
     bool createRenderTargetTextures(const GpuRenderTargetDesc &desc,
                                     RenderTargetResources &resources);
@@ -107,8 +102,6 @@ private:
     std::uint64_t mNextReadbackRequestId                    = 1;
     std::uint64_t mNextReadbackFenceValue                   = 1;
 
-    GpuRenderTargetDesc mDefaultRenderTargetDesc{};
-    GpuRenderTargetHandle mDefaultRenderTarget{};
     GpuRenderTargetBinding mActiveRenderTargetBinding{};
 
     std::unordered_map<common::ResourceId, RenderTargetResources> mRenderTargets;

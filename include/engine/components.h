@@ -39,7 +39,7 @@ struct CameraComponent
     float nearClip           = 0.01f;
     float farClip            = 1000.0f;
 
-    // ManagedPrimary renders into the renderer-managed primary layered surface.
+    // ManagedPrimary renders into the renderer-managed primary layered surface for presentation.
     // ExplicitSurface renders directly into the bound target layer. Binding a non-array target
     // still means every camera targeting it shares layer 0.
     gpu::CameraOutputBinding output{};

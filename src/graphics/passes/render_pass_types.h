@@ -44,8 +44,7 @@ struct DisplayResolveRequest
 {
     gpu::GpuRenderTargetBinding sourceBinding{};
     gpu::GpuRenderTargetDesc sourceTargetDesc{};
-    gpu::GpuRenderTargetBinding targetBinding{};
-    gpu::GpuRenderTargetDesc targetTargetDesc{};
+    gpu::GpuPresentationTargetDesc presentationTarget{};
     bool clearColor                  = false;
     bool clearDepth                  = false;
     Diligent::float4 clearColorValue = {0.02f, 0.02f, 0.03f, 1.0f};

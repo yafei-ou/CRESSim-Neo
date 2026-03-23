@@ -10,6 +10,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 namespace cressim::neo::graphics
 {
@@ -27,6 +28,7 @@ struct RendererDesc
 struct RenderFrameOptions
 {
     common::EntityId presentedCameraEntity = common::kInvalidEntityId;
+    std::optional<gpu::GpuPresentationTargetDesc> presentationTarget{};
 };
 
 struct RenderStats

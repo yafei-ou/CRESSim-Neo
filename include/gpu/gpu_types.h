@@ -6,6 +6,7 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/GraphicsTypes.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h"
 
 #include <cstdint>
 #include <string>
@@ -122,10 +123,35 @@ struct GpuRenderTargetReadbackRequest
     std::uint64_t id = 0;
 };
 
+struct GpuPresentationTargetDesc
+{
+    std::uint32_t width                  = 0;
+    std::uint32_t height                 = 0;
+    Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
+    Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
+    bool hasDepth                        = false;
+};
+
+struct GpuPresentationReadbackEvent
+{
+    std::uint64_t frameIndex             = 0;
+    Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
+    std::uint32_t width                  = 0;
+    std::uint32_t height                 = 0;
+    std::uint32_t rowStrideBytes         = 0;
+    std::vector<std::uint8_t> colorBytes{};
+};
+
+struct GpuPresentationReadbackRequest
+{
+    std::uint64_t id = 0;
+};
+
 struct GpuBackendContext
 {
     Diligent::IRenderDevice *renderDevice      = nullptr;
     Diligent::IDeviceContext *immediateContext = nullptr;
+    Diligent::ISwapChain *primarySwapChain     = nullptr;
     GpuRenderTargetBinding activeRenderTargetBinding{};
     bool hasActiveRenderTarget                             = false;
     bool activeRenderTargetHasDepth                        = false;

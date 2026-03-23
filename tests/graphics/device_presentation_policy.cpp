@@ -9,7 +9,7 @@ using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::gpu::GpuBackend;
 using cressim::neo::gpu::GpuDevice;
-using cressim::neo::gpu::GpuRenderTargetDesc;
+using cressim::neo::gpu::GpuPresentationTargetDesc;
 
 } // namespace
 
@@ -36,18 +36,13 @@ int main()
             return 1;
         }
 
-        GpuRenderTargetDesc defaultDesc{};
-        if (!device->renderTargetSystem().tryGetRenderTargetDesc(device->renderTargetSystem().defaultRenderTarget(), defaultDesc))
-        {
-            CRESSIM_LOG_ERROR( "Failed to query default render target descriptor.\n");
-            runtime.shutdown();
-            return 1;
-        }
+        GpuPresentationTargetDesc presentationDesc{};
+        const bool hasPresentationDesc = device->tryGetPresentationTargetDesc(presentationDesc);
         runtime.shutdown();
 
-        if (defaultDesc.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
+        if (hasPresentationDesc)
         {
-            CRESSIM_LOG_ERROR( "Expected auto default color format to resolve in headless mode.\n");
+            CRESSIM_LOG_ERROR( "Headless runtime unexpectedly exposed a presentation target.\n");
             return 1;
         }
     }
