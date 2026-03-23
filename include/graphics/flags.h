@@ -44,7 +44,7 @@ constexpr E operator&(E lhs, E rhs) noexcept
 }
 
 template <typename E, std::enable_if_t<EnableBitMaskOps_v<E>, int> = 0>
-constexpr E& operator|=(E& lhs, E rhs) noexcept
+constexpr E &operator|=(E &lhs, E rhs) noexcept
 {
     lhs = lhs | rhs;
     return lhs;
@@ -59,4 +59,4 @@ constexpr bool hasFlag(E value, E flag) noexcept
 
 } // namespace cressim::neo::graphics
 
-#endif // !CRESSIM_NEO_GRAPHICS_GRAPHICS_FLAGS_H
+#endif // CRESSIM_NEO_GRAPHICS_GRAPHICS_FLAGS_H

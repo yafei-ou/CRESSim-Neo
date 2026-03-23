@@ -28,10 +28,10 @@ struct GpuDeviceDesc
         // Linux/X11: nativeWindowId = Window, nativeDisplay = Display*
         // Linux/XCB: nativeWindowId = xcb_window_t, nativeConnection = xcb_connection_t*
         // macOS: nativeWindow = NSView*
-        void* nativeWindow           = nullptr;
+        void *nativeWindow           = nullptr;
         std::uint64_t nativeWindowId = 0;
-        void* nativeDisplay          = nullptr;
-        void* nativeConnection       = nullptr;
+        void *nativeDisplay          = nullptr;
+        void *nativeConnection       = nullptr;
     };
 
     GpuBackend preferredBackend = GpuBackend::Vulkan;
@@ -48,17 +48,17 @@ class CRESSIM_NEO_GPU_API GpuDevice
 public:
     virtual ~GpuDevice() = default;
 
-    virtual bool initialize(const GpuDeviceDesc& desc) = 0;
+    virtual bool initialize(const GpuDeviceDesc &desc) = 0;
     virtual void shutdown()                            = 0;
 
-    virtual void beginFrame(const common::FrameContext& frameContext) = 0;
-    virtual void endFrame(const common::FrameContext& frameContext)   = 0;
-    virtual GpuRenderTargetSystem& renderTargetSystem()               = 0;
+    virtual void beginFrame(const common::FrameContext &frameContext) = 0;
+    virtual void endFrame(const common::FrameContext &frameContext)   = 0;
+    virtual GpuRenderTargetSystem &renderTargetSystem()               = 0;
 
     virtual GpuBackend backend() const                                             = 0;
-    virtual bool tryGetGraphicsBackendContext(GpuBackendContext& outContext)       = 0;
-    virtual bool tryGetPhysicsBackendContext(GpuComputeBackendContext& outContext) = 0;
-    virtual const std::string& shaderSourceDirectory() const                       = 0;
+    virtual bool tryGetGraphicsBackendContext(GpuBackendContext &outContext)       = 0;
+    virtual bool tryGetPhysicsBackendContext(GpuComputeBackendContext &outContext) = 0;
+    virtual const std::string &shaderSourceDirectory() const                       = 0;
 };
 
 CRESSIM_NEO_GPU_API std::unique_ptr<GpuDevice> createGpuDevice();

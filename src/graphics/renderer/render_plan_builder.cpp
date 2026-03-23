@@ -8,10 +8,10 @@ namespace cressim::neo::graphics::detail
 namespace
 {
 
-bool sameBatchCompatibility(const ResolvedCameraView& lhs, const ResolvedCameraView& rhs)
+bool sameBatchCompatibility(const ResolvedCameraView &lhs, const ResolvedCameraView &rhs)
 {
-    const gpu::GpuRenderTargetDesc& lhsDesc = lhs.outputTargetDesc;
-    const gpu::GpuRenderTargetDesc& rhsDesc = rhs.outputTargetDesc;
+    const gpu::GpuRenderTargetDesc &lhsDesc = lhs.outputTargetDesc;
+    const gpu::GpuRenderTargetDesc &rhsDesc = rhs.outputTargetDesc;
     return lhs.outputBinding.target.id == rhs.outputBinding.target.id &&
            lhsDesc.width == rhsDesc.width && lhsDesc.height == rhsDesc.height &&
            lhsDesc.color == rhsDesc.color && lhsDesc.depth == rhsDesc.depth &&
@@ -25,7 +25,7 @@ bool sameBatchCompatibility(const ResolvedCameraView& lhs, const ResolvedCameraV
            lhs.clearDepthValue == rhs.clearDepthValue;
 }
 
-bool requiresDedicatedBatch(const ResolvedCameraView& camera)
+bool requiresDedicatedBatch(const ResolvedCameraView &camera)
 {
     return camera.useOutputViewport;
 }
@@ -33,7 +33,7 @@ bool requiresDedicatedBatch(const ResolvedCameraView& camera)
 } // namespace
 
 FrameRenderPlan buildFrameRenderPlan(std::vector<ResolvedCameraView> cameras,
-                                     const ForwardDirectionalLightData& light,
+                                     const ForwardDirectionalLightData &light,
                                      std::optional<DisplayResolveRequest> displayResolve)
 {
     FrameRenderPlan plan{};
@@ -52,7 +52,7 @@ FrameRenderPlan buildFrameRenderPlan(std::vector<ResolvedCameraView> cameras,
 
         std::uint32_t minLayer = currentBatch.cameras.front().outputBinding.firstLayer;
         std::uint32_t maxLayer = minLayer;
-        for (const ResolvedCameraView& camera : currentBatch.cameras)
+        for (const ResolvedCameraView &camera : currentBatch.cameras)
         {
             minLayer = std::min(minLayer, camera.outputBinding.firstLayer);
             maxLayer = std::max(maxLayer, camera.outputBinding.firstLayer);
@@ -66,7 +66,7 @@ FrameRenderPlan buildFrameRenderPlan(std::vector<ResolvedCameraView> cameras,
         usedLayers.clear();
     };
 
-    for (ResolvedCameraView& camera : cameras)
+    for (ResolvedCameraView &camera : cameras)
     {
         const bool duplicateLayer = std::find(usedLayers.begin(), usedLayers.end(),
                                               camera.outputBinding.firstLayer) != usedLayers.end();

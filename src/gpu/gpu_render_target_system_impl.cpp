@@ -14,8 +14,8 @@ namespace
 constexpr std::uint32_t kDefaultRenderTargetWidth  = 1280u;
 constexpr std::uint32_t kDefaultRenderTargetHeight = 720u;
 
-bool requiresTextureRecreate(const GpuRenderTargetDesc& currentDesc,
-                             const GpuRenderTargetDesc& updatedDesc)
+bool requiresTextureRecreate(const GpuRenderTargetDesc &currentDesc,
+                             const GpuRenderTargetDesc &updatedDesc)
 {
     return currentDesc.width != updatedDesc.width || currentDesc.height != updatedDesc.height ||
            currentDesc.arraySize != updatedDesc.arraySize ||
@@ -28,14 +28,14 @@ bool requiresTextureRecreate(const GpuRenderTargetDesc& currentDesc,
 
 } // namespace
 
-std::uint64_t GpuRenderTargetSystemImpl::bindingKey(const GpuRenderTargetBinding& binding) noexcept
+std::uint64_t GpuRenderTargetSystemImpl::bindingKey(const GpuRenderTargetBinding &binding) noexcept
 {
     return (static_cast<std::uint64_t>(binding.firstLayer) << 32u) |
            static_cast<std::uint64_t>(std::max(binding.layerCount, 1u));
 }
 
 GpuRenderTargetBinding GpuRenderTargetSystemImpl::normalizeBinding(
-    const GpuRenderTargetBinding& binding, const RenderTargetResources& resources) const
+    const GpuRenderTargetBinding &binding, const RenderTargetResources &resources) const
 {
     GpuRenderTargetBinding normalized = binding;
     normalized.target                 = GpuRenderTargetHandle{binding.target.id};
@@ -46,10 +46,10 @@ GpuRenderTargetBinding GpuRenderTargetSystemImpl::normalizeBinding(
     return normalized;
 }
 
-bool GpuRenderTargetSystemImpl::initialize(const GpuRenderTargetDesc& defaultDesc,
+bool GpuRenderTargetSystemImpl::initialize(const GpuRenderTargetDesc &defaultDesc,
                                            bool isVulkanBackend,
-                                           Diligent::IRenderDevice* renderDevice,
-                                           Diligent::IDeviceContext* immediateContext)
+                                           Diligent::IRenderDevice *renderDevice,
+                                           Diligent::IDeviceContext *immediateContext)
 {
     shutdown();
 
@@ -115,13 +115,13 @@ void GpuRenderTargetSystemImpl::shutdown()
     mImmediateContext = nullptr;
 }
 
-void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext& frameContext)
+void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContext)
 {
     (void)frameContext;
 
     if (!mInitialized || !mIsVulkanBackend || !mImmediateContext)
     {
-        for (const PendingReadbackCopy& copy : mPendingReadbackCopies)
+        for (const PendingReadbackCopy &copy : mPendingReadbackCopies)
         {
             GpuRenderTargetReadbackEvent event{};
             event.binding                       = copy.binding;
@@ -136,7 +136,7 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext& frameContex
     mImmediateContext->Flush();
     mImmediateContext->FinishFrame();
 
-    for (const PendingReadbackCopy& copy : mPendingReadbackCopies)
+    for (const PendingReadbackCopy &copy : mPendingReadbackCopies)
     {
         GpuRenderTargetReadbackEvent event{};
         event.binding     = copy.binding;
@@ -163,8 +163,8 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext& frameContex
                 event.colorBytes.resize(static_cast<std::size_t>(event.rowStrideBytes) *
                                         static_cast<std::size_t>(event.height));
 
-                const auto* srcRows = static_cast<const std::uint8_t*>(mappedData.pData);
-                auto* dstRows       = event.colorBytes.data();
+                const auto *srcRows = static_cast<const std::uint8_t *>(mappedData.pData);
+                auto *dstRows       = event.colorBytes.data();
                 for (std::uint32_t y = 0; y < event.height; ++y)
                 {
                     std::memcpy(dstRows + static_cast<std::size_t>(y) * event.rowStrideBytes,
@@ -183,7 +183,7 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext& frameContex
     mPendingReadbackCopies.clear();
 }
 
-void GpuRenderTargetSystemImpl::fillBackendContextState(GpuBackendContext& outContext) const
+void GpuRenderTargetSystemImpl::fillBackendContextState(GpuBackendContext &outContext) const
 {
     outContext.hasActiveRenderTarget = mHasActiveRenderTarget;
     outContext.activeRenderTargetBinding =
@@ -192,7 +192,7 @@ void GpuRenderTargetSystemImpl::fillBackendContextState(GpuBackendContext& outCo
     outContext.activeRenderTargetColorFormat = mActiveRenderTargetColorFormat;
 }
 
-GpuRenderTargetHandle GpuRenderTargetSystemImpl::createRenderTarget(const GpuRenderTargetDesc& desc)
+GpuRenderTargetHandle GpuRenderTargetSystemImpl::createRenderTarget(const GpuRenderTargetDesc &desc)
 {
     if (!mInitialized || mRenderDevice == nullptr)
     {
@@ -241,7 +241,7 @@ GpuRenderTargetUpdateResult GpuRenderTargetSystemImpl::resizeRenderTarget(
 }
 
 GpuRenderTargetUpdateResult GpuRenderTargetSystemImpl::reconfigureRenderTarget(
-    GpuRenderTargetHandle target, const GpuRenderTargetDesc& desc)
+    GpuRenderTargetHandle target, const GpuRenderTargetDesc &desc)
 {
     if (!mInitialized)
     {
@@ -344,7 +344,7 @@ void GpuRenderTargetSystemImpl::destroyRenderTarget(GpuRenderTargetHandle target
 
     mPendingReadbackCopies.erase(std::remove_if(mPendingReadbackCopies.begin(),
                                                 mPendingReadbackCopies.end(),
-                                                [&](const PendingReadbackCopy& copy)
+                                                [&](const PendingReadbackCopy &copy)
                                                 {
                                                     if (copy.binding.target.id != target.id)
                                                     {
@@ -367,7 +367,7 @@ bool GpuRenderTargetSystemImpl::isValidRenderTarget(GpuRenderTargetHandle target
 }
 
 bool GpuRenderTargetSystemImpl::tryGetRenderTargetDesc(GpuRenderTargetHandle target,
-                                                       GpuRenderTargetDesc& outDesc) const
+                                                       GpuRenderTargetDesc &outDesc) const
 {
     const auto it = mRenderTargets.find(target.id);
     if (it == mRenderTargets.end())
@@ -390,8 +390,8 @@ GpuRenderTargetBinding GpuRenderTargetSystemImpl::defaultRenderTargetBinding() c
     return GpuRenderTargetBinding{mDefaultRenderTarget, 0u, 1u};
 }
 
-Diligent::ITextureView* GpuRenderTargetSystemImpl::getOrCreateRenderTargetView(
-    RenderTargetResources& resources, const GpuRenderTargetBinding& binding)
+Diligent::ITextureView *GpuRenderTargetSystemImpl::getOrCreateRenderTargetView(
+    RenderTargetResources &resources, const GpuRenderTargetBinding &binding)
 {
     if (resources.colorTexture == nullptr)
     {
@@ -425,8 +425,8 @@ Diligent::ITextureView* GpuRenderTargetSystemImpl::getOrCreateRenderTargetView(
     return view;
 }
 
-Diligent::ITextureView* GpuRenderTargetSystemImpl::getOrCreateDepthStencilView(
-    RenderTargetResources& resources, const GpuRenderTargetBinding& binding)
+Diligent::ITextureView *GpuRenderTargetSystemImpl::getOrCreateDepthStencilView(
+    RenderTargetResources &resources, const GpuRenderTargetBinding &binding)
 {
     if (resources.depthTexture == nullptr)
     {
@@ -460,8 +460,8 @@ Diligent::ITextureView* GpuRenderTargetSystemImpl::getOrCreateDepthStencilView(
     return view;
 }
 
-void GpuRenderTargetSystemImpl::setRenderTargetViewport(const GpuRenderTargetBinding& binding,
-                                                        const GpuRenderViewport& viewport)
+void GpuRenderTargetSystemImpl::setRenderTargetViewport(const GpuRenderTargetBinding &binding,
+                                                        const GpuRenderViewport &viewport)
 {
     const auto it = mRenderTargets.find(binding.target.id);
     if (it == mRenderTargets.end())
@@ -474,9 +474,9 @@ void GpuRenderTargetSystemImpl::setRenderTargetViewport(const GpuRenderTargetBin
         common::runtime_math::normalizeViewport(viewport);
 }
 
-void GpuRenderTargetSystemImpl::beginRenderTarget(const GpuRenderTargetBinding& binding,
-                                                  const common::FrameContext& frameContext,
-                                                  const GpuRenderPassBeginDesc& beginDesc)
+void GpuRenderTargetSystemImpl::beginRenderTarget(const GpuRenderTargetBinding &binding,
+                                                  const common::FrameContext &frameContext,
+                                                  const GpuRenderPassBeginDesc &beginDesc)
 {
     (void)frameContext;
     mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
@@ -492,11 +492,11 @@ void GpuRenderTargetSystemImpl::beginRenderTarget(const GpuRenderTargetBinding& 
         return;
     }
 
-    RenderTargetResources& resources        = it->second;
+    RenderTargetResources &resources        = it->second;
     const GpuRenderTargetBinding normalized = normalizeBinding(binding, resources);
 
-    Diligent::ITextureView* colorRtv = nullptr;
-    Diligent::ITextureView* depthDsv = nullptr;
+    Diligent::ITextureView *colorRtv = nullptr;
+    Diligent::ITextureView *depthDsv = nullptr;
     if (resources.colorTexture != nullptr)
     {
         colorRtv                       = getOrCreateRenderTargetView(resources, normalized);
@@ -557,8 +557,8 @@ void GpuRenderTargetSystemImpl::beginRenderTarget(const GpuRenderTargetBinding& 
     mActiveRenderTargetHasDepth = (depthDsv != nullptr);
 }
 
-void GpuRenderTargetSystemImpl::endRenderTarget(const GpuRenderTargetBinding& binding,
-                                                const common::FrameContext& frameContext)
+void GpuRenderTargetSystemImpl::endRenderTarget(const GpuRenderTargetBinding &binding,
+                                                const common::FrameContext &frameContext)
 {
     GpuRenderTargetBinding normalized = binding;
     const auto targetItForBinding     = mRenderTargets.find(binding.target.id);
@@ -582,7 +582,7 @@ void GpuRenderTargetSystemImpl::endRenderTarget(const GpuRenderTargetBinding& bi
     }
 
     std::vector<std::uint64_t> completedRequests;
-    for (const auto& [requestId, requestBinding] : mPendingReadbackRequests)
+    for (const auto &[requestId, requestBinding] : mPendingReadbackRequests)
     {
         if (requestBinding.target.id == normalized.target.id)
         {
@@ -612,7 +612,7 @@ void GpuRenderTargetSystemImpl::endRenderTarget(const GpuRenderTargetBinding& bi
 }
 
 GpuRenderTargetReadbackRequest GpuRenderTargetSystemImpl::requestRenderTargetReadback(
-    const GpuRenderTargetBinding& binding)
+    const GpuRenderTargetBinding &binding)
 {
     GpuRenderTargetReadbackRequest request{};
 
@@ -639,7 +639,7 @@ GpuRenderTargetReadbackRequest GpuRenderTargetSystemImpl::requestRenderTargetRea
 }
 
 bool GpuRenderTargetSystemImpl::tryGetRenderTargetReadback(GpuRenderTargetReadbackRequest request,
-                                                           GpuRenderTargetReadbackEvent& outEvent)
+                                                           GpuRenderTargetReadbackEvent &outEvent)
 {
     if (request.id == 0)
     {
@@ -658,7 +658,7 @@ bool GpuRenderTargetSystemImpl::tryGetRenderTargetReadback(GpuRenderTargetReadba
 }
 
 bool GpuRenderTargetSystemImpl::tryGetRenderTargetColorTexture(GpuRenderTargetHandle target,
-                                                               Diligent::ITexture*& outTexture)
+                                                               Diligent::ITexture *&outTexture)
 {
     outTexture = nullptr;
 
@@ -678,7 +678,7 @@ bool GpuRenderTargetSystemImpl::tryGetRenderTargetColorTexture(GpuRenderTargetHa
 }
 
 bool GpuRenderTargetSystemImpl::tryGetRenderTargetDepthTexture(GpuRenderTargetHandle target,
-                                                               Diligent::ITexture*& outTexture)
+                                                               Diligent::ITexture *&outTexture)
 {
     outTexture = nullptr;
 
@@ -698,7 +698,7 @@ bool GpuRenderTargetSystemImpl::tryGetRenderTargetDepthTexture(GpuRenderTargetHa
 }
 
 GpuRenderTargetDesc GpuRenderTargetSystemImpl::normalizeDefaultRenderTargetDesc(
-    const GpuRenderTargetDesc& desc) const
+    const GpuRenderTargetDesc &desc) const
 {
     GpuRenderTargetDesc normalized = desc;
     normalized.width               = common::runtime_math::clampExtent(
@@ -720,7 +720,7 @@ GpuRenderTargetDesc GpuRenderTargetSystemImpl::normalizeDefaultRenderTargetDesc(
 }
 
 GpuRenderTargetDesc GpuRenderTargetSystemImpl::normalizeTargetDesc(
-    const GpuRenderTargetDesc& desc) const
+    const GpuRenderTargetDesc &desc) const
 {
     GpuRenderTargetDesc normalized    = desc;
     const std::uint32_t fallbackWidth = common::runtime_math::clampExtent(
@@ -749,8 +749,8 @@ GpuRenderTargetDesc GpuRenderTargetSystemImpl::normalizeTargetDesc(
     return normalized;
 }
 
-bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTargetDesc& desc,
-                                                           RenderTargetResources& resources)
+bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTargetDesc &desc,
+                                                           RenderTargetResources &resources)
 {
     if (!mRenderDevice || (!desc.color && !desc.depth))
     {
@@ -844,7 +844,7 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
     return true;
 }
 
-bool GpuRenderTargetSystemImpl::queueReadbackCopy(const GpuRenderTargetBinding& binding,
+bool GpuRenderTargetSystemImpl::queueReadbackCopy(const GpuRenderTargetBinding &binding,
                                                   std::uint64_t frameIndex, std::uint64_t requestId)
 {
     if (!mRenderDevice || !mImmediateContext || !mReadbackFence || !mIsVulkanBackend)
@@ -862,7 +862,7 @@ bool GpuRenderTargetSystemImpl::queueReadbackCopy(const GpuRenderTargetBinding& 
         return false;
     }
 
-    const RenderTargetResources& resources  = targetIt->second;
+    const RenderTargetResources &resources  = targetIt->second;
     const GpuRenderTargetBinding normalized = normalizeBinding(binding, resources);
     if (normalized.layerCount != 1u)
     {

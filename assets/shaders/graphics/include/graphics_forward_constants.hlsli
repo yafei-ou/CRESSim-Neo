@@ -22,4 +22,4 @@ cbuffer GraphicsForwardPerMaterial
     float4 g_MaterialParams;
 };
 
-#endif // !CRESSIM_NEO_GRAPHICS_FORWARD_CONSTANTS_HLSLI
+#endif // CRESSIM_NEO_GRAPHICS_FORWARD_CONSTANTS_HLSLI

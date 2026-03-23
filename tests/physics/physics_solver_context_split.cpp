@@ -1,7 +1,7 @@
 #include "common/frame_context.h"
 #include "engine/runtime.h"
+#include "common/logger.h"
 
-#include <iostream>
 
 int main()
 {
@@ -15,14 +15,14 @@ int main()
         engine::Runtime runtime;
         if (!runtime.initialize(config))
         {
-            std::cerr << "Runtime initialization failed.\n";
+            CRESSIM_LOG_ERROR( "Runtime initialization failed.\n");
             return 1;
         }
 
         gpu::GpuDevice* device = runtime.getGpuDevice();
         if (device == nullptr)
         {
-            std::cerr << "Runtime returned null GPU device.\n";
+            CRESSIM_LOG_ERROR( "Runtime returned null GPU device.\n");
             runtime.shutdown();
             return 1;
         }
@@ -32,20 +32,20 @@ int main()
         if (!device->tryGetGraphicsBackendContext(graphicsContext) ||
             !device->tryGetPhysicsBackendContext(physicsContext))
         {
-            std::cerr << "Failed to retrieve graphics/physics contexts.\n";
+            CRESSIM_LOG_ERROR( "Failed to retrieve graphics/physics contexts.\n");
             runtime.shutdown();
             return 1;
         }
         if (graphicsContext.renderDevice == nullptr || graphicsContext.immediateContext == nullptr ||
             physicsContext.renderDevice == nullptr || physicsContext.computeContext == nullptr)
         {
-            std::cerr << "Context retrieval returned null backend pointers.\n";
+            CRESSIM_LOG_ERROR( "Context retrieval returned null backend pointers.\n");
             runtime.shutdown();
             return 1;
         }
         if (graphicsContext.renderDevice != physicsContext.renderDevice)
         {
-            std::cerr << "Graphics and physics contexts use different devices unexpectedly.\n";
+            CRESSIM_LOG_ERROR( "Graphics and physics contexts use different devices unexpectedly.\n");
             runtime.shutdown();
             return 1;
         }
@@ -56,7 +56,7 @@ int main()
         frame.deltaSeconds = 1.0f / 60.0f;
         if (transientSolver.step(frame, world))
         {
-            std::cerr << "Solver step unexpectedly succeeded before initialize().\n";
+            CRESSIM_LOG_ERROR( "Solver step unexpectedly succeeded before initialize().\n");
             runtime.shutdown();
             return 1;
         }
@@ -64,6 +64,6 @@ int main()
         runtime.shutdown();
     }
 
-    std::cout << "Physics solver context split checks passed.\n";
+    CRESSIM_LOG_INFO( "Physics solver context split checks passed.\n");
     return 0;
 }

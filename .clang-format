@@ -20,7 +20,7 @@ IncludeBlocks: Preserve
 ---
 Language: Cpp
 DerivePointerAlignment: false
-PointerAlignment: Left
+PointerAlignment: Right
 ColumnLimit: 100
 AllowShortIfStatementsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: Empty

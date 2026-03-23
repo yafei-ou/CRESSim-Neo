@@ -84,19 +84,19 @@ struct TextureResourceDesc
 class CRESSIM_NEO_GRAPHICS_API RenderResourceManager
 {
 public:
-    MeshHandle registerMesh(const MeshResourceDesc& desc);
-    MaterialHandle registerMaterial(const MaterialResourceDesc& desc);
-    TextureHandle registerTexture(const TextureResourceDesc& desc);
+    MeshHandle registerMesh(const MeshResourceDesc &desc);
+    MaterialHandle registerMaterial(const MaterialResourceDesc &desc);
+    TextureHandle registerTexture(const TextureResourceDesc &desc);
 
     bool isValid(MeshHandle mesh) const;
     bool isValid(MaterialHandle material) const;
     bool isValid(TextureHandle texture) const;
 
-    const MeshResourceDesc* tryGetMesh(MeshHandle mesh) const noexcept;
-    const MaterialResourceDesc* tryGetMaterial(MaterialHandle material) const noexcept;
-    const TextureResourceDesc* tryGetTexture(TextureHandle texture) const noexcept;
-    bool tryGetMeshLocalBounds(MeshHandle mesh, Diligent::float3& outMin,
-                               Diligent::float3& outMax) const noexcept;
+    const MeshResourceDesc *tryGetMesh(MeshHandle mesh) const noexcept;
+    const MaterialResourceDesc *tryGetMaterial(MaterialHandle material) const noexcept;
+    const TextureResourceDesc *tryGetTexture(TextureHandle texture) const noexcept;
+    bool tryGetMeshLocalBounds(MeshHandle mesh, Diligent::float3 &outMin,
+                               Diligent::float3 &outMax) const noexcept;
 
     std::uint64_t meshVersion(MeshHandle mesh) const noexcept;
 

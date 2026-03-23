@@ -11,4 +11,4 @@ cbuffer GraphicsShadowPerPass
 #define g_CascadeIndex g_ShadowPassParams.x
 #define g_CurrentCameraIndex g_ShadowPassParams.y
 
-#endif // !CRESSIM_NEO_GRAPHICS_SHADOW_CONSTANTS_HLSLI
+#endif // CRESSIM_NEO_GRAPHICS_SHADOW_CONSTANTS_HLSLI

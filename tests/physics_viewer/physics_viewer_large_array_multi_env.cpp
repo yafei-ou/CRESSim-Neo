@@ -2,12 +2,12 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 #include "viewer/debug_viewer_app.h"
+#include "common/logger.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
-#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -67,8 +67,8 @@ GpuBackend parseBackend(const std::string& value)
 
 void printUsage(const char* appName)
 {
-    std::cerr << "Usage: " << appName
-              << " [--backend vulkan|null] [--frames N] [--envs N]\n";
+    CRESSIM_LOG_ERROR( "Usage: " , appName
+              , " [--backend vulkan|null] [--frames N] [--envs N]\n");
 }
 
 MeshResourceDesc makeCubeMesh(float halfExtent)
@@ -518,7 +518,7 @@ int main(int argc, char** argv)
             envCount = static_cast<std::uint32_t>(std::strtoul(argv[++i], nullptr, 10));
             if (envCount == 0u)
             {
-                std::cerr << "--envs must be greater than zero.\n";
+                CRESSIM_LOG_ERROR( "--envs must be greater than zero.\n");
                 return 2;
             }
             continue;
@@ -548,7 +548,7 @@ int main(int argc, char** argv)
 
     if (!viewer.initialize(viewerDesc, config))
     {
-        std::cerr << "Viewer initialization failed.\n";
+        CRESSIM_LOG_ERROR( "Viewer initialization failed.\n");
         return 1;
     }
 
@@ -556,7 +556,7 @@ int main(int argc, char** argv)
     if (!runtime.initialize(config))
     {
         viewer.shutdown();
-        std::cerr << "Runtime initialization failed.\n";
+        CRESSIM_LOG_ERROR( "Runtime initialization failed.\n");
         return 1;
     }
 
@@ -652,19 +652,19 @@ int main(int argc, char** argv)
 
     if (!runOk)
     {
-        std::cerr << "Viewer run failed.\n";
+        CRESSIM_LOG_ERROR( "Viewer run failed.\n");
         return 1;
     }
     if (viewerDesc.maxFrames > 0 &&
         (beforeCalls != viewerDesc.maxFrames || afterCalls != viewerDesc.maxFrames))
     {
-        std::cerr << "Unexpected callback counts. before=" << beforeCalls
-                  << " after=" << afterCalls
-                  << " expected=" << viewerDesc.maxFrames << '\n';
+        CRESSIM_LOG_ERROR( "Unexpected callback counts. before=" , beforeCalls
+                  , " after=" , afterCalls
+                  , " expected=" , viewerDesc.maxFrames , '\n');
         return 1;
     }
 
-    std::cout << "Physics viewer large array multi-env passed. Envs=" << envCount
-              << " Frames=" << viewerDesc.maxFrames << '\n';
+    CRESSIM_LOG_INFO( "Physics viewer large array multi-env passed. Envs=" , envCount
+              , " Frames=" , viewerDesc.maxFrames , '\n');
     return 0;
 }

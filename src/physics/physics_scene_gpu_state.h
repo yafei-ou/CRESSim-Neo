@@ -120,20 +120,20 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> broadPhaseMetaBuffer;
     };
 
-    bool ensureCapacity(Diligent::IRenderDevice* renderDevice, std::uint32_t bodyCount,
+    bool ensureCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t bodyCount,
                         std::uint32_t colliderCount, std::uint32_t physicsContextId);
-    bool uploadWorldState(Diligent::IDeviceContext* computeContext, PhysicsWorld& world,
+    bool uploadWorldState(Diligent::IDeviceContext *computeContext, PhysicsWorld &world,
                           std::uint32_t bodyCount, std::uint32_t colliderCount);
-    bool copyPredictedRigidBodiesToPersistentState(Diligent::IDeviceContext* computeContext,
+    bool copyPredictedRigidBodiesToPersistentState(Diligent::IDeviceContext *computeContext,
                                                    std::uint32_t bodyCount);
-    bool readbackBroadPhaseMetaBlocking(Diligent::IDeviceContext* computeContext,
-                                        GpuBroadPhaseMeta& outMeta);
-    bool readbackPredictedRigidStateBlocking(Diligent::IDeviceContext* computeContext,
-                                             PhysicsWorld& world, std::uint32_t bodyCount);
+    bool readbackBroadPhaseMetaBlocking(Diligent::IDeviceContext *computeContext,
+                                        GpuBroadPhaseMeta &outMeta);
+    bool readbackPredictedRigidStateBlocking(Diligent::IDeviceContext *computeContext,
+                                             PhysicsWorld &world, std::uint32_t bodyCount);
 
-    const PersistentRigidBodyBuffers& persistentRigidBodies() const noexcept;
-    const PersistentColliderBuffers& persistentColliders() const noexcept;
-    const SolverTransientBuffers& transientBuffers() const noexcept;
+    const PersistentRigidBodyBuffers &persistentRigidBodies() const noexcept;
+    const PersistentColliderBuffers &persistentColliders() const noexcept;
+    const SolverTransientBuffers &transientBuffers() const noexcept;
     std::uint32_t candidatePairCapacity() const noexcept;
     bool correctionBuffersNeedClear() const noexcept;
     void setCorrectionBuffersNeedClear(bool needClear) noexcept;

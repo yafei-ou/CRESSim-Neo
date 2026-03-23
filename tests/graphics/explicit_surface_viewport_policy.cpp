@@ -1,6 +1,7 @@
 #include "common/frame_context.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "common/logger.h"
 
 #include <array>
 #include <cstdint>
@@ -31,7 +32,7 @@ using cressim::neo::graphics::MeshResourceDesc;
 
 void printUsage(const char* appName)
 {
-    std::cerr << "Usage: " << appName << " [--output path.ppm]\n";
+    CRESSIM_LOG_ERROR( "Usage: " , appName , " [--output path.ppm]\n");
 }
 
 bool isValidReadback(const GpuRenderTargetReadbackEvent& event)
@@ -179,14 +180,14 @@ int main(int argc, char** argv)
     Runtime runtime;
     if (!runtime.initialize(config))
     {
-        std::cerr << "Runtime initialization failed.\n";
+        CRESSIM_LOG_ERROR( "Runtime initialization failed.\n");
         return 1;
     }
 
     GpuDevice* graphicsDevice = runtime.getGpuDevice();
     if (graphicsDevice == nullptr)
     {
-        std::cerr << "Graphics device not available.\n";
+        CRESSIM_LOG_ERROR( "Graphics device not available.\n");
         runtime.shutdown();
         return 1;
     }
@@ -200,7 +201,7 @@ int main(int argc, char** argv)
     const GpuRenderTargetHandle target = graphicsDevice->renderTargetSystem().createRenderTarget(targetDesc);
     if (!graphicsDevice->renderTargetSystem().isValidRenderTarget(target))
     {
-        std::cerr << "Failed to create explicit surface target.\n";
+        CRESSIM_LOG_ERROR( "Failed to create explicit surface target.\n");
         runtime.shutdown();
         return 1;
     }
@@ -268,7 +269,7 @@ int main(int argc, char** argv)
         renderAndReadback(runtime, *graphicsDevice, target, frame);
     if (!isValidReadback(preservedEvent))
     {
-        std::cerr << "Expected valid readback for preserved viewport render.\n";
+        CRESSIM_LOG_ERROR( "Expected valid readback for preserved viewport render.\n");
         runtime.shutdown();
         return 1;
     }
@@ -284,13 +285,13 @@ int main(int argc, char** argv)
         static_cast<std::uint64_t>(preservedEvent.width - midX) * preservedEvent.height;
     if (leftYellowCount == leftPixelCount)
     {
-        std::cerr << "Expected viewport draw to affect the left half of the explicit surface.\n";
+        CRESSIM_LOG_ERROR( "Expected viewport draw to affect the left half of the explicit surface.\n");
         runtime.shutdown();
         return 1;
     }
     if (rightYellowCount != rightPixelCount)
     {
-        std::cerr << "Expected right half of explicit surface to remain untouched when clearColor is disabled.\n";
+        CRESSIM_LOG_ERROR( "Expected right half of explicit surface to remain untouched when clearColor is disabled.\n");
         runtime.shutdown();
         return 1;
     }
@@ -304,7 +305,7 @@ int main(int argc, char** argv)
         renderAndReadback(runtime, *graphicsDevice, target, frame);
     if (!isValidReadback(clearedEvent))
     {
-        std::cerr << "Expected valid readback for cleared viewport render.\n";
+        CRESSIM_LOG_ERROR( "Expected valid readback for cleared viewport render.\n");
         runtime.shutdown();
         return 1;
     }
@@ -315,23 +316,23 @@ int main(int argc, char** argv)
         static_cast<std::uint64_t>(clearedEvent.width - midX) * clearedEvent.height;
     if (clearedRightBlueCount != clearedRightPixelCount)
     {
-        std::cerr << "Expected whole-target clear semantics for viewport render when clearColor is enabled.\n";
+        CRESSIM_LOG_ERROR( "Expected whole-target clear semantics for viewport render when clearColor is enabled.\n");
         runtime.shutdown();
         return 1;
     }
 
     if (!outputPath.empty() && !writePpm(outputPath, clearedEvent))
     {
-        std::cerr << "Failed to write output image: " << outputPath << '\n';
+        CRESSIM_LOG_ERROR( "Failed to write output image: " , outputPath , '\n');
         runtime.shutdown();
         return 1;
     }
 
     runtime.shutdown();
-    std::cout << "Explicit surface viewport policy checks passed.\n";
+    CRESSIM_LOG_INFO( "Explicit surface viewport policy checks passed.\n");
     if (!outputPath.empty())
     {
-        std::cout << "Wrote viewport policy image to " << outputPath << '\n';
+        CRESSIM_LOG_INFO( "Wrote viewport policy image to " , outputPath , '\n');
     }
     return 0;
 }

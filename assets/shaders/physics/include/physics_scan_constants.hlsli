@@ -9,4 +9,4 @@ cbuffer PhysicsScanConstantsBuffer
     uint reserved2;
 };
 
-#endif // !CRESSIM_NEO_PHYSICS_SCAN_CONSTANTS_HLSLI
+#endif // CRESSIM_NEO_PHYSICS_SCAN_CONSTANTS_HLSLI

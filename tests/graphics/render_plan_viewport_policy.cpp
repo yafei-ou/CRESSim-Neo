@@ -1,6 +1,6 @@
 #include "graphics/renderer/render_plan_builder.h"
+#include "common/logger.h"
 
-#include <iostream>
 #include <optional>
 #include <vector>
 
@@ -63,7 +63,7 @@ int main()
         buildFrameRenderPlan(std::move(explicitNonLayeredCameras), light, std::nullopt);
     if (explicitPlan.cameraBatches.size() != 2u || !isSingleCameraBatches(explicitPlan))
     {
-        std::cerr << "Expected explicit non-layered viewport cameras to remain single-camera batches.\n";
+        CRESSIM_LOG_ERROR( "Expected explicit non-layered viewport cameras to remain single-camera batches.\n");
         return 1;
     }
 
@@ -75,10 +75,10 @@ int main()
         buildFrameRenderPlan(std::move(layeredCameras), light, std::nullopt);
     if (layeredPlan.cameraBatches.size() != 1u || layeredPlan.cameraBatches.front().cameras.size() != 2u)
     {
-        std::cerr << "Expected layered cameras to preserve existing batching behavior.\n";
+        CRESSIM_LOG_ERROR( "Expected layered cameras to preserve existing batching behavior.\n");
         return 1;
     }
 
-    std::cout << "Render plan viewport policy checks passed.\n";
+    CRESSIM_LOG_INFO( "Render plan viewport policy checks passed.\n");
     return 0;
 }

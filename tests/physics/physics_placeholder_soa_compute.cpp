@@ -1,9 +1,9 @@
 #include "common/frame_context.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "common/logger.h"
 
 #include <cmath>
-#include <iostream>
 
 int main()
 {
@@ -16,7 +16,7 @@ int main()
     engine::Runtime runtime;
     if (!runtime.initialize(config))
     {
-        std::cerr << "Runtime initialization failed.\n";
+        CRESSIM_LOG_ERROR( "Runtime initialization failed.\n");
         return 1;
     }
 
@@ -59,7 +59,7 @@ int main()
         world.tryGetTransform(rigidEntity);
     if (!finalTransform)
     {
-        std::cerr << "Rigid transform missing after simulation.\n";
+        CRESSIM_LOG_ERROR( "Rigid transform missing after simulation.\n");
         runtime.shutdown();
         return 1;
     }
@@ -69,8 +69,8 @@ int main()
     const float actualX = finalTransform->worldTransform.position.x;
     if (std::fabs(actualX - expectedX) > 0.05f)
     {
-        std::cerr << "Unexpected rigid body integration. expected=" << expectedX
-                  << " actual=" << actualX << "\n";
+        CRESSIM_LOG_ERROR( "Unexpected rigid body integration. expected=" , expectedX
+                  , " actual=" , actualX , "\n");
         runtime.shutdown();
         return 1;
     }
@@ -78,12 +78,12 @@ int main()
     const graphics::RenderStats stats = runtime.lastRenderStats();
     if (stats.cameraCount == 0)
     {
-        std::cerr << "Renderer did not execute camera rendering.\n";
+        CRESSIM_LOG_ERROR( "Renderer did not execute camera rendering.\n");
         runtime.shutdown();
         return 1;
     }
 
     runtime.shutdown();
-    std::cout << "Physics placeholder SoA compute checks passed.\n";
+    CRESSIM_LOG_INFO( "Physics placeholder SoA compute checks passed.\n");
     return 0;
 }

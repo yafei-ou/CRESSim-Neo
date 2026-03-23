@@ -7,7 +7,7 @@ namespace cressim::neo::graphics::detail
 {
 
 FrameRenderPlan buildFrameRenderPlan(std::vector<ResolvedCameraView> cameras,
-                                     const ForwardDirectionalLightData& light,
+                                     const ForwardDirectionalLightData &light,
                                      std::optional<DisplayResolveRequest> displayResolve);
 
 } // namespace cressim::neo::graphics::detail

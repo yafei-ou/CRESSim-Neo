@@ -50,7 +50,7 @@ struct GpuRenderTargetBinding
         return target.id != common::kInvalidResourceId && layerCount > 0u;
     }
 
-    bool operator==(const GpuRenderTargetBinding& rhs) const noexcept
+    bool operator==(const GpuRenderTargetBinding &rhs) const noexcept
     {
         return target.id == rhs.target.id && firstLayer == rhs.firstLayer &&
                layerCount == rhs.layerCount;
@@ -124,8 +124,8 @@ struct GpuRenderTargetReadbackRequest
 
 struct GpuBackendContext
 {
-    Diligent::IRenderDevice* renderDevice      = nullptr;
-    Diligent::IDeviceContext* immediateContext = nullptr;
+    Diligent::IRenderDevice *renderDevice      = nullptr;
+    Diligent::IDeviceContext *immediateContext = nullptr;
     GpuRenderTargetBinding activeRenderTargetBinding{};
     bool hasActiveRenderTarget                             = false;
     bool activeRenderTargetHasDepth                        = false;
@@ -134,8 +134,8 @@ struct GpuBackendContext
 
 struct GpuComputeBackendContext
 {
-    Diligent::IRenderDevice* renderDevice    = nullptr;
-    Diligent::IDeviceContext* computeContext = nullptr;
+    Diligent::IRenderDevice *renderDevice    = nullptr;
+    Diligent::IDeviceContext *computeContext = nullptr;
     std::uint32_t contextId                  = 0;
     Diligent::COMMAND_QUEUE_TYPE queueType   = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
     GpuContextRole role                      = GpuContextRole::Physics;

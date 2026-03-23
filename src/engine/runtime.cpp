@@ -1,6 +1,8 @@
 #include "engine/runtime.h"
 
-#include <iostream>
+#include "common/logger.h"
+
+#include <sstream>
 
 namespace cressim::neo::engine
 {
@@ -8,7 +10,7 @@ namespace cressim::neo::engine
 namespace
 {
 
-const char* stageName(physics::PhysicsSolverStage stage)
+const char *stageName(physics::PhysicsSolverStage stage)
 {
     switch (stage)
     {
@@ -34,23 +36,24 @@ const char* stageName(physics::PhysicsSolverStage stage)
     return "Unknown";
 }
 
-void logPhysicsStepFailure(const common::FrameContext& frameContext,
-                           const physics::PhysicsSolverStageStats& stats)
+void logPhysicsStepFailure(const common::FrameContext &frameContext,
+                           const physics::PhysicsSolverStageStats &stats)
 {
-    std::cerr << "Runtime: physics step failed at frame " << frameContext.frameIndex
-              << " (dt=" << frameContext.deltaSeconds << "). Executed stages:";
+    std::ostringstream stream;
+    stream << "Runtime: physics step failed at frame " << frameContext.frameIndex
+           << " (dt=" << frameContext.deltaSeconds << "). Executed stages:";
     for (std::uint32_t i = 0; i < static_cast<std::uint32_t>(physics::PhysicsSolverStage::Count);
          ++i)
     {
         const auto stage = static_cast<physics::PhysicsSolverStage>(i);
-        std::cerr << ' ' << stageName(stage) << '=' << (stats.executed[i] ? '1' : '0');
+        stream << ' ' << stageName(stage) << '=' << (stats.executed[i] ? '1' : '0');
     }
-    std::cerr << '\n';
+    CRESSIM_LOG_ERROR(stream.str());
 }
 
 } // namespace
 
-bool Runtime::initialize(const RuntimeConfig& config)
+bool Runtime::initialize(const RuntimeConfig &config)
 {
     if (mInitialized)
     {
@@ -140,7 +143,7 @@ void Runtime::shutdown()
     mInitialized        = false;
 }
 
-void Runtime::tick(const common::FrameContext& frameContext)
+void Runtime::tick(const common::FrameContext &frameContext)
 {
     if (!mInitialized)
     {
@@ -205,57 +208,57 @@ void Runtime::tick(const common::FrameContext& frameContext)
     mLastRenderStats = mRenderer->render(frameContext, mWorld.hostSceneView(), mRenderFrameOptions);
 }
 
-World& Runtime::getWorld() noexcept
+World &Runtime::getWorld() noexcept
 {
     return mWorld;
 }
 
-const World& Runtime::getWorld() const noexcept
+const World &Runtime::getWorld() const noexcept
 {
     return mWorld;
 }
 
-gpu::GpuDevice* Runtime::getGpuDevice() noexcept
+gpu::GpuDevice *Runtime::getGpuDevice() noexcept
 {
     return mGpuDevice.get();
 }
 
-const gpu::GpuDevice* Runtime::getGpuDevice() const noexcept
+const gpu::GpuDevice *Runtime::getGpuDevice() const noexcept
 {
     return mGpuDevice.get();
 }
 
-physics::PhysicsSolver* Runtime::getPhysicsSolver() noexcept
+physics::PhysicsSolver *Runtime::getPhysicsSolver() noexcept
 {
     return mPhysicsSolver.get();
 }
 
-const physics::PhysicsSolver* Runtime::getPhysicsSolver() const noexcept
+const physics::PhysicsSolver *Runtime::getPhysicsSolver() const noexcept
 {
     return mPhysicsSolver.get();
 }
 
-const graphics::RenderStats& Runtime::lastRenderStats() const noexcept
+const graphics::RenderStats &Runtime::lastRenderStats() const noexcept
 {
     return mLastRenderStats;
 }
 
-void Runtime::setRenderFrameOptions(const graphics::RenderFrameOptions& options) noexcept
+void Runtime::setRenderFrameOptions(const graphics::RenderFrameOptions &options) noexcept
 {
     mRenderFrameOptions = options;
 }
 
-const graphics::RenderFrameOptions& Runtime::renderFrameOptions() const noexcept
+const graphics::RenderFrameOptions &Runtime::renderFrameOptions() const noexcept
 {
     return mRenderFrameOptions;
 }
 
-graphics::RenderResourceManager& Runtime::getResources() noexcept
+graphics::RenderResourceManager &Runtime::getResources() noexcept
 {
     return mResources;
 }
 
-const graphics::RenderResourceManager& Runtime::getResources() const noexcept
+const graphics::RenderResourceManager &Runtime::getResources() const noexcept
 {
     return mResources;
 }

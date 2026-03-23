@@ -2,8 +2,8 @@
 #include "engine/runtime.h"
 #include "physics/physics_solver.h"
 #include "physics/physics_world.h"
+#include "common/logger.h"
 
-#include <iostream>
 
 namespace
 {
@@ -47,14 +47,14 @@ int main()
     engine::Runtime runtime;
     if (!runtime.initialize(config))
     {
-        std::cerr << "Runtime initialization failed.\n";
+        CRESSIM_LOG_ERROR( "Runtime initialization failed.\n");
         return 1;
     }
 
     gpu::GpuDevice* device = runtime.getGpuDevice();
     if (device == nullptr)
     {
-        std::cerr << "Runtime returned null GPU device.\n";
+        CRESSIM_LOG_ERROR( "Runtime returned null GPU device.\n");
         runtime.shutdown();
         return 1;
     }
@@ -62,7 +62,7 @@ int main()
     physics::PhysicsSolver solver(*device);
     if (!solver.initialize())
     {
-        std::cerr << "Physics solver initialization failed.\n";
+        CRESSIM_LOG_ERROR( "Physics solver initialization failed.\n");
         runtime.shutdown();
         return 1;
     }
@@ -83,7 +83,7 @@ int main()
     const bool stepSucceeded = solver.step(frame, world);
     if (stepSucceeded)
     {
-        std::cerr << "Broad-phase overflow test unexpectedly succeeded.\n";
+        CRESSIM_LOG_ERROR( "Broad-phase overflow test unexpectedly succeeded.\n");
         solver.shutdown();
         runtime.shutdown();
         return 1;
@@ -93,7 +93,7 @@ int main()
     if (!stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::PredictState)] ||
         !stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::UpdateWorldAabbs)])
     {
-        std::cerr << "Expected broad-phase stages did not execute before overflow.\n";
+        CRESSIM_LOG_ERROR( "Expected broad-phase stages did not execute before overflow.\n");
         solver.shutdown();
         runtime.shutdown();
         return 1;
@@ -101,6 +101,6 @@ int main()
 
     solver.shutdown();
     runtime.shutdown();
-    std::cout << "Physics broad-phase overflow checks passed.\n";
+    CRESSIM_LOG_INFO( "Physics broad-phase overflow checks passed.\n");
     return 0;
 }

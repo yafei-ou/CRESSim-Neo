@@ -9,7 +9,7 @@
 namespace cressim::neo::gpu
 {
 
-void GpuDeviceImpl::endFrame(const common::FrameContext& frameContext)
+void GpuDeviceImpl::endFrame(const common::FrameContext &frameContext)
 {
     if (mRenderTargets == nullptr)
     {
@@ -42,7 +42,7 @@ bool GpuDeviceImpl::presentPrimarySwapChain()
         return false;
     }
 
-    Diligent::ITexture* sourceTexture         = nullptr;
+    Diligent::ITexture *sourceTexture         = nullptr;
     const GpuRenderTargetHandle defaultTarget = mRenderTargets->defaultRenderTarget();
     if (!mRenderTargets->tryGetRenderTargetColorTexture(defaultTarget, sourceTexture) ||
         sourceTexture == nullptr)
@@ -56,7 +56,7 @@ bool GpuDeviceImpl::presentPrimarySwapChain()
         return false;
     }
 
-    const auto& swapChainDesc = mPrimarySwapChain->GetDesc();
+    const auto &swapChainDesc = mPrimarySwapChain->GetDesc();
     if (swapChainDesc.Width != sourceDesc.width || swapChainDesc.Height != sourceDesc.height)
     {
         mPrimarySwapChain->Resize(common::runtime_math::clampExtent(sourceDesc.width),
@@ -64,19 +64,19 @@ bool GpuDeviceImpl::presentPrimarySwapChain()
                                   Diligent::SURFACE_TRANSFORM_OPTIMAL);
     }
 
-    Diligent::ITextureView* backBufferRtv = mPrimarySwapChain->GetCurrentBackBufferRTV();
+    Diligent::ITextureView *backBufferRtv = mPrimarySwapChain->GetCurrentBackBufferRTV();
     if (backBufferRtv == nullptr || backBufferRtv->GetTexture() == nullptr)
     {
         return false;
     }
-    Diligent::ITexture* backBufferTexture = backBufferRtv->GetTexture();
+    Diligent::ITexture *backBufferTexture = backBufferRtv->GetTexture();
     if (backBufferTexture == nullptr)
     {
         return false;
     }
 
-    const auto& srcTexDesc         = sourceTexture->GetDesc();
-    const auto& dstTexDesc         = backBufferTexture->GetDesc();
+    const auto &srcTexDesc         = sourceTexture->GetDesc();
+    const auto &dstTexDesc         = backBufferTexture->GetDesc();
     const std::uint32_t copyWidth  = std::min<std::uint32_t>(srcTexDesc.Width, dstTexDesc.Width);
     const std::uint32_t copyHeight = std::min<std::uint32_t>(srcTexDesc.Height, dstTexDesc.Height);
     if (copyWidth == 0 || copyHeight == 0)

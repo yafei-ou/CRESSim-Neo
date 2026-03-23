@@ -1,9 +1,9 @@
 #include "engine/components.h"
 #include "engine/world.h"
 #include "graphics/render_resource_manager.h"
+#include "common/logger.h"
 
 #include <cmath>
-#include <iostream>
 
 namespace
 {
@@ -68,7 +68,7 @@ int main()
     if (positions0.empty() || !nearlyEqual(positions0[0].x, 1.0f) ||
         !nearlyEqual(positions0[0].y, 2.0f) || !nearlyEqual(positions0[0].z, 3.0f))
     {
-        std::cerr << "Initial deferred pose flush failed.\n";
+        CRESSIM_LOG_ERROR( "Initial deferred pose flush failed.\n");
         return 1;
     }
 
@@ -76,7 +76,7 @@ int main()
     if (cameraInputs0.empty() || cameraInputs0[0].active == 0u ||
         !nearlyEqual(cameraInputs0[0].position.y, 1.0f))
     {
-        std::cerr << "Initial deferred camera flush failed.\n";
+        CRESSIM_LOG_ERROR( "Initial deferred camera flush failed.\n");
         return 1;
     }
 
@@ -90,7 +90,7 @@ int main()
     if (!nearlyEqual(positionsBeforeFlush[0].x, 1.0f) ||
         !nearlyEqual(cameraInputsBeforeFlush[0].position.y, 1.0f))
     {
-        std::cerr << "Derived render state updated eagerly instead of deferring.\n";
+        CRESSIM_LOG_ERROR( "Derived render state updated eagerly instead of deferring.\n");
         return 1;
     }
 
@@ -101,16 +101,16 @@ int main()
     if (!nearlyEqual(positions1[0].x, 4.0f) || !nearlyEqual(positions1[0].y, 5.0f) ||
         !nearlyEqual(positions1[0].z, 6.0f))
     {
-        std::cerr << "Deferred renderable pose flush mismatch.\n";
+        CRESSIM_LOG_ERROR( "Deferred renderable pose flush mismatch.\n");
         return 1;
     }
     if (!nearlyEqual(cameraInputs1[0].position.y, 3.0f) ||
         !nearlyEqual(cameraInputs1[0].position.z, -6.0f))
     {
-        std::cerr << "Deferred camera flush mismatch.\n";
+        CRESSIM_LOG_ERROR( "Deferred camera flush mismatch.\n");
         return 1;
     }
 
-    std::cout << "Deferred render reconciliation checks passed.\n";
+    CRESSIM_LOG_INFO( "Deferred render reconciliation checks passed.\n");
     return 0;
 }

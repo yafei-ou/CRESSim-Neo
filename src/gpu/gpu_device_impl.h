@@ -18,17 +18,17 @@ class GpuRenderTargetSystemImpl;
 class GpuDeviceImpl final : public GpuDevice
 {
 public:
-    bool initialize(const GpuDeviceDesc& desc) override;
+    bool initialize(const GpuDeviceDesc &desc) override;
     void shutdown() override;
 
-    void beginFrame(const common::FrameContext& frameContext) override;
-    void endFrame(const common::FrameContext& frameContext) override;
-    GpuRenderTargetSystem& renderTargetSystem() override;
+    void beginFrame(const common::FrameContext &frameContext) override;
+    void endFrame(const common::FrameContext &frameContext) override;
+    GpuRenderTargetSystem &renderTargetSystem() override;
 
     GpuBackend backend() const override;
-    bool tryGetGraphicsBackendContext(GpuBackendContext& outContext) override;
-    bool tryGetPhysicsBackendContext(GpuComputeBackendContext& outContext) override;
-    const std::string& shaderSourceDirectory() const override;
+    bool tryGetGraphicsBackendContext(GpuBackendContext &outContext) override;
+    bool tryGetPhysicsBackendContext(GpuComputeBackendContext &outContext) override;
+    const std::string &shaderSourceDirectory() const override;
 
 private:
     bool initializeVulkan();

@@ -1,6 +1,6 @@
 #include "graphics/renderer/passes/material_program_registry.h"
 
-#include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
+#include "common/logger.h"
 
 #include <array>
 #include <functional>
@@ -13,13 +13,13 @@ namespace
 {
 
 template <typename T>
-void hashCombine(std::size_t& seed, T value)
+void hashCombine(std::size_t &seed, T value)
 {
     const auto hashed = std::hash<T>{}(value);
     seed ^= hashed + 0x9e3779b97f4a7c15ull + (seed << 6u) + (seed >> 2u);
 }
 
-const char* passClassName(MainPassClass passClass)
+const char *passClassName(MainPassClass passClass)
 {
     switch (passClass)
     {
@@ -30,7 +30,7 @@ const char* passClassName(MainPassClass passClass)
     }
 }
 
-Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 5>& macros,
+Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 5> &macros,
                                               MaterialFeatureFlags featureFlags)
 {
     Diligent::Uint32 count = 0;
@@ -57,7 +57,7 @@ Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 
 } // namespace
 
 std::size_t MaterialProgramRegistry::ProgramKeyHasher::operator()(
-    const ProgramKey& key) const noexcept
+    const ProgramKey &key) const noexcept
 {
     std::size_t seed = 0;
     hashCombine(seed, static_cast<std::uint32_t>(key.passClass));
@@ -71,13 +71,13 @@ std::size_t MaterialProgramRegistry::ProgramKeyHasher::operator()(
     return seed;
 }
 
-MaterialProgramRegistry::MaterialProgramRegistry(gpu::ShaderLibrary& shaderSourceProvider)
+MaterialProgramRegistry::MaterialProgramRegistry(gpu::ShaderLibrary &shaderSourceProvider)
     : mShaderLibrary(shaderSourceProvider)
 {
 }
 
-MaterialProgramRegistry::ProgramResources* MaterialProgramRegistry::getOrCreateProgram(
-    Diligent::IRenderDevice* renderDevice, const ProgramKey& key)
+MaterialProgramRegistry::ProgramResources *MaterialProgramRegistry::getOrCreateProgram(
+    Diligent::IRenderDevice *renderDevice, const ProgramKey &key)
 {
     if (renderDevice == nullptr || key.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
     {
@@ -125,8 +125,8 @@ std::size_t MaterialProgramRegistry::cachedProgramCount() const noexcept
     return mPrograms.size();
 }
 
-bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevice,
-                                            const ProgramKey& key, ProgramResources& outResources)
+bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice *renderDevice,
+                                            const ProgramKey &key, ProgramResources &outResources)
 {
     if (renderDevice == nullptr || key.passClass != MainPassClass::ForwardOpaque ||
         key.programFamily != MaterialProgramFamily::StandardLit)
@@ -134,13 +134,13 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
         return false;
     }
 
-    constexpr const char* kPbrVsRelativePath = "graphics/pbr.vs.hlsl";
-    constexpr const char* kPbrPsRelativePath = "graphics/pbr.ps.hlsl";
+    constexpr const char *kPbrVsRelativePath = "graphics/pbr.vs.hlsl";
+    constexpr const char *kPbrPsRelativePath = "graphics/pbr.ps.hlsl";
 
     std::string pbrVsPath;
     if (!mShaderLibrary.resolveShaderPath(kPbrVsRelativePath, pbrVsPath))
     {
-        LOG_ERROR_MESSAGE("MaterialProgramRegistry failed to resolve vertex shader path for pass=",
+        CRESSIM_LOG_ERROR("MaterialProgramRegistry failed to resolve vertex shader path for pass=",
                           passClassName(key.passClass), " relative='", kPbrVsRelativePath, "'.");
         return false;
     }
@@ -148,15 +148,15 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
     std::string pbrPsPath;
     if (!mShaderLibrary.resolveShaderPath(kPbrPsRelativePath, pbrPsPath))
     {
-        LOG_ERROR_MESSAGE("MaterialProgramRegistry failed to resolve pixel shader path for pass=",
+        CRESSIM_LOG_ERROR("MaterialProgramRegistry failed to resolve pixel shader path for pass=",
                           passClassName(key.passClass), " relative='", kPbrPsRelativePath, "'.");
         return false;
     }
 
-    Diligent::IShaderSourceInputStreamFactory* streamFactory = mShaderLibrary.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderLibrary.streamFactory();
     if (streamFactory == nullptr)
     {
-        LOG_ERROR_MESSAGE("MaterialProgramRegistry failed to get stream factory for pass=",
+        CRESSIM_LOG_ERROR("MaterialProgramRegistry failed to get stream factory for pass=",
                           passClassName(key.passClass), ".");
         return false;
     }
@@ -179,7 +179,7 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
     renderDevice->CreateShader(shaderCreateInfo, &vertexShader);
     if (vertexShader == nullptr)
     {
-        LOG_ERROR_MESSAGE(
+        CRESSIM_LOG_ERROR(
             "MaterialProgramRegistry failed to compile VS. pass=", passClassName(key.passClass),
             " programFamily=", static_cast<std::uint32_t>(key.programFamily),
             " featureFlags=", static_cast<std::uint32_t>(key.featureFlags), " shader='", pbrVsPath,
@@ -195,7 +195,7 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
     renderDevice->CreateShader(shaderCreateInfo, &pixelShader);
     if (pixelShader == nullptr)
     {
-        LOG_ERROR_MESSAGE(
+        CRESSIM_LOG_ERROR(
             "MaterialProgramRegistry failed to compile PS. pass=", passClassName(key.passClass),
             " programFamily=", static_cast<std::uint32_t>(key.programFamily),
             " featureFlags=", static_cast<std::uint32_t>(key.featureFlags), " shader='", pbrPsPath,
@@ -220,7 +220,7 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable =
         key.depthWrite ? Diligent::True : Diligent::False;
 
-    auto& blendDesc       = psoCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
+    auto &blendDesc       = psoCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
     blendDesc.BlendEnable = key.blendingEnabled ? Diligent::True : Diligent::False;
     if (key.blendingEnabled)
     {
@@ -276,7 +276,7 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice* renderDevic
     renderDevice->CreateGraphicsPipelineState(psoCreateInfo, &outResources.pipelineState);
     if (outResources.pipelineState == nullptr)
     {
-        LOG_ERROR_MESSAGE(
+        CRESSIM_LOG_ERROR(
             "MaterialProgramRegistry failed to create PSO. pass=", passClassName(key.passClass),
             " programFamily=", static_cast<std::uint32_t>(key.programFamily),
             " featureFlags=", static_cast<std::uint32_t>(key.featureFlags), ".");

@@ -11,13 +11,13 @@ namespace cressim::neo::physics
 namespace
 {
 
-Diligent::float3 absFloat3(const Diligent::float3& value)
+Diligent::float3 absFloat3(const Diligent::float3 &value)
 {
     return Diligent::float3{std::abs(value.x), std::abs(value.y), std::abs(value.z)};
 }
 
-Diligent::QuaternionF multiplyQuaternions(const Diligent::QuaternionF& a,
-                                          const Diligent::QuaternionF& b)
+Diligent::QuaternionF multiplyQuaternions(const Diligent::QuaternionF &a,
+                                          const Diligent::QuaternionF &b)
 {
     return Diligent::QuaternionF{a.q.w * b.q.x + a.q.x * b.q.w + a.q.y * b.q.z - a.q.z * b.q.y,
                                  a.q.w * b.q.y - a.q.x * b.q.z + a.q.y * b.q.w + a.q.z * b.q.x,
@@ -25,7 +25,7 @@ Diligent::QuaternionF multiplyQuaternions(const Diligent::QuaternionF& a,
                                  a.q.w * b.q.w - a.q.x * b.q.x - a.q.y * b.q.y - a.q.z * b.q.z};
 }
 
-Diligent::QuaternionF conjugateQuaternion(const Diligent::QuaternionF& q)
+Diligent::QuaternionF conjugateQuaternion(const Diligent::QuaternionF &q)
 {
     return Diligent::QuaternionF{-q.q.x, -q.q.y, -q.q.z, q.q.w};
 }
@@ -45,8 +45,8 @@ std::uint32_t estimateRigidCandidatePairCapacity(std::uint32_t bodyCount) noexce
 }
 
 EffectiveColliderDimensions computeEffectiveColliderDimensions(
-    ColliderShapeType shape, const Diligent::float4& colliderParams,
-    const Diligent::float3& scale) noexcept
+    ColliderShapeType shape, const Diligent::float4 &colliderParams,
+    const Diligent::float3 &scale) noexcept
 {
     EffectiveColliderDimensions result{};
     const Diligent::float3 absScale = absFloat3(scale);
@@ -70,7 +70,7 @@ EffectiveColliderDimensions computeEffectiveColliderDimensions(
     return result;
 }
 
-Diligent::QuaternionF rotationVectorToQuaternion(const Diligent::float3& rotationVector) noexcept
+Diligent::QuaternionF rotationVectorToQuaternion(const Diligent::float3 &rotationVector) noexcept
 {
     const float angleSq = Diligent::dot(rotationVector, rotationVector);
     if (angleSq <= common::runtime_math::kEpsilon)
@@ -87,8 +87,8 @@ Diligent::QuaternionF rotationVectorToQuaternion(const Diligent::float3& rotatio
                               rotationVector.z * scale, std::cos(halfAngle)});
 }
 
-Diligent::QuaternionF integrateOrientation(const Diligent::QuaternionF& orientation,
-                                           const Diligent::float3& angularVelocity,
+Diligent::QuaternionF integrateOrientation(const Diligent::QuaternionF &orientation,
+                                           const Diligent::float3 &angularVelocity,
                                            float dt) noexcept
 {
     if (dt <= common::runtime_math::kEpsilon)
@@ -100,8 +100,8 @@ Diligent::QuaternionF integrateOrientation(const Diligent::QuaternionF& orientat
     return common::runtime_math::normalizeQuaternion(multiplyQuaternions(delta, orientation));
 }
 
-Diligent::float3 angularVelocityFromOrientationDelta(const Diligent::QuaternionF& previous,
-                                                     const Diligent::QuaternionF& current,
+Diligent::float3 angularVelocityFromOrientationDelta(const Diligent::QuaternionF &previous,
+                                                     const Diligent::QuaternionF &current,
                                                      float dt) noexcept
 {
     if (dt <= common::runtime_math::kEpsilon)
@@ -129,9 +129,9 @@ Diligent::float3 angularVelocityFromOrientationDelta(const Diligent::QuaternionF
     return imag * (angle / (imagLength * dt));
 }
 
-Diligent::float3 multiplyWorldInverseInertia(const Diligent::float3& inverseInertiaLocal,
-                                             const Diligent::QuaternionF& orientation,
-                                             const Diligent::float3& vector) noexcept
+Diligent::float3 multiplyWorldInverseInertia(const Diligent::float3 &inverseInertiaLocal,
+                                             const Diligent::QuaternionF &orientation,
+                                             const Diligent::float3 &vector) noexcept
 {
     const Diligent::float3 axisX = orientation.RotateVector(Diligent::float3{1.0f, 0.0f, 0.0f});
     const Diligent::float3 axisY = orientation.RotateVector(Diligent::float3{0.0f, 1.0f, 0.0f});

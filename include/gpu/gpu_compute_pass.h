@@ -18,57 +18,57 @@ namespace cressim::neo::gpu
 
 struct GpuBufferBinding
 {
-    const char* variableName            = nullptr;
-    Diligent::IBuffer* buffer           = nullptr;
+    const char *variableName            = nullptr;
+    Diligent::IBuffer *buffer           = nullptr;
     Diligent::BUFFER_VIEW_TYPE viewType = Diligent::BUFFER_VIEW_UNDEFINED;
 };
 
 struct GpuComputePassDefinition
 {
-    const char* shaderPath                                = nullptr;
-    const char* shaderName                                = nullptr;
-    const char* psoName                                   = nullptr;
-    const Diligent::ShaderResourceVariableDesc* variables = nullptr;
+    const char *shaderPath                                = nullptr;
+    const char *shaderName                                = nullptr;
+    const char *psoName                                   = nullptr;
+    const Diligent::ShaderResourceVariableDesc *variables = nullptr;
     std::size_t variableCount                             = 0u;
 };
 
 class GpuComputePass
 {
 public:
-    bool initialize(Diligent::IRenderDevice* renderDevice,
-                    Diligent::IShaderSourceInputStreamFactory* streamFactory,
+    bool initialize(Diligent::IRenderDevice *renderDevice,
+                    Diligent::IShaderSourceInputStreamFactory *streamFactory,
                     Diligent::Uint64 immediateContextMask,
-                    const GpuComputePassDefinition& definition);
+                    const GpuComputePassDefinition &definition);
 
     bool createVariant();
     bool createVariants(std::size_t totalVariantCount);
 
-    Diligent::IPipelineState* pipelineState() const
+    Diligent::IPipelineState *pipelineState() const
     {
         return mPso;
     }
-    Diligent::IShaderResourceBinding* defaultSrb() const
+    Diligent::IShaderResourceBinding *defaultSrb() const
     {
         return mSrbs.empty() ? nullptr : mSrbs[0];
     }
-    Diligent::IShaderResourceBinding* variantSrb(std::size_t index) const;
+    Diligent::IShaderResourceBinding *variantSrb(std::size_t index) const;
 
     template <std::size_t N>
     bool bindVariant(std::size_t variantIndex,
-                     const std::array<GpuBufferBinding, N>& bindings) const;
+                     const std::array<GpuBufferBinding, N> &bindings) const;
 
     template <std::size_t N>
-    bool dispatch(Diligent::IDeviceContext* computeContext, std::size_t variantIndex,
-                  const std::array<GpuBufferBinding, N>& bindings, std::uint32_t groupCountX,
+    bool dispatch(Diligent::IDeviceContext *computeContext, std::size_t variantIndex,
+                  const std::array<GpuBufferBinding, N> &bindings, std::uint32_t groupCountX,
                   std::uint32_t groupCountY = 1u, std::uint32_t groupCountZ = 1u) const;
 
 private:
-    static bool bindBufferVariable(Diligent::IShaderResourceBinding* srb, const char* variableName,
-                                   Diligent::IBuffer* buffer, Diligent::BUFFER_VIEW_TYPE viewType);
+    static bool bindBufferVariable(Diligent::IShaderResourceBinding *srb, const char *variableName,
+                                   Diligent::IBuffer *buffer, Diligent::BUFFER_VIEW_TYPE viewType);
 
     template <std::size_t N>
-    static bool bindBufferVariables(Diligent::IShaderResourceBinding* srb,
-                                    const std::array<GpuBufferBinding, N>& bindings);
+    static bool bindBufferVariables(Diligent::IShaderResourceBinding *srb,
+                                    const std::array<GpuBufferBinding, N> &bindings);
 
 private:
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mPso;
@@ -76,10 +76,10 @@ private:
 };
 
 template <std::size_t N>
-bool GpuComputePass::bindBufferVariables(Diligent::IShaderResourceBinding* srb,
-                                         const std::array<GpuBufferBinding, N>& bindings)
+bool GpuComputePass::bindBufferVariables(Diligent::IShaderResourceBinding *srb,
+                                         const std::array<GpuBufferBinding, N> &bindings)
 {
-    for (const GpuBufferBinding& binding : bindings)
+    for (const GpuBufferBinding &binding : bindings)
     {
         if (!bindBufferVariable(srb, binding.variableName, binding.buffer, binding.viewType))
         {
@@ -91,18 +91,18 @@ bool GpuComputePass::bindBufferVariables(Diligent::IShaderResourceBinding* srb,
 
 template <std::size_t N>
 bool GpuComputePass::bindVariant(std::size_t variantIndex,
-                                 const std::array<GpuBufferBinding, N>& bindings) const
+                                 const std::array<GpuBufferBinding, N> &bindings) const
 {
     return bindBufferVariables(variantSrb(variantIndex), bindings);
 }
 
 template <std::size_t N>
-bool GpuComputePass::dispatch(Diligent::IDeviceContext* computeContext, std::size_t variantIndex,
-                              const std::array<GpuBufferBinding, N>& bindings,
+bool GpuComputePass::dispatch(Diligent::IDeviceContext *computeContext, std::size_t variantIndex,
+                              const std::array<GpuBufferBinding, N> &bindings,
                               std::uint32_t groupCountX, std::uint32_t groupCountY,
                               std::uint32_t groupCountZ) const
 {
-    Diligent::IShaderResourceBinding* srb = variantSrb(variantIndex);
+    Diligent::IShaderResourceBinding *srb = variantSrb(variantIndex);
     if (computeContext == nullptr || mPso == nullptr || srb == nullptr)
     {
         return false;

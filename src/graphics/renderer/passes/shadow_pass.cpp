@@ -1,6 +1,6 @@
 #include "graphics/renderer/passes/shadow_pass.h"
 
-#include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
+#include "common/logger.h"
 
 #include <cstring>
 #include <string>
@@ -8,7 +8,7 @@
 namespace cressim::neo::graphics::detail
 {
 
-ShadowPass::ShadowPass(gpu::GpuDevice& device, RenderResourceManager& resourceManager)
+ShadowPass::ShadowPass(gpu::GpuDevice &device, RenderResourceManager &resourceManager)
     : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
       mMeshGpuCache("CRESSimNeo.ShadowPass")
 {
@@ -21,18 +21,18 @@ bool ShadowPass::initialize()
     return true;
 }
 
-void ShadowPass::setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept
+void ShadowPass::setGpuSceneView(const gpu::GpuEntitySceneView &sceneView) noexcept
 {
     mSceneView = sceneView;
 }
 
-void ShadowPass::setVisiblePairBuffer(Diligent::IBuffer* buffer) noexcept
+void ShadowPass::setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept
 {
     mVisiblePairBuffer = buffer;
 }
 
-bool ShadowPass::prepareDraw(const gpu::GpuRenderTargetBinding& targetBinding,
-                             const ForwardDrawCommand& drawCommand, DrawSetup& outSetup)
+bool ShadowPass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
+                             const ForwardDrawCommand &drawCommand, DrawSetup &outSetup)
 {
     if (!mInitialized)
     {
@@ -64,7 +64,7 @@ bool ShadowPass::prepareDraw(const gpu::GpuRenderTargetBinding& targetBinding,
         return false;
     }
 
-    MeshGpuCache::CachedBuffers* meshBuffers =
+    MeshGpuCache::CachedBuffers *meshBuffers =
         mMeshGpuCache.getOrCreate(mResourceManager, drawCommand, backendContext.renderDevice);
     if (meshBuffers == nullptr || meshBuffers->vertexBuffer == nullptr ||
         meshBuffers->indexBuffer == nullptr || meshBuffers->indexCount == 0)
@@ -108,8 +108,8 @@ bool ShadowPass::bindSceneBuffers() const
     }
     struct VariableBinding
     {
-        const char* name;
-        Diligent::IBuffer* buffer;
+        const char *name;
+        Diligent::IBuffer *buffer;
     };
     const VariableBinding bindings[] = {
         {"g_EntityPositions", mSceneView.poses.positionsBuffer},
@@ -119,15 +119,15 @@ bool ShadowPass::bindSceneBuffers() const
         {"g_RenderableShadowCascadeMasks", mSceneView.renderableShadowCascadeMasksBuffer},
         {"g_PreparedCameras", mSceneView.preparedCamerasBuffer},
     };
-    for (const VariableBinding& binding : bindings)
+    for (const VariableBinding &binding : bindings)
     {
-        Diligent::IShaderResourceVariable* variable =
+        Diligent::IShaderResourceVariable *variable =
             mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, binding.name);
         if (variable == nullptr || binding.buffer == nullptr)
         {
             return false;
         }
-        Diligent::IBufferView* srv =
+        Diligent::IBufferView *srv =
             binding.buffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
         if (srv == nullptr)
         {
@@ -136,18 +136,18 @@ bool ShadowPass::bindSceneBuffers() const
         variable->Set(srv);
     }
 
-    Diligent::IShaderResourceVariable* visiblePairsVar =
+    Diligent::IShaderResourceVariable *visiblePairsVar =
         mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs");
     if (visiblePairsVar != nullptr)
     {
-        Diligent::IBuffer* visiblePairBuffer = mVisiblePairBuffer != nullptr
+        Diligent::IBuffer *visiblePairBuffer = mVisiblePairBuffer != nullptr
                                                    ? mVisiblePairBuffer
                                                    : mSceneView.renderableShadowCascadeMasksBuffer;
         if (visiblePairBuffer == nullptr)
         {
             return false;
         }
-        Diligent::IBufferView* visiblePairsSrv =
+        Diligent::IBufferView *visiblePairsSrv =
             visiblePairBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
         if (visiblePairsSrv == nullptr)
         {
@@ -158,8 +158,8 @@ bool ShadowPass::bindSceneBuffers() const
     return true;
 }
 
-bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,
-                                        const ForwardDrawCommand& drawCommand,
+bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
+                                        const ForwardDrawCommand &drawCommand,
                                         std::uint32_t currentCameraIndex,
                                         std::uint32_t cascadeIndex)
 {
@@ -172,7 +172,7 @@ bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext* immediateConte
     shadowPassConstants.shadowPassParams[0] = cascadeIndex;
     shadowPassConstants.shadowPassParams[1] = currentCameraIndex;
 
-    void* mappedConstants = nullptr;
+    void *mappedConstants = nullptr;
     immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
                                 mappedConstants);
     if (mappedConstants == nullptr)
@@ -194,11 +194,11 @@ bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext* immediateConte
     return true;
 }
 
-void ShadowPass::bindGeometry(Diligent::IDeviceContext* immediateContext,
-                              const MeshGpuCache::CachedBuffers& meshBuffers) const
+void ShadowPass::bindGeometry(Diligent::IDeviceContext *immediateContext,
+                              const MeshGpuCache::CachedBuffers &meshBuffers) const
 {
     const Diligent::Uint64 vertexOffset = 0;
-    Diligent::IBuffer* vertexBuffers[]  = {meshBuffers.vertexBuffer};
+    Diligent::IBuffer *vertexBuffers[]  = {meshBuffers.vertexBuffer};
     immediateContext->SetVertexBuffers(0, 1, vertexBuffers, &vertexOffset,
                                        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                                        Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
@@ -206,10 +206,10 @@ void ShadowPass::bindGeometry(Diligent::IDeviceContext* immediateContext,
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
-bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding& targetBinding,
-                              const ForwardDrawCommand& drawCommand,
+bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
+                              const ForwardDrawCommand &drawCommand,
                               std::uint32_t currentCameraIndex, std::uint32_t cascadeIndex,
-                              Diligent::IBuffer* indirectArgsBuffer,
+                              Diligent::IBuffer *indirectArgsBuffer,
                               Diligent::Uint64 argsOffsetBytes)
 {
     DrawSetup setup{};
@@ -242,27 +242,27 @@ bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding& targetBinding,
     return true;
 }
 
-bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
+bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
 {
     if (renderDevice == nullptr)
     {
         return false;
     }
 
-    constexpr const char* kShadowVsRelativePath = "graphics/shadow_depth.vs.hlsl";
+    constexpr const char *kShadowVsRelativePath = "graphics/shadow_depth.vs.hlsl";
 
     std::string shadowVsPath;
     if (!mShaderLibrary.resolveShaderPath(kShadowVsRelativePath, shadowVsPath))
     {
-        LOG_ERROR_MESSAGE("ShadowPass shader path resolution failed for relative path '",
+        CRESSIM_LOG_ERROR("ShadowPass shader path resolution failed for relative path '",
                           kShadowVsRelativePath, "'.");
         return false;
     }
 
-    Diligent::IShaderSourceInputStreamFactory* streamFactory = mShaderLibrary.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderLibrary.streamFactory();
     if (streamFactory == nullptr)
     {
-        LOG_ERROR_MESSAGE("ShadowPass could not acquire shader source stream factory.");
+        CRESSIM_LOG_ERROR("ShadowPass could not acquire shader source stream factory.");
         return false;
     }
 
@@ -283,7 +283,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
     renderDevice->CreateShader(shaderCreateInfo, &vertexShader);
     if (vertexShader == nullptr)
     {
-        LOG_ERROR_MESSAGE("ShadowPass failed to compile shader: '", shadowVsPath, "'.");
+        CRESSIM_LOG_ERROR("ShadowPass failed to compile shader: '", shadowVsPath, "'.");
         return false;
     }
 
@@ -334,23 +334,23 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
     renderDevice->CreateGraphicsPipelineState(psoCreateInfo, &mPipelineState);
     if (mPipelineState == nullptr)
     {
-        LOG_ERROR_MESSAGE("ShadowPass failed to create PSO.");
+        CRESSIM_LOG_ERROR("ShadowPass failed to create PSO.");
         return false;
     }
 
     if (!ensureConstantBuffers(renderDevice))
     {
-        LOG_ERROR_MESSAGE("ShadowPass failed to allocate constant buffers.");
+        CRESSIM_LOG_ERROR("ShadowPass failed to allocate constant buffers.");
         return false;
     }
 
-    Diligent::IShaderResourceVariable* perObjectVar =
+    Diligent::IShaderResourceVariable *perObjectVar =
         mPipelineState->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "GraphicsPerObject");
-    Diligent::IShaderResourceVariable* shadowPerPassVar = mPipelineState->GetStaticVariableByName(
+    Diligent::IShaderResourceVariable *shadowPerPassVar = mPipelineState->GetStaticVariableByName(
         Diligent::SHADER_TYPE_VERTEX, "GraphicsShadowPerPass");
     if (perObjectVar == nullptr || shadowPerPassVar == nullptr)
     {
-        LOG_ERROR_MESSAGE(
+        CRESSIM_LOG_ERROR(
             "ShadowPass static constant bindings are missing from shader reflection.");
         return false;
     }
@@ -362,7 +362,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice* renderDevice)
     return mShaderResourceBinding != nullptr;
 }
 
-bool ShadowPass::ensureConstantBuffers(Diligent::IRenderDevice* renderDevice)
+bool ShadowPass::ensureConstantBuffers(Diligent::IRenderDevice *renderDevice)
 {
     if (renderDevice == nullptr)
     {

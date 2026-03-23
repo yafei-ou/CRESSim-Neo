@@ -45,19 +45,19 @@ struct PhysicsSolverStageStats
 class CRESSIM_NEO_PHYSICS_API PhysicsSolver
 {
 public:
-    explicit PhysicsSolver(gpu::GpuDevice& device, const PhysicsSolverDesc& desc = {});
+    explicit PhysicsSolver(gpu::GpuDevice &device, const PhysicsSolverDesc &desc = {});
     ~PhysicsSolver();
 
     bool initialize();
     void shutdown();
-    bool step(const common::FrameContext& frameContext, PhysicsWorld& world);
-    const PhysicsSolverStageStats& lastStageStats() const noexcept;
+    bool step(const common::FrameContext &frameContext, PhysicsWorld &world);
+    const PhysicsSolverStageStats &lastStageStats() const noexcept;
     PhysicsGpuSceneView gpuSceneView() const noexcept;
 
 private:
     struct Impl;
 
-    gpu::GpuDevice& mDevice;
+    gpu::GpuDevice &mDevice;
     PhysicsSolverDesc mDesc{};
     std::unique_ptr<Impl> mImpl;
     bool mInitialized = false;

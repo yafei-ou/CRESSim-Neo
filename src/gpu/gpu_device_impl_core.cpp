@@ -1,3 +1,4 @@
+#include "common/logger.h"
 #include "common/math_utils_runtime.h"
 #include "gpu/gpu_device_impl.h"
 #include "gpu/gpu_render_target_system_impl.h"
@@ -7,7 +8,6 @@
 
 #include <algorithm>
 #include <array>
-#include <iostream>
 #include <limits>
 
 namespace cressim::neo::gpu
@@ -31,15 +31,15 @@ Diligent::Uint32 clampWindowId(std::uint64_t value)
     return static_cast<Diligent::Uint32>(std::min<std::uint64_t>(value, kMax));
 }
 
-GpuRenderTargetDesc normalizeDefaultRenderTargetForDevice(const GpuRenderTargetDesc& desc,
-                                                          Diligent::ISwapChain* swapChain)
+GpuRenderTargetDesc normalizeDefaultRenderTargetForDevice(const GpuRenderTargetDesc &desc,
+                                                          Diligent::ISwapChain *swapChain)
 {
     GpuRenderTargetDesc normalized = desc;
     std::uint32_t fallbackWidth    = kDefaultRenderTargetWidth;
     std::uint32_t fallbackHeight   = kDefaultRenderTargetHeight;
     if (swapChain != nullptr)
     {
-        const auto& swapChainDesc = swapChain->GetDesc();
+        const auto &swapChainDesc = swapChain->GetDesc();
         if (swapChainDesc.Width > 0)
         {
             fallbackWidth = swapChainDesc.Width;
@@ -72,7 +72,7 @@ GpuRenderTargetDesc normalizeDefaultRenderTargetForDevice(const GpuRenderTargetD
 
 } // namespace
 
-bool GpuDeviceImpl::initialize(const GpuDeviceDesc& desc)
+bool GpuDeviceImpl::initialize(const GpuDeviceDesc &desc)
 {
     shutdown();
 
@@ -144,12 +144,12 @@ void GpuDeviceImpl::shutdown()
     mInitialized = false;
 }
 
-void GpuDeviceImpl::beginFrame(const common::FrameContext& frameContext)
+void GpuDeviceImpl::beginFrame(const common::FrameContext &frameContext)
 {
     (void)frameContext;
 }
 
-GpuRenderTargetSystem& GpuDeviceImpl::renderTargetSystem()
+GpuRenderTargetSystem &GpuDeviceImpl::renderTargetSystem()
 {
     return *mRenderTargets;
 }
@@ -159,7 +159,7 @@ GpuBackend GpuDeviceImpl::backend() const
     return mBackend;
 }
 
-bool GpuDeviceImpl::tryGetGraphicsBackendContext(GpuBackendContext& outContext)
+bool GpuDeviceImpl::tryGetGraphicsBackendContext(GpuBackendContext &outContext)
 {
     outContext = GpuBackendContext{};
 
@@ -178,7 +178,7 @@ bool GpuDeviceImpl::tryGetGraphicsBackendContext(GpuBackendContext& outContext)
     return true;
 }
 
-bool GpuDeviceImpl::tryGetPhysicsBackendContext(GpuComputeBackendContext& outContext)
+bool GpuDeviceImpl::tryGetPhysicsBackendContext(GpuComputeBackendContext &outContext)
 {
     outContext = GpuComputeBackendContext{};
 
@@ -196,14 +196,14 @@ bool GpuDeviceImpl::tryGetPhysicsBackendContext(GpuComputeBackendContext& outCon
     return true;
 }
 
-const std::string& GpuDeviceImpl::shaderSourceDirectory() const
+const std::string &GpuDeviceImpl::shaderSourceDirectory() const
 {
     return mDesc.shaderDirectory;
 }
 
 bool GpuDeviceImpl::initializeVulkan()
 {
-    Diligent::IEngineFactoryVk* factoryVk = Diligent::LoadAndGetEngineFactoryVk();
+    Diligent::IEngineFactoryVk *factoryVk = Diligent::LoadAndGetEngineFactoryVk();
     if (factoryVk == nullptr)
     {
         return false;
@@ -219,7 +219,7 @@ bool GpuDeviceImpl::initializeVulkan()
         engineCreateInfo.EnableValidation =
             static_cast<Diligent::Bool>(mDesc.enableValidation ? 1 : 0);
 
-        std::array<Diligent::IDeviceContext*, 2> contexts = {nullptr, nullptr};
+        std::array<Diligent::IDeviceContext *, 2> contexts = {nullptr, nullptr};
         if (requestDedicatedPhysicsContext)
         {
             static constexpr Diligent::ImmediateContextCreateInfo kContextInfo[2] = {
@@ -254,8 +254,8 @@ bool GpuDeviceImpl::initializeVulkan()
 
     if (!createDeviceContexts(true))
     {
-        std::cerr << "GpuDeviceImpl: failed to create dedicated physics context; falling back to "
-                     "shared context.\n";
+        CRESSIM_LOG_WARNING("GpuDeviceImpl: failed to create dedicated physics context; falling "
+                            "back to shared context.");
         if (!createDeviceContexts(false))
         {
             return false;
@@ -264,7 +264,7 @@ bool GpuDeviceImpl::initializeVulkan()
 
     if (mPhysicsContext == mImmediateContext)
     {
-        std::cerr << "GpuDeviceImpl: physics context is shared with graphics context.\n";
+        CRESSIM_LOG_WARNING("GpuDeviceImpl: physics context is shared with graphics context.");
     }
 
     const auto graphicsDesc = mImmediateContext->GetDesc();
@@ -289,7 +289,7 @@ bool GpuDeviceImpl::createPrimarySwapChain()
         return false;
     }
 
-    Diligent::IEngineFactoryVk* factoryVk = Diligent::LoadAndGetEngineFactoryVk();
+    Diligent::IEngineFactoryVk *factoryVk = Diligent::LoadAndGetEngineFactoryVk();
     if (factoryVk == nullptr)
     {
         return false;
@@ -299,14 +299,14 @@ bool GpuDeviceImpl::createPrimarySwapChain()
 #if PLATFORM_WIN32
     if (mDesc.presentation.nativeWindow == nullptr)
     {
-        std::cerr << "GpuDeviceImpl: presentation nativeWindow must be set on Win32.\n";
+        CRESSIM_LOG_ERROR("GpuDeviceImpl: presentation nativeWindow must be set on Win32.");
         return false;
     }
     window.hWnd = mDesc.presentation.nativeWindow;
 #elif PLATFORM_LINUX
     if (mDesc.presentation.nativeWindowId == 0)
     {
-        std::cerr << "GpuDeviceImpl: presentation nativeWindowId must be set on Linux.\n";
+        CRESSIM_LOG_ERROR("GpuDeviceImpl: presentation nativeWindowId must be set on Linux.");
         return false;
     }
     window.WindowId = clampWindowId(mDesc.presentation.nativeWindowId);
@@ -320,18 +320,19 @@ bool GpuDeviceImpl::createPrimarySwapChain()
     }
     else
     {
-        std::cerr << "GpuDeviceImpl: presentation native display/connection is missing on Linux.\n";
+        CRESSIM_LOG_ERROR(
+            "GpuDeviceImpl: presentation native display/connection is missing on Linux.");
         return false;
     }
 #elif PLATFORM_MACOS
     if (mDesc.presentation.nativeWindow == nullptr)
     {
-        std::cerr << "GpuDeviceImpl: presentation nativeWindow must be set on macOS.\n";
+        CRESSIM_LOG_ERROR("GpuDeviceImpl: presentation nativeWindow must be set on macOS.");
         return false;
     }
     window.pNSView = mDesc.presentation.nativeWindow;
 #else
-    std::cerr << "GpuDeviceImpl: presentation is unsupported on this platform.\n";
+    CRESSIM_LOG_ERROR("GpuDeviceImpl: presentation is unsupported on this platform.");
     return false;
 #endif
 
@@ -356,7 +357,7 @@ bool GpuDeviceImpl::createPrimarySwapChain()
                                  &mPrimarySwapChain);
     if (mPrimarySwapChain == nullptr)
     {
-        std::cerr << "GpuDeviceImpl: failed to create primary swapchain.\n";
+        CRESSIM_LOG_ERROR("GpuDeviceImpl: failed to create primary swapchain.");
         return false;
     }
 

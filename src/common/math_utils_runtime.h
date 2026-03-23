@@ -42,8 +42,8 @@ inline float radiansToDegrees(float value)
     return value * kDegPerRad;
 }
 
-inline Diligent::float3 safeNormalize(const Diligent::float3& value,
-                                      const Diligent::float3& fallback = Diligent::float3{
+inline Diligent::float3 safeNormalize(const Diligent::float3 &value,
+                                      const Diligent::float3 &fallback = Diligent::float3{
                                           0.0f, 0.0f, 0.0f})
 {
     const float lengthSq = Diligent::dot(value, value);
@@ -54,7 +54,7 @@ inline Diligent::float3 safeNormalize(const Diligent::float3& value,
     return value * (1.0f / std::sqrt(lengthSq));
 }
 
-inline Diligent::QuaternionF normalizeQuaternion(const Diligent::QuaternionF& value)
+inline Diligent::QuaternionF normalizeQuaternion(const Diligent::QuaternionF &value)
 {
     const float lengthSq = Diligent::dot(value.q, value.q);
     if (lengthSq <= kEpsilon)
@@ -83,7 +83,7 @@ inline Diligent::QuaternionF quaternionFromEulerDegrees(float xDegrees, float yD
         cosZ * cosX * sinY - sinZ * sinX * cosY, cosZ * cosX * cosY + sinZ * sinX * sinY};
 }
 
-inline gpu::GpuRenderViewport normalizeViewport(const gpu::GpuRenderViewport& viewport)
+inline gpu::GpuRenderViewport normalizeViewport(const gpu::GpuRenderViewport &viewport)
 {
     gpu::GpuRenderViewport normalized{};
     normalized.x      = clamp01(viewport.x);
@@ -111,7 +111,7 @@ inline gpu::GpuRenderViewport normalizeViewport(const gpu::GpuRenderViewport& vi
 }
 
 inline Diligent::float2 effectiveViewportSize(float outputWidth, float outputHeight,
-                                              const gpu::GpuRenderViewport& viewport)
+                                              const gpu::GpuRenderViewport &viewport)
 {
     const gpu::GpuRenderViewport normalized = normalizeViewport(viewport);
     return Diligent::float2{
@@ -120,7 +120,7 @@ inline Diligent::float2 effectiveViewportSize(float outputWidth, float outputHei
 }
 
 inline float effectiveViewportAspect(float outputWidth, float outputHeight,
-                                     const gpu::GpuRenderViewport& viewport)
+                                     const gpu::GpuRenderViewport &viewport)
 {
     const Diligent::float2 size = effectiveViewportSize(outputWidth, outputHeight, viewport);
     return clampPositive(size.x, 1.0f) / clampPositive(size.y, 1.0f);

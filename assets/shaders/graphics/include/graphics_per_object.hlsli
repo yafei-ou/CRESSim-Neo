@@ -9,4 +9,4 @@ cbuffer GraphicsPerObject
     uint g_PerObjectPadding0;
 };
 
-#endif // !CRESSIM_NEO_GRAPHICS_PER_OBJECT_HLSLI
+#endif // CRESSIM_NEO_GRAPHICS_PER_OBJECT_HLSLI

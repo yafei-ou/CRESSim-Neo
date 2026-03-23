@@ -16,34 +16,34 @@ namespace cressim::neo::gpu
 class CRESSIM_NEO_GPU_API GpuSceneSync
 {
 public:
-    explicit GpuSceneSync(GpuDevice& device);
+    explicit GpuSceneSync(GpuDevice &device);
 
-    bool initialize(const GpuSceneLayoutDesc& layout = GpuSceneLayoutDesc{});
+    bool initialize(const GpuSceneLayoutDesc &layout = GpuSceneLayoutDesc{});
     void shutdown();
 
-    bool syncEntityPoseData(const std::vector<Diligent::float4>& positions,
-                            const std::vector<Diligent::float4>& orientations,
-                            const std::vector<Diligent::float4>& scales);
-    bool syncEntityPoses(const GpuPoseBufferView& sourcePoses,
-                         const std::vector<GpuEntityPoseMappingEntry>& mappings);
-    bool syncRenderableMetadata(const std::vector<GpuRenderableMetadata>& renderables);
-    bool syncRenderableQueueInfo(const std::vector<GpuRenderableQueueInfo>& queueInfo);
-    bool syncCameraInputs(const std::vector<GpuCameraInput>& cameras);
-    bool syncLightInputs(const std::vector<GpuDirectionalLightInput>& lights);
+    bool syncEntityPoseData(const std::vector<Diligent::float4> &positions,
+                            const std::vector<Diligent::float4> &orientations,
+                            const std::vector<Diligent::float4> &scales);
+    bool syncEntityPoses(const GpuPoseBufferView &sourcePoses,
+                         const std::vector<GpuEntityPoseMappingEntry> &mappings);
+    bool syncRenderableMetadata(const std::vector<GpuRenderableMetadata> &renderables);
+    bool syncRenderableQueueInfo(const std::vector<GpuRenderableQueueInfo> &queueInfo);
+    bool syncCameraInputs(const std::vector<GpuCameraInput> &cameras);
+    bool syncLightInputs(const std::vector<GpuDirectionalLightInput> &lights);
 
     GpuEntitySceneView sceneView() const noexcept;
-    const GpuSceneLayoutDesc& layout() const noexcept
+    const GpuSceneLayoutDesc &layout() const noexcept
     {
         return mLayout;
     }
 
 private:
-    bool ensureCapacity(Diligent::IRenderDevice* renderDevice, std::uint32_t entityCount,
+    bool ensureCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t entityCount,
                         std::uint32_t contextId);
-    bool writeBuffer(Diligent::IDeviceContext* computeContext, Diligent::IBuffer* buffer,
-                     const void* data, std::size_t sizeBytes);
+    bool writeBuffer(Diligent::IDeviceContext *computeContext, Diligent::IBuffer *buffer,
+                     const void *data, std::size_t sizeBytes);
 
-    GpuDevice& mDevice;
+    GpuDevice &mDevice;
     GpuSceneLayoutDesc mLayout{};
     bool mInitialized                 = false;
     std::uint32_t mCapacity           = 0;

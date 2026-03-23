@@ -17,7 +17,7 @@ struct DrawBucketKey
     common::ResourceId materialId                 = common::kInvalidResourceId;
     common::ResourceId meshId                     = common::kInvalidResourceId;
 
-    [[nodiscard]] bool operator<(const DrawBucketKey& rhs) const noexcept
+    [[nodiscard]] bool operator<(const DrawBucketKey &rhs) const noexcept
     {
         if (programFamily != rhs.programFamily)
         {
@@ -36,18 +36,18 @@ struct DrawBucketKey
     }
 };
 
-const std::vector<World::ColliderHandle>& emptyColliderHandleList()
+const std::vector<World::ColliderHandle> &emptyColliderHandleList()
 {
     static const std::vector<World::ColliderHandle> kEmpty;
     return kEmpty;
 }
 
 std::uint32_t allocateDenseSlot(
-    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>>& freeSlotsByEnv,
-    std::unordered_map<std::uint32_t, std::uint32_t>& nextSlotByEnv, std::uint32_t envIndex,
-    std::uint32_t maxSlotsPerEnv, const char* slotType)
+    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> &freeSlotsByEnv,
+    std::unordered_map<std::uint32_t, std::uint32_t> &nextSlotByEnv, std::uint32_t envIndex,
+    std::uint32_t maxSlotsPerEnv, const char *slotType)
 {
-    auto& freeSlots = freeSlotsByEnv[envIndex];
+    auto &freeSlots = freeSlotsByEnv[envIndex];
     if (!freeSlots.empty())
     {
         const std::uint32_t slot = freeSlots.back();
@@ -55,7 +55,7 @@ std::uint32_t allocateDenseSlot(
         return slot;
     }
 
-    std::uint32_t& nextSlot = nextSlotByEnv[envIndex];
+    std::uint32_t &nextSlot = nextSlotByEnv[envIndex];
     if (nextSlot >= maxSlotsPerEnv)
     {
         throw std::overflow_error(std::string(slotType) + " capacity exceeded for environment.");
@@ -63,7 +63,7 @@ std::uint32_t allocateDenseSlot(
     return nextSlot++;
 }
 
-void reclaimDenseSlot(std::unordered_map<std::uint32_t, std::vector<std::uint32_t>>& freeSlotsByEnv,
+void reclaimDenseSlot(std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> &freeSlotsByEnv,
                       std::uint32_t envIndex, std::uint32_t slot)
 {
     if (slot == kInvalidSlot)
@@ -73,8 +73,8 @@ void reclaimDenseSlot(std::unordered_map<std::uint32_t, std::vector<std::uint32_
     freeSlotsByEnv[envIndex].push_back(slot);
 }
 
-void enqueueDenseDirtyIndex(std::uint32_t index, std::vector<std::uint32_t>& dirtyIndices,
-                            std::vector<std::uint8_t>& dirtyBits)
+void enqueueDenseDirtyIndex(std::uint32_t index, std::vector<std::uint32_t> &dirtyIndices,
+                            std::vector<std::uint8_t> &dirtyBits)
 {
     if (index >= dirtyBits.size() || dirtyBits[index] != 0u)
     {
@@ -131,13 +131,13 @@ bool World::destroyEntity(common::EntityId entityId)
     return true;
 }
 
-void World::setSceneLayout(const gpu::GpuSceneLayoutDesc& layout)
+void World::setSceneLayout(const gpu::GpuSceneLayoutDesc &layout)
 {
     mSceneLayout = layout;
     ensureHostSceneStorage();
 }
 
-const gpu::GpuSceneLayoutDesc& World::sceneLayout() const noexcept
+const gpu::GpuSceneLayoutDesc &World::sceneLayout() const noexcept
 {
     return mSceneLayout;
 }
@@ -166,7 +166,7 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
     {
         for (const ColliderHandle handle : physIt->second.colliders)
         {
-            const physics::ColliderState* existing = mPhysicsWorld.tryGetCollider(handle.id);
+            const physics::ColliderState *existing = mPhysicsWorld.tryGetCollider(handle.id);
             if (existing == nullptr)
             {
                 continue;
@@ -196,7 +196,7 @@ bool World::isAlive(common::EntityId entityId) const
     return mAlive.find(entityId) != mAlive.end();
 }
 
-const std::vector<common::EntityId>& World::entities() const noexcept
+const std::vector<common::EntityId> &World::entities() const noexcept
 {
     return mEntities;
 }
@@ -299,8 +299,8 @@ void World::markLightDirty(std::uint32_t lightIndex)
     enqueueDenseDirtyIndex(lightIndex, mDirtyLightIndices, mDirtyLightBits);
 }
 
-void World::clearDirtyIndexSet(std::vector<std::uint32_t>& dirtyIndices,
-                               std::vector<std::uint8_t>& dirtyBits)
+void World::clearDirtyIndexSet(std::vector<std::uint32_t> &dirtyIndices,
+                               std::vector<std::uint8_t> &dirtyBits)
 {
     for (const std::uint32_t index : dirtyIndices)
     {
@@ -312,7 +312,7 @@ void World::clearDirtyIndexSet(std::vector<std::uint32_t>& dirtyIndices,
     dirtyIndices.clear();
 }
 
-void World::setTransform(common::EntityId entityId, const TransformComponent& component)
+void World::setTransform(common::EntityId entityId, const TransformComponent &component)
 {
     if (entityId == common::kInvalidEntityId)
     {
@@ -339,7 +339,7 @@ void World::setTransform(common::EntityId entityId, const TransformComponent& co
               });
 
     // Update body pose directly in physics. No collider loop.
-    if (auto* rb = mPhysicsWorld.tryGetRigidBody(entityId))
+    if (auto *rb = mPhysicsWorld.tryGetRigidBody(entityId))
     {
         rb->position = component.worldTransform.position;
         rb->rotation = component.worldTransform.rotation;
@@ -356,7 +356,7 @@ void World::setTransform(common::EntityId entityId, const TransformComponent& co
     }
 }
 
-void World::setMeshRenderer(common::EntityId entityId, const MeshRendererComponent& component)
+void World::setMeshRenderer(common::EntityId entityId, const MeshRendererComponent &component)
 {
     if (entityId == common::kInvalidEntityId)
     {
@@ -385,7 +385,7 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
         objectIndex = static_cast<std::uint32_t>(indexIt->second);
     }
 
-    graphics::RenderableInstance& renderable = mRenderables[objectIndex];
+    graphics::RenderableInstance &renderable = mRenderables[objectIndex];
     renderable.mesh                          = component.mesh;
     renderable.material                      = component.material;
     renderable.visible                       = component.visible;
@@ -395,7 +395,7 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
     mPhysicsRenderableMappingsDirty = true;
 }
 
-void World::setCamera(common::EntityId entityId, const CameraComponent& component)
+void World::setCamera(common::EntityId entityId, const CameraComponent &component)
 {
     if (entityId == common::kInvalidEntityId)
     {
@@ -424,7 +424,7 @@ void World::setCamera(common::EntityId entityId, const CameraComponent& componen
         cameraIndex = static_cast<std::uint32_t>(indexIt->second);
     }
 
-    graphics::CameraData& cameraData = mRenderCameras[cameraIndex];
+    graphics::CameraData &cameraData = mRenderCameras[cameraIndex];
     cameraData.worldTransform =
         tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
     cameraData.verticalFovDegrees = component.verticalFovDegrees;
@@ -443,7 +443,7 @@ void World::setCamera(common::EntityId entityId, const CameraComponent& componen
 }
 
 void World::setDirectionalLight(common::EntityId entityId,
-                                const DirectionalLightComponent& component)
+                                const DirectionalLightComponent &component)
 {
     if (entityId == common::kInvalidEntityId)
     {
@@ -472,7 +472,7 @@ void World::setDirectionalLight(common::EntityId entityId,
         lightIndex = static_cast<std::uint32_t>(indexIt->second);
     }
 
-    graphics::DirectionalLightData& lightData = mRenderDirectionalLights[lightIndex];
+    graphics::DirectionalLightData &lightData = mRenderDirectionalLights[lightIndex];
     lightData.direction                       = component.direction;
     lightData.color                           = component.color;
     lightData.intensity                       = component.intensity;
@@ -481,7 +481,7 @@ void World::setDirectionalLight(common::EntityId entityId,
     markLightDirty(lightIndex);
 }
 
-void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent& component)
+void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent &component)
 {
     if (entityId == common::kInvalidEntityId)
     {
@@ -540,7 +540,7 @@ bool World::removeRigidBody(common::EntityId entityId)
 }
 
 World::ColliderHandle World::addCollider(common::EntityId entityId,
-                                         const ColliderComponent& component)
+                                         const ColliderComponent &component)
 {
     if (entityId == common::kInvalidEntityId)
     {
@@ -577,7 +577,7 @@ World::ColliderHandle World::addCollider(common::EntityId entityId,
     return handle;
 }
 
-void World::updateCollider(ColliderHandle handle, const ColliderComponent& component)
+void World::updateCollider(ColliderHandle handle, const ColliderComponent &component)
 {
     if (!handle.isValid())
     {
@@ -626,7 +626,7 @@ bool World::removeCollider(ColliderHandle handle)
     auto physIt                     = mPhysicsLinks.find(entityId);
     if (physIt != mPhysicsLinks.end())
     {
-        auto& handles = physIt->second.colliders;
+        auto &handles = physIt->second.colliders;
         handles.erase(std::remove_if(handles.begin(), handles.end(),
                                      [&](const ColliderHandle h) { return h.id == handle.id; }),
                       handles.end());
@@ -683,7 +683,7 @@ bool World::removeMeshRenderer(common::EntityId entityId)
     }
 
     const std::uint32_t objectIndex              = static_cast<std::uint32_t>(it->second);
-    const graphics::RenderableInstance& instance = mRenderables[objectIndex];
+    const graphics::RenderableInstance &instance = mRenderables[objectIndex];
     reclaimDenseSlot(mFreeRenderableSlotsByEnv, instance.envIndex, instance.objectSlot);
     mRenderables[objectIndex] = {};
     markRenderablePoseDirty(objectIndex);
@@ -703,7 +703,7 @@ bool World::removeCamera(common::EntityId entityId)
     }
 
     const std::uint32_t cameraIndex    = static_cast<std::uint32_t>(it->second);
-    const graphics::CameraData& camera = mRenderCameras[cameraIndex];
+    const graphics::CameraData &camera = mRenderCameras[cameraIndex];
     reclaimDenseSlot(mFreeCameraSlotsByEnv, camera.envIndex, camera.cameraSlot);
     mRenderCameras[cameraIndex] = {};
     mRenderCameraIndices.erase(it);
@@ -720,7 +720,7 @@ bool World::removeDirectionalLight(common::EntityId entityId)
     }
 
     const std::uint32_t lightIndex              = static_cast<std::uint32_t>(it->second);
-    const graphics::DirectionalLightData& light = mRenderDirectionalLights[lightIndex];
+    const graphics::DirectionalLightData &light = mRenderDirectionalLights[lightIndex];
     reclaimDenseSlot(mFreeDirectionalLightSlotsByEnv, light.envIndex, light.lightSlot);
     mRenderDirectionalLights[lightIndex] = {};
     mRenderDirectionalLightIndices.erase(it);
@@ -765,7 +765,7 @@ std::optional<CameraComponent> World::tryGetCamera(common::EntityId entityId) co
         return std::nullopt;
     }
 
-    const graphics::CameraData& camera = mRenderCameras[static_cast<std::uint32_t>(it->second)];
+    const graphics::CameraData &camera = mRenderCameras[static_cast<std::uint32_t>(it->second)];
     CameraComponent component{};
     component.verticalFovDegrees = camera.verticalFovDegrees;
     component.nearClip           = camera.nearClip;
@@ -791,7 +791,7 @@ std::optional<DirectionalLightComponent> World::tryGetDirectionalLight(
         return std::nullopt;
     }
 
-    const graphics::DirectionalLightData& light =
+    const graphics::DirectionalLightData &light =
         mRenderDirectionalLights[static_cast<std::uint32_t>(it->second)];
     DirectionalLightComponent component{};
     component.direction          = light.direction;
@@ -804,7 +804,7 @@ std::optional<DirectionalLightComponent> World::tryGetDirectionalLight(
 
 std::optional<RigidBodyComponent> World::tryGetRigidBody(common::EntityId entityId) const
 {
-    const physics::RigidBodyState* rb = mPhysicsWorld.tryGetRigidBody(entityId);
+    const physics::RigidBodyState *rb = mPhysicsWorld.tryGetRigidBody(entityId);
     if (!rb)
     {
         return std::nullopt;
@@ -830,7 +830,7 @@ std::optional<ColliderComponent> World::tryGetCollider(ColliderHandle handle) co
         return std::nullopt;
     }
 
-    const physics::ColliderState* c = mPhysicsWorld.tryGetCollider(handle.id);
+    const physics::ColliderState *c = mPhysicsWorld.tryGetCollider(handle.id);
     if (!c)
     {
         return std::nullopt;
@@ -849,18 +849,18 @@ std::optional<ColliderComponent> World::tryGetCollider(ColliderHandle handle) co
     return out;
 }
 
-const std::vector<World::ColliderHandle>& World::colliderHandles(common::EntityId entityId) const
+const std::vector<World::ColliderHandle> &World::colliderHandles(common::EntityId entityId) const
 {
     const auto it = mPhysicsLinks.find(entityId);
     return it != mPhysicsLinks.end() ? it->second.colliders : emptyColliderHandleList();
 }
 
-physics::PhysicsWorld& World::physicsWorld() noexcept
+physics::PhysicsWorld &World::physicsWorld() noexcept
 {
     return mPhysicsWorld;
 }
 
-const physics::PhysicsWorld& World::physicsWorld() const noexcept
+const physics::PhysicsWorld &World::physicsWorld() const noexcept
 {
     return mPhysicsWorld;
 }
@@ -869,19 +869,19 @@ void World::refreshFromPhysics()
 {
     // TODO: this is not needed anymore, but we keep it for debug
 
-    const physics::PhysicsSoADirtyRange& dirty = mPhysicsWorld.rigidBodyDirtyRange();
+    const physics::PhysicsSoADirtyRange &dirty = mPhysicsWorld.rigidBodyDirtyRange();
     if (!dirty.valid)
     {
         return;
     }
 
-    const auto& states = mPhysicsWorld.rigidBodySnapshot();
+    const auto &states = mPhysicsWorld.rigidBodySnapshot();
     const std::uint32_t end =
         std::min<std::uint32_t>(dirty.end, static_cast<std::uint32_t>(states.size()));
 
     for (std::uint32_t i = dirty.begin; i < end; ++i)
     {
-        const physics::RigidBodyState& rb = states[i];
+        const physics::RigidBodyState &rb = states[i];
         if (!isAlive(rb.entityId))
         {
             continue;
@@ -895,74 +895,74 @@ void World::refreshFromPhysics()
     }
 }
 
-void World::setGpuEntityScene(const gpu::GpuEntitySceneView& sceneView) noexcept
+void World::setGpuEntityScene(const gpu::GpuEntitySceneView &sceneView) noexcept
 {
     mGpuEntityScene = sceneView;
 }
 
-const std::vector<graphics::RenderableInstance>& World::renderables() const noexcept
+const std::vector<graphics::RenderableInstance> &World::renderables() const noexcept
 {
     return mRenderables;
 }
 
-const std::vector<graphics::CameraData>& World::cameras() const noexcept
+const std::vector<graphics::CameraData> &World::cameras() const noexcept
 {
     return mRenderCameras;
 }
 
-const std::vector<graphics::DirectionalLightData>& World::directionalLights() const noexcept
+const std::vector<graphics::DirectionalLightData> &World::directionalLights() const noexcept
 {
     return mRenderDirectionalLights;
 }
 
-const std::vector<Diligent::float4>& World::renderObjectPositions() const noexcept
+const std::vector<Diligent::float4> &World::renderObjectPositions() const noexcept
 {
     return mRenderObjectPositions;
 }
 
-const std::vector<Diligent::float4>& World::renderObjectOrientations() const noexcept
+const std::vector<Diligent::float4> &World::renderObjectOrientations() const noexcept
 {
     return mRenderObjectOrientations;
 }
 
-const std::vector<Diligent::float4>& World::renderObjectScales() const noexcept
+const std::vector<Diligent::float4> &World::renderObjectScales() const noexcept
 {
     return mRenderObjectScales;
 }
 
-const std::vector<gpu::GpuRenderableMetadata>& World::renderableMetadata() const noexcept
+const std::vector<gpu::GpuRenderableMetadata> &World::renderableMetadata() const noexcept
 {
     return mRenderableMetadataHost;
 }
 
-const std::vector<gpu::GpuRenderableQueueInfo>& World::renderableQueueInfo() const noexcept
+const std::vector<gpu::GpuRenderableQueueInfo> &World::renderableQueueInfo() const noexcept
 {
     return mRenderableQueueInfoHost;
 }
 
-const std::vector<gpu::GpuCameraInput>& World::cameraInputs() const noexcept
+const std::vector<gpu::GpuCameraInput> &World::cameraInputs() const noexcept
 {
     return mCameraInputsHost;
 }
 
-const std::vector<gpu::GpuDirectionalLightInput>& World::lightInputs() const noexcept
+const std::vector<gpu::GpuDirectionalLightInput> &World::lightInputs() const noexcept
 {
     return mLightInputsHost;
 }
 
-const std::vector<graphics::IndirectCommandRegistryEntry>& World::opaqueDrawRegistry()
+const std::vector<graphics::IndirectCommandRegistryEntry> &World::opaqueDrawRegistry()
     const noexcept
 {
     return mOpaqueDrawRegistryHost;
 }
 
-const std::vector<graphics::IndirectCommandRegistryEntry>& World::shadowDrawRegistry()
+const std::vector<graphics::IndirectCommandRegistryEntry> &World::shadowDrawRegistry()
     const noexcept
 {
     return mShadowDrawRegistryHost;
 }
 
-const std::vector<gpu::GpuEntityPoseMappingEntry>& World::physicsRenderableMappings()
+const std::vector<gpu::GpuEntityPoseMappingEntry> &World::physicsRenderableMappings()
 {
     const std::uint64_t rigidBodyTopologyRevision = mPhysicsWorld.rigidBodyTopologyRevision();
     if (!mPhysicsRenderableMappingsDirty &&
@@ -973,7 +973,7 @@ const std::vector<gpu::GpuEntityPoseMappingEntry>& World::physicsRenderableMappi
 
     mPhysicsRenderableMappingsCache.clear();
 
-    const auto& rigidBodies = mPhysicsWorld.rigidBodySoA();
+    const auto &rigidBodies = mPhysicsWorld.rigidBodySoA();
     if (!rigidBodies.entityIds.empty() && !mRenderables.empty())
     {
         std::unordered_map<common::EntityId, std::uint32_t> rigidBodyIndexByEntity;
@@ -984,7 +984,7 @@ const std::vector<gpu::GpuEntityPoseMappingEntry>& World::physicsRenderableMappi
         }
 
         mPhysicsRenderableMappingsCache.reserve(mRenderables.size());
-        for (const graphics::RenderableInstance& renderable : mRenderables)
+        for (const graphics::RenderableInstance &renderable : mRenderables)
         {
             if (renderable.entityId == common::kInvalidEntityId ||
                 renderable.objectSlot == kInvalidSlot || !renderable.visible)
@@ -1011,7 +1011,7 @@ const std::vector<gpu::GpuEntityPoseMappingEntry>& World::physicsRenderableMappi
     return mPhysicsRenderableMappingsCache;
 }
 
-const gpu::GpuEntitySceneView& World::gpuEntityScene() const noexcept
+const gpu::GpuEntitySceneView &World::gpuEntityScene() const noexcept
 {
     return mGpuEntityScene;
 }
@@ -1028,7 +1028,7 @@ graphics::HostSceneView World::hostSceneView() const noexcept
     };
 }
 
-void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager& resources)
+void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &resources)
 {
     ensureHostSceneStorage();
 
@@ -1060,7 +1060,7 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager& res
     clearDirtyIndexSet(mDirtyLightIndices, mDirtyLightBits);
 }
 
-void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager& resources)
+void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources)
 {
     // TODO: some metadata depends on resources too, not just world state:
     // if a mesh or material changes later inside RenderResourceManager, World does
@@ -1073,7 +1073,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
             continue;
         }
 
-        const graphics::RenderableInstance& renderable = mRenderables[objectIndex];
+        const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
         gpu::GpuRenderableMetadata entry{};
         if (renderable.entityId != common::kInvalidEntityId &&
             renderable.objectSlot != kInvalidSlot)
@@ -1083,7 +1083,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
                 entry.flags |= gpu::GpuRenderableFlag_Active;
             }
 
-            const graphics::MaterialResourceDesc* material =
+            const graphics::MaterialResourceDesc *material =
                 resources.tryGetMaterial(renderable.material);
             if (material != nullptr && renderable.visible &&
                 material->blendMode != graphics::BlendMode::Transparent)
@@ -1110,7 +1110,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
     }
 }
 
-void World::rebuildDrawRegistries(const graphics::RenderResourceManager& resources)
+void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resources)
 {
     // TODO: mesh/material resources still authored on CPU.
     // I don't know if we can let GPU do this part completely.
@@ -1124,15 +1124,15 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager& resourc
     for (std::uint32_t objectIndex = 0u;
          objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
     {
-        const graphics::RenderableInstance& renderable = mRenderables[objectIndex];
+        const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
         if (renderable.entityId == common::kInvalidEntityId ||
             renderable.objectSlot == kInvalidSlot || !renderable.visible)
         {
             continue;
         }
 
-        const graphics::MeshResourceDesc* mesh = resources.tryGetMesh(renderable.mesh);
-        const graphics::MaterialResourceDesc* material =
+        const graphics::MeshResourceDesc *mesh = resources.tryGetMesh(renderable.mesh);
+        const graphics::MaterialResourceDesc *material =
             resources.tryGetMaterial(renderable.material);
         if (mesh == nullptr || material == nullptr ||
             material->blendMode == graphics::BlendMode::Transparent || mesh->vertices.empty() ||
@@ -1155,14 +1155,14 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager& resourc
     }
 
     std::uint32_t opaqueCommandIndex = 0u;
-    for (const auto& [key, objectIndices] : opaqueObjectsByKey)
+    for (const auto &[key, objectIndices] : opaqueObjectsByKey)
     {
         if (objectIndices.empty())
         {
             continue;
         }
 
-        const graphics::MeshResourceDesc* mesh =
+        const graphics::MeshResourceDesc *mesh =
             resources.tryGetMesh(graphics::MeshHandle{key.meshId});
         if (mesh == nullptr)
         {
@@ -1188,14 +1188,14 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager& resourc
     }
 
     std::uint32_t shadowCommandBaseIndex = 0u;
-    for (const auto& [key, objectIndices] : shadowObjectsByKey)
+    for (const auto &[key, objectIndices] : shadowObjectsByKey)
     {
         if (objectIndices.empty())
         {
             continue;
         }
 
-        const graphics::MeshResourceDesc* mesh =
+        const graphics::MeshResourceDesc *mesh =
             resources.tryGetMesh(graphics::MeshHandle{key.meshId});
         if (mesh == nullptr)
         {
@@ -1233,7 +1233,7 @@ void World::refreshRenderablePose(std::uint32_t objectIndex)
         return;
     }
 
-    graphics::RenderableInstance& renderable = mRenderables[objectIndex];
+    graphics::RenderableInstance &renderable = mRenderables[objectIndex];
     if (renderable.entityId == common::kInvalidEntityId || renderable.objectSlot == kInvalidSlot)
     {
         mRenderObjectPositions[objectIndex]    = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
@@ -1262,7 +1262,7 @@ void World::refreshCameraEntry(std::uint32_t cameraIndex)
         return;
     }
 
-    graphics::CameraData& cameraData = mRenderCameras[cameraIndex];
+    graphics::CameraData &cameraData = mRenderCameras[cameraIndex];
     if (cameraData.entityId == common::kInvalidEntityId || cameraData.cameraSlot == kInvalidSlot)
     {
         mCameraInputsHost[cameraIndex] = {};
@@ -1297,7 +1297,7 @@ void World::refreshDirectionalLightEntry(std::uint32_t lightIndex)
         return;
     }
 
-    const graphics::DirectionalLightData& lightData = mRenderDirectionalLights[lightIndex];
+    const graphics::DirectionalLightData &lightData = mRenderDirectionalLights[lightIndex];
     if (lightData.entityId == common::kInvalidEntityId || lightData.lightSlot == kInvalidSlot)
     {
         mLightInputsHost[lightIndex] = {};

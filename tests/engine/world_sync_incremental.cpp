@@ -1,8 +1,8 @@
 #include "common/frame_context.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "common/logger.h"
 
-#include <iostream>
 
 namespace
 {
@@ -35,7 +35,7 @@ int main()
     Runtime runtime;
     if (!runtime.initialize(config))
     {
-        std::cerr << "Runtime initialization failed.\n";
+        CRESSIM_LOG_ERROR( "Runtime initialization failed.\n");
         return 1;
     }
 
@@ -79,7 +79,7 @@ int main()
     const auto stats0 = runtime.lastRenderStats();
     if (stats0.renderableCount != 1)
     {
-        std::cerr << "Unexpected stats after initial frame.\n";
+        CRESSIM_LOG_ERROR( "Unexpected stats after initial frame.\n");
         runtime.shutdown();
         return 1;
     }
@@ -88,7 +88,7 @@ int main()
     const auto stats1 = runtime.lastRenderStats();
     if (stats1.renderableCount != 1)
     {
-        std::cerr << "Expected stable render count on unchanged frame.\n";
+        CRESSIM_LOG_ERROR( "Expected stable render count on unchanged frame.\n");
         runtime.shutdown();
         return 1;
     }
@@ -100,14 +100,14 @@ int main()
     const auto stats2 = runtime.lastRenderStats();
     if (stats2.renderableCount != 1)
     {
-        std::cerr << "Expected sync execution after transform update.\n";
+        CRESSIM_LOG_ERROR( "Expected sync execution after transform update.\n");
         runtime.shutdown();
         return 1;
     }
 
     if (!world.removeMeshRenderer(renderableEntity))
     {
-        std::cerr << "Failed to remove mesh renderer.\n";
+        CRESSIM_LOG_ERROR( "Failed to remove mesh renderer.\n");
         runtime.shutdown();
         return 1;
     }
@@ -115,7 +115,7 @@ int main()
     const auto stats3 = runtime.lastRenderStats();
     if (stats3.renderableCount != 0)
     {
-        std::cerr << "Expected renderable removal to be reflected in world-owned host scene.\n";
+        CRESSIM_LOG_ERROR( "Expected renderable removal to be reflected in world-owned host scene.\n");
         runtime.shutdown();
         return 1;
     }
@@ -124,12 +124,12 @@ int main()
     const auto stats4 = runtime.lastRenderStats();
     if (stats4.renderableCount != 0)
     {
-        std::cerr << "Expected stable post-removal render count.\n";
+        CRESSIM_LOG_ERROR( "Expected stable post-removal render count.\n");
         runtime.shutdown();
         return 1;
     }
 
     runtime.shutdown();
-    std::cout << "Incremental world sync checks passed.\n";
+    CRESSIM_LOG_INFO( "Incremental world sync checks passed.\n");
     return 0;
 }

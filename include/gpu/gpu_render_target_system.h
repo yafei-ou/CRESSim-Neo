@@ -17,35 +17,35 @@ class CRESSIM_NEO_GPU_API GpuRenderTargetSystem
 public:
     virtual ~GpuRenderTargetSystem() = default;
 
-    virtual GpuRenderTargetHandle createRenderTarget(const GpuRenderTargetDesc& desc) = 0;
+    virtual GpuRenderTargetHandle createRenderTarget(const GpuRenderTargetDesc &desc) = 0;
     virtual GpuRenderTargetUpdateResult resizeRenderTarget(GpuRenderTargetHandle target,
                                                            std::uint32_t width,
                                                            std::uint32_t height)      = 0;
     virtual GpuRenderTargetUpdateResult reconfigureRenderTarget(
-        GpuRenderTargetHandle target, const GpuRenderTargetDesc& desc)      = 0;
+        GpuRenderTargetHandle target, const GpuRenderTargetDesc &desc)      = 0;
     virtual void destroyRenderTarget(GpuRenderTargetHandle target)          = 0;
     virtual bool isValidRenderTarget(GpuRenderTargetHandle target) const    = 0;
     virtual bool tryGetRenderTargetDesc(GpuRenderTargetHandle target,
-                                        GpuRenderTargetDesc& outDesc) const = 0;
+                                        GpuRenderTargetDesc &outDesc) const = 0;
     virtual GpuRenderTargetHandle defaultRenderTarget() const               = 0;
     virtual GpuRenderTargetBinding defaultRenderTargetBinding() const       = 0;
 
-    virtual void setRenderTargetViewport(const GpuRenderTargetBinding& binding,
-                                         const GpuRenderViewport& viewport) = 0;
-    virtual void beginRenderTarget(const GpuRenderTargetBinding& binding,
-                                   const common::FrameContext& frameContext,
-                                   const GpuRenderPassBeginDesc& beginDesc) = 0;
-    virtual void endRenderTarget(const GpuRenderTargetBinding& binding,
-                                 const common::FrameContext& frameContext)  = 0;
+    virtual void setRenderTargetViewport(const GpuRenderTargetBinding &binding,
+                                         const GpuRenderViewport &viewport) = 0;
+    virtual void beginRenderTarget(const GpuRenderTargetBinding &binding,
+                                   const common::FrameContext &frameContext,
+                                   const GpuRenderPassBeginDesc &beginDesc) = 0;
+    virtual void endRenderTarget(const GpuRenderTargetBinding &binding,
+                                 const common::FrameContext &frameContext)  = 0;
 
     virtual GpuRenderTargetReadbackRequest requestRenderTargetReadback(
-        const GpuRenderTargetBinding& binding)                                      = 0;
+        const GpuRenderTargetBinding &binding)                                      = 0;
     virtual bool tryGetRenderTargetReadback(GpuRenderTargetReadbackRequest request,
-                                            GpuRenderTargetReadbackEvent& outEvent) = 0;
+                                            GpuRenderTargetReadbackEvent &outEvent) = 0;
     virtual bool tryGetRenderTargetColorTexture(GpuRenderTargetHandle target,
-                                                Diligent::ITexture*& outTexture)    = 0;
+                                                Diligent::ITexture *&outTexture)    = 0;
     virtual bool tryGetRenderTargetDepthTexture(GpuRenderTargetHandle target,
-                                                Diligent::ITexture*& outTexture)    = 0;
+                                                Diligent::ITexture *&outTexture)    = 0;
 };
 
 } // namespace cressim::neo::gpu

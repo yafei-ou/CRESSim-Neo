@@ -12,7 +12,7 @@ namespace
 {
 
 Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> createResolveBinding(
-    Diligent::IPipelineState* pipeline)
+    Diligent::IPipelineState *pipeline)
 {
     if (pipeline == nullptr)
     {
@@ -26,9 +26,9 @@ Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> createResolveBinding(
 
 } // namespace
 
-DisplayResolvePass::DisplayResolvePass(gpu::GpuDevice& device) : mDevice(device) {}
+DisplayResolvePass::DisplayResolvePass(gpu::GpuDevice &device) : mDevice(device) {}
 
-std::size_t DisplayResolvePass::PipelineKeyHasher::operator()(const PipelineKey& key) const noexcept
+std::size_t DisplayResolvePass::PipelineKeyHasher::operator()(const PipelineKey &key) const noexcept
 {
     const std::size_t colorHash =
         std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.colorFormat));
@@ -59,7 +59,7 @@ bool DisplayResolvePass::initialize()
     return mInitialized;
 }
 
-bool DisplayResolvePass::ensureConstants(Diligent::IRenderDevice* renderDevice)
+bool DisplayResolvePass::ensureConstants(Diligent::IRenderDevice *renderDevice)
 {
     if (renderDevice == nullptr)
     {
@@ -80,8 +80,8 @@ bool DisplayResolvePass::ensureConstants(Diligent::IRenderDevice* renderDevice)
     return mConstantsBuffer != nullptr;
 }
 
-Diligent::IPipelineState* DisplayResolvePass::getOrCreatePipeline(
-    Diligent::IRenderDevice* renderDevice, const PipelineKey& key)
+Diligent::IPipelineState *DisplayResolvePass::getOrCreatePipeline(
+    Diligent::IRenderDevice *renderDevice, const PipelineKey &key)
 {
     auto it = mPipelines.find(key);
     if (it != mPipelines.end())
@@ -94,7 +94,7 @@ Diligent::IPipelineState* DisplayResolvePass::getOrCreatePipeline(
     }
 
     gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
-    Diligent::IShaderSourceInputStreamFactory* streamFactory = shaderLibrary.streamFactory();
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
     if (streamFactory == nullptr)
     {
         return nullptr;
@@ -156,7 +156,7 @@ Diligent::IPipelineState* DisplayResolvePass::getOrCreatePipeline(
         return nullptr;
     }
 
-    if (Diligent::IShaderResourceVariable* constantsVar = pipeline->GetStaticVariableByName(
+    if (Diligent::IShaderResourceVariable *constantsVar = pipeline->GetStaticVariableByName(
             Diligent::SHADER_TYPE_PIXEL, "GraphicsDisplayResolve"))
     {
         constantsVar->Set(mConstantsBuffer);
@@ -166,8 +166,8 @@ Diligent::IPipelineState* DisplayResolvePass::getOrCreatePipeline(
     return insertResult.first->second;
 }
 
-Diligent::IShaderResourceBinding* DisplayResolvePass::getOrCreateResolveBinding(
-    Diligent::IPipelineState* pipeline)
+Diligent::IShaderResourceBinding *DisplayResolvePass::getOrCreateResolveBinding(
+    Diligent::IPipelineState *pipeline)
 {
     if (pipeline == nullptr)
     {
@@ -191,14 +191,14 @@ Diligent::IShaderResourceBinding* DisplayResolvePass::getOrCreateResolveBinding(
 }
 
 Diligent::RefCntAutoPtr<Diligent::ITextureView> DisplayResolvePass::createArraySrv(
-    Diligent::ITexture* texture) const
+    Diligent::ITexture *texture) const
 {
     if (texture == nullptr)
     {
         return {};
     }
 
-    const Diligent::TextureDesc& textureDesc = texture->GetDesc();
+    const Diligent::TextureDesc &textureDesc = texture->GetDesc();
     Diligent::TextureViewDesc viewDesc{};
     viewDesc.ViewType        = Diligent::TEXTURE_VIEW_SHADER_RESOURCE;
     viewDesc.TextureDim      = textureDesc.Type;
@@ -217,8 +217,8 @@ Diligent::RefCntAutoPtr<Diligent::ITextureView> DisplayResolvePass::createArrayS
     return srv;
 }
 
-bool DisplayResolvePass::resolve(const common::FrameContext& frameContext,
-                                 const DisplayResolveRequest& request)
+bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
+                                 const DisplayResolveRequest &request)
 {
     if (!mInitialized)
     {
@@ -232,7 +232,7 @@ bool DisplayResolvePass::resolve(const common::FrameContext& frameContext,
         return false;
     }
 
-    Diligent::ITexture* sourceTexture = nullptr;
+    Diligent::ITexture *sourceTexture = nullptr;
     if (!mDevice.renderTargetSystem().tryGetRenderTargetColorTexture(request.sourceBinding.target,
                                                                      sourceTexture) ||
         sourceTexture == nullptr)
@@ -243,7 +243,7 @@ bool DisplayResolvePass::resolve(const common::FrameContext& frameContext,
     const Diligent::TEXTURE_FORMAT depthFormat = request.targetTargetDesc.depth
                                                      ? request.targetTargetDesc.depthFormat
                                                      : Diligent::TEX_FORMAT_UNKNOWN;
-    Diligent::IPipelineState* pipeline =
+    Diligent::IPipelineState *pipeline =
         getOrCreatePipeline(backendContext.renderDevice,
                             PipelineKey{request.targetTargetDesc.colorFormat, depthFormat});
     if (pipeline == nullptr)
@@ -257,12 +257,12 @@ bool DisplayResolvePass::resolve(const common::FrameContext& frameContext,
         return false;
     }
 
-    Diligent::IShaderResourceBinding* resolveBinding = getOrCreateResolveBinding(pipeline);
+    Diligent::IShaderResourceBinding *resolveBinding = getOrCreateResolveBinding(pipeline);
     if (resolveBinding == nullptr)
     {
         return false;
     }
-    Diligent::IShaderResourceVariable* sourceColorVar =
+    Diligent::IShaderResourceVariable *sourceColorVar =
         resolveBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_SourceColor");
     if (sourceColorVar == nullptr)
     {
@@ -272,7 +272,7 @@ bool DisplayResolvePass::resolve(const common::FrameContext& frameContext,
 
     ResolveConstants constants{};
     constants.layer = request.sourceBinding.firstLayer;
-    void* mapped    = nullptr;
+    void *mapped    = nullptr;
     backendContext.immediateContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,
                                                Diligent::MAP_FLAG_DISCARD, mapped);
     if (mapped == nullptr)

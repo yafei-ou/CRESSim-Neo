@@ -28,17 +28,17 @@ namespace detail
 class ForwardOpaquePass
 {
 public:
-    ForwardOpaquePass(gpu::GpuDevice& device, RenderResourceManager& resourceManager);
+    ForwardOpaquePass(gpu::GpuDevice &device, RenderResourceManager &resourceManager);
 
     bool initialize();
-    bool beginBatchFrame(const CameraBatchView& batchView);
-    void setGpuSceneView(const gpu::GpuEntitySceneView& sceneView) noexcept;
-    void setVisiblePairBuffer(Diligent::IBuffer* buffer) noexcept;
+    bool beginBatchFrame(const CameraBatchView &batchView);
+    void setGpuSceneView(const gpu::GpuEntitySceneView &sceneView) noexcept;
+    void setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept;
     void setShadowMapTargets(
-        const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount>& shadowMapTargets,
+        const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> &shadowMapTargets,
         std::uint32_t shadowMapCount);
-    bool drawIndirect(const gpu::GpuRenderTargetBinding& targetBinding,
-                      const ForwardDrawCommand& drawCommand, Diligent::IBuffer* indirectArgsBuffer,
+    bool drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
+                      const ForwardDrawCommand &drawCommand, Diligent::IBuffer *indirectArgsBuffer,
                       Diligent::Uint64 argsOffsetBytes);
     std::size_t cachedProgramCount() const noexcept;
 
@@ -46,8 +46,8 @@ private:
     struct DrawSetup
     {
         gpu::GpuBackendContext backendContext{};
-        MeshGpuCache::CachedBuffers* meshBuffers           = nullptr;
-        MaterialProgramRegistry::ProgramResources* program = nullptr;
+        MeshGpuCache::CachedBuffers *meshBuffers           = nullptr;
+        MaterialProgramRegistry::ProgramResources *program = nullptr;
     };
 
     struct ForwardPerFrameConstants
@@ -78,21 +78,21 @@ private:
         Diligent::float4 materialParams{0.0f, 0.5f, 0.5f, 0.0f};
     };
 
-    bool ensureConstantBuffers(Diligent::IRenderDevice* renderDevice);
-    bool bindProgramConstants(MaterialProgramRegistry::ProgramResources& program);
+    bool ensureConstantBuffers(Diligent::IRenderDevice *renderDevice);
+    bool bindProgramConstants(MaterialProgramRegistry::ProgramResources &program);
     bool hasAnyShadowMap() const;
-    bool prepareDraw(const gpu::GpuRenderTargetBinding& targetBinding,
-                     const ForwardDrawCommand& drawCommand, DrawSetup& outSetup);
-    bool bindShadowMaps(MaterialProgramRegistry::ProgramResources& program);
-    bool bindSceneBuffers(MaterialProgramRegistry::ProgramResources& program) const;
-    bool updatePerDrawConstants(Diligent::IDeviceContext* immediateContext,
-                                const ForwardDrawCommand& drawCommand);
-    void bindGeometry(Diligent::IDeviceContext* immediateContext,
-                      const MeshGpuCache::CachedBuffers& meshBuffers) const;
+    bool prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
+                     const ForwardDrawCommand &drawCommand, DrawSetup &outSetup);
+    bool bindShadowMaps(MaterialProgramRegistry::ProgramResources &program);
+    bool bindSceneBuffers(MaterialProgramRegistry::ProgramResources &program) const;
+    bool updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
+                                const ForwardDrawCommand &drawCommand);
+    void bindGeometry(Diligent::IDeviceContext *immediateContext,
+                      const MeshGpuCache::CachedBuffers &meshBuffers) const;
 
 private:
-    gpu::GpuDevice& mDevice;
-    RenderResourceManager& mResourceManager;
+    gpu::GpuDevice &mDevice;
+    RenderResourceManager &mResourceManager;
     bool mInitialized = false;
     gpu::ShaderLibrary mShaderLibrary;
     std::unique_ptr<MaterialProgramRegistry> mProgramRegistry;
@@ -106,7 +106,7 @@ private:
     std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
     std::uint32_t mShadowMapCount = 0;
     gpu::GpuEntitySceneView mSceneView{};
-    Diligent::IBuffer* mVisiblePairBuffer = nullptr;
+    Diligent::IBuffer *mVisiblePairBuffer = nullptr;
 };
 
 } // namespace detail

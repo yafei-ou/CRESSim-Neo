@@ -1,6 +1,6 @@
 #include "engine/runtime.h"
+#include "common/logger.h"
 
-#include <iostream>
 
 namespace
 {
@@ -23,14 +23,14 @@ int main()
     Runtime runtime;
     if (!runtime.initialize(config))
     {
-        std::cerr << "Runtime initialization failed.\n";
+        CRESSIM_LOG_ERROR( "Runtime initialization failed.\n");
         return 1;
     }
 
     GpuDevice* device = runtime.getGpuDevice();
     if (device == nullptr)
     {
-        std::cerr << "Graphics device not available.\n";
+        CRESSIM_LOG_ERROR( "Graphics device not available.\n");
         runtime.shutdown();
         return 1;
     }
@@ -42,7 +42,7 @@ int main()
     GpuRenderTargetHandle target = device->renderTargetSystem().createRenderTarget(desc);
     if (!device->renderTargetSystem().isValidRenderTarget(target))
     {
-        std::cerr << "Failed to create render target.\n";
+        CRESSIM_LOG_ERROR( "Failed to create render target.\n");
         runtime.shutdown();
         return 1;
     }
@@ -50,7 +50,7 @@ int main()
     const GpuRenderTargetUpdateResult resizeNoOp = device->renderTargetSystem().resizeRenderTarget(target, 640, 480);
     if (resizeNoOp != GpuRenderTargetUpdateResult::Unchanged)
     {
-        std::cerr << "Expected unchanged result for same-size resize.\n";
+        CRESSIM_LOG_ERROR( "Expected unchanged result for same-size resize.\n");
         runtime.shutdown();
         return 1;
     }
@@ -58,7 +58,7 @@ int main()
     GpuRenderTargetDesc updatedDesc{};
     if (!device->renderTargetSystem().tryGetRenderTargetDesc(target, updatedDesc))
     {
-        std::cerr << "Failed to fetch render target descriptor.\n";
+        CRESSIM_LOG_ERROR( "Failed to fetch render target descriptor.\n");
         runtime.shutdown();
         return 1;
     }
@@ -67,7 +67,7 @@ int main()
     const GpuRenderTargetUpdateResult metadataUpdate = device->renderTargetSystem().reconfigureRenderTarget(target, updatedDesc);
     if (metadataUpdate != GpuRenderTargetUpdateResult::Unchanged)
     {
-        std::cerr << "Expected unchanged result for metadata-only reconfigure.\n";
+        CRESSIM_LOG_ERROR( "Expected unchanged result for metadata-only reconfigure.\n");
         runtime.shutdown();
         return 1;
     }
@@ -76,7 +76,7 @@ int main()
     const GpuRenderTargetUpdateResult resizedUpdate = device->renderTargetSystem().reconfigureRenderTarget(target, updatedDesc);
     if (resizedUpdate != GpuRenderTargetUpdateResult::Recreated)
     {
-        std::cerr << "Expected recreated result for dimension-changing reconfigure.\n";
+        CRESSIM_LOG_ERROR( "Expected recreated result for dimension-changing reconfigure.\n");
         runtime.shutdown();
         return 1;
     }
@@ -84,7 +84,7 @@ int main()
     GpuRenderTargetDesc finalDesc{};
     if (!device->renderTargetSystem().tryGetRenderTargetDesc(target, finalDesc))
     {
-        std::cerr << "Failed to fetch final descriptor.\n";
+        CRESSIM_LOG_ERROR( "Failed to fetch final descriptor.\n");
         runtime.shutdown();
         return 1;
     }
@@ -93,10 +93,10 @@ int main()
 
     if (finalDesc.width != 800 || finalDesc.height != 480)
     {
-        std::cerr << "Unexpected final descriptor dimensions.\n";
+        CRESSIM_LOG_ERROR( "Unexpected final descriptor dimensions.\n");
         return 1;
     }
 
-    std::cout << "Render target resize policy checks passed.\n";
+    CRESSIM_LOG_INFO( "Render target resize policy checks passed.\n");
     return 0;
 }

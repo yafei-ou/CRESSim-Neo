@@ -28,7 +28,7 @@ public:
         bool depthWrite                      = true;
         bool blendingEnabled                 = false;
 
-        bool operator==(const ProgramKey& rhs) const noexcept
+        bool operator==(const ProgramKey &rhs) const noexcept
         {
             return passClass == rhs.passClass && programFamily == rhs.programFamily &&
                    featureFlags == rhs.featureFlags && colorFormat == rhs.colorFormat &&
@@ -39,7 +39,7 @@ public:
 
     struct ProgramKeyHasher
     {
-        std::size_t operator()(const ProgramKey& key) const noexcept;
+        std::size_t operator()(const ProgramKey &key) const noexcept;
     };
 
     struct ProgramResources
@@ -49,10 +49,10 @@ public:
     };
 
 public:
-    explicit MaterialProgramRegistry(gpu::ShaderLibrary& shaderSourceProvider);
+    explicit MaterialProgramRegistry(gpu::ShaderLibrary &shaderSourceProvider);
 
-    ProgramResources* getOrCreateProgram(Diligent::IRenderDevice* renderDevice,
-                                         const ProgramKey& key);
+    ProgramResources *getOrCreateProgram(Diligent::IRenderDevice *renderDevice,
+                                         const ProgramKey &key);
 
     static ProgramKey buildProgramKey(MainPassClass passClass, MaterialProgramFamily programFamily,
                                       MaterialFeatureFlags featureFlags,
@@ -63,11 +63,11 @@ public:
     std::size_t cachedProgramCount() const noexcept;
 
 private:
-    bool createProgram(Diligent::IRenderDevice* renderDevice, const ProgramKey& key,
-                       ProgramResources& outResources);
+    bool createProgram(Diligent::IRenderDevice *renderDevice, const ProgramKey &key,
+                       ProgramResources &outResources);
 
 private:
-    gpu::ShaderLibrary& mShaderLibrary;
+    gpu::ShaderLibrary &mShaderLibrary;
     std::unordered_map<ProgramKey, ProgramResources, ProgramKeyHasher> mPrograms;
 };
 

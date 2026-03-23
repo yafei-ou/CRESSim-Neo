@@ -76,8 +76,8 @@ struct DebugViewerCameraBinding
 
 struct DebugViewerCallbacks
 {
-    std::function<void(const common::FrameContext&, engine::Runtime&)> beforeTick{};
-    std::function<void(const common::FrameContext&, engine::Runtime&)> afterTick{};
+    std::function<void(const common::FrameContext &, engine::Runtime &)> beforeTick{};
+    std::function<void(const common::FrameContext &, engine::Runtime &)> afterTick{};
 };
 
 class CRESSIM_NEO_VIEWER_API DebugViewerApp
@@ -86,13 +86,13 @@ public:
     DebugViewerApp();
     ~DebugViewerApp();
 
-    DebugViewerApp(const DebugViewerApp&)            = delete;
-    DebugViewerApp& operator=(const DebugViewerApp&) = delete;
-    DebugViewerApp(DebugViewerApp&&) noexcept;
-    DebugViewerApp& operator=(DebugViewerApp&&) noexcept;
+    DebugViewerApp(const DebugViewerApp &)            = delete;
+    DebugViewerApp &operator=(const DebugViewerApp &) = delete;
+    DebugViewerApp(DebugViewerApp &&) noexcept;
+    DebugViewerApp &operator=(DebugViewerApp &&) noexcept;
 
-    bool initialize(DebugViewerAppDesc desc, engine::RuntimeConfig& inOutRuntimeConfig);
-    bool run(engine::Runtime& runtime, DebugViewerCameraBinding camera,
+    bool initialize(DebugViewerAppDesc desc, engine::RuntimeConfig &inOutRuntimeConfig);
+    bool run(engine::Runtime &runtime, DebugViewerCameraBinding camera,
              DebugViewerCallbacks callbacks = {});
     void requestExit();
     void shutdown();

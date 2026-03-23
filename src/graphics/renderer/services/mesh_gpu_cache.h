@@ -27,9 +27,9 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> indexBuffer;
     };
 
-    CachedBuffers* getOrCreate(const RenderResourceManager& resources,
-                               const ForwardDrawCommand& drawCommand,
-                               Diligent::IRenderDevice* renderDevice);
+    CachedBuffers *getOrCreate(const RenderResourceManager &resources,
+                               const ForwardDrawCommand &drawCommand,
+                               Diligent::IRenderDevice *renderDevice);
 
 private:
     std::string mDebugPrefix;

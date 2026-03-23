@@ -1,6 +1,6 @@
 #include "engine/runtime.h"
+#include "common/logger.h"
 
-#include <iostream>
 
 namespace
 {
@@ -24,14 +24,14 @@ int main()
         Runtime runtime;
         if (!runtime.initialize(config))
         {
-            std::cerr << "Runtime initialization failed for headless null backend.\n";
+            CRESSIM_LOG_ERROR( "Runtime initialization failed for headless null backend.\n");
             return 1;
         }
 
         GpuDevice* device = runtime.getGpuDevice();
         if (device == nullptr)
         {
-            std::cerr << "Graphics device not available.\n";
+            CRESSIM_LOG_ERROR( "Graphics device not available.\n");
             runtime.shutdown();
             return 1;
         }
@@ -39,7 +39,7 @@ int main()
         GpuRenderTargetDesc defaultDesc{};
         if (!device->renderTargetSystem().tryGetRenderTargetDesc(device->renderTargetSystem().defaultRenderTarget(), defaultDesc))
         {
-            std::cerr << "Failed to query default render target descriptor.\n";
+            CRESSIM_LOG_ERROR( "Failed to query default render target descriptor.\n");
             runtime.shutdown();
             return 1;
         }
@@ -47,7 +47,7 @@ int main()
 
         if (defaultDesc.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
         {
-            std::cerr << "Expected auto default color format to resolve in headless mode.\n";
+            CRESSIM_LOG_ERROR( "Expected auto default color format to resolve in headless mode.\n");
             return 1;
         }
     }
@@ -60,12 +60,12 @@ int main()
         Runtime runtime;
         if (runtime.initialize(config))
         {
-            std::cerr << "Expected runtime initialization to fail when presentation is enabled on null backend.\n";
+            CRESSIM_LOG_ERROR( "Expected runtime initialization to fail when presentation is enabled on null backend.\n");
             runtime.shutdown();
             return 1;
         }
     }
 
-    std::cout << "Device presentation policy checks passed.\n";
+    CRESSIM_LOG_INFO( "Device presentation policy checks passed.\n");
     return 0;
 }

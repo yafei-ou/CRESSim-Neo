@@ -1,9 +1,8 @@
 #include "physics/physics_solver.h"
 
+#include "common/logger.h"
 #include "physics/physics_pass_dispatcher.h"
 #include "physics/physics_scene_gpu_state.h"
-
-#include "DiligentEngine/DiligentCore/Primitives/interface/Errors.hpp"
 
 #include <algorithm>
 #include <memory>
@@ -19,7 +18,7 @@ constexpr std::size_t stageIndex(PhysicsSolverStage stage)
     return static_cast<std::size_t>(stage);
 }
 
-void markStage(PhysicsSolverStageStats& stats, PhysicsSolverStage stage, bool executed)
+void markStage(PhysicsSolverStageStats &stats, PhysicsSolverStage stage, bool executed)
 {
     stats.executed[stageIndex(stage)] = executed;
     if (executed)
@@ -32,7 +31,7 @@ void markStage(PhysicsSolverStageStats& stats, PhysicsSolverStage stage, bool ex
     }
 }
 
-void markAllStagesSkipped(PhysicsSolverStageStats& stats)
+void markAllStagesSkipped(PhysicsSolverStageStats &stats)
 {
     markStage(stats, PhysicsSolverStage::PredictState, false);
     markStage(stats, PhysicsSolverStage::UpdateWorldAabbs, false);
@@ -53,7 +52,7 @@ struct PhysicsSolver::Impl
     PhysicsSolverStageStats stageStats{};
 };
 
-PhysicsSolver::PhysicsSolver(gpu::GpuDevice& device, const PhysicsSolverDesc& desc)
+PhysicsSolver::PhysicsSolver(gpu::GpuDevice &device, const PhysicsSolverDesc &desc)
     : mDevice(device), mDesc(desc), mImpl(std::make_unique<Impl>())
 {
 }
@@ -74,7 +73,7 @@ bool PhysicsSolver::initialize()
     if (!mDevice.tryGetPhysicsBackendContext(computeContext) ||
         computeContext.renderDevice == nullptr)
     {
-        LOG_ERROR_MESSAGE("PhysicsSolver: failed to get physics GPU context.");
+        CRESSIM_LOG_ERROR("PhysicsSolver: failed to get physics GPU context.");
         return false;
     }
 
@@ -82,7 +81,7 @@ bool PhysicsSolver::initialize()
     if (!mImpl->passDispatcher.initialize(computeContext.renderDevice, computeContext.contextId,
                                           mDevice.shaderSourceDirectory().c_str()))
     {
-        LOG_ERROR_MESSAGE("PhysicsSolver: failed to initialize physics pass dispatcher.");
+        CRESSIM_LOG_ERROR("PhysicsSolver: failed to initialize physics pass dispatcher.");
         return false;
     }
 
@@ -96,7 +95,7 @@ void PhysicsSolver::shutdown()
     mInitialized = false;
 }
 
-bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld& world)
+bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld &world)
 {
     if (!mInitialized)
     {
@@ -115,7 +114,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
     if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
         computeBackend.renderDevice == nullptr || computeBackend.computeContext == nullptr)
     {
-        LOG_ERROR_MESSAGE("PhysicsSolver::step failed: missing physics backend context.");
+        CRESSIM_LOG_ERROR("PhysicsSolver::step failed: missing physics backend context.");
         return false;
     }
 
@@ -130,13 +129,13 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
     if (!mImpl->sceneState.ensureCapacity(computeBackend.renderDevice, rigidBodyCount,
                                           colliderCount, computeBackend.contextId))
     {
-        LOG_ERROR_MESSAGE("PhysicsSolver::step failed: ensureCapacity.");
+        CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ensureCapacity.");
         return false;
     }
     if (!mImpl->sceneState.uploadWorldState(computeBackend.computeContext, world, rigidBodyCount,
                                             colliderCount))
     {
-        LOG_ERROR_MESSAGE("PhysicsSolver::step failed: uploadWorldState.");
+        CRESSIM_LOG_ERROR("PhysicsSolver::step failed: uploadWorldState.");
         return false;
     }
 
@@ -158,14 +157,14 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             !mImpl->passDispatcher.clearCorrections(computeBackend.computeContext,
                                                     mImpl->sceneState, rigidBodyCount, constants))
         {
-            LOG_ERROR_MESSAGE("PhysicsSolver::step failed: ClearCorrections dispatch.");
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ClearCorrections dispatch.");
             return false;
         }
 
         if (!mImpl->passDispatcher.predict(computeBackend.computeContext, mImpl->sceneState,
                                            rigidBodyCount, constants))
         {
-            LOG_ERROR_MESSAGE("PhysicsSolver::step failed: PredictState dispatch.");
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: PredictState dispatch.");
             return false;
         }
         markStage(mImpl->stageStats, PhysicsSolverStage::PredictState, true);
@@ -173,7 +172,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         if (!mImpl->passDispatcher.updateWorldAabbs(computeBackend.computeContext,
                                                     mImpl->sceneState, colliderCount, constants))
         {
-            LOG_ERROR_MESSAGE("PhysicsSolver::step failed: UpdateWorldAabbs dispatch.");
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateWorldAabbs dispatch.");
             return false;
         }
         markStage(mImpl->stageStats, PhysicsSolverStage::UpdateWorldAabbs, true);
@@ -182,7 +181,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             !mImpl->passDispatcher.compactBroadPhaseBodySets(
                 computeBackend.computeContext, mImpl->sceneState, colliderCount, constants))
         {
-            LOG_ERROR_MESSAGE("PhysicsSolver::step failed: BuildBroadPhase compaction dispatch.");
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: BuildBroadPhase compaction dispatch.");
             return false;
         }
 
@@ -190,7 +189,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         if (colliderCount > 0u && !mImpl->sceneState.readbackBroadPhaseMetaBlocking(
                                       computeBackend.computeContext, broadPhaseMeta))
         {
-            LOG_ERROR_MESSAGE("PhysicsSolver::step failed: readbackBroadPhaseMetaBlocking.");
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: readbackBroadPhaseMetaBlocking.");
             return false;
         }
 
@@ -204,7 +203,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             if (!mImpl->passDispatcher.buildBroadPhase(
                     computeBackend.computeContext, mImpl->sceneState, activeMovingCount, constants))
             {
-                LOG_ERROR_MESSAGE("PhysicsSolver::step failed: BuildBroadPhase dispatch.");
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: BuildBroadPhase dispatch.");
                 return false;
             }
             builtBroadPhase = true;
@@ -221,19 +220,19 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             if (!mImpl->passDispatcher.finalizeBroadPhasePairs(
                     computeBackend.computeContext, mImpl->sceneState, activeMovingCount, constants))
             {
-                LOG_ERROR_MESSAGE("PhysicsSolver::step failed: FinalizePairs dispatch.");
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: FinalizePairs dispatch.");
                 return false;
             }
 
             if (!mImpl->sceneState.readbackBroadPhaseMetaBlocking(computeBackend.computeContext,
                                                                   broadPhaseMeta))
             {
-                LOG_ERROR_MESSAGE("PhysicsSolver::step failed: pair meta readback.");
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: pair meta readback.");
                 return false;
             }
             if (broadPhaseMeta.overflow != 0u)
             {
-                LOG_ERROR_MESSAGE("PhysicsSolver::step failed: candidate pair overflow (required=",
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: candidate pair overflow (required=",
                                   broadPhaseMeta.requiredPairCount,
                                   ", capacity=", mImpl->sceneState.candidatePairCapacity(), ").");
                 return false;
@@ -244,7 +243,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             if (!mImpl->passDispatcher.emitBroadPhasePairs(
                     computeBackend.computeContext, mImpl->sceneState, activeMovingCount, constants))
             {
-                LOG_ERROR_MESSAGE("PhysicsSolver::step failed: typed pair emission dispatch.");
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: typed pair emission dispatch.");
                 return false;
             }
             markStage(mImpl->stageStats, PhysicsSolverStage::GenerateBroadPhasePairs, true);
@@ -259,7 +258,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
             if (!mImpl->passDispatcher.generateContacts(computeBackend.computeContext,
                                                         mImpl->sceneState, pairCount))
             {
-                LOG_ERROR_MESSAGE("PhysicsSolver::step failed: GenerateContacts dispatch.");
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: GenerateContacts dispatch.");
                 return false;
             }
             markStage(mImpl->stageStats, PhysicsSolverStage::GenerateContacts, true);
@@ -268,7 +267,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
                                                         mImpl->sceneState, rigidBodyCount,
                                                         pairCount, iterations, constants))
             {
-                LOG_ERROR_MESSAGE("PhysicsSolver::step failed: SolveConstraints dispatch.");
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SolveConstraints dispatch.");
                 return false;
             }
             markStage(mImpl->stageStats, PhysicsSolverStage::SolveConstraints, true);
@@ -283,7 +282,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         if (!mImpl->passDispatcher.updateVelocities(computeBackend.computeContext,
                                                     mImpl->sceneState, rigidBodyCount, constants))
         {
-            LOG_ERROR_MESSAGE("PhysicsSolver::step failed: UpdateVelocities dispatch.");
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateVelocities dispatch.");
             return false;
         }
         markStage(mImpl->stageStats, PhysicsSolverStage::UpdateVelocities, true);
@@ -291,7 +290,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
         if (substep + 1u < substeps && !mImpl->sceneState.copyPredictedRigidBodiesToPersistentState(
                                            computeBackend.computeContext, rigidBodyCount))
         {
-            LOG_ERROR_MESSAGE(
+            CRESSIM_LOG_ERROR(
                 "PhysicsSolver::step failed: copyPredictedRigidBodiesToPersistentState.");
             return false;
         }
@@ -306,7 +305,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
     if (!mImpl->sceneState.readbackPredictedRigidStateBlocking(computeBackend.computeContext, world,
                                                                rigidBodyCount))
     {
-        LOG_ERROR_MESSAGE("PhysicsSolver::step failed: readbackPredictedRigidStateBlocking.");
+        CRESSIM_LOG_ERROR("PhysicsSolver::step failed: readbackPredictedRigidStateBlocking.");
         return false;
     }
 
@@ -314,7 +313,7 @@ bool PhysicsSolver::step(const common::FrameContext& frameContext, PhysicsWorld&
     return true;
 }
 
-const PhysicsSolverStageStats& PhysicsSolver::lastStageStats() const noexcept
+const PhysicsSolverStageStats &PhysicsSolver::lastStageStats() const noexcept
 {
     return mImpl->stageStats;
 }

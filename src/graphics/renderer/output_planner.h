@@ -22,14 +22,14 @@ struct CameraOutputPlanningResult
 };
 
 CameraOutputPlanningResult planCameraOutputs(
-    const std::vector<CameraData>& cameras, const gpu::GpuEntitySceneView& gpuScene,
-    gpu::GpuRenderTargetSystem& renderTargetSystem,
-    const gpu::GpuRenderTargetDesc& defaultTargetDesc,
-    const gpu::GpuRenderTargetBinding& defaultTargetBinding, bool hasDefaultTarget,
-    const RenderFrameOptions& options,
+    const std::vector<CameraData> &cameras, const gpu::GpuEntitySceneView &gpuScene,
+    gpu::GpuRenderTargetSystem &renderTargetSystem,
+    const gpu::GpuRenderTargetDesc &defaultTargetDesc,
+    const gpu::GpuRenderTargetBinding &defaultTargetBinding, bool hasDefaultTarget,
+    const RenderFrameOptions &options,
     std::unordered_map<RenderTargetFamilyKey, gpu::GpuRenderTargetHandle,
-                       RenderTargetFamilyKeyHasher>& managedPrimaryTargets,
-    RenderStats& inOutStats);
+                       RenderTargetFamilyKeyHasher> &managedPrimaryTargets,
+    RenderStats &inOutStats);
 
 } // namespace cressim::neo::graphics::detail
 
