@@ -541,6 +541,7 @@ int main(int argc, char** argv)
     viewerDesc.startFullscreenWindowed = false;
     viewerDesc.maxFrames = numFrames;
     viewerDesc.showStats = true;
+    viewerDesc.vSync = false;
     viewerDesc.width = 640;
     viewerDesc.height = 480;
     viewerDesc.windowTitle = "CRESSim Neo Physics Viewer Large Array Multi Env";
