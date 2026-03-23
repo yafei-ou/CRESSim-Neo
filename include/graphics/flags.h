@@ -59,4 +59,4 @@ constexpr bool hasFlag(E value, E flag) noexcept
 
 } // namespace cressim::neo::graphics
 
-#endif // !CRESSIM_NEO_GRAPHICS_GRAPHICS_FLAGS_H
+#endif // CRESSIM_NEO_GRAPHICS_GRAPHICS_FLAGS_H

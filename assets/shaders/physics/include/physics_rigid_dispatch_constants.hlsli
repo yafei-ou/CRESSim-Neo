@@ -21,4 +21,4 @@ cbuffer PhysicsRigidDispatchConstantsBuffer
     uint reserved1;
 };
 
-#endif // !CRESSIM_NEO_PHYSICS_RIGID_DISPATCH_CONSTANTS_HLSLI
+#endif // CRESSIM_NEO_PHYSICS_RIGID_DISPATCH_CONSTANTS_HLSLI

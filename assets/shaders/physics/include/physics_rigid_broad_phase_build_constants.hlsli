@@ -9,4 +9,4 @@ cbuffer PhysicsRigidBroadPhaseBuildConstantsBuffer
     uint reserved2;
 };
 
-#endif // !CRESSIM_NEO_PHYSICS_RIGID_BROAD_PHASE_BUILD_CONSTANTS_HLSLI
+#endif // CRESSIM_NEO_PHYSICS_RIGID_BROAD_PHASE_BUILD_CONSTANTS_HLSLI
