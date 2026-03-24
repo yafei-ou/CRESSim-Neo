@@ -1,9 +1,9 @@
 cbuffer GraphicsDisplayResolve
 {
     uint g_SourceLayer;
+    uint g_OutputMode;
     uint g_Padding0;
     uint g_Padding1;
-    uint g_Padding2;
 };
 
 Texture2DArray<float4> g_SourceColor;
@@ -31,7 +31,11 @@ float3 linearToSrgb(float3 color)
 float4 main(in PSInput In) : SV_Target
 {
     float4 color = g_SourceColor.Sample(g_SourceColor_sampler, float3(In.TexCoord, (float)g_SourceLayer));
-    color.rgb = toneMapReinhard(max(color.rgb, 0.0));
-    color.rgb = linearToSrgb(color.rgb);
+    color.rgb = max(color.rgb, 0.0);
+    if (g_OutputMode == 0)
+    {
+        color.rgb = toneMapReinhard(color.rgb);
+        color.rgb = linearToSrgb(color.rgb);
+    }
     return color;
 }

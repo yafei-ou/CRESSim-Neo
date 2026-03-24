@@ -28,6 +28,29 @@ bool requiresTextureRecreate(const GpuRenderTargetDesc &currentDesc,
 
 } // namespace
 
+GpuRenderTargetDesc normalizeDefaultRenderTargetDesc(const GpuRenderTargetDesc &desc)
+{
+    GpuRenderTargetDesc normalized = desc;
+    normalized.width               = common::runtime_math::clampExtent(
+        normalized.width == 0 ? kDefaultRenderTargetWidth : normalized.width);
+    normalized.height = common::runtime_math::clampExtent(
+        normalized.height == 0 ? kDefaultRenderTargetHeight : normalized.height);
+    if (normalized.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
+    {
+        normalized.colorFormat = Diligent::TEX_FORMAT_RGBA16_FLOAT;
+    }
+    if (normalized.depth && normalized.depthFormat == Diligent::TEX_FORMAT_UNKNOWN)
+    {
+        normalized.depthFormat = Diligent::TEX_FORMAT_D32_FLOAT;
+    }
+    if (!normalized.color && !normalized.depth)
+    {
+        normalized.color = true;
+    }
+    normalized.arraySize = std::max<std::uint32_t>(normalized.arraySize, 1u);
+    return normalized;
+}
+
 std::uint64_t GpuRenderTargetSystemImpl::bindingKey(const GpuRenderTargetBinding &binding) noexcept
 {
     return (static_cast<std::uint64_t>(binding.firstLayer) << 32u) |
@@ -670,20 +693,7 @@ bool GpuRenderTargetSystemImpl::tryGetRenderTargetDepthTexture(GpuRenderTargetHa
 GpuRenderTargetDesc GpuRenderTargetSystemImpl::normalizeTargetDesc(
     const GpuRenderTargetDesc &desc) const
 {
-    GpuRenderTargetDesc normalized = desc;
-    normalized.width               = common::runtime_math::clampExtent(
-        normalized.width == 0 ? kDefaultRenderTargetWidth : normalized.width);
-    normalized.height = common::runtime_math::clampExtent(
-        normalized.height == 0 ? kDefaultRenderTargetHeight : normalized.height);
-    if (normalized.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
-    {
-        normalized.colorFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
-    }
-    if (!normalized.color && !normalized.depth)
-    {
-        normalized.color = true;
-    }
-    normalized.arraySize = std::max<std::uint32_t>(normalized.arraySize, 1u);
+    GpuRenderTargetDesc normalized = normalizeDefaultRenderTargetDesc(desc);
     if (normalized.debugName.empty())
     {
         normalized.debugName = "CRESSimNeo.RenderTarget";

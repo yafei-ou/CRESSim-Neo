@@ -1,6 +1,7 @@
 #include "gpu/gpu_device_impl.h"
 #include "gpu/gpu_render_target_system_impl.h"
 
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h"
 
 #include <cstring>
@@ -146,9 +147,10 @@ bool GpuDeviceImpl::consumePresentationReadback(PendingPresentationReadback &cop
         return false;
     }
 
-    outEvent.width          = copy.width;
-    outEvent.height         = copy.height;
-    outEvent.rowStrideBytes = copy.width * 4u;
+    outEvent.width            = copy.width;
+    outEvent.height           = copy.height;
+    const auto &formatAttribs = Diligent::GetTextureFormatAttribs(copy.colorFormat);
+    outEvent.rowStrideBytes   = copy.width * formatAttribs.GetElementSize();
     outEvent.colorBytes.resize(static_cast<std::size_t>(outEvent.rowStrideBytes) *
                                static_cast<std::size_t>(outEvent.height));
 

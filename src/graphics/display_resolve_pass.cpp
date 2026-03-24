@@ -3,6 +3,8 @@
 #include "common/math_utils_runtime.h"
 #include "gpu/shader_library.h"
 
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
+
 #include <array>
 #include <cstring>
 
@@ -11,6 +13,12 @@ namespace cressim::neo::graphics::detail
 
 namespace
 {
+
+enum class ResolveOutputMode : std::uint32_t
+{
+    Sdr       = 0u,
+    HdrLinear = 1u,
+};
 
 Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> createResolveBinding(
     Diligent::IPipelineState *pipeline)
@@ -23,6 +31,19 @@ Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> createResolveBinding(
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> srb;
     pipeline->CreateShaderResourceBinding(&srb, true);
     return srb;
+}
+
+ResolveOutputMode resolveOutputModeForFormat(Diligent::TEXTURE_FORMAT colorFormat)
+{
+    const auto &formatAttribs = Diligent::GetTextureFormatAttribs(colorFormat);
+    switch (formatAttribs.ComponentType)
+    {
+    case Diligent::COMPONENT_TYPE_FLOAT:
+    case Diligent::COMPONENT_TYPE_COMPOUND:
+        return ResolveOutputMode::HdrLinear;
+    default:
+        return ResolveOutputMode::Sdr;
+    }
 }
 
 } // namespace
@@ -277,8 +298,10 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     sourceColorVar->Set(sourceSrv);
 
     ResolveConstants constants{};
-    constants.layer = request.sourceBinding.firstLayer;
-    void *mapped    = nullptr;
+    constants.layer      = request.sourceBinding.firstLayer;
+    constants.outputMode = static_cast<std::uint32_t>(
+        resolveOutputModeForFormat(request.presentationTarget.colorFormat));
+    void *mapped = nullptr;
     backendContext.immediateContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,
                                                Diligent::MAP_FLAG_DISCARD, mapped);
     if (mapped == nullptr)

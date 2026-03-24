@@ -3,6 +3,8 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
+
 #if PLATFORM_WIN32
 #define GLFW_EXPOSE_NATIVE_WIN32
 #elif PLATFORM_LINUX
@@ -16,6 +18,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstring>
 #include <cstdint>
 
 namespace
@@ -35,10 +38,23 @@ using cressim::neo::graphics::RenderFrameOptions;
 
 bool isValidReadback(const GpuPresentationReadbackEvent &event)
 {
-    if (event.width == 0u || event.height == 0u || event.rowStrideBytes < event.width * 4u)
+    if (event.width == 0u || event.height == 0u)
     {
         return false;
     }
+
+    const auto &formatAttribs = Diligent::GetTextureFormatAttribs(event.colorFormat);
+    if (formatAttribs.Format == Diligent::TEX_FORMAT_UNKNOWN || formatAttribs.IsTypeless ||
+        formatAttribs.ComponentType == Diligent::COMPONENT_TYPE_COMPRESSED)
+    {
+        return false;
+    }
+    const std::uint32_t minStride = event.width * formatAttribs.GetElementSize();
+    if (event.rowStrideBytes < minStride)
+    {
+        return false;
+    }
+
     return event.colorBytes.size() >=
            static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height);
 }
@@ -81,6 +97,45 @@ bool isNear(std::uint8_t value, std::uint8_t expected, std::uint8_t tolerance)
 {
     const int diff = static_cast<int>(value) - static_cast<int>(expected);
     return diff >= -static_cast<int>(tolerance) && diff <= static_cast<int>(tolerance);
+}
+
+float halfToFloat(std::uint16_t value)
+{
+    const std::uint32_t sign = static_cast<std::uint32_t>(value & 0x8000u) << 16u;
+    std::uint32_t exponent   = (value >> 10u) & 0x1fu;
+    std::uint32_t mantissa   = value & 0x03ffu;
+
+    std::uint32_t bits = 0u;
+    if (exponent == 0u)
+    {
+        if (mantissa != 0u)
+        {
+            exponent = 113u;
+            while ((mantissa & 0x0400u) == 0u)
+            {
+                mantissa <<= 1u;
+                --exponent;
+            }
+            mantissa &= 0x03ffu;
+            bits = sign | (exponent << 23u) | (mantissa << 13u);
+        }
+        else
+        {
+            bits = sign;
+        }
+    }
+    else if (exponent == 0x1fu)
+    {
+        bits = sign | 0x7f800000u | (mantissa << 13u);
+    }
+    else
+    {
+        bits = sign | ((exponent + 112u) << 23u) | (mantissa << 13u);
+    }
+
+    float result = 0.0f;
+    std::memcpy(&result, &bits, sizeof(result));
+    return result;
 }
 
 } // namespace
@@ -180,28 +235,51 @@ int main()
         return 1;
     }
 
-    const std::array<std::uint8_t, 3u> expected{
-        encodeDisplayByte(camera.clearColorValue.x),
-        encodeDisplayByte(camera.clearColorValue.y),
-        encodeDisplayByte(camera.clearColorValue.z)};
-
     const std::size_t offset =
         static_cast<std::size_t>(event.height / 2u) * event.rowStrideBytes +
-        static_cast<std::size_t>(event.width / 2u) * 4u;
-    const std::array<std::uint8_t, 4u> pixel{
-        event.colorBytes[offset + 0u],
-        event.colorBytes[offset + 1u],
-        event.colorBytes[offset + 2u],
-        event.colorBytes[offset + 3u]};
+        static_cast<std::size_t>(event.width / 2u) *
+            Diligent::GetTextureFormatAttribs(event.colorFormat).GetElementSize();
 
-    constexpr std::uint8_t kTolerance = 3u;
-    if (!isNear(pixel[0], expected[0], kTolerance) || !isNear(pixel[1], expected[1], kTolerance) ||
-        !isNear(pixel[2], expected[2], kTolerance))
+    bool colorMatches = false;
+    if (event.colorFormat == Diligent::TEX_FORMAT_RGBA16_FLOAT)
     {
-        CRESSIM_LOG_ERROR("Unexpected display-resolve color. Expected RGB approximately (",
-                          static_cast<int>(expected[0]), ", ", static_cast<int>(expected[1]), ", ",
-                          static_cast<int>(expected[2]), "), got (", static_cast<int>(pixel[0]), ", ",
-                          static_cast<int>(pixel[1]), ", ", static_cast<int>(pixel[2]), ").\n");
+        const std::uint16_t pixelR =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 0u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 1u]) << 8u);
+        const std::uint16_t pixelG =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 2u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 3u]) << 8u);
+        const std::uint16_t pixelB =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 4u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 5u]) << 8u);
+
+        constexpr float kFloatTolerance = 0.02f;
+        colorMatches = std::fabs(halfToFloat(pixelR) - camera.clearColorValue.x) <= kFloatTolerance &&
+                       std::fabs(halfToFloat(pixelG) - camera.clearColorValue.y) <= kFloatTolerance &&
+                       std::fabs(halfToFloat(pixelB) - camera.clearColorValue.z) <= kFloatTolerance;
+    }
+    else
+    {
+        const std::array<std::uint8_t, 3u> expected{
+            encodeDisplayByte(camera.clearColorValue.x),
+            encodeDisplayByte(camera.clearColorValue.y),
+            encodeDisplayByte(camera.clearColorValue.z)};
+        const std::array<std::uint8_t, 4u> pixel{
+            event.colorBytes[offset + 0u],
+            event.colorBytes[offset + 1u],
+            event.colorBytes[offset + 2u],
+            event.colorBytes[offset + 3u]};
+
+        constexpr std::uint8_t kTolerance = 3u;
+        colorMatches = isNear(pixel[0], expected[0], kTolerance) &&
+                       isNear(pixel[1], expected[1], kTolerance) &&
+                       isNear(pixel[2], expected[2], kTolerance);
+    }
+
+    if (!colorMatches)
+    {
+        CRESSIM_LOG_ERROR("Unexpected display-resolve color for presentation format=",
+                          static_cast<std::uint32_t>(event.colorFormat), ".\n");
         runtime.shutdown();
         glfwDestroyWindow(window);
         glfwTerminate();

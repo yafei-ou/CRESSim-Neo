@@ -435,9 +435,16 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
         mOutputPlanningState = std::make_unique<RendererOutputPlanningState>();
     }
 
+    gpu::GpuRenderTargetDesc defaultRenderTargetDesc{};
+    if (!mDevice.tryGetDefaultRenderTargetDesc(defaultRenderTargetDesc))
+    {
+        mDevice.endFrame(frameContext);
+        return stats;
+    }
+
     detail::CameraOutputPlanningResult outputPlan = detail::planCameraOutputs(
-        cameras, gpuScene, mDevice.renderTargetSystem(), options.presentationTarget, options,
-        mOutputPlanningState->managedPrimaryTargets, stats);
+        cameras, gpuScene, mDevice.renderTargetSystem(), defaultRenderTargetDesc,
+        options.presentationTarget, options, mOutputPlanningState->managedPrimaryTargets, stats);
 
     for (auto it = mOutputPlanningState->managedPrimaryTargets.begin();
          it != mOutputPlanningState->managedPrimaryTargets.end();)

@@ -31,6 +31,7 @@ public:
     GpuBackend backend() const override;
     bool tryGetGraphicsBackendContext(GpuBackendContext &outContext) override;
     bool tryGetPhysicsBackendContext(GpuComputeBackendContext &outContext) override;
+    bool tryGetDefaultRenderTargetDesc(GpuRenderTargetDesc &outDesc) const override;
     bool tryGetPresentationTargetDesc(GpuPresentationTargetDesc &outDesc) override;
     GpuPresentationReadbackRequest requestPresentationReadback() override;
     bool tryGetPresentationReadback(GpuPresentationReadbackRequest request,

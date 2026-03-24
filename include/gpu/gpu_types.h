@@ -72,7 +72,8 @@ struct CameraOutputBinding
 
 struct GpuRenderTargetDesc
 {
-    // Zero means "use the current default target size".
+    // Zero means "use current presentation size if present,
+    // otherwise fall back to 1280x720".
     std::uint32_t width                  = 0;
     std::uint32_t height                 = 0;
     std::uint32_t arraySize              = 1;
@@ -100,7 +101,7 @@ struct GpuRenderPassBeginDesc
 {
     bool clearColor          = true;
     bool clearDepth          = true;
-    float clearColorValue[4] = {0.02f, 0.02f, 0.03f, 1.0f};
+    float clearColorValue[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     float clearDepthValue    = 1.0f;
 };
 

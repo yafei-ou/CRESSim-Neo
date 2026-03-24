@@ -27,10 +27,10 @@ public:
 private:
     struct ResolveConstants
     {
-        std::uint32_t layer    = 0u;
-        std::uint32_t padding0 = 0u;
-        std::uint32_t padding1 = 0u;
-        std::uint32_t padding2 = 0u;
+        std::uint32_t layer      = 0u;
+        std::uint32_t outputMode = 0u;
+        std::uint32_t padding0   = 0u;
+        std::uint32_t padding1   = 0u;
     };
 
     struct PipelineKey

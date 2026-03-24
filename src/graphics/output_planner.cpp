@@ -12,9 +12,6 @@ namespace cressim::neo::graphics::detail
 namespace
 {
 
-constexpr std::uint32_t kManagedPrimaryFallbackWidth  = 1280u;
-constexpr std::uint32_t kManagedPrimaryFallbackHeight = 720u;
-
 struct RequestedExtent
 {
     std::uint32_t width  = 0u;
@@ -41,18 +38,18 @@ std::uint32_t buildGlobalCameraIndex(const CameraData &camera,
 }
 
 gpu::GpuRenderTargetDesc buildManagedPrimaryDesc(
-    const CameraData &camera,
+    const CameraData &camera, const gpu::GpuRenderTargetDesc &defaultRenderTargetDesc,
     const std::optional<gpu::GpuPresentationTargetDesc> &presentationTarget)
 {
     gpu::GpuRenderTargetDesc desc{};
     const std::uint32_t fallbackWidth =
         presentationTarget.has_value() && presentationTarget->width > 0u
             ? presentationTarget->width
-            : kManagedPrimaryFallbackWidth;
+            : defaultRenderTargetDesc.width;
     const std::uint32_t fallbackHeight =
         presentationTarget.has_value() && presentationTarget->height > 0u
             ? presentationTarget->height
-            : kManagedPrimaryFallbackHeight;
+            : defaultRenderTargetDesc.height;
     desc.width            = camera.outputWidth == 0u ? fallbackWidth : camera.outputWidth;
     desc.height           = camera.outputHeight == 0u ? fallbackHeight : camera.outputHeight;
     desc.arraySize        = 1u;
@@ -60,11 +57,12 @@ gpu::GpuRenderTargetDesc buildManagedPrimaryDesc(
     desc.depth            = true;
     desc.layeredRendering = true;
     desc.shaderReadable   = true;
-    desc.colorFormat      = presentationTarget.has_value() ? presentationTarget->colorFormat
-                                                           : Diligent::TEX_FORMAT_RGBA8_UNORM;
-    desc.depthFormat      = presentationTarget.has_value() && presentationTarget->hasDepth
-                                ? presentationTarget->depthFormat
-                                : Diligent::TEX_FORMAT_D32_FLOAT;
+    // ManagedPrimary is the renderer's intermediate scene target. Its format comes from the
+    // device default policy, while presentation conversion is handled separately by display
+    // resolve.
+    desc.colorFormat      = defaultRenderTargetDesc.colorFormat;
+    desc.depthFormat      = defaultRenderTargetDesc.depth ? defaultRenderTargetDesc.depthFormat
+                                                          : Diligent::TEX_FORMAT_D32_FLOAT;
     desc.debugName        = "CRESSimNeo.ManagedPrimary";
     return desc;
 }
@@ -102,6 +100,7 @@ void logInvalidExplicitTarget(const CameraData &camera)
 CameraOutputPlanningResult planCameraOutputs(
     const std::vector<CameraData> &cameras, const gpu::GpuEntitySceneView &gpuScene,
     gpu::GpuRenderTargetSystem &renderTargetSystem,
+    const gpu::GpuRenderTargetDesc &defaultRenderTargetDesc,
     const std::optional<gpu::GpuPresentationTargetDesc> &presentationTarget,
     const RenderFrameOptions &options,
     std::unordered_map<RenderTargetFamilyKey, gpu::GpuRenderTargetHandle,
@@ -123,8 +122,8 @@ CameraOutputPlanningResult planCameraOutputs(
             continue;
         }
 
-        const RenderTargetFamilyKey key =
-            makeRenderTargetFamilyKey(buildManagedPrimaryDesc(camera, presentationTarget));
+        const RenderTargetFamilyKey key = makeRenderTargetFamilyKey(
+            buildManagedPrimaryDesc(camera, defaultRenderTargetDesc, presentationTarget));
         auto [it, inserted] = managedFamilyCounts.emplace(key, 0u);
         ++it->second;
         if (inserted)
@@ -199,8 +198,8 @@ CameraOutputPlanningResult planCameraOutputs(
     {
         if (camera.output.mode == gpu::CameraOutputMode::ManagedPrimary)
         {
-            const RenderTargetFamilyKey key =
-                makeRenderTargetFamilyKey(buildManagedPrimaryDesc(camera, presentationTarget));
+            const RenderTargetFamilyKey key = makeRenderTargetFamilyKey(
+                buildManagedPrimaryDesc(camera, defaultRenderTargetDesc, presentationTarget));
             const auto familyIt = managedFamilies.find(key);
             if (familyIt == managedFamilies.end() ||
                 !renderTargetSystem.isValidRenderTarget(familyIt->second.target))

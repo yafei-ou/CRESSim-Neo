@@ -15,6 +15,8 @@
 namespace cressim::neo::gpu
 {
 
+GpuRenderTargetDesc normalizeDefaultRenderTargetDesc(const GpuRenderTargetDesc &desc);
+
 class GpuRenderTargetSystemImpl final : public GpuRenderTargetSystem
 {
 public:

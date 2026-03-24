@@ -167,7 +167,7 @@ public:
         std::uint32_t effectiveHeight = mDesc.height;
 
         inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.colorFormat =
-            Diligent::TEX_FORMAT_UNKNOWN;
+            Diligent::TEX_FORMAT_RGBA16_FLOAT;
         inOutRuntimeConfig.gpuDeviceDesc.presentation.enabled      = mDesc.windowEnabled;
         inOutRuntimeConfig.gpuDeviceDesc.presentation.syncInterval = mDesc.vSync ? 1u : 0u;
         inOutRuntimeConfig.gpuDeviceDesc.presentation.preferredColorFormat =

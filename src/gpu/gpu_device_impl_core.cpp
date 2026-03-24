@@ -1,5 +1,4 @@
 #include "common/logger.h"
-#include "common/math_utils_runtime.h"
 #include "gpu/gpu_device_impl.h"
 #include "gpu/gpu_render_target_system_impl.h"
 
@@ -21,14 +20,16 @@ std::unique_ptr<GpuDevice> createGpuDevice()
 namespace
 {
 
-constexpr std::uint32_t kDefaultRenderTargetWidth  = 1280u;
-constexpr std::uint32_t kDefaultRenderTargetHeight = 720u;
-
 Diligent::Uint32 clampWindowId(std::uint64_t value)
 {
     constexpr std::uint64_t kMax =
         static_cast<std::uint64_t>(std::numeric_limits<Diligent::Uint32>::max());
     return static_cast<Diligent::Uint32>(std::min<std::uint64_t>(value, kMax));
+}
+
+GpuRenderTargetDesc effectiveDefaultRenderTargetDesc(const GpuDeviceDesc &deviceDesc)
+{
+    return normalizeDefaultRenderTargetDesc(deviceDesc.defaultRenderTargetDesc);
 }
 
 } // namespace
@@ -158,6 +159,18 @@ bool GpuDeviceImpl::tryGetPhysicsBackendContext(GpuComputeBackendContext &outCon
     outContext.contextId      = mPhysicsContextId;
     outContext.queueType      = mPhysicsQueueType;
     outContext.role           = GpuContextRole::Physics;
+    return true;
+}
+
+bool GpuDeviceImpl::tryGetDefaultRenderTargetDesc(GpuRenderTargetDesc &outDesc) const
+{
+    outDesc = {};
+    if (!mInitialized)
+    {
+        return false;
+    }
+
+    outDesc = effectiveDefaultRenderTargetDesc(mDesc);
     return true;
 }
 
@@ -359,13 +372,10 @@ bool GpuDeviceImpl::createPrimarySwapChain()
 #endif
 
     Diligent::SwapChainDesc swapChainDesc{};
-    swapChainDesc.Width = common::runtime_math::clampExtent(
-        mDesc.defaultRenderTargetDesc.width == 0 ? kDefaultRenderTargetWidth
-                                                 : mDesc.defaultRenderTargetDesc.width);
-    swapChainDesc.Height = common::runtime_math::clampExtent(
-        mDesc.defaultRenderTargetDesc.height == 0 ? kDefaultRenderTargetHeight
-                                                  : mDesc.defaultRenderTargetDesc.height);
-    swapChainDesc.DepthBufferFormat = Diligent::TEX_FORMAT_UNKNOWN;
+    const GpuRenderTargetDesc defaultTargetDesc = effectiveDefaultRenderTargetDesc(mDesc);
+    swapChainDesc.Width                         = defaultTargetDesc.width;
+    swapChainDesc.Height                        = defaultTargetDesc.height;
+    swapChainDesc.DepthBufferFormat             = Diligent::TEX_FORMAT_UNKNOWN;
     if (mDesc.presentation.preferredColorFormat != Diligent::TEX_FORMAT_UNKNOWN)
     {
         swapChainDesc.ColorBufferFormat = mDesc.presentation.preferredColorFormat;

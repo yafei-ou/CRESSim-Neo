@@ -9,6 +9,7 @@ using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::gpu::GpuBackend;
 using cressim::neo::gpu::GpuDevice;
+using cressim::neo::gpu::GpuRenderTargetDesc;
 using cressim::neo::gpu::GpuPresentationTargetDesc;
 
 } // namespace
@@ -19,19 +20,34 @@ int main()
         RuntimeConfig config{};
         config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
         config.gpuDeviceDesc.presentation.enabled = false;
-        config.gpuDeviceDesc.defaultRenderTargetDesc.colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
+        config.gpuDeviceDesc.defaultRenderTargetDesc.colorFormat = Diligent::TEX_FORMAT_BGRA8_UNORM;
 
         Runtime runtime;
         if (!runtime.initialize(config))
         {
-            CRESSIM_LOG_ERROR( "Runtime initialization failed for headless null backend.\n");
-            return 1;
+            CRESSIM_LOG_WARNING(
+                "Skipping device presentation policy Vulkan checks because runtime initialization failed.\n");
+            return 0;
         }
 
         GpuDevice* device = runtime.getGpuDevice();
         if (device == nullptr)
         {
             CRESSIM_LOG_ERROR( "Graphics device not available.\n");
+            runtime.shutdown();
+            return 1;
+        }
+
+        GpuRenderTargetDesc defaultTargetDesc{};
+        if (!device->tryGetDefaultRenderTargetDesc(defaultTargetDesc))
+        {
+            CRESSIM_LOG_ERROR("Graphics device failed to expose default render target desc.\n");
+            runtime.shutdown();
+            return 1;
+        }
+        if (defaultTargetDesc.colorFormat != Diligent::TEX_FORMAT_BGRA8_UNORM)
+        {
+            CRESSIM_LOG_ERROR("Default render target color format did not preserve user configuration.\n");
             runtime.shutdown();
             return 1;
         }

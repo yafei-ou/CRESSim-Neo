@@ -58,6 +58,7 @@ public:
     virtual GpuBackend backend() const                                              = 0;
     virtual bool tryGetGraphicsBackendContext(GpuBackendContext &outContext)        = 0;
     virtual bool tryGetPhysicsBackendContext(GpuComputeBackendContext &outContext)  = 0;
+    virtual bool tryGetDefaultRenderTargetDesc(GpuRenderTargetDesc &outDesc) const  = 0;
     virtual bool tryGetPresentationTargetDesc(GpuPresentationTargetDesc &outDesc)   = 0;
     virtual GpuPresentationReadbackRequest requestPresentationReadback()            = 0;
     virtual bool tryGetPresentationReadback(GpuPresentationReadbackRequest request,
