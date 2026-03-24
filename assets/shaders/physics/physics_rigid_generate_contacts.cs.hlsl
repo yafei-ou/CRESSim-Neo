@@ -22,6 +22,18 @@ static const float kManifoldPointMergeDistanceSq = kManifoldMergeDistance * kMan
 static const uint kBoxBoxCandidateCapacity = 16u;
 static const float kEdgeAxisRelativeTolerance = 0.95;
 static const float kEdgeAxisAbsoluteTolerance = 1.0e-3;
+static const float kFaceAxisAbsoluteTolerance = 5.0e-4;
+static const bool kDebugBoxBoxContactSource = false;
+
+static const uint kBoxBoxContactSourceFaceClip = 1u;
+static const uint kBoxBoxContactSourceEdge = 2u;
+static const uint kBoxBoxContactSourceCornerRecovery = 3u;
+static const uint kBoxBoxContactSourceGenericFallback = 4u;
+
+uint EncodeBoxBoxContactReserved(uint source)
+{
+    return kDebugBoxBoxContactSource ? source : 0u;
+}
 
 float3 BoxCornerFromIndex(float3 center, float4 orientation, float3 halfExtents, uint cornerIndex)
 {
@@ -247,7 +259,7 @@ bool ComputeBoxBoxSat(float3 centerA, float4 orientationA, float3 halfExtentsA,
         if (dot(centerDelta, n) < 0.0)
             n = -n;
 
-        if (overlap < bestFacePen)
+        if (overlap < bestFacePen - kFaceAxisAbsoluteTolerance)
         {
             bestFacePen = overlap;
             bestFaceAxis = n;
@@ -277,7 +289,7 @@ bool ComputeBoxBoxSat(float3 centerA, float4 orientationA, float3 halfExtentsA,
         if (dot(centerDelta, n) < 0.0)
             n = -n;
 
-        if (overlap < bestFacePen)
+        if (overlap < bestFacePen - kFaceAxisAbsoluteTolerance)
         {
             bestFacePen = overlap;
             bestFaceAxis = n;
@@ -420,9 +432,10 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
                                     float4 scaleA, float3 bodyPositionB, float4 bodyOrientationB,
                                     float3 centerB, float4 orientationB, float4 colliderParamsB,
                                     float4 scaleB,
-                                    float3 normalAtoB,
+                                    float3 normalAtoB, out uint contactSource,
                                     inout GpuRigidContact contacts[kRigidContactsPerPair])
 {
+    contactSource = 0u;
     BoxBoxManifoldCandidate candidates[kBoxBoxCandidateCapacity];
     [unroll] for (uint i = 0u; i < kBoxBoxCandidateCapacity; ++i)
     {
@@ -465,6 +478,10 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
         const float penetrationEdge =
             max(satPenetration, ComputePenetrationFromPoints(pointAEdge, pointBEdge, manifoldNormalAtoB));
         TryInsertManifoldCandidate(pointAEdge, pointBEdge, penetrationEdge, candidateCount, candidates);
+        if (candidateCount > 0u)
+        {
+            contactSource = kBoxBoxContactSourceEdge;
+        }
     }
 
     // Industrial-style face manifold generation: incident face clipped to reference face.
@@ -544,38 +561,53 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
                                            candidateCount, candidates);
             }
         }
+
+        if (candidateCount > 0u)
+        {
+            contactSource = kBoxBoxContactSourceFaceClip;
+        }
     }
 
-    // Corner projection fallback/supplement for face clipping degeneracies.
-    [unroll] for (uint corner = 0u; corner < 8u; ++corner)
+    // Corner projection is recovery-only to avoid polluting a stable primary manifold.
+    if (candidateCount == 0u)
     {
-        // A corner against B
-        const float3 cornerA = BoxCornerFromIndex(centerA, orientationA, halfA, corner);
-        float3 pointBFromA = ClosestPointOnBox(cornerA, centerB, orientationB, halfB);
-        if (IsPointInsideBox(cornerA, centerB, orientationB, halfB))
+        [unroll] for (uint corner = 0u; corner < 8u; ++corner)
         {
-            pointBFromA = ProjectInsidePointToBoxSurfaceAlongDirection(
-                cornerA, centerB, orientationB, halfB, -manifoldNormalAtoB);
+            // A corner against B
+            const float3 cornerA = BoxCornerFromIndex(centerA, orientationA, halfA, corner);
+            float3 pointBFromA = ClosestPointOnBox(cornerA, centerB, orientationB, halfB);
+            if (IsPointInsideBox(cornerA, centerB, orientationB, halfB))
+            {
+                pointBFromA = ProjectInsidePointToBoxSurfaceAlongDirection(
+                    cornerA, centerB, orientationB, halfB, -manifoldNormalAtoB);
+            }
+
+            // Store separate points: point on A is the corner, point on B is closest point
+            const float penetrationA = ComputePenetrationFromPoints(cornerA, pointBFromA,
+                                                                    manifoldNormalAtoB);
+            TryInsertManifoldCandidate(cornerA, pointBFromA, penetrationA, candidateCount,
+                                       candidates);
+
+            // B corner against A
+            const float3 cornerB = BoxCornerFromIndex(centerB, orientationB, halfB, corner);
+            float3 pointAFromB = ClosestPointOnBox(cornerB, centerA, orientationA, halfA);
+            if (IsPointInsideBox(cornerB, centerA, orientationA, halfA))
+            {
+                pointAFromB = ProjectInsidePointToBoxSurfaceAlongDirection(
+                    cornerB, centerA, orientationA, halfA, manifoldNormalAtoB);
+            }
+
+            // point on A is closestA, point on B is cornerB
+            const float penetrationB = ComputePenetrationFromPoints(pointAFromB, cornerB,
+                                                                    manifoldNormalAtoB);
+            TryInsertManifoldCandidate(pointAFromB, cornerB, penetrationB, candidateCount,
+                                       candidates);
         }
 
-        // Store separate points: point on A is the corner, point on B is closest point
-        const float penetrationA = ComputePenetrationFromPoints(cornerA, pointBFromA,
-                                                                manifoldNormalAtoB);
-        TryInsertManifoldCandidate(cornerA, pointBFromA, penetrationA, candidateCount, candidates);
-
-        // B corner against A
-        const float3 cornerB = BoxCornerFromIndex(centerB, orientationB, halfB, corner);
-        float3 pointAFromB = ClosestPointOnBox(cornerB, centerA, orientationA, halfA);
-        if (IsPointInsideBox(cornerB, centerA, orientationA, halfA))
+        if (candidateCount > 0u)
         {
-            pointAFromB = ProjectInsidePointToBoxSurfaceAlongDirection(
-                cornerB, centerA, orientationA, halfA, manifoldNormalAtoB);
+            contactSource = kBoxBoxContactSourceCornerRecovery;
         }
-
-        // point on A is closestA, point on B is cornerB
-        const float penetrationB = ComputePenetrationFromPoints(pointAFromB, cornerB,
-                                                                manifoldNormalAtoB);
-        TryInsertManifoldCandidate(pointAFromB, cornerB, penetrationB, candidateCount, candidates);
     }
 
     if (candidateCount == 0u)
@@ -624,7 +656,7 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
     contacts[selectedCount].bodyA = bodyA;
     contacts[selectedCount].bodyB = bodyB;
     contacts[selectedCount].active = 1u;
-    contacts[selectedCount].reserved = 0u;
+    contacts[selectedCount].reserved = EncodeBoxBoxContactReserved(contactSource);
     contacts[selectedCount].normalPenetration = float4(n, candidates[deepestIndex].penetration);
     contacts[selectedCount].localPointA =
         float4(QuaternionInverseRotate(bodyOrientationA,
@@ -677,7 +709,7 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
         contacts[selectedCount].bodyA = bodyA;
         contacts[selectedCount].bodyB = bodyB;
         contacts[selectedCount].active = 1u;
-        contacts[selectedCount].reserved = 0u;
+        contacts[selectedCount].reserved = EncodeBoxBoxContactReserved(contactSource);
         contacts[selectedCount].normalPenetration = float4(n, candidates[bestIndex].penetration);
         contacts[selectedCount].localPointA =
             float4(QuaternionInverseRotate(bodyOrientationA,
@@ -776,6 +808,7 @@ void ProcessPair(uint pairIndex, uint pairType)
         uint satAxisType = kObbAxisFaceA;
         uint satAxisA = 0u;
         uint satAxisB = 0u;
+        uint manifoldContactSource = 0u;
         if (!ComputeBoxBoxSat(colliderPositionA, colliderOrientationA,
                               BoxHalfExtents(colliderParamsA, scaleA), colliderPositionB,
                               colliderOrientationB, BoxHalfExtents(colliderParamsB, scaleB),
@@ -807,6 +840,7 @@ void ProcessPair(uint pairIndex, uint pairType)
                                            bodyPositionInvMassB.xyz, bodyOrientationB,
                                            colliderPositionB, colliderOrientationB,
                                            colliderParamsB, scaleB, contactNormal,
+                                           manifoldContactSource,
                                            manifoldContacts);
         if (manifoldCount > 0u)
         {
@@ -837,7 +871,9 @@ void ProcessPair(uint pairIndex, uint pairType)
     contact.bodyA = bodyA;
     contact.bodyB = bodyB;
     contact.active = 1u;
-    contact.reserved = 0u;
+    contact.reserved = (pairType == 3u)
+                           ? EncodeBoxBoxContactReserved(kBoxBoxContactSourceGenericFallback)
+                           : 0u;
     contact.normalPenetration = float4(contactNormal, penetration);
     contact.localPointA =
         float4(QuaternionInverseRotate(bodyOrientationA, pointAWorld - bodyPositionInvMassA.xyz),
