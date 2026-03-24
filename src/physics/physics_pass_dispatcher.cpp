@@ -166,7 +166,9 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice *renderDevice,
         !initPass(mSolveGatherPass, kSolveGather) ||
         !initPass(mClearCorrectionsPass, kClearCorrections) ||
         !initPass(mApplyCorrectionsPass, kApplyCorrections) ||
-        !initPass(mUpdateVelocitiesPass, kUpdateVelocities))
+        !initPass(mUpdateVelocitiesPass, kUpdateVelocities) ||
+        !initPass(mSolveContactVelocitiesPass, kSolveContactVelocities) ||
+        !initPass(mApplyContactVelocitiesPass, kApplyContactVelocities))
     {
         CRESSIM_LOG_ERROR("PhysicsPassDispatcher: failed to initialize compute passes.");
         return false;
@@ -312,6 +314,12 @@ bool PhysicsPassDispatcher::clearCorrections(Diligent::IDeviceContext *computeCo
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_RigidBodyRotationCorrections",
                               transientState.rotationCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyLinearVelocityCorrections",
+                              transientState.linearVelocityCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyAngularVelocityCorrections",
+                              transientState.angularVelocityCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
@@ -1144,6 +1152,8 @@ bool PhysicsPassDispatcher::dispatchGenerateContactsPass(Diligent::IDeviceContex
         gpu::GpuBufferBinding{"g_ColliderLocalOrientations",
                               persistentColliders.localOrientationsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ColliderMaterials", persistentColliders.materialBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_CandidatePairs", transient.candidatePairsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_NarrowPhaseChunks", transient.narrowPhaseChunksBuffer,
@@ -1313,6 +1323,116 @@ bool PhysicsPassDispatcher::updateVelocities(Diligent::IDeviceContext *computeCo
     return writeRigidDispatchConstants(computeContext, constants) &&
            mUpdateVelocitiesPass.dispatch(computeContext, kDefaultVariant, bindings,
                                           dispatchGroupCount(bodyCount));
+}
+
+bool PhysicsPassDispatcher::dispatchSolveContactVelocitiesPass(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t pairCount)
+{
+    if (pairCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &persistent = sceneState.persistentRigidBodies();
+    const auto &transient  = sceneState.transientBuffers();
+
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+                              transient.predictedRigidBodies.positionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
+                              transient.predictedRigidBodies.orientationsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyLinearVelocities",
+                              transient.predictedRigidBodies.linearVelocitiesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyAngularVelocities",
+                              transient.predictedRigidBodies.angularVelocitiesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyInverseInertiaLocal",
+                              persistent.inverseInertiaLocalBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyTypes", persistent.bodyTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidContacts", transient.contactsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyLinearVelocityCorrections",
+                              transient.linearVelocityCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyAngularVelocityCorrections",
+                              transient.angularVelocityCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    const std::uint32_t slotCount = pairCount * kRigidContactsPerPair;
+    return mSolveContactVelocitiesPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                dispatchGroupCount(slotCount));
+}
+
+bool PhysicsPassDispatcher::solveContactVelocities(Diligent::IDeviceContext *computeContext,
+                                                   const PhysicsSceneGpuState &sceneState,
+                                                   std::uint32_t rigidBodyCount,
+                                                   std::uint32_t pairCount,
+                                                   std::uint32_t iterations,
+                                                   const GpuRigidDispatchConstants &constants)
+{
+    if (computeContext == nullptr)
+    {
+        return false;
+    }
+    if (rigidBodyCount == 0u || pairCount == 0u || iterations == 0u)
+    {
+        return true;
+    }
+
+    const auto &transient  = sceneState.transientBuffers();
+    const auto &persistent = sceneState.persistentRigidBodies();
+    const std::array applyBindings{
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyTypes", persistent.bodyTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyLinearVelocities",
+                              transient.predictedRigidBodies.linearVelocitiesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyAngularVelocities",
+                              transient.predictedRigidBodies.angularVelocitiesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyLinearVelocityCorrections",
+                              transient.linearVelocityCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyAngularVelocityCorrections",
+                              transient.angularVelocityCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    if (!mApplyContactVelocitiesPass.bindVariant(kDefaultVariant, applyBindings))
+    {
+        return false;
+    }
+
+    for (std::uint32_t iteration = 0; iteration < iterations; ++iteration)
+    {
+        GpuRigidDispatchConstants iterationConstants = constants;
+        iterationConstants.iterationIndex            = iteration;
+
+        if (!writeRigidDispatchConstants(computeContext, iterationConstants) ||
+            !dispatchSolveContactVelocitiesPass(computeContext, sceneState, pairCount))
+        {
+            return false;
+        }
+
+        if (!mApplyContactVelocitiesPass.dispatch(computeContext, kDefaultVariant, applyBindings,
+                                                  dispatchGroupCount(rigidBodyCount)))
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 } // namespace cressim::neo::physics

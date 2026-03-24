@@ -199,6 +199,7 @@ struct GpuRigidContact
     Diligent::float4 normalPenetration{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localPointA{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localPointB{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 material{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 static_assert(sizeof(GpuRigidDispatchConstants) == 48u);
@@ -219,7 +220,7 @@ static_assert(sizeof(GpuNarrowPhaseChunk) == 16u);
 static_assert(sizeof(GpuNarrowPhaseMeta) == 16u);
 static_assert(sizeof(GpuBroadPhaseMeta) == 32u);
 static_assert(sizeof(GpuColliderBroadPhaseData) == 32u);
-static_assert(sizeof(GpuRigidContact) == 64u);
+static_assert(sizeof(GpuRigidContact) == 80u);
 
 struct EffectiveColliderDimensions
 {

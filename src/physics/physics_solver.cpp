@@ -287,6 +287,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         }
         markStage(mImpl->stageStats, PhysicsSolverStage::UpdateVelocities, true);
 
+        if (pairCount > 0u && !mImpl->passDispatcher.solveContactVelocities(
+                                  computeBackend.computeContext, mImpl->sceneState, rigidBodyCount,
+                                  pairCount, iterations, constants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SolveContactVelocities dispatch.");
+            return false;
+        }
+
         if (substep + 1u < substeps && !mImpl->sceneState.copyPredictedRigidBodiesToPersistentState(
                                            computeBackend.computeContext, rigidBodyCount))
         {

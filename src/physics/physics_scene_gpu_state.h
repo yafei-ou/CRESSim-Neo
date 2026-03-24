@@ -43,6 +43,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> localPositionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> localOrientationsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> enabledFlagsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> materialBuffer;
     };
 
     struct PredictedRigidBodyBuffers
@@ -109,6 +110,8 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> contactsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> translationCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rotationCorrectionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> linearVelocityCorrectionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> angularVelocityCorrectionsBuffer;
     };
 
     struct RigidBodyReadbackBuffers

@@ -55,6 +55,11 @@ public:
     bool updateVelocities(Diligent::IDeviceContext *computeContext,
                           const PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
                           const GpuRigidDispatchConstants &constants);
+    bool solveContactVelocities(Diligent::IDeviceContext *computeContext,
+                                const PhysicsSceneGpuState &sceneState,
+                                std::uint32_t rigidBodyCount, std::uint32_t pairCount,
+                                std::uint32_t iterations,
+                                const GpuRigidDispatchConstants &constants);
 
 private:
     bool writeRigidDispatchConstants(Diligent::IDeviceContext *computeContext,
@@ -91,6 +96,9 @@ private:
                                       std::uint32_t pairCount);
     bool dispatchSolveGatherPass(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState, std::uint32_t pairCount);
+    bool dispatchSolveContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
+                                            const PhysicsSceneGpuState &sceneState,
+                                            std::uint32_t pairCount);
 
     gpu::ShaderLibrary mShaderLibrary{""};
     Diligent::Uint64 mPhysicsContextMask = 0;
@@ -119,6 +127,8 @@ private:
     gpu::GpuComputePass mSolveGatherPass;
     gpu::GpuComputePass mApplyCorrectionsPass;
     gpu::GpuComputePass mUpdateVelocitiesPass;
+    gpu::GpuComputePass mSolveContactVelocitiesPass;
+    gpu::GpuComputePass mApplyContactVelocitiesPass;
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanConstantsBuffer;

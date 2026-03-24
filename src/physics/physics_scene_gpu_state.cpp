@@ -91,6 +91,7 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         mPersistentColliders.localPositionsBuffer != nullptr &&
         mPersistentColliders.localOrientationsBuffer != nullptr &&
         mPersistentColliders.enabledFlagsBuffer != nullptr &&
+        mPersistentColliders.materialBuffer != nullptr &&
         mTransientState.predictedRigidBodies.positionsBuffer != nullptr &&
         mTransientState.predictedRigidBodies.orientationsBuffer != nullptr &&
         mTransientState.predictedRigidBodies.linearVelocitiesBuffer != nullptr &&
@@ -154,6 +155,8 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         mTransientState.contactsBuffer != nullptr &&
         mTransientState.translationCorrectionsBuffer != nullptr &&
         mTransientState.rotationCorrectionsBuffer != nullptr &&
+        mTransientState.linearVelocityCorrectionsBuffer != nullptr &&
+        mTransientState.angularVelocityCorrectionsBuffer != nullptr &&
         mReadbackRigidBodies.positionsBuffer != nullptr &&
         mReadbackRigidBodies.orientationsBuffer != nullptr &&
         mReadbackRigidBodies.linearVelocitiesBuffer != nullptr &&
@@ -254,6 +257,10 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
             renderDevice, "CRESSimNeo.Physics.ColliderEnabledFlags", sizeof(std::uint32_t),
             newColliderCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
             Diligent::CPU_ACCESS_NONE, contextMask, mPersistentColliders.enabledFlagsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.ColliderMaterials", sizeof(Diligent::float4),
+            newColliderCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentColliders.materialBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PreviousPositionsInvMass",
                                 sizeof(Diligent::float4), newRigidBodyCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -519,6 +526,16 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.rotationCorrectionsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.LinearVelocityCorrections",
+                                sizeof(std::int32_t) * 4u, newRigidBodyCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.linearVelocityCorrectionsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.AngularVelocityCorrections",
+                                sizeof(std::int32_t) * 4u, newRigidBodyCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.angularVelocityCorrectionsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PredictedPositions.Readback",
                                 sizeof(Diligent::float4), newRigidBodyCapacity, Diligent::BIND_NONE,
                                 Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
@@ -717,6 +734,9 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         computeContext->UpdateBuffer(mPersistentColliders.enabledFlagsBuffer, 0u, colliderUintBytes,
                                      colliders.enabledFlags.data(),
+                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        computeContext->UpdateBuffer(mPersistentColliders.materialBuffer, 0u, colliderFloat4Bytes,
+                                     colliders.frictionRestitution.data(),
                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
 

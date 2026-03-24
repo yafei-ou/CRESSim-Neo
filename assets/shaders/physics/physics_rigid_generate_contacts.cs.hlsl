@@ -9,6 +9,7 @@ StructuredBuffer<uint> g_ColliderShapeTypes;
 StructuredBuffer<float4> g_ColliderShapeParams;
 StructuredBuffer<float4> g_ColliderLocalPositions;
 StructuredBuffer<float4> g_ColliderLocalOrientations;
+StructuredBuffer<float4> g_ColliderMaterials;
 StructuredBuffer<GpuCandidatePair> g_CandidatePairs;
 StructuredBuffer<GpuNarrowPhaseChunk> g_NarrowPhaseChunks;
 StructuredBuffer<GpuNarrowPhaseMeta> g_NarrowPhaseMeta;
@@ -33,6 +34,13 @@ static const uint kBoxBoxContactSourceGenericFallback = 4u;
 uint EncodeBoxBoxContactReserved(uint source)
 {
     return kDebugBoxBoxContactSource ? source : 0u;
+}
+
+float2 CombineContactMaterial(float4 materialA, float4 materialB)
+{
+    const float friction = sqrt(max(0.0, materialA.x) * max(0.0, materialB.x));
+    const float restitution = max(max(0.0, materialA.y), max(0.0, materialB.y));
+    return float2(friction, restitution);
 }
 
 float3 BoxCornerFromIndex(float3 center, float4 orientation, float3 halfExtents, uint cornerIndex)
@@ -432,7 +440,8 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
                                     float4 scaleA, float3 bodyPositionB, float4 bodyOrientationB,
                                     float3 centerB, float4 orientationB, float4 colliderParamsB,
                                     float4 scaleB,
-                                    float3 normalAtoB, out uint contactSource,
+                                    float3 normalAtoB, float2 contactMaterial,
+                                    out uint contactSource,
                                     inout GpuRigidContact contacts[kRigidContactsPerPair])
 {
     contactSource = 0u;
@@ -658,6 +667,7 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
     contacts[selectedCount].active = 1u;
     contacts[selectedCount].reserved = EncodeBoxBoxContactReserved(contactSource);
     contacts[selectedCount].normalPenetration = float4(n, candidates[deepestIndex].penetration);
+    contacts[selectedCount].material = float4(contactMaterial, 0.0, 0.0);
     contacts[selectedCount].localPointA =
         float4(QuaternionInverseRotate(bodyOrientationA,
                                        candidates[deepestIndex].pointAWorld - bodyPositionA),
@@ -711,6 +721,7 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
         contacts[selectedCount].active = 1u;
         contacts[selectedCount].reserved = EncodeBoxBoxContactReserved(contactSource);
         contacts[selectedCount].normalPenetration = float4(n, candidates[bestIndex].penetration);
+        contacts[selectedCount].material = float4(contactMaterial, 0.0, 0.0);
         contacts[selectedCount].localPointA =
             float4(QuaternionInverseRotate(bodyOrientationA,
                                            candidates[bestIndex].pointAWorld - bodyPositionA),
@@ -738,6 +749,7 @@ void ClearPairContacts(uint pairIndex)
         cleared.normalPenetration = 0.0;
         cleared.localPointA = 0.0;
         cleared.localPointB = 0.0;
+        cleared.material = 0.0;
         g_RigidContacts[contactBaseIndex + contactOffset] = cleared;
     }
 }
@@ -774,6 +786,8 @@ void ProcessPair(uint pairIndex, uint pairType)
     const float4 scaleB = g_RigidBodyScales[bodyB];
     const uint shapeTypeA = g_ColliderShapeTypes[colliderA];
     const uint shapeTypeB = g_ColliderShapeTypes[colliderB];
+    const float2 contactMaterial =
+        CombineContactMaterial(g_ColliderMaterials[colliderA], g_ColliderMaterials[colliderB]);
     const float3 colliderPositionA = ComposeColliderWorldPosition(
         bodyPositionInvMassA.xyz, bodyOrientationA, g_ColliderLocalPositions[colliderA].xyz * scaleA.xyz);
     const float3 colliderPositionB = ComposeColliderWorldPosition(
@@ -830,6 +844,7 @@ void ProcessPair(uint pairIndex, uint pairType)
             cleared.normalPenetration = 0.0;
             cleared.localPointA = 0.0;
             cleared.localPointB = 0.0;
+            cleared.material = 0.0;
             manifoldContacts[i] = cleared;
         }
 
@@ -840,6 +855,7 @@ void ProcessPair(uint pairIndex, uint pairType)
                                            bodyPositionInvMassB.xyz, bodyOrientationB,
                                            colliderPositionB, colliderOrientationB,
                                            colliderParamsB, scaleB, contactNormal,
+                                           contactMaterial,
                                            manifoldContactSource,
                                            manifoldContacts);
         if (manifoldCount > 0u)
@@ -875,6 +891,7 @@ void ProcessPair(uint pairIndex, uint pairType)
                            ? EncodeBoxBoxContactReserved(kBoxBoxContactSourceGenericFallback)
                            : 0u;
     contact.normalPenetration = float4(contactNormal, penetration);
+    contact.material = float4(contactMaterial, 0.0, 0.0);
     contact.localPointA =
         float4(QuaternionInverseRotate(bodyOrientationA, pointAWorld - bodyPositionInvMassA.xyz),
                1.0);

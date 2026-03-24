@@ -42,6 +42,9 @@ struct GpuRigidContact
 
     // xyz = point on surface of B in B-local space
     float4 localPointB;
+
+    // x = friction, y = restitution
+    float4 material;
 };
 
 struct GpuBodyAabb

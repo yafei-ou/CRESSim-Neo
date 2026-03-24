@@ -30,6 +30,8 @@ extern const gpu::GpuComputePassDefinition kSolveGather;
 extern const gpu::GpuComputePassDefinition kClearCorrections;
 extern const gpu::GpuComputePassDefinition kApplyCorrections;
 extern const gpu::GpuComputePassDefinition kUpdateVelocities;
+extern const gpu::GpuComputePassDefinition kSolveContactVelocities;
+extern const gpu::GpuComputePassDefinition kApplyContactVelocities;
 
 } // namespace cressim::neo::physics::passdefs
 
