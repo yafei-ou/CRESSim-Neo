@@ -1,21 +1,164 @@
 #include "graphics/render_resource_manager.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 namespace cressim::neo::graphics
 {
+
+namespace
+{
+
+constexpr float kTangentEpsilon = 1.0e-6f;
+
+Diligent::float3 normalizeOrFallback(const Diligent::float3 &value,
+                                     const Diligent::float3 &fallback)
+{
+    const float lenSq = Diligent::dot(value, value);
+    if (lenSq <= kTangentEpsilon)
+    {
+        return fallback;
+    }
+
+    const float invLen = 1.0f / std::sqrt(lenSq);
+    return value * invLen;
+}
+
+Diligent::float3 buildStableTangent(const Diligent::float3 &normal)
+{
+    const Diligent::float3 safeNormal =
+        normalizeOrFallback(normal, Diligent::float3{0.0f, 1.0f, 0.0f});
+    const Diligent::float3 referenceAxis = std::fabs(safeNormal.y) < 0.999f
+                                               ? Diligent::float3{0.0f, 1.0f, 0.0f}
+                                               : Diligent::float3{1.0f, 0.0f, 0.0f};
+    return normalizeOrFallback(Diligent::cross(referenceAxis, safeNormal),
+                               Diligent::float3{1.0f, 0.0f, 0.0f});
+}
+
+bool hasValidTangents(const MeshResourceDesc &desc)
+{
+    for (const MeshResourceDesc::Vertex &vertex : desc.vertices)
+    {
+        const Diligent::float3 tangent{vertex.tangent.x, vertex.tangent.y, vertex.tangent.z};
+        if (Diligent::dot(tangent, tangent) <= kTangentEpsilon ||
+            std::fabs(vertex.tangent.w) <= kTangentEpsilon)
+        {
+            return false;
+        }
+    }
+    return !desc.vertices.empty();
+}
+
+void generateTangents(MeshResourceDesc &desc)
+{
+    if (desc.vertices.empty())
+    {
+        return;
+    }
+
+    if (hasValidTangents(desc))
+    {
+        for (MeshResourceDesc::Vertex &vertex : desc.vertices)
+        {
+            const Diligent::float3 normal =
+                normalizeOrFallback(vertex.normal, Diligent::float3{0.0f, 1.0f, 0.0f});
+            Diligent::float3 tangent{vertex.tangent.x, vertex.tangent.y, vertex.tangent.z};
+            tangent        = tangent - normal * Diligent::dot(normal, tangent);
+            tangent        = normalizeOrFallback(tangent, buildStableTangent(normal));
+            vertex.normal  = normal;
+            vertex.tangent = {tangent.x, tangent.y, tangent.z,
+                              vertex.tangent.w >= 0.0f ? 1.0f : -1.0f};
+        }
+        return;
+    }
+
+    std::vector<Diligent::float3> tangentSum(desc.vertices.size(),
+                                             Diligent::float3{0.0f, 0.0f, 0.0f});
+    std::vector<Diligent::float3> bitangentSum(desc.vertices.size(),
+                                               Diligent::float3{0.0f, 0.0f, 0.0f});
+
+    const std::size_t triangleCount = desc.indices.size() / 3u;
+    for (std::size_t triangleIdx = 0; triangleIdx < triangleCount; ++triangleIdx)
+    {
+        const std::uint32_t i0 = desc.indices[triangleIdx * 3u + 0u];
+        const std::uint32_t i1 = desc.indices[triangleIdx * 3u + 1u];
+        const std::uint32_t i2 = desc.indices[triangleIdx * 3u + 2u];
+        if (i0 >= desc.vertices.size() || i1 >= desc.vertices.size() || i2 >= desc.vertices.size())
+        {
+            continue;
+        }
+
+        const MeshResourceDesc::Vertex &v0 = desc.vertices[i0];
+        const MeshResourceDesc::Vertex &v1 = desc.vertices[i1];
+        const MeshResourceDesc::Vertex &v2 = desc.vertices[i2];
+
+        const Diligent::float3 edge1 = v1.position - v0.position;
+        const Diligent::float3 edge2 = v2.position - v0.position;
+        const float du1              = v1.texCoordU - v0.texCoordU;
+        const float dv1              = v1.texCoordV - v0.texCoordV;
+        const float du2              = v2.texCoordU - v0.texCoordU;
+        const float dv2              = v2.texCoordV - v0.texCoordV;
+        const float denom            = du1 * dv2 - du2 * dv1;
+        if (std::fabs(denom) <= kTangentEpsilon)
+        {
+            continue;
+        }
+
+        const float invDenom                     = 1.0f / denom;
+        const Diligent::float3 triangleTangent   = (edge1 * dv2 - edge2 * dv1) * invDenom;
+        const Diligent::float3 triangleBitangent = (edge2 * du1 - edge1 * du2) * invDenom;
+
+        tangentSum[i0] += triangleTangent;
+        tangentSum[i1] += triangleTangent;
+        tangentSum[i2] += triangleTangent;
+        bitangentSum[i0] += triangleBitangent;
+        bitangentSum[i1] += triangleBitangent;
+        bitangentSum[i2] += triangleBitangent;
+    }
+
+    for (std::size_t vertexIdx = 0; vertexIdx < desc.vertices.size(); ++vertexIdx)
+    {
+        MeshResourceDesc::Vertex &vertex = desc.vertices[vertexIdx];
+        const Diligent::float3 normal =
+            normalizeOrFallback(vertex.normal, Diligent::float3{0.0f, 1.0f, 0.0f});
+        Diligent::float3 tangent =
+            tangentSum[vertexIdx] - normal * Diligent::dot(normal, tangentSum[vertexIdx]);
+        tangent = normalizeOrFallback(tangent, buildStableTangent(normal));
+
+        Diligent::float3 bitangent = bitangentSum[vertexIdx];
+        bitangent                  = bitangent - normal * Diligent::dot(normal, bitangent);
+        const Diligent::float3 derivedBitangent = Diligent::cross(normal, tangent);
+        const float handedness = Diligent::dot(derivedBitangent, bitangent) < 0.0f ? -1.0f : 1.0f;
+
+        vertex.normal  = normal;
+        vertex.tangent = {tangent.x, tangent.y, tangent.z, handedness};
+    }
+}
+
+MaterialResourceDesc normalizeMaterialDesc(const MaterialResourceDesc &desc)
+{
+    MaterialResourceDesc normalized = desc;
+    if (normalized.normalTexture.id != common::kInvalidResourceId)
+    {
+        normalized.pipeline.featureFlags |= MaterialFeatureFlags::NormalMap;
+    }
+    return normalized;
+}
+
+} // namespace
 
 MeshHandle RenderResourceManager::registerMesh(const MeshResourceDesc &desc)
 {
     const common::ResourceId id = mNextMeshId++;
     MeshResource resource{};
     resource.desc = desc;
+    generateTangents(resource.desc);
     if (!desc.vertices.empty())
     {
-        resource.localBoundsMin = desc.vertices.front().position;
-        resource.localBoundsMax = desc.vertices.front().position;
-        for (const MeshResourceDesc::Vertex &vertex : desc.vertices)
+        resource.localBoundsMin = resource.desc.vertices.front().position;
+        resource.localBoundsMax = resource.desc.vertices.front().position;
+        for (const MeshResourceDesc::Vertex &vertex : resource.desc.vertices)
         {
             resource.localBoundsMin.x = std::min(resource.localBoundsMin.x, vertex.position.x);
             resource.localBoundsMin.y = std::min(resource.localBoundsMin.y, vertex.position.y);
@@ -33,7 +176,7 @@ MeshHandle RenderResourceManager::registerMesh(const MeshResourceDesc &desc)
 MaterialHandle RenderResourceManager::registerMaterial(const MaterialResourceDesc &desc)
 {
     const common::ResourceId id = mNextMaterialId++;
-    mMaterials.emplace(id, desc);
+    mMaterials.emplace(id, normalizeMaterialDesc(desc));
     return MaterialHandle{id};
 }
 

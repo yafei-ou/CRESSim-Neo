@@ -7,16 +7,22 @@ struct VSOutput
     float3 WorldPos : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
     float2 TexCoord : TEXCOORD2;
-    nointerpolation uint CameraIndex : TEXCOORD3;
-    nointerpolation uint MainLightIndex : TEXCOORD4;
-    nointerpolation uint ShadowLayer : TEXCOORD5;
+    float4 WorldTangent : TEXCOORD3;
+    nointerpolation uint CameraIndex : TEXCOORD4;
+    nointerpolation uint MainLightIndex : TEXCOORD5;
+    nointerpolation uint ShadowLayer : TEXCOORD6;
+#ifdef CRESSIM_FEATURE_DOUBLE_SIDED
+    bool IsFrontFace : SV_IsFrontFace;
+#endif
 };
 
 Texture2D g_BaseColorTexture;
+Texture2D g_NormalTexture;
 Texture2D g_MetallicRoughnessTexture;
 Texture2D g_EmissiveTexture;
 Texture2D g_AoTexture;
 SamplerState g_BaseColorTexture_sampler;
+SamplerState g_NormalTexture_sampler;
 SamplerState g_MetallicRoughnessTexture_sampler;
 SamplerState g_EmissiveTexture_sampler;
 SamplerState g_AoTexture_sampler;
@@ -66,6 +72,31 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
 float3 FresnelSchlick(float cosTheta, float3 F0)
 {
     return F0 + (1.0 - F0) * pow(saturate(1.0 - cosTheta), 5.0);
+}
+
+float3 BuildShadingNormal(in VSOutput In)
+{
+    float3 N = normalize(In.WorldNormal);
+
+#ifdef CRESSIM_FEATURE_DOUBLE_SIDED
+    const float faceSign = In.IsFrontFace ? 1.0 : -1.0;
+    N *= faceSign;
+#endif
+
+#ifdef CRESSIM_FEATURE_NORMAL_MAP
+    float3 T = normalize(In.WorldTangent.xyz);
+#ifdef CRESSIM_FEATURE_DOUBLE_SIDED
+    T *= faceSign;
+#endif
+    T = normalize(T - N * dot(N, T));
+    float3 B = normalize(cross(N, T)) * In.WorldTangent.w;
+    float3 tangentNormal = g_NormalTexture.Sample(g_NormalTexture_sampler, In.TexCoord).xyz;
+    tangentNormal = tangentNormal * 2.0 - 1.0;
+    float3x3 tbn = float3x3(T, B, N);
+    return normalize(mul(tangentNormal, tbn));
+#else
+    return N;
+#endif
 }
 
 int SelectCascade(float viewDepth, float4 cascadeSplits, int cascadeCount)
@@ -250,7 +281,7 @@ float4 main(in VSOutput In) : SV_Target
 #endif
 
     PreparedCamera preparedCamera = g_PreparedCameras[In.CameraIndex];
-    float3 N = normalize(In.WorldNormal);
+    float3 N = BuildShadingNormal(In);
     float3 V = normalize(preparedCamera.cameraPosition.xyz - In.WorldPos);
 
     float3 albedo = saturate(baseColor.xyz);

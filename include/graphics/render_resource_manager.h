@@ -73,6 +73,7 @@ struct MeshResourceDesc
         Diligent::float3 normal{0.0f, 1.0f, 0.0f};
         float texCoordU = 0.0f;
         float texCoordV = 0.0f;
+        Diligent::float4 tangent{1.0f, 0.0f, 0.0f, 1.0f};
     };
 
     std::string debugName;

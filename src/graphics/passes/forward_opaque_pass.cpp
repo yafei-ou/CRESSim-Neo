@@ -157,6 +157,10 @@ bool ForwardOpaquePass::initialize()
                                 Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB, {255u, 255u, 255u, 255u},
                                 mFallbackBaseColorSrv) ||
             !createSolidTexture(backendContext.renderDevice, mMaterialSampler,
+                                "CRESSimNeo.ForwardOpaquePass.FallbackNormal",
+                                Diligent::TEX_FORMAT_RGBA8_UNORM, {128u, 128u, 255u, 255u},
+                                mFallbackNormalSrv) ||
+            !createSolidTexture(backendContext.renderDevice, mMaterialSampler,
                                 "CRESSimNeo.ForwardOpaquePass.FallbackMetallicRoughness",
                                 Diligent::TEX_FORMAT_RGBA8_UNORM, {0u, 255u, 0u, 255u},
                                 mFallbackMetallicRoughnessSrv) ||
@@ -506,14 +510,16 @@ bool ForwardOpaquePass::bindMaterialTextures(MaterialProgramRegistry::ProgramRes
         const char *name;
         TextureHandle handle;
         Diligent::ITextureView *fallbackView;
+        bool required;
     };
 
     const TextureBinding bindings[] = {
-        {"g_BaseColorTexture", material->baseColorTexture, mFallbackBaseColorSrv.RawPtr()},
+        {"g_BaseColorTexture", material->baseColorTexture, mFallbackBaseColorSrv.RawPtr(), true},
+        {"g_NormalTexture", material->normalTexture, mFallbackNormalSrv.RawPtr(), false},
         {"g_MetallicRoughnessTexture", material->metallicRoughnessTexture,
-         mFallbackMetallicRoughnessSrv.RawPtr()},
-        {"g_EmissiveTexture", material->emissiveTexture, mFallbackEmissiveSrv.RawPtr()},
-        {"g_AoTexture", material->aoTexture, mFallbackAoSrv.RawPtr()},
+         mFallbackMetallicRoughnessSrv.RawPtr(), true},
+        {"g_EmissiveTexture", material->emissiveTexture, mFallbackEmissiveSrv.RawPtr(), true},
+        {"g_AoTexture", material->aoTexture, mFallbackAoSrv.RawPtr(), true},
     };
 
     for (const TextureBinding &binding : bindings)
@@ -540,7 +546,11 @@ bool ForwardOpaquePass::bindMaterialTextures(MaterialProgramRegistry::ProgramRes
                                                              binding.name);
         if (variable == nullptr)
         {
-            return false;
+            if (binding.required)
+            {
+                return false;
+            }
+            continue;
         }
         variable->Set(textureView);
     }

@@ -100,6 +100,10 @@ int main()
         resources.registerTexture(makeSolidTextureDesc("ForwardPipeline.Emissive",
                                                        TextureColorSpace::Srgb, 32u, 16u, 8u,
                                                        255u));
+    const auto normalTexture =
+        resources.registerTexture(makeSolidTextureDesc("ForwardPipeline.Normal",
+                                                       TextureColorSpace::Linear, 255u, 128u, 128u,
+                                                       255u));
     const auto aoTexture = resources.registerTexture(
         makeSolidTextureDesc("ForwardPipeline.AO", TextureColorSpace::Linear, 192u, 0u, 0u, 255u));
 
@@ -110,6 +114,7 @@ int main()
     MaterialResourceDesc texturedMaterialDesc{};
     texturedMaterialDesc.debugName = "ForwardPipeline.Textured";
     texturedMaterialDesc.baseColorTexture = baseColorTexture;
+    texturedMaterialDesc.normalTexture = normalTexture;
     texturedMaterialDesc.metallicRoughnessTexture = metallicRoughnessTexture;
     texturedMaterialDesc.emissiveTexture = emissiveTexture;
     texturedMaterialDesc.aoTexture = aoTexture;
@@ -237,6 +242,31 @@ int main()
     if (!(keyA == keyB))
     {
         CRESSIM_LOG_ERROR( "Program key unexpectedly changed with runtime-only material parameters.\n");
+        return 1;
+    }
+
+    MaterialResourceDesc normalMappedVariant = runtimeVariantA;
+    normalMappedVariant.normalTexture = normalTexture;
+    const auto storedNormalMappedMaterial = resources.tryGetMaterial(texturedMaterial);
+    if (storedNormalMappedMaterial == nullptr ||
+        !cressim::neo::graphics::hasFlag(storedNormalMappedMaterial->pipeline.featureFlags,
+                                         MaterialFeatureFlags::NormalMap))
+    {
+        CRESSIM_LOG_ERROR("Stored textured material did not retain NormalMap feature flags.\n");
+        return 1;
+    }
+    const auto keyNormal = MaterialProgramRegistry::buildProgramKey(
+        MainPassClass::ForwardOpaque,
+        normalMappedVariant.pipeline.programFamily,
+        normalMappedVariant.pipeline.featureFlags | MaterialFeatureFlags::NormalMap,
+        Diligent::TEX_FORMAT_RGBA8_UNORM,
+        Diligent::TEX_FORMAT_D32_FLOAT,
+        true,
+        true,
+        false);
+    if (keyA == keyNormal)
+    {
+        CRESSIM_LOG_ERROR("Program key should differ when normal mapping is enabled.\n");
         return 1;
     }
 

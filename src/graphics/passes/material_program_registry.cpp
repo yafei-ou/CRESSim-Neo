@@ -255,6 +255,8 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice *renderDevic
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_LightInputs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_NormalTexture",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_BaseColorTexture",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_MetallicRoughnessTexture",
@@ -275,13 +277,14 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice *renderDevic
     psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
         static_cast<Diligent::Uint32>(std::size(kVars));
 
-    // Fixed vertex layout for this milestone: position, normal, uv.
+    // Fixed vertex layout: position, normal, uv, tangent.
     constexpr Diligent::LayoutElement kLayoutElements[] = {
         Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, Diligent::False},
         Diligent::LayoutElement{1, 0, 3, Diligent::VT_FLOAT32, Diligent::False},
-        Diligent::LayoutElement{2, 0, 2, Diligent::VT_FLOAT32, Diligent::False}};
+        Diligent::LayoutElement{2, 0, 2, Diligent::VT_FLOAT32, Diligent::False},
+        Diligent::LayoutElement{3, 0, 4, Diligent::VT_FLOAT32, Diligent::False}};
     psoCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = kLayoutElements;
-    psoCreateInfo.GraphicsPipeline.InputLayout.NumElements    = 3;
+    psoCreateInfo.GraphicsPipeline.InputLayout.NumElements    = 4;
     psoCreateInfo.pVS                                         = vertexShader;
     psoCreateInfo.pPS                                         = pixelShader;
 

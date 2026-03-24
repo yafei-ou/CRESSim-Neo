@@ -4,6 +4,7 @@
 #include "viewer/debug_viewer_app.h"
 
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <stdexcept>
@@ -155,6 +156,41 @@ TextureResourceDesc makeAoTexture()
                            std::move(pixels));
 }
 
+TextureResourceDesc makeFlatNormalTexture()
+{
+    constexpr std::uint32_t kSize = 4u;
+    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(kSize) * kSize * 4u, 255u);
+    for (std::uint32_t y = 0; y < kSize; ++y)
+    {
+        for (std::uint32_t x = 0; x < kSize; ++x)
+        {
+            setPixel(pixels, kSize, x, y, {128u, 128u, 255u, 255u});
+        }
+    }
+
+    return makeTextureDesc("TextureViewer.FlatNormal", kSize, kSize, TextureColorSpace::Linear,
+                           std::move(pixels));
+}
+
+TextureResourceDesc makePerturbedNormalTexture()
+{
+    constexpr std::uint32_t kSize = 4u;
+    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(kSize) * kSize * 4u, 255u);
+
+    for (std::uint32_t y = 0; y < kSize; ++y)
+    {
+        for (std::uint32_t x = 0; x < kSize; ++x)
+        {
+            const std::uint8_t nx = static_cast<std::uint8_t>(48u + x * 48u);
+            const std::uint8_t ny = static_cast<std::uint8_t>(208u - y * 40u);
+            setPixel(pixels, kSize, x, y, {nx, ny, 220u, 255u});
+        }
+    }
+
+    return makeTextureDesc("TextureViewer.PerturbedNormal", kSize, kSize,
+                           TextureColorSpace::Linear, std::move(pixels));
+}
+
 TextureResourceDesc makeAlphaCutoutTexture()
 {
     constexpr std::uint32_t kSize = 4u;
@@ -188,9 +224,18 @@ MeshResourceDesc makeCubeMesh(float halfExtent)
     {
         const std::uint32_t base = static_cast<std::uint32_t>(mesh.vertices.size());
         mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
-        mesh.vertices.push_back({v1, normal, 1.0f, 0.0f});
-        mesh.vertices.push_back({v2, normal, 1.0f, 1.0f});
-        mesh.vertices.push_back({v3, normal, 0.0f, 1.0f});
+        const Diligent::float3 tangentDir = Diligent::float3{
+            v1.x - v0.x, v1.y - v0.y, v1.z - v0.z};
+        const float tangentLengthSq = tangentDir.x * tangentDir.x + tangentDir.y * tangentDir.y +
+                                      tangentDir.z * tangentDir.z;
+        const float tangentInvLength = tangentLengthSq > 1.0e-6f ? 1.0f / std::sqrt(tangentLengthSq) : 1.0f;
+        const Diligent::float4 tangent = {tangentDir.x * tangentInvLength,
+                                          tangentDir.y * tangentInvLength,
+                                          tangentDir.z * tangentInvLength, 1.0f};
+        mesh.vertices.back().tangent = tangent;
+        mesh.vertices.push_back({v1, normal, 1.0f, 0.0f, tangent});
+        mesh.vertices.push_back({v2, normal, 1.0f, 1.0f, tangent});
+        mesh.vertices.push_back({v3, normal, 0.0f, 1.0f, tangent});
 
         mesh.indices.push_back(base + 0u);
         mesh.indices.push_back(base + 2u);
@@ -216,10 +261,10 @@ MeshResourceDesc makePlaneMesh(float halfExtent, float uvScale, const std::strin
     mesh.debugName = debugName;
     const float h = halfExtent;
     mesh.vertices = {
-        {{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f},
-        {{h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, uvScale, 0.0f},
-        {{h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, uvScale, uvScale},
-        {{-h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 0.0f, uvScale}};
+        {{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+        {{h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, uvScale, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
+        {{h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, uvScale, uvScale, {1.0f, 0.0f, 0.0f, 1.0f}},
+        {{-h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 0.0f, uvScale, {1.0f, 0.0f, 0.0f, 1.0f}}};
     mesh.indices = {0u, 1u, 2u, 0u, 2u, 3u};
     return mesh;
 }
@@ -336,6 +381,9 @@ int main(int argc, char **argv)
         resources.registerTexture(makeMetallicRoughnessTexture());
     const TextureHandle emissiveTexture = resources.registerTexture(makeEmissiveTexture());
     const TextureHandle aoTexture = resources.registerTexture(makeAoTexture());
+    const TextureHandle flatNormalTexture = resources.registerTexture(makeFlatNormalTexture());
+    const TextureHandle perturbedNormalTexture =
+        resources.registerTexture(makePerturbedNormalTexture());
     const TextureHandle alphaTexture = resources.registerTexture(makeAlphaCutoutTexture());
 
     MaterialResourceDesc groundMaterial{};
@@ -384,6 +432,26 @@ int main(int argc, char **argv)
     aoMaterial.roughness = 0.95f;
     const auto aoMaterialHandle = resources.registerMaterial(aoMaterial);
 
+    MaterialResourceDesc flatNormalMaterial{};
+    flatNormalMaterial.debugName = "TextureViewer.FlatNormal";
+    flatNormalMaterial.baseColor = {0.80f, 0.80f, 0.84f};
+    flatNormalMaterial.normalTexture = flatNormalTexture;
+    flatNormalMaterial.roughness = 0.5f;
+    const auto flatNormalMaterialHandle = resources.registerMaterial(flatNormalMaterial);
+
+    MaterialResourceDesc perturbedNormalMaterial{};
+    perturbedNormalMaterial.debugName = "TextureViewer.PerturbedNormal";
+    perturbedNormalMaterial.baseColor = {0.80f, 0.80f, 0.84f};
+    perturbedNormalMaterial.normalTexture = perturbedNormalTexture;
+    perturbedNormalMaterial.roughness = 0.5f;
+    const auto perturbedNormalMaterialHandle = resources.registerMaterial(perturbedNormalMaterial);
+
+    MaterialResourceDesc doubleSidedNormalMaterial = perturbedNormalMaterial;
+    doubleSidedNormalMaterial.debugName = "TextureViewer.DoubleSidedNormal";
+    doubleSidedNormalMaterial.pipeline.featureFlags |= MaterialFeatureFlags::DoubleSided;
+    const auto doubleSidedNormalMaterialHandle =
+        resources.registerMaterial(doubleSidedNormalMaterial);
+
     MaterialResourceDesc alphaCutoutMaterial{};
     alphaCutoutMaterial.debugName = "TextureViewer.AlphaCutout";
     alphaCutoutMaterial.baseColorTexture = alphaTexture;
@@ -403,14 +471,24 @@ int main(int argc, char **argv)
     spawnRenderable(world, groundMesh, groundMaterialHandle, {0.0f, -1.25f, 5.0f},
                     {1.0f, 1.0f, 1.0f});
 
-    spawnRenderable(world, wallPanelMesh, fallbackMaterialHandle, {-4.6f, 0.2f, 5.6f},
+    spawnRenderable(world, wallPanelMesh, fallbackMaterialHandle, {-5.8f, 0.2f, 5.6f},
                     {1.0f, 1.0f, 1.0f}, panelRotation);
-    spawnRenderable(world, wallPanelMesh, baseColorMaterialHandle, {-2.0f, 0.2f, 5.6f},
+    spawnRenderable(world, wallPanelMesh, baseColorMaterialHandle, {-3.5f, 0.2f, 5.6f},
                     {1.0f, 1.0f, 1.0f}, panelRotation);
-    spawnRenderable(world, wallPanelMesh, aoMaterialHandle, {0.6f, 0.2f, 5.6f},
+    spawnRenderable(world, wallPanelMesh, flatNormalMaterialHandle, {-1.2f, 0.2f, 5.6f},
                     {1.0f, 1.0f, 1.0f}, panelRotation);
-    spawnRenderable(world, wallPanelMesh, emissiveMaterialHandle, {3.2f, 0.2f, 5.6f},
+    spawnRenderable(world, wallPanelMesh, perturbedNormalMaterialHandle, {1.1f, 0.2f, 5.6f},
                     {1.0f, 1.0f, 1.0f}, panelRotation);
+    spawnRenderable(world, wallPanelMesh, aoMaterialHandle, {3.4f, 0.2f, 5.6f},
+                    {1.0f, 1.0f, 1.0f}, panelRotation);
+    spawnRenderable(world, wallPanelMesh, emissiveMaterialHandle, {5.7f, 0.2f, 5.6f},
+                    {1.0f, 1.0f, 1.0f}, panelRotation);
+    spawnRenderable(world, wallPanelMesh, doubleSidedNormalMaterialHandle, {8.0f, 0.2f, 5.6f},
+                    {1.0f, 1.0f, 1.0f}, panelRotation);
+    spawnRenderable(world, wallPanelMesh, doubleSidedNormalMaterialHandle, {10.3f, 0.2f, 5.6f},
+                    {1.0f, 1.0f, 1.0f}, panelRotation *
+                                              Diligent::QuaternionF::RotationFromAxisAngle(
+                                                  {0.0f, 1.0f, 0.0f}, Diligent::PI_F));
 
     spawnRenderable(world, cubeMesh, fallbackMaterialHandle, {-4.2f, -0.35f, 2.0f},
                     {1.0f, 1.0f, 1.0f});
@@ -438,7 +516,7 @@ int main(int argc, char **argv)
     }
 
     CRESSIM_LOG_INFO("Texture viewer finished.\n");
-    CRESSIM_LOG_INFO("Visual checks: left-to-right wall panels = scalar fallback, base color, AO, emissive.\n");
-    CRESSIM_LOG_INFO("Front cubes = fallback then metallic/roughness textured cases. Right panels = alpha cutout.\n");
+    CRESSIM_LOG_INFO("Visual checks: rear wall panels = scalar, base color, flat normal, perturbed normal, AO, emissive.\n");
+    CRESSIM_LOG_INFO("Left cross panels = double-sided perturbed normal check. Front cubes = fallback then metallic/roughness cases. Right panels = alpha cutout.\n");
     return 0;
 }

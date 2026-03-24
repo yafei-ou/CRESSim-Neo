@@ -68,6 +68,7 @@ int main()
     }
 
     if (storedMaterial->baseColorTexture.id != srgbTexture.id ||
+        storedMaterial->normalTexture.id != cressim::neo::common::kInvalidResourceId ||
         storedMaterial->metallicRoughnessTexture.id != linearTexture.id ||
         storedMaterial->emissiveTexture.id != srgbTexture.id ||
         storedMaterial->aoTexture.id != linearTexture.id)

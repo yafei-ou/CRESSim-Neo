@@ -6,6 +6,7 @@ struct VSInput
     float3 Position : ATTRIB0;
     float3 Normal : ATTRIB1;
     float2 TexCoord : ATTRIB2;
+    float4 Tangent : ATTRIB3;
 };
 
 struct VSOutput
@@ -14,9 +15,10 @@ struct VSOutput
     float3 WorldPos : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
     float2 TexCoord : TEXCOORD2;
-    nointerpolation uint CameraIndex : TEXCOORD3;
-    nointerpolation uint MainLightIndex : TEXCOORD4;
-    nointerpolation uint ShadowLayer : TEXCOORD5;
+    float4 WorldTangent : TEXCOORD3;
+    nointerpolation uint CameraIndex : TEXCOORD4;
+    nointerpolation uint MainLightIndex : TEXCOORD5;
+    nointerpolation uint ShadowLayer : TEXCOORD6;
 #if MANUAL_LAYER_EXPORT
     uint Layer : SV_RenderTargetArrayIndex;
 #endif
@@ -54,6 +56,7 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
         Out.WorldPos = float3(0.0, 0.0, 0.0);
         Out.WorldNormal = float3(0.0, 1.0, 0.0);
         Out.TexCoord = In.TexCoord;
+        Out.WorldTangent = float4(1.0, 0.0, 0.0, 1.0);
         Out.CameraIndex = cameraIndex;
         Out.MainLightIndex = mainLightIndex;
         Out.ShadowLayer = shadowLayer;
@@ -67,11 +70,16 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
         float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
     float3 safeScale = max(abs(scale), float3(1e-6, 1e-6, 1e-6));
     const float3 worldNormal = normalize(quaternionRotateVector(orientation, In.Normal / safeScale));
+    float3 worldTangent =
+        quaternionRotateVector(orientation, In.Tangent.xyz * scale);
+    worldTangent = normalize(worldTangent - worldNormal * dot(worldNormal, worldTangent));
+    const float transformSign = (scale.x * scale.y * scale.z) < 0.0 ? -1.0 : 1.0;
 
     Out.Position = mul(worldPos, preparedCamera.viewProjectionMatrix);
     Out.WorldPos = worldPos.xyz;
     Out.WorldNormal = worldNormal;
     Out.TexCoord = In.TexCoord;
+    Out.WorldTangent = float4(worldTangent, In.Tangent.w * transformSign);
     Out.CameraIndex = cameraIndex;
     Out.MainLightIndex = mainLightIndex;
     Out.ShadowLayer = shadowLayer;

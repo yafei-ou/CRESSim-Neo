@@ -108,6 +108,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::ISampler> mMaterialSampler;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackShadowMapSrv;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackBaseColorSrv;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackNormalSrv;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackMetallicRoughnessSrv;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackEmissiveSrv;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackAoSrv;

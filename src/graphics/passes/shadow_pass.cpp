@@ -343,9 +343,10 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
     constexpr Diligent::LayoutElement kLayoutElements[] = {
         Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, Diligent::False},
         Diligent::LayoutElement{1, 0, 3, Diligent::VT_FLOAT32, Diligent::False},
-        Diligent::LayoutElement{2, 0, 2, Diligent::VT_FLOAT32, Diligent::False}};
+        Diligent::LayoutElement{2, 0, 2, Diligent::VT_FLOAT32, Diligent::False},
+        Diligent::LayoutElement{3, 0, 4, Diligent::VT_FLOAT32, Diligent::False}};
     psoCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = kLayoutElements;
-    psoCreateInfo.GraphicsPipeline.InputLayout.NumElements    = 3;
+    psoCreateInfo.GraphicsPipeline.InputLayout.NumElements    = 4;
     psoCreateInfo.pVS                                         = vertexShader;
 
     renderDevice->CreateGraphicsPipelineState(psoCreateInfo, &mPipelineState);
