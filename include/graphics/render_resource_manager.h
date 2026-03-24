@@ -41,6 +41,23 @@ enum class BlendMode
     Transparent,
 };
 
+enum class TextureColorSpace
+{
+    Linear,
+    Srgb,
+};
+
+enum class TexturePixelFormat
+{
+    RGBA8,
+};
+
+enum class TextureMipPolicy
+{
+    Disabled,
+    Generate,
+};
+
 struct MaterialPipelineDesc
 {
     MaterialProgramFamily programFamily = MaterialProgramFamily::StandardLit;
@@ -66,9 +83,16 @@ struct MeshResourceDesc
 struct MaterialResourceDesc
 {
     std::string debugName;
+    // Legacy scalar names are kept, but these values now act as PBR factors.
     Diligent::float3 baseColor{1.0f, 1.0f, 1.0f};
     float metallic  = 0.0f;
     float roughness = 0.5f;
+    Diligent::float3 emissiveFactor{0.0f, 0.0f, 0.0f};
+    TextureHandle baseColorTexture{};
+    TextureHandle normalTexture{};
+    TextureHandle metallicRoughnessTexture{};
+    TextureHandle emissiveTexture{};
+    TextureHandle aoTexture{};
     MaterialPipelineDesc pipeline{};
     BlendMode blendMode  = BlendMode::Opaque;
     float opacity        = 1.0f;
@@ -79,6 +103,12 @@ struct MaterialResourceDesc
 struct TextureResourceDesc
 {
     std::string debugName;
+    std::uint32_t width            = 1u;
+    std::uint32_t height           = 1u;
+    TexturePixelFormat pixelFormat = TexturePixelFormat::RGBA8;
+    TextureColorSpace colorSpace   = TextureColorSpace::Linear;
+    TextureMipPolicy mipPolicy     = TextureMipPolicy::Disabled;
+    std::vector<std::uint8_t> pixelData;
 };
 
 class CRESSIM_NEO_GRAPHICS_API RenderResourceManager

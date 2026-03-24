@@ -6,10 +6,20 @@ struct VSOutput
     float4 Position : SV_Position;
     float3 WorldPos : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
-    nointerpolation uint CameraIndex : TEXCOORD2;
-    nointerpolation uint MainLightIndex : TEXCOORD3;
-    nointerpolation uint ShadowLayer : TEXCOORD4;
+    float2 TexCoord : TEXCOORD2;
+    nointerpolation uint CameraIndex : TEXCOORD3;
+    nointerpolation uint MainLightIndex : TEXCOORD4;
+    nointerpolation uint ShadowLayer : TEXCOORD5;
 };
+
+Texture2D g_BaseColorTexture;
+Texture2D g_MetallicRoughnessTexture;
+Texture2D g_EmissiveTexture;
+Texture2D g_AoTexture;
+SamplerState g_BaseColorTexture_sampler;
+SamplerState g_MetallicRoughnessTexture_sampler;
+SamplerState g_EmissiveTexture_sampler;
+SamplerState g_AoTexture_sampler;
 
 Texture2DArray g_ShadowMap0;
 Texture2DArray g_ShadowMap1;
@@ -220,8 +230,20 @@ float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir, uint 
 
 float4 main(in VSOutput In) : SV_Target
 {
+    float4 sampledBaseColor = g_BaseColorTexture.Sample(g_BaseColorTexture_sampler, In.TexCoord);
+    float4 sampledMetallicRoughness =
+        g_MetallicRoughnessTexture.Sample(g_MetallicRoughnessTexture_sampler, In.TexCoord);
+    float3 sampledEmissive = g_EmissiveTexture.Sample(g_EmissiveTexture_sampler, In.TexCoord).xyz;
+    float ao = g_AoTexture.Sample(g_AoTexture_sampler, In.TexCoord).x;
+
+    float4 baseColor = float4(g_BaseColorFactor.rgb * sampledBaseColor.rgb,
+                              g_BaseColorFactor.a * sampledBaseColor.a);
+    float roughness = clamp(g_MaterialParams.y * sampledMetallicRoughness.g, 0.04, 1.0);
+    float metallic = clamp(g_MaterialParams.x * sampledMetallicRoughness.b, 0.0, 1.0);
+    float3 emissive = g_EmissiveFactor.rgb * sampledEmissive;
+
 #ifdef CRESSIM_FEATURE_ALPHA_TEST
-    if (g_BaseColor.w < g_MaterialParams.z)
+    if (baseColor.w < g_MaterialParams.z)
     {
         discard;
     }
@@ -231,9 +253,7 @@ float4 main(in VSOutput In) : SV_Target
     float3 N = normalize(In.WorldNormal);
     float3 V = normalize(preparedCamera.cameraPosition.xyz - In.WorldPos);
 
-    float roughness = clamp(g_MaterialParams.y, 0.04, 1.0);
-    float metallic = clamp(g_MaterialParams.x, 0.0, 1.0);
-    float3 albedo = saturate(g_BaseColor.xyz);
+    float3 albedo = saturate(baseColor.xyz);
 
     float3 F0 = float3(0.04, 0.04, 0.04);
     F0 = lerp(F0, albedo, metallic);
@@ -269,8 +289,8 @@ float4 main(in VSOutput In) : SV_Target
         }
     }
 
-    float3 ambient = 0.03 * albedo;
-    float3 color = ambient + Lo;
+    float3 ambient = 0.03 * albedo * ao;
+    float3 color = ambient + Lo + emissive;
 
-    return float4(color, g_BaseColor.w);
+    return float4(color, baseColor.w);
 }

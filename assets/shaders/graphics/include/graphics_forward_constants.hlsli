@@ -13,7 +13,8 @@ cbuffer GriphicsForwardPerFrame
 
 cbuffer GraphicsForwardPerMaterial
 {
-    float4 g_BaseColor;
+    float4 g_BaseColorFactor;
+    float4 g_EmissiveFactor;
     float4 g_MaterialParams;
 };
 

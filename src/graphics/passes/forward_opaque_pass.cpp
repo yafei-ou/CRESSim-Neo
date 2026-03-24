@@ -46,11 +46,63 @@ Diligent::RefCntAutoPtr<Diligent::ITextureView> createArrayShadowSrv(Diligent::I
     return arraySrv;
 }
 
+Diligent::RefCntAutoPtr<Diligent::ITextureView> createTextureSrv(Diligent::ITexture *texture,
+                                                                 Diligent::ISampler *sampler)
+{
+    if (texture == nullptr)
+    {
+        return {};
+    }
+
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> view{
+        texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE)};
+    if (view != nullptr && sampler != nullptr)
+    {
+        view->SetSampler(sampler);
+    }
+    return view;
+}
+
+bool createSolidTexture(Diligent::IRenderDevice *renderDevice, Diligent::ISampler *sampler,
+                        const char *debugName, Diligent::TEXTURE_FORMAT format,
+                        const std::array<std::uint8_t, 4> &rgba,
+                        Diligent::RefCntAutoPtr<Diligent::ITextureView> &outSrv)
+{
+    if (renderDevice == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::TextureDesc textureDesc{};
+    textureDesc.Name      = debugName;
+    textureDesc.Type      = Diligent::RESOURCE_DIM_TEX_2D;
+    textureDesc.Width     = 1u;
+    textureDesc.Height    = 1u;
+    textureDesc.MipLevels = 1u;
+    textureDesc.ArraySize = 1u;
+    textureDesc.Format    = format;
+    textureDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+    textureDesc.Usage     = Diligent::USAGE_IMMUTABLE;
+
+    Diligent::TextureSubResData subresource{rgba.data(), 4u};
+    Diligent::TextureData initialData{&subresource, 1u};
+    Diligent::RefCntAutoPtr<Diligent::ITexture> texture;
+    renderDevice->CreateTexture(textureDesc, &initialData, &texture);
+    if (texture == nullptr)
+    {
+        return false;
+    }
+
+    outSrv = createTextureSrv(texture, sampler);
+    return outSrv != nullptr;
+}
+
 } // namespace
 
 ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice &device, RenderResourceManager &resourceManager)
     : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
-      mMeshGpuCache("CRESSimNeo.ForwardOpaquePass")
+      mMeshGpuCache("CRESSimNeo.ForwardOpaquePass"),
+      mTextureGpuCache("CRESSimNeo.ForwardOpaquePass")
 {
 }
 
@@ -63,6 +115,15 @@ bool ForwardOpaquePass::initialize()
     if (mDevice.tryGetGraphicsBackendContext(backendContext) &&
         backendContext.renderDevice != nullptr)
     {
+        Diligent::SamplerDesc materialSamplerDesc{};
+        materialSamplerDesc.MinFilter = Diligent::FILTER_TYPE_LINEAR;
+        materialSamplerDesc.MagFilter = Diligent::FILTER_TYPE_LINEAR;
+        materialSamplerDesc.MipFilter = Diligent::FILTER_TYPE_LINEAR;
+        materialSamplerDesc.AddressU  = Diligent::TEXTURE_ADDRESS_WRAP;
+        materialSamplerDesc.AddressV  = Diligent::TEXTURE_ADDRESS_WRAP;
+        materialSamplerDesc.AddressW  = Diligent::TEXTURE_ADDRESS_WRAP;
+        backendContext.renderDevice->CreateSampler(materialSamplerDesc, &mMaterialSampler);
+
         Diligent::SamplerDesc shadowSamplerDesc{};
         shadowSamplerDesc.MinFilter      = Diligent::FILTER_TYPE_COMPARISON_LINEAR;
         shadowSamplerDesc.MagFilter      = Diligent::FILTER_TYPE_COMPARISON_LINEAR;
@@ -89,6 +150,26 @@ bool ForwardOpaquePass::initialize()
         if (fallbackTexture != nullptr)
         {
             mFallbackShadowMapSrv = createArrayShadowSrv(fallbackTexture, mShadowSampler);
+        }
+
+        if (!createSolidTexture(backendContext.renderDevice, mMaterialSampler,
+                                "CRESSimNeo.ForwardOpaquePass.FallbackBaseColor",
+                                Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB, {255u, 255u, 255u, 255u},
+                                mFallbackBaseColorSrv) ||
+            !createSolidTexture(backendContext.renderDevice, mMaterialSampler,
+                                "CRESSimNeo.ForwardOpaquePass.FallbackMetallicRoughness",
+                                Diligent::TEX_FORMAT_RGBA8_UNORM, {0u, 255u, 0u, 255u},
+                                mFallbackMetallicRoughnessSrv) ||
+            !createSolidTexture(backendContext.renderDevice, mMaterialSampler,
+                                "CRESSimNeo.ForwardOpaquePass.FallbackEmissive",
+                                Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB, {255u, 255u, 255u, 255u},
+                                mFallbackEmissiveSrv) ||
+            !createSolidTexture(backendContext.renderDevice, mMaterialSampler,
+                                "CRESSimNeo.ForwardOpaquePass.FallbackAO",
+                                Diligent::TEX_FORMAT_RGBA8_UNORM, {255u, 255u, 255u, 255u},
+                                mFallbackAoSrv))
+        {
+            return false;
         }
     }
 
@@ -403,6 +484,70 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
     return true;
 }
 
+bool ForwardOpaquePass::bindMaterialTextures(MaterialProgramRegistry::ProgramResources &program,
+                                             Diligent::IRenderDevice *renderDevice,
+                                             Diligent::IDeviceContext *immediateContext,
+                                             common::ResourceId materialId)
+{
+    if (program.shaderResourceBinding == nullptr)
+    {
+        return false;
+    }
+
+    const MaterialResourceDesc *material =
+        mResourceManager.tryGetMaterial(MaterialHandle{materialId});
+    if (material == nullptr)
+    {
+        return false;
+    }
+
+    struct TextureBinding
+    {
+        const char *name;
+        TextureHandle handle;
+        Diligent::ITextureView *fallbackView;
+    };
+
+    const TextureBinding bindings[] = {
+        {"g_BaseColorTexture", material->baseColorTexture, mFallbackBaseColorSrv.RawPtr()},
+        {"g_MetallicRoughnessTexture", material->metallicRoughnessTexture,
+         mFallbackMetallicRoughnessSrv.RawPtr()},
+        {"g_EmissiveTexture", material->emissiveTexture, mFallbackEmissiveSrv.RawPtr()},
+        {"g_AoTexture", material->aoTexture, mFallbackAoSrv.RawPtr()},
+    };
+
+    for (const TextureBinding &binding : bindings)
+    {
+        Diligent::ITextureView *textureView = binding.fallbackView;
+        if (binding.handle.id != common::kInvalidResourceId)
+        {
+            TextureGpuCache::CachedTexture *cachedTexture =
+                mTextureGpuCache.getOrCreate(mResourceManager, binding.handle, renderDevice,
+                                             immediateContext, mMaterialSampler.RawPtr());
+            if (cachedTexture != nullptr && cachedTexture->shaderResourceView != nullptr)
+            {
+                textureView = cachedTexture->shaderResourceView;
+            }
+        }
+
+        if (textureView == nullptr)
+        {
+            return false;
+        }
+
+        Diligent::IShaderResourceVariable *variable =
+            program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                                             binding.name);
+        if (variable == nullptr)
+        {
+            return false;
+        }
+        variable->Set(textureView);
+    }
+
+    return true;
+}
+
 bool ForwardOpaquePass::updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
                                                const ForwardDrawCommand &drawCommand)
 {
@@ -419,8 +564,10 @@ bool ForwardOpaquePass::updatePerDrawConstants(Diligent::IDeviceContext *immedia
     }
 
     ForwardPerMaterialConstants materialConstants{};
-    materialConstants.baseColor = Diligent::float4{material->baseColor.x, material->baseColor.y,
-                                                   material->baseColor.z, material->opacity};
+    materialConstants.baseColorFactor = Diligent::float4{
+        material->baseColor.x, material->baseColor.y, material->baseColor.z, material->opacity};
+    materialConstants.emissiveFactor = Diligent::float4{
+        material->emissiveFactor.x, material->emissiveFactor.y, material->emissiveFactor.z, 0.0f};
     materialConstants.materialParams =
         Diligent::float4{material->metallic, material->roughness, material->pipeline.alphaCutoff,
                          material->receivesShadows ? 1.0f : 0.0f};
@@ -471,6 +618,11 @@ bool ForwardOpaquePass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBi
         return false;
     }
     if (!bindSceneBuffers(*setup.program))
+    {
+        return false;
+    }
+    if (!bindMaterialTextures(*setup.program, setup.backendContext.renderDevice,
+                              setup.backendContext.immediateContext, drawCommand.materialId))
     {
         return false;
     }

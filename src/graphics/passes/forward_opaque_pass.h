@@ -8,6 +8,7 @@
 #include "graphics/passes/material_program_registry.h"
 #include "graphics/passes/render_pass_types.h"
 #include "graphics/services/mesh_gpu_cache.h"
+#include "graphics/services/texture_gpu_cache.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
@@ -70,8 +71,9 @@ private:
 
     struct ForwardPerMaterialConstants
     {
-        Diligent::float4 baseColor{1.0f, 1.0f, 1.0f, 1.0f};
-        Diligent::float4 materialParams{0.0f, 0.5f, 0.5f, 0.0f};
+        Diligent::float4 baseColorFactor{1.0f, 1.0f, 1.0f, 1.0f};
+        Diligent::float4 emissiveFactor{0.0f, 0.0f, 0.0f, 0.0f};
+        Diligent::float4 materialParams{0.0f, 0.5f, 0.5f, 1.0f};
     };
 
     bool ensureConstantBuffers(Diligent::IRenderDevice *renderDevice);
@@ -81,6 +83,10 @@ private:
                      const ForwardDrawCommand &drawCommand, DrawSetup &outSetup);
     bool bindShadowMaps(MaterialProgramRegistry::ProgramResources &program);
     bool bindSceneBuffers(MaterialProgramRegistry::ProgramResources &program) const;
+    bool bindMaterialTextures(MaterialProgramRegistry::ProgramResources &program,
+                              Diligent::IRenderDevice *renderDevice,
+                              Diligent::IDeviceContext *immediateContext,
+                              common::ResourceId materialId);
     bool updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
                                 const ForwardDrawCommand &drawCommand);
     void bindGeometry(Diligent::IDeviceContext *immediateContext,
@@ -94,11 +100,17 @@ private:
     std::unique_ptr<MaterialProgramRegistry> mProgramRegistry;
 
     MeshGpuCache mMeshGpuCache;
+    TextureGpuCache mTextureGpuCache;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mForwardPerFrameBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mForwardPerMaterialBuffer;
     Diligent::RefCntAutoPtr<Diligent::ISampler> mShadowSampler;
+    Diligent::RefCntAutoPtr<Diligent::ISampler> mMaterialSampler;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackShadowMapSrv;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackBaseColorSrv;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackMetallicRoughnessSrv;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackEmissiveSrv;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackAoSrv;
     std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
     std::uint32_t mShadowMapCount = 0;
     gpu::GpuEntitySceneView mSceneView{};

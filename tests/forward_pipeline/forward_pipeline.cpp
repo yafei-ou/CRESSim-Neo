@@ -21,6 +21,8 @@ using cressim::neo::graphics::MaterialFeatureFlags;
 using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::graphics::MainPassClass;
 using cressim::neo::graphics::RenderStats;
+using cressim::neo::graphics::TextureColorSpace;
+using cressim::neo::graphics::TextureResourceDesc;
 using cressim::neo::graphics::detail::MaterialProgramRegistry;
 
 bool sameStats(const RenderStats& lhs, const RenderStats& rhs)
@@ -35,6 +37,19 @@ bool sameStats(const RenderStats& lhs, const RenderStats& rhs)
         lhs.renderTargetResizeNoOps == rhs.renderTargetResizeNoOps &&
         lhs.renderTargetRecreateCount == rhs.renderTargetRecreateCount &&
         lhs.renderTargetResizeConflicts == rhs.renderTargetResizeConflicts;
+}
+
+TextureResourceDesc makeSolidTextureDesc(const char *debugName, TextureColorSpace colorSpace,
+                                         std::uint8_t r, std::uint8_t g, std::uint8_t b,
+                                         std::uint8_t a)
+{
+    TextureResourceDesc desc{};
+    desc.debugName = debugName;
+    desc.width = 1u;
+    desc.height = 1u;
+    desc.colorSpace = colorSpace;
+    desc.pixelData = {r, g, b, a};
+    return desc;
 }
 
 } // namespace
@@ -73,9 +88,34 @@ int main()
     meshDesc.indices = {0u, 1u, 2u};
     const auto mesh = resources.registerMesh(meshDesc);
 
+    const auto baseColorTexture =
+        resources.registerTexture(makeSolidTextureDesc("ForwardPipeline.BaseColor",
+                                                       TextureColorSpace::Srgb, 255u, 128u, 128u,
+                                                       255u));
+    const auto metallicRoughnessTexture =
+        resources.registerTexture(makeSolidTextureDesc("ForwardPipeline.MetallicRoughness",
+                                                       TextureColorSpace::Linear, 0u, 128u, 64u,
+                                                       255u));
+    const auto emissiveTexture =
+        resources.registerTexture(makeSolidTextureDesc("ForwardPipeline.Emissive",
+                                                       TextureColorSpace::Srgb, 32u, 16u, 8u,
+                                                       255u));
+    const auto aoTexture = resources.registerTexture(
+        makeSolidTextureDesc("ForwardPipeline.AO", TextureColorSpace::Linear, 192u, 0u, 0u, 255u));
+
     MaterialResourceDesc opaqueMaterialDesc{};
     opaqueMaterialDesc.debugName = "ForwardPipeline.Opaque";
     const auto opaqueMaterial = resources.registerMaterial(opaqueMaterialDesc);
+
+    MaterialResourceDesc texturedMaterialDesc{};
+    texturedMaterialDesc.debugName = "ForwardPipeline.Textured";
+    texturedMaterialDesc.baseColorTexture = baseColorTexture;
+    texturedMaterialDesc.metallicRoughnessTexture = metallicRoughnessTexture;
+    texturedMaterialDesc.emissiveTexture = emissiveTexture;
+    texturedMaterialDesc.aoTexture = aoTexture;
+    texturedMaterialDesc.emissiveFactor = {1.0f, 1.0f, 1.0f};
+    texturedMaterialDesc.castsShadows = false;
+    const auto texturedMaterial = resources.registerMaterial(texturedMaterialDesc);
 
     MaterialResourceDesc transparentMaterialDesc{};
     transparentMaterialDesc.debugName = "ForwardPipeline.Transparent";
@@ -93,6 +133,16 @@ int main()
     visibleOpaqueRenderer.material = opaqueMaterial;
     visibleOpaqueRenderer.visible = true;
     world.setMeshRenderer(visibleOpaqueEntity, visibleOpaqueRenderer);
+
+    const auto texturedEntity = world.createEntity();
+    TransformComponent texturedTransform{};
+    texturedTransform.worldTransform.position = {-0.8f, 0.0f, 2.5f};
+    world.setTransform(texturedEntity, texturedTransform);
+    MeshRendererComponent texturedRenderer{};
+    texturedRenderer.mesh = mesh;
+    texturedRenderer.material = texturedMaterial;
+    texturedRenderer.visible = true;
+    world.setMeshRenderer(texturedEntity, texturedRenderer);
 
     const auto visibleTransparentEntity = world.createEntity();
     TransformComponent visibleTransparentTransform{};
@@ -133,7 +183,7 @@ int main()
 
     runtime.shutdown();
 
-    if (firstFrame.renderableCount != 3)
+    if (firstFrame.renderableCount != 4)
     {
         CRESSIM_LOG_ERROR( "Unexpected renderable counters.\n");
         return 1;
@@ -158,11 +208,13 @@ int main()
     runtimeVariantA.baseColor = {1.0f, 0.2f, 0.2f};
     runtimeVariantA.roughness = 0.15f;
     runtimeVariantA.pipeline.featureFlags = MaterialFeatureFlags::None;
+    runtimeVariantA.baseColorTexture = baseColorTexture;
 
     MaterialResourceDesc runtimeVariantB = runtimeVariantA;
     runtimeVariantB.baseColor = {0.1f, 0.8f, 0.4f};
     runtimeVariantB.roughness = 0.9f;
     runtimeVariantB.metallic = 1.0f;
+    runtimeVariantB.emissiveTexture = emissiveTexture;
 
     const auto keyA = MaterialProgramRegistry::buildProgramKey(
         MainPassClass::ForwardOpaque,
