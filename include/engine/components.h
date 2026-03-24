@@ -39,7 +39,7 @@ struct CameraComponent
     float nearClip           = 0.01f;
     float farClip            = 1000.0f;
 
-    // ManagedPrimary renders into the renderer-managed primary layered surface.
+    // ManagedPrimary renders into the renderer-managed primary layered surface for presentation.
     // ExplicitSurface renders directly into the bound target layer. Binding a non-array target
     // still means every camera targeting it shares layer 0.
     gpu::CameraOutputBinding output{};
@@ -55,7 +55,9 @@ struct CameraComponent
     gpu::GpuRenderViewport viewport{};
     bool clearColor = true;
     bool clearDepth = true;
-    Diligent::float4 clearColorValue{0.02f, 0.02f, 0.03f, 1.0f};
+    // This value should follow the color-space semantics of the target path in use.
+    // For example, HDR/scene-linear targets expect linear values.
+    Diligent::float4 clearColorValue{0.0f, 0.0f, 0.0f, 1.0f};
     float clearDepthValue = 1.0f;
 
     // Cameras are rendered in ascending order.

@@ -41,7 +41,9 @@ struct CameraData
     gpu::GpuRenderViewport viewport{};
     bool clearColor = true;
     bool clearDepth = true;
-    Diligent::float4 clearColorValue{0.02f, 0.02f, 0.03f, 1.0f};
+    // This value should follow the color-space semantics of the target path in use.
+    // For example, HDR/scene-linear targets expect linear values.
+    Diligent::float4 clearColorValue{0.0f, 0.0f, 0.0f, 1.0f};
     float clearDepthValue = 1.0f;
 
     std::uint32_t renderOrder = 0;

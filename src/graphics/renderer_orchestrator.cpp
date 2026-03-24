@@ -430,23 +430,21 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
         return stats;
     }
 
-    gpu::GpuRenderTargetDesc defaultTargetDesc{};
-    const gpu::GpuRenderTargetHandle defaultTarget =
-        mDevice.renderTargetSystem().defaultRenderTarget();
-    const gpu::GpuRenderTargetBinding defaultTargetBinding =
-        mDevice.renderTargetSystem().defaultRenderTargetBinding();
-    const bool hasDefaultTarget =
-        mDevice.renderTargetSystem().isValidRenderTarget(defaultTarget) &&
-        mDevice.renderTargetSystem().tryGetRenderTargetDesc(defaultTarget, defaultTargetDesc);
-
     if (mOutputPlanningState == nullptr)
     {
         mOutputPlanningState = std::make_unique<RendererOutputPlanningState>();
     }
 
+    gpu::GpuRenderTargetDesc defaultRenderTargetDesc{};
+    if (!mDevice.tryGetDefaultRenderTargetDesc(defaultRenderTargetDesc))
+    {
+        mDevice.endFrame(frameContext);
+        return stats;
+    }
+
     detail::CameraOutputPlanningResult outputPlan = detail::planCameraOutputs(
-        cameras, gpuScene, mDevice.renderTargetSystem(), defaultTargetDesc, defaultTargetBinding,
-        hasDefaultTarget, options, mOutputPlanningState->managedPrimaryTargets, stats);
+        cameras, gpuScene, mDevice.renderTargetSystem(), defaultRenderTargetDesc,
+        options.presentationTarget, options, mOutputPlanningState->managedPrimaryTargets, stats);
 
     for (auto it = mOutputPlanningState->managedPrimaryTargets.begin();
          it != mOutputPlanningState->managedPrimaryTargets.end();)

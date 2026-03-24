@@ -1,6 +1,9 @@
 #include "graphics/display_resolve_pass.h"
 
+#include "common/math_utils_runtime.h"
 #include "gpu/shader_library.h"
+
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
 
 #include <array>
 #include <cstring>
@@ -10,6 +13,12 @@ namespace cressim::neo::graphics::detail
 
 namespace
 {
+
+enum class ResolveOutputMode : std::uint32_t
+{
+    Sdr       = 0u,
+    HdrLinear = 1u,
+};
 
 Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> createResolveBinding(
     Diligent::IPipelineState *pipeline)
@@ -22,6 +31,19 @@ Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> createResolveBinding(
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> srb;
     pipeline->CreateShaderResourceBinding(&srb, true);
     return srb;
+}
+
+ResolveOutputMode resolveOutputModeForFormat(Diligent::TEXTURE_FORMAT colorFormat)
+{
+    const auto &formatAttribs = Diligent::GetTextureFormatAttribs(colorFormat);
+    switch (formatAttribs.ComponentType)
+    {
+    case Diligent::COMPONENT_TYPE_FLOAT:
+    case Diligent::COMPONENT_TYPE_COMPOUND:
+        return ResolveOutputMode::HdrLinear;
+    default:
+        return ResolveOutputMode::Sdr;
+    }
 }
 
 } // namespace
@@ -240,12 +262,17 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
         return false;
     }
 
-    const Diligent::TEXTURE_FORMAT depthFormat = request.targetTargetDesc.depth
-                                                     ? request.targetTargetDesc.depthFormat
+    if (backendContext.primarySwapChain == nullptr)
+    {
+        return false;
+    }
+
+    const Diligent::TEXTURE_FORMAT depthFormat = request.presentationTarget.hasDepth
+                                                     ? request.presentationTarget.depthFormat
                                                      : Diligent::TEX_FORMAT_UNKNOWN;
     Diligent::IPipelineState *pipeline =
         getOrCreatePipeline(backendContext.renderDevice,
-                            PipelineKey{request.targetTargetDesc.colorFormat, depthFormat});
+                            PipelineKey{request.presentationTarget.colorFormat, depthFormat});
     if (pipeline == nullptr)
     {
         return false;
@@ -271,8 +298,10 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     sourceColorVar->Set(sourceSrv);
 
     ResolveConstants constants{};
-    constants.layer = request.sourceBinding.firstLayer;
-    void *mapped    = nullptr;
+    constants.layer      = request.sourceBinding.firstLayer;
+    constants.outputMode = static_cast<std::uint32_t>(
+        resolveOutputModeForFormat(request.presentationTarget.colorFormat));
+    void *mapped = nullptr;
     backendContext.immediateContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,
                                                Diligent::MAP_FLAG_DISCARD, mapped);
     if (mapped == nullptr)
@@ -282,17 +311,51 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     std::memcpy(mapped, &constants, sizeof(constants));
     backendContext.immediateContext->UnmapBuffer(mConstantsBuffer, Diligent::MAP_WRITE);
 
-    mDevice.renderTargetSystem().setRenderTargetViewport(request.targetBinding,
-                                                         gpu::GpuRenderViewport{});
-    gpu::GpuRenderPassBeginDesc beginDesc{};
-    beginDesc.clearColor         = request.clearColor;
-    beginDesc.clearDepth         = request.clearDepth;
-    beginDesc.clearColorValue[0] = request.clearColorValue.x;
-    beginDesc.clearColorValue[1] = request.clearColorValue.y;
-    beginDesc.clearColorValue[2] = request.clearColorValue.z;
-    beginDesc.clearColorValue[3] = request.clearColorValue.w;
-    beginDesc.clearDepthValue    = request.clearDepthValue;
-    mDevice.renderTargetSystem().beginRenderTarget(request.targetBinding, frameContext, beginDesc);
+    const auto &swapChainDesc = backendContext.primarySwapChain->GetDesc();
+    if (swapChainDesc.Width != request.presentationTarget.width ||
+        swapChainDesc.Height != request.presentationTarget.height)
+    {
+        backendContext.primarySwapChain->Resize(
+            common::runtime_math::clampExtent(request.presentationTarget.width),
+            common::runtime_math::clampExtent(request.presentationTarget.height),
+            Diligent::SURFACE_TRANSFORM_OPTIMAL);
+    }
+
+    Diligent::ITextureView *backBufferRtv =
+        backendContext.primarySwapChain->GetCurrentBackBufferRTV();
+    Diligent::ITextureView *depthBufferDsv =
+        request.presentationTarget.hasDepth ? backendContext.primarySwapChain->GetDepthBufferDSV()
+                                            : nullptr;
+    if (backBufferRtv == nullptr)
+    {
+        return false;
+    }
+
+    backendContext.immediateContext->SetRenderTargets(
+        1, &backBufferRtv, depthBufferDsv, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (request.clearColor)
+    {
+        const float clearColor[4] = {request.clearColorValue.x, request.clearColorValue.y,
+                                     request.clearColorValue.z, request.clearColorValue.w};
+        backendContext.immediateContext->ClearRenderTarget(
+            backBufferRtv, clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
+    if (depthBufferDsv != nullptr && request.clearDepth)
+    {
+        backendContext.immediateContext->ClearDepthStencil(
+            depthBufferDsv, Diligent::CLEAR_DEPTH_FLAG, request.clearDepthValue, 0,
+            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
+
+    Diligent::Viewport diligentViewport{};
+    diligentViewport.TopLeftX = 0.0f;
+    diligentViewport.TopLeftY = 0.0f;
+    diligentViewport.Width    = static_cast<float>(request.presentationTarget.width);
+    diligentViewport.Height   = static_cast<float>(request.presentationTarget.height);
+    diligentViewport.MinDepth = 0.0f;
+    diligentViewport.MaxDepth = 1.0f;
+    backendContext.immediateContext->SetViewports(
+        1, &diligentViewport, request.presentationTarget.width, request.presentationTarget.height);
 
     backendContext.immediateContext->SetPipelineState(pipeline);
     backendContext.immediateContext->CommitShaderResources(
@@ -303,7 +366,8 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     drawAttrs.Flags       = Diligent::DRAW_FLAG_VERIFY_ALL;
     backendContext.immediateContext->Draw(drawAttrs);
 
-    mDevice.renderTargetSystem().endRenderTarget(request.targetBinding, frameContext);
+    backendContext.immediateContext->SetRenderTargets(
+        0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
     return true;
 }
 

@@ -28,7 +28,7 @@ CameraData defaultCamera()
     camera.viewport           = {};
     camera.clearColor         = true;
     camera.clearDepth         = true;
-    camera.clearColorValue    = Diligent::float4{0.02f, 0.02f, 0.03f, 1.0f};
+    camera.clearColorValue    = Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f};
     camera.clearDepthValue    = 1.0f;
     return camera;
 }

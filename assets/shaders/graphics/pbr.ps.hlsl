@@ -271,8 +271,6 @@ float4 main(in VSOutput In) : SV_Target
 
     float3 ambient = 0.03 * albedo;
     float3 color = ambient + Lo;
-    color = color / (color + 1.0);
-    color = pow(color, 1.0 / 2.2);
 
     return float4(color, g_BaseColor.w);
 }

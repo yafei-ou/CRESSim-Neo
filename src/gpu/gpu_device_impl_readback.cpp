@@ -1,10 +1,10 @@
-#include "common/math_utils_runtime.h"
 #include "gpu/gpu_device_impl.h"
 #include "gpu/gpu_render_target_system_impl.h"
 
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/SwapChain.h"
 
-#include <algorithm>
+#include <cstring>
 
 namespace cressim::neo::gpu
 {
@@ -18,6 +18,7 @@ void GpuDeviceImpl::endFrame(const common::FrameContext &frameContext)
 
     if (mInitialized && mBackend == GpuBackend::Vulkan && mImmediateContext != nullptr)
     {
+        (void)queuePresentationReadback(frameContext);
         (void)presentPrimarySwapChain();
     }
 
@@ -36,64 +37,10 @@ bool GpuDeviceImpl::presentPrimarySwapChain()
     {
         return true;
     }
-    if (!mInitialized || mBackend != GpuBackend::Vulkan || mImmediateContext == nullptr ||
-        mRenderTargets == nullptr)
+    if (!mInitialized || mBackend != GpuBackend::Vulkan || mImmediateContext == nullptr)
     {
         return false;
     }
-
-    Diligent::ITexture *sourceTexture         = nullptr;
-    const GpuRenderTargetHandle defaultTarget = mRenderTargets->defaultRenderTarget();
-    if (!mRenderTargets->tryGetRenderTargetColorTexture(defaultTarget, sourceTexture) ||
-        sourceTexture == nullptr)
-    {
-        return false;
-    }
-
-    GpuRenderTargetDesc sourceDesc{};
-    if (!mRenderTargets->tryGetRenderTargetDesc(defaultTarget, sourceDesc))
-    {
-        return false;
-    }
-
-    const auto &swapChainDesc = mPrimarySwapChain->GetDesc();
-    if (swapChainDesc.Width != sourceDesc.width || swapChainDesc.Height != sourceDesc.height)
-    {
-        mPrimarySwapChain->Resize(common::runtime_math::clampExtent(sourceDesc.width),
-                                  common::runtime_math::clampExtent(sourceDesc.height),
-                                  Diligent::SURFACE_TRANSFORM_OPTIMAL);
-    }
-
-    Diligent::ITextureView *backBufferRtv = mPrimarySwapChain->GetCurrentBackBufferRTV();
-    if (backBufferRtv == nullptr || backBufferRtv->GetTexture() == nullptr)
-    {
-        return false;
-    }
-    Diligent::ITexture *backBufferTexture = backBufferRtv->GetTexture();
-    if (backBufferTexture == nullptr)
-    {
-        return false;
-    }
-
-    const auto &srcTexDesc         = sourceTexture->GetDesc();
-    const auto &dstTexDesc         = backBufferTexture->GetDesc();
-    const std::uint32_t copyWidth  = std::min<std::uint32_t>(srcTexDesc.Width, dstTexDesc.Width);
-    const std::uint32_t copyHeight = std::min<std::uint32_t>(srcTexDesc.Height, dstTexDesc.Height);
-    if (copyWidth == 0 || copyHeight == 0)
-    {
-        mPrimarySwapChain->Present(mDesc.presentation.syncInterval);
-        return true;
-    }
-
-    const Diligent::Box srcBox{0u, copyWidth, 0u, copyHeight, 0u, 1u};
-    Diligent::CopyTextureAttribs copyAttribs{
-        sourceTexture, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, backBufferTexture,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
-    copyAttribs.pSrcBox = &srcBox;
-    copyAttribs.DstX    = 0;
-    copyAttribs.DstY    = 0;
-    copyAttribs.DstZ    = 0;
-    mImmediateContext->CopyTexture(copyAttribs);
 
     mPrimarySwapChain->Present(mDesc.presentation.syncInterval);
     if (!mPrimarySwapChain->GetDesc().IsPrimary)
@@ -102,6 +49,122 @@ bool GpuDeviceImpl::presentPrimarySwapChain()
         mImmediateContext->FinishFrame();
     }
 
+    return true;
+}
+
+bool GpuDeviceImpl::queuePresentationReadback(const common::FrameContext &frameContext)
+{
+    if (mPrimarySwapChain == nullptr || mRenderDevice == nullptr || mImmediateContext == nullptr ||
+        mPresentationReadbackFence == nullptr || mPendingPresentationReadbackRequests.empty())
+    {
+        return true;
+    }
+
+    Diligent::ITextureView *backBufferRtv = mPrimarySwapChain->GetCurrentBackBufferRTV();
+    if (backBufferRtv == nullptr || backBufferRtv->GetTexture() == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::ITexture *backBufferTexture = backBufferRtv->GetTexture();
+    const auto &textureDesc               = backBufferTexture->GetDesc();
+    if (textureDesc.Width == 0u || textureDesc.Height == 0u)
+    {
+        return false;
+    }
+
+    Diligent::TextureDesc stagingDesc = textureDesc;
+    const std::string stagingName     = "CRESSimNeo.PresentationReadback";
+    stagingDesc.Name                  = stagingName.c_str();
+    stagingDesc.Type                  = Diligent::RESOURCE_DIM_TEX_2D;
+    stagingDesc.ArraySize             = 1u;
+    stagingDesc.BindFlags             = Diligent::BIND_NONE;
+    stagingDesc.Usage                 = Diligent::USAGE_STAGING;
+    stagingDesc.CPUAccessFlags        = Diligent::CPU_ACCESS_READ;
+    stagingDesc.MiscFlags             = Diligent::MISC_TEXTURE_FLAG_NONE;
+
+    for (auto it = mPendingPresentationReadbackRequests.begin();
+         it != mPendingPresentationReadbackRequests.end();)
+    {
+        Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
+        mRenderDevice->CreateTexture(stagingDesc, nullptr, &stagingTexture);
+        if (stagingTexture == nullptr)
+        {
+            return false;
+        }
+
+        Diligent::CopyTextureAttribs copyAttribs{
+            backBufferTexture, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, stagingTexture,
+            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
+        mImmediateContext->CopyTexture(copyAttribs);
+
+        const std::uint64_t fenceValue = mNextPresentationReadbackFenceValue++;
+        mImmediateContext->EnqueueSignal(mPresentationReadbackFence, fenceValue);
+
+        PendingPresentationReadback readbackCopy{};
+        readbackCopy.requestId      = it->first;
+        readbackCopy.frameIndex     = frameContext.frameIndex;
+        readbackCopy.fenceValue     = fenceValue;
+        readbackCopy.width          = textureDesc.Width;
+        readbackCopy.height         = textureDesc.Height;
+        readbackCopy.colorFormat    = textureDesc.Format;
+        readbackCopy.stagingTexture = std::move(stagingTexture);
+        mPendingPresentationReadbackCopies.push_back(std::move(readbackCopy));
+        it = mPendingPresentationReadbackRequests.erase(it);
+    }
+
+    for (PendingPresentationReadback &copy : mPendingPresentationReadbackCopies)
+    {
+        GpuPresentationReadbackEvent event{};
+        if (consumePresentationReadback(copy, event))
+        {
+            mCompletedPresentationReadbacks[copy.requestId] = std::move(event);
+        }
+    }
+    mPendingPresentationReadbackCopies.clear();
+    return true;
+}
+
+bool GpuDeviceImpl::consumePresentationReadback(PendingPresentationReadback &copy,
+                                                GpuPresentationReadbackEvent &outEvent)
+{
+    outEvent             = {};
+    outEvent.frameIndex  = copy.frameIndex;
+    outEvent.colorFormat = copy.colorFormat;
+
+    if (copy.stagingTexture == nullptr || copy.width == 0u || copy.height == 0u)
+    {
+        return true;
+    }
+
+    mPresentationReadbackFence->Wait(copy.fenceValue);
+
+    Diligent::MappedTextureSubresource mappedData{};
+    mImmediateContext->MapTextureSubresource(copy.stagingTexture, 0, 0, Diligent::MAP_READ,
+                                             Diligent::MAP_FLAG_DO_NOT_WAIT, nullptr, mappedData);
+    if (mappedData.pData == nullptr)
+    {
+        return false;
+    }
+
+    outEvent.width            = copy.width;
+    outEvent.height           = copy.height;
+    const auto &formatAttribs = Diligent::GetTextureFormatAttribs(copy.colorFormat);
+    outEvent.rowStrideBytes   = copy.width * formatAttribs.GetElementSize();
+    outEvent.colorBytes.resize(static_cast<std::size_t>(outEvent.rowStrideBytes) *
+                               static_cast<std::size_t>(outEvent.height));
+
+    const auto *srcRows = static_cast<const std::uint8_t *>(mappedData.pData);
+    auto *dstRows       = outEvent.colorBytes.data();
+    for (std::uint32_t y = 0; y < outEvent.height; ++y)
+    {
+        std::memcpy(dstRows + static_cast<std::size_t>(y) * outEvent.rowStrideBytes,
+                    srcRows +
+                        static_cast<std::size_t>(y) * static_cast<std::size_t>(mappedData.Stride),
+                    outEvent.rowStrideBytes);
+    }
+
+    mImmediateContext->UnmapTextureSubresource(copy.stagingTexture, 0, 0);
     return true;
 }
 

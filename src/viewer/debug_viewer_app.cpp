@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdint>
 #include <iomanip>
+#include <optional>
 #include <sstream>
 #include <unordered_map>
 #include <utility>
@@ -117,35 +118,6 @@ bool isPressed(GLFWwindow *window, int key)
     return key >= 0 && glfwGetKey(window, key) == GLFW_PRESS;
 }
 
-gpu::GpuRenderTargetDesc resolveDefaultPresentationTargetDesc(engine::Runtime &runtime,
-                                                              std::uint32_t requestedWidth,
-                                                              std::uint32_t requestedHeight)
-{
-    gpu::GpuRenderTargetDesc resolvedDesc{};
-    gpu::GpuDevice *const device = runtime.getGpuDevice();
-    if (device == nullptr)
-    {
-        resolvedDesc.width  = requestedWidth;
-        resolvedDesc.height = requestedHeight;
-        return resolvedDesc;
-    }
-
-    gpu::GpuRenderTargetSystem &renderTargets      = device->renderTargetSystem();
-    const gpu::GpuRenderTargetHandle defaultTarget = renderTargets.defaultRenderTarget();
-    if (renderTargets.isValidRenderTarget(defaultTarget))
-    {
-        (void)renderTargets.resizeRenderTarget(defaultTarget, requestedWidth, requestedHeight);
-        if (renderTargets.tryGetRenderTargetDesc(defaultTarget, resolvedDesc))
-        {
-            return resolvedDesc;
-        }
-    }
-
-    resolvedDesc.width  = requestedWidth;
-    resolvedDesc.height = requestedHeight;
-    return resolvedDesc;
-}
-
 } // namespace
 
 class DebugViewerApp::Impl
@@ -195,7 +167,7 @@ public:
         std::uint32_t effectiveHeight = mDesc.height;
 
         inOutRuntimeConfig.gpuDeviceDesc.defaultRenderTargetDesc.colorFormat =
-            Diligent::TEX_FORMAT_UNKNOWN;
+            Diligent::TEX_FORMAT_RGBA16_FLOAT;
         inOutRuntimeConfig.gpuDeviceDesc.presentation.enabled      = mDesc.windowEnabled;
         inOutRuntimeConfig.gpuDeviceDesc.presentation.syncInterval = mDesc.vSync ? 1u : 0u;
         inOutRuntimeConfig.gpuDeviceDesc.presentation.preferredColorFormat =
@@ -390,7 +362,8 @@ public:
         frame.deltaSeconds                          = mDesc.fixedDeltaSeconds;
         common::EntityId presentedCameraEntity      = cameraBinding.cameraEntity;
         common::EntityId outputOverrideCameraEntity = common::kInvalidEntityId;
-        runtime.setRenderFrameOptions(graphics::RenderFrameOptions{presentedCameraEntity});
+        runtime.setRenderFrameOptions(
+            graphics::RenderFrameOptions{presentedCameraEntity, std::nullopt});
 
         while (!mExitRequested.load())
         {
@@ -461,13 +434,21 @@ public:
             }
             world.setCamera(cameraBinding.cameraEntity, camera);
 
-            gpu::GpuRenderTargetDesc presentationTargetDesc{};
+            gpu::GpuPresentationTargetDesc presentationTargetDesc{};
             presentationTargetDesc.width  = static_cast<std::uint32_t>(std::max(outputWidth, 1));
             presentationTargetDesc.height = static_cast<std::uint32_t>(std::max(outputHeight, 1));
             if (mDesc.windowEnabled)
             {
-                presentationTargetDesc = resolveDefaultPresentationTargetDesc(
-                    runtime, presentationTargetDesc.width, presentationTargetDesc.height);
+                if (gpu::GpuDevice *const device = runtime.getGpuDevice())
+                {
+                    gpu::GpuPresentationTargetDesc devicePresentationDesc{};
+                    if (device->tryGetPresentationTargetDesc(devicePresentationDesc))
+                    {
+                        presentationTargetDesc.colorFormat = devicePresentationDesc.colorFormat;
+                        presentationTargetDesc.depthFormat = devicePresentationDesc.depthFormat;
+                        presentationTargetDesc.hasDepth    = devicePresentationDesc.hasDepth;
+                    }
+                }
 
                 if (outputOverrideCameraEntity != common::kInvalidEntityId &&
                     outputOverrideCameraEntity != presentedCameraEntity)
@@ -482,7 +463,8 @@ public:
                 outputOverrideCameraEntity = presentedCameraEntity;
             }
 
-            runtime.setRenderFrameOptions(graphics::RenderFrameOptions{presentedCameraEntity});
+            runtime.setRenderFrameOptions(
+                graphics::RenderFrameOptions{presentedCameraEntity, presentationTargetDesc});
 
             frame.frameIndex += 1u;
 
