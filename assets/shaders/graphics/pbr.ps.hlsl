@@ -6,10 +6,40 @@ struct VSOutput
     float4 Position : SV_Position;
     float3 WorldPos : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
-    nointerpolation uint CameraIndex : TEXCOORD2;
-    nointerpolation uint MainLightIndex : TEXCOORD3;
-    nointerpolation uint ShadowLayer : TEXCOORD4;
+    float2 TexCoord : TEXCOORD2;
+    float4 WorldTangent : TEXCOORD3;
+    nointerpolation uint CameraIndex : TEXCOORD4;
+    nointerpolation uint MainLightIndex : TEXCOORD5;
+    nointerpolation uint ShadowLayer : TEXCOORD6;
+#ifdef CRESSIM_FEATURE_DOUBLE_SIDED
+    bool IsFrontFace : SV_IsFrontFace;
+#endif
 };
+
+Texture2D g_BaseColorTexture;
+Texture2D g_NormalTexture;
+Texture2D g_MetallicRoughnessTexture;
+Texture2D g_EmissiveTexture;
+Texture2D g_AoTexture;
+#if defined(CRESSIM_IBL_DIFFUSE_ONLY) || defined(CRESSIM_IBL_FULL)
+TextureCubeArray g_IrradianceMap;
+#endif
+#if defined(CRESSIM_IBL_FULL)
+TextureCubeArray g_PrefilteredSpecularMap;
+Texture2D g_BrdfLut;
+#endif
+SamplerState g_BaseColorTexture_sampler;
+SamplerState g_NormalTexture_sampler;
+SamplerState g_MetallicRoughnessTexture_sampler;
+SamplerState g_EmissiveTexture_sampler;
+SamplerState g_AoTexture_sampler;
+#if defined(CRESSIM_IBL_DIFFUSE_ONLY) || defined(CRESSIM_IBL_FULL)
+SamplerState g_IrradianceMap_sampler;
+#endif
+#if defined(CRESSIM_IBL_FULL)
+SamplerState g_PrefilteredSpecularMap_sampler;
+SamplerState g_BrdfLut_sampler;
+#endif
 
 Texture2DArray g_ShadowMap0;
 Texture2DArray g_ShadowMap1;
@@ -56,6 +86,37 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
 float3 FresnelSchlick(float cosTheta, float3 F0)
 {
     return F0 + (1.0 - F0) * pow(saturate(1.0 - cosTheta), 5.0);
+}
+
+float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
+{
+    return F0 + (max(float3(1.0 - roughness, 1.0 - roughness, 1.0 - roughness), F0) - F0) *
+                    pow(saturate(1.0 - cosTheta), 5.0);
+}
+
+float3 BuildShadingNormal(in VSOutput In)
+{
+    float3 N = normalize(In.WorldNormal);
+
+#ifdef CRESSIM_FEATURE_DOUBLE_SIDED
+    const float faceSign = In.IsFrontFace ? 1.0 : -1.0;
+    N *= faceSign;
+#endif
+
+#ifdef CRESSIM_FEATURE_NORMAL_MAP
+    float3 T = normalize(In.WorldTangent.xyz);
+#ifdef CRESSIM_FEATURE_DOUBLE_SIDED
+    T *= faceSign;
+#endif
+    T = normalize(T - N * dot(N, T));
+    float3 B = normalize(cross(N, T)) * In.WorldTangent.w;
+    float3 tangentNormal = g_NormalTexture.Sample(g_NormalTexture_sampler, In.TexCoord).xyz;
+    tangentNormal = tangentNormal * 2.0 - 1.0;
+    float3x3 tbn = float3x3(T, B, N);
+    return normalize(mul(tangentNormal, tbn));
+#else
+    return N;
+#endif
 }
 
 int SelectCascade(float viewDepth, float4 cascadeSplits, int cascadeCount)
@@ -220,20 +281,30 @@ float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir, uint 
 
 float4 main(in VSOutput In) : SV_Target
 {
+    float4 sampledBaseColor = g_BaseColorTexture.Sample(g_BaseColorTexture_sampler, In.TexCoord);
+    float4 sampledMetallicRoughness =
+        g_MetallicRoughnessTexture.Sample(g_MetallicRoughnessTexture_sampler, In.TexCoord);
+    float3 sampledEmissive = g_EmissiveTexture.Sample(g_EmissiveTexture_sampler, In.TexCoord).xyz;
+    float ao = g_AoTexture.Sample(g_AoTexture_sampler, In.TexCoord).x;
+
+    float4 baseColor = float4(g_BaseColorFactor.rgb * sampledBaseColor.rgb,
+                              g_BaseColorFactor.a * sampledBaseColor.a);
+    float roughness = clamp(g_MaterialParams.y * sampledMetallicRoughness.g, 0.04, 1.0);
+    float metallic = clamp(g_MaterialParams.x * sampledMetallicRoughness.b, 0.0, 1.0);
+    float3 emissive = g_EmissiveFactor.rgb * sampledEmissive;
+
 #ifdef CRESSIM_FEATURE_ALPHA_TEST
-    if (g_BaseColor.w < g_MaterialParams.z)
+    if (baseColor.w < g_MaterialParams.z)
     {
         discard;
     }
 #endif
 
     PreparedCamera preparedCamera = g_PreparedCameras[In.CameraIndex];
-    float3 N = normalize(In.WorldNormal);
+    float3 N = BuildShadingNormal(In);
     float3 V = normalize(preparedCamera.cameraPosition.xyz - In.WorldPos);
 
-    float roughness = clamp(g_MaterialParams.y, 0.04, 1.0);
-    float metallic = clamp(g_MaterialParams.x, 0.0, 1.0);
-    float3 albedo = saturate(g_BaseColor.xyz);
+    float3 albedo = saturate(baseColor.xyz);
 
     float3 F0 = float3(0.04, 0.04, 0.04);
     F0 = lerp(F0, albedo, metallic);
@@ -269,8 +340,46 @@ float4 main(in VSOutput In) : SV_Target
         }
     }
 
-    float3 ambient = 0.03 * albedo;
-    float3 color = ambient + Lo;
+    float NdotV = max(dot(N, V), 0.0);
+    float3 F = FresnelSchlickRoughness(NdotV, F0, roughness);
+    float3 kS = F;
+    float3 kD = (1.0 - kS) * (1.0 - metallic);
 
-    return float4(color, g_BaseColor.w);
+    float3 ambient = 0.03 * albedo * ao;
+#if defined(CRESSIM_IBL_DIFFUSE_ONLY) || defined(CRESSIM_IBL_FULL)
+    EnvironmentIblLookupEntry iblEntry = g_EnvironmentIblLookup[preparedCamera.envIndex];
+    if (iblEntry.enabled != 0u)
+    {
+        float3 irradiance =
+            g_IrradianceMap.Sample(g_IrradianceMap_sampler, float4(N, (float)iblEntry.sliceIndex))
+                .rgb;
+        float3 diffuseIbl = irradiance * albedo;
+
+        float iblStrength = step(1.0e-5, dot(irradiance, irradiance));
+#if defined(CRESSIM_IBL_FULL)
+        float3 iblAmbient = kD * diffuseIbl;
+        float3 R = reflect(-V, N);
+        float mipLevel = roughness * max(g_IblSpecularParams.x - 1.0, 0.0);
+        float3 prefilteredColor =
+            g_PrefilteredSpecularMap.SampleLevel(g_PrefilteredSpecularMap_sampler,
+                                                 float4(R, (float)iblEntry.sliceIndex), mipLevel)
+                .rgb;
+        float2 brdf = g_BrdfLut.Sample(g_BrdfLut_sampler, float2(NdotV, roughness)).rg;
+        float3 specularIbl = prefilteredColor * (F * brdf.x + brdf.y);
+        iblAmbient += specularIbl;
+        iblStrength =
+            step(1.0e-5, dot(irradiance, irradiance) + dot(prefilteredColor, prefilteredColor));
+#else
+        // Diffuse-only IBL is an ambient-fill mode, so avoid the Fresnel energy split that
+        // assumes a matching specular IBL term exists at grazing angles.
+        float3 iblAmbient = diffuseIbl * (1.0 - metallic);
+#endif
+
+        iblAmbient *= ao * iblEntry.intensity;
+        ambient = lerp(ambient, iblAmbient, iblStrength);
+    }
+#endif
+    float3 color = ambient + Lo + emissive;
+
+    return float4(color, baseColor.w);
 }

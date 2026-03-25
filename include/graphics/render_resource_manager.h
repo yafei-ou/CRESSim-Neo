@@ -41,6 +41,37 @@ enum class BlendMode
     Transparent,
 };
 
+enum class TextureColorSpace
+{
+    Linear,
+    Srgb,
+};
+
+enum class TexturePixelFormat
+{
+    RGBA8,
+    RGBA16F,
+};
+
+enum class TextureMipPolicy
+{
+    Disabled,
+    Generate,
+};
+
+enum class TextureDimension
+{
+    Texture2D,
+    TextureCube,
+};
+
+enum class IblQualityTier : std::uint32_t
+{
+    Off         = 0u,
+    DiffuseOnly = 1u,
+    Full        = 2u,
+};
+
 struct MaterialPipelineDesc
 {
     MaterialProgramFamily programFamily = MaterialProgramFamily::StandardLit;
@@ -56,6 +87,7 @@ struct MeshResourceDesc
         Diligent::float3 normal{0.0f, 1.0f, 0.0f};
         float texCoordU = 0.0f;
         float texCoordV = 0.0f;
+        Diligent::float4 tangent{1.0f, 0.0f, 0.0f, 1.0f};
     };
 
     std::string debugName;
@@ -66,9 +98,16 @@ struct MeshResourceDesc
 struct MaterialResourceDesc
 {
     std::string debugName;
+    // Legacy scalar names are kept, but these values now act as PBR factors.
     Diligent::float3 baseColor{1.0f, 1.0f, 1.0f};
     float metallic  = 0.0f;
     float roughness = 0.5f;
+    Diligent::float3 emissiveFactor{0.0f, 0.0f, 0.0f};
+    TextureHandle baseColorTexture{};
+    TextureHandle normalTexture{};
+    TextureHandle metallicRoughnessTexture{};
+    TextureHandle emissiveTexture{};
+    TextureHandle aoTexture{};
     MaterialPipelineDesc pipeline{};
     BlendMode blendMode  = BlendMode::Opaque;
     float opacity        = 1.0f;
@@ -78,7 +117,44 @@ struct MaterialResourceDesc
 
 struct TextureResourceDesc
 {
+    struct SubresourceDesc
+    {
+        std::vector<std::uint8_t> pixelData;
+    };
+
     std::string debugName;
+    std::uint32_t width            = 1u;
+    std::uint32_t height           = 1u;
+    std::uint32_t mipLevelCount    = 1u;
+    TextureDimension dimension     = TextureDimension::Texture2D;
+    TexturePixelFormat pixelFormat = TexturePixelFormat::RGBA8;
+    TextureColorSpace colorSpace   = TextureColorSpace::Linear;
+    TextureMipPolicy mipPolicy     = TextureMipPolicy::Disabled;
+    std::vector<SubresourceDesc> subresources;
+    std::vector<std::uint8_t> pixelData;
+};
+
+struct EnvironmentIblDesc
+{
+    TextureHandle irradianceCubemap{};
+    TextureHandle prefilteredSpecularCubemap{};
+    float intensity = 1.0f;
+
+    [[nodiscard]] bool enabled(IblQualityTier tier) const noexcept
+    {
+        switch (tier)
+        {
+        case IblQualityTier::Off:
+            return false;
+        case IblQualityTier::DiffuseOnly:
+            return irradianceCubemap.id != common::kInvalidResourceId;
+        case IblQualityTier::Full:
+            return irradianceCubemap.id != common::kInvalidResourceId &&
+                   prefilteredSpecularCubemap.id != common::kInvalidResourceId;
+        default:
+            return false;
+        }
+    }
 };
 
 class CRESSIM_NEO_GRAPHICS_API RenderResourceManager

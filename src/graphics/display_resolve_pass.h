@@ -29,8 +29,8 @@ private:
     {
         std::uint32_t layer      = 0u;
         std::uint32_t outputMode = 0u;
-        std::uint32_t padding0   = 0u;
-        std::uint32_t padding1   = 0u;
+        std::uint32_t toneMapper = 0u;
+        float exposure           = 1.0f;
     };
 
     struct PipelineKey

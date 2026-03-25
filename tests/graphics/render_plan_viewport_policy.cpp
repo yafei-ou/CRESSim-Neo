@@ -19,10 +19,11 @@ using cressim::neo::graphics::detail::buildFrameRenderPlan;
 
 ResolvedCameraView makeCamera(EntityId entityId, GpuRenderTargetHandle target,
                               std::uint32_t firstLayer, bool layeredRendering,
-                              bool useOutputViewport)
+                              bool useOutputViewport, std::uint32_t envIndex = 0u)
 {
     ResolvedCameraView camera{};
     camera.entityId                  = entityId;
+    camera.envIndex                  = envIndex;
     camera.outputBinding            = GpuRenderTargetBinding{target, firstLayer, 1u};
     camera.outputTargetDesc.width   = 320u;
     camera.outputTargetDesc.height  = 180u;
@@ -74,6 +75,18 @@ int main()
     if (layeredPlan.cameraBatches.size() != 1u || layeredPlan.cameraBatches.front().cameras.size() != 2u)
     {
         CRESSIM_LOG_ERROR( "Expected layered cameras to preserve existing batching behavior.\n");
+        return 1;
+    }
+    std::vector<ResolvedCameraView> multiEnvCameras;
+    multiEnvCameras.push_back(makeCamera(5u, target, 0u, true, false, 0u));
+    multiEnvCameras.push_back(makeCamera(6u, target, 1u, true, false, 1u));
+
+    const FrameRenderPlan multiEnvPlan =
+        buildFrameRenderPlan(std::move(multiEnvCameras), std::nullopt);
+    if (multiEnvPlan.cameraBatches.size() != 1u ||
+        multiEnvPlan.cameraBatches.front().cameras.size() != 2u)
+    {
+        CRESSIM_LOG_ERROR("Expected cameras from different environments to preserve shared batching.\n");
         return 1;
     }
 

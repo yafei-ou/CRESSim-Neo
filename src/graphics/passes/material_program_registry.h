@@ -22,6 +22,7 @@ public:
         MainPassClass passClass              = MainPassClass::ForwardOpaque;
         MaterialProgramFamily programFamily  = MaterialProgramFamily::StandardLit;
         MaterialFeatureFlags featureFlags    = MaterialFeatureFlags::None;
+        IblQualityTier iblQualityTier        = IblQualityTier::Off;
         Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
         Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
         bool depthEnable                     = true;
@@ -31,9 +32,10 @@ public:
         bool operator==(const ProgramKey &rhs) const noexcept
         {
             return passClass == rhs.passClass && programFamily == rhs.programFamily &&
-                   featureFlags == rhs.featureFlags && colorFormat == rhs.colorFormat &&
-                   depthFormat == rhs.depthFormat && depthEnable == rhs.depthEnable &&
-                   depthWrite == rhs.depthWrite && blendingEnabled == rhs.blendingEnabled;
+                   featureFlags == rhs.featureFlags && iblQualityTier == rhs.iblQualityTier &&
+                   colorFormat == rhs.colorFormat && depthFormat == rhs.depthFormat &&
+                   depthEnable == rhs.depthEnable && depthWrite == rhs.depthWrite &&
+                   blendingEnabled == rhs.blendingEnabled;
         }
     };
 
@@ -56,6 +58,7 @@ public:
 
     static ProgramKey buildProgramKey(MainPassClass passClass, MaterialProgramFamily programFamily,
                                       MaterialFeatureFlags featureFlags,
+                                      IblQualityTier iblQualityTier,
                                       Diligent::TEXTURE_FORMAT colorFormat,
                                       Diligent::TEXTURE_FORMAT depthFormat, bool depthEnable,
                                       bool depthWrite, bool blendingEnabled) noexcept;

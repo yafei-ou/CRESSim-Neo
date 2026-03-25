@@ -69,6 +69,14 @@ struct VisiblePairInstance
     uint reserved0;
 };
 
+struct EnvironmentIblLookupEntry
+{
+    uint sliceIndex;
+    uint enabled;
+    float intensity;
+    float reserved0;
+};
+
 StructuredBuffer<float4> g_EntityPositions;
 StructuredBuffer<float4> g_EntityOrientations;
 StructuredBuffer<float4> g_EntityScales;
@@ -81,6 +89,9 @@ StructuredBuffer<DirectionalLightInput> g_LightInputs;
 StructuredBuffer<BatchCameraMetadata> g_BatchCameras;
 StructuredBuffer<uint> g_VisibleObjectIndices;
 StructuredBuffer<VisiblePairInstance> g_VisiblePairs;
+#if defined(CRESSIM_IBL_DIFFUSE_ONLY) || defined(CRESSIM_IBL_FULL)
+StructuredBuffer<EnvironmentIblLookupEntry> g_EnvironmentIblLookup;
+#endif
 
 static const uint CRESSIM_RENDERABLE_FLAG_ACTIVE = 1u << 0u;
 static const uint CRESSIM_RENDERABLE_FLAG_SHADOW_CASTER = 1u << 2u;

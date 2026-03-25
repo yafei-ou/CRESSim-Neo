@@ -242,6 +242,7 @@ Diligent::RefCntAutoPtr<Diligent::ITextureView> DisplayResolvePass::createArrayS
 bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
                                  const DisplayResolveRequest &request)
 {
+    (void)frameContext;
     if (!mInitialized)
     {
         return false;
@@ -301,7 +302,9 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     constants.layer      = request.sourceBinding.firstLayer;
     constants.outputMode = static_cast<std::uint32_t>(
         resolveOutputModeForFormat(request.presentationTarget.colorFormat));
-    void *mapped = nullptr;
+    constants.toneMapper = static_cast<std::uint32_t>(request.toneMapper);
+    constants.exposure   = request.exposure;
+    void *mapped         = nullptr;
     backendContext.immediateContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,
                                                Diligent::MAP_FLAG_DISCARD, mapped);
     if (mapped == nullptr)

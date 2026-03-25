@@ -228,13 +228,15 @@ CameraOutputPlanningResult planCameraOutputs(
             {
                 if (presentationTarget.has_value())
                 {
-                    result.displayResolve = DisplayResolveRequest{resolved.outputBinding,
-                                                                  family.desc,
-                                                                  *presentationTarget,
-                                                                  false,
-                                                                  false,
-                                                                  resolved.clearColorValue,
-                                                                  resolved.clearDepthValue};
+                    DisplayResolveRequest resolveRequest{};
+                    resolveRequest.sourceBinding      = resolved.outputBinding;
+                    resolveRequest.sourceTargetDesc   = family.desc;
+                    resolveRequest.presentationTarget = *presentationTarget;
+                    resolveRequest.toneMapper         = options.toneMapper;
+                    resolveRequest.exposure           = options.exposure;
+                    resolveRequest.clearColorValue    = resolved.clearColorValue;
+                    resolveRequest.clearDepthValue    = resolved.clearDepthValue;
+                    result.displayResolve             = resolveRequest;
                 }
             }
 

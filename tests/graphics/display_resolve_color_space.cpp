@@ -35,6 +35,20 @@ using cressim::neo::gpu::GpuPresentationReadbackEvent;
 using cressim::neo::gpu::GpuPresentationReadbackRequest;
 using cressim::neo::gpu::GpuPresentationTargetDesc;
 using cressim::neo::graphics::RenderFrameOptions;
+using cressim::neo::graphics::ToneMapper;
+
+struct ReadbackPixel
+{
+    float r = 0.0f;
+    float g = 0.0f;
+    float b = 0.0f;
+};
+
+struct RenderScenarioResult
+{
+    GpuPresentationReadbackEvent event{};
+    ReadbackPixel pixel{};
+};
 
 bool isValidReadback(const GpuPresentationReadbackEvent &event)
 {
@@ -93,6 +107,18 @@ std::uint8_t encodeDisplayByte(float linear)
     return static_cast<std::uint8_t>(std::lround(encoded * 255.0f));
 }
 
+float toneMapFilmic(float value)
+{
+    const float a = 2.51f;
+    const float b = 0.03f;
+    const float c = 2.43f;
+    const float d = 0.59f;
+    const float e = 0.14f;
+    const float numerator = value * (a * value + b);
+    const float denominator = value * (c * value + d) + e;
+    return std::clamp(numerator / denominator, 0.0f, 1.0f);
+}
+
 bool isNear(std::uint8_t value, std::uint8_t expected, std::uint8_t tolerance)
 {
     const int diff = static_cast<int>(value) - static_cast<int>(expected);
@@ -138,6 +164,119 @@ float halfToFloat(std::uint16_t value)
     return result;
 }
 
+std::size_t centerPixelOffset(const GpuPresentationReadbackEvent &event)
+{
+    return static_cast<std::size_t>(event.height / 2u) * event.rowStrideBytes +
+           static_cast<std::size_t>(event.width / 2u) *
+               Diligent::GetTextureFormatAttribs(event.colorFormat).GetElementSize();
+}
+
+ReadbackPixel decodeCenterPixel(const GpuPresentationReadbackEvent &event)
+{
+    const std::size_t offset = centerPixelOffset(event);
+    if (event.colorFormat == Diligent::TEX_FORMAT_RGBA16_FLOAT)
+    {
+        const std::uint16_t pixelR =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 0u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 1u]) << 8u);
+        const std::uint16_t pixelG =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 2u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 3u]) << 8u);
+        const std::uint16_t pixelB =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 4u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 5u]) << 8u);
+        return {halfToFloat(pixelR), halfToFloat(pixelG), halfToFloat(pixelB)};
+    }
+
+    return {static_cast<float>(event.colorBytes[offset + 0u]) / 255.0f,
+            static_cast<float>(event.colorBytes[offset + 1u]) / 255.0f,
+            static_cast<float>(event.colorBytes[offset + 2u]) / 255.0f};
+}
+
+bool isHdrFormat(Diligent::TEXTURE_FORMAT format)
+{
+    const auto &formatAttribs = Diligent::GetTextureFormatAttribs(format);
+    return formatAttribs.ComponentType == Diligent::COMPONENT_TYPE_FLOAT ||
+           formatAttribs.ComponentType == Diligent::COMPONENT_TYPE_COMPOUND;
+}
+
+RenderScenarioResult runScenario(GLFWwindow *window, Diligent::TEXTURE_FORMAT preferredColorFormat,
+                                 ToneMapper toneMapper, float exposure,
+                                 const Diligent::float4 &clearColor)
+{
+    RuntimeConfig config{};
+    config.gpuDeviceDesc.preferredBackend              = GpuBackend::Vulkan;
+    config.gpuDeviceDesc.presentation.enabled          = true;
+    config.gpuDeviceDesc.presentation.preferredColorFormat = preferredColorFormat;
+#if PLATFORM_WIN32
+    config.gpuDeviceDesc.presentation.nativeWindow = glfwGetWin32Window(window);
+#elif PLATFORM_LINUX
+    config.gpuDeviceDesc.presentation.nativeWindowId =
+        static_cast<std::uint64_t>(glfwGetX11Window(window));
+    config.gpuDeviceDesc.presentation.nativeDisplay = glfwGetX11Display();
+#elif PLATFORM_MACOS
+    config.gpuDeviceDesc.presentation.nativeWindow = glfwGetCocoaWindow(window);
+#endif
+
+    Runtime runtime;
+    if (!runtime.initialize(config))
+    {
+        return {};
+    }
+
+    GpuDevice *graphicsDevice = runtime.getGpuDevice();
+    if (graphicsDevice == nullptr)
+    {
+        runtime.shutdown();
+        return {};
+    }
+
+    GpuPresentationTargetDesc presentationDesc{};
+    if (!graphicsDevice->tryGetPresentationTargetDesc(presentationDesc))
+    {
+        runtime.shutdown();
+        return {};
+    }
+
+    auto &world = runtime.getWorld();
+    const auto cameraEntity = world.createEntity();
+
+    TransformComponent cameraTransform{};
+    cameraTransform.worldTransform.position = {0.0f, 0.0f, -2.0f};
+
+    CameraComponent camera{};
+    camera.output.mode     = cressim::neo::gpu::CameraOutputMode::ManagedPrimary;
+    camera.clearColor      = true;
+    camera.clearDepth      = true;
+    camera.clearColorValue = clearColor;
+    camera.renderOrder     = 0u;
+
+    world.setTransform(cameraEntity, cameraTransform);
+    world.setCamera(cameraEntity, camera);
+    runtime.setRenderFrameOptions(
+        RenderFrameOptions{cameraEntity, presentationDesc, toneMapper, exposure});
+
+    FrameContext frame{};
+    frame.deltaSeconds = 1.0f / 60.0f;
+    frame.frameIndex   = 0u;
+    frame.timeSeconds  = 0.0;
+    runtime.tick(frame);
+
+    frame.frameIndex  = 1u;
+    frame.timeSeconds = static_cast<double>(frame.deltaSeconds);
+    const GpuPresentationReadbackEvent event = renderAndReadback(runtime, *graphicsDevice, frame);
+
+    RenderScenarioResult result{};
+    result.event = event;
+    if (isValidReadback(event))
+    {
+        result.pixel = decodeCenterPixel(event);
+    }
+
+    runtime.shutdown();
+    return result;
+}
+
 } // namespace
 
 int main()
@@ -159,134 +298,135 @@ int main()
         return 0;
     }
 
-    RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
-    config.gpuDeviceDesc.presentation.enabled = true;
-#if PLATFORM_WIN32
-    config.gpuDeviceDesc.presentation.nativeWindow = glfwGetWin32Window(window);
-#elif PLATFORM_LINUX
-    config.gpuDeviceDesc.presentation.nativeWindowId =
-        static_cast<std::uint64_t>(glfwGetX11Window(window));
-    config.gpuDeviceDesc.presentation.nativeDisplay = glfwGetX11Display();
-#elif PLATFORM_MACOS
-    config.gpuDeviceDesc.presentation.nativeWindow = glfwGetCocoaWindow(window);
-#endif
-
-    Runtime runtime;
-    if (!runtime.initialize(config))
+    const RenderFrameOptions defaultOptions{};
+    if (defaultOptions.toneMapper != ToneMapper::Reinhard ||
+        std::fabs(defaultOptions.exposure - 1.0f) > 1.0e-6f)
     {
-        CRESSIM_LOG_ERROR("Runtime initialization failed.\n");
         glfwDestroyWindow(window);
         glfwTerminate();
         return 1;
     }
 
-    GpuDevice *graphicsDevice = runtime.getGpuDevice();
-    if (graphicsDevice == nullptr)
+    constexpr Diligent::float4 kSdrClearColor = {0.18f, 0.50f, 0.75f, 1.0f};
+    const RenderScenarioResult defaultSdr =
+        runScenario(window, Diligent::TEX_FORMAT_UNKNOWN, ToneMapper::Reinhard, 1.0f, kSdrClearColor);
+    if (!isValidReadback(defaultSdr.event))
     {
-        CRESSIM_LOG_ERROR("Graphics device not available.\n");
-        runtime.shutdown();
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        return 1;
-    }
-    GpuPresentationTargetDesc presentationDesc{};
-    if (!graphicsDevice->tryGetPresentationTargetDesc(presentationDesc))
-    {
-        CRESSIM_LOG_ERROR("Presentation target not available for display-resolve test.\n");
-        runtime.shutdown();
+        CRESSIM_LOG_ERROR("Expected valid default presentation readback.\n");
         glfwDestroyWindow(window);
         glfwTerminate();
         return 1;
     }
 
-    auto &world = runtime.getWorld();
-    const auto cameraEntity = world.createEntity();
-
-    TransformComponent cameraTransform{};
-    cameraTransform.worldTransform.position = {0.0f, 0.0f, -2.0f};
-
-    CameraComponent camera{};
-    camera.output.mode = cressim::neo::gpu::CameraOutputMode::ManagedPrimary;
-    camera.clearColor = true;
-    camera.clearDepth = true;
-    camera.clearColorValue = {0.18f, 0.50f, 0.75f, 1.0f};
-    camera.renderOrder = 0u;
-
-    world.setTransform(cameraEntity, cameraTransform);
-    world.setCamera(cameraEntity, camera);
-    runtime.setRenderFrameOptions(RenderFrameOptions{cameraEntity, presentationDesc});
-
-    FrameContext frame{};
-    frame.deltaSeconds = 1.0f / 60.0f;
-    frame.frameIndex = 0u;
-    frame.timeSeconds = 0.0;
-    runtime.tick(frame);
-
-    frame.frameIndex = 1u;
-    frame.timeSeconds = static_cast<double>(frame.deltaSeconds);
-    const GpuPresentationReadbackEvent event = renderAndReadback(runtime, *graphicsDevice, frame);
-    if (!isValidReadback(event))
+    if (isHdrFormat(defaultSdr.event.colorFormat))
     {
-        CRESSIM_LOG_ERROR("Expected valid readback for presentation target.\n");
-        runtime.shutdown();
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        return 1;
-    }
-
-    const std::size_t offset =
-        static_cast<std::size_t>(event.height / 2u) * event.rowStrideBytes +
-        static_cast<std::size_t>(event.width / 2u) *
-            Diligent::GetTextureFormatAttribs(event.colorFormat).GetElementSize();
-
-    bool colorMatches = false;
-    if (event.colorFormat == Diligent::TEX_FORMAT_RGBA16_FLOAT)
-    {
-        const std::uint16_t pixelR =
-            static_cast<std::uint16_t>(event.colorBytes[offset + 0u]) |
-            (static_cast<std::uint16_t>(event.colorBytes[offset + 1u]) << 8u);
-        const std::uint16_t pixelG =
-            static_cast<std::uint16_t>(event.colorBytes[offset + 2u]) |
-            (static_cast<std::uint16_t>(event.colorBytes[offset + 3u]) << 8u);
-        const std::uint16_t pixelB =
-            static_cast<std::uint16_t>(event.colorBytes[offset + 4u]) |
-            (static_cast<std::uint16_t>(event.colorBytes[offset + 5u]) << 8u);
-
         constexpr float kFloatTolerance = 0.02f;
-        colorMatches = std::fabs(halfToFloat(pixelR) - camera.clearColorValue.x) <= kFloatTolerance &&
-                       std::fabs(halfToFloat(pixelG) - camera.clearColorValue.y) <= kFloatTolerance &&
-                       std::fabs(halfToFloat(pixelB) - camera.clearColorValue.z) <= kFloatTolerance;
+        if (std::fabs(defaultSdr.pixel.r - kSdrClearColor.x) > kFloatTolerance ||
+            std::fabs(defaultSdr.pixel.g - kSdrClearColor.y) > kFloatTolerance ||
+            std::fabs(defaultSdr.pixel.b - kSdrClearColor.z) > kFloatTolerance)
+        {
+            CRESSIM_LOG_ERROR("Unexpected default HDR passthrough color.\n");
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            return 1;
+        }
     }
     else
     {
         const std::array<std::uint8_t, 3u> expected{
-            encodeDisplayByte(camera.clearColorValue.x),
-            encodeDisplayByte(camera.clearColorValue.y),
-            encodeDisplayByte(camera.clearColorValue.z)};
-        const std::array<std::uint8_t, 4u> pixel{
-            event.colorBytes[offset + 0u],
-            event.colorBytes[offset + 1u],
-            event.colorBytes[offset + 2u],
-            event.colorBytes[offset + 3u]};
+            encodeDisplayByte(kSdrClearColor.x),
+            encodeDisplayByte(kSdrClearColor.y),
+            encodeDisplayByte(kSdrClearColor.z)};
+        const std::size_t offset = centerPixelOffset(defaultSdr.event);
+        const std::array<std::uint8_t, 3u> pixel{
+            defaultSdr.event.colorBytes[offset + 0u],
+            defaultSdr.event.colorBytes[offset + 1u],
+            defaultSdr.event.colorBytes[offset + 2u]};
 
         constexpr std::uint8_t kTolerance = 3u;
-        colorMatches = isNear(pixel[0], expected[0], kTolerance) &&
-                       isNear(pixel[1], expected[1], kTolerance) &&
-                       isNear(pixel[2], expected[2], kTolerance);
+        if (!isNear(pixel[0], expected[0], kTolerance) ||
+            !isNear(pixel[1], expected[1], kTolerance) ||
+            !isNear(pixel[2], expected[2], kTolerance))
+        {
+            CRESSIM_LOG_ERROR("Unexpected default SDR resolve color.\n");
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            return 1;
+        }
+
+        const RenderScenarioResult exposedSdr =
+            runScenario(window, Diligent::TEX_FORMAT_UNKNOWN, ToneMapper::Reinhard, 2.0f, kSdrClearColor);
+        const RenderScenarioResult filmicSdr =
+            runScenario(window, Diligent::TEX_FORMAT_UNKNOWN, ToneMapper::Filmic, 1.0f,
+                        Diligent::float4{4.0f, 2.0f, 0.75f, 1.0f});
+        const RenderScenarioResult noneSdr =
+            runScenario(window, Diligent::TEX_FORMAT_UNKNOWN, ToneMapper::Disabled, 1.0f,
+                        Diligent::float4{4.0f, 2.0f, 0.75f, 1.0f});
+
+        if (!isValidReadback(exposedSdr.event) || !isValidReadback(filmicSdr.event) ||
+            !isValidReadback(noneSdr.event))
+        {
+            CRESSIM_LOG_ERROR("Expected valid SDR readbacks for tone-mapping scenarios.\n");
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            return 1;
+        }
+
+        if (!(exposedSdr.pixel.r > defaultSdr.pixel.r && exposedSdr.pixel.g > defaultSdr.pixel.g &&
+              exposedSdr.pixel.b > defaultSdr.pixel.b))
+        {
+            CRESSIM_LOG_ERROR("Exposure did not brighten the SDR presentation result.\n");
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            return 1;
+        }
+
+        const float brightSource = 4.0f;
+        const float filmicExpected = linearToSrgb(toneMapFilmic(brightSource));
+        if (std::fabs(filmicSdr.pixel.r - filmicExpected) > 0.03f)
+        {
+            CRESSIM_LOG_ERROR("Filmic tone mapping did not match expected highlight compression.\n");
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            return 1;
+        }
+        if (std::fabs(filmicSdr.pixel.r - noneSdr.pixel.r) < 0.005f)
+        {
+            CRESSIM_LOG_ERROR("Filmic tone mapping was not measurably different from no tone mapping.\n");
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            return 1;
+        }
+        if (!(filmicSdr.pixel.r < noneSdr.pixel.r))
+        {
+            CRESSIM_LOG_ERROR("Filmic tone mapping did not compress SDR highlights.\n");
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            return 1;
+        }
     }
 
-    if (!colorMatches)
+    const RenderScenarioResult hdrScenario =
+        runScenario(window, Diligent::TEX_FORMAT_RGBA16_FLOAT, ToneMapper::Filmic, 2.0f,
+                    Diligent::float4{0.18f, 0.50f, 0.75f, 1.0f});
+    if (isValidReadback(hdrScenario.event) && isHdrFormat(hdrScenario.event.colorFormat))
     {
-        CRESSIM_LOG_ERROR("Unexpected display-resolve color for presentation format=",
-                          static_cast<std::uint32_t>(event.colorFormat), ".\n");
-        runtime.shutdown();
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        return 1;
+        constexpr float kFloatTolerance = 0.03f;
+        if (std::fabs(hdrScenario.pixel.r - 0.36f) > kFloatTolerance ||
+            std::fabs(hdrScenario.pixel.g - 1.0f) > kFloatTolerance ||
+            std::fabs(hdrScenario.pixel.b - 1.5f) > kFloatTolerance)
+        {
+            CRESSIM_LOG_ERROR("HDR presentation did not preserve linear exposure-scaled output.\n");
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            return 1;
+        }
+    }
+    else
+    {
+        CRESSIM_LOG_WARNING("Skipping HDR presentation assertions because a float swapchain was not available.\n");
     }
 
-    runtime.shutdown();
     glfwDestroyWindow(window);
     glfwTerminate();
     CRESSIM_LOG_INFO("Display resolve color-space checks passed.\n");

@@ -1,13 +1,51 @@
 #include "graphics/passes/forward_opaque_pass.h"
 
+#include "common/math_utils_runtime.h"
+#include "gpu/gpu_buffer_utils.h"
+
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
 #include <cstring>
+#include <functional>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace cressim::neo::graphics::detail
 {
 
 namespace
 {
+
+std::uint16_t encodeFloat16(float value)
+{
+    std::uint32_t bits = 0u;
+    std::memcpy(&bits, &value, sizeof(bits));
+    const std::uint32_t sign = (bits >> 16u) & 0x8000u;
+    std::int32_t exponent    = static_cast<std::int32_t>((bits >> 23u) & 0xffu) - 127 + 15;
+    std::uint32_t mantissa   = bits & 0x007fffffu;
+
+    if (exponent <= 0)
+    {
+        if (exponent < -10)
+        {
+            return static_cast<std::uint16_t>(sign);
+        }
+
+        mantissa = (mantissa | 0x00800000u) >> static_cast<std::uint32_t>(1 - exponent);
+        return static_cast<std::uint16_t>(sign | ((mantissa + 0x00001000u) >> 13u));
+    }
+    if (exponent >= 31)
+    {
+        return static_cast<std::uint16_t>(sign | 0x7c00u);
+    }
+
+    return static_cast<std::uint16_t>(sign | (static_cast<std::uint32_t>(exponent) << 10u) |
+                                      ((mantissa + 0x00001000u) >> 13u));
+}
 
 Diligent::RefCntAutoPtr<Diligent::ITextureView> createArrayShadowSrv(Diligent::ITexture *texture,
                                                                      Diligent::ISampler *sampler)
@@ -46,11 +84,242 @@ Diligent::RefCntAutoPtr<Diligent::ITextureView> createArrayShadowSrv(Diligent::I
     return arraySrv;
 }
 
+Diligent::RefCntAutoPtr<Diligent::ITextureView> createTextureSrv(Diligent::ITexture *texture,
+                                                                 Diligent::ISampler *sampler)
+{
+    if (texture == nullptr)
+    {
+        return {};
+    }
+
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> view{
+        texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE)};
+    if (view != nullptr && sampler != nullptr)
+    {
+        view->SetSampler(sampler);
+    }
+    return view;
+}
+
+bool createSolidTexture(Diligent::IRenderDevice *renderDevice, Diligent::ISampler *sampler,
+                        const char *debugName, Diligent::TEXTURE_FORMAT format,
+                        const std::array<std::uint8_t, 4> &rgba,
+                        Diligent::RefCntAutoPtr<Diligent::ITextureView> &outSrv)
+{
+    if (renderDevice == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::TextureDesc textureDesc{};
+    textureDesc.Name      = debugName;
+    textureDesc.Type      = Diligent::RESOURCE_DIM_TEX_2D;
+    textureDesc.Width     = 1u;
+    textureDesc.Height    = 1u;
+    textureDesc.MipLevels = 1u;
+    textureDesc.ArraySize = 1u;
+    textureDesc.Format    = format;
+    textureDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+    textureDesc.Usage     = Diligent::USAGE_IMMUTABLE;
+
+    Diligent::TextureSubResData subresource{rgba.data(), 4u};
+    Diligent::TextureData initialData{&subresource, 1u};
+    Diligent::RefCntAutoPtr<Diligent::ITexture> texture;
+    renderDevice->CreateTexture(textureDesc, &initialData, &texture);
+    if (texture == nullptr)
+    {
+        return false;
+    }
+
+    outSrv = createTextureSrv(texture, sampler);
+    return outSrv != nullptr;
+}
+
+bool createBrdfLutTexture(Diligent::IRenderDevice *renderDevice, Diligent::ISampler *sampler,
+                          const char *debugName,
+                          Diligent::RefCntAutoPtr<Diligent::ITextureView> &outSrv)
+{
+    if (renderDevice == nullptr)
+    {
+        return false;
+    }
+
+    constexpr std::uint32_t kBrdfLutSize = 128u;
+    std::vector<std::uint16_t> pixels(static_cast<std::size_t>(kBrdfLutSize) * kBrdfLutSize * 4u);
+    for (std::uint32_t y = 0u; y < kBrdfLutSize; ++y)
+    {
+        const float roughness = (static_cast<float>(y) + 0.5f) / static_cast<float>(kBrdfLutSize);
+        for (std::uint32_t x = 0u; x < kBrdfLutSize; ++x)
+        {
+            const float nDotV = (static_cast<float>(x) + 0.5f) / static_cast<float>(kBrdfLutSize);
+            const float rx    = roughness * -1.0f + 1.0f;
+            const float ry    = roughness * -0.0275f + 0.0425f;
+            const float rz    = roughness * -0.572f + 1.04f;
+            const float rw    = roughness * 0.022f - 0.04f;
+            const float a004  = std::min(rx * rx, std::exp2(-9.28f * nDotV)) * rx + ry;
+            const float a     = common::runtime_math::clamp01((-1.04f) * a004 + rz);
+            const float b     = common::runtime_math::clamp01((1.04f) * a004 + rw);
+
+            const std::size_t texelIndex = (static_cast<std::size_t>(y) * kBrdfLutSize + x) * 4u;
+            pixels[texelIndex + 0u]      = encodeFloat16(a);
+            pixels[texelIndex + 1u]      = encodeFloat16(b);
+            pixels[texelIndex + 2u]      = encodeFloat16(0.0f);
+            pixels[texelIndex + 3u]      = encodeFloat16(1.0f);
+        }
+    }
+
+    Diligent::TextureDesc textureDesc{};
+    textureDesc.Name      = debugName;
+    textureDesc.Type      = Diligent::RESOURCE_DIM_TEX_2D;
+    textureDesc.Width     = kBrdfLutSize;
+    textureDesc.Height    = kBrdfLutSize;
+    textureDesc.MipLevels = 1u;
+    textureDesc.ArraySize = 1u;
+    textureDesc.Format    = Diligent::TEX_FORMAT_RGBA16_FLOAT;
+    textureDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+    textureDesc.Usage     = Diligent::USAGE_IMMUTABLE;
+
+    Diligent::TextureSubResData subresource{pixels.data(),
+                                            kBrdfLutSize * sizeof(std::uint16_t) * 4u};
+    Diligent::TextureData initialData{&subresource, 1u};
+    Diligent::RefCntAutoPtr<Diligent::ITexture> texture;
+    renderDevice->CreateTexture(textureDesc, &initialData, &texture);
+    if (texture == nullptr)
+    {
+        return false;
+    }
+
+    outSrv = createTextureSrv(texture, sampler);
+    return outSrv != nullptr;
+}
+
+template <typename T>
+void hashCombine(std::size_t &seed, const T &value)
+{
+    seed ^= std::hash<T>{}(value) + 0x9e3779b97f4a7c15ull + (seed << 6u) + (seed >> 2u);
+}
+
+Diligent::TEXTURE_FORMAT resolveTextureFormat(const TextureResourceDesc &desc) noexcept
+{
+    switch (desc.pixelFormat)
+    {
+    case TexturePixelFormat::RGBA8:
+        return desc.colorSpace == TextureColorSpace::Srgb ? Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB
+                                                          : Diligent::TEX_FORMAT_RGBA8_UNORM;
+    case TexturePixelFormat::RGBA16F:
+        return Diligent::TEX_FORMAT_RGBA16_FLOAT;
+    default:
+        return Diligent::TEX_FORMAT_UNKNOWN;
+    }
+}
+
+std::uint32_t bytesPerPixel(TexturePixelFormat format) noexcept
+{
+    switch (format)
+    {
+    case TexturePixelFormat::RGBA8:
+        return 4u;
+    case TexturePixelFormat::RGBA16F:
+        return 8u;
+    default:
+        return 0u;
+    }
+}
+
+std::uint32_t arrayLayerCount(TextureDimension dimension) noexcept
+{
+    return dimension == TextureDimension::TextureCube ? 6u : 1u;
+}
+
+std::size_t subresourceIndex(std::uint32_t mipLevel, std::uint32_t layer, std::uint32_t layerCount)
+{
+    return static_cast<std::size_t>(mipLevel) * static_cast<std::size_t>(layerCount) +
+           static_cast<std::size_t>(layer);
+}
+
+std::size_t diligentSubresourceIndex(std::uint32_t layer, std::uint32_t mipLevel,
+                                     std::uint32_t mipLevelCount)
+{
+    return static_cast<std::size_t>(layer) * static_cast<std::size_t>(mipLevelCount) +
+           static_cast<std::size_t>(mipLevel);
+}
+
+bool isTextureArrayCompatible(const TextureResourceDesc &lhs, const TextureResourceDesc &rhs)
+{
+    return lhs.width == rhs.width && lhs.height == rhs.height &&
+           lhs.mipLevelCount == rhs.mipLevelCount && lhs.dimension == rhs.dimension &&
+           lhs.pixelFormat == rhs.pixelFormat && lhs.colorSpace == rhs.colorSpace;
+}
+
+bool createFallbackCubeArray(Diligent::IRenderDevice *renderDevice, Diligent::ISampler *sampler,
+                             const char *debugName, Diligent::TEXTURE_FORMAT format,
+                             const std::array<std::uint8_t, 4> &rgba,
+                             Diligent::RefCntAutoPtr<Diligent::ITextureView> &outSrv)
+{
+    if (renderDevice == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::TextureDesc textureDesc{};
+    textureDesc.Name      = debugName;
+    textureDesc.Type      = Diligent::RESOURCE_DIM_TEX_CUBE_ARRAY;
+    textureDesc.Width     = 1u;
+    textureDesc.Height    = 1u;
+    textureDesc.MipLevels = 1u;
+    textureDesc.ArraySize = 6u;
+    textureDesc.Format    = format;
+    textureDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+    textureDesc.Usage     = Diligent::USAGE_IMMUTABLE;
+
+    std::array<Diligent::TextureSubResData, 6> subresources{};
+    for (auto &subresource : subresources)
+    {
+        subresource = Diligent::TextureSubResData{rgba.data(), 4u};
+    }
+
+    Diligent::TextureData initialData{subresources.data(),
+                                      static_cast<Diligent::Uint32>(subresources.size())};
+    Diligent::RefCntAutoPtr<Diligent::ITexture> texture;
+    renderDevice->CreateTexture(textureDesc, &initialData, &texture);
+    if (texture == nullptr)
+    {
+        return false;
+    }
+
+    outSrv = createTextureSrv(texture, sampler);
+    return outSrv != nullptr;
+}
+
+struct UniqueIblKey
+{
+    common::ResourceId irradianceId  = common::kInvalidResourceId;
+    common::ResourceId prefilteredId = common::kInvalidResourceId;
+
+    bool operator==(const UniqueIblKey &rhs) const noexcept
+    {
+        return irradianceId == rhs.irradianceId && prefilteredId == rhs.prefilteredId;
+    }
+};
+
+struct UniqueIblKeyHasher
+{
+    std::size_t operator()(const UniqueIblKey &key) const noexcept
+    {
+        std::size_t seed = 0u;
+        hashCombine(seed, key.irradianceId);
+        hashCombine(seed, key.prefilteredId);
+        return seed;
+    }
+};
+
 } // namespace
 
-ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice &device, RenderResourceManager &resourceManager)
-    : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
-      mMeshGpuCache("CRESSimNeo.ForwardOpaquePass")
+ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice &device, RenderResourceManager &resourceManager,
+                                     IblQualityTier iblQualityTier)
+    : mDevice(device), mResourceManager(resourceManager), mIblQualityTier(iblQualityTier),
+      mShaderLibrary(""), mMeshGpuCache("CRESSimNeo.ForwardOpaquePass"),
+      mTextureGpuCache("CRESSimNeo.ForwardOpaquePass")
 {
 }
 
@@ -63,6 +332,15 @@ bool ForwardOpaquePass::initialize()
     if (mDevice.tryGetGraphicsBackendContext(backendContext) &&
         backendContext.renderDevice != nullptr)
     {
+        Diligent::SamplerDesc materialSamplerDesc{};
+        materialSamplerDesc.MinFilter = Diligent::FILTER_TYPE_LINEAR;
+        materialSamplerDesc.MagFilter = Diligent::FILTER_TYPE_LINEAR;
+        materialSamplerDesc.MipFilter = Diligent::FILTER_TYPE_LINEAR;
+        materialSamplerDesc.AddressU  = Diligent::TEXTURE_ADDRESS_WRAP;
+        materialSamplerDesc.AddressV  = Diligent::TEXTURE_ADDRESS_WRAP;
+        materialSamplerDesc.AddressW  = Diligent::TEXTURE_ADDRESS_WRAP;
+        backendContext.renderDevice->CreateSampler(materialSamplerDesc, &mMaterialSampler);
+
         Diligent::SamplerDesc shadowSamplerDesc{};
         shadowSamplerDesc.MinFilter      = Diligent::FILTER_TYPE_COMPARISON_LINEAR;
         shadowSamplerDesc.MagFilter      = Diligent::FILTER_TYPE_COMPARISON_LINEAR;
@@ -90,6 +368,30 @@ bool ForwardOpaquePass::initialize()
         {
             mFallbackShadowMapSrv = createArrayShadowSrv(fallbackTexture, mShadowSampler);
         }
+
+        if (!createSolidTexture(backendContext.renderDevice, mMaterialSampler,
+                                "CRESSimNeo.ForwardOpaquePass.FallbackBaseColor",
+                                Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB, {255u, 255u, 255u, 255u},
+                                mFallbackBaseColorSrv) ||
+            !createSolidTexture(backendContext.renderDevice, mMaterialSampler,
+                                "CRESSimNeo.ForwardOpaquePass.FallbackNormal",
+                                Diligent::TEX_FORMAT_RGBA8_UNORM, {128u, 128u, 255u, 255u},
+                                mFallbackNormalSrv) ||
+            !createSolidTexture(backendContext.renderDevice, mMaterialSampler,
+                                "CRESSimNeo.ForwardOpaquePass.FallbackMetallicRoughness",
+                                Diligent::TEX_FORMAT_RGBA8_UNORM, {0u, 255u, 0u, 255u},
+                                mFallbackMetallicRoughnessSrv) ||
+            !createSolidTexture(backendContext.renderDevice, mMaterialSampler,
+                                "CRESSimNeo.ForwardOpaquePass.FallbackEmissive",
+                                Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB, {255u, 255u, 255u, 255u},
+                                mFallbackEmissiveSrv) ||
+            !createSolidTexture(backendContext.renderDevice, mMaterialSampler,
+                                "CRESSimNeo.ForwardOpaquePass.FallbackAO",
+                                Diligent::TEX_FORMAT_RGBA8_UNORM, {255u, 255u, 255u, 255u},
+                                mFallbackAoSrv))
+        {
+            return false;
+        }
     }
 
     mInitialized = true;
@@ -112,7 +414,9 @@ bool ForwardOpaquePass::beginBatchFrame(std::uint32_t currentCameraIndex)
     {
         return false;
     }
-    if (!ensureConstantBuffers(backendContext.renderDevice))
+    if (!ensureConstantBuffers(backendContext.renderDevice) ||
+        !ensureEnvironmentIblResources(backendContext.renderDevice,
+                                       backendContext.immediateContext))
     {
         return false;
     }
@@ -121,6 +425,9 @@ bool ForwardOpaquePass::beginBatchFrame(std::uint32_t currentCameraIndex)
     frameConstants.currentCameraIndex = currentCameraIndex;
     frameConstants.shadowParams =
         Diligent::float4{0.0015f, hasAnyShadowMap() ? 1.0f : 0.0f, 0.35f, 0.0f};
+    frameConstants.iblSpecularParams = Diligent::float4{
+        mIblQualityTier == IblQualityTier::Full ? mEnvironmentIblPrefilteredMipCount : 0.0f, 0.0f,
+        0.0f, 0.0f};
 
     void *mappedConstants = nullptr;
     backendContext.immediateContext->MapBuffer(mForwardPerFrameBuffer, Diligent::MAP_WRITE,
@@ -137,6 +444,13 @@ bool ForwardOpaquePass::beginBatchFrame(std::uint32_t currentCameraIndex)
 void ForwardOpaquePass::setGpuSceneView(const gpu::GpuEntitySceneView &sceneView) noexcept
 {
     mSceneView = sceneView;
+}
+
+void ForwardOpaquePass::setEnvironmentIbls(const std::vector<EnvironmentIblDesc> *ibls,
+                                           std::uint32_t envCount) noexcept
+{
+    mEnvironmentIbls        = ibls;
+    mEnvironmentIblEnvCount = envCount;
 }
 
 void ForwardOpaquePass::setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept
@@ -212,7 +526,7 @@ bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBin
                                                         : Diligent::TEX_FORMAT_UNKNOWN;
     const MaterialProgramRegistry::ProgramKey key = MaterialProgramRegistry::buildProgramKey(
         MainPassClass::ForwardOpaque, drawCommand.programFamily, drawCommand.materialFeatureFlags,
-        backendContext.activeRenderTargetColorFormat, depthFormat,
+        mIblQualityTier, backendContext.activeRenderTargetColorFormat, depthFormat,
         backendContext.activeRenderTargetHasDepth, backendContext.activeRenderTargetHasDepth,
         false);
     MaterialProgramRegistry::ProgramResources *program =
@@ -403,6 +717,403 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
     return true;
 }
 
+bool ForwardOpaquePass::bindMaterialTextures(MaterialProgramRegistry::ProgramResources &program,
+                                             Diligent::IRenderDevice *renderDevice,
+                                             Diligent::IDeviceContext *immediateContext,
+                                             common::ResourceId materialId)
+{
+    if (program.shaderResourceBinding == nullptr)
+    {
+        return false;
+    }
+
+    const MaterialResourceDesc *material =
+        mResourceManager.tryGetMaterial(MaterialHandle{materialId});
+    if (material == nullptr)
+    {
+        return false;
+    }
+
+    struct TextureBinding
+    {
+        const char *name;
+        TextureHandle handle;
+        Diligent::ITextureView *fallbackView;
+        bool required;
+    };
+
+    const TextureBinding bindings[] = {
+        {"g_BaseColorTexture", material->baseColorTexture, mFallbackBaseColorSrv.RawPtr(), true},
+        {"g_NormalTexture", material->normalTexture, mFallbackNormalSrv.RawPtr(), false},
+        {"g_MetallicRoughnessTexture", material->metallicRoughnessTexture,
+         mFallbackMetallicRoughnessSrv.RawPtr(), true},
+        {"g_EmissiveTexture", material->emissiveTexture, mFallbackEmissiveSrv.RawPtr(), true},
+        {"g_AoTexture", material->aoTexture, mFallbackAoSrv.RawPtr(), true},
+    };
+
+    for (const TextureBinding &binding : bindings)
+    {
+        Diligent::ITextureView *textureView = binding.fallbackView;
+        if (binding.handle.id != common::kInvalidResourceId)
+        {
+            TextureGpuCache::CachedTexture *cachedTexture =
+                mTextureGpuCache.getOrCreate(mResourceManager, binding.handle, renderDevice,
+                                             immediateContext, mMaterialSampler.RawPtr());
+            if (cachedTexture != nullptr && cachedTexture->shaderResourceView != nullptr)
+            {
+                textureView = cachedTexture->shaderResourceView;
+            }
+        }
+
+        if (textureView == nullptr)
+        {
+            return false;
+        }
+
+        Diligent::IShaderResourceVariable *variable =
+            program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                                             binding.name);
+        if (variable == nullptr)
+        {
+            if (binding.required)
+            {
+                return false;
+            }
+            continue;
+        }
+        variable->Set(textureView);
+    }
+
+    return true;
+}
+
+bool ForwardOpaquePass::ensureEnvironmentIblResources(Diligent::IRenderDevice *renderDevice,
+                                                      Diligent::IDeviceContext *immediateContext)
+{
+    if (renderDevice == nullptr || immediateContext == nullptr)
+    {
+        return false;
+    }
+
+    if (mIblQualityTier == IblQualityTier::Off)
+    {
+        mIrradianceArraySrv.Release();
+        mPrefilteredSpecularArraySrv.Release();
+        mBrdfLutSrv.Release();
+        mEnvironmentIblLookupBuffer.Release();
+        mEnvironmentIblLookupCapacity      = 0u;
+        mEnvironmentIblPrefilteredMipCount = 0.0f;
+        mEnvironmentIblStateHash           = 0u;
+        return true;
+    }
+
+    std::size_t stateHash = 0u;
+    hashCombine(stateHash, static_cast<std::uint32_t>(mIblQualityTier));
+    hashCombine(stateHash, mEnvironmentIblEnvCount);
+    if (mEnvironmentIbls != nullptr)
+    {
+        for (const EnvironmentIblDesc &ibl : *mEnvironmentIbls)
+        {
+            hashCombine(stateHash, ibl.irradianceCubemap.id);
+            if (mIblQualityTier == IblQualityTier::Full)
+            {
+                hashCombine(stateHash, ibl.prefilteredSpecularCubemap.id);
+            }
+            hashCombine(stateHash, ibl.intensity);
+        }
+    }
+    const bool requiresPrefiltered = (mIblQualityTier == IblQualityTier::Full);
+    const bool requiresBrdfLut     = (mIblQualityTier == IblQualityTier::Full);
+    const bool hasCachedResources =
+        mIrradianceArraySrv != nullptr && mEnvironmentIblLookupBuffer != nullptr &&
+        (!requiresPrefiltered || mPrefilteredSpecularArraySrv != nullptr) &&
+        (!requiresBrdfLut || mBrdfLutSrv != nullptr);
+    if (hasCachedResources && stateHash == mEnvironmentIblStateHash)
+    {
+        return true;
+    }
+
+    std::vector<EnvironmentIblLookupEntry> lookupEntries(mEnvironmentIblEnvCount);
+    std::vector<const TextureResourceDesc *> irradianceTextures;
+    std::vector<const TextureResourceDesc *> prefilteredTextures;
+    const TextureResourceDesc *canonicalIrradiance  = nullptr;
+    const TextureResourceDesc *canonicalPrefiltered = nullptr;
+    std::unordered_map<UniqueIblKey, std::uint32_t, UniqueIblKeyHasher> uniqueSliceIndices;
+
+    const auto tryGetTexture = [&](TextureHandle handle) -> const TextureResourceDesc *
+    {
+        if (handle.id == common::kInvalidResourceId)
+        {
+            return nullptr;
+        }
+        return mResourceManager.tryGetTexture(handle);
+    };
+
+    if (mEnvironmentIbls != nullptr)
+    {
+        for (std::uint32_t envIndex = 0u;
+             envIndex <
+             std::min<std::uint32_t>(mEnvironmentIblEnvCount,
+                                     static_cast<std::uint32_t>(mEnvironmentIbls->size()));
+             ++envIndex)
+        {
+            const EnvironmentIblDesc &ibl         = (*mEnvironmentIbls)[envIndex];
+            const TextureResourceDesc *irradiance = tryGetTexture(ibl.irradianceCubemap);
+            const TextureResourceDesc *prefiltered =
+                requiresPrefiltered ? tryGetTexture(ibl.prefilteredSpecularCubemap) : nullptr;
+            if (irradiance == nullptr || irradiance->dimension != TextureDimension::TextureCube)
+            {
+                continue;
+            }
+            if (requiresPrefiltered &&
+                (prefiltered == nullptr || prefiltered->dimension != TextureDimension::TextureCube))
+            {
+                continue;
+            }
+
+            if (canonicalIrradiance == nullptr)
+            {
+                canonicalIrradiance = irradiance;
+            }
+            if (requiresPrefiltered && canonicalPrefiltered == nullptr)
+            {
+                canonicalPrefiltered = prefiltered;
+            }
+            if (canonicalIrradiance == nullptr ||
+                !isTextureArrayCompatible(*canonicalIrradiance, *irradiance))
+            {
+                continue;
+            }
+            if (requiresPrefiltered &&
+                (canonicalPrefiltered == nullptr ||
+                 !isTextureArrayCompatible(*canonicalPrefiltered, *prefiltered)))
+            {
+                continue;
+            }
+
+            UniqueIblKey key{};
+            key.irradianceId          = ibl.irradianceCubemap.id;
+            key.prefilteredId         = requiresPrefiltered ? ibl.prefilteredSpecularCubemap.id
+                                                            : common::kInvalidResourceId;
+            const auto [it, inserted] = uniqueSliceIndices.emplace(
+                key, static_cast<std::uint32_t>(irradianceTextures.size()));
+            if (inserted)
+            {
+                irradianceTextures.push_back(irradiance);
+                if (requiresPrefiltered)
+                {
+                    prefilteredTextures.push_back(prefiltered);
+                }
+            }
+
+            lookupEntries[envIndex].sliceIndex = it->second;
+            lookupEntries[envIndex].enabled    = 1u;
+            lookupEntries[envIndex].intensity  = std::max(ibl.intensity, 0.0f);
+        }
+    }
+
+    const auto uploadLookupBuffer =
+        [&](const std::vector<EnvironmentIblLookupEntry> &entries) -> bool
+    {
+        if (!gpu::detail::ensureStructuredBufferCapacity(
+                renderDevice, "CRESSimNeo.ForwardOpaquePass.EnvironmentIblLookup",
+                sizeof(EnvironmentIblLookupEntry), static_cast<std::uint32_t>(entries.size()), 1u,
+                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
+                1ull, mEnvironmentIblLookupBuffer, mEnvironmentIblLookupCapacity))
+        {
+            return false;
+        }
+        if (entries.empty())
+        {
+            return true;
+        }
+
+        immediateContext->UpdateBuffer(
+            mEnvironmentIblLookupBuffer, 0u,
+            static_cast<Diligent::Uint32>(entries.size() * sizeof(EnvironmentIblLookupEntry)),
+            entries.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        return true;
+    };
+
+    const auto buildArrayTexture =
+        [&](const std::vector<const TextureResourceDesc *> &textures,
+            const TextureResourceDesc &prototype, Diligent::RESOURCE_DIMENSION type,
+            std::uint32_t layersPerTexture, const char *debugName,
+            Diligent::RefCntAutoPtr<Diligent::ITextureView> &outSrv) -> bool
+    {
+        const std::uint32_t arrayTextures =
+            std::max<std::uint32_t>(static_cast<std::uint32_t>(textures.size()), 1u);
+        const std::uint32_t totalArrayLayers = arrayTextures * layersPerTexture;
+        const std::uint32_t bpp              = bytesPerPixel(prototype.pixelFormat);
+        if (bpp == 0u)
+        {
+            return false;
+        }
+
+        Diligent::TextureDesc textureDesc{};
+        textureDesc.Name      = debugName;
+        textureDesc.Type      = type;
+        textureDesc.Width     = prototype.width;
+        textureDesc.Height    = prototype.height;
+        textureDesc.MipLevels = prototype.mipLevelCount;
+        textureDesc.ArraySize = totalArrayLayers;
+        textureDesc.Format    = resolveTextureFormat(prototype);
+        textureDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
+        textureDesc.Usage     = Diligent::USAGE_IMMUTABLE;
+
+        std::vector<Diligent::TextureSubResData> subresources(
+            static_cast<std::size_t>(textureDesc.MipLevels) *
+            static_cast<std::size_t>(totalArrayLayers));
+        for (std::uint32_t textureIndex = 0u; textureIndex < arrayTextures; ++textureIndex)
+        {
+            for (std::uint32_t layer = 0u; layer < layersPerTexture; ++layer)
+            {
+                const std::uint32_t dstLayer = textureIndex * layersPerTexture + layer;
+                for (std::uint32_t mipLevel = 0u; mipLevel < prototype.mipLevelCount; ++mipLevel)
+                {
+                    const std::uint32_t mipWidth  = std::max(prototype.width >> mipLevel, 1u);
+                    const std::uint32_t rowStride = mipWidth * bpp;
+                    const std::size_t dstIndex =
+                        diligentSubresourceIndex(dstLayer, mipLevel, prototype.mipLevelCount);
+                    if (textureIndex < textures.size())
+                    {
+                        const TextureResourceDesc &source = *textures[textureIndex];
+                        const auto &sourceSubresource =
+                            source
+                                .subresources[subresourceIndex(mipLevel, layer, layersPerTexture)];
+                        subresources[dstIndex] = Diligent::TextureSubResData{
+                            sourceSubresource.pixelData.data(), rowStride};
+                    }
+                }
+            }
+        }
+
+        Diligent::TextureData initialData{subresources.data(),
+                                          static_cast<Diligent::Uint32>(subresources.size())};
+        Diligent::RefCntAutoPtr<Diligent::ITexture> texture;
+        renderDevice->CreateTexture(textureDesc, &initialData, &texture);
+        if (texture == nullptr)
+        {
+            return false;
+        }
+
+        outSrv = createTextureSrv(texture, mMaterialSampler);
+        return outSrv != nullptr;
+    };
+
+    if (!uploadLookupBuffer(lookupEntries))
+    {
+        return false;
+    }
+
+    if (canonicalIrradiance != nullptr && !irradianceTextures.empty())
+    {
+        if (!buildArrayTexture(irradianceTextures, *canonicalIrradiance,
+                               Diligent::RESOURCE_DIM_TEX_CUBE_ARRAY, 6u,
+                               "CRESSimNeo.ForwardOpaquePass.IrradianceArray", mIrradianceArraySrv))
+        {
+            return false;
+        }
+
+        if (requiresPrefiltered && canonicalPrefiltered != nullptr && !prefilteredTextures.empty())
+        {
+            if (!buildArrayTexture(prefilteredTextures, *canonicalPrefiltered,
+                                   Diligent::RESOURCE_DIM_TEX_CUBE_ARRAY, 6u,
+                                   "CRESSimNeo.ForwardOpaquePass.PrefilteredSpecularArray",
+                                   mPrefilteredSpecularArraySrv))
+            {
+                return false;
+            }
+            mEnvironmentIblPrefilteredMipCount =
+                static_cast<float>(std::max(canonicalPrefiltered->mipLevelCount, 1u));
+            if (mBrdfLutSrv == nullptr &&
+                !createBrdfLutTexture(renderDevice, mMaterialSampler,
+                                      "CRESSimNeo.ForwardOpaquePass.BuiltInBrdfLut", mBrdfLutSrv))
+            {
+                return false;
+            }
+        }
+        else
+        {
+            mPrefilteredSpecularArraySrv.Release();
+            mBrdfLutSrv.Release();
+            mEnvironmentIblPrefilteredMipCount = 0.0f;
+        }
+    }
+    else
+    {
+        if (!createFallbackCubeArray(renderDevice, mMaterialSampler,
+                                     "CRESSimNeo.ForwardOpaquePass.FallbackIrradianceArray",
+                                     Diligent::TEX_FORMAT_RGBA8_UNORM, {0u, 0u, 0u, 0u},
+                                     mIrradianceArraySrv))
+        {
+            return false;
+        }
+        mPrefilteredSpecularArraySrv.Release();
+        mBrdfLutSrv.Release();
+        mEnvironmentIblPrefilteredMipCount = 0.0f;
+    }
+
+    mEnvironmentIblStateHash = stateHash;
+    return true;
+}
+
+bool ForwardOpaquePass::bindEnvironmentIblResources(
+    MaterialProgramRegistry::ProgramResources &program) const
+{
+    if (mIblQualityTier == IblQualityTier::Off)
+    {
+        return true;
+    }
+
+    if (program.shaderResourceBinding == nullptr || mEnvironmentIblLookupBuffer == nullptr ||
+        mIrradianceArraySrv == nullptr)
+    {
+        return false;
+    }
+
+    struct TextureBinding
+    {
+        const char *name;
+        Diligent::ITextureView *view;
+    };
+    std::vector<TextureBinding> textureBindings;
+    textureBindings.push_back({"g_IrradianceMap", mIrradianceArraySrv.RawPtr()});
+    if (mIblQualityTier == IblQualityTier::Full)
+    {
+        textureBindings.push_back(
+            {"g_PrefilteredSpecularMap", mPrefilteredSpecularArraySrv.RawPtr()});
+        textureBindings.push_back({"g_BrdfLut", mBrdfLutSrv.RawPtr()});
+    }
+
+    for (const TextureBinding &binding : textureBindings)
+    {
+        Diligent::IShaderResourceVariable *variable =
+            program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                                             binding.name);
+        if (variable == nullptr || binding.view == nullptr)
+        {
+            return false;
+        }
+        variable->Set(binding.view);
+    }
+
+    Diligent::IShaderResourceVariable *lookupVar = program.shaderResourceBinding->GetVariableByName(
+        Diligent::SHADER_TYPE_PIXEL, "g_EnvironmentIblLookup");
+    if (lookupVar != nullptr)
+    {
+        Diligent::IBufferView *lookupSrv =
+            mEnvironmentIblLookupBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        if (lookupSrv == nullptr)
+        {
+            return false;
+        }
+        lookupVar->Set(lookupSrv);
+    }
+
+    return true;
+}
+
 bool ForwardOpaquePass::updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
                                                const ForwardDrawCommand &drawCommand)
 {
@@ -419,8 +1130,10 @@ bool ForwardOpaquePass::updatePerDrawConstants(Diligent::IDeviceContext *immedia
     }
 
     ForwardPerMaterialConstants materialConstants{};
-    materialConstants.baseColor = Diligent::float4{material->baseColor.x, material->baseColor.y,
-                                                   material->baseColor.z, material->opacity};
+    materialConstants.baseColorFactor = Diligent::float4{
+        material->baseColor.x, material->baseColor.y, material->baseColor.z, material->opacity};
+    materialConstants.emissiveFactor = Diligent::float4{
+        material->emissiveFactor.x, material->emissiveFactor.y, material->emissiveFactor.z, 0.0f};
     materialConstants.materialParams =
         Diligent::float4{material->metallic, material->roughness, material->pipeline.alphaCutoff,
                          material->receivesShadows ? 1.0f : 0.0f};
@@ -471,6 +1184,15 @@ bool ForwardOpaquePass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBi
         return false;
     }
     if (!bindSceneBuffers(*setup.program))
+    {
+        return false;
+    }
+    if (!bindMaterialTextures(*setup.program, setup.backendContext.renderDevice,
+                              setup.backendContext.immediateContext, drawCommand.materialId))
+    {
+        return false;
+    }
+    if (!bindEnvironmentIblResources(*setup.program))
     {
         return false;
     }

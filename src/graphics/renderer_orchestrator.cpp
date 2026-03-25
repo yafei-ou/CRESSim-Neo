@@ -368,7 +368,8 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView &sceneView)
 
 bool Renderer::initialize()
 {
-    mForwardPipeline = std::make_unique<detail::ForwardPipeline>(mDevice, mResourceManager);
+    mForwardPipeline =
+        std::make_unique<detail::ForwardPipeline>(mDevice, mResourceManager, mDesc.iblQualityTier);
     if (!mForwardPipeline->initialize())
     {
         mForwardPipeline.reset();

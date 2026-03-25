@@ -6,6 +6,7 @@
 cbuffer GriphicsForwardPerFrame
 {
     float4 g_ShadowParams;
+    float4 g_IblSpecularParams;
     uint4 g_FrameParams;
 };
 
@@ -13,7 +14,8 @@ cbuffer GriphicsForwardPerFrame
 
 cbuffer GraphicsForwardPerMaterial
 {
-    float4 g_BaseColor;
+    float4 g_BaseColorFactor;
+    float4 g_EmissiveFactor;
     float4 g_MaterialParams;
 };
 

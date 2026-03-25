@@ -5,6 +5,7 @@
 #include <array>
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace cressim::neo::graphics::detail
 {
@@ -30,8 +31,16 @@ const char *passClassName(MainPassClass passClass)
     }
 }
 
-Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 5> &macros,
-                                              MaterialFeatureFlags featureFlags)
+void appendVariable(std::vector<Diligent::ShaderResourceVariableDesc> &vars,
+                    Diligent::SHADER_TYPE shaderType, const char *name)
+{
+    vars.push_back(Diligent::ShaderResourceVariableDesc{
+        shaderType, name, Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+}
+
+Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 8> &macros,
+                                              MaterialFeatureFlags featureFlags,
+                                              IblQualityTier iblQualityTier)
 {
     Diligent::Uint32 count = 0;
     macros[count++]        = Diligent::ShaderMacro{"MANUAL_LAYER_EXPORT", "1"};
@@ -51,7 +60,60 @@ Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 
     {
         macros[count++] = Diligent::ShaderMacro{"CRESSIM_FEATURE_DOUBLE_SIDED", "1"};
     }
+    switch (iblQualityTier)
+    {
+    case IblQualityTier::Off:
+        macros[count++] = Diligent::ShaderMacro{"CRESSIM_IBL_OFF", "1"};
+        break;
+    case IblQualityTier::DiffuseOnly:
+        macros[count++] = Diligent::ShaderMacro{"CRESSIM_IBL_DIFFUSE_ONLY", "1"};
+        break;
+    case IblQualityTier::Full:
+        macros[count++] = Diligent::ShaderMacro{"CRESSIM_IBL_FULL", "1"};
+        break;
+    default:
+        break;
+    }
     return Diligent::ShaderMacroArray{count > 0 ? macros.data() : nullptr, count};
+}
+
+std::vector<Diligent::ShaderResourceVariableDesc> buildResourceLayoutVariables(
+    IblQualityTier iblQualityTier)
+{
+    std::vector<Diligent::ShaderResourceVariableDesc> vars;
+    vars.reserve(23u);
+    appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_EntityPositions");
+    appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_EntityOrientations");
+    appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_EntityScales");
+    appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_RenderableMetadata");
+    appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_RenderableVisibilityFlags");
+    appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs");
+    appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras");
+    appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras");
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_PreparedCameras");
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_LightInputs");
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_NormalTexture");
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_BaseColorTexture");
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_MetallicRoughnessTexture");
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_EmissiveTexture");
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_AoTexture");
+
+    if (iblQualityTier == IblQualityTier::DiffuseOnly || iblQualityTier == IblQualityTier::Full)
+    {
+        appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_IrradianceMap");
+        appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_EnvironmentIblLookup");
+    }
+    if (iblQualityTier == IblQualityTier::Full)
+    {
+        appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_PrefilteredSpecularMap");
+        appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_BrdfLut");
+    }
+
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap0");
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap1");
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap2");
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap3");
+    return vars;
 }
 
 } // namespace
@@ -63,6 +125,7 @@ std::size_t MaterialProgramRegistry::ProgramKeyHasher::operator()(
     hashCombine(seed, static_cast<std::uint32_t>(key.passClass));
     hashCombine(seed, static_cast<std::uint32_t>(key.programFamily));
     hashCombine(seed, static_cast<std::uint32_t>(key.featureFlags));
+    hashCombine(seed, static_cast<std::uint32_t>(key.iblQualityTier));
     hashCombine(seed, static_cast<std::uint32_t>(key.colorFormat));
     hashCombine(seed, static_cast<std::uint32_t>(key.depthFormat));
     hashCombine(seed, key.depthEnable);
@@ -105,13 +168,15 @@ MaterialProgramRegistry::ProgramResources *MaterialProgramRegistry::getOrCreateP
 
 MaterialProgramRegistry::ProgramKey MaterialProgramRegistry::buildProgramKey(
     MainPassClass passClass, MaterialProgramFamily programFamily, MaterialFeatureFlags featureFlags,
-    Diligent::TEXTURE_FORMAT colorFormat, Diligent::TEXTURE_FORMAT depthFormat, bool depthEnable,
-    bool depthWrite, bool blendingEnabled) noexcept
+    IblQualityTier iblQualityTier, Diligent::TEXTURE_FORMAT colorFormat,
+    Diligent::TEXTURE_FORMAT depthFormat, bool depthEnable, bool depthWrite,
+    bool blendingEnabled) noexcept
 {
     ProgramKey key{};
     key.passClass       = passClass;
     key.programFamily   = programFamily;
     key.featureFlags    = featureFlags;
+    key.iblQualityTier  = iblQualityTier;
     key.colorFormat     = colorFormat;
     key.depthFormat     = depthFormat;
     key.depthEnable     = depthEnable;
@@ -161,8 +226,9 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice *renderDevic
         return false;
     }
 
-    std::array<Diligent::ShaderMacro, 5> macros{};
-    const Diligent::ShaderMacroArray macroArray = buildFeatureMacros(macros, key.featureFlags);
+    std::array<Diligent::ShaderMacro, 8> macros{};
+    const Diligent::ShaderMacroArray macroArray =
+        buildFeatureMacros(macros, key.featureFlags, key.iblQualityTier);
 
     Diligent::ShaderCreateInfo shaderCreateInfo{};
     shaderCreateInfo.SourceLanguage                  = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
@@ -234,46 +300,19 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice *renderDevic
 
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType =
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
-    constexpr Diligent::ShaderResourceVariableDesc kVars[] = {
-        {Diligent::SHADER_TYPE_VERTEX, "g_EntityPositions",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_EntityOrientations",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_EntityScales",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_RenderableMetadata",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_RenderableVisibilityFlags",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_PIXEL, "g_PreparedCameras",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_PIXEL, "g_LightInputs",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap0",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap1",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap2",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap3",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}};
-    psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
-    psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
-        static_cast<Diligent::Uint32>(std::size(kVars));
+    const std::vector<Diligent::ShaderResourceVariableDesc> vars =
+        buildResourceLayoutVariables(key.iblQualityTier);
+    psoCreateInfo.PSODesc.ResourceLayout.Variables    = vars.data();
+    psoCreateInfo.PSODesc.ResourceLayout.NumVariables = static_cast<Diligent::Uint32>(vars.size());
 
-    // Fixed vertex layout for this milestone: position, normal, uv.
+    // Fixed vertex layout: position, normal, uv, tangent.
     constexpr Diligent::LayoutElement kLayoutElements[] = {
         Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, Diligent::False},
         Diligent::LayoutElement{1, 0, 3, Diligent::VT_FLOAT32, Diligent::False},
-        Diligent::LayoutElement{2, 0, 2, Diligent::VT_FLOAT32, Diligent::False}};
+        Diligent::LayoutElement{2, 0, 2, Diligent::VT_FLOAT32, Diligent::False},
+        Diligent::LayoutElement{3, 0, 4, Diligent::VT_FLOAT32, Diligent::False}};
     psoCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = kLayoutElements;
-    psoCreateInfo.GraphicsPipeline.InputLayout.NumElements    = 3;
+    psoCreateInfo.GraphicsPipeline.InputLayout.NumElements    = 4;
     psoCreateInfo.pVS                                         = vertexShader;
     psoCreateInfo.pPS                                         = pixelShader;
 
