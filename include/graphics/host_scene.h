@@ -49,14 +49,19 @@ struct CameraData
     std::uint32_t renderOrder = 0;
 };
 
-struct DirectionalLightData
+struct LightData
 {
     common::EntityId entityId = common::kInvalidEntityId;
     std::uint32_t envIndex    = 0u;
     std::uint32_t lightSlot   = 0xffffffffu;
+    gpu::GpuLightType type    = gpu::GpuLightType::Directional;
+    Diligent::float3 position{0.0f, 0.0f, 0.0f};
     Diligent::float3 direction{0.0f, -1.0f, 0.0f};
     Diligent::float3 color{1.0f, 1.0f, 1.0f};
     float intensity          = 1.0f;
+    float range              = 0.0f;
+    float innerConeAngle     = 0.0f;
+    float outerConeAngle     = 0.0f;
     float shadowDistance     = 120.0f;
     float shadowFadeDistance = 20.0f;
     bool castsShadows        = true;
@@ -66,7 +71,7 @@ struct HostSceneView
 {
     const std::vector<RenderableInstance> *renderables                  = nullptr;
     const std::vector<CameraData> *cameras                              = nullptr;
-    const std::vector<DirectionalLightData> *directionalLights          = nullptr;
+    const std::vector<LightData> *lights                                = nullptr;
     const std::vector<EnvironmentIblDesc> *environmentIbls              = nullptr;
     const std::vector<IndirectCommandRegistryEntry> *opaqueDrawRegistry = nullptr;
     const std::vector<IndirectCommandRegistryEntry> *shadowDrawRegistry = nullptr;

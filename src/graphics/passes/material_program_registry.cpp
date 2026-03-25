@@ -92,6 +92,9 @@ std::vector<Diligent::ShaderResourceVariableDesc> buildResourceLayoutVariables(
     appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras");
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_PreparedCameras");
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_LightInputs");
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_LocalLightSelections");
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_LightShadowAssignments");
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_LocalShadowViews");
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_NormalTexture");
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_BaseColorTexture");
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_MetallicRoughnessTexture");
@@ -113,6 +116,8 @@ std::vector<Diligent::ShaderResourceVariableDesc> buildResourceLayoutVariables(
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap1");
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap2");
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_ShadowMap3");
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_LocalShadowMap");
+    appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_PointShadowMap");
     return vars;
 }
 

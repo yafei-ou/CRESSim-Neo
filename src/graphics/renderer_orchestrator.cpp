@@ -100,10 +100,10 @@ std::uint32_t countActiveRenderables(const std::vector<RenderableInstance> &rend
     return count;
 }
 
-std::uint32_t countActiveLights(const std::vector<DirectionalLightData> &lights)
+std::uint32_t countActiveLights(const std::vector<LightData> &lights)
 {
     std::uint32_t count = 0u;
-    for (const DirectionalLightData &light : lights)
+    for (const LightData &light : lights)
     {
         if (light.entityId != common::kInvalidEntityId && light.lightSlot != 0xffffffffu)
         {
@@ -113,10 +113,11 @@ std::uint32_t countActiveLights(const std::vector<DirectionalLightData> &lights)
     return count;
 }
 
-bool isMainDirectionalLightActive(const DirectionalLightData &light)
+bool isMainDirectionalLightActive(const LightData &light)
 {
     if (light.entityId == common::kInvalidEntityId ||
-        light.lightSlot != gpu::kMainDirectionalLightSlot)
+        light.lightSlot != gpu::kMainDirectionalLightSlot ||
+        light.type != gpu::GpuLightType::Directional)
     {
         return false;
     }
@@ -136,12 +137,12 @@ std::vector<EnvMainLightState> buildEnvMainLightStates(const HostSceneView &scen
         states[envIndex].mainLightIndex = gpu::mainDirectionalLightIndex(gpuScene.layout, envIndex);
     }
 
-    if (sceneView.directionalLights == nullptr)
+    if (sceneView.lights == nullptr)
     {
         return states;
     }
 
-    for (const DirectionalLightData &light : *sceneView.directionalLights)
+    for (const LightData &light : *sceneView.lights)
     {
         if (light.envIndex >= states.size() || light.lightSlot != gpu::kMainDirectionalLightSlot)
         {
@@ -271,6 +272,7 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView &sceneView)
         sceneView.poses.orientationsBuffer == nullptr || sceneView.poses.scalesBuffer == nullptr ||
         sceneView.renderableMetadataBuffer == nullptr || sceneView.cameraInputsBuffer == nullptr ||
         sceneView.preparedCamerasBuffer == nullptr || sceneView.lightInputsBuffer == nullptr ||
+        sceneView.localLightSelectionBuffer == nullptr ||
         sceneView.renderableVisibilityFlagsBuffer == nullptr ||
         sceneView.renderableShadowCascadeMasksBuffer == nullptr)
     {
@@ -409,9 +411,9 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
 
     const std::vector<RenderableInstance> &renderables =
         world.renderables != nullptr ? *world.renderables : std::vector<RenderableInstance>{};
-    const std::vector<DirectionalLightData> emptyLights;
-    const std::vector<DirectionalLightData> &directionalLights =
-        world.directionalLights != nullptr ? *world.directionalLights : emptyLights;
+    const std::vector<LightData> emptyLights;
+    const std::vector<LightData> &directionalLights =
+        world.lights != nullptr ? *world.lights : emptyLights;
     const gpu::GpuEntitySceneView emptySceneView{};
     const gpu::GpuEntitySceneView &gpuScene =
         world.gpuEntityScene != nullptr ? *world.gpuEntityScene : emptySceneView;

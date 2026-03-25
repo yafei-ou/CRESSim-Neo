@@ -29,7 +29,8 @@ public:
     bool syncRenderableMetadata(const std::vector<GpuRenderableMetadata> &renderables);
     bool syncRenderableQueueInfo(const std::vector<GpuRenderableQueueInfo> &queueInfo);
     bool syncCameraInputs(const std::vector<GpuCameraInput> &cameras);
-    bool syncLightInputs(const std::vector<GpuDirectionalLightInput> &lights);
+    bool syncLightInputs(const std::vector<GpuLightInput> &lights);
+    bool syncLocalLightSelections(const std::vector<GpuLocalLightSelection> &selections);
 
     GpuEntitySceneView sceneView() const noexcept;
     const GpuSceneLayoutDesc &layout() const noexcept
@@ -67,6 +68,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mCameraInputsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPreparedCamerasBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mLightInputsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mLocalLightSelectionBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mConstantsBuffer;
 };
 

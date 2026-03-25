@@ -69,9 +69,29 @@ struct DirectionalLightComponent
     Diligent::float3 direction{0.0f, -1.0f, 0.0f};
     Diligent::float3 color{1.0f, 1.0f, 1.0f};
     float intensity          = 1.0f;
+    float range              = 0.0f;
     float shadowDistance     = 120.0f;
     float shadowFadeDistance = 20.0f;
     bool castsShadows        = true;
+};
+
+struct PointLightComponent
+{
+    Diligent::float3 color{1.0f, 1.0f, 1.0f};
+    float intensity   = 1.0f;
+    float range       = 10.0f;
+    bool castsShadows = false;
+};
+
+struct SpotLightComponent
+{
+    Diligent::float3 direction{0.0f, -1.0f, 0.0f};
+    Diligent::float3 color{1.0f, 1.0f, 1.0f};
+    float intensity      = 1.0f;
+    float range          = 10.0f;
+    float innerConeAngle = 25.0f;
+    float outerConeAngle = 35.0f;
+    bool castsShadows    = false;
 };
 
 struct RigidBodyComponent

@@ -59,3 +59,9 @@ add_test(
     NAME cressim_neo_logger
     COMMAND cressim_neo_logger
 )
+
+add_engine_test(cressim_neo_unified_light_slots unified_light_slots.cpp)
+add_test(
+    NAME cressim_neo_unified_light_slots
+    COMMAND cressim_neo_unified_light_slots
+)

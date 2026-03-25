@@ -42,6 +42,11 @@ public:
     void setShadowMapTargets(
         const std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> &shadowMapTargets,
         std::uint32_t shadowMapCount);
+    void setLocalShadowResources(gpu::GpuRenderTargetHandle localShadowMap2D,
+                                 gpu::GpuRenderTargetHandle pointShadowMap,
+                                 Diligent::IBuffer *localShadowViewBuffer,
+                                 Diligent::IBuffer *lightShadowAssignmentBuffer,
+                                 std::uint32_t localShadowViewCount) noexcept;
     bool drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
                       const ForwardDrawCommand &drawCommand, Diligent::IBuffer *indirectArgsBuffer,
                       Diligent::Uint64 argsOffsetBytes);
@@ -137,6 +142,11 @@ private:
     std::size_t mEnvironmentIblStateHash        = 0u;
     std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
     std::uint32_t mShadowMapCount = 0;
+    gpu::GpuRenderTargetHandle mLocalShadowMap2D{};
+    gpu::GpuRenderTargetHandle mPointShadowMap{};
+    Diligent::IBuffer *mLocalShadowViewBuffer       = nullptr;
+    Diligent::IBuffer *mLightShadowAssignmentBuffer = nullptr;
+    std::uint32_t mLocalShadowViewCount             = 0u;
     gpu::GpuEntitySceneView mSceneView{};
     const std::vector<EnvironmentIblDesc> *mEnvironmentIbls = nullptr;
     std::uint32_t mEnvironmentIblEnvCount                   = 0u;

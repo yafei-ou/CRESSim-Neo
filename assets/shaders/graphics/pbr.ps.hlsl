@@ -45,10 +45,14 @@ Texture2DArray g_ShadowMap0;
 Texture2DArray g_ShadowMap1;
 Texture2DArray g_ShadowMap2;
 Texture2DArray g_ShadowMap3;
+Texture2DArray g_LocalShadowMap;
+Texture2DArray g_PointShadowMap;
 SamplerComparisonState g_ShadowMap0_sampler;
 SamplerComparisonState g_ShadowMap1_sampler;
 SamplerComparisonState g_ShadowMap2_sampler;
 SamplerComparisonState g_ShadowMap3_sampler;
+SamplerComparisonState g_LocalShadowMap_sampler;
+SamplerComparisonState g_PointShadowMap_sampler;
 
 static const float PI = 3.14159265359;
 
@@ -279,6 +283,134 @@ float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir, uint 
     return lerp(1.0, shadowTerm, distanceFade);
 }
 
+int SelectPointShadowFace(float3 dir)
+{
+    float3 absDir = abs(dir);
+    if (absDir.x >= absDir.y && absDir.x >= absDir.z)
+    {
+        return dir.x >= 0.0 ? 0 : 1;
+    }
+    if (absDir.y >= absDir.x && absDir.y >= absDir.z)
+    {
+        return dir.y >= 0.0 ? 2 : 3;
+    }
+    return dir.z >= 0.0 ? 4 : 5;
+}
+
+float ComputeLocalShadowFactor(uint lightIndex, float3 worldPos, float3 normal, float3 lightDir)
+{
+    const LightShadowAssignment assignment = g_LightShadowAssignments[lightIndex];
+    if (assignment.shadowMode == 0u || assignment.shadowViewIndex == CRESSIM_INVALID_GPU_SCENE_INDEX)
+    {
+        return 1.0;
+    }
+
+    const LocalShadowView shadowView = g_LocalShadowViews[assignment.shadowViewIndex];
+    if (shadowView.active == 0u)
+    {
+        return 1.0;
+    }
+
+    const float2 texelSize = max(shadowView.shadowParams.xy, float2(1e-5, 1e-5));
+    const float slopeScale = 1.0 - saturate(dot(normal, lightDir));
+    const float shadowBias = 0.0015 * (1.0 + 2.5 * slopeScale);
+
+    if (assignment.shadowMode == 1u)
+    {
+        return SampleCascadeShadow(g_LocalShadowMap, g_LocalShadowMap_sampler,
+                                   shadowView.lightViewProjectionMatrices[0], worldPos,
+                                   (float)shadowView.firstLayer, shadowBias, texelSize);
+    }
+
+    float3 toSurface = worldPos - shadowView.lightPositionRange.xyz;
+    int faceIndex = SelectPointShadowFace(toSurface);
+    if (faceIndex < 0 || faceIndex >= 6)
+    {
+        return 1.0;
+    }
+
+    return SampleCascadeShadow(g_PointShadowMap, g_PointShadowMap_sampler,
+                               shadowView.lightViewProjectionMatrices[faceIndex], worldPos,
+                               (float)(shadowView.firstLayer + faceIndex), shadowBias, texelSize);
+}
+
+float3 EvaluateLocalLight(in DirectionalLightInput light, float3 worldPos, float3 N, float3 V,
+                          float3 albedo, float3 F0, float roughness, float metallic,
+                          uint lightIndex)
+{
+    if (light.active == 0u || light.directionIntensity.w <= 0.0)
+    {
+        return float3(0.0, 0.0, 0.0);
+    }
+
+    float3 L = float3(0.0, 0.0, 0.0);
+    float attenuation = 1.0;
+
+    if (light.type == CRESSIM_LIGHT_TYPE_DIRECTIONAL)
+    {
+        if (dot(light.directionIntensity.xyz, light.directionIntensity.xyz) <= 1e-6)
+        {
+            return float3(0.0, 0.0, 0.0);
+        }
+        L = normalize(-light.directionIntensity.xyz);
+    }
+    else
+    {
+        const float3 toLight = light.positionRange.xyz - worldPos;
+        const float distanceSq = dot(toLight, toLight);
+        const float range = max(light.positionRange.w, 1e-4);
+        if (distanceSq >= range * range)
+        {
+            return float3(0.0, 0.0, 0.0);
+        }
+
+        const float distance = sqrt(max(distanceSq, 1e-8));
+        L = toLight / max(distance, 1e-4);
+        const float distance01 = saturate(distance / range);
+        attenuation *= pow(1.0 - distance01, 2.0);
+
+        if (light.type == CRESSIM_LIGHT_TYPE_SPOT)
+        {
+            if (dot(light.directionIntensity.xyz, light.directionIntensity.xyz) <= 1e-6)
+            {
+                return float3(0.0, 0.0, 0.0);
+            }
+
+            const float3 spotDir = normalize(-light.directionIntensity.xyz);
+            const float cosTheta = dot(spotDir, L);
+            const float outerCos = light.spotAngles.y;
+            const float innerCos = max(light.spotAngles.x, outerCos + 1e-4);
+            const float coneAtten = saturate((cosTheta - outerCos) / max(innerCos - outerCos, 1e-4));
+            if (coneAtten <= 0.0)
+            {
+                return float3(0.0, 0.0, 0.0);
+            }
+            attenuation *= coneAtten;
+        }
+    }
+
+    const float NdotL = max(dot(N, L), 0.0);
+    if (NdotL <= 0.0)
+    {
+        return float3(0.0, 0.0, 0.0);
+    }
+
+    const float3 H = normalize(V + L);
+    const float NDF = DistributionGGX(N, H, roughness);
+    const float G = GeometrySmith(N, V, L, roughness);
+    const float3 F = FresnelSchlick(max(dot(H, V), 0.0), F0);
+    const float3 numerator = NDF * G * F;
+    const float denominator = 4.0 * max(dot(N, V), 0.0) * NdotL + 0.0001;
+    const float3 specular = numerator / denominator;
+    const float3 kS = F;
+    const float3 kD = (1.0 - kS) * (1.0 - metallic);
+    const float3 diffuse = kD * albedo / PI;
+    const float3 radiance = light.color.xyz * light.directionIntensity.w * attenuation;
+    const float shadowFactor =
+        light.castsShadows != 0u ? ComputeLocalShadowFactor(lightIndex, worldPos, N, L) : 1.0;
+    return (diffuse + specular) * radiance * NdotL * shadowFactor;
+}
+
 float4 main(in VSOutput In) : SV_Target
 {
     float4 sampledBaseColor = g_BaseColorTexture.Sample(g_BaseColorTexture_sampler, In.TexCoord);
@@ -338,6 +470,21 @@ float4 main(in VSOutput In) : SV_Target
             float3 diffuse = kD * albedo / PI;
             Lo = (diffuse + specular) * radiance * NdotL * shadowFactor;
         }
+    }
+
+    const LocalLightSelection localSelection = g_LocalLightSelections[preparedCamera.envIndex];
+    [unroll]
+    for (uint localLightIdx = 0u; localLightIdx < 8u; ++localLightIdx)
+    {
+        if (localLightIdx >= localSelection.localLightCount)
+        {
+            continue;
+        }
+
+        const uint lightIndex = localSelection.lightIndices[localLightIdx];
+        const DirectionalLightInput localLight = g_LightInputs[lightIndex];
+        Lo += EvaluateLocalLight(localLight, In.WorldPos, N, V, albedo, F0, roughness, metallic,
+                                 lightIndex);
     }
 
     float NdotV = max(dot(N, V), 0.0);
