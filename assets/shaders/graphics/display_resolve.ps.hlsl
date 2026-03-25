@@ -2,8 +2,8 @@ cbuffer GraphicsDisplayResolve
 {
     uint g_SourceLayer;
     uint g_OutputMode;
-    uint g_Padding0;
-    uint g_Padding1;
+    uint g_ToneMapper;
+    float g_Exposure;
 };
 
 Texture2DArray<float4> g_SourceColor;
@@ -20,6 +20,16 @@ float3 toneMapReinhard(float3 color)
     return color / (1.0 + color);
 }
 
+float3 toneMapFilmic(float3 color)
+{
+    const float a = 2.51;
+    const float b = 0.03;
+    const float c = 2.43;
+    const float d = 0.59;
+    const float e = 0.14;
+    return saturate((color * (a * color + b)) / (color * (c * color + d) + e));
+}
+
 float3 linearToSrgb(float3 color)
 {
     const float3 cutoff = step(float3(0.0031308, 0.0031308, 0.0031308), color);
@@ -31,10 +41,17 @@ float3 linearToSrgb(float3 color)
 float4 main(in PSInput In) : SV_Target
 {
     float4 color = g_SourceColor.Sample(g_SourceColor_sampler, float3(In.TexCoord, (float)g_SourceLayer));
-    color.rgb = max(color.rgb, 0.0);
+    color.rgb = max(color.rgb, 0.0) * max(g_Exposure, 0.0);
     if (g_OutputMode == 0)
     {
-        color.rgb = toneMapReinhard(color.rgb);
+        if (g_ToneMapper == 1)
+        {
+            color.rgb = toneMapReinhard(color.rgb);
+        }
+        else if (g_ToneMapper == 2)
+        {
+            color.rgb = toneMapFilmic(color.rgb);
+        }
         color.rgb = linearToSrgb(color.rgb);
     }
     return color;

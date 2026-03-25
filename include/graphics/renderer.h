@@ -21,6 +21,13 @@ class ForwardPipeline;
 class DisplayResolvePass;
 } // namespace detail
 
+enum class ToneMapper : std::uint32_t
+{
+    Disabled = 0u,
+    Reinhard = 1u,
+    Filmic   = 2u,
+};
+
 struct RendererDesc
 {
     IblQualityTier iblQualityTier = IblQualityTier::Off;
@@ -30,6 +37,8 @@ struct RenderFrameOptions
 {
     common::EntityId presentedCameraEntity = common::kInvalidEntityId;
     std::optional<gpu::GpuPresentationTargetDesc> presentationTarget{};
+    ToneMapper toneMapper = ToneMapper::Reinhard;
+    float exposure        = 1.0f;
 };
 
 struct RenderStats

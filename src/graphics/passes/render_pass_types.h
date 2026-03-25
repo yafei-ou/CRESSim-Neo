@@ -5,6 +5,7 @@
 #include "common/id.h"
 #include "gpu/gpu_scene.h"
 #include "gpu/gpu_types.h"
+#include "graphics/renderer.h"
 
 #include <optional>
 #include <vector>
@@ -45,6 +46,8 @@ struct DisplayResolveRequest
     gpu::GpuRenderTargetBinding sourceBinding{};
     gpu::GpuRenderTargetDesc sourceTargetDesc{};
     gpu::GpuPresentationTargetDesc presentationTarget{};
+    ToneMapper toneMapper            = ToneMapper::Reinhard;
+    float exposure                   = 1.0f;
     bool clearColor                  = false;
     bool clearDepth                  = false;
     Diligent::float4 clearColorValue = {0.0f, 0.0f, 0.0f, 1.0f};
