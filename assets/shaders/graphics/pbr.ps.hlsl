@@ -21,17 +21,25 @@ Texture2D g_NormalTexture;
 Texture2D g_MetallicRoughnessTexture;
 Texture2D g_EmissiveTexture;
 Texture2D g_AoTexture;
+#if defined(CRESSIM_IBL_DIFFUSE_ONLY) || defined(CRESSIM_IBL_FULL)
 TextureCubeArray g_IrradianceMap;
+#endif
+#if defined(CRESSIM_IBL_FULL)
 TextureCubeArray g_PrefilteredSpecularMap;
-Texture2DArray g_BrdfLut;
+Texture2D g_BrdfLut;
+#endif
 SamplerState g_BaseColorTexture_sampler;
 SamplerState g_NormalTexture_sampler;
 SamplerState g_MetallicRoughnessTexture_sampler;
 SamplerState g_EmissiveTexture_sampler;
 SamplerState g_AoTexture_sampler;
+#if defined(CRESSIM_IBL_DIFFUSE_ONLY) || defined(CRESSIM_IBL_FULL)
 SamplerState g_IrradianceMap_sampler;
+#endif
+#if defined(CRESSIM_IBL_FULL)
 SamplerState g_PrefilteredSpecularMap_sampler;
 SamplerState g_BrdfLut_sampler;
+#endif
 
 Texture2DArray g_ShadowMap0;
 Texture2DArray g_ShadowMap1;
@@ -338,6 +346,7 @@ float4 main(in VSOutput In) : SV_Target
     float3 kD = (1.0 - kS) * (1.0 - metallic);
 
     float3 ambient = 0.03 * albedo * ao;
+#if defined(CRESSIM_IBL_DIFFUSE_ONLY) || defined(CRESSIM_IBL_FULL)
     EnvironmentIblLookupEntry iblEntry = g_EnvironmentIblLookup[preparedCamera.envIndex];
     if (iblEntry.enabled != 0u)
     {
@@ -346,23 +355,30 @@ float4 main(in VSOutput In) : SV_Target
                 .rgb;
         float3 diffuseIbl = irradiance * albedo;
 
+        float iblStrength = step(1.0e-5, dot(irradiance, irradiance));
+#if defined(CRESSIM_IBL_FULL)
+        float3 iblAmbient = kD * diffuseIbl;
         float3 R = reflect(-V, N);
-        float mipLevel = roughness * max(g_IblParams.y - 1.0, 0.0);
+        float mipLevel = roughness * max(g_IblSpecularParams.x - 1.0, 0.0);
         float3 prefilteredColor =
             g_PrefilteredSpecularMap.SampleLevel(g_PrefilteredSpecularMap_sampler,
                                                  float4(R, (float)iblEntry.sliceIndex), mipLevel)
                 .rgb;
-        float2 brdf =
-            g_BrdfLut.Sample(g_BrdfLut_sampler,
-                             float3(float2(NdotV, roughness), (float)iblEntry.sliceIndex))
-                .rg;
+        float2 brdf = g_BrdfLut.Sample(g_BrdfLut_sampler, float2(NdotV, roughness)).rg;
         float3 specularIbl = prefilteredColor * (F * brdf.x + brdf.y);
-
-        float3 iblAmbient = (kD * diffuseIbl + specularIbl) * ao * iblEntry.intensity;
-        float iblStrength =
+        iblAmbient += specularIbl;
+        iblStrength =
             step(1.0e-5, dot(irradiance, irradiance) + dot(prefilteredColor, prefilteredColor));
+#else
+        // Diffuse-only IBL is an ambient-fill mode, so avoid the Fresnel energy split that
+        // assumes a matching specular IBL term exists at grazing angles.
+        float3 iblAmbient = diffuseIbl * (1.0 - metallic);
+#endif
+
+        iblAmbient *= ao * iblEntry.intensity;
         ambient = lerp(ambient, iblAmbient, iblStrength);
     }
+#endif
     float3 color = ambient + Lo + emissive;
 
     return float4(color, baseColor.w);

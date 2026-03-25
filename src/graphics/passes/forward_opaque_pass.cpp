@@ -1,11 +1,17 @@
 #include "graphics/passes/forward_opaque_pass.h"
 
+#include "common/math_utils_runtime.h"
 #include "gpu/gpu_buffer_utils.h"
 
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <functional>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace cressim::neo::graphics::detail
@@ -129,73 +135,53 @@ bool createSolidTexture(Diligent::IRenderDevice *renderDevice, Diligent::ISample
     return outSrv != nullptr;
 }
 
-bool createSolidTexture16f(Diligent::IRenderDevice *renderDevice, Diligent::ISampler *sampler,
-                           const char *debugName, const std::array<float, 4> &rgba,
-                           Diligent::RefCntAutoPtr<Diligent::ITextureView> &outSrv)
+bool createBrdfLutTexture(Diligent::IRenderDevice *renderDevice, Diligent::ISampler *sampler,
+                          const char *debugName,
+                          Diligent::RefCntAutoPtr<Diligent::ITextureView> &outSrv)
 {
     if (renderDevice == nullptr)
     {
         return false;
     }
 
-    std::array<std::uint16_t, 4> encoded{};
-    for (std::size_t i = 0; i < encoded.size(); ++i)
+    constexpr std::uint32_t kBrdfLutSize = 128u;
+    std::vector<std::uint16_t> pixels(static_cast<std::size_t>(kBrdfLutSize) * kBrdfLutSize * 4u);
+    for (std::uint32_t y = 0u; y < kBrdfLutSize; ++y)
     {
-        encoded[i] = encodeFloat16(rgba[i]);
+        const float roughness = (static_cast<float>(y) + 0.5f) / static_cast<float>(kBrdfLutSize);
+        for (std::uint32_t x = 0u; x < kBrdfLutSize; ++x)
+        {
+            const float nDotV = (static_cast<float>(x) + 0.5f) / static_cast<float>(kBrdfLutSize);
+            const float rx    = roughness * -1.0f + 1.0f;
+            const float ry    = roughness * -0.0275f + 0.0425f;
+            const float rz    = roughness * -0.572f + 1.04f;
+            const float rw    = roughness * 0.022f - 0.04f;
+            const float a004  = std::min(rx * rx, std::exp2(-9.28f * nDotV)) * rx + ry;
+            const float a     = common::runtime_math::clamp01((-1.04f) * a004 + rz);
+            const float b     = common::runtime_math::clamp01((1.04f) * a004 + rw);
+
+            const std::size_t texelIndex = (static_cast<std::size_t>(y) * kBrdfLutSize + x) * 4u;
+            pixels[texelIndex + 0u]      = encodeFloat16(a);
+            pixels[texelIndex + 1u]      = encodeFloat16(b);
+            pixels[texelIndex + 2u]      = encodeFloat16(0.0f);
+            pixels[texelIndex + 3u]      = encodeFloat16(1.0f);
+        }
     }
 
     Diligent::TextureDesc textureDesc{};
     textureDesc.Name      = debugName;
     textureDesc.Type      = Diligent::RESOURCE_DIM_TEX_2D;
-    textureDesc.Width     = 1u;
-    textureDesc.Height    = 1u;
+    textureDesc.Width     = kBrdfLutSize;
+    textureDesc.Height    = kBrdfLutSize;
     textureDesc.MipLevels = 1u;
     textureDesc.ArraySize = 1u;
     textureDesc.Format    = Diligent::TEX_FORMAT_RGBA16_FLOAT;
     textureDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
     textureDesc.Usage     = Diligent::USAGE_IMMUTABLE;
 
-    Diligent::TextureSubResData subresource{encoded.data(), sizeof(std::uint16_t) * 4u};
+    Diligent::TextureSubResData subresource{pixels.data(),
+                                            kBrdfLutSize * sizeof(std::uint16_t) * 4u};
     Diligent::TextureData initialData{&subresource, 1u};
-    Diligent::RefCntAutoPtr<Diligent::ITexture> texture;
-    renderDevice->CreateTexture(textureDesc, &initialData, &texture);
-    if (texture == nullptr)
-    {
-        return false;
-    }
-
-    outSrv = createTextureSrv(texture, sampler);
-    return outSrv != nullptr;
-}
-
-bool createSolidCubeTexture(Diligent::IRenderDevice *renderDevice, Diligent::ISampler *sampler,
-                            const char *debugName, Diligent::TEXTURE_FORMAT format,
-                            const std::array<std::uint8_t, 4> &rgba,
-                            Diligent::RefCntAutoPtr<Diligent::ITextureView> &outSrv)
-{
-    if (renderDevice == nullptr)
-    {
-        return false;
-    }
-
-    Diligent::TextureDesc textureDesc{};
-    textureDesc.Name      = debugName;
-    textureDesc.Type      = Diligent::RESOURCE_DIM_TEX_CUBE;
-    textureDesc.Width     = 1u;
-    textureDesc.Height    = 1u;
-    textureDesc.MipLevels = 1u;
-    textureDesc.ArraySize = 6u;
-    textureDesc.Format    = format;
-    textureDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
-    textureDesc.Usage     = Diligent::USAGE_IMMUTABLE;
-
-    std::array<Diligent::TextureSubResData, 6> subresources{};
-    for (Diligent::TextureSubResData &subresource : subresources)
-    {
-        subresource = Diligent::TextureSubResData{rgba.data(), 4u};
-    }
-    Diligent::TextureData initialData{subresources.data(),
-                                      static_cast<Diligent::Uint32>(subresources.size())};
     Diligent::RefCntAutoPtr<Diligent::ITexture> texture;
     renderDevice->CreateTexture(textureDesc, &initialData, &texture);
     if (texture == nullptr)
@@ -305,51 +291,34 @@ bool createFallbackCubeArray(Diligent::IRenderDevice *renderDevice, Diligent::IS
     return outSrv != nullptr;
 }
 
-bool createFallbackTextureArray16f(Diligent::IRenderDevice *renderDevice,
-                                   Diligent::ISampler *sampler, const char *debugName,
-                                   const std::array<float, 4> &rgba,
-                                   Diligent::RefCntAutoPtr<Diligent::ITextureView> &outSrv)
+struct UniqueIblKey
 {
-    if (renderDevice == nullptr)
+    common::ResourceId irradianceId  = common::kInvalidResourceId;
+    common::ResourceId prefilteredId = common::kInvalidResourceId;
+
+    bool operator==(const UniqueIblKey &rhs) const noexcept
     {
-        return false;
+        return irradianceId == rhs.irradianceId && prefilteredId == rhs.prefilteredId;
     }
+};
 
-    std::array<std::uint16_t, 4> encoded{};
-    for (std::size_t i = 0; i < encoded.size(); ++i)
+struct UniqueIblKeyHasher
+{
+    std::size_t operator()(const UniqueIblKey &key) const noexcept
     {
-        encoded[i] = encodeFloat16(rgba[i]);
+        std::size_t seed = 0u;
+        hashCombine(seed, key.irradianceId);
+        hashCombine(seed, key.prefilteredId);
+        return seed;
     }
-
-    Diligent::TextureDesc textureDesc{};
-    textureDesc.Name      = debugName;
-    textureDesc.Type      = Diligent::RESOURCE_DIM_TEX_2D_ARRAY;
-    textureDesc.Width     = 1u;
-    textureDesc.Height    = 1u;
-    textureDesc.MipLevels = 1u;
-    textureDesc.ArraySize = 1u;
-    textureDesc.Format    = Diligent::TEX_FORMAT_RGBA16_FLOAT;
-    textureDesc.BindFlags = Diligent::BIND_SHADER_RESOURCE;
-    textureDesc.Usage     = Diligent::USAGE_IMMUTABLE;
-
-    Diligent::TextureSubResData subresource{encoded.data(), sizeof(std::uint16_t) * 4u};
-    Diligent::TextureData initialData{&subresource, 1u};
-    Diligent::RefCntAutoPtr<Diligent::ITexture> texture;
-    renderDevice->CreateTexture(textureDesc, &initialData, &texture);
-    if (texture == nullptr)
-    {
-        return false;
-    }
-
-    outSrv = createTextureSrv(texture, sampler);
-    return outSrv != nullptr;
-}
+};
 
 } // namespace
 
-ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice &device, RenderResourceManager &resourceManager)
-    : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
-      mMeshGpuCache("CRESSimNeo.ForwardOpaquePass"),
+ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice &device, RenderResourceManager &resourceManager,
+                                     IblQualityTier iblQualityTier)
+    : mDevice(device), mResourceManager(resourceManager), mIblQualityTier(iblQualityTier),
+      mShaderLibrary(""), mMeshGpuCache("CRESSimNeo.ForwardOpaquePass"),
       mTextureGpuCache("CRESSimNeo.ForwardOpaquePass")
 {
 }
@@ -419,18 +388,7 @@ bool ForwardOpaquePass::initialize()
             !createSolidTexture(backendContext.renderDevice, mMaterialSampler,
                                 "CRESSimNeo.ForwardOpaquePass.FallbackAO",
                                 Diligent::TEX_FORMAT_RGBA8_UNORM, {255u, 255u, 255u, 255u},
-                                mFallbackAoSrv) ||
-            !createFallbackCubeArray(backendContext.renderDevice, mMaterialSampler,
-                                     "CRESSimNeo.ForwardOpaquePass.FallbackIrradianceArray",
-                                     Diligent::TEX_FORMAT_RGBA8_UNORM, {0u, 0u, 0u, 0u},
-                                     mIrradianceArraySrv) ||
-            !createFallbackCubeArray(
-                backendContext.renderDevice, mMaterialSampler,
-                "CRESSimNeo.ForwardOpaquePass.FallbackPrefilteredSpecularArray",
-                Diligent::TEX_FORMAT_RGBA8_UNORM, {0u, 0u, 0u, 0u}, mPrefilteredSpecularArraySrv) ||
-            !createFallbackTextureArray16f(backendContext.renderDevice, mMaterialSampler,
-                                           "CRESSimNeo.ForwardOpaquePass.FallbackBrdfLutArray",
-                                           {0.0f, 1.0f, 0.0f, 1.0f}, mBrdfLutArraySrv))
+                                mFallbackAoSrv))
         {
             return false;
         }
@@ -467,8 +425,9 @@ bool ForwardOpaquePass::beginBatchFrame(std::uint32_t currentCameraIndex)
     frameConstants.currentCameraIndex = currentCameraIndex;
     frameConstants.shadowParams =
         Diligent::float4{0.0015f, hasAnyShadowMap() ? 1.0f : 0.0f, 0.35f, 0.0f};
-    frameConstants.iblParams =
-        Diligent::float4{0.0f, mEnvironmentIblPrefilteredMipCount, 0.0f, 0.0f};
+    frameConstants.iblSpecularParams = Diligent::float4{
+        mIblQualityTier == IblQualityTier::Full ? mEnvironmentIblPrefilteredMipCount : 0.0f, 0.0f,
+        0.0f, 0.0f};
 
     void *mappedConstants = nullptr;
     backendContext.immediateContext->MapBuffer(mForwardPerFrameBuffer, Diligent::MAP_WRITE,
@@ -567,7 +526,7 @@ bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBin
                                                         : Diligent::TEX_FORMAT_UNKNOWN;
     const MaterialProgramRegistry::ProgramKey key = MaterialProgramRegistry::buildProgramKey(
         MainPassClass::ForwardOpaque, drawCommand.programFamily, drawCommand.materialFeatureFlags,
-        backendContext.activeRenderTargetColorFormat, depthFormat,
+        mIblQualityTier, backendContext.activeRenderTargetColorFormat, depthFormat,
         backendContext.activeRenderTargetHasDepth, backendContext.activeRenderTargetHasDepth,
         false);
     MaterialProgramRegistry::ProgramResources *program =
@@ -836,21 +795,40 @@ bool ForwardOpaquePass::ensureEnvironmentIblResources(Diligent::IRenderDevice *r
         return false;
     }
 
+    if (mIblQualityTier == IblQualityTier::Off)
+    {
+        mIrradianceArraySrv.Release();
+        mPrefilteredSpecularArraySrv.Release();
+        mBrdfLutSrv.Release();
+        mEnvironmentIblLookupBuffer.Release();
+        mEnvironmentIblLookupCapacity      = 0u;
+        mEnvironmentIblPrefilteredMipCount = 0.0f;
+        mEnvironmentIblStateHash           = 0u;
+        return true;
+    }
+
     std::size_t stateHash = 0u;
+    hashCombine(stateHash, static_cast<std::uint32_t>(mIblQualityTier));
     hashCombine(stateHash, mEnvironmentIblEnvCount);
     if (mEnvironmentIbls != nullptr)
     {
         for (const EnvironmentIblDesc &ibl : *mEnvironmentIbls)
         {
             hashCombine(stateHash, ibl.irradianceCubemap.id);
-            hashCombine(stateHash, ibl.prefilteredSpecularCubemap.id);
-            hashCombine(stateHash, ibl.brdfLut.id);
+            if (mIblQualityTier == IblQualityTier::Full)
+            {
+                hashCombine(stateHash, ibl.prefilteredSpecularCubemap.id);
+            }
             hashCombine(stateHash, ibl.intensity);
         }
     }
-    if (mIrradianceArraySrv != nullptr && mPrefilteredSpecularArraySrv != nullptr &&
-        mBrdfLutArraySrv != nullptr && mEnvironmentIblLookupBuffer != nullptr &&
-        stateHash == mEnvironmentIblStateHash)
+    const bool requiresPrefiltered = (mIblQualityTier == IblQualityTier::Full);
+    const bool requiresBrdfLut     = (mIblQualityTier == IblQualityTier::Full);
+    const bool hasCachedResources =
+        mIrradianceArraySrv != nullptr && mEnvironmentIblLookupBuffer != nullptr &&
+        (!requiresPrefiltered || mPrefilteredSpecularArraySrv != nullptr) &&
+        (!requiresBrdfLut || mBrdfLutSrv != nullptr);
+    if (hasCachedResources && stateHash == mEnvironmentIblStateHash)
     {
         return true;
     }
@@ -858,10 +836,9 @@ bool ForwardOpaquePass::ensureEnvironmentIblResources(Diligent::IRenderDevice *r
     std::vector<EnvironmentIblLookupEntry> lookupEntries(mEnvironmentIblEnvCount);
     std::vector<const TextureResourceDesc *> irradianceTextures;
     std::vector<const TextureResourceDesc *> prefilteredTextures;
-    std::vector<const TextureResourceDesc *> brdfTextures;
     const TextureResourceDesc *canonicalIrradiance  = nullptr;
     const TextureResourceDesc *canonicalPrefiltered = nullptr;
-    const TextureResourceDesc *canonicalBrdf        = nullptr;
+    std::unordered_map<UniqueIblKey, std::uint32_t, UniqueIblKeyHasher> uniqueSliceIndices;
 
     const auto tryGetTexture = [&](TextureHandle handle) -> const TextureResourceDesc *
     {
@@ -880,38 +857,58 @@ bool ForwardOpaquePass::ensureEnvironmentIblResources(Diligent::IRenderDevice *r
                                      static_cast<std::uint32_t>(mEnvironmentIbls->size()));
              ++envIndex)
         {
-            const EnvironmentIblDesc &ibl          = (*mEnvironmentIbls)[envIndex];
-            const TextureResourceDesc *irradiance  = tryGetTexture(ibl.irradianceCubemap);
-            const TextureResourceDesc *prefiltered = tryGetTexture(ibl.prefilteredSpecularCubemap);
-            const TextureResourceDesc *brdf        = tryGetTexture(ibl.brdfLut);
-            if (irradiance == nullptr || prefiltered == nullptr || brdf == nullptr ||
-                irradiance->dimension != TextureDimension::TextureCube ||
-                prefiltered->dimension != TextureDimension::TextureCube ||
-                brdf->dimension != TextureDimension::Texture2D)
+            const EnvironmentIblDesc &ibl         = (*mEnvironmentIbls)[envIndex];
+            const TextureResourceDesc *irradiance = tryGetTexture(ibl.irradianceCubemap);
+            const TextureResourceDesc *prefiltered =
+                requiresPrefiltered ? tryGetTexture(ibl.prefilteredSpecularCubemap) : nullptr;
+            if (irradiance == nullptr || irradiance->dimension != TextureDimension::TextureCube)
+            {
+                continue;
+            }
+            if (requiresPrefiltered &&
+                (prefiltered == nullptr || prefiltered->dimension != TextureDimension::TextureCube))
             {
                 continue;
             }
 
             if (canonicalIrradiance == nullptr)
             {
-                canonicalIrradiance  = irradiance;
-                canonicalPrefiltered = prefiltered;
-                canonicalBrdf        = brdf;
+                canonicalIrradiance = irradiance;
             }
-            if (!isTextureArrayCompatible(*canonicalIrradiance, *irradiance) ||
-                !isTextureArrayCompatible(*canonicalPrefiltered, *prefiltered) ||
-                !isTextureArrayCompatible(*canonicalBrdf, *brdf))
+            if (requiresPrefiltered && canonicalPrefiltered == nullptr)
+            {
+                canonicalPrefiltered = prefiltered;
+            }
+            if (canonicalIrradiance == nullptr ||
+                !isTextureArrayCompatible(*canonicalIrradiance, *irradiance))
+            {
+                continue;
+            }
+            if (requiresPrefiltered &&
+                (canonicalPrefiltered == nullptr ||
+                 !isTextureArrayCompatible(*canonicalPrefiltered, *prefiltered)))
             {
                 continue;
             }
 
-            lookupEntries[envIndex].sliceIndex =
-                static_cast<std::uint32_t>(irradianceTextures.size());
-            lookupEntries[envIndex].enabled   = 1u;
-            lookupEntries[envIndex].intensity = std::max(ibl.intensity, 0.0f);
-            irradianceTextures.push_back(irradiance);
-            prefilteredTextures.push_back(prefiltered);
-            brdfTextures.push_back(brdf);
+            UniqueIblKey key{};
+            key.irradianceId          = ibl.irradianceCubemap.id;
+            key.prefilteredId         = requiresPrefiltered ? ibl.prefilteredSpecularCubemap.id
+                                                            : common::kInvalidResourceId;
+            const auto [it, inserted] = uniqueSliceIndices.emplace(
+                key, static_cast<std::uint32_t>(irradianceTextures.size()));
+            if (inserted)
+            {
+                irradianceTextures.push_back(irradiance);
+                if (requiresPrefiltered)
+                {
+                    prefilteredTextures.push_back(prefiltered);
+                }
+            }
+
+            lookupEntries[envIndex].sliceIndex = it->second;
+            lookupEntries[envIndex].enabled    = 1u;
+            lookupEntries[envIndex].intensity  = std::max(ibl.intensity, 0.0f);
         }
     }
 
@@ -1009,41 +1006,52 @@ bool ForwardOpaquePass::ensureEnvironmentIblResources(Diligent::IRenderDevice *r
         return false;
     }
 
-    if (canonicalIrradiance != nullptr && canonicalPrefiltered != nullptr &&
-        canonicalBrdf != nullptr && !irradianceTextures.empty())
+    if (canonicalIrradiance != nullptr && !irradianceTextures.empty())
     {
-        if (!buildArrayTexture(
-                irradianceTextures, *canonicalIrradiance, Diligent::RESOURCE_DIM_TEX_CUBE_ARRAY, 6u,
-                "CRESSimNeo.ForwardOpaquePass.IrradianceArray", mIrradianceArraySrv) ||
-            !buildArrayTexture(prefilteredTextures, *canonicalPrefiltered,
+        if (!buildArrayTexture(irradianceTextures, *canonicalIrradiance,
                                Diligent::RESOURCE_DIM_TEX_CUBE_ARRAY, 6u,
-                               "CRESSimNeo.ForwardOpaquePass.PrefilteredSpecularArray",
-                               mPrefilteredSpecularArraySrv) ||
-            !buildArrayTexture(brdfTextures, *canonicalBrdf, Diligent::RESOURCE_DIM_TEX_2D_ARRAY,
-                               1u, "CRESSimNeo.ForwardOpaquePass.BrdfLutArray", mBrdfLutArraySrv))
+                               "CRESSimNeo.ForwardOpaquePass.IrradianceArray", mIrradianceArraySrv))
         {
             return false;
         }
-        mEnvironmentIblPrefilteredMipCount =
-            static_cast<float>(std::max(canonicalPrefiltered->mipLevelCount, 1u));
+
+        if (requiresPrefiltered && canonicalPrefiltered != nullptr && !prefilteredTextures.empty())
+        {
+            if (!buildArrayTexture(prefilteredTextures, *canonicalPrefiltered,
+                                   Diligent::RESOURCE_DIM_TEX_CUBE_ARRAY, 6u,
+                                   "CRESSimNeo.ForwardOpaquePass.PrefilteredSpecularArray",
+                                   mPrefilteredSpecularArraySrv))
+            {
+                return false;
+            }
+            mEnvironmentIblPrefilteredMipCount =
+                static_cast<float>(std::max(canonicalPrefiltered->mipLevelCount, 1u));
+            if (mBrdfLutSrv == nullptr &&
+                !createBrdfLutTexture(renderDevice, mMaterialSampler,
+                                      "CRESSimNeo.ForwardOpaquePass.BuiltInBrdfLut", mBrdfLutSrv))
+            {
+                return false;
+            }
+        }
+        else
+        {
+            mPrefilteredSpecularArraySrv.Release();
+            mBrdfLutSrv.Release();
+            mEnvironmentIblPrefilteredMipCount = 0.0f;
+        }
     }
     else
     {
         if (!createFallbackCubeArray(renderDevice, mMaterialSampler,
                                      "CRESSimNeo.ForwardOpaquePass.FallbackIrradianceArray",
                                      Diligent::TEX_FORMAT_RGBA8_UNORM, {0u, 0u, 0u, 0u},
-                                     mIrradianceArraySrv) ||
-            !createFallbackCubeArray(
-                renderDevice, mMaterialSampler,
-                "CRESSimNeo.ForwardOpaquePass.FallbackPrefilteredSpecularArray",
-                Diligent::TEX_FORMAT_RGBA8_UNORM, {0u, 0u, 0u, 0u}, mPrefilteredSpecularArraySrv) ||
-            !createFallbackTextureArray16f(renderDevice, mMaterialSampler,
-                                           "CRESSimNeo.ForwardOpaquePass.FallbackBrdfLutArray",
-                                           {0.0f, 1.0f, 0.0f, 1.0f}, mBrdfLutArraySrv))
+                                     mIrradianceArraySrv))
         {
             return false;
         }
-        mEnvironmentIblPrefilteredMipCount = 1.0f;
+        mPrefilteredSpecularArraySrv.Release();
+        mBrdfLutSrv.Release();
+        mEnvironmentIblPrefilteredMipCount = 0.0f;
     }
 
     mEnvironmentIblStateHash = stateHash;
@@ -1053,9 +1061,13 @@ bool ForwardOpaquePass::ensureEnvironmentIblResources(Diligent::IRenderDevice *r
 bool ForwardOpaquePass::bindEnvironmentIblResources(
     MaterialProgramRegistry::ProgramResources &program) const
 {
+    if (mIblQualityTier == IblQualityTier::Off)
+    {
+        return true;
+    }
+
     if (program.shaderResourceBinding == nullptr || mEnvironmentIblLookupBuffer == nullptr ||
-        mIrradianceArraySrv == nullptr || mPrefilteredSpecularArraySrv == nullptr ||
-        mBrdfLutArraySrv == nullptr)
+        mIrradianceArraySrv == nullptr)
     {
         return false;
     }
@@ -1065,11 +1077,14 @@ bool ForwardOpaquePass::bindEnvironmentIblResources(
         const char *name;
         Diligent::ITextureView *view;
     };
-    const TextureBinding textureBindings[] = {
-        {"g_IrradianceMap", mIrradianceArraySrv.RawPtr()},
-        {"g_PrefilteredSpecularMap", mPrefilteredSpecularArraySrv.RawPtr()},
-        {"g_BrdfLut", mBrdfLutArraySrv.RawPtr()},
-    };
+    std::vector<TextureBinding> textureBindings;
+    textureBindings.push_back({"g_IrradianceMap", mIrradianceArraySrv.RawPtr()});
+    if (mIblQualityTier == IblQualityTier::Full)
+    {
+        textureBindings.push_back(
+            {"g_PrefilteredSpecularMap", mPrefilteredSpecularArraySrv.RawPtr()});
+        textureBindings.push_back({"g_BrdfLut", mBrdfLutSrv.RawPtr()});
+    }
 
     for (const TextureBinding &binding : textureBindings)
     {
@@ -1085,17 +1100,16 @@ bool ForwardOpaquePass::bindEnvironmentIblResources(
 
     Diligent::IShaderResourceVariable *lookupVar = program.shaderResourceBinding->GetVariableByName(
         Diligent::SHADER_TYPE_PIXEL, "g_EnvironmentIblLookup");
-    if (lookupVar == nullptr)
+    if (lookupVar != nullptr)
     {
-        return false;
+        Diligent::IBufferView *lookupSrv =
+            mEnvironmentIblLookupBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        if (lookupSrv == nullptr)
+        {
+            return false;
+        }
+        lookupVar->Set(lookupSrv);
     }
-    Diligent::IBufferView *lookupSrv =
-        mEnvironmentIblLookupBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
-    if (lookupSrv == nullptr)
-    {
-        return false;
-    }
-    lookupVar->Set(lookupSrv);
 
     return true;
 }

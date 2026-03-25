@@ -7,6 +7,7 @@ namespace
 using cressim::neo::engine::World;
 using cressim::neo::gpu::GpuSceneLayoutDesc;
 using cressim::neo::graphics::EnvironmentIblDesc;
+using cressim::neo::graphics::IblQualityTier;
 using cressim::neo::graphics::TextureHandle;
 
 } // namespace
@@ -21,13 +22,11 @@ int main()
     EnvironmentIblDesc envA{};
     envA.irradianceCubemap = TextureHandle{11u};
     envA.prefilteredSpecularCubemap = TextureHandle{12u};
-    envA.brdfLut = TextureHandle{13u};
     envA.intensity = 1.5f;
 
     EnvironmentIblDesc envB{};
     envB.irradianceCubemap = TextureHandle{21u};
     envB.prefilteredSpecularCubemap = TextureHandle{22u};
-    envB.brdfLut = TextureHandle{23u};
     envB.intensity = 0.75f;
 
     if (!world.setEnvironmentIbl(0u, envA) || !world.setEnvironmentIbl(1u, envB))
@@ -38,7 +37,8 @@ int main()
 
     const EnvironmentIblDesc *storedA = world.tryGetEnvironmentIbl(0u);
     const EnvironmentIblDesc *storedB = world.tryGetEnvironmentIbl(1u);
-    if (storedA == nullptr || storedB == nullptr || !storedA->enabled() || !storedB->enabled())
+    if (storedA == nullptr || storedB == nullptr || !storedA->enabled(IblQualityTier::Full) ||
+        !storedB->enabled(IblQualityTier::Full))
     {
         CRESSIM_LOG_ERROR("Environment IBL state could not be retrieved.\n");
         return 1;
@@ -53,10 +53,19 @@ int main()
 
     if ((*hostScene.environmentIbls)[0].irradianceCubemap.id != envA.irradianceCubemap.id ||
         (*hostScene.environmentIbls)[1].prefilteredSpecularCubemap.id != envB.prefilteredSpecularCubemap.id ||
-        (*hostScene.environmentIbls)[0].brdfLut.id != envA.brdfLut.id ||
         (*hostScene.environmentIbls)[1].intensity != envB.intensity)
     {
         CRESSIM_LOG_ERROR("Host scene environment IBL contents did not match assignments.\n");
+        return 1;
+    }
+
+    EnvironmentIblDesc irradianceOnly{};
+    irradianceOnly.irradianceCubemap = TextureHandle{31u};
+    if (!irradianceOnly.enabled(IblQualityTier::DiffuseOnly) ||
+        irradianceOnly.enabled(IblQualityTier::Off) ||
+        irradianceOnly.enabled(IblQualityTier::Full))
+    {
+        CRESSIM_LOG_ERROR("Environment IBL tier-dependent enabled() semantics were incorrect.\n");
         return 1;
     }
 

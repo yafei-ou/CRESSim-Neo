@@ -6,7 +6,6 @@
 #include "viewer/debug_viewer_app.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -28,9 +27,8 @@ using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::gpu::GpuBackend;
 using cressim::neo::graphics::EnvironmentIblDesc;
-using cressim::neo::graphics::MaterialHandle;
+using cressim::neo::graphics::IblQualityTier;
 using cressim::neo::graphics::MaterialResourceDesc;
-using cressim::neo::graphics::MeshHandle;
 using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::graphics::TextureColorSpace;
 using cressim::neo::graphics::TextureDimension;
@@ -43,42 +41,41 @@ using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
 constexpr float kPi = 3.14159265358979323846f;
-constexpr int kGridWidth = 8;
-constexpr int kGridDepth = 8;
-constexpr int kLayers = 4;
-constexpr float kSpacing = 1.45f;
-constexpr float kBaseHeight = 1.6f;
-constexpr float kLayerHeight = 2.05f;
-constexpr float kEnvWorldSpacing = 74.0f;
+constexpr int kGridWidth = 10;
+constexpr int kGridDepth = 10;
+constexpr int kLayers = 5;
+constexpr float kSpacing = 1.4f;
+constexpr float kBaseHeight = 1.5f;
+constexpr float kLayerHeight = 2.0f;
+constexpr float kEnvWorldSpacing = 72.0f;
 constexpr std::uint32_t kDynamicBodiesPerEnv =
     static_cast<std::uint32_t>(kGridWidth * kGridDepth * kLayers);
-constexpr std::uint32_t kObjectsPerEnvBudget = kDynamicBodiesPerEnv + 32u;
+constexpr std::uint32_t kObjectsPerEnvBudget = kDynamicBodiesPerEnv + 8u;
 constexpr std::uint32_t kIrradianceSize = 16u;
 constexpr std::uint32_t kSpecularSize = 32u;
 constexpr std::uint32_t kSpecularMipCount = 6u;
 
 struct EnvMaterialSet
 {
-    MaterialHandle mirrorSphere;
-    MaterialHandle polishedBox;
-    MaterialHandle roughMetalCapsule;
-    MaterialHandle dielectricSphere;
-    MaterialHandle ground;
+    cressim::neo::graphics::MaterialHandle box;
+    cressim::neo::graphics::MaterialHandle sphere;
+    cressim::neo::graphics::MaterialHandle capsule;
+    cressim::neo::graphics::MaterialHandle plane;
 };
 
-struct EnvIblPalette
+struct SharedIblPalette
 {
-    Diligent::float3 zenith{};
-    Diligent::float3 horizon{};
-    Diligent::float3 ground{};
-    Diligent::float3 accent{};
-    Diligent::float3 sunDirection{0.0f, 1.0f, 0.0f};
-    Diligent::float3 sunColor{1.0f, 1.0f, 1.0f};
-    Diligent::float3 averageRadiance{0.3f, 0.3f, 0.3f};
-    float sunIntensity = 6.0f;
+    Diligent::float3 zenith{0.17f, 0.34f, 0.78f};
+    Diligent::float3 horizon{0.92f, 0.62f, 0.28f};
+    Diligent::float3 ground{0.10f, 0.08f, 0.07f};
+    Diligent::float3 accent{0.28f, 0.78f, 1.12f};
+    Diligent::float3 sunDirection = Diligent::normalize(Diligent::float3{0.58f, 0.76f, -0.28f});
+    Diligent::float3 sunColor{1.0f, 0.94f, 0.82f};
+    Diligent::float3 averageRadiance{0.32f, 0.28f, 0.22f};
+    float sunIntensity = 8.0f;
 };
 
-GpuBackend parseBackend(const std::string &value)
+GpuBackend parseBackend(const std::string& value)
 {
     if (value == "null")
     {
@@ -91,10 +88,9 @@ GpuBackend parseBackend(const std::string &value)
     throw std::invalid_argument("Unsupported backend: " + value);
 }
 
-void printUsage(const char *appName)
+void printUsage(const char* appName)
 {
-    CRESSIM_LOG_ERROR("Usage: ", appName,
-                      " [--backend vulkan|null] [--frames N] [--envs N]\n");
+    CRESSIM_LOG_ERROR("Usage: ", appName, " [--backend vulkan|null] [--frames N] [--envs N]\n");
 }
 
 std::uint16_t encodeFloat16(float value)
@@ -134,21 +130,16 @@ float lerp(float a, float b, float t)
     return a + (b - a) * t;
 }
 
-Diligent::float3 lerp(const Diligent::float3 &a, const Diligent::float3 &b, float t)
+Diligent::float3 lerp(const Diligent::float3& a, const Diligent::float3& b, float t)
 {
     return {lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.z, b.z, t)};
 }
 
-Diligent::float3 multiply(const Diligent::float3 &a, const Diligent::float3 &b)
-{
-    return {a.x * b.x, a.y * b.y, a.z * b.z};
-}
-
-void appendRgba16f(std::vector<std::uint8_t> &dst, const Diligent::float3 &rgb, float alpha = 1.0f)
+void appendRgba16f(std::vector<std::uint8_t>& dst, const Diligent::float3& rgb, float alpha = 1.0f)
 {
     const std::size_t offset = dst.size();
     dst.resize(offset + sizeof(std::uint16_t) * 4u);
-    auto *encoded = reinterpret_cast<std::uint16_t *>(dst.data() + offset);
+    auto* encoded = reinterpret_cast<std::uint16_t*>(dst.data() + offset);
     encoded[0] = encodeFloat16(std::max(rgb.x, 0.0f));
     encoded[1] = encodeFloat16(std::max(rgb.y, 0.0f));
     encoded[2] = encodeFloat16(std::max(rgb.z, 0.0f));
@@ -178,55 +169,8 @@ Diligent::float3 cubeDirection(std::uint32_t face, std::uint32_t x, std::uint32_
     }
 }
 
-EnvIblPalette paletteForEnv(std::uint32_t envIndex)
-{
-    switch (envIndex % 4u)
-    {
-    case 0u:
-        return {
-            {0.20f, 0.38f, 0.92f},
-            {0.95f, 0.58f, 0.22f},
-            {0.12f, 0.09f, 0.07f},
-            {0.25f, 0.72f, 1.15f},
-            Diligent::normalize(Diligent::float3{0.62f, 0.74f, -0.28f}),
-            {1.0f, 0.92f, 0.78f},
-            {0.34f, 0.26f, 0.20f},
-            8.5f};
-    case 1u:
-        return {
-            {0.05f, 0.22f, 0.48f},
-            {0.18f, 0.72f, 0.92f},
-            {0.02f, 0.05f, 0.08f},
-            {0.95f, 0.30f, 0.82f},
-            Diligent::normalize(Diligent::float3{-0.38f, 0.86f, 0.34f}),
-            {0.86f, 0.94f, 1.0f},
-            {0.14f, 0.28f, 0.36f},
-            7.0f};
-    case 2u:
-        return {
-            {0.62f, 0.70f, 0.84f},
-            {0.92f, 0.82f, 0.70f},
-            {0.20f, 0.18f, 0.15f},
-            {1.10f, 0.65f, 0.24f},
-            Diligent::normalize(Diligent::float3{0.24f, 0.92f, 0.30f}),
-            {1.0f, 0.88f, 0.70f},
-            {0.46f, 0.40f, 0.34f},
-            6.5f};
-    default:
-        return {
-            {0.08f, 0.06f, 0.16f},
-            {0.82f, 0.18f, 0.24f},
-            {0.03f, 0.02f, 0.04f},
-            {0.34f, 0.95f, 0.62f},
-            Diligent::normalize(Diligent::float3{-0.55f, 0.78f, -0.30f}),
-            {1.0f, 0.78f, 0.72f},
-            {0.24f, 0.10f, 0.12f},
-            9.0f};
-    }
-}
-
-Diligent::float3 sampleEnvironmentRadiance(const EnvIblPalette &palette,
-                                           const Diligent::float3 &dir, float roughness,
+Diligent::float3 sampleEnvironmentRadiance(const SharedIblPalette& palette,
+                                           const Diligent::float3& dir, float roughness,
                                            bool includeSun)
 {
     const float up = saturate(dir.y * 0.5f + 0.5f);
@@ -251,10 +195,10 @@ Diligent::float3 sampleEnvironmentRadiance(const EnvIblPalette &palette,
     return lerp(color, palette.averageRadiance, roughness * roughness * 0.92f);
 }
 
-TextureResourceDesc makeIrradianceCubeDesc(std::uint32_t envIndex)
+TextureResourceDesc makeIrradianceCubeDesc()
 {
     TextureResourceDesc desc{};
-    desc.debugName = "ViewerIntegration.Ibl.Irradiance." + std::to_string(envIndex);
+    desc.debugName = "ViewerIntegration.SharedIbl.Irradiance";
     desc.width = kIrradianceSize;
     desc.height = kIrradianceSize;
     desc.mipLevelCount = 1u;
@@ -263,18 +207,17 @@ TextureResourceDesc makeIrradianceCubeDesc(std::uint32_t envIndex)
     desc.colorSpace = TextureColorSpace::Linear;
     desc.subresources.resize(6u);
 
-    const EnvIblPalette palette = paletteForEnv(envIndex);
+    const SharedIblPalette palette{};
     for (std::uint32_t face = 0u; face < 6u; ++face)
     {
-        auto &pixels = desc.subresources[face].pixelData;
+        auto& pixels = desc.subresources[face].pixelData;
         pixels.reserve(static_cast<std::size_t>(kIrradianceSize) * kIrradianceSize * 8u);
         for (std::uint32_t y = 0u; y < kIrradianceSize; ++y)
         {
             for (std::uint32_t x = 0u; x < kIrradianceSize; ++x)
             {
                 const Diligent::float3 dir = cubeDirection(face, x, y, kIrradianceSize);
-                const Diligent::float3 rgb = sampleEnvironmentRadiance(palette, dir, 1.0f, false);
-                appendRgba16f(pixels, rgb);
+                appendRgba16f(pixels, sampleEnvironmentRadiance(palette, dir, 1.0f, false));
             }
         }
     }
@@ -282,10 +225,10 @@ TextureResourceDesc makeIrradianceCubeDesc(std::uint32_t envIndex)
     return desc;
 }
 
-TextureResourceDesc makePrefilteredSpecularCubeDesc(std::uint32_t envIndex)
+TextureResourceDesc makePrefilteredSpecularCubeDesc()
 {
     TextureResourceDesc desc{};
-    desc.debugName = "ViewerIntegration.Ibl.Specular." + std::to_string(envIndex);
+    desc.debugName = "ViewerIntegration.SharedIbl.Specular";
     desc.width = kSpecularSize;
     desc.height = kSpecularSize;
     desc.mipLevelCount = kSpecularMipCount;
@@ -294,7 +237,7 @@ TextureResourceDesc makePrefilteredSpecularCubeDesc(std::uint32_t envIndex)
     desc.colorSpace = TextureColorSpace::Linear;
     desc.subresources.resize(static_cast<std::size_t>(kSpecularMipCount) * 6u);
 
-    const EnvIblPalette palette = paletteForEnv(envIndex);
+    const SharedIblPalette palette{};
     for (std::uint32_t mip = 0u; mip < kSpecularMipCount; ++mip)
     {
         const std::uint32_t mipSize = std::max(kSpecularSize >> mip, 1u);
@@ -302,16 +245,14 @@ TextureResourceDesc makePrefilteredSpecularCubeDesc(std::uint32_t envIndex)
                                 static_cast<float>(std::max(kSpecularMipCount - 1u, 1u));
         for (std::uint32_t face = 0u; face < 6u; ++face)
         {
-            auto &pixels = desc.subresources[mip * 6u + face].pixelData;
+            auto& pixels = desc.subresources[mip * 6u + face].pixelData;
             pixels.reserve(static_cast<std::size_t>(mipSize) * mipSize * 8u);
             for (std::uint32_t y = 0u; y < mipSize; ++y)
             {
                 for (std::uint32_t x = 0u; x < mipSize; ++x)
                 {
                     const Diligent::float3 dir = cubeDirection(face, x, y, mipSize);
-                    const Diligent::float3 rgb =
-                        sampleEnvironmentRadiance(palette, dir, roughness, true);
-                    appendRgba16f(pixels, rgb);
+                    appendRgba16f(pixels, sampleEnvironmentRadiance(palette, dir, roughness, true));
                 }
             }
         }
@@ -323,14 +264,13 @@ TextureResourceDesc makePrefilteredSpecularCubeDesc(std::uint32_t envIndex)
 MeshResourceDesc makeCubeMesh(float halfExtent)
 {
     MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerIntegration.Ibl.CubeMesh";
+    mesh.debugName = "ViewerIntegration.CubeMesh";
     mesh.vertices.reserve(24);
     mesh.indices.reserve(36);
 
-    const auto addFace = [&](const Diligent::float3 &normal, const Diligent::float3 &v0,
-                             const Diligent::float3 &v1, const Diligent::float3 &v2,
-                             const Diligent::float3 &v3)
-    {
+    const auto addFace = [&](const Diligent::float3& normal, const Diligent::float3& v0,
+                             const Diligent::float3& v1, const Diligent::float3& v2,
+                             const Diligent::float3& v3) {
         const std::uint32_t base = static_cast<std::uint32_t>(mesh.vertices.size());
         mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
         mesh.vertices.push_back({v1, normal, 1.0f, 0.0f});
@@ -358,7 +298,7 @@ MeshResourceDesc makeCubeMesh(float halfExtent)
 MeshResourceDesc makePlaneMesh(float halfExtent)
 {
     MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerIntegration.Ibl.PlaneMesh";
+    mesh.debugName = "ViewerIntegration.PlaneMesh";
     const float h = halfExtent;
     mesh.vertices = {
         {{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f},
@@ -372,7 +312,7 @@ MeshResourceDesc makePlaneMesh(float halfExtent)
 MeshResourceDesc makeSphereMesh(float radius, std::uint32_t slices, std::uint32_t stacks)
 {
     MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerIntegration.Ibl.SphereMesh";
+    mesh.debugName = "ViewerIntegration.SphereMesh";
     mesh.vertices.reserve((stacks + 1u) * (slices + 1u));
     mesh.indices.reserve(stacks * slices * 6u);
 
@@ -380,16 +320,16 @@ MeshResourceDesc makeSphereMesh(float radius, std::uint32_t slices, std::uint32_
     {
         const float v = static_cast<float>(stack) / static_cast<float>(stacks);
         const float phi = v * kPi;
-        const float sy = std::cos(phi);
+        const float y = std::cos(phi);
         const float ringRadius = std::sin(phi);
 
         for (std::uint32_t slice = 0u; slice <= slices; ++slice)
         {
             const float u = static_cast<float>(slice) / static_cast<float>(slices);
             const float theta = u * (2.0f * kPi);
-            const float sx = ringRadius * std::cos(theta);
-            const float sz = ringRadius * std::sin(theta);
-            const Diligent::float3 normal{sx, sy, sz};
+            const float x = ringRadius * std::cos(theta);
+            const float z = ringRadius * std::sin(theta);
+            const Diligent::float3 normal{x, y, z};
             mesh.vertices.push_back({normal * radius, normal, u, v});
         }
     }
@@ -425,7 +365,7 @@ MeshResourceDesc makeCapsuleMesh(float radius, float halfHeight, std::uint32_t s
     };
 
     MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerIntegration.Ibl.CapsuleMesh";
+    mesh.debugName = "ViewerIntegration.CapsuleMesh";
     std::vector<Ring> rings;
     rings.reserve(2u * hemisphereRings + bodyRings + 2u);
 
@@ -457,6 +397,7 @@ MeshResourceDesc makeCapsuleMesh(float radius, float halfHeight, std::uint32_t s
     {
         const float y = rings[ringIndex].y;
         const float rr = rings[ringIndex].r;
+
         for (std::uint32_t slice = 0u; slice <= slices; ++slice)
         {
             const float u = static_cast<float>(slice) / static_cast<float>(slices);
@@ -507,7 +448,7 @@ MeshResourceDesc makeCapsuleMesh(float radius, float halfHeight, std::uint32_t s
     return mesh;
 }
 
-Diligent::float3 computeBoxInverseInertia(const Diligent::float3 &halfExtents, float inverseMass)
+Diligent::float3 computeBoxInverseInertia(const Diligent::float3& halfExtents, float inverseMass)
 {
     if (inverseMass <= 0.0f)
     {
@@ -519,7 +460,8 @@ Diligent::float3 computeBoxInverseInertia(const Diligent::float3 &halfExtents, f
     const float iy = mass * (halfExtents.x * halfExtents.x + halfExtents.z * halfExtents.z) / 3.0f;
     const float iz = mass * (halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y) / 3.0f;
 
-    return {ix > 0.0f ? 1.0f / ix : 0.0f, iy > 0.0f ? 1.0f / iy : 0.0f,
+    return {ix > 0.0f ? 1.0f / ix : 0.0f,
+            iy > 0.0f ? 1.0f / iy : 0.0f,
             iz > 0.0f ? 1.0f / iz : 0.0f};
 }
 
@@ -552,7 +494,7 @@ Diligent::float4 colliderParamsForShape(ColliderShapeType shape)
 }
 
 Diligent::float3 inverseInertiaForShape(ColliderShapeType shape,
-                                        const Diligent::float4 &colliderParams,
+                                        const Diligent::float4& colliderParams,
                                         float inverseMass)
 {
     switch (shape)
@@ -560,8 +502,8 @@ Diligent::float3 inverseInertiaForShape(ColliderShapeType shape,
     case ColliderShapeType::Sphere:
         return computeSphereInverseInertia(colliderParams.x, inverseMass);
     case ColliderShapeType::Box:
-        return computeBoxInverseInertia({colliderParams.x, colliderParams.y, colliderParams.z},
-                                        inverseMass);
+        return computeBoxInverseInertia(
+            {colliderParams.x, colliderParams.y, colliderParams.z}, inverseMass);
     case ColliderShapeType::Capsule:
         return computeBoxInverseInertia(
             {colliderParams.x, colliderParams.y + colliderParams.x, colliderParams.x},
@@ -573,75 +515,41 @@ Diligent::float3 inverseInertiaForShape(ColliderShapeType shape,
 
 Diligent::float3 envWorldOrigin(std::uint32_t envIndex, std::uint32_t envCount)
 {
-    const std::uint32_t cols = std::max(
-        1u, static_cast<std::uint32_t>(std::ceil(std::sqrt(static_cast<float>(envCount)))));
+    const std::uint32_t cols = std::max(1u, static_cast<std::uint32_t>(
+        std::ceil(std::sqrt(static_cast<float>(envCount)))));
     const std::uint32_t rows = std::max(1u, (envCount + cols - 1u) / cols);
     const std::uint32_t col = envIndex % cols;
     const std::uint32_t row = envIndex / cols;
 
     const float xCenter = (static_cast<float>(cols) - 1.0f) * 0.5f;
     const float zCenter = (static_cast<float>(rows) - 1.0f) * 0.5f;
-    return {(static_cast<float>(col) - xCenter) * kEnvWorldSpacing, 0.0f,
+    return {(static_cast<float>(col) - xCenter) * kEnvWorldSpacing,
+            0.0f,
             (static_cast<float>(row) - zCenter) * kEnvWorldSpacing};
 }
 
-void createHeroObjects(cressim::neo::engine::World &world, std::uint32_t envIndex,
-                       const Diligent::float3 &envOrigin, MeshHandle sphereMesh,
-                       MeshHandle cubeMesh, MeshHandle capsuleMesh,
-                       const EnvMaterialSet &materials)
-{
-    const std::array<Diligent::float3, 4> heroPositions = {
-        envOrigin + Diligent::float3{-5.5f, 1.0f, -7.0f},
-        envOrigin + Diligent::float3{-1.8f, 1.0f, -7.0f},
-        envOrigin + Diligent::float3{1.8f, 1.0f, -7.0f},
-        envOrigin + Diligent::float3{5.5f, 1.0f, -7.0f},
-    };
-    const std::array<MeshHandle, 4> heroMeshes = {sphereMesh, sphereMesh, cubeMesh, capsuleMesh};
-    const std::array<MaterialHandle, 4> heroMaterials = {
-        materials.mirrorSphere,
-        materials.dielectricSphere,
-        materials.polishedBox,
-        materials.roughMetalCapsule,
-    };
-
-    for (std::size_t i = 0u; i < heroPositions.size(); ++i)
-    {
-        const auto entity = world.createEntity(envIndex);
-        TransformComponent transform{};
-        transform.worldTransform.position = heroPositions[i];
-        if (i == 2u)
-        {
-            transform.worldTransform.scale = {1.2f, 1.2f, 1.2f};
-        }
-        world.setTransform(entity, transform);
-
-        MeshRendererComponent renderer{};
-        renderer.mesh = heroMeshes[i];
-        renderer.material = heroMaterials[i];
-        renderer.visible = true;
-        world.setMeshRenderer(entity, renderer);
-    }
-}
-
-void authorEnvironment(cressim::neo::engine::World &world, std::uint32_t envIndex,
-                       std::uint32_t envCount, MeshHandle cubeMesh, MeshHandle planeMesh,
-                       MeshHandle sphereMesh, MeshHandle capsuleMesh,
-                       const EnvMaterialSet &materials,
-                       cressim::neo::common::EntityId &outCameraEntity)
+void authorEnvironment(cressim::neo::engine::World& world, std::uint32_t envIndex,
+                       std::uint32_t envCount, cressim::neo::graphics::MeshHandle cubeMesh,
+                       cressim::neo::graphics::MeshHandle planeMesh,
+                       cressim::neo::graphics::MeshHandle sphereMesh,
+                       cressim::neo::graphics::MeshHandle capsuleMesh,
+                       const EnvMaterialSet& materials,
+                       cressim::neo::common::EntityId& outCameraEntity)
 {
     const Diligent::float3 envOrigin = envWorldOrigin(envIndex, envCount);
-    const float envPhase = static_cast<float>(envIndex) * 0.63f;
+    const float envPhase = static_cast<float>(envIndex) * 0.45f;
     const float envVelocityBiasX = std::cos(envPhase) * 0.05f;
     const float envVelocityBiasZ = std::sin(envPhase) * 0.05f;
-    const float envAngularBias = 0.12f + 0.04f * static_cast<float>(envIndex % 5u);
+    const float envAngularBias = 0.20f + 0.05f * static_cast<float>(envIndex % 5u);
+    const float envRestitution = 0.02f * static_cast<float>(envIndex % 4u);
+    const float envFriction = 0.35f + 0.08f * static_cast<float>(envIndex % 4u);
 
     outCameraEntity = world.createEntity(envIndex);
     TransformComponent cameraTransform{};
-    cameraTransform.worldTransform.position = envOrigin + Diligent::float3{0.0f, 6.0f, -23.0f};
+    cameraTransform.worldTransform.position = envOrigin + Diligent::float3{0.0f, 5.0f, -26.0f};
     world.setTransform(outCameraEntity, cameraTransform);
-
     CameraComponent camera{};
-    camera.verticalFovDegrees = 52.0f;
+    camera.verticalFovDegrees = 55.0f;
     camera.viewport = {};
     camera.clearColor = true;
     camera.clearDepth = true;
@@ -649,13 +557,12 @@ void authorEnvironment(cressim::neo::engine::World &world, std::uint32_t envInde
     world.setCamera(outCameraEntity, camera);
 
     const auto lightEntity = world.createEntity(envIndex);
-    const float lightYaw = 0.45f + static_cast<float>(envIndex) * 0.55f;
     DirectionalLightComponent light{};
-    light.direction =
-        Diligent::normalize(Diligent::float3{std::cos(lightYaw), -0.85f, std::sin(lightYaw)});
-    light.color = {1.0f, 0.97f, 0.92f};
-    light.intensity = 2.4f;
-    light.castsShadows = (envIndex % 2u) == 0u;
+    light.direction = Diligent::normalize(
+        Diligent::float3{-0.45f + 0.08f * std::sin(envPhase), -1.0f,
+                         0.35f + 0.08f * std::cos(envPhase)});
+    light.color = {1.0f, 1.0f, 1.0f};
+    light.intensity = 8.0f;
     world.setDirectionalLight(lightEntity, light);
 
     const auto groundEntity = world.createEntity(envIndex);
@@ -664,7 +571,7 @@ void authorEnvironment(cressim::neo::engine::World &world, std::uint32_t envInde
     world.setTransform(groundEntity, groundTransform);
     MeshRendererComponent ground{};
     ground.mesh = planeMesh;
-    ground.material = materials.ground;
+    ground.material = materials.plane;
     ground.visible = true;
     world.setMeshRenderer(groundEntity, ground);
     RigidBodyComponent groundBody{};
@@ -678,10 +585,7 @@ void authorEnvironment(cressim::neo::engine::World &world, std::uint32_t envInde
     groundCollider.shapeParams = {28.0f, 0.05f, 28.0f, 0.0f};
     world.addCollider(groundEntity, groundCollider);
 
-    createHeroObjects(world, envIndex, envOrigin, sphereMesh, cubeMesh, capsuleMesh, materials);
-
-    const auto meshForShape = [&](ColliderShapeType shape)
-    {
+    const auto meshForShape = [&](ColliderShapeType shape) {
         switch (shape)
         {
         case ColliderShapeType::Sphere:
@@ -694,22 +598,21 @@ void authorEnvironment(cressim::neo::engine::World &world, std::uint32_t envInde
         return cubeMesh;
     };
 
-    const auto materialForShape = [&](ColliderShapeType shape)
-    {
+    const auto materialForShape = [&](ColliderShapeType shape) {
         switch (shape)
         {
         case ColliderShapeType::Sphere:
-            return materials.mirrorSphere;
+            return materials.sphere;
         case ColliderShapeType::Box:
-            return materials.polishedBox;
+            return materials.box;
         case ColliderShapeType::Capsule:
-            return materials.roughMetalCapsule;
+            return materials.capsule;
         }
-        return materials.polishedBox;
+        return materials.box;
     };
 
     const float xOrigin = -0.5f * static_cast<float>(kGridWidth - 1) * kSpacing;
-    const float zOrigin = -0.5f * static_cast<float>(kGridDepth - 1) * kSpacing + 7.0f;
+    const float zOrigin = -0.5f * static_cast<float>(kGridDepth - 1) * kSpacing;
 
     for (int layer = 0; layer < kLayers; ++layer)
     {
@@ -719,8 +622,8 @@ void authorEnvironment(cressim::neo::engine::World &world, std::uint32_t envInde
             {
                 const int shapeIndex = (x + z + layer + static_cast<int>(envIndex)) % 3;
                 const ColliderShapeType shape =
-                    shapeIndex == 0 ? ColliderShapeType::Sphere
-                                    : (shapeIndex == 1 ? ColliderShapeType::Box
+                    shapeIndex == 0 ? ColliderShapeType::Box
+                                    : (shapeIndex == 1 ? ColliderShapeType::Sphere
                                                        : ColliderShapeType::Capsule);
 
                 const auto entity = world.createEntity(envIndex);
@@ -728,7 +631,8 @@ void authorEnvironment(cressim::neo::engine::World &world, std::uint32_t envInde
                 transform.worldTransform.position = {
                     envOrigin.x + xOrigin + static_cast<float>(x) * kSpacing,
                     kBaseHeight + static_cast<float>(layer) * kLayerHeight +
-                        ((x + z + static_cast<int>(envIndex)) % 2 == 0 ? 0.0f : 0.22f),
+                        ((x + z + static_cast<int>(envIndex)) % 2 == 0 ? 0.0f : 0.25f) +
+                        0.05f * static_cast<float>(envIndex % 3u),
                     envOrigin.z + zOrigin + static_cast<float>(z) * kSpacing};
                 world.setTransform(entity, transform);
 
@@ -744,94 +648,51 @@ void authorEnvironment(cressim::neo::engine::World &world, std::uint32_t envInde
                 body.inverseInertiaLocal =
                     inverseInertiaForShape(shape, colliderParamsForShape(shape), body.inverseMass);
                 body.linearVelocity = {
-                    static_cast<float>((x % 3) - 1) * 0.06f + envVelocityBiasX,
+                    static_cast<float>((x % 3) - 1) * 0.08f + envVelocityBiasX,
                     0.0f,
-                    static_cast<float>((z % 3) - 1) * 0.06f + envVelocityBiasZ};
+                    static_cast<float>((z % 3) - 1) * 0.08f + envVelocityBiasZ};
                 body.angularVelocity = {0.0f, envAngularBias, 0.0f};
                 world.setRigidBody(entity, body);
 
                 cressim::neo::engine::ColliderComponent collider{};
                 collider.shapeType = shape;
                 collider.shapeParams = colliderParamsForShape(shape);
-                collider.friction = 0.42f;
-                collider.restitution = 0.03f;
+                collider.friction = envFriction;
+                collider.restitution = envRestitution;
                 world.addCollider(entity, collider);
             }
         }
     }
 }
 
-EnvMaterialSet createMaterials(cressim::neo::graphics::RenderResourceManager &resources,
-                               std::uint32_t envIndex)
-{
-    const EnvIblPalette palette = paletteForEnv(envIndex);
-
-    MaterialResourceDesc mirrorSphere{};
-    mirrorSphere.debugName = "ViewerIntegration.Ibl.MirrorSphere." + std::to_string(envIndex);
-    mirrorSphere.baseColor = palette.sunColor;
-    mirrorSphere.metallic = 1.0f;
-    mirrorSphere.roughness = 0.03f;
-
-    MaterialResourceDesc polishedBox{};
-    polishedBox.debugName = "ViewerIntegration.Ibl.PolishedBox." + std::to_string(envIndex);
-    polishedBox.baseColor = lerp(palette.accent, palette.horizon, 0.35f);
-    polishedBox.metallic = 1.0f;
-    polishedBox.roughness = 0.14f;
-
-    MaterialResourceDesc roughMetalCapsule{};
-    roughMetalCapsule.debugName =
-        "ViewerIntegration.Ibl.RoughMetalCapsule." + std::to_string(envIndex);
-    roughMetalCapsule.baseColor = lerp(palette.horizon, palette.ground, 0.30f);
-    roughMetalCapsule.metallic = 1.0f;
-    roughMetalCapsule.roughness = 0.34f;
-
-    MaterialResourceDesc dielectricSphere{};
-    dielectricSphere.debugName =
-        "ViewerIntegration.Ibl.DielectricSphere." + std::to_string(envIndex);
-    dielectricSphere.baseColor = lerp(palette.zenith, palette.accent, 0.18f);
-    dielectricSphere.metallic = 0.0f;
-    dielectricSphere.roughness = 0.08f;
-
-    MaterialResourceDesc ground{};
-    ground.debugName = "ViewerIntegration.Ibl.Ground." + std::to_string(envIndex);
-    ground.baseColor = lerp(palette.averageRadiance, palette.ground, 0.55f);
-    ground.metallic = 0.0f;
-    ground.roughness = 0.92f;
-
-    return {
-        resources.registerMaterial(mirrorSphere),
-        resources.registerMaterial(polishedBox),
-        resources.registerMaterial(roughMetalCapsule),
-        resources.registerMaterial(dielectricSphere),
-        resources.registerMaterial(ground),
-    };
-}
-
-bool assignEnvironmentIbl(cressim::neo::engine::World &world,
-                          cressim::neo::graphics::RenderResourceManager &resources,
-                          std::uint32_t envIndex)
+bool assignSharedEnvironmentIbl(cressim::neo::engine::World& world,
+                                cressim::neo::graphics::RenderResourceManager& resources,
+                                std::uint32_t envCount)
 {
     EnvironmentIblDesc ibl{};
-    ibl.irradianceCubemap = resources.registerTexture(makeIrradianceCubeDesc(envIndex));
-    ibl.prefilteredSpecularCubemap =
-        resources.registerTexture(makePrefilteredSpecularCubeDesc(envIndex));
-    ibl.intensity = 1.0f + 0.08f * static_cast<float>(envIndex % 3u);
-    return world.setEnvironmentIbl(envIndex, ibl);
-}
+    ibl.irradianceCubemap = resources.registerTexture(makeIrradianceCubeDesc());
+    ibl.prefilteredSpecularCubemap = resources.registerTexture(makePrefilteredSpecularCubeDesc());
+    ibl.intensity = 1.0f;
 
-bool shouldAuthorEnvironmentIbl(const RuntimeConfig &config) noexcept
-{
-    return config.rendererDesc.iblQualityTier != cressim::neo::graphics::IblQualityTier::Off;
+    for (std::uint32_t envIndex = 0u; envIndex < envCount; ++envIndex)
+    {
+        if (!world.setEnvironmentIbl(envIndex, ibl))
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 } // namespace
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     RuntimeConfig config{};
     config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
     config.gpuDeviceDesc.enableValidation = false;
-    config.rendererDesc.iblQualityTier = cressim::neo::graphics::IblQualityTier::Full;
+    config.rendererDesc.iblQualityTier = IblQualityTier::Full;
     std::uint64_t numFrames = 0u;
     std::uint32_t envCount = 4u;
 
@@ -892,9 +753,9 @@ int main(int argc, char **argv)
     viewerDesc.maxFrames = numFrames;
     viewerDesc.showStats = true;
     viewerDesc.vSync = false;
-    viewerDesc.width = 1280;
-    viewerDesc.height = 720;
-    viewerDesc.windowTitle = "CRESSim Neo Physics Viewer Large Array Multi Env IBL";
+    viewerDesc.width = 640;
+    viewerDesc.height = 480;
+    viewerDesc.windowTitle = "CRESSim Neo Physics Viewer Large Array Multi Env Shared IBL";
 
     if (!viewer.initialize(viewerDesc, config))
     {
@@ -910,28 +771,82 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    auto &world = runtime.getWorld();
-    auto &resources = runtime.getResources();
+    auto& world = runtime.getWorld();
+    auto& resources = runtime.getResources();
 
-    const MeshHandle cubeMesh = resources.registerMesh(makeCubeMesh(0.45f));
-    const MeshHandle planeMesh = resources.registerMesh(makePlaneMesh(28.0f));
-    const MeshHandle sphereMesh = resources.registerMesh(makeSphereMesh(0.45f, 20u, 12u));
-    const MeshHandle capsuleMesh =
-        resources.registerMesh(makeCapsuleMesh(0.28f, 0.52f, 20u, 6u, 2u));
+    if (!assignSharedEnvironmentIbl(world, resources, envCount))
+    {
+        runtime.shutdown();
+        viewer.shutdown();
+        CRESSIM_LOG_ERROR("Failed to assign shared IBL across environments.\n");
+        return 1;
+    }
+
+    const auto cubeMesh = resources.registerMesh(makeCubeMesh(0.45f));
+    const auto planeMesh = resources.registerMesh(makePlaneMesh(28.0f));
+    const auto sphereMesh = resources.registerMesh(makeSphereMesh(0.45f, 20u, 12u));
+    const auto capsuleMesh = resources.registerMesh(makeCapsuleMesh(0.28f, 0.52f, 20u, 6u, 2u));
+
+    struct EnvPalette
+    {
+        Diligent::float3 box;
+        Diligent::float3 sphere;
+        Diligent::float3 capsule;
+        Diligent::float3 plane;
+    };
+
+    const std::vector<EnvPalette> palettes = {
+        {{0.85f, 0.28f, 0.18f}, {0.18f, 0.58f, 0.90f}, {0.28f, 0.82f, 0.36f}, {0.72f, 0.74f, 0.77f}},
+        {{0.95f, 0.56f, 0.14f}, {0.14f, 0.76f, 0.90f}, {0.56f, 0.34f, 0.88f}, {0.80f, 0.75f, 0.63f}},
+        {{0.82f, 0.18f, 0.48f}, {0.12f, 0.66f, 0.44f}, {0.94f, 0.82f, 0.20f}, {0.64f, 0.74f, 0.84f}},
+        {{0.26f, 0.46f, 0.92f}, {0.92f, 0.24f, 0.24f}, {0.20f, 0.72f, 0.66f}, {0.66f, 0.68f, 0.78f}},
+        {{0.84f, 0.34f, 0.16f}, {0.38f, 0.52f, 0.94f}, {0.16f, 0.78f, 0.30f}, {0.76f, 0.70f, 0.60f}},
+        {{0.72f, 0.20f, 0.20f}, {0.20f, 0.76f, 0.88f}, {0.58f, 0.30f, 0.82f}, {0.70f, 0.78f, 0.70f}},
+    };
+
+    std::vector<EnvMaterialSet> envMaterials;
+    envMaterials.reserve(palettes.size());
+    for (std::size_t i = 0; i < palettes.size(); ++i)
+    {
+        const EnvPalette& palette = palettes[i];
+
+        MaterialResourceDesc boxMaterialDesc{};
+        boxMaterialDesc.debugName = "ViewerIntegration.BoxMaterial." + std::to_string(i);
+        boxMaterialDesc.baseColor = palette.box;
+        boxMaterialDesc.metallic = 0.0f;
+        boxMaterialDesc.roughness = 0.55f;
+
+        MaterialResourceDesc sphereMaterialDesc{};
+        sphereMaterialDesc.debugName = "ViewerIntegration.SphereMaterial." + std::to_string(i);
+        sphereMaterialDesc.baseColor = palette.sphere;
+        sphereMaterialDesc.metallic = 0.0f;
+        sphereMaterialDesc.roughness = 0.35f;
+
+        MaterialResourceDesc capsuleMaterialDesc{};
+        capsuleMaterialDesc.debugName = "ViewerIntegration.CapsuleMaterial." + std::to_string(i);
+        capsuleMaterialDesc.baseColor = palette.capsule;
+        capsuleMaterialDesc.metallic = 0.0f;
+        capsuleMaterialDesc.roughness = 0.45f;
+
+        MaterialResourceDesc planeMaterialDesc{};
+        planeMaterialDesc.debugName = "ViewerIntegration.GroundMaterial." + std::to_string(i);
+        planeMaterialDesc.baseColor = palette.plane;
+        planeMaterialDesc.metallic = 0.0f;
+        planeMaterialDesc.roughness = 0.90f;
+
+        envMaterials.push_back({
+            resources.registerMaterial(boxMaterialDesc),
+            resources.registerMaterial(sphereMaterialDesc),
+            resources.registerMaterial(capsuleMaterialDesc),
+            resources.registerMaterial(planeMaterialDesc),
+        });
+    }
 
     cressim::neo::common::EntityId primaryCamera = cressim::neo::common::kInvalidEntityId;
     for (std::uint32_t envIndex = 0u; envIndex < envCount; ++envIndex)
     {
-        if (shouldAuthorEnvironmentIbl(config) && !assignEnvironmentIbl(world, resources, envIndex))
-        {
-            runtime.shutdown();
-            viewer.shutdown();
-            CRESSIM_LOG_ERROR("Failed to assign IBL for env ", envIndex, ".\n");
-            return 1;
-        }
-
-        const EnvMaterialSet materials = createMaterials(resources, envIndex);
         cressim::neo::common::EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;
+        const EnvMaterialSet& materials = envMaterials[envIndex % envMaterials.size()];
         authorEnvironment(world, envIndex, envCount, cubeMesh, planeMesh, sphereMesh, capsuleMesh,
                           materials, cameraEntity);
         if (envIndex == 0u)
@@ -944,8 +859,8 @@ int main(int argc, char **argv)
     std::uint64_t afterCalls = 0u;
 
     DebugViewerCallbacks callbacks{};
-    callbacks.beforeTick = [&](const FrameContext &, Runtime &) { ++beforeCalls; };
-    callbacks.afterTick = [&](const FrameContext &, Runtime &) { ++afterCalls; };
+    callbacks.beforeTick = [&](const FrameContext&, Runtime&) { ++beforeCalls; };
+    callbacks.afterTick = [&](const FrameContext&, Runtime&) { ++afterCalls; };
 
     DebugViewerCameraBinding binding{};
     binding.cameraEntity = primaryCamera;
@@ -967,7 +882,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    CRESSIM_LOG_INFO("Physics viewer large array multi-env IBL passed. Envs=", envCount,
+    CRESSIM_LOG_INFO("Physics viewer large array multi-env shared IBL passed. Envs=", envCount,
                      " Frames=", viewerDesc.maxFrames, '\n');
     return 0;
 }

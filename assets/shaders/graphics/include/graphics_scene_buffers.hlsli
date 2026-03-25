@@ -89,7 +89,9 @@ StructuredBuffer<DirectionalLightInput> g_LightInputs;
 StructuredBuffer<BatchCameraMetadata> g_BatchCameras;
 StructuredBuffer<uint> g_VisibleObjectIndices;
 StructuredBuffer<VisiblePairInstance> g_VisiblePairs;
+#if defined(CRESSIM_IBL_DIFFUSE_ONLY) || defined(CRESSIM_IBL_FULL)
 StructuredBuffer<EnvironmentIblLookupEntry> g_EnvironmentIblLookup;
+#endif
 
 static const uint CRESSIM_RENDERABLE_FLAG_ACTIVE = 1u << 0u;
 static const uint CRESSIM_RENDERABLE_FLAG_SHADOW_CASTER = 1u << 2u;

@@ -189,8 +189,9 @@ struct ForwardPipeline::GpuIndirectState
     bool initialized = false;
 };
 
-ForwardPipeline::ForwardPipeline(gpu::GpuDevice &device, RenderResourceManager &resourceManager)
-    : mDevice(device), mResourceManager(resourceManager),
+ForwardPipeline::ForwardPipeline(gpu::GpuDevice &device, RenderResourceManager &resourceManager,
+                                 IblQualityTier iblQualityTier)
+    : mDevice(device), mResourceManager(resourceManager), mIblQualityTier(iblQualityTier),
       mGpuIndirectState(std::make_unique<GpuIndirectState>())
 {
 }
@@ -209,7 +210,8 @@ ForwardPipeline::~ForwardPipeline()
 
 bool ForwardPipeline::initialize()
 {
-    mForwardOpaquePass = std::make_unique<ForwardOpaquePass>(mDevice, mResourceManager);
+    mForwardOpaquePass =
+        std::make_unique<ForwardOpaquePass>(mDevice, mResourceManager, mIblQualityTier);
     if (!mForwardOpaquePass->initialize())
     {
         mForwardOpaquePass.reset();

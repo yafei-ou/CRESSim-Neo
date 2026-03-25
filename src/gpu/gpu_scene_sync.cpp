@@ -218,9 +218,9 @@ bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadat
         mRenderableQueueInfoBuffer == nullptr || mRenderableVisibilityFlagsBuffer == nullptr ||
         mRenderableShadowCascadeMasksBuffer == nullptr)
     {
-        const std::uint32_t newCapacity        = std::max<std::uint32_t>(requiredCapacity, 64u);
-        const Diligent::Uint64 contextMask     = static_cast<Diligent::Uint64>(1ull)
-                                                 << computeContext.contextId;
+        const std::uint32_t newCapacity    = std::max<std::uint32_t>(requiredCapacity, 64u);
+        const Diligent::Uint64 contextMask = static_cast<Diligent::Uint64>(1ull)
+                                             << computeContext.contextId;
         std::uint32_t visibilityBufferCapacity = visibilityCapacity;
         if (!ensureStructuredBuffer(
                 computeContext.renderDevice, "CRESSimNeo.Gpu.RenderableMetadata",

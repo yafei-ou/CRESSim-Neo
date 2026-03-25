@@ -6,7 +6,6 @@
 #include "gpu/shader_library.h"
 #include "graphics/passes/forward_draw_types.h"
 #include "graphics/passes/material_program_registry.h"
-#include "graphics/passes/render_pass_types.h"
 #include "graphics/services/mesh_gpu_cache.h"
 #include "graphics/services/texture_gpu_cache.h"
 
@@ -30,7 +29,8 @@ namespace detail
 class ForwardOpaquePass
 {
 public:
-    ForwardOpaquePass(gpu::GpuDevice &device, RenderResourceManager &resourceManager);
+    ForwardOpaquePass(gpu::GpuDevice &device, RenderResourceManager &resourceManager,
+                      IblQualityTier iblQualityTier);
 
     bool initialize();
     bool beginBatchFrame(std::uint32_t currentCameraIndex);
@@ -58,7 +58,7 @@ private:
     struct ForwardPerFrameConstants
     {
         Diligent::float4 shadowParams{0.0015f, 0.0f, 0.0f, 0.0f};
-        Diligent::float4 iblParams{1.0f, 0.0f, 0.0f, 0.0f};
+        Diligent::float4 iblSpecularParams{0.0f, 0.0f, 0.0f, 0.0f};
         std::uint32_t currentCameraIndex = 0u;
         std::uint32_t padding0           = 0u;
         std::uint32_t padding1           = 0u;
@@ -110,7 +110,8 @@ private:
 private:
     gpu::GpuDevice &mDevice;
     RenderResourceManager &mResourceManager;
-    bool mInitialized = false;
+    IblQualityTier mIblQualityTier = IblQualityTier::Off;
+    bool mInitialized              = false;
     gpu::ShaderLibrary mShaderLibrary;
     std::unique_ptr<MaterialProgramRegistry> mProgramRegistry;
 
@@ -129,7 +130,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mFallbackAoSrv;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mIrradianceArraySrv;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mPrefilteredSpecularArraySrv;
-    Diligent::RefCntAutoPtr<Diligent::ITextureView> mBrdfLutArraySrv;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> mBrdfLutSrv;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mEnvironmentIblLookupBuffer;
     std::uint32_t mEnvironmentIblLookupCapacity = 0u;
     float mEnvironmentIblPrefilteredMipCount    = 1.0f;

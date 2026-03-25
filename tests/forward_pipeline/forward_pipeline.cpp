@@ -20,7 +20,9 @@ using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MaterialFeatureFlags;
 using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::graphics::MainPassClass;
+using cressim::neo::graphics::IblQualityTier;
 using cressim::neo::graphics::RenderStats;
+using cressim::neo::graphics::EnvironmentIblDesc;
 using cressim::neo::graphics::TextureColorSpace;
 using cressim::neo::graphics::TextureDimension;
 using cressim::neo::graphics::TexturePixelFormat;
@@ -104,24 +106,70 @@ TextureResourceDesc makeHdrCubeDesc(const char *debugName, float r, float g, flo
     return desc;
 }
 
-TextureResourceDesc makeHdrBrdfLutDesc(const char *debugName)
+bool runIblTierScenario(IblQualityTier iblQualityTier)
 {
-    TextureResourceDesc desc{};
-    desc.debugName = debugName;
-    desc.width = 1u;
-    desc.height = 1u;
-    desc.mipLevelCount = 1u;
-    desc.dimension = TextureDimension::Texture2D;
-    desc.pixelFormat = TexturePixelFormat::RGBA16F;
-    desc.colorSpace = TextureColorSpace::Linear;
-    desc.subresources.resize(1u);
-    desc.subresources.front().pixelData.resize(sizeof(std::uint16_t) * 4u);
-    auto *encoded = reinterpret_cast<std::uint16_t *>(desc.subresources.front().pixelData.data());
-    encoded[0] = encodeFloat16(0.5f);
-    encoded[1] = encodeFloat16(0.5f);
-    encoded[2] = encodeFloat16(0.0f);
-    encoded[3] = encodeFloat16(1.0f);
-    return desc;
+    RuntimeConfig config{};
+    config.gpuDeviceDesc.preferredBackend = cressim::neo::gpu::GpuBackend::Null;
+    config.rendererDesc.iblQualityTier    = iblQualityTier;
+
+    Runtime runtime;
+    if (!runtime.initialize(config))
+    {
+        return false;
+    }
+
+    auto &world     = runtime.getWorld();
+    auto &resources = runtime.getResources();
+
+    const auto cameraEntity = world.createEntity();
+    world.setTransform(cameraEntity, TransformComponent{});
+    world.setCamera(cameraEntity, CameraComponent{});
+
+    const auto lightEntity = world.createEntity();
+    world.setDirectionalLight(lightEntity, DirectionalLightComponent{});
+
+    MeshResourceDesc meshDesc{};
+    meshDesc.debugName = "ForwardPipeline.IblTierTriangle";
+    meshDesc.vertices = {
+        {{-0.4f, -0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}, 0.0f, 0.0f},
+        {{0.4f, -0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}, 1.0f, 0.0f},
+        {{0.0f, 0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}, 0.5f, 1.0f}};
+    meshDesc.indices = {0u, 1u, 2u};
+    const auto mesh = resources.registerMesh(meshDesc);
+
+    MaterialResourceDesc materialDesc{};
+    materialDesc.debugName = "ForwardPipeline.IblTierMaterial";
+    const auto material = resources.registerMaterial(materialDesc);
+
+    const auto entity = world.createEntity();
+    TransformComponent transform{};
+    transform.worldTransform.position = {0.0f, 0.0f, 2.0f};
+    world.setTransform(entity, transform);
+    MeshRendererComponent renderer{};
+    renderer.mesh     = mesh;
+    renderer.material = material;
+    world.setMeshRenderer(entity, renderer);
+
+    EnvironmentIblDesc environmentIbl{};
+    environmentIbl.irradianceCubemap =
+        resources.registerTexture(makeHdrCubeDesc("ForwardPipeline.IblTier.Irradiance", 0.2f,
+                                                  0.22f, 0.24f));
+    if (iblQualityTier == IblQualityTier::Full)
+    {
+        environmentIbl.prefilteredSpecularCubemap =
+            resources.registerTexture(makeHdrCubeDesc("ForwardPipeline.IblTier.Prefiltered", 0.3f,
+                                                      0.28f, 0.26f));
+    }
+    world.setEnvironmentIbl(0u, environmentIbl);
+
+    FrameContext frame{};
+    frame.deltaSeconds = 1.0f / 60.0f;
+    frame.frameIndex   = 0u;
+    frame.timeSeconds  = 0.0;
+    runtime.tick(frame);
+    const RenderStats stats = runtime.lastRenderStats();
+    runtime.shutdown();
+    return stats.renderableCount == 1u && stats.cameraCount == 1u && stats.lightCount == 1u;
 }
 
 } // namespace
@@ -130,6 +178,7 @@ int main()
 {
     RuntimeConfig config{};
     config.gpuDeviceDesc.preferredBackend = cressim::neo::gpu::GpuBackend::Null;
+    config.rendererDesc.iblQualityTier = IblQualityTier::Off;
 
     Runtime runtime;
     if (!runtime.initialize(config))
@@ -182,13 +231,9 @@ int main()
         makeHdrCubeDesc("ForwardPipeline.Irradiance", 0.15f, 0.18f, 0.20f));
     const auto prefilteredTexture = resources.registerTexture(
         makeHdrCubeDesc("ForwardPipeline.PrefilteredSpecular", 0.30f, 0.28f, 0.25f));
-    const auto brdfLut = resources.registerTexture(
-        makeHdrBrdfLutDesc("ForwardPipeline.BrdfLut"));
-
     cressim::neo::graphics::EnvironmentIblDesc environmentIbl{};
     environmentIbl.irradianceCubemap = irradianceTexture;
     environmentIbl.prefilteredSpecularCubemap = prefilteredTexture;
-    environmentIbl.brdfLut = brdfLut;
     if (!world.setEnvironmentIbl(0u, environmentIbl))
     {
         CRESSIM_LOG_ERROR("Failed to assign environment IBL.\n");
@@ -314,6 +359,7 @@ int main()
         MainPassClass::ForwardOpaque,
         runtimeVariantA.pipeline.programFamily,
         runtimeVariantA.pipeline.featureFlags,
+        IblQualityTier::Off,
         Diligent::TEX_FORMAT_RGBA8_UNORM,
         Diligent::TEX_FORMAT_D32_FLOAT,
         true,
@@ -323,6 +369,7 @@ int main()
         MainPassClass::ForwardOpaque,
         runtimeVariantB.pipeline.programFamily,
         runtimeVariantB.pipeline.featureFlags,
+        IblQualityTier::Off,
         Diligent::TEX_FORMAT_RGBA8_UNORM,
         Diligent::TEX_FORMAT_D32_FLOAT,
         true,
@@ -348,6 +395,7 @@ int main()
         MainPassClass::ForwardOpaque,
         normalMappedVariant.pipeline.programFamily,
         normalMappedVariant.pipeline.featureFlags | MaterialFeatureFlags::NormalMap,
+        IblQualityTier::Off,
         Diligent::TEX_FORMAT_RGBA8_UNORM,
         Diligent::TEX_FORMAT_D32_FLOAT,
         true,
@@ -365,6 +413,7 @@ int main()
         MainPassClass::ForwardOpaque,
         featureVariant.pipeline.programFamily,
         featureVariant.pipeline.featureFlags,
+        IblQualityTier::Off,
         Diligent::TEX_FORMAT_RGBA8_UNORM,
         Diligent::TEX_FORMAT_D32_FLOAT,
         true,
@@ -373,6 +422,40 @@ int main()
     if (keyA == keyC)
     {
         CRESSIM_LOG_ERROR( "Program key should differ when compile-time feature flags differ.\n");
+        return 1;
+    }
+
+    const auto keyDiffuse = MaterialProgramRegistry::buildProgramKey(
+        MainPassClass::ForwardOpaque,
+        runtimeVariantA.pipeline.programFamily,
+        runtimeVariantA.pipeline.featureFlags,
+        IblQualityTier::DiffuseOnly,
+        Diligent::TEX_FORMAT_RGBA8_UNORM,
+        Diligent::TEX_FORMAT_D32_FLOAT,
+        true,
+        true,
+        false);
+    const auto keyFull = MaterialProgramRegistry::buildProgramKey(
+        MainPassClass::ForwardOpaque,
+        runtimeVariantA.pipeline.programFamily,
+        runtimeVariantA.pipeline.featureFlags,
+        IblQualityTier::Full,
+        Diligent::TEX_FORMAT_RGBA8_UNORM,
+        Diligent::TEX_FORMAT_D32_FLOAT,
+        true,
+        true,
+        false);
+    if (keyA == keyDiffuse || keyDiffuse == keyFull || keyA == keyFull)
+    {
+        CRESSIM_LOG_ERROR("Program key should differ across IBL quality tiers.\n");
+        return 1;
+    }
+
+    if (!runIblTierScenario(IblQualityTier::Off) ||
+        !runIblTierScenario(IblQualityTier::DiffuseOnly) ||
+        !runIblTierScenario(IblQualityTier::Full))
+    {
+        CRESSIM_LOG_ERROR("Forward pipeline IBL quality tier scenarios failed.\n");
         return 1;
     }
 

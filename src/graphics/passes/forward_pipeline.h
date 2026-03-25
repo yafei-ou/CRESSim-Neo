@@ -21,7 +21,8 @@ class ShadowPass;
 class ForwardPipeline
 {
 public:
-    ForwardPipeline(gpu::GpuDevice &device, RenderResourceManager &resourceManager);
+    ForwardPipeline(gpu::GpuDevice &device, RenderResourceManager &resourceManager,
+                    IblQualityTier iblQualityTier);
     ~ForwardPipeline();
 
     bool initialize();
@@ -34,6 +35,7 @@ private:
     struct GpuIndirectState;
     gpu::GpuDevice &mDevice;
     RenderResourceManager &mResourceManager;
+    IblQualityTier mIblQualityTier = IblQualityTier::Off;
     std::unique_ptr<ForwardOpaquePass> mForwardOpaquePass;
     std::unique_ptr<ShadowPass> mShadowPass;
     std::unique_ptr<GpuIndirectState> mGpuIndirectState;

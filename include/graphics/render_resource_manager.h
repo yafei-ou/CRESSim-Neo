@@ -65,6 +65,13 @@ enum class TextureDimension
     TextureCube,
 };
 
+enum class IblQualityTier : std::uint32_t
+{
+    Off         = 0u,
+    DiffuseOnly = 1u,
+    Full        = 2u,
+};
+
 struct MaterialPipelineDesc
 {
     MaterialProgramFamily programFamily = MaterialProgramFamily::StandardLit;
@@ -131,14 +138,22 @@ struct EnvironmentIblDesc
 {
     TextureHandle irradianceCubemap{};
     TextureHandle prefilteredSpecularCubemap{};
-    TextureHandle brdfLut{};
     float intensity = 1.0f;
 
-    [[nodiscard]] bool enabled() const noexcept
+    [[nodiscard]] bool enabled(IblQualityTier tier) const noexcept
     {
-        return irradianceCubemap.id != common::kInvalidResourceId &&
-               prefilteredSpecularCubemap.id != common::kInvalidResourceId &&
-               brdfLut.id != common::kInvalidResourceId;
+        switch (tier)
+        {
+        case IblQualityTier::Off:
+            return false;
+        case IblQualityTier::DiffuseOnly:
+            return irradianceCubemap.id != common::kInvalidResourceId;
+        case IblQualityTier::Full:
+            return irradianceCubemap.id != common::kInvalidResourceId &&
+                   prefilteredSpecularCubemap.id != common::kInvalidResourceId;
+        default:
+            return false;
+        }
     }
 };
 

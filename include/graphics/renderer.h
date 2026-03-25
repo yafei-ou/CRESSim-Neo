@@ -23,6 +23,7 @@ class DisplayResolvePass;
 
 struct RendererDesc
 {
+    IblQualityTier iblQualityTier = IblQualityTier::Off;
 };
 
 struct RenderFrameOptions

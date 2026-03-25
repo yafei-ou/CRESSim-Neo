@@ -6,7 +6,7 @@
 cbuffer GriphicsForwardPerFrame
 {
     float4 g_ShadowParams;
-    float4 g_IblParams;
+    float4 g_IblSpecularParams;
     uint4 g_FrameParams;
 };
 
