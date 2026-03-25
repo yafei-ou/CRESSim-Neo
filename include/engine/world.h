@@ -27,6 +27,8 @@ public:
     const gpu::GpuSceneLayoutDesc &sceneLayout() const noexcept;
     bool setEntityEnvironment(common::EntityId entityId, std::uint32_t envIndex);
     std::uint32_t entityEnvironment(common::EntityId entityId) const noexcept;
+    bool setEnvironmentIbl(std::uint32_t envIndex, const graphics::EnvironmentIblDesc &desc);
+    const graphics::EnvironmentIblDesc *tryGetEnvironmentIbl(std::uint32_t envIndex) const noexcept;
 
     bool isAlive(common::EntityId entityId) const;
     const std::vector<common::EntityId> &entities() const noexcept;
@@ -203,6 +205,7 @@ private:
     std::vector<gpu::GpuRenderableQueueInfo> mRenderableQueueInfoHost{};
     std::vector<gpu::GpuCameraInput> mCameraInputsHost{};
     std::vector<gpu::GpuDirectionalLightInput> mLightInputsHost{};
+    std::vector<graphics::EnvironmentIblDesc> mEnvironmentIbls{};
     std::vector<graphics::IndirectCommandRegistryEntry> mOpaqueDrawRegistryHost{};
     std::vector<graphics::IndirectCommandRegistryEntry> mShadowDrawRegistryHost{};
     gpu::GpuEntitySceneView mGpuEntityScene{};

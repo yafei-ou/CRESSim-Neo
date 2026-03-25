@@ -191,6 +191,28 @@ std::uint32_t World::entityEnvironment(common::EntityId entityId) const noexcept
     return it != mEntityEnvironments.end() ? it->second : 0u;
 }
 
+bool World::setEnvironmentIbl(std::uint32_t envIndex, const graphics::EnvironmentIblDesc &desc)
+{
+    if (envIndex >= mSceneLayout.envCount)
+    {
+        return false;
+    }
+
+    ensureHostSceneStorage();
+    mEnvironmentIbls[envIndex] = desc;
+    return true;
+}
+
+const graphics::EnvironmentIblDesc *World::tryGetEnvironmentIbl(
+    std::uint32_t envIndex) const noexcept
+{
+    if (envIndex >= mEnvironmentIbls.size())
+    {
+        return nullptr;
+    }
+    return &mEnvironmentIbls[envIndex];
+}
+
 bool World::isAlive(common::EntityId entityId) const
 {
     return mAlive.find(entityId) != mAlive.end();
@@ -275,6 +297,11 @@ void World::ensureHostSceneStorage()
             mDirtyLightIndices.push_back(i);
             mDirtyLightBits[i] = 1u;
         }
+    }
+
+    if (mEnvironmentIbls.size() != mSceneLayout.envCount)
+    {
+        mEnvironmentIbls.assign(mSceneLayout.envCount, graphics::EnvironmentIblDesc{});
     }
 }
 
@@ -1021,11 +1048,8 @@ const gpu::GpuEntitySceneView &World::gpuEntityScene() const noexcept
 graphics::HostSceneView World::hostSceneView() const noexcept
 {
     return graphics::HostSceneView{
-        &mRenderables,
-        &mRenderCameras,
-        &mRenderDirectionalLights,
-        &mOpaqueDrawRegistryHost,
-        &mShadowDrawRegistryHost,
+        &mRenderables,     &mRenderCameras,          &mRenderDirectionalLights,
+        &mEnvironmentIbls, &mOpaqueDrawRegistryHost, &mShadowDrawRegistryHost,
         &mGpuEntityScene,
     };
 }

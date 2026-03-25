@@ -21,11 +21,17 @@ Texture2D g_NormalTexture;
 Texture2D g_MetallicRoughnessTexture;
 Texture2D g_EmissiveTexture;
 Texture2D g_AoTexture;
+TextureCubeArray g_IrradianceMap;
+TextureCubeArray g_PrefilteredSpecularMap;
+Texture2DArray g_BrdfLut;
 SamplerState g_BaseColorTexture_sampler;
 SamplerState g_NormalTexture_sampler;
 SamplerState g_MetallicRoughnessTexture_sampler;
 SamplerState g_EmissiveTexture_sampler;
 SamplerState g_AoTexture_sampler;
+SamplerState g_IrradianceMap_sampler;
+SamplerState g_PrefilteredSpecularMap_sampler;
+SamplerState g_BrdfLut_sampler;
 
 Texture2DArray g_ShadowMap0;
 Texture2DArray g_ShadowMap1;
@@ -72,6 +78,12 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
 float3 FresnelSchlick(float cosTheta, float3 F0)
 {
     return F0 + (1.0 - F0) * pow(saturate(1.0 - cosTheta), 5.0);
+}
+
+float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
+{
+    return F0 + (max(float3(1.0 - roughness, 1.0 - roughness, 1.0 - roughness), F0) - F0) *
+                    pow(saturate(1.0 - cosTheta), 5.0);
 }
 
 float3 BuildShadingNormal(in VSOutput In)
@@ -320,7 +332,37 @@ float4 main(in VSOutput In) : SV_Target
         }
     }
 
+    float NdotV = max(dot(N, V), 0.0);
+    float3 F = FresnelSchlickRoughness(NdotV, F0, roughness);
+    float3 kS = F;
+    float3 kD = (1.0 - kS) * (1.0 - metallic);
+
     float3 ambient = 0.03 * albedo * ao;
+    EnvironmentIblLookupEntry iblEntry = g_EnvironmentIblLookup[preparedCamera.envIndex];
+    if (iblEntry.enabled != 0u)
+    {
+        float3 irradiance =
+            g_IrradianceMap.Sample(g_IrradianceMap_sampler, float4(N, (float)iblEntry.sliceIndex))
+                .rgb;
+        float3 diffuseIbl = irradiance * albedo;
+
+        float3 R = reflect(-V, N);
+        float mipLevel = roughness * max(g_IblParams.y - 1.0, 0.0);
+        float3 prefilteredColor =
+            g_PrefilteredSpecularMap.SampleLevel(g_PrefilteredSpecularMap_sampler,
+                                                 float4(R, (float)iblEntry.sliceIndex), mipLevel)
+                .rgb;
+        float2 brdf =
+            g_BrdfLut.Sample(g_BrdfLut_sampler,
+                             float3(float2(NdotV, roughness), (float)iblEntry.sliceIndex))
+                .rg;
+        float3 specularIbl = prefilteredColor * (F * brdf.x + brdf.y);
+
+        float3 iblAmbient = (kD * diffuseIbl + specularIbl) * ao * iblEntry.intensity;
+        float iblStrength =
+            step(1.0e-5, dot(irradiance, irradiance) + dot(prefilteredColor, prefilteredColor));
+        ambient = lerp(ambient, iblAmbient, iblStrength);
+    }
     float3 color = ambient + Lo + emissive;
 
     return float4(color, baseColor.w);

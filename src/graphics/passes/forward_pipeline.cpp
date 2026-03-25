@@ -301,7 +301,6 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         sceneView.opaqueDrawRegistry != nullptr ? *sceneView.opaqueDrawRegistry : emptyRegistry;
     const std::vector<IndirectCommandRegistryEntry> &shadowRegistry =
         sceneView.shadowDrawRegistry != nullptr ? *sceneView.shadowDrawRegistry : emptyRegistry;
-
     if (gpuScene.preparedCamerasBuffer == nullptr ||
         gpuScene.renderableQueueInfoBuffer == nullptr ||
         gpuScene.renderableVisibilityFlagsBuffer == nullptr ||
@@ -312,6 +311,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     }
 
     mForwardOpaquePass->setGpuSceneView(gpuScene);
+    mForwardOpaquePass->setEnvironmentIbls(sceneView.environmentIbls, gpuScene.layout.envCount);
     if (mShadowPass != nullptr)
     {
         mShadowPass->setGpuSceneView(gpuScene);

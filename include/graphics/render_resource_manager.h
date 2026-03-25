@@ -50,12 +50,19 @@ enum class TextureColorSpace
 enum class TexturePixelFormat
 {
     RGBA8,
+    RGBA16F,
 };
 
 enum class TextureMipPolicy
 {
     Disabled,
     Generate,
+};
+
+enum class TextureDimension
+{
+    Texture2D,
+    TextureCube,
 };
 
 struct MaterialPipelineDesc
@@ -103,13 +110,36 @@ struct MaterialResourceDesc
 
 struct TextureResourceDesc
 {
+    struct SubresourceDesc
+    {
+        std::vector<std::uint8_t> pixelData;
+    };
+
     std::string debugName;
     std::uint32_t width            = 1u;
     std::uint32_t height           = 1u;
+    std::uint32_t mipLevelCount    = 1u;
+    TextureDimension dimension     = TextureDimension::Texture2D;
     TexturePixelFormat pixelFormat = TexturePixelFormat::RGBA8;
     TextureColorSpace colorSpace   = TextureColorSpace::Linear;
     TextureMipPolicy mipPolicy     = TextureMipPolicy::Disabled;
+    std::vector<SubresourceDesc> subresources;
     std::vector<std::uint8_t> pixelData;
+};
+
+struct EnvironmentIblDesc
+{
+    TextureHandle irradianceCubemap{};
+    TextureHandle prefilteredSpecularCubemap{};
+    TextureHandle brdfLut{};
+    float intensity = 1.0f;
+
+    [[nodiscard]] bool enabled() const noexcept
+    {
+        return irradianceCubemap.id != common::kInvalidResourceId &&
+               prefilteredSpecularCubemap.id != common::kInvalidResourceId &&
+               brdfLut.id != common::kInvalidResourceId;
+    }
 };
 
 class CRESSIM_NEO_GRAPHICS_API RenderResourceManager

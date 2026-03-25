@@ -34,6 +34,7 @@ public:
 private:
     static Diligent::TEXTURE_FORMAT resolveTextureFormat(const TextureResourceDesc &desc) noexcept;
     static std::uint32_t bytesPerPixel(TexturePixelFormat format) noexcept;
+    static std::uint32_t arrayLayerCount(TextureDimension dimension) noexcept;
 
 private:
     std::string mDebugPrefix;

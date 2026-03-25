@@ -12,6 +12,11 @@ namespace
 
 constexpr float kTangentEpsilon = 1.0e-6f;
 
+std::uint32_t arrayLayerCount(TextureDimension dimension)
+{
+    return dimension == TextureDimension::TextureCube ? 6u : 1u;
+}
+
 Diligent::float3 normalizeOrFallback(const Diligent::float3 &value,
                                      const Diligent::float3 &fallback)
 {
@@ -146,6 +151,23 @@ MaterialResourceDesc normalizeMaterialDesc(const MaterialResourceDesc &desc)
     return normalized;
 }
 
+TextureResourceDesc normalizeTextureDesc(const TextureResourceDesc &desc)
+{
+    TextureResourceDesc normalized = desc;
+    normalized.width               = std::max(normalized.width, 1u);
+    normalized.height              = std::max(normalized.height, 1u);
+    normalized.mipLevelCount       = std::max(normalized.mipLevelCount, 1u);
+
+    const std::uint32_t expectedSubresourceCount =
+        normalized.mipLevelCount * arrayLayerCount(normalized.dimension);
+    if (normalized.subresources.empty() && !normalized.pixelData.empty())
+    {
+        normalized.subresources.resize(expectedSubresourceCount);
+        normalized.subresources.front().pixelData = normalized.pixelData;
+    }
+    return normalized;
+}
+
 } // namespace
 
 MeshHandle RenderResourceManager::registerMesh(const MeshResourceDesc &desc)
@@ -183,7 +205,7 @@ MaterialHandle RenderResourceManager::registerMaterial(const MaterialResourceDes
 TextureHandle RenderResourceManager::registerTexture(const TextureResourceDesc &desc)
 {
     const common::ResourceId id = mNextTextureId++;
-    mTextures.emplace(id, desc);
+    mTextures.emplace(id, normalizeTextureDesc(desc));
     return TextureHandle{id};
 }
 
