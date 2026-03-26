@@ -317,41 +317,15 @@ public:
             return false;
         }
 
-        TransformComponent transform{};
-        const std::optional<TransformComponent> existingTransform =
-            world.tryGetTransform(cameraBinding.cameraEntity);
-        if (existingTransform)
+        CameraState cameraState = makeDefaultCameraState(cameraBinding);
+        if (!tryLoadCameraPose(world, cameraBinding.cameraEntity, cameraState))
         {
-            transform = *existingTransform;
-        }
-        else
-        {
-            world.setTransform(cameraBinding.cameraEntity, transform);
+            CRESSIM_LOG_ERROR("DebugViewerApp: failed to resolve bound camera transform.");
+            return false;
         }
 
-        CameraComponent camera = *existingCamera;
-        CameraState cameraState{};
-        cameraState.position = transform.worldTransform.position;
-        yawPitchFromRotation(transform.worldTransform.rotation, cameraState.yawDegrees,
-                             cameraState.pitchDegrees);
-        cameraState.pitchDegrees = clampPitch(cameraState.pitchDegrees);
-        cameraState.moveSpeed =
-            clampSpeed(cameraBinding.moveSpeed > 0.0f ? cameraBinding.moveSpeed : mDesc.moveSpeed,
-                       mDesc.minMoveSpeed, mDesc.maxMoveSpeed);
-        cameraState.inputSensitivity = common::runtime_math::clampPositive(
-            cameraBinding.inputSensitivity > 0.0f ? cameraBinding.inputSensitivity
-                                                  : mDesc.inputSensitivity,
-            0.08f);
-        cameraState.speedBoostScale = common::runtime_math::clampPositive(
-            cameraBinding.speedBoostScale > 0.0f ? cameraBinding.speedBoostScale
-                                                 : mDesc.speedBoostScale,
-            1.0f);
-        cameraState.speedSlowScale = common::runtime_math::clampPositive(
-            cameraBinding.speedSlowScale > 0.0f ? cameraBinding.speedSlowScale
-                                                : mDesc.speedSlowScale,
-            0.35f);
-
-        const CameraState initialCameraState = cameraState;
+        std::unordered_map<common::EntityId, CameraState> initialCameraStates;
+        initialCameraStates.emplace(cameraBinding.cameraEntity, cameraState);
         mLookActive                          = false;
         mAccumulatedScrollY                  = 0.0;
         mKeyIsDown.clear();
@@ -364,6 +338,23 @@ public:
         common::EntityId outputOverrideCameraEntity = common::kInvalidEntityId;
         runtime.setRenderFrameOptions(
             graphics::RenderFrameOptions{presentedCameraEntity, std::nullopt});
+
+        const auto refreshCameraStateFromPresentedEntity =
+            [&](common::EntityId cameraEntity, bool captureInitialState) -> bool
+        {
+            CameraState nextState = cameraState;
+            if (!tryLoadCameraPose(world, cameraEntity, nextState))
+            {
+                return false;
+            }
+
+            cameraState = nextState;
+            if (captureInitialState)
+            {
+                initialCameraStates.try_emplace(cameraEntity, nextState);
+            }
+            return true;
+        };
 
         while (!mExitRequested.load())
         {
@@ -391,7 +382,11 @@ public:
 
             if (consumeKeyPress(mDesc.keymap.resetCamera))
             {
-                cameraState = initialCameraState;
+                const auto initialStateIt = initialCameraStates.find(presentedCameraEntity);
+                if (initialStateIt != initialCameraStates.end())
+                {
+                    cameraState = initialStateIt->second;
+                }
             }
             if (consumeKeyPress(mDesc.keymap.cyclePresentedCameraPrevious))
             {
@@ -399,8 +394,12 @@ public:
                     cyclePresentedCamera(world, presentedCameraEntity, -1);
                 if (nextEntity != presentedCameraEntity)
                 {
-                    presentedCameraEntity = nextEntity;
-                    CRESSIM_LOG_INFO("viewer presenting camera entity=", presentedCameraEntity);
+                    if (refreshCameraStateFromPresentedEntity(nextEntity, true))
+                    {
+                        presentedCameraEntity = nextEntity;
+                        CRESSIM_LOG_INFO("viewer presenting camera entity=",
+                                         presentedCameraEntity);
+                    }
                 }
             }
             if (consumeKeyPress(mDesc.keymap.cyclePresentedCameraNext))
@@ -409,22 +408,39 @@ public:
                     cyclePresentedCamera(world, presentedCameraEntity, 1);
                 if (nextEntity != presentedCameraEntity)
                 {
-                    presentedCameraEntity = nextEntity;
-                    CRESSIM_LOG_INFO("viewer presenting camera entity=", presentedCameraEntity);
+                    if (refreshCameraStateFromPresentedEntity(nextEntity, true))
+                    {
+                        presentedCameraEntity = nextEntity;
+                        CRESSIM_LOG_INFO("viewer presenting camera entity=",
+                                         presentedCameraEntity);
+                    }
                 }
             }
             if (!world.isAlive(presentedCameraEntity))
             {
                 presentedCameraEntity = cameraBinding.cameraEntity;
+                if (!refreshCameraStateFromPresentedEntity(presentedCameraEntity, false))
+                {
+                    CRESSIM_LOG_ERROR("DebugViewerApp: presented camera entity became invalid.");
+                    break;
+                }
             }
 
             const InputState input = sampleInput();
             applyInputToCamera(cameraState, input, deltaSeconds);
 
+            TransformComponent transform{};
+            const std::optional<TransformComponent> existingTransform =
+                world.tryGetTransform(presentedCameraEntity);
+            if (existingTransform)
+            {
+                transform = *existingTransform;
+            }
+
             transform.worldTransform.position = cameraState.position;
             transform.worldTransform.rotation =
                 cameraOrientationFromYawPitch(cameraState.yawDegrees, cameraState.pitchDegrees);
-            world.setTransform(cameraBinding.cameraEntity, transform);
+            world.setTransform(presentedCameraEntity, transform);
 
             int outputWidth  = static_cast<int>(mDesc.width);
             int outputHeight = static_cast<int>(mDesc.height);
@@ -432,7 +448,6 @@ public:
             {
                 glfwGetFramebufferSize(mWindow, &outputWidth, &outputHeight);
             }
-            world.setCamera(cameraBinding.cameraEntity, camera);
 
             gpu::GpuPresentationTargetDesc presentationTargetDesc{};
             presentationTargetDesc.width  = static_cast<std::uint32_t>(std::max(outputWidth, 1));
@@ -550,6 +565,54 @@ private:
         bool boost        = false;
         bool slow         = false;
     };
+
+    CameraState makeDefaultCameraState(const DebugViewerCameraBinding &cameraBinding) const
+    {
+        CameraState cameraState{};
+        cameraState.moveSpeed =
+            clampSpeed(cameraBinding.moveSpeed > 0.0f ? cameraBinding.moveSpeed : mDesc.moveSpeed,
+                       mDesc.minMoveSpeed, mDesc.maxMoveSpeed);
+        cameraState.inputSensitivity = common::runtime_math::clampPositive(
+            cameraBinding.inputSensitivity > 0.0f ? cameraBinding.inputSensitivity
+                                                  : mDesc.inputSensitivity,
+            0.08f);
+        cameraState.speedBoostScale = common::runtime_math::clampPositive(
+            cameraBinding.speedBoostScale > 0.0f ? cameraBinding.speedBoostScale
+                                                 : mDesc.speedBoostScale,
+            1.0f);
+        cameraState.speedSlowScale = common::runtime_math::clampPositive(
+            cameraBinding.speedSlowScale > 0.0f ? cameraBinding.speedSlowScale
+                                                : mDesc.speedSlowScale,
+            0.35f);
+        return cameraState;
+    }
+
+    bool tryLoadCameraPose(engine::World &world, common::EntityId cameraEntity,
+                           CameraState &inOutState) const
+    {
+        if (cameraEntity == common::kInvalidEntityId || !world.isAlive(cameraEntity))
+        {
+            return false;
+        }
+
+        TransformComponent transform{};
+        const std::optional<TransformComponent> existingTransform =
+            world.tryGetTransform(cameraEntity);
+        if (existingTransform)
+        {
+            transform = *existingTransform;
+        }
+        else
+        {
+            world.setTransform(cameraEntity, transform);
+        }
+
+        inOutState.position = transform.worldTransform.position;
+        yawPitchFromRotation(transform.worldTransform.rotation, inOutState.yawDegrees,
+                             inOutState.pitchDegrees);
+        inOutState.pitchDegrees = clampPitch(inOutState.pitchDegrees);
+        return true;
+    }
 
     void updateWindowTitle(float deltaSeconds)
     {
