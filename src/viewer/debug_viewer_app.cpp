@@ -326,8 +326,8 @@ public:
 
         std::unordered_map<common::EntityId, CameraState> initialCameraStates;
         initialCameraStates.emplace(cameraBinding.cameraEntity, cameraState);
-        mLookActive                          = false;
-        mAccumulatedScrollY                  = 0.0;
+        mLookActive         = false;
+        mAccumulatedScrollY = 0.0;
         mKeyIsDown.clear();
         mExitRequested.store(false);
 
@@ -339,8 +339,8 @@ public:
         runtime.setRenderFrameOptions(
             graphics::RenderFrameOptions{presentedCameraEntity, std::nullopt});
 
-        const auto refreshCameraStateFromPresentedEntity =
-            [&](common::EntityId cameraEntity, bool captureInitialState) -> bool
+        const auto refreshCameraStateFromPresentedEntity = [&](common::EntityId cameraEntity,
+                                                               bool captureInitialState) -> bool
         {
             CameraState nextState = cameraState;
             if (!tryLoadCameraPose(world, cameraEntity, nextState))
@@ -397,8 +397,7 @@ public:
                     if (refreshCameraStateFromPresentedEntity(nextEntity, true))
                     {
                         presentedCameraEntity = nextEntity;
-                        CRESSIM_LOG_INFO("viewer presenting camera entity=",
-                                         presentedCameraEntity);
+                        CRESSIM_LOG_INFO("viewer presenting camera entity=", presentedCameraEntity);
                     }
                 }
             }
@@ -411,8 +410,7 @@ public:
                     if (refreshCameraStateFromPresentedEntity(nextEntity, true))
                     {
                         presentedCameraEntity = nextEntity;
-                        CRESSIM_LOG_INFO("viewer presenting camera entity=",
-                                         presentedCameraEntity);
+                        CRESSIM_LOG_INFO("viewer presenting camera entity=", presentedCameraEntity);
                     }
                 }
             }

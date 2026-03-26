@@ -35,8 +35,8 @@ struct RenderableQueueInfo
 {
     uint opaqueCommandIndex;
     uint shadowCommandBaseIndex;
+    uint localShadowCommandIndex;
     uint reserved0;
-    uint reserved1;
 };
 
 static const uint CRESSIM_LIGHT_TYPE_DIRECTIONAL = 0u;
@@ -116,7 +116,7 @@ struct VisiblePairInstance
     uint objectIndex;
     uint batchCameraIndex;
     uint bucketIndex;
-    uint reserved0;
+    uint shadowSubviewIndex;
 };
 
 struct EnvironmentIblLookupEntry
@@ -150,6 +150,9 @@ static const uint CRESSIM_RENDERABLE_FLAG_ACTIVE = 1u << 0u;
 static const uint CRESSIM_RENDERABLE_FLAG_SHADOW_CASTER = 1u << 2u;
 static const uint CRESSIM_INVALID_GPU_SCENE_INDEX = 0xffffffffu;
 static const uint CRESSIM_INVALID_BATCH_CAMERA_LAYER = 0xffffffffu;
+static const uint CRESSIM_FORWARD_LOCAL_LIGHT_CAP = 8u;
+static const uint CRESSIM_SHADOWED_LOCAL_LIGHT_CAP = 4u;
+static const uint CRESSIM_SHADOWED_POINT_LIGHT_CAP = 1u;
 
 float3 quaternionRotateVector(float4 q, float3 v)
 {

@@ -170,18 +170,18 @@ struct GpuBatchCameraMetadata
 
 struct GpuVisiblePairInstance
 {
-    std::uint32_t objectIndex      = 0u;
-    std::uint32_t batchCameraIndex = 0u;
-    std::uint32_t bucketIndex      = 0u;
-    std::uint32_t reserved0        = 0u;
+    std::uint32_t objectIndex        = 0u;
+    std::uint32_t batchCameraIndex   = 0u;
+    std::uint32_t bucketIndex        = 0u;
+    std::uint32_t shadowSubviewIndex = 0u;
 };
 
 struct GpuRenderableQueueInfo
 {
-    std::uint32_t opaqueCommandIndex     = 0xffffffffu;
-    std::uint32_t shadowCommandBaseIndex = 0xffffffffu;
-    std::uint32_t reserved0              = 0u;
-    std::uint32_t reserved1              = 0u;
+    std::uint32_t opaqueCommandIndex      = 0xffffffffu;
+    std::uint32_t shadowCommandBaseIndex  = 0xffffffffu;
+    std::uint32_t localShadowCommandIndex = 0xffffffffu;
+    std::uint32_t reserved0               = 0u;
 };
 
 struct GpuEntitySceneView

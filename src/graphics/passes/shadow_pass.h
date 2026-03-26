@@ -31,7 +31,8 @@ public:
     bool drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
                       const ForwardDrawCommand &drawCommand, std::uint32_t shadowMatrixIndex,
                       std::uint32_t shadowPassMode, Diligent::IBuffer *indirectArgsBuffer,
-                      Diligent::Uint64 argsOffsetBytes);
+                      Diligent::Uint64 argsOffsetBytes, std::uint32_t drawCount,
+                      std::uint32_t drawArgsStride);
 
 private:
     struct DrawSetup

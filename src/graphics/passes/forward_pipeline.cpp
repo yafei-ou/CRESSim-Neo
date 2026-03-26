@@ -3,7 +3,6 @@
 #include "gpu/gpu_buffer_utils.h"
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
-#include "graphics/local_shadow_queue_builder.h"
 #include "graphics/passes/forward_opaque_pass.h"
 #include "graphics/passes/shadow_pass.h"
 
@@ -36,6 +35,14 @@ struct GraphicsIndirectPassConstants
     std::uint32_t padding0           = 0u;
 };
 
+struct LocalShadowPrepareConstants
+{
+    std::uint32_t envCount               = 0u;
+    std::uint32_t maxObjectsPerEnv       = 0u;
+    std::uint32_t maxLightsPerEnv        = 0u;
+    std::uint32_t localShadowBucketCount = 0u;
+};
+
 struct DrawIndexedIndirectArgs
 {
     std::uint32_t numIndices          = 0u;
@@ -50,6 +57,9 @@ constexpr std::uint32_t kQueueModeShadow          = 1u;
 constexpr std::uint32_t kShadowPassModeLocal      = 1u;
 constexpr std::uint32_t kLocalShadowMapResolution = 1024u;
 constexpr std::uint32_t kPointShadowMapResolution = 512u;
+constexpr std::uint32_t kLocalShadowViewsPerEnv =
+    gpu::kShadowedLocalLightCap + gpu::kShadowedPointLightCap;
+constexpr std::uint32_t kLocalShadowEnvBoundsWords = 8u;
 
 constexpr Diligent::ShaderResourceVariableDesc kIndirectResetVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "GraphicsIndirectResetConstants",
@@ -66,6 +76,14 @@ constexpr gpu::GpuComputePassDefinition kIndirectResetPassDefinition = {
     "graphics/graphics_indirect_reset.cs.hlsl",
     "CRESSimNeo.Graphics.IndirectReset",
     "CRESSimNeo.Graphics.IndirectReset.PSO",
+    kIndirectResetVars,
+    std::size(kIndirectResetVars),
+};
+
+constexpr gpu::GpuComputePassDefinition kLocalShadowIndirectResetPassDefinition = {
+    "graphics/graphics_local_shadow_indirect_reset.cs.hlsl",
+    "CRESSimNeo.Graphics.LocalShadowIndirectReset",
+    "CRESSimNeo.Graphics.LocalShadowIndirectReset.PSO",
     kIndirectResetVars,
     std::size(kIndirectResetVars),
 };
@@ -114,6 +132,119 @@ constexpr gpu::GpuComputePassDefinition kIndirectComposePassDefinition = {
     "CRESSimNeo.Graphics.IndirectCompose.PSO",
     kIndirectComposeVars,
     std::size(kIndirectComposeVars),
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kLocalShadowResetVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "GraphicsLocalShadowPrepareConstants",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_LightShadowAssignmentsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_LocalShadowViewsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+};
+
+constexpr gpu::GpuComputePassDefinition kLocalShadowResetPassDefinition = {
+    "graphics/graphics_local_shadow_reset.cs.hlsl",
+    "CRESSimNeo.Graphics.LocalShadowReset",
+    "CRESSimNeo.Graphics.LocalShadowReset.PSO",
+    kLocalShadowResetVars,
+    std::size(kLocalShadowResetVars),
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kLocalShadowEnvBoundsResetVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "GraphicsLocalShadowPrepareConstants",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_LocalShadowEnvBoundsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+};
+
+constexpr gpu::GpuComputePassDefinition kLocalShadowEnvBoundsResetPassDefinition = {
+    "graphics/graphics_local_shadow_env_bounds_reset.cs.hlsl",
+    "CRESSimNeo.Graphics.LocalShadowEnvBoundsReset",
+    "CRESSimNeo.Graphics.LocalShadowEnvBoundsReset.PSO",
+    kLocalShadowEnvBoundsResetVars,
+    std::size(kLocalShadowEnvBoundsResetVars),
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kLocalShadowEnvBoundsPrepareVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "GraphicsLocalShadowPrepareConstants",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RenderableMetadata",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_EntityPositions",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_LocalShadowEnvBoundsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+};
+
+constexpr gpu::GpuComputePassDefinition kLocalShadowEnvBoundsPreparePassDefinition = {
+    "graphics/graphics_local_shadow_env_bounds_prepare.cs.hlsl",
+    "CRESSimNeo.Graphics.LocalShadowEnvBoundsPrepare",
+    "CRESSimNeo.Graphics.LocalShadowEnvBoundsPrepare.PSO",
+    kLocalShadowEnvBoundsPrepareVars,
+    std::size(kLocalShadowEnvBoundsPrepareVars),
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kLocalShadowViewPrepareVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "GraphicsLocalShadowPrepareConstants",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_LocalLightSelections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_LightInputs",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_LocalShadowEnvBounds",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_LightShadowAssignmentsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_LocalShadowViewsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+};
+
+constexpr gpu::GpuComputePassDefinition kLocalShadowViewPreparePassDefinition = {
+    "graphics/graphics_local_shadow_view_prepare.cs.hlsl",
+    "CRESSimNeo.Graphics.LocalShadowViewPrepare",
+    "CRESSimNeo.Graphics.LocalShadowViewPrepare.PSO",
+    kLocalShadowViewPrepareVars,
+    std::size(kLocalShadowViewPrepareVars),
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kLocalShadowFilterVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "GraphicsLocalShadowPrepareConstants",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_EntityPositions",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_EntityOrientations",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_EntityScales",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RenderableMetadata",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RenderableQueueInfo",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_LocalShadowViews",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_CommandDescs",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_CommandCountsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_VisiblePairsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+};
+
+constexpr gpu::GpuComputePassDefinition kLocalShadowFilter2DPassDefinition = {
+    "graphics/graphics_local_shadow_filter_2d.cs.hlsl",
+    "CRESSimNeo.Graphics.LocalShadowFilter2D",
+    "CRESSimNeo.Graphics.LocalShadowFilter2D.PSO",
+    kLocalShadowFilterVars,
+    std::size(kLocalShadowFilterVars),
+};
+
+constexpr gpu::GpuComputePassDefinition kLocalShadowFilterPointPassDefinition = {
+    "graphics/graphics_local_shadow_filter_point.cs.hlsl",
+    "CRESSimNeo.Graphics.LocalShadowFilterPoint",
+    "CRESSimNeo.Graphics.LocalShadowFilterPoint.PSO",
+    kLocalShadowFilterVars,
+    std::size(kLocalShadowFilterVars),
 };
 
 std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
@@ -192,16 +323,27 @@ struct ForwardPipeline::GpuIndirectState
     };
 
     gpu::GpuComputePass resetPass;
+    gpu::GpuComputePass localShadowIndirectResetPass;
     gpu::GpuComputePass filterPass;
     gpu::GpuComputePass composePass;
+    gpu::GpuComputePass localShadowResetPass;
+    gpu::GpuComputePass localShadowEnvBoundsResetPass;
+    gpu::GpuComputePass localShadowEnvBoundsPreparePass;
+    gpu::GpuComputePass localShadowViewPreparePass;
+    gpu::GpuComputePass localShadowFilter2DPass;
+    gpu::GpuComputePass localShadowFilterPointPass;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> resetConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> filterConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> composeConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> localShadowPrepareConstantsBuffer;
     BufferSet opaque;
     BufferSet shadow;
-    BufferSet localShadow;
+    BufferSet localShadow2D;
+    BufferSet localShadowPoint;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> localShadowEnvBoundsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> localShadowViewBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> localShadowAssignmentBuffer;
+    std::uint32_t localShadowEnvBoundsCapacity  = 0u;
     std::uint32_t localShadowViewCapacity       = 0u;
     std::uint32_t localShadowAssignmentCapacity = 0u;
     bool initialized                            = false;
@@ -259,8 +401,27 @@ bool ForwardPipeline::initialize()
     }
     if (!mGpuIndirectState->resetPass.initialize(backendContext.renderDevice, streamFactory, 1ull,
                                                  kIndirectResetPassDefinition) ||
+        !mGpuIndirectState->localShadowIndirectResetPass.initialize(
+            backendContext.renderDevice, streamFactory, 1ull,
+            kLocalShadowIndirectResetPassDefinition) ||
         !mGpuIndirectState->filterPass.initialize(backendContext.renderDevice, streamFactory, 1ull,
                                                   kIndirectFilterPassDefinition) ||
+        !mGpuIndirectState->localShadowResetPass.initialize(
+            backendContext.renderDevice, streamFactory, 1ull, kLocalShadowResetPassDefinition) ||
+        !mGpuIndirectState->localShadowEnvBoundsResetPass.initialize(
+            backendContext.renderDevice, streamFactory, 1ull,
+            kLocalShadowEnvBoundsResetPassDefinition) ||
+        !mGpuIndirectState->localShadowEnvBoundsPreparePass.initialize(
+            backendContext.renderDevice, streamFactory, 1ull,
+            kLocalShadowEnvBoundsPreparePassDefinition) ||
+        !mGpuIndirectState->localShadowViewPreparePass.initialize(
+            backendContext.renderDevice, streamFactory, 1ull,
+            kLocalShadowViewPreparePassDefinition) ||
+        !mGpuIndirectState->localShadowFilter2DPass.initialize(
+            backendContext.renderDevice, streamFactory, 1ull, kLocalShadowFilter2DPassDefinition) ||
+        !mGpuIndirectState->localShadowFilterPointPass.initialize(
+            backendContext.renderDevice, streamFactory, 1ull,
+            kLocalShadowFilterPointPassDefinition) ||
         !mGpuIndirectState->composePass.initialize(backendContext.renderDevice, streamFactory, 1ull,
                                                    kIndirectComposePassDefinition))
     {
@@ -297,6 +458,15 @@ bool ForwardPipeline::initialize()
         return false;
     }
 
+    constantsDesc.Name = "CRESSimNeo.ForwardPipeline.LocalShadowPrepareConstants";
+    constantsDesc.Size = sizeof(LocalShadowPrepareConstants);
+    backendContext.renderDevice->CreateBuffer(
+        constantsDesc, nullptr, &mGpuIndirectState->localShadowPrepareConstantsBuffer);
+    if (mGpuIndirectState->localShadowPrepareConstantsBuffer == nullptr)
+    {
+        return false;
+    }
+
     mGpuIndirectState->initialized = true;
     mInitialized                   = true;
     return true;
@@ -321,11 +491,16 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         sceneView.opaqueDrawRegistry != nullptr ? *sceneView.opaqueDrawRegistry : emptyRegistry;
     const std::vector<IndirectCommandRegistryEntry> &shadowRegistry =
         sceneView.shadowDrawRegistry != nullptr ? *sceneView.shadowDrawRegistry : emptyRegistry;
-    if (gpuScene.preparedCamerasBuffer == nullptr ||
+    const std::vector<IndirectCommandRegistryEntry> &localShadowRegistry =
+        sceneView.localShadowDrawRegistry != nullptr ? *sceneView.localShadowDrawRegistry
+                                                     : emptyRegistry;
+    if (gpuScene.poses.positionsBuffer == nullptr || gpuScene.poses.orientationsBuffer == nullptr ||
+        gpuScene.poses.scalesBuffer == nullptr || gpuScene.renderableMetadataBuffer == nullptr ||
+        gpuScene.preparedCamerasBuffer == nullptr ||
         gpuScene.renderableQueueInfoBuffer == nullptr ||
         gpuScene.renderableVisibilityFlagsBuffer == nullptr ||
         gpuScene.renderableShadowCascadeMasksBuffer == nullptr ||
-        gpuScene.lightInputsBuffer == nullptr)
+        gpuScene.lightInputsBuffer == nullptr || gpuScene.localLightSelectionBuffer == nullptr)
     {
         return false;
     }
@@ -345,15 +520,13 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         return false;
     }
 
-    LocalShadowBuildResult localShadowData = buildLocalShadowData(sceneView, mResourceManager);
-    if (localShadowData.lightAssignments.empty())
-    {
-        localShadowData.lightAssignments.push_back(gpu::GpuLightShadowAssignment{});
-    }
-    if (localShadowData.shadowViews.empty())
-    {
-        localShadowData.shadowViews.push_back(gpu::GpuLocalShadowView{});
-    }
+    const std::uint32_t envCount                  = gpuScene.layout.envCount;
+    const std::uint32_t totalLightCount           = gpuScene.layout.totalLightCapacity();
+    const std::uint32_t totalObjectCount          = gpuScene.layout.totalObjectCapacity();
+    const std::uint32_t totalLocalShadowViewCount = envCount * kLocalShadowViewsPerEnv;
+    const std::uint32_t totalLocal2DSubviewCount  = envCount * gpu::kShadowedLocalLightCap;
+    const std::uint32_t totalPointFaceCount =
+        envCount * gpu::kShadowedPointLightCap * gpu::kLocalShadowMaxFaceCount;
 
     const std::uint32_t batchCameraCount = static_cast<std::uint32_t>(batchView.cameras.size());
     std::vector<gpu::GpuBatchCameraMetadata> opaqueBatchCameras(batchCameraCount);
@@ -564,32 +737,30 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             backendContext.immediateContext, 0u, composeBindings, dispatchGroupCount(commandCount));
     };
 
-    const auto uploadPreparedIndirectSet =
-        [&](GpuIndirectState::BufferSet &bufferSet, const std::vector<LocalShadowCommand> &commands,
-            const std::vector<gpu::GpuVisiblePairInstance> &visiblePairs,
-            const char *namePrefix) -> bool
+    const auto uploadLocalShadowIndirectSet =
+        [&](GpuIndirectState::BufferSet &bufferSet,
+            const std::vector<IndirectCommandRegistryEntry> &registry, const char *namePrefix,
+            std::uint32_t subviewCount, gpu::GpuComputePass &filterPass) -> bool
     {
-        const std::uint32_t commandCount = static_cast<std::uint32_t>(commands.size());
-        bufferSet.drawListOffsets.assign(commandCount, 0u);
-        if (commandCount == 0u)
+        const std::uint32_t bucketCount  = static_cast<std::uint32_t>(registry.size());
+        const std::uint32_t commandCount = bucketCount * subviewCount;
+        if (commandCount == 0u || subviewCount == 0u)
         {
             return true;
         }
 
         std::vector<IndirectCommandDesc> commandDescs(commandCount);
-        std::vector<std::uint32_t> commandCounts(commandCount);
-        std::vector<DrawIndexedIndirectArgs> drawArgs(commandCount);
-        for (std::uint32_t commandIndex = 0u; commandIndex < commandCount; ++commandIndex)
+        std::uint32_t visibleCapacity = 0u;
+        for (std::uint32_t bucketIndex = 0u; bucketIndex < bucketCount; ++bucketIndex)
         {
-            const LocalShadowCommand &command       = commands[commandIndex];
-            bufferSet.drawListOffsets[commandIndex] = command.drawListOffset;
-            commandDescs[commandIndex]              = IndirectCommandDesc{
-                command.drawListOffset, command.instanceCount, command.drawCommand.indexCount, 0u};
-            commandCounts[commandIndex] = command.instanceCount;
-            // Local shadow draws index visible pairs as g_DrawListOffset + SV_InstanceID, so the
-            // indirect base instance must stay at zero for every command.
-            drawArgs[commandIndex]      = DrawIndexedIndirectArgs{command.drawCommand.indexCount,
-                                                                  command.instanceCount, 0u, 0, 0u};
+            for (std::uint32_t subviewIndex = 0u; subviewIndex < subviewCount; ++subviewIndex)
+            {
+                const std::uint32_t commandIndex = bucketIndex * subviewCount + subviewIndex;
+                commandDescs[commandIndex] =
+                    IndirectCommandDesc{visibleCapacity, registry[bucketIndex].maxVisibleCount,
+                                        registry[bucketIndex].drawCommand.indexCount, 0u};
+                visibleCapacity += registry[bucketIndex].maxVisibleCount;
+            }
         }
 
         if (bufferSet.commandCapacity < commandCount || bufferSet.commandDescBuffer == nullptr ||
@@ -617,34 +788,75 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             }
         }
 
-        const std::uint32_t visiblePairCount = static_cast<std::uint32_t>(visiblePairs.size());
-        if (visiblePairCount > 0u && (bufferSet.visiblePairCapacity < visiblePairCount ||
-                                      bufferSet.visiblePairBuffer == nullptr))
+        if (bufferSet.visiblePairCapacity < visibleCapacity ||
+            bufferSet.visiblePairBuffer == nullptr)
         {
             const std::string visibleName = std::string{namePrefix} + ".VisiblePairs";
-            if (!ensureStructuredBuffer(backendContext.renderDevice, visibleName.c_str(),
-                                        sizeof(gpu::GpuVisiblePairInstance), visiblePairCount,
-                                        Diligent::BIND_SHADER_RESOURCE, bufferSet.visiblePairBuffer,
-                                        bufferSet.visiblePairCapacity, 1u))
+            if (!ensureStructuredBuffer(
+                    backendContext.renderDevice, visibleName.c_str(),
+                    sizeof(gpu::GpuVisiblePairInstance), visibleCapacity,
+                    Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                    bufferSet.visiblePairBuffer, bufferSet.visiblePairCapacity, 1u))
             {
                 return false;
             }
         }
 
         if (!writeBuffer(backendContext.immediateContext, bufferSet.commandDescBuffer,
-                         commandDescs.data(), commandDescs.size() * sizeof(IndirectCommandDesc)) ||
-            !writeBuffer(backendContext.immediateContext, bufferSet.commandCountsBuffer,
-                         commandCounts.data(), commandCounts.size() * sizeof(std::uint32_t)) ||
-            !writeBuffer(backendContext.immediateContext, bufferSet.drawIndexedCommandsBuffer,
-                         drawArgs.data(), drawArgs.size() * sizeof(DrawIndexedIndirectArgs)))
+                         commandDescs.data(), commandDescs.size() * sizeof(IndirectCommandDesc)))
         {
             return false;
         }
 
-        if (visiblePairCount > 0u &&
-            !writeBuffer(backendContext.immediateContext, bufferSet.visiblePairBuffer,
-                         visiblePairs.data(),
-                         visiblePairs.size() * sizeof(gpu::GpuVisiblePairInstance)))
+        if (!updateConstants(backendContext.immediateContext,
+                             mGpuIndirectState->resetConstantsBuffer,
+                             GraphicsIndirectPassConstants{commandCount, 0u, 0u, 0u}))
+        {
+            return false;
+        }
+        const std::array resetBindings{
+            gpu::GpuBufferBinding{"GraphicsIndirectResetConstants",
+                                  mGpuIndirectState->resetConstantsBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_CommandDescs", bufferSet.commandDescBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_CommandCountsRW", bufferSet.commandCountsBuffer,
+                                  Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+            gpu::GpuBufferBinding{"g_DrawIndexedCommandsRW", bufferSet.drawIndexedCommandsBuffer,
+                                  Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        };
+        if (!mGpuIndirectState->localShadowIndirectResetPass.dispatch(
+                backendContext.immediateContext, 0u, resetBindings,
+                dispatchGroupCount(commandCount)))
+        {
+            return false;
+        }
+
+        const std::array filterBindings{
+            gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
+                                  mGpuIndirectState->localShadowPrepareConstantsBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_EntityPositions", gpuScene.poses.positionsBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_EntityOrientations", gpuScene.poses.orientationsBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_EntityScales", gpuScene.poses.scalesBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_RenderableMetadata", gpuScene.renderableMetadataBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_RenderableQueueInfo", gpuScene.renderableQueueInfoBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_LocalShadowViews", mGpuIndirectState->localShadowViewBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_CommandDescs", bufferSet.commandDescBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_CommandCountsRW", bufferSet.commandCountsBuffer,
+                                  Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+            gpu::GpuBufferBinding{"g_VisiblePairsRW", bufferSet.visiblePairBuffer,
+                                  Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        };
+        if (!filterPass.dispatch(backendContext.immediateContext, 0u, filterBindings,
+                                 dispatchGroupCount(totalObjectCount * subviewCount)))
         {
             return false;
         }
@@ -681,51 +893,163 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     {
         return false;
     }
-    if (!uploadPreparedIndirectSet(mGpuIndirectState->localShadow, localShadowData.commands,
-                                   localShadowData.visiblePairs,
-                                   "CRESSimNeo.ForwardPipeline.LocalShadow"))
-    {
-        return false;
-    }
 
-    if (mGpuIndirectState->localShadowAssignmentCapacity <
-            localShadowData.lightAssignments.size() ||
+    if (mGpuIndirectState->localShadowAssignmentCapacity < std::max(totalLightCount, 1u) ||
         mGpuIndirectState->localShadowAssignmentBuffer == nullptr)
     {
         if (!ensureStructuredBuffer(
                 backendContext.renderDevice, "CRESSimNeo.ForwardPipeline.LocalShadowAssignments",
-                sizeof(gpu::GpuLightShadowAssignment),
-                static_cast<std::uint32_t>(localShadowData.lightAssignments.size()),
-                Diligent::BIND_SHADER_RESOURCE, mGpuIndirectState->localShadowAssignmentBuffer,
+                sizeof(gpu::GpuLightShadowAssignment), std::max(totalLightCount, 1u),
+                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                mGpuIndirectState->localShadowAssignmentBuffer,
                 mGpuIndirectState->localShadowAssignmentCapacity, 1u))
         {
             return false;
         }
     }
-    if (!writeBuffer(
-            backendContext.immediateContext, mGpuIndirectState->localShadowAssignmentBuffer,
-            localShadowData.lightAssignments.data(),
-            localShadowData.lightAssignments.size() * sizeof(gpu::GpuLightShadowAssignment)))
-    {
-        return false;
-    }
-
-    if (mGpuIndirectState->localShadowViewCapacity < localShadowData.shadowViews.size() ||
+    if (mGpuIndirectState->localShadowViewCapacity < std::max(totalLocalShadowViewCount, 1u) ||
         mGpuIndirectState->localShadowViewBuffer == nullptr)
     {
         if (!ensureStructuredBuffer(
                 backendContext.renderDevice, "CRESSimNeo.ForwardPipeline.LocalShadowViews",
-                sizeof(gpu::GpuLocalShadowView),
-                static_cast<std::uint32_t>(localShadowData.shadowViews.size()),
-                Diligent::BIND_SHADER_RESOURCE, mGpuIndirectState->localShadowViewBuffer,
+                sizeof(gpu::GpuLocalShadowView), std::max(totalLocalShadowViewCount, 1u),
+                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                mGpuIndirectState->localShadowViewBuffer,
                 mGpuIndirectState->localShadowViewCapacity, 1u))
         {
             return false;
         }
     }
-    if (!writeBuffer(backendContext.immediateContext, mGpuIndirectState->localShadowViewBuffer,
-                     localShadowData.shadowViews.data(),
-                     localShadowData.shadowViews.size() * sizeof(gpu::GpuLocalShadowView)))
+    if (mGpuIndirectState->localShadowEnvBoundsCapacity <
+            std::max(envCount * kLocalShadowEnvBoundsWords, 1u) ||
+        mGpuIndirectState->localShadowEnvBoundsBuffer == nullptr)
+    {
+        if (!ensureStructuredBuffer(
+                backendContext.renderDevice, "CRESSimNeo.ForwardPipeline.LocalShadowEnvBounds",
+                sizeof(std::uint32_t), std::max(envCount * kLocalShadowEnvBoundsWords, 1u),
+                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                mGpuIndirectState->localShadowEnvBoundsBuffer,
+                mGpuIndirectState->localShadowEnvBoundsCapacity, 1u))
+        {
+            return false;
+        }
+    }
+
+    {
+        LocalShadowPrepareConstants localShadowConstants{};
+        localShadowConstants.envCount         = envCount;
+        localShadowConstants.maxObjectsPerEnv = gpuScene.layout.maxObjectsPerEnv;
+        localShadowConstants.maxLightsPerEnv  = gpuScene.layout.maxLightsPerEnv;
+        localShadowConstants.localShadowBucketCount =
+            static_cast<std::uint32_t>(localShadowRegistry.size());
+
+        void *mapped = nullptr;
+        backendContext.immediateContext->MapBuffer(
+            mGpuIndirectState->localShadowPrepareConstantsBuffer, Diligent::MAP_WRITE,
+            Diligent::MAP_FLAG_DISCARD, mapped);
+        if (mapped == nullptr)
+        {
+            return false;
+        }
+        std::memcpy(mapped, &localShadowConstants, sizeof(localShadowConstants));
+        backendContext.immediateContext->UnmapBuffer(
+            mGpuIndirectState->localShadowPrepareConstantsBuffer, Diligent::MAP_WRITE);
+    }
+
+    {
+        const std::uint32_t resetCount = std::max(totalLightCount, totalLocalShadowViewCount);
+        if (resetCount > 0u)
+        {
+            const std::array localShadowResetBindings{
+                gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
+                                      mGpuIndirectState->localShadowPrepareConstantsBuffer,
+                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                gpu::GpuBufferBinding{"g_LightShadowAssignmentsRW",
+                                      mGpuIndirectState->localShadowAssignmentBuffer,
+                                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+                gpu::GpuBufferBinding{"g_LocalShadowViewsRW",
+                                      mGpuIndirectState->localShadowViewBuffer,
+                                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+            };
+            if (!mGpuIndirectState->localShadowResetPass.dispatch(backendContext.immediateContext,
+                                                                  0u, localShadowResetBindings,
+                                                                  dispatchGroupCount(resetCount)))
+            {
+                return false;
+            }
+        }
+
+        if (envCount > 0u)
+        {
+            const std::array envBoundsResetBindings{
+                gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
+                                      mGpuIndirectState->localShadowPrepareConstantsBuffer,
+                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                gpu::GpuBufferBinding{"g_LocalShadowEnvBoundsRW",
+                                      mGpuIndirectState->localShadowEnvBoundsBuffer,
+                                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+            };
+            if (!mGpuIndirectState->localShadowEnvBoundsResetPass.dispatch(
+                    backendContext.immediateContext, 0u, envBoundsResetBindings,
+                    dispatchGroupCount(envCount)))
+            {
+                return false;
+            }
+
+            const std::array envBoundsPrepareBindings{
+                gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
+                                      mGpuIndirectState->localShadowPrepareConstantsBuffer,
+                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                gpu::GpuBufferBinding{"g_RenderableMetadata", gpuScene.renderableMetadataBuffer,
+                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                gpu::GpuBufferBinding{"g_EntityPositions", gpuScene.poses.positionsBuffer,
+                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                gpu::GpuBufferBinding{"g_LocalShadowEnvBoundsRW",
+                                      mGpuIndirectState->localShadowEnvBoundsBuffer,
+                                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+            };
+            if (!mGpuIndirectState->localShadowEnvBoundsPreparePass.dispatch(
+                    backendContext.immediateContext, 0u, envBoundsPrepareBindings,
+                    dispatchGroupCount(totalObjectCount)))
+            {
+                return false;
+            }
+
+            const std::array viewPrepareBindings{
+                gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
+                                      mGpuIndirectState->localShadowPrepareConstantsBuffer,
+                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                gpu::GpuBufferBinding{"g_LocalLightSelections", gpuScene.localLightSelectionBuffer,
+                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                gpu::GpuBufferBinding{"g_LightInputs", gpuScene.lightInputsBuffer,
+                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                gpu::GpuBufferBinding{"g_LocalShadowEnvBounds",
+                                      mGpuIndirectState->localShadowEnvBoundsBuffer,
+                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                gpu::GpuBufferBinding{"g_LightShadowAssignmentsRW",
+                                      mGpuIndirectState->localShadowAssignmentBuffer,
+                                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+                gpu::GpuBufferBinding{"g_LocalShadowViewsRW",
+                                      mGpuIndirectState->localShadowViewBuffer,
+                                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+            };
+            if (!mGpuIndirectState->localShadowViewPreparePass.dispatch(
+                    backendContext.immediateContext, 0u, viewPrepareBindings,
+                    dispatchGroupCount(envCount)))
+            {
+                return false;
+            }
+        }
+    }
+
+    if (!uploadLocalShadowIndirectSet(mGpuIndirectState->localShadow2D, localShadowRegistry,
+                                      "CRESSimNeo.ForwardPipeline.LocalShadow2D",
+                                      totalLocal2DSubviewCount,
+                                      mGpuIndirectState->localShadowFilter2DPass) ||
+        !uploadLocalShadowIndirectSet(mGpuIndirectState->localShadowPoint, localShadowRegistry,
+                                      "CRESSimNeo.ForwardPipeline.LocalShadowPoint",
+                                      totalPointFaceCount,
+                                      mGpuIndirectState->localShadowFilterPointPass))
     {
         return false;
     }
@@ -773,12 +1097,12 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     }
 
     gpu::GpuRenderTargetHandle localShadowTarget2D{};
-    if (localShadowData.local2DLayerCount > 0u)
+    if (totalLocal2DSubviewCount > 0u)
     {
         gpu::GpuRenderTargetDesc shadowDesc{};
         shadowDesc.width            = kLocalShadowMapResolution;
         shadowDesc.height           = kLocalShadowMapResolution;
-        shadowDesc.arraySize        = localShadowData.local2DLayerCount;
+        shadowDesc.arraySize        = totalLocal2DSubviewCount;
         shadowDesc.color            = false;
         shadowDesc.depth            = true;
         shadowDesc.shaderReadable   = true;
@@ -792,12 +1116,12 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     }
 
     gpu::GpuRenderTargetHandle pointShadowTarget{};
-    if (localShadowData.pointLayerCount > 0u)
+    if (totalPointFaceCount > 0u)
     {
         gpu::GpuRenderTargetDesc shadowDesc{};
         shadowDesc.width            = kPointShadowMapResolution;
         shadowDesc.height           = kPointShadowMapResolution;
-        shadowDesc.arraySize        = localShadowData.pointLayerCount;
+        shadowDesc.arraySize        = totalPointFaceCount;
         shadowDesc.color            = false;
         shadowDesc.depth            = true;
         shadowDesc.shaderReadable   = true;
@@ -842,7 +1166,8 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                 if (mShadowPass->drawIndirect(shadowBinding, drawCommand, cascadeIdx, 0u,
                                               mGpuIndirectState->shadow.drawIndexedCommandsBuffer,
                                               static_cast<Diligent::Uint64>(commandIndex) *
-                                                  sizeof(std::uint32_t) * 5u))
+                                                  sizeof(DrawIndexedIndirectArgs),
+                                              1u, sizeof(DrawIndexedIndirectArgs)))
                 {
                     ++outStats.shadowDrawCalls;
                 }
@@ -851,32 +1176,17 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         }
     }
 
-    if (mShadowPass != nullptr && (!localShadowData.commands.empty()))
+    if (mShadowPass != nullptr && !localShadowRegistry.empty())
     {
-        mShadowPass->setVisiblePairBuffer(mGpuIndirectState->localShadow.visiblePairBuffer);
         mShadowPass->setBatchCameraBuffer(nullptr);
         mShadowPass->setLocalShadowViewBuffer(mGpuIndirectState->localShadowViewBuffer);
-        for (std::uint32_t shadowViewIndex = 0u;
-             shadowViewIndex < static_cast<std::uint32_t>(localShadowData.shadowViews.size());
-             ++shadowViewIndex)
+
+        if (mDevice.renderTargetSystem().isValidRenderTarget(localShadowTarget2D) &&
+            totalLocal2DSubviewCount > 0u)
         {
-            const gpu::GpuLocalShadowView &shadowView =
-                localShadowData.shadowViews[shadowViewIndex];
-            if (shadowView.active == 0u)
-            {
-                continue;
-            }
-
-            const bool pointLight = shadowView.layerCount > 1u;
-            const gpu::GpuRenderTargetHandle target =
-                pointLight ? pointShadowTarget : localShadowTarget2D;
-            if (!mDevice.renderTargetSystem().isValidRenderTarget(target))
-            {
-                continue;
-            }
-
-            const gpu::GpuRenderTargetBinding shadowBinding{target, shadowView.firstLayer,
-                                                            shadowView.layerCount};
+            mShadowPass->setVisiblePairBuffer(mGpuIndirectState->localShadow2D.visiblePairBuffer);
+            const gpu::GpuRenderTargetBinding shadowBinding{localShadowTarget2D, 0u,
+                                                            totalLocal2DSubviewCount};
             mDevice.renderTargetSystem().setRenderTargetViewport(shadowBinding,
                                                                  gpu::GpuRenderViewport{});
             gpu::GpuRenderPassBeginDesc shadowBegin{};
@@ -885,43 +1195,52 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             shadowBegin.clearDepthValue = 1.0f;
             mDevice.renderTargetSystem().beginRenderTarget(shadowBinding, frameContext,
                                                            shadowBegin);
-            const std::uint32_t commandOffset =
-                shadowViewIndex < localShadowData.shadowViewCommandOffsets.size()
-                    ? localShadowData.shadowViewCommandOffsets[shadowViewIndex]
-                    : 0u;
-            const std::uint32_t commandCount =
-                shadowViewIndex < localShadowData.shadowViewCommandCounts.size()
-                    ? localShadowData.shadowViewCommandCounts[shadowViewIndex]
-                    : 0u;
-            for (std::uint32_t localCommandIndex = 0u; localCommandIndex < commandCount;
-                 ++localCommandIndex)
+            for (std::uint32_t bucketIndex = 0u;
+                 bucketIndex < static_cast<std::uint32_t>(localShadowRegistry.size());
+                 ++bucketIndex)
             {
-                const std::uint32_t commandIndex  = commandOffset + localCommandIndex;
-                const LocalShadowCommand &command = localShadowData.commands[commandIndex];
-                ForwardDrawCommand drawCommand    = command.drawCommand;
-                drawCommand.drawListOffset =
-                    mGpuIndirectState->localShadow.drawListOffsets[commandIndex];
-                drawCommand.useDrawListBuffer = 1u;
-                if (pointLight)
+                ForwardDrawCommand drawCommand = localShadowRegistry[bucketIndex].drawCommand;
+                drawCommand.useDrawListBuffer  = 1u;
+                if (mShadowPass->drawIndirect(
+                        shadowBinding, drawCommand, 0u, kShadowPassModeLocal,
+                        mGpuIndirectState->localShadow2D.drawIndexedCommandsBuffer,
+                        static_cast<Diligent::Uint64>(bucketIndex * totalLocal2DSubviewCount) *
+                            sizeof(DrawIndexedIndirectArgs),
+                        totalLocal2DSubviewCount, sizeof(DrawIndexedIndirectArgs)))
                 {
-                    for (std::uint32_t faceIndex = 0u; faceIndex < shadowView.layerCount;
-                         ++faceIndex)
-                    {
-                        if (mShadowPass->drawIndirect(
-                                shadowBinding, drawCommand, faceIndex, kShadowPassModeLocal,
-                                mGpuIndirectState->localShadow.drawIndexedCommandsBuffer,
-                                static_cast<Diligent::Uint64>(commandIndex) *
-                                    sizeof(std::uint32_t) * 5u))
-                        {
-                            ++outStats.shadowDrawCalls;
-                        }
-                    }
+                    ++outStats.shadowDrawCalls;
                 }
-                else if (mShadowPass->drawIndirect(
-                             shadowBinding, drawCommand, 0u, kShadowPassModeLocal,
-                             mGpuIndirectState->localShadow.drawIndexedCommandsBuffer,
-                             static_cast<Diligent::Uint64>(commandIndex) * sizeof(std::uint32_t) *
-                                 5u))
+            }
+            mDevice.renderTargetSystem().endRenderTarget(shadowBinding, frameContext);
+        }
+
+        if (mDevice.renderTargetSystem().isValidRenderTarget(pointShadowTarget) &&
+            totalPointFaceCount > 0u)
+        {
+            mShadowPass->setVisiblePairBuffer(
+                mGpuIndirectState->localShadowPoint.visiblePairBuffer);
+            const gpu::GpuRenderTargetBinding shadowBinding{pointShadowTarget, 0u,
+                                                            totalPointFaceCount};
+            mDevice.renderTargetSystem().setRenderTargetViewport(shadowBinding,
+                                                                 gpu::GpuRenderViewport{});
+            gpu::GpuRenderPassBeginDesc shadowBegin{};
+            shadowBegin.clearColor      = false;
+            shadowBegin.clearDepth      = true;
+            shadowBegin.clearDepthValue = 1.0f;
+            mDevice.renderTargetSystem().beginRenderTarget(shadowBinding, frameContext,
+                                                           shadowBegin);
+            for (std::uint32_t bucketIndex = 0u;
+                 bucketIndex < static_cast<std::uint32_t>(localShadowRegistry.size());
+                 ++bucketIndex)
+            {
+                ForwardDrawCommand drawCommand = localShadowRegistry[bucketIndex].drawCommand;
+                drawCommand.useDrawListBuffer  = 1u;
+                if (mShadowPass->drawIndirect(
+                        shadowBinding, drawCommand, 0u, kShadowPassModeLocal,
+                        mGpuIndirectState->localShadowPoint.drawIndexedCommandsBuffer,
+                        static_cast<Diligent::Uint64>(bucketIndex * totalPointFaceCount) *
+                            sizeof(DrawIndexedIndirectArgs),
+                        totalPointFaceCount, sizeof(DrawIndexedIndirectArgs)))
                 {
                     ++outStats.shadowDrawCalls;
                 }
@@ -934,8 +1253,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                             shadowCameraCount > 0u ? kShadowCascadeCount : 0u);
     mForwardOpaquePass->setLocalShadowResources(
         localShadowTarget2D, pointShadowTarget, mGpuIndirectState->localShadowViewBuffer,
-        mGpuIndirectState->localShadowAssignmentBuffer,
-        static_cast<std::uint32_t>(localShadowData.shadowViews.size()));
+        mGpuIndirectState->localShadowAssignmentBuffer, totalLocalShadowViewCount);
     mForwardOpaquePass->setVisiblePairBuffer(mGpuIndirectState->opaque.visiblePairBuffer);
     mForwardOpaquePass->setBatchCameraBuffer(mGpuIndirectState->opaque.batchCameraBuffer);
     if (!mForwardOpaquePass->beginBatchFrame(batchView.cameras.front().globalCameraIndex))

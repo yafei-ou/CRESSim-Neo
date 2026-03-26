@@ -218,8 +218,8 @@ bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext *immediateConte
 {
     PerObjectConstants objectConstants{};
     objectConstants.instanceIndex     = drawCommand.instanceIndex;
-    objectConstants.drawListOffset    = drawCommand.drawListOffset;
     objectConstants.useDrawListBuffer = drawCommand.useDrawListBuffer;
+    objectConstants.drawListOffset    = shadowPassMode == 0u ? drawCommand.drawListOffset : 0u;
 
     ShadowPerPassConstants shadowPassConstants{};
     shadowPassConstants.shadowPassParams[0] = shadowMatrixIndex;
@@ -263,7 +263,8 @@ bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
                               const ForwardDrawCommand &drawCommand,
                               std::uint32_t shadowMatrixIndex, std::uint32_t shadowPassMode,
                               Diligent::IBuffer *indirectArgsBuffer,
-                              Diligent::Uint64 argsOffsetBytes)
+                              Diligent::Uint64 argsOffsetBytes, std::uint32_t drawCount,
+                              std::uint32_t drawArgsStride)
 {
     DrawSetup setup{};
     if (!prepareDraw(targetBinding, drawCommand, setup) || indirectArgsBuffer == nullptr)
@@ -288,6 +289,8 @@ bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
     drawAttrs.IndexType      = Diligent::VT_UINT32;
     drawAttrs.pAttribsBuffer = indirectArgsBuffer;
     drawAttrs.DrawArgsOffset = argsOffsetBytes;
+    drawAttrs.DrawCount      = drawCount;
+    drawAttrs.DrawArgsStride = drawArgsStride;
     drawAttrs.Flags          = Diligent::DRAW_FLAG_VERIFY_ALL;
     drawAttrs.AttribsBufferStateTransitionMode =
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;

@@ -65,3 +65,9 @@ add_test(
     NAME cressim_neo_unified_light_slots
     COMMAND cressim_neo_unified_light_slots
 )
+
+add_engine_test(cressim_neo_local_shadow_registry local_shadow_registry.cpp)
+add_test(
+    NAME cressim_neo_local_shadow_registry
+    COMMAND cressim_neo_local_shadow_registry
+)

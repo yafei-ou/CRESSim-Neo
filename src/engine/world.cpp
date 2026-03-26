@@ -1214,6 +1214,12 @@ const std::vector<graphics::IndirectCommandRegistryEntry> &World::shadowDrawRegi
     return mShadowDrawRegistryHost;
 }
 
+const std::vector<graphics::IndirectCommandRegistryEntry> &World::localShadowDrawRegistry()
+    const noexcept
+{
+    return mLocalShadowDrawRegistryHost;
+}
+
 const std::vector<gpu::GpuEntityPoseMappingEntry> &World::physicsRenderableMappings()
 {
     const std::uint64_t rigidBodyTopologyRevision = mPhysicsWorld.rigidBodyTopologyRevision();
@@ -1271,8 +1277,13 @@ const gpu::GpuEntitySceneView &World::gpuEntityScene() const noexcept
 graphics::HostSceneView World::hostSceneView() const noexcept
 {
     return graphics::HostSceneView{
-        &mRenderables,     &mRenderCameras,          &mRenderLights,
-        &mEnvironmentIbls, &mOpaqueDrawRegistryHost, &mShadowDrawRegistryHost,
+        &mRenderables,
+        &mRenderCameras,
+        &mRenderLights,
+        &mEnvironmentIbls,
+        &mOpaqueDrawRegistryHost,
+        &mShadowDrawRegistryHost,
+        &mLocalShadowDrawRegistryHost,
         &mGpuEntityScene,
     };
 }
@@ -1374,6 +1385,7 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
     mRenderableQueueInfoHost.assign(mRenderables.size(), gpu::GpuRenderableQueueInfo{});
     mOpaqueDrawRegistryHost.clear();
     mShadowDrawRegistryHost.clear();
+    mLocalShadowDrawRegistryHost.clear();
 
     for (std::uint32_t objectIndex = 0u;
          objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
@@ -1441,7 +1453,8 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
         ++opaqueCommandIndex;
     }
 
-    std::uint32_t shadowCommandBaseIndex = 0u;
+    std::uint32_t shadowCommandBaseIndex  = 0u;
+    std::uint32_t localShadowCommandIndex = 0u;
     for (const auto &[key, objectIndices] : shadowObjectsByKey)
     {
         if (objectIndices.empty())
@@ -1472,11 +1485,27 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
             mShadowDrawRegistryHost.push_back(entry);
         }
 
+        {
+            graphics::IndirectCommandRegistryEntry entry{};
+            entry.drawCommand.useDrawListBuffer = 1u;
+            entry.drawCommand.programFamily     = key.programFamily;
+            entry.drawCommand.materialFeatureFlags =
+                static_cast<graphics::MaterialFeatureFlags>(key.materialFeatureFlags);
+            entry.drawCommand.meshId      = key.meshId;
+            entry.drawCommand.materialId  = key.materialId;
+            entry.drawCommand.meshVersion = resources.meshVersion(graphics::MeshHandle{key.meshId});
+            entry.drawCommand.indexCount  = static_cast<std::uint32_t>(mesh->indices.size());
+            entry.maxVisibleCount         = static_cast<std::uint32_t>(objectIndices.size());
+            mLocalShadowDrawRegistryHost.push_back(entry);
+        }
+
         for (const std::uint32_t objectIndex : objectIndices)
         {
-            mRenderableQueueInfoHost[objectIndex].shadowCommandBaseIndex = shadowCommandBaseIndex;
+            mRenderableQueueInfoHost[objectIndex].shadowCommandBaseIndex  = shadowCommandBaseIndex;
+            mRenderableQueueInfoHost[objectIndex].localShadowCommandIndex = localShadowCommandIndex;
         }
         shadowCommandBaseIndex += graphics::kShadowCascadeCount;
+        ++localShadowCommandIndex;
     }
 }
 

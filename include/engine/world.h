@@ -87,6 +87,8 @@ public:
     const std::vector<gpu::GpuLocalLightSelection> &localLightSelections() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &opaqueDrawRegistry() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &shadowDrawRegistry() const noexcept;
+    const std::vector<graphics::IndirectCommandRegistryEntry> &localShadowDrawRegistry()
+        const noexcept;
     const std::vector<gpu::GpuEntityPoseMappingEntry> &physicsRenderableMappings();
     const gpu::GpuEntitySceneView &gpuEntityScene() const noexcept;
     graphics::HostSceneView hostSceneView() const noexcept;
@@ -221,6 +223,7 @@ private:
     std::vector<graphics::EnvironmentIblDesc> mEnvironmentIbls{};
     std::vector<graphics::IndirectCommandRegistryEntry> mOpaqueDrawRegistryHost{};
     std::vector<graphics::IndirectCommandRegistryEntry> mShadowDrawRegistryHost{};
+    std::vector<graphics::IndirectCommandRegistryEntry> mLocalShadowDrawRegistryHost{};
     gpu::GpuEntitySceneView mGpuEntityScene{};
     std::vector<gpu::GpuEntityPoseMappingEntry> mPhysicsRenderableMappingsCache{};
 

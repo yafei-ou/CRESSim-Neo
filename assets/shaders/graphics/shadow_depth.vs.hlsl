@@ -24,19 +24,19 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
     const bool localShadowPass = g_ShadowPassMode != 0u;
     if (g_UseDrawListBuffer != 0u)
     {
-        const VisiblePairInstance pair = g_VisiblePairs[g_DrawListOffset + instanceId];
-        objectIndex = pair.objectIndex;
         if (localShadowPass)
         {
+            const VisiblePairInstance pair = g_VisiblePairs[instanceId];
+            objectIndex = pair.objectIndex;
             const LocalShadowView shadowView = g_LocalShadowViews[pair.batchCameraIndex];
-            shadowLayer = g_ShadowMatrixIndex;
+            const uint localMatrixIndex = pair.shadowSubviewIndex;
 
             bool poseValid = false;
             float3 position = float3(0.0, 0.0, 0.0);
             float4 orientation = float4(0.0, 0.0, 0.0, 1.0);
             float3 scale = float3(1.0, 1.0, 1.0);
             loadRenderablePose(objectIndex, poseValid, position, orientation, scale);
-            if (!poseValid || shadowView.active == 0u || g_ShadowMatrixIndex >= shadowView.layerCount)
+            if (!poseValid || shadowView.active == 0u || localMatrixIndex >= shadowView.layerCount)
             {
                 Out.Position = float4(2.0, 2.0, 2.0, 1.0);
 #if MANUAL_LAYER_EXPORT
@@ -47,13 +47,15 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
 
             const float4 worldPos =
                 float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
-            Out.Position = mul(worldPos, shadowView.lightViewProjectionMatrices[g_ShadowMatrixIndex]);
+            Out.Position = mul(worldPos, shadowView.lightViewProjectionMatrices[localMatrixIndex]);
 #if MANUAL_LAYER_EXPORT
-            Out.Layer = g_ShadowMatrixIndex;
+            Out.Layer = shadowView.firstLayer + localMatrixIndex;
 #endif
             return;
         }
 
+        const VisiblePairInstance pair = g_VisiblePairs[g_DrawListOffset + instanceId];
+        objectIndex = pair.objectIndex;
         const BatchCameraMetadata batchCamera = g_BatchCameras[pair.batchCameraIndex];
         cameraIndex = batchCamera.globalCameraIndex;
         shadowLayer = batchCamera.shadowLayer;
