@@ -15,6 +15,8 @@ namespace
 
 constexpr std::uint32_t kLocalShadowMapResolution = 1024u;
 constexpr std::uint32_t kPointShadowMapResolution = 512u;
+constexpr float kPointShadowFaceFovRadians =
+    (90.0f + 5.0f) * (Diligent::PI_F / 180.0f);
 
 struct DrawBucketKey
 {
@@ -222,8 +224,10 @@ LocalShadowBuildResult buildLocalShadowData(const HostSceneView &sceneView,
             {
                 const Diligent::float4x4 view =
                     buildLookAtMatrix(pos, pos + targets[faceIndex], ups[faceIndex]);
+                // Use a small guard band so shadows can continue across cube-face boundaries
+                // instead of disappearing as soon as the receiver leaves the exact 90-degree face.
                 const Diligent::float4x4 proj = Diligent::float4x4::Projection(
-                    Diligent::PI_F * 0.5f, 1.0f, 0.05f, std::max(light.range, 1.0f), false);
+                    kPointShadowFaceFovRadians, 1.0f, 0.05f, std::max(light.range, 1.0f), false);
                 shadowView.lightViewProjectionMatrices[faceIndex] = (view * proj).Transpose();
             }
             result.pointLayerCount += 6u;

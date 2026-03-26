@@ -312,14 +312,19 @@ float ComputeLocalShadowFactor(uint lightIndex, float3 worldPos, float3 normal, 
 
     const float2 texelSize = max(shadowView.shadowTexelSize, float2(1e-5, 1e-5));
     const float slopeScale = 1.0 - saturate(dot(normal, lightDir));
-    const float shadowBias = light.shadowBias * (1.0 + 2.5 * slopeScale);
+    float shadowBias = light.shadowBias;
 
     if (assignment.shadowMode == 1u)
     {
+        shadowBias *= (1.0 + 1.5 * slopeScale);
         return SampleCascadeShadow(g_LocalShadowMap, g_LocalShadowMap_sampler,
                                    shadowView.lightViewProjectionMatrices[0], worldPos,
                                    (float)shadowView.firstLayer, shadowBias, texelSize);
     }
+
+    // Point-light shadows are especially sensitive to over-bias on grazing receivers like floors.
+    // Keep the slope term much tighter so shadows do not disappear as they move sideways from the light.
+    shadowBias *= (0.35 + 0.65 * slopeScale);
 
     float3 toSurface = worldPos - shadowView.lightPositionRange.xyz;
     int faceIndex = SelectPointShadowFace(toSurface);
