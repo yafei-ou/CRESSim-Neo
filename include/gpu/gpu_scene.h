@@ -73,7 +73,10 @@ struct GpuLightInput
     Diligent::float4 directionIntensity{};
     Diligent::float4 color{};
     Diligent::float4 spotAngles{};
-    Diligent::float4 shadowParams{};
+    float shadowDistance       = 0.0f;
+    float shadowFadeDistance   = 0.0f;
+    float shadowBias           = 0.0015f;
+    float shadowPadding0       = 0.0f;
     std::uint32_t envIndex     = 0u;
     std::uint32_t lightSlot    = 0u;
     std::uint32_t type         = 0u;
@@ -120,7 +123,9 @@ struct GpuLocalShadowView
     std::array<Diligent::float4x4, kLocalShadowMaxFaceCount> lightViewProjectionMatrices{};
     Diligent::float4 lightPositionRange{};
     Diligent::float4 lightDirection{};
-    Diligent::float4 shadowParams{};
+    Diligent::float2 shadowTexelSize{0.0f, 0.0f};
+    float shadowNearPlane    = 0.0f;
+    float shadowFarPlane     = 0.0f;
     std::uint32_t lightIndex = kInvalidGpuSceneIndex;
     std::uint32_t envIndex   = 0u;
     std::uint32_t firstLayer = 0u;
@@ -138,7 +143,9 @@ struct GpuPreparedCamera
     std::array<Diligent::float4x4, 4> lightViewProjectionMatrices{};
     Diligent::float4 cameraPosition{};
     Diligent::float4 cascadeSplits{};
-    Diligent::float4 shadowParams{};
+    Diligent::float2 mainShadowTexelSize{0.0f, 0.0f};
+    float mainShadowCascadeCount       = 0.0f;
+    float mainShadowFadeDistance       = 0.0f;
     std::uint32_t envIndex             = 0u;
     std::uint32_t active               = 0u;
     std::uint32_t objectRangeStart     = 0u;

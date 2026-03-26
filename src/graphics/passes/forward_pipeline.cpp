@@ -588,8 +588,8 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             commandCounts[commandIndex] = command.instanceCount;
             // Local shadow draws index visible pairs as g_DrawListOffset + SV_InstanceID, so the
             // indirect base instance must stay at zero for every command.
-            drawArgs[commandIndex] = DrawIndexedIndirectArgs{
-                command.drawCommand.indexCount, command.instanceCount, 0u, 0, 0u};
+            drawArgs[commandIndex]      = DrawIndexedIndirectArgs{command.drawCommand.indexCount,
+                                                                  command.instanceCount, 0u, 0, 0u};
         }
 
         if (bufferSet.commandCapacity < commandCount || bufferSet.commandDescBuffer == nullptr ||

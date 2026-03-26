@@ -250,7 +250,9 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     prepared.objectRangeCount = g_MaxObjectsPerEnv;
     prepared.visibilityDataOffset = currentCameraIndex * g_MaxObjectsPerEnv;
     prepared.cascadeSplits = float4(0.0, 0.0, 0.0, 0.0);
-    prepared.shadowParams = float4(0.0, 0.0, 0.0, 0.0);
+    prepared.mainShadowTexelSize = float2(0.0, 0.0);
+    prepared.mainShadowCascadeCount = 0.0;
+    prepared.mainShadowFadeDistance = 0.0;
 
     if (camera.active == 0u)
     {
@@ -279,7 +281,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     prepared.viewProjectionMatrix = mul(prepared.viewMatrix, projectionMatrix);
     prepared.cameraPosition = float4(position, 1.0);
 
-    DirectionalLightInput light = (DirectionalLightInput)0;
+    LightInput light = (LightInput)0;
     bool hasDirectionalLight = false;
     if (g_MaxLightsPerEnv > 0u)
     {
@@ -293,12 +295,12 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     if (hasDirectionalLight && light.castsShadows != 0u)
     {
         const float3 lightDirection = safeNormalize(light.directionIntensity.xyz, float3(0.0, -1.0, 0.0));
-        const float shadowDistance = min(farClip, max(light.shadowParams.x, nearClip + 0.001));
+        const float shadowDistance = min(farClip, max(light.shadowDistance, nearClip + 0.001));
         computeCascadeSplits(nearClip, shadowDistance, prepared.cascadeSplits);
-        prepared.shadowParams = float4(1.0 / max((float)g_ShadowMapResolution, 1.0),
-                                       1.0 / max((float)g_ShadowMapResolution, 1.0),
-                                       (float)kShadowCascadeCount,
-                                       max(light.shadowParams.y, 0.001));
+        prepared.mainShadowTexelSize = float2(1.0 / max((float)g_ShadowMapResolution, 1.0),
+                                              1.0 / max((float)g_ShadowMapResolution, 1.0));
+        prepared.mainShadowCascadeCount = (float)kShadowCascadeCount;
+        prepared.mainShadowFadeDistance = max(light.shadowFadeDistance, 0.001);
 
         float splitNear = nearClip;
         [unroll]

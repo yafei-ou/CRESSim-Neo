@@ -230,6 +230,7 @@ void authorLightSetup(cressim::neo::engine::World &world, std::uint32_t envIndex
     mainLight.color = {1.0f, 0.95f, 0.88f};
     mainLight.intensity = 7.0f;
     mainLight.castsShadows = (envIndex % 4u != 2u);
+    mainLight.shadowBias = 0.0015;
     world.setDirectionalLight(mainLightEntity, mainLight);
 
     if (envIndex % 4u == 0u || envIndex % 4u == 2u)
@@ -256,7 +257,8 @@ void authorLightSetup(cressim::neo::engine::World &world, std::uint32_t envIndex
                                             : Diligent::float3{0.35f, 0.65f, 1.0f};
         point.intensity = (envIndex % 4u == 1u) ? 18.0f : 28.0f;
         point.range = 11.0f;
-        point.castsShadows = (envIndex % 4u == 0u || envIndex % 4u == 2u);
+        point.shadowBias = 0.0015;
+        point.castsShadows = true;// (envIndex % 4u == 0u || envIndex % 4u == 2u);
         world.setPointLight(pointEntity, point);
     }
 

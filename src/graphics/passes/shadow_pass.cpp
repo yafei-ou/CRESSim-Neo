@@ -348,6 +348,8 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode              = Diligent::CULL_MODE_BACK;
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = Diligent::True;
+    // These rasterizer bias values remain renderer-global. Per-light sample bias is applied in
+    // the forward lighting shaders after shadow-map lookup.
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.DepthBias             = 8;
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.SlopeScaledDepthBias  = 2.0f;
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable         = Diligent::True;

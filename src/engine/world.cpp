@@ -561,6 +561,7 @@ void World::setDirectionalLight(common::EntityId entityId,
     lightData.outerConeAngle           = 0.0f;
     lightData.shadowDistance           = component.shadowDistance;
     lightData.shadowFadeDistance       = component.shadowFadeDistance;
+    lightData.shadowBias               = component.shadowBias;
     lightData.castsShadows             = component.castsShadows;
     markLightDirty(lightIndex);
 }
@@ -604,6 +605,7 @@ void World::setPointLight(common::EntityId entityId, const PointLightComponent &
     lightData.outerConeAngle           = 0.0f;
     lightData.shadowDistance           = 0.0f;
     lightData.shadowFadeDistance       = 0.0f;
+    lightData.shadowBias               = component.shadowBias;
     lightData.castsShadows             = component.castsShadows;
     markLightDirty(lightIndex);
 }
@@ -647,6 +649,7 @@ void World::setSpotLight(common::EntityId entityId, const SpotLightComponent &co
     lightData.outerConeAngle           = component.outerConeAngle;
     lightData.shadowDistance           = 0.0f;
     lightData.shadowFadeDistance       = 0.0f;
+    lightData.shadowBias               = component.shadowBias;
     lightData.castsShadows             = component.castsShadows;
     markLightDirty(lightIndex);
 }
@@ -992,6 +995,7 @@ std::optional<DirectionalLightComponent> World::tryGetDirectionalLight(
     component.intensity          = light.intensity;
     component.shadowDistance     = light.shadowDistance;
     component.shadowFadeDistance = light.shadowFadeDistance;
+    component.shadowBias         = light.shadowBias;
     component.castsShadows       = light.castsShadows;
     return component;
 }
@@ -1014,6 +1018,7 @@ std::optional<PointLightComponent> World::tryGetPointLight(common::EntityId enti
     component.color        = light.color;
     component.intensity    = light.intensity;
     component.range        = light.range;
+    component.shadowBias   = light.shadowBias;
     component.castsShadows = light.castsShadows;
     return component;
 }
@@ -1039,6 +1044,7 @@ std::optional<SpotLightComponent> World::tryGetSpotLight(common::EntityId entity
     component.range          = light.range;
     component.innerConeAngle = light.innerConeAngle;
     component.outerConeAngle = light.outerConeAngle;
+    component.shadowBias     = light.shadowBias;
     component.castsShadows   = light.castsShadows;
     return component;
 }
@@ -1564,10 +1570,11 @@ void World::refreshDirectionalLightEntry(std::uint32_t lightIndex)
     input.color = Diligent::float4{lightData.color.x, lightData.color.y, lightData.color.z, 0.0f};
     const float innerConeRadians = lightData.innerConeAngle * 0.01745329251994329577f;
     const float outerConeRadians = lightData.outerConeAngle * 0.01745329251994329577f;
-    input.spotAngles = Diligent::float4{std::cos(innerConeRadians), std::cos(outerConeRadians),
-                                        lightData.innerConeAngle, lightData.outerConeAngle};
-    input.shadowParams =
-        Diligent::float4{lightData.shadowDistance, lightData.shadowFadeDistance, 0.0f, 0.0f};
+    input.spotAngles     = Diligent::float4{std::cos(innerConeRadians), std::cos(outerConeRadians),
+                                            lightData.innerConeAngle, lightData.outerConeAngle};
+    input.shadowDistance = lightData.shadowDistance;
+    input.shadowFadeDistance     = lightData.shadowFadeDistance;
+    input.shadowBias             = lightData.shadowBias;
     input.envIndex               = lightData.envIndex;
     input.lightSlot              = lightData.lightSlot;
     input.type                   = static_cast<std::uint32_t>(lightData.type);

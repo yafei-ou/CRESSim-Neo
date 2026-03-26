@@ -62,7 +62,10 @@ private:
 
     struct ForwardPerFrameConstants
     {
-        Diligent::float4 shadowParams{0.0015f, 0.0f, 0.0f, 0.0f};
+        float hasAnyShadowMap         = 0.0f;
+        float shadowMinimumVisibility = 0.0f;
+        float shadowPadding0          = 0.0f;
+        float shadowPadding1          = 0.0f;
         Diligent::float4 iblSpecularParams{0.0f, 0.0f, 0.0f, 0.0f};
         std::uint32_t currentCameraIndex = 0u;
         std::uint32_t padding0           = 0u;

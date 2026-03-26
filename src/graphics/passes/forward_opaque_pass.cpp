@@ -422,10 +422,10 @@ bool ForwardOpaquePass::beginBatchFrame(std::uint32_t currentCameraIndex)
     }
 
     ForwardPerFrameConstants frameConstants{};
-    frameConstants.currentCameraIndex = currentCameraIndex;
-    frameConstants.shadowParams =
-        Diligent::float4{0.0015f, hasAnyShadowMap() ? 1.0f : 0.0f, 0.35f, 0.0f};
-    frameConstants.iblSpecularParams = Diligent::float4{
+    frameConstants.currentCameraIndex      = currentCameraIndex;
+    frameConstants.hasAnyShadowMap         = hasAnyShadowMap() ? 1.0f : 0.0f;
+    frameConstants.shadowMinimumVisibility = 0.35f;
+    frameConstants.iblSpecularParams       = Diligent::float4{
         mIblQualityTier == IblQualityTier::Full ? mEnvironmentIblPrefilteredMipCount : 0.0f, 0.0f,
         0.0f, 0.0f};
 

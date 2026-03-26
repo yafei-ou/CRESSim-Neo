@@ -207,11 +207,12 @@ LocalShadowBuildResult buildLocalShadowData(const HostSceneView &sceneView,
             light.envIndex < envBounds.size() ? envBounds[light.envIndex] : EnvShadowBounds{};
         if (light.type == gpu::GpuLightType::Point)
         {
-            shadowView.firstLayer = result.pointLayerCount;
-            shadowView.layerCount = 6u;
-            shadowView.shadowParams =
-                Diligent::float4{1.0f / kPointShadowMapResolution, 1.0f / kPointShadowMapResolution,
-                                 0.05f, std::max(light.range, 1.0f)};
+            shadowView.firstLayer             = result.pointLayerCount;
+            shadowView.layerCount             = 6u;
+            shadowView.shadowTexelSize        = Diligent::float2{1.0f / kPointShadowMapResolution,
+                                                                 1.0f / kPointShadowMapResolution};
+            shadowView.shadowNearPlane        = 0.05f;
+            shadowView.shadowFarPlane         = std::max(light.range, 1.0f);
             const Diligent::float3 pos        = light.position;
             const Diligent::float3 targets[6] = {{1, 0, 0},  {-1, 0, 0}, {0, 1, 0},
                                                  {0, -1, 0}, {0, 0, 1},  {0, 0, -1}};
@@ -232,11 +233,12 @@ LocalShadowBuildResult buildLocalShadowData(const HostSceneView &sceneView,
         }
         else if (light.type == gpu::GpuLightType::Spot)
         {
-            shadowView.firstLayer = result.local2DLayerCount;
-            shadowView.layerCount = 1u;
-            shadowView.shadowParams =
-                Diligent::float4{1.0f / kLocalShadowMapResolution, 1.0f / kLocalShadowMapResolution,
-                                 0.05f, std::max(light.range, 1.0f)};
+            shadowView.firstLayer         = result.local2DLayerCount;
+            shadowView.layerCount         = 1u;
+            shadowView.shadowTexelSize    = Diligent::float2{1.0f / kLocalShadowMapResolution,
+                                                             1.0f / kLocalShadowMapResolution};
+            shadowView.shadowNearPlane    = 0.05f;
+            shadowView.shadowFarPlane     = std::max(light.range, 1.0f);
             const Diligent::float4x4 view = buildLookAtMatrix(
                 light.position, light.position + lightDir, Diligent::float3{0, 1, 0});
             const float fovRadians = std::max(light.outerConeAngle * 2.0f * Diligent::PI_F / 180.0f,
@@ -257,9 +259,10 @@ LocalShadowBuildResult buildLocalShadowData(const HostSceneView &sceneView,
             const Diligent::float3 eye = center - lightDir * (radius * 2.0f + 4.0f);
             shadowView.firstLayer      = result.local2DLayerCount;
             shadowView.layerCount      = 1u;
-            shadowView.shadowParams =
-                Diligent::float4{1.0f / kLocalShadowMapResolution, 1.0f / kLocalShadowMapResolution,
-                                 0.1f, radius * 4.0f + 8.0f};
+            shadowView.shadowTexelSize = Diligent::float2{1.0f / kLocalShadowMapResolution,
+                                                          1.0f / kLocalShadowMapResolution};
+            shadowView.shadowNearPlane = 0.1f;
+            shadowView.shadowFarPlane  = radius * 4.0f + 8.0f;
             const Diligent::float4x4 view =
                 buildLookAtMatrix(eye, center,
                                   std::abs(lightDir.y) > 0.98f ? Diligent::float3{0, 0, 1}

@@ -83,7 +83,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     g_RenderableVisibilityFlagsRW[outputIndex] = visible ? 1u : 0u;
 
     uint shadowMask = 0u;
-    const uint shadowCascadeCount = (uint)round(preparedCamera.shadowParams.z);
+    const uint shadowCascadeCount = (uint)round(preparedCamera.mainShadowCascadeCount);
     if ((metadata.flags & CRESSIM_RENDERABLE_FLAG_SHADOW_CASTER) != 0u && shadowCascadeCount > 0u)
     {
         [loop]

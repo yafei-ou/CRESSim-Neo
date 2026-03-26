@@ -217,11 +217,9 @@ float SampleCascadeShadow(
 }
 
 float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir, uint cameraIndex,
-                          uint shadowLayer)
+                          uint shadowLayer, LightInput mainLight)
 {
-    // x: bias, y: hasShadowMap, z: minimum shadow visibility, w: reserved
-    // g_MaterialParams.w controls receivesShadows per material.
-    if (g_ShadowParams.y < 0.5 || g_MaterialParams.w < 0.5 ||
+    if (g_HasAnyShadowMap < 0.5 || g_MaterialParams.w < 0.5 ||
         shadowLayer == CRESSIM_INVALID_BATCH_CAMERA_LAYER)
     {
         return 1.0;
@@ -235,14 +233,14 @@ float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir, uint 
 
     float viewDepth = abs(mul(float4(worldPos, 1.0), preparedCamera.viewMatrix).z);
     float shadowDistance = preparedCamera.cascadeSplits.w;
-    float fadeBand = max(preparedCamera.shadowParams.w, 1e-5);
+    float fadeBand = max(preparedCamera.mainShadowFadeDistance, 1e-5);
     float distanceFade = saturate((shadowDistance - viewDepth) / fadeBand);
     if (distanceFade <= 0.0)
     {
         return 1.0;
     }
 
-    int cascadeCount = clamp((int)round(preparedCamera.shadowParams.z), 0, 4);
+    int cascadeCount = clamp((int)round(preparedCamera.mainShadowCascadeCount), 0, 4);
     int cascadeIdx = SelectCascade(viewDepth, preparedCamera.cascadeSplits, cascadeCount);
     if (cascadeIdx < 0)
     {
@@ -250,8 +248,8 @@ float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir, uint 
     }
 
     float slopeScale = 1.0 - saturate(dot(normal, lightDir));
-    float shadowBias = g_ShadowParams.x * (1.0 + 2.5 * slopeScale);
-    float2 texelSize = max(preparedCamera.shadowParams.xy, float2(1e-5, 1e-5));
+    float shadowBias = mainLight.shadowBias * (1.0 + 2.5 * slopeScale);
+    float2 texelSize = max(preparedCamera.mainShadowTexelSize, float2(1e-5, 1e-5));
     float visibility = 1.0;
 
     if (cascadeIdx == 0)
@@ -279,7 +277,7 @@ float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir, uint 
                                          (float)shadowLayer, shadowBias, texelSize);
     }
 
-    float shadowTerm = lerp(g_ShadowParams.z, 1.0, visibility);
+    float shadowTerm = lerp(g_ShadowMinimumVisibility, 1.0, visibility);
     return lerp(1.0, shadowTerm, distanceFade);
 }
 
@@ -306,14 +304,15 @@ float ComputeLocalShadowFactor(uint lightIndex, float3 worldPos, float3 normal, 
     }
 
     const LocalShadowView shadowView = g_LocalShadowViews[assignment.shadowViewIndex];
+    const LightInput light = g_LightInputs[lightIndex];
     if (shadowView.active == 0u)
     {
         return 1.0;
     }
 
-    const float2 texelSize = max(shadowView.shadowParams.xy, float2(1e-5, 1e-5));
+    const float2 texelSize = max(shadowView.shadowTexelSize, float2(1e-5, 1e-5));
     const float slopeScale = 1.0 - saturate(dot(normal, lightDir));
-    const float shadowBias = 0.0015 * (1.0 + 2.5 * slopeScale);
+    const float shadowBias = light.shadowBias * (1.0 + 2.5 * slopeScale);
 
     if (assignment.shadowMode == 1u)
     {
@@ -334,7 +333,7 @@ float ComputeLocalShadowFactor(uint lightIndex, float3 worldPos, float3 normal, 
                                (float)(shadowView.firstLayer + faceIndex), shadowBias, texelSize);
 }
 
-float3 EvaluateLocalLight(in DirectionalLightInput light, float3 worldPos, float3 N, float3 V,
+float3 EvaluateLocalLight(in LightInput light, float3 worldPos, float3 N, float3 V,
                           float3 albedo, float3 F0, float roughness, float metallic,
                           uint lightIndex)
 {
@@ -444,7 +443,7 @@ float4 main(in VSOutput In) : SV_Target
     float3 Lo = float3(0.0, 0.0, 0.0);
     if (In.MainLightIndex != CRESSIM_INVALID_GPU_SCENE_INDEX)
     {
-        const DirectionalLightInput mainLight = g_LightInputs[In.MainLightIndex];
+        const LightInput mainLight = g_LightInputs[In.MainLightIndex];
         const bool hasMainLight =
             mainLight.active != 0u &&
             dot(mainLight.directionIntensity.xyz, mainLight.directionIntensity.xyz) > 1e-6 &&
@@ -465,7 +464,7 @@ float4 main(in VSOutput In) : SV_Target
             float3 kD = (1.0 - kS) * (1.0 - metallic);
             float NdotL = max(dot(N, L), 0.0);
             float shadowFactor =
-                ComputeShadowFactor(In.WorldPos, N, L, In.CameraIndex, In.ShadowLayer);
+                ComputeShadowFactor(In.WorldPos, N, L, In.CameraIndex, In.ShadowLayer, mainLight);
             float3 radiance = mainLight.color.xyz * mainLight.directionIntensity.w;
             float3 diffuse = kD * albedo / PI;
             Lo = (diffuse + specular) * radiance * NdotL * shadowFactor;
@@ -482,7 +481,7 @@ float4 main(in VSOutput In) : SV_Target
         }
 
         const uint lightIndex = localSelection.lightIndices[localLightIdx];
-        const DirectionalLightInput localLight = g_LightInputs[lightIndex];
+        const LightInput localLight = g_LightInputs[lightIndex];
         Lo += EvaluateLocalLight(localLight, In.WorldPos, N, V, albedo, F0, roughness, metallic,
                                  lightIndex);
     }

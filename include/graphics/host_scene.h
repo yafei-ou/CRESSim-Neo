@@ -64,6 +64,7 @@ struct LightData
     float outerConeAngle     = 0.0f;
     float shadowDistance     = 120.0f;
     float shadowFadeDistance = 20.0f;
+    float shadowBias         = 0.0015f;
     bool castsShadows        = true;
 };
 

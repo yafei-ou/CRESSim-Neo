@@ -72,6 +72,7 @@ struct DirectionalLightComponent
     float range              = 0.0f;
     float shadowDistance     = 120.0f;
     float shadowFadeDistance = 20.0f;
+    float shadowBias         = 0.0015f;
     bool castsShadows        = true;
 };
 
@@ -80,6 +81,7 @@ struct PointLightComponent
     Diligent::float3 color{1.0f, 1.0f, 1.0f};
     float intensity   = 1.0f;
     float range       = 10.0f;
+    float shadowBias  = 0.0015f;
     bool castsShadows = false;
 };
 
@@ -91,6 +93,7 @@ struct SpotLightComponent
     float range          = 10.0f;
     float innerConeAngle = 25.0f;
     float outerConeAngle = 35.0f;
+    float shadowBias     = 0.0015f;
     bool castsShadows    = false;
 };
 
