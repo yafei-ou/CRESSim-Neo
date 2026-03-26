@@ -18,7 +18,9 @@ struct PreparedCamera
     float4x4 lightViewProjectionMatrices[4];
     float4 cameraPosition;
     float4 cascadeSplits;
-    float4 shadowParams;
+    float2 mainShadowTexelSize;
+    float mainShadowCascadeCount;
+    float mainShadowFadeDistance;
     uint envIndex;
     uint active;
     uint objectRangeStart;
@@ -37,16 +39,64 @@ struct RenderableQueueInfo
     uint reserved1;
 };
 
+static const uint CRESSIM_LIGHT_TYPE_DIRECTIONAL = 0u;
+static const uint CRESSIM_LIGHT_TYPE_POINT = 1u;
+static const uint CRESSIM_LIGHT_TYPE_SPOT = 2u;
+
 // Forward-path main directional light selection is explicit slot 0 per environment.
-struct DirectionalLightInput
+struct LightInput
 {
+    float4 positionRange;
     float4 directionIntensity;
     float4 color;
-    float4 shadowParams;
+    float4 spotAngles;
+    float shadowDistance;
+    float shadowFadeDistance;
+    float shadowBias;
+    float shadowPadding0;
     uint envIndex;
     uint lightSlot;
+    uint type;
     uint active;
     uint castsShadows;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+};
+
+struct LocalLightSelection
+{
+    uint localLightCount;
+    uint shadowedLocalLightCount;
+    uint shadowedPointLightCount;
+    uint reserved0;
+    uint lightIndices[8];
+};
+
+struct LightShadowAssignment
+{
+    uint shadowMode;
+    uint shadowViewIndex;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct LocalShadowView
+{
+    float4x4 lightViewProjectionMatrices[6];
+    float4 lightPositionRange;
+    float4 lightDirection;
+    float2 shadowTexelSize;
+    float shadowNearPlane;
+    float shadowFarPlane;
+    uint lightIndex;
+    uint envIndex;
+    uint firstLayer;
+    uint layerCount;
+    uint lightType;
+    uint active;
+    uint reserved0;
+    uint reserved1;
 };
 
 struct BatchCameraMetadata
@@ -85,7 +135,10 @@ StructuredBuffer<RenderableQueueInfo> g_RenderableQueueInfo;
 StructuredBuffer<uint> g_RenderableVisibilityFlags;
 StructuredBuffer<uint> g_RenderableShadowCascadeMasks;
 StructuredBuffer<PreparedCamera> g_PreparedCameras;
-StructuredBuffer<DirectionalLightInput> g_LightInputs;
+StructuredBuffer<LightInput> g_LightInputs;
+StructuredBuffer<LocalLightSelection> g_LocalLightSelections;
+StructuredBuffer<LightShadowAssignment> g_LightShadowAssignments;
+StructuredBuffer<LocalShadowView> g_LocalShadowViews;
 StructuredBuffer<BatchCameraMetadata> g_BatchCameras;
 StructuredBuffer<uint> g_VisibleObjectIndices;
 StructuredBuffer<VisiblePairInstance> g_VisiblePairs;

@@ -44,6 +44,11 @@ add_physics_viewer_test(
 )
 
 add_physics_viewer_test(
+    cressim_neo_physics_viewer_multi_env_light_matrix_manual_vulkan
+    physics_viewer_multi_env_light_matrix.cpp
+)
+
+add_physics_viewer_test(
     cressim_neo_physics_viewer_large_array_multi_env_ibl_manual_vulkan
     physics_viewer_large_array_multi_env_ibl.cpp
 )

@@ -422,10 +422,10 @@ bool ForwardOpaquePass::beginBatchFrame(std::uint32_t currentCameraIndex)
     }
 
     ForwardPerFrameConstants frameConstants{};
-    frameConstants.currentCameraIndex = currentCameraIndex;
-    frameConstants.shadowParams =
-        Diligent::float4{0.0015f, hasAnyShadowMap() ? 1.0f : 0.0f, 0.35f, 0.0f};
-    frameConstants.iblSpecularParams = Diligent::float4{
+    frameConstants.currentCameraIndex      = currentCameraIndex;
+    frameConstants.hasAnyShadowMap         = hasAnyShadowMap() ? 1.0f : 0.0f;
+    frameConstants.shadowMinimumVisibility = 0.35f;
+    frameConstants.iblSpecularParams       = Diligent::float4{
         mIblQualityTier == IblQualityTier::Full ? mEnvironmentIblPrefilteredMipCount : 0.0f, 0.0f,
         0.0f, 0.0f};
 
@@ -469,6 +469,19 @@ void ForwardOpaquePass::setShadowMapTargets(
 {
     mShadowMapTargets = shadowMapTargets;
     mShadowMapCount   = std::min<std::uint32_t>(shadowMapCount, kShadowCascadeCount);
+}
+
+void ForwardOpaquePass::setLocalShadowResources(gpu::GpuRenderTargetHandle localShadowMap2D,
+                                                gpu::GpuRenderTargetHandle pointShadowMap,
+                                                Diligent::IBuffer *localShadowViewBuffer,
+                                                Diligent::IBuffer *lightShadowAssignmentBuffer,
+                                                std::uint32_t localShadowViewCount) noexcept
+{
+    mLocalShadowMap2D            = localShadowMap2D;
+    mPointShadowMap              = pointShadowMap;
+    mLocalShadowViewBuffer       = localShadowViewBuffer;
+    mLightShadowAssignmentBuffer = lightShadowAssignmentBuffer;
+    mLocalShadowViewCount        = localShadowViewCount;
 }
 
 bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
@@ -607,6 +620,54 @@ bool ForwardOpaquePass::bindShadowMaps(MaterialProgramRegistry::ProgramResources
         }
         shadowMapVar->Set(shadowMapSrvs[cascadeIdx]);
     }
+
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> localShadowSrv = mFallbackShadowMapSrv;
+    if (mLocalShadowMap2D.id != common::kInvalidResourceId)
+    {
+        Diligent::ITexture *depthTexture = nullptr;
+        if (mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(mLocalShadowMap2D,
+                                                                        depthTexture) &&
+            depthTexture != nullptr)
+        {
+            Diligent::RefCntAutoPtr<Diligent::ITextureView> depthSrv =
+                createArrayShadowSrv(depthTexture, mShadowSampler);
+            if (depthSrv != nullptr)
+            {
+                localShadowSrv = depthSrv;
+            }
+        }
+    }
+
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> pointShadowSrv = mFallbackShadowMapSrv;
+    if (mPointShadowMap.id != common::kInvalidResourceId)
+    {
+        Diligent::ITexture *depthTexture = nullptr;
+        if (mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(mPointShadowMap,
+                                                                        depthTexture) &&
+            depthTexture != nullptr)
+        {
+            Diligent::RefCntAutoPtr<Diligent::ITextureView> depthSrv =
+                createArrayShadowSrv(depthTexture, mShadowSampler);
+            if (depthSrv != nullptr)
+            {
+                pointShadowSrv = depthSrv;
+            }
+        }
+    }
+
+    Diligent::IShaderResourceVariable *localShadowVar =
+        program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                                         "g_LocalShadowMap");
+    Diligent::IShaderResourceVariable *pointShadowVar =
+        program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                                         "g_PointShadowMap");
+    if (localShadowVar == nullptr || pointShadowVar == nullptr || localShadowSrv == nullptr ||
+        pointShadowSrv == nullptr)
+    {
+        return false;
+    }
+    localShadowVar->Set(localShadowSrv);
+    pointShadowVar->Set(pointShadowSrv);
     return true;
 }
 
@@ -688,7 +749,8 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
         }
     }
 
-    if (mBatchCameraBuffer == nullptr || mSceneView.lightInputsBuffer == nullptr)
+    if (mBatchCameraBuffer == nullptr || mSceneView.lightInputsBuffer == nullptr ||
+        mSceneView.localLightSelectionBuffer == nullptr)
     {
         return false;
     }
@@ -697,7 +759,9 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
         mBatchCameraBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
     Diligent::IBufferView *lightInputsSrv =
         mSceneView.lightInputsBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
-    if (batchCameraSrv == nullptr || lightInputsSrv == nullptr)
+    Diligent::IBufferView *localLightSelectionSrv =
+        mSceneView.localLightSelectionBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+    if (batchCameraSrv == nullptr || lightInputsSrv == nullptr || localLightSelectionSrv == nullptr)
     {
         return false;
     }
@@ -708,12 +772,34 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
     Diligent::IShaderResourceVariable *lightInputsVar =
         program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
                                                          "g_LightInputs");
-    if (batchCameraVar == nullptr || lightInputsVar == nullptr)
+    Diligent::IShaderResourceVariable *localLightsVar =
+        program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                                         "g_LocalLightSelections");
+    Diligent::IShaderResourceVariable *lightShadowAssignmentsVar =
+        program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                                         "g_LightShadowAssignments");
+    Diligent::IShaderResourceVariable *localShadowViewsVar =
+        program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                                         "g_LocalShadowViews");
+    if (batchCameraVar == nullptr || lightInputsVar == nullptr || localLightsVar == nullptr ||
+        lightShadowAssignmentsVar == nullptr || localShadowViewsVar == nullptr ||
+        mLightShadowAssignmentBuffer == nullptr || mLocalShadowViewBuffer == nullptr)
+    {
+        return false;
+    }
+    Diligent::IBufferView *lightShadowAssignmentsSrv =
+        mLightShadowAssignmentBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+    Diligent::IBufferView *localShadowViewsSrv =
+        mLocalShadowViewBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+    if (lightShadowAssignmentsSrv == nullptr || localShadowViewsSrv == nullptr)
     {
         return false;
     }
     batchCameraVar->Set(batchCameraSrv);
     lightInputsVar->Set(lightInputsSrv);
+    localLightsVar->Set(localLightSelectionSrv);
+    lightShadowAssignmentsVar->Set(lightShadowAssignmentsSrv);
+    localShadowViewsVar->Set(localShadowViewsSrv);
     return true;
 }
 
@@ -1321,6 +1407,26 @@ bool ForwardOpaquePass::hasAnyShadowMap() const
         Diligent::ITexture *depthTexture = nullptr;
         if (mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(
                 mShadowMapTargets[cascadeIdx], depthTexture) &&
+            depthTexture != nullptr)
+        {
+            return true;
+        }
+    }
+    if (mLocalShadowMap2D.id != common::kInvalidResourceId)
+    {
+        Diligent::ITexture *depthTexture = nullptr;
+        if (mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(mLocalShadowMap2D,
+                                                                        depthTexture) &&
+            depthTexture != nullptr)
+        {
+            return true;
+        }
+    }
+    if (mPointShadowMap.id != common::kInvalidResourceId)
+    {
+        Diligent::ITexture *depthTexture = nullptr;
+        if (mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(mPointShadowMap,
+                                                                        depthTexture) &&
             depthTexture != nullptr)
         {
             return true;

@@ -191,7 +191,8 @@ void Runtime::tick(const common::FrameContext &frameContext)
         if (mGpuSceneSync->syncRenderableMetadata(mWorld.renderableMetadata()) &&
             mGpuSceneSync->syncRenderableQueueInfo(mWorld.renderableQueueInfo()) &&
             mGpuSceneSync->syncCameraInputs(mWorld.cameraInputs()) &&
-            mGpuSceneSync->syncLightInputs(mWorld.lightInputs()))
+            mGpuSceneSync->syncLightInputs(mWorld.lightInputs()) &&
+            mGpuSceneSync->syncLocalLightSelections(mWorld.localLightSelections()))
         {
             mWorld.setGpuEntityScene(mGpuSceneSync->sceneView());
         }

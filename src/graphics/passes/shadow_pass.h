@@ -27,9 +27,11 @@ public:
     void setGpuSceneView(const gpu::GpuEntitySceneView &sceneView) noexcept;
     void setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept;
     void setBatchCameraBuffer(Diligent::IBuffer *buffer) noexcept;
+    void setLocalShadowViewBuffer(Diligent::IBuffer *buffer) noexcept;
     bool drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
-                      const ForwardDrawCommand &drawCommand, std::uint32_t cascadeIndex,
-                      Diligent::IBuffer *indirectArgsBuffer, Diligent::Uint64 argsOffsetBytes);
+                      const ForwardDrawCommand &drawCommand, std::uint32_t shadowMatrixIndex,
+                      std::uint32_t shadowPassMode, Diligent::IBuffer *indirectArgsBuffer,
+                      Diligent::Uint64 argsOffsetBytes);
 
 private:
     struct DrawSetup
@@ -57,7 +59,8 @@ private:
                      const ForwardDrawCommand &drawCommand, DrawSetup &outSetup);
     bool bindSceneBuffers() const;
     bool updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
-                                const ForwardDrawCommand &drawCommand, std::uint32_t cascadeIndex);
+                                const ForwardDrawCommand &drawCommand,
+                                std::uint32_t shadowMatrixIndex, std::uint32_t shadowPassMode);
     void bindGeometry(Diligent::IDeviceContext *immediateContext,
                       const MeshGpuCache::CachedBuffers &meshBuffers) const;
 
@@ -73,8 +76,9 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mShadowPerPassBuffer;
     gpu::GpuEntitySceneView mSceneView{};
-    Diligent::IBuffer *mVisiblePairBuffer = nullptr;
-    Diligent::IBuffer *mBatchCameraBuffer = nullptr;
+    Diligent::IBuffer *mVisiblePairBuffer     = nullptr;
+    Diligent::IBuffer *mBatchCameraBuffer     = nullptr;
+    Diligent::IBuffer *mLocalShadowViewBuffer = nullptr;
 };
 
 } // namespace detail

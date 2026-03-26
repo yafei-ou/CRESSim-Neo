@@ -3,12 +3,19 @@
 #include "common/math_utils_runtime.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace cressim::neo::graphics::detail
 {
 
 namespace
 {
+
+Diligent::float3 cross3(const Diligent::float3 &lhs, const Diligent::float3 &rhs)
+{
+    return Diligent::float3{lhs.y * rhs.z - lhs.z * rhs.y, lhs.z * rhs.x - lhs.x * rhs.z,
+                            lhs.x * rhs.y - lhs.y * rhs.x};
+}
 
 } // namespace
 
@@ -31,6 +38,48 @@ CameraData defaultCamera()
     camera.clearColorValue    = Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f};
     camera.clearDepthValue    = 1.0f;
     return camera;
+}
+
+Diligent::float3 normalizeOrFallback(const Diligent::float3 &value,
+                                     const Diligent::float3 &fallback)
+{
+    const float lengthSq = dot3(value, value);
+    if (lengthSq <= 1.0e-8f)
+    {
+        return fallback;
+    }
+
+    const float invLength = 1.0f / std::sqrt(lengthSq);
+    return Diligent::float3{value.x * invLength, value.y * invLength, value.z * invLength};
+}
+
+float dot3(const Diligent::float3 &lhs, const Diligent::float3 &rhs)
+{
+    return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
+}
+
+Diligent::float4x4 buildLookAtMatrix(const Diligent::float3 &eye, const Diligent::float3 &target,
+                                     const Diligent::float3 &up)
+{
+    const Diligent::float3 zaxis = normalizeOrFallback(target - eye, Diligent::float3{0, 0, 1});
+    const Diligent::float3 xaxis =
+        normalizeOrFallback(cross3(up, zaxis), Diligent::float3{1, 0, 0});
+    const Diligent::float3 yaxis = cross3(zaxis, xaxis);
+
+    Diligent::float4x4 result = Diligent::float4x4::Identity();
+    result._11                = xaxis.x;
+    result._21                = xaxis.y;
+    result._31                = xaxis.z;
+    result._12                = yaxis.x;
+    result._22                = yaxis.y;
+    result._32                = yaxis.z;
+    result._13                = zaxis.x;
+    result._23                = zaxis.y;
+    result._33                = zaxis.z;
+    result._41                = -dot3(xaxis, eye);
+    result._42                = -dot3(yaxis, eye);
+    result._43                = -dot3(zaxis, eye);
+    return result;
 }
 
 std::vector<CameraData> sortedCameras(const HostSceneView &sceneView)

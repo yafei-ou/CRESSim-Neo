@@ -37,6 +37,8 @@ public:
     void setMeshRenderer(common::EntityId entityId, const MeshRendererComponent &component);
     void setCamera(common::EntityId entityId, const CameraComponent &component);
     void setDirectionalLight(common::EntityId entityId, const DirectionalLightComponent &component);
+    void setPointLight(common::EntityId entityId, const PointLightComponent &component);
+    void setSpotLight(common::EntityId entityId, const SpotLightComponent &component);
 
     // Physics is owned by PhysicsWorld now.
     void setRigidBody(common::EntityId entityId, const RigidBodyComponent &component);
@@ -50,12 +52,16 @@ public:
     bool removeMeshRenderer(common::EntityId entityId);
     bool removeCamera(common::EntityId entityId);
     bool removeDirectionalLight(common::EntityId entityId);
+    bool removePointLight(common::EntityId entityId);
+    bool removeSpotLight(common::EntityId entityId);
 
     std::optional<TransformComponent> tryGetTransform(common::EntityId entityId) const;
     std::optional<MeshRendererComponent> tryGetMeshRenderer(common::EntityId entityId) const;
     std::optional<CameraComponent> tryGetCamera(common::EntityId entityId) const;
     std::optional<DirectionalLightComponent> tryGetDirectionalLight(
         common::EntityId entityId) const;
+    std::optional<PointLightComponent> tryGetPointLight(common::EntityId entityId) const;
+    std::optional<SpotLightComponent> tryGetSpotLight(common::EntityId entityId) const;
 
     // Read rigid body/collider through physics.
     std::optional<RigidBodyComponent> tryGetRigidBody(common::EntityId entityId) const;
@@ -70,14 +76,15 @@ public:
 
     const std::vector<graphics::RenderableInstance> &renderables() const noexcept;
     const std::vector<graphics::CameraData> &cameras() const noexcept;
-    const std::vector<graphics::DirectionalLightData> &directionalLights() const noexcept;
+    const std::vector<graphics::LightData> &lights() const noexcept;
     const std::vector<Diligent::float4> &renderObjectPositions() const noexcept;
     const std::vector<Diligent::float4> &renderObjectOrientations() const noexcept;
     const std::vector<Diligent::float4> &renderObjectScales() const noexcept;
     const std::vector<gpu::GpuRenderableMetadata> &renderableMetadata() const noexcept;
     const std::vector<gpu::GpuRenderableQueueInfo> &renderableQueueInfo() const noexcept;
     const std::vector<gpu::GpuCameraInput> &cameraInputs() const noexcept;
-    const std::vector<gpu::GpuDirectionalLightInput> &lightInputs() const noexcept;
+    const std::vector<gpu::GpuLightInput> &lightInputs() const noexcept;
+    const std::vector<gpu::GpuLocalLightSelection> &localLightSelections() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &opaqueDrawRegistry() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &shadowDrawRegistry() const noexcept;
     const std::vector<gpu::GpuEntityPoseMappingEntry> &physicsRenderableMappings();
@@ -119,6 +126,7 @@ private:
     void refreshRenderablePose(std::uint32_t objectIndex);
     void refreshCameraEntry(std::uint32_t cameraIndex);
     void refreshDirectionalLightEntry(std::uint32_t lightIndex);
+    void rebuildLocalLightSelections();
     void refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources);
     void rebuildDrawRegistries(const graphics::RenderResourceManager &resources);
     void clearDirtyIndexSet(std::vector<std::uint32_t> &dirtyIndices,
@@ -130,6 +138,10 @@ private:
     void moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
     void moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
     void moveDirectionalLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
+    [[nodiscard]] bool isLightSlotOccupied(std::uint32_t envIndex,
+                                           std::uint32_t slot) const noexcept;
+    [[nodiscard]] std::uint32_t allocateLightSlot(std::uint32_t envIndex,
+                                                  bool reserveMainDirectionalSlot);
 
     static Diligent::float4 packPosition(const TransformComponent &c)
     {
@@ -197,14 +209,15 @@ private:
 
     std::vector<graphics::RenderableInstance> mRenderables{};
     std::vector<graphics::CameraData> mRenderCameras{};
-    std::vector<graphics::DirectionalLightData> mRenderDirectionalLights{};
+    std::vector<graphics::LightData> mRenderLights{};
     std::vector<Diligent::float4> mRenderObjectPositions{};
     std::vector<Diligent::float4> mRenderObjectOrientations{};
     std::vector<Diligent::float4> mRenderObjectScales{};
     std::vector<gpu::GpuRenderableMetadata> mRenderableMetadataHost{};
     std::vector<gpu::GpuRenderableQueueInfo> mRenderableQueueInfoHost{};
     std::vector<gpu::GpuCameraInput> mCameraInputsHost{};
-    std::vector<gpu::GpuDirectionalLightInput> mLightInputsHost{};
+    std::vector<gpu::GpuLightInput> mLightInputsHost{};
+    std::vector<gpu::GpuLocalLightSelection> mLocalLightSelectionsHost{};
     std::vector<graphics::EnvironmentIblDesc> mEnvironmentIbls{};
     std::vector<graphics::IndirectCommandRegistryEntry> mOpaqueDrawRegistryHost{};
     std::vector<graphics::IndirectCommandRegistryEntry> mShadowDrawRegistryHost{};

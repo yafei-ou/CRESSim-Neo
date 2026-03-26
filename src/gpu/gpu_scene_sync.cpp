@@ -153,6 +153,7 @@ void GpuSceneSync::shutdown()
     mCameraInputsBuffer                 = nullptr;
     mPreparedCamerasBuffer              = nullptr;
     mLightInputsBuffer                  = nullptr;
+    mLocalLightSelectionBuffer          = nullptr;
     mConstantsBuffer                    = nullptr;
 }
 
@@ -327,7 +328,7 @@ bool GpuSceneSync::syncCameraInputs(const std::vector<GpuCameraInput> &cameras)
                        cameras.size() * sizeof(GpuCameraInput));
 }
 
-bool GpuSceneSync::syncLightInputs(const std::vector<GpuDirectionalLightInput> &lights)
+bool GpuSceneSync::syncLightInputs(const std::vector<GpuLightInput> &lights)
 {
     if (!mInitialized)
     {
@@ -348,11 +349,10 @@ bool GpuSceneSync::syncLightInputs(const std::vector<GpuDirectionalLightInput> &
         const std::uint32_t newCapacity    = std::max<std::uint32_t>(requiredCapacity, 1u);
         const Diligent::Uint64 contextMask = static_cast<Diligent::Uint64>(1ull)
                                              << computeContext.contextId;
-        if (!ensureStructuredBuffer(computeContext.renderDevice, "CRESSimNeo.Gpu.LightInputs",
-                                    sizeof(GpuDirectionalLightInput), newCapacity,
-                                    Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                    Diligent::CPU_ACCESS_NONE, contextMask, mLightInputsBuffer,
-                                    mLightCapacity, 1u))
+        if (!ensureStructuredBuffer(
+                computeContext.renderDevice, "CRESSimNeo.Gpu.LightInputs", sizeof(GpuLightInput),
+                newCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                Diligent::CPU_ACCESS_NONE, contextMask, mLightInputsBuffer, mLightCapacity, 1u))
         {
             return false;
         }
@@ -364,7 +364,50 @@ bool GpuSceneSync::syncLightInputs(const std::vector<GpuDirectionalLightInput> &
     }
 
     return writeBuffer(computeContext.computeContext, mLightInputsBuffer, lights.data(),
-                       lights.size() * sizeof(GpuDirectionalLightInput));
+                       lights.size() * sizeof(GpuLightInput));
+}
+
+bool GpuSceneSync::syncLocalLightSelections(const std::vector<GpuLocalLightSelection> &selections)
+{
+    if (!mInitialized)
+    {
+        return false;
+    }
+
+    GpuComputeBackendContext computeContext{};
+    if (!mDevice.tryGetPhysicsBackendContext(computeContext) ||
+        computeContext.renderDevice == nullptr || computeContext.computeContext == nullptr)
+    {
+        return false;
+    }
+
+    const std::uint32_t selectionCount   = static_cast<std::uint32_t>(selections.size());
+    const std::uint32_t requiredCapacity = std::max<std::uint32_t>(selectionCount, 1u);
+    if (mLocalLightSelectionBuffer == nullptr ||
+        mLocalLightSelectionBuffer->GetDesc().ElementByteStride != sizeof(GpuLocalLightSelection) ||
+        mLocalLightSelectionBuffer->GetDesc().Size <
+            static_cast<Diligent::Uint64>(requiredCapacity) * sizeof(GpuLocalLightSelection))
+    {
+        const Diligent::Uint64 contextMask = static_cast<Diligent::Uint64>(1ull)
+                                             << computeContext.contextId;
+        std::uint32_t ignoredCapacity      = 0u;
+        if (!ensureStructuredBuffer(
+                computeContext.renderDevice, "CRESSimNeo.Gpu.LocalLightSelections",
+                sizeof(GpuLocalLightSelection), requiredCapacity, Diligent::BIND_SHADER_RESOURCE,
+                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                mLocalLightSelectionBuffer, ignoredCapacity, 1u))
+        {
+            return false;
+        }
+    }
+
+    if (selectionCount == 0u)
+    {
+        return true;
+    }
+
+    return writeBuffer(computeContext.computeContext, mLocalLightSelectionBuffer, selections.data(),
+                       selections.size() * sizeof(GpuLocalLightSelection));
 }
 
 bool GpuSceneSync::writeBuffer(Diligent::IDeviceContext *computeContext, Diligent::IBuffer *buffer,
@@ -514,6 +557,7 @@ GpuEntitySceneView GpuSceneSync::sceneView() const noexcept
     view.cameraInputsBuffer                 = mCameraInputsBuffer;
     view.preparedCamerasBuffer              = mPreparedCamerasBuffer;
     view.lightInputsBuffer                  = mLightInputsBuffer;
+    view.localLightSelectionBuffer          = mLocalLightSelectionBuffer;
     view.entityCount                        = mEntityCount;
     view.renderableCount                    = mRenderableCount;
     view.cameraCount                        = mCameraCount;

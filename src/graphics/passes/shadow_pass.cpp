@@ -36,6 +36,11 @@ void ShadowPass::setBatchCameraBuffer(Diligent::IBuffer *buffer) noexcept
     mBatchCameraBuffer = buffer;
 }
 
+void ShadowPass::setLocalShadowViewBuffer(Diligent::IBuffer *buffer) noexcept
+{
+    mLocalShadowViewBuffer = buffer;
+}
+
 bool ShadowPass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
                              const ForwardDrawCommand &drawCommand, DrawSetup &outSetup)
 {
@@ -141,19 +146,48 @@ bool ShadowPass::bindSceneBuffers() const
         variable->Set(srv);
     }
 
-    if (mBatchCameraBuffer == nullptr)
+    if (mBatchCameraBuffer == nullptr && mLocalShadowViewBuffer == nullptr)
     {
         return false;
     }
     Diligent::IShaderResourceVariable *batchCamerasVar =
         mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras");
     Diligent::IBufferView *batchCamerasSrv =
-        mBatchCameraBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        mBatchCameraBuffer != nullptr
+            ? mBatchCameraBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE)
+            : nullptr;
     if (batchCamerasVar == nullptr || batchCamerasSrv == nullptr)
     {
-        return false;
+        if (batchCamerasVar != nullptr && mSceneView.preparedCamerasBuffer != nullptr)
+        {
+            batchCamerasVar->Set(mSceneView.preparedCamerasBuffer->GetDefaultView(
+                Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+        }
     }
-    batchCamerasVar->Set(batchCamerasSrv);
+    else
+    {
+        batchCamerasVar->Set(batchCamerasSrv);
+    }
+
+    Diligent::IShaderResourceVariable *localShadowViewsVar =
+        mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                                  "g_LocalShadowViews");
+    if (localShadowViewsVar != nullptr)
+    {
+        Diligent::IBuffer *buffer = mLocalShadowViewBuffer != nullptr
+                                        ? mLocalShadowViewBuffer
+                                        : mSceneView.preparedCamerasBuffer;
+        if (buffer == nullptr)
+        {
+            return false;
+        }
+        Diligent::IBufferView *srv = buffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        if (srv == nullptr)
+        {
+            return false;
+        }
+        localShadowViewsVar->Set(srv);
+    }
 
     Diligent::IShaderResourceVariable *visiblePairsVar =
         mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs");
@@ -179,7 +213,8 @@ bool ShadowPass::bindSceneBuffers() const
 
 bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
                                         const ForwardDrawCommand &drawCommand,
-                                        std::uint32_t cascadeIndex)
+                                        std::uint32_t shadowMatrixIndex,
+                                        std::uint32_t shadowPassMode)
 {
     PerObjectConstants objectConstants{};
     objectConstants.instanceIndex     = drawCommand.instanceIndex;
@@ -187,7 +222,8 @@ bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext *immediateConte
     objectConstants.useDrawListBuffer = drawCommand.useDrawListBuffer;
 
     ShadowPerPassConstants shadowPassConstants{};
-    shadowPassConstants.shadowPassParams[0] = cascadeIndex;
+    shadowPassConstants.shadowPassParams[0] = shadowMatrixIndex;
+    shadowPassConstants.shadowPassParams[1] = shadowPassMode;
 
     void *mappedConstants = nullptr;
     immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
@@ -224,7 +260,8 @@ void ShadowPass::bindGeometry(Diligent::IDeviceContext *immediateContext,
 }
 
 bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
-                              const ForwardDrawCommand &drawCommand, std::uint32_t cascadeIndex,
+                              const ForwardDrawCommand &drawCommand,
+                              std::uint32_t shadowMatrixIndex, std::uint32_t shadowPassMode,
                               Diligent::IBuffer *indirectArgsBuffer,
                               Diligent::Uint64 argsOffsetBytes)
 {
@@ -237,7 +274,8 @@ bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
     {
         return false;
     }
-    if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand, cascadeIndex))
+    if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand,
+                                shadowMatrixIndex, shadowPassMode))
     {
         return false;
     }
@@ -310,6 +348,8 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode              = Diligent::CULL_MODE_BACK;
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = Diligent::True;
+    // These rasterizer bias values remain renderer-global. Per-light sample bias is applied in
+    // the forward lighting shaders after shadow-map lookup.
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.DepthBias             = 8;
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.SlopeScaledDepthBias  = 2.0f;
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable         = Diligent::True;
@@ -332,6 +372,8 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
         {Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_VERTEX, "g_LocalShadowViews",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},

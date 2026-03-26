@@ -13,6 +13,10 @@ namespace cressim::neo::gpu
 inline constexpr std::uint32_t kInvalidGpuSceneIndex     = 0xffffffffu;
 inline constexpr std::uint32_t kMainDirectionalLightSlot = 0u;
 inline constexpr std::uint32_t kInvalidBatchCameraLayer  = 0xffffffffu;
+inline constexpr std::uint32_t kForwardLocalLightCap     = 8u;
+inline constexpr std::uint32_t kShadowedLocalLightCap    = 4u;
+inline constexpr std::uint32_t kShadowedPointLightCap    = 1u;
+inline constexpr std::uint32_t kLocalShadowMaxFaceCount  = 6u;
 
 struct GpuSceneLayoutDesc
 {
@@ -63,15 +67,73 @@ struct GpuCameraInput
     std::uint32_t reserved   = 0u;
 };
 
-struct GpuDirectionalLightInput
+struct GpuLightInput
 {
+    Diligent::float4 positionRange{};
     Diligent::float4 directionIntensity{};
     Diligent::float4 color{};
-    Diligent::float4 shadowParams{};
+    Diligent::float4 spotAngles{};
+    float shadowDistance       = 0.0f;
+    float shadowFadeDistance   = 0.0f;
+    float shadowBias           = 0.0015f;
+    float shadowPadding0       = 0.0f;
     std::uint32_t envIndex     = 0u;
     std::uint32_t lightSlot    = 0u;
+    std::uint32_t type         = 0u;
     std::uint32_t active       = 0u;
     std::uint32_t castsShadows = 0u;
+    std::uint32_t reserved0    = 0u;
+    std::uint32_t reserved1    = 0u;
+    std::uint32_t reserved2    = 0u;
+};
+
+enum class GpuLightType : std::uint32_t
+{
+    Directional = 0u,
+    Point       = 1u,
+    Spot        = 2u,
+};
+
+struct GpuLocalLightSelection
+{
+    std::uint32_t localLightCount         = 0u;
+    std::uint32_t shadowedLocalLightCount = 0u;
+    std::uint32_t shadowedPointLightCount = 0u;
+    std::uint32_t reserved0               = 0u;
+    std::array<std::uint32_t, kForwardLocalLightCap> lightIndices{};
+};
+
+enum class GpuLightShadowMode : std::uint32_t
+{
+    None    = 0u,
+    Local2D = 1u,
+    Point   = 2u,
+};
+
+struct GpuLightShadowAssignment
+{
+    std::uint32_t shadowMode      = static_cast<std::uint32_t>(GpuLightShadowMode::None);
+    std::uint32_t shadowViewIndex = kInvalidGpuSceneIndex;
+    std::uint32_t reserved0       = 0u;
+    std::uint32_t reserved1       = 0u;
+};
+
+struct GpuLocalShadowView
+{
+    std::array<Diligent::float4x4, kLocalShadowMaxFaceCount> lightViewProjectionMatrices{};
+    Diligent::float4 lightPositionRange{};
+    Diligent::float4 lightDirection{};
+    Diligent::float2 shadowTexelSize{0.0f, 0.0f};
+    float shadowNearPlane    = 0.0f;
+    float shadowFarPlane     = 0.0f;
+    std::uint32_t lightIndex = kInvalidGpuSceneIndex;
+    std::uint32_t envIndex   = 0u;
+    std::uint32_t firstLayer = 0u;
+    std::uint32_t layerCount = 1u;
+    std::uint32_t lightType  = 0u;
+    std::uint32_t active     = 0u;
+    std::uint32_t reserved0  = 0u;
+    std::uint32_t reserved1  = 0u;
 };
 
 struct GpuPreparedCamera
@@ -81,7 +143,9 @@ struct GpuPreparedCamera
     std::array<Diligent::float4x4, 4> lightViewProjectionMatrices{};
     Diligent::float4 cameraPosition{};
     Diligent::float4 cascadeSplits{};
-    Diligent::float4 shadowParams{};
+    Diligent::float2 mainShadowTexelSize{0.0f, 0.0f};
+    float mainShadowCascadeCount       = 0.0f;
+    float mainShadowFadeDistance       = 0.0f;
     std::uint32_t envIndex             = 0u;
     std::uint32_t active               = 0u;
     std::uint32_t objectRangeStart     = 0u;
@@ -131,6 +195,7 @@ struct GpuEntitySceneView
     Diligent::IBuffer *cameraInputsBuffer                 = nullptr;
     Diligent::IBuffer *preparedCamerasBuffer              = nullptr;
     Diligent::IBuffer *lightInputsBuffer                  = nullptr;
+    Diligent::IBuffer *localLightSelectionBuffer          = nullptr;
     std::uint32_t entityCount                             = 0;
     std::uint32_t renderableCount                         = 0;
     std::uint32_t cameraCount                             = 0;
