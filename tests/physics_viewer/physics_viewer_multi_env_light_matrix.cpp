@@ -304,6 +304,9 @@ void authorEnvironment(cressim::neo::engine::World &world, std::uint32_t envInde
     outCameraEntity = world.createEntity(envIndex);
     TransformComponent cameraTransform{};
     cameraTransform.worldTransform.position = origin + Diligent::float3{0.0f, 6.5f, -13.0f};
+    cameraTransform.worldTransform.rotation =
+        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f},
+                                                     12.0f * (kPi / 180.0f));
     world.setTransform(outCameraEntity, cameraTransform);
 
     CameraComponent camera{};

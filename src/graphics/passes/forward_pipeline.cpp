@@ -36,6 +36,15 @@ struct GraphicsIndirectPassConstants
     std::uint32_t padding0           = 0u;
 };
 
+struct DrawIndexedIndirectArgs
+{
+    std::uint32_t numIndices          = 0u;
+    std::uint32_t numInstances        = 0u;
+    std::uint32_t firstIndexLocation  = 0u;
+    std::int32_t baseVertex           = 0;
+    std::uint32_t firstInstanceOffset = 0u;
+};
+
 constexpr std::uint32_t kQueueModeOpaque          = 0u;
 constexpr std::uint32_t kQueueModeShadow          = 1u;
 constexpr std::uint32_t kShadowPassModeLocal      = 1u;
@@ -569,6 +578,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
 
         std::vector<IndirectCommandDesc> commandDescs(commandCount);
         std::vector<std::uint32_t> commandCounts(commandCount);
+        std::vector<DrawIndexedIndirectArgs> drawArgs(commandCount);
         for (std::uint32_t commandIndex = 0u; commandIndex < commandCount; ++commandIndex)
         {
             const LocalShadowCommand &command       = commands[commandIndex];
@@ -576,6 +586,10 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             commandDescs[commandIndex]              = IndirectCommandDesc{
                 command.drawListOffset, command.instanceCount, command.drawCommand.indexCount, 0u};
             commandCounts[commandIndex] = command.instanceCount;
+            // Local shadow draws index visible pairs as g_DrawListOffset + SV_InstanceID, so the
+            // indirect base instance must stay at zero for every command.
+            drawArgs[commandIndex] = DrawIndexedIndirectArgs{
+                command.drawCommand.indexCount, command.instanceCount, 0u, 0, 0u};
         }
 
         if (bufferSet.commandCapacity < commandCount || bufferSet.commandDescBuffer == nullptr ||
@@ -620,7 +634,9 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         if (!writeBuffer(backendContext.immediateContext, bufferSet.commandDescBuffer,
                          commandDescs.data(), commandDescs.size() * sizeof(IndirectCommandDesc)) ||
             !writeBuffer(backendContext.immediateContext, bufferSet.commandCountsBuffer,
-                         commandCounts.data(), commandCounts.size() * sizeof(std::uint32_t)))
+                         commandCounts.data(), commandCounts.size() * sizeof(std::uint32_t)) ||
+            !writeBuffer(backendContext.immediateContext, bufferSet.drawIndexedCommandsBuffer,
+                         drawArgs.data(), drawArgs.size() * sizeof(DrawIndexedIndirectArgs)))
         {
             return false;
         }

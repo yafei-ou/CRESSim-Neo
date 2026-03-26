@@ -4,8 +4,6 @@
 #include "common/id.h"
 #include "graphics/render_resource_manager.h"
 
-#include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
-
 #include <cstdint>
 
 namespace cressim::neo::graphics

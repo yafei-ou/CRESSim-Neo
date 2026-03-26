@@ -223,7 +223,7 @@ LocalShadowBuildResult buildLocalShadowData(const HostSceneView &sceneView,
                     buildLookAtMatrix(pos, pos + targets[faceIndex], ups[faceIndex]);
                 const Diligent::float4x4 proj = Diligent::float4x4::Projection(
                     Diligent::PI_F * 0.5f, 1.0f, 0.05f, std::max(light.range, 1.0f), false);
-                shadowView.lightViewProjectionMatrices[faceIndex] = view * proj;
+                shadowView.lightViewProjectionMatrices[faceIndex] = (view * proj).Transpose();
             }
             result.pointLayerCount += 6u;
             ++shadowedPointCounts[light.envIndex];
@@ -243,7 +243,7 @@ LocalShadowBuildResult buildLocalShadowData(const HostSceneView &sceneView,
                                               Diligent::PI_F / 180.0f);
             const Diligent::float4x4 proj = Diligent::float4x4::Projection(
                 fovRadians, 1.0f, 0.05f, std::max(light.range, 1.0f), false);
-            shadowView.lightViewProjectionMatrices[0] = view * proj;
+            shadowView.lightViewProjectionMatrices[0] = (view * proj).Transpose();
             ++result.local2DLayerCount;
             ++shadowedLocalCounts[light.envIndex];
             result.lightAssignments[lightIndex].shadowMode =
@@ -266,7 +266,7 @@ LocalShadowBuildResult buildLocalShadowData(const HostSceneView &sceneView,
                                                                : Diligent::float3{0, 1, 0});
             const Diligent::float4x4 proj = Diligent::float4x4::OrthoOffCenter(
                 -radius, radius, -radius, radius, 0.1f, radius * 4.0f + 8.0f, false);
-            shadowView.lightViewProjectionMatrices[0] = view * proj;
+            shadowView.lightViewProjectionMatrices[0] = (view * proj).Transpose();
             ++result.local2DLayerCount;
             ++shadowedLocalCounts[light.envIndex];
             result.lightAssignments[lightIndex].shadowMode =
