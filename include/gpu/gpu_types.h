@@ -51,7 +51,7 @@ struct GpuRenderTargetBinding
     std::uint32_t firstLayer = 0u;
     std::uint32_t layerCount = 1u;
 
-    [[nodiscard]] bool isValid() const noexcept
+    bool isValid() const noexcept
     {
         return target.id != common::kInvalidResourceId && layerCount > 0u;
     }
@@ -63,15 +63,15 @@ struct GpuRenderTargetBinding
     }
 };
 
-enum class CameraOutputMode
+enum class RenderOutputMode
 {
     ManagedPrimary,
     ExplicitSurface,
 };
 
-struct CameraOutputBinding
+struct RenderOutputBinding
 {
-    CameraOutputMode mode = CameraOutputMode::ManagedPrimary;
+    RenderOutputMode mode = RenderOutputMode::ManagedPrimary;
     GpuRenderTargetBinding binding{};
 };
 

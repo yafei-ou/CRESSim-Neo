@@ -211,7 +211,7 @@ int main(int argc, char** argv)
     TransformComponent cameraTransform{};
     cameraTransform.worldTransform.position = {0.0f, 0.0f, -2.0f};
     CameraComponent camera{};
-    camera.output.mode         = cressim::neo::gpu::CameraOutputMode::ExplicitSurface;
+    camera.output.mode         = cressim::neo::gpu::RenderOutputMode::ExplicitSurface;
     camera.output.binding      = GpuRenderTargetBinding{target, 0u, 1u};
     camera.viewport            = {0.0f, 0.0f, 0.5f, 1.0f};
     camera.clearColor          = true;

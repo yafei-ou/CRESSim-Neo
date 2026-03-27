@@ -23,10 +23,10 @@ namespace
 
 struct VulkanDedicatedContextPlan
 {
-    bool supported                       = false;
-    bool hasGraphicsQueue                = false;
-    Diligent::Uint8 graphicsQueueId      = 0u;
-    Diligent::Uint8 physicsQueueId       = 0u;
+    bool supported                  = false;
+    bool hasGraphicsQueue           = false;
+    Diligent::Uint8 graphicsQueueId = 0u;
+    Diligent::Uint8 physicsQueueId  = 0u;
 };
 
 Diligent::Uint32 clampWindowId(std::uint64_t value)
@@ -74,7 +74,7 @@ VulkanDedicatedContextPlan planDedicatedVulkanContexts(Diligent::IEngineFactoryV
         if (queueInfo.QueueType == Diligent::COMMAND_QUEUE_TYPE_GRAPHICS &&
             queueInfo.MaxDeviceContexts > 0u)
         {
-            plan.graphicsQueueId = static_cast<Diligent::Uint8>(queueIndex);
+            plan.graphicsQueueId  = static_cast<Diligent::Uint8>(queueIndex);
             plan.hasGraphicsQueue = true;
             break;
         }
@@ -86,9 +86,7 @@ VulkanDedicatedContextPlan planDedicatedVulkanContexts(Diligent::IEngineFactoryV
     }
 
     const auto canRunPhysics = [](Diligent::COMMAND_QUEUE_TYPE queueType)
-    {
-        return (queueType & Diligent::COMMAND_QUEUE_TYPE_COMPUTE) != 0;
-    };
+    { return (queueType & Diligent::COMMAND_QUEUE_TYPE_COMPUTE) != 0; };
 
     for (Diligent::Uint32 queueIndex = 0; queueIndex < adapterInfo.NumQueues; ++queueIndex)
     {
@@ -107,8 +105,7 @@ VulkanDedicatedContextPlan planDedicatedVulkanContexts(Diligent::IEngineFactoryV
     }
 
     const auto &graphicsQueueInfo = adapterInfo.Queues[plan.graphicsQueueId];
-    if (graphicsQueueInfo.MaxDeviceContexts >= 2u &&
-        canRunPhysics(graphicsQueueInfo.QueueType))
+    if (graphicsQueueInfo.MaxDeviceContexts >= 2u && canRunPhysics(graphicsQueueInfo.QueueType))
     {
         plan.physicsQueueId = plan.graphicsQueueId;
         plan.supported      = true;

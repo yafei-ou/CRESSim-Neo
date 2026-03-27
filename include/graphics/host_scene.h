@@ -35,7 +35,7 @@ struct CameraData
     float farClip            = 1000.0f;
 
     // Render output and scheduling controls copied from engine::CameraComponent.
-    gpu::CameraOutputBinding output{};
+    gpu::RenderOutputBinding output{};
     std::uint32_t outputWidth  = 0;
     std::uint32_t outputHeight = 0;
     gpu::GpuRenderViewport viewport{};

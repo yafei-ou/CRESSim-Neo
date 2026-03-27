@@ -4,7 +4,7 @@
 #include "common/math_utils_runtime.h"
 #include "engine/components.h"
 #if defined(__APPLE__)
-#    include "viewer/macos_glfw_native_window.h"
+#include "viewer/macos_glfw_native_window.h"
 #endif
 
 #include <GLFW/glfw3.h>
@@ -139,7 +139,7 @@ public:
 
     struct CameraOutputSettings
     {
-        gpu::CameraOutputBinding output{};
+        gpu::RenderOutputBinding output{};
         std::uint32_t outputWidth  = 0u;
         std::uint32_t outputHeight = 0u;
     };
@@ -687,7 +687,7 @@ private:
         CameraComponent updated = *existing;
         updated.outputWidth     = width;
         updated.outputHeight    = height;
-        updated.output.mode     = gpu::CameraOutputMode::ManagedPrimary;
+        updated.output.mode     = gpu::RenderOutputMode::ManagedPrimary;
         updated.output.binding  = {};
         world.setCamera(cameraEntity, updated);
     }
