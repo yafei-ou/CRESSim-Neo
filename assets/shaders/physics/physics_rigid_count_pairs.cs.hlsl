@@ -2,10 +2,10 @@
 #include "physics/include/physics_rigid_common.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_BroadPhaseBodyIndices);
-StructuredBuffer<GpuBodyAabb> g_BodyAabbs;
+CRESSIM_STRUCTURED_BUFFER(GpuBodyAabb, g_BodyAabbs);
 CRESSIM_STRUCTURED_BUFFER(GpuBvhNode, g_BvhNodes);
 CRESSIM_STRUCTURED_BUFFER(GpuBvhNode, g_StaticBvhNodes);
-StructuredBuffer<GpuColliderBroadPhaseData> g_ColliderBroadPhaseData;
+CRESSIM_STRUCTURED_BUFFER(GpuColliderBroadPhaseData, g_ColliderBroadPhaseData);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_PairCountsSphereSphere);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_PairCountsSphereBox);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_PairCountsSphereCapsule);
@@ -36,13 +36,13 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
     }
 
     const uint colliderId = CRESSIM_SB_LOAD(g_BroadPhaseBodyIndices, activeIndex);
-    const GpuColliderBroadPhaseData colliderA = g_ColliderBroadPhaseData[colliderId];
+    const GpuColliderBroadPhaseData colliderA = CRESSIM_SB_LOAD(g_ColliderBroadPhaseData, colliderId);
     const uint ownerBodyA = colliderA.ownerBody;
     const uint environmentA = colliderA.environmentIndex;
     const uint shapeTypeA = colliderA.shapeType;
     const uint layerA = colliderA.collisionLayer;
     const uint maskA = colliderA.collisionMask;
-    const GpuBodyAabb bodyAabb = g_BodyAabbs[colliderId];
+    const GpuBodyAabb bodyAabb = CRESSIM_SB_LOAD(g_BodyAabbs, colliderId);
     const float3 queryMin = bodyAabb.minBounds.xyz;
     const float3 queryMax = bodyAabb.maxBounds.xyz;
 
@@ -71,7 +71,7 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
             {
                 const uint otherColliderId = node.primitiveIdx;
                 const GpuColliderBroadPhaseData otherCollider =
-                    g_ColliderBroadPhaseData[otherColliderId];
+                    CRESSIM_SB_LOAD(g_ColliderBroadPhaseData, otherColliderId);
                 const uint otherOwnerBody = otherCollider.ownerBody;
                 if (otherColliderId > colliderId && otherOwnerBody != ownerBodyA)
                 {
@@ -117,7 +117,7 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
             {
                 const uint otherColliderId = node.primitiveIdx;
                 const GpuColliderBroadPhaseData otherCollider =
-                    g_ColliderBroadPhaseData[otherColliderId];
+                    CRESSIM_SB_LOAD(g_ColliderBroadPhaseData, otherColliderId);
                 const uint otherOwnerBody = otherCollider.ownerBody;
                 if (otherOwnerBody != ownerBodyA)
                 {

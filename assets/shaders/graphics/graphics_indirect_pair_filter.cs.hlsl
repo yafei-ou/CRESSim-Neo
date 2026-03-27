@@ -16,9 +16,9 @@ cbuffer GraphicsIndirectFilterConstants
     uint g_FilterPadding0;
 };
 
-StructuredBuffer<IndirectCommandDesc> g_CommandDescs;
-RWStructuredBuffer<uint> g_CommandCountsRW;
-RWStructuredBuffer<VisiblePairInstance> g_VisiblePairsRW;
+CRESSIM_STRUCTURED_BUFFER(IndirectCommandDesc, g_CommandDescs);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_CommandCountsRW);
+CRESSIM_RW_STRUCTURED_BUFFER(VisiblePairInstance, g_VisiblePairsRW);
 
 static const uint kQueueModeOpaque = 0u;
 static const uint kQueueModeShadow = 1u;
@@ -41,9 +41,9 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     const uint batchCameraIndex = globalIndex / g_ObjectCount;
     const uint localObjectIndex = globalIndex % g_ObjectCount;
-    const BatchCameraMetadata batchCamera = g_BatchCameras[batchCameraIndex];
+    const BatchCameraMetadata batchCamera = CRESSIM_SB_LOAD(g_BatchCameras, batchCameraIndex);
     const uint cameraIndex = batchCamera.globalCameraIndex;
-    const PreparedCamera preparedCamera = g_PreparedCameras[cameraIndex];
+    const PreparedCamera preparedCamera = CRESSIM_SB_LOAD(g_PreparedCameras, cameraIndex);
     if (preparedCamera.active == 0u || localObjectIndex >= preparedCamera.objectRangeCount)
     {
         return;
@@ -51,7 +51,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     const uint globalObjectIndex = preparedCamera.objectRangeStart + localObjectIndex;
     const uint visibilityIndex = preparedCamera.visibilityDataOffset + localObjectIndex;
-    const RenderableQueueInfo queueInfo = g_RenderableQueueInfo[globalObjectIndex];
+    const RenderableQueueInfo queueInfo = CRESSIM_SB_LOAD(g_RenderableQueueInfo, globalObjectIndex);
 
     if (g_QueueMode == kQueueModeOpaque)
     {
@@ -62,16 +62,16 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         }
 
         const uint commandIndex = queueInfo.opaqueCommandIndex;
-        const IndirectCommandDesc desc = g_CommandDescs[commandIndex];
+        const IndirectCommandDesc desc = CRESSIM_SB_LOAD(g_CommandDescs, commandIndex);
         uint visibleSlot = 0u;
-        InterlockedAdd(g_CommandCountsRW[commandIndex], 1u, visibleSlot);
+        InterlockedAdd(CRESSIM_SB_REF(g_CommandCountsRW, commandIndex), 1u, visibleSlot);
         if (visibleSlot < desc.maxVisibleCount)
         {
             VisiblePairInstance pair;
             pair.objectIndex = globalObjectIndex;
             pair.batchCameraIndex = batchCameraIndex;
             pair.bucketIndex = commandIndex;
-            g_VisiblePairsRW[desc.visibleOffset + visibleSlot] = pair;
+            CRESSIM_SB_STORE(g_VisiblePairsRW, desc.visibleOffset + visibleSlot, pair);
         }
         return;
     }
@@ -91,16 +91,16 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         }
 
         const uint commandIndex = queueInfo.shadowCommandBaseIndex + cascadeIndex;
-        const IndirectCommandDesc desc = g_CommandDescs[commandIndex];
+        const IndirectCommandDesc desc = CRESSIM_SB_LOAD(g_CommandDescs, commandIndex);
         uint visibleSlot = 0u;
-        InterlockedAdd(g_CommandCountsRW[commandIndex], 1u, visibleSlot);
+        InterlockedAdd(CRESSIM_SB_REF(g_CommandCountsRW, commandIndex), 1u, visibleSlot);
         if (visibleSlot < desc.maxVisibleCount)
         {
             VisiblePairInstance pair;
             pair.objectIndex = globalObjectIndex;
             pair.batchCameraIndex = batchCameraIndex;
             pair.bucketIndex = commandIndex;
-            g_VisiblePairsRW[desc.visibleOffset + visibleSlot] = pair;
+            CRESSIM_SB_STORE(g_VisiblePairsRW, desc.visibleOffset + visibleSlot, pair);
         }
     }
 }

@@ -20,7 +20,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    const RenderableMetadata metadata = g_RenderableMetadata[objectIndex];
+    const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
     if ((metadata.flags & CRESSIM_RENDERABLE_FLAG_ACTIVE) == 0u)
     {
         return;

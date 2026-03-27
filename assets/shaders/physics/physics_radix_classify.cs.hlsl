@@ -2,7 +2,7 @@
 
 #include "physics/include/physics_rigid_common.hlsli"
 
-StructuredBuffer<GpuMortonCodeElement> g_MortonCodesIn;
+CRESSIM_STRUCTURED_BUFFER(GpuMortonCodeElement, g_MortonCodesIn);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_RadixBitFlags);
 
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -13,5 +13,5 @@ CRESSIM_RW_STRUCTURED_BUFFER(uint, g_RadixBitFlags);
         return;
     }
 
-    CRESSIM_SB_STORE(g_RadixBitFlags, index, (g_MortonCodesIn[index].mortonCode >> bitIndex) & 1u);
+    CRESSIM_SB_STORE(g_RadixBitFlags, index, (CRESSIM_SB_LOAD(g_MortonCodesIn, index).mortonCode >> bitIndex) & 1u);
 }

@@ -4,7 +4,7 @@
 CRESSIM_STRUCTURED_BUFFER(uint, g_BodySetFlags);
 CRESSIM_STRUCTURED_BUFFER(uint, g_BodySetOffsets);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_BroadPhaseBodyIndices);
-RWStructuredBuffer<GpuBodyMeta> g_BodyMeta;
+CRESSIM_RW_STRUCTURED_BUFFER(GpuBodyMeta, g_BodyMeta);
 
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -14,7 +14,7 @@ RWStructuredBuffer<GpuBodyMeta> g_BodyMeta;
         return;
     }
 
-    GpuBodyMeta meta = g_BodyMeta[primitiveIndex];
+    GpuBodyMeta meta = CRESSIM_SB_LOAD(g_BodyMeta, primitiveIndex);
     if (CRESSIM_SB_LOAD(g_BodySetFlags, primitiveIndex) != 0u)
     {
         const uint activeIndex = CRESSIM_SB_LOAD(g_BodySetOffsets, primitiveIndex);
@@ -25,5 +25,5 @@ RWStructuredBuffer<GpuBodyMeta> g_BodyMeta;
     {
         meta.activeIndex = kInvalidIndex;
     }
-    g_BodyMeta[primitiveIndex] = meta;
+    CRESSIM_SB_STORE(g_BodyMeta, primitiveIndex, meta);
 }

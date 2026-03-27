@@ -1,8 +1,8 @@
 #include "physics/include/physics_rigid_broad_phase_reduction_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-StructuredBuffer<GpuBroadPhaseExtent> g_InputExtents;
-RWStructuredBuffer<GpuBroadPhaseExtent> g_OutputExtents;
+CRESSIM_STRUCTURED_BUFFER(GpuBroadPhaseExtent, g_InputExtents);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuBroadPhaseExtent, g_OutputExtents);
 
 groupshared float3 g_GroupMin[64];
 groupshared float3 g_GroupMax[64];
@@ -18,7 +18,7 @@ groupshared float3 g_GroupMax[64];
     float3 localMax = float3(-3.402823466e+38, -3.402823466e+38, -3.402823466e+38);
     if (index < elementCount)
     {
-        const GpuBroadPhaseExtent extent = g_InputExtents[index];
+        const GpuBroadPhaseExtent extent = CRESSIM_SB_LOAD(g_InputExtents, index);
         localMin = extent.minBounds.xyz;
         localMax = extent.maxBounds.xyz;
     }
@@ -42,6 +42,6 @@ groupshared float3 g_GroupMax[64];
         GpuBroadPhaseExtent extent;
         extent.minBounds = float4(g_GroupMin[0], 0.0);
         extent.maxBounds = float4(g_GroupMax[0], 0.0);
-        g_OutputExtents[groupID.x] = extent;
+        CRESSIM_SB_STORE(g_OutputExtents, groupID.x, extent);
     }
 }

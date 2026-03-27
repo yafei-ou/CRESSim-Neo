@@ -23,7 +23,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     const uint currentCameraIndex = globalIndex / g_MaxObjectsPerEnv;
     const uint localObjectIndex = globalIndex % g_MaxObjectsPerEnv;
-    const PreparedCamera preparedCamera = g_PreparedCameras[currentCameraIndex];
+    const PreparedCamera preparedCamera = CRESSIM_SB_LOAD(g_PreparedCameras, currentCameraIndex);
     const uint outputIndex = preparedCamera.visibilityDataOffset + localObjectIndex;
     if (preparedCamera.active == 0u)
     {
@@ -33,7 +33,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     }
 
     const uint renderableIndex = preparedCamera.objectRangeStart + localObjectIndex;
-    const RenderableMetadata metadata = g_RenderableMetadata[renderableIndex];
+    const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, renderableIndex);
     if ((metadata.flags & CRESSIM_RENDERABLE_FLAG_ACTIVE) == 0u)
     {
         CRESSIM_SB_STORE(g_RenderableVisibilityFlagsRW, outputIndex, 0u);

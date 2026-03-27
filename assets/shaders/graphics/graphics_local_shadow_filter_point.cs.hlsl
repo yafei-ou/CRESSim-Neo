@@ -16,9 +16,9 @@ cbuffer GraphicsLocalShadowPrepareConstants
     uint g_LocalShadowBucketCount;
 };
 
-StructuredBuffer<IndirectCommandDesc> g_CommandDescs;
-RWStructuredBuffer<uint> g_CommandCountsRW;
-RWStructuredBuffer<VisiblePairInstance> g_VisiblePairsRW;
+CRESSIM_STRUCTURED_BUFFER(IndirectCommandDesc, g_CommandDescs);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_CommandCountsRW);
+CRESSIM_RW_STRUCTURED_BUFFER(VisiblePairInstance, g_VisiblePairsRW);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
@@ -40,7 +40,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    const RenderableQueueInfo queueInfo = g_RenderableQueueInfo[objectIndex];
+    const RenderableQueueInfo queueInfo = CRESSIM_SB_LOAD(g_RenderableQueueInfo, objectIndex);
     if (queueInfo.localShadowCommandIndex == 0xffffffffu)
     {
         return;
@@ -49,7 +49,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     const uint pointSlot = localShadowPointFaceIndexToPointSlot(faceIndex);
     const uint localFaceIndex = localShadowPointFaceIndexToLocalFace(faceIndex);
     const uint shadowViewIndex = localShadowPointViewIndex(envIndex, pointSlot);
-    const LocalShadowView shadowView = g_LocalShadowViews[shadowViewIndex];
+    const LocalShadowView shadowView = CRESSIM_SB_LOAD(g_LocalShadowViews, shadowViewIndex);
     if (shadowView.active == 0u || localFaceIndex >= shadowView.layerCount)
     {
         return;
@@ -66,9 +66,9 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     }
 
     const uint commandIndex = queueInfo.localShadowCommandIndex * totalFaceCount + faceIndex;
-    const IndirectCommandDesc desc = g_CommandDescs[commandIndex];
+    const IndirectCommandDesc desc = CRESSIM_SB_LOAD(g_CommandDescs, commandIndex);
     uint visibleSlot = 0u;
-    InterlockedAdd(g_CommandCountsRW[commandIndex], 1u, visibleSlot);
+    InterlockedAdd(CRESSIM_SB_REF(g_CommandCountsRW, commandIndex), 1u, visibleSlot);
     if (visibleSlot < desc.maxVisibleCount)
     {
         VisiblePairInstance pair;
@@ -76,6 +76,6 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         pair.batchCameraIndex = shadowViewIndex;
         pair.bucketIndex = commandIndex;
         pair.shadowSubviewIndex = localFaceIndex;
-        g_VisiblePairsRW[desc.visibleOffset + visibleSlot] = pair;
+        CRESSIM_SB_STORE(g_VisiblePairsRW, desc.visibleOffset + visibleSlot, pair);
     }
 }

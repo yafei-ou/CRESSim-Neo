@@ -11,7 +11,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyLinearVelocities);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyAngularVelocities);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
-StructuredBuffer<GpuRigidContact> g_RigidContacts;
+CRESSIM_STRUCTURED_BUFFER(GpuRigidContact, g_RigidContacts);
 
 CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyLinearVelocityCorrections);
 CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyAngularVelocityCorrections);
@@ -43,7 +43,7 @@ float ComputeImpulseDenominator(float invMass, float3 invInertiaLocal, float4 or
         return;
     }
 
-    const GpuRigidContact contact = g_RigidContacts[contactIndex];
+    const GpuRigidContact contact = CRESSIM_SB_LOAD(g_RigidContacts, contactIndex);
     if (contact.active == 0u)
     {
         return;

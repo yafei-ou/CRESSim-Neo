@@ -17,7 +17,7 @@ struct PoseMappingEntry
 CRESSIM_STRUCTURED_BUFFER(float4, g_SourcePositions);
 CRESSIM_STRUCTURED_BUFFER(float4, g_SourceOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_SourceScales);
-StructuredBuffer<PoseMappingEntry> g_Mappings;
+CRESSIM_STRUCTURED_BUFFER(PoseMappingEntry, g_Mappings);
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_EntityPositions);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_EntityOrientations);
@@ -32,7 +32,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    const PoseMappingEntry mapping = g_Mappings[mappingIndex];
+    const PoseMappingEntry mapping = CRESSIM_SB_LOAD(g_Mappings, mappingIndex);
     CRESSIM_SB_STORE(g_EntityPositions, mapping.entityPoseIndex,
                      CRESSIM_SB_LOAD(g_SourcePositions, mapping.sourcePoseIndex));
     CRESSIM_SB_STORE(g_EntityOrientations, mapping.entityPoseIndex,

@@ -26,9 +26,9 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
     {
         if (localShadowPass)
         {
-            const VisiblePairInstance pair = g_VisiblePairs[instanceId];
+            const VisiblePairInstance pair = CRESSIM_SB_LOAD(g_VisiblePairs, instanceId);
             objectIndex = pair.objectIndex;
-            const LocalShadowView shadowView = g_LocalShadowViews[pair.batchCameraIndex];
+            const LocalShadowView shadowView = CRESSIM_SB_LOAD(g_LocalShadowViews, pair.batchCameraIndex);
             const uint localMatrixIndex = pair.shadowSubviewIndex;
 
             bool poseValid = false;
@@ -54,13 +54,13 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
             return;
         }
 
-        const VisiblePairInstance pair = g_VisiblePairs[g_DrawListOffset + instanceId];
+        const VisiblePairInstance pair = CRESSIM_SB_LOAD(g_VisiblePairs, g_DrawListOffset + instanceId);
         objectIndex = pair.objectIndex;
-        const BatchCameraMetadata batchCamera = g_BatchCameras[pair.batchCameraIndex];
+        const BatchCameraMetadata batchCamera = CRESSIM_SB_LOAD(g_BatchCameras, pair.batchCameraIndex);
         cameraIndex = batchCamera.globalCameraIndex;
         shadowLayer = batchCamera.shadowLayer;
     }
-    const PreparedCamera preparedCamera = g_PreparedCameras[cameraIndex];
+    const PreparedCamera preparedCamera = CRESSIM_SB_LOAD(g_PreparedCameras, cameraIndex);
     bool poseValid = false;
     float3 position = float3(0.0, 0.0, 0.0);
     float4 orientation = float4(0.0, 0.0, 0.0, 1.0);

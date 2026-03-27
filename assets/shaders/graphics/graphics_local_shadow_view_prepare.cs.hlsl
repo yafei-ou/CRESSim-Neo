@@ -8,9 +8,9 @@ cbuffer GraphicsLocalShadowPrepareConstants
     uint g_LocalShadowBucketCount;
 };
 
-StructuredBuffer<uint> g_LocalShadowEnvBounds;
-RWStructuredBuffer<LightShadowAssignment> g_LightShadowAssignmentsRW;
-RWStructuredBuffer<LocalShadowView> g_LocalShadowViewsRW;
+CRESSIM_STRUCTURED_BUFFER(uint, g_LocalShadowEnvBounds);
+CRESSIM_RW_STRUCTURED_BUFFER(LightShadowAssignment, g_LightShadowAssignmentsRW);
+CRESSIM_RW_STRUCTURED_BUFFER(LocalShadowView, g_LocalShadowViewsRW);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
@@ -21,14 +21,34 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    const LocalLightSelection selection = g_LocalLightSelections[envIndex];
+    const LocalLightSelection selection = CRESSIM_SB_LOAD(g_LocalLightSelections, envIndex);
     uint local2DSlot = 0u;
     uint pointSlot = 0u;
     bool envBoundsValid = false;
     float3 envBoundsCenter = float3(0.0, 0.0, 0.0);
     float envBoundsRadius = 10.0;
-    localShadowDecodeEnvBounds(g_LocalShadowEnvBounds, envIndex, envBoundsValid,
-                               envBoundsCenter, envBoundsRadius);
+    const uint envBoundsBaseIndex = envIndex * CRESSIM_LOCAL_SHADOW_ENV_BOUNDS_WORDS;
+    envBoundsValid = CRESSIM_SB_LOAD(g_LocalShadowEnvBounds, envBoundsBaseIndex + 6u) != 0u;
+    if (envBoundsValid)
+    {
+        const float3 envBoundsMin = float3(
+            localShadowOrderedUintToFloat(CRESSIM_SB_LOAD(g_LocalShadowEnvBounds,
+                                                          envBoundsBaseIndex + 0u)),
+            localShadowOrderedUintToFloat(CRESSIM_SB_LOAD(g_LocalShadowEnvBounds,
+                                                          envBoundsBaseIndex + 1u)),
+            localShadowOrderedUintToFloat(CRESSIM_SB_LOAD(g_LocalShadowEnvBounds,
+                                                          envBoundsBaseIndex + 2u)));
+        const float3 envBoundsMax = float3(
+            localShadowOrderedUintToFloat(CRESSIM_SB_LOAD(g_LocalShadowEnvBounds,
+                                                          envBoundsBaseIndex + 3u)),
+            localShadowOrderedUintToFloat(CRESSIM_SB_LOAD(g_LocalShadowEnvBounds,
+                                                          envBoundsBaseIndex + 4u)),
+            localShadowOrderedUintToFloat(CRESSIM_SB_LOAD(g_LocalShadowEnvBounds,
+                                                          envBoundsBaseIndex + 5u)));
+        envBoundsCenter = (envBoundsMin + envBoundsMax) * 0.5;
+        const float3 envBoundsExtents = envBoundsMax - envBoundsMin;
+        envBoundsRadius = max(5.0, length(envBoundsExtents) * 0.5 + 2.0);
+    }
 
     [unroll]
     for (uint selectionIndex = 0u; selectionIndex < CRESSIM_FORWARD_LOCAL_LIGHT_CAP; ++selectionIndex)
@@ -44,7 +64,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             continue;
         }
 
-        const LightInput light = g_LightInputs[lightIndex];
+        const LightInput light = CRESSIM_SB_LOAD(g_LightInputs, lightIndex);
         const bool active =
             light.active != 0u && light.castsShadows != 0u &&
             light.directionIntensity.w > 0.0 &&
@@ -101,8 +121,8 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             LightShadowAssignment assignment = (LightShadowAssignment)0;
             assignment.shadowMode = 2u;
             assignment.shadowViewIndex = shadowViewIndex;
-            g_LightShadowAssignmentsRW[lightIndex] = assignment;
-            g_LocalShadowViewsRW[shadowViewIndex] = shadowView;
+            CRESSIM_SB_STORE(g_LightShadowAssignmentsRW, lightIndex, assignment);
+            CRESSIM_SB_STORE(g_LocalShadowViewsRW, shadowViewIndex, shadowView);
             ++pointSlot;
             continue;
         }
@@ -163,8 +183,8 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         LightShadowAssignment assignment = (LightShadowAssignment)0;
         assignment.shadowMode = 1u;
         assignment.shadowViewIndex = shadowViewIndex;
-        g_LightShadowAssignmentsRW[lightIndex] = assignment;
-        g_LocalShadowViewsRW[shadowViewIndex] = shadowView;
+        CRESSIM_SB_STORE(g_LightShadowAssignmentsRW, lightIndex, assignment);
+        CRESSIM_SB_STORE(g_LocalShadowViewsRW, shadowViewIndex, shadowView);
         ++local2DSlot;
     }
 }

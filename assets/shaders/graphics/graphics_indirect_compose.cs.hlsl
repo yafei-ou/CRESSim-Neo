@@ -1,3 +1,5 @@
+#include "include/structured_buffer_compat.hlsli"
+
 struct DrawIndexedCommand
 {
     uint numIndices;
@@ -15,8 +17,8 @@ cbuffer GraphicsIndirectComposeConstants
     uint g_ComposePadding0;
 };
 
-StructuredBuffer<uint> g_CommandCounts;
-RWStructuredBuffer<DrawIndexedCommand> g_DrawIndexedCommandsRW;
+CRESSIM_STRUCTURED_BUFFER(uint, g_CommandCounts);
+CRESSIM_RW_STRUCTURED_BUFFER(DrawIndexedCommand, g_DrawIndexedCommandsRW);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
@@ -27,7 +29,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    DrawIndexedCommand command = g_DrawIndexedCommandsRW[commandIndex];
-    command.numInstances = g_CommandCounts[commandIndex];
-    g_DrawIndexedCommandsRW[commandIndex] = command;
+    DrawIndexedCommand command = CRESSIM_SB_LOAD(g_DrawIndexedCommandsRW, commandIndex);
+    command.numInstances = CRESSIM_SB_LOAD(g_CommandCounts, commandIndex);
+    CRESSIM_SB_STORE(g_DrawIndexedCommandsRW, commandIndex, command);
 }

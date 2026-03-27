@@ -12,8 +12,8 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalPositions);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalOrientations);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ColliderEnabledFlags);
 
-RWStructuredBuffer<GpuBodyAabb> g_BodyAabbs;
-RWStructuredBuffer<GpuBodyMeta> g_BodyMeta;
+CRESSIM_RW_STRUCTURED_BUFFER(GpuBodyAabb, g_BodyAabbs);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuBodyMeta, g_BodyMeta);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_ActiveBodyFlags);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_StaticBodyFlags);
 
@@ -39,8 +39,8 @@ CRESSIM_RW_STRUCTURED_BUFFER(uint, g_StaticBodyFlags);
     if (ownerBodyIndex >= rigidBodyCount ||
         CRESSIM_SB_LOAD(g_ColliderEnabledFlags, colliderIndex) == 0u)
     {
-        g_BodyAabbs[colliderIndex] = bodyAabb;
-        g_BodyMeta[colliderIndex] = meta;
+        CRESSIM_SB_STORE(g_BodyAabbs, colliderIndex, bodyAabb);
+        CRESSIM_SB_STORE(g_BodyMeta, colliderIndex, meta);
         CRESSIM_SB_STORE(g_ActiveBodyFlags, colliderIndex, 0u);
         CRESSIM_SB_STORE(g_StaticBodyFlags, colliderIndex, 0u);
         return;
@@ -70,7 +70,7 @@ CRESSIM_RW_STRUCTURED_BUFFER(uint, g_StaticBodyFlags);
 
     bodyAabb.minBounds = float4(aabbMin, 0.0);
     bodyAabb.maxBounds = float4(aabbMax, 0.0);
-    g_BodyAabbs[colliderIndex] = bodyAabb;
+    CRESSIM_SB_STORE(g_BodyAabbs, colliderIndex, bodyAabb);
 
     meta.flags = 0u;
     if (bodyType == 0u)
@@ -85,7 +85,7 @@ CRESSIM_RW_STRUCTURED_BUFFER(uint, g_StaticBodyFlags);
     {
         meta.flags |= kBodyFlagDynamic;
     }
-    g_BodyMeta[colliderIndex] = meta;
+    CRESSIM_SB_STORE(g_BodyMeta, colliderIndex, meta);
     CRESSIM_SB_STORE(g_ActiveBodyFlags, colliderIndex,
                      (meta.flags & kBodyFlagMoving) != 0u ? 1u : 0u);
     CRESSIM_SB_STORE(g_StaticBodyFlags, colliderIndex,

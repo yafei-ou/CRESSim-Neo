@@ -13,8 +13,8 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsSphereCapsule);
 CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsBoxBox);
 CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsBoxCapsule);
 CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsCapsuleCapsule);
-RWStructuredBuffer<GpuRigidPairRange> g_RigidPairRanges;
-RWStructuredBuffer<GpuBroadPhaseMeta> g_BroadPhaseMeta;
+CRESSIM_RW_STRUCTURED_BUFFER(GpuRigidPairRange, g_RigidPairRanges);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuBroadPhaseMeta, g_BroadPhaseMeta);
 
 [numthreads(1, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -53,13 +53,13 @@ RWStructuredBuffer<GpuBroadPhaseMeta> g_BroadPhaseMeta;
         range.start = runningStart;
         range.count = counts[type];
         range.reserved = 0u;
-        g_RigidPairRanges[type] = range;
+        CRESSIM_SB_STORE(g_RigidPairRanges, type, range);
         runningStart += counts[type];
     }
 
-    GpuBroadPhaseMeta meta = g_BroadPhaseMeta[0];
+    GpuBroadPhaseMeta meta = CRESSIM_SB_LOAD(g_BroadPhaseMeta, 0);
     meta.candidatePairCount = runningStart;
     meta.requiredPairCount = runningStart;
     meta.overflow = runningStart > candidatePairCapacity ? 1u : 0u;
-    g_BroadPhaseMeta[0] = meta;
+    CRESSIM_SB_STORE(g_BroadPhaseMeta, 0, meta);
 }

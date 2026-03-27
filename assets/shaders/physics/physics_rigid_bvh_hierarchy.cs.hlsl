@@ -1,10 +1,10 @@
 #include "physics/include/physics_rigid_broad_phase_build_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-StructuredBuffer<GpuMortonCodeElement> g_SortedMortonCodes;
-StructuredBuffer<GpuBroadPhaseElement> g_BroadPhaseElements;
-RWStructuredBuffer<GpuBvhNode> g_BvhNodes;
-RWStructuredBuffer<GpuBvhConstructionInfo> g_BvhConstructionInfos;
+CRESSIM_STRUCTURED_BUFFER(GpuMortonCodeElement, g_SortedMortonCodes);
+CRESSIM_STRUCTURED_BUFFER(GpuBroadPhaseElement, g_BroadPhaseElements);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuBvhNode, g_BvhNodes);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuBvhConstructionInfo, g_BvhConstructionInfos);
 
 int Delta(int i, uint codeI, int j)
 {
@@ -13,11 +13,11 @@ int Delta(int i, uint codeI, int j)
         return -1;
     }
 
-    const uint codeJ = g_SortedMortonCodes[j].mortonCode;
+    const uint codeJ = CRESSIM_SB_LOAD(g_SortedMortonCodes, j).mortonCode;
     if (codeI == codeJ)
     {
-        const uint elementIdxI = g_SortedMortonCodes[i].elementIdx;
-        const uint elementIdxJ = g_SortedMortonCodes[j].elementIdx;
+        const uint elementIdxI = CRESSIM_SB_LOAD(g_SortedMortonCodes, i).elementIdx;
+        const uint elementIdxJ = CRESSIM_SB_LOAD(g_SortedMortonCodes, j).elementIdx;
         const uint xorValue = elementIdxI ^ elementIdxJ;
         return (xorValue == 0u) ? 64 : (63 - firstbithigh(xorValue));
     }
@@ -27,7 +27,7 @@ int Delta(int i, uint codeI, int j)
 
 void DetermineRange(int idx, out int lower, out int upper)
 {
-    const uint code = g_SortedMortonCodes[idx].mortonCode;
+    const uint code = CRESSIM_SB_LOAD(g_SortedMortonCodes, idx).mortonCode;
     const int deltaL = Delta(idx, code, idx - 1);
     const int deltaR = Delta(idx, code, idx + 1);
     const int direction = (deltaR >= deltaL) ? 1 : -1;
@@ -55,7 +55,7 @@ void DetermineRange(int idx, out int lower, out int upper)
 
 int FindSplit(int first, int last)
 {
-    const uint firstCode = g_SortedMortonCodes[first].mortonCode;
+    const uint firstCode = CRESSIM_SB_LOAD(g_SortedMortonCodes, first).mortonCode;
     const int commonPrefix = Delta(first, firstCode, last);
 
     int split = first;
@@ -91,7 +91,7 @@ int FindSplit(int first, int last)
         if (globalId == 0u)
         {
           const GpuBroadPhaseElement element =
-              g_BroadPhaseElements[g_SortedMortonCodes[0].elementIdx];
+              CRESSIM_SB_LOAD(g_BroadPhaseElements, CRESSIM_SB_LOAD(g_SortedMortonCodes, 0).elementIdx);
           GpuBvhNode node;
           node.left = -1;
           node.right = -1;
@@ -103,12 +103,12 @@ int FindSplit(int first, int last)
           node.aabbMaxY = element.aabbMaxY;
           node.aabbMaxZ = element.aabbMaxZ;
           node.reserved = 0.0;
-          g_BvhNodes[0] = node;
+          CRESSIM_SB_STORE(g_BvhNodes, 0, node);
 
           GpuBvhConstructionInfo rootInfo;
           rootInfo.parent = 0u;
           rootInfo.visitationCount = 0;
-          g_BvhConstructionInfos[0] = rootInfo;
+          CRESSIM_SB_STORE(g_BvhConstructionInfos, 0, rootInfo);
         }
         return;
     }
@@ -117,7 +117,7 @@ int FindSplit(int first, int last)
     if (globalId < elementCount)
     {
         const GpuBroadPhaseElement element =
-            g_BroadPhaseElements[g_SortedMortonCodes[globalId].elementIdx];
+            CRESSIM_SB_LOAD(g_BroadPhaseElements, CRESSIM_SB_LOAD(g_SortedMortonCodes, globalId).elementIdx);
         GpuBvhNode node;
         node.left = -1;
         node.right = -1;
@@ -129,7 +129,7 @@ int FindSplit(int first, int last)
         node.aabbMaxY = element.aabbMaxY;
         node.aabbMaxZ = element.aabbMaxZ;
         node.reserved = 0.0;
-        g_BvhNodes[leafOffset + globalId] = node;
+        CRESSIM_SB_STORE(g_BvhNodes, leafOffset + globalId, node);
     }
 
     if (globalId < elementCount - 1u)
@@ -153,17 +153,17 @@ int FindSplit(int first, int last)
         node.aabbMaxY = 0.0;
         node.aabbMaxZ = 0.0;
         node.reserved = 0.0;
-        g_BvhNodes[globalId] = node;
+        CRESSIM_SB_STORE(g_BvhNodes, globalId, node);
 
         GpuBvhConstructionInfo childInfoA;
         childInfoA.parent = globalId;
         childInfoA.visitationCount = 0;
-        g_BvhConstructionInfos[childA] = childInfoA;
+        CRESSIM_SB_STORE(g_BvhConstructionInfos, childA, childInfoA);
 
         GpuBvhConstructionInfo childInfoB;
         childInfoB.parent = globalId;
         childInfoB.visitationCount = 0;
-        g_BvhConstructionInfos[childB] = childInfoB;
+        CRESSIM_SB_STORE(g_BvhConstructionInfos, childB, childInfoB);
     }
 
     if (globalId == 0u)
@@ -171,6 +171,6 @@ int FindSplit(int first, int last)
         GpuBvhConstructionInfo rootInfo;
         rootInfo.parent = 0u;
         rootInfo.visitationCount = 0;
-        g_BvhConstructionInfos[0] = rootInfo;
+        CRESSIM_SB_STORE(g_BvhConstructionInfos, 0, rootInfo);
     }
 }

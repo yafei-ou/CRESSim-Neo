@@ -10,13 +10,13 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderShapeParams);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalPositions);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderMaterials);
-StructuredBuffer<GpuCandidatePair> g_CandidatePairs;
-StructuredBuffer<GpuNarrowPhaseChunk> g_NarrowPhaseChunks;
-StructuredBuffer<GpuNarrowPhaseMeta> g_NarrowPhaseMeta;
+CRESSIM_STRUCTURED_BUFFER(GpuCandidatePair, g_CandidatePairs);
+CRESSIM_STRUCTURED_BUFFER(GpuNarrowPhaseChunk, g_NarrowPhaseChunks);
+CRESSIM_STRUCTURED_BUFFER(GpuNarrowPhaseMeta, g_NarrowPhaseMeta);
 
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_NarrowPhaseChunkCounter);
 
-RWStructuredBuffer<GpuRigidContact> g_RigidContacts;
+CRESSIM_RW_STRUCTURED_BUFFER(GpuRigidContact, g_RigidContacts);
 
 // Scale-aware manifold merge radius
 static const float kManifoldPointMergeDistanceSq = kManifoldMergeDistance * kManifoldMergeDistance;
@@ -750,7 +750,7 @@ void ClearPairContacts(uint pairIndex)
         cleared.localPointA = 0.0;
         cleared.localPointB = 0.0;
         cleared.material = 0.0;
-        g_RigidContacts[contactBaseIndex + contactOffset] = cleared;
+        CRESSIM_SB_STORE(g_RigidContacts, contactBaseIndex + contactOffset, cleared);
     }
 }
 
@@ -759,7 +759,7 @@ void ProcessPair(uint pairIndex, uint pairType)
     ClearPairContacts(pairIndex);
     const uint contactBaseIndex = pairIndex * kRigidContactsPerPair;
 
-    const GpuCandidatePair pair = g_CandidatePairs[pairIndex];
+    const GpuCandidatePair pair = CRESSIM_SB_LOAD(g_CandidatePairs, pairIndex);
     const uint colliderA = pair.colliderA;
     const uint colliderB = pair.colliderB;
     const uint bodyA = CRESSIM_SB_LOAD(g_ColliderOwnerRigidBodyIndices, colliderA);
@@ -869,7 +869,7 @@ void ProcessPair(uint pairIndex, uint pairType)
                 {
                     break;
                 }
-                g_RigidContacts[contactBaseIndex + i] = manifoldContacts[i];
+                CRESSIM_SB_STORE(g_RigidContacts, contactBaseIndex + i, manifoldContacts[i]);
             }
             return;
         }
@@ -901,7 +901,7 @@ void ProcessPair(uint pairIndex, uint pairType)
     contact.localPointB =
         float4(QuaternionInverseRotate(bodyOrientationB, pointBWorld - bodyPositionInvMassB.xyz),
                1.0);
-    g_RigidContacts[contactBaseIndex] = contact;
+    CRESSIM_SB_STORE(g_RigidContacts, contactBaseIndex, contact);
 }
 
 groupshared uint s_ChunkId;
@@ -911,7 +911,7 @@ groupshared uint s_ChunkPairCount;
 
 [numthreads(128, 1, 1)] void main(uint3 groupThreadID : SV_GroupThreadID)
 {
-    const uint totalChunks = g_NarrowPhaseMeta[0].chunkCount;
+    const uint totalChunks = CRESSIM_SB_LOAD(g_NarrowPhaseMeta, 0).chunkCount;
     if (totalChunks == 0u)
     {
         return;
@@ -924,7 +924,7 @@ groupshared uint s_ChunkPairCount;
             InterlockedAdd(CRESSIM_SB_REF(g_NarrowPhaseChunkCounter, 0u), 1u, s_ChunkId);
             if (s_ChunkId < totalChunks)
             {
-                const GpuNarrowPhaseChunk chunk = g_NarrowPhaseChunks[s_ChunkId];
+                const GpuNarrowPhaseChunk chunk = CRESSIM_SB_LOAD(g_NarrowPhaseChunks, s_ChunkId);
                 s_ChunkPairType = chunk.pairType;
                 s_ChunkPairStart = chunk.pairStart;
                 s_ChunkPairCount = chunk.pairCount;

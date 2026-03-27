@@ -2,18 +2,18 @@
 #include "physics/include/physics_rigid_common.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_BroadPhaseBodyIndices);
-StructuredBuffer<GpuBodyAabb> g_BodyAabbs;
+CRESSIM_STRUCTURED_BUFFER(GpuBodyAabb, g_BodyAabbs);
 CRESSIM_STRUCTURED_BUFFER(GpuBvhNode, g_BvhNodes);
 CRESSIM_STRUCTURED_BUFFER(GpuBvhNode, g_StaticBvhNodes);
-StructuredBuffer<GpuColliderBroadPhaseData> g_ColliderBroadPhaseData;
+CRESSIM_STRUCTURED_BUFFER(GpuColliderBroadPhaseData, g_ColliderBroadPhaseData);
 CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsSphereSphere);
 CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsSphereBox);
 CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsSphereCapsule);
 CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsBoxBox);
 CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsBoxCapsule);
 CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsCapsuleCapsule);
-StructuredBuffer<GpuRigidPairRange> g_RigidPairRanges;
-RWStructuredBuffer<GpuCandidatePair> g_CandidatePairs;
+CRESSIM_STRUCTURED_BUFFER(GpuRigidPairRange, g_RigidPairRanges);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuCandidatePair, g_CandidatePairs);
 
 bool NodeOverlapsQuery(GpuBvhNode node, float3 queryMin, float3 queryMax)
 {
@@ -42,7 +42,7 @@ void EmitCanonicalPair(uint colliderA, uint colliderB, uint shapeTypeA, uint sha
     pair.colliderB = canonicalColliderB;
     pair.reserved0 = 0u;
     pair.reserved1 = 0u;
-    g_CandidatePairs[writeIndex] = pair;
+    CRESSIM_SB_STORE(g_CandidatePairs, writeIndex, pair);
 }
 
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -54,23 +54,23 @@ void EmitCanonicalPair(uint colliderA, uint colliderB, uint shapeTypeA, uint sha
     }
 
     const uint colliderId = CRESSIM_SB_LOAD(g_BroadPhaseBodyIndices, activeIndex);
-    const GpuColliderBroadPhaseData colliderA = g_ColliderBroadPhaseData[colliderId];
+    const GpuColliderBroadPhaseData colliderA = CRESSIM_SB_LOAD(g_ColliderBroadPhaseData, colliderId);
     const uint ownerBodyA = colliderA.ownerBody;
     const uint environmentA = colliderA.environmentIndex;
     const uint shapeTypeA = colliderA.shapeType;
     const uint layerA = colliderA.collisionLayer;
     const uint maskA = colliderA.collisionMask;
-    const GpuBodyAabb bodyAabb = g_BodyAabbs[colliderId];
+    const GpuBodyAabb bodyAabb = CRESSIM_SB_LOAD(g_BodyAabbs, colliderId);
     const float3 queryMin = bodyAabb.minBounds.xyz;
     const float3 queryMax = bodyAabb.maxBounds.xyz;
 
     uint writeIndices[kRigidPairTypeCount];
-    writeIndices[0] = g_RigidPairRanges[0].start + CRESSIM_SB_LOAD(g_PairOffsetsSphereSphere, activeIndex);
-    writeIndices[1] = g_RigidPairRanges[1].start + CRESSIM_SB_LOAD(g_PairOffsetsSphereBox, activeIndex);
-    writeIndices[2] = g_RigidPairRanges[2].start + CRESSIM_SB_LOAD(g_PairOffsetsSphereCapsule, activeIndex);
-    writeIndices[3] = g_RigidPairRanges[3].start + CRESSIM_SB_LOAD(g_PairOffsetsBoxBox, activeIndex);
-    writeIndices[4] = g_RigidPairRanges[4].start + CRESSIM_SB_LOAD(g_PairOffsetsBoxCapsule, activeIndex);
-    writeIndices[5] = g_RigidPairRanges[5].start + CRESSIM_SB_LOAD(g_PairOffsetsCapsuleCapsule, activeIndex);
+    writeIndices[0] = CRESSIM_SB_LOAD(g_RigidPairRanges, 0).start + CRESSIM_SB_LOAD(g_PairOffsetsSphereSphere, activeIndex);
+    writeIndices[1] = CRESSIM_SB_LOAD(g_RigidPairRanges, 1).start + CRESSIM_SB_LOAD(g_PairOffsetsSphereBox, activeIndex);
+    writeIndices[2] = CRESSIM_SB_LOAD(g_RigidPairRanges, 2).start + CRESSIM_SB_LOAD(g_PairOffsetsSphereCapsule, activeIndex);
+    writeIndices[3] = CRESSIM_SB_LOAD(g_RigidPairRanges, 3).start + CRESSIM_SB_LOAD(g_PairOffsetsBoxBox, activeIndex);
+    writeIndices[4] = CRESSIM_SB_LOAD(g_RigidPairRanges, 4).start + CRESSIM_SB_LOAD(g_PairOffsetsBoxCapsule, activeIndex);
+    writeIndices[5] = CRESSIM_SB_LOAD(g_RigidPairRanges, 5).start + CRESSIM_SB_LOAD(g_PairOffsetsCapsuleCapsule, activeIndex);
 
     if (activeMovingCount > 1u)
     {
@@ -91,7 +91,7 @@ void EmitCanonicalPair(uint colliderA, uint colliderB, uint shapeTypeA, uint sha
             {
                 const uint otherColliderId = node.primitiveIdx;
                 const GpuColliderBroadPhaseData otherCollider =
-                    g_ColliderBroadPhaseData[otherColliderId];
+                    CRESSIM_SB_LOAD(g_ColliderBroadPhaseData, otherColliderId);
                 const uint otherOwnerBody = otherCollider.ownerBody;
                 if (otherColliderId > colliderId && otherOwnerBody != ownerBodyA)
                 {
@@ -136,7 +136,7 @@ void EmitCanonicalPair(uint colliderA, uint colliderB, uint shapeTypeA, uint sha
             {
                 const uint otherColliderId = node.primitiveIdx;
                 const GpuColliderBroadPhaseData otherCollider =
-                    g_ColliderBroadPhaseData[otherColliderId];
+                    CRESSIM_SB_LOAD(g_ColliderBroadPhaseData, otherColliderId);
                 const uint otherOwnerBody = otherCollider.ownerBody;
                 if (otherOwnerBody != ownerBodyA)
                 {
