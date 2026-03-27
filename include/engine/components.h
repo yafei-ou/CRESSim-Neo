@@ -13,9 +13,9 @@ namespace cressim::neo::engine
 
 struct ColliderHandle
 {
-    std::uint32_t id = 0;
+    physics::ColliderId id = physics::kInvalidColliderId;
 
-    [[nodiscard]] bool isValid() const noexcept
+    bool isValid() const noexcept
     {
         return id != 0u;
     }
