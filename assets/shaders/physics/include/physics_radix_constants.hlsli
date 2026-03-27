@@ -1,6 +1,8 @@
 #ifndef CRESSIM_NEO_PHYSICS_RADIX_CONSTANTS_HLSLI
 #define CRESSIM_NEO_PHYSICS_RADIX_CONSTANTS_HLSLI
 
+#include "include/structured_buffer_compat.hlsli"
+
 cbuffer PhysicsRadixConstantsBuffer
 {
     uint elementCount;

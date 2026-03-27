@@ -8,8 +8,8 @@ cbuffer GraphicsLocalShadowPrepareConstants
     uint g_LocalShadowBucketCount;
 };
 
-RWStructuredBuffer<LightShadowAssignment> g_LightShadowAssignmentsRW;
-RWStructuredBuffer<LocalShadowView> g_LocalShadowViewsRW;
+CRESSIM_RW_STRUCTURED_BUFFER(LightShadowAssignment, g_LightShadowAssignmentsRW);
+CRESSIM_RW_STRUCTURED_BUFFER(LocalShadowView, g_LocalShadowViewsRW);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
@@ -22,7 +22,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     {
         LightShadowAssignment assignment = (LightShadowAssignment)0;
         assignment.shadowViewIndex = CRESSIM_INVALID_GPU_SCENE_INDEX;
-        g_LightShadowAssignmentsRW[index] = assignment;
+        CRESSIM_SB_STORE(g_LightShadowAssignmentsRW, index, assignment);
     }
 
     if (index < totalViewCount)
@@ -30,6 +30,6 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         LocalShadowView shadowView = (LocalShadowView)0;
         shadowView.lightIndex = CRESSIM_INVALID_GPU_SCENE_INDEX;
         shadowView.active = 0u;
-        g_LocalShadowViewsRW[index] = shadowView;
+        CRESSIM_SB_STORE(g_LocalShadowViewsRW, index, shadowView);
     }
 }

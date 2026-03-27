@@ -33,15 +33,15 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
     uint mainLightIndex = CRESSIM_INVALID_GPU_SCENE_INDEX;
     if (g_UseDrawListBuffer != 0u)
     {
-        const VisiblePairInstance pair = g_VisiblePairs[g_DrawListOffset + instanceId];
-        const BatchCameraMetadata batchCamera = g_BatchCameras[pair.batchCameraIndex];
+        const VisiblePairInstance pair = CRESSIM_SB_LOAD(g_VisiblePairs, g_DrawListOffset + instanceId);
+        const BatchCameraMetadata batchCamera = CRESSIM_SB_LOAD(g_BatchCameras, pair.batchCameraIndex);
         objectIndex = pair.objectIndex;
         cameraIndex = batchCamera.globalCameraIndex;
         colorLayer = batchCamera.colorLayer;
         shadowLayer = batchCamera.shadowLayer;
         mainLightIndex = batchCamera.mainLightIndex;
     }
-    const PreparedCamera preparedCamera = g_PreparedCameras[cameraIndex];
+    const PreparedCamera preparedCamera = CRESSIM_SB_LOAD(g_PreparedCameras, cameraIndex);
     bool poseValid = false;
     float3 position = float3(0.0, 0.0, 0.0);
     float4 orientation = float4(0.0, 0.0, 0.0, 1.0);
@@ -49,7 +49,7 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
     loadRenderablePose(objectIndex, poseValid, position, orientation, scale);
     const uint localObjectIndex = objectIndex - preparedCamera.objectRangeStart;
     const uint visibilityIndex = preparedCamera.visibilityDataOffset + localObjectIndex;
-    if (!poseValid || g_RenderableVisibilityFlags[visibilityIndex] == 0u ||
+    if (!poseValid || CRESSIM_SB_LOAD(g_RenderableVisibilityFlags, visibilityIndex) == 0u ||
         preparedCamera.active == 0u)
     {
         Out.Position = float4(2.0, 2.0, 2.0, 1.0);

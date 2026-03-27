@@ -163,7 +163,7 @@ void localShadowBuildRenderableCorners(uint objectIndex, out bool valid, out flo
     loadRenderablePose(objectIndex, poseValid, position, orientation, scale);
     valid = poseValid;
 
-    RenderableMetadata metadata = g_RenderableMetadata[objectIndex];
+    RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
     corners[0] = metadata.localBoundsMin.xyz;
     corners[1] = float3(metadata.localBoundsMax.x, metadata.localBoundsMin.y, metadata.localBoundsMin.z);
     corners[2] = float3(metadata.localBoundsMax.x, metadata.localBoundsMax.y, metadata.localBoundsMin.z);
@@ -202,31 +202,6 @@ bool localShadowMatrixIntersectsCorners(float3 corners[8], float4x4 viewProjecti
     }
 
     return !(allLeft || allRight || allBottom || allTop || allNear || allFar);
-}
-
-void localShadowDecodeEnvBounds(StructuredBuffer<uint> envBounds, uint envIndex, out bool valid,
-                                out float3 center, out float radius)
-{
-    const uint baseIndex = envIndex * CRESSIM_LOCAL_SHADOW_ENV_BOUNDS_WORDS;
-    valid = envBounds[baseIndex + 6u] != 0u;
-    if (!valid)
-    {
-        center = float3(0.0, 0.0, 0.0);
-        radius = 10.0;
-        return;
-    }
-
-    const float3 minPoint = float3(
-        localShadowOrderedUintToFloat(envBounds[baseIndex + 0u]),
-        localShadowOrderedUintToFloat(envBounds[baseIndex + 1u]),
-        localShadowOrderedUintToFloat(envBounds[baseIndex + 2u]));
-    const float3 maxPoint = float3(
-        localShadowOrderedUintToFloat(envBounds[baseIndex + 3u]),
-        localShadowOrderedUintToFloat(envBounds[baseIndex + 4u]),
-        localShadowOrderedUintToFloat(envBounds[baseIndex + 5u]));
-    center = (minPoint + maxPoint) * 0.5;
-    const float3 extents = maxPoint - minPoint;
-    radius = max(5.0, length(extents) * 0.5 + 2.0);
 }
 
 #endif // CRESSIM_NEO_GRAPHICS_LOCAL_SHADOW_COMMON_HLSLI

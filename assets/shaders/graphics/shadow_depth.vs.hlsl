@@ -26,9 +26,9 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
     {
         if (localShadowPass)
         {
-            const VisiblePairInstance pair = g_VisiblePairs[instanceId];
+            const VisiblePairInstance pair = CRESSIM_SB_LOAD(g_VisiblePairs, instanceId);
             objectIndex = pair.objectIndex;
-            const LocalShadowView shadowView = g_LocalShadowViews[pair.batchCameraIndex];
+            const LocalShadowView shadowView = CRESSIM_SB_LOAD(g_LocalShadowViews, pair.batchCameraIndex);
             const uint localMatrixIndex = pair.shadowSubviewIndex;
 
             bool poseValid = false;
@@ -54,21 +54,21 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
             return;
         }
 
-        const VisiblePairInstance pair = g_VisiblePairs[g_DrawListOffset + instanceId];
+        const VisiblePairInstance pair = CRESSIM_SB_LOAD(g_VisiblePairs, g_DrawListOffset + instanceId);
         objectIndex = pair.objectIndex;
-        const BatchCameraMetadata batchCamera = g_BatchCameras[pair.batchCameraIndex];
+        const BatchCameraMetadata batchCamera = CRESSIM_SB_LOAD(g_BatchCameras, pair.batchCameraIndex);
         cameraIndex = batchCamera.globalCameraIndex;
         shadowLayer = batchCamera.shadowLayer;
     }
-    const PreparedCamera preparedCamera = g_PreparedCameras[cameraIndex];
+    const PreparedCamera preparedCamera = CRESSIM_SB_LOAD(g_PreparedCameras, cameraIndex);
     bool poseValid = false;
     float3 position = float3(0.0, 0.0, 0.0);
     float4 orientation = float4(0.0, 0.0, 0.0, 1.0);
     float3 scale = float3(1.0, 1.0, 1.0);
     loadRenderablePose(objectIndex, poseValid, position, orientation, scale);
     const uint localObjectIndex = objectIndex - preparedCamera.objectRangeStart;
-    const uint shadowMask =
-        g_RenderableShadowCascadeMasks[preparedCamera.visibilityDataOffset + localObjectIndex];
+    const uint shadowMask = CRESSIM_SB_LOAD(
+        g_RenderableShadowCascadeMasks, preparedCamera.visibilityDataOffset + localObjectIndex);
     if (!poseValid || preparedCamera.active == 0u ||
         shadowLayer == CRESSIM_INVALID_BATCH_CAMERA_LAYER ||
         ((shadowMask & (1u << g_CascadeIndex)) == 0u))

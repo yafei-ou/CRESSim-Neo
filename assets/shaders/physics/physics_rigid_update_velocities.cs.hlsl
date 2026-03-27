@@ -1,14 +1,14 @@
 #include "physics/include/physics_rigid_dispatch_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-StructuredBuffer<float4> g_PreviousRigidBodyPositionsInvMass;
-StructuredBuffer<float4> g_PreviousRigidBodyOrientations;
-StructuredBuffer<uint> g_RigidBodyTypes;
+CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyPositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyOrientations);
+CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 
-RWStructuredBuffer<float4> g_PredictedRigidBodyPositionsInvMass;
-RWStructuredBuffer<float4> g_PredictedRigidBodyOrientations;
-RWStructuredBuffer<float4> g_PredictedRigidBodyLinearVelocities;
-RWStructuredBuffer<float4> g_PredictedRigidBodyAngularVelocities;
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyLinearVelocities);
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyAngularVelocities);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -19,21 +19,21 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const float4 previousPositionInvMass = g_PreviousRigidBodyPositionsInvMass[bodyIndex];
+    const float4 previousPositionInvMass = CRESSIM_SB_LOAD(g_PreviousRigidBodyPositionsInvMass, bodyIndex);
     const float4 previousOrientation =
-        QuaternionNormalize(g_PreviousRigidBodyOrientations[bodyIndex]);
-    const uint bodyType = g_RigidBodyTypes[bodyIndex];
-    float4 predictedPositionInvMass = g_PredictedRigidBodyPositionsInvMass[bodyIndex];
+        QuaternionNormalize(CRESSIM_SB_LOAD(g_PreviousRigidBodyOrientations, bodyIndex));
+    const uint bodyType = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyIndex);
+    float4 predictedPositionInvMass = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyIndex);
     float4 predictedOrientation =
-        QuaternionNormalize(g_PredictedRigidBodyOrientations[bodyIndex]);
+        QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyIndex));
 
     if (bodyType == 0u)
     {
         predictedOrientation = QuaternionNormalize(predictedOrientation);
-        g_PredictedRigidBodyPositionsInvMass[bodyIndex] = predictedPositionInvMass;
-        g_PredictedRigidBodyOrientations[bodyIndex] = predictedOrientation;
-        g_PredictedRigidBodyLinearVelocities[bodyIndex] = 0.0;
-        g_PredictedRigidBodyAngularVelocities[bodyIndex] = 0.0;
+        CRESSIM_SB_STORE(g_PredictedRigidBodyPositionsInvMass, bodyIndex, predictedPositionInvMass);
+        CRESSIM_SB_STORE(g_PredictedRigidBodyOrientations, bodyIndex, predictedOrientation);
+        CRESSIM_SB_STORE(g_PredictedRigidBodyLinearVelocities, bodyIndex, 0.0);
+        CRESSIM_SB_STORE(g_PredictedRigidBodyAngularVelocities, bodyIndex, 0.0);
         return;
     }
 
@@ -43,8 +43,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         AngularVelocityFromQuaternionDelta(previousOrientation, predictedOrientation,
                                            max(dt, kEpsilon));
 
-    g_PredictedRigidBodyPositionsInvMass[bodyIndex] = predictedPositionInvMass;
-    g_PredictedRigidBodyOrientations[bodyIndex] = predictedOrientation;
-    g_PredictedRigidBodyLinearVelocities[bodyIndex] = float4(linearVelocity, 0.0);
-    g_PredictedRigidBodyAngularVelocities[bodyIndex] = float4(angularVelocity, 0.0);
+    CRESSIM_SB_STORE(g_PredictedRigidBodyPositionsInvMass, bodyIndex, predictedPositionInvMass);
+    CRESSIM_SB_STORE(g_PredictedRigidBodyOrientations, bodyIndex, predictedOrientation);
+    CRESSIM_SB_STORE(g_PredictedRigidBodyLinearVelocities, bodyIndex, float4(linearVelocity, 0.0));
+    CRESSIM_SB_STORE(g_PredictedRigidBodyAngularVelocities, bodyIndex, float4(angularVelocity, 0.0));
 }

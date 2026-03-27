@@ -1,8 +1,8 @@
 #include "physics/include/physics_radix_constants.hlsli"
 
-StructuredBuffer<uint> g_RadixBitFlags;
-StructuredBuffer<uint> g_RadixBitOffsets;
-RWStructuredBuffer<uint> g_RadixMeta;
+CRESSIM_STRUCTURED_BUFFER(uint, g_RadixBitFlags);
+CRESSIM_STRUCTURED_BUFFER(uint, g_RadixBitOffsets);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_RadixMeta);
 
 [numthreads(1, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -13,10 +13,11 @@ RWStructuredBuffer<uint> g_RadixMeta;
 
     if (elementCount == 0u)
     {
-        g_RadixMeta[0] = 0u;
+        CRESSIM_SB_STORE(g_RadixMeta, 0u, 0u);
         return;
     }
 
-    const uint totalOnes = g_RadixBitOffsets[elementCount - 1u] + g_RadixBitFlags[elementCount - 1u];
-    g_RadixMeta[0] = elementCount - totalOnes;
+    const uint totalOnes = CRESSIM_SB_LOAD(g_RadixBitOffsets, elementCount - 1u) +
+                           CRESSIM_SB_LOAD(g_RadixBitFlags, elementCount - 1u);
+    CRESSIM_SB_STORE(g_RadixMeta, 0u, elementCount - totalOnes);
 }

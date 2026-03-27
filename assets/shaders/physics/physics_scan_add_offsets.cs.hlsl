@@ -1,7 +1,7 @@
 #include "physics/include/physics_scan_constants.hlsli"
 
-StructuredBuffer<uint> g_ScannedBlockOffsets;
-RWStructuredBuffer<uint> g_ScanOutput;
+CRESSIM_STRUCTURED_BUFFER(uint, g_ScannedBlockOffsets);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_ScanOutput);
 
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID,
                                  uint3 groupID : SV_GroupID)
@@ -12,5 +12,5 @@ RWStructuredBuffer<uint> g_ScanOutput;
         return;
     }
 
-    g_ScanOutput[index] += g_ScannedBlockOffsets[groupID.x];
+    CRESSIM_SB_REF(g_ScanOutput, index) += CRESSIM_SB_LOAD(g_ScannedBlockOffsets, groupID.x);
 }

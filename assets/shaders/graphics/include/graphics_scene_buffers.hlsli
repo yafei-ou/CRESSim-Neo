@@ -127,23 +127,25 @@ struct EnvironmentIblLookupEntry
     float reserved0;
 };
 
-StructuredBuffer<float4> g_EntityPositions;
-StructuredBuffer<float4> g_EntityOrientations;
-StructuredBuffer<float4> g_EntityScales;
-StructuredBuffer<RenderableMetadata> g_RenderableMetadata;
-StructuredBuffer<RenderableQueueInfo> g_RenderableQueueInfo;
-StructuredBuffer<uint> g_RenderableVisibilityFlags;
-StructuredBuffer<uint> g_RenderableShadowCascadeMasks;
-StructuredBuffer<PreparedCamera> g_PreparedCameras;
-StructuredBuffer<LightInput> g_LightInputs;
-StructuredBuffer<LocalLightSelection> g_LocalLightSelections;
-StructuredBuffer<LightShadowAssignment> g_LightShadowAssignments;
-StructuredBuffer<LocalShadowView> g_LocalShadowViews;
-StructuredBuffer<BatchCameraMetadata> g_BatchCameras;
-StructuredBuffer<uint> g_VisibleObjectIndices;
-StructuredBuffer<VisiblePairInstance> g_VisiblePairs;
+#include "include/structured_buffer_compat.hlsli"
+
+CRESSIM_STRUCTURED_BUFFER(float4, g_EntityPositions);
+CRESSIM_STRUCTURED_BUFFER(float4, g_EntityOrientations);
+CRESSIM_STRUCTURED_BUFFER(float4, g_EntityScales);
+CRESSIM_STRUCTURED_BUFFER(RenderableMetadata, g_RenderableMetadata);
+CRESSIM_STRUCTURED_BUFFER(RenderableQueueInfo, g_RenderableQueueInfo);
+CRESSIM_STRUCTURED_BUFFER(uint, g_RenderableVisibilityFlags);
+CRESSIM_STRUCTURED_BUFFER(uint, g_RenderableShadowCascadeMasks);
+CRESSIM_STRUCTURED_BUFFER(PreparedCamera, g_PreparedCameras);
+CRESSIM_STRUCTURED_BUFFER(LightInput, g_LightInputs);
+CRESSIM_STRUCTURED_BUFFER(LocalLightSelection, g_LocalLightSelections);
+CRESSIM_STRUCTURED_BUFFER(LightShadowAssignment, g_LightShadowAssignments);
+CRESSIM_STRUCTURED_BUFFER(LocalShadowView, g_LocalShadowViews);
+CRESSIM_STRUCTURED_BUFFER(BatchCameraMetadata, g_BatchCameras);
+CRESSIM_STRUCTURED_BUFFER(uint, g_VisibleObjectIndices);
+CRESSIM_STRUCTURED_BUFFER(VisiblePairInstance, g_VisiblePairs);
 #if defined(CRESSIM_IBL_DIFFUSE_ONLY) || defined(CRESSIM_IBL_FULL)
-StructuredBuffer<EnvironmentIblLookupEntry> g_EnvironmentIblLookup;
+CRESSIM_STRUCTURED_BUFFER(EnvironmentIblLookupEntry, g_EnvironmentIblLookup);
 #endif
 
 static const uint CRESSIM_RENDERABLE_FLAG_ACTIVE = 1u << 0u;
@@ -168,15 +170,15 @@ void loadRenderablePose(uint instanceIndex, out bool isValid, out float3 positio
     orientation = float4(0.0, 0.0, 0.0, 1.0);
     scale = float3(1.0, 1.0, 1.0);
 
-    RenderableMetadata metadata = g_RenderableMetadata[instanceIndex];
+    RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, instanceIndex);
     if ((metadata.flags & CRESSIM_RENDERABLE_FLAG_ACTIVE) == 0u)
     {
         return;
     }
 
-    position = g_EntityPositions[instanceIndex].xyz;
-    orientation = normalize(g_EntityOrientations[instanceIndex]);
-    scale = g_EntityScales[instanceIndex].xyz;
+    position = CRESSIM_SB_REF(g_EntityPositions, instanceIndex).xyz;
+    orientation = normalize(CRESSIM_SB_LOAD(g_EntityOrientations, instanceIndex));
+    scale = CRESSIM_SB_REF(g_EntityScales, instanceIndex).xyz;
     isValid = true;
 }
 

@@ -20,8 +20,8 @@ cbuffer GraphicsCameraPrepareConstants
     uint g_ShadowMapResolution;
 };
 
-StructuredBuffer<CameraInput> g_CameraInputs;
-RWStructuredBuffer<PreparedCamera> g_PreparedCamerasRW;
+CRESSIM_STRUCTURED_BUFFER(CameraInput, g_CameraInputs);
+CRESSIM_RW_STRUCTURED_BUFFER(PreparedCamera, g_PreparedCamerasRW);
 
 static const float PI = 3.14159265359f;
 static const float kCascadeSplitLambda = 0.85f;
@@ -231,7 +231,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    const CameraInput camera = g_CameraInputs[currentCameraIndex];
+    const CameraInput camera = CRESSIM_SB_LOAD(g_CameraInputs, currentCameraIndex);
     PreparedCamera prepared = (PreparedCamera)0;
     prepared.viewMatrix = float4x4(
         1.0, 0.0, 0.0, 0.0,
@@ -256,7 +256,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     if (camera.active == 0u)
     {
-        g_PreparedCamerasRW[currentCameraIndex] = prepared;
+        CRESSIM_SB_STORE(g_PreparedCamerasRW, currentCameraIndex, prepared);
         return;
     }
 
@@ -286,7 +286,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     if (g_MaxLightsPerEnv > 0u)
     {
         const uint lightIndex = camera.envIndex * g_MaxLightsPerEnv;
-        light = g_LightInputs[lightIndex];
+        light = CRESSIM_SB_LOAD(g_LightInputs, lightIndex);
         hasDirectionalLight =
             light.active != 0u &&
             dot(light.directionIntensity.xyz, light.directionIntensity.xyz) > 1e-6 &&
@@ -316,5 +316,5 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         }
     }
 
-    g_PreparedCamerasRW[currentCameraIndex] = prepared;
+    CRESSIM_SB_STORE(g_PreparedCamerasRW, currentCameraIndex, prepared);
 }

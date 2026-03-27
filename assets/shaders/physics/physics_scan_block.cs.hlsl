@@ -1,8 +1,8 @@
 #include "physics/include/physics_scan_constants.hlsli"
 
-StructuredBuffer<uint> g_ScanInput;
-RWStructuredBuffer<uint> g_ScanOutput;
-RWStructuredBuffer<uint> g_BlockSums;
+CRESSIM_STRUCTURED_BUFFER(uint, g_ScanInput);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_ScanOutput);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_BlockSums);
 
 groupshared uint g_SharedScan[64];
 
@@ -18,7 +18,7 @@ groupshared uint g_SharedScan[64];
     uint value = 0u;
     if (index < count)
     {
-        value = g_ScanInput[index];
+        value = CRESSIM_SB_LOAD(g_ScanInput, index);
     }
 
     g_SharedScan[localIndex] = value;
@@ -39,13 +39,13 @@ groupshared uint g_SharedScan[64];
 
     if (index < count)
     {
-        g_ScanOutput[index] = g_SharedScan[localIndex] - value;
+        CRESSIM_SB_STORE(g_ScanOutput, index, g_SharedScan[localIndex] - value);
     }
 
     const uint remaining = (groupBase < count) ? (count - groupBase) : 0u;
     const uint activeCount = min(remaining, 64u);
     if (activeCount > 0u && localIndex == activeCount - 1u)
     {
-        g_BlockSums[groupID.x] = g_SharedScan[localIndex];
+        CRESSIM_SB_STORE(g_BlockSums, groupID.x, g_SharedScan[localIndex]);
     }
 }

@@ -1,9 +1,9 @@
 #include "physics/include/physics_rigid_broad_phase_build_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-StructuredBuffer<uint> g_BroadPhaseBodyIndices;
-StructuredBuffer<GpuBodyAabb> g_BodyAabbs;
-RWStructuredBuffer<GpuBroadPhaseElement> g_BroadPhaseElements;
+CRESSIM_STRUCTURED_BUFFER(uint, g_BroadPhaseBodyIndices);
+CRESSIM_STRUCTURED_BUFFER(GpuBodyAabb, g_BodyAabbs);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuBroadPhaseElement, g_BroadPhaseElements);
 
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -13,8 +13,8 @@ RWStructuredBuffer<GpuBroadPhaseElement> g_BroadPhaseElements;
         return;
     }
 
-    const uint primitiveId = g_BroadPhaseBodyIndices[activeIndex];
-    const GpuBodyAabb bodyAabb = g_BodyAabbs[primitiveId];
+    const uint primitiveId = CRESSIM_SB_LOAD(g_BroadPhaseBodyIndices, activeIndex);
+    const GpuBodyAabb bodyAabb = CRESSIM_SB_LOAD(g_BodyAabbs, primitiveId);
 
     GpuBroadPhaseElement element;
     element.primitiveIdx = primitiveId;
@@ -25,5 +25,5 @@ RWStructuredBuffer<GpuBroadPhaseElement> g_BroadPhaseElements;
     element.aabbMaxY = bodyAabb.maxBounds.y;
     element.aabbMaxZ = bodyAabb.maxBounds.z;
     element.reserved = 0.0;
-    g_BroadPhaseElements[activeIndex] = element;
+    CRESSIM_SB_STORE(g_BroadPhaseElements, activeIndex, element);
 }

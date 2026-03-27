@@ -1,17 +1,17 @@
 #include "physics/include/physics_rigid_dispatch_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-StructuredBuffer<uint> g_BroadPhaseBodyIndices;
-StructuredBuffer<GpuBodyAabb> g_BodyAabbs;
-StructuredBuffer<GpuBvhNode> g_BvhNodes;
-StructuredBuffer<GpuBvhNode> g_StaticBvhNodes;
-StructuredBuffer<GpuColliderBroadPhaseData> g_ColliderBroadPhaseData;
-RWStructuredBuffer<uint> g_PairCountsSphereSphere;
-RWStructuredBuffer<uint> g_PairCountsSphereBox;
-RWStructuredBuffer<uint> g_PairCountsSphereCapsule;
-RWStructuredBuffer<uint> g_PairCountsBoxBox;
-RWStructuredBuffer<uint> g_PairCountsBoxCapsule;
-RWStructuredBuffer<uint> g_PairCountsCapsuleCapsule;
+CRESSIM_STRUCTURED_BUFFER(uint, g_BroadPhaseBodyIndices);
+CRESSIM_STRUCTURED_BUFFER(GpuBodyAabb, g_BodyAabbs);
+CRESSIM_STRUCTURED_BUFFER(GpuBvhNode, g_BvhNodes);
+CRESSIM_STRUCTURED_BUFFER(GpuBvhNode, g_StaticBvhNodes);
+CRESSIM_STRUCTURED_BUFFER(GpuColliderBroadPhaseData, g_ColliderBroadPhaseData);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_PairCountsSphereSphere);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_PairCountsSphereBox);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_PairCountsSphereCapsule);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_PairCountsBoxBox);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_PairCountsBoxCapsule);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_PairCountsCapsuleCapsule);
 
 bool NodeOverlapsQuery(GpuBvhNode node, float3 queryMin, float3 queryMax)
 {
@@ -35,14 +35,14 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
         return;
     }
 
-    const uint colliderId = g_BroadPhaseBodyIndices[activeIndex];
-    const GpuColliderBroadPhaseData colliderA = g_ColliderBroadPhaseData[colliderId];
+    const uint colliderId = CRESSIM_SB_LOAD(g_BroadPhaseBodyIndices, activeIndex);
+    const GpuColliderBroadPhaseData colliderA = CRESSIM_SB_LOAD(g_ColliderBroadPhaseData, colliderId);
     const uint ownerBodyA = colliderA.ownerBody;
     const uint environmentA = colliderA.environmentIndex;
     const uint shapeTypeA = colliderA.shapeType;
     const uint layerA = colliderA.collisionLayer;
     const uint maskA = colliderA.collisionMask;
-    const GpuBodyAabb bodyAabb = g_BodyAabbs[colliderId];
+    const GpuBodyAabb bodyAabb = CRESSIM_SB_LOAD(g_BodyAabbs, colliderId);
     const float3 queryMin = bodyAabb.minBounds.xyz;
     const float3 queryMax = bodyAabb.maxBounds.xyz;
 
@@ -61,7 +61,7 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
         while (stackSize > 0u)
         {
             const uint nodeIndex = stack[--stackSize];
-            const GpuBvhNode node = g_BvhNodes[nodeIndex];
+            const GpuBvhNode node = CRESSIM_SB_LOAD(g_BvhNodes, nodeIndex);
             if (!NodeOverlapsQuery(node, queryMin, queryMax))
             {
                 continue;
@@ -71,7 +71,7 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
             {
                 const uint otherColliderId = node.primitiveIdx;
                 const GpuColliderBroadPhaseData otherCollider =
-                    g_ColliderBroadPhaseData[otherColliderId];
+                    CRESSIM_SB_LOAD(g_ColliderBroadPhaseData, otherColliderId);
                 const uint otherOwnerBody = otherCollider.ownerBody;
                 if (otherColliderId > colliderId && otherOwnerBody != ownerBodyA)
                 {
@@ -107,7 +107,7 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
         while (stackSize > 0u)
         {
             const uint nodeIndex = stack[--stackSize];
-            const GpuBvhNode node = g_StaticBvhNodes[nodeIndex];
+            const GpuBvhNode node = CRESSIM_SB_LOAD(g_StaticBvhNodes, nodeIndex);
             if (!NodeOverlapsQuery(node, queryMin, queryMax))
             {
                 continue;
@@ -117,7 +117,7 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
             {
                 const uint otherColliderId = node.primitiveIdx;
                 const GpuColliderBroadPhaseData otherCollider =
-                    g_ColliderBroadPhaseData[otherColliderId];
+                    CRESSIM_SB_LOAD(g_ColliderBroadPhaseData, otherColliderId);
                 const uint otherOwnerBody = otherCollider.ownerBody;
                 if (otherOwnerBody != ownerBodyA)
                 {
@@ -144,10 +144,10 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
         }
     }
 
-    g_PairCountsSphereSphere[activeIndex] = typedCounts[0];
-    g_PairCountsSphereBox[activeIndex] = typedCounts[1];
-    g_PairCountsSphereCapsule[activeIndex] = typedCounts[2];
-    g_PairCountsBoxBox[activeIndex] = typedCounts[3];
-    g_PairCountsBoxCapsule[activeIndex] = typedCounts[4];
-    g_PairCountsCapsuleCapsule[activeIndex] = typedCounts[5];
+    CRESSIM_SB_STORE(g_PairCountsSphereSphere, activeIndex, typedCounts[0]);
+    CRESSIM_SB_STORE(g_PairCountsSphereBox, activeIndex, typedCounts[1]);
+    CRESSIM_SB_STORE(g_PairCountsSphereCapsule, activeIndex, typedCounts[2]);
+    CRESSIM_SB_STORE(g_PairCountsBoxBox, activeIndex, typedCounts[3]);
+    CRESSIM_SB_STORE(g_PairCountsBoxCapsule, activeIndex, typedCounts[4]);
+    CRESSIM_SB_STORE(g_PairCountsCapsuleCapsule, activeIndex, typedCounts[5]);
 }

@@ -1,9 +1,9 @@
 #include "physics/include/physics_rigid_broad_phase_build_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-StructuredBuffer<GpuBroadPhaseElement> g_BroadPhaseElements;
-StructuredBuffer<GpuBroadPhaseExtent> g_GlobalExtent;
-RWStructuredBuffer<GpuMortonCodeElement> g_MortonCodes;
+CRESSIM_STRUCTURED_BUFFER(GpuBroadPhaseElement, g_BroadPhaseElements);
+CRESSIM_STRUCTURED_BUFFER(GpuBroadPhaseExtent, g_GlobalExtent);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuMortonCodeElement, g_MortonCodes);
 
 uint ExpandBits(uint value)
 {
@@ -33,8 +33,8 @@ uint Morton3D(float x, float y, float z)
         return;
     }
 
-    const GpuBroadPhaseElement element = g_BroadPhaseElements[index];
-    const GpuBroadPhaseExtent globalExtent = g_GlobalExtent[0];
+    const GpuBroadPhaseElement element = CRESSIM_SB_LOAD(g_BroadPhaseElements, index);
+    const GpuBroadPhaseExtent globalExtent = CRESSIM_SB_LOAD(g_GlobalExtent, 0);
     const float3 minExtent = globalExtent.minBounds.xyz;
     const float3 maxExtent = globalExtent.maxBounds.xyz;
     const float3 extentSize = max(maxExtent - minExtent, float3(1.0e-5, 1.0e-5, 1.0e-5));
@@ -46,5 +46,5 @@ uint Morton3D(float x, float y, float z)
     GpuMortonCodeElement morton;
     morton.mortonCode = Morton3D(mappedCenter.x, mappedCenter.y, mappedCenter.z);
     morton.elementIdx = index;
-    g_MortonCodes[index] = morton;
+    CRESSIM_SB_STORE(g_MortonCodes, index, morton);
 }

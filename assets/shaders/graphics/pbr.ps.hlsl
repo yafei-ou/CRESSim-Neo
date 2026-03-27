@@ -225,7 +225,7 @@ float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir, uint 
         return 1.0;
     }
 
-    PreparedCamera preparedCamera = g_PreparedCameras[cameraIndex];
+    PreparedCamera preparedCamera = CRESSIM_SB_LOAD(g_PreparedCameras, cameraIndex);
     if (preparedCamera.active == 0u)
     {
         return 1.0;
@@ -297,14 +297,14 @@ int SelectPointShadowFace(float3 dir)
 
 float ComputeLocalShadowFactor(uint lightIndex, float3 worldPos, float3 normal, float3 lightDir)
 {
-    const LightShadowAssignment assignment = g_LightShadowAssignments[lightIndex];
+    const LightShadowAssignment assignment = CRESSIM_SB_LOAD(g_LightShadowAssignments, lightIndex);
     if (assignment.shadowMode == 0u || assignment.shadowViewIndex == CRESSIM_INVALID_GPU_SCENE_INDEX)
     {
         return 1.0;
     }
 
-    const LocalShadowView shadowView = g_LocalShadowViews[assignment.shadowViewIndex];
-    const LightInput light = g_LightInputs[lightIndex];
+    const LocalShadowView shadowView = CRESSIM_SB_LOAD(g_LocalShadowViews, assignment.shadowViewIndex);
+    const LightInput light = CRESSIM_SB_LOAD(g_LightInputs, lightIndex);
     if (shadowView.active == 0u)
     {
         return 1.0;
@@ -438,7 +438,7 @@ float4 main(in VSOutput In) : SV_Target
     }
 #endif
 
-    PreparedCamera preparedCamera = g_PreparedCameras[In.CameraIndex];
+    PreparedCamera preparedCamera = CRESSIM_SB_LOAD(g_PreparedCameras, In.CameraIndex);
     float3 N = BuildShadingNormal(In);
     float3 V = normalize(preparedCamera.cameraPosition.xyz - In.WorldPos);
 
@@ -450,7 +450,7 @@ float4 main(in VSOutput In) : SV_Target
     float3 Lo = float3(0.0, 0.0, 0.0);
     if (In.MainLightIndex != CRESSIM_INVALID_GPU_SCENE_INDEX)
     {
-        const LightInput mainLight = g_LightInputs[In.MainLightIndex];
+        const LightInput mainLight = CRESSIM_SB_LOAD(g_LightInputs, In.MainLightIndex);
         const bool hasMainLight =
             mainLight.active != 0u &&
             dot(mainLight.directionIntensity.xyz, mainLight.directionIntensity.xyz) > 1e-6 &&
@@ -478,7 +478,7 @@ float4 main(in VSOutput In) : SV_Target
         }
     }
 
-    const LocalLightSelection localSelection = g_LocalLightSelections[preparedCamera.envIndex];
+    const LocalLightSelection localSelection = CRESSIM_SB_LOAD(g_LocalLightSelections, preparedCamera.envIndex);
     [unroll]
     for (uint localLightIdx = 0u; localLightIdx < 8u; ++localLightIdx)
     {
@@ -488,7 +488,7 @@ float4 main(in VSOutput In) : SV_Target
         }
 
         const uint lightIndex = localSelection.lightIndices[localLightIdx];
-        const LightInput localLight = g_LightInputs[lightIndex];
+        const LightInput localLight = CRESSIM_SB_LOAD(g_LightInputs, lightIndex);
         Lo += EvaluateLocalLight(localLight, In.WorldPos, N, V, albedo, F0, roughness, metallic,
                                  lightIndex);
     }
@@ -500,7 +500,7 @@ float4 main(in VSOutput In) : SV_Target
 
     float3 ambient = 0.03 * albedo * ao;
 #if defined(CRESSIM_IBL_DIFFUSE_ONLY) || defined(CRESSIM_IBL_FULL)
-    EnvironmentIblLookupEntry iblEntry = g_EnvironmentIblLookup[preparedCamera.envIndex];
+    EnvironmentIblLookupEntry iblEntry = CRESSIM_SB_LOAD(g_EnvironmentIblLookup, preparedCamera.envIndex);
     if (iblEntry.enabled != 0u)
     {
         float3 irradiance =

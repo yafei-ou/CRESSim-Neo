@@ -1,22 +1,22 @@
 #include "physics/include/physics_rigid_common.hlsli"
 #include "physics/include/physics_rigid_dispatch_constants.hlsli"
 
-StructuredBuffer<float4> g_PredictedRigidBodyPositionsInvMass;
-StructuredBuffer<float4> g_PredictedRigidBodyOrientations;
-StructuredBuffer<float4> g_RigidBodyScales;
-StructuredBuffer<uint> g_ColliderOwnerRigidBodyIndices;
-StructuredBuffer<uint> g_ColliderShapeTypes;
-StructuredBuffer<float4> g_ColliderShapeParams;
-StructuredBuffer<float4> g_ColliderLocalPositions;
-StructuredBuffer<float4> g_ColliderLocalOrientations;
-StructuredBuffer<float4> g_ColliderMaterials;
-StructuredBuffer<GpuCandidatePair> g_CandidatePairs;
-StructuredBuffer<GpuNarrowPhaseChunk> g_NarrowPhaseChunks;
-StructuredBuffer<GpuNarrowPhaseMeta> g_NarrowPhaseMeta;
+CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
+CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyScales);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ColliderOwnerRigidBodyIndices);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ColliderShapeTypes);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderShapeParams);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalPositions);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalOrientations);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderMaterials);
+CRESSIM_STRUCTURED_BUFFER(GpuCandidatePair, g_CandidatePairs);
+CRESSIM_STRUCTURED_BUFFER(GpuNarrowPhaseChunk, g_NarrowPhaseChunks);
+CRESSIM_STRUCTURED_BUFFER(GpuNarrowPhaseMeta, g_NarrowPhaseMeta);
 
-RWStructuredBuffer<uint> g_NarrowPhaseChunkCounter;
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_NarrowPhaseChunkCounter);
 
-RWStructuredBuffer<GpuRigidContact> g_RigidContacts;
+CRESSIM_RW_STRUCTURED_BUFFER(GpuRigidContact, g_RigidContacts);
 
 // Scale-aware manifold merge radius
 static const float kManifoldPointMergeDistanceSq = kManifoldMergeDistance * kManifoldMergeDistance;
@@ -750,7 +750,7 @@ void ClearPairContacts(uint pairIndex)
         cleared.localPointA = 0.0;
         cleared.localPointB = 0.0;
         cleared.material = 0.0;
-        g_RigidContacts[contactBaseIndex + contactOffset] = cleared;
+        CRESSIM_SB_STORE(g_RigidContacts, contactBaseIndex + contactOffset, cleared);
     }
 }
 
@@ -759,43 +759,46 @@ void ProcessPair(uint pairIndex, uint pairType)
     ClearPairContacts(pairIndex);
     const uint contactBaseIndex = pairIndex * kRigidContactsPerPair;
 
-    const GpuCandidatePair pair = g_CandidatePairs[pairIndex];
+    const GpuCandidatePair pair = CRESSIM_SB_LOAD(g_CandidatePairs, pairIndex);
     const uint colliderA = pair.colliderA;
     const uint colliderB = pair.colliderB;
-    const uint bodyA = g_ColliderOwnerRigidBodyIndices[colliderA];
-    const uint bodyB = g_ColliderOwnerRigidBodyIndices[colliderB];
+    const uint bodyA = CRESSIM_SB_LOAD(g_ColliderOwnerRigidBodyIndices, colliderA);
+    const uint bodyB = CRESSIM_SB_LOAD(g_ColliderOwnerRigidBodyIndices, colliderB);
     if (bodyA >= rigidBodyCount || bodyB >= rigidBodyCount || bodyA == bodyB)
     {
         return;
     }
 
-    const float4 bodyPositionInvMassA = g_PredictedRigidBodyPositionsInvMass[bodyA];
-    const float4 bodyPositionInvMassB = g_PredictedRigidBodyPositionsInvMass[bodyB];
+    const float4 bodyPositionInvMassA = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyA);
+    const float4 bodyPositionInvMassB = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyB);
     if (bodyPositionInvMassA.w == 0.0 && bodyPositionInvMassB.w == 0.0)
     {
         return;
     }
 
     const float4 bodyOrientationA =
-        QuaternionNormalize(g_PredictedRigidBodyOrientations[bodyA]);
+        QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyA));
     const float4 bodyOrientationB =
-        QuaternionNormalize(g_PredictedRigidBodyOrientations[bodyB]);
-    const float4 colliderParamsA = g_ColliderShapeParams[colliderA];
-    const float4 colliderParamsB = g_ColliderShapeParams[colliderB];
-    const float4 scaleA = g_RigidBodyScales[bodyA];
-    const float4 scaleB = g_RigidBodyScales[bodyB];
-    const uint shapeTypeA = g_ColliderShapeTypes[colliderA];
-    const uint shapeTypeB = g_ColliderShapeTypes[colliderB];
+        QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyB));
+    const float4 colliderParamsA = CRESSIM_SB_LOAD(g_ColliderShapeParams, colliderA);
+    const float4 colliderParamsB = CRESSIM_SB_LOAD(g_ColliderShapeParams, colliderB);
+    const float4 scaleA = CRESSIM_SB_LOAD(g_RigidBodyScales, bodyA);
+    const float4 scaleB = CRESSIM_SB_LOAD(g_RigidBodyScales, bodyB);
+    const uint shapeTypeA = CRESSIM_SB_LOAD(g_ColliderShapeTypes, colliderA);
+    const uint shapeTypeB = CRESSIM_SB_LOAD(g_ColliderShapeTypes, colliderB);
     const float2 contactMaterial =
-        CombineContactMaterial(g_ColliderMaterials[colliderA], g_ColliderMaterials[colliderB]);
+        CombineContactMaterial(CRESSIM_SB_LOAD(g_ColliderMaterials, colliderA),
+                               CRESSIM_SB_LOAD(g_ColliderMaterials, colliderB));
     const float3 colliderPositionA = ComposeColliderWorldPosition(
-        bodyPositionInvMassA.xyz, bodyOrientationA, g_ColliderLocalPositions[colliderA].xyz * scaleA.xyz);
+        bodyPositionInvMassA.xyz, bodyOrientationA,
+        CRESSIM_SB_REF(g_ColliderLocalPositions, colliderA).xyz * scaleA.xyz);
     const float3 colliderPositionB = ComposeColliderWorldPosition(
-        bodyPositionInvMassB.xyz, bodyOrientationB, g_ColliderLocalPositions[colliderB].xyz * scaleB.xyz);
+        bodyPositionInvMassB.xyz, bodyOrientationB,
+        CRESSIM_SB_REF(g_ColliderLocalPositions, colliderB).xyz * scaleB.xyz);
     const float4 colliderOrientationA = ComposeColliderWorldOrientation(
-        bodyOrientationA, QuaternionNormalize(g_ColliderLocalOrientations[colliderA]));
+        bodyOrientationA, QuaternionNormalize(CRESSIM_SB_LOAD(g_ColliderLocalOrientations, colliderA)));
     const float4 colliderOrientationB = ComposeColliderWorldOrientation(
-        bodyOrientationB, QuaternionNormalize(g_ColliderLocalOrientations[colliderB]));
+        bodyOrientationB, QuaternionNormalize(CRESSIM_SB_LOAD(g_ColliderLocalOrientations, colliderB)));
 
     float3 aabbMinA;
     float3 aabbMaxA;
@@ -866,7 +869,7 @@ void ProcessPair(uint pairIndex, uint pairType)
                 {
                     break;
                 }
-                g_RigidContacts[contactBaseIndex + i] = manifoldContacts[i];
+                CRESSIM_SB_STORE(g_RigidContacts, contactBaseIndex + i, manifoldContacts[i]);
             }
             return;
         }
@@ -898,7 +901,7 @@ void ProcessPair(uint pairIndex, uint pairType)
     contact.localPointB =
         float4(QuaternionInverseRotate(bodyOrientationB, pointBWorld - bodyPositionInvMassB.xyz),
                1.0);
-    g_RigidContacts[contactBaseIndex] = contact;
+    CRESSIM_SB_STORE(g_RigidContacts, contactBaseIndex, contact);
 }
 
 groupshared uint s_ChunkId;
@@ -908,7 +911,7 @@ groupshared uint s_ChunkPairCount;
 
 [numthreads(128, 1, 1)] void main(uint3 groupThreadID : SV_GroupThreadID)
 {
-    const uint totalChunks = g_NarrowPhaseMeta[0].chunkCount;
+    const uint totalChunks = CRESSIM_SB_LOAD(g_NarrowPhaseMeta, 0).chunkCount;
     if (totalChunks == 0u)
     {
         return;
@@ -918,10 +921,10 @@ groupshared uint s_ChunkPairCount;
     {
         if (groupThreadID.x == 0u)
         {
-            InterlockedAdd(g_NarrowPhaseChunkCounter[0], 1u, s_ChunkId);
+            InterlockedAdd(CRESSIM_SB_REF(g_NarrowPhaseChunkCounter, 0u), 1u, s_ChunkId);
             if (s_ChunkId < totalChunks)
             {
-                const GpuNarrowPhaseChunk chunk = g_NarrowPhaseChunks[s_ChunkId];
+                const GpuNarrowPhaseChunk chunk = CRESSIM_SB_LOAD(g_NarrowPhaseChunks, s_ChunkId);
                 s_ChunkPairType = chunk.pairType;
                 s_ChunkPairStart = chunk.pairStart;
                 s_ChunkPairCount = chunk.pairCount;

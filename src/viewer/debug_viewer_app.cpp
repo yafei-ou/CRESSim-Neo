@@ -3,6 +3,9 @@
 #include "common/logger.h"
 #include "common/math_utils_runtime.h"
 #include "engine/components.h"
+#if defined(__APPLE__)
+#    include "viewer/macos_glfw_native_window.h"
+#endif
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -270,7 +273,14 @@ public:
             static_cast<std::uint64_t>(glfwGetX11Window(mWindow));
         inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeDisplay = glfwGetX11Display();
 #elif defined(__APPLE__)
-        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeWindow = glfwGetCocoaWindow(mWindow);
+        inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeWindow =
+            prepareMacOSPresentationView(mWindow);
+        if (inOutRuntimeConfig.gpuDeviceDesc.presentation.nativeWindow == nullptr)
+        {
+            CRESSIM_LOG_ERROR("DebugViewerApp: failed to prepare macOS presentation view.");
+            shutdown();
+            return false;
+        }
 #endif
 
         mInitialized = true;

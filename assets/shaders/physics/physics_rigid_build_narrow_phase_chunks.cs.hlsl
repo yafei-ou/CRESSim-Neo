@@ -2,10 +2,10 @@
 
 static const uint kNarrowPhaseChunkSize = 128u;
 
-StructuredBuffer<GpuRigidPairRange> g_RigidPairRanges;
-RWStructuredBuffer<GpuNarrowPhaseChunk> g_NarrowPhaseChunks;
-RWStructuredBuffer<GpuNarrowPhaseMeta> g_NarrowPhaseMeta;
-RWStructuredBuffer<uint> g_NarrowPhaseChunkCounter;
+CRESSIM_STRUCTURED_BUFFER(GpuRigidPairRange, g_RigidPairRanges);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuNarrowPhaseChunk, g_NarrowPhaseChunks);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuNarrowPhaseMeta, g_NarrowPhaseMeta);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_NarrowPhaseChunkCounter);
 
 [numthreads(1, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -17,7 +17,7 @@ RWStructuredBuffer<uint> g_NarrowPhaseChunkCounter;
     uint chunkIndex = 0u;
     [unroll] for (uint type = 0u; type < kRigidPairTypeCount; ++type)
     {
-        const GpuRigidPairRange range = g_RigidPairRanges[type];
+        const GpuRigidPairRange range = CRESSIM_SB_LOAD(g_RigidPairRanges, type);
         uint pairStart = range.start;
         uint remaining = range.count;
         while (remaining > 0u)
@@ -27,7 +27,7 @@ RWStructuredBuffer<uint> g_NarrowPhaseChunkCounter;
             chunk.pairStart = pairStart;
             chunk.pairCount = min(remaining, kNarrowPhaseChunkSize);
             chunk.reserved = 0u;
-            g_NarrowPhaseChunks[chunkIndex++] = chunk;
+            CRESSIM_SB_STORE(g_NarrowPhaseChunks, chunkIndex++, chunk);
             pairStart += chunk.pairCount;
             remaining -= chunk.pairCount;
         }
@@ -38,6 +38,6 @@ RWStructuredBuffer<uint> g_NarrowPhaseChunkCounter;
     meta.reserved0 = 0u;
     meta.reserved1 = 0u;
     meta.reserved2 = 0u;
-    g_NarrowPhaseMeta[0] = meta;
-    g_NarrowPhaseChunkCounter[0] = 0u;
+    CRESSIM_SB_STORE(g_NarrowPhaseMeta, 0, meta);
+    CRESSIM_SB_STORE(g_NarrowPhaseChunkCounter, 0u, 0u);
 }

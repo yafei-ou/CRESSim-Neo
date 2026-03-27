@@ -1,12 +1,12 @@
 #include "physics/include/physics_rigid_dispatch_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-StructuredBuffer<uint> g_RigidBodyTypes;
+CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 
-RWStructuredBuffer<float4> g_PredictedRigidBodyLinearVelocities;
-RWStructuredBuffer<float4> g_PredictedRigidBodyAngularVelocities;
-RWStructuredBuffer<int4> g_RigidBodyLinearVelocityCorrections;
-RWStructuredBuffer<int4> g_RigidBodyAngularVelocityCorrections;
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyLinearVelocities);
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyAngularVelocities);
+CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyLinearVelocityCorrections);
+CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyAngularVelocityCorrections);
 
 static const float kVelocityCorrectionAtomicScale = 100000.0;
 
@@ -19,13 +19,13 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const uint bodyType = g_RigidBodyTypes[bodyIndex];
-    float4 linearVelocity = g_PredictedRigidBodyLinearVelocities[bodyIndex];
-    float4 angularVelocity = g_PredictedRigidBodyAngularVelocities[bodyIndex];
+    const uint bodyType = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyIndex);
+    float4 linearVelocity = CRESSIM_SB_LOAD(g_PredictedRigidBodyLinearVelocities, bodyIndex);
+    float4 angularVelocity = CRESSIM_SB_LOAD(g_PredictedRigidBodyAngularVelocities, bodyIndex);
     const float3 linearCorrection =
-        float3(g_RigidBodyLinearVelocityCorrections[bodyIndex].xyz) / kVelocityCorrectionAtomicScale;
+        float3(CRESSIM_SB_REF(g_RigidBodyLinearVelocityCorrections, bodyIndex).xyz) / kVelocityCorrectionAtomicScale;
     const float3 angularCorrection =
-        float3(g_RigidBodyAngularVelocityCorrections[bodyIndex].xyz) / kVelocityCorrectionAtomicScale;
+        float3(CRESSIM_SB_REF(g_RigidBodyAngularVelocityCorrections, bodyIndex).xyz) / kVelocityCorrectionAtomicScale;
 
     if (bodyType == 2u)
     {
@@ -33,8 +33,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         angularVelocity.xyz += angularCorrection;
     }
 
-    g_PredictedRigidBodyLinearVelocities[bodyIndex] = linearVelocity;
-    g_PredictedRigidBodyAngularVelocities[bodyIndex] = angularVelocity;
-    g_RigidBodyLinearVelocityCorrections[bodyIndex] = int4(0, 0, 0, 0);
-    g_RigidBodyAngularVelocityCorrections[bodyIndex] = int4(0, 0, 0, 0);
+    CRESSIM_SB_STORE(g_PredictedRigidBodyLinearVelocities, bodyIndex, linearVelocity);
+    CRESSIM_SB_STORE(g_PredictedRigidBodyAngularVelocities, bodyIndex, angularVelocity);
+    CRESSIM_SB_STORE(g_RigidBodyLinearVelocityCorrections, bodyIndex, int4(0, 0, 0, 0));
+    CRESSIM_SB_STORE(g_RigidBodyAngularVelocityCorrections, bodyIndex, int4(0, 0, 0, 0));
 }

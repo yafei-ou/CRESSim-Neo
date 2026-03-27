@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <limits>
+#include <vector>
 
 namespace cressim::neo::gpu
 {
@@ -20,6 +21,14 @@ std::unique_ptr<GpuDevice> createGpuDevice()
 namespace
 {
 
+struct VulkanDedicatedContextPlan
+{
+    bool supported                       = false;
+    bool hasGraphicsQueue                = false;
+    Diligent::Uint8 graphicsQueueId      = 0u;
+    Diligent::Uint8 physicsQueueId       = 0u;
+};
+
 Diligent::Uint32 clampWindowId(std::uint64_t value)
 {
     constexpr std::uint64_t kMax =
@@ -30,6 +39,82 @@ Diligent::Uint32 clampWindowId(std::uint64_t value)
 GpuRenderTargetDesc effectiveDefaultRenderTargetDesc(const GpuDeviceDesc &deviceDesc)
 {
     return normalizeDefaultRenderTargetDesc(deviceDesc.defaultRenderTargetDesc);
+}
+
+VulkanDedicatedContextPlan planDedicatedVulkanContexts(Diligent::IEngineFactoryVk &factoryVk,
+                                                       const Diligent::Uint32 adapterId)
+{
+    VulkanDedicatedContextPlan plan{};
+
+    Diligent::Uint32 adapterCount = 0u;
+    factoryVk.EnumerateAdapters(Diligent::Version{}, adapterCount, nullptr);
+    if (adapterCount == 0u)
+    {
+        return plan;
+    }
+
+    std::vector<Diligent::GraphicsAdapterInfo> adapters(adapterCount);
+    factoryVk.EnumerateAdapters(Diligent::Version{}, adapterCount, adapters.data());
+    if (adapters.empty())
+    {
+        return plan;
+    }
+
+    const Diligent::Uint32 resolvedAdapterId =
+        adapterId == Diligent::DEFAULT_ADAPTER_ID ? 0u : std::min(adapterId, adapterCount - 1u);
+    const Diligent::GraphicsAdapterInfo &adapterInfo = adapters[resolvedAdapterId];
+    if (adapterInfo.NumQueues == 0u)
+    {
+        return plan;
+    }
+
+    for (Diligent::Uint32 queueIndex = 0; queueIndex < adapterInfo.NumQueues; ++queueIndex)
+    {
+        const auto &queueInfo = adapterInfo.Queues[queueIndex];
+        if (queueInfo.QueueType == Diligent::COMMAND_QUEUE_TYPE_GRAPHICS &&
+            queueInfo.MaxDeviceContexts > 0u)
+        {
+            plan.graphicsQueueId = static_cast<Diligent::Uint8>(queueIndex);
+            plan.hasGraphicsQueue = true;
+            break;
+        }
+    }
+
+    if (!plan.hasGraphicsQueue)
+    {
+        return plan;
+    }
+
+    const auto canRunPhysics = [](Diligent::COMMAND_QUEUE_TYPE queueType)
+    {
+        return (queueType & Diligent::COMMAND_QUEUE_TYPE_COMPUTE) != 0;
+    };
+
+    for (Diligent::Uint32 queueIndex = 0; queueIndex < adapterInfo.NumQueues; ++queueIndex)
+    {
+        if (queueIndex == plan.graphicsQueueId)
+        {
+            continue;
+        }
+
+        const auto &queueInfo = adapterInfo.Queues[queueIndex];
+        if (queueInfo.MaxDeviceContexts > 0u && canRunPhysics(queueInfo.QueueType))
+        {
+            plan.physicsQueueId = static_cast<Diligent::Uint8>(queueIndex);
+            plan.supported      = true;
+            return plan;
+        }
+    }
+
+    const auto &graphicsQueueInfo = adapterInfo.Queues[plan.graphicsQueueId];
+    if (graphicsQueueInfo.MaxDeviceContexts >= 2u &&
+        canRunPhysics(graphicsQueueInfo.QueueType))
+    {
+        plan.physicsQueueId = plan.graphicsQueueId;
+        plan.supported      = true;
+    }
+
+    return plan;
 }
 
 } // namespace
@@ -276,14 +361,19 @@ bool GpuDeviceImpl::initializeVulkan()
         engineCreateInfo.EnableValidation =
             static_cast<Diligent::Bool>(mDesc.enableValidation ? 1 : 0);
 
+        const VulkanDedicatedContextPlan dedicatedContextPlan =
+            planDedicatedVulkanContexts(*factoryVk, engineCreateInfo.AdapterId);
+
         std::array<Diligent::IDeviceContext *, 2> contexts = {nullptr, nullptr};
-        if (requestDedicatedPhysicsContext)
+        if (requestDedicatedPhysicsContext && dedicatedContextPlan.supported)
         {
-            static constexpr Diligent::ImmediateContextCreateInfo kContextInfo[2] = {
-                Diligent::ImmediateContextCreateInfo{"CRESSimNeo.GraphicsContext", 0u},
-                Diligent::ImmediateContextCreateInfo{"CRESSimNeo.PhysicsContext", 0u},
+            const std::array<Diligent::ImmediateContextCreateInfo, 2> kContextInfo = {
+                Diligent::ImmediateContextCreateInfo{"CRESSimNeo.GraphicsContext",
+                                                     dedicatedContextPlan.graphicsQueueId},
+                Diligent::ImmediateContextCreateInfo{"CRESSimNeo.PhysicsContext",
+                                                     dedicatedContextPlan.physicsQueueId},
             };
-            engineCreateInfo.pImmediateContextInfo = kContextInfo;
+            engineCreateInfo.pImmediateContextInfo = kContextInfo.data();
             engineCreateInfo.NumImmediateContexts  = 2u;
             factoryVk->CreateDeviceAndContextsVk(engineCreateInfo, &mRenderDevice, contexts.data());
         }

@@ -1,3 +1,5 @@
+#include "include/structured_buffer_compat.hlsli"
+
 struct IndirectCommandDesc
 {
     uint visibleOffset;
@@ -23,9 +25,9 @@ cbuffer GraphicsIndirectResetConstants
     uint g_ResetPadding0;
 };
 
-StructuredBuffer<IndirectCommandDesc> g_CommandDescs;
-RWStructuredBuffer<uint> g_CommandCountsRW;
-RWStructuredBuffer<DrawIndexedCommand> g_DrawIndexedCommandsRW;
+CRESSIM_STRUCTURED_BUFFER(IndirectCommandDesc, g_CommandDescs);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_CommandCountsRW);
+CRESSIM_RW_STRUCTURED_BUFFER(DrawIndexedCommand, g_DrawIndexedCommandsRW);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
@@ -36,8 +38,8 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    const IndirectCommandDesc desc = g_CommandDescs[commandIndex];
-    g_CommandCountsRW[commandIndex] = 0u;
+    const IndirectCommandDesc desc = CRESSIM_SB_LOAD(g_CommandDescs, commandIndex);
+    CRESSIM_SB_STORE(g_CommandCountsRW, commandIndex, 0u);
 
     DrawIndexedCommand command;
     command.numIndices = desc.indexCount;
@@ -45,5 +47,5 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     command.firstIndexLocation = 0u;
     command.baseVertex = 0;
     command.firstInstanceLocation = desc.visibleOffset;
-    g_DrawIndexedCommandsRW[commandIndex] = command;
+    CRESSIM_SB_STORE(g_DrawIndexedCommandsRW, commandIndex, command);
 }
