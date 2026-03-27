@@ -332,6 +332,7 @@ bool ForwardOpaquePass::initialize()
     if (mDevice.tryGetGraphicsBackendContext(backendContext) &&
         backendContext.renderDevice != nullptr)
     {
+        mGraphicsContextMask = gpu::contextMaskForId(backendContext.contextId);
         Diligent::SamplerDesc materialSamplerDesc{};
         materialSamplerDesc.MinFilter = Diligent::FILTER_TYPE_LINEAR;
         materialSamplerDesc.MagFilter = Diligent::FILTER_TYPE_LINEAR;
@@ -414,6 +415,7 @@ bool ForwardOpaquePass::beginBatchFrame(std::uint32_t currentCameraIndex)
     {
         return false;
     }
+    mGraphicsContextMask = gpu::contextMaskForId(backendContext.contextId);
     if (!ensureConstantBuffers(backendContext.renderDevice) ||
         !ensureEnvironmentIblResources(backendContext.renderDevice,
                                        backendContext.immediateContext))
@@ -1005,7 +1007,7 @@ bool ForwardOpaquePass::ensureEnvironmentIblResources(Diligent::IRenderDevice *r
                 renderDevice, "CRESSimNeo.ForwardOpaquePass.EnvironmentIblLookup",
                 sizeof(EnvironmentIblLookupEntry), static_cast<std::uint32_t>(entries.size()), 1u,
                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
-                1ull, mEnvironmentIblLookupBuffer, mEnvironmentIblLookupCapacity))
+                mGraphicsContextMask, mEnvironmentIblLookupBuffer, mEnvironmentIblLookupCapacity))
         {
             return false;
         }
@@ -1322,6 +1324,7 @@ bool ForwardOpaquePass::ensureConstantBuffers(Diligent::IRenderDevice *renderDev
         constantBufferDesc.Usage          = Diligent::USAGE_DYNAMIC;
         constantBufferDesc.BindFlags      = Diligent::BIND_UNIFORM_BUFFER;
         constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+        constantBufferDesc.ImmediateContextMask = mGraphicsContextMask;
         renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mForwardPerFrameBuffer);
         if (mForwardPerFrameBuffer == nullptr)
         {
@@ -1332,11 +1335,12 @@ bool ForwardOpaquePass::ensureConstantBuffers(Diligent::IRenderDevice *renderDev
     if (mPerObjectBuffer == nullptr)
     {
         Diligent::BufferDesc constantBufferDesc{};
-        constantBufferDesc.Name           = "CRESSimNeo.ForwardOpaquePass.GraphicsPerObject";
-        constantBufferDesc.Size           = sizeof(PerObjectConstants);
-        constantBufferDesc.Usage          = Diligent::USAGE_DYNAMIC;
-        constantBufferDesc.BindFlags      = Diligent::BIND_UNIFORM_BUFFER;
-        constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+        constantBufferDesc.Name                 = "CRESSimNeo.ForwardOpaquePass.GraphicsPerObject";
+        constantBufferDesc.Size                 = sizeof(PerObjectConstants);
+        constantBufferDesc.Usage                = Diligent::USAGE_DYNAMIC;
+        constantBufferDesc.BindFlags            = Diligent::BIND_UNIFORM_BUFFER;
+        constantBufferDesc.CPUAccessFlags       = Diligent::CPU_ACCESS_WRITE;
+        constantBufferDesc.ImmediateContextMask = mGraphicsContextMask;
         renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mPerObjectBuffer);
         if (mPerObjectBuffer == nullptr)
         {
@@ -1351,7 +1355,8 @@ bool ForwardOpaquePass::ensureConstantBuffers(Diligent::IRenderDevice *renderDev
         constantBufferDesc.Size      = sizeof(ForwardPerMaterialConstants);
         constantBufferDesc.Usage     = Diligent::USAGE_DYNAMIC;
         constantBufferDesc.BindFlags = Diligent::BIND_UNIFORM_BUFFER;
-        constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
+        constantBufferDesc.CPUAccessFlags       = Diligent::CPU_ACCESS_WRITE;
+        constantBufferDesc.ImmediateContextMask = mGraphicsContextMask;
         renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mForwardPerMaterialBuffer);
         if (mForwardPerMaterialBuffer == nullptr)
         {

@@ -174,17 +174,15 @@ void Runtime::tick(const common::FrameContext &frameContext)
         if (mGpuSceneSync->syncEntityPoses(mPhysicsSolver->gpuSceneView().rigid.poses,
                                            mWorld.physicsRenderableMappings()))
         {
-            gpu::GpuComputeBackendContext computeBackend{};
-            if (mGpuDevice && mGpuDevice->tryGetPhysicsBackendContext(computeBackend) &&
-                computeBackend.computeContext != nullptr)
-            {
-                computeBackend.computeContext->Flush();
-            }
         }
         else
         {
             gpuSceneReady = false;
         }
+    }
+    if (gpuSceneReady && mGpuDevice && !mGpuDevice->synchronizePhysicsToGraphics())
+    {
+        gpuSceneReady = false;
     }
     if (gpuSceneReady && mGpuSceneSync)
     {

@@ -15,6 +15,11 @@
 namespace cressim::neo::gpu
 {
 
+[[nodiscard]] constexpr Diligent::Uint64 contextMaskForId(std::uint32_t contextId) noexcept
+{
+    return static_cast<Diligent::Uint64>(1ull) << contextId;
+}
+
 enum class GpuBackend
 {
     Null,
@@ -153,6 +158,7 @@ struct GpuBackendContext
     Diligent::IRenderDevice *renderDevice      = nullptr;
     Diligent::IDeviceContext *immediateContext = nullptr;
     Diligent::ISwapChain *primarySwapChain     = nullptr;
+    std::uint32_t contextId                    = 0u;
     GpuRenderTargetBinding activeRenderTargetBinding{};
     bool hasActiveRenderTarget                             = false;
     bool activeRenderTargetHasDepth                        = false;

@@ -219,6 +219,7 @@ bool Renderer::ensureGpuScenePrepareState()
     {
         return false;
     }
+    const Diligent::Uint64 graphicsContextMask = gpu::contextMaskForId(backendContext.contextId);
 
     gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
     Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
@@ -228,9 +229,11 @@ bool Renderer::ensureGpuScenePrepareState()
     }
 
     if (!mGpuScenePrepare->cameraPreparePass.initialize(backendContext.renderDevice, streamFactory,
-                                                        1ull, kCameraPreparePassDefinition) ||
+                                                        graphicsContextMask,
+                                                        kCameraPreparePassDefinition) ||
         !mGpuScenePrepare->scenePreparePass.initialize(backendContext.renderDevice, streamFactory,
-                                                       1ull, kScenePreparePassDefinition))
+                                                       graphicsContextMask,
+                                                       kScenePreparePassDefinition))
     {
         return false;
     }
@@ -241,7 +244,7 @@ bool Renderer::ensureGpuScenePrepareState()
     desc.Usage                = Diligent::USAGE_DYNAMIC;
     desc.BindFlags            = Diligent::BIND_UNIFORM_BUFFER;
     desc.CPUAccessFlags       = Diligent::CPU_ACCESS_WRITE;
-    desc.ImmediateContextMask = 1ull;
+    desc.ImmediateContextMask = graphicsContextMask;
     backendContext.renderDevice->CreateBuffer(desc, nullptr,
                                               &mGpuScenePrepare->cameraPrepareConstantsBuffer);
     if (mGpuScenePrepare->cameraPrepareConstantsBuffer == nullptr)

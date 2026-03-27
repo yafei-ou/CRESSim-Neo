@@ -95,12 +95,14 @@ void GpuDeviceImpl::shutdown()
     mRenderDevice                       = nullptr;
     mPrimarySwapChain                   = nullptr;
     mPresentationReadbackFence          = nullptr;
+    mPhysicsToGraphicsFence             = nullptr;
     mGraphicsContextId                  = 0;
     mPhysicsContextId                   = 0;
     mGraphicsQueueType                  = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
     mPhysicsQueueType                   = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
     mNextPresentationReadbackRequestId  = 1;
     mNextPresentationReadbackFenceValue = 1;
+    mNextPhysicsToGraphicsFenceValue    = 1;
     mPendingPresentationReadbackRequests.clear();
     mPendingPresentationReadbackCopies.clear();
     mCompletedPresentationReadbacks.clear();
@@ -137,6 +139,7 @@ bool GpuDeviceImpl::tryGetGraphicsBackendContext(GpuBackendContext &outContext)
     outContext.renderDevice     = mRenderDevice;
     outContext.immediateContext = mImmediateContext;
     outContext.primarySwapChain = mPrimarySwapChain;
+    outContext.contextId        = mGraphicsContextId;
     if (mRenderTargets != nullptr)
     {
         mRenderTargets->fillBackendContextState(outContext);
@@ -159,6 +162,33 @@ bool GpuDeviceImpl::tryGetPhysicsBackendContext(GpuComputeBackendContext &outCon
     outContext.contextId      = mPhysicsContextId;
     outContext.queueType      = mPhysicsQueueType;
     outContext.role           = GpuContextRole::Physics;
+    return true;
+}
+
+bool GpuDeviceImpl::synchronizePhysicsToGraphics()
+{
+    if (!mInitialized || mBackend != GpuBackend::Vulkan || mImmediateContext == nullptr ||
+        mPhysicsContext == nullptr)
+    {
+        return false;
+    }
+
+    if (mImmediateContext == mPhysicsContext || mGraphicsContextId == mPhysicsContextId)
+    {
+        return true;
+    }
+
+    if (mPhysicsToGraphicsFence == nullptr)
+    {
+        return false;
+    }
+
+    const std::uint64_t fenceValue = mNextPhysicsToGraphicsFenceValue++;
+    // Shared pose buffers are written on the physics context and then consumed by
+    // subsequent graphics uploads and render passes on the graphics context.
+    mPhysicsContext->EnqueueSignal(mPhysicsToGraphicsFence, fenceValue);
+    mPhysicsContext->Flush();
+    mImmediateContext->DeviceWaitForFence(mPhysicsToGraphicsFence, fenceValue);
     return true;
 }
 
@@ -305,6 +335,16 @@ bool GpuDeviceImpl::initializeVulkan()
 
     if (mRenderDevice != nullptr)
     {
+        Diligent::FenceDesc physicsToGraphicsFenceDesc{};
+        physicsToGraphicsFenceDesc.Name = "CRESSimNeo.PhysicsToGraphicsFence";
+        physicsToGraphicsFenceDesc.Type = Diligent::FENCE_TYPE_GENERAL;
+        mRenderDevice->CreateFence(physicsToGraphicsFenceDesc, &mPhysicsToGraphicsFence);
+        if (mPhysicsToGraphicsFence == nullptr)
+        {
+            CRESSIM_LOG_ERROR("GpuDeviceImpl: failed to create physics-to-graphics fence.");
+            return false;
+        }
+
         Diligent::FenceDesc readbackFenceDesc{};
         readbackFenceDesc.Name = "CRESSimNeo.PresentationReadbackFence";
         readbackFenceDesc.Type = Diligent::FENCE_TYPE_CPU_WAIT_ONLY;

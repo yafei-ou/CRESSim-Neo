@@ -254,13 +254,13 @@ std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
 
 bool ensureStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
                             std::uint32_t elementStride, std::uint32_t elementCount,
-                            Diligent::BIND_FLAGS bindFlags,
+                            Diligent::BIND_FLAGS bindFlags, Diligent::Uint64 contextMask,
                             Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer,
                             std::uint32_t &inOutCapacity, std::uint32_t minimumCapacity)
 {
     return gpu::detail::ensureStructuredBufferCapacity(
         renderDevice, name, elementStride, elementCount, minimumCapacity, bindFlags,
-        Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, 1ull, outBuffer, inOutCapacity);
+        Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask, outBuffer, inOutCapacity);
 }
 
 bool writeBuffer(Diligent::IDeviceContext *context, Diligent::IBuffer *buffer, const void *data,
@@ -392,6 +392,7 @@ bool ForwardPipeline::initialize()
     {
         return false;
     }
+    const Diligent::Uint64 graphicsContextMask = gpu::contextMaskForId(backendContext.contextId);
 
     gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
     Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
@@ -399,40 +400,46 @@ bool ForwardPipeline::initialize()
     {
         return false;
     }
-    if (!mGpuIndirectState->resetPass.initialize(backendContext.renderDevice, streamFactory, 1ull,
+    if (!mGpuIndirectState->resetPass.initialize(backendContext.renderDevice, streamFactory,
+                                                 graphicsContextMask,
                                                  kIndirectResetPassDefinition) ||
         !mGpuIndirectState->localShadowIndirectResetPass.initialize(
-            backendContext.renderDevice, streamFactory, 1ull,
+            backendContext.renderDevice, streamFactory, graphicsContextMask,
             kLocalShadowIndirectResetPassDefinition) ||
-        !mGpuIndirectState->filterPass.initialize(backendContext.renderDevice, streamFactory, 1ull,
+        !mGpuIndirectState->filterPass.initialize(backendContext.renderDevice, streamFactory,
+                                                  graphicsContextMask,
                                                   kIndirectFilterPassDefinition) ||
-        !mGpuIndirectState->localShadowResetPass.initialize(
-            backendContext.renderDevice, streamFactory, 1ull, kLocalShadowResetPassDefinition) ||
+        !mGpuIndirectState->localShadowResetPass.initialize(backendContext.renderDevice,
+                                                            streamFactory, graphicsContextMask,
+                                                            kLocalShadowResetPassDefinition) ||
         !mGpuIndirectState->localShadowEnvBoundsResetPass.initialize(
-            backendContext.renderDevice, streamFactory, 1ull,
+            backendContext.renderDevice, streamFactory, graphicsContextMask,
             kLocalShadowEnvBoundsResetPassDefinition) ||
         !mGpuIndirectState->localShadowEnvBoundsPreparePass.initialize(
-            backendContext.renderDevice, streamFactory, 1ull,
+            backendContext.renderDevice, streamFactory, graphicsContextMask,
             kLocalShadowEnvBoundsPreparePassDefinition) ||
         !mGpuIndirectState->localShadowViewPreparePass.initialize(
-            backendContext.renderDevice, streamFactory, 1ull,
+            backendContext.renderDevice, streamFactory, graphicsContextMask,
             kLocalShadowViewPreparePassDefinition) ||
         !mGpuIndirectState->localShadowFilter2DPass.initialize(
-            backendContext.renderDevice, streamFactory, 1ull, kLocalShadowFilter2DPassDefinition) ||
+            backendContext.renderDevice, streamFactory, graphicsContextMask,
+            kLocalShadowFilter2DPassDefinition) ||
         !mGpuIndirectState->localShadowFilterPointPass.initialize(
-            backendContext.renderDevice, streamFactory, 1ull,
+            backendContext.renderDevice, streamFactory, graphicsContextMask,
             kLocalShadowFilterPointPassDefinition) ||
-        !mGpuIndirectState->composePass.initialize(backendContext.renderDevice, streamFactory, 1ull,
+        !mGpuIndirectState->composePass.initialize(backendContext.renderDevice, streamFactory,
+                                                   graphicsContextMask,
                                                    kIndirectComposePassDefinition))
     {
         return false;
     }
 
     Diligent::BufferDesc constantsDesc{};
-    constantsDesc.Usage          = Diligent::USAGE_DYNAMIC;
-    constantsDesc.BindFlags      = Diligent::BIND_UNIFORM_BUFFER;
-    constantsDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-    constantsDesc.Size           = sizeof(GraphicsIndirectPassConstants);
+    constantsDesc.Usage                = Diligent::USAGE_DYNAMIC;
+    constantsDesc.BindFlags            = Diligent::BIND_UNIFORM_BUFFER;
+    constantsDesc.CPUAccessFlags       = Diligent::CPU_ACCESS_WRITE;
+    constantsDesc.Size                 = sizeof(GraphicsIndirectPassConstants);
+    constantsDesc.ImmediateContextMask = graphicsContextMask;
 
     constantsDesc.Name = "CRESSimNeo.ForwardPipeline.IndirectResetConstants";
     backendContext.renderDevice->CreateBuffer(constantsDesc, nullptr,
@@ -519,6 +526,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     {
         return false;
     }
+    const Diligent::Uint64 graphicsContextMask = gpu::contextMaskForId(backendContext.contextId);
 
     const std::uint32_t envCount                  = gpuScene.layout.envCount;
     const std::uint32_t totalLightCount           = gpuScene.layout.totalLightCapacity();
@@ -568,7 +576,8 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             if (!ensureStructuredBuffer(
                     backendContext.renderDevice, name, sizeof(gpu::GpuBatchCameraMetadata),
                     static_cast<std::uint32_t>(batchCameras.size()), Diligent::BIND_SHADER_RESOURCE,
-                    bufferSet.batchCameraBuffer, bufferSet.batchCameraCapacity, 1u))
+                    graphicsContextMask, bufferSet.batchCameraBuffer, bufferSet.batchCameraCapacity,
+                    1u))
             {
                 return false;
             }
@@ -620,19 +629,21 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             const std::string descName  = std::string{namePrefix} + ".CommandDescs";
             const std::string countName = std::string{namePrefix} + ".CommandCounts";
             const std::string argsName  = std::string{namePrefix} + ".DrawArgs";
-            if (!ensureStructuredBuffer(backendContext.renderDevice, descName.c_str(),
-                                        sizeof(IndirectCommandDesc), commandCount,
-                                        Diligent::BIND_SHADER_RESOURCE, bufferSet.commandDescBuffer,
-                                        bufferSet.commandCapacity, 1u) ||
+            if (!ensureStructuredBuffer(
+                    backendContext.renderDevice, descName.c_str(), sizeof(IndirectCommandDesc),
+                    commandCount, Diligent::BIND_SHADER_RESOURCE, graphicsContextMask,
+                    bufferSet.commandDescBuffer, bufferSet.commandCapacity, 1u) ||
                 !ensureStructuredBuffer(
                     backendContext.renderDevice, countName.c_str(), sizeof(std::uint32_t),
                     commandCount, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-                    bufferSet.commandCountsBuffer, bufferSet.commandCapacity, 1u) ||
-                !ensureStructuredBuffer(
-                    backendContext.renderDevice, argsName.c_str(), sizeof(std::uint32_t) * 5u,
-                    commandCount,
-                    Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_INDIRECT_DRAW_ARGS,
-                    bufferSet.drawIndexedCommandsBuffer, bufferSet.commandCapacity, 1u))
+                    graphicsContextMask, bufferSet.commandCountsBuffer, bufferSet.commandCapacity,
+                    1u) ||
+                !ensureStructuredBuffer(backendContext.renderDevice, argsName.c_str(),
+                                        sizeof(std::uint32_t) * 5u, commandCount,
+                                        Diligent::BIND_UNORDERED_ACCESS |
+                                            Diligent::BIND_INDIRECT_DRAW_ARGS,
+                                        graphicsContextMask, bufferSet.drawIndexedCommandsBuffer,
+                                        bufferSet.commandCapacity, 1u))
             {
                 return false;
             }
@@ -642,11 +653,12 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             bufferSet.visiblePairBuffer == nullptr)
         {
             const std::string visibleName = std::string{namePrefix} + ".VisiblePairs";
-            if (!ensureStructuredBuffer(
-                    backendContext.renderDevice, visibleName.c_str(),
-                    sizeof(gpu::GpuVisiblePairInstance), visibleCapacity,
-                    Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-                    bufferSet.visiblePairBuffer, bufferSet.visiblePairCapacity, 1u))
+            if (!ensureStructuredBuffer(backendContext.renderDevice, visibleName.c_str(),
+                                        sizeof(gpu::GpuVisiblePairInstance), visibleCapacity,
+                                        Diligent::BIND_SHADER_RESOURCE |
+                                            Diligent::BIND_UNORDERED_ACCESS,
+                                        graphicsContextMask, bufferSet.visiblePairBuffer,
+                                        bufferSet.visiblePairCapacity, 1u))
             {
                 return false;
             }
@@ -770,19 +782,21 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             const std::string descName  = std::string{namePrefix} + ".CommandDescs";
             const std::string countName = std::string{namePrefix} + ".CommandCounts";
             const std::string argsName  = std::string{namePrefix} + ".DrawArgs";
-            if (!ensureStructuredBuffer(backendContext.renderDevice, descName.c_str(),
-                                        sizeof(IndirectCommandDesc), commandCount,
-                                        Diligent::BIND_SHADER_RESOURCE, bufferSet.commandDescBuffer,
-                                        bufferSet.commandCapacity, 1u) ||
+            if (!ensureStructuredBuffer(
+                    backendContext.renderDevice, descName.c_str(), sizeof(IndirectCommandDesc),
+                    commandCount, Diligent::BIND_SHADER_RESOURCE, graphicsContextMask,
+                    bufferSet.commandDescBuffer, bufferSet.commandCapacity, 1u) ||
                 !ensureStructuredBuffer(
                     backendContext.renderDevice, countName.c_str(), sizeof(std::uint32_t),
                     commandCount, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-                    bufferSet.commandCountsBuffer, bufferSet.commandCapacity, 1u) ||
-                !ensureStructuredBuffer(
-                    backendContext.renderDevice, argsName.c_str(), sizeof(std::uint32_t) * 5u,
-                    commandCount,
-                    Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_INDIRECT_DRAW_ARGS,
-                    bufferSet.drawIndexedCommandsBuffer, bufferSet.commandCapacity, 1u))
+                    graphicsContextMask, bufferSet.commandCountsBuffer, bufferSet.commandCapacity,
+                    1u) ||
+                !ensureStructuredBuffer(backendContext.renderDevice, argsName.c_str(),
+                                        sizeof(std::uint32_t) * 5u, commandCount,
+                                        Diligent::BIND_UNORDERED_ACCESS |
+                                            Diligent::BIND_INDIRECT_DRAW_ARGS,
+                                        graphicsContextMask, bufferSet.drawIndexedCommandsBuffer,
+                                        bufferSet.commandCapacity, 1u))
             {
                 return false;
             }
@@ -792,11 +806,12 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             bufferSet.visiblePairBuffer == nullptr)
         {
             const std::string visibleName = std::string{namePrefix} + ".VisiblePairs";
-            if (!ensureStructuredBuffer(
-                    backendContext.renderDevice, visibleName.c_str(),
-                    sizeof(gpu::GpuVisiblePairInstance), visibleCapacity,
-                    Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-                    bufferSet.visiblePairBuffer, bufferSet.visiblePairCapacity, 1u))
+            if (!ensureStructuredBuffer(backendContext.renderDevice, visibleName.c_str(),
+                                        sizeof(gpu::GpuVisiblePairInstance), visibleCapacity,
+                                        Diligent::BIND_SHADER_RESOURCE |
+                                            Diligent::BIND_UNORDERED_ACCESS,
+                                        graphicsContextMask, bufferSet.visiblePairBuffer,
+                                        bufferSet.visiblePairCapacity, 1u))
             {
                 return false;
             }
@@ -901,7 +916,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                 backendContext.renderDevice, "CRESSimNeo.ForwardPipeline.LocalShadowAssignments",
                 sizeof(gpu::GpuLightShadowAssignment), std::max(totalLightCount, 1u),
                 Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-                mGpuIndirectState->localShadowAssignmentBuffer,
+                graphicsContextMask, mGpuIndirectState->localShadowAssignmentBuffer,
                 mGpuIndirectState->localShadowAssignmentCapacity, 1u))
         {
             return false;
@@ -914,7 +929,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                 backendContext.renderDevice, "CRESSimNeo.ForwardPipeline.LocalShadowViews",
                 sizeof(gpu::GpuLocalShadowView), std::max(totalLocalShadowViewCount, 1u),
                 Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-                mGpuIndirectState->localShadowViewBuffer,
+                graphicsContextMask, mGpuIndirectState->localShadowViewBuffer,
                 mGpuIndirectState->localShadowViewCapacity, 1u))
         {
             return false;
@@ -928,7 +943,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                 backendContext.renderDevice, "CRESSimNeo.ForwardPipeline.LocalShadowEnvBounds",
                 sizeof(std::uint32_t), std::max(envCount * kLocalShadowEnvBoundsWords, 1u),
                 Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-                mGpuIndirectState->localShadowEnvBoundsBuffer,
+                graphicsContextMask, mGpuIndirectState->localShadowEnvBoundsBuffer,
                 mGpuIndirectState->localShadowEnvBoundsCapacity, 1u))
         {
             return false;

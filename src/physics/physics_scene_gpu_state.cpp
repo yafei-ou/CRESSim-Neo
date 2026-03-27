@@ -1,5 +1,6 @@
 #include "physics/physics_scene_gpu_state.h"
 
+#include "gpu/gpu_types.h"
 #include "physics/rigid_body_common.h"
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/GraphicsTypes.h"
@@ -15,11 +16,6 @@ namespace
 
 constexpr std::uint32_t kComputeThreadGroupSize = 64u;
 constexpr std::uint32_t kNarrowPhaseChunkSize   = 128u;
-
-Diligent::Uint64 contextMaskForId(std::uint32_t contextId)
-{
-    return static_cast<Diligent::Uint64>(1ull) << contextId;
-}
 
 bool ensureStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
                             std::uint32_t elementStride, std::uint32_t elementCount,
@@ -177,7 +173,7 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         (newCandidatePairCapacity + kNarrowPhaseChunkSize - 1u) / kNarrowPhaseChunkSize, 1u);
     const std::uint32_t newContactCapacity = std::max<std::uint32_t>(
         newCandidatePairCapacity * kRigidContactsPerPair, kRigidContactsPerPair);
-    const Diligent::Uint64 contextMask = contextMaskForId(physicsContextId);
+    const Diligent::Uint64 contextMask = gpu::contextMaskForId(physicsContextId);
     const std::vector<std::uint32_t> reductionLevelCounts =
         buildReductionLevelCounts(newColliderCapacity);
 

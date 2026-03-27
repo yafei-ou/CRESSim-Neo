@@ -39,28 +39,45 @@ public:
     }
 
 private:
-    bool ensureCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t entityCount,
-                        std::uint32_t contextId);
+    bool ensureSharedPoseCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t entityCount);
+    bool ensurePhysicsSyncCapacity(Diligent::IRenderDevice *renderDevice,
+                                   std::uint32_t mappingCount);
+    bool ensureRenderableCapacity(Diligent::IRenderDevice *renderDevice,
+                                  std::uint32_t renderableCount);
+    bool ensureCameraCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t cameraCount);
+    bool ensureLightCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t lightCount);
+    bool ensureLocalLightSelectionCapacity(Diligent::IRenderDevice *renderDevice,
+                                           std::uint32_t selectionCount);
     bool writeBuffer(Diligent::IDeviceContext *computeContext, Diligent::IBuffer *buffer,
                      const void *data, std::size_t sizeBytes);
 
     GpuDevice &mDevice;
     GpuSceneLayoutDesc mLayout{};
-    bool mInitialized                 = false;
-    std::uint32_t mCapacity           = 0;
-    std::uint32_t mEntityCount        = 0;
-    std::uint32_t mRenderableCapacity = 0;
-    std::uint32_t mRenderableCount    = 0;
-    std::uint32_t mCameraCapacity     = 0;
-    std::uint32_t mCameraCount        = 0;
-    std::uint32_t mLightCapacity      = 0;
-    std::uint32_t mLightCount         = 0;
-    Diligent::Uint64 mContextMask     = 0;
+    bool mInitialized                          = false;
+    std::uint32_t mPoseCapacity                = 0;
+    std::uint32_t mPhysicsSyncCapacity         = 0;
+    std::uint32_t mEntityCount                 = 0;
+    std::uint32_t mRenderableCapacity          = 0;
+    std::uint32_t mRenderableCount             = 0;
+    std::uint32_t mCameraCapacity              = 0;
+    std::uint32_t mCameraCount                 = 0;
+    std::uint32_t mLightCapacity               = 0;
+    std::uint32_t mLightCount                  = 0;
+    std::uint32_t mLocalLightSelectionCapacity = 0;
+    Diligent::Uint64 mGraphicsContextMask      = 0;
+    Diligent::Uint64 mPhysicsContextMask       = 0;
+    Diligent::Uint64 mSharedPoseContextMask    = 0;
 
+    // Physics-only pose handoff resources.
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mMappingBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mConstantsBuffer;
+
+    // Shared pose buffers: CPU-owned render poses and physics writeback both target these.
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mEntityPositionsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mEntityOrientationsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mEntityScalesBuffer;
+
+    // Graphics-owned render scene resources.
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableMetadataBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableQueueInfoBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableVisibilityFlagsBuffer;
@@ -69,7 +86,6 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPreparedCamerasBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mLightInputsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mLocalLightSelectionBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mConstantsBuffer;
 };
 
 } // namespace cressim::neo::gpu

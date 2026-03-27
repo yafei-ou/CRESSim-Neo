@@ -49,6 +49,25 @@ int main()
             runtime.shutdown();
             return 1;
         }
+        if (graphicsContext.contextId != graphicsContext.immediateContext->GetDesc().ContextId)
+        {
+            CRESSIM_LOG_ERROR( "Graphics backend context reported an unexpected context id.\n");
+            runtime.shutdown();
+            return 1;
+        }
+        if (physicsContext.contextId != physicsContext.computeContext->GetDesc().ContextId)
+        {
+            CRESSIM_LOG_ERROR( "Physics backend context reported an unexpected context id.\n");
+            runtime.shutdown();
+            return 1;
+        }
+        if (gpu::contextMaskForId(graphicsContext.contextId) == 0u ||
+            gpu::contextMaskForId(physicsContext.contextId) == 0u)
+        {
+            CRESSIM_LOG_ERROR( "Context id to mask conversion produced an invalid mask.\n");
+            runtime.shutdown();
+            return 1;
+        }
 
         physics::PhysicsSolver transientSolver(*device);
         physics::PhysicsWorld world;

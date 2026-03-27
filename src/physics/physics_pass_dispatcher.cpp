@@ -1,6 +1,8 @@
 #include "physics/physics_pass_dispatcher.h"
 #include "physics/physics_pass_definitions.h"
 
+#include "gpu/gpu_types.h"
+
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/GraphicsTypes.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Shader.h"
 #include "common/logger.h"
@@ -124,7 +126,7 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice *renderDevice,
     }
 
     mShaderLibrary      = gpu::ShaderLibrary(shaderSourceDirectory);
-    mPhysicsContextMask = static_cast<Diligent::Uint64>(1ull) << physicsContextId;
+    mPhysicsContextMask = gpu::contextMaskForId(physicsContextId);
 
     Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderLibrary.streamFactory();
     if (streamFactory == nullptr)

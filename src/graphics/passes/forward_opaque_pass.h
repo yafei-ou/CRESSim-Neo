@@ -141,6 +141,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mBrdfLutSrv;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mEnvironmentIblLookupBuffer;
     std::uint32_t mEnvironmentIblLookupCapacity = 0u;
+    Diligent::Uint64 mGraphicsContextMask       = 0;
     float mEnvironmentIblPrefilteredMipCount    = 1.0f;
     std::size_t mEnvironmentIblStateHash        = 0u;
     std::array<gpu::GpuRenderTargetHandle, kShadowCascadeCount> mShadowMapTargets{};
