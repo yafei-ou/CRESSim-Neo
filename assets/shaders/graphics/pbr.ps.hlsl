@@ -316,7 +316,9 @@ float ComputeLocalShadowFactor(uint lightIndex, float3 worldPos, float3 normal, 
 
     if (assignment.shadowMode == 1u)
     {
-        shadowBias *= (1.0 + 1.5 * slopeScale);
+        // Spot-light receivers can lose shadows while still inside the lit cone if the
+        // slope-scaled bias grows too quickly near the frustum edge.
+        shadowBias *= (0.75 + 0.75 * slopeScale);
         return SampleCascadeShadow(g_LocalShadowMap, g_LocalShadowMap_sampler,
                                    shadowView.lightViewProjectionMatrices[0], worldPos,
                                    (float)shadowView.firstLayer, shadowBias, texelSize);

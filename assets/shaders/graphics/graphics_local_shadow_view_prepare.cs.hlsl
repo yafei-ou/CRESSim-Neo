@@ -130,14 +130,17 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         if (light.type == CRESSIM_LIGHT_TYPE_SPOT)
         {
             shadowView.shadowNearPlane = 0.05;
-            shadowView.shadowFarPlane = max(light.positionRange.w, 1.0);
+            shadowView.shadowFarPlane =
+                max(light.positionRange.w * CRESSIM_LOCAL_SHADOW_SPOT_RANGE_GUARD_SCALE, 1.0);
             const float4x4 view = localShadowBuildLookAtMatrix(
                 light.positionRange.xyz, light.positionRange.xyz + lightDirection, float3(0.0, 1.0, 0.0));
-            const float fovRadians = max(light.spotAngles.w * 2.0 * (CRESSIM_LOCAL_SHADOW_PI / 180.0),
+            const float fovRadians =
+                max(light.spotAngles.w * 2.0 * (CRESSIM_LOCAL_SHADOW_PI / 180.0) +
+                        CRESSIM_LOCAL_SHADOW_SPOT_FOV_GUARD_RADIANS,
                                          CRESSIM_LOCAL_SHADOW_PI / 180.0);
             const float4x4 proj =
                 localShadowBuildPerspectiveMatrix(fovRadians, 1.0, 0.05,
-                                                  max(light.positionRange.w, 1.0));
+                                                  shadowView.shadowFarPlane);
             shadowView.lightViewProjectionMatrices[0] = mul(view, proj);
         }
         else
