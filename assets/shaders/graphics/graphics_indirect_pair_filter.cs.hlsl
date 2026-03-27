@@ -56,7 +56,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     if (g_QueueMode == kQueueModeOpaque)
     {
         if (queueInfo.opaqueCommandIndex == kInvalidCommandIndex ||
-            g_RenderableVisibilityFlags[visibilityIndex] == 0u)
+            CRESSIM_SB_LOAD(g_RenderableVisibilityFlags, visibilityIndex) == 0u)
         {
             return;
         }
@@ -81,7 +81,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    const uint shadowMask = g_RenderableShadowCascadeMasks[visibilityIndex];
+    const uint shadowMask = CRESSIM_SB_LOAD(g_RenderableShadowCascadeMasks, visibilityIndex);
     [unroll]
     for (uint cascadeIndex = 0u; cascadeIndex < 4u; ++cascadeIndex)
     {

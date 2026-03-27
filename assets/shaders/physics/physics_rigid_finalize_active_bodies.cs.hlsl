@@ -1,10 +1,10 @@
 #include "physics/include/physics_rigid_dispatch_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-StructuredBuffer<uint> g_ActiveBodyFlags;
-StructuredBuffer<uint> g_ActiveBodyOffsets;
-StructuredBuffer<uint> g_StaticBodyFlags;
-StructuredBuffer<uint> g_StaticBodyOffsets;
+CRESSIM_STRUCTURED_BUFFER(uint, g_ActiveBodyFlags);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ActiveBodyOffsets);
+CRESSIM_STRUCTURED_BUFFER(uint, g_StaticBodyFlags);
+CRESSIM_STRUCTURED_BUFFER(uint, g_StaticBodyOffsets);
 RWStructuredBuffer<GpuBroadPhaseMeta> g_BroadPhaseMeta;
 
 [numthreads(1, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -23,9 +23,11 @@ RWStructuredBuffer<GpuBroadPhaseMeta> g_BroadPhaseMeta;
     else
     {
         meta.activeMovingCount =
-            g_ActiveBodyOffsets[colliderCount - 1u] + g_ActiveBodyFlags[colliderCount - 1u];
+            CRESSIM_SB_LOAD(g_ActiveBodyOffsets, colliderCount - 1u) +
+            CRESSIM_SB_LOAD(g_ActiveBodyFlags, colliderCount - 1u);
         meta.staticBodyCount =
-            g_StaticBodyOffsets[colliderCount - 1u] + g_StaticBodyFlags[colliderCount - 1u];
+            CRESSIM_SB_LOAD(g_StaticBodyOffsets, colliderCount - 1u) +
+            CRESSIM_SB_LOAD(g_StaticBodyFlags, colliderCount - 1u);
     }
     meta.candidatePairCount = 0u;
     meta.requiredPairCount = 0u;

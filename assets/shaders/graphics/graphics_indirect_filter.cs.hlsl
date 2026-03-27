@@ -17,8 +17,8 @@ cbuffer GraphicsIndirectFilterConstants
 };
 
 StructuredBuffer<IndirectCommandDesc> g_CommandDescs;
-RWStructuredBuffer<uint> g_CommandCountsRW;
-RWStructuredBuffer<uint> g_VisibleObjectIndicesRW;
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_CommandCountsRW);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_VisibleObjectIndicesRW);
 
 static const uint kQueueModeOpaque = 0u;
 static const uint kQueueModeShadow = 1u;
@@ -41,17 +41,19 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     if (g_QueueMode == kQueueModeOpaque)
     {
         if (queueInfo.opaqueCommandIndex == kInvalidCommandIndex ||
-            g_RenderableVisibilityFlags[visibilityIndex] == 0u)
+            CRESSIM_SB_LOAD(g_RenderableVisibilityFlags, visibilityIndex) == 0u)
         {
             return;
         }
 
         const IndirectCommandDesc desc = g_CommandDescs[queueInfo.opaqueCommandIndex];
         uint visibleSlot = 0u;
-        InterlockedAdd(g_CommandCountsRW[queueInfo.opaqueCommandIndex], 1u, visibleSlot);
+        InterlockedAdd(CRESSIM_SB_REF(g_CommandCountsRW, queueInfo.opaqueCommandIndex), 1u,
+                       visibleSlot);
         if (visibleSlot < desc.maxVisibleCount)
         {
-            g_VisibleObjectIndicesRW[desc.visibleOffset + visibleSlot] = globalObjectIndex;
+            CRESSIM_SB_STORE(g_VisibleObjectIndicesRW, desc.visibleOffset + visibleSlot,
+                             globalObjectIndex);
         }
         return;
     }
@@ -61,7 +63,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    const uint shadowMask = g_RenderableShadowCascadeMasks[visibilityIndex];
+    const uint shadowMask = CRESSIM_SB_LOAD(g_RenderableShadowCascadeMasks, visibilityIndex);
     [unroll]
     for (uint cascadeIndex = 0u; cascadeIndex < 4u; ++cascadeIndex)
     {
@@ -73,10 +75,11 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         const uint commandIndex = queueInfo.shadowCommandBaseIndex + cascadeIndex;
         const IndirectCommandDesc desc = g_CommandDescs[commandIndex];
         uint visibleSlot = 0u;
-        InterlockedAdd(g_CommandCountsRW[commandIndex], 1u, visibleSlot);
+        InterlockedAdd(CRESSIM_SB_REF(g_CommandCountsRW, commandIndex), 1u, visibleSlot);
         if (visibleSlot < desc.maxVisibleCount)
         {
-            g_VisibleObjectIndicesRW[desc.visibleOffset + visibleSlot] = globalObjectIndex;
+            CRESSIM_SB_STORE(g_VisibleObjectIndicesRW, desc.visibleOffset + visibleSlot,
+                             globalObjectIndex);
         }
     }
 }

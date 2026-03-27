@@ -12,14 +12,16 @@ struct PoseMappingEntry
     uint entityPoseIndex;
 };
 
-StructuredBuffer<float4> g_SourcePositions;
-StructuredBuffer<float4> g_SourceOrientations;
-StructuredBuffer<float4> g_SourceScales;
+#include "include/structured_buffer_compat.hlsli"
+
+CRESSIM_STRUCTURED_BUFFER(float4, g_SourcePositions);
+CRESSIM_STRUCTURED_BUFFER(float4, g_SourceOrientations);
+CRESSIM_STRUCTURED_BUFFER(float4, g_SourceScales);
 StructuredBuffer<PoseMappingEntry> g_Mappings;
 
-RWStructuredBuffer<float4> g_EntityPositions;
-RWStructuredBuffer<float4> g_EntityOrientations;
-RWStructuredBuffer<float4> g_EntityScales;
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_EntityPositions);
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_EntityOrientations);
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_EntityScales);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
@@ -31,7 +33,10 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     }
 
     const PoseMappingEntry mapping = g_Mappings[mappingIndex];
-    g_EntityPositions[mapping.entityPoseIndex] = g_SourcePositions[mapping.sourcePoseIndex];
-    g_EntityOrientations[mapping.entityPoseIndex] = g_SourceOrientations[mapping.sourcePoseIndex];
-    g_EntityScales[mapping.entityPoseIndex] = g_SourceScales[mapping.sourcePoseIndex];
+    CRESSIM_SB_STORE(g_EntityPositions, mapping.entityPoseIndex,
+                     CRESSIM_SB_LOAD(g_SourcePositions, mapping.sourcePoseIndex));
+    CRESSIM_SB_STORE(g_EntityOrientations, mapping.entityPoseIndex,
+                     CRESSIM_SB_LOAD(g_SourceOrientations, mapping.sourcePoseIndex));
+    CRESSIM_SB_STORE(g_EntityScales, mapping.entityPoseIndex,
+                     CRESSIM_SB_LOAD(g_SourceScales, mapping.sourcePoseIndex));
 }

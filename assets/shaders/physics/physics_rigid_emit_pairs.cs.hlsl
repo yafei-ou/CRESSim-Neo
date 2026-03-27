@@ -1,17 +1,17 @@
 #include "physics/include/physics_rigid_dispatch_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-StructuredBuffer<uint> g_BroadPhaseBodyIndices;
+CRESSIM_STRUCTURED_BUFFER(uint, g_BroadPhaseBodyIndices);
 StructuredBuffer<GpuBodyAabb> g_BodyAabbs;
-StructuredBuffer<GpuBvhNode> g_BvhNodes;
-StructuredBuffer<GpuBvhNode> g_StaticBvhNodes;
+CRESSIM_STRUCTURED_BUFFER(GpuBvhNode, g_BvhNodes);
+CRESSIM_STRUCTURED_BUFFER(GpuBvhNode, g_StaticBvhNodes);
 StructuredBuffer<GpuColliderBroadPhaseData> g_ColliderBroadPhaseData;
-StructuredBuffer<uint> g_PairOffsetsSphereSphere;
-StructuredBuffer<uint> g_PairOffsetsSphereBox;
-StructuredBuffer<uint> g_PairOffsetsSphereCapsule;
-StructuredBuffer<uint> g_PairOffsetsBoxBox;
-StructuredBuffer<uint> g_PairOffsetsBoxCapsule;
-StructuredBuffer<uint> g_PairOffsetsCapsuleCapsule;
+CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsSphereSphere);
+CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsSphereBox);
+CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsSphereCapsule);
+CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsBoxBox);
+CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsBoxCapsule);
+CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsCapsuleCapsule);
 StructuredBuffer<GpuRigidPairRange> g_RigidPairRanges;
 RWStructuredBuffer<GpuCandidatePair> g_CandidatePairs;
 
@@ -53,7 +53,7 @@ void EmitCanonicalPair(uint colliderA, uint colliderB, uint shapeTypeA, uint sha
         return;
     }
 
-    const uint colliderId = g_BroadPhaseBodyIndices[activeIndex];
+    const uint colliderId = CRESSIM_SB_LOAD(g_BroadPhaseBodyIndices, activeIndex);
     const GpuColliderBroadPhaseData colliderA = g_ColliderBroadPhaseData[colliderId];
     const uint ownerBodyA = colliderA.ownerBody;
     const uint environmentA = colliderA.environmentIndex;
@@ -65,12 +65,12 @@ void EmitCanonicalPair(uint colliderA, uint colliderB, uint shapeTypeA, uint sha
     const float3 queryMax = bodyAabb.maxBounds.xyz;
 
     uint writeIndices[kRigidPairTypeCount];
-    writeIndices[0] = g_RigidPairRanges[0].start + g_PairOffsetsSphereSphere[activeIndex];
-    writeIndices[1] = g_RigidPairRanges[1].start + g_PairOffsetsSphereBox[activeIndex];
-    writeIndices[2] = g_RigidPairRanges[2].start + g_PairOffsetsSphereCapsule[activeIndex];
-    writeIndices[3] = g_RigidPairRanges[3].start + g_PairOffsetsBoxBox[activeIndex];
-    writeIndices[4] = g_RigidPairRanges[4].start + g_PairOffsetsBoxCapsule[activeIndex];
-    writeIndices[5] = g_RigidPairRanges[5].start + g_PairOffsetsCapsuleCapsule[activeIndex];
+    writeIndices[0] = g_RigidPairRanges[0].start + CRESSIM_SB_LOAD(g_PairOffsetsSphereSphere, activeIndex);
+    writeIndices[1] = g_RigidPairRanges[1].start + CRESSIM_SB_LOAD(g_PairOffsetsSphereBox, activeIndex);
+    writeIndices[2] = g_RigidPairRanges[2].start + CRESSIM_SB_LOAD(g_PairOffsetsSphereCapsule, activeIndex);
+    writeIndices[3] = g_RigidPairRanges[3].start + CRESSIM_SB_LOAD(g_PairOffsetsBoxBox, activeIndex);
+    writeIndices[4] = g_RigidPairRanges[4].start + CRESSIM_SB_LOAD(g_PairOffsetsBoxCapsule, activeIndex);
+    writeIndices[5] = g_RigidPairRanges[5].start + CRESSIM_SB_LOAD(g_PairOffsetsCapsuleCapsule, activeIndex);
 
     if (activeMovingCount > 1u)
     {
@@ -81,7 +81,7 @@ void EmitCanonicalPair(uint colliderA, uint colliderB, uint shapeTypeA, uint sha
         while (stackSize > 0u)
         {
             const uint nodeIndex = stack[--stackSize];
-            const GpuBvhNode node = g_BvhNodes[nodeIndex];
+            const GpuBvhNode node = CRESSIM_SB_LOAD(g_BvhNodes, nodeIndex);
             if (!NodeOverlapsQuery(node, queryMin, queryMax))
             {
                 continue;
@@ -126,7 +126,7 @@ void EmitCanonicalPair(uint colliderA, uint colliderB, uint shapeTypeA, uint sha
         while (stackSize > 0u)
         {
             const uint nodeIndex = stack[--stackSize];
-            const GpuBvhNode node = g_StaticBvhNodes[nodeIndex];
+            const GpuBvhNode node = CRESSIM_SB_LOAD(g_StaticBvhNodes, nodeIndex);
             if (!NodeOverlapsQuery(node, queryMin, queryMax))
             {
                 continue;

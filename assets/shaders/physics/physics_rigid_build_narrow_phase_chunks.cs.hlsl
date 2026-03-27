@@ -5,7 +5,7 @@ static const uint kNarrowPhaseChunkSize = 128u;
 StructuredBuffer<GpuRigidPairRange> g_RigidPairRanges;
 RWStructuredBuffer<GpuNarrowPhaseChunk> g_NarrowPhaseChunks;
 RWStructuredBuffer<GpuNarrowPhaseMeta> g_NarrowPhaseMeta;
-RWStructuredBuffer<uint> g_NarrowPhaseChunkCounter;
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_NarrowPhaseChunkCounter);
 
 [numthreads(1, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -39,5 +39,5 @@ RWStructuredBuffer<uint> g_NarrowPhaseChunkCounter;
     meta.reserved1 = 0u;
     meta.reserved2 = 0u;
     g_NarrowPhaseMeta[0] = meta;
-    g_NarrowPhaseChunkCounter[0] = 0u;
+    CRESSIM_SB_STORE(g_NarrowPhaseChunkCounter, 0u, 0u);
 }

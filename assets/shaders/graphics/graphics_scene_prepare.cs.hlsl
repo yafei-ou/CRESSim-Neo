@@ -8,8 +8,8 @@ cbuffer GraphicsScenePrepareConstants
     uint g_PreparePadding1;
 };
 
-RWStructuredBuffer<uint> g_RenderableVisibilityFlagsRW;
-RWStructuredBuffer<uint> g_RenderableShadowCascadeMasksRW;
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_RenderableVisibilityFlagsRW);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_RenderableShadowCascadeMasksRW);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
@@ -27,8 +27,8 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     const uint outputIndex = preparedCamera.visibilityDataOffset + localObjectIndex;
     if (preparedCamera.active == 0u)
     {
-        g_RenderableVisibilityFlagsRW[outputIndex] = 0u;
-        g_RenderableShadowCascadeMasksRW[outputIndex] = 0u;
+        CRESSIM_SB_STORE(g_RenderableVisibilityFlagsRW, outputIndex, 0u);
+        CRESSIM_SB_STORE(g_RenderableShadowCascadeMasksRW, outputIndex, 0u);
         return;
     }
 
@@ -36,14 +36,14 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     const RenderableMetadata metadata = g_RenderableMetadata[renderableIndex];
     if ((metadata.flags & CRESSIM_RENDERABLE_FLAG_ACTIVE) == 0u)
     {
-        g_RenderableVisibilityFlagsRW[outputIndex] = 0u;
-        g_RenderableShadowCascadeMasksRW[outputIndex] = 0u;
+        CRESSIM_SB_STORE(g_RenderableVisibilityFlagsRW, outputIndex, 0u);
+        CRESSIM_SB_STORE(g_RenderableShadowCascadeMasksRW, outputIndex, 0u);
         return;
     }
 
-    const float3 position = g_EntityPositions[renderableIndex].xyz;
-    const float4 orientation = normalize(g_EntityOrientations[renderableIndex]);
-    const float3 scale = g_EntityScales[renderableIndex].xyz;
+    const float3 position = CRESSIM_SB_REF(g_EntityPositions, renderableIndex).xyz;
+    const float4 orientation = normalize(CRESSIM_SB_LOAD(g_EntityOrientations, renderableIndex));
+    const float3 scale = CRESSIM_SB_REF(g_EntityScales, renderableIndex).xyz;
 
     float3 corners[8];
     corners[0] = metadata.localBoundsMin.xyz;
@@ -80,7 +80,8 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     }
 
     const bool visible = !(allLeft || allRight || allBottom || allTop || allNear || allFar);
-    g_RenderableVisibilityFlagsRW[outputIndex] = visible ? 1u : 0u;
+    const uint visibilityFlag = visible ? 1u : 0u;
+    CRESSIM_SB_STORE(g_RenderableVisibilityFlagsRW, outputIndex, visibilityFlag);
 
     uint shadowMask = 0u;
     const uint shadowCascadeCount = (uint)round(preparedCamera.mainShadowCascadeCount);
@@ -116,5 +117,5 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         }
     }
 
-    g_RenderableShadowCascadeMasksRW[outputIndex] = shadowMask;
+    CRESSIM_SB_STORE(g_RenderableShadowCascadeMasksRW, outputIndex, shadowMask);
 }

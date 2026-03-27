@@ -8,7 +8,7 @@ cbuffer GraphicsLocalShadowPrepareConstants
     uint g_LocalShadowBucketCount;
 };
 
-RWStructuredBuffer<uint> g_LocalShadowEnvBoundsRW;
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_LocalShadowEnvBoundsRW);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
@@ -28,18 +28,18 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     const uint envIndex = objectIndex / g_MaxObjectsPerEnv;
     const uint baseIndex = envIndex * CRESSIM_LOCAL_SHADOW_ENV_BOUNDS_WORDS;
-    const float3 position = g_EntityPositions[objectIndex].xyz;
-    InterlockedMin(g_LocalShadowEnvBoundsRW[baseIndex + 0u],
+    const float3 position = CRESSIM_SB_REF(g_EntityPositions, objectIndex).xyz;
+    InterlockedMin(CRESSIM_SB_REF(g_LocalShadowEnvBoundsRW, baseIndex + 0u),
                    localShadowFloatToOrderedUint(position.x));
-    InterlockedMin(g_LocalShadowEnvBoundsRW[baseIndex + 1u],
+    InterlockedMin(CRESSIM_SB_REF(g_LocalShadowEnvBoundsRW, baseIndex + 1u),
                    localShadowFloatToOrderedUint(position.y));
-    InterlockedMin(g_LocalShadowEnvBoundsRW[baseIndex + 2u],
+    InterlockedMin(CRESSIM_SB_REF(g_LocalShadowEnvBoundsRW, baseIndex + 2u),
                    localShadowFloatToOrderedUint(position.z));
-    InterlockedMax(g_LocalShadowEnvBoundsRW[baseIndex + 3u],
+    InterlockedMax(CRESSIM_SB_REF(g_LocalShadowEnvBoundsRW, baseIndex + 3u),
                    localShadowFloatToOrderedUint(position.x));
-    InterlockedMax(g_LocalShadowEnvBoundsRW[baseIndex + 4u],
+    InterlockedMax(CRESSIM_SB_REF(g_LocalShadowEnvBoundsRW, baseIndex + 4u),
                    localShadowFloatToOrderedUint(position.y));
-    InterlockedMax(g_LocalShadowEnvBoundsRW[baseIndex + 5u],
+    InterlockedMax(CRESSIM_SB_REF(g_LocalShadowEnvBoundsRW, baseIndex + 5u),
                    localShadowFloatToOrderedUint(position.z));
-    InterlockedOr(g_LocalShadowEnvBoundsRW[baseIndex + 6u], 1u);
+    InterlockedOr(CRESSIM_SB_REF(g_LocalShadowEnvBoundsRW, baseIndex + 6u), 1u);
 }

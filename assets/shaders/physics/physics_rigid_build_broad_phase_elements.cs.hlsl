@@ -1,7 +1,7 @@
 #include "physics/include/physics_rigid_broad_phase_build_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-StructuredBuffer<uint> g_BroadPhaseBodyIndices;
+CRESSIM_STRUCTURED_BUFFER(uint, g_BroadPhaseBodyIndices);
 StructuredBuffer<GpuBodyAabb> g_BodyAabbs;
 RWStructuredBuffer<GpuBroadPhaseElement> g_BroadPhaseElements;
 
@@ -13,7 +13,7 @@ RWStructuredBuffer<GpuBroadPhaseElement> g_BroadPhaseElements;
         return;
     }
 
-    const uint primitiveId = g_BroadPhaseBodyIndices[activeIndex];
+    const uint primitiveId = CRESSIM_SB_LOAD(g_BroadPhaseBodyIndices, activeIndex);
     const GpuBodyAabb bodyAabb = g_BodyAabbs[primitiveId];
 
     GpuBroadPhaseElement element;

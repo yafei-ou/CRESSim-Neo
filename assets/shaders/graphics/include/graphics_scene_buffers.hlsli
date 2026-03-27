@@ -127,20 +127,22 @@ struct EnvironmentIblLookupEntry
     float reserved0;
 };
 
-StructuredBuffer<float4> g_EntityPositions;
-StructuredBuffer<float4> g_EntityOrientations;
-StructuredBuffer<float4> g_EntityScales;
+#include "include/structured_buffer_compat.hlsli"
+
+CRESSIM_STRUCTURED_BUFFER(float4, g_EntityPositions);
+CRESSIM_STRUCTURED_BUFFER(float4, g_EntityOrientations);
+CRESSIM_STRUCTURED_BUFFER(float4, g_EntityScales);
 StructuredBuffer<RenderableMetadata> g_RenderableMetadata;
 StructuredBuffer<RenderableQueueInfo> g_RenderableQueueInfo;
-StructuredBuffer<uint> g_RenderableVisibilityFlags;
-StructuredBuffer<uint> g_RenderableShadowCascadeMasks;
+CRESSIM_STRUCTURED_BUFFER(uint, g_RenderableVisibilityFlags);
+CRESSIM_STRUCTURED_BUFFER(uint, g_RenderableShadowCascadeMasks);
 StructuredBuffer<PreparedCamera> g_PreparedCameras;
 StructuredBuffer<LightInput> g_LightInputs;
 StructuredBuffer<LocalLightSelection> g_LocalLightSelections;
 StructuredBuffer<LightShadowAssignment> g_LightShadowAssignments;
 StructuredBuffer<LocalShadowView> g_LocalShadowViews;
 StructuredBuffer<BatchCameraMetadata> g_BatchCameras;
-StructuredBuffer<uint> g_VisibleObjectIndices;
+CRESSIM_STRUCTURED_BUFFER(uint, g_VisibleObjectIndices);
 StructuredBuffer<VisiblePairInstance> g_VisiblePairs;
 #if defined(CRESSIM_IBL_DIFFUSE_ONLY) || defined(CRESSIM_IBL_FULL)
 StructuredBuffer<EnvironmentIblLookupEntry> g_EnvironmentIblLookup;
@@ -174,9 +176,9 @@ void loadRenderablePose(uint instanceIndex, out bool isValid, out float3 positio
         return;
     }
 
-    position = g_EntityPositions[instanceIndex].xyz;
-    orientation = normalize(g_EntityOrientations[instanceIndex]);
-    scale = g_EntityScales[instanceIndex].xyz;
+    position = CRESSIM_SB_REF(g_EntityPositions, instanceIndex).xyz;
+    orientation = normalize(CRESSIM_SB_LOAD(g_EntityOrientations, instanceIndex));
+    scale = CRESSIM_SB_REF(g_EntityScales, instanceIndex).xyz;
     isValid = true;
 }
 

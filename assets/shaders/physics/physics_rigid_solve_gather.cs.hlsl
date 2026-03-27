@@ -9,14 +9,14 @@ static const float kMaxCorrectionPerIter = 0.02; // world units, tune (e.g. 2 cm
 static const float kRelaxation = 0.90;           // try 0.8 if jittery
 static const float kCorrectionAtomicScale = 100000.0;
 
-StructuredBuffer<float4> g_PredictedRigidBodyPositionsInvMass;
-StructuredBuffer<float4> g_PredictedRigidBodyOrientations;
-StructuredBuffer<float4> g_RigidBodyInverseInertiaLocal;
-StructuredBuffer<uint> g_RigidBodyTypes;
+CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
+CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
+CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 StructuredBuffer<GpuRigidContact> g_RigidContacts;
 
-RWStructuredBuffer<int4> g_RigidBodyTranslationCorrections;
-RWStructuredBuffer<int4> g_RigidBodyRotationCorrections;
+CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyTranslationCorrections);
+CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyRotationCorrections);
 
 int3 QuantizeCorrection(float3 value)
 {
@@ -41,21 +41,21 @@ int3 QuantizeCorrection(float3 value)
     const uint bodyA = contact.bodyA;
     const uint bodyB = contact.bodyB;
 
-    const float4 posInvMassA = g_PredictedRigidBodyPositionsInvMass[bodyA];
-    const float4 posInvMassB = g_PredictedRigidBodyPositionsInvMass[bodyB];
-    const uint bodyTypeA = g_RigidBodyTypes[bodyA];
-    const uint bodyTypeB = g_RigidBodyTypes[bodyB];
+    const float4 posInvMassA = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyA);
+    const float4 posInvMassB = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyB);
+    const uint bodyTypeA = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyA);
+    const uint bodyTypeB = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyB);
 
     const float invMassA = bodyTypeA == 2u ? posInvMassA.w : 0.0;
     const float invMassB = bodyTypeB == 2u ? posInvMassB.w : 0.0;
     if (invMassA == 0.0 && invMassB == 0.0)
         return;
 
-    const float4 qA = QuaternionNormalize(g_PredictedRigidBodyOrientations[bodyA]);
-    const float4 qB = QuaternionNormalize(g_PredictedRigidBodyOrientations[bodyB]);
+    const float4 qA = QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyA));
+    const float4 qB = QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyB));
 
-    float3 invInertiaA = g_RigidBodyInverseInertiaLocal[bodyA].xyz;
-    float3 invInertiaB = g_RigidBodyInverseInertiaLocal[bodyB].xyz;
+    float3 invInertiaA = CRESSIM_SB_REF(g_RigidBodyInverseInertiaLocal, bodyA).xyz;
+    float3 invInertiaB = CRESSIM_SB_REF(g_RigidBodyInverseInertiaLocal, bodyB).xyz;
     if (invMassA == 0.0)
         invInertiaA = 0.0;
     if (invMassB == 0.0)
@@ -90,21 +90,21 @@ int3 QuantizeCorrection(float3 value)
 
     if (bodyTypeA == 2u && invMassA != 0.0)
     {
-        InterlockedAdd(g_RigidBodyTranslationCorrections[bodyA].x, translationA.x);
-        InterlockedAdd(g_RigidBodyTranslationCorrections[bodyA].y, translationA.y);
-        InterlockedAdd(g_RigidBodyTranslationCorrections[bodyA].z, translationA.z);
-        InterlockedAdd(g_RigidBodyRotationCorrections[bodyA].x, rotationA.x);
-        InterlockedAdd(g_RigidBodyRotationCorrections[bodyA].y, rotationA.y);
-        InterlockedAdd(g_RigidBodyRotationCorrections[bodyA].z, rotationA.z);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyA).x, translationA.x);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyA).y, translationA.y);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyA).z, translationA.z);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyA).x, rotationA.x);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyA).y, rotationA.y);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyA).z, rotationA.z);
     }
 
     if (bodyTypeB == 2u && invMassB != 0.0)
     {
-        InterlockedAdd(g_RigidBodyTranslationCorrections[bodyB].x, translationB.x);
-        InterlockedAdd(g_RigidBodyTranslationCorrections[bodyB].y, translationB.y);
-        InterlockedAdd(g_RigidBodyTranslationCorrections[bodyB].z, translationB.z);
-        InterlockedAdd(g_RigidBodyRotationCorrections[bodyB].x, rotationB.x);
-        InterlockedAdd(g_RigidBodyRotationCorrections[bodyB].y, rotationB.y);
-        InterlockedAdd(g_RigidBodyRotationCorrections[bodyB].z, rotationB.z);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyB).x, translationB.x);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyB).y, translationB.y);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyB).z, translationB.z);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyB).x, rotationB.x);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyB).y, rotationB.y);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyB).z, rotationB.z);
     }
 }

@@ -1,21 +1,21 @@
 #include "physics/include/physics_rigid_dispatch_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-StructuredBuffer<float4> g_PredictedRigidBodyPositionsInvMass;
-StructuredBuffer<float4> g_PredictedRigidBodyOrientations;
-StructuredBuffer<float4> g_RigidBodyScales;
-StructuredBuffer<uint> g_RigidBodyTypes;
-StructuredBuffer<uint> g_ColliderOwnerRigidBodyIndices;
-StructuredBuffer<uint> g_ColliderShapeTypes;
-StructuredBuffer<float4> g_ColliderShapeParams;
-StructuredBuffer<float4> g_ColliderLocalPositions;
-StructuredBuffer<float4> g_ColliderLocalOrientations;
-StructuredBuffer<uint> g_ColliderEnabledFlags;
+CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
+CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyScales);
+CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ColliderOwnerRigidBodyIndices);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ColliderShapeTypes);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderShapeParams);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalPositions);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalOrientations);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ColliderEnabledFlags);
 
 RWStructuredBuffer<GpuBodyAabb> g_BodyAabbs;
 RWStructuredBuffer<GpuBodyMeta> g_BodyMeta;
-RWStructuredBuffer<uint> g_ActiveBodyFlags;
-RWStructuredBuffer<uint> g_StaticBodyFlags;
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_ActiveBodyFlags);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_StaticBodyFlags);
 
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -35,26 +35,27 @@ RWStructuredBuffer<uint> g_StaticBodyFlags;
     meta.activeIndex = kInvalidIndex;
     meta.reserved = 0u;
 
-    const uint ownerBodyIndex = g_ColliderOwnerRigidBodyIndices[colliderIndex];
-    if (ownerBodyIndex >= rigidBodyCount || g_ColliderEnabledFlags[colliderIndex] == 0u)
+    const uint ownerBodyIndex = CRESSIM_SB_LOAD(g_ColliderOwnerRigidBodyIndices, colliderIndex);
+    if (ownerBodyIndex >= rigidBodyCount ||
+        CRESSIM_SB_LOAD(g_ColliderEnabledFlags, colliderIndex) == 0u)
     {
         g_BodyAabbs[colliderIndex] = bodyAabb;
         g_BodyMeta[colliderIndex] = meta;
-        g_ActiveBodyFlags[colliderIndex] = 0u;
-        g_StaticBodyFlags[colliderIndex] = 0u;
+        CRESSIM_SB_STORE(g_ActiveBodyFlags, colliderIndex, 0u);
+        CRESSIM_SB_STORE(g_StaticBodyFlags, colliderIndex, 0u);
         return;
     }
 
-    const float4 bodyPositionInvMass = g_PredictedRigidBodyPositionsInvMass[ownerBodyIndex];
+    const float4 bodyPositionInvMass = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, ownerBodyIndex);
     const float4 bodyOrientation =
-        QuaternionNormalize(g_PredictedRigidBodyOrientations[ownerBodyIndex]);
-    const float4 scale = g_RigidBodyScales[ownerBodyIndex];
-    const uint bodyType = g_RigidBodyTypes[ownerBodyIndex];
-    const uint shapeType = g_ColliderShapeTypes[colliderIndex];
-    const float4 colliderParams = g_ColliderShapeParams[colliderIndex];
-    const float3 localPosition = g_ColliderLocalPositions[colliderIndex].xyz * scale.xyz;
+        QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, ownerBodyIndex));
+    const float4 scale = CRESSIM_SB_LOAD(g_RigidBodyScales, ownerBodyIndex);
+    const uint bodyType = CRESSIM_SB_LOAD(g_RigidBodyTypes, ownerBodyIndex);
+    const uint shapeType = CRESSIM_SB_LOAD(g_ColliderShapeTypes, colliderIndex);
+    const float4 colliderParams = CRESSIM_SB_LOAD(g_ColliderShapeParams, colliderIndex);
+    const float3 localPosition = CRESSIM_SB_REF(g_ColliderLocalPositions, colliderIndex).xyz * scale.xyz;
     const float4 localOrientation =
-        QuaternionNormalize(g_ColliderLocalOrientations[colliderIndex]);
+        QuaternionNormalize(CRESSIM_SB_LOAD(g_ColliderLocalOrientations, colliderIndex));
     const float3 colliderPosition =
         ComposeColliderWorldPosition(bodyPositionInvMass.xyz, bodyOrientation, localPosition);
     const float4 colliderOrientation =
@@ -85,6 +86,8 @@ RWStructuredBuffer<uint> g_StaticBodyFlags;
         meta.flags |= kBodyFlagDynamic;
     }
     g_BodyMeta[colliderIndex] = meta;
-    g_ActiveBodyFlags[colliderIndex] = (meta.flags & kBodyFlagMoving) != 0u ? 1u : 0u;
-    g_StaticBodyFlags[colliderIndex] = (meta.flags & kBodyFlagStatic) != 0u ? 1u : 0u;
+    CRESSIM_SB_STORE(g_ActiveBodyFlags, colliderIndex,
+                     (meta.flags & kBodyFlagMoving) != 0u ? 1u : 0u);
+    CRESSIM_SB_STORE(g_StaticBodyFlags, colliderIndex,
+                     (meta.flags & kBodyFlagStatic) != 0u ? 1u : 0u);
 }
