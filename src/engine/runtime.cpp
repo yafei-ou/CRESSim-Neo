@@ -180,17 +180,14 @@ void Runtime::tick(const common::FrameContext &frameContext)
             gpuSceneReady = false;
         }
     }
-    if (gpuSceneReady && mGpuDevice && !mGpuDevice->synchronizePhysicsToGraphics())
-    {
-        gpuSceneReady = false;
-    }
     if (gpuSceneReady && mGpuSceneSync)
     {
         if (mGpuSceneSync->syncRenderableMetadata(mWorld.renderableMetadata()) &&
             mGpuSceneSync->syncRenderableQueueInfo(mWorld.renderableQueueInfo()) &&
             mGpuSceneSync->syncCameraInputs(mWorld.cameraInputs()) &&
             mGpuSceneSync->syncLightInputs(mWorld.lightInputs()) &&
-            mGpuSceneSync->syncLocalLightSelections(mWorld.localLightSelections()))
+            mGpuSceneSync->syncLocalLightSelections(mWorld.localLightSelections()) &&
+            (!mGpuDevice || mGpuDevice->synchronizePhysicsToGraphics()))
         {
             mWorld.setGpuEntityScene(mGpuSceneSync->sceneView());
         }
