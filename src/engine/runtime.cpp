@@ -171,33 +171,25 @@ void Runtime::tick(const common::FrameContext &frameContext)
     }
     if (gpuSceneReady && physicsStepSucceeded && mGpuSceneSync && mPhysicsSolver)
     {
-        if (mGpuSceneSync->syncEntityPoses(mPhysicsSolver->gpuSceneView().rigid.poses,
-                                           mWorld.physicsRenderableMappings()))
-        {
-        }
-        else
+        if (!mGpuSceneSync->syncEntityPoses(mPhysicsSolver->gpuSceneView().rigid.poses,
+                                            mWorld.physicsRenderableMappings()))
         {
             gpuSceneReady = false;
         }
     }
-    if (gpuSceneReady && mGpuSceneSync)
+    if (gpuSceneReady && mGpuSceneSync &&
+        mGpuSceneSync->syncRenderableMetadata(mWorld.renderableMetadata()) &&
+        mGpuSceneSync->syncRenderableQueueInfo(mWorld.renderableQueueInfo()) &&
+        mGpuSceneSync->syncCameraInputs(mWorld.cameraInputs()) &&
+        mGpuSceneSync->syncLightInputs(mWorld.lightInputs()) &&
+        mGpuSceneSync->syncLocalLightSelections(mWorld.localLightSelections()) &&
+        (!mGpuDevice || mGpuDevice->synchronizePhysicsToGraphics()))
     {
-        if (mGpuSceneSync->syncRenderableMetadata(mWorld.renderableMetadata()) &&
-            mGpuSceneSync->syncRenderableQueueInfo(mWorld.renderableQueueInfo()) &&
-            mGpuSceneSync->syncCameraInputs(mWorld.cameraInputs()) &&
-            mGpuSceneSync->syncLightInputs(mWorld.lightInputs()) &&
-            mGpuSceneSync->syncLocalLightSelections(mWorld.localLightSelections()) &&
-            (!mGpuDevice || mGpuDevice->synchronizePhysicsToGraphics()))
-        {
-            mWorld.setGpuEntityScene(mGpuSceneSync->sceneView());
-        }
-        else
-        {
-            mWorld.setGpuEntityScene({});
-        }
+        mWorld.setGpuEntityScene(mGpuSceneSync->sceneView());
     }
     else
     {
+        CRESSIM_LOG_WARNING("Runtime: GPU scene sync failed.");
         mWorld.setGpuEntityScene({});
     }
 
