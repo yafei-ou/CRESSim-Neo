@@ -25,22 +25,22 @@ struct GpuSceneLayoutDesc
     std::uint32_t maxLightsPerEnv  = 4u;
     std::uint32_t maxCamerasPerEnv = 4u;
 
-    [[nodiscard]] std::uint32_t totalObjectCapacity() const noexcept
+    std::uint32_t totalObjectCapacity() const noexcept
     {
         return envCount * maxObjectsPerEnv;
     }
-    [[nodiscard]] std::uint32_t totalLightCapacity() const noexcept
+    std::uint32_t totalLightCapacity() const noexcept
     {
         return envCount * maxLightsPerEnv;
     }
-    [[nodiscard]] std::uint32_t totalCameraCapacity() const noexcept
+    std::uint32_t totalCameraCapacity() const noexcept
     {
         return envCount * maxCamerasPerEnv;
     }
 };
 
-[[nodiscard]] constexpr std::uint32_t mainDirectionalLightIndex(const GpuSceneLayoutDesc &layout,
-                                                                std::uint32_t envIndex) noexcept
+constexpr std::uint32_t mainDirectionalLightIndex(const GpuSceneLayoutDesc &layout,
+                                                  std::uint32_t envIndex) noexcept
 {
     return layout.maxLightsPerEnv == 0u
                ? kInvalidGpuSceneIndex

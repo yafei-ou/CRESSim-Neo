@@ -71,7 +71,6 @@ public:
     physics::PhysicsWorld &physicsWorld() noexcept;
     const physics::PhysicsWorld &physicsWorld() const noexcept;
 
-    void refreshFromPhysics();
     void setGpuEntityScene(const gpu::GpuEntitySceneView &sceneView) noexcept;
 
     const std::vector<graphics::RenderableInstance> &renderables() const noexcept;
@@ -103,7 +102,8 @@ private:
         std::vector<ColliderHandle> colliders;
     };
 
-    void ensureEntity(common::EntityId entityId);
+    [[nodiscard]] bool requireAliveEntity(common::EntityId entityId,
+                                          const char *operation) const noexcept;
     void ensureHostSceneStorage();
     void refreshRenderablePose(std::uint32_t objectIndex);
     void refreshCameraEntry(std::uint32_t cameraIndex);
@@ -145,6 +145,7 @@ private:
 
     physics::PhysicsWorld mPhysicsWorld{};
     gpu::GpuSceneLayoutDesc mSceneLayout{};
+    bool mWorldSceneAuthored = false;
     std::unordered_map<common::EntityId, std::uint32_t> mEntityEnvironments{};
 
     std::vector<graphics::RenderableInstance> mRenderables{};
@@ -167,7 +168,7 @@ private:
 
     std::unordered_map<common::EntityId, std::size_t> mRenderableIndices{};
     std::unordered_map<common::EntityId, std::size_t> mRenderCameraIndices{};
-    std::unordered_map<common::EntityId, std::size_t> mRenderDirectionalLightIndices{};
+    std::unordered_map<common::EntityId, std::size_t> mRenderLightIndices{};
     std::unordered_map<std::uint32_t, std::uint32_t> mNextRenderableSlotByEnv{};
     std::unordered_map<std::uint32_t, std::uint32_t> mNextCameraSlotByEnv{};
     std::unordered_map<std::uint32_t, std::uint32_t> mNextDirectionalLightSlotByEnv{};

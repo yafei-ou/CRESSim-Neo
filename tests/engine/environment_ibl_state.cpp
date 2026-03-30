@@ -19,6 +19,29 @@ int main()
     layout.envCount = 2u;
     world.setSceneLayout(layout);
 
+    GpuSceneLayoutDesc relayout = layout;
+    relayout.envCount = 3u;
+    world.setSceneLayout(relayout);
+    if (world.sceneLayout().envCount != 3u)
+    {
+        CRESSIM_LOG_ERROR("World did not allow scene layout reset before entity authoring.\n");
+        return 1;
+    }
+
+    const auto entity = world.createEntity();
+    if (entity == cressim::neo::common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("Failed to create entity for layout immutability test.\n");
+        return 1;
+    }
+
+    world.setSceneLayout(layout);
+    if (world.sceneLayout().envCount != 3u)
+    {
+        CRESSIM_LOG_ERROR("World changed scene layout after entity authoring.\n");
+        return 1;
+    }
+
     EnvironmentIblDesc envA{};
     envA.irradianceCubemap = TextureHandle{11u};
     envA.prefilteredSpecularCubemap = TextureHandle{12u};
@@ -29,7 +52,8 @@ int main()
     envB.prefilteredSpecularCubemap = TextureHandle{22u};
     envB.intensity = 0.75f;
 
-    if (!world.setEnvironmentIbl(0u, envA) || !world.setEnvironmentIbl(1u, envB))
+    if (!world.setEnvironmentIbl(0u, envA) || !world.setEnvironmentIbl(1u, envB) ||
+        !world.setEnvironmentIbl(2u, envA))
     {
         CRESSIM_LOG_ERROR("Failed to assign environment IBL state.\n");
         return 1;
@@ -37,15 +61,16 @@ int main()
 
     const EnvironmentIblDesc *storedA = world.tryGetEnvironmentIbl(0u);
     const EnvironmentIblDesc *storedB = world.tryGetEnvironmentIbl(1u);
-    if (storedA == nullptr || storedB == nullptr || !storedA->enabled(IblQualityTier::Full) ||
-        !storedB->enabled(IblQualityTier::Full))
+    const EnvironmentIblDesc *storedC = world.tryGetEnvironmentIbl(2u);
+    if (storedA == nullptr || storedB == nullptr || storedC == nullptr ||
+        !storedA->enabled(IblQualityTier::Full) || !storedB->enabled(IblQualityTier::Full))
     {
         CRESSIM_LOG_ERROR("Environment IBL state could not be retrieved.\n");
         return 1;
     }
 
     const auto hostScene = world.hostSceneView();
-    if (hostScene.environmentIbls == nullptr || hostScene.environmentIbls->size() != 2u)
+    if (hostScene.environmentIbls == nullptr || hostScene.environmentIbls->size() != 3u)
     {
         CRESSIM_LOG_ERROR("Host scene did not expose per-environment IBL state.\n");
         return 1;
@@ -69,7 +94,7 @@ int main()
         return 1;
     }
 
-    if (world.setEnvironmentIbl(2u, envA) || world.tryGetEnvironmentIbl(2u) != nullptr)
+    if (world.setEnvironmentIbl(3u, envA) || world.tryGetEnvironmentIbl(3u) != nullptr)
     {
         CRESSIM_LOG_ERROR("Out-of-range environment IBL access did not fail safely.\n");
         return 1;
