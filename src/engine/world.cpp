@@ -395,22 +395,18 @@ void World::setTransform(common::EntityId entityId, const TransformComponent &co
 
     ensureEntity(entityId);
 
-    upsertSoA(entityId, mTransforms, mTransformIndex,
-              [&](std::uint32_t index, bool appended)
-              {
-                  if (appended)
-                  {
-                      mTransforms.positions.push_back(packPosition(component));
-                      mTransforms.rotations.push_back(packRotation(component));
-                      mTransforms.scales.push_back(packScale(component));
-                  }
-                  else
-                  {
-                      mTransforms.positions[index] = packPosition(component);
-                      mTransforms.rotations[index] = packRotation(component);
-                      mTransforms.scales[index]    = packScale(component);
-                  }
-              });
+    const auto it = mTransformIndex.find(entityId);
+    if (it == mTransformIndex.end())
+    {
+        const std::uint32_t newIndex = static_cast<std::uint32_t>(mTransforms.entityIds.size());
+        mTransforms.entityIds.push_back(entityId);
+        mTransforms.components.push_back(component);
+        mTransformIndex.emplace(entityId, newIndex);
+    }
+    else
+    {
+        mTransforms.components[it->second] = component;
+    }
 
     // Update body pose directly in physics. No collider loop.
     if (auto *rb = mPhysicsWorld.tryGetRigidBody(entityId))
@@ -811,8 +807,8 @@ bool World::removeCollider(ColliderHandle handle)
 
 bool World::removeTransform(common::EntityId entityId)
 {
-    const auto it = mTransformIndex.entityToIndex.find(entityId);
-    if (it == mTransformIndex.entityToIndex.end())
+    const auto it = mTransformIndex.find(entityId);
+    if (it == mTransformIndex.end())
     {
         return false;
     }
@@ -823,18 +819,14 @@ bool World::removeTransform(common::EntityId entityId)
 
     if (index != last)
     {
-        mTransforms.entityIds[index]               = mTransforms.entityIds[last];
-        mTransforms.positions[index]               = mTransforms.positions[last];
-        mTransforms.rotations[index]               = mTransforms.rotations[last];
-        mTransforms.scales[index]                  = mTransforms.scales[last];
-        mTransformIndex.entityToIndex[movedEntity] = index;
+        mTransforms.entityIds[index]  = mTransforms.entityIds[last];
+        mTransforms.components[index] = mTransforms.components[last];
+        mTransformIndex[movedEntity]  = index;
     }
 
     mTransforms.entityIds.pop_back();
-    mTransforms.positions.pop_back();
-    mTransforms.rotations.pop_back();
-    mTransforms.scales.pop_back();
-    mTransformIndex.entityToIndex.erase(it);
+    mTransforms.components.pop_back();
+    mTransformIndex.erase(it);
 
     if (const auto it = mRenderableIndices.find(entityId); it != mRenderableIndices.end())
     {
@@ -923,15 +915,14 @@ bool World::removeSpotLight(common::EntityId entityId)
 
 std::optional<TransformComponent> World::tryGetTransform(common::EntityId entityId) const
 {
-    const auto it = mTransformIndex.entityToIndex.find(entityId);
-    if (it == mTransformIndex.entityToIndex.end())
+    const auto it = mTransformIndex.find(entityId);
+    if (it == mTransformIndex.end())
     {
         return std::nullopt;
     }
 
     const std::uint32_t index = it->second;
-    return unpackTransform(mTransforms.positions[index], mTransforms.rotations[index],
-                           mTransforms.scales[index]);
+    return mTransforms.components[index];
 }
 
 std::optional<MeshRendererComponent> World::tryGetMeshRenderer(common::EntityId entityId) const
@@ -1593,14 +1584,14 @@ void World::refreshDirectionalLightEntry(std::uint32_t lightIndex)
 
     gpu::GpuLightInput input{};
     input.positionRange      = Diligent::float4{lightData.position.x, lightData.position.y,
-                                           lightData.position.z, lightData.range};
+                                                lightData.position.z, lightData.range};
     input.directionIntensity = Diligent::float4{lightData.direction.x, lightData.direction.y,
                                                 lightData.direction.z, lightData.intensity};
     input.color = Diligent::float4{lightData.color.x, lightData.color.y, lightData.color.z, 0.0f};
     const float innerConeRadians = lightData.innerConeAngle * 0.01745329251994329577f;
     const float outerConeRadians = lightData.outerConeAngle * 0.01745329251994329577f;
     input.spotAngles     = Diligent::float4{std::cos(innerConeRadians), std::cos(outerConeRadians),
-                                        lightData.innerConeAngle, lightData.outerConeAngle};
+                                            lightData.innerConeAngle, lightData.outerConeAngle};
     input.shadowDistance = lightData.shadowDistance;
     input.shadowFadeDistance     = lightData.shadowFadeDistance;
     input.shadowBias             = lightData.shadowBias;

@@ -94,20 +94,6 @@ public:
     graphics::HostSceneView hostSceneView() const noexcept;
     void ensureRenderStateUpToDate(const graphics::RenderResourceManager &resources);
 
-    // ---------- GPU-friendly SoA views ----------
-    struct TransformSoA
-    {
-        std::vector<common::EntityId> entityIds;
-        std::vector<Diligent::float4> positions;
-        std::vector<Diligent::float4> rotations;
-        std::vector<Diligent::float4> scales;
-    };
-
-    const TransformSoA &transformSoA() const noexcept
-    {
-        return mTransforms;
-    }
-
 private:
     static constexpr std::uint32_t kInvalidIndex = 0xffffffffu;
 
@@ -115,12 +101,6 @@ private:
     {
         bool hasRigidBody = false;
         std::vector<ColliderHandle> colliders;
-    };
-
-    template <typename SoA>
-    struct SparseIndex
-    {
-        std::unordered_map<common::EntityId, std::uint32_t> entityToIndex;
     };
 
     void ensureEntity(common::EntityId entityId);
@@ -145,62 +125,20 @@ private:
     [[nodiscard]] std::uint32_t allocateLightSlot(std::uint32_t envIndex,
                                                   bool reserveMainDirectionalSlot);
 
-    static Diligent::float4 packPosition(const TransformComponent &c)
-    {
-        return Diligent::float4{c.worldTransform.position.x, c.worldTransform.position.y,
-                                c.worldTransform.position.z, 0.0f};
-    }
-
-    static Diligent::float4 packRotation(const TransformComponent &c)
-    {
-        return Diligent::float4{c.worldTransform.rotation.q.x, c.worldTransform.rotation.q.y,
-                                c.worldTransform.rotation.q.z, c.worldTransform.rotation.q.w};
-    }
-
-    static Diligent::float4 packScale(const TransformComponent &c)
-    {
-        return Diligent::float4{c.worldTransform.scale.x, c.worldTransform.scale.y,
-                                c.worldTransform.scale.z, 0.0f};
-    }
-
-    static TransformComponent unpackTransform(const Diligent::float4 &position,
-                                              const Diligent::float4 &rotation,
-                                              const Diligent::float4 &scale)
-    {
-        TransformComponent component{};
-        component.worldTransform.position = Diligent::float3{position.x, position.y, position.z};
-        component.worldTransform.rotation =
-            Diligent::QuaternionF{rotation.x, rotation.y, rotation.z, rotation.w};
-        component.worldTransform.scale = Diligent::float3{scale.x, scale.y, scale.z};
-        return component;
-    }
-
-    template <typename SoAType, typename WriterFn>
-    static void upsertSoA(common::EntityId entityId, SoAType &soa, SparseIndex<SoAType> &index,
-                          WriterFn &&writer)
-    {
-        const auto it = index.entityToIndex.find(entityId);
-        if (it == index.entityToIndex.end())
-        {
-            const std::uint32_t newIndex = static_cast<std::uint32_t>(soa.entityIds.size());
-            soa.entityIds.push_back(entityId);
-            writer(newIndex, true);
-            index.entityToIndex.emplace(entityId, newIndex);
-            return;
-        }
-
-        writer(it->second, false);
-    }
-
     common::EntityId mNextEntityId = 1;
     std::uint32_t mNextColliderId  = 1;
 
     std::vector<common::EntityId> mEntities;
     std::unordered_set<common::EntityId> mAlive;
 
-    TransformSoA mTransforms{};
+    struct TransformStorage
+    {
+        std::vector<common::EntityId> entityIds;
+        std::vector<TransformComponent> components;
+    };
 
-    SparseIndex<TransformSoA> mTransformIndex{};
+    TransformStorage mTransforms{};
+    std::unordered_map<common::EntityId, std::uint32_t> mTransformIndex{};
 
     std::unordered_map<common::EntityId, PhysicsLink> mPhysicsLinks{};
     std::unordered_map<std::uint32_t, common::EntityId> mColliderOwnerEntity{};
