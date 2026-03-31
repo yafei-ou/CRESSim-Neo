@@ -12,10 +12,7 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 
-namespace cressim::neo::graphics
-{
-
-namespace detail
+namespace cressim::neo::graphics::detail
 {
 
 class ShadowPass
@@ -82,7 +79,6 @@ private:
     Diligent::IBuffer *mLocalShadowViewBuffer = nullptr;
 };
 
-} // namespace detail
-} // namespace cressim::neo::graphics
+} // namespace cressim::neo::graphics::detail
 
 #endif // CRESSIM_NEO_GRAPHICS_PASSES_SHADOW_PASS_H

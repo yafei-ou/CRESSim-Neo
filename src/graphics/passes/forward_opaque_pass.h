@@ -20,10 +20,7 @@
 #include <memory>
 #include <vector>
 
-namespace cressim::neo::graphics
-{
-
-namespace detail
+namespace cressim::neo::graphics::detail
 {
 
 class ForwardOpaquePass
@@ -158,7 +155,6 @@ private:
     Diligent::IBuffer *mBatchCameraBuffer                   = nullptr;
 };
 
-} // namespace detail
-} // namespace cressim::neo::graphics
+} // namespace cressim::neo::graphics::detail
 
 #endif // CRESSIM_NEO_GRAPHICS_PASSES_FORWARD_OPAQUE_PASS_H

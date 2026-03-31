@@ -9,10 +9,7 @@
 #include <memory>
 #include <unordered_map>
 
-namespace cressim::neo::graphics
-{
-
-namespace detail
+namespace cressim::neo::graphics::detail
 {
 
 class ForwardOpaquePass;
@@ -44,7 +41,6 @@ private:
     bool mInitialized = false;
 };
 
-} // namespace detail
-} // namespace cressim::neo::graphics
+} // namespace cressim::neo::graphics::detail
 
 #endif // CRESSIM_NEO_GRAPHICS_PASSES_FORWARD_PIPELINE_H

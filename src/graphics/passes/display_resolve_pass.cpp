@@ -1,4 +1,4 @@
-#include "graphics/display_resolve_pass.h"
+#include "graphics/passes/display_resolve_pass.h"
 
 #include "common/math_utils_runtime.h"
 #include "gpu/shader_library.h"
