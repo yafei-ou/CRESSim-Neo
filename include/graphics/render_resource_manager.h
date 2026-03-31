@@ -108,7 +108,6 @@ struct MeshResourceDesc
 struct MaterialResourceDesc
 {
     std::string debugName;
-    // Legacy scalar names are kept, but these values now act as PBR factors.
     Diligent::float3 baseColor{1.0f, 1.0f, 1.0f};
     float metallic  = 0.0f;
     float roughness = 0.5f;
@@ -150,7 +149,7 @@ struct EnvironmentIblDesc
     TextureHandle prefilteredSpecularCubemap{};
     float intensity = 1.0f;
 
-    [[nodiscard]] bool enabled(IblQualityTier tier) const noexcept
+    bool enabled(IblQualityTier tier) const noexcept
     {
         switch (tier)
         {
