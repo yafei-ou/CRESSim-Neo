@@ -107,7 +107,7 @@ private:
     void ensureHostSceneStorage();
     void refreshRenderablePose(std::uint32_t objectIndex);
     void refreshCameraEntry(std::uint32_t cameraIndex);
-    void refreshDirectionalLightEntry(std::uint32_t lightIndex);
+    void refreshLightEntry(std::uint32_t lightIndex);
     void rebuildLocalLightSelections();
     void refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources);
     void rebuildDrawRegistries(const graphics::RenderResourceManager &resources);
@@ -119,7 +119,11 @@ private:
     void markRenderableMetadataDirty(std::uint32_t objectIndex);
     void moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
     void moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
-    void moveDirectionalLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
+    void moveLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
+    [[nodiscard]] bool tryGetLightIndexForType(common::EntityId entityId, gpu::GpuLightType type,
+                                               const char *operation,
+                                               std::uint32_t &lightIndex) const noexcept;
+    [[nodiscard]] bool removeLight(common::EntityId entityId);
     [[nodiscard]] bool isLightSlotOccupied(std::uint32_t envIndex,
                                            std::uint32_t slot) const noexcept;
     [[nodiscard]] std::uint32_t allocateLightSlot(std::uint32_t envIndex,
@@ -168,13 +172,16 @@ private:
 
     std::unordered_map<common::EntityId, std::size_t> mRenderableIndices{};
     std::unordered_map<common::EntityId, std::size_t> mRenderCameraIndices{};
+    // All light types share one unified light slot space per environment. Each entity may own at
+    // most one light entry in this storage. Slot 0 remains reserved for the main directional
+    // light when requested.
     std::unordered_map<common::EntityId, std::size_t> mRenderLightIndices{};
     std::unordered_map<std::uint32_t, std::uint32_t> mNextRenderableSlotByEnv{};
     std::unordered_map<std::uint32_t, std::uint32_t> mNextCameraSlotByEnv{};
-    std::unordered_map<std::uint32_t, std::uint32_t> mNextDirectionalLightSlotByEnv{};
+    std::unordered_map<std::uint32_t, std::uint32_t> mNextLightSlotByEnv{};
     std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeRenderableSlotsByEnv{};
     std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeCameraSlotsByEnv{};
-    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeDirectionalLightSlotsByEnv{};
+    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeLightSlotsByEnv{};
     std::vector<std::uint32_t> mDirtyRenderablePoseIndices{};
     std::vector<std::uint8_t> mDirtyRenderablePoseBits{};
     std::vector<std::uint32_t> mDirtyRenderableMetadataIndices{};
