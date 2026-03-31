@@ -1,7 +1,7 @@
 #include "graphics/output_planner.h"
 
 #include "common/logger.h"
-#include "graphics/renderer_internal.h"
+#include "common/math_utils_runtime.h"
 
 #include <algorithm>
 #include <unordered_map>
@@ -70,7 +70,7 @@ void populateResolvedCameraView(const CameraData &camera, const GpuEntitySceneVi
                                 ResolvedCameraView &outView)
 {
     outView.entityId          = camera.entityId;
-    outView.viewport          = normalizeViewport(camera.viewport);
+    outView.viewport          = common::runtime_math::normalizeViewport(camera.viewport);
     outView.clearColor        = camera.clearColor;
     outView.clearDepth        = camera.clearDepth;
     outView.clearColorValue   = camera.clearColorValue;

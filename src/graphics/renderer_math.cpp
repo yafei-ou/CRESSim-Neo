@@ -1,28 +1,10 @@
 #include "graphics/renderer_internal.h"
 
-#include "common/math_utils_runtime.h"
-
 #include <algorithm>
 #include <cmath>
 
 namespace cressim::neo::graphics::detail
 {
-
-namespace
-{
-
-Diligent::float3 cross3(const Diligent::float3 &lhs, const Diligent::float3 &rhs)
-{
-    return Diligent::float3{lhs.y * rhs.z - lhs.z * rhs.y, lhs.z * rhs.x - lhs.x * rhs.z,
-                            lhs.x * rhs.y - lhs.y * rhs.x};
-}
-
-} // namespace
-
-gpu::GpuRenderViewport normalizeViewport(const gpu::GpuRenderViewport &viewport)
-{
-    return common::runtime_math::normalizeViewport(viewport);
-}
 
 CameraData defaultCamera()
 {
@@ -63,8 +45,8 @@ Diligent::float4x4 buildLookAtMatrix(const Diligent::float3 &eye, const Diligent
 {
     const Diligent::float3 zaxis = normalizeOrFallback(target - eye, Diligent::float3{0, 0, 1});
     const Diligent::float3 xaxis =
-        normalizeOrFallback(cross3(up, zaxis), Diligent::float3{1, 0, 0});
-    const Diligent::float3 yaxis = cross3(zaxis, xaxis);
+        normalizeOrFallback(Diligent::cross(up, zaxis), Diligent::float3{1, 0, 0});
+    const Diligent::float3 yaxis = Diligent::cross(zaxis, xaxis);
 
     Diligent::float4x4 result = Diligent::float4x4::Identity();
     result._11                = xaxis.x;

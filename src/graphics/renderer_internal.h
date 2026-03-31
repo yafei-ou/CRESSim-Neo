@@ -8,7 +8,6 @@
 namespace cressim::neo::graphics::detail
 {
 
-gpu::GpuRenderViewport normalizeViewport(const gpu::GpuRenderViewport &viewport);
 CameraData defaultCamera();
 std::vector<CameraData> sortedCameras(const HostSceneView &sceneView);
 Diligent::float3 normalizeOrFallback(const Diligent::float3 &value,
