@@ -32,12 +32,16 @@ public:
     const ColliderSoAHost &colliderSoA() const noexcept;
     const BodyColliderMappingHost &bodyColliderMapping() const noexcept;
     void ensureDerivedStateUpToDate() const noexcept;
-    const PhysicsSoADirtyRange &rigidBodyDirtyRange() const noexcept;
-    const PhysicsSoADirtyRange &colliderDirtyRange() const noexcept;
+    const std::vector<std::uint32_t> &rigidBodyDirtyIndices() const noexcept;
+    const std::vector<std::uint32_t> &colliderDirtyIndices() const noexcept;
     std::uint32_t rigidBodyCount() const noexcept;
     std::uint32_t colliderCount() const noexcept;
-    void clearRigidBodyDirtyRange() noexcept;
-    void clearColliderDirtyRange() noexcept;
+    bool rigidBodyCountDirty() const noexcept;
+    bool colliderCountDirty() const noexcept;
+    bool fullRigidBodyUploadRequired() const noexcept;
+    bool fullColliderUploadRequired() const noexcept;
+    void clearRigidBodyUploadState() noexcept;
+    void clearColliderUploadState() noexcept;
     bool staticBroadPhaseDirty() const noexcept;
     void clearStaticBroadPhaseDirty() noexcept;
 
@@ -62,6 +66,10 @@ private:
     static void normalizeRigidBodyState(RigidBodyState &state) noexcept;
     static void normalizeColliderState(ColliderState &state) noexcept;
 
+    void markRigidBodyDirty(std::uint32_t index) noexcept;
+    void markColliderDirty(std::uint32_t index) noexcept;
+    void markRigidBodyCountDirty(bool fullUploadRequired = false) noexcept;
+    void markColliderCountDirty(bool fullUploadRequired = false) noexcept;
     void removeCollidersForEntity(common::EntityId entityId) noexcept;
     void removeColliderAtIndex(std::uint32_t index) noexcept;
     void rebuildBodyColliderMapping() const noexcept;
@@ -77,8 +85,14 @@ private:
     std::unordered_map<common::EntityId, std::vector<ColliderId>> mEntityToColliderIds{};
     std::vector<RigidBodyState> mRigidBodySnapshot{};
     std::vector<ColliderState> mColliderSnapshot{};
-    PhysicsSoADirtyRange mRigidBodyDirtyRange{};
-    PhysicsSoADirtyRange mColliderDirtyRange{};
+    std::vector<std::uint32_t> mRigidBodyDirtyIndices{};
+    std::vector<std::uint32_t> mColliderDirtyIndices{};
+    std::vector<std::uint8_t> mRigidBodyDirtyBits{};
+    std::vector<std::uint8_t> mColliderDirtyBits{};
+    bool mRigidBodyCountDirty                = false;
+    bool mColliderCountDirty                 = false;
+    bool mFullRigidBodyUploadRequired        = false;
+    bool mFullColliderUploadRequired         = false;
     mutable bool mBodyColliderMappingDirty   = true;
     bool mStaticBroadPhaseDirty              = false;
     std::uint64_t mRevision                  = 0;

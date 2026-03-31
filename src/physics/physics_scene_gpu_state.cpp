@@ -63,6 +63,59 @@ std::vector<std::uint32_t> buildReductionLevelCounts(std::uint32_t elementCount)
     return counts;
 }
 
+template <typename T>
+bool updateStructuredBufferRange(Diligent::IDeviceContext *computeContext,
+                                 Diligent::IBuffer *buffer, const std::vector<T> &source,
+                                 std::uint32_t begin, std::uint32_t count)
+{
+    if (computeContext == nullptr || buffer == nullptr)
+    {
+        return false;
+    }
+    if (count == 0u)
+    {
+        return true;
+    }
+
+    computeContext->UpdateBuffer(buffer, static_cast<Diligent::Uint64>(begin) * sizeof(T),
+                                 static_cast<Diligent::Uint64>(count) * sizeof(T),
+                                 source.data() + begin,
+                                 Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    return true;
+}
+
+template <typename Uploader>
+bool uploadContiguousRuns(const std::vector<std::uint32_t> &dirtyIndices, Uploader &&uploader)
+{
+    if (dirtyIndices.empty())
+    {
+        return true;
+    }
+
+    std::vector<std::uint32_t> sortedIndices = dirtyIndices;
+    std::sort(sortedIndices.begin(), sortedIndices.end());
+
+    std::uint32_t runBegin = sortedIndices.front();
+    std::uint32_t runCount = 1u;
+    for (std::size_t i = 1; i < sortedIndices.size(); ++i)
+    {
+        if (sortedIndices[i] == sortedIndices[i - 1] + 1u)
+        {
+            ++runCount;
+            continue;
+        }
+
+        if (!uploader(runBegin, runCount))
+        {
+            return false;
+        }
+        runBegin = sortedIndices[i];
+        runCount = 1u;
+    }
+
+    return uploader(runBegin, runCount);
+}
+
 } // namespace
 
 bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
@@ -614,13 +667,15 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         }
     }
 
-    mRigidBodyCapacity          = newRigidBodyCapacity;
-    mColliderCapacity           = newColliderCapacity;
-    mBroadPhaseNodeCapacity     = newNodeCapacity;
-    mCandidatePairCapacity      = newCandidatePairCapacity;
-    mContactCapacity            = newContactCapacity;
-    mCorrectionBuffersNeedClear = true;
-    mStaticBroadPhaseDirty      = true;
+    mRigidBodyCapacity            = newRigidBodyCapacity;
+    mColliderCapacity             = newColliderCapacity;
+    mBroadPhaseNodeCapacity       = newNodeCapacity;
+    mCandidatePairCapacity        = newCandidatePairCapacity;
+    mContactCapacity              = newContactCapacity;
+    mCorrectionBuffersNeedClear   = true;
+    mStaticBroadPhaseDirty        = true;
+    mRigidBodyUploadResetRequired = true;
+    mColliderUploadResetRequired  = true;
     return true;
 }
 
@@ -645,103 +700,172 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
 
     if (bodyCount == 0u && colliderCount == 0u)
     {
-        mRigidBodyCount        = 0u;
-        mColliderCount         = 0u;
+        mRigidBodyCount = 0u;
+        mColliderCount  = 0u;
+        world.clearRigidBodyUploadState();
+        world.clearColliderUploadState();
         mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || world.staticBroadPhaseDirty();
         world.clearStaticBroadPhaseDirty();
         return true;
     }
 
-    const Diligent::Uint64 bodyFloat4Bytes =
-        static_cast<Diligent::Uint64>(bodyCount) * sizeof(Diligent::float4);
-    const Diligent::Uint64 bodyUintBytes =
-        static_cast<Diligent::Uint64>(bodyCount) * sizeof(std::uint32_t);
-    const Diligent::Uint64 colliderFloat4Bytes =
-        static_cast<Diligent::Uint64>(colliderCount) * sizeof(Diligent::float4);
-    const Diligent::Uint64 colliderUintBytes =
-        static_cast<Diligent::Uint64>(colliderCount) * sizeof(std::uint32_t);
-
-    if (bodyCount > 0u)
+    if (!uploadRigidBodies(computeContext, world, rigidBodies, bodyCount,
+                           mRigidBodyUploadResetRequired))
     {
-        computeContext->UpdateBuffer(mPersistentRigidBodies.positionsBuffer, 0u, bodyFloat4Bytes,
-                                     rigidBodies.positionsInvMass.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentRigidBodies.orientationsBuffer, 0u, bodyFloat4Bytes,
-                                     rigidBodies.orientations.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentRigidBodies.scalesBuffer, 0u, bodyFloat4Bytes,
-                                     rigidBodies.scales.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentRigidBodies.linearVelocitiesBuffer, 0u,
-                                     bodyFloat4Bytes, rigidBodies.linearVelocities.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentRigidBodies.angularVelocitiesBuffer, 0u,
-                                     bodyFloat4Bytes, rigidBodies.angularVelocities.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentRigidBodies.inverseInertiaLocalBuffer, 0u,
-                                     bodyFloat4Bytes, rigidBodies.inverseInertiaLocal.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentRigidBodies.bodyTypesBuffer, 0u, bodyUintBytes,
-                                     rigidBodies.bodyTypes.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentRigidBodies.kinematicTargetPositionsBuffer, 0u,
-                                     bodyFloat4Bytes, rigidBodies.kinematicTargetPositions.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentRigidBodies.kinematicTargetOrientationsBuffer, 0u,
-                                     bodyFloat4Bytes,
-                                     rigidBodies.kinematicTargetOrientations.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentRigidBodies.kinematicTargetFlagsBuffer, 0u,
-                                     bodyUintBytes, rigidBodies.kinematicTargetFlags.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        return false;
+    }
+    if (!uploadColliders(computeContext, world, colliders, colliderCount,
+                         mColliderUploadResetRequired))
+    {
+        return false;
     }
 
-    if (colliderCount > 0u)
-    {
-        std::vector<GpuColliderBroadPhaseData> broadPhaseData(colliderCount);
-        for (std::uint32_t i = 0; i < colliderCount; ++i)
-        {
-            GpuColliderBroadPhaseData &entry = broadPhaseData[i];
-            entry.ownerBody                  = colliders.ownerRigidBodyIndices[i];
-            entry.shapeType                  = colliders.shapeTypes[i];
-            entry.environmentIndex           = colliders.environmentIndices[i];
-            entry.collisionLayer             = colliders.collisionLayers[i];
-            entry.collisionMask              = colliders.collisionMasks[i];
-        }
-
-        computeContext->UpdateBuffer(mPersistentColliders.ownerRigidBodyIndicesBuffer, 0u,
-                                     colliderUintBytes, colliders.ownerRigidBodyIndices.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(
-            mPersistentColliders.broadPhaseDataBuffer, 0u,
-            static_cast<Diligent::Uint64>(colliderCount) * sizeof(GpuColliderBroadPhaseData),
-            broadPhaseData.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentColliders.shapeTypesBuffer, 0u, colliderUintBytes,
-                                     colliders.shapeTypes.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentColliders.shapeParamsBuffer, 0u,
-                                     colliderFloat4Bytes, colliders.shapeParams.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentColliders.localPositionsBuffer, 0u,
-                                     colliderFloat4Bytes, colliders.localPositions.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentColliders.localOrientationsBuffer, 0u,
-                                     colliderFloat4Bytes, colliders.localOrientations.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentColliders.enabledFlagsBuffer, 0u, colliderUintBytes,
-                                     colliders.enabledFlags.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        computeContext->UpdateBuffer(mPersistentColliders.materialBuffer, 0u, colliderFloat4Bytes,
-                                     colliders.frictionRestitution.data(),
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    }
-
-    world.clearRigidBodyDirtyRange();
-    world.clearColliderDirtyRange();
-    mRigidBodyCount        = bodyCount;
-    mColliderCount         = colliderCount;
-    mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || world.staticBroadPhaseDirty();
+    world.clearRigidBodyUploadState();
+    world.clearColliderUploadState();
+    mRigidBodyCount               = bodyCount;
+    mColliderCount                = colliderCount;
+    mRigidBodyUploadResetRequired = false;
+    mColliderUploadResetRequired  = false;
+    mStaticBroadPhaseDirty        = mStaticBroadPhaseDirty || world.staticBroadPhaseDirty();
     world.clearStaticBroadPhaseDirty();
+    return true;
+}
+
+bool PhysicsSceneGpuState::uploadRigidBodies(Diligent::IDeviceContext *computeContext,
+                                             const PhysicsWorld &world,
+                                             const RigidBodySoAHost &rigidBodies,
+                                             std::uint32_t bodyCount, bool forceFullUpload)
+{
+    const bool needsFullUpload = forceFullUpload || world.fullRigidBodyUploadRequired();
+    if (bodyCount == 0u)
+    {
+        return true;
+    }
+    if (needsFullUpload)
+    {
+        return uploadRigidBodyRange(computeContext, rigidBodies, 0u, bodyCount);
+    }
+    if (world.rigidBodyDirtyIndices().empty())
+    {
+        return true;
+    }
+
+    return uploadContiguousRuns(
+        world.rigidBodyDirtyIndices(), [&](std::uint32_t begin, std::uint32_t count)
+        { return uploadRigidBodyRange(computeContext, rigidBodies, begin, count); });
+}
+
+bool PhysicsSceneGpuState::uploadColliders(Diligent::IDeviceContext *computeContext,
+                                           const PhysicsWorld &world,
+                                           const ColliderSoAHost &colliders,
+                                           std::uint32_t colliderCount, bool forceFullUpload)
+{
+    const bool needsFullUpload = forceFullUpload || world.fullColliderUploadRequired();
+    if (colliderCount == 0u)
+    {
+        return true;
+    }
+    if (needsFullUpload)
+    {
+        return uploadColliderRange(computeContext, colliders, 0u, colliderCount) &&
+               uploadColliderBroadPhaseRange(computeContext, colliders, 0u, colliderCount);
+    }
+    if (world.colliderDirtyIndices().empty())
+    {
+        return true;
+    }
+
+    return uploadContiguousRuns(
+               world.colliderDirtyIndices(), [&](std::uint32_t begin, std::uint32_t count)
+               { return uploadColliderRange(computeContext, colliders, begin, count); }) &&
+           uploadContiguousRuns(
+               world.colliderDirtyIndices(), [&](std::uint32_t begin, std::uint32_t count)
+               { return uploadColliderBroadPhaseRange(computeContext, colliders, begin, count); });
+}
+
+bool PhysicsSceneGpuState::uploadRigidBodyRange(Diligent::IDeviceContext *computeContext,
+                                                const RigidBodySoAHost &rigidBodies,
+                                                std::uint32_t begin, std::uint32_t count)
+{
+    return updateStructuredBufferRange(computeContext, mPersistentRigidBodies.positionsBuffer,
+                                       rigidBodies.positionsInvMass, begin, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentRigidBodies.orientationsBuffer,
+                                       rigidBodies.orientations, begin, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentRigidBodies.scalesBuffer,
+                                       rigidBodies.scales, begin, count) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentRigidBodies.linearVelocitiesBuffer,
+                                       rigidBodies.linearVelocities, begin, count) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentRigidBodies.angularVelocitiesBuffer,
+                                       rigidBodies.angularVelocities, begin, count) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentRigidBodies.inverseInertiaLocalBuffer,
+                                       rigidBodies.inverseInertiaLocal, begin, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentRigidBodies.bodyTypesBuffer,
+                                       rigidBodies.bodyTypes, begin, count) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentRigidBodies.kinematicTargetPositionsBuffer,
+                                       rigidBodies.kinematicTargetPositions, begin, count) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentRigidBodies.kinematicTargetOrientationsBuffer,
+                                       rigidBodies.kinematicTargetOrientations, begin, count) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentRigidBodies.kinematicTargetFlagsBuffer,
+                                       rigidBodies.kinematicTargetFlags, begin, count);
+}
+
+bool PhysicsSceneGpuState::uploadColliderRange(Diligent::IDeviceContext *computeContext,
+                                               const ColliderSoAHost &colliders,
+                                               std::uint32_t begin, std::uint32_t count)
+{
+    return updateStructuredBufferRange(computeContext,
+                                       mPersistentColliders.ownerRigidBodyIndicesBuffer,
+                                       colliders.ownerRigidBodyIndices, begin, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentColliders.shapeTypesBuffer,
+                                       colliders.shapeTypes, begin, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentColliders.shapeParamsBuffer,
+                                       colliders.shapeParams, begin, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentColliders.localPositionsBuffer,
+                                       colliders.localPositions, begin, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentColliders.localOrientationsBuffer,
+                                       colliders.localOrientations, begin, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentColliders.enabledFlagsBuffer,
+                                       colliders.enabledFlags, begin, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentColliders.materialBuffer,
+                                       colliders.frictionRestitution, begin, count);
+}
+
+bool PhysicsSceneGpuState::uploadColliderBroadPhaseRange(Diligent::IDeviceContext *computeContext,
+                                                         const ColliderSoAHost &colliders,
+                                                         std::uint32_t begin, std::uint32_t count)
+{
+    if (computeContext == nullptr || mPersistentColliders.broadPhaseDataBuffer == nullptr)
+    {
+        return false;
+    }
+    if (count == 0u)
+    {
+        return true;
+    }
+
+    std::vector<GpuColliderBroadPhaseData> broadPhaseData(count);
+    for (std::uint32_t i = 0; i < count; ++i)
+    {
+        const std::uint32_t sourceIndex  = begin + i;
+        GpuColliderBroadPhaseData &entry = broadPhaseData[i];
+        entry.ownerBody                  = colliders.ownerRigidBodyIndices[sourceIndex];
+        entry.shapeType                  = colliders.shapeTypes[sourceIndex];
+        entry.environmentIndex           = colliders.environmentIndices[sourceIndex];
+        entry.collisionLayer             = colliders.collisionLayers[sourceIndex];
+        entry.collisionMask              = colliders.collisionMasks[sourceIndex];
+    }
+
+    computeContext->UpdateBuffer(
+        mPersistentColliders.broadPhaseDataBuffer,
+        static_cast<Diligent::Uint64>(begin) * sizeof(GpuColliderBroadPhaseData),
+        static_cast<Diligent::Uint64>(count) * sizeof(GpuColliderBroadPhaseData),
+        broadPhaseData.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     return true;
 }
 

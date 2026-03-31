@@ -66,40 +66,6 @@ struct ColliderState
     std::uint32_t collisionMask  = 0xffffffffu;
 };
 
-struct PhysicsSoADirtyRange
-{
-    std::uint32_t begin = 0;
-    std::uint32_t end   = 0;
-    bool valid          = false;
-
-    void clear() noexcept
-    {
-        begin = 0;
-        end   = 0;
-        valid = false;
-    }
-
-    void include(std::uint32_t index) noexcept
-    {
-        if (!valid)
-        {
-            begin = index;
-            end   = index + 1u;
-            valid = true;
-            return;
-        }
-
-        if (index < begin)
-        {
-            begin = index;
-        }
-        if (index + 1u > end)
-        {
-            end = index + 1u;
-        }
-    }
-};
-
 struct RigidBodySoAHost
 {
     std::vector<RigidBodyId> rigidBodyIds;
@@ -204,14 +170,12 @@ struct RigidBodySoAGpu
 {
     std::uint32_t bodyCount = 0;
     std::uint32_t capacity  = 0;
-    PhysicsSoADirtyRange dirtyRange{};
 };
 
 struct ColliderSoAGpu
 {
     std::uint32_t colliderCount = 0;
     std::uint32_t capacity      = 0;
-    PhysicsSoADirtyRange dirtyRange{};
 };
 
 struct PhysicsGpuBuffers
