@@ -56,8 +56,7 @@ bool ShaderCache::initialize(Diligent::IRenderDevice *renderDevice)
 void ShaderCache::shutdown()
 {
     saveCache();
-    mStateCache      = nullptr;
-    mLoadedCacheBlob = nullptr;
+    mStateCache = nullptr;
     mCacheFilePath.clear();
 }
 
@@ -124,8 +123,6 @@ void ShaderCache::loadCache()
         return;
     }
 
-    mLoadedCacheBlob = nullptr;
-
     std::error_code error;
     if (!std::filesystem::exists(mCacheFilePath, error))
     {
@@ -147,13 +144,10 @@ void ShaderCache::loadCache()
         return;
     }
 
-    // Work around Diligent archive deserialization relying on the original blob memory even when
-    // MakeCopy=true by keeping the source blob alive and asking the cache to retain it directly.
-    mLoadedCacheBlob = cacheBlob;
-    if (!mStateCache->Load(mLoadedCacheBlob, kShaderCacheContentVersion, false))
+    // Diligent archive deserialization relys on the original blob memory even when MakeCopy=true.
+    if (!mStateCache->Load(cacheBlob, kShaderCacheContentVersion, false))
     {
         CRESSIM_LOG_ERROR("failed to load cache file '", mCacheFilePath.string(), "'.");
-        mLoadedCacheBlob = nullptr;
         return;
     }
 

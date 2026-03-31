@@ -31,7 +31,6 @@ private:
 
 private:
     Diligent::RefCntAutoPtr<Diligent::IRenderStateCache> mStateCache;
-    Diligent::RefCntAutoPtr<Diligent::IDataBlob> mLoadedCacheBlob;
     std::filesystem::path mCacheFilePath;
 };
 
