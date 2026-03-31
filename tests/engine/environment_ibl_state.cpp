@@ -5,7 +5,7 @@ namespace
 {
 
 using cressim::neo::engine::World;
-using cressim::neo::gpu::GpuSceneLayoutDesc;
+using cressim::neo::common::SceneLayoutDesc;
 using cressim::neo::graphics::EnvironmentIblDesc;
 using cressim::neo::graphics::IblQualityTier;
 using cressim::neo::graphics::TextureHandle;
@@ -15,11 +15,11 @@ using cressim::neo::graphics::TextureHandle;
 int main()
 {
     World world;
-    GpuSceneLayoutDesc layout{};
+    SceneLayoutDesc layout{};
     layout.envCount = 2u;
     world.setSceneLayout(layout);
 
-    GpuSceneLayoutDesc relayout = layout;
+    SceneLayoutDesc relayout = layout;
     relayout.envCount = 3u;
     world.setSceneLayout(relayout);
     if (world.sceneLayout().envCount != 3u)

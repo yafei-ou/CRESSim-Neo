@@ -2,8 +2,8 @@
 #define CRESSIM_NEO_GRAPHICS_PASSES_FORWARD_OPAQUE_PASS_H
 
 #include "gpu/gpu_device.h"
-#include "gpu/gpu_scene.h"
 #include "gpu/shader_library.h"
+#include "graphics/gpu_scene.h"
 #include "graphics/passes/forward_draw_types.h"
 #include "graphics/passes/material_program_registry.h"
 #include "graphics/services/mesh_gpu_cache.h"
@@ -34,7 +34,7 @@ public:
 
     bool initialize();
     bool beginBatchFrame(std::uint32_t currentCameraIndex);
-    void setGpuSceneView(const gpu::GpuEntitySceneView &sceneView) noexcept;
+    void setGpuSceneView(const GpuEntitySceneView &sceneView) noexcept;
     void setEnvironmentIbls(const std::vector<EnvironmentIblDesc> *ibls,
                             std::uint32_t envCount) noexcept;
     void setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept;
@@ -151,7 +151,7 @@ private:
     Diligent::IBuffer *mLocalShadowViewBuffer       = nullptr;
     Diligent::IBuffer *mLightShadowAssignmentBuffer = nullptr;
     std::uint32_t mLocalShadowViewCount             = 0u;
-    gpu::GpuEntitySceneView mSceneView{};
+    GpuEntitySceneView mSceneView{};
     const std::vector<EnvironmentIblDesc> *mEnvironmentIbls = nullptr;
     std::uint32_t mEnvironmentIblEnvCount                   = 0u;
     Diligent::IBuffer *mVisiblePairBuffer                   = nullptr;

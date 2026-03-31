@@ -4,6 +4,7 @@
 #include "common/id.h"
 #include "engine/components.h"
 #include "engine/export.h"
+#include "engine/render_scene_types.h"
 #include "graphics/host_scene.h"
 #include "physics/physics_world.h"
 
@@ -23,8 +24,8 @@ public:
 
     common::EntityId createEntity(std::uint32_t envIndex = 0u);
     bool destroyEntity(common::EntityId entityId);
-    void setSceneLayout(const gpu::GpuSceneLayoutDesc &layout);
-    const gpu::GpuSceneLayoutDesc &sceneLayout() const noexcept;
+    void setSceneLayout(const common::SceneLayoutDesc &layout);
+    const common::SceneLayoutDesc &sceneLayout() const noexcept;
     bool setEntityEnvironment(common::EntityId entityId, std::uint32_t envIndex);
     std::uint32_t entityEnvironment(common::EntityId entityId) const noexcept;
     bool setEnvironmentIbl(std::uint32_t envIndex, const graphics::EnvironmentIblDesc &desc);
@@ -71,7 +72,7 @@ public:
     physics::PhysicsWorld &physicsWorld() noexcept;
     const physics::PhysicsWorld &physicsWorld() const noexcept;
 
-    void setGpuEntityScene(const gpu::GpuEntitySceneView &sceneView) noexcept;
+    void setGpuEntityScene(const graphics::GpuEntitySceneView &sceneView) noexcept;
 
     const std::vector<graphics::RenderableInstance> &renderables() const noexcept;
     const std::vector<graphics::CameraData> &cameras() const noexcept;
@@ -79,17 +80,17 @@ public:
     const std::vector<Diligent::float4> &renderObjectPositions() const noexcept;
     const std::vector<Diligent::float4> &renderObjectOrientations() const noexcept;
     const std::vector<Diligent::float4> &renderObjectScales() const noexcept;
-    const std::vector<gpu::GpuRenderableMetadata> &renderableMetadata() const noexcept;
-    const std::vector<gpu::GpuRenderableQueueInfo> &renderableQueueInfo() const noexcept;
-    const std::vector<gpu::GpuCameraInput> &cameraInputs() const noexcept;
-    const std::vector<gpu::GpuLightInput> &lightInputs() const noexcept;
-    const std::vector<gpu::GpuLocalLightSelection> &localLightSelections() const noexcept;
+    const std::vector<graphics::GpuRenderableMetadata> &renderableMetadata() const noexcept;
+    const std::vector<graphics::GpuRenderableQueueInfo> &renderableQueueInfo() const noexcept;
+    const std::vector<graphics::GpuCameraInput> &cameraInputs() const noexcept;
+    const std::vector<graphics::GpuLightInput> &lightInputs() const noexcept;
+    const std::vector<graphics::GpuLocalLightSelection> &localLightSelections() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &opaqueDrawRegistry() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &shadowDrawRegistry() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &localShadowDrawRegistry()
         const noexcept;
-    const std::vector<gpu::GpuEntityPoseMappingEntry> &physicsRenderableMappings();
-    const gpu::GpuEntitySceneView &gpuEntityScene() const noexcept;
+    const std::vector<EntityPoseMappingEntry> &physicsRenderableMappings();
+    const graphics::GpuEntitySceneView &gpuEntityScene() const noexcept;
     graphics::HostSceneView hostSceneView() const noexcept;
     void ensureRenderStateUpToDate(const graphics::RenderResourceManager &resources);
 
@@ -120,8 +121,8 @@ private:
     void moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
     void moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
     void moveLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
-    [[nodiscard]] bool tryGetLightIndexForType(common::EntityId entityId, gpu::GpuLightType type,
-                                               const char *operation,
+    [[nodiscard]] bool tryGetLightIndexForType(common::EntityId entityId,
+                                               graphics::GpuLightType type, const char *operation,
                                                std::uint32_t &lightIndex) const noexcept;
     [[nodiscard]] bool removeLight(common::EntityId entityId);
     [[nodiscard]] bool isLightSlotOccupied(std::uint32_t envIndex,
@@ -148,7 +149,7 @@ private:
     std::unordered_map<std::uint32_t, common::EntityId> mColliderOwnerEntity{};
 
     physics::PhysicsWorld mPhysicsWorld{};
-    gpu::GpuSceneLayoutDesc mSceneLayout{};
+    common::SceneLayoutDesc mSceneLayout{};
     bool mWorldSceneAuthored = false;
     std::unordered_map<common::EntityId, std::uint32_t> mEntityEnvironments{};
 
@@ -158,17 +159,17 @@ private:
     std::vector<Diligent::float4> mRenderObjectPositions{};
     std::vector<Diligent::float4> mRenderObjectOrientations{};
     std::vector<Diligent::float4> mRenderObjectScales{};
-    std::vector<gpu::GpuRenderableMetadata> mRenderableMetadataHost{};
-    std::vector<gpu::GpuRenderableQueueInfo> mRenderableQueueInfoHost{};
-    std::vector<gpu::GpuCameraInput> mCameraInputsHost{};
-    std::vector<gpu::GpuLightInput> mLightInputsHost{};
-    std::vector<gpu::GpuLocalLightSelection> mLocalLightSelectionsHost{};
+    std::vector<graphics::GpuRenderableMetadata> mRenderableMetadataHost{};
+    std::vector<graphics::GpuRenderableQueueInfo> mRenderableQueueInfoHost{};
+    std::vector<graphics::GpuCameraInput> mCameraInputsHost{};
+    std::vector<graphics::GpuLightInput> mLightInputsHost{};
+    std::vector<graphics::GpuLocalLightSelection> mLocalLightSelectionsHost{};
     std::vector<graphics::EnvironmentIblDesc> mEnvironmentIbls{};
     std::vector<graphics::IndirectCommandRegistryEntry> mOpaqueDrawRegistryHost{};
     std::vector<graphics::IndirectCommandRegistryEntry> mShadowDrawRegistryHost{};
     std::vector<graphics::IndirectCommandRegistryEntry> mLocalShadowDrawRegistryHost{};
-    gpu::GpuEntitySceneView mGpuEntityScene{};
-    std::vector<gpu::GpuEntityPoseMappingEntry> mPhysicsRenderableMappingsCache{};
+    graphics::GpuEntitySceneView mGpuEntityScene{};
+    std::vector<EntityPoseMappingEntry> mPhysicsRenderableMappingsCache{};
 
     std::unordered_map<common::EntityId, std::size_t> mRenderableIndices{};
     std::unordered_map<common::EntityId, std::size_t> mRenderCameraIndices{};

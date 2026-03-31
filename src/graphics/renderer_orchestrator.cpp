@@ -116,8 +116,7 @@ std::uint32_t countActiveLights(const std::vector<LightData> &lights)
 bool isMainDirectionalLightActive(const LightData &light)
 {
     if (light.entityId == common::kInvalidEntityId ||
-        light.lightSlot != gpu::kMainDirectionalLightSlot ||
-        light.type != gpu::GpuLightType::Directional)
+        light.lightSlot != kMainDirectionalLightSlot || light.type != GpuLightType::Directional)
     {
         return false;
     }
@@ -129,12 +128,12 @@ bool isMainDirectionalLightActive(const LightData &light)
 }
 
 std::vector<EnvMainLightState> buildEnvMainLightStates(const HostSceneView &sceneView,
-                                                       const gpu::GpuEntitySceneView &gpuScene)
+                                                       const GpuEntitySceneView &gpuScene)
 {
     std::vector<EnvMainLightState> states(gpuScene.layout.envCount);
     for (std::uint32_t envIndex = 0u; envIndex < gpuScene.layout.envCount; ++envIndex)
     {
-        states[envIndex].mainLightIndex = gpu::mainDirectionalLightIndex(gpuScene.layout, envIndex);
+        states[envIndex].mainLightIndex = mainDirectionalLightIndex(gpuScene.layout, envIndex);
     }
 
     if (sceneView.lights == nullptr)
@@ -144,7 +143,7 @@ std::vector<EnvMainLightState> buildEnvMainLightStates(const HostSceneView &scen
 
     for (const LightData &light : *sceneView.lights)
     {
-        if (light.envIndex >= states.size() || light.lightSlot != gpu::kMainDirectionalLightSlot)
+        if (light.envIndex >= states.size() || light.lightSlot != kMainDirectionalLightSlot)
         {
             continue;
         }
@@ -263,7 +262,7 @@ bool Renderer::ensureGpuScenePrepareState()
     return true;
 }
 
-bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView &sceneView)
+bool Renderer::prepareGpuScene(const GpuEntitySceneView &sceneView)
 {
     if (sceneView.renderableCount == 0u || sceneView.cameraCount == 0u)
     {
@@ -415,8 +414,8 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
     const std::vector<LightData> emptyLights;
     const std::vector<LightData> &directionalLights =
         world.lights != nullptr ? *world.lights : emptyLights;
-    const gpu::GpuEntitySceneView emptySceneView{};
-    const gpu::GpuEntitySceneView &gpuScene =
+    const GpuEntitySceneView emptySceneView{};
+    const GpuEntitySceneView &gpuScene =
         world.gpuEntityScene != nullptr ? *world.gpuEntityScene : emptySceneView;
 
     stats.renderableCount = countActiveRenderables(renderables);

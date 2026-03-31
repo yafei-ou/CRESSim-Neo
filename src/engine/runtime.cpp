@@ -88,10 +88,10 @@ bool Runtime::initialize(const RuntimeConfig &config)
 
     mWorld.setSceneLayout(config.sceneLayout);
 
-    mGpuSceneSync = std::make_unique<gpu::GpuSceneSync>(*mGpuDevice);
-    if (!mGpuSceneSync || !mGpuSceneSync->initialize(config.sceneLayout))
+    mRenderSceneUploader = std::make_unique<RenderSceneUploader>(*mGpuDevice);
+    if (!mRenderSceneUploader || !mRenderSceneUploader->initialize(config.sceneLayout))
     {
-        mGpuSceneSync.reset();
+        mRenderSceneUploader.reset();
         mPhysicsSolver->shutdown();
         mPhysicsSolver.reset();
         mGpuDevice->shutdown();
@@ -103,8 +103,8 @@ bool Runtime::initialize(const RuntimeConfig &config)
     if (!mRenderer->initialize())
     {
         mRenderer.reset();
-        mGpuSceneSync->shutdown();
-        mGpuSceneSync.reset();
+        mRenderSceneUploader->shutdown();
+        mRenderSceneUploader.reset();
         mPhysicsSolver->shutdown();
         mPhysicsSolver.reset();
         mGpuDevice->shutdown();
@@ -125,10 +125,10 @@ void Runtime::shutdown()
 
     mRenderer.reset();
 
-    if (mGpuSceneSync)
+    if (mRenderSceneUploader)
     {
-        mGpuSceneSync->shutdown();
-        mGpuSceneSync.reset();
+        mRenderSceneUploader->shutdown();
+        mRenderSceneUploader.reset();
     }
 
     if (mPhysicsSolver)
@@ -168,29 +168,29 @@ void Runtime::tick(const common::FrameContext &frameContext)
     mWorld.ensureRenderStateUpToDate(mResources);
 
     bool gpuSceneReady = false;
-    if (mGpuSceneSync)
+    if (mRenderSceneUploader)
     {
-        gpuSceneReady = mGpuSceneSync->uploadEntityPoseData(mWorld.renderObjectPositions(),
-                                                            mWorld.renderObjectOrientations(),
-                                                            mWorld.renderObjectScales());
+        gpuSceneReady = mRenderSceneUploader->uploadEntityPoseData(
+            mWorld.renderObjectPositions(), mWorld.renderObjectOrientations(),
+            mWorld.renderObjectScales());
     }
-    if (gpuSceneReady && physicsStepSucceeded && mGpuSceneSync && mPhysicsSolver)
+    if (gpuSceneReady && physicsStepSucceeded && mRenderSceneUploader && mPhysicsSolver)
     {
-        if (!mGpuSceneSync->applyMappedEntityPoses(mPhysicsSolver->gpuSceneView().rigid.poses,
-                                                   mWorld.physicsRenderableMappings()))
+        if (!mRenderSceneUploader->applyMappedEntityPoses(
+                mPhysicsSolver->gpuSceneView().rigid.poses, mWorld.physicsRenderableMappings()))
         {
             gpuSceneReady = false;
         }
     }
-    if (gpuSceneReady && mGpuSceneSync &&
-        mGpuSceneSync->uploadRenderableMetadata(mWorld.renderableMetadata()) &&
-        mGpuSceneSync->uploadRenderableQueueInfo(mWorld.renderableQueueInfo()) &&
-        mGpuSceneSync->uploadCameraInputs(mWorld.cameraInputs()) &&
-        mGpuSceneSync->uploadLightInputs(mWorld.lightInputs()) &&
-        mGpuSceneSync->uploadLocalLightSelections(mWorld.localLightSelections()) &&
+    if (gpuSceneReady && mRenderSceneUploader &&
+        mRenderSceneUploader->uploadRenderableMetadata(mWorld.renderableMetadata()) &&
+        mRenderSceneUploader->uploadRenderableQueueInfo(mWorld.renderableQueueInfo()) &&
+        mRenderSceneUploader->uploadCameraInputs(mWorld.cameraInputs()) &&
+        mRenderSceneUploader->uploadLightInputs(mWorld.lightInputs()) &&
+        mRenderSceneUploader->uploadLocalLightSelections(mWorld.localLightSelections()) &&
         (!mGpuDevice || mGpuDevice->waitForPhysicsOnGraphics()))
     {
-        mWorld.setGpuEntityScene(mGpuSceneSync->sceneView());
+        mWorld.setGpuEntityScene(mRenderSceneUploader->sceneView());
     }
     else
     {

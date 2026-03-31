@@ -31,8 +31,7 @@ bool isDefaultViewport(const gpu::GpuRenderViewport &viewport)
            viewport.height == 1.0f;
 }
 
-std::uint32_t buildGlobalCameraIndex(const CameraData &camera,
-                                     const gpu::GpuEntitySceneView &gpuScene)
+std::uint32_t buildGlobalCameraIndex(const CameraData &camera, const GpuEntitySceneView &gpuScene)
 {
     return camera.envIndex * std::max(gpuScene.layout.maxCamerasPerEnv, 1u) + camera.cameraSlot;
 }
@@ -67,7 +66,7 @@ gpu::GpuRenderTargetDesc buildManagedPrimaryDesc(
     return desc;
 }
 
-void populateResolvedCameraView(const CameraData &camera, const gpu::GpuEntitySceneView &gpuScene,
+void populateResolvedCameraView(const CameraData &camera, const GpuEntitySceneView &gpuScene,
                                 ResolvedCameraView &outView)
 {
     outView.entityId          = camera.entityId;
@@ -98,7 +97,7 @@ void logInvalidExplicitTarget(const CameraData &camera)
 } // namespace
 
 CameraOutputPlanningResult planCameraOutputs(
-    const std::vector<CameraData> &cameras, const gpu::GpuEntitySceneView &gpuScene,
+    const std::vector<CameraData> &cameras, const GpuEntitySceneView &gpuScene,
     gpu::GpuRenderTargetSystem &renderTargetSystem,
     const gpu::GpuRenderTargetDesc &defaultRenderTargetDesc,
     const std::optional<gpu::GpuPresentationTargetDesc> &presentationTarget,

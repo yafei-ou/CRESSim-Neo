@@ -13,10 +13,10 @@ using cressim::neo::engine::PointLightComponent;
 using cressim::neo::engine::World;
 using cressim::neo::engine::SpotLightComponent;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::gpu::GpuLightType;
-using cressim::neo::gpu::GpuSceneLayoutDesc;
-using cressim::neo::gpu::kForwardLocalLightCap;
-using cressim::neo::gpu::kMainDirectionalLightSlot;
+using cressim::neo::graphics::GpuLightType;
+using cressim::neo::common::SceneLayoutDesc;
+using cressim::neo::graphics::kForwardLocalLightCap;
+using cressim::neo::graphics::kMainDirectionalLightSlot;
 using cressim::neo::graphics::RenderResourceManager;
 
 } // namespace
@@ -25,7 +25,7 @@ int main()
 {
     World world;
     RenderResourceManager resources;
-    GpuSceneLayoutDesc layout{};
+    SceneLayoutDesc layout{};
     layout.maxLightsPerEnv = kForwardLocalLightCap + 3u;
     layout.envCount = 3u;
     world.setSceneLayout(layout);

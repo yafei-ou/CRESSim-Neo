@@ -28,7 +28,7 @@ int main()
     using namespace cressim::neo;
 
     World world;
-    world.setSceneLayout(gpu::GpuSceneLayoutDesc{});
+    world.setSceneLayout(common::SceneLayoutDesc{});
 
     graphics::RenderResourceManager resources;
 

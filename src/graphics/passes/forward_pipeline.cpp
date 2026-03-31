@@ -57,8 +57,7 @@ constexpr std::uint32_t kQueueModeShadow          = 1u;
 constexpr std::uint32_t kShadowPassModeLocal      = 1u;
 constexpr std::uint32_t kLocalShadowMapResolution = 1024u;
 constexpr std::uint32_t kPointShadowMapResolution = 512u;
-constexpr std::uint32_t kLocalShadowViewsPerEnv =
-    gpu::kShadowedLocalLightCap + gpu::kShadowedPointLightCap;
+constexpr std::uint32_t kLocalShadowViewsPerEnv   = kShadowedLocalLightCap + kShadowedPointLightCap;
 constexpr std::uint32_t kLocalShadowEnvBoundsWords = 8u;
 
 constexpr Diligent::ShaderResourceVariableDesc kIndirectResetVars[] = {
@@ -482,8 +481,8 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         return false;
     }
 
-    const gpu::GpuEntitySceneView emptyGpuScene{};
-    const gpu::GpuEntitySceneView &gpuScene =
+    const GpuEntitySceneView emptyGpuScene{};
+    const GpuEntitySceneView &gpuScene =
         sceneView.gpuEntityScene != nullptr ? *sceneView.gpuEntityScene : emptyGpuScene;
     const std::vector<IndirectCommandRegistryEntry> emptyRegistry;
     const std::vector<IndirectCommandRegistryEntry> &opaqueRegistry =
@@ -524,25 +523,24 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     const std::uint32_t totalLightCount           = gpuScene.layout.totalLightCapacity();
     const std::uint32_t totalObjectCount          = gpuScene.layout.totalRenderableObjectCapacity();
     const std::uint32_t totalLocalShadowViewCount = envCount * kLocalShadowViewsPerEnv;
-    const std::uint32_t totalLocal2DSubviewCount  = envCount * gpu::kShadowedLocalLightCap;
+    const std::uint32_t totalLocal2DSubviewCount  = envCount * kShadowedLocalLightCap;
     const std::uint32_t totalPointFaceCount =
-        envCount * gpu::kShadowedPointLightCap * gpu::kLocalShadowMaxFaceCount;
+        envCount * kShadowedPointLightCap * kLocalShadowMaxFaceCount;
 
     const std::uint32_t batchCameraCount = static_cast<std::uint32_t>(batchView.cameras.size());
-    std::vector<gpu::GpuBatchCameraMetadata> opaqueBatchCameras(batchCameraCount);
-    std::vector<gpu::GpuBatchCameraMetadata> shadowBatchCameras;
+    std::vector<GpuBatchCameraMetadata> opaqueBatchCameras(batchCameraCount);
+    std::vector<GpuBatchCameraMetadata> shadowBatchCameras;
     shadowBatchCameras.reserve(batchCameraCount);
     for (std::uint32_t i = 0u; i < batchCameraCount; ++i)
     {
         const ResolvedCameraView &camera = batchView.cameras[i];
-        gpu::GpuBatchCameraMetadata batchCamera{};
+        GpuBatchCameraMetadata batchCamera{};
         batchCamera.globalCameraIndex = camera.globalCameraIndex;
         batchCamera.envIndex          = camera.envIndex;
-        batchCamera.mainLightIndex =
-            gpu::mainDirectionalLightIndex(gpuScene.layout, camera.envIndex);
+        batchCamera.mainLightIndex    = mainDirectionalLightIndex(gpuScene.layout, camera.envIndex);
         batchCamera.colorLayer =
             camera.outputBinding.firstLayer - batchView.renderBinding.firstLayer;
-        batchCamera.shadowLayer = gpu::kInvalidBatchCameraLayer;
+        batchCamera.shadowLayer = kInvalidBatchCameraLayer;
 
         if (camera.envIndex < envMainLights.size() && envMainLights[camera.envIndex].castsShadows)
         {
@@ -555,7 +553,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
 
     const auto uploadBatchCameraBuffer =
         [&](GpuIndirectState::BufferSet &bufferSet, const char *name,
-            const std::vector<gpu::GpuBatchCameraMetadata> &batchCameras) -> bool
+            const std::vector<GpuBatchCameraMetadata> &batchCameras) -> bool
     {
         if (batchCameras.empty())
         {
@@ -566,7 +564,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             bufferSet.batchCameraBuffer == nullptr)
         {
             if (!ensureStructuredBuffer(
-                    backendContext.renderDevice, name, sizeof(gpu::GpuBatchCameraMetadata),
+                    backendContext.renderDevice, name, sizeof(GpuBatchCameraMetadata),
                     static_cast<std::uint32_t>(batchCameras.size()), Diligent::BIND_SHADER_RESOURCE,
                     graphicsContextMask, bufferSet.batchCameraBuffer, bufferSet.batchCameraCapacity,
                     1u))
@@ -577,7 +575,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
 
         return writeBuffer(backendContext.graphicsContext, bufferSet.batchCameraBuffer,
                            batchCameras.data(),
-                           batchCameras.size() * sizeof(gpu::GpuBatchCameraMetadata));
+                           batchCameras.size() * sizeof(GpuBatchCameraMetadata));
     };
 
     if (!uploadBatchCameraBuffer(mGpuIndirectState->opaque,
@@ -646,7 +644,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         {
             const std::string visibleName = std::string{namePrefix} + ".VisiblePairs";
             if (!ensureStructuredBuffer(backendContext.renderDevice, visibleName.c_str(),
-                                        sizeof(gpu::GpuVisiblePairInstance), visibleCapacity,
+                                        sizeof(GpuVisiblePairInstance), visibleCapacity,
                                         Diligent::BIND_SHADER_RESOURCE |
                                             Diligent::BIND_UNORDERED_ACCESS,
                                         graphicsContextMask, bufferSet.visiblePairBuffer,
@@ -799,7 +797,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         {
             const std::string visibleName = std::string{namePrefix} + ".VisiblePairs";
             if (!ensureStructuredBuffer(backendContext.renderDevice, visibleName.c_str(),
-                                        sizeof(gpu::GpuVisiblePairInstance), visibleCapacity,
+                                        sizeof(GpuVisiblePairInstance), visibleCapacity,
                                         Diligent::BIND_SHADER_RESOURCE |
                                             Diligent::BIND_UNORDERED_ACCESS,
                                         graphicsContextMask, bufferSet.visiblePairBuffer,
@@ -906,7 +904,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     {
         if (!ensureStructuredBuffer(
                 backendContext.renderDevice, "CRESSimNeo.ForwardPipeline.LocalShadowAssignments",
-                sizeof(gpu::GpuLightShadowAssignment), std::max(totalLightCount, 1u),
+                sizeof(GpuLightShadowAssignment), std::max(totalLightCount, 1u),
                 Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
                 graphicsContextMask, mGpuIndirectState->localShadowAssignmentBuffer,
                 mGpuIndirectState->localShadowAssignmentCapacity, 1u))
@@ -919,7 +917,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     {
         if (!ensureStructuredBuffer(
                 backendContext.renderDevice, "CRESSimNeo.ForwardPipeline.LocalShadowViews",
-                sizeof(gpu::GpuLocalShadowView), std::max(totalLocalShadowViewCount, 1u),
+                sizeof(GpuLocalShadowView), std::max(totalLocalShadowViewCount, 1u),
                 Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
                 graphicsContextMask, mGpuIndirectState->localShadowViewBuffer,
                 mGpuIndirectState->localShadowViewCapacity, 1u))

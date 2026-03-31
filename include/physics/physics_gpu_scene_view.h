@@ -3,7 +3,7 @@
 
 #include "physics/export.h"
 
-#include "gpu/gpu_scene.h"
+#include "common/scene_primitives.h"
 
 #include <cstdint>
 
@@ -12,7 +12,7 @@ namespace cressim::neo::physics
 
 struct PhysicsGpuRigidSceneView
 {
-    gpu::GpuPoseBufferView poses{};
+    common::PoseBufferView poses{};
     std::uint32_t colliderCount = 0;
 };
 

@@ -21,7 +21,7 @@ bool ShadowPass::initialize()
     return true;
 }
 
-void ShadowPass::setGpuSceneView(const gpu::GpuEntitySceneView &sceneView) noexcept
+void ShadowPass::setGpuSceneView(const GpuEntitySceneView &sceneView) noexcept
 {
     mSceneView = sceneView;
 }

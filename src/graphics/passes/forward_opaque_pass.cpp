@@ -442,7 +442,7 @@ bool ForwardOpaquePass::beginBatchFrame(std::uint32_t currentCameraIndex)
     return true;
 }
 
-void ForwardOpaquePass::setGpuSceneView(const gpu::GpuEntitySceneView &sceneView) noexcept
+void ForwardOpaquePass::setGpuSceneView(const GpuEntitySceneView &sceneView) noexcept
 {
     mSceneView = sceneView;
 }

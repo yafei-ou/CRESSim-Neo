@@ -2,8 +2,8 @@
 #define CRESSIM_NEO_GRAPHICS_PASSES_SHADOW_PASS_H
 
 #include "gpu/gpu_device.h"
-#include "gpu/gpu_scene.h"
 #include "gpu/shader_library.h"
+#include "graphics/gpu_scene.h"
 #include "graphics/passes/forward_draw_types.h"
 #include "graphics/services/mesh_gpu_cache.h"
 
@@ -24,7 +24,7 @@ public:
     ShadowPass(gpu::GpuDevice &device, RenderResourceManager &resourceManager);
 
     bool initialize();
-    void setGpuSceneView(const gpu::GpuEntitySceneView &sceneView) noexcept;
+    void setGpuSceneView(const GpuEntitySceneView &sceneView) noexcept;
     void setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept;
     void setBatchCameraBuffer(Diligent::IBuffer *buffer) noexcept;
     void setLocalShadowViewBuffer(Diligent::IBuffer *buffer) noexcept;
@@ -76,7 +76,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mShaderResourceBinding;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mShadowPerPassBuffer;
-    gpu::GpuEntitySceneView mSceneView{};
+    GpuEntitySceneView mSceneView{};
     Diligent::IBuffer *mVisiblePairBuffer     = nullptr;
     Diligent::IBuffer *mBatchCameraBuffer     = nullptr;
     Diligent::IBuffer *mLocalShadowViewBuffer = nullptr;

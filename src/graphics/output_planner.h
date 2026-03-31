@@ -22,7 +22,7 @@ struct CameraOutputPlanningResult
 };
 
 CameraOutputPlanningResult planCameraOutputs(
-    const std::vector<CameraData> &cameras, const gpu::GpuEntitySceneView &gpuScene,
+    const std::vector<CameraData> &cameras, const GpuEntitySceneView &gpuScene,
     gpu::GpuRenderTargetSystem &renderTargetSystem,
     const gpu::GpuRenderTargetDesc &defaultRenderTargetDesc,
     const std::optional<gpu::GpuPresentationTargetDesc> &presentationTarget,

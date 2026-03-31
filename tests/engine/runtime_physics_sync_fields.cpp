@@ -11,7 +11,7 @@ int main()
     using namespace cressim::neo;
 
     engine::World world;
-    gpu::GpuSceneLayoutDesc layout{};
+    common::SceneLayoutDesc layout{};
     layout.envCount = 2u;
     world.setSceneLayout(layout);
 
@@ -98,7 +98,7 @@ int main()
 
     const auto& cameraInputs = world.cameraInputs();
     bool foundCamera = false;
-    for (const gpu::GpuCameraInput& input : cameraInputs)
+    for (const graphics::GpuCameraInput& input : cameraInputs)
     {
         if (input.active == 0u)
         {

@@ -97,15 +97,15 @@ void refreshTransformDerivedLightState(graphics::LightData &light,
 {
     switch (light.type)
     {
-    case gpu::GpuLightType::Directional:
+    case graphics::GpuLightType::Directional:
         // Directional lights currently use authored direction, but keeping position refreshed
         // makes the unified host cache consistent across all light types.
         light.position = transform.worldTransform.position;
         break;
-    case gpu::GpuLightType::Point:
+    case graphics::GpuLightType::Point:
         light.position = transform.worldTransform.position;
         break;
-    case gpu::GpuLightType::Spot:
+    case graphics::GpuLightType::Spot:
         light.position = transform.worldTransform.position;
         break;
     }
@@ -163,7 +163,7 @@ bool World::destroyEntity(common::EntityId entityId)
     return true;
 }
 
-void World::setSceneLayout(const gpu::GpuSceneLayoutDesc &layout)
+void World::setSceneLayout(const common::SceneLayoutDesc &layout)
 {
     if (mWorldSceneAuthored)
     {
@@ -175,7 +175,7 @@ void World::setSceneLayout(const gpu::GpuSceneLayoutDesc &layout)
     ensureHostSceneStorage();
 }
 
-const gpu::GpuSceneLayoutDesc &World::sceneLayout() const noexcept
+const common::SceneLayoutDesc &World::sceneLayout() const noexcept
 {
     return mSceneLayout;
 }
@@ -286,8 +286,8 @@ void World::ensureHostSceneStorage()
         mRenderObjectPositions.assign(objectCapacity, Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
         mRenderObjectOrientations.assign(objectCapacity, Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f});
         mRenderObjectScales.assign(objectCapacity, Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f});
-        mRenderableMetadataHost.assign(objectCapacity, gpu::GpuRenderableMetadata{});
-        mRenderableQueueInfoHost.assign(objectCapacity, gpu::GpuRenderableQueueInfo{});
+        mRenderableMetadataHost.assign(objectCapacity, graphics::GpuRenderableMetadata{});
+        mRenderableQueueInfoHost.assign(objectCapacity, graphics::GpuRenderableQueueInfo{});
         mOpaqueDrawRegistryHost.clear();
         mShadowDrawRegistryHost.clear();
         mDirtyRenderablePoseIndices.clear();
@@ -311,7 +311,7 @@ void World::ensureHostSceneStorage()
     if (mRenderCameras.size() != cameraCapacity)
     {
         mRenderCameras.assign(cameraCapacity, graphics::CameraData{});
-        mCameraInputsHost.assign(cameraCapacity, gpu::GpuCameraInput{});
+        mCameraInputsHost.assign(cameraCapacity, graphics::GpuCameraInput{});
         mDirtyCameraIndices.clear();
         mDirtyCameraBits.assign(cameraCapacity, 0u);
         mDirtyCameraIndices.reserve(cameraCapacity);
@@ -326,8 +326,8 @@ void World::ensureHostSceneStorage()
     if (mRenderLights.size() != lightCapacity)
     {
         mRenderLights.assign(lightCapacity, graphics::LightData{});
-        mLightInputsHost.assign(lightCapacity, gpu::GpuLightInput{});
-        mLocalLightSelectionsHost.assign(mSceneLayout.envCount, gpu::GpuLocalLightSelection{});
+        mLightInputsHost.assign(lightCapacity, graphics::GpuLightInput{});
+        mLocalLightSelectionsHost.assign(mSceneLayout.envCount, graphics::GpuLocalLightSelection{});
         mDirtyLightIndices.clear();
         mDirtyLightBits.assign(lightCapacity, 0u);
         mDirtyLightIndices.reserve(lightCapacity);
@@ -344,7 +344,7 @@ void World::ensureHostSceneStorage()
     }
     if (mLocalLightSelectionsHost.size() != mSceneLayout.envCount)
     {
-        mLocalLightSelectionsHost.assign(mSceneLayout.envCount, gpu::GpuLocalLightSelection{});
+        mLocalLightSelectionsHost.assign(mSceneLayout.envCount, graphics::GpuLocalLightSelection{});
     }
 }
 
@@ -547,8 +547,8 @@ void World::setDirectionalLight(common::EntityId entityId,
     }
 
     std::uint32_t lightIndex = 0u;
-    if (!tryGetLightIndexForType(entityId, gpu::GpuLightType::Directional, "setDirectionalLight",
-                                 lightIndex))
+    if (!tryGetLightIndexForType(entityId, graphics::GpuLightType::Directional,
+                                 "setDirectionalLight", lightIndex))
     {
         return;
     }
@@ -570,7 +570,7 @@ void World::setDirectionalLight(common::EntityId entityId,
 
     graphics::LightData &lightData     = mRenderLights[lightIndex];
     const TransformComponent transform = tryGetTransform(entityId).value_or(TransformComponent{});
-    lightData.type                     = gpu::GpuLightType::Directional;
+    lightData.type                     = graphics::GpuLightType::Directional;
     lightData.position                 = transform.worldTransform.position;
     lightData.direction                = component.direction;
     lightData.color                    = component.color;
@@ -599,7 +599,8 @@ void World::setPointLight(common::EntityId entityId, const PointLightComponent &
     }
 
     std::uint32_t lightIndex = 0u;
-    if (!tryGetLightIndexForType(entityId, gpu::GpuLightType::Point, "setPointLight", lightIndex))
+    if (!tryGetLightIndexForType(entityId, graphics::GpuLightType::Point, "setPointLight",
+                                 lightIndex))
     {
         return;
     }
@@ -621,7 +622,7 @@ void World::setPointLight(common::EntityId entityId, const PointLightComponent &
 
     const TransformComponent transform = tryGetTransform(entityId).value_or(TransformComponent{});
     graphics::LightData &lightData     = mRenderLights[lightIndex];
-    lightData.type                     = gpu::GpuLightType::Point;
+    lightData.type                     = graphics::GpuLightType::Point;
     lightData.position                 = transform.worldTransform.position;
     lightData.direction                = Diligent::float3{0.0f, -1.0f, 0.0f};
     lightData.color                    = component.color;
@@ -650,7 +651,8 @@ void World::setSpotLight(common::EntityId entityId, const SpotLightComponent &co
     }
 
     std::uint32_t lightIndex = 0u;
-    if (!tryGetLightIndexForType(entityId, gpu::GpuLightType::Spot, "setSpotLight", lightIndex))
+    if (!tryGetLightIndexForType(entityId, graphics::GpuLightType::Spot, "setSpotLight",
+                                 lightIndex))
     {
         return;
     }
@@ -672,7 +674,7 @@ void World::setSpotLight(common::EntityId entityId, const SpotLightComponent &co
 
     const TransformComponent transform = tryGetTransform(entityId).value_or(TransformComponent{});
     graphics::LightData &lightData     = mRenderLights[lightIndex];
-    lightData.type                     = gpu::GpuLightType::Spot;
+    lightData.type                     = graphics::GpuLightType::Spot;
     lightData.position                 = transform.worldTransform.position;
     lightData.direction                = component.direction;
     lightData.color                    = component.color;
@@ -1017,7 +1019,7 @@ std::optional<DirectionalLightComponent> World::tryGetDirectionalLight(
     }
 
     const graphics::LightData &light = mRenderLights[static_cast<std::uint32_t>(it->second)];
-    if (light.type != gpu::GpuLightType::Directional)
+    if (light.type != graphics::GpuLightType::Directional)
     {
         return std::nullopt;
     }
@@ -1041,7 +1043,7 @@ std::optional<PointLightComponent> World::tryGetPointLight(common::EntityId enti
     }
 
     const graphics::LightData &light = mRenderLights[static_cast<std::uint32_t>(it->second)];
-    if (light.type != gpu::GpuLightType::Point)
+    if (light.type != graphics::GpuLightType::Point)
     {
         return std::nullopt;
     }
@@ -1064,7 +1066,7 @@ std::optional<SpotLightComponent> World::tryGetSpotLight(common::EntityId entity
     }
 
     const graphics::LightData &light = mRenderLights[static_cast<std::uint32_t>(it->second)];
-    if (light.type != gpu::GpuLightType::Spot)
+    if (light.type != graphics::GpuLightType::Spot)
     {
         return std::nullopt;
     }
@@ -1144,7 +1146,7 @@ const physics::PhysicsWorld &World::physicsWorld() const noexcept
     return mPhysicsWorld;
 }
 
-void World::setGpuEntityScene(const gpu::GpuEntitySceneView &sceneView) noexcept
+void World::setGpuEntityScene(const graphics::GpuEntitySceneView &sceneView) noexcept
 {
     mGpuEntityScene = sceneView;
 }
@@ -1179,27 +1181,27 @@ const std::vector<Diligent::float4> &World::renderObjectScales() const noexcept
     return mRenderObjectScales;
 }
 
-const std::vector<gpu::GpuRenderableMetadata> &World::renderableMetadata() const noexcept
+const std::vector<graphics::GpuRenderableMetadata> &World::renderableMetadata() const noexcept
 {
     return mRenderableMetadataHost;
 }
 
-const std::vector<gpu::GpuRenderableQueueInfo> &World::renderableQueueInfo() const noexcept
+const std::vector<graphics::GpuRenderableQueueInfo> &World::renderableQueueInfo() const noexcept
 {
     return mRenderableQueueInfoHost;
 }
 
-const std::vector<gpu::GpuCameraInput> &World::cameraInputs() const noexcept
+const std::vector<graphics::GpuCameraInput> &World::cameraInputs() const noexcept
 {
     return mCameraInputsHost;
 }
 
-const std::vector<gpu::GpuLightInput> &World::lightInputs() const noexcept
+const std::vector<graphics::GpuLightInput> &World::lightInputs() const noexcept
 {
     return mLightInputsHost;
 }
 
-const std::vector<gpu::GpuLocalLightSelection> &World::localLightSelections() const noexcept
+const std::vector<graphics::GpuLocalLightSelection> &World::localLightSelections() const noexcept
 {
     return mLocalLightSelectionsHost;
 }
@@ -1222,7 +1224,7 @@ const std::vector<graphics::IndirectCommandRegistryEntry> &World::localShadowDra
     return mLocalShadowDrawRegistryHost;
 }
 
-const std::vector<gpu::GpuEntityPoseMappingEntry> &World::physicsRenderableMappings()
+const std::vector<EntityPoseMappingEntry> &World::physicsRenderableMappings()
 {
     const std::uint64_t rigidBodyTopologyRevision = mPhysicsWorld.rigidBodyTopologyRevision();
     if (!mPhysicsRenderableMappingsDirty &&
@@ -1258,7 +1260,7 @@ const std::vector<gpu::GpuEntityPoseMappingEntry> &World::physicsRenderableMappi
                 continue;
             }
 
-            gpu::GpuEntityPoseMappingEntry entry{};
+            EntityPoseMappingEntry entry{};
             entry.sourcePoseIndex = rigidBodyIt->second;
             entry.objectIndex     = renderable.envIndex * mSceneLayout.maxRenderableObjectsPerEnv +
                                     renderable.objectSlot;
@@ -1271,7 +1273,7 @@ const std::vector<gpu::GpuEntityPoseMappingEntry> &World::physicsRenderableMappi
     return mPhysicsRenderableMappingsCache;
 }
 
-const gpu::GpuEntitySceneView &World::gpuEntityScene() const noexcept
+const graphics::GpuEntitySceneView &World::gpuEntityScene() const noexcept
 {
     return mGpuEntityScene;
 }
@@ -1341,14 +1343,14 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
         }
 
         const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
-        gpu::GpuRenderableMetadata entry{};
-        gpu::GpuRenderableFlags renderableFlags = gpu::GpuRenderableFlags::None;
+        graphics::GpuRenderableMetadata entry{};
+        graphics::GpuRenderableFlags renderableFlags = graphics::GpuRenderableFlags::None;
         if (renderable.entityId != common::kInvalidEntityId &&
             renderable.objectSlot != kInvalidSlot)
         {
             if (renderable.visible)
             {
-                renderableFlags |= gpu::GpuRenderableFlags::Active;
+                renderableFlags |= graphics::GpuRenderableFlags::Active;
             }
 
             const graphics::MaterialResourceDesc *material =
@@ -1356,10 +1358,10 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
             if (material != nullptr && renderable.visible &&
                 material->blendMode != graphics::BlendMode::Transparent)
             {
-                renderableFlags |= gpu::GpuRenderableFlags::Opaque;
+                renderableFlags |= graphics::GpuRenderableFlags::Opaque;
                 if (material->castsShadows)
                 {
-                    renderableFlags |= gpu::GpuRenderableFlags::ShadowCaster;
+                    renderableFlags |= graphics::GpuRenderableFlags::ShadowCaster;
                 }
             }
 
@@ -1386,7 +1388,7 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
 
     std::map<DrawBucketKey, std::vector<std::uint32_t>> opaqueObjectsByKey;
     std::map<DrawBucketKey, std::vector<std::uint32_t>> shadowObjectsByKey;
-    mRenderableQueueInfoHost.assign(mRenderables.size(), gpu::GpuRenderableQueueInfo{});
+    mRenderableQueueInfoHost.assign(mRenderables.size(), graphics::GpuRenderableQueueInfo{});
     mOpaqueDrawRegistryHost.clear();
     mShadowDrawRegistryHost.clear();
     mLocalShadowDrawRegistryHost.clear();
@@ -1559,7 +1561,7 @@ void World::refreshCameraEntry(std::uint32_t cameraIndex)
     cameraData.worldTransform =
         tryGetTransform(cameraData.entityId).value_or(TransformComponent{}).worldTransform;
 
-    gpu::GpuCameraInput input{};
+    graphics::GpuCameraInput input{};
     input.position =
         Diligent::float4{cameraData.worldTransform.position.x, cameraData.worldTransform.position.y,
                          cameraData.worldTransform.position.z, 1.0f};
@@ -1595,7 +1597,7 @@ void World::refreshLightEntry(std::uint32_t lightIndex)
         tryGetTransform(lightData.entityId).value_or(TransformComponent{});
     refreshTransformDerivedLightState(lightData, transform);
 
-    gpu::GpuLightInput input{};
+    graphics::GpuLightInput input{};
     input.positionRange      = Diligent::float4{lightData.position.x, lightData.position.y,
                                                 lightData.position.z, lightData.range};
     input.directionIntensity = Diligent::float4{lightData.direction.x, lightData.direction.y,
@@ -1618,20 +1620,20 @@ void World::refreshLightEntry(std::uint32_t lightIndex)
 
 void World::rebuildLocalLightSelections()
 {
-    mLocalLightSelectionsHost.assign(mSceneLayout.envCount, gpu::GpuLocalLightSelection{});
+    mLocalLightSelectionsHost.assign(mSceneLayout.envCount, graphics::GpuLocalLightSelection{});
     for (std::uint32_t lightIndex = 0u;
          lightIndex < static_cast<std::uint32_t>(mRenderLights.size()); ++lightIndex)
     {
         const graphics::LightData &light = mRenderLights[lightIndex];
         if (!isValidLight(light) || light.envIndex >= mLocalLightSelectionsHost.size() ||
-            light.lightSlot == gpu::kMainDirectionalLightSlot)
+            light.lightSlot == graphics::kMainDirectionalLightSlot)
         {
             continue;
         }
 
         const bool active =
             light.intensity > 0.0f &&
-            (light.type != gpu::GpuLightType::Directional ||
+            (light.type != graphics::GpuLightType::Directional ||
              (light.direction.x * light.direction.x + light.direction.y * light.direction.y +
               light.direction.z * light.direction.z) > 1.0e-6f);
         if (!active)
@@ -1639,9 +1641,9 @@ void World::rebuildLocalLightSelections()
             continue;
         }
 
-        gpu::GpuLocalLightSelection &selection = mLocalLightSelectionsHost[light.envIndex];
-        const std::uint32_t nextCount          = selection.localLightCount;
-        if (nextCount < gpu::kForwardLocalLightCap)
+        graphics::GpuLocalLightSelection &selection = mLocalLightSelectionsHost[light.envIndex];
+        const std::uint32_t nextCount               = selection.localLightCount;
+        if (nextCount < graphics::kForwardLocalLightCap)
         {
             selection.lightIndices[nextCount] = lightIndex;
             selection.localLightCount         = nextCount + 1u;
@@ -1652,14 +1654,14 @@ void World::rebuildLocalLightSelections()
             continue;
         }
 
-        if (light.type == gpu::GpuLightType::Point)
+        if (light.type == graphics::GpuLightType::Point)
         {
-            if (selection.shadowedPointLightCount < gpu::kShadowedPointLightCap)
+            if (selection.shadowedPointLightCount < graphics::kShadowedPointLightCap)
             {
                 ++selection.shadowedPointLightCount;
             }
         }
-        else if (selection.shadowedLocalLightCount < gpu::kShadowedLocalLightCap)
+        else if (selection.shadowedLocalLightCount < graphics::kShadowedLocalLightCap)
         {
             ++selection.shadowedLocalLightCount;
         }
@@ -1738,7 +1740,7 @@ void World::moveLightToEnvironment(common::EntityId entityId, std::uint32_t envI
     const std::uint32_t oldLightIndex = static_cast<std::uint32_t>(indexIt->second);
     graphics::LightData light         = mRenderLights[oldLightIndex];
     const std::uint32_t newLightSlot =
-        allocateLightSlot(envIndex, light.type == gpu::GpuLightType::Directional);
+        allocateLightSlot(envIndex, light.type == graphics::GpuLightType::Directional);
     if (newLightSlot == kInvalidSlot)
     {
         return;
@@ -1775,24 +1777,24 @@ std::uint32_t World::allocateLightSlot(std::uint32_t envIndex, bool reserveMainD
     }
 
     if (reserveMainDirectionalSlot &&
-        !isLightSlotOccupied(envIndex, gpu::kMainDirectionalLightSlot))
+        !isLightSlotOccupied(envIndex, graphics::kMainDirectionalLightSlot))
     {
         auto &freeSlots = mFreeLightSlotsByEnv[envIndex];
         const auto it =
-            std::find(freeSlots.begin(), freeSlots.end(), gpu::kMainDirectionalLightSlot);
+            std::find(freeSlots.begin(), freeSlots.end(), graphics::kMainDirectionalLightSlot);
         if (it != freeSlots.end())
         {
             freeSlots.erase(it);
         }
         auto &nextSlot = mNextLightSlotByEnv[envIndex];
-        nextSlot       = std::max(nextSlot, gpu::kMainDirectionalLightSlot + 1u);
-        return gpu::kMainDirectionalLightSlot;
+        nextSlot       = std::max(nextSlot, graphics::kMainDirectionalLightSlot + 1u);
+        return graphics::kMainDirectionalLightSlot;
     }
 
     auto &freeSlots = mFreeLightSlotsByEnv[envIndex];
     for (auto it = freeSlots.begin(); it != freeSlots.end(); ++it)
     {
-        if (*it == gpu::kMainDirectionalLightSlot)
+        if (*it == graphics::kMainDirectionalLightSlot)
         {
             continue;
         }
@@ -1802,9 +1804,9 @@ std::uint32_t World::allocateLightSlot(std::uint32_t envIndex, bool reserveMainD
     }
 
     auto &nextSlot = mNextLightSlotByEnv[envIndex];
-    if (nextSlot <= gpu::kMainDirectionalLightSlot)
+    if (nextSlot <= graphics::kMainDirectionalLightSlot)
     {
-        nextSlot = gpu::kMainDirectionalLightSlot + 1u;
+        nextSlot = graphics::kMainDirectionalLightSlot + 1u;
     }
     if (nextSlot >= mSceneLayout.maxLightsPerEnv)
     {
@@ -1814,7 +1816,7 @@ std::uint32_t World::allocateLightSlot(std::uint32_t envIndex, bool reserveMainD
     return nextSlot++;
 }
 
-bool World::tryGetLightIndexForType(common::EntityId entityId, gpu::GpuLightType type,
+bool World::tryGetLightIndexForType(common::EntityId entityId, graphics::GpuLightType type,
                                     const char *operation, std::uint32_t &lightIndex) const noexcept
 {
     const auto indexIt = mRenderLightIndices.find(entityId);
