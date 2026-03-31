@@ -26,6 +26,8 @@ struct RuntimeConfig
 class CRESSIM_NEO_ENGINE_API Runtime
 {
 public:
+    ~Runtime();
+
     bool initialize(const RuntimeConfig &config = RuntimeConfig{});
     void shutdown();
 

@@ -74,11 +74,11 @@ GpuComputePass &entityPoseSyncPass()
     return pass;
 }
 
-bool initializeEntityPoseSyncPass(Diligent::IRenderDevice *renderDevice,
+bool initializeEntityPoseSyncPass(GpuDevice &device,
                                   Diligent::IShaderSourceInputStreamFactory *streamFactory,
                                   Diligent::Uint64 contextMask)
 {
-    return entityPoseSyncPass().initialize(renderDevice, streamFactory, contextMask,
+    return entityPoseSyncPass().initialize(device, streamFactory, contextMask,
                                            kEntityPoseSyncPassDefinition);
 }
 
@@ -115,8 +115,7 @@ bool GpuSceneSync::initialize(const GpuSceneLayoutDesc &layout)
         return false;
     }
 
-    if (!initializeEntityPoseSyncPass(physicsContext.renderDevice, streamFactory,
-                                      mPhysicsContextMask))
+    if (!initializeEntityPoseSyncPass(mDevice, streamFactory, mPhysicsContextMask))
     {
         return false;
     }

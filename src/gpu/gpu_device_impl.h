@@ -2,6 +2,7 @@
 #define CRESSIM_NEO_GPU_GPU_DEVICE_IMPL_H
 
 #include "gpu/gpu_device.h"
+#include "gpu/shader_cache.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
@@ -21,6 +22,8 @@ class GpuRenderTargetSystemImpl;
 class GpuDeviceImpl final : public GpuDevice
 {
 public:
+    ~GpuDeviceImpl() override;
+
     bool initialize(const GpuDeviceDesc &desc) override;
     void shutdown() override;
 
@@ -38,6 +41,12 @@ public:
     bool tryGetPresentationReadback(GpuPresentationReadbackRequest request,
                                     GpuPresentationReadbackEvent &outEvent) override;
     const std::string &shaderSourceDirectory() const override;
+    bool createShader(const Diligent::ShaderCreateInfo &createInfo,
+                      Diligent::IShader **shader) override;
+    bool createGraphicsPipelineState(const Diligent::GraphicsPipelineStateCreateInfo &createInfo,
+                                     Diligent::IPipelineState **pipelineState) override;
+    bool createComputePipelineState(const Diligent::ComputePipelineStateCreateInfo &createInfo,
+                                    Diligent::IPipelineState **pipelineState) override;
 
 private:
     struct PendingPresentationReadback
@@ -68,6 +77,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mImmediateContext;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mPhysicsContext;
     Diligent::RefCntAutoPtr<Diligent::ISwapChain> mPrimarySwapChain;
+    ShaderCache mShaderCache;
     std::uint32_t mGraphicsContextId                  = 0;
     std::uint32_t mPhysicsContextId                   = 0;
     Diligent::COMMAND_QUEUE_TYPE mGraphicsQueueType   = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;

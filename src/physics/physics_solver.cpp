@@ -78,8 +78,7 @@ bool PhysicsSolver::initialize()
     }
 
     mImpl = std::make_unique<Impl>();
-    if (!mImpl->passDispatcher.initialize(computeContext.renderDevice, computeContext.contextId,
-                                          mDevice.shaderSourceDirectory().c_str()))
+    if (!mImpl->passDispatcher.initialize(mDevice, computeContext.contextId))
     {
         CRESSIM_LOG_ERROR("PhysicsSolver: failed to initialize physics pass dispatcher.");
         return false;

@@ -53,6 +53,11 @@ void logPhysicsStepFailure(const common::FrameContext &frameContext,
 
 } // namespace
 
+Runtime::~Runtime()
+{
+    shutdown();
+}
+
 bool Runtime::initialize(const RuntimeConfig &config)
 {
     if (mInitialized)

@@ -18,6 +18,11 @@ std::unique_ptr<GpuDevice> createGpuDevice()
     return std::make_unique<GpuDeviceImpl>();
 }
 
+GpuDeviceImpl::~GpuDeviceImpl()
+{
+    shutdown();
+}
+
 namespace
 {
 
@@ -133,6 +138,12 @@ bool GpuDeviceImpl::initialize(const GpuDeviceDesc &desc)
         return false;
     }
 
+    if (!mShaderCache.initialize(mRenderDevice))
+    {
+        shutdown();
+        return false;
+    }
+
     if (mDesc.presentation.enabled && !createPrimarySwapChain())
     {
         shutdown();
@@ -171,6 +182,8 @@ void GpuDeviceImpl::shutdown()
         mPhysicsContext->Flush();
         mPhysicsContext->FinishFrame();
     }
+
+    mShaderCache.shutdown();
 
     mImmediateContext                   = nullptr;
     mPhysicsContext                     = nullptr;
@@ -338,6 +351,74 @@ bool GpuDeviceImpl::tryGetPresentationReadback(GpuPresentationReadbackRequest re
 const std::string &GpuDeviceImpl::shaderSourceDirectory() const
 {
     return mDesc.shaderDirectory;
+}
+
+bool GpuDeviceImpl::createShader(const Diligent::ShaderCreateInfo &createInfo,
+                                 Diligent::IShader **shader)
+{
+    if (shader == nullptr)
+    {
+        return false;
+    }
+    *shader = nullptr;
+
+    if (mShaderCache.createShader(createInfo, shader))
+    {
+        return true;
+    }
+    if (mRenderDevice == nullptr)
+    {
+        return false;
+    }
+
+    mRenderDevice->CreateShader(createInfo, shader);
+    return *shader != nullptr;
+}
+
+bool GpuDeviceImpl::createGraphicsPipelineState(
+    const Diligent::GraphicsPipelineStateCreateInfo &createInfo,
+    Diligent::IPipelineState **pipelineState)
+{
+    if (pipelineState == nullptr)
+    {
+        return false;
+    }
+    *pipelineState = nullptr;
+
+    if (mShaderCache.createGraphicsPipelineState(createInfo, pipelineState))
+    {
+        return true;
+    }
+    if (mRenderDevice == nullptr)
+    {
+        return false;
+    }
+
+    mRenderDevice->CreateGraphicsPipelineState(createInfo, pipelineState);
+    return *pipelineState != nullptr;
+}
+
+bool GpuDeviceImpl::createComputePipelineState(
+    const Diligent::ComputePipelineStateCreateInfo &createInfo,
+    Diligent::IPipelineState **pipelineState)
+{
+    if (pipelineState == nullptr)
+    {
+        return false;
+    }
+    *pipelineState = nullptr;
+
+    if (mShaderCache.createComputePipelineState(createInfo, pipelineState))
+    {
+        return true;
+    }
+    if (mRenderDevice == nullptr)
+    {
+        return false;
+    }
+
+    mRenderDevice->CreateComputePipelineState(createInfo, pipelineState);
+    return *pipelineState != nullptr;
 }
 
 bool GpuDeviceImpl::initializeVulkan()

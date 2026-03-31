@@ -400,35 +400,27 @@ bool ForwardPipeline::initialize()
     {
         return false;
     }
-    if (!mGpuIndirectState->resetPass.initialize(backendContext.renderDevice, streamFactory,
-                                                 graphicsContextMask,
+    if (!mGpuIndirectState->resetPass.initialize(mDevice, streamFactory, graphicsContextMask,
                                                  kIndirectResetPassDefinition) ||
         !mGpuIndirectState->localShadowIndirectResetPass.initialize(
-            backendContext.renderDevice, streamFactory, graphicsContextMask,
-            kLocalShadowIndirectResetPassDefinition) ||
-        !mGpuIndirectState->filterPass.initialize(backendContext.renderDevice, streamFactory,
-                                                  graphicsContextMask,
+            mDevice, streamFactory, graphicsContextMask, kLocalShadowIndirectResetPassDefinition) ||
+        !mGpuIndirectState->filterPass.initialize(mDevice, streamFactory, graphicsContextMask,
                                                   kIndirectFilterPassDefinition) ||
-        !mGpuIndirectState->localShadowResetPass.initialize(backendContext.renderDevice,
-                                                            streamFactory, graphicsContextMask,
-                                                            kLocalShadowResetPassDefinition) ||
+        !mGpuIndirectState->localShadowResetPass.initialize(
+            mDevice, streamFactory, graphicsContextMask, kLocalShadowResetPassDefinition) ||
         !mGpuIndirectState->localShadowEnvBoundsResetPass.initialize(
-            backendContext.renderDevice, streamFactory, graphicsContextMask,
+            mDevice, streamFactory, graphicsContextMask,
             kLocalShadowEnvBoundsResetPassDefinition) ||
         !mGpuIndirectState->localShadowEnvBoundsPreparePass.initialize(
-            backendContext.renderDevice, streamFactory, graphicsContextMask,
+            mDevice, streamFactory, graphicsContextMask,
             kLocalShadowEnvBoundsPreparePassDefinition) ||
         !mGpuIndirectState->localShadowViewPreparePass.initialize(
-            backendContext.renderDevice, streamFactory, graphicsContextMask,
-            kLocalShadowViewPreparePassDefinition) ||
+            mDevice, streamFactory, graphicsContextMask, kLocalShadowViewPreparePassDefinition) ||
         !mGpuIndirectState->localShadowFilter2DPass.initialize(
-            backendContext.renderDevice, streamFactory, graphicsContextMask,
-            kLocalShadowFilter2DPassDefinition) ||
+            mDevice, streamFactory, graphicsContextMask, kLocalShadowFilter2DPassDefinition) ||
         !mGpuIndirectState->localShadowFilterPointPass.initialize(
-            backendContext.renderDevice, streamFactory, graphicsContextMask,
-            kLocalShadowFilterPointPassDefinition) ||
-        !mGpuIndirectState->composePass.initialize(backendContext.renderDevice, streamFactory,
-                                                   graphicsContextMask,
+            mDevice, streamFactory, graphicsContextMask, kLocalShadowFilterPointPassDefinition) ||
+        !mGpuIndirectState->composePass.initialize(mDevice, streamFactory, graphicsContextMask,
                                                    kIndirectComposePassDefinition))
     {
         return false;

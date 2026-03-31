@@ -4,6 +4,7 @@
 
 #include <array>
 #include <functional>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -121,6 +122,21 @@ std::vector<Diligent::ShaderResourceVariableDesc> buildResourceLayoutVariables(
     return vars;
 }
 
+std::string buildVariantSuffix(const MaterialProgramRegistry::ProgramKey &key)
+{
+    std::ostringstream stream;
+    stream << "pass_" << static_cast<std::uint32_t>(key.passClass) << "_family_"
+           << static_cast<std::uint32_t>(key.programFamily) << "_features_"
+           << static_cast<std::uint32_t>(key.featureFlags) << "_ibl_"
+           << static_cast<std::uint32_t>(key.iblQualityTier) << "_rt_"
+           << static_cast<std::uint32_t>(key.colorFormat) << "_ds_"
+           << static_cast<std::uint32_t>(key.depthFormat) << "_de_"
+           << static_cast<std::uint32_t>(key.depthEnable ? 1u : 0u) << "_dw_"
+           << static_cast<std::uint32_t>(key.depthWrite ? 1u : 0u) << "_blend_"
+           << static_cast<std::uint32_t>(key.blendingEnabled ? 1u : 0u);
+    return stream.str();
+}
+
 } // namespace
 
 std::size_t MaterialProgramRegistry::ProgramKeyHasher::operator()(
@@ -139,21 +155,22 @@ std::size_t MaterialProgramRegistry::ProgramKeyHasher::operator()(
     return seed;
 }
 
-MaterialProgramRegistry::MaterialProgramRegistry(gpu::ShaderLibrary &shaderSourceProvider)
-    : mShaderLibrary(shaderSourceProvider)
+MaterialProgramRegistry::MaterialProgramRegistry(gpu::GpuDevice &device,
+                                                 gpu::ShaderLibrary &shaderSourceProvider)
+    : mDevice(device), mShaderLibrary(shaderSourceProvider)
 {
 }
 
 MaterialProgramRegistry::ProgramResources *MaterialProgramRegistry::getOrCreateProgram(
-    Diligent::IRenderDevice *renderDevice, const ProgramKey &key)
+    const ProgramKey &key)
 {
-    if (renderDevice == nullptr || key.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
+    if (key.colorFormat == Diligent::TEX_FORMAT_UNKNOWN)
     {
         return nullptr;
     }
 
-    auto it = mPrograms.find(key);
-    if (it != mPrograms.end())
+    auto [it, inserted] = mPrograms.try_emplace(key);
+    if (!inserted)
     {
         if (it->second.pipelineState != nullptr)
         {
@@ -161,14 +178,13 @@ MaterialProgramRegistry::ProgramResources *MaterialProgramRegistry::getOrCreateP
         }
     }
 
-    ProgramResources resources{};
-    if (!createProgram(renderDevice, key, resources))
+    if (!createProgram(key, it->second))
     {
+        mPrograms.erase(it);
         return nullptr;
     }
 
-    auto insertResult = mPrograms.emplace(key, std::move(resources));
-    return &insertResult.first->second;
+    return &it->second;
 }
 
 MaterialProgramRegistry::ProgramKey MaterialProgramRegistry::buildProgramKey(
@@ -195,10 +211,9 @@ std::size_t MaterialProgramRegistry::cachedProgramCount() const noexcept
     return mPrograms.size();
 }
 
-bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice *renderDevice,
-                                            const ProgramKey &key, ProgramResources &outResources)
+bool MaterialProgramRegistry::createProgram(const ProgramKey &key, ProgramResources &outResources)
 {
-    if (renderDevice == nullptr || key.passClass != MainPassClass::ForwardOpaque ||
+    if (key.passClass != MainPassClass::ForwardOpaque ||
         key.programFamily != MaterialProgramFamily::StandardLit)
     {
         return false;
@@ -234,6 +249,10 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice *renderDevic
     std::array<Diligent::ShaderMacro, 8> macros{};
     const Diligent::ShaderMacroArray macroArray =
         buildFeatureMacros(macros, key.featureFlags, key.iblQualityTier);
+    const std::string variantSuffix = buildVariantSuffix(key);
+    outResources.vertexShaderName   = "CRESSimNeo.ForwardOpaque.StandardLit.VS." + variantSuffix;
+    outResources.pixelShaderName    = "CRESSimNeo.ForwardOpaque.StandardLit.PS." + variantSuffix;
+    outResources.pipelineStateName  = "CRESSimNeo.ForwardOpaque.StandardLit.PSO." + variantSuffix;
 
     Diligent::ShaderCreateInfo shaderCreateInfo{};
     shaderCreateInfo.SourceLanguage                  = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
@@ -244,10 +263,13 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice *renderDevic
 
     Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
-    shaderCreateInfo.Desc.Name       = "CRESSimNeo.ForwardOpaque.StandardLit.VS";
+    shaderCreateInfo.Desc.Name       = outResources.vertexShaderName.c_str();
     shaderCreateInfo.FilePath        = kPbrVsRelativePath;
     shaderCreateInfo.Source          = nullptr;
-    renderDevice->CreateShader(shaderCreateInfo, &vertexShader);
+    if (!mDevice.createShader(shaderCreateInfo, &vertexShader))
+    {
+        vertexShader = nullptr;
+    }
     if (vertexShader == nullptr)
     {
         CRESSIM_LOG_ERROR(
@@ -260,10 +282,13 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice *renderDevic
 
     Diligent::RefCntAutoPtr<Diligent::IShader> pixelShader;
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
-    shaderCreateInfo.Desc.Name       = "CRESSimNeo.ForwardOpaque.StandardLit.PS";
+    shaderCreateInfo.Desc.Name       = outResources.pixelShaderName.c_str();
     shaderCreateInfo.FilePath        = kPbrPsRelativePath;
     shaderCreateInfo.Source          = nullptr;
-    renderDevice->CreateShader(shaderCreateInfo, &pixelShader);
+    if (!mDevice.createShader(shaderCreateInfo, &pixelShader))
+    {
+        pixelShader = nullptr;
+    }
     if (pixelShader == nullptr)
     {
         CRESSIM_LOG_ERROR(
@@ -275,7 +300,7 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice *renderDevic
     }
 
     Diligent::GraphicsPipelineStateCreateInfo psoCreateInfo{};
-    psoCreateInfo.PSODesc.Name                      = "CRESSimNeo.ForwardOpaque.StandardLit.PSO";
+    psoCreateInfo.PSODesc.Name                      = outResources.pipelineStateName.c_str();
     psoCreateInfo.PSODesc.PipelineType              = Diligent::PIPELINE_TYPE_GRAPHICS;
     psoCreateInfo.GraphicsPipeline.NumRenderTargets = 1;
     psoCreateInfo.GraphicsPipeline.RTVFormats[0]    = key.colorFormat;
@@ -321,7 +346,10 @@ bool MaterialProgramRegistry::createProgram(Diligent::IRenderDevice *renderDevic
     psoCreateInfo.pVS                                         = vertexShader;
     psoCreateInfo.pPS                                         = pixelShader;
 
-    renderDevice->CreateGraphicsPipelineState(psoCreateInfo, &outResources.pipelineState);
+    if (!mDevice.createGraphicsPipelineState(psoCreateInfo, &outResources.pipelineState))
+    {
+        outResources.pipelineState = nullptr;
+    }
     if (outResources.pipelineState == nullptr)
     {
         CRESSIM_LOG_ERROR(

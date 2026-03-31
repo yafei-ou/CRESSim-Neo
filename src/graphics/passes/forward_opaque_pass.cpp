@@ -326,7 +326,7 @@ ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice &device, RenderResourceManag
 bool ForwardOpaquePass::initialize()
 {
     mShaderLibrary   = gpu::ShaderLibrary(mDevice.shaderSourceDirectory());
-    mProgramRegistry = std::make_unique<MaterialProgramRegistry>(mShaderLibrary);
+    mProgramRegistry = std::make_unique<MaterialProgramRegistry>(mDevice, mShaderLibrary);
 
     gpu::GpuBackendContext backendContext{};
     if (mDevice.tryGetGraphicsBackendContext(backendContext) &&
@@ -544,8 +544,7 @@ bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBin
         mIblQualityTier, backendContext.activeRenderTargetColorFormat, depthFormat,
         backendContext.activeRenderTargetHasDepth, backendContext.activeRenderTargetHasDepth,
         false);
-    MaterialProgramRegistry::ProgramResources *program =
-        mProgramRegistry->getOrCreateProgram(backendContext.renderDevice, key);
+    MaterialProgramRegistry::ProgramResources *program = mProgramRegistry->getOrCreateProgram(key);
     if (program == nullptr || program->pipelineState == nullptr)
     {
         return false;

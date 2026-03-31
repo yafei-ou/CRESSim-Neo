@@ -336,7 +336,10 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
     shaderCreateInfo.Macros = Diligent::ShaderMacroArray{shadowMacros, 1};
 
     Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
-    renderDevice->CreateShader(shaderCreateInfo, &vertexShader);
+    if (!mDevice.createShader(shaderCreateInfo, &vertexShader))
+    {
+        vertexShader = nullptr;
+    }
     if (vertexShader == nullptr)
     {
         CRESSIM_LOG_ERROR("ShadowPass failed to compile shader: '", shadowVsPath, "'.");
@@ -394,7 +397,10 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
     psoCreateInfo.GraphicsPipeline.InputLayout.NumElements    = 4;
     psoCreateInfo.pVS                                         = vertexShader;
 
-    renderDevice->CreateGraphicsPipelineState(psoCreateInfo, &mPipelineState);
+    if (!mDevice.createGraphicsPipelineState(psoCreateInfo, &mPipelineState))
+    {
+        mPipelineState = nullptr;
+    }
     if (mPipelineState == nullptr)
     {
         CRESSIM_LOG_ERROR("ShadowPass failed to create PSO.");

@@ -132,7 +132,10 @@ Diligent::IPipelineState *DisplayResolvePass::getOrCreatePipeline(
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
     shaderCreateInfo.Desc.Name       = "CRESSimNeo.DisplayResolve.VS";
     shaderCreateInfo.FilePath        = "graphics/display_resolve.vs.hlsl";
-    renderDevice->CreateShader(shaderCreateInfo, &vertexShader);
+    if (!mDevice.createShader(shaderCreateInfo, &vertexShader))
+    {
+        vertexShader = nullptr;
+    }
     if (vertexShader == nullptr)
     {
         return nullptr;
@@ -142,7 +145,10 @@ Diligent::IPipelineState *DisplayResolvePass::getOrCreatePipeline(
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
     shaderCreateInfo.Desc.Name       = "CRESSimNeo.DisplayResolve.PS";
     shaderCreateInfo.FilePath        = "graphics/display_resolve.ps.hlsl";
-    renderDevice->CreateShader(shaderCreateInfo, &pixelShader);
+    if (!mDevice.createShader(shaderCreateInfo, &pixelShader))
+    {
+        pixelShader = nullptr;
+    }
     if (pixelShader == nullptr)
     {
         return nullptr;
@@ -172,7 +178,10 @@ Diligent::IPipelineState *DisplayResolvePass::getOrCreatePipeline(
     psoCreateInfo.pPS = pixelShader;
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline;
-    renderDevice->CreateGraphicsPipelineState(psoCreateInfo, &pipeline);
+    if (!mDevice.createGraphicsPipelineState(psoCreateInfo, &pipeline))
+    {
+        pipeline = nullptr;
+    }
     if (pipeline == nullptr)
     {
         return nullptr;

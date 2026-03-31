@@ -6,6 +6,9 @@
 #include "gpu/gpu_render_target_system.h"
 #include "gpu/gpu_types.h"
 
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Shader.h"
+
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -65,6 +68,14 @@ public:
     virtual bool tryGetPresentationReadback(GpuPresentationReadbackRequest request,
                                             GpuPresentationReadbackEvent &outEvent) = 0;
     virtual const std::string &shaderSourceDirectory() const                        = 0;
+    virtual bool createShader(const Diligent::ShaderCreateInfo &createInfo,
+                              Diligent::IShader **shader)                           = 0;
+    virtual bool createGraphicsPipelineState(
+        const Diligent::GraphicsPipelineStateCreateInfo &createInfo,
+        Diligent::IPipelineState **pipelineState) = 0;
+    virtual bool createComputePipelineState(
+        const Diligent::ComputePipelineStateCreateInfo &createInfo,
+        Diligent::IPipelineState **pipelineState) = 0;
 };
 
 CRESSIM_NEO_GPU_API std::unique_ptr<GpuDevice> createGpuDevice();

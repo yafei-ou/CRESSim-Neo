@@ -21,8 +21,7 @@ namespace cressim::neo::physics
 class PhysicsPassDispatcher
 {
 public:
-    bool initialize(Diligent::IRenderDevice *renderDevice, std::uint32_t physicsContextId,
-                    const char *shaderSourceDirectory);
+    bool initialize(gpu::GpuDevice &device, std::uint32_t physicsContextId);
 
     bool clearCorrections(Diligent::IDeviceContext *computeContext,
                           PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,

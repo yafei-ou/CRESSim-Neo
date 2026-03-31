@@ -228,11 +228,9 @@ bool Renderer::ensureGpuScenePrepareState()
         return false;
     }
 
-    if (!mGpuScenePrepare->cameraPreparePass.initialize(backendContext.renderDevice, streamFactory,
-                                                        graphicsContextMask,
+    if (!mGpuScenePrepare->cameraPreparePass.initialize(mDevice, streamFactory, graphicsContextMask,
                                                         kCameraPreparePassDefinition) ||
-        !mGpuScenePrepare->scenePreparePass.initialize(backendContext.renderDevice, streamFactory,
-                                                       graphicsContextMask,
+        !mGpuScenePrepare->scenePreparePass.initialize(mDevice, streamFactory, graphicsContextMask,
                                                        kScenePreparePassDefinition))
     {
         return false;
