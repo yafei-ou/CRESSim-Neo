@@ -1,5 +1,6 @@
 #include "physics/physics_scene_gpu_state.h"
 
+#include "gpu/gpu_buffer_utils.h"
 #include "gpu/gpu_types.h"
 #include "physics/rigid_body_common.h"
 
@@ -24,26 +25,10 @@ bool ensureStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *n
                             Diligent::Uint64 immediateContextMask,
                             Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer)
 {
-    if (renderDevice == nullptr)
-    {
-        return false;
-    }
-
-    Diligent::BufferDesc desc{};
-    desc.Name                 = name;
-    desc.Size                 = static_cast<Diligent::Uint64>(elementStride) * elementCount;
-    desc.BindFlags            = bindFlags;
-    desc.Usage                = usage;
-    desc.CPUAccessFlags       = cpuAccess;
-    desc.ImmediateContextMask = immediateContextMask;
-    if (usage != Diligent::USAGE_STAGING)
-    {
-        desc.Mode              = Diligent::BUFFER_MODE_STRUCTURED;
-        desc.ElementByteStride = elementStride;
-    }
-
-    renderDevice->CreateBuffer(desc, nullptr, &outBuffer);
-    return outBuffer != nullptr;
+    std::uint32_t capacity = 0u;
+    return gpu::detail::ensureStructuredBufferCapacity(
+        renderDevice, name, elementStride, elementCount, elementCount, bindFlags, usage, cpuAccess,
+        immediateContextMask, outBuffer, capacity);
 }
 
 std::uint32_t dispatchGroupCount(std::uint32_t threadCount)

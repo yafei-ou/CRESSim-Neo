@@ -10,7 +10,6 @@
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 
 #include <cstddef>
 #include <cstdint>
