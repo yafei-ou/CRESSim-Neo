@@ -213,7 +213,7 @@ bool Renderer::ensureGpuScenePrepareState()
         return true;
     }
 
-    gpu::GpuBackendContext backendContext{};
+    gpu::GpuGraphicsBackendContext backendContext{};
     if (!mDevice.tryGetGraphicsBackendContext(backendContext) ||
         backendContext.renderDevice == nullptr)
     {
@@ -284,30 +284,30 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView &sceneView)
         return false;
     }
 
-    gpu::GpuBackendContext backendContext{};
+    gpu::GpuGraphicsBackendContext backendContext{};
     if (!mDevice.tryGetGraphicsBackendContext(backendContext) ||
-        backendContext.immediateContext == nullptr)
+        backendContext.graphicsContext == nullptr)
     {
         return false;
     }
 
     GraphicsCameraPrepareConstants cameraPrepareConstants{};
     cameraPrepareConstants.cameraCount         = sceneView.cameraCount;
-    cameraPrepareConstants.maxObjectsPerEnv    = sceneView.layout.maxObjectsPerEnv;
+    cameraPrepareConstants.maxObjectsPerEnv    = sceneView.layout.maxRenderableObjectsPerEnv;
     cameraPrepareConstants.maxLightsPerEnv     = sceneView.layout.maxLightsPerEnv;
     cameraPrepareConstants.shadowMapResolution = kShadowMapResolution;
 
     void *mappedConstants = nullptr;
-    backendContext.immediateContext->MapBuffer(mGpuScenePrepare->cameraPrepareConstantsBuffer,
-                                               Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
-                                               mappedConstants);
+    backendContext.graphicsContext->MapBuffer(mGpuScenePrepare->cameraPrepareConstantsBuffer,
+                                              Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
+                                              mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
     }
     std::memcpy(mappedConstants, &cameraPrepareConstants, sizeof(cameraPrepareConstants));
-    backendContext.immediateContext->UnmapBuffer(mGpuScenePrepare->cameraPrepareConstantsBuffer,
-                                                 Diligent::MAP_WRITE);
+    backendContext.graphicsContext->UnmapBuffer(mGpuScenePrepare->cameraPrepareConstantsBuffer,
+                                                Diligent::MAP_WRITE);
 
     const std::array cameraPrepareBindings{
         gpu::GpuBufferBinding{"GraphicsCameraPrepareConstants",
@@ -320,7 +320,7 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView &sceneView)
         gpu::GpuBufferBinding{"g_PreparedCamerasRW", sceneView.preparedCamerasBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
-    if (!mGpuScenePrepare->cameraPreparePass.dispatch(backendContext.immediateContext, 0u,
+    if (!mGpuScenePrepare->cameraPreparePass.dispatch(backendContext.graphicsContext, 0u,
                                                       cameraPrepareBindings,
                                                       dispatchGroupCount(sceneView.cameraCount)))
     {
@@ -329,18 +329,18 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView &sceneView)
 
     GraphicsScenePrepareConstants constants{};
     constants.cameraCount      = sceneView.cameraCount;
-    constants.maxObjectsPerEnv = sceneView.layout.maxObjectsPerEnv;
+    constants.maxObjectsPerEnv = sceneView.layout.maxRenderableObjectsPerEnv;
     mappedConstants            = nullptr;
-    backendContext.immediateContext->MapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
-                                               Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
-                                               mappedConstants);
+    backendContext.graphicsContext->MapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
+                                              Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
+                                              mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
     }
     std::memcpy(mappedConstants, &constants, sizeof(constants));
-    backendContext.immediateContext->UnmapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
-                                                 Diligent::MAP_WRITE);
+    backendContext.graphicsContext->UnmapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
+                                                Diligent::MAP_WRITE);
 
     const std::array bindings{
         gpu::GpuBufferBinding{"GraphicsScenePrepareConstants",
@@ -365,8 +365,8 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView &sceneView)
     };
 
     return mGpuScenePrepare->scenePreparePass.dispatch(
-        backendContext.immediateContext, 0u, bindings,
-        dispatchGroupCount(sceneView.layout.maxObjectsPerEnv * sceneView.cameraCount));
+        backendContext.graphicsContext, 0u, bindings,
+        dispatchGroupCount(sceneView.layout.maxRenderableObjectsPerEnv * sceneView.cameraCount));
 }
 
 bool Renderer::initialize()

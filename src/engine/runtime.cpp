@@ -170,25 +170,25 @@ void Runtime::tick(const common::FrameContext &frameContext)
     bool gpuSceneReady = false;
     if (mGpuSceneSync)
     {
-        gpuSceneReady = mGpuSceneSync->syncEntityPoseData(mWorld.renderObjectPositions(),
-                                                          mWorld.renderObjectOrientations(),
-                                                          mWorld.renderObjectScales());
+        gpuSceneReady = mGpuSceneSync->uploadEntityPoseData(mWorld.renderObjectPositions(),
+                                                            mWorld.renderObjectOrientations(),
+                                                            mWorld.renderObjectScales());
     }
     if (gpuSceneReady && physicsStepSucceeded && mGpuSceneSync && mPhysicsSolver)
     {
-        if (!mGpuSceneSync->syncEntityPoses(mPhysicsSolver->gpuSceneView().rigid.poses,
-                                            mWorld.physicsRenderableMappings()))
+        if (!mGpuSceneSync->applyMappedEntityPoses(mPhysicsSolver->gpuSceneView().rigid.poses,
+                                                   mWorld.physicsRenderableMappings()))
         {
             gpuSceneReady = false;
         }
     }
     if (gpuSceneReady && mGpuSceneSync &&
-        mGpuSceneSync->syncRenderableMetadata(mWorld.renderableMetadata()) &&
-        mGpuSceneSync->syncRenderableQueueInfo(mWorld.renderableQueueInfo()) &&
-        mGpuSceneSync->syncCameraInputs(mWorld.cameraInputs()) &&
-        mGpuSceneSync->syncLightInputs(mWorld.lightInputs()) &&
-        mGpuSceneSync->syncLocalLightSelections(mWorld.localLightSelections()) &&
-        (!mGpuDevice || mGpuDevice->synchronizePhysicsToGraphics()))
+        mGpuSceneSync->uploadRenderableMetadata(mWorld.renderableMetadata()) &&
+        mGpuSceneSync->uploadRenderableQueueInfo(mWorld.renderableQueueInfo()) &&
+        mGpuSceneSync->uploadCameraInputs(mWorld.cameraInputs()) &&
+        mGpuSceneSync->uploadLightInputs(mWorld.lightInputs()) &&
+        mGpuSceneSync->uploadLocalLightSelections(mWorld.localLightSelections()) &&
+        (!mGpuDevice || mGpuDevice->waitForPhysicsOnGraphics()))
     {
         mWorld.setGpuEntityScene(mGpuSceneSync->sceneView());
     }

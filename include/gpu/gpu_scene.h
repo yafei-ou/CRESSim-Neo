@@ -20,14 +20,14 @@ inline constexpr std::uint32_t kLocalShadowMaxFaceCount  = 6u;
 
 struct GpuSceneLayoutDesc
 {
-    std::uint32_t envCount         = 1u;
-    std::uint32_t maxObjectsPerEnv = 4096u;
-    std::uint32_t maxLightsPerEnv  = 4u;
-    std::uint32_t maxCamerasPerEnv = 4u;
+    std::uint32_t envCount                   = 1u;
+    std::uint32_t maxRenderableObjectsPerEnv = 4096u;
+    std::uint32_t maxLightsPerEnv            = 4u;
+    std::uint32_t maxCamerasPerEnv           = 4u;
 
-    std::uint32_t totalObjectCapacity() const noexcept
+    std::uint32_t totalRenderableObjectCapacity() const noexcept
     {
-        return envCount * maxObjectsPerEnv;
+        return envCount * maxRenderableObjectsPerEnv;
     }
     std::uint32_t totalLightCapacity() const noexcept
     {

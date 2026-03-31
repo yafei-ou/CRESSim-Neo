@@ -21,11 +21,11 @@ class GpuRenderTargetSystemImpl final : public GpuRenderTargetSystem
 {
 public:
     bool initialize(bool isVulkanBackend, Diligent::IRenderDevice *renderDevice,
-                    Diligent::IDeviceContext *immediateContext);
+                    Diligent::IDeviceContext *graphicsContext);
     void shutdown();
     void endFrame(const common::FrameContext &frameContext);
 
-    void fillBackendContextState(GpuBackendContext &outContext) const;
+    void fillBackendContextState(GpuGraphicsBackendContext &outContext) const;
 
     GpuRenderTargetHandle createRenderTarget(const GpuRenderTargetDesc &desc) override;
     GpuRenderTargetUpdateResult resizeRenderTarget(GpuRenderTargetHandle target,
@@ -113,7 +113,7 @@ private:
 
     Diligent::RefCntAutoPtr<Diligent::IFence> mReadbackFence;
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> mRenderDevice;
-    Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mImmediateContext;
+    Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mGraphicsContext;
 };
 
 } // namespace cressim::neo::gpu

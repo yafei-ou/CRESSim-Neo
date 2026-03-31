@@ -21,16 +21,16 @@ public:
     bool initialize(const GpuSceneLayoutDesc &layout = GpuSceneLayoutDesc{});
     void shutdown();
 
-    bool syncEntityPoseData(const std::vector<Diligent::float4> &positions,
-                            const std::vector<Diligent::float4> &orientations,
-                            const std::vector<Diligent::float4> &scales);
-    bool syncEntityPoses(const GpuPoseBufferView &sourcePoses,
-                         const std::vector<GpuEntityPoseMappingEntry> &mappings);
-    bool syncRenderableMetadata(const std::vector<GpuRenderableMetadata> &renderables);
-    bool syncRenderableQueueInfo(const std::vector<GpuRenderableQueueInfo> &queueInfo);
-    bool syncCameraInputs(const std::vector<GpuCameraInput> &cameras);
-    bool syncLightInputs(const std::vector<GpuLightInput> &lights);
-    bool syncLocalLightSelections(const std::vector<GpuLocalLightSelection> &selections);
+    bool uploadEntityPoseData(const std::vector<Diligent::float4> &positions,
+                              const std::vector<Diligent::float4> &orientations,
+                              const std::vector<Diligent::float4> &scales);
+    bool applyMappedEntityPoses(const GpuPoseBufferView &sourcePoses,
+                                const std::vector<GpuEntityPoseMappingEntry> &mappings);
+    bool uploadRenderableMetadata(const std::vector<GpuRenderableMetadata> &renderables);
+    bool uploadRenderableQueueInfo(const std::vector<GpuRenderableQueueInfo> &queueInfo);
+    bool uploadCameraInputs(const std::vector<GpuCameraInput> &cameras);
+    bool uploadLightInputs(const std::vector<GpuLightInput> &lights);
+    bool uploadLocalLightSelections(const std::vector<GpuLocalLightSelection> &selections);
 
     GpuEntitySceneView sceneView() const noexcept;
     const GpuSceneLayoutDesc &layout() const noexcept

@@ -279,7 +279,7 @@ bool World::requireAliveEntity(common::EntityId entityId, const char *operation)
 
 void World::ensureHostSceneStorage()
 {
-    const std::size_t objectCapacity = mSceneLayout.totalObjectCapacity();
+    const std::size_t objectCapacity = mSceneLayout.totalRenderableObjectCapacity();
     if (mRenderables.size() != objectCapacity)
     {
         mRenderables.assign(objectCapacity, graphics::RenderableInstance{});
@@ -452,15 +452,15 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
         const std::uint32_t envIndex = entityEnvironment(entityId);
         const std::uint32_t objectSlot =
             allocateDenseSlot(mFreeRenderableSlotsByEnv, mNextRenderableSlotByEnv, envIndex,
-                              mSceneLayout.maxObjectsPerEnv, "renderable");
+                              mSceneLayout.maxRenderableObjectsPerEnv, "renderable");
         if (objectSlot == kInvalidSlot)
         {
             return;
         }
-        objectIndex                        = envIndex * mSceneLayout.maxObjectsPerEnv + objectSlot;
-        mRenderableIndices[entityId]       = objectIndex;
-        mRenderables[objectIndex].entityId = entityId;
-        mRenderables[objectIndex].envIndex = envIndex;
+        objectIndex = envIndex * mSceneLayout.maxRenderableObjectsPerEnv + objectSlot;
+        mRenderableIndices[entityId]         = objectIndex;
+        mRenderables[objectIndex].entityId   = entityId;
+        mRenderables[objectIndex].envIndex   = envIndex;
         mRenderables[objectIndex].objectSlot = objectSlot;
     }
     else
@@ -1260,8 +1260,8 @@ const std::vector<gpu::GpuEntityPoseMappingEntry> &World::physicsRenderableMappi
 
             gpu::GpuEntityPoseMappingEntry entry{};
             entry.sourcePoseIndex = rigidBodyIt->second;
-            entry.objectIndex =
-                renderable.envIndex * mSceneLayout.maxObjectsPerEnv + renderable.objectSlot;
+            entry.objectIndex     = renderable.envIndex * mSceneLayout.maxRenderableObjectsPerEnv +
+                                    renderable.objectSlot;
             mPhysicsRenderableMappingsCache.push_back(entry);
         }
     }
@@ -1676,18 +1676,19 @@ void World::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t
     graphics::RenderableInstance renderable = mRenderables[oldObjectIndex];
     const std::uint32_t newObjectSlot =
         allocateDenseSlot(mFreeRenderableSlotsByEnv, mNextRenderableSlotByEnv, envIndex,
-                          mSceneLayout.maxObjectsPerEnv, "renderable");
+                          mSceneLayout.maxRenderableObjectsPerEnv, "renderable");
     if (newObjectSlot == kInvalidSlot)
     {
         return;
     }
 
     reclaimDenseSlot(mFreeRenderableSlotsByEnv, renderable.envIndex, renderable.objectSlot);
-    mRenderables[oldObjectIndex]       = {};
-    renderable.envIndex                = envIndex;
-    renderable.objectSlot              = newObjectSlot;
-    const std::uint32_t newObjectIndex = envIndex * mSceneLayout.maxObjectsPerEnv + newObjectSlot;
-    mRenderables[newObjectIndex]       = renderable;
+    mRenderables[oldObjectIndex] = {};
+    renderable.envIndex          = envIndex;
+    renderable.objectSlot        = newObjectSlot;
+    const std::uint32_t newObjectIndex =
+        envIndex * mSceneLayout.maxRenderableObjectsPerEnv + newObjectSlot;
+    mRenderables[newObjectIndex] = renderable;
     markRenderableMetadataDirty(oldObjectIndex);
     markRenderableMetadataDirty(newObjectIndex);
     markRenderablePoseDirty(oldObjectIndex);

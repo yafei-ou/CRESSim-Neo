@@ -386,7 +386,7 @@ bool ForwardPipeline::initialize()
         return false;
     }
 
-    gpu::GpuBackendContext backendContext{};
+    gpu::GpuGraphicsBackendContext backendContext{};
     if (!mDevice.tryGetGraphicsBackendContext(backendContext) ||
         backendContext.renderDevice == nullptr)
     {
@@ -511,9 +511,9 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         mShadowPass->setGpuSceneView(gpuScene);
     }
 
-    gpu::GpuBackendContext backendContext{};
+    gpu::GpuGraphicsBackendContext backendContext{};
     if (!mDevice.tryGetGraphicsBackendContext(backendContext) ||
-        backendContext.renderDevice == nullptr || backendContext.immediateContext == nullptr ||
+        backendContext.renderDevice == nullptr || backendContext.graphicsContext == nullptr ||
         mGpuIndirectState == nullptr || !mGpuIndirectState->initialized)
     {
         return false;
@@ -522,7 +522,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
 
     const std::uint32_t envCount                  = gpuScene.layout.envCount;
     const std::uint32_t totalLightCount           = gpuScene.layout.totalLightCapacity();
-    const std::uint32_t totalObjectCount          = gpuScene.layout.totalObjectCapacity();
+    const std::uint32_t totalObjectCount          = gpuScene.layout.totalRenderableObjectCapacity();
     const std::uint32_t totalLocalShadowViewCount = envCount * kLocalShadowViewsPerEnv;
     const std::uint32_t totalLocal2DSubviewCount  = envCount * gpu::kShadowedLocalLightCap;
     const std::uint32_t totalPointFaceCount =
@@ -575,7 +575,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             }
         }
 
-        return writeBuffer(backendContext.immediateContext, bufferSet.batchCameraBuffer,
+        return writeBuffer(backendContext.graphicsContext, bufferSet.batchCameraBuffer,
                            batchCameras.data(),
                            batchCameras.size() * sizeof(gpu::GpuBatchCameraMetadata));
     };
@@ -656,13 +656,13 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             }
         }
 
-        if (!writeBuffer(backendContext.immediateContext, bufferSet.commandDescBuffer,
+        if (!writeBuffer(backendContext.graphicsContext, bufferSet.commandDescBuffer,
                          commandDescs.data(), commandDescs.size() * sizeof(IndirectCommandDesc)))
         {
             return false;
         }
 
-        if (!updateConstants(backendContext.immediateContext,
+        if (!updateConstants(backendContext.graphicsContext,
                              mGpuIndirectState->resetConstantsBuffer,
                              GraphicsIndirectPassConstants{commandCount, 0u, 0u, 0u}))
         {
@@ -679,16 +679,16 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             gpu::GpuBufferBinding{"g_DrawIndexedCommandsRW", bufferSet.drawIndexedCommandsBuffer,
                                   Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
-        if (!mGpuIndirectState->resetPass.dispatch(backendContext.immediateContext, 0u,
+        if (!mGpuIndirectState->resetPass.dispatch(backendContext.graphicsContext, 0u,
                                                    resetBindings, dispatchGroupCount(commandCount)))
         {
             return false;
         }
 
-        if (!updateConstants(backendContext.immediateContext,
-                             mGpuIndirectState->filterConstantsBuffer,
-                             GraphicsIndirectPassConstants{gpuScene.layout.maxObjectsPerEnv,
-                                                           cameraCount, queueMode, 0u}))
+        if (!updateConstants(
+                backendContext.graphicsContext, mGpuIndirectState->filterConstantsBuffer,
+                GraphicsIndirectPassConstants{gpuScene.layout.maxRenderableObjectsPerEnv,
+                                              cameraCount, queueMode, 0u}))
         {
             return false;
         }
@@ -716,13 +716,13 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                   Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
         if (!mGpuIndirectState->filterPass.dispatch(
-                backendContext.immediateContext, 0u, filterBindings,
-                dispatchGroupCount(gpuScene.layout.maxObjectsPerEnv * cameraCount)))
+                backendContext.graphicsContext, 0u, filterBindings,
+                dispatchGroupCount(gpuScene.layout.maxRenderableObjectsPerEnv * cameraCount)))
         {
             return false;
         }
 
-        if (!updateConstants(backendContext.immediateContext,
+        if (!updateConstants(backendContext.graphicsContext,
                              mGpuIndirectState->composeConstantsBuffer,
                              GraphicsIndirectPassConstants{commandCount, 0u, 0u, 0u}))
         {
@@ -738,7 +738,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                   Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
         return mGpuIndirectState->composePass.dispatch(
-            backendContext.immediateContext, 0u, composeBindings, dispatchGroupCount(commandCount));
+            backendContext.graphicsContext, 0u, composeBindings, dispatchGroupCount(commandCount));
     };
 
     const auto uploadLocalShadowIndirectSet =
@@ -809,13 +809,13 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             }
         }
 
-        if (!writeBuffer(backendContext.immediateContext, bufferSet.commandDescBuffer,
+        if (!writeBuffer(backendContext.graphicsContext, bufferSet.commandDescBuffer,
                          commandDescs.data(), commandDescs.size() * sizeof(IndirectCommandDesc)))
         {
             return false;
         }
 
-        if (!updateConstants(backendContext.immediateContext,
+        if (!updateConstants(backendContext.graphicsContext,
                              mGpuIndirectState->resetConstantsBuffer,
                              GraphicsIndirectPassConstants{commandCount, 0u, 0u, 0u}))
         {
@@ -833,7 +833,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                   Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
         if (!mGpuIndirectState->localShadowIndirectResetPass.dispatch(
-                backendContext.immediateContext, 0u, resetBindings,
+                backendContext.graphicsContext, 0u, resetBindings,
                 dispatchGroupCount(commandCount)))
         {
             return false;
@@ -862,13 +862,13 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             gpu::GpuBufferBinding{"g_VisiblePairsRW", bufferSet.visiblePairBuffer,
                                   Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
-        if (!filterPass.dispatch(backendContext.immediateContext, 0u, filterBindings,
+        if (!filterPass.dispatch(backendContext.graphicsContext, 0u, filterBindings,
                                  dispatchGroupCount(totalObjectCount * subviewCount)))
         {
             return false;
         }
 
-        if (!updateConstants(backendContext.immediateContext,
+        if (!updateConstants(backendContext.graphicsContext,
                              mGpuIndirectState->composeConstantsBuffer,
                              GraphicsIndirectPassConstants{commandCount, 0u, 0u, 0u}))
         {
@@ -885,7 +885,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                   Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         };
         return mGpuIndirectState->composePass.dispatch(
-            backendContext.immediateContext, 0u, composeBindings, dispatchGroupCount(commandCount));
+            backendContext.graphicsContext, 0u, composeBindings, dispatchGroupCount(commandCount));
     };
 
     if (!uploadIndirectSet(mGpuIndirectState->opaque, opaqueRegistry,
@@ -945,13 +945,13 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     {
         LocalShadowPrepareConstants localShadowConstants{};
         localShadowConstants.envCount         = envCount;
-        localShadowConstants.maxObjectsPerEnv = gpuScene.layout.maxObjectsPerEnv;
+        localShadowConstants.maxObjectsPerEnv = gpuScene.layout.maxRenderableObjectsPerEnv;
         localShadowConstants.maxLightsPerEnv  = gpuScene.layout.maxLightsPerEnv;
         localShadowConstants.localShadowBucketCount =
             static_cast<std::uint32_t>(localShadowRegistry.size());
 
         void *mapped = nullptr;
-        backendContext.immediateContext->MapBuffer(
+        backendContext.graphicsContext->MapBuffer(
             mGpuIndirectState->localShadowPrepareConstantsBuffer, Diligent::MAP_WRITE,
             Diligent::MAP_FLAG_DISCARD, mapped);
         if (mapped == nullptr)
@@ -959,7 +959,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             return false;
         }
         std::memcpy(mapped, &localShadowConstants, sizeof(localShadowConstants));
-        backendContext.immediateContext->UnmapBuffer(
+        backendContext.graphicsContext->UnmapBuffer(
             mGpuIndirectState->localShadowPrepareConstantsBuffer, Diligent::MAP_WRITE);
     }
 
@@ -978,7 +978,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                       mGpuIndirectState->localShadowViewBuffer,
                                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
             };
-            if (!mGpuIndirectState->localShadowResetPass.dispatch(backendContext.immediateContext,
+            if (!mGpuIndirectState->localShadowResetPass.dispatch(backendContext.graphicsContext,
                                                                   0u, localShadowResetBindings,
                                                                   dispatchGroupCount(resetCount)))
             {
@@ -997,7 +997,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
             };
             if (!mGpuIndirectState->localShadowEnvBoundsResetPass.dispatch(
-                    backendContext.immediateContext, 0u, envBoundsResetBindings,
+                    backendContext.graphicsContext, 0u, envBoundsResetBindings,
                     dispatchGroupCount(envCount)))
             {
                 return false;
@@ -1016,7 +1016,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
             };
             if (!mGpuIndirectState->localShadowEnvBoundsPreparePass.dispatch(
-                    backendContext.immediateContext, 0u, envBoundsPrepareBindings,
+                    backendContext.graphicsContext, 0u, envBoundsPrepareBindings,
                     dispatchGroupCount(totalObjectCount)))
             {
                 return false;
@@ -1041,7 +1041,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
             };
             if (!mGpuIndirectState->localShadowViewPreparePass.dispatch(
-                    backendContext.immediateContext, 0u, viewPrepareBindings,
+                    backendContext.graphicsContext, 0u, viewPrepareBindings,
                     dispatchGroupCount(envCount)))
             {
                 return false;

@@ -32,9 +32,9 @@ public:
     GpuRenderTargetSystem &renderTargetSystem() override;
 
     GpuBackend backend() const override;
-    bool tryGetGraphicsBackendContext(GpuBackendContext &outContext) override;
+    bool tryGetGraphicsBackendContext(GpuGraphicsBackendContext &outContext) override;
     bool tryGetPhysicsBackendContext(GpuComputeBackendContext &outContext) override;
-    bool synchronizePhysicsToGraphics() override;
+    bool waitForPhysicsOnGraphics() override;
     bool tryGetDefaultRenderTargetDesc(GpuRenderTargetDesc &outDesc) const override;
     bool tryGetPresentationTargetDesc(GpuPresentationTargetDesc &outDesc) override;
     GpuPresentationReadbackRequest requestPresentationReadback() override;
@@ -71,10 +71,10 @@ private:
     GpuDeviceDesc mDesc{};
     GpuBackend mBackend = GpuBackend::Null;
     bool mInitialized   = false;
-    std::unique_ptr<GpuRenderTargetSystemImpl> mRenderTargets;
+    std::unique_ptr<GpuRenderTargetSystemImpl> mRenderTargetSystem;
 
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> mRenderDevice;
-    Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mImmediateContext;
+    Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mGraphicsContext;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mPhysicsContext;
     Diligent::RefCntAutoPtr<Diligent::ISwapChain> mPrimarySwapChain;
     ShaderCache mShaderCache;
@@ -82,6 +82,7 @@ private:
     std::uint32_t mPhysicsContextId                   = 0;
     Diligent::COMMAND_QUEUE_TYPE mGraphicsQueueType   = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
     Diligent::COMMAND_QUEUE_TYPE mPhysicsQueueType    = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
+    bool mFrameActive                                 = false;
     std::uint64_t mNextPresentationReadbackRequestId  = 1;
     std::uint64_t mNextPresentationReadbackFenceValue = 1;
     std::uint64_t mNextPhysicsToGraphicsFenceValue    = 1;

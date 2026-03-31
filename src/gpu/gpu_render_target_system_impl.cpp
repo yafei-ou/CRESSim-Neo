@@ -71,18 +71,18 @@ GpuRenderTargetBinding GpuRenderTargetSystemImpl::normalizeBinding(
 
 bool GpuRenderTargetSystemImpl::initialize(bool isVulkanBackend,
                                            Diligent::IRenderDevice *renderDevice,
-                                           Diligent::IDeviceContext *immediateContext)
+                                           Diligent::IDeviceContext *graphicsContext)
 {
     shutdown();
 
-    if (renderDevice == nullptr || immediateContext == nullptr)
+    if (renderDevice == nullptr || graphicsContext == nullptr)
     {
         return false;
     }
 
-    mRenderDevice     = renderDevice;
-    mImmediateContext = immediateContext;
-    mIsVulkanBackend  = isVulkanBackend;
+    mRenderDevice    = renderDevice;
+    mGraphicsContext = graphicsContext;
+    mIsVulkanBackend = isVulkanBackend;
 
     if (mIsVulkanBackend)
     {
@@ -103,10 +103,10 @@ bool GpuRenderTargetSystemImpl::initialize(bool isVulkanBackend,
 
 void GpuRenderTargetSystemImpl::shutdown()
 {
-    if (mImmediateContext != nullptr)
+    if (mGraphicsContext != nullptr)
     {
-        mImmediateContext->SetRenderTargets(0, nullptr, nullptr,
-                                            Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+        mGraphicsContext->SetRenderTargets(0, nullptr, nullptr,
+                                           Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
     }
 
     mInitialized                   = false;
@@ -122,16 +122,16 @@ void GpuRenderTargetSystemImpl::shutdown()
     mPendingReadbackRequests.clear();
     mPendingReadbackCopies.clear();
     mCompletedReadbacks.clear();
-    mReadbackFence    = nullptr;
-    mRenderDevice     = nullptr;
-    mImmediateContext = nullptr;
+    mReadbackFence   = nullptr;
+    mRenderDevice    = nullptr;
+    mGraphicsContext = nullptr;
 }
 
 void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContext)
 {
     (void)frameContext;
 
-    if (!mInitialized || !mIsVulkanBackend || !mImmediateContext)
+    if (!mInitialized || !mIsVulkanBackend || !mGraphicsContext)
     {
         for (const PendingReadbackCopy &copy : mPendingReadbackCopies)
         {
@@ -145,8 +145,8 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContex
         return;
     }
 
-    mImmediateContext->Flush();
-    mImmediateContext->FinishFrame();
+    mGraphicsContext->Flush();
+    mGraphicsContext->FinishFrame();
 
     for (const PendingReadbackCopy &copy : mPendingReadbackCopies)
     {
@@ -163,9 +163,9 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContex
             }
 
             Diligent::MappedTextureSubresource mappedData{};
-            mImmediateContext->MapTextureSubresource(copy.stagingTexture, 0, 0, Diligent::MAP_READ,
-                                                     Diligent::MAP_FLAG_DO_NOT_WAIT, nullptr,
-                                                     mappedData);
+            mGraphicsContext->MapTextureSubresource(copy.stagingTexture, 0, 0, Diligent::MAP_READ,
+                                                    Diligent::MAP_FLAG_DO_NOT_WAIT, nullptr,
+                                                    mappedData);
 
             if (mappedData.pData != nullptr)
             {
@@ -185,7 +185,7 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContex
                                 event.rowStrideBytes);
                 }
 
-                mImmediateContext->UnmapTextureSubresource(copy.stagingTexture, 0, 0);
+                mGraphicsContext->UnmapTextureSubresource(copy.stagingTexture, 0, 0);
             }
         }
 
@@ -195,7 +195,7 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContex
     mPendingReadbackCopies.clear();
 }
 
-void GpuRenderTargetSystemImpl::fillBackendContextState(GpuBackendContext &outContext) const
+void GpuRenderTargetSystemImpl::fillBackendContextState(GpuGraphicsBackendContext &outContext) const
 {
     outContext.hasActiveRenderTarget = mHasActiveRenderTarget;
     outContext.activeRenderTargetBinding =
@@ -276,10 +276,10 @@ GpuRenderTargetUpdateResult GpuRenderTargetSystemImpl::reconfigureRenderTarget(
 
     if (mIsVulkanBackend && recreateTextures)
     {
-        if (mImmediateContext != nullptr)
+        if (mGraphicsContext != nullptr)
         {
-            mImmediateContext->SetRenderTargets(0, nullptr, nullptr,
-                                                Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+            mGraphicsContext->SetRenderTargets(0, nullptr, nullptr,
+                                               Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
         }
 
         if (!createRenderTargetTextures(updatedDesc, updatedResources))
@@ -474,7 +474,7 @@ void GpuRenderTargetSystemImpl::beginRenderTarget(const GpuRenderTargetBinding &
     (void)frameContext;
     mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
 
-    if (!mInitialized || !mIsVulkanBackend || mImmediateContext == nullptr)
+    if (!mInitialized || !mIsVulkanBackend || mGraphicsContext == nullptr)
     {
         return;
     }
@@ -507,26 +507,26 @@ void GpuRenderTargetSystemImpl::beginRenderTarget(const GpuRenderTargetBinding &
 
     if (colorRtv != nullptr)
     {
-        mImmediateContext->SetRenderTargets(1, &colorRtv, depthDsv,
-                                            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        mGraphicsContext->SetRenderTargets(1, &colorRtv, depthDsv,
+                                           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         if (beginDesc.clearColor)
         {
-            mImmediateContext->ClearRenderTarget(
+            mGraphicsContext->ClearRenderTarget(
                 colorRtv, beginDesc.clearColorValue,
                 Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         }
     }
     else
     {
-        mImmediateContext->SetRenderTargets(0, nullptr, depthDsv,
-                                            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        mGraphicsContext->SetRenderTargets(0, nullptr, depthDsv,
+                                           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
 
     if (depthDsv != nullptr && beginDesc.clearDepth)
     {
-        mImmediateContext->ClearDepthStencil(depthDsv, Diligent::CLEAR_DEPTH_FLAG,
-                                             beginDesc.clearDepthValue, 0,
-                                             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        mGraphicsContext->ClearDepthStencil(depthDsv, Diligent::CLEAR_DEPTH_FLAG,
+                                            beginDesc.clearDepthValue, 0,
+                                            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
 
     const float targetWidth  = static_cast<float>(resources.desc.width);
@@ -542,8 +542,8 @@ void GpuRenderTargetSystemImpl::beginRenderTarget(const GpuRenderTargetBinding &
     diligentViewport.Height   = viewport.height * targetHeight;
     diligentViewport.MinDepth = 0.0f;
     diligentViewport.MaxDepth = 1.0f;
-    mImmediateContext->SetViewports(1, &diligentViewport, resources.desc.width,
-                                    resources.desc.height);
+    mGraphicsContext->SetViewports(1, &diligentViewport, resources.desc.width,
+                                   resources.desc.height);
 
     mActiveRenderTargetBinding  = normalized;
     mHasActiveRenderTarget      = true;
@@ -568,10 +568,10 @@ void GpuRenderTargetSystemImpl::endRenderTarget(const GpuRenderTargetBinding &bi
         mActiveRenderTargetBinding     = {};
     }
 
-    if (mIsVulkanBackend && mImmediateContext != nullptr)
+    if (mIsVulkanBackend && mGraphicsContext != nullptr)
     {
-        mImmediateContext->SetRenderTargets(0, nullptr, nullptr,
-                                            Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+        mGraphicsContext->SetRenderTargets(0, nullptr, nullptr,
+                                           Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
     }
 
     std::vector<std::uint64_t> completedRequests;
@@ -799,7 +799,7 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
 bool GpuRenderTargetSystemImpl::queueReadbackCopy(const GpuRenderTargetBinding &binding,
                                                   std::uint64_t frameIndex, std::uint64_t requestId)
 {
-    if (!mRenderDevice || !mImmediateContext || !mReadbackFence || !mIsVulkanBackend)
+    if (!mRenderDevice || !mGraphicsContext || !mReadbackFence || !mIsVulkanBackend)
     {
         return false;
     }
@@ -846,10 +846,10 @@ bool GpuRenderTargetSystemImpl::queueReadbackCopy(const GpuRenderTargetBinding &
         resources.colorTexture, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, stagingTexture,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
     copyAttribs.SrcSlice = normalized.firstLayer;
-    mImmediateContext->CopyTexture(copyAttribs);
+    mGraphicsContext->CopyTexture(copyAttribs);
 
     const std::uint64_t fenceValue = mNextReadbackFenceValue++;
-    mImmediateContext->EnqueueSignal(mReadbackFence, fenceValue);
+    mGraphicsContext->EnqueueSignal(mReadbackFence, fenceValue);
 
     PendingReadbackCopy readbackCopy{};
     readbackCopy.requestId      = requestId;

@@ -91,7 +91,7 @@ bool GpuSceneSync::initialize(const GpuSceneLayoutDesc &layout)
     shutdown();
     mLayout = layout;
 
-    GpuBackendContext graphicsContext{};
+    GpuGraphicsBackendContext graphicsContext{};
     GpuComputeBackendContext physicsContext{};
     if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
         !mDevice.tryGetPhysicsBackendContext(physicsContext) ||
@@ -233,7 +233,7 @@ bool GpuSceneSync::ensureRenderableCapacity(Diligent::IRenderDevice *renderDevic
 
     const std::uint32_t requiredRenderableCapacity = std::max<std::uint32_t>(renderableCount, 1u);
     const std::uint32_t visibilityCapacity         = std::max<std::uint32_t>(
-        mLayout.maxObjectsPerEnv * std::max(mLayout.totalCameraCapacity(), 1u), 1u);
+        mLayout.maxRenderableObjectsPerEnv * std::max(mLayout.totalCameraCapacity(), 1u), 1u);
     const std::uint32_t requiredCapacity = std::max(requiredRenderableCapacity, visibilityCapacity);
     if (mRenderableCapacity >= requiredCapacity && mRenderableMetadataBuffer != nullptr &&
         mRenderableQueueInfoBuffer != nullptr && mRenderableVisibilityFlagsBuffer != nullptr &&
@@ -332,16 +332,16 @@ bool GpuSceneSync::ensureLocalLightSelectionCapacity(Diligent::IRenderDevice *re
                                   mLocalLightSelectionBuffer, mLocalLightSelectionCapacity, 1u);
 }
 
-bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadata> &renderables)
+bool GpuSceneSync::uploadRenderableMetadata(const std::vector<GpuRenderableMetadata> &renderables)
 {
     if (!mInitialized)
     {
         return false;
     }
 
-    GpuBackendContext graphicsContext{};
+    GpuGraphicsBackendContext graphicsContext{};
     if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
-        graphicsContext.renderDevice == nullptr || graphicsContext.immediateContext == nullptr)
+        graphicsContext.renderDevice == nullptr || graphicsContext.graphicsContext == nullptr)
     {
         return false;
     }
@@ -357,20 +357,20 @@ bool GpuSceneSync::syncRenderableMetadata(const std::vector<GpuRenderableMetadat
         return true;
     }
 
-    return writeBuffer(graphicsContext.immediateContext, mRenderableMetadataBuffer,
+    return writeBuffer(graphicsContext.graphicsContext, mRenderableMetadataBuffer,
                        renderables.data(), renderables.size() * sizeof(GpuRenderableMetadata));
 }
 
-bool GpuSceneSync::syncRenderableQueueInfo(const std::vector<GpuRenderableQueueInfo> &queueInfo)
+bool GpuSceneSync::uploadRenderableQueueInfo(const std::vector<GpuRenderableQueueInfo> &queueInfo)
 {
     if (!mInitialized)
     {
         return false;
     }
 
-    GpuBackendContext graphicsContext{};
+    GpuGraphicsBackendContext graphicsContext{};
     if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
-        graphicsContext.renderDevice == nullptr || graphicsContext.immediateContext == nullptr)
+        graphicsContext.renderDevice == nullptr || graphicsContext.graphicsContext == nullptr)
     {
         return false;
     }
@@ -387,20 +387,20 @@ bool GpuSceneSync::syncRenderableQueueInfo(const std::vector<GpuRenderableQueueI
         return true;
     }
 
-    return writeBuffer(graphicsContext.immediateContext, mRenderableQueueInfoBuffer,
+    return writeBuffer(graphicsContext.graphicsContext, mRenderableQueueInfoBuffer,
                        queueInfo.data(), queueInfo.size() * sizeof(GpuRenderableQueueInfo));
 }
 
-bool GpuSceneSync::syncCameraInputs(const std::vector<GpuCameraInput> &cameras)
+bool GpuSceneSync::uploadCameraInputs(const std::vector<GpuCameraInput> &cameras)
 {
     if (!mInitialized)
     {
         return false;
     }
 
-    GpuBackendContext graphicsContext{};
+    GpuGraphicsBackendContext graphicsContext{};
     if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
-        graphicsContext.renderDevice == nullptr || graphicsContext.immediateContext == nullptr)
+        graphicsContext.renderDevice == nullptr || graphicsContext.graphicsContext == nullptr)
     {
         return false;
     }
@@ -416,20 +416,20 @@ bool GpuSceneSync::syncCameraInputs(const std::vector<GpuCameraInput> &cameras)
         return true;
     }
 
-    return writeBuffer(graphicsContext.immediateContext, mCameraInputsBuffer, cameras.data(),
+    return writeBuffer(graphicsContext.graphicsContext, mCameraInputsBuffer, cameras.data(),
                        cameras.size() * sizeof(GpuCameraInput));
 }
 
-bool GpuSceneSync::syncLightInputs(const std::vector<GpuLightInput> &lights)
+bool GpuSceneSync::uploadLightInputs(const std::vector<GpuLightInput> &lights)
 {
     if (!mInitialized)
     {
         return false;
     }
 
-    GpuBackendContext graphicsContext{};
+    GpuGraphicsBackendContext graphicsContext{};
     if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
-        graphicsContext.renderDevice == nullptr || graphicsContext.immediateContext == nullptr)
+        graphicsContext.renderDevice == nullptr || graphicsContext.graphicsContext == nullptr)
     {
         return false;
     }
@@ -445,20 +445,20 @@ bool GpuSceneSync::syncLightInputs(const std::vector<GpuLightInput> &lights)
         return true;
     }
 
-    return writeBuffer(graphicsContext.immediateContext, mLightInputsBuffer, lights.data(),
+    return writeBuffer(graphicsContext.graphicsContext, mLightInputsBuffer, lights.data(),
                        lights.size() * sizeof(GpuLightInput));
 }
 
-bool GpuSceneSync::syncLocalLightSelections(const std::vector<GpuLocalLightSelection> &selections)
+bool GpuSceneSync::uploadLocalLightSelections(const std::vector<GpuLocalLightSelection> &selections)
 {
     if (!mInitialized)
     {
         return false;
     }
 
-    GpuBackendContext graphicsContext{};
+    GpuGraphicsBackendContext graphicsContext{};
     if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
-        graphicsContext.renderDevice == nullptr || graphicsContext.immediateContext == nullptr)
+        graphicsContext.renderDevice == nullptr || graphicsContext.graphicsContext == nullptr)
     {
         return false;
     }
@@ -474,7 +474,7 @@ bool GpuSceneSync::syncLocalLightSelections(const std::vector<GpuLocalLightSelec
         return true;
     }
 
-    return writeBuffer(graphicsContext.immediateContext, mLocalLightSelectionBuffer,
+    return writeBuffer(graphicsContext.graphicsContext, mLocalLightSelectionBuffer,
                        selections.data(), selections.size() * sizeof(GpuLocalLightSelection));
 }
 
@@ -506,9 +506,9 @@ bool GpuSceneSync::writeBuffer(Diligent::IDeviceContext *computeContext, Diligen
     return true;
 }
 
-bool GpuSceneSync::syncEntityPoseData(const std::vector<Diligent::float4> &positions,
-                                      const std::vector<Diligent::float4> &orientations,
-                                      const std::vector<Diligent::float4> &scales)
+bool GpuSceneSync::uploadEntityPoseData(const std::vector<Diligent::float4> &positions,
+                                        const std::vector<Diligent::float4> &orientations,
+                                        const std::vector<Diligent::float4> &scales)
 {
     if (!mInitialized)
     {
@@ -544,8 +544,8 @@ bool GpuSceneSync::syncEntityPoseData(const std::vector<Diligent::float4> &posit
                        scales.size() * sizeof(Diligent::float4));
 }
 
-bool GpuSceneSync::syncEntityPoses(const GpuPoseBufferView &sourcePoses,
-                                   const std::vector<GpuEntityPoseMappingEntry> &mappings)
+bool GpuSceneSync::applyMappedEntityPoses(const GpuPoseBufferView &sourcePoses,
+                                          const std::vector<GpuEntityPoseMappingEntry> &mappings)
 {
     if (!mInitialized)
     {

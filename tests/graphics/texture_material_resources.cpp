@@ -11,7 +11,7 @@ namespace
 
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
-using cressim::neo::gpu::GpuBackendContext;
+using cressim::neo::gpu::GpuGraphicsBackendContext;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::TextureColorSpace;
 using cressim::neo::graphics::TextureDimension;
@@ -205,7 +205,7 @@ int main()
         return 1;
     }
 
-    GpuBackendContext backendContext{};
+    GpuGraphicsBackendContext backendContext{};
     if (!gpuDevice->tryGetGraphicsBackendContext(backendContext) ||
         backendContext.renderDevice == nullptr)
     {
@@ -230,16 +230,16 @@ int main()
     TextureGpuCache textureCache("TextureMaterial.Test");
     TextureGpuCache::CachedTexture *cachedSrgb =
         textureCache.getOrCreate(resources, srgbTexture, backendContext.renderDevice,
-                                 backendContext.immediateContext, sampler.RawPtr());
+                                 backendContext.graphicsContext, sampler.RawPtr());
     TextureGpuCache::CachedTexture *cachedLinear =
         textureCache.getOrCreate(resources, linearTexture, backendContext.renderDevice,
-                                 backendContext.immediateContext, sampler.RawPtr());
+                                 backendContext.graphicsContext, sampler.RawPtr());
     TextureGpuCache::CachedTexture *cachedHdrBrdfLut =
         textureCache.getOrCreate(resources, hdrBrdfLut, backendContext.renderDevice,
-                                 backendContext.immediateContext, sampler.RawPtr());
+                                 backendContext.graphicsContext, sampler.RawPtr());
     TextureGpuCache::CachedTexture *cachedHdrCube =
         textureCache.getOrCreate(resources, hdrCube, backendContext.renderDevice,
-                                 backendContext.immediateContext, sampler.RawPtr());
+                                 backendContext.graphicsContext, sampler.RawPtr());
 
     if (cachedSrgb == nullptr || cachedLinear == nullptr ||
         cachedHdrBrdfLut == nullptr || cachedHdrCube == nullptr ||

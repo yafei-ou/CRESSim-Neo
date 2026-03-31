@@ -58,18 +58,18 @@ public:
     virtual void endFrame(const common::FrameContext &frameContext)   = 0;
     virtual GpuRenderTargetSystem &renderTargetSystem()               = 0;
 
-    virtual GpuBackend backend() const                                              = 0;
-    virtual bool tryGetGraphicsBackendContext(GpuBackendContext &outContext)        = 0;
-    virtual bool tryGetPhysicsBackendContext(GpuComputeBackendContext &outContext)  = 0;
-    virtual bool synchronizePhysicsToGraphics()                                     = 0;
-    virtual bool tryGetDefaultRenderTargetDesc(GpuRenderTargetDesc &outDesc) const  = 0;
-    virtual bool tryGetPresentationTargetDesc(GpuPresentationTargetDesc &outDesc)   = 0;
-    virtual GpuPresentationReadbackRequest requestPresentationReadback()            = 0;
+    virtual GpuBackend backend() const                                               = 0;
+    virtual bool tryGetGraphicsBackendContext(GpuGraphicsBackendContext &outContext) = 0;
+    virtual bool tryGetPhysicsBackendContext(GpuComputeBackendContext &outContext)   = 0;
+    virtual bool waitForPhysicsOnGraphics()                                          = 0;
+    virtual bool tryGetDefaultRenderTargetDesc(GpuRenderTargetDesc &outDesc) const   = 0;
+    virtual bool tryGetPresentationTargetDesc(GpuPresentationTargetDesc &outDesc)    = 0;
+    virtual GpuPresentationReadbackRequest requestPresentationReadback()             = 0;
     virtual bool tryGetPresentationReadback(GpuPresentationReadbackRequest request,
-                                            GpuPresentationReadbackEvent &outEvent) = 0;
-    virtual const std::string &shaderSourceDirectory() const                        = 0;
+                                            GpuPresentationReadbackEvent &outEvent)  = 0;
+    virtual const std::string &shaderSourceDirectory() const                         = 0;
     virtual bool createShader(const Diligent::ShaderCreateInfo &createInfo,
-                              Diligent::IShader **shader)                           = 0;
+                              Diligent::IShader **shader)                            = 0;
     virtual bool createGraphicsPipelineState(
         const Diligent::GraphicsPipelineStateCreateInfo &createInfo,
         Diligent::IPipelineState **pipelineState) = 0;

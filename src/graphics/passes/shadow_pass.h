@@ -37,7 +37,7 @@ public:
 private:
     struct DrawSetup
     {
-        gpu::GpuBackendContext backendContext{};
+        gpu::GpuGraphicsBackendContext backendContext{};
         MeshGpuCache::CachedBuffers *meshBuffers = nullptr;
     };
 
@@ -59,10 +59,10 @@ private:
     bool prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
                      const ForwardDrawCommand &drawCommand, DrawSetup &outSetup);
     bool bindSceneBuffers() const;
-    bool updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
+    bool updatePerDrawConstants(Diligent::IDeviceContext *graphicsContext,
                                 const ForwardDrawCommand &drawCommand,
                                 std::uint32_t shadowMatrixIndex, std::uint32_t shadowPassMode);
-    void bindGeometry(Diligent::IDeviceContext *immediateContext,
+    void bindGeometry(Diligent::IDeviceContext *graphicsContext,
                       const MeshGpuCache::CachedBuffers &meshBuffers) const;
 
 private:

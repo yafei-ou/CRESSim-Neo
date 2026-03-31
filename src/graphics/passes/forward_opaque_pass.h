@@ -55,7 +55,7 @@ public:
 private:
     struct DrawSetup
     {
-        gpu::GpuBackendContext backendContext{};
+        gpu::GpuGraphicsBackendContext backendContext{};
         MeshGpuCache::CachedBuffers *meshBuffers           = nullptr;
         MaterialProgramRegistry::ProgramResources *program = nullptr;
     };
@@ -98,7 +98,7 @@ private:
 
     bool ensureConstantBuffers(Diligent::IRenderDevice *renderDevice);
     bool ensureEnvironmentIblResources(Diligent::IRenderDevice *renderDevice,
-                                       Diligent::IDeviceContext *immediateContext);
+                                       Diligent::IDeviceContext *graphicsContext);
     bool bindProgramConstants(MaterialProgramRegistry::ProgramResources &program);
     bool hasAnyShadowMap() const;
     bool prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
@@ -108,11 +108,11 @@ private:
     bool bindEnvironmentIblResources(MaterialProgramRegistry::ProgramResources &program) const;
     bool bindMaterialTextures(MaterialProgramRegistry::ProgramResources &program,
                               Diligent::IRenderDevice *renderDevice,
-                              Diligent::IDeviceContext *immediateContext,
+                              Diligent::IDeviceContext *graphicsContext,
                               common::ResourceId materialId);
-    bool updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
+    bool updatePerDrawConstants(Diligent::IDeviceContext *graphicsContext,
                                 const ForwardDrawCommand &drawCommand);
-    void bindGeometry(Diligent::IDeviceContext *immediateContext,
+    void bindGeometry(Diligent::IDeviceContext *graphicsContext,
                       const MeshGpuCache::CachedBuffers &meshBuffers) const;
 
 private:
