@@ -3,7 +3,6 @@
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "common/id.h"
-#include "gpu/gpu_scene.h"
 #include "gpu/gpu_types.h"
 #include "graphics/renderer.h"
 
@@ -56,7 +55,7 @@ struct DisplayResolveRequest
 
 struct EnvMainLightState
 {
-    std::uint32_t mainLightIndex = gpu::kInvalidGpuSceneIndex;
+    std::uint32_t mainLightIndex = kInvalidGpuSceneIndex;
     bool active                  = false;
     bool castsShadows            = false;
 };

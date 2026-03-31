@@ -1,4 +1,5 @@
 #include "engine/world.h"
+#include "common/logger.h"
 
 #include <cmath>
 #include <map>
@@ -8,8 +9,7 @@ namespace cressim::neo::engine
 
 namespace
 {
-constexpr std::uint32_t kInvalidSlot         = 0xffffffffu;
-constexpr std::uint32_t kInvalidCommandIndex = 0xffffffffu;
+constexpr std::uint32_t kInvalidSlot = 0xffffffffu;
 
 struct DrawBucketKey
 {
@@ -59,7 +59,8 @@ std::uint32_t allocateDenseSlot(
     std::uint32_t &nextSlot = nextSlotByEnv[envIndex];
     if (nextSlot >= maxSlotsPerEnv)
     {
-        throw std::overflow_error(std::string(slotType) + " capacity exceeded for environment.");
+        CRESSIM_LOG_ERROR(slotType, " capacity exceeded for environment ", envIndex, ".");
+        return kInvalidSlot;
     }
     return nextSlot++;
 }
@@ -96,33 +97,18 @@ void refreshTransformDerivedLightState(graphics::LightData &light,
 {
     switch (light.type)
     {
-    case gpu::GpuLightType::Directional:
+    case graphics::GpuLightType::Directional:
         // Directional lights currently use authored direction, but keeping position refreshed
         // makes the unified host cache consistent across all light types.
         light.position = transform.worldTransform.position;
         break;
-    case gpu::GpuLightType::Point:
+    case graphics::GpuLightType::Point:
         light.position = transform.worldTransform.position;
         break;
-    case gpu::GpuLightType::Spot:
+    case graphics::GpuLightType::Spot:
         light.position = transform.worldTransform.position;
         break;
     }
-}
-
-Diligent::float3 safeNormalizeDirection(const Diligent::float3 &direction,
-                                        const Diligent::float3 &fallback) noexcept
-{
-    const float lengthSq =
-        direction.x * direction.x + direction.y * direction.y + direction.z * direction.z;
-    if (lengthSq <= 1.0e-8f)
-    {
-        return fallback;
-    }
-
-    const float invLength = 1.0f / std::sqrt(lengthSq);
-    return Diligent::float3{direction.x * invLength, direction.y * invLength,
-                            direction.z * invLength};
 }
 
 } // namespace
@@ -133,8 +119,12 @@ common::EntityId World::createEntity(std::uint32_t envIndex)
 
     if (envIndex >= mSceneLayout.envCount)
     {
-        throw std::out_of_range("createEntity envIndex exceeds configured environment count.");
+        CRESSIM_LOG_ERROR("createEntity envIndex exceeds configured environment count.");
+        return common::kInvalidEntityId;
     }
+    ensureHostSceneStorage();
+    mWorldSceneAuthored = true;
+
     const common::EntityId entityId = mNextEntityId++;
     mAlive.insert(entityId);
     mEntities.push_back(entityId);
@@ -173,13 +163,19 @@ bool World::destroyEntity(common::EntityId entityId)
     return true;
 }
 
-void World::setSceneLayout(const gpu::GpuSceneLayoutDesc &layout)
+void World::setSceneLayout(const common::SceneLayoutDesc &layout)
 {
+    if (mWorldSceneAuthored)
+    {
+        CRESSIM_LOG_ERROR("cannot re-configure scene layout after authoring.");
+        return;
+    }
+
     mSceneLayout = layout;
     ensureHostSceneStorage();
 }
 
-const gpu::GpuSceneLayoutDesc &World::sceneLayout() const noexcept
+const common::SceneLayoutDesc &World::sceneLayout() const noexcept
 {
     return mSceneLayout;
 }
@@ -192,8 +188,8 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
     }
     if (envIndex >= mSceneLayout.envCount)
     {
-        throw std::out_of_range(
-            "setEntityEnvironment envIndex exceeds configured environment count.");
+        CRESSIM_LOG_ERROR("setEntityEnvironment envIndex exceeds configured environment count.");
+        return false;
     }
 
     const std::uint32_t previousEnv = entityEnvironment(entityId);
@@ -221,7 +217,7 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
     }
     moveRenderableToEnvironment(entityId, envIndex);
     moveCameraToEnvironment(entityId, envIndex);
-    moveDirectionalLightToEnvironment(entityId, envIndex);
+    moveLightToEnvironment(entityId, envIndex);
     mDrawRegistryDirty              = true;
     mPhysicsRenderableMappingsDirty = true;
     return true;
@@ -240,7 +236,12 @@ bool World::setEnvironmentIbl(std::uint32_t envIndex, const graphics::Environmen
         return false;
     }
 
+    // In case user did not explicitly set the layout.
     ensureHostSceneStorage();
+
+    // Setting authoring status to true prevents scene layout change after this.
+    mWorldSceneAuthored = true;
+
     mEnvironmentIbls[envIndex] = desc;
     return true;
 }
@@ -265,33 +266,28 @@ const std::vector<common::EntityId> &World::entities() const noexcept
     return mEntities;
 }
 
-void World::ensureEntity(common::EntityId entityId)
+bool World::requireAliveEntity(common::EntityId entityId, const char *operation) const noexcept
 {
     if (mAlive.find(entityId) != mAlive.end())
     {
-        return;
+        return true;
     }
 
-    mAlive.insert(entityId);
-    mEntities.push_back(entityId);
-    mEntityEnvironments.try_emplace(entityId, 0u);
-    if (entityId >= mNextEntityId)
-    {
-        mNextEntityId = entityId + 1;
-    }
+    CRESSIM_LOG_ERROR(operation, " requires an existing entity id (entityId=", entityId, ").");
+    return false;
 }
 
 void World::ensureHostSceneStorage()
 {
-    const std::size_t objectCapacity = mSceneLayout.totalObjectCapacity();
+    const std::size_t objectCapacity = mSceneLayout.totalRenderableObjectCapacity();
     if (mRenderables.size() != objectCapacity)
     {
         mRenderables.assign(objectCapacity, graphics::RenderableInstance{});
         mRenderObjectPositions.assign(objectCapacity, Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
         mRenderObjectOrientations.assign(objectCapacity, Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f});
         mRenderObjectScales.assign(objectCapacity, Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f});
-        mRenderableMetadataHost.assign(objectCapacity, gpu::GpuRenderableMetadata{});
-        mRenderableQueueInfoHost.assign(objectCapacity, gpu::GpuRenderableQueueInfo{});
+        mRenderableMetadataHost.assign(objectCapacity, graphics::GpuRenderableMetadata{});
+        mRenderableQueueInfoHost.assign(objectCapacity, graphics::GpuRenderableQueueInfo{});
         mOpaqueDrawRegistryHost.clear();
         mShadowDrawRegistryHost.clear();
         mDirtyRenderablePoseIndices.clear();
@@ -315,7 +311,7 @@ void World::ensureHostSceneStorage()
     if (mRenderCameras.size() != cameraCapacity)
     {
         mRenderCameras.assign(cameraCapacity, graphics::CameraData{});
-        mCameraInputsHost.assign(cameraCapacity, gpu::GpuCameraInput{});
+        mCameraInputsHost.assign(cameraCapacity, graphics::GpuCameraInput{});
         mDirtyCameraIndices.clear();
         mDirtyCameraBits.assign(cameraCapacity, 0u);
         mDirtyCameraIndices.reserve(cameraCapacity);
@@ -330,8 +326,8 @@ void World::ensureHostSceneStorage()
     if (mRenderLights.size() != lightCapacity)
     {
         mRenderLights.assign(lightCapacity, graphics::LightData{});
-        mLightInputsHost.assign(lightCapacity, gpu::GpuLightInput{});
-        mLocalLightSelectionsHost.assign(mSceneLayout.envCount, gpu::GpuLocalLightSelection{});
+        mLightInputsHost.assign(lightCapacity, graphics::GpuLightInput{});
+        mLocalLightSelectionsHost.assign(mSceneLayout.envCount, graphics::GpuLocalLightSelection{});
         mDirtyLightIndices.clear();
         mDirtyLightBits.assign(lightCapacity, 0u);
         mDirtyLightIndices.reserve(lightCapacity);
@@ -348,7 +344,7 @@ void World::ensureHostSceneStorage()
     }
     if (mLocalLightSelectionsHost.size() != mSceneLayout.envCount)
     {
-        mLocalLightSelectionsHost.assign(mSceneLayout.envCount, gpu::GpuLocalLightSelection{});
+        mLocalLightSelectionsHost.assign(mSceneLayout.envCount, graphics::GpuLocalLightSelection{});
     }
 }
 
@@ -390,29 +386,31 @@ void World::setTransform(common::EntityId entityId, const TransformComponent &co
 {
     if (entityId == common::kInvalidEntityId)
     {
-        throw std::invalid_argument("setTransform requires valid entity id.");
+        CRESSIM_LOG_ERROR("setTransform requires valid entity id.");
+        return;
     }
 
-    ensureEntity(entityId);
+    if (!requireAliveEntity(entityId, "setTransform"))
+    {
+        return;
+    }
 
-    upsertSoA(entityId, mTransforms, mTransformIndex,
-              [&](std::uint32_t index, bool appended)
-              {
-                  if (appended)
-                  {
-                      mTransforms.positions.push_back(packPosition(component));
-                      mTransforms.rotations.push_back(packRotation(component));
-                      mTransforms.scales.push_back(packScale(component));
-                  }
-                  else
-                  {
-                      mTransforms.positions[index] = packPosition(component);
-                      mTransforms.rotations[index] = packRotation(component);
-                      mTransforms.scales[index]    = packScale(component);
-                  }
-              });
+    const auto it = mTransformIndex.find(entityId);
+    if (it == mTransformIndex.end())
+    {
+        const std::uint32_t newIndex = static_cast<std::uint32_t>(mTransforms.entityIds.size());
+        mTransforms.entityIds.push_back(entityId);
+        mTransforms.components.push_back(component);
+        mTransformIndex.emplace(entityId, newIndex);
+    }
+    else
+    {
+        mTransforms.components[it->second] = component;
+    }
 
-    // Update body pose directly in physics. No collider loop.
+    // Forcefully set rigid body transform from world transform. This teleports the body (no physics
+    // integration). Users should not set the transform direction on an entity with a kinematic
+    // rigid body.
     if (auto *rb = mPhysicsWorld.tryGetRigidBody(entityId))
     {
         rb->position = component.worldTransform.position;
@@ -428,8 +426,7 @@ void World::setTransform(common::EntityId entityId, const TransformComponent &co
     {
         markCameraDirty(static_cast<std::uint32_t>(it->second));
     }
-    if (const auto it = mRenderDirectionalLightIndices.find(entityId);
-        it != mRenderDirectionalLightIndices.end())
+    if (const auto it = mRenderLightIndices.find(entityId); it != mRenderLightIndices.end())
     {
         markLightDirty(static_cast<std::uint32_t>(it->second));
     }
@@ -439,11 +436,14 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
 {
     if (entityId == common::kInvalidEntityId)
     {
-        throw std::invalid_argument("setMeshRenderer requires valid entity id.");
+        CRESSIM_LOG_ERROR("setMeshRenderer requires valid entity id.");
+        return;
     }
 
-    ensureEntity(entityId);
-    ensureHostSceneStorage();
+    if (!requireAliveEntity(entityId, "setMeshRenderer"))
+    {
+        return;
+    }
 
     const auto indexIt        = mRenderableIndices.find(entityId);
     std::uint32_t objectIndex = 0u;
@@ -452,11 +452,15 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
         const std::uint32_t envIndex = entityEnvironment(entityId);
         const std::uint32_t objectSlot =
             allocateDenseSlot(mFreeRenderableSlotsByEnv, mNextRenderableSlotByEnv, envIndex,
-                              mSceneLayout.maxObjectsPerEnv, "renderable");
-        objectIndex                        = envIndex * mSceneLayout.maxObjectsPerEnv + objectSlot;
-        mRenderableIndices[entityId]       = objectIndex;
-        mRenderables[objectIndex].entityId = entityId;
-        mRenderables[objectIndex].envIndex = envIndex;
+                              mSceneLayout.maxRenderableObjectsPerEnv, "renderable");
+        if (objectSlot == kInvalidSlot)
+        {
+            return;
+        }
+        objectIndex = envIndex * mSceneLayout.maxRenderableObjectsPerEnv + objectSlot;
+        mRenderableIndices[entityId]         = objectIndex;
+        mRenderables[objectIndex].entityId   = entityId;
+        mRenderables[objectIndex].envIndex   = envIndex;
         mRenderables[objectIndex].objectSlot = objectSlot;
     }
     else
@@ -478,11 +482,14 @@ void World::setCamera(common::EntityId entityId, const CameraComponent &componen
 {
     if (entityId == common::kInvalidEntityId)
     {
-        throw std::invalid_argument("setCamera requires valid entity id.");
+        CRESSIM_LOG_ERROR("setCamera requires valid entity id.");
+        return;
     }
 
-    ensureEntity(entityId);
-    ensureHostSceneStorage();
+    if (!requireAliveEntity(entityId, "setCamera"))
+    {
+        return;
+    }
 
     const auto indexIt        = mRenderCameraIndices.find(entityId);
     std::uint32_t cameraIndex = 0u;
@@ -492,6 +499,10 @@ void World::setCamera(common::EntityId entityId, const CameraComponent &componen
         const std::uint32_t cameraSlot =
             allocateDenseSlot(mFreeCameraSlotsByEnv, mNextCameraSlotByEnv, envIndex,
                               mSceneLayout.maxCamerasPerEnv, "camera");
+        if (cameraSlot == kInvalidSlot)
+        {
+            return;
+        }
         cameraIndex                    = envIndex * mSceneLayout.maxCamerasPerEnv + cameraSlot;
         mRenderCameraIndices[entityId] = cameraIndex;
         mRenderCameras[cameraIndex].entityId   = entityId;
@@ -526,32 +537,40 @@ void World::setDirectionalLight(common::EntityId entityId,
 {
     if (entityId == common::kInvalidEntityId)
     {
-        throw std::invalid_argument("setDirectionalLight requires valid entity id.");
+        CRESSIM_LOG_ERROR("setDirectionalLight requires valid entity id.");
+        return;
     }
 
-    ensureEntity(entityId);
-    ensureHostSceneStorage();
+    if (!requireAliveEntity(entityId, "setDirectionalLight"))
+    {
+        return;
+    }
 
-    const auto indexIt       = mRenderDirectionalLightIndices.find(entityId);
     std::uint32_t lightIndex = 0u;
-    if (indexIt == mRenderDirectionalLightIndices.end())
+    if (!tryGetLightIndexForType(entityId, graphics::GpuLightType::Directional,
+                                 "setDirectionalLight", lightIndex))
+    {
+        return;
+    }
+
+    if (lightIndex == kInvalidSlot)
     {
         const std::uint32_t envIndex  = entityEnvironment(entityId);
         const std::uint32_t lightSlot = allocateLightSlot(envIndex, true);
-        lightIndex                    = envIndex * mSceneLayout.maxLightsPerEnv + lightSlot;
-        mRenderDirectionalLightIndices[entityId] = lightIndex;
-        mRenderLights[lightIndex].entityId       = entityId;
-        mRenderLights[lightIndex].envIndex       = envIndex;
-        mRenderLights[lightIndex].lightSlot      = lightSlot;
-    }
-    else
-    {
-        lightIndex = static_cast<std::uint32_t>(indexIt->second);
+        if (lightSlot == kInvalidSlot)
+        {
+            return;
+        }
+        lightIndex                          = envIndex * mSceneLayout.maxLightsPerEnv + lightSlot;
+        mRenderLightIndices[entityId]       = lightIndex;
+        mRenderLights[lightIndex].entityId  = entityId;
+        mRenderLights[lightIndex].envIndex  = envIndex;
+        mRenderLights[lightIndex].lightSlot = lightSlot;
     }
 
     graphics::LightData &lightData     = mRenderLights[lightIndex];
     const TransformComponent transform = tryGetTransform(entityId).value_or(TransformComponent{});
-    lightData.type                     = gpu::GpuLightType::Directional;
+    lightData.type                     = graphics::GpuLightType::Directional;
     lightData.position                 = transform.worldTransform.position;
     lightData.direction                = component.direction;
     lightData.color                    = component.color;
@@ -570,32 +589,40 @@ void World::setPointLight(common::EntityId entityId, const PointLightComponent &
 {
     if (entityId == common::kInvalidEntityId)
     {
-        throw std::invalid_argument("setPointLight requires valid entity id.");
+        CRESSIM_LOG_ERROR("setPointLight requires valid entity id.");
+        return;
     }
 
-    ensureEntity(entityId);
-    ensureHostSceneStorage();
+    if (!requireAliveEntity(entityId, "setPointLight"))
+    {
+        return;
+    }
 
-    const auto indexIt       = mRenderDirectionalLightIndices.find(entityId);
     std::uint32_t lightIndex = 0u;
-    if (indexIt == mRenderDirectionalLightIndices.end())
+    if (!tryGetLightIndexForType(entityId, graphics::GpuLightType::Point, "setPointLight",
+                                 lightIndex))
+    {
+        return;
+    }
+
+    if (lightIndex == kInvalidSlot)
     {
         const std::uint32_t envIndex  = entityEnvironment(entityId);
         const std::uint32_t lightSlot = allocateLightSlot(envIndex, false);
-        lightIndex                    = envIndex * mSceneLayout.maxLightsPerEnv + lightSlot;
-        mRenderDirectionalLightIndices[entityId] = lightIndex;
-        mRenderLights[lightIndex].entityId       = entityId;
-        mRenderLights[lightIndex].envIndex       = envIndex;
-        mRenderLights[lightIndex].lightSlot      = lightSlot;
-    }
-    else
-    {
-        lightIndex = static_cast<std::uint32_t>(indexIt->second);
+        if (lightSlot == kInvalidSlot)
+        {
+            return;
+        }
+        lightIndex                          = envIndex * mSceneLayout.maxLightsPerEnv + lightSlot;
+        mRenderLightIndices[entityId]       = lightIndex;
+        mRenderLights[lightIndex].entityId  = entityId;
+        mRenderLights[lightIndex].envIndex  = envIndex;
+        mRenderLights[lightIndex].lightSlot = lightSlot;
     }
 
     const TransformComponent transform = tryGetTransform(entityId).value_or(TransformComponent{});
     graphics::LightData &lightData     = mRenderLights[lightIndex];
-    lightData.type                     = gpu::GpuLightType::Point;
+    lightData.type                     = graphics::GpuLightType::Point;
     lightData.position                 = transform.worldTransform.position;
     lightData.direction                = Diligent::float3{0.0f, -1.0f, 0.0f};
     lightData.color                    = component.color;
@@ -614,32 +641,40 @@ void World::setSpotLight(common::EntityId entityId, const SpotLightComponent &co
 {
     if (entityId == common::kInvalidEntityId)
     {
-        throw std::invalid_argument("setSpotLight requires valid entity id.");
+        CRESSIM_LOG_ERROR("setSpotLight requires valid entity id.");
+        return;
     }
 
-    ensureEntity(entityId);
-    ensureHostSceneStorage();
+    if (!requireAliveEntity(entityId, "setSpotLight"))
+    {
+        return;
+    }
 
-    const auto indexIt       = mRenderDirectionalLightIndices.find(entityId);
     std::uint32_t lightIndex = 0u;
-    if (indexIt == mRenderDirectionalLightIndices.end())
+    if (!tryGetLightIndexForType(entityId, graphics::GpuLightType::Spot, "setSpotLight",
+                                 lightIndex))
+    {
+        return;
+    }
+
+    if (lightIndex == kInvalidSlot)
     {
         const std::uint32_t envIndex  = entityEnvironment(entityId);
         const std::uint32_t lightSlot = allocateLightSlot(envIndex, false);
-        lightIndex                    = envIndex * mSceneLayout.maxLightsPerEnv + lightSlot;
-        mRenderDirectionalLightIndices[entityId] = lightIndex;
-        mRenderLights[lightIndex].entityId       = entityId;
-        mRenderLights[lightIndex].envIndex       = envIndex;
-        mRenderLights[lightIndex].lightSlot      = lightSlot;
-    }
-    else
-    {
-        lightIndex = static_cast<std::uint32_t>(indexIt->second);
+        if (lightSlot == kInvalidSlot)
+        {
+            return;
+        }
+        lightIndex                          = envIndex * mSceneLayout.maxLightsPerEnv + lightSlot;
+        mRenderLightIndices[entityId]       = lightIndex;
+        mRenderLights[lightIndex].entityId  = entityId;
+        mRenderLights[lightIndex].envIndex  = envIndex;
+        mRenderLights[lightIndex].lightSlot = lightSlot;
     }
 
     const TransformComponent transform = tryGetTransform(entityId).value_or(TransformComponent{});
     graphics::LightData &lightData     = mRenderLights[lightIndex];
-    lightData.type                     = gpu::GpuLightType::Spot;
+    lightData.type                     = graphics::GpuLightType::Spot;
     lightData.position                 = transform.worldTransform.position;
     lightData.direction                = component.direction;
     lightData.color                    = component.color;
@@ -658,10 +693,14 @@ void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent &co
 {
     if (entityId == common::kInvalidEntityId)
     {
-        throw std::invalid_argument("setRigidBody requires valid entity id.");
+        CRESSIM_LOG_ERROR("setRigidBody requires valid entity id.");
+        return;
     }
 
-    ensureEntity(entityId);
+    if (!requireAliveEntity(entityId, "setRigidBody"))
+    {
+        return;
+    }
 
     if (!component.simulated)
     {
@@ -717,15 +756,20 @@ World::ColliderHandle World::addCollider(common::EntityId entityId,
 {
     if (entityId == common::kInvalidEntityId)
     {
-        throw std::invalid_argument("addCollider requires valid entity id.");
+        CRESSIM_LOG_ERROR("addCollider requires valid entity id.");
+        return {};
     }
 
-    ensureEntity(entityId);
+    if (!requireAliveEntity(entityId, "addCollider"))
+    {
+        return {};
+    }
 
     auto body = mPhysicsLinks.find(entityId);
     if (body == mPhysicsLinks.end() || !body->second.hasRigidBody)
     {
-        throw std::logic_error("addCollider requires a rigid body on the entity.");
+        CRESSIM_LOG_ERROR("addCollider requires a rigid body on the entity.");
+        return {};
     }
 
     ColliderHandle handle{mNextColliderId++};
@@ -754,13 +798,15 @@ void World::updateCollider(ColliderHandle handle, const ColliderComponent &compo
 {
     if (!handle.isValid())
     {
-        throw std::invalid_argument("updateCollider requires valid collider handle.");
+        CRESSIM_LOG_ERROR("updateCollider requires valid collider handle.");
+        return;
     }
 
     const auto ownerIt = mColliderOwnerEntity.find(handle.id);
     if (ownerIt == mColliderOwnerEntity.end())
     {
-        throw std::invalid_argument("Unknown collider handle.");
+        CRESSIM_LOG_ERROR("updateCollider received an unknown collider handle.");
+        return;
     }
 
     const common::EntityId entityId = ownerIt->second;
@@ -811,8 +857,8 @@ bool World::removeCollider(ColliderHandle handle)
 
 bool World::removeTransform(common::EntityId entityId)
 {
-    const auto it = mTransformIndex.entityToIndex.find(entityId);
-    if (it == mTransformIndex.entityToIndex.end())
+    const auto it = mTransformIndex.find(entityId);
+    if (it == mTransformIndex.end())
     {
         return false;
     }
@@ -823,18 +869,14 @@ bool World::removeTransform(common::EntityId entityId)
 
     if (index != last)
     {
-        mTransforms.entityIds[index]               = mTransforms.entityIds[last];
-        mTransforms.positions[index]               = mTransforms.positions[last];
-        mTransforms.rotations[index]               = mTransforms.rotations[last];
-        mTransforms.scales[index]                  = mTransforms.scales[last];
-        mTransformIndex.entityToIndex[movedEntity] = index;
+        mTransforms.entityIds[index]  = mTransforms.entityIds[last];
+        mTransforms.components[index] = mTransforms.components[last];
+        mTransformIndex[movedEntity]  = index;
     }
 
     mTransforms.entityIds.pop_back();
-    mTransforms.positions.pop_back();
-    mTransforms.rotations.pop_back();
-    mTransforms.scales.pop_back();
-    mTransformIndex.entityToIndex.erase(it);
+    mTransforms.components.pop_back();
+    mTransformIndex.erase(it);
 
     if (const auto it = mRenderableIndices.find(entityId); it != mRenderableIndices.end())
     {
@@ -886,19 +928,12 @@ bool World::removeCamera(common::EntityId entityId)
 
 bool World::removeDirectionalLight(common::EntityId entityId)
 {
-    const auto it = mRenderDirectionalLightIndices.find(entityId);
-    if (it == mRenderDirectionalLightIndices.end())
+    const auto component = tryGetDirectionalLight(entityId);
+    if (!component.has_value())
     {
         return false;
     }
-
-    const std::uint32_t lightIndex   = static_cast<std::uint32_t>(it->second);
-    const graphics::LightData &light = mRenderLights[lightIndex];
-    reclaimDenseSlot(mFreeDirectionalLightSlotsByEnv, light.envIndex, light.lightSlot);
-    mRenderLights[lightIndex] = {};
-    mRenderDirectionalLightIndices.erase(it);
-    markLightDirty(lightIndex);
-    return true;
+    return removeLight(entityId);
 }
 
 bool World::removePointLight(common::EntityId entityId)
@@ -908,7 +943,7 @@ bool World::removePointLight(common::EntityId entityId)
     {
         return false;
     }
-    return removeDirectionalLight(entityId);
+    return removeLight(entityId);
 }
 
 bool World::removeSpotLight(common::EntityId entityId)
@@ -918,20 +953,19 @@ bool World::removeSpotLight(common::EntityId entityId)
     {
         return false;
     }
-    return removeDirectionalLight(entityId);
+    return removeLight(entityId);
 }
 
 std::optional<TransformComponent> World::tryGetTransform(common::EntityId entityId) const
 {
-    const auto it = mTransformIndex.entityToIndex.find(entityId);
-    if (it == mTransformIndex.entityToIndex.end())
+    const auto it = mTransformIndex.find(entityId);
+    if (it == mTransformIndex.end())
     {
         return std::nullopt;
     }
 
     const std::uint32_t index = it->second;
-    return unpackTransform(mTransforms.positions[index], mTransforms.rotations[index],
-                           mTransforms.scales[index]);
+    return mTransforms.components[index];
 }
 
 std::optional<MeshRendererComponent> World::tryGetMeshRenderer(common::EntityId entityId) const
@@ -978,14 +1012,14 @@ std::optional<CameraComponent> World::tryGetCamera(common::EntityId entityId) co
 std::optional<DirectionalLightComponent> World::tryGetDirectionalLight(
     common::EntityId entityId) const
 {
-    const auto it = mRenderDirectionalLightIndices.find(entityId);
-    if (it == mRenderDirectionalLightIndices.end())
+    const auto it = mRenderLightIndices.find(entityId);
+    if (it == mRenderLightIndices.end())
     {
         return std::nullopt;
     }
 
     const graphics::LightData &light = mRenderLights[static_cast<std::uint32_t>(it->second)];
-    if (light.type != gpu::GpuLightType::Directional)
+    if (light.type != graphics::GpuLightType::Directional)
     {
         return std::nullopt;
     }
@@ -1002,14 +1036,14 @@ std::optional<DirectionalLightComponent> World::tryGetDirectionalLight(
 
 std::optional<PointLightComponent> World::tryGetPointLight(common::EntityId entityId) const
 {
-    const auto it = mRenderDirectionalLightIndices.find(entityId);
-    if (it == mRenderDirectionalLightIndices.end())
+    const auto it = mRenderLightIndices.find(entityId);
+    if (it == mRenderLightIndices.end())
     {
         return std::nullopt;
     }
 
     const graphics::LightData &light = mRenderLights[static_cast<std::uint32_t>(it->second)];
-    if (light.type != gpu::GpuLightType::Point)
+    if (light.type != graphics::GpuLightType::Point)
     {
         return std::nullopt;
     }
@@ -1025,14 +1059,14 @@ std::optional<PointLightComponent> World::tryGetPointLight(common::EntityId enti
 
 std::optional<SpotLightComponent> World::tryGetSpotLight(common::EntityId entityId) const
 {
-    const auto it = mRenderDirectionalLightIndices.find(entityId);
-    if (it == mRenderDirectionalLightIndices.end())
+    const auto it = mRenderLightIndices.find(entityId);
+    if (it == mRenderLightIndices.end())
     {
         return std::nullopt;
     }
 
     const graphics::LightData &light = mRenderLights[static_cast<std::uint32_t>(it->second)];
-    if (light.type != gpu::GpuLightType::Spot)
+    if (light.type != graphics::GpuLightType::Spot)
     {
         return std::nullopt;
     }
@@ -1112,37 +1146,7 @@ const physics::PhysicsWorld &World::physicsWorld() const noexcept
     return mPhysicsWorld;
 }
 
-void World::refreshFromPhysics()
-{
-    // TODO: this is not needed anymore, but we keep it for debug
-
-    const physics::PhysicsSoADirtyRange &dirty = mPhysicsWorld.rigidBodyDirtyRange();
-    if (!dirty.valid)
-    {
-        return;
-    }
-
-    const auto &states = mPhysicsWorld.rigidBodySnapshot();
-    const std::uint32_t end =
-        std::min<std::uint32_t>(dirty.end, static_cast<std::uint32_t>(states.size()));
-
-    for (std::uint32_t i = dirty.begin; i < end; ++i)
-    {
-        const physics::RigidBodyState &rb = states[i];
-        if (!isAlive(rb.entityId))
-        {
-            continue;
-        }
-
-        TransformComponent t{};
-        t.worldTransform.position = rb.position;
-        t.worldTransform.rotation = rb.rotation;
-        t.worldTransform.scale    = rb.scale;
-        setTransform(rb.entityId, t);
-    }
-}
-
-void World::setGpuEntityScene(const gpu::GpuEntitySceneView &sceneView) noexcept
+void World::setGpuEntityScene(const graphics::GpuEntitySceneView &sceneView) noexcept
 {
     mGpuEntityScene = sceneView;
 }
@@ -1177,27 +1181,27 @@ const std::vector<Diligent::float4> &World::renderObjectScales() const noexcept
     return mRenderObjectScales;
 }
 
-const std::vector<gpu::GpuRenderableMetadata> &World::renderableMetadata() const noexcept
+const std::vector<graphics::GpuRenderableMetadata> &World::renderableMetadata() const noexcept
 {
     return mRenderableMetadataHost;
 }
 
-const std::vector<gpu::GpuRenderableQueueInfo> &World::renderableQueueInfo() const noexcept
+const std::vector<graphics::GpuRenderableQueueInfo> &World::renderableQueueInfo() const noexcept
 {
     return mRenderableQueueInfoHost;
 }
 
-const std::vector<gpu::GpuCameraInput> &World::cameraInputs() const noexcept
+const std::vector<graphics::GpuCameraInput> &World::cameraInputs() const noexcept
 {
     return mCameraInputsHost;
 }
 
-const std::vector<gpu::GpuLightInput> &World::lightInputs() const noexcept
+const std::vector<graphics::GpuLightInput> &World::lightInputs() const noexcept
 {
     return mLightInputsHost;
 }
 
-const std::vector<gpu::GpuLocalLightSelection> &World::localLightSelections() const noexcept
+const std::vector<graphics::GpuLocalLightSelection> &World::localLightSelections() const noexcept
 {
     return mLocalLightSelectionsHost;
 }
@@ -1220,7 +1224,7 @@ const std::vector<graphics::IndirectCommandRegistryEntry> &World::localShadowDra
     return mLocalShadowDrawRegistryHost;
 }
 
-const std::vector<gpu::GpuEntityPoseMappingEntry> &World::physicsRenderableMappings()
+const std::vector<EntityPoseMappingEntry> &World::physicsRenderableMappings()
 {
     const std::uint64_t rigidBodyTopologyRevision = mPhysicsWorld.rigidBodyTopologyRevision();
     if (!mPhysicsRenderableMappingsDirty &&
@@ -1256,10 +1260,10 @@ const std::vector<gpu::GpuEntityPoseMappingEntry> &World::physicsRenderableMappi
                 continue;
             }
 
-            gpu::GpuEntityPoseMappingEntry entry{};
+            EntityPoseMappingEntry entry{};
             entry.sourcePoseIndex = rigidBodyIt->second;
-            entry.objectIndex =
-                renderable.envIndex * mSceneLayout.maxObjectsPerEnv + renderable.objectSlot;
+            entry.objectIndex     = renderable.envIndex * mSceneLayout.maxRenderableObjectsPerEnv +
+                                    renderable.objectSlot;
             mPhysicsRenderableMappingsCache.push_back(entry);
         }
     }
@@ -1269,7 +1273,7 @@ const std::vector<gpu::GpuEntityPoseMappingEntry> &World::physicsRenderableMappi
     return mPhysicsRenderableMappingsCache;
 }
 
-const gpu::GpuEntitySceneView &World::gpuEntityScene() const noexcept
+const graphics::GpuEntitySceneView &World::gpuEntityScene() const noexcept
 {
     return mGpuEntityScene;
 }
@@ -1290,8 +1294,6 @@ graphics::HostSceneView World::hostSceneView() const noexcept
 
 void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &resources)
 {
-    ensureHostSceneStorage();
-
     for (const std::uint32_t objectIndex : mDirtyRenderablePoseIndices)
     {
         refreshRenderablePose(objectIndex);
@@ -1304,7 +1306,7 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
 
     for (const std::uint32_t lightIndex : mDirtyLightIndices)
     {
-        refreshDirectionalLightEntry(lightIndex);
+        refreshLightEntry(lightIndex);
     }
 
     if (!mDirtyLightIndices.empty())
@@ -1330,6 +1332,8 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
     // TODO: some metadata depends on resources too, not just world state:
     // if a mesh or material changes later inside RenderResourceManager, World does
     // not currently know which object slots should become dirty.
+    // Currently no supported mutation path exists, but if resources become mutable, World has no
+    // dependency tracking to invalidate affected slots.
 
     for (const std::uint32_t objectIndex : mDirtyRenderableMetadataIndices)
     {
@@ -1339,13 +1343,14 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
         }
 
         const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
-        gpu::GpuRenderableMetadata entry{};
+        graphics::GpuRenderableMetadata entry{};
+        graphics::GpuRenderableFlags renderableFlags = graphics::GpuRenderableFlags::None;
         if (renderable.entityId != common::kInvalidEntityId &&
             renderable.objectSlot != kInvalidSlot)
         {
             if (renderable.visible)
             {
-                entry.flags |= gpu::GpuRenderableFlag_Active;
+                renderableFlags |= graphics::GpuRenderableFlags::Active;
             }
 
             const graphics::MaterialResourceDesc *material =
@@ -1353,10 +1358,10 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
             if (material != nullptr && renderable.visible &&
                 material->blendMode != graphics::BlendMode::Transparent)
             {
-                entry.flags |= gpu::GpuRenderableFlag_Opaque;
+                renderableFlags |= graphics::GpuRenderableFlags::Opaque;
                 if (material->castsShadows)
                 {
-                    entry.flags |= gpu::GpuRenderableFlag_ShadowCaster;
+                    renderableFlags |= graphics::GpuRenderableFlags::ShadowCaster;
                 }
             }
 
@@ -1370,6 +1375,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
                     Diligent::float4{localBoundsMax.x, localBoundsMax.y, localBoundsMax.z, 1.0f};
             }
         }
+        entry.flags = static_cast<std::uint32_t>(renderableFlags);
 
         mRenderableMetadataHost[objectIndex] = entry;
     }
@@ -1382,7 +1388,7 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
 
     std::map<DrawBucketKey, std::vector<std::uint32_t>> opaqueObjectsByKey;
     std::map<DrawBucketKey, std::vector<std::uint32_t>> shadowObjectsByKey;
-    mRenderableQueueInfoHost.assign(mRenderables.size(), gpu::GpuRenderableQueueInfo{});
+    mRenderableQueueInfoHost.assign(mRenderables.size(), graphics::GpuRenderableQueueInfo{});
     mOpaqueDrawRegistryHost.clear();
     mShadowDrawRegistryHost.clear();
     mLocalShadowDrawRegistryHost.clear();
@@ -1555,7 +1561,7 @@ void World::refreshCameraEntry(std::uint32_t cameraIndex)
     cameraData.worldTransform =
         tryGetTransform(cameraData.entityId).value_or(TransformComponent{}).worldTransform;
 
-    gpu::GpuCameraInput input{};
+    graphics::GpuCameraInput input{};
     input.position =
         Diligent::float4{cameraData.worldTransform.position.x, cameraData.worldTransform.position.y,
                          cameraData.worldTransform.position.z, 1.0f};
@@ -1573,7 +1579,7 @@ void World::refreshCameraEntry(std::uint32_t cameraIndex)
     mCameraInputsHost[cameraIndex] = input;
 }
 
-void World::refreshDirectionalLightEntry(std::uint32_t lightIndex)
+void World::refreshLightEntry(std::uint32_t lightIndex)
 {
     if (lightIndex >= mRenderLights.size())
     {
@@ -1591,7 +1597,7 @@ void World::refreshDirectionalLightEntry(std::uint32_t lightIndex)
         tryGetTransform(lightData.entityId).value_or(TransformComponent{});
     refreshTransformDerivedLightState(lightData, transform);
 
-    gpu::GpuLightInput input{};
+    graphics::GpuLightInput input{};
     input.positionRange      = Diligent::float4{lightData.position.x, lightData.position.y,
                                                 lightData.position.z, lightData.range};
     input.directionIntensity = Diligent::float4{lightData.direction.x, lightData.direction.y,
@@ -1614,20 +1620,20 @@ void World::refreshDirectionalLightEntry(std::uint32_t lightIndex)
 
 void World::rebuildLocalLightSelections()
 {
-    mLocalLightSelectionsHost.assign(mSceneLayout.envCount, gpu::GpuLocalLightSelection{});
+    mLocalLightSelectionsHost.assign(mSceneLayout.envCount, graphics::GpuLocalLightSelection{});
     for (std::uint32_t lightIndex = 0u;
          lightIndex < static_cast<std::uint32_t>(mRenderLights.size()); ++lightIndex)
     {
         const graphics::LightData &light = mRenderLights[lightIndex];
         if (!isValidLight(light) || light.envIndex >= mLocalLightSelectionsHost.size() ||
-            light.lightSlot == gpu::kMainDirectionalLightSlot)
+            light.lightSlot == graphics::kMainDirectionalLightSlot)
         {
             continue;
         }
 
         const bool active =
             light.intensity > 0.0f &&
-            (light.type != gpu::GpuLightType::Directional ||
+            (light.type != graphics::GpuLightType::Directional ||
              (light.direction.x * light.direction.x + light.direction.y * light.direction.y +
               light.direction.z * light.direction.z) > 1.0e-6f);
         if (!active)
@@ -1635,9 +1641,9 @@ void World::rebuildLocalLightSelections()
             continue;
         }
 
-        gpu::GpuLocalLightSelection &selection = mLocalLightSelectionsHost[light.envIndex];
-        const std::uint32_t nextCount          = selection.localLightCount;
-        if (nextCount < gpu::kForwardLocalLightCap)
+        graphics::GpuLocalLightSelection &selection = mLocalLightSelectionsHost[light.envIndex];
+        const std::uint32_t nextCount               = selection.localLightCount;
+        if (nextCount < graphics::kForwardLocalLightCap)
         {
             selection.lightIndices[nextCount] = lightIndex;
             selection.localLightCount         = nextCount + 1u;
@@ -1648,14 +1654,14 @@ void World::rebuildLocalLightSelections()
             continue;
         }
 
-        if (light.type == gpu::GpuLightType::Point)
+        if (light.type == graphics::GpuLightType::Point)
         {
-            if (selection.shadowedPointLightCount < gpu::kShadowedPointLightCap)
+            if (selection.shadowedPointLightCount < graphics::kShadowedPointLightCap)
             {
                 ++selection.shadowedPointLightCount;
             }
         }
-        else if (selection.shadowedLocalLightCount < gpu::kShadowedLocalLightCap)
+        else if (selection.shadowedLocalLightCount < graphics::kShadowedLocalLightCap)
         {
             ++selection.shadowedLocalLightCount;
         }
@@ -1672,14 +1678,20 @@ void World::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t
 
     const std::uint32_t oldObjectIndex      = static_cast<std::uint32_t>(indexIt->second);
     graphics::RenderableInstance renderable = mRenderables[oldObjectIndex];
+    const std::uint32_t newObjectSlot =
+        allocateDenseSlot(mFreeRenderableSlotsByEnv, mNextRenderableSlotByEnv, envIndex,
+                          mSceneLayout.maxRenderableObjectsPerEnv, "renderable");
+    if (newObjectSlot == kInvalidSlot)
+    {
+        return;
+    }
+
     reclaimDenseSlot(mFreeRenderableSlotsByEnv, renderable.envIndex, renderable.objectSlot);
     mRenderables[oldObjectIndex] = {};
     renderable.envIndex          = envIndex;
-    renderable.objectSlot =
-        allocateDenseSlot(mFreeRenderableSlotsByEnv, mNextRenderableSlotByEnv, envIndex,
-                          mSceneLayout.maxObjectsPerEnv, "renderable");
+    renderable.objectSlot        = newObjectSlot;
     const std::uint32_t newObjectIndex =
-        envIndex * mSceneLayout.maxObjectsPerEnv + renderable.objectSlot;
+        envIndex * mSceneLayout.maxRenderableObjectsPerEnv + newObjectSlot;
     mRenderables[newObjectIndex] = renderable;
     markRenderableMetadataDirty(oldObjectIndex);
     markRenderableMetadataDirty(newObjectIndex);
@@ -1698,34 +1710,47 @@ void World::moveCameraToEnvironment(common::EntityId entityId, std::uint32_t env
 
     const std::uint32_t oldCameraIndex = static_cast<std::uint32_t>(indexIt->second);
     graphics::CameraData camera        = mRenderCameras[oldCameraIndex];
+    const std::uint32_t newCameraSlot =
+        allocateDenseSlot(mFreeCameraSlotsByEnv, mNextCameraSlotByEnv, envIndex,
+                          mSceneLayout.maxCamerasPerEnv, "camera");
+    if (newCameraSlot == kInvalidSlot)
+    {
+        return;
+    }
+
     reclaimDenseSlot(mFreeCameraSlotsByEnv, camera.envIndex, camera.cameraSlot);
-    mRenderCameras[oldCameraIndex] = {};
-    camera.envIndex                = envIndex;
-    camera.cameraSlot = allocateDenseSlot(mFreeCameraSlotsByEnv, mNextCameraSlotByEnv, envIndex,
-                                          mSceneLayout.maxCamerasPerEnv, "camera");
-    const std::uint32_t newCameraIndex =
-        envIndex * mSceneLayout.maxCamerasPerEnv + camera.cameraSlot;
-    mRenderCameras[newCameraIndex] = camera;
-    indexIt->second                = newCameraIndex;
+    mRenderCameras[oldCameraIndex]     = {};
+    camera.envIndex                    = envIndex;
+    camera.cameraSlot                  = newCameraSlot;
+    const std::uint32_t newCameraIndex = envIndex * mSceneLayout.maxCamerasPerEnv + newCameraSlot;
+    mRenderCameras[newCameraIndex]     = camera;
+    indexIt->second                    = newCameraIndex;
     markCameraDirty(oldCameraIndex);
     markCameraDirty(newCameraIndex);
 }
 
-void World::moveDirectionalLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
+void World::moveLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
 {
-    const auto indexIt = mRenderDirectionalLightIndices.find(entityId);
-    if (indexIt == mRenderDirectionalLightIndices.end())
+    const auto indexIt = mRenderLightIndices.find(entityId);
+    if (indexIt == mRenderLightIndices.end())
     {
         return;
     }
 
     const std::uint32_t oldLightIndex = static_cast<std::uint32_t>(indexIt->second);
     graphics::LightData light         = mRenderLights[oldLightIndex];
-    reclaimDenseSlot(mFreeDirectionalLightSlotsByEnv, light.envIndex, light.lightSlot);
-    mRenderLights[oldLightIndex] = {};
-    light.envIndex               = envIndex;
-    light.lightSlot = allocateLightSlot(envIndex, light.type == gpu::GpuLightType::Directional);
-    const std::uint32_t newLightIndex = envIndex * mSceneLayout.maxLightsPerEnv + light.lightSlot;
+    const std::uint32_t newLightSlot =
+        allocateLightSlot(envIndex, light.type == graphics::GpuLightType::Directional);
+    if (newLightSlot == kInvalidSlot)
+    {
+        return;
+    }
+
+    reclaimDenseSlot(mFreeLightSlotsByEnv, light.envIndex, light.lightSlot);
+    mRenderLights[oldLightIndex]      = {};
+    light.envIndex                    = envIndex;
+    light.lightSlot                   = newLightSlot;
+    const std::uint32_t newLightIndex = envIndex * mSceneLayout.maxLightsPerEnv + newLightSlot;
     mRenderLights[newLightIndex]      = light;
     indexIt->second                   = newLightIndex;
     markLightDirty(oldLightIndex);
@@ -1747,28 +1772,29 @@ std::uint32_t World::allocateLightSlot(std::uint32_t envIndex, bool reserveMainD
 {
     if (mSceneLayout.maxLightsPerEnv == 0u)
     {
-        throw std::overflow_error("light capacity exceeded for environment.");
+        CRESSIM_LOG_ERROR("light capacity exceeded for environment ", envIndex, ".");
+        return kInvalidSlot;
     }
 
     if (reserveMainDirectionalSlot &&
-        !isLightSlotOccupied(envIndex, gpu::kMainDirectionalLightSlot))
+        !isLightSlotOccupied(envIndex, graphics::kMainDirectionalLightSlot))
     {
-        auto &freeSlots = mFreeDirectionalLightSlotsByEnv[envIndex];
+        auto &freeSlots = mFreeLightSlotsByEnv[envIndex];
         const auto it =
-            std::find(freeSlots.begin(), freeSlots.end(), gpu::kMainDirectionalLightSlot);
+            std::find(freeSlots.begin(), freeSlots.end(), graphics::kMainDirectionalLightSlot);
         if (it != freeSlots.end())
         {
             freeSlots.erase(it);
         }
-        auto &nextSlot = mNextDirectionalLightSlotByEnv[envIndex];
-        nextSlot       = std::max(nextSlot, gpu::kMainDirectionalLightSlot + 1u);
-        return gpu::kMainDirectionalLightSlot;
+        auto &nextSlot = mNextLightSlotByEnv[envIndex];
+        nextSlot       = std::max(nextSlot, graphics::kMainDirectionalLightSlot + 1u);
+        return graphics::kMainDirectionalLightSlot;
     }
 
-    auto &freeSlots = mFreeDirectionalLightSlotsByEnv[envIndex];
+    auto &freeSlots = mFreeLightSlotsByEnv[envIndex];
     for (auto it = freeSlots.begin(); it != freeSlots.end(); ++it)
     {
-        if (*it == gpu::kMainDirectionalLightSlot)
+        if (*it == graphics::kMainDirectionalLightSlot)
         {
             continue;
         }
@@ -1777,16 +1803,69 @@ std::uint32_t World::allocateLightSlot(std::uint32_t envIndex, bool reserveMainD
         return slot;
     }
 
-    auto &nextSlot = mNextDirectionalLightSlotByEnv[envIndex];
-    if (nextSlot <= gpu::kMainDirectionalLightSlot)
+    auto &nextSlot = mNextLightSlotByEnv[envIndex];
+    if (nextSlot <= graphics::kMainDirectionalLightSlot)
     {
-        nextSlot = gpu::kMainDirectionalLightSlot + 1u;
+        nextSlot = graphics::kMainDirectionalLightSlot + 1u;
     }
     if (nextSlot >= mSceneLayout.maxLightsPerEnv)
     {
-        throw std::overflow_error("light capacity exceeded for environment.");
+        CRESSIM_LOG_ERROR("light capacity exceeded for environment ", envIndex, ".");
+        return kInvalidSlot;
     }
     return nextSlot++;
+}
+
+bool World::tryGetLightIndexForType(common::EntityId entityId, graphics::GpuLightType type,
+                                    const char *operation, std::uint32_t &lightIndex) const noexcept
+{
+    const auto indexIt = mRenderLightIndices.find(entityId);
+    if (indexIt == mRenderLightIndices.end())
+    {
+        lightIndex = kInvalidSlot;
+        return true;
+    }
+
+    const std::uint32_t existingLightIndex = static_cast<std::uint32_t>(indexIt->second);
+    if (existingLightIndex >= mRenderLights.size())
+    {
+        lightIndex = kInvalidSlot;
+        return true;
+    }
+
+    const graphics::LightData &existingLight = mRenderLights[existingLightIndex];
+    if (!isValidLight(existingLight))
+    {
+        lightIndex = kInvalidSlot;
+        return true;
+    }
+
+    if (existingLight.type != type)
+    {
+        CRESSIM_LOG_ERROR(operation, " rejected for entity ", entityId,
+                          ": each entity may own at most one light type.");
+        return false;
+    }
+
+    lightIndex = existingLightIndex;
+    return true;
+}
+
+bool World::removeLight(common::EntityId entityId)
+{
+    const auto it = mRenderLightIndices.find(entityId);
+    if (it == mRenderLightIndices.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t lightIndex   = static_cast<std::uint32_t>(it->second);
+    const graphics::LightData &light = mRenderLights[lightIndex];
+    reclaimDenseSlot(mFreeLightSlotsByEnv, light.envIndex, light.lightSlot);
+    mRenderLights[lightIndex] = {};
+    mRenderLightIndices.erase(it);
+    markLightDirty(lightIndex);
+    return true;
 }
 
 } // namespace cressim::neo::engine

@@ -10,7 +10,6 @@
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -21,8 +20,7 @@ namespace cressim::neo::physics
 class PhysicsPassDispatcher
 {
 public:
-    bool initialize(Diligent::IRenderDevice *renderDevice, std::uint32_t physicsContextId,
-                    const char *shaderSourceDirectory);
+    bool initialize(gpu::GpuDevice &device, std::uint32_t physicsContextId);
 
     bool clearCorrections(Diligent::IDeviceContext *computeContext,
                           PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,

@@ -18,15 +18,20 @@ std::unique_ptr<GpuDevice> createGpuDevice()
     return std::make_unique<GpuDeviceImpl>();
 }
 
+GpuDeviceImpl::~GpuDeviceImpl()
+{
+    shutdown();
+}
+
 namespace
 {
 
 struct VulkanDedicatedContextPlan
 {
-    bool supported                       = false;
-    bool hasGraphicsQueue                = false;
-    Diligent::Uint8 graphicsQueueId      = 0u;
-    Diligent::Uint8 physicsQueueId       = 0u;
+    bool supported                  = false;
+    bool hasGraphicsQueue           = false;
+    Diligent::Uint8 graphicsQueueId = 0u;
+    Diligent::Uint8 physicsQueueId  = 0u;
 };
 
 Diligent::Uint32 clampWindowId(std::uint64_t value)
@@ -74,7 +79,7 @@ VulkanDedicatedContextPlan planDedicatedVulkanContexts(Diligent::IEngineFactoryV
         if (queueInfo.QueueType == Diligent::COMMAND_QUEUE_TYPE_GRAPHICS &&
             queueInfo.MaxDeviceContexts > 0u)
         {
-            plan.graphicsQueueId = static_cast<Diligent::Uint8>(queueIndex);
+            plan.graphicsQueueId  = static_cast<Diligent::Uint8>(queueIndex);
             plan.hasGraphicsQueue = true;
             break;
         }
@@ -86,9 +91,7 @@ VulkanDedicatedContextPlan planDedicatedVulkanContexts(Diligent::IEngineFactoryV
     }
 
     const auto canRunPhysics = [](Diligent::COMMAND_QUEUE_TYPE queueType)
-    {
-        return (queueType & Diligent::COMMAND_QUEUE_TYPE_COMPUTE) != 0;
-    };
+    { return (queueType & Diligent::COMMAND_QUEUE_TYPE_COMPUTE) != 0; };
 
     for (Diligent::Uint32 queueIndex = 0; queueIndex < adapterInfo.NumQueues; ++queueIndex)
     {
@@ -107,8 +110,7 @@ VulkanDedicatedContextPlan planDedicatedVulkanContexts(Diligent::IEngineFactoryV
     }
 
     const auto &graphicsQueueInfo = adapterInfo.Queues[plan.graphicsQueueId];
-    if (graphicsQueueInfo.MaxDeviceContexts >= 2u &&
-        canRunPhysics(graphicsQueueInfo.QueueType))
+    if (graphicsQueueInfo.MaxDeviceContexts >= 2u && canRunPhysics(graphicsQueueInfo.QueueType))
     {
         plan.physicsQueueId = plan.graphicsQueueId;
         plan.supported      = true;
@@ -136,15 +138,21 @@ bool GpuDeviceImpl::initialize(const GpuDeviceDesc &desc)
         return false;
     }
 
+    if (!mShaderCache.initialize(mRenderDevice))
+    {
+        shutdown();
+        return false;
+    }
+
     if (mDesc.presentation.enabled && !createPrimarySwapChain())
     {
         shutdown();
         return false;
     }
 
-    mRenderTargets = std::make_unique<GpuRenderTargetSystemImpl>();
-    if (!mRenderTargets->initialize(mBackend == GpuBackend::Vulkan, mRenderDevice,
-                                    mImmediateContext))
+    mRenderTargetSystem = std::make_unique<GpuRenderTargetSystemImpl>();
+    if (!mRenderTargetSystem->initialize(mBackend == GpuBackend::Vulkan, mRenderDevice,
+                                         mGraphicsContext))
     {
         shutdown();
         return false;
@@ -156,26 +164,28 @@ bool GpuDeviceImpl::initialize(const GpuDeviceDesc &desc)
 
 void GpuDeviceImpl::shutdown()
 {
-    if (mRenderTargets != nullptr)
+    if (mRenderTargetSystem != nullptr)
     {
-        mRenderTargets->shutdown();
-        mRenderTargets.reset();
+        mRenderTargetSystem->shutdown();
+        mRenderTargetSystem.reset();
     }
 
-    if (mImmediateContext != nullptr)
+    if (mGraphicsContext != nullptr)
     {
-        mImmediateContext->SetRenderTargets(0, nullptr, nullptr,
-                                            Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
-        mImmediateContext->Flush();
-        mImmediateContext->FinishFrame();
+        mGraphicsContext->SetRenderTargets(0, nullptr, nullptr,
+                                           Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+        mGraphicsContext->Flush();
+        mGraphicsContext->FinishFrame();
     }
-    if (mPhysicsContext != nullptr && mPhysicsContext != mImmediateContext)
+    if (mPhysicsContext != nullptr && mPhysicsContext != mGraphicsContext)
     {
         mPhysicsContext->Flush();
         mPhysicsContext->FinishFrame();
     }
 
-    mImmediateContext                   = nullptr;
+    mShaderCache.shutdown();
+
+    mGraphicsContext                    = nullptr;
     mPhysicsContext                     = nullptr;
     mRenderDevice                       = nullptr;
     mPrimarySwapChain                   = nullptr;
@@ -185,6 +195,7 @@ void GpuDeviceImpl::shutdown()
     mPhysicsContextId                   = 0;
     mGraphicsQueueType                  = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
     mPhysicsQueueType                   = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
+    mFrameActive                        = false;
     mNextPresentationReadbackRequestId  = 1;
     mNextPresentationReadbackFenceValue = 1;
     mNextPhysicsToGraphicsFenceValue    = 1;
@@ -196,14 +207,9 @@ void GpuDeviceImpl::shutdown()
     mInitialized = false;
 }
 
-void GpuDeviceImpl::beginFrame(const common::FrameContext &frameContext)
-{
-    (void)frameContext;
-}
-
 GpuRenderTargetSystem &GpuDeviceImpl::renderTargetSystem()
 {
-    return *mRenderTargets;
+    return *mRenderTargetSystem;
 }
 
 GpuBackend GpuDeviceImpl::backend() const
@@ -211,23 +217,23 @@ GpuBackend GpuDeviceImpl::backend() const
     return mBackend;
 }
 
-bool GpuDeviceImpl::tryGetGraphicsBackendContext(GpuBackendContext &outContext)
+bool GpuDeviceImpl::tryGetGraphicsBackendContext(GpuGraphicsBackendContext &outContext)
 {
-    outContext = GpuBackendContext{};
+    outContext = GpuGraphicsBackendContext{};
 
     if (!mInitialized || mBackend != GpuBackend::Vulkan || mRenderDevice == nullptr ||
-        mImmediateContext == nullptr)
+        mGraphicsContext == nullptr)
     {
         return false;
     }
 
     outContext.renderDevice     = mRenderDevice;
-    outContext.immediateContext = mImmediateContext;
+    outContext.graphicsContext  = mGraphicsContext;
     outContext.primarySwapChain = mPrimarySwapChain;
     outContext.contextId        = mGraphicsContextId;
-    if (mRenderTargets != nullptr)
+    if (mRenderTargetSystem != nullptr)
     {
-        mRenderTargets->fillBackendContextState(outContext);
+        mRenderTargetSystem->fillBackendContextState(outContext);
     }
     return true;
 }
@@ -246,19 +252,18 @@ bool GpuDeviceImpl::tryGetPhysicsBackendContext(GpuComputeBackendContext &outCon
     outContext.computeContext = mPhysicsContext;
     outContext.contextId      = mPhysicsContextId;
     outContext.queueType      = mPhysicsQueueType;
-    outContext.role           = GpuContextRole::Physics;
     return true;
 }
 
-bool GpuDeviceImpl::synchronizePhysicsToGraphics()
+bool GpuDeviceImpl::waitForPhysicsOnGraphics()
 {
-    if (!mInitialized || mBackend != GpuBackend::Vulkan || mImmediateContext == nullptr ||
+    if (!mInitialized || mBackend != GpuBackend::Vulkan || mGraphicsContext == nullptr ||
         mPhysicsContext == nullptr)
     {
         return false;
     }
 
-    if (mImmediateContext == mPhysicsContext || mGraphicsContextId == mPhysicsContextId)
+    if (mGraphicsContext == mPhysicsContext || mGraphicsContextId == mPhysicsContextId)
     {
         return true;
     }
@@ -273,7 +278,7 @@ bool GpuDeviceImpl::synchronizePhysicsToGraphics()
     // subsequent graphics uploads and render passes on the graphics context.
     mPhysicsContext->EnqueueSignal(mPhysicsToGraphicsFence, fenceValue);
     mPhysicsContext->Flush();
-    mImmediateContext->DeviceWaitForFence(mPhysicsToGraphicsFence, fenceValue);
+    mGraphicsContext->DeviceWaitForFence(mPhysicsToGraphicsFence, fenceValue);
     return true;
 }
 
@@ -343,6 +348,74 @@ const std::string &GpuDeviceImpl::shaderSourceDirectory() const
     return mDesc.shaderDirectory;
 }
 
+bool GpuDeviceImpl::createShader(const Diligent::ShaderCreateInfo &createInfo,
+                                 Diligent::IShader **shader)
+{
+    if (shader == nullptr)
+    {
+        return false;
+    }
+    *shader = nullptr;
+
+    if (mShaderCache.createShader(createInfo, shader))
+    {
+        return true;
+    }
+    if (mRenderDevice == nullptr)
+    {
+        return false;
+    }
+
+    mRenderDevice->CreateShader(createInfo, shader);
+    return *shader != nullptr;
+}
+
+bool GpuDeviceImpl::createGraphicsPipelineState(
+    const Diligent::GraphicsPipelineStateCreateInfo &createInfo,
+    Diligent::IPipelineState **pipelineState)
+{
+    if (pipelineState == nullptr)
+    {
+        return false;
+    }
+    *pipelineState = nullptr;
+
+    if (mShaderCache.createGraphicsPipelineState(createInfo, pipelineState))
+    {
+        return true;
+    }
+    if (mRenderDevice == nullptr)
+    {
+        return false;
+    }
+
+    mRenderDevice->CreateGraphicsPipelineState(createInfo, pipelineState);
+    return *pipelineState != nullptr;
+}
+
+bool GpuDeviceImpl::createComputePipelineState(
+    const Diligent::ComputePipelineStateCreateInfo &createInfo,
+    Diligent::IPipelineState **pipelineState)
+{
+    if (pipelineState == nullptr)
+    {
+        return false;
+    }
+    *pipelineState = nullptr;
+
+    if (mShaderCache.createComputePipelineState(createInfo, pipelineState))
+    {
+        return true;
+    }
+    if (mRenderDevice == nullptr)
+    {
+        return false;
+    }
+
+    mRenderDevice->CreateComputePipelineState(createInfo, pipelineState);
+    return *pipelineState != nullptr;
+}
+
 bool GpuDeviceImpl::initializeVulkan()
 {
     Diligent::IEngineFactoryVk *factoryVk = Diligent::LoadAndGetEngineFactoryVk();
@@ -353,9 +426,9 @@ bool GpuDeviceImpl::initializeVulkan()
 
     auto createDeviceContexts = [&](bool requestDedicatedPhysicsContext)
     {
-        mRenderDevice     = nullptr;
-        mImmediateContext = nullptr;
-        mPhysicsContext   = nullptr;
+        mRenderDevice    = nullptr;
+        mGraphicsContext = nullptr;
+        mPhysicsContext  = nullptr;
 
         Diligent::EngineVkCreateInfo engineCreateInfo{};
         engineCreateInfo.EnableValidation =
@@ -387,34 +460,34 @@ bool GpuDeviceImpl::initializeVulkan()
             return false;
         }
 
-        mImmediateContext = contexts[0];
+        mGraphicsContext = contexts[0];
         if (requestDedicatedPhysicsContext && contexts[1] != nullptr)
         {
             mPhysicsContext = contexts[1];
         }
         else
         {
-            mPhysicsContext = mImmediateContext;
+            mPhysicsContext = mGraphicsContext;
         }
         return true;
     };
 
     if (!createDeviceContexts(true))
     {
-        CRESSIM_LOG_WARNING("GpuDeviceImpl: failed to create dedicated physics context; falling "
-                            "back to shared context.");
+        CRESSIM_LOG_WARNING(
+            "failed to create dedicated physics context; falling back to shared context.");
         if (!createDeviceContexts(false))
         {
             return false;
         }
     }
 
-    if (mPhysicsContext == mImmediateContext)
+    if (mPhysicsContext == mGraphicsContext)
     {
-        CRESSIM_LOG_WARNING("GpuDeviceImpl: physics context is shared with graphics context.");
+        CRESSIM_LOG_WARNING("physics context is shared with graphics context.");
     }
 
-    const auto graphicsDesc = mImmediateContext->GetDesc();
+    const auto graphicsDesc = mGraphicsContext->GetDesc();
     const auto physicsDesc  = mPhysicsContext->GetDesc();
     mGraphicsContextId      = graphicsDesc.ContextId;
     mPhysicsContextId       = physicsDesc.ContextId;
@@ -431,7 +504,7 @@ bool GpuDeviceImpl::initializeVulkan()
         mRenderDevice->CreateFence(physicsToGraphicsFenceDesc, &mPhysicsToGraphicsFence);
         if (mPhysicsToGraphicsFence == nullptr)
         {
-            CRESSIM_LOG_ERROR("GpuDeviceImpl: failed to create physics-to-graphics fence.");
+            CRESSIM_LOG_ERROR("failed to create physics-to-graphics fence.");
             return false;
         }
 
@@ -449,7 +522,7 @@ bool GpuDeviceImpl::createPrimarySwapChain()
     {
         return true;
     }
-    if (mBackend != GpuBackend::Vulkan || mRenderDevice == nullptr || mImmediateContext == nullptr)
+    if (mBackend != GpuBackend::Vulkan || mRenderDevice == nullptr || mGraphicsContext == nullptr)
     {
         return false;
     }
@@ -464,14 +537,14 @@ bool GpuDeviceImpl::createPrimarySwapChain()
 #if PLATFORM_WIN32
     if (mDesc.presentation.nativeWindow == nullptr)
     {
-        CRESSIM_LOG_ERROR("GpuDeviceImpl: presentation nativeWindow must be set on Win32.");
+        CRESSIM_LOG_ERROR("presentation nativeWindow must be set on Win32.");
         return false;
     }
     window.hWnd = mDesc.presentation.nativeWindow;
 #elif PLATFORM_LINUX
     if (mDesc.presentation.nativeWindowId == 0)
     {
-        CRESSIM_LOG_ERROR("GpuDeviceImpl: presentation nativeWindowId must be set on Linux.");
+        CRESSIM_LOG_ERROR("presentation nativeWindowId must be set on Linux.");
         return false;
     }
     window.WindowId = clampWindowId(mDesc.presentation.nativeWindowId);
@@ -485,19 +558,18 @@ bool GpuDeviceImpl::createPrimarySwapChain()
     }
     else
     {
-        CRESSIM_LOG_ERROR(
-            "GpuDeviceImpl: presentation native display/connection is missing on Linux.");
+        CRESSIM_LOG_ERROR("presentation native display/connection is missing on Linux.");
         return false;
     }
 #elif PLATFORM_MACOS
     if (mDesc.presentation.nativeWindow == nullptr)
     {
-        CRESSIM_LOG_ERROR("GpuDeviceImpl: presentation nativeWindow must be set on macOS.");
+        CRESSIM_LOG_ERROR("presentation nativeWindow must be set on macOS.");
         return false;
     }
     window.pNSView = mDesc.presentation.nativeWindow;
 #else
-    CRESSIM_LOG_ERROR("GpuDeviceImpl: presentation is unsupported on this platform.");
+    CRESSIM_LOG_ERROR("presentation is unsupported on this platform.");
     return false;
 #endif
 
@@ -515,11 +587,11 @@ bool GpuDeviceImpl::createPrimarySwapChain()
         swapChainDesc.ColorBufferFormat = Diligent::TEX_FORMAT_BGRA8_UNORM;
     }
 
-    factoryVk->CreateSwapChainVk(mRenderDevice, mImmediateContext, swapChainDesc, window,
+    factoryVk->CreateSwapChainVk(mRenderDevice, mGraphicsContext, swapChainDesc, window,
                                  &mPrimarySwapChain);
     if (mPrimarySwapChain == nullptr)
     {
-        CRESSIM_LOG_ERROR("GpuDeviceImpl: failed to create primary swapchain.");
+        CRESSIM_LOG_ERROR("failed to create primary swapchain.");
         return false;
     }
 

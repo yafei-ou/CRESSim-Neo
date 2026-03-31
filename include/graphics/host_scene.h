@@ -3,8 +3,8 @@
 
 #include "common/id.h"
 #include "common/math_types.h"
-#include "gpu/gpu_scene.h"
 #include "gpu/gpu_types.h"
+#include "graphics/gpu_scene.h"
 #include "graphics/passes/forward_draw_types.h"
 #include "graphics/render_resource_manager.h"
 
@@ -35,7 +35,7 @@ struct CameraData
     float farClip            = 1000.0f;
 
     // Render output and scheduling controls copied from engine::CameraComponent.
-    gpu::CameraOutputBinding output{};
+    gpu::RenderOutputBinding output{};
     std::uint32_t outputWidth  = 0;
     std::uint32_t outputHeight = 0;
     gpu::GpuRenderViewport viewport{};
@@ -54,7 +54,7 @@ struct LightData
     common::EntityId entityId = common::kInvalidEntityId;
     std::uint32_t envIndex    = 0u;
     std::uint32_t lightSlot   = 0xffffffffu;
-    gpu::GpuLightType type    = gpu::GpuLightType::Directional;
+    GpuLightType type         = GpuLightType::Directional;
     Diligent::float3 position{0.0f, 0.0f, 0.0f};
     Diligent::float3 direction{0.0f, -1.0f, 0.0f};
     Diligent::float3 color{1.0f, 1.0f, 1.0f};
@@ -77,7 +77,7 @@ struct HostSceneView
     const std::vector<IndirectCommandRegistryEntry> *opaqueDrawRegistry      = nullptr;
     const std::vector<IndirectCommandRegistryEntry> *shadowDrawRegistry      = nullptr;
     const std::vector<IndirectCommandRegistryEntry> *localShadowDrawRegistry = nullptr;
-    const gpu::GpuEntitySceneView *gpuEntityScene                            = nullptr;
+    const GpuEntitySceneView *gpuEntityScene                                 = nullptr;
 };
 
 } // namespace cressim::neo::graphics

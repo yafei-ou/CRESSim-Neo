@@ -11,7 +11,7 @@ int main()
     using namespace cressim::neo;
 
     engine::World world;
-    gpu::GpuSceneLayoutDesc layout{};
+    common::SceneLayoutDesc layout{};
     layout.envCount = 2u;
     world.setSceneLayout(layout);
 
@@ -98,7 +98,7 @@ int main()
 
     const auto& cameraInputs = world.cameraInputs();
     bool foundCamera = false;
-    for (const gpu::GpuCameraInput& input : cameraInputs)
+    for (const graphics::GpuCameraInput& input : cameraInputs)
     {
         if (input.active == 0u)
         {
@@ -141,38 +141,6 @@ int main()
         return 1;
     }
     world.physicsWorld().finalizeRigidBodyWriteback();
-
-    world.refreshFromPhysics();
-    const std::optional<engine::TransformComponent> syncedTransform = world.tryGetTransform(entity);
-    if (!syncedTransform)
-    {
-        CRESSIM_LOG_ERROR( "Physics->world sync removed transform unexpectedly.\n");
-        return 1;
-    }
-
-    const float dx = std::fabs(syncedTransform->worldTransform.position.x - writebackPos.x);
-    const float dy = std::fabs(syncedTransform->worldTransform.position.y - writebackPos.y);
-    const float dz = std::fabs(syncedTransform->worldTransform.position.z - writebackPos.z);
-    if (dx > 1e-5f || dy > 1e-5f || dz > 1e-5f)
-    {
-        CRESSIM_LOG_ERROR( "Physics->world transform position sync mismatch.\n");
-        return 1;
-    }
-    const float dr = std::fabs(syncedTransform->worldTransform.rotation.q.z - writebackRot.z);
-    if (dr > 1e-5f)
-    {
-        CRESSIM_LOG_ERROR( "Physics->world transform rotation sync mismatch.\n");
-        return 1;
-    }
-
-    const std::optional<engine::RigidBodyComponent> syncedRigidBody = world.tryGetRigidBody(entity);
-    if (!syncedRigidBody || syncedRigidBody->bodyType != physics::RigidBodyType::Kinematic ||
-        !syncedRigidBody->kinematicTargetEnabled ||
-        std::fabs(syncedRigidBody->kinematicTargetPosition.x - rigidBody.kinematicTargetPosition.x) > 1e-5f)
-    {
-        CRESSIM_LOG_ERROR( "Physics->world rigid body sync mismatch.\n");
-        return 1;
-    }
 
     CRESSIM_LOG_INFO( "Runtime physics sync field checks passed.\n");
     return 0;

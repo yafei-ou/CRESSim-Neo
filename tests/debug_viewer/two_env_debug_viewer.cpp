@@ -221,7 +221,7 @@ int main(int argc, char** argv)
     config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
     config.gpuDeviceDesc.enableValidation = false;
     config.sceneLayout.envCount           = 2u;
-    config.sceneLayout.maxObjectsPerEnv   = 8u;
+    config.sceneLayout.maxRenderableObjectsPerEnv   = 8u;
     config.sceneLayout.maxLightsPerEnv    = 2u;
     config.sceneLayout.maxCamerasPerEnv   = 2u;
     std::uint64_t numFrames               = 0u;

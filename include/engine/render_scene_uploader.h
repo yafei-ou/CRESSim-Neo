@@ -1,39 +1,42 @@
-#ifndef CRESSIM_NEO_GPU_GPU_SCENE_SYNC_H
-#define CRESSIM_NEO_GPU_GPU_SCENE_SYNC_H
+#ifndef CRESSIM_NEO_ENGINE_RENDER_SCENE_UPLOADER_H
+#define CRESSIM_NEO_ENGINE_RENDER_SCENE_UPLOADER_H
 
-#include "gpu/export.h"
+#include "common/scene_primitives.h"
+#include "engine/export.h"
+#include "engine/render_scene_types.h"
 #include "gpu/gpu_device.h"
-#include "gpu/gpu_scene.h"
+#include "graphics/gpu_scene.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 
 #include <cstdint>
 #include <vector>
 
-namespace cressim::neo::gpu
+namespace cressim::neo::engine
 {
 
-class CRESSIM_NEO_GPU_API GpuSceneSync
+class CRESSIM_NEO_ENGINE_API RenderSceneUploader
 {
 public:
-    explicit GpuSceneSync(GpuDevice &device);
+    explicit RenderSceneUploader(gpu::GpuDevice &device);
 
-    bool initialize(const GpuSceneLayoutDesc &layout = GpuSceneLayoutDesc{});
+    bool initialize(const common::SceneLayoutDesc &layout = common::SceneLayoutDesc{});
     void shutdown();
 
-    bool syncEntityPoseData(const std::vector<Diligent::float4> &positions,
-                            const std::vector<Diligent::float4> &orientations,
-                            const std::vector<Diligent::float4> &scales);
-    bool syncEntityPoses(const GpuPoseBufferView &sourcePoses,
-                         const std::vector<GpuEntityPoseMappingEntry> &mappings);
-    bool syncRenderableMetadata(const std::vector<GpuRenderableMetadata> &renderables);
-    bool syncRenderableQueueInfo(const std::vector<GpuRenderableQueueInfo> &queueInfo);
-    bool syncCameraInputs(const std::vector<GpuCameraInput> &cameras);
-    bool syncLightInputs(const std::vector<GpuLightInput> &lights);
-    bool syncLocalLightSelections(const std::vector<GpuLocalLightSelection> &selections);
+    bool uploadEntityPoseData(const std::vector<Diligent::float4> &positions,
+                              const std::vector<Diligent::float4> &orientations,
+                              const std::vector<Diligent::float4> &scales);
+    bool applyMappedEntityPoses(const common::PoseBufferView &sourcePoses,
+                                const std::vector<EntityPoseMappingEntry> &mappings);
+    bool uploadRenderableMetadata(const std::vector<graphics::GpuRenderableMetadata> &renderables);
+    bool uploadRenderableQueueInfo(const std::vector<graphics::GpuRenderableQueueInfo> &queueInfo);
+    bool uploadCameraInputs(const std::vector<graphics::GpuCameraInput> &cameras);
+    bool uploadLightInputs(const std::vector<graphics::GpuLightInput> &lights);
+    bool uploadLocalLightSelections(
+        const std::vector<graphics::GpuLocalLightSelection> &selections);
 
-    GpuEntitySceneView sceneView() const noexcept;
-    const GpuSceneLayoutDesc &layout() const noexcept
+    graphics::GpuEntitySceneView sceneView() const noexcept;
+    const common::SceneLayoutDesc &layout() const noexcept
     {
         return mLayout;
     }
@@ -51,8 +54,8 @@ private:
     bool writeBuffer(Diligent::IDeviceContext *computeContext, Diligent::IBuffer *buffer,
                      const void *data, std::size_t sizeBytes);
 
-    GpuDevice &mDevice;
-    GpuSceneLayoutDesc mLayout{};
+    gpu::GpuDevice &mDevice;
+    common::SceneLayoutDesc mLayout{};
     bool mInitialized                          = false;
     std::uint32_t mPoseCapacity                = 0;
     std::uint32_t mPhysicsSyncCapacity         = 0;
@@ -88,6 +91,6 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mLocalLightSelectionBuffer;
 };
 
-} // namespace cressim::neo::gpu
+} // namespace cressim::neo::engine
 
-#endif // CRESSIM_NEO_GPU_GPU_SCENE_SYNC_H
+#endif // CRESSIM_NEO_ENGINE_RENDER_SCENE_UPLOADER_H

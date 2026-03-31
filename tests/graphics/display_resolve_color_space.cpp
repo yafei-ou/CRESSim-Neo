@@ -245,7 +245,7 @@ RenderScenarioResult runScenario(GLFWwindow *window, Diligent::TEXTURE_FORMAT pr
     cameraTransform.worldTransform.position = {0.0f, 0.0f, -2.0f};
 
     CameraComponent camera{};
-    camera.output.mode     = cressim::neo::gpu::CameraOutputMode::ManagedPrimary;
+    camera.output.mode     = cressim::neo::gpu::RenderOutputMode::ManagedPrimary;
     camera.clearColor      = true;
     camera.clearDepth      = true;
     camera.clearColorValue = clearColor;

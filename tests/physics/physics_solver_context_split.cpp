@@ -27,7 +27,7 @@ int main()
             return 1;
         }
 
-        gpu::GpuBackendContext graphicsContext{};
+        gpu::GpuGraphicsBackendContext graphicsContext{};
         gpu::GpuComputeBackendContext physicsContext{};
         if (!device->tryGetGraphicsBackendContext(graphicsContext) ||
             !device->tryGetPhysicsBackendContext(physicsContext))
@@ -36,7 +36,7 @@ int main()
             runtime.shutdown();
             return 1;
         }
-        if (graphicsContext.renderDevice == nullptr || graphicsContext.immediateContext == nullptr ||
+        if (graphicsContext.renderDevice == nullptr || graphicsContext.graphicsContext == nullptr ||
             physicsContext.renderDevice == nullptr || physicsContext.computeContext == nullptr)
         {
             CRESSIM_LOG_ERROR( "Context retrieval returned null backend pointers.\n");
@@ -49,7 +49,7 @@ int main()
             runtime.shutdown();
             return 1;
         }
-        if (graphicsContext.contextId != graphicsContext.immediateContext->GetDesc().ContextId)
+        if (graphicsContext.contextId != graphicsContext.graphicsContext->GetDesc().ContextId)
         {
             CRESSIM_LOG_ERROR( "Graphics backend context reported an unexpected context id.\n");
             runtime.shutdown();

@@ -1,14 +1,15 @@
 #ifndef CRESSIM_NEO_GRAPHICS_PASSES_MATERIAL_PROGRAM_REGISTRY_H
 #define CRESSIM_NEO_GRAPHICS_PASSES_MATERIAL_PROGRAM_REGISTRY_H
 
+#include "gpu/gpu_device.h"
 #include "gpu/shader_library.h"
 #include "graphics/passes/render_pass_types.h"
 #include "graphics/render_resource_manager.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 
+#include <string>
 #include <unordered_map>
 
 namespace cressim::neo::graphics::detail
@@ -46,15 +47,17 @@ public:
 
     struct ProgramResources
     {
+        std::string vertexShaderName;
+        std::string pixelShaderName;
+        std::string pipelineStateName;
         Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipelineState;
         Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> shaderResourceBinding;
     };
 
 public:
-    explicit MaterialProgramRegistry(gpu::ShaderLibrary &shaderSourceProvider);
+    MaterialProgramRegistry(gpu::GpuDevice &device, gpu::ShaderLibrary &shaderSourceProvider);
 
-    ProgramResources *getOrCreateProgram(Diligent::IRenderDevice *renderDevice,
-                                         const ProgramKey &key);
+    ProgramResources *getOrCreateProgram(const ProgramKey &key);
 
     static ProgramKey buildProgramKey(MainPassClass passClass, MaterialProgramFamily programFamily,
                                       MaterialFeatureFlags featureFlags,
@@ -66,10 +69,10 @@ public:
     std::size_t cachedProgramCount() const noexcept;
 
 private:
-    bool createProgram(Diligent::IRenderDevice *renderDevice, const ProgramKey &key,
-                       ProgramResources &outResources);
+    bool createProgram(const ProgramKey &key, ProgramResources &outResources);
 
 private:
+    gpu::GpuDevice &mDevice;
     gpu::ShaderLibrary &mShaderLibrary;
     std::unordered_map<ProgramKey, ProgramResources, ProgramKeyHasher> mPrograms;
 };

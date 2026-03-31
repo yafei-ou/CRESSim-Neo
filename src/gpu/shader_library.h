@@ -1,8 +1,6 @@
 #ifndef CRESSIM_NEO_GPU_SHADER_LIBRARY_H
 #define CRESSIM_NEO_GPU_SHADER_LIBRARY_H
 
-#include "gpu/export.h"
-
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Shader.h"
 
@@ -11,7 +9,7 @@
 namespace cressim::neo::gpu
 {
 
-class CRESSIM_NEO_GPU_API ShaderLibrary
+class ShaderLibrary
 {
 public:
     explicit ShaderLibrary(std::string shaderDirectory);

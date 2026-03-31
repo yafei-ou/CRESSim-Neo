@@ -15,7 +15,7 @@
 namespace cressim::neo::gpu
 {
 
-[[nodiscard]] constexpr Diligent::Uint64 contextMaskForId(std::uint32_t contextId) noexcept
+constexpr Diligent::Uint64 contextMaskForId(std::uint32_t contextId) noexcept
 {
     return static_cast<Diligent::Uint64>(1ull) << contextId;
 }
@@ -33,12 +33,6 @@ enum class GpuRenderTargetUpdateResult
     Recreated,
 };
 
-enum class GpuContextRole
-{
-    Graphics,
-    Physics,
-};
-
 struct GpuRenderTargetHandle
 {
     // Opaque per-device handle for an offscreen target.
@@ -51,7 +45,7 @@ struct GpuRenderTargetBinding
     std::uint32_t firstLayer = 0u;
     std::uint32_t layerCount = 1u;
 
-    [[nodiscard]] bool isValid() const noexcept
+    bool isValid() const noexcept
     {
         return target.id != common::kInvalidResourceId && layerCount > 0u;
     }
@@ -63,15 +57,15 @@ struct GpuRenderTargetBinding
     }
 };
 
-enum class CameraOutputMode
+enum class RenderOutputMode
 {
     ManagedPrimary,
     ExplicitSurface,
 };
 
-struct CameraOutputBinding
+struct RenderOutputBinding
 {
-    CameraOutputMode mode = CameraOutputMode::ManagedPrimary;
+    RenderOutputMode mode = RenderOutputMode::ManagedPrimary;
     GpuRenderTargetBinding binding{};
 };
 
@@ -153,12 +147,12 @@ struct GpuPresentationReadbackRequest
     std::uint64_t id = 0;
 };
 
-struct GpuBackendContext
+struct GpuGraphicsBackendContext
 {
-    Diligent::IRenderDevice *renderDevice      = nullptr;
-    Diligent::IDeviceContext *immediateContext = nullptr;
-    Diligent::ISwapChain *primarySwapChain     = nullptr;
-    std::uint32_t contextId                    = 0u;
+    Diligent::IRenderDevice *renderDevice     = nullptr;
+    Diligent::IDeviceContext *graphicsContext = nullptr;
+    Diligent::ISwapChain *primarySwapChain    = nullptr;
+    std::uint32_t contextId                   = 0u;
     GpuRenderTargetBinding activeRenderTargetBinding{};
     bool hasActiveRenderTarget                             = false;
     bool activeRenderTargetHasDepth                        = false;
@@ -171,7 +165,6 @@ struct GpuComputeBackendContext
     Diligent::IDeviceContext *computeContext = nullptr;
     std::uint32_t contextId                  = 0;
     Diligent::COMMAND_QUEUE_TYPE queueType   = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
-    GpuContextRole role                      = GpuContextRole::Physics;
 };
 
 } // namespace cressim::neo::gpu

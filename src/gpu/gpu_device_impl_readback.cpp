@@ -1,3 +1,4 @@
+#include "common/logger.h"
 #include "gpu/gpu_device_impl.h"
 #include "gpu/gpu_render_target_system_impl.h"
 
@@ -9,22 +10,43 @@
 namespace cressim::neo::gpu
 {
 
+void GpuDeviceImpl::beginFrame(const common::FrameContext &frameContext)
+{
+    (void)frameContext;
+
+    if (mFrameActive)
+    {
+        CRESSIM_LOG_WARNING("GpuDevice::beginFrame called while a frame is already active.");
+        return;
+    }
+
+    mFrameActive = true;
+}
+
 void GpuDeviceImpl::endFrame(const common::FrameContext &frameContext)
 {
-    if (mRenderTargets == nullptr)
+    if (!mFrameActive)
+    {
+        CRESSIM_LOG_WARNING("GpuDevice::endFrame called without a matching beginFrame.");
+        return;
+    }
+
+    mFrameActive = false;
+
+    if (mRenderTargetSystem == nullptr)
     {
         return;
     }
 
-    if (mInitialized && mBackend == GpuBackend::Vulkan && mImmediateContext != nullptr)
+    if (mInitialized && mBackend == GpuBackend::Vulkan && mGraphicsContext != nullptr)
     {
         (void)queuePresentationReadback(frameContext);
         (void)presentPrimarySwapChain();
     }
 
-    mRenderTargets->endFrame(frameContext);
+    mRenderTargetSystem->endFrame(frameContext);
     if (mInitialized && mBackend == GpuBackend::Vulkan && mPhysicsContext != nullptr &&
-        mPhysicsContext != mImmediateContext)
+        mPhysicsContext != mGraphicsContext)
     {
         mPhysicsContext->Flush();
         mPhysicsContext->FinishFrame();
@@ -37,7 +59,7 @@ bool GpuDeviceImpl::presentPrimarySwapChain()
     {
         return true;
     }
-    if (!mInitialized || mBackend != GpuBackend::Vulkan || mImmediateContext == nullptr)
+    if (!mInitialized || mBackend != GpuBackend::Vulkan || mGraphicsContext == nullptr)
     {
         return false;
     }
@@ -45,8 +67,8 @@ bool GpuDeviceImpl::presentPrimarySwapChain()
     mPrimarySwapChain->Present(mDesc.presentation.syncInterval);
     if (!mPrimarySwapChain->GetDesc().IsPrimary)
     {
-        mImmediateContext->Flush();
-        mImmediateContext->FinishFrame();
+        mGraphicsContext->Flush();
+        mGraphicsContext->FinishFrame();
     }
 
     return true;
@@ -54,7 +76,7 @@ bool GpuDeviceImpl::presentPrimarySwapChain()
 
 bool GpuDeviceImpl::queuePresentationReadback(const common::FrameContext &frameContext)
 {
-    if (mPrimarySwapChain == nullptr || mRenderDevice == nullptr || mImmediateContext == nullptr ||
+    if (mPrimarySwapChain == nullptr || mRenderDevice == nullptr || mGraphicsContext == nullptr ||
         mPresentationReadbackFence == nullptr || mPendingPresentationReadbackRequests.empty())
     {
         return true;
@@ -96,10 +118,10 @@ bool GpuDeviceImpl::queuePresentationReadback(const common::FrameContext &frameC
         Diligent::CopyTextureAttribs copyAttribs{
             backBufferTexture, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, stagingTexture,
             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
-        mImmediateContext->CopyTexture(copyAttribs);
+        mGraphicsContext->CopyTexture(copyAttribs);
 
         const std::uint64_t fenceValue = mNextPresentationReadbackFenceValue++;
-        mImmediateContext->EnqueueSignal(mPresentationReadbackFence, fenceValue);
+        mGraphicsContext->EnqueueSignal(mPresentationReadbackFence, fenceValue);
 
         PendingPresentationReadback readbackCopy{};
         readbackCopy.requestId      = it->first;
@@ -140,8 +162,8 @@ bool GpuDeviceImpl::consumePresentationReadback(PendingPresentationReadback &cop
     mPresentationReadbackFence->Wait(copy.fenceValue);
 
     Diligent::MappedTextureSubresource mappedData{};
-    mImmediateContext->MapTextureSubresource(copy.stagingTexture, 0, 0, Diligent::MAP_READ,
-                                             Diligent::MAP_FLAG_DO_NOT_WAIT, nullptr, mappedData);
+    mGraphicsContext->MapTextureSubresource(copy.stagingTexture, 0, 0, Diligent::MAP_READ,
+                                            Diligent::MAP_FLAG_DO_NOT_WAIT, nullptr, mappedData);
     if (mappedData.pData == nullptr)
     {
         return false;
@@ -164,7 +186,7 @@ bool GpuDeviceImpl::consumePresentationReadback(PendingPresentationReadback &cop
                     outEvent.rowStrideBytes);
     }
 
-    mImmediateContext->UnmapTextureSubresource(copy.stagingTexture, 0, 0);
+    mGraphicsContext->UnmapTextureSubresource(copy.stagingTexture, 0, 0);
     return true;
 }
 

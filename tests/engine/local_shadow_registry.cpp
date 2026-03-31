@@ -10,9 +10,9 @@ using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::engine::World;
-using cressim::neo::gpu::GpuLightType;
-using cressim::neo::gpu::GpuSceneLayoutDesc;
-using cressim::neo::gpu::kMainDirectionalLightSlot;
+using cressim::neo::graphics::GpuLightType;
+using cressim::neo::common::SceneLayoutDesc;
+using cressim::neo::graphics::kMainDirectionalLightSlot;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::graphics::RenderResourceManager;
@@ -24,7 +24,7 @@ int main()
     World world;
     RenderResourceManager resources;
 
-    GpuSceneLayoutDesc layout{};
+    SceneLayoutDesc layout{};
     layout.envCount = 1u;
     layout.maxLightsPerEnv = 4u;
     world.setSceneLayout(layout);

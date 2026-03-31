@@ -21,7 +21,7 @@ bool ShadowPass::initialize()
     return true;
 }
 
-void ShadowPass::setGpuSceneView(const gpu::GpuEntitySceneView &sceneView) noexcept
+void ShadowPass::setGpuSceneView(const GpuEntitySceneView &sceneView) noexcept
 {
     mSceneView = sceneView;
 }
@@ -49,7 +49,7 @@ bool ShadowPass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
         return false;
     }
 
-    gpu::GpuBackendContext backendContext{};
+    gpu::GpuGraphicsBackendContext backendContext{};
     if (!mDevice.tryGetGraphicsBackendContext(backendContext))
     {
         return false;
@@ -59,7 +59,7 @@ bool ShadowPass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
     {
         return false;
     }
-    if (backendContext.renderDevice == nullptr || backendContext.immediateContext == nullptr ||
+    if (backendContext.renderDevice == nullptr || backendContext.graphicsContext == nullptr ||
         !backendContext.activeRenderTargetHasDepth)
     {
         return false;
@@ -211,7 +211,7 @@ bool ShadowPass::bindSceneBuffers() const
     return true;
 }
 
-bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
+bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext *graphicsContext,
                                         const ForwardDrawCommand &drawCommand,
                                         std::uint32_t shadowMatrixIndex,
                                         std::uint32_t shadowPassMode)
@@ -226,37 +226,37 @@ bool ShadowPass::updatePerDrawConstants(Diligent::IDeviceContext *immediateConte
     shadowPassConstants.shadowPassParams[1] = shadowPassMode;
 
     void *mappedConstants = nullptr;
-    immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
-                                mappedConstants);
+    graphicsContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
+                               mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
     }
     std::memcpy(mappedConstants, &objectConstants, sizeof(objectConstants));
-    immediateContext->UnmapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE);
+    graphicsContext->UnmapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE);
 
     mappedConstants = nullptr;
-    immediateContext->MapBuffer(mShadowPerPassBuffer, Diligent::MAP_WRITE,
-                                Diligent::MAP_FLAG_DISCARD, mappedConstants);
+    graphicsContext->MapBuffer(mShadowPerPassBuffer, Diligent::MAP_WRITE,
+                               Diligent::MAP_FLAG_DISCARD, mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
     }
     std::memcpy(mappedConstants, &shadowPassConstants, sizeof(shadowPassConstants));
-    immediateContext->UnmapBuffer(mShadowPerPassBuffer, Diligent::MAP_WRITE);
+    graphicsContext->UnmapBuffer(mShadowPerPassBuffer, Diligent::MAP_WRITE);
     return true;
 }
 
-void ShadowPass::bindGeometry(Diligent::IDeviceContext *immediateContext,
+void ShadowPass::bindGeometry(Diligent::IDeviceContext *graphicsContext,
                               const MeshGpuCache::CachedBuffers &meshBuffers) const
 {
     const Diligent::Uint64 vertexOffset = 0;
     Diligent::IBuffer *vertexBuffers[]  = {meshBuffers.vertexBuffer};
-    immediateContext->SetVertexBuffers(0, 1, vertexBuffers, &vertexOffset,
-                                       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-                                       Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
-    immediateContext->SetIndexBuffer(meshBuffers.indexBuffer, 0,
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    graphicsContext->SetVertexBuffers(0, 1, vertexBuffers, &vertexOffset,
+                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                                      Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
+    graphicsContext->SetIndexBuffer(meshBuffers.indexBuffer, 0,
+                                    Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
@@ -275,14 +275,14 @@ bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
     {
         return false;
     }
-    if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand,
+    if (!updatePerDrawConstants(setup.backendContext.graphicsContext, drawCommand,
                                 shadowMatrixIndex, shadowPassMode))
     {
         return false;
     }
-    bindGeometry(setup.backendContext.immediateContext, *setup.meshBuffers);
-    setup.backendContext.immediateContext->SetPipelineState(mPipelineState);
-    setup.backendContext.immediateContext->CommitShaderResources(
+    bindGeometry(setup.backendContext.graphicsContext, *setup.meshBuffers);
+    setup.backendContext.graphicsContext->SetPipelineState(mPipelineState);
+    setup.backendContext.graphicsContext->CommitShaderResources(
         mShaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     Diligent::DrawIndexedIndirectAttribs drawAttrs{};
@@ -294,7 +294,7 @@ bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
     drawAttrs.Flags          = Diligent::DRAW_FLAG_VERIFY_ALL;
     drawAttrs.AttribsBufferStateTransitionMode =
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-    setup.backendContext.immediateContext->DrawIndexedIndirect(drawAttrs);
+    setup.backendContext.graphicsContext->DrawIndexedIndirect(drawAttrs);
     return true;
 }
 
@@ -336,7 +336,10 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
     shaderCreateInfo.Macros = Diligent::ShaderMacroArray{shadowMacros, 1};
 
     Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
-    renderDevice->CreateShader(shaderCreateInfo, &vertexShader);
+    if (!mDevice.createShader(shaderCreateInfo, &vertexShader))
+    {
+        vertexShader = nullptr;
+    }
     if (vertexShader == nullptr)
     {
         CRESSIM_LOG_ERROR("ShadowPass failed to compile shader: '", shadowVsPath, "'.");
@@ -394,7 +397,10 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
     psoCreateInfo.GraphicsPipeline.InputLayout.NumElements    = 4;
     psoCreateInfo.pVS                                         = vertexShader;
 
-    renderDevice->CreateGraphicsPipelineState(psoCreateInfo, &mPipelineState);
+    if (!mDevice.createGraphicsPipelineState(psoCreateInfo, &mPipelineState))
+    {
+        mPipelineState = nullptr;
+    }
     if (mPipelineState == nullptr)
     {
         CRESSIM_LOG_ERROR("ShadowPass failed to create PSO.");

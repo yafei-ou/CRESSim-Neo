@@ -1,16 +1,18 @@
 #ifndef CRESSIM_NEO_GPU_GPU_COMPUTE_PASS_H
 #define CRESSIM_NEO_GPU_GPU_COMPUTE_PASS_H
 
+#include "gpu/gpu_device.h"
+
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Shader.h"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace cressim::neo::gpu
@@ -35,8 +37,7 @@ struct GpuComputePassDefinition
 class GpuComputePass
 {
 public:
-    bool initialize(Diligent::IRenderDevice *renderDevice,
-                    Diligent::IShaderSourceInputStreamFactory *streamFactory,
+    bool initialize(GpuDevice &device, Diligent::IShaderSourceInputStreamFactory *streamFactory,
                     Diligent::Uint64 immediateContextMask,
                     const GpuComputePassDefinition &definition);
 
@@ -71,6 +72,9 @@ private:
                                     const std::array<GpuBufferBinding, N> &bindings);
 
 private:
+    std::string mShaderPath;
+    std::string mShaderName;
+    std::string mPsoName;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mPso;
     std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> mSrbs;
 };

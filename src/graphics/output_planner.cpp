@@ -1,7 +1,7 @@
 #include "graphics/output_planner.h"
 
 #include "common/logger.h"
-#include "graphics/renderer_internal.h"
+#include "common/math_utils_runtime.h"
 
 #include <algorithm>
 #include <unordered_map>
@@ -31,8 +31,7 @@ bool isDefaultViewport(const gpu::GpuRenderViewport &viewport)
            viewport.height == 1.0f;
 }
 
-std::uint32_t buildGlobalCameraIndex(const CameraData &camera,
-                                     const gpu::GpuEntitySceneView &gpuScene)
+std::uint32_t buildGlobalCameraIndex(const CameraData &camera, const GpuEntitySceneView &gpuScene)
 {
     return camera.envIndex * std::max(gpuScene.layout.maxCamerasPerEnv, 1u) + camera.cameraSlot;
 }
@@ -67,11 +66,11 @@ gpu::GpuRenderTargetDesc buildManagedPrimaryDesc(
     return desc;
 }
 
-void populateResolvedCameraView(const CameraData &camera, const gpu::GpuEntitySceneView &gpuScene,
+void populateResolvedCameraView(const CameraData &camera, const GpuEntitySceneView &gpuScene,
                                 ResolvedCameraView &outView)
 {
     outView.entityId          = camera.entityId;
-    outView.viewport          = normalizeViewport(camera.viewport);
+    outView.viewport          = common::runtime_math::normalizeViewport(camera.viewport);
     outView.clearColor        = camera.clearColor;
     outView.clearDepth        = camera.clearDepth;
     outView.clearColorValue   = camera.clearColorValue;
@@ -98,7 +97,7 @@ void logInvalidExplicitTarget(const CameraData &camera)
 } // namespace
 
 CameraOutputPlanningResult planCameraOutputs(
-    const std::vector<CameraData> &cameras, const gpu::GpuEntitySceneView &gpuScene,
+    const std::vector<CameraData> &cameras, const GpuEntitySceneView &gpuScene,
     gpu::GpuRenderTargetSystem &renderTargetSystem,
     const gpu::GpuRenderTargetDesc &defaultRenderTargetDesc,
     const std::optional<gpu::GpuPresentationTargetDesc> &presentationTarget,
@@ -117,7 +116,7 @@ CameraOutputPlanningResult planCameraOutputs(
 
     for (const CameraData &camera : cameras)
     {
-        if (camera.output.mode != gpu::CameraOutputMode::ManagedPrimary)
+        if (camera.output.mode != gpu::RenderOutputMode::ManagedPrimary)
         {
             continue;
         }
@@ -196,7 +195,7 @@ CameraOutputPlanningResult planCameraOutputs(
 
     for (const CameraData &camera : cameras)
     {
-        if (camera.output.mode == gpu::CameraOutputMode::ManagedPrimary)
+        if (camera.output.mode == gpu::RenderOutputMode::ManagedPrimary)
         {
             const RenderTargetFamilyKey key = makeRenderTargetFamilyKey(
                 buildManagedPrimaryDesc(camera, defaultRenderTargetDesc, presentationTarget));
@@ -319,7 +318,7 @@ CameraOutputPlanningResult planCameraOutputs(
             std::min(resolved.outputBinding.firstLayer, targetDesc.arraySize - 1u);
         resolved.outputTargetDesc  = targetDesc;
         resolved.useOutputViewport = !targetDesc.layeredRendering &&
-                                     camera.output.mode == gpu::CameraOutputMode::ExplicitSurface;
+                                     camera.output.mode == gpu::RenderOutputMode::ExplicitSurface;
         if (!resolved.useOutputViewport && !isDefaultViewport(resolved.viewport))
         {
             logUnsupportedViewport(camera);

@@ -879,7 +879,7 @@ int main(int argc, char **argv)
     }
 
     config.sceneLayout.envCount = envCount;
-    config.sceneLayout.maxObjectsPerEnv = kObjectsPerEnvBudget;
+    config.sceneLayout.maxRenderableObjectsPerEnv = kObjectsPerEnvBudget;
     config.sceneLayout.maxLightsPerEnv = 1u;
     config.sceneLayout.maxCamerasPerEnv = 1u;
 

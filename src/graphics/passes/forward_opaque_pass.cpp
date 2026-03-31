@@ -326,9 +326,9 @@ ForwardOpaquePass::ForwardOpaquePass(gpu::GpuDevice &device, RenderResourceManag
 bool ForwardOpaquePass::initialize()
 {
     mShaderLibrary   = gpu::ShaderLibrary(mDevice.shaderSourceDirectory());
-    mProgramRegistry = std::make_unique<MaterialProgramRegistry>(mShaderLibrary);
+    mProgramRegistry = std::make_unique<MaterialProgramRegistry>(mDevice, mShaderLibrary);
 
-    gpu::GpuBackendContext backendContext{};
+    gpu::GpuGraphicsBackendContext backendContext{};
     if (mDevice.tryGetGraphicsBackendContext(backendContext) &&
         backendContext.renderDevice != nullptr)
     {
@@ -406,19 +406,18 @@ bool ForwardOpaquePass::beginBatchFrame(std::uint32_t currentCameraIndex)
         return false;
     }
 
-    gpu::GpuBackendContext backendContext{};
+    gpu::GpuGraphicsBackendContext backendContext{};
     if (!mDevice.tryGetGraphicsBackendContext(backendContext))
     {
         return false;
     }
-    if (backendContext.renderDevice == nullptr || backendContext.immediateContext == nullptr)
+    if (backendContext.renderDevice == nullptr || backendContext.graphicsContext == nullptr)
     {
         return false;
     }
     mGraphicsContextMask = gpu::contextMaskForId(backendContext.contextId);
     if (!ensureConstantBuffers(backendContext.renderDevice) ||
-        !ensureEnvironmentIblResources(backendContext.renderDevice,
-                                       backendContext.immediateContext))
+        !ensureEnvironmentIblResources(backendContext.renderDevice, backendContext.graphicsContext))
     {
         return false;
     }
@@ -432,18 +431,18 @@ bool ForwardOpaquePass::beginBatchFrame(std::uint32_t currentCameraIndex)
         0.0f, 0.0f};
 
     void *mappedConstants = nullptr;
-    backendContext.immediateContext->MapBuffer(mForwardPerFrameBuffer, Diligent::MAP_WRITE,
-                                               Diligent::MAP_FLAG_DISCARD, mappedConstants);
+    backendContext.graphicsContext->MapBuffer(mForwardPerFrameBuffer, Diligent::MAP_WRITE,
+                                              Diligent::MAP_FLAG_DISCARD, mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
     }
     std::memcpy(mappedConstants, &frameConstants, sizeof(frameConstants));
-    backendContext.immediateContext->UnmapBuffer(mForwardPerFrameBuffer, Diligent::MAP_WRITE);
+    backendContext.graphicsContext->UnmapBuffer(mForwardPerFrameBuffer, Diligent::MAP_WRITE);
     return true;
 }
 
-void ForwardOpaquePass::setGpuSceneView(const gpu::GpuEntitySceneView &sceneView) noexcept
+void ForwardOpaquePass::setGpuSceneView(const GpuEntitySceneView &sceneView) noexcept
 {
     mSceneView = sceneView;
 }
@@ -494,7 +493,7 @@ bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBin
         return false;
     }
 
-    gpu::GpuBackendContext backendContext{};
+    gpu::GpuGraphicsBackendContext backendContext{};
     if (!mDevice.tryGetGraphicsBackendContext(backendContext))
     {
         return false;
@@ -504,7 +503,7 @@ bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBin
     {
         return false;
     }
-    if (backendContext.renderDevice == nullptr || backendContext.immediateContext == nullptr)
+    if (backendContext.renderDevice == nullptr || backendContext.graphicsContext == nullptr)
     {
         return false;
     }
@@ -544,8 +543,7 @@ bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBin
         mIblQualityTier, backendContext.activeRenderTargetColorFormat, depthFormat,
         backendContext.activeRenderTargetHasDepth, backendContext.activeRenderTargetHasDepth,
         false);
-    MaterialProgramRegistry::ProgramResources *program =
-        mProgramRegistry->getOrCreateProgram(backendContext.renderDevice, key);
+    MaterialProgramRegistry::ProgramResources *program = mProgramRegistry->getOrCreateProgram(key);
     if (program == nullptr || program->pipelineState == nullptr)
     {
         return false;
@@ -807,7 +805,7 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
 
 bool ForwardOpaquePass::bindMaterialTextures(MaterialProgramRegistry::ProgramResources &program,
                                              Diligent::IRenderDevice *renderDevice,
-                                             Diligent::IDeviceContext *immediateContext,
+                                             Diligent::IDeviceContext *graphicsContext,
                                              common::ResourceId materialId)
 {
     if (program.shaderResourceBinding == nullptr)
@@ -846,7 +844,7 @@ bool ForwardOpaquePass::bindMaterialTextures(MaterialProgramRegistry::ProgramRes
         {
             TextureGpuCache::CachedTexture *cachedTexture =
                 mTextureGpuCache.getOrCreate(mResourceManager, binding.handle, renderDevice,
-                                             immediateContext, mMaterialSampler.RawPtr());
+                                             graphicsContext, mMaterialSampler.RawPtr());
             if (cachedTexture != nullptr && cachedTexture->shaderResourceView != nullptr)
             {
                 textureView = cachedTexture->shaderResourceView;
@@ -876,9 +874,9 @@ bool ForwardOpaquePass::bindMaterialTextures(MaterialProgramRegistry::ProgramRes
 }
 
 bool ForwardOpaquePass::ensureEnvironmentIblResources(Diligent::IRenderDevice *renderDevice,
-                                                      Diligent::IDeviceContext *immediateContext)
+                                                      Diligent::IDeviceContext *graphicsContext)
 {
-    if (renderDevice == nullptr || immediateContext == nullptr)
+    if (renderDevice == nullptr || graphicsContext == nullptr)
     {
         return false;
     }
@@ -1016,7 +1014,7 @@ bool ForwardOpaquePass::ensureEnvironmentIblResources(Diligent::IRenderDevice *r
             return true;
         }
 
-        immediateContext->UpdateBuffer(
+        graphicsContext->UpdateBuffer(
             mEnvironmentIblLookupBuffer, 0u,
             static_cast<Diligent::Uint32>(entries.size() * sizeof(EnvironmentIblLookupEntry)),
             entries.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -1202,7 +1200,7 @@ bool ForwardOpaquePass::bindEnvironmentIblResources(
     return true;
 }
 
-bool ForwardOpaquePass::updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
+bool ForwardOpaquePass::updatePerDrawConstants(Diligent::IDeviceContext *graphicsContext,
                                                const ForwardDrawCommand &drawCommand)
 {
     PerObjectConstants objectConstants{};
@@ -1227,37 +1225,37 @@ bool ForwardOpaquePass::updatePerDrawConstants(Diligent::IDeviceContext *immedia
                          material->receivesShadows ? 1.0f : 0.0f};
 
     void *mappedConstants = nullptr;
-    immediateContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
-                                mappedConstants);
+    graphicsContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
+                               mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
     }
     std::memcpy(mappedConstants, &objectConstants, sizeof(objectConstants));
-    immediateContext->UnmapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE);
+    graphicsContext->UnmapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE);
 
     mappedConstants = nullptr;
-    immediateContext->MapBuffer(mForwardPerMaterialBuffer, Diligent::MAP_WRITE,
-                                Diligent::MAP_FLAG_DISCARD, mappedConstants);
+    graphicsContext->MapBuffer(mForwardPerMaterialBuffer, Diligent::MAP_WRITE,
+                               Diligent::MAP_FLAG_DISCARD, mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
     }
     std::memcpy(mappedConstants, &materialConstants, sizeof(materialConstants));
-    immediateContext->UnmapBuffer(mForwardPerMaterialBuffer, Diligent::MAP_WRITE);
+    graphicsContext->UnmapBuffer(mForwardPerMaterialBuffer, Diligent::MAP_WRITE);
     return true;
 }
 
-void ForwardOpaquePass::bindGeometry(Diligent::IDeviceContext *immediateContext,
+void ForwardOpaquePass::bindGeometry(Diligent::IDeviceContext *graphicsContext,
                                      const MeshGpuCache::CachedBuffers &meshBuffers) const
 {
     const Diligent::Uint64 vertexOffset = 0;
     Diligent::IBuffer *vertexBuffers[]  = {meshBuffers.vertexBuffer};
-    immediateContext->SetVertexBuffers(0, 1, vertexBuffers, &vertexOffset,
-                                       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-                                       Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
-    immediateContext->SetIndexBuffer(meshBuffers.indexBuffer, 0,
-                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    graphicsContext->SetVertexBuffers(0, 1, vertexBuffers, &vertexOffset,
+                                      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                                      Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
+    graphicsContext->SetIndexBuffer(meshBuffers.indexBuffer, 0,
+                                    Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 bool ForwardOpaquePass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
@@ -1276,7 +1274,7 @@ bool ForwardOpaquePass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBi
         return false;
     }
     if (!bindMaterialTextures(*setup.program, setup.backendContext.renderDevice,
-                              setup.backendContext.immediateContext, drawCommand.materialId))
+                              setup.backendContext.graphicsContext, drawCommand.materialId))
     {
         return false;
     }
@@ -1284,13 +1282,13 @@ bool ForwardOpaquePass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBi
     {
         return false;
     }
-    if (!updatePerDrawConstants(setup.backendContext.immediateContext, drawCommand))
+    if (!updatePerDrawConstants(setup.backendContext.graphicsContext, drawCommand))
     {
         return false;
     }
-    bindGeometry(setup.backendContext.immediateContext, *setup.meshBuffers);
-    setup.backendContext.immediateContext->SetPipelineState(setup.program->pipelineState);
-    setup.backendContext.immediateContext->CommitShaderResources(
+    bindGeometry(setup.backendContext.graphicsContext, *setup.meshBuffers);
+    setup.backendContext.graphicsContext->SetPipelineState(setup.program->pipelineState);
+    setup.backendContext.graphicsContext->CommitShaderResources(
         setup.program->shaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     Diligent::DrawIndexedIndirectAttribs drawAttrs{};
@@ -1300,7 +1298,7 @@ bool ForwardOpaquePass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBi
     drawAttrs.Flags          = Diligent::DRAW_FLAG_VERIFY_ALL;
     drawAttrs.AttribsBufferStateTransitionMode =
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
-    setup.backendContext.immediateContext->DrawIndexedIndirect(drawAttrs);
+    setup.backendContext.graphicsContext->DrawIndexedIndirect(drawAttrs);
     return true;
 }
 

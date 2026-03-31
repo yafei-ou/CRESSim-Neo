@@ -3,9 +3,9 @@
 
 #include "common/frame_context.h"
 #include "engine/export.h"
+#include "engine/render_scene_uploader.h"
 #include "engine/world.h"
 #include "gpu/gpu_device.h"
-#include "gpu/gpu_scene_sync.h"
 #include "graphics/render_resource_manager.h"
 #include "graphics/renderer.h"
 #include "physics/physics_solver.h"
@@ -18,7 +18,7 @@ namespace cressim::neo::engine
 struct RuntimeConfig
 {
     gpu::GpuDeviceDesc gpuDeviceDesc{};
-    gpu::GpuSceneLayoutDesc sceneLayout{};
+    common::SceneLayoutDesc sceneLayout{};
     graphics::RendererDesc rendererDesc{};
     physics::PhysicsSolverDesc physicsDesc{};
 };
@@ -26,6 +26,8 @@ struct RuntimeConfig
 class CRESSIM_NEO_ENGINE_API Runtime
 {
 public:
+    ~Runtime();
+
     bool initialize(const RuntimeConfig &config = RuntimeConfig{});
     void shutdown();
 
@@ -48,7 +50,7 @@ public:
 private:
     bool mInitialized = false;
     std::unique_ptr<gpu::GpuDevice> mGpuDevice;
-    std::unique_ptr<gpu::GpuSceneSync> mGpuSceneSync;
+    std::unique_ptr<RenderSceneUploader> mRenderSceneUploader;
     std::unique_ptr<physics::PhysicsSolver> mPhysicsSolver;
     std::unique_ptr<graphics::Renderer> mRenderer;
     graphics::RenderFrameOptions mRenderFrameOptions{};

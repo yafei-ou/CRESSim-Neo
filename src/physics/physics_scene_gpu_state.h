@@ -145,6 +145,21 @@ public:
     PhysicsGpuSceneView sceneView() const noexcept;
 
 private:
+    bool uploadRigidBodies(Diligent::IDeviceContext *computeContext, const PhysicsWorld &world,
+                           const RigidBodySoAHost &rigidBodies, std::uint32_t bodyCount,
+                           bool forceFullUpload);
+    bool uploadColliders(Diligent::IDeviceContext *computeContext, const PhysicsWorld &world,
+                         const ColliderSoAHost &colliders, std::uint32_t colliderCount,
+                         bool forceFullUpload);
+    bool uploadRigidBodyRange(Diligent::IDeviceContext *computeContext,
+                              const RigidBodySoAHost &rigidBodies, std::uint32_t begin,
+                              std::uint32_t count);
+    bool uploadColliderRange(Diligent::IDeviceContext *computeContext,
+                             const ColliderSoAHost &colliders, std::uint32_t begin,
+                             std::uint32_t count);
+    bool uploadColliderBroadPhaseRange(Diligent::IDeviceContext *computeContext,
+                                       const ColliderSoAHost &colliders, std::uint32_t begin,
+                                       std::uint32_t count);
     PersistentRigidBodyBuffers mPersistentRigidBodies;
     PersistentColliderBuffers mPersistentColliders;
     SolverTransientBuffers mTransientState;
@@ -158,6 +173,8 @@ private:
     std::uint32_t mContactCapacity        = 0;
     bool mCorrectionBuffersNeedClear      = false;
     bool mStaticBroadPhaseDirty           = true;
+    bool mRigidBodyUploadResetRequired    = true;
+    bool mColliderUploadResetRequired     = true;
 };
 
 } // namespace cressim::neo::physics

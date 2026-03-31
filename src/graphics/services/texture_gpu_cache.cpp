@@ -31,7 +31,7 @@ TextureGpuCache::TextureGpuCache(std::string debugPrefix) : mDebugPrefix(std::mo
 
 TextureGpuCache::CachedTexture *TextureGpuCache::getOrCreate(
     const RenderResourceManager &resources, TextureHandle texture,
-    Diligent::IRenderDevice *renderDevice, Diligent::IDeviceContext *immediateContext,
+    Diligent::IRenderDevice *renderDevice, Diligent::IDeviceContext *graphicsContext,
     Diligent::ISampler *sampler)
 {
     if (renderDevice == nullptr || texture.id == common::kInvalidResourceId)
@@ -141,7 +141,7 @@ TextureGpuCache::CachedTexture *TextureGpuCache::getOrCreate(
         cachedTexture.shaderResourceView->SetSampler(sampler);
     }
 
-    (void)immediateContext;
+    (void)graphicsContext;
 
     return &cachedTexture;
 }

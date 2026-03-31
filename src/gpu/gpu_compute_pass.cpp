@@ -5,15 +5,18 @@
 namespace cressim::neo::gpu
 {
 
-bool GpuComputePass::initialize(Diligent::IRenderDevice *renderDevice,
+bool GpuComputePass::initialize(GpuDevice &device,
                                 Diligent::IShaderSourceInputStreamFactory *streamFactory,
                                 Diligent::Uint64 immediateContextMask,
                                 const GpuComputePassDefinition &definition)
 {
-    mPso = nullptr;
+    mShaderPath = definition.shaderPath != nullptr ? definition.shaderPath : "";
+    mShaderName = definition.shaderName != nullptr ? definition.shaderName : "";
+    mPsoName    = definition.psoName != nullptr ? definition.psoName : "";
+    mPso        = nullptr;
     mSrbs.clear();
 
-    if (renderDevice == nullptr || streamFactory == nullptr)
+    if (streamFactory == nullptr)
     {
         return false;
     }
@@ -23,19 +26,22 @@ bool GpuComputePass::initialize(Diligent::IRenderDevice *renderDevice,
     shaderCreateInfo.Desc.UseCombinedTextureSamplers = true;
     shaderCreateInfo.EntryPoint                      = "main";
     shaderCreateInfo.Desc.ShaderType                 = Diligent::SHADER_TYPE_COMPUTE;
-    shaderCreateInfo.Desc.Name                       = definition.shaderName;
-    shaderCreateInfo.FilePath                        = definition.shaderPath;
+    shaderCreateInfo.Desc.Name                       = mShaderName.c_str();
+    shaderCreateInfo.FilePath                        = mShaderPath.c_str();
     shaderCreateInfo.pShaderSourceStreamFactory      = streamFactory;
 
     Diligent::RefCntAutoPtr<Diligent::IShader> computeShader;
-    renderDevice->CreateShader(shaderCreateInfo, &computeShader);
+    if (!device.createShader(shaderCreateInfo, &computeShader))
+    {
+        computeShader = nullptr;
+    }
     if (computeShader == nullptr)
     {
         return false;
     }
 
     Diligent::ComputePipelineStateCreateInfo psoCreateInfo{};
-    psoCreateInfo.PSODesc.Name                 = definition.psoName;
+    psoCreateInfo.PSODesc.Name                 = mPsoName.c_str();
     psoCreateInfo.PSODesc.PipelineType         = Diligent::PIPELINE_TYPE_COMPUTE;
     psoCreateInfo.PSODesc.ImmediateContextMask = immediateContextMask;
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType =
@@ -45,7 +51,10 @@ bool GpuComputePass::initialize(Diligent::IRenderDevice *renderDevice,
         static_cast<Diligent::Uint32>(definition.variableCount);
     psoCreateInfo.pCS = computeShader;
 
-    renderDevice->CreateComputePipelineState(psoCreateInfo, &mPso);
+    if (!device.createComputePipelineState(psoCreateInfo, &mPso))
+    {
+        mPso = nullptr;
+    }
     if (mPso == nullptr)
     {
         return false;

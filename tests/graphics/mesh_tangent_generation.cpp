@@ -1,5 +1,4 @@
 #include "common/logger.h"
-#include "graphics/flags.h"
 #include "graphics/render_resource_manager.h"
 
 #include <cmath>

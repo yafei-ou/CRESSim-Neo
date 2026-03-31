@@ -2,8 +2,8 @@
 #define CRESSIM_NEO_GRAPHICS_PASSES_FORWARD_OPAQUE_PASS_H
 
 #include "gpu/gpu_device.h"
-#include "gpu/gpu_scene.h"
 #include "gpu/shader_library.h"
+#include "graphics/gpu_scene.h"
 #include "graphics/passes/forward_draw_types.h"
 #include "graphics/passes/material_program_registry.h"
 #include "graphics/services/mesh_gpu_cache.h"
@@ -20,10 +20,7 @@
 #include <memory>
 #include <vector>
 
-namespace cressim::neo::graphics
-{
-
-namespace detail
+namespace cressim::neo::graphics::detail
 {
 
 class ForwardOpaquePass
@@ -34,7 +31,7 @@ public:
 
     bool initialize();
     bool beginBatchFrame(std::uint32_t currentCameraIndex);
-    void setGpuSceneView(const gpu::GpuEntitySceneView &sceneView) noexcept;
+    void setGpuSceneView(const GpuEntitySceneView &sceneView) noexcept;
     void setEnvironmentIbls(const std::vector<EnvironmentIblDesc> *ibls,
                             std::uint32_t envCount) noexcept;
     void setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept;
@@ -55,7 +52,7 @@ public:
 private:
     struct DrawSetup
     {
-        gpu::GpuBackendContext backendContext{};
+        gpu::GpuGraphicsBackendContext backendContext{};
         MeshGpuCache::CachedBuffers *meshBuffers           = nullptr;
         MaterialProgramRegistry::ProgramResources *program = nullptr;
     };
@@ -98,7 +95,7 @@ private:
 
     bool ensureConstantBuffers(Diligent::IRenderDevice *renderDevice);
     bool ensureEnvironmentIblResources(Diligent::IRenderDevice *renderDevice,
-                                       Diligent::IDeviceContext *immediateContext);
+                                       Diligent::IDeviceContext *graphicsContext);
     bool bindProgramConstants(MaterialProgramRegistry::ProgramResources &program);
     bool hasAnyShadowMap() const;
     bool prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
@@ -108,11 +105,11 @@ private:
     bool bindEnvironmentIblResources(MaterialProgramRegistry::ProgramResources &program) const;
     bool bindMaterialTextures(MaterialProgramRegistry::ProgramResources &program,
                               Diligent::IRenderDevice *renderDevice,
-                              Diligent::IDeviceContext *immediateContext,
+                              Diligent::IDeviceContext *graphicsContext,
                               common::ResourceId materialId);
-    bool updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
+    bool updatePerDrawConstants(Diligent::IDeviceContext *graphicsContext,
                                 const ForwardDrawCommand &drawCommand);
-    void bindGeometry(Diligent::IDeviceContext *immediateContext,
+    void bindGeometry(Diligent::IDeviceContext *graphicsContext,
                       const MeshGpuCache::CachedBuffers &meshBuffers) const;
 
 private:
@@ -151,14 +148,13 @@ private:
     Diligent::IBuffer *mLocalShadowViewBuffer       = nullptr;
     Diligent::IBuffer *mLightShadowAssignmentBuffer = nullptr;
     std::uint32_t mLocalShadowViewCount             = 0u;
-    gpu::GpuEntitySceneView mSceneView{};
+    GpuEntitySceneView mSceneView{};
     const std::vector<EnvironmentIblDesc> *mEnvironmentIbls = nullptr;
     std::uint32_t mEnvironmentIblEnvCount                   = 0u;
     Diligent::IBuffer *mVisiblePairBuffer                   = nullptr;
     Diligent::IBuffer *mBatchCameraBuffer                   = nullptr;
 };
 
-} // namespace detail
-} // namespace cressim::neo::graphics
+} // namespace cressim::neo::graphics::detail
 
 #endif // CRESSIM_NEO_GRAPHICS_PASSES_FORWARD_OPAQUE_PASS_H

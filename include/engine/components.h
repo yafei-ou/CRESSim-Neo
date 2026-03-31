@@ -42,7 +42,7 @@ struct CameraComponent
     // ManagedPrimary renders into the renderer-managed primary layered surface for presentation.
     // ExplicitSurface renders directly into the bound target layer. Binding a non-array target
     // still means every camera targeting it shares layer 0.
-    gpu::CameraOutputBinding output{};
+    gpu::RenderOutputBinding output{};
     // Optional per-camera output resize request (0 keeps current target size).
     std::uint32_t outputWidth  = 0;
     std::uint32_t outputHeight = 0;

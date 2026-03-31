@@ -28,7 +28,7 @@ public:
 
     CachedTexture *getOrCreate(const RenderResourceManager &resources, TextureHandle texture,
                                Diligent::IRenderDevice *renderDevice,
-                               Diligent::IDeviceContext *immediateContext,
+                               Diligent::IDeviceContext *graphicsContext,
                                Diligent::ISampler *sampler);
 
 private:

@@ -70,7 +70,7 @@ public:
 private:
     struct GpuScenePrepareState;
     bool ensureGpuScenePrepareState();
-    bool prepareGpuScene(const gpu::GpuEntitySceneView &sceneView);
+    bool prepareGpuScene(const GpuEntitySceneView &sceneView);
 
     gpu::GpuDevice &mDevice;
     RenderResourceManager &mResourceManager;

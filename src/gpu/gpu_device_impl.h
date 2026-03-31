@@ -2,6 +2,7 @@
 #define CRESSIM_NEO_GPU_GPU_DEVICE_IMPL_H
 
 #include "gpu/gpu_device.h"
+#include "gpu/shader_cache.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
@@ -21,6 +22,8 @@ class GpuRenderTargetSystemImpl;
 class GpuDeviceImpl final : public GpuDevice
 {
 public:
+    ~GpuDeviceImpl() override;
+
     bool initialize(const GpuDeviceDesc &desc) override;
     void shutdown() override;
 
@@ -29,15 +32,21 @@ public:
     GpuRenderTargetSystem &renderTargetSystem() override;
 
     GpuBackend backend() const override;
-    bool tryGetGraphicsBackendContext(GpuBackendContext &outContext) override;
+    bool tryGetGraphicsBackendContext(GpuGraphicsBackendContext &outContext) override;
     bool tryGetPhysicsBackendContext(GpuComputeBackendContext &outContext) override;
-    bool synchronizePhysicsToGraphics() override;
+    bool waitForPhysicsOnGraphics() override;
     bool tryGetDefaultRenderTargetDesc(GpuRenderTargetDesc &outDesc) const override;
     bool tryGetPresentationTargetDesc(GpuPresentationTargetDesc &outDesc) override;
     GpuPresentationReadbackRequest requestPresentationReadback() override;
     bool tryGetPresentationReadback(GpuPresentationReadbackRequest request,
                                     GpuPresentationReadbackEvent &outEvent) override;
     const std::string &shaderSourceDirectory() const override;
+    bool createShader(const Diligent::ShaderCreateInfo &createInfo,
+                      Diligent::IShader **shader) override;
+    bool createGraphicsPipelineState(const Diligent::GraphicsPipelineStateCreateInfo &createInfo,
+                                     Diligent::IPipelineState **pipelineState) override;
+    bool createComputePipelineState(const Diligent::ComputePipelineStateCreateInfo &createInfo,
+                                    Diligent::IPipelineState **pipelineState) override;
 
 private:
     struct PendingPresentationReadback
@@ -62,16 +71,18 @@ private:
     GpuDeviceDesc mDesc{};
     GpuBackend mBackend = GpuBackend::Null;
     bool mInitialized   = false;
-    std::unique_ptr<GpuRenderTargetSystemImpl> mRenderTargets;
+    std::unique_ptr<GpuRenderTargetSystemImpl> mRenderTargetSystem;
 
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> mRenderDevice;
-    Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mImmediateContext;
+    Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mGraphicsContext;
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> mPhysicsContext;
     Diligent::RefCntAutoPtr<Diligent::ISwapChain> mPrimarySwapChain;
+    ShaderCache mShaderCache;
     std::uint32_t mGraphicsContextId                  = 0;
     std::uint32_t mPhysicsContextId                   = 0;
     Diligent::COMMAND_QUEUE_TYPE mGraphicsQueueType   = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
     Diligent::COMMAND_QUEUE_TYPE mPhysicsQueueType    = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
+    bool mFrameActive                                 = false;
     std::uint64_t mNextPresentationReadbackRequestId  = 1;
     std::uint64_t mNextPresentationReadbackFenceValue = 1;
     std::uint64_t mNextPhysicsToGraphicsFenceValue    = 1;

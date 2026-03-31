@@ -2,8 +2,8 @@
 #define CRESSIM_NEO_GRAPHICS_PASSES_SHADOW_PASS_H
 
 #include "gpu/gpu_device.h"
-#include "gpu/gpu_scene.h"
 #include "gpu/shader_library.h"
+#include "graphics/gpu_scene.h"
 #include "graphics/passes/forward_draw_types.h"
 #include "graphics/services/mesh_gpu_cache.h"
 
@@ -12,10 +12,7 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 
-namespace cressim::neo::graphics
-{
-
-namespace detail
+namespace cressim::neo::graphics::detail
 {
 
 class ShadowPass
@@ -24,7 +21,7 @@ public:
     ShadowPass(gpu::GpuDevice &device, RenderResourceManager &resourceManager);
 
     bool initialize();
-    void setGpuSceneView(const gpu::GpuEntitySceneView &sceneView) noexcept;
+    void setGpuSceneView(const GpuEntitySceneView &sceneView) noexcept;
     void setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept;
     void setBatchCameraBuffer(Diligent::IBuffer *buffer) noexcept;
     void setLocalShadowViewBuffer(Diligent::IBuffer *buffer) noexcept;
@@ -37,7 +34,7 @@ public:
 private:
     struct DrawSetup
     {
-        gpu::GpuBackendContext backendContext{};
+        gpu::GpuGraphicsBackendContext backendContext{};
         MeshGpuCache::CachedBuffers *meshBuffers = nullptr;
     };
 
@@ -59,10 +56,10 @@ private:
     bool prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
                      const ForwardDrawCommand &drawCommand, DrawSetup &outSetup);
     bool bindSceneBuffers() const;
-    bool updatePerDrawConstants(Diligent::IDeviceContext *immediateContext,
+    bool updatePerDrawConstants(Diligent::IDeviceContext *graphicsContext,
                                 const ForwardDrawCommand &drawCommand,
                                 std::uint32_t shadowMatrixIndex, std::uint32_t shadowPassMode);
-    void bindGeometry(Diligent::IDeviceContext *immediateContext,
+    void bindGeometry(Diligent::IDeviceContext *graphicsContext,
                       const MeshGpuCache::CachedBuffers &meshBuffers) const;
 
 private:
@@ -76,13 +73,12 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mShaderResourceBinding;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mShadowPerPassBuffer;
-    gpu::GpuEntitySceneView mSceneView{};
+    GpuEntitySceneView mSceneView{};
     Diligent::IBuffer *mVisiblePairBuffer     = nullptr;
     Diligent::IBuffer *mBatchCameraBuffer     = nullptr;
     Diligent::IBuffer *mLocalShadowViewBuffer = nullptr;
 };
 
-} // namespace detail
-} // namespace cressim::neo::graphics
+} // namespace cressim::neo::graphics::detail
 
 #endif // CRESSIM_NEO_GRAPHICS_PASSES_SHADOW_PASS_H

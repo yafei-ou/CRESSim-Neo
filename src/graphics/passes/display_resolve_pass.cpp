@@ -1,4 +1,4 @@
-#include "graphics/display_resolve_pass.h"
+#include "graphics/passes/display_resolve_pass.h"
 
 #include "common/math_utils_runtime.h"
 #include "gpu/shader_library.h"
@@ -61,7 +61,7 @@ std::size_t DisplayResolvePass::PipelineKeyHasher::operator()(const PipelineKey 
 
 bool DisplayResolvePass::initialize()
 {
-    gpu::GpuBackendContext backendContext{};
+    gpu::GpuGraphicsBackendContext backendContext{};
     if (!mDevice.tryGetGraphicsBackendContext(backendContext) ||
         backendContext.renderDevice == nullptr)
     {
@@ -132,7 +132,10 @@ Diligent::IPipelineState *DisplayResolvePass::getOrCreatePipeline(
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
     shaderCreateInfo.Desc.Name       = "CRESSimNeo.DisplayResolve.VS";
     shaderCreateInfo.FilePath        = "graphics/display_resolve.vs.hlsl";
-    renderDevice->CreateShader(shaderCreateInfo, &vertexShader);
+    if (!mDevice.createShader(shaderCreateInfo, &vertexShader))
+    {
+        vertexShader = nullptr;
+    }
     if (vertexShader == nullptr)
     {
         return nullptr;
@@ -142,7 +145,10 @@ Diligent::IPipelineState *DisplayResolvePass::getOrCreatePipeline(
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
     shaderCreateInfo.Desc.Name       = "CRESSimNeo.DisplayResolve.PS";
     shaderCreateInfo.FilePath        = "graphics/display_resolve.ps.hlsl";
-    renderDevice->CreateShader(shaderCreateInfo, &pixelShader);
+    if (!mDevice.createShader(shaderCreateInfo, &pixelShader))
+    {
+        pixelShader = nullptr;
+    }
     if (pixelShader == nullptr)
     {
         return nullptr;
@@ -172,7 +178,10 @@ Diligent::IPipelineState *DisplayResolvePass::getOrCreatePipeline(
     psoCreateInfo.pPS = pixelShader;
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline;
-    renderDevice->CreateGraphicsPipelineState(psoCreateInfo, &pipeline);
+    if (!mDevice.createGraphicsPipelineState(psoCreateInfo, &pipeline))
+    {
+        pipeline = nullptr;
+    }
     if (pipeline == nullptr)
     {
         return nullptr;
@@ -248,9 +257,9 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
         return false;
     }
 
-    gpu::GpuBackendContext backendContext{};
+    gpu::GpuGraphicsBackendContext backendContext{};
     if (!mDevice.tryGetGraphicsBackendContext(backendContext) ||
-        backendContext.renderDevice == nullptr || backendContext.immediateContext == nullptr)
+        backendContext.renderDevice == nullptr || backendContext.graphicsContext == nullptr)
     {
         return false;
     }
@@ -305,14 +314,14 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     constants.toneMapper = static_cast<std::uint32_t>(request.toneMapper);
     constants.exposure   = request.exposure;
     void *mapped         = nullptr;
-    backendContext.immediateContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,
-                                               Diligent::MAP_FLAG_DISCARD, mapped);
+    backendContext.graphicsContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,
+                                              Diligent::MAP_FLAG_DISCARD, mapped);
     if (mapped == nullptr)
     {
         return false;
     }
     std::memcpy(mapped, &constants, sizeof(constants));
-    backendContext.immediateContext->UnmapBuffer(mConstantsBuffer, Diligent::MAP_WRITE);
+    backendContext.graphicsContext->UnmapBuffer(mConstantsBuffer, Diligent::MAP_WRITE);
 
     const auto &swapChainDesc = backendContext.primarySwapChain->GetDesc();
     if (swapChainDesc.Width != request.presentationTarget.width ||
@@ -334,18 +343,18 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
         return false;
     }
 
-    backendContext.immediateContext->SetRenderTargets(
+    backendContext.graphicsContext->SetRenderTargets(
         1, &backBufferRtv, depthBufferDsv, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (request.clearColor)
     {
         const float clearColor[4] = {request.clearColorValue.x, request.clearColorValue.y,
                                      request.clearColorValue.z, request.clearColorValue.w};
-        backendContext.immediateContext->ClearRenderTarget(
+        backendContext.graphicsContext->ClearRenderTarget(
             backBufferRtv, clearColor, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
     if (depthBufferDsv != nullptr && request.clearDepth)
     {
-        backendContext.immediateContext->ClearDepthStencil(
+        backendContext.graphicsContext->ClearDepthStencil(
             depthBufferDsv, Diligent::CLEAR_DEPTH_FLAG, request.clearDepthValue, 0,
             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
@@ -357,20 +366,20 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     diligentViewport.Height   = static_cast<float>(request.presentationTarget.height);
     diligentViewport.MinDepth = 0.0f;
     diligentViewport.MaxDepth = 1.0f;
-    backendContext.immediateContext->SetViewports(
+    backendContext.graphicsContext->SetViewports(
         1, &diligentViewport, request.presentationTarget.width, request.presentationTarget.height);
 
-    backendContext.immediateContext->SetPipelineState(pipeline);
-    backendContext.immediateContext->CommitShaderResources(
+    backendContext.graphicsContext->SetPipelineState(pipeline);
+    backendContext.graphicsContext->CommitShaderResources(
         resolveBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     Diligent::DrawAttribs drawAttrs{};
     drawAttrs.NumVertices = 3u;
     drawAttrs.Flags       = Diligent::DRAW_FLAG_VERIFY_ALL;
-    backendContext.immediateContext->Draw(drawAttrs);
+    backendContext.graphicsContext->Draw(drawAttrs);
 
-    backendContext.immediateContext->SetRenderTargets(
-        0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+    backendContext.graphicsContext->SetRenderTargets(0, nullptr, nullptr,
+                                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
     return true;
 }
 

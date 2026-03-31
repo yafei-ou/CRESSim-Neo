@@ -13,10 +13,10 @@ using cressim::neo::engine::PointLightComponent;
 using cressim::neo::engine::World;
 using cressim::neo::engine::SpotLightComponent;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::gpu::GpuLightType;
-using cressim::neo::gpu::GpuSceneLayoutDesc;
-using cressim::neo::gpu::kForwardLocalLightCap;
-using cressim::neo::gpu::kMainDirectionalLightSlot;
+using cressim::neo::graphics::GpuLightType;
+using cressim::neo::common::SceneLayoutDesc;
+using cressim::neo::graphics::kForwardLocalLightCap;
+using cressim::neo::graphics::kMainDirectionalLightSlot;
 using cressim::neo::graphics::RenderResourceManager;
 
 } // namespace
@@ -25,7 +25,7 @@ int main()
 {
     World world;
     RenderResourceManager resources;
-    GpuSceneLayoutDesc layout{};
+    SceneLayoutDesc layout{};
     layout.maxLightsPerEnv = kForwardLocalLightCap + 3u;
     layout.envCount = 3u;
     world.setSceneLayout(layout);
@@ -61,6 +61,37 @@ int main()
     spot.outerConeAngle = 30.0f;
     spot.castsShadows   = true;
     world.setSpotLight(spotEntity, spot);
+    spot.range = 16.0f;
+    world.setSpotLight(spotEntity, spot);
+
+    const auto conflictingLightEntity = world.createEntity();
+    TransformComponent conflictingTransform{};
+    conflictingTransform.worldTransform.position = {-3.0f, 1.5f, 8.0f};
+    world.setTransform(conflictingLightEntity, conflictingTransform);
+    PointLightComponent conflictingPoint{};
+    conflictingPoint.range        = 7.0f;
+    conflictingPoint.intensity    = 4.0f;
+    conflictingPoint.castsShadows = true;
+    world.setPointLight(conflictingLightEntity, conflictingPoint);
+
+    SpotLightComponent conflictingSpot{};
+    conflictingSpot.direction      = {1.0f, -1.0f, 0.0f};
+    conflictingSpot.range          = 20.0f;
+    conflictingSpot.innerConeAngle = 10.0f;
+    conflictingSpot.outerConeAngle = 15.0f;
+    conflictingSpot.castsShadows   = false;
+    world.setSpotLight(conflictingLightEntity, conflictingSpot);
+
+    const auto movablePointEntity = world.createEntity();
+    TransformComponent movablePointTransform{};
+    movablePointTransform.worldTransform.position = {13.0f, 2.0f, -4.0f};
+    world.setTransform(movablePointEntity, movablePointTransform);
+    PointLightComponent movablePoint{};
+    movablePoint.range        = 11.0f;
+    movablePoint.intensity    = 2.5f;
+    movablePoint.castsShadows = false;
+    world.setPointLight(movablePointEntity, movablePoint);
+    world.setEntityEnvironment(movablePointEntity, 1u);
 
     const auto env1MainLightEntity = world.createEntity(1u);
     DirectionalLightComponent env1MainLight{};
@@ -181,6 +212,32 @@ int main()
     if (!world.tryGetSpotLight(spotEntity).has_value() || world.tryGetPointLight(spotEntity).has_value())
     {
         CRESSIM_LOG_ERROR("Expected typed light getters to respect the unified light type.");
+        return 1;
+    }
+    if (std::abs(world.tryGetSpotLight(spotEntity)->range - 16.0f) > 1.0e-4f)
+    {
+        CRESSIM_LOG_ERROR("Expected setting the same light type twice to update in place.");
+        return 1;
+    }
+    if (!world.tryGetPointLight(conflictingLightEntity).has_value() ||
+        world.tryGetSpotLight(conflictingLightEntity).has_value())
+    {
+        CRESSIM_LOG_ERROR("Expected mixed light assignment to leave the original light type unchanged.");
+        return 1;
+    }
+    if (std::abs(world.tryGetPointLight(conflictingLightEntity)->range - conflictingPoint.range) > 1.0e-4f)
+    {
+        CRESSIM_LOG_ERROR("Expected rejected mixed light assignment to preserve the original light data.");
+        return 1;
+    }
+    if (!world.tryGetPointLight(movablePointEntity).has_value())
+    {
+        CRESSIM_LOG_ERROR("Expected point lights to survive environment moves.");
+        return 1;
+    }
+    if (!world.removePointLight(movablePointEntity) || world.tryGetPointLight(movablePointEntity).has_value())
+    {
+        CRESSIM_LOG_ERROR("Expected point lights to remain removable after environment moves.");
         return 1;
     }
 

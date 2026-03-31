@@ -2,8 +2,8 @@
 
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
-#include "graphics/display_resolve_pass.h"
 #include "graphics/output_planner.h"
+#include "graphics/passes/display_resolve_pass.h"
 #include "graphics/passes/forward_pipeline.h"
 #include "graphics/render_plan_builder.h"
 #include "graphics/renderer_internal.h"
@@ -116,8 +116,7 @@ std::uint32_t countActiveLights(const std::vector<LightData> &lights)
 bool isMainDirectionalLightActive(const LightData &light)
 {
     if (light.entityId == common::kInvalidEntityId ||
-        light.lightSlot != gpu::kMainDirectionalLightSlot ||
-        light.type != gpu::GpuLightType::Directional)
+        light.lightSlot != kMainDirectionalLightSlot || light.type != GpuLightType::Directional)
     {
         return false;
     }
@@ -129,12 +128,12 @@ bool isMainDirectionalLightActive(const LightData &light)
 }
 
 std::vector<EnvMainLightState> buildEnvMainLightStates(const HostSceneView &sceneView,
-                                                       const gpu::GpuEntitySceneView &gpuScene)
+                                                       const GpuEntitySceneView &gpuScene)
 {
     std::vector<EnvMainLightState> states(gpuScene.layout.envCount);
     for (std::uint32_t envIndex = 0u; envIndex < gpuScene.layout.envCount; ++envIndex)
     {
-        states[envIndex].mainLightIndex = gpu::mainDirectionalLightIndex(gpuScene.layout, envIndex);
+        states[envIndex].mainLightIndex = mainDirectionalLightIndex(gpuScene.layout, envIndex);
     }
 
     if (sceneView.lights == nullptr)
@@ -144,7 +143,7 @@ std::vector<EnvMainLightState> buildEnvMainLightStates(const HostSceneView &scen
 
     for (const LightData &light : *sceneView.lights)
     {
-        if (light.envIndex >= states.size() || light.lightSlot != gpu::kMainDirectionalLightSlot)
+        if (light.envIndex >= states.size() || light.lightSlot != kMainDirectionalLightSlot)
         {
             continue;
         }
@@ -213,7 +212,7 @@ bool Renderer::ensureGpuScenePrepareState()
         return true;
     }
 
-    gpu::GpuBackendContext backendContext{};
+    gpu::GpuGraphicsBackendContext backendContext{};
     if (!mDevice.tryGetGraphicsBackendContext(backendContext) ||
         backendContext.renderDevice == nullptr)
     {
@@ -228,11 +227,9 @@ bool Renderer::ensureGpuScenePrepareState()
         return false;
     }
 
-    if (!mGpuScenePrepare->cameraPreparePass.initialize(backendContext.renderDevice, streamFactory,
-                                                        graphicsContextMask,
+    if (!mGpuScenePrepare->cameraPreparePass.initialize(mDevice, streamFactory, graphicsContextMask,
                                                         kCameraPreparePassDefinition) ||
-        !mGpuScenePrepare->scenePreparePass.initialize(backendContext.renderDevice, streamFactory,
-                                                       graphicsContextMask,
+        !mGpuScenePrepare->scenePreparePass.initialize(mDevice, streamFactory, graphicsContextMask,
                                                        kScenePreparePassDefinition))
     {
         return false;
@@ -265,7 +262,7 @@ bool Renderer::ensureGpuScenePrepareState()
     return true;
 }
 
-bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView &sceneView)
+bool Renderer::prepareGpuScene(const GpuEntitySceneView &sceneView)
 {
     if (sceneView.renderableCount == 0u || sceneView.cameraCount == 0u)
     {
@@ -286,30 +283,30 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView &sceneView)
         return false;
     }
 
-    gpu::GpuBackendContext backendContext{};
+    gpu::GpuGraphicsBackendContext backendContext{};
     if (!mDevice.tryGetGraphicsBackendContext(backendContext) ||
-        backendContext.immediateContext == nullptr)
+        backendContext.graphicsContext == nullptr)
     {
         return false;
     }
 
     GraphicsCameraPrepareConstants cameraPrepareConstants{};
     cameraPrepareConstants.cameraCount         = sceneView.cameraCount;
-    cameraPrepareConstants.maxObjectsPerEnv    = sceneView.layout.maxObjectsPerEnv;
+    cameraPrepareConstants.maxObjectsPerEnv    = sceneView.layout.maxRenderableObjectsPerEnv;
     cameraPrepareConstants.maxLightsPerEnv     = sceneView.layout.maxLightsPerEnv;
     cameraPrepareConstants.shadowMapResolution = kShadowMapResolution;
 
     void *mappedConstants = nullptr;
-    backendContext.immediateContext->MapBuffer(mGpuScenePrepare->cameraPrepareConstantsBuffer,
-                                               Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
-                                               mappedConstants);
+    backendContext.graphicsContext->MapBuffer(mGpuScenePrepare->cameraPrepareConstantsBuffer,
+                                              Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
+                                              mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
     }
     std::memcpy(mappedConstants, &cameraPrepareConstants, sizeof(cameraPrepareConstants));
-    backendContext.immediateContext->UnmapBuffer(mGpuScenePrepare->cameraPrepareConstantsBuffer,
-                                                 Diligent::MAP_WRITE);
+    backendContext.graphicsContext->UnmapBuffer(mGpuScenePrepare->cameraPrepareConstantsBuffer,
+                                                Diligent::MAP_WRITE);
 
     const std::array cameraPrepareBindings{
         gpu::GpuBufferBinding{"GraphicsCameraPrepareConstants",
@@ -322,7 +319,7 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView &sceneView)
         gpu::GpuBufferBinding{"g_PreparedCamerasRW", sceneView.preparedCamerasBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
-    if (!mGpuScenePrepare->cameraPreparePass.dispatch(backendContext.immediateContext, 0u,
+    if (!mGpuScenePrepare->cameraPreparePass.dispatch(backendContext.graphicsContext, 0u,
                                                       cameraPrepareBindings,
                                                       dispatchGroupCount(sceneView.cameraCount)))
     {
@@ -331,18 +328,18 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView &sceneView)
 
     GraphicsScenePrepareConstants constants{};
     constants.cameraCount      = sceneView.cameraCount;
-    constants.maxObjectsPerEnv = sceneView.layout.maxObjectsPerEnv;
+    constants.maxObjectsPerEnv = sceneView.layout.maxRenderableObjectsPerEnv;
     mappedConstants            = nullptr;
-    backendContext.immediateContext->MapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
-                                               Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
-                                               mappedConstants);
+    backendContext.graphicsContext->MapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
+                                              Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
+                                              mappedConstants);
     if (mappedConstants == nullptr)
     {
         return false;
     }
     std::memcpy(mappedConstants, &constants, sizeof(constants));
-    backendContext.immediateContext->UnmapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
-                                                 Diligent::MAP_WRITE);
+    backendContext.graphicsContext->UnmapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
+                                                Diligent::MAP_WRITE);
 
     const std::array bindings{
         gpu::GpuBufferBinding{"GraphicsScenePrepareConstants",
@@ -367,8 +364,8 @@ bool Renderer::prepareGpuScene(const gpu::GpuEntitySceneView &sceneView)
     };
 
     return mGpuScenePrepare->scenePreparePass.dispatch(
-        backendContext.immediateContext, 0u, bindings,
-        dispatchGroupCount(sceneView.layout.maxObjectsPerEnv * sceneView.cameraCount));
+        backendContext.graphicsContext, 0u, bindings,
+        dispatchGroupCount(sceneView.layout.maxRenderableObjectsPerEnv * sceneView.cameraCount));
 }
 
 bool Renderer::initialize()
@@ -417,8 +414,8 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
     const std::vector<LightData> emptyLights;
     const std::vector<LightData> &directionalLights =
         world.lights != nullptr ? *world.lights : emptyLights;
-    const gpu::GpuEntitySceneView emptySceneView{};
-    const gpu::GpuEntitySceneView &gpuScene =
+    const GpuEntitySceneView emptySceneView{};
+    const GpuEntitySceneView &gpuScene =
         world.gpuEntityScene != nullptr ? *world.gpuEntityScene : emptySceneView;
 
     stats.renderableCount = countActiveRenderables(renderables);

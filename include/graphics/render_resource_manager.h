@@ -1,9 +1,9 @@
 #ifndef CRESSIM_NEO_GRAPHICS_RENDER_RESOURCE_MANAGER_H
 #define CRESSIM_NEO_GRAPHICS_RENDER_RESOURCE_MANAGER_H
 
+#include "common/flags.h"
 #include "common/id.h"
 #include "graphics/export.h"
-#include "graphics/flags.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 
@@ -72,6 +72,16 @@ enum class IblQualityTier : std::uint32_t
     Full        = 2u,
 };
 
+enum class MaterialFeatureFlags : std::uint32_t
+{
+    None        = 0u,
+    AlphaTest   = 1u << 0u,
+    NormalMap   = 1u << 1u,
+    ClearCoat   = 1u << 2u,
+    DoubleSided = 1u << 3u,
+};
+CRESSIM_NEO_DEFINE_ENUM_FLAGS(MaterialFeatureFlags)
+
 struct MaterialPipelineDesc
 {
     MaterialProgramFamily programFamily = MaterialProgramFamily::StandardLit;
@@ -98,7 +108,6 @@ struct MeshResourceDesc
 struct MaterialResourceDesc
 {
     std::string debugName;
-    // Legacy scalar names are kept, but these values now act as PBR factors.
     Diligent::float3 baseColor{1.0f, 1.0f, 1.0f};
     float metallic  = 0.0f;
     float roughness = 0.5f;
@@ -140,7 +149,7 @@ struct EnvironmentIblDesc
     TextureHandle prefilteredSpecularCubemap{};
     float intensity = 1.0f;
 
-    [[nodiscard]] bool enabled(IblQualityTier tier) const noexcept
+    bool enabled(IblQualityTier tier) const noexcept
     {
         switch (tier)
         {

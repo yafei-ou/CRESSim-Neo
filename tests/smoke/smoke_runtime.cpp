@@ -190,7 +190,7 @@ int main(int argc, char** argv)
         secondaryCameraTransform.worldTransform.position = {-1.0f, 1.5f, -2.5f};
 
         CameraComponent secondaryCamera{};
-        secondaryCamera.output.mode = cressim::neo::gpu::CameraOutputMode::ExplicitSurface;
+        secondaryCamera.output.mode = cressim::neo::gpu::RenderOutputMode::ExplicitSurface;
         secondaryCamera.output.binding = cressim::neo::gpu::GpuRenderTargetBinding{secondaryTarget, 0u, 1u};
         secondaryCamera.outputWidth = 800;
         secondaryCamera.outputHeight = 600;
@@ -283,7 +283,7 @@ int main(int argc, char** argv)
             extraCameraTransform.worldTransform.position = {1.0f, 1.2f, -2.8f};
 
             CameraComponent extraCamera{};
-            extraCamera.output.mode = cressim::neo::gpu::CameraOutputMode::ExplicitSurface;
+            extraCamera.output.mode = cressim::neo::gpu::RenderOutputMode::ExplicitSurface;
             extraCamera.output.binding =
                 cressim::neo::gpu::GpuRenderTargetBinding{secondaryTarget, 1u, 1u};
             extraCamera.outputWidth = 800;

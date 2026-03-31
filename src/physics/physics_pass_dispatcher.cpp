@@ -116,16 +116,16 @@ bool PhysicsPassDispatcher::writeBroadPhaseReductionConstants(
                                 sizeof(constants));
 }
 
-bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice *renderDevice,
-                                       std::uint32_t physicsContextId,
-                                       const char *shaderSourceDirectory)
+bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t physicsContextId)
 {
-    if (renderDevice == nullptr || shaderSourceDirectory == nullptr)
+    gpu::GpuComputeBackendContext backendContext{};
+    if (!device.tryGetPhysicsBackendContext(backendContext) ||
+        backendContext.renderDevice == nullptr)
     {
         return false;
     }
 
-    mShaderLibrary      = gpu::ShaderLibrary(shaderSourceDirectory);
+    mShaderLibrary      = gpu::ShaderLibrary(device.shaderSourceDirectory());
     mPhysicsContextMask = gpu::contextMaskForId(physicsContextId);
 
     Diligent::IShaderSourceInputStreamFactory *streamFactory = mShaderLibrary.streamFactory();
@@ -138,7 +138,7 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice *renderDevice,
     auto initPass = [&](gpu::GpuComputePass &pass, const gpu::GpuComputePassDefinition &definition,
                         std::size_t variantCount = 1u) -> bool
     {
-        if (!pass.initialize(renderDevice, streamFactory, mPhysicsContextMask, definition))
+        if (!pass.initialize(device, streamFactory, mPhysicsContextMask, definition))
         {
             return false;
         }
@@ -186,7 +186,7 @@ bool PhysicsPassDispatcher::initialize(Diligent::IRenderDevice *renderDevice,
         constantsDesc.BindFlags            = Diligent::BIND_UNIFORM_BUFFER;
         constantsDesc.CPUAccessFlags       = Diligent::CPU_ACCESS_WRITE;
         constantsDesc.ImmediateContextMask = mPhysicsContextMask;
-        renderDevice->CreateBuffer(constantsDesc, nullptr, &buffer);
+        backendContext.renderDevice->CreateBuffer(constantsDesc, nullptr, &buffer);
         return buffer != nullptr;
     };
 

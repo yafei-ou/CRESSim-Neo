@@ -413,7 +413,7 @@ int main(int argc, char** argv)
     world.setTransform(cameraEntity, cameraTransform);
     CameraComponent camera{};
     camera.verticalFovDegrees = 52.0f;
-    camera.output.mode = cressim::neo::gpu::CameraOutputMode::ExplicitSurface;
+    camera.output.mode = cressim::neo::gpu::RenderOutputMode::ExplicitSurface;
     camera.output.binding = cressim::neo::gpu::GpuRenderTargetBinding{target, 0u, 1u};
     camera.outputWidth = targetDesc.width;
     camera.outputHeight = targetDesc.height;
