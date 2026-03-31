@@ -1342,12 +1342,13 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
 
         const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
         gpu::GpuRenderableMetadata entry{};
+        gpu::GpuRenderableFlags renderableFlags = gpu::GpuRenderableFlags::None;
         if (renderable.entityId != common::kInvalidEntityId &&
             renderable.objectSlot != kInvalidSlot)
         {
             if (renderable.visible)
             {
-                entry.flags |= gpu::GpuRenderableFlag_Active;
+                renderableFlags |= gpu::GpuRenderableFlags::Active;
             }
 
             const graphics::MaterialResourceDesc *material =
@@ -1355,10 +1356,10 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
             if (material != nullptr && renderable.visible &&
                 material->blendMode != graphics::BlendMode::Transparent)
             {
-                entry.flags |= gpu::GpuRenderableFlag_Opaque;
+                renderableFlags |= gpu::GpuRenderableFlags::Opaque;
                 if (material->castsShadows)
                 {
-                    entry.flags |= gpu::GpuRenderableFlag_ShadowCaster;
+                    renderableFlags |= gpu::GpuRenderableFlags::ShadowCaster;
                 }
             }
 
@@ -1372,6 +1373,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
                     Diligent::float4{localBoundsMax.x, localBoundsMax.y, localBoundsMax.z, 1.0f};
             }
         }
+        entry.flags = static_cast<std::uint32_t>(renderableFlags);
 
         mRenderableMetadataHost[objectIndex] = entry;
     }

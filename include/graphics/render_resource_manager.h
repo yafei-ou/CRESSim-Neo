@@ -1,9 +1,9 @@
 #ifndef CRESSIM_NEO_GRAPHICS_RENDER_RESOURCE_MANAGER_H
 #define CRESSIM_NEO_GRAPHICS_RENDER_RESOURCE_MANAGER_H
 
+#include "common/flags.h"
 #include "common/id.h"
 #include "graphics/export.h"
-#include "graphics/flags.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 
@@ -71,6 +71,16 @@ enum class IblQualityTier : std::uint32_t
     DiffuseOnly = 1u,
     Full        = 2u,
 };
+
+enum class MaterialFeatureFlags : std::uint32_t
+{
+    None        = 0u,
+    AlphaTest   = 1u << 0u,
+    NormalMap   = 1u << 1u,
+    ClearCoat   = 1u << 2u,
+    DoubleSided = 1u << 3u,
+};
+CRESSIM_NEO_DEFINE_ENUM_FLAGS(MaterialFeatureFlags)
 
 struct MaterialPipelineDesc
 {

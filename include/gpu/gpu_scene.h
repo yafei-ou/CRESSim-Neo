@@ -1,6 +1,8 @@
 #ifndef CRESSIM_NEO_GPU_GPU_SCENE_H
 #define CRESSIM_NEO_GPU_GPU_SCENE_H
 
+#include "common/flags.h"
+
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 
@@ -208,17 +210,18 @@ struct GpuEntityPoseMappingEntry
     std::uint32_t objectIndex     = 0;
 };
 
-enum GpuRenderableFlags : std::uint32_t
+enum class GpuRenderableFlags : std::uint32_t
 {
-    GpuRenderableFlag_None         = 0u,
-    GpuRenderableFlag_Active       = 1u << 0u,
-    GpuRenderableFlag_Opaque       = 1u << 1u,
-    GpuRenderableFlag_ShadowCaster = 1u << 2u,
+    None         = 0u,
+    Active       = 1u << 0u,
+    Opaque       = 1u << 1u,
+    ShadowCaster = 1u << 2u,
 };
+CRESSIM_NEO_DEFINE_ENUM_FLAGS(GpuRenderableFlags)
 
 struct GpuRenderableMetadata
 {
-    std::uint32_t flags     = GpuRenderableFlag_None;
+    std::uint32_t flags     = static_cast<std::uint32_t>(GpuRenderableFlags::None);
     std::uint32_t reserved0 = 0u;
     std::uint32_t reserved1 = 0u;
     std::uint32_t reserved2 = 0u;
