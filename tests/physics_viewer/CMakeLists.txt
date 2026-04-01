@@ -18,47 +18,47 @@ function(add_physics_viewer_test target_name source_file)
 endfunction()
 
 add_physics_viewer_test(
-    cressim_neo_physics_viewer_manual_vulkan
+    cressim_neo_physics_viewer
     physics_viewer.cpp
 )
 
 # Manual physics viewer executables. Intentionally not added to ctest.
 add_physics_viewer_test(
-    cressim_neo_physics_viewer_pairs_manual_vulkan
+    cressim_neo_physics_viewer_pairs
     physics_viewer_pairs.cpp
 )
 
 add_physics_viewer_test(
-    cressim_neo_physics_viewer_large_array_manual_vulkan
+    cressim_neo_physics_viewer_large_array
     physics_viewer_large_array.cpp
 )
 
 add_physics_viewer_test(
-    cressim_neo_physics_viewer_large_array_multi_env_manual_vulkan
+    cressim_neo_physics_viewer_large_array_multi_env
     physics_viewer_large_array_multi_env.cpp
 )
 
 add_physics_viewer_test(
-    cressim_neo_physics_viewer_large_array_multi_env_mixed_lighting_manual_vulkan
+    cressim_neo_physics_viewer_large_array_multi_env_mixed_lighting
     physics_viewer_large_array_multi_env_mixed_lighting.cpp
 )
 
 add_physics_viewer_test(
-    cressim_neo_physics_viewer_multi_env_light_matrix_manual_vulkan
+    cressim_neo_physics_viewer_multi_env_light_matrix
     physics_viewer_multi_env_light_matrix.cpp
 )
 
 add_physics_viewer_test(
-    cressim_neo_physics_viewer_large_array_multi_env_ibl_manual_vulkan
+    cressim_neo_physics_viewer_large_array_multi_env_ibl
     physics_viewer_large_array_multi_env_ibl.cpp
 )
 
 add_physics_viewer_test(
-    cressim_neo_physics_viewer_large_array_multi_env_shared_ibl_manual_vulkan
+    cressim_neo_physics_viewer_large_array_multi_env_shared_ibl
     physics_viewer_large_array_multi_env_shared_ibl.cpp
 )
 
 add_physics_viewer_test(
-    cressim_neo_physics_viewer_mixed_shape_contacts_manual_vulkan
+    cressim_neo_physics_viewer_mixed_shape_contacts
     physics_viewer_mixed_shape_contacts.cpp
 )

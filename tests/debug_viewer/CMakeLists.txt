@@ -17,7 +17,7 @@ set_target_properties(${TARGET_NAME}
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
-set(TWO_ENV_TARGET_NAME "cressim_neo_two_env_viewer_manual_vulkan")
+set(TWO_ENV_TARGET_NAME "cressim_neo_two_env_viewer")
 
 add_executable(${TWO_ENV_TARGET_NAME}
     ${PROJECT_SOURCE_DIR}/tests/debug_viewer/two_env_debug_viewer.cpp
@@ -36,7 +36,7 @@ set_target_properties(${TWO_ENV_TARGET_NAME}
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
-set(TEXTURE_VIEWER_TARGET_NAME "cressim_neo_texture_viewer_manual_vulkan")
+set(TEXTURE_VIEWER_TARGET_NAME "cressim_neo_texture_viewer")
 
 add_executable(${TEXTURE_VIEWER_TARGET_NAME}
     ${PROJECT_SOURCE_DIR}/tests/debug_viewer/texture_debug_viewer.cpp

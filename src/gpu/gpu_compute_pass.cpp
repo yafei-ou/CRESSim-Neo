@@ -104,7 +104,7 @@ Diligent::IShaderResourceBinding *GpuComputePass::variantSrb(std::size_t index) 
     {
         return nullptr;
     }
-    return mSrbs[index];
+    return mSrbs[index].RawPtr();
 }
 
 bool GpuComputePass::bindBufferVariable(Diligent::IShaderResourceBinding *srb,

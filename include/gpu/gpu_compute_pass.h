@@ -46,11 +46,11 @@ public:
 
     Diligent::IPipelineState *pipelineState() const
     {
-        return mPso;
+        return mPso.RawPtr();
     }
     Diligent::IShaderResourceBinding *defaultSrb() const
     {
-        return mSrbs.empty() ? nullptr : mSrbs[0];
+        return mSrbs.empty() ? nullptr : mSrbs[0].RawPtr();
     }
     Diligent::IShaderResourceBinding *variantSrb(std::size_t index) const;
 

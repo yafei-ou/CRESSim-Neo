@@ -69,6 +69,10 @@ set(DILIGENT_NO_OPENGL ON CACHE BOOL "Disable OpenGL backend" FORCE)
 set(DILIGENT_NO_METAL ON CACHE BOOL "Disable Metal backend" FORCE)
 set(DILIGENT_NO_WEBGPU ON CACHE BOOL "Disable WebGPU backend" FORCE)
 set(DILIGENT_NO_VULKAN OFF CACHE BOOL "Disable Vulkan backend" FORCE)
+if(MSVC)
+    set(DILIGENT_MSVC_RELEASE_COMPILE_OPTIONS "/arch:AVX2" CACHE STRING
+        "Additional MSVC compile options for release configurations" FORCE)
+endif()
 add_subdirectory(extern/DiligentEngine EXCLUDE_FROM_ALL)
 
 add_subdirectory(src)
