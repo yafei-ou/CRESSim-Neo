@@ -2,6 +2,7 @@
 #include "physics/include/physics_rigid_common.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(GpuSoftRigidBroadPhaseParticle, g_SoftRigidBroadPhaseParticles);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftRigidCellRange, g_SoftRigidCellRanges);
 CRESSIM_STRUCTURED_BUFFER(GpuMortonCodeElement, g_SortedSoftRigidBroadPhaseKeys);
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
@@ -27,24 +28,38 @@ uint ComputeParticleGridCellKey(int gx, int gy, int gz)
     return seed;
 }
 
-uint FindFirstKeyIndex(uint targetKey, uint totalCount)
+GpuSoftRigidCellRange FindCellRange(uint targetKey)
 {
-    uint left = 0u;
-    uint right = totalCount;
-    while (left < right)
+    GpuSoftRigidCellRange missingRange;
+    missingRange.cellKey = kInvalidIndex;
+    missingRange.startIndex = 0u;
+    missingRange.endIndex = 0u;
+    missingRange.reserved0 = 0u;
+
+    if (softRigidCellRangeCapacity == 0u)
     {
-        const uint mid = left + ((right - left) >> 1u);
-        const uint key = CRESSIM_SB_LOAD(g_SortedSoftRigidBroadPhaseKeys, mid).mortonCode;
-        if (key < targetKey)
-        {
-            left = mid + 1u;
-        }
-        else
-        {
-            right = mid;
-        }
+        return missingRange;
     }
-    return left;
+
+    const uint mask = softRigidCellRangeCapacity - 1u;
+    uint slot = targetKey & mask;
+    [loop]
+    for (uint probe = 0u; probe < softRigidCellRangeCapacity; ++probe)
+    {
+        const GpuSoftRigidCellRange range = CRESSIM_SB_LOAD(g_SoftRigidCellRanges, slot);
+        if (range.cellKey == targetKey)
+        {
+            return range;
+        }
+        if (range.cellKey == kInvalidIndex)
+        {
+            return missingRange;
+        }
+
+        slot = (slot + 1u) & mask;
+    }
+
+    return missingRange;
 }
 
 [numthreads(64, 1, 1)]
@@ -56,7 +71,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const uint totalParticleCount = softParticleCount + rigidSurfaceParticleCount;
     const GpuSoftRigidBroadPhaseParticle selfEntry =
         CRESSIM_SB_LOAD(g_SoftRigidBroadPhaseParticles, softIndex);
     if (selfEntry.particleType != kSoftRigidBroadPhaseParticleTypeSoft)
@@ -86,17 +100,17 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                 const int cellY = selfEntry.cellY + dy;
                 const int cellZ = selfEntry.cellZ + dz;
                 const uint targetKey = ComputeParticleGridCellKey(cellX, cellY, cellZ);
-                uint sortedIndex = FindFirstKeyIndex(targetKey, totalParticleCount);
+                const GpuSoftRigidCellRange range = FindCellRange(targetKey);
+                if (range.cellKey == kInvalidIndex)
+                {
+                    continue;
+                }
 
-                while (sortedIndex < totalParticleCount)
+                uint sortedIndex = range.startIndex;
+                while (sortedIndex < range.endIndex)
                 {
                     const GpuMortonCodeElement keyEntry =
                         CRESSIM_SB_LOAD(g_SortedSoftRigidBroadPhaseKeys, sortedIndex);
-                    if (keyEntry.mortonCode != targetKey)
-                    {
-                        break;
-                    }
-
                     const GpuSoftRigidBroadPhaseParticle candidateEntry =
                         CRESSIM_SB_LOAD(g_SoftRigidBroadPhaseParticles, keyEntry.elementIdx);
                     if (candidateEntry.cellX != cellX || candidateEntry.cellY != cellY ||

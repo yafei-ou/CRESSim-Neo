@@ -158,6 +158,8 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mUpdateRigidSurfaceWorldPositionsPass, kUpdateRigidSurfaceWorldPositions) ||
         !initPass(mBuildSoftRigidBroadPhaseParticlesPass, kBuildSoftRigidBroadPhaseParticles) ||
         !initPass(mBuildSoftRigidBroadPhaseKeysPass, kBuildSoftRigidBroadPhaseKeys) ||
+        !initPass(mClearSoftRigidCellRangesPass, kClearSoftRigidCellRanges) ||
+        !initPass(mBuildSoftRigidCellRangesPass, kBuildSoftRigidCellRanges) ||
         !initPass(mEmitSoftRigidCandidatePairsPass, kEmitSoftRigidCandidatePairs) ||
         !initPass(mGenerateSoftRigidContactsPass, kGenerateSoftRigidContacts) ||
         !initPass(mClearSoftConstraintStatePass, kClearSoftConstraintState) ||
@@ -560,6 +562,55 @@ bool PhysicsPassDispatcher::sortSoftRigidBroadPhase(Diligent::IDeviceContext *co
     return dispatchSoftRadixSortPass(computeContext, sceneState, count);
 }
 
+bool PhysicsPassDispatcher::clearSoftRigidCellRanges(Diligent::IDeviceContext *computeContext,
+                                                     const PhysicsSceneGpuState &sceneState,
+                                                     std::uint32_t cellRangeCapacity,
+                                                     const GpuSoftDispatchConstants &constants)
+{
+    if (cellRangeCapacity == 0u)
+    {
+        return true;
+    }
+
+    const auto &transient = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsSoftDispatchConstantsBuffer", mSoftDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftRigidCellRanges", transient.softRigidCellRangesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeSoftDispatchConstants(computeContext, constants) &&
+           mClearSoftRigidCellRangesPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                  dispatchGroupCount(cellRangeCapacity));
+}
+
+bool PhysicsPassDispatcher::buildSoftRigidCellRanges(Diligent::IDeviceContext *computeContext,
+                                                     const PhysicsSceneGpuState &sceneState,
+                                                     std::uint32_t totalParticleLikeCount,
+                                                     const GpuSoftDispatchConstants &constants)
+{
+    if (totalParticleLikeCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &transient = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsSoftDispatchConstantsBuffer", mSoftDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SortedSoftRigidBroadPhaseKeys",
+                              transient.softRigidBroadPhaseKeysBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftRigidCellRanges", transient.softRigidCellRangesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeSoftDispatchConstants(computeContext, constants) &&
+           mBuildSoftRigidCellRangesPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                  dispatchGroupCount(totalParticleLikeCount));
+}
+
 bool PhysicsPassDispatcher::emitSoftRigidCandidatePairs(Diligent::IDeviceContext *computeContext,
                                                         const PhysicsSceneGpuState &sceneState,
                                                         std::uint32_t softParticleCount,
@@ -583,6 +634,8 @@ bool PhysicsPassDispatcher::emitSoftRigidCandidatePairs(Diligent::IDeviceContext
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SoftRigidBroadPhaseParticles",
                               transient.softRigidBroadPhaseParticlesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftRigidCellRanges", transient.softRigidCellRangesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SortedSoftRigidBroadPhaseKeys",
                               transient.softRigidBroadPhaseKeysBuffer,

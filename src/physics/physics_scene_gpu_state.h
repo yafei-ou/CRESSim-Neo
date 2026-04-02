@@ -106,6 +106,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidBroadPhaseParticlesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidBroadPhaseKeysBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidBroadPhaseKeysScratchBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidCellRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRadixBitFlagsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRadixBitOffsetsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRadixMetaBuffer;

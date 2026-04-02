@@ -18,6 +18,22 @@ namespace
 constexpr std::uint32_t kComputeThreadGroupSize = 64u;
 constexpr std::uint32_t kNarrowPhaseChunkSize   = 128u;
 
+std::uint32_t nextPowerOfTwo(std::uint32_t value) noexcept
+{
+    if (value <= 1u)
+    {
+        return 1u;
+    }
+
+    --value;
+    value |= value >> 1u;
+    value |= value >> 2u;
+    value |= value >> 4u;
+    value |= value >> 8u;
+    value |= value >> 16u;
+    return value + 1u;
+}
+
 bool ensureStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
                             std::uint32_t elementStride, std::uint32_t elementCount,
                             Diligent::BIND_FLAGS bindFlags, Diligent::USAGE usage,
@@ -161,6 +177,7 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         mTransientState.softRigidBroadPhaseParticlesBuffer != nullptr &&
         mTransientState.softRigidBroadPhaseKeysBuffer != nullptr &&
         mTransientState.softRigidBroadPhaseKeysScratchBuffer != nullptr &&
+        mTransientState.softRigidCellRangesBuffer != nullptr &&
         mTransientState.softRadixBitFlagsBuffer != nullptr &&
         mTransientState.softRadixBitOffsetsBuffer != nullptr &&
         mTransientState.softRadixMetaBuffer != nullptr &&
@@ -254,6 +271,8 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         std::max<std::uint32_t>(rigidSurfaceParticleCount, 64u);
     const std::uint32_t newSoftRigidBroadPhaseParticleCapacity =
         std::max<std::uint32_t>(softParticleCount + rigidSurfaceParticleCount, 64u);
+    const std::uint32_t newSoftRigidCellRangeCapacity =
+        nextPowerOfTwo(std::max<std::uint32_t>(newSoftRigidBroadPhaseParticleCapacity * 2u, 64u));
     const std::uint32_t newSoftRigidCandidatePairCapacity =
         std::max<std::uint32_t>(softParticleCount * 8u, 64u);
     const std::uint32_t newNodeCapacity = std::max<std::uint32_t>(
@@ -477,6 +496,11 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.softRigidBroadPhaseKeysScratchBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRigidCellRanges",
+                                sizeof(GpuSoftRigidCellRange), newSoftRigidCellRangeCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.softRigidCellRangesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRadixBitFlags",
                                 sizeof(std::uint32_t), newSoftRigidBroadPhaseParticleCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,

@@ -73,9 +73,9 @@ struct GpuSoftDispatchConstants
     std::uint32_t rigidSurfaceParticleCount      = 0;
     float particleGridCellSize                   = 0.0f;
     std::uint32_t softRigidCandidatePairCapacity = 0;
+    std::uint32_t softRigidCellRangeCapacity     = 0;
     std::uint32_t softEdgeCount                  = 0;
     std::uint32_t softTetCount                   = 0;
-    std::uint32_t reserved2                      = 0;
 };
 
 constexpr std::uint32_t kSoftRigidBroadPhaseParticleTypeSoft         = 0u;
@@ -101,6 +101,14 @@ struct GpuSoftRigidCandidatePair
     std::uint32_t indexA   = 0;
     std::uint32_t indexB   = 0;
     std::uint32_t auxIndex = 0;
+};
+
+struct GpuSoftRigidCellRange
+{
+    std::uint32_t cellKey    = 0xffffffffu;
+    std::uint32_t startIndex = 0u;
+    std::uint32_t endIndex   = 0u;
+    std::uint32_t reserved0  = 0u;
 };
 
 struct GpuSoftRigidContact
@@ -261,6 +269,7 @@ static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
 static_assert(sizeof(GpuSoftDispatchConstants) == 32u);
 static_assert(sizeof(GpuSoftRigidBroadPhaseParticle) == 32u);
 static_assert(sizeof(GpuSoftRigidCandidatePair) == 16u);
+static_assert(sizeof(GpuSoftRigidCellRange) == 16u);
 static_assert(sizeof(GpuSoftRigidContact) == 48u);
 static_assert(sizeof(GpuBroadPhaseBuildConstants) == 16u);
 static_assert(sizeof(GpuBroadPhaseReductionConstants) == 16u);

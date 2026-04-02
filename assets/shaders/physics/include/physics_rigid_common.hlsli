@@ -186,6 +186,14 @@ struct GpuSoftRigidCandidatePair
     uint auxIndex;
 };
 
+struct GpuSoftRigidCellRange
+{
+    uint cellKey;
+    uint startIndex;
+    uint endIndex;
+    uint reserved0;
+};
+
 struct GpuSoftRigidContact
 {
     uint softParticleIndex;

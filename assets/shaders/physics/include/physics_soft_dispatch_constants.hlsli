@@ -10,9 +10,9 @@ cbuffer PhysicsSoftDispatchConstantsBuffer
     uint rigidSurfaceParticleCount;
     float particleGridCellSize;
     uint softRigidCandidatePairCapacity;
+    uint softRigidCellRangeCapacity;
     uint softEdgeCount;
     uint softTetCount;
-    uint reserved2;
 };
 
 static const float kSoftInternalRelaxation = 0.2;

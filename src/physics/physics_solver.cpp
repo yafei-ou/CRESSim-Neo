@@ -48,6 +48,22 @@ std::uint32_t resolveIterations(std::uint32_t overrideValue, std::uint32_t defau
     return overrideValue > 0u ? overrideValue : defaultValue;
 }
 
+std::uint32_t nextPowerOfTwo(std::uint32_t value)
+{
+    if (value <= 1u)
+    {
+        return 1u;
+    }
+
+    --value;
+    value |= value >> 1u;
+    value |= value >> 2u;
+    value |= value >> 4u;
+    value |= value >> 8u;
+    value |= value >> 16u;
+    return value + 1u;
+}
+
 } // namespace
 
 struct PhysicsSolver::Impl
@@ -192,6 +208,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         softConstants.particleGridCellSize      = particleGridCellSize;
         softConstants.softRigidCandidatePairCapacity =
             mImpl->sceneState.softRigidCandidatePairCapacity();
+        softConstants.softRigidCellRangeCapacity = nextPowerOfTwo(
+            std::max<std::uint32_t>((softParticleCount + rigidSurfaceParticleCount) * 2u, 1u));
         softConstants.softEdgeCount = softEdgeCount;
         softConstants.softTetCount  = softTetCount;
 
@@ -257,6 +275,20 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 softParticleCount + rigidSurfaceParticleCount))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SoftRigidRadixSort dispatch.");
+            return false;
+        }
+        if (!mImpl->passDispatcher.clearSoftRigidCellRanges(
+                computeBackend.computeContext, mImpl->sceneState,
+                softConstants.softRigidCellRangeCapacity, softConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ClearSoftRigidCellRanges dispatch.");
+            return false;
+        }
+        if (!mImpl->passDispatcher.buildSoftRigidCellRanges(
+                computeBackend.computeContext, mImpl->sceneState,
+                softParticleCount + rigidSurfaceParticleCount, softConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: BuildSoftRigidCellRanges dispatch.");
             return false;
         }
 

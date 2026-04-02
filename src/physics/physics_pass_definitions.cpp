@@ -93,10 +93,28 @@ constexpr Diligent::ShaderResourceVariableDesc kBuildSoftRigidBroadPhaseKeysVars
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kClearSoftRigidCellRangesVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidCellRanges",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kBuildSoftRigidCellRangesVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SortedSoftRigidBroadPhaseKeys",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidCellRanges",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kEmitSoftRigidCandidatePairsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidBroadPhaseParticles",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidCellRanges",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SortedSoftRigidBroadPhaseKeys",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -681,6 +699,22 @@ const gpu::GpuComputePassDefinition kBuildSoftRigidBroadPhaseKeys{
     "CRESSimNeo.Physics.SoftRigidBuildBroadPhaseKeys.PSO",
     kBuildSoftRigidBroadPhaseKeysVars,
     std::size(kBuildSoftRigidBroadPhaseKeysVars),
+};
+
+const gpu::GpuComputePassDefinition kClearSoftRigidCellRanges{
+    "physics/physics_soft_rigid_clear_cell_ranges.cs.hlsl",
+    "CRESSimNeo.Physics.SoftRigidClearCellRanges.CS",
+    "CRESSimNeo.Physics.SoftRigidClearCellRanges.PSO",
+    kClearSoftRigidCellRangesVars,
+    std::size(kClearSoftRigidCellRangesVars),
+};
+
+const gpu::GpuComputePassDefinition kBuildSoftRigidCellRanges{
+    "physics/physics_soft_rigid_build_cell_ranges.cs.hlsl",
+    "CRESSimNeo.Physics.SoftRigidBuildCellRanges.CS",
+    "CRESSimNeo.Physics.SoftRigidBuildCellRanges.PSO",
+    kBuildSoftRigidCellRangesVars,
+    std::size(kBuildSoftRigidCellRangesVars),
 };
 
 const gpu::GpuComputePassDefinition kEmitSoftRigidCandidatePairs{
