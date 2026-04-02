@@ -51,5 +51,6 @@ bin
 out
 
 .cache
+.codex
 .DS_Store
 extern
