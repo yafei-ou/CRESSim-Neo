@@ -1,8 +1,8 @@
 #include "physics/include/physics_soft_dispatch_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-CRESSIM_STRUCTURED_BUFFER(GpuSoftBroadPhaseParticle, g_SoftBroadPhaseParticles);
-CRESSIM_STRUCTURED_BUFFER(GpuMortonCodeElement, g_SortedSoftBroadPhaseKeys);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftRigidBroadPhaseParticle, g_SoftRigidBroadPhaseParticles);
+CRESSIM_STRUCTURED_BUFFER(GpuMortonCodeElement, g_SortedSoftRigidBroadPhaseKeys);
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float, g_SoftParticleRadii);
@@ -16,8 +16,8 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_RigidSurfaceParticleEnvironmentIndices);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidSurfaceParticleCollisionLayers);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidSurfaceParticleCollisionMasks);
 
-CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftCandidatePair, g_SoftCandidatePairs);
-CRESSIM_RW_STRUCTURED_BUFFER(uint, g_SoftCandidatePairCount);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftRigidCandidatePair, g_SoftRigidCandidatePairs);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_SoftRigidCandidatePairCount);
 
 uint ComputeParticleGridCellKey(int gx, int gy, int gz)
 {
@@ -34,7 +34,7 @@ uint FindFirstKeyIndex(uint targetKey, uint totalCount)
     while (left < right)
     {
         const uint mid = left + ((right - left) >> 1u);
-        const uint key = CRESSIM_SB_LOAD(g_SortedSoftBroadPhaseKeys, mid).mortonCode;
+        const uint key = CRESSIM_SB_LOAD(g_SortedSoftRigidBroadPhaseKeys, mid).mortonCode;
         if (key < targetKey)
         {
             left = mid + 1u;
@@ -57,8 +57,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     const uint totalParticleCount = softParticleCount + rigidSurfaceParticleCount;
-    const GpuSoftBroadPhaseParticle selfEntry = CRESSIM_SB_LOAD(g_SoftBroadPhaseParticles, softIndex);
-    if (selfEntry.particleType != kSoftBroadPhaseParticleTypeSoft)
+    const GpuSoftRigidBroadPhaseParticle selfEntry =
+        CRESSIM_SB_LOAD(g_SoftRigidBroadPhaseParticles, softIndex);
+    if (selfEntry.particleType != kSoftRigidBroadPhaseParticleTypeSoft)
     {
         return;
     }
@@ -90,14 +91,14 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                 while (sortedIndex < totalParticleCount)
                 {
                     const GpuMortonCodeElement keyEntry =
-                        CRESSIM_SB_LOAD(g_SortedSoftBroadPhaseKeys, sortedIndex);
+                        CRESSIM_SB_LOAD(g_SortedSoftRigidBroadPhaseKeys, sortedIndex);
                     if (keyEntry.mortonCode != targetKey)
                     {
                         break;
                     }
 
-                    const GpuSoftBroadPhaseParticle candidateEntry =
-                        CRESSIM_SB_LOAD(g_SoftBroadPhaseParticles, keyEntry.elementIdx);
+                    const GpuSoftRigidBroadPhaseParticle candidateEntry =
+                        CRESSIM_SB_LOAD(g_SoftRigidBroadPhaseParticles, keyEntry.elementIdx);
                     if (candidateEntry.cellX != cellX || candidateEntry.cellY != cellY ||
                         candidateEntry.cellZ != cellZ)
                     {
@@ -105,7 +106,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                         continue;
                     }
 
-                    if (candidateEntry.particleType == kSoftBroadPhaseParticleTypeSoft)
+                    if (candidateEntry.particleType == kSoftRigidBroadPhaseParticleTypeSoft)
                     {
                         const uint otherSoftIndex = candidateEntry.particleIndex;
                         if (otherSoftIndex <= softIndex)
@@ -140,15 +141,15 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                         if (dot(deltaPos, deltaPos) <= combinedRadius * combinedRadius)
                         {
                             uint pairIndex = 0u;
-                            InterlockedAdd(g_SoftCandidatePairCount[0], 1u, pairIndex);
-                            if (pairIndex < softCandidatePairCapacity)
+                            InterlockedAdd(g_SoftRigidCandidatePairCount[0], 1u, pairIndex);
+                            if (pairIndex < softRigidCandidatePairCapacity)
                             {
-                                GpuSoftCandidatePair pair;
-                                pair.pairType = kSoftCandidatePairTypeSoftSoft;
+                                GpuSoftRigidCandidatePair pair;
+                                pair.pairType = kSoftRigidCandidatePairTypeSoftSoft;
                                 pair.indexA = softIndex;
                                 pair.indexB = otherSoftIndex;
                                 pair.auxIndex = 0u;
-                                CRESSIM_SB_STORE(g_SoftCandidatePairs, pairIndex, pair);
+                                CRESSIM_SB_STORE(g_SoftRigidCandidatePairs, pairIndex, pair);
                             }
                         }
                     }
@@ -205,16 +206,16 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                                 }
 
                                 uint pairIndex = 0u;
-                                InterlockedAdd(g_SoftCandidatePairCount[0], 1u, pairIndex);
-                                if (pairIndex < softCandidatePairCapacity)
-                                {
-                                    GpuSoftCandidatePair pair;
-                                    pair.pairType = kSoftCandidatePairTypeSoftRigid;
-                                    pair.indexA = softIndex;
-                                    pair.indexB = rigidBodyIndex;
-                                    pair.auxIndex = surfaceIndex;
-                                    CRESSIM_SB_STORE(g_SoftCandidatePairs, pairIndex, pair);
-                                }
+                            InterlockedAdd(g_SoftRigidCandidatePairCount[0], 1u, pairIndex);
+                            if (pairIndex < softRigidCandidatePairCapacity)
+                            {
+                                GpuSoftRigidCandidatePair pair;
+                                pair.pairType = kSoftRigidCandidatePairTypeSoftRigid;
+                                pair.indexA = softIndex;
+                                pair.indexB = rigidBodyIndex;
+                                pair.auxIndex = surfaceIndex;
+                                CRESSIM_SB_STORE(g_SoftRigidCandidatePairs, pairIndex, pair);
+                            }
                             }
                         }
                     }

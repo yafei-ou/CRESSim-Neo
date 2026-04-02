@@ -32,23 +32,23 @@ public:
                                           const PhysicsSceneGpuState &sceneState,
                                           std::uint32_t rigidSurfaceParticleCount,
                                           const GpuSoftDispatchConstants &constants);
-    bool buildSoftBroadPhaseParticles(Diligent::IDeviceContext *computeContext,
+    bool buildSoftRigidBroadPhaseParticles(Diligent::IDeviceContext *computeContext,
+                                           const PhysicsSceneGpuState &sceneState,
+                                           std::uint32_t totalParticleLikeCount,
+                                           const GpuSoftDispatchConstants &constants);
+    bool buildSoftRigidBroadPhaseKeys(Diligent::IDeviceContext *computeContext,
                                       const PhysicsSceneGpuState &sceneState,
                                       std::uint32_t totalParticleLikeCount,
                                       const GpuSoftDispatchConstants &constants);
-    bool buildSoftBroadPhaseKeys(Diligent::IDeviceContext *computeContext,
-                                 const PhysicsSceneGpuState &sceneState,
-                                 std::uint32_t totalParticleLikeCount,
-                                 const GpuSoftDispatchConstants &constants);
-    bool sortSoftBroadPhase(Diligent::IDeviceContext *computeContext,
-                            const PhysicsSceneGpuState &sceneState, std::uint32_t count);
-    bool emitSoftCandidatePairs(Diligent::IDeviceContext *computeContext,
-                                const PhysicsSceneGpuState &sceneState,
-                                std::uint32_t softParticleCount,
-                                const GpuSoftDispatchConstants &constants);
-    bool generateSoftContacts(Diligent::IDeviceContext *computeContext,
-                              const PhysicsSceneGpuState &sceneState,
-                              const GpuSoftDispatchConstants &constants);
+    bool sortSoftRigidBroadPhase(Diligent::IDeviceContext *computeContext,
+                                 const PhysicsSceneGpuState &sceneState, std::uint32_t count);
+    bool emitSoftRigidCandidatePairs(Diligent::IDeviceContext *computeContext,
+                                     const PhysicsSceneGpuState &sceneState,
+                                     std::uint32_t softParticleCount,
+                                     const GpuSoftDispatchConstants &constants);
+    bool generateSoftRigidContacts(Diligent::IDeviceContext *computeContext,
+                                   const PhysicsSceneGpuState &sceneState,
+                                   const GpuSoftDispatchConstants &constants);
     bool clearSoftConstraintState(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState, std::uint32_t threadCount,
                                   const GpuSoftDispatchConstants &constants);
@@ -59,9 +59,9 @@ public:
     bool solveSoftTetConstraints(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState, std::uint32_t softTetCount,
                                  const GpuSoftDispatchConstants &constants);
-    bool solveSoftContacts(Diligent::IDeviceContext *computeContext,
-                           const PhysicsSceneGpuState &sceneState, std::uint32_t iterations,
-                           const GpuSoftDispatchConstants &constants);
+    bool solveSoftRigidContacts(Diligent::IDeviceContext *computeContext,
+                                const PhysicsSceneGpuState &sceneState, std::uint32_t iterations,
+                                const GpuSoftDispatchConstants &constants);
     bool updateSoftVelocities(Diligent::IDeviceContext *computeContext,
                               const PhysicsSceneGpuState &sceneState,
                               std::uint32_t softParticleCount,
@@ -149,15 +149,15 @@ private:
     gpu::GpuComputePass mPredictPass;
     gpu::GpuComputePass mSoftPredictPass;
     gpu::GpuComputePass mUpdateRigidSurfaceWorldPositionsPass;
-    gpu::GpuComputePass mBuildSoftBroadPhaseParticlesPass;
-    gpu::GpuComputePass mBuildSoftBroadPhaseKeysPass;
-    gpu::GpuComputePass mEmitSoftCandidatePairsPass;
-    gpu::GpuComputePass mGenerateSoftContactsPass;
+    gpu::GpuComputePass mBuildSoftRigidBroadPhaseParticlesPass;
+    gpu::GpuComputePass mBuildSoftRigidBroadPhaseKeysPass;
+    gpu::GpuComputePass mEmitSoftRigidCandidatePairsPass;
+    gpu::GpuComputePass mGenerateSoftRigidContactsPass;
     gpu::GpuComputePass mClearSoftConstraintStatePass;
     gpu::GpuComputePass mSolveSoftEdgeConstraintsPass;
     gpu::GpuComputePass mSolveSoftTetConstraintsPass;
-    gpu::GpuComputePass mSolveSoftContactsPass;
-    gpu::GpuComputePass mApplySoftContactCorrectionsPass;
+    gpu::GpuComputePass mSolveSoftRigidContactsPass;
+    gpu::GpuComputePass mApplySoftPositionCorrectionsPass;
     gpu::GpuComputePass mUpdateSoftVelocitiesPass;
     gpu::GpuComputePass mUpdateWorldAabbsPass;
     gpu::GpuComputePass mScanBlockPass;

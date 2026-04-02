@@ -6,7 +6,7 @@ static const float kSoftContactRelaxation = 0.90;
 static const float kSoftMaxCorrectionPerIter = 0.02;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(GpuSoftContact, g_SoftContacts);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftRigidContact, g_SoftRigidContacts);
 
 CRESSIM_RW_STRUCTURED_BUFFER(int4, g_SoftPositionCorrections);
 
@@ -19,12 +19,12 @@ int3 QuantizeSoftCorrection(float3 value)
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint contactIndex = dispatchThreadID.x;
-    if (contactIndex >= softCandidatePairCapacity)
+    if (contactIndex >= softRigidCandidatePairCapacity)
     {
         return;
     }
 
-    const GpuSoftContact contact = CRESSIM_SB_LOAD(g_SoftContacts, contactIndex);
+    const GpuSoftRigidContact contact = CRESSIM_SB_LOAD(g_SoftRigidContacts, contactIndex);
     if (contact.active == 0u)
     {
         return;

@@ -17,38 +17,38 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalPositions);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalOrientations);
 CRESSIM_STRUCTURED_BUFFER(GpuColliderBroadPhaseData, g_ColliderBroadPhaseData);
 
-CRESSIM_STRUCTURED_BUFFER(GpuSoftCandidatePair, g_SoftCandidatePairs);
-CRESSIM_STRUCTURED_BUFFER(uint, g_SoftCandidatePairCount);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftRigidCandidatePair, g_SoftRigidCandidatePairs);
+CRESSIM_STRUCTURED_BUFFER(uint, g_SoftRigidCandidatePairCount);
 
-CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftContact, g_SoftContacts);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftRigidContact, g_SoftRigidContacts);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint pairIndex = dispatchThreadID.x;
-    if (pairIndex >= softCandidatePairCapacity)
+    if (pairIndex >= softRigidCandidatePairCapacity)
     {
         return;
     }
 
-    GpuSoftContact outContact;
+    GpuSoftRigidContact outContact;
     outContact.softParticleIndex = 0u;
     outContact.rigidBodyIndex = 0u;
     outContact.colliderIndex = 0u;
     outContact.active = 0u;
     outContact.normalPenetration = float4(0.0, 0.0, 0.0, 0.0);
 
-    const uint validPairCount = CRESSIM_SB_LOAD(g_SoftCandidatePairCount, 0u);
+    const uint validPairCount = CRESSIM_SB_LOAD(g_SoftRigidCandidatePairCount, 0u);
     if (pairIndex >= validPairCount)
     {
-        CRESSIM_SB_STORE(g_SoftContacts, pairIndex, outContact);
+        CRESSIM_SB_STORE(g_SoftRigidContacts, pairIndex, outContact);
         return;
     }
 
-    const GpuSoftCandidatePair pair = CRESSIM_SB_LOAD(g_SoftCandidatePairs, pairIndex);
-    if (pair.pairType != kSoftCandidatePairTypeSoftRigid)
+    const GpuSoftRigidCandidatePair pair = CRESSIM_SB_LOAD(g_SoftRigidCandidatePairs, pairIndex);
+    if (pair.pairType != kSoftRigidCandidatePairTypeSoftRigid)
     {
-        CRESSIM_SB_STORE(g_SoftContacts, pairIndex, outContact);
+        CRESSIM_SB_STORE(g_SoftRigidContacts, pairIndex, outContact);
         return;
     }
 
@@ -185,5 +185,5 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         outContact.normalPenetration = float4(bestNormal, bestPenetration);
     }
 
-    CRESSIM_SB_STORE(g_SoftContacts, pairIndex, outContact);
+    CRESSIM_SB_STORE(g_SoftRigidContacts, pairIndex, outContact);
 }

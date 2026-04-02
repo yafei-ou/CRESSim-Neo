@@ -66,18 +66,18 @@ struct GpuSoftDispatchConstants
     std::uint32_t softParticleCount         = 0;
     std::uint32_t rigidSurfaceParticleCount = 0;
     float particleGridCellSize              = 0.0f;
-    std::uint32_t softCandidatePairCapacity = 0;
+    std::uint32_t softRigidCandidatePairCapacity = 0;
     std::uint32_t softEdgeCount             = 0;
     std::uint32_t softTetCount              = 0;
     std::uint32_t reserved2                 = 0;
 };
 
-constexpr std::uint32_t kSoftBroadPhaseParticleTypeSoft         = 0u;
-constexpr std::uint32_t kSoftBroadPhaseParticleTypeRigidSurface = 1u;
-constexpr std::uint32_t kSoftCandidatePairTypeSoftSoft          = 0u;
-constexpr std::uint32_t kSoftCandidatePairTypeSoftRigid         = 1u;
+constexpr std::uint32_t kSoftRigidBroadPhaseParticleTypeSoft         = 0u;
+constexpr std::uint32_t kSoftRigidBroadPhaseParticleTypeRigidSurface = 1u;
+constexpr std::uint32_t kSoftRigidCandidatePairTypeSoftSoft          = 0u;
+constexpr std::uint32_t kSoftRigidCandidatePairTypeSoftRigid         = 1u;
 
-struct GpuSoftBroadPhaseParticle
+struct GpuSoftRigidBroadPhaseParticle
 {
     std::uint32_t cellKey       = 0;
     std::int32_t cellX          = 0;
@@ -89,7 +89,7 @@ struct GpuSoftBroadPhaseParticle
     std::uint32_t reserved0     = 0;
 };
 
-struct GpuSoftCandidatePair
+struct GpuSoftRigidCandidatePair
 {
     std::uint32_t pairType = 0;
     std::uint32_t indexA   = 0;
@@ -97,7 +97,7 @@ struct GpuSoftCandidatePair
     std::uint32_t auxIndex = 0;
 };
 
-struct GpuSoftContact
+struct GpuSoftRigidContact
 {
     std::uint32_t softParticleIndex = 0;
     std::uint32_t rigidBodyIndex    = 0;
@@ -252,9 +252,9 @@ static_assert(sizeof(GpuRigidDispatchConstants) == 48u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
 static_assert(sizeof(GpuSoftDispatchConstants) == 32u);
-static_assert(sizeof(GpuSoftBroadPhaseParticle) == 32u);
-static_assert(sizeof(GpuSoftCandidatePair) == 16u);
-static_assert(sizeof(GpuSoftContact) == 32u);
+static_assert(sizeof(GpuSoftRigidBroadPhaseParticle) == 32u);
+static_assert(sizeof(GpuSoftRigidCandidatePair) == 16u);
+static_assert(sizeof(GpuSoftRigidContact) == 32u);
 static_assert(sizeof(GpuBroadPhaseBuildConstants) == 16u);
 static_assert(sizeof(GpuBroadPhaseReductionConstants) == 16u);
 static_assert(sizeof(GpuBodyAabb) == 32u);

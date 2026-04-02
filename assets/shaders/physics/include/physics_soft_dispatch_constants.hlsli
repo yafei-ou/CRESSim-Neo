@@ -9,7 +9,7 @@ cbuffer PhysicsSoftDispatchConstantsBuffer
     uint softParticleCount;
     uint rigidSurfaceParticleCount;
     float particleGridCellSize;
-    uint softCandidatePairCapacity;
+    uint softRigidCandidatePairCapacity;
     uint softEdgeCount;
     uint softTetCount;
     uint reserved2;

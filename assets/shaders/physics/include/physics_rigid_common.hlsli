@@ -15,10 +15,10 @@ static const uint kInvalidIndex = 0xffffffffu;
 static const uint kRigidPairTypeCount = 6u;
 
 static const uint kRigidContactsPerPair = 4u;
-static const uint kSoftBroadPhaseParticleTypeSoft = 0u;
-static const uint kSoftBroadPhaseParticleTypeRigidSurface = 1u;
-static const uint kSoftCandidatePairTypeSoftSoft = 0u;
-static const uint kSoftCandidatePairTypeSoftRigid = 1u;
+static const uint kSoftRigidBroadPhaseParticleTypeSoft = 0u;
+static const uint kSoftRigidBroadPhaseParticleTypeRigidSurface = 1u;
+static const uint kSoftRigidCandidatePairTypeSoftSoft = 0u;
+static const uint kSoftRigidCandidatePairTypeSoftRigid = 1u;
 static const float kBroadPhaseMargin = 0.05f;
 
 static const float3 kGravity = float3(0.0, -9.81, 0.0);
@@ -167,7 +167,7 @@ struct GpuColliderBroadPhaseData
     uint reserved2;
 };
 
-struct GpuSoftBroadPhaseParticle
+struct GpuSoftRigidBroadPhaseParticle
 {
     uint cellKey;
     int cellX;
@@ -179,7 +179,7 @@ struct GpuSoftBroadPhaseParticle
     uint reserved0;
 };
 
-struct GpuSoftCandidatePair
+struct GpuSoftRigidCandidatePair
 {
     uint pairType;
     uint indexA;
@@ -187,7 +187,7 @@ struct GpuSoftCandidatePair
     uint auxIndex;
 };
 
-struct GpuSoftContact
+struct GpuSoftRigidContact
 {
     uint softParticleIndex;
     uint rigidBodyIndex;

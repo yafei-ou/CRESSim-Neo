@@ -103,15 +103,15 @@ public:
     {
         PredictedRigidBodyBuffers predictedRigidBodies;
         PreviousRigidBodyBuffers previousRigidBodies;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBroadPhaseParticlesBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBroadPhaseKeysBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBroadPhaseKeysScratchBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidBroadPhaseParticlesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidBroadPhaseKeysBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidBroadPhaseKeysScratchBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRadixBitFlagsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRadixBitOffsetsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRadixMetaBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> softCandidatePairsBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> softCandidatePairCountBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> softContactsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidCandidatePairsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidCandidatePairCountBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidContactsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softPositionCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetLambdasBuffer;
@@ -204,7 +204,7 @@ public:
     const PersistentRigidSurfaceParticleBuffers &persistentRigidSurfaceParticles() const noexcept;
     const SolverTransientBuffers &transientBuffers() const noexcept;
     std::uint32_t candidatePairCapacity() const noexcept;
-    std::uint32_t softCandidatePairCapacity() const noexcept;
+    std::uint32_t softRigidCandidatePairCapacity() const noexcept;
     bool correctionBuffersNeedClear() const noexcept;
     void setCorrectionBuffersNeedClear(bool needClear) noexcept;
     bool staticBroadPhaseDirty() const noexcept;
@@ -252,8 +252,8 @@ private:
     std::uint32_t mSoftEdgeCapacity               = 0;
     std::uint32_t mSoftTetCapacity                = 0;
     std::uint32_t mRigidSurfaceParticleCapacity   = 0;
-    std::uint32_t mSoftBroadPhaseParticleCapacity = 0;
-    std::uint32_t mSoftCandidatePairCapacity      = 0;
+    std::uint32_t mSoftRigidBroadPhaseParticleCapacity = 0;
+    std::uint32_t mSoftRigidCandidatePairCapacity      = 0;
     std::uint32_t mRigidBodyCount                 = 0;
     std::uint32_t mColliderCount                  = 0;
     std::uint32_t mSoftBodyCount                  = 0;
