@@ -22,9 +22,9 @@ class PhysicsPassDispatcher
 public:
     bool initialize(gpu::GpuDevice &device, std::uint32_t physicsContextId);
 
-    bool clearCorrections(Diligent::IDeviceContext *computeContext,
-                          PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
-                          const GpuRigidDispatchConstants &constants);
+    bool clearRigidCorrections(Diligent::IDeviceContext *computeContext,
+                               PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
+                               const GpuRigidDispatchConstants &constants);
     bool predictSoft(Diligent::IDeviceContext *computeContext,
                      const PhysicsSceneGpuState &sceneState, std::uint32_t softParticleCount,
                      const GpuSoftDispatchConstants &constants);
@@ -83,11 +83,12 @@ public:
                               const PhysicsSceneGpuState &sceneState,
                               std::uint32_t softParticleCount,
                               const GpuSoftDispatchConstants &constants);
-    bool predict(Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-                 std::uint32_t bodyCount, const GpuRigidDispatchConstants &constants);
-    bool updateWorldAabbs(Diligent::IDeviceContext *computeContext,
-                          const PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
-                          const GpuRigidDispatchConstants &constants);
+    bool predictRigid(Diligent::IDeviceContext *computeContext,
+                      const PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
+                      const GpuRigidDispatchConstants &constants);
+    bool updateRigidWorldAabbs(Diligent::IDeviceContext *computeContext,
+                               const PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
+                               const GpuRigidDispatchConstants &constants);
     bool compactBroadPhaseBodySets(Diligent::IDeviceContext *computeContext,
                                    const PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
                                    const GpuRigidDispatchConstants &constants);
@@ -102,17 +103,17 @@ public:
                              const PhysicsSceneGpuState &sceneState,
                              std::uint32_t activeMovingCount,
                              const GpuRigidDispatchConstants &constants);
-    bool generateContacts(Diligent::IDeviceContext *computeContext,
-                          const PhysicsSceneGpuState &sceneState, std::uint32_t pairCount);
-    bool solveConstraints(Diligent::IDeviceContext *computeContext,
-                          const PhysicsSceneGpuState &sceneState, std::uint32_t rigidBodyCount,
-                          std::uint32_t pairCount, const GpuRigidDispatchConstants &constants);
-    bool applyCorrections(Diligent::IDeviceContext *computeContext,
-                          const PhysicsSceneGpuState &sceneState, std::uint32_t rigidBodyCount,
-                          const GpuRigidDispatchConstants &constants);
-    bool updateVelocities(Diligent::IDeviceContext *computeContext,
-                          const PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
-                          const GpuRigidDispatchConstants &constants);
+    bool generateRigidContacts(Diligent::IDeviceContext *computeContext,
+                               const PhysicsSceneGpuState &sceneState, std::uint32_t pairCount);
+    bool solveRigidConstraints(Diligent::IDeviceContext *computeContext,
+                               const PhysicsSceneGpuState &sceneState, std::uint32_t rigidBodyCount,
+                               std::uint32_t pairCount, const GpuRigidDispatchConstants &constants);
+    bool applyRigidCorrections(Diligent::IDeviceContext *computeContext,
+                               const PhysicsSceneGpuState &sceneState, std::uint32_t rigidBodyCount,
+                               const GpuRigidDispatchConstants &constants);
+    bool updateRigidVelocities(Diligent::IDeviceContext *computeContext,
+                               const PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
+                               const GpuRigidDispatchConstants &constants);
     bool solveContactVelocities(Diligent::IDeviceContext *computeContext,
                                 const PhysicsSceneGpuState &sceneState,
                                 std::uint32_t rigidBodyCount, std::uint32_t pairCount,
@@ -153,9 +154,9 @@ private:
                                bool useStaticSet);
     bool dispatchSoftRadixSortPass(Diligent::IDeviceContext *computeContext,
                                    const PhysicsSceneGpuState &sceneState, std::uint32_t count);
-    bool dispatchGenerateContactsPass(Diligent::IDeviceContext *computeContext,
-                                      const PhysicsSceneGpuState &sceneState,
-                                      std::uint32_t pairCount);
+    bool dispatchGenerateRigidContactsPass(Diligent::IDeviceContext *computeContext,
+                                           const PhysicsSceneGpuState &sceneState,
+                                           std::uint32_t pairCount);
     bool dispatchSolveGatherPass(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState, std::uint32_t pairCount);
     bool dispatchSolveContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
@@ -165,7 +166,7 @@ private:
     gpu::ShaderLibrary mShaderLibrary{""};
     Diligent::Uint64 mPhysicsContextMask = 0;
 
-    gpu::GpuComputePass mPredictPass;
+    gpu::GpuComputePass mRigidPredictPass;
     gpu::GpuComputePass mSoftPredictPass;
     gpu::GpuComputePass mUpdateRigidSurfaceWorldPositionsPass;
     gpu::GpuComputePass mBuildParticleBroadPhaseEntriesPass;
@@ -182,7 +183,7 @@ private:
     gpu::GpuComputePass mSolveSoftRigidContactsPass;
     gpu::GpuComputePass mApplySoftPositionCorrectionsPass;
     gpu::GpuComputePass mUpdateSoftVelocitiesPass;
-    gpu::GpuComputePass mUpdateWorldAabbsPass;
+    gpu::GpuComputePass mUpdateRigidWorldAabbsPass;
     gpu::GpuComputePass mScanBlockPass;
     gpu::GpuComputePass mScanAddOffsetsPass;
     gpu::GpuComputePass mCompactBodySetPass;
@@ -200,11 +201,11 @@ private:
     gpu::GpuComputePass mFinalizePairsPass;
     gpu::GpuComputePass mEmitPairsPass;
     gpu::GpuComputePass mBuildNarrowPhaseChunksPass;
-    gpu::GpuComputePass mGenerateContactsPass;
-    gpu::GpuComputePass mClearCorrectionsPass;
+    gpu::GpuComputePass mGenerateRigidContactsPass;
+    gpu::GpuComputePass mClearRigidCorrectionsPass;
     gpu::GpuComputePass mSolveGatherPass;
-    gpu::GpuComputePass mApplyCorrectionsPass;
-    gpu::GpuComputePass mUpdateVelocitiesPass;
+    gpu::GpuComputePass mApplyRigidCorrectionsPass;
+    gpu::GpuComputePass mUpdateRigidVelocitiesPass;
     gpu::GpuComputePass mSolveContactVelocitiesPass;
     gpu::GpuComputePass mApplyContactVelocitiesPass;
 

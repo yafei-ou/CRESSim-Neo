@@ -2,53 +2,16 @@
 
 #include "common/logger.h"
 
-#include <sstream>
-
 namespace cressim::neo::engine
 {
 
 namespace
 {
 
-const char *stageName(physics::PhysicsSolverStage stage)
+void logPhysicsStepFailure(const common::FrameContext &frameContext)
 {
-    switch (stage)
-    {
-    case physics::PhysicsSolverStage::PredictState:
-        return "PredictState";
-    case physics::PhysicsSolverStage::UpdateWorldAabbs:
-        return "UpdateWorldAabbs";
-    case physics::PhysicsSolverStage::BuildBroadPhase:
-        return "BuildBroadPhase";
-    case physics::PhysicsSolverStage::GenerateBroadPhasePairs:
-        return "GenerateBroadPhasePairs";
-    case physics::PhysicsSolverStage::GenerateContacts:
-        return "GenerateContacts";
-    case physics::PhysicsSolverStage::SolveConstraints:
-        return "SolveConstraints";
-    case physics::PhysicsSolverStage::UpdateVelocities:
-        return "UpdateVelocities";
-    case physics::PhysicsSolverStage::CommitResults:
-        return "CommitResults";
-    case physics::PhysicsSolverStage::Count:
-        break;
-    }
-    return "Unknown";
-}
-
-void logPhysicsStepFailure(const common::FrameContext &frameContext,
-                           const physics::PhysicsSolverStageStats &stats)
-{
-    std::ostringstream stream;
-    stream << "Runtime: physics step failed at frame " << frameContext.frameIndex
-           << " (dt=" << frameContext.deltaSeconds << "). Executed stages:";
-    for (std::uint32_t i = 0; i < static_cast<std::uint32_t>(physics::PhysicsSolverStage::Count);
-         ++i)
-    {
-        const auto stage = static_cast<physics::PhysicsSolverStage>(i);
-        stream << ' ' << stageName(stage) << '=' << (stats.executed[i] ? '1' : '0');
-    }
-    CRESSIM_LOG_ERROR(stream.str());
+    CRESSIM_LOG_ERROR("Runtime: physics step failed at frame ", frameContext.frameIndex,
+                      " (dt=", frameContext.deltaSeconds, ").");
 }
 
 } // namespace
@@ -161,7 +124,7 @@ void Runtime::tick(const common::FrameContext &frameContext)
         physicsStepSucceeded = mPhysicsSolver->step(frameContext, mWorld.physicsWorld());
         if (!physicsStepSucceeded)
         {
-            logPhysicsStepFailure(frameContext, mPhysicsSolver->lastStageStats());
+            logPhysicsStepFailure(frameContext);
         }
     }
 

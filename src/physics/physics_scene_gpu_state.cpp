@@ -246,7 +246,7 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         mTransientState.narrowPhaseChunksBuffer != nullptr &&
         mTransientState.narrowPhaseMetaBuffer != nullptr &&
         mTransientState.narrowPhaseChunkCounterBuffer != nullptr &&
-        mTransientState.contactsBuffer != nullptr &&
+        mTransientState.rigidContactsBuffer != nullptr &&
         mTransientState.translationCorrectionsBuffer != nullptr &&
         mTransientState.rotationCorrectionsBuffer != nullptr &&
         mTransientState.linearVelocityCorrectionsBuffer != nullptr &&
@@ -288,7 +288,7 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         estimateRigidCandidatePairCapacity(newColliderCapacity);
     const std::uint32_t newChunkCapacity = std::max<std::uint32_t>(
         (newCandidatePairCapacity + kNarrowPhaseChunkSize - 1u) / kNarrowPhaseChunkSize, 1u);
-    const std::uint32_t newContactCapacity = std::max<std::uint32_t>(
+    const std::uint32_t newRigidContactCapacity = std::max<std::uint32_t>(
         newCandidatePairCapacity * kRigidContactsPerPair, kRigidContactsPerPair);
     const Diligent::Uint64 contextMask                    = gpu::contextMaskForId(physicsContextId);
     const std::vector<std::uint32_t> reductionLevelCounts = buildReductionLevelCounts(
@@ -826,10 +826,10 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.narrowPhaseChunkCounterBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidContacts",
-                                sizeof(GpuRigidContact), newContactCapacity,
+                                sizeof(GpuRigidContact), newRigidContactCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.contactsBuffer) ||
+                                mTransientState.rigidContactsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.TranslationCorrections",
                                 sizeof(std::int32_t) * 4u, newRigidBodyCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -956,7 +956,7 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
     mSoftParticleAdjacencyCapacity   = newSoftParticleAdjacencyCapacity;
     mBroadPhaseNodeCapacity          = newNodeCapacity;
     mCandidatePairCapacity           = newCandidatePairCapacity;
-    mContactCapacity                 = newContactCapacity;
+    mContactCapacity                 = newRigidContactCapacity;
     mCorrectionBuffersNeedClear      = true;
     mStaticBroadPhaseDirty           = true;
     mRigidBodyUploadResetRequired    = true;

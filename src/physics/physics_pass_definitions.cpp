@@ -689,7 +689,7 @@ constexpr Diligent::ShaderResourceVariableDesc kApplyContactVelocitiesVars[] = {
 
 } // namespace
 
-const gpu::GpuComputePassDefinition kPredict{
+const gpu::GpuComputePassDefinition kPredictRigid{
     "physics/physics_rigid_predict.cs.hlsl",
     "CRESSimNeo.Physics.RigidPredict.CS",
     "CRESSimNeo.Physics.RigidPredict.PSO",
@@ -825,7 +825,7 @@ const gpu::GpuComputePassDefinition kUpdateSoftVelocities{
     std::size(kUpdateSoftVelocitiesVars),
 };
 
-const gpu::GpuComputePassDefinition kUpdateWorldAabbs{
+const gpu::GpuComputePassDefinition kUpdateRigidWorldAabbs{
     "physics/physics_rigid_update_world_aabbs.cs.hlsl",
     "CRESSimNeo.Physics.RigidUpdateWorldAabbs.CS",
     "CRESSimNeo.Physics.RigidUpdateWorldAabbs.PSO",
@@ -968,7 +968,7 @@ const gpu::GpuComputePassDefinition kBuildNarrowPhaseChunks{
     std::size(kBuildNarrowPhaseChunksVars),
 };
 
-const gpu::GpuComputePassDefinition kGenerateContacts{
+const gpu::GpuComputePassDefinition kGenerateRigidContacts{
     "physics/physics_rigid_generate_contacts.cs.hlsl",
     "CRESSimNeo.Physics.RigidGenerateContacts.CS",
     "CRESSimNeo.Physics.RigidGenerateContacts.PSO",
@@ -984,7 +984,7 @@ const gpu::GpuComputePassDefinition kSolveGather{
     std::size(kSolveGatherVars),
 };
 
-const gpu::GpuComputePassDefinition kClearCorrections{
+const gpu::GpuComputePassDefinition kClearRigidCorrections{
     "physics/physics_rigid_clear_corrections.cs.hlsl",
     "CRESSimNeo.Physics.RigidClearCorrections.CS",
     "CRESSimNeo.Physics.RigidClearCorrections.PSO",
@@ -992,7 +992,7 @@ const gpu::GpuComputePassDefinition kClearCorrections{
     std::size(kClearCorrectionsVars),
 };
 
-const gpu::GpuComputePassDefinition kApplyCorrections{
+const gpu::GpuComputePassDefinition kApplyRigidCorrections{
     "physics/physics_rigid_apply_corrections.cs.hlsl",
     "CRESSimNeo.Physics.RigidApplyCorrections.CS",
     "CRESSimNeo.Physics.RigidApplyCorrections.PSO",
@@ -1000,7 +1000,7 @@ const gpu::GpuComputePassDefinition kApplyCorrections{
     std::size(kApplyCorrectionsVars),
 };
 
-const gpu::GpuComputePassDefinition kUpdateVelocities{
+const gpu::GpuComputePassDefinition kUpdateRigidVelocities{
     "physics/physics_rigid_update_velocities.cs.hlsl",
     "CRESSimNeo.Physics.RigidUpdateVelocities.CS",
     "CRESSimNeo.Physics.RigidUpdateVelocities.PSO",

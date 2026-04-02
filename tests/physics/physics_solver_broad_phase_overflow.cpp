@@ -89,16 +89,6 @@ int main()
         return 1;
     }
 
-    const physics::PhysicsSolverStageStats& stats = solver.lastStageStats();
-    if (!stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::PredictState)] ||
-        !stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::UpdateWorldAabbs)])
-    {
-        CRESSIM_LOG_ERROR( "Expected broad-phase stages did not execute before overflow.\n");
-        solver.shutdown();
-        runtime.shutdown();
-        return 1;
-    }
-
     solver.shutdown();
     runtime.shutdown();
     CRESSIM_LOG_INFO( "Physics broad-phase overflow checks passed.\n");

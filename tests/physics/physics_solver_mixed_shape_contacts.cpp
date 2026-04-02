@@ -123,18 +123,6 @@ int main()
             return 1;
         }
 
-        const physics::PhysicsSolverStageStats& stats = solver.lastStageStats();
-        if (!stats.executed[static_cast<std::size_t>(
-                physics::PhysicsSolverStage::GenerateBroadPhasePairs)] ||
-            !stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::GenerateContacts)])
-        {
-            CRESSIM_LOG_ERROR( "Expected broad-phase pair/contact stages were skipped at iteration "
-                      , stepIndex , ".\n");
-            solver.shutdown();
-            runtime.shutdown();
-            return 1;
-        }
-
         for (const physics::RigidBodyState& body : world.rigidBodySnapshot())
         {
             if (!isFinite(body))

@@ -6,7 +6,7 @@
 namespace cressim::neo::physics::passdefs
 {
 
-extern const gpu::GpuComputePassDefinition kPredict;
+extern const gpu::GpuComputePassDefinition kPredictRigid;
 extern const gpu::GpuComputePassDefinition kSoftPredict;
 extern const gpu::GpuComputePassDefinition kUpdateRigidSurfaceWorldPositions;
 extern const gpu::GpuComputePassDefinition kBuildParticleBroadPhaseEntries;
@@ -23,7 +23,7 @@ extern const gpu::GpuComputePassDefinition kSolveSoftContacts;
 extern const gpu::GpuComputePassDefinition kSolveSoftRigidContacts;
 extern const gpu::GpuComputePassDefinition kApplySoftPositionCorrections;
 extern const gpu::GpuComputePassDefinition kUpdateSoftVelocities;
-extern const gpu::GpuComputePassDefinition kUpdateWorldAabbs;
+extern const gpu::GpuComputePassDefinition kUpdateRigidWorldAabbs;
 extern const gpu::GpuComputePassDefinition kScanBlock;
 extern const gpu::GpuComputePassDefinition kScanAddOffsets;
 extern const gpu::GpuComputePassDefinition kCompactBodySet;
@@ -41,11 +41,11 @@ extern const gpu::GpuComputePassDefinition kCountPairs;
 extern const gpu::GpuComputePassDefinition kFinalizePairs;
 extern const gpu::GpuComputePassDefinition kEmitPairs;
 extern const gpu::GpuComputePassDefinition kBuildNarrowPhaseChunks;
-extern const gpu::GpuComputePassDefinition kGenerateContacts;
+extern const gpu::GpuComputePassDefinition kGenerateRigidContacts;
 extern const gpu::GpuComputePassDefinition kSolveGather;
-extern const gpu::GpuComputePassDefinition kClearCorrections;
-extern const gpu::GpuComputePassDefinition kApplyCorrections;
-extern const gpu::GpuComputePassDefinition kUpdateVelocities;
+extern const gpu::GpuComputePassDefinition kClearRigidCorrections;
+extern const gpu::GpuComputePassDefinition kApplyRigidCorrections;
+extern const gpu::GpuComputePassDefinition kUpdateRigidVelocities;
 extern const gpu::GpuComputePassDefinition kSolveContactVelocities;
 extern const gpu::GpuComputePassDefinition kApplyContactVelocities;
 

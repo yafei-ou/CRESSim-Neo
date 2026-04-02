@@ -105,32 +105,6 @@ int main()
         return 1;
     }
 
-    const physics::PhysicsSolverStageStats &stats = solver->lastStageStats();
-    if (!stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::PredictState)])
-    {
-        CRESSIM_LOG_ERROR("Soft-only scene did not execute soft predict stage.");
-        runtime.shutdown();
-        return 1;
-    }
-
-    if (!stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::BuildBroadPhase)])
-    {
-        CRESSIM_LOG_ERROR("Soft-only scene did not execute soft broad-phase preparation.");
-        runtime.shutdown();
-        return 1;
-    }
-
-    if (stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::UpdateWorldAabbs)] ||
-        stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::GenerateBroadPhasePairs)] ||
-        stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::GenerateContacts)] ||
-        stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::SolveConstraints)] ||
-        stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::UpdateVelocities)])
-    {
-        CRESSIM_LOG_ERROR("Soft-only scene unexpectedly executed rigid-only stages.");
-        runtime.shutdown();
-        return 1;
-    }
-
     runtime.shutdown();
     CRESSIM_LOG_INFO("Soft GPU scene upload checks passed.");
     return 0;

@@ -164,7 +164,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseChunksBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseMetaBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseChunkCounterBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> contactsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidContactsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> translationCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rotationCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> linearVelocityCorrectionsBuffer;
