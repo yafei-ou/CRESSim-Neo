@@ -1,0 +1,444 @@
+#include "common/frame_context.h"
+#include "common/logger.h"
+#include "engine/components.h"
+#include "engine/runtime.h"
+#include "viewer/debug_viewer_app.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <cstdlib>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+namespace
+{
+
+using cressim::neo::common::FrameContext;
+using cressim::neo::engine::CameraComponent;
+using cressim::neo::engine::ColliderComponent;
+using cressim::neo::engine::DirectionalLightComponent;
+using cressim::neo::engine::MeshRendererComponent;
+using cressim::neo::engine::RigidBodyComponent;
+using cressim::neo::engine::Runtime;
+using cressim::neo::engine::RuntimeConfig;
+using cressim::neo::engine::SoftBodyComponent;
+using cressim::neo::engine::TransformComponent;
+using cressim::neo::gpu::GpuBackend;
+using cressim::neo::graphics::MaterialHandle;
+using cressim::neo::graphics::MaterialResourceDesc;
+using cressim::neo::graphics::MeshHandle;
+using cressim::neo::graphics::MeshResourceDesc;
+using cressim::neo::physics::ColliderShapeType;
+using cressim::neo::physics::RigidBodyType;
+using cressim::neo::viewer::DebugViewerApp;
+using cressim::neo::viewer::DebugViewerAppDesc;
+using cressim::neo::viewer::DebugViewerCallbacks;
+using cressim::neo::viewer::DebugViewerCameraBinding;
+
+constexpr float kPi                      = 3.14159265358979323846f;
+constexpr float kEnvSpacing              = 16.0f;
+constexpr std::uint32_t kDefaultEnvCount = 4u;
+
+struct ProxyGroup
+{
+    std::vector<cressim::neo::common::EntityId> entities;
+    std::uint32_t particleOffset = 0u;
+};
+
+struct SceneMaterials
+{
+    MaterialHandle particle{};
+    MaterialHandle ground{};
+    MaterialHandle staticObstacle{};
+    MaterialHandle dynamicObstacle{};
+};
+
+GpuBackend parseBackend(const std::string &value)
+{
+    if (value == "null")
+    {
+        return GpuBackend::Null;
+    }
+    if (value == "vulkan")
+    {
+        return GpuBackend::Vulkan;
+    }
+    throw std::invalid_argument("Unsupported backend: " + value);
+}
+
+void printUsage(const char *appName)
+{
+    CRESSIM_LOG_ERROR("Usage: ", appName, " [--backend vulkan|null] [--frames N] [--envs N]\n");
+}
+
+MeshResourceDesc makeCubeMesh(float halfExtent)
+{
+    MeshResourceDesc mesh{};
+    mesh.debugName = "SoftParticleMultiEnv.CubeMesh";
+    mesh.vertices.reserve(24);
+    mesh.indices.reserve(36);
+
+    const auto addFace = [&](const Diligent::float3 &normal, const Diligent::float3 &v0,
+                             const Diligent::float3 &v1, const Diligent::float3 &v2,
+                             const Diligent::float3 &v3)
+    {
+        const std::uint32_t base = static_cast<std::uint32_t>(mesh.vertices.size());
+        mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
+        mesh.vertices.push_back({v1, normal, 1.0f, 0.0f});
+        mesh.vertices.push_back({v2, normal, 1.0f, 1.0f});
+        mesh.vertices.push_back({v3, normal, 0.0f, 1.0f});
+
+        mesh.indices.push_back(base + 0u);
+        mesh.indices.push_back(base + 2u);
+        mesh.indices.push_back(base + 1u);
+        mesh.indices.push_back(base + 0u);
+        mesh.indices.push_back(base + 3u);
+        mesh.indices.push_back(base + 2u);
+    };
+
+    const float h = halfExtent;
+    addFace({0.0f, 0.0f, 1.0f}, {-h, -h, h}, {h, -h, h}, {h, h, h}, {-h, h, h});
+    addFace({0.0f, 0.0f, -1.0f}, {h, -h, -h}, {-h, -h, -h}, {-h, h, -h}, {h, h, -h});
+    addFace({-1.0f, 0.0f, 0.0f}, {-h, -h, -h}, {-h, -h, h}, {-h, h, h}, {-h, h, -h});
+    addFace({1.0f, 0.0f, 0.0f}, {h, -h, h}, {h, -h, -h}, {h, h, -h}, {h, h, h});
+    addFace({0.0f, 1.0f, 0.0f}, {-h, h, h}, {h, h, h}, {h, h, -h}, {-h, h, -h});
+    addFace({0.0f, -1.0f, 0.0f}, {-h, -h, -h}, {h, -h, -h}, {h, -h, h}, {-h, -h, h});
+    return mesh;
+}
+
+MeshResourceDesc makePlaneMesh(float halfExtent)
+{
+    MeshResourceDesc mesh{};
+    mesh.debugName = "SoftParticleMultiEnv.PlaneMesh";
+    const float h  = halfExtent;
+    mesh.vertices  = {{{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f},
+                      {{h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 1.0f, 0.0f},
+                      {{h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 1.0f, 1.0f},
+                      {{-h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 0.0f, 1.0f}};
+    mesh.indices   = {0u, 1u, 2u, 0u, 2u, 3u};
+    return mesh;
+}
+
+Diligent::float3 computeBoxInverseInertia(const Diligent::float3 &halfExtents, float inverseMass)
+{
+    if (inverseMass <= 0.0f)
+    {
+        return {0.0f, 0.0f, 0.0f};
+    }
+
+    const float mass = 1.0f / inverseMass;
+    const float ix = mass * (halfExtents.y * halfExtents.y + halfExtents.z * halfExtents.z) / 3.0f;
+    const float iy = mass * (halfExtents.x * halfExtents.x + halfExtents.z * halfExtents.z) / 3.0f;
+    const float iz = mass * (halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y) / 3.0f;
+
+    return {ix > 0.0f ? 1.0f / ix : 0.0f, iy > 0.0f ? 1.0f / iy : 0.0f,
+            iz > 0.0f ? 1.0f / iz : 0.0f};
+}
+
+Diligent::float3 envOrigin(std::uint32_t envIndex, std::uint32_t envCount)
+{
+    const std::uint32_t cols = std::max(
+        1u, static_cast<std::uint32_t>(std::ceil(std::sqrt(static_cast<float>(envCount)))));
+    const std::uint32_t rows = std::max(1u, (envCount + cols - 1u) / cols);
+    const std::uint32_t col  = envIndex % cols;
+    const std::uint32_t row  = envIndex / cols;
+    const float xCenter      = (static_cast<float>(cols) - 1.0f) * 0.5f;
+    const float zCenter      = (static_cast<float>(rows) - 1.0f) * 0.5f;
+    return {(static_cast<float>(col) - xCenter) * kEnvSpacing, 0.0f,
+            (static_cast<float>(row) - zCenter) * kEnvSpacing};
+}
+
+void syncParticleProxyTransforms(Runtime &runtime, const std::vector<ProxyGroup> &proxyGroups)
+{
+    auto &world           = runtime.getWorld();
+    const auto &particles = world.physicsWorld().softParticles();
+    for (const ProxyGroup &group : proxyGroups)
+    {
+        for (std::size_t i = 0; i < group.entities.size(); ++i)
+        {
+            const std::uint32_t particleIndex =
+                group.particleOffset + static_cast<std::uint32_t>(i);
+            if (particleIndex >= particles.positionsInvMass.size())
+            {
+                break;
+            }
+
+            TransformComponent transform{};
+            if (const auto existing = world.tryGetTransform(group.entities[i]))
+            {
+                transform = *existing;
+            }
+            transform.worldTransform.position = {particles.positionsInvMass[particleIndex].x,
+                                                 particles.positionsInvMass[particleIndex].y,
+                                                 particles.positionsInvMass[particleIndex].z};
+            world.setTransform(group.entities[i], transform);
+        }
+    }
+}
+
+MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &resources,
+                                const char *name, const Diligent::float3 &baseColor,
+                                float roughness)
+{
+    MaterialResourceDesc desc{};
+    desc.debugName = name;
+    desc.baseColor = baseColor;
+    desc.metallic  = 0.0f;
+    desc.roughness = roughness;
+    return resources.registerMaterial(desc);
+}
+
+void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t envCount,
+                       MeshHandle particleMesh, MeshHandle boxMesh, MeshHandle planeMesh,
+                       const SceneMaterials &materials,
+                       cressim::neo::common::EntityId &outCameraEntity,
+                       std::vector<ProxyGroup> &outProxyGroups)
+{
+    auto &world                   = runtime.getWorld();
+    const Diligent::float3 origin = envOrigin(envIndex, envCount);
+    const float phase             = static_cast<float>(envIndex) * 0.73f;
+
+    outCameraEntity = world.createEntity(envIndex);
+    TransformComponent cameraTransform{};
+    cameraTransform.worldTransform.position =
+        origin + Diligent::float3{0.0f, 3.8f, -8.8f - 0.35f * static_cast<float>(envIndex % 3u)};
+    world.setTransform(outCameraEntity, cameraTransform);
+    CameraComponent camera{};
+    camera.verticalFovDegrees = 50.0f;
+    camera.renderOrder        = envIndex;
+    world.setCamera(outCameraEntity, camera);
+
+    const auto lightEntity = world.createEntity(envIndex);
+    DirectionalLightComponent light{};
+    light.direction = Diligent::normalize(
+        Diligent::float3{-0.35f + 0.10f * std::sin(phase), -1.0f, 0.25f + 0.08f * std::cos(phase)});
+    light.intensity = 7.0f;
+    world.setDirectionalLight(lightEntity, light);
+
+    const auto groundEntity = world.createEntity(envIndex);
+    TransformComponent groundTransform{};
+    groundTransform.worldTransform.position = origin + Diligent::float3{0.0f, -1.1f, 0.0f};
+    world.setTransform(groundEntity, groundTransform);
+    world.setMeshRenderer(groundEntity, MeshRendererComponent{planeMesh, materials.ground, true});
+    RigidBodyComponent groundBody{};
+    groundBody.bodyType    = RigidBodyType::Static;
+    groundBody.inverseMass = 0.0f;
+    world.setRigidBody(groundEntity, groundBody);
+    ColliderComponent groundCollider{};
+    groundCollider.shapeType   = ColliderShapeType::Box;
+    groundCollider.shapeParams = {6.0f, 0.05f, 6.0f, 0.0f};
+    world.addCollider(groundEntity, groundCollider);
+
+    const auto dynamicObstacleEntity = world.createEntity(envIndex);
+    TransformComponent dynamicTransform{};
+    dynamicTransform.worldTransform.position =
+        origin + Diligent::float3{1.4f + 0.35f * std::sin(phase), 0.7f, -0.3f};
+    dynamicTransform.worldTransform.rotation =
+        Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 1.0f, 0.0f}, 0.2f * phase);
+    world.setTransform(dynamicObstacleEntity, dynamicTransform);
+    world.setMeshRenderer(dynamicObstacleEntity,
+                          MeshRendererComponent{boxMesh, materials.dynamicObstacle, true});
+    RigidBodyComponent dynamicBody{};
+    dynamicBody.bodyType    = RigidBodyType::Dynamic;
+    dynamicBody.inverseMass = 0.65f + 0.10f * static_cast<float>(envIndex % 3u);
+    dynamicBody.inverseInertiaLocal =
+        computeBoxInverseInertia({0.55f, 0.45f, 0.55f}, dynamicBody.inverseMass);
+    dynamicBody.linearVelocity = {-0.15f + 0.05f * std::cos(phase), 0.0f, 0.04f * std::sin(phase)};
+    world.setRigidBody(dynamicObstacleEntity, dynamicBody);
+    ColliderComponent dynamicCollider{};
+    dynamicCollider.shapeType   = ColliderShapeType::Box;
+    dynamicCollider.shapeParams = {0.55f, 0.45f, 0.55f, 0.0f};
+    world.addCollider(dynamicObstacleEntity, dynamicCollider);
+
+    const auto staticObstacleEntity = world.createEntity(envIndex);
+    TransformComponent staticTransform{};
+    staticTransform.worldTransform.position = origin + Diligent::float3{-1.15f, 0.55f, 0.2f};
+    staticTransform.worldTransform.rotation = Diligent::QuaternionF::RotationFromAxisAngle(
+        {0.0f, 0.0f, 1.0f}, 0.12f * static_cast<float>((envIndex % 5u) - 2u));
+    world.setTransform(staticObstacleEntity, staticTransform);
+    world.setMeshRenderer(staticObstacleEntity,
+                          MeshRendererComponent{boxMesh, materials.staticObstacle, true});
+    RigidBodyComponent staticBody{};
+    staticBody.bodyType    = RigidBodyType::Static;
+    staticBody.inverseMass = 0.0f;
+    world.setRigidBody(staticObstacleEntity, staticBody);
+    ColliderComponent staticCollider{};
+    staticCollider.shapeType   = ColliderShapeType::Box;
+    staticCollider.shapeParams = {0.7f, 0.28f, 0.7f, 0.0f};
+    world.addCollider(staticObstacleEntity, staticCollider);
+
+    const auto softEntity = world.createEntity(envIndex);
+    TransformComponent softTransform{};
+    softTransform.worldTransform.position =
+        origin + Diligent::float3{-0.4f + 0.35f * std::cos(phase), 1.55f + 0.15f * std::sin(phase),
+                                  -0.5f + 0.20f * std::cos(phase * 0.5f)};
+    const Diligent::QuaternionF tiltX = Diligent::QuaternionF::RotationFromAxisAngle(
+        {1.0f, 0.0f, 0.0f}, -0.18f + 0.06f * std::sin(phase));
+    const Diligent::QuaternionF tiltY =
+        Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 1.0f, 0.0f}, 0.25f * std::cos(phase));
+    softTransform.worldTransform.rotation = tiltY * tiltX;
+    world.setTransform(softEntity, softTransform);
+    SoftBodyComponent softBody{};
+    softBody.size             = {1.2f + 0.15f * static_cast<float>(envIndex % 3u),
+                                 1.1f + 0.20f * static_cast<float>((envIndex + 1u) % 3u),
+                                 1.2f + 0.10f * static_cast<float>((envIndex + 2u) % 3u)};
+    softBody.particleSpacing  = 0.32f + 0.02f * static_cast<float>(envIndex % 2u);
+    softBody.particleMass     = 0.12f + 0.03f * static_cast<float>(envIndex % 4u);
+    softBody.particleRadius   = 0.11f + 0.01f * static_cast<float>((envIndex + 1u) % 3u);
+    softBody.volumeCompliance = 0.0008f + 0.0004f * static_cast<float>(envIndex % 3u);
+    softBody.edgeCompliance   = 0.0f; // 0.00001f * static_cast<float>(envIndex % 2u);
+    world.setSoftBody(softEntity, softBody);
+
+    world.physicsWorld().ensureDerivedStateUpToDate();
+    const auto *softState = world.physicsWorld().tryGetSoftBody(softEntity);
+    if (softState == nullptr)
+    {
+        throw std::runtime_error("Soft particle multi-env viewer missing soft body state");
+    }
+
+    ProxyGroup proxyGroup{};
+    proxyGroup.particleOffset = softState->particleOffset;
+    proxyGroup.entities.reserve(softState->particleCount);
+    const auto &particles = world.physicsWorld().softParticles();
+    for (std::uint32_t i = 0u; i < softState->particleCount; ++i)
+    {
+        const std::uint32_t particleIndex = softState->particleOffset + i;
+        const auto proxyEntity            = world.createEntity(envIndex);
+        TransformComponent proxyTransform{};
+        proxyTransform.worldTransform.position = {particles.positionsInvMass[particleIndex].x,
+                                                  particles.positionsInvMass[particleIndex].y,
+                                                  particles.positionsInvMass[particleIndex].z};
+        const float diameter                   = particles.radii[particleIndex] * 1.8f;
+        proxyTransform.worldTransform.scale    = {diameter, diameter, diameter};
+        world.setTransform(proxyEntity, proxyTransform);
+        world.setMeshRenderer(proxyEntity,
+                              MeshRendererComponent{particleMesh, materials.particle, true});
+        proxyGroup.entities.push_back(proxyEntity);
+    }
+
+    outProxyGroups.push_back(std::move(proxyGroup));
+}
+
+} // namespace
+
+int main(int argc, char **argv)
+{
+    RuntimeConfig config{};
+    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
+    config.gpuDeviceDesc.enableValidation = false;
+    std::uint64_t numFrames               = 0u;
+    std::uint32_t envCount                = kDefaultEnvCount;
+
+    for (int i = 1; i < argc; ++i)
+    {
+        const std::string arg = argv[i];
+        if (arg == "--backend")
+        {
+            if (i + 1 >= argc)
+            {
+                printUsage(argv[0]);
+                return 2;
+            }
+            config.gpuDeviceDesc.preferredBackend = parseBackend(argv[++i]);
+            continue;
+        }
+        if (arg == "--frames")
+        {
+            if (i + 1 >= argc)
+            {
+                printUsage(argv[0]);
+                return 2;
+            }
+            numFrames = static_cast<std::uint64_t>(std::strtoull(argv[++i], nullptr, 10));
+            continue;
+        }
+        if (arg == "--envs")
+        {
+            if (i + 1 >= argc)
+            {
+                printUsage(argv[0]);
+                return 2;
+            }
+            envCount = static_cast<std::uint32_t>(std::strtoul(argv[++i], nullptr, 10));
+            if (envCount == 0u)
+            {
+                printUsage(argv[0]);
+                return 2;
+            }
+            continue;
+        }
+
+        printUsage(argv[0]);
+        return 2;
+    }
+
+    config.sceneLayout.envCount = envCount;
+
+    DebugViewerApp viewer;
+    DebugViewerAppDesc viewerDesc{};
+    const bool windowEnabled = (config.gpuDeviceDesc.preferredBackend != GpuBackend::Null);
+    viewerDesc.windowEnabled = windowEnabled;
+    viewerDesc.windowVisible = windowEnabled;
+    viewerDesc.startFullscreenWindowed = windowEnabled;
+    viewerDesc.maxFrames               = numFrames;
+    viewerDesc.showStats               = true;
+    viewerDesc.statsIntervalFrames     = 60u;
+    viewerDesc.width                   = 1600;
+    viewerDesc.height                  = 900;
+
+    if (!viewer.initialize(viewerDesc, config))
+    {
+        CRESSIM_LOG_ERROR("Viewer initialization failed.\n");
+        return 1;
+    }
+
+    Runtime runtime;
+    if (!runtime.initialize(config))
+    {
+        viewer.shutdown();
+        CRESSIM_LOG_ERROR("Runtime initialization failed.\n");
+        return 1;
+    }
+
+    auto &resources               = runtime.getResources();
+    const MeshHandle particleMesh = resources.registerMesh(makeCubeMesh(0.5f));
+    const MeshHandle boxMesh      = resources.registerMesh(makeCubeMesh(0.6f));
+    const MeshHandle planeMesh    = resources.registerMesh(makePlaneMesh(6.0f));
+
+    SceneMaterials materials{};
+    materials.particle =
+        registerMaterial(resources, "SoftParticleMultiEnv.Particle", {0.94f, 0.57f, 0.20f}, 0.24f);
+    materials.ground =
+        registerMaterial(resources, "SoftParticleMultiEnv.Ground", {0.72f, 0.75f, 0.79f}, 0.90f);
+    materials.staticObstacle  = registerMaterial(resources, "SoftParticleMultiEnv.StaticObstacle",
+                                                 {0.15f, 0.43f, 0.85f}, 0.58f);
+    materials.dynamicObstacle = registerMaterial(resources, "SoftParticleMultiEnv.DynamicObstacle",
+                                                 {0.78f, 0.25f, 0.20f}, 0.42f);
+
+    std::vector<ProxyGroup> proxyGroups;
+    proxyGroups.reserve(envCount);
+    cressim::neo::common::EntityId primaryCamera = cressim::neo::common::kInvalidEntityId;
+
+    for (std::uint32_t envIndex = 0u; envIndex < envCount; ++envIndex)
+    {
+        cressim::neo::common::EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;
+        authorEnvironment(runtime, envIndex, envCount, particleMesh, boxMesh, planeMesh, materials,
+                          cameraEntity, proxyGroups);
+        if (envIndex == 0u)
+        {
+            primaryCamera = cameraEntity;
+        }
+    }
+
+    DebugViewerCallbacks callbacks{};
+    callbacks.afterTick = [proxyGroups](const FrameContext &, Runtime &callbackRuntime)
+    { syncParticleProxyTransforms(callbackRuntime, proxyGroups); };
+
+    const bool ran = viewer.run(runtime, DebugViewerCameraBinding{primaryCamera}, callbacks);
+
+    runtime.shutdown();
+    viewer.shutdown();
+    return ran ? 0 : 1;
+}
