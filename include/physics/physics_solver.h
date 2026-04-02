@@ -16,10 +16,13 @@ namespace cressim::neo::physics
 
 struct PhysicsSolverDesc
 {
-    bool enableGpuCompute          = true;
-    std::uint32_t substeps         = 1;
-    std::uint32_t solverIterations = 20;
-    bool enableBlockingReadback    = true;
+    bool enableGpuCompute                     = true;
+    std::uint32_t substeps                    = 1;
+    std::uint32_t defaultIterations           = 20;
+    std::uint32_t softInternalIterations      = 0;
+    std::uint32_t softRigidContactIterations  = 0;
+    std::uint32_t rigidRigidContactIterations = 0;
+    bool enableBlockingReadback               = true;
 };
 
 enum class PhysicsSolverStage : std::uint32_t

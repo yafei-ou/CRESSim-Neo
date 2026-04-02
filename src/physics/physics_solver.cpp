@@ -43,6 +43,11 @@ void markAllStagesSkipped(PhysicsSolverStageStats &stats)
     markStage(stats, PhysicsSolverStage::CommitResults, false);
 }
 
+std::uint32_t resolveIterations(std::uint32_t overrideValue, std::uint32_t defaultValue)
+{
+    return overrideValue > 0u ? overrideValue : defaultValue;
+}
+
 } // namespace
 
 struct PhysicsSolver::Impl
@@ -159,9 +164,17 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         return false;
     }
 
-    const std::uint32_t substeps   = std::max<std::uint32_t>(mDesc.substeps, 1u);
-    const std::uint32_t iterations = std::max<std::uint32_t>(mDesc.solverIterations, 1u);
-    const float substepDt          = frameContext.deltaSeconds / static_cast<float>(substeps);
+    const std::uint32_t substeps          = std::max<std::uint32_t>(mDesc.substeps, 1u);
+    const std::uint32_t defaultIterations = std::max<std::uint32_t>(mDesc.defaultIterations, 1u);
+    const std::uint32_t softInternalIterations =
+        resolveIterations(mDesc.softInternalIterations, defaultIterations);
+    const std::uint32_t softRigidContactIterations =
+        resolveIterations(mDesc.softRigidContactIterations, defaultIterations);
+    const std::uint32_t rigidRigidContactIterations =
+        resolveIterations(mDesc.rigidRigidContactIterations, defaultIterations);
+    const std::uint32_t maxPhaseIterations = std::max(
+        std::max(softInternalIterations, softRigidContactIterations), rigidRigidContactIterations);
+    const float substepDt = frameContext.deltaSeconds / static_cast<float>(substeps);
 
     for (std::uint32_t substep = 0; substep < substeps; ++substep)
     {
@@ -171,7 +184,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         constants.colliderCount         = colliderCount;
         constants.candidatePairCapacity = mImpl->sceneState.candidatePairCapacity();
         constants.substepIndex          = substep;
-        constants.solverIterations      = iterations;
+        constants.solverIterations      = maxPhaseIterations;
         GpuSoftDispatchConstants softConstants{};
         softConstants.dt                        = substepDt;
         softConstants.softParticleCount         = softParticleCount;
@@ -179,15 +192,16 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         softConstants.particleGridCellSize      = particleGridCellSize;
         softConstants.softRigidCandidatePairCapacity =
             mImpl->sceneState.softRigidCandidatePairCapacity();
-        softConstants.softEdgeCount             = softEdgeCount;
-        softConstants.softTetCount              = softTetCount;
+        softConstants.softEdgeCount = softEdgeCount;
+        softConstants.softTetCount  = softTetCount;
 
         bool executedPredictStage        = false;
-        bool executedSoftBroadPhaseStage = (softParticleCount + rigidSurfaceParticleCount) > 0u;
-        bool executedSoftPairStage       = softParticleCount > 0u;
-        bool executedSoftInternalSolveStage =
+        const bool hasSoftBroadPhaseWork = (softParticleCount + rigidSurfaceParticleCount) > 0u;
+        const bool hasSoftPairWork       = softParticleCount > 0u;
+        const bool hasSoftInternalWork =
             softParticleCount > 0u && (softEdgeCount > 0u || softTetCount > 0u);
-        bool executedSoftContactStage = softParticleCount > 0u && rigidSurfaceParticleCount > 0u;
+        const bool hasSoftRigidContactWork =
+            softParticleCount > 0u && rigidSurfaceParticleCount > 0u;
 
         if (mImpl->sceneState.correctionBuffersNeedClear() &&
             !mImpl->passDispatcher.clearCorrections(computeBackend.computeContext,
@@ -235,8 +249,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 computeBackend.computeContext, mImpl->sceneState,
                 softParticleCount + rigidSurfaceParticleCount, softConstants))
         {
-            CRESSIM_LOG_ERROR(
-                "PhysicsSolver::step failed: BuildSoftRigidBroadPhaseKeys dispatch.");
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: BuildSoftRigidBroadPhaseKeys dispatch.");
             return false;
         }
         if (!mImpl->passDispatcher.sortSoftRigidBroadPhase(
@@ -256,7 +269,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
         const std::uint32_t softConstraintThreadCount =
             std::max(softParticleCount, std::max(softEdgeCount, softTetCount));
-        if ((executedSoftInternalSolveStage || executedSoftContactStage) &&
+        if ((hasSoftInternalWork || hasSoftRigidContactWork) &&
             !mImpl->passDispatcher.clearSoftConstraintState(
                 computeBackend.computeContext, mImpl->sceneState, softConstraintThreadCount,
                 softConstants))
@@ -266,17 +279,17 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         }
 
         std::uint32_t pairCount = 0u;
-        bool builtBroadPhase    = executedSoftBroadPhaseStage;
+        bool builtBroadPhase    = hasSoftBroadPhaseWork;
         if (rigidBodyCount == 0u)
         {
             markStage(mImpl->stageStats, PhysicsSolverStage::UpdateWorldAabbs, false);
             markStage(mImpl->stageStats, PhysicsSolverStage::GenerateBroadPhasePairs,
-                      executedSoftPairStage);
+                      hasSoftPairWork);
         }
         else
         {
-            if (!mImpl->passDispatcher.updateWorldAabbs(computeBackend.computeContext,
-                                                        mImpl->sceneState, colliderCount, constants))
+            if (!mImpl->passDispatcher.updateWorldAabbs(
+                    computeBackend.computeContext, mImpl->sceneState, colliderCount, constants))
             {
                 CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateWorldAabbs dispatch.");
                 return false;
@@ -287,7 +300,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 !mImpl->passDispatcher.compactBroadPhaseBodySets(
                     computeBackend.computeContext, mImpl->sceneState, colliderCount, constants))
             {
-                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: BuildBroadPhase compaction dispatch.");
+                CRESSIM_LOG_ERROR(
+                    "PhysicsSolver::step failed: BuildBroadPhase compaction dispatch.");
                 return false;
             }
 
@@ -321,9 +335,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
             if (activeMovingCount > 0u)
             {
-                if (!mImpl->passDispatcher.finalizeBroadPhasePairs(
-                        computeBackend.computeContext, mImpl->sceneState, activeMovingCount,
-                        constants))
+                if (!mImpl->passDispatcher.finalizeBroadPhasePairs(computeBackend.computeContext,
+                                                                   mImpl->sceneState,
+                                                                   activeMovingCount, constants))
                 {
                     CRESSIM_LOG_ERROR("PhysicsSolver::step failed: FinalizePairs dispatch.");
                     return false;
@@ -346,12 +360,11 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
                 pairCount                    = broadPhaseMeta.candidatePairCount;
                 constants.candidatePairCount = pairCount;
-                if (!mImpl->passDispatcher.emitBroadPhasePairs(
-                        computeBackend.computeContext, mImpl->sceneState, activeMovingCount,
-                        constants))
+                if (!mImpl->passDispatcher.emitBroadPhasePairs(computeBackend.computeContext,
+                                                               mImpl->sceneState, activeMovingCount,
+                                                               constants))
                 {
-                    CRESSIM_LOG_ERROR(
-                        "PhysicsSolver::step failed: typed pair emission dispatch.");
+                    CRESSIM_LOG_ERROR("PhysicsSolver::step failed: typed pair emission dispatch.");
                     return false;
                 }
                 markStage(mImpl->stageStats, PhysicsSolverStage::GenerateBroadPhasePairs, true);
@@ -359,39 +372,47 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             else
             {
                 markStage(mImpl->stageStats, PhysicsSolverStage::GenerateBroadPhasePairs,
-                          executedSoftPairStage);
+                          hasSoftPairWork);
             }
         }
 
         markStage(mImpl->stageStats, PhysicsSolverStage::BuildBroadPhase, builtBroadPhase);
 
-        const bool hasAnyConstraintWork =
-            executedSoftInternalSolveStage || executedSoftContactStage || pairCount > 0u;
-        if (hasAnyConstraintWork)
+        const bool hasAnyPositionSolveWork =
+            (hasSoftInternalWork && softInternalIterations > 0u) ||
+            (hasSoftRigidContactWork && softRigidContactIterations > 0u) ||
+            (pairCount > 0u && rigidRigidContactIterations > 0u);
+        if (hasAnyPositionSolveWork)
         {
-            for (std::uint32_t iteration = 0u; iteration < iterations; ++iteration)
+            for (std::uint32_t iteration = 0u; iteration < maxPhaseIterations; ++iteration)
             {
                 constants.iterationIndex = iteration;
+                const bool runSoftInternal =
+                    hasSoftInternalWork && iteration < softInternalIterations;
+                const bool runSoftRigidContacts =
+                    hasSoftRigidContactWork && iteration < softRigidContactIterations;
+                const bool runRigidRigidContacts =
+                    pairCount > 0u && iteration < rigidRigidContactIterations;
+                const bool needSoftApply  = runSoftInternal || runSoftRigidContacts;
+                const bool needRigidApply = runSoftRigidContacts || runRigidRigidContacts;
 
-                if (executedSoftInternalSolveStage &&
-                    !mImpl->passDispatcher.solveSoftEdgeConstraints(
-                        computeBackend.computeContext, mImpl->sceneState, softEdgeCount,
-                        softConstants))
+                if (runSoftInternal && !mImpl->passDispatcher.solveSoftEdgeConstraints(
+                                           computeBackend.computeContext, mImpl->sceneState,
+                                           softEdgeCount, softConstants))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: SolveSoftEdgeConstraints dispatch.");
                     return false;
                 }
-                if (executedSoftInternalSolveStage &&
-                    !mImpl->passDispatcher.solveSoftTetConstraints(
-                        computeBackend.computeContext, mImpl->sceneState, softTetCount,
-                        softConstants))
+                if (runSoftInternal && !mImpl->passDispatcher.solveSoftTetConstraints(
+                                           computeBackend.computeContext, mImpl->sceneState,
+                                           softTetCount, softConstants))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: SolveSoftTetConstraints dispatch.");
                     return false;
                 }
-                if (executedSoftContactStage &&
+                if (runSoftRigidContacts &&
                     !mImpl->passDispatcher.generateSoftRigidContacts(
                         computeBackend.computeContext, mImpl->sceneState, softConstants))
                 {
@@ -399,29 +420,29 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                         "PhysicsSolver::step failed: GenerateSoftRigidContacts dispatch.");
                     return false;
                 }
-                if (executedSoftContactStage &&
-                    !mImpl->passDispatcher.solveSoftRigidContacts(
-                        computeBackend.computeContext, mImpl->sceneState, softConstants))
+                if (runSoftRigidContacts &&
+                    !mImpl->passDispatcher.solveSoftRigidContacts(computeBackend.computeContext,
+                                                                  mImpl->sceneState, softConstants))
                 {
-                    CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SolveSoftRigidContacts dispatch.");
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: SolveSoftRigidContacts dispatch.");
                     return false;
                 }
-                if (pairCount > 0u &&
+                if (runRigidRigidContacts &&
                     !mImpl->passDispatcher.generateContacts(computeBackend.computeContext,
                                                             mImpl->sceneState, pairCount))
                 {
                     CRESSIM_LOG_ERROR("PhysicsSolver::step failed: GenerateContacts dispatch.");
                     return false;
                 }
-                if (pairCount > 0u &&
-                    !mImpl->passDispatcher.solveConstraints(computeBackend.computeContext,
-                                                            mImpl->sceneState, rigidBodyCount,
-                                                            pairCount, constants))
+                if (runRigidRigidContacts && !mImpl->passDispatcher.solveConstraints(
+                                                 computeBackend.computeContext, mImpl->sceneState,
+                                                 rigidBodyCount, pairCount, constants))
                 {
                     CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SolveConstraints dispatch.");
                     return false;
                 }
-                if ((executedSoftInternalSolveStage || executedSoftContactStage) &&
+                if (needSoftApply &&
                     !mImpl->passDispatcher.applySoftPositionCorrections(
                         computeBackend.computeContext, mImpl->sceneState, softConstants))
                 {
@@ -429,10 +450,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                         "PhysicsSolver::step failed: ApplySoftPositionCorrections dispatch.");
                     return false;
                 }
-                if (rigidBodyCount > 0u &&
-                    !mImpl->passDispatcher.applyCorrections(computeBackend.computeContext,
-                                                            mImpl->sceneState, rigidBodyCount,
-                                                            constants))
+                if (needRigidApply && !mImpl->passDispatcher.applyCorrections(
+                                          computeBackend.computeContext, mImpl->sceneState,
+                                          rigidBodyCount, constants))
                 {
                     CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ApplyCorrections dispatch.");
                     return false;
@@ -441,10 +461,11 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         }
 
         markStage(mImpl->stageStats, PhysicsSolverStage::GenerateContacts,
-                  executedSoftContactStage || pairCount > 0u);
-        markStage(mImpl->stageStats, PhysicsSolverStage::SolveConstraints, hasAnyConstraintWork);
+                  (hasSoftRigidContactWork && softRigidContactIterations > 0u) ||
+                      (pairCount > 0u && rigidRigidContactIterations > 0u));
+        markStage(mImpl->stageStats, PhysicsSolverStage::SolveConstraints, hasAnyPositionSolveWork);
 
-        constants.iterationIndex = iterations;
+        constants.iterationIndex = maxPhaseIterations;
         if (!mImpl->passDispatcher.updateVelocities(computeBackend.computeContext,
                                                     mImpl->sceneState, rigidBodyCount, constants))
         {
@@ -462,9 +483,10 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         executedVelocityStage = executedVelocityStage || softParticleCount > 0u;
         markStage(mImpl->stageStats, PhysicsSolverStage::UpdateVelocities, executedVelocityStage);
 
-        if (pairCount > 0u && !mImpl->passDispatcher.solveContactVelocities(
-                                  computeBackend.computeContext, mImpl->sceneState, rigidBodyCount,
-                                  pairCount, iterations, constants))
+        if (pairCount > 0u && rigidRigidContactIterations > 0u &&
+            !mImpl->passDispatcher.solveContactVelocities(
+                computeBackend.computeContext, mImpl->sceneState, rigidBodyCount, pairCount,
+                rigidRigidContactIterations, constants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SolveContactVelocities dispatch.");
             return false;

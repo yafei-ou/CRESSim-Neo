@@ -68,14 +68,14 @@ struct GpuPhysicsRadixConstants
 
 struct GpuSoftDispatchConstants
 {
-    float dt                                = 0.0f;
-    std::uint32_t softParticleCount         = 0;
-    std::uint32_t rigidSurfaceParticleCount = 0;
-    float particleGridCellSize              = 0.0f;
+    float dt                                     = 0.0f;
+    std::uint32_t softParticleCount              = 0;
+    std::uint32_t rigidSurfaceParticleCount      = 0;
+    float particleGridCellSize                   = 0.0f;
     std::uint32_t softRigidCandidatePairCapacity = 0;
-    std::uint32_t softEdgeCount             = 0;
-    std::uint32_t softTetCount              = 0;
-    std::uint32_t reserved2                 = 0;
+    std::uint32_t softEdgeCount                  = 0;
+    std::uint32_t softTetCount                   = 0;
+    std::uint32_t reserved2                      = 0;
 };
 
 constexpr std::uint32_t kSoftRigidBroadPhaseParticleTypeSoft         = 0u;

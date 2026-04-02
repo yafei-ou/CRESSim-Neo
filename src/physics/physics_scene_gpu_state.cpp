@@ -264,10 +264,9 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         (newCandidatePairCapacity + kNarrowPhaseChunkSize - 1u) / kNarrowPhaseChunkSize, 1u);
     const std::uint32_t newContactCapacity = std::max<std::uint32_t>(
         newCandidatePairCapacity * kRigidContactsPerPair, kRigidContactsPerPair);
-    const Diligent::Uint64 contextMask = gpu::contextMaskForId(physicsContextId);
-    const std::vector<std::uint32_t> reductionLevelCounts =
-        buildReductionLevelCounts(
-            std::max(newColliderCapacity, newSoftRigidBroadPhaseParticleCapacity));
+    const Diligent::Uint64 contextMask                    = gpu::contextMaskForId(physicsContextId);
+    const std::vector<std::uint32_t> reductionLevelCounts = buildReductionLevelCounts(
+        std::max(newColliderCapacity, newSoftRigidBroadPhaseParticleCapacity));
 
     if (!ensureStructuredBuffer(
             renderDevice, "CRESSimNeo.Physics.PositionsInvMass", sizeof(Diligent::float4),
@@ -894,21 +893,21 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         }
     }
 
-    mRigidBodyCapacity              = newRigidBodyCapacity;
-    mColliderCapacity               = newColliderCapacity;
-    mSoftParticleCapacity           = newSoftParticleCapacity;
-    mSoftEdgeCapacity               = newSoftEdgeCapacity;
-    mSoftTetCapacity                = newSoftTetCapacity;
-    mRigidSurfaceParticleCapacity   = newRigidSurfaceParticleCapacity;
+    mRigidBodyCapacity                   = newRigidBodyCapacity;
+    mColliderCapacity                    = newColliderCapacity;
+    mSoftParticleCapacity                = newSoftParticleCapacity;
+    mSoftEdgeCapacity                    = newSoftEdgeCapacity;
+    mSoftTetCapacity                     = newSoftTetCapacity;
+    mRigidSurfaceParticleCapacity        = newRigidSurfaceParticleCapacity;
     mSoftRigidBroadPhaseParticleCapacity = newSoftRigidBroadPhaseParticleCapacity;
     mSoftRigidCandidatePairCapacity      = newSoftRigidCandidatePairCapacity;
-    mBroadPhaseNodeCapacity         = newNodeCapacity;
-    mCandidatePairCapacity          = newCandidatePairCapacity;
-    mContactCapacity                = newContactCapacity;
-    mCorrectionBuffersNeedClear     = true;
-    mStaticBroadPhaseDirty          = true;
-    mRigidBodyUploadResetRequired   = true;
-    mColliderUploadResetRequired    = true;
+    mBroadPhaseNodeCapacity              = newNodeCapacity;
+    mCandidatePairCapacity               = newCandidatePairCapacity;
+    mContactCapacity                     = newContactCapacity;
+    mCorrectionBuffersNeedClear          = true;
+    mStaticBroadPhaseDirty               = true;
+    mRigidBodyUploadResetRequired        = true;
+    mColliderUploadResetRequired         = true;
     return true;
 }
 

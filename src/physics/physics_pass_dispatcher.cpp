@@ -527,9 +527,10 @@ bool PhysicsPassDispatcher::buildSoftRigidBroadPhaseParticles(
                dispatchGroupCount(totalParticleLikeCount));
 }
 
-bool PhysicsPassDispatcher::buildSoftRigidBroadPhaseKeys(
-    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    std::uint32_t totalParticleLikeCount, const GpuSoftDispatchConstants &constants)
+bool PhysicsPassDispatcher::buildSoftRigidBroadPhaseKeys(Diligent::IDeviceContext *computeContext,
+                                                         const PhysicsSceneGpuState &sceneState,
+                                                         std::uint32_t totalParticleLikeCount,
+                                                         const GpuSoftDispatchConstants &constants)
 {
     if (totalParticleLikeCount == 0u)
     {
@@ -543,15 +544,13 @@ bool PhysicsPassDispatcher::buildSoftRigidBroadPhaseKeys(
         gpu::GpuBufferBinding{"g_SoftRigidBroadPhaseParticles",
                               transient.softRigidBroadPhaseParticlesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_SoftRigidBroadPhaseKeys",
-                              transient.softRigidBroadPhaseKeysBuffer,
+        gpu::GpuBufferBinding{"g_SoftRigidBroadPhaseKeys", transient.softRigidBroadPhaseKeysBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
     return writeSoftDispatchConstants(computeContext, constants) &&
-           mBuildSoftRigidBroadPhaseKeysPass.dispatch(
-               computeContext, kDefaultVariant, bindings,
-               dispatchGroupCount(totalParticleLikeCount));
+           mBuildSoftRigidBroadPhaseKeysPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                      dispatchGroupCount(totalParticleLikeCount));
 }
 
 bool PhysicsPassDispatcher::sortSoftRigidBroadPhase(Diligent::IDeviceContext *computeContext,
@@ -561,9 +560,10 @@ bool PhysicsPassDispatcher::sortSoftRigidBroadPhase(Diligent::IDeviceContext *co
     return dispatchSoftRadixSortPass(computeContext, sceneState, count);
 }
 
-bool PhysicsPassDispatcher::emitSoftRigidCandidatePairs(
-    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    std::uint32_t softParticleCount, const GpuSoftDispatchConstants &constants)
+bool PhysicsPassDispatcher::emitSoftRigidCandidatePairs(Diligent::IDeviceContext *computeContext,
+                                                        const PhysicsSceneGpuState &sceneState,
+                                                        std::uint32_t softParticleCount,
+                                                        const GpuSoftDispatchConstants &constants)
 {
     if (softParticleCount == 0u)
     {
@@ -571,8 +571,8 @@ bool PhysicsPassDispatcher::emitSoftRigidCandidatePairs(
     }
 
     const std::uint32_t zero = 0u;
-    computeContext->UpdateBuffer(sceneState.transientBuffers().softRigidCandidatePairCountBuffer, 0u,
-                                 sizeof(std::uint32_t), &zero,
+    computeContext->UpdateBuffer(sceneState.transientBuffers().softRigidCandidatePairCountBuffer,
+                                 0u, sizeof(std::uint32_t), &zero,
                                  Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     const auto &transient        = sceneState.transientBuffers();
@@ -614,8 +614,7 @@ bool PhysicsPassDispatcher::emitSoftRigidCandidatePairs(
         gpu::GpuBufferBinding{"g_RigidSurfaceParticleCollisionMasks",
                               surfaceParticles.collisionMasksBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_SoftRigidCandidatePairs",
-                              transient.softRigidCandidatePairsBuffer,
+        gpu::GpuBufferBinding{"g_SoftRigidCandidatePairs", transient.softRigidCandidatePairsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_SoftRigidCandidatePairCount",
                               transient.softRigidCandidatePairCountBuffer,
@@ -623,9 +622,8 @@ bool PhysicsPassDispatcher::emitSoftRigidCandidatePairs(
     };
 
     return writeSoftDispatchConstants(computeContext, constants) &&
-           mEmitSoftRigidCandidatePairsPass.dispatch(
-               computeContext, kDefaultVariant, bindings,
-               dispatchGroupCount(softParticleCount));
+           mEmitSoftRigidCandidatePairsPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                     dispatchGroupCount(softParticleCount));
 }
 
 bool PhysicsPassDispatcher::generateSoftRigidContacts(Diligent::IDeviceContext *computeContext,
@@ -673,8 +671,7 @@ bool PhysicsPassDispatcher::generateSoftRigidContacts(Diligent::IDeviceContext *
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ColliderBroadPhaseData", colliders.broadPhaseDataBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_SoftRigidCandidatePairs",
-                              transient.softRigidCandidatePairsBuffer,
+        gpu::GpuBufferBinding{"g_SoftRigidCandidatePairs", transient.softRigidCandidatePairsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SoftRigidCandidatePairCount",
                               transient.softRigidCandidatePairCountBuffer,
@@ -789,9 +786,9 @@ bool PhysicsPassDispatcher::solveSoftRigidContacts(Diligent::IDeviceContext *com
         return true;
     }
 
-    const auto &softParticles = sceneState.persistentSoftParticles();
+    const auto &softParticles   = sceneState.persistentSoftParticles();
     const auto &persistentRigid = sceneState.persistentRigidBodies();
-    const auto &transient     = sceneState.transientBuffers();
+    const auto &transient       = sceneState.transientBuffers();
     const std::array solveBindings{
         gpu::GpuBufferBinding{"PhysicsSoftDispatchConstantsBuffer", mSoftDispatchConstantsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -816,8 +813,7 @@ bool PhysicsPassDispatcher::solveSoftRigidContacts(Diligent::IDeviceContext *com
         gpu::GpuBufferBinding{"g_RigidBodyTranslationCorrections",
                               transient.translationCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        gpu::GpuBufferBinding{"g_RigidBodyRotationCorrections",
-                              transient.rotationCorrectionsBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyRotationCorrections", transient.rotationCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
@@ -827,9 +823,9 @@ bool PhysicsPassDispatcher::solveSoftRigidContacts(Diligent::IDeviceContext *com
                dispatchGroupCount(constants.softRigidCandidatePairCapacity));
 }
 
-bool PhysicsPassDispatcher::applySoftPositionCorrections(
-    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    const GpuSoftDispatchConstants &constants)
+bool PhysicsPassDispatcher::applySoftPositionCorrections(Diligent::IDeviceContext *computeContext,
+                                                         const PhysicsSceneGpuState &sceneState,
+                                                         const GpuSoftDispatchConstants &constants)
 {
     if (constants.softParticleCount == 0u)
     {

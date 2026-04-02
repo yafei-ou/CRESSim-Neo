@@ -92,8 +92,7 @@ public:
                           const PhysicsSceneGpuState &sceneState, std::uint32_t pairCount);
     bool solveConstraints(Diligent::IDeviceContext *computeContext,
                           const PhysicsSceneGpuState &sceneState, std::uint32_t rigidBodyCount,
-                          std::uint32_t pairCount,
-                          const GpuRigidDispatchConstants &constants);
+                          std::uint32_t pairCount, const GpuRigidDispatchConstants &constants);
     bool applyCorrections(Diligent::IDeviceContext *computeContext,
                           const PhysicsSceneGpuState &sceneState, std::uint32_t rigidBodyCount,
                           const GpuRigidDispatchConstants &constants);
