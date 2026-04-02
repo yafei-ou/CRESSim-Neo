@@ -37,6 +37,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     outContact.colliderIndex = 0u;
     outContact.active = 0u;
     outContact.normalPenetration = float4(0.0, 0.0, 0.0, 0.0);
+    outContact.rigidLocalPoint = float4(0.0, 0.0, 0.0, 0.0);
 
     const uint validPairCount = CRESSIM_SB_LOAD(g_SoftRigidCandidatePairCount, 0u);
     if (pairIndex >= validPairCount)
@@ -75,6 +76,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     float bestPenetration = 0.0;
     uint bestColliderIndex = 0u;
     float3 bestNormal = float3(0.0, 1.0, 0.0);
+    float3 bestContactWorld = float3(0.0, 0.0, 0.0);
 
     [loop]
     for (uint i = 0u; i < 64u; ++i)
@@ -113,6 +115,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             QuaternionInverseRotate(colliderWorldOrientation, softPosition - colliderWorldPosition);
 
         float3 normalLocal = float3(0.0, 1.0, 0.0);
+        float3 candidateContactWorld = float3(0.0, 0.0, 0.0);
         float signedDistance = 0.0;
         const uint shapeType = broadPhase.shapeType;
         const float4 shapeParams = CRESSIM_SB_LOAD(g_ColliderShapeParams, colliderIndex);
@@ -123,6 +126,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             const float length = sqrt(dot(particleLocal, particleLocal));
             normalLocal = length > kEpsilon ? (particleLocal / length) : float3(0.0, 1.0, 0.0);
             signedDistance = length - radius;
+            candidateContactWorld =
+                colliderWorldPosition + QuaternionRotate(colliderWorldOrientation, normalLocal * radius);
         }
         else if (shapeType == kColliderBox)
         {
@@ -134,12 +139,29 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             {
                 normalLocal = delta / deltaLength;
                 signedDistance = deltaLength;
+                candidateContactWorld =
+                    colliderWorldPosition + QuaternionRotate(colliderWorldOrientation, closest);
             }
             else
             {
                 normalLocal = ClosestFaceNormalLocal(particleLocal, halfExtents);
                 const float3 distances = halfExtents - abs(particleLocal);
                 signedDistance = -min(distances.x, min(distances.y, distances.z));
+                float3 closestOnSurface = particleLocal;
+                if (abs(normalLocal.x) > 0.5)
+                {
+                    closestOnSurface.x = normalLocal.x * halfExtents.x;
+                }
+                else if (abs(normalLocal.y) > 0.5)
+                {
+                    closestOnSurface.y = normalLocal.y * halfExtents.y;
+                }
+                else
+                {
+                    closestOnSurface.z = normalLocal.z * halfExtents.z;
+                }
+                candidateContactWorld = colliderWorldPosition +
+                                        QuaternionRotate(colliderWorldOrientation, closestOnSurface);
             }
         }
         else
@@ -162,6 +184,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                 length > kEpsilon ? (delta / length) : float3(1.0, 0.0, 0.0);
             signedDistance = length - capsuleRadius;
             normalLocal = QuaternionInverseRotate(colliderWorldOrientation, worldNormal);
+            candidateContactWorld = closest + worldNormal * capsuleRadius;
         }
 
         const float penetration = softRadius - signedDistance;
@@ -174,6 +197,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         bestColliderIndex = colliderIndex;
         bestNormal = SafeNormalize(QuaternionRotate(colliderWorldOrientation, normalLocal),
                                    float3(0.0, 1.0, 0.0));
+        bestContactWorld = candidateContactWorld;
     }
 
     if (bestPenetration > 0.0)
@@ -183,6 +207,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         outContact.colliderIndex = bestColliderIndex;
         outContact.active = 1u;
         outContact.normalPenetration = float4(bestNormal, bestPenetration);
+        outContact.rigidLocalPoint =
+            float4(QuaternionInverseRotate(bodyOrientation, bestContactWorld - bodyPosition), 0.0);
     }
 
     CRESSIM_SB_STORE(g_SoftRigidContacts, pairIndex, outContact);

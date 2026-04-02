@@ -60,8 +60,11 @@ public:
                                  const PhysicsSceneGpuState &sceneState, std::uint32_t softTetCount,
                                  const GpuSoftDispatchConstants &constants);
     bool solveSoftRigidContacts(Diligent::IDeviceContext *computeContext,
-                                const PhysicsSceneGpuState &sceneState, std::uint32_t iterations,
+                                const PhysicsSceneGpuState &sceneState,
                                 const GpuSoftDispatchConstants &constants);
+    bool applySoftPositionCorrections(Diligent::IDeviceContext *computeContext,
+                                      const PhysicsSceneGpuState &sceneState,
+                                      const GpuSoftDispatchConstants &constants);
     bool updateSoftVelocities(Diligent::IDeviceContext *computeContext,
                               const PhysicsSceneGpuState &sceneState,
                               std::uint32_t softParticleCount,
@@ -89,7 +92,10 @@ public:
                           const PhysicsSceneGpuState &sceneState, std::uint32_t pairCount);
     bool solveConstraints(Diligent::IDeviceContext *computeContext,
                           const PhysicsSceneGpuState &sceneState, std::uint32_t rigidBodyCount,
-                          std::uint32_t pairCount, std::uint32_t iterations,
+                          std::uint32_t pairCount,
+                          const GpuRigidDispatchConstants &constants);
+    bool applyCorrections(Diligent::IDeviceContext *computeContext,
+                          const PhysicsSceneGpuState &sceneState, std::uint32_t rigidBodyCount,
                           const GpuRigidDispatchConstants &constants);
     bool updateVelocities(Diligent::IDeviceContext *computeContext,
                           const PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,

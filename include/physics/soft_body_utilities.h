@@ -23,6 +23,7 @@ struct SoftRigidContact
     std::uint32_t colliderIndex     = 0u;
     Diligent::float3 normal{0.0f, 1.0f, 0.0f};
     float penetration = 0.0f;
+    Diligent::float3 rigidLocalPoint{0.0f, 0.0f, 0.0f};
 };
 
 CRESSIM_NEO_PHYSICS_API std::vector<SoftRigidBroadPhaseCandidate>

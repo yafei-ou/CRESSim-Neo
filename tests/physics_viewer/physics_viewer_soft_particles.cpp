@@ -99,6 +99,23 @@ MeshResourceDesc makePlaneMesh(float halfExtent)
     return mesh;
 }
 
+Diligent::float3 computeBoxInverseInertia(const Diligent::float3 &halfExtents, float inverseMass)
+{
+    if (inverseMass <= 0.0f)
+    {
+        return {0.0f, 0.0f, 0.0f};
+    }
+
+    const float mass = 1.0f / inverseMass;
+    const float ix = mass * (halfExtents.y * halfExtents.y + halfExtents.z * halfExtents.z) / 3.0f;
+    const float iy = mass * (halfExtents.x * halfExtents.x + halfExtents.z * halfExtents.z) / 3.0f;
+    const float iz = mass * (halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y) / 3.0f;
+
+    return {ix > 0.0f ? 1.0f / ix : 0.0f,
+            iy > 0.0f ? 1.0f / iy : 0.0f,
+            iz > 0.0f ? 1.0f / iz : 0.0f};
+}
+
 void syncParticleProxyTransforms(Runtime &runtime,
                                  const std::vector<cressim::neo::common::EntityId> &proxyEntities,
                                  std::uint32_t particleOffset)
@@ -244,22 +261,40 @@ int main(int argc, char **argv)
 
     const auto obstacleEntity = world.createEntity();
     TransformComponent obstacleTransform{};
-    obstacleTransform.worldTransform.position = {1.25f, -0.25f, 0.0f};
-    obstacleTransform.worldTransform.scale = {1.0f, 2.0f, 1.0f};
+    obstacleTransform.worldTransform.position = {1.05f, 0.7f, 0.0f};
+    obstacleTransform.worldTransform.scale = {1.0f, 1.0f, 1.0f};
     world.setTransform(obstacleEntity, obstacleTransform);
     world.setMeshRenderer(obstacleEntity, MeshRendererComponent{boxMesh, obstacleMaterial, true});
     RigidBodyComponent obstacleBody{};
-    obstacleBody.bodyType = RigidBodyType::Static;
-    obstacleBody.inverseMass = 0.0f;
+    obstacleBody.bodyType = RigidBodyType::Dynamic;
+    obstacleBody.inverseMass = 0.75f;
+    obstacleBody.inverseInertiaLocal = computeBoxInverseInertia({0.6f, 0.6f, 0.6f},
+                                                                obstacleBody.inverseMass);
     world.setRigidBody(obstacleEntity, obstacleBody);
     ColliderComponent obstacleCollider{};
     obstacleCollider.shapeType = ColliderShapeType::Box;
     obstacleCollider.shapeParams = {0.6f, 0.6f, 0.6f, 0.0f};
     world.addCollider(obstacleEntity, obstacleCollider);
 
+    const auto staticObstacleEntity = world.createEntity();
+    TransformComponent staticObstacleTransform{};
+    staticObstacleTransform.worldTransform.position = {-0.55f, 0.7f, 0.0f};
+    staticObstacleTransform.worldTransform.scale = {1.0f, 1.0f, 1.0f};
+    world.setTransform(staticObstacleEntity, staticObstacleTransform);
+    world.setMeshRenderer(staticObstacleEntity,
+                          MeshRendererComponent{boxMesh, obstacleMaterial, true});
+    RigidBodyComponent staticObstacleBody{};
+    staticObstacleBody.bodyType = RigidBodyType::Static;
+    staticObstacleBody.inverseMass = 0.0f;
+    world.setRigidBody(staticObstacleEntity, staticObstacleBody);
+    ColliderComponent staticObstacleCollider{};
+    staticObstacleCollider.shapeType = ColliderShapeType::Box;
+    staticObstacleCollider.shapeParams = {0.6f, 0.6f, 0.6f, 0.0f};
+    world.addCollider(staticObstacleEntity, staticObstacleCollider);
+
     const auto softEntity = world.createEntity();
     TransformComponent softTransform{};
-    softTransform.worldTransform.position = {0.0f, 1.5f, 0.0f};
+    softTransform.worldTransform.position = {-0.5f, 1.5f, -0.5f};
     world.setTransform(softEntity, softTransform);
     SoftBodyComponent softBody{};
     softBody.size = {1.4f, 1.4f, 1.4f};

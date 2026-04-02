@@ -176,13 +176,16 @@ bool computeSoftRigidContactCpu(const SoftParticleSoAHost &softParticles,
         rigidBody.position + rotateVector(rigidBody.rotation, collider.localPosition);
     const Diligent::QuaternionF worldColliderRotation = rigidBody.rotation * collider.localRotation;
     const Diligent::QuaternionF invRotation           = inverseQuaternion(worldColliderRotation);
+    const Diligent::QuaternionF invBodyRotation       = inverseQuaternion(rigidBody.rotation);
+    const Diligent::float3 softPosition{
+        softParticles.positionsInvMass[softParticleIndex].x,
+        softParticles.positionsInvMass[softParticleIndex].y,
+        softParticles.positionsInvMass[softParticleIndex].z};
     const Diligent::float3 particleLocal              = rotateVector(
-        invRotation, Diligent::float3{softParticles.positionsInvMass[softParticleIndex].x,
-                                      softParticles.positionsInvMass[softParticleIndex].y,
-                                      softParticles.positionsInvMass[softParticleIndex].z} -
-                         worldColliderPosition);
+        invRotation, softPosition - worldColliderPosition);
 
     Diligent::float3 normalLocal{0.0f, 1.0f, 0.0f};
+    Diligent::float3 rigidContactWorld{0.0f, 0.0f, 0.0f};
     float signedDistance = 0.0f;
 
     switch (collider.shapeType)
@@ -194,6 +197,8 @@ bool computeSoftRigidContactCpu(const SoftParticleSoAHost &softParticles,
         normalLocal =
             length > 1.0e-5f ? particleLocal / length : Diligent::float3{0.0f, 1.0f, 0.0f};
         signedDistance = length - radius;
+        rigidContactWorld =
+            worldColliderPosition + rotateVector(worldColliderRotation, normalLocal * radius);
         break;
     }
     case ColliderShapeType::Box:
@@ -208,27 +213,34 @@ bool computeSoftRigidContactCpu(const SoftParticleSoAHost &softParticles,
         {
             normalLocal    = delta / deltaLength;
             signedDistance = deltaLength;
+            rigidContactWorld = worldColliderPosition + rotateVector(worldColliderRotation, closest);
         }
         else
         {
             const Diligent::float3 distances{halfExtents.x - std::abs(particleLocal.x),
                                              halfExtents.y - std::abs(particleLocal.y),
                                              halfExtents.z - std::abs(particleLocal.z)};
+            Diligent::float3 closestOnSurface = particleLocal;
             if (distances.x <= distances.y && distances.x <= distances.z)
             {
                 normalLocal = Diligent::float3{particleLocal.x >= 0.0f ? 1.0f : -1.0f, 0.0f, 0.0f};
                 signedDistance = -distances.x;
+                closestOnSurface.x = normalLocal.x * halfExtents.x;
             }
             else if (distances.y <= distances.z)
             {
                 normalLocal = Diligent::float3{0.0f, particleLocal.y >= 0.0f ? 1.0f : -1.0f, 0.0f};
                 signedDistance = -distances.y;
+                closestOnSurface.y = normalLocal.y * halfExtents.y;
             }
             else
             {
                 normalLocal = Diligent::float3{0.0f, 0.0f, particleLocal.z >= 0.0f ? 1.0f : -1.0f};
                 signedDistance = -distances.z;
+                closestOnSurface.z = normalLocal.z * halfExtents.z;
             }
+            rigidContactWorld =
+                worldColliderPosition + rotateVector(worldColliderRotation, closestOnSurface);
         }
         break;
     }
@@ -252,6 +264,8 @@ bool computeSoftRigidContactCpu(const SoftParticleSoAHost &softParticles,
         const float length             = std::sqrt(Diligent::dot(delta, delta));
         normalLocal    = length > 1.0e-5f ? delta / length : Diligent::float3{1.0f, 0.0f, 0.0f};
         signedDistance = length - radius;
+        rigidContactWorld = worldColliderPosition +
+                            rotateVector(worldColliderRotation, closest + normalLocal * radius);
         break;
     }
     }
@@ -268,6 +282,7 @@ bool computeSoftRigidContactCpu(const SoftParticleSoAHost &softParticles,
     outContact.normal            = common::runtime_math::safeNormalize(
         rotateVector(worldColliderRotation, normalLocal), Diligent::float3{0.0f, 1.0f, 0.0f});
     outContact.penetration = penetration;
+    outContact.rigidLocalPoint = rotateVector(invBodyRotation, rigidContactWorld - rigidBody.position);
     return true;
 }
 

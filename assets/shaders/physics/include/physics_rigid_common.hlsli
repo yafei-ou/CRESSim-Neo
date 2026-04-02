@@ -193,6 +193,7 @@ struct GpuSoftRigidContact
     uint colliderIndex;
     uint active;
     float4 normalPenetration;
+    float4 rigidLocalPoint;
 };
 
 struct GpuSoftEdge

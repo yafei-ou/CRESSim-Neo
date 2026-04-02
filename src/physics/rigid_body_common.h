@@ -110,6 +110,7 @@ struct GpuSoftRigidContact
     std::uint32_t colliderIndex     = 0;
     std::uint32_t active            = 0;
     Diligent::float4 normalPenetration{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 rigidLocalPoint{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 struct GpuBroadPhaseBuildConstants
@@ -260,7 +261,7 @@ static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
 static_assert(sizeof(GpuSoftDispatchConstants) == 32u);
 static_assert(sizeof(GpuSoftRigidBroadPhaseParticle) == 32u);
 static_assert(sizeof(GpuSoftRigidCandidatePair) == 16u);
-static_assert(sizeof(GpuSoftRigidContact) == 32u);
+static_assert(sizeof(GpuSoftRigidContact) == 48u);
 static_assert(sizeof(GpuBroadPhaseBuildConstants) == 16u);
 static_assert(sizeof(GpuBroadPhaseReductionConstants) == 16u);
 static_assert(sizeof(GpuBodyAabb) == 32u);

@@ -1,17 +1,26 @@
 #include "physics/soft_body_utilities.h"
 #include "common/logger.h"
 
+#include <cmath>
+
 namespace
 {
 
 bool checkContact(const cressim::neo::physics::SoftParticleSoAHost &softParticles,
                   const cressim::neo::physics::RigidBodyState &rigidBody,
-                  const cressim::neo::physics::ColliderState &collider)
+                  const cressim::neo::physics::ColliderState &collider,
+                  cressim::neo::physics::SoftRigidContact *outContact = nullptr)
 {
     cressim::neo::physics::SoftRigidContact contact{};
-    return cressim::neo::physics::computeSoftRigidContactCpu(softParticles, 0u, rigidBody, 0u, collider,
-                                                             0u, contact) &&
-           contact.penetration > 0.0f;
+    const bool hit =
+        cressim::neo::physics::computeSoftRigidContactCpu(softParticles, 0u, rigidBody, 0u, collider,
+                                                          0u, contact) &&
+        contact.penetration > 0.0f;
+    if (hit && outContact != nullptr)
+    {
+        *outContact = contact;
+    }
+    return hit;
 }
 
 } // namespace
@@ -41,9 +50,17 @@ int main()
     sphere.collisionLayer = 1u;
     sphere.collisionMask = 0xffffffffu;
     soft.positionsInvMass[0] = {0.55f, 0.0f, 0.0f, 1.0f};
-    if (!checkContact(soft, rigidBody, sphere))
+    SoftRigidContact sphereContact{};
+    if (!checkContact(soft, rigidBody, sphere, &sphereContact))
     {
         CRESSIM_LOG_ERROR("Expected sphere soft-rigid contact.");
+        return 1;
+    }
+    if (std::abs(sphereContact.rigidLocalPoint.x - 0.5f) > 1.0e-3f ||
+        std::abs(sphereContact.rigidLocalPoint.y) > 1.0e-3f ||
+        std::abs(sphereContact.rigidLocalPoint.z) > 1.0e-3f)
+    {
+        CRESSIM_LOG_ERROR("Unexpected sphere rigid local contact point.");
         return 1;
     }
 
