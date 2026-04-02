@@ -40,7 +40,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     CRESSIM_SB_STORE(g_PreviousRigidBodyPositionsInvMass, idx, positionInvMass);
     CRESSIM_SB_STORE(g_PreviousRigidBodyOrientations, idx, orientation);
 
-    if (bodyType == 0u)
+    if (bodyType == kRigidBodyTypeStatic)
     {
         CRESSIM_SB_STORE(g_PredictedRigidBodyPositionsInvMass, idx, positionInvMass);
         CRESSIM_SB_STORE(g_PredictedRigidBodyOrientations, idx, orientation);
@@ -49,7 +49,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    if (bodyType == 1u)
+    if (bodyType == kRigidBodyTypeKinematic)
     {
         const float3 predictedPosition =
             kinematicTargetEnabled ? kinematicTargetPosition.xyz : positionInvMass.xyz;

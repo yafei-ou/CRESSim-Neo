@@ -27,7 +27,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 angularCorrection =
         float3(CRESSIM_SB_REF(g_RigidBodyAngularVelocityCorrections, bodyIndex).xyz) / kVelocityCorrectionAtomicScale;
 
-    if (bodyType == 2u)
+    if (bodyType == kRigidBodyTypeDynamic)
     {
         linearVelocity.xyz += linearCorrection;
         angularVelocity.xyz += angularCorrection;

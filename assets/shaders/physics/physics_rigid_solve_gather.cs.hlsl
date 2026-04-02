@@ -46,8 +46,8 @@ int3 QuantizeCorrection(float3 value)
     const uint bodyTypeA = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyA);
     const uint bodyTypeB = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyB);
 
-    const float invMassA = bodyTypeA == 2u ? posInvMassA.w : 0.0;
-    const float invMassB = bodyTypeB == 2u ? posInvMassB.w : 0.0;
+    const float invMassA = bodyTypeA == kRigidBodyTypeDynamic ? posInvMassA.w : 0.0;
+    const float invMassB = bodyTypeB == kRigidBodyTypeDynamic ? posInvMassB.w : 0.0;
     if (invMassA == 0.0 && invMassB == 0.0)
         return;
 
@@ -88,7 +88,7 @@ int3 QuantizeCorrection(float3 value)
     const int3 translationB = QuantizeCorrection(n * (invMassB * lambda));
     const int3 rotationB = QuantizeCorrection(angMassB * lambda);
 
-    if (bodyTypeA == 2u && invMassA != 0.0)
+    if (bodyTypeA == kRigidBodyTypeDynamic && invMassA != 0.0)
     {
         InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyA).x, translationA.x);
         InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyA).y, translationA.y);
@@ -98,7 +98,7 @@ int3 QuantizeCorrection(float3 value)
         InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyA).z, rotationA.z);
     }
 
-    if (bodyTypeB == 2u && invMassB != 0.0)
+    if (bodyTypeB == kRigidBodyTypeDynamic && invMassB != 0.0)
     {
         InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyB).x, translationB.x);
         InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyB).y, translationB.y);

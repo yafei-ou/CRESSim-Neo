@@ -12,11 +12,17 @@ namespace cressim::neo::physics
 
 constexpr std::uint32_t kRigidContactsPerPair   = 4u;
 constexpr std::uint32_t kRigidPairTypeCount     = 6u;
-constexpr std::uint32_t kBodyFlagStatic         = 1u << 0u;
-constexpr std::uint32_t kBodyFlagKinematic      = 1u << 1u;
-constexpr std::uint32_t kBodyFlagDynamic        = 1u << 2u;
-constexpr std::uint32_t kBodyFlagMoving         = kBodyFlagKinematic | kBodyFlagDynamic;
+constexpr std::uint32_t kRigidBodyTypeStatic    = 0u;
+constexpr std::uint32_t kRigidBodyTypeKinematic = 1u;
+constexpr std::uint32_t kRigidBodyTypeDynamic   = 2u;
 constexpr std::uint32_t kKinematicTargetEnabled = 1u << 0u;
+
+static_assert(static_cast<std::uint32_t>(RigidBodyType::Static) == kRigidBodyTypeStatic);
+static_assert(static_cast<std::uint32_t>(RigidBodyType::Kinematic) == kRigidBodyTypeKinematic);
+static_assert(static_cast<std::uint32_t>(RigidBodyType::Dynamic) == kRigidBodyTypeDynamic);
+static_assert(static_cast<std::uint32_t>(ColliderShapeType::Sphere) == 0u);
+static_assert(static_cast<std::uint32_t>(ColliderShapeType::Box) == 1u);
+static_assert(static_cast<std::uint32_t>(ColliderShapeType::Capsule) == 2u);
 
 enum class GpuRigidPairType : std::uint32_t
 {
@@ -131,9 +137,9 @@ struct GpuBodyAabb
 struct GpuBodyMeta
 {
     std::uint32_t bodyId      = 0;
-    std::uint32_t flags       = 0;
+    std::uint32_t bodyType    = kRigidBodyTypeStatic;
     std::uint32_t activeIndex = 0xffffffffu;
-    std::uint32_t reserved    = 0;
+    std::uint32_t reserved0   = 0;
 };
 
 struct GpuBroadPhaseElement

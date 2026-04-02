@@ -26,7 +26,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 rotationCorrection =
         float3(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyIndex).xyz) / kCorrectionAtomicScale;
 
-    if (bodyType == 2u && positionInvMass.w != 0.0)
+    if (bodyType == kRigidBodyTypeDynamic && positionInvMass.w != 0.0)
     {
         positionInvMass.xyz += translationCorrection;
         orientation =

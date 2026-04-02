@@ -6,10 +6,9 @@
 static const uint kColliderSphere = 0u;
 static const uint kColliderBox = 1u;
 static const uint kColliderCapsule = 2u;
-static const uint kBodyFlagStatic = 1u << 0u;
-static const uint kBodyFlagKinematic = 1u << 1u;
-static const uint kBodyFlagDynamic = 1u << 2u;
-static const uint kBodyFlagMoving = kBodyFlagKinematic | kBodyFlagDynamic;
+static const uint kRigidBodyTypeStatic = 0u;
+static const uint kRigidBodyTypeKinematic = 1u;
+static const uint kRigidBodyTypeDynamic = 2u;
 static const uint kKinematicTargetEnabled = 1u << 0u;
 static const uint kInvalidIndex = 0xffffffffu;
 static const uint kRigidPairTypeCount = 6u;
@@ -62,9 +61,9 @@ struct GpuBodyAabb
 struct GpuBodyMeta
 {
     uint bodyId;
-    uint flags;
+    uint bodyType;
     uint activeIndex;
-    uint reserved;
+    uint reserved0;
 };
 
 struct GpuBroadPhaseElement

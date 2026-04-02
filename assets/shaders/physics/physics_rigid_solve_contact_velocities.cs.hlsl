@@ -55,8 +55,8 @@ float ComputeImpulseDenominator(float invMass, float3 invInertiaLocal, float4 or
     const uint bodyTypeB = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyBIndex);
     const float4 posInvMassA = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyAIndex);
     const float4 posInvMassB = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyBIndex);
-    const float invMassA = bodyTypeA == 2u ? posInvMassA.w : 0.0;
-    const float invMassB = bodyTypeB == 2u ? posInvMassB.w : 0.0;
+    const float invMassA = bodyTypeA == kRigidBodyTypeDynamic ? posInvMassA.w : 0.0;
+    const float invMassB = bodyTypeB == kRigidBodyTypeDynamic ? posInvMassB.w : 0.0;
     if (invMassA == 0.0 && invMassB == 0.0)
     {
         return;
