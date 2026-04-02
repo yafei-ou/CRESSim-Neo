@@ -60,6 +60,52 @@ struct GpuPhysicsRadixConstants
     std::uint32_t reserved1    = 0;
 };
 
+struct GpuSoftDispatchConstants
+{
+    float dt                                = 0.0f;
+    std::uint32_t softParticleCount         = 0;
+    std::uint32_t rigidSurfaceParticleCount = 0;
+    float particleGridCellSize              = 0.0f;
+    std::uint32_t softCandidatePairCapacity = 0;
+    std::uint32_t softEdgeCount             = 0;
+    std::uint32_t softTetCount              = 0;
+    std::uint32_t reserved2                 = 0;
+};
+
+constexpr std::uint32_t kSoftBroadPhaseParticleTypeSoft         = 0u;
+constexpr std::uint32_t kSoftBroadPhaseParticleTypeRigidSurface = 1u;
+constexpr std::uint32_t kSoftCandidatePairTypeSoftSoft          = 0u;
+constexpr std::uint32_t kSoftCandidatePairTypeSoftRigid         = 1u;
+
+struct GpuSoftBroadPhaseParticle
+{
+    std::uint32_t cellKey       = 0;
+    std::int32_t cellX          = 0;
+    std::int32_t cellY          = 0;
+    std::int32_t cellZ          = 0;
+    std::uint32_t particleIndex = 0;
+    std::uint32_t particleType  = 0;
+    std::uint32_t ownerIndex    = 0;
+    std::uint32_t reserved0     = 0;
+};
+
+struct GpuSoftCandidatePair
+{
+    std::uint32_t pairType = 0;
+    std::uint32_t indexA   = 0;
+    std::uint32_t indexB   = 0;
+    std::uint32_t auxIndex = 0;
+};
+
+struct GpuSoftContact
+{
+    std::uint32_t softParticleIndex = 0;
+    std::uint32_t rigidBodyIndex    = 0;
+    std::uint32_t colliderIndex     = 0;
+    std::uint32_t active            = 0;
+    Diligent::float4 normalPenetration{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
 struct GpuBroadPhaseBuildConstants
 {
     std::uint32_t elementCount = 0;
@@ -185,7 +231,7 @@ struct GpuColliderBroadPhaseData
     std::uint32_t environmentIndex = 0;
     std::uint32_t collisionLayer   = 0;
     std::uint32_t collisionMask    = 0;
-    std::uint32_t reserved0        = 0;
+    std::uint32_t enabledFlag      = 0;
     std::uint32_t reserved1        = 0;
     std::uint32_t reserved2        = 0;
 };
@@ -205,6 +251,10 @@ struct GpuRigidContact
 static_assert(sizeof(GpuRigidDispatchConstants) == 48u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
+static_assert(sizeof(GpuSoftDispatchConstants) == 32u);
+static_assert(sizeof(GpuSoftBroadPhaseParticle) == 32u);
+static_assert(sizeof(GpuSoftCandidatePair) == 16u);
+static_assert(sizeof(GpuSoftContact) == 32u);
 static_assert(sizeof(GpuBroadPhaseBuildConstants) == 16u);
 static_assert(sizeof(GpuBroadPhaseReductionConstants) == 16u);
 static_assert(sizeof(GpuBodyAabb) == 32u);

@@ -44,6 +44,8 @@ public:
     // Physics is owned by PhysicsWorld now.
     void setRigidBody(common::EntityId entityId, const RigidBodyComponent &component);
     bool removeRigidBody(common::EntityId entityId);
+    void setSoftBody(common::EntityId entityId, const SoftBodyComponent &component);
+    bool removeSoftBody(common::EntityId entityId);
 
     ColliderHandle addCollider(common::EntityId entityId, const ColliderComponent &component);
     void updateCollider(ColliderHandle handle, const ColliderComponent &component);
@@ -66,6 +68,7 @@ public:
 
     // Read rigid body/collider through physics.
     std::optional<RigidBodyComponent> tryGetRigidBody(common::EntityId entityId) const;
+    std::optional<SoftBodyComponent> tryGetSoftBody(common::EntityId entityId) const;
     std::optional<ColliderComponent> tryGetCollider(ColliderHandle handle) const;
     const std::vector<ColliderHandle> &colliderHandles(common::EntityId entityId) const;
 
@@ -100,6 +103,7 @@ private:
     struct PhysicsLink
     {
         bool hasRigidBody = false;
+        bool hasSoftBody  = false;
         std::vector<ColliderHandle> colliders;
     };
 

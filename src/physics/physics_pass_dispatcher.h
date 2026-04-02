@@ -25,6 +25,47 @@ public:
     bool clearCorrections(Diligent::IDeviceContext *computeContext,
                           PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
                           const GpuRigidDispatchConstants &constants);
+    bool predictSoft(Diligent::IDeviceContext *computeContext,
+                     const PhysicsSceneGpuState &sceneState, std::uint32_t softParticleCount,
+                     const GpuSoftDispatchConstants &constants);
+    bool updateRigidSurfaceWorldPositions(Diligent::IDeviceContext *computeContext,
+                                          const PhysicsSceneGpuState &sceneState,
+                                          std::uint32_t rigidSurfaceParticleCount,
+                                          const GpuSoftDispatchConstants &constants);
+    bool buildSoftBroadPhaseParticles(Diligent::IDeviceContext *computeContext,
+                                      const PhysicsSceneGpuState &sceneState,
+                                      std::uint32_t totalParticleLikeCount,
+                                      const GpuSoftDispatchConstants &constants);
+    bool buildSoftBroadPhaseKeys(Diligent::IDeviceContext *computeContext,
+                                 const PhysicsSceneGpuState &sceneState,
+                                 std::uint32_t totalParticleLikeCount,
+                                 const GpuSoftDispatchConstants &constants);
+    bool sortSoftBroadPhase(Diligent::IDeviceContext *computeContext,
+                            const PhysicsSceneGpuState &sceneState, std::uint32_t count);
+    bool emitSoftCandidatePairs(Diligent::IDeviceContext *computeContext,
+                                const PhysicsSceneGpuState &sceneState,
+                                std::uint32_t softParticleCount,
+                                const GpuSoftDispatchConstants &constants);
+    bool generateSoftContacts(Diligent::IDeviceContext *computeContext,
+                              const PhysicsSceneGpuState &sceneState,
+                              const GpuSoftDispatchConstants &constants);
+    bool clearSoftConstraintState(Diligent::IDeviceContext *computeContext,
+                                  const PhysicsSceneGpuState &sceneState, std::uint32_t threadCount,
+                                  const GpuSoftDispatchConstants &constants);
+    bool solveSoftEdgeConstraints(Diligent::IDeviceContext *computeContext,
+                                  const PhysicsSceneGpuState &sceneState,
+                                  std::uint32_t softEdgeCount,
+                                  const GpuSoftDispatchConstants &constants);
+    bool solveSoftTetConstraints(Diligent::IDeviceContext *computeContext,
+                                 const PhysicsSceneGpuState &sceneState, std::uint32_t softTetCount,
+                                 const GpuSoftDispatchConstants &constants);
+    bool solveSoftContacts(Diligent::IDeviceContext *computeContext,
+                           const PhysicsSceneGpuState &sceneState, std::uint32_t iterations,
+                           const GpuSoftDispatchConstants &constants);
+    bool updateSoftVelocities(Diligent::IDeviceContext *computeContext,
+                              const PhysicsSceneGpuState &sceneState,
+                              std::uint32_t softParticleCount,
+                              const GpuSoftDispatchConstants &constants);
     bool predict(Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
                  std::uint32_t bodyCount, const GpuRigidDispatchConstants &constants);
     bool updateWorldAabbs(Diligent::IDeviceContext *computeContext,
@@ -62,6 +103,8 @@ public:
 private:
     bool writeRigidDispatchConstants(Diligent::IDeviceContext *computeContext,
                                      const GpuRigidDispatchConstants &constants);
+    bool writeSoftDispatchConstants(Diligent::IDeviceContext *computeContext,
+                                    const GpuSoftDispatchConstants &constants);
     bool writeScanConstants(Diligent::IDeviceContext *computeContext,
                             const GpuPhysicsScanConstants &constants);
     bool writeRadixConstants(Diligent::IDeviceContext *computeContext,
@@ -89,6 +132,8 @@ private:
     bool dispatchRadixSortPass(Diligent::IDeviceContext *computeContext,
                                const PhysicsSceneGpuState &sceneState, std::uint32_t count,
                                bool useStaticSet);
+    bool dispatchSoftRadixSortPass(Diligent::IDeviceContext *computeContext,
+                                   const PhysicsSceneGpuState &sceneState, std::uint32_t count);
     bool dispatchGenerateContactsPass(Diligent::IDeviceContext *computeContext,
                                       const PhysicsSceneGpuState &sceneState,
                                       std::uint32_t pairCount);
@@ -102,6 +147,18 @@ private:
     Diligent::Uint64 mPhysicsContextMask = 0;
 
     gpu::GpuComputePass mPredictPass;
+    gpu::GpuComputePass mSoftPredictPass;
+    gpu::GpuComputePass mUpdateRigidSurfaceWorldPositionsPass;
+    gpu::GpuComputePass mBuildSoftBroadPhaseParticlesPass;
+    gpu::GpuComputePass mBuildSoftBroadPhaseKeysPass;
+    gpu::GpuComputePass mEmitSoftCandidatePairsPass;
+    gpu::GpuComputePass mGenerateSoftContactsPass;
+    gpu::GpuComputePass mClearSoftConstraintStatePass;
+    gpu::GpuComputePass mSolveSoftEdgeConstraintsPass;
+    gpu::GpuComputePass mSolveSoftTetConstraintsPass;
+    gpu::GpuComputePass mSolveSoftContactsPass;
+    gpu::GpuComputePass mApplySoftContactCorrectionsPass;
+    gpu::GpuComputePass mUpdateSoftVelocitiesPass;
     gpu::GpuComputePass mUpdateWorldAabbsPass;
     gpu::GpuComputePass mScanBlockPass;
     gpu::GpuComputePass mScanAddOffsetsPass;
@@ -129,6 +186,7 @@ private:
     gpu::GpuComputePass mApplyContactVelocitiesPass;
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidDispatchConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRadixConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mBroadPhaseBuildConstantsBuffer;

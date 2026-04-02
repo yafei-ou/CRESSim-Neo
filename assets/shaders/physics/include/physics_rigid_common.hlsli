@@ -15,6 +15,10 @@ static const uint kInvalidIndex = 0xffffffffu;
 static const uint kRigidPairTypeCount = 6u;
 
 static const uint kRigidContactsPerPair = 4u;
+static const uint kSoftBroadPhaseParticleTypeSoft = 0u;
+static const uint kSoftBroadPhaseParticleTypeRigidSurface = 1u;
+static const uint kSoftCandidatePairTypeSoftSoft = 0u;
+static const uint kSoftCandidatePairTypeSoftRigid = 1u;
 static const float kBroadPhaseMargin = 0.05f;
 
 static const float3 kGravity = float3(0.0, -9.81, 0.0);
@@ -158,9 +162,53 @@ struct GpuColliderBroadPhaseData
     uint environmentIndex;
     uint collisionLayer;
     uint collisionMask;
-    uint reserved0;
+    uint enabledFlag;
     uint reserved1;
     uint reserved2;
+};
+
+struct GpuSoftBroadPhaseParticle
+{
+    uint cellKey;
+    int cellX;
+    int cellY;
+    int cellZ;
+    uint particleIndex;
+    uint particleType;
+    uint ownerIndex;
+    uint reserved0;
+};
+
+struct GpuSoftCandidatePair
+{
+    uint pairType;
+    uint indexA;
+    uint indexB;
+    uint auxIndex;
+};
+
+struct GpuSoftContact
+{
+    uint softParticleIndex;
+    uint rigidBodyIndex;
+    uint colliderIndex;
+    uint active;
+    float4 normalPenetration;
+};
+
+struct GpuSoftEdge
+{
+    uint particleA;
+    uint particleB;
+    float restLength;
+    float compliance;
+};
+
+struct GpuSoftTet
+{
+    uint4 particleIndices;
+    float restVolume;
+    float compliance;
 };
 
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)

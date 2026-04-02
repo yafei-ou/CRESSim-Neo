@@ -46,12 +46,51 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> materialBuffer;
     };
 
+    struct PersistentBodyColliderMappingBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> colliderOffsetsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> colliderCountsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> colliderRangesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> colliderIndicesBuffer;
+    };
+
     struct PredictedRigidBodyBuffers
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> orientationsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> linearVelocitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> angularVelocitiesBuffer;
+    };
+
+    struct PersistentSoftParticleBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsInvMassBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> previousPositionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> velocitiesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> radiiBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> environmentIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> owningSoftBodyIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> collisionLayersBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> collisionMasksBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> broadPhaseMetadataBuffer;
+    };
+
+    struct PersistentSoftTopologyBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> edgesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> tetsBuffer;
+    };
+
+    struct PersistentRigidSurfaceParticleBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> localPositionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> worldPositionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> owningRigidBodyIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> owningColliderIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> sampleRadiiBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> environmentIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> collisionLayersBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> collisionMasksBuffer;
     };
 
     struct PreviousRigidBodyBuffers
@@ -64,6 +103,18 @@ public:
     {
         PredictedRigidBodyBuffers predictedRigidBodies;
         PreviousRigidBodyBuffers previousRigidBodies;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBroadPhaseParticlesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBroadPhaseKeysBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBroadPhaseKeysScratchBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softRadixBitFlagsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softRadixBitOffsetsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softRadixMetaBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softCandidatePairsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softCandidatePairCountBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softContactsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softPositionCorrectionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeLambdasBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyAabbsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyMetaBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> activeBodyFlagsBuffer;
@@ -123,8 +174,17 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> broadPhaseMetaBuffer;
     };
 
+    struct SoftParticleReadbackBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> previousPositionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> velocitiesBuffer;
+    };
+
     bool ensureCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t bodyCount,
-                        std::uint32_t colliderCount, std::uint32_t physicsContextId);
+                        std::uint32_t colliderCount, std::uint32_t softParticleCount,
+                        std::uint32_t softEdgeCount, std::uint32_t softTetCount,
+                        std::uint32_t rigidSurfaceParticleCount, std::uint32_t physicsContextId);
     bool uploadWorldState(Diligent::IDeviceContext *computeContext, PhysicsWorld &world,
                           std::uint32_t bodyCount, std::uint32_t colliderCount);
     bool copyPredictedRigidBodiesToPersistentState(Diligent::IDeviceContext *computeContext,
@@ -133,11 +193,18 @@ public:
                                         GpuBroadPhaseMeta &outMeta);
     bool readbackPredictedRigidStateBlocking(Diligent::IDeviceContext *computeContext,
                                              PhysicsWorld &world, std::uint32_t bodyCount);
+    bool readbackPredictedSoftStateBlocking(Diligent::IDeviceContext *computeContext,
+                                            PhysicsWorld &world, std::uint32_t softParticleCount);
 
     const PersistentRigidBodyBuffers &persistentRigidBodies() const noexcept;
     const PersistentColliderBuffers &persistentColliders() const noexcept;
+    const PersistentBodyColliderMappingBuffers &persistentBodyColliderMapping() const noexcept;
+    const PersistentSoftParticleBuffers &persistentSoftParticles() const noexcept;
+    const PersistentSoftTopologyBuffers &persistentSoftTopology() const noexcept;
+    const PersistentRigidSurfaceParticleBuffers &persistentRigidSurfaceParticles() const noexcept;
     const SolverTransientBuffers &transientBuffers() const noexcept;
     std::uint32_t candidatePairCapacity() const noexcept;
+    std::uint32_t softCandidatePairCapacity() const noexcept;
     bool correctionBuffersNeedClear() const noexcept;
     void setCorrectionBuffersNeedClear(bool needClear) noexcept;
     bool staticBroadPhaseDirty() const noexcept;
@@ -160,21 +227,47 @@ private:
     bool uploadColliderBroadPhaseRange(Diligent::IDeviceContext *computeContext,
                                        const ColliderSoAHost &colliders, std::uint32_t begin,
                                        std::uint32_t count);
+    bool uploadBodyColliderMapping(Diligent::IDeviceContext *computeContext,
+                                   const BodyColliderMappingHost &mapping, std::uint32_t bodyCount,
+                                   std::uint32_t colliderCount);
+    bool uploadSoftParticles(Diligent::IDeviceContext *computeContext,
+                             const SoftParticleSoAHost &softParticles);
+    bool uploadSoftTopology(Diligent::IDeviceContext *computeContext,
+                            const std::vector<SoftEdge> &softEdges,
+                            const std::vector<SoftTet> &softTets);
+    bool uploadRigidSurfaceParticles(Diligent::IDeviceContext *computeContext,
+                                     const RigidSurfaceParticleSoAHost &surfaceParticles);
     PersistentRigidBodyBuffers mPersistentRigidBodies;
     PersistentColliderBuffers mPersistentColliders;
+    PersistentBodyColliderMappingBuffers mPersistentBodyColliderMapping;
+    PersistentSoftParticleBuffers mPersistentSoftParticles;
+    PersistentSoftTopologyBuffers mPersistentSoftTopology;
+    PersistentRigidSurfaceParticleBuffers mPersistentRigidSurfaceParticles;
     SolverTransientBuffers mTransientState;
     RigidBodyReadbackBuffers mReadbackRigidBodies;
-    std::uint32_t mRigidBodyCapacity      = 0;
-    std::uint32_t mColliderCapacity       = 0;
-    std::uint32_t mRigidBodyCount         = 0;
-    std::uint32_t mColliderCount          = 0;
-    std::uint32_t mBroadPhaseNodeCapacity = 0;
-    std::uint32_t mCandidatePairCapacity  = 0;
-    std::uint32_t mContactCapacity        = 0;
-    bool mCorrectionBuffersNeedClear      = false;
-    bool mStaticBroadPhaseDirty           = true;
-    bool mRigidBodyUploadResetRequired    = true;
-    bool mColliderUploadResetRequired     = true;
+    SoftParticleReadbackBuffers mReadbackSoftParticles;
+    std::uint32_t mRigidBodyCapacity              = 0;
+    std::uint32_t mColliderCapacity               = 0;
+    std::uint32_t mSoftParticleCapacity           = 0;
+    std::uint32_t mSoftEdgeCapacity               = 0;
+    std::uint32_t mSoftTetCapacity                = 0;
+    std::uint32_t mRigidSurfaceParticleCapacity   = 0;
+    std::uint32_t mSoftBroadPhaseParticleCapacity = 0;
+    std::uint32_t mSoftCandidatePairCapacity      = 0;
+    std::uint32_t mRigidBodyCount                 = 0;
+    std::uint32_t mColliderCount                  = 0;
+    std::uint32_t mSoftBodyCount                  = 0;
+    std::uint32_t mSoftParticleCount              = 0;
+    std::uint32_t mSoftEdgeCount                  = 0;
+    std::uint32_t mSoftTetCount                   = 0;
+    std::uint32_t mRigidSurfaceParticleCount      = 0;
+    std::uint32_t mBroadPhaseNodeCapacity         = 0;
+    std::uint32_t mCandidatePairCapacity          = 0;
+    std::uint32_t mContactCapacity                = 0;
+    bool mCorrectionBuffersNeedClear              = false;
+    bool mStaticBroadPhaseDirty                   = true;
+    bool mRigidBodyUploadResetRequired            = true;
+    bool mColliderUploadResetRequired             = true;
 };
 
 } // namespace cressim::neo::physics

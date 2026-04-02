@@ -124,6 +124,17 @@ struct ColliderComponent
     std::uint32_t collisionMask  = 0xffffffffu;
 };
 
+struct SoftBodyComponent
+{
+    Diligent::float3 size{1.0f, 1.0f, 1.0f};
+    float particleSpacing  = 0.25f;
+    float particleMass     = 1.0f;
+    float particleRadius   = 0.125f;
+    float edgeCompliance   = 0.0f;
+    float volumeCompliance = 0.001f;
+    bool simulated         = true;
+};
+
 } // namespace cressim::neo::engine
 
 #endif // CRESSIM_NEO_ENGINE_COMPONENTS_H

@@ -1,0 +1,121 @@
+#include "common/frame_context.h"
+#include "common/logger.h"
+#include "engine/components.h"
+#include "engine/runtime.h"
+
+int main()
+{
+    using namespace cressim::neo;
+
+    engine::RuntimeConfig config{};
+    config.gpuDeviceDesc.preferredBackend = gpu::GpuBackend::Vulkan;
+    config.gpuDeviceDesc.enableValidation = false;
+
+    engine::Runtime runtime;
+    try
+    {
+        if (!runtime.initialize(config))
+        {
+            CRESSIM_LOG_INFO("Skipping soft GPU scene upload test because Vulkan runtime "
+                             "initialization is unavailable on this machine.");
+            return 0;
+        }
+    }
+    catch (const std::exception &)
+    {
+        CRESSIM_LOG_INFO("Skipping soft GPU scene upload test because Vulkan runtime "
+                         "initialization is unavailable on this machine.");
+        return 0;
+    }
+
+    engine::World &world            = runtime.getWorld();
+    const common::EntityId softBody = world.createEntity();
+
+    engine::TransformComponent transform{};
+    transform.worldTransform.position = {0.0f, 1.0f, 0.0f};
+    world.setTransform(softBody, transform);
+
+    engine::SoftBodyComponent soft{};
+    soft.size           = {1.0f, 1.0f, 1.0f};
+    soft.particleSpacing = 0.5f;
+    soft.particleMass   = 1.0f;
+    soft.particleRadius = 0.1f;
+    soft.edgeCompliance = 0.0f;
+    soft.volumeCompliance = 0.0f;
+    soft.simulated         = true;
+    world.setSoftBody(softBody, soft);
+
+    common::FrameContext frame{};
+    frame.deltaSeconds = 1.0f / 60.0f;
+    runtime.tick(frame);
+
+    const physics::PhysicsSolver *solver = runtime.getPhysicsSolver();
+    if (solver == nullptr)
+    {
+        CRESSIM_LOG_ERROR("Runtime returned null physics solver.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    const physics::PhysicsGpuSceneView sceneView = solver->gpuSceneView();
+    const std::uint32_t expectedParticleCount =
+        static_cast<std::uint32_t>(world.physicsWorld().softParticles().size());
+    const std::uint32_t expectedEdgeCount =
+        static_cast<std::uint32_t>(world.physicsWorld().softEdges().size());
+    const std::uint32_t expectedTetCount =
+        static_cast<std::uint32_t>(world.physicsWorld().softTets().size());
+    const std::uint32_t expectedSurfaceCount =
+        static_cast<std::uint32_t>(world.physicsWorld().rigidSurfaceParticles().size());
+
+    if (sceneView.soft.softBodyCount != 1u || sceneView.soft.particles.count != expectedParticleCount ||
+        sceneView.soft.edgeCount != expectedEdgeCount || sceneView.soft.tetCount != expectedTetCount ||
+        sceneView.soft.rigidSurfaceParticles.count != expectedSurfaceCount)
+    {
+        CRESSIM_LOG_ERROR("Unexpected soft GPU scene counts.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    if (sceneView.soft.particles.positionsInvMassBuffer == nullptr ||
+        sceneView.soft.particles.previousPositionsBuffer == nullptr ||
+        sceneView.soft.particles.velocitiesBuffer == nullptr ||
+        sceneView.soft.particles.radiiBuffer == nullptr ||
+        sceneView.soft.particles.environmentIndicesBuffer == nullptr ||
+        sceneView.soft.particles.owningSoftBodyIndicesBuffer == nullptr ||
+        sceneView.soft.edgesBuffer == nullptr || sceneView.soft.tetsBuffer == nullptr)
+    {
+        CRESSIM_LOG_ERROR("Soft GPU scene view is missing required buffers.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    const physics::PhysicsSolverStageStats &stats = solver->lastStageStats();
+    if (!stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::PredictState)])
+    {
+        CRESSIM_LOG_ERROR("Soft-only scene did not execute soft predict stage.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    if (!stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::BuildBroadPhase)])
+    {
+        CRESSIM_LOG_ERROR("Soft-only scene did not execute soft broad-phase preparation.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    if (stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::UpdateWorldAabbs)] ||
+        stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::GenerateBroadPhasePairs)] ||
+        stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::GenerateContacts)] ||
+        stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::SolveConstraints)] ||
+        stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::UpdateVelocities)])
+    {
+        CRESSIM_LOG_ERROR("Soft-only scene unexpectedly executed rigid-only stages.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    runtime.shutdown();
+    CRESSIM_LOG_INFO("Soft GPU scene upload checks passed.");
+    return 0;
+}

@@ -7,6 +7,18 @@ namespace cressim::neo::physics::passdefs
 {
 
 extern const gpu::GpuComputePassDefinition kPredict;
+extern const gpu::GpuComputePassDefinition kSoftPredict;
+extern const gpu::GpuComputePassDefinition kUpdateRigidSurfaceWorldPositions;
+extern const gpu::GpuComputePassDefinition kBuildSoftBroadPhaseParticles;
+extern const gpu::GpuComputePassDefinition kBuildSoftBroadPhaseKeys;
+extern const gpu::GpuComputePassDefinition kEmitSoftCandidatePairs;
+extern const gpu::GpuComputePassDefinition kGenerateSoftContacts;
+extern const gpu::GpuComputePassDefinition kClearSoftConstraintState;
+extern const gpu::GpuComputePassDefinition kSolveSoftEdgeConstraints;
+extern const gpu::GpuComputePassDefinition kSolveSoftTetConstraints;
+extern const gpu::GpuComputePassDefinition kSolveSoftContacts;
+extern const gpu::GpuComputePassDefinition kApplySoftContactCorrections;
+extern const gpu::GpuComputePassDefinition kUpdateSoftVelocities;
 extern const gpu::GpuComputePassDefinition kUpdateWorldAabbs;
 extern const gpu::GpuComputePassDefinition kScanBlock;
 extern const gpu::GpuComputePassDefinition kScanAddOffsets;

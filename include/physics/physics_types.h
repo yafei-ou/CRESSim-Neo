@@ -5,6 +5,7 @@
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -31,6 +32,13 @@ constexpr RigidBodyId kInvalidRigidBodyId = 0u;
 
 using ColliderId                        = std::uint32_t;
 constexpr ColliderId kInvalidColliderId = 0u;
+
+struct UInt3
+{
+    std::uint32_t x = 1u;
+    std::uint32_t y = 1u;
+    std::uint32_t z = 1u;
+};
 
 struct RigidBodyState
 {
@@ -64,6 +72,114 @@ struct ColliderState
     float restitution            = 0.0f;
     std::uint32_t collisionLayer = 1u;
     std::uint32_t collisionMask  = 0xffffffffu;
+};
+
+struct SoftBodyState
+{
+    common::EntityId entityId      = common::kInvalidEntityId;
+    std::uint32_t environmentIndex = 0u;
+    UInt3 gridResolution{};
+    Diligent::float3 origin{0.0f, 0.0f, 0.0f};
+    Diligent::float3 size{1.0f, 1.0f, 1.0f};
+    float particleSpacing        = 0.25f;
+    float particleMass           = 1.0f;
+    float particleRadius         = 0.125f;
+    float edgeCompliance         = 0.0f;
+    float volumeCompliance       = 0.0f;
+    bool simulated               = true;
+    std::uint32_t particleOffset = 0u;
+    std::uint32_t particleCount  = 0u;
+    std::uint32_t edgeOffset     = 0u;
+    std::uint32_t edgeCount      = 0u;
+    std::uint32_t tetOffset      = 0u;
+    std::uint32_t tetCount       = 0u;
+};
+
+struct SoftEdge
+{
+    std::uint32_t particleA = 0u;
+    std::uint32_t particleB = 0u;
+    float restLength        = 0.0f;
+    float compliance        = 0.0f;
+};
+
+struct SoftTet
+{
+    std::array<std::uint32_t, 4> particleIndices{0u, 0u, 0u, 0u};
+    float restVolume = 0.0f;
+    float compliance = 0.0f;
+};
+
+struct SoftParticleSoAHost
+{
+    std::vector<Diligent::float4> positionsInvMass;
+    std::vector<Diligent::float4> previousPositions;
+    std::vector<Diligent::float4> velocities;
+    std::vector<float> radii;
+    std::vector<std::uint32_t> environmentIndices;
+    std::vector<std::uint32_t> owningSoftBodyIndices;
+    std::vector<std::uint32_t> collisionLayers;
+    std::vector<std::uint32_t> collisionMasks;
+
+    std::size_t size() const noexcept
+    {
+        return positionsInvMass.size();
+    }
+
+    bool empty() const noexcept
+    {
+        return positionsInvMass.empty();
+    }
+
+    void clear()
+    {
+        positionsInvMass.clear();
+        previousPositions.clear();
+        velocities.clear();
+        radii.clear();
+        environmentIndices.clear();
+        owningSoftBodyIndices.clear();
+        collisionLayers.clear();
+        collisionMasks.clear();
+    }
+};
+
+struct RigidSurfaceParticleSoAHost
+{
+    std::vector<Diligent::float4> localPositions;
+    std::vector<Diligent::float4> worldPositions;
+    std::vector<std::uint32_t> owningRigidBodyIndices;
+    std::vector<RigidBodyId> owningRigidBodyIds;
+    std::vector<std::uint32_t> owningColliderIndices;
+    std::vector<ColliderId> owningColliderIds;
+    std::vector<float> sampleRadii;
+    std::vector<std::uint32_t> environmentIndices;
+    std::vector<std::uint32_t> collisionLayers;
+    std::vector<std::uint32_t> collisionMasks;
+
+    std::size_t size() const noexcept
+    {
+        return worldPositions.size();
+    }
+
+    bool empty() const noexcept
+    {
+        return worldPositions.empty();
+    }
+
+    void clear()
+    {
+        localPositions.clear();
+        worldPositions.clear();
+        owningRigidBodyIndices.clear();
+        owningRigidBodyIds.clear();
+        owningColliderIndices.clear();
+        owningColliderIds.clear();
+        sampleRadii.clear();
+        environmentIndices.clear();
+        collisionLayers.clear();
+        collisionMasks.clear();
+    }
 };
 
 struct RigidBodySoAHost

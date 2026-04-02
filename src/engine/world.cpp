@@ -146,6 +146,7 @@ bool World::destroyEntity(common::EntityId entityId)
     removePointLight(entityId);
     removeSpotLight(entityId);
     removeRigidBody(entityId);
+    removeSoftBody(entityId);
 
     auto physIt = mPhysicsLinks.find(entityId);
     if (physIt != mPhysicsLinks.end())
@@ -202,6 +203,14 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
     const auto physIt             = mPhysicsLinks.find(entityId);
     if (physIt != mPhysicsLinks.end())
     {
+        if (physIt->second.hasSoftBody)
+        {
+            if (physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(entityId))
+            {
+                softBody->environmentIndex = envIndex;
+                mPhysicsWorld.upsertSoftBody(*softBody);
+            }
+        }
         for (const ColliderHandle handle : physIt->second.colliders)
         {
             const physics::ColliderState *existing = mPhysicsWorld.tryGetCollider(handle.id);
@@ -417,6 +426,11 @@ void World::setTransform(common::EntityId entityId, const TransformComponent &co
         rb->rotation = component.worldTransform.rotation;
         rb->scale    = component.worldTransform.scale;
         mPhysicsWorld.upsertRigidBody(*rb);
+    }
+    if (auto *softBody = mPhysicsWorld.tryGetSoftBody(entityId))
+    {
+        softBody->origin = component.worldTransform.position;
+        mPhysicsWorld.upsertSoftBody(*softBody);
     }
     if (const auto it = mRenderableIndices.find(entityId); it != mRenderableIndices.end())
     {
@@ -749,6 +763,58 @@ bool World::removeRigidBody(common::EntityId entityId)
         mPhysicsRenderableMappingsDirty = true;
     }
     return removed;
+}
+
+void World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &component)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("setSoftBody requires valid entity id.");
+        return;
+    }
+
+    if (!requireAliveEntity(entityId, "setSoftBody"))
+    {
+        return;
+    }
+
+    if (!component.simulated)
+    {
+        mPhysicsWorld.removeSoftBody(entityId);
+        mPhysicsLinks[entityId].hasSoftBody = false;
+        return;
+    }
+
+    TransformComponent transform{};
+    if (const std::optional<TransformComponent> t = tryGetTransform(entityId))
+    {
+        transform = *t;
+    }
+
+    physics::SoftBodyState state{};
+    state.entityId         = entityId;
+    state.environmentIndex = entityEnvironment(entityId);
+    state.origin           = transform.worldTransform.position;
+    state.size             = component.size;
+    state.particleSpacing  = component.particleSpacing;
+    state.particleMass     = component.particleMass;
+    state.particleRadius   = component.particleRadius;
+    state.edgeCompliance   = component.edgeCompliance;
+    state.volumeCompliance = component.volumeCompliance;
+    state.simulated        = component.simulated;
+
+    mPhysicsWorld.upsertSoftBody(state);
+    mPhysicsLinks[entityId].hasSoftBody = true;
+}
+
+bool World::removeSoftBody(common::EntityId entityId)
+{
+    auto it = mPhysicsLinks.find(entityId);
+    if (it != mPhysicsLinks.end())
+    {
+        it->second.hasSoftBody = false;
+    }
+    return mPhysicsWorld.removeSoftBody(entityId);
 }
 
 World::ColliderHandle World::addCollider(common::EntityId entityId,
@@ -1101,6 +1167,25 @@ std::optional<RigidBodyComponent> World::tryGetRigidBody(common::EntityId entity
     component.kinematicTargetPosition = rb->kinematicTargetPosition;
     component.kinematicTargetRotation = rb->kinematicTargetRotation;
     component.kinematicTargetEnabled  = rb->kinematicTargetEnabled;
+    return component;
+}
+
+std::optional<SoftBodyComponent> World::tryGetSoftBody(common::EntityId entityId) const
+{
+    const physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(entityId);
+    if (!softBody)
+    {
+        return std::nullopt;
+    }
+
+    SoftBodyComponent component{};
+    component.size             = softBody->size;
+    component.particleSpacing  = softBody->particleSpacing;
+    component.particleMass     = softBody->particleMass;
+    component.particleRadius   = softBody->particleRadius;
+    component.edgeCompliance   = softBody->edgeCompliance;
+    component.volumeCompliance = softBody->volumeCompliance;
+    component.simulated        = softBody->simulated;
     return component;
 }
 

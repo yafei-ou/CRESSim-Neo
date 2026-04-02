@@ -52,3 +52,33 @@ add_test(
     NAME cressim_neo_physics_body_types_vulkan
     COMMAND cressim_neo_physics_body_types
 )
+
+add_physics_test(cressim_neo_physics_soft_body_generation_regular_tet_grid physics_soft_body_generation_regular_tet_grid.cpp)
+add_test(
+    NAME cressim_neo_physics_soft_body_generation_regular_tet_grid
+    COMMAND cressim_neo_physics_soft_body_generation_regular_tet_grid
+)
+
+add_physics_test(cressim_neo_physics_rigid_surface_particle_generation physics_rigid_surface_particle_generation.cpp)
+add_test(
+    NAME cressim_neo_physics_rigid_surface_particle_generation
+    COMMAND cressim_neo_physics_rigid_surface_particle_generation
+)
+
+add_physics_test(cressim_neo_physics_soft_body_multi_env_isolation physics_soft_body_multi_env_isolation.cpp)
+add_test(
+    NAME cressim_neo_physics_soft_body_multi_env_isolation
+    COMMAND cressim_neo_physics_soft_body_multi_env_isolation
+)
+
+add_physics_test(cressim_neo_physics_soft_body_analytic_narrow_phase physics_soft_body_analytic_narrow_phase.cpp)
+add_test(
+    NAME cressim_neo_physics_soft_body_analytic_narrow_phase
+    COMMAND cressim_neo_physics_soft_body_analytic_narrow_phase
+)
+
+add_physics_test(cressim_neo_physics_soft_gpu_scene_upload physics_soft_gpu_scene_upload.cpp)
+add_test(
+    NAME cressim_neo_physics_soft_gpu_scene_upload_vulkan
+    COMMAND cressim_neo_physics_soft_gpu_scene_upload
+)

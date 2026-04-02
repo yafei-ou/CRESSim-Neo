@@ -16,9 +16,47 @@ struct PhysicsGpuRigidSceneView
     std::uint32_t colliderCount = 0;
 };
 
+struct PhysicsGpuSoftParticleBufferView
+{
+    Diligent::IBuffer *positionsInvMassBuffer      = nullptr;
+    Diligent::IBuffer *previousPositionsBuffer     = nullptr;
+    Diligent::IBuffer *velocitiesBuffer            = nullptr;
+    Diligent::IBuffer *radiiBuffer                 = nullptr;
+    Diligent::IBuffer *environmentIndicesBuffer    = nullptr;
+    Diligent::IBuffer *owningSoftBodyIndicesBuffer = nullptr;
+    Diligent::IBuffer *collisionLayersBuffer       = nullptr;
+    Diligent::IBuffer *collisionMasksBuffer        = nullptr;
+    std::uint32_t count                            = 0;
+};
+
+struct PhysicsGpuRigidSurfaceParticleBufferView
+{
+    Diligent::IBuffer *localPositionsBuffer         = nullptr;
+    Diligent::IBuffer *worldPositionsBuffer         = nullptr;
+    Diligent::IBuffer *owningRigidBodyIndicesBuffer = nullptr;
+    Diligent::IBuffer *owningColliderIndicesBuffer  = nullptr;
+    Diligent::IBuffer *sampleRadiiBuffer            = nullptr;
+    Diligent::IBuffer *environmentIndicesBuffer     = nullptr;
+    Diligent::IBuffer *collisionLayersBuffer        = nullptr;
+    Diligent::IBuffer *collisionMasksBuffer         = nullptr;
+    std::uint32_t count                             = 0;
+};
+
+struct PhysicsGpuSoftSceneView
+{
+    PhysicsGpuSoftParticleBufferView particles{};
+    Diligent::IBuffer *edgesBuffer = nullptr;
+    Diligent::IBuffer *tetsBuffer  = nullptr;
+    std::uint32_t softBodyCount    = 0;
+    std::uint32_t edgeCount        = 0;
+    std::uint32_t tetCount         = 0;
+    PhysicsGpuRigidSurfaceParticleBufferView rigidSurfaceParticles{};
+};
+
 struct CRESSIM_NEO_PHYSICS_API PhysicsGpuSceneView
 {
     PhysicsGpuRigidSceneView rigid{};
+    PhysicsGpuSoftSceneView soft{};
 };
 
 } // namespace cressim::neo::physics
