@@ -326,10 +326,12 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
 int main(int argc, char **argv)
 {
     RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
-    config.gpuDeviceDesc.enableValidation = false;
-    std::uint64_t numFrames               = 0u;
-    std::uint32_t envCount                = kDefaultEnvCount;
+    config.gpuDeviceDesc.preferredBackend         = GpuBackend::Vulkan;
+    config.gpuDeviceDesc.enableValidation         = false;
+    config.physicsDesc.softRigidContactIterations = 100;
+    config.physicsDesc.softInternalIterations     = 50;
+    std::uint64_t numFrames                       = 0u;
+    std::uint32_t envCount                        = kDefaultEnvCount;
 
     for (int i = 1; i < argc; ++i)
     {
