@@ -161,7 +161,7 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         mPersistentSoftTopology.edgesBuffer != nullptr &&
         mPersistentSoftTopology.tetsBuffer != nullptr &&
         mPersistentRigidSurfaceParticles.localPositionsBuffer != nullptr &&
-        mPersistentRigidSurfaceParticles.worldPositionsBuffer != nullptr &&
+        mTransientState.rigidSurfaceWorldPositionsBuffer != nullptr &&
         mPersistentRigidSurfaceParticles.owningRigidBodyIndicesBuffer != nullptr &&
         mPersistentRigidSurfaceParticles.owningColliderIndicesBuffer != nullptr &&
         mPersistentRigidSurfaceParticles.sampleRadiiBuffer != nullptr &&
@@ -444,11 +444,6 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidSurfaceParticles.localPositionsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidSurfaceWorldPositions",
-                                sizeof(Diligent::float4), newRigidSurfaceParticleCapacity,
-                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
-                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentRigidSurfaceParticles.worldPositionsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidSurfaceBodyIndices",
                                 sizeof(std::uint32_t), newRigidSurfaceParticleCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -478,6 +473,11 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidSurfaceParticles.collisionMasksBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidSurfaceWorldPositions",
+                                sizeof(Diligent::float4), newRigidSurfaceParticleCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.rigidSurfaceWorldPositionsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRigidBroadPhaseParticles",
                                 sizeof(GpuSoftRigidBroadPhaseParticle),
                                 newSoftRigidBroadPhaseParticleCapacity,
@@ -1246,9 +1246,6 @@ bool PhysicsSceneGpuState::uploadRigidSurfaceParticles(
     return updateStructuredBufferRange(computeContext,
                                        mPersistentRigidSurfaceParticles.localPositionsBuffer,
                                        surfaceParticles.localPositions, 0u, count) &&
-           updateStructuredBufferRange(computeContext,
-                                       mPersistentRigidSurfaceParticles.worldPositionsBuffer,
-                                       surfaceParticles.worldPositions, 0u, count) &&
            updateStructuredBufferRange(
                computeContext, mPersistentRigidSurfaceParticles.owningRigidBodyIndicesBuffer,
                surfaceParticles.owningRigidBodyIndices, 0u, count) &&
@@ -1593,7 +1590,7 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.rigidSurfaceParticles.localPositionsBuffer =
         mPersistentRigidSurfaceParticles.localPositionsBuffer;
     view.soft.rigidSurfaceParticles.worldPositionsBuffer =
-        mPersistentRigidSurfaceParticles.worldPositionsBuffer;
+        mTransientState.rigidSurfaceWorldPositionsBuffer;
     view.soft.rigidSurfaceParticles.owningRigidBodyIndicesBuffer =
         mPersistentRigidSurfaceParticles.owningRigidBodyIndicesBuffer;
     view.soft.rigidSurfaceParticles.owningColliderIndicesBuffer =

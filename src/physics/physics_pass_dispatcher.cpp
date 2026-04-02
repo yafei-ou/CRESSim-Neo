@@ -481,7 +481,7 @@ bool PhysicsPassDispatcher::updateRigidSurfaceWorldPositions(
         gpu::GpuBufferBinding{"g_ColliderLocalOrientations", colliders.localOrientationsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RigidSurfaceParticleWorldPositions",
-                              surfaceParticles.worldPositionsBuffer,
+                              transient.rigidSurfaceWorldPositionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
@@ -513,7 +513,7 @@ bool PhysicsPassDispatcher::buildSoftRigidBroadPhaseParticles(
                               softParticles.owningSoftBodyIndicesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RigidSurfaceParticleWorldPositions",
-                              surfaceParticles.worldPositionsBuffer,
+                              transient.rigidSurfaceWorldPositionsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RigidSurfaceParticleOwningRigidBodyIndices",
                               surfaceParticles.owningRigidBodyIndicesBuffer,
@@ -653,7 +653,7 @@ bool PhysicsPassDispatcher::emitSoftRigidCandidatePairs(Diligent::IDeviceContext
         gpu::GpuBufferBinding{"g_SoftParticleCollisionMasks", softParticles.collisionMasksBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RigidSurfaceParticleWorldPositions",
-                              surfaceParticles.worldPositionsBuffer,
+                              transient.rigidSurfaceWorldPositionsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RigidSurfaceParticleSampleRadii",
                               surfaceParticles.sampleRadiiBuffer,

@@ -147,7 +147,6 @@ struct SoftParticleSoAHost
 struct RigidSurfaceParticleSoAHost
 {
     std::vector<Diligent::float4> localPositions;
-    std::vector<Diligent::float4> worldPositions;
     std::vector<std::uint32_t> owningRigidBodyIndices;
     std::vector<RigidBodyId> owningRigidBodyIds;
     std::vector<std::uint32_t> owningColliderIndices;
@@ -159,18 +158,17 @@ struct RigidSurfaceParticleSoAHost
 
     std::size_t size() const noexcept
     {
-        return worldPositions.size();
+        return localPositions.size();
     }
 
     bool empty() const noexcept
     {
-        return worldPositions.empty();
+        return localPositions.empty();
     }
 
     void clear()
     {
         localPositions.clear();
-        worldPositions.clear();
         owningRigidBodyIndices.clear();
         owningRigidBodyIds.clear();
         owningColliderIndices.clear();

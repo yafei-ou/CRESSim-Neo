@@ -84,7 +84,6 @@ public:
     struct PersistentRigidSurfaceParticleBuffers
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> localPositionsBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> worldPositionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> owningRigidBodyIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> owningColliderIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> sampleRadiiBuffer;
@@ -103,6 +102,7 @@ public:
     {
         PredictedRigidBodyBuffers predictedRigidBodies;
         PreviousRigidBodyBuffers previousRigidBodies;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidSurfaceWorldPositionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidBroadPhaseParticlesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidBroadPhaseKeysBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidBroadPhaseKeysScratchBuffer;

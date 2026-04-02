@@ -86,13 +86,6 @@ Diligent::float3 rotatePoint(const Diligent::QuaternionF &rotation, const Dilige
     return rotation.RotateVector(point);
 }
 
-Diligent::float3 transformPoint(const Diligent::float3 &position,
-                                const Diligent::QuaternionF &rotation,
-                                const Diligent::float3 &point)
-{
-    return position + rotatePoint(rotation, point);
-}
-
 float tetSignedVolume(const Diligent::float3 &a, const Diligent::float3 &b,
                       const Diligent::float3 &c, const Diligent::float3 &d)
 {
@@ -1207,20 +1200,12 @@ void PhysicsWorld::rebuildRigidSurfaceParticles() const noexcept
         {
             continue;
         }
-
         const RigidBodyState &body = mRigidBodySnapshot[bodyIndex];
-        const Diligent::float3 colliderPosition =
-            body.position + rotatePoint(body.rotation, collider.localPosition);
-        const Diligent::QuaternionF colliderRotation = body.rotation * collider.localRotation;
 
         auto emitSample = [&](const Diligent::float3 &localPoint, float sampleRadius)
         {
-            const Diligent::float3 worldPoint =
-                transformPoint(colliderPosition, colliderRotation, localPoint);
             mRigidSurfaceParticles.localPositions.push_back(
                 Diligent::float4{localPoint.x, localPoint.y, localPoint.z, 0.0f});
-            mRigidSurfaceParticles.worldPositions.push_back(
-                Diligent::float4{worldPoint.x, worldPoint.y, worldPoint.z, 0.0f});
             mRigidSurfaceParticles.owningRigidBodyIndices.push_back(bodyIndex);
             mRigidSurfaceParticles.owningRigidBodyIds.push_back(body.rigidBodyId);
             mRigidSurfaceParticles.owningColliderIndices.push_back(colliderIndex);
