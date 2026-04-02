@@ -155,8 +155,12 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         mPersistentSoftParticles.radiiBuffer != nullptr &&
         mPersistentSoftParticles.environmentIndicesBuffer != nullptr &&
         mPersistentSoftParticles.owningSoftBodyIndicesBuffer != nullptr &&
+        mPersistentSoftParticles.phasesBuffer != nullptr &&
         mPersistentSoftParticles.collisionLayersBuffer != nullptr &&
         mPersistentSoftParticles.collisionMasksBuffer != nullptr &&
+        mPersistentSoftParticles.adjacencyOffsetsBuffer != nullptr &&
+        mPersistentSoftParticles.adjacencyCountsBuffer != nullptr &&
+        mPersistentSoftParticles.adjacencyIndicesBuffer != nullptr &&
         mPersistentSoftParticles.broadPhaseMetadataBuffer != nullptr &&
         mPersistentSoftTopology.edgesBuffer != nullptr &&
         mPersistentSoftTopology.tetsBuffer != nullptr &&
@@ -174,16 +178,17 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         mTransientState.predictedRigidBodies.angularVelocitiesBuffer != nullptr &&
         mTransientState.previousRigidBodies.positionsBuffer != nullptr &&
         mTransientState.previousRigidBodies.orientationsBuffer != nullptr &&
-        mTransientState.softRigidBroadPhaseParticlesBuffer != nullptr &&
-        mTransientState.softRigidBroadPhaseKeysBuffer != nullptr &&
-        mTransientState.softRigidBroadPhaseKeysScratchBuffer != nullptr &&
-        mTransientState.softRigidCellRangesBuffer != nullptr &&
+        mTransientState.particleBroadPhaseEntriesBuffer != nullptr &&
+        mTransientState.particleBroadPhaseKeysBuffer != nullptr &&
+        mTransientState.particleBroadPhaseKeysScratchBuffer != nullptr &&
+        mTransientState.particleCellRangesBuffer != nullptr &&
         mTransientState.softRadixBitFlagsBuffer != nullptr &&
         mTransientState.softRadixBitOffsetsBuffer != nullptr &&
         mTransientState.softRadixMetaBuffer != nullptr &&
-        mTransientState.softRigidCandidatePairsBuffer != nullptr &&
-        mTransientState.softRigidCandidatePairCountBuffer != nullptr &&
+        mTransientState.softCandidatePairsBuffer != nullptr &&
+        mTransientState.softCandidatePairCountBuffer != nullptr &&
         mTransientState.softRigidContactsBuffer != nullptr &&
+        mTransientState.softContactsBuffer != nullptr &&
         mTransientState.softPositionCorrectionsBuffer != nullptr &&
         mTransientState.softEdgeLambdasBuffer != nullptr &&
         mTransientState.softTetLambdasBuffer != nullptr &&
@@ -269,12 +274,14 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
     const std::uint32_t newSoftTetCapacity      = std::max<std::uint32_t>(softTetCount, 64u);
     const std::uint32_t newRigidSurfaceParticleCapacity =
         std::max<std::uint32_t>(rigidSurfaceParticleCount, 64u);
-    const std::uint32_t newSoftRigidBroadPhaseParticleCapacity =
+    const std::uint32_t newParticleBroadPhaseEntryCapacity =
         std::max<std::uint32_t>(softParticleCount + rigidSurfaceParticleCount, 64u);
-    const std::uint32_t newSoftRigidCellRangeCapacity =
-        nextPowerOfTwo(std::max<std::uint32_t>(newSoftRigidBroadPhaseParticleCapacity * 2u, 64u));
-    const std::uint32_t newSoftRigidCandidatePairCapacity =
+    const std::uint32_t newParticleCellRangeCapacity =
+        nextPowerOfTwo(std::max<std::uint32_t>(newParticleBroadPhaseEntryCapacity * 2u, 64u));
+    const std::uint32_t newSoftCandidatePairCapacity =
         std::max<std::uint32_t>(softParticleCount * 8u, 64u);
+    const std::uint32_t newSoftParticleAdjacencyCapacity =
+        std::max<std::uint32_t>(std::max(softEdgeCount * 2u, softTetCount * 12u), 64u);
     const std::uint32_t newNodeCapacity = std::max<std::uint32_t>(
         newColliderCapacity > 0u ? (newColliderCapacity * 2u - 1u) : 1u, 1u);
     const std::uint32_t newCandidatePairCapacity =
@@ -285,7 +292,7 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         newCandidatePairCapacity * kRigidContactsPerPair, kRigidContactsPerPair);
     const Diligent::Uint64 contextMask                    = gpu::contextMaskForId(physicsContextId);
     const std::vector<std::uint32_t> reductionLevelCounts = buildReductionLevelCounts(
-        std::max(newColliderCapacity, newSoftRigidBroadPhaseParticleCapacity));
+        std::max(newColliderCapacity, newParticleBroadPhaseEntryCapacity));
 
     if (!ensureStructuredBuffer(
             renderDevice, "CRESSimNeo.Physics.PositionsInvMass", sizeof(Diligent::float4),
@@ -416,6 +423,10 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftParticles.owningSoftBodyIndicesBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.SoftPhases", sizeof(std::uint32_t),
+            newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentSoftParticles.phasesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftCollisionLayers",
                                 sizeof(std::uint32_t), newSoftParticleCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -426,6 +437,21 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftParticles.collisionMasksBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftAdjacencyOffsets",
+                                sizeof(std::uint32_t), newSoftParticleCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSoftParticles.adjacencyOffsetsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftAdjacencyCounts",
+                                sizeof(std::uint32_t), newSoftParticleCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSoftParticles.adjacencyCountsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftAdjacencyIndices",
+                                sizeof(std::uint32_t), newSoftParticleAdjacencyCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSoftParticles.adjacencyIndicesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftBroadPhaseMetadata",
                                 sizeof(Diligent::uint4), newSoftParticleCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -478,36 +504,34 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.rigidSurfaceWorldPositionsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRigidBroadPhaseParticles",
-                                sizeof(GpuSoftRigidBroadPhaseParticle),
-                                newSoftRigidBroadPhaseParticleCapacity,
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ParticleBroadPhaseEntries",
+                                sizeof(GpuParticleBroadPhaseEntry),
+                                newParticleBroadPhaseEntryCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.softRigidBroadPhaseParticlesBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRigidBroadPhaseKeys",
-                                sizeof(GpuMortonCodeElement),
-                                newSoftRigidBroadPhaseParticleCapacity,
+                                mTransientState.particleBroadPhaseEntriesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ParticleBroadPhaseKeys",
+                                sizeof(GpuMortonCodeElement), newParticleBroadPhaseEntryCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.softRigidBroadPhaseKeysBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRigidBroadPhaseKeysScratch",
-                                sizeof(GpuMortonCodeElement),
-                                newSoftRigidBroadPhaseParticleCapacity,
+                                mTransientState.particleBroadPhaseKeysBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ParticleBroadPhaseKeysScratch",
+                                sizeof(GpuMortonCodeElement), newParticleBroadPhaseEntryCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.softRigidBroadPhaseKeysScratchBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRigidCellRanges",
-                                sizeof(GpuSoftRigidCellRange), newSoftRigidCellRangeCapacity,
+                                mTransientState.particleBroadPhaseKeysScratchBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ParticleCellRanges",
+                                sizeof(GpuParticleCellRange), newParticleCellRangeCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.softRigidCellRangesBuffer) ||
+                                mTransientState.particleCellRangesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRadixBitFlags",
-                                sizeof(std::uint32_t), newSoftRigidBroadPhaseParticleCapacity,
+                                sizeof(std::uint32_t), newParticleBroadPhaseEntryCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.softRadixBitFlagsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRadixBitOffsets",
-                                sizeof(std::uint32_t), newSoftRigidBroadPhaseParticleCapacity,
+                                sizeof(std::uint32_t), newParticleBroadPhaseEntryCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.softRadixBitOffsetsBuffer) ||
@@ -516,22 +540,26 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.softRadixMetaBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRigidCandidatePairs",
-                                sizeof(GpuSoftRigidCandidatePair),
-                                newSoftRigidCandidatePairCapacity,
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftCandidatePairs",
+                                sizeof(GpuSoftCandidatePair), newSoftCandidatePairCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.softRigidCandidatePairsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRigidCandidatePairCount",
+                                mTransientState.softCandidatePairsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftCandidatePairCount",
                                 sizeof(std::uint32_t), 1u,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.softRigidCandidatePairCountBuffer) ||
+                                mTransientState.softCandidatePairCountBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRigidContacts",
-                                sizeof(GpuSoftRigidContact), newSoftRigidCandidatePairCapacity,
+                                sizeof(GpuSoftRigidContact), newSoftCandidatePairCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.softRigidContactsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftContacts",
+                                sizeof(GpuSoftContact), newSoftCandidatePairCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.softContactsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftPositionCorrections",
                                 sizeof(Diligent::int4), newSoftParticleCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -917,21 +945,22 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         }
     }
 
-    mRigidBodyCapacity                   = newRigidBodyCapacity;
-    mColliderCapacity                    = newColliderCapacity;
-    mSoftParticleCapacity                = newSoftParticleCapacity;
-    mSoftEdgeCapacity                    = newSoftEdgeCapacity;
-    mSoftTetCapacity                     = newSoftTetCapacity;
-    mRigidSurfaceParticleCapacity        = newRigidSurfaceParticleCapacity;
-    mSoftRigidBroadPhaseParticleCapacity = newSoftRigidBroadPhaseParticleCapacity;
-    mSoftRigidCandidatePairCapacity      = newSoftRigidCandidatePairCapacity;
-    mBroadPhaseNodeCapacity              = newNodeCapacity;
-    mCandidatePairCapacity               = newCandidatePairCapacity;
-    mContactCapacity                     = newContactCapacity;
-    mCorrectionBuffersNeedClear          = true;
-    mStaticBroadPhaseDirty               = true;
-    mRigidBodyUploadResetRequired        = true;
-    mColliderUploadResetRequired         = true;
+    mRigidBodyCapacity               = newRigidBodyCapacity;
+    mColliderCapacity                = newColliderCapacity;
+    mSoftParticleCapacity            = newSoftParticleCapacity;
+    mSoftEdgeCapacity                = newSoftEdgeCapacity;
+    mSoftTetCapacity                 = newSoftTetCapacity;
+    mRigidSurfaceParticleCapacity    = newRigidSurfaceParticleCapacity;
+    mParticleBroadPhaseEntryCapacity = newParticleBroadPhaseEntryCapacity;
+    mSoftCandidatePairCapacity       = newSoftCandidatePairCapacity;
+    mSoftParticleAdjacencyCapacity   = newSoftParticleAdjacencyCapacity;
+    mBroadPhaseNodeCapacity          = newNodeCapacity;
+    mCandidatePairCapacity           = newCandidatePairCapacity;
+    mContactCapacity                 = newContactCapacity;
+    mCorrectionBuffersNeedClear      = true;
+    mStaticBroadPhaseDirty           = true;
+    mRigidBodyUploadResetRequired    = true;
+    mColliderUploadResetRequired     = true;
     return true;
 }
 
@@ -1203,20 +1232,32 @@ bool PhysicsSceneGpuState::uploadSoftParticles(Diligent::IDeviceContext *compute
            updateStructuredBufferRange(computeContext,
                                        mPersistentSoftParticles.owningSoftBodyIndicesBuffer,
                                        softParticles.owningSoftBodyIndices, 0u, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentSoftParticles.phasesBuffer,
+                                       softParticles.phases, 0u, count) &&
            updateStructuredBufferRange(computeContext,
                                        mPersistentSoftParticles.collisionLayersBuffer,
                                        softParticles.collisionLayers, 0u, count) &&
            updateStructuredBufferRange(computeContext,
                                        mPersistentSoftParticles.collisionMasksBuffer,
                                        softParticles.collisionMasks, 0u, count) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentSoftParticles.adjacencyOffsetsBuffer,
+                                       softParticles.adjacencyOffsets, 0u, count) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentSoftParticles.adjacencyCountsBuffer,
+                                       softParticles.adjacencyCounts, 0u, count) &&
+           updateStructuredBufferRange(
+               computeContext, mPersistentSoftParticles.adjacencyIndicesBuffer,
+               softParticles.adjacencyIndices, 0u,
+               static_cast<std::uint32_t>(softParticles.adjacencyIndices.size())) &&
            [&]()
     {
         std::vector<Diligent::uint4> metadata(count);
         for (std::uint32_t i = 0; i < count; ++i)
         {
-            metadata[i] = Diligent::uint4{softParticles.environmentIndices[i],
-                                          softParticles.collisionLayers[i],
-                                          softParticles.collisionMasks[i], 0u};
+            metadata[i] =
+                Diligent::uint4{softParticles.environmentIndices[i], softParticles.phases[i],
+                                softParticles.collisionLayers[i], softParticles.collisionMasks[i]};
         }
         return updateStructuredBufferRange(
             computeContext, mPersistentSoftParticles.broadPhaseMetadataBuffer, metadata, 0u, count);
@@ -1538,9 +1579,9 @@ std::uint32_t PhysicsSceneGpuState::candidatePairCapacity() const noexcept
     return mCandidatePairCapacity;
 }
 
-std::uint32_t PhysicsSceneGpuState::softRigidCandidatePairCapacity() const noexcept
+std::uint32_t PhysicsSceneGpuState::softCandidatePairCapacity() const noexcept
 {
-    return mSoftRigidCandidatePairCapacity;
+    return mSoftCandidatePairCapacity;
 }
 
 bool PhysicsSceneGpuState::correctionBuffersNeedClear() const noexcept
@@ -1579,14 +1620,18 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
         mPersistentSoftParticles.environmentIndicesBuffer;
     view.soft.particles.owningSoftBodyIndicesBuffer =
         mPersistentSoftParticles.owningSoftBodyIndicesBuffer;
-    view.soft.particles.collisionLayersBuffer = mPersistentSoftParticles.collisionLayersBuffer;
-    view.soft.particles.collisionMasksBuffer  = mPersistentSoftParticles.collisionMasksBuffer;
-    view.soft.particles.count                 = mSoftParticleCount;
-    view.soft.edgesBuffer                     = mPersistentSoftTopology.edgesBuffer;
-    view.soft.tetsBuffer                      = mPersistentSoftTopology.tetsBuffer;
-    view.soft.softBodyCount                   = mSoftBodyCount;
-    view.soft.edgeCount                       = mSoftEdgeCount;
-    view.soft.tetCount                        = mSoftTetCount;
+    view.soft.particles.phasesBuffer           = mPersistentSoftParticles.phasesBuffer;
+    view.soft.particles.collisionLayersBuffer  = mPersistentSoftParticles.collisionLayersBuffer;
+    view.soft.particles.collisionMasksBuffer   = mPersistentSoftParticles.collisionMasksBuffer;
+    view.soft.particles.adjacencyOffsetsBuffer = mPersistentSoftParticles.adjacencyOffsetsBuffer;
+    view.soft.particles.adjacencyCountsBuffer  = mPersistentSoftParticles.adjacencyCountsBuffer;
+    view.soft.particles.adjacencyIndicesBuffer = mPersistentSoftParticles.adjacencyIndicesBuffer;
+    view.soft.particles.count                  = mSoftParticleCount;
+    view.soft.edgesBuffer                      = mPersistentSoftTopology.edgesBuffer;
+    view.soft.tetsBuffer                       = mPersistentSoftTopology.tetsBuffer;
+    view.soft.softBodyCount                    = mSoftBodyCount;
+    view.soft.edgeCount                        = mSoftEdgeCount;
+    view.soft.tetCount                         = mSoftTetCount;
     view.soft.rigidSurfaceParticles.localPositionsBuffer =
         mPersistentRigidSurfaceParticles.localPositionsBuffer;
     view.soft.rigidSurfaceParticles.worldPositionsBuffer =

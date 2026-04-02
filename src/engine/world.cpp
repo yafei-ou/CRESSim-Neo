@@ -792,16 +792,19 @@ void World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
     }
 
     physics::SoftBodyState state{};
-    state.entityId         = entityId;
-    state.environmentIndex = entityEnvironment(entityId);
-    state.origin           = transform.worldTransform.position;
-    state.size             = component.size;
-    state.particleSpacing  = component.particleSpacing;
-    state.particleMass     = component.particleMass;
-    state.particleRadius   = component.particleRadius;
-    state.edgeCompliance   = component.edgeCompliance;
-    state.volumeCompliance = component.volumeCompliance;
-    state.simulated        = component.simulated;
+    state.entityId             = entityId;
+    state.environmentIndex     = entityEnvironment(entityId);
+    state.origin               = transform.worldTransform.position;
+    state.size                 = component.size;
+    state.particleSpacing      = component.particleSpacing;
+    state.particleMass         = component.particleMass;
+    state.particleRadius       = component.particleRadius;
+    state.edgeCompliance       = component.edgeCompliance;
+    state.volumeCompliance     = component.volumeCompliance;
+    state.simulated            = component.simulated;
+    state.selfCollisionEnabled = component.selfCollisionEnabled;
+    state.collisionLayer       = component.collisionLayer;
+    state.collisionMask        = component.collisionMask;
 
     mPhysicsWorld.upsertSoftBody(state);
     mPhysicsLinks[entityId].hasSoftBody = true;
@@ -1179,13 +1182,16 @@ std::optional<SoftBodyComponent> World::tryGetSoftBody(common::EntityId entityId
     }
 
     SoftBodyComponent component{};
-    component.size             = softBody->size;
-    component.particleSpacing  = softBody->particleSpacing;
-    component.particleMass     = softBody->particleMass;
-    component.particleRadius   = softBody->particleRadius;
-    component.edgeCompliance   = softBody->edgeCompliance;
-    component.volumeCompliance = softBody->volumeCompliance;
-    component.simulated        = softBody->simulated;
+    component.size                 = softBody->size;
+    component.particleSpacing      = softBody->particleSpacing;
+    component.particleMass         = softBody->particleMass;
+    component.particleRadius       = softBody->particleRadius;
+    component.edgeCompliance       = softBody->edgeCompliance;
+    component.volumeCompliance     = softBody->volumeCompliance;
+    component.simulated            = softBody->simulated;
+    component.selfCollisionEnabled = softBody->selfCollisionEnabled;
+    component.collisionLayer       = softBody->collisionLayer;
+    component.collisionMask        = softBody->collisionMask;
     return component;
 }
 

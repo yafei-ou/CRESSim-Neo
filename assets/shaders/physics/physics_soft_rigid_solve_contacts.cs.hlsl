@@ -25,7 +25,7 @@ int3 QuantizeSoftCorrection(float3 value)
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint contactIndex = dispatchThreadID.x;
-    if (contactIndex >= softRigidCandidatePairCapacity)
+    if (contactIndex >= softCandidatePairCapacity)
     {
         return;
     }

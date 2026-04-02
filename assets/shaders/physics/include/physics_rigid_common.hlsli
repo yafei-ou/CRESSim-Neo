@@ -14,10 +14,12 @@ static const uint kInvalidIndex = 0xffffffffu;
 static const uint kRigidPairTypeCount = 6u;
 
 static const uint kRigidContactsPerPair = 4u;
-static const uint kSoftRigidBroadPhaseParticleTypeSoft = 0u;
-static const uint kSoftRigidBroadPhaseParticleTypeRigidSurface = 1u;
-static const uint kSoftRigidCandidatePairTypeSoftSoft = 0u;
-static const uint kSoftRigidCandidatePairTypeSoftRigid = 1u;
+static const uint kParticleBroadPhaseEntryTypeSoft = 0u;
+static const uint kParticleBroadPhaseEntryTypeRigidSurface = 1u;
+static const uint kSoftCandidatePairTypeSoftSoft = 0u;
+static const uint kSoftCandidatePairTypeSoftRigid = 1u;
+static const uint kSoftPhaseGroupMask = 0x7fffffffu;
+static const uint kSoftPhaseSelfCollideFlag = 0x80000000u;
 static const float kBroadPhaseMargin = 0.05f;
 
 static const float3 kGravity = float3(0.0, -9.81, 0.0);
@@ -166,7 +168,7 @@ struct GpuColliderBroadPhaseData
     uint reserved2;
 };
 
-struct GpuSoftRigidBroadPhaseParticle
+struct GpuParticleBroadPhaseEntry
 {
     uint cellKey;
     int cellX;
@@ -178,7 +180,7 @@ struct GpuSoftRigidBroadPhaseParticle
     uint reserved0;
 };
 
-struct GpuSoftRigidCandidatePair
+struct GpuSoftCandidatePair
 {
     uint pairType;
     uint indexA;
@@ -186,7 +188,7 @@ struct GpuSoftRigidCandidatePair
     uint auxIndex;
 };
 
-struct GpuSoftRigidCellRange
+struct GpuParticleCellRange
 {
     uint cellKey;
     uint startIndex;
@@ -203,6 +205,25 @@ struct GpuSoftRigidContact
     float4 normalPenetration;
     float4 rigidLocalPoint;
 };
+
+struct GpuSoftContact
+{
+    uint particleA;
+    uint particleB;
+    uint active;
+    uint reserved0;
+    float4 normalPenetration;
+};
+
+uint SoftParticlePhaseGroup(uint phase)
+{
+    return phase & kSoftPhaseGroupMask;
+}
+
+bool SoftParticlePhaseSelfCollideEnabled(uint phase)
+{
+    return (phase & kSoftPhaseSelfCollideFlag) != 0u;
+}
 
 struct GpuSoftEdge
 {

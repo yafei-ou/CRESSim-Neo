@@ -17,8 +17,8 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalPositions);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalOrientations);
 CRESSIM_STRUCTURED_BUFFER(GpuColliderBroadPhaseData, g_ColliderBroadPhaseData);
 
-CRESSIM_STRUCTURED_BUFFER(GpuSoftRigidCandidatePair, g_SoftRigidCandidatePairs);
-CRESSIM_STRUCTURED_BUFFER(uint, g_SoftRigidCandidatePairCount);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftCandidatePair, g_SoftCandidatePairs);
+CRESSIM_STRUCTURED_BUFFER(uint, g_SoftCandidatePairCount);
 
 CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftRigidContact, g_SoftRigidContacts);
 
@@ -26,7 +26,7 @@ CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftRigidContact, g_SoftRigidContacts);
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint pairIndex = dispatchThreadID.x;
-    if (pairIndex >= softRigidCandidatePairCapacity)
+    if (pairIndex >= softCandidatePairCapacity)
     {
         return;
     }
@@ -39,15 +39,15 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     outContact.normalPenetration = float4(0.0, 0.0, 0.0, 0.0);
     outContact.rigidLocalPoint = float4(0.0, 0.0, 0.0, 0.0);
 
-    const uint validPairCount = CRESSIM_SB_LOAD(g_SoftRigidCandidatePairCount, 0u);
+    const uint validPairCount = CRESSIM_SB_LOAD(g_SoftCandidatePairCount, 0u);
     if (pairIndex >= validPairCount)
     {
         CRESSIM_SB_STORE(g_SoftRigidContacts, pairIndex, outContact);
         return;
     }
 
-    const GpuSoftRigidCandidatePair pair = CRESSIM_SB_LOAD(g_SoftRigidCandidatePairs, pairIndex);
-    if (pair.pairType != kSoftRigidCandidatePairTypeSoftRigid)
+    const GpuSoftCandidatePair pair = CRESSIM_SB_LOAD(g_SoftCandidatePairs, pairIndex);
+    if (pair.pairType != kSoftCandidatePairTypeSoftRigid)
     {
         CRESSIM_SB_STORE(g_SoftRigidContacts, pairIndex, outContact);
         return;
@@ -60,8 +60,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float softRadius = CRESSIM_SB_LOAD(g_SoftParticleRadii, softParticleIndex);
     const uint4 softMetadata = CRESSIM_SB_LOAD(g_SoftParticleBroadPhaseMetadata, softParticleIndex);
     const uint softEnvironment = softMetadata.x;
-    const uint softLayer = softMetadata.y;
-    const uint softMask = softMetadata.z;
+    const uint softLayer = softMetadata.z;
+    const uint softMask = softMetadata.w;
 
     const float3 bodyPosition =
         CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, rigidBodyIndex).xyz;

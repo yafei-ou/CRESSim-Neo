@@ -69,7 +69,7 @@ constexpr Diligent::ShaderResourceVariableDesc kUpdateRigidSurfaceWorldPositions
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
-constexpr Diligent::ShaderResourceVariableDesc kBuildSoftRigidBroadPhaseParticlesVars[] = {
+constexpr Diligent::ShaderResourceVariableDesc kBuildParticleBroadPhaseEntriesVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticlePositionsInvMass",
@@ -80,53 +80,55 @@ constexpr Diligent::ShaderResourceVariableDesc kBuildSoftRigidBroadPhaseParticle
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidSurfaceParticleOwningRigidBodyIndices",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidBroadPhaseParticles",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleBroadPhaseEntries",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
-constexpr Diligent::ShaderResourceVariableDesc kBuildSoftRigidBroadPhaseKeysVars[] = {
+constexpr Diligent::ShaderResourceVariableDesc kBuildParticleBroadPhaseKeysVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidBroadPhaseParticles",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleBroadPhaseEntries",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidBroadPhaseKeys",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleBroadPhaseKeys",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
-constexpr Diligent::ShaderResourceVariableDesc kClearSoftRigidCellRangesVars[] = {
+constexpr Diligent::ShaderResourceVariableDesc kClearParticleCellRangesVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidCellRanges",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleCellRanges",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
-constexpr Diligent::ShaderResourceVariableDesc kBuildSoftRigidCellRangesVars[] = {
+constexpr Diligent::ShaderResourceVariableDesc kBuildParticleCellRangesVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SortedSoftRigidBroadPhaseKeys",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SortedParticleBroadPhaseKeys",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidCellRanges",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleCellRanges",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
-constexpr Diligent::ShaderResourceVariableDesc kEmitSoftRigidCandidatePairsVars[] = {
+constexpr Diligent::ShaderResourceVariableDesc kEmitSoftCandidatePairsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidBroadPhaseParticles",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleBroadPhaseEntries",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidCellRanges",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleCellRanges",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SortedSoftRigidBroadPhaseKeys",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SortedParticleBroadPhaseKeys",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticlePositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleRadii",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleEnvironmentIndices",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleBroadPhaseMetadata",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleCollisionLayers",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleAdjacencyOffsets",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleCollisionMasks",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleAdjacencyCounts",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleAdjacencyIndices",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidSurfaceParticleWorldPositions",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -138,9 +140,9 @@ constexpr Diligent::ShaderResourceVariableDesc kEmitSoftRigidCandidatePairsVars[
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidSurfaceParticleCollisionMasks",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidCandidatePairs",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftCandidatePairs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidCandidatePairCount",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftCandidatePairCount",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
@@ -171,11 +173,26 @@ constexpr Diligent::ShaderResourceVariableDesc kGenerateSoftRigidContactsVars[] 
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ColliderBroadPhaseData",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidCandidatePairs",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftCandidatePairs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidCandidatePairCount",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftCandidatePairCount",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidContacts",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kGenerateSoftContactsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleRadii",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftCandidatePairs",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftCandidatePairCount",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftContacts",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
@@ -234,6 +251,17 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveSoftRigidContactsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTranslationCorrections",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyRotationCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kSolveSoftContactsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftContacts",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftPositionCorrections",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
@@ -685,44 +713,44 @@ const gpu::GpuComputePassDefinition kUpdateRigidSurfaceWorldPositions{
     std::size(kUpdateRigidSurfaceWorldPositionsVars),
 };
 
-const gpu::GpuComputePassDefinition kBuildSoftRigidBroadPhaseParticles{
+const gpu::GpuComputePassDefinition kBuildParticleBroadPhaseEntries{
     "physics/physics_soft_rigid_build_broad_phase_particles.cs.hlsl",
-    "CRESSimNeo.Physics.SoftRigidBuildBroadPhaseParticles.CS",
-    "CRESSimNeo.Physics.SoftRigidBuildBroadPhaseParticles.PSO",
-    kBuildSoftRigidBroadPhaseParticlesVars,
-    std::size(kBuildSoftRigidBroadPhaseParticlesVars),
+    "CRESSimNeo.Physics.ParticleBuildBroadPhaseEntries.CS",
+    "CRESSimNeo.Physics.ParticleBuildBroadPhaseEntries.PSO",
+    kBuildParticleBroadPhaseEntriesVars,
+    std::size(kBuildParticleBroadPhaseEntriesVars),
 };
 
-const gpu::GpuComputePassDefinition kBuildSoftRigidBroadPhaseKeys{
+const gpu::GpuComputePassDefinition kBuildParticleBroadPhaseKeys{
     "physics/physics_soft_rigid_build_broad_phase_keys.cs.hlsl",
-    "CRESSimNeo.Physics.SoftRigidBuildBroadPhaseKeys.CS",
-    "CRESSimNeo.Physics.SoftRigidBuildBroadPhaseKeys.PSO",
-    kBuildSoftRigidBroadPhaseKeysVars,
-    std::size(kBuildSoftRigidBroadPhaseKeysVars),
+    "CRESSimNeo.Physics.ParticleBuildBroadPhaseKeys.CS",
+    "CRESSimNeo.Physics.ParticleBuildBroadPhaseKeys.PSO",
+    kBuildParticleBroadPhaseKeysVars,
+    std::size(kBuildParticleBroadPhaseKeysVars),
 };
 
-const gpu::GpuComputePassDefinition kClearSoftRigidCellRanges{
+const gpu::GpuComputePassDefinition kClearParticleCellRanges{
     "physics/physics_soft_rigid_clear_cell_ranges.cs.hlsl",
-    "CRESSimNeo.Physics.SoftRigidClearCellRanges.CS",
-    "CRESSimNeo.Physics.SoftRigidClearCellRanges.PSO",
-    kClearSoftRigidCellRangesVars,
-    std::size(kClearSoftRigidCellRangesVars),
+    "CRESSimNeo.Physics.ParticleClearCellRanges.CS",
+    "CRESSimNeo.Physics.ParticleClearCellRanges.PSO",
+    kClearParticleCellRangesVars,
+    std::size(kClearParticleCellRangesVars),
 };
 
-const gpu::GpuComputePassDefinition kBuildSoftRigidCellRanges{
+const gpu::GpuComputePassDefinition kBuildParticleCellRanges{
     "physics/physics_soft_rigid_build_cell_ranges.cs.hlsl",
-    "CRESSimNeo.Physics.SoftRigidBuildCellRanges.CS",
-    "CRESSimNeo.Physics.SoftRigidBuildCellRanges.PSO",
-    kBuildSoftRigidCellRangesVars,
-    std::size(kBuildSoftRigidCellRangesVars),
+    "CRESSimNeo.Physics.ParticleBuildCellRanges.CS",
+    "CRESSimNeo.Physics.ParticleBuildCellRanges.PSO",
+    kBuildParticleCellRangesVars,
+    std::size(kBuildParticleCellRangesVars),
 };
 
-const gpu::GpuComputePassDefinition kEmitSoftRigidCandidatePairs{
+const gpu::GpuComputePassDefinition kEmitSoftCandidatePairs{
     "physics/physics_soft_rigid_emit_candidate_pairs.cs.hlsl",
-    "CRESSimNeo.Physics.SoftRigidEmitCandidatePairs.CS",
-    "CRESSimNeo.Physics.SoftRigidEmitCandidatePairs.PSO",
-    kEmitSoftRigidCandidatePairsVars,
-    std::size(kEmitSoftRigidCandidatePairsVars),
+    "CRESSimNeo.Physics.SoftEmitCandidatePairs.CS",
+    "CRESSimNeo.Physics.SoftEmitCandidatePairs.PSO",
+    kEmitSoftCandidatePairsVars,
+    std::size(kEmitSoftCandidatePairsVars),
 };
 
 const gpu::GpuComputePassDefinition kGenerateSoftRigidContacts{
@@ -731,6 +759,14 @@ const gpu::GpuComputePassDefinition kGenerateSoftRigidContacts{
     "CRESSimNeo.Physics.GenerateSoftRigidContacts.PSO",
     kGenerateSoftRigidContactsVars,
     std::size(kGenerateSoftRigidContactsVars),
+};
+
+const gpu::GpuComputePassDefinition kGenerateSoftContacts{
+    "physics/physics_soft_generate_contacts.cs.hlsl",
+    "CRESSimNeo.Physics.GenerateSoftContacts.CS",
+    "CRESSimNeo.Physics.GenerateSoftContacts.PSO",
+    kGenerateSoftContactsVars,
+    std::size(kGenerateSoftContactsVars),
 };
 
 const gpu::GpuComputePassDefinition kClearSoftConstraintState{
@@ -763,6 +799,14 @@ const gpu::GpuComputePassDefinition kSolveSoftRigidContacts{
     "CRESSimNeo.Physics.SolveSoftRigidContacts.PSO",
     kSolveSoftRigidContactsVars,
     std::size(kSolveSoftRigidContactsVars),
+};
+
+const gpu::GpuComputePassDefinition kSolveSoftContacts{
+    "physics/physics_soft_solve_contacts.cs.hlsl",
+    "CRESSimNeo.Physics.SolveSoftContacts.CS",
+    "CRESSimNeo.Physics.SolveSoftContacts.PSO",
+    kSolveSoftContactsVars,
+    std::size(kSolveSoftContactsVars),
 };
 
 const gpu::GpuComputePassDefinition kApplySoftPositionCorrections{

@@ -7,7 +7,7 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_SoftParticleOwningSoftBodyIndices);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidSurfaceParticleWorldPositions);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidSurfaceParticleOwningRigidBodyIndices);
 
-CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftRigidBroadPhaseParticle, g_SoftRigidBroadPhaseParticles);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuParticleBroadPhaseEntry, g_ParticleBroadPhaseEntries);
 
 uint ComputeParticleGridCellKey(int gx, int gy, int gz)
 {
@@ -27,7 +27,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    GpuSoftRigidBroadPhaseParticle entry;
+    GpuParticleBroadPhaseEntry entry;
 
     if (idx < softParticleCount)
     {
@@ -42,7 +42,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         entry.cellY = gy;
         entry.cellZ = gz;
         entry.particleIndex = idx;
-        entry.particleType = kSoftRigidBroadPhaseParticleTypeSoft;
+        entry.particleType = kParticleBroadPhaseEntryTypeSoft;
         entry.ownerIndex = CRESSIM_SB_LOAD(g_SoftParticleOwningSoftBodyIndices, idx);
         entry.reserved0 = 0u;
     }
@@ -61,10 +61,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         entry.cellY = gy;
         entry.cellZ = gz;
         entry.particleIndex = surfaceIndex;
-        entry.particleType = kSoftRigidBroadPhaseParticleTypeRigidSurface;
+        entry.particleType = kParticleBroadPhaseEntryTypeRigidSurface;
         entry.ownerIndex = CRESSIM_SB_LOAD(g_RigidSurfaceParticleOwningRigidBodyIndices, surfaceIndex);
         entry.reserved0 = 0u;
     }
 
-    CRESSIM_SB_STORE(g_SoftRigidBroadPhaseParticles, idx, entry);
+    CRESSIM_SB_STORE(g_ParticleBroadPhaseEntries, idx, entry);
 }

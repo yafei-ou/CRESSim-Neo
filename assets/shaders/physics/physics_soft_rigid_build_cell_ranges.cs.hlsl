@@ -1,18 +1,18 @@
 #include "physics/include/physics_soft_dispatch_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-CRESSIM_STRUCTURED_BUFFER(GpuMortonCodeElement, g_SortedSoftRigidBroadPhaseKeys);
-CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftRigidCellRange, g_SoftRigidCellRanges);
+CRESSIM_STRUCTURED_BUFFER(GpuMortonCodeElement, g_SortedParticleBroadPhaseKeys);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuParticleCellRange, g_ParticleCellRanges);
 
 uint FindCellRangeSlot(uint cellKey)
 {
-    const uint mask = softRigidCellRangeCapacity - 1u;
+    const uint mask = softCellRangeCapacity - 1u;
     uint slot = cellKey & mask;
     [loop]
-    for (uint probe = 0u; probe < softRigidCellRangeCapacity; ++probe)
+    for (uint probe = 0u; probe < softCellRangeCapacity; ++probe)
     {
         uint originalKey = kInvalidIndex;
-        InterlockedCompareExchange(CRESSIM_SB_REF(g_SoftRigidCellRanges, slot).cellKey,
+        InterlockedCompareExchange(CRESSIM_SB_REF(g_ParticleCellRanges, slot).cellKey,
                                    kInvalidIndex, cellKey, originalKey);
         if (originalKey == kInvalidIndex || originalKey == cellKey)
         {
@@ -35,11 +35,11 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const GpuMortonCodeElement keyEntry = CRESSIM_SB_LOAD(g_SortedSoftRigidBroadPhaseKeys, idx);
+    const GpuMortonCodeElement keyEntry = CRESSIM_SB_LOAD(g_SortedParticleBroadPhaseKeys, idx);
     const uint cellKey = keyEntry.mortonCode;
 
     const bool isRangeStart =
-        idx == 0u || CRESSIM_SB_LOAD(g_SortedSoftRigidBroadPhaseKeys, idx - 1u).mortonCode != cellKey;
+        idx == 0u || CRESSIM_SB_LOAD(g_SortedParticleBroadPhaseKeys, idx - 1u).mortonCode != cellKey;
     if (!isRangeStart)
     {
         return;
@@ -47,7 +47,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     uint endIndex = idx + 1u;
     while (endIndex < totalParticleCount &&
-           CRESSIM_SB_LOAD(g_SortedSoftRigidBroadPhaseKeys, endIndex).mortonCode == cellKey)
+           CRESSIM_SB_LOAD(g_SortedParticleBroadPhaseKeys, endIndex).mortonCode == cellKey)
     {
         ++endIndex;
     }
@@ -58,10 +58,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    GpuSoftRigidCellRange range;
+    GpuParticleCellRange range;
     range.cellKey = cellKey;
     range.startIndex = idx;
     range.endIndex = endIndex;
     range.reserved0 = 0u;
-    CRESSIM_SB_STORE(g_SoftRigidCellRanges, slot, range);
+    CRESSIM_SB_STORE(g_ParticleCellRanges, slot, range);
 }

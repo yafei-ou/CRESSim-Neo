@@ -210,6 +210,8 @@ int main(int argc, char **argv)
     const auto cameraEntity = world.createEntity();
     TransformComponent cameraTransform{};
     cameraTransform.worldTransform.position = {0.0f, 2.5f, -6.0f};
+    cameraTransform.worldTransform.rotation =
+        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, 0.22f);
     world.setTransform(cameraEntity, cameraTransform);
     world.setCamera(cameraEntity, CameraComponent{});
 
@@ -301,6 +303,9 @@ int main(int argc, char **argv)
     softBody.particleSpacing = 0.35f;
     softBody.particleMass = 0.15f;
     softBody.particleRadius = 0.12f;
+    softBody.selfCollisionEnabled = true;
+    softBody.collisionLayer = 0x1u;
+    softBody.collisionMask = 0xffffffffu;
     world.setSoftBody(softEntity, softBody);
 
     world.physicsWorld().ensureDerivedStateUpToDate();

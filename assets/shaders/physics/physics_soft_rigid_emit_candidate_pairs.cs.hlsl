@@ -1,15 +1,16 @@
 #include "physics/include/physics_soft_dispatch_constants.hlsli"
 #include "physics/include/physics_rigid_common.hlsli"
 
-CRESSIM_STRUCTURED_BUFFER(GpuSoftRigidBroadPhaseParticle, g_SoftRigidBroadPhaseParticles);
-CRESSIM_STRUCTURED_BUFFER(GpuSoftRigidCellRange, g_SoftRigidCellRanges);
-CRESSIM_STRUCTURED_BUFFER(GpuMortonCodeElement, g_SortedSoftRigidBroadPhaseKeys);
+CRESSIM_STRUCTURED_BUFFER(GpuParticleBroadPhaseEntry, g_ParticleBroadPhaseEntries);
+CRESSIM_STRUCTURED_BUFFER(GpuParticleCellRange, g_ParticleCellRanges);
+CRESSIM_STRUCTURED_BUFFER(GpuMortonCodeElement, g_SortedParticleBroadPhaseKeys);
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float, g_SoftParticleRadii);
-CRESSIM_STRUCTURED_BUFFER(uint, g_SoftParticleEnvironmentIndices);
-CRESSIM_STRUCTURED_BUFFER(uint, g_SoftParticleCollisionLayers);
-CRESSIM_STRUCTURED_BUFFER(uint, g_SoftParticleCollisionMasks);
+CRESSIM_STRUCTURED_BUFFER(uint4, g_SoftParticleBroadPhaseMetadata);
+CRESSIM_STRUCTURED_BUFFER(uint, g_SoftParticleAdjacencyOffsets);
+CRESSIM_STRUCTURED_BUFFER(uint, g_SoftParticleAdjacencyCounts);
+CRESSIM_STRUCTURED_BUFFER(uint, g_SoftParticleAdjacencyIndices);
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidSurfaceParticleWorldPositions);
 CRESSIM_STRUCTURED_BUFFER(float, g_RigidSurfaceParticleSampleRadii);
@@ -17,8 +18,8 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_RigidSurfaceParticleEnvironmentIndices);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidSurfaceParticleCollisionLayers);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidSurfaceParticleCollisionMasks);
 
-CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftRigidCandidatePair, g_SoftRigidCandidatePairs);
-CRESSIM_RW_STRUCTURED_BUFFER(uint, g_SoftRigidCandidatePairCount);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftCandidatePair, g_SoftCandidatePairs);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_SoftCandidatePairCount);
 
 uint ComputeParticleGridCellKey(int gx, int gy, int gz)
 {
@@ -28,25 +29,25 @@ uint ComputeParticleGridCellKey(int gx, int gy, int gz)
     return seed;
 }
 
-GpuSoftRigidCellRange FindCellRange(uint targetKey)
+GpuParticleCellRange FindCellRange(uint targetKey)
 {
-    GpuSoftRigidCellRange missingRange;
+    GpuParticleCellRange missingRange;
     missingRange.cellKey = kInvalidIndex;
     missingRange.startIndex = 0u;
     missingRange.endIndex = 0u;
     missingRange.reserved0 = 0u;
 
-    if (softRigidCellRangeCapacity == 0u)
+    if (softCellRangeCapacity == 0u)
     {
         return missingRange;
     }
 
-    const uint mask = softRigidCellRangeCapacity - 1u;
+    const uint mask = softCellRangeCapacity - 1u;
     uint slot = targetKey & mask;
     [loop]
-    for (uint probe = 0u; probe < softRigidCellRangeCapacity; ++probe)
+    for (uint probe = 0u; probe < softCellRangeCapacity; ++probe)
     {
-        const GpuSoftRigidCellRange range = CRESSIM_SB_LOAD(g_SoftRigidCellRanges, slot);
+        const GpuParticleCellRange range = CRESSIM_SB_LOAD(g_ParticleCellRanges, slot);
         if (range.cellKey == targetKey)
         {
             return range;
@@ -62,6 +63,21 @@ GpuSoftRigidCellRange FindCellRange(uint targetKey)
     return missingRange;
 }
 
+bool IsAdjacentSoftParticle(uint particleIndex, uint candidateIndex)
+{
+    const uint neighborOffset = CRESSIM_SB_LOAD(g_SoftParticleAdjacencyOffsets, particleIndex);
+    const uint neighborCount = CRESSIM_SB_LOAD(g_SoftParticleAdjacencyCounts, particleIndex);
+    [loop]
+    for (uint i = 0u; i < neighborCount; ++i)
+    {
+        if (CRESSIM_SB_LOAD(g_SoftParticleAdjacencyIndices, neighborOffset + i) == candidateIndex)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -71,18 +87,20 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const GpuSoftRigidBroadPhaseParticle selfEntry =
-        CRESSIM_SB_LOAD(g_SoftRigidBroadPhaseParticles, softIndex);
-    if (selfEntry.particleType != kSoftRigidBroadPhaseParticleTypeSoft)
+    const GpuParticleBroadPhaseEntry selfEntry =
+        CRESSIM_SB_LOAD(g_ParticleBroadPhaseEntries, softIndex);
+    if (selfEntry.particleType != kParticleBroadPhaseEntryTypeSoft)
     {
         return;
     }
 
     const float3 softPosition = CRESSIM_SB_LOAD(g_SoftParticlePositionsInvMass, softIndex).xyz;
     const float softRadius = CRESSIM_SB_LOAD(g_SoftParticleRadii, softIndex);
-    const uint softEnvironment = CRESSIM_SB_LOAD(g_SoftParticleEnvironmentIndices, softIndex);
-    const uint softLayer = CRESSIM_SB_LOAD(g_SoftParticleCollisionLayers, softIndex);
-    const uint softMask = CRESSIM_SB_LOAD(g_SoftParticleCollisionMasks, softIndex);
+    const uint4 softMetadata = CRESSIM_SB_LOAD(g_SoftParticleBroadPhaseMetadata, softIndex);
+    const uint softEnvironment = softMetadata.x;
+    const uint softPhase = softMetadata.y;
+    const uint softLayer = softMetadata.z;
+    const uint softMask = softMetadata.w;
 
     uint seenRigidBodies[16];
     uint seenRigidCount = 0u;
@@ -100,7 +118,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                 const int cellY = selfEntry.cellY + dy;
                 const int cellZ = selfEntry.cellZ + dz;
                 const uint targetKey = ComputeParticleGridCellKey(cellX, cellY, cellZ);
-                const GpuSoftRigidCellRange range = FindCellRange(targetKey);
+                const GpuParticleCellRange range = FindCellRange(targetKey);
                 if (range.cellKey == kInvalidIndex)
                 {
                     continue;
@@ -110,9 +128,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                 while (sortedIndex < range.endIndex)
                 {
                     const GpuMortonCodeElement keyEntry =
-                        CRESSIM_SB_LOAD(g_SortedSoftRigidBroadPhaseKeys, sortedIndex);
-                    const GpuSoftRigidBroadPhaseParticle candidateEntry =
-                        CRESSIM_SB_LOAD(g_SoftRigidBroadPhaseParticles, keyEntry.elementIdx);
+                        CRESSIM_SB_LOAD(g_SortedParticleBroadPhaseKeys, sortedIndex);
+                    const GpuParticleBroadPhaseEntry candidateEntry =
+                        CRESSIM_SB_LOAD(g_ParticleBroadPhaseEntries, keyEntry.elementIdx);
                     if (candidateEntry.cellX != cellX || candidateEntry.cellY != cellY ||
                         candidateEntry.cellZ != cellZ)
                     {
@@ -120,7 +138,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                         continue;
                     }
 
-                    if (candidateEntry.particleType == kSoftRigidBroadPhaseParticleTypeSoft)
+                    if (candidateEntry.particleType == kParticleBroadPhaseEntryTypeSoft)
                     {
                         const uint otherSoftIndex = candidateEntry.particleIndex;
                         if (otherSoftIndex <= softIndex)
@@ -129,22 +147,33 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                             continue;
                         }
 
-                        const uint otherEnvironment =
-                            CRESSIM_SB_LOAD(g_SoftParticleEnvironmentIndices, otherSoftIndex);
+                        const uint4 otherMetadata =
+                            CRESSIM_SB_LOAD(g_SoftParticleBroadPhaseMetadata, otherSoftIndex);
+                        const uint otherEnvironment = otherMetadata.x;
                         if (otherEnvironment != softEnvironment)
                         {
                             ++sortedIndex;
                             continue;
                         }
 
-                        const uint otherLayer =
-                            CRESSIM_SB_LOAD(g_SoftParticleCollisionLayers, otherSoftIndex);
-                        const uint otherMask =
-                            CRESSIM_SB_LOAD(g_SoftParticleCollisionMasks, otherSoftIndex);
+                        const uint otherPhase = otherMetadata.y;
+                        const uint otherLayer = otherMetadata.z;
+                        const uint otherMask = otherMetadata.w;
                         if ((softMask & otherLayer) == 0u || (otherMask & softLayer) == 0u)
                         {
                             ++sortedIndex;
                             continue;
+                        }
+
+                        if (SoftParticlePhaseGroup(softPhase) == SoftParticlePhaseGroup(otherPhase))
+                        {
+                            if (!SoftParticlePhaseSelfCollideEnabled(softPhase) ||
+                                !SoftParticlePhaseSelfCollideEnabled(otherPhase) ||
+                                IsAdjacentSoftParticle(softIndex, otherSoftIndex))
+                            {
+                                ++sortedIndex;
+                                continue;
+                            }
                         }
 
                         const float3 otherPosition =
@@ -155,15 +184,15 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                         if (dot(deltaPos, deltaPos) <= combinedRadius * combinedRadius)
                         {
                             uint pairIndex = 0u;
-                            InterlockedAdd(g_SoftRigidCandidatePairCount[0], 1u, pairIndex);
-                            if (pairIndex < softRigidCandidatePairCapacity)
+                            InterlockedAdd(g_SoftCandidatePairCount[0], 1u, pairIndex);
+                            if (pairIndex < softCandidatePairCapacity)
                             {
-                                GpuSoftRigidCandidatePair pair;
-                                pair.pairType = kSoftRigidCandidatePairTypeSoftSoft;
+                                GpuSoftCandidatePair pair;
+                                pair.pairType = kSoftCandidatePairTypeSoftSoft;
                                 pair.indexA = softIndex;
                                 pair.indexB = otherSoftIndex;
                                 pair.auxIndex = 0u;
-                                CRESSIM_SB_STORE(g_SoftRigidCandidatePairs, pairIndex, pair);
+                                CRESSIM_SB_STORE(g_SoftCandidatePairs, pairIndex, pair);
                             }
                         }
                     }
@@ -220,15 +249,15 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                                 }
 
                                 uint pairIndex = 0u;
-                            InterlockedAdd(g_SoftRigidCandidatePairCount[0], 1u, pairIndex);
-                            if (pairIndex < softRigidCandidatePairCapacity)
+                            InterlockedAdd(g_SoftCandidatePairCount[0], 1u, pairIndex);
+                            if (pairIndex < softCandidatePairCapacity)
                             {
-                                GpuSoftRigidCandidatePair pair;
-                                pair.pairType = kSoftRigidCandidatePairTypeSoftRigid;
+                                GpuSoftCandidatePair pair;
+                                pair.pairType = kSoftCandidatePairTypeSoftRigid;
                                 pair.indexA = softIndex;
                                 pair.indexB = rigidBodyIndex;
                                 pair.auxIndex = surfaceIndex;
-                                CRESSIM_SB_STORE(g_SoftRigidCandidatePairs, pairIndex, pair);
+                                CRESSIM_SB_STORE(g_SoftCandidatePairs, pairIndex, pair);
                             }
                             }
                         }

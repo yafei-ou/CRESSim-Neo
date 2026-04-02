@@ -1,4 +1,5 @@
 #include "physics/physics_world.h"
+#include "physics/soft_phase.h"
 #include "common/logger.h"
 
 int main()
@@ -17,6 +18,9 @@ int main()
     softBody.particleRadius = 0.15f;
     softBody.edgeCompliance = 0.01f;
     softBody.volumeCompliance = 0.02f;
+    softBody.collisionLayer = 0x8u;
+    softBody.collisionMask = 0x25u;
+    softBody.selfCollisionEnabled = true;
 
     world.upsertSoftBody(softBody);
 
@@ -43,10 +47,35 @@ int main()
             CRESSIM_LOG_ERROR("Soft particle environment metadata mismatch.");
             return 1;
         }
+        if (particles.collisionLayers[i] != 0x8u || particles.collisionMasks[i] != 0x25u)
+        {
+            CRESSIM_LOG_ERROR("Soft particle collision filter metadata mismatch.");
+            return 1;
+        }
+        if (particles.phases[i] != packSoftParticlePhase(0u, true))
+        {
+            CRESSIM_LOG_ERROR("Soft particle phase metadata mismatch.");
+            return 1;
+        }
+        if (particles.adjacencyCounts[i] == 0u)
+        {
+            CRESSIM_LOG_ERROR("Expected each generated soft particle to have adjacency.");
+            return 1;
+        }
+    }
+
+    if (particles.adjacencyOffsets.size() != particles.size() ||
+        particles.adjacencyCounts.size() != particles.size() ||
+        particles.adjacencyIndices.empty())
+    {
+        CRESSIM_LOG_ERROR("Soft particle adjacency buffers were not populated.");
+        return 1;
     }
 
     const SoftBodyState *stored = world.tryGetSoftBody(1001u);
-    if (stored == nullptr || stored->particleCount != 27u || stored->tetCount != 40u)
+    if (stored == nullptr || stored->particleCount != 27u || stored->tetCount != 40u ||
+        stored->collisionLayer != 0x8u || stored->collisionMask != 0x25u ||
+        !stored->selfCollisionEnabled)
     {
         CRESSIM_LOG_ERROR("Stored soft-body offsets/counts were not populated.");
         return 1;

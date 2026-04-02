@@ -1,5 +1,7 @@
 #include "physics/physics_world.h"
 
+#include "physics/soft_phase.h"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -898,6 +900,10 @@ void PhysicsWorld::normalizeSoftBodyState(SoftBodyState &state) noexcept
     state.gridResolution.x = deriveResolution(state.size.x);
     state.gridResolution.y = deriveResolution(state.size.y);
     state.gridResolution.z = deriveResolution(state.size.z);
+    if (state.collisionLayer == 0u)
+    {
+        state.collisionLayer = 1u;
+    }
 }
 
 float PhysicsWorld::referenceParticleSpacing() const noexcept
@@ -1042,6 +1048,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
     mSoftParticles.clear();
     mSoftEdges.clear();
     mSoftTets.clear();
+    std::vector<std::vector<std::uint32_t>> adjacencyLists;
 
     for (std::uint32_t softBodyIndex = 0u; softBodyIndex < mSoftBodySnapshot.size();
          ++softBodyIndex)
@@ -1082,13 +1089,25 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
                     mSoftParticles.radii.push_back(softBody.particleRadius);
                     mSoftParticles.environmentIndices.push_back(softBody.environmentIndex);
                     mSoftParticles.owningSoftBodyIndices.push_back(softBodyIndex);
-                    mSoftParticles.collisionLayers.push_back(1u);
-                    mSoftParticles.collisionMasks.push_back(0xffffffffu);
+                    mSoftParticles.phases.push_back(
+                        packSoftParticlePhase(softBodyIndex, softBody.selfCollisionEnabled));
+                    mSoftParticles.collisionLayers.push_back(softBody.collisionLayer);
+                    mSoftParticles.collisionMasks.push_back(softBody.collisionMask);
+                    adjacencyLists.emplace_back();
                 }
             }
         }
 
         std::set<std::uint64_t> uniqueEdges;
+        const auto addAdjacency = [&](std::uint32_t a, std::uint32_t b)
+        {
+            if (a == b || a >= adjacencyLists.size() || b >= adjacencyLists.size())
+            {
+                return;
+            }
+            adjacencyLists[a].push_back(b);
+            adjacencyLists[b].push_back(a);
+        };
         auto addTet = [&](std::uint32_t i0, std::uint32_t i1, std::uint32_t i2, std::uint32_t i3)
         {
             SoftTet tet{};
@@ -1120,6 +1139,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             }};
             for (const auto &edgeIndices : edges)
             {
+                addAdjacency(edgeIndices.first, edgeIndices.second);
                 if (uniqueEdges.insert(makeSortedEdgeKey(edgeIndices.first, edgeIndices.second))
                         .second)
                 {
@@ -1177,6 +1197,23 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
 
         softBody.edgeCount = static_cast<std::uint32_t>(mSoftEdges.size()) - softBody.edgeOffset;
         softBody.tetCount  = static_cast<std::uint32_t>(mSoftTets.size()) - softBody.tetOffset;
+    }
+
+    mSoftParticles.adjacencyOffsets.resize(adjacencyLists.size());
+    mSoftParticles.adjacencyCounts.resize(adjacencyLists.size());
+    mSoftParticles.adjacencyIndices.clear();
+    for (std::uint32_t particleIndex = 0u;
+         particleIndex < static_cast<std::uint32_t>(adjacencyLists.size()); ++particleIndex)
+    {
+        auto &neighbors = adjacencyLists[particleIndex];
+        std::sort(neighbors.begin(), neighbors.end());
+        neighbors.erase(std::unique(neighbors.begin(), neighbors.end()), neighbors.end());
+        mSoftParticles.adjacencyOffsets[particleIndex] =
+            static_cast<std::uint32_t>(mSoftParticles.adjacencyIndices.size());
+        mSoftParticles.adjacencyCounts[particleIndex] =
+            static_cast<std::uint32_t>(neighbors.size());
+        mSoftParticles.adjacencyIndices.insert(mSoftParticles.adjacencyIndices.end(),
+                                               neighbors.begin(), neighbors.end());
     }
 
     mSoftBodyDerivedStateDirty = false;

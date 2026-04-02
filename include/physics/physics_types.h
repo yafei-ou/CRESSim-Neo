@@ -78,6 +78,8 @@ struct SoftBodyState
 {
     common::EntityId entityId      = common::kInvalidEntityId;
     std::uint32_t environmentIndex = 0u;
+    std::uint32_t collisionLayer   = 1u;
+    std::uint32_t collisionMask    = 0xffffffffu;
     UInt3 gridResolution{};
     Diligent::float3 origin{0.0f, 0.0f, 0.0f};
     Diligent::float3 size{1.0f, 1.0f, 1.0f};
@@ -87,6 +89,7 @@ struct SoftBodyState
     float edgeCompliance         = 0.0f;
     float volumeCompliance       = 0.0f;
     bool simulated               = true;
+    bool selfCollisionEnabled    = false;
     std::uint32_t particleOffset = 0u;
     std::uint32_t particleCount  = 0u;
     std::uint32_t edgeOffset     = 0u;
@@ -118,8 +121,12 @@ struct SoftParticleSoAHost
     std::vector<float> radii;
     std::vector<std::uint32_t> environmentIndices;
     std::vector<std::uint32_t> owningSoftBodyIndices;
+    std::vector<std::uint32_t> phases;
     std::vector<std::uint32_t> collisionLayers;
     std::vector<std::uint32_t> collisionMasks;
+    std::vector<std::uint32_t> adjacencyOffsets;
+    std::vector<std::uint32_t> adjacencyCounts;
+    std::vector<std::uint32_t> adjacencyIndices;
 
     std::size_t size() const noexcept
     {
@@ -139,8 +146,12 @@ struct SoftParticleSoAHost
         radii.clear();
         environmentIndices.clear();
         owningSoftBodyIndices.clear();
+        phases.clear();
         collisionLayers.clear();
         collisionMasks.clear();
+        adjacencyOffsets.clear();
+        adjacencyCounts.clear();
+        adjacencyIndices.clear();
     }
 };
 

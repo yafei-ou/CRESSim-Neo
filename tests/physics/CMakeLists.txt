@@ -59,6 +59,12 @@ add_test(
     COMMAND cressim_neo_physics_soft_body_generation_regular_tet_grid
 )
 
+add_physics_test(cressim_neo_physics_soft_body_authoring_roundtrip physics_soft_body_authoring_roundtrip.cpp)
+add_test(
+    NAME cressim_neo_physics_soft_body_authoring_roundtrip
+    COMMAND cressim_neo_physics_soft_body_authoring_roundtrip
+)
+
 add_physics_test(cressim_neo_physics_rigid_surface_particle_generation physics_rigid_surface_particle_generation.cpp)
 add_test(
     NAME cressim_neo_physics_rigid_surface_particle_generation

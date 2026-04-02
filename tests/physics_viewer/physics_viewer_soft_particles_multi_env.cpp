@@ -190,6 +190,35 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
     return resources.registerMaterial(desc);
 }
 
+struct SoftCollisionScenario
+{
+    std::uint32_t primaryLayer         = 0x1u;
+    std::uint32_t primaryMask          = 0x3u;
+    bool primarySelfCollisionEnabled   = true;
+    std::uint32_t secondaryLayer       = 0x2u;
+    std::uint32_t secondaryMask        = 0x1u;
+    bool secondarySelfCollisionEnabled = false;
+};
+
+SoftCollisionScenario makeSoftCollisionScenario(std::uint32_t envIndex)
+{
+    switch (envIndex % 4u)
+    {
+    case 0u:
+        // Cross-body collision enabled, primary self-collides, secondary does not.
+        return {0x1u, 0x3u, true, 0x2u, 0x1u, false};
+    case 1u:
+        // Masks reject cross-body collision entirely.
+        return {0x1u, 0x1u, true, 0x2u, 0x2u, false};
+    case 2u:
+        // Cross-body collision enabled and both bodies self-collide.
+        return {0x1u, 0x3u, true, 0x2u, 0x1u, true};
+    default:
+        // Cross-body collision enabled and neither body self-collides.
+        return {0x1u, 0x3u, false, 0x2u, 0x1u, false};
+    }
+}
+
 void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t envCount,
                        MeshHandle particleMesh, MeshHandle boxMesh, MeshHandle planeMesh,
                        const SceneMaterials &materials,
@@ -204,6 +233,8 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     TransformComponent cameraTransform{};
     cameraTransform.worldTransform.position =
         origin + Diligent::float3{0.0f, 3.8f, -8.8f - 0.35f * static_cast<float>(envIndex % 3u)};
+    cameraTransform.worldTransform.rotation =
+        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, 0.24f);
     world.setTransform(outCameraEntity, cameraTransform);
     CameraComponent camera{};
     camera.verticalFovDegrees = 50.0f;
@@ -269,56 +300,83 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     staticCollider.shapeParams = {0.7f, 0.28f, 0.7f, 0.0f};
     world.addCollider(staticObstacleEntity, staticCollider);
 
-    const auto softEntity = world.createEntity(envIndex);
-    TransformComponent softTransform{};
-    softTransform.worldTransform.position =
+    const auto addSoftProxyGroup =
+        [&](const cressim::neo::common::EntityId softEntityId, const SoftBodyComponent &softBody,
+            const TransformComponent &softTransform)
+    {
+        world.setTransform(softEntityId, softTransform);
+        world.setSoftBody(softEntityId, softBody);
+        world.physicsWorld().ensureDerivedStateUpToDate();
+        const auto *softState = world.physicsWorld().tryGetSoftBody(softEntityId);
+        if (softState == nullptr)
+        {
+            throw std::runtime_error("Soft particle multi-env viewer missing soft body state");
+        }
+
+        ProxyGroup proxyGroup{};
+        proxyGroup.particleOffset = softState->particleOffset;
+        proxyGroup.entities.reserve(softState->particleCount);
+        const auto &particles = world.physicsWorld().softParticles();
+        for (std::uint32_t i = 0u; i < softState->particleCount; ++i)
+        {
+            const std::uint32_t particleIndex = softState->particleOffset + i;
+            const auto proxyEntity            = world.createEntity(envIndex);
+            TransformComponent proxyTransform{};
+            proxyTransform.worldTransform.position = {particles.positionsInvMass[particleIndex].x,
+                                                      particles.positionsInvMass[particleIndex].y,
+                                                      particles.positionsInvMass[particleIndex].z};
+            const float diameter                   = particles.radii[particleIndex] * 1.8f;
+            proxyTransform.worldTransform.scale    = {diameter, diameter, diameter};
+            world.setTransform(proxyEntity, proxyTransform);
+            world.setMeshRenderer(proxyEntity,
+                                  MeshRendererComponent{particleMesh, materials.particle, true});
+            proxyGroup.entities.push_back(proxyEntity);
+        }
+
+        outProxyGroups.push_back(std::move(proxyGroup));
+    };
+
+    const SoftCollisionScenario collisionScenario = makeSoftCollisionScenario(envIndex);
+
+    TransformComponent primarySoftTransform{};
+    primarySoftTransform.worldTransform.position =
         origin + Diligent::float3{-0.4f + 0.35f * std::cos(phase), 1.55f + 0.15f * std::sin(phase),
                                   -0.5f + 0.20f * std::cos(phase * 0.5f)};
     const Diligent::QuaternionF tiltX = Diligent::QuaternionF::RotationFromAxisAngle(
         {1.0f, 0.0f, 0.0f}, -0.18f + 0.06f * std::sin(phase));
     const Diligent::QuaternionF tiltY =
         Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 1.0f, 0.0f}, 0.25f * std::cos(phase));
-    softTransform.worldTransform.rotation = tiltY * tiltX;
-    world.setTransform(softEntity, softTransform);
-    SoftBodyComponent softBody{};
-    softBody.size             = {1.2f + 0.15f * static_cast<float>(envIndex % 3u),
-                                 1.1f + 0.20f * static_cast<float>((envIndex + 1u) % 3u),
-                                 1.2f + 0.10f * static_cast<float>((envIndex + 2u) % 3u)};
-    softBody.particleSpacing  = 0.32f + 0.02f * static_cast<float>(envIndex % 2u);
-    softBody.particleMass     = 0.12f + 0.03f * static_cast<float>(envIndex % 4u);
-    softBody.particleRadius   = 0.11f + 0.01f * static_cast<float>((envIndex + 1u) % 3u);
-    softBody.volumeCompliance = 0.0008f + 0.0004f * static_cast<float>(envIndex % 3u);
-    softBody.edgeCompliance   = 0.0f; // 0.00001f * static_cast<float>(envIndex % 2u);
-    world.setSoftBody(softEntity, softBody);
+    primarySoftTransform.worldTransform.rotation = tiltY * tiltX;
+    SoftBodyComponent primarySoftBody{};
+    primarySoftBody.size                     = {1.2f, 1.2f, 1.2f};
+    primarySoftBody.particleSpacing          = 0.32f;
+    primarySoftBody.particleMass             = 0.14f;
+    primarySoftBody.particleRadius           = 0.16f;
+    primarySoftBody.volumeCompliance         = 0.0010f;
+    primarySoftBody.edgeCompliance           = 0.0f;
+    primarySoftBody.selfCollisionEnabled     = collisionScenario.primarySelfCollisionEnabled;
+    primarySoftBody.collisionLayer           = collisionScenario.primaryLayer;
+    primarySoftBody.collisionMask            = collisionScenario.primaryMask;
+    addSoftProxyGroup(world.createEntity(envIndex), primarySoftBody, primarySoftTransform);
 
-    world.physicsWorld().ensureDerivedStateUpToDate();
-    const auto *softState = world.physicsWorld().tryGetSoftBody(softEntity);
-    if (softState == nullptr)
-    {
-        throw std::runtime_error("Soft particle multi-env viewer missing soft body state");
-    }
-
-    ProxyGroup proxyGroup{};
-    proxyGroup.particleOffset = softState->particleOffset;
-    proxyGroup.entities.reserve(softState->particleCount);
-    const auto &particles = world.physicsWorld().softParticles();
-    for (std::uint32_t i = 0u; i < softState->particleCount; ++i)
-    {
-        const std::uint32_t particleIndex = softState->particleOffset + i;
-        const auto proxyEntity            = world.createEntity(envIndex);
-        TransformComponent proxyTransform{};
-        proxyTransform.worldTransform.position = {particles.positionsInvMass[particleIndex].x,
-                                                  particles.positionsInvMass[particleIndex].y,
-                                                  particles.positionsInvMass[particleIndex].z};
-        const float diameter                   = particles.radii[particleIndex] * 1.8f;
-        proxyTransform.worldTransform.scale    = {diameter, diameter, diameter};
-        world.setTransform(proxyEntity, proxyTransform);
-        world.setMeshRenderer(proxyEntity,
-                              MeshRendererComponent{particleMesh, materials.particle, true});
-        proxyGroup.entities.push_back(proxyEntity);
-    }
-
-    outProxyGroups.push_back(std::move(proxyGroup));
+    TransformComponent secondarySoftTransform{};
+    constexpr float kSoftBodyGap = 1.0f;
+    secondarySoftTransform.worldTransform.position =
+        primarySoftTransform.worldTransform.position +
+        Diligent::float3{0.0f, primarySoftBody.size.y + kSoftBodyGap, 0.0f};
+    secondarySoftTransform.worldTransform.rotation =
+        Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 1.0f, 0.0f}, -0.2f + 0.05f * phase);
+    SoftBodyComponent secondarySoftBody{};
+    secondarySoftBody.size                     = {0.9f, 0.9f, 0.9f};
+    secondarySoftBody.particleSpacing          = 0.30f;
+    secondarySoftBody.particleMass             = 0.10f;
+    secondarySoftBody.particleRadius           = 0.20f; // 0.15 easily leave gaps; manually fatten the collision range
+    secondarySoftBody.volumeCompliance         = 0.0015f;
+    secondarySoftBody.edgeCompliance           = 0.0f;
+    secondarySoftBody.selfCollisionEnabled     = collisionScenario.secondarySelfCollisionEnabled;
+    secondarySoftBody.collisionLayer           = collisionScenario.secondaryLayer;
+    secondarySoftBody.collisionMask            = collisionScenario.secondaryMask;
+    addSoftProxyGroup(world.createEntity(envIndex), secondarySoftBody, secondarySoftTransform);
 }
 
 } // namespace
@@ -328,7 +386,7 @@ int main(int argc, char **argv)
     RuntimeConfig config{};
     config.gpuDeviceDesc.preferredBackend         = GpuBackend::Vulkan;
     config.gpuDeviceDesc.enableValidation         = false;
-    config.physicsDesc.softRigidContactIterations = 100;
+    config.physicsDesc.softContactIterations = 100;
     config.physicsDesc.softInternalIterations     = 50;
     std::uint64_t numFrames                       = 0u;
     std::uint32_t envCount                        = kDefaultEnvCount;

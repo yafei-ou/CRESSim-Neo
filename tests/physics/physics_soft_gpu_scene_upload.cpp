@@ -43,7 +43,19 @@ int main()
     soft.edgeCompliance = 0.0f;
     soft.volumeCompliance = 0.0f;
     soft.simulated         = true;
+    soft.selfCollisionEnabled = true;
+    soft.collisionLayer       = 0x2u;
+    soft.collisionMask        = 0x9u;
     world.setSoftBody(softBody, soft);
+
+    const std::optional<engine::SoftBodyComponent> roundTripped = world.tryGetSoftBody(softBody);
+    if (!roundTripped.has_value() || !roundTripped->selfCollisionEnabled ||
+        roundTripped->collisionLayer != 0x2u || roundTripped->collisionMask != 0x9u)
+    {
+        CRESSIM_LOG_ERROR("Soft body component round-trip failed in GPU scene upload test.");
+        runtime.shutdown();
+        return 1;
+    }
 
     common::FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
@@ -82,6 +94,10 @@ int main()
         sceneView.soft.particles.radiiBuffer == nullptr ||
         sceneView.soft.particles.environmentIndicesBuffer == nullptr ||
         sceneView.soft.particles.owningSoftBodyIndicesBuffer == nullptr ||
+        sceneView.soft.particles.phasesBuffer == nullptr ||
+        sceneView.soft.particles.adjacencyOffsetsBuffer == nullptr ||
+        sceneView.soft.particles.adjacencyCountsBuffer == nullptr ||
+        sceneView.soft.particles.adjacencyIndicesBuffer == nullptr ||
         sceneView.soft.edgesBuffer == nullptr || sceneView.soft.tetsBuffer == nullptr)
     {
         CRESSIM_LOG_ERROR("Soft GPU scene view is missing required buffers.");

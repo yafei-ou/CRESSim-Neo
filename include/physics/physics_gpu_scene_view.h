@@ -24,8 +24,12 @@ struct PhysicsGpuSoftParticleBufferView
     Diligent::IBuffer *radiiBuffer                 = nullptr;
     Diligent::IBuffer *environmentIndicesBuffer    = nullptr;
     Diligent::IBuffer *owningSoftBodyIndicesBuffer = nullptr;
+    Diligent::IBuffer *phasesBuffer                = nullptr;
     Diligent::IBuffer *collisionLayersBuffer       = nullptr;
     Diligent::IBuffer *collisionMasksBuffer        = nullptr;
+    Diligent::IBuffer *adjacencyOffsetsBuffer      = nullptr;
+    Diligent::IBuffer *adjacencyCountsBuffer       = nullptr;
+    Diligent::IBuffer *adjacencyIndicesBuffer      = nullptr;
     std::uint32_t count                            = 0;
 };
 
