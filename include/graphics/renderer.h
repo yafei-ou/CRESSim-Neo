@@ -44,10 +44,10 @@ struct RenderFrameOptions
 {
     struct DebugParticleOptions
     {
-        bool enabled                    = false;
-        Diligent::float4 color          = {0.2f, 0.8f, 1.0f, 1.0f};
-        bool useParticleRadii           = true;
-        float fallbackRadius            = 0.15f;
+        bool enabled           = false;
+        Diligent::float4 color = {0.2f, 0.8f, 1.0f, 1.0f};
+        bool useParticleRadii  = true;
+        float fallbackRadius   = 0.15f;
     };
 
     common::EntityId presentedCameraEntity = common::kInvalidEntityId;

@@ -169,9 +169,8 @@ void Runtime::tick(const common::FrameContext &frameContext)
         physicsScenePtr  = &physicsSceneView;
     }
 
-    mLastRenderStats =
-        mRenderer->render(frameContext, mWorld.hostSceneView(), physicsScenePtr,
-                          mRenderFrameOptions);
+    mLastRenderStats = mRenderer->render(frameContext, mWorld.hostSceneView(), physicsScenePtr,
+                                         mRenderFrameOptions);
 }
 
 World &Runtime::getWorld() noexcept

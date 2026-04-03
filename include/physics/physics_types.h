@@ -108,10 +108,10 @@ struct SoftEdge
 struct SoftTet
 {
     Diligent::uint4 particleIndices{0u, 0u, 0u, 0u};
-    float restVolume         = 0.0f;
-    float compliance         = 0.0f;
-    std::uint32_t reserved0  = 0u;
-    std::uint32_t reserved1  = 0u;
+    float restVolume        = 0.0f;
+    float compliance        = 0.0f;
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
 };
 
 struct SoftParticleSoAHost

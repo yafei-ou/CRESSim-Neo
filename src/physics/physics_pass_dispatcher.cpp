@@ -558,9 +558,10 @@ bool PhysicsPassDispatcher::buildParticleBroadPhaseKeys(Diligent::IDeviceContext
                                                      dispatchGroupCount(totalParticleLikeCount));
 }
 
-bool PhysicsPassDispatcher::markParticleCellRangeStarts(
-    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    std::uint32_t totalParticleLikeCount, const GpuSoftDispatchConstants &constants)
+bool PhysicsPassDispatcher::markParticleCellRangeStarts(Diligent::IDeviceContext *computeContext,
+                                                        const PhysicsSceneGpuState &sceneState,
+                                                        std::uint32_t totalParticleLikeCount,
+                                                        const GpuSoftDispatchConstants &constants)
 {
     if (totalParticleLikeCount == 0u)
     {

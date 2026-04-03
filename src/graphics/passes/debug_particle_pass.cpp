@@ -80,8 +80,8 @@ bool DebugParticlePass::ensureConstants(Diligent::IRenderDevice *renderDevice)
     return mFallbackRadiusBuffer != nullptr;
 }
 
-Diligent::IPipelineState *DebugParticlePass::getOrCreatePipeline(Diligent::IRenderDevice *renderDevice,
-                                                                 const PipelineKey &key)
+Diligent::IPipelineState *DebugParticlePass::getOrCreatePipeline(
+    Diligent::IRenderDevice *renderDevice, const PipelineKey &key)
 {
     auto it = mPipelines.find(key);
     if (it != mPipelines.end())
@@ -110,8 +110,8 @@ Diligent::IPipelineState *DebugParticlePass::getOrCreatePipeline(Diligent::IRend
     Diligent::ShaderMacro layerMacros[] = {
         {"MANUAL_LAYER_EXPORT", "1"},
     };
-    shaderCreateInfo.Macros = Diligent::ShaderMacroArray{layerMacros,
-                                                         static_cast<Diligent::Uint32>(1u)};
+    shaderCreateInfo.Macros =
+        Diligent::ShaderMacroArray{layerMacros, static_cast<Diligent::Uint32>(1u)};
 
     Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
@@ -146,8 +146,8 @@ Diligent::IPipelineState *DebugParticlePass::getOrCreatePipeline(Diligent::IRend
     psoCreateInfo.GraphicsPipeline.RTVFormats[0]     = key.colorFormat;
     psoCreateInfo.GraphicsPipeline.DSVFormat         = key.depthFormat;
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode      = Diligent::CULL_MODE_NONE;
-    psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = Diligent::True;
+    psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode           = Diligent::CULL_MODE_NONE;
+    psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable      = Diligent::True;
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = Diligent::True;
     psoCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0].BlendEnable = Diligent::False;
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType =
@@ -183,15 +183,13 @@ Diligent::IPipelineState *DebugParticlePass::getOrCreatePipeline(Diligent::IRend
         return nullptr;
     }
 
-    if (Diligent::IShaderResourceVariable *vsConstants =
-            pipeline->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX,
-                                              "GraphicsDebugParticles"))
+    if (Diligent::IShaderResourceVariable *vsConstants = pipeline->GetStaticVariableByName(
+            Diligent::SHADER_TYPE_VERTEX, "GraphicsDebugParticles"))
     {
         vsConstants->Set(mConstantsBuffer);
     }
-    if (Diligent::IShaderResourceVariable *psConstants =
-            pipeline->GetStaticVariableByName(Diligent::SHADER_TYPE_PIXEL,
-                                              "GraphicsDebugParticles"))
+    if (Diligent::IShaderResourceVariable *psConstants = pipeline->GetStaticVariableByName(
+            Diligent::SHADER_TYPE_PIXEL, "GraphicsDebugParticles"))
     {
         psConstants->Set(mConstantsBuffer);
     }
@@ -239,8 +237,8 @@ bool DebugParticlePass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
 
     const auto &particles = physicsScene.soft.particles;
     if (particles.count == 0u || particles.positionsInvMassBuffer == nullptr ||
-        particles.environmentIndicesBuffer == nullptr || gpuScene.preparedCamerasBuffer == nullptr ||
-        gpuScene.cameraInputsBuffer == nullptr)
+        particles.environmentIndicesBuffer == nullptr ||
+        gpuScene.preparedCamerasBuffer == nullptr || gpuScene.cameraInputsBuffer == nullptr)
     {
         return false;
     }
@@ -254,9 +252,8 @@ bool DebugParticlePass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
         return false;
     }
 
-    Diligent::IPipelineState *pipeline =
-        getOrCreatePipeline(backendContext.renderDevice,
-                            PipelineKey{targetDesc.colorFormat, targetDesc.depthFormat});
+    Diligent::IPipelineState *pipeline = getOrCreatePipeline(
+        backendContext.renderDevice, PipelineKey{targetDesc.colorFormat, targetDesc.depthFormat});
     if (pipeline == nullptr)
     {
         return false;
@@ -271,14 +268,12 @@ bool DebugParticlePass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
     const auto setBufferView = [&](Diligent::SHADER_TYPE shaderType, const char *name,
                                    Diligent::IBuffer *buffer) -> bool
     {
-        Diligent::IShaderResourceVariable *variable =
-            binding->GetVariableByName(shaderType, name);
+        Diligent::IShaderResourceVariable *variable = binding->GetVariableByName(shaderType, name);
         if (variable == nullptr || buffer == nullptr)
         {
             return false;
         }
-        Diligent::IBufferView *srv =
-            buffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        Diligent::IBufferView *srv = buffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
         if (srv == nullptr)
         {
             return false;
@@ -302,7 +297,8 @@ bool DebugParticlePass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
     }
 
     const bool useParticleRadii = options.useParticleRadii && particles.radiiBuffer != nullptr;
-    Diligent::IBuffer *radiiBuffer = useParticleRadii ? particles.radiiBuffer : mFallbackRadiusBuffer;
+    Diligent::IBuffer *radiiBuffer =
+        useParticleRadii ? particles.radiiBuffer : mFallbackRadiusBuffer;
     if (!setBufferView(Diligent::SHADER_TYPE_VERTEX, "g_ParticleRadii", radiiBuffer))
     {
         return false;
