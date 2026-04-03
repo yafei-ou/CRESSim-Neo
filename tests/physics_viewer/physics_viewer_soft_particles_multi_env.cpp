@@ -260,9 +260,9 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     staticCollider.shapeParams = {0.7f, 0.28f, 0.7f, 0.0f};
     world.addCollider(staticObstacleEntity, staticCollider);
 
-    const auto addSoftBody =
-        [&](const cressim::neo::common::EntityId softEntityId, const SoftBodyComponent &softBody,
-            const TransformComponent &softTransform)
+    const auto addSoftBody = [&](const cressim::neo::common::EntityId softEntityId,
+                                 const SoftBodyComponent &softBody,
+                                 const TransformComponent &softTransform)
     {
         world.setTransform(softEntityId, softTransform);
         world.setSoftBody(softEntityId, softBody);
@@ -280,15 +280,15 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
         Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 1.0f, 0.0f}, 0.25f * std::cos(phase));
     primarySoftTransform.worldTransform.rotation = tiltY * tiltX;
     SoftBodyComponent primarySoftBody{};
-    primarySoftBody.size                     = {1.2f, 1.2f, 1.2f};
-    primarySoftBody.particleSpacing          = 0.32f;
-    primarySoftBody.particleMass             = 0.14f;
-    primarySoftBody.particleRadius           = 0.16f;
-    primarySoftBody.volumeCompliance         = 0.0010f;
-    primarySoftBody.edgeCompliance           = 0.0f;
-    primarySoftBody.selfCollisionEnabled     = collisionScenario.primarySelfCollisionEnabled;
-    primarySoftBody.collisionLayer           = collisionScenario.primaryLayer;
-    primarySoftBody.collisionMask            = collisionScenario.primaryMask;
+    primarySoftBody.size                 = {1.2f, 1.2f, 1.2f};
+    primarySoftBody.particleSpacing      = 0.32f;
+    primarySoftBody.particleMass         = 0.14f;
+    primarySoftBody.particleRadius       = 0.16f;
+    primarySoftBody.volumeCompliance     = 0.0010f;
+    primarySoftBody.edgeCompliance       = 0.0f;
+    primarySoftBody.selfCollisionEnabled = collisionScenario.primarySelfCollisionEnabled;
+    primarySoftBody.collisionLayer       = collisionScenario.primaryLayer;
+    primarySoftBody.collisionMask        = collisionScenario.primaryMask;
     addSoftBody(world.createEntity(envIndex), primarySoftBody, primarySoftTransform);
 
     TransformComponent secondarySoftTransform{};
@@ -299,15 +299,16 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     secondarySoftTransform.worldTransform.rotation =
         Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 1.0f, 0.0f}, -0.2f + 0.05f * phase);
     SoftBodyComponent secondarySoftBody{};
-    secondarySoftBody.size                     = {0.9f, 0.9f, 0.9f};
-    secondarySoftBody.particleSpacing          = 0.30f;
-    secondarySoftBody.particleMass             = 0.10f;
-    secondarySoftBody.particleRadius           = 0.20f; // 0.15 easily leave gaps; manually fatten the collision range
-    secondarySoftBody.volumeCompliance         = 0.0015f;
-    secondarySoftBody.edgeCompliance           = 0.0f;
-    secondarySoftBody.selfCollisionEnabled     = collisionScenario.secondarySelfCollisionEnabled;
-    secondarySoftBody.collisionLayer           = collisionScenario.secondaryLayer;
-    secondarySoftBody.collisionMask            = collisionScenario.secondaryMask;
+    secondarySoftBody.size            = {0.9f, 0.9f, 0.9f};
+    secondarySoftBody.particleSpacing = 0.30f;
+    secondarySoftBody.particleMass    = 0.10f;
+    secondarySoftBody.particleRadius =
+        0.20f; // 0.15 easily leave gaps; manually fatten the collision range
+    secondarySoftBody.volumeCompliance     = 0.0015f;
+    secondarySoftBody.edgeCompliance       = 0.0f;
+    secondarySoftBody.selfCollisionEnabled = collisionScenario.secondarySelfCollisionEnabled;
+    secondarySoftBody.collisionLayer       = collisionScenario.secondaryLayer;
+    secondarySoftBody.collisionMask        = collisionScenario.secondaryMask;
     addSoftBody(world.createEntity(envIndex), secondarySoftBody, secondarySoftTransform);
 }
 
@@ -316,12 +317,12 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
 int main(int argc, char **argv)
 {
     RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend         = GpuBackend::Vulkan;
-    config.gpuDeviceDesc.enableValidation         = false;
-    config.physicsDesc.softContactIterations = 100;
-    config.physicsDesc.softInternalIterations     = 50;
-    std::uint64_t numFrames                       = 0u;
-    std::uint32_t envCount                        = kDefaultEnvCount;
+    config.gpuDeviceDesc.preferredBackend     = GpuBackend::Vulkan;
+    config.gpuDeviceDesc.enableValidation     = false;
+    config.physicsDesc.softContactIterations  = 100;
+    config.physicsDesc.softInternalIterations = 100;
+    std::uint64_t numFrames                   = 0u;
+    std::uint32_t envCount                    = kDefaultEnvCount;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -395,7 +396,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    auto &resources               = runtime.getResources();
+    auto &resources            = runtime.getResources();
     const MeshHandle boxMesh   = resources.registerMesh(makeCubeMesh(0.6f));
     const MeshHandle planeMesh = resources.registerMesh(makePlaneMesh(6.0f));
 
