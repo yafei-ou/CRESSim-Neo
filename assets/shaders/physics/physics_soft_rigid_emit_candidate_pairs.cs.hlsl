@@ -42,22 +42,30 @@ GpuParticleCellRange FindCellRange(uint targetKey)
         return missingRange;
     }
 
-    const uint mask = softCellRangeCapacity - 1u;
-    uint slot = targetKey & mask;
+    uint lo = 0u;
+    uint hi = softCellRangeCapacity;
     [loop]
-    for (uint probe = 0u; probe < softCellRangeCapacity; ++probe)
+    while (lo < hi)
     {
-        const GpuParticleCellRange range = CRESSIM_SB_LOAD(g_ParticleCellRanges, slot);
+        const uint mid = lo + (hi - lo) / 2u;
+        const GpuParticleCellRange range = CRESSIM_SB_LOAD(g_ParticleCellRanges, mid);
+        if (range.cellKey < targetKey)
+        {
+            lo = mid + 1u;
+        }
+        else
+        {
+            hi = mid;
+        }
+    }
+
+    if (lo < softCellRangeCapacity)
+    {
+        const GpuParticleCellRange range = CRESSIM_SB_LOAD(g_ParticleCellRanges, lo);
         if (range.cellKey == targetKey)
         {
             return range;
         }
-        if (range.cellKey == kInvalidIndex)
-        {
-            return missingRange;
-        }
-
-        slot = (slot + 1u) & mask;
     }
 
     return missingRange;
@@ -167,9 +175,16 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
                         if (SoftParticlePhaseGroup(softPhase) == SoftParticlePhaseGroup(otherPhase))
                         {
-                            if (!SoftParticlePhaseSelfCollideEnabled(softPhase) ||
-                                !SoftParticlePhaseSelfCollideEnabled(otherPhase) ||
-                                IsAdjacentSoftParticle(softIndex, otherSoftIndex))
+                            const bool selfCollideA = SoftParticlePhaseSelfCollideEnabled(softPhase);
+                            const bool selfCollideB =
+                                SoftParticlePhaseSelfCollideEnabled(otherPhase);
+                            if (!selfCollideA || !selfCollideB)
+                            {
+                                ++sortedIndex;
+                                continue;
+                            }
+
+                            if (IsAdjacentSoftParticle(softIndex, otherSoftIndex))
                             {
                                 ++sortedIndex;
                                 continue;

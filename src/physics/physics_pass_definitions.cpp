@@ -93,6 +93,15 @@ constexpr Diligent::ShaderResourceVariableDesc kBuildParticleBroadPhaseKeysVars[
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kMarkParticleCellRangeStartsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SortedParticleBroadPhaseKeys",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleCellRangeStartFlags",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kClearParticleCellRangesVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -104,6 +113,10 @@ constexpr Diligent::ShaderResourceVariableDesc kBuildParticleCellRangesVars[] = 
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SortedParticleBroadPhaseKeys",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleCellRangeStartFlags",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleCellRangeStartOffsets",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleCellRanges",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -727,6 +740,14 @@ const gpu::GpuComputePassDefinition kBuildParticleBroadPhaseKeys{
     "CRESSimNeo.Physics.ParticleBuildBroadPhaseKeys.PSO",
     kBuildParticleBroadPhaseKeysVars,
     std::size(kBuildParticleBroadPhaseKeysVars),
+};
+
+const gpu::GpuComputePassDefinition kMarkParticleCellRangeStarts{
+    "physics/physics_soft_rigid_mark_cell_range_starts.cs.hlsl",
+    "CRESSimNeo.Physics.ParticleMarkCellRangeStarts.CS",
+    "CRESSimNeo.Physics.ParticleMarkCellRangeStarts.PSO",
+    kMarkParticleCellRangeStartsVars,
+    std::size(kMarkParticleCellRangeStartsVars),
 };
 
 const gpu::GpuComputePassDefinition kClearParticleCellRanges{

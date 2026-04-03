@@ -40,6 +40,10 @@ public:
                                      const PhysicsSceneGpuState &sceneState,
                                      std::uint32_t totalParticleLikeCount,
                                      const GpuSoftDispatchConstants &constants);
+    bool markParticleCellRangeStarts(Diligent::IDeviceContext *computeContext,
+                                     const PhysicsSceneGpuState &sceneState,
+                                     std::uint32_t totalParticleLikeCount,
+                                     const GpuSoftDispatchConstants &constants);
     bool clearParticleCellRanges(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState,
                                  std::uint32_t cellRangeCapacity,
@@ -171,6 +175,7 @@ private:
     gpu::GpuComputePass mUpdateRigidSurfaceWorldPositionsPass;
     gpu::GpuComputePass mBuildParticleBroadPhaseEntriesPass;
     gpu::GpuComputePass mBuildParticleBroadPhaseKeysPass;
+    gpu::GpuComputePass mMarkParticleCellRangeStartsPass;
     gpu::GpuComputePass mClearParticleCellRangesPass;
     gpu::GpuComputePass mBuildParticleCellRangesPass;
     gpu::GpuComputePass mEmitSoftCandidatePairsPass;

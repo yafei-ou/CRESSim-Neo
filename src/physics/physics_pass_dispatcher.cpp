@@ -158,6 +158,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mUpdateRigidSurfaceWorldPositionsPass, kUpdateRigidSurfaceWorldPositions) ||
         !initPass(mBuildParticleBroadPhaseEntriesPass, kBuildParticleBroadPhaseEntries) ||
         !initPass(mBuildParticleBroadPhaseKeysPass, kBuildParticleBroadPhaseKeys) ||
+        !initPass(mMarkParticleCellRangeStartsPass, kMarkParticleCellRangeStarts) ||
         !initPass(mClearParticleCellRangesPass, kClearParticleCellRanges) ||
         !initPass(mBuildParticleCellRangesPass, kBuildParticleCellRanges) ||
         !initPass(mEmitSoftCandidatePairsPass, kEmitSoftCandidatePairs) ||
@@ -557,6 +558,31 @@ bool PhysicsPassDispatcher::buildParticleBroadPhaseKeys(Diligent::IDeviceContext
                                                      dispatchGroupCount(totalParticleLikeCount));
 }
 
+bool PhysicsPassDispatcher::markParticleCellRangeStarts(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t totalParticleLikeCount, const GpuSoftDispatchConstants &constants)
+{
+    if (totalParticleLikeCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &transient = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsSoftDispatchConstantsBuffer", mSoftDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SortedParticleBroadPhaseKeys",
+                              transient.particleBroadPhaseKeysBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleCellRangeStartFlags", transient.softRadixBitFlagsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeSoftDispatchConstants(computeContext, constants) &&
+           mMarkParticleCellRangeStartsPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                     dispatchGroupCount(totalParticleLikeCount));
+}
+
 bool PhysicsPassDispatcher::sortParticleBroadPhase(Diligent::IDeviceContext *computeContext,
                                                    const PhysicsSceneGpuState &sceneState,
                                                    std::uint32_t count)
@@ -598,11 +624,24 @@ bool PhysicsPassDispatcher::buildParticleCellRanges(Diligent::IDeviceContext *co
     }
 
     const auto &transient = sceneState.transientBuffers();
+    if (!markParticleCellRangeStarts(computeContext, sceneState, totalParticleLikeCount,
+                                     constants) ||
+        !dispatchExclusiveScanPass(computeContext, sceneState, transient.softRadixBitFlagsBuffer,
+                                   transient.softRadixBitOffsetsBuffer, totalParticleLikeCount))
+    {
+        return false;
+    }
+
     const std::array bindings{
         gpu::GpuBufferBinding{"PhysicsSoftDispatchConstantsBuffer", mSoftDispatchConstantsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SortedParticleBroadPhaseKeys",
                               transient.particleBroadPhaseKeysBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleCellRangeStartFlags", transient.softRadixBitFlagsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleCellRangeStartOffsets",
+                              transient.softRadixBitOffsetsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleCellRanges", transient.particleCellRangesBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},

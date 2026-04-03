@@ -11,6 +11,7 @@ extern const gpu::GpuComputePassDefinition kSoftPredict;
 extern const gpu::GpuComputePassDefinition kUpdateRigidSurfaceWorldPositions;
 extern const gpu::GpuComputePassDefinition kBuildParticleBroadPhaseEntries;
 extern const gpu::GpuComputePassDefinition kBuildParticleBroadPhaseKeys;
+extern const gpu::GpuComputePassDefinition kMarkParticleCellRangeStarts;
 extern const gpu::GpuComputePassDefinition kClearParticleCellRanges;
 extern const gpu::GpuComputePassDefinition kBuildParticleCellRanges;
 extern const gpu::GpuComputePassDefinition kEmitSoftCandidatePairs;
