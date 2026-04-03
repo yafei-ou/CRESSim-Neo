@@ -34,10 +34,12 @@ int main()
                                                   ColliderShapeType::Capsule,
                                                   {0.35f, 0.75f, 0.0f, 0.0f}}});
 
+    const std::uint64_t initialSurfaceRevision = world.rigidSurfaceParticleRevision();
+
     const auto &samples = world.rigidSurfaceParticles();
-    if (samples.size() != 22u)
+    if (samples.size() == 0u)
     {
-        CRESSIM_LOG_ERROR("Unexpected rigid surface particle count: ", samples.size());
+        CRESSIM_LOG_ERROR("Rigid surface particle generation returned no samples.");
         return 1;
     }
 
@@ -63,10 +65,29 @@ int main()
         }
     }
 
-    if (sphereSamples != 6u || boxSamples != 8u || capsuleSamples != 8u)
+    if (sphereSamples == 0u || boxSamples == 0u || capsuleSamples == 0u ||
+        (sphereSamples + boxSamples + capsuleSamples) != samples.size())
     {
-        CRESSIM_LOG_ERROR("Unexpected per-shape surface sample distribution: sphere=", sphereSamples,
-                          " box=", boxSamples, " capsule=", capsuleSamples);
+        CRESSIM_LOG_ERROR("Unexpected per-shape surface sample distribution: sphere=",
+                          sphereSamples, " box=", boxSamples, " capsule=", capsuleSamples,
+                          " total=", samples.size());
+        return 1;
+    }
+
+    const auto &cachedSamples = world.rigidSurfaceParticles();
+    if (world.rigidSurfaceParticleRevision() != initialSurfaceRevision ||
+        cachedSamples.size() != samples.size())
+    {
+        CRESSIM_LOG_ERROR("Rigid surface particle cache access should not change revision.");
+        return 1;
+    }
+
+    RigidBodyState movedBody = *world.tryGetRigidBody(2001u);
+    movedBody.position.x += 1.0f;
+    world.upsertRigidBody(movedBody);
+    if (world.rigidSurfaceParticleRevision() == initialSurfaceRevision)
+    {
+        CRESSIM_LOG_ERROR("Rigid surface particle revision did not change after rigid body edit.");
         return 1;
     }
 

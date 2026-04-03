@@ -106,26 +106,34 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
     world.ensureDerivedStateUpToDate();
 
-    const std::uint32_t rigidBodyCount = world.rigidBodyCount();
-    const std::uint32_t colliderCount  = world.colliderCount();
-    const std::uint32_t softParticleCount =
-        static_cast<std::uint32_t>(world.softParticles().size());
-    const std::uint32_t softEdgeCount = static_cast<std::uint32_t>(world.softEdges().size());
-    const std::uint32_t softTetCount  = static_cast<std::uint32_t>(world.softTets().size());
+    const std::uint32_t rigidBodyCount       = world.rigidBodyCount();
+    const std::uint32_t colliderCount        = world.colliderCount();
+    const SoftParticleSoAHost &softParticles = world.softParticles();
+    const std::vector<SoftEdge> &softEdges   = world.softEdges();
+    const std::vector<SoftTet> &softTets     = world.softTets();
+    const std::uint32_t softParticleCount    = static_cast<std::uint32_t>(softParticles.size());
+    const std::uint32_t softEdgeCount        = static_cast<std::uint32_t>(softEdges.size());
+    const std::uint32_t softTetCount         = static_cast<std::uint32_t>(softTets.size());
+    const bool needsRigidSurfaceParticles    = softParticleCount > 0u;
+    const RigidSurfaceParticleSoAHost *rigidSurfaceParticles =
+        needsRigidSurfaceParticles ? &world.rigidSurfaceParticles() : nullptr;
     const std::uint32_t rigidSurfaceParticleCount =
-        static_cast<std::uint32_t>(world.rigidSurfaceParticles().size());
+        rigidSurfaceParticles != nullptr ? static_cast<std::uint32_t>(rigidSurfaceParticles->size())
+                                         : 0u;
     float particleGridCellSize = 0.0f;
-    for (const float radius : world.softParticles().radii)
+    for (const float radius : softParticles.radii)
     {
         particleGridCellSize = std::max(particleGridCellSize, radius * 2.0f);
     }
-    for (const float radius : world.rigidSurfaceParticles().sampleRadii)
+    if (rigidSurfaceParticles != nullptr)
     {
-        particleGridCellSize = std::max(particleGridCellSize, radius * 2.0f);
+        for (const float radius : rigidSurfaceParticles->sampleRadii)
+        {
+            particleGridCellSize = std::max(particleGridCellSize, radius * 2.0f);
+        }
     }
     particleGridCellSize   = std::max(particleGridCellSize, 0.1f);
-    const bool hasSoftData = softParticleCount > 0u || softEdgeCount > 0u || softTetCount > 0u ||
-                             rigidSurfaceParticleCount > 0u;
+    const bool hasSoftData = softParticleCount > 0u || softEdgeCount > 0u || softTetCount > 0u;
     if (rigidBodyCount == 0u && !hasSoftData)
     {
         return true;
@@ -177,7 +185,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         softConstants.softEdgeCount = softEdgeCount;
         softConstants.softTetCount  = softTetCount;
 
-        const bool hasSoftBroadPhaseWork = (softParticleCount + rigidSurfaceParticleCount) > 0u;
+        const bool hasSoftBroadPhaseWork = softParticleCount > 0u;
         const bool hasSoftPairWork       = softParticleCount > 0u;
         const bool hasSoftInternalWork =
             softParticleCount > 0u && (softEdgeCount > 0u || softTetCount > 0u);
@@ -205,50 +213,54 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
 
-        if (!mImpl->passDispatcher.updateRigidSurfaceWorldPositions(
-                computeBackend.computeContext, mImpl->sceneState, rigidSurfaceParticleCount,
-                softConstants))
+        if (hasSoftBroadPhaseWork)
         {
-            CRESSIM_LOG_ERROR(
-                "PhysicsSolver::step failed: UpdateRigidSurfaceWorldPositions dispatch.");
-            return false;
-        }
+            if (!mImpl->passDispatcher.updateRigidSurfaceWorldPositions(
+                    computeBackend.computeContext, mImpl->sceneState, rigidSurfaceParticleCount,
+                    softConstants))
+            {
+                CRESSIM_LOG_ERROR(
+                    "PhysicsSolver::step failed: UpdateRigidSurfaceWorldPositions dispatch.");
+                return false;
+            }
 
-        if (!mImpl->passDispatcher.buildParticleBroadPhaseEntries(
-                computeBackend.computeContext, mImpl->sceneState,
-                softParticleCount + rigidSurfaceParticleCount, softConstants))
-        {
-            CRESSIM_LOG_ERROR(
-                "PhysicsSolver::step failed: BuildParticleBroadPhaseEntries dispatch.");
-            return false;
-        }
-        if (!mImpl->passDispatcher.buildParticleBroadPhaseKeys(
-                computeBackend.computeContext, mImpl->sceneState,
-                softParticleCount + rigidSurfaceParticleCount, softConstants))
-        {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: BuildParticleBroadPhaseKeys dispatch.");
-            return false;
-        }
-        if (!mImpl->passDispatcher.sortParticleBroadPhase(
-                computeBackend.computeContext, mImpl->sceneState,
-                softParticleCount + rigidSurfaceParticleCount))
-        {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SoftRigidRadixSort dispatch.");
-            return false;
-        }
-        if (!mImpl->passDispatcher.clearParticleCellRanges(
-                computeBackend.computeContext, mImpl->sceneState,
-                softConstants.softCellRangeCapacity, softConstants))
-        {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ClearParticleCellRanges dispatch.");
-            return false;
-        }
-        if (!mImpl->passDispatcher.buildParticleCellRanges(
-                computeBackend.computeContext, mImpl->sceneState,
-                softParticleCount + rigidSurfaceParticleCount, softConstants))
-        {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: BuildParticleCellRanges dispatch.");
-            return false;
+            if (!mImpl->passDispatcher.buildParticleBroadPhaseEntries(
+                    computeBackend.computeContext, mImpl->sceneState,
+                    softParticleCount + rigidSurfaceParticleCount, softConstants))
+            {
+                CRESSIM_LOG_ERROR(
+                    "PhysicsSolver::step failed: BuildParticleBroadPhaseEntries dispatch.");
+                return false;
+            }
+            if (!mImpl->passDispatcher.buildParticleBroadPhaseKeys(
+                    computeBackend.computeContext, mImpl->sceneState,
+                    softParticleCount + rigidSurfaceParticleCount, softConstants))
+            {
+                CRESSIM_LOG_ERROR(
+                    "PhysicsSolver::step failed: BuildParticleBroadPhaseKeys dispatch.");
+                return false;
+            }
+            if (!mImpl->passDispatcher.sortParticleBroadPhase(
+                    computeBackend.computeContext, mImpl->sceneState,
+                    softParticleCount + rigidSurfaceParticleCount))
+            {
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SoftRigidRadixSort dispatch.");
+                return false;
+            }
+            if (!mImpl->passDispatcher.clearParticleCellRanges(
+                    computeBackend.computeContext, mImpl->sceneState,
+                    softConstants.softCellRangeCapacity, softConstants))
+            {
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ClearParticleCellRanges dispatch.");
+                return false;
+            }
+            if (!mImpl->passDispatcher.buildParticleCellRanges(
+                    computeBackend.computeContext, mImpl->sceneState,
+                    softParticleCount + rigidSurfaceParticleCount, softConstants))
+            {
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: BuildParticleCellRanges dispatch.");
+                return false;
+            }
         }
 
         GpuSoftNeighborMeta softNeighborMeta{};

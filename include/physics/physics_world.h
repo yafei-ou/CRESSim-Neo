@@ -69,6 +69,7 @@ public:
     std::uint64_t revision() const noexcept;
     std::uint64_t rigidBodyTopologyRevision() const noexcept;
     std::uint64_t softBodyTopologyRevision() const noexcept;
+    std::uint64_t rigidSurfaceParticleRevision() const noexcept;
 
 private:
     static void writeRigidBodySoAAt(RigidBodySoAHost &soa, std::uint32_t index,
@@ -90,6 +91,7 @@ private:
     void rebuildBodyColliderMapping() const noexcept;
     void rebuildSoftBodyDerivedState() noexcept;
     void rebuildRigidSurfaceParticles() const noexcept;
+    void markRigidSurfaceParticlesDirty() noexcept;
     void markAllRigidBodiesDirty() noexcept;
     void markAllCollidersDirty() noexcept;
     static void normalizeSoftBodyState(SoftBodyState &state) noexcept;
@@ -114,19 +116,20 @@ private:
     std::vector<std::uint32_t> mColliderDirtyIndices{};
     std::vector<std::uint8_t> mRigidBodyDirtyBits{};
     std::vector<std::uint8_t> mColliderDirtyBits{};
-    bool mRigidBodyCountDirty                = false;
-    bool mColliderCountDirty                 = false;
-    bool mFullRigidBodyUploadRequired        = false;
-    bool mFullColliderUploadRequired         = false;
-    mutable bool mBodyColliderMappingDirty   = true;
-    bool mSoftBodyDerivedStateDirty          = true;
-    mutable bool mRigidSurfaceParticlesDirty = true;
-    bool mStaticBroadPhaseDirty              = false;
-    std::uint64_t mRevision                  = 0;
-    std::uint64_t mRigidBodyTopologyRevision = 0;
-    std::uint64_t mSoftBodyTopologyRevision  = 0;
-    RigidBodyId mNextRigidBodyId             = 1u;
-    ColliderId mNextColliderId               = 1u;
+    bool mRigidBodyCountDirty                   = false;
+    bool mColliderCountDirty                    = false;
+    bool mFullRigidBodyUploadRequired           = false;
+    bool mFullColliderUploadRequired            = false;
+    mutable bool mBodyColliderMappingDirty      = true;
+    bool mSoftBodyDerivedStateDirty             = true;
+    mutable bool mRigidSurfaceParticlesDirty    = true;
+    bool mStaticBroadPhaseDirty                 = false;
+    std::uint64_t mRevision                     = 0;
+    std::uint64_t mRigidBodyTopologyRevision    = 0;
+    std::uint64_t mSoftBodyTopologyRevision     = 0;
+    std::uint64_t mRigidSurfaceParticleRevision = 0;
+    RigidBodyId mNextRigidBodyId                = 1u;
+    ColliderId mNextColliderId                  = 1u;
 };
 
 } // namespace cressim::neo::physics

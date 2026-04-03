@@ -973,23 +973,26 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         }
     }
 
-    mRigidBodyCapacity               = newRigidBodyCapacity;
-    mColliderCapacity                = newColliderCapacity;
-    mSoftParticleCapacity            = newSoftParticleCapacity;
-    mSoftEdgeCapacity                = newSoftEdgeCapacity;
-    mSoftTetCapacity                 = newSoftTetCapacity;
-    mRigidSurfaceParticleCapacity    = newRigidSurfaceParticleCapacity;
-    mParticleBroadPhaseEntryCapacity = newParticleBroadPhaseEntryCapacity;
-    mSoftCandidatePairCapacity       = newSoftCandidatePairCapacity;
-    mSoftScanScratchCapacity         = newSoftScanCapacity;
-    mSoftParticleAdjacencyCapacity   = newSoftParticleAdjacencyCapacity;
-    mBroadPhaseNodeCapacity          = newNodeCapacity;
-    mCandidatePairCapacity           = newCandidatePairCapacity;
-    mContactCapacity                 = newRigidContactCapacity;
-    mCorrectionBuffersNeedClear      = true;
-    mStaticBroadPhaseDirty           = true;
-    mRigidBodyUploadResetRequired    = true;
-    mColliderUploadResetRequired     = true;
+    mRigidBodyCapacity                       = newRigidBodyCapacity;
+    mColliderCapacity                        = newColliderCapacity;
+    mSoftParticleCapacity                    = newSoftParticleCapacity;
+    mSoftEdgeCapacity                        = newSoftEdgeCapacity;
+    mSoftTetCapacity                         = newSoftTetCapacity;
+    mRigidSurfaceParticleCapacity            = newRigidSurfaceParticleCapacity;
+    mParticleBroadPhaseEntryCapacity         = newParticleBroadPhaseEntryCapacity;
+    mSoftCandidatePairCapacity               = newSoftCandidatePairCapacity;
+    mSoftScanScratchCapacity                 = newSoftScanCapacity;
+    mSoftParticleAdjacencyCapacity           = newSoftParticleAdjacencyCapacity;
+    mBroadPhaseNodeCapacity                  = newNodeCapacity;
+    mCandidatePairCapacity                   = newCandidatePairCapacity;
+    mContactCapacity                         = newRigidContactCapacity;
+    mCorrectionBuffersNeedClear              = true;
+    mStaticBroadPhaseDirty                   = true;
+    mRigidBodyUploadResetRequired            = true;
+    mColliderUploadResetRequired             = true;
+    mSoftParticleUploadResetRequired         = true;
+    mSoftTopologyUploadResetRequired         = true;
+    mRigidSurfaceParticleUploadResetRequired = true;
     return true;
 }
 
@@ -1002,13 +1005,20 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
         return false;
     }
 
-    const RigidBodySoAHost &rigidBodies                 = world.rigidBodySoA();
-    const ColliderSoAHost &colliders                    = world.colliderSoA();
-    const BodyColliderMappingHost &bodyColliderMapping  = world.bodyColliderMapping();
-    const SoftParticleSoAHost &softParticles            = world.softParticles();
-    const std::vector<SoftEdge> &softEdges              = world.softEdges();
-    const std::vector<SoftTet> &softTets                = world.softTets();
-    const RigidSurfaceParticleSoAHost &surfaceParticles = world.rigidSurfaceParticles();
+    const RigidBodySoAHost &rigidBodies                = world.rigidBodySoA();
+    const ColliderSoAHost &colliders                   = world.colliderSoA();
+    const BodyColliderMappingHost &bodyColliderMapping = world.bodyColliderMapping();
+    const SoftParticleSoAHost &softParticles           = world.softParticles();
+    const std::vector<SoftEdge> &softEdges             = world.softEdges();
+    const std::vector<SoftTet> &softTets               = world.softTets();
+    const bool needsRigidSurfaceParticles              = !softParticles.empty();
+    const RigidSurfaceParticleSoAHost *surfaceParticles =
+        needsRigidSurfaceParticles ? &world.rigidSurfaceParticles() : nullptr;
+    const std::uint32_t surfaceParticleCount =
+        surfaceParticles != nullptr ? static_cast<std::uint32_t>(surfaceParticles->size()) : 0u;
+    const std::uint64_t worldRevision                = world.revision();
+    const std::uint64_t softTopologyRevision         = world.softBodyTopologyRevision();
+    const std::uint64_t rigidSurfaceParticleRevision = world.rigidSurfaceParticleRevision();
     if (static_cast<std::uint32_t>(rigidBodies.size()) != bodyCount ||
         static_cast<std::uint32_t>(colliders.size()) != colliderCount)
     {
@@ -1016,15 +1026,18 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
     }
 
     if (bodyCount == 0u && colliderCount == 0u && softParticles.empty() && softEdges.empty() &&
-        softTets.empty() && surfaceParticles.empty())
+        softTets.empty() && surfaceParticleCount == 0u)
     {
-        mRigidBodyCount            = 0u;
-        mColliderCount             = 0u;
-        mSoftBodyCount             = 0u;
-        mSoftParticleCount         = 0u;
-        mSoftEdgeCount             = 0u;
-        mSoftTetCount              = 0u;
-        mRigidSurfaceParticleCount = 0u;
+        mRigidBodyCount                          = 0u;
+        mColliderCount                           = 0u;
+        mSoftBodyCount                           = 0u;
+        mSoftParticleCount                       = 0u;
+        mSoftEdgeCount                           = 0u;
+        mSoftTetCount                            = 0u;
+        mRigidSurfaceParticleCount               = 0u;
+        mSoftParticleUploadResetRequired         = true;
+        mSoftTopologyUploadResetRequired         = true;
+        mRigidSurfaceParticleUploadResetRequired = true;
         world.clearRigidBodyUploadState();
         world.clearColliderUploadState();
         mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || world.staticBroadPhaseDirty();
@@ -1046,25 +1059,42 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
     {
         return false;
     }
-    if (!uploadSoftParticles(computeContext, softParticles) ||
-        !uploadSoftTopology(computeContext, softEdges, softTets) ||
-        !uploadRigidSurfaceParticles(computeContext, surfaceParticles))
+
+    const bool needsSoftParticleUpload =
+        mSoftParticleUploadResetRequired || mLastUploadedSoftParticleRevision != worldRevision;
+    const bool needsSoftTopologyUpload = mSoftTopologyUploadResetRequired ||
+                                         mLastUploadedSoftTopologyRevision != softTopologyRevision;
+    const bool needsRigidSurfaceParticleUpload =
+        surfaceParticles != nullptr &&
+        (mRigidSurfaceParticleUploadResetRequired ||
+         mLastUploadedRigidSurfaceParticleRevision != rigidSurfaceParticleRevision);
+
+    if ((needsSoftParticleUpload && !uploadSoftParticles(computeContext, softParticles)) ||
+        (needsSoftTopologyUpload && !uploadSoftTopology(computeContext, softEdges, softTets)) ||
+        (needsRigidSurfaceParticleUpload &&
+         !uploadRigidSurfaceParticles(computeContext, *surfaceParticles)))
     {
         return false;
     }
 
     world.clearRigidBodyUploadState();
     world.clearColliderUploadState();
-    mRigidBodyCount               = bodyCount;
-    mColliderCount                = colliderCount;
-    mSoftBodyCount                = world.softBodyCount();
-    mSoftParticleCount            = static_cast<std::uint32_t>(softParticles.size());
-    mSoftEdgeCount                = static_cast<std::uint32_t>(softEdges.size());
-    mSoftTetCount                 = static_cast<std::uint32_t>(softTets.size());
-    mRigidSurfaceParticleCount    = static_cast<std::uint32_t>(surfaceParticles.size());
-    mRigidBodyUploadResetRequired = false;
-    mColliderUploadResetRequired  = false;
-    mStaticBroadPhaseDirty        = mStaticBroadPhaseDirty || world.staticBroadPhaseDirty();
+    mRigidBodyCount                           = bodyCount;
+    mColliderCount                            = colliderCount;
+    mSoftBodyCount                            = world.softBodyCount();
+    mSoftParticleCount                        = static_cast<std::uint32_t>(softParticles.size());
+    mSoftEdgeCount                            = static_cast<std::uint32_t>(softEdges.size());
+    mSoftTetCount                             = static_cast<std::uint32_t>(softTets.size());
+    mRigidSurfaceParticleCount                = surfaceParticleCount;
+    mRigidBodyUploadResetRequired             = false;
+    mColliderUploadResetRequired              = false;
+    mSoftParticleUploadResetRequired          = false;
+    mSoftTopologyUploadResetRequired          = false;
+    mRigidSurfaceParticleUploadResetRequired  = false;
+    mLastUploadedSoftParticleRevision         = worldRevision;
+    mLastUploadedSoftTopologyRevision         = softTopologyRevision;
+    mLastUploadedRigidSurfaceParticleRevision = rigidSurfaceParticleRevision;
+    mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || world.staticBroadPhaseDirty();
     world.clearStaticBroadPhaseDirty();
     return true;
 }
