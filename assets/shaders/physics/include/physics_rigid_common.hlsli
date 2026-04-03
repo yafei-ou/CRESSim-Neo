@@ -238,6 +238,8 @@ struct GpuSoftTet
     uint4 particleIndices;
     float restVolume;
     float compliance;
+    uint reserved0;
+    uint reserved1;
 };
 
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)
