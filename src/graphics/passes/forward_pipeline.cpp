@@ -3,8 +3,10 @@
 #include "gpu/gpu_buffer_utils.h"
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
+#include "graphics/passes/debug_particle_pass.h"
 #include "graphics/passes/forward_opaque_pass.h"
 #include "graphics/passes/shadow_pass.h"
+#include "physics/physics_gpu_scene_view.h"
 
 #include <array>
 #include <cstring>
@@ -385,6 +387,15 @@ bool ForwardPipeline::initialize()
         return false;
     }
 
+    mDebugParticlePass = std::make_unique<DebugParticlePass>(mDevice);
+    if (!mDebugParticlePass->initialize())
+    {
+        mDebugParticlePass.reset();
+        mShadowPass.reset();
+        mForwardOpaquePass.reset();
+        return false;
+    }
+
     gpu::GpuGraphicsBackendContext backendContext{};
     if (!mDevice.tryGetGraphicsBackendContext(backendContext) ||
         backendContext.renderDevice == nullptr)
@@ -472,6 +483,8 @@ bool ForwardPipeline::initialize()
 
 bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                    const CameraBatchView &batchView, const HostSceneView &sceneView,
+                                   const cressim::neo::physics::PhysicsGpuSceneView *physicsScene,
+                                   const RenderFrameOptions &options,
                                    const std::vector<EnvMainLightState> &envMainLights,
                                    ForwardPassExecutionStats &outStats)
 {
@@ -1293,6 +1306,18 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             ++outStats.opaqueDrawCalls;
         }
     }
+    if (mDebugParticlePass != nullptr && physicsScene != nullptr && options.debugParticles.enabled)
+    {
+        for (const ResolvedCameraView &camera : batchView.cameras)
+        {
+            const std::uint32_t targetLayer =
+                camera.outputBinding.firstLayer - batchView.renderBinding.firstLayer;
+            (void)mDebugParticlePass->draw(batchView.renderBinding, batchView.renderTargetDesc,
+                                           gpuScene, *physicsScene, camera, targetLayer,
+                                           options.debugParticles);
+        }
+    }
+
     mDevice.renderTargetSystem().endRenderTarget(batchView.renderBinding, frameContext);
 
     return true;

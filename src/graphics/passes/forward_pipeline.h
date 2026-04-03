@@ -9,11 +9,17 @@
 #include <memory>
 #include <unordered_map>
 
+namespace cressim::neo::physics
+{
+struct PhysicsGpuSceneView;
+}
+
 namespace cressim::neo::graphics::detail
 {
 
 class ForwardOpaquePass;
 class ShadowPass;
+class DebugParticlePass;
 
 class ForwardPipeline
 {
@@ -25,6 +31,8 @@ public:
     bool initialize();
     bool executeBatch(const common::FrameContext &frameContext, const CameraBatchView &batchView,
                       const HostSceneView &sceneView,
+                      const cressim::neo::physics::PhysicsGpuSceneView *physicsScene,
+                      const RenderFrameOptions &options,
                       const std::vector<EnvMainLightState> &envMainLights,
                       ForwardPassExecutionStats &outStats);
 
@@ -35,6 +43,7 @@ private:
     IblQualityTier mIblQualityTier = IblQualityTier::Off;
     std::unique_ptr<ForwardOpaquePass> mForwardOpaquePass;
     std::unique_ptr<ShadowPass> mShadowPass;
+    std::unique_ptr<DebugParticlePass> mDebugParticlePass;
     std::unique_ptr<GpuIndirectState> mGpuIndirectState;
     std::unordered_map<RenderTargetCacheKey, gpu::GpuRenderTargetHandle, RenderTargetCacheKeyHasher>
         mLayeredTargetCache;

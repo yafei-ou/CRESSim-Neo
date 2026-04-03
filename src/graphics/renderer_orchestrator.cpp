@@ -398,6 +398,7 @@ bool Renderer::initialize()
 }
 
 RenderStats Renderer::render(const common::FrameContext &frameContext, const HostSceneView &world,
+                             const cressim::neo::physics::PhysicsGpuSceneView *physicsScene,
                              const RenderFrameOptions &options)
 {
     RenderStats stats{};
@@ -474,7 +475,7 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
         ForwardPassExecutionStats passStats{};
         if (mForwardPipeline != nullptr)
         {
-            (void)mForwardPipeline->executeBatch(frameContext, batch, world,
+            (void)mForwardPipeline->executeBatch(frameContext, batch, world, physicsScene, options,
                                                  renderPlan.envMainLights, passStats);
         }
         stats.opaqueDrawCalls += passStats.opaqueDrawCalls;

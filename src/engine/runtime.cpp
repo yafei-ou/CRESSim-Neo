@@ -161,7 +161,17 @@ void Runtime::tick(const common::FrameContext &frameContext)
         mWorld.setGpuEntityScene({});
     }
 
-    mLastRenderStats = mRenderer->render(frameContext, mWorld.hostSceneView(), mRenderFrameOptions);
+    physics::PhysicsGpuSceneView physicsSceneView{};
+    const physics::PhysicsGpuSceneView *physicsScenePtr = nullptr;
+    if (mPhysicsSolver)
+    {
+        physicsSceneView = mPhysicsSolver->gpuSceneView();
+        physicsScenePtr  = &physicsSceneView;
+    }
+
+    mLastRenderStats =
+        mRenderer->render(frameContext, mWorld.hostSceneView(), physicsScenePtr,
+                          mRenderFrameOptions);
 }
 
 World &Runtime::getWorld() noexcept

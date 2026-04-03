@@ -1,4 +1,3 @@
-#include "common/frame_context.h"
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
@@ -15,7 +14,6 @@
 namespace
 {
 
-using cressim::neo::common::FrameContext;
 using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::ColliderComponent;
 using cressim::neo::engine::DirectionalLightComponent;
@@ -34,22 +32,14 @@ using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerAppDesc;
-using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
 constexpr float kPi                      = 3.14159265358979323846f;
 constexpr float kEnvSpacing              = 16.0f;
 constexpr std::uint32_t kDefaultEnvCount = 4u;
 
-struct ProxyGroup
-{
-    std::vector<cressim::neo::common::EntityId> entities;
-    std::uint32_t particleOffset = 0u;
-};
-
 struct SceneMaterials
 {
-    MaterialHandle particle{};
     MaterialHandle ground{};
     MaterialHandle staticObstacle{};
     MaterialHandle dynamicObstacle{};
@@ -150,34 +140,6 @@ Diligent::float3 envOrigin(std::uint32_t envIndex, std::uint32_t envCount)
             (static_cast<float>(row) - zCenter) * kEnvSpacing};
 }
 
-void syncParticleProxyTransforms(Runtime &runtime, const std::vector<ProxyGroup> &proxyGroups)
-{
-    auto &world           = runtime.getWorld();
-    const auto &particles = world.physicsWorld().softParticles();
-    for (const ProxyGroup &group : proxyGroups)
-    {
-        for (std::size_t i = 0; i < group.entities.size(); ++i)
-        {
-            const std::uint32_t particleIndex =
-                group.particleOffset + static_cast<std::uint32_t>(i);
-            if (particleIndex >= particles.positionsInvMass.size())
-            {
-                break;
-            }
-
-            TransformComponent transform{};
-            if (const auto existing = world.tryGetTransform(group.entities[i]))
-            {
-                transform = *existing;
-            }
-            transform.worldTransform.position = {particles.positionsInvMass[particleIndex].x,
-                                                 particles.positionsInvMass[particleIndex].y,
-                                                 particles.positionsInvMass[particleIndex].z};
-            world.setTransform(group.entities[i], transform);
-        }
-    }
-}
-
 MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &resources,
                                 const char *name, const Diligent::float3 &baseColor,
                                 float roughness)
@@ -220,10 +182,8 @@ SoftCollisionScenario makeSoftCollisionScenario(std::uint32_t envIndex)
 }
 
 void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t envCount,
-                       MeshHandle particleMesh, MeshHandle boxMesh, MeshHandle planeMesh,
-                       const SceneMaterials &materials,
-                       cressim::neo::common::EntityId &outCameraEntity,
-                       std::vector<ProxyGroup> &outProxyGroups)
+                       MeshHandle boxMesh, MeshHandle planeMesh, const SceneMaterials &materials,
+                       cressim::neo::common::EntityId &outCameraEntity)
 {
     auto &world                   = runtime.getWorld();
     const Diligent::float3 origin = envOrigin(envIndex, envCount);
@@ -300,40 +260,12 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     staticCollider.shapeParams = {0.7f, 0.28f, 0.7f, 0.0f};
     world.addCollider(staticObstacleEntity, staticCollider);
 
-    const auto addSoftProxyGroup =
+    const auto addSoftBody =
         [&](const cressim::neo::common::EntityId softEntityId, const SoftBodyComponent &softBody,
             const TransformComponent &softTransform)
     {
         world.setTransform(softEntityId, softTransform);
         world.setSoftBody(softEntityId, softBody);
-        world.physicsWorld().ensureDerivedStateUpToDate();
-        const auto *softState = world.physicsWorld().tryGetSoftBody(softEntityId);
-        if (softState == nullptr)
-        {
-            throw std::runtime_error("Soft particle multi-env viewer missing soft body state");
-        }
-
-        ProxyGroup proxyGroup{};
-        proxyGroup.particleOffset = softState->particleOffset;
-        proxyGroup.entities.reserve(softState->particleCount);
-        const auto &particles = world.physicsWorld().softParticles();
-        for (std::uint32_t i = 0u; i < softState->particleCount; ++i)
-        {
-            const std::uint32_t particleIndex = softState->particleOffset + i;
-            const auto proxyEntity            = world.createEntity(envIndex);
-            TransformComponent proxyTransform{};
-            proxyTransform.worldTransform.position = {particles.positionsInvMass[particleIndex].x,
-                                                      particles.positionsInvMass[particleIndex].y,
-                                                      particles.positionsInvMass[particleIndex].z};
-            const float diameter                   = particles.radii[particleIndex] * 1.8f;
-            proxyTransform.worldTransform.scale    = {diameter, diameter, diameter};
-            world.setTransform(proxyEntity, proxyTransform);
-            world.setMeshRenderer(proxyEntity,
-                                  MeshRendererComponent{particleMesh, materials.particle, true});
-            proxyGroup.entities.push_back(proxyEntity);
-        }
-
-        outProxyGroups.push_back(std::move(proxyGroup));
     };
 
     const SoftCollisionScenario collisionScenario = makeSoftCollisionScenario(envIndex);
@@ -357,7 +289,7 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     primarySoftBody.selfCollisionEnabled     = collisionScenario.primarySelfCollisionEnabled;
     primarySoftBody.collisionLayer           = collisionScenario.primaryLayer;
     primarySoftBody.collisionMask            = collisionScenario.primaryMask;
-    addSoftProxyGroup(world.createEntity(envIndex), primarySoftBody, primarySoftTransform);
+    addSoftBody(world.createEntity(envIndex), primarySoftBody, primarySoftTransform);
 
     TransformComponent secondarySoftTransform{};
     constexpr float kSoftBodyGap = 1.0f;
@@ -376,7 +308,7 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     secondarySoftBody.selfCollisionEnabled     = collisionScenario.secondarySelfCollisionEnabled;
     secondarySoftBody.collisionLayer           = collisionScenario.secondaryLayer;
     secondarySoftBody.collisionMask            = collisionScenario.secondaryMask;
-    addSoftProxyGroup(world.createEntity(envIndex), secondarySoftBody, secondarySoftTransform);
+    addSoftBody(world.createEntity(envIndex), secondarySoftBody, secondarySoftTransform);
 }
 
 } // namespace
@@ -447,6 +379,7 @@ int main(int argc, char **argv)
     viewerDesc.statsIntervalFrames     = 60u;
     viewerDesc.width                   = 1600;
     viewerDesc.height                  = 900;
+    viewerDesc.enableDebugParticles    = true;
 
     if (!viewer.initialize(viewerDesc, config))
     {
@@ -463,13 +396,10 @@ int main(int argc, char **argv)
     }
 
     auto &resources               = runtime.getResources();
-    const MeshHandle particleMesh = resources.registerMesh(makeCubeMesh(0.5f));
-    const MeshHandle boxMesh      = resources.registerMesh(makeCubeMesh(0.6f));
-    const MeshHandle planeMesh    = resources.registerMesh(makePlaneMesh(6.0f));
+    const MeshHandle boxMesh   = resources.registerMesh(makeCubeMesh(0.6f));
+    const MeshHandle planeMesh = resources.registerMesh(makePlaneMesh(6.0f));
 
     SceneMaterials materials{};
-    materials.particle =
-        registerMaterial(resources, "SoftParticleMultiEnv.Particle", {0.94f, 0.57f, 0.20f}, 0.24f);
     materials.ground =
         registerMaterial(resources, "SoftParticleMultiEnv.Ground", {0.72f, 0.75f, 0.79f}, 0.90f);
     materials.staticObstacle  = registerMaterial(resources, "SoftParticleMultiEnv.StaticObstacle",
@@ -477,26 +407,19 @@ int main(int argc, char **argv)
     materials.dynamicObstacle = registerMaterial(resources, "SoftParticleMultiEnv.DynamicObstacle",
                                                  {0.78f, 0.25f, 0.20f}, 0.42f);
 
-    std::vector<ProxyGroup> proxyGroups;
-    proxyGroups.reserve(envCount);
     cressim::neo::common::EntityId primaryCamera = cressim::neo::common::kInvalidEntityId;
 
     for (std::uint32_t envIndex = 0u; envIndex < envCount; ++envIndex)
     {
         cressim::neo::common::EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;
-        authorEnvironment(runtime, envIndex, envCount, particleMesh, boxMesh, planeMesh, materials,
-                          cameraEntity, proxyGroups);
+        authorEnvironment(runtime, envIndex, envCount, boxMesh, planeMesh, materials, cameraEntity);
         if (envIndex == 0u)
         {
             primaryCamera = cameraEntity;
         }
     }
 
-    DebugViewerCallbacks callbacks{};
-    callbacks.afterTick = [proxyGroups](const FrameContext &, Runtime &callbackRuntime)
-    { syncParticleProxyTransforms(callbackRuntime, proxyGroups); };
-
-    const bool ran = viewer.run(runtime, DebugViewerCameraBinding{primaryCamera}, callbacks);
+    const bool ran = viewer.run(runtime, DebugViewerCameraBinding{primaryCamera});
 
     runtime.shutdown();
     viewer.shutdown();

@@ -1,4 +1,3 @@
-#include "common/frame_context.h"
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
@@ -8,12 +7,10 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
-#include <vector>
 
 namespace
 {
 
-using cressim::neo::common::FrameContext;
 using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::ColliderComponent;
 using cressim::neo::engine::DirectionalLightComponent;
@@ -30,7 +27,6 @@ using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerAppDesc;
-using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
 GpuBackend parseBackend(const std::string &value)
@@ -116,33 +112,6 @@ Diligent::float3 computeBoxInverseInertia(const Diligent::float3 &halfExtents, f
             iz > 0.0f ? 1.0f / iz : 0.0f};
 }
 
-void syncParticleProxyTransforms(Runtime &runtime,
-                                 const std::vector<cressim::neo::common::EntityId> &proxyEntities,
-                                 std::uint32_t particleOffset)
-{
-    auto &world = runtime.getWorld();
-    const auto &particles = world.physicsWorld().softParticles();
-    for (std::size_t i = 0; i < proxyEntities.size(); ++i)
-    {
-        const std::uint32_t particleIndex = particleOffset + static_cast<std::uint32_t>(i);
-        if (particleIndex >= particles.positionsInvMass.size())
-        {
-            break;
-        }
-
-        TransformComponent transform{};
-        if (const auto existing = world.tryGetTransform(proxyEntities[i]))
-        {
-            transform = *existing;
-        }
-        transform.worldTransform.position = {
-            particles.positionsInvMass[particleIndex].x,
-            particles.positionsInvMass[particleIndex].y,
-            particles.positionsInvMass[particleIndex].z};
-        world.setTransform(proxyEntities[i], transform);
-    }
-}
-
 } // namespace
 
 int main(int argc, char **argv)
@@ -191,6 +160,7 @@ int main(int argc, char **argv)
     viewerDesc.statsIntervalFrames = 60u;
     viewerDesc.width = 1280;
     viewerDesc.height = 720;
+    viewerDesc.enableDebugParticles = true;
 
     if (!viewer.initialize(viewerDesc, config))
     {
@@ -222,16 +192,8 @@ int main(int argc, char **argv)
     world.setDirectionalLight(lightEntity, light);
 
     auto &resources = runtime.getResources();
-    const auto particleMesh = resources.registerMesh(makeCubeMesh(0.5f));
     const auto boxMesh = resources.registerMesh(makeCubeMesh(0.6f));
     const auto planeMesh = resources.registerMesh(makePlaneMesh(10.0f));
-
-    MaterialResourceDesc particleMaterialDesc{};
-    particleMaterialDesc.debugName = "SoftParticleViewer.Particle";
-    particleMaterialDesc.baseColor = {0.95f, 0.55f, 0.18f};
-    particleMaterialDesc.metallic = 0.0f;
-    particleMaterialDesc.roughness = 0.25f;
-    const auto particleMaterial = resources.registerMaterial(particleMaterialDesc);
 
     MaterialResourceDesc groundMaterialDesc{};
     groundMaterialDesc.debugName = "SoftParticleViewer.Ground";
@@ -308,43 +270,7 @@ int main(int argc, char **argv)
     softBody.collisionMask = 0xffffffffu;
     world.setSoftBody(softEntity, softBody);
 
-    world.physicsWorld().ensureDerivedStateUpToDate();
-    const auto *softState = world.physicsWorld().tryGetSoftBody(softEntity);
-    if (softState == nullptr)
-    {
-        CRESSIM_LOG_ERROR("Soft particle viewer failed: missing soft body state.\n");
-        runtime.shutdown();
-        viewer.shutdown();
-        return 1;
-    }
-
-    std::vector<cressim::neo::common::EntityId> particleProxyEntities;
-    particleProxyEntities.reserve(softState->particleCount);
-    const auto &particles = world.physicsWorld().softParticles();
-    for (std::uint32_t i = 0u; i < softState->particleCount; ++i)
-    {
-        const std::uint32_t particleIndex = softState->particleOffset + i;
-        const auto proxyEntity = world.createEntity();
-        TransformComponent proxyTransform{};
-        proxyTransform.worldTransform.position = {
-            particles.positionsInvMass[particleIndex].x,
-            particles.positionsInvMass[particleIndex].y,
-            particles.positionsInvMass[particleIndex].z};
-        const float diameter = particles.radii[particleIndex] * 1.8f;
-        proxyTransform.worldTransform.scale = {diameter, diameter, diameter};
-        world.setTransform(proxyEntity, proxyTransform);
-        world.setMeshRenderer(proxyEntity,
-                              MeshRendererComponent{particleMesh, particleMaterial, true});
-        particleProxyEntities.push_back(proxyEntity);
-    }
-
-    DebugViewerCallbacks callbacks{};
-    callbacks.afterTick = [particleProxyEntities, particleOffset = softState->particleOffset](
-                              const FrameContext &, Runtime &callbackRuntime) {
-        syncParticleProxyTransforms(callbackRuntime, particleProxyEntities, particleOffset);
-    };
-
-    const bool ran = viewer.run(runtime, DebugViewerCameraBinding{cameraEntity}, callbacks);
+    const bool ran = viewer.run(runtime, DebugViewerCameraBinding{cameraEntity});
 
     runtime.shutdown();
     viewer.shutdown();
