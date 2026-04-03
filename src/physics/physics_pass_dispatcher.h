@@ -54,16 +54,30 @@ public:
                                  const GpuSoftDispatchConstants &constants);
     bool sortParticleBroadPhase(Diligent::IDeviceContext *computeContext,
                                 const PhysicsSceneGpuState &sceneState, std::uint32_t count);
-    bool emitSoftCandidatePairs(Diligent::IDeviceContext *computeContext,
-                                const PhysicsSceneGpuState &sceneState,
-                                std::uint32_t softParticleCount,
-                                const GpuSoftDispatchConstants &constants);
+    bool clearSoftNeighborMeta(Diligent::IDeviceContext *computeContext,
+                               const PhysicsSceneGpuState &sceneState);
+    bool buildSoftSoftCandidatePairs(Diligent::IDeviceContext *computeContext,
+                                     const PhysicsSceneGpuState &sceneState,
+                                     std::uint32_t softParticleCount,
+                                     const GpuSoftDispatchConstants &constants);
+    bool buildSoftRigidCandidatePairs(Diligent::IDeviceContext *computeContext,
+                                      const PhysicsSceneGpuState &sceneState,
+                                      std::uint32_t softParticleCount,
+                                      const GpuSoftDispatchConstants &constants);
     bool generateSoftContacts(Diligent::IDeviceContext *computeContext,
-                              const PhysicsSceneGpuState &sceneState,
+                              const PhysicsSceneGpuState &sceneState, std::uint32_t candidateCount,
                               const GpuSoftDispatchConstants &constants);
     bool generateSoftRigidContacts(Diligent::IDeviceContext *computeContext,
                                    const PhysicsSceneGpuState &sceneState,
+                                   std::uint32_t candidateCount,
                                    const GpuSoftDispatchConstants &constants);
+    bool compactSoftContacts(Diligent::IDeviceContext *computeContext,
+                             const PhysicsSceneGpuState &sceneState, std::uint32_t candidateCount,
+                             const GpuSoftDispatchConstants &constants);
+    bool compactSoftRigidContacts(Diligent::IDeviceContext *computeContext,
+                                  const PhysicsSceneGpuState &sceneState,
+                                  std::uint32_t candidateCount,
+                                  const GpuSoftDispatchConstants &constants);
     bool clearSoftConstraintState(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState, std::uint32_t threadCount,
                                   const GpuSoftDispatchConstants &constants);
@@ -75,10 +89,10 @@ public:
                                  const PhysicsSceneGpuState &sceneState, std::uint32_t softTetCount,
                                  const GpuSoftDispatchConstants &constants);
     bool solveSoftContacts(Diligent::IDeviceContext *computeContext,
-                           const PhysicsSceneGpuState &sceneState,
+                           const PhysicsSceneGpuState &sceneState, std::uint32_t contactCount,
                            const GpuSoftDispatchConstants &constants);
     bool solveSoftRigidContacts(Diligent::IDeviceContext *computeContext,
-                                const PhysicsSceneGpuState &sceneState,
+                                const PhysicsSceneGpuState &sceneState, std::uint32_t contactCount,
                                 const GpuSoftDispatchConstants &constants);
     bool applySoftPositionCorrections(Diligent::IDeviceContext *computeContext,
                                       const PhysicsSceneGpuState &sceneState,
@@ -178,9 +192,18 @@ private:
     gpu::GpuComputePass mMarkParticleCellRangeStartsPass;
     gpu::GpuComputePass mClearParticleCellRangesPass;
     gpu::GpuComputePass mBuildParticleCellRangesPass;
-    gpu::GpuComputePass mEmitSoftCandidatePairsPass;
+    gpu::GpuComputePass mCountSoftSoftCandidatePairsPass;
+    gpu::GpuComputePass mFinalizeSoftSoftCandidatePairsPass;
+    gpu::GpuComputePass mEmitSoftSoftCandidatePairsPass;
+    gpu::GpuComputePass mCountSoftRigidCandidatePairsPass;
+    gpu::GpuComputePass mFinalizeSoftRigidCandidatePairsPass;
+    gpu::GpuComputePass mEmitSoftRigidCandidatePairsPass;
     gpu::GpuComputePass mGenerateSoftContactsPass;
     gpu::GpuComputePass mGenerateSoftRigidContactsPass;
+    gpu::GpuComputePass mFinalizeActiveSoftContactsPass;
+    gpu::GpuComputePass mCompactActiveSoftContactsPass;
+    gpu::GpuComputePass mFinalizeActiveSoftRigidContactsPass;
+    gpu::GpuComputePass mCompactActiveSoftRigidContactsPass;
     gpu::GpuComputePass mClearSoftConstraintStatePass;
     gpu::GpuComputePass mSolveSoftEdgeConstraintsPass;
     gpu::GpuComputePass mSolveSoftTetConstraintsPass;

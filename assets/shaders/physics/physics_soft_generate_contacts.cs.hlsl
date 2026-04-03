@@ -1,18 +1,19 @@
 #include "physics/include/physics_rigid_common.hlsli"
-#include "physics/include/physics_soft_dispatch_constants.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float, g_SoftParticleRadii);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftCandidatePair, g_SoftCandidatePairs);
-CRESSIM_STRUCTURED_BUFFER(uint, g_SoftCandidatePairCount);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftNeighborMeta, g_SoftNeighborMeta);
 
 CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftContact, g_SoftContacts);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_ContactActiveFlags);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint pairIndex = dispatchThreadID.x;
-    if (pairIndex >= softCandidatePairCapacity)
+    const GpuSoftNeighborMeta meta = CRESSIM_SB_LOAD(g_SoftNeighborMeta, 0u);
+    if (pairIndex >= meta.softSoftCandidateCount)
     {
         return;
     }
@@ -24,19 +25,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     outContact.reserved0 = 0u;
     outContact.normalPenetration = float4(0.0, 0.0, 0.0, 0.0);
 
-    const uint validPairCount = CRESSIM_SB_LOAD(g_SoftCandidatePairCount, 0u);
-    if (pairIndex >= validPairCount)
-    {
-        CRESSIM_SB_STORE(g_SoftContacts, pairIndex, outContact);
-        return;
-    }
-
     const GpuSoftCandidatePair pair = CRESSIM_SB_LOAD(g_SoftCandidatePairs, pairIndex);
-    if (pair.pairType != kSoftCandidatePairTypeSoftSoft)
-    {
-        CRESSIM_SB_STORE(g_SoftContacts, pairIndex, outContact);
-        return;
-    }
 
     const uint particleA = pair.indexA;
     const uint particleB = pair.indexB;
@@ -54,6 +43,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         outContact.active = 1u;
         outContact.normalPenetration = float4(0.0, 1.0, 0.0, combinedRadius);
         CRESSIM_SB_STORE(g_SoftContacts, pairIndex, outContact);
+        CRESSIM_SB_STORE(g_ContactActiveFlags, pairIndex, 1u);
         return;
     }
 
@@ -68,4 +58,5 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     CRESSIM_SB_STORE(g_SoftContacts, pairIndex, outContact);
+    CRESSIM_SB_STORE(g_ContactActiveFlags, pairIndex, outContact.active);
 }

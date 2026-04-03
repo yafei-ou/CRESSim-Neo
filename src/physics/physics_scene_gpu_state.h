@@ -114,10 +114,13 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRadixBitFlagsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRadixBitOffsetsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRadixMetaBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> softCandidatePairsBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> softCandidatePairCountBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softNeighborMetaBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softSoftCandidatePairsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidCandidatePairsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidContactsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softContactsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> activeSoftRigidContactsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> activeSoftContactsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softPositionCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetLambdasBuffer;
@@ -185,6 +188,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> previousPositionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> velocitiesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> neighborMetaBuffer;
     };
 
     bool ensureCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t bodyCount,
@@ -201,6 +205,8 @@ public:
                                              PhysicsWorld &world, std::uint32_t bodyCount);
     bool readbackPredictedSoftStateBlocking(Diligent::IDeviceContext *computeContext,
                                             PhysicsWorld &world, std::uint32_t softParticleCount);
+    bool readbackSoftNeighborMetaBlocking(Diligent::IDeviceContext *computeContext,
+                                          GpuSoftNeighborMeta &outMeta);
 
     const PersistentRigidBodyBuffers &persistentRigidBodies() const noexcept;
     const PersistentColliderBuffers &persistentColliders() const noexcept;
@@ -271,6 +277,7 @@ private:
     std::uint32_t mBroadPhaseNodeCapacity          = 0;
     std::uint32_t mCandidatePairCapacity           = 0;
     std::uint32_t mContactCapacity                 = 0;
+    std::uint32_t mSoftScanScratchCapacity         = 0;
     bool mCorrectionBuffersNeedClear               = false;
     bool mStaticBroadPhaseDirty                    = true;
     bool mRigidBodyUploadResetRequired             = true;

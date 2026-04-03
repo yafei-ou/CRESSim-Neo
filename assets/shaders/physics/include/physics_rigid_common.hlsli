@@ -18,6 +18,8 @@ static const uint kParticleBroadPhaseEntryTypeSoft = 0u;
 static const uint kParticleBroadPhaseEntryTypeRigidSurface = 1u;
 static const uint kSoftCandidatePairTypeSoftSoft = 0u;
 static const uint kSoftCandidatePairTypeSoftRigid = 1u;
+static const uint kSoftRigidDedupCacheSize = 16u;
+static const uint kSoftRigidColliderIterationCap = 64u;
 static const uint kSoftPhaseGroupMask = 0x7fffffffu;
 static const uint kSoftPhaseSelfCollideFlag = 0x80000000u;
 static const float kBroadPhaseMargin = 0.05f;
@@ -186,6 +188,18 @@ struct GpuSoftCandidatePair
     uint indexA;
     uint indexB;
     uint auxIndex;
+};
+
+struct GpuSoftNeighborMeta
+{
+    uint softSoftCandidateCount;
+    uint softRigidCandidateCount;
+    uint requiredSoftSoftCandidateCount;
+    uint requiredSoftRigidCandidateCount;
+    uint softSoftCandidateOverflow;
+    uint softRigidCandidateOverflow;
+    uint activeSoftContactCount;
+    uint activeSoftRigidContactCount;
 };
 
 struct GpuParticleCellRange

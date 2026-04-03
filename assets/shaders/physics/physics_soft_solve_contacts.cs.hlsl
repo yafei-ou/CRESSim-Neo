@@ -1,5 +1,4 @@
 #include "physics/include/physics_rigid_common.hlsli"
-#include "physics/include/physics_soft_dispatch_constants.hlsli"
 
 static const float kSoftCorrectionAtomicScale = 100000.0;
 static const float kSoftContactRelaxation = 0.90;
@@ -7,6 +6,7 @@ static const float kSoftMaxCorrectionPerIter = 0.02;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftContact, g_SoftContacts);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftNeighborMeta, g_SoftNeighborMeta);
 CRESSIM_RW_STRUCTURED_BUFFER(int4, g_SoftPositionCorrections);
 
 int3 QuantizeSoftCorrection(float3 value)
@@ -18,7 +18,8 @@ int3 QuantizeSoftCorrection(float3 value)
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint contactIndex = dispatchThreadID.x;
-    if (contactIndex >= softCandidatePairCapacity)
+    const GpuSoftNeighborMeta meta = CRESSIM_SB_LOAD(g_SoftNeighborMeta, 0u);
+    if (contactIndex >= meta.activeSoftContactCount)
     {
         return;
     }

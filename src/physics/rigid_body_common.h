@@ -103,6 +103,18 @@ struct GpuSoftCandidatePair
     std::uint32_t auxIndex = 0;
 };
 
+struct GpuSoftNeighborMeta
+{
+    std::uint32_t softSoftCandidateCount          = 0;
+    std::uint32_t softRigidCandidateCount         = 0;
+    std::uint32_t requiredSoftSoftCandidateCount  = 0;
+    std::uint32_t requiredSoftRigidCandidateCount = 0;
+    std::uint32_t softSoftCandidateOverflow       = 0;
+    std::uint32_t softRigidCandidateOverflow      = 0;
+    std::uint32_t activeSoftContactCount          = 0;
+    std::uint32_t activeSoftRigidContactCount     = 0;
+};
+
 struct GpuParticleCellRange
 {
     std::uint32_t cellKey    = 0xffffffffu;
@@ -278,6 +290,7 @@ static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
 static_assert(sizeof(GpuSoftDispatchConstants) == 32u);
 static_assert(sizeof(GpuParticleBroadPhaseEntry) == 32u);
 static_assert(sizeof(GpuSoftCandidatePair) == 16u);
+static_assert(sizeof(GpuSoftNeighborMeta) == 32u);
 static_assert(sizeof(GpuParticleCellRange) == 16u);
 static_assert(sizeof(GpuSoftRigidContact) == 48u);
 static_assert(sizeof(GpuSoftContact) == 32u);

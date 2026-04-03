@@ -1,5 +1,4 @@
 #include "physics/include/physics_rigid_common.hlsli"
-#include "physics/include/physics_soft_dispatch_constants.hlsli"
 
 static const float kSoftCorrectionAtomicScale = 100000.0;
 static const float kSoftContactRelaxation = 0.90;
@@ -11,6 +10,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftRigidContact, g_SoftRigidContacts);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftNeighborMeta, g_SoftNeighborMeta);
 
 CRESSIM_RW_STRUCTURED_BUFFER(int4, g_SoftPositionCorrections);
 CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyTranslationCorrections);
@@ -25,7 +25,8 @@ int3 QuantizeSoftCorrection(float3 value)
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint contactIndex = dispatchThreadID.x;
-    if (contactIndex >= softCandidatePairCapacity)
+    const GpuSoftNeighborMeta meta = CRESSIM_SB_LOAD(g_SoftNeighborMeta, 0u);
+    if (contactIndex >= meta.activeSoftRigidContactCount)
     {
         return;
     }

@@ -1,5 +1,4 @@
 #include "physics/include/physics_rigid_common.hlsli"
-#include "physics/include/physics_soft_dispatch_constants.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float, g_SoftParticleRadii);
@@ -18,15 +17,17 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalOrientations);
 CRESSIM_STRUCTURED_BUFFER(GpuColliderBroadPhaseData, g_ColliderBroadPhaseData);
 
 CRESSIM_STRUCTURED_BUFFER(GpuSoftCandidatePair, g_SoftCandidatePairs);
-CRESSIM_STRUCTURED_BUFFER(uint, g_SoftCandidatePairCount);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftNeighborMeta, g_SoftNeighborMeta);
 
 CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftRigidContact, g_SoftRigidContacts);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_ContactActiveFlags);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint pairIndex = dispatchThreadID.x;
-    if (pairIndex >= softCandidatePairCapacity)
+    const GpuSoftNeighborMeta meta = CRESSIM_SB_LOAD(g_SoftNeighborMeta, 0u);
+    if (pairIndex >= meta.softRigidCandidateCount)
     {
         return;
     }
@@ -39,19 +40,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     outContact.normalPenetration = float4(0.0, 0.0, 0.0, 0.0);
     outContact.rigidLocalPoint = float4(0.0, 0.0, 0.0, 0.0);
 
-    const uint validPairCount = CRESSIM_SB_LOAD(g_SoftCandidatePairCount, 0u);
-    if (pairIndex >= validPairCount)
-    {
-        CRESSIM_SB_STORE(g_SoftRigidContacts, pairIndex, outContact);
-        return;
-    }
-
     const GpuSoftCandidatePair pair = CRESSIM_SB_LOAD(g_SoftCandidatePairs, pairIndex);
-    if (pair.pairType != kSoftCandidatePairTypeSoftRigid)
-    {
-        CRESSIM_SB_STORE(g_SoftRigidContacts, pairIndex, outContact);
-        return;
-    }
 
     const uint softParticleIndex = pair.indexA;
     const uint rigidBodyIndex = pair.indexB;
@@ -79,7 +68,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     float3 bestContactWorld = float3(0.0, 0.0, 0.0);
 
     [loop]
-    for (uint i = 0u; i < 64u; ++i)
+    for (uint i = 0u; i < kSoftRigidColliderIterationCap; ++i)
     {
         if (i >= colliderCount)
         {
@@ -212,4 +201,5 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     CRESSIM_SB_STORE(g_SoftRigidContacts, pairIndex, outContact);
+    CRESSIM_SB_STORE(g_ContactActiveFlags, pairIndex, outContact.active);
 }
