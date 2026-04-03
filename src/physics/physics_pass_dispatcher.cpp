@@ -198,12 +198,12 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mEmitPairsPass, kEmitPairs, 2u) ||
         !initPass(mBuildNarrowPhaseChunksPass, kBuildNarrowPhaseChunks) ||
         !initPass(mGenerateRigidContactsPass, kGenerateRigidContacts) ||
-        !initPass(mSolveGatherPass, kSolveGather) ||
+        !initPass(mSolveRigidContactConstraintsPass, kSolveRigidContactConstraints) ||
         !initPass(mClearRigidCorrectionsPass, kClearRigidCorrections) ||
         !initPass(mApplyRigidCorrectionsPass, kApplyRigidCorrections) ||
         !initPass(mUpdateRigidVelocitiesPass, kUpdateRigidVelocities) ||
-        !initPass(mSolveContactVelocitiesPass, kSolveContactVelocities) ||
-        !initPass(mApplyContactVelocitiesPass, kApplyContactVelocities))
+        !initPass(mSolveRigidContactVelocitiesPass, kSolveRigidContactVelocities) ||
+        !initPass(mApplyRigidContactVelocitiesPass, kApplyRigidContactVelocities))
     {
         CRESSIM_LOG_ERROR("PhysicsPassDispatcher: failed to initialize compute passes.");
         return false;
@@ -2110,9 +2110,9 @@ bool PhysicsPassDispatcher::emitBroadPhasePairs(Diligent::IDeviceContext *comput
 
 bool PhysicsPassDispatcher::dispatchGenerateRigidContactsPass(
     Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    std::uint32_t pairCount)
+    std::uint32_t rigidPairCount)
 {
-    if (pairCount == 0u)
+    if (rigidPairCount == 0u)
     {
         return true;
     }
@@ -2159,7 +2159,7 @@ bool PhysicsPassDispatcher::dispatchGenerateRigidContactsPass(
     };
 
     const std::uint32_t dispatchGroupUpperBound =
-        ((pairCount + kNarrowPhaseChunkSize - 1u) / kNarrowPhaseChunkSize) +
+        ((rigidPairCount + kNarrowPhaseChunkSize - 1u) / kNarrowPhaseChunkSize) +
         (kRigidPairTypeCount - 1u);
 
     return mGenerateRigidContactsPass.dispatch(computeContext, kDefaultVariant, bindings,
@@ -2168,16 +2168,16 @@ bool PhysicsPassDispatcher::dispatchGenerateRigidContactsPass(
 
 bool PhysicsPassDispatcher::generateRigidContacts(Diligent::IDeviceContext *computeContext,
                                                   const PhysicsSceneGpuState &sceneState,
-                                                  std::uint32_t pairCount)
+                                                  std::uint32_t rigidPairCount)
 {
-    return dispatchGenerateRigidContactsPass(computeContext, sceneState, pairCount);
+    return dispatchGenerateRigidContactsPass(computeContext, sceneState, rigidPairCount);
 }
 
-bool PhysicsPassDispatcher::dispatchSolveGatherPass(Diligent::IDeviceContext *computeContext,
-                                                    const PhysicsSceneGpuState &sceneState,
-                                                    std::uint32_t pairCount)
+bool PhysicsPassDispatcher::dispatchSolveRigidContactConstraintsPass(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t rigidPairCount)
 {
-    if (pairCount == 0u)
+    if (rigidPairCount == 0u)
     {
         return false;
     }
@@ -2208,28 +2208,28 @@ bool PhysicsPassDispatcher::dispatchSolveGatherPass(Diligent::IDeviceContext *co
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    const std::uint32_t contactSlotCount = pairCount * kRigidContactsPerPair;
-    return mSolveGatherPass.dispatch(computeContext, kDefaultVariant, bindings,
-                                     dispatchGroupCount(contactSlotCount));
+    const std::uint32_t contactSlotCount = rigidPairCount * kRigidContactsPerPair;
+    return mSolveRigidContactConstraintsPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                      dispatchGroupCount(contactSlotCount));
 }
 
-bool PhysicsPassDispatcher::solveRigidConstraints(Diligent::IDeviceContext *computeContext,
-                                                  const PhysicsSceneGpuState &sceneState,
-                                                  std::uint32_t rigidBodyCount,
-                                                  std::uint32_t pairCount,
-                                                  const GpuRigidDispatchConstants &constants)
+bool PhysicsPassDispatcher::solveRigidContactConstraints(Diligent::IDeviceContext *computeContext,
+                                                         const PhysicsSceneGpuState &sceneState,
+                                                         std::uint32_t rigidBodyCount,
+                                                         std::uint32_t rigidPairCount,
+                                                         const GpuRigidDispatchConstants &constants)
 {
     if (computeContext == nullptr)
     {
         return false;
     }
-    if (pairCount == 0u)
+    if (rigidPairCount == 0u)
     {
         return true;
     }
 
     return writeRigidDispatchConstants(computeContext, constants) &&
-           dispatchSolveGatherPass(computeContext, sceneState, pairCount);
+           dispatchSolveRigidContactConstraintsPass(computeContext, sceneState, rigidPairCount);
 }
 
 bool PhysicsPassDispatcher::applyRigidCorrections(Diligent::IDeviceContext *computeContext,
@@ -2314,11 +2314,11 @@ bool PhysicsPassDispatcher::updateRigidVelocities(Diligent::IDeviceContext *comp
                                                dispatchGroupCount(bodyCount));
 }
 
-bool PhysicsPassDispatcher::dispatchSolveContactVelocitiesPass(
+bool PhysicsPassDispatcher::dispatchSolveRigidContactVelocitiesPass(
     Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    std::uint32_t pairCount)
+    std::uint32_t rigidPairCount)
 {
-    if (pairCount == 0u)
+    if (rigidPairCount == 0u)
     {
         return true;
     }
@@ -2356,23 +2356,23 @@ bool PhysicsPassDispatcher::dispatchSolveContactVelocitiesPass(
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    const std::uint32_t slotCount = pairCount * kRigidContactsPerPair;
-    return mSolveContactVelocitiesPass.dispatch(computeContext, kDefaultVariant, bindings,
-                                                dispatchGroupCount(slotCount));
+    const std::uint32_t slotCount = rigidPairCount * kRigidContactsPerPair;
+    return mSolveRigidContactVelocitiesPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                     dispatchGroupCount(slotCount));
 }
 
-bool PhysicsPassDispatcher::solveContactVelocities(Diligent::IDeviceContext *computeContext,
-                                                   const PhysicsSceneGpuState &sceneState,
-                                                   std::uint32_t rigidBodyCount,
-                                                   std::uint32_t pairCount,
-                                                   std::uint32_t iterations,
-                                                   const GpuRigidDispatchConstants &constants)
+bool PhysicsPassDispatcher::solveRigidContactVelocities(Diligent::IDeviceContext *computeContext,
+                                                        const PhysicsSceneGpuState &sceneState,
+                                                        std::uint32_t rigidBodyCount,
+                                                        std::uint32_t rigidPairCount,
+                                                        std::uint32_t iterations,
+                                                        const GpuRigidDispatchConstants &constants)
 {
     if (computeContext == nullptr)
     {
         return false;
     }
-    if (rigidBodyCount == 0u || pairCount == 0u || iterations == 0u)
+    if (rigidBodyCount == 0u || rigidPairCount == 0u || iterations == 0u)
     {
         return true;
     }
@@ -2398,7 +2398,7 @@ bool PhysicsPassDispatcher::solveContactVelocities(Diligent::IDeviceContext *com
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    if (!mApplyContactVelocitiesPass.bindVariant(kDefaultVariant, applyBindings))
+    if (!mApplyRigidContactVelocitiesPass.bindVariant(kDefaultVariant, applyBindings))
     {
         return false;
     }
@@ -2409,13 +2409,13 @@ bool PhysicsPassDispatcher::solveContactVelocities(Diligent::IDeviceContext *com
         iterationConstants.iterationIndex            = iteration;
 
         if (!writeRigidDispatchConstants(computeContext, iterationConstants) ||
-            !dispatchSolveContactVelocitiesPass(computeContext, sceneState, pairCount))
+            !dispatchSolveRigidContactVelocitiesPass(computeContext, sceneState, rigidPairCount))
         {
             return false;
         }
 
-        if (!mApplyContactVelocitiesPass.dispatch(computeContext, kDefaultVariant, applyBindings,
-                                                  dispatchGroupCount(rigidBodyCount)))
+        if (!mApplyRigidContactVelocitiesPass.dispatch(
+                computeContext, kDefaultVariant, applyBindings, dispatchGroupCount(rigidBodyCount)))
         {
             return false;
         }

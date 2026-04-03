@@ -721,7 +721,7 @@ constexpr Diligent::ShaderResourceVariableDesc kGenerateContactsVars[] = {
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
-constexpr Diligent::ShaderResourceVariableDesc kSolveGatherVars[] = {
+constexpr Diligent::ShaderResourceVariableDesc kSolveRigidContactConstraintsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
@@ -787,7 +787,7 @@ constexpr Diligent::ShaderResourceVariableDesc kUpdateVelocitiesVars[] = {
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
-constexpr Diligent::ShaderResourceVariableDesc kSolveContactVelocitiesVars[] = {
+constexpr Diligent::ShaderResourceVariableDesc kSolveRigidContactVelocitiesVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
@@ -810,7 +810,7 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveContactVelocitiesVars[] = {
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
-constexpr Diligent::ShaderResourceVariableDesc kApplyContactVelocitiesVars[] = {
+constexpr Diligent::ShaderResourceVariableDesc kApplyRigidContactVelocitiesVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTypes",
@@ -1194,12 +1194,12 @@ const gpu::GpuComputePassDefinition kGenerateRigidContacts{
     std::size(kGenerateContactsVars),
 };
 
-const gpu::GpuComputePassDefinition kSolveGather{
-    "physics/physics_rigid_solve_gather.cs.hlsl",
-    "CRESSimNeo.Physics.RigidSolveGather.CS",
-    "CRESSimNeo.Physics.RigidSolveGather.PSO",
-    kSolveGatherVars,
-    std::size(kSolveGatherVars),
+const gpu::GpuComputePassDefinition kSolveRigidContactConstraints{
+    "physics/physics_rigid_solve_contacts.cs.hlsl",
+    "CRESSimNeo.Physics.RigidSolveContactConstraints.CS",
+    "CRESSimNeo.Physics.RigidSolveContactConstraints.PSO",
+    kSolveRigidContactConstraintsVars,
+    std::size(kSolveRigidContactConstraintsVars),
 };
 
 const gpu::GpuComputePassDefinition kClearRigidCorrections{
@@ -1226,20 +1226,20 @@ const gpu::GpuComputePassDefinition kUpdateRigidVelocities{
     std::size(kUpdateVelocitiesVars),
 };
 
-const gpu::GpuComputePassDefinition kSolveContactVelocities{
+const gpu::GpuComputePassDefinition kSolveRigidContactVelocities{
     "physics/physics_rigid_solve_contact_velocities.cs.hlsl",
     "CRESSimNeo.Physics.RigidSolveContactVelocities.CS",
     "CRESSimNeo.Physics.RigidSolveContactVelocities.PSO",
-    kSolveContactVelocitiesVars,
-    std::size(kSolveContactVelocitiesVars),
+    kSolveRigidContactVelocitiesVars,
+    std::size(kSolveRigidContactVelocitiesVars),
 };
 
-const gpu::GpuComputePassDefinition kApplyContactVelocities{
+const gpu::GpuComputePassDefinition kApplyRigidContactVelocities{
     "physics/physics_rigid_apply_contact_velocities.cs.hlsl",
     "CRESSimNeo.Physics.RigidApplyContactVelocities.CS",
     "CRESSimNeo.Physics.RigidApplyContactVelocities.PSO",
-    kApplyContactVelocitiesVars,
-    std::size(kApplyContactVelocitiesVars),
+    kApplyRigidContactVelocitiesVars,
+    std::size(kApplyRigidContactVelocitiesVars),
 };
 
 } // namespace cressim::neo::physics::passdefs

@@ -122,21 +122,23 @@ public:
                              std::uint32_t activeMovingCount,
                              const GpuRigidDispatchConstants &constants);
     bool generateRigidContacts(Diligent::IDeviceContext *computeContext,
-                               const PhysicsSceneGpuState &sceneState, std::uint32_t pairCount);
-    bool solveRigidConstraints(Diligent::IDeviceContext *computeContext,
-                               const PhysicsSceneGpuState &sceneState, std::uint32_t rigidBodyCount,
-                               std::uint32_t pairCount, const GpuRigidDispatchConstants &constants);
+                               const PhysicsSceneGpuState &sceneState,
+                               std::uint32_t rigidPairCount);
+    bool solveRigidContactConstraints(Diligent::IDeviceContext *computeContext,
+                                      const PhysicsSceneGpuState &sceneState,
+                                      std::uint32_t rigidBodyCount, std::uint32_t rigidPairCount,
+                                      const GpuRigidDispatchConstants &constants);
     bool applyRigidCorrections(Diligent::IDeviceContext *computeContext,
                                const PhysicsSceneGpuState &sceneState, std::uint32_t rigidBodyCount,
                                const GpuRigidDispatchConstants &constants);
     bool updateRigidVelocities(Diligent::IDeviceContext *computeContext,
                                const PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
                                const GpuRigidDispatchConstants &constants);
-    bool solveContactVelocities(Diligent::IDeviceContext *computeContext,
-                                const PhysicsSceneGpuState &sceneState,
-                                std::uint32_t rigidBodyCount, std::uint32_t pairCount,
-                                std::uint32_t iterations,
-                                const GpuRigidDispatchConstants &constants);
+    bool solveRigidContactVelocities(Diligent::IDeviceContext *computeContext,
+                                     const PhysicsSceneGpuState &sceneState,
+                                     std::uint32_t rigidBodyCount, std::uint32_t rigidPairCount,
+                                     std::uint32_t iterations,
+                                     const GpuRigidDispatchConstants &constants);
 
 private:
     bool writeRigidDispatchConstants(Diligent::IDeviceContext *computeContext,
@@ -174,12 +176,13 @@ private:
                                    const PhysicsSceneGpuState &sceneState, std::uint32_t count);
     bool dispatchGenerateRigidContactsPass(Diligent::IDeviceContext *computeContext,
                                            const PhysicsSceneGpuState &sceneState,
-                                           std::uint32_t pairCount);
-    bool dispatchSolveGatherPass(Diligent::IDeviceContext *computeContext,
-                                 const PhysicsSceneGpuState &sceneState, std::uint32_t pairCount);
-    bool dispatchSolveContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
-                                            const PhysicsSceneGpuState &sceneState,
-                                            std::uint32_t pairCount);
+                                           std::uint32_t rigidPairCount);
+    bool dispatchSolveRigidContactConstraintsPass(Diligent::IDeviceContext *computeContext,
+                                                  const PhysicsSceneGpuState &sceneState,
+                                                  std::uint32_t rigidPairCount);
+    bool dispatchSolveRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
+                                                 const PhysicsSceneGpuState &sceneState,
+                                                 std::uint32_t rigidPairCount);
 
     gpu::ShaderLibrary mShaderLibrary{""};
     Diligent::Uint64 mPhysicsContextMask = 0;
@@ -231,11 +234,11 @@ private:
     gpu::GpuComputePass mBuildNarrowPhaseChunksPass;
     gpu::GpuComputePass mGenerateRigidContactsPass;
     gpu::GpuComputePass mClearRigidCorrectionsPass;
-    gpu::GpuComputePass mSolveGatherPass;
+    gpu::GpuComputePass mSolveRigidContactConstraintsPass;
     gpu::GpuComputePass mApplyRigidCorrectionsPass;
     gpu::GpuComputePass mUpdateRigidVelocitiesPass;
-    gpu::GpuComputePass mSolveContactVelocitiesPass;
-    gpu::GpuComputePass mApplyContactVelocitiesPass;
+    gpu::GpuComputePass mSolveRigidContactVelocitiesPass;
+    gpu::GpuComputePass mApplyRigidContactVelocitiesPass;
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftDispatchConstantsBuffer;

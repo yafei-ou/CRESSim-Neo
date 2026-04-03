@@ -52,12 +52,12 @@ extern const gpu::GpuComputePassDefinition kFinalizePairs;
 extern const gpu::GpuComputePassDefinition kEmitPairs;
 extern const gpu::GpuComputePassDefinition kBuildNarrowPhaseChunks;
 extern const gpu::GpuComputePassDefinition kGenerateRigidContacts;
-extern const gpu::GpuComputePassDefinition kSolveGather;
+extern const gpu::GpuComputePassDefinition kSolveRigidContactConstraints;
 extern const gpu::GpuComputePassDefinition kClearRigidCorrections;
 extern const gpu::GpuComputePassDefinition kApplyRigidCorrections;
 extern const gpu::GpuComputePassDefinition kUpdateRigidVelocities;
-extern const gpu::GpuComputePassDefinition kSolveContactVelocities;
-extern const gpu::GpuComputePassDefinition kApplyContactVelocities;
+extern const gpu::GpuComputePassDefinition kSolveRigidContactVelocities;
+extern const gpu::GpuComputePassDefinition kApplyRigidContactVelocities;
 
 } // namespace cressim::neo::physics::passdefs
 
