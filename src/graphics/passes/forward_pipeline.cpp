@@ -517,10 +517,12 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     }
 
     mForwardOpaquePass->setGpuSceneView(gpuScene);
+    mForwardOpaquePass->setPhysicsSceneView(physicsScene);
     mForwardOpaquePass->setEnvironmentIbls(sceneView.environmentIbls, gpuScene.layout.envCount);
     if (mShadowPass != nullptr)
     {
         mShadowPass->setGpuSceneView(gpuScene);
+        mShadowPass->setPhysicsSceneView(physicsScene);
     }
 
     gpu::GpuGraphicsBackendContext backendContext{};

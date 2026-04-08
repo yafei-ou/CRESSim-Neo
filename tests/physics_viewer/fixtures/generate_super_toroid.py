@@ -58,3 +58,16 @@ grid = tet.grid
 
 # Write TetGen-format files via meshio/PyVista
 pv.save_meshio("toroid.node", grid)
+
+# Export a consistently oriented visual surface mesh for the viewer test.
+surface = grid.extract_surface().triangulate()
+
+surface = surface.compute_normals(
+    cell_normals=True,
+    point_normals=True,
+    consistent_normals=True,
+    auto_orient_normals=True,
+    split_vertices=False,
+    inplace=False,
+)
+surface.save("toroid_surface.obj")

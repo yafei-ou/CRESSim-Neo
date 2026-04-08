@@ -16,6 +16,7 @@ struct ResolvedSoftBodyTopology
     std::vector<Diligent::float3> restPositions;
     std::vector<std::array<std::uint32_t, 2>> edges;
     std::vector<std::array<std::uint32_t, 4>> tets;
+    std::vector<Diligent::uint3> boundaryFaces;
     std::vector<std::vector<std::uint32_t>> adjacencyLists;
     std::vector<std::uint32_t> staticParticleIndices;
 };

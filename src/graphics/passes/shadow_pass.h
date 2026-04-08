@@ -12,8 +12,15 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/RenderDevice.h"
 
+namespace cressim::neo::physics
+{
+struct PhysicsGpuSceneView;
+}
+
 namespace cressim::neo::graphics::detail
 {
+
+namespace physics = cressim::neo::physics;
 
 class ShadowPass
 {
@@ -22,6 +29,7 @@ public:
 
     bool initialize();
     void setGpuSceneView(const GpuEntitySceneView &sceneView) noexcept;
+    void setPhysicsSceneView(const physics::PhysicsGpuSceneView *physicsScene) noexcept;
     void setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept;
     void setBatchCameraBuffer(Diligent::IBuffer *buffer) noexcept;
     void setLocalShadowViewBuffer(Diligent::IBuffer *buffer) noexcept;
@@ -51,11 +59,11 @@ private:
         std::uint32_t shadowPassParams[4] = {0u, 0u, 0u, 0u};
     };
 
-    bool createPipeline(Diligent::IRenderDevice *renderDevice);
+    bool createPipeline(Diligent::IRenderDevice *renderDevice, MaterialProgramFamily programFamily);
     bool ensureConstantBuffers(Diligent::IRenderDevice *renderDevice);
     bool prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
                      const ForwardDrawCommand &drawCommand, DrawSetup &outSetup);
-    bool bindSceneBuffers() const;
+    bool bindSceneBuffers(MaterialProgramFamily programFamily) const;
     bool updatePerDrawConstants(Diligent::IDeviceContext *graphicsContext,
                                 const ForwardDrawCommand &drawCommand,
                                 std::uint32_t shadowMatrixIndex, std::uint32_t shadowPassMode);
@@ -70,10 +78,13 @@ private:
 
     MeshGpuCache mMeshGpuCache;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mPipelineState;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mSoftBodyPipelineState;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mShaderResourceBinding;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mSoftBodyShaderResourceBinding;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mShadowPerPassBuffer;
     GpuEntitySceneView mSceneView{};
+    const physics::PhysicsGpuSceneView *mPhysicsScene = nullptr;
     Diligent::IBuffer *mVisiblePairBuffer     = nullptr;
     Diligent::IBuffer *mBatchCameraBuffer     = nullptr;
     Diligent::IBuffer *mLocalShadowViewBuffer = nullptr;

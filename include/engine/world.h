@@ -88,6 +88,8 @@ public:
     const std::vector<graphics::GpuCameraInput> &cameraInputs() const noexcept;
     const std::vector<graphics::GpuLightInput> &lightInputs() const noexcept;
     const std::vector<graphics::GpuLocalLightSelection> &localLightSelections() const noexcept;
+    const std::vector<graphics::GpuSoftBodyVertexAttachment> &softBodyVertexAttachments()
+        const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &opaqueDrawRegistry() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &shadowDrawRegistry() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &localShadowDrawRegistry()
@@ -114,6 +116,7 @@ private:
     void refreshCameraEntry(std::uint32_t cameraIndex);
     void refreshLightEntry(std::uint32_t lightIndex);
     void rebuildLocalLightSelections();
+    void rebuildSoftBodyRenderAttachments(const graphics::RenderResourceManager &resources);
     void refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources);
     void rebuildDrawRegistries(const graphics::RenderResourceManager &resources);
     void clearDirtyIndexSet(std::vector<std::uint32_t> &dirtyIndices,
@@ -168,6 +171,7 @@ private:
     std::vector<graphics::GpuCameraInput> mCameraInputsHost{};
     std::vector<graphics::GpuLightInput> mLightInputsHost{};
     std::vector<graphics::GpuLocalLightSelection> mLocalLightSelectionsHost{};
+    std::vector<graphics::GpuSoftBodyVertexAttachment> mSoftBodyVertexAttachmentsHost{};
     std::vector<graphics::EnvironmentIblDesc> mEnvironmentIbls{};
     std::vector<graphics::IndirectCommandRegistryEntry> mOpaqueDrawRegistryHost{};
     std::vector<graphics::IndirectCommandRegistryEntry> mShadowDrawRegistryHost{};
@@ -197,8 +201,14 @@ private:
     std::vector<std::uint8_t> mDirtyLightBits{};
     bool mDrawRegistryDirty              = true;
     bool mPhysicsRenderableMappingsDirty = true;
+    bool mSoftBodyRenderAttachmentsDirty = true;
+    std::vector<std::uint32_t> mSoftBodyAttachmentBaseByObject{};
+    std::vector<std::uint32_t> mSoftBodyAttachmentCountByObject{};
+    std::vector<std::uint32_t> mSoftBodyParticleOffsetByObject{};
 
     std::uint64_t mCachedPhysicsRenderableMappingsBodyTopologyRevision = ~0ull;
+    std::uint64_t mCachedSoftBodyRenderTopologyRevision                = ~0ull;
+    std::uint64_t mCachedSoftBodyPhysicsRevision                       = ~0ull;
 };
 
 } // namespace cressim::neo::engine

@@ -39,12 +39,17 @@ void appendVariable(std::vector<Diligent::ShaderResourceVariableDesc> &vars,
         shaderType, name, Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
 }
 
-Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 8> &macros,
+Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 12> &macros,
+                                              MaterialProgramFamily programFamily,
                                               MaterialFeatureFlags featureFlags,
                                               IblQualityTier iblQualityTier)
 {
     Diligent::Uint32 count = 0;
     macros[count++]        = Diligent::ShaderMacro{"MANUAL_LAYER_EXPORT", "1"};
+    if (programFamily == MaterialProgramFamily::SoftBodyLit)
+    {
+        macros[count++] = Diligent::ShaderMacro{"CRESSIM_PROGRAM_FAMILY_SOFT_BODY", "1"};
+    }
     if (hasFlag(featureFlags, MaterialFeatureFlags::AlphaTest))
     {
         macros[count++] = Diligent::ShaderMacro{"CRESSIM_FEATURE_ALPHA_TEST", "1"};
@@ -79,10 +84,10 @@ Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 
 }
 
 std::vector<Diligent::ShaderResourceVariableDesc> buildResourceLayoutVariables(
-    IblQualityTier iblQualityTier)
+    MaterialProgramFamily programFamily, IblQualityTier iblQualityTier)
 {
     std::vector<Diligent::ShaderResourceVariableDesc> vars;
-    vars.reserve(23u);
+    vars.reserve(26u);
     appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_EntityPositions");
     appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_EntityOrientations");
     appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_EntityScales");
@@ -92,6 +97,11 @@ std::vector<Diligent::ShaderResourceVariableDesc> buildResourceLayoutVariables(
     appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras");
     appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras");
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_PreparedCameras");
+    if (programFamily == MaterialProgramFamily::SoftBodyLit)
+    {
+        appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_SoftParticlePositions");
+        appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexAttachments");
+    }
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_LightInputs");
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_LocalLightSelections");
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_LightShadowAssignments");
@@ -214,7 +224,8 @@ std::size_t MaterialProgramRegistry::cachedProgramCount() const noexcept
 bool MaterialProgramRegistry::createProgram(const ProgramKey &key, ProgramResources &outResources)
 {
     if (key.passClass != MainPassClass::ForwardOpaque ||
-        key.programFamily != MaterialProgramFamily::StandardLit)
+        (key.programFamily != MaterialProgramFamily::StandardLit &&
+         key.programFamily != MaterialProgramFamily::SoftBodyLit))
     {
         return false;
     }
@@ -246,9 +257,9 @@ bool MaterialProgramRegistry::createProgram(const ProgramKey &key, ProgramResour
         return false;
     }
 
-    std::array<Diligent::ShaderMacro, 8> macros{};
+    std::array<Diligent::ShaderMacro, 12> macros{};
     const Diligent::ShaderMacroArray macroArray =
-        buildFeatureMacros(macros, key.featureFlags, key.iblQualityTier);
+        buildFeatureMacros(macros, key.programFamily, key.featureFlags, key.iblQualityTier);
     const std::string variantSuffix = buildVariantSuffix(key);
     outResources.vertexShaderName   = "CRESSimNeo.ForwardOpaque.StandardLit.VS." + variantSuffix;
     outResources.pixelShaderName    = "CRESSimNeo.ForwardOpaque.StandardLit.PS." + variantSuffix;
@@ -331,7 +342,7 @@ bool MaterialProgramRegistry::createProgram(const ProgramKey &key, ProgramResour
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType =
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
     const std::vector<Diligent::ShaderResourceVariableDesc> vars =
-        buildResourceLayoutVariables(key.iblQualityTier);
+        buildResourceLayoutVariables(key.programFamily, key.iblQualityTier);
     psoCreateInfo.PSODesc.ResourceLayout.Variables    = vars.data();
     psoCreateInfo.PSODesc.ResourceLayout.NumVariables = static_cast<Diligent::Uint32>(vars.size());
 

@@ -20,8 +20,15 @@
 #include <memory>
 #include <vector>
 
+namespace cressim::neo::physics
+{
+struct PhysicsGpuSceneView;
+}
+
 namespace cressim::neo::graphics::detail
 {
+
+namespace physics = cressim::neo::physics;
 
 class ForwardOpaquePass
 {
@@ -32,6 +39,7 @@ public:
     bool initialize();
     bool beginBatchFrame(std::uint32_t currentCameraIndex);
     void setGpuSceneView(const GpuEntitySceneView &sceneView) noexcept;
+    void setPhysicsSceneView(const physics::PhysicsGpuSceneView *physicsScene) noexcept;
     void setEnvironmentIbls(const std::vector<EnvironmentIblDesc> *ibls,
                             std::uint32_t envCount) noexcept;
     void setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept;
@@ -101,7 +109,8 @@ private:
     bool prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
                      const ForwardDrawCommand &drawCommand, DrawSetup &outSetup);
     bool bindShadowMaps(MaterialProgramRegistry::ProgramResources &program);
-    bool bindSceneBuffers(MaterialProgramRegistry::ProgramResources &program) const;
+    bool bindSceneBuffers(MaterialProgramRegistry::ProgramResources &program,
+                          MaterialProgramFamily programFamily) const;
     bool bindEnvironmentIblResources(MaterialProgramRegistry::ProgramResources &program) const;
     bool bindMaterialTextures(MaterialProgramRegistry::ProgramResources &program,
                               Diligent::IRenderDevice *renderDevice,
@@ -149,6 +158,7 @@ private:
     Diligent::IBuffer *mLightShadowAssignmentBuffer = nullptr;
     std::uint32_t mLocalShadowViewCount             = 0u;
     GpuEntitySceneView mSceneView{};
+    const physics::PhysicsGpuSceneView *mPhysicsScene         = nullptr;
     const std::vector<EnvironmentIblDesc> *mEnvironmentIbls = nullptr;
     std::uint32_t mEnvironmentIblEnvCount                   = 0u;
     Diligent::IBuffer *mVisiblePairBuffer                   = nullptr;

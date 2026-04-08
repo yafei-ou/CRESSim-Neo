@@ -1101,6 +1101,8 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             softBody.particleMass > 0.0f ? 1.0f / softBody.particleMass : 0.0f;
         std::unordered_set<std::uint32_t> staticParticles(topology.staticParticleIndices.begin(),
                                                           topology.staticParticleIndices.end());
+        softBody.restPositions = topology.restPositions;
+        softBody.boundaryFaces = topology.boundaryFaces;
 
         softBody.particleCount = static_cast<std::uint32_t>(topology.restPositions.size());
         for (std::uint32_t localParticleIndex = 0u; localParticleIndex < softBody.particleCount;

@@ -124,6 +124,8 @@ struct SoftBodyState
     std::uint32_t edgeCount      = 0u;
     std::uint32_t tetOffset      = 0u;
     std::uint32_t tetCount       = 0u;
+    std::vector<Diligent::float3> restPositions;
+    std::vector<Diligent::uint3> boundaryFaces;
 };
 
 struct SoftEdge

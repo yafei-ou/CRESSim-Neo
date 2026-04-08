@@ -5,6 +5,7 @@
 #include <cmath>
 #include <set>
 #include <sstream>
+#include <unordered_map>
 
 namespace cressim::neo::physics
 {
@@ -42,6 +43,24 @@ std::uint64_t sortedEdgeKey(const std::uint32_t a, const std::uint32_t b)
     const std::uint32_t lo = std::min(a, b);
     const std::uint32_t hi = std::max(a, b);
     return (static_cast<std::uint64_t>(lo) << 32u) | hi;
+}
+
+std::uint64_t sortedFaceKey(std::uint32_t a, std::uint32_t b, std::uint32_t c)
+{
+    if (a > b)
+    {
+        std::swap(a, b);
+    }
+    if (b > c)
+    {
+        std::swap(b, c);
+    }
+    if (a > b)
+    {
+        std::swap(a, b);
+    }
+    return (static_cast<std::uint64_t>(a) << 42u) | (static_cast<std::uint64_t>(b) << 21u) |
+           static_cast<std::uint64_t>(c);
 }
 
 std::vector<std::uint32_t> normalizedStaticParticleIndices(
@@ -229,6 +248,12 @@ bool resolveSoftBodyTopology(const SoftBodyState &state, const TetMeshData *tetG
     outTopology.adjacencyLists.resize(particleCount);
 
     std::set<std::uint64_t> uniqueEdges;
+    struct BoundaryFaceEntry
+    {
+        Diligent::uint3 face{0u, 0u, 0u};
+        std::uint32_t count = 0u;
+    };
+    std::unordered_map<std::uint64_t, BoundaryFaceEntry> faceCounts;
     outTopology.tets.reserve(sourceMesh.tetVertexIndices.size() / 4u);
     for (std::size_t tetBase = 0u; tetBase < sourceMesh.tetVertexIndices.size(); tetBase += 4u)
     {
@@ -269,6 +294,23 @@ bool resolveSoftBodyTopology(const SoftBodyState &state, const TetMeshData *tetG
 
         outTopology.tets.push_back(tet);
 
+        const std::array<Diligent::uint3, 4> tetFaces = {{
+            Diligent::uint3{tet[0], tet[2], tet[1]},
+            Diligent::uint3{tet[0], tet[1], tet[3]},
+            Diligent::uint3{tet[0], tet[3], tet[2]},
+            Diligent::uint3{tet[1], tet[2], tet[3]},
+        }};
+        for (const Diligent::uint3 &face : tetFaces)
+        {
+            const std::uint64_t key = sortedFaceKey(face.x, face.y, face.z);
+            BoundaryFaceEntry &entry = faceCounts[key];
+            if (entry.count == 0u)
+            {
+                entry.face = face;
+            }
+            ++entry.count;
+        }
+
         const std::array<std::array<std::uint32_t, 2>, 6> tetEdges = {{
             {{tet[0], tet[1]}},
             {{tet[0], tet[2]}},
@@ -294,6 +336,17 @@ bool resolveSoftBodyTopology(const SoftBodyState &state, const TetMeshData *tetG
     {
         std::sort(neighbors.begin(), neighbors.end());
         neighbors.erase(std::unique(neighbors.begin(), neighbors.end()), neighbors.end());
+    }
+
+    outTopology.boundaryFaces.clear();
+    outTopology.boundaryFaces.reserve(faceCounts.size());
+    for (const auto &[key, entry] : faceCounts)
+    {
+        (void)key;
+        if (entry.count == 1u)
+        {
+            outTopology.boundaryFaces.push_back(entry.face);
+        }
     }
 
     if (staticParticleIndices != nullptr)

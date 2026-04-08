@@ -6,8 +6,12 @@
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace
 {
@@ -96,6 +100,209 @@ MeshResourceDesc makePlaneMesh(float halfExtent)
     return mesh;
 }
 
+std::int32_t resolveObjIndex(std::int32_t index, std::size_t count)
+{
+    if (index > 0)
+    {
+        return index - 1;
+    }
+    if (index < 0)
+    {
+        return static_cast<std::int32_t>(count) + index;
+    }
+    return -1;
+}
+
+bool parseObjFaceVertex(const std::string &token, std::int32_t &positionIndex,
+                        std::int32_t &texcoordIndex, std::int32_t &normalIndex)
+{
+    positionIndex = -1;
+    texcoordIndex = -1;
+    normalIndex   = -1;
+    const std::size_t firstSlash = token.find('/');
+    if (firstSlash == std::string::npos)
+    {
+        positionIndex = std::stoi(token);
+        return true;
+    }
+
+    const std::size_t secondSlash = token.find('/', firstSlash + 1u);
+    positionIndex                 = std::stoi(token.substr(0u, firstSlash));
+    if (secondSlash == std::string::npos)
+    {
+        const std::string texcoordToken = token.substr(firstSlash + 1u);
+        if (!texcoordToken.empty())
+        {
+            texcoordIndex = std::stoi(texcoordToken);
+        }
+        return true;
+    }
+
+    if (secondSlash > firstSlash + 1u)
+    {
+        texcoordIndex = std::stoi(token.substr(firstSlash + 1u, secondSlash - firstSlash - 1u));
+    }
+    if (secondSlash + 1u < token.size())
+    {
+        normalIndex = std::stoi(token.substr(secondSlash + 1u));
+    }
+    return true;
+}
+
+MeshResourceDesc loadObjMesh(const std::filesystem::path &path)
+{
+    std::ifstream stream(path);
+    if (!stream)
+    {
+        throw std::runtime_error("Failed to open OBJ file: " + path.string());
+    }
+
+    MeshResourceDesc mesh{};
+    mesh.debugName = "SoftParticleToroidViewer.SurfaceOBJ";
+
+    std::vector<Diligent::float3> positions;
+    std::vector<Diligent::float3> normals;
+    std::vector<Diligent::float2> texcoords;
+    std::unordered_map<std::string, std::uint32_t> vertexCache;
+    bool hasNormals = false;
+    std::string line;
+    while (std::getline(stream, line))
+    {
+        if (line.empty() || line[0] == '#')
+        {
+            continue;
+        }
+
+        std::istringstream lineStream(line);
+        std::string keyword;
+        lineStream >> keyword;
+        if (keyword == "v")
+        {
+            Diligent::float3 position{};
+            lineStream >> position.x >> position.y >> position.z;
+            positions.push_back(position);
+        }
+        else if (keyword == "vn")
+        {
+            Diligent::float3 normal{};
+            lineStream >> normal.x >> normal.y >> normal.z;
+            normals.push_back(normal);
+        }
+        else if (keyword == "vt")
+        {
+            Diligent::float2 texcoord{};
+            lineStream >> texcoord.x >> texcoord.y;
+            texcoords.push_back(texcoord);
+        }
+        else if (keyword == "f")
+        {
+            std::vector<std::string> faceVertices;
+            std::string token;
+            while (lineStream >> token)
+            {
+                faceVertices.push_back(token);
+            }
+            if (faceVertices.size() < 3u)
+            {
+                continue;
+            }
+
+            const auto emitVertex = [&](const std::string &faceToken) -> std::uint32_t {
+                if (const auto it = vertexCache.find(faceToken); it != vertexCache.end())
+                {
+                    return it->second;
+                }
+
+                std::int32_t positionIndex = -1;
+                std::int32_t texcoordIndex = -1;
+                std::int32_t normalIndex   = -1;
+                parseObjFaceVertex(faceToken, positionIndex, texcoordIndex, normalIndex);
+                positionIndex = resolveObjIndex(positionIndex, positions.size());
+                texcoordIndex = resolveObjIndex(texcoordIndex, texcoords.size());
+                normalIndex   = resolveObjIndex(normalIndex, normals.size());
+                if (positionIndex < 0 ||
+                    static_cast<std::size_t>(positionIndex) >= positions.size())
+                {
+                    throw std::runtime_error("OBJ face references an invalid position index: " +
+                                             path.string());
+                }
+
+                MeshResourceDesc::Vertex vertex{};
+                vertex.position = positions[static_cast<std::size_t>(positionIndex)];
+                if (texcoordIndex >= 0 && static_cast<std::size_t>(texcoordIndex) < texcoords.size())
+                {
+                    const Diligent::float2 texcoord =
+                        texcoords[static_cast<std::size_t>(texcoordIndex)];
+                    vertex.texCoordU = texcoord.x;
+                    vertex.texCoordV = texcoord.y;
+                }
+                if (normalIndex >= 0 && static_cast<std::size_t>(normalIndex) < normals.size())
+                {
+                    vertex.normal = normals[static_cast<std::size_t>(normalIndex)];
+                    hasNormals    = true;
+                }
+
+                const std::uint32_t index = static_cast<std::uint32_t>(mesh.vertices.size());
+                mesh.vertices.push_back(vertex);
+                vertexCache.emplace(faceToken, index);
+                return index;
+            };
+
+            const std::uint32_t i0 = emitVertex(faceVertices[0]);
+            for (std::size_t i = 1u; i + 1u < faceVertices.size(); ++i)
+            {
+                const std::uint32_t i1 = emitVertex(faceVertices[i]);
+                const std::uint32_t i2 = emitVertex(faceVertices[i + 1u]);
+                mesh.indices.insert(mesh.indices.end(), {i0, i1, i2});
+            }
+        }
+    }
+
+    // The exported toroid surface uses the opposite winding from this renderer's front-face
+    // convention. Flip triangle order here, but keep authored vertex normals as-is.
+    for (std::size_t triangleBase = 0u; triangleBase + 2u < mesh.indices.size();
+         triangleBase += 3u)
+    {
+        std::swap(mesh.indices[triangleBase + 1u], mesh.indices[triangleBase + 2u]);
+    }
+
+    if (!hasNormals)
+    {
+        for (std::size_t triangleBase = 0u; triangleBase + 2u < mesh.indices.size();
+             triangleBase += 3u)
+        {
+            const std::uint32_t i0 = mesh.indices[triangleBase + 0u];
+            const std::uint32_t i1 = mesh.indices[triangleBase + 1u];
+            const std::uint32_t i2 = mesh.indices[triangleBase + 2u];
+            const Diligent::float3 e0 = mesh.vertices[i1].position - mesh.vertices[i0].position;
+            const Diligent::float3 e1 = mesh.vertices[i2].position - mesh.vertices[i0].position;
+            const Diligent::float3 faceNormal = Diligent::normalize(Diligent::cross(e0, e1));
+            mesh.vertices[i0].normal += faceNormal;
+            mesh.vertices[i1].normal += faceNormal;
+            mesh.vertices[i2].normal += faceNormal;
+        }
+
+        for (auto &vertex : mesh.vertices)
+        {
+            if (Diligent::dot(vertex.normal, vertex.normal) > 1.0e-8f)
+            {
+                vertex.normal = Diligent::normalize(vertex.normal);
+            }
+            else
+            {
+                vertex.normal = {0.0f, 1.0f, 0.0f};
+            }
+        }
+    }
+
+    if (mesh.vertices.empty() || mesh.indices.size() < 3u)
+    {
+        throw std::runtime_error("OBJ mesh is empty or invalid: " + path.string());
+    }
+
+    return mesh;
+}
+
 Diligent::float3 computeBoxInverseInertia(const Diligent::float3 &halfExtents, float inverseMass)
 {
     if (inverseMass <= 0.0f)
@@ -158,9 +365,11 @@ int main(int argc, char **argv)
 
     const std::filesystem::path nodeFile = fixturePath("toroid.node");
     const std::filesystem::path eleFile  = fixturePath("toroid.ele");
-    if (!std::filesystem::exists(nodeFile) || !std::filesystem::exists(eleFile))
+    const std::filesystem::path surfaceObjFile = fixturePath("toroid_surface.obj");
+    if (!std::filesystem::exists(nodeFile) || !std::filesystem::exists(eleFile) ||
+        !std::filesystem::exists(surfaceObjFile))
     {
-        CRESSIM_LOG_ERROR("Toroid TetGen fixtures are missing.");
+        CRESSIM_LOG_ERROR("Toroid soft-body fixtures are missing.");
         return 1;
     }
 
@@ -175,7 +384,7 @@ int main(int argc, char **argv)
     viewerDesc.statsIntervalFrames       = 60u;
     viewerDesc.width                     = 1280;
     viewerDesc.height                    = 720;
-    viewerDesc.enableDebugParticles      = true;
+    viewerDesc.enableDebugParticles      = false;
 
     if (!viewer.initialize(viewerDesc, config))
     {
@@ -209,6 +418,7 @@ int main(int argc, char **argv)
     auto &resources           = runtime.getResources();
     const auto boxMesh        = resources.registerMesh(makeCubeMesh(2.5f));
     const auto planeMesh      = resources.registerMesh(makePlaneMesh(80.0f));
+    const auto toroidMesh     = resources.registerMesh(loadObjMesh(surfaceObjFile));
 
     MaterialResourceDesc groundMaterialDesc{};
     groundMaterialDesc.debugName = "SoftParticleToroidViewer.Ground";
@@ -223,6 +433,13 @@ int main(int argc, char **argv)
     obstacleMaterialDesc.metallic  = 0.0f;
     obstacleMaterialDesc.roughness = 0.55f;
     const auto obstacleMaterial    = resources.registerMaterial(obstacleMaterialDesc);
+
+    MaterialResourceDesc softMaterialDesc{};
+    softMaterialDesc.debugName = "SoftParticleToroidViewer.SoftBody";
+    softMaterialDesc.baseColor = {0.86f, 0.33f, 0.26f};
+    softMaterialDesc.metallic  = 0.0f;
+    softMaterialDesc.roughness = 0.42f;
+    const auto softMaterial    = resources.registerMaterial(softMaterialDesc);
 
     const auto groundEntity = world.createEntity();
     TransformComponent groundTransform{};
@@ -274,6 +491,7 @@ int main(int argc, char **argv)
     softTransform.worldTransform.position = {-2.0f, 10.0f, 0.0f};
     softTransform.worldTransform.scale    = {5.0f, 5.0f, 5.0f};
     world.setTransform(softEntity, softTransform);
+    world.setMeshRenderer(softEntity, MeshRendererComponent{toroidMesh, softMaterial, true});
 
     SoftBodyComponent softBody{};
     softBody.source.kind            = SoftBodySourceKind::TetGenFiles;

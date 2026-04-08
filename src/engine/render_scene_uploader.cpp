@@ -146,6 +146,8 @@ void RenderSceneUploader::shutdown()
     mEntityCount                        = 0;
     mRenderableCapacity                 = 0;
     mRenderableCount                    = 0;
+    mSoftBodyAttachmentCapacity         = 0;
+    mSoftBodyAttachmentCount            = 0;
     mCameraCapacity                     = 0;
     mCameraCount                        = 0;
     mLightCapacity                      = 0;
@@ -163,6 +165,7 @@ void RenderSceneUploader::shutdown()
     mRenderableQueueInfoBuffer          = nullptr;
     mRenderableVisibilityFlagsBuffer    = nullptr;
     mRenderableShadowCascadeMasksBuffer = nullptr;
+    mSoftBodyVertexAttachmentBuffer     = nullptr;
     mCameraInputsBuffer                 = nullptr;
     mPreparedCamerasBuffer              = nullptr;
     mLightInputsBuffer                  = nullptr;
@@ -332,6 +335,34 @@ bool RenderSceneUploader::ensureLocalLightSelectionCapacity(Diligent::IRenderDev
                                   mLocalLightSelectionBuffer, mLocalLightSelectionCapacity, 1u);
 }
 
+namespace
+{
+bool ensureSoftBodyAttachmentCapacity(Diligent::IRenderDevice *renderDevice,
+                                      Diligent::Uint64 contextMask,
+                                      std::uint32_t attachmentCount,
+                                      Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer,
+                                      std::uint32_t &inOutCapacity)
+{
+    if (renderDevice == nullptr || contextMask == 0)
+    {
+        return false;
+    }
+
+    const std::uint32_t requiredCapacity = std::max<std::uint32_t>(attachmentCount, 1u);
+    if (inOutCapacity >= requiredCapacity && outBuffer != nullptr)
+    {
+        return true;
+    }
+
+    return ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.SoftBodyVertexAttachments",
+                                  sizeof(graphics::GpuSoftBodyVertexAttachment),
+                                  std::max<std::uint32_t>(requiredCapacity, 64u),
+                                  Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                  Diligent::CPU_ACCESS_NONE, contextMask, outBuffer,
+                                  inOutCapacity, 64u);
+}
+} // namespace
+
 bool RenderSceneUploader::uploadRenderableMetadata(
     const std::vector<graphics::GpuRenderableMetadata> &renderables)
 {
@@ -393,6 +424,40 @@ bool RenderSceneUploader::uploadRenderableQueueInfo(
     return writeBuffer(graphicsContext.graphicsContext, mRenderableQueueInfoBuffer,
                        queueInfo.data(),
                        queueInfo.size() * sizeof(graphics::GpuRenderableQueueInfo));
+}
+
+bool RenderSceneUploader::uploadSoftBodyVertexAttachments(
+    const std::vector<graphics::GpuSoftBodyVertexAttachment> &attachments)
+{
+    if (!mInitialized)
+    {
+        return false;
+    }
+
+    gpu::GpuGraphicsBackendContext graphicsContext{};
+    if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
+        graphicsContext.renderDevice == nullptr || graphicsContext.graphicsContext == nullptr)
+    {
+        return false;
+    }
+
+    mSoftBodyAttachmentCount = static_cast<std::uint32_t>(attachments.size());
+    if (!ensureSoftBodyAttachmentCapacity(graphicsContext.renderDevice, mGraphicsContextMask,
+                                          mSoftBodyAttachmentCount,
+                                          mSoftBodyVertexAttachmentBuffer,
+                                          mSoftBodyAttachmentCapacity))
+    {
+        return false;
+    }
+
+    if (attachments.empty())
+    {
+        return true;
+    }
+
+    return writeBuffer(graphicsContext.graphicsContext, mSoftBodyVertexAttachmentBuffer,
+                       attachments.data(),
+                       attachments.size() * sizeof(graphics::GpuSoftBodyVertexAttachment));
 }
 
 bool RenderSceneUploader::uploadCameraInputs(const std::vector<graphics::GpuCameraInput> &cameras)
@@ -638,6 +703,7 @@ graphics::GpuEntitySceneView RenderSceneUploader::sceneView() const noexcept
     view.preparedCamerasBuffer              = mPreparedCamerasBuffer;
     view.lightInputsBuffer                  = mLightInputsBuffer;
     view.localLightSelectionBuffer          = mLocalLightSelectionBuffer;
+    view.softBodyVertexAttachmentBuffer     = mSoftBodyVertexAttachmentBuffer;
     view.entityCount                        = mEntityCount;
     view.renderableCount                    = mRenderableCount;
     view.cameraCount                        = mCameraCount;

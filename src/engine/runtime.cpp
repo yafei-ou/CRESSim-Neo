@@ -148,6 +148,7 @@ void Runtime::tick(const common::FrameContext &frameContext)
     if (gpuSceneReady && mRenderSceneUploader &&
         mRenderSceneUploader->uploadRenderableMetadata(mWorld.renderableMetadata()) &&
         mRenderSceneUploader->uploadRenderableQueueInfo(mWorld.renderableQueueInfo()) &&
+        mRenderSceneUploader->uploadSoftBodyVertexAttachments(mWorld.softBodyVertexAttachments()) &&
         mRenderSceneUploader->uploadCameraInputs(mWorld.cameraInputs()) &&
         mRenderSceneUploader->uploadLightInputs(mWorld.lightInputs()) &&
         mRenderSceneUploader->uploadLocalLightSelections(mWorld.localLightSelections()) &&

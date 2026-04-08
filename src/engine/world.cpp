@@ -1,7 +1,9 @@
 #include "engine/world.h"
 #include "common/logger.h"
 
+#include <array>
 #include <cmath>
+#include <limits>
 #include <map>
 
 namespace cressim::neo::engine
@@ -10,6 +12,7 @@ namespace cressim::neo::engine
 namespace
 {
 constexpr std::uint32_t kInvalidSlot = 0xffffffffu;
+constexpr float kSoftBodyAttachmentEpsilon = 1.0e-6f;
 
 struct DrawBucketKey
 {
@@ -109,6 +112,181 @@ void refreshTransformDerivedLightState(graphics::LightData &light,
         light.position = transform.worldTransform.position;
         break;
     }
+}
+
+struct SoftBodyAttachmentCandidate
+{
+    Diligent::uint3 particleIndices{0u, 0u, 0u};
+    Diligent::float3 barycentric{0.0f, 0.0f, 1.0f};
+    float signedOffset = 0.0f;
+    float distanceSq   = std::numeric_limits<float>::max();
+    bool valid         = false;
+};
+
+Diligent::float3 normalizeOrFallback(const Diligent::float3 &value,
+                                     const Diligent::float3 &fallback) noexcept
+{
+    const float lenSq = Diligent::dot(value, value);
+    if (lenSq <= kSoftBodyAttachmentEpsilon)
+    {
+        return fallback;
+    }
+    return value * (1.0f / std::sqrt(lenSq));
+}
+
+SoftBodyAttachmentCandidate closestAttachmentForPoint(
+    const Diligent::float3 &point, const std::vector<Diligent::float3> &restPositions,
+    const std::vector<Diligent::uint3> &boundaryFaces) noexcept
+{
+    SoftBodyAttachmentCandidate best{};
+    for (const Diligent::uint3 &face : boundaryFaces)
+    {
+        if (face.x >= restPositions.size() || face.y >= restPositions.size() ||
+            face.z >= restPositions.size())
+        {
+            continue;
+        }
+
+        const Diligent::float3 &a = restPositions[face.x];
+        const Diligent::float3 &b = restPositions[face.y];
+        const Diligent::float3 &c = restPositions[face.z];
+        const Diligent::float3 ab = b - a;
+        const Diligent::float3 ac = c - a;
+        const Diligent::float3 ap = point - a;
+
+        const float d1 = Diligent::dot(ab, ap);
+        const float d2 = Diligent::dot(ac, ap);
+        Diligent::float3 bary{};
+        Diligent::float3 closest = a;
+
+        if (d1 <= 0.0f && d2 <= 0.0f)
+        {
+            bary = {1.0f, 0.0f, 0.0f};
+        }
+        else
+        {
+            const Diligent::float3 bp = point - b;
+            const float d3 = Diligent::dot(ab, bp);
+            const float d4 = Diligent::dot(ac, bp);
+            if (d3 >= 0.0f && d4 <= d3)
+            {
+                bary    = {0.0f, 1.0f, 0.0f};
+                closest = b;
+            }
+            else
+            {
+                const float vc = d1 * d4 - d3 * d2;
+                if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f)
+                {
+                    const float v = d1 / std::max(d1 - d3, kSoftBodyAttachmentEpsilon);
+                    bary          = {1.0f - v, v, 0.0f};
+                    closest       = a + ab * v;
+                }
+                else
+                {
+                    const Diligent::float3 cp = point - c;
+                    const float d5 = Diligent::dot(ab, cp);
+                    const float d6 = Diligent::dot(ac, cp);
+                    if (d6 >= 0.0f && d5 <= d6)
+                    {
+                        bary    = {0.0f, 0.0f, 1.0f};
+                        closest = c;
+                    }
+                    else
+                    {
+                        const float vb = d5 * d2 - d1 * d6;
+                        if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f)
+                        {
+                            const float w = d2 / std::max(d2 - d6, kSoftBodyAttachmentEpsilon);
+                            bary          = {1.0f - w, 0.0f, w};
+                            closest       = a + ac * w;
+                        }
+                        else
+                        {
+                            const float va = d3 * d6 - d5 * d4;
+                            if (va <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f)
+                            {
+                                const float w = (d4 - d3) / std::max((d4 - d3) + (d5 - d6),
+                                                                      kSoftBodyAttachmentEpsilon);
+                                bary          = {0.0f, 1.0f - w, w};
+                                closest       = b + (c - b) * w;
+                            }
+                            else
+                            {
+                                const float denom = 1.0f / std::max(va + vb + vc,
+                                                                    kSoftBodyAttachmentEpsilon);
+                                const float v     = vb * denom;
+                                const float w     = vc * denom;
+                                bary              = {1.0f - v - w, v, w};
+                                closest           = a * bary.x + b * bary.y + c * bary.z;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        const Diligent::float3 faceNormal =
+            normalizeOrFallback(Diligent::cross(ab, ac), Diligent::float3{0.0f, 1.0f, 0.0f});
+        const Diligent::float3 delta = point - closest;
+        const float distanceSq       = Diligent::dot(delta, delta);
+        if (distanceSq >= best.distanceSq)
+        {
+            continue;
+        }
+
+        best.particleIndices = face;
+        best.barycentric     = bary;
+        best.signedOffset    = Diligent::dot(delta, faceNormal);
+        best.distanceSq      = distanceSq;
+        best.valid           = true;
+    }
+    return best;
+}
+
+Diligent::float3 transformPoint(const common::Transform &transform,
+                                const Diligent::float3 &localPoint) noexcept
+{
+    const Diligent::float3 scaled{localPoint.x * transform.scale.x, localPoint.y * transform.scale.y,
+                                  localPoint.z * transform.scale.z};
+    return transform.rotation.RotateVector(scaled) + transform.position;
+}
+
+bool computeSoftBodyWorldBounds(const physics::PhysicsWorld &physicsWorld,
+                                const physics::SoftBodyState &softBody,
+                                Diligent::float3 &outMin, Diligent::float3 &outMax,
+                                Diligent::float3 &outCenter) noexcept
+{
+    const physics::SoftParticleSoAHost &particles = physicsWorld.softParticles();
+    if (softBody.particleCount == 0u ||
+        softBody.particleOffset + softBody.particleCount > particles.positionsInvMass.size())
+    {
+        outMin = {};
+        outMax = {};
+        outCenter = {};
+        return false;
+    }
+
+    outMin = Diligent::float3{std::numeric_limits<float>::max(),
+                              std::numeric_limits<float>::max(),
+                              std::numeric_limits<float>::max()};
+    outMax = Diligent::float3{-std::numeric_limits<float>::max(),
+                              -std::numeric_limits<float>::max(),
+                              -std::numeric_limits<float>::max()};
+    for (std::uint32_t i = 0u; i < softBody.particleCount; ++i)
+    {
+        const Diligent::float4 p = particles.positionsInvMass[softBody.particleOffset + i];
+        const Diligent::float3 pos{p.x, p.y, p.z};
+        const float r = softBody.particleRadius;
+        outMin.x      = std::min(outMin.x, pos.x - r);
+        outMin.y      = std::min(outMin.y, pos.y - r);
+        outMin.z      = std::min(outMin.z, pos.z - r);
+        outMax.x      = std::max(outMax.x, pos.x + r);
+        outMax.y      = std::max(outMax.y, pos.y + r);
+        outMax.z      = std::max(outMax.z, pos.z + r);
+    }
+    outCenter = (outMin + outMax) * 0.5f;
+    return true;
 }
 
 } // namespace
@@ -301,6 +479,9 @@ void World::ensureHostSceneStorage()
         mRenderObjectScales.assign(objectCapacity, Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f});
         mRenderableMetadataHost.assign(objectCapacity, graphics::GpuRenderableMetadata{});
         mRenderableQueueInfoHost.assign(objectCapacity, graphics::GpuRenderableQueueInfo{});
+        mSoftBodyAttachmentBaseByObject.assign(objectCapacity, kInvalidSlot);
+        mSoftBodyAttachmentCountByObject.assign(objectCapacity, 0u);
+        mSoftBodyParticleOffsetByObject.assign(objectCapacity, 0u);
         mOpaqueDrawRegistryHost.clear();
         mShadowDrawRegistryHost.clear();
         mDirtyRenderablePoseIndices.clear();
@@ -318,6 +499,7 @@ void World::ensureHostSceneStorage()
         }
         mDrawRegistryDirty              = true;
         mPhysicsRenderableMappingsDirty = true;
+        mSoftBodyRenderAttachmentsDirty = true;
     }
 
     const std::size_t cameraCapacity = mSceneLayout.totalCameraCapacity();
@@ -499,6 +681,7 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
     markRenderablePoseDirty(objectIndex);
     mDrawRegistryDirty              = true;
     mPhysicsRenderableMappingsDirty = true;
+    mSoftBodyRenderAttachmentsDirty = true;
 }
 
 void World::setCamera(common::EntityId entityId, const CameraComponent &component)
@@ -794,6 +977,12 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
         return true;
     }
 
+    if (!tryGetMeshRenderer(entityId).has_value())
+    {
+        CRESSIM_LOG_ERROR("setSoftBody requires a mesh renderer on the same entity.");
+        return false;
+    }
+
     TransformComponent transform{};
     if (const std::optional<TransformComponent> t = tryGetTransform(entityId))
     {
@@ -819,6 +1008,7 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
         return false;
     }
     mPhysicsLinks[entityId].hasSoftBody = true;
+    mSoftBodyRenderAttachmentsDirty     = true;
     return true;
 }
 
@@ -829,6 +1019,12 @@ bool World::removeSoftBody(common::EntityId entityId)
     {
         it->second.hasSoftBody = false;
     }
+    if (const auto renderIt = mRenderableIndices.find(entityId); renderIt != mRenderableIndices.end())
+    {
+        markRenderablePoseDirty(static_cast<std::uint32_t>(renderIt->second));
+        markRenderableMetadataDirty(static_cast<std::uint32_t>(renderIt->second));
+    }
+    mSoftBodyRenderAttachmentsDirty = true;
     return mPhysicsWorld.removeSoftBody(entityId);
 }
 
@@ -987,6 +1183,7 @@ bool World::removeMeshRenderer(common::EntityId entityId)
     mRenderableIndices.erase(it);
     mDrawRegistryDirty              = true;
     mPhysicsRenderableMappingsDirty = true;
+    mSoftBodyRenderAttachmentsDirty = true;
     return true;
 }
 
@@ -1308,6 +1505,12 @@ const std::vector<graphics::GpuLocalLightSelection> &World::localLightSelections
     return mLocalLightSelectionsHost;
 }
 
+const std::vector<graphics::GpuSoftBodyVertexAttachment> &World::softBodyVertexAttachments()
+    const noexcept
+{
+    return mSoftBodyVertexAttachmentsHost;
+}
+
 const std::vector<graphics::IndirectCommandRegistryEntry> &World::opaqueDrawRegistry()
     const noexcept
 {
@@ -1396,6 +1599,39 @@ graphics::HostSceneView World::hostSceneView() const noexcept
 
 void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &resources)
 {
+    const std::uint64_t softBodyTopologyRevision = mPhysicsWorld.softBodyTopologyRevision();
+    if (mCachedSoftBodyRenderTopologyRevision != softBodyTopologyRevision)
+    {
+        mSoftBodyRenderAttachmentsDirty      = true;
+        mCachedSoftBodyRenderTopologyRevision = softBodyTopologyRevision;
+    }
+
+    const std::uint64_t physicsRevision = mPhysicsWorld.revision();
+    if (mCachedSoftBodyPhysicsRevision != physicsRevision)
+    {
+        for (std::uint32_t objectIndex = 0u;
+             objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
+        {
+            const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
+            if (renderable.entityId == common::kInvalidEntityId || renderable.objectSlot == kInvalidSlot)
+            {
+                continue;
+            }
+            const auto physIt = mPhysicsLinks.find(renderable.entityId);
+            if (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
+            {
+                markRenderablePoseDirty(objectIndex);
+                markRenderableMetadataDirty(objectIndex);
+            }
+        }
+        mCachedSoftBodyPhysicsRevision = physicsRevision;
+    }
+
+    if (mSoftBodyRenderAttachmentsDirty)
+    {
+        rebuildSoftBodyRenderAttachments(resources);
+    }
+
     for (const std::uint32_t objectIndex : mDirtyRenderablePoseIndices)
     {
         refreshRenderablePose(objectIndex);
@@ -1429,6 +1665,82 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
     clearDirtyIndexSet(mDirtyLightIndices, mDirtyLightBits);
 }
 
+void World::rebuildSoftBodyRenderAttachments(const graphics::RenderResourceManager &resources)
+{
+    std::fill(mSoftBodyAttachmentBaseByObject.begin(), mSoftBodyAttachmentBaseByObject.end(),
+              kInvalidSlot);
+    std::fill(mSoftBodyAttachmentCountByObject.begin(), mSoftBodyAttachmentCountByObject.end(), 0u);
+    std::fill(mSoftBodyParticleOffsetByObject.begin(), mSoftBodyParticleOffsetByObject.end(), 0u);
+    mSoftBodyVertexAttachmentsHost.clear();
+
+    for (std::uint32_t objectIndex = 0u;
+         objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
+    {
+        const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
+        if (renderable.entityId == common::kInvalidEntityId || renderable.objectSlot == kInvalidSlot)
+        {
+            continue;
+        }
+
+        const auto physIt = mPhysicsLinks.find(renderable.entityId);
+        if (physIt == mPhysicsLinks.end() || !physIt->second.hasSoftBody)
+        {
+            continue;
+        }
+
+        const physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(renderable.entityId);
+        const graphics::MeshResourceDesc *mesh = resources.tryGetMesh(renderable.mesh);
+        if (softBody == nullptr || mesh == nullptr || mesh->vertices.empty() ||
+            softBody->restPositions.empty() || softBody->boundaryFaces.empty())
+        {
+            CRESSIM_LOG_ERROR("Soft-body render attachment build failed for entity ",
+                              renderable.entityId, ": missing visual mesh or soft-body boundary data.");
+            continue;
+        }
+
+        const std::uint32_t base =
+            static_cast<std::uint32_t>(mSoftBodyVertexAttachmentsHost.size());
+        bool valid = true;
+        for (const graphics::MeshResourceDesc::Vertex &vertex : mesh->vertices)
+        {
+            const Diligent::float3 worldVertexPosition =
+                transformPoint(softBody->restTransform, vertex.position);
+            const SoftBodyAttachmentCandidate attachment =
+                closestAttachmentForPoint(worldVertexPosition, softBody->restPositions,
+                                          softBody->boundaryFaces);
+            if (!attachment.valid)
+            {
+                valid = false;
+                break;
+            }
+
+            graphics::GpuSoftBodyVertexAttachment gpuAttachment{};
+            gpuAttachment.particleIndices =
+                Diligent::uint4{attachment.particleIndices.x, attachment.particleIndices.y,
+                                attachment.particleIndices.z, 0u};
+            gpuAttachment.barycentricAndOffset =
+                Diligent::float4{attachment.barycentric.x, attachment.barycentric.y,
+                                 attachment.barycentric.z, attachment.signedOffset};
+            mSoftBodyVertexAttachmentsHost.push_back(gpuAttachment);
+        }
+
+        if (!valid)
+        {
+            CRESSIM_LOG_ERROR("Soft-body render attachment build failed for entity ",
+                              renderable.entityId, ": could not attach all visual vertices.");
+            mSoftBodyVertexAttachmentsHost.resize(base);
+            continue;
+        }
+
+        mSoftBodyAttachmentBaseByObject[objectIndex]   = base;
+        mSoftBodyAttachmentCountByObject[objectIndex]  = static_cast<std::uint32_t>(mesh->vertices.size());
+        mSoftBodyParticleOffsetByObject[objectIndex]   = softBody->particleOffset;
+        markRenderableMetadataDirty(objectIndex);
+    }
+
+    mSoftBodyRenderAttachmentsDirty = false;
+}
+
 void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources)
 {
     // TODO: some metadata depends on resources too, not just world state:
@@ -1447,6 +1759,9 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
         const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
         graphics::GpuRenderableMetadata entry{};
         graphics::GpuRenderableFlags renderableFlags = graphics::GpuRenderableFlags::None;
+        entry.softBodyAttachmentBase = kInvalidSlot;
+        entry.softBodyParticleOffset = 0u;
+        entry.softBodyAttachmentCount = 0u;
         if (renderable.entityId != common::kInvalidEntityId &&
             renderable.objectSlot != kInvalidSlot)
         {
@@ -1469,7 +1784,38 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
 
             Diligent::float3 localBoundsMin{};
             Diligent::float3 localBoundsMax{};
-            if (resources.tryGetMeshLocalBounds(renderable.mesh, localBoundsMin, localBoundsMax))
+            bool hasBounds = false;
+            const auto physIt = mPhysicsLinks.find(renderable.entityId);
+            if (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
+            {
+                const physics::SoftBodyState *softBody =
+                    mPhysicsWorld.tryGetSoftBody(renderable.entityId);
+                Diligent::float3 worldBoundsMin{};
+                Diligent::float3 worldBoundsMax{};
+                Diligent::float3 center{};
+                if (softBody != nullptr &&
+                    computeSoftBodyWorldBounds(mPhysicsWorld, *softBody, worldBoundsMin,
+                                               worldBoundsMax, center))
+                {
+                    localBoundsMin = worldBoundsMin - center;
+                    localBoundsMax = worldBoundsMax - center;
+                    hasBounds      = true;
+                }
+                entry.softBodyAttachmentBase = mSoftBodyAttachmentBaseByObject[objectIndex];
+                entry.softBodyParticleOffset = mSoftBodyParticleOffsetByObject[objectIndex];
+                entry.softBodyAttachmentCount = mSoftBodyAttachmentCountByObject[objectIndex];
+            }
+
+            if (!hasBounds &&
+                resources.tryGetMeshLocalBounds(renderable.mesh, localBoundsMin, localBoundsMax))
+            {
+                entry.localBoundsMin =
+                    Diligent::float4{localBoundsMin.x, localBoundsMin.y, localBoundsMin.z, 1.0f};
+                entry.localBoundsMax =
+                    Diligent::float4{localBoundsMax.x, localBoundsMax.y, localBoundsMax.z, 1.0f};
+                hasBounds = true;
+            }
+            if (hasBounds)
             {
                 entry.localBoundsMin =
                     Diligent::float4{localBoundsMin.x, localBoundsMin.y, localBoundsMin.z, 1.0f};
@@ -1515,8 +1861,14 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
             continue;
         }
 
+        const auto physIt = mPhysicsLinks.find(renderable.entityId);
+        const graphics::MaterialProgramFamily programFamily =
+            (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
+                ? graphics::MaterialProgramFamily::SoftBodyLit
+                : material->pipeline.programFamily;
+
         const DrawBucketKey key{
-            material->pipeline.programFamily,
+            programFamily,
             static_cast<std::uint32_t>(material->pipeline.featureFlags),
             renderable.material.id,
             renderable.mesh.id,
@@ -1631,6 +1983,27 @@ void World::refreshRenderablePose(std::uint32_t objectIndex)
         mRenderObjectOrientations[objectIndex] = Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f};
         mRenderObjectScales[objectIndex]       = Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f};
         return;
+    }
+
+    const auto physIt = mPhysicsLinks.find(renderable.entityId);
+    if (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
+    {
+        const physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(renderable.entityId);
+        Diligent::float3 boundsMin{};
+        Diligent::float3 boundsMax{};
+        Diligent::float3 center{};
+        if (softBody != nullptr &&
+            computeSoftBodyWorldBounds(mPhysicsWorld, *softBody, boundsMin, boundsMax, center))
+        {
+            renderable.worldTransform.position = center;
+            renderable.worldTransform.rotation = Diligent::QuaternionF{0.0f, 0.0f, 0.0f, 1.0f};
+            renderable.worldTransform.scale    = Diligent::float3{1.0f, 1.0f, 1.0f};
+            mRenderObjectPositions[objectIndex] =
+                Diligent::float4{center.x, center.y, center.z, 1.0f};
+            mRenderObjectOrientations[objectIndex] = Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f};
+            mRenderObjectScales[objectIndex]       = Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f};
+            return;
+        }
     }
 
     renderable.worldTransform =
@@ -1800,6 +2173,7 @@ void World::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t
     markRenderablePoseDirty(oldObjectIndex);
     markRenderablePoseDirty(newObjectIndex);
     indexIt->second = newObjectIndex;
+    mSoftBodyRenderAttachmentsDirty = true;
 }
 
 void World::moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
