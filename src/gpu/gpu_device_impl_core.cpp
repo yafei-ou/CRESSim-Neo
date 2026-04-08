@@ -34,6 +34,46 @@ struct VulkanDedicatedContextPlan
     Diligent::Uint8 physicsQueueId  = 0u;
 };
 
+const char *adapterTypeToString(Diligent::ADAPTER_TYPE type)
+{
+    switch (type)
+    {
+    case Diligent::ADAPTER_TYPE_SOFTWARE:
+        return "software";
+    case Diligent::ADAPTER_TYPE_INTEGRATED:
+        return "integrated";
+    case Diligent::ADAPTER_TYPE_DISCRETE:
+        return "discrete";
+    default:
+        return "unknown";
+    }
+}
+
+void logDedicatedContextPlan(const VulkanDedicatedContextPlan &plan,
+                             const Diligent::GraphicsAdapterInfo *adapterInfo,
+                             Diligent::Uint32 adapterId)
+{
+    if (!plan.hasGraphicsQueue)
+    {
+        return;
+    }
+
+    if (!plan.supported)
+    {
+        return;
+    }
+
+    const char *adapterDescription = adapterInfo != nullptr ? adapterInfo->Description : "unknown";
+    CRESSIM_LOG_INFO(
+        "Vulkan dedicated-context plan: adapter=", adapterId, " ('", adapterDescription,
+        "', type=", adapterInfo != nullptr ? adapterTypeToString(adapterInfo->Type) : "unknown",
+        "), graphicsQueue=", static_cast<Diligent::Uint32>(plan.graphicsQueueId),
+        ", physicsQueue=", static_cast<Diligent::Uint32>(plan.physicsQueueId), " (",
+        plan.graphicsQueueId == plan.physicsQueueId ? "shared queue, separate contexts"
+                                                    : "separate queues",
+        ").");
+}
+
 Diligent::Uint32 clampWindowId(std::uint64_t value)
 {
     constexpr std::uint64_t kMax =
@@ -76,7 +116,8 @@ VulkanDedicatedContextPlan planDedicatedVulkanContexts(Diligent::IEngineFactoryV
     for (Diligent::Uint32 queueIndex = 0; queueIndex < adapterInfo.NumQueues; ++queueIndex)
     {
         const auto &queueInfo = adapterInfo.Queues[queueIndex];
-        if (queueInfo.QueueType == Diligent::COMMAND_QUEUE_TYPE_GRAPHICS &&
+        if ((queueInfo.QueueType & Diligent::COMMAND_QUEUE_TYPE_GRAPHICS) ==
+                Diligent::COMMAND_QUEUE_TYPE_GRAPHICS &&
             queueInfo.MaxDeviceContexts > 0u)
         {
             plan.graphicsQueueId  = static_cast<Diligent::Uint8>(queueIndex);
@@ -436,22 +477,42 @@ bool GpuDeviceImpl::initializeVulkan()
 
         const VulkanDedicatedContextPlan dedicatedContextPlan =
             planDedicatedVulkanContexts(*factoryVk, engineCreateInfo.AdapterId);
+        Diligent::Uint32 adapterCount = 0u;
+        factoryVk->EnumerateAdapters(Diligent::Version{}, adapterCount, nullptr);
+        std::vector<Diligent::GraphicsAdapterInfo> adapters(adapterCount);
+        if (adapterCount > 0u)
+        {
+            factoryVk->EnumerateAdapters(Diligent::Version{}, adapterCount, adapters.data());
+        }
+        const Diligent::Uint32 resolvedAdapterId =
+            adapterCount == 0u ? 0u
+                               : (engineCreateInfo.AdapterId == Diligent::DEFAULT_ADAPTER_ID
+                                      ? 0u
+                                      : std::min(engineCreateInfo.AdapterId, adapterCount - 1u));
+        const Diligent::GraphicsAdapterInfo *adapterInfo =
+            resolvedAdapterId < adapters.size() ? &adapters[resolvedAdapterId] : nullptr;
 
         std::array<Diligent::IDeviceContext *, 2> contexts = {nullptr, nullptr};
         if (requestDedicatedPhysicsContext && dedicatedContextPlan.supported)
         {
+            logDedicatedContextPlan(dedicatedContextPlan, adapterInfo, resolvedAdapterId);
             const std::array<Diligent::ImmediateContextCreateInfo, 2> kContextInfo = {
                 Diligent::ImmediateContextCreateInfo{"CRESSimNeo.GraphicsContext",
                                                      dedicatedContextPlan.graphicsQueueId},
                 Diligent::ImmediateContextCreateInfo{"CRESSimNeo.PhysicsContext",
                                                      dedicatedContextPlan.physicsQueueId},
             };
+            CRESSIM_LOG_INFO("Attempting Vulkan device creation with two immediate contexts.");
             engineCreateInfo.pImmediateContextInfo = kContextInfo.data();
             engineCreateInfo.NumImmediateContexts  = 2u;
             factoryVk->CreateDeviceAndContextsVk(engineCreateInfo, &mRenderDevice, contexts.data());
         }
         else
         {
+            if (requestDedicatedPhysicsContext)
+            {
+                logDedicatedContextPlan(dedicatedContextPlan, adapterInfo, resolvedAdapterId);
+            }
             factoryVk->CreateDeviceAndContextsVk(engineCreateInfo, &mRenderDevice, contexts.data());
         }
 
