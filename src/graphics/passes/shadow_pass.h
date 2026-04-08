@@ -85,9 +85,9 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mShadowPerPassBuffer;
     GpuEntitySceneView mSceneView{};
     const physics::PhysicsGpuSceneView *mPhysicsScene = nullptr;
-    Diligent::IBuffer *mVisiblePairBuffer     = nullptr;
-    Diligent::IBuffer *mBatchCameraBuffer     = nullptr;
-    Diligent::IBuffer *mLocalShadowViewBuffer = nullptr;
+    Diligent::IBuffer *mVisiblePairBuffer             = nullptr;
+    Diligent::IBuffer *mBatchCameraBuffer             = nullptr;
+    Diligent::IBuffer *mLocalShadowViewBuffer         = nullptr;
 };
 
 } // namespace cressim::neo::graphics::detail

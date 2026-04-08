@@ -164,7 +164,6 @@ MeshResourceDesc loadObjMesh(const std::filesystem::path &path)
     std::vector<Diligent::float3> normals;
     std::vector<Diligent::float2> texcoords;
     std::unordered_map<std::string, std::uint32_t> vertexCache;
-    bool hasNormals = false;
     std::string line;
     while (std::getline(stream, line))
     {
@@ -239,7 +238,6 @@ MeshResourceDesc loadObjMesh(const std::filesystem::path &path)
                 if (normalIndex >= 0 && static_cast<std::size_t>(normalIndex) < normals.size())
                 {
                     vertex.normal = normals[static_cast<std::size_t>(normalIndex)];
-                    hasNormals    = true;
                 }
 
                 const std::uint32_t index = static_cast<std::uint32_t>(mesh.vertices.size());
@@ -258,40 +256,43 @@ MeshResourceDesc loadObjMesh(const std::filesystem::path &path)
         }
     }
 
-    // The exported toroid surface uses the opposite winding from this renderer's front-face
-    // convention. Flip triangle order here, but keep authored vertex normals as-is.
+    // Flip triangle order once so the imported visual mesh matches this renderer's face
+    // convention. Rebuild normals from the final winding below so the mesh stays internally
+    // consistent.
     for (std::size_t triangleBase = 0u; triangleBase + 2u < mesh.indices.size();
          triangleBase += 3u)
     {
         std::swap(mesh.indices[triangleBase + 1u], mesh.indices[triangleBase + 2u]);
     }
 
-    if (!hasNormals)
+    for (auto &vertex : mesh.vertices)
     {
-        for (std::size_t triangleBase = 0u; triangleBase + 2u < mesh.indices.size();
-             triangleBase += 3u)
-        {
-            const std::uint32_t i0 = mesh.indices[triangleBase + 0u];
-            const std::uint32_t i1 = mesh.indices[triangleBase + 1u];
-            const std::uint32_t i2 = mesh.indices[triangleBase + 2u];
-            const Diligent::float3 e0 = mesh.vertices[i1].position - mesh.vertices[i0].position;
-            const Diligent::float3 e1 = mesh.vertices[i2].position - mesh.vertices[i0].position;
-            const Diligent::float3 faceNormal = Diligent::normalize(Diligent::cross(e0, e1));
-            mesh.vertices[i0].normal += faceNormal;
-            mesh.vertices[i1].normal += faceNormal;
-            mesh.vertices[i2].normal += faceNormal;
-        }
+        vertex.normal = {0.0f, 0.0f, 0.0f};
+    }
 
-        for (auto &vertex : mesh.vertices)
+    for (std::size_t triangleBase = 0u; triangleBase + 2u < mesh.indices.size();
+         triangleBase += 3u)
+    {
+        const std::uint32_t i0 = mesh.indices[triangleBase + 0u];
+        const std::uint32_t i1 = mesh.indices[triangleBase + 1u];
+        const std::uint32_t i2 = mesh.indices[triangleBase + 2u];
+        const Diligent::float3 e0 = mesh.vertices[i1].position - mesh.vertices[i0].position;
+        const Diligent::float3 e1 = mesh.vertices[i2].position - mesh.vertices[i0].position;
+        const Diligent::float3 faceNormal = Diligent::normalize(Diligent::cross(e1, e0));
+        mesh.vertices[i0].normal += faceNormal;
+        mesh.vertices[i1].normal += faceNormal;
+        mesh.vertices[i2].normal += faceNormal;
+    }
+
+    for (auto &vertex : mesh.vertices)
+    {
+        if (Diligent::dot(vertex.normal, vertex.normal) > 1.0e-8f)
         {
-            if (Diligent::dot(vertex.normal, vertex.normal) > 1.0e-8f)
-            {
-                vertex.normal = Diligent::normalize(vertex.normal);
-            }
-            else
-            {
-                vertex.normal = {0.0f, 1.0f, 0.0f};
-            }
+            vertex.normal = Diligent::normalize(vertex.normal);
+        }
+        else
+        {
+            vertex.normal = {0.0f, 1.0f, 0.0f};
         }
     }
 

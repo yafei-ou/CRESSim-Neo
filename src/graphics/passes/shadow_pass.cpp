@@ -226,31 +226,31 @@ bool ShadowPass::bindSceneBuffers(MaterialProgramFamily programFamily) const
 
     if (programFamily == MaterialProgramFamily::SoftBodyLit)
     {
-        if (mPhysicsScene == nullptr || mPhysicsScene->soft.particles.positionsInvMassBuffer == nullptr ||
-            mSceneView.softBodyVertexAttachmentBuffer == nullptr)
+        if (mPhysicsScene == nullptr ||
+            mPhysicsScene->soft.particles.positionsInvMassBuffer == nullptr ||
+            mSceneView.softBodyVertexBindingBuffer == nullptr)
         {
             return false;
         }
-        Diligent::IShaderResourceVariable *softParticleVar =
-            shaderBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_SoftParticlePositions");
-        Diligent::IShaderResourceVariable *attachmentVar =
-            shaderBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexAttachments");
-        if (softParticleVar == nullptr || attachmentVar == nullptr)
+        Diligent::IShaderResourceVariable *softParticleVar = shaderBinding->GetVariableByName(
+            Diligent::SHADER_TYPE_VERTEX, "g_SoftParticlePositions");
+        Diligent::IShaderResourceVariable *bindingVar = shaderBinding->GetVariableByName(
+            Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexBindings");
+        if (softParticleVar == nullptr || bindingVar == nullptr)
         {
             return false;
         }
         Diligent::IBufferView *softParticleSrv =
             mPhysicsScene->soft.particles.positionsInvMassBuffer->GetDefaultView(
                 Diligent::BUFFER_VIEW_SHADER_RESOURCE);
-        Diligent::IBufferView *attachmentSrv =
-            mSceneView.softBodyVertexAttachmentBuffer->GetDefaultView(
-                Diligent::BUFFER_VIEW_SHADER_RESOURCE);
-        if (softParticleSrv == nullptr || attachmentSrv == nullptr)
+        Diligent::IBufferView *bindingSrv = mSceneView.softBodyVertexBindingBuffer->GetDefaultView(
+            Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        if (softParticleSrv == nullptr || bindingSrv == nullptr)
         {
             return false;
         }
         softParticleVar->Set(softParticleSrv);
-        attachmentVar->Set(attachmentSrv);
+        bindingVar->Set(bindingSrv);
     }
     return true;
 }
@@ -382,16 +382,17 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
     shaderCreateInfo.Desc.Name = programFamily == MaterialProgramFamily::SoftBodyLit
                                      ? "CRESSimNeo.ShadowPass.SoftBody.VS"
                                      : "CRESSimNeo.ShadowPass.VS";
-    shaderCreateInfo.FilePath                        = kShadowVsRelativePath;
-    shaderCreateInfo.pShaderSourceStreamFactory      = streamFactory;
-    Diligent::ShaderMacro shadowMacros[] = {
+    shaderCreateInfo.FilePath  = kShadowVsRelativePath;
+    shaderCreateInfo.pShaderSourceStreamFactory = streamFactory;
+    Diligent::ShaderMacro shadowMacros[]        = {
         {"MANUAL_LAYER_EXPORT", "1"},
         {programFamily == MaterialProgramFamily::SoftBodyLit ? "CRESSIM_PROGRAM_FAMILY_SOFT_BODY"
-                                                             : "",
+                                                                    : "",
          programFamily == MaterialProgramFamily::SoftBodyLit ? "1" : ""},
     };
     shaderCreateInfo.Macros = Diligent::ShaderMacroArray{
-        shadowMacros, static_cast<Diligent::Uint32>(programFamily == MaterialProgramFamily::SoftBodyLit ? 2 : 1)};
+        shadowMacros,
+        static_cast<Diligent::Uint32>(programFamily == MaterialProgramFamily::SoftBodyLit ? 2 : 1)};
 
     Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
     if (!mDevice.createShader(shaderCreateInfo, &vertexShader))
@@ -405,10 +406,10 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
     }
 
     Diligent::GraphicsPipelineStateCreateInfo psoCreateInfo{};
-    psoCreateInfo.PSODesc.Name = programFamily == MaterialProgramFamily::SoftBodyLit
-                                     ? "CRESSimNeo.ShadowPass.SoftBody.PSO"
-                                     : "CRESSimNeo.ShadowPass.PSO";
-    psoCreateInfo.PSODesc.PipelineType               = Diligent::PIPELINE_TYPE_GRAPHICS;
+    psoCreateInfo.PSODesc.Name         = programFamily == MaterialProgramFamily::SoftBodyLit
+                                             ? "CRESSimNeo.ShadowPass.SoftBody.PSO"
+                                             : "CRESSimNeo.ShadowPass.PSO";
+    psoCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
     psoCreateInfo.GraphicsPipeline.NumRenderTargets  = 0;
     psoCreateInfo.GraphicsPipeline.DSVFormat         = Diligent::TEX_FORMAT_D32_FLOAT;
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -445,12 +446,13 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_SoftParticlePositions",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexAttachments",
+        {Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexBindings",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
-    psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
+    psoCreateInfo.PSODesc.ResourceLayout.Variables    = kVars;
     psoCreateInfo.PSODesc.ResourceLayout.NumVariables = static_cast<Diligent::Uint32>(
-        programFamily == MaterialProgramFamily::SoftBodyLit ? std::size(kVars) : std::size(kVars) - 2u);
+        programFamily == MaterialProgramFamily::SoftBodyLit ? std::size(kVars)
+                                                            : std::size(kVars) - 2u);
 
     constexpr Diligent::LayoutElement kLayoutElements[] = {
         Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, Diligent::False},

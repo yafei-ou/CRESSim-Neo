@@ -146,8 +146,10 @@ void RenderSceneUploader::shutdown()
     mEntityCount                        = 0;
     mRenderableCapacity                 = 0;
     mRenderableCount                    = 0;
-    mSoftBodyAttachmentCapacity         = 0;
-    mSoftBodyAttachmentCount            = 0;
+    mSoftBodyVertexBindingCapacity      = 0;
+    mSoftBodyVertexBindingCount         = 0;
+    mSoftBodyVertexNormalCapacity       = 0;
+    mSoftBodyVertexNormalCount          = 0;
     mCameraCapacity                     = 0;
     mCameraCount                        = 0;
     mLightCapacity                      = 0;
@@ -165,7 +167,8 @@ void RenderSceneUploader::shutdown()
     mRenderableQueueInfoBuffer          = nullptr;
     mRenderableVisibilityFlagsBuffer    = nullptr;
     mRenderableShadowCascadeMasksBuffer = nullptr;
-    mSoftBodyVertexAttachmentBuffer     = nullptr;
+    mSoftBodyVertexBindingBuffer        = nullptr;
+    mSoftBodyVertexNormalBuffer         = nullptr;
     mCameraInputsBuffer                 = nullptr;
     mPreparedCamerasBuffer              = nullptr;
     mLightInputsBuffer                  = nullptr;
@@ -337,29 +340,27 @@ bool RenderSceneUploader::ensureLocalLightSelectionCapacity(Diligent::IRenderDev
 
 namespace
 {
-bool ensureSoftBodyAttachmentCapacity(Diligent::IRenderDevice *renderDevice,
-                                      Diligent::Uint64 contextMask,
-                                      std::uint32_t attachmentCount,
-                                      Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer,
-                                      std::uint32_t &inOutCapacity)
+bool ensureSoftBodyBufferCapacity(Diligent::IRenderDevice *renderDevice,
+                                  Diligent::Uint64 contextMask, const char *name,
+                                  std::uint32_t elementStride, std::uint32_t elementCount,
+                                  Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer,
+                                  std::uint32_t &inOutCapacity)
 {
     if (renderDevice == nullptr || contextMask == 0)
     {
         return false;
     }
 
-    const std::uint32_t requiredCapacity = std::max<std::uint32_t>(attachmentCount, 1u);
+    const std::uint32_t requiredCapacity = std::max<std::uint32_t>(elementCount, 1u);
     if (inOutCapacity >= requiredCapacity && outBuffer != nullptr)
     {
         return true;
     }
 
-    return ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.SoftBodyVertexAttachments",
-                                  sizeof(graphics::GpuSoftBodyVertexAttachment),
-                                  std::max<std::uint32_t>(requiredCapacity, 64u),
-                                  Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                  Diligent::CPU_ACCESS_NONE, contextMask, outBuffer,
-                                  inOutCapacity, 64u);
+    return ensureStructuredBuffer(
+        renderDevice, name, elementStride, std::max<std::uint32_t>(requiredCapacity, 64u),
+        Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
+        contextMask, outBuffer, inOutCapacity, 64u);
 }
 } // namespace
 
@@ -426,8 +427,8 @@ bool RenderSceneUploader::uploadRenderableQueueInfo(
                        queueInfo.size() * sizeof(graphics::GpuRenderableQueueInfo));
 }
 
-bool RenderSceneUploader::uploadSoftBodyVertexAttachments(
-    const std::vector<graphics::GpuSoftBodyVertexAttachment> &attachments)
+bool RenderSceneUploader::uploadSoftBodyVertexBindings(
+    const std::vector<graphics::GpuSoftBodyVertexBinding> &bindings)
 {
     if (!mInitialized)
     {
@@ -441,23 +442,56 @@ bool RenderSceneUploader::uploadSoftBodyVertexAttachments(
         return false;
     }
 
-    mSoftBodyAttachmentCount = static_cast<std::uint32_t>(attachments.size());
-    if (!ensureSoftBodyAttachmentCapacity(graphicsContext.renderDevice, mGraphicsContextMask,
-                                          mSoftBodyAttachmentCount,
-                                          mSoftBodyVertexAttachmentBuffer,
-                                          mSoftBodyAttachmentCapacity))
+    mSoftBodyVertexBindingCount = static_cast<std::uint32_t>(bindings.size());
+    if (!ensureSoftBodyBufferCapacity(graphicsContext.renderDevice, mGraphicsContextMask,
+                                      "CRESSimNeo.Gpu.SoftBodyVertexBindings",
+                                      sizeof(graphics::GpuSoftBodyVertexBinding),
+                                      mSoftBodyVertexBindingCount, mSoftBodyVertexBindingBuffer,
+                                      mSoftBodyVertexBindingCapacity))
     {
         return false;
     }
 
-    if (attachments.empty())
+    if (bindings.empty())
     {
         return true;
     }
 
-    return writeBuffer(graphicsContext.graphicsContext, mSoftBodyVertexAttachmentBuffer,
-                       attachments.data(),
-                       attachments.size() * sizeof(graphics::GpuSoftBodyVertexAttachment));
+    return writeBuffer(graphicsContext.graphicsContext, mSoftBodyVertexBindingBuffer,
+                       bindings.data(),
+                       bindings.size() * sizeof(graphics::GpuSoftBodyVertexBinding));
+}
+
+bool RenderSceneUploader::uploadSoftBodyVertexNormals(const std::vector<Diligent::float4> &normals)
+{
+    if (!mInitialized)
+    {
+        return false;
+    }
+
+    gpu::GpuGraphicsBackendContext graphicsContext{};
+    if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
+        graphicsContext.renderDevice == nullptr || graphicsContext.graphicsContext == nullptr)
+    {
+        return false;
+    }
+
+    mSoftBodyVertexNormalCount = static_cast<std::uint32_t>(normals.size());
+    if (!ensureSoftBodyBufferCapacity(graphicsContext.renderDevice, mGraphicsContextMask,
+                                      "CRESSimNeo.Gpu.SoftBodyVertexNormals",
+                                      sizeof(Diligent::float4), mSoftBodyVertexNormalCount,
+                                      mSoftBodyVertexNormalBuffer, mSoftBodyVertexNormalCapacity))
+    {
+        return false;
+    }
+
+    if (normals.empty())
+    {
+        return true;
+    }
+
+    return writeBuffer(graphicsContext.graphicsContext, mSoftBodyVertexNormalBuffer, normals.data(),
+                       normals.size() * sizeof(Diligent::float4));
 }
 
 bool RenderSceneUploader::uploadCameraInputs(const std::vector<graphics::GpuCameraInput> &cameras)
@@ -703,7 +737,8 @@ graphics::GpuEntitySceneView RenderSceneUploader::sceneView() const noexcept
     view.preparedCamerasBuffer              = mPreparedCamerasBuffer;
     view.lightInputsBuffer                  = mLightInputsBuffer;
     view.localLightSelectionBuffer          = mLocalLightSelectionBuffer;
-    view.softBodyVertexAttachmentBuffer     = mSoftBodyVertexAttachmentBuffer;
+    view.softBodyVertexBindingBuffer        = mSoftBodyVertexBindingBuffer;
+    view.softBodyVertexNormalBuffer         = mSoftBodyVertexNormalBuffer;
     view.entityCount                        = mEntityCount;
     view.renderableCount                    = mRenderableCount;
     view.cameraCount                        = mCameraCount;

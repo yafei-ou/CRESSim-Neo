@@ -52,26 +52,13 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
             float4 worldPos = float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
 #if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
             const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
-            if (metadata.softBodyAttachmentBase != CRESSIM_INVALID_ATTACHMENT_BASE &&
-                vertexId < metadata.softBodyAttachmentCount)
+            if (metadata.softBodyVertexBindingBase != CRESSIM_INVALID_SOFT_BODY_VERTEX_BASE &&
+                vertexId < metadata.softBodyVertexCount)
             {
-                const SoftBodyVertexAttachment attachment =
-                    CRESSIM_SB_LOAD(g_SoftBodyVertexAttachments,
-                                    metadata.softBodyAttachmentBase + vertexId);
-                const uint particleOffset = metadata.softBodyParticleOffset;
-                const float3 p0 = CRESSIM_SB_LOAD(g_SoftParticlePositions,
-                                                  particleOffset + attachment.particleIndices.x)
-                                      .xyz;
-                const float3 p1 = CRESSIM_SB_LOAD(g_SoftParticlePositions,
-                                                  particleOffset + attachment.particleIndices.y)
-                                      .xyz;
-                const float3 p2 = CRESSIM_SB_LOAD(g_SoftParticlePositions,
-                                                  particleOffset + attachment.particleIndices.z)
-                                      .xyz;
-                const float3 bary = attachment.barycentricAndOffset.xyz;
-                const float signedOffset = attachment.barycentricAndOffset.w;
-                const float3 faceNormal = normalize(cross(p1 - p0, p2 - p0));
-                worldPos = float4(p0 * bary.x + p1 * bary.y + p2 * bary.z + faceNormal * signedOffset,
+                const SoftBodyVertexBinding binding =
+                    CRESSIM_SB_LOAD(g_SoftBodyVertexBindings,
+                                    metadata.softBodyVertexBindingBase + vertexId);
+                worldPos = float4(CRESSIM_SB_LOAD(g_SoftParticlePositions, binding.particleIndex).xyz,
                                   1.0);
             }
 #endif
@@ -110,22 +97,12 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
     float4 worldPos = float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
 #if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
     const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
-    if (metadata.softBodyAttachmentBase != CRESSIM_INVALID_ATTACHMENT_BASE &&
-        vertexId < metadata.softBodyAttachmentCount)
+    if (metadata.softBodyVertexBindingBase != CRESSIM_INVALID_SOFT_BODY_VERTEX_BASE &&
+        vertexId < metadata.softBodyVertexCount)
     {
-        const SoftBodyVertexAttachment attachment =
-            CRESSIM_SB_LOAD(g_SoftBodyVertexAttachments, metadata.softBodyAttachmentBase + vertexId);
-        const uint particleOffset = metadata.softBodyParticleOffset;
-        const float3 p0 =
-            CRESSIM_SB_LOAD(g_SoftParticlePositions, particleOffset + attachment.particleIndices.x).xyz;
-        const float3 p1 =
-            CRESSIM_SB_LOAD(g_SoftParticlePositions, particleOffset + attachment.particleIndices.y).xyz;
-        const float3 p2 =
-            CRESSIM_SB_LOAD(g_SoftParticlePositions, particleOffset + attachment.particleIndices.z).xyz;
-        const float3 bary = attachment.barycentricAndOffset.xyz;
-        const float signedOffset = attachment.barycentricAndOffset.w;
-        const float3 faceNormal = normalize(cross(p1 - p0, p2 - p0));
-        worldPos = float4(p0 * bary.x + p1 * bary.y + p2 * bary.z + faceNormal * signedOffset, 1.0);
+        const SoftBodyVertexBinding binding =
+            CRESSIM_SB_LOAD(g_SoftBodyVertexBindings, metadata.softBodyVertexBindingBase + vertexId);
+        worldPos = float4(CRESSIM_SB_LOAD(g_SoftParticlePositions, binding.particleIndex).xyz, 1.0);
     }
 #endif
     Out.Position = mul(worldPos, preparedCamera.lightViewProjectionMatrices[g_CascadeIndex]);

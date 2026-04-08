@@ -73,18 +73,20 @@ CRESSIM_NEO_DEFINE_ENUM_FLAGS(GpuRenderableFlags)
 
 struct GpuRenderableMetadata
 {
-    std::uint32_t flags                  = static_cast<std::uint32_t>(GpuRenderableFlags::None);
-    std::uint32_t softBodyAttachmentBase = 0u;
-    std::uint32_t softBodyParticleOffset = 0u;
-    std::uint32_t softBodyAttachmentCount = 0u;
+    std::uint32_t flags                     = static_cast<std::uint32_t>(GpuRenderableFlags::None);
+    std::uint32_t softBodyVertexBindingBase = 0u;
+    std::uint32_t softBodyVertexNormalBase  = 0u;
+    std::uint32_t softBodyVertexCount       = 0u;
     Diligent::float4 localBoundsMin{};
     Diligent::float4 localBoundsMax{};
 };
 
-struct GpuSoftBodyVertexAttachment
+struct GpuSoftBodyVertexBinding
 {
-    Diligent::uint4 particleIndices{0u, 0u, 0u, 0u};
-    Diligent::float4 barycentricAndOffset{0.0f, 0.0f, 1.0f, 0.0f};
+    std::uint32_t particleIndex = 0u;
+    std::uint32_t reserved0     = 0u;
+    std::uint32_t reserved1     = 0u;
+    std::uint32_t reserved2     = 0u;
 };
 
 struct GpuRenderableQueueInfo
@@ -107,7 +109,8 @@ struct GpuEntitySceneView
     Diligent::IBuffer *preparedCamerasBuffer              = nullptr;
     Diligent::IBuffer *lightInputsBuffer                  = nullptr;
     Diligent::IBuffer *localLightSelectionBuffer          = nullptr;
-    Diligent::IBuffer *softBodyVertexAttachmentBuffer     = nullptr;
+    Diligent::IBuffer *softBodyVertexBindingBuffer        = nullptr;
+    Diligent::IBuffer *softBodyVertexNormalBuffer         = nullptr;
     std::uint32_t entityCount                             = 0;
     std::uint32_t renderableCount                         = 0;
     std::uint32_t cameraCount                             = 0;

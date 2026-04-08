@@ -302,7 +302,7 @@ bool resolveSoftBodyTopology(const SoftBodyState &state, const TetMeshData *tetG
         }};
         for (const Diligent::uint3 &face : tetFaces)
         {
-            const std::uint64_t key = sortedFaceKey(face.x, face.y, face.z);
+            const std::uint64_t key  = sortedFaceKey(face.x, face.y, face.z);
             BoundaryFaceEntry &entry = faceCounts[key];
             if (entry.count == 0u)
             {

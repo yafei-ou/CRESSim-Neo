@@ -158,7 +158,7 @@ private:
     Diligent::IBuffer *mLightShadowAssignmentBuffer = nullptr;
     std::uint32_t mLocalShadowViewCount             = 0u;
     GpuEntitySceneView mSceneView{};
-    const physics::PhysicsGpuSceneView *mPhysicsScene         = nullptr;
+    const physics::PhysicsGpuSceneView *mPhysicsScene       = nullptr;
     const std::vector<EnvironmentIblDesc> *mEnvironmentIbls = nullptr;
     std::uint32_t mEnvironmentIblEnvCount                   = 0u;
     Diligent::IBuffer *mVisiblePairBuffer                   = nullptr;

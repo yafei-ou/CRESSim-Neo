@@ -76,24 +76,18 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
     float transformSign = 1.0;
 #if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
     const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
-    if (metadata.softBodyAttachmentBase != CRESSIM_INVALID_ATTACHMENT_BASE &&
-        vertexId < metadata.softBodyAttachmentCount)
+    if (metadata.softBodyVertexBindingBase != CRESSIM_INVALID_SOFT_BODY_VERTEX_BASE &&
+        metadata.softBodyVertexNormalBase != CRESSIM_INVALID_SOFT_BODY_VERTEX_BASE &&
+        vertexId < metadata.softBodyVertexCount)
     {
-        const SoftBodyVertexAttachment attachment =
-            CRESSIM_SB_LOAD(g_SoftBodyVertexAttachments, metadata.softBodyAttachmentBase + vertexId);
-        const uint particleOffset = metadata.softBodyParticleOffset;
-        const float3 p0 =
-            CRESSIM_SB_LOAD(g_SoftParticlePositions, particleOffset + attachment.particleIndices.x).xyz;
-        const float3 p1 =
-            CRESSIM_SB_LOAD(g_SoftParticlePositions, particleOffset + attachment.particleIndices.y).xyz;
-        const float3 p2 =
-            CRESSIM_SB_LOAD(g_SoftParticlePositions, particleOffset + attachment.particleIndices.z).xyz;
-        const float3 bary = attachment.barycentricAndOffset.xyz;
-        const float signedOffset = attachment.barycentricAndOffset.w;
-        const float3 faceNormal = normalize(cross(p1 - p0, p2 - p0));
-        const float3 deformedPos = p0 * bary.x + p1 * bary.y + p2 * bary.z + faceNormal * signedOffset;
+        const SoftBodyVertexBinding binding =
+            CRESSIM_SB_LOAD(g_SoftBodyVertexBindings, metadata.softBodyVertexBindingBase + vertexId);
+        const float3 deformedPos =
+            CRESSIM_SB_LOAD(g_SoftParticlePositions, binding.particleIndex).xyz;
         worldPos = float4(deformedPos, 1.0);
-        worldNormal = faceNormal;
+        worldNormal =
+            normalize(CRESSIM_SB_LOAD(g_SoftBodyVertexNormals,
+                                      metadata.softBodyVertexNormalBase + vertexId).xyz);
         const float3 tangentCandidate = In.Tangent.xyz - worldNormal * dot(worldNormal, In.Tangent.xyz);
         worldTangent = normalize(dot(tangentCandidate, tangentCandidate) > 1e-6
                                      ? tangentCandidate
