@@ -35,6 +35,7 @@ public:
     bool tryGetGraphicsBackendContext(GpuGraphicsBackendContext &outContext) override;
     bool tryGetPhysicsBackendContext(GpuComputeBackendContext &outContext) override;
     bool waitForPhysicsOnGraphics() override;
+    bool waitForGraphicsOnPhysics() override;
     bool tryGetDefaultRenderTargetDesc(GpuRenderTargetDesc &outDesc) const override;
     bool tryGetPresentationTargetDesc(GpuPresentationTargetDesc &outDesc) override;
     GpuPresentationReadbackRequest requestPresentationReadback() override;
@@ -86,11 +87,13 @@ private:
     std::uint64_t mNextPresentationReadbackRequestId  = 1;
     std::uint64_t mNextPresentationReadbackFenceValue = 1;
     std::uint64_t mNextPhysicsToGraphicsFenceValue    = 1;
+    std::uint64_t mNextGraphicsToPhysicsFenceValue    = 1;
     std::unordered_map<std::uint64_t, std::uint64_t> mPendingPresentationReadbackRequests;
     std::vector<PendingPresentationReadback> mPendingPresentationReadbackCopies;
     std::unordered_map<std::uint64_t, GpuPresentationReadbackEvent> mCompletedPresentationReadbacks;
     Diligent::RefCntAutoPtr<Diligent::IFence> mPresentationReadbackFence;
     Diligent::RefCntAutoPtr<Diligent::IFence> mPhysicsToGraphicsFence;
+    Diligent::RefCntAutoPtr<Diligent::IFence> mGraphicsToPhysicsFence;
 };
 
 } // namespace cressim::neo::gpu

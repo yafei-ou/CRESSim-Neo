@@ -532,6 +532,10 @@ bool RenderSceneUploader::uploadEntityPoseData(const std::vector<Diligent::float
     {
         return false;
     }
+    if (!mDevice.waitForGraphicsOnPhysics())
+    {
+        return false;
+    }
 
     mEntityCount = static_cast<std::uint32_t>(positions.size());
     if (mEntityCount == 0u)

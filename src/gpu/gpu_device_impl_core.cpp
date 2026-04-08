@@ -134,6 +134,14 @@ VulkanDedicatedContextPlan planDedicatedVulkanContexts(Diligent::IEngineFactoryV
     const auto canRunPhysics = [](Diligent::COMMAND_QUEUE_TYPE queueType)
     { return (queueType & Diligent::COMMAND_QUEUE_TYPE_COMPUTE) != 0; };
 
+    const auto &graphicsQueueInfo = adapterInfo.Queues[plan.graphicsQueueId];
+    if (graphicsQueueInfo.MaxDeviceContexts >= 2u && canRunPhysics(graphicsQueueInfo.QueueType))
+    {
+        plan.physicsQueueId = plan.graphicsQueueId;
+        plan.supported      = true;
+        return plan;
+    }
+
     for (Diligent::Uint32 queueIndex = 0; queueIndex < adapterInfo.NumQueues; ++queueIndex)
     {
         if (queueIndex == plan.graphicsQueueId)
@@ -148,13 +156,6 @@ VulkanDedicatedContextPlan planDedicatedVulkanContexts(Diligent::IEngineFactoryV
             plan.supported      = true;
             return plan;
         }
-    }
-
-    const auto &graphicsQueueInfo = adapterInfo.Queues[plan.graphicsQueueId];
-    if (graphicsQueueInfo.MaxDeviceContexts >= 2u && canRunPhysics(graphicsQueueInfo.QueueType))
-    {
-        plan.physicsQueueId = plan.graphicsQueueId;
-        plan.supported      = true;
     }
 
     return plan;
@@ -232,6 +233,7 @@ void GpuDeviceImpl::shutdown()
     mPrimarySwapChain                   = nullptr;
     mPresentationReadbackFence          = nullptr;
     mPhysicsToGraphicsFence             = nullptr;
+    mGraphicsToPhysicsFence             = nullptr;
     mGraphicsContextId                  = 0;
     mPhysicsContextId                   = 0;
     mGraphicsQueueType                  = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
@@ -240,6 +242,7 @@ void GpuDeviceImpl::shutdown()
     mNextPresentationReadbackRequestId  = 1;
     mNextPresentationReadbackFenceValue = 1;
     mNextPhysicsToGraphicsFenceValue    = 1;
+    mNextGraphicsToPhysicsFenceValue    = 1;
     mPendingPresentationReadbackRequests.clear();
     mPendingPresentationReadbackCopies.clear();
     mCompletedPresentationReadbacks.clear();
@@ -320,6 +323,33 @@ bool GpuDeviceImpl::waitForPhysicsOnGraphics()
     mPhysicsContext->EnqueueSignal(mPhysicsToGraphicsFence, fenceValue);
     mPhysicsContext->Flush();
     mGraphicsContext->DeviceWaitForFence(mPhysicsToGraphicsFence, fenceValue);
+    return true;
+}
+
+bool GpuDeviceImpl::waitForGraphicsOnPhysics()
+{
+    if (!mInitialized || mBackend != GpuBackend::Vulkan || mGraphicsContext == nullptr ||
+        mPhysicsContext == nullptr)
+    {
+        return false;
+    }
+
+    if (mGraphicsContext == mPhysicsContext || mGraphicsContextId == mPhysicsContextId)
+    {
+        return true;
+    }
+
+    if (mGraphicsToPhysicsFence == nullptr)
+    {
+        return false;
+    }
+
+    const std::uint64_t fenceValue = mNextGraphicsToPhysicsFenceValue++;
+    // Shared pose buffers are consumed on the graphics context and then updated again by the
+    // physics context on the following frame.
+    mGraphicsContext->EnqueueSignal(mGraphicsToPhysicsFence, fenceValue);
+    mGraphicsContext->Flush();
+    mPhysicsContext->DeviceWaitForFence(mGraphicsToPhysicsFence, fenceValue);
     return true;
 }
 
@@ -566,6 +596,16 @@ bool GpuDeviceImpl::initializeVulkan()
         if (mPhysicsToGraphicsFence == nullptr)
         {
             CRESSIM_LOG_ERROR("failed to create physics-to-graphics fence.");
+            return false;
+        }
+
+        Diligent::FenceDesc graphicsToPhysicsFenceDesc{};
+        graphicsToPhysicsFenceDesc.Name = "CRESSimNeo.GraphicsToPhysicsFence";
+        graphicsToPhysicsFenceDesc.Type = Diligent::FENCE_TYPE_GENERAL;
+        mRenderDevice->CreateFence(graphicsToPhysicsFenceDesc, &mGraphicsToPhysicsFence);
+        if (mGraphicsToPhysicsFence == nullptr)
+        {
+            CRESSIM_LOG_ERROR("failed to create graphics-to-physics fence.");
             return false;
         }
 

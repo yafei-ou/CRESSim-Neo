@@ -62,6 +62,7 @@ public:
     virtual bool tryGetGraphicsBackendContext(GpuGraphicsBackendContext &outContext) = 0;
     virtual bool tryGetPhysicsBackendContext(GpuComputeBackendContext &outContext)   = 0;
     virtual bool waitForPhysicsOnGraphics()                                          = 0;
+    virtual bool waitForGraphicsOnPhysics()                                          = 0;
     virtual bool tryGetDefaultRenderTargetDesc(GpuRenderTargetDesc &outDesc) const   = 0;
     virtual bool tryGetPresentationTargetDesc(GpuPresentationTargetDesc &outDesc)    = 0;
     virtual GpuPresentationReadbackRequest requestPresentationReadback()             = 0;
