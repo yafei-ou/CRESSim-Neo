@@ -15,7 +15,15 @@ namespace cressim::neo::gpu
 namespace
 {
 
+// Bump this whenever we make cache-incompatible shader/PSO changes so stale blobs
 constexpr Diligent::Uint32 kShaderCacheContentVersion = 1u;
+
+bool canUsePipelineStateCache(const Diligent::PipelineStateDesc &desc)
+{
+    // Diligent's PSO cache currently round-trips reliably for our default single-context
+    // path, but mismatches when multi-context masks are involved.
+    return desc.ImmediateContextMask == 1u;
+}
 
 } // namespace
 
@@ -88,7 +96,7 @@ bool ShaderCache::createGraphicsPipelineState(
     }
     *pipelineState = nullptr;
 
-    if (mStateCache != nullptr)
+    if (mStateCache != nullptr && canUsePipelineStateCache(createInfo.PSODesc))
     {
         mStateCache->CreateGraphicsPipelineState(createInfo, pipelineState);
         return *pipelineState != nullptr;
@@ -107,7 +115,7 @@ bool ShaderCache::createComputePipelineState(
     }
     *pipelineState = nullptr;
 
-    if (mStateCache != nullptr)
+    if (mStateCache != nullptr && canUsePipelineStateCache(createInfo.PSODesc))
     {
         mStateCache->CreateComputePipelineState(createInfo, pipelineState);
         return *pipelineState != nullptr;
@@ -212,6 +220,8 @@ std::filesystem::path ShaderCache::makeCacheFilePath(Diligent::IRenderDevice *re
 #else
     fileName += "_r";
 #endif
+    fileName += "_v";
+    fileName += std::to_string(kShaderCacheContentVersion);
     fileName += ".bin";
 
     // TODO: we shouldn't make the cache path dependent on the current launch path
