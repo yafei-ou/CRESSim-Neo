@@ -44,7 +44,7 @@ public:
     // Physics is owned by PhysicsWorld now.
     void setRigidBody(common::EntityId entityId, const RigidBodyComponent &component);
     bool removeRigidBody(common::EntityId entityId);
-    void setSoftBody(common::EntityId entityId, const SoftBodyComponent &component);
+    bool setSoftBody(common::EntityId entityId, const SoftBodyComponent &component);
     bool removeSoftBody(common::EntityId entityId);
 
     ColliderHandle addCollider(common::EntityId entityId, const ColliderComponent &component);

@@ -11,9 +11,10 @@ int main()
     SoftBodyState softBody{};
     softBody.entityId = 1001u;
     softBody.environmentIndex = 2u;
-    softBody.origin = {1.0f, 2.0f, 3.0f};
-    softBody.size = {2.0f, 2.0f, 2.0f};
-    softBody.particleSpacing = 1.0f;
+    softBody.source.kind = SoftBodySourceKind::RegularGrid;
+    softBody.source.regularGrid.size = {2.0f, 2.0f, 2.0f};
+    softBody.source.regularGrid.targetParticleSpacing = 1.0f;
+    softBody.restTransform.position = {1.0f, 2.0f, 3.0f};
     softBody.particleMass = 2.0f;
     softBody.particleRadius = 0.15f;
     softBody.edgeCompliance = 0.01f;
@@ -22,7 +23,11 @@ int main()
     softBody.collisionMask = 0x25u;
     softBody.selfCollisionEnabled = true;
 
-    world.upsertSoftBody(softBody);
+    if (!world.upsertSoftBody(softBody))
+    {
+        CRESSIM_LOG_ERROR("Failed to author regular-grid soft body.");
+        return 1;
+    }
 
     const auto &softBodies = world.softBodySnapshot();
     const auto &particles = world.softParticles();

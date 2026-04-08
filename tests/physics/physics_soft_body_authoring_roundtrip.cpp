@@ -18,8 +18,9 @@ int main()
     world.setTransform(entity, transform);
 
     engine::SoftBodyComponent softBody{};
-    softBody.size                 = {1.5f, 2.0f, 2.5f};
-    softBody.particleSpacing      = 0.4f;
+    softBody.source.kind                         = physics::SoftBodySourceKind::RegularGrid;
+    softBody.source.regularGrid.size            = {1.5f, 2.0f, 2.5f};
+    softBody.source.regularGrid.targetParticleSpacing = 0.4f;
     softBody.particleMass         = 0.75f;
     softBody.particleRadius       = 0.18f;
     softBody.edgeCompliance       = 0.03f;
@@ -28,7 +29,11 @@ int main()
     softBody.selfCollisionEnabled = true;
     softBody.collisionLayer       = 0x4u;
     softBody.collisionMask        = 0x12u;
-    world.setSoftBody(entity, softBody);
+    if (!world.setSoftBody(entity, softBody))
+    {
+        CRESSIM_LOG_ERROR("setSoftBody failed for regular-grid authoring round-trip.");
+        return 1;
+    }
 
     const std::optional<engine::SoftBodyComponent> roundTripped = world.tryGetSoftBody(entity);
     if (!roundTripped.has_value())
@@ -47,7 +52,12 @@ int main()
     if (!roundTripped->selfCollisionEnabled || roundTripped->collisionLayer != 0x4u ||
         roundTripped->collisionMask != 0x12u || !storedState->selfCollisionEnabled ||
         storedState->collisionLayer != 0x4u || storedState->collisionMask != 0x12u ||
-        storedState->environmentIndex != 3u)
+        storedState->environmentIndex != 3u ||
+        roundTripped->source.kind != physics::SoftBodySourceKind::RegularGrid ||
+        roundTripped->source.regularGrid.size.x != 1.5f ||
+        roundTripped->source.regularGrid.size.y != 2.0f ||
+        roundTripped->source.regularGrid.size.z != 2.5f ||
+        roundTripped->source.regularGrid.targetParticleSpacing != 0.4f)
     {
         CRESSIM_LOG_ERROR("Soft body collision authoring fields did not round-trip.");
         return 1;

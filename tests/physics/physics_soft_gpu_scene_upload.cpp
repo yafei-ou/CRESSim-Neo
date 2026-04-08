@@ -36,21 +36,27 @@ int main()
     world.setTransform(softBody, transform);
 
     engine::SoftBodyComponent soft{};
-    soft.size           = {1.0f, 1.0f, 1.0f};
-    soft.particleSpacing = 0.5f;
-    soft.particleMass   = 1.0f;
-    soft.particleRadius = 0.1f;
-    soft.edgeCompliance = 0.0f;
+    soft.source.regularGrid.size                  = {1.0f, 1.0f, 1.0f};
+    soft.source.regularGrid.targetParticleSpacing = 0.5f;
+    soft.particleMass                             = 1.0f;
+    soft.particleRadius                           = 0.1f;
+    soft.edgeCompliance                           = 0.0f;
     soft.volumeCompliance = 0.0f;
     soft.simulated         = true;
     soft.selfCollisionEnabled = true;
     soft.collisionLayer       = 0x2u;
     soft.collisionMask        = 0x9u;
-    world.setSoftBody(softBody, soft);
+    if (!world.setSoftBody(softBody, soft))
+    {
+        CRESSIM_LOG_ERROR("Failed to author soft body in GPU scene upload test.");
+        runtime.shutdown();
+        return 1;
+    }
 
     const std::optional<engine::SoftBodyComponent> roundTripped = world.tryGetSoftBody(softBody);
     if (!roundTripped.has_value() || !roundTripped->selfCollisionEnabled ||
-        roundTripped->collisionLayer != 0x2u || roundTripped->collisionMask != 0x9u)
+        roundTripped->collisionLayer != 0x2u || roundTripped->collisionMask != 0x9u ||
+        roundTripped->source.kind != physics::SoftBodySourceKind::RegularGrid)
     {
         CRESSIM_LOG_ERROR("Soft body component round-trip failed in GPU scene upload test.");
         runtime.shutdown();

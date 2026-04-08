@@ -65,6 +65,30 @@ add_test(
     COMMAND cressim_neo_physics_soft_body_authoring_roundtrip
 )
 
+add_physics_test(cressim_neo_physics_soft_body_authoring_tet_mesh physics_soft_body_authoring_tet_mesh.cpp)
+add_test(
+    NAME cressim_neo_physics_soft_body_authoring_tet_mesh
+    COMMAND cressim_neo_physics_soft_body_authoring_tet_mesh
+)
+
+add_physics_test(cressim_neo_physics_soft_body_authoring_tetgen_roundtrip physics_soft_body_authoring_tetgen_roundtrip.cpp)
+add_test(
+    NAME cressim_neo_physics_soft_body_authoring_tetgen_roundtrip
+    COMMAND cressim_neo_physics_soft_body_authoring_tetgen_roundtrip
+)
+
+add_physics_test(cressim_neo_physics_soft_body_authoring_transform physics_soft_body_authoring_transform.cpp)
+add_test(
+    NAME cressim_neo_physics_soft_body_authoring_transform
+    COMMAND cressim_neo_physics_soft_body_authoring_transform
+)
+
+add_physics_test(cressim_neo_physics_soft_body_authoring_failures physics_soft_body_authoring_failures.cpp)
+add_test(
+    NAME cressim_neo_physics_soft_body_authoring_failures
+    COMMAND cressim_neo_physics_soft_body_authoring_failures
+)
+
 add_physics_test(cressim_neo_physics_rigid_surface_particle_generation physics_rigid_surface_particle_generation.cpp)
 add_test(
     NAME cressim_neo_physics_rigid_surface_particle_generation

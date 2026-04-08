@@ -126,8 +126,7 @@ struct ColliderComponent
 
 struct SoftBodyComponent
 {
-    Diligent::float3 size{1.0f, 1.0f, 1.0f};
-    float particleSpacing        = 0.25f;
+    physics::SoftBodySourceDesc source{};
     float particleMass           = 1.0f;
     float particleRadius         = 0.125f;
     float edgeCompliance         = 0.0f;

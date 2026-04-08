@@ -2,11 +2,13 @@
 #define CRESSIM_NEO_PHYSICS_PHYSICS_TYPES_H
 
 #include "common/id.h"
+#include "common/math_types.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace cressim::neo::physics
@@ -32,11 +34,40 @@ constexpr RigidBodyId kInvalidRigidBodyId = 0u;
 using ColliderId                        = std::uint32_t;
 constexpr ColliderId kInvalidColliderId = 0u;
 
-struct UInt3
+enum class SoftBodySourceKind : std::uint32_t
 {
-    std::uint32_t x = 1u;
-    std::uint32_t y = 1u;
-    std::uint32_t z = 1u;
+    RegularGrid = 0u,
+    TetMesh     = 1u,
+    TetGenFiles = 2u,
+};
+
+struct SoftBodyRegularGridSource
+{
+    Diligent::float3 size{1.0f, 1.0f, 1.0f};
+    float targetParticleSpacing = 0.25f;
+    std::vector<std::uint32_t> staticParticleIndices;
+};
+
+struct SoftBodyTetMeshSource
+{
+    std::vector<Diligent::float3> objectSpaceRestPositions;
+    std::vector<std::uint32_t> tetVertexIndices;
+    std::vector<std::uint32_t> staticParticleIndices;
+};
+
+struct SoftBodyTetGenSource
+{
+    std::string nodeFile;
+    std::string eleFile;
+    std::vector<std::uint32_t> staticParticleIndices;
+};
+
+struct SoftBodySourceDesc
+{
+    SoftBodySourceKind kind = SoftBodySourceKind::RegularGrid;
+    SoftBodyRegularGridSource regularGrid;
+    SoftBodyTetMeshSource tetMesh;
+    SoftBodyTetGenSource tetGen;
 };
 
 struct RigidBodyState
@@ -79,10 +110,8 @@ struct SoftBodyState
     std::uint32_t environmentIndex = 0u;
     std::uint32_t collisionLayer   = 1u;
     std::uint32_t collisionMask    = 0xffffffffu;
-    UInt3 gridResolution{};
-    Diligent::float3 origin{0.0f, 0.0f, 0.0f};
-    Diligent::float3 size{1.0f, 1.0f, 1.0f};
-    float particleSpacing        = 0.25f;
+    SoftBodySourceDesc source{};
+    common::Transform restTransform{};
     float particleMass           = 1.0f;
     float particleRadius         = 0.125f;
     float edgeCompliance         = 0.0f;

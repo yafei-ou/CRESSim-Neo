@@ -21,7 +21,7 @@ public:
     void upsertCollider(const ColliderState &collider);
     bool removeCollider(ColliderId colliderId);
     void replaceColliders(common::EntityId entityId, const std::vector<ColliderState> &colliders);
-    SoftBodyState &upsertSoftBody(const SoftBodyState &state);
+    bool upsertSoftBody(const SoftBodyState &state);
     bool removeSoftBody(common::EntityId entityId);
 
     RigidBodyState *tryGetRigidBody(common::EntityId entityId);
@@ -96,6 +96,18 @@ private:
     void markAllCollidersDirty() noexcept;
     static void normalizeSoftBodyState(SoftBodyState &state) noexcept;
     float referenceParticleSpacing() const noexcept;
+    bool prepareSoftBodyStateForInsert(const SoftBodyState &candidate,
+                                       const SoftBodyState *previousState) noexcept;
+
+    struct TetGenMeshCache
+    {
+        std::string nodeFile;
+        std::string eleFile;
+        std::vector<Diligent::float3> objectSpaceRestPositions;
+        std::vector<std::uint32_t> tetVertexIndices;
+    };
+
+    const TetGenMeshCache *tryGetTetGenMeshCache(common::EntityId entityId) const noexcept;
 
     RigidBodySoAHost mRigidBodies{};
     mutable ColliderSoAHost mColliders{};
@@ -105,6 +117,7 @@ private:
     std::unordered_map<ColliderId, std::uint32_t> mColliderIdToIndex{};
     std::unordered_map<common::EntityId, std::vector<ColliderId>> mEntityToColliderIds{};
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToSoftBodyIndex{};
+    std::unordered_map<common::EntityId, TetGenMeshCache> mTetGenMeshCache{};
     std::vector<RigidBodyState> mRigidBodySnapshot{};
     std::vector<ColliderState> mColliderSnapshot{};
     std::vector<SoftBodyState> mSoftBodySnapshot{};

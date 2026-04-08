@@ -1,11 +1,13 @@
 #include "physics/physics_world.h"
 
+#include "common/logger.h"
+#include "physics/soft_body_authoring.h"
 #include "physics/soft_phase.h"
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <set>
+#include <unordered_set>
 
 namespace cressim::neo::physics
 {
@@ -77,30 +79,6 @@ Diligent::float4 toColliderMaterial(const ColliderState &state)
     return Diligent::float4{state.friction, state.restitution, 0.0f, 0.0f};
 }
 
-std::uint32_t flattenGridIndex(std::uint32_t x, std::uint32_t y, std::uint32_t z,
-                               const UInt3 &resolution)
-{
-    return x * resolution.y * resolution.z + y * resolution.z + z;
-}
-
-Diligent::float3 rotatePoint(const Diligent::QuaternionF &rotation, const Diligent::float3 &point)
-{
-    return rotation.RotateVector(point);
-}
-
-float tetSignedVolume(const Diligent::float3 &a, const Diligent::float3 &b,
-                      const Diligent::float3 &c, const Diligent::float3 &d)
-{
-    return Diligent::dot(Diligent::cross(b - a, c - a), d - a) / 6.0f;
-}
-
-std::uint64_t makeSortedEdgeKey(std::uint32_t a, std::uint32_t b)
-{
-    const std::uint32_t lo = std::min(a, b);
-    const std::uint32_t hi = std::max(a, b);
-    return (static_cast<std::uint64_t>(lo) << 32u) | hi;
-}
-
 } // namespace
 
 namespace
@@ -147,6 +125,7 @@ void PhysicsWorld::clear()
     mColliderIdToIndex.clear();
     mEntityToColliderIds.clear();
     mEntityToSoftBodyIndex.clear();
+    mTetGenMeshCache.clear();
     mRigidBodySnapshot.clear();
     mColliderSnapshot.clear();
     mSoftBodySnapshot.clear();
@@ -446,12 +425,23 @@ void PhysicsWorld::replaceColliders(common::EntityId entityId,
     ++mRevision;
 }
 
-SoftBodyState &PhysicsWorld::upsertSoftBody(const SoftBodyState &state)
+bool PhysicsWorld::upsertSoftBody(const SoftBodyState &state)
 {
     SoftBodyState normalizedState = state;
     normalizeSoftBodyState(normalizedState);
 
-    const auto it = mEntityToSoftBodyIndex.find(normalizedState.entityId);
+    const auto it                      = mEntityToSoftBodyIndex.find(normalizedState.entityId);
+    const SoftBodyState *previousState = nullptr;
+    if (it != mEntityToSoftBodyIndex.end())
+    {
+        previousState = &mSoftBodySnapshot[it->second];
+    }
+
+    if (!prepareSoftBodyStateForInsert(normalizedState, previousState))
+    {
+        return false;
+    }
+
     if (it == mEntityToSoftBodyIndex.end())
     {
         mEntityToSoftBodyIndex.emplace(normalizedState.entityId,
@@ -467,7 +457,7 @@ SoftBodyState &PhysicsWorld::upsertSoftBody(const SoftBodyState &state)
     markRigidSurfaceParticlesDirty();
     ++mSoftBodyTopologyRevision;
     ++mRevision;
-    return mSoftBodySnapshot[mEntityToSoftBodyIndex[normalizedState.entityId]];
+    return true;
 }
 
 bool PhysicsWorld::removeSoftBody(common::EntityId entityId)
@@ -487,6 +477,7 @@ bool PhysicsWorld::removeSoftBody(common::EntityId entityId)
     }
     mSoftBodySnapshot.pop_back();
     mEntityToSoftBodyIndex.erase(it);
+    mTetGenMeshCache.erase(entityId);
     rebuildSoftBodyDerivedState();
     markRigidSurfaceParticlesDirty();
     ++mSoftBodyTopologyRevision;
@@ -885,21 +876,28 @@ void PhysicsWorld::normalizeColliderState(ColliderState &state) noexcept
 
 void PhysicsWorld::normalizeSoftBodyState(SoftBodyState &state) noexcept
 {
-    state.size.x          = std::max(state.size.x, 1.0e-3f);
-    state.size.y          = std::max(state.size.y, 1.0e-3f);
-    state.size.z          = std::max(state.size.z, 1.0e-3f);
-    state.particleSpacing = std::max(state.particleSpacing, 1.0e-4f);
-    state.particleMass    = std::max(state.particleMass, 1.0e-4f);
-    state.particleRadius  = std::max(state.particleRadius, 1.0e-4f);
+    state.particleMass     = std::max(state.particleMass, 1.0e-4f);
+    state.particleRadius   = std::max(state.particleRadius, 1.0e-4f);
+    state.edgeCompliance   = std::max(state.edgeCompliance, 0.0f);
+    state.volumeCompliance = std::max(state.volumeCompliance, 0.0f);
 
-    const auto deriveResolution = [&](float extent) -> std::uint32_t
+    const auto clampScale = [](float value) -> float
     {
-        return std::max<std::uint32_t>(
-            2u, static_cast<std::uint32_t>(std::floor(extent / state.particleSpacing)) + 1u);
+        const float sign = value < 0.0f ? -1.0f : 1.0f;
+        return sign * std::max(std::abs(value), 1.0e-4f);
     };
-    state.gridResolution.x = deriveResolution(state.size.x);
-    state.gridResolution.y = deriveResolution(state.size.y);
-    state.gridResolution.z = deriveResolution(state.size.z);
+    state.restTransform.scale.x = clampScale(state.restTransform.scale.x);
+    state.restTransform.scale.y = clampScale(state.restTransform.scale.y);
+    state.restTransform.scale.z = clampScale(state.restTransform.scale.z);
+
+    if (state.source.kind == SoftBodySourceKind::RegularGrid)
+    {
+        state.source.regularGrid.size.x = std::max(state.source.regularGrid.size.x, 1.0e-4f);
+        state.source.regularGrid.size.y = std::max(state.source.regularGrid.size.y, 1.0e-4f);
+        state.source.regularGrid.size.z = std::max(state.source.regularGrid.size.z, 1.0e-4f);
+        state.source.regularGrid.targetParticleSpacing =
+            std::max(state.source.regularGrid.targetParticleSpacing, 1.0e-4f);
+    }
     if (state.collisionLayer == 0u)
     {
         state.collisionLayer = 1u;
@@ -908,10 +906,25 @@ void PhysicsWorld::normalizeSoftBodyState(SoftBodyState &state) noexcept
 
 float PhysicsWorld::referenceParticleSpacing() const noexcept
 {
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+
     float spacing = std::numeric_limits<float>::max();
+    for (const SoftEdge &edge : mSoftEdges)
+    {
+        spacing = std::min(spacing, std::max(edge.restLength, 1.0e-4f));
+    }
+
+    if (std::isfinite(spacing) && spacing > 0.0f)
+    {
+        return spacing;
+    }
+
     for (const SoftBodyState &softBody : mSoftBodySnapshot)
     {
-        spacing = std::min(spacing, std::max(softBody.particleSpacing, 1.0e-4f));
+        spacing = std::min(spacing, std::max(softBody.particleRadius * 2.0f, 1.0e-4f));
     }
 
     if (!std::isfinite(spacing) || spacing <= 0.0f)
@@ -1060,139 +1073,104 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
         softBody.edgeOffset     = static_cast<std::uint32_t>(mSoftEdges.size());
         softBody.tetOffset      = static_cast<std::uint32_t>(mSoftTets.size());
 
-        const UInt3 resolution            = softBody.gridResolution;
-        const std::uint32_t particleCount = resolution.x * resolution.y * resolution.z;
-        softBody.particleCount            = particleCount;
-
-        const Diligent::float3 spacing{
-            resolution.x > 1u ? softBody.size.x / static_cast<float>(resolution.x - 1u) : 0.0f,
-            resolution.y > 1u ? softBody.size.y / static_cast<float>(resolution.y - 1u) : 0.0f,
-            resolution.z > 1u ? softBody.size.z / static_cast<float>(resolution.z - 1u) : 0.0f};
-        const float inverseMass =
-            softBody.particleMass > 0.0f ? 1.0f / softBody.particleMass : 0.0f;
-
-        for (std::uint32_t x = 0u; x < resolution.x; ++x)
+        TetMeshData tetGenCache;
+        const TetMeshData *tetGenCachePtr = nullptr;
+        if (softBody.source.kind == SoftBodySourceKind::TetGenFiles)
         {
-            for (std::uint32_t y = 0u; y < resolution.y; ++y)
+            if (const TetGenMeshCache *cache = tryGetTetGenMeshCache(softBody.entityId))
             {
-                for (std::uint32_t z = 0u; z < resolution.z; ++z)
-                {
-                    const Diligent::float3 position =
-                        Diligent::float3{softBody.origin.x + spacing.x * static_cast<float>(x),
-                                         softBody.origin.y + spacing.y * static_cast<float>(y),
-                                         softBody.origin.z + spacing.z * static_cast<float>(z)};
-                    mSoftParticles.positionsInvMass.push_back(
-                        Diligent::float4{position.x, position.y, position.z, inverseMass});
-                    mSoftParticles.previousPositions.push_back(
-                        Diligent::float4{position.x, position.y, position.z, 0.0f});
-                    mSoftParticles.velocities.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
-                    mSoftParticles.radii.push_back(softBody.particleRadius);
-                    mSoftParticles.environmentIndices.push_back(softBody.environmentIndex);
-                    mSoftParticles.owningSoftBodyIndices.push_back(softBodyIndex);
-                    mSoftParticles.phases.push_back(
-                        packSoftParticlePhase(softBodyIndex, softBody.selfCollisionEnabled));
-                    mSoftParticles.collisionLayers.push_back(softBody.collisionLayer);
-                    mSoftParticles.collisionMasks.push_back(softBody.collisionMask);
-                    adjacencyLists.emplace_back();
-                }
+                tetGenCache.objectSpaceRestPositions = cache->objectSpaceRestPositions;
+                tetGenCache.tetVertexIndices         = cache->tetVertexIndices;
+                tetGenCachePtr                       = &tetGenCache;
             }
         }
 
-        std::set<std::uint64_t> uniqueEdges;
-        const auto addAdjacency = [&](std::uint32_t a, std::uint32_t b)
+        ResolvedSoftBodyTopology topology;
+        std::string errorMessage;
+        if (!resolveSoftBodyTopology(softBody, tetGenCachePtr, topology, errorMessage))
         {
-            if (a == b || a >= adjacencyLists.size() || b >= adjacencyLists.size())
+            CRESSIM_LOG_ERROR("Failed to rebuild derived soft-body state for entity ",
+                              softBody.entityId, ": ", errorMessage);
+            softBody.particleCount = 0u;
+            softBody.edgeCount     = 0u;
+            softBody.tetCount      = 0u;
+            continue;
+        }
+
+        const float inverseMass =
+            softBody.particleMass > 0.0f ? 1.0f / softBody.particleMass : 0.0f;
+        std::unordered_set<std::uint32_t> staticParticles(topology.staticParticleIndices.begin(),
+                                                          topology.staticParticleIndices.end());
+
+        softBody.particleCount = static_cast<std::uint32_t>(topology.restPositions.size());
+        for (std::uint32_t localParticleIndex = 0u; localParticleIndex < softBody.particleCount;
+             ++localParticleIndex)
+        {
+            const Diligent::float3 &position = topology.restPositions[localParticleIndex];
+            const float particleInvMass =
+                staticParticles.find(localParticleIndex) != staticParticles.end() ? 0.0f
+                                                                                  : inverseMass;
+
+            mSoftParticles.positionsInvMass.push_back(
+                Diligent::float4{position.x, position.y, position.z, particleInvMass});
+            mSoftParticles.previousPositions.push_back(
+                Diligent::float4{position.x, position.y, position.z, 0.0f});
+            mSoftParticles.velocities.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
+            mSoftParticles.radii.push_back(softBody.particleRadius);
+            mSoftParticles.environmentIndices.push_back(softBody.environmentIndex);
+            mSoftParticles.owningSoftBodyIndices.push_back(softBodyIndex);
+            mSoftParticles.phases.push_back(
+                packSoftParticlePhase(softBodyIndex, softBody.selfCollisionEnabled));
+            mSoftParticles.collisionLayers.push_back(softBody.collisionLayer);
+            mSoftParticles.collisionMasks.push_back(softBody.collisionMask);
+            adjacencyLists.emplace_back();
+        }
+
+        for (std::uint32_t localParticleIndex = 0u;
+             localParticleIndex < static_cast<std::uint32_t>(topology.adjacencyLists.size());
+             ++localParticleIndex)
+        {
+            auto &globalAdjacency = adjacencyLists[softBody.particleOffset + localParticleIndex];
+            globalAdjacency.reserve(topology.adjacencyLists[localParticleIndex].size());
+            for (const std::uint32_t localNeighbor : topology.adjacencyLists[localParticleIndex])
             {
-                return;
+                globalAdjacency.push_back(softBody.particleOffset + localNeighbor);
             }
-            adjacencyLists[a].push_back(b);
-            adjacencyLists[b].push_back(a);
-        };
-        auto addTet = [&](std::uint32_t i0, std::uint32_t i1, std::uint32_t i2, std::uint32_t i3)
+        }
+
+        for (const auto &edgeDesc : topology.edges)
         {
+            const std::uint32_t globalA = softBody.particleOffset + edgeDesc[0];
+            const std::uint32_t globalB = softBody.particleOffset + edgeDesc[1];
+            const Diligent::float3 delta{
+                topology.restPositions[edgeDesc[1]].x - topology.restPositions[edgeDesc[0]].x,
+                topology.restPositions[edgeDesc[1]].y - topology.restPositions[edgeDesc[0]].y,
+                topology.restPositions[edgeDesc[1]].z - topology.restPositions[edgeDesc[0]].z,
+            };
+
+            SoftEdge edge{};
+            edge.particleA  = globalA;
+            edge.particleB  = globalB;
+            edge.restLength = std::sqrt(Diligent::dot(delta, delta));
+            edge.compliance = softBody.edgeCompliance;
+            mSoftEdges.push_back(edge);
+        }
+
+        for (const auto &tetDesc : topology.tets)
+        {
+            const Diligent::float3 &p0 = topology.restPositions[tetDesc[0]];
+            const Diligent::float3 &p1 = topology.restPositions[tetDesc[1]];
+            const Diligent::float3 &p2 = topology.restPositions[tetDesc[2]];
+            const Diligent::float3 &p3 = topology.restPositions[tetDesc[3]];
+
             SoftTet tet{};
-            tet.particleIndices = {softBody.particleOffset + i0, softBody.particleOffset + i1,
-                                   softBody.particleOffset + i2, softBody.particleOffset + i3};
-            tet.compliance      = softBody.volumeCompliance;
-            const Diligent::float3 p0{mSoftParticles.positionsInvMass[tet.particleIndices[0]].x,
-                                      mSoftParticles.positionsInvMass[tet.particleIndices[0]].y,
-                                      mSoftParticles.positionsInvMass[tet.particleIndices[0]].z};
-            const Diligent::float3 p1{mSoftParticles.positionsInvMass[tet.particleIndices[1]].x,
-                                      mSoftParticles.positionsInvMass[tet.particleIndices[1]].y,
-                                      mSoftParticles.positionsInvMass[tet.particleIndices[1]].z};
-            const Diligent::float3 p2{mSoftParticles.positionsInvMass[tet.particleIndices[2]].x,
-                                      mSoftParticles.positionsInvMass[tet.particleIndices[2]].y,
-                                      mSoftParticles.positionsInvMass[tet.particleIndices[2]].z};
-            const Diligent::float3 p3{mSoftParticles.positionsInvMass[tet.particleIndices[3]].x,
-                                      mSoftParticles.positionsInvMass[tet.particleIndices[3]].y,
-                                      mSoftParticles.positionsInvMass[tet.particleIndices[3]].z};
-            tet.restVolume = std::abs(tetSignedVolume(p0, p1, p2, p3));
+            tet.particleIndices = {
+                softBody.particleOffset + tetDesc[0], softBody.particleOffset + tetDesc[1],
+                softBody.particleOffset + tetDesc[2], softBody.particleOffset + tetDesc[3]};
+            tet.restVolume =
+                std::abs(Diligent::dot(Diligent::cross(p1 - p0, p2 - p0), p3 - p0)) / 6.0f;
+            tet.compliance = softBody.volumeCompliance;
             mSoftTets.push_back(tet);
-
-            const std::array<std::pair<std::uint32_t, std::uint32_t>, 6> edges = {{
-                {tet.particleIndices[0], tet.particleIndices[1]},
-                {tet.particleIndices[0], tet.particleIndices[2]},
-                {tet.particleIndices[0], tet.particleIndices[3]},
-                {tet.particleIndices[1], tet.particleIndices[2]},
-                {tet.particleIndices[1], tet.particleIndices[3]},
-                {tet.particleIndices[2], tet.particleIndices[3]},
-            }};
-            for (const auto &edgeIndices : edges)
-            {
-                addAdjacency(edgeIndices.first, edgeIndices.second);
-                if (uniqueEdges.insert(makeSortedEdgeKey(edgeIndices.first, edgeIndices.second))
-                        .second)
-                {
-                    SoftEdge edge{};
-                    edge.particleA = edgeIndices.first;
-                    edge.particleB = edgeIndices.second;
-                    const Diligent::float3 delta{
-                        mSoftParticles.positionsInvMass[edge.particleB].x -
-                            mSoftParticles.positionsInvMass[edge.particleA].x,
-                        mSoftParticles.positionsInvMass[edge.particleB].y -
-                            mSoftParticles.positionsInvMass[edge.particleA].y,
-                        mSoftParticles.positionsInvMass[edge.particleB].z -
-                            mSoftParticles.positionsInvMass[edge.particleA].z};
-                    edge.restLength = std::sqrt(Diligent::dot(delta, delta));
-                    edge.compliance = softBody.edgeCompliance;
-                    mSoftEdges.push_back(edge);
-                }
-            }
-        };
-
-        for (std::uint32_t x = 0u; x + 1u < resolution.x; ++x)
-        {
-            for (std::uint32_t y = 0u; y + 1u < resolution.y; ++y)
-            {
-                for (std::uint32_t z = 0u; z + 1u < resolution.z; ++z)
-                {
-                    const std::uint32_t p0 = flattenGridIndex(x, y, z, resolution);
-                    const std::uint32_t p1 = flattenGridIndex(x, y, z + 1u, resolution);
-                    const std::uint32_t p3 = flattenGridIndex(x + 1u, y, z, resolution);
-                    const std::uint32_t p2 = flattenGridIndex(x + 1u, y, z + 1u, resolution);
-                    const std::uint32_t p7 = flattenGridIndex(x + 1u, y + 1u, z, resolution);
-                    const std::uint32_t p6 = flattenGridIndex(x + 1u, y + 1u, z + 1u, resolution);
-                    const std::uint32_t p4 = flattenGridIndex(x, y + 1u, z, resolution);
-                    const std::uint32_t p5 = flattenGridIndex(x, y + 1u, z + 1u, resolution);
-
-                    if (((x + y + z) & 1u) != 0u)
-                    {
-                        addTet(p2, p1, p6, p3);
-                        addTet(p6, p3, p4, p7);
-                        addTet(p4, p1, p6, p5);
-                        addTet(p3, p1, p4, p0);
-                        addTet(p6, p1, p4, p3);
-                    }
-                    else
-                    {
-                        addTet(p0, p2, p5, p1);
-                        addTet(p7, p2, p0, p3);
-                        addTet(p5, p2, p7, p6);
-                        addTet(p7, p0, p5, p4);
-                        addTet(p0, p2, p7, p5);
-                    }
-                }
-            }
         }
 
         softBody.edgeCount = static_cast<std::uint32_t>(mSoftEdges.size()) - softBody.edgeOffset;
@@ -1217,6 +1195,81 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
     }
 
     mSoftBodyDerivedStateDirty = false;
+}
+
+bool PhysicsWorld::prepareSoftBodyStateForInsert(const SoftBodyState &candidate,
+                                                 const SoftBodyState *previousState) noexcept
+{
+    TetMeshData tetGenCache;
+    TetGenMeshCache cacheEntry;
+    const TetMeshData *tetGenCachePtr = nullptr;
+    if (candidate.source.kind == SoftBodySourceKind::TetGenFiles)
+    {
+        bool needReload = true;
+        if (previousState != nullptr &&
+            previousState->source.kind == SoftBodySourceKind::TetGenFiles)
+        {
+            const auto &before = previousState->source.tetGen;
+            const auto &after  = candidate.source.tetGen;
+            if (before.nodeFile == after.nodeFile && before.eleFile == after.eleFile)
+            {
+                if (const TetGenMeshCache *existing = tryGetTetGenMeshCache(candidate.entityId))
+                {
+                    cacheEntry = *existing;
+                    needReload = false;
+                }
+            }
+        }
+
+        std::string errorMessage;
+        if (needReload)
+        {
+            if (!loadTetGenFiles(candidate.source.tetGen.nodeFile, candidate.source.tetGen.eleFile,
+                                 tetGenCache, errorMessage))
+            {
+                CRESSIM_LOG_ERROR("Failed to author soft body for entity ", candidate.entityId,
+                                  ": ", errorMessage);
+                return false;
+            }
+            cacheEntry.nodeFile                 = candidate.source.tetGen.nodeFile;
+            cacheEntry.eleFile                  = candidate.source.tetGen.eleFile;
+            cacheEntry.objectSpaceRestPositions = tetGenCache.objectSpaceRestPositions;
+            cacheEntry.tetVertexIndices         = tetGenCache.tetVertexIndices;
+        }
+        else
+        {
+            tetGenCache.objectSpaceRestPositions = cacheEntry.objectSpaceRestPositions;
+            tetGenCache.tetVertexIndices         = cacheEntry.tetVertexIndices;
+        }
+        tetGenCachePtr = &tetGenCache;
+    }
+
+    ResolvedSoftBodyTopology topology;
+    std::string errorMessage;
+    if (!resolveSoftBodyTopology(candidate, tetGenCachePtr, topology, errorMessage))
+    {
+        CRESSIM_LOG_ERROR("Failed to author soft body for entity ", candidate.entityId, ": ",
+                          errorMessage);
+        return false;
+    }
+
+    if (candidate.source.kind == SoftBodySourceKind::TetGenFiles)
+    {
+        mTetGenMeshCache[candidate.entityId] = std::move(cacheEntry);
+    }
+    else
+    {
+        mTetGenMeshCache.erase(candidate.entityId);
+    }
+
+    return true;
+}
+
+const PhysicsWorld::TetGenMeshCache *PhysicsWorld::tryGetTetGenMeshCache(
+    common::EntityId entityId) const noexcept
+{
+    const auto it = mTetGenMeshCache.find(entityId);
+    return it == mTetGenMeshCache.end() ? nullptr : &it->second;
 }
 
 void PhysicsWorld::rebuildRigidSurfaceParticles() const noexcept

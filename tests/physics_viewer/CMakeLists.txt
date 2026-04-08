@@ -69,6 +69,11 @@ add_physics_viewer_test(
 )
 
 add_physics_viewer_test(
+    cressim_neo_physics_viewer_soft_particles_toroid
+    physics_viewer_soft_particles_toroid.cpp
+)
+
+add_physics_viewer_test(
     cressim_neo_physics_viewer_soft_particles_multi_env
     physics_viewer_soft_particles_multi_env.cpp
 )

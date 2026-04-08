@@ -265,7 +265,10 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
                                  const TransformComponent &softTransform)
     {
         world.setTransform(softEntityId, softTransform);
-        world.setSoftBody(softEntityId, softBody);
+        if (!world.setSoftBody(softEntityId, softBody))
+        {
+            CRESSIM_LOG_ERROR("Failed to author soft body for multi-env viewer.");
+        }
     };
 
     const SoftCollisionScenario collisionScenario = makeSoftCollisionScenario(envIndex);
@@ -280,8 +283,8 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
         Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 1.0f, 0.0f}, 0.25f * std::cos(phase));
     primarySoftTransform.worldTransform.rotation = tiltY * tiltX;
     SoftBodyComponent primarySoftBody{};
-    primarySoftBody.size                 = {1.2f, 1.2f, 1.2f};
-    primarySoftBody.particleSpacing      = 0.32f;
+    primarySoftBody.source.regularGrid.size                 = {1.2f, 1.2f, 1.2f};
+    primarySoftBody.source.regularGrid.targetParticleSpacing = 0.32f;
     primarySoftBody.particleMass         = 0.14f;
     primarySoftBody.particleRadius       = 0.16f;
     primarySoftBody.volumeCompliance     = 0.0010f;
@@ -295,12 +298,12 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     constexpr float kSoftBodyGap = 1.0f;
     secondarySoftTransform.worldTransform.position =
         primarySoftTransform.worldTransform.position +
-        Diligent::float3{0.0f, primarySoftBody.size.y + kSoftBodyGap, 0.0f};
+        Diligent::float3{0.0f, primarySoftBody.source.regularGrid.size.y + kSoftBodyGap, 0.0f};
     secondarySoftTransform.worldTransform.rotation =
         Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 1.0f, 0.0f}, -0.2f + 0.05f * phase);
     SoftBodyComponent secondarySoftBody{};
-    secondarySoftBody.size            = {0.9f, 0.9f, 0.9f};
-    secondarySoftBody.particleSpacing = 0.30f;
+    secondarySoftBody.source.regularGrid.size                  = {0.9f, 0.9f, 0.9f};
+    secondarySoftBody.source.regularGrid.targetParticleSpacing = 0.30f;
     secondarySoftBody.particleMass    = 0.10f;
     secondarySoftBody.particleRadius =
         0.20f; // 0.15 easily leave gaps; manually fatten the collision range
