@@ -11,7 +11,7 @@ namespace cressim::neo::engine
 namespace
 {
 constexpr std::uint32_t kInvalidSlot        = 0xffffffffu;
-constexpr float kSoftBodyVertexMatchEpsilon = 1.0e-4f;
+constexpr float kSoftBodyVertexMatchEpsilon = 1.0e-3f;
 
 struct DrawBucketKey
 {
@@ -155,6 +155,21 @@ Diligent::float3 transformPoint(const common::Transform &transform,
     return transform.rotation.RotateVector(scaled) + transform.position;
 }
 
+Diligent::float3 inverseTransformPoint(const common::Transform &transform,
+                                       const Diligent::float3 &worldPoint) noexcept
+{
+    const Diligent::QuaternionF inverseRotation{-transform.rotation.q.x, -transform.rotation.q.y,
+                                                -transform.rotation.q.z, transform.rotation.q.w};
+    const Diligent::float3 localScaled =
+        inverseRotation.RotateVector(worldPoint - transform.position);
+    const Diligent::float3 safeScale{
+        std::max(std::abs(transform.scale.x), 1.0e-6f),
+        std::max(std::abs(transform.scale.y), 1.0e-6f),
+        std::max(std::abs(transform.scale.z), 1.0e-6f),
+    };
+    return {localScaled.x / safeScale.x, localScaled.y / safeScale.y, localScaled.z / safeScale.z};
+}
+
 Diligent::float3 transformNormal(const common::Transform &transform,
                                  const Diligent::float3 &localNormal) noexcept
 {
@@ -171,6 +186,41 @@ Diligent::float3 transformNormal(const common::Transform &transform,
         return {0.0f, 1.0f, 0.0f};
     }
     return worldNormal * (1.0f / std::sqrt(lenSq));
+}
+
+std::optional<std::uint32_t> findMatchingRestVertexLocal(
+    const Diligent::float3 &visualVertexLocal,
+    const std::vector<Diligent::float3> &restPositionsLocal,
+    const std::unordered_map<QuantizedPointKey, std::uint32_t, QuantizedPointKeyHash>
+        &restIndexByQuantizedPosition,
+    float epsilon) noexcept
+{
+    const QuantizedPointKey key = quantizePoint(visualVertexLocal, epsilon);
+    if (const auto it = restIndexByQuantizedPosition.find(key);
+        it != restIndexByQuantizedPosition.end())
+    {
+        return it->second;
+    }
+
+    const float epsilonSq = epsilon * epsilon;
+    float bestDistanceSq  = epsilonSq;
+    std::optional<std::uint32_t> bestIndex;
+    for (std::uint32_t localParticleIndex = 0u;
+         localParticleIndex < static_cast<std::uint32_t>(restPositionsLocal.size());
+         ++localParticleIndex)
+    {
+        const Diligent::float3 delta = restPositionsLocal[localParticleIndex] - visualVertexLocal;
+        const float distanceSq       = Diligent::dot(delta, delta);
+        if (distanceSq > bestDistanceSq)
+        {
+            continue;
+        }
+
+        bestDistanceSq = distanceSq;
+        bestIndex      = localParticleIndex;
+    }
+
+    return bestIndex;
 }
 
 bool computeSoftBodyWorldBounds(const physics::PhysicsWorld &physicsWorld,
@@ -1632,14 +1682,17 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
         std::unordered_map<QuantizedPointKey, std::uint32_t, QuantizedPointKeyHash>
             restIndexByQuantizedPosition;
         restIndexByQuantizedPosition.reserve(softBody->restPositions.size());
+        std::vector<Diligent::float3> restPositionsLocal;
+        restPositionsLocal.reserve(softBody->restPositions.size());
         for (std::uint32_t localParticleIndex = 0u;
              localParticleIndex < static_cast<std::uint32_t>(softBody->restPositions.size());
              ++localParticleIndex)
         {
+            const Diligent::float3 localRestPosition = inverseTransformPoint(
+                softBody->restTransform, softBody->restPositions[localParticleIndex]);
+            restPositionsLocal.push_back(localRestPosition);
             restIndexByQuantizedPosition.try_emplace(
-                quantizePoint(softBody->restPositions[localParticleIndex],
-                              kSoftBodyVertexMatchEpsilon),
-                localParticleIndex);
+                quantizePoint(localRestPosition, kSoftBodyVertexMatchEpsilon), localParticleIndex);
         }
 
         const std::uint32_t bindingBase =
@@ -1649,18 +1702,17 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
         bool valid = true;
         for (const graphics::MeshResourceDesc::Vertex &vertex : mesh->vertices)
         {
-            const Diligent::float3 worldVertexPosition =
-                transformPoint(softBody->restTransform, vertex.position);
-            const auto restPositionIt = restIndexByQuantizedPosition.find(
-                quantizePoint(worldVertexPosition, kSoftBodyVertexMatchEpsilon));
-            if (restPositionIt == restIndexByQuantizedPosition.end())
+            const std::optional<std::uint32_t> matchedRestIndex = findMatchingRestVertexLocal(
+                vertex.position, restPositionsLocal, restIndexByQuantizedPosition,
+                kSoftBodyVertexMatchEpsilon);
+            if (!matchedRestIndex.has_value())
             {
                 valid = false;
                 break;
             }
 
             graphics::GpuSoftBodyVertexBinding binding{};
-            binding.particleIndex = softBody->particleOffset + restPositionIt->second;
+            binding.particleIndex = softBody->particleOffset + matchedRestIndex.value();
             mSoftBodyVertexBindingsHost.push_back(binding);
             const Diligent::float3 fallbackNormal =
                 transformNormal(softBody->restTransform, vertex.normal);

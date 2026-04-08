@@ -1,8 +1,8 @@
 #include "physics/include/physics_rigid_common.hlsli"
 
 static const float kSoftCorrectionAtomicScale = 100000.0;
-static const float kSoftContactRelaxation = 0.90;
-static const float kSoftMaxCorrectionPerIter = 0.02;
+static const float kSoftContactRelaxation = 0.95;
+static const float kSoftMaxCorrectionPerIter = 0.05;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftContact, g_SoftContacts);
