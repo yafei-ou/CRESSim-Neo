@@ -948,8 +948,7 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
 
     if (!tryGetMeshRenderer(entityId).has_value())
     {
-        CRESSIM_LOG_ERROR("setSoftBody requires a mesh renderer on the same entity.");
-        return false;
+        CRESSIM_LOG_WARNING("setSoftBody without a mesh renderer on the same entity.");
     }
 
     TransformComponent transform{};
