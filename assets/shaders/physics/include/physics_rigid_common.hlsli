@@ -15,9 +15,18 @@ static const uint kRigidPairTypeCount = 6u;
 
 static const uint kRigidContactsPerPair = 4u;
 static const uint kParticleBroadPhaseEntryTypeSoft = 0u;
-static const uint kParticleBroadPhaseEntryTypeRigidSurface = 1u;
 static const uint kSoftCandidatePairTypeSoftSoft = 0u;
 static const uint kSoftCandidatePairTypeSoftRigid = 1u;
+static const uint kPhysicsIndirectSoftGenerateContacts = 0u;
+static const uint kPhysicsIndirectSoftGenerateRigidContacts = 1u;
+static const uint kPhysicsIndirectSoftCompactContacts = 2u;
+static const uint kPhysicsIndirectSoftCompactRigidContacts = 3u;
+static const uint kPhysicsIndirectSoftSolveContacts = 4u;
+static const uint kPhysicsIndirectSoftSolveRigidContacts = 5u;
+static const uint kPhysicsIndirectRigidGenerateContacts = 6u;
+static const uint kPhysicsIndirectRigidSolveContacts = 7u;
+static const uint kPhysicsIndirectRigidSolveContactVelocities = 8u;
+static const uint kPhysicsIndirectDispatchSlotCount = 9u;
 static const uint kSoftRigidDedupCacheSize = 16u;
 static const uint kSoftRigidColliderIterationCap = 64u;
 static const uint kSoftPhaseGroupMask = 0x7fffffffu;
@@ -190,6 +199,13 @@ struct GpuSoftCandidatePair
     uint auxIndex;
 };
 
+struct GpuDispatchIndirectArgs
+{
+    uint groupCountX;
+    uint groupCountY;
+    uint groupCountZ;
+};
+
 struct GpuSoftNeighborMeta
 {
     uint softSoftCandidateCount;
@@ -254,6 +270,44 @@ struct GpuSoftTet
     float compliance;
     uint reserved0;
     uint reserved1;
+};
+
+struct GpuSoftConstraintRange
+{
+    uint start;
+    uint count;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuSoftIncidentEdge
+{
+    uint edgeIndex;
+    uint slot;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuSoftIncidentTet
+{
+    uint tetIndex;
+    uint slot;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuSoftEdgeCorrection
+{
+    float4 correctionA;
+    float4 correctionB;
+};
+
+struct GpuSoftTetCorrection
+{
+    float4 correction0;
+    float4 correction1;
+    float4 correction2;
+    float4 correction3;
 };
 
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)

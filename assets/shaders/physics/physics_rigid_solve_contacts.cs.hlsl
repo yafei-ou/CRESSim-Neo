@@ -14,6 +14,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_STRUCTURED_BUFFER(GpuRigidContact, g_RigidContacts);
+CRESSIM_STRUCTURED_BUFFER(GpuBroadPhaseMeta, g_BroadPhaseMeta);
 
 CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyTranslationCorrections);
 CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyRotationCorrections);
@@ -26,7 +27,8 @@ int3 QuantizeCorrection(float3 value)
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint contactIndex = dispatchThreadID.x;
-    const uint totalContactSlots = candidatePairCount * kRigidContactsPerPair;
+    const GpuBroadPhaseMeta broadPhaseMeta = CRESSIM_SB_LOAD(g_BroadPhaseMeta, 0);
+    const uint totalContactSlots = broadPhaseMeta.candidatePairCount * kRigidContactsPerPair;
     if (contactIndex >= totalContactSlots)
     {
         return;

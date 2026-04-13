@@ -89,12 +89,6 @@ add_test(
     COMMAND cressim_neo_physics_soft_body_authoring_failures
 )
 
-add_physics_test(cressim_neo_physics_rigid_surface_particle_generation physics_rigid_surface_particle_generation.cpp)
-add_test(
-    NAME cressim_neo_physics_rigid_surface_particle_generation
-    COMMAND cressim_neo_physics_rigid_surface_particle_generation
-)
-
 add_physics_test(cressim_neo_physics_soft_gpu_scene_upload physics_soft_gpu_scene_upload.cpp)
 add_test(
     NAME cressim_neo_physics_soft_gpu_scene_upload_vulkan

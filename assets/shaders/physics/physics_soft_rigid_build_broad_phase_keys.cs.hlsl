@@ -8,8 +8,7 @@ CRESSIM_RW_STRUCTURED_BUFFER(GpuMortonCodeElement, g_ParticleBroadPhaseKeys);
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint idx = dispatchThreadID.x;
-    const uint totalParticleCount = softParticleCount + rigidSurfaceParticleCount;
-    if (idx >= totalParticleCount)
+    if (idx >= softParticleCount)
     {
         return;
     }

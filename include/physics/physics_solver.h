@@ -33,6 +33,7 @@ public:
     bool initialize();
     void shutdown();
     bool step(const common::FrameContext &frameContext, PhysicsWorld &world);
+    bool validateGpuMetaBlocking();
     PhysicsGpuSceneView gpuSceneView() const noexcept;
 
 private:

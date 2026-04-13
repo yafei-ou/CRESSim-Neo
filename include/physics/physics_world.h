@@ -39,7 +39,6 @@ public:
     const SoftParticleSoAHost &softParticles() const noexcept;
     const std::vector<SoftEdge> &softEdges() const noexcept;
     const std::vector<SoftTet> &softTets() const noexcept;
-    const RigidSurfaceParticleSoAHost &rigidSurfaceParticles() const noexcept;
     void ensureDerivedStateUpToDate() const noexcept;
     const std::vector<std::uint32_t> &rigidBodyDirtyIndices() const noexcept;
     const std::vector<std::uint32_t> &colliderDirtyIndices() const noexcept;
@@ -54,6 +53,8 @@ public:
     void clearColliderUploadState() noexcept;
     bool staticBroadPhaseDirty() const noexcept;
     void clearStaticBroadPhaseDirty() noexcept;
+    std::uint32_t activeMovingColliderCount() const noexcept;
+    std::uint32_t staticColliderCount() const noexcept;
 
     void integrateRigidBodiesCpu(float dt) noexcept;
     bool writeBackRigidBodyState(std::uint32_t index, const Diligent::float4 &positionInvMass,
@@ -69,7 +70,6 @@ public:
     std::uint64_t revision() const noexcept;
     std::uint64_t rigidBodyTopologyRevision() const noexcept;
     std::uint64_t softBodyTopologyRevision() const noexcept;
-    std::uint64_t rigidSurfaceParticleRevision() const noexcept;
 
 private:
     static void writeRigidBodySoAAt(RigidBodySoAHost &soa, std::uint32_t index,
@@ -79,8 +79,11 @@ private:
     static bool isStaticBody(const RigidBodyState &state) noexcept;
     static bool staticBodyPoseChanged(const RigidBodyState &before,
                                       const RigidBodyState &after) noexcept;
+    static bool isMovingBody(const RigidBodyState &state) noexcept;
     static void normalizeRigidBodyState(RigidBodyState &state) noexcept;
     static void normalizeColliderState(ColliderState &state) noexcept;
+    static std::uint32_t colliderBroadPhaseContribution(const ColliderState &collider,
+                                                        const RigidBodyState *owner) noexcept;
 
     void markRigidBodyDirty(std::uint32_t index) noexcept;
     void markColliderDirty(std::uint32_t index) noexcept;
@@ -90,12 +93,11 @@ private:
     void removeColliderAtIndex(std::uint32_t index) noexcept;
     void rebuildBodyColliderMapping() const noexcept;
     void rebuildSoftBodyDerivedState() noexcept;
-    void rebuildRigidSurfaceParticles() const noexcept;
-    void markRigidSurfaceParticlesDirty() noexcept;
     void markAllRigidBodiesDirty() noexcept;
     void markAllCollidersDirty() noexcept;
+    std::uint32_t broadPhaseContributionForCollider(const ColliderState &collider) const noexcept;
+    std::uint32_t enabledColliderCountForEntity(common::EntityId entityId) const noexcept;
     static void normalizeSoftBodyState(SoftBodyState &state) noexcept;
-    float referenceParticleSpacing() const noexcept;
     bool prepareSoftBodyStateForInsert(const SoftBodyState &candidate,
                                        const SoftBodyState *previousState) noexcept;
 
@@ -124,7 +126,6 @@ private:
     SoftParticleSoAHost mSoftParticles{};
     std::vector<SoftEdge> mSoftEdges{};
     std::vector<SoftTet> mSoftTets{};
-    mutable RigidSurfaceParticleSoAHost mRigidSurfaceParticles{};
     std::vector<std::uint32_t> mRigidBodyDirtyIndices{};
     std::vector<std::uint32_t> mColliderDirtyIndices{};
     std::vector<std::uint8_t> mRigidBodyDirtyBits{};
@@ -135,12 +136,12 @@ private:
     bool mFullColliderUploadRequired            = false;
     mutable bool mBodyColliderMappingDirty      = true;
     bool mSoftBodyDerivedStateDirty             = true;
-    mutable bool mRigidSurfaceParticlesDirty    = true;
     bool mStaticBroadPhaseDirty                 = false;
+    std::uint32_t mActiveMovingColliderCount    = 0u;
+    std::uint32_t mStaticColliderCount          = 0u;
     std::uint64_t mRevision                     = 0;
     std::uint64_t mRigidBodyTopologyRevision    = 0;
     std::uint64_t mSoftBodyTopologyRevision     = 0;
-    std::uint64_t mRigidSurfaceParticleRevision = 0;
     RigidBodyId mNextRigidBodyId                = 1u;
     ColliderId mNextColliderId                  = 1u;
 };

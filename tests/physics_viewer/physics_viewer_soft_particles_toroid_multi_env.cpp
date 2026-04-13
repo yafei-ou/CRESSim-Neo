@@ -505,8 +505,9 @@ int main(int argc, char **argv)
     RuntimeConfig config{};
     config.gpuDeviceDesc.preferredBackend     = GpuBackend::Vulkan;
     config.gpuDeviceDesc.enableValidation     = false;
-    config.physicsDesc.softContactIterations  = 100;
-    config.physicsDesc.softInternalIterations = 100;
+    config.physicsDesc.softContactIterations  = 20;
+    config.physicsDesc.softInternalIterations = 20;
+    config.physicsDesc.enableBlockingReadback = true;
     std::uint64_t numFrames                   = 0u;
     std::uint32_t envCount                    = kDefaultEnvCount;
 
@@ -570,13 +571,14 @@ int main(int argc, char **argv)
     const bool windowEnabled           = (config.gpuDeviceDesc.preferredBackend != GpuBackend::Null);
     viewerDesc.windowEnabled           = windowEnabled;
     viewerDesc.windowVisible           = windowEnabled;
-    viewerDesc.startFullscreenWindowed = windowEnabled;
+    viewerDesc.startFullscreenWindowed = false;
     viewerDesc.maxFrames               = numFrames;
     viewerDesc.showStats               = true;
     viewerDesc.statsIntervalFrames     = 60u;
     viewerDesc.width                   = 1600;
     viewerDesc.height                  = 900;
     viewerDesc.enableDebugParticles    = false;
+    viewerDesc.vSync                   = false;
 
     if (!viewer.initialize(viewerDesc, config))
     {

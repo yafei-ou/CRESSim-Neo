@@ -26,12 +26,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const GpuParticleBroadPhaseEntry selfEntry = CRESSIM_SB_LOAD(g_ParticleBroadPhaseEntries, softIndex);
-    if (selfEntry.particleType != kParticleBroadPhaseEntryTypeSoft)
-    {
-        CRESSIM_SB_STORE(g_CandidateCounts, softIndex, 0u);
-        return;
-    }
+    const GpuParticleBroadPhaseEntry selfEntry =
+        CRESSIM_SB_LOAD(g_ParticleBroadPhaseEntries, softIndex);
 
     const float3 softPosition = CRESSIM_SB_LOAD(g_SoftParticlePositionsInvMass, softIndex).xyz;
     const float softRadius = CRESSIM_SB_LOAD(g_SoftParticleRadii, softIndex);

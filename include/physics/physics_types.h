@@ -187,42 +187,6 @@ struct SoftParticleSoAHost
     }
 };
 
-struct RigidSurfaceParticleSoAHost
-{
-    std::vector<Diligent::float4> localPositions;
-    std::vector<std::uint32_t> owningRigidBodyIndices;
-    std::vector<RigidBodyId> owningRigidBodyIds;
-    std::vector<std::uint32_t> owningColliderIndices;
-    std::vector<ColliderId> owningColliderIds;
-    std::vector<float> sampleRadii;
-    std::vector<std::uint32_t> environmentIndices;
-    std::vector<std::uint32_t> collisionLayers;
-    std::vector<std::uint32_t> collisionMasks;
-
-    std::size_t size() const noexcept
-    {
-        return localPositions.size();
-    }
-
-    bool empty() const noexcept
-    {
-        return localPositions.empty();
-    }
-
-    void clear()
-    {
-        localPositions.clear();
-        owningRigidBodyIndices.clear();
-        owningRigidBodyIds.clear();
-        owningColliderIndices.clear();
-        owningColliderIds.clear();
-        sampleRadii.clear();
-        environmentIndices.clear();
-        collisionLayers.clear();
-        collisionMasks.clear();
-    }
-};
-
 struct RigidBodySoAHost
 {
     std::vector<RigidBodyId> rigidBodyIds;

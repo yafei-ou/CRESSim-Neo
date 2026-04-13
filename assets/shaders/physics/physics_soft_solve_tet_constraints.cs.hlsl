@@ -1,17 +1,10 @@
 #include "physics/include/physics_rigid_common.hlsli"
 #include "physics/include/physics_soft_dispatch_constants.hlsli"
 
-static const float kSoftCorrectionAtomicScale = 100000.0;
-
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftTet, g_SoftTets);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_SoftTetLambdas);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_SoftPositionCorrections);
-
-int3 QuantizeSoftCorrection(float3 value)
-{
-    return int3(round(value * kSoftCorrectionAtomicScale));
-}
+CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftTetCorrection, g_SoftTetCorrections);
 
 float SignedTetVolume(float3 p0, float3 p1, float3 p2, float3 p3)
 {
@@ -84,24 +77,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 correction2 = w2 * deltaLambda * gradient2 * kSoftInternalRelaxation;
     const float3 correction3 = w3 * deltaLambda * gradient3 * kSoftInternalRelaxation;
 
-    const int3 quantized0 = QuantizeSoftCorrection(correction0);
-    const int3 quantized1 = QuantizeSoftCorrection(correction1);
-    const int3 quantized2 = QuantizeSoftCorrection(correction2);
-    const int3 quantized3 = QuantizeSoftCorrection(correction3);
-
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, i0).x, quantized0.x);
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, i0).y, quantized0.y);
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, i0).z, quantized0.z);
-
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, i1).x, quantized1.x);
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, i1).y, quantized1.y);
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, i1).z, quantized1.z);
-
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, i2).x, quantized2.x);
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, i2).y, quantized2.y);
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, i2).z, quantized2.z);
-
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, i3).x, quantized3.x);
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, i3).y, quantized3.y);
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, i3).z, quantized3.z);
+    GpuSoftTetCorrection tetCorrection;
+    tetCorrection.correction0 = float4(correction0, 0.0);
+    tetCorrection.correction1 = float4(correction1, 0.0);
+    tetCorrection.correction2 = float4(correction2, 0.0);
+    tetCorrection.correction3 = float4(correction3, 0.0);
+    CRESSIM_SB_STORE(g_SoftTetCorrections, tetIndex, tetCorrection);
 }

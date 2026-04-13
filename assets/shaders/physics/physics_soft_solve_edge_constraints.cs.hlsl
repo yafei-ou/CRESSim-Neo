@@ -1,17 +1,10 @@
 #include "physics/include/physics_rigid_common.hlsli"
 #include "physics/include/physics_soft_dispatch_constants.hlsli"
 
-static const float kSoftCorrectionAtomicScale = 100000.0;
-
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftEdge, g_SoftEdges);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_SoftEdgeLambdas);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_SoftPositionCorrections);
-
-int3 QuantizeSoftCorrection(float3 value)
-{
-    return int3(round(value * kSoftCorrectionAtomicScale));
-}
+CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftEdgeCorrection, g_SoftEdgeCorrections);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -61,14 +54,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const float3 correctionA = wA * deltaLambda * gradientA * kSoftInternalRelaxation;
     const float3 correctionB = wB * deltaLambda * gradientB * kSoftInternalRelaxation;
-    const int3 quantizedA = QuantizeSoftCorrection(correctionA);
-    const int3 quantizedB = QuantizeSoftCorrection(correctionB);
-
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, particleA).x, quantizedA.x);
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, particleA).y, quantizedA.y);
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, particleA).z, quantizedA.z);
-
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, particleB).x, quantizedB.x);
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, particleB).y, quantizedB.y);
-    InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, particleB).z, quantizedB.z);
+    GpuSoftEdgeCorrection edgeCorrection;
+    edgeCorrection.correctionA = float4(correctionA, 0.0);
+    edgeCorrection.correctionB = float4(correctionB, 0.0);
+    CRESSIM_SB_STORE(g_SoftEdgeCorrections, edgeIndex, edgeCorrection);
 }

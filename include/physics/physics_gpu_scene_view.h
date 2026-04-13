@@ -33,19 +33,6 @@ struct PhysicsGpuSoftParticleBufferView
     std::uint32_t count                            = 0;
 };
 
-struct PhysicsGpuRigidSurfaceParticleBufferView
-{
-    Diligent::IBuffer *localPositionsBuffer         = nullptr;
-    Diligent::IBuffer *worldPositionsBuffer         = nullptr;
-    Diligent::IBuffer *owningRigidBodyIndicesBuffer = nullptr;
-    Diligent::IBuffer *owningColliderIndicesBuffer  = nullptr;
-    Diligent::IBuffer *sampleRadiiBuffer            = nullptr;
-    Diligent::IBuffer *environmentIndicesBuffer     = nullptr;
-    Diligent::IBuffer *collisionLayersBuffer        = nullptr;
-    Diligent::IBuffer *collisionMasksBuffer         = nullptr;
-    std::uint32_t count                             = 0;
-};
-
 struct PhysicsGpuSoftSceneView
 {
     PhysicsGpuSoftParticleBufferView particles{};
@@ -54,7 +41,6 @@ struct PhysicsGpuSoftSceneView
     std::uint32_t softBodyCount    = 0;
     std::uint32_t edgeCount        = 0;
     std::uint32_t tetCount         = 0;
-    PhysicsGpuRigidSurfaceParticleBufferView rigidSurfaceParticles{};
 };
 
 struct CRESSIM_NEO_PHYSICS_API PhysicsGpuSceneView

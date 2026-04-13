@@ -82,12 +82,8 @@ int main()
         static_cast<std::uint32_t>(world.physicsWorld().softEdges().size());
     const std::uint32_t expectedTetCount =
         static_cast<std::uint32_t>(world.physicsWorld().softTets().size());
-    const std::uint32_t expectedSurfaceCount =
-        static_cast<std::uint32_t>(world.physicsWorld().rigidSurfaceParticles().size());
-
     if (sceneView.soft.softBodyCount != 1u || sceneView.soft.particles.count != expectedParticleCount ||
-        sceneView.soft.edgeCount != expectedEdgeCount || sceneView.soft.tetCount != expectedTetCount ||
-        sceneView.soft.rigidSurfaceParticles.count != expectedSurfaceCount)
+        sceneView.soft.edgeCount != expectedEdgeCount || sceneView.soft.tetCount != expectedTetCount)
     {
         CRESSIM_LOG_ERROR("Unexpected soft GPU scene counts.");
         runtime.shutdown();

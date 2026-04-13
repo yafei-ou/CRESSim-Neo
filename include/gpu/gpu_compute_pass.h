@@ -63,6 +63,12 @@ public:
                   const std::array<GpuBufferBinding, N> &bindings, std::uint32_t groupCountX,
                   std::uint32_t groupCountY = 1u, std::uint32_t groupCountZ = 1u) const;
 
+    template <std::size_t N>
+    bool dispatchIndirect(Diligent::IDeviceContext *computeContext, std::size_t variantIndex,
+                          const std::array<GpuBufferBinding, N> &bindings,
+                          Diligent::IBuffer *indirectArgsBuffer,
+                          Diligent::Uint64 indirectArgsOffset = 0u) const;
+
 private:
     static bool bindBufferVariable(Diligent::IShaderResourceBinding *srb, const char *variableName,
                                    Diligent::IBuffer *buffer, Diligent::BUFFER_VIEW_TYPE viewType);
@@ -121,6 +127,33 @@ bool GpuComputePass::dispatch(Diligent::IDeviceContext *computeContext, std::siz
     computeContext->CommitShaderResources(srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     computeContext->DispatchCompute(
         Diligent::DispatchComputeAttribs{groupCountX, groupCountY, groupCountZ});
+    return true;
+}
+
+template <std::size_t N>
+bool GpuComputePass::dispatchIndirect(Diligent::IDeviceContext *computeContext,
+                                      std::size_t variantIndex,
+                                      const std::array<GpuBufferBinding, N> &bindings,
+                                      Diligent::IBuffer *indirectArgsBuffer,
+                                      Diligent::Uint64 indirectArgsOffset) const
+{
+    Diligent::IShaderResourceBinding *srb = variantSrb(variantIndex);
+    if (computeContext == nullptr || mPso == nullptr || srb == nullptr ||
+        indirectArgsBuffer == nullptr)
+    {
+        return false;
+    }
+
+    if (!bindBufferVariables(srb, bindings))
+    {
+        return false;
+    }
+
+    computeContext->SetPipelineState(mPso);
+    computeContext->CommitShaderResources(srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{
+        indirectArgsBuffer, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+        indirectArgsOffset});
     return true;
 }
 

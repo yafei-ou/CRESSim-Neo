@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 #include <unordered_set>
 
 namespace cressim::neo::physics
@@ -14,6 +13,10 @@ namespace cressim::neo::physics
 
 namespace
 {
+
+constexpr std::uint32_t kBroadPhaseContributionNone   = 0u;
+constexpr std::uint32_t kBroadPhaseContributionMoving = 1u;
+constexpr std::uint32_t kBroadPhaseContributionStatic = 2u;
 
 Diligent::float4 toPositionInvMass(const RigidBodyState &state)
 {
@@ -132,7 +135,6 @@ void PhysicsWorld::clear()
     mSoftParticles.clear();
     mSoftEdges.clear();
     mSoftTets.clear();
-    mRigidSurfaceParticles.clear();
     mRigidBodyDirtyIndices.clear();
     mColliderDirtyIndices.clear();
     mRigidBodyDirtyBits.clear();
@@ -143,8 +145,9 @@ void PhysicsWorld::clear()
     mFullColliderUploadRequired  = true;
     mBodyColliderMappingDirty    = true;
     mSoftBodyDerivedStateDirty   = true;
-    markRigidSurfaceParticlesDirty();
     mStaticBroadPhaseDirty = true;
+    mActiveMovingColliderCount = 0u;
+    mStaticColliderCount = 0u;
     ++mRigidBodyTopologyRevision;
     ++mSoftBodyTopologyRevision;
     ++mRevision;
@@ -181,7 +184,6 @@ RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
         markRigidBodyDirty(index);
         markRigidBodyCountDirty();
         mBodyColliderMappingDirty = true;
-        markRigidSurfaceParticlesDirty();
         mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || isStaticBody(normalizedState);
         ++mRigidBodyTopologyRevision;
         ++mRevision;
@@ -191,12 +193,33 @@ RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
     const std::uint32_t index          = it->second;
     normalizedState.rigidBodyId        = mRigidBodySnapshot[index].rigidBodyId;
     const RigidBodyState previousState = mRigidBodySnapshot[index];
+    if (previousState.bodyType != normalizedState.bodyType)
+    {
+        const std::uint32_t enabledColliderCount =
+            enabledColliderCountForEntity(previousState.entityId);
+        if (isStaticBody(previousState))
+        {
+            mStaticColliderCount -= enabledColliderCount;
+        }
+        else if (isMovingBody(previousState))
+        {
+            mActiveMovingColliderCount -= enabledColliderCount;
+        }
+
+        if (isStaticBody(normalizedState))
+        {
+            mStaticColliderCount += enabledColliderCount;
+        }
+        else if (isMovingBody(normalizedState))
+        {
+            mActiveMovingColliderCount += enabledColliderCount;
+        }
+    }
     writeRigidBodySoAAt(mRigidBodies, index, normalizedState);
     mRigidBodySnapshot[index] = normalizedState;
     markRigidBodyDirty(index);
     mStaticBroadPhaseDirty =
         mStaticBroadPhaseDirty || staticBodyPoseChanged(previousState, normalizedState);
-    markRigidSurfaceParticlesDirty();
     ++mRevision;
     return mRigidBodySnapshot[index];
 }
@@ -255,7 +278,6 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     markRigidBodyCountDirty();
     markColliderCountDirty(true);
     mBodyColliderMappingDirty = true;
-    markRigidSurfaceParticlesDirty();
     mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || removedStatic;
     ++mRigidBodyTopologyRevision;
     ++mRevision;
@@ -307,10 +329,19 @@ void PhysicsWorld::upsertCollider(const ColliderState &state)
         mColliderIdToIndex.emplace(normalizedState.colliderId, colliderIndex);
         auto &entityColliderIds = mEntityToColliderIds[normalizedState.entityId];
         entityColliderIds.push_back(normalizedState.colliderId);
+        const std::uint32_t contribution =
+            colliderBroadPhaseContribution(normalizedState, &mRigidBodySnapshot[ownerBodyIndex]);
+        if (contribution == kBroadPhaseContributionStatic)
+        {
+            ++mStaticColliderCount;
+        }
+        else if (contribution == kBroadPhaseContributionMoving)
+        {
+            ++mActiveMovingColliderCount;
+        }
         markColliderDirty(colliderIndex);
         markColliderCountDirty();
         mBodyColliderMappingDirty = true;
-        markRigidSurfaceParticlesDirty();
         mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || ownerIsStatic;
         ++mRevision;
         return;
@@ -318,10 +349,41 @@ void PhysicsWorld::upsertCollider(const ColliderState &state)
 
     const std::uint32_t colliderIndex = colliderIt->second;
     const ColliderState previousState = mColliderSnapshot[colliderIndex];
+    const std::uint32_t previousContribution = broadPhaseContributionForCollider(previousState);
+    const std::uint32_t newContribution =
+        colliderBroadPhaseContribution(normalizedState, &mRigidBodySnapshot[ownerBodyIndex]);
+    const bool staticContributionChanged =
+        previousContribution == kBroadPhaseContributionStatic ||
+        newContribution == kBroadPhaseContributionStatic;
+    if (previousContribution != newContribution)
+    {
+        if (previousContribution == kBroadPhaseContributionStatic)
+        {
+            --mStaticColliderCount;
+        }
+        else if (previousContribution == kBroadPhaseContributionMoving)
+        {
+            --mActiveMovingColliderCount;
+        }
+
+        if (newContribution == kBroadPhaseContributionStatic)
+        {
+            ++mStaticColliderCount;
+        }
+        else if (newContribution == kBroadPhaseContributionMoving)
+        {
+            ++mActiveMovingColliderCount;
+        }
+    }
     writeColliderSoAAt(mColliders, colliderIndex, normalizedState, ownerBodyIndex);
     mColliderSnapshot[colliderIndex] = normalizedState;
     markColliderDirty(colliderIndex);
-    if (previousState.shapeType != normalizedState.shapeType ||
+    if (previousState.ownerRigidBodyId != normalizedState.ownerRigidBodyId)
+    {
+        mBodyColliderMappingDirty = true;
+    }
+    const bool staticColliderShapeChanged =
+        previousState.shapeType != normalizedState.shapeType ||
         previousState.shapeParams.x != normalizedState.shapeParams.x ||
         previousState.shapeParams.y != normalizedState.shapeParams.y ||
         previousState.shapeParams.z != normalizedState.shapeParams.z ||
@@ -333,28 +395,10 @@ void PhysicsWorld::upsertCollider(const ColliderState &state)
         previousState.localRotation.q.y != normalizedState.localRotation.q.y ||
         previousState.localRotation.q.z != normalizedState.localRotation.q.z ||
         previousState.localRotation.q.w != normalizedState.localRotation.q.w ||
-        previousState.enabled != normalizedState.enabled)
-    {
-        markRigidSurfaceParticlesDirty();
-    }
-    if (previousState.ownerRigidBodyId != normalizedState.ownerRigidBodyId)
-    {
-        mBodyColliderMappingDirty = true;
-        markRigidSurfaceParticlesDirty();
-    }
-    if (ownerIsStatic && (previousState.shapeType != normalizedState.shapeType ||
-                          previousState.shapeParams.x != normalizedState.shapeParams.x ||
-                          previousState.shapeParams.y != normalizedState.shapeParams.y ||
-                          previousState.shapeParams.z != normalizedState.shapeParams.z ||
-                          previousState.shapeParams.w != normalizedState.shapeParams.w ||
-                          previousState.localPosition.x != normalizedState.localPosition.x ||
-                          previousState.localPosition.y != normalizedState.localPosition.y ||
-                          previousState.localPosition.z != normalizedState.localPosition.z ||
-                          previousState.localRotation.q.x != normalizedState.localRotation.q.x ||
-                          previousState.localRotation.q.y != normalizedState.localRotation.q.y ||
-                          previousState.localRotation.q.z != normalizedState.localRotation.q.z ||
-                          previousState.localRotation.q.w != normalizedState.localRotation.q.w ||
-                          previousState.enabled != normalizedState.enabled))
+        previousState.enabled != normalizedState.enabled;
+    if (staticContributionChanged || ((previousContribution == kBroadPhaseContributionStatic ||
+                                      newContribution == kBroadPhaseContributionStatic) &&
+                                     staticColliderShapeChanged))
     {
         mStaticBroadPhaseDirty = true;
     }
@@ -378,7 +422,6 @@ bool PhysicsWorld::removeCollider(ColliderId colliderId)
     removeColliderAtIndex(it->second);
     markColliderCountDirty();
     mBodyColliderMappingDirty = true;
-    markRigidSurfaceParticlesDirty();
     mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || removedStaticOwner;
     ++mRevision;
     return true;
@@ -416,11 +459,20 @@ void PhysicsWorld::replaceColliders(common::EntityId entityId,
         writeColliderSoAAt(mColliders, colliderIndex, collider, ownerBodyIndex);
         mColliderIdToIndex.emplace(collider.colliderId, colliderIndex);
         entityColliderIds.push_back(collider.colliderId);
+        const std::uint32_t contribution =
+            colliderBroadPhaseContribution(collider, &mRigidBodySnapshot[ownerBodyIndex]);
+        if (contribution == kBroadPhaseContributionStatic)
+        {
+            ++mStaticColliderCount;
+        }
+        else if (contribution == kBroadPhaseContributionMoving)
+        {
+            ++mActiveMovingColliderCount;
+        }
     }
 
     markColliderCountDirty(true);
     mBodyColliderMappingDirty = true;
-    markRigidSurfaceParticlesDirty();
     mStaticBroadPhaseDirty = true;
     ++mRevision;
 }
@@ -454,7 +506,6 @@ bool PhysicsWorld::upsertSoftBody(const SoftBodyState &state)
     }
 
     rebuildSoftBodyDerivedState();
-    markRigidSurfaceParticlesDirty();
     ++mSoftBodyTopologyRevision;
     ++mRevision;
     return true;
@@ -479,7 +530,6 @@ bool PhysicsWorld::removeSoftBody(common::EntityId entityId)
     mEntityToSoftBodyIndex.erase(it);
     mTetGenMeshCache.erase(entityId);
     rebuildSoftBodyDerivedState();
-    markRigidSurfaceParticlesDirty();
     ++mSoftBodyTopologyRevision;
     ++mRevision;
     return true;
@@ -574,16 +624,6 @@ const std::vector<SoftTet> &PhysicsWorld::softTets() const noexcept
     return mSoftTets;
 }
 
-const RigidSurfaceParticleSoAHost &PhysicsWorld::rigidSurfaceParticles() const noexcept
-{
-    if (mRigidSurfaceParticlesDirty)
-    {
-        rebuildRigidSurfaceParticles();
-        mRigidSurfaceParticlesDirty = false;
-    }
-    return mRigidSurfaceParticles;
-}
-
 void PhysicsWorld::ensureDerivedStateUpToDate() const noexcept
 {
     if (mBodyColliderMappingDirty)
@@ -660,6 +700,16 @@ bool PhysicsWorld::staticBroadPhaseDirty() const noexcept
 void PhysicsWorld::clearStaticBroadPhaseDirty() noexcept
 {
     mStaticBroadPhaseDirty = false;
+}
+
+std::uint32_t PhysicsWorld::activeMovingColliderCount() const noexcept
+{
+    return mActiveMovingColliderCount;
+}
+
+std::uint32_t PhysicsWorld::staticColliderCount() const noexcept
+{
+    return mStaticColliderCount;
 }
 
 void PhysicsWorld::integrateRigidBodiesCpu(float dt) noexcept
@@ -764,11 +814,6 @@ std::uint64_t PhysicsWorld::softBodyTopologyRevision() const noexcept
     return mSoftBodyTopologyRevision;
 }
 
-std::uint64_t PhysicsWorld::rigidSurfaceParticleRevision() const noexcept
-{
-    return mRigidSurfaceParticleRevision;
-}
-
 void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost &soa, std::uint32_t index,
                                        const RigidBodyState &state)
 {
@@ -825,6 +870,29 @@ void PhysicsWorld::writeColliderSoAAt(ColliderSoAHost &soa, std::uint32_t index,
 bool PhysicsWorld::isStaticBody(const RigidBodyState &state) noexcept
 {
     return state.bodyType == RigidBodyType::Static;
+}
+
+bool PhysicsWorld::isMovingBody(const RigidBodyState &state) noexcept
+{
+    return state.bodyType == RigidBodyType::Kinematic || state.bodyType == RigidBodyType::Dynamic;
+}
+
+std::uint32_t PhysicsWorld::colliderBroadPhaseContribution(const ColliderState &collider,
+                                                           const RigidBodyState *owner) noexcept
+{
+    if (!collider.enabled || owner == nullptr)
+    {
+        return kBroadPhaseContributionNone;
+    }
+    if (isStaticBody(*owner))
+    {
+        return kBroadPhaseContributionStatic;
+    }
+    if (isMovingBody(*owner))
+    {
+        return kBroadPhaseContributionMoving;
+    }
+    return kBroadPhaseContributionNone;
 }
 
 bool PhysicsWorld::staticBodyPoseChanged(const RigidBodyState &before,
@@ -904,36 +972,6 @@ void PhysicsWorld::normalizeSoftBodyState(SoftBodyState &state) noexcept
     }
 }
 
-float PhysicsWorld::referenceParticleSpacing() const noexcept
-{
-    if (mSoftBodyDerivedStateDirty)
-    {
-        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
-    }
-
-    float spacing = std::numeric_limits<float>::max();
-    for (const SoftEdge &edge : mSoftEdges)
-    {
-        spacing = std::min(spacing, std::max(edge.restLength, 1.0e-4f));
-    }
-
-    if (std::isfinite(spacing) && spacing > 0.0f)
-    {
-        return spacing;
-    }
-
-    for (const SoftBodyState &softBody : mSoftBodySnapshot)
-    {
-        spacing = std::min(spacing, std::max(softBody.particleRadius * 2.0f, 1.0e-4f));
-    }
-
-    if (!std::isfinite(spacing) || spacing <= 0.0f)
-    {
-        return 0.25f;
-    }
-    return spacing;
-}
-
 void PhysicsWorld::removeCollidersForEntity(common::EntityId entityId) noexcept
 {
     const auto idsIt = mEntityToColliderIds.find(entityId);
@@ -966,6 +1004,15 @@ void PhysicsWorld::removeColliderAtIndex(std::uint32_t index) noexcept
 
     const std::uint32_t last    = colliderCount() - 1u;
     const ColliderState removed = mColliderSnapshot[index];
+    const std::uint32_t removedContribution = broadPhaseContributionForCollider(removed);
+    if (removedContribution == kBroadPhaseContributionStatic)
+    {
+        --mStaticColliderCount;
+    }
+    else if (removedContribution == kBroadPhaseContributionMoving)
+    {
+        --mActiveMovingColliderCount;
+    }
 
     auto removeHandleFromEntity = [&](common::EntityId entityId, ColliderId colliderId)
     {
@@ -1016,6 +1063,38 @@ void PhysicsWorld::removeColliderAtIndex(std::uint32_t index) noexcept
     mColliders.frictionRestitution.pop_back();
     mColliders.collisionLayers.pop_back();
     mColliders.collisionMasks.pop_back();
+}
+
+std::uint32_t PhysicsWorld::broadPhaseContributionForCollider(const ColliderState &collider) const noexcept
+{
+    const auto bodyIt = mRigidBodyIdToIndex.find(collider.ownerRigidBodyId);
+    const RigidBodyState *owner =
+        bodyIt != mRigidBodyIdToIndex.end() ? &mRigidBodySnapshot[bodyIt->second] : nullptr;
+    return colliderBroadPhaseContribution(collider, owner);
+}
+
+std::uint32_t PhysicsWorld::enabledColliderCountForEntity(common::EntityId entityId) const noexcept
+{
+    const auto handlesIt = mEntityToColliderIds.find(entityId);
+    if (handlesIt == mEntityToColliderIds.end())
+    {
+        return 0u;
+    }
+
+    std::uint32_t count = 0u;
+    for (const ColliderId colliderId : handlesIt->second)
+    {
+        const auto colliderIt = mColliderIdToIndex.find(colliderId);
+        if (colliderIt == mColliderIdToIndex.end())
+        {
+            continue;
+        }
+        if (mColliderSnapshot[colliderIt->second].enabled)
+        {
+            ++count;
+        }
+    }
+    return count;
 }
 
 void PhysicsWorld::rebuildBodyColliderMapping() const noexcept
@@ -1274,176 +1353,6 @@ const PhysicsWorld::TetGenMeshCache *PhysicsWorld::tryGetTetGenMeshCache(
     return it == mTetGenMeshCache.end() ? nullptr : &it->second;
 }
 
-void PhysicsWorld::rebuildRigidSurfaceParticles() const noexcept
-{
-    mRigidSurfaceParticles.clear();
-    const float referenceSpacing = referenceParticleSpacing();
-
-    for (std::uint32_t colliderIndex = 0u; colliderIndex < colliderCount(); ++colliderIndex)
-    {
-        const std::uint32_t bodyIndex = mColliders.ownerRigidBodyIndices[colliderIndex];
-        if (bodyIndex == 0xffffffffu || bodyIndex >= rigidBodyCount())
-        {
-            continue;
-        }
-
-        const ColliderState &collider = mColliderSnapshot[colliderIndex];
-        if (!collider.enabled)
-        {
-            continue;
-        }
-        const RigidBodyState &body = mRigidBodySnapshot[bodyIndex];
-
-        auto emitSample = [&](const Diligent::float3 &localPoint, float sampleRadius)
-        {
-            mRigidSurfaceParticles.localPositions.push_back(
-                Diligent::float4{localPoint.x, localPoint.y, localPoint.z, 0.0f});
-            mRigidSurfaceParticles.owningRigidBodyIndices.push_back(bodyIndex);
-            mRigidSurfaceParticles.owningRigidBodyIds.push_back(body.rigidBodyId);
-            mRigidSurfaceParticles.owningColliderIndices.push_back(colliderIndex);
-            mRigidSurfaceParticles.owningColliderIds.push_back(collider.colliderId);
-            mRigidSurfaceParticles.sampleRadii.push_back(sampleRadius);
-            mRigidSurfaceParticles.environmentIndices.push_back(collider.environmentIndex);
-            mRigidSurfaceParticles.collisionLayers.push_back(collider.collisionLayer);
-            mRigidSurfaceParticles.collisionMasks.push_back(collider.collisionMask);
-        };
-
-        switch (collider.shapeType)
-        {
-        case ColliderShapeType::Sphere:
-        {
-            const float radius        = std::max(collider.shapeParams.x * body.scale.x, 1.0e-4f);
-            const float sampleSpacing = std::max(referenceSpacing, 1.0e-3f);
-            const float sampleRadius  = std::max(sampleSpacing * 0.5f, 0.05f);
-            const std::uint32_t latitudeCount = std::max<std::uint32_t>(
-                3u, static_cast<std::uint32_t>(std::ceil(Diligent::PI_F * radius / sampleSpacing)));
-            const std::uint32_t longitudeCount =
-                std::max<std::uint32_t>(6u, static_cast<std::uint32_t>(std::ceil(
-                                                2.0f * Diligent::PI_F * radius / sampleSpacing)));
-
-            emitSample({0.0f, radius, 0.0f}, sampleRadius);
-            emitSample({0.0f, -radius, 0.0f}, sampleRadius);
-
-            for (std::uint32_t latIndex = 1u; latIndex < latitudeCount; ++latIndex)
-            {
-                const float v   = static_cast<float>(latIndex) / static_cast<float>(latitudeCount);
-                const float phi = Diligent::PI_F * v;
-                const float y   = std::cos(phi) * radius;
-                const float ringRadius = std::sin(phi) * radius;
-
-                for (std::uint32_t lonIndex = 0u; lonIndex < longitudeCount; ++lonIndex)
-                {
-                    const float u =
-                        static_cast<float>(lonIndex) / static_cast<float>(longitudeCount);
-                    const float theta = 2.0f * Diligent::PI_F * u;
-                    emitSample({std::cos(theta) * ringRadius, y, std::sin(theta) * ringRadius},
-                               sampleRadius);
-                }
-            }
-            break;
-        }
-        case ColliderShapeType::Box:
-        {
-            const Diligent::float3 halfExtents{collider.shapeParams.x * body.scale.x,
-                                               collider.shapeParams.y * body.scale.y,
-                                               collider.shapeParams.z * body.scale.z};
-            const float sampleSpacing = std::max(referenceSpacing, 1.0e-3f);
-            const float sampleRadius  = std::max(sampleSpacing * 0.5f, 0.05f);
-
-            auto emitFaceGrid = [&](float fixedCoord, std::uint32_t axis, float uMin, float uMax,
-                                    float vMin, float vMax)
-            {
-                const float uExtent        = uMax - uMin;
-                const float vExtent        = vMax - vMin;
-                const std::uint32_t uCount = std::max<std::uint32_t>(
-                    2u, static_cast<std::uint32_t>(std::ceil(uExtent / sampleSpacing)) + 1u);
-                const std::uint32_t vCount = std::max<std::uint32_t>(
-                    2u, static_cast<std::uint32_t>(std::ceil(vExtent / sampleSpacing)) + 1u);
-
-                for (std::uint32_t uIndex = 0u; uIndex < uCount; ++uIndex)
-                {
-                    const float uT =
-                        (uCount > 1u) ? static_cast<float>(uIndex) / static_cast<float>(uCount - 1u)
-                                      : 0.0f;
-                    const float u = uMin + (uMax - uMin) * uT;
-
-                    for (std::uint32_t vIndex = 0u; vIndex < vCount; ++vIndex)
-                    {
-                        const float vT = (vCount > 1u) ? static_cast<float>(vIndex) /
-                                                             static_cast<float>(vCount - 1u)
-                                                       : 0.0f;
-                        const float v  = vMin + (vMax - vMin) * vT;
-
-                        Diligent::float3 localPoint{};
-                        if (axis == 0u)
-                        {
-                            localPoint = {fixedCoord, u, v};
-                        }
-                        else if (axis == 1u)
-                        {
-                            localPoint = {u, fixedCoord, v};
-                        }
-                        else
-                        {
-                            localPoint = {u, v, fixedCoord};
-                        }
-                        emitSample(localPoint, sampleRadius);
-                    }
-                }
-            };
-
-            emitFaceGrid(-halfExtents.x, 0u, -halfExtents.y, halfExtents.y, -halfExtents.z,
-                         halfExtents.z);
-            emitFaceGrid(halfExtents.x, 0u, -halfExtents.y, halfExtents.y, -halfExtents.z,
-                         halfExtents.z);
-            emitFaceGrid(-halfExtents.y, 1u, -halfExtents.x, halfExtents.x, -halfExtents.z,
-                         halfExtents.z);
-            emitFaceGrid(halfExtents.y, 1u, -halfExtents.x, halfExtents.x, -halfExtents.z,
-                         halfExtents.z);
-            emitFaceGrid(-halfExtents.z, 2u, -halfExtents.x, halfExtents.x, -halfExtents.y,
-                         halfExtents.y);
-            emitFaceGrid(halfExtents.z, 2u, -halfExtents.x, halfExtents.x, -halfExtents.y,
-                         halfExtents.y);
-            break;
-        }
-        case ColliderShapeType::Capsule:
-        {
-            const float radius =
-                std::max(collider.shapeParams.x * std::max(body.scale.x, body.scale.z), 1.0e-4f);
-            const float halfHeight        = std::max(collider.shapeParams.y * body.scale.y, 0.0f);
-            const float sampleSpacing     = std::max(referenceSpacing, 1.0e-3f);
-            const float sampleRadius      = std::max(sampleSpacing * 0.5f, 0.05f);
-            const std::uint32_t ringCount = std::max<std::uint32_t>(
-                2u,
-                static_cast<std::uint32_t>(std::ceil((halfHeight * 2.0f) / sampleSpacing)) + 1u);
-            const std::uint32_t angularCount =
-                std::max<std::uint32_t>(6u, static_cast<std::uint32_t>(std::ceil(
-                                                2.0f * Diligent::PI_F * radius / sampleSpacing)));
-
-            for (std::uint32_t ringIndex = 0u; ringIndex < ringCount; ++ringIndex)
-            {
-                const float t = (ringCount > 1u) ? static_cast<float>(ringIndex) /
-                                                       static_cast<float>(ringCount - 1u)
-                                                 : 0.5f;
-                const float y = -halfHeight + (halfHeight * 2.0f) * t;
-                for (std::uint32_t angleIndex = 0u; angleIndex < angularCount; ++angleIndex)
-                {
-                    const float u =
-                        static_cast<float>(angleIndex) / static_cast<float>(angularCount);
-                    const float theta = 2.0f * Diligent::PI_F * u;
-                    emitSample({std::cos(theta) * radius, y, std::sin(theta) * radius},
-                               sampleRadius);
-                }
-            }
-
-            emitSample({0.0f, halfHeight + radius, 0.0f}, sampleRadius);
-            emitSample({0.0f, -halfHeight - radius, 0.0f}, sampleRadius);
-            break;
-        }
-        }
-    }
-}
-
 void PhysicsWorld::markAllRigidBodiesDirty() noexcept
 {
     mFullRigidBodyUploadRequired = true;
@@ -1471,12 +1380,6 @@ void PhysicsWorld::markAllCollidersDirty() noexcept
 void PhysicsWorld::markRigidBodyDirty(std::uint32_t index) noexcept
 {
     enqueueDirtyIndex(index, mRigidBodyDirtyIndices, mRigidBodyDirtyBits);
-}
-
-void PhysicsWorld::markRigidSurfaceParticlesDirty() noexcept
-{
-    mRigidSurfaceParticlesDirty = true;
-    ++mRigidSurfaceParticleRevision;
 }
 
 void PhysicsWorld::markColliderDirty(std::uint32_t index) noexcept

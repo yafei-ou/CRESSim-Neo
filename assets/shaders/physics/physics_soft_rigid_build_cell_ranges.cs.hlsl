@@ -10,8 +10,7 @@ CRESSIM_RW_STRUCTURED_BUFFER(GpuParticleCellRange, g_ParticleCellRanges);
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint idx = dispatchThreadID.x;
-    const uint totalParticleCount = softParticleCount + rigidSurfaceParticleCount;
-    if (idx >= totalParticleCount)
+    if (idx >= softParticleCount)
     {
         return;
     }
@@ -28,7 +27,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     [loop]
     while (true)
     {
-        if (endIndex >= totalParticleCount)
+        if (endIndex >= softParticleCount)
         {
             break;
         }
