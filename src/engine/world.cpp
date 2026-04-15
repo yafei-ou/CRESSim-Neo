@@ -1521,6 +1521,7 @@ graphics::HostSceneView World::hostSceneView() const noexcept
 {
     return graphics::HostSceneView{
         &mRenderables,
+        &mRenderableMetadataHost,
         &mRenderCameras,
         &mRenderLights,
         &mEnvironmentIbls,

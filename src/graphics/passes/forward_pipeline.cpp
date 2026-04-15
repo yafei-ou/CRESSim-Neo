@@ -298,6 +298,24 @@ bool updateConstants(Diligent::IDeviceContext *context, Diligent::IBuffer *const
     return true;
 }
 
+bool hasActiveSoftBodyRenderables(const std::vector<GpuRenderableMetadata> *metadata)
+{
+    if (metadata == nullptr)
+    {
+        return false;
+    }
+
+    for (const GpuRenderableMetadata &entry : *metadata)
+    {
+        if ((entry.flags & static_cast<std::uint32_t>(GpuRenderableFlags::Active)) != 0u &&
+            entry.softBodyIndex != 0xffffffffu)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 gpu::GpuRenderViewport viewportForBatch(const CameraBatchView &batchView)
 {
     if (batchView.cameras.size() == 1u && batchView.cameras.front().useOutputViewport)
@@ -1003,6 +1021,14 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
 
         if (envCount > 0u)
         {
+            const bool needsSoftBodyWorldAabbs =
+                hasActiveSoftBodyRenderables(sceneView.renderableMetadata);
+            if (needsSoftBodyWorldAabbs &&
+                (physicsScene == nullptr || physicsScene->soft.worldAabbsBuffer == nullptr))
+            {
+                return false;
+            }
+
             const std::array envBoundsResetBindings{
                 gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
                                       mGpuIndirectState->localShadowPrepareConstantsBuffer,
@@ -1018,27 +1044,50 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                 return false;
             }
 
-            const std::array envBoundsPrepareBindings{
-                gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
-                                      mGpuIndirectState->localShadowPrepareConstantsBuffer,
-                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-                gpu::GpuBufferBinding{"g_RenderableMetadata", gpuScene.renderableMetadataBuffer,
-                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-                gpu::GpuBufferBinding{"g_EntityPositions", gpuScene.poses.positionsBuffer,
-                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-                gpu::GpuBufferBinding{"g_SoftBodyWorldAabbs",
-                                      physicsScene != nullptr ? physicsScene->soft.worldAabbsBuffer
-                                                              : nullptr,
-                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-                gpu::GpuBufferBinding{"g_LocalShadowEnvBoundsRW",
-                                      mGpuIndirectState->localShadowEnvBoundsBuffer,
-                                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-            };
-            if (!mGpuIndirectState->localShadowEnvBoundsPreparePass.dispatch(
-                    backendContext.graphicsContext, 0u, envBoundsPrepareBindings,
-                    dispatchGroupCount(totalObjectCount)))
+            if (needsSoftBodyWorldAabbs)
             {
-                return false;
+                const std::array envBoundsPrepareBindings{
+                    gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
+                                          mGpuIndirectState->localShadowPrepareConstantsBuffer,
+                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                    gpu::GpuBufferBinding{"g_RenderableMetadata", gpuScene.renderableMetadataBuffer,
+                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                    gpu::GpuBufferBinding{"g_EntityPositions", gpuScene.poses.positionsBuffer,
+                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                    gpu::GpuBufferBinding{"g_SoftBodyWorldAabbs",
+                                          physicsScene->soft.worldAabbsBuffer,
+                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                    gpu::GpuBufferBinding{"g_LocalShadowEnvBoundsRW",
+                                          mGpuIndirectState->localShadowEnvBoundsBuffer,
+                                          Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+                };
+                if (!mGpuIndirectState->localShadowEnvBoundsPreparePass.dispatch(
+                        backendContext.graphicsContext, 0u, envBoundsPrepareBindings,
+                        dispatchGroupCount(totalObjectCount)))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                const std::array envBoundsPrepareBindings{
+                    gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
+                                          mGpuIndirectState->localShadowPrepareConstantsBuffer,
+                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                    gpu::GpuBufferBinding{"g_RenderableMetadata", gpuScene.renderableMetadataBuffer,
+                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                    gpu::GpuBufferBinding{"g_EntityPositions", gpuScene.poses.positionsBuffer,
+                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                    gpu::GpuBufferBinding{"g_LocalShadowEnvBoundsRW",
+                                          mGpuIndirectState->localShadowEnvBoundsBuffer,
+                                          Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+                };
+                if (!mGpuIndirectState->localShadowEnvBoundsPreparePass.dispatch(
+                        backendContext.graphicsContext, 0u, envBoundsPrepareBindings,
+                        dispatchGroupCount(totalObjectCount)))
+                {
+                    return false;
+                }
             }
 
             const std::array viewPrepareBindings{

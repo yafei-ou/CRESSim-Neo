@@ -71,6 +71,7 @@ struct LightData
 struct HostSceneView
 {
     const std::vector<RenderableInstance> *renderables                       = nullptr;
+    const std::vector<GpuRenderableMetadata> *renderableMetadata             = nullptr;
     const std::vector<CameraData> *cameras                                   = nullptr;
     const std::vector<LightData> *lights                                     = nullptr;
     const std::vector<EnvironmentIblDesc> *environmentIbls                   = nullptr;

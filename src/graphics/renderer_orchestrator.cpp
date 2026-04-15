@@ -116,6 +116,24 @@ std::uint32_t countActiveLights(const std::vector<LightData> &lights)
     return count;
 }
 
+bool hasActiveSoftBodyRenderables(const std::vector<GpuRenderableMetadata> *metadata)
+{
+    if (metadata == nullptr)
+    {
+        return false;
+    }
+
+    for (const GpuRenderableMetadata &entry : *metadata)
+    {
+        if ((entry.flags & static_cast<std::uint32_t>(GpuRenderableFlags::Active)) != 0u &&
+            entry.softBodyIndex != 0xffffffffu)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool isMainDirectionalLightActive(const LightData &light)
 {
     if (light.entityId == common::kInvalidEntityId ||
@@ -265,7 +283,7 @@ bool Renderer::ensureGpuScenePrepareState()
     return true;
 }
 
-bool Renderer::prepareGpuScene(const GpuEntitySceneView &sceneView,
+bool Renderer::prepareGpuScene(const HostSceneView &world, const GpuEntitySceneView &sceneView,
                                const physics::PhysicsGpuSceneView *physicsScene)
 {
     if (sceneView.renderableCount == 0u || sceneView.cameraCount == 0u)
@@ -278,12 +296,17 @@ bool Renderer::prepareGpuScene(const GpuEntitySceneView &sceneView,
         sceneView.preparedCamerasBuffer == nullptr || sceneView.lightInputsBuffer == nullptr ||
         sceneView.localLightSelectionBuffer == nullptr ||
         sceneView.renderableVisibilityFlagsBuffer == nullptr ||
-        sceneView.renderableShadowCascadeMasksBuffer == nullptr || physicsScene == nullptr ||
-        physicsScene->soft.worldAabbsBuffer == nullptr)
+        sceneView.renderableShadowCascadeMasksBuffer == nullptr)
     {
         return false;
     }
     if (!ensureGpuScenePrepareState())
+    {
+        return false;
+    }
+    const bool needsSoftBodyWorldAabbs = hasActiveSoftBodyRenderables(world.renderableMetadata);
+    if (needsSoftBodyWorldAabbs &&
+        (physicsScene == nullptr || physicsScene->soft.worldAabbsBuffer == nullptr))
     {
         return false;
     }
@@ -346,6 +369,37 @@ bool Renderer::prepareGpuScene(const GpuEntitySceneView &sceneView,
     backendContext.graphicsContext->UnmapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
                                                 Diligent::MAP_WRITE);
 
+    if (needsSoftBodyWorldAabbs)
+    {
+        const std::array bindings{
+            gpu::GpuBufferBinding{"GraphicsScenePrepareConstants",
+                                  mGpuScenePrepare->scenePrepareConstantsBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_EntityPositions", sceneView.poses.positionsBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_EntityOrientations", sceneView.poses.orientationsBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_EntityScales", sceneView.poses.scalesBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_RenderableMetadata", sceneView.renderableMetadataBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_SoftBodyWorldAabbs", physicsScene->soft.worldAabbsBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_PreparedCameras", sceneView.preparedCamerasBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_RenderableVisibilityFlagsRW",
+                                  sceneView.renderableVisibilityFlagsBuffer,
+                                  Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+            gpu::GpuBufferBinding{"g_RenderableShadowCascadeMasksRW",
+                                  sceneView.renderableShadowCascadeMasksBuffer,
+                                  Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        };
+
+        return mGpuScenePrepare->scenePreparePass.dispatch(
+            backendContext.graphicsContext, 0u, bindings,
+            dispatchGroupCount(sceneView.layout.maxRenderableObjectsPerEnv * sceneView.cameraCount));
+    }
+
     const std::array bindings{
         gpu::GpuBufferBinding{"GraphicsScenePrepareConstants",
                               mGpuScenePrepare->scenePrepareConstantsBuffer,
@@ -357,8 +411,6 @@ bool Renderer::prepareGpuScene(const GpuEntitySceneView &sceneView,
         gpu::GpuBufferBinding{"g_EntityScales", sceneView.poses.scalesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RenderableMetadata", sceneView.renderableMetadataBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_SoftBodyWorldAabbs", physicsScene->soft.worldAabbsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PreparedCameras", sceneView.preparedCamerasBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -435,7 +487,7 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
         cameras.push_back(detail::defaultCamera());
     }
 
-    if (!prepareGpuScene(gpuScene, physicsScene))
+    if (!prepareGpuScene(world, gpuScene, physicsScene))
     {
         mDevice.endFrame(frameContext);
         return stats;

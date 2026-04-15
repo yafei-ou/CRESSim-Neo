@@ -87,7 +87,7 @@ public:
 private:
     struct GpuScenePrepareState;
     bool ensureGpuScenePrepareState();
-    bool prepareGpuScene(const GpuEntitySceneView &sceneView,
+    bool prepareGpuScene(const HostSceneView &world, const GpuEntitySceneView &sceneView,
                          const physics::PhysicsGpuSceneView *physicsScene);
 
     gpu::GpuDevice &mDevice;
