@@ -76,10 +76,15 @@ struct GpuRenderableMetadata
     std::uint32_t flags                     = static_cast<std::uint32_t>(GpuRenderableFlags::None);
     std::uint32_t softBodyVertexBindingBase = 0u;
     std::uint32_t softBodyVertexNormalBase  = 0u;
+    std::uint32_t softBodyIndex             = 0xffffffffu;
     std::uint32_t softBodyVertexCount       = 0u;
+    std::uint32_t reserved0                 = 0u;
+    std::uint32_t reserved1                 = 0u;
+    std::uint32_t reserved2                 = 0u;
     Diligent::float4 localBoundsMin{};
     Diligent::float4 localBoundsMax{};
 };
+static_assert(sizeof(GpuRenderableMetadata) == 64u);
 
 struct GpuSoftBodyVertexBinding
 {
@@ -110,7 +115,6 @@ struct GpuEntitySceneView
     Diligent::IBuffer *lightInputsBuffer                  = nullptr;
     Diligent::IBuffer *localLightSelectionBuffer          = nullptr;
     Diligent::IBuffer *softBodyVertexBindingBuffer        = nullptr;
-    Diligent::IBuffer *softBodyVertexNormalBuffer         = nullptr;
     std::uint32_t entityCount                             = 0;
     std::uint32_t renderableCount                         = 0;
     std::uint32_t cameraCount                             = 0;

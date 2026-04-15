@@ -814,7 +814,7 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
         if (mPhysicsScene == nullptr ||
             mPhysicsScene->soft.particles.positionsInvMassBuffer == nullptr ||
             mSceneView.softBodyVertexBindingBuffer == nullptr ||
-            mSceneView.softBodyVertexNormalBuffer == nullptr)
+            mPhysicsScene->soft.renderNormalsBuffer == nullptr)
         {
             return false;
         }
@@ -836,7 +836,7 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
                 Diligent::BUFFER_VIEW_SHADER_RESOURCE);
         Diligent::IBufferView *bindingSrv = mSceneView.softBodyVertexBindingBuffer->GetDefaultView(
             Diligent::BUFFER_VIEW_SHADER_RESOURCE);
-        Diligent::IBufferView *normalSrv = mSceneView.softBodyVertexNormalBuffer->GetDefaultView(
+        Diligent::IBufferView *normalSrv = mPhysicsScene->soft.renderNormalsBuffer->GetDefaultView(
             Diligent::BUFFER_VIEW_SHADER_RESOURCE);
         if (softParticleSrv == nullptr || bindingSrv == nullptr || normalSrv == nullptr)
         {

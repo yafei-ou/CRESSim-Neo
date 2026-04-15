@@ -6,7 +6,11 @@ struct RenderableMetadata
     uint flags;
     uint softBodyVertexBindingBase;
     uint softBodyVertexNormalBase;
+    uint softBodyIndex;
     uint softBodyVertexCount;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
     float4 localBoundsMin;
     float4 localBoundsMax;
 };
@@ -17,6 +21,12 @@ struct SoftBodyVertexBinding
     uint reserved0;
     uint reserved1;
     uint reserved2;
+};
+
+struct SoftBodyWorldAabb
+{
+    float4 minBounds;
+    float4 maxBounds;
 };
 
 struct PreparedCamera
@@ -157,6 +167,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositions);
 CRESSIM_STRUCTURED_BUFFER(SoftBodyVertexBinding, g_SoftBodyVertexBindings);
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftBodyVertexNormals);
 #endif
+CRESSIM_STRUCTURED_BUFFER(SoftBodyWorldAabb, g_SoftBodyWorldAabbs);
 #if defined(CRESSIM_IBL_DIFFUSE_ONLY) || defined(CRESSIM_IBL_FULL)
 CRESSIM_STRUCTURED_BUFFER(EnvironmentIblLookupEntry, g_EnvironmentIblLookup);
 #endif
@@ -166,6 +177,7 @@ static const uint CRESSIM_RENDERABLE_FLAG_SHADOW_CASTER = 1u << 2u;
 static const uint CRESSIM_INVALID_GPU_SCENE_INDEX = 0xffffffffu;
 static const uint CRESSIM_INVALID_BATCH_CAMERA_LAYER = 0xffffffffu;
 static const uint CRESSIM_INVALID_SOFT_BODY_VERTEX_BASE = 0xffffffffu;
+static const uint CRESSIM_INVALID_SOFT_BODY_INDEX = 0xffffffffu;
 static const uint CRESSIM_FORWARD_LOCAL_LIGHT_CAP = 8u;
 static const uint CRESSIM_SHADOWED_LOCAL_LIGHT_CAP = 4u;
 static const uint CRESSIM_SHADOWED_POINT_LIGHT_CAP = 1u;

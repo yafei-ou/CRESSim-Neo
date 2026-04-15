@@ -99,7 +99,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     }
 
     gpu::GpuComputeBackendContext computeBackend{};
+    gpu::GpuGraphicsBackendContext graphicsBackend{};
     if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+        !mDevice.tryGetGraphicsBackendContext(graphicsBackend) ||
         computeBackend.renderDevice == nullptr || computeBackend.computeContext == nullptr)
     {
         CRESSIM_LOG_ERROR("PhysicsSolver::step failed: missing physics backend context.");
@@ -113,9 +115,17 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const SoftParticleSoAHost &softParticles = world.softParticles();
     const std::vector<SoftEdge> &softEdges   = world.softEdges();
     const std::vector<SoftTet> &softTets     = world.softTets();
+    const SoftRenderDataHost &softRenderData = world.softRenderData();
     const std::uint32_t softParticleCount    = static_cast<std::uint32_t>(softParticles.size());
     const std::uint32_t softEdgeCount        = static_cast<std::uint32_t>(softEdges.size());
     const std::uint32_t softTetCount         = static_cast<std::uint32_t>(softTets.size());
+    const std::uint32_t softRenderTriangleCount =
+        static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
+    std::uint32_t softBodyBoundsChunkCount = 0u;
+    for (const Diligent::uint2 &range : softRenderData.softBodyParticleRanges)
+    {
+        softBodyBoundsChunkCount += (range.y + 64u - 1u) / 64u;
+    }
     float particleGridCellSize = 0.0f;
     for (const float radius : softParticles.radii)
     {
@@ -130,7 +140,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
     if (!mImpl->sceneState.ensureCapacity(
             computeBackend.renderDevice, rigidBodyCount, colliderCount, softParticleCount,
-            softEdgeCount, softTetCount, computeBackend.contextId))
+            softEdgeCount, softTetCount,
+            static_cast<std::uint32_t>(softRenderData.fallbackNormals.size()),
+            static_cast<std::uint32_t>(softRenderData.vertexTriangleIndices.size()),
+            softRenderTriangleCount,
+            static_cast<std::uint32_t>(softRenderData.softBodyParticleRanges.size()),
+            softBodyBoundsChunkCount,
+            gpu::contextMaskForId(computeBackend.contextId) |
+                gpu::contextMaskForId(graphicsBackend.contextId)))
     {
         CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ensureCapacity.");
         return false;
@@ -500,6 +517,26 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftVelocities dispatch.");
             return false;
         }
+        if (!mImpl->passDispatcher.updateSoftTriangleNormals(
+                computeBackend.computeContext, mImpl->sceneState, softRenderTriangleCount))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftTriangleNormals dispatch.");
+            return false;
+        }
+        if (!mImpl->passDispatcher.updateSoftRenderNormals(
+                computeBackend.computeContext, mImpl->sceneState,
+                static_cast<std::uint32_t>(softRenderData.fallbackNormals.size())))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftRenderNormals dispatch.");
+            return false;
+        }
+        if (!mImpl->passDispatcher.updateSoftBodyBounds(
+                computeBackend.computeContext, mImpl->sceneState, world.softBodyCount(),
+                softBodyBoundsChunkCount))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftBodyBounds dispatch.");
+            return false;
+        }
 
         if (hasRigidBroadPhaseWork && rigidRigidContactIterations > 0u &&
             !mImpl->passDispatcher.solveRigidContactVelocities(
@@ -510,8 +547,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
 
-        if (substep + 1u < substeps && !mImpl->sceneState.copyPredictedRigidBodiesToPersistentState(
-                                           computeBackend.computeContext, rigidBodyCount))
+        if (!mImpl->sceneState.copyPredictedRigidBodiesToPersistentState(
+                computeBackend.computeContext, rigidBodyCount))
         {
             CRESSIM_LOG_ERROR(
                 "PhysicsSolver::step failed: copyPredictedRigidBodiesToPersistentState.");

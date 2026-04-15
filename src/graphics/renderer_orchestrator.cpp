@@ -2,6 +2,7 @@
 
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
+#include "physics/physics_gpu_scene_view.h"
 #include "graphics/output_planner.h"
 #include "graphics/passes/display_resolve_pass.h"
 #include "graphics/passes/forward_pipeline.h"
@@ -64,6 +65,8 @@ constexpr Diligent::ShaderResourceVariableDesc kScenePrepareVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "g_EntityScales",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RenderableMetadata",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBodyWorldAabbs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PreparedCameras",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -262,7 +265,8 @@ bool Renderer::ensureGpuScenePrepareState()
     return true;
 }
 
-bool Renderer::prepareGpuScene(const GpuEntitySceneView &sceneView)
+bool Renderer::prepareGpuScene(const GpuEntitySceneView &sceneView,
+                               const physics::PhysicsGpuSceneView *physicsScene)
 {
     if (sceneView.renderableCount == 0u || sceneView.cameraCount == 0u)
     {
@@ -274,7 +278,8 @@ bool Renderer::prepareGpuScene(const GpuEntitySceneView &sceneView)
         sceneView.preparedCamerasBuffer == nullptr || sceneView.lightInputsBuffer == nullptr ||
         sceneView.localLightSelectionBuffer == nullptr ||
         sceneView.renderableVisibilityFlagsBuffer == nullptr ||
-        sceneView.renderableShadowCascadeMasksBuffer == nullptr)
+        sceneView.renderableShadowCascadeMasksBuffer == nullptr || physicsScene == nullptr ||
+        physicsScene->soft.worldAabbsBuffer == nullptr)
     {
         return false;
     }
@@ -353,6 +358,8 @@ bool Renderer::prepareGpuScene(const GpuEntitySceneView &sceneView)
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RenderableMetadata", sceneView.renderableMetadataBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftBodyWorldAabbs", physicsScene->soft.worldAabbsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PreparedCameras", sceneView.preparedCamerasBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RenderableVisibilityFlagsRW",
@@ -428,7 +435,7 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
         cameras.push_back(detail::defaultCamera());
     }
 
-    if (!prepareGpuScene(gpuScene))
+    if (!prepareGpuScene(gpuScene, physicsScene))
     {
         mDevice.endFrame(frameContext);
         return stats;

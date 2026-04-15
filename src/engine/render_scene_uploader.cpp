@@ -148,8 +148,6 @@ void RenderSceneUploader::shutdown()
     mRenderableCount                    = 0;
     mSoftBodyVertexBindingCapacity      = 0;
     mSoftBodyVertexBindingCount         = 0;
-    mSoftBodyVertexNormalCapacity       = 0;
-    mSoftBodyVertexNormalCount          = 0;
     mCameraCapacity                     = 0;
     mCameraCount                        = 0;
     mLightCapacity                      = 0;
@@ -168,7 +166,6 @@ void RenderSceneUploader::shutdown()
     mRenderableVisibilityFlagsBuffer    = nullptr;
     mRenderableShadowCascadeMasksBuffer = nullptr;
     mSoftBodyVertexBindingBuffer        = nullptr;
-    mSoftBodyVertexNormalBuffer         = nullptr;
     mCameraInputsBuffer                 = nullptr;
     mPreparedCamerasBuffer              = nullptr;
     mLightInputsBuffer                  = nullptr;
@@ -462,38 +459,6 @@ bool RenderSceneUploader::uploadSoftBodyVertexBindings(
                        bindings.size() * sizeof(graphics::GpuSoftBodyVertexBinding));
 }
 
-bool RenderSceneUploader::uploadSoftBodyVertexNormals(const std::vector<Diligent::float4> &normals)
-{
-    if (!mInitialized)
-    {
-        return false;
-    }
-
-    gpu::GpuGraphicsBackendContext graphicsContext{};
-    if (!mDevice.tryGetGraphicsBackendContext(graphicsContext) ||
-        graphicsContext.renderDevice == nullptr || graphicsContext.graphicsContext == nullptr)
-    {
-        return false;
-    }
-
-    mSoftBodyVertexNormalCount = static_cast<std::uint32_t>(normals.size());
-    if (!ensureSoftBodyBufferCapacity(graphicsContext.renderDevice, mGraphicsContextMask,
-                                      "CRESSimNeo.Gpu.SoftBodyVertexNormals",
-                                      sizeof(Diligent::float4), mSoftBodyVertexNormalCount,
-                                      mSoftBodyVertexNormalBuffer, mSoftBodyVertexNormalCapacity))
-    {
-        return false;
-    }
-
-    if (normals.empty())
-    {
-        return true;
-    }
-
-    return writeBuffer(graphicsContext.graphicsContext, mSoftBodyVertexNormalBuffer, normals.data(),
-                       normals.size() * sizeof(Diligent::float4));
-}
-
 bool RenderSceneUploader::uploadCameraInputs(const std::vector<graphics::GpuCameraInput> &cameras)
 {
     if (!mInitialized)
@@ -738,7 +703,6 @@ graphics::GpuEntitySceneView RenderSceneUploader::sceneView() const noexcept
     view.lightInputsBuffer                  = mLightInputsBuffer;
     view.localLightSelectionBuffer          = mLocalLightSelectionBuffer;
     view.softBodyVertexBindingBuffer        = mSoftBodyVertexBindingBuffer;
-    view.softBodyVertexNormalBuffer         = mSoftBodyVertexNormalBuffer;
     view.entityCount                        = mEntityCount;
     view.renderableCount                    = mRenderableCount;
     view.cameraCount                        = mCameraCount;

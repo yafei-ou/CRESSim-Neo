@@ -32,7 +32,6 @@ public:
     bool uploadRenderableQueueInfo(const std::vector<graphics::GpuRenderableQueueInfo> &queueInfo);
     bool uploadSoftBodyVertexBindings(
         const std::vector<graphics::GpuSoftBodyVertexBinding> &bindings);
-    bool uploadSoftBodyVertexNormals(const std::vector<Diligent::float4> &normals);
     bool uploadCameraInputs(const std::vector<graphics::GpuCameraInput> &cameras);
     bool uploadLightInputs(const std::vector<graphics::GpuLightInput> &lights);
     bool uploadLocalLightSelections(
@@ -67,8 +66,6 @@ private:
     std::uint32_t mRenderableCount               = 0;
     std::uint32_t mSoftBodyVertexBindingCapacity = 0;
     std::uint32_t mSoftBodyVertexBindingCount    = 0;
-    std::uint32_t mSoftBodyVertexNormalCapacity  = 0;
-    std::uint32_t mSoftBodyVertexNormalCount     = 0;
     std::uint32_t mCameraCapacity                = 0;
     std::uint32_t mCameraCount                   = 0;
     std::uint32_t mLightCapacity                 = 0;
@@ -93,7 +90,6 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableVisibilityFlagsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRenderableShadowCascadeMasksBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftBodyVertexBindingBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftBodyVertexNormalBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mCameraInputsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPreparedCamerasBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mLightInputsBuffer;

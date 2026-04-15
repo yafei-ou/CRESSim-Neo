@@ -419,6 +419,54 @@ constexpr Diligent::ShaderResourceVariableDesc kUpdateSoftVelocitiesVars[] = {
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kUpdateSoftRenderNormalsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftRenderDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRenderTriangleNormals",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRenderVertexTriangleRanges",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRenderVertexTriangleIndices",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRenderFallbackNormals",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBodyRenderNormalsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kUpdateSoftTriangleNormalsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftRenderDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRenderTriangleParticleIndices",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRenderTriangleNormalsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kUpdateSoftBodyBoundsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftRenderDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBodyBoundsChunks",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBodyChunkAabbsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kFinalizeSoftBodyBoundsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftRenderDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBodyChunkRanges",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBodyChunkAabbs",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBodyWorldAabbsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kUpdateWorldAabbsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -1070,6 +1118,38 @@ const gpu::GpuComputePassDefinition kUpdateSoftVelocities{
     "CRESSimNeo.Physics.UpdateSoftVelocities.PSO",
     kUpdateSoftVelocitiesVars,
     std::size(kUpdateSoftVelocitiesVars),
+};
+
+const gpu::GpuComputePassDefinition kUpdateSoftTriangleNormals{
+    "physics/physics_soft_update_triangle_normals.cs.hlsl",
+    "CRESSimNeo.Physics.UpdateSoftTriangleNormals.CS",
+    "CRESSimNeo.Physics.UpdateSoftTriangleNormals.PSO",
+    kUpdateSoftTriangleNormalsVars,
+    std::size(kUpdateSoftTriangleNormalsVars),
+};
+
+const gpu::GpuComputePassDefinition kUpdateSoftRenderNormals{
+    "physics/physics_soft_update_render_normals.cs.hlsl",
+    "CRESSimNeo.Physics.UpdateSoftRenderNormals.CS",
+    "CRESSimNeo.Physics.UpdateSoftRenderNormals.PSO",
+    kUpdateSoftRenderNormalsVars,
+    std::size(kUpdateSoftRenderNormalsVars),
+};
+
+const gpu::GpuComputePassDefinition kUpdateSoftBodyBounds{
+    "physics/physics_soft_update_body_bounds.cs.hlsl",
+    "CRESSimNeo.Physics.UpdateSoftBodyBounds.CS",
+    "CRESSimNeo.Physics.UpdateSoftBodyBounds.PSO",
+    kUpdateSoftBodyBoundsVars,
+    std::size(kUpdateSoftBodyBoundsVars),
+};
+
+const gpu::GpuComputePassDefinition kFinalizeSoftBodyBounds{
+    "physics/physics_soft_finalize_body_bounds.cs.hlsl",
+    "CRESSimNeo.Physics.FinalizeSoftBodyBounds.CS",
+    "CRESSimNeo.Physics.FinalizeSoftBodyBounds.PSO",
+    kFinalizeSoftBodyBoundsVars,
+    std::size(kFinalizeSoftBodyBoundsVars),
 };
 
 const gpu::GpuComputePassDefinition kUpdateRigidWorldAabbs{

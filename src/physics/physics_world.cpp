@@ -132,9 +132,11 @@ void PhysicsWorld::clear()
     mRigidBodySnapshot.clear();
     mColliderSnapshot.clear();
     mSoftBodySnapshot.clear();
+    mSoftBodyDerivedCaches.clear();
     mSoftParticles.clear();
     mSoftEdges.clear();
     mSoftTets.clear();
+    mSoftRenderData.clear();
     mRigidBodyDirtyIndices.clear();
     mColliderDirtyIndices.clear();
     mRigidBodyDirtyBits.clear();
@@ -150,7 +152,8 @@ void PhysicsWorld::clear()
     mStaticColliderCount = 0u;
     ++mRigidBodyTopologyRevision;
     ++mSoftBodyTopologyRevision;
-    ++mRevision;
+    ++mAuthoredRevision;
+    ++mSimulationRevision;
 }
 
 RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
@@ -186,7 +189,7 @@ RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
         mBodyColliderMappingDirty = true;
         mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || isStaticBody(normalizedState);
         ++mRigidBodyTopologyRevision;
-        ++mRevision;
+        ++mAuthoredRevision;
         return mRigidBodySnapshot.back();
     }
 
@@ -220,7 +223,7 @@ RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
     markRigidBodyDirty(index);
     mStaticBroadPhaseDirty =
         mStaticBroadPhaseDirty || staticBodyPoseChanged(previousState, normalizedState);
-    ++mRevision;
+    ++mAuthoredRevision;
     return mRigidBodySnapshot[index];
 }
 
@@ -280,7 +283,7 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     mBodyColliderMappingDirty = true;
     mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || removedStatic;
     ++mRigidBodyTopologyRevision;
-    ++mRevision;
+    ++mAuthoredRevision;
     return true;
 }
 
@@ -343,7 +346,7 @@ void PhysicsWorld::upsertCollider(const ColliderState &state)
         markColliderCountDirty();
         mBodyColliderMappingDirty = true;
         mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || ownerIsStatic;
-        ++mRevision;
+        ++mAuthoredRevision;
         return;
     }
 
@@ -402,7 +405,7 @@ void PhysicsWorld::upsertCollider(const ColliderState &state)
     {
         mStaticBroadPhaseDirty = true;
     }
-    ++mRevision;
+    ++mAuthoredRevision;
 }
 
 bool PhysicsWorld::removeCollider(ColliderId colliderId)
@@ -423,7 +426,7 @@ bool PhysicsWorld::removeCollider(ColliderId colliderId)
     markColliderCountDirty();
     mBodyColliderMappingDirty = true;
     mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || removedStaticOwner;
-    ++mRevision;
+    ++mAuthoredRevision;
     return true;
 }
 
@@ -437,7 +440,7 @@ void PhysicsWorld::replaceColliders(common::EntityId entityId,
     {
         markColliderCountDirty(true);
         mBodyColliderMappingDirty = true;
-        ++mRevision;
+        ++mAuthoredRevision;
         return;
     }
 
@@ -474,13 +477,14 @@ void PhysicsWorld::replaceColliders(common::EntityId entityId,
     markColliderCountDirty(true);
     mBodyColliderMappingDirty = true;
     mStaticBroadPhaseDirty = true;
-    ++mRevision;
+    ++mAuthoredRevision;
 }
 
 bool PhysicsWorld::upsertSoftBody(const SoftBodyState &state)
 {
     SoftBodyState normalizedState = state;
     normalizeSoftBodyState(normalizedState);
+    SoftBodyDerivedCache derivedCache;
 
     const auto it                      = mEntityToSoftBodyIndex.find(normalizedState.entityId);
     const SoftBodyState *previousState = nullptr;
@@ -489,7 +493,7 @@ bool PhysicsWorld::upsertSoftBody(const SoftBodyState &state)
         previousState = &mSoftBodySnapshot[it->second];
     }
 
-    if (!prepareSoftBodyStateForInsert(normalizedState, previousState))
+    if (!prepareSoftBodyStateForInsert(normalizedState, previousState, derivedCache))
     {
         return false;
     }
@@ -499,15 +503,17 @@ bool PhysicsWorld::upsertSoftBody(const SoftBodyState &state)
         mEntityToSoftBodyIndex.emplace(normalizedState.entityId,
                                        static_cast<std::uint32_t>(mSoftBodySnapshot.size()));
         mSoftBodySnapshot.push_back(normalizedState);
+        mSoftBodyDerivedCaches.push_back(std::move(derivedCache));
     }
     else
     {
         mSoftBodySnapshot[it->second] = normalizedState;
+        mSoftBodyDerivedCaches[it->second] = std::move(derivedCache);
     }
 
-    rebuildSoftBodyDerivedState();
+    mSoftBodyDerivedStateDirty = true;
     ++mSoftBodyTopologyRevision;
-    ++mRevision;
+    ++mAuthoredRevision;
     return true;
 }
 
@@ -524,14 +530,16 @@ bool PhysicsWorld::removeSoftBody(common::EntityId entityId)
     if (index != last)
     {
         mSoftBodySnapshot[index]                                  = mSoftBodySnapshot[last];
+        mSoftBodyDerivedCaches[index]                            = std::move(mSoftBodyDerivedCaches[last]);
         mEntityToSoftBodyIndex[mSoftBodySnapshot[index].entityId] = index;
     }
     mSoftBodySnapshot.pop_back();
+    mSoftBodyDerivedCaches.pop_back();
     mEntityToSoftBodyIndex.erase(it);
     mTetGenMeshCache.erase(entityId);
-    rebuildSoftBodyDerivedState();
+    mSoftBodyDerivedStateDirty = true;
     ++mSoftBodyTopologyRevision;
-    ++mRevision;
+    ++mAuthoredRevision;
     return true;
 }
 
@@ -622,6 +630,17 @@ const std::vector<SoftTet> &PhysicsWorld::softTets() const noexcept
         const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
     }
     return mSoftTets;
+}
+
+const SoftRenderDataHost &PhysicsWorld::softRenderData() const noexcept
+{
+    return mSoftRenderData;
+}
+
+void PhysicsWorld::setSoftRenderData(const SoftRenderDataHost &data)
+{
+    mSoftRenderData = data;
+    ++mAuthoredRevision;
 }
 
 void PhysicsWorld::ensureDerivedStateUpToDate() const noexcept
@@ -734,14 +753,14 @@ void PhysicsWorld::integrateRigidBodiesCpu(float dt) noexcept
     }
 
     markAllRigidBodiesDirty();
-    ++mRevision;
+    ++mAuthoredRevision;
 }
 
-bool PhysicsWorld::writeBackRigidBodyState(std::uint32_t index,
-                                           const Diligent::float4 &positionInvMass,
-                                           const Diligent::float4 &orientation,
-                                           const Diligent::float4 &linearVelocity,
-                                           const Diligent::float4 &angularVelocity) noexcept
+bool PhysicsWorld::syncRigidBodyStateFromSimulation(std::uint32_t index,
+                                                    const Diligent::float4 &positionInvMass,
+                                                    const Diligent::float4 &orientation,
+                                                    const Diligent::float4 &linearVelocity,
+                                                    const Diligent::float4 &angularVelocity) noexcept
 {
     if (index >= rigidBodyCount())
     {
@@ -752,8 +771,6 @@ bool PhysicsWorld::writeBackRigidBodyState(std::uint32_t index,
     mRigidBodies.orientations[index]      = orientation;
     mRigidBodies.linearVelocities[index]  = linearVelocity;
     mRigidBodies.angularVelocities[index] = angularVelocity;
-    markRigidBodyDirty(index);
-
     RigidBodyState &state = mRigidBodySnapshot[index];
     state.position    = Diligent::float3{positionInvMass.x, positionInvMass.y, positionInvMass.z};
     state.inverseMass = positionInvMass.w;
@@ -771,13 +788,13 @@ void PhysicsWorld::finalizeRigidBodyWriteback() noexcept
     {
         return;
     }
-    ++mRevision;
+    ++mSimulationRevision;
 }
 
-bool PhysicsWorld::writeBackSoftParticleState(std::uint32_t index,
-                                              const Diligent::float4 &positionInvMass,
-                                              const Diligent::float4 &previousPosition,
-                                              const Diligent::float4 &velocity) noexcept
+bool PhysicsWorld::syncSoftParticleStateFromSimulation(std::uint32_t index,
+                                                       const Diligent::float4 &positionInvMass,
+                                                       const Diligent::float4 &previousPosition,
+                                                       const Diligent::float4 &velocity) noexcept
 {
     if (index >= mSoftParticles.size())
     {
@@ -796,12 +813,17 @@ void PhysicsWorld::finalizeSoftParticleWriteback() noexcept
     {
         return;
     }
-    ++mRevision;
+    ++mSimulationRevision;
 }
 
-std::uint64_t PhysicsWorld::revision() const noexcept
+std::uint64_t PhysicsWorld::authoredRevision() const noexcept
 {
-    return mRevision;
+    return mAuthoredRevision;
+}
+
+std::uint64_t PhysicsWorld::simulationRevision() const noexcept
+{
+    return mSimulationRevision;
 }
 
 std::uint64_t PhysicsWorld::rigidBodyTopologyRevision() const noexcept
@@ -1152,29 +1174,16 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
         softBody.edgeOffset     = static_cast<std::uint32_t>(mSoftEdges.size());
         softBody.tetOffset      = static_cast<std::uint32_t>(mSoftTets.size());
 
-        TetMeshData tetGenCache;
-        const TetMeshData *tetGenCachePtr = nullptr;
-        if (softBody.source.kind == SoftBodySourceKind::TetGenFiles)
-        {
-            if (const TetGenMeshCache *cache = tryGetTetGenMeshCache(softBody.entityId))
-            {
-                tetGenCache.objectSpaceRestPositions = cache->objectSpaceRestPositions;
-                tetGenCache.tetVertexIndices         = cache->tetVertexIndices;
-                tetGenCachePtr                       = &tetGenCache;
-            }
-        }
-
-        ResolvedSoftBodyTopology topology;
-        std::string errorMessage;
-        if (!resolveSoftBodyTopology(softBody, tetGenCachePtr, topology, errorMessage))
+        if (softBodyIndex >= mSoftBodyDerivedCaches.size())
         {
             CRESSIM_LOG_ERROR("Failed to rebuild derived soft-body state for entity ",
-                              softBody.entityId, ": ", errorMessage);
+                              softBody.entityId, ": missing cached resolved topology.");
             softBody.particleCount = 0u;
             softBody.edgeCount     = 0u;
             softBody.tetCount      = 0u;
             continue;
         }
+        const SoftBodyDerivedCache &topology = mSoftBodyDerivedCaches[softBodyIndex];
 
         const float inverseMass =
             softBody.particleMass > 0.0f ? 1.0f / softBody.particleMass : 0.0f;
@@ -1279,7 +1288,8 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
 }
 
 bool PhysicsWorld::prepareSoftBodyStateForInsert(const SoftBodyState &candidate,
-                                                 const SoftBodyState *previousState) noexcept
+                                                 const SoftBodyState *previousState,
+                                                 SoftBodyDerivedCache &derivedCache) noexcept
 {
     TetMeshData tetGenCache;
     TetGenMeshCache cacheEntry;
@@ -1325,14 +1335,21 @@ bool PhysicsWorld::prepareSoftBodyStateForInsert(const SoftBodyState &candidate,
         tetGenCachePtr = &tetGenCache;
     }
 
-    ResolvedSoftBodyTopology topology;
     std::string errorMessage;
-    if (!resolveSoftBodyTopology(candidate, tetGenCachePtr, topology, errorMessage))
+    ResolvedSoftBodyTopology resolvedTopology;
+    if (!resolveSoftBodyTopology(candidate, tetGenCachePtr, resolvedTopology, errorMessage))
     {
         CRESSIM_LOG_ERROR("Failed to author soft body for entity ", candidate.entityId, ": ",
                           errorMessage);
         return false;
     }
+
+    derivedCache.restPositions         = std::move(resolvedTopology.restPositions);
+    derivedCache.edges                 = std::move(resolvedTopology.edges);
+    derivedCache.tets                  = std::move(resolvedTopology.tets);
+    derivedCache.boundaryFaces         = std::move(resolvedTopology.boundaryFaces);
+    derivedCache.adjacencyLists        = std::move(resolvedTopology.adjacencyLists);
+    derivedCache.staticParticleIndices = std::move(resolvedTopology.staticParticleIndices);
 
     if (candidate.source.kind == SoftBodySourceKind::TetGenFiles)
     {

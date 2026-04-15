@@ -87,6 +87,16 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentEdgesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleTetRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentTetsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexTriangleRangesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexTriangleIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> renderTriangleParticleIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> renderTriangleNormalsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyParticleRangesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyChunkRangesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyBoundsChunksBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyFallbackNormalsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyRenderNormalsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyWorldAabbsBuffer;
     };
 
     struct PreviousRigidBodyBuffers
@@ -119,6 +129,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetCorrectionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyChunkAabbsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyAabbsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyMetaBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> activeBodyFlagsBuffer;
@@ -189,7 +200,12 @@ public:
     bool ensureCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t bodyCount,
                         std::uint32_t colliderCount, std::uint32_t softParticleCount,
                         std::uint32_t softEdgeCount, std::uint32_t softTetCount,
-                        std::uint32_t physicsContextId);
+                        std::uint32_t softRenderVertexCount,
+                        std::uint32_t softRenderTriangleIndexCount,
+                        std::uint32_t softRenderTriangleCount,
+                        std::uint32_t softBodyRangeCount,
+                        std::uint32_t softBodyBoundsChunkCount,
+                        Diligent::Uint64 sharedContextMask);
     bool uploadWorldState(Diligent::IDeviceContext *computeContext, PhysicsWorld &world,
                           std::uint32_t bodyCount, std::uint32_t colliderCount);
     bool copyPredictedRigidBodiesToPersistentState(Diligent::IDeviceContext *computeContext,
@@ -240,6 +256,7 @@ private:
                              const SoftParticleSoAHost &softParticles);
     bool uploadSoftTopology(Diligent::IDeviceContext *computeContext,
                             std::uint32_t softParticleCount,
+                            const SoftRenderDataHost &softRenderData,
                             const std::vector<SoftEdge> &softEdges,
                             const std::vector<SoftTet> &softTets);
     PersistentRigidBodyBuffers mPersistentRigidBodies;
@@ -270,6 +287,11 @@ private:
     std::uint32_t mSoftScanScratchCapacity                  = 0;
     std::uint32_t mSoftIncidentEdgeCapacity                 = 0;
     std::uint32_t mSoftIncidentTetCapacity                  = 0;
+    std::uint32_t mSoftRenderVertexCapacity                 = 0;
+    std::uint32_t mSoftRenderTriangleIndexCapacity          = 0;
+    std::uint32_t mSoftRenderTriangleCapacity               = 0;
+    std::uint32_t mSoftBodyRangeCapacity                    = 0;
+    std::uint32_t mSoftBodyBoundsChunkCapacity              = 0;
     bool mCorrectionBuffersNeedClear                        = false;
     bool mStaticBroadPhaseDirty                             = true;
     bool mRigidBodyUploadResetRequired                      = true;

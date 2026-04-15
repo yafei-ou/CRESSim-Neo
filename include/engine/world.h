@@ -89,7 +89,6 @@ public:
     const std::vector<graphics::GpuLightInput> &lightInputs() const noexcept;
     const std::vector<graphics::GpuLocalLightSelection> &localLightSelections() const noexcept;
     const std::vector<graphics::GpuSoftBodyVertexBinding> &softBodyVertexBindings() const noexcept;
-    const std::vector<Diligent::float4> &softBodyVertexNormals() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &opaqueDrawRegistry() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &shadowDrawRegistry() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &localShadowDrawRegistry()
@@ -117,7 +116,6 @@ private:
     void refreshLightEntry(std::uint32_t lightIndex);
     void rebuildLocalLightSelections();
     void rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager &resources);
-    void refreshSoftBodyRenderNormals(const graphics::RenderResourceManager &resources);
     void refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources);
     void rebuildDrawRegistries(const graphics::RenderResourceManager &resources);
     void clearDirtyIndexSet(std::vector<std::uint32_t> &dirtyIndices,
@@ -173,7 +171,6 @@ private:
     std::vector<graphics::GpuLightInput> mLightInputsHost{};
     std::vector<graphics::GpuLocalLightSelection> mLocalLightSelectionsHost{};
     std::vector<graphics::GpuSoftBodyVertexBinding> mSoftBodyVertexBindingsHost{};
-    std::vector<Diligent::float4> mSoftBodyVertexNormalsHost{};
     std::vector<graphics::EnvironmentIblDesc> mEnvironmentIbls{};
     std::vector<graphics::IndirectCommandRegistryEntry> mOpaqueDrawRegistryHost{};
     std::vector<graphics::IndirectCommandRegistryEntry> mShadowDrawRegistryHost{};

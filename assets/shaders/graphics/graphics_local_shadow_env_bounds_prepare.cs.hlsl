@@ -28,18 +28,32 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     const uint envIndex = objectIndex / g_MaxObjectsPerEnv;
     const uint baseIndex = envIndex * CRESSIM_LOCAL_SHADOW_ENV_BOUNDS_WORDS;
-    const float3 position = CRESSIM_SB_REF(g_EntityPositions, objectIndex).xyz;
+    float3 boundsMin = 0.0;
+    float3 boundsMax = 0.0;
+    if (metadata.softBodyIndex != CRESSIM_INVALID_SOFT_BODY_INDEX)
+    {
+        const SoftBodyWorldAabb worldAabb =
+            CRESSIM_SB_LOAD(g_SoftBodyWorldAabbs, metadata.softBodyIndex);
+        boundsMin = worldAabb.minBounds.xyz;
+        boundsMax = worldAabb.maxBounds.xyz;
+    }
+    else
+    {
+        const float3 position = CRESSIM_SB_REF(g_EntityPositions, objectIndex).xyz;
+        boundsMin = position;
+        boundsMax = position;
+    }
     InterlockedMin(CRESSIM_SB_REF(g_LocalShadowEnvBoundsRW, baseIndex + 0u),
-                   localShadowFloatToOrderedUint(position.x));
+                   localShadowFloatToOrderedUint(boundsMin.x));
     InterlockedMin(CRESSIM_SB_REF(g_LocalShadowEnvBoundsRW, baseIndex + 1u),
-                   localShadowFloatToOrderedUint(position.y));
+                   localShadowFloatToOrderedUint(boundsMin.y));
     InterlockedMin(CRESSIM_SB_REF(g_LocalShadowEnvBoundsRW, baseIndex + 2u),
-                   localShadowFloatToOrderedUint(position.z));
+                   localShadowFloatToOrderedUint(boundsMin.z));
     InterlockedMax(CRESSIM_SB_REF(g_LocalShadowEnvBoundsRW, baseIndex + 3u),
-                   localShadowFloatToOrderedUint(position.x));
+                   localShadowFloatToOrderedUint(boundsMax.x));
     InterlockedMax(CRESSIM_SB_REF(g_LocalShadowEnvBoundsRW, baseIndex + 4u),
-                   localShadowFloatToOrderedUint(position.y));
+                   localShadowFloatToOrderedUint(boundsMax.y));
     InterlockedMax(CRESSIM_SB_REF(g_LocalShadowEnvBoundsRW, baseIndex + 5u),
-                   localShadowFloatToOrderedUint(position.z));
+                   localShadowFloatToOrderedUint(boundsMax.z));
     InterlockedOr(CRESSIM_SB_REF(g_LocalShadowEnvBoundsRW, baseIndex + 6u), 1u);
 }

@@ -223,41 +223,6 @@ std::optional<std::uint32_t> findMatchingRestVertexLocal(
     return bestIndex;
 }
 
-bool computeSoftBodyWorldBounds(const physics::PhysicsWorld &physicsWorld,
-                                const physics::SoftBodyState &softBody, Diligent::float3 &outMin,
-                                Diligent::float3 &outMax, Diligent::float3 &outCenter) noexcept
-{
-    const physics::SoftParticleSoAHost &particles = physicsWorld.softParticles();
-    if (softBody.particleCount == 0u ||
-        softBody.particleOffset + softBody.particleCount > particles.positionsInvMass.size())
-    {
-        outMin    = {};
-        outMax    = {};
-        outCenter = {};
-        return false;
-    }
-
-    outMin = Diligent::float3{std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
-                              std::numeric_limits<float>::max()};
-    outMax =
-        Diligent::float3{-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(),
-                         -std::numeric_limits<float>::max()};
-    for (std::uint32_t i = 0u; i < softBody.particleCount; ++i)
-    {
-        const Diligent::float4 p = particles.positionsInvMass[softBody.particleOffset + i];
-        const Diligent::float3 pos{p.x, p.y, p.z};
-        const float r = softBody.particleRadius;
-        outMin.x      = std::min(outMin.x, pos.x - r);
-        outMin.y      = std::min(outMin.y, pos.y - r);
-        outMin.z      = std::min(outMin.z, pos.z - r);
-        outMax.x      = std::max(outMax.x, pos.x + r);
-        outMax.y      = std::max(outMax.y, pos.y + r);
-        outMax.z      = std::max(outMax.z, pos.z + r);
-    }
-    outCenter = (outMin + outMax) * 0.5f;
-    return true;
-}
-
 } // namespace
 
 common::EntityId World::createEntity(std::uint32_t envIndex)
@@ -1480,11 +1445,6 @@ const std::vector<graphics::GpuSoftBodyVertexBinding> &World::softBodyVertexBind
     return mSoftBodyVertexBindingsHost;
 }
 
-const std::vector<Diligent::float4> &World::softBodyVertexNormals() const noexcept
-{
-    return mSoftBodyVertexNormalsHost;
-}
-
 const std::vector<graphics::IndirectCommandRegistryEntry> &World::opaqueDrawRegistry()
     const noexcept
 {
@@ -1580,7 +1540,7 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
         mCachedSoftBodyRenderTopologyRevision = softBodyTopologyRevision;
     }
 
-    const std::uint64_t physicsRevision = mPhysicsWorld.revision();
+    const std::uint64_t physicsRevision = mPhysicsWorld.authoredRevision();
     if (mCachedSoftBodyPhysicsRevision != physicsRevision)
     {
         for (std::uint32_t objectIndex = 0u;
@@ -1606,7 +1566,6 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
     {
         rebuildSoftBodyRenderBindings(resources);
     }
-    refreshSoftBodyRenderNormals(resources);
 
     for (const std::uint32_t objectIndex : mDirtyRenderablePoseIndices)
     {
@@ -1649,7 +1608,16 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
               kInvalidSlot);
     std::fill(mSoftBodyVertexCountByObject.begin(), mSoftBodyVertexCountByObject.end(), 0u);
     mSoftBodyVertexBindingsHost.clear();
-    mSoftBodyVertexNormalsHost.clear();
+    physics::SoftRenderDataHost softRenderData;
+    const std::vector<physics::SoftBodyState> &softBodies = mPhysicsWorld.softBodySnapshot();
+    softRenderData.softBodyParticleRanges.resize(softBodies.size(), Diligent::uint2{0u, 0u});
+    for (std::uint32_t softBodyIndex = 0u;
+         softBodyIndex < static_cast<std::uint32_t>(softBodies.size()); ++softBodyIndex)
+    {
+        const physics::SoftBodyState &softBody = softBodies[softBodyIndex];
+        softRenderData.softBodyParticleRanges[softBodyIndex] =
+            Diligent::uint2{softBody.particleOffset, softBody.particleCount};
+    }
 
     for (std::uint32_t objectIndex = 0u;
          objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
@@ -1696,9 +1664,11 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
 
         const std::uint32_t bindingBase =
             static_cast<std::uint32_t>(mSoftBodyVertexBindingsHost.size());
-        const std::uint32_t normalBase =
-            static_cast<std::uint32_t>(mSoftBodyVertexNormalsHost.size());
+        const std::uint32_t normalBase = bindingBase;
+        const std::uint32_t rangeBase =
+            static_cast<std::uint32_t>(softRenderData.vertexTriangleRanges.size());
         bool valid = true;
+        std::vector<std::vector<std::uint32_t>> incidentTriangles(mesh->vertices.size());
         for (const graphics::MeshResourceDesc::Vertex &vertex : mesh->vertices)
         {
             const std::optional<std::uint32_t> matchedRestIndex = findMatchingRestVertexLocal(
@@ -1715,8 +1685,9 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
             mSoftBodyVertexBindingsHost.push_back(binding);
             const Diligent::float3 fallbackNormal =
                 transformNormal(softBody->restTransform, vertex.normal);
-            mSoftBodyVertexNormalsHost.emplace_back(fallbackNormal.x, fallbackNormal.y,
-                                                    fallbackNormal.z, 0.0f);
+            softRenderData.fallbackNormals.emplace_back(fallbackNormal.x, fallbackNormal.y,
+                                                        fallbackNormal.z, 0.0f);
+            softRenderData.vertexTriangleRanges.push_back({});
         }
 
         if (!valid)
@@ -1725,53 +1696,20 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
                               renderable.entityId,
                               ": visual mesh vertices must match tet rest vertices exactly.");
             mSoftBodyVertexBindingsHost.resize(bindingBase);
-            mSoftBodyVertexNormalsHost.resize(normalBase);
+            softRenderData.fallbackNormals.resize(normalBase);
+            softRenderData.vertexTriangleRanges.resize(rangeBase);
             continue;
         }
 
-        mSoftBodyVertexBindingBaseByObject[objectIndex] = bindingBase;
-        mSoftBodyVertexNormalBaseByObject[objectIndex]  = normalBase;
-        mSoftBodyVertexCountByObject[objectIndex] =
-            static_cast<std::uint32_t>(mesh->vertices.size());
-        markRenderableMetadataDirty(objectIndex);
-    }
-
-    mSoftBodyRenderBindingsDirty = false;
-}
-
-void World::refreshSoftBodyRenderNormals(const graphics::RenderResourceManager &resources)
-{
-    const physics::SoftParticleSoAHost &particles = mPhysicsWorld.softParticles();
-    for (std::uint32_t objectIndex = 0u;
-         objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
-    {
-        const std::uint32_t bindingBase = mSoftBodyVertexBindingBaseByObject[objectIndex];
-        const std::uint32_t normalBase  = mSoftBodyVertexNormalBaseByObject[objectIndex];
-        const std::uint32_t vertexCount = mSoftBodyVertexCountByObject[objectIndex];
-        if (bindingBase == kInvalidSlot || normalBase == kInvalidSlot || vertexCount == 0u)
+        const std::uint32_t triangleBase =
+            static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
+        for (std::size_t triangleIndex = 0u; triangleIndex + 2u < mesh->indices.size();
+             triangleIndex += 3u)
         {
-            continue;
-        }
-
-        const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
-        const physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(renderable.entityId);
-        const graphics::MeshResourceDesc *mesh = resources.tryGetMesh(renderable.mesh);
-        if (softBody == nullptr || mesh == nullptr ||
-            bindingBase + vertexCount > mSoftBodyVertexBindingsHost.size() ||
-            normalBase + vertexCount > mSoftBodyVertexNormalsHost.size())
-        {
-            continue;
-        }
-
-        std::vector<Diligent::float3> accumulatedNormals(vertexCount,
-                                                         Diligent::float3{0.0f, 0.0f, 0.0f});
-        for (std::size_t triangleBase = 0u; triangleBase + 2u < mesh->indices.size();
-             triangleBase += 3u)
-        {
-            const std::uint32_t i0 = mesh->indices[triangleBase + 0u];
-            const std::uint32_t i1 = mesh->indices[triangleBase + 1u];
-            const std::uint32_t i2 = mesh->indices[triangleBase + 2u];
-            if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount)
+            const std::uint32_t i0 = mesh->indices[triangleIndex + 0u];
+            const std::uint32_t i1 = mesh->indices[triangleIndex + 1u];
+            const std::uint32_t i2 = mesh->indices[triangleIndex + 2u];
+            if (i0 >= mesh->vertices.size() || i1 >= mesh->vertices.size() || i2 >= mesh->vertices.size())
             {
                 continue;
             }
@@ -1782,48 +1720,38 @@ void World::refreshSoftBodyRenderNormals(const graphics::RenderResourceManager &
                 mSoftBodyVertexBindingsHost[bindingBase + i1].particleIndex;
             const std::uint32_t particleIndex2 =
                 mSoftBodyVertexBindingsHost[bindingBase + i2].particleIndex;
-            if (particleIndex0 >= particles.positionsInvMass.size() ||
-                particleIndex1 >= particles.positionsInvMass.size() ||
-                particleIndex2 >= particles.positionsInvMass.size())
-            {
-                continue;
-            }
-
-            const Diligent::float4 p0v = particles.positionsInvMass[particleIndex0];
-            const Diligent::float4 p1v = particles.positionsInvMass[particleIndex1];
-            const Diligent::float4 p2v = particles.positionsInvMass[particleIndex2];
-            const Diligent::float3 p0{p0v.x, p0v.y, p0v.z};
-            const Diligent::float3 p1{p1v.x, p1v.y, p1v.z};
-            const Diligent::float3 p2{p2v.x, p2v.y, p2v.z};
-            const Diligent::float3 faceNormal = Diligent::cross(p2 - p0, p1 - p0);
-            if (Diligent::dot(faceNormal, faceNormal) <= 1.0e-12f)
-            {
-                continue;
-            }
-
-            accumulatedNormals[i0] += faceNormal;
-            accumulatedNormals[i1] += faceNormal;
-            accumulatedNormals[i2] += faceNormal;
+            const std::uint32_t renderTriangleIndex =
+                static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
+            softRenderData.triangleParticleIndices.emplace_back(particleIndex0, particleIndex1,
+                                                                particleIndex2, 0u);
+            incidentTriangles[i0].push_back(renderTriangleIndex);
+            incidentTriangles[i1].push_back(renderTriangleIndex);
+            incidentTriangles[i2].push_back(renderTriangleIndex);
         }
 
-        for (std::uint32_t localVertexIndex = 0u; localVertexIndex < vertexCount;
+        (void)triangleBase;
+        for (std::uint32_t localVertexIndex = 0u;
+             localVertexIndex < static_cast<std::uint32_t>(incidentTriangles.size());
              ++localVertexIndex)
         {
-            Diligent::float3 worldNormal = accumulatedNormals[localVertexIndex];
-            const float lenSq            = Diligent::dot(worldNormal, worldNormal);
-            if (lenSq <= 1.0e-12f)
-            {
-                worldNormal = transformNormal(softBody->restTransform,
-                                              mesh->vertices[localVertexIndex].normal);
-            }
-            else
-            {
-                worldNormal *= 1.0f / std::sqrt(lenSq);
-            }
-            mSoftBodyVertexNormalsHost[normalBase + localVertexIndex] =
-                Diligent::float4{worldNormal.x, worldNormal.y, worldNormal.z, 0.0f};
+            physics::SoftRenderVertexTriangleRange &range =
+                softRenderData.vertexTriangleRanges[rangeBase + localVertexIndex];
+            range.start = static_cast<std::uint32_t>(softRenderData.vertexTriangleIndices.size());
+            range.count = static_cast<std::uint32_t>(incidentTriangles[localVertexIndex].size());
+            softRenderData.vertexTriangleIndices.insert(softRenderData.vertexTriangleIndices.end(),
+                                                        incidentTriangles[localVertexIndex].begin(),
+                                                        incidentTriangles[localVertexIndex].end());
         }
+
+        mSoftBodyVertexBindingBaseByObject[objectIndex] = bindingBase;
+        mSoftBodyVertexNormalBaseByObject[objectIndex]  = normalBase;
+        mSoftBodyVertexCountByObject[objectIndex] =
+            static_cast<std::uint32_t>(mesh->vertices.size());
+        markRenderableMetadataDirty(objectIndex);
     }
+
+    mSoftBodyRenderBindingsDirty = false;
+    mPhysicsWorld.setSoftRenderData(softRenderData);
 }
 
 void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources)
@@ -1846,6 +1774,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
         graphics::GpuRenderableFlags renderableFlags = graphics::GpuRenderableFlags::None;
         entry.softBodyVertexBindingBase              = kInvalidSlot;
         entry.softBodyVertexNormalBase               = kInvalidSlot;
+        entry.softBodyIndex                          = kInvalidSlot;
         entry.softBodyVertexCount                    = 0u;
         if (renderable.entityId != common::kInvalidEntityId &&
             renderable.objectSlot != kInvalidSlot)
@@ -1875,15 +1804,22 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
             {
                 const physics::SoftBodyState *softBody =
                     mPhysicsWorld.tryGetSoftBody(renderable.entityId);
-                Diligent::float3 worldBoundsMin{};
-                Diligent::float3 worldBoundsMax{};
-                Diligent::float3 center{};
-                if (softBody != nullptr &&
-                    computeSoftBodyWorldBounds(mPhysicsWorld, *softBody, worldBoundsMin,
-                                               worldBoundsMax, center))
+                if (softBody != nullptr)
                 {
-                    localBoundsMin = worldBoundsMin - center;
-                    localBoundsMax = worldBoundsMax - center;
+                    const std::vector<physics::SoftBodyState> &softBodies =
+                        mPhysicsWorld.softBodySnapshot();
+                    for (std::uint32_t softBodyIndex = 0u;
+                         softBodyIndex < static_cast<std::uint32_t>(softBodies.size());
+                         ++softBodyIndex)
+                    {
+                        if (softBodies[softBodyIndex].entityId == renderable.entityId)
+                        {
+                            entry.softBodyIndex = softBodyIndex;
+                            break;
+                        }
+                    }
+                    localBoundsMin = Diligent::float3{0.0f, 0.0f, 0.0f};
+                    localBoundsMax = Diligent::float3{0.0f, 0.0f, 0.0f};
                     hasBounds      = true;
                 }
                 entry.softBodyVertexBindingBase = mSoftBodyVertexBindingBaseByObject[objectIndex];
@@ -2073,22 +2009,19 @@ void World::refreshRenderablePose(std::uint32_t objectIndex)
     const auto physIt = mPhysicsLinks.find(renderable.entityId);
     if (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
     {
-        const physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(renderable.entityId);
-        Diligent::float3 boundsMin{};
-        Diligent::float3 boundsMax{};
-        Diligent::float3 center{};
-        if (softBody != nullptr &&
-            computeSoftBodyWorldBounds(mPhysicsWorld, *softBody, boundsMin, boundsMax, center))
-        {
-            renderable.worldTransform.position = center;
-            renderable.worldTransform.rotation = Diligent::QuaternionF{0.0f, 0.0f, 0.0f, 1.0f};
-            renderable.worldTransform.scale    = Diligent::float3{1.0f, 1.0f, 1.0f};
-            mRenderObjectPositions[objectIndex] =
-                Diligent::float4{center.x, center.y, center.z, 1.0f};
-            mRenderObjectOrientations[objectIndex] = Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f};
-            mRenderObjectScales[objectIndex]       = Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f};
-            return;
-        }
+        renderable.worldTransform =
+            tryGetTransform(renderable.entityId).value_or(TransformComponent{}).worldTransform;
+        mRenderObjectPositions[objectIndex] =
+            Diligent::float4{renderable.worldTransform.position.x,
+                             renderable.worldTransform.position.y,
+                             renderable.worldTransform.position.z, 1.0f};
+        mRenderObjectOrientations[objectIndex] = Diligent::float4{
+            renderable.worldTransform.rotation.q.x, renderable.worldTransform.rotation.q.y,
+            renderable.worldTransform.rotation.q.z, renderable.worldTransform.rotation.q.w};
+        mRenderObjectScales[objectIndex] =
+            Diligent::float4{renderable.worldTransform.scale.x, renderable.worldTransform.scale.y,
+                             renderable.worldTransform.scale.z, 0.0f};
+        return;
     }
 
     renderable.worldTransform =

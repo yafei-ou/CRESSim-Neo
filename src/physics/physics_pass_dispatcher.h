@@ -105,6 +105,16 @@ public:
                               const PhysicsSceneGpuState &sceneState,
                               std::uint32_t softParticleCount,
                               const GpuSoftDispatchConstants &constants);
+    bool updateSoftTriangleNormals(Diligent::IDeviceContext *computeContext,
+                                   const PhysicsSceneGpuState &sceneState,
+                                   std::uint32_t renderTriangleCount);
+    bool updateSoftRenderNormals(Diligent::IDeviceContext *computeContext,
+                                 const PhysicsSceneGpuState &sceneState,
+                                 std::uint32_t renderVertexCount);
+    bool updateSoftBodyBounds(Diligent::IDeviceContext *computeContext,
+                              const PhysicsSceneGpuState &sceneState,
+                              std::uint32_t softBodyCount,
+                              std::uint32_t softBodyBoundsChunkCount);
     bool predictRigid(Diligent::IDeviceContext *computeContext,
                       const PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
                       const GpuRigidDispatchConstants &constants);
@@ -149,6 +159,8 @@ private:
                                      const GpuRigidDispatchConstants &constants);
     bool writeSoftDispatchConstants(Diligent::IDeviceContext *computeContext,
                                     const GpuSoftDispatchConstants &constants);
+    bool writeSoftRenderDispatchConstants(Diligent::IDeviceContext *computeContext,
+                                          const GpuSoftRenderDispatchConstants &constants);
     bool writeScanConstants(Diligent::IDeviceContext *computeContext,
                             const GpuPhysicsScanConstants &constants);
     bool writeRadixConstants(Diligent::IDeviceContext *computeContext,
@@ -218,6 +230,10 @@ private:
     gpu::GpuComputePass mSolveSoftRigidContactsPass;
     gpu::GpuComputePass mApplySoftPositionCorrectionsPass;
     gpu::GpuComputePass mUpdateSoftVelocitiesPass;
+    gpu::GpuComputePass mUpdateSoftTriangleNormalsPass;
+    gpu::GpuComputePass mUpdateSoftRenderNormalsPass;
+    gpu::GpuComputePass mUpdateSoftBodyBoundsPass;
+    gpu::GpuComputePass mFinalizeSoftBodyBoundsPass;
     gpu::GpuComputePass mUpdateRigidWorldAabbsPass;
     gpu::GpuComputePass mScanBlockPass;
     gpu::GpuComputePass mScanAddOffsetsPass;
@@ -247,6 +263,7 @@ private:
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftDispatchConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftRenderDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRadixConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mBroadPhaseBuildConstantsBuffer;

@@ -149,7 +149,6 @@ void Runtime::tick(const common::FrameContext &frameContext)
         mRenderSceneUploader->uploadRenderableMetadata(mWorld.renderableMetadata()) &&
         mRenderSceneUploader->uploadRenderableQueueInfo(mWorld.renderableQueueInfo()) &&
         mRenderSceneUploader->uploadSoftBodyVertexBindings(mWorld.softBodyVertexBindings()) &&
-        mRenderSceneUploader->uploadSoftBodyVertexNormals(mWorld.softBodyVertexNormals()) &&
         mRenderSceneUploader->uploadCameraInputs(mWorld.cameraInputs()) &&
         mRenderSceneUploader->uploadLightInputs(mWorld.lightInputs()) &&
         mRenderSceneUploader->uploadLocalLightSelections(mWorld.localLightSelections()) &&

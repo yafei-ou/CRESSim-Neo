@@ -36,11 +36,13 @@ struct PhysicsGpuSoftParticleBufferView
 struct PhysicsGpuSoftSceneView
 {
     PhysicsGpuSoftParticleBufferView particles{};
-    Diligent::IBuffer *edgesBuffer = nullptr;
-    Diligent::IBuffer *tetsBuffer  = nullptr;
-    std::uint32_t softBodyCount    = 0;
-    std::uint32_t edgeCount        = 0;
-    std::uint32_t tetCount         = 0;
+    Diligent::IBuffer *edgesBuffer            = nullptr;
+    Diligent::IBuffer *tetsBuffer             = nullptr;
+    Diligent::IBuffer *renderNormalsBuffer    = nullptr;
+    Diligent::IBuffer *worldAabbsBuffer       = nullptr;
+    std::uint32_t softBodyCount               = 0;
+    std::uint32_t edgeCount                   = 0;
+    std::uint32_t tetCount                    = 0;
 };
 
 struct CRESSIM_NEO_PHYSICS_API PhysicsGpuSceneView

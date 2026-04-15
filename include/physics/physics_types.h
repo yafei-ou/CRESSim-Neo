@@ -287,6 +287,32 @@ struct BodyColliderMappingHost
     }
 };
 
+struct SoftRenderVertexTriangleRange
+{
+    std::uint32_t start     = 0u;
+    std::uint32_t count     = 0u;
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
+};
+
+struct SoftRenderDataHost
+{
+    std::vector<Diligent::float4> fallbackNormals;
+    std::vector<SoftRenderVertexTriangleRange> vertexTriangleRanges;
+    std::vector<std::uint32_t> vertexTriangleIndices;
+    std::vector<Diligent::uint4> triangleParticleIndices;
+    std::vector<Diligent::uint2> softBodyParticleRanges;
+
+    void clear()
+    {
+        fallbackNormals.clear();
+        vertexTriangleRanges.clear();
+        vertexTriangleIndices.clear();
+        triangleParticleIndices.clear();
+        softBodyParticleRanges.clear();
+    }
+};
+
 struct RigidBodySoAGpu
 {
     std::uint32_t bodyCount = 0;

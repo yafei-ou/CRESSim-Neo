@@ -4,6 +4,7 @@
 #include "physics/export.h"
 #include "physics/physics_types.h"
 
+#include <array>
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
@@ -39,6 +40,8 @@ public:
     const SoftParticleSoAHost &softParticles() const noexcept;
     const std::vector<SoftEdge> &softEdges() const noexcept;
     const std::vector<SoftTet> &softTets() const noexcept;
+    const SoftRenderDataHost &softRenderData() const noexcept;
+    void setSoftRenderData(const SoftRenderDataHost &data);
     void ensureDerivedStateUpToDate() const noexcept;
     const std::vector<std::uint32_t> &rigidBodyDirtyIndices() const noexcept;
     const std::vector<std::uint32_t> &colliderDirtyIndices() const noexcept;
@@ -57,21 +60,34 @@ public:
     std::uint32_t staticColliderCount() const noexcept;
 
     void integrateRigidBodiesCpu(float dt) noexcept;
-    bool writeBackRigidBodyState(std::uint32_t index, const Diligent::float4 &positionInvMass,
-                                 const Diligent::float4 &orientation,
-                                 const Diligent::float4 &linearVelocity,
-                                 const Diligent::float4 &angularVelocity) noexcept;
+    bool syncRigidBodyStateFromSimulation(std::uint32_t index,
+                                          const Diligent::float4 &positionInvMass,
+                                          const Diligent::float4 &orientation,
+                                          const Diligent::float4 &linearVelocity,
+                                          const Diligent::float4 &angularVelocity) noexcept;
     void finalizeRigidBodyWriteback() noexcept;
-    bool writeBackSoftParticleState(std::uint32_t index, const Diligent::float4 &positionInvMass,
-                                    const Diligent::float4 &previousPosition,
-                                    const Diligent::float4 &velocity) noexcept;
+    bool syncSoftParticleStateFromSimulation(std::uint32_t index,
+                                             const Diligent::float4 &positionInvMass,
+                                             const Diligent::float4 &previousPosition,
+                                             const Diligent::float4 &velocity) noexcept;
     void finalizeSoftParticleWriteback() noexcept;
 
-    std::uint64_t revision() const noexcept;
+    std::uint64_t authoredRevision() const noexcept;
+    std::uint64_t simulationRevision() const noexcept;
     std::uint64_t rigidBodyTopologyRevision() const noexcept;
     std::uint64_t softBodyTopologyRevision() const noexcept;
 
 private:
+    struct SoftBodyDerivedCache
+    {
+        std::vector<Diligent::float3> restPositions;
+        std::vector<std::array<std::uint32_t, 2>> edges;
+        std::vector<std::array<std::uint32_t, 4>> tets;
+        std::vector<Diligent::uint3> boundaryFaces;
+        std::vector<std::vector<std::uint32_t>> adjacencyLists;
+        std::vector<std::uint32_t> staticParticleIndices;
+    };
+
     static void writeRigidBodySoAAt(RigidBodySoAHost &soa, std::uint32_t index,
                                     const RigidBodyState &state);
     static void writeColliderSoAAt(ColliderSoAHost &soa, std::uint32_t index,
@@ -99,7 +115,8 @@ private:
     std::uint32_t enabledColliderCountForEntity(common::EntityId entityId) const noexcept;
     static void normalizeSoftBodyState(SoftBodyState &state) noexcept;
     bool prepareSoftBodyStateForInsert(const SoftBodyState &candidate,
-                                       const SoftBodyState *previousState) noexcept;
+                                       const SoftBodyState *previousState,
+                                       SoftBodyDerivedCache &derivedCache) noexcept;
 
     struct TetGenMeshCache
     {
@@ -123,9 +140,11 @@ private:
     std::vector<RigidBodyState> mRigidBodySnapshot{};
     std::vector<ColliderState> mColliderSnapshot{};
     std::vector<SoftBodyState> mSoftBodySnapshot{};
+    std::vector<SoftBodyDerivedCache> mSoftBodyDerivedCaches{};
     SoftParticleSoAHost mSoftParticles{};
     std::vector<SoftEdge> mSoftEdges{};
     std::vector<SoftTet> mSoftTets{};
+    SoftRenderDataHost mSoftRenderData{};
     std::vector<std::uint32_t> mRigidBodyDirtyIndices{};
     std::vector<std::uint32_t> mColliderDirtyIndices{};
     std::vector<std::uint8_t> mRigidBodyDirtyBits{};
@@ -139,7 +158,8 @@ private:
     bool mStaticBroadPhaseDirty                 = false;
     std::uint32_t mActiveMovingColliderCount    = 0u;
     std::uint32_t mStaticColliderCount          = 0u;
-    std::uint64_t mRevision                     = 0;
+    std::uint64_t mAuthoredRevision             = 0;
+    std::uint64_t mSimulationRevision           = 0;
     std::uint64_t mRigidBodyTopologyRevision    = 0;
     std::uint64_t mSoftBodyTopologyRevision     = 0;
     RigidBodyId mNextRigidBodyId                = 1u;

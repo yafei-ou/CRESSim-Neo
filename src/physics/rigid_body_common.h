@@ -78,6 +78,14 @@ struct GpuSoftDispatchConstants
     std::uint32_t softTetCount          = 0;
 };
 
+struct GpuSoftRenderDispatchConstants
+{
+    std::uint32_t renderVertexCount   = 0u;
+    std::uint32_t renderTriangleCount = 0u;
+    std::uint32_t softBodyCount       = 0u;
+    std::uint32_t reserved0           = 0u;
+};
+
 constexpr std::uint32_t kParticleBroadPhaseEntryTypeSoft = 0u;
 constexpr std::uint32_t kSoftCandidatePairTypeSoftSoft           = 0u;
 constexpr std::uint32_t kSoftCandidatePairTypeSoftRigid          = 1u;
@@ -184,6 +192,38 @@ struct GpuSoftIncidentTet
     std::uint32_t slot      = 0;
     std::uint32_t reserved0 = 0;
     std::uint32_t reserved1 = 0;
+};
+
+struct GpuSoftRenderVertexTriangleRange
+{
+    std::uint32_t start     = 0u;
+    std::uint32_t count     = 0u;
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
+};
+
+struct GpuSoftBodyParticleRange
+{
+    std::uint32_t start     = 0u;
+    std::uint32_t count     = 0u;
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
+};
+
+struct GpuSoftBodyChunkRange
+{
+    std::uint32_t start     = 0u;
+    std::uint32_t count     = 0u;
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
+};
+
+struct GpuSoftBodyBoundsChunk
+{
+    std::uint32_t softBodyIndex = 0u;
+    std::uint32_t particleStart = 0u;
+    std::uint32_t particleCount = 0u;
+    std::uint32_t reserved0     = 0u;
 };
 
 struct GpuSoftEdgeCorrection
@@ -356,6 +396,8 @@ static_assert(sizeof(GpuSoftContact) == 32u);
 static_assert(sizeof(GpuSoftConstraintRange) == 16u);
 static_assert(sizeof(GpuSoftIncidentEdge) == 16u);
 static_assert(sizeof(GpuSoftIncidentTet) == 16u);
+static_assert(sizeof(GpuSoftBodyChunkRange) == 16u);
+static_assert(sizeof(GpuSoftBodyBoundsChunk) == 16u);
 static_assert(sizeof(GpuSoftEdgeCorrection) == 32u);
 static_assert(sizeof(GpuSoftTetCorrection) == 64u);
 static_assert(sizeof(GpuBroadPhaseBuildConstants) == 16u);

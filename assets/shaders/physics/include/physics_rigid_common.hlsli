@@ -310,6 +310,30 @@ struct GpuSoftTetCorrection
     float4 correction3;
 };
 
+struct GpuSoftBodyParticleRange
+{
+    uint start;
+    uint count;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuSoftBodyChunkRange
+{
+    uint start;
+    uint count;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuSoftBodyBoundsChunk
+{
+    uint softBodyIndex;
+    uint particleStart;
+    uint particleCount;
+    uint reserved0;
+};
+
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)
 {
     const uint lo = min(shapeTypeA, shapeTypeB);

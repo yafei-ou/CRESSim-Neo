@@ -324,6 +324,7 @@ int main(int argc, char **argv)
     config.gpuDeviceDesc.enableValidation     = false;
     config.physicsDesc.softContactIterations  = 100;
     config.physicsDesc.softInternalIterations = 100;
+    config.physicsDesc.enableBlockingReadback = false;
     std::uint64_t numFrames                   = 0u;
     std::uint32_t envCount                    = kDefaultEnvCount;
 
