@@ -73,7 +73,8 @@ GpuBackend parseBackend(const std::string &value)
 
 void printUsage(const char *appName)
 {
-    CRESSIM_LOG_ERROR("Usage: ", appName, " [--backend vulkan|null] [--frames N] [--envs N]\n");
+    CRESSIM_LOG_ERROR("Usage: ", appName,
+                      " [--backend vulkan|null] [--frames N] [--envs N] [--toroids N]\n");
 }
 
 MeshResourceDesc makeCubeMesh(float halfExtent)
@@ -390,7 +391,7 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
                        const SceneMaterials &materials,
                        cressim::neo::graphics::RenderResourceManager &resources,
                        const std::filesystem::path &nodeFile,
-                       const std::filesystem::path &eleFile,
+                       const std::filesystem::path &eleFile, std::uint32_t toroidCount,
                        cressim::neo::common::EntityId &outCameraEntity)
 {
     auto &world                   = runtime.getWorld();
@@ -470,7 +471,6 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     staticObstacleCollider.friction    = tuning.obstacleFriction;
     world.addCollider(staticObstacleEntity, staticObstacleCollider);
 
-    const auto softEntity = world.createEntity(envIndex);
     TransformComponent softTransform{};
     softTransform.worldTransform.position =
         origin + Diligent::float3{-2.0f + 1.5f * std::cos(phase), 10.0f + 0.6f * std::sin(phase),
@@ -478,23 +478,32 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     softTransform.worldTransform.rotation =
         Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 1.0f, 0.0f}, 0.18f * std::sin(phase));
     softTransform.worldTransform.scale = {5.0f, 5.0f, 5.0f};
-    world.setTransform(softEntity, softTransform);
-    world.setMeshRenderer(softEntity, MeshRendererComponent{toroidMesh, softBodyMaterial, true});
 
     SoftBodyComponent softBody{};
     softBody.source.kind            = SoftBodySourceKind::TetGenFiles;
     softBody.source.tetGen.nodeFile = nodeFile.string();
     softBody.source.tetGen.eleFile  = eleFile.string();
     softBody.particleMass           = 0.02f;
-    softBody.particleRadius         = 0.28f;
+    softBody.particleRadius         = 0.35f;
     softBody.edgeCompliance         = tuning.edgeCompliance;
     softBody.volumeCompliance       = tuning.volumeCompliance;
     softBody.selfCollisionEnabled   = false;
     softBody.collisionLayer         = 0x1u;
     softBody.collisionMask          = 0xffffffffu;
-    if (!world.setSoftBody(softEntity, softBody))
+
+    for (std::uint32_t toroidIndex = 0u; toroidIndex < toroidCount; ++toroidIndex)
     {
-        throw std::runtime_error("Failed to author toroid soft body for multi-env viewer.");
+        const auto softEntity = world.createEntity(envIndex);
+        TransformComponent toroidTransform = softTransform;
+        toroidTransform.worldTransform.position.y += 16.0f * static_cast<float>(toroidIndex);
+        world.setTransform(softEntity, toroidTransform);
+        world.setMeshRenderer(softEntity,
+                              MeshRendererComponent{toroidMesh, softBodyMaterial, true});
+
+        if (!world.setSoftBody(softEntity, softBody))
+        {
+            throw std::runtime_error("Failed to author toroid soft body for multi-env viewer.");
+        }
     }
 }
 
@@ -510,6 +519,7 @@ int main(int argc, char **argv)
     config.physicsDesc.enableBlockingReadback = true;
     std::uint64_t numFrames                   = 0u;
     std::uint32_t envCount                    = kDefaultEnvCount;
+    std::uint32_t toroidCount                 = 1u;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -543,6 +553,21 @@ int main(int argc, char **argv)
             }
             envCount = static_cast<std::uint32_t>(std::strtoul(argv[++i], nullptr, 10));
             if (envCount == 0u)
+            {
+                printUsage(argv[0]);
+                return 2;
+            }
+            continue;
+        }
+        if (arg == "--toroids")
+        {
+            if (i + 1 >= argc)
+            {
+                printUsage(argv[0]);
+                return 2;
+            }
+            toroidCount = static_cast<std::uint32_t>(std::strtoul(argv[++i], nullptr, 10));
+            if (toroidCount == 0u)
             {
                 printUsage(argv[0]);
                 return 2;
@@ -611,7 +636,7 @@ int main(int argc, char **argv)
     {
         cressim::neo::common::EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;
         authorEnvironment(runtime, envIndex, envCount, boxMesh, planeMesh, toroidMesh, materials,
-                          resources, nodeFile, eleFile, cameraEntity);
+                          resources, nodeFile, eleFile, toroidCount, cameraEntity);
         if (envIndex == 0u)
         {
             primaryCamera = cameraEntity;

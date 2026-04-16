@@ -1565,6 +1565,7 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
 
     if (mSoftBodyRenderBindingsDirty)
     {
+        mPhysicsWorld.ensureSoftBodyDerivedStateUpToDate();
         rebuildSoftBodyRenderBindings(resources);
     }
 

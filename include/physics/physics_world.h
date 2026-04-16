@@ -43,6 +43,7 @@ public:
     const SoftRenderDataHost &softRenderData() const noexcept;
     void setSoftRenderData(const SoftRenderDataHost &data);
     void ensureDerivedStateUpToDate() const noexcept;
+    void ensureSoftBodyDerivedStateUpToDate() noexcept;
     const std::vector<std::uint32_t> &rigidBodyDirtyIndices() const noexcept;
     const std::vector<std::uint32_t> &colliderDirtyIndices() const noexcept;
     std::uint32_t rigidBodyCount() const noexcept;

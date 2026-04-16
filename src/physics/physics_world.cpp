@@ -652,6 +652,14 @@ void PhysicsWorld::ensureDerivedStateUpToDate() const noexcept
     }
 }
 
+void PhysicsWorld::ensureSoftBodyDerivedStateUpToDate() noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        rebuildSoftBodyDerivedState();
+    }
+}
+
 const std::vector<std::uint32_t> &PhysicsWorld::rigidBodyDirtyIndices() const noexcept
 {
     return mRigidBodyDirtyIndices;

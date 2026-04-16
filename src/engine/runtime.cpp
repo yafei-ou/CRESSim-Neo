@@ -118,6 +118,8 @@ void Runtime::tick(const common::FrameContext &frameContext)
         return;
     }
 
+    mWorld.ensureRenderStateUpToDate(mResources);
+
     bool physicsStepSucceeded = true;
     if (mPhysicsSolver)
     {
@@ -127,8 +129,6 @@ void Runtime::tick(const common::FrameContext &frameContext)
             logPhysicsStepFailure(frameContext);
         }
     }
-
-    mWorld.ensureRenderStateUpToDate(mResources);
 
     bool gpuSceneReady = false;
     if (mRenderSceneUploader)
