@@ -21,6 +21,7 @@ struct PhysicsGpuSoftParticleBufferView
     Diligent::IBuffer *positionsInvMassBuffer      = nullptr;
     Diligent::IBuffer *previousPositionsBuffer     = nullptr;
     Diligent::IBuffer *velocitiesBuffer            = nullptr;
+    Diligent::IBuffer *materialsBuffer             = nullptr;
     Diligent::IBuffer *radiiBuffer                 = nullptr;
     Diligent::IBuffer *environmentIndicesBuffer    = nullptr;
     Diligent::IBuffer *owningSoftBodyIndicesBuffer = nullptr;

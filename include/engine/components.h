@@ -127,6 +127,7 @@ struct ColliderComponent
 struct SoftBodyComponent
 {
     physics::SoftBodySourceDesc source{};
+    physics::SoftBodyMaterialDesc material{};
     float particleMass           = 1.0f;
     float particleRadius         = 0.125f;
     float edgeCompliance         = 0.0f;

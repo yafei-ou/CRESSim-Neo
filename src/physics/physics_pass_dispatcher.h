@@ -105,6 +105,12 @@ public:
                               const PhysicsSceneGpuState &sceneState,
                               std::uint32_t softParticleCount,
                               const GpuSoftDispatchConstants &constants);
+    bool solveSoftRigidContactVelocities(Diligent::IDeviceContext *computeContext,
+                                         const PhysicsSceneGpuState &sceneState,
+                                         std::uint32_t softParticleCount,
+                                         std::uint32_t rigidBodyCount,
+                                         std::uint32_t iterations,
+                                         const GpuRigidDispatchConstants &rigidConstants);
     bool updateSoftTriangleNormals(Diligent::IDeviceContext *computeContext,
                                    const PhysicsSceneGpuState &sceneState,
                                    std::uint32_t renderTriangleCount);
@@ -194,6 +200,8 @@ private:
                                            const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveRigidContactConstraintsPass(Diligent::IDeviceContext *computeContext,
                                                   const PhysicsSceneGpuState &sceneState);
+    bool dispatchSolveSoftRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
+                                                     const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
                                                  const PhysicsSceneGpuState &sceneState);
 
@@ -230,6 +238,8 @@ private:
     gpu::GpuComputePass mSolveSoftRigidContactsPass;
     gpu::GpuComputePass mApplySoftPositionCorrectionsPass;
     gpu::GpuComputePass mUpdateSoftVelocitiesPass;
+    gpu::GpuComputePass mSolveSoftRigidContactVelocitiesPass;
+    gpu::GpuComputePass mApplySoftContactVelocitiesPass;
     gpu::GpuComputePass mUpdateSoftTriangleNormalsPass;
     gpu::GpuComputePass mUpdateSoftRenderNormalsPass;
     gpu::GpuComputePass mUpdateSoftBodyBoundsPass;

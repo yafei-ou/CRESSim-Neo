@@ -926,6 +926,7 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
     state.entityId             = entityId;
     state.environmentIndex     = entityEnvironment(entityId);
     state.source               = component.source;
+    state.material             = component.material;
     state.restTransform        = transform.worldTransform;
     state.particleMass         = component.particleMass;
     state.particleRadius       = component.particleRadius;
@@ -1326,6 +1327,7 @@ std::optional<SoftBodyComponent> World::tryGetSoftBody(common::EntityId entityId
 
     SoftBodyComponent component{};
     component.source               = softBody->source;
+    component.material             = softBody->material;
     component.particleMass         = softBody->particleMass;
     component.particleRadius       = softBody->particleRadius;
     component.edgeCompliance       = softBody->edgeCompliance;

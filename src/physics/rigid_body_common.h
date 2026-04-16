@@ -159,6 +159,7 @@ struct GpuSoftRigidContact
     std::uint32_t active            = 0;
     Diligent::float4 normalPenetration{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 rigidLocalPoint{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 material{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 struct GpuSoftContact
@@ -391,7 +392,7 @@ static_assert(sizeof(GpuParticleBroadPhaseEntry) == 32u);
 static_assert(sizeof(GpuSoftCandidatePair) == 16u);
 static_assert(sizeof(GpuSoftNeighborMeta) == 32u);
 static_assert(sizeof(GpuParticleCellRange) == 16u);
-static_assert(sizeof(GpuSoftRigidContact) == 48u);
+static_assert(sizeof(GpuSoftRigidContact) == 64u);
 static_assert(sizeof(GpuSoftContact) == 32u);
 static_assert(sizeof(GpuSoftConstraintRange) == 16u);
 static_assert(sizeof(GpuSoftIncidentEdge) == 16u);

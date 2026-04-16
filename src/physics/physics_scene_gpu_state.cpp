@@ -173,6 +173,7 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         mPersistentSoftParticles.positionsInvMassBuffer != nullptr &&
         mPersistentSoftParticles.previousPositionsBuffer != nullptr &&
         mPersistentSoftParticles.velocitiesBuffer != nullptr &&
+        mPersistentSoftParticles.materialsBuffer != nullptr &&
         mPersistentSoftParticles.radiiBuffer != nullptr &&
         mPersistentSoftParticles.environmentIndicesBuffer != nullptr &&
         mPersistentSoftParticles.owningSoftBodyIndicesBuffer != nullptr &&
@@ -221,6 +222,7 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
         mTransientState.activeSoftRigidContactsBuffer != nullptr &&
         mTransientState.activeSoftContactsBuffer != nullptr &&
         mTransientState.softPositionCorrectionsBuffer != nullptr &&
+        mTransientState.softVelocityCorrectionsBuffer != nullptr &&
         mTransientState.softEdgeLambdasBuffer != nullptr &&
         mTransientState.softTetLambdasBuffer != nullptr &&
         mTransientState.softEdgeCorrectionsBuffer != nullptr &&
@@ -467,6 +469,11 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftParticles.velocitiesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftMaterials",
+                                sizeof(Diligent::float4), newSoftParticleCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSoftParticles.materialsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRadii", sizeof(float),
                                 newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
@@ -677,6 +684,11 @@ bool PhysicsSceneGpuState::ensureCapacity(Diligent::IRenderDevice *renderDevice,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.softPositionCorrectionsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftVelocityCorrections",
+                                sizeof(Diligent::int4), newSoftParticleCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.softVelocityCorrectionsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftEdgeLambdas", sizeof(float),
                                 newSoftEdgeCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -1378,6 +1390,8 @@ bool PhysicsSceneGpuState::uploadSoftParticles(Diligent::IDeviceContext *compute
                                        softParticles.previousPositions, 0u, count) &&
            updateStructuredBufferRange(computeContext, mPersistentSoftParticles.velocitiesBuffer,
                                        softParticles.velocities, 0u, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentSoftParticles.materialsBuffer,
+                                       softParticles.materials, 0u, count) &&
            updateStructuredBufferRange(computeContext, mPersistentSoftParticles.radiiBuffer,
                                        softParticles.radii, 0u, count) &&
            updateStructuredBufferRange(computeContext,
@@ -1897,6 +1911,7 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.particles.positionsInvMassBuffer  = mPersistentSoftParticles.positionsInvMassBuffer;
     view.soft.particles.previousPositionsBuffer = mPersistentSoftParticles.previousPositionsBuffer;
     view.soft.particles.velocitiesBuffer        = mPersistentSoftParticles.velocitiesBuffer;
+    view.soft.particles.materialsBuffer         = mPersistentSoftParticles.materialsBuffer;
     view.soft.particles.radiiBuffer             = mPersistentSoftParticles.radiiBuffer;
     view.soft.particles.environmentIndicesBuffer =
         mPersistentSoftParticles.environmentIndicesBuffer;

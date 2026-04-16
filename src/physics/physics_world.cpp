@@ -82,6 +82,20 @@ Diligent::float4 toColliderMaterial(const ColliderState &state)
     return Diligent::float4{state.friction, state.restitution, 0.0f, 0.0f};
 }
 
+Diligent::float4 toSoftBodyMaterial(const SoftBodyMaterialDesc &material)
+{
+    return Diligent::float4{material.friction, material.restitution, material.damping,
+                            material.reserved};
+}
+
+void normalizeSoftBodyMaterial(SoftBodyMaterialDesc &material) noexcept
+{
+    material.friction    = std::max(material.friction, 0.0f);
+    material.restitution = std::clamp(material.restitution, 0.0f, 1.0f);
+    material.damping     = std::max(material.damping, 0.0f);
+    material.reserved    = 0.0f;
+}
+
 } // namespace
 
 namespace
@@ -974,6 +988,7 @@ void PhysicsWorld::normalizeColliderState(ColliderState &state) noexcept
 
 void PhysicsWorld::normalizeSoftBodyState(SoftBodyState &state) noexcept
 {
+    normalizeSoftBodyMaterial(state.material);
     state.particleMass     = std::max(state.particleMass, 1.0e-4f);
     state.particleRadius   = std::max(state.particleRadius, 1.0e-4f);
     state.edgeCompliance   = std::max(state.edgeCompliance, 0.0f);
@@ -1214,6 +1229,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mSoftParticles.previousPositions.push_back(
                 Diligent::float4{position.x, position.y, position.z, 0.0f});
             mSoftParticles.velocities.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
+            mSoftParticles.materials.push_back(toSoftBodyMaterial(softBody.material));
             mSoftParticles.radii.push_back(softBody.particleRadius);
             mSoftParticles.environmentIndices.push_back(softBody.environmentIndex);
             mSoftParticles.owningSoftBodyIndices.push_back(softBodyIndex);

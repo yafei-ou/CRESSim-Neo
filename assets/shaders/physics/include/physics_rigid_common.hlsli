@@ -234,6 +234,7 @@ struct GpuSoftRigidContact
     uint active;
     float4 normalPenetration;
     float4 rigidLocalPoint;
+    float4 material;
 };
 
 struct GpuSoftContact

@@ -67,6 +67,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsInvMassBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> previousPositionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> velocitiesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> materialsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> radiiBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> environmentIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> owningSoftBodyIndicesBuffer;
@@ -125,6 +126,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> activeSoftRigidContactsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> activeSoftContactsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softPositionCorrectionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softVelocityCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeCorrectionsBuffer;

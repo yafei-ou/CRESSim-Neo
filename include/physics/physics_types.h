@@ -70,6 +70,14 @@ struct SoftBodySourceDesc
     SoftBodyTetGenSource tetGen;
 };
 
+struct SoftBodyMaterialDesc
+{
+    float friction    = 0.0f;
+    float restitution = 0.0f;
+    float damping     = 0.0f;
+    float reserved    = 0.0f;
+};
+
 struct RigidBodyState
 {
     RigidBodyId rigidBodyId   = kInvalidRigidBodyId;
@@ -111,6 +119,7 @@ struct SoftBodyState
     std::uint32_t collisionLayer   = 1u;
     std::uint32_t collisionMask    = 0xffffffffu;
     SoftBodySourceDesc source{};
+    SoftBodyMaterialDesc material{};
     common::Transform restTransform{};
     float particleMass           = 1.0f;
     float particleRadius         = 0.125f;
@@ -150,6 +159,7 @@ struct SoftParticleSoAHost
     std::vector<Diligent::float4> positionsInvMass;
     std::vector<Diligent::float4> previousPositions;
     std::vector<Diligent::float4> velocities;
+    std::vector<Diligent::float4> materials;
     std::vector<float> radii;
     std::vector<std::uint32_t> environmentIndices;
     std::vector<std::uint32_t> owningSoftBodyIndices;
@@ -175,6 +185,7 @@ struct SoftParticleSoAHost
         positionsInvMass.clear();
         previousPositions.clear();
         velocities.clear();
+        materials.clear();
         radii.clear();
         environmentIndices.clear();
         owningSoftBodyIndices.clear();

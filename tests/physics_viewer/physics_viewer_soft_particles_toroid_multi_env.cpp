@@ -54,8 +54,24 @@ struct EnvironmentTuning
     Diligent::float3 softBodyColor{0.86f, 0.33f, 0.26f};
     float groundFriction         = 0.55f;
     float obstacleFriction       = 0.45f;
+    float softFriction           = 0.35f;
+    float softRestitution        = 0.02f;
+    float softDamping            = 0.6f;
+    float particleMass           = 0.02f;
+    float particleRadius         = 0.35f;
     float edgeCompliance         = 0.0f;
     float volumeCompliance       = 0.0001f;
+};
+
+struct ToroidVariantTuning
+{
+    float friction         = 0.35f;
+    float restitution      = 0.02f;
+    float damping          = 0.6f;
+    float particleMass     = 0.02f;
+    float particleRadius   = 0.35f;
+    float edgeCompliance   = 0.0f;
+    float volumeCompliance = 0.0001f;
 };
 
 GpuBackend parseBackend(const std::string &value)
@@ -381,8 +397,43 @@ EnvironmentTuning tuningForEnvironment(std::uint32_t envIndex)
         0.20f + 0.45f * (0.5f + 0.5f * std::sin(phase + 4.0f))};
     tuning.groundFriction   = 0.60f + 0.25f * (0.5f + 0.5f * std::sin(phase + 0.5f));
     tuning.obstacleFriction = 0.25f + 0.35f * (0.5f + 0.5f * std::cos(phase + 0.8f));
+    tuning.softFriction     = 0.30f + 0.75f * (0.5f + 0.5f * std::sin(phase + 1.3f));
+    tuning.softRestitution  = 0.02f + 0.28f * (0.5f + 0.5f * std::cos(phase + 0.1f));
+    tuning.softDamping      = 0.05f + 0.35f * (0.5f + 0.5f * std::sin(phase + 2.7f));
+    tuning.particleMass     = 0.014f + 0.018f * (0.5f + 0.5f * std::cos(phase + 1.8f));
+    tuning.particleRadius   = 0.28f + 0.12f * (0.5f + 0.5f * std::sin(phase + 3.4f));
     tuning.edgeCompliance   = 0.00001f * static_cast<float>(envIndex % 4u);
     tuning.volumeCompliance = 0.00005f + 0.00007f * static_cast<float>((envIndex + 1u) % 5u);
+    return tuning;
+}
+
+ToroidVariantTuning tuningForToroidVariant(const EnvironmentTuning &base,
+                                           std::uint32_t envIndex,
+                                           std::uint32_t toroidIndex,
+                                           std::uint32_t toroidCount)
+{
+    const float envPhase = static_cast<float>(envIndex) * 0.37f;
+    const float normalizedIndex =
+        toroidCount > 1u ? static_cast<float>(toroidIndex) / static_cast<float>(toroidCount - 1u)
+                         : 0.0f;
+    const float variantPhase = envPhase + static_cast<float>(toroidIndex) * 1.41f;
+
+    ToroidVariantTuning tuning{};
+    tuning.friction =
+        std::clamp(base.softFriction + (normalizedIndex - 0.5f) * 0.30f, 0.02f, 1.2f);
+    tuning.restitution =
+        std::clamp(base.softRestitution + 0.10f * std::sin(variantPhase), 0.0f, 0.95f);
+    tuning.damping =
+        std::max(0.0f, base.softDamping + (normalizedIndex - 0.5f) * 0.90f +
+                           0.18f * std::cos(variantPhase * 0.7f));
+    tuning.particleMass =
+        std::max(0.002f, base.particleMass * (0.82f + 0.36f * normalizedIndex));
+    tuning.particleRadius =
+        std::max(0.12f, base.particleRadius * (0.92f + 0.18f * std::sin(variantPhase + 0.5f)));
+    tuning.edgeCompliance =
+        std::max(0.0f, base.edgeCompliance * (0.6f + 1.6f * normalizedIndex));
+    tuning.volumeCompliance =
+        std::max(0.0f, base.volumeCompliance * (0.7f + 1.4f * (1.0f - normalizedIndex)));
     return tuning;
 }
 
@@ -483,24 +534,38 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     softBody.source.kind            = SoftBodySourceKind::TetGenFiles;
     softBody.source.tetGen.nodeFile = nodeFile.string();
     softBody.source.tetGen.eleFile  = eleFile.string();
-    softBody.particleMass           = 0.02f;
-    softBody.particleRadius         = 0.35f;
-    softBody.edgeCompliance         = tuning.edgeCompliance;
-    softBody.volumeCompliance       = tuning.volumeCompliance;
     softBody.selfCollisionEnabled   = false;
     softBody.collisionLayer         = 0x1u;
     softBody.collisionMask          = 0xffffffffu;
 
     for (std::uint32_t toroidIndex = 0u; toroidIndex < toroidCount; ++toroidIndex)
     {
+        const ToroidVariantTuning toroidTuning =
+            tuningForToroidVariant(tuning, envIndex, toroidIndex, toroidCount);
         const auto softEntity = world.createEntity(envIndex);
         TransformComponent toroidTransform = softTransform;
         toroidTransform.worldTransform.position.y += 16.0f * static_cast<float>(toroidIndex);
+        toroidTransform.worldTransform.position.x +=
+            (static_cast<float>(toroidIndex % 2u) - 0.5f) * 2.5f;
+        toroidTransform.worldTransform.position.z +=
+            (static_cast<float>(toroidIndex) - static_cast<float>(toroidCount - 1u) * 0.5f) * 1.2f;
+        toroidTransform.worldTransform.rotation =
+            Diligent::QuaternionF::RotationFromAxisAngle(
+                {0.0f, 1.0f, 0.0f}, 0.18f * std::sin(phase) + 0.21f * static_cast<float>(toroidIndex));
         world.setTransform(softEntity, toroidTransform);
         world.setMeshRenderer(softEntity,
                               MeshRendererComponent{toroidMesh, softBodyMaterial, true});
 
-        if (!world.setSoftBody(softEntity, softBody))
+        SoftBodyComponent softBodyVariant = softBody;
+        softBodyVariant.material.friction    = toroidTuning.friction;
+        softBodyVariant.material.restitution = toroidTuning.restitution;
+        softBodyVariant.material.damping     = toroidTuning.damping;
+        softBodyVariant.particleMass         = toroidTuning.particleMass;
+        softBodyVariant.particleRadius       = toroidTuning.particleRadius;
+        softBodyVariant.edgeCompliance       = toroidTuning.edgeCompliance;
+        softBodyVariant.volumeCompliance     = toroidTuning.volumeCompliance;
+
+        if (!world.setSoftBody(softEntity, softBodyVariant))
         {
             throw std::runtime_error("Failed to author toroid soft body for multi-env viewer.");
         }

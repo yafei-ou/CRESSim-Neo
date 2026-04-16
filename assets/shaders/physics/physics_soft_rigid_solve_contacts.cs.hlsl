@@ -81,8 +81,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     const float lambda = (penetration / denom) * kSoftContactRelaxation;
-    const float3 softCorrection = normal * (invMassSoft * lambda);
-    const float3 rigidTranslationCorrection = -normal * (invMassRigid * lambda);
+    float3 softCorrection = normal * (invMassSoft * lambda);
+    float3 rigidTranslationCorrection = -normal * (invMassRigid * lambda);
     const float3 rigidRotationCorrection = -angMass * lambda;
     const int3 softQuantized = QuantizeSoftCorrection(softCorrection);
     const int3 rigidTranslationQuantized = QuantizeSoftCorrection(rigidTranslationCorrection);

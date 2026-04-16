@@ -517,6 +517,15 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftVelocities dispatch.");
             return false;
         }
+        if (hasSoftRigidContactWork && softContactIterations > 0u &&
+            !mImpl->passDispatcher.solveSoftRigidContactVelocities(
+                computeBackend.computeContext, mImpl->sceneState, softParticleCount,
+                rigidBodyCount, softContactIterations, constants))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: SolveSoftRigidContactVelocities dispatch.");
+            return false;
+        }
         if (!mImpl->passDispatcher.updateSoftTriangleNormals(
                 computeBackend.computeContext, mImpl->sceneState, softRenderTriangleCount))
         {

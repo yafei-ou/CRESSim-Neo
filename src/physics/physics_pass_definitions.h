@@ -36,6 +36,8 @@ extern const gpu::GpuComputePassDefinition kSolveSoftContacts;
 extern const gpu::GpuComputePassDefinition kSolveSoftRigidContacts;
 extern const gpu::GpuComputePassDefinition kApplySoftPositionCorrections;
 extern const gpu::GpuComputePassDefinition kUpdateSoftVelocities;
+extern const gpu::GpuComputePassDefinition kSolveSoftRigidContactVelocities;
+extern const gpu::GpuComputePassDefinition kApplySoftContactVelocities;
 extern const gpu::GpuComputePassDefinition kUpdateSoftTriangleNormals;
 extern const gpu::GpuComputePassDefinition kUpdateSoftRenderNormals;
 extern const gpu::GpuComputePassDefinition kUpdateSoftBodyBounds;
