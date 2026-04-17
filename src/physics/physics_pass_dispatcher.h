@@ -108,8 +108,7 @@ public:
     bool solveSoftRigidContactVelocities(Diligent::IDeviceContext *computeContext,
                                          const PhysicsSceneGpuState &sceneState,
                                          std::uint32_t softParticleCount,
-                                         std::uint32_t rigidBodyCount,
-                                         std::uint32_t iterations,
+                                         std::uint32_t rigidBodyCount, std::uint32_t iterations,
                                          const GpuRigidDispatchConstants &rigidConstants);
     bool updateSoftTriangleNormals(Diligent::IDeviceContext *computeContext,
                                    const PhysicsSceneGpuState &sceneState,
@@ -118,8 +117,7 @@ public:
                                  const PhysicsSceneGpuState &sceneState,
                                  std::uint32_t renderVertexCount);
     bool updateSoftBodyBounds(Diligent::IDeviceContext *computeContext,
-                              const PhysicsSceneGpuState &sceneState,
-                              std::uint32_t softBodyCount,
+                              const PhysicsSceneGpuState &sceneState, std::uint32_t softBodyCount,
                               std::uint32_t softBodyBoundsChunkCount);
     bool predictRigid(Diligent::IDeviceContext *computeContext,
                       const PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,

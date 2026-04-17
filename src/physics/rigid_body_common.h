@@ -68,14 +68,14 @@ struct GpuPhysicsRadixConstants
 
 struct GpuSoftDispatchConstants
 {
-    float dt                            = 0.0f;
-    std::uint32_t softParticleCount     = 0;
-    std::uint32_t rigidColliderCount    = 0;
-    float particleGridCellSize          = 0.0f;
+    float dt                                = 0.0f;
+    std::uint32_t softParticleCount         = 0;
+    std::uint32_t rigidColliderCount        = 0;
+    float particleGridCellSize              = 0.0f;
     std::uint32_t softCandidatePairCapacity = 0;
-    std::uint32_t softCellRangeCapacity = 0;
-    std::uint32_t softEdgeCount         = 0;
-    std::uint32_t softTetCount          = 0;
+    std::uint32_t softCellRangeCapacity     = 0;
+    std::uint32_t softEdgeCount             = 0;
+    std::uint32_t softTetCount              = 0;
 };
 
 struct GpuSoftRenderDispatchConstants
@@ -87,8 +87,8 @@ struct GpuSoftRenderDispatchConstants
 };
 
 constexpr std::uint32_t kParticleBroadPhaseEntryTypeSoft = 0u;
-constexpr std::uint32_t kSoftCandidatePairTypeSoftSoft           = 0u;
-constexpr std::uint32_t kSoftCandidatePairTypeSoftRigid          = 1u;
+constexpr std::uint32_t kSoftCandidatePairTypeSoftSoft   = 0u;
+constexpr std::uint32_t kSoftCandidatePairTypeSoftRigid  = 1u;
 
 enum class GpuPhysicsIndirectDispatchSlot : std::uint32_t
 {

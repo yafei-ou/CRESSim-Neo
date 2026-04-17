@@ -2,12 +2,12 @@
 
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
-#include "physics/physics_gpu_scene_view.h"
 #include "graphics/output_planner.h"
 #include "graphics/passes/display_resolve_pass.h"
 #include "graphics/passes/forward_pipeline.h"
 #include "graphics/render_plan_builder.h"
 #include "graphics/renderer_internal.h"
+#include "physics/physics_gpu_scene_view.h"
 
 #include <array>
 #include <cstring>
@@ -397,7 +397,8 @@ bool Renderer::prepareGpuScene(const HostSceneView &world, const GpuEntitySceneV
 
         return mGpuScenePrepare->scenePreparePass.dispatch(
             backendContext.graphicsContext, 0u, bindings,
-            dispatchGroupCount(sceneView.layout.maxRenderableObjectsPerEnv * sceneView.cameraCount));
+            dispatchGroupCount(sceneView.layout.maxRenderableObjectsPerEnv *
+                               sceneView.cameraCount));
     }
 
     const std::array bindings{

@@ -959,7 +959,7 @@ bool World::removeSoftBody(common::EntityId entityId)
         markRenderablePoseDirty(static_cast<std::uint32_t>(renderIt->second));
         markRenderableMetadataDirty(static_cast<std::uint32_t>(renderIt->second));
     }
-    mDrawRegistryDirty          = true;
+    mDrawRegistryDirty           = true;
     mSoftBodyRenderBindingsDirty = true;
     return mPhysicsWorld.removeSoftBody(entityId);
 }
@@ -1714,7 +1714,8 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
             const std::uint32_t i0 = mesh->indices[triangleIndex + 0u];
             const std::uint32_t i1 = mesh->indices[triangleIndex + 1u];
             const std::uint32_t i2 = mesh->indices[triangleIndex + 2u];
-            if (i0 >= mesh->vertices.size() || i1 >= mesh->vertices.size() || i2 >= mesh->vertices.size())
+            if (i0 >= mesh->vertices.size() || i1 >= mesh->vertices.size() ||
+                i2 >= mesh->vertices.size())
             {
                 continue;
             }
@@ -1825,7 +1826,8 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
                     }
                     // If render binding generation failed, metadata can still carry a soft-body
                     // index while the vertex binding bases remain invalid. That currently makes
-                    // culling use soft-body bounds while vertex shaders fall back to undeformed data.
+                    // culling use soft-body bounds while vertex shaders fall back to undeformed
+                    // data.
                     localBoundsMin = Diligent::float3{0.0f, 0.0f, 0.0f};
                     localBoundsMax = Diligent::float3{0.0f, 0.0f, 0.0f};
                     hasBounds      = true;
@@ -2019,10 +2021,9 @@ void World::refreshRenderablePose(std::uint32_t objectIndex)
     {
         renderable.worldTransform =
             tryGetTransform(renderable.entityId).value_or(TransformComponent{}).worldTransform;
-        mRenderObjectPositions[objectIndex] =
-            Diligent::float4{renderable.worldTransform.position.x,
-                             renderable.worldTransform.position.y,
-                             renderable.worldTransform.position.z, 1.0f};
+        mRenderObjectPositions[objectIndex] = Diligent::float4{
+            renderable.worldTransform.position.x, renderable.worldTransform.position.y,
+            renderable.worldTransform.position.z, 1.0f};
         mRenderObjectOrientations[objectIndex] = Diligent::float4{
             renderable.worldTransform.rotation.q.x, renderable.worldTransform.rotation.q.y,
             renderable.worldTransform.rotation.q.z, renderable.worldTransform.rotation.q.w};

@@ -160,21 +160,21 @@ private:
     std::vector<std::uint32_t> mColliderDirtyIndices{};
     std::vector<std::uint8_t> mRigidBodyDirtyBits{};
     std::vector<std::uint8_t> mColliderDirtyBits{};
-    bool mRigidBodyCountDirty                   = false;
-    bool mColliderCountDirty                    = false;
-    bool mFullRigidBodyUploadRequired           = false;
-    bool mFullColliderUploadRequired            = false;
-    mutable bool mBodyColliderMappingDirty      = true;
-    bool mSoftBodyDerivedStateDirty             = true;
-    bool mStaticBroadPhaseDirty                 = false;
-    std::uint32_t mActiveMovingColliderCount    = 0u;
-    std::uint32_t mStaticColliderCount          = 0u;
-    std::uint64_t mAuthoredRevision             = 0;
-    std::uint64_t mSimulationRevision           = 0;
-    std::uint64_t mRigidBodyTopologyRevision    = 0;
-    std::uint64_t mSoftBodyTopologyRevision     = 0;
-    RigidBodyId mNextRigidBodyId                = 1u;
-    ColliderId mNextColliderId                  = 1u;
+    bool mRigidBodyCountDirty                = false;
+    bool mColliderCountDirty                 = false;
+    bool mFullRigidBodyUploadRequired        = false;
+    bool mFullColliderUploadRequired         = false;
+    mutable bool mBodyColliderMappingDirty   = true;
+    bool mSoftBodyDerivedStateDirty          = true;
+    bool mStaticBroadPhaseDirty              = false;
+    std::uint32_t mActiveMovingColliderCount = 0u;
+    std::uint32_t mStaticColliderCount       = 0u;
+    std::uint64_t mAuthoredRevision          = 0;
+    std::uint64_t mSimulationRevision        = 0;
+    std::uint64_t mRigidBodyTopologyRevision = 0;
+    std::uint64_t mSoftBodyTopologyRevision  = 0;
+    RigidBodyId mNextRigidBodyId             = 1u;
+    ColliderId mNextColliderId               = 1u;
 };
 
 } // namespace cressim::neo::physics

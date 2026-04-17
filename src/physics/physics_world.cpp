@@ -208,9 +208,9 @@ void PhysicsWorld::clear()
     mFullColliderUploadRequired  = true;
     mBodyColliderMappingDirty    = true;
     mSoftBodyDerivedStateDirty   = true;
-    mStaticBroadPhaseDirty = true;
-    mActiveMovingColliderCount = 0u;
-    mStaticColliderCount = 0u;
+    mStaticBroadPhaseDirty       = true;
+    mActiveMovingColliderCount   = 0u;
+    mStaticColliderCount         = 0u;
     ++mRigidBodyTopologyRevision;
     ++mSoftBodyTopologyRevision;
     ++mAuthoredRevision;
@@ -248,7 +248,7 @@ RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
         markRigidBodyDirty(index);
         markRigidBodyCountDirty();
         mBodyColliderMappingDirty = true;
-        mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || isStaticBody(normalizedState);
+        mStaticBroadPhaseDirty    = mStaticBroadPhaseDirty || isStaticBody(normalizedState);
         ++mRigidBodyTopologyRevision;
         ++mAuthoredRevision;
         return mRigidBodySnapshot.back();
@@ -342,7 +342,7 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     markRigidBodyCountDirty();
     markColliderCountDirty(true);
     mBodyColliderMappingDirty = true;
-    mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || removedStatic;
+    mStaticBroadPhaseDirty    = mStaticBroadPhaseDirty || removedStatic;
     ++mRigidBodyTopologyRevision;
     ++mAuthoredRevision;
     return true;
@@ -406,19 +406,18 @@ void PhysicsWorld::upsertCollider(const ColliderState &state)
         markColliderDirty(colliderIndex);
         markColliderCountDirty();
         mBodyColliderMappingDirty = true;
-        mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || ownerIsStatic;
+        mStaticBroadPhaseDirty    = mStaticBroadPhaseDirty || ownerIsStatic;
         ++mAuthoredRevision;
         return;
     }
 
-    const std::uint32_t colliderIndex = colliderIt->second;
-    const ColliderState previousState = mColliderSnapshot[colliderIndex];
+    const std::uint32_t colliderIndex        = colliderIt->second;
+    const ColliderState previousState        = mColliderSnapshot[colliderIndex];
     const std::uint32_t previousContribution = broadPhaseContributionForCollider(previousState);
     const std::uint32_t newContribution =
         colliderBroadPhaseContribution(normalizedState, &mRigidBodySnapshot[ownerBodyIndex]);
-    const bool staticContributionChanged =
-        previousContribution == kBroadPhaseContributionStatic ||
-        newContribution == kBroadPhaseContributionStatic;
+    const bool staticContributionChanged = previousContribution == kBroadPhaseContributionStatic ||
+                                           newContribution == kBroadPhaseContributionStatic;
     if (previousContribution != newContribution)
     {
         if (previousContribution == kBroadPhaseContributionStatic)
@@ -461,8 +460,8 @@ void PhysicsWorld::upsertCollider(const ColliderState &state)
         previousState.localRotation.q.w != normalizedState.localRotation.q.w ||
         previousState.enabled != normalizedState.enabled;
     if (staticContributionChanged || ((previousContribution == kBroadPhaseContributionStatic ||
-                                      newContribution == kBroadPhaseContributionStatic) &&
-                                     staticColliderShapeChanged))
+                                       newContribution == kBroadPhaseContributionStatic) &&
+                                      staticColliderShapeChanged))
     {
         mStaticBroadPhaseDirty = true;
     }
@@ -486,7 +485,7 @@ bool PhysicsWorld::removeCollider(ColliderId colliderId)
     removeColliderAtIndex(it->second);
     markColliderCountDirty();
     mBodyColliderMappingDirty = true;
-    mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || removedStaticOwner;
+    mStaticBroadPhaseDirty    = mStaticBroadPhaseDirty || removedStaticOwner;
     ++mAuthoredRevision;
     return true;
 }
@@ -537,7 +536,7 @@ void PhysicsWorld::replaceColliders(common::EntityId entityId,
 
     markColliderCountDirty(true);
     mBodyColliderMappingDirty = true;
-    mStaticBroadPhaseDirty = true;
+    mStaticBroadPhaseDirty    = true;
     ++mAuthoredRevision;
 }
 
@@ -553,9 +552,8 @@ bool PhysicsWorld::upsertSoftBody(const SoftBodyState &state)
         previousState = &mSoftBodySnapshot[it->second];
     }
 
-    if (previousState != nullptr &&
-        classifySoftBodyChange(*previousState, normalizedState) ==
-            SoftBodyChangeKind::RuntimePropertiesOnly)
+    if (previousState != nullptr && classifySoftBodyChange(*previousState, normalizedState) ==
+                                        SoftBodyChangeKind::RuntimePropertiesOnly)
     {
         applySoftBodyRuntimeProperties(it->second, normalizedState);
         ++mAuthoredRevision;
@@ -577,7 +575,7 @@ bool PhysicsWorld::upsertSoftBody(const SoftBodyState &state)
     }
     else
     {
-        mSoftBodySnapshot[it->second] = normalizedState;
+        mSoftBodySnapshot[it->second]      = normalizedState;
         mSoftBodyDerivedCaches[it->second] = std::move(derivedCache);
     }
 
@@ -599,8 +597,8 @@ bool PhysicsWorld::removeSoftBody(common::EntityId entityId)
     const std::uint32_t last  = static_cast<std::uint32_t>(mSoftBodySnapshot.size() - 1u);
     if (index != last)
     {
-        mSoftBodySnapshot[index]                                  = mSoftBodySnapshot[last];
-        mSoftBodyDerivedCaches[index]                            = std::move(mSoftBodyDerivedCaches[last]);
+        mSoftBodySnapshot[index]      = mSoftBodySnapshot[last];
+        mSoftBodyDerivedCaches[index] = std::move(mSoftBodyDerivedCaches[last]);
         mEntityToSoftBodyIndex[mSoftBodySnapshot[index].entityId] = index;
     }
     mSoftBodySnapshot.pop_back();
@@ -834,11 +832,10 @@ void PhysicsWorld::integrateRigidBodiesCpu(float dt) noexcept
     ++mAuthoredRevision;
 }
 
-bool PhysicsWorld::syncRigidBodyStateFromSimulation(std::uint32_t index,
-                                                    const Diligent::float4 &positionInvMass,
-                                                    const Diligent::float4 &orientation,
-                                                    const Diligent::float4 &linearVelocity,
-                                                    const Diligent::float4 &angularVelocity) noexcept
+bool PhysicsWorld::syncRigidBodyStateFromSimulation(
+    std::uint32_t index, const Diligent::float4 &positionInvMass,
+    const Diligent::float4 &orientation, const Diligent::float4 &linearVelocity,
+    const Diligent::float4 &angularVelocity) noexcept
 {
     if (index >= rigidBodyCount())
     {
@@ -849,7 +846,7 @@ bool PhysicsWorld::syncRigidBodyStateFromSimulation(std::uint32_t index,
     mRigidBodies.orientations[index]      = orientation;
     mRigidBodies.linearVelocities[index]  = linearVelocity;
     mRigidBodies.angularVelocities[index] = angularVelocity;
-    RigidBodyState &state = mRigidBodySnapshot[index];
+    RigidBodyState &state                 = mRigidBodySnapshot[index];
     state.position    = Diligent::float3{positionInvMass.x, positionInvMass.y, positionInvMass.z};
     state.inverseMass = positionInvMass.w;
     state.rotation =
@@ -1103,14 +1100,14 @@ void PhysicsWorld::applySoftBodyRuntimeProperties(std::uint32_t index,
         return;
     }
 
-    SoftBodyState &softBody                    = mSoftBodySnapshot[index];
-    const std::uint32_t particleOffset         = softBody.particleOffset;
-    const std::uint32_t particleCount          = softBody.particleCount;
-    const std::uint32_t edgeOffset             = softBody.edgeOffset;
-    const std::uint32_t edgeCount              = softBody.edgeCount;
-    const std::uint32_t tetOffset              = softBody.tetOffset;
-    const std::uint32_t tetCount               = softBody.tetCount;
-    const std::vector<std::uint32_t> &statics  = mSoftBodyDerivedCaches[index].staticParticleIndices;
+    SoftBodyState &softBody                   = mSoftBodySnapshot[index];
+    const std::uint32_t particleOffset        = softBody.particleOffset;
+    const std::uint32_t particleCount         = softBody.particleCount;
+    const std::uint32_t edgeOffset            = softBody.edgeOffset;
+    const std::uint32_t edgeCount             = softBody.edgeCount;
+    const std::uint32_t tetOffset             = softBody.tetOffset;
+    const std::uint32_t tetCount              = softBody.tetCount;
+    const std::vector<std::uint32_t> &statics = mSoftBodyDerivedCaches[index].staticParticleIndices;
     const float inverseMass =
         normalizedState.particleMass > 0.0f ? 1.0f / normalizedState.particleMass : 0.0f;
     const Diligent::float4 material = toSoftBodyMaterial(normalizedState.material);
@@ -1202,8 +1199,8 @@ void PhysicsWorld::removeColliderAtIndex(std::uint32_t index) noexcept
         return;
     }
 
-    const std::uint32_t last    = colliderCount() - 1u;
-    const ColliderState removed = mColliderSnapshot[index];
+    const std::uint32_t last                = colliderCount() - 1u;
+    const ColliderState removed             = mColliderSnapshot[index];
     const std::uint32_t removedContribution = broadPhaseContributionForCollider(removed);
     if (removedContribution == kBroadPhaseContributionStatic)
     {
@@ -1265,7 +1262,8 @@ void PhysicsWorld::removeColliderAtIndex(std::uint32_t index) noexcept
     mColliders.collisionMasks.pop_back();
 }
 
-std::uint32_t PhysicsWorld::broadPhaseContributionForCollider(const ColliderState &collider) const noexcept
+std::uint32_t PhysicsWorld::broadPhaseContributionForCollider(
+    const ColliderState &collider) const noexcept
 {
     const auto bodyIt = mRigidBodyIdToIndex.find(collider.ownerRigidBodyId);
     const RigidBodyState *owner =

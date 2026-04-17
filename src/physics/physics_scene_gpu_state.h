@@ -204,10 +204,8 @@ public:
                         std::uint32_t softEdgeCount, std::uint32_t softTetCount,
                         std::uint32_t softRenderVertexCount,
                         std::uint32_t softRenderTriangleIndexCount,
-                        std::uint32_t softRenderTriangleCount,
-                        std::uint32_t softBodyRangeCount,
-                        std::uint32_t softBodyBoundsChunkCount,
-                        Diligent::Uint64 sharedContextMask);
+                        std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
+                        std::uint32_t softBodyBoundsChunkCount, Diligent::Uint64 sharedContextMask);
     bool uploadWorldState(Diligent::IDeviceContext *computeContext, PhysicsWorld &world,
                           std::uint32_t bodyCount, std::uint32_t colliderCount);
     bool copyPredictedRigidBodiesToPersistentState(Diligent::IDeviceContext *computeContext,
@@ -269,39 +267,39 @@ private:
     SolverTransientBuffers mTransientState;
     RigidBodyReadbackBuffers mReadbackRigidBodies;
     SoftParticleReadbackBuffers mReadbackSoftParticles;
-    std::uint32_t mRigidBodyCapacity                        = 0;
-    std::uint32_t mColliderCapacity                         = 0;
-    std::uint32_t mSoftParticleCapacity                     = 0;
-    std::uint32_t mSoftEdgeCapacity                         = 0;
-    std::uint32_t mSoftTetCapacity                          = 0;
-    std::uint32_t mParticleBroadPhaseEntryCapacity          = 0;
-    std::uint32_t mSoftCandidatePairCapacity                = 0;
-    std::uint32_t mSoftParticleAdjacencyCapacity            = 0;
-    std::uint32_t mRigidBodyCount                           = 0;
-    std::uint32_t mColliderCount                            = 0;
-    std::uint32_t mSoftBodyCount                            = 0;
-    std::uint32_t mSoftParticleCount                        = 0;
-    std::uint32_t mSoftEdgeCount                            = 0;
-    std::uint32_t mSoftTetCount                             = 0;
-    std::uint32_t mBroadPhaseNodeCapacity                   = 0;
-    std::uint32_t mCandidatePairCapacity                    = 0;
-    std::uint32_t mContactCapacity                          = 0;
-    std::uint32_t mSoftScanScratchCapacity                  = 0;
-    std::uint32_t mSoftIncidentEdgeCapacity                 = 0;
-    std::uint32_t mSoftIncidentTetCapacity                  = 0;
-    std::uint32_t mSoftRenderVertexCapacity                 = 0;
-    std::uint32_t mSoftRenderTriangleIndexCapacity          = 0;
-    std::uint32_t mSoftRenderTriangleCapacity               = 0;
-    std::uint32_t mSoftBodyRangeCapacity                    = 0;
-    std::uint32_t mSoftBodyBoundsChunkCapacity              = 0;
-    bool mCorrectionBuffersNeedClear                        = false;
-    bool mStaticBroadPhaseDirty                             = true;
-    bool mRigidBodyUploadResetRequired                      = true;
-    bool mColliderUploadResetRequired                       = true;
-    bool mSoftParticleUploadResetRequired                   = true;
-    bool mSoftTopologyUploadResetRequired                   = true;
-    std::uint64_t mLastUploadedSoftParticleRevision         = 0;
-    std::uint64_t mLastUploadedSoftTopologyRevision         = 0;
+    std::uint32_t mRigidBodyCapacity                = 0;
+    std::uint32_t mColliderCapacity                 = 0;
+    std::uint32_t mSoftParticleCapacity             = 0;
+    std::uint32_t mSoftEdgeCapacity                 = 0;
+    std::uint32_t mSoftTetCapacity                  = 0;
+    std::uint32_t mParticleBroadPhaseEntryCapacity  = 0;
+    std::uint32_t mSoftCandidatePairCapacity        = 0;
+    std::uint32_t mSoftParticleAdjacencyCapacity    = 0;
+    std::uint32_t mRigidBodyCount                   = 0;
+    std::uint32_t mColliderCount                    = 0;
+    std::uint32_t mSoftBodyCount                    = 0;
+    std::uint32_t mSoftParticleCount                = 0;
+    std::uint32_t mSoftEdgeCount                    = 0;
+    std::uint32_t mSoftTetCount                     = 0;
+    std::uint32_t mBroadPhaseNodeCapacity           = 0;
+    std::uint32_t mCandidatePairCapacity            = 0;
+    std::uint32_t mContactCapacity                  = 0;
+    std::uint32_t mSoftScanScratchCapacity          = 0;
+    std::uint32_t mSoftIncidentEdgeCapacity         = 0;
+    std::uint32_t mSoftIncidentTetCapacity          = 0;
+    std::uint32_t mSoftRenderVertexCapacity         = 0;
+    std::uint32_t mSoftRenderTriangleIndexCapacity  = 0;
+    std::uint32_t mSoftRenderTriangleCapacity       = 0;
+    std::uint32_t mSoftBodyRangeCapacity            = 0;
+    std::uint32_t mSoftBodyBoundsChunkCapacity      = 0;
+    bool mCorrectionBuffersNeedClear                = false;
+    bool mStaticBroadPhaseDirty                     = true;
+    bool mRigidBodyUploadResetRequired              = true;
+    bool mColliderUploadResetRequired               = true;
+    bool mSoftParticleUploadResetRequired           = true;
+    bool mSoftTopologyUploadResetRequired           = true;
+    std::uint64_t mLastUploadedSoftParticleRevision = 0;
+    std::uint64_t mLastUploadedSoftTopologyRevision = 0;
 };
 
 } // namespace cressim::neo::physics
