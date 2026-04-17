@@ -132,6 +132,53 @@ void clearDirtyIndices(std::vector<std::uint32_t> &dirtyIndices,
 
 } // namespace
 
+namespace
+{
+
+bool equalSoftBodyRegularGridSource(const SoftBodyRegularGridSource &lhs,
+                                    const SoftBodyRegularGridSource &rhs) noexcept
+{
+    return lhs.size == rhs.size && lhs.targetParticleSpacing == rhs.targetParticleSpacing &&
+           lhs.staticParticleIndices == rhs.staticParticleIndices;
+}
+
+bool equalSoftBodyTetMeshSource(const SoftBodyTetMeshSource &lhs,
+                                const SoftBodyTetMeshSource &rhs) noexcept
+{
+    return lhs.objectSpaceRestPositions == rhs.objectSpaceRestPositions &&
+           lhs.tetVertexIndices == rhs.tetVertexIndices &&
+           lhs.staticParticleIndices == rhs.staticParticleIndices;
+}
+
+bool equalSoftBodyTetGenSource(const SoftBodyTetGenSource &lhs,
+                               const SoftBodyTetGenSource &rhs) noexcept
+{
+    return lhs.nodeFile == rhs.nodeFile && lhs.eleFile == rhs.eleFile &&
+           lhs.staticParticleIndices == rhs.staticParticleIndices;
+}
+
+bool equalSoftBodySourceDesc(const SoftBodySourceDesc &lhs, const SoftBodySourceDesc &rhs) noexcept
+{
+    if (lhs.kind != rhs.kind)
+    {
+        return false;
+    }
+
+    switch (lhs.kind)
+    {
+    case SoftBodySourceKind::RegularGrid:
+        return equalSoftBodyRegularGridSource(lhs.regularGrid, rhs.regularGrid);
+    case SoftBodySourceKind::TetMesh:
+        return equalSoftBodyTetMeshSource(lhs.tetMesh, rhs.tetMesh);
+    case SoftBodySourceKind::TetGenFiles:
+        return equalSoftBodyTetGenSource(lhs.tetGen, rhs.tetGen);
+    }
+
+    return false;
+}
+
+} // namespace
+
 void PhysicsWorld::clear()
 {
     mRigidBodies.clear();
@@ -498,7 +545,6 @@ bool PhysicsWorld::upsertSoftBody(const SoftBodyState &state)
 {
     SoftBodyState normalizedState = state;
     normalizeSoftBodyState(normalizedState);
-    SoftBodyDerivedCache derivedCache;
 
     const auto it                      = mEntityToSoftBodyIndex.find(normalizedState.entityId);
     const SoftBodyState *previousState = nullptr;
@@ -507,6 +553,16 @@ bool PhysicsWorld::upsertSoftBody(const SoftBodyState &state)
         previousState = &mSoftBodySnapshot[it->second];
     }
 
+    if (previousState != nullptr &&
+        classifySoftBodyChange(*previousState, normalizedState) ==
+            SoftBodyChangeKind::RuntimePropertiesOnly)
+    {
+        applySoftBodyRuntimeProperties(it->second, normalizedState);
+        ++mAuthoredRevision;
+        return true;
+    }
+
+    SoftBodyDerivedCache derivedCache;
     if (!prepareSoftBodyStateForInsert(normalizedState, previousState, derivedCache))
     {
         return false;
@@ -1015,6 +1071,105 @@ void PhysicsWorld::normalizeSoftBodyState(SoftBodyState &state) noexcept
     {
         state.collisionLayer = 1u;
     }
+}
+
+PhysicsWorld::SoftBodyChangeKind PhysicsWorld::classifySoftBodyChange(
+    const SoftBodyState &previousState, const SoftBodyState &candidate) noexcept
+{
+    if (!equalSoftBodySourceDesc(previousState.source, candidate.source) ||
+        previousState.restTransform != candidate.restTransform)
+    {
+        return SoftBodyChangeKind::TopologyRebuild;
+    }
+
+    return SoftBodyChangeKind::RuntimePropertiesOnly;
+}
+
+void PhysicsWorld::applySoftBodyRuntimeProperties(std::uint32_t index,
+                                                  const SoftBodyState &normalizedState) noexcept
+{
+    if (index >= mSoftBodySnapshot.size())
+    {
+        return;
+    }
+
+    if (mSoftBodyDerivedStateDirty)
+    {
+        rebuildSoftBodyDerivedState();
+    }
+
+    if (index >= mSoftBodySnapshot.size() || index >= mSoftBodyDerivedCaches.size())
+    {
+        return;
+    }
+
+    SoftBodyState &softBody                    = mSoftBodySnapshot[index];
+    const std::uint32_t particleOffset         = softBody.particleOffset;
+    const std::uint32_t particleCount          = softBody.particleCount;
+    const std::uint32_t edgeOffset             = softBody.edgeOffset;
+    const std::uint32_t edgeCount              = softBody.edgeCount;
+    const std::uint32_t tetOffset              = softBody.tetOffset;
+    const std::uint32_t tetCount               = softBody.tetCount;
+    const std::vector<std::uint32_t> &statics  = mSoftBodyDerivedCaches[index].staticParticleIndices;
+    const float inverseMass =
+        normalizedState.particleMass > 0.0f ? 1.0f / normalizedState.particleMass : 0.0f;
+    const Diligent::float4 material = toSoftBodyMaterial(normalizedState.material);
+    std::size_t staticCursor        = 0u;
+
+    for (std::uint32_t localParticleIndex = 0u; localParticleIndex < particleCount;
+         ++localParticleIndex)
+    {
+        const std::uint32_t particleIndex = particleOffset + localParticleIndex;
+        if (particleIndex >= mSoftParticles.size())
+        {
+            break;
+        }
+
+        const bool isStatic =
+            staticCursor < statics.size() && statics[staticCursor] == localParticleIndex;
+        if (isStatic)
+        {
+            ++staticCursor;
+        }
+
+        mSoftParticles.positionsInvMass[particleIndex].w = isStatic ? 0.0f : inverseMass;
+        mSoftParticles.materials[particleIndex]          = material;
+        mSoftParticles.radii[particleIndex]              = normalizedState.particleRadius;
+        mSoftParticles.environmentIndices[particleIndex] = normalizedState.environmentIndex;
+        mSoftParticles.phases[particleIndex] =
+            packSoftParticlePhase(index, normalizedState.selfCollisionEnabled);
+        mSoftParticles.collisionLayers[particleIndex] = normalizedState.collisionLayer;
+        mSoftParticles.collisionMasks[particleIndex]  = normalizedState.collisionMask;
+    }
+
+    for (std::uint32_t edgeIndex = edgeOffset; edgeIndex < edgeOffset + edgeCount; ++edgeIndex)
+    {
+        if (edgeIndex >= mSoftEdges.size())
+        {
+            break;
+        }
+        mSoftEdges[edgeIndex].compliance = normalizedState.edgeCompliance;
+    }
+
+    for (std::uint32_t tetIndex = tetOffset; tetIndex < tetOffset + tetCount; ++tetIndex)
+    {
+        if (tetIndex >= mSoftTets.size())
+        {
+            break;
+        }
+        mSoftTets[tetIndex].compliance = normalizedState.volumeCompliance;
+    }
+
+    softBody.environmentIndex     = normalizedState.environmentIndex;
+    softBody.collisionLayer       = normalizedState.collisionLayer;
+    softBody.collisionMask        = normalizedState.collisionMask;
+    softBody.material             = normalizedState.material;
+    softBody.particleMass         = normalizedState.particleMass;
+    softBody.particleRadius       = normalizedState.particleRadius;
+    softBody.edgeCompliance       = normalizedState.edgeCompliance;
+    softBody.volumeCompliance     = normalizedState.volumeCompliance;
+    softBody.simulated            = normalizedState.simulated;
+    softBody.selfCollisionEnabled = normalizedState.selfCollisionEnabled;
 }
 
 void PhysicsWorld::removeCollidersForEntity(common::EntityId entityId) noexcept

@@ -11,6 +11,16 @@ struct Transform
     Diligent::float3 position{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF rotation{0.0f, 0.0f, 0.0f, 1.0f};
     Diligent::float3 scale{1.0f, 1.0f, 1.0f};
+
+    bool operator==(const Transform &rhs) const noexcept
+    {
+        return position == rhs.position && rotation == rhs.rotation && scale == rhs.scale;
+    }
+
+    bool operator!=(const Transform &rhs) const noexcept
+    {
+        return !(*this == rhs);
+    }
 };
 
 } // namespace cressim::neo::common

@@ -79,6 +79,12 @@ public:
     std::uint64_t softBodyTopologyRevision() const noexcept;
 
 private:
+    enum class SoftBodyChangeKind
+    {
+        RuntimePropertiesOnly,
+        TopologyRebuild,
+    };
+
     struct SoftBodyDerivedCache
     {
         std::vector<Diligent::float3> restPositions;
@@ -115,6 +121,10 @@ private:
     std::uint32_t broadPhaseContributionForCollider(const ColliderState &collider) const noexcept;
     std::uint32_t enabledColliderCountForEntity(common::EntityId entityId) const noexcept;
     static void normalizeSoftBodyState(SoftBodyState &state) noexcept;
+    static SoftBodyChangeKind classifySoftBodyChange(const SoftBodyState &previousState,
+                                                     const SoftBodyState &candidate) noexcept;
+    void applySoftBodyRuntimeProperties(std::uint32_t index,
+                                        const SoftBodyState &normalizedState) noexcept;
     bool prepareSoftBodyStateForInsert(const SoftBodyState &candidate,
                                        const SoftBodyState *previousState,
                                        SoftBodyDerivedCache &derivedCache) noexcept;

@@ -48,6 +48,13 @@ add_test(
     COMMAND cressim_neo_soft_body_simulated_toggle
 )
 
+add_engine_test(cressim_neo_soft_body_runtime_update_preserves_state
+    soft_body_runtime_update_preserves_state.cpp)
+add_test(
+    NAME cressim_neo_soft_body_runtime_update_preserves_state
+    COMMAND cressim_neo_soft_body_runtime_update_preserves_state
+)
+
 add_engine_test(cressim_neo_world_deferred_render_reconciliation world_deferred_render_reconciliation.cpp)
 add_test(
     NAME cressim_neo_world_deferred_render_reconciliation
