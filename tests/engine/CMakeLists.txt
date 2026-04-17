@@ -42,6 +42,12 @@ add_test(
     COMMAND cressim_neo_direct_physics_authoring
 )
 
+add_engine_test(cressim_neo_soft_body_simulated_toggle soft_body_simulated_toggle.cpp)
+add_test(
+    NAME cressim_neo_soft_body_simulated_toggle
+    COMMAND cressim_neo_soft_body_simulated_toggle
+)
+
 add_engine_test(cressim_neo_world_deferred_render_reconciliation world_deferred_render_reconciliation.cpp)
 add_test(
     NAME cressim_neo_world_deferred_render_reconciliation

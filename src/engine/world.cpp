@@ -906,8 +906,7 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
 
     if (!component.simulated)
     {
-        mPhysicsWorld.removeSoftBody(entityId);
-        mPhysicsLinks[entityId].hasSoftBody = false;
+        (void)removeSoftBody(entityId);
         return true;
     }
 
