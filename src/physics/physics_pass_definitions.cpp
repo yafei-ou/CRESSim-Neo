@@ -391,7 +391,13 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveSoftRigidContactsVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kSolveSoftContactsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticlePreviousPositions",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleMaterials",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftContacts",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},

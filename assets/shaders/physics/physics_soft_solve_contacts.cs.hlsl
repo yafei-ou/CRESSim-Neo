@@ -1,10 +1,15 @@
 #include "physics/include/physics_rigid_common.hlsli"
+#include "physics/include/physics_soft_dispatch_constants.hlsli"
 
 static const float kSoftCorrectionAtomicScale = 100000.0;
 static const float kSoftContactRelaxation = 0.95;
 static const float kSoftMaxCorrectionPerIter = 0.05;
+static const float kRestitutionVelocityThreshold = 0.5;
+static const float kRestitutionPenetrationThreshold = 2.0 * kContactSlop;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePreviousPositions);
+CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticleMaterials);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftContact, g_SoftContacts);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftNeighborMeta, g_SoftNeighborMeta);
 CRESSIM_RW_STRUCTURED_BUFFER(int4, g_SoftPositionCorrections);
@@ -12,6 +17,13 @@ CRESSIM_RW_STRUCTURED_BUFFER(int4, g_SoftPositionCorrections);
 int3 QuantizeSoftCorrection(float3 value)
 {
     return int3(round(value * kSoftCorrectionAtomicScale));
+}
+
+float2 CombineContactMaterial(float4 materialA, float4 materialB)
+{
+    const float friction = sqrt(max(0.0, materialA.x) * max(0.0, materialB.x));
+    const float restitution = max(max(0.0, materialA.y), max(0.0, materialB.y));
+    return float2(friction, restitution);
 }
 
 [numthreads(64, 1, 1)]
@@ -34,6 +46,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint particleB = contact.particleB;
     const float4 particleAState = CRESSIM_SB_LOAD(g_SoftParticlePositionsInvMass, particleA);
     const float4 particleBState = CRESSIM_SB_LOAD(g_SoftParticlePositionsInvMass, particleB);
+    const float3 previousPositionA =
+        CRESSIM_SB_LOAD(g_SoftParticlePreviousPositions, particleA).xyz;
+    const float3 previousPositionB =
+        CRESSIM_SB_LOAD(g_SoftParticlePreviousPositions, particleB).xyz;
     const float invMassA = particleAState.w;
     const float invMassB = particleBState.w;
     if (invMassA <= kEpsilon && invMassB <= kEpsilon)
@@ -48,17 +64,45 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
+    const float2 combinedMaterial = CombineContactMaterial(
+        CRESSIM_SB_LOAD(g_SoftParticleMaterials, particleA),
+        CRESSIM_SB_LOAD(g_SoftParticleMaterials, particleB));
     const float3 normal =
         SafeNormalize(contact.normalPenetration.xyz, float3(0.0, 1.0, 0.0));
+    const float3 relativeDisplacement =
+        (particleBState.xyz - previousPositionB) - (particleAState.xyz - previousPositionA);
+    const float normalDisplacement = dot(relativeDisplacement, normal);
+    const float closingSpeed =
+        dt > kEpsilon ? max(-normalDisplacement / dt, 0.0) : 0.0;
+    const bool enableRestitution =
+        (closingSpeed > kRestitutionVelocityThreshold) &&
+        (contact.normalPenetration.w <= kRestitutionPenetrationThreshold);
+    const float restitutionDistance =
+        enableRestitution ? saturate(combinedMaterial.y) * max(-normalDisplacement, 0.0) : 0.0;
     const float denom = invMassA + invMassB;
     if (denom <= kEpsilon)
     {
         return;
     }
 
-    const float lambda = (penetration / denom) * kSoftContactRelaxation;
-    const float3 correctionA = -normal * (invMassA * lambda);
-    const float3 correctionB = normal * (invMassB * lambda);
+    const float totalNormalDistance =
+        min(penetration + restitutionDistance, kSoftMaxCorrectionPerIter);
+    const float lambda = (totalNormalDistance / denom) * kSoftContactRelaxation;
+    float3 correctionA = -normal * (invMassA * lambda);
+    float3 correctionB = normal * (invMassB * lambda);
+
+    const float3 tangentialDisplacement = relativeDisplacement - normal * normalDisplacement;
+    const float tangentialDistance = length(tangentialDisplacement);
+    if (tangentialDistance > 1.0e-5)
+    {
+        const float tangentialLambda =
+            min((tangentialDistance / denom) * kSoftContactRelaxation,
+                combinedMaterial.x * lambda);
+        const float3 tangent = tangentialDisplacement / tangentialDistance;
+        correctionA += tangent * (invMassA * tangentialLambda);
+        correctionB -= tangent * (invMassB * tangentialLambda);
+    }
+
     const int3 quantizedA = QuantizeSoftCorrection(correctionA);
     const int3 quantizedB = QuantizeSoftCorrection(correctionB);
 
