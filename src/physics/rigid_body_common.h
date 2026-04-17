@@ -12,11 +12,17 @@ namespace cressim::neo::physics
 
 constexpr std::uint32_t kRigidContactsPerPair   = 4u;
 constexpr std::uint32_t kRigidPairTypeCount     = 6u;
-constexpr std::uint32_t kBodyFlagStatic         = 1u << 0u;
-constexpr std::uint32_t kBodyFlagKinematic      = 1u << 1u;
-constexpr std::uint32_t kBodyFlagDynamic        = 1u << 2u;
-constexpr std::uint32_t kBodyFlagMoving         = kBodyFlagKinematic | kBodyFlagDynamic;
+constexpr std::uint32_t kRigidBodyTypeStatic    = 0u;
+constexpr std::uint32_t kRigidBodyTypeKinematic = 1u;
+constexpr std::uint32_t kRigidBodyTypeDynamic   = 2u;
 constexpr std::uint32_t kKinematicTargetEnabled = 1u << 0u;
+
+static_assert(static_cast<std::uint32_t>(RigidBodyType::Static) == kRigidBodyTypeStatic);
+static_assert(static_cast<std::uint32_t>(RigidBodyType::Kinematic) == kRigidBodyTypeKinematic);
+static_assert(static_cast<std::uint32_t>(RigidBodyType::Dynamic) == kRigidBodyTypeDynamic);
+static_assert(static_cast<std::uint32_t>(ColliderShapeType::Sphere) == 0u);
+static_assert(static_cast<std::uint32_t>(ColliderShapeType::Box) == 1u);
+static_assert(static_cast<std::uint32_t>(ColliderShapeType::Capsule) == 2u);
 
 enum class GpuRigidPairType : std::uint32_t
 {
@@ -60,6 +66,181 @@ struct GpuPhysicsRadixConstants
     std::uint32_t reserved1    = 0;
 };
 
+struct GpuSoftDispatchConstants
+{
+    float dt                            = 0.0f;
+    std::uint32_t softParticleCount     = 0;
+    std::uint32_t rigidColliderCount    = 0;
+    float particleGridCellSize          = 0.0f;
+    std::uint32_t softCandidatePairCapacity = 0;
+    std::uint32_t softCellRangeCapacity = 0;
+    std::uint32_t softEdgeCount         = 0;
+    std::uint32_t softTetCount          = 0;
+};
+
+struct GpuSoftRenderDispatchConstants
+{
+    std::uint32_t renderVertexCount   = 0u;
+    std::uint32_t renderTriangleCount = 0u;
+    std::uint32_t softBodyCount       = 0u;
+    std::uint32_t reserved0           = 0u;
+};
+
+constexpr std::uint32_t kParticleBroadPhaseEntryTypeSoft = 0u;
+constexpr std::uint32_t kSoftCandidatePairTypeSoftSoft           = 0u;
+constexpr std::uint32_t kSoftCandidatePairTypeSoftRigid          = 1u;
+
+enum class GpuPhysicsIndirectDispatchSlot : std::uint32_t
+{
+    SoftGenerateContacts = 0u,
+    SoftGenerateRigidContacts,
+    SoftCompactContacts,
+    SoftCompactRigidContacts,
+    SoftSolveContacts,
+    SoftSolveRigidContacts,
+    RigidGenerateContacts,
+    RigidSolveContacts,
+    RigidSolveContactVelocities,
+    Count,
+};
+
+struct GpuDispatchIndirectArgs
+{
+    std::uint32_t groupCountX = 0u;
+    std::uint32_t groupCountY = 1u;
+    std::uint32_t groupCountZ = 1u;
+};
+
+struct GpuParticleBroadPhaseEntry
+{
+    std::uint32_t cellKey       = 0;
+    std::int32_t cellX          = 0;
+    std::int32_t cellY          = 0;
+    std::int32_t cellZ          = 0;
+    std::uint32_t particleIndex = 0;
+    std::uint32_t particleType  = 0;
+    std::uint32_t ownerIndex    = 0;
+    std::uint32_t reserved0     = 0;
+};
+
+struct GpuSoftCandidatePair
+{
+    std::uint32_t pairType = 0;
+    std::uint32_t indexA   = 0;
+    std::uint32_t indexB   = 0;
+    std::uint32_t auxIndex = 0;
+};
+
+struct GpuSoftNeighborMeta
+{
+    std::uint32_t softSoftCandidateCount          = 0;
+    std::uint32_t softRigidCandidateCount         = 0;
+    std::uint32_t requiredSoftSoftCandidateCount  = 0;
+    std::uint32_t requiredSoftRigidCandidateCount = 0;
+    std::uint32_t softSoftCandidateOverflow       = 0;
+    std::uint32_t softRigidCandidateOverflow      = 0;
+    std::uint32_t activeSoftContactCount          = 0;
+    std::uint32_t activeSoftRigidContactCount     = 0;
+};
+
+struct GpuParticleCellRange
+{
+    std::uint32_t cellKey    = 0xffffffffu;
+    std::uint32_t startIndex = 0u;
+    std::uint32_t endIndex   = 0u;
+    std::uint32_t reserved0  = 0u;
+};
+
+struct GpuSoftRigidContact
+{
+    std::uint32_t softParticleIndex = 0;
+    std::uint32_t rigidBodyIndex    = 0;
+    std::uint32_t colliderIndex     = 0;
+    std::uint32_t active            = 0;
+    Diligent::float4 normalPenetration{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 rigidLocalPoint{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 material{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuSoftContact
+{
+    std::uint32_t particleA = 0;
+    std::uint32_t particleB = 0;
+    std::uint32_t active    = 0;
+    std::uint32_t reserved0 = 0;
+    Diligent::float4 normalPenetration{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuSoftConstraintRange
+{
+    std::uint32_t start     = 0;
+    std::uint32_t count     = 0;
+    std::uint32_t reserved0 = 0;
+    std::uint32_t reserved1 = 0;
+};
+
+struct GpuSoftIncidentEdge
+{
+    std::uint32_t edgeIndex = 0;
+    std::uint32_t slot      = 0;
+    std::uint32_t reserved0 = 0;
+    std::uint32_t reserved1 = 0;
+};
+
+struct GpuSoftIncidentTet
+{
+    std::uint32_t tetIndex  = 0;
+    std::uint32_t slot      = 0;
+    std::uint32_t reserved0 = 0;
+    std::uint32_t reserved1 = 0;
+};
+
+struct GpuSoftRenderVertexTriangleRange
+{
+    std::uint32_t start     = 0u;
+    std::uint32_t count     = 0u;
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
+};
+
+struct GpuSoftBodyParticleRange
+{
+    std::uint32_t start     = 0u;
+    std::uint32_t count     = 0u;
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
+};
+
+struct GpuSoftBodyChunkRange
+{
+    std::uint32_t start     = 0u;
+    std::uint32_t count     = 0u;
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
+};
+
+struct GpuSoftBodyBoundsChunk
+{
+    std::uint32_t softBodyIndex = 0u;
+    std::uint32_t particleStart = 0u;
+    std::uint32_t particleCount = 0u;
+    std::uint32_t reserved0     = 0u;
+};
+
+struct GpuSoftEdgeCorrection
+{
+    Diligent::float4 correctionA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 correctionB{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuSoftTetCorrection
+{
+    Diligent::float4 correction0{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 correction1{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 correction2{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 correction3{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
 struct GpuBroadPhaseBuildConstants
 {
     std::uint32_t elementCount = 0;
@@ -85,9 +266,9 @@ struct GpuBodyAabb
 struct GpuBodyMeta
 {
     std::uint32_t bodyId      = 0;
-    std::uint32_t flags       = 0;
+    std::uint32_t bodyType    = kRigidBodyTypeStatic;
     std::uint32_t activeIndex = 0xffffffffu;
-    std::uint32_t reserved    = 0;
+    std::uint32_t reserved0   = 0;
 };
 
 struct GpuBroadPhaseElement
@@ -185,7 +366,7 @@ struct GpuColliderBroadPhaseData
     std::uint32_t environmentIndex = 0;
     std::uint32_t collisionLayer   = 0;
     std::uint32_t collisionMask    = 0;
-    std::uint32_t reserved0        = 0;
+    std::uint32_t enabledFlag      = 0;
     std::uint32_t reserved1        = 0;
     std::uint32_t reserved2        = 0;
 };
@@ -205,6 +386,21 @@ struct GpuRigidContact
 static_assert(sizeof(GpuRigidDispatchConstants) == 48u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
+static_assert(sizeof(GpuSoftDispatchConstants) == 32u);
+static_assert(sizeof(GpuDispatchIndirectArgs) == 12u);
+static_assert(sizeof(GpuParticleBroadPhaseEntry) == 32u);
+static_assert(sizeof(GpuSoftCandidatePair) == 16u);
+static_assert(sizeof(GpuSoftNeighborMeta) == 32u);
+static_assert(sizeof(GpuParticleCellRange) == 16u);
+static_assert(sizeof(GpuSoftRigidContact) == 64u);
+static_assert(sizeof(GpuSoftContact) == 32u);
+static_assert(sizeof(GpuSoftConstraintRange) == 16u);
+static_assert(sizeof(GpuSoftIncidentEdge) == 16u);
+static_assert(sizeof(GpuSoftIncidentTet) == 16u);
+static_assert(sizeof(GpuSoftBodyChunkRange) == 16u);
+static_assert(sizeof(GpuSoftBodyBoundsChunk) == 16u);
+static_assert(sizeof(GpuSoftEdgeCorrection) == 32u);
+static_assert(sizeof(GpuSoftTetCorrection) == 64u);
 static_assert(sizeof(GpuBroadPhaseBuildConstants) == 16u);
 static_assert(sizeof(GpuBroadPhaseReductionConstants) == 16u);
 static_assert(sizeof(GpuBodyAabb) == 32u);

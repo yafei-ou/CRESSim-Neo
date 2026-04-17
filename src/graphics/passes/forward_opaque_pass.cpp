@@ -2,6 +2,7 @@
 
 #include "common/math_utils_runtime.h"
 #include "gpu/gpu_buffer_utils.h"
+#include "physics/physics_gpu_scene_view.h"
 
 #include <algorithm>
 #include <array>
@@ -447,6 +448,12 @@ void ForwardOpaquePass::setGpuSceneView(const GpuEntitySceneView &sceneView) noe
     mSceneView = sceneView;
 }
 
+void ForwardOpaquePass::setPhysicsSceneView(
+    const physics::PhysicsGpuSceneView *physicsScene) noexcept
+{
+    mPhysicsScene = physicsScene;
+}
+
 void ForwardOpaquePass::setEnvironmentIbls(const std::vector<EnvironmentIblDesc> *ibls,
                                            std::uint32_t envCount) noexcept
 {
@@ -671,7 +678,8 @@ bool ForwardOpaquePass::bindShadowMaps(MaterialProgramRegistry::ProgramResources
     return true;
 }
 
-bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResources &program) const
+bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResources &program,
+                                         MaterialProgramFamily programFamily) const
 {
     if (program.shaderResourceBinding == nullptr)
     {
@@ -800,6 +808,44 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
     localLightsVar->Set(localLightSelectionSrv);
     lightShadowAssignmentsVar->Set(lightShadowAssignmentsSrv);
     localShadowViewsVar->Set(localShadowViewsSrv);
+
+    if (programFamily == MaterialProgramFamily::SoftBodyLit)
+    {
+        if (mPhysicsScene == nullptr ||
+            mPhysicsScene->soft.particles.positionsInvMassBuffer == nullptr ||
+            mSceneView.softBodyVertexBindingBuffer == nullptr ||
+            mPhysicsScene->soft.renderNormalsBuffer == nullptr)
+        {
+            return false;
+        }
+        Diligent::IShaderResourceVariable *softParticleVar =
+            program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                                             "g_SoftParticlePositions");
+        Diligent::IShaderResourceVariable *bindingVar =
+            program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                                             "g_SoftBodyVertexBindings");
+        Diligent::IShaderResourceVariable *normalVar =
+            program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                                             "g_SoftBodyVertexNormals");
+        if (softParticleVar == nullptr || bindingVar == nullptr || normalVar == nullptr)
+        {
+            return false;
+        }
+        Diligent::IBufferView *softParticleSrv =
+            mPhysicsScene->soft.particles.positionsInvMassBuffer->GetDefaultView(
+                Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        Diligent::IBufferView *bindingSrv = mSceneView.softBodyVertexBindingBuffer->GetDefaultView(
+            Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        Diligent::IBufferView *normalSrv = mPhysicsScene->soft.renderNormalsBuffer->GetDefaultView(
+            Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        if (softParticleSrv == nullptr || bindingSrv == nullptr || normalSrv == nullptr)
+        {
+            return false;
+        }
+        softParticleVar->Set(softParticleSrv);
+        bindingVar->Set(bindingSrv);
+        normalVar->Set(normalSrv);
+    }
     return true;
 }
 
@@ -1269,7 +1315,7 @@ bool ForwardOpaquePass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBi
     {
         return false;
     }
-    if (!bindSceneBuffers(*setup.program))
+    if (!bindSceneBuffers(*setup.program, drawCommand.programFamily))
     {
         return false;
     }

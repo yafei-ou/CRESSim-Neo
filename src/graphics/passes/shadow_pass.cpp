@@ -1,6 +1,7 @@
 #include "graphics/passes/shadow_pass.h"
 
 #include "common/logger.h"
+#include "physics/physics_gpu_scene_view.h"
 
 #include <cstring>
 #include <string>
@@ -24,6 +25,11 @@ bool ShadowPass::initialize()
 void ShadowPass::setGpuSceneView(const GpuEntitySceneView &sceneView) noexcept
 {
     mSceneView = sceneView;
+}
+
+void ShadowPass::setPhysicsSceneView(const physics::PhysicsGpuSceneView *physicsScene) noexcept
+{
+    mPhysicsScene = physicsScene;
 }
 
 void ShadowPass::setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept
@@ -82,9 +88,16 @@ bool ShadowPass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
         return false;
     }
 
-    if (mPipelineState == nullptr || mShaderResourceBinding == nullptr)
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> &pipelineState =
+        drawCommand.programFamily == MaterialProgramFamily::SoftBodyLit ? mSoftBodyPipelineState
+                                                                        : mPipelineState;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> &shaderBinding =
+        drawCommand.programFamily == MaterialProgramFamily::SoftBodyLit
+            ? mSoftBodyShaderResourceBinding
+            : mShaderResourceBinding;
+    if (pipelineState == nullptr || shaderBinding == nullptr)
     {
-        if (!createPipeline(backendContext.renderDevice))
+        if (!createPipeline(backendContext.renderDevice, drawCommand.programFamily))
         {
             return false;
         }
@@ -110,9 +123,12 @@ bool ShadowPass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
     return true;
 }
 
-bool ShadowPass::bindSceneBuffers() const
+bool ShadowPass::bindSceneBuffers(MaterialProgramFamily programFamily) const
 {
-    if (mShaderResourceBinding == nullptr)
+    Diligent::IShaderResourceBinding *shaderBinding =
+        programFamily == MaterialProgramFamily::SoftBodyLit ? mSoftBodyShaderResourceBinding
+                                                            : mShaderResourceBinding;
+    if (shaderBinding == nullptr)
     {
         return false;
     }
@@ -132,7 +148,7 @@ bool ShadowPass::bindSceneBuffers() const
     for (const VariableBinding &binding : bindings)
     {
         Diligent::IShaderResourceVariable *variable =
-            mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, binding.name);
+            shaderBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, binding.name);
         if (variable == nullptr || binding.buffer == nullptr)
         {
             return false;
@@ -151,7 +167,7 @@ bool ShadowPass::bindSceneBuffers() const
         return false;
     }
     Diligent::IShaderResourceVariable *batchCamerasVar =
-        mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras");
+        shaderBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras");
     Diligent::IBufferView *batchCamerasSrv =
         mBatchCameraBuffer != nullptr
             ? mBatchCameraBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE)
@@ -170,8 +186,7 @@ bool ShadowPass::bindSceneBuffers() const
     }
 
     Diligent::IShaderResourceVariable *localShadowViewsVar =
-        mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
-                                                  "g_LocalShadowViews");
+        shaderBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_LocalShadowViews");
     if (localShadowViewsVar != nullptr)
     {
         Diligent::IBuffer *buffer = mLocalShadowViewBuffer != nullptr
@@ -190,7 +205,7 @@ bool ShadowPass::bindSceneBuffers() const
     }
 
     Diligent::IShaderResourceVariable *visiblePairsVar =
-        mShaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs");
+        shaderBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs");
     if (visiblePairsVar != nullptr)
     {
         Diligent::IBuffer *visiblePairBuffer = mVisiblePairBuffer != nullptr
@@ -207,6 +222,35 @@ bool ShadowPass::bindSceneBuffers() const
             return false;
         }
         visiblePairsVar->Set(visiblePairsSrv);
+    }
+
+    if (programFamily == MaterialProgramFamily::SoftBodyLit)
+    {
+        if (mPhysicsScene == nullptr ||
+            mPhysicsScene->soft.particles.positionsInvMassBuffer == nullptr ||
+            mSceneView.softBodyVertexBindingBuffer == nullptr)
+        {
+            return false;
+        }
+        Diligent::IShaderResourceVariable *softParticleVar = shaderBinding->GetVariableByName(
+            Diligent::SHADER_TYPE_VERTEX, "g_SoftParticlePositions");
+        Diligent::IShaderResourceVariable *bindingVar = shaderBinding->GetVariableByName(
+            Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexBindings");
+        if (softParticleVar == nullptr || bindingVar == nullptr)
+        {
+            return false;
+        }
+        Diligent::IBufferView *softParticleSrv =
+            mPhysicsScene->soft.particles.positionsInvMassBuffer->GetDefaultView(
+                Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        Diligent::IBufferView *bindingSrv = mSceneView.softBodyVertexBindingBuffer->GetDefaultView(
+            Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        if (softParticleSrv == nullptr || bindingSrv == nullptr)
+        {
+            return false;
+        }
+        softParticleVar->Set(softParticleSrv);
+        bindingVar->Set(bindingSrv);
     }
     return true;
 }
@@ -271,7 +315,7 @@ bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
     {
         return false;
     }
-    if (!bindSceneBuffers())
+    if (!bindSceneBuffers(drawCommand.programFamily))
     {
         return false;
     }
@@ -281,9 +325,16 @@ bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
         return false;
     }
     bindGeometry(setup.backendContext.graphicsContext, *setup.meshBuffers);
-    setup.backendContext.graphicsContext->SetPipelineState(mPipelineState);
+    Diligent::IPipelineState *pipeline =
+        drawCommand.programFamily == MaterialProgramFamily::SoftBodyLit ? mSoftBodyPipelineState
+                                                                        : mPipelineState;
+    Diligent::IShaderResourceBinding *shaderBinding =
+        drawCommand.programFamily == MaterialProgramFamily::SoftBodyLit
+            ? mSoftBodyShaderResourceBinding
+            : mShaderResourceBinding;
+    setup.backendContext.graphicsContext->SetPipelineState(pipeline);
     setup.backendContext.graphicsContext->CommitShaderResources(
-        mShaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        shaderBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     Diligent::DrawIndexedIndirectAttribs drawAttrs{};
     drawAttrs.IndexType      = Diligent::VT_UINT32;
@@ -298,7 +349,8 @@ bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
     return true;
 }
 
-bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
+bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
+                                MaterialProgramFamily programFamily)
 {
     if (renderDevice == nullptr)
     {
@@ -327,13 +379,20 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
     shaderCreateInfo.Desc.UseCombinedTextureSamplers = true;
     shaderCreateInfo.EntryPoint                      = "main";
     shaderCreateInfo.Desc.ShaderType                 = Diligent::SHADER_TYPE_VERTEX;
-    shaderCreateInfo.Desc.Name                       = "CRESSimNeo.ShadowPass.VS";
-    shaderCreateInfo.FilePath                        = kShadowVsRelativePath;
-    shaderCreateInfo.pShaderSourceStreamFactory      = streamFactory;
-    Diligent::ShaderMacro shadowMacros[]             = {
+    shaderCreateInfo.Desc.Name = programFamily == MaterialProgramFamily::SoftBodyLit
+                                     ? "CRESSimNeo.ShadowPass.SoftBody.VS"
+                                     : "CRESSimNeo.ShadowPass.VS";
+    shaderCreateInfo.FilePath  = kShadowVsRelativePath;
+    shaderCreateInfo.pShaderSourceStreamFactory = streamFactory;
+    Diligent::ShaderMacro shadowMacros[]        = {
         {"MANUAL_LAYER_EXPORT", "1"},
+        {programFamily == MaterialProgramFamily::SoftBodyLit ? "CRESSIM_PROGRAM_FAMILY_SOFT_BODY"
+                                                                    : "",
+         programFamily == MaterialProgramFamily::SoftBodyLit ? "1" : ""},
     };
-    shaderCreateInfo.Macros = Diligent::ShaderMacroArray{shadowMacros, 1};
+    shaderCreateInfo.Macros = Diligent::ShaderMacroArray{
+        shadowMacros,
+        static_cast<Diligent::Uint32>(programFamily == MaterialProgramFamily::SoftBodyLit ? 2 : 1)};
 
     Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
     if (!mDevice.createShader(shaderCreateInfo, &vertexShader))
@@ -347,8 +406,10 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
     }
 
     Diligent::GraphicsPipelineStateCreateInfo psoCreateInfo{};
-    psoCreateInfo.PSODesc.Name                       = "CRESSimNeo.ShadowPass.PSO";
-    psoCreateInfo.PSODesc.PipelineType               = Diligent::PIPELINE_TYPE_GRAPHICS;
+    psoCreateInfo.PSODesc.Name         = programFamily == MaterialProgramFamily::SoftBodyLit
+                                             ? "CRESSimNeo.ShadowPass.SoftBody.PSO"
+                                             : "CRESSimNeo.ShadowPass.PSO";
+    psoCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
     psoCreateInfo.GraphicsPipeline.NumRenderTargets  = 0;
     psoCreateInfo.GraphicsPipeline.DSVFormat         = Diligent::TEX_FORMAT_D32_FLOAT;
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -383,10 +444,15 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_VERTEX, "g_SoftParticlePositions",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexBindings",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
-    psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
-    psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
-        static_cast<Diligent::Uint32>(std::size(kVars));
+    psoCreateInfo.PSODesc.ResourceLayout.Variables    = kVars;
+    psoCreateInfo.PSODesc.ResourceLayout.NumVariables = static_cast<Diligent::Uint32>(
+        programFamily == MaterialProgramFamily::SoftBodyLit ? std::size(kVars)
+                                                            : std::size(kVars) - 2u);
 
     constexpr Diligent::LayoutElement kLayoutElements[] = {
         Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, Diligent::False},
@@ -397,11 +463,14 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
     psoCreateInfo.GraphicsPipeline.InputLayout.NumElements    = 4;
     psoCreateInfo.pVS                                         = vertexShader;
 
-    if (!mDevice.createGraphicsPipelineState(psoCreateInfo, &mPipelineState))
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> &pipelineState =
+        programFamily == MaterialProgramFamily::SoftBodyLit ? mSoftBodyPipelineState
+                                                            : mPipelineState;
+    if (!mDevice.createGraphicsPipelineState(psoCreateInfo, &pipelineState))
     {
-        mPipelineState = nullptr;
+        pipelineState = nullptr;
     }
-    if (mPipelineState == nullptr)
+    if (pipelineState == nullptr)
     {
         CRESSIM_LOG_ERROR("ShadowPass failed to create PSO.");
         return false;
@@ -414,8 +483,8 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
     }
 
     Diligent::IShaderResourceVariable *perObjectVar =
-        mPipelineState->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "GraphicsPerObject");
-    Diligent::IShaderResourceVariable *shadowPerPassVar = mPipelineState->GetStaticVariableByName(
+        pipelineState->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "GraphicsPerObject");
+    Diligent::IShaderResourceVariable *shadowPerPassVar = pipelineState->GetStaticVariableByName(
         Diligent::SHADER_TYPE_VERTEX, "GraphicsShadowPerPass");
     if (perObjectVar == nullptr || shadowPerPassVar == nullptr)
     {
@@ -427,8 +496,11 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice)
     perObjectVar->Set(mPerObjectBuffer);
     shadowPerPassVar->Set(mShadowPerPassBuffer);
 
-    mPipelineState->CreateShaderResourceBinding(&mShaderResourceBinding, true);
-    return mShaderResourceBinding != nullptr;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> &shaderBinding =
+        programFamily == MaterialProgramFamily::SoftBodyLit ? mSoftBodyShaderResourceBinding
+                                                            : mShaderResourceBinding;
+    pipelineState->CreateShaderResourceBinding(&shaderBinding, true);
+    return shaderBinding != nullptr;
 }
 
 bool ShadowPass::ensureConstantBuffers(Diligent::IRenderDevice *renderDevice)

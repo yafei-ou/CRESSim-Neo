@@ -3,8 +3,10 @@
 #include "gpu/gpu_buffer_utils.h"
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
+#include "graphics/passes/debug_particle_pass.h"
 #include "graphics/passes/forward_opaque_pass.h"
 #include "graphics/passes/shadow_pass.h"
+#include "physics/physics_gpu_scene_view.h"
 
 #include <array>
 #include <cstring>
@@ -172,6 +174,8 @@ constexpr Diligent::ShaderResourceVariableDesc kLocalShadowEnvBoundsPrepareVars[
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_EntityPositions",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBodyWorldAabbs",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_LocalShadowEnvBoundsRW",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
 };
@@ -294,6 +298,24 @@ bool updateConstants(Diligent::IDeviceContext *context, Diligent::IBuffer *const
     return true;
 }
 
+bool hasActiveSoftBodyRenderables(const std::vector<GpuRenderableMetadata> *metadata)
+{
+    if (metadata == nullptr)
+    {
+        return false;
+    }
+
+    for (const GpuRenderableMetadata &entry : *metadata)
+    {
+        if ((entry.flags & static_cast<std::uint32_t>(GpuRenderableFlags::Active)) != 0u &&
+            entry.softBodyIndex != 0xffffffffu)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 gpu::GpuRenderViewport viewportForBatch(const CameraBatchView &batchView)
 {
     if (batchView.cameras.size() == 1u && batchView.cameras.front().useOutputViewport)
@@ -380,6 +402,15 @@ bool ForwardPipeline::initialize()
     mShadowPass = std::make_unique<ShadowPass>(mDevice, mResourceManager);
     if (!mShadowPass->initialize())
     {
+        mShadowPass.reset();
+        mForwardOpaquePass.reset();
+        return false;
+    }
+
+    mDebugParticlePass = std::make_unique<DebugParticlePass>(mDevice);
+    if (!mDebugParticlePass->initialize())
+    {
+        mDebugParticlePass.reset();
         mShadowPass.reset();
         mForwardOpaquePass.reset();
         return false;
@@ -472,6 +503,8 @@ bool ForwardPipeline::initialize()
 
 bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                    const CameraBatchView &batchView, const HostSceneView &sceneView,
+                                   const cressim::neo::physics::PhysicsGpuSceneView *physicsScene,
+                                   const RenderFrameOptions &options,
                                    const std::vector<EnvMainLightState> &envMainLights,
                                    ForwardPassExecutionStats &outStats)
 {
@@ -504,10 +537,12 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     }
 
     mForwardOpaquePass->setGpuSceneView(gpuScene);
+    mForwardOpaquePass->setPhysicsSceneView(physicsScene);
     mForwardOpaquePass->setEnvironmentIbls(sceneView.environmentIbls, gpuScene.layout.envCount);
     if (mShadowPass != nullptr)
     {
         mShadowPass->setGpuSceneView(gpuScene);
+        mShadowPass->setPhysicsSceneView(physicsScene);
     }
 
     gpu::GpuGraphicsBackendContext backendContext{};
@@ -986,6 +1021,14 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
 
         if (envCount > 0u)
         {
+            const bool needsSoftBodyWorldAabbs =
+                hasActiveSoftBodyRenderables(sceneView.renderableMetadata);
+            if (needsSoftBodyWorldAabbs &&
+                (physicsScene == nullptr || physicsScene->soft.worldAabbsBuffer == nullptr))
+            {
+                return false;
+            }
+
             const std::array envBoundsResetBindings{
                 gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
                                       mGpuIndirectState->localShadowPrepareConstantsBuffer,
@@ -1001,23 +1044,50 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                 return false;
             }
 
-            const std::array envBoundsPrepareBindings{
-                gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
-                                      mGpuIndirectState->localShadowPrepareConstantsBuffer,
-                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-                gpu::GpuBufferBinding{"g_RenderableMetadata", gpuScene.renderableMetadataBuffer,
-                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-                gpu::GpuBufferBinding{"g_EntityPositions", gpuScene.poses.positionsBuffer,
-                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-                gpu::GpuBufferBinding{"g_LocalShadowEnvBoundsRW",
-                                      mGpuIndirectState->localShadowEnvBoundsBuffer,
-                                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-            };
-            if (!mGpuIndirectState->localShadowEnvBoundsPreparePass.dispatch(
-                    backendContext.graphicsContext, 0u, envBoundsPrepareBindings,
-                    dispatchGroupCount(totalObjectCount)))
+            if (needsSoftBodyWorldAabbs)
             {
-                return false;
+                const std::array envBoundsPrepareBindings{
+                    gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
+                                          mGpuIndirectState->localShadowPrepareConstantsBuffer,
+                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                    gpu::GpuBufferBinding{"g_RenderableMetadata", gpuScene.renderableMetadataBuffer,
+                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                    gpu::GpuBufferBinding{"g_EntityPositions", gpuScene.poses.positionsBuffer,
+                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                    gpu::GpuBufferBinding{"g_SoftBodyWorldAabbs",
+                                          physicsScene->soft.worldAabbsBuffer,
+                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                    gpu::GpuBufferBinding{"g_LocalShadowEnvBoundsRW",
+                                          mGpuIndirectState->localShadowEnvBoundsBuffer,
+                                          Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+                };
+                if (!mGpuIndirectState->localShadowEnvBoundsPreparePass.dispatch(
+                        backendContext.graphicsContext, 0u, envBoundsPrepareBindings,
+                        dispatchGroupCount(totalObjectCount)))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                const std::array envBoundsPrepareBindings{
+                    gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
+                                          mGpuIndirectState->localShadowPrepareConstantsBuffer,
+                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                    gpu::GpuBufferBinding{"g_RenderableMetadata", gpuScene.renderableMetadataBuffer,
+                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                    gpu::GpuBufferBinding{"g_EntityPositions", gpuScene.poses.positionsBuffer,
+                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                    gpu::GpuBufferBinding{"g_LocalShadowEnvBoundsRW",
+                                          mGpuIndirectState->localShadowEnvBoundsBuffer,
+                                          Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+                };
+                if (!mGpuIndirectState->localShadowEnvBoundsPreparePass.dispatch(
+                        backendContext.graphicsContext, 0u, envBoundsPrepareBindings,
+                        dispatchGroupCount(totalObjectCount)))
+                {
+                    return false;
+                }
             }
 
             const std::array viewPrepareBindings{
@@ -1293,6 +1363,18 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             ++outStats.opaqueDrawCalls;
         }
     }
+    if (mDebugParticlePass != nullptr && physicsScene != nullptr && options.debugParticles.enabled)
+    {
+        for (const ResolvedCameraView &camera : batchView.cameras)
+        {
+            const std::uint32_t targetLayer =
+                camera.outputBinding.firstLayer - batchView.renderBinding.firstLayer;
+            (void)mDebugParticlePass->draw(batchView.renderBinding, batchView.renderTargetDesc,
+                                           gpuScene, *physicsScene, camera, targetLayer,
+                                           options.debugParticles);
+        }
+    }
+
     mDevice.renderTargetSystem().endRenderTarget(batchView.renderBinding, frameContext);
 
     return true;

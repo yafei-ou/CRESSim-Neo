@@ -2,11 +2,13 @@
 #define CRESSIM_NEO_PHYSICS_PHYSICS_TYPES_H
 
 #include "common/id.h"
+#include "common/math_types.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace cressim::neo::physics
@@ -31,6 +33,50 @@ constexpr RigidBodyId kInvalidRigidBodyId = 0u;
 
 using ColliderId                        = std::uint32_t;
 constexpr ColliderId kInvalidColliderId = 0u;
+
+enum class SoftBodySourceKind : std::uint32_t
+{
+    RegularGrid = 0u,
+    TetMesh     = 1u,
+    TetGenFiles = 2u,
+};
+
+struct SoftBodyRegularGridSource
+{
+    Diligent::float3 size{1.0f, 1.0f, 1.0f};
+    float targetParticleSpacing = 0.25f;
+    std::vector<std::uint32_t> staticParticleIndices;
+};
+
+struct SoftBodyTetMeshSource
+{
+    std::vector<Diligent::float3> objectSpaceRestPositions;
+    std::vector<std::uint32_t> tetVertexIndices;
+    std::vector<std::uint32_t> staticParticleIndices;
+};
+
+struct SoftBodyTetGenSource
+{
+    std::string nodeFile;
+    std::string eleFile;
+    std::vector<std::uint32_t> staticParticleIndices;
+};
+
+struct SoftBodySourceDesc
+{
+    SoftBodySourceKind kind = SoftBodySourceKind::RegularGrid;
+    SoftBodyRegularGridSource regularGrid;
+    SoftBodyTetMeshSource tetMesh;
+    SoftBodyTetGenSource tetGen;
+};
+
+struct SoftBodyMaterialDesc
+{
+    float friction    = 0.0f;
+    float restitution = 0.0f;
+    float damping     = 0.0f;
+    float reserved    = 0.0f;
+};
 
 struct RigidBodyState
 {
@@ -64,6 +110,92 @@ struct ColliderState
     float restitution            = 0.0f;
     std::uint32_t collisionLayer = 1u;
     std::uint32_t collisionMask  = 0xffffffffu;
+};
+
+struct SoftBodyState
+{
+    common::EntityId entityId      = common::kInvalidEntityId;
+    std::uint32_t environmentIndex = 0u;
+    std::uint32_t collisionLayer   = 1u;
+    std::uint32_t collisionMask    = 0xffffffffu;
+    SoftBodySourceDesc source{};
+    SoftBodyMaterialDesc material{};
+    common::Transform restTransform{};
+    float particleMass           = 1.0f;
+    float particleRadius         = 0.125f;
+    float edgeCompliance         = 0.0f;
+    float volumeCompliance       = 0.0f;
+    bool simulated               = true;
+    bool selfCollisionEnabled    = false;
+    std::uint32_t particleOffset = 0u;
+    std::uint32_t particleCount  = 0u;
+    std::uint32_t edgeOffset     = 0u;
+    std::uint32_t edgeCount      = 0u;
+    std::uint32_t tetOffset      = 0u;
+    std::uint32_t tetCount       = 0u;
+    std::vector<Diligent::float3> restPositions;
+    std::vector<Diligent::uint3> boundaryFaces;
+};
+
+struct SoftEdge
+{
+    std::uint32_t particleA = 0u;
+    std::uint32_t particleB = 0u;
+    float restLength        = 0.0f;
+    float compliance        = 0.0f;
+};
+
+struct SoftTet
+{
+    Diligent::uint4 particleIndices{0u, 0u, 0u, 0u};
+    float restVolume        = 0.0f;
+    float compliance        = 0.0f;
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
+};
+
+struct SoftParticleSoAHost
+{
+    std::vector<Diligent::float4> positionsInvMass;
+    std::vector<Diligent::float4> previousPositions;
+    std::vector<Diligent::float4> velocities;
+    std::vector<Diligent::float4> materials;
+    std::vector<float> radii;
+    std::vector<std::uint32_t> environmentIndices;
+    std::vector<std::uint32_t> owningSoftBodyIndices;
+    std::vector<std::uint32_t> phases;
+    std::vector<std::uint32_t> collisionLayers;
+    std::vector<std::uint32_t> collisionMasks;
+    std::vector<std::uint32_t> adjacencyOffsets;
+    std::vector<std::uint32_t> adjacencyCounts;
+    std::vector<std::uint32_t> adjacencyIndices;
+
+    std::size_t size() const noexcept
+    {
+        return positionsInvMass.size();
+    }
+
+    bool empty() const noexcept
+    {
+        return positionsInvMass.empty();
+    }
+
+    void clear()
+    {
+        positionsInvMass.clear();
+        previousPositions.clear();
+        velocities.clear();
+        materials.clear();
+        radii.clear();
+        environmentIndices.clear();
+        owningSoftBodyIndices.clear();
+        phases.clear();
+        collisionLayers.clear();
+        collisionMasks.clear();
+        adjacencyOffsets.clear();
+        adjacencyCounts.clear();
+        adjacencyIndices.clear();
+    }
 };
 
 struct RigidBodySoAHost
@@ -163,6 +295,32 @@ struct BodyColliderMappingHost
         colliderOffsets.clear();
         colliderCounts.clear();
         colliderIndices.clear();
+    }
+};
+
+struct SoftRenderVertexTriangleRange
+{
+    std::uint32_t start     = 0u;
+    std::uint32_t count     = 0u;
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
+};
+
+struct SoftRenderDataHost
+{
+    std::vector<Diligent::float4> fallbackNormals;
+    std::vector<SoftRenderVertexTriangleRange> vertexTriangleRanges;
+    std::vector<std::uint32_t> vertexTriangleIndices;
+    std::vector<Diligent::uint4> triangleParticleIndices;
+    std::vector<Diligent::uint2> softBodyParticleRanges;
+
+    void clear()
+    {
+        fallbackNormals.clear();
+        vertexTriangleRanges.clear();
+        vertexTriangleIndices.clear();
+        triangleParticleIndices.clear();
+        softBodyParticleRanges.clear();
     }
 };
 

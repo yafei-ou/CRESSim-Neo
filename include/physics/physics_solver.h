@@ -7,7 +7,6 @@
 #include "physics/physics_gpu_scene_view.h"
 #include "physics/physics_world.h"
 
-#include <array>
 #include <cstdint>
 #include <memory>
 
@@ -16,30 +15,13 @@ namespace cressim::neo::physics
 
 struct PhysicsSolverDesc
 {
-    bool enableGpuCompute          = true;
-    std::uint32_t substeps         = 1;
-    std::uint32_t solverIterations = 20;
-    bool enableBlockingReadback    = true;
-};
-
-enum class PhysicsSolverStage : std::uint32_t
-{
-    PredictState = 0u,
-    UpdateWorldAabbs,
-    BuildBroadPhase,
-    GenerateContacts,
-    GenerateBroadPhasePairs,
-    SolveConstraints,
-    UpdateVelocities,
-    CommitResults,
-    Count,
-};
-
-struct PhysicsSolverStageStats
-{
-    std::array<bool, static_cast<std::size_t>(PhysicsSolverStage::Count)> executed{};
-    std::uint32_t dispatchedStages = 0;
-    std::uint32_t skippedStages    = 0;
+    bool enableGpuCompute                     = true;
+    std::uint32_t substeps                    = 1;
+    std::uint32_t defaultIterations           = 20;
+    std::uint32_t softInternalIterations      = 0;
+    std::uint32_t softContactIterations       = 0;
+    std::uint32_t rigidRigidContactIterations = 0;
+    bool enableBlockingReadback               = true;
 };
 
 class CRESSIM_NEO_PHYSICS_API PhysicsSolver
@@ -51,7 +33,7 @@ public:
     bool initialize();
     void shutdown();
     bool step(const common::FrameContext &frameContext, PhysicsWorld &world);
-    const PhysicsSolverStageStats &lastStageStats() const noexcept;
+    bool validateGpuMetaBlocking();
     PhysicsGpuSceneView gpuSceneView() const noexcept;
 
 private:

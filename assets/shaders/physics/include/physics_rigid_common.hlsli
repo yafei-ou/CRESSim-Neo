@@ -6,15 +6,31 @@
 static const uint kColliderSphere = 0u;
 static const uint kColliderBox = 1u;
 static const uint kColliderCapsule = 2u;
-static const uint kBodyFlagStatic = 1u << 0u;
-static const uint kBodyFlagKinematic = 1u << 1u;
-static const uint kBodyFlagDynamic = 1u << 2u;
-static const uint kBodyFlagMoving = kBodyFlagKinematic | kBodyFlagDynamic;
+static const uint kRigidBodyTypeStatic = 0u;
+static const uint kRigidBodyTypeKinematic = 1u;
+static const uint kRigidBodyTypeDynamic = 2u;
 static const uint kKinematicTargetEnabled = 1u << 0u;
 static const uint kInvalidIndex = 0xffffffffu;
 static const uint kRigidPairTypeCount = 6u;
 
 static const uint kRigidContactsPerPair = 4u;
+static const uint kParticleBroadPhaseEntryTypeSoft = 0u;
+static const uint kSoftCandidatePairTypeSoftSoft = 0u;
+static const uint kSoftCandidatePairTypeSoftRigid = 1u;
+static const uint kPhysicsIndirectSoftGenerateContacts = 0u;
+static const uint kPhysicsIndirectSoftGenerateRigidContacts = 1u;
+static const uint kPhysicsIndirectSoftCompactContacts = 2u;
+static const uint kPhysicsIndirectSoftCompactRigidContacts = 3u;
+static const uint kPhysicsIndirectSoftSolveContacts = 4u;
+static const uint kPhysicsIndirectSoftSolveRigidContacts = 5u;
+static const uint kPhysicsIndirectRigidGenerateContacts = 6u;
+static const uint kPhysicsIndirectRigidSolveContacts = 7u;
+static const uint kPhysicsIndirectRigidSolveContactVelocities = 8u;
+static const uint kPhysicsIndirectDispatchSlotCount = 9u;
+static const uint kSoftRigidDedupCacheSize = 16u;
+static const uint kSoftRigidColliderIterationCap = 64u;
+static const uint kSoftPhaseGroupMask = 0x7fffffffu;
+static const uint kSoftPhaseSelfCollideFlag = 0x80000000u;
 static const float kBroadPhaseMargin = 0.05f;
 
 static const float3 kGravity = float3(0.0, -9.81, 0.0);
@@ -58,9 +74,9 @@ struct GpuBodyAabb
 struct GpuBodyMeta
 {
     uint bodyId;
-    uint flags;
+    uint bodyType;
     uint activeIndex;
-    uint reserved;
+    uint reserved0;
 };
 
 struct GpuBroadPhaseElement
@@ -158,9 +174,165 @@ struct GpuColliderBroadPhaseData
     uint environmentIndex;
     uint collisionLayer;
     uint collisionMask;
-    uint reserved0;
+    uint enabledFlag;
     uint reserved1;
     uint reserved2;
+};
+
+struct GpuParticleBroadPhaseEntry
+{
+    uint cellKey;
+    int cellX;
+    int cellY;
+    int cellZ;
+    uint particleIndex;
+    uint particleType;
+    uint ownerIndex;
+    uint reserved0;
+};
+
+struct GpuSoftCandidatePair
+{
+    uint pairType;
+    uint indexA;
+    uint indexB;
+    uint auxIndex;
+};
+
+struct GpuDispatchIndirectArgs
+{
+    uint groupCountX;
+    uint groupCountY;
+    uint groupCountZ;
+};
+
+struct GpuSoftNeighborMeta
+{
+    uint softSoftCandidateCount;
+    uint softRigidCandidateCount;
+    uint requiredSoftSoftCandidateCount;
+    uint requiredSoftRigidCandidateCount;
+    uint softSoftCandidateOverflow;
+    uint softRigidCandidateOverflow;
+    uint activeSoftContactCount;
+    uint activeSoftRigidContactCount;
+};
+
+struct GpuParticleCellRange
+{
+    uint cellKey;
+    uint startIndex;
+    uint endIndex;
+    uint reserved0;
+};
+
+struct GpuSoftRigidContact
+{
+    uint softParticleIndex;
+    uint rigidBodyIndex;
+    uint colliderIndex;
+    uint active;
+    float4 normalPenetration;
+    float4 rigidLocalPoint;
+    float4 material;
+};
+
+struct GpuSoftContact
+{
+    uint particleA;
+    uint particleB;
+    uint active;
+    uint reserved0;
+    float4 normalPenetration;
+};
+
+uint SoftParticlePhaseGroup(uint phase)
+{
+    return phase & kSoftPhaseGroupMask;
+}
+
+bool SoftParticlePhaseSelfCollideEnabled(uint phase)
+{
+    return (phase & kSoftPhaseSelfCollideFlag) != 0u;
+}
+
+struct GpuSoftEdge
+{
+    uint particleA;
+    uint particleB;
+    float restLength;
+    float compliance;
+};
+
+struct GpuSoftTet
+{
+    uint4 particleIndices;
+    float restVolume;
+    float compliance;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuSoftConstraintRange
+{
+    uint start;
+    uint count;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuSoftIncidentEdge
+{
+    uint edgeIndex;
+    uint slot;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuSoftIncidentTet
+{
+    uint tetIndex;
+    uint slot;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuSoftEdgeCorrection
+{
+    float4 correctionA;
+    float4 correctionB;
+};
+
+struct GpuSoftTetCorrection
+{
+    float4 correction0;
+    float4 correction1;
+    float4 correction2;
+    float4 correction3;
+};
+
+struct GpuSoftBodyParticleRange
+{
+    uint start;
+    uint count;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuSoftBodyChunkRange
+{
+    uint start;
+    uint count;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuSoftBodyBoundsChunk
+{
+    uint softBodyIndex;
+    uint particleStart;
+    uint particleCount;
+    uint reserved0;
 };
 
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)

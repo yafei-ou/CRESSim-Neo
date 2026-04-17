@@ -350,8 +350,11 @@ public:
         frame.deltaSeconds                          = mDesc.fixedDeltaSeconds;
         common::EntityId presentedCameraEntity      = cameraBinding.cameraEntity;
         common::EntityId outputOverrideCameraEntity = common::kInvalidEntityId;
-        runtime.setRenderFrameOptions(
-            graphics::RenderFrameOptions{presentedCameraEntity, std::nullopt});
+        graphics::RenderFrameOptions initialOptions{};
+        initialOptions.presentedCameraEntity  = presentedCameraEntity;
+        initialOptions.presentationTarget     = std::nullopt;
+        initialOptions.debugParticles.enabled = mDesc.enableDebugParticles;
+        runtime.setRenderFrameOptions(initialOptions);
 
         const auto refreshCameraStateFromPresentedEntity = [&](common::EntityId cameraEntity,
                                                                bool captureInitialState) -> bool
@@ -490,8 +493,11 @@ public:
                 outputOverrideCameraEntity = presentedCameraEntity;
             }
 
-            runtime.setRenderFrameOptions(
-                graphics::RenderFrameOptions{presentedCameraEntity, presentationTargetDesc});
+            graphics::RenderFrameOptions renderOptions{};
+            renderOptions.presentedCameraEntity  = presentedCameraEntity;
+            renderOptions.presentationTarget     = presentationTargetDesc;
+            renderOptions.debugParticles.enabled = mDesc.enableDebugParticles;
+            runtime.setRenderFrameOptions(renderOptions);
 
             frame.frameIndex += 1u;
 
@@ -855,7 +861,7 @@ private:
         Diligent::float3 worldDirection = right * input.moveDirection.x +
                                           worldUp * input.moveDirection.y +
                                           forward * input.moveDirection.z;
-        worldDirection                  = common::runtime_math::safeNormalize(worldDirection);
+        worldDirection = common::runtime_math::safeNormalize(worldDirection);
 
         float movementSpeed = camera.moveSpeed;
         if (input.boost)

@@ -44,6 +44,8 @@ public:
     // Physics is owned by PhysicsWorld now.
     void setRigidBody(common::EntityId entityId, const RigidBodyComponent &component);
     bool removeRigidBody(common::EntityId entityId);
+    bool setSoftBody(common::EntityId entityId, const SoftBodyComponent &component);
+    bool removeSoftBody(common::EntityId entityId);
 
     ColliderHandle addCollider(common::EntityId entityId, const ColliderComponent &component);
     void updateCollider(ColliderHandle handle, const ColliderComponent &component);
@@ -66,6 +68,7 @@ public:
 
     // Read rigid body/collider through physics.
     std::optional<RigidBodyComponent> tryGetRigidBody(common::EntityId entityId) const;
+    std::optional<SoftBodyComponent> tryGetSoftBody(common::EntityId entityId) const;
     std::optional<ColliderComponent> tryGetCollider(ColliderHandle handle) const;
     const std::vector<ColliderHandle> &colliderHandles(common::EntityId entityId) const;
 
@@ -85,6 +88,7 @@ public:
     const std::vector<graphics::GpuCameraInput> &cameraInputs() const noexcept;
     const std::vector<graphics::GpuLightInput> &lightInputs() const noexcept;
     const std::vector<graphics::GpuLocalLightSelection> &localLightSelections() const noexcept;
+    const std::vector<graphics::GpuSoftBodyVertexBinding> &softBodyVertexBindings() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &opaqueDrawRegistry() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &shadowDrawRegistry() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &localShadowDrawRegistry()
@@ -100,6 +104,7 @@ private:
     struct PhysicsLink
     {
         bool hasRigidBody = false;
+        bool hasSoftBody  = false;
         std::vector<ColliderHandle> colliders;
     };
 
@@ -110,6 +115,7 @@ private:
     void refreshCameraEntry(std::uint32_t cameraIndex);
     void refreshLightEntry(std::uint32_t lightIndex);
     void rebuildLocalLightSelections();
+    void rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager &resources);
     void refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources);
     void rebuildDrawRegistries(const graphics::RenderResourceManager &resources);
     void clearDirtyIndexSet(std::vector<std::uint32_t> &dirtyIndices,
@@ -164,6 +170,7 @@ private:
     std::vector<graphics::GpuCameraInput> mCameraInputsHost{};
     std::vector<graphics::GpuLightInput> mLightInputsHost{};
     std::vector<graphics::GpuLocalLightSelection> mLocalLightSelectionsHost{};
+    std::vector<graphics::GpuSoftBodyVertexBinding> mSoftBodyVertexBindingsHost{};
     std::vector<graphics::EnvironmentIblDesc> mEnvironmentIbls{};
     std::vector<graphics::IndirectCommandRegistryEntry> mOpaqueDrawRegistryHost{};
     std::vector<graphics::IndirectCommandRegistryEntry> mShadowDrawRegistryHost{};
@@ -193,8 +200,14 @@ private:
     std::vector<std::uint8_t> mDirtyLightBits{};
     bool mDrawRegistryDirty              = true;
     bool mPhysicsRenderableMappingsDirty = true;
+    bool mSoftBodyRenderBindingsDirty    = true;
+    std::vector<std::uint32_t> mSoftBodyVertexBindingBaseByObject{};
+    std::vector<std::uint32_t> mSoftBodyVertexNormalBaseByObject{};
+    std::vector<std::uint32_t> mSoftBodyVertexCountByObject{};
 
     std::uint64_t mCachedPhysicsRenderableMappingsBodyTopologyRevision = ~0ull;
+    std::uint64_t mCachedSoftBodyRenderTopologyRevision                = ~0ull;
+    std::uint64_t mCachedSoftBodyPhysicsRevision                       = ~0ull;
 };
 
 } // namespace cressim::neo::engine

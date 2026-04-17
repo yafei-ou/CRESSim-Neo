@@ -81,19 +81,17 @@ int main()
     frame.deltaSeconds = 1.0f / 60.0f;
 
     const bool stepSucceeded = solver.step(frame, world);
-    if (stepSucceeded)
+    if (!stepSucceeded)
     {
-        CRESSIM_LOG_ERROR( "Broad-phase overflow test unexpectedly succeeded.\n");
+        CRESSIM_LOG_ERROR( "Broad-phase overflow test failed during step.\n");
         solver.shutdown();
         runtime.shutdown();
         return 1;
     }
 
-    const physics::PhysicsSolverStageStats& stats = solver.lastStageStats();
-    if (!stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::PredictState)] ||
-        !stats.executed[static_cast<std::size_t>(physics::PhysicsSolverStage::UpdateWorldAabbs)])
+    if (solver.validateGpuMetaBlocking())
     {
-        CRESSIM_LOG_ERROR( "Expected broad-phase stages did not execute before overflow.\n");
+        CRESSIM_LOG_ERROR( "Broad-phase overflow test unexpectedly succeeded.\n");
         solver.shutdown();
         runtime.shutdown();
         return 1;

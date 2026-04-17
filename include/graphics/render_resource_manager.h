@@ -33,6 +33,7 @@ struct TextureHandle
 enum class MaterialProgramFamily
 {
     StandardLit,
+    SoftBodyLit,
 };
 
 enum class BlendMode

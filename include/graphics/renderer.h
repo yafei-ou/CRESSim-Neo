@@ -8,9 +8,16 @@
 #include "graphics/host_scene.h"
 #include "graphics/render_resource_manager.h"
 
+#include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
+
 #include <cstdint>
 #include <memory>
 #include <optional>
+
+namespace cressim::neo::physics
+{
+struct PhysicsGpuSceneView;
+}
 
 namespace cressim::neo::graphics
 {
@@ -35,10 +42,19 @@ struct RendererDesc
 
 struct RenderFrameOptions
 {
+    struct DebugParticleOptions
+    {
+        bool enabled           = false;
+        Diligent::float4 color = {0.2f, 0.8f, 1.0f, 1.0f};
+        bool useParticleRadii  = true;
+        float fallbackRadius   = 0.15f;
+    };
+
     common::EntityId presentedCameraEntity = common::kInvalidEntityId;
     std::optional<gpu::GpuPresentationTargetDesc> presentationTarget{};
     ToneMapper toneMapper = ToneMapper::Reinhard;
     float exposure        = 1.0f;
+    DebugParticleOptions debugParticles{};
 };
 
 struct RenderStats
@@ -65,12 +81,14 @@ public:
 
     bool initialize();
     RenderStats render(const common::FrameContext &frameContext, const HostSceneView &sceneView,
+                       const physics::PhysicsGpuSceneView *physicsScene,
                        const RenderFrameOptions &options = RenderFrameOptions{});
 
 private:
     struct GpuScenePrepareState;
     bool ensureGpuScenePrepareState();
-    bool prepareGpuScene(const GpuEntitySceneView &sceneView);
+    bool prepareGpuScene(const HostSceneView &world, const GpuEntitySceneView &sceneView,
+                         const physics::PhysicsGpuSceneView *physicsScene);
 
     gpu::GpuDevice &mDevice;
     RenderResourceManager &mResourceManager;

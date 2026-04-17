@@ -27,7 +27,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     float4 predictedOrientation =
         QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyIndex));
 
-    if (bodyType == 0u)
+    if (bodyType == kRigidBodyTypeStatic)
     {
         predictedOrientation = QuaternionNormalize(predictedOrientation);
         CRESSIM_SB_STORE(g_PredictedRigidBodyPositionsInvMass, bodyIndex, predictedPositionInvMass);

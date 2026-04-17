@@ -31,9 +31,9 @@ CRESSIM_RW_STRUCTURED_BUFFER(uint, g_StaticBodyFlags);
 
     GpuBodyMeta meta;
     meta.bodyId = colliderIndex;
-    meta.flags = 0u;
+    meta.bodyType = kRigidBodyTypeStatic;
     meta.activeIndex = kInvalidIndex;
-    meta.reserved = 0u;
+    meta.reserved0 = 0u;
 
     const uint ownerBodyIndex = CRESSIM_SB_LOAD(g_ColliderOwnerRigidBodyIndices, colliderIndex);
     if (ownerBodyIndex >= rigidBodyCount ||
@@ -72,22 +72,11 @@ CRESSIM_RW_STRUCTURED_BUFFER(uint, g_StaticBodyFlags);
     bodyAabb.maxBounds = float4(aabbMax, 0.0);
     CRESSIM_SB_STORE(g_BodyAabbs, colliderIndex, bodyAabb);
 
-    meta.flags = 0u;
-    if (bodyType == 0u)
-    {
-        meta.flags |= kBodyFlagStatic;
-    }
-    else if (bodyType == 1u)
-    {
-        meta.flags |= kBodyFlagKinematic;
-    }
-    else
-    {
-        meta.flags |= kBodyFlagDynamic;
-    }
+    meta.bodyType = bodyType;
     CRESSIM_SB_STORE(g_BodyMeta, colliderIndex, meta);
-    CRESSIM_SB_STORE(g_ActiveBodyFlags, colliderIndex,
-                     (meta.flags & kBodyFlagMoving) != 0u ? 1u : 0u);
+    CRESSIM_SB_STORE(
+        g_ActiveBodyFlags, colliderIndex,
+        bodyType == kRigidBodyTypeKinematic || bodyType == kRigidBodyTypeDynamic ? 1u : 0u);
     CRESSIM_SB_STORE(g_StaticBodyFlags, colliderIndex,
-                     (meta.flags & kBodyFlagStatic) != 0u ? 1u : 0u);
+                     bodyType == kRigidBodyTypeStatic ? 1u : 0u);
 }

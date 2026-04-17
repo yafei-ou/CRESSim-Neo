@@ -60,6 +60,7 @@ struct DebugViewerAppDesc
     float fixedDeltaSeconds           = 1.0f / 60.0f;
     std::uint64_t maxFrames           = 0;
     bool showStats                    = true;
+    bool enableDebugParticles         = false;
     std::uint32_t statsIntervalFrames = 120;
 
     DebugViewerKeymap keymap{};

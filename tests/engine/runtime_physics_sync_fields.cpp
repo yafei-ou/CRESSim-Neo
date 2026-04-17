@@ -134,8 +134,8 @@ int main()
                                         state->linearVelocity.z, 0.0f};
     const Diligent::float4 writebackAng{state->angularVelocity.x, state->angularVelocity.y,
                                         state->angularVelocity.z, 0.0f};
-    if (!world.physicsWorld().writeBackRigidBodyState(0u, writebackPos, writebackRot, writebackLin,
-                                                      writebackAng))
+    if (!world.physicsWorld().syncRigidBodyStateFromSimulation(0u, writebackPos, writebackRot,
+                                                               writebackLin, writebackAng))
     {
         CRESSIM_LOG_ERROR( "Failed to write back rigid state into physics world.\n");
         return 1;

@@ -24,7 +24,11 @@ struct VSOutput
 #endif
 };
 
-void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
+void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
+#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
+    , uint vertexId : SV_VertexID
+#endif
+)
 {
     uint objectIndex = g_InstanceIndex;
     uint cameraIndex = g_CurrentCameraIndex;
@@ -66,14 +70,48 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
         return;
     }
 
-    const float4 worldPos =
-        float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
+    float4 worldPos = float4(0.0, 0.0, 0.0, 1.0);
+    float3 worldNormal = float3(0.0, 1.0, 0.0);
+    float3 worldTangent = float3(1.0, 0.0, 0.0);
+    float transformSign = 1.0;
+#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
+    const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
+    if (metadata.softBodyVertexBindingBase != CRESSIM_INVALID_SOFT_BODY_VERTEX_BASE &&
+        metadata.softBodyVertexNormalBase != CRESSIM_INVALID_SOFT_BODY_VERTEX_BASE &&
+        vertexId < metadata.softBodyVertexCount)
+    {
+        const SoftBodyVertexBinding binding =
+            CRESSIM_SB_LOAD(g_SoftBodyVertexBindings, metadata.softBodyVertexBindingBase + vertexId);
+        const float3 deformedPos =
+            CRESSIM_SB_LOAD(g_SoftParticlePositions, binding.particleIndex).xyz;
+        worldPos = float4(deformedPos, 1.0);
+        worldNormal =
+            normalize(CRESSIM_SB_LOAD(g_SoftBodyVertexNormals,
+                                      metadata.softBodyVertexNormalBase + vertexId).xyz);
+        const float3 tangentCandidate = In.Tangent.xyz - worldNormal * dot(worldNormal, In.Tangent.xyz);
+        worldTangent = normalize(dot(tangentCandidate, tangentCandidate) > 1e-6
+                                     ? tangentCandidate
+                                     : cross(abs(worldNormal.y) < 0.99 ? float3(0.0, 1.0, 0.0)
+                                                                       : float3(1.0, 0.0, 0.0),
+                                             worldNormal));
+    }
+    else
+    {
+        worldPos = float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
+        float3 safeScale = max(abs(scale), float3(1e-6, 1e-6, 1e-6));
+        worldNormal = normalize(quaternionRotateVector(orientation, In.Normal / safeScale));
+        worldTangent = quaternionRotateVector(orientation, In.Tangent.xyz * scale);
+        worldTangent = normalize(worldTangent - worldNormal * dot(worldNormal, worldTangent));
+        transformSign = (scale.x * scale.y * scale.z) < 0.0 ? -1.0 : 1.0;
+    }
+#else
+    worldPos = float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
     float3 safeScale = max(abs(scale), float3(1e-6, 1e-6, 1e-6));
-    const float3 worldNormal = normalize(quaternionRotateVector(orientation, In.Normal / safeScale));
-    float3 worldTangent =
-        quaternionRotateVector(orientation, In.Tangent.xyz * scale);
+    worldNormal = normalize(quaternionRotateVector(orientation, In.Normal / safeScale));
+    worldTangent = quaternionRotateVector(orientation, In.Tangent.xyz * scale);
     worldTangent = normalize(worldTangent - worldNormal * dot(worldNormal, worldTangent));
-    const float transformSign = (scale.x * scale.y * scale.z) < 0.0 ? -1.0 : 1.0;
+    transformSign = (scale.x * scale.y * scale.z) < 0.0 ? -1.0 : 1.0;
+#endif
 
     Out.Position = mul(worldPos, preparedCamera.viewProjectionMatrix);
     Out.WorldPos = worldPos.xyz;

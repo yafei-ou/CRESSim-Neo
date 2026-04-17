@@ -16,7 +16,11 @@ struct VSOutput
 #endif
 };
 
-void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
+void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
+#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
+    , uint vertexId : SV_VertexID
+#endif
+)
 {
     uint objectIndex = g_InstanceIndex;
     uint cameraIndex = 0u;
@@ -45,8 +49,19 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
                 return;
             }
 
-            const float4 worldPos =
-                float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
+            float4 worldPos = float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
+#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
+            const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
+            if (metadata.softBodyVertexBindingBase != CRESSIM_INVALID_SOFT_BODY_VERTEX_BASE &&
+                vertexId < metadata.softBodyVertexCount)
+            {
+                const SoftBodyVertexBinding binding =
+                    CRESSIM_SB_LOAD(g_SoftBodyVertexBindings,
+                                    metadata.softBodyVertexBindingBase + vertexId);
+                worldPos = float4(CRESSIM_SB_LOAD(g_SoftParticlePositions, binding.particleIndex).xyz,
+                                  1.0);
+            }
+#endif
             Out.Position = mul(worldPos, shadowView.lightViewProjectionMatrices[localMatrixIndex]);
 #if MANUAL_LAYER_EXPORT
             Out.Layer = shadowView.firstLayer + localMatrixIndex;
@@ -79,8 +94,17 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID)
 #endif
         return;
     }
-    const float4 worldPos =
-        float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
+    float4 worldPos = float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
+#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
+    const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
+    if (metadata.softBodyVertexBindingBase != CRESSIM_INVALID_SOFT_BODY_VERTEX_BASE &&
+        vertexId < metadata.softBodyVertexCount)
+    {
+        const SoftBodyVertexBinding binding =
+            CRESSIM_SB_LOAD(g_SoftBodyVertexBindings, metadata.softBodyVertexBindingBase + vertexId);
+        worldPos = float4(CRESSIM_SB_LOAD(g_SoftParticlePositions, binding.particleIndex).xyz, 1.0);
+    }
+#endif
     Out.Position = mul(worldPos, preparedCamera.lightViewProjectionMatrices[g_CascadeIndex]);
 #if MANUAL_LAYER_EXPORT
     Out.Layer = shadowLayer;

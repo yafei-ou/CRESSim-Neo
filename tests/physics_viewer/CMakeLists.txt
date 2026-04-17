@@ -62,3 +62,23 @@ add_physics_viewer_test(
     cressim_neo_physics_viewer_mixed_shape_contacts
     physics_viewer_mixed_shape_contacts.cpp
 )
+
+add_physics_viewer_test(
+    cressim_neo_physics_viewer_soft_particles
+    physics_viewer_soft_particles.cpp
+)
+
+add_physics_viewer_test(
+    cressim_neo_physics_viewer_soft_particles_toroid
+    physics_viewer_soft_particles_toroid.cpp
+)
+
+add_physics_viewer_test(
+    cressim_neo_physics_viewer_soft_particles_toroid_multi_env
+    physics_viewer_soft_particles_toroid_multi_env.cpp
+)
+
+add_physics_viewer_test(
+    cressim_neo_physics_viewer_soft_particles_multi_env
+    physics_viewer_soft_particles_multi_env.cpp
+)

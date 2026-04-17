@@ -12,6 +12,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyAngularVelocities);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_STRUCTURED_BUFFER(GpuRigidContact, g_RigidContacts);
+CRESSIM_STRUCTURED_BUFFER(GpuBroadPhaseMeta, g_BroadPhaseMeta);
 
 CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyLinearVelocityCorrections);
 CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyAngularVelocityCorrections);
@@ -37,7 +38,8 @@ float ComputeImpulseDenominator(float invMass, float3 invInertiaLocal, float4 or
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint contactIndex = dispatchThreadID.x;
-    const uint totalContactSlots = candidatePairCount * kRigidContactsPerPair;
+    const GpuBroadPhaseMeta broadPhaseMeta = CRESSIM_SB_LOAD(g_BroadPhaseMeta, 0);
+    const uint totalContactSlots = broadPhaseMeta.candidatePairCount * kRigidContactsPerPair;
     if (contactIndex >= totalContactSlots)
     {
         return;
@@ -55,8 +57,8 @@ float ComputeImpulseDenominator(float invMass, float3 invInertiaLocal, float4 or
     const uint bodyTypeB = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyBIndex);
     const float4 posInvMassA = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyAIndex);
     const float4 posInvMassB = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyBIndex);
-    const float invMassA = bodyTypeA == 2u ? posInvMassA.w : 0.0;
-    const float invMassB = bodyTypeB == 2u ? posInvMassB.w : 0.0;
+    const float invMassA = bodyTypeA == kRigidBodyTypeDynamic ? posInvMassA.w : 0.0;
+    const float invMassB = bodyTypeB == kRigidBodyTypeDynamic ? posInvMassB.w : 0.0;
     if (invMassA == 0.0 && invMassB == 0.0)
     {
         return;

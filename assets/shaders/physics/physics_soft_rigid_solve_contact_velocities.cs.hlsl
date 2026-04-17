@@ -1,0 +1,180 @@
+#include "physics/include/physics_rigid_common.hlsli"
+
+static const float kVelocityCorrectionAtomicScale = 100000.0;
+static const float kRestitutionVelocityThreshold = 0.5;
+static const float kRestitutionPenetrationThreshold = 2.0 * kContactSlop;
+
+// Soft-rigid position solve removes overlap first; this pass applies bounce/friction in velocity
+// space so repeated contact iterations operate on refreshed velocities instead of stale pre-solve
+// estimates.
+
+CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticleMaterials);
+CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticleVelocities);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyLinearVelocities);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyAngularVelocities);
+CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
+CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderMaterials);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftRigidContact, g_SoftRigidContacts);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftNeighborMeta, g_SoftNeighborMeta);
+
+CRESSIM_RW_STRUCTURED_BUFFER(int4, g_SoftParticleVelocityCorrections);
+CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyLinearVelocityCorrections);
+CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyAngularVelocityCorrections);
+
+int3 QuantizeVelocityCorrection(float3 value)
+{
+    return int3(round(value * kVelocityCorrectionAtomicScale));
+}
+
+float2 CombineContactMaterial(float4 softMaterial, float4 rigidMaterial)
+{
+    const float friction = sqrt(max(0.0, softMaterial.x) * max(0.0, rigidMaterial.x));
+    const float restitution = max(max(0.0, softMaterial.y), max(0.0, rigidMaterial.y));
+    return float2(friction, restitution);
+}
+
+float ComputeRigidImpulseDenominator(float invMass, float3 invInertiaLocal, float4 orientation,
+                                     float3 r, float3 direction)
+{
+    if (invMass <= kEpsilon)
+    {
+        return 0.0;
+    }
+
+    const float3 angJ = cross(r, direction);
+    const float3 angMass = MultiplyWorldInverseInertia(invInertiaLocal, orientation, angJ);
+    return invMass + dot(cross(angMass, r), direction);
+}
+
+[numthreads(64, 1, 1)]
+void main(uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+    const uint contactIndex = dispatchThreadID.x;
+    const GpuSoftNeighborMeta meta = CRESSIM_SB_LOAD(g_SoftNeighborMeta, 0u);
+    if (contactIndex >= meta.activeSoftRigidContactCount)
+    {
+        return;
+    }
+
+    const GpuSoftRigidContact contact = CRESSIM_SB_LOAD(g_SoftRigidContacts, contactIndex);
+    if (contact.active == 0u)
+    {
+        return;
+    }
+
+    const uint softParticleIndex = contact.softParticleIndex;
+    const float4 softPositionInvMass =
+        CRESSIM_SB_LOAD(g_SoftParticlePositionsInvMass, softParticleIndex);
+    const float invMassSoft = softPositionInvMass.w;
+    const float3 softVelocity = CRESSIM_SB_LOAD(g_SoftParticleVelocities, softParticleIndex).xyz;
+
+    const uint rigidBodyIndex = contact.rigidBodyIndex;
+    const uint rigidBodyType = CRESSIM_SB_LOAD(g_RigidBodyTypes, rigidBodyIndex);
+    const float4 rigidPositionInvMass =
+        CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, rigidBodyIndex);
+    const float invMassRigid =
+        rigidBodyType == kRigidBodyTypeDynamic ? rigidPositionInvMass.w : 0.0;
+    if (invMassSoft <= kEpsilon && invMassRigid <= kEpsilon)
+    {
+        return;
+    }
+
+    const float4 rigidOrientation =
+        QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, rigidBodyIndex));
+    const float3 rigidLinearVelocity =
+        CRESSIM_SB_LOAD(g_PredictedRigidBodyLinearVelocities, rigidBodyIndex).xyz;
+    const float3 rigidAngularVelocity =
+        CRESSIM_SB_LOAD(g_PredictedRigidBodyAngularVelocities, rigidBodyIndex).xyz;
+    const float3 invInertiaRigid =
+        CRESSIM_SB_LOAD(g_RigidBodyInverseInertiaLocal, rigidBodyIndex).xyz;
+
+    const float3 normal =
+        SafeNormalize(contact.normalPenetration.xyz, float3(0.0, 1.0, 0.0));
+    const float3 rigidContactPoint =
+        rigidPositionInvMass.xyz + QuaternionRotate(rigidOrientation, contact.rigidLocalPoint.xyz);
+    const float3 rRigid = rigidContactPoint - rigidPositionInvMass.xyz;
+    const float3 rigidContactVelocity = rigidLinearVelocity + cross(rigidAngularVelocity, rRigid);
+    const float3 relativeVelocity = softVelocity - rigidContactVelocity;
+    const float normalVelocity = dot(relativeVelocity, normal);
+    if (normalVelocity >= 0.0)
+    {
+        return;
+    }
+
+    const float softNormalDenom = invMassSoft;
+    const float rigidNormalDenom =
+        ComputeRigidImpulseDenominator(invMassRigid, invInertiaRigid, rigidOrientation, rRigid,
+                                       normal);
+    const float normalDenom = softNormalDenom + rigidNormalDenom;
+    if (normalDenom <= kEpsilon)
+    {
+        return;
+    }
+
+    const float2 combinedMaterial = CombineContactMaterial(
+        CRESSIM_SB_LOAD(g_SoftParticleMaterials, softParticleIndex),
+        CRESSIM_SB_LOAD(g_ColliderMaterials, contact.colliderIndex));
+    const bool enableRestitution =
+        (-normalVelocity > kRestitutionVelocityThreshold) &&
+        (contact.normalPenetration.w <= kRestitutionPenetrationThreshold);
+    const float restitution = enableRestitution ? saturate(combinedMaterial.y) : 0.0;
+    const float desiredNormalVelocity =
+        enableRestitution ? (-restitution * normalVelocity) : 0.0;
+    const float normalImpulseScalar =
+        max(0.0, (desiredNormalVelocity - normalVelocity) / normalDenom);
+    float3 totalImpulse = normal * normalImpulseScalar;
+
+    const float3 tangentialVelocity = relativeVelocity - normal * normalVelocity;
+    const float tangentialSpeed = length(tangentialVelocity);
+    if (tangentialSpeed > 1.0e-4 && normalImpulseScalar > 0.0)
+    {
+        const float3 tangent = tangentialVelocity / tangentialSpeed;
+        const float tangentDenom =
+            invMassSoft +
+            ComputeRigidImpulseDenominator(invMassRigid, invInertiaRigid, rigidOrientation, rRigid,
+                                           tangent);
+        if (tangentDenom > kEpsilon)
+        {
+            const float frictionLimit = combinedMaterial.x * normalImpulseScalar;
+            const float tangentImpulseScalar =
+                clamp(-tangentialSpeed / tangentDenom, -frictionLimit, frictionLimit);
+            totalImpulse += tangent * tangentImpulseScalar;
+        }
+    }
+
+    if (invMassSoft > kEpsilon)
+    {
+        const int3 softDelta = QuantizeVelocityCorrection(totalImpulse * invMassSoft);
+        InterlockedAdd(CRESSIM_SB_REF(g_SoftParticleVelocityCorrections, softParticleIndex).x,
+                       softDelta.x);
+        InterlockedAdd(CRESSIM_SB_REF(g_SoftParticleVelocityCorrections, softParticleIndex).y,
+                       softDelta.y);
+        InterlockedAdd(CRESSIM_SB_REF(g_SoftParticleVelocityCorrections, softParticleIndex).z,
+                       softDelta.z);
+    }
+
+    if (invMassRigid > kEpsilon)
+    {
+        const float3 rigidLinearDelta = -totalImpulse * invMassRigid;
+        const float3 rigidAngularDelta = MultiplyWorldInverseInertia(
+            invInertiaRigid, rigidOrientation, cross(rRigid, -totalImpulse));
+        const int3 rigidLinear = QuantizeVelocityCorrection(rigidLinearDelta);
+        const int3 rigidAngular = QuantizeVelocityCorrection(rigidAngularDelta);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyLinearVelocityCorrections, rigidBodyIndex).x,
+                       rigidLinear.x);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyLinearVelocityCorrections, rigidBodyIndex).y,
+                       rigidLinear.y);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyLinearVelocityCorrections, rigidBodyIndex).z,
+                       rigidLinear.z);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyAngularVelocityCorrections, rigidBodyIndex).x,
+                       rigidAngular.x);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyAngularVelocityCorrections, rigidBodyIndex).y,
+                       rigidAngular.y);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyAngularVelocityCorrections, rigidBodyIndex).z,
+                       rigidAngular.z);
+    }
+}

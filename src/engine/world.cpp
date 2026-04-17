@@ -1,6 +1,7 @@
 #include "engine/world.h"
 #include "common/logger.h"
 
+#include <array>
 #include <cmath>
 #include <map>
 
@@ -9,7 +10,8 @@ namespace cressim::neo::engine
 
 namespace
 {
-constexpr std::uint32_t kInvalidSlot = 0xffffffffu;
+constexpr std::uint32_t kInvalidSlot        = 0xffffffffu;
+constexpr float kSoftBodyVertexMatchEpsilon = 1.0e-3f;
 
 struct DrawBucketKey
 {
@@ -111,6 +113,116 @@ void refreshTransformDerivedLightState(graphics::LightData &light,
     }
 }
 
+struct QuantizedPointKey
+{
+    std::int64_t x = 0;
+    std::int64_t y = 0;
+    std::int64_t z = 0;
+
+    [[nodiscard]] bool operator==(const QuantizedPointKey &rhs) const noexcept
+    {
+        return x == rhs.x && y == rhs.y && z == rhs.z;
+    }
+};
+
+struct QuantizedPointKeyHash
+{
+    [[nodiscard]] std::size_t operator()(const QuantizedPointKey &key) const noexcept
+    {
+        const std::size_t hx = std::hash<std::int64_t>{}(key.x);
+        const std::size_t hy = std::hash<std::int64_t>{}(key.y);
+        const std::size_t hz = std::hash<std::int64_t>{}(key.z);
+        return hx ^ (hy << 1u) ^ (hz << 2u);
+    }
+};
+
+QuantizedPointKey quantizePoint(const Diligent::float3 &point, float epsilon) noexcept
+{
+    const double invEpsilon = 1.0 / static_cast<double>(std::max(epsilon, 1.0e-8f));
+    return QuantizedPointKey{
+        static_cast<std::int64_t>(std::llround(static_cast<double>(point.x) * invEpsilon)),
+        static_cast<std::int64_t>(std::llround(static_cast<double>(point.y) * invEpsilon)),
+        static_cast<std::int64_t>(std::llround(static_cast<double>(point.z) * invEpsilon)),
+    };
+}
+
+Diligent::float3 transformPoint(const common::Transform &transform,
+                                const Diligent::float3 &localPoint) noexcept
+{
+    const Diligent::float3 scaled{localPoint.x * transform.scale.x,
+                                  localPoint.y * transform.scale.y,
+                                  localPoint.z * transform.scale.z};
+    return transform.rotation.RotateVector(scaled) + transform.position;
+}
+
+Diligent::float3 inverseTransformPoint(const common::Transform &transform,
+                                       const Diligent::float3 &worldPoint) noexcept
+{
+    const Diligent::QuaternionF inverseRotation{-transform.rotation.q.x, -transform.rotation.q.y,
+                                                -transform.rotation.q.z, transform.rotation.q.w};
+    const Diligent::float3 localScaled =
+        inverseRotation.RotateVector(worldPoint - transform.position);
+    const Diligent::float3 safeScale{
+        std::max(std::abs(transform.scale.x), 1.0e-6f),
+        std::max(std::abs(transform.scale.y), 1.0e-6f),
+        std::max(std::abs(transform.scale.z), 1.0e-6f),
+    };
+    return {localScaled.x / safeScale.x, localScaled.y / safeScale.y, localScaled.z / safeScale.z};
+}
+
+Diligent::float3 transformNormal(const common::Transform &transform,
+                                 const Diligent::float3 &localNormal) noexcept
+{
+    const Diligent::float3 safeScale{
+        std::max(std::abs(transform.scale.x), 1.0e-6f),
+        std::max(std::abs(transform.scale.y), 1.0e-6f),
+        std::max(std::abs(transform.scale.z), 1.0e-6f),
+    };
+    Diligent::float3 worldNormal = transform.rotation.RotateVector(Diligent::float3{
+        localNormal.x / safeScale.x, localNormal.y / safeScale.y, localNormal.z / safeScale.z});
+    const float lenSq            = Diligent::dot(worldNormal, worldNormal);
+    if (lenSq <= 1.0e-12f)
+    {
+        return {0.0f, 1.0f, 0.0f};
+    }
+    return worldNormal * (1.0f / std::sqrt(lenSq));
+}
+
+std::optional<std::uint32_t> findMatchingRestVertexLocal(
+    const Diligent::float3 &visualVertexLocal,
+    const std::vector<Diligent::float3> &restPositionsLocal,
+    const std::unordered_map<QuantizedPointKey, std::uint32_t, QuantizedPointKeyHash>
+        &restIndexByQuantizedPosition,
+    float epsilon) noexcept
+{
+    const QuantizedPointKey key = quantizePoint(visualVertexLocal, epsilon);
+    if (const auto it = restIndexByQuantizedPosition.find(key);
+        it != restIndexByQuantizedPosition.end())
+    {
+        return it->second;
+    }
+
+    const float epsilonSq = epsilon * epsilon;
+    float bestDistanceSq  = epsilonSq;
+    std::optional<std::uint32_t> bestIndex;
+    for (std::uint32_t localParticleIndex = 0u;
+         localParticleIndex < static_cast<std::uint32_t>(restPositionsLocal.size());
+         ++localParticleIndex)
+    {
+        const Diligent::float3 delta = restPositionsLocal[localParticleIndex] - visualVertexLocal;
+        const float distanceSq       = Diligent::dot(delta, delta);
+        if (distanceSq > bestDistanceSq)
+        {
+            continue;
+        }
+
+        bestDistanceSq = distanceSq;
+        bestIndex      = localParticleIndex;
+    }
+
+    return bestIndex;
+}
+
 } // namespace
 
 common::EntityId World::createEntity(std::uint32_t envIndex)
@@ -146,6 +258,7 @@ bool World::destroyEntity(common::EntityId entityId)
     removePointLight(entityId);
     removeSpotLight(entityId);
     removeRigidBody(entityId);
+    removeSoftBody(entityId);
 
     auto physIt = mPhysicsLinks.find(entityId);
     if (physIt != mPhysicsLinks.end())
@@ -198,10 +311,21 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
         return true;
     }
 
-    mEntityEnvironments[entityId] = envIndex;
-    const auto physIt             = mPhysicsLinks.find(entityId);
+    const auto physIt = mPhysicsLinks.find(entityId);
     if (physIt != mPhysicsLinks.end())
     {
+        if (physIt->second.hasSoftBody)
+        {
+            if (physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(entityId))
+            {
+                physics::SoftBodyState updated = *softBody;
+                updated.environmentIndex       = envIndex;
+                if (!mPhysicsWorld.upsertSoftBody(updated))
+                {
+                    return false;
+                }
+            }
+        }
         for (const ColliderHandle handle : physIt->second.colliders)
         {
             const physics::ColliderState *existing = mPhysicsWorld.tryGetCollider(handle.id);
@@ -215,6 +339,7 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
             mPhysicsWorld.upsertCollider(updated);
         }
     }
+    mEntityEnvironments[entityId] = envIndex;
     moveRenderableToEnvironment(entityId, envIndex);
     moveCameraToEnvironment(entityId, envIndex);
     moveLightToEnvironment(entityId, envIndex);
@@ -288,6 +413,9 @@ void World::ensureHostSceneStorage()
         mRenderObjectScales.assign(objectCapacity, Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f});
         mRenderableMetadataHost.assign(objectCapacity, graphics::GpuRenderableMetadata{});
         mRenderableQueueInfoHost.assign(objectCapacity, graphics::GpuRenderableQueueInfo{});
+        mSoftBodyVertexBindingBaseByObject.assign(objectCapacity, kInvalidSlot);
+        mSoftBodyVertexNormalBaseByObject.assign(objectCapacity, kInvalidSlot);
+        mSoftBodyVertexCountByObject.assign(objectCapacity, 0u);
         mOpaqueDrawRegistryHost.clear();
         mShadowDrawRegistryHost.clear();
         mDirtyRenderablePoseIndices.clear();
@@ -305,6 +433,7 @@ void World::ensureHostSceneStorage()
         }
         mDrawRegistryDirty              = true;
         mPhysicsRenderableMappingsDirty = true;
+        mSoftBodyRenderBindingsDirty    = true;
     }
 
     const std::size_t cameraCapacity = mSceneLayout.totalCameraCapacity();
@@ -418,6 +547,16 @@ void World::setTransform(common::EntityId entityId, const TransformComponent &co
         rb->scale    = component.worldTransform.scale;
         mPhysicsWorld.upsertRigidBody(*rb);
     }
+    if (auto *softBody = mPhysicsWorld.tryGetSoftBody(entityId))
+    {
+        physics::SoftBodyState updated = *softBody;
+        updated.restTransform          = component.worldTransform;
+        if (!mPhysicsWorld.upsertSoftBody(updated))
+        {
+            CRESSIM_LOG_ERROR("setTransform failed to rebuild soft body for entity ", entityId,
+                              ".");
+        }
+    }
     if (const auto it = mRenderableIndices.find(entityId); it != mRenderableIndices.end())
     {
         markRenderablePoseDirty(static_cast<std::uint32_t>(it->second));
@@ -476,6 +615,7 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
     markRenderablePoseDirty(objectIndex);
     mDrawRegistryDirty              = true;
     mPhysicsRenderableMappingsDirty = true;
+    mSoftBodyRenderBindingsDirty    = true;
 }
 
 void World::setCamera(common::EntityId entityId, const CameraComponent &component)
@@ -751,6 +891,79 @@ bool World::removeRigidBody(common::EntityId entityId)
     return removed;
 }
 
+bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &component)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("setSoftBody requires valid entity id.");
+        return false;
+    }
+
+    if (!requireAliveEntity(entityId, "setSoftBody"))
+    {
+        return false;
+    }
+
+    if (!component.simulated)
+    {
+        (void)removeSoftBody(entityId);
+        return true;
+    }
+
+    if (!tryGetMeshRenderer(entityId).has_value())
+    {
+        CRESSIM_LOG_WARNING("setSoftBody without a mesh renderer on the same entity.");
+    }
+
+    TransformComponent transform{};
+    if (const std::optional<TransformComponent> t = tryGetTransform(entityId))
+    {
+        transform = *t;
+    }
+
+    physics::SoftBodyState state{};
+    state.entityId             = entityId;
+    state.environmentIndex     = entityEnvironment(entityId);
+    state.source               = component.source;
+    state.material             = component.material;
+    state.restTransform        = transform.worldTransform;
+    state.particleMass         = component.particleMass;
+    state.particleRadius       = component.particleRadius;
+    state.edgeCompliance       = component.edgeCompliance;
+    state.volumeCompliance     = component.volumeCompliance;
+    state.simulated            = component.simulated;
+    state.selfCollisionEnabled = component.selfCollisionEnabled;
+    state.collisionLayer       = component.collisionLayer;
+    state.collisionMask        = component.collisionMask;
+
+    if (!mPhysicsWorld.upsertSoftBody(state))
+    {
+        return false;
+    }
+    mPhysicsLinks[entityId].hasSoftBody = true;
+    mDrawRegistryDirty                  = true;
+    mSoftBodyRenderBindingsDirty        = true;
+    return true;
+}
+
+bool World::removeSoftBody(common::EntityId entityId)
+{
+    auto it = mPhysicsLinks.find(entityId);
+    if (it != mPhysicsLinks.end())
+    {
+        it->second.hasSoftBody = false;
+    }
+    if (const auto renderIt = mRenderableIndices.find(entityId);
+        renderIt != mRenderableIndices.end())
+    {
+        markRenderablePoseDirty(static_cast<std::uint32_t>(renderIt->second));
+        markRenderableMetadataDirty(static_cast<std::uint32_t>(renderIt->second));
+    }
+    mDrawRegistryDirty          = true;
+    mSoftBodyRenderBindingsDirty = true;
+    return mPhysicsWorld.removeSoftBody(entityId);
+}
+
 World::ColliderHandle World::addCollider(common::EntityId entityId,
                                          const ColliderComponent &component)
 {
@@ -906,6 +1119,7 @@ bool World::removeMeshRenderer(common::EntityId entityId)
     mRenderableIndices.erase(it);
     mDrawRegistryDirty              = true;
     mPhysicsRenderableMappingsDirty = true;
+    mSoftBodyRenderBindingsDirty    = true;
     return true;
 }
 
@@ -1104,6 +1318,28 @@ std::optional<RigidBodyComponent> World::tryGetRigidBody(common::EntityId entity
     return component;
 }
 
+std::optional<SoftBodyComponent> World::tryGetSoftBody(common::EntityId entityId) const
+{
+    const physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(entityId);
+    if (!softBody)
+    {
+        return std::nullopt;
+    }
+
+    SoftBodyComponent component{};
+    component.source               = softBody->source;
+    component.material             = softBody->material;
+    component.particleMass         = softBody->particleMass;
+    component.particleRadius       = softBody->particleRadius;
+    component.edgeCompliance       = softBody->edgeCompliance;
+    component.volumeCompliance     = softBody->volumeCompliance;
+    component.simulated            = softBody->simulated;
+    component.selfCollisionEnabled = softBody->selfCollisionEnabled;
+    component.collisionLayer       = softBody->collisionLayer;
+    component.collisionMask        = softBody->collisionMask;
+    return component;
+}
+
 std::optional<ColliderComponent> World::tryGetCollider(ColliderHandle handle) const
 {
     if (!handle.isValid())
@@ -1206,6 +1442,12 @@ const std::vector<graphics::GpuLocalLightSelection> &World::localLightSelections
     return mLocalLightSelectionsHost;
 }
 
+const std::vector<graphics::GpuSoftBodyVertexBinding> &World::softBodyVertexBindings()
+    const noexcept
+{
+    return mSoftBodyVertexBindingsHost;
+}
+
 const std::vector<graphics::IndirectCommandRegistryEntry> &World::opaqueDrawRegistry()
     const noexcept
 {
@@ -1263,7 +1505,7 @@ const std::vector<EntityPoseMappingEntry> &World::physicsRenderableMappings()
             EntityPoseMappingEntry entry{};
             entry.sourcePoseIndex = rigidBodyIt->second;
             entry.objectIndex     = renderable.envIndex * mSceneLayout.maxRenderableObjectsPerEnv +
-                                    renderable.objectSlot;
+                                renderable.objectSlot;
             mPhysicsRenderableMappingsCache.push_back(entry);
         }
     }
@@ -1282,6 +1524,7 @@ graphics::HostSceneView World::hostSceneView() const noexcept
 {
     return graphics::HostSceneView{
         &mRenderables,
+        &mRenderableMetadataHost,
         &mRenderCameras,
         &mRenderLights,
         &mEnvironmentIbls,
@@ -1294,6 +1537,41 @@ graphics::HostSceneView World::hostSceneView() const noexcept
 
 void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &resources)
 {
+    const std::uint64_t softBodyTopologyRevision = mPhysicsWorld.softBodyTopologyRevision();
+    if (mCachedSoftBodyRenderTopologyRevision != softBodyTopologyRevision)
+    {
+        mSoftBodyRenderBindingsDirty          = true;
+        mCachedSoftBodyRenderTopologyRevision = softBodyTopologyRevision;
+    }
+
+    const std::uint64_t physicsRevision = mPhysicsWorld.authoredRevision();
+    if (mCachedSoftBodyPhysicsRevision != physicsRevision)
+    {
+        for (std::uint32_t objectIndex = 0u;
+             objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
+        {
+            const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
+            if (renderable.entityId == common::kInvalidEntityId ||
+                renderable.objectSlot == kInvalidSlot)
+            {
+                continue;
+            }
+            const auto physIt = mPhysicsLinks.find(renderable.entityId);
+            if (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
+            {
+                markRenderablePoseDirty(objectIndex);
+                markRenderableMetadataDirty(objectIndex);
+            }
+        }
+        mCachedSoftBodyPhysicsRevision = physicsRevision;
+    }
+
+    if (mSoftBodyRenderBindingsDirty)
+    {
+        mPhysicsWorld.ensureSoftBodyDerivedStateUpToDate();
+        rebuildSoftBodyRenderBindings(resources);
+    }
+
     for (const std::uint32_t objectIndex : mDirtyRenderablePoseIndices)
     {
         refreshRenderablePose(objectIndex);
@@ -1327,6 +1605,160 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
     clearDirtyIndexSet(mDirtyLightIndices, mDirtyLightBits);
 }
 
+void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager &resources)
+{
+    std::fill(mSoftBodyVertexBindingBaseByObject.begin(), mSoftBodyVertexBindingBaseByObject.end(),
+              kInvalidSlot);
+    std::fill(mSoftBodyVertexNormalBaseByObject.begin(), mSoftBodyVertexNormalBaseByObject.end(),
+              kInvalidSlot);
+    std::fill(mSoftBodyVertexCountByObject.begin(), mSoftBodyVertexCountByObject.end(), 0u);
+    mSoftBodyVertexBindingsHost.clear();
+    physics::SoftRenderDataHost softRenderData;
+    const std::vector<physics::SoftBodyState> &softBodies = mPhysicsWorld.softBodySnapshot();
+    softRenderData.softBodyParticleRanges.resize(softBodies.size(), Diligent::uint2{0u, 0u});
+    for (std::uint32_t softBodyIndex = 0u;
+         softBodyIndex < static_cast<std::uint32_t>(softBodies.size()); ++softBodyIndex)
+    {
+        const physics::SoftBodyState &softBody = softBodies[softBodyIndex];
+        softRenderData.softBodyParticleRanges[softBodyIndex] =
+            Diligent::uint2{softBody.particleOffset, softBody.particleCount};
+    }
+
+    for (std::uint32_t objectIndex = 0u;
+         objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
+    {
+        const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
+        if (renderable.entityId == common::kInvalidEntityId ||
+            renderable.objectSlot == kInvalidSlot)
+        {
+            continue;
+        }
+
+        const auto physIt = mPhysicsLinks.find(renderable.entityId);
+        if (physIt == mPhysicsLinks.end() || !physIt->second.hasSoftBody)
+        {
+            continue;
+        }
+
+        const physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(renderable.entityId);
+        const graphics::MeshResourceDesc *mesh = resources.tryGetMesh(renderable.mesh);
+        if (softBody == nullptr || mesh == nullptr || mesh->vertices.empty() ||
+            softBody->restPositions.empty())
+        {
+            CRESSIM_LOG_ERROR("Soft-body render binding build failed for entity ",
+                              renderable.entityId,
+                              ": missing visual mesh or soft-body rest-position data.");
+            continue;
+        }
+
+        std::unordered_map<QuantizedPointKey, std::uint32_t, QuantizedPointKeyHash>
+            restIndexByQuantizedPosition;
+        restIndexByQuantizedPosition.reserve(softBody->restPositions.size());
+        std::vector<Diligent::float3> restPositionsLocal;
+        restPositionsLocal.reserve(softBody->restPositions.size());
+        for (std::uint32_t localParticleIndex = 0u;
+             localParticleIndex < static_cast<std::uint32_t>(softBody->restPositions.size());
+             ++localParticleIndex)
+        {
+            const Diligent::float3 localRestPosition = inverseTransformPoint(
+                softBody->restTransform, softBody->restPositions[localParticleIndex]);
+            restPositionsLocal.push_back(localRestPosition);
+            restIndexByQuantizedPosition.try_emplace(
+                quantizePoint(localRestPosition, kSoftBodyVertexMatchEpsilon), localParticleIndex);
+        }
+
+        const std::uint32_t bindingBase =
+            static_cast<std::uint32_t>(mSoftBodyVertexBindingsHost.size());
+        const std::uint32_t normalBase = bindingBase;
+        const std::uint32_t rangeBase =
+            static_cast<std::uint32_t>(softRenderData.vertexTriangleRanges.size());
+        bool valid = true;
+        std::vector<std::vector<std::uint32_t>> incidentTriangles(mesh->vertices.size());
+        for (const graphics::MeshResourceDesc::Vertex &vertex : mesh->vertices)
+        {
+            const std::optional<std::uint32_t> matchedRestIndex = findMatchingRestVertexLocal(
+                vertex.position, restPositionsLocal, restIndexByQuantizedPosition,
+                kSoftBodyVertexMatchEpsilon);
+            if (!matchedRestIndex.has_value())
+            {
+                valid = false;
+                break;
+            }
+
+            graphics::GpuSoftBodyVertexBinding binding{};
+            binding.particleIndex = softBody->particleOffset + matchedRestIndex.value();
+            mSoftBodyVertexBindingsHost.push_back(binding);
+            const Diligent::float3 fallbackNormal =
+                transformNormal(softBody->restTransform, vertex.normal);
+            softRenderData.fallbackNormals.emplace_back(fallbackNormal.x, fallbackNormal.y,
+                                                        fallbackNormal.z, 0.0f);
+            softRenderData.vertexTriangleRanges.push_back({});
+        }
+
+        if (!valid)
+        {
+            CRESSIM_LOG_ERROR("Soft-body render binding build failed for entity ",
+                              renderable.entityId,
+                              ": visual mesh vertices must match tet rest vertices exactly.");
+            mSoftBodyVertexBindingsHost.resize(bindingBase);
+            softRenderData.fallbackNormals.resize(normalBase);
+            softRenderData.vertexTriangleRanges.resize(rangeBase);
+            continue;
+        }
+
+        const std::uint32_t triangleBase =
+            static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
+        for (std::size_t triangleIndex = 0u; triangleIndex + 2u < mesh->indices.size();
+             triangleIndex += 3u)
+        {
+            const std::uint32_t i0 = mesh->indices[triangleIndex + 0u];
+            const std::uint32_t i1 = mesh->indices[triangleIndex + 1u];
+            const std::uint32_t i2 = mesh->indices[triangleIndex + 2u];
+            if (i0 >= mesh->vertices.size() || i1 >= mesh->vertices.size() || i2 >= mesh->vertices.size())
+            {
+                continue;
+            }
+
+            const std::uint32_t particleIndex0 =
+                mSoftBodyVertexBindingsHost[bindingBase + i0].particleIndex;
+            const std::uint32_t particleIndex1 =
+                mSoftBodyVertexBindingsHost[bindingBase + i1].particleIndex;
+            const std::uint32_t particleIndex2 =
+                mSoftBodyVertexBindingsHost[bindingBase + i2].particleIndex;
+            const std::uint32_t renderTriangleIndex =
+                static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
+            softRenderData.triangleParticleIndices.emplace_back(particleIndex0, particleIndex1,
+                                                                particleIndex2, 0u);
+            incidentTriangles[i0].push_back(renderTriangleIndex);
+            incidentTriangles[i1].push_back(renderTriangleIndex);
+            incidentTriangles[i2].push_back(renderTriangleIndex);
+        }
+
+        (void)triangleBase;
+        for (std::uint32_t localVertexIndex = 0u;
+             localVertexIndex < static_cast<std::uint32_t>(incidentTriangles.size());
+             ++localVertexIndex)
+        {
+            physics::SoftRenderVertexTriangleRange &range =
+                softRenderData.vertexTriangleRanges[rangeBase + localVertexIndex];
+            range.start = static_cast<std::uint32_t>(softRenderData.vertexTriangleIndices.size());
+            range.count = static_cast<std::uint32_t>(incidentTriangles[localVertexIndex].size());
+            softRenderData.vertexTriangleIndices.insert(softRenderData.vertexTriangleIndices.end(),
+                                                        incidentTriangles[localVertexIndex].begin(),
+                                                        incidentTriangles[localVertexIndex].end());
+        }
+
+        mSoftBodyVertexBindingBaseByObject[objectIndex] = bindingBase;
+        mSoftBodyVertexNormalBaseByObject[objectIndex]  = normalBase;
+        mSoftBodyVertexCountByObject[objectIndex] =
+            static_cast<std::uint32_t>(mesh->vertices.size());
+        markRenderableMetadataDirty(objectIndex);
+    }
+
+    mSoftBodyRenderBindingsDirty = false;
+    mPhysicsWorld.setSoftRenderData(softRenderData);
+}
+
 void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources)
 {
     // TODO: some metadata depends on resources too, not just world state:
@@ -1345,6 +1777,10 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
         const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
         graphics::GpuRenderableMetadata entry{};
         graphics::GpuRenderableFlags renderableFlags = graphics::GpuRenderableFlags::None;
+        entry.softBodyVertexBindingBase              = kInvalidSlot;
+        entry.softBodyVertexNormalBase               = kInvalidSlot;
+        entry.softBodyIndex                          = kInvalidSlot;
+        entry.softBodyVertexCount                    = 0u;
         if (renderable.entityId != common::kInvalidEntityId &&
             renderable.objectSlot != kInvalidSlot)
         {
@@ -1367,7 +1803,48 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
 
             Diligent::float3 localBoundsMin{};
             Diligent::float3 localBoundsMax{};
-            if (resources.tryGetMeshLocalBounds(renderable.mesh, localBoundsMin, localBoundsMax))
+            bool hasBounds    = false;
+            const auto physIt = mPhysicsLinks.find(renderable.entityId);
+            if (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
+            {
+                const physics::SoftBodyState *softBody =
+                    mPhysicsWorld.tryGetSoftBody(renderable.entityId);
+                if (softBody != nullptr)
+                {
+                    const std::vector<physics::SoftBodyState> &softBodies =
+                        mPhysicsWorld.softBodySnapshot();
+                    for (std::uint32_t softBodyIndex = 0u;
+                         softBodyIndex < static_cast<std::uint32_t>(softBodies.size());
+                         ++softBodyIndex)
+                    {
+                        if (softBodies[softBodyIndex].entityId == renderable.entityId)
+                        {
+                            entry.softBodyIndex = softBodyIndex;
+                            break;
+                        }
+                    }
+                    // If render binding generation failed, metadata can still carry a soft-body
+                    // index while the vertex binding bases remain invalid. That currently makes
+                    // culling use soft-body bounds while vertex shaders fall back to undeformed data.
+                    localBoundsMin = Diligent::float3{0.0f, 0.0f, 0.0f};
+                    localBoundsMax = Diligent::float3{0.0f, 0.0f, 0.0f};
+                    hasBounds      = true;
+                }
+                entry.softBodyVertexBindingBase = mSoftBodyVertexBindingBaseByObject[objectIndex];
+                entry.softBodyVertexNormalBase  = mSoftBodyVertexNormalBaseByObject[objectIndex];
+                entry.softBodyVertexCount       = mSoftBodyVertexCountByObject[objectIndex];
+            }
+
+            if (!hasBounds &&
+                resources.tryGetMeshLocalBounds(renderable.mesh, localBoundsMin, localBoundsMax))
+            {
+                entry.localBoundsMin =
+                    Diligent::float4{localBoundsMin.x, localBoundsMin.y, localBoundsMin.z, 1.0f};
+                entry.localBoundsMax =
+                    Diligent::float4{localBoundsMax.x, localBoundsMax.y, localBoundsMax.z, 1.0f};
+                hasBounds = true;
+            }
+            if (hasBounds)
             {
                 entry.localBoundsMin =
                     Diligent::float4{localBoundsMin.x, localBoundsMin.y, localBoundsMin.z, 1.0f};
@@ -1413,8 +1890,14 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
             continue;
         }
 
+        const auto physIt = mPhysicsLinks.find(renderable.entityId);
+        const graphics::MaterialProgramFamily programFamily =
+            (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
+                ? graphics::MaterialProgramFamily::SoftBodyLit
+                : material->pipeline.programFamily;
+
         const DrawBucketKey key{
-            material->pipeline.programFamily,
+            programFamily,
             static_cast<std::uint32_t>(material->pipeline.featureFlags),
             renderable.material.id,
             renderable.mesh.id,
@@ -1531,6 +2014,24 @@ void World::refreshRenderablePose(std::uint32_t objectIndex)
         return;
     }
 
+    const auto physIt = mPhysicsLinks.find(renderable.entityId);
+    if (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
+    {
+        renderable.worldTransform =
+            tryGetTransform(renderable.entityId).value_or(TransformComponent{}).worldTransform;
+        mRenderObjectPositions[objectIndex] =
+            Diligent::float4{renderable.worldTransform.position.x,
+                             renderable.worldTransform.position.y,
+                             renderable.worldTransform.position.z, 1.0f};
+        mRenderObjectOrientations[objectIndex] = Diligent::float4{
+            renderable.worldTransform.rotation.q.x, renderable.worldTransform.rotation.q.y,
+            renderable.worldTransform.rotation.q.z, renderable.worldTransform.rotation.q.w};
+        mRenderObjectScales[objectIndex] =
+            Diligent::float4{renderable.worldTransform.scale.x, renderable.worldTransform.scale.y,
+                             renderable.worldTransform.scale.z, 0.0f};
+        return;
+    }
+
     renderable.worldTransform =
         tryGetTransform(renderable.entityId).value_or(TransformComponent{}).worldTransform;
     mRenderObjectPositions[objectIndex] =
@@ -1599,14 +2100,14 @@ void World::refreshLightEntry(std::uint32_t lightIndex)
 
     graphics::GpuLightInput input{};
     input.positionRange      = Diligent::float4{lightData.position.x, lightData.position.y,
-                                                lightData.position.z, lightData.range};
+                                           lightData.position.z, lightData.range};
     input.directionIntensity = Diligent::float4{lightData.direction.x, lightData.direction.y,
                                                 lightData.direction.z, lightData.intensity};
     input.color = Diligent::float4{lightData.color.x, lightData.color.y, lightData.color.z, 0.0f};
     const float innerConeRadians = lightData.innerConeAngle * 0.01745329251994329577f;
     const float outerConeRadians = lightData.outerConeAngle * 0.01745329251994329577f;
     input.spotAngles     = Diligent::float4{std::cos(innerConeRadians), std::cos(outerConeRadians),
-                                            lightData.innerConeAngle, lightData.outerConeAngle};
+                                        lightData.innerConeAngle, lightData.outerConeAngle};
     input.shadowDistance = lightData.shadowDistance;
     input.shadowFadeDistance     = lightData.shadowFadeDistance;
     input.shadowBias             = lightData.shadowBias;
@@ -1697,7 +2198,8 @@ void World::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t
     markRenderableMetadataDirty(newObjectIndex);
     markRenderablePoseDirty(oldObjectIndex);
     markRenderablePoseDirty(newObjectIndex);
-    indexIt->second = newObjectIndex;
+    indexIt->second              = newObjectIndex;
+    mSoftBodyRenderBindingsDirty = true;
 }
 
 void World::moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
