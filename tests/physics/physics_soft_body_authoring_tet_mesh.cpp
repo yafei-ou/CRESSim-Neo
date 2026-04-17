@@ -37,16 +37,23 @@ int main()
     }
 
     const SoftBodyState *stored = world.tryGetSoftBody(2001u);
-    if (stored == nullptr || stored->source.kind != SoftBodySourceKind::TetMesh ||
-        stored->particleCount != 5u || stored->tetCount != 2u || stored->edgeCount != 9u)
+    if (stored == nullptr || stored->source.kind != SoftBodySourceKind::TetMesh)
     {
-        CRESSIM_LOG_ERROR("Stored tet-mesh soft body metadata was not populated.");
+        CRESSIM_LOG_ERROR("Stored tet-mesh soft body metadata was not preserved.");
         return 1;
     }
 
     const auto &particles = world.softParticles();
     const auto &edges     = world.softEdges();
     const auto &tets      = world.softTets();
+    stored                = world.tryGetSoftBody(2001u);
+    if (stored == nullptr || stored->particleCount != 5u || stored->tetCount != 2u ||
+        stored->edgeCount != 9u)
+    {
+        CRESSIM_LOG_ERROR("Derived tet-mesh soft body counts were not populated.");
+        return 1;
+    }
+
     if (particles.size() != 5u || edges.size() != 9u || tets.size() != 2u)
     {
         CRESSIM_LOG_ERROR("Unexpected tet-mesh topology counts.");
