@@ -1582,9 +1582,14 @@ bool PhysicsSceneGpuState::uploadSoftTopology(Diligent::IDeviceContext *computeC
 bool PhysicsSceneGpuState::copyPredictedRigidBodiesToPersistentState(
     Diligent::IDeviceContext *computeContext, std::uint32_t bodyCount)
 {
-    if (computeContext == nullptr || bodyCount == 0u)
+    if (computeContext == nullptr)
     {
         return false;
+    }
+
+    if (bodyCount == 0u)
+    {
+        return true;
     }
 
     const Diligent::Uint64 bytes =
