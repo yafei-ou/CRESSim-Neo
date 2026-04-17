@@ -941,6 +941,7 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
         return false;
     }
     mPhysicsLinks[entityId].hasSoftBody = true;
+    mDrawRegistryDirty                  = true;
     mSoftBodyRenderBindingsDirty        = true;
     return true;
 }
@@ -958,6 +959,7 @@ bool World::removeSoftBody(common::EntityId entityId)
         markRenderablePoseDirty(static_cast<std::uint32_t>(renderIt->second));
         markRenderableMetadataDirty(static_cast<std::uint32_t>(renderIt->second));
     }
+    mDrawRegistryDirty          = true;
     mSoftBodyRenderBindingsDirty = true;
     return mPhysicsWorld.removeSoftBody(entityId);
 }
@@ -1821,6 +1823,9 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
                             break;
                         }
                     }
+                    // If render binding generation failed, metadata can still carry a soft-body
+                    // index while the vertex binding bases remain invalid. That currently makes
+                    // culling use soft-body bounds while vertex shaders fall back to undeformed data.
                     localBoundsMin = Diligent::float3{0.0f, 0.0f, 0.0f};
                     localBoundsMax = Diligent::float3{0.0f, 0.0f, 0.0f};
                     hasBounds      = true;
