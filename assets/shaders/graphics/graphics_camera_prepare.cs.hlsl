@@ -27,6 +27,7 @@ static const float PI = 3.14159265359f;
 static const float kCascadeSplitLambda = 0.85f;
 static const float kCascadeStabilization = 16.0f;
 static const float kCascadeDepthPadding = 16.0f;
+static const float kCascadeCasterExtrusion = 96.0f;
 static const uint kShadowCascadeCount = 4u;
 
 float3 safeNormalize(float3 v, float3 fallbackValue)
@@ -216,7 +217,9 @@ float4x4 buildDirectionalLightCascadeViewProjection(float3 lightDirection, float
     const float right = snappedCenterX + radius;
     const float bottom = snappedCenterY - radius;
     const float top = snappedCenterY + radius;
-    const float nearPlane = max(0.1, minZ - kCascadeDepthPadding);
+    // Directional cascades need extra depth on the light-facing side so casters that sit
+    // outside the camera slice can still project onto receivers inside it.
+    const float nearPlane = max(0.1, minZ - (kCascadeDepthPadding + kCascadeCasterExtrusion));
     const float farPlane = max(nearPlane + 1.0, maxZ + kCascadeDepthPadding);
 
     return mul(lightView, buildOrthoOffCenterMatrix(left, right, bottom, top, nearPlane, farPlane));
