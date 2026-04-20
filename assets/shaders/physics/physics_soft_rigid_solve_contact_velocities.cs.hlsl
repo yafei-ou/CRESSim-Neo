@@ -4,9 +4,8 @@ static const float kVelocityCorrectionAtomicScale = 100000.0;
 static const float kRestitutionVelocityThreshold = 0.5;
 static const float kRestitutionPenetrationThreshold = 2.0 * kContactSlop;
 
-// Soft-rigid position solve removes overlap first; this pass applies bounce/friction in velocity
-// space so repeated contact iterations operate on refreshed velocities instead of stale pre-solve
-// estimates.
+// Soft-rigid position solve handles overlap and kinetic friction first.
+// This pass is restitution-only and operates on reconstructed post-solve velocities.
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticleMaterials);
@@ -28,26 +27,6 @@ CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyAngularVelocityCorrections);
 int3 QuantizeVelocityCorrection(float3 value)
 {
     return int3(round(value * kVelocityCorrectionAtomicScale));
-}
-
-float2 CombineContactMaterial(float4 softMaterial, float4 rigidMaterial)
-{
-    const float friction = sqrt(max(0.0, softMaterial.x) * max(0.0, rigidMaterial.x));
-    const float restitution = max(max(0.0, softMaterial.y), max(0.0, rigidMaterial.y));
-    return float2(friction, restitution);
-}
-
-float ComputeRigidImpulseDenominator(float invMass, float3 invInertiaLocal, float4 orientation,
-                                     float3 r, float3 direction)
-{
-    if (invMass <= kEpsilon)
-    {
-        return 0.0;
-    }
-
-    const float3 angJ = cross(r, direction);
-    const float3 angMass = MultiplyWorldInverseInertia(invInertiaLocal, orientation, angJ);
-    return invMass + dot(cross(angMass, r), direction);
 }
 
 [numthreads(64, 1, 1)]
@@ -107,8 +86,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const float softNormalDenom = invMassSoft;
     const float rigidNormalDenom =
-        ComputeRigidImpulseDenominator(invMassRigid, invInertiaRigid, rigidOrientation, rRigid,
-                                       normal);
+        ComputeContactEffectiveMass(invMassRigid, invInertiaRigid, rigidOrientation, rRigid, normal);
     const float normalDenom = softNormalDenom + rigidNormalDenom;
     if (normalDenom <= kEpsilon)
     {
@@ -126,25 +104,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         enableRestitution ? (-restitution * normalVelocity) : 0.0;
     const float normalImpulseScalar =
         max(0.0, (desiredNormalVelocity - normalVelocity) / normalDenom);
-    float3 totalImpulse = normal * normalImpulseScalar;
-
-    const float3 tangentialVelocity = relativeVelocity - normal * normalVelocity;
-    const float tangentialSpeed = length(tangentialVelocity);
-    if (tangentialSpeed > 1.0e-4 && normalImpulseScalar > 0.0)
-    {
-        const float3 tangent = tangentialVelocity / tangentialSpeed;
-        const float tangentDenom =
-            invMassSoft +
-            ComputeRigidImpulseDenominator(invMassRigid, invInertiaRigid, rigidOrientation, rRigid,
-                                           tangent);
-        if (tangentDenom > kEpsilon)
-        {
-            const float frictionLimit = combinedMaterial.x * normalImpulseScalar;
-            const float tangentImpulseScalar =
-                clamp(-tangentialSpeed / tangentDenom, -frictionLimit, frictionLimit);
-            totalImpulse += tangent * tangentImpulseScalar;
-        }
-    }
+    const float3 totalImpulse = normal * normalImpulseScalar;
 
     if (invMassSoft > kEpsilon)
     {

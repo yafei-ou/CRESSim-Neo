@@ -23,10 +23,11 @@ static const uint kPhysicsIndirectSoftCompactContacts = 2u;
 static const uint kPhysicsIndirectSoftCompactRigidContacts = 3u;
 static const uint kPhysicsIndirectSoftSolveContacts = 4u;
 static const uint kPhysicsIndirectSoftSolveRigidContacts = 5u;
-static const uint kPhysicsIndirectRigidGenerateContacts = 6u;
-static const uint kPhysicsIndirectRigidSolveContacts = 7u;
-static const uint kPhysicsIndirectRigidSolveContactVelocities = 8u;
-static const uint kPhysicsIndirectDispatchSlotCount = 9u;
+static const uint kPhysicsIndirectSoftSolveContactVelocities = 6u;
+static const uint kPhysicsIndirectRigidGenerateContacts = 7u;
+static const uint kPhysicsIndirectRigidSolveContacts = 8u;
+static const uint kPhysicsIndirectRigidSolveContactVelocities = 9u;
+static const uint kPhysicsIndirectDispatchSlotCount = 10u;
 static const uint kSoftRigidDedupCacheSize = 16u;
 static const uint kSoftRigidColliderIterationCap = 64u;
 static const uint kSoftPhaseGroupMask = 0x7fffffffu;
@@ -1269,6 +1270,32 @@ float3 MultiplyWorldInverseInertia(float3 inverseInertiaLocal, float4 orientatio
     return ax * (inverseInertiaLocal.x * dot(ax, value)) +
            ay * (inverseInertiaLocal.y * dot(ay, value)) +
            az * (inverseInertiaLocal.z * dot(az, value));
+}
+
+float ComputeContactEffectiveMass(float invMass, float3 inverseInertiaLocal, float4 orientation,
+                                  float3 r, float3 direction)
+{
+    if (invMass <= kEpsilon)
+    {
+        return 0.0;
+    }
+
+    const float3 angularJacobian = cross(r, direction);
+    const float3 angularMass =
+        MultiplyWorldInverseInertia(inverseInertiaLocal, orientation, angularJacobian);
+    return invMass + dot(cross(angularMass, r), direction);
+}
+
+float2 CombineContactMaterial(float4 materialA, float4 materialB)
+{
+    const float friction = sqrt(max(0.0, materialA.x) * max(0.0, materialB.x));
+    const float restitution = max(max(0.0, materialA.y), max(0.0, materialB.y));
+    return float2(friction, restitution);
+}
+
+float3 ProjectOntoContactTangent(float3 value, float3 normal)
+{
+    return value - normal * dot(value, normal);
 }
 
 float3 SupportPointForShape(uint shapeType, float3 position, float4 orientation,

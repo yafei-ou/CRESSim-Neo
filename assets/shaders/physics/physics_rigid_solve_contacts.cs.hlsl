@@ -11,6 +11,8 @@ static const float kCorrectionAtomicScale = 100000.0;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyPositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_STRUCTURED_BUFFER(GpuRigidContact, g_RigidContacts);
@@ -45,6 +47,8 @@ int3 QuantizeCorrection(float3 value)
 
     const float4 posInvMassA = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyA);
     const float4 posInvMassB = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyB);
+    const float4 previousPosInvMassA = CRESSIM_SB_LOAD(g_PreviousRigidBodyPositionsInvMass, bodyA);
+    const float4 previousPosInvMassB = CRESSIM_SB_LOAD(g_PreviousRigidBodyPositionsInvMass, bodyB);
     const uint bodyTypeA = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyA);
     const uint bodyTypeB = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyB);
 
@@ -55,6 +59,10 @@ int3 QuantizeCorrection(float3 value)
 
     const float4 qA = QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyA));
     const float4 qB = QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyB));
+    const float4 previousQA =
+        QuaternionNormalize(CRESSIM_SB_LOAD(g_PreviousRigidBodyOrientations, bodyA));
+    const float4 previousQB =
+        QuaternionNormalize(CRESSIM_SB_LOAD(g_PreviousRigidBodyOrientations, bodyB));
 
     float3 invInertiaA = CRESSIM_SB_REF(g_RigidBodyInverseInertiaLocal, bodyA).xyz;
     float3 invInertiaB = CRESSIM_SB_REF(g_RigidBodyInverseInertiaLocal, bodyB).xyz;
@@ -65,6 +73,10 @@ int3 QuantizeCorrection(float3 value)
 
     const float3 pA = posInvMassA.xyz + QuaternionRotate(qA, contact.localPointA.xyz);
     const float3 pB = posInvMassB.xyz + QuaternionRotate(qB, contact.localPointB.xyz);
+    const float3 previousPA =
+        previousPosInvMassA.xyz + QuaternionRotate(previousQA, contact.localPointA.xyz);
+    const float3 previousPB =
+        previousPosInvMassB.xyz + QuaternionRotate(previousQB, contact.localPointB.xyz);
 
     const float3 n = SafeNormalize(contact.normalPenetration.xyz, float3(0.0, 1.0, 0.0));
     const float measuredPenetration = -dot(pB - pA, n);
@@ -74,39 +86,78 @@ int3 QuantizeCorrection(float3 value)
 
     const float3 rA = pA - posInvMassA.xyz;
     const float3 rB = pB - posInvMassB.xyz;
-    const float3 angJA = cross(rA, n);
-    const float3 angJB = cross(rB, n);
-    const float3 angMassA = MultiplyWorldInverseInertia(invInertiaA, qA, angJA);
-    const float3 angMassB = MultiplyWorldInverseInertia(invInertiaB, qB, angJB);
-    const float angA = dot(cross(angMassA, rA), n);
-    const float angB = dot(cross(angMassB, rB), n);
-    const float denom = invMassA + invMassB + angA + angB;
+    const float normalMassA = ComputeContactEffectiveMass(invMassA, invInertiaA, qA, rA, n);
+    const float normalMassB = ComputeContactEffectiveMass(invMassB, invInertiaB, qB, rB, n);
+    const float denom = normalMassA + normalMassB;
     if (denom <= kEpsilon)
         return;
 
     const float lambda = (penetration / denom) * kRelaxation;
     const int3 translationA = QuantizeCorrection(-n * (invMassA * lambda));
-    const int3 rotationA = QuantizeCorrection(-angMassA * lambda);
+    const int3 rotationA = QuantizeCorrection(
+        -MultiplyWorldInverseInertia(invInertiaA, qA, cross(rA, n)) * lambda);
     const int3 translationB = QuantizeCorrection(n * (invMassB * lambda));
-    const int3 rotationB = QuantizeCorrection(angMassB * lambda);
+    const int3 rotationB = QuantizeCorrection(
+        MultiplyWorldInverseInertia(invInertiaB, qB, cross(rB, n)) * lambda);
+
+    int3 frictionTranslationA = int3(0, 0, 0);
+    int3 frictionRotationA = int3(0, 0, 0);
+    int3 frictionTranslationB = int3(0, 0, 0);
+    int3 frictionRotationB = int3(0, 0, 0);
+
+    const float3 relativeDisplacement = (pB - previousPB) - (pA - previousPA);
+    const float3 tangentialDisplacement = ProjectOntoContactTangent(relativeDisplacement, n);
+    const float tangentialDistance = length(tangentialDisplacement);
+    if (tangentialDistance > 1.0e-5 && penetration > kEpsilon)
+    {
+        const float3 tangent = tangentialDisplacement / tangentialDistance;
+        const float tangentMassA = ComputeContactEffectiveMass(invMassA, invInertiaA, qA, rA, tangent);
+        const float tangentMassB = ComputeContactEffectiveMass(invMassB, invInertiaB, qB, rB, tangent);
+        const float tangentDenom = tangentMassA + tangentMassB;
+        if (tangentDenom > kEpsilon)
+        {
+            const float frictionScale =
+                min(saturate(contact.material.x) * penetration / tangentialDistance, 1.0);
+            const float3 frictionDelta = tangentialDisplacement * frictionScale;
+            const float tangentLambda = (length(frictionDelta) / tangentDenom) * kRelaxation;
+            frictionTranslationA = QuantizeCorrection(tangent * (invMassA * tangentLambda));
+            frictionRotationA = QuantizeCorrection(
+                MultiplyWorldInverseInertia(invInertiaA, qA, cross(rA, tangent)) * tangentLambda);
+            frictionTranslationB = QuantizeCorrection(-tangent * (invMassB * tangentLambda));
+            frictionRotationB = QuantizeCorrection(
+                -MultiplyWorldInverseInertia(invInertiaB, qB, cross(rB, tangent)) * tangentLambda);
+        }
+    }
 
     if (bodyTypeA == kRigidBodyTypeDynamic && invMassA != 0.0)
     {
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyA).x, translationA.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyA).y, translationA.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyA).z, translationA.z);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyA).x, rotationA.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyA).y, rotationA.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyA).z, rotationA.z);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyA).x,
+                       translationA.x + frictionTranslationA.x);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyA).y,
+                       translationA.y + frictionTranslationA.y);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyA).z,
+                       translationA.z + frictionTranslationA.z);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyA).x,
+                       rotationA.x + frictionRotationA.x);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyA).y,
+                       rotationA.y + frictionRotationA.y);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyA).z,
+                       rotationA.z + frictionRotationA.z);
     }
 
     if (bodyTypeB == kRigidBodyTypeDynamic && invMassB != 0.0)
     {
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyB).x, translationB.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyB).y, translationB.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyB).z, translationB.z);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyB).x, rotationB.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyB).y, rotationB.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyB).z, rotationB.z);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyB).x,
+                       translationB.x + frictionTranslationB.x);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyB).y,
+                       translationB.y + frictionTranslationB.y);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyB).z,
+                       translationB.z + frictionTranslationB.z);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyB).x,
+                       rotationB.x + frictionRotationB.x);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyB).y,
+                       rotationB.y + frictionRotationB.y);
+        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyB).z,
+                       rotationB.z + frictionRotationB.z);
     }
 }

@@ -368,6 +368,14 @@ constexpr Diligent::ShaderResourceVariableDesc kApplySoftTetCorrectionsVars[] = 
 constexpr Diligent::ShaderResourceVariableDesc kSolveSoftRigidContactsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticlePositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticlePreviousPositions",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleMaterials",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PreviousRigidBodyPositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PreviousRigidBodyOrientations",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyOrientations",
@@ -375,6 +383,8 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveSoftRigidContactsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyInverseInertiaLocal",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTypes",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ColliderMaterials",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRigidContacts",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -389,8 +399,6 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveSoftRigidContactsVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kSolveSoftContactsVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftDispatchConstantsBuffer",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticlePositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticlePreviousPositions",
@@ -424,6 +432,21 @@ constexpr Diligent::ShaderResourceVariableDesc kUpdateSoftVelocitiesVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleMaterials",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleVelocities",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kSolveSoftContactVelocitiesVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleMaterials",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleVelocities",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftContacts",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftNeighborMeta",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleVelocityCorrections",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
@@ -833,6 +856,10 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveRigidContactConstraintsVars
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyOrientations",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PreviousRigidBodyPositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PreviousRigidBodyOrientations",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyInverseInertiaLocal",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTypes",
@@ -1170,6 +1197,14 @@ const gpu::GpuComputePassDefinition kUpdateSoftVelocities{
     "CRESSimNeo.Physics.UpdateSoftVelocities.PSO",
     kUpdateSoftVelocitiesVars,
     std::size(kUpdateSoftVelocitiesVars),
+};
+
+const gpu::GpuComputePassDefinition kSolveSoftContactVelocities{
+    "physics/physics_soft_solve_contact_velocities.cs.hlsl",
+    "CRESSimNeo.Physics.SolveSoftContactVelocities.CS",
+    "CRESSimNeo.Physics.SolveSoftContactVelocities.PSO",
+    kSolveSoftContactVelocitiesVars,
+    std::size(kSolveSoftContactVelocitiesVars),
 };
 
 const gpu::GpuComputePassDefinition kSolveSoftRigidContactVelocities{

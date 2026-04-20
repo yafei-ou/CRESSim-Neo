@@ -36,13 +36,6 @@ uint EncodeBoxBoxContactReserved(uint source)
     return kDebugBoxBoxContactSource ? source : 0u;
 }
 
-float2 CombineContactMaterial(float4 materialA, float4 materialB)
-{
-    const float friction = sqrt(max(0.0, materialA.x) * max(0.0, materialB.x));
-    const float restitution = max(max(0.0, materialA.y), max(0.0, materialB.y));
-    return float2(friction, restitution);
-}
-
 float3 BoxCornerFromIndex(float3 center, float4 orientation, float3 halfExtents, uint cornerIndex)
 {
     const float3 localCorner = float3((cornerIndex & 1u) != 0u ? halfExtents.x : -halfExtents.x,

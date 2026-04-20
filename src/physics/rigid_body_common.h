@@ -98,6 +98,7 @@ enum class GpuPhysicsIndirectDispatchSlot : std::uint32_t
     SoftCompactRigidContacts,
     SoftSolveContacts,
     SoftSolveRigidContacts,
+    SoftSolveContactVelocities,
     RigidGenerateContacts,
     RigidSolveContacts,
     RigidSolveContactVelocities,

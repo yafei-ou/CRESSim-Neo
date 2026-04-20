@@ -534,7 +534,7 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     softBody.source.kind            = SoftBodySourceKind::TetGenFiles;
     softBody.source.tetGen.nodeFile = nodeFile.string();
     softBody.source.tetGen.eleFile  = eleFile.string();
-    softBody.selfCollisionEnabled   = false;
+    softBody.selfCollisionEnabled   = true;
     softBody.collisionLayer         = 0x1u;
     softBody.collisionMask          = 0xffffffffu;
 

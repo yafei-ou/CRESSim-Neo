@@ -27,4 +27,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                      MakeArgs(meta.activeSoftContactCount));
     CRESSIM_SB_STORE(g_PhysicsIndirectDispatchArgs, kPhysicsIndirectSoftSolveRigidContacts,
                      MakeArgs(meta.activeSoftRigidContactCount));
+    CRESSIM_SB_STORE(g_PhysicsIndirectDispatchArgs, kPhysicsIndirectSoftSolveContactVelocities,
+                     MakeArgs(meta.activeSoftContactCount));
 }

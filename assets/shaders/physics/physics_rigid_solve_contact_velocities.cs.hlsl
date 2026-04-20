@@ -22,19 +22,6 @@ int3 QuantizeVelocityCorrection(float3 value)
     return int3(round(value * kVelocityCorrectionAtomicScale));
 }
 
-float ComputeImpulseDenominator(float invMass, float3 invInertiaLocal, float4 orientation,
-                                float3 r, float3 direction)
-{
-    if (invMass == 0.0)
-    {
-        return 0.0;
-    }
-
-    const float3 angJ = cross(r, direction);
-    const float3 angMass = MultiplyWorldInverseInertia(invInertiaLocal, orientation, angJ);
-    return invMass + dot(cross(angMass, r), direction);
-}
-
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint contactIndex = dispatchThreadID.x;
@@ -91,9 +78,9 @@ float ComputeImpulseDenominator(float invMass, float3 invInertiaLocal, float4 or
     }
 
     const float normalDenomA =
-        ComputeImpulseDenominator(invMassA, invInertiaLocalA, orientationA, rA, normal);
+        ComputeContactEffectiveMass(invMassA, invInertiaLocalA, orientationA, rA, normal);
     const float normalDenomB =
-        ComputeImpulseDenominator(invMassB, invInertiaLocalB, orientationB, rB, normal);
+        ComputeContactEffectiveMass(invMassB, invInertiaLocalB, orientationB, rB, normal);
     const float normalDenom = normalDenomA + normalDenomB;
     if (normalDenom <= kEpsilon)
     {
@@ -108,28 +95,7 @@ float ComputeImpulseDenominator(float invMass, float3 invInertiaLocal, float4 or
         enableRestitution ? (-restitution * normalVelocity) : 0.0;
     const float normalImpulseScalar =
         max(0.0, (desiredNormalVelocity - normalVelocity) / normalDenom);
-    const float3 normalImpulse = normal * normalImpulseScalar;
-
-    float3 totalImpulse = normalImpulse;
-
-    const float3 tangentialVelocity = relativeVelocity - normal * normalVelocity;
-    const float tangentialSpeed = length(tangentialVelocity);
-    if (tangentialSpeed > 1.0e-4 && normalImpulseScalar > 0.0)
-    {
-        const float3 tangent = tangentialVelocity / tangentialSpeed;
-        const float tangentDenomA =
-            ComputeImpulseDenominator(invMassA, invInertiaLocalA, orientationA, rA, tangent);
-        const float tangentDenomB =
-            ComputeImpulseDenominator(invMassB, invInertiaLocalB, orientationB, rB, tangent);
-        const float tangentDenom = tangentDenomA + tangentDenomB;
-        if (tangentDenom > kEpsilon)
-        {
-            const float frictionLimit = contact.material.x * normalImpulseScalar;
-            const float tangentImpulseScalar =
-                clamp(-tangentialSpeed / tangentDenom, -frictionLimit, frictionLimit);
-            totalImpulse += tangent * tangentImpulseScalar;
-        }
-    }
+    const float3 totalImpulse = normal * normalImpulseScalar;
 
     if (invMassA != 0.0)
     {
