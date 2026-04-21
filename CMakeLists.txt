@@ -89,6 +89,11 @@ if(MSVC)
 endif()
 add_subdirectory(extern/DiligentEngine EXCLUDE_FROM_ALL)
 
+if(NOT DEFINED CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH)
+    set(CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH "${DILIGENT_DXCOMPILER_FOR_SPIRV_PATH}" CACHE FILEPATH
+        "Path to the Vulkan DXC runtime library copied next to CRESSim-Neo binaries")
+endif()
+
 add_subdirectory(src)
 
 if(BUILD_TESTING)
