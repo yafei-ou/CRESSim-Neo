@@ -2,14 +2,215 @@
 
 #include "common/logger.h"
 
+#include "DiligentEngine/DiligentCore/Common/interface/ObjectBase.hpp"
+#include "DiligentEngine/DiligentCore/Common/interface/RefCountedObjectImpl.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/include/DefaultShaderSourceStreamFactory.h"
 
+#include <algorithm>
 #include <filesystem>
+#include <set>
 #include <utility>
 #include <vector>
 
 namespace cressim::neo::gpu
 {
+
+namespace
+{
+
+class NormalizingShaderSourceFactory final
+    : public Diligent::ObjectBase<Diligent::IShaderSourceInputStreamFactory>
+{
+public:
+    using TBase = Diligent::ObjectBase<Diligent::IShaderSourceInputStreamFactory>;
+
+    static Diligent::RefCntAutoPtr<Diligent::IShaderSourceInputStreamFactory> Create(
+        Diligent::IShaderSourceInputStreamFactory *baseFactory, std::string shaderRoot)
+    {
+        return Diligent::RefCntAutoPtr<Diligent::IShaderSourceInputStreamFactory>{
+            Diligent::MakeNewRCObj<NormalizingShaderSourceFactory>()(baseFactory,
+                                                                     std::move(shaderRoot))};
+    }
+
+    NormalizingShaderSourceFactory(Diligent::IReferenceCounters *refCounters,
+                                   Diligent::IShaderSourceInputStreamFactory *baseFactory,
+                                   std::string shaderRoot)
+        : TBase{refCounters}
+        , mBaseFactory{baseFactory}
+        , mShaderRoot{std::move(shaderRoot)}
+    {
+        buildSearchBases();
+    }
+
+    void DILIGENT_CALL_TYPE QueryInterface(const Diligent::INTERFACE_ID &IID,
+                                           Diligent::IObject **ppInterface) override
+    {
+        if (ppInterface == nullptr)
+        {
+            return;
+        }
+        if (IID == Diligent::IID_IShaderSourceInputStreamFactory)
+        {
+            *ppInterface = this;
+            (*ppInterface)->AddRef();
+            return;
+        }
+        TBase::QueryInterface(IID, ppInterface);
+    }
+
+    using Diligent::IObject::QueryInterface;
+
+    void DILIGENT_CALL_TYPE CreateInputStream(const Diligent::Char *name,
+                                              Diligent::IFileStream **ppStream) override final
+    {
+        CreateInputStream2(name, Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_NONE, ppStream);
+    }
+
+    void DILIGENT_CALL_TYPE CreateInputStream2(
+        const Diligent::Char *name, Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAGS flags,
+        Diligent::IFileStream **ppStream) override final
+    {
+        if (ppStream == nullptr)
+        {
+            return;
+        }
+
+        *ppStream = nullptr;
+        if (name == nullptr || name[0] == '\0' || mBaseFactory == nullptr)
+        {
+            return;
+        }
+
+        mBaseFactory->CreateInputStream2(name, Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_SILENT,
+                                         ppStream);
+        if (*ppStream != nullptr)
+        {
+            return;
+        }
+
+        const std::string requestedName = normalizeSeparators(name);
+        const bool isRelativeNestedInclude =
+            requestedName.rfind("./", 0) == 0 || requestedName.rfind("../", 0) == 0;
+        const bool isLocalHeaderInclude =
+            requestedName.find('/') == std::string::npos &&
+            requestedName.find('\\') == std::string::npos;
+        if (!isRelativeNestedInclude && !isLocalHeaderInclude)
+        {
+            if ((flags & Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_SILENT) == 0)
+            {
+                LOG_ERROR_MESSAGE("Failed to create input stream for source file ", name);
+            }
+            return;
+        }
+
+        const std::filesystem::path requestedPath{requestedName};
+        std::set<std::string> triedCandidates;
+
+        for (const auto &base : mSearchBases)
+        {
+            const std::filesystem::path candidatePath = (base / requestedPath).lexically_normal();
+            if (candidatePath.empty() || candidatePath.is_absolute())
+            {
+                continue;
+            }
+
+            bool escapesRoot = false;
+            for (const auto &part : candidatePath)
+            {
+                if (part == "..")
+                {
+                    escapesRoot = true;
+                    break;
+                }
+            }
+            if (escapesRoot)
+            {
+                continue;
+            }
+
+            const std::string candidate = normalizeSeparators(candidatePath.string());
+            if (!triedCandidates.insert(candidate).second)
+            {
+                continue;
+            }
+
+            mBaseFactory->CreateInputStream2(candidate.c_str(),
+                                             Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_SILENT,
+                                             ppStream);
+            if (*ppStream != nullptr)
+            {
+                return;
+            }
+        }
+
+        if ((flags & Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_SILENT) == 0)
+        {
+            LOG_ERROR_MESSAGE("Failed to create input stream for source file ", name);
+        }
+    }
+
+private:
+    static std::string normalizeSeparators(std::string value)
+    {
+        for (char &ch : value)
+        {
+            if (ch == '\\')
+            {
+                ch = '/';
+            }
+        }
+        return value;
+    }
+
+    void buildSearchBases()
+    {
+        mSearchBases.clear();
+        mSearchBases.emplace_back();
+
+        const std::filesystem::path includeRoot =
+            std::filesystem::path(mShaderRoot) / "include";
+        std::error_code error;
+        if (!std::filesystem::exists(includeRoot, error) ||
+            !std::filesystem::is_directory(includeRoot, error))
+        {
+            return;
+        }
+
+        std::vector<std::filesystem::path> discoveredBases;
+        discoveredBases.emplace_back("include");
+        for (std::filesystem::recursive_directory_iterator it{includeRoot, error}, end;
+             !error && it != end; it.increment(error))
+        {
+            if (!it->is_directory())
+            {
+                continue;
+            }
+
+            const std::filesystem::path relative =
+                std::filesystem::relative(it->path(), mShaderRoot, error);
+            if (error || relative.empty())
+            {
+                error.clear();
+                continue;
+            }
+            discoveredBases.push_back(relative);
+        }
+
+        std::sort(discoveredBases.begin(), discoveredBases.end(),
+                  [](const std::filesystem::path &lhs, const std::filesystem::path &rhs)
+                  { return lhs.native().size() > rhs.native().size(); });
+        discoveredBases.erase(std::unique(discoveredBases.begin(), discoveredBases.end()),
+                              discoveredBases.end());
+        mSearchBases.insert(mSearchBases.end(), discoveredBases.begin(), discoveredBases.end());
+    }
+
+private:
+    Diligent::RefCntAutoPtr<Diligent::IShaderSourceInputStreamFactory> mBaseFactory;
+    std::string mShaderRoot;
+    std::vector<std::filesystem::path> mSearchBases;
+};
+
+} // namespace
 
 ShaderLibrary::ShaderLibrary(std::string shaderDirectory)
     : mShaderDirectory(std::move(shaderDirectory))
@@ -107,14 +308,15 @@ bool ShaderLibrary::ensureStreamFactory()
         return false;
     }
 
-    Diligent::CreateDefaultShaderSourceStreamFactory(mResolvedShaderDirectory.c_str(),
-                                                     &mStreamFactory);
-    if (mStreamFactory == nullptr)
+    Diligent::RefCntAutoPtr<Diligent::IShaderSourceInputStreamFactory> baseFactory;
+    Diligent::CreateDefaultShaderSourceStreamFactory(mResolvedShaderDirectory.c_str(), &baseFactory);
+    if (baseFactory == nullptr)
     {
         CRESSIM_LOG_ERROR("Failed to create shader source stream factory for directory '",
                           mResolvedShaderDirectory, "'.");
         return false;
     }
+    mStreamFactory = NormalizingShaderSourceFactory::Create(baseFactory, mResolvedShaderDirectory);
     return true;
 }
 

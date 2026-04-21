@@ -147,7 +147,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             static_cast<std::uint32_t>(softRenderData.softBodyParticleRanges.size()),
             softBodyBoundsChunkCount,
             gpu::contextMaskForId(computeBackend.contextId) |
-                gpu::contextMaskForId(graphicsBackend.contextId)))
+                gpu::contextMaskForId(graphicsBackend.contextId),
+            mDevice.supportsNativePhysicsFloatAtomics()))
     {
         CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ensureCapacity.");
         return false;

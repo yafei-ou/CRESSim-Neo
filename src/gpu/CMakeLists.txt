@@ -94,3 +94,21 @@ add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
         "${CRESSIM_NEO_SHADER_SOURCE_DIR}"
         "$<TARGET_FILE_DIR:${TARGET_NAME}>/shaders"
 )
+
+if(UNIX AND NOT APPLE)
+    set(CRESSIM_NEO_DXC_LINUX_DIR "${PROJECT_SOURCE_DIR}/extern/dxc/linux")
+    set(CRESSIM_NEO_DXC_LINUX_LIBS
+        "${CRESSIM_NEO_DXC_LINUX_DIR}/libdxcompiler.so"
+        "${CRESSIM_NEO_DXC_LINUX_DIR}/libdxil.so"
+    )
+
+    foreach(CRESSIM_NEO_DXC_LIB IN LISTS CRESSIM_NEO_DXC_LINUX_LIBS)
+        if(EXISTS "${CRESSIM_NEO_DXC_LIB}")
+            add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${CRESSIM_NEO_DXC_LIB}"
+                    "$<TARGET_FILE_DIR:${TARGET_NAME}>"
+            )
+        endif()
+    endforeach()
+endif()

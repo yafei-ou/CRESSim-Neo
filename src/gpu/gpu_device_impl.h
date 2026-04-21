@@ -41,6 +41,7 @@ public:
     GpuPresentationReadbackRequest requestPresentationReadback() override;
     bool tryGetPresentationReadback(GpuPresentationReadbackRequest request,
                                     GpuPresentationReadbackEvent &outEvent) override;
+    bool supportsNativePhysicsFloatAtomics() const override;
     const std::string &shaderSourceDirectory() const override;
     bool createShader(const Diligent::ShaderCreateInfo &createInfo,
                       Diligent::IShader **shader) override;
@@ -94,6 +95,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IFence> mPresentationReadbackFence;
     Diligent::RefCntAutoPtr<Diligent::IFence> mPhysicsToGraphicsFence;
     Diligent::RefCntAutoPtr<Diligent::IFence> mGraphicsToPhysicsFence;
+    bool mSupportsNativePhysicsFloatAtomics = false;
 };
 
 } // namespace cressim::neo::gpu

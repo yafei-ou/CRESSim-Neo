@@ -1,5 +1,5 @@
-#include "physics/include/physics_soft_render_dispatch_constants.hlsli"
-#include "physics/include/physics_rigid_common.hlsli"
+#include "include/physics/physics_soft_render_dispatch_constants.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftBodyBoundsChunk, g_SoftBodyBoundsChunks);

@@ -1,9 +1,9 @@
-#include "physics/include/physics_rigid_common.hlsli"
-#include "physics/include/physics_soft_dispatch_constants.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
+#include "include/physics/physics_soft_dispatch_constants.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_SoftParticleVelocities);
-CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_SoftParticleVelocityCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_SoftParticleVelocityCorrections);
 
 // Mirrors the rigid contact-velocity apply step: fold accumulated soft particle velocity
 // corrections back into the live velocity buffer between iterations.

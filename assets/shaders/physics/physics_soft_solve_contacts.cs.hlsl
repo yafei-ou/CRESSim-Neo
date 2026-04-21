@@ -1,4 +1,4 @@
-#include "physics/include/physics_rigid_common.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
 
 static const float kSoftContactRelaxation = 0.95;
 static const float kSoftMaxCorrectionPerIter = 0.05;
@@ -8,7 +8,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePreviousPositions);
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticleMaterials);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftContact, g_SoftContacts);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftNeighborMeta, g_SoftNeighborMeta);
-CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_SoftPositionCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_SoftPositionCorrections);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)

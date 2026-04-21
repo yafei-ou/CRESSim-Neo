@@ -1,4 +1,4 @@
-#include "physics/include/physics_rigid_common.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(GpuSoftRigidContact, g_SoftRigidContacts);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ContactActiveFlags);

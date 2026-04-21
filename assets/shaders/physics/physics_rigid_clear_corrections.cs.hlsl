@@ -1,9 +1,9 @@
-#include "physics/include/physics_rigid_dispatch_constants.hlsli"
-#include "physics/include/physics_atomic_float.hlsli"
-CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyTranslationCorrections);
-CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyRotationCorrections);
-CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyLinearVelocityCorrections);
-CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyAngularVelocityCorrections);
+#include "include/physics/physics_rigid_dispatch_constants.hlsli"
+#include "physics_atomic_float.hlsli"
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyTranslationCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyLinearVelocityCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyAngularVelocityCorrections);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)

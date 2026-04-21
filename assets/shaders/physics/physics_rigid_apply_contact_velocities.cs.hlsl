@@ -1,12 +1,12 @@
-#include "physics/include/physics_rigid_dispatch_constants.hlsli"
-#include "physics/include/physics_rigid_common.hlsli"
+#include "include/physics/physics_rigid_dispatch_constants.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyLinearVelocities);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyAngularVelocities);
-CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyLinearVelocityCorrections);
-CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyAngularVelocityCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyLinearVelocityCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyAngularVelocityCorrections);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)

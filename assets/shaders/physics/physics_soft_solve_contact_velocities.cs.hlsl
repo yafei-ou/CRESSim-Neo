@@ -1,4 +1,4 @@
-#include "physics/include/physics_rigid_common.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
 
 static const float kRestitutionVelocityThreshold = 0.5;
 static const float kRestitutionPenetrationThreshold = 2.0 * kContactSlop;
@@ -9,7 +9,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticleVelocities);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftContact, g_SoftContacts);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftNeighborMeta, g_SoftNeighborMeta);
 
-CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_SoftParticleVelocityCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_SoftParticleVelocityCorrections);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)

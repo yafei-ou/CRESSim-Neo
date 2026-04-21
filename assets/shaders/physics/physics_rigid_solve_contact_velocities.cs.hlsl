@@ -1,5 +1,5 @@
-#include "physics/include/physics_rigid_dispatch_constants.hlsli"
-#include "physics/include/physics_rigid_common.hlsli"
+#include "include/physics/physics_rigid_dispatch_constants.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
 
 static const float kRestitutionVelocityThreshold = 0.5;
 static const float kRestitutionPenetrationThreshold = 2.0 * kContactSlop;
@@ -13,8 +13,8 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_STRUCTURED_BUFFER(GpuRigidContact, g_RigidContacts);
 CRESSIM_STRUCTURED_BUFFER(GpuBroadPhaseMeta, g_BroadPhaseMeta);
 
-CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyLinearVelocityCorrections);
-CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyAngularVelocityCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyLinearVelocityCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyAngularVelocityCorrections);
 
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {

@@ -1,8 +1,8 @@
-#include "physics/include/physics_soft_dispatch_constants.hlsli"
-#include "physics/include/physics_atomic_float.hlsli"
+#include "include/physics/physics_soft_dispatch_constants.hlsli"
+#include "physics_atomic_float.hlsli"
 
-CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_SoftPositionCorrections);
-CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_SoftParticleVelocityCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_SoftPositionCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_SoftParticleVelocityCorrections);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_SoftEdgeLambdas);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_SoftTetLambdas);
 

@@ -1,4 +1,4 @@
-#include "physics/include/physics_soft_render_dispatch_constants.hlsli"
+#include "include/physics/physics_soft_render_dispatch_constants.hlsli"
 
 struct GpuSoftRenderVertexTriangleRange
 {

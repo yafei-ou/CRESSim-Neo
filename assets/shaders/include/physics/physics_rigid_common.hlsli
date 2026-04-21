@@ -1,8 +1,8 @@
 #ifndef CRESSIM_NEO_PHYSICS_RIGID_COMMON_HLSLI
 #define CRESSIM_NEO_PHYSICS_RIGID_COMMON_HLSLI
 
-#include "include/structured_buffer_compat.hlsli"
-#include "physics/include/physics_atomic_float.hlsli"
+#include "../structured_buffer_compat.hlsli"
+#include "physics_atomic_float.hlsli"
 
 static const uint kColliderSphere = 0u;
 static const uint kColliderBox = 1u;
