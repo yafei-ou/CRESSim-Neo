@@ -1,6 +1,5 @@
 #include "physics/include/physics_rigid_common.hlsli"
 
-static const float kVelocityCorrectionAtomicScale = 100000.0;
 static const float kRestitutionVelocityThreshold = 0.5;
 static const float kRestitutionPenetrationThreshold = 2.0 * kContactSlop;
 
@@ -20,14 +19,9 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderMaterials);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftRigidContact, g_SoftRigidContacts);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftNeighborMeta, g_SoftNeighborMeta);
 
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_SoftParticleVelocityCorrections);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyLinearVelocityCorrections);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyAngularVelocityCorrections);
-
-int3 QuantizeVelocityCorrection(float3 value)
-{
-    return int3(round(value * kVelocityCorrectionAtomicScale));
-}
+CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_SoftParticleVelocityCorrections);
+CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyLinearVelocityCorrections);
+CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyAngularVelocityCorrections);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -108,13 +102,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     if (invMassSoft > kEpsilon)
     {
-        const int3 softDelta = QuantizeVelocityCorrection(totalImpulse * invMassSoft);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftParticleVelocityCorrections, softParticleIndex).x,
-                       softDelta.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftParticleVelocityCorrections, softParticleIndex).y,
-                       softDelta.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftParticleVelocityCorrections, softParticleIndex).z,
-                       softDelta.z);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_SoftParticleVelocityCorrections, softParticleIndex,
+                                      totalImpulse * invMassSoft);
     }
 
     if (invMassRigid > kEpsilon)
@@ -122,19 +111,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         const float3 rigidLinearDelta = -totalImpulse * invMassRigid;
         const float3 rigidAngularDelta = MultiplyWorldInverseInertia(
             invInertiaRigid, rigidOrientation, cross(rRigid, -totalImpulse));
-        const int3 rigidLinear = QuantizeVelocityCorrection(rigidLinearDelta);
-        const int3 rigidAngular = QuantizeVelocityCorrection(rigidAngularDelta);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyLinearVelocityCorrections, rigidBodyIndex).x,
-                       rigidLinear.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyLinearVelocityCorrections, rigidBodyIndex).y,
-                       rigidLinear.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyLinearVelocityCorrections, rigidBodyIndex).z,
-                       rigidLinear.z);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyAngularVelocityCorrections, rigidBodyIndex).x,
-                       rigidAngular.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyAngularVelocityCorrections, rigidBodyIndex).y,
-                       rigidAngular.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyAngularVelocityCorrections, rigidBodyIndex).z,
-                       rigidAngular.z);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyLinearVelocityCorrections, rigidBodyIndex,
+                                      rigidLinearDelta);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyAngularVelocityCorrections, rigidBodyIndex,
+                                      rigidAngularDelta);
     }
 }

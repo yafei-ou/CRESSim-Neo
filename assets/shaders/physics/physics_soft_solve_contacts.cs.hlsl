@@ -1,6 +1,5 @@
 #include "physics/include/physics_rigid_common.hlsli"
 
-static const float kSoftCorrectionAtomicScale = 100000.0;
 static const float kSoftContactRelaxation = 0.95;
 static const float kSoftMaxCorrectionPerIter = 0.05;
 
@@ -9,12 +8,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePreviousPositions);
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticleMaterials);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftContact, g_SoftContacts);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftNeighborMeta, g_SoftNeighborMeta);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_SoftPositionCorrections);
-
-int3 QuantizeSoftCorrection(float3 value)
-{
-    return int3(round(value * kSoftCorrectionAtomicScale));
-}
+CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_SoftPositionCorrections);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -80,20 +74,13 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         correctionB -= frictionDelta * (invMassB / denom) * kSoftContactRelaxation;
     }
 
-    const int3 quantizedA = QuantizeSoftCorrection(correctionA);
-    const int3 quantizedB = QuantizeSoftCorrection(correctionB);
-
     if (invMassA > kEpsilon)
     {
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, particleA).x, quantizedA.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, particleA).y, quantizedA.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, particleA).z, quantizedA.z);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_SoftPositionCorrections, particleA, correctionA);
     }
 
     if (invMassB > kEpsilon)
     {
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, particleB).x, quantizedB.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, particleB).y, quantizedB.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, particleB).z, quantizedB.z);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_SoftPositionCorrections, particleB, correctionB);
     }
 }

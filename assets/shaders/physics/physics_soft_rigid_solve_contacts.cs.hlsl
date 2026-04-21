@@ -1,6 +1,5 @@
 #include "physics/include/physics_rigid_common.hlsli"
 
-static const float kSoftCorrectionAtomicScale = 100000.0;
 static const float kSoftContactRelaxation = 0.95;
 static const float kSoftMaxCorrectionPerIter = 0.05;
 
@@ -17,14 +16,9 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderMaterials);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftRigidContact, g_SoftRigidContacts);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftNeighborMeta, g_SoftNeighborMeta);
 
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_SoftPositionCorrections);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyTranslationCorrections);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyRotationCorrections);
-
-int3 QuantizeSoftCorrection(float3 value)
-{
-    return int3(round(value * kSoftCorrectionAtomicScale));
-}
+CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_SoftPositionCorrections);
+CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyTranslationCorrections);
+CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyRotationCorrections);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -126,30 +120,16 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         }
     }
 
-    const int3 softQuantized = QuantizeSoftCorrection(softCorrection);
-    const int3 rigidTranslationQuantized = QuantizeSoftCorrection(rigidTranslationCorrection);
-    const int3 rigidRotationQuantized = QuantizeSoftCorrection(rigidRotationCorrection);
-
     if (invMassSoft > kEpsilon)
     {
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, softParticleIndex).x, softQuantized.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, softParticleIndex).y, softQuantized.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, softParticleIndex).z, softQuantized.z);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_SoftPositionCorrections, softParticleIndex, softCorrection);
     }
 
     if (invMassRigid > kEpsilon)
     {
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, rigidBodyIndex).x,
-                       rigidTranslationQuantized.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, rigidBodyIndex).y,
-                       rigidTranslationQuantized.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, rigidBodyIndex).z,
-                       rigidTranslationQuantized.z);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, rigidBodyIndex).x,
-                       rigidRotationQuantized.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, rigidBodyIndex).y,
-                       rigidRotationQuantized.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, rigidBodyIndex).z,
-                       rigidRotationQuantized.z);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyTranslationCorrections, rigidBodyIndex,
+                                      rigidTranslationCorrection);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyRotationCorrections, rigidBodyIndex,
+                                      rigidRotationCorrection);
     }
 }

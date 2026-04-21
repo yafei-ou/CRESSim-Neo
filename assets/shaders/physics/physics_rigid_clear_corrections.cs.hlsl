@@ -1,8 +1,9 @@
 #include "physics/include/physics_rigid_dispatch_constants.hlsli"
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyTranslationCorrections);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyRotationCorrections);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyLinearVelocityCorrections);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyAngularVelocityCorrections);
+#include "physics/include/physics_atomic_float.hlsli"
+CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyTranslationCorrections);
+CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyRotationCorrections);
+CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyLinearVelocityCorrections);
+CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_RigidBodyAngularVelocityCorrections);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -13,8 +14,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    CRESSIM_SB_STORE(g_RigidBodyTranslationCorrections, bodyIndex, int4(0, 0, 0, 0));
-    CRESSIM_SB_STORE(g_RigidBodyRotationCorrections, bodyIndex, int4(0, 0, 0, 0));
-    CRESSIM_SB_STORE(g_RigidBodyLinearVelocityCorrections, bodyIndex, int4(0, 0, 0, 0));
-    CRESSIM_SB_STORE(g_RigidBodyAngularVelocityCorrections, bodyIndex, int4(0, 0, 0, 0));
+    CRESSIM_CLEAR_ATOMIC_FLOAT4_ENTRY(g_RigidBodyTranslationCorrections, bodyIndex);
+    CRESSIM_CLEAR_ATOMIC_FLOAT4_ENTRY(g_RigidBodyRotationCorrections, bodyIndex);
+    CRESSIM_CLEAR_ATOMIC_FLOAT4_ENTRY(g_RigidBodyLinearVelocityCorrections, bodyIndex);
+    CRESSIM_CLEAR_ATOMIC_FLOAT4_ENTRY(g_RigidBodyAngularVelocityCorrections, bodyIndex);
 }

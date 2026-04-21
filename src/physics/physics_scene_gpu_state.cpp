@@ -48,6 +48,50 @@ bool ensureStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *n
         immediateContextMask, outBuffer, capacity);
 }
 
+bool ensureRawBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
+                     std::uint32_t elementStride, std::uint32_t elementCount,
+                     Diligent::BIND_FLAGS bindFlags, Diligent::USAGE usage,
+                     Diligent::CPU_ACCESS_FLAGS cpuAccess,
+                     Diligent::Uint64 immediateContextMask,
+                     Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer)
+{
+    if (renderDevice == nullptr || elementStride == 0u)
+    {
+        return false;
+    }
+
+    const std::uint32_t requiredCapacity = std::max(elementCount, 1u);
+    if (outBuffer != nullptr)
+    {
+        const Diligent::BufferDesc &desc = outBuffer->GetDesc();
+        const std::uint32_t currentCapacity =
+            static_cast<std::uint32_t>(desc.Size / elementStride);
+        if (desc.Mode == Diligent::BUFFER_MODE_RAW && currentCapacity >= requiredCapacity)
+        {
+            return true;
+        }
+    }
+
+    Diligent::BufferDesc desc{};
+    desc.Name                 = name;
+    desc.Size                 = static_cast<Diligent::Uint64>(requiredCapacity) * elementStride;
+    desc.BindFlags            = bindFlags;
+    desc.Usage                = usage;
+    desc.CPUAccessFlags       = cpuAccess;
+    desc.ImmediateContextMask = immediateContextMask;
+    desc.Mode                 = Diligent::BUFFER_MODE_RAW;
+
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer;
+    renderDevice->CreateBuffer(desc, nullptr, &buffer);
+    if (buffer == nullptr)
+    {
+        return false;
+    }
+
+    outBuffer = std::move(buffer);
+    return true;
+}
+
 std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
 {
     return (threadCount + kComputeThreadGroupSize - 1u) / kComputeThreadGroupSize;
@@ -672,16 +716,16 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.activeSoftContactsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftPositionCorrections",
-                                sizeof(Diligent::int4), newSoftParticleCapacity,
-                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
-                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.softPositionCorrectionsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftVelocityCorrections",
-                                sizeof(Diligent::int4), newSoftParticleCapacity,
-                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
-                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.softVelocityCorrectionsBuffer) ||
+        !ensureRawBuffer(renderDevice, "CRESSimNeo.Physics.SoftPositionCorrections",
+                         sizeof(Diligent::uint4), newSoftParticleCapacity,
+                         Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                         Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                         mTransientState.softPositionCorrectionsBuffer) ||
+        !ensureRawBuffer(renderDevice, "CRESSimNeo.Physics.SoftVelocityCorrections",
+                         sizeof(Diligent::uint4), newSoftParticleCapacity,
+                         Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                         Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                         mTransientState.softVelocityCorrectionsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftEdgeLambdas", sizeof(float),
                                 newSoftEdgeCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -962,26 +1006,26 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.rigidContactsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.TranslationCorrections",
-                                sizeof(std::int32_t) * 4u, newRigidBodyCapacity,
-                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
-                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.translationCorrectionsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RotationCorrections",
-                                sizeof(std::int32_t) * 4u, newRigidBodyCapacity,
-                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
-                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.rotationCorrectionsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.LinearVelocityCorrections",
-                                sizeof(std::int32_t) * 4u, newRigidBodyCapacity,
-                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
-                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.linearVelocityCorrectionsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.AngularVelocityCorrections",
-                                sizeof(std::int32_t) * 4u, newRigidBodyCapacity,
-                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
-                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.angularVelocityCorrectionsBuffer) ||
+        !ensureRawBuffer(renderDevice, "CRESSimNeo.Physics.TranslationCorrections",
+                         sizeof(std::uint32_t) * 4u, newRigidBodyCapacity,
+                         Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                         Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                         mTransientState.translationCorrectionsBuffer) ||
+        !ensureRawBuffer(renderDevice, "CRESSimNeo.Physics.RotationCorrections",
+                         sizeof(std::uint32_t) * 4u, newRigidBodyCapacity,
+                         Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                         Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                         mTransientState.rotationCorrectionsBuffer) ||
+        !ensureRawBuffer(renderDevice, "CRESSimNeo.Physics.LinearVelocityCorrections",
+                         sizeof(std::uint32_t) * 4u, newRigidBodyCapacity,
+                         Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                         Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                         mTransientState.linearVelocityCorrectionsBuffer) ||
+        !ensureRawBuffer(renderDevice, "CRESSimNeo.Physics.AngularVelocityCorrections",
+                         sizeof(std::uint32_t) * 4u, newRigidBodyCapacity,
+                         Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                         Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                         mTransientState.angularVelocityCorrectionsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PredictedPositions.Readback",
                                 sizeof(Diligent::float4), newRigidBodyCapacity, Diligent::BIND_NONE,
                                 Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,

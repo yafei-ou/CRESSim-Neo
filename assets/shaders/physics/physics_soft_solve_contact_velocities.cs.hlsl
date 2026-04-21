@@ -1,6 +1,5 @@
 #include "physics/include/physics_rigid_common.hlsli"
 
-static const float kVelocityCorrectionAtomicScale = 100000.0;
 static const float kRestitutionVelocityThreshold = 0.5;
 static const float kRestitutionPenetrationThreshold = 2.0 * kContactSlop;
 
@@ -10,12 +9,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticleVelocities);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftContact, g_SoftContacts);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftNeighborMeta, g_SoftNeighborMeta);
 
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_SoftParticleVelocityCorrections);
-
-int3 QuantizeVelocityCorrection(float3 value)
-{
-    return int3(round(value * kVelocityCorrectionAtomicScale));
-}
+CRESSIM_RW_BYTE_ADDRESS_BUFFER(g_SoftParticleVelocityCorrections);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -76,17 +70,13 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     if (invMassA > kEpsilon)
     {
-        const int3 softDeltaA = QuantizeVelocityCorrection(-totalImpulse * invMassA);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftParticleVelocityCorrections, particleA).x, softDeltaA.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftParticleVelocityCorrections, particleA).y, softDeltaA.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftParticleVelocityCorrections, particleA).z, softDeltaA.z);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_SoftParticleVelocityCorrections, particleA,
+                                      -totalImpulse * invMassA);
     }
 
     if (invMassB > kEpsilon)
     {
-        const int3 softDeltaB = QuantizeVelocityCorrection(totalImpulse * invMassB);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftParticleVelocityCorrections, particleB).x, softDeltaB.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftParticleVelocityCorrections, particleB).y, softDeltaB.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftParticleVelocityCorrections, particleB).z, softDeltaB.z);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_SoftParticleVelocityCorrections, particleB,
+                                      totalImpulse * invMassB);
     }
 }
