@@ -57,7 +57,7 @@ target_include_directories(${TARGET_NAME} PRIVATE
 set(CRESSIM_NEO_SHADER_SOURCE_DIR "${PROJECT_SOURCE_DIR}/assets/shaders")
 target_compile_definitions(${TARGET_NAME} PRIVATE CRESSIM_NEO_SHADER_SOURCE_DIR="${CRESSIM_NEO_SHADER_SOURCE_DIR}")
 
-target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common)
+target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common Vulkan::Headers)
 
 # Link with Diligent
 target_link_libraries(${TARGET_NAME} PUBLIC Diligent-PublicBuildSettings)
