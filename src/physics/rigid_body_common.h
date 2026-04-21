@@ -381,6 +381,7 @@ struct GpuRigidContact
     Diligent::float4 normalPenetration{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localPointA{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localPointB{0.0f, 0.0f, 0.0f, 0.0f};
+    // x = kinetic friction, y = restitution, z = static friction
     Diligent::float4 material{0.0f, 0.0f, 0.0f, 0.0f};
 };
 

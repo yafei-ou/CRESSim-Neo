@@ -997,6 +997,7 @@ World::ColliderHandle World::addCollider(common::EntityId entityId,
     state.environmentIndex = entityEnvironment(entityId);
     state.enabled          = component.enabled;
     state.friction         = component.friction;
+    state.staticFriction   = component.staticFriction;
     state.restitution      = component.restitution;
     state.collisionLayer   = component.collisionLayer;
     state.collisionMask    = component.collisionMask;
@@ -1034,6 +1035,7 @@ void World::updateCollider(ColliderHandle handle, const ColliderComponent &compo
     state.environmentIndex = entityEnvironment(entityId);
     state.enabled          = component.enabled;
     state.friction         = component.friction;
+    state.staticFriction   = component.staticFriction;
     state.restitution      = component.restitution;
     state.collisionLayer   = component.collisionLayer;
     state.collisionMask    = component.collisionMask;
@@ -1360,6 +1362,7 @@ std::optional<ColliderComponent> World::tryGetCollider(ColliderHandle handle) co
     out.localRotation  = c->localRotation;
     out.enabled        = c->enabled;
     out.friction       = c->friction;
+    out.staticFriction = c->staticFriction;
     out.restitution    = c->restitution;
     out.collisionLayer = c->collisionLayer;
     out.collisionMask  = c->collisionMask;

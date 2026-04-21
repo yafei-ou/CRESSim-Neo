@@ -74,7 +74,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 normal =
         SafeNormalize(contact.normalPenetration.xyz, float3(0.0, 1.0, 0.0));
     float3 invInertiaRigid = CRESSIM_SB_LOAD(g_RigidBodyInverseInertiaLocal, rigidBodyIndex).xyz;
-    const float2 combinedMaterial = CombineContactMaterial(
+    const float3 combinedMaterial = CombineContactMaterial(
         CRESSIM_SB_LOAD(g_SoftParticleMaterials, softParticleIndex),
         CRESSIM_SB_LOAD(g_ColliderMaterials, contact.colliderIndex));
     if (invMassRigid <= kEpsilon)
@@ -105,19 +105,18 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 relativeDisplacement =
         (rigidContactPoint - previousRigidContactPoint) - (softPositionInvMass.xyz - previousSoftPosition);
     const float3 tangentialDisplacement = ProjectOntoContactTangent(relativeDisplacement, normal);
-    const float tangentialDistance = length(tangentialDisplacement);
-    if (tangentialDistance > 1.0e-5 && penetration > kEpsilon)
+    const float3 frictionDelta = ComputePositionFrictionDelta(
+        tangentialDisplacement, penetration, combinedMaterial.x, combinedMaterial.z);
+    const float frictionDistance = length(frictionDelta);
+    if (frictionDistance > 0.0)
     {
-        const float3 tangent = tangentialDisplacement / tangentialDistance;
+        const float3 tangent = frictionDelta / frictionDistance;
         const float tangentMassRigid = ComputeContactEffectiveMass(invMassRigid, invInertiaRigid,
                                                                   rigidOrientation, rRigid, tangent);
         const float tangentDenom = invMassSoft + tangentMassRigid;
         if (tangentDenom > kEpsilon)
         {
-            const float frictionScale =
-                min(saturate(combinedMaterial.x) * penetration / tangentialDistance, 1.0);
-            const float3 frictionDelta = tangentialDisplacement * frictionScale;
-            const float tangentLambda = length(frictionDelta) / tangentDenom;
+            const float tangentLambda = frictionDistance / tangentDenom;
             softCorrection += tangent * (tangentLambda * invMassSoft * kSoftContactRelaxation);
             rigidTranslationCorrection -=
                 tangent * (tangentLambda * invMassRigid * kSoftContactRelaxation);

@@ -119,6 +119,7 @@ struct ColliderComponent
     bool enabled = true;
 
     float friction               = 0.0f;
+    float staticFriction         = -1.0f;
     float restitution            = 0.0f;
     std::uint32_t collisionLayer = 1u;
     std::uint32_t collisionMask  = 0xffffffffu;

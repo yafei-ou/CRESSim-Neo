@@ -93,7 +93,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const float2 combinedMaterial = CombineContactMaterial(
+    const float3 combinedMaterial = CombineContactMaterial(
         CRESSIM_SB_LOAD(g_SoftParticleMaterials, softParticleIndex),
         CRESSIM_SB_LOAD(g_ColliderMaterials, contact.colliderIndex));
     const bool enableRestitution =

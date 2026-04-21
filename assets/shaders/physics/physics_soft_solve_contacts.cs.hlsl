@@ -54,7 +54,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const float2 combinedMaterial = CombineContactMaterial(
+    const float3 combinedMaterial = CombineContactMaterial(
         CRESSIM_SB_LOAD(g_SoftParticleMaterials, particleA),
         CRESSIM_SB_LOAD(g_SoftParticleMaterials, particleB));
     const float3 normal =
@@ -72,12 +72,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     float3 correctionB = normal * (invMassB * lambda);
 
     const float3 tangentialDisplacement = ProjectOntoContactTangent(relativeDisplacement, normal);
-    const float tangentialDistance = length(tangentialDisplacement);
-    if (tangentialDistance > 1.0e-5)
+    const float3 frictionDelta = ComputePositionFrictionDelta(
+        tangentialDisplacement, penetration, combinedMaterial.x, combinedMaterial.z);
+    if (length(frictionDelta) > 0.0)
     {
-        const float frictionScale =
-            min(saturate(combinedMaterial.x) * penetration / tangentialDistance, 1.0);
-        const float3 frictionDelta = tangentialDisplacement * frictionScale;
         correctionA += frictionDelta * (invMassA / denom) * kSoftContactRelaxation;
         correctionB -= frictionDelta * (invMassB / denom) * kSoftContactRelaxation;
     }

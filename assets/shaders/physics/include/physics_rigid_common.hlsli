@@ -62,7 +62,7 @@ struct GpuRigidContact
     // xyz = point on surface of B in B-local space
     float4 localPointB;
 
-    // x = friction, y = restitution
+    // x = kinetic friction, y = restitution, z = static friction
     float4 material;
 };
 
@@ -1286,16 +1286,37 @@ float ComputeContactEffectiveMass(float invMass, float3 inverseInertiaLocal, flo
     return invMass + dot(cross(angularMass, r), direction);
 }
 
-float2 CombineContactMaterial(float4 materialA, float4 materialB)
+float3 CombineContactMaterial(float4 materialA, float4 materialB)
 {
     const float friction = sqrt(max(0.0, materialA.x) * max(0.0, materialB.x));
     const float restitution = max(max(0.0, materialA.y), max(0.0, materialB.y));
-    return float2(friction, restitution);
+    const float staticFriction = sqrt(max(0.0, materialA.w) * max(0.0, materialB.w));
+    return float3(friction, restitution, staticFriction);
 }
 
 float3 ProjectOntoContactTangent(float3 value, float3 normal)
 {
     return value - normal * dot(value, normal);
+}
+
+float3 ComputePositionFrictionDelta(float3 tangentialDisplacement, float penetration,
+                                    float kineticFriction, float staticFriction)
+{
+    const float tangentialDistance = length(tangentialDisplacement);
+    if (tangentialDistance <= 1.0e-5 || penetration <= kEpsilon)
+    {
+        return 0.0;
+    }
+
+    const float staticLimit = saturate(staticFriction) * penetration;
+    if (tangentialDistance <= staticLimit)
+    {
+        return tangentialDisplacement;
+    }
+
+    const float kineticScale =
+        min(saturate(kineticFriction) * penetration / tangentialDistance, 1.0);
+    return tangentialDisplacement * kineticScale;
 }
 
 float3 SupportPointForShape(uint shapeType, float3 position, float4 orientation,

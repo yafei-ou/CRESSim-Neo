@@ -107,19 +107,18 @@ int3 QuantizeCorrection(float3 value)
 
     const float3 relativeDisplacement = (pB - previousPB) - (pA - previousPA);
     const float3 tangentialDisplacement = ProjectOntoContactTangent(relativeDisplacement, n);
-    const float tangentialDistance = length(tangentialDisplacement);
-    if (tangentialDistance > 1.0e-5 && penetration > kEpsilon)
+    const float3 frictionDelta = ComputePositionFrictionDelta(
+        tangentialDisplacement, penetration, contact.material.x, contact.material.z);
+    const float frictionDistance = length(frictionDelta);
+    if (frictionDistance > 0.0)
     {
-        const float3 tangent = tangentialDisplacement / tangentialDistance;
+        const float3 tangent = frictionDelta / frictionDistance;
         const float tangentMassA = ComputeContactEffectiveMass(invMassA, invInertiaA, qA, rA, tangent);
         const float tangentMassB = ComputeContactEffectiveMass(invMassB, invInertiaB, qB, rB, tangent);
         const float tangentDenom = tangentMassA + tangentMassB;
         if (tangentDenom > kEpsilon)
         {
-            const float frictionScale =
-                min(saturate(contact.material.x) * penetration / tangentialDistance, 1.0);
-            const float3 frictionDelta = tangentialDisplacement * frictionScale;
-            const float tangentLambda = (length(frictionDelta) / tangentDenom) * kRelaxation;
+            const float tangentLambda = (frictionDistance / tangentDenom) * kRelaxation;
             frictionTranslationA = QuantizeCorrection(tangent * (invMassA * tangentLambda));
             frictionRotationA = QuantizeCorrection(
                 MultiplyWorldInverseInertia(invInertiaA, qA, cross(rA, tangent)) * tangentLambda);
