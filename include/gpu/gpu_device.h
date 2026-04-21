@@ -23,13 +23,6 @@ enum class VulkanShaderCompilerMode
     ForceDXC,
 };
 
-enum class PhysicsFloatAtomicMode
-{
-    Auto,
-    ForceCAS,
-    ForceNative,
-};
-
 struct GpuDeviceDesc
 {
     struct PresentationDesc
@@ -56,7 +49,6 @@ struct GpuDeviceDesc
     GpuRenderTargetDesc defaultRenderTargetDesc{};
     PresentationDesc presentation{};
     VulkanShaderCompilerMode vulkanShaderCompilerMode = VulkanShaderCompilerMode::Auto;
-    PhysicsFloatAtomicMode physicsFloatAtomicMode     = PhysicsFloatAtomicMode::Auto;
     // Optional override for runtime shader source directory.
     // If empty, the engine resolves its default search paths.
     std::string shaderDirectory;

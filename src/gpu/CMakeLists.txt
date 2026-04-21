@@ -50,6 +50,9 @@ source_group(
 target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/extern)
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_include_directories(${TARGET_NAME} PRIVATE
+    ${PROJECT_SOURCE_DIR}/extern/DiligentEngine/DiligentCore/Common/interface
+)
 
 set(CRESSIM_NEO_SHADER_SOURCE_DIR "${PROJECT_SOURCE_DIR}/assets/shaders")
 target_compile_definitions(${TARGET_NAME} PRIVATE CRESSIM_NEO_SHADER_SOURCE_DIR="${CRESSIM_NEO_SHADER_SOURCE_DIR}")
@@ -95,20 +98,26 @@ add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
         "$<TARGET_FILE_DIR:${TARGET_NAME}>/shaders"
 )
 
-if(UNIX AND NOT APPLE)
-    set(CRESSIM_NEO_DXC_LINUX_DIR "${PROJECT_SOURCE_DIR}/extern/dxc/linux")
-    set(CRESSIM_NEO_DXC_LINUX_LIBS
-        "${CRESSIM_NEO_DXC_LINUX_DIR}/libdxcompiler.so"
-        "${CRESSIM_NEO_DXC_LINUX_DIR}/libdxil.so"
-    )
+set(CRESSIM_NEO_DXC_RUNTIME_LIBS "")
 
-    foreach(CRESSIM_NEO_DXC_LIB IN LISTS CRESSIM_NEO_DXC_LINUX_LIBS)
-        if(EXISTS "${CRESSIM_NEO_DXC_LIB}")
-            add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    "${CRESSIM_NEO_DXC_LIB}"
-                    "$<TARGET_FILE_DIR:${TARGET_NAME}>"
-            )
-        endif()
-    endforeach()
+if(WIN32)
+    list(APPEND CRESSIM_NEO_DXC_RUNTIME_LIBS
+        "${PROJECT_SOURCE_DIR}/extern/dxc/windows/dxcompiler.dll"
+        "${PROJECT_SOURCE_DIR}/extern/dxc/windows/dxil.dll"
+    )
+elseif(UNIX)
+    list(APPEND CRESSIM_NEO_DXC_RUNTIME_LIBS
+        "${PROJECT_SOURCE_DIR}/extern/dxc/linux/libdxcompiler.so"
+        "${PROJECT_SOURCE_DIR}/extern/dxc/linux/libdxil.so"
+    )
 endif()
+
+foreach(CRESSIM_NEO_DXC_LIB IN LISTS CRESSIM_NEO_DXC_RUNTIME_LIBS)
+    if(EXISTS "${CRESSIM_NEO_DXC_LIB}")
+        add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CRESSIM_NEO_DXC_LIB}"
+                "$<TARGET_FILE_DIR:${TARGET_NAME}>"
+        )
+    endif()
+endforeach()
