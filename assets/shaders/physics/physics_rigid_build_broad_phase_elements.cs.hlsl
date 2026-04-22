@@ -1,5 +1,5 @@
-#include "physics/include/physics_rigid_broad_phase_build_constants.hlsli"
-#include "physics/include/physics_rigid_common.hlsli"
+#include "include/physics/physics_rigid_broad_phase_build_constants.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_BroadPhaseBodyIndices);
 CRESSIM_STRUCTURED_BUFFER(GpuBodyAabb, g_BodyAabbs);

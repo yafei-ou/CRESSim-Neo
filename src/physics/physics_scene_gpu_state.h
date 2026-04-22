@@ -205,7 +205,8 @@ public:
                         std::uint32_t softRenderVertexCount,
                         std::uint32_t softRenderTriangleIndexCount,
                         std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
-                        std::uint32_t softBodyBoundsChunkCount, Diligent::Uint64 sharedContextMask);
+                        std::uint32_t softBodyBoundsChunkCount, Diligent::Uint64 sharedContextMask,
+                        bool useNativeFloatAtomics);
     bool uploadWorldState(Diligent::IDeviceContext *computeContext, PhysicsWorld &world,
                           std::uint32_t bodyCount, std::uint32_t colliderCount);
     bool copyPredictedRigidBodiesToPersistentState(Diligent::IDeviceContext *computeContext,

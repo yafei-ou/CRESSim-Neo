@@ -1,10 +1,8 @@
-#include "physics/include/physics_rigid_common.hlsli"
-#include "physics/include/physics_soft_dispatch_constants.hlsli"
-
-static const float kSoftCorrectionAtomicScale = 100000.0;
+#include "include/physics/physics_rigid_common.hlsli"
+#include "include/physics/physics_soft_dispatch_constants.hlsli"
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_SoftPositionCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_SoftPositionCorrections);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -15,8 +13,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const int4 accumulatedCorrection = CRESSIM_SB_REF(g_SoftPositionCorrections, particleIndex);
-    CRESSIM_SB_STORE(g_SoftPositionCorrections, particleIndex, int4(0, 0, 0, 0));
+    const float3 correction =
+        CRESSIM_LOAD_ATOMIC_FLOAT3_ENTRY(g_SoftPositionCorrections, particleIndex);
+    CRESSIM_CLEAR_ATOMIC_FLOAT4_ENTRY(g_SoftPositionCorrections, particleIndex);
 
     const float4 positionInvMass = CRESSIM_SB_LOAD(g_SoftParticlePositionsInvMass, particleIndex);
     const float invMass = positionInvMass.w;
@@ -25,7 +24,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const float3 correction = float3(accumulatedCorrection.xyz) / kSoftCorrectionAtomicScale;
     CRESSIM_SB_STORE(g_SoftParticlePositionsInvMass, particleIndex,
                      float4(positionInvMass.xyz + correction, invMass));
 }

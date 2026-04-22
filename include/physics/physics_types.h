@@ -72,10 +72,10 @@ struct SoftBodySourceDesc
 
 struct SoftBodyMaterialDesc
 {
-    float friction    = 0.0f;
-    float restitution = 0.0f;
-    float damping     = 0.0f;
-    float reserved    = 0.0f;
+    float friction       = 0.0f;
+    float restitution    = 0.0f;
+    float damping        = 0.0f;
+    float staticFriction = -1.0f;
 };
 
 struct RigidBodyState
@@ -107,6 +107,7 @@ struct ColliderState
     Diligent::QuaternionF localRotation{0.0f, 0.0f, 0.0f, 1.0f};
     bool enabled                 = true;
     float friction               = 0.5f;
+    float staticFriction         = -1.0f;
     float restitution            = 0.0f;
     std::uint32_t collisionLayer = 1u;
     std::uint32_t collisionMask  = 0xffffffffu;

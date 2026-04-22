@@ -3,10 +3,14 @@
 #include "gpu/gpu_render_target_system_impl.h"
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsTools/interface/ShaderMacroHelper.hpp"
+#include "DiligentEngine/DiligentCore/Graphics/ShaderTools/include/DXCompiler.hpp"
 #include "DiligentEngine/DiligentCore/Platforms/interface/NativeWindow.h"
+#include <vulkan/vulkan.h>
 
 #include <algorithm>
 #include <array>
+#include <cstring>
 #include <limits>
 #include <vector>
 
@@ -33,6 +37,20 @@ struct VulkanDedicatedContextPlan
     Diligent::Uint8 graphicsQueueId = 0u;
     Diligent::Uint8 physicsQueueId  = 0u;
 };
+
+const char *shaderCompilerModeToString(VulkanShaderCompilerMode mode)
+{
+    switch (mode)
+    {
+    case VulkanShaderCompilerMode::ForceDefault:
+        return "force-default";
+    case VulkanShaderCompilerMode::ForceDXC:
+        return "force-dxc";
+    case VulkanShaderCompilerMode::Auto:
+    default:
+        return "auto";
+    }
+}
 
 const char *adapterTypeToString(Diligent::ADAPTER_TYPE type)
 {
@@ -84,6 +102,62 @@ Diligent::Uint32 clampWindowId(std::uint64_t value)
 GpuRenderTargetDesc effectiveDefaultRenderTargetDesc(const GpuDeviceDesc &deviceDesc)
 {
     return normalizeDefaultRenderTargetDesc(deviceDesc.defaultRenderTargetDesc);
+}
+
+bool probeNativePhysicsFloatAtomicShader(Diligent::IRenderDevice *renderDevice,
+                                         VulkanShaderCompilerMode shaderCompilerMode)
+{
+    if (renderDevice == nullptr)
+    {
+        CRESSIM_LOG_WARNING(
+            "Skipping native physics float-atomics shader probe: render device is null.");
+        return false;
+    }
+    static constexpr const char *kNativeFloatAtomicProbeShader = R"hlsl(
+        RWStructuredBuffer<float4> g_Output;
+
+        static const uint kCressimSpirvScopeDevice = 1u;
+        static const uint kCressimSpirvMemorySemanticsAcquireReleaseUniform = 0x48u;
+
+        [[vk::ext_capability(6033)]]
+        [[vk::ext_extension("SPV_EXT_shader_atomic_float_add")]]
+        [[vk::ext_instruction(6035)]]
+        float CressimAtomicFloatAddNative([[vk::ext_reference]] float pointer, uint scope,
+                                        uint semantics, float value);
+
+        [numthreads(1, 1, 1)]
+        void main(uint3 dispatchThreadID : SV_DispatchThreadID)
+        {
+            CressimAtomicFloatAddNative(g_Output[0].x, kCressimSpirvScopeDevice,
+                                        kCressimSpirvMemorySemanticsAcquireReleaseUniform, 1.0);
+        }
+        )hlsl";
+
+    Diligent::ShaderCreateInfo shaderCreateInfo{};
+    shaderCreateInfo.SourceLanguage                  = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
+    shaderCreateInfo.Desc.UseCombinedTextureSamplers = true;
+    shaderCreateInfo.EntryPoint                      = "main";
+    shaderCreateInfo.Desc.ShaderType                 = Diligent::SHADER_TYPE_COMPUTE;
+    shaderCreateInfo.Desc.Name                       = "CRESSimNeo.NativeFloatAtomicsProbe";
+    shaderCreateInfo.Source                          = kNativeFloatAtomicProbeShader;
+    shaderCreateInfo.ShaderCompiler                  = Diligent::SHADER_COMPILER_DXC;
+
+    CRESSIM_LOG_INFO(
+        "Probing native physics float atomics with a built-in compute shader, compiler=",
+        shaderCompilerModeToString(shaderCompilerMode), ".");
+
+    Diligent::RefCntAutoPtr<Diligent::IShader> probeShader;
+    renderDevice->CreateShader(shaderCreateInfo, &probeShader);
+    if (probeShader == nullptr)
+    {
+        CRESSIM_LOG_WARNING(
+            "Native physics float-atomics shader probe failed; using CAS fallback on this "
+            "device.");
+        return false;
+    }
+
+    CRESSIM_LOG_INFO("Native physics float-atomics shader probe succeeded.");
+    return true;
 }
 
 VulkanDedicatedContextPlan planDedicatedVulkanContexts(Diligent::IEngineFactoryVk &factoryVk,
@@ -246,6 +320,7 @@ void GpuDeviceImpl::shutdown()
     mPendingPresentationReadbackRequests.clear();
     mPendingPresentationReadbackCopies.clear();
     mCompletedPresentationReadbacks.clear();
+    mSupportsNativePhysicsFloatAtomics = false;
 
     mBackend     = GpuBackend::Null;
     mInitialized = false;
@@ -414,6 +489,11 @@ bool GpuDeviceImpl::tryGetPresentationReadback(GpuPresentationReadbackRequest re
     return true;
 }
 
+bool GpuDeviceImpl::supportsNativePhysicsFloatAtomics() const
+{
+    return mSupportsNativePhysicsFloatAtomics;
+}
+
 const std::string &GpuDeviceImpl::shaderSourceDirectory() const
 {
     return mDesc.shaderDirectory;
@@ -428,7 +508,40 @@ bool GpuDeviceImpl::createShader(const Diligent::ShaderCreateInfo &createInfo,
     }
     *shader = nullptr;
 
-    if (mShaderCache.createShader(createInfo, shader))
+    Diligent::ShaderCreateInfo shaderCreateInfo = createInfo;
+    Diligent::ShaderMacroHelper shaderMacros;
+    if (mBackend == GpuBackend::Vulkan)
+    {
+        switch (mDesc.vulkanShaderCompilerMode)
+        {
+        case VulkanShaderCompilerMode::ForceDefault:
+            shaderCreateInfo.ShaderCompiler = Diligent::SHADER_COMPILER_DEFAULT;
+            break;
+        case VulkanShaderCompilerMode::ForceDXC:
+            shaderCreateInfo.ShaderCompiler = Diligent::SHADER_COMPILER_DXC;
+            break;
+        case VulkanShaderCompilerMode::Auto:
+        default:
+            break;
+        }
+
+        const bool isPhysicsShader = shaderCreateInfo.FilePath != nullptr &&
+                                     std::strstr(shaderCreateInfo.FilePath, "physics/") != nullptr;
+        if (isPhysicsShader)
+        {
+            shaderMacros += shaderCreateInfo.Macros;
+            shaderMacros.Add("CRESSIM_NATIVE_FLOAT_BUFFER_ATOMICS",
+                             mSupportsNativePhysicsFloatAtomics);
+            shaderCreateInfo.Macros = shaderMacros;
+            if (mSupportsNativePhysicsFloatAtomics &&
+                mDesc.vulkanShaderCompilerMode == VulkanShaderCompilerMode::Auto)
+            {
+                shaderCreateInfo.ShaderCompiler = Diligent::SHADER_COMPILER_DXC;
+            }
+        }
+    }
+
+    if (mShaderCache.createShader(shaderCreateInfo, shader))
     {
         return true;
     }
@@ -437,7 +550,7 @@ bool GpuDeviceImpl::createShader(const Diligent::ShaderCreateInfo &createInfo,
         return false;
     }
 
-    mRenderDevice->CreateShader(createInfo, shader);
+    mRenderDevice->CreateShader(shaderCreateInfo, shader);
     return *shader != nullptr;
 }
 
@@ -495,6 +608,24 @@ bool GpuDeviceImpl::initializeVulkan()
         return false;
     }
 
+    const VulkanShaderCompilerMode shaderCompilerMode = mDesc.vulkanShaderCompilerMode;
+    const Diligent::Version &supportedVkVersion       = factoryVk->GetVulkanVersion();
+    const Diligent::Uint32 dxCompilerVkVersion =
+        VK_MAKE_VERSION(supportedVkVersion.Major, supportedVkVersion.Minor, 0u);
+    std::unique_ptr<Diligent::IDXCompiler> vulkanDxCompiler = Diligent::CreateDXCompiler(
+        Diligent::DXCompilerTarget::Vulkan, dxCompilerVkVersion, nullptr);
+    const bool dxcLoaded = vulkanDxCompiler != nullptr && vulkanDxCompiler->IsLoaded();
+    const bool canCompileNativePhysicsShaders =
+        dxcLoaded && shaderCompilerMode != VulkanShaderCompilerMode::ForceDefault;
+
+    if (shaderCompilerMode == VulkanShaderCompilerMode::ForceDXC && !dxcLoaded)
+    {
+        CRESSIM_LOG_ERROR(
+            "Vulkan shader compiler mode is set to force DXC, but Diligent could not load the "
+            "Vulkan DXC compiler.");
+        return false;
+    }
+
     auto createDeviceContexts = [&](bool requestDedicatedPhysicsContext)
     {
         mRenderDevice    = nullptr;
@@ -504,6 +635,20 @@ bool GpuDeviceImpl::initializeVulkan()
         Diligent::EngineVkCreateInfo engineCreateInfo{};
         engineCreateInfo.EnableValidation =
             static_cast<Diligent::Bool>(mDesc.enableValidation ? 1 : 0);
+        std::array<const char *, 1> deviceExtensions{};
+        VkPhysicalDeviceShaderAtomicFloatFeaturesEXT shaderAtomicFloatFeatures{};
+        deviceExtensions[0]                     = VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME;
+        engineCreateInfo.DeviceExtensionCount   = 1u;
+        engineCreateInfo.ppDeviceExtensionNames = deviceExtensions.data();
+
+        shaderAtomicFloatFeatures.sType =
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT;
+        shaderAtomicFloatFeatures.shaderBufferFloat32AtomicAdd = VK_TRUE;
+        engineCreateInfo.pDeviceExtensionFeatures              = &shaderAtomicFloatFeatures;
+
+        CRESSIM_LOG_INFO("Requesting Vulkan native float atomics via ",
+                         VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,
+                         " with shaderBufferFloat32AtomicAdd=VK_TRUE.");
 
         const VulkanDedicatedContextPlan dedicatedContextPlan =
             planDedicatedVulkanContexts(*factoryVk, engineCreateInfo.AdapterId);
@@ -548,6 +693,8 @@ bool GpuDeviceImpl::initializeVulkan()
 
         if (mRenderDevice == nullptr || contexts[0] == nullptr)
         {
+            CRESSIM_LOG_WARNING("Vulkan device creation failed. dedicatedPhysicsContext=",
+                                requestDedicatedPhysicsContext ? "requested" : "disabled", ".");
             return false;
         }
 
@@ -563,6 +710,8 @@ bool GpuDeviceImpl::initializeVulkan()
         return true;
     };
 
+    CRESSIM_LOG_INFO(
+        "Attempting Vulkan device creation with native physics float atomics requested.");
     if (!createDeviceContexts(true))
     {
         CRESSIM_LOG_WARNING(
@@ -572,6 +721,38 @@ bool GpuDeviceImpl::initializeVulkan()
             return false;
         }
     }
+
+    if (canCompileNativePhysicsShaders)
+    {
+        if (probeNativePhysicsFloatAtomicShader(mRenderDevice, shaderCompilerMode))
+        {
+            mSupportsNativePhysicsFloatAtomics = true;
+        }
+    }
+    else if (!dxcLoaded)
+    {
+        CRESSIM_LOG_WARNING(
+            "native physics float atomics were requested from Vulkan, but Diligent could not "
+            "load the Vulkan DXC compiler; using CAS fallback.");
+    }
+    else if (shaderCompilerMode == VulkanShaderCompilerMode::ForceDefault)
+    {
+        CRESSIM_LOG_WARNING(
+            "native physics float atomics were requested from Vulkan, but Vulkan shader "
+            "compiler mode forces the default compiler; using CAS fallback.");
+    }
+
+    if (canCompileNativePhysicsShaders && !mSupportsNativePhysicsFloatAtomics)
+    {
+        CRESSIM_LOG_WARNING(
+            "native physics float atomics were requested, but the created Vulkan device could "
+            "not compile the native float-atomics shader; using CAS fallback.");
+    }
+
+    CRESSIM_LOG_INFO("Physics float atomics: native=",
+                     mSupportsNativePhysicsFloatAtomics ? "enabled" : "disabled",
+                     ", shaderCompilerMode=", shaderCompilerModeToString(shaderCompilerMode),
+                     ", dxcLoaded=", dxcLoaded ? "yes" : "no", ".");
 
     if (mPhysicsContext == mGraphicsContext)
     {

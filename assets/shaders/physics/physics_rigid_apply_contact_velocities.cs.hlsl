@@ -1,14 +1,12 @@
-#include "physics/include/physics_rigid_dispatch_constants.hlsli"
-#include "physics/include/physics_rigid_common.hlsli"
+#include "include/physics/physics_rigid_dispatch_constants.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyLinearVelocities);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyAngularVelocities);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyLinearVelocityCorrections);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyAngularVelocityCorrections);
-
-static const float kVelocityCorrectionAtomicScale = 100000.0;
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyLinearVelocityCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyAngularVelocityCorrections);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -23,9 +21,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     float4 linearVelocity = CRESSIM_SB_LOAD(g_PredictedRigidBodyLinearVelocities, bodyIndex);
     float4 angularVelocity = CRESSIM_SB_LOAD(g_PredictedRigidBodyAngularVelocities, bodyIndex);
     const float3 linearCorrection =
-        float3(CRESSIM_SB_REF(g_RigidBodyLinearVelocityCorrections, bodyIndex).xyz) / kVelocityCorrectionAtomicScale;
+        CRESSIM_LOAD_ATOMIC_FLOAT3_ENTRY(g_RigidBodyLinearVelocityCorrections, bodyIndex);
     const float3 angularCorrection =
-        float3(CRESSIM_SB_REF(g_RigidBodyAngularVelocityCorrections, bodyIndex).xyz) / kVelocityCorrectionAtomicScale;
+        CRESSIM_LOAD_ATOMIC_FLOAT3_ENTRY(g_RigidBodyAngularVelocityCorrections, bodyIndex);
 
     if (bodyType == kRigidBodyTypeDynamic)
     {
@@ -35,6 +33,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     CRESSIM_SB_STORE(g_PredictedRigidBodyLinearVelocities, bodyIndex, linearVelocity);
     CRESSIM_SB_STORE(g_PredictedRigidBodyAngularVelocities, bodyIndex, angularVelocity);
-    CRESSIM_SB_STORE(g_RigidBodyLinearVelocityCorrections, bodyIndex, int4(0, 0, 0, 0));
-    CRESSIM_SB_STORE(g_RigidBodyAngularVelocityCorrections, bodyIndex, int4(0, 0, 0, 0));
+    CRESSIM_CLEAR_ATOMIC_FLOAT4_ENTRY(g_RigidBodyLinearVelocityCorrections, bodyIndex);
+    CRESSIM_CLEAR_ATOMIC_FLOAT4_ENTRY(g_RigidBodyAngularVelocityCorrections, bodyIndex);
 }

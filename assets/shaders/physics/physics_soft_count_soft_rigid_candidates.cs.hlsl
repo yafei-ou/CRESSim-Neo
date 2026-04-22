@@ -1,5 +1,5 @@
-#include "physics/include/physics_soft_dispatch_constants.hlsli"
-#include "physics/include/physics_rigid_common.hlsli"
+#include "include/physics/physics_soft_dispatch_constants.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float, g_SoftParticleRadii);
@@ -60,8 +60,15 @@ void CountCandidatesFromBvh(bool useStaticBvh, float3 queryMin, float3 queryMax,
     while (stackSize > 0u)
     {
         const uint nodeIndex = stack[--stackSize];
-        const GpuBvhNode node = useStaticBvh ? CRESSIM_SB_LOAD(g_StaticBvhNodes, nodeIndex)
-                                             : CRESSIM_SB_LOAD(g_BvhNodes, nodeIndex);
+        GpuBvhNode node;
+        if (useStaticBvh)
+        {
+            node = CRESSIM_SB_LOAD(g_StaticBvhNodes, nodeIndex);
+        }
+        else
+        {
+            node = CRESSIM_SB_LOAD(g_BvhNodes, nodeIndex);
+        }
         if (!NodeOverlapsQuery(node, queryMin, queryMax))
         {
             continue;

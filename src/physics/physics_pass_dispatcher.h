@@ -105,6 +105,9 @@ public:
                               const PhysicsSceneGpuState &sceneState,
                               std::uint32_t softParticleCount,
                               const GpuSoftDispatchConstants &constants);
+    bool solveSoftContactVelocities(Diligent::IDeviceContext *computeContext,
+                                    const PhysicsSceneGpuState &sceneState,
+                                    std::uint32_t softParticleCount, std::uint32_t iterations);
     bool solveSoftRigidContactVelocities(Diligent::IDeviceContext *computeContext,
                                          const PhysicsSceneGpuState &sceneState,
                                          std::uint32_t softParticleCount,
@@ -198,6 +201,8 @@ private:
                                            const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveRigidContactConstraintsPass(Diligent::IDeviceContext *computeContext,
                                                   const PhysicsSceneGpuState &sceneState);
+    bool dispatchSolveSoftContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
+                                                const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveSoftRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
                                                      const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
@@ -236,6 +241,7 @@ private:
     gpu::GpuComputePass mSolveSoftRigidContactsPass;
     gpu::GpuComputePass mApplySoftPositionCorrectionsPass;
     gpu::GpuComputePass mUpdateSoftVelocitiesPass;
+    gpu::GpuComputePass mSolveSoftContactVelocitiesPass;
     gpu::GpuComputePass mSolveSoftRigidContactVelocitiesPass;
     gpu::GpuComputePass mApplySoftContactVelocitiesPass;
     gpu::GpuComputePass mUpdateSoftTriangleNormalsPass;

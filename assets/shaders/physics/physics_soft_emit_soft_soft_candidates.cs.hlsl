@@ -1,5 +1,5 @@
-#include "physics/include/physics_soft_dispatch_constants.hlsli"
-#include "physics/include/physics_rigid_common.hlsli"
+#include "include/physics/physics_soft_dispatch_constants.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(GpuParticleBroadPhaseEntry, g_ParticleBroadPhaseEntries);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleCellRange, g_ParticleCellRanges);
@@ -16,8 +16,8 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_CandidateCounts);
 CRESSIM_STRUCTURED_BUFFER(uint, g_CandidateOffsets);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftCandidatePair, g_SoftCandidatePairs);
 
-#include "physics/include/physics_soft_neighbor_base.hlsli"
-#include "physics/include/physics_soft_soft_neighbor.hlsli"
+#include "include/physics/physics_soft_neighbor_base.hlsli"
+#include "include/physics/physics_soft_soft_neighbor.hlsli"
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)

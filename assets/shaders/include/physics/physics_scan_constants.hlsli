@@ -1,7 +1,7 @@
 #ifndef CRESSIM_NEO_PHYSICS_SCAN_CONSTANTS_HLSLI
 #define CRESSIM_NEO_PHYSICS_SCAN_CONSTANTS_HLSLI
 
-#include "include/structured_buffer_compat.hlsli"
+#include "../structured_buffer_compat.hlsli"
 
 cbuffer PhysicsScanConstantsBuffer
 {

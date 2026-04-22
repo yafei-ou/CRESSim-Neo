@@ -1,13 +1,11 @@
-#include "physics/include/physics_rigid_dispatch_constants.hlsli"
-#include "physics/include/physics_rigid_common.hlsli"
-
-static const float kCorrectionAtomicScale = 100000.0;
+#include "include/physics/physics_rigid_dispatch_constants.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyTranslationCorrections);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyRotationCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyTranslationCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -22,9 +20,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     float4 orientation = QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyIndex));
     const uint bodyType = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyIndex);
     const float3 translationCorrection =
-        float3(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, bodyIndex).xyz) / kCorrectionAtomicScale;
+        CRESSIM_LOAD_ATOMIC_FLOAT3_ENTRY(g_RigidBodyTranslationCorrections, bodyIndex);
     const float3 rotationCorrection =
-        float3(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, bodyIndex).xyz) / kCorrectionAtomicScale;
+        CRESSIM_LOAD_ATOMIC_FLOAT3_ENTRY(g_RigidBodyRotationCorrections, bodyIndex);
 
     if (bodyType == kRigidBodyTypeDynamic && positionInvMass.w != 0.0)
     {
@@ -36,6 +34,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     CRESSIM_SB_STORE(g_PredictedRigidBodyPositionsInvMass, bodyIndex, positionInvMass);
     CRESSIM_SB_STORE(g_PredictedRigidBodyOrientations, bodyIndex, orientation);
-    CRESSIM_SB_STORE(g_RigidBodyTranslationCorrections, bodyIndex, int4(0, 0, 0, 0));
-    CRESSIM_SB_STORE(g_RigidBodyRotationCorrections, bodyIndex, int4(0, 0, 0, 0));
+    CRESSIM_CLEAR_ATOMIC_FLOAT4_ENTRY(g_RigidBodyTranslationCorrections, bodyIndex);
+    CRESSIM_CLEAR_ATOMIC_FLOAT4_ENTRY(g_RigidBodyRotationCorrections, bodyIndex);
 }

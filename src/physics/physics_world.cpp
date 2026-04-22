@@ -79,21 +79,23 @@ Diligent::float4 toColliderLocalOrientation(const ColliderState &state)
 
 Diligent::float4 toColliderMaterial(const ColliderState &state)
 {
-    return Diligent::float4{state.friction, state.restitution, 0.0f, 0.0f};
+    return Diligent::float4{state.friction, state.restitution, 0.0f, state.staticFriction};
 }
 
 Diligent::float4 toSoftBodyMaterial(const SoftBodyMaterialDesc &material)
 {
     return Diligent::float4{material.friction, material.restitution, material.damping,
-                            material.reserved};
+                            material.staticFriction};
 }
 
 void normalizeSoftBodyMaterial(SoftBodyMaterialDesc &material) noexcept
 {
-    material.friction    = std::max(material.friction, 0.0f);
-    material.restitution = std::clamp(material.restitution, 0.0f, 1.0f);
-    material.damping     = std::max(material.damping, 0.0f);
-    material.reserved    = 0.0f;
+    material.friction       = std::max(material.friction, 0.0f);
+    material.staticFriction = material.staticFriction < 0.0f
+                                  ? material.friction
+                                  : std::max(material.staticFriction, 0.0f);
+    material.restitution    = std::clamp(material.restitution, 0.0f, 1.0f);
+    material.damping        = std::max(material.damping, 0.0f);
 }
 
 } // namespace
@@ -1033,6 +1035,10 @@ void PhysicsWorld::normalizeRigidBodyState(RigidBodyState &state) noexcept
 
 void PhysicsWorld::normalizeColliderState(ColliderState &state) noexcept
 {
+    state.friction = std::max(state.friction, 0.0f);
+    state.staticFriction =
+        state.staticFriction < 0.0f ? state.friction : std::max(state.staticFriction, 0.0f);
+    state.restitution = std::clamp(state.restitution, 0.0f, 1.0f);
     if (state.collisionLayer == 0u)
     {
         state.collisionLayer = 1u;

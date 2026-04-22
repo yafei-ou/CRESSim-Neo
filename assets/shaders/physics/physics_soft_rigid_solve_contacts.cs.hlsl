@@ -1,25 +1,24 @@
-#include "physics/include/physics_rigid_common.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
 
-static const float kSoftCorrectionAtomicScale = 100000.0;
 static const float kSoftContactRelaxation = 0.95;
 static const float kSoftMaxCorrectionPerIter = 0.05;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePreviousPositions);
+CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticleMaterials);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyPositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderMaterials);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftRigidContact, g_SoftRigidContacts);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftNeighborMeta, g_SoftNeighborMeta);
 
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_SoftPositionCorrections);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyTranslationCorrections);
-CRESSIM_RW_STRUCTURED_BUFFER(int4, g_RigidBodyRotationCorrections);
-
-int3 QuantizeSoftCorrection(float3 value)
-{
-    return int3(round(value * kSoftCorrectionAtomicScale));
-}
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_SoftPositionCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyTranslationCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -40,10 +39,16 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint softParticleIndex = contact.softParticleIndex;
     const float4 softPositionInvMass =
         CRESSIM_SB_LOAD(g_SoftParticlePositionsInvMass, softParticleIndex);
+    const float3 previousSoftPosition =
+        CRESSIM_SB_LOAD(g_SoftParticlePreviousPositions, softParticleIndex).xyz;
     const float invMassSoft = softPositionInvMass.w;
     const uint rigidBodyIndex = contact.rigidBodyIndex;
+    const float4 previousRigidPositionInvMass =
+        CRESSIM_SB_LOAD(g_PreviousRigidBodyPositionsInvMass, rigidBodyIndex);
     const float4 rigidPositionInvMass =
         CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, rigidBodyIndex);
+    const float4 previousRigidOrientation =
+        QuaternionNormalize(CRESSIM_SB_LOAD(g_PreviousRigidBodyOrientations, rigidBodyIndex));
     const float4 rigidOrientation =
         QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, rigidBodyIndex));
     const uint rigidBodyType = CRESSIM_SB_LOAD(g_RigidBodyTypes, rigidBodyIndex);
@@ -63,18 +68,23 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 normal =
         SafeNormalize(contact.normalPenetration.xyz, float3(0.0, 1.0, 0.0));
     float3 invInertiaRigid = CRESSIM_SB_LOAD(g_RigidBodyInverseInertiaLocal, rigidBodyIndex).xyz;
+    const float3 combinedMaterial = CombineContactMaterial(
+        CRESSIM_SB_LOAD(g_SoftParticleMaterials, softParticleIndex),
+        CRESSIM_SB_LOAD(g_ColliderMaterials, contact.colliderIndex));
     if (invMassRigid <= kEpsilon)
     {
         invInertiaRigid = 0.0;
     }
 
+    const float3 previousRigidContactPoint =
+        previousRigidPositionInvMass.xyz +
+        QuaternionRotate(previousRigidOrientation, contact.rigidLocalPoint.xyz);
     const float3 rigidContactPoint =
         rigidPositionInvMass.xyz + QuaternionRotate(rigidOrientation, contact.rigidLocalPoint.xyz);
     const float3 rRigid = rigidContactPoint - rigidPositionInvMass.xyz;
-    const float3 angJ = cross(rRigid, normal);
-    const float3 angMass = MultiplyWorldInverseInertia(invInertiaRigid, rigidOrientation, angJ);
-    const float angTerm = dot(cross(angMass, rRigid), normal);
-    const float denom = invMassSoft + invMassRigid + angTerm;
+    const float normalMassRigid =
+        ComputeContactEffectiveMass(invMassRigid, invInertiaRigid, rigidOrientation, rRigid, normal);
+    const float denom = invMassSoft + normalMassRigid;
     if (denom <= kEpsilon)
     {
         return;
@@ -83,31 +93,43 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float lambda = (penetration / denom) * kSoftContactRelaxation;
     float3 softCorrection = normal * (invMassSoft * lambda);
     float3 rigidTranslationCorrection = -normal * (invMassRigid * lambda);
-    const float3 rigidRotationCorrection = -angMass * lambda;
-    const int3 softQuantized = QuantizeSoftCorrection(softCorrection);
-    const int3 rigidTranslationQuantized = QuantizeSoftCorrection(rigidTranslationCorrection);
-    const int3 rigidRotationQuantized = QuantizeSoftCorrection(rigidRotationCorrection);
+    float3 rigidRotationCorrection =
+        -MultiplyWorldInverseInertia(invInertiaRigid, rigidOrientation, cross(rRigid, normal)) * lambda;
+
+    const float3 relativeDisplacement =
+        (rigidContactPoint - previousRigidContactPoint) - (softPositionInvMass.xyz - previousSoftPosition);
+    const float3 tangentialDisplacement = ProjectOntoContactTangent(relativeDisplacement, normal);
+    const float3 frictionDelta = ComputePositionFrictionDelta(
+        tangentialDisplacement, penetration, combinedMaterial.x, combinedMaterial.z);
+    const float frictionDistance = length(frictionDelta);
+    if (frictionDistance > 0.0)
+    {
+        const float3 tangent = frictionDelta / frictionDistance;
+        const float tangentMassRigid = ComputeContactEffectiveMass(invMassRigid, invInertiaRigid,
+                                                                  rigidOrientation, rRigid, tangent);
+        const float tangentDenom = invMassSoft + tangentMassRigid;
+        if (tangentDenom > kEpsilon)
+        {
+            const float tangentLambda = frictionDistance / tangentDenom;
+            softCorrection += tangent * (tangentLambda * invMassSoft * kSoftContactRelaxation);
+            rigidTranslationCorrection -=
+                tangent * (tangentLambda * invMassRigid * kSoftContactRelaxation);
+            rigidRotationCorrection -=
+                MultiplyWorldInverseInertia(invInertiaRigid, rigidOrientation, cross(rRigid, tangent)) *
+                (tangentLambda * kSoftContactRelaxation);
+        }
+    }
 
     if (invMassSoft > kEpsilon)
     {
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, softParticleIndex).x, softQuantized.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, softParticleIndex).y, softQuantized.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_SoftPositionCorrections, softParticleIndex).z, softQuantized.z);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_SoftPositionCorrections, softParticleIndex, softCorrection);
     }
 
     if (invMassRigid > kEpsilon)
     {
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, rigidBodyIndex).x,
-                       rigidTranslationQuantized.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, rigidBodyIndex).y,
-                       rigidTranslationQuantized.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyTranslationCorrections, rigidBodyIndex).z,
-                       rigidTranslationQuantized.z);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, rigidBodyIndex).x,
-                       rigidRotationQuantized.x);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, rigidBodyIndex).y,
-                       rigidRotationQuantized.y);
-        InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyRotationCorrections, rigidBodyIndex).z,
-                       rigidRotationQuantized.z);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyTranslationCorrections, rigidBodyIndex,
+                                      rigidTranslationCorrection);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyRotationCorrections, rigidBodyIndex,
+                                      rigidRotationCorrection);
     }
 }

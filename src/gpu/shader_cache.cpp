@@ -16,7 +16,7 @@ namespace
 {
 
 // Bump this whenever we make cache-incompatible shader/PSO changes so stale blobs
-constexpr Diligent::Uint32 kShaderCacheContentVersion = 1u;
+constexpr Diligent::Uint32 kShaderCacheContentVersion = 5u;
 
 bool canUsePipelineStateCache(const Diligent::PipelineStateDesc &desc)
 {

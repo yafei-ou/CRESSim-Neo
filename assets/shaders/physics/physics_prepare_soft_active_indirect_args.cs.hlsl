@@ -1,4 +1,4 @@
-#include "physics/include/physics_rigid_common.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
 
 static const uint kComputeThreadGroupSize = 64u;
 
@@ -27,4 +27,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                      MakeArgs(meta.activeSoftContactCount));
     CRESSIM_SB_STORE(g_PhysicsIndirectDispatchArgs, kPhysicsIndirectSoftSolveRigidContacts,
                      MakeArgs(meta.activeSoftRigidContactCount));
+    CRESSIM_SB_STORE(g_PhysicsIndirectDispatchArgs, kPhysicsIndirectSoftSolveContactVelocities,
+                     MakeArgs(meta.activeSoftContactCount));
 }

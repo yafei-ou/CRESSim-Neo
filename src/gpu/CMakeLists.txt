@@ -50,11 +50,14 @@ source_group(
 target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_include_directories(${TARGET_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/extern)
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_include_directories(${TARGET_NAME} PRIVATE
+    ${PROJECT_SOURCE_DIR}/extern/DiligentEngine/DiligentCore/Common/interface
+)
 
 set(CRESSIM_NEO_SHADER_SOURCE_DIR "${PROJECT_SOURCE_DIR}/assets/shaders")
 target_compile_definitions(${TARGET_NAME} PRIVATE CRESSIM_NEO_SHADER_SOURCE_DIR="${CRESSIM_NEO_SHADER_SOURCE_DIR}")
 
-target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common)
+target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common Vulkan::Headers)
 
 # Link with Diligent
 target_link_libraries(${TARGET_NAME} PUBLIC Diligent-PublicBuildSettings)
@@ -94,3 +97,20 @@ add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
         "${CRESSIM_NEO_SHADER_SOURCE_DIR}"
         "$<TARGET_FILE_DIR:${TARGET_NAME}>/shaders"
 )
+
+if(WIN32 AND CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH AND EXISTS "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}")
+    add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}"
+            "$<TARGET_FILE_DIR:${TARGET_NAME}>/spv_dxcompiler.dll"
+    )
+elseif(UNIX AND CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH AND EXISTS "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}")
+    add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}"
+            "$<TARGET_FILE_DIR:${TARGET_NAME}>/libdxcompiler.so"
+    )
+elseif(CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH AND NOT EXISTS "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}")
+    message(WARNING
+        "CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH does not exist: ${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}")
+endif()

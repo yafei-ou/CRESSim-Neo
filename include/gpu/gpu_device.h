@@ -16,6 +16,13 @@
 namespace cressim::neo::gpu
 {
 
+enum class VulkanShaderCompilerMode
+{
+    Auto,
+    ForceDefault,
+    ForceDXC,
+};
+
 struct GpuDeviceDesc
 {
     struct PresentationDesc
@@ -41,6 +48,7 @@ struct GpuDeviceDesc
     bool enableValidation       = true;
     GpuRenderTargetDesc defaultRenderTargetDesc{};
     PresentationDesc presentation{};
+    VulkanShaderCompilerMode vulkanShaderCompilerMode = VulkanShaderCompilerMode::Auto;
     // Optional override for runtime shader source directory.
     // If empty, the engine resolves its default search paths.
     std::string shaderDirectory;
@@ -68,6 +76,7 @@ public:
     virtual GpuPresentationReadbackRequest requestPresentationReadback()             = 0;
     virtual bool tryGetPresentationReadback(GpuPresentationReadbackRequest request,
                                             GpuPresentationReadbackEvent &outEvent)  = 0;
+    virtual bool supportsNativePhysicsFloatAtomics() const                           = 0;
     virtual const std::string &shaderSourceDirectory() const                         = 0;
     virtual bool createShader(const Diligent::ShaderCreateInfo &createInfo,
                               Diligent::IShader **shader)                            = 0;

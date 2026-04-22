@@ -1,5 +1,5 @@
-#include "physics/include/physics_rigid_broad_phase_reduction_constants.hlsli"
-#include "physics/include/physics_rigid_common.hlsli"
+#include "include/physics/physics_rigid_broad_phase_reduction_constants.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(GpuBroadPhaseExtent, g_InputExtents);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuBroadPhaseExtent, g_OutputExtents);

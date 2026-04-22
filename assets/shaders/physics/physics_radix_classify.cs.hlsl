@@ -1,6 +1,6 @@
-#include "physics/include/physics_radix_constants.hlsli"
+#include "include/physics/physics_radix_constants.hlsli"
 
-#include "physics/include/physics_rigid_common.hlsli"
+#include "include/physics/physics_rigid_common.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(GpuMortonCodeElement, g_MortonCodesIn);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_RadixBitFlags);

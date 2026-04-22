@@ -147,7 +147,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             static_cast<std::uint32_t>(softRenderData.softBodyParticleRanges.size()),
             softBodyBoundsChunkCount,
             gpu::contextMaskForId(computeBackend.contextId) |
-                gpu::contextMaskForId(graphicsBackend.contextId)))
+                gpu::contextMaskForId(graphicsBackend.contextId),
+            mDevice.supportsNativePhysicsFloatAtomics()))
     {
         CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ensureCapacity.");
         return false;
@@ -512,6 +513,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 computeBackend.computeContext, mImpl->sceneState, softParticleCount, softConstants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftVelocities dispatch.");
+            return false;
+        }
+        if (hasSoftSoftContactWork && softContactIterations > 0u &&
+            !mImpl->passDispatcher.solveSoftContactVelocities(computeBackend.computeContext,
+                                                              mImpl->sceneState, softParticleCount,
+                                                              softContactIterations))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SolveSoftContactVelocities dispatch.");
             return false;
         }
         if (hasSoftRigidContactWork && softContactIterations > 0u &&

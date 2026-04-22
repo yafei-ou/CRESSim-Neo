@@ -495,7 +495,7 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     world.setMeshRenderer(obstacleEntity, MeshRendererComponent{boxMesh, materials.obstacle, true});
     RigidBodyComponent obstacleBody{};
     obstacleBody.bodyType            = RigidBodyType::Dynamic;
-    obstacleBody.inverseMass         = 0.02f;
+    obstacleBody.inverseMass         = 0.05f;
     obstacleBody.inverseInertiaLocal = computeBoxInverseInertia({2.5f, 2.5f, 2.5f},
                                                                 obstacleBody.inverseMass);
     world.setRigidBody(obstacleEntity, obstacleBody);
@@ -534,7 +534,7 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     softBody.source.kind            = SoftBodySourceKind::TetGenFiles;
     softBody.source.tetGen.nodeFile = nodeFile.string();
     softBody.source.tetGen.eleFile  = eleFile.string();
-    softBody.selfCollisionEnabled   = false;
+    softBody.selfCollisionEnabled   = true;
     softBody.collisionLayer         = 0x1u;
     softBody.collisionMask          = 0xffffffffu;
 

@@ -53,6 +53,20 @@ if(WIN32)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
+if(APPLE)
+    # Keep shipped helper libraries relocatable by resolving them relative to the
+    # final binary/shared-library location at runtime on macOS.
+    set(CMAKE_MACOSX_RPATH ON)
+    set(CMAKE_INSTALL_RPATH "@loader_path")
+    set(CMAKE_BUILD_RPATH "@loader_path")
+elseif(UNIX)
+    # Keep shipped helper libraries relocatable by resolving them relative to the
+    # final binary/shared-library location at runtime on ELF platforms.
+    set(CMAKE_BUILD_RPATH_USE_ORIGIN ON)
+    set(CMAKE_INSTALL_RPATH "$ORIGIN")
+    set(CMAKE_BUILD_RPATH "$ORIGIN")
+endif()
+
 if(ENGINE_STATIC)
     add_compile_definitions(CRESSIM_NEO_STATIC)
 endif()
@@ -74,6 +88,11 @@ if(MSVC)
         "Additional MSVC compile options for release configurations" FORCE)
 endif()
 add_subdirectory(extern/DiligentEngine EXCLUDE_FROM_ALL)
+
+if(NOT DEFINED CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH)
+    set(CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH "${DILIGENT_DXCOMPILER_FOR_SPIRV_PATH}" CACHE FILEPATH
+        "Path to the Vulkan DXC runtime library copied next to CRESSim-Neo binaries")
+endif()
 
 add_subdirectory(src)
 
