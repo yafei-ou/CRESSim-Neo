@@ -4,12 +4,7 @@
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyScales);
-CRESSIM_STRUCTURED_BUFFER(uint, g_ColliderOwnerRigidBodyIndices);
-CRESSIM_STRUCTURED_BUFFER(uint, g_ColliderShapeTypes);
-CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderShapeParams);
-CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalPositions);
-CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalOrientations);
-CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderMaterials);
+CRESSIM_STRUCTURED_BUFFER(GpuColliderContactData, g_ColliderContactData);
 CRESSIM_STRUCTURED_BUFFER(GpuCandidatePair, g_CandidatePairs);
 CRESSIM_STRUCTURED_BUFFER(GpuNarrowPhaseChunk, g_NarrowPhaseChunks);
 CRESSIM_STRUCTURED_BUFFER(GpuNarrowPhaseMeta, g_NarrowPhaseMeta);
@@ -755,8 +750,10 @@ void ProcessPair(uint pairIndex, uint pairType)
     const GpuCandidatePair pair = CRESSIM_SB_LOAD(g_CandidatePairs, pairIndex);
     const uint colliderA = pair.colliderA;
     const uint colliderB = pair.colliderB;
-    const uint bodyA = CRESSIM_SB_LOAD(g_ColliderOwnerRigidBodyIndices, colliderA);
-    const uint bodyB = CRESSIM_SB_LOAD(g_ColliderOwnerRigidBodyIndices, colliderB);
+    const GpuColliderContactData colliderDataA = CRESSIM_SB_LOAD(g_ColliderContactData, colliderA);
+    const GpuColliderContactData colliderDataB = CRESSIM_SB_LOAD(g_ColliderContactData, colliderB);
+    const uint bodyA = colliderDataA.ownerBody;
+    const uint bodyB = colliderDataB.ownerBody;
     if (bodyA >= rigidBodyCount || bodyB >= rigidBodyCount || bodyA == bodyB)
     {
         return;
@@ -773,25 +770,24 @@ void ProcessPair(uint pairIndex, uint pairType)
         QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyA));
     const float4 bodyOrientationB =
         QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyB));
-    const float4 colliderParamsA = CRESSIM_SB_LOAD(g_ColliderShapeParams, colliderA);
-    const float4 colliderParamsB = CRESSIM_SB_LOAD(g_ColliderShapeParams, colliderB);
+    const float4 colliderParamsA = colliderDataA.shapeParams;
+    const float4 colliderParamsB = colliderDataB.shapeParams;
     const float4 scaleA = CRESSIM_SB_LOAD(g_RigidBodyScales, bodyA);
     const float4 scaleB = CRESSIM_SB_LOAD(g_RigidBodyScales, bodyB);
-    const uint shapeTypeA = CRESSIM_SB_LOAD(g_ColliderShapeTypes, colliderA);
-    const uint shapeTypeB = CRESSIM_SB_LOAD(g_ColliderShapeTypes, colliderB);
-    const float3 contactMaterial =
-        CombineContactMaterial(CRESSIM_SB_LOAD(g_ColliderMaterials, colliderA),
-                               CRESSIM_SB_LOAD(g_ColliderMaterials, colliderB));
+    const uint shapeTypeA = colliderDataA.shapeType;
+    const uint shapeTypeB = colliderDataB.shapeType;
+    const float3 contactMaterial = CombineContactMaterial(colliderDataA.material,
+                                                          colliderDataB.material);
     const float3 colliderPositionA = ComposeColliderWorldPosition(
         bodyPositionInvMassA.xyz, bodyOrientationA,
-        CRESSIM_SB_REF(g_ColliderLocalPositions, colliderA).xyz * scaleA.xyz);
+        colliderDataA.localPosition.xyz * scaleA.xyz);
     const float3 colliderPositionB = ComposeColliderWorldPosition(
         bodyPositionInvMassB.xyz, bodyOrientationB,
-        CRESSIM_SB_REF(g_ColliderLocalPositions, colliderB).xyz * scaleB.xyz);
+        colliderDataB.localPosition.xyz * scaleB.xyz);
     const float4 colliderOrientationA = ComposeColliderWorldOrientation(
-        bodyOrientationA, QuaternionNormalize(CRESSIM_SB_LOAD(g_ColliderLocalOrientations, colliderA)));
+        bodyOrientationA, QuaternionNormalize(colliderDataA.localOrientation));
     const float4 colliderOrientationB = ComposeColliderWorldOrientation(
-        bodyOrientationB, QuaternionNormalize(CRESSIM_SB_LOAD(g_ColliderLocalOrientations, colliderB)));
+        bodyOrientationB, QuaternionNormalize(colliderDataB.localOrientation));
 
     float3 aabbMinA;
     float3 aabbMaxA;

@@ -215,6 +215,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentRigidBodies.kinematicTargetFlagsBuffer != nullptr &&
         mPersistentColliders.ownerRigidBodyIndicesBuffer != nullptr &&
         mPersistentColliders.broadPhaseDataBuffer != nullptr &&
+        mPersistentColliders.contactDataBuffer != nullptr &&
         mPersistentColliders.shapeTypesBuffer != nullptr &&
         mPersistentColliders.shapeParamsBuffer != nullptr &&
         mPersistentColliders.localPositionsBuffer != nullptr &&
@@ -459,6 +460,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentColliders.ownerRigidBodyIndicesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderContactData",
+                                sizeof(GpuColliderContactData), newColliderCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentColliders.contactDataBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderBroadPhaseData",
                                 sizeof(GpuColliderBroadPhaseData), newColliderCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -1347,21 +1353,46 @@ bool PhysicsSceneGpuState::uploadColliderRange(Diligent::IDeviceContext *compute
                                                const ColliderSoAHost &colliders,
                                                std::uint32_t begin, std::uint32_t count)
 {
-    return updateStructuredBufferRange(computeContext,
-                                       mPersistentColliders.ownerRigidBodyIndicesBuffer,
-                                       colliders.ownerRigidBodyIndices, begin, count) &&
-           updateStructuredBufferRange(computeContext, mPersistentColliders.shapeTypesBuffer,
-                                       colliders.shapeTypes, begin, count) &&
-           updateStructuredBufferRange(computeContext, mPersistentColliders.shapeParamsBuffer,
-                                       colliders.shapeParams, begin, count) &&
-           updateStructuredBufferRange(computeContext, mPersistentColliders.localPositionsBuffer,
-                                       colliders.localPositions, begin, count) &&
-           updateStructuredBufferRange(computeContext, mPersistentColliders.localOrientationsBuffer,
-                                       colliders.localOrientations, begin, count) &&
-           updateStructuredBufferRange(computeContext, mPersistentColliders.enabledFlagsBuffer,
-                                       colliders.enabledFlags, begin, count) &&
-           updateStructuredBufferRange(computeContext, mPersistentColliders.materialBuffer,
-                                       colliders.frictionRestitution, begin, count);
+    if (!updateStructuredBufferRange(computeContext,
+                                     mPersistentColliders.ownerRigidBodyIndicesBuffer,
+                                     colliders.ownerRigidBodyIndices, begin, count) ||
+        !updateStructuredBufferRange(computeContext, mPersistentColliders.shapeTypesBuffer,
+                                     colliders.shapeTypes, begin, count) ||
+        !updateStructuredBufferRange(computeContext, mPersistentColliders.shapeParamsBuffer,
+                                     colliders.shapeParams, begin, count) ||
+        !updateStructuredBufferRange(computeContext, mPersistentColliders.localPositionsBuffer,
+                                     colliders.localPositions, begin, count) ||
+        !updateStructuredBufferRange(computeContext, mPersistentColliders.localOrientationsBuffer,
+                                     colliders.localOrientations, begin, count) ||
+        !updateStructuredBufferRange(computeContext, mPersistentColliders.enabledFlagsBuffer,
+                                     colliders.enabledFlags, begin, count) ||
+        !updateStructuredBufferRange(computeContext, mPersistentColliders.materialBuffer,
+                                     colliders.frictionRestitution, begin, count))
+    {
+        return false;
+    }
+
+    std::vector<GpuColliderContactData> contactData(count);
+    for (std::uint32_t i = 0; i < count; ++i)
+    {
+        const std::uint32_t sourceIndex = begin + i;
+        GpuColliderContactData &entry   = contactData[i];
+        entry.ownerBody                 = colliders.ownerRigidBodyIndices[sourceIndex];
+        entry.shapeType                 = colliders.shapeTypes[sourceIndex];
+        entry.reserved0                 = 0u;
+        entry.reserved1                 = 0u;
+        entry.shapeParams               = colliders.shapeParams[sourceIndex];
+        entry.localPosition             = colliders.localPositions[sourceIndex];
+        entry.localOrientation          = colliders.localOrientations[sourceIndex];
+        entry.material                  = colliders.frictionRestitution[sourceIndex];
+    }
+
+    computeContext->UpdateBuffer(
+        mPersistentColliders.contactDataBuffer,
+        static_cast<Diligent::Uint64>(begin) * sizeof(GpuColliderContactData),
+        static_cast<Diligent::Uint64>(count) * sizeof(GpuColliderContactData),
+        contactData.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    return true;
 }
 
 bool PhysicsSceneGpuState::uploadColliderBroadPhaseRange(Diligent::IDeviceContext *computeContext,

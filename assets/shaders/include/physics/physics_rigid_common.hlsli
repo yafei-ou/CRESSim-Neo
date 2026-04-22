@@ -181,6 +181,18 @@ struct GpuColliderBroadPhaseData
     uint reserved2;
 };
 
+struct GpuColliderContactData
+{
+    uint ownerBody;
+    uint shapeType;
+    uint reserved0;
+    uint reserved1;
+    float4 shapeParams;
+    float4 localPosition;
+    float4 localOrientation;
+    float4 material;
+};
+
 struct GpuParticleBroadPhaseEntry
 {
     uint cellKey;
