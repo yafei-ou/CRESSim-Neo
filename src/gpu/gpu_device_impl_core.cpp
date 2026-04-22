@@ -2,11 +2,11 @@
 #include "gpu/gpu_device_impl.h"
 #include "gpu/gpu_render_target_system_impl.h"
 
-#include <vulkan/vulkan.h>
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsTools/interface/ShaderMacroHelper.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/ShaderTools/include/DXCompiler.hpp"
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "DiligentEngine/DiligentCore/Platforms/interface/NativeWindow.h"
+#include <vulkan/vulkan.h>
 
 #include <algorithm>
 #include <array>
@@ -142,8 +142,9 @@ bool probeNativePhysicsFloatAtomicShader(Diligent::IRenderDevice *renderDevice,
     shaderCreateInfo.Source                          = kNativeFloatAtomicProbeShader;
     shaderCreateInfo.ShaderCompiler                  = Diligent::SHADER_COMPILER_DXC;
 
-    CRESSIM_LOG_INFO("Probing native physics float atomics with a built-in compute shader, compiler=",
-                     shaderCompilerModeToString(shaderCompilerMode), ".");
+    CRESSIM_LOG_INFO(
+        "Probing native physics float atomics with a built-in compute shader, compiler=",
+        shaderCompilerModeToString(shaderCompilerMode), ".");
 
     Diligent::RefCntAutoPtr<Diligent::IShader> probeShader;
     renderDevice->CreateShader(shaderCreateInfo, &probeShader);
@@ -608,12 +609,11 @@ bool GpuDeviceImpl::initializeVulkan()
     }
 
     const VulkanShaderCompilerMode shaderCompilerMode = mDesc.vulkanShaderCompilerMode;
-    const Diligent::Version &supportedVkVersion = factoryVk->GetVulkanVersion();
+    const Diligent::Version &supportedVkVersion       = factoryVk->GetVulkanVersion();
     const Diligent::Uint32 dxCompilerVkVersion =
         VK_MAKE_VERSION(supportedVkVersion.Major, supportedVkVersion.Minor, 0u);
-    std::unique_ptr<Diligent::IDXCompiler> vulkanDxCompiler =
-        Diligent::CreateDXCompiler(Diligent::DXCompilerTarget::Vulkan, dxCompilerVkVersion,
-                                   nullptr);
+    std::unique_ptr<Diligent::IDXCompiler> vulkanDxCompiler = Diligent::CreateDXCompiler(
+        Diligent::DXCompilerTarget::Vulkan, dxCompilerVkVersion, nullptr);
     const bool dxcLoaded = vulkanDxCompiler != nullptr && vulkanDxCompiler->IsLoaded();
     const bool canCompileNativePhysicsShaders =
         dxcLoaded && shaderCompilerMode != VulkanShaderCompilerMode::ForceDefault;
@@ -637,14 +637,14 @@ bool GpuDeviceImpl::initializeVulkan()
             static_cast<Diligent::Bool>(mDesc.enableValidation ? 1 : 0);
         std::array<const char *, 1> deviceExtensions{};
         VkPhysicalDeviceShaderAtomicFloatFeaturesEXT shaderAtomicFloatFeatures{};
-        deviceExtensions[0]                   = VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME;
-        engineCreateInfo.DeviceExtensionCount = 1u;
+        deviceExtensions[0]                     = VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME;
+        engineCreateInfo.DeviceExtensionCount   = 1u;
         engineCreateInfo.ppDeviceExtensionNames = deviceExtensions.data();
 
         shaderAtomicFloatFeatures.sType =
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT;
         shaderAtomicFloatFeatures.shaderBufferFloat32AtomicAdd = VK_TRUE;
-        engineCreateInfo.pDeviceExtensionFeatures = &shaderAtomicFloatFeatures;
+        engineCreateInfo.pDeviceExtensionFeatures              = &shaderAtomicFloatFeatures;
 
         CRESSIM_LOG_INFO("Requesting Vulkan native float atomics via ",
                          VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,

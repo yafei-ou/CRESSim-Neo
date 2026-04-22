@@ -76,7 +76,7 @@ public:
     virtual GpuPresentationReadbackRequest requestPresentationReadback()             = 0;
     virtual bool tryGetPresentationReadback(GpuPresentationReadbackRequest request,
                                             GpuPresentationReadbackEvent &outEvent)  = 0;
-    virtual bool supportsNativePhysicsFloatAtomics() const                            = 0;
+    virtual bool supportsNativePhysicsFloatAtomics() const                           = 0;
     virtual const std::string &shaderSourceDirectory() const                         = 0;
     virtual bool createShader(const Diligent::ShaderCreateInfo &createInfo,
                               Diligent::IShader **shader)                            = 0;

@@ -1261,10 +1261,10 @@ bool PhysicsPassDispatcher::solveSoftRigidContacts(Diligent::IDeviceContext *com
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SoftParticleMaterials", softParticles.materialsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_PreviousRigidBodyPositionsInvMass", persistentRigid.positionsBuffer,
+        gpu::GpuBufferBinding{"g_PreviousRigidBodyPositionsInvMass",
+                              persistentRigid.positionsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_PreviousRigidBodyOrientations",
-                              persistentRigid.orientationsBuffer,
+        gpu::GpuBufferBinding{"g_PreviousRigidBodyOrientations", persistentRigid.orientationsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SoftParticlePositionsInvMass",
                               softParticles.positionsInvMassBuffer,
@@ -1391,9 +1391,10 @@ bool PhysicsPassDispatcher::dispatchSolveSoftContactVelocitiesPass(
         indirectArgsOffset(GpuPhysicsIndirectDispatchSlot::SoftSolveContactVelocities));
 }
 
-bool PhysicsPassDispatcher::solveSoftContactVelocities(
-    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    std::uint32_t softParticleCount, std::uint32_t iterations)
+bool PhysicsPassDispatcher::solveSoftContactVelocities(Diligent::IDeviceContext *computeContext,
+                                                       const PhysicsSceneGpuState &sceneState,
+                                                       std::uint32_t softParticleCount,
+                                                       std::uint32_t iterations)
 {
     if (computeContext == nullptr)
     {
@@ -2619,8 +2620,7 @@ bool PhysicsPassDispatcher::dispatchSolveRigidContactConstraintsPass(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PreviousRigidBodyPositionsInvMass", persistent.positionsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_PreviousRigidBodyOrientations",
-                              persistent.orientationsBuffer,
+        gpu::GpuBufferBinding{"g_PreviousRigidBodyOrientations", persistent.orientationsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RigidBodyInverseInertiaLocal",
                               persistent.inverseInertiaLocalBuffer,

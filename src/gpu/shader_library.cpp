@@ -35,9 +35,7 @@ public:
     NormalizingShaderSourceFactory(Diligent::IReferenceCounters *refCounters,
                                    Diligent::IShaderSourceInputStreamFactory *baseFactory,
                                    std::string shaderRoot)
-        : TBase{refCounters}
-        , mBaseFactory{baseFactory}
-        , mShaderRoot{std::move(shaderRoot)}
+        : TBase{refCounters}, mBaseFactory{baseFactory}, mShaderRoot{std::move(shaderRoot)}
     {
         buildSearchBases();
     }
@@ -81,8 +79,8 @@ public:
             return;
         }
 
-        mBaseFactory->CreateInputStream2(name, Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_SILENT,
-                                         ppStream);
+        mBaseFactory->CreateInputStream2(
+            name, Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_SILENT, ppStream);
         if (*ppStream != nullptr)
         {
             return;
@@ -91,9 +89,8 @@ public:
         const std::string requestedName = normalizeSeparators(name);
         const bool isRelativeNestedInclude =
             requestedName.rfind("./", 0) == 0 || requestedName.rfind("../", 0) == 0;
-        const bool isLocalHeaderInclude =
-            requestedName.find('/') == std::string::npos &&
-            requestedName.find('\\') == std::string::npos;
+        const bool isLocalHeaderInclude = requestedName.find('/') == std::string::npos &&
+                                          requestedName.find('\\') == std::string::npos;
         if (!isRelativeNestedInclude && !isLocalHeaderInclude)
         {
             if ((flags & Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_SILENT) == 0)
@@ -134,9 +131,9 @@ public:
                 continue;
             }
 
-            mBaseFactory->CreateInputStream2(candidate.c_str(),
-                                             Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_SILENT,
-                                             ppStream);
+            mBaseFactory->CreateInputStream2(
+                candidate.c_str(), Diligent::CREATE_SHADER_SOURCE_INPUT_STREAM_FLAG_SILENT,
+                ppStream);
             if (*ppStream != nullptr)
             {
                 return;
@@ -167,8 +164,7 @@ private:
         mSearchBases.clear();
         mSearchBases.emplace_back();
 
-        const std::filesystem::path includeRoot =
-            std::filesystem::path(mShaderRoot) / "include";
+        const std::filesystem::path includeRoot = std::filesystem::path(mShaderRoot) / "include";
         std::error_code error;
         if (!std::filesystem::exists(includeRoot, error) ||
             !std::filesystem::is_directory(includeRoot, error))
@@ -309,7 +305,8 @@ bool ShaderLibrary::ensureStreamFactory()
     }
 
     Diligent::RefCntAutoPtr<Diligent::IShaderSourceInputStreamFactory> baseFactory;
-    Diligent::CreateDefaultShaderSourceStreamFactory(mResolvedShaderDirectory.c_str(), &baseFactory);
+    Diligent::CreateDefaultShaderSourceStreamFactory(mResolvedShaderDirectory.c_str(),
+                                                     &baseFactory);
     if (baseFactory == nullptr)
     {
         CRESSIM_LOG_ERROR("Failed to create shader source stream factory for directory '",

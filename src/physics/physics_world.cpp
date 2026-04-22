@@ -90,11 +90,12 @@ Diligent::float4 toSoftBodyMaterial(const SoftBodyMaterialDesc &material)
 
 void normalizeSoftBodyMaterial(SoftBodyMaterialDesc &material) noexcept
 {
-    material.friction = std::max(material.friction, 0.0f);
-    material.staticFriction =
-        material.staticFriction < 0.0f ? material.friction : std::max(material.staticFriction, 0.0f);
-    material.restitution = std::clamp(material.restitution, 0.0f, 1.0f);
-    material.damping     = std::max(material.damping, 0.0f);
+    material.friction       = std::max(material.friction, 0.0f);
+    material.staticFriction = material.staticFriction < 0.0f
+                                  ? material.friction
+                                  : std::max(material.staticFriction, 0.0f);
+    material.restitution    = std::clamp(material.restitution, 0.0f, 1.0f);
+    material.damping        = std::max(material.damping, 0.0f);
 }
 
 } // namespace
