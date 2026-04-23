@@ -1,5 +1,5 @@
-#include "graphics/include/graphics_forward_constants.hlsli"
-#include "graphics/include/graphics_scene_buffers.hlsli"
+#include "include/graphics/graphics_forward_constants.hlsli"
+#include "include/graphics/graphics_scene_buffers.hlsli"
 
 struct VSInput
 {

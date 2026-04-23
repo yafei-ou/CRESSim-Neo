@@ -1,7 +1,7 @@
 #ifndef CRESSIM_NEO_GRAPHICS_FORWARD_CONSTANTS_HLSLI
 #define CRESSIM_NEO_GRAPHICS_FORWARD_CONSTANTS_HLSLI
 
-#include "graphics/include/graphics_per_object.hlsli"
+#include "graphics_per_object.hlsli"
 
 cbuffer GriphicsForwardPerFrame
 {
