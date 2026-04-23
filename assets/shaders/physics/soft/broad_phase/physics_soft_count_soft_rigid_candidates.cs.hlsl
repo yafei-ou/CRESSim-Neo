@@ -13,6 +13,31 @@ CRESSIM_STRUCTURED_BUFFER(uint2, g_BodyColliderRanges);
 
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_CandidateCounts);
 
+bool TryAppendRigidBody(uint rigidBodyIndex,
+                        inout uint seenRigidBodies[kSoftRigidDedupCacheSize],
+                        inout uint seenRigidCount)
+{
+    [unroll]
+    for (uint i = 0u; i < kSoftRigidDedupCacheSize; ++i)
+    {
+        if (i >= seenRigidCount)
+        {
+            break;
+        }
+        if (seenRigidBodies[i] == rigidBodyIndex)
+        {
+            return false;
+        }
+    }
+
+    if (seenRigidCount < kSoftRigidDedupCacheSize)
+    {
+        seenRigidBodies[seenRigidCount] = rigidBodyIndex;
+        ++seenRigidCount;
+    }
+    return true;
+}
+
 void CountCandidatesFromBvh(bool useStaticBvh, float3 queryMin, float3 queryMax,
                             uint softEnvironment, uint softLayer, uint softMask,
                             inout uint seenRigidBodies[kSoftRigidDedupCacheSize],

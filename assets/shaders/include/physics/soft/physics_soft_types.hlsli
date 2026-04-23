@@ -161,29 +161,4 @@ bool SoftParticlePhaseSelfCollideEnabled(uint phase)
     return (phase & kSoftPhaseSelfCollideFlag) != 0u;
 }
 
-bool TryAppendRigidBody(uint rigidBodyIndex,
-                        inout uint seenRigidBodies[kSoftRigidDedupCacheSize],
-                        inout uint seenRigidCount)
-{
-    [unroll]
-    for (uint i = 0u; i < kSoftRigidDedupCacheSize; ++i)
-    {
-        if (i >= seenRigidCount)
-        {
-            break;
-        }
-        if (seenRigidBodies[i] == rigidBodyIndex)
-        {
-            return false;
-        }
-    }
-
-    if (seenRigidCount < kSoftRigidDedupCacheSize)
-    {
-        seenRigidBodies[seenRigidCount] = rigidBodyIndex;
-        ++seenRigidCount;
-    }
-    return true;
-}
-
 #endif // CRESSIM_NEO_PHYSICS_SOFT_TYPES_HLSLI

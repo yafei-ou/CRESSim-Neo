@@ -1,8 +1,6 @@
 #ifndef CRESSIM_NEO_PHYSICS_SOFT_GRID_HLSLI
 #define CRESSIM_NEO_PHYSICS_SOFT_GRID_HLSLI
 
-#include "physics_soft_types.hlsli"
-
 uint ComputeParticleGridCellKey(int gx, int gy, int gz)
 {
     uint seed = uint(gx) * 73856093u;

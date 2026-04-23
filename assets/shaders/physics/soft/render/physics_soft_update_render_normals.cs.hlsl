@@ -1,5 +1,13 @@
 #include "../../../include/physics/physics_soft_render_dispatch_constants.hlsli"
-#include "../../../include/physics/soft/physics_soft_render_types.hlsli"
+#include "../../../include/physics/core/physics_base.hlsli"
+
+struct GpuSoftRenderVertexTriangleRange
+{
+    uint start;
+    uint count;
+    uint reserved0;
+    uint reserved1;
+};
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftRenderTriangleNormals);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftRenderVertexTriangleRange, g_SoftRenderVertexTriangleRanges);

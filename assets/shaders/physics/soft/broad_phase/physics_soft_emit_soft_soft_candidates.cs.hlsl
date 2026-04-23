@@ -18,8 +18,7 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_CandidateCounts);
 CRESSIM_STRUCTURED_BUFFER(uint, g_CandidateOffsets);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftCandidatePair, g_SoftCandidatePairs);
 
-#include "../../../include/physics/soft/physics_soft_cell_range_query.hlsli"
-#include "../../../include/physics/soft/physics_soft_soft_candidate_query.hlsli"
+#include "../../../include/physics/soft/physics_soft_soft_broad_phase_query.hlsli"
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
