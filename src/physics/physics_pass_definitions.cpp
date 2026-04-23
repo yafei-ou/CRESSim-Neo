@@ -950,7 +950,7 @@ constexpr Diligent::ShaderResourceVariableDesc kApplyRigidContactVelocitiesVars[
 } // namespace
 
 const gpu::GpuComputePassDefinition kPredictRigid{
-    "physics/physics_rigid_predict.cs.hlsl",
+    "physics/rigid/solver/physics_rigid_predict.cs.hlsl",
     "CRESSimNeo.Physics.RigidPredict.CS",
     "CRESSimNeo.Physics.RigidPredict.PSO",
     kPredictVars,
@@ -958,7 +958,7 @@ const gpu::GpuComputePassDefinition kPredictRigid{
 };
 
 const gpu::GpuComputePassDefinition kSoftPredict{
-    "physics/physics_soft_predict.cs.hlsl",
+    "physics/soft/solver/physics_soft_predict.cs.hlsl",
     "CRESSimNeo.Physics.SoftPredict.CS",
     "CRESSimNeo.Physics.SoftPredict.PSO",
     kSoftPredictVars,
@@ -966,7 +966,7 @@ const gpu::GpuComputePassDefinition kSoftPredict{
 };
 
 const gpu::GpuComputePassDefinition kBuildParticleBroadPhaseEntries{
-    "physics/physics_soft_rigid_build_broad_phase_particles.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_rigid_build_broad_phase_particles.cs.hlsl",
     "CRESSimNeo.Physics.ParticleBuildBroadPhaseEntries.CS",
     "CRESSimNeo.Physics.ParticleBuildBroadPhaseEntries.PSO",
     kBuildParticleBroadPhaseEntriesVars,
@@ -974,7 +974,7 @@ const gpu::GpuComputePassDefinition kBuildParticleBroadPhaseEntries{
 };
 
 const gpu::GpuComputePassDefinition kBuildParticleBroadPhaseKeys{
-    "physics/physics_soft_rigid_build_broad_phase_keys.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_rigid_build_broad_phase_keys.cs.hlsl",
     "CRESSimNeo.Physics.ParticleBuildBroadPhaseKeys.CS",
     "CRESSimNeo.Physics.ParticleBuildBroadPhaseKeys.PSO",
     kBuildParticleBroadPhaseKeysVars,
@@ -982,7 +982,7 @@ const gpu::GpuComputePassDefinition kBuildParticleBroadPhaseKeys{
 };
 
 const gpu::GpuComputePassDefinition kMarkParticleCellRangeStarts{
-    "physics/physics_soft_rigid_mark_cell_range_starts.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_rigid_mark_cell_range_starts.cs.hlsl",
     "CRESSimNeo.Physics.ParticleMarkCellRangeStarts.CS",
     "CRESSimNeo.Physics.ParticleMarkCellRangeStarts.PSO",
     kMarkParticleCellRangeStartsVars,
@@ -990,7 +990,7 @@ const gpu::GpuComputePassDefinition kMarkParticleCellRangeStarts{
 };
 
 const gpu::GpuComputePassDefinition kClearParticleCellRanges{
-    "physics/physics_soft_rigid_clear_cell_ranges.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_rigid_clear_cell_ranges.cs.hlsl",
     "CRESSimNeo.Physics.ParticleClearCellRanges.CS",
     "CRESSimNeo.Physics.ParticleClearCellRanges.PSO",
     kClearParticleCellRangesVars,
@@ -998,7 +998,7 @@ const gpu::GpuComputePassDefinition kClearParticleCellRanges{
 };
 
 const gpu::GpuComputePassDefinition kBuildParticleCellRanges{
-    "physics/physics_soft_rigid_build_cell_ranges.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_rigid_build_cell_ranges.cs.hlsl",
     "CRESSimNeo.Physics.ParticleBuildCellRanges.CS",
     "CRESSimNeo.Physics.ParticleBuildCellRanges.PSO",
     kBuildParticleCellRangesVars,
@@ -1006,7 +1006,7 @@ const gpu::GpuComputePassDefinition kBuildParticleCellRanges{
 };
 
 const gpu::GpuComputePassDefinition kCountSoftSoftCandidatePairs{
-    "physics/physics_soft_count_soft_soft_candidates.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_count_soft_soft_candidates.cs.hlsl",
     "CRESSimNeo.Physics.CountSoftSoftCandidatePairs.CS",
     "CRESSimNeo.Physics.CountSoftSoftCandidatePairs.PSO",
     kCountSoftSoftCandidatePairsVars,
@@ -1014,7 +1014,7 @@ const gpu::GpuComputePassDefinition kCountSoftSoftCandidatePairs{
 };
 
 const gpu::GpuComputePassDefinition kFinalizeSoftSoftCandidatePairs{
-    "physics/physics_soft_finalize_soft_soft_candidates.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_finalize_soft_soft_candidates.cs.hlsl",
     "CRESSimNeo.Physics.FinalizeSoftSoftCandidatePairs.CS",
     "CRESSimNeo.Physics.FinalizeSoftSoftCandidatePairs.PSO",
     kFinalizeSoftCandidatePairsVars,
@@ -1022,7 +1022,7 @@ const gpu::GpuComputePassDefinition kFinalizeSoftSoftCandidatePairs{
 };
 
 const gpu::GpuComputePassDefinition kEmitSoftSoftCandidatePairs{
-    "physics/physics_soft_emit_soft_soft_candidates.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_emit_soft_soft_candidates.cs.hlsl",
     "CRESSimNeo.Physics.EmitSoftSoftCandidatePairs.CS",
     "CRESSimNeo.Physics.EmitSoftSoftCandidatePairs.PSO",
     kEmitSoftSoftCandidatePairsVars,
@@ -1030,7 +1030,7 @@ const gpu::GpuComputePassDefinition kEmitSoftSoftCandidatePairs{
 };
 
 const gpu::GpuComputePassDefinition kCountSoftRigidCandidatePairs{
-    "physics/physics_soft_count_soft_rigid_candidates.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_count_soft_rigid_candidates.cs.hlsl",
     "CRESSimNeo.Physics.CountSoftRigidCandidatePairs.CS",
     "CRESSimNeo.Physics.CountSoftRigidCandidatePairs.PSO",
     kCountSoftRigidCandidatePairsVars,
@@ -1038,7 +1038,7 @@ const gpu::GpuComputePassDefinition kCountSoftRigidCandidatePairs{
 };
 
 const gpu::GpuComputePassDefinition kFinalizeSoftRigidCandidatePairs{
-    "physics/physics_soft_finalize_soft_rigid_candidates.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_finalize_soft_rigid_candidates.cs.hlsl",
     "CRESSimNeo.Physics.FinalizeSoftRigidCandidatePairs.CS",
     "CRESSimNeo.Physics.FinalizeSoftRigidCandidatePairs.PSO",
     kFinalizeSoftCandidatePairsVars,
@@ -1046,7 +1046,7 @@ const gpu::GpuComputePassDefinition kFinalizeSoftRigidCandidatePairs{
 };
 
 const gpu::GpuComputePassDefinition kEmitSoftRigidCandidatePairs{
-    "physics/physics_soft_emit_soft_rigid_candidates.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_emit_soft_rigid_candidates.cs.hlsl",
     "CRESSimNeo.Physics.EmitSoftRigidCandidatePairs.CS",
     "CRESSimNeo.Physics.EmitSoftRigidCandidatePairs.PSO",
     kEmitSoftRigidCandidatePairsVars,
@@ -1054,7 +1054,7 @@ const gpu::GpuComputePassDefinition kEmitSoftRigidCandidatePairs{
 };
 
 const gpu::GpuComputePassDefinition kGenerateSoftRigidContacts{
-    "physics/physics_soft_rigid_generate_contacts.cs.hlsl",
+    "physics/soft/narrow_phase/physics_soft_rigid_generate_contacts.cs.hlsl",
     "CRESSimNeo.Physics.GenerateSoftRigidContacts.CS",
     "CRESSimNeo.Physics.GenerateSoftRigidContacts.PSO",
     kGenerateSoftRigidContactsVars,
@@ -1062,7 +1062,7 @@ const gpu::GpuComputePassDefinition kGenerateSoftRigidContacts{
 };
 
 const gpu::GpuComputePassDefinition kGenerateSoftContacts{
-    "physics/physics_soft_generate_contacts.cs.hlsl",
+    "physics/soft/narrow_phase/physics_soft_generate_contacts.cs.hlsl",
     "CRESSimNeo.Physics.GenerateSoftContacts.CS",
     "CRESSimNeo.Physics.GenerateSoftContacts.PSO",
     kGenerateSoftContactsVars,
@@ -1070,7 +1070,7 @@ const gpu::GpuComputePassDefinition kGenerateSoftContacts{
 };
 
 const gpu::GpuComputePassDefinition kPrepareSoftCandidateIndirectArgs{
-    "physics/physics_prepare_soft_candidate_indirect_args.cs.hlsl",
+    "physics/shared/physics_prepare_soft_candidate_indirect_args.cs.hlsl",
     "CRESSimNeo.Physics.PrepareSoftCandidateIndirectArgs.CS",
     "CRESSimNeo.Physics.PrepareSoftCandidateIndirectArgs.PSO",
     kPrepareSoftIndirectArgsVars,
@@ -1078,7 +1078,7 @@ const gpu::GpuComputePassDefinition kPrepareSoftCandidateIndirectArgs{
 };
 
 const gpu::GpuComputePassDefinition kPrepareSoftActiveIndirectArgs{
-    "physics/physics_prepare_soft_active_indirect_args.cs.hlsl",
+    "physics/shared/physics_prepare_soft_active_indirect_args.cs.hlsl",
     "CRESSimNeo.Physics.PrepareSoftActiveIndirectArgs.CS",
     "CRESSimNeo.Physics.PrepareSoftActiveIndirectArgs.PSO",
     kPrepareSoftIndirectArgsVars,
@@ -1086,7 +1086,7 @@ const gpu::GpuComputePassDefinition kPrepareSoftActiveIndirectArgs{
 };
 
 const gpu::GpuComputePassDefinition kFinalizeActiveSoftContacts{
-    "physics/physics_soft_finalize_active_contacts.cs.hlsl",
+    "physics/soft/narrow_phase/physics_soft_finalize_active_contacts.cs.hlsl",
     "CRESSimNeo.Physics.FinalizeActiveSoftContacts.CS",
     "CRESSimNeo.Physics.FinalizeActiveSoftContacts.PSO",
     kFinalizeActiveContactVars,
@@ -1094,7 +1094,7 @@ const gpu::GpuComputePassDefinition kFinalizeActiveSoftContacts{
 };
 
 const gpu::GpuComputePassDefinition kCompactActiveSoftContacts{
-    "physics/physics_soft_compact_active_contacts.cs.hlsl",
+    "physics/soft/narrow_phase/physics_soft_compact_active_contacts.cs.hlsl",
     "CRESSimNeo.Physics.CompactActiveSoftContacts.CS",
     "CRESSimNeo.Physics.CompactActiveSoftContacts.PSO",
     kCompactActiveSoftContactsVars,
@@ -1102,7 +1102,7 @@ const gpu::GpuComputePassDefinition kCompactActiveSoftContacts{
 };
 
 const gpu::GpuComputePassDefinition kFinalizeActiveSoftRigidContacts{
-    "physics/physics_soft_finalize_active_rigid_contacts.cs.hlsl",
+    "physics/soft/narrow_phase/physics_soft_finalize_active_rigid_contacts.cs.hlsl",
     "CRESSimNeo.Physics.FinalizeActiveSoftRigidContacts.CS",
     "CRESSimNeo.Physics.FinalizeActiveSoftRigidContacts.PSO",
     kFinalizeActiveContactVars,
@@ -1110,7 +1110,7 @@ const gpu::GpuComputePassDefinition kFinalizeActiveSoftRigidContacts{
 };
 
 const gpu::GpuComputePassDefinition kCompactActiveSoftRigidContacts{
-    "physics/physics_soft_compact_active_rigid_contacts.cs.hlsl",
+    "physics/soft/narrow_phase/physics_soft_compact_active_rigid_contacts.cs.hlsl",
     "CRESSimNeo.Physics.CompactActiveSoftRigidContacts.CS",
     "CRESSimNeo.Physics.CompactActiveSoftRigidContacts.PSO",
     kCompactActiveSoftRigidContactsVars,
@@ -1118,7 +1118,7 @@ const gpu::GpuComputePassDefinition kCompactActiveSoftRigidContacts{
 };
 
 const gpu::GpuComputePassDefinition kClearSoftConstraintState{
-    "physics/physics_clear_soft_constraint_state.cs.hlsl",
+    "physics/shared/physics_clear_soft_constraint_state.cs.hlsl",
     "CRESSimNeo.Physics.ClearSoftConstraintState.CS",
     "CRESSimNeo.Physics.ClearSoftConstraintState.PSO",
     kClearSoftConstraintStateVars,
@@ -1126,7 +1126,7 @@ const gpu::GpuComputePassDefinition kClearSoftConstraintState{
 };
 
 const gpu::GpuComputePassDefinition kSolveSoftEdgeConstraints{
-    "physics/physics_soft_solve_edge_constraints.cs.hlsl",
+    "physics/soft/solver/physics_soft_solve_edge_constraints.cs.hlsl",
     "CRESSimNeo.Physics.SolveSoftEdgeConstraints.CS",
     "CRESSimNeo.Physics.SolveSoftEdgeConstraints.PSO",
     kSolveSoftEdgeConstraintsVars,
@@ -1134,7 +1134,7 @@ const gpu::GpuComputePassDefinition kSolveSoftEdgeConstraints{
 };
 
 const gpu::GpuComputePassDefinition kSolveSoftTetConstraints{
-    "physics/physics_soft_solve_tet_constraints.cs.hlsl",
+    "physics/soft/solver/physics_soft_solve_tet_constraints.cs.hlsl",
     "CRESSimNeo.Physics.SolveSoftTetConstraints.CS",
     "CRESSimNeo.Physics.SolveSoftTetConstraints.PSO",
     kSolveSoftTetConstraintsVars,
@@ -1142,7 +1142,7 @@ const gpu::GpuComputePassDefinition kSolveSoftTetConstraints{
 };
 
 const gpu::GpuComputePassDefinition kApplySoftEdgeCorrections{
-    "physics/physics_soft_apply_edge_corrections.cs.hlsl",
+    "physics/soft/solver/physics_soft_apply_edge_corrections.cs.hlsl",
     "CRESSimNeo.Physics.ApplySoftEdgeCorrections.CS",
     "CRESSimNeo.Physics.ApplySoftEdgeCorrections.PSO",
     kApplySoftEdgeCorrectionsVars,
@@ -1150,7 +1150,7 @@ const gpu::GpuComputePassDefinition kApplySoftEdgeCorrections{
 };
 
 const gpu::GpuComputePassDefinition kApplySoftTetCorrections{
-    "physics/physics_soft_apply_tet_corrections.cs.hlsl",
+    "physics/soft/solver/physics_soft_apply_tet_corrections.cs.hlsl",
     "CRESSimNeo.Physics.ApplySoftTetCorrections.CS",
     "CRESSimNeo.Physics.ApplySoftTetCorrections.PSO",
     kApplySoftTetCorrectionsVars,
@@ -1158,7 +1158,7 @@ const gpu::GpuComputePassDefinition kApplySoftTetCorrections{
 };
 
 const gpu::GpuComputePassDefinition kSolveSoftRigidContacts{
-    "physics/physics_soft_rigid_solve_contacts.cs.hlsl",
+    "physics/soft/solver/physics_soft_rigid_solve_contacts.cs.hlsl",
     "CRESSimNeo.Physics.SolveSoftRigidContacts.CS",
     "CRESSimNeo.Physics.SolveSoftRigidContacts.PSO",
     kSolveSoftRigidContactsVars,
@@ -1166,7 +1166,7 @@ const gpu::GpuComputePassDefinition kSolveSoftRigidContacts{
 };
 
 const gpu::GpuComputePassDefinition kSolveSoftContacts{
-    "physics/physics_soft_solve_contacts.cs.hlsl",
+    "physics/soft/solver/physics_soft_solve_contacts.cs.hlsl",
     "CRESSimNeo.Physics.SolveSoftContacts.CS",
     "CRESSimNeo.Physics.SolveSoftContacts.PSO",
     kSolveSoftContactsVars,
@@ -1174,7 +1174,7 @@ const gpu::GpuComputePassDefinition kSolveSoftContacts{
 };
 
 const gpu::GpuComputePassDefinition kApplySoftPositionCorrections{
-    "physics/physics_soft_apply_position_corrections.cs.hlsl",
+    "physics/soft/solver/physics_soft_apply_position_corrections.cs.hlsl",
     "CRESSimNeo.Physics.ApplySoftPositionCorrections.CS",
     "CRESSimNeo.Physics.ApplySoftPositionCorrections.PSO",
     kApplySoftPositionCorrectionsVars,
@@ -1182,7 +1182,7 @@ const gpu::GpuComputePassDefinition kApplySoftPositionCorrections{
 };
 
 const gpu::GpuComputePassDefinition kUpdateSoftVelocities{
-    "physics/physics_soft_update_velocities.cs.hlsl",
+    "physics/soft/solver/physics_soft_update_velocities.cs.hlsl",
     "CRESSimNeo.Physics.UpdateSoftVelocities.CS",
     "CRESSimNeo.Physics.UpdateSoftVelocities.PSO",
     kUpdateSoftVelocitiesVars,
@@ -1190,7 +1190,7 @@ const gpu::GpuComputePassDefinition kUpdateSoftVelocities{
 };
 
 const gpu::GpuComputePassDefinition kSolveSoftContactVelocities{
-    "physics/physics_soft_solve_contact_velocities.cs.hlsl",
+    "physics/soft/solver/physics_soft_solve_contact_velocities.cs.hlsl",
     "CRESSimNeo.Physics.SolveSoftContactVelocities.CS",
     "CRESSimNeo.Physics.SolveSoftContactVelocities.PSO",
     kSolveSoftContactVelocitiesVars,
@@ -1198,7 +1198,7 @@ const gpu::GpuComputePassDefinition kSolveSoftContactVelocities{
 };
 
 const gpu::GpuComputePassDefinition kSolveSoftRigidContactVelocities{
-    "physics/physics_soft_rigid_solve_contact_velocities.cs.hlsl",
+    "physics/soft/solver/physics_soft_rigid_solve_contact_velocities.cs.hlsl",
     "CRESSimNeo.Physics.SolveSoftRigidContactVelocities.CS",
     "CRESSimNeo.Physics.SolveSoftRigidContactVelocities.PSO",
     kSolveSoftRigidContactVelocitiesVars,
@@ -1206,7 +1206,7 @@ const gpu::GpuComputePassDefinition kSolveSoftRigidContactVelocities{
 };
 
 const gpu::GpuComputePassDefinition kApplySoftContactVelocities{
-    "physics/physics_soft_apply_contact_velocities.cs.hlsl",
+    "physics/soft/solver/physics_soft_apply_contact_velocities.cs.hlsl",
     "CRESSimNeo.Physics.ApplySoftContactVelocities.CS",
     "CRESSimNeo.Physics.ApplySoftContactVelocities.PSO",
     kApplySoftContactVelocitiesVars,
@@ -1214,7 +1214,7 @@ const gpu::GpuComputePassDefinition kApplySoftContactVelocities{
 };
 
 const gpu::GpuComputePassDefinition kUpdateSoftTriangleNormals{
-    "physics/physics_soft_update_triangle_normals.cs.hlsl",
+    "physics/soft/render/physics_soft_update_triangle_normals.cs.hlsl",
     "CRESSimNeo.Physics.UpdateSoftTriangleNormals.CS",
     "CRESSimNeo.Physics.UpdateSoftTriangleNormals.PSO",
     kUpdateSoftTriangleNormalsVars,
@@ -1222,7 +1222,7 @@ const gpu::GpuComputePassDefinition kUpdateSoftTriangleNormals{
 };
 
 const gpu::GpuComputePassDefinition kUpdateSoftRenderNormals{
-    "physics/physics_soft_update_render_normals.cs.hlsl",
+    "physics/soft/render/physics_soft_update_render_normals.cs.hlsl",
     "CRESSimNeo.Physics.UpdateSoftRenderNormals.CS",
     "CRESSimNeo.Physics.UpdateSoftRenderNormals.PSO",
     kUpdateSoftRenderNormalsVars,
@@ -1230,7 +1230,7 @@ const gpu::GpuComputePassDefinition kUpdateSoftRenderNormals{
 };
 
 const gpu::GpuComputePassDefinition kUpdateSoftBodyBounds{
-    "physics/physics_soft_update_body_bounds.cs.hlsl",
+    "physics/soft/render/physics_soft_update_body_bounds.cs.hlsl",
     "CRESSimNeo.Physics.UpdateSoftBodyBounds.CS",
     "CRESSimNeo.Physics.UpdateSoftBodyBounds.PSO",
     kUpdateSoftBodyBoundsVars,
@@ -1238,7 +1238,7 @@ const gpu::GpuComputePassDefinition kUpdateSoftBodyBounds{
 };
 
 const gpu::GpuComputePassDefinition kFinalizeSoftBodyBounds{
-    "physics/physics_soft_finalize_body_bounds.cs.hlsl",
+    "physics/soft/render/physics_soft_finalize_body_bounds.cs.hlsl",
     "CRESSimNeo.Physics.FinalizeSoftBodyBounds.CS",
     "CRESSimNeo.Physics.FinalizeSoftBodyBounds.PSO",
     kFinalizeSoftBodyBoundsVars,
@@ -1246,7 +1246,7 @@ const gpu::GpuComputePassDefinition kFinalizeSoftBodyBounds{
 };
 
 const gpu::GpuComputePassDefinition kUpdateRigidWorldAabbs{
-    "physics/physics_rigid_update_world_aabbs.cs.hlsl",
+    "physics/rigid/broad_phase/physics_rigid_update_world_aabbs.cs.hlsl",
     "CRESSimNeo.Physics.RigidUpdateWorldAabbs.CS",
     "CRESSimNeo.Physics.RigidUpdateWorldAabbs.PSO",
     kUpdateWorldAabbsVars,
@@ -1254,7 +1254,7 @@ const gpu::GpuComputePassDefinition kUpdateRigidWorldAabbs{
 };
 
 const gpu::GpuComputePassDefinition kScanBlock{
-    "physics/physics_scan_block.cs.hlsl",
+    "physics/shared/physics_scan_block.cs.hlsl",
     "CRESSimNeo.Physics.ScanBlock.CS",
     "CRESSimNeo.Physics.ScanBlock.PSO",
     kScanBlockVars,
@@ -1262,7 +1262,7 @@ const gpu::GpuComputePassDefinition kScanBlock{
 };
 
 const gpu::GpuComputePassDefinition kScanAddOffsets{
-    "physics/physics_scan_add_offsets.cs.hlsl",
+    "physics/shared/physics_scan_add_offsets.cs.hlsl",
     "CRESSimNeo.Physics.ScanAddOffsets.CS",
     "CRESSimNeo.Physics.ScanAddOffsets.PSO",
     kScanAddOffsetsVars,
@@ -1270,7 +1270,7 @@ const gpu::GpuComputePassDefinition kScanAddOffsets{
 };
 
 const gpu::GpuComputePassDefinition kCompactBodySet{
-    "physics/physics_rigid_compact_body_set.cs.hlsl",
+    "physics/rigid/broad_phase/physics_rigid_compact_body_set.cs.hlsl",
     "CRESSimNeo.Physics.RigidCompactBodySet.CS",
     "CRESSimNeo.Physics.RigidCompactBodySet.PSO",
     kCompactBodySetVars,
@@ -1278,7 +1278,7 @@ const gpu::GpuComputePassDefinition kCompactBodySet{
 };
 
 const gpu::GpuComputePassDefinition kFinalizeActiveBodies{
-    "physics/physics_rigid_finalize_active_bodies.cs.hlsl",
+    "physics/rigid/broad_phase/physics_rigid_finalize_active_bodies.cs.hlsl",
     "CRESSimNeo.Physics.RigidFinalizeActiveBodies.CS",
     "CRESSimNeo.Physics.RigidFinalizeActiveBodies.PSO",
     kFinalizeActiveBodiesVars,
@@ -1286,7 +1286,7 @@ const gpu::GpuComputePassDefinition kFinalizeActiveBodies{
 };
 
 const gpu::GpuComputePassDefinition kBuildBroadPhaseElements{
-    "physics/physics_rigid_build_broad_phase_elements.cs.hlsl",
+    "physics/rigid/broad_phase/physics_rigid_build_broad_phase_elements.cs.hlsl",
     "CRESSimNeo.Physics.RigidBuildBroadPhaseElements.CS",
     "CRESSimNeo.Physics.RigidBuildBroadPhaseElements.PSO",
     kBuildBroadPhaseElementsVars,
@@ -1294,7 +1294,7 @@ const gpu::GpuComputePassDefinition kBuildBroadPhaseElements{
 };
 
 const gpu::GpuComputePassDefinition kReduceExtentElements{
-    "physics/physics_rigid_reduce_extent_elements.cs.hlsl",
+    "physics/rigid/broad_phase/physics_rigid_reduce_extent_elements.cs.hlsl",
     "CRESSimNeo.Physics.RigidReduceExtentElements.CS",
     "CRESSimNeo.Physics.RigidReduceExtentElements.PSO",
     kReduceExtentElementsVars,
@@ -1302,7 +1302,7 @@ const gpu::GpuComputePassDefinition kReduceExtentElements{
 };
 
 const gpu::GpuComputePassDefinition kReduceExtentExtents{
-    "physics/physics_rigid_reduce_extent_extents.cs.hlsl",
+    "physics/rigid/broad_phase/physics_rigid_reduce_extent_extents.cs.hlsl",
     "CRESSimNeo.Physics.RigidReduceExtentExtents.CS",
     "CRESSimNeo.Physics.RigidReduceExtentExtents.PSO",
     kReduceExtentExtentsVars,
@@ -1310,7 +1310,7 @@ const gpu::GpuComputePassDefinition kReduceExtentExtents{
 };
 
 const gpu::GpuComputePassDefinition kMortonCodes{
-    "physics/physics_rigid_morton_codes.cs.hlsl",
+    "physics/rigid/broad_phase/physics_rigid_morton_codes.cs.hlsl",
     "CRESSimNeo.Physics.RigidMortonCodes.CS",
     "CRESSimNeo.Physics.RigidMortonCodes.PSO",
     kMortonCodesVars,
@@ -1318,7 +1318,7 @@ const gpu::GpuComputePassDefinition kMortonCodes{
 };
 
 const gpu::GpuComputePassDefinition kRadixClassify{
-    "physics/physics_radix_classify.cs.hlsl",
+    "physics/shared/physics_radix_classify.cs.hlsl",
     "CRESSimNeo.Physics.RigidRadixClassify.CS",
     "CRESSimNeo.Physics.RigidRadixClassify.PSO",
     kRadixClassifyVars,
@@ -1326,7 +1326,7 @@ const gpu::GpuComputePassDefinition kRadixClassify{
 };
 
 const gpu::GpuComputePassDefinition kRadixFinalize{
-    "physics/physics_radix_finalize.cs.hlsl",
+    "physics/shared/physics_radix_finalize.cs.hlsl",
     "CRESSimNeo.Physics.RigidRadixFinalize.CS",
     "CRESSimNeo.Physics.RigidRadixFinalize.PSO",
     kRadixFinalizeVars,
@@ -1334,7 +1334,7 @@ const gpu::GpuComputePassDefinition kRadixFinalize{
 };
 
 const gpu::GpuComputePassDefinition kRadixScatter{
-    "physics/physics_radix_scatter.cs.hlsl",
+    "physics/shared/physics_radix_scatter.cs.hlsl",
     "CRESSimNeo.Physics.RigidRadixScatter.CS",
     "CRESSimNeo.Physics.RigidRadixScatter.PSO",
     kRadixScatterVars,
@@ -1342,14 +1342,14 @@ const gpu::GpuComputePassDefinition kRadixScatter{
 };
 
 const gpu::GpuComputePassDefinition kBvhHierarchy{
-    "physics/physics_rigid_bvh_hierarchy.cs.hlsl",
+    "physics/rigid/broad_phase/physics_rigid_bvh_hierarchy.cs.hlsl",
     "CRESSimNeo.Physics.RigidBvhHierarchy.CS",
     "CRESSimNeo.Physics.RigidBvhHierarchy.PSO",
     kBvhHierarchyVars,
     std::size(kBvhHierarchyVars),
 };
 const gpu::GpuComputePassDefinition kBvhBoundingBoxes{
-    "physics/physics_rigid_bvh_bounding_boxes.cs.hlsl",
+    "physics/rigid/broad_phase/physics_rigid_bvh_bounding_boxes.cs.hlsl",
     "CRESSimNeo.Physics.RigidBvhBoundingBoxes.CS",
     "CRESSimNeo.Physics.RigidBvhBoundingBoxes.PSO",
     kBvhBoundingBoxesVars,
@@ -1357,7 +1357,7 @@ const gpu::GpuComputePassDefinition kBvhBoundingBoxes{
 };
 
 const gpu::GpuComputePassDefinition kCountPairs{
-    "physics/physics_rigid_count_pairs.cs.hlsl",
+    "physics/rigid/broad_phase/physics_rigid_count_pairs.cs.hlsl",
     "CRESSimNeo.Physics.RigidCountPairs.CS",
     "CRESSimNeo.Physics.RigidCountPairs.PSO",
     kCountPairsVars,
@@ -1365,7 +1365,7 @@ const gpu::GpuComputePassDefinition kCountPairs{
 };
 
 const gpu::GpuComputePassDefinition kFinalizePairs{
-    "physics/physics_rigid_finalize_pairs.cs.hlsl",
+    "physics/rigid/broad_phase/physics_rigid_finalize_pairs.cs.hlsl",
     "CRESSimNeo.Physics.RigidFinalizePairs.CS",
     "CRESSimNeo.Physics.RigidFinalizePairs.PSO",
     kFinalizePairsVars,
@@ -1373,7 +1373,7 @@ const gpu::GpuComputePassDefinition kFinalizePairs{
 };
 
 const gpu::GpuComputePassDefinition kEmitPairs{
-    "physics/physics_rigid_emit_pairs.cs.hlsl",
+    "physics/rigid/broad_phase/physics_rigid_emit_pairs.cs.hlsl",
     "CRESSimNeo.Physics.RigidEmitPairs.CS",
     "CRESSimNeo.Physics.RigidEmitPairs.PSO",
     kEmitPairsVars,
@@ -1381,7 +1381,7 @@ const gpu::GpuComputePassDefinition kEmitPairs{
 };
 
 const gpu::GpuComputePassDefinition kBuildNarrowPhaseChunks{
-    "physics/physics_rigid_build_narrow_phase_chunks.cs.hlsl",
+    "physics/rigid/narrow_phase/physics_rigid_build_narrow_phase_chunks.cs.hlsl",
     "CRESSimNeo.Physics.RigidBuildNarrowPhaseChunks.CS",
     "CRESSimNeo.Physics.RigidBuildNarrowPhaseChunks.PSO",
     kBuildNarrowPhaseChunksVars,
@@ -1389,7 +1389,7 @@ const gpu::GpuComputePassDefinition kBuildNarrowPhaseChunks{
 };
 
 const gpu::GpuComputePassDefinition kPrepareRigidIndirectArgs{
-    "physics/physics_prepare_rigid_indirect_args.cs.hlsl",
+    "physics/shared/physics_prepare_rigid_indirect_args.cs.hlsl",
     "CRESSimNeo.Physics.PrepareRigidIndirectArgs.CS",
     "CRESSimNeo.Physics.PrepareRigidIndirectArgs.PSO",
     kPrepareRigidIndirectArgsVars,
@@ -1397,7 +1397,7 @@ const gpu::GpuComputePassDefinition kPrepareRigidIndirectArgs{
 };
 
 const gpu::GpuComputePassDefinition kGenerateRigidContacts{
-    "physics/physics_rigid_generate_contacts.cs.hlsl",
+    "physics/rigid/narrow_phase/physics_rigid_generate_contacts.cs.hlsl",
     "CRESSimNeo.Physics.RigidGenerateContacts.CS",
     "CRESSimNeo.Physics.RigidGenerateContacts.PSO",
     kGenerateContactsVars,
@@ -1405,7 +1405,7 @@ const gpu::GpuComputePassDefinition kGenerateRigidContacts{
 };
 
 const gpu::GpuComputePassDefinition kSolveRigidContactConstraints{
-    "physics/physics_rigid_solve_contacts.cs.hlsl",
+    "physics/rigid/solver/physics_rigid_solve_contacts.cs.hlsl",
     "CRESSimNeo.Physics.RigidSolveContactConstraints.CS",
     "CRESSimNeo.Physics.RigidSolveContactConstraints.PSO",
     kSolveRigidContactConstraintsVars,
@@ -1413,7 +1413,7 @@ const gpu::GpuComputePassDefinition kSolveRigidContactConstraints{
 };
 
 const gpu::GpuComputePassDefinition kClearRigidCorrections{
-    "physics/physics_rigid_clear_corrections.cs.hlsl",
+    "physics/rigid/solver/physics_rigid_clear_corrections.cs.hlsl",
     "CRESSimNeo.Physics.RigidClearCorrections.CS",
     "CRESSimNeo.Physics.RigidClearCorrections.PSO",
     kClearCorrectionsVars,
@@ -1421,7 +1421,7 @@ const gpu::GpuComputePassDefinition kClearRigidCorrections{
 };
 
 const gpu::GpuComputePassDefinition kApplyRigidCorrections{
-    "physics/physics_rigid_apply_corrections.cs.hlsl",
+    "physics/rigid/solver/physics_rigid_apply_corrections.cs.hlsl",
     "CRESSimNeo.Physics.RigidApplyCorrections.CS",
     "CRESSimNeo.Physics.RigidApplyCorrections.PSO",
     kApplyCorrectionsVars,
@@ -1429,7 +1429,7 @@ const gpu::GpuComputePassDefinition kApplyRigidCorrections{
 };
 
 const gpu::GpuComputePassDefinition kUpdateRigidVelocities{
-    "physics/physics_rigid_update_velocities.cs.hlsl",
+    "physics/rigid/solver/physics_rigid_update_velocities.cs.hlsl",
     "CRESSimNeo.Physics.RigidUpdateVelocities.CS",
     "CRESSimNeo.Physics.RigidUpdateVelocities.PSO",
     kUpdateVelocitiesVars,
@@ -1437,7 +1437,7 @@ const gpu::GpuComputePassDefinition kUpdateRigidVelocities{
 };
 
 const gpu::GpuComputePassDefinition kSolveRigidContactVelocities{
-    "physics/physics_rigid_solve_contact_velocities.cs.hlsl",
+    "physics/rigid/solver/physics_rigid_solve_contact_velocities.cs.hlsl",
     "CRESSimNeo.Physics.RigidSolveContactVelocities.CS",
     "CRESSimNeo.Physics.RigidSolveContactVelocities.PSO",
     kSolveRigidContactVelocitiesVars,
@@ -1445,7 +1445,7 @@ const gpu::GpuComputePassDefinition kSolveRigidContactVelocities{
 };
 
 const gpu::GpuComputePassDefinition kApplyRigidContactVelocities{
-    "physics/physics_rigid_apply_contact_velocities.cs.hlsl",
+    "physics/rigid/solver/physics_rigid_apply_contact_velocities.cs.hlsl",
     "CRESSimNeo.Physics.RigidApplyContactVelocities.CS",
     "CRESSimNeo.Physics.RigidApplyContactVelocities.PSO",
     kApplyRigidContactVelocitiesVars,

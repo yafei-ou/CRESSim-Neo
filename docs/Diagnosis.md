@@ -11,7 +11,7 @@ At [`physics_viewer_soft_particles_toroid_multi_env.cpp:492`](/home/yafei/Code/C
 - finalize
 - emit
 
-Even though the soft-soft shader will reject same-phase pairs when self-collision is off in [`physics_soft_soft_neighbor.hlsli:45`](/home/yafei/Code/CRESSim-Neo/assets/shaders/physics/include/physics_soft_soft_neighbor.hlsli#L45). So the work still happens, it just produces no useful contacts. For this toroid scene, that’s likely a major remaining waste.
+Even though the soft-soft shader will reject same-phase pairs when self-collision is off in [`physics_soft_soft_candidate_query.hlsli:47`](/home/yafei/Code/CRESSim-Neo/assets/shaders/include/physics/soft/physics_soft_soft_candidate_query.hlsli#L47). So the work still happens, it just produces no useful contacts. For this toroid scene, that’s likely a major remaining waste.
 
 2. `50` internal iterations and `50` contact iterations is still very heavy for a `~1k particle / ~4k tet` body at `40` envs.
 The toroid viewer sets that in [`physics_viewer_soft_particles_toroid_multi_env.cpp:508`](/home/yafei/Code/CRESSim-Neo/tests/physics_viewer/physics_viewer_soft_particles_toroid_multi_env.cpp#L508). Inside the main loop in [`physics_solver.cpp:384`](/home/yafei/Code/CRESSim-Neo/src/physics/physics_solver.cpp#L384), each iteration can do:
@@ -23,8 +23,8 @@ The toroid viewer sets that in [`physics_viewer_soft_particles_toroid_multi_env.
 - apply corrections
 
 The tet and edge solvers are especially expensive because they use atomics into shared particle correction buffers:
-- [`physics_soft_solve_tet_constraints.cs.hlsl:92`](/home/yafei/Code/CRESSim-Neo/assets/shaders/physics/physics_soft_solve_tet_constraints.cs.hlsl#L92)
-- [`physics_soft_solve_edge_constraints.cs.hlsl:67`](/home/yafei/Code/CRESSim-Neo/assets/shaders/physics/physics_soft_solve_edge_constraints.cs.hlsl#L67)
+- [`physics_soft_solve_tet_constraints.cs.hlsl:75`](/home/yafei/Code/CRESSim-Neo/assets/shaders/physics/soft/solver/physics_soft_solve_tet_constraints.cs.hlsl#L75)
+- [`physics_soft_solve_edge_constraints.cs.hlsl:55`](/home/yafei/Code/CRESSim-Neo/assets/shaders/physics/soft/solver/physics_soft_solve_edge_constraints.cs.hlsl#L55)
 
 That creates a lot of contention once many tets/edges from many envs hit the same global buffers.
 
@@ -49,7 +49,7 @@ That path is here:
 - generate: [`physics_pass_dispatcher.cpp:846`](/home/yafei/Code/CRESSim-Neo/src/physics/physics_pass_dispatcher.cpp#L846)
 - compact: [`physics_pass_dispatcher.cpp:945`](/home/yafei/Code/CRESSim-Neo/src/physics/physics_pass_dispatcher.cpp#L945)
 
-The narrow phase itself loops over each candidate body’s colliders in [`physics_soft_rigid_generate_contacts.cs.hlsl:70`](/home/yafei/Code/CRESSim-Neo/assets/shaders/physics/physics_soft_rigid_generate_contacts.cs.hlsl#L70). That’s reasonable now, but multiplied by `50` contact iterations and many envs, it adds up.
+The narrow phase itself loops over each candidate body’s colliders in [`physics_soft_rigid_generate_contacts.cs.hlsl:74`](/home/yafei/Code/CRESSim-Neo/assets/shaders/physics/soft/narrow_phase/physics_soft_rigid_generate_contacts.cs.hlsl#L74). That’s reasonable now, but multiplied by `50` contact iterations and many envs, it adds up.
 
 5. Rigid broad phase still has two blocking readbacks per substep.
 That path is lighter than soft, but it still stalls:

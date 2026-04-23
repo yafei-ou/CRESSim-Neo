@@ -1,8 +1,6 @@
 #ifndef CRESSIM_NEO_PHYSICS_RIGID_DISPATCH_CONSTANTS_HLSLI
 #define CRESSIM_NEO_PHYSICS_RIGID_DISPATCH_CONSTANTS_HLSLI
 
-#include "../structured_buffer_compat.hlsli"
-
 cbuffer PhysicsRigidDispatchConstantsBuffer
 {
     float dt;
