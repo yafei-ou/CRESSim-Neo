@@ -1,4 +1,4 @@
-#include "graphics/include/graphics_scene_buffers.hlsli"
+#include "include/graphics/graphics_scene_buffers.hlsli"
 
 cbuffer GraphicsScenePrepareConstants
 {

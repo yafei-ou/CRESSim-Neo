@@ -52,6 +52,7 @@ public:
         std::string pipelineStateName;
         Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipelineState;
         Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> shaderResourceBinding;
+        std::uint64_t sceneBindingGeneration = 0u;
     };
 
 public:

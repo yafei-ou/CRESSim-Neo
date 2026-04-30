@@ -34,6 +34,11 @@ add_physics_viewer_test(
 )
 
 add_physics_viewer_test(
+    cressim_neo_physics_viewer_reallocation_during_simulation
+    physics_viewer_reallocation_during_simulation.cpp
+)
+
+add_physics_viewer_test(
     cressim_neo_physics_viewer_large_array_multi_env
     physics_viewer_large_array_multi_env.cpp
 )

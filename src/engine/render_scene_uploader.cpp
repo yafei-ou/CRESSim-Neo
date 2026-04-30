@@ -31,6 +31,15 @@ std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
     return (threadCount + kComputeThreadGroupSize - 1u) / kComputeThreadGroupSize;
 }
 
+void bumpGeneration(std::uint64_t &generation) noexcept
+{
+    ++generation;
+    if (generation == 0u)
+    {
+        generation = 1u;
+    }
+}
+
 bool ensureStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
                             std::uint32_t elementStride, std::uint32_t elementCount,
                             Diligent::BIND_FLAGS bindFlags, Diligent::USAGE usage,
@@ -170,6 +179,12 @@ void RenderSceneUploader::shutdown()
     mPreparedCamerasBuffer              = nullptr;
     mLightInputsBuffer                  = nullptr;
     mLocalLightSelectionBuffer          = nullptr;
+    mPoseBindingGeneration                  = 1u;
+    mPhysicsSyncBindingGeneration           = 1u;
+    mSceneBindingGeneration                 = 1u;
+    mLastMappedSourcePoseBindingGeneration  = 0u;
+    mLastMappedOutputPoseBindingGeneration  = 0u;
+    mLastMappedPhysicsSyncBindingGeneration = 0u;
 }
 
 bool RenderSceneUploader::ensureSharedPoseCapacity(Diligent::IRenderDevice *renderDevice,
@@ -188,7 +203,10 @@ bool RenderSceneUploader::ensureSharedPoseCapacity(Diligent::IRenderDevice *rend
     }
 
     const std::uint32_t newCapacity = std::max<std::uint32_t>(requiredCapacity, 64u);
-    return ensureStructuredBuffer(
+    Diligent::IBuffer *oldPositions    = mEntityPositionsBuffer;
+    Diligent::IBuffer *oldOrientations = mEntityOrientationsBuffer;
+    Diligent::IBuffer *oldScales       = mEntityScalesBuffer;
+    const bool success = ensureStructuredBuffer(
                renderDevice, "CRESSimNeo.Gpu.EntityPositions", sizeof(Diligent::float4),
                newCapacity, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, mSharedPoseContextMask,
@@ -203,6 +221,17 @@ bool RenderSceneUploader::ensureSharedPoseCapacity(Diligent::IRenderDevice *rend
                                   Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
                                   Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
                                   mSharedPoseContextMask, mEntityScalesBuffer, mPoseCapacity, 64u);
+    if (!success)
+    {
+        return false;
+    }
+    if (oldPositions != mEntityPositionsBuffer || oldOrientations != mEntityOrientationsBuffer ||
+        oldScales != mEntityScalesBuffer)
+    {
+        bumpGeneration(mPoseBindingGeneration);
+        bumpGeneration(mSceneBindingGeneration);
+    }
+    return true;
 }
 
 bool RenderSceneUploader::ensurePhysicsSyncCapacity(Diligent::IRenderDevice *renderDevice,
@@ -220,10 +249,20 @@ bool RenderSceneUploader::ensurePhysicsSyncCapacity(Diligent::IRenderDevice *ren
     }
 
     const std::uint32_t newCapacity = std::max<std::uint32_t>(requiredCapacity, 64u);
-    return ensureStructuredBuffer(
+    Diligent::IBuffer *oldMapping = mMappingBuffer;
+    const bool success = ensureStructuredBuffer(
         renderDevice, "CRESSimNeo.Gpu.EntityPoseMappings", sizeof(EntityPoseMappingEntry),
         newCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
         Diligent::CPU_ACCESS_NONE, mPhysicsContextMask, mMappingBuffer, mPhysicsSyncCapacity, 64u);
+    if (!success)
+    {
+        return false;
+    }
+    if (oldMapping != mMappingBuffer)
+    {
+        bumpGeneration(mPhysicsSyncBindingGeneration);
+    }
+    return true;
 }
 
 bool RenderSceneUploader::ensureRenderableCapacity(Diligent::IRenderDevice *renderDevice,
@@ -245,7 +284,11 @@ bool RenderSceneUploader::ensureRenderableCapacity(Diligent::IRenderDevice *rend
         return true;
     }
 
-    return ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.RenderableMetadata",
+    Diligent::IBuffer *oldMetadata    = mRenderableMetadataBuffer;
+    Diligent::IBuffer *oldQueueInfo   = mRenderableQueueInfoBuffer;
+    Diligent::IBuffer *oldVisibility  = mRenderableVisibilityFlagsBuffer;
+    Diligent::IBuffer *oldShadowMasks = mRenderableShadowCascadeMasksBuffer;
+    const bool success = ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.RenderableMetadata",
                                   sizeof(graphics::GpuRenderableMetadata), requiredCapacity,
                                   Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                   Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
@@ -265,6 +308,17 @@ bool RenderSceneUploader::ensureRenderableCapacity(Diligent::IRenderDevice *rend
                requiredCapacity, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
                mRenderableShadowCascadeMasksBuffer, mRenderableCapacity, requiredCapacity);
+    if (!success)
+    {
+        return false;
+    }
+    if (oldMetadata != mRenderableMetadataBuffer || oldQueueInfo != mRenderableQueueInfoBuffer ||
+        oldVisibility != mRenderableVisibilityFlagsBuffer ||
+        oldShadowMasks != mRenderableShadowCascadeMasksBuffer)
+    {
+        bumpGeneration(mSceneBindingGeneration);
+    }
+    return true;
 }
 
 bool RenderSceneUploader::ensureCameraCapacity(Diligent::IRenderDevice *renderDevice,
@@ -282,7 +336,9 @@ bool RenderSceneUploader::ensureCameraCapacity(Diligent::IRenderDevice *renderDe
         return true;
     }
 
-    return ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.CameraInputs",
+    Diligent::IBuffer *oldInputs   = mCameraInputsBuffer;
+    Diligent::IBuffer *oldPrepared = mPreparedCamerasBuffer;
+    const bool success = ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.CameraInputs",
                                   sizeof(graphics::GpuCameraInput), requiredCapacity,
                                   Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                   Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
@@ -292,6 +348,15 @@ bool RenderSceneUploader::ensureCameraCapacity(Diligent::IRenderDevice *renderDe
                requiredCapacity, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
                mPreparedCamerasBuffer, mCameraCapacity, 1u);
+    if (!success)
+    {
+        return false;
+    }
+    if (oldInputs != mCameraInputsBuffer || oldPrepared != mPreparedCamerasBuffer)
+    {
+        bumpGeneration(mSceneBindingGeneration);
+    }
+    return true;
 }
 
 bool RenderSceneUploader::ensureLightCapacity(Diligent::IRenderDevice *renderDevice,
@@ -308,10 +373,20 @@ bool RenderSceneUploader::ensureLightCapacity(Diligent::IRenderDevice *renderDev
         return true;
     }
 
-    return ensureStructuredBuffer(
+    Diligent::IBuffer *oldInputs = mLightInputsBuffer;
+    const bool success = ensureStructuredBuffer(
         renderDevice, "CRESSimNeo.Gpu.LightInputs", sizeof(graphics::GpuLightInput),
         requiredCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
         Diligent::CPU_ACCESS_NONE, mGraphicsContextMask, mLightInputsBuffer, mLightCapacity, 1u);
+    if (!success)
+    {
+        return false;
+    }
+    if (oldInputs != mLightInputsBuffer)
+    {
+        bumpGeneration(mSceneBindingGeneration);
+    }
+    return true;
 }
 
 bool RenderSceneUploader::ensureLocalLightSelectionCapacity(Diligent::IRenderDevice *renderDevice,
@@ -328,11 +403,21 @@ bool RenderSceneUploader::ensureLocalLightSelectionCapacity(Diligent::IRenderDev
         return true;
     }
 
-    return ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.LocalLightSelections",
+    Diligent::IBuffer *oldSelections = mLocalLightSelectionBuffer;
+    const bool success = ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.LocalLightSelections",
                                   sizeof(graphics::GpuLocalLightSelection), requiredCapacity,
                                   Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                   Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
                                   mLocalLightSelectionBuffer, mLocalLightSelectionCapacity, 1u);
+    if (!success)
+    {
+        return false;
+    }
+    if (oldSelections != mLocalLightSelectionBuffer)
+    {
+        bumpGeneration(mSceneBindingGeneration);
+    }
+    return true;
 }
 
 namespace
@@ -440,6 +525,7 @@ bool RenderSceneUploader::uploadSoftBodyVertexBindings(
     }
 
     mSoftBodyVertexBindingCount = static_cast<std::uint32_t>(bindings.size());
+    Diligent::IBuffer *oldSoftBodyVertexBindingBuffer = mSoftBodyVertexBindingBuffer;
     if (!ensureSoftBodyBufferCapacity(graphicsContext.renderDevice, mGraphicsContextMask,
                                       "CRESSimNeo.Gpu.SoftBodyVertexBindings",
                                       sizeof(graphics::GpuSoftBodyVertexBinding),
@@ -447,6 +533,10 @@ bool RenderSceneUploader::uploadSoftBodyVertexBindings(
                                       mSoftBodyVertexBindingCapacity))
     {
         return false;
+    }
+    if (oldSoftBodyVertexBindingBuffer != mSoftBodyVertexBindingBuffer)
+    {
+        bumpGeneration(mSceneBindingGeneration);
     }
 
     if (bindings.empty())
@@ -682,6 +772,19 @@ bool RenderSceneUploader::applyMappedEntityPoses(
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
+    const bool syncBindingsChanged =
+        mLastMappedSourcePoseBindingGeneration != sourcePoses.bindingGeneration ||
+        mLastMappedOutputPoseBindingGeneration != mPoseBindingGeneration ||
+        mLastMappedPhysicsSyncBindingGeneration != mPhysicsSyncBindingGeneration;
+    if (syncBindingsChanged && !entityPoseSyncPass().forceRecreateAllVariants())
+    {
+        return false;
+    }
+
+    mLastMappedSourcePoseBindingGeneration  = sourcePoses.bindingGeneration;
+    mLastMappedOutputPoseBindingGeneration  = mPoseBindingGeneration;
+    mLastMappedPhysicsSyncBindingGeneration = mPhysicsSyncBindingGeneration;
+
     return entityPoseSyncPass().dispatch(computeContext.computeContext, 0u, bindings,
                                          dispatchGroupCount(mappingCount));
 }
@@ -694,6 +797,7 @@ graphics::GpuEntitySceneView RenderSceneUploader::sceneView() const noexcept
     view.poses.orientationsBuffer           = mEntityOrientationsBuffer;
     view.poses.scalesBuffer                 = mEntityScalesBuffer;
     view.poses.count                        = mEntityCount;
+    view.poses.bindingGeneration            = mPoseBindingGeneration;
     view.renderableMetadataBuffer           = mRenderableMetadataBuffer;
     view.renderableQueueInfoBuffer          = mRenderableQueueInfoBuffer;
     view.renderableVisibilityFlagsBuffer    = mRenderableVisibilityFlagsBuffer;
@@ -707,6 +811,7 @@ graphics::GpuEntitySceneView RenderSceneUploader::sceneView() const noexcept
     view.renderableCount                    = mRenderableCount;
     view.cameraCount                        = mCameraCount;
     view.lightCount                         = mLightCount;
+    view.bindingGeneration                  = mSceneBindingGeneration;
     return view;
 }
 

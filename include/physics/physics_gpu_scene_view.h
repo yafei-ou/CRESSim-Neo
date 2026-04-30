@@ -14,6 +14,7 @@ struct PhysicsGpuRigidSceneView
 {
     common::PoseBufferView poses{};
     std::uint32_t colliderCount = 0;
+    std::uint64_t bindingGeneration = 0;
 };
 
 struct PhysicsGpuSoftParticleBufferView
@@ -44,6 +45,7 @@ struct PhysicsGpuSoftSceneView
     std::uint32_t softBodyCount            = 0;
     std::uint32_t edgeCount                = 0;
     std::uint32_t tetCount                 = 0;
+    std::uint64_t bindingGeneration        = 0;
 };
 
 struct CRESSIM_NEO_PHYSICS_API PhysicsGpuSceneView

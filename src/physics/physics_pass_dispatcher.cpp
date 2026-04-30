@@ -2561,19 +2561,7 @@ bool PhysicsPassDispatcher::dispatchGenerateRigidContactsPass(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RigidBodyScales", persistent.scalesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_ColliderOwnerRigidBodyIndices",
-                              persistentColliders.ownerRigidBodyIndicesBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_ColliderShapeTypes", persistentColliders.shapeTypesBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_ColliderShapeParams", persistentColliders.shapeParamsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_ColliderLocalPositions", persistentColliders.localPositionsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_ColliderLocalOrientations",
-                              persistentColliders.localOrientationsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_ColliderMaterials", persistentColliders.materialBuffer,
+        gpu::GpuBufferBinding{"g_ColliderContactData", persistentColliders.contactDataBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_CandidatePairs", transient.candidatePairsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -2847,6 +2835,73 @@ bool PhysicsPassDispatcher::solveRigidContactVelocities(Diligent::IDeviceContext
     }
 
     return true;
+}
+
+bool PhysicsPassDispatcher::recreateSceneBindingVariants()
+{
+    return mRigidPredictPass.forceRecreateAllVariants() &&
+           mSoftPredictPass.forceRecreateAllVariants() &&
+           mBuildParticleBroadPhaseEntriesPass.forceRecreateAllVariants() &&
+           mBuildParticleBroadPhaseKeysPass.forceRecreateAllVariants() &&
+           mMarkParticleCellRangeStartsPass.forceRecreateAllVariants() &&
+           mClearParticleCellRangesPass.forceRecreateAllVariants() &&
+           mBuildParticleCellRangesPass.forceRecreateAllVariants() &&
+           mCountSoftSoftCandidatePairsPass.forceRecreateAllVariants() &&
+           mFinalizeSoftSoftCandidatePairsPass.forceRecreateAllVariants() &&
+           mEmitSoftSoftCandidatePairsPass.forceRecreateAllVariants() &&
+           mCountSoftRigidCandidatePairsPass.forceRecreateAllVariants() &&
+           mFinalizeSoftRigidCandidatePairsPass.forceRecreateAllVariants() &&
+           mEmitSoftRigidCandidatePairsPass.forceRecreateAllVariants() &&
+           mGenerateSoftContactsPass.forceRecreateAllVariants() &&
+           mGenerateSoftRigidContactsPass.forceRecreateAllVariants() &&
+           mPrepareSoftCandidateIndirectArgsPass.forceRecreateAllVariants() &&
+           mPrepareSoftActiveIndirectArgsPass.forceRecreateAllVariants() &&
+           mFinalizeActiveSoftContactsPass.forceRecreateAllVariants() &&
+           mCompactActiveSoftContactsPass.forceRecreateAllVariants() &&
+           mFinalizeActiveSoftRigidContactsPass.forceRecreateAllVariants() &&
+           mCompactActiveSoftRigidContactsPass.forceRecreateAllVariants() &&
+           mClearSoftConstraintStatePass.forceRecreateAllVariants() &&
+           mSolveSoftEdgeConstraintsPass.forceRecreateAllVariants() &&
+           mSolveSoftTetConstraintsPass.forceRecreateAllVariants() &&
+           mApplySoftEdgeCorrectionsPass.forceRecreateAllVariants() &&
+           mApplySoftTetCorrectionsPass.forceRecreateAllVariants() &&
+           mSolveSoftContactsPass.forceRecreateAllVariants() &&
+           mSolveSoftRigidContactsPass.forceRecreateAllVariants() &&
+           mApplySoftPositionCorrectionsPass.forceRecreateAllVariants() &&
+           mUpdateSoftVelocitiesPass.forceRecreateAllVariants() &&
+           mSolveSoftContactVelocitiesPass.forceRecreateAllVariants() &&
+           mSolveSoftRigidContactVelocitiesPass.forceRecreateAllVariants() &&
+           mApplySoftContactVelocitiesPass.forceRecreateAllVariants() &&
+           mUpdateSoftTriangleNormalsPass.forceRecreateAllVariants() &&
+           mUpdateSoftRenderNormalsPass.forceRecreateAllVariants() &&
+           mUpdateSoftBodyBoundsPass.forceRecreateAllVariants() &&
+           mFinalizeSoftBodyBoundsPass.forceRecreateAllVariants() &&
+           mClearRigidCorrectionsPass.forceRecreateAllVariants() &&
+           mUpdateRigidWorldAabbsPass.forceRecreateAllVariants() &&
+           mScanBlockPass.forceRecreateAllVariants() &&
+           mScanAddOffsetsPass.forceRecreateAllVariants() &&
+           mCompactBodySetPass.forceRecreateAllVariants() &&
+           mFinalizeActiveBodiesPass.forceRecreateAllVariants() &&
+           mBuildBroadPhaseElementsPass.forceRecreateAllVariants() &&
+           mReduceExtentElementsPass.forceRecreateAllVariants() &&
+           mReduceExtentExtentsPass.forceRecreateAllVariants() &&
+           mMortonCodesPass.forceRecreateAllVariants() &&
+           mRadixClassifyPass.forceRecreateAllVariants() &&
+           mRadixFinalizePass.forceRecreateAllVariants() &&
+           mRadixScatterPass.forceRecreateAllVariants() &&
+           mBvhHierarchyPass.forceRecreateAllVariants() &&
+           mBvhBoundingBoxesPass.forceRecreateAllVariants() &&
+           mCountPairsPass.forceRecreateAllVariants() &&
+           mFinalizePairsPass.forceRecreateAllVariants() &&
+           mEmitPairsPass.forceRecreateAllVariants() &&
+           mBuildNarrowPhaseChunksPass.forceRecreateAllVariants() &&
+           mPrepareRigidIndirectArgsPass.forceRecreateAllVariants() &&
+           mGenerateRigidContactsPass.forceRecreateAllVariants() &&
+           mSolveRigidContactConstraintsPass.forceRecreateAllVariants() &&
+           mApplyRigidCorrectionsPass.forceRecreateAllVariants() &&
+           mUpdateRigidVelocitiesPass.forceRecreateAllVariants() &&
+           mSolveRigidContactVelocitiesPass.forceRecreateAllVariants() &&
+           mApplyRigidContactVelocitiesPass.forceRecreateAllVariants();
 }
 
 } // namespace cressim::neo::physics

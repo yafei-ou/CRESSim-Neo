@@ -1,8 +1,6 @@
 #ifndef CRESSIM_NEO_PHYSICS_SCAN_CONSTANTS_HLSLI
 #define CRESSIM_NEO_PHYSICS_SCAN_CONSTANTS_HLSLI
 
-#include "../structured_buffer_compat.hlsli"
-
 cbuffer PhysicsScanConstantsBuffer
 {
     uint elementCount;

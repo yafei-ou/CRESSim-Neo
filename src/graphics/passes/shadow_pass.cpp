@@ -24,7 +24,15 @@ bool ShadowPass::initialize()
 
 void ShadowPass::setGpuSceneView(const GpuEntitySceneView &sceneView) noexcept
 {
+    const bool sceneBindingsChanged =
+        mSceneView.bindingGeneration != 0u &&
+        mSceneView.bindingGeneration != sceneView.bindingGeneration;
     mSceneView = sceneView;
+    if (sceneBindingsChanged)
+    {
+        mShaderResourceBinding         = nullptr;
+        mSoftBodyShaderResourceBinding = nullptr;
+    }
 }
 
 void ShadowPass::setPhysicsSceneView(const physics::PhysicsGpuSceneView *physicsScene) noexcept

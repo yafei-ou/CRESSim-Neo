@@ -160,6 +160,7 @@ public:
                                      const PhysicsSceneGpuState &sceneState,
                                      std::uint32_t rigidBodyCount, std::uint32_t iterations,
                                      const GpuRigidDispatchConstants &constants);
+    bool recreateSceneBindingVariants();
 
 private:
     bool writeRigidDispatchConstants(Diligent::IDeviceContext *computeContext,
