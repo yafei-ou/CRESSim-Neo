@@ -54,3 +54,5 @@ out
 .codex
 .DS_Store
 extern
+
+!**/fixtures/**/*.obj
