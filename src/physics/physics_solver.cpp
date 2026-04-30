@@ -42,6 +42,8 @@ struct PhysicsSolver::Impl
     PhysicsPassDispatcher passDispatcher;
     bool lastStepHadRigidBroadPhaseWork = false;
     bool lastStepHadSoftPairWork        = false;
+    std::uint64_t lastAppliedRigidBindingGeneration = 0u;
+    std::uint64_t lastAppliedSoftBindingGeneration  = 0u;
 };
 
 PhysicsSolver::PhysicsSolver(gpu::GpuDevice &device, const PhysicsSolverDesc &desc)
@@ -153,6 +155,20 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ensureCapacity.");
         return false;
     }
+
+    const bool rigidBindingsChanged =
+        mImpl->lastAppliedRigidBindingGeneration != mImpl->sceneState.rigidBindingGeneration();
+    const bool softBindingsChanged =
+        mImpl->lastAppliedSoftBindingGeneration != mImpl->sceneState.softBindingGeneration();
+    if ((rigidBindingsChanged || softBindingsChanged) &&
+        !mImpl->passDispatcher.recreateSceneBindingVariants())
+    {
+        CRESSIM_LOG_ERROR("PhysicsSolver::step failed: recreateSceneBindingVariants.");
+        return false;
+    }
+    mImpl->lastAppliedRigidBindingGeneration = mImpl->sceneState.rigidBindingGeneration();
+    mImpl->lastAppliedSoftBindingGeneration  = mImpl->sceneState.softBindingGeneration();
+
     if (!mImpl->sceneState.uploadWorldState(computeBackend.computeContext, world, rigidBodyCount,
                                             colliderCount))
     {

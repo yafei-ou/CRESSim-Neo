@@ -559,9 +559,11 @@ bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBin
     {
         return false;
     }
-    if (program->shaderResourceBinding == nullptr)
+    if (program->shaderResourceBinding == nullptr ||
+        program->sceneBindingGeneration != mSceneView.bindingGeneration)
     {
         program->pipelineState->CreateShaderResourceBinding(&program->shaderResourceBinding, true);
+        program->sceneBindingGeneration = mSceneView.bindingGeneration;
     }
     if (program->shaderResourceBinding == nullptr)
     {

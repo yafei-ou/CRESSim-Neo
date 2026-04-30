@@ -94,6 +94,12 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPreparedCamerasBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mLightInputsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mLocalLightSelectionBuffer;
+    std::uint64_t mPoseBindingGeneration                  = 1u;
+    std::uint64_t mPhysicsSyncBindingGeneration           = 1u;
+    std::uint64_t mSceneBindingGeneration                 = 1u;
+    std::uint64_t mLastMappedSourcePoseBindingGeneration  = 0u;
+    std::uint64_t mLastMappedOutputPoseBindingGeneration  = 0u;
+    std::uint64_t mLastMappedPhysicsSyncBindingGeneration = 0u;
 };
 
 } // namespace cressim::neo::engine

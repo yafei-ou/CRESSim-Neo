@@ -35,6 +35,7 @@ struct PoseBufferView
     Diligent::IBuffer *orientationsBuffer = nullptr;
     Diligent::IBuffer *scalesBuffer       = nullptr;
     std::uint32_t count                   = 0;
+    std::uint64_t bindingGeneration       = 0;
 };
 
 } // namespace cressim::neo::common

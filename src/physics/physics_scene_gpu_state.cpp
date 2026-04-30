@@ -124,6 +124,44 @@ std::vector<std::uint32_t> buildReductionLevelCounts(std::uint32_t elementCount)
 }
 
 template <typename T>
+bool readbackBufferRangeBlocking(Diligent::IDeviceContext *computeContext, Diligent::IBuffer *src,
+                                 Diligent::IBuffer *dst, std::uint32_t begin,
+                                 std::uint32_t count, T *outValues)
+{
+    if (computeContext == nullptr || src == nullptr || dst == nullptr || outValues == nullptr)
+    {
+        return false;
+    }
+    if (count == 0u)
+    {
+        return true;
+    }
+
+    const Diligent::Uint64 offset = static_cast<Diligent::Uint64>(begin) * sizeof(T);
+    const Diligent::Uint64 bytes  = static_cast<Diligent::Uint64>(count) * sizeof(T);
+    computeContext->CopyBuffer(src, offset, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                               dst, 0u, bytes,
+                               Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->Flush();
+    computeContext->WaitForIdle();
+
+    void *mapped = nullptr;
+    computeContext->MapBuffer(dst, Diligent::MAP_READ, Diligent::MAP_FLAG_DO_NOT_WAIT, mapped);
+    if (mapped == nullptr)
+    {
+        return false;
+    }
+
+    const T *typed = static_cast<const T *>(mapped);
+    for (std::uint32_t i = 0; i < count; ++i)
+    {
+        outValues[i] = typed[i];
+    }
+    computeContext->UnmapBuffer(dst, Diligent::MAP_READ);
+    return true;
+}
+
+template <typename T>
 bool updateStructuredBufferRange(Diligent::IDeviceContext *computeContext,
                                  Diligent::IBuffer *buffer, const std::vector<T> &source,
                                  std::uint32_t begin, std::uint32_t count)
@@ -202,6 +240,41 @@ bool PhysicsSceneGpuState::ensureCapacity(
     std::uint32_t softBodyBoundsChunkCount, Diligent::Uint64 sharedContextMask,
     bool useNativeFloatAtomics)
 {
+    const auto rigidPositionsBefore      = mPersistentRigidBodies.positionsBuffer.RawPtr();
+    const auto rigidOrientationsBefore   = mPersistentRigidBodies.orientationsBuffer.RawPtr();
+    const auto rigidBodyTypesBefore      = mPersistentRigidBodies.bodyTypesBuffer.RawPtr();
+    const auto colliderOwnersBefore      = mPersistentColliders.ownerRigidBodyIndicesBuffer.RawPtr();
+    const auto colliderBroadPhaseBefore  = mPersistentColliders.broadPhaseDataBuffer.RawPtr();
+    const auto bodyColliderRangesBefore  = mPersistentBodyColliderMapping.colliderRangesBuffer.RawPtr();
+    const auto bodyColliderIndicesBefore = mPersistentBodyColliderMapping.colliderIndicesBuffer.RawPtr();
+    const auto predictedPositionsBefore =
+        mTransientState.predictedRigidBodies.positionsBuffer.RawPtr();
+    const auto predictedOrientationsBefore =
+        mTransientState.predictedRigidBodies.orientationsBuffer.RawPtr();
+    const auto predictedLinearBefore =
+        mTransientState.predictedRigidBodies.linearVelocitiesBuffer.RawPtr();
+    const auto predictedAngularBefore =
+        mTransientState.predictedRigidBodies.angularVelocitiesBuffer.RawPtr();
+    const auto bodyAabbsBefore       = mTransientState.bodyAabbsBuffer.RawPtr();
+    const auto bodyMetaBefore        = mTransientState.bodyMetaBuffer.RawPtr();
+    const auto activeFlagsBefore     = mTransientState.activeBodyFlagsBuffer.RawPtr();
+    const auto activeOffsetsBefore   = mTransientState.activeBodyOffsetsBuffer.RawPtr();
+    const auto staticFlagsBefore     = mTransientState.staticBodyFlagsBuffer.RawPtr();
+    const auto staticOffsetsBefore   = mTransientState.staticBodyOffsetsBuffer.RawPtr();
+    const auto rigidContactsBefore   = mTransientState.rigidContactsBuffer.RawPtr();
+    const auto translationCorrBefore = mTransientState.translationCorrectionsBuffer.RawPtr();
+    const auto rotationCorrBefore    = mTransientState.rotationCorrectionsBuffer.RawPtr();
+    const auto linearVelCorrBefore   = mTransientState.linearVelocityCorrectionsBuffer.RawPtr();
+    const auto angularVelCorrBefore  = mTransientState.angularVelocityCorrectionsBuffer.RawPtr();
+    const auto softPositionsBefore   = mPersistentSoftParticles.positionsInvMassBuffer.RawPtr();
+    const auto softPreviousBefore    = mPersistentSoftParticles.previousPositionsBuffer.RawPtr();
+    const auto softVelocitiesBefore  = mPersistentSoftParticles.velocitiesBuffer.RawPtr();
+    const auto softEdgesBefore       = mPersistentSoftTopology.edgesBuffer.RawPtr();
+    const auto softTetsBefore        = mPersistentSoftTopology.tetsBuffer.RawPtr();
+    const auto softRenderNormalsBefore =
+        mPersistentSoftTopology.softBodyRenderNormalsBuffer.RawPtr();
+    const auto softWorldAabbsBefore = mPersistentSoftTopology.softBodyWorldAabbsBuffer.RawPtr();
+
     const bool hasAllBuffers =
         mPersistentRigidBodies.positionsBuffer != nullptr &&
         mPersistentRigidBodies.orientationsBuffer != nullptr &&
@@ -1146,6 +1219,22 @@ bool PhysicsSceneGpuState::ensureCapacity(
         }
     }
 
+    const bool softCapacityChanged =
+        mSoftParticleCapacity != newSoftParticleCapacity ||
+        mSoftEdgeCapacity != newSoftEdgeCapacity ||
+        mSoftTetCapacity != newSoftTetCapacity ||
+        mParticleBroadPhaseEntryCapacity != newParticleBroadPhaseEntryCapacity ||
+        mSoftCandidatePairCapacity != newSoftCandidatePairCapacity ||
+        mSoftScanScratchCapacity != newSoftScanCapacity ||
+        mSoftParticleAdjacencyCapacity != newSoftParticleAdjacencyCapacity ||
+        mSoftIncidentEdgeCapacity != newSoftIncidentEdgeCapacity ||
+        mSoftIncidentTetCapacity != newSoftIncidentTetCapacity ||
+        mSoftRenderVertexCapacity != newSoftRenderVertexCapacity ||
+        mSoftRenderTriangleIndexCapacity != newSoftRenderTriangleIndexCapacity ||
+        mSoftRenderTriangleCapacity != newSoftRenderTriangleCapacity ||
+        mSoftBodyRangeCapacity != newSoftBodyRangeCapacity ||
+        mSoftBodyBoundsChunkCapacity != newSoftBodyBoundsChunkCapacity;
+
     mRigidBodyCapacity               = newRigidBodyCapacity;
     mColliderCapacity                = newColliderCapacity;
     mSoftParticleCapacity            = newSoftParticleCapacity;
@@ -1165,6 +1254,49 @@ bool PhysicsSceneGpuState::ensureCapacity(
     mBroadPhaseNodeCapacity          = newNodeCapacity;
     mCandidatePairCapacity           = newCandidatePairCapacity;
     mContactCapacity                 = newRigidContactCapacity;
+    const bool rigidBindingsChanged =
+        rigidPositionsBefore != mPersistentRigidBodies.positionsBuffer.RawPtr() ||
+        rigidOrientationsBefore != mPersistentRigidBodies.orientationsBuffer.RawPtr() ||
+        rigidBodyTypesBefore != mPersistentRigidBodies.bodyTypesBuffer.RawPtr() ||
+        colliderOwnersBefore != mPersistentColliders.ownerRigidBodyIndicesBuffer.RawPtr() ||
+        colliderBroadPhaseBefore != mPersistentColliders.broadPhaseDataBuffer.RawPtr() ||
+        bodyColliderRangesBefore != mPersistentBodyColliderMapping.colliderRangesBuffer.RawPtr() ||
+        bodyColliderIndicesBefore != mPersistentBodyColliderMapping.colliderIndicesBuffer.RawPtr() ||
+        predictedPositionsBefore != mTransientState.predictedRigidBodies.positionsBuffer.RawPtr() ||
+        predictedOrientationsBefore !=
+            mTransientState.predictedRigidBodies.orientationsBuffer.RawPtr() ||
+        predictedLinearBefore !=
+            mTransientState.predictedRigidBodies.linearVelocitiesBuffer.RawPtr() ||
+        predictedAngularBefore !=
+            mTransientState.predictedRigidBodies.angularVelocitiesBuffer.RawPtr() ||
+        bodyAabbsBefore != mTransientState.bodyAabbsBuffer.RawPtr() ||
+        bodyMetaBefore != mTransientState.bodyMetaBuffer.RawPtr() ||
+        activeFlagsBefore != mTransientState.activeBodyFlagsBuffer.RawPtr() ||
+        activeOffsetsBefore != mTransientState.activeBodyOffsetsBuffer.RawPtr() ||
+        staticFlagsBefore != mTransientState.staticBodyFlagsBuffer.RawPtr() ||
+        staticOffsetsBefore != mTransientState.staticBodyOffsetsBuffer.RawPtr() ||
+        rigidContactsBefore != mTransientState.rigidContactsBuffer.RawPtr() ||
+        translationCorrBefore != mTransientState.translationCorrectionsBuffer.RawPtr() ||
+        rotationCorrBefore != mTransientState.rotationCorrectionsBuffer.RawPtr() ||
+        linearVelCorrBefore != mTransientState.linearVelocityCorrectionsBuffer.RawPtr() ||
+        angularVelCorrBefore != mTransientState.angularVelocityCorrectionsBuffer.RawPtr();
+    const bool softBindingsChanged =
+        softCapacityChanged ||
+        softPositionsBefore != mPersistentSoftParticles.positionsInvMassBuffer.RawPtr() ||
+        softPreviousBefore != mPersistentSoftParticles.previousPositionsBuffer.RawPtr() ||
+        softVelocitiesBefore != mPersistentSoftParticles.velocitiesBuffer.RawPtr() ||
+        softEdgesBefore != mPersistentSoftTopology.edgesBuffer.RawPtr() ||
+        softTetsBefore != mPersistentSoftTopology.tetsBuffer.RawPtr() ||
+        softRenderNormalsBefore != mPersistentSoftTopology.softBodyRenderNormalsBuffer.RawPtr() ||
+        softWorldAabbsBefore != mPersistentSoftTopology.softBodyWorldAabbsBuffer.RawPtr();
+    if (rigidBindingsChanged)
+    {
+        ++mRigidBindingGeneration;
+    }
+    if (softBindingsChanged)
+    {
+        ++mSoftBindingGeneration;
+    }
     mCorrectionBuffersNeedClear      = true;
     mStaticBroadPhaseDirty           = true;
     mRigidBodyUploadResetRequired    = true;
@@ -1984,6 +2116,16 @@ void PhysicsSceneGpuState::setStaticBroadPhaseDirty(bool dirty) noexcept
     mStaticBroadPhaseDirty = dirty;
 }
 
+std::uint64_t PhysicsSceneGpuState::rigidBindingGeneration() const noexcept
+{
+    return mRigidBindingGeneration;
+}
+
+std::uint64_t PhysicsSceneGpuState::softBindingGeneration() const noexcept
+{
+    return mSoftBindingGeneration;
+}
+
 PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
 {
     PhysicsGpuSceneView view{};
@@ -1991,7 +2133,9 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.rigid.poses.orientationsBuffer = mTransientState.predictedRigidBodies.orientationsBuffer;
     view.rigid.poses.scalesBuffer       = mPersistentRigidBodies.scalesBuffer;
     view.rigid.poses.count              = mRigidBodyCount;
+    view.rigid.poses.bindingGeneration  = mRigidBindingGeneration;
     view.rigid.colliderCount            = mColliderCount;
+    view.rigid.bindingGeneration        = mRigidBindingGeneration;
     view.soft.particles.positionsInvMassBuffer  = mPersistentSoftParticles.positionsInvMassBuffer;
     view.soft.particles.previousPositionsBuffer = mPersistentSoftParticles.previousPositionsBuffer;
     view.soft.particles.velocitiesBuffer        = mPersistentSoftParticles.velocitiesBuffer;
@@ -2015,6 +2159,7 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.softBodyCount       = mSoftBodyCount;
     view.soft.edgeCount           = mSoftEdgeCount;
     view.soft.tetCount            = mSoftTetCount;
+    view.soft.bindingGeneration   = mSoftBindingGeneration;
     return view;
 }
 

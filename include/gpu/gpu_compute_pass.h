@@ -43,6 +43,7 @@ public:
 
     bool createVariant();
     bool createVariants(std::size_t totalVariantCount);
+    bool forceRecreateAllVariants();
 
     Diligent::IPipelineState *pipelineState() const
     {
@@ -50,45 +51,57 @@ public:
     }
     Diligent::IShaderResourceBinding *defaultSrb() const
     {
-        return mSrbs.empty() ? nullptr : mSrbs[0].RawPtr();
+        return mVariants.empty() ? nullptr : mVariants[0].srb.RawPtr();
     }
     Diligent::IShaderResourceBinding *variantSrb(std::size_t index) const;
 
     template <std::size_t N>
     bool bindVariant(std::size_t variantIndex,
-                     const std::array<GpuBufferBinding, N> &bindings) const;
+                     const std::array<GpuBufferBinding, N> &bindings);
 
     template <std::size_t N>
     bool dispatch(Diligent::IDeviceContext *computeContext, std::size_t variantIndex,
                   const std::array<GpuBufferBinding, N> &bindings, std::uint32_t groupCountX,
-                  std::uint32_t groupCountY = 1u, std::uint32_t groupCountZ = 1u) const;
+                  std::uint32_t groupCountY = 1u, std::uint32_t groupCountZ = 1u);
 
     template <std::size_t N>
     bool dispatchIndirect(Diligent::IDeviceContext *computeContext, std::size_t variantIndex,
                           const std::array<GpuBufferBinding, N> &bindings,
                           Diligent::IBuffer *indirectArgsBuffer,
-                          Diligent::Uint64 indirectArgsOffset = 0u) const;
+                          Diligent::Uint64 indirectArgsOffset = 0u);
 
 private:
+    struct VariantState
+    {
+        Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> srb;
+    };
+
+    bool recreateVariant(std::size_t variantIndex);
+    bool recreateAllVariants();
     static bool bindBufferVariable(Diligent::IShaderResourceBinding *srb, const char *variableName,
                                    Diligent::IBuffer *buffer, Diligent::BUFFER_VIEW_TYPE viewType);
 
     template <std::size_t N>
-    static bool bindBufferVariables(Diligent::IShaderResourceBinding *srb,
-                                    const std::array<GpuBufferBinding, N> &bindings);
+    bool bindBufferVariables(std::size_t variantIndex, const std::array<GpuBufferBinding, N> &bindings);
 
 private:
     std::string mShaderPath;
     std::string mShaderName;
     std::string mPsoName;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mPso;
-    std::vector<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>> mSrbs;
+    std::vector<VariantState> mVariants;
 };
 
 template <std::size_t N>
-bool GpuComputePass::bindBufferVariables(Diligent::IShaderResourceBinding *srb,
+bool GpuComputePass::bindBufferVariables(std::size_t variantIndex,
                                          const std::array<GpuBufferBinding, N> &bindings)
 {
+    Diligent::IShaderResourceBinding *srb = variantSrb(variantIndex);
+    if (srb == nullptr)
+    {
+        return false;
+    }
+
     for (const GpuBufferBinding &binding : bindings)
     {
         if (!bindBufferVariable(srb, binding.variableName, binding.buffer, binding.viewType))
@@ -101,16 +114,16 @@ bool GpuComputePass::bindBufferVariables(Diligent::IShaderResourceBinding *srb,
 
 template <std::size_t N>
 bool GpuComputePass::bindVariant(std::size_t variantIndex,
-                                 const std::array<GpuBufferBinding, N> &bindings) const
+                                 const std::array<GpuBufferBinding, N> &bindings)
 {
-    return bindBufferVariables(variantSrb(variantIndex), bindings);
+    return bindBufferVariables(variantIndex, bindings);
 }
 
 template <std::size_t N>
 bool GpuComputePass::dispatch(Diligent::IDeviceContext *computeContext, std::size_t variantIndex,
                               const std::array<GpuBufferBinding, N> &bindings,
                               std::uint32_t groupCountX, std::uint32_t groupCountY,
-                              std::uint32_t groupCountZ) const
+                              std::uint32_t groupCountZ)
 {
     Diligent::IShaderResourceBinding *srb = variantSrb(variantIndex);
     if (computeContext == nullptr || mPso == nullptr || srb == nullptr)
@@ -118,7 +131,13 @@ bool GpuComputePass::dispatch(Diligent::IDeviceContext *computeContext, std::siz
         return false;
     }
 
-    if (!bindBufferVariables(srb, bindings))
+    if (!bindBufferVariables(variantIndex, bindings))
+    {
+        return false;
+    }
+
+    srb = variantSrb(variantIndex);
+    if (srb == nullptr)
     {
         return false;
     }
@@ -135,7 +154,7 @@ bool GpuComputePass::dispatchIndirect(Diligent::IDeviceContext *computeContext,
                                       std::size_t variantIndex,
                                       const std::array<GpuBufferBinding, N> &bindings,
                                       Diligent::IBuffer *indirectArgsBuffer,
-                                      Diligent::Uint64 indirectArgsOffset) const
+                                      Diligent::Uint64 indirectArgsOffset)
 {
     Diligent::IShaderResourceBinding *srb = variantSrb(variantIndex);
     if (computeContext == nullptr || mPso == nullptr || srb == nullptr ||
@@ -144,7 +163,13 @@ bool GpuComputePass::dispatchIndirect(Diligent::IDeviceContext *computeContext,
         return false;
     }
 
-    if (!bindBufferVariables(srb, bindings))
+    if (!bindBufferVariables(variantIndex, bindings))
+    {
+        return false;
+    }
+
+    srb = variantSrb(variantIndex);
+    if (srb == nullptr)
     {
         return false;
     }

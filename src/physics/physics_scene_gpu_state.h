@@ -200,6 +200,61 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> neighborMetaBuffer;
     };
 
+    struct BroadPhaseCompactionTailReadback
+    {
+        std::uint32_t colliderCount = 0;
+        std::uint32_t sampleBegin   = 0;
+        std::uint32_t sampleCount   = 0;
+        std::array<std::uint32_t, 4> activeFlags{};
+        std::array<std::uint32_t, 4> activeOffsets{};
+        std::array<std::uint32_t, 4> staticFlags{};
+        std::array<std::uint32_t, 4> staticOffsets{};
+    };
+
+    struct BroadPhaseInputTailReadback
+    {
+        std::uint32_t colliderCount = 0;
+        std::uint32_t rigidBodyCount = 0;
+        std::uint32_t sampleBegin   = 0;
+        std::uint32_t sampleCount   = 0;
+        std::array<std::uint32_t, 4> ownerRigidBodyIndices{};
+        std::array<std::uint32_t, 4> enabledFlags{};
+        std::array<std::uint32_t, 4> rigidBodyTypes{};
+    };
+
+    struct BroadPhaseOutputTailReadback
+    {
+        std::uint32_t colliderSampleBegin = 0;
+        std::uint32_t rigidBodySampleBegin = 0;
+        std::uint32_t sampleCount = 0;
+        std::array<std::uint32_t, 4> bodyMetaTypes{};
+        std::array<std::uint32_t, 4> bodyMetaIds{};
+        std::array<std::uint32_t, 4> bodyMetaActiveIndices{};
+        std::array<float, 4> aabbMinX{};
+        std::array<float, 4> aabbMaxX{};
+        std::array<float, 4> predictedPosX{};
+        std::array<float, 4> predictedPosW{};
+    };
+
+    struct PredictedRigidTailReadback
+    {
+        std::uint32_t rigidBodyCount = 0;
+        std::uint32_t sampleBegin    = 0;
+        std::uint32_t sampleCount    = 0;
+        std::array<float, 4> predictedPosX{};
+        std::array<float, 4> predictedPosW{};
+    };
+
+    struct PersistentRigidTailReadback
+    {
+        std::uint32_t rigidBodyCount = 0;
+        std::uint32_t sampleBegin    = 0;
+        std::uint32_t sampleCount    = 0;
+        std::array<float, 4> posX{};
+        std::array<float, 4> posW{};
+        std::array<std::uint32_t, 4> bodyTypes{};
+    };
+
     bool ensureCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t bodyCount,
                         std::uint32_t colliderCount, std::uint32_t softParticleCount,
                         std::uint32_t softEdgeCount, std::uint32_t softTetCount,
@@ -233,6 +288,8 @@ public:
     void setCorrectionBuffersNeedClear(bool needClear) noexcept;
     bool staticBroadPhaseDirty() const noexcept;
     void setStaticBroadPhaseDirty(bool dirty) noexcept;
+    std::uint64_t rigidBindingGeneration() const noexcept;
+    std::uint64_t softBindingGeneration() const noexcept;
     PhysicsGpuSceneView sceneView() const noexcept;
 
 private:
@@ -300,6 +357,8 @@ private:
     bool mColliderUploadResetRequired               = true;
     bool mSoftParticleUploadResetRequired           = true;
     bool mSoftTopologyUploadResetRequired           = true;
+    std::uint64_t mRigidBindingGeneration           = 1u;
+    std::uint64_t mSoftBindingGeneration            = 1u;
     std::uint64_t mLastUploadedSoftParticleRevision = 0;
     std::uint64_t mLastUploadedSoftTopologyRevision = 0;
 };

@@ -119,6 +119,7 @@ struct GpuEntitySceneView
     std::uint32_t renderableCount                         = 0;
     std::uint32_t cameraCount                             = 0;
     std::uint32_t lightCount                              = 0;
+    std::uint64_t bindingGeneration                       = 0;
 };
 
 } // namespace cressim::neo::graphics

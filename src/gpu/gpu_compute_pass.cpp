@@ -14,7 +14,7 @@ bool GpuComputePass::initialize(GpuDevice &device,
     mShaderName = definition.shaderName != nullptr ? definition.shaderName : "";
     mPsoName    = definition.psoName != nullptr ? definition.psoName : "";
     mPso        = nullptr;
-    mSrbs.clear();
+    mVariants.clear();
 
     if (streamFactory == nullptr)
     {
@@ -70,14 +70,15 @@ bool GpuComputePass::createVariant()
         return false;
     }
 
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> srb;
-    mPso->CreateShaderResourceBinding(&srb, true);
-    if (srb == nullptr)
+    VariantState variantState;
+    mPso->CreateShaderResourceBinding(&variantState.srb, true);
+
+    if (variantState.srb == nullptr)
     {
         return false;
     }
 
-    mSrbs.push_back(std::move(srb));
+    mVariants.push_back(std::move(variantState));
     return true;
 }
 
@@ -88,7 +89,7 @@ bool GpuComputePass::createVariants(std::size_t totalVariantCount)
         return false;
     }
 
-    while (mSrbs.size() < totalVariantCount)
+    while (mVariants.size() < totalVariantCount)
     {
         if (!createVariant())
         {
@@ -98,13 +99,48 @@ bool GpuComputePass::createVariants(std::size_t totalVariantCount)
     return true;
 }
 
+bool GpuComputePass::forceRecreateAllVariants()
+{
+    return recreateAllVariants();
+}
+
 Diligent::IShaderResourceBinding *GpuComputePass::variantSrb(std::size_t index) const
 {
-    if (index >= mSrbs.size())
+    if (index >= mVariants.size())
     {
         return nullptr;
     }
-    return mSrbs[index].RawPtr();
+    return mVariants[index].srb.RawPtr();
+}
+
+bool GpuComputePass::recreateVariant(std::size_t variantIndex)
+{
+    VariantState newVariantState;
+    if (variantIndex >= mVariants.size() || mPso == nullptr)
+    {
+        return false;
+    }
+
+    mPso->CreateShaderResourceBinding(&newVariantState.srb, true);
+    if (newVariantState.srb == nullptr)
+    {
+        return false;
+    }
+
+    mVariants[variantIndex] = std::move(newVariantState);
+    return true;
+}
+
+bool GpuComputePass::recreateAllVariants()
+{
+    for (std::size_t i = 0; i < mVariants.size(); ++i)
+    {
+        if (!recreateVariant(i))
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 bool GpuComputePass::bindBufferVariable(Diligent::IShaderResourceBinding *srb,
