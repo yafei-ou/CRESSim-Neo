@@ -330,10 +330,9 @@ struct SliderJointState
     bool enabled              = true;
     RigidBodyId bodyA         = kInvalidRigidBodyId;
     RigidBodyId bodyB         = kInvalidRigidBodyId;
+    Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
+    Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
     Diligent::float3 localAxisA{1.0f, 0.0f, 0.0f};
-    Diligent::float3 localBasisB0{1.0f, 0.0f, 0.0f};
-    Diligent::float3 localBasisB1{0.0f, 1.0f, 0.0f};
-    Diligent::float3 localBasisB2{0.0f, 0.0f, 1.0f};
     Diligent::float2 referenceOffset{0.0f, 0.0f};
 };
 
@@ -367,8 +366,6 @@ struct HingeJointSoAHost
     std::vector<std::uint32_t> enabledFlags;
     std::vector<Diligent::float4> localAnchorsA;
     std::vector<Diligent::float4> localAnchorsB;
-    std::vector<Diligent::float4> localAxesA;
-    std::vector<Diligent::float4> localAxesB;
     std::vector<Diligent::float4> projectionRow0;
     std::vector<Diligent::float4> projectionRow1;
 
@@ -382,8 +379,6 @@ struct HingeJointSoAHost
         enabledFlags.clear();
         localAnchorsA.clear();
         localAnchorsB.clear();
-        localAxesA.clear();
-        localAxesB.clear();
         projectionRow0.clear();
         projectionRow1.clear();
     }
@@ -395,12 +390,14 @@ struct SliderJointSoAHost
     std::vector<std::uint32_t> bodyIndicesA;
     std::vector<std::uint32_t> bodyIndicesB;
     std::vector<std::uint32_t> enabledFlags;
+    std::vector<Diligent::float4> localAnchorsA;
+    std::vector<Diligent::float4> localAnchorsB;
     std::vector<Diligent::float4> localAxesA0;
     std::vector<Diligent::float4> localAxesA1;
     std::vector<Diligent::float4> localAxesA2;
-    std::vector<Diligent::float4> localAxesB0;
-    std::vector<Diligent::float4> localAxesB1;
-    std::vector<Diligent::float4> localAxesB2;
+    std::vector<Diligent::float4> projectionRow0;
+    std::vector<Diligent::float4> projectionRow1;
+    std::vector<Diligent::float4> projectionRow2;
     std::vector<Diligent::float4> referenceOffsets;
 
     std::size_t size() const noexcept { return jointIds.size(); }
@@ -411,12 +408,14 @@ struct SliderJointSoAHost
         bodyIndicesA.clear();
         bodyIndicesB.clear();
         enabledFlags.clear();
+        localAnchorsA.clear();
+        localAnchorsB.clear();
         localAxesA0.clear();
         localAxesA1.clear();
         localAxesA2.clear();
-        localAxesB0.clear();
-        localAxesB1.clear();
-        localAxesB2.clear();
+        projectionRow0.clear();
+        projectionRow1.clear();
+        projectionRow2.clear();
         referenceOffsets.clear();
     }
 };

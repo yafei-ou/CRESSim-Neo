@@ -97,8 +97,6 @@ struct GpuHingeJoint
     uint reserved0;
     float4 localAnchorA;
     float4 localAnchorB;
-    float4 localAxisA;
-    float4 localAxisB;
     float4 projectionRow0;
     float4 projectionRow1;
 };
@@ -109,12 +107,14 @@ struct GpuSliderJoint
     uint bodyB;
     uint enabled;
     uint reserved0;
+    float4 localAnchorA;
+    float4 localAnchorB;
     float4 localAxisA0;
     float4 localAxisA1;
     float4 localAxisA2;
-    float4 localAxisB0;
-    float4 localAxisB1;
-    float4 localAxisB2;
+    float4 projectionRow0;
+    float4 projectionRow1;
+    float4 projectionRow2;
     float4 referenceOffset;
 };
 

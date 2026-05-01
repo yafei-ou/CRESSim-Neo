@@ -62,30 +62,58 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 rB = QuaternionRotate(qB, joint.localAnchorB.xyz);
     const float3 pA = posInvMassA.xyz + rA;
     const float3 pB = posInvMassB.xyz + rB;
-    const float3 delta = clamp(pA - pB, -kMaxJointError, kMaxJointError);
+    const float3 delta = ClampErrorVector(pA - pB, kMaxJointError) * kJointRelaxation;
 
-    const float3 basis[3] = {float3(1.0, 0.0, 0.0), float3(0.0, 1.0, 0.0), float3(0.0, 0.0, 1.0)};
+    const float3 n0 = float3(1.0, 0.0, 0.0);
+    const float3 n1 = float3(0.0, 1.0, 0.0);
+    const float3 n2 = float3(0.0, 0.0, 1.0);
 
-    float3 translationA = 0.0;
-    float3 rotationA = 0.0;
-    float3 translationB = 0.0;
-    float3 rotationB = 0.0;
+    const float3 jAngA0 = cross(rA, n0);
+    const float3 jAngA1 = cross(rA, n1);
+    const float3 jAngA2 = cross(rA, n2);
+    const float3 jAngB0 = -cross(rB, n0);
+    const float3 jAngB1 = -cross(rB, n1);
+    const float3 jAngB2 = -cross(rB, n2);
 
-    [unroll] for (uint row = 0u; row < 3u; ++row)
+    const float k00 = ComputeConstraintMatrixElement(invMassA, invInertiaA, qA, invMassB, invInertiaB, qB,
+                                                     n0, jAngA0, -n0, jAngB0,
+                                                     n0, jAngA0, -n0, jAngB0);
+    const float k01 = ComputeConstraintMatrixElement(invMassA, invInertiaA, qA, invMassB, invInertiaB, qB,
+                                                     n0, jAngA0, -n0, jAngB0,
+                                                     n1, jAngA1, -n1, jAngB1);
+    const float k02 = ComputeConstraintMatrixElement(invMassA, invInertiaA, qA, invMassB, invInertiaB, qB,
+                                                     n0, jAngA0, -n0, jAngB0,
+                                                     n2, jAngA2, -n2, jAngB2);
+    const float k10 = k01;
+    const float k11 = ComputeConstraintMatrixElement(invMassA, invInertiaA, qA, invMassB, invInertiaB, qB,
+                                                     n1, jAngA1, -n1, jAngB1,
+                                                     n1, jAngA1, -n1, jAngB1);
+    const float k12 = ComputeConstraintMatrixElement(invMassA, invInertiaA, qA, invMassB, invInertiaB, qB,
+                                                     n1, jAngA1, -n1, jAngB1,
+                                                     n2, jAngA2, -n2, jAngB2);
+    const float k20 = k02;
+    const float k21 = k12;
+    const float k22 = ComputeConstraintMatrixElement(invMassA, invInertiaA, qA, invMassB, invInertiaB, qB,
+                                                     n2, jAngA2, -n2, jAngB2,
+                                                     n2, jAngA2, -n2, jAngB2);
+
+    float3 lambda = 0.0;
+    if (!SolveLinearSystem3x3(k00, k01, k02,
+                              k10, k11, k12,
+                              k20, k21, k22,
+                              -delta.x, -delta.y, -delta.z, lambda))
     {
-        float3 rowTranslationA;
-        float3 rowRotationA;
-        float3 rowTranslationB;
-        float3 rowRotationB;
-        ApplyLinearConstraintRow(
-            basis[row], -dot(delta, basis[row]) * kJointRelaxation, invMassA, invMassB,
-            invInertiaA, qA, rA, invInertiaB, qB, rB,
-            rowTranslationA, rowRotationA, rowTranslationB, rowRotationB);
-        translationA += rowTranslationA;
-        rotationA += rowRotationA;
-        translationB += rowTranslationB;
-        rotationB += rowRotationB;
+        return;
     }
+
+    const float3 linearImpulse = n0 * lambda.x + n1 * lambda.y + n2 * lambda.z;
+    const float3 angularImpulseA = jAngA0 * lambda.x + jAngA1 * lambda.y + jAngA2 * lambda.z;
+    const float3 angularImpulseB = jAngB0 * lambda.x + jAngB1 * lambda.y + jAngB2 * lambda.z;
+
+    const float3 translationA = linearImpulse * invMassA;
+    const float3 rotationA = MultiplyWorldInverseInertia(invInertiaA, qA, angularImpulseA);
+    const float3 translationB = -linearImpulse * invMassB;
+    const float3 rotationB = MultiplyWorldInverseInertia(invInertiaB, qB, angularImpulseB);
 
     if (bodyTypeA == kRigidBodyTypeDynamic && invMassA != 0.0)
     {

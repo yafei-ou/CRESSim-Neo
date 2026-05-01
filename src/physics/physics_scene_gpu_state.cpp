@@ -1668,8 +1668,6 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
         dst.enabled        = jointScene.hinge.enabledFlags[i];
         dst.localAnchorA   = jointScene.hinge.localAnchorsA[i];
         dst.localAnchorB   = jointScene.hinge.localAnchorsB[i];
-        dst.localAxisA     = jointScene.hinge.localAxesA[i];
-        dst.localAxisB     = jointScene.hinge.localAxesB[i];
         dst.projectionRow0 = jointScene.hinge.projectionRow0[i];
         dst.projectionRow1 = jointScene.hinge.projectionRow1[i];
     }
@@ -1681,12 +1679,14 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
         dst.bodyA           = jointScene.slider.bodyIndicesA[i];
         dst.bodyB           = jointScene.slider.bodyIndicesB[i];
         dst.enabled         = jointScene.slider.enabledFlags[i];
+        dst.localAnchorA    = jointScene.slider.localAnchorsA[i];
+        dst.localAnchorB    = jointScene.slider.localAnchorsB[i];
         dst.localAxisA0     = jointScene.slider.localAxesA0[i];
         dst.localAxisA1     = jointScene.slider.localAxesA1[i];
         dst.localAxisA2     = jointScene.slider.localAxesA2[i];
-        dst.localAxisB0     = jointScene.slider.localAxesB0[i];
-        dst.localAxisB1     = jointScene.slider.localAxesB1[i];
-        dst.localAxisB2     = jointScene.slider.localAxesB2[i];
+        dst.projectionRow0  = jointScene.slider.projectionRow0[i];
+        dst.projectionRow1  = jointScene.slider.projectionRow1[i];
+        dst.projectionRow2  = jointScene.slider.projectionRow2[i];
         dst.referenceOffset = jointScene.slider.referenceOffsets[i];
     }
 

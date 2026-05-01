@@ -76,8 +76,6 @@ struct GpuHingeJoint
     std::uint32_t reserved0 = 0u;
     Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
-    Diligent::float4 localAxisA{1.0f, 0.0f, 0.0f, 0.0f};
-    Diligent::float4 localAxisB{1.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 projectionRow0{0.0f, 1.0f, 0.0f, 0.0f};
     Diligent::float4 projectionRow1{0.0f, 0.0f, 1.0f, 0.0f};
 };
@@ -88,12 +86,14 @@ struct GpuSliderJoint
     std::uint32_t bodyB = 0u;
     std::uint32_t enabled = 0u;
     std::uint32_t reserved0 = 0u;
+    Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localAxisA0{1.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localAxisA1{0.0f, 1.0f, 0.0f, 0.0f};
     Diligent::float4 localAxisA2{0.0f, 0.0f, 1.0f, 0.0f};
-    Diligent::float4 localAxisB0{1.0f, 0.0f, 0.0f, 0.0f};
-    Diligent::float4 localAxisB1{0.0f, 1.0f, 0.0f, 0.0f};
-    Diligent::float4 localAxisB2{0.0f, 0.0f, 1.0f, 0.0f};
+    Diligent::float4 projectionRow0{0.0f, 1.0f, 0.0f, 0.0f};
+    Diligent::float4 projectionRow1{0.0f, 0.0f, 1.0f, 0.0f};
+    Diligent::float4 projectionRow2{0.0f, 0.0f, 0.0f, 1.0f};
     Diligent::float4 referenceOffset{0.0f, 0.0f, 0.0f, 0.0f};
 };
 

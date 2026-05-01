@@ -62,48 +62,75 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 rB = QuaternionRotate(qB, joint.localAnchorB.xyz);
     const float3 pA = posInvMassA.xyz + rA;
     const float3 pB = posInvMassB.xyz + rB;
-    const float3 delta = clamp(pA - pB, -kMaxJointError, kMaxJointError);
+    const float3 delta = ClampErrorVector(pA - pB, kMaxJointError) * kJointRelaxation;
 
-    const float3 anchorBasis[3] = {float3(1.0, 0.0, 0.0), float3(0.0, 1.0, 0.0), float3(0.0, 0.0, 1.0)};
+    const float3 tRow0 = ComputeProjectionJacobianRow(joint.projectionRow0, qA, qB);
+    const float3 tRow1 = ComputeProjectionJacobianRow(joint.projectionRow1, qA, qB);
 
-    float3 translationA = 0.0;
-    float3 rotationA = 0.0;
-    float3 translationB = 0.0;
-    float3 rotationB = 0.0;
+    float3 jLinA[5];
+    float3 jAngA[5];
+    float3 jLinB[5];
+    float3 jAngB[5];
+    jLinA[0] = float3(1.0, 0.0, 0.0);
+    jLinA[1] = float3(0.0, 1.0, 0.0);
+    jLinA[2] = float3(0.0, 0.0, 1.0);
+    jLinA[3] = 0.0;
+    jLinA[4] = 0.0;
+    jLinB[0] = -jLinA[0];
+    jLinB[1] = -jLinA[1];
+    jLinB[2] = -jLinA[2];
+    jLinB[3] = 0.0;
+    jLinB[4] = 0.0;
+    jAngA[0] = cross(rA, jLinA[0]);
+    jAngA[1] = cross(rA, jLinA[1]);
+    jAngA[2] = cross(rA, jLinA[2]);
+    jAngA[3] = tRow0;
+    jAngA[4] = tRow1;
+    jAngB[0] = -cross(rB, jLinA[0]);
+    jAngB[1] = -cross(rB, jLinA[1]);
+    jAngB[2] = -cross(rB, jLinA[2]);
+    jAngB[3] = -tRow0;
+    jAngB[4] = -tRow1;
 
-    [unroll] for (uint row = 0u; row < 3u; ++row)
+    float rhs[5];
+    rhs[0] = -delta.x;
+    rhs[1] = -delta.y;
+    rhs[2] = -delta.z;
+    rhs[3] = -ComputeProjectionConstraintValue(joint.projectionRow0, qA, qB) * kJointRelaxation;
+    rhs[4] = -ComputeProjectionConstraintValue(joint.projectionRow1, qA, qB) * kJointRelaxation;
+
+    float k[5][5];
+    [unroll] for (uint row = 0u; row < 5u; ++row)
     {
-        float3 rowTranslationA;
-        float3 rowRotationA;
-        float3 rowTranslationB;
-        float3 rowRotationB;
-        ApplyLinearConstraintRow(
-            anchorBasis[row], -dot(delta, anchorBasis[row]) * kJointRelaxation, invMassA, invMassB,
-            invInertiaA, qA, rA, invInertiaB, qB, rB,
-            rowTranslationA, rowRotationA, rowTranslationB, rowRotationB);
-        translationA += rowTranslationA;
-        rotationA += rowRotationA;
-        translationB += rowTranslationB;
-        rotationB += rowRotationB;
+        [unroll] for (uint col = 0u; col < 5u; ++col)
+        {
+            k[row][col] = ComputeConstraintMatrixElement(
+                invMassA, invInertiaA, qA, invMassB, invInertiaB, qB,
+                jLinA[row], jAngA[row], jLinB[row], jAngB[row],
+                jLinA[col], jAngA[col], jLinB[col], jAngB[col]);
+        }
     }
 
-    const float3 axisA = SafeNormalize(QuaternionRotate(qA, joint.localAxisA.xyz), float3(1.0, 0.0, 0.0));
-    const float3 axisB = SafeNormalize(QuaternionRotate(qB, joint.localAxisB.xyz), axisA);
-    const float3 angularError = cross(axisB, axisA);
-    const float3 row0 = QuaternionRotate(qA, joint.projectionRow0.xyz);
-    const float3 row1 = QuaternionRotate(qA, joint.projectionRow1.xyz);
+    float lambda[5];
+    if (!SolveLinearSystem5x5(k, rhs, lambda))
+    {
+        return;
+    }
 
-    float3 rowRotationA;
-    float3 rowRotationB;
-    ApplyAngularConstraintRow(row0, dot(angularError, row0) * kJointRelaxation,
-                              invInertiaA, qA, invInertiaB, qB, rowRotationA, rowRotationB);
-    rotationA += rowRotationA;
-    rotationB += rowRotationB;
+    float3 linearImpulse = 0.0;
+    float3 angularImpulseA = 0.0;
+    float3 angularImpulseB = 0.0;
+    [unroll] for (uint row = 0u; row < 5u; ++row)
+    {
+        linearImpulse += jLinA[row] * lambda[row];
+        angularImpulseA += jAngA[row] * lambda[row];
+        angularImpulseB += jAngB[row] * lambda[row];
+    }
 
-    ApplyAngularConstraintRow(row1, dot(angularError, row1) * kJointRelaxation,
-                              invInertiaA, qA, invInertiaB, qB, rowRotationA, rowRotationB);
-    rotationA += rowRotationA;
-    rotationB += rowRotationB;
+    const float3 translationA = linearImpulse * invMassA;
+    const float3 rotationA = MultiplyWorldInverseInertia(invInertiaA, qA, angularImpulseA);
+    const float3 translationB = -linearImpulse * invMassB;
+    const float3 rotationB = MultiplyWorldInverseInertia(invInertiaB, qB, angularImpulseB);
 
     if (bodyTypeA == kRigidBodyTypeDynamic && invMassA != 0.0)
     {
