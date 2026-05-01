@@ -20,6 +20,7 @@ struct PhysicsSolverDesc
     std::uint32_t defaultIterations           = 20;
     std::uint32_t softInternalIterations      = 0;
     std::uint32_t softContactIterations       = 0;
+    std::uint32_t rigidJointIterations        = 0;
     std::uint32_t rigidRigidContactIterations = 0;
     bool enableBlockingReadback               = true;
 };

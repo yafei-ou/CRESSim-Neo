@@ -24,19 +24,30 @@ public:
     void replaceColliders(common::EntityId entityId, const std::vector<ColliderState> &colliders);
     bool upsertSoftBody(const SoftBodyState &state);
     bool removeSoftBody(common::EntityId entityId);
+    bool upsertBallJoint(const BallJointState &state);
+    bool upsertHingeJoint(const HingeJointState &state);
+    bool upsertSliderJoint(const SliderJointState &state);
+    bool removeRigidJoint(RigidJointId jointId);
 
     RigidBodyState *tryGetRigidBody(common::EntityId entityId);
     const RigidBodyState *tryGetRigidBody(common::EntityId entityId) const;
     const ColliderState *tryGetCollider(ColliderId colliderId) const;
     SoftBodyState *tryGetSoftBody(common::EntityId entityId);
     const SoftBodyState *tryGetSoftBody(common::EntityId entityId) const;
+    const BallJointState *tryGetBallJoint(RigidJointId jointId) const noexcept;
+    const HingeJointState *tryGetHingeJoint(RigidJointId jointId) const noexcept;
+    const SliderJointState *tryGetSliderJoint(RigidJointId jointId) const noexcept;
 
     const std::vector<RigidBodyState> &rigidBodySnapshot() const noexcept;
     const std::vector<ColliderState> &colliderSnapshot() const noexcept;
     const std::vector<SoftBodyState> &softBodySnapshot() const noexcept;
+    const std::vector<BallJointState> &ballJointSnapshot() const noexcept;
+    const std::vector<HingeJointState> &hingeJointSnapshot() const noexcept;
+    const std::vector<SliderJointState> &sliderJointSnapshot() const noexcept;
     const RigidBodySoAHost &rigidBodySoA() const noexcept;
     const ColliderSoAHost &colliderSoA() const noexcept;
     const BodyColliderMappingHost &bodyColliderMapping() const noexcept;
+    const RigidJointSceneHost &rigidJointScene() const noexcept;
     const SoftParticleSoAHost &softParticles() const noexcept;
     const std::vector<SoftEdge> &softEdges() const noexcept;
     const std::vector<SoftTet> &softTets() const noexcept;
@@ -76,6 +87,7 @@ public:
     std::uint64_t authoredRevision() const noexcept;
     std::uint64_t simulationRevision() const noexcept;
     std::uint64_t rigidBodyTopologyRevision() const noexcept;
+    std::uint64_t rigidJointTopologyRevision() const noexcept;
     std::uint64_t softBodyTopologyRevision() const noexcept;
 
 private:
@@ -98,7 +110,8 @@ private:
     static void writeRigidBodySoAAt(RigidBodySoAHost &soa, std::uint32_t index,
                                     const RigidBodyState &state);
     static void writeColliderSoAAt(ColliderSoAHost &soa, std::uint32_t index,
-                                   const ColliderState &state, std::uint32_t ownerBodyIndex);
+                                   const ColliderState &state, std::uint32_t ownerBodyIndex,
+                                   std::uint32_t ownerEnvironmentIndex);
     static bool isStaticBody(const RigidBodyState &state) noexcept;
     static bool staticBodyPoseChanged(const RigidBodyState &before,
                                       const RigidBodyState &after) noexcept;
@@ -112,9 +125,11 @@ private:
     void markColliderDirty(std::uint32_t index) noexcept;
     void markRigidBodyCountDirty(bool fullUploadRequired = false) noexcept;
     void markColliderCountDirty(bool fullUploadRequired = false) noexcept;
+    void markJointTopologyDirty() noexcept;
     void removeCollidersForEntity(common::EntityId entityId) noexcept;
     void removeColliderAtIndex(std::uint32_t index) noexcept;
     void rebuildBodyColliderMapping() const noexcept;
+    void rebuildRigidJointScene() const noexcept;
     void rebuildSoftBodyDerivedState() noexcept;
     void markAllRigidBodiesDirty() noexcept;
     void markAllCollidersDirty() noexcept;
@@ -142,6 +157,7 @@ private:
     RigidBodySoAHost mRigidBodies{};
     mutable ColliderSoAHost mColliders{};
     mutable BodyColliderMappingHost mBodyColliderMapping{};
+    mutable RigidJointSceneHost mRigidJointScene{};
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToRigidBodyIndex{};
     std::unordered_map<RigidBodyId, std::uint32_t> mRigidBodyIdToIndex{};
     std::unordered_map<ColliderId, std::uint32_t> mColliderIdToIndex{};
@@ -151,6 +167,9 @@ private:
     std::vector<RigidBodyState> mRigidBodySnapshot{};
     std::vector<ColliderState> mColliderSnapshot{};
     std::vector<SoftBodyState> mSoftBodySnapshot{};
+    std::vector<BallJointState> mBallJointSnapshot{};
+    std::vector<HingeJointState> mHingeJointSnapshot{};
+    std::vector<SliderJointState> mSliderJointSnapshot{};
     std::vector<SoftBodyDerivedCache> mSoftBodyDerivedCaches{};
     SoftParticleSoAHost mSoftParticles{};
     std::vector<SoftEdge> mSoftEdges{};
@@ -165,6 +184,7 @@ private:
     bool mFullRigidBodyUploadRequired        = false;
     bool mFullColliderUploadRequired         = false;
     mutable bool mBodyColliderMappingDirty   = true;
+    mutable bool mRigidJointSceneDirty       = true;
     bool mSoftBodyDerivedStateDirty          = true;
     bool mStaticBroadPhaseDirty              = false;
     std::uint32_t mActiveMovingColliderCount = 0u;
@@ -172,9 +192,11 @@ private:
     std::uint64_t mAuthoredRevision          = 0;
     std::uint64_t mSimulationRevision        = 0;
     std::uint64_t mRigidBodyTopologyRevision = 0;
+    std::uint64_t mRigidJointTopologyRevision = 0;
     std::uint64_t mSoftBodyTopologyRevision  = 0;
     RigidBodyId mNextRigidBodyId             = 1u;
     ColliderId mNextColliderId               = 1u;
+    RigidJointId mNextRigidJointId           = 1u;
 };
 
 } // namespace cressim::neo::physics

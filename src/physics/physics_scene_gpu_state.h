@@ -55,6 +55,13 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> colliderIndicesBuffer;
     };
 
+    struct PersistentJointBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> ballJointsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> hingeJointsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderJointsBuffer;
+    };
+
     struct PredictedRigidBodyBuffers
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsBuffer;
@@ -258,6 +265,8 @@ public:
     bool ensureCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t bodyCount,
                         std::uint32_t colliderCount, std::uint32_t softParticleCount,
                         std::uint32_t softEdgeCount, std::uint32_t softTetCount,
+                        std::uint32_t ballJointCount, std::uint32_t hingeJointCount,
+                        std::uint32_t sliderJointCount,
                         std::uint32_t softRenderVertexCount,
                         std::uint32_t softRenderTriangleIndexCount,
                         std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
@@ -279,9 +288,13 @@ public:
     const PersistentRigidBodyBuffers &persistentRigidBodies() const noexcept;
     const PersistentColliderBuffers &persistentColliders() const noexcept;
     const PersistentBodyColliderMappingBuffers &persistentBodyColliderMapping() const noexcept;
+    const PersistentJointBuffers &persistentJoints() const noexcept;
     const PersistentSoftParticleBuffers &persistentSoftParticles() const noexcept;
     const PersistentSoftTopologyBuffers &persistentSoftTopology() const noexcept;
     const SolverTransientBuffers &transientBuffers() const noexcept;
+    std::uint32_t ballJointCount() const noexcept;
+    std::uint32_t hingeJointCount() const noexcept;
+    std::uint32_t sliderJointCount() const noexcept;
     std::uint32_t candidatePairCapacity() const noexcept;
     std::uint32_t softCandidatePairCapacity() const noexcept;
     bool correctionBuffersNeedClear() const noexcept;
@@ -311,6 +324,7 @@ private:
     bool uploadBodyColliderMapping(Diligent::IDeviceContext *computeContext,
                                    const BodyColliderMappingHost &mapping, std::uint32_t bodyCount,
                                    std::uint32_t colliderCount);
+    bool uploadRigidJoints(Diligent::IDeviceContext *computeContext, const PhysicsWorld &world);
     bool uploadSoftParticles(Diligent::IDeviceContext *computeContext,
                              const SoftParticleSoAHost &softParticles);
     bool uploadSoftTopology(Diligent::IDeviceContext *computeContext,
@@ -321,6 +335,7 @@ private:
     PersistentRigidBodyBuffers mPersistentRigidBodies;
     PersistentColliderBuffers mPersistentColliders;
     PersistentBodyColliderMappingBuffers mPersistentBodyColliderMapping;
+    PersistentJointBuffers mPersistentJoints;
     PersistentSoftParticleBuffers mPersistentSoftParticles;
     PersistentSoftTopologyBuffers mPersistentSoftTopology;
     SolverTransientBuffers mTransientState;
@@ -351,6 +366,9 @@ private:
     std::uint32_t mSoftRenderTriangleCapacity       = 0;
     std::uint32_t mSoftBodyRangeCapacity            = 0;
     std::uint32_t mSoftBodyBoundsChunkCapacity      = 0;
+    std::uint32_t mBallJointCapacity                = 0;
+    std::uint32_t mHingeJointCapacity               = 0;
+    std::uint32_t mSliderJointCapacity              = 0;
     bool mCorrectionBuffersNeedClear                = false;
     bool mStaticBroadPhaseDirty                     = true;
     bool mRigidBodyUploadResetRequired              = true;
@@ -359,8 +377,12 @@ private:
     bool mSoftTopologyUploadResetRequired           = true;
     std::uint64_t mRigidBindingGeneration           = 1u;
     std::uint64_t mSoftBindingGeneration            = 1u;
+    std::uint64_t mLastUploadedRigidJointTopologyRevision = 0;
     std::uint64_t mLastUploadedSoftParticleRevision = 0;
     std::uint64_t mLastUploadedSoftTopologyRevision = 0;
+    std::uint32_t mBallJointCount                   = 0;
+    std::uint32_t mHingeJointCount                  = 0;
+    std::uint32_t mSliderJointCount                 = 0;
 };
 
 } // namespace cressim::neo::physics

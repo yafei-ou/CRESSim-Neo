@@ -79,6 +79,45 @@ struct GpuColliderContactData
     float4 material;
 };
 
+struct GpuBallJoint
+{
+    uint bodyA;
+    uint bodyB;
+    uint enabled;
+    uint reserved0;
+    float4 localAnchorA;
+    float4 localAnchorB;
+};
+
+struct GpuHingeJoint
+{
+    uint bodyA;
+    uint bodyB;
+    uint enabled;
+    uint reserved0;
+    float4 localAnchorA;
+    float4 localAnchorB;
+    float4 localAxisA;
+    float4 localAxisB;
+    float4 projectionRow0;
+    float4 projectionRow1;
+};
+
+struct GpuSliderJoint
+{
+    uint bodyA;
+    uint bodyB;
+    uint enabled;
+    uint reserved0;
+    float4 localAxisA0;
+    float4 localAxisA1;
+    float4 localAxisA2;
+    float4 localAxisB0;
+    float4 localAxisB1;
+    float4 localAxisB2;
+    float4 referenceOffset;
+};
+
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)
 {
     const uint lo = min(shapeTypeA, shapeTypeB);

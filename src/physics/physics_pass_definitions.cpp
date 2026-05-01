@@ -862,6 +862,63 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveRigidContactConstraintsVars
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kSolveBallJointConstraintsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyOrientations",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyInverseInertiaLocal",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTypes",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_BallJoints",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTranslationCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyRotationCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kSolveHingeJointConstraintsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyOrientations",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyInverseInertiaLocal",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTypes",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJoints",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTranslationCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyRotationCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kSolveSliderJointConstraintsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyOrientations",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyInverseInertiaLocal",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTypes",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SliderJoints",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTranslationCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyRotationCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kClearCorrectionsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -1410,6 +1467,30 @@ const gpu::GpuComputePassDefinition kSolveRigidContactConstraints{
     "CRESSimNeo.Physics.RigidSolveContactConstraints.PSO",
     kSolveRigidContactConstraintsVars,
     std::size(kSolveRigidContactConstraintsVars),
+};
+
+const gpu::GpuComputePassDefinition kSolveBallJointConstraints{
+    "physics/rigid/solver/physics_rigid_solve_ball_joints.cs.hlsl",
+    "CRESSimNeo.Physics.RigidSolveBallJointConstraints.CS",
+    "CRESSimNeo.Physics.RigidSolveBallJointConstraints.PSO",
+    kSolveBallJointConstraintsVars,
+    std::size(kSolveBallJointConstraintsVars),
+};
+
+const gpu::GpuComputePassDefinition kSolveHingeJointConstraints{
+    "physics/rigid/solver/physics_rigid_solve_hinge_joints.cs.hlsl",
+    "CRESSimNeo.Physics.RigidSolveHingeJointConstraints.CS",
+    "CRESSimNeo.Physics.RigidSolveHingeJointConstraints.PSO",
+    kSolveHingeJointConstraintsVars,
+    std::size(kSolveHingeJointConstraintsVars),
+};
+
+const gpu::GpuComputePassDefinition kSolveSliderJointConstraints{
+    "physics/rigid/solver/physics_rigid_solve_slider_joints.cs.hlsl",
+    "CRESSimNeo.Physics.RigidSolveSliderJointConstraints.CS",
+    "CRESSimNeo.Physics.RigidSolveSliderJointConstraints.PSO",
+    kSolveSliderJointConstraintsVars,
+    std::size(kSolveSliderJointConstraintsVars),
 };
 
 const gpu::GpuComputePassDefinition kClearRigidCorrections{

@@ -60,4 +60,10 @@ float3 ComputePositionFrictionDelta(float3 tangentialDisplacement, float penetra
     return tangentialDisplacement * kineticScale;
 }
 
+float ComputeAngularEffectiveMass(float3 inverseInertiaLocal, float4 orientation, float3 axis)
+{
+    const float3 angularMass = MultiplyWorldInverseInertia(inverseInertiaLocal, orientation, axis);
+    return dot(axis, angularMass);
+}
+
 #endif // CRESSIM_NEO_PHYSICS_RIGID_SOLVER_SHARED_HLSLI

@@ -69,6 +69,11 @@ add_physics_viewer_test(
 )
 
 add_physics_viewer_test(
+    cressim_neo_physics_viewer_rigid_joints
+    physics_viewer_rigid_joints.cpp
+)
+
+add_physics_viewer_test(
     cressim_neo_physics_viewer_soft_particles
     physics_viewer_soft_particles.cpp
 )

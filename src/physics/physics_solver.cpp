@@ -118,9 +118,16 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const std::vector<SoftEdge> &softEdges   = world.softEdges();
     const std::vector<SoftTet> &softTets     = world.softTets();
     const SoftRenderDataHost &softRenderData = world.softRenderData();
+    const RigidJointSceneHost &rigidJoints   = world.rigidJointScene();
     const std::uint32_t softParticleCount    = static_cast<std::uint32_t>(softParticles.size());
     const std::uint32_t softEdgeCount        = static_cast<std::uint32_t>(softEdges.size());
     const std::uint32_t softTetCount         = static_cast<std::uint32_t>(softTets.size());
+    const std::uint32_t ballJointCount       =
+        static_cast<std::uint32_t>(rigidJoints.ball.size());
+    const std::uint32_t hingeJointCount      =
+        static_cast<std::uint32_t>(rigidJoints.hinge.size());
+    const std::uint32_t sliderJointCount     =
+        static_cast<std::uint32_t>(rigidJoints.slider.size());
     const std::uint32_t softRenderTriangleCount =
         static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
     std::uint32_t softBodyBoundsChunkCount = 0u;
@@ -142,7 +149,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
     if (!mImpl->sceneState.ensureCapacity(
             computeBackend.renderDevice, rigidBodyCount, colliderCount, softParticleCount,
-            softEdgeCount, softTetCount,
+            softEdgeCount, softTetCount, ballJointCount, hingeJointCount, sliderJointCount,
             static_cast<std::uint32_t>(softRenderData.fallbackNormals.size()),
             static_cast<std::uint32_t>(softRenderData.vertexTriangleIndices.size()),
             softRenderTriangleCount,
@@ -182,10 +189,13 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         resolveIterations(mDesc.softInternalIterations, defaultIterations);
     const std::uint32_t softContactIterations =
         resolveIterations(mDesc.softContactIterations, defaultIterations);
+    const std::uint32_t rigidJointIterations =
+        resolveIterations(mDesc.rigidJointIterations, defaultIterations);
     const std::uint32_t rigidRigidContactIterations =
         resolveIterations(mDesc.rigidRigidContactIterations, defaultIterations);
     const std::uint32_t maxPhaseIterations = std::max(
-        std::max(softInternalIterations, softContactIterations), rigidRigidContactIterations);
+        std::max(std::max(softInternalIterations, softContactIterations), rigidJointIterations),
+        rigidRigidContactIterations);
     const float substepDt = frameContext.deltaSeconds / static_cast<float>(substeps);
 
     for (std::uint32_t substep = 0; substep < substeps; ++substep)
@@ -382,7 +392,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             (hasSoftInternalWork && softInternalIterations > 0u) ||
             (hasSoftSoftContactWork && softContactIterations > 0u) ||
             (hasSoftRigidContactWork && softContactIterations > 0u) ||
-            (hasRigidBroadPhaseWork && rigidRigidContactIterations > 0u);
+            ((hasRigidBroadPhaseWork || ballJointCount > 0u || hingeJointCount > 0u ||
+              sliderJointCount > 0u) &&
+             (rigidRigidContactIterations > 0u || rigidJointIterations > 0u));
         if (hasAnyPositionSolveWork)
         {
             for (std::uint32_t iteration = 0u; iteration < maxPhaseIterations; ++iteration)
@@ -396,8 +408,17 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     hasSoftRigidContactWork && iteration < softContactIterations;
                 const bool runRigidRigidContacts =
                     hasRigidBroadPhaseWork && iteration < rigidRigidContactIterations;
+                const bool runBallJoints =
+                    ballJointCount > 0u && iteration < rigidJointIterations;
+                const bool runHingeJoints =
+                    hingeJointCount > 0u && iteration < rigidJointIterations;
+                const bool runSliderJoints =
+                    sliderJointCount > 0u && iteration < rigidJointIterations;
                 const bool needContactSoftApply = runSoftContacts || runSoftRigidContacts;
-                const bool needRigidApply       = runSoftRigidContacts || runRigidRigidContacts;
+                const bool needRigidApply = runSoftRigidContacts || runRigidRigidContacts ||
+                                            runBallJoints || runHingeJoints || runSliderJoints;
+                const bool needJointOnlyRigidConstants =
+                    !runRigidRigidContacts && (runBallJoints || runHingeJoints || runSliderJoints);
 
                 if (runSoftInternal && !mImpl->passDispatcher.solveSoftEdgeConstraints(
                                            computeBackend.computeContext, mImpl->sceneState,
@@ -484,6 +505,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                         "PhysicsSolver::step failed: SolveSoftRigidContacts dispatch.");
                     return false;
                 }
+                if (needJointOnlyRigidConstants &&
+                    !mImpl->passDispatcher.updateRigidDispatchConstants(
+                        computeBackend.computeContext, constants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: UpdateRigidDispatchConstants dispatch.");
+                    return false;
+                }
                 if (runRigidRigidContacts && !mImpl->passDispatcher.generateRigidContacts(
                                                  computeBackend.computeContext, mImpl->sceneState))
                 {
@@ -497,6 +526,30 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: SolveRigidContactConstraints dispatch.");
+                    return false;
+                }
+                if (runBallJoints &&
+                    !mImpl->passDispatcher.solveBallJointConstraints(
+                        computeBackend.computeContext, mImpl->sceneState, constants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: SolveBallJointConstraints dispatch.");
+                    return false;
+                }
+                if (runHingeJoints &&
+                    !mImpl->passDispatcher.solveHingeJointConstraints(
+                        computeBackend.computeContext, mImpl->sceneState, constants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: SolveHingeJointConstraints dispatch.");
+                    return false;
+                }
+                if (runSliderJoints &&
+                    !mImpl->passDispatcher.solveSliderJointConstraints(
+                        computeBackend.computeContext, mImpl->sceneState, constants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: SolveSliderJointConstraints dispatch.");
                     return false;
                 }
                 if (needContactSoftApply &&

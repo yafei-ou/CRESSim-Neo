@@ -34,6 +34,9 @@ constexpr RigidBodyId kInvalidRigidBodyId = 0u;
 using ColliderId                        = std::uint32_t;
 constexpr ColliderId kInvalidColliderId = 0u;
 
+using RigidJointId                         = std::uint32_t;
+constexpr RigidJointId kInvalidRigidJointId = 0u;
+
 enum class SoftBodySourceKind : std::uint32_t
 {
     RegularGrid = 0u,
@@ -82,6 +85,7 @@ struct RigidBodyState
 {
     RigidBodyId rigidBodyId   = kInvalidRigidBodyId;
     common::EntityId entityId = common::kInvalidEntityId;
+    std::uint32_t environmentIndex = 0u;
     Diligent::float3 position{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF rotation{0.0f, 0.0f, 0.0f, 1.0f};
     Diligent::float3 scale{1.0f, 1.0f, 1.0f};
@@ -100,7 +104,6 @@ struct ColliderState
     ColliderId colliderId          = kInvalidColliderId;
     common::EntityId entityId      = common::kInvalidEntityId;
     RigidBodyId ownerRigidBodyId   = kInvalidRigidBodyId;
-    std::uint32_t environmentIndex = 0u;
     ColliderShapeType shapeType    = ColliderShapeType::Sphere;
     Diligent::float4 shapeParams{0.5f, 0.0f, 0.0f, 0.0f};
     Diligent::float3 localPosition{0.0f, 0.0f, 0.0f};
@@ -296,6 +299,139 @@ struct BodyColliderMappingHost
         colliderOffsets.clear();
         colliderCounts.clear();
         colliderIndices.clear();
+    }
+};
+
+struct BallJointState
+{
+    RigidJointId jointId      = kInvalidRigidJointId;
+    bool enabled              = true;
+    RigidBodyId bodyA         = kInvalidRigidBodyId;
+    RigidBodyId bodyB         = kInvalidRigidBodyId;
+    Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
+    Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
+};
+
+struct HingeJointState
+{
+    RigidJointId jointId      = kInvalidRigidJointId;
+    bool enabled              = true;
+    RigidBodyId bodyA         = kInvalidRigidBodyId;
+    RigidBodyId bodyB         = kInvalidRigidBodyId;
+    Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
+    Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
+    Diligent::float3 localAxisA{1.0f, 0.0f, 0.0f};
+    Diligent::float3 localAxisB{1.0f, 0.0f, 0.0f};
+};
+
+struct SliderJointState
+{
+    RigidJointId jointId      = kInvalidRigidJointId;
+    bool enabled              = true;
+    RigidBodyId bodyA         = kInvalidRigidBodyId;
+    RigidBodyId bodyB         = kInvalidRigidBodyId;
+    Diligent::float3 localAxisA{1.0f, 0.0f, 0.0f};
+    Diligent::float3 localBasisB0{1.0f, 0.0f, 0.0f};
+    Diligent::float3 localBasisB1{0.0f, 1.0f, 0.0f};
+    Diligent::float3 localBasisB2{0.0f, 0.0f, 1.0f};
+    Diligent::float2 referenceOffset{0.0f, 0.0f};
+};
+
+struct BallJointSoAHost
+{
+    std::vector<RigidJointId> jointIds;
+    std::vector<std::uint32_t> bodyIndicesA;
+    std::vector<std::uint32_t> bodyIndicesB;
+    std::vector<std::uint32_t> enabledFlags;
+    std::vector<Diligent::float4> localAnchorsA;
+    std::vector<Diligent::float4> localAnchorsB;
+
+    std::size_t size() const noexcept { return jointIds.size(); }
+    bool empty() const noexcept { return jointIds.empty(); }
+    void clear()
+    {
+        jointIds.clear();
+        bodyIndicesA.clear();
+        bodyIndicesB.clear();
+        enabledFlags.clear();
+        localAnchorsA.clear();
+        localAnchorsB.clear();
+    }
+};
+
+struct HingeJointSoAHost
+{
+    std::vector<RigidJointId> jointIds;
+    std::vector<std::uint32_t> bodyIndicesA;
+    std::vector<std::uint32_t> bodyIndicesB;
+    std::vector<std::uint32_t> enabledFlags;
+    std::vector<Diligent::float4> localAnchorsA;
+    std::vector<Diligent::float4> localAnchorsB;
+    std::vector<Diligent::float4> localAxesA;
+    std::vector<Diligent::float4> localAxesB;
+    std::vector<Diligent::float4> projectionRow0;
+    std::vector<Diligent::float4> projectionRow1;
+
+    std::size_t size() const noexcept { return jointIds.size(); }
+    bool empty() const noexcept { return jointIds.empty(); }
+    void clear()
+    {
+        jointIds.clear();
+        bodyIndicesA.clear();
+        bodyIndicesB.clear();
+        enabledFlags.clear();
+        localAnchorsA.clear();
+        localAnchorsB.clear();
+        localAxesA.clear();
+        localAxesB.clear();
+        projectionRow0.clear();
+        projectionRow1.clear();
+    }
+};
+
+struct SliderJointSoAHost
+{
+    std::vector<RigidJointId> jointIds;
+    std::vector<std::uint32_t> bodyIndicesA;
+    std::vector<std::uint32_t> bodyIndicesB;
+    std::vector<std::uint32_t> enabledFlags;
+    std::vector<Diligent::float4> localAxesA0;
+    std::vector<Diligent::float4> localAxesA1;
+    std::vector<Diligent::float4> localAxesA2;
+    std::vector<Diligent::float4> localAxesB0;
+    std::vector<Diligent::float4> localAxesB1;
+    std::vector<Diligent::float4> localAxesB2;
+    std::vector<Diligent::float4> referenceOffsets;
+
+    std::size_t size() const noexcept { return jointIds.size(); }
+    bool empty() const noexcept { return jointIds.empty(); }
+    void clear()
+    {
+        jointIds.clear();
+        bodyIndicesA.clear();
+        bodyIndicesB.clear();
+        enabledFlags.clear();
+        localAxesA0.clear();
+        localAxesA1.clear();
+        localAxesA2.clear();
+        localAxesB0.clear();
+        localAxesB1.clear();
+        localAxesB2.clear();
+        referenceOffsets.clear();
+    }
+};
+
+struct RigidJointSceneHost
+{
+    BallJointSoAHost ball;
+    HingeJointSoAHost hinge;
+    SliderJointSoAHost slider;
+
+    void clear()
+    {
+        ball.clear();
+        hinge.clear();
+        slider.clear();
     }
 };
 

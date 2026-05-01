@@ -150,6 +150,15 @@ public:
                                       const PhysicsSceneGpuState &sceneState,
                                       std::uint32_t rigidBodyCount,
                                       const GpuRigidDispatchConstants &constants);
+    bool solveBallJointConstraints(Diligent::IDeviceContext *computeContext,
+                                   const PhysicsSceneGpuState &sceneState,
+                                   const GpuRigidDispatchConstants &constants);
+    bool solveHingeJointConstraints(Diligent::IDeviceContext *computeContext,
+                                    const PhysicsSceneGpuState &sceneState,
+                                    const GpuRigidDispatchConstants &constants);
+    bool solveSliderJointConstraints(Diligent::IDeviceContext *computeContext,
+                                     const PhysicsSceneGpuState &sceneState,
+                                     const GpuRigidDispatchConstants &constants);
     bool applyRigidCorrections(Diligent::IDeviceContext *computeContext,
                                const PhysicsSceneGpuState &sceneState, std::uint32_t rigidBodyCount,
                                const GpuRigidDispatchConstants &constants);
@@ -160,11 +169,15 @@ public:
                                      const PhysicsSceneGpuState &sceneState,
                                      std::uint32_t rigidBodyCount, std::uint32_t iterations,
                                      const GpuRigidDispatchConstants &constants);
+    bool updateRigidDispatchConstants(Diligent::IDeviceContext *computeContext,
+                                      const GpuRigidDispatchConstants &constants);
     bool recreateSceneBindingVariants();
 
 private:
     bool writeRigidDispatchConstants(Diligent::IDeviceContext *computeContext,
                                      const GpuRigidDispatchConstants &constants);
+    bool writeRigidJointDispatchConstants(Diligent::IDeviceContext *computeContext,
+                                          const GpuRigidJointDispatchConstants &constants);
     bool writeSoftDispatchConstants(Diligent::IDeviceContext *computeContext,
                                     const GpuSoftDispatchConstants &constants);
     bool writeSoftRenderDispatchConstants(Diligent::IDeviceContext *computeContext,
@@ -202,6 +215,18 @@ private:
                                            const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveRigidContactConstraintsPass(Diligent::IDeviceContext *computeContext,
                                                   const PhysicsSceneGpuState &sceneState);
+    bool dispatchSolveBallJointConstraintsPass(Diligent::IDeviceContext *computeContext,
+                                               const PhysicsSceneGpuState &sceneState,
+                                               std::uint32_t jointCount);
+    bool dispatchSolveHingeJointConstraintsPass(Diligent::IDeviceContext *computeContext,
+                                                const PhysicsSceneGpuState &sceneState,
+                                                std::uint32_t jointCount);
+    bool dispatchSolveSliderJointConstraintsPass(Diligent::IDeviceContext *computeContext,
+                                                 const PhysicsSceneGpuState &sceneState,
+                                                 std::uint32_t jointCount);
+    bool dispatchApplyRigidCorrectionsPass(Diligent::IDeviceContext *computeContext,
+                                           const PhysicsSceneGpuState &sceneState,
+                                           std::uint32_t rigidBodyCount);
     bool dispatchSolveSoftContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
                                                 const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveSoftRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
@@ -271,12 +296,16 @@ private:
     gpu::GpuComputePass mGenerateRigidContactsPass;
     gpu::GpuComputePass mClearRigidCorrectionsPass;
     gpu::GpuComputePass mSolveRigidContactConstraintsPass;
+    gpu::GpuComputePass mSolveBallJointConstraintsPass;
+    gpu::GpuComputePass mSolveHingeJointConstraintsPass;
+    gpu::GpuComputePass mSolveSliderJointConstraintsPass;
     gpu::GpuComputePass mApplyRigidCorrectionsPass;
     gpu::GpuComputePass mUpdateRigidVelocitiesPass;
     gpu::GpuComputePass mSolveRigidContactVelocitiesPass;
     gpu::GpuComputePass mApplyRigidContactVelocitiesPass;
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidDispatchConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidJointDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftRenderDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanConstantsBuffer;

@@ -314,6 +314,15 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
     const auto physIt = mPhysicsLinks.find(entityId);
     if (physIt != mPhysicsLinks.end())
     {
+        if (physIt->second.hasRigidBody)
+        {
+            if (physics::RigidBodyState *rigidBody = mPhysicsWorld.tryGetRigidBody(entityId))
+            {
+                physics::RigidBodyState updated = *rigidBody;
+                updated.environmentIndex        = envIndex;
+                mPhysicsWorld.upsertRigidBody(updated);
+            }
+        }
         if (physIt->second.hasSoftBody)
         {
             if (physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(entityId))
@@ -325,18 +334,6 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
                     return false;
                 }
             }
-        }
-        for (const ColliderHandle handle : physIt->second.colliders)
-        {
-            const physics::ColliderState *existing = mPhysicsWorld.tryGetCollider(handle.id);
-            if (existing == nullptr)
-            {
-                continue;
-            }
-
-            physics::ColliderState updated = *existing;
-            updated.environmentIndex       = envIndex;
-            mPhysicsWorld.upsertCollider(updated);
         }
     }
     mEntityEnvironments[entityId] = envIndex;
@@ -866,6 +863,7 @@ void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent &co
     state.inverseMass             = component.inverseMass;
     state.inverseInertiaLocal     = component.inverseInertiaLocal;
     state.bodyType                = component.bodyType;
+    state.environmentIndex        = entityEnvironment(entityId);
     state.kinematicTargetPosition = component.kinematicTargetPosition;
     state.kinematicTargetRotation = component.kinematicTargetRotation;
     state.kinematicTargetEnabled  = component.kinematicTargetEnabled;
@@ -994,7 +992,6 @@ World::ColliderHandle World::addCollider(common::EntityId entityId,
     state.shapeParams      = component.shapeParams;
     state.localPosition    = component.localPosition;
     state.localRotation    = component.localRotation;
-    state.environmentIndex = entityEnvironment(entityId);
     state.enabled          = component.enabled;
     state.friction         = component.friction;
     state.staticFriction   = component.staticFriction;
@@ -1032,7 +1029,6 @@ void World::updateCollider(ColliderHandle handle, const ColliderComponent &compo
     state.shapeParams      = component.shapeParams;
     state.localPosition    = component.localPosition;
     state.localRotation    = component.localRotation;
-    state.environmentIndex = entityEnvironment(entityId);
     state.enabled          = component.enabled;
     state.friction         = component.friction;
     state.staticFriction   = component.staticFriction;
