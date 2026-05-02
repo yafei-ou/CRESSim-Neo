@@ -94,7 +94,6 @@ struct GpuSliderJoint
     Diligent::float4 projectionRow0{0.0f, 1.0f, 0.0f, 0.0f};
     Diligent::float4 projectionRow1{0.0f, 0.0f, 1.0f, 0.0f};
     Diligent::float4 projectionRow2{0.0f, 0.0f, 0.0f, 1.0f};
-    Diligent::float4 referenceOffset{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 struct GpuPhysicsScanConstants

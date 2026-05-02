@@ -1687,7 +1687,6 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
         dst.projectionRow0  = jointScene.slider.projectionRow0[i];
         dst.projectionRow1  = jointScene.slider.projectionRow1[i];
         dst.projectionRow2  = jointScene.slider.projectionRow2[i];
-        dst.referenceOffset = jointScene.slider.referenceOffsets[i];
     }
 
     if (!updateStructuredBufferRange(computeContext, mPersistentJoints.ballJointsBuffer, ballJoints,

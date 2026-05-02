@@ -12,6 +12,8 @@ using cressim::neo::physics::RigidBodyState;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::physics::SliderJointState;
 
+constexpr float kEpsilon = 1.0e-6f;
+
 RigidBodyState makeBody(EntityId entityId, std::uint32_t env, float x)
 {
     RigidBodyState state{};
@@ -24,6 +26,75 @@ RigidBodyState makeBody(EntityId entityId, std::uint32_t env, float x)
     state.inverseInertiaLocal = {1.0f, 1.0f, 1.0f};
     state.bodyType = RigidBodyType::Dynamic;
     return state;
+}
+
+Diligent::QuaternionF quaternionFromBasis(const Diligent::float3 &x, const Diligent::float3 &y,
+                                          const Diligent::float3 &z)
+{
+    const float m00 = x.x, m01 = y.x, m02 = z.x;
+    const float m10 = x.y, m11 = y.y, m12 = z.y;
+    const float m20 = x.z, m21 = y.z, m22 = z.z;
+    const float trace = m00 + m11 + m22;
+
+    Diligent::QuaternionF q{};
+    if (trace > 0.0f)
+    {
+        const float s = std::sqrt(trace + 1.0f) * 2.0f;
+        q.q.w = 0.25f * s;
+        q.q.x = (m21 - m12) / s;
+        q.q.y = (m02 - m20) / s;
+        q.q.z = (m10 - m01) / s;
+    }
+    else if (m00 > m11 && m00 > m22)
+    {
+        const float s = std::sqrt(1.0f + m00 - m11 - m22) * 2.0f;
+        q.q.w = (m21 - m12) / s;
+        q.q.x = 0.25f * s;
+        q.q.y = (m01 + m10) / s;
+        q.q.z = (m02 + m20) / s;
+    }
+    else if (m11 > m22)
+    {
+        const float s = std::sqrt(1.0f + m11 - m00 - m22) * 2.0f;
+        q.q.w = (m02 - m20) / s;
+        q.q.x = (m01 + m10) / s;
+        q.q.y = 0.25f * s;
+        q.q.z = (m12 + m21) / s;
+    }
+    else
+    {
+        const float s = std::sqrt(1.0f + m22 - m00 - m11) * 2.0f;
+        q.q.w = (m10 - m01) / s;
+        q.q.x = (m02 + m20) / s;
+        q.q.y = (m12 + m21) / s;
+        q.q.z = 0.25f * s;
+    }
+
+    const float lengthSq = Diligent::dot(q.q, q.q);
+    if (lengthSq <= kEpsilon)
+    {
+        return Diligent::QuaternionF{0.0f, 0.0f, 0.0f, 1.0f};
+    }
+    return Diligent::normalize(q);
+}
+
+Diligent::QuaternionF makeJointFrameRotation(const Diligent::float3 &axisX)
+{
+    const float lengthSq = Diligent::dot(axisX, axisX);
+    const Diligent::float3 x = lengthSq <= kEpsilon ? Diligent::float3{1.0f, 0.0f, 0.0f}
+                                                    : axisX * (1.0f / std::sqrt(lengthSq));
+    Diligent::float3 reference{1.0f, 0.0f, 0.0f};
+    if (std::abs(Diligent::dot(reference, x)) > 0.99f)
+    {
+        reference = {0.0f, 1.0f, 0.0f};
+    }
+    Diligent::float3 y = Diligent::cross(x, reference);
+    const float yLengthSq = Diligent::dot(y, y);
+    y = yLengthSq <= kEpsilon ? Diligent::float3{0.0f, 1.0f, 0.0f} : y * (1.0f / std::sqrt(yLengthSq));
+    Diligent::float3 z = Diligent::cross(x, y);
+    const float zLengthSq = Diligent::dot(z, z);
+    z = zLengthSq <= kEpsilon ? Diligent::float3{0.0f, 0.0f, 1.0f} : z * (1.0f / std::sqrt(zLengthSq));
+    return quaternionFromBasis(x, y, z);
 }
 
 } // namespace
@@ -61,8 +132,8 @@ int main()
     hinge.bodyB = bodyB->rigidBodyId;
     hinge.localAnchorA = {0.0f, 0.0f, 0.0f};
     hinge.localAnchorB = {0.0f, 0.0f, 0.0f};
-    hinge.localAxisA = {0.0f, 1.0f, 0.0f};
-    hinge.localAxisB = {0.0f, 1.0f, 0.0f};
+    hinge.localRotationA = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
+    hinge.localRotationB = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
     if (!world.upsertHingeJoint(hinge))
     {
         CRESSIM_LOG_ERROR("Failed to insert hinge joint.");
@@ -72,7 +143,8 @@ int main()
     SliderJointState slider{};
     slider.bodyA = bodyA->rigidBodyId;
     slider.bodyB = bodyB->rigidBodyId;
-    slider.localAxisA = {1.0f, 0.0f, 0.0f};
+    slider.localRotationA = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
+    slider.localRotationB = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
     if (!world.upsertSliderJoint(slider))
     {
         CRESSIM_LOG_ERROR("Failed to insert slider joint.");

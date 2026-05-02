@@ -36,10 +36,80 @@ using cressim::neo::viewer::DebugViewerAppDesc;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
 constexpr float kPi = 3.14159265358979323846f;
+constexpr float kEpsilon = 1.0e-6f;
 constexpr std::uint32_t kGroundCollisionLayer = 1u << 0u;
 constexpr std::uint32_t kBallClusterLayer = 1u << 1u;
 constexpr std::uint32_t kHingeClusterLayer = 1u << 2u;
 constexpr std::uint32_t kSliderClusterLayer = 1u << 3u;
+
+Diligent::QuaternionF quaternionFromBasis(const Diligent::float3 &x, const Diligent::float3 &y,
+                                          const Diligent::float3 &z)
+{
+    const float m00 = x.x, m01 = y.x, m02 = z.x;
+    const float m10 = x.y, m11 = y.y, m12 = z.y;
+    const float m20 = x.z, m21 = y.z, m22 = z.z;
+    const float trace = m00 + m11 + m22;
+
+    Diligent::QuaternionF q{};
+    if (trace > 0.0f)
+    {
+        const float s = std::sqrt(trace + 1.0f) * 2.0f;
+        q.q.w = 0.25f * s;
+        q.q.x = (m21 - m12) / s;
+        q.q.y = (m02 - m20) / s;
+        q.q.z = (m10 - m01) / s;
+    }
+    else if (m00 > m11 && m00 > m22)
+    {
+        const float s = std::sqrt(1.0f + m00 - m11 - m22) * 2.0f;
+        q.q.w = (m21 - m12) / s;
+        q.q.x = 0.25f * s;
+        q.q.y = (m01 + m10) / s;
+        q.q.z = (m02 + m20) / s;
+    }
+    else if (m11 > m22)
+    {
+        const float s = std::sqrt(1.0f + m11 - m00 - m22) * 2.0f;
+        q.q.w = (m02 - m20) / s;
+        q.q.x = (m01 + m10) / s;
+        q.q.y = 0.25f * s;
+        q.q.z = (m12 + m21) / s;
+    }
+    else
+    {
+        const float s = std::sqrt(1.0f + m22 - m00 - m11) * 2.0f;
+        q.q.w = (m10 - m01) / s;
+        q.q.x = (m02 + m20) / s;
+        q.q.y = (m12 + m21) / s;
+        q.q.z = 0.25f * s;
+    }
+
+    const float lengthSq = Diligent::dot(q.q, q.q);
+    if (lengthSq <= kEpsilon)
+    {
+        return Diligent::QuaternionF{0.0f, 0.0f, 0.0f, 1.0f};
+    }
+    return Diligent::normalize(q);
+}
+
+Diligent::QuaternionF makeJointFrameRotation(const Diligent::float3 &axisX)
+{
+    const float lengthSq = Diligent::dot(axisX, axisX);
+    const Diligent::float3 x = lengthSq <= kEpsilon ? Diligent::float3{1.0f, 0.0f, 0.0f}
+                                                    : axisX * (1.0f / std::sqrt(lengthSq));
+    Diligent::float3 reference{1.0f, 0.0f, 0.0f};
+    if (std::abs(Diligent::dot(reference, x)) > 0.99f)
+    {
+        reference = {0.0f, 1.0f, 0.0f};
+    }
+    Diligent::float3 y = Diligent::cross(x, reference);
+    const float yLengthSq = Diligent::dot(y, y);
+    y = yLengthSq <= kEpsilon ? Diligent::float3{0.0f, 1.0f, 0.0f} : y * (1.0f / std::sqrt(yLengthSq));
+    Diligent::float3 z = Diligent::cross(x, y);
+    const float zLengthSq = Diligent::dot(z, z);
+    z = zLengthSq <= kEpsilon ? Diligent::float3{0.0f, 0.0f, 1.0f} : z * (1.0f / std::sqrt(zLengthSq));
+    return quaternionFromBasis(x, y, z);
+}
 
 GpuBackend parseBackend(const std::string &value)
 {
@@ -196,11 +266,13 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
 void setVisibleRigidBody(Runtime &runtime, cressim::neo::common::EntityId entityId,
                          MeshHandle mesh, MaterialHandle material,
                          const Diligent::float3 &position, const Diligent::float3 &scale,
-                         const RigidBodyComponent &body, const ColliderComponent &collider)
+                         const RigidBodyComponent &body, const ColliderComponent &collider,
+                         const Diligent::QuaternionF &rotation = Diligent::QuaternionF{})
 {
     auto &world = runtime.getWorld();
     TransformComponent transform{};
     transform.worldTransform.position = position;
+    transform.worldTransform.rotation = rotation;
     transform.worldTransform.scale = scale;
     world.setTransform(entityId, transform);
     world.setMeshRenderer(entityId, MeshRendererComponent{mesh, material, true});
@@ -336,12 +408,8 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle cubeMesh, MaterialHand
         collider.collisionMask = kGroundCollisionLayer;
         const Diligent::float3 center = (i == 0u) ? firstCenter : secondCenter;
         setVisibleRigidBody(runtime, entity, cubeMesh, bodyMaterial,
-                            center, {kLinkHalfX, kLinkHalfY, kLinkHalfX}, body, collider);
-        TransformComponent transform{};
-        transform.worldTransform.position = center;
-        transform.worldTransform.rotation = swingRotation;
-        transform.worldTransform.scale = {kLinkHalfX, kLinkHalfY, kLinkHalfX};
-        world.setTransform(entity, transform);
+                            center, {kLinkHalfX, kLinkHalfY, kLinkHalfX}, body, collider,
+                            swingRotation);
         links.push_back(entity);
     }
 
@@ -350,8 +418,8 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle cubeMesh, MaterialHand
     upper.bodyB = requireRigidBodyId(runtime, links[0]);
     upper.localAnchorA = {0.0f, -0.35f, 0.0f};
     upper.localAnchorB = {0.0f, 1.1f, 0.0f};
-    upper.localAxisA = {0.0f, 0.0f, 1.0f};
-    upper.localAxisB = {0.0f, 0.0f, 1.0f};
+    upper.localRotationA = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
+    upper.localRotationB = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
     if (!world.physicsWorld().upsertHingeJoint(upper))
     {
         throw std::runtime_error("Failed to author upper hinge joint.");
@@ -362,8 +430,8 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle cubeMesh, MaterialHand
     lower.bodyB = requireRigidBodyId(runtime, links[1]);
     lower.localAnchorA = {0.0f, -1.1f, 0.0f};
     lower.localAnchorB = {0.0f, 1.1f, 0.0f};
-    lower.localAxisA = {0.0f, 0.0f, 1.0f};
-    lower.localAxisB = {0.0f, 0.0f, 1.0f};
+    lower.localRotationA = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
+    lower.localRotationB = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
     if (!world.physicsWorld().upsertHingeJoint(lower))
     {
         throw std::runtime_error("Failed to author lower hinge joint.");
@@ -404,7 +472,8 @@ void authorSliderJointCluster(Runtime &runtime, MeshHandle cubeMesh, MaterialHan
     SliderJointState slider{};
     slider.bodyA = requireRigidBodyId(runtime, guideEntity);
     slider.bodyB = requireRigidBodyId(runtime, sliderEntity);
-    slider.localAxisA = {1.0f, 0.0f, 0.0f};
+    slider.localRotationA = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
+    slider.localRotationB = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
     if (!world.physicsWorld().upsertSliderJoint(slider))
     {
         throw std::runtime_error("Failed to author slider joint.");

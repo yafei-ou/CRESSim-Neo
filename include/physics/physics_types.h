@@ -320,8 +320,8 @@ struct HingeJointState
     RigidBodyId bodyB         = kInvalidRigidBodyId;
     Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
     Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
-    Diligent::float3 localAxisA{1.0f, 0.0f, 0.0f};
-    Diligent::float3 localAxisB{1.0f, 0.0f, 0.0f};
+    Diligent::QuaternionF localRotationA{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::QuaternionF localRotationB{0.0f, 0.0f, 0.0f, 1.0f};
 };
 
 struct SliderJointState
@@ -332,8 +332,8 @@ struct SliderJointState
     RigidBodyId bodyB         = kInvalidRigidBodyId;
     Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
     Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
-    Diligent::float3 localAxisA{1.0f, 0.0f, 0.0f};
-    Diligent::float2 referenceOffset{0.0f, 0.0f};
+    Diligent::QuaternionF localRotationA{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::QuaternionF localRotationB{0.0f, 0.0f, 0.0f, 1.0f};
 };
 
 struct BallJointSoAHost
@@ -398,7 +398,6 @@ struct SliderJointSoAHost
     std::vector<Diligent::float4> projectionRow0;
     std::vector<Diligent::float4> projectionRow1;
     std::vector<Diligent::float4> projectionRow2;
-    std::vector<Diligent::float4> referenceOffsets;
 
     std::size_t size() const noexcept { return jointIds.size(); }
     bool empty() const noexcept { return jointIds.empty(); }
@@ -416,7 +415,6 @@ struct SliderJointSoAHost
         projectionRow0.clear();
         projectionRow1.clear();
         projectionRow2.clear();
-        referenceOffsets.clear();
     }
 };
 

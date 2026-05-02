@@ -144,51 +144,6 @@ Diligent::QuaternionF quaternionMultiply(const Diligent::QuaternionF &a,
                                  a.q.w * b.q.w - a.q.x * b.q.x - a.q.y * b.q.y - a.q.z * b.q.z};
 }
 
-Diligent::QuaternionF quaternionFromBasis(const Diligent::float3 &x, const Diligent::float3 &y,
-                                          const Diligent::float3 &z) noexcept
-{
-    const float m00 = x.x, m01 = y.x, m02 = z.x;
-    const float m10 = x.y, m11 = y.y, m12 = z.y;
-    const float m20 = x.z, m21 = y.z, m22 = z.z;
-    const float trace = m00 + m11 + m22;
-
-    Diligent::QuaternionF q{};
-    if (trace > 0.0f)
-    {
-        const float s = std::sqrt(trace + 1.0f) * 2.0f;
-        q.q.w = 0.25f * s;
-        q.q.x = (m21 - m12) / s;
-        q.q.y = (m02 - m20) / s;
-        q.q.z = (m10 - m01) / s;
-    }
-    else if (m00 > m11 && m00 > m22)
-    {
-        const float s = std::sqrt(1.0f + m00 - m11 - m22) * 2.0f;
-        q.q.w = (m21 - m12) / s;
-        q.q.x = 0.25f * s;
-        q.q.y = (m01 + m10) / s;
-        q.q.z = (m02 + m20) / s;
-    }
-    else if (m11 > m22)
-    {
-        const float s = std::sqrt(1.0f + m11 - m00 - m22) * 2.0f;
-        q.q.w = (m02 - m20) / s;
-        q.q.x = (m01 + m10) / s;
-        q.q.y = 0.25f * s;
-        q.q.z = (m12 + m21) / s;
-    }
-    else
-    {
-        const float s = std::sqrt(1.0f + m22 - m00 - m11) * 2.0f;
-        q.q.w = (m10 - m01) / s;
-        q.q.x = (m02 + m20) / s;
-        q.q.y = (m12 + m21) / s;
-        q.q.z = 0.25f * s;
-    }
-
-    return common::runtime_math::normalizeQuaternion(q);
-}
-
 void computeMatrixQ(const Diligent::QuaternionF &q, float outQ[4][4]) noexcept
 {
     outQ[0][0] = q.q.w; outQ[0][1] = -q.q.x; outQ[0][2] = -q.q.y; outQ[0][3] = -q.q.z;
@@ -205,14 +160,13 @@ void computeMatrixQHat(const Diligent::QuaternionF &q, float outQ[4][4]) noexcep
     outQ[3][0] = q.q.z; outQ[3][1] =  q.q.y; outQ[3][2] = -q.q.x; outQ[3][3] =  q.q.w;
 }
 
-void computeProjectionRows(const Diligent::QuaternionF &qBodyA, const Diligent::QuaternionF &qBodyB,
-                           const Diligent::QuaternionF &qJointFrameWorld, std::uint32_t rowStart,
-                           std::uint32_t rowCount, Diligent::float4 *rowsOut) noexcept
+void computeProjectionRowsFromLocalFrames(const Diligent::QuaternionF &localRotationA,
+                                          const Diligent::QuaternionF &localRotationB,
+                                          std::uint32_t rowStart, std::uint32_t rowCount,
+                                          Diligent::float4 *rowsOut) noexcept
 {
-    const Diligent::QuaternionF q00 =
-        quaternionConjugate(quaternionMultiply(quaternionConjugate(qBodyA), qJointFrameWorld));
-    const Diligent::QuaternionF q10 =
-        quaternionConjugate(quaternionMultiply(quaternionConjugate(qBodyB), qJointFrameWorld));
+    const Diligent::QuaternionF q00 = quaternionConjugate(localRotationA);
+    const Diligent::QuaternionF q10 = quaternionConjugate(localRotationB);
 
     float Q[4][4];
     float QHat[4][4];
@@ -230,19 +184,6 @@ void computeProjectionRows(const Diligent::QuaternionF &qBodyA, const Diligent::
         }
         rowsOut[row] = outRow;
     }
-}
-
-void buildConstraintBasis(const Diligent::float3 &axis, Diligent::float3 &x, Diligent::float3 &y,
-                          Diligent::float3 &z) noexcept
-{
-    x = safeNormalize(axis, Diligent::float3{1.0f, 0.0f, 0.0f});
-    Diligent::float3 v{1.0f, 0.0f, 0.0f};
-    if (std::abs(Diligent::dot(v, x)) > 0.99f)
-    {
-        v = Diligent::float3{0.0f, 1.0f, 0.0f};
-    }
-    y = safeNormalize(Diligent::cross(x, v), Diligent::float3{0.0f, 1.0f, 0.0f});
-    z = safeNormalize(Diligent::cross(x, y), Diligent::float3{0.0f, 0.0f, 1.0f});
 }
 
 } // namespace
@@ -843,8 +784,8 @@ bool PhysicsWorld::upsertHingeJoint(const HingeJointState &state)
     {
         return false;
     }
-    normalized.localAxisA = safeNormalize(normalized.localAxisA, Diligent::float3{1.0f, 0.0f, 0.0f});
-    normalized.localAxisB = safeNormalize(normalized.localAxisB, normalized.localAxisA);
+    normalized.localRotationA = common::runtime_math::normalizeQuaternion(normalized.localRotationA);
+    normalized.localRotationB = common::runtime_math::normalizeQuaternion(normalized.localRotationB);
     if (normalized.jointId == kInvalidRigidJointId)
     {
         normalized.jointId = mNextRigidJointId++;
@@ -885,7 +826,8 @@ bool PhysicsWorld::upsertSliderJoint(const SliderJointState &state)
     {
         return false;
     }
-    normalized.localAxisA = safeNormalize(normalized.localAxisA, Diligent::float3{1.0f, 0.0f, 0.0f});
+    normalized.localRotationA = common::runtime_math::normalizeQuaternion(normalized.localRotationA);
+    normalized.localRotationB = common::runtime_math::normalizeQuaternion(normalized.localRotationB);
 
     const auto bodyAIt = mRigidBodyIdToIndex.find(normalized.bodyA);
     const auto bodyBIt = mRigidBodyIdToIndex.find(normalized.bodyB);
@@ -909,17 +851,6 @@ bool PhysicsWorld::upsertSliderJoint(const SliderJointState &state)
         normalized.localAnchorB =
             quaternionInverseRotate(bodyB.rotation, worldAnchor - bodyB.position);
     }
-    const Diligent::float3 worldAxis = quaternionRotate(bodyA.rotation, normalized.localAxisA);
-    Diligent::float3 worldY;
-    Diligent::float3 worldZ;
-    Diligent::float3 worldX;
-    buildConstraintBasis(worldAxis, worldX, worldY, worldZ);
-    const Diligent::float3 worldAnchorA =
-        bodyA.position + quaternionRotate(bodyA.rotation, normalized.localAnchorA);
-    const Diligent::float3 worldAnchorB =
-        bodyB.position + quaternionRotate(bodyB.rotation, normalized.localAnchorB);
-    const Diligent::float3 delta = worldAnchorA - worldAnchorB;
-    normalized.referenceOffset = {Diligent::dot(worldY, delta), Diligent::dot(worldZ, delta)};
     if (normalized.jointId == kInvalidRigidJointId)
     {
         normalized.jointId = mNextRigidJointId++;
@@ -1793,17 +1724,9 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
             return;
         }
 
-        const Diligent::float3 worldAxis =
-            quaternionRotate(self->mRigidBodySnapshot[bodyIndexA].rotation, joint.localAxisA);
-        Diligent::float3 worldX;
-        Diligent::float3 worldY;
-        Diligent::float3 worldZ;
-        buildConstraintBasis(worldAxis, worldX, worldY, worldZ);
-        const Diligent::QuaternionF qJointFrameWorld = quaternionFromBasis(worldX, worldY, worldZ);
         Diligent::float4 projectionRows[2];
-        computeProjectionRows(self->mRigidBodySnapshot[bodyIndexA].rotation,
-                              self->mRigidBodySnapshot[bodyIndexB].rotation, qJointFrameWorld,
-                              2u, 2u, projectionRows);
+        computeProjectionRowsFromLocalFrames(joint.localRotationA, joint.localRotationB,
+                                             2u, 2u, projectionRows);
 
         self->mRigidJointScene.hinge.jointIds.push_back(joint.jointId);
         self->mRigidJointScene.hinge.bodyIndicesA.push_back(bodyIndexA);
@@ -1831,18 +1754,18 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
             return;
         }
 
-        const Diligent::float3 worldAxis =
-            quaternionRotate(self->mRigidBodySnapshot[bodyIndexA].rotation, joint.localAxisA);
-        Diligent::float3 axisA0;
-        Diligent::float3 axisA1;
-        Diligent::float3 axisA2;
-        buildConstraintBasis(worldAxis, axisA0, axisA1, axisA2);
-        const Diligent::QuaternionF qJointFrameWorld = quaternionFromBasis(axisA0, axisA1, axisA2);
+        const Diligent::float3 axisA0 =
+            safeNormalize(quaternionRotate(joint.localRotationA, Diligent::float3{1.0f, 0.0f, 0.0f}),
+                          Diligent::float3{1.0f, 0.0f, 0.0f});
+        const Diligent::float3 axisA1 =
+            safeNormalize(quaternionRotate(joint.localRotationA, Diligent::float3{0.0f, 1.0f, 0.0f}),
+                          Diligent::float3{0.0f, 1.0f, 0.0f});
+        const Diligent::float3 axisA2 =
+            safeNormalize(quaternionRotate(joint.localRotationA, Diligent::float3{0.0f, 0.0f, 1.0f}),
+                          Diligent::float3{0.0f, 0.0f, 1.0f});
         Diligent::float4 projectionRows[3];
-        computeProjectionRows(self->mRigidBodySnapshot[bodyIndexA].rotation,
-                              self->mRigidBodySnapshot[bodyIndexB].rotation, qJointFrameWorld,
-                              1u, 3u, projectionRows);
-
+        computeProjectionRowsFromLocalFrames(joint.localRotationA, joint.localRotationB,
+                                             1u, 3u, projectionRows);
         self->mRigidJointScene.slider.jointIds.push_back(joint.jointId);
         self->mRigidJointScene.slider.bodyIndicesA.push_back(bodyIndexA);
         self->mRigidJointScene.slider.bodyIndicesB.push_back(bodyIndexB);
@@ -1855,8 +1778,6 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
         self->mRigidJointScene.slider.projectionRow0.push_back(projectionRows[0]);
         self->mRigidJointScene.slider.projectionRow1.push_back(projectionRows[1]);
         self->mRigidJointScene.slider.projectionRow2.push_back(projectionRows[2]);
-        self->mRigidJointScene.slider.referenceOffsets.push_back(
-            Diligent::float4{joint.referenceOffset.x, joint.referenceOffset.y, 0.0f, 0.0f});
     };
 
     for (const BallJointState &joint : self->mBallJointSnapshot)

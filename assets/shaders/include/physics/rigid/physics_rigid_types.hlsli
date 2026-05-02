@@ -115,7 +115,6 @@ struct GpuSliderJoint
     float4 projectionRow0;
     float4 projectionRow1;
     float4 projectionRow2;
-    float4 referenceOffset;
 };
 
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)

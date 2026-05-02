@@ -96,8 +96,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     jAngB[4] = -tRow2;
 
     float rhs[5];
-    rhs[0] = -(dot(delta, a1) - joint.referenceOffset.x) * kJointRelaxation;
-    rhs[1] = -(dot(delta, a2) - joint.referenceOffset.y) * kJointRelaxation;
+    rhs[0] = -dot(delta, a1) * kJointRelaxation;
+    rhs[1] = -dot(delta, a2) * kJointRelaxation;
     rhs[2] = -ComputeProjectionConstraintValue(joint.projectionRow0, qA, qB) * kJointRelaxation;
     rhs[3] = -ComputeProjectionConstraintValue(joint.projectionRow1, qA, qB) * kJointRelaxation;
     rhs[4] = -ComputeProjectionConstraintValue(joint.projectionRow2, qA, qB) * kJointRelaxation;
