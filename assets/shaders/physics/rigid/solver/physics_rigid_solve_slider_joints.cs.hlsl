@@ -6,6 +6,8 @@
 
 static const float kJointRelaxation = 0.95;
 static const float kMaxJointError = 0.05;
+static const float kSliderTranslationRegularization = 1e-5;
+static const float kSliderAngularRegularization = 5e-5;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
@@ -113,6 +115,14 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                 jLinA[col], jAngA[col], jLinB[col], jAngB[col]);
         }
     }
+
+    // Regularize the slider system to reduce sensitivity in near-symmetric
+    // frame configurations while preserving the fully coupled 5x5 structure.
+    k[0][0] += kSliderTranslationRegularization;
+    k[1][1] += kSliderTranslationRegularization;
+    k[2][2] += kSliderAngularRegularization;
+    k[3][3] += kSliderAngularRegularization;
+    k[4][4] += kSliderAngularRegularization;
 
     float lambda[5];
     if (!SolveLinearSystem5x5(k, rhs, lambda))

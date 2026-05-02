@@ -41,6 +41,10 @@ constexpr std::uint32_t kGroundCollisionLayer = 1u << 0u;
 constexpr std::uint32_t kBallClusterLayer = 1u << 1u;
 constexpr std::uint32_t kHingeClusterLayer = 1u << 2u;
 constexpr std::uint32_t kSliderClusterLayer = 1u << 3u;
+constexpr std::uint32_t kBallDropLayer = 1u << 4u;
+constexpr std::uint32_t kHingeDropLayer = 1u << 5u;
+constexpr std::uint32_t kSliderDropLayer = 1u << 6u;
+constexpr float kViewerSphereMeshRadius = 0.4f;
 
 Diligent::QuaternionF quaternionFromBasis(const Diligent::float3 &x, const Diligent::float3 &y,
                                           const Diligent::float3 &z)
@@ -129,10 +133,10 @@ void printUsage(const char *appName)
     CRESSIM_LOG_ERROR("Usage: ", appName, " [--backend vulkan|null] [--frames N]\n");
 }
 
-MeshResourceDesc makeCubeMesh(float halfExtent)
+MeshResourceDesc makeBoxMesh(const Diligent::float3 &halfExtents)
 {
     MeshResourceDesc mesh{};
-    mesh.debugName = "RigidJointViewer.CubeMesh";
+    mesh.debugName = "RigidJointViewer.BoxMesh";
     mesh.vertices.reserve(24);
     mesh.indices.reserve(36);
 
@@ -153,13 +157,15 @@ MeshResourceDesc makeCubeMesh(float halfExtent)
         mesh.indices.push_back(base + 2u);
     };
 
-    const float h = halfExtent;
-    addFace({0.0f, 0.0f, 1.0f}, {-h, -h, h}, {h, -h, h}, {h, h, h}, {-h, h, h});
-    addFace({0.0f, 0.0f, -1.0f}, {h, -h, -h}, {-h, -h, -h}, {-h, h, -h}, {h, h, -h});
-    addFace({-1.0f, 0.0f, 0.0f}, {-h, -h, -h}, {-h, -h, h}, {-h, h, h}, {-h, h, -h});
-    addFace({1.0f, 0.0f, 0.0f}, {h, -h, h}, {h, -h, -h}, {h, h, -h}, {h, h, h});
-    addFace({0.0f, 1.0f, 0.0f}, {-h, h, h}, {h, h, h}, {h, h, -h}, {-h, h, -h});
-    addFace({0.0f, -1.0f, 0.0f}, {-h, -h, -h}, {h, -h, -h}, {h, -h, h}, {-h, -h, h});
+    const float hx = halfExtents.x;
+    const float hy = halfExtents.y;
+    const float hz = halfExtents.z;
+    addFace({0.0f, 0.0f, 1.0f}, {-hx, -hy, hz}, {hx, -hy, hz}, {hx, hy, hz}, {-hx, hy, hz});
+    addFace({0.0f, 0.0f, -1.0f}, {hx, -hy, -hz}, {-hx, -hy, -hz}, {-hx, hy, -hz}, {hx, hy, -hz});
+    addFace({-1.0f, 0.0f, 0.0f}, {-hx, -hy, -hz}, {-hx, -hy, hz}, {-hx, hy, hz}, {-hx, hy, -hz});
+    addFace({1.0f, 0.0f, 0.0f}, {hx, -hy, hz}, {hx, -hy, -hz}, {hx, hy, -hz}, {hx, hy, hz});
+    addFace({0.0f, 1.0f, 0.0f}, {-hx, hy, hz}, {hx, hy, hz}, {hx, hy, -hz}, {-hx, hy, -hz});
+    addFace({0.0f, -1.0f, 0.0f}, {-hx, -hy, -hz}, {hx, -hy, -hz}, {hx, -hy, hz}, {-hx, -hy, hz});
     return mesh;
 }
 
@@ -291,7 +297,7 @@ cressim::neo::physics::RigidBodyId requireRigidBodyId(Runtime &runtime,
     return body->rigidBodyId;
 }
 
-void authorBallJointCluster(Runtime &runtime, MeshHandle cubeMesh, MeshHandle sphereMesh,
+void authorBallJointCluster(Runtime &runtime, MeshHandle anchorMesh, MeshHandle sphereMesh,
                             MaterialHandle anchorMaterial, MaterialHandle bodyMaterial)
 {
     auto &world = runtime.getWorld();
@@ -307,9 +313,9 @@ void authorBallJointCluster(Runtime &runtime, MeshHandle cubeMesh, MeshHandle sp
     anchorCollider.shapeType = ColliderShapeType::Box;
     anchorCollider.shapeParams = {0.35f, 0.35f, 0.35f, 0.0f};
     anchorCollider.collisionLayer = kBallClusterLayer;
-    anchorCollider.collisionMask = kGroundCollisionLayer;
-    setVisibleRigidBody(runtime, anchorEntity, cubeMesh, anchorMaterial, {-7.0f, 6.0f, 0.0f},
-                        {0.35f, 0.35f, 0.35f}, anchorBody, anchorCollider);
+    anchorCollider.collisionMask = kGroundCollisionLayer | kBallDropLayer;
+    setVisibleRigidBody(runtime, anchorEntity, anchorMesh, anchorMaterial, {-7.0f, 6.0f, 0.0f},
+                        {1.0f, 1.0f, 1.0f}, anchorBody, anchorCollider);
 
     const float anchorPointX = -7.0f;
     const float anchorPointY = 6.0f - kAnchorHalfExtent;
@@ -319,7 +325,7 @@ void authorBallJointCluster(Runtime &runtime, MeshHandle cubeMesh, MeshHandle sp
         const auto entity = world.createEntity();
         RigidBodyComponent body{};
         body.inverseMass = 1.0f;
-        body.inverseInertiaLocal = computeSphereInverseInertia(0.4f, body.inverseMass);
+        body.inverseInertiaLocal = computeSphereInverseInertia(kViewerSphereMeshRadius, body.inverseMass);
         if (i == 2u)
         {
             body.linearVelocity = {0.0f, 0.0f, 2.2f};
@@ -329,7 +335,7 @@ void authorBallJointCluster(Runtime &runtime, MeshHandle cubeMesh, MeshHandle sp
         collider.shapeType = ColliderShapeType::Sphere;
         collider.shapeParams = {0.4f, 0.0f, 0.0f, 0.0f};
         collider.collisionLayer = kBallClusterLayer;
-        collider.collisionMask = kGroundCollisionLayer;
+        collider.collisionMask = kGroundCollisionLayer | kBallDropLayer;
         const float bobCenterX =
             anchorPointX + kBobRadius + (kLinkSpacing * static_cast<float>(i));
         setVisibleRigidBody(runtime, entity, sphereMesh, bodyMaterial,
@@ -362,8 +368,8 @@ void authorBallJointCluster(Runtime &runtime, MeshHandle cubeMesh, MeshHandle sp
     }
 }
 
-void authorHingeJointCluster(Runtime &runtime, MeshHandle cubeMesh, MaterialHandle anchorMaterial,
-                             MaterialHandle bodyMaterial)
+void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle linkMesh,
+                             MaterialHandle anchorMaterial, MaterialHandle bodyMaterial)
 {
     auto &world = runtime.getWorld();
     constexpr float kLinkHalfX = 0.25f;
@@ -377,9 +383,9 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle cubeMesh, MaterialHand
     baseCollider.shapeType = ColliderShapeType::Box;
     baseCollider.shapeParams = {0.45f, 0.35f, 0.35f, 0.0f};
     baseCollider.collisionLayer = kHingeClusterLayer;
-    baseCollider.collisionMask = kGroundCollisionLayer;
-    setVisibleRigidBody(runtime, baseEntity, cubeMesh, anchorMaterial, {0.0f, 4.3f, 0.0f},
-                        {0.45f, 0.35f, 0.35f}, baseBody, baseCollider);
+    baseCollider.collisionMask = kGroundCollisionLayer | kHingeDropLayer;
+    setVisibleRigidBody(runtime, baseEntity, baseMesh, anchorMaterial, {0.0f, 4.3f, 0.0f},
+                        {1.0f, 1.0f, 1.0f}, baseBody, baseCollider);
 
     const Diligent::QuaternionF swingRotation =
         Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 0.0f, 1.0f}, -Diligent::PI_F * 0.5f);
@@ -405,10 +411,10 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle cubeMesh, MaterialHand
         collider.shapeType = ColliderShapeType::Box;
         collider.shapeParams = {kLinkHalfX, kLinkHalfY, kLinkHalfX, 0.0f};
         collider.collisionLayer = kHingeClusterLayer;
-        collider.collisionMask = kGroundCollisionLayer;
+        collider.collisionMask = kGroundCollisionLayer | kHingeDropLayer;
         const Diligent::float3 center = (i == 0u) ? firstCenter : secondCenter;
-        setVisibleRigidBody(runtime, entity, cubeMesh, bodyMaterial,
-                            center, {kLinkHalfX, kLinkHalfY, kLinkHalfX}, body, collider,
+        setVisibleRigidBody(runtime, entity, linkMesh, bodyMaterial,
+                            center, {1.0f, 1.0f, 1.0f}, body, collider,
                             swingRotation);
         links.push_back(entity);
     }
@@ -438,10 +444,12 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle cubeMesh, MaterialHand
     }
 }
 
-void authorSliderJointCluster(Runtime &runtime, MeshHandle cubeMesh, MaterialHandle guideMaterial,
-                              MaterialHandle sliderMaterial)
+void authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh, MeshHandle sliderMesh,
+                              MaterialHandle guideMaterial, MaterialHandle sliderMaterial)
 {
     auto &world = runtime.getWorld();
+    constexpr Diligent::float3 kGuideHalfExtents = {3.8f, 0.45f, 0.45f};
+    constexpr Diligent::float3 kSliderHalfExtents = {0.7f, 0.7f, 0.7f};
 
     const auto guideEntity = world.createEntity();
     RigidBodyComponent guideBody{};
@@ -449,35 +457,88 @@ void authorSliderJointCluster(Runtime &runtime, MeshHandle cubeMesh, MaterialHan
     guideBody.inverseMass = 0.0f;
     ColliderComponent guideCollider{};
     guideCollider.shapeType = ColliderShapeType::Box;
-    guideCollider.shapeParams = {3.5f, 0.2f, 0.2f, 0.0f};
+    guideCollider.shapeParams = {kGuideHalfExtents.x, kGuideHalfExtents.y, kGuideHalfExtents.z, 0.0f};
     guideCollider.collisionLayer = kSliderClusterLayer;
-    guideCollider.collisionMask = kGroundCollisionLayer;
-    setVisibleRigidBody(runtime, guideEntity, cubeMesh, guideMaterial, {7.0f, 2.0f, 0.0f},
-                        {3.5f, 0.2f, 0.2f}, guideBody, guideCollider);
+    guideCollider.collisionMask = kGroundCollisionLayer | kSliderDropLayer;
+    setVisibleRigidBody(runtime, guideEntity, guideMesh, guideMaterial, {7.0f, 2.0f, 0.0f},
+                        {1.0f, 1.0f, 1.0f}, guideBody, guideCollider);
 
     const auto sliderEntity = world.createEntity();
     RigidBodyComponent sliderBody{};
     sliderBody.inverseMass = 1.0f;
-    sliderBody.inverseInertiaLocal = computeBoxInverseInertia({0.5f, 0.5f, 0.5f}, sliderBody.inverseMass);
-    sliderBody.linearVelocity = {3.0f, 0.0f, 0.0f};
+    sliderBody.inverseInertiaLocal =
+        computeBoxInverseInertia(kSliderHalfExtents, sliderBody.inverseMass);
+    sliderBody.linearVelocity = {1.5f, 0.0f, 0.0f};
     sliderBody.angularVelocity = {0.0f, 0.0f, 0.0f};
     ColliderComponent sliderCollider{};
     sliderCollider.shapeType = ColliderShapeType::Box;
-    sliderCollider.shapeParams = {0.5f, 0.5f, 0.5f, 0.0f};
+    sliderCollider.shapeParams = {kSliderHalfExtents.x, kSliderHalfExtents.y, kSliderHalfExtents.z, 0.0f};
     sliderCollider.collisionLayer = kSliderClusterLayer;
-    sliderCollider.collisionMask = kGroundCollisionLayer;
-    setVisibleRigidBody(runtime, sliderEntity, cubeMesh, sliderMaterial, {5.4f, 2.0f, 0.0f},
-                        {0.5f, 0.5f, 0.5f}, sliderBody, sliderCollider);
+    sliderCollider.collisionMask = kGroundCollisionLayer | kSliderDropLayer;
+    setVisibleRigidBody(runtime, sliderEntity, sliderMesh, sliderMaterial, {5.4f, 2.0f, 0.0f},
+                        {1.0f, 1.0f, 1.0f}, sliderBody, sliderCollider);
 
     SliderJointState slider{};
     slider.bodyA = requireRigidBodyId(runtime, guideEntity);
     slider.bodyB = requireRigidBodyId(runtime, sliderEntity);
     slider.localRotationA = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
-    slider.localRotationB = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
+    slider.localRotationB = makeJointFrameRotation({1.0f, 0.18f, 0.0f});
     if (!world.physicsWorld().upsertSliderJoint(slider))
     {
         throw std::runtime_error("Failed to author slider joint.");
     }
+}
+
+void authorDropDisturbers(Runtime &runtime, MeshHandle hingeDropMesh, MeshHandle sphereMesh,
+                          MaterialHandle ballMaterial, MaterialHandle hingeMaterial,
+                          MaterialHandle sliderMaterial)
+{
+    auto &world = runtime.getWorld();
+
+    constexpr float kDropSphereRadius = 0.45f;
+    const float kDropSphereVisualScale = kDropSphereRadius / kViewerSphereMeshRadius;
+
+    const auto ballDrop = world.createEntity();
+    RigidBodyComponent ballDropBody{};
+    ballDropBody.inverseMass = 0.75f;
+    ballDropBody.inverseInertiaLocal = computeSphereInverseInertia(kDropSphereRadius, ballDropBody.inverseMass);
+    ColliderComponent ballDropCollider{};
+    ballDropCollider.shapeType = ColliderShapeType::Sphere;
+    ballDropCollider.shapeParams = {kDropSphereRadius, 0.0f, 0.0f, 0.0f};
+    ballDropCollider.collisionLayer = kBallDropLayer;
+    ballDropCollider.collisionMask = kBallClusterLayer | kGroundCollisionLayer;
+    setVisibleRigidBody(runtime, ballDrop, sphereMesh, ballMaterial, {-8.0f, 8.8f, 0.2f},
+                        {kDropSphereVisualScale, kDropSphereVisualScale, kDropSphereVisualScale},
+                        ballDropBody, ballDropCollider);
+
+    const auto hingeDrop = world.createEntity();
+    RigidBodyComponent hingeDropBody{};
+    hingeDropBody.inverseMass = 0.85f;
+    hingeDropBody.inverseInertiaLocal =
+        computeBoxInverseInertia({0.4f, 0.4f, 0.4f}, hingeDropBody.inverseMass);
+    hingeDropBody.angularVelocity = {0.8f, 0.2f, -0.4f};
+    ColliderComponent hingeDropCollider{};
+    hingeDropCollider.shapeType = ColliderShapeType::Box;
+    hingeDropCollider.shapeParams = {0.4f, 0.4f, 0.4f, 0.0f};
+    hingeDropCollider.collisionLayer = kHingeDropLayer;
+    hingeDropCollider.collisionMask = kHingeClusterLayer | kGroundCollisionLayer;
+    setVisibleRigidBody(runtime, hingeDrop, hingeDropMesh, hingeMaterial, {0.5f, 8.4f, 0.0f},
+                        {1.0f, 1.0f, 1.0f}, hingeDropBody, hingeDropCollider,
+                        Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 0.0f, 1.0f}, 0.35f));
+
+    const auto sliderDrop = world.createEntity();
+    RigidBodyComponent sliderDropBody{};
+    sliderDropBody.inverseMass = 0.8f;
+    sliderDropBody.inverseInertiaLocal = computeSphereInverseInertia(kDropSphereRadius, sliderDropBody.inverseMass);
+    sliderDropBody.angularVelocity = {0.0f, 0.0f, 0.0f};
+    ColliderComponent sliderDropCollider{};
+    sliderDropCollider.shapeType = ColliderShapeType::Sphere;
+    sliderDropCollider.shapeParams = {kDropSphereRadius, 0.0f, 0.0f, 0.0f};
+    sliderDropCollider.collisionLayer = kSliderDropLayer;
+    sliderDropCollider.collisionMask = kSliderClusterLayer | kGroundCollisionLayer;
+    setVisibleRigidBody(runtime, sliderDrop, sphereMesh, sliderMaterial, {6.7f, 6.6f, 0.0f},
+                        {kDropSphereVisualScale, kDropSphereVisualScale, kDropSphereVisualScale},
+                        sliderDropBody, sliderDropCollider);
 }
 
 } // namespace
@@ -568,9 +629,20 @@ int main(int argc, char **argv)
         world.setDirectionalLight(lightEntity, light);
 
         auto &resources = runtime.getResources();
-        const MeshHandle cubeMesh = resources.registerMesh(makeCubeMesh(1.0f));
         const MeshHandle planeMesh = resources.registerMesh(makePlaneMesh(24.0f));
         const MeshHandle sphereMesh = resources.registerMesh(makeSphereMesh(0.4f, 24u, 16u));
+        const MeshHandle ballAnchorMesh =
+            resources.registerMesh(makeBoxMesh({0.35f, 0.35f, 0.35f}));
+        const MeshHandle hingeBaseMesh =
+            resources.registerMesh(makeBoxMesh({0.45f, 0.35f, 0.35f}));
+        const MeshHandle hingeLinkMesh =
+            resources.registerMesh(makeBoxMesh({0.25f, 1.1f, 0.25f}));
+        const MeshHandle hingeDropMesh =
+            resources.registerMesh(makeBoxMesh({0.4f, 0.4f, 0.4f}));
+        const MeshHandle sliderGuideMesh =
+            resources.registerMesh(makeBoxMesh({3.8f, 0.45f, 0.45f}));
+        const MeshHandle sliderCarriageMesh =
+            resources.registerMesh(makeBoxMesh({0.7f, 0.7f, 0.7f}));
 
         const MaterialHandle groundMaterial =
             registerMaterial(resources, "RigidJointViewer.Ground", {0.70f, 0.72f, 0.76f}, 0.88f);
@@ -596,17 +668,22 @@ int main(int argc, char **argv)
         world.setRigidBody(groundEntity, groundBody);
         ColliderComponent groundCollider{};
         groundCollider.shapeType = ColliderShapeType::Box;
-        groundCollider.shapeParams = {24.0f, 0.25f, 24.0f, 0.0f};
+        groundCollider.shapeParams = {24.0f, 0.05f, 24.0f, 0.0f};
         groundCollider.friction = 0.8f;
         groundCollider.staticFriction = 0.9f;
         groundCollider.collisionLayer = kGroundCollisionLayer;
         groundCollider.collisionMask =
-            kBallClusterLayer | kHingeClusterLayer | kSliderClusterLayer;
+            kBallClusterLayer | kHingeClusterLayer | kSliderClusterLayer |
+            kBallDropLayer | kHingeDropLayer | kSliderDropLayer;
         world.addCollider(groundEntity, groundCollider);
 
-        authorBallJointCluster(runtime, cubeMesh, sphereMesh, anchorMaterial, ballMaterial);
-        authorHingeJointCluster(runtime, cubeMesh, anchorMaterial, hingeMaterial);
-        authorSliderJointCluster(runtime, cubeMesh, guideMaterial, sliderMaterial);
+        authorBallJointCluster(runtime, ballAnchorMesh, sphereMesh, anchorMaterial, ballMaterial);
+        authorHingeJointCluster(runtime, hingeBaseMesh, hingeLinkMesh, anchorMaterial,
+                                hingeMaterial);
+        authorSliderJointCluster(runtime, sliderGuideMesh, sliderCarriageMesh, guideMaterial,
+                                 sliderMaterial);
+        authorDropDisturbers(runtime, hingeDropMesh, sphereMesh, ballMaterial, hingeMaterial,
+                             sliderMaterial);
 
         const bool runOk = viewer.run(runtime, DebugViewerCameraBinding{cameraEntity});
         viewer.shutdown();
