@@ -134,6 +134,8 @@ int main()
     hinge.localAnchorB = {0.0f, 0.0f, 0.0f};
     hinge.localRotationA = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
     hinge.localRotationB = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
+    hinge.driveTargetEnabled = true;
+    hinge.driveTargetAngle = 0.5f;
     if (!world.upsertHingeJoint(hinge))
     {
         CRESSIM_LOG_ERROR("Failed to insert hinge joint.");
@@ -145,6 +147,8 @@ int main()
     slider.bodyB = bodyB->rigidBodyId;
     slider.localRotationA = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
     slider.localRotationB = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
+    slider.driveTargetEnabled = true;
+    slider.driveTargetPosition = 0.75f;
     if (!world.upsertSliderJoint(slider))
     {
         CRESSIM_LOG_ERROR("Failed to insert slider joint.");
@@ -172,6 +176,20 @@ int main()
         scene.slider.bodyIndicesA.front() != 0u || scene.slider.bodyIndicesB.front() != 1u)
     {
         CRESSIM_LOG_ERROR("Rigid joint scene body indices were not rebuilt correctly.");
+        return 1;
+    }
+
+    if (scene.hinge.driveTargetEnabledFlags.front() != 1u ||
+        std::fabs(scene.hinge.driveTargetAngles.front() - 0.5f) > kEpsilon)
+    {
+        CRESSIM_LOG_ERROR("Hinge drive target state was not rebuilt correctly.");
+        return 1;
+    }
+
+    if (scene.slider.driveTargetEnabledFlags.front() != 1u ||
+        std::fabs(scene.slider.driveTargetPositions.front() - 0.75f) > kEpsilon)
+    {
+        CRESSIM_LOG_ERROR("Slider drive target state was not rebuilt correctly.");
         return 1;
     }
 

@@ -786,6 +786,8 @@ bool PhysicsWorld::upsertHingeJoint(const HingeJointState &state)
     }
     normalized.localRotationA = common::runtime_math::normalizeQuaternion(normalized.localRotationA);
     normalized.localRotationB = common::runtime_math::normalizeQuaternion(normalized.localRotationB);
+    normalized.driveTargetAngle =
+        std::remainder(normalized.driveTargetAngle, 6.2831853071795864769f);
     if (normalized.jointId == kInvalidRigidJointId)
     {
         normalized.jointId = mNextRigidJointId++;
@@ -1724,18 +1726,22 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
             return;
         }
 
-        Diligent::float4 projectionRows[2];
+        Diligent::float4 projectionRows[3];
         computeProjectionRowsFromLocalFrames(joint.localRotationA, joint.localRotationB,
-                                             2u, 2u, projectionRows);
+                                             1u, 3u, projectionRows);
 
         self->mRigidJointScene.hinge.jointIds.push_back(joint.jointId);
         self->mRigidJointScene.hinge.bodyIndicesA.push_back(bodyIndexA);
         self->mRigidJointScene.hinge.bodyIndicesB.push_back(bodyIndexB);
         self->mRigidJointScene.hinge.enabledFlags.push_back(joint.enabled ? 1u : 0u);
+        self->mRigidJointScene.hinge.driveTargetEnabledFlags.push_back(
+            joint.driveTargetEnabled ? 1u : 0u);
         self->mRigidJointScene.hinge.localAnchorsA.push_back(toFloat4(joint.localAnchorA, 0.0f));
         self->mRigidJointScene.hinge.localAnchorsB.push_back(toFloat4(joint.localAnchorB, 0.0f));
+        self->mRigidJointScene.hinge.driveTargetAngles.push_back(joint.driveTargetAngle);
         self->mRigidJointScene.hinge.projectionRow0.push_back(projectionRows[0]);
         self->mRigidJointScene.hinge.projectionRow1.push_back(projectionRows[1]);
+        self->mRigidJointScene.hinge.projectionRow2.push_back(projectionRows[2]);
     };
 
     auto appendSlider = [&](const SliderJointState &joint)
@@ -1763,6 +1769,13 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
         const Diligent::float3 axisA2 =
             safeNormalize(quaternionRotate(joint.localRotationA, Diligent::float3{0.0f, 0.0f, 1.0f}),
                           Diligent::float3{0.0f, 0.0f, 1.0f});
+        const Diligent::float3 worldAnchorA =
+            self->mRigidBodySnapshot[bodyIndexA].position +
+            quaternionRotate(self->mRigidBodySnapshot[bodyIndexA].rotation, joint.localAnchorA);
+        const Diligent::float3 worldAnchorB =
+            self->mRigidBodySnapshot[bodyIndexB].position +
+            quaternionRotate(self->mRigidBodySnapshot[bodyIndexB].rotation, joint.localAnchorB);
+        const float driveRestOffset = Diligent::dot(worldAnchorA - worldAnchorB, axisA0);
         Diligent::float4 projectionRows[3];
         computeProjectionRowsFromLocalFrames(joint.localRotationA, joint.localRotationB,
                                              1u, 3u, projectionRows);
@@ -1770,8 +1783,12 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
         self->mRigidJointScene.slider.bodyIndicesA.push_back(bodyIndexA);
         self->mRigidJointScene.slider.bodyIndicesB.push_back(bodyIndexB);
         self->mRigidJointScene.slider.enabledFlags.push_back(joint.enabled ? 1u : 0u);
+        self->mRigidJointScene.slider.driveTargetEnabledFlags.push_back(
+            joint.driveTargetEnabled ? 1u : 0u);
         self->mRigidJointScene.slider.localAnchorsA.push_back(toFloat4(joint.localAnchorA, 0.0f));
         self->mRigidJointScene.slider.localAnchorsB.push_back(toFloat4(joint.localAnchorB, 0.0f));
+        self->mRigidJointScene.slider.driveTargetPositions.push_back(joint.driveTargetPosition);
+        self->mRigidJointScene.slider.driveRestOffsets.push_back(driveRestOffset);
         self->mRigidJointScene.slider.localAxesA0.push_back(toFloat4(axisA0, 0.0f));
         self->mRigidJointScene.slider.localAxesA1.push_back(toFloat4(axisA1, 0.0f));
         self->mRigidJointScene.slider.localAxesA2.push_back(toFloat4(axisA2, 0.0f));

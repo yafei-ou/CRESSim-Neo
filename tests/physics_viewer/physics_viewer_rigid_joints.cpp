@@ -46,6 +46,11 @@ constexpr std::uint32_t kHingeDropLayer = 1u << 5u;
 constexpr std::uint32_t kSliderDropLayer = 1u << 6u;
 constexpr float kViewerSphereMeshRadius = 0.4f;
 
+struct ViewerJointOptions
+{
+    bool enableDriveTargets = false;
+};
+
 Diligent::QuaternionF quaternionFromBasis(const Diligent::float3 &x, const Diligent::float3 &y,
                                           const Diligent::float3 &z)
 {
@@ -130,7 +135,8 @@ GpuBackend parseBackend(const std::string &value)
 
 void printUsage(const char *appName)
 {
-    CRESSIM_LOG_ERROR("Usage: ", appName, " [--backend vulkan|null] [--frames N]\n");
+    CRESSIM_LOG_ERROR("Usage: ", appName,
+                      " [--backend vulkan|null] [--frames N] [--joint-drive]\n");
 }
 
 MeshResourceDesc makeBoxMesh(const Diligent::float3 &halfExtents)
@@ -369,7 +375,8 @@ void authorBallJointCluster(Runtime &runtime, MeshHandle anchorMesh, MeshHandle 
 }
 
 void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle linkMesh,
-                             MaterialHandle anchorMaterial, MaterialHandle bodyMaterial)
+                             MaterialHandle anchorMaterial, MaterialHandle bodyMaterial,
+                             const ViewerJointOptions &options)
 {
     auto &world = runtime.getWorld();
     constexpr float kLinkHalfX = 0.25f;
@@ -426,6 +433,8 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
     upper.localAnchorB = {0.0f, 1.1f, 0.0f};
     upper.localRotationA = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
     upper.localRotationB = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
+    upper.driveTargetEnabled = options.enableDriveTargets;
+    upper.driveTargetAngle = -1.37f;
     if (!world.physicsWorld().upsertHingeJoint(upper))
     {
         throw std::runtime_error("Failed to author upper hinge joint.");
@@ -438,6 +447,8 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
     lower.localAnchorB = {0.0f, 1.1f, 0.0f};
     lower.localRotationA = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
     lower.localRotationB = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
+    lower.driveTargetEnabled = options.enableDriveTargets;
+    lower.driveTargetAngle = 0.1f;
     if (!world.physicsWorld().upsertHingeJoint(lower))
     {
         throw std::runtime_error("Failed to author lower hinge joint.");
@@ -445,7 +456,8 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
 }
 
 void authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh, MeshHandle sliderMesh,
-                              MaterialHandle guideMaterial, MaterialHandle sliderMaterial)
+                              MaterialHandle guideMaterial, MaterialHandle sliderMaterial,
+                              const ViewerJointOptions &options)
 {
     auto &world = runtime.getWorld();
     constexpr Diligent::float3 kGuideHalfExtents = {3.8f, 0.45f, 0.45f};
@@ -478,14 +490,41 @@ void authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh, MeshHandle
     setVisibleRigidBody(runtime, sliderEntity, sliderMesh, sliderMaterial, {5.4f, 2.0f, 0.0f},
                         {1.0f, 1.0f, 1.0f}, sliderBody, sliderCollider);
 
-    SliderJointState slider{};
-    slider.bodyA = requireRigidBodyId(runtime, guideEntity);
-    slider.bodyB = requireRigidBodyId(runtime, sliderEntity);
-    slider.localRotationA = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
-    slider.localRotationB = makeJointFrameRotation({1.0f, 0.18f, 0.0f});
-    if (!world.physicsWorld().upsertSliderJoint(slider))
+    SliderJointState horizontalSlider{};
+    horizontalSlider.bodyA = requireRigidBodyId(runtime, guideEntity);
+    horizontalSlider.bodyB = requireRigidBodyId(runtime, sliderEntity);
+    horizontalSlider.localRotationA = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
+    horizontalSlider.localRotationB = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
+    horizontalSlider.driveTargetEnabled = options.enableDriveTargets;
+    horizontalSlider.driveTargetPosition = 0.20f;
+    if (!world.physicsWorld().upsertSliderJoint(horizontalSlider))
     {
         throw std::runtime_error("Failed to author slider joint.");
+    }
+
+    const auto stageEntity = world.createEntity();
+    RigidBodyComponent stageBody{};
+    stageBody.inverseMass = 0.85f;
+    stageBody.inverseInertiaLocal =
+        computeBoxInverseInertia(kSliderHalfExtents, stageBody.inverseMass);
+    ColliderComponent stageCollider{};
+    stageCollider.shapeType = ColliderShapeType::Box;
+    stageCollider.shapeParams = {kSliderHalfExtents.x, kSliderHalfExtents.y, kSliderHalfExtents.z, 0.0f};
+    stageCollider.collisionLayer = kSliderClusterLayer;
+    stageCollider.collisionMask = kGroundCollisionLayer | kSliderDropLayer;
+    setVisibleRigidBody(runtime, stageEntity, sliderMesh, sliderMaterial, {5.4f, 3.20f, 0.0f},
+                        {1.0f, 1.0f, 1.0f}, stageBody, stageCollider);
+
+    SliderJointState verticalSlider{};
+    verticalSlider.bodyA = requireRigidBodyId(runtime, sliderEntity);
+    verticalSlider.bodyB = requireRigidBodyId(runtime, stageEntity);
+    verticalSlider.localRotationA = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
+    verticalSlider.localRotationB = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
+    verticalSlider.driveTargetEnabled = options.enableDriveTargets;
+    verticalSlider.driveTargetPosition = 0.50f;
+    if (!world.physicsWorld().upsertSliderJoint(verticalSlider))
+    {
+        throw std::runtime_error("Failed to author vertical slider joint.");
     }
 }
 
@@ -552,6 +591,7 @@ int main(int argc, char **argv)
     config.physicsDesc.rigidRigidContactIterations = 16u;
     config.physicsDesc.rigidJointIterations = 48u;
     std::uint64_t numFrames = 0;
+    ViewerJointOptions jointOptions{};
 
     for (int i = 1; i < argc; ++i)
     {
@@ -574,6 +614,11 @@ int main(int argc, char **argv)
                 return 2;
             }
             numFrames = static_cast<std::uint64_t>(std::strtoull(argv[++i], nullptr, 10));
+            continue;
+        }
+        if (arg == "--joint-drive")
+        {
+            jointOptions.enableDriveTargets = true;
             continue;
         }
 
@@ -679,9 +724,9 @@ int main(int argc, char **argv)
 
         authorBallJointCluster(runtime, ballAnchorMesh, sphereMesh, anchorMaterial, ballMaterial);
         authorHingeJointCluster(runtime, hingeBaseMesh, hingeLinkMesh, anchorMaterial,
-                                hingeMaterial);
+                                hingeMaterial, jointOptions);
         authorSliderJointCluster(runtime, sliderGuideMesh, sliderCarriageMesh, guideMaterial,
-                                 sliderMaterial);
+                                 sliderMaterial, jointOptions);
         authorDropDisturbers(runtime, hingeDropMesh, sphereMesh, ballMaterial, hingeMaterial,
                              sliderMaterial);
 

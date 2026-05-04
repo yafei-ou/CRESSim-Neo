@@ -316,24 +316,28 @@ struct HingeJointState
 {
     RigidJointId jointId      = kInvalidRigidJointId;
     bool enabled              = true;
+    bool driveTargetEnabled   = false;
     RigidBodyId bodyA         = kInvalidRigidBodyId;
     RigidBodyId bodyB         = kInvalidRigidBodyId;
     Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
     Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF localRotationA{0.0f, 0.0f, 0.0f, 1.0f};
     Diligent::QuaternionF localRotationB{0.0f, 0.0f, 0.0f, 1.0f};
+    float driveTargetAngle    = 0.0f;
 };
 
 struct SliderJointState
 {
     RigidJointId jointId      = kInvalidRigidJointId;
     bool enabled              = true;
+    bool driveTargetEnabled   = false;
     RigidBodyId bodyA         = kInvalidRigidBodyId;
     RigidBodyId bodyB         = kInvalidRigidBodyId;
     Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
     Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF localRotationA{0.0f, 0.0f, 0.0f, 1.0f};
     Diligent::QuaternionF localRotationB{0.0f, 0.0f, 0.0f, 1.0f};
+    float driveTargetPosition = 0.0f;
 };
 
 struct BallJointSoAHost
@@ -364,10 +368,13 @@ struct HingeJointSoAHost
     std::vector<std::uint32_t> bodyIndicesA;
     std::vector<std::uint32_t> bodyIndicesB;
     std::vector<std::uint32_t> enabledFlags;
+    std::vector<std::uint32_t> driveTargetEnabledFlags;
     std::vector<Diligent::float4> localAnchorsA;
     std::vector<Diligent::float4> localAnchorsB;
+    std::vector<float> driveTargetAngles;
     std::vector<Diligent::float4> projectionRow0;
     std::vector<Diligent::float4> projectionRow1;
+    std::vector<Diligent::float4> projectionRow2;
 
     std::size_t size() const noexcept { return jointIds.size(); }
     bool empty() const noexcept { return jointIds.empty(); }
@@ -377,10 +384,13 @@ struct HingeJointSoAHost
         bodyIndicesA.clear();
         bodyIndicesB.clear();
         enabledFlags.clear();
+        driveTargetEnabledFlags.clear();
         localAnchorsA.clear();
         localAnchorsB.clear();
+        driveTargetAngles.clear();
         projectionRow0.clear();
         projectionRow1.clear();
+        projectionRow2.clear();
     }
 };
 
@@ -390,8 +400,11 @@ struct SliderJointSoAHost
     std::vector<std::uint32_t> bodyIndicesA;
     std::vector<std::uint32_t> bodyIndicesB;
     std::vector<std::uint32_t> enabledFlags;
+    std::vector<std::uint32_t> driveTargetEnabledFlags;
     std::vector<Diligent::float4> localAnchorsA;
     std::vector<Diligent::float4> localAnchorsB;
+    std::vector<float> driveTargetPositions;
+    std::vector<float> driveRestOffsets;
     std::vector<Diligent::float4> localAxesA0;
     std::vector<Diligent::float4> localAxesA1;
     std::vector<Diligent::float4> localAxesA2;
@@ -407,8 +420,11 @@ struct SliderJointSoAHost
         bodyIndicesA.clear();
         bodyIndicesB.clear();
         enabledFlags.clear();
+        driveTargetEnabledFlags.clear();
         localAnchorsA.clear();
         localAnchorsB.clear();
+        driveTargetPositions.clear();
+        driveRestOffsets.clear();
         localAxesA0.clear();
         localAxesA1.clear();
         localAxesA2.clear();

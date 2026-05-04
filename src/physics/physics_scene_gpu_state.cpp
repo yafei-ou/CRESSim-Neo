@@ -1663,30 +1663,38 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
     for (std::size_t i = 0; i < hingeJoints.size(); ++i)
     {
         GpuHingeJoint &dst = hingeJoints[i];
-        dst.bodyA          = jointScene.hinge.bodyIndicesA[i];
-        dst.bodyB          = jointScene.hinge.bodyIndicesB[i];
-        dst.enabled        = jointScene.hinge.enabledFlags[i];
-        dst.localAnchorA   = jointScene.hinge.localAnchorsA[i];
-        dst.localAnchorB   = jointScene.hinge.localAnchorsB[i];
-        dst.projectionRow0 = jointScene.hinge.projectionRow0[i];
-        dst.projectionRow1 = jointScene.hinge.projectionRow1[i];
+        dst.bodyA             = jointScene.hinge.bodyIndicesA[i];
+        dst.bodyB             = jointScene.hinge.bodyIndicesB[i];
+        dst.enabled           = jointScene.hinge.enabledFlags[i];
+        dst.driveTargetEnabled = jointScene.hinge.driveTargetEnabledFlags[i];
+        dst.localAnchorA      = jointScene.hinge.localAnchorsA[i];
+        dst.localAnchorB      = jointScene.hinge.localAnchorsB[i];
+        dst.projectionRow0    = jointScene.hinge.projectionRow0[i];
+        dst.projectionRow1    = jointScene.hinge.projectionRow1[i];
+        dst.projectionRow2    = jointScene.hinge.projectionRow2[i];
+        dst.driveTargetParams =
+            Diligent::float4{jointScene.hinge.driveTargetAngles[i], 0.0f, 0.0f, 0.0f};
     }
 
     std::vector<GpuSliderJoint> sliderJoints(jointScene.slider.size());
     for (std::size_t i = 0; i < sliderJoints.size(); ++i)
     {
         GpuSliderJoint &dst = sliderJoints[i];
-        dst.bodyA           = jointScene.slider.bodyIndicesA[i];
-        dst.bodyB           = jointScene.slider.bodyIndicesB[i];
-        dst.enabled         = jointScene.slider.enabledFlags[i];
-        dst.localAnchorA    = jointScene.slider.localAnchorsA[i];
-        dst.localAnchorB    = jointScene.slider.localAnchorsB[i];
-        dst.localAxisA0     = jointScene.slider.localAxesA0[i];
-        dst.localAxisA1     = jointScene.slider.localAxesA1[i];
-        dst.localAxisA2     = jointScene.slider.localAxesA2[i];
-        dst.projectionRow0  = jointScene.slider.projectionRow0[i];
-        dst.projectionRow1  = jointScene.slider.projectionRow1[i];
-        dst.projectionRow2  = jointScene.slider.projectionRow2[i];
+        dst.bodyA              = jointScene.slider.bodyIndicesA[i];
+        dst.bodyB              = jointScene.slider.bodyIndicesB[i];
+        dst.enabled            = jointScene.slider.enabledFlags[i];
+        dst.driveTargetEnabled = jointScene.slider.driveTargetEnabledFlags[i];
+        dst.localAnchorA       = jointScene.slider.localAnchorsA[i];
+        dst.localAnchorB       = jointScene.slider.localAnchorsB[i];
+        dst.localAxisA0        = jointScene.slider.localAxesA0[i];
+        dst.localAxisA1        = jointScene.slider.localAxesA1[i];
+        dst.localAxisA2        = jointScene.slider.localAxesA2[i];
+        dst.projectionRow0     = jointScene.slider.projectionRow0[i];
+        dst.projectionRow1     = jointScene.slider.projectionRow1[i];
+        dst.projectionRow2     = jointScene.slider.projectionRow2[i];
+        dst.driveTargetParams  = Diligent::float4{jointScene.slider.driveTargetPositions[i],
+                                                  jointScene.slider.driveRestOffsets[i],
+                                                  0.0f, 0.0f};
     }
 
     if (!updateStructuredBufferRange(computeContext, mPersistentJoints.ballJointsBuffer, ballJoints,

@@ -94,11 +94,13 @@ struct GpuHingeJoint
     uint bodyA;
     uint bodyB;
     uint enabled;
-    uint reserved0;
+    uint driveTargetEnabled;
     float4 localAnchorA;
     float4 localAnchorB;
     float4 projectionRow0;
     float4 projectionRow1;
+    float4 projectionRow2;
+    float4 driveTargetParams;
 };
 
 struct GpuSliderJoint
@@ -106,7 +108,7 @@ struct GpuSliderJoint
     uint bodyA;
     uint bodyB;
     uint enabled;
-    uint reserved0;
+    uint driveTargetEnabled;
     float4 localAnchorA;
     float4 localAnchorB;
     float4 localAxisA0;
@@ -115,6 +117,7 @@ struct GpuSliderJoint
     float4 projectionRow0;
     float4 projectionRow1;
     float4 projectionRow2;
+    float4 driveTargetParams;
 };
 
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)

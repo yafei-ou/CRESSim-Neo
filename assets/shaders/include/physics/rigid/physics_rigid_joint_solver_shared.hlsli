@@ -174,4 +174,77 @@ bool SolveLinearSystem5x5(float a[5][5], float b[5], out float x[5])
     return true;
 }
 
+bool SolveLinearSystem6x6(float a[6][6], float b[6], out float x[6])
+{
+    float augmented[6][7];
+    [unroll] for (uint row = 0u; row < 6u; ++row)
+    {
+        [unroll] for (uint col = 0u; col < 6u; ++col)
+        {
+            augmented[row][col] = a[row][col];
+        }
+        augmented[row][6u] = b[row];
+    }
+
+    [unroll] for (uint pivot = 0u; pivot < 6u; ++pivot)
+    {
+        uint pivotRow = pivot;
+        float pivotMagnitude = abs(augmented[pivot][pivot]);
+        [unroll] for (uint row = pivot + 1u; row < 6u; ++row)
+        {
+            const float candidate = abs(augmented[row][pivot]);
+            if (candidate > pivotMagnitude)
+            {
+                pivotMagnitude = candidate;
+                pivotRow = row;
+            }
+        }
+
+        if (pivotMagnitude <= kEpsilon)
+        {
+            [unroll] for (uint i = 0u; i < 6u; ++i)
+            {
+                x[i] = 0.0;
+            }
+            return false;
+        }
+
+        if (pivotRow != pivot)
+        {
+            [unroll] for (uint col = pivot; col < 7u; ++col)
+            {
+                const float temp = augmented[pivot][col];
+                augmented[pivot][col] = augmented[pivotRow][col];
+                augmented[pivotRow][col] = temp;
+            }
+        }
+
+        const float invPivot = 1.0 / augmented[pivot][pivot];
+        [unroll] for (uint col = pivot; col < 7u; ++col)
+        {
+            augmented[pivot][col] *= invPivot;
+        }
+
+        [unroll] for (uint row = 0u; row < 6u; ++row)
+        {
+            if (row == pivot)
+            {
+                continue;
+            }
+
+            const float factor = augmented[row][pivot];
+            [unroll] for (uint col = pivot; col < 7u; ++col)
+            {
+                augmented[row][col] -= factor * augmented[pivot][col];
+            }
+        }
+    }
+
+    [unroll] for (uint row = 0u; row < 6u; ++row)
+    {
+        x[row] = augmented[row][6u];
+    }
+    return true;
+}
+
 #endif // CRESSIM_NEO_PHYSICS_RIGID_JOINT_SOLVER_SHARED_HLSLI
