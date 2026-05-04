@@ -71,7 +71,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 hingeAxis =
         SafeNormalize(QuaternionRotate(qA, joint.localAxisA0.xyz), float3(1.0, 0.0, 0.0));
 
-    const float3 linearConstraint = linearVelocityA - linearVelocityB;
+    const float3 anchorVelocityA = linearVelocityA + cross(angularVelocityA, rA);
+    const float3 anchorVelocityB = linearVelocityB + cross(angularVelocityB, rB);
+    const float3 linearConstraint = anchorVelocityA - anchorVelocityB;
     const float3 angularConstraint =
         (angularVelocityA - angularVelocityB) + joint.driveTargetParams.y * hingeAxis;
 
