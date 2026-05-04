@@ -48,6 +48,7 @@ public:
     const ColliderSoAHost &colliderSoA() const noexcept;
     const BodyColliderMappingHost &bodyColliderMapping() const noexcept;
     const RigidJointSceneHost &rigidJointScene() const noexcept;
+    const JointCollisionSuppressionHost &jointCollisionSuppression() const noexcept;
     const SoftParticleSoAHost &softParticles() const noexcept;
     const std::vector<SoftEdge> &softEdges() const noexcept;
     const std::vector<SoftTet> &softTets() const noexcept;
@@ -141,6 +142,7 @@ private:
     void removeColliderAtIndex(std::uint32_t index) noexcept;
     void rebuildBodyColliderMapping() const noexcept;
     void rebuildRigidJointScene() const noexcept;
+    void rebuildJointCollisionSuppression() const noexcept;
     void rebuildSoftBodyDerivedState() noexcept;
     void markAllRigidBodiesDirty() noexcept;
     void markAllCollidersDirty() noexcept;
@@ -177,6 +179,7 @@ private:
     mutable ColliderSoAHost mColliders{};
     mutable BodyColliderMappingHost mBodyColliderMapping{};
     mutable RigidJointSceneHost mRigidJointScene{};
+    mutable JointCollisionSuppressionHost mJointCollisionSuppression{};
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToRigidBodyIndex{};
     std::unordered_map<RigidBodyId, std::uint32_t> mRigidBodyIdToIndex{};
     std::unordered_map<ColliderId, std::uint32_t> mColliderIdToIndex{};
@@ -204,6 +207,7 @@ private:
     bool mFullColliderUploadRequired         = false;
     mutable bool mBodyColliderMappingDirty   = true;
     mutable bool mRigidJointSceneDirty       = true;
+    mutable bool mJointCollisionSuppressionDirty = true;
     bool mSoftBodyDerivedStateDirty          = true;
     bool mStaticBroadPhaseDirty              = false;
     std::uint32_t mActiveMovingColliderCount = 0u;

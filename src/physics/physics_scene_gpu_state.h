@@ -55,6 +55,12 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> colliderIndicesBuffer;
     };
 
+    struct PersistentJointCollisionSuppressionBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> neighborOffsetsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> neighborsBuffer;
+    };
+
     struct PersistentJointBuffers
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> ballJointsBuffer;
@@ -294,6 +300,8 @@ public:
     const PersistentRigidBodyBuffers &persistentRigidBodies() const noexcept;
     const PersistentColliderBuffers &persistentColliders() const noexcept;
     const PersistentBodyColliderMappingBuffers &persistentBodyColliderMapping() const noexcept;
+    const PersistentJointCollisionSuppressionBuffers &persistentJointCollisionSuppression()
+        const noexcept;
     const PersistentJointBuffers &persistentJoints() const noexcept;
     const PersistentSoftParticleBuffers &persistentSoftParticles() const noexcept;
     const PersistentSoftTopologyBuffers &persistentSoftTopology() const noexcept;
@@ -336,6 +344,9 @@ private:
     bool uploadBodyColliderMapping(Diligent::IDeviceContext *computeContext,
                                    const BodyColliderMappingHost &mapping, std::uint32_t bodyCount,
                                    std::uint32_t colliderCount);
+    bool uploadJointCollisionSuppression(Diligent::IDeviceContext *computeContext,
+                                         const JointCollisionSuppressionHost &suppression,
+                                         std::uint32_t bodyCount);
     bool uploadRigidJoints(Diligent::IDeviceContext *computeContext, const PhysicsWorld &world);
     bool uploadSoftParticles(Diligent::IDeviceContext *computeContext,
                              const SoftParticleSoAHost &softParticles);
@@ -347,6 +358,7 @@ private:
     PersistentRigidBodyBuffers mPersistentRigidBodies;
     PersistentColliderBuffers mPersistentColliders;
     PersistentBodyColliderMappingBuffers mPersistentBodyColliderMapping;
+    PersistentJointCollisionSuppressionBuffers mPersistentJointCollisionSuppression;
     PersistentJointBuffers mPersistentJoints;
     PersistentSoftParticleBuffers mPersistentSoftParticles;
     PersistentSoftTopologyBuffers mPersistentSoftTopology;
@@ -378,6 +390,8 @@ private:
     std::uint32_t mSoftRenderTriangleCapacity       = 0;
     std::uint32_t mSoftBodyRangeCapacity            = 0;
     std::uint32_t mSoftBodyBoundsChunkCapacity      = 0;
+    std::uint32_t mJointCollisionSuppressionOffsetCapacity = 0;
+    std::uint32_t mJointCollisionSuppressionNeighborCapacity = 0;
     std::uint32_t mBallJointCapacity                = 0;
     std::uint32_t mHingeJointCapacity               = 0;
     std::uint32_t mSliderJointCapacity              = 0;

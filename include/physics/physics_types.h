@@ -313,6 +313,7 @@ struct BallJointState
 {
     RigidJointId jointId      = kInvalidRigidJointId;
     bool enabled              = true;
+    bool suppressConnectedBodyCollisions = false;
     RigidBodyId bodyA         = kInvalidRigidBodyId;
     RigidBodyId bodyB         = kInvalidRigidBodyId;
     Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
@@ -323,6 +324,7 @@ struct HingeJointState
 {
     RigidJointId jointId      = kInvalidRigidJointId;
     bool enabled              = true;
+    bool suppressConnectedBodyCollisions = false;
     RigidJointDriveMode driveMode = RigidJointDriveMode::None;
     bool limitEnabled         = false;
     RigidBodyId bodyA         = kInvalidRigidBodyId;
@@ -341,6 +343,7 @@ struct SliderJointState
 {
     RigidJointId jointId      = kInvalidRigidJointId;
     bool enabled              = true;
+    bool suppressConnectedBodyCollisions = false;
     RigidJointDriveMode driveMode = RigidJointDriveMode::None;
     bool limitEnabled         = false;
     RigidBodyId bodyA         = kInvalidRigidBodyId;
@@ -478,6 +481,18 @@ struct RigidJointSceneHost
         ball.clear();
         hinge.clear();
         slider.clear();
+    }
+};
+
+struct JointCollisionSuppressionHost
+{
+    std::vector<std::uint32_t> neighborOffsets;
+    std::vector<std::uint32_t> neighbors;
+
+    void clear()
+    {
+        neighborOffsets.clear();
+        neighbors.clear();
     }
 };
 

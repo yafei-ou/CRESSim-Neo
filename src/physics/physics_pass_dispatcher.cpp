@@ -1277,6 +1277,7 @@ bool PhysicsPassDispatcher::solveSoftRigidContacts(Diligent::IDeviceContext *com
     const auto &softParticles       = sceneState.persistentSoftParticles();
     const auto &persistentRigid     = sceneState.persistentRigidBodies();
     const auto &persistentColliders = sceneState.persistentColliders();
+    const auto &jointSuppression    = sceneState.persistentJointCollisionSuppression();
     const auto &transient           = sceneState.transientBuffers();
     const std::array solveBindings{
         gpu::GpuBufferBinding{"g_SoftParticlePreviousPositions",
@@ -1473,6 +1474,7 @@ bool PhysicsPassDispatcher::dispatchSolveSoftRigidContactVelocitiesPass(
     const auto &softParticles       = sceneState.persistentSoftParticles();
     const auto &persistentRigid     = sceneState.persistentRigidBodies();
     const auto &persistentColliders = sceneState.persistentColliders();
+    const auto &jointSuppression    = sceneState.persistentJointCollisionSuppression();
     const auto &transient           = sceneState.transientBuffers();
 
     const std::array bindings{
@@ -1728,6 +1730,7 @@ bool PhysicsPassDispatcher::updateRigidWorldAabbs(Diligent::IDeviceContext *comp
 
     const auto &persistentBodies    = sceneState.persistentRigidBodies();
     const auto &persistentColliders = sceneState.persistentColliders();
+    const auto &jointSuppression    = sceneState.persistentJointCollisionSuppression();
     const auto &transient           = sceneState.transientBuffers();
     const std::array bindings{
         gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
@@ -2392,6 +2395,7 @@ bool PhysicsPassDispatcher::finalizeBroadPhasePairs(Diligent::IDeviceContext *co
     }
 
     const auto &persistentColliders = sceneState.persistentColliders();
+    const auto &jointSuppression    = sceneState.persistentJointCollisionSuppression();
     const auto &transient           = sceneState.transientBuffers();
 
     const std::array countBindings{
@@ -2406,6 +2410,12 @@ bool PhysicsPassDispatcher::finalizeBroadPhasePairs(Diligent::IDeviceContext *co
         gpu::GpuBufferBinding{"g_StaticBvhNodes", transient.staticBvhBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ColliderBroadPhaseData", persistentColliders.broadPhaseDataBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_JointCollisionSuppressionOffsets",
+                              jointSuppression.neighborOffsetsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_JointCollisionSuppressionNeighbors",
+                              jointSuppression.neighborsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PairCountsSphereSphere", transient.pairCountBuffers[0],
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
@@ -2489,6 +2499,7 @@ bool PhysicsPassDispatcher::emitBroadPhasePairs(Diligent::IDeviceContext *comput
     }
 
     const auto &persistentColliders = sceneState.persistentColliders();
+    const auto &jointSuppression    = sceneState.persistentJointCollisionSuppression();
     const auto &transient           = sceneState.transientBuffers();
 
     const std::array emitBindings{
@@ -2503,6 +2514,12 @@ bool PhysicsPassDispatcher::emitBroadPhasePairs(Diligent::IDeviceContext *comput
         gpu::GpuBufferBinding{"g_StaticBvhNodes", transient.staticBvhBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ColliderBroadPhaseData", persistentColliders.broadPhaseDataBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_JointCollisionSuppressionOffsets",
+                              jointSuppression.neighborOffsetsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_JointCollisionSuppressionNeighbors",
+                              jointSuppression.neighborsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PairOffsetsSphereSphere", transient.pairOffsetBuffers[0],
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},

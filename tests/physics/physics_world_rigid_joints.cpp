@@ -120,6 +120,7 @@ int main()
     BallJointState ball{};
     ball.bodyA = bodyA->rigidBodyId;
     ball.bodyB = bodyB->rigidBodyId;
+    ball.suppressConnectedBodyCollisions = true;
     ball.localAnchorA = {0.25f, 0.0f, 0.0f};
     ball.localAnchorB = {-0.25f, 0.0f, 0.0f};
     if (!world.upsertBallJoint(ball))
@@ -176,9 +177,45 @@ int main()
     }
 
     const auto &scene = world.rigidJointScene();
+    const auto &suppression = world.jointCollisionSuppression();
     if (scene.ball.size() != 1u || scene.hinge.size() != 1u || scene.slider.size() != 1u)
     {
         CRESSIM_LOG_ERROR("Unexpected rigid joint scene counts.");
+        return 1;
+    }
+
+    if (suppression.neighborOffsets.size() != 4u || suppression.neighbors.size() != 2u ||
+        suppression.neighborOffsets[0] != 0u || suppression.neighborOffsets[1] != 1u ||
+        suppression.neighborOffsets[2] != 2u || suppression.neighborOffsets[3] != 2u ||
+        suppression.neighbors[0] != 1u || suppression.neighbors[1] != 0u)
+    {
+        CRESSIM_LOG_ERROR("Joint collision suppression adjacency was not rebuilt correctly.");
+        return 1;
+    }
+
+    ball.enabled = false;
+    if (!world.upsertBallJoint(ball))
+    {
+        CRESSIM_LOG_ERROR("Failed to disable ball joint.");
+        return 1;
+    }
+
+    const auto &disabledSuppression = world.jointCollisionSuppression();
+    if (disabledSuppression.neighborOffsets.size() != 4u ||
+        disabledSuppression.neighbors.size() != 0u ||
+        disabledSuppression.neighborOffsets[0] != 0u ||
+        disabledSuppression.neighborOffsets[1] != 0u ||
+        disabledSuppression.neighborOffsets[2] != 0u ||
+        disabledSuppression.neighborOffsets[3] != 0u)
+    {
+        CRESSIM_LOG_ERROR("Disabled joints should not suppress connected-body collisions.");
+        return 1;
+    }
+
+    ball.enabled = true;
+    if (!world.upsertBallJoint(ball))
+    {
+        CRESSIM_LOG_ERROR("Failed to re-enable ball joint.");
         return 1;
     }
 

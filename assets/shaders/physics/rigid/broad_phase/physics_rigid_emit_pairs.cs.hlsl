@@ -7,6 +7,8 @@ CRESSIM_STRUCTURED_BUFFER(GpuBodyAabb, g_BodyAabbs);
 CRESSIM_STRUCTURED_BUFFER(GpuBvhNode, g_BvhNodes);
 CRESSIM_STRUCTURED_BUFFER(GpuBvhNode, g_StaticBvhNodes);
 CRESSIM_STRUCTURED_BUFFER(GpuColliderBroadPhaseData, g_ColliderBroadPhaseData);
+CRESSIM_STRUCTURED_BUFFER(uint, g_JointCollisionSuppressionOffsets);
+CRESSIM_STRUCTURED_BUFFER(uint, g_JointCollisionSuppressionNeighbors);
 CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsSphereSphere);
 CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsSphereBox);
 CRESSIM_STRUCTURED_BUFFER(uint, g_PairOffsetsSphereCapsule);
@@ -38,6 +40,20 @@ void EmitCanonicalPair(uint colliderA, uint colliderB, uint shapeTypeA, uint sha
     pair.reserved0 = 0u;
     pair.reserved1 = 0u;
     CRESSIM_SB_STORE(g_CandidatePairs, writeIndex, pair);
+}
+
+bool IsJointCollisionSuppressed(uint bodyA, uint bodyB)
+{
+    const uint begin = CRESSIM_SB_LOAD(g_JointCollisionSuppressionOffsets, bodyA);
+    const uint end = CRESSIM_SB_LOAD(g_JointCollisionSuppressionOffsets, bodyA + 1u);
+    for (uint i = begin; i < end; ++i)
+    {
+        if (CRESSIM_SB_LOAD(g_JointCollisionSuppressionNeighbors, i) == bodyB)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -92,7 +108,8 @@ void EmitCanonicalPair(uint colliderA, uint colliderB, uint shapeTypeA, uint sha
                 {
                     if (ShouldBroadPhaseCollide(environmentA, otherCollider.environmentIndex, layerA,
                                                 maskA, otherCollider.collisionLayer,
-                                                otherCollider.collisionMask))
+                                                otherCollider.collisionMask) &&
+                        !IsJointCollisionSuppressed(ownerBodyA, otherOwnerBody))
                     {
                         EmitCanonicalPair(colliderId, otherColliderId, shapeTypeA,
                                           otherCollider.shapeType, writeIndices);
@@ -137,7 +154,8 @@ void EmitCanonicalPair(uint colliderA, uint colliderB, uint shapeTypeA, uint sha
                 {
                     if (ShouldBroadPhaseCollide(environmentA, otherCollider.environmentIndex, layerA,
                                                 maskA, otherCollider.collisionLayer,
-                                                otherCollider.collisionMask))
+                                                otherCollider.collisionMask) &&
+                        !IsJointCollisionSuppressed(ownerBodyA, otherOwnerBody))
                     {
                         EmitCanonicalPair(colliderId, otherColliderId, shapeTypeA,
                                           otherCollider.shapeType, writeIndices);
