@@ -3287,6 +3287,11 @@ bool PhysicsPassDispatcher::solveRigidContactVelocities(Diligent::IDeviceContext
         return true;
     }
 
+    const std::uint32_t hingeVelocityJointCount = sceneState.hingeVelocityDriveJointCount();
+    const std::uint32_t sliderVelocityJointCount = sceneState.sliderVelocityDriveJointCount();
+    const bool hasVelocityMotorJoints =
+        hingeVelocityJointCount > 0u || sliderVelocityJointCount > 0u;
+
     const auto &transient  = sceneState.transientBuffers();
     const auto &persistent = sceneState.persistentRigidBodies();
     const std::array applyBindings{
@@ -3318,14 +3323,34 @@ bool PhysicsPassDispatcher::solveRigidContactVelocities(Diligent::IDeviceContext
         GpuRigidDispatchConstants iterationConstants = constants;
         iterationConstants.iterationIndex            = iteration;
 
+        if (hasVelocityMotorJoints)
+        {
+            if (hingeVelocityJointCount > 0u &&
+                !solveHingeJointTargetVelocities(computeContext, sceneState, iterationConstants))
+            {
+                return false;
+            }
+            if (sliderVelocityJointCount > 0u &&
+                !solveSliderJointTargetVelocities(computeContext, sceneState, iterationConstants))
+            {
+                return false;
+            }
+            if (!mApplyRigidContactVelocitiesPass.dispatch(computeContext, kDefaultVariant,
+                                                           applyBindings,
+                                                           dispatchGroupCount(rigidBodyCount)))
+            {
+                return false;
+            }
+        }
+
         if (!writeRigidDispatchConstants(computeContext, iterationConstants) ||
             !dispatchSolveRigidContactVelocitiesPass(computeContext, sceneState))
         {
             return false;
         }
 
-        if (!mApplyRigidContactVelocitiesPass.dispatch(
-                computeContext, kDefaultVariant, applyBindings, dispatchGroupCount(rigidBodyCount)))
+        if (!mApplyRigidContactVelocitiesPass.dispatch(computeContext, kDefaultVariant, applyBindings,
+                                                       dispatchGroupCount(rigidBodyCount)))
         {
             return false;
         }
