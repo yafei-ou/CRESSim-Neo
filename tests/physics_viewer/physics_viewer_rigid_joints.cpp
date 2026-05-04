@@ -435,6 +435,9 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
     upper.localAnchorB = {0.0f, 1.1f, 0.0f};
     upper.localRotationA = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
     upper.localRotationB = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
+    upper.limitEnabled = true;
+    upper.limitMin = -2.55f;
+    upper.limitMax = 0.55f;
     upper.driveMode = options.enableVelocityDriveTargets
                           ? RigidJointDriveMode::TargetVelocity
                           : (options.enablePositionDriveTargets
@@ -454,6 +457,9 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
     lower.localAnchorB = {0.0f, 1.1f, 0.0f};
     lower.localRotationA = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
     lower.localRotationB = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
+    lower.limitEnabled = true;
+    lower.limitMin = -1.8f;
+    lower.limitMax = 1.2f;
     lower.driveMode = options.enableVelocityDriveTargets
                           ? RigidJointDriveMode::TargetVelocity
                           : (options.enablePositionDriveTargets
@@ -507,6 +513,9 @@ void authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh, MeshHandle
     horizontalSlider.bodyB = requireRigidBodyId(runtime, sliderEntity);
     horizontalSlider.localRotationA = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
     horizontalSlider.localRotationB = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
+    horizontalSlider.limitEnabled = true;
+    horizontalSlider.limitMin = -0.6f;
+    horizontalSlider.limitMax = 1.8f;
     horizontalSlider.driveMode = options.enableVelocityDriveTargets
                                      ? RigidJointDriveMode::TargetVelocity
                                      : (options.enablePositionDriveTargets
@@ -537,6 +546,9 @@ void authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh, MeshHandle
     verticalSlider.bodyB = requireRigidBodyId(runtime, stageEntity);
     verticalSlider.localRotationA = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
     verticalSlider.localRotationB = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
+    verticalSlider.limitEnabled = true;
+    verticalSlider.limitMin = -0.35f;
+    verticalSlider.limitMax = 1.0f;
     verticalSlider.driveMode = options.enableVelocityDriveTargets
                                    ? RigidJointDriveMode::TargetVelocity
                                    : (options.enablePositionDriveTargets

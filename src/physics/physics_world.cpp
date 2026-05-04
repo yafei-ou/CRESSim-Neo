@@ -786,6 +786,7 @@ bool PhysicsWorld::upsertBallJoint(const BallJointState &state)
 bool PhysicsWorld::upsertHingeJoint(const HingeJointState &state)
 {
     HingeJointState normalized = state;
+    constexpr float kTwoPi = 6.2831853071795864769f;
     if (normalized.bodyA == kInvalidRigidBodyId || normalized.bodyB == kInvalidRigidBodyId ||
         normalized.bodyA == normalized.bodyB)
     {
@@ -793,8 +794,12 @@ bool PhysicsWorld::upsertHingeJoint(const HingeJointState &state)
     }
     normalized.localRotationA = common::runtime_math::normalizeQuaternion(normalized.localRotationA);
     normalized.localRotationB = common::runtime_math::normalizeQuaternion(normalized.localRotationB);
-    normalized.driveTargetAngle =
-        std::remainder(normalized.driveTargetAngle, 6.2831853071795864769f);
+    normalized.driveTargetAngle = std::remainder(normalized.driveTargetAngle, kTwoPi);
+    if (!normalized.limitEnabled)
+    {
+        normalized.limitMin = 0.0f;
+        normalized.limitMax = 0.0f;
+    }
     if (normalized.jointId == kInvalidRigidJointId)
     {
         normalized.jointId = mNextRigidJointId++;
@@ -839,6 +844,15 @@ bool PhysicsWorld::upsertSliderJoint(const SliderJointState &state)
     }
     normalized.localRotationA = common::runtime_math::normalizeQuaternion(normalized.localRotationA);
     normalized.localRotationB = common::runtime_math::normalizeQuaternion(normalized.localRotationB);
+    if (normalized.limitEnabled && normalized.limitMin > normalized.limitMax)
+    {
+        std::swap(normalized.limitMin, normalized.limitMax);
+    }
+    if (!normalized.limitEnabled)
+    {
+        normalized.limitMin = 0.0f;
+        normalized.limitMax = 0.0f;
+    }
 
     const auto bodyAIt = mRigidBodyIdToIndex.find(normalized.bodyA);
     const auto bodyBIt = mRigidBodyIdToIndex.find(normalized.bodyB);
@@ -1801,6 +1815,9 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
         self->mRigidJointScene.hinge.localAnchorsA.push_back(toFloat4(joint.localAnchorA, 0.0f));
         self->mRigidJointScene.hinge.localAnchorsB.push_back(toFloat4(joint.localAnchorB, 0.0f));
         self->mRigidJointScene.hinge.localAxesA0.push_back(toFloat4(axisA0, 0.0f));
+        self->mRigidJointScene.hinge.limitEnabledFlags.push_back(joint.limitEnabled ? 1u : 0u);
+        self->mRigidJointScene.hinge.limitMins.push_back(joint.limitMin);
+        self->mRigidJointScene.hinge.limitMaxs.push_back(joint.limitMax);
         self->mRigidJointScene.hinge.driveTargetAngles.push_back(joint.driveTargetAngle);
         self->mRigidJointScene.hinge.driveTargetAngularVelocities.push_back(
             joint.driveTargetAngularVelocity);
@@ -1852,6 +1869,9 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
             static_cast<std::uint32_t>(joint.driveMode));
         self->mRigidJointScene.slider.localAnchorsA.push_back(toFloat4(joint.localAnchorA, 0.0f));
         self->mRigidJointScene.slider.localAnchorsB.push_back(toFloat4(joint.localAnchorB, 0.0f));
+        self->mRigidJointScene.slider.limitEnabledFlags.push_back(joint.limitEnabled ? 1u : 0u);
+        self->mRigidJointScene.slider.limitMins.push_back(joint.limitMin);
+        self->mRigidJointScene.slider.limitMaxs.push_back(joint.limitMax);
         self->mRigidJointScene.slider.driveTargetPositions.push_back(joint.driveTargetPosition);
         self->mRigidJointScene.slider.driveTargetVelocities.push_back(joint.driveTargetVelocity);
         self->mRigidJointScene.slider.driveRestOffsets.push_back(driveRestOffset);

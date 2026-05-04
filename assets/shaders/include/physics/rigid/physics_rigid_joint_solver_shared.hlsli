@@ -63,6 +63,46 @@ float ComputeProjectionConstraintValue(float4 projectionRow, float4 qA, float4 q
     return dot(projectionRow, QuaternionToWXYZ(relative));
 }
 
+float ComputeHingeAngle(float4 projectionRow, float4 qA, float4 qB)
+{
+    return 2.0 * asin(clamp(ComputeProjectionConstraintValue(projectionRow, qA, qB), -1.0, 1.0));
+}
+
+bool ComputeLimitTarget(float value, float2 limitRange, out float targetValue)
+{
+    if (value < limitRange.x)
+    {
+        targetValue = limitRange.x;
+        return true;
+    }
+    if (value > limitRange.y)
+    {
+        targetValue = limitRange.y;
+        return true;
+    }
+
+    targetValue = value;
+    return false;
+}
+
+float ScaleVelocityMotorTargetNearLimits(float targetVelocity, float value, float2 limitRange,
+                                         float approachDistance)
+{
+    if (approachDistance <= 0.0 || targetVelocity == 0.0)
+    {
+        return targetVelocity;
+    }
+
+    if (targetVelocity < 0.0)
+    {
+        const float distanceToLimit = value - limitRange.x;
+        return targetVelocity * saturate(distanceToLimit / approachDistance);
+    }
+
+    const float distanceToLimit = limitRange.y - value;
+    return targetVelocity * saturate(distanceToLimit / approachDistance);
+}
+
 float ComputeConstraintMatrixElement(float invMassA, float3 invInertiaA, float4 qA,
                                      float invMassB, float3 invInertiaB, float4 qB,
                                      float3 linearA0, float3 angularA0,

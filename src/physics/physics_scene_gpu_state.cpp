@@ -1776,6 +1776,11 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
         dst.projectionRow0 = jointScene.hinge.projectionRow0[i];
         dst.projectionRow1 = jointScene.hinge.projectionRow1[i];
         dst.projectionRow2 = jointScene.hinge.projectionRow2[i];
+        dst.limitParams    = Diligent::float4{
+            static_cast<float>(jointScene.hinge.limitEnabledFlags[i]),
+            jointScene.hinge.limitMins[i],
+            jointScene.hinge.limitMaxs[i],
+            0.0f};
         dst.driveTargetParams = Diligent::float4{jointScene.hinge.driveTargetAngles[i],
                                                  jointScene.hinge.driveTargetAngularVelocities[i],
                                                  0.0f, 0.0f};
@@ -1826,6 +1831,11 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
         dst.projectionRow0 = jointScene.slider.projectionRow0[i];
         dst.projectionRow1 = jointScene.slider.projectionRow1[i];
         dst.projectionRow2 = jointScene.slider.projectionRow2[i];
+        dst.limitParams    = Diligent::float4{
+            static_cast<float>(jointScene.slider.limitEnabledFlags[i]),
+            jointScene.slider.limitMins[i],
+            jointScene.slider.limitMaxs[i],
+            0.0f};
         dst.driveTargetParams  = Diligent::float4{jointScene.slider.driveTargetPositions[i],
                                                   jointScene.slider.driveRestOffsets[i],
                                                   jointScene.slider.driveTargetVelocities[i],

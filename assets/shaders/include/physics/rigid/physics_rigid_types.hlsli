@@ -104,6 +104,7 @@ struct GpuHingeJoint
     float4 projectionRow0;
     float4 projectionRow1;
     float4 projectionRow2;
+    float4 limitParams;
     float4 driveTargetParams;
 };
 
@@ -121,6 +122,7 @@ struct GpuSliderJoint
     float4 projectionRow0;
     float4 projectionRow1;
     float4 projectionRow2;
+    float4 limitParams;
     float4 driveTargetParams;
 };
 

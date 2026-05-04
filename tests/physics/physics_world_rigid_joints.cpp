@@ -135,6 +135,9 @@ int main()
     hinge.localAnchorB = {0.0f, 0.0f, 0.0f};
     hinge.localRotationA = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
     hinge.localRotationB = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
+    hinge.limitEnabled = true;
+    hinge.limitMin = -0.25f;
+    hinge.limitMax = 0.75f;
     hinge.driveMode = RigidJointDriveMode::TargetPosition;
     hinge.driveTargetAngle = 0.5f;
     hinge.driveTargetAngularVelocity = 1.25f;
@@ -150,6 +153,9 @@ int main()
     slider.bodyB = bodyB->rigidBodyId;
     slider.localRotationA = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
     slider.localRotationB = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
+    slider.limitEnabled = true;
+    slider.limitMin = -0.4f;
+    slider.limitMax = 1.1f;
     slider.driveMode = RigidJointDriveMode::TargetPosition;
     slider.driveTargetPosition = 0.75f;
     slider.driveTargetVelocity = 0.6f;
@@ -185,6 +191,9 @@ int main()
     }
 
     if (scene.hinge.driveModes.front() != static_cast<std::uint32_t>(RigidJointDriveMode::TargetPosition) ||
+        scene.hinge.limitEnabledFlags.front() != 1u ||
+        std::fabs(scene.hinge.limitMins.front() + 0.25f) > kEpsilon ||
+        std::fabs(scene.hinge.limitMaxs.front() - 0.75f) > kEpsilon ||
         std::fabs(scene.hinge.driveTargetAngles.front() - 0.5f) > kEpsilon ||
         std::fabs(scene.hinge.driveTargetAngularVelocities.front() - 1.25f) > kEpsilon)
     {
@@ -193,6 +202,9 @@ int main()
     }
 
     if (scene.slider.driveModes.front() != static_cast<std::uint32_t>(RigidJointDriveMode::TargetPosition) ||
+        scene.slider.limitEnabledFlags.front() != 1u ||
+        std::fabs(scene.slider.limitMins.front() + 0.4f) > kEpsilon ||
+        std::fabs(scene.slider.limitMaxs.front() - 1.1f) > kEpsilon ||
         std::fabs(scene.slider.driveTargetPositions.front() - 0.75f) > kEpsilon ||
         std::fabs(scene.slider.driveTargetVelocities.front() - 0.6f) > kEpsilon)
     {
@@ -202,6 +214,8 @@ int main()
 
     hinge.driveMode = RigidJointDriveMode::TargetVelocity;
     hinge.driveTargetAngularVelocity = -0.8f;
+    hinge.limitMin = 3.0f;
+    hinge.limitMax = 4.0f;
     if (!world.upsertHingeJoint(hinge))
     {
         CRESSIM_LOG_ERROR("Failed to update hinge joint drive mode.");
@@ -219,11 +233,15 @@ int main()
     const auto &sceneAfterVelocityMode = world.rigidJointScene();
     if (sceneAfterVelocityMode.hinge.driveModes.front() !=
             static_cast<std::uint32_t>(RigidJointDriveMode::TargetVelocity) ||
+        std::fabs(sceneAfterVelocityMode.hinge.limitMins.front() - 3.0f) > kEpsilon ||
+        std::fabs(sceneAfterVelocityMode.hinge.limitMaxs.front() - 4.0f) > kEpsilon ||
         std::fabs(sceneAfterVelocityMode.hinge.driveTargetAngularVelocities.front() + 0.8f) >
             kEpsilon)
     {
         CRESSIM_LOG_ERROR("Hinge velocity drive target state was not rebuilt correctly. mode=",
-                          sceneAfterVelocityMode.hinge.driveModes.front(), " targetVel=",
+                          sceneAfterVelocityMode.hinge.driveModes.front(), " limitMin=",
+                          sceneAfterVelocityMode.hinge.limitMins.front(), " limitMax=",
+                          sceneAfterVelocityMode.hinge.limitMaxs.front(), " targetVel=",
                           sceneAfterVelocityMode.hinge.driveTargetAngularVelocities.front());
         return 1;
     }

@@ -5,6 +5,7 @@
 #include "../../../include/physics/rigid/physics_rigid_joint_solver_shared.hlsli"
 
 static const float kVelocityRegularization = 1e-5;
+static const float kLimitApproachAngle = 0.08;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
@@ -70,12 +71,21 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 rB = QuaternionRotate(qB, joint.localAnchorB.xyz);
     const float3 hingeAxis =
         SafeNormalize(QuaternionRotate(qA, joint.localAxisA0.xyz), float3(1.0, 0.0, 0.0));
+    const bool limitEnabled = joint.limitParams.x > 0.5;
+    const float2 limitRange = joint.limitParams.yz;
+    const float currentAngle = ComputeHingeAngle(joint.projectionRow0, qA, qB);
+    float targetAngularVelocity = joint.driveTargetParams.y;
+    if (limitEnabled)
+    {
+        targetAngularVelocity = ScaleVelocityMotorTargetNearLimits(
+            targetAngularVelocity, currentAngle, limitRange, kLimitApproachAngle);
+    }
 
     const float3 anchorVelocityA = linearVelocityA + cross(angularVelocityA, rA);
     const float3 anchorVelocityB = linearVelocityB + cross(angularVelocityB, rB);
     const float3 linearConstraint = anchorVelocityA - anchorVelocityB;
     const float3 angularConstraint =
-        (angularVelocityA - angularVelocityB) + joint.driveTargetParams.y * hingeAxis;
+        (angularVelocityA - angularVelocityB) + targetAngularVelocity * hingeAxis;
 
     const float3 basis[3] = {
         float3(1.0, 0.0, 0.0),
