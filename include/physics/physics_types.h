@@ -34,8 +34,14 @@ constexpr RigidBodyId kInvalidRigidBodyId = 0u;
 using ColliderId                        = std::uint32_t;
 constexpr ColliderId kInvalidColliderId = 0u;
 
-using RigidJointId                          = std::uint32_t;
-constexpr RigidJointId kInvalidRigidJointId = 0u;
+using BallJointId                         = std::uint32_t;
+constexpr BallJointId kInvalidBallJointId = 0u;
+
+using HingeJointId                         = std::uint32_t;
+constexpr HingeJointId kInvalidHingeJointId = 0u;
+
+using SliderJointId                         = std::uint32_t;
+constexpr SliderJointId kInvalidSliderJointId = 0u;
 
 enum class RigidJointDriveMode : std::uint32_t
 {
@@ -311,7 +317,7 @@ struct BodyColliderMappingHost
 
 struct BallJointState
 {
-    RigidJointId jointId                 = kInvalidRigidJointId;
+    BallJointId jointId                  = kInvalidBallJointId;
     bool enabled                         = true;
     bool suppressConnectedBodyCollisions = false;
     RigidBodyId bodyA                    = kInvalidRigidBodyId;
@@ -322,7 +328,7 @@ struct BallJointState
 
 struct HingeJointState
 {
-    RigidJointId jointId                 = kInvalidRigidJointId;
+    HingeJointId jointId                 = kInvalidHingeJointId;
     bool enabled                         = true;
     bool suppressConnectedBodyCollisions = false;
     RigidJointDriveMode driveMode        = RigidJointDriveMode::None;
@@ -341,7 +347,7 @@ struct HingeJointState
 
 struct SliderJointState
 {
-    RigidJointId jointId                 = kInvalidRigidJointId;
+    SliderJointId jointId                = kInvalidSliderJointId;
     bool enabled                         = true;
     bool suppressConnectedBodyCollisions = false;
     RigidJointDriveMode driveMode        = RigidJointDriveMode::None;
@@ -360,7 +366,7 @@ struct SliderJointState
 
 struct BallJointSoAHost
 {
-    std::vector<RigidJointId> jointIds;
+    std::vector<BallJointId> jointIds;
     std::vector<std::uint32_t> bodyIndicesA;
     std::vector<std::uint32_t> bodyIndicesB;
     std::vector<std::uint32_t> enabledFlags;
@@ -388,7 +394,7 @@ struct BallJointSoAHost
 
 struct HingeJointSoAHost
 {
-    std::vector<RigidJointId> jointIds;
+    std::vector<HingeJointId> jointIds;
     std::vector<std::uint32_t> bodyIndicesA;
     std::vector<std::uint32_t> bodyIndicesB;
     std::vector<std::uint32_t> enabledFlags;
@@ -436,7 +442,7 @@ struct HingeJointSoAHost
 
 struct SliderJointSoAHost
 {
-    std::vector<RigidJointId> jointIds;
+    std::vector<SliderJointId> jointIds;
     std::vector<std::uint32_t> bodyIndicesA;
     std::vector<std::uint32_t> bodyIndicesB;
     std::vector<std::uint32_t> enabledFlags;

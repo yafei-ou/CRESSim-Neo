@@ -332,6 +332,11 @@ void PhysicsWorld::clear()
     mStaticBroadPhaseDirty          = true;
     mActiveMovingColliderCount      = 0u;
     mStaticColliderCount            = 0u;
+    mNextRigidBodyId                = 1u;
+    mNextColliderId                 = 1u;
+    mNextBallJointId                = 1u;
+    mNextHingeJointId               = 1u;
+    mNextSliderJointId              = 1u;
     ++mRigidBodyTopologyRevision;
     ++mRigidJointSceneRevision;
     ++mRigidJointModeRevision;
@@ -494,6 +499,7 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     markColliderCountDirty(true);
     mBodyColliderMappingDirty = true;
     mStaticBroadPhaseDirty    = mStaticBroadPhaseDirty || removedStatic;
+    pruneRigidJointsForBody(removedBodyId);
     ++mRigidBodyTopologyRevision;
     mRigidJointSceneDirty           = true;
     mJointCollisionSuppressionDirty = true;
@@ -778,9 +784,9 @@ bool PhysicsWorld::upsertBallJoint(const BallJointState &state)
     {
         return false;
     }
-    if (normalized.jointId == kInvalidRigidJointId)
+    if (normalized.jointId == kInvalidBallJointId)
     {
-        normalized.jointId = mNextRigidJointId++;
+        normalized.jointId = mNextBallJointId++;
     }
     const auto bodyAIt = mRigidBodyIdToIndex.find(normalized.bodyA);
     const auto bodyBIt = mRigidBodyIdToIndex.find(normalized.bodyB);
@@ -830,9 +836,9 @@ bool PhysicsWorld::upsertHingeJoint(const HingeJointState &state)
         normalized.limitMin = 0.0f;
         normalized.limitMax = 0.0f;
     }
-    if (normalized.jointId == kInvalidRigidJointId)
+    if (normalized.jointId == kInvalidHingeJointId)
     {
-        normalized.jointId = mNextRigidJointId++;
+        normalized.jointId = mNextHingeJointId++;
     }
     const auto bodyAIt = mRigidBodyIdToIndex.find(normalized.bodyA);
     const auto bodyBIt = mRigidBodyIdToIndex.find(normalized.bodyB);
@@ -908,9 +914,9 @@ bool PhysicsWorld::upsertSliderJoint(const SliderJointState &state)
         normalized.localAnchorB =
             quaternionInverseRotate(bodyB.rotation, worldAnchor - bodyB.position);
     }
-    if (normalized.jointId == kInvalidRigidJointId)
+    if (normalized.jointId == kInvalidSliderJointId)
     {
-        normalized.jointId = mNextRigidJointId++;
+        normalized.jointId = mNextSliderJointId++;
     }
 
     auto it             = std::find_if(mSliderJointSnapshot.begin(), mSliderJointSnapshot.end(),
@@ -931,23 +937,39 @@ bool PhysicsWorld::upsertSliderJoint(const SliderJointState &state)
     return true;
 }
 
-bool PhysicsWorld::removeRigidJoint(RigidJointId jointId)
+bool PhysicsWorld::removeBallJoint(BallJointId jointId)
 {
-    const auto eraseById = [jointId](auto &container) -> bool
+    auto it = std::find_if(mBallJointSnapshot.begin(), mBallJointSnapshot.end(),
+                           [&](const BallJointState &state) { return state.jointId == jointId; });
+    if (it != mBallJointSnapshot.end())
     {
-        auto it = std::find_if(container.begin(), container.end(),
-                               [&](const auto &state) { return state.jointId == jointId; });
-        if (it == container.end())
-        {
-            return false;
-        }
-        container.erase(it);
+        mBallJointSnapshot.erase(it);
+        applyRigidJointChange(RigidJointChangeKind::TopologyRebuild);
         return true;
-    };
+    }
+    return false;
+}
 
-    if (eraseById(mBallJointSnapshot) || eraseById(mHingeJointSnapshot) ||
-        eraseById(mSliderJointSnapshot))
+bool PhysicsWorld::removeHingeJoint(HingeJointId jointId)
+{
+    auto it = std::find_if(mHingeJointSnapshot.begin(), mHingeJointSnapshot.end(),
+                           [&](const HingeJointState &state) { return state.jointId == jointId; });
+    if (it != mHingeJointSnapshot.end())
     {
+        mHingeJointSnapshot.erase(it);
+        applyRigidJointChange(RigidJointChangeKind::TopologyRebuild);
+        return true;
+    }
+    return false;
+}
+
+bool PhysicsWorld::removeSliderJoint(SliderJointId jointId)
+{
+    auto it = std::find_if(mSliderJointSnapshot.begin(), mSliderJointSnapshot.end(),
+                           [&](const SliderJointState &state) { return state.jointId == jointId; });
+    if (it != mSliderJointSnapshot.end())
+    {
+        mSliderJointSnapshot.erase(it);
         applyRigidJointChange(RigidJointChangeKind::TopologyRebuild);
         return true;
     }
@@ -972,7 +994,7 @@ const ColliderState *PhysicsWorld::tryGetCollider(ColliderId colliderId) const
     return it == mColliderIdToIndex.end() ? nullptr : &mColliderSnapshot[it->second];
 }
 
-const BallJointState *PhysicsWorld::tryGetBallJoint(RigidJointId jointId) const noexcept
+const BallJointState *PhysicsWorld::tryGetBallJoint(BallJointId jointId) const noexcept
 {
     const auto it =
         std::find_if(mBallJointSnapshot.begin(), mBallJointSnapshot.end(),
@@ -980,7 +1002,7 @@ const BallJointState *PhysicsWorld::tryGetBallJoint(RigidJointId jointId) const 
     return it == mBallJointSnapshot.end() ? nullptr : &(*it);
 }
 
-const HingeJointState *PhysicsWorld::tryGetHingeJoint(RigidJointId jointId) const noexcept
+const HingeJointState *PhysicsWorld::tryGetHingeJoint(HingeJointId jointId) const noexcept
 {
     const auto it =
         std::find_if(mHingeJointSnapshot.begin(), mHingeJointSnapshot.end(),
@@ -988,7 +1010,7 @@ const HingeJointState *PhysicsWorld::tryGetHingeJoint(RigidJointId jointId) cons
     return it == mHingeJointSnapshot.end() ? nullptr : &(*it);
 }
 
-const SliderJointState *PhysicsWorld::tryGetSliderJoint(RigidJointId jointId) const noexcept
+const SliderJointState *PhysicsWorld::tryGetSliderJoint(SliderJointId jointId) const noexcept
 {
     const auto it =
         std::find_if(mSliderJointSnapshot.begin(), mSliderJointSnapshot.end(),
@@ -1757,6 +1779,27 @@ std::uint32_t PhysicsWorld::enabledColliderCountForEntity(common::EntityId entit
         }
     }
     return count;
+}
+
+bool PhysicsWorld::pruneRigidJointsForBody(RigidBodyId rigidBodyId) noexcept
+{
+    const auto removeByBody = [rigidBodyId](auto &container) noexcept
+    {
+        const auto originalSize = container.size();
+        container.erase(std::remove_if(container.begin(), container.end(),
+                                       [rigidBodyId](const auto &joint)
+                                       {
+                                           return joint.bodyA == rigidBodyId ||
+                                                  joint.bodyB == rigidBodyId;
+                                       }),
+                        container.end());
+        return container.size() != originalSize;
+    };
+
+    const bool removedBall = removeByBody(mBallJointSnapshot);
+    const bool removedHinge = removeByBody(mHingeJointSnapshot);
+    const bool removedSlider = removeByBody(mSliderJointSnapshot);
+    return removedBall || removedHinge || removedSlider;
 }
 
 void PhysicsWorld::rebuildBodyColliderMapping() const noexcept

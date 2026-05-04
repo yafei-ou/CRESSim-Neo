@@ -128,6 +128,7 @@ int main()
         CRESSIM_LOG_ERROR("Failed to insert ball joint.");
         return 1;
     }
+    ball.jointId = world.ballJointSnapshot().back().jointId;
 
     HingeJointState hinge{};
     hinge.bodyA = bodyA->rigidBodyId;
@@ -300,6 +301,12 @@ int main()
         !sceneAfterRemoval.slider.empty())
     {
         CRESSIM_LOG_ERROR("Joint scene should drop joints referencing removed bodies.");
+        return 1;
+    }
+    if (!world.ballJointSnapshot().empty() || !world.hingeJointSnapshot().empty() ||
+        !world.sliderJointSnapshot().empty())
+    {
+        CRESSIM_LOG_ERROR("Authored joint snapshots should drop joints referencing removed bodies.");
         return 1;
     }
 

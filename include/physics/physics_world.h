@@ -27,16 +27,18 @@ public:
     bool upsertBallJoint(const BallJointState &state);
     bool upsertHingeJoint(const HingeJointState &state);
     bool upsertSliderJoint(const SliderJointState &state);
-    bool removeRigidJoint(RigidJointId jointId);
+    bool removeBallJoint(BallJointId jointId);
+    bool removeHingeJoint(HingeJointId jointId);
+    bool removeSliderJoint(SliderJointId jointId);
 
     RigidBodyState *tryGetRigidBody(common::EntityId entityId);
     const RigidBodyState *tryGetRigidBody(common::EntityId entityId) const;
     const ColliderState *tryGetCollider(ColliderId colliderId) const;
     SoftBodyState *tryGetSoftBody(common::EntityId entityId);
     const SoftBodyState *tryGetSoftBody(common::EntityId entityId) const;
-    const BallJointState *tryGetBallJoint(RigidJointId jointId) const noexcept;
-    const HingeJointState *tryGetHingeJoint(RigidJointId jointId) const noexcept;
-    const SliderJointState *tryGetSliderJoint(RigidJointId jointId) const noexcept;
+    const BallJointState *tryGetBallJoint(BallJointId jointId) const noexcept;
+    const HingeJointState *tryGetHingeJoint(HingeJointId jointId) const noexcept;
+    const SliderJointState *tryGetSliderJoint(SliderJointId jointId) const noexcept;
 
     const std::vector<RigidBodyState> &rigidBodySnapshot() const noexcept;
     const std::vector<ColliderState> &colliderSnapshot() const noexcept;
@@ -140,6 +142,7 @@ private:
     void markJointTopologyDirty() noexcept;
     void removeCollidersForEntity(common::EntityId entityId) noexcept;
     void removeColliderAtIndex(std::uint32_t index) noexcept;
+    bool pruneRigidJointsForBody(RigidBodyId rigidBodyId) noexcept;
     void rebuildBodyColliderMapping() const noexcept;
     void rebuildRigidJointScene() const noexcept;
     void rebuildJointCollisionSuppression() const noexcept;
@@ -221,7 +224,9 @@ private:
     std::uint64_t mSoftBodyTopologyRevision      = 0;
     RigidBodyId mNextRigidBodyId                 = 1u;
     ColliderId mNextColliderId                   = 1u;
-    RigidJointId mNextRigidJointId               = 1u;
+    BallJointId mNextBallJointId                 = 1u;
+    HingeJointId mNextHingeJointId               = 1u;
+    SliderJointId mNextSliderJointId             = 1u;
 };
 
 } // namespace cressim::neo::physics
