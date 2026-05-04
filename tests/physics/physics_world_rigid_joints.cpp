@@ -137,11 +137,13 @@ int main()
     hinge.localRotationB = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
     hinge.driveMode = RigidJointDriveMode::TargetPosition;
     hinge.driveTargetAngle = 0.5f;
+    hinge.driveTargetAngularVelocity = 1.25f;
     if (!world.upsertHingeJoint(hinge))
     {
         CRESSIM_LOG_ERROR("Failed to insert hinge joint.");
         return 1;
     }
+    hinge.jointId = world.hingeJointSnapshot().back().jointId;
 
     SliderJointState slider{};
     slider.bodyA = bodyA->rigidBodyId;
@@ -150,11 +152,13 @@ int main()
     slider.localRotationB = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
     slider.driveMode = RigidJointDriveMode::TargetPosition;
     slider.driveTargetPosition = 0.75f;
+    slider.driveTargetVelocity = 0.6f;
     if (!world.upsertSliderJoint(slider))
     {
         CRESSIM_LOG_ERROR("Failed to insert slider joint.");
         return 1;
     }
+    slider.jointId = world.sliderJointSnapshot().back().jointId;
 
     BallJointState crossEnvBall{};
     crossEnvBall.bodyA = bodyA->rigidBodyId;
@@ -181,16 +185,57 @@ int main()
     }
 
     if (scene.hinge.driveModes.front() != static_cast<std::uint32_t>(RigidJointDriveMode::TargetPosition) ||
-        std::fabs(scene.hinge.driveTargetAngles.front() - 0.5f) > kEpsilon)
+        std::fabs(scene.hinge.driveTargetAngles.front() - 0.5f) > kEpsilon ||
+        std::fabs(scene.hinge.driveTargetAngularVelocities.front() - 1.25f) > kEpsilon)
     {
         CRESSIM_LOG_ERROR("Hinge drive target state was not rebuilt correctly.");
         return 1;
     }
 
     if (scene.slider.driveModes.front() != static_cast<std::uint32_t>(RigidJointDriveMode::TargetPosition) ||
-        std::fabs(scene.slider.driveTargetPositions.front() - 0.75f) > kEpsilon)
+        std::fabs(scene.slider.driveTargetPositions.front() - 0.75f) > kEpsilon ||
+        std::fabs(scene.slider.driveTargetVelocities.front() - 0.6f) > kEpsilon)
     {
         CRESSIM_LOG_ERROR("Slider drive target state was not rebuilt correctly.");
+        return 1;
+    }
+
+    hinge.driveMode = RigidJointDriveMode::TargetVelocity;
+    hinge.driveTargetAngularVelocity = -0.8f;
+    if (!world.upsertHingeJoint(hinge))
+    {
+        CRESSIM_LOG_ERROR("Failed to update hinge joint drive mode.");
+        return 1;
+    }
+
+    slider.driveMode = RigidJointDriveMode::TargetVelocity;
+    slider.driveTargetVelocity = -0.45f;
+    if (!world.upsertSliderJoint(slider))
+    {
+        CRESSIM_LOG_ERROR("Failed to update slider joint drive mode.");
+        return 1;
+    }
+
+    const auto &sceneAfterVelocityMode = world.rigidJointScene();
+    if (sceneAfterVelocityMode.hinge.driveModes.front() !=
+            static_cast<std::uint32_t>(RigidJointDriveMode::TargetVelocity) ||
+        std::fabs(sceneAfterVelocityMode.hinge.driveTargetAngularVelocities.front() + 0.8f) >
+            kEpsilon)
+    {
+        CRESSIM_LOG_ERROR("Hinge velocity drive target state was not rebuilt correctly. mode=",
+                          sceneAfterVelocityMode.hinge.driveModes.front(), " targetVel=",
+                          sceneAfterVelocityMode.hinge.driveTargetAngularVelocities.front());
+        return 1;
+    }
+
+    if (sceneAfterVelocityMode.slider.driveModes.front() !=
+            static_cast<std::uint32_t>(RigidJointDriveMode::TargetVelocity) ||
+        std::fabs(sceneAfterVelocityMode.slider.driveTargetVelocities.front() + 0.45f) >
+            kEpsilon)
+    {
+        CRESSIM_LOG_ERROR("Slider velocity drive target state was not rebuilt correctly. mode=",
+                          sceneAfterVelocityMode.slider.driveModes.front(), " targetVel=",
+                          sceneAfterVelocityMode.slider.driveTargetVelocities.front());
         return 1;
     }
 

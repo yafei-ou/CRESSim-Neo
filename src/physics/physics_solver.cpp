@@ -578,6 +578,35 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
 
+        const bool hasHingeVelocityTargets =
+            mImpl->sceneState.hingeVelocityDriveJointCount() > 0u;
+        const bool hasSliderVelocityTargets =
+            mImpl->sceneState.sliderVelocityDriveJointCount() > 0u;
+        if (hasHingeVelocityTargets &&
+            !mImpl->passDispatcher.solveHingeJointTargetVelocities(
+                computeBackend.computeContext, mImpl->sceneState, constants))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: SolveHingeJointTargetVelocities dispatch.");
+            return false;
+        }
+        if (hasSliderVelocityTargets &&
+            !mImpl->passDispatcher.solveSliderJointTargetVelocities(
+                computeBackend.computeContext, mImpl->sceneState, constants))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: SolveSliderJointTargetVelocities dispatch.");
+            return false;
+        }
+        if ((hasHingeVelocityTargets || hasSliderVelocityTargets) &&
+            !mImpl->passDispatcher.applyRigidVelocityCorrections(
+                computeBackend.computeContext, mImpl->sceneState, rigidBodyCount, constants))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: ApplyRigidVelocityCorrections dispatch.");
+            return false;
+        }
+
         if (!mImpl->passDispatcher.updateSoftVelocities(
                 computeBackend.computeContext, mImpl->sceneState, softParticleCount, softConstants))
         {

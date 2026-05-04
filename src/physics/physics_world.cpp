@@ -1788,6 +1788,9 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
         Diligent::float4 projectionRows[3];
         computeProjectionRowsFromLocalFrames(joint.localRotationA, joint.localRotationB,
                                              1u, 3u, projectionRows);
+        const Diligent::float3 axisA0 =
+            safeNormalize(quaternionRotate(joint.localRotationA, Diligent::float3{1.0f, 0.0f, 0.0f}),
+                          Diligent::float3{1.0f, 0.0f, 0.0f});
 
         self->mRigidJointScene.hinge.jointIds.push_back(joint.jointId);
         self->mRigidJointScene.hinge.bodyIndicesA.push_back(bodyIndexA);
@@ -1797,7 +1800,10 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
             static_cast<std::uint32_t>(joint.driveMode));
         self->mRigidJointScene.hinge.localAnchorsA.push_back(toFloat4(joint.localAnchorA, 0.0f));
         self->mRigidJointScene.hinge.localAnchorsB.push_back(toFloat4(joint.localAnchorB, 0.0f));
+        self->mRigidJointScene.hinge.localAxesA0.push_back(toFloat4(axisA0, 0.0f));
         self->mRigidJointScene.hinge.driveTargetAngles.push_back(joint.driveTargetAngle);
+        self->mRigidJointScene.hinge.driveTargetAngularVelocities.push_back(
+            joint.driveTargetAngularVelocity);
         self->mRigidJointScene.hinge.projectionRow0.push_back(projectionRows[0]);
         self->mRigidJointScene.hinge.projectionRow1.push_back(projectionRows[1]);
         self->mRigidJointScene.hinge.projectionRow2.push_back(projectionRows[2]);
@@ -1847,6 +1853,7 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
         self->mRigidJointScene.slider.localAnchorsA.push_back(toFloat4(joint.localAnchorA, 0.0f));
         self->mRigidJointScene.slider.localAnchorsB.push_back(toFloat4(joint.localAnchorB, 0.0f));
         self->mRigidJointScene.slider.driveTargetPositions.push_back(joint.driveTargetPosition);
+        self->mRigidJointScene.slider.driveTargetVelocities.push_back(joint.driveTargetVelocity);
         self->mRigidJointScene.slider.driveRestOffsets.push_back(driveRestOffset);
         self->mRigidJointScene.slider.localAxesA0.push_back(toFloat4(axisA0, 0.0f));
         self->mRigidJointScene.slider.localAxesA1.push_back(toFloat4(axisA1, 0.0f));
