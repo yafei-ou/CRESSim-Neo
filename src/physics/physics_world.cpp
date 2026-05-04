@@ -146,18 +146,42 @@ Diligent::QuaternionF quaternionMultiply(const Diligent::QuaternionF &a,
 
 void computeMatrixQ(const Diligent::QuaternionF &q, float outQ[4][4]) noexcept
 {
-    outQ[0][0] = q.q.w; outQ[0][1] = -q.q.x; outQ[0][2] = -q.q.y; outQ[0][3] = -q.q.z;
-    outQ[1][0] = q.q.x; outQ[1][1] =  q.q.w; outQ[1][2] = -q.q.z; outQ[1][3] =  q.q.y;
-    outQ[2][0] = q.q.y; outQ[2][1] =  q.q.z; outQ[2][2] =  q.q.w; outQ[2][3] = -q.q.x;
-    outQ[3][0] = q.q.z; outQ[3][1] = -q.q.y; outQ[3][2] =  q.q.x; outQ[3][3] =  q.q.w;
+    outQ[0][0] = q.q.w;
+    outQ[0][1] = -q.q.x;
+    outQ[0][2] = -q.q.y;
+    outQ[0][3] = -q.q.z;
+    outQ[1][0] = q.q.x;
+    outQ[1][1] = q.q.w;
+    outQ[1][2] = -q.q.z;
+    outQ[1][3] = q.q.y;
+    outQ[2][0] = q.q.y;
+    outQ[2][1] = q.q.z;
+    outQ[2][2] = q.q.w;
+    outQ[2][3] = -q.q.x;
+    outQ[3][0] = q.q.z;
+    outQ[3][1] = -q.q.y;
+    outQ[3][2] = q.q.x;
+    outQ[3][3] = q.q.w;
 }
 
 void computeMatrixQHat(const Diligent::QuaternionF &q, float outQ[4][4]) noexcept
 {
-    outQ[0][0] = q.q.w; outQ[0][1] = -q.q.x; outQ[0][2] = -q.q.y; outQ[0][3] = -q.q.z;
-    outQ[1][0] = q.q.x; outQ[1][1] =  q.q.w; outQ[1][2] =  q.q.z; outQ[1][3] = -q.q.y;
-    outQ[2][0] = q.q.y; outQ[2][1] = -q.q.z; outQ[2][2] =  q.q.w; outQ[2][3] =  q.q.x;
-    outQ[3][0] = q.q.z; outQ[3][1] =  q.q.y; outQ[3][2] = -q.q.x; outQ[3][3] =  q.q.w;
+    outQ[0][0] = q.q.w;
+    outQ[0][1] = -q.q.x;
+    outQ[0][2] = -q.q.y;
+    outQ[0][3] = -q.q.z;
+    outQ[1][0] = q.q.x;
+    outQ[1][1] = q.q.w;
+    outQ[1][2] = q.q.z;
+    outQ[1][3] = -q.q.y;
+    outQ[2][0] = q.q.y;
+    outQ[2][1] = -q.q.z;
+    outQ[2][2] = q.q.w;
+    outQ[2][3] = q.q.x;
+    outQ[3][0] = q.q.z;
+    outQ[3][1] = q.q.y;
+    outQ[3][2] = -q.q.x;
+    outQ[3][3] = q.q.w;
 }
 
 void computeProjectionRowsFromLocalFrames(const Diligent::QuaternionF &localRotationA,
@@ -297,17 +321,17 @@ void PhysicsWorld::clear()
     mColliderDirtyIndices.clear();
     mRigidBodyDirtyBits.clear();
     mColliderDirtyBits.clear();
-    mRigidBodyCountDirty         = true;
-    mColliderCountDirty          = true;
-    mFullRigidBodyUploadRequired = true;
-    mFullColliderUploadRequired  = true;
-    mBodyColliderMappingDirty    = true;
-    mRigidJointSceneDirty        = true;
+    mRigidBodyCountDirty            = true;
+    mColliderCountDirty             = true;
+    mFullRigidBodyUploadRequired    = true;
+    mFullColliderUploadRequired     = true;
+    mBodyColliderMappingDirty       = true;
+    mRigidJointSceneDirty           = true;
     mJointCollisionSuppressionDirty = true;
-    mSoftBodyDerivedStateDirty   = true;
-    mStaticBroadPhaseDirty       = true;
-    mActiveMovingColliderCount   = 0u;
-    mStaticColliderCount         = 0u;
+    mSoftBodyDerivedStateDirty      = true;
+    mStaticBroadPhaseDirty          = true;
+    mActiveMovingColliderCount      = 0u;
+    mStaticColliderCount            = 0u;
     ++mRigidBodyTopologyRevision;
     ++mRigidJointSceneRevision;
     ++mRigidJointModeRevision;
@@ -402,7 +426,7 @@ RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
                 }
             }
         }
-        mRigidJointSceneDirty = true;
+        mRigidJointSceneDirty           = true;
         mJointCollisionSuppressionDirty = true;
         ++mRigidJointSceneRevision;
         ++mRigidJointModeRevision;
@@ -471,7 +495,7 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     mBodyColliderMappingDirty = true;
     mStaticBroadPhaseDirty    = mStaticBroadPhaseDirty || removedStatic;
     ++mRigidBodyTopologyRevision;
-    mRigidJointSceneDirty = true;
+    mRigidJointSceneDirty           = true;
     mJointCollisionSuppressionDirty = true;
     ++mRigidJointSceneRevision;
     ++mRigidJointModeRevision;
@@ -770,9 +794,9 @@ bool PhysicsWorld::upsertBallJoint(const BallJointState &state)
         return false;
     }
 
-    auto it = std::find_if(mBallJointSnapshot.begin(), mBallJointSnapshot.end(),
-                           [&](const BallJointState &existing)
-                           { return existing.jointId == normalized.jointId; });
+    auto it             = std::find_if(mBallJointSnapshot.begin(), mBallJointSnapshot.end(),
+                                       [&](const BallJointState &existing)
+                                       { return existing.jointId == normalized.jointId; });
     const bool inserted = it == mBallJointSnapshot.end();
     if (it == mBallJointSnapshot.end())
     {
@@ -790,14 +814,16 @@ bool PhysicsWorld::upsertBallJoint(const BallJointState &state)
 bool PhysicsWorld::upsertHingeJoint(const HingeJointState &state)
 {
     HingeJointState normalized = state;
-    constexpr float kTwoPi = 6.2831853071795864769f;
+    constexpr float kTwoPi     = 6.2831853071795864769f;
     if (normalized.bodyA == kInvalidRigidBodyId || normalized.bodyB == kInvalidRigidBodyId ||
         normalized.bodyA == normalized.bodyB)
     {
         return false;
     }
-    normalized.localRotationA = common::runtime_math::normalizeQuaternion(normalized.localRotationA);
-    normalized.localRotationB = common::runtime_math::normalizeQuaternion(normalized.localRotationB);
+    normalized.localRotationA =
+        common::runtime_math::normalizeQuaternion(normalized.localRotationA);
+    normalized.localRotationB =
+        common::runtime_math::normalizeQuaternion(normalized.localRotationB);
     normalized.driveTargetAngle = std::remainder(normalized.driveTargetAngle, kTwoPi);
     if (!normalized.limitEnabled)
     {
@@ -820,9 +846,9 @@ bool PhysicsWorld::upsertHingeJoint(const HingeJointState &state)
         return false;
     }
 
-    auto it = std::find_if(mHingeJointSnapshot.begin(), mHingeJointSnapshot.end(),
-                           [&](const HingeJointState &existing)
-                           { return existing.jointId == normalized.jointId; });
+    auto it             = std::find_if(mHingeJointSnapshot.begin(), mHingeJointSnapshot.end(),
+                                       [&](const HingeJointState &existing)
+                                       { return existing.jointId == normalized.jointId; });
     const bool inserted = it == mHingeJointSnapshot.end();
     const HingeJointState previousState = inserted ? HingeJointState{} : *it;
     if (it == mHingeJointSnapshot.end())
@@ -846,8 +872,10 @@ bool PhysicsWorld::upsertSliderJoint(const SliderJointState &state)
     {
         return false;
     }
-    normalized.localRotationA = common::runtime_math::normalizeQuaternion(normalized.localRotationA);
-    normalized.localRotationB = common::runtime_math::normalizeQuaternion(normalized.localRotationB);
+    normalized.localRotationA =
+        common::runtime_math::normalizeQuaternion(normalized.localRotationA);
+    normalized.localRotationB =
+        common::runtime_math::normalizeQuaternion(normalized.localRotationB);
     if (normalized.limitEnabled && normalized.limitMin > normalized.limitMax)
     {
         std::swap(normalized.limitMin, normalized.limitMax);
@@ -885,9 +913,9 @@ bool PhysicsWorld::upsertSliderJoint(const SliderJointState &state)
         normalized.jointId = mNextRigidJointId++;
     }
 
-    auto it = std::find_if(mSliderJointSnapshot.begin(), mSliderJointSnapshot.end(),
-                           [&](const SliderJointState &existing)
-                           { return existing.jointId == normalized.jointId; });
+    auto it             = std::find_if(mSliderJointSnapshot.begin(), mSliderJointSnapshot.end(),
+                                       [&](const SliderJointState &existing)
+                                       { return existing.jointId == normalized.jointId; });
     const bool inserted = it == mSliderJointSnapshot.end();
     const SliderJointState previousState = inserted ? SliderJointState{} : *it;
     if (it == mSliderJointSnapshot.end())
@@ -946,25 +974,25 @@ const ColliderState *PhysicsWorld::tryGetCollider(ColliderId colliderId) const
 
 const BallJointState *PhysicsWorld::tryGetBallJoint(RigidJointId jointId) const noexcept
 {
-    const auto it = std::find_if(mBallJointSnapshot.begin(), mBallJointSnapshot.end(),
-                                 [&](const BallJointState &state)
-                                 { return state.jointId == jointId; });
+    const auto it =
+        std::find_if(mBallJointSnapshot.begin(), mBallJointSnapshot.end(),
+                     [&](const BallJointState &state) { return state.jointId == jointId; });
     return it == mBallJointSnapshot.end() ? nullptr : &(*it);
 }
 
 const HingeJointState *PhysicsWorld::tryGetHingeJoint(RigidJointId jointId) const noexcept
 {
-    const auto it = std::find_if(mHingeJointSnapshot.begin(), mHingeJointSnapshot.end(),
-                                 [&](const HingeJointState &state)
-                                 { return state.jointId == jointId; });
+    const auto it =
+        std::find_if(mHingeJointSnapshot.begin(), mHingeJointSnapshot.end(),
+                     [&](const HingeJointState &state) { return state.jointId == jointId; });
     return it == mHingeJointSnapshot.end() ? nullptr : &(*it);
 }
 
 const SliderJointState *PhysicsWorld::tryGetSliderJoint(RigidJointId jointId) const noexcept
 {
-    const auto it = std::find_if(mSliderJointSnapshot.begin(), mSliderJointSnapshot.end(),
-                                 [&](const SliderJointState &state)
-                                 { return state.jointId == jointId; });
+    const auto it =
+        std::find_if(mSliderJointSnapshot.begin(), mSliderJointSnapshot.end(),
+                     [&](const SliderJointState &state) { return state.jointId == jointId; });
     return it == mSliderJointSnapshot.end() ? nullptr : &(*it);
 }
 
@@ -1491,7 +1519,8 @@ PhysicsWorld::RigidJointChangeKind PhysicsWorld::classifyHingeJointChange(
         return RigidJointChangeKind::TopologyRebuild;
     }
 
-    if (previousState.enabled != candidate.enabled || previousState.driveMode != candidate.driveMode)
+    if (previousState.enabled != candidate.enabled ||
+        previousState.driveMode != candidate.driveMode)
     {
         return RigidJointChangeKind::ModeRebuild;
     }
@@ -1508,7 +1537,8 @@ PhysicsWorld::RigidJointChangeKind PhysicsWorld::classifySliderJointChange(
         return RigidJointChangeKind::TopologyRebuild;
     }
 
-    if (previousState.enabled != candidate.enabled || previousState.driveMode != candidate.driveMode)
+    if (previousState.enabled != candidate.enabled ||
+        previousState.driveMode != candidate.driveMode)
     {
         return RigidJointChangeKind::ModeRebuild;
     }
@@ -1778,7 +1808,8 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
     {
         const auto bodyAIt = self->mRigidBodyIdToIndex.find(joint.bodyA);
         const auto bodyBIt = self->mRigidBodyIdToIndex.find(joint.bodyB);
-        if (bodyAIt == self->mRigidBodyIdToIndex.end() || bodyBIt == self->mRigidBodyIdToIndex.end())
+        if (bodyAIt == self->mRigidBodyIdToIndex.end() ||
+            bodyBIt == self->mRigidBodyIdToIndex.end())
         {
             return;
         }
@@ -1802,7 +1833,8 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
     {
         const auto bodyAIt = self->mRigidBodyIdToIndex.find(joint.bodyA);
         const auto bodyBIt = self->mRigidBodyIdToIndex.find(joint.bodyB);
-        if (bodyAIt == self->mRigidBodyIdToIndex.end() || bodyBIt == self->mRigidBodyIdToIndex.end())
+        if (bodyAIt == self->mRigidBodyIdToIndex.end() ||
+            bodyBIt == self->mRigidBodyIdToIndex.end())
         {
             return;
         }
@@ -1815,11 +1847,11 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
         }
 
         Diligent::float4 projectionRows[3];
-        computeProjectionRowsFromLocalFrames(joint.localRotationA, joint.localRotationB,
-                                             1u, 3u, projectionRows);
-        const Diligent::float3 axisA0 =
-            safeNormalize(quaternionRotate(joint.localRotationA, Diligent::float3{1.0f, 0.0f, 0.0f}),
-                          Diligent::float3{1.0f, 0.0f, 0.0f});
+        computeProjectionRowsFromLocalFrames(joint.localRotationA, joint.localRotationB, 1u, 3u,
+                                             projectionRows);
+        const Diligent::float3 axisA0 = safeNormalize(
+            quaternionRotate(joint.localRotationA, Diligent::float3{1.0f, 0.0f, 0.0f}),
+            Diligent::float3{1.0f, 0.0f, 0.0f});
 
         self->mRigidJointScene.hinge.jointIds.push_back(joint.jointId);
         self->mRigidJointScene.hinge.bodyIndicesA.push_back(bodyIndexA);
@@ -1845,7 +1877,8 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
     {
         const auto bodyAIt = self->mRigidBodyIdToIndex.find(joint.bodyA);
         const auto bodyBIt = self->mRigidBodyIdToIndex.find(joint.bodyB);
-        if (bodyAIt == self->mRigidBodyIdToIndex.end() || bodyBIt == self->mRigidBodyIdToIndex.end())
+        if (bodyAIt == self->mRigidBodyIdToIndex.end() ||
+            bodyBIt == self->mRigidBodyIdToIndex.end())
         {
             return;
         }
@@ -1857,15 +1890,15 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
             return;
         }
 
-        const Diligent::float3 axisA0 =
-            safeNormalize(quaternionRotate(joint.localRotationA, Diligent::float3{1.0f, 0.0f, 0.0f}),
-                          Diligent::float3{1.0f, 0.0f, 0.0f});
-        const Diligent::float3 axisA1 =
-            safeNormalize(quaternionRotate(joint.localRotationA, Diligent::float3{0.0f, 1.0f, 0.0f}),
-                          Diligent::float3{0.0f, 1.0f, 0.0f});
-        const Diligent::float3 axisA2 =
-            safeNormalize(quaternionRotate(joint.localRotationA, Diligent::float3{0.0f, 0.0f, 1.0f}),
-                          Diligent::float3{0.0f, 0.0f, 1.0f});
+        const Diligent::float3 axisA0 = safeNormalize(
+            quaternionRotate(joint.localRotationA, Diligent::float3{1.0f, 0.0f, 0.0f}),
+            Diligent::float3{1.0f, 0.0f, 0.0f});
+        const Diligent::float3 axisA1 = safeNormalize(
+            quaternionRotate(joint.localRotationA, Diligent::float3{0.0f, 1.0f, 0.0f}),
+            Diligent::float3{0.0f, 1.0f, 0.0f});
+        const Diligent::float3 axisA2 = safeNormalize(
+            quaternionRotate(joint.localRotationA, Diligent::float3{0.0f, 0.0f, 1.0f}),
+            Diligent::float3{0.0f, 0.0f, 1.0f});
         const Diligent::float3 worldAnchorA =
             self->mRigidBodySnapshot[bodyIndexA].position +
             quaternionRotate(self->mRigidBodySnapshot[bodyIndexA].rotation, joint.localAnchorA);
@@ -1874,8 +1907,8 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
             quaternionRotate(self->mRigidBodySnapshot[bodyIndexB].rotation, joint.localAnchorB);
         const float driveRestOffset = Diligent::dot(worldAnchorA - worldAnchorB, axisA0);
         Diligent::float4 projectionRows[3];
-        computeProjectionRowsFromLocalFrames(joint.localRotationA, joint.localRotationB,
-                                             1u, 3u, projectionRows);
+        computeProjectionRowsFromLocalFrames(joint.localRotationA, joint.localRotationB, 1u, 3u,
+                                             projectionRows);
         self->mRigidJointScene.slider.jointIds.push_back(joint.jointId);
         self->mRigidJointScene.slider.bodyIndicesA.push_back(bodyIndexA);
         self->mRigidJointScene.slider.bodyIndicesB.push_back(bodyIndexB);
@@ -1923,8 +1956,9 @@ void PhysicsWorld::rebuildJointCollisionSuppression() const noexcept
     }
 
     std::vector<std::pair<std::uint32_t, std::uint32_t>> directedPairs;
-    directedPairs.reserve((mBallJointSnapshot.size() + mHingeJointSnapshot.size() +
-                           mSliderJointSnapshot.size()) * 2u);
+    directedPairs.reserve(
+        (mBallJointSnapshot.size() + mHingeJointSnapshot.size() + mSliderJointSnapshot.size()) *
+        2u);
 
     const auto appendPair = [&](RigidBodyId bodyAId, RigidBodyId bodyBId)
     {
@@ -1938,9 +1972,8 @@ void PhysicsWorld::rebuildJointCollisionSuppression() const noexcept
 
         const std::uint32_t bodyIndexA = bodyAIt->second;
         const std::uint32_t bodyIndexB = bodyBIt->second;
-        if (bodyIndexA == bodyIndexB ||
-            self->mRigidBodySnapshot[bodyIndexA].environmentIndex !=
-                self->mRigidBodySnapshot[bodyIndexB].environmentIndex)
+        if (bodyIndexA == bodyIndexB || self->mRigidBodySnapshot[bodyIndexA].environmentIndex !=
+                                            self->mRigidBodySnapshot[bodyIndexB].environmentIndex)
         {
             return;
         }
@@ -2266,7 +2299,7 @@ void PhysicsWorld::applyRigidJointChange(RigidJointChangeKind changeKind) noexce
 
 void PhysicsWorld::markJointSceneDirty() noexcept
 {
-    mRigidJointSceneDirty = true;
+    mRigidJointSceneDirty           = true;
     mJointCollisionSuppressionDirty = true;
     ++mRigidJointSceneRevision;
     ++mAuthoredRevision;
@@ -2274,7 +2307,7 @@ void PhysicsWorld::markJointSceneDirty() noexcept
 
 void PhysicsWorld::markJointModeDirty() noexcept
 {
-    mRigidJointSceneDirty = true;
+    mRigidJointSceneDirty           = true;
     mJointCollisionSuppressionDirty = true;
     ++mRigidJointSceneRevision;
     ++mRigidJointModeRevision;
@@ -2283,7 +2316,7 @@ void PhysicsWorld::markJointModeDirty() noexcept
 
 void PhysicsWorld::markJointTopologyDirty() noexcept
 {
-    mRigidJointSceneDirty = true;
+    mRigidJointSceneDirty           = true;
     mJointCollisionSuppressionDirty = true;
     ++mRigidJointSceneRevision;
     ++mRigidJointModeRevision;

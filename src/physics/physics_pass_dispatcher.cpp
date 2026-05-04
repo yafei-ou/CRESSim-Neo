@@ -231,18 +231,14 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mGenerateRigidContactsPass, kGenerateRigidContacts) ||
         !initPass(mSolveRigidContactConstraintsPass, kSolveRigidContactConstraints) ||
         !initPass(mSolveBallJointConstraintsPass, kSolveBallJointConstraints) ||
-        !initPass(mSolveHingeJointConstraintsPassivePass,
-                  kSolveHingeJointConstraintsPassive) ||
+        !initPass(mSolveHingeJointConstraintsPassivePass, kSolveHingeJointConstraintsPassive) ||
         !initPass(mSolveHingeJointConstraintsTargetPositionPass,
                   kSolveHingeJointConstraintsTargetPosition) ||
-        !initPass(mSolveSliderJointConstraintsPassivePass,
-                  kSolveSliderJointConstraintsPassive) ||
+        !initPass(mSolveSliderJointConstraintsPassivePass, kSolveSliderJointConstraintsPassive) ||
         !initPass(mSolveSliderJointConstraintsTargetPositionPass,
                   kSolveSliderJointConstraintsTargetPosition) ||
-        !initPass(mSolveHingeJointTargetVelocitiesPass,
-                  kSolveHingeJointTargetVelocities) ||
-        !initPass(mSolveSliderJointTargetVelocitiesPass,
-                  kSolveSliderJointTargetVelocities) ||
+        !initPass(mSolveHingeJointTargetVelocitiesPass, kSolveHingeJointTargetVelocities) ||
+        !initPass(mSolveSliderJointTargetVelocitiesPass, kSolveSliderJointTargetVelocities) ||
         !initPass(mClearRigidCorrectionsPass, kClearRigidCorrections) ||
         !initPass(mApplyRigidCorrectionsPass, kApplyRigidCorrections) ||
         !initPass(mUpdateRigidVelocitiesPass, kUpdateRigidVelocities) ||
@@ -2687,8 +2683,8 @@ bool PhysicsPassDispatcher::solveRigidContactConstraints(Diligent::IDeviceContex
            dispatchSolveRigidContactConstraintsPass(computeContext, sceneState);
 }
 
-bool PhysicsPassDispatcher::updateRigidDispatchConstants(
-    Diligent::IDeviceContext *computeContext, const GpuRigidDispatchConstants &constants)
+bool PhysicsPassDispatcher::updateRigidDispatchConstants(Diligent::IDeviceContext *computeContext,
+                                                         const GpuRigidDispatchConstants &constants)
 {
     return writeRigidDispatchConstants(computeContext, constants);
 }
@@ -2736,9 +2732,9 @@ bool PhysicsPassDispatcher::dispatchSolveBallJointConstraintsPass(
                                                    dispatchGroupCount(jointCount));
 }
 
-bool PhysicsPassDispatcher::solveBallJointConstraints(
-    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    const GpuRigidDispatchConstants &constants)
+bool PhysicsPassDispatcher::solveBallJointConstraints(Diligent::IDeviceContext *computeContext,
+                                                      const PhysicsSceneGpuState &sceneState,
+                                                      const GpuRigidDispatchConstants &constants)
 {
     (void)constants;
     const std::uint32_t jointCount = sceneState.ballJointCount();
@@ -2758,8 +2754,7 @@ bool PhysicsPassDispatcher::solveBallJointConstraints(
 
 bool PhysicsPassDispatcher::dispatchSolveHingeJointConstraintsPass(
     Diligent::IDeviceContext *computeContext, gpu::GpuComputePass &pass,
-    const PhysicsSceneGpuState &sceneState,
-    Diligent::IBuffer *jointIndicesBuffer,
+    const PhysicsSceneGpuState &sceneState, Diligent::IBuffer *jointIndicesBuffer,
     std::uint32_t jointCount)
 {
     if (computeContext == nullptr)
@@ -2802,12 +2797,12 @@ bool PhysicsPassDispatcher::dispatchSolveHingeJointConstraintsPass(
     return pass.dispatch(computeContext, kDefaultVariant, bindings, dispatchGroupCount(jointCount));
 }
 
-bool PhysicsPassDispatcher::solveHingeJointConstraints(
-    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    const GpuRigidDispatchConstants &constants)
+bool PhysicsPassDispatcher::solveHingeJointConstraints(Diligent::IDeviceContext *computeContext,
+                                                       const PhysicsSceneGpuState &sceneState,
+                                                       const GpuRigidDispatchConstants &constants)
 {
     (void)constants;
-    const std::uint32_t passiveJointCount = sceneState.hingePassiveJointCount();
+    const std::uint32_t passiveJointCount       = sceneState.hingePassiveJointCount();
     const std::uint32_t positionDriveJointCount = sceneState.hingePositionDriveJointCount();
     if (computeContext == nullptr)
     {
@@ -2825,8 +2820,7 @@ bool PhysicsPassDispatcher::solveHingeJointConstraints(
         if (!writeRigidJointDispatchConstants(computeContext, jointConstants) ||
             !dispatchSolveHingeJointConstraintsPass(
                 computeContext, mSolveHingeJointConstraintsPassivePass, sceneState,
-                persistentJoints.hingePassiveJointIndicesBuffer,
-                passiveJointCount))
+                persistentJoints.hingePassiveJointIndicesBuffer, passiveJointCount))
         {
             return false;
         }
@@ -2838,8 +2832,7 @@ bool PhysicsPassDispatcher::solveHingeJointConstraints(
         if (!writeRigidJointDispatchConstants(computeContext, jointConstants) ||
             !dispatchSolveHingeJointConstraintsPass(
                 computeContext, mSolveHingeJointConstraintsTargetPositionPass, sceneState,
-                persistentJoints.hingePositionDriveJointIndicesBuffer,
-                positionDriveJointCount))
+                persistentJoints.hingePositionDriveJointIndicesBuffer, positionDriveJointCount))
         {
             return false;
         }
@@ -2850,8 +2843,7 @@ bool PhysicsPassDispatcher::solveHingeJointConstraints(
 
 bool PhysicsPassDispatcher::dispatchSolveSliderJointConstraintsPass(
     Diligent::IDeviceContext *computeContext, gpu::GpuComputePass &pass,
-    const PhysicsSceneGpuState &sceneState,
-    Diligent::IBuffer *jointIndicesBuffer,
+    const PhysicsSceneGpuState &sceneState, Diligent::IBuffer *jointIndicesBuffer,
     std::uint32_t jointCount)
 {
     if (computeContext == nullptr)
@@ -2894,12 +2886,12 @@ bool PhysicsPassDispatcher::dispatchSolveSliderJointConstraintsPass(
     return pass.dispatch(computeContext, kDefaultVariant, bindings, dispatchGroupCount(jointCount));
 }
 
-bool PhysicsPassDispatcher::solveSliderJointConstraints(
-    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    const GpuRigidDispatchConstants &constants)
+bool PhysicsPassDispatcher::solveSliderJointConstraints(Diligent::IDeviceContext *computeContext,
+                                                        const PhysicsSceneGpuState &sceneState,
+                                                        const GpuRigidDispatchConstants &constants)
 {
     (void)constants;
-    const std::uint32_t passiveJointCount = sceneState.sliderPassiveJointCount();
+    const std::uint32_t passiveJointCount       = sceneState.sliderPassiveJointCount();
     const std::uint32_t positionDriveJointCount = sceneState.sliderPositionDriveJointCount();
     if (computeContext == nullptr)
     {
@@ -2917,8 +2909,7 @@ bool PhysicsPassDispatcher::solveSliderJointConstraints(
         if (!writeRigidJointDispatchConstants(computeContext, jointConstants) ||
             !dispatchSolveSliderJointConstraintsPass(
                 computeContext, mSolveSliderJointConstraintsPassivePass, sceneState,
-                persistentJoints.sliderPassiveJointIndicesBuffer,
-                passiveJointCount))
+                persistentJoints.sliderPassiveJointIndicesBuffer, passiveJointCount))
         {
             return false;
         }
@@ -2930,8 +2921,7 @@ bool PhysicsPassDispatcher::solveSliderJointConstraints(
         if (!writeRigidJointDispatchConstants(computeContext, jointConstants) ||
             !dispatchSolveSliderJointConstraintsPass(
                 computeContext, mSolveSliderJointConstraintsTargetPositionPass, sceneState,
-                persistentJoints.sliderPositionDriveJointIndicesBuffer,
-                positionDriveJointCount))
+                persistentJoints.sliderPositionDriveJointIndicesBuffer, positionDriveJointCount))
         {
             return false;
         }
@@ -3040,8 +3030,8 @@ bool PhysicsPassDispatcher::dispatchSolveSliderJointVelocityTargetsPass(
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    return mSolveSliderJointTargetVelocitiesPass.dispatch(
-        computeContext, kDefaultVariant, bindings, dispatchGroupCount(jointCount));
+    return mSolveSliderJointTargetVelocitiesPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                          dispatchGroupCount(jointCount));
 }
 
 bool PhysicsPassDispatcher::dispatchApplyRigidVelocityCorrectionsPass(
@@ -3101,8 +3091,8 @@ bool PhysicsPassDispatcher::solveHingeJointTargetVelocities(
     const GpuRigidJointDispatchConstants jointConstants{jointCount, 0u, 0u, 0u};
     return writeRigidJointDispatchConstants(computeContext, jointConstants) &&
            dispatchSolveHingeJointVelocityTargetsPass(
-               computeContext, sceneState,
-               persistentJoints.hingeVelocityDriveJointIndicesBuffer, jointCount);
+               computeContext, sceneState, persistentJoints.hingeVelocityDriveJointIndicesBuffer,
+               jointCount);
 }
 
 bool PhysicsPassDispatcher::solveSliderJointTargetVelocities(
@@ -3124,8 +3114,8 @@ bool PhysicsPassDispatcher::solveSliderJointTargetVelocities(
     const GpuRigidJointDispatchConstants jointConstants{jointCount, 0u, 0u, 0u};
     return writeRigidJointDispatchConstants(computeContext, jointConstants) &&
            dispatchSolveSliderJointVelocityTargetsPass(
-               computeContext, sceneState,
-               persistentJoints.sliderVelocityDriveJointIndicesBuffer, jointCount);
+               computeContext, sceneState, persistentJoints.sliderVelocityDriveJointIndicesBuffer,
+               jointCount);
 }
 
 bool PhysicsPassDispatcher::applyRigidVelocityCorrections(
@@ -3304,7 +3294,7 @@ bool PhysicsPassDispatcher::solveRigidContactVelocities(Diligent::IDeviceContext
         return true;
     }
 
-    const std::uint32_t hingeVelocityJointCount = sceneState.hingeVelocityDriveJointCount();
+    const std::uint32_t hingeVelocityJointCount  = sceneState.hingeVelocityDriveJointCount();
     const std::uint32_t sliderVelocityJointCount = sceneState.sliderVelocityDriveJointCount();
     const bool hasVelocityMotorJoints =
         hingeVelocityJointCount > 0u || sliderVelocityJointCount > 0u;
@@ -3366,8 +3356,8 @@ bool PhysicsPassDispatcher::solveRigidContactVelocities(Diligent::IDeviceContext
             return false;
         }
 
-        if (!mApplyRigidContactVelocitiesPass.dispatch(computeContext, kDefaultVariant, applyBindings,
-                                                       dispatchGroupCount(rigidBodyCount)))
+        if (!mApplyRigidContactVelocitiesPass.dispatch(
+                computeContext, kDefaultVariant, applyBindings, dispatchGroupCount(rigidBodyCount)))
         {
             return false;
         }

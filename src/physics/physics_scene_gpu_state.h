@@ -232,10 +232,10 @@ public:
 
     struct BroadPhaseInputTailReadback
     {
-        std::uint32_t colliderCount = 0;
+        std::uint32_t colliderCount  = 0;
         std::uint32_t rigidBodyCount = 0;
-        std::uint32_t sampleBegin   = 0;
-        std::uint32_t sampleCount   = 0;
+        std::uint32_t sampleBegin    = 0;
+        std::uint32_t sampleCount    = 0;
         std::array<std::uint32_t, 4> ownerRigidBodyIndices{};
         std::array<std::uint32_t, 4> enabledFlags{};
         std::array<std::uint32_t, 4> rigidBodyTypes{};
@@ -243,9 +243,9 @@ public:
 
     struct BroadPhaseOutputTailReadback
     {
-        std::uint32_t colliderSampleBegin = 0;
+        std::uint32_t colliderSampleBegin  = 0;
         std::uint32_t rigidBodySampleBegin = 0;
-        std::uint32_t sampleCount = 0;
+        std::uint32_t sampleCount          = 0;
         std::array<std::uint32_t, 4> bodyMetaTypes{};
         std::array<std::uint32_t, 4> bodyMetaIds{};
         std::array<std::uint32_t, 4> bodyMetaActiveIndices{};
@@ -278,8 +278,7 @@ public:
                         std::uint32_t colliderCount, std::uint32_t softParticleCount,
                         std::uint32_t softEdgeCount, std::uint32_t softTetCount,
                         std::uint32_t ballJointCount, std::uint32_t hingeJointCount,
-                        std::uint32_t sliderJointCount,
-                        std::uint32_t softRenderVertexCount,
+                        std::uint32_t sliderJointCount, std::uint32_t softRenderVertexCount,
                         std::uint32_t softRenderTriangleIndexCount,
                         std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
                         std::uint32_t softBodyBoundsChunkCount, Diligent::Uint64 sharedContextMask,
@@ -365,64 +364,64 @@ private:
     SolverTransientBuffers mTransientState;
     RigidBodyReadbackBuffers mReadbackRigidBodies;
     SoftParticleReadbackBuffers mReadbackSoftParticles;
-    std::uint32_t mRigidBodyCapacity                = 0;
-    std::uint32_t mColliderCapacity                 = 0;
-    std::uint32_t mSoftParticleCapacity             = 0;
-    std::uint32_t mSoftEdgeCapacity                 = 0;
-    std::uint32_t mSoftTetCapacity                  = 0;
-    std::uint32_t mParticleBroadPhaseEntryCapacity  = 0;
-    std::uint32_t mSoftCandidatePairCapacity        = 0;
-    std::uint32_t mSoftParticleAdjacencyCapacity    = 0;
-    std::uint32_t mRigidBodyCount                   = 0;
-    std::uint32_t mColliderCount                    = 0;
-    std::uint32_t mSoftBodyCount                    = 0;
-    std::uint32_t mSoftParticleCount                = 0;
-    std::uint32_t mSoftEdgeCount                    = 0;
-    std::uint32_t mSoftTetCount                     = 0;
-    std::uint32_t mBroadPhaseNodeCapacity           = 0;
-    std::uint32_t mCandidatePairCapacity            = 0;
-    std::uint32_t mContactCapacity                  = 0;
-    std::uint32_t mSoftScanScratchCapacity          = 0;
-    std::uint32_t mSoftIncidentEdgeCapacity         = 0;
-    std::uint32_t mSoftIncidentTetCapacity          = 0;
-    std::uint32_t mSoftRenderVertexCapacity         = 0;
-    std::uint32_t mSoftRenderTriangleIndexCapacity  = 0;
-    std::uint32_t mSoftRenderTriangleCapacity       = 0;
-    std::uint32_t mSoftBodyRangeCapacity            = 0;
-    std::uint32_t mSoftBodyBoundsChunkCapacity      = 0;
-    std::uint32_t mJointCollisionSuppressionOffsetCapacity = 0;
+    std::uint32_t mRigidBodyCapacity                         = 0;
+    std::uint32_t mColliderCapacity                          = 0;
+    std::uint32_t mSoftParticleCapacity                      = 0;
+    std::uint32_t mSoftEdgeCapacity                          = 0;
+    std::uint32_t mSoftTetCapacity                           = 0;
+    std::uint32_t mParticleBroadPhaseEntryCapacity           = 0;
+    std::uint32_t mSoftCandidatePairCapacity                 = 0;
+    std::uint32_t mSoftParticleAdjacencyCapacity             = 0;
+    std::uint32_t mRigidBodyCount                            = 0;
+    std::uint32_t mColliderCount                             = 0;
+    std::uint32_t mSoftBodyCount                             = 0;
+    std::uint32_t mSoftParticleCount                         = 0;
+    std::uint32_t mSoftEdgeCount                             = 0;
+    std::uint32_t mSoftTetCount                              = 0;
+    std::uint32_t mBroadPhaseNodeCapacity                    = 0;
+    std::uint32_t mCandidatePairCapacity                     = 0;
+    std::uint32_t mContactCapacity                           = 0;
+    std::uint32_t mSoftScanScratchCapacity                   = 0;
+    std::uint32_t mSoftIncidentEdgeCapacity                  = 0;
+    std::uint32_t mSoftIncidentTetCapacity                   = 0;
+    std::uint32_t mSoftRenderVertexCapacity                  = 0;
+    std::uint32_t mSoftRenderTriangleIndexCapacity           = 0;
+    std::uint32_t mSoftRenderTriangleCapacity                = 0;
+    std::uint32_t mSoftBodyRangeCapacity                     = 0;
+    std::uint32_t mSoftBodyBoundsChunkCapacity               = 0;
+    std::uint32_t mJointCollisionSuppressionOffsetCapacity   = 0;
     std::uint32_t mJointCollisionSuppressionNeighborCapacity = 0;
-    std::uint32_t mBallJointCapacity                = 0;
-    std::uint32_t mHingeJointCapacity               = 0;
-    std::uint32_t mSliderJointCapacity              = 0;
-    std::uint32_t mHingePassiveJointIndexCapacity   = 0;
-    std::uint32_t mHingePositionDriveIndexCapacity  = 0;
-    std::uint32_t mHingeVelocityDriveIndexCapacity  = 0;
-    std::uint32_t mSliderPassiveJointIndexCapacity  = 0;
-    std::uint32_t mSliderPositionDriveIndexCapacity = 0;
-    std::uint32_t mSliderVelocityDriveIndexCapacity = 0;
-    bool mCorrectionBuffersNeedClear                = false;
-    bool mStaticBroadPhaseDirty                     = true;
-    bool mRigidBodyUploadResetRequired              = true;
-    bool mColliderUploadResetRequired               = true;
-    bool mRigidJointUploadResetRequired             = true;
-    bool mSoftParticleUploadResetRequired           = true;
-    bool mSoftTopologyUploadResetRequired           = true;
-    std::uint64_t mRigidBindingGeneration           = 1u;
-    std::uint64_t mSoftBindingGeneration            = 1u;
-    std::uint64_t mLastUploadedRigidJointSceneRevision = 0;
-    std::uint64_t mLastUploadedRigidJointModeRevision  = 0;
-    std::uint64_t mLastUploadedSoftParticleRevision = 0;
-    std::uint64_t mLastUploadedSoftTopologyRevision = 0;
-    std::uint32_t mBallJointCount                   = 0;
-    std::uint32_t mHingeJointCount                  = 0;
-    std::uint32_t mSliderJointCount                 = 0;
-    std::uint32_t mHingePassiveJointCount           = 0;
-    std::uint32_t mHingePositionDriveJointCount     = 0;
-    std::uint32_t mHingeVelocityDriveJointCount     = 0;
-    std::uint32_t mSliderPassiveJointCount          = 0;
-    std::uint32_t mSliderPositionDriveJointCount    = 0;
-    std::uint32_t mSliderVelocityDriveJointCount    = 0;
+    std::uint32_t mBallJointCapacity                         = 0;
+    std::uint32_t mHingeJointCapacity                        = 0;
+    std::uint32_t mSliderJointCapacity                       = 0;
+    std::uint32_t mHingePassiveJointIndexCapacity            = 0;
+    std::uint32_t mHingePositionDriveIndexCapacity           = 0;
+    std::uint32_t mHingeVelocityDriveIndexCapacity           = 0;
+    std::uint32_t mSliderPassiveJointIndexCapacity           = 0;
+    std::uint32_t mSliderPositionDriveIndexCapacity          = 0;
+    std::uint32_t mSliderVelocityDriveIndexCapacity          = 0;
+    bool mCorrectionBuffersNeedClear                         = false;
+    bool mStaticBroadPhaseDirty                              = true;
+    bool mRigidBodyUploadResetRequired                       = true;
+    bool mColliderUploadResetRequired                        = true;
+    bool mRigidJointUploadResetRequired                      = true;
+    bool mSoftParticleUploadResetRequired                    = true;
+    bool mSoftTopologyUploadResetRequired                    = true;
+    std::uint64_t mRigidBindingGeneration                    = 1u;
+    std::uint64_t mSoftBindingGeneration                     = 1u;
+    std::uint64_t mLastUploadedRigidJointSceneRevision       = 0;
+    std::uint64_t mLastUploadedRigidJointModeRevision        = 0;
+    std::uint64_t mLastUploadedSoftParticleRevision          = 0;
+    std::uint64_t mLastUploadedSoftTopologyRevision          = 0;
+    std::uint32_t mBallJointCount                            = 0;
+    std::uint32_t mHingeJointCount                           = 0;
+    std::uint32_t mSliderJointCount                          = 0;
+    std::uint32_t mHingePassiveJointCount                    = 0;
+    std::uint32_t mHingePositionDriveJointCount              = 0;
+    std::uint32_t mHingeVelocityDriveJointCount              = 0;
+    std::uint32_t mSliderPassiveJointCount                   = 0;
+    std::uint32_t mSliderPositionDriveJointCount             = 0;
+    std::uint32_t mSliderVelocityDriveJointCount             = 0;
 };
 
 } // namespace cressim::neo::physics

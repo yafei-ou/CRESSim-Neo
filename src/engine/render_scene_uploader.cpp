@@ -148,37 +148,37 @@ bool RenderSceneUploader::initialize(const common::SceneLayoutDesc &layout)
 
 void RenderSceneUploader::shutdown()
 {
-    mLayout                             = {};
-    mInitialized                        = false;
-    mPoseCapacity                       = 0;
-    mPhysicsSyncCapacity                = 0;
-    mEntityCount                        = 0;
-    mRenderableCapacity                 = 0;
-    mRenderableCount                    = 0;
-    mSoftBodyVertexBindingCapacity      = 0;
-    mSoftBodyVertexBindingCount         = 0;
-    mCameraCapacity                     = 0;
-    mCameraCount                        = 0;
-    mLightCapacity                      = 0;
-    mLightCount                         = 0;
-    mLocalLightSelectionCapacity        = 0;
-    mGraphicsContextMask                = 0;
-    mPhysicsContextMask                 = 0;
-    mSharedPoseContextMask              = 0;
-    mMappingBuffer                      = nullptr;
-    mConstantsBuffer                    = nullptr;
-    mEntityPositionsBuffer              = nullptr;
-    mEntityOrientationsBuffer           = nullptr;
-    mEntityScalesBuffer                 = nullptr;
-    mRenderableMetadataBuffer           = nullptr;
-    mRenderableQueueInfoBuffer          = nullptr;
-    mRenderableVisibilityFlagsBuffer    = nullptr;
-    mRenderableShadowCascadeMasksBuffer = nullptr;
-    mSoftBodyVertexBindingBuffer        = nullptr;
-    mCameraInputsBuffer                 = nullptr;
-    mPreparedCamerasBuffer              = nullptr;
-    mLightInputsBuffer                  = nullptr;
-    mLocalLightSelectionBuffer          = nullptr;
+    mLayout                                 = {};
+    mInitialized                            = false;
+    mPoseCapacity                           = 0;
+    mPhysicsSyncCapacity                    = 0;
+    mEntityCount                            = 0;
+    mRenderableCapacity                     = 0;
+    mRenderableCount                        = 0;
+    mSoftBodyVertexBindingCapacity          = 0;
+    mSoftBodyVertexBindingCount             = 0;
+    mCameraCapacity                         = 0;
+    mCameraCount                            = 0;
+    mLightCapacity                          = 0;
+    mLightCount                             = 0;
+    mLocalLightSelectionCapacity            = 0;
+    mGraphicsContextMask                    = 0;
+    mPhysicsContextMask                     = 0;
+    mSharedPoseContextMask                  = 0;
+    mMappingBuffer                          = nullptr;
+    mConstantsBuffer                        = nullptr;
+    mEntityPositionsBuffer                  = nullptr;
+    mEntityOrientationsBuffer               = nullptr;
+    mEntityScalesBuffer                     = nullptr;
+    mRenderableMetadataBuffer               = nullptr;
+    mRenderableQueueInfoBuffer              = nullptr;
+    mRenderableVisibilityFlagsBuffer        = nullptr;
+    mRenderableShadowCascadeMasksBuffer     = nullptr;
+    mSoftBodyVertexBindingBuffer            = nullptr;
+    mCameraInputsBuffer                     = nullptr;
+    mPreparedCamerasBuffer                  = nullptr;
+    mLightInputsBuffer                      = nullptr;
+    mLocalLightSelectionBuffer              = nullptr;
     mPoseBindingGeneration                  = 1u;
     mPhysicsSyncBindingGeneration           = 1u;
     mSceneBindingGeneration                 = 1u;
@@ -202,25 +202,26 @@ bool RenderSceneUploader::ensureSharedPoseCapacity(Diligent::IRenderDevice *rend
         return true;
     }
 
-    const std::uint32_t newCapacity = std::max<std::uint32_t>(requiredCapacity, 64u);
+    const std::uint32_t newCapacity    = std::max<std::uint32_t>(requiredCapacity, 64u);
     Diligent::IBuffer *oldPositions    = mEntityPositionsBuffer;
     Diligent::IBuffer *oldOrientations = mEntityOrientationsBuffer;
     Diligent::IBuffer *oldScales       = mEntityScalesBuffer;
-    const bool success = ensureStructuredBuffer(
-               renderDevice, "CRESSimNeo.Gpu.EntityPositions", sizeof(Diligent::float4),
-               newCapacity, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-               Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, mSharedPoseContextMask,
-               mEntityPositionsBuffer, mPoseCapacity, 64u) &&
-           ensureStructuredBuffer(
-               renderDevice, "CRESSimNeo.Gpu.EntityOrientations", sizeof(Diligent::float4),
-               newCapacity, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-               Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, mSharedPoseContextMask,
-               mEntityOrientationsBuffer, mPoseCapacity, 64u) &&
-           ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.EntityScales",
-                                  sizeof(Diligent::float4), newCapacity,
-                                  Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-                                  Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
-                                  mSharedPoseContextMask, mEntityScalesBuffer, mPoseCapacity, 64u);
+    const bool success =
+        ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Gpu.EntityPositions", sizeof(Diligent::float4), newCapacity,
+            Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+            Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, mSharedPoseContextMask,
+            mEntityPositionsBuffer, mPoseCapacity, 64u) &&
+        ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Gpu.EntityOrientations", sizeof(Diligent::float4),
+            newCapacity, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+            Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, mSharedPoseContextMask,
+            mEntityOrientationsBuffer, mPoseCapacity, 64u) &&
+        ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.EntityScales",
+                               sizeof(Diligent::float4), newCapacity,
+                               Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                               Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
+                               mSharedPoseContextMask, mEntityScalesBuffer, mPoseCapacity, 64u);
     if (!success)
     {
         return false;
@@ -249,8 +250,8 @@ bool RenderSceneUploader::ensurePhysicsSyncCapacity(Diligent::IRenderDevice *ren
     }
 
     const std::uint32_t newCapacity = std::max<std::uint32_t>(requiredCapacity, 64u);
-    Diligent::IBuffer *oldMapping = mMappingBuffer;
-    const bool success = ensureStructuredBuffer(
+    Diligent::IBuffer *oldMapping   = mMappingBuffer;
+    const bool success              = ensureStructuredBuffer(
         renderDevice, "CRESSimNeo.Gpu.EntityPoseMappings", sizeof(EntityPoseMappingEntry),
         newCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
         Diligent::CPU_ACCESS_NONE, mPhysicsContextMask, mMappingBuffer, mPhysicsSyncCapacity, 64u);
@@ -288,26 +289,27 @@ bool RenderSceneUploader::ensureRenderableCapacity(Diligent::IRenderDevice *rend
     Diligent::IBuffer *oldQueueInfo   = mRenderableQueueInfoBuffer;
     Diligent::IBuffer *oldVisibility  = mRenderableVisibilityFlagsBuffer;
     Diligent::IBuffer *oldShadowMasks = mRenderableShadowCascadeMasksBuffer;
-    const bool success = ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.RenderableMetadata",
-                                  sizeof(graphics::GpuRenderableMetadata), requiredCapacity,
-                                  Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                  Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
-                                  mRenderableMetadataBuffer, mRenderableCapacity, 64u) &&
-           ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.RenderableQueueInfo",
-                                  sizeof(graphics::GpuRenderableQueueInfo), requiredCapacity,
-                                  Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                  Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
-                                  mRenderableQueueInfoBuffer, mRenderableCapacity, 64u) &&
-           ensureStructuredBuffer(
-               renderDevice, "CRESSimNeo.Gpu.RenderableVisibilityFlags", sizeof(std::uint32_t),
-               requiredCapacity, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-               Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
-               mRenderableVisibilityFlagsBuffer, mRenderableCapacity, requiredCapacity) &&
-           ensureStructuredBuffer(
-               renderDevice, "CRESSimNeo.Gpu.RenderableShadowCascadeMasks", sizeof(std::uint32_t),
-               requiredCapacity, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-               Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
-               mRenderableShadowCascadeMasksBuffer, mRenderableCapacity, requiredCapacity);
+    const bool success =
+        ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.RenderableMetadata",
+                               sizeof(graphics::GpuRenderableMetadata), requiredCapacity,
+                               Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                               Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
+                               mRenderableMetadataBuffer, mRenderableCapacity, 64u) &&
+        ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.RenderableQueueInfo",
+                               sizeof(graphics::GpuRenderableQueueInfo), requiredCapacity,
+                               Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                               Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
+                               mRenderableQueueInfoBuffer, mRenderableCapacity, 64u) &&
+        ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Gpu.RenderableVisibilityFlags", sizeof(std::uint32_t),
+            requiredCapacity, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+            Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
+            mRenderableVisibilityFlagsBuffer, mRenderableCapacity, requiredCapacity) &&
+        ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Gpu.RenderableShadowCascadeMasks", sizeof(std::uint32_t),
+            requiredCapacity, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+            Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
+            mRenderableShadowCascadeMasksBuffer, mRenderableCapacity, requiredCapacity);
     if (!success)
     {
         return false;
@@ -338,16 +340,17 @@ bool RenderSceneUploader::ensureCameraCapacity(Diligent::IRenderDevice *renderDe
 
     Diligent::IBuffer *oldInputs   = mCameraInputsBuffer;
     Diligent::IBuffer *oldPrepared = mPreparedCamerasBuffer;
-    const bool success = ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.CameraInputs",
-                                  sizeof(graphics::GpuCameraInput), requiredCapacity,
-                                  Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                  Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
-                                  mCameraInputsBuffer, mCameraCapacity, 1u) &&
-           ensureStructuredBuffer(
-               renderDevice, "CRESSimNeo.Gpu.PreparedCameras", sizeof(graphics::GpuPreparedCamera),
-               requiredCapacity, Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
-               Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
-               mPreparedCamerasBuffer, mCameraCapacity, 1u);
+    const bool success =
+        ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.CameraInputs",
+                               sizeof(graphics::GpuCameraInput), requiredCapacity,
+                               Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                               Diligent::CPU_ACCESS_NONE, mGraphicsContextMask, mCameraInputsBuffer,
+                               mCameraCapacity, 1u) &&
+        ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.PreparedCameras",
+                               sizeof(graphics::GpuPreparedCamera), requiredCapacity,
+                               Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                               Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
+                               mGraphicsContextMask, mPreparedCamerasBuffer, mCameraCapacity, 1u);
     if (!success)
     {
         return false;
@@ -374,7 +377,7 @@ bool RenderSceneUploader::ensureLightCapacity(Diligent::IRenderDevice *renderDev
     }
 
     Diligent::IBuffer *oldInputs = mLightInputsBuffer;
-    const bool success = ensureStructuredBuffer(
+    const bool success           = ensureStructuredBuffer(
         renderDevice, "CRESSimNeo.Gpu.LightInputs", sizeof(graphics::GpuLightInput),
         requiredCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
         Diligent::CPU_ACCESS_NONE, mGraphicsContextMask, mLightInputsBuffer, mLightCapacity, 1u);
@@ -404,11 +407,11 @@ bool RenderSceneUploader::ensureLocalLightSelectionCapacity(Diligent::IRenderDev
     }
 
     Diligent::IBuffer *oldSelections = mLocalLightSelectionBuffer;
-    const bool success = ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.LocalLightSelections",
-                                  sizeof(graphics::GpuLocalLightSelection), requiredCapacity,
-                                  Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                  Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
-                                  mLocalLightSelectionBuffer, mLocalLightSelectionCapacity, 1u);
+    const bool success               = ensureStructuredBuffer(
+        renderDevice, "CRESSimNeo.Gpu.LocalLightSelections",
+        sizeof(graphics::GpuLocalLightSelection), requiredCapacity, Diligent::BIND_SHADER_RESOURCE,
+        Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, mGraphicsContextMask,
+        mLocalLightSelectionBuffer, mLocalLightSelectionCapacity, 1u);
     if (!success)
     {
         return false;
@@ -524,7 +527,7 @@ bool RenderSceneUploader::uploadSoftBodyVertexBindings(
         return false;
     }
 
-    mSoftBodyVertexBindingCount = static_cast<std::uint32_t>(bindings.size());
+    mSoftBodyVertexBindingCount                       = static_cast<std::uint32_t>(bindings.size());
     Diligent::IBuffer *oldSoftBodyVertexBindingBuffer = mSoftBodyVertexBindingBuffer;
     if (!ensureSoftBodyBufferCapacity(graphicsContext.renderDevice, mGraphicsContextMask,
                                       "CRESSimNeo.Gpu.SoftBodyVertexBindings",

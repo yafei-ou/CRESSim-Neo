@@ -10,13 +10,13 @@
 namespace cressim::neo::physics
 {
 
-constexpr std::uint32_t kRigidContactsPerPair   = 4u;
-constexpr std::uint32_t kRigidPairTypeCount     = 6u;
-constexpr std::uint32_t kRigidBodyTypeStatic    = 0u;
-constexpr std::uint32_t kRigidBodyTypeKinematic = 1u;
-constexpr std::uint32_t kRigidBodyTypeDynamic   = 2u;
-constexpr std::uint32_t kKinematicTargetEnabled = 1u << 0u;
-constexpr std::uint32_t kRigidJointDriveModeNone = 0u;
+constexpr std::uint32_t kRigidContactsPerPair              = 4u;
+constexpr std::uint32_t kRigidPairTypeCount                = 6u;
+constexpr std::uint32_t kRigidBodyTypeStatic               = 0u;
+constexpr std::uint32_t kRigidBodyTypeKinematic            = 1u;
+constexpr std::uint32_t kRigidBodyTypeDynamic              = 2u;
+constexpr std::uint32_t kKinematicTargetEnabled            = 1u << 0u;
+constexpr std::uint32_t kRigidJointDriveModeNone           = 0u;
 constexpr std::uint32_t kRigidJointDriveModeTargetPosition = 1u;
 constexpr std::uint32_t kRigidJointDriveModeTargetVelocity = 2u;
 
@@ -68,9 +68,9 @@ struct GpuRigidJointDispatchConstants
 
 struct GpuBallJoint
 {
-    std::uint32_t bodyA = 0u;
-    std::uint32_t bodyB = 0u;
-    std::uint32_t enabled = 0u;
+    std::uint32_t bodyA     = 0u;
+    std::uint32_t bodyB     = 0u;
+    std::uint32_t enabled   = 0u;
     std::uint32_t reserved0 = 0u;
     Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
@@ -78,9 +78,9 @@ struct GpuBallJoint
 
 struct GpuHingeJoint
 {
-    std::uint32_t bodyA = 0u;
-    std::uint32_t bodyB = 0u;
-    std::uint32_t enabled = 0u;
+    std::uint32_t bodyA     = 0u;
+    std::uint32_t bodyB     = 0u;
+    std::uint32_t enabled   = 0u;
     std::uint32_t driveMode = 0u;
     Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
@@ -94,9 +94,9 @@ struct GpuHingeJoint
 
 struct GpuSliderJoint
 {
-    std::uint32_t bodyA = 0u;
-    std::uint32_t bodyB = 0u;
-    std::uint32_t enabled = 0u;
+    std::uint32_t bodyA     = 0u;
+    std::uint32_t bodyB     = 0u;
+    std::uint32_t enabled   = 0u;
     std::uint32_t driveMode = 0u;
     Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};

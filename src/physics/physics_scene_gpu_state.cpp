@@ -125,8 +125,8 @@ std::vector<std::uint32_t> buildReductionLevelCounts(std::uint32_t elementCount)
 
 template <typename T>
 bool readbackBufferRangeBlocking(Diligent::IDeviceContext *computeContext, Diligent::IBuffer *src,
-                                 Diligent::IBuffer *dst, std::uint32_t begin,
-                                 std::uint32_t count, T *outValues)
+                                 Diligent::IBuffer *dst, std::uint32_t begin, std::uint32_t count,
+                                 T *outValues)
 {
     if (computeContext == nullptr || src == nullptr || dst == nullptr || outValues == nullptr)
     {
@@ -140,8 +140,7 @@ bool readbackBufferRangeBlocking(Diligent::IDeviceContext *computeContext, Dilig
     const Diligent::Uint64 offset = static_cast<Diligent::Uint64>(begin) * sizeof(T);
     const Diligent::Uint64 bytes  = static_cast<Diligent::Uint64>(count) * sizeof(T);
     computeContext->CopyBuffer(src, offset, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-                               dst, 0u, bytes,
-                               Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+                               dst, 0u, bytes, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     computeContext->Flush();
     computeContext->WaitForIdle();
 
@@ -241,13 +240,15 @@ bool PhysicsSceneGpuState::ensureCapacity(
     std::uint32_t softBodyBoundsChunkCount, Diligent::Uint64 sharedContextMask,
     bool useNativeFloatAtomics)
 {
-    const auto rigidPositionsBefore      = mPersistentRigidBodies.positionsBuffer.RawPtr();
-    const auto rigidOrientationsBefore   = mPersistentRigidBodies.orientationsBuffer.RawPtr();
-    const auto rigidBodyTypesBefore      = mPersistentRigidBodies.bodyTypesBuffer.RawPtr();
-    const auto colliderOwnersBefore      = mPersistentColliders.ownerRigidBodyIndicesBuffer.RawPtr();
-    const auto colliderBroadPhaseBefore  = mPersistentColliders.broadPhaseDataBuffer.RawPtr();
-    const auto bodyColliderRangesBefore  = mPersistentBodyColliderMapping.colliderRangesBuffer.RawPtr();
-    const auto bodyColliderIndicesBefore = mPersistentBodyColliderMapping.colliderIndicesBuffer.RawPtr();
+    const auto rigidPositionsBefore     = mPersistentRigidBodies.positionsBuffer.RawPtr();
+    const auto rigidOrientationsBefore  = mPersistentRigidBodies.orientationsBuffer.RawPtr();
+    const auto rigidBodyTypesBefore     = mPersistentRigidBodies.bodyTypesBuffer.RawPtr();
+    const auto colliderOwnersBefore     = mPersistentColliders.ownerRigidBodyIndicesBuffer.RawPtr();
+    const auto colliderBroadPhaseBefore = mPersistentColliders.broadPhaseDataBuffer.RawPtr();
+    const auto bodyColliderRangesBefore =
+        mPersistentBodyColliderMapping.colliderRangesBuffer.RawPtr();
+    const auto bodyColliderIndicesBefore =
+        mPersistentBodyColliderMapping.colliderIndicesBuffer.RawPtr();
     const auto jointSuppressionOffsetsBefore =
         mPersistentJointCollisionSuppression.neighborOffsetsBuffer.RawPtr();
     const auto jointSuppressionNeighborsBefore =
@@ -289,8 +290,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentJoints.sliderPositionDriveJointIndicesBuffer.RawPtr();
     const auto sliderVelocityDriveIndicesBefore =
         mPersistentJoints.sliderVelocityDriveJointIndicesBuffer.RawPtr();
-    const auto softEdgesBefore       = mPersistentSoftTopology.edgesBuffer.RawPtr();
-    const auto softTetsBefore        = mPersistentSoftTopology.tetsBuffer.RawPtr();
+    const auto softEdgesBefore = mPersistentSoftTopology.edgesBuffer.RawPtr();
+    const auto softTetsBefore  = mPersistentSoftTopology.tetsBuffer.RawPtr();
     const auto softRenderNormalsBefore =
         mPersistentSoftTopology.softBodyRenderNormalsBuffer.RawPtr();
     const auto softWorldAabbsBefore = mPersistentSoftTopology.softBodyWorldAabbsBuffer.RawPtr();
@@ -491,13 +492,13 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const std::uint32_t newBallJointCapacity   = std::max<std::uint32_t>(ballJointCount, 1u);
     const std::uint32_t newHingeJointCapacity  = std::max<std::uint32_t>(hingeJointCount, 1u);
     const std::uint32_t newSliderJointCapacity = std::max<std::uint32_t>(sliderJointCount, 1u);
-    const std::uint32_t newHingePassiveJointIndexCapacity = newHingeJointCapacity;
-    const std::uint32_t newHingePositionDriveIndexCapacity = newHingeJointCapacity;
-    const std::uint32_t newHingeVelocityDriveIndexCapacity = newHingeJointCapacity;
-    const std::uint32_t newSliderPassiveJointIndexCapacity = newSliderJointCapacity;
+    const std::uint32_t newHingePassiveJointIndexCapacity   = newHingeJointCapacity;
+    const std::uint32_t newHingePositionDriveIndexCapacity  = newHingeJointCapacity;
+    const std::uint32_t newHingeVelocityDriveIndexCapacity  = newHingeJointCapacity;
+    const std::uint32_t newSliderPassiveJointIndexCapacity  = newSliderJointCapacity;
     const std::uint32_t newSliderPositionDriveIndexCapacity = newSliderJointCapacity;
     const std::uint32_t newSliderVelocityDriveIndexCapacity = newSliderJointCapacity;
-    const std::uint32_t newNodeCapacity = std::max<std::uint32_t>(
+    const std::uint32_t newNodeCapacity                     = std::max<std::uint32_t>(
         newColliderCapacity > 0u ? (newColliderCapacity * 2u - 1u) : 1u, 1u);
     const std::uint32_t newCandidatePairCapacity =
         estimateRigidCandidatePairCapacity(newColliderCapacity);
@@ -521,8 +522,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mSoftRenderTriangleIndexCapacity >= newSoftRenderTriangleIndexCapacity &&
         mSoftRenderTriangleCapacity >= newSoftRenderTriangleCapacity &&
         mSoftBodyRangeCapacity >= newSoftBodyRangeCapacity &&
-        mJointCollisionSuppressionOffsetCapacity >=
-            newJointCollisionSuppressionOffsetCapacity &&
+        mJointCollisionSuppressionOffsetCapacity >= newJointCollisionSuppressionOffsetCapacity &&
         mJointCollisionSuppressionNeighborCapacity >=
             newJointCollisionSuppressionNeighborCapacity &&
         mBallJointCapacity >= newBallJointCapacity &&
@@ -590,11 +590,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentColliders.ownerRigidBodyIndicesBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderContactData",
-                                sizeof(GpuColliderContactData), newColliderCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentColliders.contactDataBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.ColliderContactData", sizeof(GpuColliderContactData),
+            newColliderCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentColliders.contactDataBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderBroadPhaseData",
                                 sizeof(GpuColliderBroadPhaseData), newColliderCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -645,46 +644,38 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentBodyColliderMapping.colliderIndicesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.JointCollisionSuppressionOffsets",
-                                sizeof(std::uint32_t),
-                                newJointCollisionSuppressionOffsetCapacity,
+                                sizeof(std::uint32_t), newJointCollisionSuppressionOffsetCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentJointCollisionSuppression.neighborOffsetsBuffer) ||
-        !ensureStructuredBuffer(renderDevice,
-                                "CRESSimNeo.Physics.JointCollisionSuppressionNeighbors",
-                                sizeof(std::uint32_t),
-                                newJointCollisionSuppressionNeighborCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentJointCollisionSuppression.neighborsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.BallJoints",
-                                sizeof(GpuBallJoint), newBallJointCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.JointCollisionSuppressionNeighbors",
+            sizeof(std::uint32_t), newJointCollisionSuppressionNeighborCapacity,
+            Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
+            contextMask, mPersistentJointCollisionSuppression.neighborsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.BallJoints", sizeof(GpuBallJoint),
+                                newBallJointCapacity, Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentJoints.ballJointsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.HingeJoints",
-                                sizeof(GpuHingeJoint), newHingeJointCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentJoints.hingeJointsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SliderJoints",
-                                sizeof(GpuSliderJoint), newSliderJointCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentJoints.sliderJointsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.HingeJoints", sizeof(GpuHingeJoint),
+            newHingeJointCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentJoints.hingeJointsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.SliderJoints", sizeof(GpuSliderJoint),
+            newSliderJointCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentJoints.sliderJointsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.HingePassiveJointIndices",
                                 sizeof(std::uint32_t), newHingePassiveJointIndexCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentJoints.hingePassiveJointIndicesBuffer) ||
-        !ensureStructuredBuffer(renderDevice,
-                                "CRESSimNeo.Physics.HingePositionDriveJointIndices",
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.HingePositionDriveJointIndices",
                                 sizeof(std::uint32_t), newHingePositionDriveIndexCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentJoints.hingePositionDriveJointIndicesBuffer) ||
-        !ensureStructuredBuffer(renderDevice,
-                                "CRESSimNeo.Physics.HingeVelocityDriveJointIndices",
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.HingeVelocityDriveJointIndices",
                                 sizeof(std::uint32_t), newHingeVelocityDriveIndexCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
@@ -694,14 +685,12 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentJoints.sliderPassiveJointIndicesBuffer) ||
-        !ensureStructuredBuffer(renderDevice,
-                                "CRESSimNeo.Physics.SliderPositionDriveJointIndices",
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SliderPositionDriveJointIndices",
                                 sizeof(std::uint32_t), newSliderPositionDriveIndexCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentJoints.sliderPositionDriveJointIndicesBuffer) ||
-        !ensureStructuredBuffer(renderDevice,
-                                "CRESSimNeo.Physics.SliderVelocityDriveJointIndices",
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SliderVelocityDriveJointIndices",
                                 sizeof(std::uint32_t), newSliderVelocityDriveIndexCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
@@ -1340,8 +1329,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
 
     const bool softCapacityChanged =
         mSoftParticleCapacity != newSoftParticleCapacity ||
-        mSoftEdgeCapacity != newSoftEdgeCapacity ||
-        mSoftTetCapacity != newSoftTetCapacity ||
+        mSoftEdgeCapacity != newSoftEdgeCapacity || mSoftTetCapacity != newSoftTetCapacity ||
         mParticleBroadPhaseEntryCapacity != newParticleBroadPhaseEntryCapacity ||
         mSoftCandidatePairCapacity != newSoftCandidatePairCapacity ||
         mSoftScanScratchCapacity != newSoftScanCapacity ||
@@ -1354,36 +1342,36 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mSoftBodyRangeCapacity != newSoftBodyRangeCapacity ||
         mSoftBodyBoundsChunkCapacity != newSoftBodyBoundsChunkCapacity;
 
-    mRigidBodyCapacity               = newRigidBodyCapacity;
-    mColliderCapacity                = newColliderCapacity;
-    mSoftParticleCapacity            = newSoftParticleCapacity;
-    mSoftEdgeCapacity                = newSoftEdgeCapacity;
-    mSoftTetCapacity                 = newSoftTetCapacity;
-    mParticleBroadPhaseEntryCapacity = newParticleBroadPhaseEntryCapacity;
-    mSoftCandidatePairCapacity       = newSoftCandidatePairCapacity;
-    mSoftScanScratchCapacity         = newSoftScanCapacity;
-    mSoftParticleAdjacencyCapacity   = newSoftParticleAdjacencyCapacity;
-    mSoftIncidentEdgeCapacity        = newSoftIncidentEdgeCapacity;
-    mSoftIncidentTetCapacity         = newSoftIncidentTetCapacity;
-    mSoftRenderVertexCapacity        = newSoftRenderVertexCapacity;
-    mSoftRenderTriangleIndexCapacity = newSoftRenderTriangleIndexCapacity;
-    mSoftRenderTriangleCapacity      = newSoftRenderTriangleCapacity;
-    mSoftBodyRangeCapacity           = newSoftBodyRangeCapacity;
-    mSoftBodyBoundsChunkCapacity     = newSoftBodyBoundsChunkCapacity;
-    mJointCollisionSuppressionOffsetCapacity = newJointCollisionSuppressionOffsetCapacity;
+    mRigidBodyCapacity                         = newRigidBodyCapacity;
+    mColliderCapacity                          = newColliderCapacity;
+    mSoftParticleCapacity                      = newSoftParticleCapacity;
+    mSoftEdgeCapacity                          = newSoftEdgeCapacity;
+    mSoftTetCapacity                           = newSoftTetCapacity;
+    mParticleBroadPhaseEntryCapacity           = newParticleBroadPhaseEntryCapacity;
+    mSoftCandidatePairCapacity                 = newSoftCandidatePairCapacity;
+    mSoftScanScratchCapacity                   = newSoftScanCapacity;
+    mSoftParticleAdjacencyCapacity             = newSoftParticleAdjacencyCapacity;
+    mSoftIncidentEdgeCapacity                  = newSoftIncidentEdgeCapacity;
+    mSoftIncidentTetCapacity                   = newSoftIncidentTetCapacity;
+    mSoftRenderVertexCapacity                  = newSoftRenderVertexCapacity;
+    mSoftRenderTriangleIndexCapacity           = newSoftRenderTriangleIndexCapacity;
+    mSoftRenderTriangleCapacity                = newSoftRenderTriangleCapacity;
+    mSoftBodyRangeCapacity                     = newSoftBodyRangeCapacity;
+    mSoftBodyBoundsChunkCapacity               = newSoftBodyBoundsChunkCapacity;
+    mJointCollisionSuppressionOffsetCapacity   = newJointCollisionSuppressionOffsetCapacity;
     mJointCollisionSuppressionNeighborCapacity = newJointCollisionSuppressionNeighborCapacity;
-    mBallJointCapacity               = newBallJointCapacity;
-    mHingeJointCapacity              = newHingeJointCapacity;
-    mSliderJointCapacity             = newSliderJointCapacity;
-    mHingePassiveJointIndexCapacity  = newHingePassiveJointIndexCapacity;
-    mHingePositionDriveIndexCapacity = newHingePositionDriveIndexCapacity;
-    mHingeVelocityDriveIndexCapacity = newHingeVelocityDriveIndexCapacity;
-    mSliderPassiveJointIndexCapacity = newSliderPassiveJointIndexCapacity;
-    mSliderPositionDriveIndexCapacity = newSliderPositionDriveIndexCapacity;
-    mSliderVelocityDriveIndexCapacity = newSliderVelocityDriveIndexCapacity;
-    mBroadPhaseNodeCapacity          = newNodeCapacity;
-    mCandidatePairCapacity           = newCandidatePairCapacity;
-    mContactCapacity                 = newRigidContactCapacity;
+    mBallJointCapacity                         = newBallJointCapacity;
+    mHingeJointCapacity                        = newHingeJointCapacity;
+    mSliderJointCapacity                       = newSliderJointCapacity;
+    mHingePassiveJointIndexCapacity            = newHingePassiveJointIndexCapacity;
+    mHingePositionDriveIndexCapacity           = newHingePositionDriveIndexCapacity;
+    mHingeVelocityDriveIndexCapacity           = newHingeVelocityDriveIndexCapacity;
+    mSliderPassiveJointIndexCapacity           = newSliderPassiveJointIndexCapacity;
+    mSliderPositionDriveIndexCapacity          = newSliderPositionDriveIndexCapacity;
+    mSliderVelocityDriveIndexCapacity          = newSliderVelocityDriveIndexCapacity;
+    mBroadPhaseNodeCapacity                    = newNodeCapacity;
+    mCandidatePairCapacity                     = newCandidatePairCapacity;
+    mContactCapacity                           = newRigidContactCapacity;
     const bool rigidBindingsChanged =
         rigidPositionsBefore != mPersistentRigidBodies.positionsBuffer.RawPtr() ||
         rigidOrientationsBefore != mPersistentRigidBodies.orientationsBuffer.RawPtr() ||
@@ -1391,7 +1379,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         colliderOwnersBefore != mPersistentColliders.ownerRigidBodyIndicesBuffer.RawPtr() ||
         colliderBroadPhaseBefore != mPersistentColliders.broadPhaseDataBuffer.RawPtr() ||
         bodyColliderRangesBefore != mPersistentBodyColliderMapping.colliderRangesBuffer.RawPtr() ||
-        bodyColliderIndicesBefore != mPersistentBodyColliderMapping.colliderIndicesBuffer.RawPtr() ||
+        bodyColliderIndicesBefore !=
+            mPersistentBodyColliderMapping.colliderIndicesBuffer.RawPtr() ||
         jointSuppressionOffsetsBefore !=
             mPersistentJointCollisionSuppression.neighborOffsetsBuffer.RawPtr() ||
         jointSuppressionNeighborsBefore !=
@@ -1404,8 +1393,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
             mPersistentJoints.hingePositionDriveJointIndicesBuffer.RawPtr() ||
         hingeVelocityDriveIndicesBefore !=
             mPersistentJoints.hingeVelocityDriveJointIndicesBuffer.RawPtr() ||
-        sliderPassiveIndicesBefore !=
-            mPersistentJoints.sliderPassiveJointIndicesBuffer.RawPtr() ||
+        sliderPassiveIndicesBefore != mPersistentJoints.sliderPassiveJointIndicesBuffer.RawPtr() ||
         sliderPositionDriveIndicesBefore !=
             mPersistentJoints.sliderPositionDriveJointIndicesBuffer.RawPtr() ||
         sliderVelocityDriveIndicesBefore !=
@@ -1469,12 +1457,12 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
     const BodyColliderMappingHost &bodyColliderMapping = world.bodyColliderMapping();
     const JointCollisionSuppressionHost &jointCollisionSuppression =
         world.jointCollisionSuppression();
-    const SoftParticleSoAHost &softParticles           = world.softParticles();
-    const SoftRenderDataHost &softRenderData           = world.softRenderData();
-    const std::vector<SoftEdge> &softEdges             = world.softEdges();
-    const std::vector<SoftTet> &softTets               = world.softTets();
-    const std::uint64_t worldRevision                  = world.authoredRevision();
-    const std::uint64_t softTopologyRevision           = world.softBodyTopologyRevision();
+    const SoftParticleSoAHost &softParticles = world.softParticles();
+    const SoftRenderDataHost &softRenderData = world.softRenderData();
+    const std::vector<SoftEdge> &softEdges   = world.softEdges();
+    const std::vector<SoftTet> &softTets     = world.softTets();
+    const std::uint64_t worldRevision        = world.authoredRevision();
+    const std::uint64_t softTopologyRevision = world.softBodyTopologyRevision();
     if (static_cast<std::uint32_t>(rigidBodies.size()) != bodyCount ||
         static_cast<std::uint32_t>(colliders.size()) != colliderCount)
     {
@@ -1484,24 +1472,24 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
     if (bodyCount == 0u && colliderCount == 0u && softParticles.empty() && softEdges.empty() &&
         softTets.empty())
     {
-        mRigidBodyCount                  = 0u;
-        mColliderCount                   = 0u;
-        mBallJointCount                  = 0u;
-        mHingeJointCount                 = 0u;
-        mSliderJointCount                = 0u;
-        mSoftBodyCount                   = 0u;
-        mSoftParticleCount               = 0u;
-        mSoftEdgeCount                   = 0u;
-        mSoftTetCount                    = 0u;
-        mHingePassiveJointCount          = 0u;
-        mHingePositionDriveJointCount    = 0u;
-        mHingeVelocityDriveJointCount    = 0u;
-        mSliderPassiveJointCount         = 0u;
-        mSliderPositionDriveJointCount   = 0u;
-        mSliderVelocityDriveJointCount   = 0u;
-        mRigidJointUploadResetRequired   = true;
-        mSoftParticleUploadResetRequired = true;
-        mSoftTopologyUploadResetRequired = true;
+        mRigidBodyCount                      = 0u;
+        mColliderCount                       = 0u;
+        mBallJointCount                      = 0u;
+        mHingeJointCount                     = 0u;
+        mSliderJointCount                    = 0u;
+        mSoftBodyCount                       = 0u;
+        mSoftParticleCount                   = 0u;
+        mSoftEdgeCount                       = 0u;
+        mSoftTetCount                        = 0u;
+        mHingePassiveJointCount              = 0u;
+        mHingePositionDriveJointCount        = 0u;
+        mHingeVelocityDriveJointCount        = 0u;
+        mSliderPassiveJointCount             = 0u;
+        mSliderPositionDriveJointCount       = 0u;
+        mSliderVelocityDriveJointCount       = 0u;
+        mRigidJointUploadResetRequired       = true;
+        mSoftParticleUploadResetRequired     = true;
+        mSoftTopologyUploadResetRequired     = true;
         mLastUploadedRigidJointSceneRevision = world.rigidJointSceneRevision();
         mLastUploadedRigidJointModeRevision  = world.rigidJointModeRevision();
         world.clearRigidBodyUploadState();
@@ -1693,8 +1681,8 @@ bool PhysicsSceneGpuState::uploadColliderRange(Diligent::IDeviceContext *compute
     computeContext->UpdateBuffer(
         mPersistentColliders.contactDataBuffer,
         static_cast<Diligent::Uint64>(begin) * sizeof(GpuColliderContactData),
-        static_cast<Diligent::Uint64>(count) * sizeof(GpuColliderContactData),
-        contactData.data(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        static_cast<Diligent::Uint64>(count) * sizeof(GpuColliderContactData), contactData.data(),
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     return true;
 }
 
@@ -1770,7 +1758,7 @@ bool PhysicsSceneGpuState::uploadJointCollisionSuppression(
     }
 
     const std::vector<std::uint32_t> &neighborOffsets = suppression.neighborOffsets;
-    const std::vector<std::uint32_t> &neighbors = suppression.neighbors;
+    const std::vector<std::uint32_t> &neighbors       = suppression.neighbors;
     if (neighborOffsets.size() != static_cast<std::size_t>(bodyCount + 1u))
     {
         return false;
@@ -1779,9 +1767,9 @@ bool PhysicsSceneGpuState::uploadJointCollisionSuppression(
     return updateStructuredBufferRange(
                computeContext, mPersistentJointCollisionSuppression.neighborOffsetsBuffer,
                neighborOffsets, 0u, static_cast<std::uint32_t>(neighborOffsets.size())) &&
-           updateStructuredBufferRange(
-               computeContext, mPersistentJointCollisionSuppression.neighborsBuffer, neighbors, 0u,
-               static_cast<std::uint32_t>(neighbors.size()));
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentJointCollisionSuppression.neighborsBuffer,
+                                       neighbors, 0u, static_cast<std::uint32_t>(neighbors.size()));
 }
 
 bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeContext,
@@ -1839,14 +1827,12 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
         dst.projectionRow0 = jointScene.hinge.projectionRow0[i];
         dst.projectionRow1 = jointScene.hinge.projectionRow1[i];
         dst.projectionRow2 = jointScene.hinge.projectionRow2[i];
-        dst.limitParams    = Diligent::float4{
-            static_cast<float>(jointScene.hinge.limitEnabledFlags[i]),
-            jointScene.hinge.limitMins[i],
-            jointScene.hinge.limitMaxs[i],
-            0.0f};
-        dst.driveTargetParams = Diligent::float4{jointScene.hinge.driveTargetAngles[i],
-                                                 jointScene.hinge.driveTargetAngularVelocities[i],
-                                                 0.0f, 0.0f};
+        dst.limitParams =
+            Diligent::float4{static_cast<float>(jointScene.hinge.limitEnabledFlags[i]),
+                             jointScene.hinge.limitMins[i], jointScene.hinge.limitMaxs[i], 0.0f};
+        dst.driveTargetParams =
+            Diligent::float4{jointScene.hinge.driveTargetAngles[i],
+                             jointScene.hinge.driveTargetAngularVelocities[i], 0.0f, 0.0f};
 
         if (!needsModeIndexUpload || jointScene.hinge.enabledFlags[i] == 0u)
         {
@@ -1882,27 +1868,24 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
     for (std::size_t i = 0; i < sliderJoints.size(); ++i)
     {
         GpuSliderJoint &dst = sliderJoints[i];
-        dst.bodyA          = jointScene.slider.bodyIndicesA[i];
-        dst.bodyB          = jointScene.slider.bodyIndicesB[i];
-        dst.enabled        = jointScene.slider.enabledFlags[i];
-        dst.driveMode      = jointScene.slider.driveModes[i];
-        dst.localAnchorA   = jointScene.slider.localAnchorsA[i];
-        dst.localAnchorB   = jointScene.slider.localAnchorsB[i];
-        dst.localAxisA0    = jointScene.slider.localAxesA0[i];
-        dst.localAxisA1    = jointScene.slider.localAxesA1[i];
-        dst.localAxisA2    = jointScene.slider.localAxesA2[i];
-        dst.projectionRow0 = jointScene.slider.projectionRow0[i];
-        dst.projectionRow1 = jointScene.slider.projectionRow1[i];
-        dst.projectionRow2 = jointScene.slider.projectionRow2[i];
-        dst.limitParams    = Diligent::float4{
-            static_cast<float>(jointScene.slider.limitEnabledFlags[i]),
-            jointScene.slider.limitMins[i],
-            jointScene.slider.limitMaxs[i],
-            0.0f};
-        dst.driveTargetParams  = Diligent::float4{jointScene.slider.driveTargetPositions[i],
-                                                  jointScene.slider.driveRestOffsets[i],
-                                                  jointScene.slider.driveTargetVelocities[i],
-                                                  0.0f};
+        dst.bodyA           = jointScene.slider.bodyIndicesA[i];
+        dst.bodyB           = jointScene.slider.bodyIndicesB[i];
+        dst.enabled         = jointScene.slider.enabledFlags[i];
+        dst.driveMode       = jointScene.slider.driveModes[i];
+        dst.localAnchorA    = jointScene.slider.localAnchorsA[i];
+        dst.localAnchorB    = jointScene.slider.localAnchorsB[i];
+        dst.localAxisA0     = jointScene.slider.localAxesA0[i];
+        dst.localAxisA1     = jointScene.slider.localAxesA1[i];
+        dst.localAxisA2     = jointScene.slider.localAxesA2[i];
+        dst.projectionRow0  = jointScene.slider.projectionRow0[i];
+        dst.projectionRow1  = jointScene.slider.projectionRow1[i];
+        dst.projectionRow2  = jointScene.slider.projectionRow2[i];
+        dst.limitParams =
+            Diligent::float4{static_cast<float>(jointScene.slider.limitEnabledFlags[i]),
+                             jointScene.slider.limitMins[i], jointScene.slider.limitMaxs[i], 0.0f};
+        dst.driveTargetParams = Diligent::float4{jointScene.slider.driveTargetPositions[i],
+                                                 jointScene.slider.driveRestOffsets[i],
+                                                 jointScene.slider.driveTargetVelocities[i], 0.0f};
 
         if (!needsModeIndexUpload || jointScene.slider.enabledFlags[i] == 0u)
         {
@@ -1940,41 +1923,37 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
     }
 
     if (needsModeIndexUpload &&
-        (!updateStructuredBufferRange(computeContext,
-                                      mPersistentJoints.hingePassiveJointIndicesBuffer,
-                                      hingePassiveJointIndices, 0u,
-                                      static_cast<std::uint32_t>(hingePassiveJointIndices.size())) ||
-         !updateStructuredBufferRange(computeContext,
-                                      mPersistentJoints.hingePositionDriveJointIndicesBuffer,
-                                      hingePositionDriveJointIndices, 0u,
-                                      static_cast<std::uint32_t>(
-                                          hingePositionDriveJointIndices.size())) ||
-         !updateStructuredBufferRange(computeContext,
-                                      mPersistentJoints.hingeVelocityDriveJointIndicesBuffer,
-                                      hingeVelocityDriveJointIndices, 0u,
-                                      static_cast<std::uint32_t>(
-                                          hingeVelocityDriveJointIndices.size())) ||
-         !updateStructuredBufferRange(computeContext,
-                                      mPersistentJoints.sliderPassiveJointIndicesBuffer,
-                                      sliderPassiveJointIndices, 0u,
-                                      static_cast<std::uint32_t>(sliderPassiveJointIndices.size())) ||
-         !updateStructuredBufferRange(computeContext,
-                                      mPersistentJoints.sliderPositionDriveJointIndicesBuffer,
-                                      sliderPositionDriveJointIndices, 0u,
-                                      static_cast<std::uint32_t>(
-                                          sliderPositionDriveJointIndices.size())) ||
-         !updateStructuredBufferRange(computeContext,
-                                      mPersistentJoints.sliderVelocityDriveJointIndicesBuffer,
-                                      sliderVelocityDriveJointIndices, 0u,
-                                      static_cast<std::uint32_t>(
-                                          sliderVelocityDriveJointIndices.size()))))
+        (!updateStructuredBufferRange(
+             computeContext, mPersistentJoints.hingePassiveJointIndicesBuffer,
+             hingePassiveJointIndices, 0u,
+             static_cast<std::uint32_t>(hingePassiveJointIndices.size())) ||
+         !updateStructuredBufferRange(
+             computeContext, mPersistentJoints.hingePositionDriveJointIndicesBuffer,
+             hingePositionDriveJointIndices, 0u,
+             static_cast<std::uint32_t>(hingePositionDriveJointIndices.size())) ||
+         !updateStructuredBufferRange(
+             computeContext, mPersistentJoints.hingeVelocityDriveJointIndicesBuffer,
+             hingeVelocityDriveJointIndices, 0u,
+             static_cast<std::uint32_t>(hingeVelocityDriveJointIndices.size())) ||
+         !updateStructuredBufferRange(
+             computeContext, mPersistentJoints.sliderPassiveJointIndicesBuffer,
+             sliderPassiveJointIndices, 0u,
+             static_cast<std::uint32_t>(sliderPassiveJointIndices.size())) ||
+         !updateStructuredBufferRange(
+             computeContext, mPersistentJoints.sliderPositionDriveJointIndicesBuffer,
+             sliderPositionDriveJointIndices, 0u,
+             static_cast<std::uint32_t>(sliderPositionDriveJointIndices.size())) ||
+         !updateStructuredBufferRange(
+             computeContext, mPersistentJoints.sliderVelocityDriveJointIndicesBuffer,
+             sliderVelocityDriveJointIndices, 0u,
+             static_cast<std::uint32_t>(sliderVelocityDriveJointIndices.size()))))
     {
         return false;
     }
 
-    mBallJointCount                    = static_cast<std::uint32_t>(ballJoints.size());
-    mHingeJointCount                   = static_cast<std::uint32_t>(hingeJoints.size());
-    mSliderJointCount                  = static_cast<std::uint32_t>(sliderJoints.size());
+    mBallJointCount   = static_cast<std::uint32_t>(ballJoints.size());
+    mHingeJointCount  = static_cast<std::uint32_t>(hingeJoints.size());
+    mSliderJointCount = static_cast<std::uint32_t>(sliderJoints.size());
     if (needsModeIndexUpload)
     {
         mHingePassiveJointCount = static_cast<std::uint32_t>(hingePassiveJointIndices.size());
@@ -1988,9 +1967,9 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
         mSliderVelocityDriveJointCount =
             static_cast<std::uint32_t>(sliderVelocityDriveJointIndices.size());
     }
-    mLastUploadedRigidJointSceneRevision    = sceneRevision;
-    mLastUploadedRigidJointModeRevision     = modeRevision;
-    mRigidJointUploadResetRequired          = false;
+    mLastUploadedRigidJointSceneRevision = sceneRevision;
+    mLastUploadedRigidJointModeRevision  = modeRevision;
+    mRigidJointUploadResetRequired       = false;
     return true;
 }
 

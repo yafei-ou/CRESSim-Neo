@@ -34,7 +34,7 @@ constexpr RigidBodyId kInvalidRigidBodyId = 0u;
 using ColliderId                        = std::uint32_t;
 constexpr ColliderId kInvalidColliderId = 0u;
 
-using RigidJointId                         = std::uint32_t;
+using RigidJointId                          = std::uint32_t;
 constexpr RigidJointId kInvalidRigidJointId = 0u;
 
 enum class RigidJointDriveMode : std::uint32_t
@@ -90,8 +90,8 @@ struct SoftBodyMaterialDesc
 
 struct RigidBodyState
 {
-    RigidBodyId rigidBodyId   = kInvalidRigidBodyId;
-    common::EntityId entityId = common::kInvalidEntityId;
+    RigidBodyId rigidBodyId        = kInvalidRigidBodyId;
+    common::EntityId entityId      = common::kInvalidEntityId;
     std::uint32_t environmentIndex = 0u;
     Diligent::float3 position{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF rotation{0.0f, 0.0f, 0.0f, 1.0f};
@@ -108,10 +108,10 @@ struct RigidBodyState
 
 struct ColliderState
 {
-    ColliderId colliderId          = kInvalidColliderId;
-    common::EntityId entityId      = common::kInvalidEntityId;
-    RigidBodyId ownerRigidBodyId   = kInvalidRigidBodyId;
-    ColliderShapeType shapeType    = ColliderShapeType::Sphere;
+    ColliderId colliderId        = kInvalidColliderId;
+    common::EntityId entityId    = common::kInvalidEntityId;
+    RigidBodyId ownerRigidBodyId = kInvalidRigidBodyId;
+    ColliderShapeType shapeType  = ColliderShapeType::Sphere;
     Diligent::float4 shapeParams{0.5f, 0.0f, 0.0f, 0.0f};
     Diligent::float3 localPosition{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF localRotation{0.0f, 0.0f, 0.0f, 1.0f};
@@ -311,43 +311,43 @@ struct BodyColliderMappingHost
 
 struct BallJointState
 {
-    RigidJointId jointId      = kInvalidRigidJointId;
-    bool enabled              = true;
+    RigidJointId jointId                 = kInvalidRigidJointId;
+    bool enabled                         = true;
     bool suppressConnectedBodyCollisions = false;
-    RigidBodyId bodyA         = kInvalidRigidBodyId;
-    RigidBodyId bodyB         = kInvalidRigidBodyId;
+    RigidBodyId bodyA                    = kInvalidRigidBodyId;
+    RigidBodyId bodyB                    = kInvalidRigidBodyId;
     Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
     Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
 };
 
 struct HingeJointState
 {
-    RigidJointId jointId      = kInvalidRigidJointId;
-    bool enabled              = true;
+    RigidJointId jointId                 = kInvalidRigidJointId;
+    bool enabled                         = true;
     bool suppressConnectedBodyCollisions = false;
-    RigidJointDriveMode driveMode = RigidJointDriveMode::None;
-    bool limitEnabled         = false;
-    RigidBodyId bodyA         = kInvalidRigidBodyId;
-    RigidBodyId bodyB         = kInvalidRigidBodyId;
+    RigidJointDriveMode driveMode        = RigidJointDriveMode::None;
+    bool limitEnabled                    = false;
+    RigidBodyId bodyA                    = kInvalidRigidBodyId;
+    RigidBodyId bodyB                    = kInvalidRigidBodyId;
     Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
     Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF localRotationA{0.0f, 0.0f, 0.0f, 1.0f};
     Diligent::QuaternionF localRotationB{0.0f, 0.0f, 0.0f, 1.0f};
-    float limitMin            = 0.0f;
-    float limitMax            = 0.0f;
-    float driveTargetAngle    = 0.0f;
+    float limitMin                   = 0.0f;
+    float limitMax                   = 0.0f;
+    float driveTargetAngle           = 0.0f;
     float driveTargetAngularVelocity = 0.0f;
 };
 
 struct SliderJointState
 {
-    RigidJointId jointId      = kInvalidRigidJointId;
-    bool enabled              = true;
+    RigidJointId jointId                 = kInvalidRigidJointId;
+    bool enabled                         = true;
     bool suppressConnectedBodyCollisions = false;
-    RigidJointDriveMode driveMode = RigidJointDriveMode::None;
-    bool limitEnabled         = false;
-    RigidBodyId bodyA         = kInvalidRigidBodyId;
-    RigidBodyId bodyB         = kInvalidRigidBodyId;
+    RigidJointDriveMode driveMode        = RigidJointDriveMode::None;
+    bool limitEnabled                    = false;
+    RigidBodyId bodyA                    = kInvalidRigidBodyId;
+    RigidBodyId bodyB                    = kInvalidRigidBodyId;
     Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
     Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF localRotationA{0.0f, 0.0f, 0.0f, 1.0f};
@@ -367,8 +367,14 @@ struct BallJointSoAHost
     std::vector<Diligent::float4> localAnchorsA;
     std::vector<Diligent::float4> localAnchorsB;
 
-    std::size_t size() const noexcept { return jointIds.size(); }
-    bool empty() const noexcept { return jointIds.empty(); }
+    std::size_t size() const noexcept
+    {
+        return jointIds.size();
+    }
+    bool empty() const noexcept
+    {
+        return jointIds.empty();
+    }
     void clear()
     {
         jointIds.clear();
@@ -399,8 +405,14 @@ struct HingeJointSoAHost
     std::vector<Diligent::float4> projectionRow1;
     std::vector<Diligent::float4> projectionRow2;
 
-    std::size_t size() const noexcept { return jointIds.size(); }
-    bool empty() const noexcept { return jointIds.empty(); }
+    std::size_t size() const noexcept
+    {
+        return jointIds.size();
+    }
+    bool empty() const noexcept
+    {
+        return jointIds.empty();
+    }
     void clear()
     {
         jointIds.clear();
@@ -444,8 +456,14 @@ struct SliderJointSoAHost
     std::vector<Diligent::float4> projectionRow1;
     std::vector<Diligent::float4> projectionRow2;
 
-    std::size_t size() const noexcept { return jointIds.size(); }
-    bool empty() const noexcept { return jointIds.empty(); }
+    std::size_t size() const noexcept
+    {
+        return jointIds.size();
+    }
+    bool empty() const noexcept
+    {
+        return jointIds.empty();
+    }
     void clear()
     {
         jointIds.clear();
