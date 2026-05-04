@@ -1786,18 +1786,15 @@ bool PhysicsWorld::pruneRigidJointsForBody(RigidBodyId rigidBodyId) noexcept
     const auto removeByBody = [rigidBodyId](auto &container) noexcept
     {
         const auto originalSize = container.size();
-        container.erase(std::remove_if(container.begin(), container.end(),
-                                       [rigidBodyId](const auto &joint)
-                                       {
-                                           return joint.bodyA == rigidBodyId ||
-                                                  joint.bodyB == rigidBodyId;
-                                       }),
-                        container.end());
+        container.erase(
+            std::remove_if(container.begin(), container.end(), [rigidBodyId](const auto &joint)
+                           { return joint.bodyA == rigidBodyId || joint.bodyB == rigidBodyId; }),
+            container.end());
         return container.size() != originalSize;
     };
 
-    const bool removedBall = removeByBody(mBallJointSnapshot);
-    const bool removedHinge = removeByBody(mHingeJointSnapshot);
+    const bool removedBall   = removeByBody(mBallJointSnapshot);
+    const bool removedHinge  = removeByBody(mHingeJointSnapshot);
     const bool removedSlider = removeByBody(mSliderJointSnapshot);
     return removedBall || removedHinge || removedSlider;
 }
@@ -1864,7 +1861,6 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
             return;
         }
 
-        self->mRigidJointScene.ball.jointIds.push_back(joint.jointId);
         self->mRigidJointScene.ball.bodyIndicesA.push_back(bodyIndexA);
         self->mRigidJointScene.ball.bodyIndicesB.push_back(bodyIndexB);
         self->mRigidJointScene.ball.enabledFlags.push_back(joint.enabled ? 1u : 0u);
@@ -1896,7 +1892,6 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
             quaternionRotate(joint.localRotationA, Diligent::float3{1.0f, 0.0f, 0.0f}),
             Diligent::float3{1.0f, 0.0f, 0.0f});
 
-        self->mRigidJointScene.hinge.jointIds.push_back(joint.jointId);
         self->mRigidJointScene.hinge.bodyIndicesA.push_back(bodyIndexA);
         self->mRigidJointScene.hinge.bodyIndicesB.push_back(bodyIndexB);
         self->mRigidJointScene.hinge.enabledFlags.push_back(joint.enabled ? 1u : 0u);
@@ -1952,7 +1947,6 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
         Diligent::float4 projectionRows[3];
         computeProjectionRowsFromLocalFrames(joint.localRotationA, joint.localRotationB, 1u, 3u,
                                              projectionRows);
-        self->mRigidJointScene.slider.jointIds.push_back(joint.jointId);
         self->mRigidJointScene.slider.bodyIndicesA.push_back(bodyIndexA);
         self->mRigidJointScene.slider.bodyIndicesB.push_back(bodyIndexB);
         self->mRigidJointScene.slider.enabledFlags.push_back(joint.enabled ? 1u : 0u);

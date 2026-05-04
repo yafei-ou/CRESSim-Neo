@@ -37,10 +37,10 @@ constexpr ColliderId kInvalidColliderId = 0u;
 using BallJointId                         = std::uint32_t;
 constexpr BallJointId kInvalidBallJointId = 0u;
 
-using HingeJointId                         = std::uint32_t;
+using HingeJointId                          = std::uint32_t;
 constexpr HingeJointId kInvalidHingeJointId = 0u;
 
-using SliderJointId                         = std::uint32_t;
+using SliderJointId                           = std::uint32_t;
 constexpr SliderJointId kInvalidSliderJointId = 0u;
 
 enum class RigidJointDriveMode : std::uint32_t
@@ -366,7 +366,6 @@ struct SliderJointState
 
 struct BallJointSoAHost
 {
-    std::vector<BallJointId> jointIds;
     std::vector<std::uint32_t> bodyIndicesA;
     std::vector<std::uint32_t> bodyIndicesB;
     std::vector<std::uint32_t> enabledFlags;
@@ -375,15 +374,14 @@ struct BallJointSoAHost
 
     std::size_t size() const noexcept
     {
-        return jointIds.size();
+        return bodyIndicesA.size();
     }
     bool empty() const noexcept
     {
-        return jointIds.empty();
+        return bodyIndicesA.empty();
     }
     void clear()
     {
-        jointIds.clear();
         bodyIndicesA.clear();
         bodyIndicesB.clear();
         enabledFlags.clear();
@@ -394,7 +392,6 @@ struct BallJointSoAHost
 
 struct HingeJointSoAHost
 {
-    std::vector<HingeJointId> jointIds;
     std::vector<std::uint32_t> bodyIndicesA;
     std::vector<std::uint32_t> bodyIndicesB;
     std::vector<std::uint32_t> enabledFlags;
@@ -413,15 +410,14 @@ struct HingeJointSoAHost
 
     std::size_t size() const noexcept
     {
-        return jointIds.size();
+        return bodyIndicesA.size();
     }
     bool empty() const noexcept
     {
-        return jointIds.empty();
+        return bodyIndicesA.empty();
     }
     void clear()
     {
-        jointIds.clear();
         bodyIndicesA.clear();
         bodyIndicesB.clear();
         enabledFlags.clear();
@@ -442,7 +438,6 @@ struct HingeJointSoAHost
 
 struct SliderJointSoAHost
 {
-    std::vector<SliderJointId> jointIds;
     std::vector<std::uint32_t> bodyIndicesA;
     std::vector<std::uint32_t> bodyIndicesB;
     std::vector<std::uint32_t> enabledFlags;
@@ -464,15 +459,14 @@ struct SliderJointSoAHost
 
     std::size_t size() const noexcept
     {
-        return jointIds.size();
+        return bodyIndicesA.size();
     }
     bool empty() const noexcept
     {
-        return jointIds.empty();
+        return bodyIndicesA.empty();
     }
     void clear()
     {
-        jointIds.clear();
         bodyIndicesA.clear();
         bodyIndicesB.clear();
         enabledFlags.clear();
