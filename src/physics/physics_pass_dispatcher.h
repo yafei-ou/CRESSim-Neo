@@ -219,10 +219,14 @@ private:
                                                const PhysicsSceneGpuState &sceneState,
                                                std::uint32_t jointCount);
     bool dispatchSolveHingeJointConstraintsPass(Diligent::IDeviceContext *computeContext,
+                                                gpu::GpuComputePass &pass,
                                                 const PhysicsSceneGpuState &sceneState,
+                                                Diligent::IBuffer *jointIndicesBuffer,
                                                 std::uint32_t jointCount);
     bool dispatchSolveSliderJointConstraintsPass(Diligent::IDeviceContext *computeContext,
+                                                 gpu::GpuComputePass &pass,
                                                  const PhysicsSceneGpuState &sceneState,
+                                                 Diligent::IBuffer *jointIndicesBuffer,
                                                  std::uint32_t jointCount);
     bool dispatchApplyRigidCorrectionsPass(Diligent::IDeviceContext *computeContext,
                                            const PhysicsSceneGpuState &sceneState,
@@ -297,8 +301,10 @@ private:
     gpu::GpuComputePass mClearRigidCorrectionsPass;
     gpu::GpuComputePass mSolveRigidContactConstraintsPass;
     gpu::GpuComputePass mSolveBallJointConstraintsPass;
-    gpu::GpuComputePass mSolveHingeJointConstraintsPass;
-    gpu::GpuComputePass mSolveSliderJointConstraintsPass;
+    gpu::GpuComputePass mSolveHingeJointConstraintsPassivePass;
+    gpu::GpuComputePass mSolveHingeJointConstraintsTargetPositionPass;
+    gpu::GpuComputePass mSolveSliderJointConstraintsPassivePass;
+    gpu::GpuComputePass mSolveSliderJointConstraintsTargetPositionPass;
     gpu::GpuComputePass mApplyRigidCorrectionsPass;
     gpu::GpuComputePass mUpdateRigidVelocitiesPass;
     gpu::GpuComputePass mSolveRigidContactVelocitiesPass;

@@ -32,6 +32,8 @@ struct GpuComputePassDefinition
     const char *psoName                                   = nullptr;
     const Diligent::ShaderResourceVariableDesc *variables = nullptr;
     std::size_t variableCount                             = 0u;
+    const Diligent::ShaderMacro *macros                   = nullptr;
+    std::size_t macroCount                                = 0u;
 };
 
 class GpuComputePass

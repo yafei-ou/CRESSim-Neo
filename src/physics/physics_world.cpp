@@ -307,6 +307,8 @@ void PhysicsWorld::clear()
     mActiveMovingColliderCount   = 0u;
     mStaticColliderCount         = 0u;
     ++mRigidBodyTopologyRevision;
+    ++mRigidJointSceneRevision;
+    ++mRigidJointModeRevision;
     ++mRigidJointTopologyRevision;
     ++mSoftBodyTopologyRevision;
     ++mAuthoredRevision;
@@ -399,6 +401,8 @@ RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
             }
         }
         mRigidJointSceneDirty = true;
+        ++mRigidJointSceneRevision;
+        ++mRigidJointModeRevision;
         ++mRigidJointTopologyRevision;
     }
     mStaticBroadPhaseDirty =
@@ -462,9 +466,11 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     markRigidBodyCountDirty();
     markColliderCountDirty(true);
     mBodyColliderMappingDirty = true;
-    mRigidJointSceneDirty     = true;
     mStaticBroadPhaseDirty    = mStaticBroadPhaseDirty || removedStatic;
     ++mRigidBodyTopologyRevision;
+    mRigidJointSceneDirty = true;
+    ++mRigidJointSceneRevision;
+    ++mRigidJointModeRevision;
     ++mRigidJointTopologyRevision;
     ++mAuthoredRevision;
     return true;
@@ -763,6 +769,7 @@ bool PhysicsWorld::upsertBallJoint(const BallJointState &state)
     auto it = std::find_if(mBallJointSnapshot.begin(), mBallJointSnapshot.end(),
                            [&](const BallJointState &existing)
                            { return existing.jointId == normalized.jointId; });
+    const bool inserted = it == mBallJointSnapshot.end();
     if (it == mBallJointSnapshot.end())
     {
         mBallJointSnapshot.push_back(normalized);
@@ -772,7 +779,7 @@ bool PhysicsWorld::upsertBallJoint(const BallJointState &state)
         *it = normalized;
     }
 
-    markJointTopologyDirty();
+    applyRigidJointChange(classifyBallJointChange(inserted));
     return true;
 }
 
@@ -807,6 +814,8 @@ bool PhysicsWorld::upsertHingeJoint(const HingeJointState &state)
     auto it = std::find_if(mHingeJointSnapshot.begin(), mHingeJointSnapshot.end(),
                            [&](const HingeJointState &existing)
                            { return existing.jointId == normalized.jointId; });
+    const bool inserted = it == mHingeJointSnapshot.end();
+    const HingeJointState previousState = inserted ? HingeJointState{} : *it;
     if (it == mHingeJointSnapshot.end())
     {
         mHingeJointSnapshot.push_back(normalized);
@@ -816,7 +825,7 @@ bool PhysicsWorld::upsertHingeJoint(const HingeJointState &state)
         *it = normalized;
     }
 
-    markJointTopologyDirty();
+    applyRigidJointChange(classifyHingeJointChange(previousState, normalized, inserted));
     return true;
 }
 
@@ -861,6 +870,8 @@ bool PhysicsWorld::upsertSliderJoint(const SliderJointState &state)
     auto it = std::find_if(mSliderJointSnapshot.begin(), mSliderJointSnapshot.end(),
                            [&](const SliderJointState &existing)
                            { return existing.jointId == normalized.jointId; });
+    const bool inserted = it == mSliderJointSnapshot.end();
+    const SliderJointState previousState = inserted ? SliderJointState{} : *it;
     if (it == mSliderJointSnapshot.end())
     {
         mSliderJointSnapshot.push_back(normalized);
@@ -870,7 +881,7 @@ bool PhysicsWorld::upsertSliderJoint(const SliderJointState &state)
         *it = normalized;
     }
 
-    markJointTopologyDirty();
+    applyRigidJointChange(classifySliderJointChange(previousState, normalized, inserted));
     return true;
 }
 
@@ -891,7 +902,7 @@ bool PhysicsWorld::removeRigidJoint(RigidJointId jointId)
     if (eraseById(mBallJointSnapshot) || eraseById(mHingeJointSnapshot) ||
         eraseById(mSliderJointSnapshot))
     {
-        markJointTopologyDirty();
+        applyRigidJointChange(RigidJointChangeKind::TopologyRebuild);
         return true;
     }
     return false;
@@ -1247,6 +1258,16 @@ std::uint64_t PhysicsWorld::rigidJointTopologyRevision() const noexcept
     return mRigidJointTopologyRevision;
 }
 
+std::uint64_t PhysicsWorld::rigidJointSceneRevision() const noexcept
+{
+    return mRigidJointSceneRevision;
+}
+
+std::uint64_t PhysicsWorld::rigidJointModeRevision() const noexcept
+{
+    return mRigidJointModeRevision;
+}
+
 std::uint64_t PhysicsWorld::softBodyTopologyRevision() const noexcept
 {
     return mSoftBodyTopologyRevision;
@@ -1426,6 +1447,44 @@ PhysicsWorld::SoftBodyChangeKind PhysicsWorld::classifySoftBodyChange(
     }
 
     return SoftBodyChangeKind::RuntimePropertiesOnly;
+}
+
+PhysicsWorld::RigidJointChangeKind PhysicsWorld::classifyBallJointChange(bool inserted) noexcept
+{
+    return inserted ? RigidJointChangeKind::TopologyRebuild : RigidJointChangeKind::PayloadOnly;
+}
+
+PhysicsWorld::RigidJointChangeKind PhysicsWorld::classifyHingeJointChange(
+    const HingeJointState &previousState, const HingeJointState &candidate, bool inserted) noexcept
+{
+    if (inserted)
+    {
+        return RigidJointChangeKind::TopologyRebuild;
+    }
+
+    if (previousState.enabled != candidate.enabled || previousState.driveMode != candidate.driveMode)
+    {
+        return RigidJointChangeKind::ModeRebuild;
+    }
+
+    return RigidJointChangeKind::PayloadOnly;
+}
+
+PhysicsWorld::RigidJointChangeKind PhysicsWorld::classifySliderJointChange(
+    const SliderJointState &previousState, const SliderJointState &candidate,
+    bool inserted) noexcept
+{
+    if (inserted)
+    {
+        return RigidJointChangeKind::TopologyRebuild;
+    }
+
+    if (previousState.enabled != candidate.enabled || previousState.driveMode != candidate.driveMode)
+    {
+        return RigidJointChangeKind::ModeRebuild;
+    }
+
+    return RigidJointChangeKind::PayloadOnly;
 }
 
 void PhysicsWorld::applySoftBodyRuntimeProperties(std::uint32_t index,
@@ -1734,8 +1793,8 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
         self->mRigidJointScene.hinge.bodyIndicesA.push_back(bodyIndexA);
         self->mRigidJointScene.hinge.bodyIndicesB.push_back(bodyIndexB);
         self->mRigidJointScene.hinge.enabledFlags.push_back(joint.enabled ? 1u : 0u);
-        self->mRigidJointScene.hinge.driveTargetEnabledFlags.push_back(
-            joint.driveTargetEnabled ? 1u : 0u);
+        self->mRigidJointScene.hinge.driveModes.push_back(
+            static_cast<std::uint32_t>(joint.driveMode));
         self->mRigidJointScene.hinge.localAnchorsA.push_back(toFloat4(joint.localAnchorA, 0.0f));
         self->mRigidJointScene.hinge.localAnchorsB.push_back(toFloat4(joint.localAnchorB, 0.0f));
         self->mRigidJointScene.hinge.driveTargetAngles.push_back(joint.driveTargetAngle);
@@ -1783,8 +1842,8 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
         self->mRigidJointScene.slider.bodyIndicesA.push_back(bodyIndexA);
         self->mRigidJointScene.slider.bodyIndicesB.push_back(bodyIndexB);
         self->mRigidJointScene.slider.enabledFlags.push_back(joint.enabled ? 1u : 0u);
-        self->mRigidJointScene.slider.driveTargetEnabledFlags.push_back(
-            joint.driveTargetEnabled ? 1u : 0u);
+        self->mRigidJointScene.slider.driveModes.push_back(
+            static_cast<std::uint32_t>(joint.driveMode));
         self->mRigidJointScene.slider.localAnchorsA.push_back(toFloat4(joint.localAnchorA, 0.0f));
         self->mRigidJointScene.slider.localAnchorsB.push_back(toFloat4(joint.localAnchorB, 0.0f));
         self->mRigidJointScene.slider.driveTargetPositions.push_back(joint.driveTargetPosition);
@@ -2071,9 +2130,42 @@ void PhysicsWorld::markColliderCountDirty(bool fullUploadRequired) noexcept
     mFullColliderUploadRequired = mFullColliderUploadRequired || fullUploadRequired;
 }
 
+void PhysicsWorld::applyRigidJointChange(RigidJointChangeKind changeKind) noexcept
+{
+    switch (changeKind)
+    {
+    case RigidJointChangeKind::PayloadOnly:
+        markJointSceneDirty();
+        return;
+    case RigidJointChangeKind::ModeRebuild:
+        markJointModeDirty();
+        return;
+    case RigidJointChangeKind::TopologyRebuild:
+        markJointTopologyDirty();
+        return;
+    }
+}
+
+void PhysicsWorld::markJointSceneDirty() noexcept
+{
+    mRigidJointSceneDirty = true;
+    ++mRigidJointSceneRevision;
+    ++mAuthoredRevision;
+}
+
+void PhysicsWorld::markJointModeDirty() noexcept
+{
+    mRigidJointSceneDirty = true;
+    ++mRigidJointSceneRevision;
+    ++mRigidJointModeRevision;
+    ++mAuthoredRevision;
+}
+
 void PhysicsWorld::markJointTopologyDirty() noexcept
 {
     mRigidJointSceneDirty = true;
+    ++mRigidJointSceneRevision;
+    ++mRigidJointModeRevision;
     ++mRigidJointTopologyRevision;
     ++mAuthoredRevision;
 }

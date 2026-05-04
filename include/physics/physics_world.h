@@ -88,12 +88,21 @@ public:
     std::uint64_t simulationRevision() const noexcept;
     std::uint64_t rigidBodyTopologyRevision() const noexcept;
     std::uint64_t rigidJointTopologyRevision() const noexcept;
+    std::uint64_t rigidJointSceneRevision() const noexcept;
+    std::uint64_t rigidJointModeRevision() const noexcept;
     std::uint64_t softBodyTopologyRevision() const noexcept;
 
 private:
     enum class SoftBodyChangeKind
     {
         RuntimePropertiesOnly,
+        TopologyRebuild,
+    };
+
+    enum class RigidJointChangeKind
+    {
+        PayloadOnly,
+        ModeRebuild,
         TopologyRebuild,
     };
 
@@ -125,6 +134,8 @@ private:
     void markColliderDirty(std::uint32_t index) noexcept;
     void markRigidBodyCountDirty(bool fullUploadRequired = false) noexcept;
     void markColliderCountDirty(bool fullUploadRequired = false) noexcept;
+    void markJointSceneDirty() noexcept;
+    void markJointModeDirty() noexcept;
     void markJointTopologyDirty() noexcept;
     void removeCollidersForEntity(common::EntityId entityId) noexcept;
     void removeColliderAtIndex(std::uint32_t index) noexcept;
@@ -138,6 +149,14 @@ private:
     static void normalizeSoftBodyState(SoftBodyState &state) noexcept;
     static SoftBodyChangeKind classifySoftBodyChange(const SoftBodyState &previousState,
                                                      const SoftBodyState &candidate) noexcept;
+    static RigidJointChangeKind classifyBallJointChange(bool inserted) noexcept;
+    static RigidJointChangeKind classifyHingeJointChange(const HingeJointState &previousState,
+                                                         const HingeJointState &candidate,
+                                                         bool inserted) noexcept;
+    static RigidJointChangeKind classifySliderJointChange(const SliderJointState &previousState,
+                                                          const SliderJointState &candidate,
+                                                          bool inserted) noexcept;
+    void applyRigidJointChange(RigidJointChangeKind changeKind) noexcept;
     void applySoftBodyRuntimeProperties(std::uint32_t index,
                                         const SoftBodyState &normalizedState) noexcept;
     bool prepareSoftBodyStateForInsert(const SoftBodyState &candidate,
@@ -192,6 +211,8 @@ private:
     std::uint64_t mAuthoredRevision          = 0;
     std::uint64_t mSimulationRevision        = 0;
     std::uint64_t mRigidBodyTopologyRevision = 0;
+    std::uint64_t mRigidJointSceneRevision   = 0;
+    std::uint64_t mRigidJointModeRevision    = 0;
     std::uint64_t mRigidJointTopologyRevision = 0;
     std::uint64_t mSoftBodyTopologyRevision  = 0;
     RigidBodyId mNextRigidBodyId             = 1u;

@@ -29,6 +29,11 @@ bool GpuComputePass::initialize(GpuDevice &device,
     shaderCreateInfo.Desc.Name                       = mShaderName.c_str();
     shaderCreateInfo.FilePath                        = mShaderPath.c_str();
     shaderCreateInfo.pShaderSourceStreamFactory      = streamFactory;
+    if (definition.macros != nullptr && definition.macroCount > 0u)
+    {
+        shaderCreateInfo.Macros = Diligent::ShaderMacroArray{
+            definition.macros, static_cast<Diligent::Uint32>(definition.macroCount)};
+    }
 
     Diligent::RefCntAutoPtr<Diligent::IShader> computeShader;
     if (!device.createShader(shaderCreateInfo, &computeShader))

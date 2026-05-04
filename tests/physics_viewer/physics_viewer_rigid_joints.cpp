@@ -29,6 +29,7 @@ using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::physics::BallJointState;
 using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::physics::HingeJointState;
+using cressim::neo::physics::RigidJointDriveMode;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::physics::SliderJointState;
 using cressim::neo::viewer::DebugViewerApp;
@@ -433,7 +434,8 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
     upper.localAnchorB = {0.0f, 1.1f, 0.0f};
     upper.localRotationA = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
     upper.localRotationB = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
-    upper.driveTargetEnabled = options.enableDriveTargets;
+    upper.driveMode = options.enableDriveTargets ? RigidJointDriveMode::TargetPosition
+                                                 : RigidJointDriveMode::None;
     upper.driveTargetAngle = -1.37f;
     if (!world.physicsWorld().upsertHingeJoint(upper))
     {
@@ -447,7 +449,8 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
     lower.localAnchorB = {0.0f, 1.1f, 0.0f};
     lower.localRotationA = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
     lower.localRotationB = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
-    lower.driveTargetEnabled = options.enableDriveTargets;
+    lower.driveMode = options.enableDriveTargets ? RigidJointDriveMode::TargetPosition
+                                                 : RigidJointDriveMode::None;
     lower.driveTargetAngle = 0.1f;
     if (!world.physicsWorld().upsertHingeJoint(lower))
     {
@@ -495,7 +498,8 @@ void authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh, MeshHandle
     horizontalSlider.bodyB = requireRigidBodyId(runtime, sliderEntity);
     horizontalSlider.localRotationA = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
     horizontalSlider.localRotationB = makeJointFrameRotation({1.0f, 0.0f, 0.0f});
-    horizontalSlider.driveTargetEnabled = options.enableDriveTargets;
+    horizontalSlider.driveMode = options.enableDriveTargets ? RigidJointDriveMode::TargetPosition
+                                                            : RigidJointDriveMode::None;
     horizontalSlider.driveTargetPosition = 0.20f;
     if (!world.physicsWorld().upsertSliderJoint(horizontalSlider))
     {
@@ -520,7 +524,8 @@ void authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh, MeshHandle
     verticalSlider.bodyB = requireRigidBodyId(runtime, stageEntity);
     verticalSlider.localRotationA = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
     verticalSlider.localRotationB = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
-    verticalSlider.driveTargetEnabled = options.enableDriveTargets;
+    verticalSlider.driveMode = options.enableDriveTargets ? RigidJointDriveMode::TargetPosition
+                                                          : RigidJointDriveMode::None;
     verticalSlider.driveTargetPosition = 0.50f;
     if (!world.physicsWorld().upsertSliderJoint(verticalSlider))
     {

@@ -10,11 +10,16 @@ static const float kJointDriveRelaxation = 0.2;
 static const float kSliderTranslationRegularization = 1e-5;
 static const float kSliderAngularRegularization = 5e-5;
 
+#ifndef CRESSIM_JOINT_DRIVE_MODE_TARGET_POSITION
+#define CRESSIM_JOINT_DRIVE_MODE_TARGET_POSITION 0
+#endif
+
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_STRUCTURED_BUFFER(GpuSliderJoint, g_SliderJoints);
+CRESSIM_STRUCTURED_BUFFER(uint, g_SliderJointIndices);
 
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyTranslationCorrections);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
@@ -22,12 +27,13 @@ CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
-    const uint jointIndex = dispatchThreadID.x;
-    if (jointIndex >= jointCount)
+    const uint jointListIndex = dispatchThreadID.x;
+    if (jointListIndex >= jointCount)
     {
         return;
     }
 
+    const uint jointIndex = CRESSIM_SB_LOAD(g_SliderJointIndices, jointListIndex);
     const GpuSliderJoint joint = CRESSIM_SB_LOAD(g_SliderJoints, jointIndex);
     if (joint.enabled == 0u)
     {
@@ -74,98 +80,80 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 tRow1 = ComputeProjectionJacobianRow(joint.projectionRow1, qA, qB);
     const float3 tRow2 = ComputeProjectionJacobianRow(joint.projectionRow2, qA, qB);
 
-    if (joint.driveTargetEnabled != 0u)
+#if CRESSIM_JOINT_DRIVE_MODE_TARGET_POSITION
+    float3 jLinA[6];
+    float3 jAngA[6];
+    float3 jLinB[6];
+    float3 jAngB[6];
+    jLinA[0] = a1;
+    jLinA[1] = a2;
+    jLinA[2] = 0.0;
+    jLinA[3] = 0.0;
+    jLinA[4] = 0.0;
+    jLinA[5] = a0;
+    jLinB[0] = -a1;
+    jLinB[1] = -a2;
+    jLinB[2] = 0.0;
+    jLinB[3] = 0.0;
+    jLinB[4] = 0.0;
+    jLinB[5] = -a0;
+    jAngA[0] = cross(rA, a1);
+    jAngA[1] = cross(rA, a2);
+    jAngA[2] = tRow0;
+    jAngA[3] = tRow1;
+    jAngA[4] = tRow2;
+    jAngA[5] = cross(rA, a0);
+    jAngB[0] = -cross(rB, a1);
+    jAngB[1] = -cross(rB, a2);
+    jAngB[2] = -tRow0;
+    jAngB[3] = -tRow1;
+    jAngB[4] = -tRow2;
+    jAngB[5] = -cross(rB, a0);
+
+    float rhs[6];
+    rhs[0] = -dot(delta, a1) * kJointRelaxation;
+    rhs[1] = -dot(delta, a2) * kJointRelaxation;
+    rhs[2] = -ComputeProjectionConstraintValue(joint.projectionRow0, qA, qB) * kJointRelaxation;
+    rhs[3] = -ComputeProjectionConstraintValue(joint.projectionRow1, qA, qB) * kJointRelaxation;
+    rhs[4] = -ComputeProjectionConstraintValue(joint.projectionRow2, qA, qB) * kJointRelaxation;
+    rhs[5] = -(dot(rawDelta, a0) - joint.driveTargetParams.y + joint.driveTargetParams.x) *
+             kJointDriveRelaxation;
+
+    float k[6][6];
+    [unroll] for (uint row = 0u; row < 6u; ++row)
     {
-        float3 jLinA[6];
-        float3 jAngA[6];
-        float3 jLinB[6];
-        float3 jAngB[6];
-        jLinA[0] = a1;
-        jLinA[1] = a2;
-        jLinA[2] = 0.0;
-        jLinA[3] = 0.0;
-        jLinA[4] = 0.0;
-        jLinA[5] = a0;
-        jLinB[0] = -a1;
-        jLinB[1] = -a2;
-        jLinB[2] = 0.0;
-        jLinB[3] = 0.0;
-        jLinB[4] = 0.0;
-        jLinB[5] = -a0;
-        jAngA[0] = cross(rA, a1);
-        jAngA[1] = cross(rA, a2);
-        jAngA[2] = tRow0;
-        jAngA[3] = tRow1;
-        jAngA[4] = tRow2;
-        jAngA[5] = cross(rA, a0);
-        jAngB[0] = -cross(rB, a1);
-        jAngB[1] = -cross(rB, a2);
-        jAngB[2] = -tRow0;
-        jAngB[3] = -tRow1;
-        jAngB[4] = -tRow2;
-        jAngB[5] = -cross(rB, a0);
-
-        float rhs[6];
-        rhs[0] = -dot(delta, a1) * kJointRelaxation;
-        rhs[1] = -dot(delta, a2) * kJointRelaxation;
-        rhs[2] = -ComputeProjectionConstraintValue(joint.projectionRow0, qA, qB) * kJointRelaxation;
-        rhs[3] = -ComputeProjectionConstraintValue(joint.projectionRow1, qA, qB) * kJointRelaxation;
-        rhs[4] = -ComputeProjectionConstraintValue(joint.projectionRow2, qA, qB) * kJointRelaxation;
-        rhs[5] = -(dot(rawDelta, a0) - joint.driveTargetParams.y + joint.driveTargetParams.x) *
-                 kJointDriveRelaxation;
-
-        float k[6][6];
-        [unroll] for (uint row = 0u; row < 6u; ++row)
+        [unroll] for (uint col = 0u; col < 6u; ++col)
         {
-            [unroll] for (uint col = 0u; col < 6u; ++col)
-            {
-                k[row][col] = ComputeConstraintMatrixElement(
-                    invMassA, invInertiaA, qA, invMassB, invInertiaB, qB,
-                    jLinA[row], jAngA[row], jLinB[row], jAngB[row],
-                    jLinA[col], jAngA[col], jLinB[col], jAngB[col]);
-            }
+            k[row][col] = ComputeConstraintMatrixElement(
+                invMassA, invInertiaA, qA, invMassB, invInertiaB, qB,
+                jLinA[row], jAngA[row], jLinB[row], jAngB[row],
+                jLinA[col], jAngA[col], jLinB[col], jAngB[col]);
         }
+    }
 
-        k[0][0] += kSliderTranslationRegularization;
-        k[1][1] += kSliderTranslationRegularization;
-        k[2][2] += kSliderAngularRegularization;
-        k[3][3] += kSliderAngularRegularization;
-        k[4][4] += kSliderAngularRegularization;
-        k[5][5] += kSliderTranslationRegularization;
+    k[0][0] += kSliderTranslationRegularization;
+    k[1][1] += kSliderTranslationRegularization;
+    k[2][2] += kSliderAngularRegularization;
+    k[3][3] += kSliderAngularRegularization;
+    k[4][4] += kSliderAngularRegularization;
+    k[5][5] += kSliderTranslationRegularization;
 
-        float lambda[6];
-        if (!SolveLinearSystem6x6(k, rhs, lambda))
-        {
-            return;
-        }
-
-        float3 linearImpulse = 0.0;
-        float3 angularImpulseA = 0.0;
-        float3 angularImpulseB = 0.0;
-        [unroll] for (uint row = 0u; row < 6u; ++row)
-        {
-            linearImpulse += jLinA[row] * lambda[row];
-            angularImpulseA += jAngA[row] * lambda[row];
-            angularImpulseB += jAngB[row] * lambda[row];
-        }
-
-        const float3 translationA = linearImpulse * invMassA;
-        const float3 rotationA = MultiplyWorldInverseInertia(invInertiaA, qA, angularImpulseA);
-        const float3 translationB = -linearImpulse * invMassB;
-        const float3 rotationB = MultiplyWorldInverseInertia(invInertiaB, qB, angularImpulseB);
-
-        if (bodyTypeA == kRigidBodyTypeDynamic && invMassA != 0.0)
-        {
-            CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyTranslationCorrections, bodyA, translationA);
-            CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyRotationCorrections, bodyA, rotationA);
-        }
-        if (bodyTypeB == kRigidBodyTypeDynamic && invMassB != 0.0)
-        {
-            CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyTranslationCorrections, bodyB, translationB);
-            CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyRotationCorrections, bodyB, rotationB);
-        }
+    float lambda[6];
+    if (!SolveLinearSystem6x6(k, rhs, lambda))
+    {
         return;
     }
+
+    float3 linearImpulse = 0.0;
+    float3 angularImpulseA = 0.0;
+    float3 angularImpulseB = 0.0;
+    [unroll] for (uint row = 0u; row < 6u; ++row)
+    {
+        linearImpulse += jLinA[row] * lambda[row];
+        angularImpulseA += jAngA[row] * lambda[row];
+        angularImpulseB += jAngB[row] * lambda[row];
+    }
+#else
 
     float3 jLinA[5];
     float3 jAngA[5];
@@ -234,6 +222,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         angularImpulseA += jAngA[row] * lambda[row];
         angularImpulseB += jAngB[row] * lambda[row];
     }
+#endif
 
     const float3 translationA = linearImpulse * invMassA;
     const float3 rotationA = MultiplyWorldInverseInertia(invInertiaA, qA, angularImpulseA);

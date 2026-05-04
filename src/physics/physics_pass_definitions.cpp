@@ -894,6 +894,8 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveHingeJointConstraintsVars[]
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJoints",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJointIndices",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTranslationCorrections",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyRotationCorrections",
@@ -913,10 +915,20 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveSliderJointConstraintsVars[
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SliderJoints",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SliderJointIndices",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTranslationCorrections",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyRotationCorrections",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderMacro kJointDriveModePassiveMacros[] = {
+    {"CRESSIM_JOINT_DRIVE_MODE_TARGET_POSITION", "0"},
+};
+
+constexpr Diligent::ShaderMacro kJointDriveModeTargetPositionMacros[] = {
+    {"CRESSIM_JOINT_DRIVE_MODE_TARGET_POSITION", "1"},
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kClearCorrectionsVars[] = {
@@ -1477,20 +1489,44 @@ const gpu::GpuComputePassDefinition kSolveBallJointConstraints{
     std::size(kSolveBallJointConstraintsVars),
 };
 
-const gpu::GpuComputePassDefinition kSolveHingeJointConstraints{
+const gpu::GpuComputePassDefinition kSolveHingeJointConstraintsPassive{
     "physics/rigid/solver/physics_rigid_solve_hinge_joints.cs.hlsl",
-    "CRESSimNeo.Physics.RigidSolveHingeJointConstraints.CS",
-    "CRESSimNeo.Physics.RigidSolveHingeJointConstraints.PSO",
+    "CRESSimNeo.Physics.RigidSolveHingeJointConstraintsPassive.CS",
+    "CRESSimNeo.Physics.RigidSolveHingeJointConstraintsPassive.PSO",
     kSolveHingeJointConstraintsVars,
     std::size(kSolveHingeJointConstraintsVars),
+    kJointDriveModePassiveMacros,
+    std::size(kJointDriveModePassiveMacros),
 };
 
-const gpu::GpuComputePassDefinition kSolveSliderJointConstraints{
+const gpu::GpuComputePassDefinition kSolveHingeJointConstraintsTargetPosition{
+    "physics/rigid/solver/physics_rigid_solve_hinge_joints.cs.hlsl",
+    "CRESSimNeo.Physics.RigidSolveHingeJointConstraintsTargetPosition.CS",
+    "CRESSimNeo.Physics.RigidSolveHingeJointConstraintsTargetPosition.PSO",
+    kSolveHingeJointConstraintsVars,
+    std::size(kSolveHingeJointConstraintsVars),
+    kJointDriveModeTargetPositionMacros,
+    std::size(kJointDriveModeTargetPositionMacros),
+};
+
+const gpu::GpuComputePassDefinition kSolveSliderJointConstraintsPassive{
     "physics/rigid/solver/physics_rigid_solve_slider_joints.cs.hlsl",
-    "CRESSimNeo.Physics.RigidSolveSliderJointConstraints.CS",
-    "CRESSimNeo.Physics.RigidSolveSliderJointConstraints.PSO",
+    "CRESSimNeo.Physics.RigidSolveSliderJointConstraintsPassive.CS",
+    "CRESSimNeo.Physics.RigidSolveSliderJointConstraintsPassive.PSO",
     kSolveSliderJointConstraintsVars,
     std::size(kSolveSliderJointConstraintsVars),
+    kJointDriveModePassiveMacros,
+    std::size(kJointDriveModePassiveMacros),
+};
+
+const gpu::GpuComputePassDefinition kSolveSliderJointConstraintsTargetPosition{
+    "physics/rigid/solver/physics_rigid_solve_slider_joints.cs.hlsl",
+    "CRESSimNeo.Physics.RigidSolveSliderJointConstraintsTargetPosition.CS",
+    "CRESSimNeo.Physics.RigidSolveSliderJointConstraintsTargetPosition.PSO",
+    kSolveSliderJointConstraintsVars,
+    std::size(kSolveSliderJointConstraintsVars),
+    kJointDriveModeTargetPositionMacros,
+    std::size(kJointDriveModeTargetPositionMacros),
 };
 
 const gpu::GpuComputePassDefinition kClearRigidCorrections{

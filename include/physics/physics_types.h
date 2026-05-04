@@ -37,6 +37,12 @@ constexpr ColliderId kInvalidColliderId = 0u;
 using RigidJointId                         = std::uint32_t;
 constexpr RigidJointId kInvalidRigidJointId = 0u;
 
+enum class RigidJointDriveMode : std::uint32_t
+{
+    None           = 0u,
+    TargetPosition = 1u,
+};
+
 enum class SoftBodySourceKind : std::uint32_t
 {
     RegularGrid = 0u,
@@ -316,7 +322,7 @@ struct HingeJointState
 {
     RigidJointId jointId      = kInvalidRigidJointId;
     bool enabled              = true;
-    bool driveTargetEnabled   = false;
+    RigidJointDriveMode driveMode = RigidJointDriveMode::None;
     RigidBodyId bodyA         = kInvalidRigidBodyId;
     RigidBodyId bodyB         = kInvalidRigidBodyId;
     Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
@@ -330,7 +336,7 @@ struct SliderJointState
 {
     RigidJointId jointId      = kInvalidRigidJointId;
     bool enabled              = true;
-    bool driveTargetEnabled   = false;
+    RigidJointDriveMode driveMode = RigidJointDriveMode::None;
     RigidBodyId bodyA         = kInvalidRigidBodyId;
     RigidBodyId bodyB         = kInvalidRigidBodyId;
     Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
@@ -368,7 +374,7 @@ struct HingeJointSoAHost
     std::vector<std::uint32_t> bodyIndicesA;
     std::vector<std::uint32_t> bodyIndicesB;
     std::vector<std::uint32_t> enabledFlags;
-    std::vector<std::uint32_t> driveTargetEnabledFlags;
+    std::vector<std::uint32_t> driveModes;
     std::vector<Diligent::float4> localAnchorsA;
     std::vector<Diligent::float4> localAnchorsB;
     std::vector<float> driveTargetAngles;
@@ -384,7 +390,7 @@ struct HingeJointSoAHost
         bodyIndicesA.clear();
         bodyIndicesB.clear();
         enabledFlags.clear();
-        driveTargetEnabledFlags.clear();
+        driveModes.clear();
         localAnchorsA.clear();
         localAnchorsB.clear();
         driveTargetAngles.clear();
@@ -400,7 +406,7 @@ struct SliderJointSoAHost
     std::vector<std::uint32_t> bodyIndicesA;
     std::vector<std::uint32_t> bodyIndicesB;
     std::vector<std::uint32_t> enabledFlags;
-    std::vector<std::uint32_t> driveTargetEnabledFlags;
+    std::vector<std::uint32_t> driveModes;
     std::vector<Diligent::float4> localAnchorsA;
     std::vector<Diligent::float4> localAnchorsB;
     std::vector<float> driveTargetPositions;
@@ -420,7 +426,7 @@ struct SliderJointSoAHost
         bodyIndicesA.clear();
         bodyIndicesB.clear();
         enabledFlags.clear();
-        driveTargetEnabledFlags.clear();
+        driveModes.clear();
         localAnchorsA.clear();
         localAnchorsB.clear();
         driveTargetPositions.clear();

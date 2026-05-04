@@ -8,6 +8,8 @@ static const uint kRigidBodyTypeStatic = 0u;
 static const uint kRigidBodyTypeKinematic = 1u;
 static const uint kRigidBodyTypeDynamic = 2u;
 static const uint kKinematicTargetEnabled = 1u << 0u;
+static const uint kRigidJointDriveModeNone = 0u;
+static const uint kRigidJointDriveModeTargetPosition = 1u;
 
 struct GpuRigidContact
 {
@@ -94,7 +96,7 @@ struct GpuHingeJoint
     uint bodyA;
     uint bodyB;
     uint enabled;
-    uint driveTargetEnabled;
+    uint driveMode;
     float4 localAnchorA;
     float4 localAnchorB;
     float4 projectionRow0;
@@ -108,7 +110,7 @@ struct GpuSliderJoint
     uint bodyA;
     uint bodyB;
     uint enabled;
-    uint driveTargetEnabled;
+    uint driveMode;
     float4 localAnchorA;
     float4 localAnchorB;
     float4 localAxisA0;
