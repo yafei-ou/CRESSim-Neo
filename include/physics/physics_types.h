@@ -34,6 +34,22 @@ constexpr RigidBodyId kInvalidRigidBodyId = 0u;
 using ColliderId                        = std::uint32_t;
 constexpr ColliderId kInvalidColliderId = 0u;
 
+using BallJointId                         = std::uint32_t;
+constexpr BallJointId kInvalidBallJointId = 0u;
+
+using HingeJointId                          = std::uint32_t;
+constexpr HingeJointId kInvalidHingeJointId = 0u;
+
+using SliderJointId                           = std::uint32_t;
+constexpr SliderJointId kInvalidSliderJointId = 0u;
+
+enum class RigidJointDriveMode : std::uint32_t
+{
+    None           = 0u,
+    TargetPosition = 1u,
+    TargetVelocity = 2u,
+};
+
 enum class SoftBodySourceKind : std::uint32_t
 {
     RegularGrid = 0u,
@@ -80,8 +96,9 @@ struct SoftBodyMaterialDesc
 
 struct RigidBodyState
 {
-    RigidBodyId rigidBodyId   = kInvalidRigidBodyId;
-    common::EntityId entityId = common::kInvalidEntityId;
+    RigidBodyId rigidBodyId        = kInvalidRigidBodyId;
+    common::EntityId entityId      = common::kInvalidEntityId;
+    std::uint32_t environmentIndex = 0u;
     Diligent::float3 position{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF rotation{0.0f, 0.0f, 0.0f, 1.0f};
     Diligent::float3 scale{1.0f, 1.0f, 1.0f};
@@ -97,11 +114,10 @@ struct RigidBodyState
 
 struct ColliderState
 {
-    ColliderId colliderId          = kInvalidColliderId;
-    common::EntityId entityId      = common::kInvalidEntityId;
-    RigidBodyId ownerRigidBodyId   = kInvalidRigidBodyId;
-    std::uint32_t environmentIndex = 0u;
-    ColliderShapeType shapeType    = ColliderShapeType::Sphere;
+    ColliderId colliderId        = kInvalidColliderId;
+    common::EntityId entityId    = common::kInvalidEntityId;
+    RigidBodyId ownerRigidBodyId = kInvalidRigidBodyId;
+    ColliderShapeType shapeType  = ColliderShapeType::Sphere;
     Diligent::float4 shapeParams{0.5f, 0.0f, 0.0f, 0.0f};
     Diligent::float3 localPosition{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF localRotation{0.0f, 0.0f, 0.0f, 1.0f};
@@ -296,6 +312,205 @@ struct BodyColliderMappingHost
         colliderOffsets.clear();
         colliderCounts.clear();
         colliderIndices.clear();
+    }
+};
+
+struct BallJointState
+{
+    BallJointId jointId                  = kInvalidBallJointId;
+    bool enabled                         = true;
+    bool suppressConnectedBodyCollisions = false;
+    RigidBodyId bodyA                    = kInvalidRigidBodyId;
+    RigidBodyId bodyB                    = kInvalidRigidBodyId;
+    Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
+    Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
+};
+
+struct HingeJointState
+{
+    HingeJointId jointId                 = kInvalidHingeJointId;
+    bool enabled                         = true;
+    bool suppressConnectedBodyCollisions = false;
+    RigidJointDriveMode driveMode        = RigidJointDriveMode::None;
+    bool limitEnabled                    = false;
+    RigidBodyId bodyA                    = kInvalidRigidBodyId;
+    RigidBodyId bodyB                    = kInvalidRigidBodyId;
+    Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
+    Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
+    Diligent::QuaternionF localRotationA{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::QuaternionF localRotationB{0.0f, 0.0f, 0.0f, 1.0f};
+    float limitMin                   = 0.0f;
+    float limitMax                   = 0.0f;
+    float driveTargetAngle           = 0.0f;
+    float driveTargetAngularVelocity = 0.0f;
+};
+
+struct SliderJointState
+{
+    SliderJointId jointId                = kInvalidSliderJointId;
+    bool enabled                         = true;
+    bool suppressConnectedBodyCollisions = false;
+    RigidJointDriveMode driveMode        = RigidJointDriveMode::None;
+    bool limitEnabled                    = false;
+    RigidBodyId bodyA                    = kInvalidRigidBodyId;
+    RigidBodyId bodyB                    = kInvalidRigidBodyId;
+    Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
+    Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
+    Diligent::QuaternionF localRotationA{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::QuaternionF localRotationB{0.0f, 0.0f, 0.0f, 1.0f};
+    float limitMin            = 0.0f;
+    float limitMax            = 0.0f;
+    float driveTargetPosition = 0.0f;
+    float driveTargetVelocity = 0.0f;
+};
+
+struct BallJointSoAHost
+{
+    std::vector<std::uint32_t> bodyIndicesA;
+    std::vector<std::uint32_t> bodyIndicesB;
+    std::vector<std::uint32_t> enabledFlags;
+    std::vector<Diligent::float4> localAnchorsA;
+    std::vector<Diligent::float4> localAnchorsB;
+
+    std::size_t size() const noexcept
+    {
+        return bodyIndicesA.size();
+    }
+    bool empty() const noexcept
+    {
+        return bodyIndicesA.empty();
+    }
+    void clear()
+    {
+        bodyIndicesA.clear();
+        bodyIndicesB.clear();
+        enabledFlags.clear();
+        localAnchorsA.clear();
+        localAnchorsB.clear();
+    }
+};
+
+struct HingeJointSoAHost
+{
+    std::vector<std::uint32_t> bodyIndicesA;
+    std::vector<std::uint32_t> bodyIndicesB;
+    std::vector<std::uint32_t> enabledFlags;
+    std::vector<std::uint32_t> driveModes;
+    std::vector<Diligent::float4> localAnchorsA;
+    std::vector<Diligent::float4> localAnchorsB;
+    std::vector<Diligent::float4> localAxesA0;
+    std::vector<std::uint32_t> limitEnabledFlags;
+    std::vector<float> limitMins;
+    std::vector<float> limitMaxs;
+    std::vector<float> driveTargetAngles;
+    std::vector<float> driveTargetAngularVelocities;
+    std::vector<Diligent::float4> projectionRow0;
+    std::vector<Diligent::float4> projectionRow1;
+    std::vector<Diligent::float4> projectionRow2;
+
+    std::size_t size() const noexcept
+    {
+        return bodyIndicesA.size();
+    }
+    bool empty() const noexcept
+    {
+        return bodyIndicesA.empty();
+    }
+    void clear()
+    {
+        bodyIndicesA.clear();
+        bodyIndicesB.clear();
+        enabledFlags.clear();
+        driveModes.clear();
+        localAnchorsA.clear();
+        localAnchorsB.clear();
+        localAxesA0.clear();
+        limitEnabledFlags.clear();
+        limitMins.clear();
+        limitMaxs.clear();
+        driveTargetAngles.clear();
+        driveTargetAngularVelocities.clear();
+        projectionRow0.clear();
+        projectionRow1.clear();
+        projectionRow2.clear();
+    }
+};
+
+struct SliderJointSoAHost
+{
+    std::vector<std::uint32_t> bodyIndicesA;
+    std::vector<std::uint32_t> bodyIndicesB;
+    std::vector<std::uint32_t> enabledFlags;
+    std::vector<std::uint32_t> driveModes;
+    std::vector<Diligent::float4> localAnchorsA;
+    std::vector<Diligent::float4> localAnchorsB;
+    std::vector<std::uint32_t> limitEnabledFlags;
+    std::vector<float> limitMins;
+    std::vector<float> limitMaxs;
+    std::vector<float> driveTargetPositions;
+    std::vector<float> driveTargetVelocities;
+    std::vector<float> driveRestOffsets;
+    std::vector<Diligent::float4> localAxesA0;
+    std::vector<Diligent::float4> localAxesA1;
+    std::vector<Diligent::float4> localAxesA2;
+    std::vector<Diligent::float4> projectionRow0;
+    std::vector<Diligent::float4> projectionRow1;
+    std::vector<Diligent::float4> projectionRow2;
+
+    std::size_t size() const noexcept
+    {
+        return bodyIndicesA.size();
+    }
+    bool empty() const noexcept
+    {
+        return bodyIndicesA.empty();
+    }
+    void clear()
+    {
+        bodyIndicesA.clear();
+        bodyIndicesB.clear();
+        enabledFlags.clear();
+        driveModes.clear();
+        localAnchorsA.clear();
+        localAnchorsB.clear();
+        limitEnabledFlags.clear();
+        limitMins.clear();
+        limitMaxs.clear();
+        driveTargetPositions.clear();
+        driveTargetVelocities.clear();
+        driveRestOffsets.clear();
+        localAxesA0.clear();
+        localAxesA1.clear();
+        localAxesA2.clear();
+        projectionRow0.clear();
+        projectionRow1.clear();
+        projectionRow2.clear();
+    }
+};
+
+struct RigidJointSceneHost
+{
+    BallJointSoAHost ball;
+    HingeJointSoAHost hinge;
+    SliderJointSoAHost slider;
+
+    void clear()
+    {
+        ball.clear();
+        hinge.clear();
+        slider.clear();
+    }
+};
+
+struct JointCollisionSuppressionHost
+{
+    std::vector<std::uint32_t> neighborOffsets;
+    std::vector<std::uint32_t> neighbors;
+
+    void clear()
+    {
+        neighborOffsets.clear();
+        neighbors.clear();
     }
 };
 

@@ -7,6 +7,8 @@ CRESSIM_STRUCTURED_BUFFER(GpuBodyAabb, g_BodyAabbs);
 CRESSIM_STRUCTURED_BUFFER(GpuBvhNode, g_BvhNodes);
 CRESSIM_STRUCTURED_BUFFER(GpuBvhNode, g_StaticBvhNodes);
 CRESSIM_STRUCTURED_BUFFER(GpuColliderBroadPhaseData, g_ColliderBroadPhaseData);
+CRESSIM_STRUCTURED_BUFFER(uint, g_JointCollisionSuppressionOffsets);
+CRESSIM_STRUCTURED_BUFFER(uint, g_JointCollisionSuppressionNeighbors);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_PairCountsSphereSphere);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_PairCountsSphereBox);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_PairCountsSphereCapsule);
@@ -20,6 +22,20 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
     {
         ++counts[pairType];
     }
+}
+
+bool IsJointCollisionSuppressed(uint bodyA, uint bodyB)
+{
+    const uint begin = CRESSIM_SB_LOAD(g_JointCollisionSuppressionOffsets, bodyA);
+    const uint end = CRESSIM_SB_LOAD(g_JointCollisionSuppressionOffsets, bodyA + 1u);
+    for (uint i = begin; i < end; ++i)
+    {
+        if (CRESSIM_SB_LOAD(g_JointCollisionSuppressionNeighbors, i) == bodyB)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -72,7 +88,8 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
                 {
                     if (ShouldBroadPhaseCollide(environmentA, otherCollider.environmentIndex, layerA,
                                                 maskA, otherCollider.collisionLayer,
-                                                otherCollider.collisionMask))
+                                                otherCollider.collisionMask) &&
+                        !IsJointCollisionSuppressed(ownerBodyA, otherOwnerBody))
                     {
                         IncrementTypedCount(ComputeRigidPairType(shapeTypeA,
                                                                  otherCollider.shapeType),
@@ -118,7 +135,8 @@ void IncrementTypedCount(uint pairType, inout uint counts[kRigidPairTypeCount])
                 {
                     if (ShouldBroadPhaseCollide(environmentA, otherCollider.environmentIndex, layerA,
                                                 maskA, otherCollider.collisionLayer,
-                                                otherCollider.collisionMask))
+                                                otherCollider.collisionMask) &&
+                        !IsJointCollisionSuppressed(ownerBodyA, otherOwnerBody))
                     {
                         IncrementTypedCount(ComputeRigidPairType(shapeTypeA,
                                                                  otherCollider.shapeType),

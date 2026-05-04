@@ -17,6 +17,7 @@ RigidBodyState makeRigidBody(EntityId entityId, float x, float vx)
 {
     RigidBodyState state{};
     state.entityId = entityId;
+    state.environmentIndex = (entityId % 2u == 0u) ? 1u : 0u;
     state.position = {x, 0.0f, 0.0f};
     state.rotation = {0.0f, 0.0f, 0.0f, 1.0f};
     state.scale = {1.0f + x, 2.0f + x, 3.0f + x};
@@ -86,7 +87,13 @@ bool verifySnapshotMatchesSoA(const PhysicsWorld& world)
         const ColliderState& state = colliderSnapshot[i];
         if (state.colliderId != colliderSoA.colliderIds[i] ||
             state.entityId != colliderSoA.entityIds[i] ||
-            state.ownerRigidBodyId != colliderSoA.ownerRigidBodyIds[i] ||
+            state.ownerRigidBodyId != colliderSoA.ownerRigidBodyIds[i])
+        {
+            return false;
+        }
+        const std::uint32_t ownerBodyIndex = colliderSoA.ownerRigidBodyIndices[i];
+        if (ownerBodyIndex >= bodySnapshot.size() ||
+            colliderSoA.environmentIndices[i] != bodySnapshot[ownerBodyIndex].environmentIndex ||
             static_cast<std::uint32_t>(state.shapeType) != colliderSoA.shapeTypes[i] ||
             state.shapeParams.x != colliderSoA.shapeParams[i].x ||
             state.localPosition.x != colliderSoA.localPositions[i].x)

@@ -13,7 +13,7 @@ namespace cressim::neo::physics
 struct PhysicsGpuRigidSceneView
 {
     common::PoseBufferView poses{};
-    std::uint32_t colliderCount = 0;
+    std::uint32_t colliderCount     = 0;
     std::uint64_t bindingGeneration = 0;
 };
 

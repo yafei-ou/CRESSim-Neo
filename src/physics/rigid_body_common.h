@@ -10,16 +10,24 @@
 namespace cressim::neo::physics
 {
 
-constexpr std::uint32_t kRigidContactsPerPair   = 4u;
-constexpr std::uint32_t kRigidPairTypeCount     = 6u;
-constexpr std::uint32_t kRigidBodyTypeStatic    = 0u;
-constexpr std::uint32_t kRigidBodyTypeKinematic = 1u;
-constexpr std::uint32_t kRigidBodyTypeDynamic   = 2u;
-constexpr std::uint32_t kKinematicTargetEnabled = 1u << 0u;
+constexpr std::uint32_t kRigidContactsPerPair              = 4u;
+constexpr std::uint32_t kRigidPairTypeCount                = 6u;
+constexpr std::uint32_t kRigidBodyTypeStatic               = 0u;
+constexpr std::uint32_t kRigidBodyTypeKinematic            = 1u;
+constexpr std::uint32_t kRigidBodyTypeDynamic              = 2u;
+constexpr std::uint32_t kKinematicTargetEnabled            = 1u << 0u;
+constexpr std::uint32_t kRigidJointDriveModeNone           = 0u;
+constexpr std::uint32_t kRigidJointDriveModeTargetPosition = 1u;
+constexpr std::uint32_t kRigidJointDriveModeTargetVelocity = 2u;
 
 static_assert(static_cast<std::uint32_t>(RigidBodyType::Static) == kRigidBodyTypeStatic);
 static_assert(static_cast<std::uint32_t>(RigidBodyType::Kinematic) == kRigidBodyTypeKinematic);
 static_assert(static_cast<std::uint32_t>(RigidBodyType::Dynamic) == kRigidBodyTypeDynamic);
+static_assert(static_cast<std::uint32_t>(RigidJointDriveMode::None) == kRigidJointDriveModeNone);
+static_assert(static_cast<std::uint32_t>(RigidJointDriveMode::TargetPosition) ==
+              kRigidJointDriveModeTargetPosition);
+static_assert(static_cast<std::uint32_t>(RigidJointDriveMode::TargetVelocity) ==
+              kRigidJointDriveModeTargetVelocity);
 static_assert(static_cast<std::uint32_t>(ColliderShapeType::Sphere) == 0u);
 static_assert(static_cast<std::uint32_t>(ColliderShapeType::Box) == 1u);
 static_assert(static_cast<std::uint32_t>(ColliderShapeType::Capsule) == 2u);
@@ -48,6 +56,58 @@ struct GpuRigidDispatchConstants
     std::uint32_t solverIterations      = 0;
     std::uint32_t reserved0             = 0;
     std::uint32_t reserved1             = 0;
+};
+
+struct GpuRigidJointDispatchConstants
+{
+    std::uint32_t jointCount = 0u;
+    std::uint32_t reserved0  = 0u;
+    std::uint32_t reserved1  = 0u;
+    std::uint32_t reserved2  = 0u;
+};
+
+struct GpuBallJoint
+{
+    std::uint32_t bodyA     = 0u;
+    std::uint32_t bodyB     = 0u;
+    std::uint32_t enabled   = 0u;
+    std::uint32_t reserved0 = 0u;
+    Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuHingeJoint
+{
+    std::uint32_t bodyA     = 0u;
+    std::uint32_t bodyB     = 0u;
+    std::uint32_t enabled   = 0u;
+    std::uint32_t driveMode = 0u;
+    Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localAxisA0{1.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 projectionRow0{0.0f, 1.0f, 0.0f, 0.0f};
+    Diligent::float4 projectionRow1{0.0f, 0.0f, 1.0f, 0.0f};
+    Diligent::float4 projectionRow2{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::float4 limitParams{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 driveTargetParams{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuSliderJoint
+{
+    std::uint32_t bodyA     = 0u;
+    std::uint32_t bodyB     = 0u;
+    std::uint32_t enabled   = 0u;
+    std::uint32_t driveMode = 0u;
+    Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localAxisA0{1.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localAxisA1{0.0f, 1.0f, 0.0f, 0.0f};
+    Diligent::float4 localAxisA2{0.0f, 0.0f, 1.0f, 0.0f};
+    Diligent::float4 projectionRow0{0.0f, 1.0f, 0.0f, 0.0f};
+    Diligent::float4 projectionRow1{0.0f, 0.0f, 1.0f, 0.0f};
+    Diligent::float4 projectionRow2{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::float4 limitParams{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 driveTargetParams{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 struct GpuPhysicsScanConstants
@@ -398,6 +458,7 @@ struct GpuRigidContact
 };
 
 static_assert(sizeof(GpuRigidDispatchConstants) == 48u);
+static_assert(sizeof(GpuRigidJointDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
 static_assert(sizeof(GpuSoftDispatchConstants) == 32u);

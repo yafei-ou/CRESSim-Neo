@@ -65,12 +65,14 @@ int main()
         return 1;
     }
     const physics::ColliderState& colliderState = world.physicsWorld().colliderSnapshot().front();
+    const auto& colliderSoA = world.physicsWorld().colliderSoA();
     if (state->bodyType != rigidBody.bodyType ||
+        state->environmentIndex != 1u ||
         state->angularVelocity.y != rigidBody.angularVelocity.y ||
         static_cast<std::uint32_t>(colliderState.shapeType) !=
             static_cast<std::uint32_t>(physics::ColliderShapeType::Capsule) ||
         colliderState.shapeParams.x != collider.shapeParams.x ||
-        colliderState.environmentIndex != 1u ||
+        colliderSoA.environmentIndices.front() != 1u ||
         colliderState.collisionLayer != collider.collisionLayer ||
         colliderState.collisionMask != collider.collisionMask ||
         state->kinematicTargetPosition.x != rigidBody.kinematicTargetPosition.x ||
@@ -86,10 +88,11 @@ int main()
         CRESSIM_LOG_ERROR( "Failed to restore entity environment.\n");
         return 1;
     }
-    const physics::ColliderState& updatedColliderState = world.physicsWorld().colliderSnapshot().front();
-    if (updatedColliderState.environmentIndex != 0u)
+    const physics::RigidBodyState* updatedState = world.physicsWorld().tryGetRigidBody(entity);
+    if (updatedState == nullptr || updatedState->environmentIndex != 0u ||
+        world.physicsWorld().colliderSoA().environmentIndices.front() != 0u)
     {
-        CRESSIM_LOG_ERROR( "Entity environment change did not propagate to collider state.\n");
+        CRESSIM_LOG_ERROR( "Entity environment change did not propagate to rigid/collider physics state.\n");
         return 1;
     }
 

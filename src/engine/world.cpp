@@ -314,6 +314,15 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
     const auto physIt = mPhysicsLinks.find(entityId);
     if (physIt != mPhysicsLinks.end())
     {
+        if (physIt->second.hasRigidBody)
+        {
+            if (physics::RigidBodyState *rigidBody = mPhysicsWorld.tryGetRigidBody(entityId))
+            {
+                physics::RigidBodyState updated = *rigidBody;
+                updated.environmentIndex        = envIndex;
+                mPhysicsWorld.upsertRigidBody(updated);
+            }
+        }
         if (physIt->second.hasSoftBody)
         {
             if (physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(entityId))
@@ -325,18 +334,6 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
                     return false;
                 }
             }
-        }
-        for (const ColliderHandle handle : physIt->second.colliders)
-        {
-            const physics::ColliderState *existing = mPhysicsWorld.tryGetCollider(handle.id);
-            if (existing == nullptr)
-            {
-                continue;
-            }
-
-            physics::ColliderState updated = *existing;
-            updated.environmentIndex       = envIndex;
-            mPhysicsWorld.upsertCollider(updated);
         }
     }
     mEntityEnvironments[entityId] = envIndex;
@@ -866,6 +863,7 @@ void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent &co
     state.inverseMass             = component.inverseMass;
     state.inverseInertiaLocal     = component.inverseInertiaLocal;
     state.bodyType                = component.bodyType;
+    state.environmentIndex        = entityEnvironment(entityId);
     state.kinematicTargetPosition = component.kinematicTargetPosition;
     state.kinematicTargetRotation = component.kinematicTargetRotation;
     state.kinematicTargetEnabled  = component.kinematicTargetEnabled;
@@ -988,19 +986,18 @@ World::ColliderHandle World::addCollider(common::EntityId entityId,
     ColliderHandle handle{mNextColliderId++};
 
     physics::ColliderState state{};
-    state.colliderId       = handle.id;
-    state.entityId         = entityId;
-    state.shapeType        = component.shapeType;
-    state.shapeParams      = component.shapeParams;
-    state.localPosition    = component.localPosition;
-    state.localRotation    = component.localRotation;
-    state.environmentIndex = entityEnvironment(entityId);
-    state.enabled          = component.enabled;
-    state.friction         = component.friction;
-    state.staticFriction   = component.staticFriction;
-    state.restitution      = component.restitution;
-    state.collisionLayer   = component.collisionLayer;
-    state.collisionMask    = component.collisionMask;
+    state.colliderId     = handle.id;
+    state.entityId       = entityId;
+    state.shapeType      = component.shapeType;
+    state.shapeParams    = component.shapeParams;
+    state.localPosition  = component.localPosition;
+    state.localRotation  = component.localRotation;
+    state.enabled        = component.enabled;
+    state.friction       = component.friction;
+    state.staticFriction = component.staticFriction;
+    state.restitution    = component.restitution;
+    state.collisionLayer = component.collisionLayer;
+    state.collisionMask  = component.collisionMask;
 
     mPhysicsWorld.upsertCollider(state);
     mPhysicsLinks[entityId].colliders.push_back(handle);
@@ -1026,19 +1023,18 @@ void World::updateCollider(ColliderHandle handle, const ColliderComponent &compo
     const common::EntityId entityId = ownerIt->second;
 
     physics::ColliderState state{};
-    state.colliderId       = handle.id;
-    state.entityId         = entityId;
-    state.shapeType        = component.shapeType;
-    state.shapeParams      = component.shapeParams;
-    state.localPosition    = component.localPosition;
-    state.localRotation    = component.localRotation;
-    state.environmentIndex = entityEnvironment(entityId);
-    state.enabled          = component.enabled;
-    state.friction         = component.friction;
-    state.staticFriction   = component.staticFriction;
-    state.restitution      = component.restitution;
-    state.collisionLayer   = component.collisionLayer;
-    state.collisionMask    = component.collisionMask;
+    state.colliderId     = handle.id;
+    state.entityId       = entityId;
+    state.shapeType      = component.shapeType;
+    state.shapeParams    = component.shapeParams;
+    state.localPosition  = component.localPosition;
+    state.localRotation  = component.localRotation;
+    state.enabled        = component.enabled;
+    state.friction       = component.friction;
+    state.staticFriction = component.staticFriction;
+    state.restitution    = component.restitution;
+    state.collisionLayer = component.collisionLayer;
+    state.collisionMask  = component.collisionMask;
 
     mPhysicsWorld.upsertCollider(state);
 }
@@ -1508,7 +1504,7 @@ const std::vector<EntityPoseMappingEntry> &World::physicsRenderableMappings()
             EntityPoseMappingEntry entry{};
             entry.sourcePoseIndex = rigidBodyIt->second;
             entry.objectIndex     = renderable.envIndex * mSceneLayout.maxRenderableObjectsPerEnv +
-                                renderable.objectSlot;
+                                    renderable.objectSlot;
             mPhysicsRenderableMappingsCache.push_back(entry);
         }
     }
@@ -2104,14 +2100,14 @@ void World::refreshLightEntry(std::uint32_t lightIndex)
 
     graphics::GpuLightInput input{};
     input.positionRange      = Diligent::float4{lightData.position.x, lightData.position.y,
-                                           lightData.position.z, lightData.range};
+                                                lightData.position.z, lightData.range};
     input.directionIntensity = Diligent::float4{lightData.direction.x, lightData.direction.y,
                                                 lightData.direction.z, lightData.intensity};
     input.color = Diligent::float4{lightData.color.x, lightData.color.y, lightData.color.z, 0.0f};
     const float innerConeRadians = lightData.innerConeAngle * 0.01745329251994329577f;
     const float outerConeRadians = lightData.outerConeAngle * 0.01745329251994329577f;
     input.spotAngles     = Diligent::float4{std::cos(innerConeRadians), std::cos(outerConeRadians),
-                                        lightData.innerConeAngle, lightData.outerConeAngle};
+                                            lightData.innerConeAngle, lightData.outerConeAngle};
     input.shadowDistance = lightData.shadowDistance;
     input.shadowFadeDistance     = lightData.shadowFadeDistance;
     input.shadowBias             = lightData.shadowBias;

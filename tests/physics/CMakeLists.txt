@@ -23,6 +23,12 @@ add_test(
     COMMAND cressim_neo_physics_world_soa_layout
 )
 
+add_physics_test(cressim_neo_physics_world_rigid_joints physics_world_rigid_joints.cpp)
+add_test(
+    NAME cressim_neo_physics_world_rigid_joints
+    COMMAND cressim_neo_physics_world_rigid_joints
+)
+
 add_physics_test(cressim_neo_physics_solver_context_split physics_solver_context_split.cpp)
 add_test(
     NAME cressim_neo_physics_solver_context_split_vulkan

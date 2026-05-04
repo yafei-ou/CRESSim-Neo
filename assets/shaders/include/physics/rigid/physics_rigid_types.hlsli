@@ -8,6 +8,9 @@ static const uint kRigidBodyTypeStatic = 0u;
 static const uint kRigidBodyTypeKinematic = 1u;
 static const uint kRigidBodyTypeDynamic = 2u;
 static const uint kKinematicTargetEnabled = 1u << 0u;
+static const uint kRigidJointDriveModeNone = 0u;
+static const uint kRigidJointDriveModeTargetPosition = 1u;
+static const uint kRigidJointDriveModeTargetVelocity = 2u;
 
 struct GpuRigidContact
 {
@@ -77,6 +80,50 @@ struct GpuColliderContactData
     float4 localPosition;
     float4 localOrientation;
     float4 material;
+};
+
+struct GpuBallJoint
+{
+    uint bodyA;
+    uint bodyB;
+    uint enabled;
+    uint reserved0;
+    float4 localAnchorA;
+    float4 localAnchorB;
+};
+
+struct GpuHingeJoint
+{
+    uint bodyA;
+    uint bodyB;
+    uint enabled;
+    uint driveMode;
+    float4 localAnchorA;
+    float4 localAnchorB;
+    float4 localAxisA0;
+    float4 projectionRow0;
+    float4 projectionRow1;
+    float4 projectionRow2;
+    float4 limitParams;
+    float4 driveTargetParams;
+};
+
+struct GpuSliderJoint
+{
+    uint bodyA;
+    uint bodyB;
+    uint enabled;
+    uint driveMode;
+    float4 localAnchorA;
+    float4 localAnchorB;
+    float4 localAxisA0;
+    float4 localAxisA1;
+    float4 localAxisA2;
+    float4 projectionRow0;
+    float4 projectionRow1;
+    float4 projectionRow2;
+    float4 limitParams;
+    float4 driveTargetParams;
 };
 
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)

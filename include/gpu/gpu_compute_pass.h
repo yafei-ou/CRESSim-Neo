@@ -32,6 +32,8 @@ struct GpuComputePassDefinition
     const char *psoName                                   = nullptr;
     const Diligent::ShaderResourceVariableDesc *variables = nullptr;
     std::size_t variableCount                             = 0u;
+    const Diligent::ShaderMacro *macros                   = nullptr;
+    std::size_t macroCount                                = 0u;
 };
 
 class GpuComputePass
@@ -56,8 +58,7 @@ public:
     Diligent::IShaderResourceBinding *variantSrb(std::size_t index) const;
 
     template <std::size_t N>
-    bool bindVariant(std::size_t variantIndex,
-                     const std::array<GpuBufferBinding, N> &bindings);
+    bool bindVariant(std::size_t variantIndex, const std::array<GpuBufferBinding, N> &bindings);
 
     template <std::size_t N>
     bool dispatch(Diligent::IDeviceContext *computeContext, std::size_t variantIndex,
@@ -82,7 +83,8 @@ private:
                                    Diligent::IBuffer *buffer, Diligent::BUFFER_VIEW_TYPE viewType);
 
     template <std::size_t N>
-    bool bindBufferVariables(std::size_t variantIndex, const std::array<GpuBufferBinding, N> &bindings);
+    bool bindBufferVariables(std::size_t variantIndex,
+                             const std::array<GpuBufferBinding, N> &bindings);
 
 private:
     std::string mShaderPath;

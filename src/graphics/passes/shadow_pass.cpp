@@ -24,10 +24,9 @@ bool ShadowPass::initialize()
 
 void ShadowPass::setGpuSceneView(const GpuEntitySceneView &sceneView) noexcept
 {
-    const bool sceneBindingsChanged =
-        mSceneView.bindingGeneration != 0u &&
-        mSceneView.bindingGeneration != sceneView.bindingGeneration;
-    mSceneView = sceneView;
+    const bool sceneBindingsChanged = mSceneView.bindingGeneration != 0u &&
+                                      mSceneView.bindingGeneration != sceneView.bindingGeneration;
+    mSceneView                      = sceneView;
     if (sceneBindingsChanged)
     {
         mShaderResourceBinding         = nullptr;
@@ -395,7 +394,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
     Diligent::ShaderMacro shadowMacros[]        = {
         {"MANUAL_LAYER_EXPORT", "1"},
         {programFamily == MaterialProgramFamily::SoftBodyLit ? "CRESSIM_PROGRAM_FAMILY_SOFT_BODY"
-                                                                    : "",
+                                                             : "",
          programFamily == MaterialProgramFamily::SoftBodyLit ? "1" : ""},
     };
     shaderCreateInfo.Macros = Diligent::ShaderMacroArray{
