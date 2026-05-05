@@ -20,6 +20,7 @@ namespace cressim::neo::graphics::detail
 class ForwardOpaquePass;
 class ShadowPass;
 class DebugParticlePass;
+class SkyboxPass;
 
 class ForwardPipeline
 {
@@ -44,6 +45,7 @@ private:
     std::unique_ptr<ForwardOpaquePass> mForwardOpaquePass;
     std::unique_ptr<ShadowPass> mShadowPass;
     std::unique_ptr<DebugParticlePass> mDebugParticlePass;
+    std::unique_ptr<SkyboxPass> mSkyboxPass;
     std::unique_ptr<GpuIndirectState> mGpuIndirectState;
     std::unordered_map<RenderTargetCacheKey, gpu::GpuRenderTargetHandle, RenderTargetCacheKeyHasher>
         mLayeredTargetCache;

@@ -19,6 +19,7 @@ CameraData defaultCamera()
     camera.clearDepth         = true;
     camera.clearColorValue    = Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f};
     camera.clearDepthValue    = 1.0f;
+    camera.backgroundMode     = CameraBackgroundMode::ClearColor;
     return camera;
 }
 

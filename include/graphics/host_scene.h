@@ -13,6 +13,12 @@
 namespace cressim::neo::graphics
 {
 
+enum class CameraBackgroundMode : std::uint32_t
+{
+    ClearColor         = 0u,
+    EnvironmentCubemap = 1u,
+};
+
 struct RenderableInstance
 {
     common::EntityId entityId = common::kInvalidEntityId;
@@ -44,7 +50,8 @@ struct CameraData
     // This value should follow the color-space semantics of the target path in use.
     // For example, HDR/scene-linear targets expect linear values.
     Diligent::float4 clearColorValue{0.0f, 0.0f, 0.0f, 1.0f};
-    float clearDepthValue = 1.0f;
+    float clearDepthValue               = 1.0f;
+    CameraBackgroundMode backgroundMode = CameraBackgroundMode::ClearColor;
 
     std::uint32_t renderOrder = 0;
 };

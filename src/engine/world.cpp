@@ -665,7 +665,11 @@ void World::setCamera(common::EntityId entityId, const CameraComponent &componen
     cameraData.clearDepth         = component.clearDepth;
     cameraData.clearColorValue    = component.clearColorValue;
     cameraData.clearDepthValue    = component.clearDepthValue;
-    cameraData.renderOrder        = component.renderOrder;
+    cameraData.backgroundMode =
+        component.backgroundMode == CameraComponent::BackgroundMode::EnvironmentCubemap
+            ? graphics::CameraBackgroundMode::EnvironmentCubemap
+            : graphics::CameraBackgroundMode::ClearColor;
+    cameraData.renderOrder = component.renderOrder;
     markCameraDirty(cameraIndex);
 }
 
@@ -1217,7 +1221,11 @@ std::optional<CameraComponent> World::tryGetCamera(common::EntityId entityId) co
     component.clearDepth         = camera.clearDepth;
     component.clearColorValue    = camera.clearColorValue;
     component.clearDepthValue    = camera.clearDepthValue;
-    component.renderOrder        = camera.renderOrder;
+    component.backgroundMode =
+        camera.backgroundMode == graphics::CameraBackgroundMode::EnvironmentCubemap
+            ? CameraComponent::BackgroundMode::EnvironmentCubemap
+            : CameraComponent::BackgroundMode::ClearColor;
+    component.renderOrder = camera.renderOrder;
     return component;
 }
 

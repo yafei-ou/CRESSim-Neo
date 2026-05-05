@@ -397,6 +397,32 @@ TextureResourceDesc buildSpecularCubemap(const std::array<EnvironmentCubemapImag
     return desc;
 }
 
+TextureResourceDesc buildBackgroundCubemap(const std::array<EnvironmentCubemapImage, 6u> &faces)
+{
+    TextureResourceDesc desc{};
+    desc.debugName     = "EnvironmentIblBaker.Background";
+    desc.width         = faces[0u].width;
+    desc.height        = faces[0u].height;
+    desc.mipLevelCount = 1u;
+    desc.dimension     = TextureDimension::TextureCube;
+    desc.pixelFormat   = TexturePixelFormat::RGBA16F;
+    desc.colorSpace    = TextureColorSpace::Linear;
+    desc.subresources.resize(6u);
+
+    for (std::uint32_t face = 0u; face < 6u; ++face)
+    {
+        auto &dst = desc.subresources[face].pixelData;
+        dst.reserve(static_cast<std::size_t>(faces[face].width) * faces[face].height *
+                    sizeof(std::uint16_t) * 4u);
+        for (const Diligent::float4 &rgba : faces[face].pixels)
+        {
+            appendRgba16f(dst, rgba);
+        }
+    }
+
+    return desc;
+}
+
 } // namespace
 
 EnvironmentIblDesc createEnvironmentIblFromCubemapImages(
@@ -414,10 +440,14 @@ EnvironmentIblDesc createEnvironmentIblFromCubemapImages(
     }
 
     EnvironmentIblDesc ibl{};
+    ibl.backgroundCubemap = resources.registerTexture(buildBackgroundCubemap(faces));
     ibl.irradianceCubemap = resources.registerTexture(buildIrradianceCubemap(faces, options));
     ibl.prefilteredSpecularCubemap =
         resources.registerTexture(buildSpecularCubemap(faces, options));
     ibl.intensity = std::max(options.intensity, 0.0f);
+    const float resolvedBackgroundIntensity =
+        options.backgroundIntensity >= 0.0f ? options.backgroundIntensity : options.intensity;
+    ibl.backgroundIntensity = std::max(resolvedBackgroundIntensity, 0.0f);
     return ibl;
 }
 

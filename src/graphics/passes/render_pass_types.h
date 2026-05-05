@@ -23,14 +23,15 @@ struct ResolvedCameraView
     gpu::GpuRenderTargetBinding outputBinding{};
     gpu::GpuRenderTargetDesc outputTargetDesc{};
     gpu::GpuRenderViewport viewport{};
-    bool useOutputViewport           = false;
-    bool clearColor                  = true;
-    bool clearDepth                  = true;
-    Diligent::float4 clearColorValue = {0.0f, 0.0f, 0.0f, 1.0f};
-    float clearDepthValue            = 1.0f;
-    std::uint32_t envIndex           = 0u;
-    std::uint32_t cameraSlot         = 0u;
-    std::uint32_t globalCameraIndex  = 0u;
+    bool useOutputViewport              = false;
+    bool clearColor                     = true;
+    bool clearDepth                     = true;
+    Diligent::float4 clearColorValue    = {0.0f, 0.0f, 0.0f, 1.0f};
+    float clearDepthValue               = 1.0f;
+    CameraBackgroundMode backgroundMode = CameraBackgroundMode::ClearColor;
+    std::uint32_t envIndex              = 0u;
+    std::uint32_t cameraSlot            = 0u;
+    std::uint32_t globalCameraIndex     = 0u;
 };
 
 struct CameraBatchView

@@ -6,6 +6,7 @@
 #include "graphics/passes/debug_particle_pass.h"
 #include "graphics/passes/forward_opaque_pass.h"
 #include "graphics/passes/shadow_pass.h"
+#include "graphics/passes/skybox_pass.h"
 #include "physics/physics_gpu_scene_view.h"
 
 #include <array>
@@ -403,6 +404,14 @@ bool ForwardPipeline::initialize()
     if (!mShadowPass->initialize())
     {
         mShadowPass.reset();
+        mForwardOpaquePass.reset();
+        return false;
+    }
+
+    mSkyboxPass = std::make_unique<SkyboxPass>(mDevice, mResourceManager);
+    if (!mSkyboxPass->initialize())
+    {
+        mSkyboxPass.reset();
         mForwardOpaquePass.reset();
         return false;
     }
@@ -1348,6 +1357,18 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     mainBegin.clearDepthValue    = batchView.cameras.front().clearDepthValue;
     mDevice.renderTargetSystem().beginRenderTarget(batchView.renderBinding, frameContext,
                                                    mainBegin);
+
+    if (mSkyboxPass != nullptr &&
+        batchView.cameras.front().backgroundMode == CameraBackgroundMode::EnvironmentCubemap)
+    {
+        if (!mSkyboxPass->drawBatch(batchView.renderBinding, batchView.renderTargetDesc, gpuScene,
+                                    mGpuIndirectState->opaque.batchCameraBuffer,
+                                    static_cast<std::uint32_t>(batchView.cameras.size()),
+                                    sceneView.environmentIbls, gpuScene.layout.envCount))
+        {
+            return false;
+        }
+    }
 
     for (std::uint32_t commandIndex = 0u;
          commandIndex < static_cast<std::uint32_t>(opaqueRegistry.size()); ++commandIndex)

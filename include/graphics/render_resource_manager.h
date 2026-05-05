@@ -146,9 +146,11 @@ struct TextureResourceDesc
 
 struct EnvironmentIblDesc
 {
+    TextureHandle backgroundCubemap{};
     TextureHandle irradianceCubemap{};
     TextureHandle prefilteredSpecularCubemap{};
-    float intensity = 1.0f;
+    float intensity           = 1.0f;
+    float backgroundIntensity = 1.0f;
 
     bool enabled(IblQualityTier tier) const noexcept
     {
