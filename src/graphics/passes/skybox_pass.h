@@ -3,8 +3,6 @@
 
 #include "gpu/gpu_device.h"
 #include "graphics/gpu_scene.h"
-#include "graphics/host_scene.h"
-#include "graphics/passes/render_pass_types.h"
 #include "graphics/render_resource_manager.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
@@ -26,11 +24,9 @@ public:
 
     bool initialize();
     bool drawBatch(const gpu::GpuRenderTargetBinding &targetBinding,
-                   const gpu::GpuRenderTargetDesc &targetDesc,
-                   const GpuEntitySceneView &gpuScene, Diligent::IBuffer *batchCameraBuffer,
-                   std::uint32_t batchCameraCount,
-                   const std::vector<EnvironmentIblDesc> *environmentIbls,
-                   std::uint32_t envCount);
+                   const gpu::GpuRenderTargetDesc &targetDesc, const GpuEntitySceneView &gpuScene,
+                   Diligent::IBuffer *batchCameraBuffer, std::uint32_t batchCameraCount,
+                   const std::vector<EnvironmentIblDesc> *environmentIbls, std::uint32_t envCount);
 
 private:
     struct EnvironmentBackgroundLookupEntry

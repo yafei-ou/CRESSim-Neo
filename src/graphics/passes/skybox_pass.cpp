@@ -420,8 +420,7 @@ Diligent::IShaderResourceBinding *SkyboxPass::getOrCreateBinding(Diligent::IPipe
 
 bool SkyboxPass::drawBatch(const gpu::GpuRenderTargetBinding &targetBinding,
                            const gpu::GpuRenderTargetDesc &targetDesc,
-                           const GpuEntitySceneView &gpuScene,
-                           Diligent::IBuffer *batchCameraBuffer,
+                           const GpuEntitySceneView &gpuScene, Diligent::IBuffer *batchCameraBuffer,
                            std::uint32_t batchCameraCount,
                            const std::vector<EnvironmentIblDesc> *environmentIbls,
                            std::uint32_t envCount)

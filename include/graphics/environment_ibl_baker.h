@@ -27,6 +27,9 @@ struct EnvironmentIblBakeOptions
     std::uint32_t irradianceSampleCount = 256u;
     std::uint32_t specularSampleCount   = 128u;
     float intensity                     = 1.0f;
+    // Negative values inherit `intensity` so the visible background and baked IBL
+    // stay matched unless the caller explicitly wants them to differ.
+    float backgroundIntensity           = -1.0f;
 };
 
 CRESSIM_NEO_GRAPHICS_API EnvironmentIblDesc createEnvironmentIblFromCubemapImages(

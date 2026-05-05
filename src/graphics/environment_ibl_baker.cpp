@@ -444,8 +444,10 @@ EnvironmentIblDesc createEnvironmentIblFromCubemapImages(
     ibl.irradianceCubemap = resources.registerTexture(buildIrradianceCubemap(faces, options));
     ibl.prefilteredSpecularCubemap =
         resources.registerTexture(buildSpecularCubemap(faces, options));
-    ibl.intensity           = std::max(options.intensity, 0.0f);
-    ibl.backgroundIntensity = 1.0f;
+    ibl.intensity = std::max(options.intensity, 0.0f);
+    const float resolvedBackgroundIntensity =
+        options.backgroundIntensity >= 0.0f ? options.backgroundIntensity : options.intensity;
+    ibl.backgroundIntensity = std::max(resolvedBackgroundIntensity, 0.0f);
     return ibl;
 }
 
