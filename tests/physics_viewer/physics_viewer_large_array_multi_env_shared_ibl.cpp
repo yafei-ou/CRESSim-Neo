@@ -471,6 +471,7 @@ void authorEnvironment(cressim::neo::engine::World& world, std::uint32_t envInde
     camera.viewport = {};
     camera.clearColor = true;
     camera.clearDepth = true;
+    camera.backgroundMode = CameraComponent::BackgroundMode::EnvironmentCubemap;
     camera.renderOrder = static_cast<int>(envIndex);
     world.setCamera(outCameraEntity, camera);
 

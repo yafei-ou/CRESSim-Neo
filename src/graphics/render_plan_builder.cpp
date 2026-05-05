@@ -22,7 +22,7 @@ bool sameBatchCompatibility(const ResolvedCameraView &lhs, const ResolvedCameraV
            lhs.clearColorValue.y == rhs.clearColorValue.y &&
            lhs.clearColorValue.z == rhs.clearColorValue.z &&
            lhs.clearColorValue.w == rhs.clearColorValue.w &&
-           lhs.clearDepthValue == rhs.clearDepthValue;
+           lhs.clearDepthValue == rhs.clearDepthValue && lhs.backgroundMode == rhs.backgroundMode;
 }
 
 bool requiresDedicatedBatch(const ResolvedCameraView &camera)

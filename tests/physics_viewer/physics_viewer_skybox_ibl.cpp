@@ -224,7 +224,9 @@ int main(int argc, char **argv)
         TransformComponent cameraTransform{};
         cameraTransform.worldTransform.position = {0.0f, 1.2f, -4.0f};
         world.setTransform(cameraEntity, cameraTransform);
-        world.setCamera(cameraEntity, CameraComponent{});
+        CameraComponent camera{};
+        camera.backgroundMode = CameraComponent::BackgroundMode::EnvironmentCubemap;
+        world.setCamera(cameraEntity, camera);
 
         if (!world.setEnvironmentIbl(0u, loadSkyboxIbl(resources)))
         {
@@ -234,21 +236,9 @@ int main(int argc, char **argv)
         const MeshHandle planeMesh = resources.registerMesh(makePlaneMesh(8.0f));
         const MeshHandle sphereMesh = resources.registerMesh(makeSphereMesh(1.0f, 48u, 24u));
 
-        const MaterialHandle groundMaterial = registerMaterial(
-            resources, "ViewerIntegration.SkyboxIbl.Ground", {0.35f, 0.36f, 0.38f}, 0.0f, 0.92f);
         const MaterialHandle shinySphereMaterial = registerMaterial(
             resources, "ViewerIntegration.SkyboxIbl.ShinySphere", {0.98f, 0.98f, 0.98f}, 1.0f,
             0.15f);
-
-        const auto groundEntity = world.createEntity();
-        TransformComponent groundTransform{};
-        groundTransform.worldTransform.position = {0.0f, -1.05f, 0.0f};
-        world.setTransform(groundEntity, groundTransform);
-        MeshRendererComponent ground{};
-        ground.mesh = planeMesh;
-        ground.material = groundMaterial;
-        ground.visible = true;
-        world.setMeshRenderer(groundEntity, ground);
 
         const auto sphereEntity = world.createEntity();
         TransformComponent sphereTransform{};

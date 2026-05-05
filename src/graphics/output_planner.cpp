@@ -75,6 +75,7 @@ void populateResolvedCameraView(const CameraData &camera, const GpuEntitySceneVi
     outView.clearDepth        = camera.clearDepth;
     outView.clearColorValue   = camera.clearColorValue;
     outView.clearDepthValue   = camera.clearDepthValue;
+    outView.backgroundMode    = camera.backgroundMode;
     outView.envIndex          = camera.envIndex;
     outView.cameraSlot        = camera.cameraSlot;
     outView.globalCameraIndex = buildGlobalCameraIndex(camera, gpuScene);

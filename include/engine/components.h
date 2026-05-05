@@ -35,6 +35,12 @@ struct MeshRendererComponent
 
 struct CameraComponent
 {
+    enum class BackgroundMode : std::uint32_t
+    {
+        ClearColor         = 0u,
+        EnvironmentCubemap = 1u,
+    };
+
     float verticalFovDegrees = 60.0f;
     float nearClip           = 0.01f;
     float farClip            = 1000.0f;
@@ -58,7 +64,8 @@ struct CameraComponent
     // This value should follow the color-space semantics of the target path in use.
     // For example, HDR/scene-linear targets expect linear values.
     Diligent::float4 clearColorValue{0.0f, 0.0f, 0.0f, 1.0f};
-    float clearDepthValue = 1.0f;
+    float clearDepthValue         = 1.0f;
+    BackgroundMode backgroundMode = BackgroundMode::ClearColor;
 
     // Cameras are rendered in ascending order.
     std::uint32_t renderOrder = 0;
