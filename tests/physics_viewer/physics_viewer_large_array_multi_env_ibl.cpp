@@ -77,6 +77,15 @@ struct EnvIblPalette
     float sunIntensity = 6.0f;
 };
 
+struct EnvLightingScenario
+{
+    bool backgroundEnabled = true;
+    bool iblEnabled = true;
+    float iblIntensity = 1.0f;
+    float backgroundIntensity = -1.0f;
+    Diligent::float4 clearColor{0.04f, 0.04f, 0.05f, 1.0f};
+};
+
 GpuBackend parseBackend(const std::string &value)
 {
     if (value == "null")
@@ -183,6 +192,45 @@ EnvIblPalette paletteForEnv(std::uint32_t envIndex)
             {1.0f, 0.78f, 0.72f},
             {0.24f, 0.10f, 0.12f},
             9.0f};
+    }
+}
+
+EnvLightingScenario lightingScenarioForEnv(std::uint32_t envIndex)
+{
+    switch (envIndex % 4u)
+    {
+    case 0u:
+        return {
+            true,
+            true,
+            0.72f,
+            -1.0f,
+            {0.06f, 0.08f, 0.12f, 1.0f},
+        };
+    case 1u:
+        return {
+            false,
+            true,
+            1.28f,
+            -1.0f,
+            {0.88f, 0.18f, 0.18f, 1.0f},
+        };
+    case 2u:
+        return {
+            true,
+            false,
+            1.05f,
+            1.35f,
+            {0.10f, 0.08f, 0.04f, 1.0f},
+        };
+    default:
+        return {
+            true,
+            true,
+            1.40f,
+            0.42f,
+            {0.05f, 0.12f, 0.10f, 1.0f},
+        };
     }
 }
 
@@ -549,6 +597,7 @@ void authorEnvironment(cressim::neo::engine::World &world, std::uint32_t envInde
     const float envVelocityBiasX = std::cos(envPhase) * 0.05f;
     const float envVelocityBiasZ = std::sin(envPhase) * 0.05f;
     const float envAngularBias = 0.12f + 0.04f * static_cast<float>(envIndex % 5u);
+    const EnvLightingScenario lightingScenario = lightingScenarioForEnv(envIndex);
 
     outCameraEntity = world.createEntity(envIndex);
     TransformComponent cameraTransform{};
@@ -560,6 +609,7 @@ void authorEnvironment(cressim::neo::engine::World &world, std::uint32_t envInde
     camera.viewport = {};
     camera.clearColor = true;
     camera.clearDepth = true;
+    camera.clearColorValue = lightingScenario.clearColor;
     camera.backgroundMode = CameraComponent::BackgroundMode::EnvironmentCubemap;
     camera.renderOrder = static_cast<int>(envIndex);
     world.setCamera(outCameraEntity, camera);
@@ -727,13 +777,26 @@ bool assignEnvironmentIbl(cressim::neo::engine::World &world,
                           cressim::neo::graphics::RenderResourceManager &resources,
                           std::uint32_t envIndex)
 {
+    const EnvLightingScenario lightingScenario = lightingScenarioForEnv(envIndex);
     EnvironmentIblBakeOptions options{};
     options.irradianceSize = kIrradianceSize;
     options.specularSize = kSpecularSize;
     options.specularMipCount = kSpecularMipCount;
-    options.intensity = 1.0f + 0.08f * static_cast<float>(envIndex % 3u);
-    const EnvironmentIblDesc ibl = cressim::neo::graphics::createEnvironmentIblFromCubemapImages(
+    options.intensity = lightingScenario.iblIntensity;
+    options.backgroundIntensity = lightingScenario.backgroundIntensity;
+    EnvironmentIblDesc ibl = cressim::neo::graphics::createEnvironmentIblFromCubemapImages(
         resources, makeEnvironmentFaces(envIndex), options);
+    if (!lightingScenario.backgroundEnabled)
+    {
+        ibl.backgroundCubemap = {};
+        ibl.backgroundIntensity = 0.0f;
+    }
+    if (!lightingScenario.iblEnabled)
+    {
+        ibl.irradianceCubemap = {};
+        ibl.prefilteredSpecularCubemap = {};
+        ibl.intensity = 0.0f;
+    }
     return world.setEnvironmentIbl(envIndex, ibl);
 }
 
@@ -812,7 +875,7 @@ int main(int argc, char **argv)
     viewerDesc.vSync = false;
     viewerDesc.width = 1280;
     viewerDesc.height = 720;
-    viewerDesc.windowTitle = "CRESSim Neo Physics Viewer Large Array Multi Env IBL";
+    viewerDesc.windowTitle = "CRESSim Neo Physics Viewer Large Array Multi Env IBL Variants";
 
     if (!viewer.initialize(viewerDesc, config))
     {
