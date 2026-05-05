@@ -124,9 +124,11 @@ private:
     void markCameraDirty(std::uint32_t cameraIndex);
     void markLightDirty(std::uint32_t lightIndex);
     void markRenderableMetadataDirty(std::uint32_t objectIndex);
-    void moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
-    void moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
-    void moveLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
+    [[nodiscard]] bool moveRenderableToEnvironment(common::EntityId entityId,
+                                                   std::uint32_t envIndex);
+    [[nodiscard]] bool moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
+    [[nodiscard]] bool moveLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex);
+    void clearColliderLinks(common::EntityId entityId) noexcept;
     [[nodiscard]] bool tryGetLightIndexForType(common::EntityId entityId,
                                                graphics::GpuLightType type, const char *operation,
                                                std::uint32_t &lightIndex) const noexcept;

@@ -337,9 +337,38 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
         }
     }
     mEntityEnvironments[entityId] = envIndex;
-    moveRenderableToEnvironment(entityId, envIndex);
-    moveCameraToEnvironment(entityId, envIndex);
-    moveLightToEnvironment(entityId, envIndex);
+    if (!moveRenderableToEnvironment(entityId, envIndex) ||
+        !moveCameraToEnvironment(entityId, envIndex) || !moveLightToEnvironment(entityId, envIndex))
+    {
+        mEntityEnvironments[entityId] = previousEnv;
+        if (physIt != mPhysicsLinks.end())
+        {
+            if (physIt->second.hasRigidBody)
+            {
+                if (physics::RigidBodyState *rigidBody = mPhysicsWorld.tryGetRigidBody(entityId))
+                {
+                    physics::RigidBodyState reverted = *rigidBody;
+                    reverted.environmentIndex        = previousEnv;
+                    mPhysicsWorld.upsertRigidBody(reverted);
+                }
+            }
+            if (physIt->second.hasSoftBody)
+            {
+                if (physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(entityId))
+                {
+                    physics::SoftBodyState reverted = *softBody;
+                    reverted.environmentIndex       = previousEnv;
+                    if (!mPhysicsWorld.upsertSoftBody(reverted))
+                    {
+                        CRESSIM_LOG_ERROR("setEntityEnvironment failed to restore previous "
+                                          "soft-body environment for entity ",
+                                          entityId, ".");
+                    }
+                }
+            }
+        }
+        return false;
+    }
     mDrawRegistryDirty              = true;
     mPhysicsRenderableMappingsDirty = true;
     return true;
@@ -845,9 +874,12 @@ void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent &co
 
     if (!component.simulated)
     {
-        mPhysicsWorld.removeRigidBody(entityId);
+        if (mPhysicsWorld.removeRigidBody(entityId))
+        {
+            clearColliderLinks(entityId);
+            mPhysicsRenderableMappingsDirty = true;
+        }
         mPhysicsLinks[entityId].hasRigidBody = false;
-        mPhysicsRenderableMappingsDirty      = true;
         return;
     }
 
@@ -888,6 +920,7 @@ bool World::removeRigidBody(common::EntityId entityId)
     const bool removed = mPhysicsWorld.removeRigidBody(entityId);
     if (removed)
     {
+        clearColliderLinks(entityId);
         mPhysicsRenderableMappingsDirty = true;
     }
     return removed;
@@ -2177,12 +2210,12 @@ void World::rebuildLocalLightSelections()
     }
 }
 
-void World::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
+bool World::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
 {
     const auto indexIt = mRenderableIndices.find(entityId);
     if (indexIt == mRenderableIndices.end())
     {
-        return;
+        return true;
     }
 
     const std::uint32_t oldObjectIndex      = static_cast<std::uint32_t>(indexIt->second);
@@ -2192,7 +2225,9 @@ void World::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t
                           mSceneLayout.maxRenderableObjectsPerEnv, "renderable");
     if (newObjectSlot == kInvalidSlot)
     {
-        return;
+        CRESSIM_LOG_ERROR("setEntityEnvironment failed to move renderable for entity ", entityId,
+                          " into environment ", envIndex, ".");
+        return false;
     }
 
     reclaimDenseSlot(mFreeRenderableSlotsByEnv, renderable.envIndex, renderable.objectSlot);
@@ -2208,14 +2243,15 @@ void World::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t
     markRenderablePoseDirty(newObjectIndex);
     indexIt->second              = newObjectIndex;
     mSoftBodyRenderBindingsDirty = true;
+    return true;
 }
 
-void World::moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
+bool World::moveCameraToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
 {
     const auto indexIt = mRenderCameraIndices.find(entityId);
     if (indexIt == mRenderCameraIndices.end())
     {
-        return;
+        return true;
     }
 
     const std::uint32_t oldCameraIndex = static_cast<std::uint32_t>(indexIt->second);
@@ -2225,7 +2261,9 @@ void World::moveCameraToEnvironment(common::EntityId entityId, std::uint32_t env
                           mSceneLayout.maxCamerasPerEnv, "camera");
     if (newCameraSlot == kInvalidSlot)
     {
-        return;
+        CRESSIM_LOG_ERROR("setEntityEnvironment failed to move camera for entity ", entityId,
+                          " into environment ", envIndex, ".");
+        return false;
     }
 
     reclaimDenseSlot(mFreeCameraSlotsByEnv, camera.envIndex, camera.cameraSlot);
@@ -2237,14 +2275,15 @@ void World::moveCameraToEnvironment(common::EntityId entityId, std::uint32_t env
     indexIt->second                    = newCameraIndex;
     markCameraDirty(oldCameraIndex);
     markCameraDirty(newCameraIndex);
+    return true;
 }
 
-void World::moveLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
+bool World::moveLightToEnvironment(common::EntityId entityId, std::uint32_t envIndex)
 {
     const auto indexIt = mRenderLightIndices.find(entityId);
     if (indexIt == mRenderLightIndices.end())
     {
-        return;
+        return true;
     }
 
     const std::uint32_t oldLightIndex = static_cast<std::uint32_t>(indexIt->second);
@@ -2253,7 +2292,9 @@ void World::moveLightToEnvironment(common::EntityId entityId, std::uint32_t envI
         allocateLightSlot(envIndex, light.type == graphics::GpuLightType::Directional);
     if (newLightSlot == kInvalidSlot)
     {
-        return;
+        CRESSIM_LOG_ERROR("setEntityEnvironment failed to move light for entity ", entityId,
+                          " into environment ", envIndex, ".");
+        return false;
     }
 
     reclaimDenseSlot(mFreeLightSlotsByEnv, light.envIndex, light.lightSlot);
@@ -2265,6 +2306,7 @@ void World::moveLightToEnvironment(common::EntityId entityId, std::uint32_t envI
     indexIt->second                   = newLightIndex;
     markLightDirty(oldLightIndex);
     markLightDirty(newLightIndex);
+    return true;
 }
 
 bool World::isLightSlotOccupied(std::uint32_t envIndex, std::uint32_t slot) const noexcept
@@ -2376,6 +2418,21 @@ bool World::removeLight(common::EntityId entityId)
     mRenderLightIndices.erase(it);
     markLightDirty(lightIndex);
     return true;
+}
+
+void World::clearColliderLinks(common::EntityId entityId) noexcept
+{
+    const auto physIt = mPhysicsLinks.find(entityId);
+    if (physIt == mPhysicsLinks.end())
+    {
+        return;
+    }
+
+    for (const ColliderHandle handle : physIt->second.colliders)
+    {
+        mColliderOwnerEntity.erase(handle.id);
+    }
+    physIt->second.colliders.clear();
 }
 
 } // namespace cressim::neo::engine
