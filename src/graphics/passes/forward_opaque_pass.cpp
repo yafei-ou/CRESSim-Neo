@@ -381,7 +381,7 @@ bool ForwardOpaquePass::initialize()
                                 mFallbackNormalSrv) ||
             !createSolidTexture(backendContext.renderDevice, mMaterialSampler,
                                 "CRESSimNeo.ForwardOpaquePass.FallbackMetallicRoughness",
-                                Diligent::TEX_FORMAT_RGBA8_UNORM, {0u, 255u, 0u, 255u},
+                                Diligent::TEX_FORMAT_RGBA8_UNORM, {0u, 255u, 255u, 255u},
                                 mFallbackMetallicRoughnessSrv) ||
             !createSolidTexture(backendContext.renderDevice, mMaterialSampler,
                                 "CRESSimNeo.ForwardOpaquePass.FallbackEmissive",

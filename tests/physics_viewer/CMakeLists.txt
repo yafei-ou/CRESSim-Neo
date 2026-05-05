@@ -64,6 +64,19 @@ add_physics_viewer_test(
 )
 
 add_physics_viewer_test(
+    cressim_neo_physics_viewer_skybox_ibl
+    physics_viewer_skybox_ibl.cpp
+)
+
+target_include_directories(cressim_neo_physics_viewer_skybox_ibl PRIVATE
+    ${PROJECT_SOURCE_DIR}/extern/DiligentEngine/DiligentTools/ThirdParty/stb
+)
+
+target_compile_definitions(cressim_neo_physics_viewer_skybox_ibl PRIVATE
+    CRESSIM_NEO_PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+)
+
+add_physics_viewer_test(
     cressim_neo_physics_viewer_mixed_shape_contacts
     physics_viewer_mixed_shape_contacts.cpp
 )
