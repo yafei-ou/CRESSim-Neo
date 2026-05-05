@@ -294,7 +294,7 @@ bool PhysicsPassDispatcher::dispatchScanBlockPass(Diligent::IDeviceContext *comp
 {
     if (count == 0u)
     {
-        return false;
+        return true;
     }
 
     const std::array bindings{
@@ -318,7 +318,7 @@ bool PhysicsPassDispatcher::dispatchScanAddOffsetsPass(Diligent::IDeviceContext 
 {
     if (count == 0u)
     {
-        return false;
+        return true;
     }
 
     const std::array bindings{

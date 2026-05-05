@@ -236,7 +236,11 @@ bool DebugParticlePass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
     }
 
     const auto &particles = physicsScene.soft.particles;
-    if (particles.count == 0u || particles.positionsInvMassBuffer == nullptr ||
+    if (particles.count == 0u)
+    {
+        return true;
+    }
+    if (particles.positionsInvMassBuffer == nullptr ||
         particles.environmentIndicesBuffer == nullptr ||
         gpuScene.preparedCamerasBuffer == nullptr || gpuScene.cameraInputsBuffer == nullptr)
     {
