@@ -2,6 +2,7 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "graphics/environment_ibl_baker.h"
 #include "graphics/render_resource_manager.h"
 #include "viewer/debug_viewer_app.h"
 
@@ -27,15 +28,13 @@ using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::gpu::GpuBackend;
+using cressim::neo::graphics::EnvironmentCubemapImage;
 using cressim::neo::graphics::EnvironmentIblDesc;
+using cressim::neo::graphics::EnvironmentIblBakeOptions;
 using cressim::neo::graphics::MaterialHandle;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshHandle;
 using cressim::neo::graphics::MeshResourceDesc;
-using cressim::neo::graphics::TextureColorSpace;
-using cressim::neo::graphics::TextureDimension;
-using cressim::neo::graphics::TexturePixelFormat;
-using cressim::neo::graphics::TextureResourceDesc;
 using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerAppDesc;
@@ -97,33 +96,6 @@ void printUsage(const char *appName)
                       " [--backend vulkan|null] [--frames N] [--envs N]\n");
 }
 
-std::uint16_t encodeFloat16(float value)
-{
-    std::uint32_t bits = 0u;
-    std::memcpy(&bits, &value, sizeof(bits));
-    const std::uint32_t sign = (bits >> 16u) & 0x8000u;
-    std::int32_t exponent = static_cast<std::int32_t>((bits >> 23u) & 0xffu) - 127 + 15;
-    std::uint32_t mantissa = bits & 0x007fffffu;
-
-    if (exponent <= 0)
-    {
-        if (exponent < -10)
-        {
-            return static_cast<std::uint16_t>(sign);
-        }
-
-        mantissa = (mantissa | 0x00800000u) >> static_cast<std::uint32_t>(1 - exponent);
-        return static_cast<std::uint16_t>(sign | ((mantissa + 0x00001000u) >> 13u));
-    }
-    if (exponent >= 31)
-    {
-        return static_cast<std::uint16_t>(sign | 0x7c00u);
-    }
-
-    return static_cast<std::uint16_t>(sign | (static_cast<std::uint32_t>(exponent) << 10u) |
-                                      ((mantissa + 0x00001000u) >> 13u));
-}
-
 float saturate(float value)
 {
     return std::clamp(value, 0.0f, 1.0f);
@@ -142,17 +114,6 @@ Diligent::float3 lerp(const Diligent::float3 &a, const Diligent::float3 &b, floa
 Diligent::float3 multiply(const Diligent::float3 &a, const Diligent::float3 &b)
 {
     return {a.x * b.x, a.y * b.y, a.z * b.z};
-}
-
-void appendRgba16f(std::vector<std::uint8_t> &dst, const Diligent::float3 &rgb, float alpha = 1.0f)
-{
-    const std::size_t offset = dst.size();
-    dst.resize(offset + sizeof(std::uint16_t) * 4u);
-    auto *encoded = reinterpret_cast<std::uint16_t *>(dst.data() + offset);
-    encoded[0] = encodeFloat16(std::max(rgb.x, 0.0f));
-    encoded[1] = encodeFloat16(std::max(rgb.y, 0.0f));
-    encoded[2] = encodeFloat16(std::max(rgb.z, 0.0f));
-    encoded[3] = encodeFloat16(std::max(alpha, 0.0f));
 }
 
 Diligent::float3 cubeDirection(std::uint32_t face, std::uint32_t x, std::uint32_t y,
@@ -251,73 +212,27 @@ Diligent::float3 sampleEnvironmentRadiance(const EnvIblPalette &palette,
     return lerp(color, palette.averageRadiance, roughness * roughness * 0.92f);
 }
 
-TextureResourceDesc makeIrradianceCubeDesc(std::uint32_t envIndex)
+std::array<EnvironmentCubemapImage, 6u> makeEnvironmentFaces(std::uint32_t envIndex)
 {
-    TextureResourceDesc desc{};
-    desc.debugName = "ViewerIntegration.Ibl.Irradiance." + std::to_string(envIndex);
-    desc.width = kIrradianceSize;
-    desc.height = kIrradianceSize;
-    desc.mipLevelCount = 1u;
-    desc.dimension = TextureDimension::TextureCube;
-    desc.pixelFormat = TexturePixelFormat::RGBA16F;
-    desc.colorSpace = TextureColorSpace::Linear;
-    desc.subresources.resize(6u);
-
+    std::array<EnvironmentCubemapImage, 6u> faces;
     const EnvIblPalette palette = paletteForEnv(envIndex);
     for (std::uint32_t face = 0u; face < 6u; ++face)
     {
-        auto &pixels = desc.subresources[face].pixelData;
-        pixels.reserve(static_cast<std::size_t>(kIrradianceSize) * kIrradianceSize * 8u);
-        for (std::uint32_t y = 0u; y < kIrradianceSize; ++y)
+        faces[face].width = kSpecularSize;
+        faces[face].height = kSpecularSize;
+        auto &pixels = faces[face].pixels;
+        pixels.reserve(static_cast<std::size_t>(kSpecularSize) * kSpecularSize);
+        for (std::uint32_t y = 0u; y < kSpecularSize; ++y)
         {
-            for (std::uint32_t x = 0u; x < kIrradianceSize; ++x)
+            for (std::uint32_t x = 0u; x < kSpecularSize; ++x)
             {
-                const Diligent::float3 dir = cubeDirection(face, x, y, kIrradianceSize);
-                const Diligent::float3 rgb = sampleEnvironmentRadiance(palette, dir, 1.0f, false);
-                appendRgba16f(pixels, rgb);
+                const Diligent::float3 dir = cubeDirection(face, x, y, kSpecularSize);
+                const Diligent::float3 rgb = sampleEnvironmentRadiance(palette, dir, 0.0f, true);
+                pixels.push_back({rgb.x, rgb.y, rgb.z, 1.0f});
             }
         }
     }
-
-    return desc;
-}
-
-TextureResourceDesc makePrefilteredSpecularCubeDesc(std::uint32_t envIndex)
-{
-    TextureResourceDesc desc{};
-    desc.debugName = "ViewerIntegration.Ibl.Specular." + std::to_string(envIndex);
-    desc.width = kSpecularSize;
-    desc.height = kSpecularSize;
-    desc.mipLevelCount = kSpecularMipCount;
-    desc.dimension = TextureDimension::TextureCube;
-    desc.pixelFormat = TexturePixelFormat::RGBA16F;
-    desc.colorSpace = TextureColorSpace::Linear;
-    desc.subresources.resize(static_cast<std::size_t>(kSpecularMipCount) * 6u);
-
-    const EnvIblPalette palette = paletteForEnv(envIndex);
-    for (std::uint32_t mip = 0u; mip < kSpecularMipCount; ++mip)
-    {
-        const std::uint32_t mipSize = std::max(kSpecularSize >> mip, 1u);
-        const float roughness = static_cast<float>(mip) /
-                                static_cast<float>(std::max(kSpecularMipCount - 1u, 1u));
-        for (std::uint32_t face = 0u; face < 6u; ++face)
-        {
-            auto &pixels = desc.subresources[mip * 6u + face].pixelData;
-            pixels.reserve(static_cast<std::size_t>(mipSize) * mipSize * 8u);
-            for (std::uint32_t y = 0u; y < mipSize; ++y)
-            {
-                for (std::uint32_t x = 0u; x < mipSize; ++x)
-                {
-                    const Diligent::float3 dir = cubeDirection(face, x, y, mipSize);
-                    const Diligent::float3 rgb =
-                        sampleEnvironmentRadiance(palette, dir, roughness, true);
-                    appendRgba16f(pixels, rgb);
-                }
-            }
-        }
-    }
-
-    return desc;
+    return faces;
 }
 
 MeshResourceDesc makeCubeMesh(float halfExtent)
@@ -811,11 +726,13 @@ bool assignEnvironmentIbl(cressim::neo::engine::World &world,
                           cressim::neo::graphics::RenderResourceManager &resources,
                           std::uint32_t envIndex)
 {
-    EnvironmentIblDesc ibl{};
-    ibl.irradianceCubemap = resources.registerTexture(makeIrradianceCubeDesc(envIndex));
-    ibl.prefilteredSpecularCubemap =
-        resources.registerTexture(makePrefilteredSpecularCubeDesc(envIndex));
-    ibl.intensity = 1.0f + 0.08f * static_cast<float>(envIndex % 3u);
+    EnvironmentIblBakeOptions options{};
+    options.irradianceSize = kIrradianceSize;
+    options.specularSize = kSpecularSize;
+    options.specularMipCount = kSpecularMipCount;
+    options.intensity = 1.0f + 0.08f * static_cast<float>(envIndex % 3u);
+    const EnvironmentIblDesc ibl = cressim::neo::graphics::createEnvironmentIblFromCubemapImages(
+        resources, makeEnvironmentFaces(envIndex), options);
     return world.setEnvironmentIbl(envIndex, ibl);
 }
 

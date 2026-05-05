@@ -89,6 +89,13 @@ if(MSVC)
 endif()
 add_subdirectory(extern/DiligentEngine EXCLUDE_FROM_ALL)
 
+set(DILIGENT_INSTALL_TOOLS OFF CACHE BOOL "Install DiligentTools module headers and libraries" FORCE)
+set(DILIGENT_TOOLS_DIR "DiligentTools" CACHE INTERNAL "DiligentTools relative source dir")
+add_subdirectory(extern/DiligentEngine/DiligentTools/ThirdParty
+    ${CMAKE_BINARY_DIR}/DiligentTools/ThirdParty EXCLUDE_FROM_ALL)
+add_subdirectory(extern/DiligentEngine/DiligentTools/TextureLoader
+    ${CMAKE_BINARY_DIR}/DiligentTools/TextureLoader EXCLUDE_FROM_ALL)
+
 if(NOT DEFINED CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH)
     set(CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH "${DILIGENT_DXCOMPILER_FOR_SPIRV_PATH}" CACHE FILEPATH
         "Path to the Vulkan DXC runtime library copied next to CRESSim-Neo binaries")
