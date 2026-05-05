@@ -25,20 +25,14 @@ public:
     SkyboxPass(gpu::GpuDevice &device, RenderResourceManager &resourceManager);
 
     bool initialize();
-    bool draw(const gpu::GpuRenderTargetBinding &targetBinding,
-              const gpu::GpuRenderTargetDesc &targetDesc, const GpuEntitySceneView &gpuScene,
-              const ResolvedCameraView &camera, std::uint32_t targetLayer,
-              const std::vector<EnvironmentIblDesc> *environmentIbls, std::uint32_t envCount);
+    bool drawBatch(const gpu::GpuRenderTargetBinding &targetBinding,
+                   const gpu::GpuRenderTargetDesc &targetDesc,
+                   const GpuEntitySceneView &gpuScene, Diligent::IBuffer *batchCameraBuffer,
+                   std::uint32_t batchCameraCount,
+                   const std::vector<EnvironmentIblDesc> *environmentIbls,
+                   std::uint32_t envCount);
 
 private:
-    struct DrawConstants
-    {
-        std::uint32_t cameraIndex = 0u;
-        std::uint32_t targetLayer = 0u;
-        float viewportAspect      = 1.0f;
-        float padding0            = 0.0f;
-    };
-
     struct EnvironmentBackgroundLookupEntry
     {
         std::uint32_t sliceIndex = 0u;
@@ -63,7 +57,7 @@ private:
         std::size_t operator()(const PipelineKey &key) const noexcept;
     };
 
-    bool ensureConstants(Diligent::IRenderDevice *renderDevice);
+    bool ensureResources(Diligent::IRenderDevice *renderDevice);
     bool ensureBackgroundResources(Diligent::IRenderDevice *renderDevice,
                                    Diligent::IDeviceContext *graphicsContext,
                                    Diligent::Uint64 graphicsContextMask,
@@ -76,7 +70,6 @@ private:
     gpu::GpuDevice &mDevice;
     RenderResourceManager &mResourceManager;
     bool mInitialized = false;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::ISampler> mSampler;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> mBackgroundArraySrv;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mBackgroundLookupBuffer;

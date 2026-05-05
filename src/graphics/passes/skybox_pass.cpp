@@ -4,7 +4,6 @@
 #include "gpu/shader_library.h"
 #include <algorithm>
 #include <cstdint>
-#include <cstring>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -110,27 +109,16 @@ bool SkyboxPass::initialize()
         return false;
     }
 
-    mInitialized = ensureConstants(backendContext.renderDevice);
+    mInitialized = ensureResources(backendContext.renderDevice);
     return mInitialized;
 }
 
-bool SkyboxPass::ensureConstants(Diligent::IRenderDevice *renderDevice)
+bool SkyboxPass::ensureResources(Diligent::IRenderDevice *renderDevice)
 {
     if (renderDevice == nullptr)
     {
         return false;
     }
-    if (mConstantsBuffer == nullptr)
-    {
-        Diligent::BufferDesc constantBufferDesc{};
-        constantBufferDesc.Name           = "CRESSimNeo.SkyboxPass.Constants";
-        constantBufferDesc.Size           = sizeof(DrawConstants);
-        constantBufferDesc.Usage          = Diligent::USAGE_DYNAMIC;
-        constantBufferDesc.BindFlags      = Diligent::BIND_UNIFORM_BUFFER;
-        constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-        renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mConstantsBuffer);
-    }
-
     if (mSampler == nullptr)
     {
         Diligent::SamplerDesc samplerDesc{};
@@ -143,7 +131,7 @@ bool SkyboxPass::ensureConstants(Diligent::IRenderDevice *renderDevice)
         renderDevice->CreateSampler(samplerDesc, &mSampler);
     }
 
-    return mConstantsBuffer != nullptr && mSampler != nullptr;
+    return mSampler != nullptr;
 }
 
 bool SkyboxPass::ensureBackgroundResources(Diligent::IRenderDevice *renderDevice,
@@ -377,7 +365,7 @@ Diligent::IPipelineState *SkyboxPass::getOrCreatePipeline(Diligent::IRenderDevic
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
     constexpr Diligent::ShaderResourceVariableDesc kVars[] = {
-        {Diligent::SHADER_TYPE_VERTEX, "g_CameraInputs",
+        {Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_CameraInputs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -400,17 +388,6 @@ Diligent::IPipelineState *SkyboxPass::getOrCreatePipeline(Diligent::IRenderDevic
     if (pipeline == nullptr)
     {
         return nullptr;
-    }
-
-    if (Diligent::IShaderResourceVariable *vsConstants =
-            pipeline->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "GraphicsSkybox"))
-    {
-        vsConstants->Set(mConstantsBuffer);
-    }
-    if (Diligent::IShaderResourceVariable *psConstants =
-            pipeline->GetStaticVariableByName(Diligent::SHADER_TYPE_PIXEL, "GraphicsSkybox"))
-    {
-        psConstants->Set(mConstantsBuffer);
     }
 
     auto insertResult = mPipelines.emplace(key, pipeline);
@@ -441,14 +418,15 @@ Diligent::IShaderResourceBinding *SkyboxPass::getOrCreateBinding(Diligent::IPipe
     return insertResult.first->second;
 }
 
-bool SkyboxPass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
-                      const gpu::GpuRenderTargetDesc &targetDesc,
-                      const GpuEntitySceneView &gpuScene, const ResolvedCameraView &camera,
-                      std::uint32_t targetLayer,
-                      const std::vector<EnvironmentIblDesc> *environmentIbls,
-                      std::uint32_t envCount)
+bool SkyboxPass::drawBatch(const gpu::GpuRenderTargetBinding &targetBinding,
+                           const gpu::GpuRenderTargetDesc &targetDesc,
+                           const GpuEntitySceneView &gpuScene,
+                           Diligent::IBuffer *batchCameraBuffer,
+                           std::uint32_t batchCameraCount,
+                           const std::vector<EnvironmentIblDesc> *environmentIbls,
+                           std::uint32_t envCount)
 {
-    if (camera.backgroundMode != CameraBackgroundMode::EnvironmentCubemap)
+    if (batchCameraCount == 0u)
     {
         return true;
     }
@@ -465,12 +443,12 @@ bool SkyboxPass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
     }
     if (!backendContext.hasActiveRenderTarget ||
         !(backendContext.activeRenderTargetBinding == targetBinding) ||
-        gpuScene.cameraInputsBuffer == nullptr)
+        gpuScene.cameraInputsBuffer == nullptr || batchCameraBuffer == nullptr)
     {
         return false;
     }
 
-    if (!ensureConstants(backendContext.renderDevice) ||
+    if (!ensureResources(backendContext.renderDevice) ||
         !ensureBackgroundResources(backendContext.renderDevice, backendContext.graphicsContext,
                                    gpu::contextMaskForId(backendContext.contextId), environmentIbls,
                                    envCount))
@@ -519,8 +497,7 @@ bool SkyboxPass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
         return true;
     };
 
-    if (!setBufferView(Diligent::SHADER_TYPE_VERTEX, "g_CameraInputs",
-                       gpuScene.cameraInputsBuffer) ||
+    if (!setBufferView(Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras", batchCameraBuffer) ||
         !setBufferView(Diligent::SHADER_TYPE_PIXEL, "g_CameraInputs",
                        gpuScene.cameraInputsBuffer) ||
         !setBufferView(Diligent::SHADER_TYPE_PIXEL, "g_EnvironmentBackgroundLookup",
@@ -531,32 +508,14 @@ bool SkyboxPass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
         return false;
     }
 
-    DrawConstants constants{};
-    constants.cameraIndex = camera.globalCameraIndex;
-    constants.targetLayer = targetLayer;
-    const float viewportWidth =
-        std::max(camera.viewport.width * static_cast<float>(targetDesc.width), 1.0f);
-    const float viewportHeight =
-        std::max(camera.viewport.height * static_cast<float>(targetDesc.height), 1.0f);
-    constants.viewportAspect = viewportWidth / viewportHeight;
-
-    void *mapped = nullptr;
-    backendContext.graphicsContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,
-                                              Diligent::MAP_FLAG_DISCARD, mapped);
-    if (mapped == nullptr)
-    {
-        return false;
-    }
-    std::memcpy(mapped, &constants, sizeof(constants));
-    backendContext.graphicsContext->UnmapBuffer(mConstantsBuffer, Diligent::MAP_WRITE);
-
     backendContext.graphicsContext->SetPipelineState(pipeline);
     backendContext.graphicsContext->CommitShaderResources(
         binding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     Diligent::DrawAttribs drawAttrs{};
-    drawAttrs.NumVertices = 3u;
-    drawAttrs.Flags       = Diligent::DRAW_FLAG_VERIFY_ALL;
+    drawAttrs.NumVertices  = 3u;
+    drawAttrs.NumInstances = batchCameraCount;
+    drawAttrs.Flags        = Diligent::DRAW_FLAG_VERIFY_ALL;
     backendContext.graphicsContext->Draw(drawAttrs);
     return true;
 }

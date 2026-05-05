@@ -12,14 +12,6 @@ struct CameraInput
     uint reserved;
 };
 
-cbuffer GraphicsSkybox
-{
-    uint g_SkyboxCameraIndex;
-    uint g_SkyboxTargetLayer;
-    float g_SkyboxViewportAspect;
-    float g_SkyboxPadding0;
-};
-
 struct EnvironmentBackgroundLookupEntry
 {
     uint sliceIndex;
@@ -37,12 +29,24 @@ struct PSInput
 {
     float4 Position : SV_Position;
     float2 TexCoord : TEXCOORD0;
-    nointerpolation uint EnvIndex : TEXCOORD1;
+    nointerpolation uint CameraIndex : TEXCOORD1;
+    nointerpolation uint EnvIndex : TEXCOORD2;
 };
 
 float degreesToRadians(float degrees)
 {
     return degrees * 0.017453292519943295f;
+}
+
+float computeEffectiveViewportAspect(float4 viewportAndOutputSize)
+{
+    const float viewportWidth = clamp(viewportAndOutputSize.x, 0.0, 1.0);
+    const float viewportHeight = clamp(viewportAndOutputSize.y, 0.0, 1.0);
+    const float outputWidth = max(viewportAndOutputSize.z, 1.0);
+    const float outputHeight = max(viewportAndOutputSize.w, 1.0);
+    const float effectiveWidth = outputWidth * max(viewportWidth, 1.0e-5);
+    const float effectiveHeight = outputHeight * max(viewportHeight, 1.0e-5);
+    return max(effectiveWidth / max(effectiveHeight, 1.0e-5), 1.0e-5);
 }
 
 float3 quaternionRotateVector(float4 q, float3 v)
@@ -53,20 +57,21 @@ float3 quaternionRotateVector(float4 q, float3 v)
 
 float4 main(in PSInput In) : SV_Target
 {
-    const CameraInput camera = CRESSIM_SB_LOAD(g_CameraInputs, g_SkyboxCameraIndex);
+    const CameraInput camera = CRESSIM_SB_LOAD(g_CameraInputs, In.CameraIndex);
     const EnvironmentBackgroundLookupEntry entry =
         CRESSIM_SB_LOAD(g_EnvironmentBackgroundLookup, In.EnvIndex);
     if (camera.active == 0u || entry.enabled == 0u)
     {
-        return float4(0.0, 0.0, 0.0, 1.0);
+        discard;
     }
 
     const float2 ndc = float2(In.TexCoord.x * 2.0 - 1.0, 1.0 - In.TexCoord.y * 2.0);
     const float fovRadians =
         max(degreesToRadians(camera.projectionParams.x), degreesToRadians(1.0));
     const float tanHalfFov = tan(0.5 * fovRadians);
+    const float viewportAspect = computeEffectiveViewportAspect(camera.viewportAndOutputSize);
     const float3 viewDir =
-        normalize(float3(ndc.x * max(g_SkyboxViewportAspect, 1.0e-5) * tanHalfFov,
+        normalize(float3(ndc.x * max(viewportAspect, 1.0e-5) * tanHalfFov,
                          ndc.y * tanHalfFov, 1.0));
     const float3 dir = normalize(quaternionRotateVector(normalize(camera.orientation), viewDir));
 

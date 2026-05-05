@@ -1358,18 +1358,15 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     mDevice.renderTargetSystem().beginRenderTarget(batchView.renderBinding, frameContext,
                                                    mainBegin);
 
-    if (mSkyboxPass != nullptr)
+    if (mSkyboxPass != nullptr &&
+        batchView.cameras.front().backgroundMode == CameraBackgroundMode::EnvironmentCubemap)
     {
-        for (const ResolvedCameraView &camera : batchView.cameras)
+        if (!mSkyboxPass->drawBatch(batchView.renderBinding, batchView.renderTargetDesc, gpuScene,
+                                    mGpuIndirectState->opaque.batchCameraBuffer,
+                                    static_cast<std::uint32_t>(batchView.cameras.size()),
+                                    sceneView.environmentIbls, gpuScene.layout.envCount))
         {
-            const std::uint32_t targetLayer =
-                camera.outputBinding.firstLayer - batchView.renderBinding.firstLayer;
-            if (!mSkyboxPass->draw(batchView.renderBinding, batchView.renderTargetDesc, gpuScene,
-                                   camera, targetLayer, sceneView.environmentIbls,
-                                   gpuScene.layout.envCount))
-            {
-                return false;
-            }
+            return false;
         }
     }
 

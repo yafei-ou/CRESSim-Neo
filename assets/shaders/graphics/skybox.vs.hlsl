@@ -1,40 +1,33 @@
 #include "include/structured_buffer_compat.hlsli"
 
-struct CameraInput
+struct BatchCamera
 {
-    float4 position;
-    float4 orientation;
-    float4 projectionParams;
-    float4 viewportAndOutputSize;
+    uint globalCameraIndex;
     uint envIndex;
-    uint cameraSlot;
-    uint active;
-    uint reserved;
+    uint mainLightIndex;
+    uint colorLayer;
+    uint shadowLayer;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
 };
 
-cbuffer GraphicsSkybox
-{
-    uint g_SkyboxCameraIndex;
-    uint g_SkyboxTargetLayer;
-    float g_SkyboxViewportAspect;
-    float g_SkyboxPadding0;
-};
-
-CRESSIM_STRUCTURED_BUFFER(CameraInput, g_CameraInputs);
+CRESSIM_STRUCTURED_BUFFER(BatchCamera, g_BatchCameras);
 
 struct VSOutput
 {
     float4 Position : SV_Position;
     float2 TexCoord : TEXCOORD0;
-    nointerpolation uint EnvIndex : TEXCOORD1;
+    nointerpolation uint CameraIndex : TEXCOORD1;
+    nointerpolation uint EnvIndex : TEXCOORD2;
 #if MANUAL_LAYER_EXPORT
     uint Layer : SV_RenderTargetArrayIndex;
 #endif
 };
 
-void main(uint vertexId : SV_VertexID, out VSOutput Out)
+void main(uint vertexId : SV_VertexID, uint instanceId : SV_InstanceID, out VSOutput Out)
 {
-    const CameraInput camera = CRESSIM_SB_LOAD(g_CameraInputs, g_SkyboxCameraIndex);
+    const BatchCamera batchCamera = CRESSIM_SB_LOAD(g_BatchCameras, instanceId);
     const float2 positions[3] = {
         float2(-1.0, -1.0),
         float2(-1.0,  3.0),
@@ -48,8 +41,9 @@ void main(uint vertexId : SV_VertexID, out VSOutput Out)
 
     Out.Position = float4(positions[vertexId], 1.0, 1.0);
     Out.TexCoord = texCoords[vertexId];
-    Out.EnvIndex = camera.envIndex;
+    Out.CameraIndex = batchCamera.globalCameraIndex;
+    Out.EnvIndex = batchCamera.envIndex;
 #if MANUAL_LAYER_EXPORT
-    Out.Layer = g_SkyboxTargetLayer;
+    Out.Layer = batchCamera.colorLayer;
 #endif
 }
