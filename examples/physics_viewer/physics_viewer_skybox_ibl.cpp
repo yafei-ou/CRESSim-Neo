@@ -130,7 +130,7 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
 EnvironmentIblDesc loadSkyboxIbl(cressim::neo::graphics::RenderResourceManager &resources)
 {
     const std::filesystem::path skyboxDir =
-        std::filesystem::path(CRESSIM_NEO_PROJECT_SOURCE_DIR) / "tests/physics_viewer/skybox";
+        std::filesystem::path(CRESSIM_NEO_PROJECT_SOURCE_DIR) / "examples/physics_viewer/skybox";
     const std::array<std::filesystem::path, 6u> facePaths = {
         skyboxDir / "posx.jpg", skyboxDir / "negx.jpg", skyboxDir / "posy.jpg",
         skyboxDir / "negy.jpg", skyboxDir / "posz.jpg", skyboxDir / "negz.jpg"};

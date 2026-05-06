@@ -1,7 +1,7 @@
 set(TARGET_NAME "cressim_neo_viewer_integration")
 
 add_executable(${TARGET_NAME}
-    ${PROJECT_SOURCE_DIR}/tests/debug_viewer/debug_viewer.cpp
+    ${PROJECT_SOURCE_DIR}/examples/debug_viewer/debug_viewer.cpp
 )
 
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/include)
@@ -20,7 +20,7 @@ set_target_properties(${TARGET_NAME}
 set(TWO_ENV_TARGET_NAME "cressim_neo_two_env_viewer")
 
 add_executable(${TWO_ENV_TARGET_NAME}
-    ${PROJECT_SOURCE_DIR}/tests/debug_viewer/two_env_debug_viewer.cpp
+    ${PROJECT_SOURCE_DIR}/examples/debug_viewer/two_env_debug_viewer.cpp
 )
 
 target_include_directories(${TWO_ENV_TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/include)
@@ -39,7 +39,7 @@ set_target_properties(${TWO_ENV_TARGET_NAME}
 set(TEXTURE_VIEWER_TARGET_NAME "cressim_neo_texture_viewer")
 
 add_executable(${TEXTURE_VIEWER_TARGET_NAME}
-    ${PROJECT_SOURCE_DIR}/tests/debug_viewer/texture_debug_viewer.cpp
+    ${PROJECT_SOURCE_DIR}/examples/debug_viewer/texture_debug_viewer.cpp
 )
 
 target_include_directories(${TEXTURE_VIEWER_TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/include)

@@ -1,6 +1,6 @@
-function(add_physics_viewer_test target_name source_file)
+function(add_physics_viewer_example target_name source_file)
     add_executable(${target_name}
-        ${PROJECT_SOURCE_DIR}/tests/physics_viewer/${source_file}
+        ${PROJECT_SOURCE_DIR}/examples/physics_viewer/${source_file}
     )
 
     target_include_directories(${target_name} PRIVATE
@@ -17,53 +17,53 @@ function(add_physics_viewer_test target_name source_file)
     )
 endfunction()
 
-add_physics_viewer_test(
+add_physics_viewer_example(
     cressim_neo_physics_viewer
     physics_viewer.cpp
 )
 
-# Manual physics viewer executables. Intentionally not added to ctest.
-add_physics_viewer_test(
+# Manual physics viewer example executables.
+add_physics_viewer_example(
     cressim_neo_physics_viewer_pairs
     physics_viewer_pairs.cpp
 )
 
-add_physics_viewer_test(
+add_physics_viewer_example(
     cressim_neo_physics_viewer_large_array
     physics_viewer_large_array.cpp
 )
 
-add_physics_viewer_test(
+add_physics_viewer_example(
     cressim_neo_physics_viewer_reallocation_during_simulation
     physics_viewer_reallocation_during_simulation.cpp
 )
 
-add_physics_viewer_test(
+add_physics_viewer_example(
     cressim_neo_physics_viewer_large_array_multi_env
     physics_viewer_large_array_multi_env.cpp
 )
 
-add_physics_viewer_test(
+add_physics_viewer_example(
     cressim_neo_physics_viewer_large_array_multi_env_mixed_lighting
     physics_viewer_large_array_multi_env_mixed_lighting.cpp
 )
 
-add_physics_viewer_test(
+add_physics_viewer_example(
     cressim_neo_physics_viewer_multi_env_light_matrix
     physics_viewer_multi_env_light_matrix.cpp
 )
 
-add_physics_viewer_test(
+add_physics_viewer_example(
     cressim_neo_physics_viewer_large_array_multi_env_ibl
     physics_viewer_large_array_multi_env_ibl.cpp
 )
 
-add_physics_viewer_test(
+add_physics_viewer_example(
     cressim_neo_physics_viewer_large_array_multi_env_shared_ibl
     physics_viewer_large_array_multi_env_shared_ibl.cpp
 )
 
-add_physics_viewer_test(
+add_physics_viewer_example(
     cressim_neo_physics_viewer_skybox_ibl
     physics_viewer_skybox_ibl.cpp
 )
@@ -72,32 +72,32 @@ target_compile_definitions(cressim_neo_physics_viewer_skybox_ibl PRIVATE
     CRESSIM_NEO_PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
 )
 
-add_physics_viewer_test(
+add_physics_viewer_example(
     cressim_neo_physics_viewer_mixed_shape_contacts
     physics_viewer_mixed_shape_contacts.cpp
 )
 
-add_physics_viewer_test(
+add_physics_viewer_example(
     cressim_neo_physics_viewer_rigid_joints
     physics_viewer_rigid_joints.cpp
 )
 
-add_physics_viewer_test(
+add_physics_viewer_example(
     cressim_neo_physics_viewer_soft_particles
     physics_viewer_soft_particles.cpp
 )
 
-add_physics_viewer_test(
+add_physics_viewer_example(
     cressim_neo_physics_viewer_soft_particles_toroid
     physics_viewer_soft_particles_toroid.cpp
 )
 
-add_physics_viewer_test(
+add_physics_viewer_example(
     cressim_neo_physics_viewer_soft_particles_toroid_multi_env
     physics_viewer_soft_particles_toroid_multi_env.cpp
 )
 
-add_physics_viewer_test(
+add_physics_viewer_example(
     cressim_neo_physics_viewer_soft_particles_multi_env
     physics_viewer_soft_particles_multi_env.cpp
 )

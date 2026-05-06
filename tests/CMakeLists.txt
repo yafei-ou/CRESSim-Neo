@@ -4,8 +4,3 @@ add_subdirectory(forward_pipeline)
 add_subdirectory(graphics)
 add_subdirectory(engine)
 add_subdirectory(physics)
-
-if(CRESSIM_NEO_BUILD_VIEWER)
-    add_subdirectory(debug_viewer)
-    add_subdirectory(physics_viewer)
-endif()
