@@ -1,7 +1,7 @@
-set(TARGET_NAME "cressim_neo_cube_depth")
+set(TARGET_NAME "cressim_neo_explicit_surface_depth_readback")
 
 add_executable(${TARGET_NAME}
-    ${PROJECT_SOURCE_DIR}/tests/cube_depth/cube_depth.cpp
+    ${PROJECT_SOURCE_DIR}/tests/explicit_surface_depth_readback/explicit_surface_depth_readback.cpp
 )
 
 target_include_directories(${TARGET_NAME} PRIVATE
@@ -18,6 +18,6 @@ set_target_properties(${TARGET_NAME}
 )
 
 add_test(
-    NAME cressim_neo_cube_depth_vulkan
+    NAME cressim_neo_explicit_surface_depth_readback_vulkan
     COMMAND ${TARGET_NAME} --backend vulkan --frames 2
 )

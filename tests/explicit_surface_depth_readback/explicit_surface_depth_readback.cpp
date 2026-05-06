@@ -31,6 +31,9 @@ using cressim::neo::gpu::GpuRenderTargetHandle;
 using cressim::neo::gpu::GpuRenderTargetReadbackEvent;
 using cressim::neo::gpu::GpuRenderTargetReadbackRequest;
 
+constexpr float kClearTolerance = 0.02f;
+constexpr std::uint32_t kCenterWindowRadius = 16u;
+
 GpuBackend parseBackend(const std::string& value)
 {
     if (value == "null")
@@ -207,10 +210,13 @@ bool isNear(ReadbackPixel value, const ReadbackPixel& expected, float tolerance)
            std::fabs(value.a - expected.a) <= tolerance;
 }
 
+bool isClearPixel(const ReadbackPixel& pixel, const ReadbackPixel& clearPixel)
+{
+    return isNear(pixel, clearPixel, kClearTolerance);
+}
+
 bool containsNonClearPixel(const GpuRenderTargetReadbackEvent& event, const ReadbackPixel& clearPixel)
 {
-    constexpr float kTolerance = 0.02f;
-
     if (!isValidReadback(event))
     {
         return false;
@@ -220,7 +226,7 @@ bool containsNonClearPixel(const GpuRenderTargetReadbackEvent& event, const Read
     {
         for (std::uint32_t x = 0; x < event.width; ++x)
         {
-            if (!isNear(decodePixel(event, x, y), clearPixel, kTolerance))
+            if (!isClearPixel(decodePixel(event, x, y), clearPixel))
             {
                 return true;
             }
@@ -262,9 +268,27 @@ struct DominantPixelStats
     std::uint64_t greenDominantCount = 0;
 };
 
+struct PixelRect
+{
+    std::uint32_t startX = 0;
+    std::uint32_t startY = 0;
+    std::uint32_t endX = 0;
+    std::uint32_t endY = 0;
+};
+
+PixelRect makeCenterWindowRect(const GpuRenderTargetReadbackEvent& event)
+{
+    const std::uint32_t centerX = event.width / 2u;
+    const std::uint32_t centerY = event.height / 2u;
+    return {
+        centerX > kCenterWindowRadius ? centerX - kCenterWindowRadius : 0u,
+        centerY > kCenterWindowRadius ? centerY - kCenterWindowRadius : 0u,
+        centerX + kCenterWindowRadius + 1u,
+        centerY + kCenterWindowRadius + 1u};
+}
+
 DominantPixelStats analyzeDominantPixelsInRect(const GpuRenderTargetReadbackEvent& event,
-                                               std::uint32_t startX, std::uint32_t startY,
-                                               std::uint32_t endX, std::uint32_t endY,
+                                               const PixelRect& rect,
                                                const ReadbackPixel& clearPixel)
 {
     DominantPixelStats stats{};
@@ -272,19 +296,18 @@ DominantPixelStats analyzeDominantPixelsInRect(const GpuRenderTargetReadbackEven
     {
         return stats;
     }
-    constexpr float kTolerance = 0.02f;
 
-    const std::uint32_t clampedStartX = std::min(startX, event.width);
-    const std::uint32_t clampedStartY = std::min(startY, event.height);
-    const std::uint32_t clampedEndX = std::min(endX, event.width);
-    const std::uint32_t clampedEndY = std::min(endY, event.height);
+    const std::uint32_t clampedStartX = std::min(rect.startX, event.width);
+    const std::uint32_t clampedStartY = std::min(rect.startY, event.height);
+    const std::uint32_t clampedEndX = std::min(rect.endX, event.width);
+    const std::uint32_t clampedEndY = std::min(rect.endY, event.height);
 
     for (std::uint32_t y = clampedStartY; y < clampedEndY; ++y)
     {
         for (std::uint32_t x = clampedStartX; x < clampedEndX; ++x)
         {
             const ReadbackPixel pixel = decodePixel(event, x, y);
-            if (isNear(pixel, clearPixel, kTolerance))
+            if (isClearPixel(pixel, clearPixel))
             {
                 continue;
             }
@@ -307,7 +330,8 @@ DominantPixelStats analyzeDominantPixelsInRect(const GpuRenderTargetReadbackEven
 DominantPixelStats analyzeDominantPixels(const GpuRenderTargetReadbackEvent& event,
                                          const ReadbackPixel& clearPixel)
 {
-    return analyzeDominantPixelsInRect(event, 0u, 0u, event.width, event.height, clearPixel);
+    return analyzeDominantPixelsInRect(event, PixelRect{0u, 0u, event.width, event.height},
+                                       clearPixel);
 }
 
 std::string withSuffixBeforeExtension(std::string path, const std::string& suffix)
@@ -628,23 +652,11 @@ int main(int argc, char** argv)
 
     const auto backOnlyCenter = readCenterPixel(backOnlyCapture);
     const auto layeredCenter = readCenterPixel(layeredCapture);
-    const std::uint32_t centerX = backOnlyCapture.width / 2u;
-    const std::uint32_t centerY = backOnlyCapture.height / 2u;
-    constexpr std::uint32_t kCenterWindowRadius = 16u;
+    const PixelRect centerWindow = makeCenterWindowRect(backOnlyCapture);
     const DominantPixelStats backOnlyCenterStats =
-        analyzeDominantPixelsInRect(backOnlyCapture,
-                                    centerX > kCenterWindowRadius ? centerX - kCenterWindowRadius : 0u,
-                                    centerY > kCenterWindowRadius ? centerY - kCenterWindowRadius : 0u,
-                                    centerX + kCenterWindowRadius + 1u,
-                                    centerY + kCenterWindowRadius + 1u,
-                                    clearPixel);
+        analyzeDominantPixelsInRect(backOnlyCapture, centerWindow, clearPixel);
     const DominantPixelStats layeredCenterStats =
-        analyzeDominantPixelsInRect(layeredCapture,
-                                    centerX > kCenterWindowRadius ? centerX - kCenterWindowRadius : 0u,
-                                    centerY > kCenterWindowRadius ? centerY - kCenterWindowRadius : 0u,
-                                    centerX + kCenterWindowRadius + 1u,
-                                    centerY + kCenterWindowRadius + 1u,
-                                    clearPixel);
+        analyzeDominantPixelsInRect(layeredCapture, centerWindow, clearPixel);
 
     if (backOnlyCenterStats.greenDominantCount == 0u ||
         backOnlyCenterStats.greenDominantCount <= backOnlyCenterStats.redDominantCount)
