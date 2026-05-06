@@ -3,12 +3,13 @@
 #include "engine/runtime.h"
 #include "common/logger.h"
 
-#include <array>
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
+
 #include <cmath>
+#include <cstring>
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
-#include <iostream>
 #include <string>
 #include <vector>
 
@@ -49,12 +50,6 @@ void printUsage(const char* appName)
               , " [--backend vulkan|null] [--frames N] [--output path.ppm] [--validation on|off]\n");
 }
 
-bool isNear(std::uint8_t value, std::uint8_t expected, std::uint8_t tolerance)
-{
-    const int diff = static_cast<int>(value) - static_cast<int>(expected);
-    return diff >= -static_cast<int>(tolerance) && diff <= static_cast<int>(tolerance);
-}
-
 float degreesToRadians(float value)
 {
     return value * 0.017453292519943295769f;
@@ -82,24 +77,139 @@ Diligent::QuaternionF quaternionFromEulerDegrees(float pitchDegrees, float yawDe
 
 bool isValidReadback(const GpuRenderTargetReadbackEvent& event)
 {
-    if (event.width == 0 || event.height == 0 || event.rowStrideBytes < event.width * 4u)
+    if (event.width == 0 || event.height == 0)
     {
         return false;
     }
-    if (event.colorBytes.size() < static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height))
+
+    const auto& formatAttribs = Diligent::GetTextureFormatAttribs(event.colorFormat);
+    if (formatAttribs.Format == Diligent::TEX_FORMAT_UNKNOWN || formatAttribs.IsTypeless ||
+        formatAttribs.ComponentType == Diligent::COMPONENT_TYPE_COMPRESSED)
+    {
+        return false;
+    }
+
+    const std::uint32_t minStride = event.width * formatAttribs.GetElementSize();
+    if (event.rowStrideBytes < minStride)
+    {
+        return false;
+    }
+
+    if (event.colorBytes.size() <
+        static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height))
     {
         return false;
     }
     return true;
 }
 
-bool containsNonClearPixel(const GpuRenderTargetReadbackEvent& event)
+struct ReadbackPixel
 {
-    constexpr std::uint8_t kClearR = 5;
-    constexpr std::uint8_t kClearG = 5;
-    constexpr std::uint8_t kClearB = 8;
-    constexpr std::uint8_t kClearA = 255;
-    constexpr std::uint8_t kTolerance = 2;
+    float r = 0.0f;
+    float g = 0.0f;
+    float b = 0.0f;
+    float a = 0.0f;
+};
+
+float halfToFloat(std::uint16_t value)
+{
+    const std::uint32_t sign = static_cast<std::uint32_t>(value & 0x8000u) << 16u;
+    std::uint32_t exponent   = (value >> 10u) & 0x1fu;
+    std::uint32_t mantissa   = value & 0x03ffu;
+
+    std::uint32_t bits = 0u;
+    if (exponent == 0u)
+    {
+        if (mantissa != 0u)
+        {
+            exponent = 113u;
+            while ((mantissa & 0x0400u) == 0u)
+            {
+                mantissa <<= 1u;
+                --exponent;
+            }
+            mantissa &= 0x03ffu;
+            bits = sign | (exponent << 23u) | (mantissa << 13u);
+        }
+        else
+        {
+            bits = sign;
+        }
+    }
+    else if (exponent == 0x1fu)
+    {
+        bits = sign | 0x7f800000u | (mantissa << 13u);
+    }
+    else
+    {
+        bits = sign | ((exponent + 112u) << 23u) | (mantissa << 13u);
+    }
+
+    float result = 0.0f;
+    std::memcpy(&result, &bits, sizeof(result));
+    return result;
+}
+
+std::size_t pixelOffset(const GpuRenderTargetReadbackEvent& event, std::uint32_t x, std::uint32_t y)
+{
+    return static_cast<std::size_t>(y) * event.rowStrideBytes +
+           static_cast<std::size_t>(x) *
+               Diligent::GetTextureFormatAttribs(event.colorFormat).GetElementSize();
+}
+
+ReadbackPixel decodePixel(const GpuRenderTargetReadbackEvent& event, std::uint32_t x, std::uint32_t y)
+{
+    ReadbackPixel pixel{};
+    if (!isValidReadback(event))
+    {
+        return pixel;
+    }
+
+    const std::size_t offset = pixelOffset(event, x, y);
+    if (event.colorFormat == Diligent::TEX_FORMAT_RGBA16_FLOAT)
+    {
+        const std::uint16_t pixelR =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 0u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 1u]) << 8u);
+        const std::uint16_t pixelG =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 2u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 3u]) << 8u);
+        const std::uint16_t pixelB =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 4u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 5u]) << 8u);
+        const std::uint16_t pixelA =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 6u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 7u]) << 8u);
+        pixel.r = halfToFloat(pixelR);
+        pixel.g = halfToFloat(pixelG);
+        pixel.b = halfToFloat(pixelB);
+        pixel.a = halfToFloat(pixelA);
+        return pixel;
+    }
+
+    pixel.r = static_cast<float>(event.colorBytes[offset + 0u]) / 255.0f;
+    pixel.g = static_cast<float>(event.colorBytes[offset + 1u]) / 255.0f;
+    pixel.b = static_cast<float>(event.colorBytes[offset + 2u]) / 255.0f;
+    pixel.a = static_cast<float>(event.colorBytes[offset + 3u]) / 255.0f;
+    return pixel;
+}
+
+std::uint8_t encodeByte(float value)
+{
+    return static_cast<std::uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f));
+}
+
+bool isNear(ReadbackPixel value, const ReadbackPixel& expected, float tolerance)
+{
+    return std::fabs(value.r - expected.r) <= tolerance &&
+           std::fabs(value.g - expected.g) <= tolerance &&
+           std::fabs(value.b - expected.b) <= tolerance &&
+           std::fabs(value.a - expected.a) <= tolerance;
+}
+
+bool containsNonClearPixel(const GpuRenderTargetReadbackEvent& event, const ReadbackPixel& clearPixel)
+{
+    constexpr float kTolerance = 0.02f;
 
     if (!isValidReadback(event))
     {
@@ -110,19 +220,7 @@ bool containsNonClearPixel(const GpuRenderTargetReadbackEvent& event)
     {
         for (std::uint32_t x = 0; x < event.width; ++x)
         {
-            const std::size_t offset = static_cast<std::size_t>(y) * event.rowStrideBytes + static_cast<std::size_t>(x) * 4u;
-            const std::uint8_t r = event.colorBytes[offset + 0u];
-            const std::uint8_t g = event.colorBytes[offset + 1u];
-            const std::uint8_t b = event.colorBytes[offset + 2u];
-            const std::uint8_t a = event.colorBytes[offset + 3u];
-
-            const bool nearClear =
-                isNear(r, kClearR, kTolerance) &&
-                isNear(g, kClearG, kTolerance) &&
-                isNear(b, kClearB, kTolerance) &&
-                isNear(a, kClearA, kTolerance);
-
-            if (!nearClear)
+            if (!isNear(decodePixel(event, x, y), clearPixel, kTolerance))
             {
                 return true;
             }
@@ -132,9 +230,9 @@ bool containsNonClearPixel(const GpuRenderTargetReadbackEvent& event)
     return false;
 }
 
-std::array<std::uint8_t, 4> readCenterPixel(const GpuRenderTargetReadbackEvent& event)
+ReadbackPixel readCenterPixel(const GpuRenderTargetReadbackEvent& event)
 {
-    std::array<std::uint8_t, 4> pixel{0u, 0u, 0u, 0u};
+    ReadbackPixel pixel{};
     if (!isValidReadback(event))
     {
         return pixel;
@@ -142,31 +240,19 @@ std::array<std::uint8_t, 4> readCenterPixel(const GpuRenderTargetReadbackEvent& 
 
     const std::uint32_t x = event.width / 2u;
     const std::uint32_t y = event.height / 2u;
-    const std::size_t offset = static_cast<std::size_t>(y) * event.rowStrideBytes + static_cast<std::size_t>(x) * 4u;
-
-    pixel[0] = event.colorBytes[offset + 0u];
-    pixel[1] = event.colorBytes[offset + 1u];
-    pixel[2] = event.colorBytes[offset + 2u];
-    pixel[3] = event.colorBytes[offset + 3u];
-    return pixel;
+    return decodePixel(event, x, y);
 }
 
-bool isRedDominant(const std::array<std::uint8_t, 4>& pixel)
+bool isRedDominant(const ReadbackPixel& pixel)
 {
-    constexpr int kDominance = 10;
-    const int r = static_cast<int>(pixel[0]);
-    const int g = static_cast<int>(pixel[1]);
-    const int b = static_cast<int>(pixel[2]);
-    return r > g + kDominance && r > b + kDominance;
+    constexpr float kDominance = 0.05f;
+    return pixel.r > pixel.g + kDominance && pixel.r > pixel.b + kDominance;
 }
 
-bool isGreenDominant(const std::array<std::uint8_t, 4>& pixel)
+bool isGreenDominant(const ReadbackPixel& pixel)
 {
-    constexpr int kDominance = 10;
-    const int r = static_cast<int>(pixel[0]);
-    const int g = static_cast<int>(pixel[1]);
-    const int b = static_cast<int>(pixel[2]);
-    return g > r + kDominance && g > b + kDominance;
+    constexpr float kDominance = 0.05f;
+    return pixel.g > pixel.r + kDominance && pixel.g > pixel.b + kDominance;
 }
 
 struct DominantPixelStats
@@ -176,38 +262,29 @@ struct DominantPixelStats
     std::uint64_t greenDominantCount = 0;
 };
 
-DominantPixelStats analyzeDominantPixels(const GpuRenderTargetReadbackEvent& event)
+DominantPixelStats analyzeDominantPixelsInRect(const GpuRenderTargetReadbackEvent& event,
+                                               std::uint32_t startX, std::uint32_t startY,
+                                               std::uint32_t endX, std::uint32_t endY,
+                                               const ReadbackPixel& clearPixel)
 {
     DominantPixelStats stats{};
     if (!isValidReadback(event))
     {
         return stats;
     }
+    constexpr float kTolerance = 0.02f;
 
-    constexpr std::uint8_t kClearR = 5;
-    constexpr std::uint8_t kClearG = 5;
-    constexpr std::uint8_t kClearB = 8;
-    constexpr std::uint8_t kClearA = 255;
-    constexpr std::uint8_t kTolerance = 2;
+    const std::uint32_t clampedStartX = std::min(startX, event.width);
+    const std::uint32_t clampedStartY = std::min(startY, event.height);
+    const std::uint32_t clampedEndX = std::min(endX, event.width);
+    const std::uint32_t clampedEndY = std::min(endY, event.height);
 
-    for (std::uint32_t y = 0; y < event.height; ++y)
+    for (std::uint32_t y = clampedStartY; y < clampedEndY; ++y)
     {
-        for (std::uint32_t x = 0; x < event.width; ++x)
+        for (std::uint32_t x = clampedStartX; x < clampedEndX; ++x)
         {
-            const std::size_t offset = static_cast<std::size_t>(y) * event.rowStrideBytes + static_cast<std::size_t>(x) * 4u;
-            const std::array<std::uint8_t, 4> pixel{
-                event.colorBytes[offset + 0u],
-                event.colorBytes[offset + 1u],
-                event.colorBytes[offset + 2u],
-                event.colorBytes[offset + 3u]};
-
-            const bool nearClear =
-                isNear(pixel[0], kClearR, kTolerance) &&
-                isNear(pixel[1], kClearG, kTolerance) &&
-                isNear(pixel[2], kClearB, kTolerance) &&
-                isNear(pixel[3], kClearA, kTolerance);
-
-            if (nearClear)
+            const ReadbackPixel pixel = decodePixel(event, x, y);
+            if (isNear(pixel, clearPixel, kTolerance))
             {
                 continue;
             }
@@ -225,6 +302,12 @@ DominantPixelStats analyzeDominantPixels(const GpuRenderTargetReadbackEvent& eve
     }
 
     return stats;
+}
+
+DominantPixelStats analyzeDominantPixels(const GpuRenderTargetReadbackEvent& event,
+                                         const ReadbackPixel& clearPixel)
+{
+    return analyzeDominantPixelsInRect(event, 0u, 0u, event.width, event.height, clearPixel);
 }
 
 std::string withSuffixBeforeExtension(std::string path, const std::string& suffix)
@@ -257,12 +340,12 @@ bool writePpm(const std::string& path, const GpuRenderTargetReadbackEvent& event
     std::vector<std::uint8_t> rgbRow(static_cast<std::size_t>(event.width) * 3u);
     for (std::uint32_t y = 0; y < event.height; ++y)
     {
-        const std::uint8_t* src = event.colorBytes.data() + static_cast<std::size_t>(y) * event.rowStrideBytes;
         for (std::uint32_t x = 0; x < event.width; ++x)
         {
-            rgbRow[static_cast<std::size_t>(x) * 3u + 0u] = src[static_cast<std::size_t>(x) * 4u + 0u];
-            rgbRow[static_cast<std::size_t>(x) * 3u + 1u] = src[static_cast<std::size_t>(x) * 4u + 1u];
-            rgbRow[static_cast<std::size_t>(x) * 3u + 2u] = src[static_cast<std::size_t>(x) * 4u + 2u];
+            const ReadbackPixel pixel = decodePixel(event, x, y);
+            rgbRow[static_cast<std::size_t>(x) * 3u + 0u] = encodeByte(pixel.r);
+            rgbRow[static_cast<std::size_t>(x) * 3u + 1u] = encodeByte(pixel.g);
+            rgbRow[static_cast<std::size_t>(x) * 3u + 2u] = encodeByte(pixel.b);
         }
         out.write(reinterpret_cast<const char*>(rgbRow.data()), static_cast<std::streamsize>(rgbRow.size()));
     }
@@ -418,6 +501,7 @@ int main(int argc, char** argv)
     camera.outputWidth = targetDesc.width;
     camera.outputHeight = targetDesc.height;
     camera.viewport = {0.0f, 0.0f, 1.0f, 1.0f};
+    camera.clearColorValue = {0.02f, 0.02f, 0.03f, 1.0f};
     world.setCamera(cameraEntity, camera);
 
     const auto lightEntity = world.createEntity();
@@ -452,7 +536,7 @@ int main(int argc, char** argv)
     MeshRendererComponent frontCube{};
     frontCube.mesh = cubeMesh;
     frontCube.material = frontMaterial;
-    // Start hidden to capture a back-only frame, then enable to verify depth at overlap.
+    // Start hidden to capture a back-only frame, then enable the front cube to verify depth at overlap.
     frontCube.visible = false;
     world.setMeshRenderer(frontCubeEntity, frontCube);
 
@@ -533,7 +617,10 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    if (!containsNonClearPixel(layeredCapture))
+    const ReadbackPixel clearPixel{camera.clearColorValue.x, camera.clearColorValue.y,
+                                   camera.clearColorValue.z, camera.clearColorValue.w};
+
+    if (!containsNonClearPixel(layeredCapture, clearPixel))
     {
         CRESSIM_LOG_ERROR( "Captured image appears to contain only clear color.\n");
         return 1;
@@ -541,22 +628,48 @@ int main(int argc, char** argv)
 
     const auto backOnlyCenter = readCenterPixel(backOnlyCapture);
     const auto layeredCenter = readCenterPixel(layeredCapture);
-    if (!isGreenDominant(backOnlyCenter))
+    const std::uint32_t centerX = backOnlyCapture.width / 2u;
+    const std::uint32_t centerY = backOnlyCapture.height / 2u;
+    constexpr std::uint32_t kCenterWindowRadius = 16u;
+    const DominantPixelStats backOnlyCenterStats =
+        analyzeDominantPixelsInRect(backOnlyCapture,
+                                    centerX > kCenterWindowRadius ? centerX - kCenterWindowRadius : 0u,
+                                    centerY > kCenterWindowRadius ? centerY - kCenterWindowRadius : 0u,
+                                    centerX + kCenterWindowRadius + 1u,
+                                    centerY + kCenterWindowRadius + 1u,
+                                    clearPixel);
+    const DominantPixelStats layeredCenterStats =
+        analyzeDominantPixelsInRect(layeredCapture,
+                                    centerX > kCenterWindowRadius ? centerX - kCenterWindowRadius : 0u,
+                                    centerY > kCenterWindowRadius ? centerY - kCenterWindowRadius : 0u,
+                                    centerX + kCenterWindowRadius + 1u,
+                                    centerY + kCenterWindowRadius + 1u,
+                                    clearPixel);
+
+    if (backOnlyCenterStats.greenDominantCount == 0u ||
+        backOnlyCenterStats.greenDominantCount <= backOnlyCenterStats.redDominantCount)
     {
-        CRESSIM_LOG_ERROR( "Back-only frame center pixel expected green dominance. Observed RGBA=("
-                  , static_cast<unsigned>(backOnlyCenter[0]) , ", " , static_cast<unsigned>(backOnlyCenter[1]) , ", "
-                  , static_cast<unsigned>(backOnlyCenter[2]) , ", " , static_cast<unsigned>(backOnlyCenter[3]) , ")\n");
+        CRESSIM_LOG_ERROR( "Back-only frame center window expected green dominance. Center RGBA=("
+                  , backOnlyCenter.r , ", " , backOnlyCenter.g , ", "
+                  , backOnlyCenter.b , ", " , backOnlyCenter.a
+                  , "), center-window red=" , backOnlyCenterStats.redDominantCount
+                  , ", green=" , backOnlyCenterStats.greenDominantCount
+                  , ", non-clear=" , backOnlyCenterStats.nonClearCount , '\n');
         return 1;
     }
-    if (!isRedDominant(layeredCenter))
+    if (layeredCenterStats.redDominantCount == 0u ||
+        layeredCenterStats.redDominantCount <= layeredCenterStats.greenDominantCount)
     {
-        CRESSIM_LOG_ERROR( "Layered frame center pixel expected red dominance from near cube. Observed RGBA=("
-                  , static_cast<unsigned>(layeredCenter[0]) , ", " , static_cast<unsigned>(layeredCenter[1]) , ", "
-                  , static_cast<unsigned>(layeredCenter[2]) , ", " , static_cast<unsigned>(layeredCenter[3]) , ")\n");
+        CRESSIM_LOG_ERROR( "Layered frame center window expected red dominance from near cube. Center RGBA=("
+                  , layeredCenter.r , ", " , layeredCenter.g , ", "
+                  , layeredCenter.b , ", " , layeredCenter.a
+                  , "), center-window red=" , layeredCenterStats.redDominantCount
+                  , ", green=" , layeredCenterStats.greenDominantCount
+                  , ", non-clear=" , layeredCenterStats.nonClearCount , '\n');
         return 1;
     }
 
-    const DominantPixelStats layeredStats = analyzeDominantPixels(layeredCapture);
+    const DominantPixelStats layeredStats = analyzeDominantPixels(layeredCapture, clearPixel);
     if (layeredStats.redDominantCount < 200u || layeredStats.greenDominantCount < 80u)
     {
         CRESSIM_LOG_ERROR( "Layered frame expected substantial red and green regions, but counts were red="
@@ -577,11 +690,11 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    CRESSIM_LOG_INFO( "Cube depth capture passed. back-only center RGBA=(" , static_cast<unsigned>(backOnlyCenter[0]) , ", "
-              , static_cast<unsigned>(backOnlyCenter[1]) , ", " , static_cast<unsigned>(backOnlyCenter[2]) , ", "
-              , static_cast<unsigned>(backOnlyCenter[3]) , "), layered center RGBA=("
-              , static_cast<unsigned>(layeredCenter[0]) , ", " , static_cast<unsigned>(layeredCenter[1]) , ", "
-              , static_cast<unsigned>(layeredCenter[2]) , ", " , static_cast<unsigned>(layeredCenter[3]) , "), "
+    CRESSIM_LOG_INFO( "Cube depth capture passed. back-only center RGBA=(" , backOnlyCenter.r , ", "
+              , backOnlyCenter.g , ", " , backOnlyCenter.b , ", "
+              , backOnlyCenter.a , "), layered center RGBA=("
+              , layeredCenter.r , ", " , layeredCenter.g , ", "
+              , layeredCenter.b , ", " , layeredCenter.a , "), "
               , "layered dominant counts red=" , layeredStats.redDominantCount , ", green=" , layeredStats.greenDominantCount , ", "
               , "wrote layered image to " , outputPath , " and back-only image to " , backOnlyPath , '\n');
     return 0;

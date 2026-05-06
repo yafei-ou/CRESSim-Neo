@@ -1,6 +1,8 @@
 #include "gpu/gpu_render_target_system_impl.h"
 #include "common/math_utils_runtime.h"
 
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
+
 #include <algorithm>
 #include <cstring>
 #include <utility>
@@ -169,9 +171,18 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContex
 
             if (mappedData.pData != nullptr)
             {
+                const auto &formatAttribs = Diligent::GetTextureFormatAttribs(copy.colorFormat);
+                const std::uint32_t pixelStrideBytes = formatAttribs.GetElementSize();
+                if (pixelStrideBytes == 0u)
+                {
+                    mGraphicsContext->UnmapTextureSubresource(copy.stagingTexture, 0, 0);
+                    mCompletedReadbacks[copy.requestId] = event;
+                    continue;
+                }
+
                 event.width          = copy.width;
                 event.height         = copy.height;
-                event.rowStrideBytes = copy.width * 4u;
+                event.rowStrideBytes = copy.width * pixelStrideBytes;
                 event.colorBytes.resize(static_cast<std::size_t>(event.rowStrideBytes) *
                                         static_cast<std::size_t>(event.height));
 
