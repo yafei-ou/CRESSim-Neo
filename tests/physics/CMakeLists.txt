@@ -35,10 +35,10 @@ add_test(
     COMMAND cressim_neo_physics_solver_context_split
 )
 
-add_physics_test(cressim_neo_physics_placeholder_soa_compute physics_placeholder_soa_compute.cpp)
+add_physics_test(cressim_neo_physics_rigid_compute_smoke physics_rigid_compute_smoke.cpp)
 add_test(
-    NAME cressim_neo_physics_placeholder_soa_compute_vulkan
-    COMMAND cressim_neo_physics_placeholder_soa_compute
+    NAME cressim_neo_physics_rigid_compute_smoke_vulkan
+    COMMAND cressim_neo_physics_rigid_compute_smoke
 )
 
 add_physics_test(cressim_neo_physics_solver_broad_phase_overflow physics_solver_broad_phase_overflow.cpp)
