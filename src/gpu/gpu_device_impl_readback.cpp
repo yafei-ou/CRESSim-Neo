@@ -45,6 +45,10 @@ void GpuDeviceImpl::endFrame(const common::FrameContext &frameContext)
     }
 
     mRenderTargetSystem->endFrame(frameContext);
+    if (mInitialized && mBackend == GpuBackend::Vulkan && mGraphicsContext != nullptr)
+    {
+        processCompletedPresentationReadbacks();
+    }
     if (mInitialized && mBackend == GpuBackend::Vulkan && mPhysicsContext != nullptr &&
         mPhysicsContext != mGraphicsContext)
     {
@@ -135,6 +139,11 @@ bool GpuDeviceImpl::queuePresentationReadback(const common::FrameContext &frameC
         it = mPendingPresentationReadbackRequests.erase(it);
     }
 
+    return true;
+}
+
+void GpuDeviceImpl::processCompletedPresentationReadbacks()
+{
     for (PendingPresentationReadback &copy : mPendingPresentationReadbackCopies)
     {
         GpuPresentationReadbackEvent event{};
@@ -144,7 +153,6 @@ bool GpuDeviceImpl::queuePresentationReadback(const common::FrameContext &frameC
         }
     }
     mPendingPresentationReadbackCopies.clear();
-    return true;
 }
 
 bool GpuDeviceImpl::consumePresentationReadback(PendingPresentationReadback &copy,

@@ -534,6 +534,36 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     const std::vector<IndirectCommandRegistryEntry> &localShadowRegistry =
         sceneView.localShadowDrawRegistry != nullptr ? *sceneView.localShadowDrawRegistry
                                                      : emptyRegistry;
+    const bool hasOpaqueDraws      = !opaqueRegistry.empty();
+    const bool hasShadowDraws      = !shadowRegistry.empty();
+    const bool hasLocalShadowDraws = !localShadowRegistry.empty();
+    const bool needsDebugParticles =
+        mDebugParticlePass != nullptr && physicsScene != nullptr && options.debugParticles.enabled;
+    const bool needsSkybox = mSkyboxPass != nullptr && batchView.cameras.front().backgroundMode ==
+                                                           CameraBackgroundMode::EnvironmentCubemap;
+    const bool needsSceneBuffers = hasOpaqueDraws || hasShadowDraws || hasLocalShadowDraws ||
+                                   needsDebugParticles || needsSkybox;
+
+    if (!needsSceneBuffers)
+    {
+        // Camera-only batches still need to apply clear semantics even when there is nothing to
+        // draw.
+        mDevice.renderTargetSystem().setRenderTargetViewport(batchView.renderBinding,
+                                                             viewportForBatch(batchView));
+        gpu::GpuRenderPassBeginDesc mainBegin{};
+        mainBegin.clearColor         = batchView.cameras.front().clearColor;
+        mainBegin.clearDepth         = batchView.cameras.front().clearDepth;
+        mainBegin.clearColorValue[0] = batchView.cameras.front().clearColorValue.x;
+        mainBegin.clearColorValue[1] = batchView.cameras.front().clearColorValue.y;
+        mainBegin.clearColorValue[2] = batchView.cameras.front().clearColorValue.z;
+        mainBegin.clearColorValue[3] = batchView.cameras.front().clearColorValue.w;
+        mainBegin.clearDepthValue    = batchView.cameras.front().clearDepthValue;
+        mDevice.renderTargetSystem().beginRenderTarget(batchView.renderBinding, frameContext,
+                                                       mainBegin);
+        mDevice.renderTargetSystem().endRenderTarget(batchView.renderBinding, frameContext);
+        return true;
+    }
+
     if (gpuScene.poses.positionsBuffer == nullptr || gpuScene.poses.orientationsBuffer == nullptr ||
         gpuScene.poses.scalesBuffer == nullptr || gpuScene.renderableMetadataBuffer == nullptr ||
         gpuScene.preparedCamerasBuffer == nullptr ||

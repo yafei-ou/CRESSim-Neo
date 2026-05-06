@@ -67,6 +67,7 @@ private:
     bool createPrimarySwapChain();
     bool presentPrimarySwapChain();
     bool queuePresentationReadback(const common::FrameContext &frameContext);
+    void processCompletedPresentationReadbacks();
     bool consumePresentationReadback(PendingPresentationReadback &copy,
                                      GpuPresentationReadbackEvent &outEvent);
 

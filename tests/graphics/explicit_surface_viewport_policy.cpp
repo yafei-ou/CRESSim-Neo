@@ -5,7 +5,6 @@
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
 
-#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
