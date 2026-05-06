@@ -106,6 +106,73 @@ TextureResourceDesc makeHdrCubeDesc(const char *debugName, float r, float g, flo
     return desc;
 }
 
+bool runIblTierScenario(IblQualityTier iblQualityTier)
+{
+    RuntimeConfig config{};
+    config.gpuDeviceDesc.preferredBackend = cressim::neo::gpu::GpuBackend::Null;
+    config.rendererDesc.iblQualityTier    = iblQualityTier;
+
+    Runtime runtime;
+    if (!runtime.initialize(config))
+    {
+        return false;
+    }
+
+    auto &world     = runtime.getWorld();
+    auto &resources = runtime.getResources();
+
+    const auto cameraEntity = world.createEntity();
+    world.setTransform(cameraEntity, TransformComponent{});
+    world.setCamera(cameraEntity, CameraComponent{});
+
+    const auto lightEntity = world.createEntity();
+    world.setDirectionalLight(lightEntity, DirectionalLightComponent{});
+
+    MeshResourceDesc meshDesc{};
+    meshDesc.debugName = "ForwardPipeline.IblTierTriangle";
+    meshDesc.vertices  = {
+        {{-0.4f, -0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}, 0.0f, 0.0f},
+        {{0.4f, -0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}, 1.0f, 0.0f},
+        {{0.0f, 0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}, 0.5f, 1.0f}};
+    meshDesc.indices   = {0u, 1u, 2u};
+    const auto mesh    = resources.registerMesh(meshDesc);
+
+    MaterialResourceDesc materialDesc{};
+    materialDesc.debugName = "ForwardPipeline.IblTierMaterial";
+    const auto material    = resources.registerMaterial(materialDesc);
+
+    const auto entity = world.createEntity();
+    TransformComponent transform{};
+    transform.worldTransform.position = {0.0f, 0.0f, 2.0f};
+    world.setTransform(entity, transform);
+    MeshRendererComponent renderer{};
+    renderer.mesh     = mesh;
+    renderer.material = material;
+    world.setMeshRenderer(entity, renderer);
+
+    EnvironmentIblDesc environmentIbl{};
+    environmentIbl.irradianceCubemap =
+        resources.registerTexture(makeHdrCubeDesc("ForwardPipeline.IblTier.Irradiance", 0.2f,
+                                                  0.22f, 0.24f));
+    if (iblQualityTier == IblQualityTier::Full)
+    {
+        environmentIbl.prefilteredSpecularCubemap =
+            resources.registerTexture(makeHdrCubeDesc("ForwardPipeline.IblTier.Prefiltered", 0.3f,
+                                                      0.28f, 0.26f));
+    }
+    world.setEnvironmentIbl(0u, environmentIbl);
+
+    FrameContext frame{};
+    frame.deltaSeconds = 1.0f / 60.0f;
+    frame.frameIndex   = 0u;
+    frame.timeSeconds  = 0.0;
+    runtime.tick(frame);
+    const RenderStats stats = runtime.lastRenderStats();
+    runtime.shutdown();
+    return stats.renderableCount == 1u && stats.renderedCameraCount == 1u &&
+           stats.lightCount == 1u;
+}
+
 } // namespace
 
 int main()
@@ -402,6 +469,14 @@ int main()
     if (keyA == keyDiffuse || keyDiffuse == keyFull || keyA == keyFull)
     {
         CRESSIM_LOG_ERROR("Program key should differ across IBL quality tiers.\n");
+        return 1;
+    }
+
+    if (!runIblTierScenario(IblQualityTier::Off) ||
+        !runIblTierScenario(IblQualityTier::DiffuseOnly) ||
+        !runIblTierScenario(IblQualityTier::Full))
+    {
+        CRESSIM_LOG_ERROR("Forward pipeline IBL quality tier scenarios failed.\n");
         return 1;
     }
 

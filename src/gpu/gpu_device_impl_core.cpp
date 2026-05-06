@@ -2,11 +2,12 @@
 #include "gpu/gpu_device_impl.h"
 #include "gpu/gpu_render_target_system_impl.h"
 
+#include <vulkan/vulkan.h>
+
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsTools/interface/ShaderMacroHelper.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/ShaderTools/include/DXCompiler.hpp"
 #include "DiligentEngine/DiligentCore/Platforms/interface/NativeWindow.h"
-#include <vulkan/vulkan.h>
 
 #include <algorithm>
 #include <array>
@@ -300,11 +301,30 @@ bool GpuDeviceImpl::initialize(const GpuDeviceDesc &desc)
 
 void GpuDeviceImpl::shutdown()
 {
+    mFrameActive = false;
+
+    mPendingPresentationReadbackRequests.clear();
+    mPendingPresentationReadbackCopies.clear();
+    mCompletedPresentationReadbacks.clear();
+
+    mNextPresentationReadbackRequestId  = 1;
+    mNextPresentationReadbackFenceValue = 1;
+    mNextPhysicsToGraphicsFenceValue    = 1;
+    mNextGraphicsToPhysicsFenceValue    = 1;
+
+    // Release swapchain- and fence-owned device children before tearing down the contexts/device.
+    mPrimarySwapChain          = nullptr;
+    mPresentationReadbackFence = nullptr;
+    mPhysicsToGraphicsFence    = nullptr;
+    mGraphicsToPhysicsFence    = nullptr;
+
     if (mRenderTargetSystem != nullptr)
     {
         mRenderTargetSystem->shutdown();
         mRenderTargetSystem.reset();
     }
+
+    mShaderCache.shutdown();
 
     if (mGraphicsContext != nullptr)
     {
@@ -319,27 +339,23 @@ void GpuDeviceImpl::shutdown()
         mPhysicsContext->FinishFrame();
     }
 
-    mShaderCache.shutdown();
+    if (mRenderDevice != nullptr)
+    {
+        // Diligent's Vulkan command queues can retain hundreds of pending-release device objects
+        // after the contexts are finished. Drain those queues before releasing our last device refs
+        // so the render device destructor can actually run.
+        mRenderDevice->IdleGPU();
+        mRenderDevice->ReleaseStaleResources(true);
+    }
 
-    mGraphicsContext                    = nullptr;
-    mPhysicsContext                     = nullptr;
-    mRenderDevice                       = nullptr;
-    mPrimarySwapChain                   = nullptr;
-    mPresentationReadbackFence          = nullptr;
-    mPhysicsToGraphicsFence             = nullptr;
-    mGraphicsToPhysicsFence             = nullptr;
-    mGraphicsContextId                  = 0;
-    mPhysicsContextId                   = 0;
-    mGraphicsQueueType                  = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
-    mPhysicsQueueType                   = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
-    mFrameActive                        = false;
-    mNextPresentationReadbackRequestId  = 1;
-    mNextPresentationReadbackFenceValue = 1;
-    mNextPhysicsToGraphicsFenceValue    = 1;
-    mNextGraphicsToPhysicsFenceValue    = 1;
-    mPendingPresentationReadbackRequests.clear();
-    mPendingPresentationReadbackCopies.clear();
-    mCompletedPresentationReadbacks.clear();
+    mGraphicsContext = nullptr;
+    mPhysicsContext  = nullptr;
+
+    mRenderDevice                      = nullptr;
+    mGraphicsContextId                 = 0;
+    mPhysicsContextId                  = 0;
+    mGraphicsQueueType                 = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
+    mPhysicsQueueType                  = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
     mSupportsNativePhysicsFloatAtomics = false;
 
     mBackend     = GpuBackend::Null;
@@ -730,10 +746,12 @@ bool GpuDeviceImpl::initializeVulkan()
             return false;
         }
 
-        mGraphicsContext = contexts[0];
+        // CreateDeviceAndContextsVk() returns owned context pointers. Adopt them without AddRef()
+        // so we do not leak an extra strong reference per immediate context.
+        mGraphicsContext.Attach(contexts[0]);
         if (requestDedicatedPhysicsContext && contexts[1] != nullptr)
         {
-            mPhysicsContext = contexts[1];
+            mPhysicsContext.Attach(contexts[1]);
         }
         else
         {

@@ -16,7 +16,6 @@
 #include <GLFW/glfw3native.h>
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstring>
 #include <cstdint>
@@ -470,8 +469,48 @@ int main()
     }
 
     sdrRunner.shutdown();
-    CRESSIM_LOG_WARNING(
-        "Skipping HDR presentation assertions because this Vulkan backend cannot safely recreate multiple runtimes in one process.\n");
+
+    ScenarioRunner hdrRunner;
+    if (!hdrRunner.initialize(window, Diligent::TEX_FORMAT_RGBA16_FLOAT))
+    {
+        CRESSIM_LOG_WARNING(
+            "Skipping HDR presentation assertions because Vulkan HDR presentation runtime initialization failed.\n");
+    }
+    else
+    {
+        const RenderScenarioResult defaultHdr =
+            hdrRunner.runScenario(ToneMapper::Reinhard, 1.0f, kSdrClearColor);
+        if (!isValidReadback(defaultHdr.event))
+        {
+            CRESSIM_LOG_ERROR("Expected valid HDR presentation readback.\n");
+            hdrRunner.shutdown();
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            return 1;
+        }
+        if (!isHdrFormat(defaultHdr.event.colorFormat))
+        {
+            CRESSIM_LOG_ERROR("Expected HDR presentation format for HDR resolve scenario.\n");
+            hdrRunner.shutdown();
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            return 1;
+        }
+
+        constexpr float kHdrTolerance = 0.02f;
+        if (std::fabs(defaultHdr.pixel.r - kSdrClearColor.x) > kHdrTolerance ||
+            std::fabs(defaultHdr.pixel.g - kSdrClearColor.y) > kHdrTolerance ||
+            std::fabs(defaultHdr.pixel.b - kSdrClearColor.z) > kHdrTolerance)
+        {
+            CRESSIM_LOG_ERROR("Unexpected default HDR passthrough color.\n");
+            hdrRunner.shutdown();
+            glfwDestroyWindow(window);
+            glfwTerminate();
+            return 1;
+        }
+
+        hdrRunner.shutdown();
+    }
 
     glfwDestroyWindow(window);
     glfwTerminate();
