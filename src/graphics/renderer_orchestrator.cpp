@@ -430,6 +430,16 @@ bool Renderer::prepareGpuScene(const HostSceneView &world, const GpuEntitySceneV
 
 bool Renderer::initialize()
 {
+    gpu::GpuGraphicsBackendContext backendContext{};
+    const bool hasGraphicsBackend = mDevice.tryGetGraphicsBackendContext(backendContext) &&
+                                    backendContext.renderDevice != nullptr &&
+                                    backendContext.graphicsContext != nullptr;
+    if (!hasGraphicsBackend)
+    {
+        mInitialized = true;
+        return true;
+    }
+
     mForwardPipeline =
         std::make_unique<detail::ForwardPipeline>(mDevice, mResourceManager, mDesc.iblQualityTier);
     if (!mForwardPipeline->initialize())
@@ -488,6 +498,16 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
         cameras.push_back(detail::defaultCamera());
     }
 
+    gpu::GpuGraphicsBackendContext backendContext{};
+    const bool hasGraphicsBackend = mDevice.tryGetGraphicsBackendContext(backendContext) &&
+                                    backendContext.renderDevice != nullptr &&
+                                    backendContext.graphicsContext != nullptr;
+    if (!hasGraphicsBackend)
+    {
+        mDevice.endFrame(frameContext);
+        return stats;
+    }
+
     if (!prepareGpuScene(world, gpuScene, physicsScene))
     {
         mDevice.endFrame(frameContext);
@@ -506,6 +526,7 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
         return stats;
     }
 
+    stats.renderedCameraCount                     = 0u;
     detail::CameraOutputPlanningResult outputPlan = detail::planCameraOutputs(
         cameras, gpuScene, mDevice.renderTargetSystem(), defaultRenderTargetDesc,
         options.presentationTarget, options, mOutputPlanningState->managedPrimaryTargets, stats);

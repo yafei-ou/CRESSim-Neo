@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <exception>
 #include <limits>
 #include <vector>
 
@@ -243,33 +244,52 @@ bool GpuDeviceImpl::initialize(const GpuDeviceDesc &desc)
 
     mDesc = desc;
 
-    if (mDesc.preferredBackend != GpuBackend::Vulkan)
+    try
     {
-        return false;
-    }
+        switch (mDesc.preferredBackend)
+        {
+        case GpuBackend::Null:
+            if (!initializeNull())
+            {
+                shutdown();
+                return false;
+            }
+            break;
+        case GpuBackend::Vulkan:
+            if (!initializeVulkan())
+            {
+                shutdown();
+                return false;
+            }
+            break;
+        default:
+            return false;
+        }
 
-    if (!initializeVulkan())
-    {
-        shutdown();
-        return false;
-    }
+        if (mRenderDevice != nullptr && !mShaderCache.initialize(mRenderDevice))
+        {
+            shutdown();
+            return false;
+        }
 
-    if (!mShaderCache.initialize(mRenderDevice))
-    {
-        shutdown();
-        return false;
-    }
+        if (mDesc.presentation.enabled && !createPrimarySwapChain())
+        {
+            shutdown();
+            return false;
+        }
 
-    if (mDesc.presentation.enabled && !createPrimarySwapChain())
-    {
-        shutdown();
-        return false;
+        mRenderTargetSystem = std::make_unique<GpuRenderTargetSystemImpl>();
+        if (!mRenderTargetSystem->initialize(mBackend, mRenderDevice, mGraphicsContext))
+        {
+            shutdown();
+            return false;
+        }
     }
-
-    mRenderTargetSystem = std::make_unique<GpuRenderTargetSystemImpl>();
-    if (!mRenderTargetSystem->initialize(mBackend == GpuBackend::Vulkan, mRenderDevice,
-                                         mGraphicsContext))
+    catch (const std::exception &exception)
     {
+        CRESSIM_LOG_ERROR("GpuDevice initialization failed for backend ",
+                          static_cast<std::uint32_t>(mDesc.preferredBackend),
+                          " with exception: ", exception.what());
         shutdown();
         return false;
     }
@@ -334,6 +354,18 @@ GpuRenderTargetSystem &GpuDeviceImpl::renderTargetSystem()
 GpuBackend GpuDeviceImpl::backend() const
 {
     return mBackend;
+}
+
+bool GpuDeviceImpl::initializeNull()
+{
+    if (mDesc.presentation.enabled)
+    {
+        CRESSIM_LOG_ERROR("Null GPU backend does not support presentation.");
+        return false;
+    }
+
+    mBackend = GpuBackend::Null;
+    return true;
 }
 
 bool GpuDeviceImpl::tryGetGraphicsBackendContext(GpuGraphicsBackendContext &outContext)

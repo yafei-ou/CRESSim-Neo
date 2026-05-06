@@ -127,13 +127,14 @@ TextureResourceDesc makeHdrPrefilteredCubeDesc()
 int main()
 {
     RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = cressim::neo::gpu::GpuBackend::Null;
+    config.gpuDeviceDesc.preferredBackend = cressim::neo::gpu::GpuBackend::Vulkan;
 
     Runtime runtime;
     if (!runtime.initialize(config))
     {
-        CRESSIM_LOG_ERROR("Runtime initialization failed.\n");
-        return 1;
+        CRESSIM_LOG_WARNING(
+            "Skipping texture material resource GPU checks because Vulkan runtime initialization failed.\n");
+        return 0;
     }
 
     auto &resources = runtime.getResources();

@@ -241,7 +241,7 @@ CameraOutputPlanningResult planCameraOutputs(
             }
 
             result.resolvedCameras.push_back(resolved);
-            ++inOutStats.cameraCount;
+            ++inOutStats.renderedCameraCount;
             continue;
         }
 
@@ -326,7 +326,7 @@ CameraOutputPlanningResult planCameraOutputs(
             resolved.viewport = gpu::GpuRenderViewport{};
         }
         result.resolvedCameras.push_back(resolved);
-        ++inOutStats.cameraCount;
+        ++inOutStats.renderedCameraCount;
     }
 
     return result;

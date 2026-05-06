@@ -71,7 +71,7 @@ int main()
     }
 
     const graphics::RenderStats stats = runtime.lastRenderStats();
-    if (stats.cameraCount == 0)
+    if (stats.renderedCameraCount == 0)
     {
         CRESSIM_LOG_ERROR( "Renderer did not execute camera rendering.\n");
         runtime.shutdown();

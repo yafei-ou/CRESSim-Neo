@@ -62,6 +62,7 @@ private:
         Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
     };
 
+    bool initializeNull();
     bool initializeVulkan();
     bool createPrimarySwapChain();
     bool presentPrimarySwapChain();
