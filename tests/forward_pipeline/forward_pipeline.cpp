@@ -109,7 +109,7 @@ TextureResourceDesc makeHdrCubeDesc(const char *debugName, float r, float g, flo
 bool runIblTierScenario(IblQualityTier iblQualityTier)
 {
     RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = cressim::neo::gpu::GpuBackend::Null;
+    config.gpuDeviceDesc.preferredBackend = cressim::neo::gpu::GpuBackend::Vulkan;
     config.rendererDesc.iblQualityTier    = iblQualityTier;
 
     Runtime runtime;
