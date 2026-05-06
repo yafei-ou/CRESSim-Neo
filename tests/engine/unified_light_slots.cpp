@@ -23,10 +23,16 @@ using cressim::neo::graphics::RenderResourceManager;
 
 int main()
 {
+    constexpr std::uint32_t kEnv0InitialPointLightCount = kForwardLocalLightCap + 1u;
+    constexpr std::uint32_t kEnv0InitialLocalLightCount = kEnv0InitialPointLightCount + 3u;
+
     World world;
     RenderResourceManager resources;
     SceneLayoutDesc layout{};
-    layout.maxLightsPerEnv = kForwardLocalLightCap + 3u;
+    // This fixture intentionally authors more local lights than the forward shading cap to verify
+    // deterministic truncation, mixed-type rejection, and environment moves independently of
+    // storage capacity.
+    layout.maxLightsPerEnv = 1u + kEnv0InitialLocalLightCount;
     layout.envCount = 3u;
     world.setSceneLayout(layout);
 
@@ -36,7 +42,7 @@ int main()
     mainLight.castsShadows = true;
     world.setDirectionalLight(mainLightEntity, mainLight);
 
-    for (std::uint32_t i = 0u; i < kForwardLocalLightCap + 1u; ++i)
+    for (std::uint32_t i = 0u; i < kEnv0InitialPointLightCount; ++i)
     {
         const auto entity = world.createEntity();
         TransformComponent transform{};
@@ -163,7 +169,7 @@ int main()
         }
     }
 
-    if (selections.size() < 2u || selections[1].localLightCount != 1u)
+    if (selections.size() < 2u || selections[1].localLightCount != 2u)
     {
         CRESSIM_LOG_ERROR("Expected environment-local light selection state for env 1.");
         return 1;
@@ -171,7 +177,27 @@ int main()
 
     const auto &lightInputs = world.lightInputs();
     const std::uint32_t env1MainLightIndex = layout.maxLightsPerEnv * 1u + kMainDirectionalLightSlot;
-    const std::uint32_t env1PointLightIndex = selections[1].lightIndices[0];
+    std::uint32_t env1PointLightIndex       = layout.totalLightCapacity();
+    for (std::uint32_t i = 0u; i < selections[1].localLightCount; ++i)
+    {
+        const std::uint32_t candidateIndex = selections[1].lightIndices[i];
+        if (candidateIndex >= lightInputs.size())
+        {
+            continue;
+        }
+        if (lightInputs[candidateIndex].type != static_cast<std::uint32_t>(GpuLightType::Point))
+        {
+            continue;
+        }
+        if (std::abs(lightInputs[candidateIndex].positionRange.x - 42.0f) > 1.0e-4f ||
+            std::abs(lightInputs[candidateIndex].positionRange.y - 3.0f) > 1.0e-4f ||
+            std::abs(lightInputs[candidateIndex].positionRange.z + 7.0f) > 1.0e-4f)
+        {
+            continue;
+        }
+        env1PointLightIndex = candidateIndex;
+        break;
+    }
     if (env1MainLightIndex >= lightInputs.size() || env1PointLightIndex >= lightInputs.size())
     {
         CRESSIM_LOG_ERROR("Expected dense env-scoped light indices to stay within bounds.");

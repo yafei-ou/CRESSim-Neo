@@ -14,6 +14,10 @@ namespace cressim::neo::graphics
 inline constexpr std::uint32_t kInvalidGpuSceneIndex     = 0xffffffffu;
 inline constexpr std::uint32_t kMainDirectionalLightSlot = 0u;
 inline constexpr std::uint32_t kInvalidBatchCameraLayer  = 0xffffffffu;
+// These are forward/local-shadow pipeline consumption caps, not per-environment storage caps.
+// World light storage and slot allocation are bounded separately by
+// SceneLayoutDesc::maxLightsPerEnv.
+// TODO: make these configurable at runtime creation
 inline constexpr std::uint32_t kForwardLocalLightCap     = 8u;
 inline constexpr std::uint32_t kShadowedLocalLightCap    = 4u;
 inline constexpr std::uint32_t kShadowedPointLightCap    = 1u;
