@@ -1,5 +1,6 @@
 #include "common/frame_context.h"
 #include "common/logger.h"
+#include "helpers/readback.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
 
@@ -17,7 +18,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 #include <cstdint>
 
 namespace
@@ -28,49 +28,19 @@ using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::gpu::GpuBackend;
 using cressim::neo::gpu::GpuDevice;
 using cressim::neo::gpu::GpuPresentationReadbackEvent;
 using cressim::neo::gpu::GpuPresentationReadbackRequest;
 using cressim::neo::gpu::GpuPresentationTargetDesc;
 using cressim::neo::graphics::RenderFrameOptions;
 using cressim::neo::graphics::ToneMapper;
-
-struct ReadbackPixel
-{
-    float r = 0.0f;
-    float g = 0.0f;
-    float b = 0.0f;
-};
+using cressim::neo::tests::helpers::ReadbackPixel;
 
 struct RenderScenarioResult
 {
     GpuPresentationReadbackEvent event{};
     ReadbackPixel pixel{};
 };
-
-bool isValidReadback(const GpuPresentationReadbackEvent &event)
-{
-    if (event.width == 0u || event.height == 0u)
-    {
-        return false;
-    }
-
-    const auto &formatAttribs = Diligent::GetTextureFormatAttribs(event.colorFormat);
-    if (formatAttribs.Format == Diligent::TEX_FORMAT_UNKNOWN || formatAttribs.IsTypeless ||
-        formatAttribs.ComponentType == Diligent::COMPONENT_TYPE_COMPRESSED)
-    {
-        return false;
-    }
-    const std::uint32_t minStride = event.width * formatAttribs.GetElementSize();
-    if (event.rowStrideBytes < minStride)
-    {
-        return false;
-    }
-
-    return event.colorBytes.size() >=
-           static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height);
-}
 
 GpuPresentationReadbackEvent renderAndReadback(Runtime &runtime, GpuDevice &graphicsDevice,
                                                FrameContext &frame)
@@ -118,88 +88,6 @@ float toneMapFilmic(float value)
     return std::clamp(numerator / denominator, 0.0f, 1.0f);
 }
 
-bool isNear(std::uint8_t value, std::uint8_t expected, std::uint8_t tolerance)
-{
-    const int diff = static_cast<int>(value) - static_cast<int>(expected);
-    return diff >= -static_cast<int>(tolerance) && diff <= static_cast<int>(tolerance);
-}
-
-float halfToFloat(std::uint16_t value)
-{
-    const std::uint32_t sign = static_cast<std::uint32_t>(value & 0x8000u) << 16u;
-    std::uint32_t exponent   = (value >> 10u) & 0x1fu;
-    std::uint32_t mantissa   = value & 0x03ffu;
-
-    std::uint32_t bits = 0u;
-    if (exponent == 0u)
-    {
-        if (mantissa != 0u)
-        {
-            exponent = 113u;
-            while ((mantissa & 0x0400u) == 0u)
-            {
-                mantissa <<= 1u;
-                --exponent;
-            }
-            mantissa &= 0x03ffu;
-            bits = sign | (exponent << 23u) | (mantissa << 13u);
-        }
-        else
-        {
-            bits = sign;
-        }
-    }
-    else if (exponent == 0x1fu)
-    {
-        bits = sign | 0x7f800000u | (mantissa << 13u);
-    }
-    else
-    {
-        bits = sign | ((exponent + 112u) << 23u) | (mantissa << 13u);
-    }
-
-    float result = 0.0f;
-    std::memcpy(&result, &bits, sizeof(result));
-    return result;
-}
-
-std::size_t centerPixelOffset(const GpuPresentationReadbackEvent &event)
-{
-    return static_cast<std::size_t>(event.height / 2u) * event.rowStrideBytes +
-           static_cast<std::size_t>(event.width / 2u) *
-               Diligent::GetTextureFormatAttribs(event.colorFormat).GetElementSize();
-}
-
-ReadbackPixel decodeCenterPixel(const GpuPresentationReadbackEvent &event)
-{
-    const std::size_t offset = centerPixelOffset(event);
-    if (event.colorFormat == Diligent::TEX_FORMAT_RGBA16_FLOAT)
-    {
-        const std::uint16_t pixelR =
-            static_cast<std::uint16_t>(event.colorBytes[offset + 0u]) |
-            (static_cast<std::uint16_t>(event.colorBytes[offset + 1u]) << 8u);
-        const std::uint16_t pixelG =
-            static_cast<std::uint16_t>(event.colorBytes[offset + 2u]) |
-            (static_cast<std::uint16_t>(event.colorBytes[offset + 3u]) << 8u);
-        const std::uint16_t pixelB =
-            static_cast<std::uint16_t>(event.colorBytes[offset + 4u]) |
-            (static_cast<std::uint16_t>(event.colorBytes[offset + 5u]) << 8u);
-        return {halfToFloat(pixelR), halfToFloat(pixelG), halfToFloat(pixelB)};
-    }
-
-    if (event.colorFormat == Diligent::TEX_FORMAT_BGRA8_UNORM ||
-        event.colorFormat == Diligent::TEX_FORMAT_BGRA8_UNORM_SRGB)
-    {
-        return {static_cast<float>(event.colorBytes[offset + 2u]) / 255.0f,
-                static_cast<float>(event.colorBytes[offset + 1u]) / 255.0f,
-                static_cast<float>(event.colorBytes[offset + 0u]) / 255.0f};
-    }
-
-    return {static_cast<float>(event.colorBytes[offset + 0u]) / 255.0f,
-            static_cast<float>(event.colorBytes[offset + 1u]) / 255.0f,
-            static_cast<float>(event.colorBytes[offset + 2u]) / 255.0f};
-}
-
 bool isHdrFormat(Diligent::TEXTURE_FORMAT format)
 {
     const auto &formatAttribs = Diligent::GetTextureFormatAttribs(format);
@@ -218,7 +106,7 @@ struct ScenarioRunner
     bool initialize(GLFWwindow *window, Diligent::TEXTURE_FORMAT preferredColorFormat)
     {
         RuntimeConfig config{};
-        config.gpuDeviceDesc.preferredBackend                  = GpuBackend::Vulkan;
+        config.gpuDeviceDesc.preferredBackend                  = cressim::neo::gpu::GpuBackend::Vulkan;
         config.gpuDeviceDesc.presentation.enabled              = true;
         config.gpuDeviceDesc.presentation.preferredColorFormat = preferredColorFormat;
 #if PLATFORM_WIN32
@@ -304,9 +192,9 @@ struct ScenarioRunner
             static_cast<double>(frame.frameIndex) * static_cast<double>(frame.deltaSeconds);
 
         result.event = event;
-        if (isValidReadback(event))
+        if (cressim::neo::tests::helpers::isValidReadback(event))
         {
-            result.pixel = decodeCenterPixel(event);
+            result.pixel = cressim::neo::tests::helpers::readCenterPixel(event);
         }
         return result;
     }
@@ -364,7 +252,7 @@ int main()
     constexpr Diligent::float4 kSdrClearColor = {0.18f, 0.50f, 0.75f, 1.0f};
     const RenderScenarioResult defaultSdr =
         sdrRunner.runScenario(ToneMapper::Reinhard, 1.0f, kSdrClearColor);
-    if (!isValidReadback(defaultSdr.event))
+    if (!cressim::neo::tests::helpers::isValidReadback(defaultSdr.event))
     {
         CRESSIM_LOG_ERROR("Expected valid default presentation readback.\n");
         glfwDestroyWindow(window);
@@ -425,8 +313,9 @@ int main()
             sdrRunner.runScenario(ToneMapper::Disabled, 1.0f,
                                   Diligent::float4{4.0f, 2.0f, 0.75f, 1.0f});
 
-        if (!isValidReadback(exposedSdr.event) || !isValidReadback(filmicSdr.event) ||
-            !isValidReadback(noneSdr.event))
+        if (!cressim::neo::tests::helpers::isValidReadback(exposedSdr.event) ||
+            !cressim::neo::tests::helpers::isValidReadback(filmicSdr.event) ||
+            !cressim::neo::tests::helpers::isValidReadback(noneSdr.event))
         {
             CRESSIM_LOG_ERROR("Expected valid SDR readbacks for tone-mapping scenarios.\n");
             glfwDestroyWindow(window);
@@ -480,7 +369,7 @@ int main()
     {
         const RenderScenarioResult defaultHdr =
             hdrRunner.runScenario(ToneMapper::Reinhard, 1.0f, kSdrClearColor);
-        if (!isValidReadback(defaultHdr.event))
+        if (!cressim::neo::tests::helpers::isValidReadback(defaultHdr.event))
         {
             CRESSIM_LOG_ERROR("Expected valid HDR presentation readback.\n");
             hdrRunner.shutdown();

@@ -1,17 +1,12 @@
 #include "common/frame_context.h"
+#include "common/logger.h"
+#include "helpers/readback.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
-#include "common/logger.h"
-
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
 
 #include <cmath>
 #include <cstdint>
-#include <cstring>
-#include <fstream>
-#include <iostream>
 #include <string>
-#include <vector>
 
 namespace
 {
@@ -23,7 +18,6 @@ using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::gpu::GpuBackend;
 using cressim::neo::gpu::GpuDevice;
 using cressim::neo::gpu::GpuRenderTargetBinding;
 using cressim::neo::gpu::GpuRenderTargetDesc;
@@ -32,122 +26,11 @@ using cressim::neo::gpu::GpuRenderTargetReadbackEvent;
 using cressim::neo::gpu::GpuRenderTargetReadbackRequest;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshResourceDesc;
+using cressim::neo::tests::helpers::ReadbackPixel;
 
 void printUsage(const char* appName)
 {
     CRESSIM_LOG_ERROR( "Usage: " , appName , " [--output path.ppm]\n");
-}
-
-bool isValidReadback(const GpuRenderTargetReadbackEvent& event)
-{
-    if (event.width == 0u || event.height == 0u)
-    {
-        return false;
-    }
-
-    const auto& formatAttribs = Diligent::GetTextureFormatAttribs(event.colorFormat);
-    if (formatAttribs.Format == Diligent::TEX_FORMAT_UNKNOWN || formatAttribs.IsTypeless ||
-        formatAttribs.ComponentType == Diligent::COMPONENT_TYPE_COMPRESSED)
-    {
-        return false;
-    }
-
-    const std::uint32_t minStride = event.width * formatAttribs.GetElementSize();
-    if (event.rowStrideBytes < minStride)
-    {
-        return false;
-    }
-
-    return event.colorBytes.size() >=
-           static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height);
-}
-
-float halfToFloat(std::uint16_t value)
-{
-    const std::uint32_t sign = static_cast<std::uint32_t>(value & 0x8000u) << 16u;
-    std::uint32_t exponent   = (value >> 10u) & 0x1fu;
-    std::uint32_t mantissa   = value & 0x03ffu;
-
-    std::uint32_t bits = 0u;
-    if (exponent == 0u)
-    {
-        if (mantissa != 0u)
-        {
-            exponent = 113u;
-            while ((mantissa & 0x0400u) == 0u)
-            {
-                mantissa <<= 1u;
-                --exponent;
-            }
-            mantissa &= 0x03ffu;
-            bits = sign | (exponent << 23u) | (mantissa << 13u);
-        }
-        else
-        {
-            bits = sign;
-        }
-    }
-    else if (exponent == 0x1fu)
-    {
-        bits = sign | 0x7f800000u | (mantissa << 13u);
-    }
-    else
-    {
-        bits = sign | ((exponent + 112u) << 23u) | (mantissa << 13u);
-    }
-
-    float result = 0.0f;
-    std::memcpy(&result, &bits, sizeof(result));
-    return result;
-}
-
-struct ReadbackPixel
-{
-    float r = 0.0f;
-    float g = 0.0f;
-    float b = 0.0f;
-    float a = 0.0f;
-};
-
-ReadbackPixel decodePixel(const GpuRenderTargetReadbackEvent& event, std::uint32_t x, std::uint32_t y)
-{
-    ReadbackPixel pixel{};
-    if (!isValidReadback(event))
-    {
-        return pixel;
-    }
-
-    const std::uint32_t pixelStrideBytes =
-        Diligent::GetTextureFormatAttribs(event.colorFormat).GetElementSize();
-    const std::size_t offset =
-        static_cast<std::size_t>(y) * event.rowStrideBytes +
-        static_cast<std::size_t>(x) * pixelStrideBytes;
-    if (event.colorFormat == Diligent::TEX_FORMAT_RGBA16_FLOAT)
-    {
-        const std::uint16_t pixelR =
-            static_cast<std::uint16_t>(event.colorBytes[offset + 0u]) |
-            (static_cast<std::uint16_t>(event.colorBytes[offset + 1u]) << 8u);
-        const std::uint16_t pixelG =
-            static_cast<std::uint16_t>(event.colorBytes[offset + 2u]) |
-            (static_cast<std::uint16_t>(event.colorBytes[offset + 3u]) << 8u);
-        const std::uint16_t pixelB =
-            static_cast<std::uint16_t>(event.colorBytes[offset + 4u]) |
-            (static_cast<std::uint16_t>(event.colorBytes[offset + 5u]) << 8u);
-        const std::uint16_t pixelA =
-            static_cast<std::uint16_t>(event.colorBytes[offset + 6u]) |
-            (static_cast<std::uint16_t>(event.colorBytes[offset + 7u]) << 8u);
-        pixel.r = halfToFloat(pixelR);
-        pixel.g = halfToFloat(pixelG);
-        pixel.b = halfToFloat(pixelB);
-        pixel.a = halfToFloat(pixelA);
-        return pixel;
-    }
-
-    pixel.r = static_cast<float>(event.colorBytes[offset + 0u]) / 255.0f;
-    pixel.g = static_cast<float>(event.colorBytes[offset + 1u]) / 255.0f;
-    pixel.b = static_cast<float>(event.colorBytes[offset + 2u]) / 255.0f;
-    pixel.a = static_cast<float>(event.colorBytes[offset + 3u]) / 255.0f;
-    return pixel;
 }
 
 bool isNear(float value, float expected, float tolerance)
@@ -161,30 +44,6 @@ bool isNearColor(const ReadbackPixel& pixel, float r, float g, float b, float to
            isNear(pixel.b, b, tolerance);
 }
 
-template <typename Predicate>
-std::uint64_t countPixelsMatching(const GpuRenderTargetReadbackEvent& event, std::uint32_t xBegin,
-                                  std::uint32_t xEnd, Predicate predicate)
-{
-    if (!isValidReadback(event) || xBegin >= xEnd || xEnd > event.width)
-    {
-        return 0u;
-    }
-
-    std::uint64_t count = 0u;
-    for (std::uint32_t y = 0u; y < event.height; ++y)
-    {
-        for (std::uint32_t x = xBegin; x < xEnd; ++x)
-        {
-            const ReadbackPixel pixel = decodePixel(event, x, y);
-            if (predicate(pixel))
-            {
-                ++count;
-            }
-        }
-    }
-    return count;
-}
-
 bool isYellowClear(const ReadbackPixel& pixel)
 {
     return isNearColor(pixel, 0.95f, 0.90f, 0.10f, 0.08f);
@@ -193,41 +52,6 @@ bool isYellowClear(const ReadbackPixel& pixel)
 bool isBlueClear(const ReadbackPixel& pixel)
 {
     return isNearColor(pixel, 0.10f, 0.20f, 0.95f, 0.08f);
-}
-
-bool writePpm(const std::string& path, const GpuRenderTargetReadbackEvent& event)
-{
-    if (!isValidReadback(event))
-    {
-        return false;
-    }
-
-    std::ofstream out(path, std::ios::binary);
-    if (!out.is_open())
-    {
-        return false;
-    }
-
-    out << "P6\n" << event.width << " " << event.height << "\n255\n";
-
-    std::vector<std::uint8_t> rgbRow(static_cast<std::size_t>(event.width) * 3u);
-    for (std::uint32_t y = 0; y < event.height; ++y)
-    {
-        for (std::uint32_t x = 0; x < event.width; ++x)
-        {
-            const ReadbackPixel pixel = decodePixel(event, x, y);
-            rgbRow[static_cast<std::size_t>(x) * 3u + 0u] = static_cast<std::uint8_t>(
-                std::lround(std::clamp(pixel.r, 0.0f, 1.0f) * 255.0f));
-            rgbRow[static_cast<std::size_t>(x) * 3u + 1u] = static_cast<std::uint8_t>(
-                std::lround(std::clamp(pixel.g, 0.0f, 1.0f) * 255.0f));
-            rgbRow[static_cast<std::size_t>(x) * 3u + 2u] = static_cast<std::uint8_t>(
-                std::lround(std::clamp(pixel.b, 0.0f, 1.0f) * 255.0f));
-        }
-        out.write(reinterpret_cast<const char*>(rgbRow.data()),
-                  static_cast<std::streamsize>(rgbRow.size()));
-    }
-
-    return out.good();
 }
 
 GpuRenderTargetReadbackEvent renderAndReadback(Runtime& runtime, GpuDevice& graphicsDevice,
@@ -271,7 +95,7 @@ int main(int argc, char** argv)
     }
 
     RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
+    config.gpuDeviceDesc.preferredBackend = cressim::neo::gpu::GpuBackend::Vulkan;
 
     Runtime runtime;
     if (!runtime.initialize(config))
@@ -363,7 +187,7 @@ int main(int argc, char** argv)
     frame.timeSeconds = static_cast<double>(frame.frameIndex) * static_cast<double>(frame.deltaSeconds);
     const GpuRenderTargetReadbackEvent preservedEvent =
         renderAndReadback(runtime, *graphicsDevice, target, frame);
-    if (!isValidReadback(preservedEvent))
+    if (!cressim::neo::tests::helpers::isValidReadback(preservedEvent))
     {
         CRESSIM_LOG_ERROR( "Expected valid readback for preserved viewport render.\n");
         runtime.shutdown();
@@ -372,11 +196,12 @@ int main(int argc, char** argv)
 
     const std::uint32_t midX = preservedEvent.width / 2u;
     const std::uint64_t leftYellowCount =
-        countPixelsMatching(preservedEvent, 0u, midX, isYellowClear);
+        cressim::neo::tests::helpers::countPixelsMatching(preservedEvent, 0u, midX, isYellowClear);
     const std::uint64_t leftPixelCount =
         static_cast<std::uint64_t>(midX) * preservedEvent.height;
     const std::uint64_t rightYellowCount =
-        countPixelsMatching(preservedEvent, midX, preservedEvent.width, isYellowClear);
+        cressim::neo::tests::helpers::countPixelsMatching(
+            preservedEvent, midX, preservedEvent.width, isYellowClear);
     const std::uint64_t rightPixelCount =
         static_cast<std::uint64_t>(preservedEvent.width - midX) * preservedEvent.height;
     if (leftYellowCount == leftPixelCount)
@@ -399,7 +224,7 @@ int main(int argc, char** argv)
     frame.timeSeconds = static_cast<double>(frame.frameIndex) * static_cast<double>(frame.deltaSeconds);
     const GpuRenderTargetReadbackEvent clearedEvent =
         renderAndReadback(runtime, *graphicsDevice, target, frame);
-    if (!isValidReadback(clearedEvent))
+    if (!cressim::neo::tests::helpers::isValidReadback(clearedEvent))
     {
         CRESSIM_LOG_ERROR( "Expected valid readback for cleared viewport render.\n");
         runtime.shutdown();
@@ -407,7 +232,8 @@ int main(int argc, char** argv)
     }
 
     const std::uint64_t clearedRightBlueCount =
-        countPixelsMatching(clearedEvent, midX, clearedEvent.width, isBlueClear);
+        cressim::neo::tests::helpers::countPixelsMatching(
+            clearedEvent, midX, clearedEvent.width, isBlueClear);
     const std::uint64_t clearedRightPixelCount =
         static_cast<std::uint64_t>(clearedEvent.width - midX) * clearedEvent.height;
     if (clearedRightBlueCount != clearedRightPixelCount)
@@ -417,7 +243,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    if (!outputPath.empty() && !writePpm(outputPath, clearedEvent))
+    if (!outputPath.empty() &&
+        !cressim::neo::tests::helpers::writePpm(outputPath, clearedEvent))
     {
         CRESSIM_LOG_ERROR( "Failed to write output image: " , outputPath , '\n');
         runtime.shutdown();
