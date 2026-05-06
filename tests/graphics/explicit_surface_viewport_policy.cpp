@@ -3,8 +3,12 @@
 #include "engine/runtime.h"
 #include "common/logger.h"
 
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
+
 #include <array>
+#include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -37,25 +41,125 @@ void printUsage(const char* appName)
 
 bool isValidReadback(const GpuRenderTargetReadbackEvent& event)
 {
-    if (event.width == 0u || event.height == 0u || event.rowStrideBytes < event.width * 4u)
+    if (event.width == 0u || event.height == 0u)
     {
         return false;
     }
+
+    const auto& formatAttribs = Diligent::GetTextureFormatAttribs(event.colorFormat);
+    if (formatAttribs.Format == Diligent::TEX_FORMAT_UNKNOWN || formatAttribs.IsTypeless ||
+        formatAttribs.ComponentType == Diligent::COMPONENT_TYPE_COMPRESSED)
+    {
+        return false;
+    }
+
+    const std::uint32_t minStride = event.width * formatAttribs.GetElementSize();
+    if (event.rowStrideBytes < minStride)
+    {
+        return false;
+    }
+
     return event.colorBytes.size() >=
            static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height);
 }
 
-bool isNear(std::uint8_t value, std::uint8_t expected, std::uint8_t tolerance)
+float halfToFloat(std::uint16_t value)
 {
-    const int diff = static_cast<int>(value) - static_cast<int>(expected);
-    return diff >= -static_cast<int>(tolerance) && diff <= static_cast<int>(tolerance);
+    const std::uint32_t sign = static_cast<std::uint32_t>(value & 0x8000u) << 16u;
+    std::uint32_t exponent   = (value >> 10u) & 0x1fu;
+    std::uint32_t mantissa   = value & 0x03ffu;
+
+    std::uint32_t bits = 0u;
+    if (exponent == 0u)
+    {
+        if (mantissa != 0u)
+        {
+            exponent = 113u;
+            while ((mantissa & 0x0400u) == 0u)
+            {
+                mantissa <<= 1u;
+                --exponent;
+            }
+            mantissa &= 0x03ffu;
+            bits = sign | (exponent << 23u) | (mantissa << 13u);
+        }
+        else
+        {
+            bits = sign;
+        }
+    }
+    else if (exponent == 0x1fu)
+    {
+        bits = sign | 0x7f800000u | (mantissa << 13u);
+    }
+    else
+    {
+        bits = sign | ((exponent + 112u) << 23u) | (mantissa << 13u);
+    }
+
+    float result = 0.0f;
+    std::memcpy(&result, &bits, sizeof(result));
+    return result;
 }
 
-bool isNearColor(const std::array<std::uint8_t, 4u>& pixel, std::uint8_t r, std::uint8_t g,
-                 std::uint8_t b, std::uint8_t tolerance)
+struct ReadbackPixel
 {
-    return isNear(pixel[0], r, tolerance) && isNear(pixel[1], g, tolerance) &&
-           isNear(pixel[2], b, tolerance);
+    float r = 0.0f;
+    float g = 0.0f;
+    float b = 0.0f;
+    float a = 0.0f;
+};
+
+ReadbackPixel decodePixel(const GpuRenderTargetReadbackEvent& event, std::uint32_t x, std::uint32_t y)
+{
+    ReadbackPixel pixel{};
+    if (!isValidReadback(event))
+    {
+        return pixel;
+    }
+
+    const std::uint32_t pixelStrideBytes =
+        Diligent::GetTextureFormatAttribs(event.colorFormat).GetElementSize();
+    const std::size_t offset =
+        static_cast<std::size_t>(y) * event.rowStrideBytes +
+        static_cast<std::size_t>(x) * pixelStrideBytes;
+    if (event.colorFormat == Diligent::TEX_FORMAT_RGBA16_FLOAT)
+    {
+        const std::uint16_t pixelR =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 0u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 1u]) << 8u);
+        const std::uint16_t pixelG =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 2u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 3u]) << 8u);
+        const std::uint16_t pixelB =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 4u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 5u]) << 8u);
+        const std::uint16_t pixelA =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 6u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 7u]) << 8u);
+        pixel.r = halfToFloat(pixelR);
+        pixel.g = halfToFloat(pixelG);
+        pixel.b = halfToFloat(pixelB);
+        pixel.a = halfToFloat(pixelA);
+        return pixel;
+    }
+
+    pixel.r = static_cast<float>(event.colorBytes[offset + 0u]) / 255.0f;
+    pixel.g = static_cast<float>(event.colorBytes[offset + 1u]) / 255.0f;
+    pixel.b = static_cast<float>(event.colorBytes[offset + 2u]) / 255.0f;
+    pixel.a = static_cast<float>(event.colorBytes[offset + 3u]) / 255.0f;
+    return pixel;
+}
+
+bool isNear(float value, float expected, float tolerance)
+{
+    return std::fabs(value - expected) <= tolerance;
+}
+
+bool isNearColor(const ReadbackPixel& pixel, float r, float g, float b, float tolerance)
+{
+    return isNear(pixel.r, r, tolerance) && isNear(pixel.g, g, tolerance) &&
+           isNear(pixel.b, b, tolerance);
 }
 
 template <typename Predicate>
@@ -72,13 +176,7 @@ std::uint64_t countPixelsMatching(const GpuRenderTargetReadbackEvent& event, std
     {
         for (std::uint32_t x = xBegin; x < xEnd; ++x)
         {
-            const std::size_t offset =
-                static_cast<std::size_t>(y) * event.rowStrideBytes + static_cast<std::size_t>(x) * 4u;
-            const std::array<std::uint8_t, 4u> pixel{
-                event.colorBytes[offset + 0u],
-                event.colorBytes[offset + 1u],
-                event.colorBytes[offset + 2u],
-                event.colorBytes[offset + 3u]};
+            const ReadbackPixel pixel = decodePixel(event, x, y);
             if (predicate(pixel))
             {
                 ++count;
@@ -88,14 +186,14 @@ std::uint64_t countPixelsMatching(const GpuRenderTargetReadbackEvent& event, std
     return count;
 }
 
-bool isYellowClear(const std::array<std::uint8_t, 4u>& pixel)
+bool isYellowClear(const ReadbackPixel& pixel)
 {
-    return isNearColor(pixel, 242u, 230u, 26u, 20u);
+    return isNearColor(pixel, 0.95f, 0.90f, 0.10f, 0.08f);
 }
 
-bool isBlueClear(const std::array<std::uint8_t, 4u>& pixel)
+bool isBlueClear(const ReadbackPixel& pixel)
 {
-    return isNearColor(pixel, 26u, 51u, 242u, 20u);
+    return isNearColor(pixel, 0.10f, 0.20f, 0.95f, 0.08f);
 }
 
 bool writePpm(const std::string& path, const GpuRenderTargetReadbackEvent& event)
@@ -116,16 +214,15 @@ bool writePpm(const std::string& path, const GpuRenderTargetReadbackEvent& event
     std::vector<std::uint8_t> rgbRow(static_cast<std::size_t>(event.width) * 3u);
     for (std::uint32_t y = 0; y < event.height; ++y)
     {
-        const std::uint8_t* src =
-            event.colorBytes.data() + static_cast<std::size_t>(y) * event.rowStrideBytes;
         for (std::uint32_t x = 0; x < event.width; ++x)
         {
-            rgbRow[static_cast<std::size_t>(x) * 3u + 0u] =
-                src[static_cast<std::size_t>(x) * 4u + 0u];
-            rgbRow[static_cast<std::size_t>(x) * 3u + 1u] =
-                src[static_cast<std::size_t>(x) * 4u + 1u];
-            rgbRow[static_cast<std::size_t>(x) * 3u + 2u] =
-                src[static_cast<std::size_t>(x) * 4u + 2u];
+            const ReadbackPixel pixel = decodePixel(event, x, y);
+            rgbRow[static_cast<std::size_t>(x) * 3u + 0u] = static_cast<std::uint8_t>(
+                std::lround(std::clamp(pixel.r, 0.0f, 1.0f) * 255.0f));
+            rgbRow[static_cast<std::size_t>(x) * 3u + 1u] = static_cast<std::uint8_t>(
+                std::lround(std::clamp(pixel.g, 0.0f, 1.0f) * 255.0f));
+            rgbRow[static_cast<std::size_t>(x) * 3u + 2u] = static_cast<std::uint8_t>(
+                std::lround(std::clamp(pixel.b, 0.0f, 1.0f) * 255.0f));
         }
         out.write(reinterpret_cast<const char*>(rgbRow.data()),
                   static_cast<std::streamsize>(rgbRow.size()));

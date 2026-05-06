@@ -1,5 +1,4 @@
 add_subdirectory(smoke)
-add_subdirectory(explicit_surface_depth_readback)
 add_subdirectory(forward_pipeline)
 add_subdirectory(graphics)
 add_subdirectory(engine)
