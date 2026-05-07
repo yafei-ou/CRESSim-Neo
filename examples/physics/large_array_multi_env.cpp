@@ -4,6 +4,7 @@
 #include "engine/runtime.h"
 #include "graphics/environment_ibl_baker.h"
 #include "helpers/example_cli.h"
+#include "helpers/shape_meshes.h"
 #include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
 
@@ -44,7 +45,6 @@ using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
-constexpr float kPi = 3.14159265358979323846f;
 constexpr int kGridWidth = 10;
 constexpr int kGridDepth = 10;
 constexpr int kLayers = 5;
@@ -151,195 +151,6 @@ void printUsage(const char* appName)
     cressim::neo::examples::helpers::printUsage(
         appName, " [--lighting-mode standard|mixed|matrix] [--ibl-mode none|per_env|shared]",
         true);
-}
-
-MeshResourceDesc makeCubeMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "LargeArray.CubeMesh";
-    mesh.vertices.reserve(24);
-    mesh.indices.reserve(36);
-
-    const auto addFace = [&](const Diligent::float3& normal, const Diligent::float3& v0,
-                             const Diligent::float3& v1, const Diligent::float3& v2,
-                             const Diligent::float3& v3)
-    {
-        const auto base = static_cast<std::uint32_t>(mesh.vertices.size());
-        mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
-        mesh.vertices.push_back({v1, normal, 1.0f, 0.0f});
-        mesh.vertices.push_back({v2, normal, 1.0f, 1.0f});
-        mesh.vertices.push_back({v3, normal, 0.0f, 1.0f});
-
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 2u);
-        mesh.indices.push_back(base + 1u);
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 3u);
-        mesh.indices.push_back(base + 2u);
-    };
-
-    const float h = halfExtent;
-    addFace({0.0f, 0.0f, 1.0f}, {-h, -h, h}, {h, -h, h}, {h, h, h}, {-h, h, h});
-    addFace({0.0f, 0.0f, -1.0f}, {h, -h, -h}, {-h, -h, -h}, {-h, h, -h}, {h, h, -h});
-    addFace({-1.0f, 0.0f, 0.0f}, {-h, -h, -h}, {-h, -h, h}, {-h, h, h}, {-h, h, -h});
-    addFace({1.0f, 0.0f, 0.0f}, {h, -h, h}, {h, -h, -h}, {h, h, -h}, {h, h, h});
-    addFace({0.0f, 1.0f, 0.0f}, {-h, h, h}, {h, h, h}, {h, h, -h}, {-h, h, -h});
-    addFace({0.0f, -1.0f, 0.0f}, {-h, -h, -h}, {h, -h, -h}, {h, -h, h}, {-h, -h, h});
-    return mesh;
-}
-
-MeshResourceDesc makePlaneMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "LargeArray.PlaneMesh";
-    const float h = halfExtent;
-    mesh.vertices = {
-        {{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f},
-        {{h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 1.0f, 0.0f},
-        {{h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 1.0f, 1.0f},
-        {{-h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 0.0f, 1.0f},
-    };
-    mesh.indices = {0u, 1u, 2u, 0u, 2u, 3u};
-    return mesh;
-}
-
-MeshResourceDesc makeSphereMesh(float radius, std::uint32_t slices, std::uint32_t stacks)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "LargeArray.SphereMesh";
-    mesh.vertices.reserve((stacks + 1u) * (slices + 1u));
-    mesh.indices.reserve(stacks * slices * 6u);
-
-    for (std::uint32_t stack = 0u; stack <= stacks; ++stack)
-    {
-        const float v = static_cast<float>(stack) / static_cast<float>(stacks);
-        const float phi = v * kPi;
-        const float y = std::cos(phi);
-        const float ringRadius = std::sin(phi);
-
-        for (std::uint32_t slice = 0u; slice <= slices; ++slice)
-        {
-            const float u = static_cast<float>(slice) / static_cast<float>(slices);
-            const float theta = u * (2.0f * kPi);
-            const float x = ringRadius * std::cos(theta);
-            const float z = ringRadius * std::sin(theta);
-            const Diligent::float3 normal{x, y, z};
-            mesh.vertices.push_back({normal * radius, normal, u, v});
-        }
-    }
-
-    const std::uint32_t ring = slices + 1u;
-    for (std::uint32_t stack = 0u; stack < stacks; ++stack)
-    {
-        for (std::uint32_t slice = 0u; slice < slices; ++slice)
-        {
-            const std::uint32_t i0 = stack * ring + slice;
-            const std::uint32_t i1 = i0 + 1u;
-            const std::uint32_t i2 = i0 + ring;
-            const std::uint32_t i3 = i2 + 1u;
-            mesh.indices.push_back(i0);
-            mesh.indices.push_back(i2);
-            mesh.indices.push_back(i1);
-            mesh.indices.push_back(i1);
-            mesh.indices.push_back(i2);
-            mesh.indices.push_back(i3);
-        }
-    }
-
-    return mesh;
-}
-
-MeshResourceDesc makeCapsuleMesh(float radius, float halfHeight, std::uint32_t slices,
-                                 std::uint32_t hemisphereRings, std::uint32_t bodyRings)
-{
-    struct Ring
-    {
-        float y = 0.0f;
-        float r = 0.0f;
-    };
-
-    MeshResourceDesc mesh{};
-    mesh.debugName = "LargeArray.CapsuleMesh";
-    std::vector<Ring> rings;
-    rings.reserve(2u * hemisphereRings + bodyRings + 2u);
-
-    rings.push_back({halfHeight + radius, 0.0f});
-    for (std::uint32_t i = 1u; i <= hemisphereRings; ++i)
-    {
-        const float t = static_cast<float>(i) / static_cast<float>(hemisphereRings);
-        const float angle = t * (kPi * 0.5f);
-        rings.push_back({halfHeight + radius * std::cos(angle), radius * std::sin(angle)});
-    }
-
-    for (std::uint32_t i = 1u; i <= bodyRings; ++i)
-    {
-        const float t = static_cast<float>(i) / static_cast<float>(bodyRings + 1u);
-        rings.push_back({halfHeight * (1.0f - 2.0f * t), radius});
-    }
-
-    for (std::uint32_t i = 1u; i <= hemisphereRings; ++i)
-    {
-        const float t = static_cast<float>(i) / static_cast<float>(hemisphereRings);
-        const float angle = t * (kPi * 0.5f);
-        rings.push_back({-halfHeight - radius * std::sin(angle), radius * std::cos(angle)});
-    }
-
-    mesh.vertices.reserve(static_cast<std::size_t>(rings.size()) * (slices + 1u));
-    mesh.indices.reserve((static_cast<std::uint32_t>(rings.size()) - 1u) * slices * 6u);
-
-    for (std::size_t ringIndex = 0u; ringIndex < rings.size(); ++ringIndex)
-    {
-        const float y = rings[ringIndex].y;
-        const float rr = rings[ringIndex].r;
-
-        for (std::uint32_t slice = 0u; slice <= slices; ++slice)
-        {
-            const float u = static_cast<float>(slice) / static_cast<float>(slices);
-            const float theta = u * (2.0f * kPi);
-            const float x = rr * std::cos(theta);
-            const float z = rr * std::sin(theta);
-
-            Diligent::float3 normal{};
-            if (y > halfHeight)
-            {
-                normal = Diligent::normalize(Diligent::float3{x, y - halfHeight, z});
-            }
-            else if (y < -halfHeight)
-            {
-                normal = Diligent::normalize(Diligent::float3{x, y + halfHeight, z});
-            }
-            else
-            {
-                normal = rr > 0.0f ? Diligent::normalize(Diligent::float3{x, 0.0f, z})
-                                   : Diligent::float3{0.0f, 1.0f, 0.0f};
-            }
-
-            const float v = static_cast<float>(ringIndex) /
-                            static_cast<float>(std::max<std::size_t>(1u, rings.size() - 1u));
-            mesh.vertices.push_back({{x, y, z}, normal, u, v});
-        }
-    }
-
-    const std::uint32_t ringStride = slices + 1u;
-    for (std::uint32_t ringIndex = 0u;
-         ringIndex + 1u < static_cast<std::uint32_t>(rings.size()); ++ringIndex)
-    {
-        for (std::uint32_t slice = 0u; slice < slices; ++slice)
-        {
-            const std::uint32_t i0 = ringIndex * ringStride + slice;
-            const std::uint32_t i1 = i0 + 1u;
-            const std::uint32_t i2 = i0 + ringStride;
-            const std::uint32_t i3 = i2 + 1u;
-            mesh.indices.push_back(i0);
-            mesh.indices.push_back(i2);
-            mesh.indices.push_back(i1);
-            mesh.indices.push_back(i1);
-            mesh.indices.push_back(i2);
-            mesh.indices.push_back(i3);
-        }
-    }
-
-    return mesh;
 }
 
 Diligent::float3 computeBoxInverseInertia(const Diligent::float3& halfExtents, float inverseMass)
@@ -1002,11 +813,17 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    const auto cubeMesh = resources.registerMesh(makeCubeMesh(0.45f));
+    const auto cubeMesh = resources.registerMesh(
+        cressim::neo::examples::helpers::makeCubeMesh(0.45f, "LargeArray.CubeMesh"));
     const auto planeMesh = resources.registerMesh(
-        makePlaneMesh((options.lightingMode == LightingMode::Matrix) ? 9.0f : 28.0f));
-    const auto sphereMesh = resources.registerMesh(makeSphereMesh(0.45f, 20u, 12u));
-    const auto capsuleMesh = resources.registerMesh(makeCapsuleMesh(0.28f, 0.52f, 20u, 6u, 2u));
+        cressim::neo::examples::helpers::makePlaneMesh(
+            (options.lightingMode == LightingMode::Matrix) ? 9.0f : 28.0f,
+            "LargeArray.PlaneMesh"));
+    const auto sphereMesh = resources.registerMesh(cressim::neo::examples::helpers::makeSphereMesh(
+        0.45f, 20u, 12u, "LargeArray.SphereMesh"));
+    const auto capsuleMesh = resources.registerMesh(
+        cressim::neo::examples::helpers::makeCapsuleMesh(
+            0.28f, 0.52f, 20u, 6u, 2u, "LargeArray.CapsuleMesh"));
 
     EntityId primaryCamera = cressim::neo::common::kInvalidEntityId;
     for (std::uint32_t envIndex = 0u; envIndex < options.common.envCount; ++envIndex)

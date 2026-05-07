@@ -4,6 +4,7 @@
 #include "engine/runtime.h"
 #include "graphics/environment_ibl_baker.h"
 #include "helpers/example_cli.h"
+#include "helpers/shape_meshes.h"
 #include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
 
@@ -35,71 +36,9 @@ using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
-constexpr float kPi = 3.14159265358979323846f;
-
 void printUsage(const char *appName)
 {
     cressim::neo::examples::helpers::printUsage(appName, "", false);
-}
-
-MeshResourceDesc makePlaneMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerIntegration.SkyboxIbl.Plane";
-    const float h = halfExtent;
-    mesh.vertices = {
-        {{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f},
-        {{h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 1.0f, 0.0f},
-        {{h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 1.0f, 1.0f},
-        {{-h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 0.0f, 1.0f}};
-    mesh.indices = {0u, 1u, 2u, 0u, 2u, 3u};
-    return mesh;
-}
-
-MeshResourceDesc makeSphereMesh(float radius, std::uint32_t slices, std::uint32_t stacks)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerIntegration.SkyboxIbl.Sphere";
-    mesh.vertices.reserve((stacks + 1u) * (slices + 1u));
-    mesh.indices.reserve(stacks * slices * 6u);
-
-    for (std::uint32_t stack = 0u; stack <= stacks; ++stack)
-    {
-        const float v = static_cast<float>(stack) / static_cast<float>(stacks);
-        const float phi = v * kPi;
-        const float y = std::cos(phi);
-        const float ringRadius = std::sin(phi);
-
-        for (std::uint32_t slice = 0u; slice <= slices; ++slice)
-        {
-            const float u = static_cast<float>(slice) / static_cast<float>(slices);
-            const float theta = u * (2.0f * kPi);
-            const float x = ringRadius * std::cos(theta);
-            const float z = ringRadius * std::sin(theta);
-            const Diligent::float3 normal{x, y, z};
-            mesh.vertices.push_back({normal * radius, normal, u, v});
-        }
-    }
-
-    const std::uint32_t ring = slices + 1u;
-    for (std::uint32_t stack = 0u; stack < stacks; ++stack)
-    {
-        for (std::uint32_t slice = 0u; slice < slices; ++slice)
-        {
-            const std::uint32_t i0 = stack * ring + slice;
-            const std::uint32_t i1 = i0 + 1u;
-            const std::uint32_t i2 = i0 + ring;
-            const std::uint32_t i3 = i2 + 1u;
-            mesh.indices.push_back(i0);
-            mesh.indices.push_back(i2);
-            mesh.indices.push_back(i1);
-            mesh.indices.push_back(i1);
-            mesh.indices.push_back(i2);
-            mesh.indices.push_back(i3);
-        }
-    }
-
-    return mesh;
 }
 
 MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &resources,
@@ -212,8 +151,12 @@ int main(int argc, char **argv)
             throw std::runtime_error("Failed to assign skybox IBL to environment 0.");
         }
 
-        const MeshHandle planeMesh = resources.registerMesh(makePlaneMesh(8.0f));
-        const MeshHandle sphereMesh = resources.registerMesh(makeSphereMesh(1.0f, 48u, 24u));
+        const MeshHandle planeMesh = resources.registerMesh(
+            cressim::neo::examples::helpers::makePlaneMesh(
+                8.0f, "ViewerIntegration.SkyboxIbl.Plane"));
+        const MeshHandle sphereMesh = resources.registerMesh(
+            cressim::neo::examples::helpers::makeSphereMesh(
+                1.0f, 48u, 24u, "ViewerIntegration.SkyboxIbl.Sphere"));
 
         const MaterialHandle shinySphereMaterial = registerMaterial(
             resources, "ViewerIntegration.SkyboxIbl.ShinySphere", {0.98f, 0.98f, 0.98f}, 1.0f,

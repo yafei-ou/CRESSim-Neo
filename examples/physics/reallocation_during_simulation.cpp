@@ -3,6 +3,7 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 #include "helpers/example_cli.h"
+#include "helpers/shape_meshes.h"
 #include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
 
@@ -32,61 +33,10 @@ using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
-constexpr float kPi = 3.14159265358979323846f;
-
 void printUsage(const char* appName)
 {
     cressim::neo::examples::helpers::printUsage(appName, " [--wave-size N]", false);
 }
-
-MeshResourceDesc makeCubeMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerRealloc.CubeMesh";
-    mesh.vertices.reserve(24);
-    mesh.indices.reserve(36);
-
-    const auto addFace = [&](const Diligent::float3& normal, const Diligent::float3& v0,
-                             const Diligent::float3& v1, const Diligent::float3& v2,
-                             const Diligent::float3& v3) {
-        const std::uint32_t base = static_cast<std::uint32_t>(mesh.vertices.size());
-        mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
-        mesh.vertices.push_back({v1, normal, 1.0f, 0.0f});
-        mesh.vertices.push_back({v2, normal, 1.0f, 1.0f});
-        mesh.vertices.push_back({v3, normal, 0.0f, 1.0f});
-
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 2u);
-        mesh.indices.push_back(base + 1u);
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 3u);
-        mesh.indices.push_back(base + 2u);
-    };
-
-    const float h = halfExtent;
-    addFace({0.0f, 0.0f, 1.0f}, {-h, -h, h}, {h, -h, h}, {h, h, h}, {-h, h, h});
-    addFace({0.0f, 0.0f, -1.0f}, {h, -h, -h}, {-h, -h, -h}, {-h, h, -h}, {h, h, -h});
-    addFace({-1.0f, 0.0f, 0.0f}, {-h, -h, -h}, {-h, -h, h}, {-h, h, h}, {-h, h, -h});
-    addFace({1.0f, 0.0f, 0.0f}, {h, -h, h}, {h, -h, -h}, {h, h, -h}, {h, h, h});
-    addFace({0.0f, 1.0f, 0.0f}, {-h, h, h}, {h, h, h}, {h, h, -h}, {-h, h, -h});
-    addFace({0.0f, -1.0f, 0.0f}, {-h, -h, -h}, {h, -h, -h}, {h, -h, h}, {-h, -h, h});
-    return mesh;
-}
-
-MeshResourceDesc makePlaneMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerRealloc.PlaneMesh";
-    const float h = halfExtent;
-    mesh.vertices = {
-        {{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f},
-        {{h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 1.0f, 0.0f},
-        {{h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 1.0f, 1.0f},
-        {{-h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 0.0f, 1.0f}};
-    mesh.indices = {0u, 1u, 2u, 0u, 2u, 3u};
-    return mesh;
-}
-
 Diligent::float3 computeBoxInverseInertia(const Diligent::float3& halfExtents, float inverseMass)
 {
     if (inverseMass <= 0.0f)
@@ -236,8 +186,10 @@ int main(int argc, char** argv)
     world.setDirectionalLight(lightEntity, light);
 
     auto& resources = runtime.getResources();
-    const auto cubeMesh = resources.registerMesh(makeCubeMesh(0.35f));
-    const auto planeMesh = resources.registerMesh(makePlaneMesh(18.0f));
+    const auto cubeMesh = resources.registerMesh(
+        cressim::neo::examples::helpers::makeCubeMesh(0.35f, "ViewerRealloc.CubeMesh"));
+    const auto planeMesh = resources.registerMesh(
+        cressim::neo::examples::helpers::makePlaneMesh(18.0f, "ViewerRealloc.PlaneMesh"));
 
     MaterialResourceDesc dynamicMaterialDesc{};
     dynamicMaterialDesc.debugName = "ViewerRealloc.DynamicMaterial";

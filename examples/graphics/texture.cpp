@@ -2,6 +2,7 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 #include "helpers/example_cli.h"
+#include "helpers/shape_meshes.h"
 #include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
 
@@ -198,64 +199,6 @@ TextureResourceDesc makeAlphaCutoutTexture()
                            std::move(pixels));
 }
 
-MeshResourceDesc makeCubeMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "TextureViewer.CubeMesh";
-    mesh.vertices.reserve(24);
-    mesh.indices.reserve(36);
-
-    const auto addFace = [&](const Diligent::float3 &normal, const Diligent::float3 &v0,
-                             const Diligent::float3 &v1, const Diligent::float3 &v2,
-                             const Diligent::float3 &v3)
-    {
-        const std::uint32_t base = static_cast<std::uint32_t>(mesh.vertices.size());
-        mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
-        const Diligent::float3 tangentDir = Diligent::float3{
-            v1.x - v0.x, v1.y - v0.y, v1.z - v0.z};
-        const float tangentLengthSq = tangentDir.x * tangentDir.x + tangentDir.y * tangentDir.y +
-                                      tangentDir.z * tangentDir.z;
-        const float tangentInvLength = tangentLengthSq > 1.0e-6f ? 1.0f / std::sqrt(tangentLengthSq) : 1.0f;
-        const Diligent::float4 tangent = {tangentDir.x * tangentInvLength,
-                                          tangentDir.y * tangentInvLength,
-                                          tangentDir.z * tangentInvLength, 1.0f};
-        mesh.vertices.back().tangent = tangent;
-        mesh.vertices.push_back({v1, normal, 1.0f, 0.0f, tangent});
-        mesh.vertices.push_back({v2, normal, 1.0f, 1.0f, tangent});
-        mesh.vertices.push_back({v3, normal, 0.0f, 1.0f, tangent});
-
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 2u);
-        mesh.indices.push_back(base + 1u);
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 3u);
-        mesh.indices.push_back(base + 2u);
-    };
-
-    const float h = halfExtent;
-    addFace({0.0f, 0.0f, 1.0f}, {-h, -h, h}, {h, -h, h}, {h, h, h}, {-h, h, h});
-    addFace({0.0f, 0.0f, -1.0f}, {h, -h, -h}, {-h, -h, -h}, {-h, h, -h}, {h, h, -h});
-    addFace({-1.0f, 0.0f, 0.0f}, {-h, -h, -h}, {-h, -h, h}, {-h, h, h}, {-h, h, -h});
-    addFace({1.0f, 0.0f, 0.0f}, {h, -h, h}, {h, -h, -h}, {h, h, -h}, {h, h, h});
-    addFace({0.0f, 1.0f, 0.0f}, {-h, h, h}, {h, h, h}, {h, h, -h}, {-h, h, -h});
-    addFace({0.0f, -1.0f, 0.0f}, {-h, -h, -h}, {h, -h, -h}, {h, -h, h}, {-h, -h, h});
-    return mesh;
-}
-
-MeshResourceDesc makePlaneMesh(float halfExtent, float uvScale, const std::string &debugName)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = debugName;
-    const float h = halfExtent;
-    mesh.vertices = {
-        {{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
-        {{h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, uvScale, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
-        {{h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, uvScale, uvScale, {1.0f, 0.0f, 0.0f, 1.0f}},
-        {{-h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 0.0f, uvScale, {1.0f, 0.0f, 0.0f, 1.0f}}};
-    mesh.indices = {0u, 1u, 2u, 0u, 2u, 3u};
-    return mesh;
-}
-
 void spawnRenderable(cressim::neo::engine::World &world, cressim::neo::graphics::MeshHandle mesh,
                      cressim::neo::graphics::MaterialHandle material,
                      const Diligent::float3 &position, const Diligent::float3 &scale,
@@ -346,13 +289,17 @@ int main(int argc, char **argv)
 
     auto &resources = runtime.getResources();
 
-    const auto cubeMesh = resources.registerMesh(makeCubeMesh(0.8f));
+    const auto cubeMesh = resources.registerMesh(
+        cressim::neo::examples::helpers::makeCubeMesh(0.8f, "TextureViewer.CubeMesh"));
     const auto wallPanelMesh =
-        resources.registerMesh(makePlaneMesh(1.0f, 1.0f, "TextureViewer.PanelMesh"));
+        resources.registerMesh(
+            cressim::neo::examples::helpers::makePlaneMesh(1.0f, 1.0f, "TextureViewer.PanelMesh"));
     const auto tiledPanelMesh =
-        resources.registerMesh(makePlaneMesh(1.0f, 4.0f, "TextureViewer.TiledPanelMesh"));
+        resources.registerMesh(cressim::neo::examples::helpers::makePlaneMesh(
+            1.0f, 4.0f, "TextureViewer.TiledPanelMesh"));
     const auto groundMesh =
-        resources.registerMesh(makePlaneMesh(12.0f, 12.0f, "TextureViewer.GroundMesh"));
+        resources.registerMesh(cressim::neo::examples::helpers::makePlaneMesh(
+            12.0f, 12.0f, "TextureViewer.GroundMesh"));
 
     const TextureHandle baseColorTexture =
         resources.registerTexture(makeBaseColorCheckerTexture());

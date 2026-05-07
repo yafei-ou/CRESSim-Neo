@@ -1,6 +1,7 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/shape_meshes.h"
 #include "viewer/debug_viewer_app.h"
 
 #include <algorithm>
@@ -91,53 +92,6 @@ void printUsage(const char *appName)
 {
     CRESSIM_LOG_ERROR("Usage: ", appName,
                       " [--backend vulkan|null] [--frames N] [--envs N] [--toroids N]\n");
-}
-
-MeshResourceDesc makeCubeMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "SoftParticleToroidMultiEnv.CubeMesh";
-    mesh.vertices.reserve(24);
-    mesh.indices.reserve(36);
-
-    const auto addFace = [&](const Diligent::float3 &normal, const Diligent::float3 &v0,
-                             const Diligent::float3 &v1, const Diligent::float3 &v2,
-                             const Diligent::float3 &v3) {
-        const std::uint32_t base = static_cast<std::uint32_t>(mesh.vertices.size());
-        mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
-        mesh.vertices.push_back({v1, normal, 1.0f, 0.0f});
-        mesh.vertices.push_back({v2, normal, 1.0f, 1.0f});
-        mesh.vertices.push_back({v3, normal, 0.0f, 1.0f});
-
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 2u);
-        mesh.indices.push_back(base + 1u);
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 3u);
-        mesh.indices.push_back(base + 2u);
-    };
-
-    const float h = halfExtent;
-    addFace({0.0f, 0.0f, 1.0f}, {-h, -h, h}, {h, -h, h}, {h, h, h}, {-h, h, h});
-    addFace({0.0f, 0.0f, -1.0f}, {h, -h, -h}, {-h, -h, -h}, {-h, h, -h}, {h, h, -h});
-    addFace({-1.0f, 0.0f, 0.0f}, {-h, -h, -h}, {-h, -h, h}, {-h, h, h}, {-h, h, -h});
-    addFace({1.0f, 0.0f, 0.0f}, {h, -h, h}, {h, -h, -h}, {h, h, -h}, {h, h, h});
-    addFace({0.0f, 1.0f, 0.0f}, {-h, h, h}, {h, h, h}, {h, h, -h}, {-h, h, -h});
-    addFace({0.0f, -1.0f, 0.0f}, {-h, -h, -h}, {h, -h, -h}, {h, -h, h}, {-h, -h, h});
-    return mesh;
-}
-
-MeshResourceDesc makePlaneMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "SoftParticleToroidMultiEnv.PlaneMesh";
-    const float h  = halfExtent;
-    mesh.vertices  = {{{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f},
-                      {{h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 1.0f, 0.0f},
-                      {{h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 1.0f, 1.0f},
-                      {{-h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 0.0f, 1.0f}};
-    mesh.indices   = {0u, 1u, 2u, 0u, 2u, 3u};
-    return mesh;
 }
 
 std::int32_t resolveObjIndex(std::int32_t index, std::size_t count)
@@ -685,8 +639,11 @@ int main(int argc, char **argv)
     }
 
     auto &resources            = runtime.getResources();
-    const MeshHandle boxMesh   = resources.registerMesh(makeCubeMesh(2.5f));
-    const MeshHandle planeMesh = resources.registerMesh(makePlaneMesh(40.0f));
+    const MeshHandle boxMesh = resources.registerMesh(cressim::neo::examples::helpers::makeCubeMesh(
+        2.5f, "SoftParticleToroidMultiEnv.CubeMesh"));
+    const MeshHandle planeMesh = resources.registerMesh(
+        cressim::neo::examples::helpers::makePlaneMesh(
+            40.0f, "SoftParticleToroidMultiEnv.PlaneMesh"));
     const MeshHandle toroidMesh = resources.registerMesh(loadObjMesh(surfaceObjFile));
 
     SceneMaterials materials{};
