@@ -76,11 +76,18 @@ enum class IblMode
     Shared,
 };
 
+enum class SkyboxBackgroundMode
+{
+    Off,
+    On,
+};
+
 struct ExampleOptions
 {
     CommonExampleOptions common{};
     LightingMode lightingMode = LightingMode::Standard;
     IblMode iblMode = IblMode::None;
+    SkyboxBackgroundMode skyboxBackgroundMode = SkyboxBackgroundMode::Off;
 };
 
 struct EnvMaterialSet
@@ -150,8 +157,24 @@ IblMode parseIblMode(const std::string& value)
 void printUsage(const char* appName)
 {
     cressim::neo::examples::helpers::printUsage(
-        appName, " [--lighting-mode standard|mixed|matrix] [--ibl-mode none|per_env|shared]",
+        appName,
+        " [--lighting-mode standard|mixed|matrix] [--ibl-mode none|per_env|shared]"
+        " [--skybox-background off|on]",
         true);
+}
+
+SkyboxBackgroundMode parseSkyboxBackgroundMode(const std::string& value)
+{
+    if (value == "off")
+    {
+        return SkyboxBackgroundMode::Off;
+    }
+    if (value == "on")
+    {
+        return SkyboxBackgroundMode::On;
+    }
+
+    throw std::invalid_argument("Unsupported skybox background mode: " + value);
 }
 
 Diligent::float4 colliderParamsForShape(ColliderShapeType shape)
@@ -392,7 +415,7 @@ bool assignPerEnvironmentIbl(World& world,
 }
 
 void authorCamera(World& world, std::uint32_t envIndex, const Diligent::float3& position,
-                  EntityId& outCameraEntity)
+                  SkyboxBackgroundMode skyboxBackgroundMode, EntityId& outCameraEntity)
 {
     outCameraEntity = world.createEntity(envIndex);
     TransformComponent cameraTransform{};
@@ -404,6 +427,10 @@ void authorCamera(World& world, std::uint32_t envIndex, const Diligent::float3& 
     camera.clearColor = true;
     camera.clearDepth = true;
     camera.renderOrder = static_cast<int>(envIndex);
+    if (skyboxBackgroundMode == SkyboxBackgroundMode::On)
+    {
+        camera.backgroundMode = CameraComponent::BackgroundMode::EnvironmentCubemap;
+    }
     world.setCamera(outCameraEntity, camera);
 }
 
@@ -561,9 +588,12 @@ void authorMixedLighting(World& world, std::uint32_t envIndex, const Diligent::f
 void authorMatrixEnvironment(World& world, std::uint32_t envIndex, std::uint32_t envCount,
                              const Diligent::float3& envOrigin, MeshHandle cubeMesh,
                              MeshHandle sphereMesh, MeshHandle planeMesh,
-                             const EnvMaterialSet& materials, EntityId& outCameraEntity)
+                             const EnvMaterialSet& materials,
+                             SkyboxBackgroundMode skyboxBackgroundMode,
+                             EntityId& outCameraEntity)
 {
-    authorCamera(world, envIndex, envOrigin + Diligent::float3{0.0f, 5.4f, -18.0f}, outCameraEntity);
+    authorCamera(world, envIndex, envOrigin + Diligent::float3{0.0f, 5.4f, -18.0f},
+                 skyboxBackgroundMode, outCameraEntity);
     authorGround(world, envIndex, envOrigin, planeMesh, materials.ground, 9.0f);
 
     const float spacing = 2.2f;
@@ -603,7 +633,8 @@ void authorMatrixEnvironment(World& world, std::uint32_t envIndex, std::uint32_t
 }
 
 void authorLargeArrayEnvironment(World& world, std::uint32_t envIndex, std::uint32_t envCount,
-                                 LightingMode lightingMode, MeshHandle cubeMesh,
+                                 LightingMode lightingMode,
+                                 SkyboxBackgroundMode skyboxBackgroundMode, MeshHandle cubeMesh,
                                  MeshHandle planeMesh, MeshHandle sphereMesh,
                                  MeshHandle capsuleMesh, const EnvMaterialSet& materials,
                                  EntityId& outCameraEntity)
@@ -612,12 +643,12 @@ void authorLargeArrayEnvironment(World& world, std::uint32_t envIndex, std::uint
     if (lightingMode == LightingMode::Matrix)
     {
         authorMatrixEnvironment(world, envIndex, envCount, envOrigin, cubeMesh, sphereMesh,
-                                planeMesh, materials, outCameraEntity);
+                                planeMesh, materials, skyboxBackgroundMode, outCameraEntity);
         return;
     }
 
     authorCamera(world, envIndex, envOrigin + Diligent::float3{0.0f, 5.0f, -26.0f},
-                 outCameraEntity);
+                 skyboxBackgroundMode, outCameraEntity);
     authorGround(world, envIndex, envOrigin, planeMesh, materials.ground, 28.0f);
 
     const float envPhase = static_cast<float>(envIndex) * 0.45f;
@@ -693,6 +724,13 @@ int main(int argc, char** argv)
                     cressim::neo::examples::helpers::requireOptionValue(argc, argv, i, "--ibl-mode"));
                 continue;
             }
+            if (arg == "--skybox-background")
+            {
+                options.skyboxBackgroundMode = parseSkyboxBackgroundMode(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--skybox-background"));
+                continue;
+            }
 
             printUsage(argv[0]);
             return 2;
@@ -763,6 +801,15 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    if (options.skyboxBackgroundMode == SkyboxBackgroundMode::On &&
+        options.iblMode == IblMode::None)
+    {
+        runtime.shutdown();
+        viewer.shutdown();
+        CRESSIM_LOG_ERROR("--skybox-background on requires --ibl-mode per_env or shared.\n");
+        return 2;
+    }
+
     const auto cubeMesh = resources.registerMesh(
         cressim::neo::examples::helpers::makeCubeMesh(0.45f, "LargeArray.CubeMesh"));
     const auto planeMesh = resources.registerMesh(
@@ -780,9 +827,9 @@ int main(int argc, char** argv)
     {
         EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;
         const auto materials = createMaterials(resources, envIndex);
-        authorLargeArrayEnvironment(world, envIndex, options.common.envCount, options.lightingMode,
-                                    cubeMesh, planeMesh, sphereMesh, capsuleMesh, materials,
-                                    cameraEntity);
+        authorLargeArrayEnvironment(world, envIndex, options.common.envCount,
+                                    options.lightingMode, options.skyboxBackgroundMode, cubeMesh,
+                                    planeMesh, sphereMesh, capsuleMesh, materials, cameraEntity);
         if (envIndex == 0u)
         {
             primaryCamera = cameraEntity;
