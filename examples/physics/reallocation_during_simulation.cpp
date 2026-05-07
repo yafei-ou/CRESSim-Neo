@@ -3,6 +3,7 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 #include "helpers/example_cli.h"
+#include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
 #include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
@@ -37,25 +38,6 @@ void printUsage(const char* appName)
 {
     cressim::neo::examples::helpers::printUsage(appName, " [--wave-size N]", false);
 }
-Diligent::float3 computeBoxInverseInertia(const Diligent::float3& halfExtents, float inverseMass)
-{
-    if (inverseMass <= 0.0f)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    const float mass = 1.0f / inverseMass;
-    const float ix =
-        mass * (halfExtents.y * halfExtents.y + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iy =
-        mass * (halfExtents.x * halfExtents.x + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iz =
-        mass * (halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y) / 3.0f;
-
-    return {ix > 0.0f ? 1.0f / ix : 0.0f, iy > 0.0f ? 1.0f / iy : 0.0f,
-            iz > 0.0f ? 1.0f / iz : 0.0f};
-}
-
 void spawnWave(cressim::neo::engine::World& world, MeshHandle cubeMesh,
                cressim::neo::graphics::MaterialHandle material, std::uint32_t startIndex,
                std::uint32_t count, bool dynamicBodies)
@@ -87,7 +69,8 @@ void spawnWave(cressim::neo::engine::World& world, MeshHandle cubeMesh,
                                       : cressim::neo::physics::RigidBodyType::Static;
         body.inverseMass = dynamicBodies ? 1.0f : 0.0f;
         body.inverseInertiaLocal =
-            computeBoxInverseInertia({0.35f, 0.35f, 0.35f}, body.inverseMass);
+            cressim::neo::examples::helpers::computeBoxInverseInertia(
+                {0.35f, 0.35f, 0.35f}, body.inverseMass);
         body.linearVelocity = {0.0f, 0.0f, 0.0f};
         if (dynamicBodies)
         {

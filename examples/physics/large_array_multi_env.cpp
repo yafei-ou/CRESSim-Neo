@@ -4,6 +4,7 @@
 #include "engine/runtime.h"
 #include "graphics/environment_ibl_baker.h"
 #include "helpers/example_cli.h"
+#include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
 #include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
@@ -153,38 +154,6 @@ void printUsage(const char* appName)
         true);
 }
 
-Diligent::float3 computeBoxInverseInertia(const Diligent::float3& halfExtents, float inverseMass)
-{
-    if (inverseMass <= 0.0f)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    const float mass = 1.0f / inverseMass;
-    const float ix =
-        mass * (halfExtents.y * halfExtents.y + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iy =
-        mass * (halfExtents.x * halfExtents.x + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iz =
-        mass * (halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y) / 3.0f;
-
-    return {ix > 0.0f ? 1.0f / ix : 0.0f, iy > 0.0f ? 1.0f / iy : 0.0f,
-            iz > 0.0f ? 1.0f / iz : 0.0f};
-}
-
-Diligent::float3 computeSphereInverseInertia(float radius, float inverseMass)
-{
-    if (inverseMass <= 0.0f || radius <= 0.0f)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    const float mass = 1.0f / inverseMass;
-    const float inertia = 0.4f * mass * radius * radius;
-    const float inverseInertia = inertia > 0.0f ? 1.0f / inertia : 0.0f;
-    return {inverseInertia, inverseInertia, inverseInertia};
-}
-
 Diligent::float4 colliderParamsForShape(ColliderShapeType shape)
 {
     switch (shape)
@@ -198,26 +167,6 @@ Diligent::float4 colliderParamsForShape(ColliderShapeType shape)
     }
 
     return {0.45f, 0.45f, 0.45f, 0.0f};
-}
-
-Diligent::float3 inverseInertiaForShape(ColliderShapeType shape,
-                                        const Diligent::float4& colliderParams,
-                                        float inverseMass)
-{
-    switch (shape)
-    {
-    case ColliderShapeType::Sphere:
-        return computeSphereInverseInertia(colliderParams.x, inverseMass);
-    case ColliderShapeType::Box:
-        return computeBoxInverseInertia(
-            {colliderParams.x, colliderParams.y, colliderParams.z}, inverseMass);
-    case ColliderShapeType::Capsule:
-        return computeBoxInverseInertia(
-            {colliderParams.x, colliderParams.y + colliderParams.x, colliderParams.x},
-            inverseMass);
-    }
-
-    return {0.0f, 0.0f, 0.0f};
 }
 
 Diligent::float3 envWorldOrigin(std::uint32_t envIndex, std::uint32_t envCount)
@@ -546,7 +495,8 @@ void authorDynamicArray(World& world, std::uint32_t envIndex, std::uint32_t envC
                 body.simulated = true;
                 body.inverseMass = 1.0f;
                 body.inverseInertiaLocal =
-                    inverseInertiaForShape(shape, colliderParamsForShape(shape), body.inverseMass);
+                    cressim::neo::examples::helpers::computeInverseInertiaForShape(
+                        shape, colliderParamsForShape(shape), body.inverseMass);
                 body.linearVelocity = {
                     static_cast<float>((x % 3) - 1) * 0.08f + envVelocityBiasX,
                     0.0f,

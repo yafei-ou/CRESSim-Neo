@@ -1,6 +1,7 @@
 #include "common/frame_context.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
 #include "viewer/debug_viewer_app.h"
 #include "common/logger.h"
@@ -88,36 +89,6 @@ void printUsage(const char* appName)
               , "                sphere-capsule, capsule-capsule\n");
 }
 
-Diligent::float3 computeBoxInverseInertia(const Diligent::float3& halfExtents, float inverseMass)
-{
-    if (inverseMass <= 0.0f)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    const float mass = 1.0f / inverseMass;
-    const float ix = mass * (halfExtents.y * halfExtents.y + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iy = mass * (halfExtents.x * halfExtents.x + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iz = mass * (halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y) / 3.0f;
-
-    return {ix > 0.0f ? 1.0f / ix : 0.0f,
-            iy > 0.0f ? 1.0f / iy : 0.0f,
-            iz > 0.0f ? 1.0f / iz : 0.0f};
-}
-
-Diligent::float3 computeSphereInverseInertia(float radius, float inverseMass)
-{
-    if (inverseMass <= 0.0f || radius <= 0.0f)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    const float mass = 1.0f / inverseMass;
-    const float inertia = 0.4f * mass * radius * radius;
-    const float inverseInertia = inertia > 0.0f ? 1.0f / inertia : 0.0f;
-    return {inverseInertia, inverseInertia, inverseInertia};
-}
-
 Diligent::float4 colliderParamsForShape(ColliderShapeType shape)
 {
     switch (shape)
@@ -131,26 +102,6 @@ Diligent::float4 colliderParamsForShape(ColliderShapeType shape)
     }
 
     return {0.65f, 0.65f, 0.65f, 0.0f};
-}
-
-Diligent::float3 inverseInertiaForShape(ColliderShapeType shape,
-                                        const Diligent::float4& colliderParams,
-                                        float inverseMass)
-{
-    switch (shape)
-    {
-        case ColliderShapeType::Sphere:
-            return computeSphereInverseInertia(colliderParams.x, inverseMass);
-        case ColliderShapeType::Box:
-            return computeBoxInverseInertia(
-                {colliderParams.x, colliderParams.y, colliderParams.z}, inverseMass);
-        case ColliderShapeType::Capsule:
-            return computeBoxInverseInertia(
-                {colliderParams.x, colliderParams.y + colliderParams.x, colliderParams.x},
-                inverseMass);
-    }
-
-    return {0.0f, 0.0f, 0.0f};
 }
 
 } // namespace
@@ -339,7 +290,8 @@ int main(int argc, char** argv)
     frontBody.simulated = true;
     frontBody.inverseMass = 1.0f;
     frontBody.inverseInertiaLocal =
-        inverseInertiaForShape(shapeA, colliderParamsForShape(shapeA), frontBody.inverseMass);
+        cressim::neo::examples::helpers::computeInverseInertiaForShape(
+            shapeA, colliderParamsForShape(shapeA), frontBody.inverseMass);
     frontBody.linearVelocity = {0.0f, 0.0f, 0.0f};
     world.setRigidBody(frontEntity, frontBody);
     cressim::neo::engine::ColliderComponent frontCollider{};
@@ -362,14 +314,15 @@ int main(int argc, char** argv)
     backBody.inverseMass = 1.0f;
     if (legacyBoxPair)
     {
-        backBody.inverseInertiaLocal = computeBoxInverseInertia({0.65f * 1.15f, 0.65f * 1.15f,
-                                                                 0.65f * 1.15f},
-                                                                backBody.inverseMass);
+        backBody.inverseInertiaLocal =
+            cressim::neo::examples::helpers::computeBoxInverseInertia(
+                {0.65f * 1.15f, 0.65f * 1.15f, 0.65f * 1.15f}, backBody.inverseMass);
     }
     else
     {
         backBody.inverseInertiaLocal =
-            inverseInertiaForShape(shapeB, colliderParamsForShape(shapeB), backBody.inverseMass);
+            cressim::neo::examples::helpers::computeInverseInertiaForShape(
+                shapeB, colliderParamsForShape(shapeB), backBody.inverseMass);
     }
     backBody.linearVelocity = {0.0f, 0.0f, 0.0f};
     world.setRigidBody(backEntity, backBody);

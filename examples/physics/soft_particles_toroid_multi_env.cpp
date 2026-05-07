@@ -1,6 +1,7 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
 #include "viewer/debug_viewer_app.h"
 
@@ -295,22 +296,6 @@ MeshResourceDesc loadObjMesh(const std::filesystem::path &path)
     return mesh;
 }
 
-Diligent::float3 computeBoxInverseInertia(const Diligent::float3 &halfExtents, float inverseMass)
-{
-    if (inverseMass <= 0.0f)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    const float mass = 1.0f / inverseMass;
-    const float ix = mass * (halfExtents.y * halfExtents.y + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iy = mass * (halfExtents.x * halfExtents.x + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iz = mass * (halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y) / 3.0f;
-
-    return {ix > 0.0f ? 1.0f / ix : 0.0f, iy > 0.0f ? 1.0f / iy : 0.0f,
-            iz > 0.0f ? 1.0f / iz : 0.0f};
-}
-
 std::filesystem::path fixturePath(const char *name)
 {
     return std::filesystem::path(__FILE__).parent_path() / "fixtures" / name;
@@ -450,8 +435,8 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     RigidBodyComponent obstacleBody{};
     obstacleBody.bodyType            = RigidBodyType::Dynamic;
     obstacleBody.inverseMass         = 0.05f;
-    obstacleBody.inverseInertiaLocal = computeBoxInverseInertia({2.5f, 2.5f, 2.5f},
-                                                                obstacleBody.inverseMass);
+    obstacleBody.inverseInertiaLocal = cressim::neo::examples::helpers::computeBoxInverseInertia(
+        {2.5f, 2.5f, 2.5f}, obstacleBody.inverseMass);
     world.setRigidBody(obstacleEntity, obstacleBody);
     ColliderComponent obstacleCollider{};
     obstacleCollider.shapeType   = ColliderShapeType::Box;

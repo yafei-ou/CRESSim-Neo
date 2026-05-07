@@ -1,6 +1,7 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
 #include "viewer/debug_viewer_app.h"
 
@@ -61,22 +62,6 @@ GpuBackend parseBackend(const std::string &value)
 void printUsage(const char *appName)
 {
     CRESSIM_LOG_ERROR("Usage: ", appName, " [--backend vulkan|null] [--frames N] [--envs N]\n");
-}
-
-Diligent::float3 computeBoxInverseInertia(const Diligent::float3 &halfExtents, float inverseMass)
-{
-    if (inverseMass <= 0.0f)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    const float mass = 1.0f / inverseMass;
-    const float ix = mass * (halfExtents.y * halfExtents.y + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iy = mass * (halfExtents.x * halfExtents.x + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iz = mass * (halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y) / 3.0f;
-
-    return {ix > 0.0f ? 1.0f / ix : 0.0f, iy > 0.0f ? 1.0f / iy : 0.0f,
-            iz > 0.0f ? 1.0f / iz : 0.0f};
 }
 
 Diligent::float3 envOrigin(std::uint32_t envIndex, std::uint32_t envCount)
@@ -187,7 +172,8 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     dynamicBody.bodyType    = RigidBodyType::Dynamic;
     dynamicBody.inverseMass = 0.65f + 0.10f * static_cast<float>(envIndex % 3u);
     dynamicBody.inverseInertiaLocal =
-        computeBoxInverseInertia({0.55f, 0.45f, 0.55f}, dynamicBody.inverseMass);
+        cressim::neo::examples::helpers::computeBoxInverseInertia(
+            {0.55f, 0.45f, 0.55f}, dynamicBody.inverseMass);
     dynamicBody.linearVelocity = {-0.15f + 0.05f * std::cos(phase), 0.0f, 0.04f * std::sin(phase)};
     world.setRigidBody(dynamicObstacleEntity, dynamicBody);
     ColliderComponent dynamicCollider{};

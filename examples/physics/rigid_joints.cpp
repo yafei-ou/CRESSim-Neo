@@ -1,6 +1,7 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
 #include "viewer/debug_viewer_app.h"
 
@@ -143,34 +144,6 @@ void printUsage(const char *appName)
                       " [--joint-velocity-drive] [--suppress-connected-collisions]\n");
 }
 
-Diligent::float3 computeBoxInverseInertia(const Diligent::float3 &halfExtents, float inverseMass)
-{
-    if (inverseMass <= 0.0f)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    const float mass = 1.0f / inverseMass;
-    const float ix = mass * (halfExtents.y * halfExtents.y + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iy = mass * (halfExtents.x * halfExtents.x + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iz = mass * (halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y) / 3.0f;
-    return {ix > 0.0f ? 1.0f / ix : 0.0f, iy > 0.0f ? 1.0f / iy : 0.0f,
-            iz > 0.0f ? 1.0f / iz : 0.0f};
-}
-
-Diligent::float3 computeSphereInverseInertia(float radius, float inverseMass)
-{
-    if (inverseMass <= 0.0f)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    const float mass = 1.0f / inverseMass;
-    const float inertia = 0.4f * mass * radius * radius;
-    const float inv = inertia > 0.0f ? 1.0f / inertia : 0.0f;
-    return {inv, inv, inv};
-}
-
 MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &resources,
                                 const char *name, const Diligent::float3 &baseColor,
                                 float roughness)
@@ -240,7 +213,9 @@ void authorBallJointCluster(Runtime &runtime, MeshHandle anchorMesh, MeshHandle 
         const auto entity = world.createEntity();
         RigidBodyComponent body{};
         body.inverseMass = 1.0f;
-        body.inverseInertiaLocal = computeSphereInverseInertia(kViewerSphereMeshRadius, body.inverseMass);
+        body.inverseInertiaLocal =
+            cressim::neo::examples::helpers::computeSphereInverseInertia(
+                kViewerSphereMeshRadius, body.inverseMass);
         if (i == 2u)
         {
             body.linearVelocity = {0.0f, 0.0f, 2.2f};
@@ -323,7 +298,8 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
         RigidBodyComponent body{};
         body.inverseMass = 0.75f;
         body.inverseInertiaLocal =
-            computeBoxInverseInertia({kLinkHalfX, kLinkHalfY, kLinkHalfX}, body.inverseMass);
+            cressim::neo::examples::helpers::computeBoxInverseInertia(
+                {kLinkHalfX, kLinkHalfY, kLinkHalfX}, body.inverseMass);
 
         ColliderComponent collider{};
         collider.shapeType = ColliderShapeType::Box;
@@ -408,7 +384,8 @@ void authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh, MeshHandle
     RigidBodyComponent sliderBody{};
     sliderBody.inverseMass = 1.0f;
     sliderBody.inverseInertiaLocal =
-        computeBoxInverseInertia(kSliderHalfExtents, sliderBody.inverseMass);
+        cressim::neo::examples::helpers::computeBoxInverseInertia(
+            kSliderHalfExtents, sliderBody.inverseMass);
     sliderBody.linearVelocity = {1.5f, 0.0f, 0.0f};
     sliderBody.angularVelocity = {0.0f, 0.0f, 0.0f};
     ColliderComponent sliderCollider{};
@@ -444,7 +421,8 @@ void authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh, MeshHandle
     RigidBodyComponent stageBody{};
     stageBody.inverseMass = 0.85f;
     stageBody.inverseInertiaLocal =
-        computeBoxInverseInertia(kSliderHalfExtents, stageBody.inverseMass);
+        cressim::neo::examples::helpers::computeBoxInverseInertia(
+            kSliderHalfExtents, stageBody.inverseMass);
     ColliderComponent stageCollider{};
     stageCollider.shapeType = ColliderShapeType::Box;
     stageCollider.shapeParams = {kSliderHalfExtents.x, kSliderHalfExtents.y, kSliderHalfExtents.z, 0.0f};
@@ -487,7 +465,9 @@ void authorDropDisturbers(Runtime &runtime, MeshHandle hingeDropMesh, MeshHandle
     const auto ballDrop = world.createEntity();
     RigidBodyComponent ballDropBody{};
     ballDropBody.inverseMass = 0.75f;
-    ballDropBody.inverseInertiaLocal = computeSphereInverseInertia(kDropSphereRadius, ballDropBody.inverseMass);
+    ballDropBody.inverseInertiaLocal =
+        cressim::neo::examples::helpers::computeSphereInverseInertia(
+            kDropSphereRadius, ballDropBody.inverseMass);
     ColliderComponent ballDropCollider{};
     ballDropCollider.shapeType = ColliderShapeType::Sphere;
     ballDropCollider.shapeParams = {kDropSphereRadius, 0.0f, 0.0f, 0.0f};
@@ -501,7 +481,8 @@ void authorDropDisturbers(Runtime &runtime, MeshHandle hingeDropMesh, MeshHandle
     RigidBodyComponent hingeDropBody{};
     hingeDropBody.inverseMass = 0.85f;
     hingeDropBody.inverseInertiaLocal =
-        computeBoxInverseInertia({0.4f, 0.4f, 0.4f}, hingeDropBody.inverseMass);
+        cressim::neo::examples::helpers::computeBoxInverseInertia(
+            {0.4f, 0.4f, 0.4f}, hingeDropBody.inverseMass);
     hingeDropBody.angularVelocity = {0.8f, 0.2f, -0.4f};
     ColliderComponent hingeDropCollider{};
     hingeDropCollider.shapeType = ColliderShapeType::Box;
@@ -515,7 +496,9 @@ void authorDropDisturbers(Runtime &runtime, MeshHandle hingeDropMesh, MeshHandle
     const auto sliderDrop = world.createEntity();
     RigidBodyComponent sliderDropBody{};
     sliderDropBody.inverseMass = 0.8f;
-    sliderDropBody.inverseInertiaLocal = computeSphereInverseInertia(kDropSphereRadius, sliderDropBody.inverseMass);
+    sliderDropBody.inverseInertiaLocal =
+        cressim::neo::examples::helpers::computeSphereInverseInertia(
+            kDropSphereRadius, sliderDropBody.inverseMass);
     sliderDropBody.angularVelocity = {0.0f, 0.0f, 0.0f};
     ColliderComponent sliderDropCollider{};
     sliderDropCollider.shapeType = ColliderShapeType::Sphere;

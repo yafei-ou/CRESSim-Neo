@@ -3,6 +3,7 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 #include "helpers/example_cli.h"
+#include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
 #include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
@@ -32,23 +33,6 @@ using cressim::neo::viewer::DebugViewerCameraBinding;
 void printUsage(const char* appName)
 {
     cressim::neo::examples::helpers::printUsage(appName, "", false);
-}
-
-Diligent::float3 computeBoxInverseInertia(const Diligent::float3& halfExtents, float inverseMass)
-{
-    if (inverseMass <= 0.0f)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    const float mass = 1.0f / inverseMass;
-    const float ix = mass * (halfExtents.y * halfExtents.y + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iy = mass * (halfExtents.x * halfExtents.x + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iz = mass * (halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y) / 3.0f;
-
-    return {ix > 0.0f ? 1.0f / ix : 0.0f,
-            iy > 0.0f ? 1.0f / iy : 0.0f,
-            iz > 0.0f ? 1.0f / iz : 0.0f};
 }
 
 } // namespace
@@ -179,8 +163,9 @@ int main(int argc, char** argv)
     RigidBodyComponent frontCubeBody{};
     frontCubeBody.simulated = true;
     frontCubeBody.inverseMass = 1.0f;
-    frontCubeBody.inverseInertiaLocal = computeBoxInverseInertia({0.65f, 0.65f, 0.65f},
-                                                                 frontCubeBody.inverseMass);
+    frontCubeBody.inverseInertiaLocal =
+        cressim::neo::examples::helpers::computeBoxInverseInertia(
+            {0.65f, 0.65f, 0.65f}, frontCubeBody.inverseMass);
     frontCubeBody.linearVelocity = {0.0f, 0.0f, 0.0f};
     world.setRigidBody(frontCubeEntity, frontCubeBody);
     cressim::neo::engine::ColliderComponent frontCubeCollider{};
@@ -201,9 +186,9 @@ int main(int argc, char** argv)
     RigidBodyComponent backCubeBody{};
     backCubeBody.simulated = true;
     backCubeBody.inverseMass = 1.0f;
-    backCubeBody.inverseInertiaLocal = computeBoxInverseInertia({0.65f * 1.15f, 0.65f * 1.15f,
-                                                                 0.65f * 1.15f},
-                                                                backCubeBody.inverseMass);
+    backCubeBody.inverseInertiaLocal =
+        cressim::neo::examples::helpers::computeBoxInverseInertia(
+            {0.65f * 1.15f, 0.65f * 1.15f, 0.65f * 1.15f}, backCubeBody.inverseMass);
     backCubeBody.linearVelocity = {0.0f, 0.0f, 0.0f};
     world.setRigidBody(backCubeEntity, backCubeBody);
     cressim::neo::engine::ColliderComponent backCubeCollider{};
