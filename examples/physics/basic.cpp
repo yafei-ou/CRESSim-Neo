@@ -67,9 +67,6 @@ int main(int argc, char** argv)
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
     viewerDefaults.windowTitle = "CRESSim Neo Physics Viewer";
-    viewerDefaults.width = 640u;
-    viewerDefaults.height = 480u;
-    viewerDefaults.startFullscreenWindowed = true;
     const auto viewerDesc =
         cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
 

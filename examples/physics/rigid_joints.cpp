@@ -551,8 +551,6 @@ int main(int argc, char **argv)
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
     viewerDefaults.windowTitle = "CRESSim Neo Rigid Joint Viewer";
-    viewerDefaults.width = 1440u;
-    viewerDefaults.height = 900u;
     viewerDefaults.showStats = true;
     viewerDefaults.vSync = true;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);

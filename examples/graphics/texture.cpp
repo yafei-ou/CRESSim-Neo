@@ -249,10 +249,7 @@ int main(int argc, char **argv)
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
     viewerDefaults.windowTitle = "CRESSim Neo Texture Validation Viewer";
-    viewerDefaults.width = 1440u;
-    viewerDefaults.height = 900u;
     viewerDefaults.showStats = true;
-    viewerDefaults.startFullscreenWindowed = true;
     const auto viewerDesc =
         cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
 

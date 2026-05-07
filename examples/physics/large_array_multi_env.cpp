@@ -757,8 +757,6 @@ int main(int argc, char** argv)
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
     viewerDefaults.windowTitle = "CRESSim Neo Physics Viewer Large Array Multi Env";
-    viewerDefaults.width = (options.lightingMode == LightingMode::Matrix) ? 960u : 1280u;
-    viewerDefaults.height = (options.lightingMode == LightingMode::Matrix) ? 540u : 720u;
     viewerDefaults.showStats = true;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options.common, viewerDefaults);
 

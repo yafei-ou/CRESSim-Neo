@@ -136,11 +136,8 @@ int main(int argc, char** argv)
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
     viewerDefaults.windowTitle = "CRESSim Neo Debug Viewer";
-    viewerDefaults.width = 640u;
-    viewerDefaults.height = 480u;
     viewerDefaults.showStats = false;
     viewerDefaults.vSync = true;
-    viewerDefaults.startFullscreenWindowed = true;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
 
     if (!viewer.initialize(viewerDesc, config))

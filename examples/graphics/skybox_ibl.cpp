@@ -109,8 +109,6 @@ int main(int argc, char **argv)
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
     viewerDefaults.windowTitle = "CRESSim Neo Graphics Skybox IBL";
-    viewerDefaults.width = 1280u;
-    viewerDefaults.height = 720u;
     viewerDefaults.showStats = true;
     viewerDefaults.vSync = true;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);

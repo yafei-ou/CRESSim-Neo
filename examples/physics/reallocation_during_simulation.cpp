@@ -131,9 +131,6 @@ int main(int argc, char** argv)
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
     viewerDefaults.windowTitle = "CRESSim Neo Physics Viewer Reallocation During Simulation";
-    viewerDefaults.width = 1280u;
-    viewerDefaults.height = 720u;
-    viewerDefaults.startFullscreenWindowed = true;
     const auto viewerDesc =
         cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
 
