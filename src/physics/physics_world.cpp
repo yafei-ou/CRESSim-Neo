@@ -376,8 +376,9 @@ RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
                                                                                            : 0u);
         markRigidBodyDirty(index);
         markRigidBodyCountDirty();
-        mBodyColliderMappingDirty = true;
-        mStaticBroadPhaseDirty    = mStaticBroadPhaseDirty || isStaticBody(normalizedState);
+        mBodyColliderMappingDirty       = true;
+        mJointCollisionSuppressionDirty = true;
+        mStaticBroadPhaseDirty          = mStaticBroadPhaseDirty || isStaticBody(normalizedState);
         ++mRigidBodyTopologyRevision;
         ++mAuthoredRevision;
         return mRigidBodySnapshot.back();

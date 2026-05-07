@@ -14,6 +14,13 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE physics
+    NAME world_joint_suppression_reallocation
+    SOURCE physics_world_joint_suppression_reallocation.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
     NAME solver_context_split
     SOURCE physics_solver_context_split.cpp
     LIBS cressim_neo_engine
