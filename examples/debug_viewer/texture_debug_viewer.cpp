@@ -1,12 +1,13 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/example_cli.h"
+#include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
 
 #include <array>
 #include <cmath>
 #include <cstdint>
-#include <cstdlib>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -18,9 +19,9 @@ using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::Runtime;
-using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::gpu::GpuBackend;
+using cressim::neo::examples::helpers::CommonExampleOptions;
+using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialFeatureFlags;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshResourceDesc;
@@ -28,25 +29,11 @@ using cressim::neo::graphics::TextureColorSpace;
 using cressim::neo::graphics::TextureHandle;
 using cressim::neo::graphics::TextureResourceDesc;
 using cressim::neo::viewer::DebugViewerApp;
-using cressim::neo::viewer::DebugViewerAppDesc;
 using cressim::neo::viewer::DebugViewerCameraBinding;
-
-GpuBackend parseBackend(const std::string &value)
-{
-    if (value == "null")
-    {
-        return GpuBackend::Null;
-    }
-    if (value == "vulkan")
-    {
-        return GpuBackend::Vulkan;
-    }
-    throw std::invalid_argument("Unsupported backend: " + value);
-}
 
 void printUsage(const char *appName)
 {
-    CRESSIM_LOG_ERROR("Usage: ", appName, " [--backend vulkan|null] [--frames N]\n");
+    cressim::neo::examples::helpers::printUsage(appName, "", false);
 }
 
 void setPixel(std::vector<std::uint8_t> &pixels, std::uint32_t width, std::uint32_t x,
@@ -292,50 +279,42 @@ void spawnRenderable(cressim::neo::engine::World &world, cressim::neo::graphics:
 
 int main(int argc, char **argv)
 {
-    RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
-    config.gpuDeviceDesc.enableValidation = false;
-    std::uint64_t numFrames = 0;
+    CommonExampleOptions options{};
 
-    for (int i = 1; i < argc; ++i)
+    try
     {
-        const std::string arg = argv[i];
-        if (arg == "--backend")
+        for (int i = 1; i < argc; ++i)
         {
-            if (i + 1 >= argc)
+            if (cressim::neo::examples::helpers::tryParseCommonArgument(
+                    argc, argv, i, options, false))
             {
-                printUsage(argv[0]);
-                return 2;
+                continue;
             }
-            config.gpuDeviceDesc.preferredBackend = parseBackend(argv[++i]);
-            continue;
-        }
-        if (arg == "--frames")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            numFrames = static_cast<std::uint64_t>(std::strtoull(argv[++i], nullptr, 10));
-            continue;
-        }
 
+            printUsage(argv[0]);
+            return 2;
+        }
+    }
+    catch (const std::invalid_argument &error)
+    {
+        CRESSIM_LOG_ERROR(error.what(), "\n");
         printUsage(argv[0]);
         return 2;
     }
 
+    auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+
     DebugViewerApp viewer;
-    DebugViewerAppDesc viewerDesc{};
-    const bool windowEnabled = (config.gpuDeviceDesc.preferredBackend != GpuBackend::Null);
-    viewerDesc.windowEnabled = windowEnabled;
-    viewerDesc.windowVisible = windowEnabled;
-    viewerDesc.startFullscreenWindowed = true;
-    viewerDesc.maxFrames = numFrames;
-    viewerDesc.showStats = true;
-    viewerDesc.width = 1440;
-    viewerDesc.height = 900;
-    viewerDesc.windowTitle = "CRESSim Neo Texture Validation Viewer";
+    const auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(
+        options, ViewerExampleDefaults{
+                     .windowTitle = "CRESSim Neo Texture Validation Viewer",
+                     .width = 1440u,
+                     .height = 900u,
+                     .showStats = true,
+                     .vSync = false,
+                     .startFullscreen = false,
+                     .startFullscreenWindowed = true,
+                 });
 
     if (!viewer.initialize(viewerDesc, config))
     {

@@ -3,12 +3,13 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 #include "graphics/environment_ibl_baker.h"
+#include "helpers/example_cli.h"
+#include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
 
 #include <array>
 #include <cmath>
 #include <cstdint>
-#include <cstdlib>
 #include <filesystem>
 #include <stdexcept>
 #include <string>
@@ -20,9 +21,9 @@ using cressim::neo::common::FrameContext;
 using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::Runtime;
-using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::gpu::GpuBackend;
+using cressim::neo::examples::helpers::CommonExampleOptions;
+using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::EnvironmentIblBakeOptions;
 using cressim::neo::graphics::EnvironmentIblDesc;
 using cressim::neo::graphics::IblQualityTier;
@@ -31,28 +32,14 @@ using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshHandle;
 using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::viewer::DebugViewerApp;
-using cressim::neo::viewer::DebugViewerAppDesc;
 using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
 constexpr float kPi = 3.14159265358979323846f;
 
-GpuBackend parseBackend(const std::string &value)
-{
-    if (value == "null")
-    {
-        return GpuBackend::Null;
-    }
-    if (value == "vulkan")
-    {
-        return GpuBackend::Vulkan;
-    }
-    throw std::invalid_argument("Unsupported backend: " + value);
-}
-
 void printUsage(const char *appName)
 {
-    CRESSIM_LOG_ERROR("Usage: ", appName, " [--backend vulkan|null] [--frames N]\n");
+    cressim::neo::examples::helpers::printUsage(appName, "", false);
 }
 
 MeshResourceDesc makePlaneMesh(float halfExtent)
@@ -150,56 +137,48 @@ EnvironmentIblDesc loadSkyboxIbl(cressim::neo::graphics::RenderResourceManager &
 
 int main(int argc, char **argv)
 {
-    RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
-    config.gpuDeviceDesc.enableValidation = false;
+    CommonExampleOptions options{};
+    auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
     config.rendererDesc.iblQualityTier = IblQualityTier::Full;
     config.sceneLayout.envCount = 1u;
     config.sceneLayout.maxRenderableObjectsPerEnv = 4u;
     config.sceneLayout.maxLightsPerEnv = 1u;
     config.sceneLayout.maxCamerasPerEnv = 1u;
-    std::uint64_t numFrames = 0u;
 
-    for (int i = 1; i < argc; ++i)
+    try
     {
-        const std::string arg = argv[i];
-        if (arg == "--backend")
+        for (int i = 1; i < argc; ++i)
         {
-            if (i + 1 >= argc)
+            if (cressim::neo::examples::helpers::tryParseCommonArgument(
+                    argc, argv, i, options, false))
             {
-                printUsage(argv[0]);
-                return 2;
+                continue;
             }
-            config.gpuDeviceDesc.preferredBackend = parseBackend(argv[++i]);
-            continue;
-        }
-        if (arg == "--frames")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            numFrames = static_cast<std::uint64_t>(std::strtoull(argv[++i], nullptr, 10));
-            continue;
-        }
 
+            printUsage(argv[0]);
+            return 2;
+        }
+    }
+    catch (const std::invalid_argument &error)
+    {
+        CRESSIM_LOG_ERROR(error.what(), "\n");
         printUsage(argv[0]);
         return 2;
     }
 
+    config.gpuDeviceDesc.preferredBackend = options.backend;
+
     DebugViewerApp viewer;
-    DebugViewerAppDesc viewerDesc{};
-    const bool windowEnabled = (config.gpuDeviceDesc.preferredBackend != GpuBackend::Null);
-    viewerDesc.windowEnabled = windowEnabled;
-    viewerDesc.windowVisible = windowEnabled;
-    viewerDesc.startFullscreenWindowed = false;
-    viewerDesc.maxFrames = numFrames;
-    viewerDesc.showStats = true;
-    viewerDesc.vSync = true;
-    viewerDesc.width = 1280;
-    viewerDesc.height = 720;
-    viewerDesc.windowTitle = "CRESSim Neo Physics Viewer Skybox IBL";
+    auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(
+        options, ViewerExampleDefaults{
+                     .windowTitle = "CRESSim Neo Physics Viewer Skybox IBL",
+                     .width = 1280u,
+                     .height = 720u,
+                     .showStats = true,
+                     .vSync = true,
+                     .startFullscreen = false,
+                     .startFullscreenWindowed = false,
+                 });
 
     if (!viewer.initialize(viewerDesc, config))
     {
