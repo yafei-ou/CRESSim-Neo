@@ -51,6 +51,10 @@ GpuBackend parseBackend(const std::string &value)
     {
         return GpuBackend::Null;
     }
+    if (value == "d3d12")
+    {
+        return GpuBackend::D3D12;
+    }
     if (value == "vulkan")
     {
         return GpuBackend::Vulkan;
@@ -60,7 +64,8 @@ GpuBackend parseBackend(const std::string &value)
 
 void printUsage(const char *appName)
 {
-    CRESSIM_LOG_ERROR("Usage: ", appName, " [--backend vulkan|null] [--frames N] [--envs N]\n");
+    CRESSIM_LOG_ERROR("Usage: ", appName,
+                      " [--backend vulkan|d3d12|null] [--frames N] [--envs N]\n");
 }
 
 Diligent::float3 envOrigin(std::uint32_t envIndex, std::uint32_t envCount)

@@ -28,6 +28,11 @@ bool requiresTextureRecreate(const GpuRenderTargetDesc &currentDesc,
            currentDesc.shaderReadable != updatedDesc.shaderReadable;
 }
 
+bool supportsDiligentRenderTargets(GpuBackend backend) noexcept
+{
+    return backend == GpuBackend::D3D12 || backend == GpuBackend::Vulkan;
+}
+
 } // namespace
 
 GpuRenderTargetDesc normalizeDefaultRenderTargetDesc(const GpuRenderTargetDesc &desc)
@@ -78,7 +83,7 @@ bool GpuRenderTargetSystemImpl::initialize(GpuBackend backend,
     shutdown();
 
     mBackend                          = backend;
-    const bool requiresGraphicsDevice = (mBackend == GpuBackend::Vulkan);
+    const bool requiresGraphicsDevice = supportsDiligentRenderTargets(mBackend);
     if (requiresGraphicsDevice && (renderDevice == nullptr || graphicsContext == nullptr))
     {
         return false;
@@ -87,7 +92,7 @@ bool GpuRenderTargetSystemImpl::initialize(GpuBackend backend,
     mRenderDevice    = renderDevice;
     mGraphicsContext = graphicsContext;
 
-    if (mBackend == GpuBackend::Vulkan)
+    if (supportsDiligentRenderTargets(mBackend))
     {
         Diligent::FenceDesc readbackFenceDesc{};
         readbackFenceDesc.Name = "CRESSimNeo.ReadbackFence";
@@ -134,7 +139,7 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContex
 {
     (void)frameContext;
 
-    if (!mInitialized || mBackend != GpuBackend::Vulkan || !mGraphicsContext)
+    if (!mInitialized || !supportsDiligentRenderTargets(mBackend) || !mGraphicsContext)
     {
         for (const PendingReadbackCopy &copy : mPendingReadbackCopies)
         {
@@ -228,7 +233,8 @@ GpuRenderTargetHandle GpuRenderTargetSystemImpl::createRenderTarget(const GpuRen
     resources.colorFormat = resources.desc.colorFormat;
     resources.depthFormat = resources.desc.depthFormat;
 
-    if (mBackend == GpuBackend::Vulkan && !createRenderTargetTextures(resources.desc, resources))
+    if (supportsDiligentRenderTargets(mBackend) &&
+        !createRenderTargetTextures(resources.desc, resources))
     {
         return {};
     }
@@ -286,7 +292,7 @@ GpuRenderTargetUpdateResult GpuRenderTargetSystemImpl::reconfigureRenderTarget(
     updatedResources.colorFormat           = updatedDesc.colorFormat;
     updatedResources.depthFormat           = updatedDesc.depthFormat;
 
-    if (mBackend == GpuBackend::Vulkan && recreateTextures)
+    if (supportsDiligentRenderTargets(mBackend) && recreateTextures)
     {
         if (mGraphicsContext != nullptr)
         {
@@ -486,7 +492,7 @@ void GpuRenderTargetSystemImpl::beginRenderTarget(const GpuRenderTargetBinding &
     (void)frameContext;
     mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;
 
-    if (!mInitialized || mBackend != GpuBackend::Vulkan || mGraphicsContext == nullptr)
+    if (!mInitialized || !supportsDiligentRenderTargets(mBackend) || mGraphicsContext == nullptr)
     {
         return;
     }
@@ -580,7 +586,7 @@ void GpuRenderTargetSystemImpl::endRenderTarget(const GpuRenderTargetBinding &bi
         mActiveRenderTargetBinding     = {};
     }
 
-    if (mBackend == GpuBackend::Vulkan && mGraphicsContext != nullptr)
+    if (supportsDiligentRenderTargets(mBackend) && mGraphicsContext != nullptr)
     {
         mGraphicsContext->SetRenderTargets(0, nullptr, nullptr,
                                            Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
@@ -667,7 +673,7 @@ bool GpuRenderTargetSystemImpl::tryGetRenderTargetColorTexture(GpuRenderTargetHa
 {
     outTexture = nullptr;
 
-    if (!mInitialized || mBackend != GpuBackend::Vulkan)
+    if (!mInitialized || !supportsDiligentRenderTargets(mBackend))
     {
         return false;
     }
@@ -687,7 +693,7 @@ bool GpuRenderTargetSystemImpl::tryGetRenderTargetDepthTexture(GpuRenderTargetHa
 {
     outTexture = nullptr;
 
-    if (!mInitialized || mBackend != GpuBackend::Vulkan)
+    if (!mInitialized || !supportsDiligentRenderTargets(mBackend))
     {
         return false;
     }
@@ -811,7 +817,8 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
 bool GpuRenderTargetSystemImpl::queueReadbackCopy(const GpuRenderTargetBinding &binding,
                                                   std::uint64_t frameIndex, std::uint64_t requestId)
 {
-    if (!mRenderDevice || !mGraphicsContext || !mReadbackFence || mBackend != GpuBackend::Vulkan)
+    if (!mRenderDevice || !mGraphicsContext || !mReadbackFence ||
+        !supportsDiligentRenderTargets(mBackend))
     {
         return false;
     }

@@ -37,6 +37,10 @@ GpuBackend parseBackend(const std::string& value)
     {
         return GpuBackend::Null;
     }
+    if (value == "d3d12")
+    {
+        return GpuBackend::D3D12;
+    }
     if (value == "vulkan")
     {
         return GpuBackend::Vulkan;
@@ -80,7 +84,7 @@ bool parseShapePair(const std::string& value, ColliderShapeType& outA,
 void printUsage(const char* appName)
 {
     CRESSIM_LOG_ERROR( "Usage: " , appName
-              , " [--backend vulkan|null] [--frames N] [--pair A-B]\n"
+              , " [--backend vulkan|d3d12|null] [--frames N] [--pair A-B]\n"
               , "  Shapes: box, sphere, capsule\n"
               , "  Unique pairs: box-box, box-sphere, box-capsule, sphere-sphere,\n"
               , "                sphere-capsule, capsule-capsule\n");

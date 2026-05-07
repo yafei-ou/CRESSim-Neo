@@ -34,6 +34,11 @@ inline gpu::GpuBackend parseBackend(const std::string& value)
         return gpu::GpuBackend::Null;
     }
 
+    if (value == "d3d12")
+    {
+        return gpu::GpuBackend::D3D12;
+    }
+
     if (value == "vulkan")
     {
         return gpu::GpuBackend::Vulkan;
@@ -140,7 +145,7 @@ inline bool tryParseCommonArgument(int argc, char** argv, int& index,
 inline void printUsage(const char* appName, const char* extraUsage, bool includeEnvs)
 {
     CRESSIM_LOG_ERROR("Usage: ", appName,
-                      " [--backend vulkan|null] [--frames N] [--window on|off|auto]",
+                      " [--backend vulkan|d3d12|null] [--frames N] [--window on|off|auto]",
                       includeEnvs ? " [--envs N]" : "", extraUsage != nullptr ? extraUsage : "",
                       "\n");
 }

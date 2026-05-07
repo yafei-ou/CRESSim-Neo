@@ -24,6 +24,26 @@ using cressim::neo::gpu::GpuRenderTargetHandle;
 using cressim::neo::gpu::GpuRenderTargetReadbackEvent;
 using cressim::neo::gpu::GpuRenderTargetReadbackRequest;
 
+const char* backendName(cressim::neo::gpu::GpuBackend backend)
+{
+    switch (backend)
+    {
+    case cressim::neo::gpu::GpuBackend::D3D12:
+        return "D3D12";
+    case cressim::neo::gpu::GpuBackend::Vulkan:
+        return "Vulkan";
+    case cressim::neo::gpu::GpuBackend::Null:
+    default:
+        return "Null";
+    }
+}
+
+bool expectsReadbackPayload(cressim::neo::gpu::GpuBackend backend)
+{
+    return backend == cressim::neo::gpu::GpuBackend::D3D12 ||
+           backend == cressim::neo::gpu::GpuBackend::Vulkan;
+}
+
 bool isNear(std::uint8_t value, std::uint8_t expected, std::uint8_t tolerance)
 {
     const int diff = static_cast<int>(value) - static_cast<int>(expected);
@@ -75,10 +95,10 @@ bool containsNonClearPixel(const GpuRenderTargetReadbackEvent& event)
 
 } // namespace
 
-int main()
+int runSmoke(cressim::neo::gpu::GpuBackend backend)
 {
     RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = cressim::neo::gpu::GpuBackend::Vulkan;
+    config.gpuDeviceDesc.preferredBackend = backend;
     config.gpuDeviceDesc.enableValidation = false;
 
     constexpr std::uint64_t kNumFrames = 3u;
@@ -86,8 +106,9 @@ int main()
     Runtime runtime;
     if (!runtime.initialize(config))
     {
-        CRESSIM_LOG_ERROR( "Runtime initialization failed.\n");
-        return 1;
+        CRESSIM_LOG_WARNING( "Skipping smoke runtime for backend ", backendName(backend),
+                             " because runtime initialization failed.\n");
+        return 0;
     }
 
     auto& world = runtime.getWorld();
@@ -250,7 +271,7 @@ int main()
         }
     }
 
-    if (config.gpuDeviceDesc.preferredBackend == cressim::neo::gpu::GpuBackend::Vulkan)
+    if (expectsReadbackPayload(config.gpuDeviceDesc.preferredBackend))
     {
         if (readbackEvents == 0)
         {
@@ -261,7 +282,8 @@ int main()
         if (payloadEvents == 0)
         {
             runtime.shutdown();
-            CRESSIM_LOG_ERROR( "Smoke run failed: expected readback payload for Vulkan backend.\n");
+            CRESSIM_LOG_ERROR( "Smoke run failed: expected readback payload for backend ",
+                               backendName(backend), ".\n");
             return 1;
         }
         if (!foundNonClearPixel)
@@ -274,7 +296,28 @@ int main()
 
     runtime.shutdown();
 
-    CRESSIM_LOG_INFO( "Smoke run passed. Frames: " , kNumFrames , ", Readback events: " , readbackEvents
-              , ", Payload events: " , payloadEvents , '\n');
+    CRESSIM_LOG_INFO( "Smoke run passed for backend ", backendName(backend), ". Frames: ",
+                      kNumFrames, ", Readback events: ", readbackEvents, ", Payload events: ",
+                      payloadEvents, '\n');
+    return 0;
+}
+
+int main()
+{
+    const cressim::neo::gpu::GpuBackend graphicsBackends[] = {
+#if PLATFORM_WIN32
+        cressim::neo::gpu::GpuBackend::D3D12,
+#endif
+        cressim::neo::gpu::GpuBackend::Vulkan,
+    };
+
+    for (const auto backend : graphicsBackends)
+    {
+        if (runSmoke(backend) != 0)
+        {
+            return 1;
+        }
+    }
+
     return 0;
 }

@@ -43,6 +43,10 @@ GpuBackend parseBackend(const std::string& value)
     {
         return GpuBackend::Null;
     }
+    if (value == "d3d12")
+    {
+        return GpuBackend::D3D12;
+    }
     if (value == "vulkan")
     {
         return GpuBackend::Vulkan;
@@ -52,7 +56,7 @@ GpuBackend parseBackend(const std::string& value)
 
 void printUsage(const char* appName)
 {
-    CRESSIM_LOG_ERROR( "Usage: " , appName , " [--backend vulkan|null] [--frames N]\n");
+    CRESSIM_LOG_ERROR( "Usage: " , appName , " [--backend vulkan|d3d12|null] [--frames N]\n");
 }
 
 Diligent::float4 colliderParamsForShape(ColliderShapeType shape)

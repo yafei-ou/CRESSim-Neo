@@ -14,13 +14,13 @@ CRESSIM_RW_STRUCTURED_BUFFER(GpuBvhConstructionInfo, g_BvhConstructionInfos);
 
     const uint leafOffset = elementCount - 1u;
     uint nodeIndex = CRESSIM_SB_LOAD(g_BvhConstructionInfos, leafOffset + globalId).parent;
-    while (true)
+    for (uint visitDepth = 0u; visitDepth < elementCount; ++visitDepth)
     {
         int previousVisits = 0;
         InterlockedAdd(CRESSIM_SB_REF(g_BvhConstructionInfos, nodeIndex).visitationCount, 1, previousVisits);
         if (previousVisits < 1)
         {
-            return;
+            break;
         }
 
         GpuBvhNode node = CRESSIM_SB_LOAD(g_BvhNodes, nodeIndex);
@@ -44,7 +44,7 @@ CRESSIM_RW_STRUCTURED_BUFFER(GpuBvhConstructionInfo, g_BvhConstructionInfos);
 
         if (nodeIndex == 0u)
         {
-            return;
+            break;
         }
         nodeIndex = CRESSIM_SB_LOAD(g_BvhConstructionInfos, nodeIndex).parent;
     }

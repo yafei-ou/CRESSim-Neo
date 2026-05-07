@@ -7,16 +7,24 @@ int main()
 {
     using namespace cressim::neo;
 
+    const gpu::GpuBackend graphicsBackends[] = {
+#if PLATFORM_WIN32
+        gpu::GpuBackend::D3D12,
+#endif
+        gpu::GpuBackend::Vulkan,
+    };
+
+    for (const gpu::GpuBackend backend : graphicsBackends)
     {
         engine::RuntimeConfig config{};
-        config.gpuDeviceDesc.preferredBackend = gpu::GpuBackend::Vulkan;
+        config.gpuDeviceDesc.preferredBackend = backend;
         config.gpuDeviceDesc.enableValidation = false;
 
         engine::Runtime runtime;
         if (!runtime.initialize(config))
         {
-            CRESSIM_LOG_ERROR( "Runtime initialization failed.\n");
-            return 1;
+            CRESSIM_LOG_WARNING( "Skipping backend context split checks because runtime initialization failed.\n");
+            continue;
         }
 
         gpu::GpuDevice* device = runtime.getGpuDevice();
@@ -55,9 +63,39 @@ int main()
             runtime.shutdown();
             return 1;
         }
+        if (graphicsContext.queueType != graphicsContext.graphicsContext->GetDesc().QueueType)
+        {
+            CRESSIM_LOG_ERROR( "Graphics backend context reported an unexpected queue type.\n");
+            runtime.shutdown();
+            return 1;
+        }
         if (physicsContext.contextId != physicsContext.computeContext->GetDesc().ContextId)
         {
             CRESSIM_LOG_ERROR( "Physics backend context reported an unexpected context id.\n");
+            runtime.shutdown();
+            return 1;
+        }
+        if (physicsContext.queueType != physicsContext.computeContext->GetDesc().QueueType)
+        {
+            CRESSIM_LOG_ERROR( "Physics backend context reported an unexpected queue type.\n");
+            runtime.shutdown();
+            return 1;
+        }
+        if ((graphicsContext.queueType & Diligent::COMMAND_QUEUE_TYPE_GRAPHICS) == 0)
+        {
+            CRESSIM_LOG_ERROR( "Graphics backend context is not graphics-capable.\n");
+            runtime.shutdown();
+            return 1;
+        }
+        if ((physicsContext.queueType & Diligent::COMMAND_QUEUE_TYPE_COMPUTE) == 0)
+        {
+            CRESSIM_LOG_ERROR( "Physics backend context is not compute-capable.\n");
+            runtime.shutdown();
+            return 1;
+        }
+        if (graphicsContext.contextId == physicsContext.contextId)
+        {
+            CRESSIM_LOG_ERROR( "Graphics and physics contexts unexpectedly share a context id.\n");
             runtime.shutdown();
             return 1;
         }

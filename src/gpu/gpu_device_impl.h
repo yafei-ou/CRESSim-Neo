@@ -63,6 +63,7 @@ private:
     };
 
     bool initializeNull();
+    bool initializeD3D12();
     bool initializeVulkan();
     bool createPrimarySwapChain();
     bool presentPrimarySwapChain();

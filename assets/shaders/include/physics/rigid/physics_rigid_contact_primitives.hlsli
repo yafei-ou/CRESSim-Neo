@@ -22,6 +22,11 @@ bool GenerateSphereSphereContactPoints(float3 centerA, float radiusA,
                                        out float3 pointB,
                                        out float penetration)
 {
+    normalAtoB = 0.0;
+    pointA = 0.0;
+    pointB = 0.0;
+    penetration = 0.0;
+
     const float3 delta = centerB - centerA;
     const float distSq = dot(delta, delta);
     const float r = radiusA + radiusB;
@@ -50,6 +55,11 @@ bool GenerateSphereBoxContactPoints(float3 sphereCenter, float sphereRadius,
                                     out float3 pointB,
                                     out float penetration)
 {
+    normalAtoB = 0.0;
+    pointA = 0.0;
+    pointB = 0.0;
+    penetration = 0.0;
+
     const float3 localSphere = QuaternionInverseRotate(boxOrientation, sphereCenter - boxCenter);
     const float3 clamped = clamp(localSphere, -halfExtents, halfExtents);
     const bool inside = all(localSphere >= -halfExtents) && all(localSphere <= halfExtents);
@@ -176,6 +186,11 @@ bool GenerateBoxBoxContactPoints(float3 centerA, float4 orientationA, float3 hal
                                  out float3 pointB,
                                  out float penetration)
 {
+    normalAtoB = 0.0;
+    pointA = 0.0;
+    pointB = 0.0;
+    penetration = 0.0;
+
     float3 axesA[3] = {BoxAxisX(orientationA), BoxAxisY(orientationA), BoxAxisZ(orientationA)};
     float3 axesB[3] = {BoxAxisX(orientationB), BoxAxisY(orientationB), BoxAxisZ(orientationB)};
     const float3 centerDelta = centerB - centerA;
@@ -257,6 +272,9 @@ bool GenerateBoxBoxContactPoints(float3 centerA, float4 orientationA, float3 hal
 
 void ClosestPointsSegmentSegment(float3 a0, float3 a1, float3 b0, float3 b1, out float3 outA, out float3 outB)
 {
+    outA = a0;
+    outB = b0;
+
     const float3 d1 = a1 - a0;
     const float3 d2 = b1 - b0;
     const float3 r = a0 - b0;
@@ -315,6 +333,9 @@ void ClosestPointsSegmentSegment(float3 a0, float3 a1, float3 b0, float3 b1, out
 
 bool SegmentIntersectsAabbLocal(float3 a, float3 b, float3 halfExtents, out float hitT, out float3 hitPoint)
 {
+    hitT = 0.0;
+    hitPoint = a;
+
     float tMin = 0.0, tMax = 1.0;
     const float3 d = b - a;
 
@@ -382,6 +403,10 @@ void ClosestPointsSegmentBox(float3 segmentA, float3 segmentB, float3 boxCenter,
                              float4 boxOrientation, float3 halfExtents,
                              out float3 outSegPoint, out float3 outBoxPoint, out bool intersects)
 {
+    outSegPoint = segmentA;
+    outBoxPoint = ClosestPointOnBox(segmentA, boxCenter, boxOrientation, halfExtents);
+    intersects = false;
+
     const float3 localA = QuaternionInverseRotate(boxOrientation, segmentA - boxCenter);
     const float3 localB = QuaternionInverseRotate(boxOrientation, segmentB - boxCenter);
 
@@ -430,6 +455,11 @@ bool GenerateCapsuleCapsuleContactPoints(float3 capsuleA0, float3 capsuleA1, flo
                                          out float3 pointB,
                                          out float penetration)
 {
+    normalAtoB = 0.0;
+    pointA = 0.0;
+    pointB = 0.0;
+    penetration = 0.0;
+
     float3 cA, cB;
     ClosestPointsSegmentSegment(capsuleA0, capsuleA1, capsuleB0, capsuleB1, cA, cB);
     return GenerateSphereSphereContactPoints(cA, radiusA, cB, radiusB, normalAtoB, pointA, pointB, penetration);
@@ -442,6 +472,11 @@ bool GenerateBoxCapsuleContactPoints(float3 boxCenter, float4 boxOrientation, fl
                                      out float3 pointB,
                                      out float penetration)
 {
+    normalAtoB = 0.0;
+    pointA = 0.0;
+    pointB = 0.0;
+    penetration = 0.0;
+
     float3 segPoint, boxPoint;
     bool intersects = false;
     ClosestPointsSegmentBox(capsuleA, capsuleB, boxCenter, boxOrientation, halfExtents,
@@ -492,6 +527,11 @@ bool GenerateRigidContact(uint shapeTypeA, float3 positionA, float4 orientationA
                           out float3 pointBWorld,
                           out float penetration)
 {
+    normalAtoB = 0.0;
+    pointAWorld = 0.0;
+    pointBWorld = 0.0;
+    penetration = 0.0;
+
     if (shapeTypeA == kColliderSphere && shapeTypeB == kColliderSphere)
     {
         return GenerateSphereSphereContactPoints(positionA, SphereRadius(colliderParamsA, scaleA),
