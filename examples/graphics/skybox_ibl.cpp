@@ -117,7 +117,7 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
 EnvironmentIblDesc loadSkyboxIbl(cressim::neo::graphics::RenderResourceManager &resources)
 {
     const std::filesystem::path skyboxDir =
-        std::filesystem::path(CRESSIM_NEO_PROJECT_SOURCE_DIR) / "examples/physics_viewer/skybox";
+        std::filesystem::path(CRESSIM_NEO_PROJECT_SOURCE_DIR) / "examples/graphics/skybox";
     const std::array<std::filesystem::path, 6u> facePaths = {
         skyboxDir / "posx.jpg", skyboxDir / "negx.jpg", skyboxDir / "posy.jpg",
         skyboxDir / "negy.jpg", skyboxDir / "posz.jpg", skyboxDir / "negz.jpg"};
@@ -171,7 +171,7 @@ int main(int argc, char **argv)
     DebugViewerApp viewer;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(
         options, ViewerExampleDefaults{
-                     .windowTitle = "CRESSim Neo Physics Viewer Skybox IBL",
+                     .windowTitle = "CRESSim Neo Graphics Skybox IBL",
                      .width = 1280u,
                      .height = 720u,
                      .showStats = true,
@@ -263,6 +263,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    CRESSIM_LOG_INFO("Physics viewer skybox IBL passed. Frames=", viewerDesc.maxFrames, '\n');
+    CRESSIM_LOG_INFO("Graphics skybox IBL passed. Frames=", viewerDesc.maxFrames, '\n');
     return 0;
 }
