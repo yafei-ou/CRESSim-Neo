@@ -6,13 +6,10 @@
 #include "viewer/debug_viewer_app.h"
 #include "common/logger.h"
 
-#include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
-#include <vector>
 
 namespace
 {

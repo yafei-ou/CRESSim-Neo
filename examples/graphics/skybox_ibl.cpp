@@ -9,7 +9,6 @@
 #include "viewer/debug_viewer_app.h"
 
 #include <array>
-#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <stdexcept>
