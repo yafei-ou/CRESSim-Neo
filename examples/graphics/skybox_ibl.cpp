@@ -55,7 +55,7 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
 EnvironmentIblDesc loadSkyboxIbl(cressim::neo::graphics::RenderResourceManager &resources)
 {
     const std::filesystem::path skyboxDir =
-        std::filesystem::path(CRESSIM_NEO_PROJECT_SOURCE_DIR) / "examples/graphics/skybox";
+        std::filesystem::path(__FILE__).parent_path() / "skybox";
     const std::array<std::filesystem::path, 6u> facePaths = {
         skyboxDir / "posx.jpg", skyboxDir / "negx.jpg", skyboxDir / "posy.jpg",
         skyboxDir / "negy.jpg", skyboxDir / "posz.jpg", skyboxDir / "negz.jpg"};
@@ -107,16 +107,13 @@ int main(int argc, char **argv)
     config.gpuDeviceDesc.preferredBackend = options.backend;
 
     DebugViewerApp viewer;
-    auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(
-        options, ViewerExampleDefaults{
-                     .windowTitle = "CRESSim Neo Graphics Skybox IBL",
-                     .width = 1280u,
-                     .height = 720u,
-                     .showStats = true,
-                     .vSync = true,
-                     .startFullscreen = false,
-                     .startFullscreenWindowed = false,
-                 });
+    ViewerExampleDefaults viewerDefaults{};
+    viewerDefaults.windowTitle = "CRESSim Neo Graphics Skybox IBL";
+    viewerDefaults.width = 1280u;
+    viewerDefaults.height = 720u;
+    viewerDefaults.showStats = true;
+    viewerDefaults.vSync = true;
+    auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
 
     if (!viewer.initialize(viewerDesc, config))
     {

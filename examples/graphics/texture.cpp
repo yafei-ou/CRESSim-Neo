@@ -247,16 +247,14 @@ int main(int argc, char **argv)
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
 
     DebugViewerApp viewer;
-    const auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(
-        options, ViewerExampleDefaults{
-                     .windowTitle = "CRESSim Neo Texture Validation Viewer",
-                     .width = 1440u,
-                     .height = 900u,
-                     .showStats = true,
-                     .vSync = false,
-                     .startFullscreen = false,
-                     .startFullscreenWindowed = true,
-                 });
+    ViewerExampleDefaults viewerDefaults{};
+    viewerDefaults.windowTitle = "CRESSim Neo Texture Validation Viewer";
+    viewerDefaults.width = 1440u;
+    viewerDefaults.height = 900u;
+    viewerDefaults.showStats = true;
+    viewerDefaults.startFullscreenWindowed = true;
+    const auto viewerDesc =
+        cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
 
     if (!viewer.initialize(viewerDesc, config))
     {

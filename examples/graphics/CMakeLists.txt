@@ -8,5 +8,4 @@ add_cressim_example(
 add_cressim_example(
     NAME graphics_skybox_ibl
     SOURCE skybox_ibl.cpp
-    COMPILE_DEFINITIONS CRESSIM_NEO_PROJECT_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
 )
