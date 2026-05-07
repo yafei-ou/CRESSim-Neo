@@ -15,7 +15,6 @@ namespace cressim::neo::physics
 
 struct PhysicsSolverDesc
 {
-    bool enableGpuCompute                     = true;
     std::uint32_t substeps                    = 1;
     std::uint32_t defaultIterations           = 20;
     std::uint32_t softInternalIterations      = 0;

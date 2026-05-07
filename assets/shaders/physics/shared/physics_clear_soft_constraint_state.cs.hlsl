@@ -1,5 +1,6 @@
 #include "../../include/physics/physics_soft_dispatch_constants.hlsli"
 #include "../../include/physics/physics_atomic_float.hlsli"
+#include "../../include/structured_buffer_compat.hlsli"
 
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_SoftPositionCorrections);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_SoftParticleVelocityCorrections);

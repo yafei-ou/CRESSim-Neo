@@ -5,9 +5,7 @@
 #include "common/logger.h"
 
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
-#include <string>
 #include <vector>
 
 namespace
@@ -20,30 +18,11 @@ using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::gpu::GpuBackend;
 using cressim::neo::gpu::GpuDevice;
 using cressim::neo::gpu::GpuRenderTargetDesc;
 using cressim::neo::gpu::GpuRenderTargetHandle;
 using cressim::neo::gpu::GpuRenderTargetReadbackEvent;
 using cressim::neo::gpu::GpuRenderTargetReadbackRequest;
-
-GpuBackend parseBackend(const std::string& value)
-{
-    if (value == "null")
-    {
-        return GpuBackend::Null;
-    }
-    if (value == "vulkan")
-    {
-        return GpuBackend::Vulkan;
-    }
-    throw std::invalid_argument("Unsupported backend: " + value);
-}
-
-void printUsage(const char* appName)
-{
-    CRESSIM_LOG_ERROR( "Usage: " , appName , " [--backend vulkan|null] [--frames N] [--validation on|off]\n");
-}
 
 bool isNear(std::uint8_t value, std::uint8_t expected, std::uint8_t tolerance)
 {
@@ -96,62 +75,13 @@ bool containsNonClearPixel(const GpuRenderTargetReadbackEvent& event)
 
 } // namespace
 
-int main(int argc, char** argv)
+int main()
 {
     RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
+    config.gpuDeviceDesc.preferredBackend = cressim::neo::gpu::GpuBackend::Vulkan;
     config.gpuDeviceDesc.enableValidation = false;
 
-    std::uint64_t numFrames = 3;
-
-    for (int i = 1; i < argc; ++i)
-    {
-        const std::string arg = argv[i];
-        if (arg == "--backend")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            config.gpuDeviceDesc.preferredBackend = parseBackend(argv[++i]);
-            continue;
-        }
-        if (arg == "--frames")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            numFrames = static_cast<std::uint64_t>(std::strtoull(argv[++i], nullptr, 10));
-            continue;
-        }
-        if (arg == "--validation")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            const std::string value = argv[++i];
-            if (value == "on")
-            {
-                config.gpuDeviceDesc.enableValidation = true;
-                continue;
-            }
-            if (value == "off")
-            {
-                config.gpuDeviceDesc.enableValidation = false;
-                continue;
-            }
-            printUsage(argv[0]);
-            return 2;
-        }
-
-        printUsage(argv[0]);
-        return 2;
-    }
+    constexpr std::uint64_t kNumFrames = 3u;
 
     Runtime runtime;
     if (!runtime.initialize(config))
@@ -251,7 +181,7 @@ int main(int argc, char** argv)
     frame.deltaSeconds = 1.0f / 60.0f;
     std::vector<GpuRenderTargetReadbackRequest> readbackRequests;
 
-    for (std::uint64_t i = 0; i < numFrames; ++i)
+    for (std::uint64_t i = 0; i < kNumFrames; ++i)
     {
         if (graphicsDevice != nullptr && graphicsDevice->renderTargetSystem().isValidRenderTarget(secondaryTarget))
         {
@@ -320,7 +250,7 @@ int main(int argc, char** argv)
         }
     }
 
-    if (config.gpuDeviceDesc.preferredBackend == GpuBackend::Vulkan)
+    if (config.gpuDeviceDesc.preferredBackend == cressim::neo::gpu::GpuBackend::Vulkan)
     {
         if (readbackEvents == 0)
         {
@@ -344,7 +274,7 @@ int main(int argc, char** argv)
 
     runtime.shutdown();
 
-    CRESSIM_LOG_INFO( "Smoke run passed. Frames: " , numFrames , ", Readback events: " , readbackEvents
+    CRESSIM_LOG_INFO( "Smoke run passed. Frames: " , kNumFrames , ", Readback events: " , readbackEvents
               , ", Payload events: " , payloadEvents , '\n');
     return 0;
 }

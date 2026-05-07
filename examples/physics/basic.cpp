@@ -1,11 +1,14 @@
 #include "common/frame_context.h"
+#include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/example_cli.h"
+#include "helpers/inertia.h"
+#include "helpers/shape_meshes.h"
+#include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
-#include "common/logger.h"
 
 #include <cstdint>
-#include <cstdlib>
 #include <stdexcept>
 #include <string>
 
@@ -16,127 +19,62 @@ using cressim::neo::common::FrameContext;
 using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
+using cressim::neo::engine::RigidBodyComponent;
 using cressim::neo::engine::Runtime;
-using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::gpu::GpuBackend;
+using cressim::neo::examples::helpers::CommonExampleOptions;
+using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::viewer::DebugViewerApp;
-using cressim::neo::viewer::DebugViewerAppDesc;
 using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
-GpuBackend parseBackend(const std::string& value)
-{
-    if (value == "null")
-    {
-        return GpuBackend::Null;
-    }
-    if (value == "vulkan")
-    {
-        return GpuBackend::Vulkan;
-    }
-    throw std::invalid_argument("Unsupported backend: " + value);
-}
-
 void printUsage(const char* appName)
 {
-    CRESSIM_LOG_ERROR( "Usage: " , appName , " [--backend vulkan|null] [--frames N]\n");
-}
-
-MeshResourceDesc makeCubeMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerIntegration.CubeMesh";
-    mesh.vertices.reserve(24);
-    mesh.indices.reserve(36);
-
-    const auto addFace = [&](const Diligent::float3& normal, const Diligent::float3& v0, const Diligent::float3& v1, const Diligent::float3& v2, const Diligent::float3& v3) {
-        const std::uint32_t base = static_cast<std::uint32_t>(mesh.vertices.size());
-        mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
-        mesh.vertices.push_back({v1, normal, 1.0f, 0.0f});
-        mesh.vertices.push_back({v2, normal, 1.0f, 1.0f});
-        mesh.vertices.push_back({v3, normal, 0.0f, 1.0f});
-
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 2u);
-        mesh.indices.push_back(base + 1u);
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 3u);
-        mesh.indices.push_back(base + 2u);
-    };
-
-    const float h = halfExtent;
-    addFace({0.0f, 0.0f, 1.0f}, {-h, -h, h}, {h, -h, h}, {h, h, h}, {-h, h, h});
-    addFace({0.0f, 0.0f, -1.0f}, {h, -h, -h}, {-h, -h, -h}, {-h, h, -h}, {h, h, -h});
-    addFace({-1.0f, 0.0f, 0.0f}, {-h, -h, -h}, {-h, -h, h}, {-h, h, h}, {-h, h, -h});
-    addFace({1.0f, 0.0f, 0.0f}, {h, -h, h}, {h, -h, -h}, {h, h, -h}, {h, h, h});
-    addFace({0.0f, 1.0f, 0.0f}, {-h, h, h}, {h, h, h}, {h, h, -h}, {-h, h, -h});
-    addFace({0.0f, -1.0f, 0.0f}, {-h, -h, -h}, {h, -h, -h}, {h, -h, h}, {-h, -h, h});
-    return mesh;
-}
-
-MeshResourceDesc makePlaneMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerIntegration.PlaneMesh";
-    const float h = halfExtent;
-    mesh.vertices = {
-        {{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f},
-        {{h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 1.0f, 0.0f},
-        {{h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 1.0f, 1.0f},
-        {{-h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 0.0f, 1.0f}};
-    mesh.indices = {0u, 1u, 2u, 0u, 2u, 3u};
-    return mesh;
+    cressim::neo::examples::helpers::printUsage(appName, "", false);
 }
 
 } // namespace
 
 int main(int argc, char** argv)
 {
-    RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
-    config.gpuDeviceDesc.enableValidation = false;
-    std::uint64_t numFrames = 4;
+    CommonExampleOptions options{};
 
-    for (int i = 1; i < argc; ++i)
+    try
     {
-        const std::string arg = argv[i];
-        if (arg == "--backend")
+        for (int i = 1; i < argc; ++i)
         {
-            if (i + 1 >= argc)
+            if (cressim::neo::examples::helpers::tryParseCommonArgument(
+                    argc, argv, i, options, false))
             {
-                printUsage(argv[0]);
-                return 2;
+                continue;
             }
-            config.gpuDeviceDesc.preferredBackend = parseBackend(argv[++i]);
-            continue;
-        }
-        if (arg == "--frames")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            numFrames = static_cast<std::uint64_t>(std::strtoull(argv[++i], nullptr, 10));
-            continue;
-        }
 
+            printUsage(argv[0]);
+            return 2;
+        }
+    }
+    catch (const std::invalid_argument& error)
+    {
+        CRESSIM_LOG_ERROR(error.what(), "\n");
         printUsage(argv[0]);
         return 2;
     }
 
+    auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+
     DebugViewerApp viewer;
-    DebugViewerAppDesc viewerDesc{};
-    const bool windowEnabled = (config.gpuDeviceDesc.preferredBackend != GpuBackend::Null);
-    viewerDesc.windowEnabled = windowEnabled;
-    viewerDesc.windowVisible = windowEnabled;
-    viewerDesc.maxFrames = numFrames;
-    viewerDesc.showStats = false;
-    viewerDesc.width = 640;
-    viewerDesc.height = 480;
+    const auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(
+        options, ViewerExampleDefaults{
+                     .windowTitle = "CRESSim Neo Physics Viewer",
+                     .width = 640u,
+                     .height = 480u,
+                     .showStats = false,
+                     .vSync = false,
+                     .startFullscreen = false,
+                     .startFullscreenWindowed = true,
+                 });
 
     if (!viewer.initialize(viewerDesc, config))
     {
@@ -167,8 +105,10 @@ int main(int argc, char** argv)
     world.setDirectionalLight(lightEntity, light);
 
     auto& resources = runtime.getResources();
-    const auto cubeMesh = resources.registerMesh(makeCubeMesh(0.65f));
-    const auto planeMesh = resources.registerMesh(makePlaneMesh(8.0f));
+    const auto cubeMesh = resources.registerMesh(
+        cressim::neo::examples::helpers::makeCubeMesh(0.65f, "ViewerIntegration.CubeMesh"));
+    const auto planeMesh = resources.registerMesh(
+        cressim::neo::examples::helpers::makePlaneMesh(8.0f, "ViewerIntegration.PlaneMesh"));
 
     MaterialResourceDesc frontMaterialDesc{};
     frontMaterialDesc.debugName = "ViewerIntegration.FrontMaterial";
@@ -200,20 +140,42 @@ int main(int argc, char** argv)
     ground.material = planeMaterial;
     ground.visible = true;
     world.setMeshRenderer(groundEntity, ground);
+    RigidBodyComponent groundBody{};
+    groundBody.simulated = true;
+    groundBody.bodyType = cressim::neo::physics::RigidBodyType::Static;
+    groundBody.inverseMass = 0.0f;
+    groundBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
+    world.setRigidBody(groundEntity, groundBody);
+    cressim::neo::engine::ColliderComponent groundCollider{};
+    groundCollider.shapeType = cressim::neo::physics::ColliderShapeType::Box;
+    groundCollider.shapeParams = {8.0f, 0.05f, 8.0f, 0.0f};
+    world.addCollider(groundEntity, groundCollider);
 
     const auto frontCubeEntity = world.createEntity();
     TransformComponent frontCubeTransform{};
-    frontCubeTransform.worldTransform.position = {0.65f, -0.32f, -0.25f};
+    frontCubeTransform.worldTransform.position = {0.65f, 1.25f, 2.25f};
     world.setTransform(frontCubeEntity, frontCubeTransform);
     MeshRendererComponent frontCube{};
     frontCube.mesh = cubeMesh;
     frontCube.material = frontMaterial;
     frontCube.visible = true;
     world.setMeshRenderer(frontCubeEntity, frontCube);
+    RigidBodyComponent frontCubeBody{};
+    frontCubeBody.simulated = true;
+    frontCubeBody.inverseMass = 1.0f;
+    frontCubeBody.inverseInertiaLocal =
+        cressim::neo::examples::helpers::computeBoxInverseInertia(
+            {0.65f, 0.65f, 0.65f}, frontCubeBody.inverseMass);
+    frontCubeBody.linearVelocity = {0.0f, 0.0f, 0.0f};
+    world.setRigidBody(frontCubeEntity, frontCubeBody);
+    cressim::neo::engine::ColliderComponent frontCubeCollider{};
+    frontCubeCollider.shapeType = cressim::neo::physics::ColliderShapeType::Box;
+    frontCubeCollider.shapeParams = {0.65f, 0.65f, 0.65f, 0.0f};
+    world.addCollider(frontCubeEntity, frontCubeCollider);
 
     const auto backCubeEntity = world.createEntity();
     TransformComponent backCubeTransform{};
-    backCubeTransform.worldTransform.position = {-1.05f, -0.12f, 1.15f};
+    backCubeTransform.worldTransform.position = {1.25f, 3.35f, 2.15f};
     backCubeTransform.worldTransform.scale = {1.15f, 1.15f, 1.15f};
     world.setTransform(backCubeEntity, backCubeTransform);
     MeshRendererComponent backCube{};
@@ -221,6 +183,18 @@ int main(int argc, char** argv)
     backCube.material = backMaterial;
     backCube.visible = true;
     world.setMeshRenderer(backCubeEntity, backCube);
+    RigidBodyComponent backCubeBody{};
+    backCubeBody.simulated = true;
+    backCubeBody.inverseMass = 1.0f;
+    backCubeBody.inverseInertiaLocal =
+        cressim::neo::examples::helpers::computeBoxInverseInertia(
+            {0.65f * 1.15f, 0.65f * 1.15f, 0.65f * 1.15f}, backCubeBody.inverseMass);
+    backCubeBody.linearVelocity = {0.0f, 0.0f, 0.0f};
+    world.setRigidBody(backCubeEntity, backCubeBody);
+    cressim::neo::engine::ColliderComponent backCubeCollider{};
+    backCubeCollider.shapeType = cressim::neo::physics::ColliderShapeType::Box;
+    backCubeCollider.shapeParams = {0.65f, 0.65f, 0.65f, 0.0f};
+    world.addCollider(backCubeEntity, backCubeCollider);
 
     std::uint64_t beforeCalls = 0;
     std::uint64_t afterCalls = 0;
@@ -249,6 +223,6 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    CRESSIM_LOG_INFO( "Viewer integration passed. Frames=" , viewerDesc.maxFrames , '\n');
+    CRESSIM_LOG_INFO( "Physics viewer passed. Frames=" , viewerDesc.maxFrames , '\n');
     return 0;
 }

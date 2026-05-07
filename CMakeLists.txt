@@ -27,7 +27,8 @@ configure_file(
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/generated)
 
 option(ENGINE_STATIC "Build the engine as a static library"  ON)
-option(CRESSIM_NEO_BUILD_VIEWER "Build viewer module and related integration tests" ON)
+option(CRESSIM_NEO_BUILD_VIEWER "Build viewer module and supporting executables" ON)
+option(CRESSIM_NEO_BUILD_EXAMPLES "Build standalone example executables" ON)
 option(CRESSIM_NEO_ENABLE_CLANG_TIDY "Enable clang-tidy checks during build" OFF)
 
 if(CRESSIM_NEO_ENABLE_CLANG_TIDY)
@@ -102,6 +103,10 @@ if(NOT DEFINED CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH)
 endif()
 
 add_subdirectory(src)
+
+if(CRESSIM_NEO_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
 
 if(BUILD_TESTING)
     add_subdirectory(tests)

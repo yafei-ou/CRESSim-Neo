@@ -2,11 +2,14 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/example_cli.h"
+#include "helpers/inertia.h"
+#include "helpers/shape_meshes.h"
+#include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
 
 #include <array>
 #include <cstdint>
-#include <cstdlib>
 #include <stdexcept>
 #include <string>
 
@@ -20,106 +23,21 @@ using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::RigidBodyComponent;
 using cressim::neo::engine::Runtime;
-using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::gpu::GpuBackend;
+using cressim::neo::examples::helpers::CommonExampleOptions;
+using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshHandle;
 using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::viewer::DebugViewerApp;
-using cressim::neo::viewer::DebugViewerAppDesc;
 using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
-constexpr float kPi = 3.14159265358979323846f;
-
-GpuBackend parseBackend(const std::string& value)
-{
-    if (value == "null")
-    {
-        return GpuBackend::Null;
-    }
-    if (value == "vulkan")
-    {
-        return GpuBackend::Vulkan;
-    }
-    throw std::invalid_argument("Unsupported backend: " + value);
-}
-
 void printUsage(const char* appName)
 {
-    CRESSIM_LOG_ERROR("Usage: ", appName,
-                      " [--backend vulkan|null] [--frames N] [--wave-size N]\n");
+    cressim::neo::examples::helpers::printUsage(appName, " [--wave-size N]", false);
 }
-
-MeshResourceDesc makeCubeMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerRealloc.CubeMesh";
-    mesh.vertices.reserve(24);
-    mesh.indices.reserve(36);
-
-    const auto addFace = [&](const Diligent::float3& normal, const Diligent::float3& v0,
-                             const Diligent::float3& v1, const Diligent::float3& v2,
-                             const Diligent::float3& v3) {
-        const std::uint32_t base = static_cast<std::uint32_t>(mesh.vertices.size());
-        mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
-        mesh.vertices.push_back({v1, normal, 1.0f, 0.0f});
-        mesh.vertices.push_back({v2, normal, 1.0f, 1.0f});
-        mesh.vertices.push_back({v3, normal, 0.0f, 1.0f});
-
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 2u);
-        mesh.indices.push_back(base + 1u);
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 3u);
-        mesh.indices.push_back(base + 2u);
-    };
-
-    const float h = halfExtent;
-    addFace({0.0f, 0.0f, 1.0f}, {-h, -h, h}, {h, -h, h}, {h, h, h}, {-h, h, h});
-    addFace({0.0f, 0.0f, -1.0f}, {h, -h, -h}, {-h, -h, -h}, {-h, h, -h}, {h, h, -h});
-    addFace({-1.0f, 0.0f, 0.0f}, {-h, -h, -h}, {-h, -h, h}, {-h, h, h}, {-h, h, -h});
-    addFace({1.0f, 0.0f, 0.0f}, {h, -h, h}, {h, -h, -h}, {h, h, -h}, {h, h, h});
-    addFace({0.0f, 1.0f, 0.0f}, {-h, h, h}, {h, h, h}, {h, h, -h}, {-h, h, -h});
-    addFace({0.0f, -1.0f, 0.0f}, {-h, -h, -h}, {h, -h, -h}, {h, -h, h}, {-h, -h, h});
-    return mesh;
-}
-
-MeshResourceDesc makePlaneMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "ViewerRealloc.PlaneMesh";
-    const float h = halfExtent;
-    mesh.vertices = {
-        {{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f},
-        {{h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 1.0f, 0.0f},
-        {{h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 1.0f, 1.0f},
-        {{-h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 0.0f, 1.0f}};
-    mesh.indices = {0u, 1u, 2u, 0u, 2u, 3u};
-    return mesh;
-}
-
-Diligent::float3 computeBoxInverseInertia(const Diligent::float3& halfExtents, float inverseMass)
-{
-    if (inverseMass <= 0.0f)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    const float mass = 1.0f / inverseMass;
-    const float ix =
-        mass * (halfExtents.y * halfExtents.y + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iy =
-        mass * (halfExtents.x * halfExtents.x + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iz =
-        mass * (halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y) / 3.0f;
-
-    return {ix > 0.0f ? 1.0f / ix : 0.0f, iy > 0.0f ? 1.0f / iy : 0.0f,
-            iz > 0.0f ? 1.0f / iz : 0.0f};
-}
-
 void spawnWave(cressim::neo::engine::World& world, MeshHandle cubeMesh,
                cressim::neo::graphics::MaterialHandle material, std::uint32_t startIndex,
                std::uint32_t count, bool dynamicBodies)
@@ -151,7 +69,8 @@ void spawnWave(cressim::neo::engine::World& world, MeshHandle cubeMesh,
                                       : cressim::neo::physics::RigidBodyType::Static;
         body.inverseMass = dynamicBodies ? 1.0f : 0.0f;
         body.inverseInertiaLocal =
-            computeBoxInverseInertia({0.35f, 0.35f, 0.35f}, body.inverseMass);
+            cressim::neo::examples::helpers::computeBoxInverseInertia(
+                {0.35f, 0.35f, 0.35f}, body.inverseMass);
         body.linearVelocity = {0.0f, 0.0f, 0.0f};
         if (dynamicBodies)
         {
@@ -173,60 +92,53 @@ void spawnWave(cressim::neo::engine::World& world, MeshHandle cubeMesh,
 
 int main(int argc, char** argv)
 {
-    RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
-    config.gpuDeviceDesc.enableValidation = false;
-    std::uint64_t numFrames = 240u;
+    CommonExampleOptions options{};
+    options.maxFrames = 240u;
     std::uint32_t waveSize = 20u;
 
-    for (int i = 1; i < argc; ++i)
+    try
     {
-        const std::string arg = argv[i];
-        if (arg == "--backend")
+        for (int i = 1; i < argc; ++i)
         {
-            if (i + 1 >= argc)
+            if (cressim::neo::examples::helpers::tryParseCommonArgument(
+                    argc, argv, i, options, false))
             {
-                printUsage(argv[0]);
-                return 2;
+                continue;
             }
-            config.gpuDeviceDesc.preferredBackend = parseBackend(argv[++i]);
-            continue;
-        }
-        if (arg == "--frames")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            numFrames = static_cast<std::uint64_t>(std::strtoull(argv[++i], nullptr, 10));
-            continue;
-        }
-        if (arg == "--wave-size")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            waveSize = static_cast<std::uint32_t>(std::strtoul(argv[++i], nullptr, 10));
-            continue;
-        }
 
+            const std::string arg = argv[i];
+            if (arg == "--wave-size")
+            {
+                waveSize = cressim::neo::examples::helpers::parseEnvCount(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--wave-size"));
+                continue;
+            }
+
+            printUsage(argv[0]);
+            return 2;
+        }
+    }
+    catch (const std::invalid_argument& error)
+    {
+        CRESSIM_LOG_ERROR(error.what(), "\n");
         printUsage(argv[0]);
         return 2;
     }
 
+    auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+
     DebugViewerApp viewer;
-    DebugViewerAppDesc viewerDesc{};
-    const bool windowEnabled = (config.gpuDeviceDesc.preferredBackend != GpuBackend::Null);
-    viewerDesc.windowEnabled = windowEnabled;
-    viewerDesc.windowVisible = windowEnabled;
-    viewerDesc.startFullscreenWindowed = true;
-    viewerDesc.maxFrames = numFrames;
-    viewerDesc.showStats = false;
-    viewerDesc.width = 1280;
-    viewerDesc.height = 720;
+    const auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(
+        options, ViewerExampleDefaults{
+                     .windowTitle = "CRESSim Neo Physics Viewer Reallocation During Simulation",
+                     .width = 1280u,
+                     .height = 720u,
+                     .showStats = false,
+                     .vSync = false,
+                     .startFullscreen = false,
+                     .startFullscreenWindowed = true,
+                 });
 
     if (!viewer.initialize(viewerDesc, config))
     {
@@ -257,8 +169,10 @@ int main(int argc, char** argv)
     world.setDirectionalLight(lightEntity, light);
 
     auto& resources = runtime.getResources();
-    const auto cubeMesh = resources.registerMesh(makeCubeMesh(0.35f));
-    const auto planeMesh = resources.registerMesh(makePlaneMesh(18.0f));
+    const auto cubeMesh = resources.registerMesh(
+        cressim::neo::examples::helpers::makeCubeMesh(0.35f, "ViewerRealloc.CubeMesh"));
+    const auto planeMesh = resources.registerMesh(
+        cressim::neo::examples::helpers::makePlaneMesh(18.0f, "ViewerRealloc.PlaneMesh"));
 
     MaterialResourceDesc dynamicMaterialDesc{};
     dynamicMaterialDesc.debugName = "ViewerRealloc.DynamicMaterial";

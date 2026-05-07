@@ -20,7 +20,7 @@ GpuRenderTargetDesc normalizeDefaultRenderTargetDesc(const GpuRenderTargetDesc &
 class GpuRenderTargetSystemImpl final : public GpuRenderTargetSystem
 {
 public:
-    bool initialize(bool isVulkanBackend, Diligent::IRenderDevice *renderDevice,
+    bool initialize(GpuBackend backend, Diligent::IRenderDevice *renderDevice,
                     Diligent::IDeviceContext *graphicsContext);
     void shutdown();
     void endFrame(const common::FrameContext &frameContext);
@@ -96,7 +96,7 @@ private:
 
 private:
     bool mInitialized                                       = false;
-    bool mIsVulkanBackend                                   = false;
+    GpuBackend mBackend                                     = GpuBackend::Null;
     bool mHasActiveRenderTarget                             = false;
     bool mActiveRenderTargetHasDepth                        = false;
     Diligent::TEXTURE_FORMAT mActiveRenderTargetColorFormat = Diligent::TEX_FORMAT_UNKNOWN;

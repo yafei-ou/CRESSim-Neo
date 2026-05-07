@@ -34,6 +34,16 @@ std::uint32_t nextPowerOfTwo(std::uint32_t value)
     return value + 1u;
 }
 
+bool hasPhysicsGpuBackend(gpu::GpuDevice &device)
+{
+    gpu::GpuComputeBackendContext computeContext{};
+    gpu::GpuGraphicsBackendContext graphicsContext{};
+    return device.tryGetPhysicsBackendContext(computeContext) &&
+           device.tryGetGraphicsBackendContext(graphicsContext) &&
+           computeContext.renderDevice != nullptr && computeContext.computeContext != nullptr &&
+           graphicsContext.renderDevice != nullptr && graphicsContext.graphicsContext != nullptr;
+}
+
 } // namespace
 
 struct PhysicsSolver::Impl
@@ -57,7 +67,7 @@ bool PhysicsSolver::initialize()
 {
     shutdown();
 
-    if (!mDesc.enableGpuCompute)
+    if (!hasPhysicsGpuBackend(mDevice))
     {
         mInitialized = true;
         return true;
@@ -95,9 +105,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         return false;
     }
 
-    if (!mDesc.enableGpuCompute)
+    if (!hasPhysicsGpuBackend(mDevice))
     {
-        return false;
+        return true;
     }
 
     gpu::GpuComputeBackendContext computeBackend{};
@@ -659,7 +669,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
 bool PhysicsSolver::validateGpuMetaBlocking()
 {
-    if (!mInitialized || !mDesc.enableGpuCompute)
+    if (!mInitialized || !hasPhysicsGpuBackend(mDevice))
     {
         return false;
     }

@@ -63,7 +63,7 @@ bool sameStats(const RenderStats& lhs, const RenderStats& rhs)
         lhs.shadowDrawCalls == rhs.shadowDrawCalls &&
         lhs.renderableCount == rhs.renderableCount &&
         lhs.lightCount == rhs.lightCount &&
-        lhs.cameraCount == rhs.cameraCount &&
+        lhs.renderedCameraCount == rhs.renderedCameraCount &&
         lhs.renderTargetResizeRequests == rhs.renderTargetResizeRequests &&
         lhs.renderTargetResizeNoOps == rhs.renderTargetResizeNoOps &&
         lhs.renderTargetRecreateCount == rhs.renderTargetRecreateCount &&
@@ -109,7 +109,7 @@ TextureResourceDesc makeHdrCubeDesc(const char *debugName, float r, float g, flo
 bool runIblTierScenario(IblQualityTier iblQualityTier)
 {
     RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = cressim::neo::gpu::GpuBackend::Null;
+    config.gpuDeviceDesc.preferredBackend = cressim::neo::gpu::GpuBackend::Vulkan;
     config.rendererDesc.iblQualityTier    = iblQualityTier;
 
     Runtime runtime;
@@ -130,16 +130,16 @@ bool runIblTierScenario(IblQualityTier iblQualityTier)
 
     MeshResourceDesc meshDesc{};
     meshDesc.debugName = "ForwardPipeline.IblTierTriangle";
-    meshDesc.vertices = {
+    meshDesc.vertices  = {
         {{-0.4f, -0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}, 0.0f, 0.0f},
         {{0.4f, -0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}, 1.0f, 0.0f},
         {{0.0f, 0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}, 0.5f, 1.0f}};
-    meshDesc.indices = {0u, 1u, 2u};
-    const auto mesh = resources.registerMesh(meshDesc);
+    meshDesc.indices   = {0u, 1u, 2u};
+    const auto mesh    = resources.registerMesh(meshDesc);
 
     MaterialResourceDesc materialDesc{};
     materialDesc.debugName = "ForwardPipeline.IblTierMaterial";
-    const auto material = resources.registerMaterial(materialDesc);
+    const auto material    = resources.registerMaterial(materialDesc);
 
     const auto entity = world.createEntity();
     TransformComponent transform{};
@@ -169,7 +169,8 @@ bool runIblTierScenario(IblQualityTier iblQualityTier)
     runtime.tick(frame);
     const RenderStats stats = runtime.lastRenderStats();
     runtime.shutdown();
-    return stats.renderableCount == 1u && stats.cameraCount == 1u && stats.lightCount == 1u;
+    return stats.renderableCount == 1u && stats.renderedCameraCount == 1u &&
+           stats.lightCount == 1u;
 }
 
 } // namespace
@@ -177,7 +178,7 @@ bool runIblTierScenario(IblQualityTier iblQualityTier)
 int main()
 {
     RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = cressim::neo::gpu::GpuBackend::Null;
+    config.gpuDeviceDesc.preferredBackend = cressim::neo::gpu::GpuBackend::Vulkan;
     config.rendererDesc.iblQualityTier = IblQualityTier::Off;
 
     Runtime runtime;
@@ -327,14 +328,34 @@ int main()
         CRESSIM_LOG_ERROR( "Unexpected renderable counters.\n");
         return 1;
     }
-    if (firstFrame.shadowDrawCalls != 4)
+    if (firstFrame.opaqueDrawCalls != 2)
     {
-        CRESSIM_LOG_ERROR( "Unexpected shadow draws.\n");
+        CRESSIM_LOG_ERROR("Unexpected opaque draw count. opaqueDrawCalls=",
+                          firstFrame.opaqueDrawCalls, ".\n");
         return 1;
     }
-    if (firstFrame.cameraCount != 1 || firstFrame.lightCount != 1)
+    if (firstFrame.shadowDrawCalls == 0)
     {
-        CRESSIM_LOG_ERROR( "Unexpected camera/light counters.\n");
+        CRESSIM_LOG_ERROR("Expected at least one shadow draw. shadowDrawCalls=",
+                          firstFrame.shadowDrawCalls, ".\n");
+        return 1;
+    }
+    if (firstFrame.renderedCameraCount != 1)
+    {
+        CRESSIM_LOG_ERROR("Unexpected rendered camera count. renderedCameraCount=",
+                          firstFrame.renderedCameraCount, ".\n");
+        return 1;
+    }
+    if (firstFrame.lightCount != 1)
+    {
+        CRESSIM_LOG_ERROR("Unexpected light count. lightCount=", firstFrame.lightCount, ".\n");
+        return 1;
+    }
+    if (firstFrame.drawCalls != firstFrame.opaqueDrawCalls + firstFrame.shadowDrawCalls)
+    {
+        CRESSIM_LOG_ERROR("Unexpected total draw count. drawCalls=", firstFrame.drawCalls,
+                          ", opaqueDrawCalls=", firstFrame.opaqueDrawCalls,
+                          ", shadowDrawCalls=", firstFrame.shadowDrawCalls, ".\n");
         return 1;
     }
     if (!sameStats(secondFrame, thirdFrame))

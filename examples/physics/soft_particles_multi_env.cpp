@@ -1,6 +1,8 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/inertia.h"
+#include "helpers/shape_meshes.h"
 #include "viewer/debug_viewer_app.h"
 
 #include <algorithm>
@@ -9,7 +11,6 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
-#include <vector>
 
 namespace
 {
@@ -34,7 +35,6 @@ using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerAppDesc;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
-constexpr float kPi                      = 3.14159265358979323846f;
 constexpr float kEnvSpacing              = 16.0f;
 constexpr std::uint32_t kDefaultEnvCount = 4u;
 
@@ -61,70 +61,6 @@ GpuBackend parseBackend(const std::string &value)
 void printUsage(const char *appName)
 {
     CRESSIM_LOG_ERROR("Usage: ", appName, " [--backend vulkan|null] [--frames N] [--envs N]\n");
-}
-
-MeshResourceDesc makeCubeMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "SoftParticleMultiEnv.CubeMesh";
-    mesh.vertices.reserve(24);
-    mesh.indices.reserve(36);
-
-    const auto addFace = [&](const Diligent::float3 &normal, const Diligent::float3 &v0,
-                             const Diligent::float3 &v1, const Diligent::float3 &v2,
-                             const Diligent::float3 &v3)
-    {
-        const std::uint32_t base = static_cast<std::uint32_t>(mesh.vertices.size());
-        mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
-        mesh.vertices.push_back({v1, normal, 1.0f, 0.0f});
-        mesh.vertices.push_back({v2, normal, 1.0f, 1.0f});
-        mesh.vertices.push_back({v3, normal, 0.0f, 1.0f});
-
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 2u);
-        mesh.indices.push_back(base + 1u);
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 3u);
-        mesh.indices.push_back(base + 2u);
-    };
-
-    const float h = halfExtent;
-    addFace({0.0f, 0.0f, 1.0f}, {-h, -h, h}, {h, -h, h}, {h, h, h}, {-h, h, h});
-    addFace({0.0f, 0.0f, -1.0f}, {h, -h, -h}, {-h, -h, -h}, {-h, h, -h}, {h, h, -h});
-    addFace({-1.0f, 0.0f, 0.0f}, {-h, -h, -h}, {-h, -h, h}, {-h, h, h}, {-h, h, -h});
-    addFace({1.0f, 0.0f, 0.0f}, {h, -h, h}, {h, -h, -h}, {h, h, -h}, {h, h, h});
-    addFace({0.0f, 1.0f, 0.0f}, {-h, h, h}, {h, h, h}, {h, h, -h}, {-h, h, -h});
-    addFace({0.0f, -1.0f, 0.0f}, {-h, -h, -h}, {h, -h, -h}, {h, -h, h}, {-h, -h, h});
-    return mesh;
-}
-
-MeshResourceDesc makePlaneMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "SoftParticleMultiEnv.PlaneMesh";
-    const float h  = halfExtent;
-    mesh.vertices  = {{{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f},
-                      {{h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 1.0f, 0.0f},
-                      {{h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 1.0f, 1.0f},
-                      {{-h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 0.0f, 1.0f}};
-    mesh.indices   = {0u, 1u, 2u, 0u, 2u, 3u};
-    return mesh;
-}
-
-Diligent::float3 computeBoxInverseInertia(const Diligent::float3 &halfExtents, float inverseMass)
-{
-    if (inverseMass <= 0.0f)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    const float mass = 1.0f / inverseMass;
-    const float ix = mass * (halfExtents.y * halfExtents.y + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iy = mass * (halfExtents.x * halfExtents.x + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iz = mass * (halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y) / 3.0f;
-
-    return {ix > 0.0f ? 1.0f / ix : 0.0f, iy > 0.0f ? 1.0f / iy : 0.0f,
-            iz > 0.0f ? 1.0f / iz : 0.0f};
 }
 
 Diligent::float3 envOrigin(std::uint32_t envIndex, std::uint32_t envCount)
@@ -235,7 +171,8 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     dynamicBody.bodyType    = RigidBodyType::Dynamic;
     dynamicBody.inverseMass = 0.65f + 0.10f * static_cast<float>(envIndex % 3u);
     dynamicBody.inverseInertiaLocal =
-        computeBoxInverseInertia({0.55f, 0.45f, 0.55f}, dynamicBody.inverseMass);
+        cressim::neo::examples::helpers::computeBoxInverseInertia(
+            {0.55f, 0.45f, 0.55f}, dynamicBody.inverseMass);
     dynamicBody.linearVelocity = {-0.15f + 0.05f * std::cos(phase), 0.0f, 0.04f * std::sin(phase)};
     world.setRigidBody(dynamicObstacleEntity, dynamicBody);
     ColliderComponent dynamicCollider{};
@@ -401,8 +338,10 @@ int main(int argc, char **argv)
     }
 
     auto &resources            = runtime.getResources();
-    const MeshHandle boxMesh   = resources.registerMesh(makeCubeMesh(0.6f));
-    const MeshHandle planeMesh = resources.registerMesh(makePlaneMesh(6.0f));
+    const MeshHandle boxMesh = resources.registerMesh(
+        cressim::neo::examples::helpers::makeCubeMesh(0.6f, "SoftParticleMultiEnv.CubeMesh"));
+    const MeshHandle planeMesh = resources.registerMesh(
+        cressim::neo::examples::helpers::makePlaneMesh(6.0f, "SoftParticleMultiEnv.PlaneMesh"));
 
     SceneMaterials materials{};
     materials.ground =

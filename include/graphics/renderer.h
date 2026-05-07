@@ -65,7 +65,7 @@ struct RenderStats
     std::uint32_t shadowDrawCalls             = 0;
     std::uint32_t renderableCount             = 0;
     std::uint32_t lightCount                  = 0;
-    std::uint32_t cameraCount                 = 0;
+    std::uint32_t renderedCameraCount         = 0;
     std::uint32_t renderTargetResizeRequests  = 0;
     std::uint32_t renderTargetResizeNoOps     = 0;
     std::uint32_t renderTargetRecreateCount   = 0;

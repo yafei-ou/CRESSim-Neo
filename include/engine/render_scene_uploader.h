@@ -4,6 +4,7 @@
 #include "common/scene_primitives.h"
 #include "engine/export.h"
 #include "engine/render_scene_types.h"
+#include "gpu/gpu_compute_pass.h"
 #include "gpu/gpu_device.h"
 #include "graphics/gpu_scene.h"
 
@@ -94,6 +95,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPreparedCamerasBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mLightInputsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mLocalLightSelectionBuffer;
+    gpu::GpuComputePass mEntityPoseSyncPass;
     std::uint64_t mPoseBindingGeneration                  = 1u;
     std::uint64_t mPhysicsSyncBindingGeneration           = 1u;
     std::uint64_t mSceneBindingGeneration                 = 1u;

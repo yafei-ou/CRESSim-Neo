@@ -77,20 +77,6 @@ const gpu::GpuComputePassDefinition kEntityPoseSyncPassDefinition = {
     std::size(kEntityPoseSyncVars),
 };
 
-gpu::GpuComputePass &entityPoseSyncPass()
-{
-    static gpu::GpuComputePass pass;
-    return pass;
-}
-
-bool initializeEntityPoseSyncPass(gpu::GpuDevice &device,
-                                  Diligent::IShaderSourceInputStreamFactory *streamFactory,
-                                  Diligent::Uint64 contextMask)
-{
-    return entityPoseSyncPass().initialize(device, streamFactory, contextMask,
-                                           kEntityPoseSyncPassDefinition);
-}
-
 } // namespace
 
 RenderSceneUploader::RenderSceneUploader(gpu::GpuDevice &device) : mDevice(device) {}
@@ -124,7 +110,8 @@ bool RenderSceneUploader::initialize(const common::SceneLayoutDesc &layout)
         return false;
     }
 
-    if (!initializeEntityPoseSyncPass(mDevice, streamFactory, mPhysicsContextMask))
+    if (!mEntityPoseSyncPass.initialize(mDevice, streamFactory, mPhysicsContextMask,
+                                        kEntityPoseSyncPassDefinition))
     {
         return false;
     }
@@ -179,6 +166,7 @@ void RenderSceneUploader::shutdown()
     mPreparedCamerasBuffer                  = nullptr;
     mLightInputsBuffer                      = nullptr;
     mLocalLightSelectionBuffer              = nullptr;
+    mEntityPoseSyncPass                     = {};
     mPoseBindingGeneration                  = 1u;
     mPhysicsSyncBindingGeneration           = 1u;
     mSceneBindingGeneration                 = 1u;
@@ -779,7 +767,7 @@ bool RenderSceneUploader::applyMappedEntityPoses(
         mLastMappedSourcePoseBindingGeneration != sourcePoses.bindingGeneration ||
         mLastMappedOutputPoseBindingGeneration != mPoseBindingGeneration ||
         mLastMappedPhysicsSyncBindingGeneration != mPhysicsSyncBindingGeneration;
-    if (syncBindingsChanged && !entityPoseSyncPass().forceRecreateAllVariants())
+    if (syncBindingsChanged && !mEntityPoseSyncPass.forceRecreateAllVariants())
     {
         return false;
     }
@@ -788,8 +776,8 @@ bool RenderSceneUploader::applyMappedEntityPoses(
     mLastMappedOutputPoseBindingGeneration  = mPoseBindingGeneration;
     mLastMappedPhysicsSyncBindingGeneration = mPhysicsSyncBindingGeneration;
 
-    return entityPoseSyncPass().dispatch(computeContext.computeContext, 0u, bindings,
-                                         dispatchGroupCount(mappingCount));
+    return mEntityPoseSyncPass.dispatch(computeContext.computeContext, 0u, bindings,
+                                        dispatchGroupCount(mappingCount));
 }
 
 graphics::GpuEntitySceneView RenderSceneUploader::sceneView() const noexcept

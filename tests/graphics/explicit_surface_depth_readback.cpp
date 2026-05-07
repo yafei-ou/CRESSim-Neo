@@ -1,14 +1,13 @@
 #include "common/frame_context.h"
+#include "common/logger.h"
+#include "helpers/readback.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
-#include "common/logger.h"
 
-#include <array>
+
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
-#include <fstream>
-#include <iostream>
 #include <string>
 #include <vector>
 
@@ -22,37 +21,20 @@ using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::gpu::GpuBackend;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::gpu::GpuRenderTargetDesc;
 using cressim::neo::gpu::GpuRenderTargetHandle;
 using cressim::neo::gpu::GpuRenderTargetReadbackEvent;
 using cressim::neo::gpu::GpuRenderTargetReadbackRequest;
+using cressim::neo::tests::helpers::ReadbackPixel;
 
-GpuBackend parseBackend(const std::string& value)
-{
-    if (value == "null")
-    {
-        return GpuBackend::Null;
-    }
-    if (value == "vulkan")
-    {
-        return GpuBackend::Vulkan;
-    }
-    throw std::invalid_argument("Unsupported backend: " + value);
-}
+constexpr float kClearTolerance = 0.02f;
+constexpr std::uint32_t kCenterWindowRadius = 16u;
 
 void printUsage(const char* appName)
 {
-    CRESSIM_LOG_ERROR( "Usage: " , appName
-              , " [--backend vulkan|null] [--frames N] [--output path.ppm] [--validation on|off]\n");
-}
-
-bool isNear(std::uint8_t value, std::uint8_t expected, std::uint8_t tolerance)
-{
-    const int diff = static_cast<int>(value) - static_cast<int>(expected);
-    return diff >= -static_cast<int>(tolerance) && diff <= static_cast<int>(tolerance);
+    CRESSIM_LOG_ERROR( "Usage: " , appName , " [--output path.ppm]\n");
 }
 
 float degreesToRadians(float value)
@@ -80,28 +62,22 @@ Diligent::QuaternionF quaternionFromEulerDegrees(float pitchDegrees, float yawDe
         cosRoll * cosPitch * cosYaw + sinRoll * sinPitch * sinYaw};
 }
 
-bool isValidReadback(const GpuRenderTargetReadbackEvent& event)
+bool isNear(ReadbackPixel value, const ReadbackPixel& expected, float tolerance)
 {
-    if (event.width == 0 || event.height == 0 || event.rowStrideBytes < event.width * 4u)
-    {
-        return false;
-    }
-    if (event.colorBytes.size() < static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height))
-    {
-        return false;
-    }
-    return true;
+    return std::fabs(value.r - expected.r) <= tolerance &&
+           std::fabs(value.g - expected.g) <= tolerance &&
+           std::fabs(value.b - expected.b) <= tolerance &&
+           std::fabs(value.a - expected.a) <= tolerance;
 }
 
-bool containsNonClearPixel(const GpuRenderTargetReadbackEvent& event)
+bool isClearPixel(const ReadbackPixel& pixel, const ReadbackPixel& clearPixel)
 {
-    constexpr std::uint8_t kClearR = 5;
-    constexpr std::uint8_t kClearG = 5;
-    constexpr std::uint8_t kClearB = 8;
-    constexpr std::uint8_t kClearA = 255;
-    constexpr std::uint8_t kTolerance = 2;
+    return isNear(pixel, clearPixel, kClearTolerance);
+}
 
-    if (!isValidReadback(event))
+bool containsNonClearPixel(const GpuRenderTargetReadbackEvent& event, const ReadbackPixel& clearPixel)
+{
+    if (!cressim::neo::tests::helpers::isValidReadback(event))
     {
         return false;
     }
@@ -110,19 +86,7 @@ bool containsNonClearPixel(const GpuRenderTargetReadbackEvent& event)
     {
         for (std::uint32_t x = 0; x < event.width; ++x)
         {
-            const std::size_t offset = static_cast<std::size_t>(y) * event.rowStrideBytes + static_cast<std::size_t>(x) * 4u;
-            const std::uint8_t r = event.colorBytes[offset + 0u];
-            const std::uint8_t g = event.colorBytes[offset + 1u];
-            const std::uint8_t b = event.colorBytes[offset + 2u];
-            const std::uint8_t a = event.colorBytes[offset + 3u];
-
-            const bool nearClear =
-                isNear(r, kClearR, kTolerance) &&
-                isNear(g, kClearG, kTolerance) &&
-                isNear(b, kClearB, kTolerance) &&
-                isNear(a, kClearA, kTolerance);
-
-            if (!nearClear)
+            if (!isClearPixel(cressim::neo::tests::helpers::decodePixel(event, x, y), clearPixel))
             {
                 return true;
             }
@@ -132,41 +96,16 @@ bool containsNonClearPixel(const GpuRenderTargetReadbackEvent& event)
     return false;
 }
 
-std::array<std::uint8_t, 4> readCenterPixel(const GpuRenderTargetReadbackEvent& event)
+bool isRedDominant(const ReadbackPixel& pixel)
 {
-    std::array<std::uint8_t, 4> pixel{0u, 0u, 0u, 0u};
-    if (!isValidReadback(event))
-    {
-        return pixel;
-    }
-
-    const std::uint32_t x = event.width / 2u;
-    const std::uint32_t y = event.height / 2u;
-    const std::size_t offset = static_cast<std::size_t>(y) * event.rowStrideBytes + static_cast<std::size_t>(x) * 4u;
-
-    pixel[0] = event.colorBytes[offset + 0u];
-    pixel[1] = event.colorBytes[offset + 1u];
-    pixel[2] = event.colorBytes[offset + 2u];
-    pixel[3] = event.colorBytes[offset + 3u];
-    return pixel;
+    constexpr float kDominance = 0.05f;
+    return pixel.r > pixel.g + kDominance && pixel.r > pixel.b + kDominance;
 }
 
-bool isRedDominant(const std::array<std::uint8_t, 4>& pixel)
+bool isGreenDominant(const ReadbackPixel& pixel)
 {
-    constexpr int kDominance = 10;
-    const int r = static_cast<int>(pixel[0]);
-    const int g = static_cast<int>(pixel[1]);
-    const int b = static_cast<int>(pixel[2]);
-    return r > g + kDominance && r > b + kDominance;
-}
-
-bool isGreenDominant(const std::array<std::uint8_t, 4>& pixel)
-{
-    constexpr int kDominance = 10;
-    const int r = static_cast<int>(pixel[0]);
-    const int g = static_cast<int>(pixel[1]);
-    const int b = static_cast<int>(pixel[2]);
-    return g > r + kDominance && g > b + kDominance;
+    constexpr float kDominance = 0.05f;
+    return pixel.g > pixel.r + kDominance && pixel.g > pixel.b + kDominance;
 }
 
 struct DominantPixelStats
@@ -176,38 +115,46 @@ struct DominantPixelStats
     std::uint64_t greenDominantCount = 0;
 };
 
-DominantPixelStats analyzeDominantPixels(const GpuRenderTargetReadbackEvent& event)
+struct PixelRect
+{
+    std::uint32_t startX = 0;
+    std::uint32_t startY = 0;
+    std::uint32_t endX = 0;
+    std::uint32_t endY = 0;
+};
+
+PixelRect makeCenterWindowRect(const GpuRenderTargetReadbackEvent& event)
+{
+    const std::uint32_t centerX = event.width / 2u;
+    const std::uint32_t centerY = event.height / 2u;
+    return {
+        centerX > kCenterWindowRadius ? centerX - kCenterWindowRadius : 0u,
+        centerY > kCenterWindowRadius ? centerY - kCenterWindowRadius : 0u,
+        centerX + kCenterWindowRadius + 1u,
+        centerY + kCenterWindowRadius + 1u};
+}
+
+DominantPixelStats analyzeDominantPixelsInRect(const GpuRenderTargetReadbackEvent& event,
+                                               const PixelRect& rect,
+                                               const ReadbackPixel& clearPixel)
 {
     DominantPixelStats stats{};
-    if (!isValidReadback(event))
+    if (!cressim::neo::tests::helpers::isValidReadback(event))
     {
         return stats;
     }
 
-    constexpr std::uint8_t kClearR = 5;
-    constexpr std::uint8_t kClearG = 5;
-    constexpr std::uint8_t kClearB = 8;
-    constexpr std::uint8_t kClearA = 255;
-    constexpr std::uint8_t kTolerance = 2;
+    const std::uint32_t clampedStartX = std::min(rect.startX, event.width);
+    const std::uint32_t clampedStartY = std::min(rect.startY, event.height);
+    const std::uint32_t clampedEndX = std::min(rect.endX, event.width);
+    const std::uint32_t clampedEndY = std::min(rect.endY, event.height);
 
-    for (std::uint32_t y = 0; y < event.height; ++y)
+    for (std::uint32_t y = clampedStartY; y < clampedEndY; ++y)
     {
-        for (std::uint32_t x = 0; x < event.width; ++x)
+        for (std::uint32_t x = clampedStartX; x < clampedEndX; ++x)
         {
-            const std::size_t offset = static_cast<std::size_t>(y) * event.rowStrideBytes + static_cast<std::size_t>(x) * 4u;
-            const std::array<std::uint8_t, 4> pixel{
-                event.colorBytes[offset + 0u],
-                event.colorBytes[offset + 1u],
-                event.colorBytes[offset + 2u],
-                event.colorBytes[offset + 3u]};
-
-            const bool nearClear =
-                isNear(pixel[0], kClearR, kTolerance) &&
-                isNear(pixel[1], kClearG, kTolerance) &&
-                isNear(pixel[2], kClearB, kTolerance) &&
-                isNear(pixel[3], kClearA, kTolerance);
-
-            if (nearClear)
+            const ReadbackPixel pixel = cressim::neo::tests::helpers::decodePixel(event, x, y);
+            if (isClearPixel(pixel, clearPixel))
             {
                 continue;
             }
@@ -227,6 +174,13 @@ DominantPixelStats analyzeDominantPixels(const GpuRenderTargetReadbackEvent& eve
     return stats;
 }
 
+DominantPixelStats analyzeDominantPixels(const GpuRenderTargetReadbackEvent& event,
+                                         const ReadbackPixel& clearPixel)
+{
+    return analyzeDominantPixelsInRect(event, PixelRect{0u, 0u, event.width, event.height},
+                                       clearPixel);
+}
+
 std::string withSuffixBeforeExtension(std::string path, const std::string& suffix)
 {
     const std::size_t slash = path.find_last_of("/\\");
@@ -237,37 +191,6 @@ std::string withSuffixBeforeExtension(std::string path, const std::string& suffi
     }
     path.insert(dot, suffix);
     return path;
-}
-
-bool writePpm(const std::string& path, const GpuRenderTargetReadbackEvent& event)
-{
-    if (!isValidReadback(event))
-    {
-        return false;
-    }
-
-    std::ofstream out(path, std::ios::binary);
-    if (!out.is_open())
-    {
-        return false;
-    }
-
-    out << "P6\n" << event.width << " " << event.height << "\n255\n";
-
-    std::vector<std::uint8_t> rgbRow(static_cast<std::size_t>(event.width) * 3u);
-    for (std::uint32_t y = 0; y < event.height; ++y)
-    {
-        const std::uint8_t* src = event.colorBytes.data() + static_cast<std::size_t>(y) * event.rowStrideBytes;
-        for (std::uint32_t x = 0; x < event.width; ++x)
-        {
-            rgbRow[static_cast<std::size_t>(x) * 3u + 0u] = src[static_cast<std::size_t>(x) * 4u + 0u];
-            rgbRow[static_cast<std::size_t>(x) * 3u + 1u] = src[static_cast<std::size_t>(x) * 4u + 1u];
-            rgbRow[static_cast<std::size_t>(x) * 3u + 2u] = src[static_cast<std::size_t>(x) * 4u + 2u];
-        }
-        out.write(reinterpret_cast<const char*>(rgbRow.data()), static_cast<std::streamsize>(rgbRow.size()));
-    }
-
-    return out.good();
 }
 
 MeshResourceDesc makeCubeMesh(float halfExtent)
@@ -309,35 +232,15 @@ MeshResourceDesc makeCubeMesh(float halfExtent)
 int main(int argc, char** argv)
 {
     RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
+    config.gpuDeviceDesc.preferredBackend = cressim::neo::gpu::GpuBackend::Vulkan;
     config.gpuDeviceDesc.enableValidation = false;
 
-    std::uint64_t numFrames = 2;
-    std::string outputPath = "cube_depth_readback.ppm";
+    constexpr std::uint64_t kNumFrames = 2u;
+    std::string outputPath;
 
     for (int i = 1; i < argc; ++i)
     {
         const std::string arg = argv[i];
-        if (arg == "--backend")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            config.gpuDeviceDesc.preferredBackend = parseBackend(argv[++i]);
-            continue;
-        }
-        if (arg == "--frames")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            numFrames = static_cast<std::uint64_t>(std::strtoull(argv[++i], nullptr, 10));
-            continue;
-        }
         if (arg == "--output")
         {
             if (i + 1 >= argc)
@@ -348,35 +251,9 @@ int main(int argc, char** argv)
             outputPath = argv[++i];
             continue;
         }
-        if (arg == "--validation")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            const std::string value = argv[++i];
-            if (value == "on")
-            {
-                config.gpuDeviceDesc.enableValidation = true;
-                continue;
-            }
-            if (value == "off")
-            {
-                config.gpuDeviceDesc.enableValidation = false;
-                continue;
-            }
-            printUsage(argv[0]);
-            return 2;
-        }
 
         printUsage(argv[0]);
         return 2;
-    }
-
-    if (numFrames < 2)
-    {
-        numFrames = 2;
     }
 
     Runtime runtime;
@@ -418,6 +295,7 @@ int main(int argc, char** argv)
     camera.outputWidth = targetDesc.width;
     camera.outputHeight = targetDesc.height;
     camera.viewport = {0.0f, 0.0f, 1.0f, 1.0f};
+    camera.clearColorValue = {0.02f, 0.02f, 0.03f, 1.0f};
     world.setCamera(cameraEntity, camera);
 
     const auto lightEntity = world.createEntity();
@@ -452,7 +330,7 @@ int main(int argc, char** argv)
     MeshRendererComponent frontCube{};
     frontCube.mesh = cubeMesh;
     frontCube.material = frontMaterial;
-    // Start hidden to capture a back-only frame, then enable to verify depth at overlap.
+    // Start hidden to capture a back-only frame, then enable the front cube to verify depth at overlap.
     frontCube.visible = false;
     world.setMeshRenderer(frontCubeEntity, frontCube);
 
@@ -472,7 +350,7 @@ int main(int argc, char** argv)
     FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
     std::vector<GpuRenderTargetReadbackRequest> readbackRequests;
-    for (std::uint64_t i = 0; i < numFrames; ++i)
+    for (std::uint64_t i = 0; i < kNumFrames; ++i)
     {
         if (i == 1)
         {
@@ -504,7 +382,8 @@ int main(int argc, char** argv)
         {
             continue;
         }
-        if (event.binding.target.id == target.id && !event.colorBytes.empty() && isValidReadback(event))
+        if (event.binding.target.id == target.id && !event.colorBytes.empty() &&
+            cressim::neo::tests::helpers::isValidReadback(event))
         {
             if (!hasBackOnlyPayload || event.frameIndex < backOnlyCapture.frameIndex)
             {
@@ -521,42 +400,53 @@ int main(int argc, char** argv)
 
     runtime.shutdown();
 
-    if (config.gpuDeviceDesc.preferredBackend == GpuBackend::Null)
-    {
-        CRESSIM_LOG_INFO("Null backend selected; depth capture skipped.\n");
-        return 0;
-    }
-
     if (!hasBackOnlyPayload || !hasLayeredPayload)
     {
         CRESSIM_LOG_ERROR( "Expected two readback payloads (back-only and layered), but did not receive them.\n");
         return 1;
     }
 
-    if (!containsNonClearPixel(layeredCapture))
+    const ReadbackPixel clearPixel{camera.clearColorValue.x, camera.clearColorValue.y,
+                                   camera.clearColorValue.z, camera.clearColorValue.w};
+
+    if (!containsNonClearPixel(layeredCapture, clearPixel))
     {
         CRESSIM_LOG_ERROR( "Captured image appears to contain only clear color.\n");
         return 1;
     }
 
-    const auto backOnlyCenter = readCenterPixel(backOnlyCapture);
-    const auto layeredCenter = readCenterPixel(layeredCapture);
-    if (!isGreenDominant(backOnlyCenter))
+    const auto backOnlyCenter = cressim::neo::tests::helpers::readCenterPixel(backOnlyCapture);
+    const auto layeredCenter = cressim::neo::tests::helpers::readCenterPixel(layeredCapture);
+    const PixelRect centerWindow = makeCenterWindowRect(backOnlyCapture);
+    const DominantPixelStats backOnlyCenterStats =
+        analyzeDominantPixelsInRect(backOnlyCapture, centerWindow, clearPixel);
+    const DominantPixelStats layeredCenterStats =
+        analyzeDominantPixelsInRect(layeredCapture, centerWindow, clearPixel);
+
+    if (backOnlyCenterStats.greenDominantCount == 0u ||
+        backOnlyCenterStats.greenDominantCount <= backOnlyCenterStats.redDominantCount)
     {
-        CRESSIM_LOG_ERROR( "Back-only frame center pixel expected green dominance. Observed RGBA=("
-                  , static_cast<unsigned>(backOnlyCenter[0]) , ", " , static_cast<unsigned>(backOnlyCenter[1]) , ", "
-                  , static_cast<unsigned>(backOnlyCenter[2]) , ", " , static_cast<unsigned>(backOnlyCenter[3]) , ")\n");
+        CRESSIM_LOG_ERROR( "Back-only frame center window expected green dominance. Center RGBA=("
+                  , backOnlyCenter.r , ", " , backOnlyCenter.g , ", "
+                  , backOnlyCenter.b , ", " , backOnlyCenter.a
+                  , "), center-window red=" , backOnlyCenterStats.redDominantCount
+                  , ", green=" , backOnlyCenterStats.greenDominantCount
+                  , ", non-clear=" , backOnlyCenterStats.nonClearCount , '\n');
         return 1;
     }
-    if (!isRedDominant(layeredCenter))
+    if (layeredCenterStats.redDominantCount == 0u ||
+        layeredCenterStats.redDominantCount <= layeredCenterStats.greenDominantCount)
     {
-        CRESSIM_LOG_ERROR( "Layered frame center pixel expected red dominance from near cube. Observed RGBA=("
-                  , static_cast<unsigned>(layeredCenter[0]) , ", " , static_cast<unsigned>(layeredCenter[1]) , ", "
-                  , static_cast<unsigned>(layeredCenter[2]) , ", " , static_cast<unsigned>(layeredCenter[3]) , ")\n");
+        CRESSIM_LOG_ERROR( "Layered frame center window expected red dominance from near cube. Center RGBA=("
+                  , layeredCenter.r , ", " , layeredCenter.g , ", "
+                  , layeredCenter.b , ", " , layeredCenter.a
+                  , "), center-window red=" , layeredCenterStats.redDominantCount
+                  , ", green=" , layeredCenterStats.greenDominantCount
+                  , ", non-clear=" , layeredCenterStats.nonClearCount , '\n');
         return 1;
     }
 
-    const DominantPixelStats layeredStats = analyzeDominantPixels(layeredCapture);
+    const DominantPixelStats layeredStats = analyzeDominantPixels(layeredCapture, clearPixel);
     if (layeredStats.redDominantCount < 200u || layeredStats.greenDominantCount < 80u)
     {
         CRESSIM_LOG_ERROR( "Layered frame expected substantial red and green regions, but counts were red="
@@ -565,24 +455,38 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    if (!writePpm(outputPath, layeredCapture))
+    if (!outputPath.empty() &&
+        !cressim::neo::tests::helpers::writePpm(outputPath, layeredCapture))
     {
         CRESSIM_LOG_ERROR( "Failed to write image: " , outputPath , '\n');
         return 1;
     }
-    const std::string backOnlyPath = withSuffixBeforeExtension(outputPath, "_back_only");
-    if (!writePpm(backOnlyPath, backOnlyCapture))
+    std::string backOnlyPath;
+    if (!outputPath.empty())
     {
-        CRESSIM_LOG_ERROR( "Failed to write image: " , backOnlyPath , '\n');
-        return 1;
+        backOnlyPath = withSuffixBeforeExtension(outputPath, "_back_only");
+        if (!cressim::neo::tests::helpers::writePpm(backOnlyPath, backOnlyCapture))
+        {
+            CRESSIM_LOG_ERROR( "Failed to write image: " , backOnlyPath , '\n');
+            return 1;
+        }
     }
 
-    CRESSIM_LOG_INFO( "Cube depth capture passed. back-only center RGBA=(" , static_cast<unsigned>(backOnlyCenter[0]) , ", "
-              , static_cast<unsigned>(backOnlyCenter[1]) , ", " , static_cast<unsigned>(backOnlyCenter[2]) , ", "
-              , static_cast<unsigned>(backOnlyCenter[3]) , "), layered center RGBA=("
-              , static_cast<unsigned>(layeredCenter[0]) , ", " , static_cast<unsigned>(layeredCenter[1]) , ", "
-              , static_cast<unsigned>(layeredCenter[2]) , ", " , static_cast<unsigned>(layeredCenter[3]) , "), "
-              , "layered dominant counts red=" , layeredStats.redDominantCount , ", green=" , layeredStats.greenDominantCount , ", "
-              , "wrote layered image to " , outputPath , " and back-only image to " , backOnlyPath , '\n');
+    CRESSIM_LOG_INFO( "Cube depth capture passed. back-only center RGBA=(" , backOnlyCenter.r , ", "
+              , backOnlyCenter.g , ", " , backOnlyCenter.b , ", "
+              , backOnlyCenter.a , "), layered center RGBA=("
+              , layeredCenter.r , ", " , layeredCenter.g , ", "
+              , layeredCenter.b , ", " , layeredCenter.a , "), "
+              , "layered dominant counts red=" , layeredStats.redDominantCount , ", green="
+              , layeredStats.greenDominantCount);
+    if (!outputPath.empty())
+    {
+        CRESSIM_LOG_INFO( ", wrote layered image to " , outputPath , " and back-only image to "
+                  , backOnlyPath , '\n');
+    }
+    else
+    {
+        CRESSIM_LOG_INFO( ".\n");
+    }
     return 0;
 }

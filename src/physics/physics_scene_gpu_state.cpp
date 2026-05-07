@@ -1,5 +1,6 @@
 #include "physics/physics_scene_gpu_state.h"
 
+#include "common/logger.h"
 #include "gpu/gpu_buffer_utils.h"
 #include "physics/rigid_body_common.h"
 
@@ -1761,6 +1762,9 @@ bool PhysicsSceneGpuState::uploadJointCollisionSuppression(
     const std::vector<std::uint32_t> &neighbors       = suppression.neighbors;
     if (neighborOffsets.size() != static_cast<std::size_t>(bodyCount + 1u))
     {
+        CRESSIM_LOG_ERROR("PhysicsSceneGpuState: joint collision suppression offsets size ",
+                          neighborOffsets.size(),
+                          " did not match expected bodyCount+1=", (bodyCount + 1u), ".");
         return false;
     }
 

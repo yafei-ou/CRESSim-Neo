@@ -1,6 +1,8 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/inertia.h"
+#include "helpers/shape_meshes.h"
 #include "viewer/debug_viewer_app.h"
 
 #include <cmath>
@@ -36,7 +38,6 @@ using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerAppDesc;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
-constexpr float kPi = 3.14159265358979323846f;
 constexpr float kEpsilon = 1.0e-6f;
 constexpr std::uint32_t kGroundCollisionLayer = 1u << 0u;
 constexpr std::uint32_t kBallClusterLayer = 1u << 1u;
@@ -143,130 +144,6 @@ void printUsage(const char *appName)
                       " [--joint-velocity-drive] [--suppress-connected-collisions]\n");
 }
 
-MeshResourceDesc makeBoxMesh(const Diligent::float3 &halfExtents)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "RigidJointViewer.BoxMesh";
-    mesh.vertices.reserve(24);
-    mesh.indices.reserve(36);
-
-    const auto addFace = [&](const Diligent::float3 &normal, const Diligent::float3 &v0,
-                             const Diligent::float3 &v1, const Diligent::float3 &v2,
-                             const Diligent::float3 &v3) {
-        const std::uint32_t base = static_cast<std::uint32_t>(mesh.vertices.size());
-        mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
-        mesh.vertices.push_back({v1, normal, 1.0f, 0.0f});
-        mesh.vertices.push_back({v2, normal, 1.0f, 1.0f});
-        mesh.vertices.push_back({v3, normal, 0.0f, 1.0f});
-
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 2u);
-        mesh.indices.push_back(base + 1u);
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 3u);
-        mesh.indices.push_back(base + 2u);
-    };
-
-    const float hx = halfExtents.x;
-    const float hy = halfExtents.y;
-    const float hz = halfExtents.z;
-    addFace({0.0f, 0.0f, 1.0f}, {-hx, -hy, hz}, {hx, -hy, hz}, {hx, hy, hz}, {-hx, hy, hz});
-    addFace({0.0f, 0.0f, -1.0f}, {hx, -hy, -hz}, {-hx, -hy, -hz}, {-hx, hy, -hz}, {hx, hy, -hz});
-    addFace({-1.0f, 0.0f, 0.0f}, {-hx, -hy, -hz}, {-hx, -hy, hz}, {-hx, hy, hz}, {-hx, hy, -hz});
-    addFace({1.0f, 0.0f, 0.0f}, {hx, -hy, hz}, {hx, -hy, -hz}, {hx, hy, -hz}, {hx, hy, hz});
-    addFace({0.0f, 1.0f, 0.0f}, {-hx, hy, hz}, {hx, hy, hz}, {hx, hy, -hz}, {-hx, hy, -hz});
-    addFace({0.0f, -1.0f, 0.0f}, {-hx, -hy, -hz}, {hx, -hy, -hz}, {hx, -hy, hz}, {-hx, -hy, hz});
-    return mesh;
-}
-
-MeshResourceDesc makePlaneMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "RigidJointViewer.PlaneMesh";
-    const float h = halfExtent;
-    mesh.vertices = {
-        {{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f},
-        {{h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 1.0f, 0.0f},
-        {{h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 1.0f, 1.0f},
-        {{-h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 0.0f, 1.0f}};
-    mesh.indices = {0u, 1u, 2u, 0u, 2u, 3u};
-    return mesh;
-}
-
-MeshResourceDesc makeSphereMesh(float radius, std::uint32_t slices, std::uint32_t stacks)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "RigidJointViewer.SphereMesh";
-    mesh.vertices.reserve((stacks + 1u) * (slices + 1u));
-    mesh.indices.reserve(stacks * slices * 6u);
-
-    for (std::uint32_t stack = 0u; stack <= stacks; ++stack)
-    {
-        const float v = static_cast<float>(stack) / static_cast<float>(stacks);
-        const float phi = v * kPi;
-        const float y = std::cos(phi);
-        const float ringRadius = std::sin(phi);
-
-        for (std::uint32_t slice = 0u; slice <= slices; ++slice)
-        {
-            const float u = static_cast<float>(slice) / static_cast<float>(slices);
-            const float theta = u * (2.0f * kPi);
-            const float x = ringRadius * std::cos(theta);
-            const float z = ringRadius * std::sin(theta);
-            const Diligent::float3 normal{x, y, z};
-            mesh.vertices.push_back({normal * radius, normal, u, v});
-        }
-    }
-
-    const std::uint32_t ring = slices + 1u;
-    for (std::uint32_t stack = 0u; stack < stacks; ++stack)
-    {
-        for (std::uint32_t slice = 0u; slice < slices; ++slice)
-        {
-            const std::uint32_t i0 = stack * ring + slice;
-            const std::uint32_t i1 = i0 + 1u;
-            const std::uint32_t i2 = i0 + ring;
-            const std::uint32_t i3 = i2 + 1u;
-            mesh.indices.push_back(i0);
-            mesh.indices.push_back(i2);
-            mesh.indices.push_back(i1);
-            mesh.indices.push_back(i1);
-            mesh.indices.push_back(i2);
-            mesh.indices.push_back(i3);
-        }
-    }
-
-    return mesh;
-}
-
-Diligent::float3 computeBoxInverseInertia(const Diligent::float3 &halfExtents, float inverseMass)
-{
-    if (inverseMass <= 0.0f)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    const float mass = 1.0f / inverseMass;
-    const float ix = mass * (halfExtents.y * halfExtents.y + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iy = mass * (halfExtents.x * halfExtents.x + halfExtents.z * halfExtents.z) / 3.0f;
-    const float iz = mass * (halfExtents.x * halfExtents.x + halfExtents.y * halfExtents.y) / 3.0f;
-    return {ix > 0.0f ? 1.0f / ix : 0.0f, iy > 0.0f ? 1.0f / iy : 0.0f,
-            iz > 0.0f ? 1.0f / iz : 0.0f};
-}
-
-Diligent::float3 computeSphereInverseInertia(float radius, float inverseMass)
-{
-    if (inverseMass <= 0.0f)
-    {
-        return {0.0f, 0.0f, 0.0f};
-    }
-
-    const float mass = 1.0f / inverseMass;
-    const float inertia = 0.4f * mass * radius * radius;
-    const float inv = inertia > 0.0f ? 1.0f / inertia : 0.0f;
-    return {inv, inv, inv};
-}
-
 MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &resources,
                                 const char *name, const Diligent::float3 &baseColor,
                                 float roughness)
@@ -336,7 +213,9 @@ void authorBallJointCluster(Runtime &runtime, MeshHandle anchorMesh, MeshHandle 
         const auto entity = world.createEntity();
         RigidBodyComponent body{};
         body.inverseMass = 1.0f;
-        body.inverseInertiaLocal = computeSphereInverseInertia(kViewerSphereMeshRadius, body.inverseMass);
+        body.inverseInertiaLocal =
+            cressim::neo::examples::helpers::computeSphereInverseInertia(
+                kViewerSphereMeshRadius, body.inverseMass);
         if (i == 2u)
         {
             body.linearVelocity = {0.0f, 0.0f, 2.2f};
@@ -419,7 +298,8 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
         RigidBodyComponent body{};
         body.inverseMass = 0.75f;
         body.inverseInertiaLocal =
-            computeBoxInverseInertia({kLinkHalfX, kLinkHalfY, kLinkHalfX}, body.inverseMass);
+            cressim::neo::examples::helpers::computeBoxInverseInertia(
+                {kLinkHalfX, kLinkHalfY, kLinkHalfX}, body.inverseMass);
 
         ColliderComponent collider{};
         collider.shapeType = ColliderShapeType::Box;
@@ -504,7 +384,8 @@ void authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh, MeshHandle
     RigidBodyComponent sliderBody{};
     sliderBody.inverseMass = 1.0f;
     sliderBody.inverseInertiaLocal =
-        computeBoxInverseInertia(kSliderHalfExtents, sliderBody.inverseMass);
+        cressim::neo::examples::helpers::computeBoxInverseInertia(
+            kSliderHalfExtents, sliderBody.inverseMass);
     sliderBody.linearVelocity = {1.5f, 0.0f, 0.0f};
     sliderBody.angularVelocity = {0.0f, 0.0f, 0.0f};
     ColliderComponent sliderCollider{};
@@ -540,7 +421,8 @@ void authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh, MeshHandle
     RigidBodyComponent stageBody{};
     stageBody.inverseMass = 0.85f;
     stageBody.inverseInertiaLocal =
-        computeBoxInverseInertia(kSliderHalfExtents, stageBody.inverseMass);
+        cressim::neo::examples::helpers::computeBoxInverseInertia(
+            kSliderHalfExtents, stageBody.inverseMass);
     ColliderComponent stageCollider{};
     stageCollider.shapeType = ColliderShapeType::Box;
     stageCollider.shapeParams = {kSliderHalfExtents.x, kSliderHalfExtents.y, kSliderHalfExtents.z, 0.0f};
@@ -583,7 +465,9 @@ void authorDropDisturbers(Runtime &runtime, MeshHandle hingeDropMesh, MeshHandle
     const auto ballDrop = world.createEntity();
     RigidBodyComponent ballDropBody{};
     ballDropBody.inverseMass = 0.75f;
-    ballDropBody.inverseInertiaLocal = computeSphereInverseInertia(kDropSphereRadius, ballDropBody.inverseMass);
+    ballDropBody.inverseInertiaLocal =
+        cressim::neo::examples::helpers::computeSphereInverseInertia(
+            kDropSphereRadius, ballDropBody.inverseMass);
     ColliderComponent ballDropCollider{};
     ballDropCollider.shapeType = ColliderShapeType::Sphere;
     ballDropCollider.shapeParams = {kDropSphereRadius, 0.0f, 0.0f, 0.0f};
@@ -597,7 +481,8 @@ void authorDropDisturbers(Runtime &runtime, MeshHandle hingeDropMesh, MeshHandle
     RigidBodyComponent hingeDropBody{};
     hingeDropBody.inverseMass = 0.85f;
     hingeDropBody.inverseInertiaLocal =
-        computeBoxInverseInertia({0.4f, 0.4f, 0.4f}, hingeDropBody.inverseMass);
+        cressim::neo::examples::helpers::computeBoxInverseInertia(
+            {0.4f, 0.4f, 0.4f}, hingeDropBody.inverseMass);
     hingeDropBody.angularVelocity = {0.8f, 0.2f, -0.4f};
     ColliderComponent hingeDropCollider{};
     hingeDropCollider.shapeType = ColliderShapeType::Box;
@@ -611,7 +496,9 @@ void authorDropDisturbers(Runtime &runtime, MeshHandle hingeDropMesh, MeshHandle
     const auto sliderDrop = world.createEntity();
     RigidBodyComponent sliderDropBody{};
     sliderDropBody.inverseMass = 0.8f;
-    sliderDropBody.inverseInertiaLocal = computeSphereInverseInertia(kDropSphereRadius, sliderDropBody.inverseMass);
+    sliderDropBody.inverseInertiaLocal =
+        cressim::neo::examples::helpers::computeSphereInverseInertia(
+            kDropSphereRadius, sliderDropBody.inverseMass);
     sliderDropBody.angularVelocity = {0.0f, 0.0f, 0.0f};
     ColliderComponent sliderDropCollider{};
     sliderDropCollider.shapeType = ColliderShapeType::Sphere;
@@ -729,20 +616,29 @@ int main(int argc, char **argv)
         world.setDirectionalLight(lightEntity, light);
 
         auto &resources = runtime.getResources();
-        const MeshHandle planeMesh = resources.registerMesh(makePlaneMesh(24.0f));
-        const MeshHandle sphereMesh = resources.registerMesh(makeSphereMesh(0.4f, 24u, 16u));
+        const MeshHandle planeMesh = resources.registerMesh(
+            cressim::neo::examples::helpers::makePlaneMesh(24.0f, "RigidJointViewer.PlaneMesh"));
+        const MeshHandle sphereMesh = resources.registerMesh(
+            cressim::neo::examples::helpers::makeSphereMesh(
+                0.4f, 24u, 16u, "RigidJointViewer.SphereMesh"));
         const MeshHandle ballAnchorMesh =
-            resources.registerMesh(makeBoxMesh({0.35f, 0.35f, 0.35f}));
+            resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
+                {0.35f, 0.35f, 0.35f}, "RigidJointViewer.BoxMesh"));
         const MeshHandle hingeBaseMesh =
-            resources.registerMesh(makeBoxMesh({0.45f, 0.35f, 0.35f}));
+            resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
+                {0.45f, 0.35f, 0.35f}, "RigidJointViewer.BoxMesh"));
         const MeshHandle hingeLinkMesh =
-            resources.registerMesh(makeBoxMesh({0.25f, 1.1f, 0.25f}));
+            resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
+                {0.25f, 1.1f, 0.25f}, "RigidJointViewer.BoxMesh"));
         const MeshHandle hingeDropMesh =
-            resources.registerMesh(makeBoxMesh({0.4f, 0.4f, 0.4f}));
+            resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
+                {0.4f, 0.4f, 0.4f}, "RigidJointViewer.BoxMesh"));
         const MeshHandle sliderGuideMesh =
-            resources.registerMesh(makeBoxMesh({3.8f, 0.45f, 0.45f}));
+            resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
+                {3.8f, 0.45f, 0.45f}, "RigidJointViewer.BoxMesh"));
         const MeshHandle sliderCarriageMesh =
-            resources.registerMesh(makeBoxMesh({0.7f, 0.7f, 0.7f}));
+            resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
+                {0.7f, 0.7f, 0.7f}, "RigidJointViewer.BoxMesh"));
 
         const MaterialHandle groundMaterial =
             registerMaterial(resources, "RigidJointViewer.Ground", {0.70f, 0.72f, 0.76f}, 0.88f);

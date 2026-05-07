@@ -62,10 +62,12 @@ private:
         Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
     };
 
+    bool initializeNull();
     bool initializeVulkan();
     bool createPrimarySwapChain();
     bool presentPrimarySwapChain();
     bool queuePresentationReadback(const common::FrameContext &frameContext);
+    void processCompletedPresentationReadbacks();
     bool consumePresentationReadback(PendingPresentationReadback &copy,
                                      GpuPresentationReadbackEvent &outEvent);
 

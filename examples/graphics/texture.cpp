@@ -1,12 +1,13 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/example_cli.h"
+#include "helpers/shape_meshes.h"
+#include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
 
 #include <array>
-#include <cmath>
 #include <cstdint>
-#include <cstdlib>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -18,9 +19,9 @@ using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::Runtime;
-using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::gpu::GpuBackend;
+using cressim::neo::examples::helpers::CommonExampleOptions;
+using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialFeatureFlags;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshResourceDesc;
@@ -28,25 +29,11 @@ using cressim::neo::graphics::TextureColorSpace;
 using cressim::neo::graphics::TextureHandle;
 using cressim::neo::graphics::TextureResourceDesc;
 using cressim::neo::viewer::DebugViewerApp;
-using cressim::neo::viewer::DebugViewerAppDesc;
 using cressim::neo::viewer::DebugViewerCameraBinding;
-
-GpuBackend parseBackend(const std::string &value)
-{
-    if (value == "null")
-    {
-        return GpuBackend::Null;
-    }
-    if (value == "vulkan")
-    {
-        return GpuBackend::Vulkan;
-    }
-    throw std::invalid_argument("Unsupported backend: " + value);
-}
 
 void printUsage(const char *appName)
 {
-    CRESSIM_LOG_ERROR("Usage: ", appName, " [--backend vulkan|null] [--frames N]\n");
+    cressim::neo::examples::helpers::printUsage(appName, "", false);
 }
 
 void setPixel(std::vector<std::uint8_t> &pixels, std::uint32_t width, std::uint32_t x,
@@ -211,64 +198,6 @@ TextureResourceDesc makeAlphaCutoutTexture()
                            std::move(pixels));
 }
 
-MeshResourceDesc makeCubeMesh(float halfExtent)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = "TextureViewer.CubeMesh";
-    mesh.vertices.reserve(24);
-    mesh.indices.reserve(36);
-
-    const auto addFace = [&](const Diligent::float3 &normal, const Diligent::float3 &v0,
-                             const Diligent::float3 &v1, const Diligent::float3 &v2,
-                             const Diligent::float3 &v3)
-    {
-        const std::uint32_t base = static_cast<std::uint32_t>(mesh.vertices.size());
-        mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
-        const Diligent::float3 tangentDir = Diligent::float3{
-            v1.x - v0.x, v1.y - v0.y, v1.z - v0.z};
-        const float tangentLengthSq = tangentDir.x * tangentDir.x + tangentDir.y * tangentDir.y +
-                                      tangentDir.z * tangentDir.z;
-        const float tangentInvLength = tangentLengthSq > 1.0e-6f ? 1.0f / std::sqrt(tangentLengthSq) : 1.0f;
-        const Diligent::float4 tangent = {tangentDir.x * tangentInvLength,
-                                          tangentDir.y * tangentInvLength,
-                                          tangentDir.z * tangentInvLength, 1.0f};
-        mesh.vertices.back().tangent = tangent;
-        mesh.vertices.push_back({v1, normal, 1.0f, 0.0f, tangent});
-        mesh.vertices.push_back({v2, normal, 1.0f, 1.0f, tangent});
-        mesh.vertices.push_back({v3, normal, 0.0f, 1.0f, tangent});
-
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 2u);
-        mesh.indices.push_back(base + 1u);
-        mesh.indices.push_back(base + 0u);
-        mesh.indices.push_back(base + 3u);
-        mesh.indices.push_back(base + 2u);
-    };
-
-    const float h = halfExtent;
-    addFace({0.0f, 0.0f, 1.0f}, {-h, -h, h}, {h, -h, h}, {h, h, h}, {-h, h, h});
-    addFace({0.0f, 0.0f, -1.0f}, {h, -h, -h}, {-h, -h, -h}, {-h, h, -h}, {h, h, -h});
-    addFace({-1.0f, 0.0f, 0.0f}, {-h, -h, -h}, {-h, -h, h}, {-h, h, h}, {-h, h, -h});
-    addFace({1.0f, 0.0f, 0.0f}, {h, -h, h}, {h, -h, -h}, {h, h, -h}, {h, h, h});
-    addFace({0.0f, 1.0f, 0.0f}, {-h, h, h}, {h, h, h}, {h, h, -h}, {-h, h, -h});
-    addFace({0.0f, -1.0f, 0.0f}, {-h, -h, -h}, {h, -h, -h}, {h, -h, h}, {-h, -h, h});
-    return mesh;
-}
-
-MeshResourceDesc makePlaneMesh(float halfExtent, float uvScale, const std::string &debugName)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = debugName;
-    const float h = halfExtent;
-    mesh.vertices = {
-        {{-h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, 0.0f, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
-        {{h, 0.0f, -h}, {0.0f, 1.0f, 0.0f}, uvScale, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},
-        {{h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, uvScale, uvScale, {1.0f, 0.0f, 0.0f, 1.0f}},
-        {{-h, 0.0f, h}, {0.0f, 1.0f, 0.0f}, 0.0f, uvScale, {1.0f, 0.0f, 0.0f, 1.0f}}};
-    mesh.indices = {0u, 1u, 2u, 0u, 2u, 3u};
-    return mesh;
-}
-
 void spawnRenderable(cressim::neo::engine::World &world, cressim::neo::graphics::MeshHandle mesh,
                      cressim::neo::graphics::MaterialHandle material,
                      const Diligent::float3 &position, const Diligent::float3 &scale,
@@ -292,50 +221,42 @@ void spawnRenderable(cressim::neo::engine::World &world, cressim::neo::graphics:
 
 int main(int argc, char **argv)
 {
-    RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
-    config.gpuDeviceDesc.enableValidation = false;
-    std::uint64_t numFrames = 0;
+    CommonExampleOptions options{};
 
-    for (int i = 1; i < argc; ++i)
+    try
     {
-        const std::string arg = argv[i];
-        if (arg == "--backend")
+        for (int i = 1; i < argc; ++i)
         {
-            if (i + 1 >= argc)
+            if (cressim::neo::examples::helpers::tryParseCommonArgument(
+                    argc, argv, i, options, false))
             {
-                printUsage(argv[0]);
-                return 2;
+                continue;
             }
-            config.gpuDeviceDesc.preferredBackend = parseBackend(argv[++i]);
-            continue;
-        }
-        if (arg == "--frames")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            numFrames = static_cast<std::uint64_t>(std::strtoull(argv[++i], nullptr, 10));
-            continue;
-        }
 
+            printUsage(argv[0]);
+            return 2;
+        }
+    }
+    catch (const std::invalid_argument &error)
+    {
+        CRESSIM_LOG_ERROR(error.what(), "\n");
         printUsage(argv[0]);
         return 2;
     }
 
+    auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+
     DebugViewerApp viewer;
-    DebugViewerAppDesc viewerDesc{};
-    const bool windowEnabled = (config.gpuDeviceDesc.preferredBackend != GpuBackend::Null);
-    viewerDesc.windowEnabled = windowEnabled;
-    viewerDesc.windowVisible = windowEnabled;
-    viewerDesc.startFullscreenWindowed = true;
-    viewerDesc.maxFrames = numFrames;
-    viewerDesc.showStats = true;
-    viewerDesc.width = 1440;
-    viewerDesc.height = 900;
-    viewerDesc.windowTitle = "CRESSim Neo Texture Validation Viewer";
+    const auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(
+        options, ViewerExampleDefaults{
+                     .windowTitle = "CRESSim Neo Texture Validation Viewer",
+                     .width = 1440u,
+                     .height = 900u,
+                     .showStats = true,
+                     .vSync = false,
+                     .startFullscreen = false,
+                     .startFullscreenWindowed = true,
+                 });
 
     if (!viewer.initialize(viewerDesc, config))
     {
@@ -367,13 +288,17 @@ int main(int argc, char **argv)
 
     auto &resources = runtime.getResources();
 
-    const auto cubeMesh = resources.registerMesh(makeCubeMesh(0.8f));
+    const auto cubeMesh = resources.registerMesh(
+        cressim::neo::examples::helpers::makeCubeMesh(0.8f, "TextureViewer.CubeMesh"));
     const auto wallPanelMesh =
-        resources.registerMesh(makePlaneMesh(1.0f, 1.0f, "TextureViewer.PanelMesh"));
+        resources.registerMesh(
+            cressim::neo::examples::helpers::makePlaneMesh(1.0f, 1.0f, "TextureViewer.PanelMesh"));
     const auto tiledPanelMesh =
-        resources.registerMesh(makePlaneMesh(1.0f, 4.0f, "TextureViewer.TiledPanelMesh"));
+        resources.registerMesh(cressim::neo::examples::helpers::makePlaneMesh(
+            1.0f, 4.0f, "TextureViewer.TiledPanelMesh"));
     const auto groundMesh =
-        resources.registerMesh(makePlaneMesh(12.0f, 12.0f, "TextureViewer.GroundMesh"));
+        resources.registerMesh(cressim::neo::examples::helpers::makePlaneMesh(
+            12.0f, 12.0f, "TextureViewer.GroundMesh"));
 
     const TextureHandle baseColorTexture =
         resources.registerTexture(makeBaseColorCheckerTexture());

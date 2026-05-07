@@ -55,18 +55,17 @@ int main()
         runtime.tick(frame);
     }
 
-    const std::optional<engine::TransformComponent> finalTransform =
-        world.tryGetTransform(rigidEntity);
-    if (!finalTransform)
+    const physics::RigidBodyState* finalRigidBody = world.physicsWorld().tryGetRigidBody(rigidEntity);
+    if (finalRigidBody == nullptr)
     {
-        CRESSIM_LOG_ERROR( "Rigid transform missing after simulation.\n");
+        CRESSIM_LOG_ERROR( "Rigid body missing after simulation.\n");
         runtime.shutdown();
         return 1;
     }
 
     const float expectedX =
         rigidBody.linearVelocity.x * frame.deltaSeconds * static_cast<float>(kFrames);
-    const float actualX = finalTransform->worldTransform.position.x;
+    const float actualX = finalRigidBody->position.x;
     if (std::fabs(actualX - expectedX) > 0.05f)
     {
         CRESSIM_LOG_ERROR( "Unexpected rigid body integration. expected=" , expectedX
@@ -76,7 +75,7 @@ int main()
     }
 
     const graphics::RenderStats stats = runtime.lastRenderStats();
-    if (stats.cameraCount == 0)
+    if (stats.renderedCameraCount == 0)
     {
         CRESSIM_LOG_ERROR( "Renderer did not execute camera rendering.\n");
         runtime.shutdown();
@@ -84,6 +83,6 @@ int main()
     }
 
     runtime.shutdown();
-    CRESSIM_LOG_INFO( "Physics placeholder SoA compute checks passed.\n");
+    CRESSIM_LOG_INFO( "Physics rigid compute smoke checks passed.\n");
     return 0;
 }
