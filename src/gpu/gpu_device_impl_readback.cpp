@@ -48,13 +48,15 @@ void GpuDeviceImpl::endFrame(const common::FrameContext &frameContext)
         return;
     }
 
+    bool graphicsFrameFinalizedByPresent = false;
     if (mInitialized && supportsPresentationBackend(mBackend) && mGraphicsContext != nullptr)
     {
         (void)queuePresentationReadback(frameContext);
         (void)presentPrimarySwapChain();
+        graphicsFrameFinalizedByPresent = (mPrimarySwapChain != nullptr);
     }
 
-    mRenderTargetSystem->endFrame(frameContext);
+    mRenderTargetSystem->endFrame(frameContext, !graphicsFrameFinalizedByPresent);
     if (mInitialized && supportsPresentationBackend(mBackend) && mGraphicsContext != nullptr)
     {
         processCompletedPresentationReadbacks();

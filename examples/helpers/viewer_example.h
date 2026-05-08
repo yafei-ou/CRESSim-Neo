@@ -22,6 +22,7 @@ inline engine::RuntimeConfig makeRuntimeConfig(const CommonExampleOptions& optio
     engine::RuntimeConfig config{};
     config.gpuDeviceDesc.preferredBackend = options.backend;
     config.gpuDeviceDesc.enableValidation = false;
+    config.physicsDesc.enableBlockingReadback = false;
     return config;
 }
 

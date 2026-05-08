@@ -135,7 +135,8 @@ void GpuRenderTargetSystemImpl::shutdown()
     mGraphicsContext = nullptr;
 }
 
-void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContext)
+void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContext,
+                                         bool submitFrameCommands)
 {
     (void)frameContext;
 
@@ -153,8 +154,11 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContex
         return;
     }
 
-    mGraphicsContext->Flush();
-    mGraphicsContext->FinishFrame();
+    if (submitFrameCommands)
+    {
+        mGraphicsContext->Flush();
+        mGraphicsContext->FinishFrame();
+    }
 
     for (const PendingReadbackCopy &copy : mPendingReadbackCopies)
     {

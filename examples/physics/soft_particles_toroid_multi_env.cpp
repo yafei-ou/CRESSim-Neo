@@ -537,7 +537,6 @@ int main(int argc, char **argv)
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
     config.physicsDesc.softContactIterations  = 20;
     config.physicsDesc.softInternalIterations = 20;
-    config.physicsDesc.enableBlockingReadback = true;
     config.sceneLayout.envCount = options.envCount;
 
     const std::filesystem::path nodeFile = fixturePath("toroid.node");
