@@ -3,7 +3,6 @@
 #include "../../../include/physics/soft/physics_soft_grid.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(uint, g_SoftParticleOwningSoftBodyIndices);
 
 CRESSIM_RW_STRUCTURED_BUFFER(GpuParticleBroadPhaseEntry, g_ParticleBroadPhaseEntries);
 
@@ -29,8 +28,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     entry.cellZ = gz;
     entry.particleIndex = idx;
     entry.particleType = kParticleBroadPhaseEntryTypeSoft;
-    entry.ownerIndex = CRESSIM_SB_LOAD(g_SoftParticleOwningSoftBodyIndices, idx);
     entry.reserved0 = 0u;
+    entry.reserved1 = 0u;
 
     CRESSIM_SB_STORE(g_ParticleBroadPhaseEntries, idx, entry);
 }

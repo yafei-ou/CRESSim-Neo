@@ -53,8 +53,6 @@ constexpr Diligent::ShaderResourceVariableDesc kBuildParticleBroadPhaseEntriesVa
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticlePositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftParticleOwningSoftBodyIndices",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleBroadPhaseEntries",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
@@ -1097,7 +1095,7 @@ const gpu::GpuComputePassDefinition kSoftPredict{
 };
 
 const gpu::GpuComputePassDefinition kBuildParticleBroadPhaseEntries{
-    "physics/soft/broad_phase/physics_soft_rigid_build_broad_phase_particles.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_build_broad_phase_particles.cs.hlsl",
     "CRESSimNeo.Physics.ParticleBuildBroadPhaseEntries.CS",
     "CRESSimNeo.Physics.ParticleBuildBroadPhaseEntries.PSO",
     kBuildParticleBroadPhaseEntriesVars,
@@ -1105,7 +1103,7 @@ const gpu::GpuComputePassDefinition kBuildParticleBroadPhaseEntries{
 };
 
 const gpu::GpuComputePassDefinition kBuildParticleBroadPhaseKeys{
-    "physics/soft/broad_phase/physics_soft_rigid_build_broad_phase_keys.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_build_broad_phase_keys.cs.hlsl",
     "CRESSimNeo.Physics.ParticleBuildBroadPhaseKeys.CS",
     "CRESSimNeo.Physics.ParticleBuildBroadPhaseKeys.PSO",
     kBuildParticleBroadPhaseKeysVars,
@@ -1113,7 +1111,7 @@ const gpu::GpuComputePassDefinition kBuildParticleBroadPhaseKeys{
 };
 
 const gpu::GpuComputePassDefinition kMarkParticleCellRangeStarts{
-    "physics/soft/broad_phase/physics_soft_rigid_mark_cell_range_starts.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_mark_cell_range_starts.cs.hlsl",
     "CRESSimNeo.Physics.ParticleMarkCellRangeStarts.CS",
     "CRESSimNeo.Physics.ParticleMarkCellRangeStarts.PSO",
     kMarkParticleCellRangeStartsVars,
@@ -1121,7 +1119,7 @@ const gpu::GpuComputePassDefinition kMarkParticleCellRangeStarts{
 };
 
 const gpu::GpuComputePassDefinition kClearParticleCellRanges{
-    "physics/soft/broad_phase/physics_soft_rigid_clear_cell_ranges.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_clear_cell_ranges.cs.hlsl",
     "CRESSimNeo.Physics.ParticleClearCellRanges.CS",
     "CRESSimNeo.Physics.ParticleClearCellRanges.PSO",
     kClearParticleCellRangesVars,
@@ -1129,7 +1127,7 @@ const gpu::GpuComputePassDefinition kClearParticleCellRanges{
 };
 
 const gpu::GpuComputePassDefinition kBuildParticleCellRanges{
-    "physics/soft/broad_phase/physics_soft_rigid_build_cell_ranges.cs.hlsl",
+    "physics/soft/broad_phase/physics_soft_build_cell_ranges.cs.hlsl",
     "CRESSimNeo.Physics.ParticleBuildCellRanges.CS",
     "CRESSimNeo.Physics.ParticleBuildCellRanges.PSO",
     kBuildParticleCellRangesVars,

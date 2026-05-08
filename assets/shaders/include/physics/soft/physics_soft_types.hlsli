@@ -19,8 +19,8 @@ struct GpuParticleBroadPhaseEntry
     int cellZ;
     uint particleIndex;
     uint particleType;
-    uint ownerIndex;
     uint reserved0;
+    uint reserved1;
 };
 
 struct GpuSoftCandidatePair

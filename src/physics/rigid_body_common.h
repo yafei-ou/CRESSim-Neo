@@ -180,8 +180,8 @@ struct GpuParticleBroadPhaseEntry
     std::int32_t cellZ          = 0;
     std::uint32_t particleIndex = 0;
     std::uint32_t particleType  = 0;
-    std::uint32_t ownerIndex    = 0;
     std::uint32_t reserved0     = 0;
+    std::uint32_t reserved1     = 0;
 };
 
 struct GpuSoftCandidatePair
