@@ -24,7 +24,7 @@ CRESSIM_STRUCTURED_BUFFER(CameraInput, g_CameraInputs);
 CRESSIM_RW_STRUCTURED_BUFFER(PreparedCamera, g_PreparedCamerasRW);
 
 static const float PI = 3.14159265359f;
-static const float kCascadeSplitLambda = 0.85f;
+static const float kCascadeSplitLambda = 0.50f;
 static const float kCascadeStabilization = 16.0f;
 static const float kCascadeDepthPadding = 16.0f;
 static const float kCascadeCasterExtrusion = 96.0f;

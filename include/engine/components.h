@@ -77,7 +77,7 @@ struct DirectionalLightComponent
     Diligent::float3 color{1.0f, 1.0f, 1.0f};
     float intensity          = 1.0f;
     float range              = 0.0f;
-    float shadowDistance     = 120.0f;
+    float shadowDistance     = 50.0f;
     float shadowFadeDistance = 20.0f;
     float shadowBias         = 0.0015f;
     bool castsShadows        = true;
