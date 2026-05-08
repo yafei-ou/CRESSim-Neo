@@ -90,6 +90,7 @@ public:
     const std::vector<graphics::GpuLocalLightSelection> &localLightSelections() const noexcept;
     const std::vector<graphics::GpuSoftBodyVertexBinding> &softBodyVertexBindings() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &opaqueDrawRegistry() const noexcept;
+    const std::vector<graphics::TransparentDrawEntry> &transparentDrawRegistry() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &shadowDrawRegistry() const noexcept;
     const std::vector<graphics::IndirectCommandRegistryEntry> &localShadowDrawRegistry()
         const noexcept;
@@ -175,6 +176,7 @@ private:
     std::vector<graphics::GpuSoftBodyVertexBinding> mSoftBodyVertexBindingsHost{};
     std::vector<graphics::EnvironmentIblDesc> mEnvironmentIbls{};
     std::vector<graphics::IndirectCommandRegistryEntry> mOpaqueDrawRegistryHost{};
+    std::vector<graphics::TransparentDrawEntry> mTransparentDrawRegistryHost{};
     std::vector<graphics::IndirectCommandRegistryEntry> mShadowDrawRegistryHost{};
     std::vector<graphics::IndirectCommandRegistryEntry> mLocalShadowDrawRegistryHost{};
     graphics::GpuEntitySceneView mGpuEntityScene{};

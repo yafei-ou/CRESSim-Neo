@@ -13,6 +13,8 @@ using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::gpu::GpuGraphicsBackendContext;
 using cressim::neo::graphics::MaterialResourceDesc;
+using cressim::neo::graphics::MaterialFeatureFlags;
+using cressim::neo::graphics::MaterialRenderMode;
 using cressim::neo::graphics::TextureColorSpace;
 using cressim::neo::graphics::TextureDimension;
 using cressim::neo::graphics::TextureHandle;
@@ -172,9 +174,36 @@ int main()
         storedMaterial->normalTexture.id != cressim::neo::common::kInvalidResourceId ||
         storedMaterial->metallicRoughnessTexture.id != linearTexture.id ||
         storedMaterial->emissiveTexture.id != srgbTexture.id ||
-        storedMaterial->aoTexture.id != linearTexture.id)
+        storedMaterial->aoTexture.id != linearTexture.id ||
+        storedMaterial->renderMode != MaterialRenderMode::Opaque ||
+        storedMaterial->renderOrder != 0)
     {
-        CRESSIM_LOG_ERROR("Material texture handles were not preserved.\n");
+        CRESSIM_LOG_ERROR("Material resource properties were not preserved.\n");
+        runtime.shutdown();
+        return 1;
+    }
+
+    MaterialResourceDesc alphaTestDesc{};
+    alphaTestDesc.renderMode = MaterialRenderMode::Cutout;
+    if (cressim::neo::graphics::usesTransparentPass(materialDesc) ||
+        cressim::neo::graphics::usesTransparentPass(alphaTestDesc) ||
+        !cressim::neo::graphics::hasFlag(
+            cressim::neo::graphics::effectiveMaterialFeatureFlags(alphaTestDesc),
+            MaterialFeatureFlags::AlphaTest))
+    {
+        CRESSIM_LOG_ERROR("Unexpected opaque or cutout material mode behavior.\n");
+        runtime.shutdown();
+        return 1;
+    }
+
+    MaterialResourceDesc transparentDesc{};
+    transparentDesc.renderMode = MaterialRenderMode::Transparent;
+    if (!cressim::neo::graphics::usesTransparentPass(transparentDesc) ||
+        cressim::neo::graphics::hasFlag(
+            cressim::neo::graphics::effectiveMaterialFeatureFlags(transparentDesc),
+            MaterialFeatureFlags::AlphaTest))
+    {
+        CRESSIM_LOG_ERROR("Unexpected transparent material mode behavior.\n");
         runtime.shutdown();
         return 1;
     }

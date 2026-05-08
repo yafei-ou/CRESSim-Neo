@@ -31,6 +31,13 @@ struct IndirectCommandRegistryEntry
     std::uint32_t maxVisibleCount = 0u;
 };
 
+struct TransparentDrawEntry
+{
+    ForwardDrawCommand drawCommand{};
+    std::int32_t renderOrder  = 0;
+    std::uint32_t objectIndex = 0xffffffffu;
+};
+
 } // namespace cressim::neo::graphics
 
 #endif // CRESSIM_NEO_GRAPHICS_PASSES_FORWARD_DRAW_TYPES_H

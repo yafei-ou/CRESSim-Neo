@@ -542,14 +542,23 @@ bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBin
         return false;
     }
 
+    const MaterialResourceDesc *material =
+        mResourceManager.tryGetMaterial(MaterialHandle{drawCommand.materialId});
+    if (material == nullptr)
+    {
+        return false;
+    }
+
+    const bool transparentMainPass = material->renderMode == MaterialRenderMode::Transparent;
     const Diligent::TEXTURE_FORMAT depthFormat    = backendContext.activeRenderTargetHasDepth
                                                         ? Diligent::TEX_FORMAT_D32_FLOAT
                                                         : Diligent::TEX_FORMAT_UNKNOWN;
     const MaterialProgramRegistry::ProgramKey key = MaterialProgramRegistry::buildProgramKey(
-        MainPassClass::ForwardOpaque, drawCommand.programFamily, drawCommand.materialFeatureFlags,
-        mIblQualityTier, backendContext.activeRenderTargetColorFormat, depthFormat,
-        backendContext.activeRenderTargetHasDepth, backendContext.activeRenderTargetHasDepth,
-        false);
+        transparentMainPass ? MainPassClass::ForwardTransparent : MainPassClass::ForwardOpaque,
+        drawCommand.programFamily, drawCommand.materialFeatureFlags, mIblQualityTier,
+        backendContext.activeRenderTargetColorFormat, depthFormat,
+        backendContext.activeRenderTargetHasDepth,
+        backendContext.activeRenderTargetHasDepth && !transparentMainPass, transparentMainPass);
     MaterialProgramRegistry::ProgramResources *program = mProgramRegistry->getOrCreateProgram(key);
     if (program == nullptr || program->pipelineState == nullptr)
     {
@@ -1304,6 +1313,45 @@ void ForwardOpaquePass::bindGeometry(Diligent::IDeviceContext *graphicsContext,
                                       Diligent::SET_VERTEX_BUFFERS_FLAG_RESET);
     graphicsContext->SetIndexBuffer(meshBuffers.indexBuffer, 0,
                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+}
+
+bool ForwardOpaquePass::drawIndexed(const gpu::GpuRenderTargetBinding &targetBinding,
+                                    const ForwardDrawCommand &drawCommand)
+{
+    DrawSetup setup{};
+    if (!prepareDraw(targetBinding, drawCommand, setup) || !bindShadowMaps(*setup.program))
+    {
+        return false;
+    }
+    if (!bindSceneBuffers(*setup.program, drawCommand.programFamily))
+    {
+        return false;
+    }
+    if (!bindMaterialTextures(*setup.program, setup.backendContext.renderDevice,
+                              setup.backendContext.graphicsContext, drawCommand.materialId))
+    {
+        return false;
+    }
+    if (!bindEnvironmentIblResources(*setup.program))
+    {
+        return false;
+    }
+    if (!updatePerDrawConstants(setup.backendContext.graphicsContext, drawCommand))
+    {
+        return false;
+    }
+    bindGeometry(setup.backendContext.graphicsContext, *setup.meshBuffers);
+    setup.backendContext.graphicsContext->SetPipelineState(setup.program->pipelineState);
+    setup.backendContext.graphicsContext->CommitShaderResources(
+        setup.program->shaderResourceBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    Diligent::DrawIndexedAttribs drawAttrs{};
+    drawAttrs.IndexType    = Diligent::VT_UINT32;
+    drawAttrs.NumIndices   = drawCommand.indexCount;
+    drawAttrs.NumInstances = 1u;
+    drawAttrs.Flags        = Diligent::DRAW_FLAG_VERIFY_ALL;
+    setup.backendContext.graphicsContext->DrawIndexed(drawAttrs);
+    return true;
 }
 
 bool ForwardOpaquePass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,

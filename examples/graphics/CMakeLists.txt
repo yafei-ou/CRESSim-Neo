@@ -9,3 +9,8 @@ add_cressim_example(
     NAME graphics_skybox_ibl
     SOURCE skybox_ibl.cpp
 )
+
+add_cressim_example(
+    NAME graphics_transparent
+    SOURCE transparent.cpp
+)

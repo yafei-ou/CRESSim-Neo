@@ -83,6 +83,7 @@ struct HostSceneView
     const std::vector<LightData> *lights                                     = nullptr;
     const std::vector<EnvironmentIblDesc> *environmentIbls                   = nullptr;
     const std::vector<IndirectCommandRegistryEntry> *opaqueDrawRegistry      = nullptr;
+    const std::vector<TransparentDrawEntry> *transparentDrawRegistry         = nullptr;
     const std::vector<IndirectCommandRegistryEntry> *shadowDrawRegistry      = nullptr;
     const std::vector<IndirectCommandRegistryEntry> *localShadowDrawRegistry = nullptr;
     const GpuEntitySceneView *gpuEntityScene                                 = nullptr;

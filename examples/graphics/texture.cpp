@@ -23,6 +23,7 @@ using cressim::neo::engine::TransformComponent;
 using cressim::neo::examples::helpers::CommonExampleOptions;
 using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialFeatureFlags;
+using cressim::neo::graphics::MaterialRenderMode;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::graphics::TextureColorSpace;
@@ -375,8 +376,8 @@ int main(int argc, char **argv)
     MaterialResourceDesc alphaCutoutMaterial{};
     alphaCutoutMaterial.debugName = "TextureViewer.AlphaCutout";
     alphaCutoutMaterial.baseColorTexture = alphaTexture;
-    alphaCutoutMaterial.pipeline.featureFlags =
-        MaterialFeatureFlags::AlphaTest | MaterialFeatureFlags::DoubleSided;
+    alphaCutoutMaterial.renderMode = MaterialRenderMode::Cutout;
+    alphaCutoutMaterial.pipeline.featureFlags = MaterialFeatureFlags::DoubleSided;
     alphaCutoutMaterial.pipeline.alphaCutoff = 0.5f;
     alphaCutoutMaterial.castsShadows = false;
     alphaCutoutMaterial.roughness = 0.9f;

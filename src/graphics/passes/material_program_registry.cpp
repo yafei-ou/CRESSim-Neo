@@ -27,6 +27,8 @@ const char *passClassName(MainPassClass passClass)
     {
     case MainPassClass::ForwardOpaque:
         return "ForwardOpaque";
+    case MainPassClass::ForwardTransparent:
+        return "ForwardTransparent";
     default:
         return "Unknown";
     }
@@ -224,7 +226,8 @@ std::size_t MaterialProgramRegistry::cachedProgramCount() const noexcept
 
 bool MaterialProgramRegistry::createProgram(const ProgramKey &key, ProgramResources &outResources)
 {
-    if (key.passClass != MainPassClass::ForwardOpaque ||
+    if ((key.passClass != MainPassClass::ForwardOpaque &&
+         key.passClass != MainPassClass::ForwardTransparent) ||
         (key.programFamily != MaterialProgramFamily::StandardLit &&
          key.programFamily != MaterialProgramFamily::SoftBodyLit))
     {
@@ -262,9 +265,10 @@ bool MaterialProgramRegistry::createProgram(const ProgramKey &key, ProgramResour
     const Diligent::ShaderMacroArray macroArray =
         buildFeatureMacros(macros, key.programFamily, key.featureFlags, key.iblQualityTier);
     const std::string variantSuffix = buildVariantSuffix(key);
-    outResources.vertexShaderName   = "CRESSimNeo.ForwardOpaque.StandardLit.VS." + variantSuffix;
-    outResources.pixelShaderName    = "CRESSimNeo.ForwardOpaque.StandardLit.PS." + variantSuffix;
-    outResources.pipelineStateName  = "CRESSimNeo.ForwardOpaque.StandardLit.PSO." + variantSuffix;
+    const std::string passName      = passClassName(key.passClass);
+    outResources.vertexShaderName   = "CRESSimNeo." + passName + ".StandardLit.VS." + variantSuffix;
+    outResources.pixelShaderName    = "CRESSimNeo." + passName + ".StandardLit.PS." + variantSuffix;
+    outResources.pipelineStateName = "CRESSimNeo." + passName + ".StandardLit.PSO." + variantSuffix;
 
     Diligent::ShaderCreateInfo shaderCreateInfo{};
     shaderCreateInfo.SourceLanguage                  = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
