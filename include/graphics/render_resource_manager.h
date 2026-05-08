@@ -36,9 +36,10 @@ enum class MaterialProgramFamily
     SoftBodyLit,
 };
 
-enum class BlendMode
+enum class MaterialRenderMode
 {
     Opaque,
+    Cutout,
     Transparent,
 };
 
@@ -119,11 +120,35 @@ struct MaterialResourceDesc
     TextureHandle emissiveTexture{};
     TextureHandle aoTexture{};
     MaterialPipelineDesc pipeline{};
-    BlendMode blendMode  = BlendMode::Opaque;
-    float opacity        = 1.0f;
-    bool castsShadows    = true;
-    bool receivesShadows = true;
+    MaterialRenderMode renderMode = MaterialRenderMode::Opaque;
+    // Orders materials only within the same render mode; lower values draw earlier.
+    std::int32_t renderOrder      = 0;
+    float opacity                 = 1.0f;
+    bool castsShadows             = true;
+    bool receivesShadows          = true;
 };
+
+inline bool usesTransparentPass(const MaterialResourceDesc &desc) noexcept
+{
+    return desc.renderMode == MaterialRenderMode::Transparent;
+}
+
+inline MaterialFeatureFlags effectiveMaterialFeatureFlags(const MaterialResourceDesc &desc) noexcept
+{
+    MaterialFeatureFlags flags = desc.pipeline.featureFlags;
+    constexpr std::uint32_t kAlphaTestBit =
+        static_cast<std::uint32_t>(MaterialFeatureFlags::AlphaTest);
+    std::uint32_t rawFlags = static_cast<std::uint32_t>(flags);
+    if (desc.renderMode == MaterialRenderMode::Cutout)
+    {
+        rawFlags |= kAlphaTestBit;
+    }
+    else
+    {
+        rawFlags &= ~kAlphaTestBit;
+    }
+    return static_cast<MaterialFeatureFlags>(rawFlags);
+}
 
 struct TextureResourceDesc
 {

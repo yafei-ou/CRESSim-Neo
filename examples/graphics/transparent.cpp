@@ -18,9 +18,9 @@ using cressim::neo::engine::Runtime;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::examples::helpers::CommonExampleOptions;
 using cressim::neo::examples::helpers::ViewerExampleDefaults;
-using cressim::neo::graphics::BlendMode;
 using cressim::neo::graphics::MaterialFeatureFlags;
 using cressim::neo::graphics::MaterialHandle;
+using cressim::neo::graphics::MaterialRenderMode;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshHandle;
 using cressim::neo::viewer::DebugViewerApp;
@@ -46,7 +46,7 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
 MaterialHandle registerTransparentMaterial(cressim::neo::graphics::RenderResourceManager &resources,
                                            const char *name,
                                            const Diligent::float3 &baseColor, float opacity,
-                                           float roughness)
+                                           float roughness, std::int32_t renderOrder)
 {
     MaterialResourceDesc desc{};
     desc.debugName = name;
@@ -54,7 +54,8 @@ MaterialHandle registerTransparentMaterial(cressim::neo::graphics::RenderResourc
     desc.opacity = opacity;
     desc.roughness = roughness;
     desc.emissiveFactor = {baseColor.x * 0.10f, baseColor.y * 0.10f, baseColor.z * 0.10f};
-    desc.blendMode = BlendMode::Transparent;
+    desc.renderMode = MaterialRenderMode::Transparent;
+    desc.renderOrder = renderOrder;
     desc.castsShadows = false;
     desc.pipeline.featureFlags = MaterialFeatureFlags::DoubleSided;
     return resources.registerMaterial(desc);
@@ -173,11 +174,14 @@ int main(int argc, char **argv)
         const auto brassSphereMaterial = registerMaterial(resources, "TransparentScene.BrassSphere",
                                                           {0.98f, 0.82f, 0.34f}, 1.0f, 0.24f);
         const auto cyanGlassMaterial = registerTransparentMaterial(
-            resources, "TransparentScene.CyanGlass", {0.10f, 0.88f, 0.98f}, 0.62f, 0.52f);
+            resources, "TransparentScene.CyanGlass", {0.10f, 0.88f, 0.98f}, 0.62f, 0.52f,
+            0);
         const auto amberGlassMaterial = registerTransparentMaterial(
-            resources, "TransparentScene.AmberGlass", {0.98f, 0.58f, 0.10f}, 0.56f, 0.48f);
+            resources, "TransparentScene.AmberGlass", {0.98f, 0.58f, 0.10f}, 0.56f, 0.48f,
+            10);
         const auto magentaGlassMaterial = registerTransparentMaterial(
-            resources, "TransparentScene.MagentaGlass", {0.96f, 0.14f, 0.74f}, 0.50f, 0.44f);
+            resources, "TransparentScene.MagentaGlass", {0.96f, 0.14f, 0.74f}, 0.50f, 0.44f,
+            20);
 
         const Diligent::QuaternionF floorAligned =
             Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f},
@@ -234,6 +238,6 @@ int main(int argc, char **argv)
     }
 
     CRESSIM_LOG_INFO(
-        "Transparent viewer finished. Visual checks: overlapping cyan/amber panels should blend over the red cube and brass sphere; the side magenta panel should stay translucent from both sides.\n");
+        "Transparent viewer finished. Visual checks: cyan/amber/magenta panels should show distinct tinting, and higher transparent render orders should appear on top of lower ones where they overlap.\n");
     return 0;
 }

@@ -13,8 +13,14 @@ namespace
 constexpr std::uint32_t kInvalidSlot        = 0xffffffffu;
 constexpr float kSoftBodyVertexMatchEpsilon = 1.0e-3f;
 
+bool rendersInTransparentPass(const graphics::MaterialResourceDesc &material) noexcept
+{
+    return graphics::usesTransparentPass(material);
+}
+
 struct DrawBucketKey
 {
+    std::int32_t renderOrder                      = 0;
     graphics::MaterialProgramFamily programFamily = graphics::MaterialProgramFamily::StandardLit;
     std::uint32_t materialFeatureFlags            = 0u;
     common::ResourceId materialId                 = common::kInvalidResourceId;
@@ -22,6 +28,10 @@ struct DrawBucketKey
 
     [[nodiscard]] bool operator<(const DrawBucketKey &rhs) const noexcept
     {
+        if (renderOrder != rhs.renderOrder)
+        {
+            return renderOrder < rhs.renderOrder;
+        }
         if (programFamily != rhs.programFamily)
         {
             return static_cast<std::uint32_t>(programFamily) <
@@ -1839,8 +1849,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
 
             const graphics::MaterialResourceDesc *material =
                 resources.tryGetMaterial(renderable.material);
-            if (material != nullptr && renderable.visible &&
-                material->blendMode != graphics::BlendMode::Transparent)
+            if (material != nullptr && renderable.visible && !rendersInTransparentPass(*material))
             {
                 renderableFlags |= graphics::GpuRenderableFlags::Opaque;
                 if (material->castsShadows)
@@ -1933,10 +1942,14 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
         const graphics::MeshResourceDesc *mesh = resources.tryGetMesh(renderable.mesh);
         const graphics::MaterialResourceDesc *material =
             resources.tryGetMaterial(renderable.material);
-        if (mesh == nullptr || material == nullptr || mesh->vertices.empty() || mesh->indices.size() < 3)
+        if (mesh == nullptr || material == nullptr || mesh->vertices.empty() ||
+            mesh->indices.size() < 3)
         {
             continue;
         }
+        const std::int32_t renderOrder = material->renderOrder;
+        const graphics::MaterialFeatureFlags materialFeatureFlags =
+            graphics::effectiveMaterialFeatureFlags(*material);
 
         const auto physIt = mPhysicsLinks.find(renderable.entityId);
         const graphics::MaterialProgramFamily programFamily =
@@ -1945,22 +1958,24 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
                 : material->pipeline.programFamily;
 
         const DrawBucketKey key{
+            renderOrder,
             programFamily,
-            static_cast<std::uint32_t>(material->pipeline.featureFlags),
+            static_cast<std::uint32_t>(materialFeatureFlags),
             renderable.material.id,
             renderable.mesh.id,
         };
-        if (material->blendMode == graphics::BlendMode::Transparent)
+        if (rendersInTransparentPass(*material))
         {
             graphics::TransparentDrawEntry transparentEntry{};
-            transparentEntry.drawCommand.programFamily = key.programFamily;
-            transparentEntry.drawCommand.materialFeatureFlags =
-                static_cast<graphics::MaterialFeatureFlags>(key.materialFeatureFlags);
-            transparentEntry.drawCommand.meshId = key.meshId;
-            transparentEntry.drawCommand.materialId = key.materialId;
+            transparentEntry.renderOrder                      = renderOrder;
+            transparentEntry.drawCommand.programFamily        = key.programFamily;
+            transparentEntry.drawCommand.materialFeatureFlags = materialFeatureFlags;
+            transparentEntry.drawCommand.meshId               = key.meshId;
+            transparentEntry.drawCommand.materialId           = key.materialId;
             transparentEntry.drawCommand.meshVersion =
                 resources.meshVersion(graphics::MeshHandle{key.meshId});
-            transparentEntry.drawCommand.indexCount = static_cast<std::uint32_t>(mesh->indices.size());
+            transparentEntry.drawCommand.indexCount =
+                static_cast<std::uint32_t>(mesh->indices.size());
             transparentEntry.objectIndex = objectIndex;
             mTransparentDrawRegistryHost.push_back(transparentEntry);
             continue;

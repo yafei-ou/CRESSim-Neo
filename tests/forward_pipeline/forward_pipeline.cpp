@@ -260,7 +260,7 @@ int main()
 
     MaterialResourceDesc transparentMaterialDesc{};
     transparentMaterialDesc.debugName = "ForwardPipeline.Transparent";
-    transparentMaterialDesc.blendMode = cressim::neo::graphics::BlendMode::Transparent;
+    transparentMaterialDesc.renderMode = cressim::neo::graphics::MaterialRenderMode::Transparent;
     transparentMaterialDesc.opacity = 0.5f;
     transparentMaterialDesc.castsShadows = false;
     const auto transparentMaterial = resources.registerMaterial(transparentMaterialDesc);
@@ -438,11 +438,11 @@ int main()
     }
 
     MaterialResourceDesc featureVariant = runtimeVariantA;
-    featureVariant.pipeline.featureFlags = MaterialFeatureFlags::AlphaTest;
+    featureVariant.renderMode = cressim::neo::graphics::MaterialRenderMode::Cutout;
     const auto keyC = MaterialProgramRegistry::buildProgramKey(
         MainPassClass::ForwardOpaque,
         featureVariant.pipeline.programFamily,
-        featureVariant.pipeline.featureFlags,
+        cressim::neo::graphics::effectiveMaterialFeatureFlags(featureVariant),
         IblQualityTier::Off,
         Diligent::TEX_FORMAT_RGBA8_UNORM,
         Diligent::TEX_FORMAT_D32_FLOAT,

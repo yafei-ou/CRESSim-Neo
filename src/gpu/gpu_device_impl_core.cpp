@@ -5,7 +5,7 @@
 #include <vulkan/vulkan.h>
 
 #if PLATFORM_WIN32
-#    include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #endif
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsTools/interface/ShaderMacroHelper.hpp"
@@ -579,8 +579,7 @@ bool GpuDeviceImpl::createShader(const Diligent::ShaderCreateInfo &createInfo,
     if (isPhysicsShader)
     {
         shaderMacros += shaderCreateInfo.Macros;
-        shaderMacros.Add("CRESSIM_NATIVE_FLOAT_BUFFER_ATOMICS",
-                         mSupportsNativePhysicsFloatAtomics);
+        shaderMacros.Add("CRESSIM_NATIVE_FLOAT_BUFFER_ATOMICS", mSupportsNativePhysicsFloatAtomics);
         shaderCreateInfo.Macros = shaderMacros;
     }
     if (mBackend == GpuBackend::Vulkan)
@@ -888,14 +887,15 @@ bool GpuDeviceImpl::initializeD3D12()
         Diligent::ImmediateContextCreateInfo{"CRESSimNeo.GraphicsContext", 0u},
         Diligent::ImmediateContextCreateInfo{"CRESSimNeo.PhysicsContext", 1u},
     };
-    engineCreateInfo.NumImmediateContexts = static_cast<Diligent::Uint32>(kContextInfo.size());
+    engineCreateInfo.NumImmediateContexts  = static_cast<Diligent::Uint32>(kContextInfo.size());
     engineCreateInfo.pImmediateContextInfo = kContextInfo.data();
 
     std::array<Diligent::IDeviceContext *, 2> contexts = {nullptr, nullptr};
     factoryD3D12->CreateDeviceAndContextsD3D12(engineCreateInfo, &mRenderDevice, contexts.data());
     if (mRenderDevice == nullptr || contexts[0] == nullptr || contexts[1] == nullptr)
     {
-        CRESSIM_LOG_ERROR("D3D12 device creation failed to produce split graphics/physics contexts.");
+        CRESSIM_LOG_ERROR(
+            "D3D12 device creation failed to produce split graphics/physics contexts.");
         return false;
     }
 

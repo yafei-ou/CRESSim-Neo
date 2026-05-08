@@ -71,9 +71,9 @@ struct FrameRenderPlan
 
 struct ForwardPassExecutionStats
 {
-    std::uint32_t opaqueDrawCalls = 0;
+    std::uint32_t opaqueDrawCalls      = 0;
     std::uint32_t transparentDrawCalls = 0;
-    std::uint32_t shadowDrawCalls = 0;
+    std::uint32_t shadowDrawCalls      = 0;
 };
 
 } // namespace cressim::neo::graphics

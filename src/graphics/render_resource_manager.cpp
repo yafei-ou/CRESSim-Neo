@@ -143,7 +143,8 @@ void generateTangents(MeshResourceDesc &desc)
 
 MaterialResourceDesc normalizeMaterialDesc(const MaterialResourceDesc &desc)
 {
-    MaterialResourceDesc normalized = desc;
+    MaterialResourceDesc normalized  = desc;
+    normalized.pipeline.featureFlags = effectiveMaterialFeatureFlags(normalized);
     if (normalized.normalTexture.id != common::kInvalidResourceId)
     {
         normalized.pipeline.featureFlags |= MaterialFeatureFlags::NormalMap;

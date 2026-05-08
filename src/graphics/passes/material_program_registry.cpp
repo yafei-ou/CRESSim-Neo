@@ -268,7 +268,7 @@ bool MaterialProgramRegistry::createProgram(const ProgramKey &key, ProgramResour
     const std::string passName      = passClassName(key.passClass);
     outResources.vertexShaderName   = "CRESSimNeo." + passName + ".StandardLit.VS." + variantSuffix;
     outResources.pixelShaderName    = "CRESSimNeo." + passName + ".StandardLit.PS." + variantSuffix;
-    outResources.pipelineStateName  = "CRESSimNeo." + passName + ".StandardLit.PSO." + variantSuffix;
+    outResources.pipelineStateName = "CRESSimNeo." + passName + ".StandardLit.PSO." + variantSuffix;
 
     Diligent::ShaderCreateInfo shaderCreateInfo{};
     shaderCreateInfo.SourceLanguage                  = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;

@@ -549,17 +549,16 @@ bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBin
         return false;
     }
 
-    const bool transparentMainPass = material->blendMode == BlendMode::Transparent;
+    const bool transparentMainPass = material->renderMode == MaterialRenderMode::Transparent;
     const Diligent::TEXTURE_FORMAT depthFormat    = backendContext.activeRenderTargetHasDepth
                                                         ? Diligent::TEX_FORMAT_D32_FLOAT
                                                         : Diligent::TEX_FORMAT_UNKNOWN;
     const MaterialProgramRegistry::ProgramKey key = MaterialProgramRegistry::buildProgramKey(
         transparentMainPass ? MainPassClass::ForwardTransparent : MainPassClass::ForwardOpaque,
-        drawCommand.programFamily, drawCommand.materialFeatureFlags,
-        mIblQualityTier, backendContext.activeRenderTargetColorFormat, depthFormat,
+        drawCommand.programFamily, drawCommand.materialFeatureFlags, mIblQualityTier,
+        backendContext.activeRenderTargetColorFormat, depthFormat,
         backendContext.activeRenderTargetHasDepth,
-        backendContext.activeRenderTargetHasDepth && !transparentMainPass,
-        transparentMainPass);
+        backendContext.activeRenderTargetHasDepth && !transparentMainPass, transparentMainPass);
     MaterialProgramRegistry::ProgramResources *program = mProgramRegistry->getOrCreateProgram(key);
     if (program == nullptr || program->pipelineState == nullptr)
     {

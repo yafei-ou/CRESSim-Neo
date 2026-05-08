@@ -14,9 +14,9 @@ using cressim::neo::graphics::GpuLightType;
 using cressim::neo::common::SceneLayoutDesc;
 using cressim::neo::graphics::kMainDirectionalLightSlot;
 using cressim::neo::graphics::MaterialResourceDesc;
+using cressim::neo::graphics::MaterialRenderMode;
 using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::graphics::RenderResourceManager;
-using cressim::neo::graphics::BlendMode;
 
 } // namespace
 
@@ -45,7 +45,7 @@ int main()
     const auto material = resources.registerMaterial(materialDesc);
     MaterialResourceDesc transparentMaterialDesc{};
     transparentMaterialDesc.debugName = "LocalShadowRegistry.TransparentMaterial";
-    transparentMaterialDesc.blendMode = BlendMode::Transparent;
+    transparentMaterialDesc.renderMode = MaterialRenderMode::Transparent;
     transparentMaterialDesc.castsShadows = false;
     const auto transparentMaterial = resources.registerMaterial(transparentMaterialDesc);
 

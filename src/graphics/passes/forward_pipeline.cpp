@@ -1480,7 +1480,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             struct SortedTransparentDraw
             {
                 const TransparentDrawEntry *entry = nullptr;
-                float distanceSq = 0.0f;
+                float distanceSq                  = 0.0f;
             };
 
             std::vector<SortedTransparentDraw> sortedTransparentDraws;
@@ -1499,28 +1499,32 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                 }
 
                 SortedTransparentDraw sortedEntry{};
-                sortedEntry.entry = &entry;
-                sortedEntry.distanceSq =
-                    squaredDistanceToCamera(cameraData->worldTransform.position,
-                                            renderable.worldTransform.position);
+                sortedEntry.entry      = &entry;
+                sortedEntry.distanceSq = squaredDistanceToCamera(
+                    cameraData->worldTransform.position, renderable.worldTransform.position);
                 sortedTransparentDraws.push_back(sortedEntry);
             }
 
-            std::stable_sort(sortedTransparentDraws.begin(), sortedTransparentDraws.end(),
-                             [](const SortedTransparentDraw &lhs,
-                                const SortedTransparentDraw &rhs) noexcept
-                             { return lhs.distanceSq > rhs.distanceSq; });
+            std::stable_sort(
+                sortedTransparentDraws.begin(), sortedTransparentDraws.end(),
+                [](const SortedTransparentDraw &lhs, const SortedTransparentDraw &rhs) noexcept
+                {
+                    if (lhs.entry->renderOrder != rhs.entry->renderOrder)
+                    {
+                        return lhs.entry->renderOrder < rhs.entry->renderOrder;
+                    }
+                    return lhs.distanceSq > rhs.distanceSq;
+                });
             if (sortedTransparentDraws.empty())
             {
                 continue;
             }
 
-            const gpu::GpuRenderTargetBinding transparentBinding{batchView.renderBinding.target,
-                                                                 camera.outputBinding.firstLayer,
-                                                                 1u};
+            const gpu::GpuRenderTargetBinding transparentBinding{
+                batchView.renderBinding.target, camera.outputBinding.firstLayer, 1u};
             mDevice.renderTargetSystem().setRenderTargetViewport(
-                transparentBinding, camera.useOutputViewport ? camera.viewport
-                                                             : gpu::GpuRenderViewport{});
+                transparentBinding,
+                camera.useOutputViewport ? camera.viewport : gpu::GpuRenderViewport{});
             gpu::GpuRenderPassBeginDesc transparentBegin{};
             transparentBegin.clearColor = false;
             transparentBegin.clearDepth = false;
