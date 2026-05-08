@@ -9,6 +9,7 @@
 #include "graphics/passes/skybox_pass.h"
 #include "physics/physics_gpu_scene_view.h"
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <string>
@@ -327,6 +328,33 @@ gpu::GpuRenderViewport viewportForBatch(const CameraBatchView &batchView)
     return {};
 }
 
+const CameraData *findCameraData(const HostSceneView &sceneView, common::EntityId entityId)
+{
+    if (sceneView.cameras == nullptr)
+    {
+        return nullptr;
+    }
+
+    for (const CameraData &camera : *sceneView.cameras)
+    {
+        if (camera.entityId == entityId)
+        {
+            return &camera;
+        }
+    }
+
+    return nullptr;
+}
+
+float squaredDistanceToCamera(const Diligent::float3 &cameraPosition,
+                              const Diligent::float3 &objectPosition)
+{
+    const float dx = objectPosition.x - cameraPosition.x;
+    const float dy = objectPosition.y - cameraPosition.y;
+    const float dz = objectPosition.z - cameraPosition.z;
+    return dx * dx + dy * dy + dz * dz;
+}
+
 } // namespace
 
 struct ForwardPipeline::GpuIndirectState
@@ -527,22 +555,27 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     const GpuEntitySceneView &gpuScene =
         sceneView.gpuEntityScene != nullptr ? *sceneView.gpuEntityScene : emptyGpuScene;
     const std::vector<IndirectCommandRegistryEntry> emptyRegistry;
+    const std::vector<TransparentDrawEntry> emptyTransparentRegistry;
     const std::vector<IndirectCommandRegistryEntry> &opaqueRegistry =
         sceneView.opaqueDrawRegistry != nullptr ? *sceneView.opaqueDrawRegistry : emptyRegistry;
+    const std::vector<TransparentDrawEntry> &transparentRegistry =
+        sceneView.transparentDrawRegistry != nullptr ? *sceneView.transparentDrawRegistry
+                                                     : emptyTransparentRegistry;
     const std::vector<IndirectCommandRegistryEntry> &shadowRegistry =
         sceneView.shadowDrawRegistry != nullptr ? *sceneView.shadowDrawRegistry : emptyRegistry;
     const std::vector<IndirectCommandRegistryEntry> &localShadowRegistry =
         sceneView.localShadowDrawRegistry != nullptr ? *sceneView.localShadowDrawRegistry
                                                      : emptyRegistry;
     const bool hasOpaqueDraws      = !opaqueRegistry.empty();
+    const bool hasTransparentDraws = !transparentRegistry.empty();
     const bool hasShadowDraws      = !shadowRegistry.empty();
     const bool hasLocalShadowDraws = !localShadowRegistry.empty();
     const bool needsDebugParticles =
         mDebugParticlePass != nullptr && physicsScene != nullptr && options.debugParticles.enabled;
     const bool needsSkybox = mSkyboxPass != nullptr && batchView.cameras.front().backgroundMode ==
                                                            CameraBackgroundMode::EnvironmentCubemap;
-    const bool needsSceneBuffers = hasOpaqueDraws || hasShadowDraws || hasLocalShadowDraws ||
-                                   needsDebugParticles || needsSkybox;
+    const bool needsSceneBuffers = hasOpaqueDraws || hasTransparentDraws || hasShadowDraws ||
+                                   hasLocalShadowDraws || needsDebugParticles || needsSkybox;
 
     if (!needsSceneBuffers)
     {
@@ -1414,7 +1447,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             ++outStats.opaqueDrawCalls;
         }
     }
-    if (mDebugParticlePass != nullptr && physicsScene != nullptr && options.debugParticles.enabled)
+    const auto drawDebugParticles = [&]() -> void
     {
         for (const ResolvedCameraView &camera : batchView.cameras)
         {
@@ -1424,9 +1457,111 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                            gpuScene, *physicsScene, camera, targetLayer,
                                            options.debugParticles);
         }
+    };
+
+    if (!hasTransparentDraws && mDebugParticlePass != nullptr && physicsScene != nullptr &&
+        options.debugParticles.enabled)
+    {
+        drawDebugParticles();
     }
 
     mDevice.renderTargetSystem().endRenderTarget(batchView.renderBinding, frameContext);
+
+    if (hasTransparentDraws && sceneView.renderables != nullptr)
+    {
+        for (const ResolvedCameraView &camera : batchView.cameras)
+        {
+            const CameraData *cameraData = findCameraData(sceneView, camera.entityId);
+            if (cameraData == nullptr)
+            {
+                continue;
+            }
+
+            struct SortedTransparentDraw
+            {
+                const TransparentDrawEntry *entry = nullptr;
+                float distanceSq = 0.0f;
+            };
+
+            std::vector<SortedTransparentDraw> sortedTransparentDraws;
+            sortedTransparentDraws.reserve(transparentRegistry.size());
+            for (const TransparentDrawEntry &entry : transparentRegistry)
+            {
+                if (entry.objectIndex >= sceneView.renderables->size())
+                {
+                    continue;
+                }
+
+                const RenderableInstance &renderable = (*sceneView.renderables)[entry.objectIndex];
+                if (!renderable.visible)
+                {
+                    continue;
+                }
+
+                SortedTransparentDraw sortedEntry{};
+                sortedEntry.entry = &entry;
+                sortedEntry.distanceSq =
+                    squaredDistanceToCamera(cameraData->worldTransform.position,
+                                            renderable.worldTransform.position);
+                sortedTransparentDraws.push_back(sortedEntry);
+            }
+
+            std::stable_sort(sortedTransparentDraws.begin(), sortedTransparentDraws.end(),
+                             [](const SortedTransparentDraw &lhs,
+                                const SortedTransparentDraw &rhs) noexcept
+                             { return lhs.distanceSq > rhs.distanceSq; });
+            if (sortedTransparentDraws.empty())
+            {
+                continue;
+            }
+
+            const gpu::GpuRenderTargetBinding transparentBinding{batchView.renderBinding.target,
+                                                                 camera.outputBinding.firstLayer,
+                                                                 1u};
+            mDevice.renderTargetSystem().setRenderTargetViewport(
+                transparentBinding, camera.useOutputViewport ? camera.viewport
+                                                             : gpu::GpuRenderViewport{});
+            gpu::GpuRenderPassBeginDesc transparentBegin{};
+            transparentBegin.clearColor = false;
+            transparentBegin.clearDepth = false;
+            mDevice.renderTargetSystem().beginRenderTarget(transparentBinding, frameContext,
+                                                           transparentBegin);
+
+            if (!mForwardOpaquePass->beginBatchFrame(camera.globalCameraIndex))
+            {
+                mDevice.renderTargetSystem().endRenderTarget(transparentBinding, frameContext);
+                return false;
+            }
+
+            for (const SortedTransparentDraw &sortedEntry : sortedTransparentDraws)
+            {
+                ForwardDrawCommand drawCommand = sortedEntry.entry->drawCommand;
+                drawCommand.instanceIndex      = sortedEntry.entry->objectIndex;
+                drawCommand.drawListOffset     = 0u;
+                drawCommand.useDrawListBuffer  = 0u;
+                if (mForwardOpaquePass->drawIndexed(transparentBinding, drawCommand))
+                {
+                    ++outStats.transparentDrawCalls;
+                }
+            }
+
+            mDevice.renderTargetSystem().endRenderTarget(transparentBinding, frameContext);
+        }
+    }
+
+    if (hasTransparentDraws && mDebugParticlePass != nullptr && physicsScene != nullptr &&
+        options.debugParticles.enabled)
+    {
+        mDevice.renderTargetSystem().setRenderTargetViewport(batchView.renderBinding,
+                                                             viewportForBatch(batchView));
+        gpu::GpuRenderPassBeginDesc debugBegin{};
+        debugBegin.clearColor = false;
+        debugBegin.clearDepth = false;
+        mDevice.renderTargetSystem().beginRenderTarget(batchView.renderBinding, frameContext,
+                                                       debugBegin);
+        drawDebugParticles();
+        mDevice.renderTargetSystem().endRenderTarget(batchView.renderBinding, frameContext);
+    }
 
     return true;
 }

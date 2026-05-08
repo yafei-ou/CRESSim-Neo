@@ -16,6 +16,7 @@ using cressim::neo::graphics::kMainDirectionalLightSlot;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::graphics::RenderResourceManager;
+using cressim::neo::graphics::BlendMode;
 
 } // namespace
 
@@ -42,6 +43,11 @@ int main()
     MaterialResourceDesc materialDesc{};
     materialDesc.debugName = "LocalShadowRegistry.Material";
     const auto material = resources.registerMaterial(materialDesc);
+    MaterialResourceDesc transparentMaterialDesc{};
+    transparentMaterialDesc.debugName = "LocalShadowRegistry.TransparentMaterial";
+    transparentMaterialDesc.blendMode = BlendMode::Transparent;
+    transparentMaterialDesc.castsShadows = false;
+    const auto transparentMaterial = resources.registerMaterial(transparentMaterialDesc);
 
     const auto renderableEntity = world.createEntity();
     TransformComponent renderableTransform{};
@@ -52,6 +58,16 @@ int main()
     renderer.material = material;
     renderer.visible = true;
     world.setMeshRenderer(renderableEntity, renderer);
+
+    const auto transparentEntity = world.createEntity();
+    TransformComponent transparentTransform{};
+    transparentTransform.worldTransform.position = {-1.5f, 0.0f, 0.0f};
+    world.setTransform(transparentEntity, transparentTransform);
+    MeshRendererComponent transparentRenderer{};
+    transparentRenderer.mesh = mesh;
+    transparentRenderer.material = transparentMaterial;
+    transparentRenderer.visible = true;
+    world.setMeshRenderer(transparentEntity, transparentRenderer);
 
     const auto mainLightEntity = world.createEntity();
     DirectionalLightComponent mainLight{};
@@ -92,6 +108,7 @@ int main()
     }
 
     const auto &shadowRegistry = world.shadowDrawRegistry();
+    const auto &transparentRegistry = world.transparentDrawRegistry();
     const auto &localShadowRegistry = world.localShadowDrawRegistry();
     if (shadowRegistry.size() != 4u)
     {
@@ -101,6 +118,11 @@ int main()
     if (localShadowRegistry.size() != 1u)
     {
         CRESSIM_LOG_ERROR("Expected local shadow registry to contain one non-cascade bucket.");
+        return 1;
+    }
+    if (transparentRegistry.size() != 1u)
+    {
+        CRESSIM_LOG_ERROR("Expected transparent registry to contain one direct-draw entry.");
         return 1;
     }
 

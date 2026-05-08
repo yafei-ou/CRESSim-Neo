@@ -60,6 +60,7 @@ bool sameStats(const RenderStats& lhs, const RenderStats& rhs)
 {
     return lhs.drawCalls == rhs.drawCalls &&
         lhs.opaqueDrawCalls == rhs.opaqueDrawCalls &&
+        lhs.transparentDrawCalls == rhs.transparentDrawCalls &&
         lhs.shadowDrawCalls == rhs.shadowDrawCalls &&
         lhs.renderableCount == rhs.renderableCount &&
         lhs.lightCount == rhs.lightCount &&
@@ -334,6 +335,12 @@ int main()
                           firstFrame.opaqueDrawCalls, ".\n");
         return 1;
     }
+    if (firstFrame.transparentDrawCalls != 1)
+    {
+        CRESSIM_LOG_ERROR("Unexpected transparent draw count. transparentDrawCalls=",
+                          firstFrame.transparentDrawCalls, ".\n");
+        return 1;
+    }
     if (firstFrame.shadowDrawCalls == 0)
     {
         CRESSIM_LOG_ERROR("Expected at least one shadow draw. shadowDrawCalls=",
@@ -351,10 +358,12 @@ int main()
         CRESSIM_LOG_ERROR("Unexpected light count. lightCount=", firstFrame.lightCount, ".\n");
         return 1;
     }
-    if (firstFrame.drawCalls != firstFrame.opaqueDrawCalls + firstFrame.shadowDrawCalls)
+    if (firstFrame.drawCalls != firstFrame.opaqueDrawCalls + firstFrame.transparentDrawCalls +
+                                    firstFrame.shadowDrawCalls)
     {
         CRESSIM_LOG_ERROR("Unexpected total draw count. drawCalls=", firstFrame.drawCalls,
                           ", opaqueDrawCalls=", firstFrame.opaqueDrawCalls,
+                          ", transparentDrawCalls=", firstFrame.transparentDrawCalls,
                           ", shadowDrawCalls=", firstFrame.shadowDrawCalls, ".\n");
         return 1;
     }

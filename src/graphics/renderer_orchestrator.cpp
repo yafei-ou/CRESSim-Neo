@@ -560,6 +560,7 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
                                                  renderPlan.envMainLights, passStats);
         }
         stats.opaqueDrawCalls += passStats.opaqueDrawCalls;
+        stats.transparentDrawCalls += passStats.transparentDrawCalls;
         stats.shadowDrawCalls += passStats.shadowDrawCalls;
     }
 
@@ -568,7 +569,7 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
         (void)mDisplayResolvePass->resolve(frameContext, *renderPlan.displayResolve);
     }
 
-    stats.drawCalls = stats.opaqueDrawCalls + stats.shadowDrawCalls;
+    stats.drawCalls = stats.opaqueDrawCalls + stats.transparentDrawCalls + stats.shadowDrawCalls;
 
     mDevice.endFrame(frameContext);
     return stats;

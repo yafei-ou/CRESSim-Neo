@@ -443,6 +443,7 @@ void World::ensureHostSceneStorage()
         mSoftBodyVertexNormalBaseByObject.assign(objectCapacity, kInvalidSlot);
         mSoftBodyVertexCountByObject.assign(objectCapacity, 0u);
         mOpaqueDrawRegistryHost.clear();
+        mTransparentDrawRegistryHost.clear();
         mShadowDrawRegistryHost.clear();
         mDirtyRenderablePoseIndices.clear();
         mDirtyRenderableMetadataIndices.clear();
@@ -1494,6 +1495,11 @@ const std::vector<graphics::IndirectCommandRegistryEntry> &World::opaqueDrawRegi
     return mOpaqueDrawRegistryHost;
 }
 
+const std::vector<graphics::TransparentDrawEntry> &World::transparentDrawRegistry() const noexcept
+{
+    return mTransparentDrawRegistryHost;
+}
+
 const std::vector<graphics::IndirectCommandRegistryEntry> &World::shadowDrawRegistry()
     const noexcept
 {
@@ -1569,6 +1575,7 @@ graphics::HostSceneView World::hostSceneView() const noexcept
         &mRenderLights,
         &mEnvironmentIbls,
         &mOpaqueDrawRegistryHost,
+        &mTransparentDrawRegistryHost,
         &mShadowDrawRegistryHost,
         &mLocalShadowDrawRegistryHost,
         &mGpuEntityScene,
@@ -1909,6 +1916,7 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
     std::map<DrawBucketKey, std::vector<std::uint32_t>> shadowObjectsByKey;
     mRenderableQueueInfoHost.assign(mRenderables.size(), graphics::GpuRenderableQueueInfo{});
     mOpaqueDrawRegistryHost.clear();
+    mTransparentDrawRegistryHost.clear();
     mShadowDrawRegistryHost.clear();
     mLocalShadowDrawRegistryHost.clear();
 
@@ -1925,9 +1933,7 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
         const graphics::MeshResourceDesc *mesh = resources.tryGetMesh(renderable.mesh);
         const graphics::MaterialResourceDesc *material =
             resources.tryGetMaterial(renderable.material);
-        if (mesh == nullptr || material == nullptr ||
-            material->blendMode == graphics::BlendMode::Transparent || mesh->vertices.empty() ||
-            mesh->indices.size() < 3)
+        if (mesh == nullptr || material == nullptr || mesh->vertices.empty() || mesh->indices.size() < 3)
         {
             continue;
         }
@@ -1944,6 +1950,21 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
             renderable.material.id,
             renderable.mesh.id,
         };
+        if (material->blendMode == graphics::BlendMode::Transparent)
+        {
+            graphics::TransparentDrawEntry transparentEntry{};
+            transparentEntry.drawCommand.programFamily = key.programFamily;
+            transparentEntry.drawCommand.materialFeatureFlags =
+                static_cast<graphics::MaterialFeatureFlags>(key.materialFeatureFlags);
+            transparentEntry.drawCommand.meshId = key.meshId;
+            transparentEntry.drawCommand.materialId = key.materialId;
+            transparentEntry.drawCommand.meshVersion =
+                resources.meshVersion(graphics::MeshHandle{key.meshId});
+            transparentEntry.drawCommand.indexCount = static_cast<std::uint32_t>(mesh->indices.size());
+            transparentEntry.objectIndex = objectIndex;
+            mTransparentDrawRegistryHost.push_back(transparentEntry);
+            continue;
+        }
         opaqueObjectsByKey[key].push_back(objectIndex);
         if (material->castsShadows)
         {

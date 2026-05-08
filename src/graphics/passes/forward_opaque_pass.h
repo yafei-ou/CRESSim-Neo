@@ -52,6 +52,8 @@ public:
                                  Diligent::IBuffer *localShadowViewBuffer,
                                  Diligent::IBuffer *lightShadowAssignmentBuffer,
                                  std::uint32_t localShadowViewCount) noexcept;
+    bool drawIndexed(const gpu::GpuRenderTargetBinding &targetBinding,
+                     const ForwardDrawCommand &drawCommand);
     bool drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
                       const ForwardDrawCommand &drawCommand, Diligent::IBuffer *indirectArgsBuffer,
                       Diligent::Uint64 argsOffsetBytes);
