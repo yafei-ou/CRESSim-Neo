@@ -15,6 +15,14 @@ struct PSInput
     float2 TexCoord : TEXCOORD0;
 };
 
+float interleavedGradientNoise(float2 pixelCoord)
+{
+    const float magicX = 0.06711056;
+    const float magicY = 0.00583715;
+    const float magicZ = 52.9829189;
+    return frac(magicZ * frac(dot(pixelCoord, float2(magicX, magicY))));
+}
+
 float3 toneMapReinhard(float3 color)
 {
     return color / (1.0 + color);
@@ -53,6 +61,8 @@ float4 main(in PSInput In) : SV_Target
             color.rgb = toneMapFilmic(color.rgb);
         }
         color.rgb = linearToSrgb(color.rgb);
+        const float dither = interleavedGradientNoise(In.Position.xy) - 0.5;
+        color.rgb = saturate(color.rgb + dither / 255.0);
     }
     return color;
 }
