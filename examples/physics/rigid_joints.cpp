@@ -1,13 +1,13 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/viewer_example.h"
 #include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
 #include "viewer/debug_viewer_app.h"
 
 #include <cmath>
 #include <cstdint>
-#include <cstdlib>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -21,9 +21,9 @@ using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::RigidBodyComponent;
 using cressim::neo::engine::Runtime;
-using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::gpu::GpuBackend;
+using cressim::neo::examples::helpers::CommonExampleOptions;
+using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialHandle;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshHandle;
@@ -35,7 +35,6 @@ using cressim::neo::physics::RigidJointDriveMode;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::physics::SliderJointState;
 using cressim::neo::viewer::DebugViewerApp;
-using cressim::neo::viewer::DebugViewerAppDesc;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
 constexpr float kEpsilon = 1.0e-6f;
@@ -124,24 +123,12 @@ Diligent::QuaternionF makeJointFrameRotation(const Diligent::float3 &axisX)
     return quaternionFromBasis(x, y, z);
 }
 
-GpuBackend parseBackend(const std::string &value)
-{
-    if (value == "null")
-    {
-        return GpuBackend::Null;
-    }
-    if (value == "vulkan")
-    {
-        return GpuBackend::Vulkan;
-    }
-    throw std::invalid_argument("Unsupported backend: " + value);
-}
-
 void printUsage(const char *appName)
 {
-    CRESSIM_LOG_ERROR("Usage: ", appName,
-                      " [--backend vulkan|null] [--frames N] [--joint-drive]"
-                      " [--joint-velocity-drive] [--suppress-connected-collisions]\n");
+    cressim::neo::examples::helpers::printUsage(
+        appName,
+        " [--joint-drive] [--joint-velocity-drive] [--suppress-connected-collisions]",
+        false);
 }
 
 MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &resources,
@@ -514,72 +501,60 @@ void authorDropDisturbers(Runtime &runtime, MeshHandle hingeDropMesh, MeshHandle
 
 int main(int argc, char **argv)
 {
-    RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
-    config.gpuDeviceDesc.enableValidation = false;
-    config.physicsDesc.substeps = 2u;
-    config.physicsDesc.rigidRigidContactIterations = 16u;
-    config.physicsDesc.rigidJointIterations = 48u;
-    std::uint64_t numFrames = 0;
+    CommonExampleOptions options{};
     ViewerJointOptions jointOptions{};
 
-    for (int i = 1; i < argc; ++i)
+    try
     {
-        const std::string arg = argv[i];
-        if (arg == "--backend")
+        for (int i = 1; i < argc; ++i)
         {
-            if (i + 1 >= argc)
+            if (cressim::neo::examples::helpers::tryParseCommonArgument(
+                    argc, argv, i, options, false))
             {
-                printUsage(argv[0]);
-                return 2;
+                continue;
             }
-            config.gpuDeviceDesc.preferredBackend = parseBackend(argv[++i]);
-            continue;
-        }
-        if (arg == "--frames")
-        {
-            if (i + 1 >= argc)
+            const std::string arg = argv[i];
+            if (arg == "--joint-drive")
             {
-                printUsage(argv[0]);
-                return 2;
+                jointOptions.enablePositionDriveTargets = true;
+                jointOptions.enableVelocityDriveTargets = false;
+                continue;
             }
-            numFrames = static_cast<std::uint64_t>(std::strtoull(argv[++i], nullptr, 10));
-            continue;
-        }
-        if (arg == "--joint-drive")
-        {
-            jointOptions.enablePositionDriveTargets = true;
-            jointOptions.enableVelocityDriveTargets = false;
-            continue;
-        }
-        if (arg == "--joint-velocity-drive")
-        {
-            jointOptions.enableVelocityDriveTargets = true;
-            jointOptions.enablePositionDriveTargets = false;
-            continue;
-        }
-        if (arg == "--suppress-connected-collisions")
-        {
-            jointOptions.suppressConnectedBodyCollisions = true;
-            continue;
-        }
+            if (arg == "--joint-velocity-drive")
+            {
+                jointOptions.enableVelocityDriveTargets = true;
+                jointOptions.enablePositionDriveTargets = false;
+                continue;
+            }
+            if (arg == "--suppress-connected-collisions")
+            {
+                jointOptions.suppressConnectedBodyCollisions = true;
+                continue;
+            }
 
+            printUsage(argv[0]);
+            return 2;
+        }
+    }
+    catch (const std::invalid_argument& error)
+    {
+        CRESSIM_LOG_ERROR(error.what(), "\n");
         printUsage(argv[0]);
         return 2;
     }
 
+    auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+    config.physicsDesc.substeps = 2u;
+    config.physicsDesc.rigidRigidContactIterations = 16u;
+    config.physicsDesc.rigidJointIterations = 48u;
+
     DebugViewerApp viewer;
-    DebugViewerAppDesc viewerDesc{};
-    const bool windowEnabled = (config.gpuDeviceDesc.preferredBackend != GpuBackend::Null);
-    viewerDesc.windowEnabled = windowEnabled;
-    viewerDesc.windowVisible = windowEnabled;
-    viewerDesc.startFullscreenWindowed = false;
-    viewerDesc.maxFrames = numFrames;
-    viewerDesc.showStats = true;
+    ViewerExampleDefaults viewerDefaults{};
+    viewerDefaults.windowTitle = "CRESSim Neo Rigid Joint Viewer";
+    viewerDefaults.showStats = true;
+    viewerDefaults.vSync = true;
+    auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
     viewerDesc.statsIntervalFrames = 60u;
-    viewerDesc.width = 1440;
-    viewerDesc.height = 900;
-    viewerDesc.windowTitle = "CRESSim Neo Rigid Joint Viewer";
 
     if (!viewer.initialize(viewerDesc, config))
     {

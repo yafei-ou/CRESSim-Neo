@@ -12,22 +12,37 @@ using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::gpu::GpuBackend;
 
-bool initializeAndShutdownRuntime(std::uint64_t iteration)
+const char* backendName(GpuBackend backend)
+{
+    switch (backend)
+    {
+    case GpuBackend::D3D12:
+        return "D3D12";
+    case GpuBackend::Vulkan:
+        return "Vulkan";
+    case GpuBackend::Null:
+    default:
+        return "Null";
+    }
+}
+
+bool initializeAndShutdownRuntime(GpuBackend backend, std::uint64_t iteration)
 {
     RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
+    config.gpuDeviceDesc.preferredBackend = backend;
 
     Runtime runtime;
     if (!runtime.initialize(config))
     {
         if (iteration == 0u)
         {
-            CRESSIM_LOG_WARNING(
-                "Skipping Vulkan runtime recreate test because runtime initialization failed.\n");
+            CRESSIM_LOG_WARNING("Skipping ", backendName(backend),
+                                " runtime recreate test because runtime initialization failed.\n");
             return false;
         }
 
-        CRESSIM_LOG_ERROR("Failed to recreate Vulkan runtime on iteration ", iteration, ".\n");
+        CRESSIM_LOG_ERROR("Failed to recreate ", backendName(backend), " runtime on iteration ",
+                          iteration, ".\n");
         return false;
     }
 
@@ -44,19 +59,29 @@ bool initializeAndShutdownRuntime(std::uint64_t iteration)
 
 int main()
 {
-    if (!initializeAndShutdownRuntime(0u))
-    {
-        return 0;
-    }
+    const GpuBackend graphicsBackends[] = {
+#if PLATFORM_WIN32
+        GpuBackend::D3D12,
+#endif
+        GpuBackend::Vulkan,
+    };
 
-    for (std::uint64_t iteration = 1u; iteration < 3u; ++iteration)
+    for (const GpuBackend backend : graphicsBackends)
     {
-        if (!initializeAndShutdownRuntime(iteration))
+        if (!initializeAndShutdownRuntime(backend, 0u))
         {
-            return 1;
+            continue;
+        }
+
+        for (std::uint64_t iteration = 1u; iteration < 3u; ++iteration)
+        {
+            if (!initializeAndShutdownRuntime(backend, iteration))
+            {
+                return 1;
+            }
         }
     }
 
-    CRESSIM_LOG_INFO("Vulkan runtime recreate checks passed.\n");
+    CRESSIM_LOG_INFO("Runtime recreate checks passed.\n");
     return 0;
 }

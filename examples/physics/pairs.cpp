@@ -1,13 +1,13 @@
 #include "common/frame_context.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/viewer_example.h"
 #include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
 #include "viewer/debug_viewer_app.h"
 #include "common/logger.h"
 
 #include <cstdint>
-#include <cstdlib>
 #include <stdexcept>
 #include <string>
 
@@ -20,29 +20,15 @@ using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::RigidBodyComponent;
 using cressim::neo::engine::Runtime;
-using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::gpu::GpuBackend;
+using cressim::neo::examples::helpers::CommonExampleOptions;
+using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::viewer::DebugViewerApp;
-using cressim::neo::viewer::DebugViewerAppDesc;
 using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
-
-GpuBackend parseBackend(const std::string& value)
-{
-    if (value == "null")
-    {
-        return GpuBackend::Null;
-    }
-    if (value == "vulkan")
-    {
-        return GpuBackend::Vulkan;
-    }
-    throw std::invalid_argument("Unsupported backend: " + value);
-}
 
 ColliderShapeType parseColliderShape(const std::string& value)
 {
@@ -79,11 +65,13 @@ bool parseShapePair(const std::string& value, ColliderShapeType& outA,
 
 void printUsage(const char* appName)
 {
-    CRESSIM_LOG_ERROR( "Usage: " , appName
-              , " [--backend vulkan|null] [--frames N] [--pair A-B]\n"
-              , "  Shapes: box, sphere, capsule\n"
-              , "  Unique pairs: box-box, box-sphere, box-capsule, sphere-sphere,\n"
-              , "                sphere-capsule, capsule-capsule\n");
+    cressim::neo::examples::helpers::printUsage(
+        appName,
+        " [--pair A-B]\n"
+        "  Shapes: box, sphere, capsule\n"
+        "  Unique pairs: box-box, box-sphere, box-capsule, sphere-sphere,\n"
+        "                sphere-capsule, capsule-capsule",
+        false);
 }
 
 Diligent::float4 colliderParamsForShape(ColliderShapeType shape)
@@ -105,74 +93,52 @@ Diligent::float4 colliderParamsForShape(ColliderShapeType shape)
 
 int main(int argc, char** argv)
 {
-    RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
-    config.gpuDeviceDesc.enableValidation = false;
-    std::uint64_t numFrames = 0;
+    CommonExampleOptions options{};
     ColliderShapeType shapeA = ColliderShapeType::Box;
     ColliderShapeType shapeB = ColliderShapeType::Box;
 
-    for (int i = 1; i < argc; ++i)
+    try
     {
-        const std::string arg = argv[i];
-        if (arg == "--backend")
+        for (int i = 1; i < argc; ++i)
         {
-            if (i + 1 >= argc)
+            if (cressim::neo::examples::helpers::tryParseCommonArgument(
+                    argc, argv, i, options, false))
             {
-                printUsage(argv[0]);
-                return 2;
-            }
-            config.gpuDeviceDesc.preferredBackend = parseBackend(argv[++i]);
-            continue;
-        }
-        if (arg == "--frames")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            numFrames = static_cast<std::uint64_t>(std::strtoull(argv[++i], nullptr, 10));
-            continue;
-        }
-        if (arg == "--pair")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
+                continue;
             }
 
-            try
+            const std::string arg = argv[i];
+            if (arg == "--pair")
             {
-                if (!parseShapePair(argv[++i], shapeA, shapeB))
+                const char* value =
+                    cressim::neo::examples::helpers::requireOptionValue(argc, argv, i, "--pair");
+                if (!parseShapePair(value, shapeA, shapeB))
                 {
                     printUsage(argv[0]);
                     return 2;
                 }
+                continue;
             }
-            catch (const std::invalid_argument&)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            continue;
-        }
 
+            printUsage(argv[0]);
+            return 2;
+        }
+    }
+    catch (const std::invalid_argument& error)
+    {
+        CRESSIM_LOG_ERROR(error.what(), "\n");
         printUsage(argv[0]);
         return 2;
     }
 
+    auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+
     DebugViewerApp viewer;
-    DebugViewerAppDesc viewerDesc{};
-    const bool windowEnabled = (config.gpuDeviceDesc.preferredBackend != GpuBackend::Null);
-    viewerDesc.windowEnabled = windowEnabled;
-    viewerDesc.windowVisible = windowEnabled;
-    viewerDesc.startFullscreenWindowed = true;
-    viewerDesc.maxFrames = numFrames;
-    viewerDesc.showStats = false;
-    viewerDesc.width = 640;
-    viewerDesc.height = 480;
+    ViewerExampleDefaults viewerDefaults{};
+    viewerDefaults.windowTitle = "CRESSim Neo Debug Viewer";
+    viewerDefaults.showStats = false;
+    viewerDefaults.vSync = true;
+    auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
 
     if (!viewer.initialize(viewerDesc, config))
     {

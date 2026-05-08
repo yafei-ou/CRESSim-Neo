@@ -12,22 +12,44 @@ using cressim::neo::gpu::GpuDevice;
 using cressim::neo::gpu::GpuRenderTargetDesc;
 using cressim::neo::gpu::GpuPresentationTargetDesc;
 
+const char* backendName(GpuBackend backend)
+{
+    switch (backend)
+    {
+    case GpuBackend::D3D12:
+        return "D3D12";
+    case GpuBackend::Vulkan:
+        return "Vulkan";
+    case GpuBackend::Null:
+    default:
+        return "Null";
+    }
+}
+
 } // namespace
 
 int main()
 {
+    const GpuBackend graphicsBackends[] = {
+#if PLATFORM_WIN32
+        GpuBackend::D3D12,
+#endif
+        GpuBackend::Vulkan,
+    };
+
+    for (const GpuBackend backend : graphicsBackends)
     {
         RuntimeConfig config{};
-        config.gpuDeviceDesc.preferredBackend = GpuBackend::Vulkan;
+        config.gpuDeviceDesc.preferredBackend = backend;
         config.gpuDeviceDesc.presentation.enabled = false;
         config.gpuDeviceDesc.defaultRenderTargetDesc.colorFormat = Diligent::TEX_FORMAT_BGRA8_UNORM;
 
         Runtime runtime;
         if (!runtime.initialize(config))
         {
-            CRESSIM_LOG_WARNING(
-                "Skipping device presentation policy Vulkan checks because runtime initialization failed.\n");
-            return 0;
+            CRESSIM_LOG_WARNING("Skipping device presentation policy ", backendName(backend),
+                                " checks because runtime initialization failed.\n");
+            continue;
         }
 
         GpuDevice* device = runtime.getGpuDevice();

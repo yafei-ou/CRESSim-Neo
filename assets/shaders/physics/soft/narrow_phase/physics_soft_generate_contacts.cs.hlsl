@@ -18,12 +18,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    GpuSoftContact outContact;
-    outContact.particleA = 0u;
-    outContact.particleB = 0u;
-    outContact.active = 0u;
-    outContact.reserved0 = 0u;
-    outContact.normalPenetration = float4(0.0, 0.0, 0.0, 0.0);
+    GpuSoftContact outContact = (GpuSoftContact)0;
 
     const GpuSoftCandidatePair pair = CRESSIM_SB_LOAD(g_SoftCandidatePairs, pairIndex);
 

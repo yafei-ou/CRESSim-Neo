@@ -71,6 +71,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             pair.objectIndex = globalObjectIndex;
             pair.batchCameraIndex = batchCameraIndex;
             pair.bucketIndex = commandIndex;
+            pair.shadowSubviewIndex = 0u;
             CRESSIM_SB_STORE(g_VisiblePairsRW, desc.visibleOffset + visibleSlot, pair);
         }
         return;
@@ -100,6 +101,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             pair.objectIndex = globalObjectIndex;
             pair.batchCameraIndex = batchCameraIndex;
             pair.bucketIndex = commandIndex;
+            pair.shadowSubviewIndex = cascadeIndex;
             CRESSIM_SB_STORE(g_VisiblePairsRW, desc.visibleOffset + visibleSlot, pair);
         }
     }

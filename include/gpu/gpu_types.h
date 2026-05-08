@@ -23,6 +23,7 @@ constexpr Diligent::Uint64 contextMaskForId(std::uint32_t contextId) noexcept
 enum class GpuBackend
 {
     Null,
+    D3D12,
     Vulkan,
 };
 
@@ -153,6 +154,7 @@ struct GpuGraphicsBackendContext
     Diligent::IDeviceContext *graphicsContext = nullptr;
     Diligent::ISwapChain *primarySwapChain    = nullptr;
     std::uint32_t contextId                   = 0u;
+    Diligent::COMMAND_QUEUE_TYPE queueType    = Diligent::COMMAND_QUEUE_TYPE_UNKNOWN;
     GpuRenderTargetBinding activeRenderTargetBinding{};
     bool hasActiveRenderTarget                             = false;
     bool activeRenderTargetHasDepth                        = false;

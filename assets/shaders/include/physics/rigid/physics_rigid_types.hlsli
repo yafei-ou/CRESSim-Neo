@@ -147,6 +147,8 @@ uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)
 void CanonicalizeRigidPair(uint bodyA, uint bodyB, uint shapeTypeA, uint shapeTypeB,
                            out uint outBodyA, out uint outBodyB, out uint pairType)
 {
+    outBodyA = bodyA;
+    outBodyB = bodyB;
     pairType = ComputeRigidPairType(shapeTypeA, shapeTypeB);
 
     if (shapeTypeA < shapeTypeB)

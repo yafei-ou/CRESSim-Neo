@@ -1,6 +1,7 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/viewer_example.h"
 #include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
 #include "viewer/debug_viewer_app.h"
@@ -8,7 +9,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -26,10 +26,10 @@ using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::RigidBodyComponent;
 using cressim::neo::engine::Runtime;
-using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::SoftBodyComponent;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::gpu::GpuBackend;
+using cressim::neo::examples::helpers::CommonExampleOptions;
+using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialHandle;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshHandle;
@@ -76,23 +76,9 @@ struct ToroidVariantTuning
     float volumeCompliance = 0.0001f;
 };
 
-GpuBackend parseBackend(const std::string &value)
-{
-    if (value == "null")
-    {
-        return GpuBackend::Null;
-    }
-    if (value == "vulkan")
-    {
-        return GpuBackend::Vulkan;
-    }
-    throw std::invalid_argument("Unsupported backend: " + value);
-}
-
 void printUsage(const char *appName)
 {
-    CRESSIM_LOG_ERROR("Usage: ", appName,
-                      " [--backend vulkan|null] [--frames N] [--envs N] [--toroids N]\n");
+    cressim::neo::examples::helpers::printUsage(appName, " [--toroids N]", true);
 }
 
 std::int32_t resolveObjIndex(std::int32_t index, std::size_t count)
@@ -515,75 +501,43 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
 
 int main(int argc, char **argv)
 {
-    RuntimeConfig config{};
-    config.gpuDeviceDesc.preferredBackend     = GpuBackend::Vulkan;
-    config.gpuDeviceDesc.enableValidation     = false;
-    config.physicsDesc.softContactIterations  = 20;
-    config.physicsDesc.softInternalIterations = 20;
-    config.physicsDesc.enableBlockingReadback = true;
-    std::uint64_t numFrames                   = 0u;
-    std::uint32_t envCount                    = kDefaultEnvCount;
-    std::uint32_t toroidCount                 = 1u;
-
-    for (int i = 1; i < argc; ++i)
+    CommonExampleOptions options{};
+    options.envCount = kDefaultEnvCount;
+    std::uint32_t toroidCount = 1u;
+    try
     {
-        const std::string arg = argv[i];
-        if (arg == "--backend")
+        for (int i = 1; i < argc; ++i)
         {
-            if (i + 1 >= argc)
+            if (cressim::neo::examples::helpers::tryParseCommonArgument(
+                    argc, argv, i, options, true))
             {
-                printUsage(argv[0]);
-                return 2;
+                continue;
             }
-            config.gpuDeviceDesc.preferredBackend = parseBackend(argv[++i]);
-            continue;
-        }
-        if (arg == "--frames")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            numFrames = static_cast<std::uint64_t>(std::strtoull(argv[++i], nullptr, 10));
-            continue;
-        }
-        if (arg == "--envs")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            envCount = static_cast<std::uint32_t>(std::strtoul(argv[++i], nullptr, 10));
-            if (envCount == 0u)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            continue;
-        }
-        if (arg == "--toroids")
-        {
-            if (i + 1 >= argc)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            toroidCount = static_cast<std::uint32_t>(std::strtoul(argv[++i], nullptr, 10));
-            if (toroidCount == 0u)
-            {
-                printUsage(argv[0]);
-                return 2;
-            }
-            continue;
-        }
 
+            const std::string arg = argv[i];
+            if (arg == "--toroids")
+            {
+                const char* value = cressim::neo::examples::helpers::requireOptionValue(
+                    argc, argv, i, "--toroids");
+                toroidCount = cressim::neo::examples::helpers::parseEnvCount(value);
+                continue;
+            }
+
+            printUsage(argv[0]);
+            return 2;
+        }
+    }
+    catch (const std::invalid_argument& error)
+    {
+        CRESSIM_LOG_ERROR(error.what(), "\n");
         printUsage(argv[0]);
         return 2;
     }
 
-    config.sceneLayout.envCount = envCount;
+    auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+    config.physicsDesc.softContactIterations  = 20;
+    config.physicsDesc.softInternalIterations = 20;
+    config.sceneLayout.envCount = options.envCount;
 
     const std::filesystem::path nodeFile = fixturePath("toroid.node");
     const std::filesystem::path eleFile  = fixturePath("toroid.ele");
@@ -596,18 +550,13 @@ int main(int argc, char **argv)
     }
 
     DebugViewerApp viewer;
-    DebugViewerAppDesc viewerDesc{};
-    const bool windowEnabled           = (config.gpuDeviceDesc.preferredBackend != GpuBackend::Null);
-    viewerDesc.windowEnabled           = windowEnabled;
-    viewerDesc.windowVisible           = windowEnabled;
-    viewerDesc.startFullscreenWindowed = false;
-    viewerDesc.maxFrames               = numFrames;
-    viewerDesc.showStats               = true;
+    ViewerExampleDefaults viewerDefaults{};
+    viewerDefaults.windowTitle = "CRESSim Neo Debug Viewer";
+    viewerDefaults.showStats = true;
+    viewerDefaults.vSync = false;
+    auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
     viewerDesc.statsIntervalFrames     = 60u;
-    viewerDesc.width                   = 1600;
-    viewerDesc.height                  = 900;
     viewerDesc.enableDebugParticles    = false;
-    viewerDesc.vSync                   = false;
 
     if (!viewer.initialize(viewerDesc, config))
     {
@@ -639,11 +588,11 @@ int main(int argc, char **argv)
         registerMaterial(resources, "SoftParticleToroidMultiEnv.Obstacle",
                          {0.16f, 0.43f, 0.86f}, 0.55f);
     cressim::neo::common::EntityId primaryCamera = cressim::neo::common::kInvalidEntityId;
-    for (std::uint32_t envIndex = 0u; envIndex < envCount; ++envIndex)
+    for (std::uint32_t envIndex = 0u; envIndex < options.envCount; ++envIndex)
     {
         cressim::neo::common::EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;
-        authorEnvironment(runtime, envIndex, envCount, boxMesh, planeMesh, toroidMesh, materials,
-                          resources, nodeFile, eleFile, toroidCount, cameraEntity);
+        authorEnvironment(runtime, envIndex, options.envCount, boxMesh, planeMesh, toroidMesh,
+                          materials, resources, nodeFile, eleFile, toroidCount, cameraEntity);
         if (envIndex == 0u)
         {
             primaryCamera = cameraEntity;

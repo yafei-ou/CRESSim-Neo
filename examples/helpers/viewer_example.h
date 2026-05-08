@@ -15,8 +15,6 @@ struct ViewerExampleDefaults
     std::uint32_t height = 480u;
     bool showStats = false;
     bool vSync = false;
-    bool startFullscreen = false;
-    bool startFullscreenWindowed = false;
 };
 
 inline engine::RuntimeConfig makeRuntimeConfig(const CommonExampleOptions& options)
@@ -24,6 +22,7 @@ inline engine::RuntimeConfig makeRuntimeConfig(const CommonExampleOptions& optio
     engine::RuntimeConfig config{};
     config.gpuDeviceDesc.preferredBackend = options.backend;
     config.gpuDeviceDesc.enableValidation = false;
+    config.physicsDesc.enableBlockingReadback = false;
     return config;
 }
 
@@ -42,18 +41,28 @@ inline bool windowEnabledFor(gpu::GpuBackend backend, WindowMode windowMode) noe
     return true;
 }
 
+inline bool startFullscreenFor(WindowMode windowMode) noexcept
+{
+    return windowMode == WindowMode::Fullscreen;
+}
+
+inline bool startFullscreenWindowedFor(WindowMode windowMode) noexcept
+{
+    return windowMode == WindowMode::WindowedFullscreen;
+}
+
 inline viewer::DebugViewerAppDesc makeViewerDesc(const CommonExampleOptions& options,
                                                  const ViewerExampleDefaults& defaults)
 {
     viewer::DebugViewerAppDesc desc{};
     const bool windowEnabled = windowEnabledFor(options.backend, options.windowMode);
     desc.windowTitle = defaults.windowTitle;
-    desc.width = defaults.width;
-    desc.height = defaults.height;
+    desc.width = (options.windowWidth != 0u) ? options.windowWidth : defaults.width;
+    desc.height = (options.windowHeight != 0u) ? options.windowHeight : defaults.height;
     desc.windowEnabled = windowEnabled;
     desc.windowVisible = windowEnabled;
-    desc.startFullscreen = defaults.startFullscreen;
-    desc.startFullscreenWindowed = defaults.startFullscreenWindowed && windowEnabled;
+    desc.startFullscreen = startFullscreenFor(options.windowMode) && windowEnabled;
+    desc.startFullscreenWindowed = startFullscreenWindowedFor(options.windowMode) && windowEnabled;
     desc.vSync = defaults.vSync;
     desc.maxFrames = options.maxFrames;
     desc.showStats = defaults.showStats;

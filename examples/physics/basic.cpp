@@ -65,16 +65,10 @@ int main(int argc, char** argv)
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
 
     DebugViewerApp viewer;
-    const auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(
-        options, ViewerExampleDefaults{
-                     .windowTitle = "CRESSim Neo Physics Viewer",
-                     .width = 640u,
-                     .height = 480u,
-                     .showStats = false,
-                     .vSync = false,
-                     .startFullscreen = false,
-                     .startFullscreenWindowed = true,
-                 });
+    ViewerExampleDefaults viewerDefaults{};
+    viewerDefaults.windowTitle = "CRESSim Neo Physics Viewer";
+    const auto viewerDesc =
+        cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
 
     if (!viewer.initialize(viewerDesc, config))
     {

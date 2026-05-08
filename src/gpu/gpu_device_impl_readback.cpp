@@ -10,6 +10,16 @@
 namespace cressim::neo::gpu
 {
 
+namespace
+{
+
+bool supportsPresentationBackend(GpuBackend backend) noexcept
+{
+    return backend == GpuBackend::D3D12 || backend == GpuBackend::Vulkan;
+}
+
+} // namespace
+
 void GpuDeviceImpl::beginFrame(const common::FrameContext &frameContext)
 {
     (void)frameContext;
@@ -38,18 +48,20 @@ void GpuDeviceImpl::endFrame(const common::FrameContext &frameContext)
         return;
     }
 
-    if (mInitialized && mBackend == GpuBackend::Vulkan && mGraphicsContext != nullptr)
+    bool graphicsFrameFinalizedByPresent = false;
+    if (mInitialized && supportsPresentationBackend(mBackend) && mGraphicsContext != nullptr)
     {
         (void)queuePresentationReadback(frameContext);
         (void)presentPrimarySwapChain();
+        graphicsFrameFinalizedByPresent = (mPrimarySwapChain != nullptr);
     }
 
-    mRenderTargetSystem->endFrame(frameContext);
-    if (mInitialized && mBackend == GpuBackend::Vulkan && mGraphicsContext != nullptr)
+    mRenderTargetSystem->endFrame(frameContext, !graphicsFrameFinalizedByPresent);
+    if (mInitialized && supportsPresentationBackend(mBackend) && mGraphicsContext != nullptr)
     {
         processCompletedPresentationReadbacks();
     }
-    if (mInitialized && mBackend == GpuBackend::Vulkan && mPhysicsContext != nullptr &&
+    if (mInitialized && supportsPresentationBackend(mBackend) && mPhysicsContext != nullptr &&
         mPhysicsContext != mGraphicsContext)
     {
         mPhysicsContext->Flush();
@@ -63,7 +75,7 @@ bool GpuDeviceImpl::presentPrimarySwapChain()
     {
         return true;
     }
-    if (!mInitialized || mBackend != GpuBackend::Vulkan || mGraphicsContext == nullptr)
+    if (!mInitialized || !supportsPresentationBackend(mBackend) || mGraphicsContext == nullptr)
     {
         return false;
     }

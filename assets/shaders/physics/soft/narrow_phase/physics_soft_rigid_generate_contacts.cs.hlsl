@@ -35,13 +35,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    GpuSoftRigidContact outContact;
-    outContact.softParticleIndex = 0u;
-    outContact.rigidBodyIndex = 0u;
-    outContact.colliderIndex = 0u;
-    outContact.active = 0u;
-    outContact.normalPenetration = float4(0.0, 0.0, 0.0, 0.0);
-    outContact.rigidLocalPoint = float4(0.0, 0.0, 0.0, 0.0);
+    GpuSoftRigidContact outContact = (GpuSoftRigidContact)0;
 
     const GpuSoftCandidatePair pair = CRESSIM_SB_LOAD(g_SoftCandidatePairs, pairIndex);
 

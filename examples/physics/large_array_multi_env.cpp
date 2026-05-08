@@ -755,16 +755,10 @@ int main(int argc, char** argv)
     config.sceneLayout.maxCamerasPerEnv = 1u;
 
     DebugViewerApp viewer;
-    auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(
-        options.common, ViewerExampleDefaults{
-                            .windowTitle = "CRESSim Neo Physics Viewer Large Array Multi Env",
-                            .width = (options.lightingMode == LightingMode::Matrix) ? 960u : 1280u,
-                            .height = (options.lightingMode == LightingMode::Matrix) ? 540u : 720u,
-                            .showStats = true,
-                            .vSync = false,
-                            .startFullscreen = false,
-                            .startFullscreenWindowed = false,
-                        });
+    ViewerExampleDefaults viewerDefaults{};
+    viewerDefaults.windowTitle = "CRESSim Neo Physics Viewer Large Array Multi Env";
+    viewerDefaults.showStats = true;
+    auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options.common, viewerDefaults);
 
     if (!viewer.initialize(viewerDesc, config))
     {

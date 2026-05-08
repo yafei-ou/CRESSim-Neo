@@ -23,7 +23,7 @@ public:
     bool initialize(GpuBackend backend, Diligent::IRenderDevice *renderDevice,
                     Diligent::IDeviceContext *graphicsContext);
     void shutdown();
-    void endFrame(const common::FrameContext &frameContext);
+    void endFrame(const common::FrameContext &frameContext, bool submitFrameCommands = true);
 
     void fillBackendContextState(GpuGraphicsBackendContext &outContext) const;
 

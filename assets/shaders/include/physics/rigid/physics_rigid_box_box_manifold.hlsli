@@ -204,6 +204,12 @@ bool ComputeBoxBoxSat(float3 centerA, float4 orientationA, float3 halfExtentsA,
                       out float3 normalAtoB, out float penetration,
                       out uint axisType, out uint axisA, out uint axisB)
 {
+    normalAtoB = 0.0;
+    penetration = 0.0;
+    axisType = kObbAxisFaceA;
+    axisA = 0u;
+    axisB = 0u;
+
     float3 axesA[3];
     float3 axesB[3];
     BuildObbAxes(orientationA, axesA);
@@ -490,7 +496,7 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
             BuildBoxFaceFrame(centerB, axesB, halfB, satAxisA, refSign, referenceFace);
         }
 
-        float3 incidentQuad[4];
+        float3 incidentQuad[4] = {(float3)0, (float3)0, (float3)0, (float3)0};
         if (referenceIsA)
         {
             BuildIncidentFaceQuad(centerB, axesB, halfB, referenceFace.normal, incidentQuad);
@@ -502,9 +508,14 @@ uint GenerateBoxBoxManifoldContacts(uint bodyA, uint bodyB,
 
         float3 polyA[8];
         float3 polyB[8];
-        [unroll] for (uint i = 0u; i < 4u; ++i)
+        [unroll] for (uint i = 0u; i < 8u; ++i)
         {
-            polyA[i] = incidentQuad[i];
+            polyA[i] = 0.0;
+            polyB[i] = 0.0;
+            if (i < 4u)
+            {
+                polyA[i] = incidentQuad[i];
+            }
         }
 
         uint polyCount = 4u;
