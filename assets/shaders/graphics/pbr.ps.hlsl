@@ -216,6 +216,32 @@ float SampleCascadeShadow(
     return SampleShadowPCF(shadowMap, shadowSampler, float3(uv, layer), proj.z, bias, texelSize);
 }
 
+float SampleMainCascadeShadow(int cascadeIdx, PreparedCamera preparedCamera, float3 worldPos,
+                              float shadowLayer, float bias, float2 texelSize)
+{
+    if (cascadeIdx == 0)
+    {
+        return SampleCascadeShadow(g_ShadowMap0, g_ShadowMap0_sampler,
+                                   preparedCamera.lightViewProjectionMatrices[0], worldPos,
+                                   shadowLayer, bias, texelSize);
+    }
+    if (cascadeIdx == 1)
+    {
+        return SampleCascadeShadow(g_ShadowMap1, g_ShadowMap1_sampler,
+                                   preparedCamera.lightViewProjectionMatrices[1], worldPos,
+                                   shadowLayer, bias, texelSize);
+    }
+    if (cascadeIdx == 2)
+    {
+        return SampleCascadeShadow(g_ShadowMap2, g_ShadowMap2_sampler,
+                                   preparedCamera.lightViewProjectionMatrices[2], worldPos,
+                                   shadowLayer, bias, texelSize);
+    }
+    return SampleCascadeShadow(g_ShadowMap3, g_ShadowMap3_sampler,
+                               preparedCamera.lightViewProjectionMatrices[3], worldPos,
+                               shadowLayer, bias, texelSize);
+}
+
 float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir, uint cameraIndex,
                           uint shadowLayer, LightInput mainLight)
 {
@@ -250,31 +276,24 @@ float ComputeShadowFactor(float3 worldPos, float3 normal, float3 lightDir, uint 
     float slopeScale = 1.0 - saturate(dot(normal, lightDir));
     float shadowBias = mainLight.shadowBias * (1.0 + 2.5 * slopeScale);
     float2 texelSize = max(preparedCamera.mainShadowTexelSize, float2(1e-5, 1e-5));
-    float visibility = 1.0;
+    float visibility = SampleMainCascadeShadow(cascadeIdx, preparedCamera, worldPos,
+                                               (float)shadowLayer, shadowBias, texelSize);
 
-    if (cascadeIdx == 0)
+    if (cascadeIdx < cascadeCount - 1)
     {
-        visibility = SampleCascadeShadow(g_ShadowMap0, g_ShadowMap0_sampler,
-                                         preparedCamera.lightViewProjectionMatrices[0], worldPos,
-                                         (float)shadowLayer, shadowBias, texelSize);
-    }
-    else if (cascadeIdx == 1)
-    {
-        visibility = SampleCascadeShadow(g_ShadowMap1, g_ShadowMap1_sampler,
-                                         preparedCamera.lightViewProjectionMatrices[1], worldPos,
-                                         (float)shadowLayer, shadowBias, texelSize);
-    }
-    else if (cascadeIdx == 2)
-    {
-        visibility = SampleCascadeShadow(g_ShadowMap2, g_ShadowMap2_sampler,
-                                         preparedCamera.lightViewProjectionMatrices[2], worldPos,
-                                         (float)shadowLayer, shadowBias, texelSize);
-    }
-    else
-    {
-        visibility = SampleCascadeShadow(g_ShadowMap3, g_ShadowMap3_sampler,
-                                         preparedCamera.lightViewProjectionMatrices[3], worldPos,
-                                         (float)shadowLayer, shadowBias, texelSize);
+        const float splitNear = cascadeIdx == 0 ? 0.0 : preparedCamera.cascadeSplits[cascadeIdx - 1];
+        const float splitFar = preparedCamera.cascadeSplits[cascadeIdx];
+        const float cascadeSpan = max(splitFar - splitNear, 1.0e-3);
+        const float blendBand = max(cascadeSpan * 0.12, 0.02);
+        const float nextCascadeWeight =
+            saturate((viewDepth - (splitFar - blendBand)) / max(blendBand, 1.0e-5));
+        if (nextCascadeWeight > 0.0)
+        {
+            const float nextVisibility = SampleMainCascadeShadow(
+                cascadeIdx + 1, preparedCamera, worldPos, (float)shadowLayer, shadowBias,
+                texelSize);
+            visibility = lerp(visibility, nextVisibility, nextCascadeWeight);
+        }
     }
 
     float shadowTerm = lerp(g_ShadowMinimumVisibility, 1.0, visibility);
