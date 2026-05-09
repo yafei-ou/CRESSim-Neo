@@ -119,12 +119,12 @@ public:
                                  const GpuParticleDispatchConstants &constants);
     bool solveParticleContactVelocities(Diligent::IDeviceContext *computeContext,
                                         const PhysicsSceneGpuState &sceneState,
-                                        std::uint32_t particleCount,
-                                        std::uint32_t iterations);
-    bool solveParticleRigidContactVelocities(
-        Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-        std::uint32_t particleCount, std::uint32_t rigidBodyCount,
-        std::uint32_t iterations, const GpuRigidDispatchConstants &rigidConstants);
+                                        std::uint32_t particleCount, std::uint32_t iterations);
+    bool solveParticleRigidContactVelocities(Diligent::IDeviceContext *computeContext,
+                                             const PhysicsSceneGpuState &sceneState,
+                                             std::uint32_t particleCount,
+                                             std::uint32_t rigidBodyCount, std::uint32_t iterations,
+                                             const GpuRigidDispatchConstants &rigidConstants);
     bool updateSoftTriangleNormals(Diligent::IDeviceContext *computeContext,
                                    const PhysicsSceneGpuState &sceneState,
                                    std::uint32_t renderTriangleCount);
@@ -266,8 +266,8 @@ private:
                                            std::uint32_t rigidBodyCount);
     bool dispatchSolveParticleContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
                                                     const PhysicsSceneGpuState &sceneState);
-    bool dispatchSolveParticleRigidContactVelocitiesPass(
-        Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState);
+    bool dispatchSolveParticleRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
+                                                         const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
                                                  const PhysicsSceneGpuState &sceneState);
 

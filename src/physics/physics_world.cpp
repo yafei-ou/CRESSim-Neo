@@ -815,7 +815,7 @@ bool PhysicsWorld::upsertFluid(const FluidState &state)
     }
 
     mFluidDerivedCaches[mEntityToFluidIndex[normalizedState.entityId]] = std::move(derivedCache);
-    mSoftBodyDerivedStateDirty = true;
+    mSoftBodyDerivedStateDirty                                         = true;
     ++mSoftBodyTopologyRevision;
     ++mAuthoredRevision;
     return true;
@@ -859,8 +859,8 @@ bool PhysicsWorld::removeFluid(common::EntityId entityId)
     const std::uint32_t last  = static_cast<std::uint32_t>(mFluidSnapshot.size() - 1u);
     if (index != last)
     {
-        mFluidSnapshot[index]      = mFluidSnapshot[last];
-        mFluidDerivedCaches[index] = std::move(mFluidDerivedCaches[last]);
+        mFluidSnapshot[index]                               = mFluidSnapshot[last];
+        mFluidDerivedCaches[index]                          = std::move(mFluidDerivedCaches[last]);
         mEntityToFluidIndex[mFluidSnapshot[index].entityId] = index;
     }
     mFluidSnapshot.pop_back();
@@ -1764,11 +1764,11 @@ void PhysicsWorld::applySoftBodyRuntimeProperties(std::uint32_t index,
             static_cast<std::uint32_t>(ParticleKind::SoftSolid);
         mParticles.ownerTypes[particleIndex] =
             static_cast<std::uint32_t>(ParticleOwnerType::SoftBody);
-        mParticles.ownerIndices[particleIndex] = index;
+        mParticles.ownerIndices[particleIndex]          = index;
         mParticles.owningSoftBodyIndices[particleIndex] = index;
-        mParticles.fluidRestDensities[particleIndex] = 0.0f;
-        mParticles.fluidViscosities[particleIndex]   = 0.0f;
-        mParticles.fluidSmoothingRadii[particleIndex] = normalizedState.particleRadius;
+        mParticles.fluidRestDensities[particleIndex]    = 0.0f;
+        mParticles.fluidViscosities[particleIndex]      = 0.0f;
+        mParticles.fluidSmoothingRadii[particleIndex]   = normalizedState.particleRadius;
         mParticles.phases[particleIndex] =
             packSoftParticlePhase(index, normalizedState.selfCollisionEnabled);
         mParticles.collisionLayers[particleIndex] = normalizedState.collisionLayer;
@@ -2261,7 +2261,8 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.radii.push_back(softBody.particleRadius);
             mParticles.environmentIndices.push_back(softBody.environmentIndex);
             mParticles.particleKinds.push_back(static_cast<std::uint32_t>(ParticleKind::SoftSolid));
-            mParticles.ownerTypes.push_back(static_cast<std::uint32_t>(ParticleOwnerType::SoftBody));
+            mParticles.ownerTypes.push_back(
+                static_cast<std::uint32_t>(ParticleOwnerType::SoftBody));
             mParticles.ownerIndices.push_back(softBodyIndex);
             mParticles.owningSoftBodyIndices.push_back(softBodyIndex);
             mParticles.fluidRestDensities.push_back(0.0f);
@@ -2340,8 +2341,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
         const FluidDerivedCache &cache = mFluidDerivedCaches[fluidIndex];
         fluid.restPositions            = cache.restPositions;
         fluid.particleCount            = static_cast<std::uint32_t>(cache.restPositions.size());
-        const float inverseMass =
-            fluid.particleMass > 0.0f ? 1.0f / fluid.particleMass : 0.0f;
+        const float inverseMass = fluid.particleMass > 0.0f ? 1.0f / fluid.particleMass : 0.0f;
         for (const Diligent::float3 &position : cache.restPositions)
         {
             mParticles.positionsInvMass.push_back(
@@ -2353,13 +2353,15 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.radii.push_back(fluid.particleRadius);
             mParticles.environmentIndices.push_back(fluid.environmentIndex);
             mParticles.particleKinds.push_back(static_cast<std::uint32_t>(ParticleKind::Fluid));
-            mParticles.ownerTypes.push_back(static_cast<std::uint32_t>(ParticleOwnerType::FluidBody));
+            mParticles.ownerTypes.push_back(
+                static_cast<std::uint32_t>(ParticleOwnerType::FluidBody));
             mParticles.ownerIndices.push_back(fluidIndex);
             mParticles.owningSoftBodyIndices.push_back(0xffffffffu);
             mParticles.fluidRestDensities.push_back(fluid.material.restDensity);
             mParticles.fluidViscosities.push_back(fluid.material.viscosity);
             mParticles.fluidSmoothingRadii.push_back(fluid.material.smoothingRadius);
-            mParticles.phases.push_back(packSoftParticlePhase(mSoftBodySnapshot.size() + fluidIndex, true));
+            mParticles.phases.push_back(
+                packSoftParticlePhase(mSoftBodySnapshot.size() + fluidIndex, true));
             mParticles.collisionLayers.push_back(fluid.collisionLayer);
             mParticles.collisionMasks.push_back(fluid.collisionMask);
             adjacencyLists.emplace_back();
@@ -2377,10 +2379,9 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
         neighbors.erase(std::unique(neighbors.begin(), neighbors.end()), neighbors.end());
         mParticles.adjacencyOffsets[particleIndex] =
             static_cast<std::uint32_t>(mParticles.adjacencyIndices.size());
-        mParticles.adjacencyCounts[particleIndex] =
-            static_cast<std::uint32_t>(neighbors.size());
-        mParticles.adjacencyIndices.insert(mParticles.adjacencyIndices.end(),
-                                           neighbors.begin(), neighbors.end());
+        mParticles.adjacencyCounts[particleIndex] = static_cast<std::uint32_t>(neighbors.size());
+        mParticles.adjacencyIndices.insert(mParticles.adjacencyIndices.end(), neighbors.begin(),
+                                           neighbors.end());
     }
 
     mSoftBodyDerivedStateDirty = false;
@@ -2396,7 +2397,7 @@ bool PhysicsWorld::prepareFluidStateForInsert(const FluidState &candidate,
 
     const Diligent::float3 size = candidate.source.regularGrid.size;
     const float spacing         = candidate.source.regularGrid.targetParticleSpacing;
-    const std::uint32_t nx = std::max<std::uint32_t>(
+    const std::uint32_t nx      = std::max<std::uint32_t>(
         1u, static_cast<std::uint32_t>(std::floor(size.x / spacing + 0.5f)));
     const std::uint32_t ny = std::max<std::uint32_t>(
         1u, static_cast<std::uint32_t>(std::floor(size.y / spacing + 0.5f)));
@@ -2412,10 +2413,10 @@ bool PhysicsWorld::prepareFluidStateForInsert(const FluidState &candidate,
         {
             for (std::uint32_t x = 0u; x < nx; ++x)
             {
-                const Diligent::float3 local{
-                    minCorner.x + (static_cast<float>(x) + 0.5f) * spacing,
-                    minCorner.y + (static_cast<float>(y) + 0.5f) * spacing,
-                    minCorner.z + (static_cast<float>(z) + 0.5f) * spacing};
+                const Diligent::float3 local{minCorner.x + (static_cast<float>(x) + 0.5f) * spacing,
+                                             minCorner.y + (static_cast<float>(y) + 0.5f) * spacing,
+                                             minCorner.z +
+                                                 (static_cast<float>(z) + 0.5f) * spacing};
                 derivedCache.restPositions.push_back(local);
             }
         }

@@ -262,23 +262,23 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.predictedRigidBodies.linearVelocitiesBuffer.RawPtr();
     const auto predictedAngularBefore =
         mTransientState.predictedRigidBodies.angularVelocitiesBuffer.RawPtr();
-    const auto bodyAabbsBefore       = mTransientState.bodyAabbsBuffer.RawPtr();
-    const auto bodyMetaBefore        = mTransientState.bodyMetaBuffer.RawPtr();
-    const auto activeFlagsBefore     = mTransientState.activeBodyFlagsBuffer.RawPtr();
-    const auto activeOffsetsBefore   = mTransientState.activeBodyOffsetsBuffer.RawPtr();
-    const auto staticFlagsBefore     = mTransientState.staticBodyFlagsBuffer.RawPtr();
-    const auto staticOffsetsBefore   = mTransientState.staticBodyOffsetsBuffer.RawPtr();
-    const auto rigidContactsBefore   = mTransientState.rigidContactsBuffer.RawPtr();
-    const auto translationCorrBefore = mTransientState.translationCorrectionsBuffer.RawPtr();
-    const auto rotationCorrBefore    = mTransientState.rotationCorrectionsBuffer.RawPtr();
-    const auto linearVelCorrBefore   = mTransientState.linearVelocityCorrectionsBuffer.RawPtr();
-    const auto angularVelCorrBefore  = mTransientState.angularVelocityCorrectionsBuffer.RawPtr();
-    const auto particlePositionsBefore = mPersistentParticles.positionsInvMassBuffer.RawPtr();
-    const auto particlePreviousBefore  = mPersistentParticles.previousPositionsBuffer.RawPtr();
+    const auto bodyAabbsBefore          = mTransientState.bodyAabbsBuffer.RawPtr();
+    const auto bodyMetaBefore           = mTransientState.bodyMetaBuffer.RawPtr();
+    const auto activeFlagsBefore        = mTransientState.activeBodyFlagsBuffer.RawPtr();
+    const auto activeOffsetsBefore      = mTransientState.activeBodyOffsetsBuffer.RawPtr();
+    const auto staticFlagsBefore        = mTransientState.staticBodyFlagsBuffer.RawPtr();
+    const auto staticOffsetsBefore      = mTransientState.staticBodyOffsetsBuffer.RawPtr();
+    const auto rigidContactsBefore      = mTransientState.rigidContactsBuffer.RawPtr();
+    const auto translationCorrBefore    = mTransientState.translationCorrectionsBuffer.RawPtr();
+    const auto rotationCorrBefore       = mTransientState.rotationCorrectionsBuffer.RawPtr();
+    const auto linearVelCorrBefore      = mTransientState.linearVelocityCorrectionsBuffer.RawPtr();
+    const auto angularVelCorrBefore     = mTransientState.angularVelocityCorrectionsBuffer.RawPtr();
+    const auto particlePositionsBefore  = mPersistentParticles.positionsInvMassBuffer.RawPtr();
+    const auto particlePreviousBefore   = mPersistentParticles.previousPositionsBuffer.RawPtr();
     const auto particleVelocitiesBefore = mPersistentParticles.velocitiesBuffer.RawPtr();
-    const auto ballJointsBefore      = mPersistentJoints.ballJointsBuffer.RawPtr();
-    const auto hingeJointsBefore     = mPersistentJoints.hingeJointsBuffer.RawPtr();
-    const auto sliderJointsBefore    = mPersistentJoints.sliderJointsBuffer.RawPtr();
+    const auto ballJointsBefore         = mPersistentJoints.ballJointsBuffer.RawPtr();
+    const auto hingeJointsBefore        = mPersistentJoints.hingeJointsBuffer.RawPtr();
+    const auto sliderJointsBefore       = mPersistentJoints.sliderJointsBuffer.RawPtr();
     const auto hingePassiveIndicesBefore =
         mPersistentJoints.hingePassiveJointIndicesBuffer.RawPtr();
     const auto hingePositionDriveIndicesBefore =
@@ -733,21 +733,18 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentParticles.environmentIndicesBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ParticleKinds",
-                                sizeof(std::uint32_t), newSoftParticleCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentParticles.particleKindsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ParticleOwnerTypes",
-                                sizeof(std::uint32_t), newSoftParticleCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentParticles.ownerTypesBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ParticleOwnerIndices",
-                                sizeof(std::uint32_t), newSoftParticleCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentParticles.ownerIndicesBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.ParticleKinds", sizeof(std::uint32_t),
+            newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.particleKindsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.ParticleOwnerTypes", sizeof(std::uint32_t),
+            newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.ownerTypesBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.ParticleOwnerIndices", sizeof(std::uint32_t),
+            newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.ownerIndicesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftBodyIndices",
                                 sizeof(std::uint32_t), newSoftParticleCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -758,10 +755,9 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentParticles.fluidRestDensitiesBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidViscosities",
-                                sizeof(float), newSoftParticleCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidViscosities", sizeof(float),
+                                newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentParticles.fluidViscositiesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidSmoothingRadii",
                                 sizeof(float), newSoftParticleCapacity,
@@ -772,26 +768,22 @@ bool PhysicsSceneGpuState::ensureCapacity(
             renderDevice, "CRESSimNeo.Physics.SoftPhases", sizeof(std::uint32_t),
             newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
             Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.phasesBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftCollisionLayers",
-                                sizeof(std::uint32_t), newSoftParticleCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentParticles.collisionLayersBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftCollisionMasks",
-                                sizeof(std::uint32_t), newSoftParticleCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentParticles.collisionMasksBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftAdjacencyOffsets",
-                                sizeof(std::uint32_t), newSoftParticleCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentParticles.adjacencyOffsetsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftAdjacencyCounts",
-                                sizeof(std::uint32_t), newSoftParticleCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentParticles.adjacencyCountsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.SoftCollisionLayers", sizeof(std::uint32_t),
+            newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.collisionLayersBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.SoftCollisionMasks", sizeof(std::uint32_t),
+            newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.collisionMasksBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.SoftAdjacencyOffsets", sizeof(std::uint32_t),
+            newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.adjacencyOffsetsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.SoftAdjacencyCounts", sizeof(std::uint32_t),
+            newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.adjacencyCountsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftAdjacencyIndices",
                                 sizeof(std::uint32_t), newSoftParticleAdjacencyCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -1512,7 +1504,7 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
     const BodyColliderMappingHost &bodyColliderMapping = world.bodyColliderMapping();
     const JointCollisionSuppressionHost &jointCollisionSuppression =
         world.jointCollisionSuppression();
-    const ParticleSoAHost &particles = world.particles();
+    const ParticleSoAHost &particles         = world.particles();
     const SoftRenderDataHost &softRenderData = world.softRenderData();
     const std::vector<SoftEdge> &softEdges   = world.softEdges();
     const std::vector<SoftTet> &softTets     = world.softTets();
@@ -2040,11 +2032,9 @@ bool PhysicsSceneGpuState::uploadParticles(Diligent::IDeviceContext *computeCont
         return true;
     }
 
-    return updateStructuredBufferRange(computeContext,
-                                       mPersistentParticles.positionsInvMassBuffer,
+    return updateStructuredBufferRange(computeContext, mPersistentParticles.positionsInvMassBuffer,
                                        particles.positionsInvMass, 0u, count) &&
-           updateStructuredBufferRange(computeContext,
-                                       mPersistentParticles.previousPositionsBuffer,
+           updateStructuredBufferRange(computeContext, mPersistentParticles.previousPositionsBuffer,
                                        particles.previousPositions, 0u, count) &&
            updateStructuredBufferRange(computeContext, mPersistentParticles.velocitiesBuffer,
                                        particles.velocities, 0u, count) &&
@@ -2055,8 +2045,7 @@ bool PhysicsSceneGpuState::uploadParticles(Diligent::IDeviceContext *computeCont
            updateStructuredBufferRange(computeContext,
                                        mPersistentParticles.environmentIndicesBuffer,
                                        particles.environmentIndices, 0u, count) &&
-           updateStructuredBufferRange(computeContext,
-                                       mPersistentParticles.particleKindsBuffer,
+           updateStructuredBufferRange(computeContext, mPersistentParticles.particleKindsBuffer,
                                        particles.particleKinds, 0u, count) &&
            updateStructuredBufferRange(computeContext, mPersistentParticles.ownerTypesBuffer,
                                        particles.ownerTypes, 0u, count) &&
@@ -2068,25 +2057,20 @@ bool PhysicsSceneGpuState::uploadParticles(Diligent::IDeviceContext *computeCont
            updateStructuredBufferRange(computeContext,
                                        mPersistentParticles.fluidRestDensitiesBuffer,
                                        particles.fluidRestDensities, 0u, count) &&
-           updateStructuredBufferRange(computeContext,
-                                       mPersistentParticles.fluidViscositiesBuffer,
+           updateStructuredBufferRange(computeContext, mPersistentParticles.fluidViscositiesBuffer,
                                        particles.fluidViscosities, 0u, count) &&
            updateStructuredBufferRange(computeContext,
                                        mPersistentParticles.fluidSmoothingRadiiBuffer,
                                        particles.fluidSmoothingRadii, 0u, count) &&
            updateStructuredBufferRange(computeContext, mPersistentParticles.phasesBuffer,
                                        particles.phases, 0u, count) &&
-           updateStructuredBufferRange(computeContext,
-                                       mPersistentParticles.collisionLayersBuffer,
+           updateStructuredBufferRange(computeContext, mPersistentParticles.collisionLayersBuffer,
                                        particles.collisionLayers, 0u, count) &&
-           updateStructuredBufferRange(computeContext,
-                                       mPersistentParticles.collisionMasksBuffer,
+           updateStructuredBufferRange(computeContext, mPersistentParticles.collisionMasksBuffer,
                                        particles.collisionMasks, 0u, count) &&
-           updateStructuredBufferRange(computeContext,
-                                       mPersistentParticles.adjacencyOffsetsBuffer,
+           updateStructuredBufferRange(computeContext, mPersistentParticles.adjacencyOffsetsBuffer,
                                        particles.adjacencyOffsets, 0u, count) &&
-           updateStructuredBufferRange(computeContext,
-                                       mPersistentParticles.adjacencyCountsBuffer,
+           updateStructuredBufferRange(computeContext, mPersistentParticles.adjacencyCountsBuffer,
                                        particles.adjacencyCounts, 0u, count) &&
            updateStructuredBufferRange(
                computeContext, mPersistentParticles.adjacencyIndicesBuffer,
@@ -2097,9 +2081,9 @@ bool PhysicsSceneGpuState::uploadParticles(Diligent::IDeviceContext *computeCont
         std::vector<Diligent::uint4> metadata(count);
         for (std::uint32_t i = 0; i < count; ++i)
         {
-            metadata[i] = Diligent::uint4{particles.environmentIndices[i], particles.phases[i],
-                                          particles.collisionLayers[i],
-                                          particles.collisionMasks[i]};
+            metadata[i] =
+                Diligent::uint4{particles.environmentIndices[i], particles.phases[i],
+                                particles.collisionLayers[i], particles.collisionMasks[i]};
         }
         return updateStructuredBufferRange(
             computeContext, mPersistentParticles.broadPhaseMetadataBuffer, metadata, 0u, count);
@@ -2456,8 +2440,7 @@ bool PhysicsSceneGpuState::readbackPredictedParticleStateBlocking(
         }
         if (mappedVelocities != nullptr)
         {
-            computeContext->UnmapBuffer(mReadbackParticles.velocitiesBuffer,
-                                        Diligent::MAP_READ);
+            computeContext->UnmapBuffer(mReadbackParticles.velocitiesBuffer, Diligent::MAP_READ);
         }
         return false;
     }
@@ -2468,7 +2451,7 @@ bool PhysicsSceneGpuState::readbackPredictedParticleStateBlocking(
     for (std::uint32_t i = 0; i < particleCount; ++i)
     {
         (void)world.syncParticleStateFromSimulation(i, positions[i], previousPositions[i],
-                                                        velocities[i]);
+                                                    velocities[i]);
     }
     world.finalizeParticleWriteback();
 
@@ -2487,11 +2470,10 @@ bool PhysicsSceneGpuState::readbackSoftNeighborMetaBlocking(
         return false;
     }
 
-    computeContext->CopyBuffer(mTransientState.softNeighborMetaBuffer, 0u,
-                               Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-                               mReadbackParticles.neighborMetaBuffer, 0u,
-                               sizeof(GpuParticleNeighborMeta),
-                               Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->CopyBuffer(
+        mTransientState.softNeighborMetaBuffer, 0u,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, mReadbackParticles.neighborMetaBuffer,
+        0u, sizeof(GpuParticleNeighborMeta), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     computeContext->Flush();
     computeContext->WaitForIdle();
 
@@ -2538,8 +2520,8 @@ const PhysicsSceneGpuState::PersistentJointBuffers &PhysicsSceneGpuState::persis
     return mPersistentJoints;
 }
 
-const PhysicsSceneGpuState::PersistentParticleBuffers &PhysicsSceneGpuState::
-    persistentParticles() const noexcept
+const PhysicsSceneGpuState::PersistentParticleBuffers &PhysicsSceneGpuState::persistentParticles()
+    const noexcept
 {
     return mPersistentParticles;
 }
@@ -2651,31 +2633,29 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.rigid.poses.bindingGeneration  = mRigidBindingGeneration;
     view.rigid.colliderCount            = mColliderCount;
     view.rigid.bindingGeneration        = mRigidBindingGeneration;
-    view.soft.particles.positionsInvMassBuffer  = mPersistentParticles.positionsInvMassBuffer;
-    view.soft.particles.previousPositionsBuffer = mPersistentParticles.previousPositionsBuffer;
-    view.soft.particles.velocitiesBuffer        = mPersistentParticles.velocitiesBuffer;
-    view.soft.particles.materialsBuffer         = mPersistentParticles.materialsBuffer;
-    view.soft.particles.radiiBuffer             = mPersistentParticles.radiiBuffer;
-    view.soft.particles.environmentIndicesBuffer =
-        mPersistentParticles.environmentIndicesBuffer;
-    view.soft.particles.particleKindsBuffer = mPersistentParticles.particleKindsBuffer;
-    view.soft.particles.ownerTypesBuffer    = mPersistentParticles.ownerTypesBuffer;
-    view.soft.particles.ownerIndicesBuffer  = mPersistentParticles.ownerIndicesBuffer;
+    view.soft.particles.positionsInvMassBuffer   = mPersistentParticles.positionsInvMassBuffer;
+    view.soft.particles.previousPositionsBuffer  = mPersistentParticles.previousPositionsBuffer;
+    view.soft.particles.velocitiesBuffer         = mPersistentParticles.velocitiesBuffer;
+    view.soft.particles.materialsBuffer          = mPersistentParticles.materialsBuffer;
+    view.soft.particles.radiiBuffer              = mPersistentParticles.radiiBuffer;
+    view.soft.particles.environmentIndicesBuffer = mPersistentParticles.environmentIndicesBuffer;
+    view.soft.particles.particleKindsBuffer      = mPersistentParticles.particleKindsBuffer;
+    view.soft.particles.ownerTypesBuffer         = mPersistentParticles.ownerTypesBuffer;
+    view.soft.particles.ownerIndicesBuffer       = mPersistentParticles.ownerIndicesBuffer;
     view.soft.particles.owningSoftBodyIndicesBuffer =
         mPersistentParticles.owningSoftBodyIndicesBuffer;
-    view.soft.particles.fluidRestDensitiesBuffer = mPersistentParticles.fluidRestDensitiesBuffer;
-    view.soft.particles.fluidViscositiesBuffer   = mPersistentParticles.fluidViscositiesBuffer;
-    view.soft.particles.fluidSmoothingRadiiBuffer =
-        mPersistentParticles.fluidSmoothingRadiiBuffer;
-    view.soft.particles.phasesBuffer           = mPersistentParticles.phasesBuffer;
-    view.soft.particles.collisionLayersBuffer  = mPersistentParticles.collisionLayersBuffer;
-    view.soft.particles.collisionMasksBuffer   = mPersistentParticles.collisionMasksBuffer;
-    view.soft.particles.adjacencyOffsetsBuffer = mPersistentParticles.adjacencyOffsetsBuffer;
-    view.soft.particles.adjacencyCountsBuffer  = mPersistentParticles.adjacencyCountsBuffer;
-    view.soft.particles.adjacencyIndicesBuffer = mPersistentParticles.adjacencyIndicesBuffer;
-    view.soft.particles.count                  = mSoftParticleCount;
-    view.soft.edgesBuffer                      = mPersistentSoftTopology.edgesBuffer;
-    view.soft.tetsBuffer                       = mPersistentSoftTopology.tetsBuffer;
+    view.soft.particles.fluidRestDensitiesBuffer  = mPersistentParticles.fluidRestDensitiesBuffer;
+    view.soft.particles.fluidViscositiesBuffer    = mPersistentParticles.fluidViscositiesBuffer;
+    view.soft.particles.fluidSmoothingRadiiBuffer = mPersistentParticles.fluidSmoothingRadiiBuffer;
+    view.soft.particles.phasesBuffer              = mPersistentParticles.phasesBuffer;
+    view.soft.particles.collisionLayersBuffer     = mPersistentParticles.collisionLayersBuffer;
+    view.soft.particles.collisionMasksBuffer      = mPersistentParticles.collisionMasksBuffer;
+    view.soft.particles.adjacencyOffsetsBuffer    = mPersistentParticles.adjacencyOffsetsBuffer;
+    view.soft.particles.adjacencyCountsBuffer     = mPersistentParticles.adjacencyCountsBuffer;
+    view.soft.particles.adjacencyIndicesBuffer    = mPersistentParticles.adjacencyIndicesBuffer;
+    view.soft.particles.count                     = mSoftParticleCount;
+    view.soft.edgesBuffer                         = mPersistentSoftTopology.edgesBuffer;
+    view.soft.tetsBuffer                          = mPersistentSoftTopology.tetsBuffer;
     view.soft.renderNormalsBuffer = mPersistentSoftTopology.softBodyRenderNormalsBuffer;
     view.soft.worldAabbsBuffer    = mPersistentSoftTopology.softBodyWorldAabbsBuffer;
     view.soft.softBodyCount       = mSoftBodyCount;

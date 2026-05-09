@@ -179,8 +179,8 @@ private:
     bool prepareSoftBodyStateForInsert(const SoftBodyState &candidate,
                                        const SoftBodyState *previousState,
                                        SoftBodyDerivedCache &derivedCache) noexcept;
-    bool prepareFluidStateForInsert(const FluidState &candidate, FluidDerivedCache &derivedCache)
-        noexcept;
+    bool prepareFluidStateForInsert(const FluidState &candidate,
+                                    FluidDerivedCache &derivedCache) noexcept;
 
     struct TetGenMeshCache
     {

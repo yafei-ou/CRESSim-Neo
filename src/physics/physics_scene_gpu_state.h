@@ -301,8 +301,7 @@ public:
     bool readbackPredictedRigidStateBlocking(Diligent::IDeviceContext *computeContext,
                                              PhysicsWorld &world, std::uint32_t bodyCount);
     bool readbackPredictedParticleStateBlocking(Diligent::IDeviceContext *computeContext,
-                                                PhysicsWorld &world,
-                                                std::uint32_t particleCount);
+                                                PhysicsWorld &world, std::uint32_t particleCount);
     bool readbackSoftNeighborMetaBlocking(Diligent::IDeviceContext *computeContext,
                                           GpuParticleNeighborMeta &outMeta);
 
@@ -359,8 +358,7 @@ private:
     bool uploadRigidJoints(Diligent::IDeviceContext *computeContext, const PhysicsWorld &world);
     bool uploadParticles(Diligent::IDeviceContext *computeContext,
                          const ParticleSoAHost &particles);
-    bool uploadSoftTopology(Diligent::IDeviceContext *computeContext,
-                            std::uint32_t particleCount,
+    bool uploadSoftTopology(Diligent::IDeviceContext *computeContext, std::uint32_t particleCount,
                             const SoftRenderDataHost &softRenderData,
                             const std::vector<SoftEdge> &softEdges,
                             const std::vector<SoftTet> &softTets);

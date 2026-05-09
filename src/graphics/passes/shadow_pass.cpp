@@ -239,8 +239,8 @@ bool ShadowPass::bindSceneBuffers(MaterialProgramFamily programFamily) const
         {
             return false;
         }
-        Diligent::IShaderResourceVariable *softParticleVar = shaderBinding->GetVariableByName(
-            Diligent::SHADER_TYPE_VERTEX, "g_ParticlePositions");
+        Diligent::IShaderResourceVariable *softParticleVar =
+            shaderBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_ParticlePositions");
         Diligent::IShaderResourceVariable *bindingVar = shaderBinding->GetVariableByName(
             Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexBindings");
         if (softParticleVar == nullptr || bindingVar == nullptr)

@@ -129,18 +129,18 @@ struct GpuPhysicsRadixConstants
 // Shared particle/fluid dispatch constants.
 struct GpuParticleDispatchConstants
 {
-    float dt                                = 0.0f;
-    std::uint32_t particleCount         = 0;
-    std::uint32_t rigidColliderCount        = 0;
-    float particleGridCellSize              = 0.0f;
+    float dt                                    = 0.0f;
+    std::uint32_t particleCount                 = 0;
+    std::uint32_t rigidColliderCount            = 0;
+    float particleGridCellSize                  = 0.0f;
     std::uint32_t particleCandidatePairCapacity = 0;
     std::uint32_t particleCellRangeCapacity     = 0;
-    std::uint32_t softEdgeCount             = 0;
-    std::uint32_t softTetCount              = 0;
-    float fluidGravityScale                 = 1.0f;
-    std::uint32_t fluidIterations           = 0;
-    std::uint32_t reserved0                 = 0;
-    std::uint32_t reserved1                 = 0;
+    std::uint32_t softEdgeCount                 = 0;
+    std::uint32_t softTetCount                  = 0;
+    float fluidGravityScale                     = 1.0f;
+    std::uint32_t fluidIterations               = 0;
+    std::uint32_t reserved0                     = 0;
+    std::uint32_t reserved1                     = 0;
 };
 
 struct GpuSoftRenderDispatchConstants
@@ -199,14 +199,14 @@ struct GpuParticleCandidatePair
 
 struct GpuParticleNeighborMeta
 {
-    std::uint32_t particleParticleCandidateCount          = 0;
-    std::uint32_t particleRigidCandidateCount         = 0;
-    std::uint32_t requiredParticleParticleCandidateCount  = 0;
-    std::uint32_t requiredParticleRigidCandidateCount = 0;
-    std::uint32_t particleParticleCandidateOverflow       = 0;
-    std::uint32_t particleRigidCandidateOverflow      = 0;
-    std::uint32_t activeParticleContactCount          = 0;
-    std::uint32_t activeParticleRigidContactCount     = 0;
+    std::uint32_t particleParticleCandidateCount         = 0;
+    std::uint32_t particleRigidCandidateCount            = 0;
+    std::uint32_t requiredParticleParticleCandidateCount = 0;
+    std::uint32_t requiredParticleRigidCandidateCount    = 0;
+    std::uint32_t particleParticleCandidateOverflow      = 0;
+    std::uint32_t particleRigidCandidateOverflow         = 0;
+    std::uint32_t activeParticleContactCount             = 0;
+    std::uint32_t activeParticleRigidContactCount        = 0;
 };
 
 struct GpuParticleCellRange
@@ -219,10 +219,10 @@ struct GpuParticleCellRange
 
 struct GpuParticleRigidContact
 {
-    std::uint32_t particleIndex = 0;
-    std::uint32_t rigidBodyIndex    = 0;
-    std::uint32_t colliderIndex     = 0;
-    std::uint32_t active            = 0;
+    std::uint32_t particleIndex  = 0;
+    std::uint32_t rigidBodyIndex = 0;
+    std::uint32_t colliderIndex  = 0;
+    std::uint32_t active         = 0;
     Diligent::float4 normalPenetration{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 rigidLocalPoint{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 material{0.0f, 0.0f, 0.0f, 0.0f};

@@ -70,8 +70,8 @@ enum class ParticleKind : std::uint32_t
 
 enum class ParticleOwnerType : std::uint32_t
 {
-    None     = 0u,
-    SoftBody = 1u,
+    None      = 0u,
+    SoftBody  = 1u,
     FluidBody = 2u,
 };
 
@@ -126,12 +126,12 @@ struct SoftBodyMaterialDesc
 
 struct FluidMaterialDesc
 {
-    float friction       = 0.0f;
-    float restitution    = 0.0f;
-    float damping        = 0.0f;
-    float staticFriction = -1.0f;
-    float restDensity    = 1000.0f;
-    float viscosity      = 0.01f;
+    float friction        = 0.0f;
+    float restitution     = 0.0f;
+    float damping         = 0.0f;
+    float staticFriction  = -1.0f;
+    float restDensity     = 1000.0f;
+    float viscosity       = 0.01f;
     float smoothingRadius = 0.25f;
 };
 
@@ -204,11 +204,11 @@ struct FluidState
     FluidSourceDesc source{};
     FluidMaterialDesc material{};
     common::Transform restTransform{};
-    float particleMass            = 1.0f;
-    float particleRadius          = 0.125f;
-    bool simulated                = true;
-    std::uint32_t particleOffset  = 0u;
-    std::uint32_t particleCount   = 0u;
+    float particleMass           = 1.0f;
+    float particleRadius         = 0.125f;
+    bool simulated               = true;
+    std::uint32_t particleOffset = 0u;
+    std::uint32_t particleCount  = 0u;
     std::vector<Diligent::float3> restPositions;
 };
 
