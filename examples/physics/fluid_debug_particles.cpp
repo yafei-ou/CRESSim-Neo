@@ -2,12 +2,10 @@
 #include "engine/components.h"
 #include "engine/runtime.h"
 #include "helpers/example_cli.h"
-#include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
 #include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
 
-#include <cstdint>
 #include <stdexcept>
 #include <string>
 

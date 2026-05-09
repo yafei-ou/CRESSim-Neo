@@ -1,5 +1,5 @@
 #include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
-#include "../../../include/physics/fluid/physics_fluid_common.hlsli"
+#include "../../../include/physics/particle/physics_particle_types.hlsli"
 #include "../../../include/physics/rigid/physics_rigid_broad_phase_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(GpuParticleBroadPhaseEntry, g_ParticleBroadPhaseEntries);
@@ -14,71 +14,7 @@ CRESSIM_STRUCTURED_BUFFER(float, g_FluidLambdas);
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_FluidDeltaPositions);
 
-GpuParticleCellRange FindParticleCellRange(uint targetKey)
-{
-    GpuParticleCellRange missingRange;
-    missingRange.cellKey = kInvalidIndex;
-    missingRange.startIndex = 0u;
-    missingRange.endIndex = 0u;
-    missingRange.reserved0 = 0u;
-
-    if (particleCellRangeCapacity == 0u)
-    {
-        return missingRange;
-    }
-
-    uint lo = 0u;
-    uint hi = particleCellRangeCapacity;
-    [loop]
-    while (lo < hi)
-    {
-        const uint mid = lo + (hi - lo) / 2u;
-        const GpuParticleCellRange range = CRESSIM_SB_LOAD(g_ParticleCellRanges, mid);
-        if (range.cellKey < targetKey)
-        {
-            lo = mid + 1u;
-        }
-        else
-        {
-            hi = mid;
-        }
-    }
-
-    if (lo < particleCellRangeCapacity)
-    {
-        const GpuParticleCellRange range = CRESSIM_SB_LOAD(g_ParticleCellRanges, lo);
-        if (range.cellKey == targetKey)
-        {
-            return range;
-        }
-    }
-
-    return missingRange;
-}
-
-bool ShouldProcessFluidNeighbor(uint selfIndex, uint selfEnvironment, uint selfLayer, uint selfMask,
-                                uint otherIndex)
-{
-    if (otherIndex == selfIndex)
-    {
-        return false;
-    }
-
-    if (CRESSIM_SB_LOAD(g_ParticleKinds, otherIndex) != kParticleKindFluid)
-    {
-        return false;
-    }
-
-    const uint4 otherMetadata = CRESSIM_SB_LOAD(g_ParticleBroadPhaseMetadata, otherIndex);
-    if (otherMetadata.x != selfEnvironment)
-    {
-        return false;
-    }
-
-    const uint otherLayer = otherMetadata.z;
-    const uint otherMask = otherMetadata.w;
-    return (selfMask & otherLayer) != 0u && (otherMask & selfLayer) != 0u;
-}
+#include "../../../include/physics/fluid/physics_fluid_common.hlsli"
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -106,6 +42,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 selfPosition = selfPositionInvMass.xyz;
     const float lambda = CRESSIM_SB_LOAD(g_FluidLambdas, particleIndex);
     const float restDensity = max(CRESSIM_SB_LOAD(g_FluidRestDensities, particleIndex), 1.0);
+    const float invRestDensity = 1.0 / restDensity;
     const float smoothingRadius = max(CRESSIM_SB_LOAD(g_FluidSmoothingRadii, particleIndex), 1.0e-4);
     const uint4 selfMetadata = CRESSIM_SB_LOAD(g_ParticleBroadPhaseMetadata, particleIndex);
     const uint selfEnvironment = selfMetadata.x;
@@ -125,9 +62,11 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             [loop]
             for (int dx = -1; dx <= 1; ++dx)
             {
+                const int targetCellX = selfEntry.cellX + dx;
+                const int targetCellY = selfEntry.cellY + dy;
+                const int targetCellZ = selfEntry.cellZ + dz;
                 const uint targetKey =
-                    ComputeParticleGridCellKey(selfEntry.cellX + dx, selfEntry.cellY + dy,
-                                               selfEntry.cellZ + dz);
+                    ComputeParticleGridCellKey(targetCellX, targetCellY, targetCellZ);
                 const GpuParticleCellRange range = FindParticleCellRange(targetKey);
                 if (range.cellKey == kInvalidIndex)
                 {
@@ -141,9 +80,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                         CRESSIM_SB_LOAD(g_SortedParticleBroadPhaseKeys, sortedIndex);
                     const GpuParticleBroadPhaseEntry candidateEntry =
                         CRESSIM_SB_LOAD(g_ParticleBroadPhaseEntries, keyEntry.elementIdx);
-                    if (candidateEntry.cellX != selfEntry.cellX + dx ||
-                        candidateEntry.cellY != selfEntry.cellY + dy ||
-                        candidateEntry.cellZ != selfEntry.cellZ + dz)
+                    if (candidateEntry.cellX != targetCellX || candidateEntry.cellY != targetCellY ||
+                        candidateEntry.cellZ != targetCellZ)
                     {
                         continue;
                     }
@@ -155,10 +93,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                         continue;
                     }
 
-                    const float3 neighborPosition =
-                        CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, neighborIndex).xyz;
-                    const float neighborInvMass =
-                        CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, neighborIndex).w;
+                    const float4 neighborPositionInvMass =
+                        CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, neighborIndex);
+                    const float3 neighborPosition = neighborPositionInvMass.xyz;
+                    const float neighborInvMass = neighborPositionInvMass.w;
                     if (neighborInvMass <= kEpsilon)
                     {
                         continue;
@@ -173,7 +111,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
                     const float neighborLambda = CRESSIM_SB_LOAD(g_FluidLambdas, neighborIndex);
                     const float neighborMass = 1.0 / neighborInvMass;
-                    deltaPosition += (neighborMass * (lambda + neighborLambda) / restDensity) *
+                    deltaPosition += (neighborMass * (lambda + neighborLambda) * invRestDensity) *
                                      FluidCubicKernelGradient(delta, distance, smoothingRadius);
                 }
             }
