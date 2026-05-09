@@ -53,7 +53,7 @@ int main()
     }
 
     physics::PhysicsWorld &physicsWorld  = world.physicsWorld();
-    const auto &initialParticles         = physicsWorld.softParticles();
+    const auto &initialParticles         = physicsWorld.particles();
     const physics::SoftBodyState *softState = physicsWorld.tryGetSoftBody(entity);
     if (softState == nullptr || softState->particleCount == 0u || initialParticles.empty())
     {
@@ -65,13 +65,13 @@ int main()
     const Diligent::float4 displacedPositionInvMass{-2.0f, 3.5f, 1.25f, 1.0f};
     const Diligent::float4 displacedPrevious{-2.25f, 3.0f, 1.0f, 0.0f};
     const Diligent::float4 displacedVelocity{4.0f, -1.5f, 0.75f, 0.0f};
-    if (!physicsWorld.syncSoftParticleStateFromSimulation(particleIndex, displacedPositionInvMass,
+    if (!physicsWorld.syncParticleStateFromSimulation(particleIndex, displacedPositionInvMass,
                                                           displacedPrevious, displacedVelocity))
     {
         CRESSIM_LOG_ERROR("Failed to seed deformed particle state.");
         return 1;
     }
-    physicsWorld.finalizeSoftParticleWriteback();
+    physicsWorld.finalizeParticleWriteback();
 
     if (!world.setEntityEnvironment(entity, 1u))
     {
@@ -80,7 +80,7 @@ int main()
     }
 
     softState = physicsWorld.tryGetSoftBody(entity);
-    const auto &particlesAfterEnv = physicsWorld.softParticles();
+    const auto &particlesAfterEnv = physicsWorld.particles();
     if (softState == nullptr || softState->environmentIndex != 1u)
     {
         CRESSIM_LOG_ERROR("Soft body environment change did not stick.");
@@ -120,7 +120,7 @@ int main()
     }
 
     softState = physicsWorld.tryGetSoftBody(entity);
-    const auto &particlesAfterUpdate = physicsWorld.softParticles();
+    const auto &particlesAfterUpdate = physicsWorld.particles();
     const auto &edgesAfterUpdate     = physicsWorld.softEdges();
     const auto &tetsAfterUpdate      = physicsWorld.softTets();
     if (softState == nullptr)

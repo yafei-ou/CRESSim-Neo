@@ -39,3 +39,8 @@ add_cressim_example(
     NAME physics_soft_particles_toroid_multi_env
     SOURCE soft_particles_toroid_multi_env.cpp
 )
+
+add_cressim_example(
+    NAME physics_fluid_debug_particles
+    SOURCE fluid_debug_particles.cpp
+)

@@ -1,7 +1,7 @@
-#include "../../../include/physics/physics_soft_dispatch_constants.hlsli"
-#include "../../../include/physics/soft/physics_soft_types.hlsli"
+#include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
+#include "../../../include/physics/particle/physics_particle_types.hlsli"
 
-CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftEdge, g_SoftEdges);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_SoftEdgeLambdas);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftEdgeCorrection, g_SoftEdgeCorrections);
@@ -19,8 +19,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint particleA = edge.particleA;
     const uint particleB = edge.particleB;
 
-    const float4 positionInvMassA = CRESSIM_SB_LOAD(g_SoftParticlePositionsInvMass, particleA);
-    const float4 positionInvMassB = CRESSIM_SB_LOAD(g_SoftParticlePositionsInvMass, particleB);
+    const float4 positionInvMassA = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleA);
+    const float4 positionInvMassB = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleB);
     const float wA = positionInvMassA.w;
     const float wB = positionInvMassB.w;
     const float wSum = wA + wB;

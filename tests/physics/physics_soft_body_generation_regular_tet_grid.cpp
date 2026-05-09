@@ -30,7 +30,7 @@ int main()
     }
 
     const auto &softBodies = world.softBodySnapshot();
-    const auto &particles = world.softParticles();
+    const auto &particles = world.particles();
     const auto &edges = world.softEdges();
     const auto &tets = world.softTets();
     if (softBodies.size() != 1u || particles.size() != 27u || tets.size() != 40u)

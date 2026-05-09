@@ -35,8 +35,8 @@ bool compareWorlds(const cressim::neo::physics::PhysicsWorld &lhs,
 {
     using namespace cressim::neo::physics;
 
-    const auto &lhsParticles = lhs.softParticles();
-    const auto &rhsParticles = rhs.softParticles();
+    const auto &lhsParticles = lhs.particles();
+    const auto &rhsParticles = rhs.particles();
     const auto &lhsEdges     = lhs.softEdges();
     const auto &rhsEdges     = rhs.softEdges();
     const auto &lhsTets      = lhs.softTets();

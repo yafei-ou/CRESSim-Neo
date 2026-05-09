@@ -17,7 +17,7 @@ struct PhysicsGpuRigidSceneView
     std::uint64_t bindingGeneration = 0;
 };
 
-struct PhysicsGpuSoftParticleBufferView
+struct PhysicsGpuParticleBufferView
 {
     Diligent::IBuffer *positionsInvMassBuffer      = nullptr;
     Diligent::IBuffer *previousPositionsBuffer     = nullptr;
@@ -25,7 +25,13 @@ struct PhysicsGpuSoftParticleBufferView
     Diligent::IBuffer *materialsBuffer             = nullptr;
     Diligent::IBuffer *radiiBuffer                 = nullptr;
     Diligent::IBuffer *environmentIndicesBuffer    = nullptr;
+    Diligent::IBuffer *particleKindsBuffer         = nullptr;
+    Diligent::IBuffer *ownerTypesBuffer            = nullptr;
+    Diligent::IBuffer *ownerIndicesBuffer          = nullptr;
     Diligent::IBuffer *owningSoftBodyIndicesBuffer = nullptr;
+    Diligent::IBuffer *fluidRestDensitiesBuffer    = nullptr;
+    Diligent::IBuffer *fluidViscositiesBuffer      = nullptr;
+    Diligent::IBuffer *fluidSmoothingRadiiBuffer   = nullptr;
     Diligent::IBuffer *phasesBuffer                = nullptr;
     Diligent::IBuffer *collisionLayersBuffer       = nullptr;
     Diligent::IBuffer *collisionMasksBuffer        = nullptr;
@@ -37,7 +43,7 @@ struct PhysicsGpuSoftParticleBufferView
 
 struct PhysicsGpuSoftSceneView
 {
-    PhysicsGpuSoftParticleBufferView particles{};
+    PhysicsGpuParticleBufferView particles{};
     Diligent::IBuffer *edgesBuffer         = nullptr;
     Diligent::IBuffer *tetsBuffer          = nullptr;
     Diligent::IBuffer *renderNormalsBuffer = nullptr;

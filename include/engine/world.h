@@ -46,6 +46,8 @@ public:
     bool removeRigidBody(common::EntityId entityId);
     bool setSoftBody(common::EntityId entityId, const SoftBodyComponent &component);
     bool removeSoftBody(common::EntityId entityId);
+    bool setFluid(common::EntityId entityId, const FluidComponent &component);
+    bool removeFluid(common::EntityId entityId);
 
     ColliderHandle addCollider(common::EntityId entityId, const ColliderComponent &component);
     void updateCollider(ColliderHandle handle, const ColliderComponent &component);
@@ -69,6 +71,7 @@ public:
     // Read rigid body/collider through physics.
     std::optional<RigidBodyComponent> tryGetRigidBody(common::EntityId entityId) const;
     std::optional<SoftBodyComponent> tryGetSoftBody(common::EntityId entityId) const;
+    std::optional<FluidComponent> tryGetFluid(common::EntityId entityId) const;
     std::optional<ColliderComponent> tryGetCollider(ColliderHandle handle) const;
     const std::vector<ColliderHandle> &colliderHandles(common::EntityId entityId) const;
 
@@ -106,6 +109,7 @@ private:
     {
         bool hasRigidBody = false;
         bool hasSoftBody  = false;
+        bool hasFluid     = false;
         std::vector<ColliderHandle> colliders;
     };
 

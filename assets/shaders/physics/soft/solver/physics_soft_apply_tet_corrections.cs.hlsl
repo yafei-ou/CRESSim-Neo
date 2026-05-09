@@ -1,7 +1,7 @@
-#include "../../../include/physics/physics_soft_dispatch_constants.hlsli"
-#include "../../../include/physics/soft/physics_soft_types.hlsli"
+#include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
+#include "../../../include/physics/particle/physics_particle_types.hlsli"
 
-CRESSIM_RW_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftConstraintRange, g_ParticleTetRanges);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftIncidentTet, g_ParticleIncidentTets);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftTetCorrection, g_SoftTetCorrections);
@@ -10,12 +10,12 @@ CRESSIM_STRUCTURED_BUFFER(GpuSoftTetCorrection, g_SoftTetCorrections);
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint particleIndex = dispatchThreadID.x;
-    if (particleIndex >= softParticleCount)
+    if (particleIndex >= particleCount)
     {
         return;
     }
 
-    const float4 positionInvMass = CRESSIM_SB_LOAD(g_SoftParticlePositionsInvMass, particleIndex);
+    const float4 positionInvMass = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex);
     if (positionInvMass.w <= kEpsilon)
     {
         return;
@@ -45,6 +45,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         }
     }
 
-    CRESSIM_SB_STORE(g_SoftParticlePositionsInvMass, particleIndex,
+    CRESSIM_SB_STORE(g_ParticlePositionsInvMass, particleIndex,
                      float4(positionInvMass.xyz + totalCorrection, positionInvMass.w));
 }

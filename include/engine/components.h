@@ -146,6 +146,17 @@ struct SoftBodyComponent
     std::uint32_t collisionMask  = 0xffffffffu;
 };
 
+struct FluidComponent
+{
+    physics::FluidSourceDesc source{};
+    physics::FluidMaterialDesc material{};
+    float particleMass           = 1.0f;
+    float particleRadius         = 0.125f;
+    bool simulated               = true;
+    std::uint32_t collisionLayer = 1u;
+    std::uint32_t collisionMask  = 0xffffffffu;
+};
+
 } // namespace cressim::neo::engine
 
 #endif // CRESSIM_NEO_ENGINE_COMPONENTS_H

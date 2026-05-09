@@ -57,6 +57,24 @@ enum class SoftBodySourceKind : std::uint32_t
     TetGenFiles = 2u,
 };
 
+enum class FluidSourceKind : std::uint32_t
+{
+    RegularGrid = 0u,
+};
+
+enum class ParticleKind : std::uint32_t
+{
+    SoftSolid = 0u,
+    Fluid     = 1u,
+};
+
+enum class ParticleOwnerType : std::uint32_t
+{
+    None     = 0u,
+    SoftBody = 1u,
+    FluidBody = 2u,
+};
+
 struct SoftBodyRegularGridSource
 {
     Diligent::float3 size{1.0f, 1.0f, 1.0f};
@@ -86,12 +104,35 @@ struct SoftBodySourceDesc
     SoftBodyTetGenSource tetGen;
 };
 
+struct FluidRegularGridSource
+{
+    Diligent::float3 size{1.0f, 1.0f, 1.0f};
+    float targetParticleSpacing = 0.25f;
+};
+
+struct FluidSourceDesc
+{
+    FluidSourceKind kind = FluidSourceKind::RegularGrid;
+    FluidRegularGridSource regularGrid;
+};
+
 struct SoftBodyMaterialDesc
 {
     float friction       = 0.0f;
     float restitution    = 0.0f;
     float damping        = 0.0f;
     float staticFriction = -1.0f;
+};
+
+struct FluidMaterialDesc
+{
+    float friction       = 0.0f;
+    float restitution    = 0.0f;
+    float damping        = 0.0f;
+    float staticFriction = -1.0f;
+    float restDensity    = 1000.0f;
+    float viscosity      = 0.01f;
+    float smoothingRadius = 0.25f;
 };
 
 struct RigidBodyState
@@ -154,6 +195,23 @@ struct SoftBodyState
     std::vector<Diligent::uint3> boundaryFaces;
 };
 
+struct FluidState
+{
+    common::EntityId entityId      = common::kInvalidEntityId;
+    std::uint32_t environmentIndex = 0u;
+    std::uint32_t collisionLayer   = 1u;
+    std::uint32_t collisionMask    = 0xffffffffu;
+    FluidSourceDesc source{};
+    FluidMaterialDesc material{};
+    common::Transform restTransform{};
+    float particleMass            = 1.0f;
+    float particleRadius          = 0.125f;
+    bool simulated                = true;
+    std::uint32_t particleOffset  = 0u;
+    std::uint32_t particleCount   = 0u;
+    std::vector<Diligent::float3> restPositions;
+};
+
 struct SoftEdge
 {
     std::uint32_t particleA = 0u;
@@ -171,7 +229,7 @@ struct SoftTet
     std::uint32_t reserved1 = 0u;
 };
 
-struct SoftParticleSoAHost
+struct ParticleSoAHost
 {
     std::vector<Diligent::float4> positionsInvMass;
     std::vector<Diligent::float4> previousPositions;
@@ -179,7 +237,13 @@ struct SoftParticleSoAHost
     std::vector<Diligent::float4> materials;
     std::vector<float> radii;
     std::vector<std::uint32_t> environmentIndices;
+    std::vector<std::uint32_t> particleKinds;
+    std::vector<std::uint32_t> ownerTypes;
+    std::vector<std::uint32_t> ownerIndices;
     std::vector<std::uint32_t> owningSoftBodyIndices;
+    std::vector<float> fluidRestDensities;
+    std::vector<float> fluidViscosities;
+    std::vector<float> fluidSmoothingRadii;
     std::vector<std::uint32_t> phases;
     std::vector<std::uint32_t> collisionLayers;
     std::vector<std::uint32_t> collisionMasks;
@@ -205,7 +269,13 @@ struct SoftParticleSoAHost
         materials.clear();
         radii.clear();
         environmentIndices.clear();
+        particleKinds.clear();
+        ownerTypes.clear();
+        ownerIndices.clear();
         owningSoftBodyIndices.clear();
+        fluidRestDensities.clear();
+        fluidViscosities.clear();
+        fluidSmoothingRadii.clear();
         phases.clear();
         collisionLayers.clear();
         collisionMasks.clear();

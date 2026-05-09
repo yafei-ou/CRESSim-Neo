@@ -77,7 +77,7 @@ int main()
 
     const physics::PhysicsGpuSceneView sceneView = solver->gpuSceneView();
     const std::uint32_t expectedParticleCount =
-        static_cast<std::uint32_t>(world.physicsWorld().softParticles().size());
+        static_cast<std::uint32_t>(world.physicsWorld().particles().size());
     const std::uint32_t expectedEdgeCount =
         static_cast<std::uint32_t>(world.physicsWorld().softEdges().size());
     const std::uint32_t expectedTetCount =

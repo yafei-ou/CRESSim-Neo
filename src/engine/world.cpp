@@ -269,6 +269,7 @@ bool World::destroyEntity(common::EntityId entityId)
     removeSpotLight(entityId);
     removeRigidBody(entityId);
     removeSoftBody(entityId);
+    removeFluid(entityId);
 
     auto physIt = mPhysicsLinks.find(entityId);
     if (physIt != mPhysicsLinks.end())
@@ -345,6 +346,18 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
                 }
             }
         }
+        if (physIt->second.hasFluid)
+        {
+            if (physics::FluidState *fluid = mPhysicsWorld.tryGetFluid(entityId))
+            {
+                physics::FluidState updated = *fluid;
+                updated.environmentIndex    = envIndex;
+                if (!mPhysicsWorld.upsertFluid(updated))
+                {
+                    return false;
+                }
+            }
+        }
     }
     mEntityEnvironments[entityId] = envIndex;
     if (!moveRenderableToEnvironment(entityId, envIndex) ||
@@ -372,6 +385,20 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
                     {
                         CRESSIM_LOG_ERROR("setEntityEnvironment failed to restore previous "
                                           "soft-body environment for entity ",
+                                          entityId, ".");
+                    }
+                }
+            }
+            if (physIt->second.hasFluid)
+            {
+                if (physics::FluidState *fluid = mPhysicsWorld.tryGetFluid(entityId))
+                {
+                    physics::FluidState reverted = *fluid;
+                    reverted.environmentIndex    = previousEnv;
+                    if (!mPhysicsWorld.upsertFluid(reverted))
+                    {
+                        CRESSIM_LOG_ERROR("setEntityEnvironment failed to restore previous fluid "
+                                          "environment for entity ",
                                           entityId, ".");
                     }
                 }
@@ -592,6 +619,15 @@ void World::setTransform(common::EntityId entityId, const TransformComponent &co
         {
             CRESSIM_LOG_ERROR("setTransform failed to rebuild soft body for entity ", entityId,
                               ".");
+        }
+    }
+    if (auto *fluid = mPhysicsWorld.tryGetFluid(entityId))
+    {
+        physics::FluidState updated = *fluid;
+        updated.restTransform       = component.worldTransform;
+        if (!mPhysicsWorld.upsertFluid(updated))
+        {
+            CRESSIM_LOG_ERROR("setTransform failed to rebuild fluid for entity ", entityId, ".");
         }
     }
     if (const auto it = mRenderableIndices.find(entityId); it != mRenderableIndices.end())
@@ -1010,6 +1046,63 @@ bool World::removeSoftBody(common::EntityId entityId)
     return mPhysicsWorld.removeSoftBody(entityId);
 }
 
+bool World::setFluid(common::EntityId entityId, const FluidComponent &component)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("setFluid requires valid entity id.");
+        return false;
+    }
+
+    if (!requireAliveEntity(entityId, "setFluid"))
+    {
+        return false;
+    }
+
+    if (!component.simulated)
+    {
+        (void)removeFluid(entityId);
+        return true;
+    }
+
+    TransformComponent transform{};
+    if (const std::optional<TransformComponent> t = tryGetTransform(entityId))
+    {
+        transform = *t;
+    }
+
+    physics::FluidState state{};
+    state.entityId         = entityId;
+    state.environmentIndex = entityEnvironment(entityId);
+    state.source           = component.source;
+    state.material         = component.material;
+    state.restTransform    = transform.worldTransform;
+    state.particleMass     = component.particleMass;
+    state.particleRadius   = component.particleRadius;
+    state.simulated        = component.simulated;
+    state.collisionLayer   = component.collisionLayer;
+    state.collisionMask    = component.collisionMask;
+
+    if (!mPhysicsWorld.upsertFluid(state))
+    {
+        return false;
+    }
+    mPhysicsLinks[entityId].hasFluid = true;
+    mDrawRegistryDirty               = true;
+    return true;
+}
+
+bool World::removeFluid(common::EntityId entityId)
+{
+    auto it = mPhysicsLinks.find(entityId);
+    if (it != mPhysicsLinks.end())
+    {
+        it->second.hasFluid = false;
+    }
+    mDrawRegistryDirty = true;
+    return mPhysicsWorld.removeFluid(entityId);
+}
+
 World::ColliderHandle World::addCollider(common::EntityId entityId,
                                          const ColliderComponent &component)
 {
@@ -1387,6 +1480,25 @@ std::optional<SoftBodyComponent> World::tryGetSoftBody(common::EntityId entityId
     component.selfCollisionEnabled = softBody->selfCollisionEnabled;
     component.collisionLayer       = softBody->collisionLayer;
     component.collisionMask        = softBody->collisionMask;
+    return component;
+}
+
+std::optional<FluidComponent> World::tryGetFluid(common::EntityId entityId) const
+{
+    const physics::FluidState *fluid = mPhysicsWorld.tryGetFluid(entityId);
+    if (!fluid)
+    {
+        return std::nullopt;
+    }
+
+    FluidComponent component{};
+    component.source         = fluid->source;
+    component.material       = fluid->material;
+    component.particleMass   = fluid->particleMass;
+    component.particleRadius = fluid->particleRadius;
+    component.simulated      = fluid->simulated;
+    component.collisionLayer = fluid->collisionLayer;
+    component.collisionMask  = fluid->collisionMask;
     return component;
 }
 

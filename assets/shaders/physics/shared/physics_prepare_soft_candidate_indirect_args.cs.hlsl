@@ -1,9 +1,9 @@
 #include "../../include/physics/shared/physics_indirect_dispatch.hlsli"
-#include "../../include/physics/soft/physics_soft_types.hlsli"
+#include "../../include/physics/particle/physics_particle_types.hlsli"
 
 static const uint kComputeThreadGroupSize = 64u;
 
-CRESSIM_STRUCTURED_BUFFER(GpuSoftNeighborMeta, g_SoftNeighborMeta);
+CRESSIM_STRUCTURED_BUFFER(GpuParticleNeighborMeta, g_ParticleNeighborMeta);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuDispatchIndirectArgs, g_PhysicsIndirectDispatchArgs);
 
 GpuDispatchIndirectArgs MakeArgs(uint count)
@@ -23,13 +23,13 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const GpuSoftNeighborMeta meta = CRESSIM_SB_LOAD(g_SoftNeighborMeta, 0u);
+    const GpuParticleNeighborMeta meta = CRESSIM_SB_LOAD(g_ParticleNeighborMeta, 0u);
     CRESSIM_SB_STORE(g_PhysicsIndirectDispatchArgs, kPhysicsIndirectSoftGenerateContacts,
-                     MakeArgs(meta.softSoftCandidateCount));
+                     MakeArgs(meta.particleParticleCandidateCount));
     CRESSIM_SB_STORE(g_PhysicsIndirectDispatchArgs, kPhysicsIndirectSoftGenerateRigidContacts,
-                     MakeArgs(meta.softRigidCandidateCount));
+                     MakeArgs(meta.particleRigidCandidateCount));
     CRESSIM_SB_STORE(g_PhysicsIndirectDispatchArgs, kPhysicsIndirectSoftCompactContacts,
-                     MakeArgs(meta.softSoftCandidateCount));
+                     MakeArgs(meta.particleParticleCandidateCount));
     CRESSIM_SB_STORE(g_PhysicsIndirectDispatchArgs, kPhysicsIndirectSoftCompactRigidContacts,
-                     MakeArgs(meta.softRigidCandidateCount));
+                     MakeArgs(meta.particleRigidCandidateCount));
 }

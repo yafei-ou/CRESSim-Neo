@@ -43,7 +43,7 @@ int main()
         return 1;
     }
 
-    const auto &particles = world.softParticles();
+    const auto &particles = world.particles();
     const auto &edges     = world.softEdges();
     const auto &tets      = world.softTets();
     stored                = world.tryGetSoftBody(2001u);
