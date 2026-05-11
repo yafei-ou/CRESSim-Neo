@@ -497,6 +497,8 @@ constexpr Diligent::ShaderResourceVariableDesc kComputeFluidDeltaPositionsVars[]
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidLambdas",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PreviousFluidAccumulatedDeltaPositions",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidDeltaPositions",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
@@ -509,6 +511,8 @@ constexpr Diligent::ShaderResourceVariableDesc kApplyFluidDeltaPositionsVars[] =
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleKinds",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidDeltaPositions",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PreviousFluidAccumulatedDeltaPositions",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 

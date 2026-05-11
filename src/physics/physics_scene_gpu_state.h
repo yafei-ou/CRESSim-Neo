@@ -156,6 +156,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidDensitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidDeltaPositionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidAccumulatedDeltaPositionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidVorticitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetLambdasBuffer;

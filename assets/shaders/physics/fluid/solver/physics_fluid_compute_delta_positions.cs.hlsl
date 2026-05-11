@@ -11,6 +11,7 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleKinds);
 CRESSIM_STRUCTURED_BUFFER(uint, g_FluidMaterialIndices);
 CRESSIM_STRUCTURED_BUFFER(GpuFluidMaterial, g_FluidMaterials);
 CRESSIM_STRUCTURED_BUFFER(float, g_FluidLambdas);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousFluidAccumulatedDeltaPositions);
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_FluidDeltaPositions);
 
@@ -59,6 +60,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     float3 deltaPosition = float3(0.0, 0.0, 0.0);
     float3 surfaceNormal = float3(0.0, 0.0, 0.0);
     float interactionWeight = 0.0;
+    const float3 selfAccumulatedDelta =
+        (iterationIndex > 0u)
+            ? CRESSIM_SB_LOAD(g_PreviousFluidAccumulatedDeltaPositions, particleIndex).xyz
+            : float3(0.0, 0.0, 0.0);
 
     [loop]
     for (int dz = -1; dz <= 1; ++dz)
@@ -126,6 +131,14 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
                     if (AreSameFluidMaterial(particleIndex, neighborIndex))
                     {
+                        const float3 neighborAccumulatedDelta =
+                            (iterationIndex > 0u)
+                                ? CRESSIM_SB_LOAD(g_PreviousFluidAccumulatedDeltaPositions,
+                                                  neighborIndex)
+                                      .xyz
+                                : float3(0.0, 0.0, 0.0);
+                        const float3 relDelta =
+                            selfAccumulatedDelta - neighborAccumulatedDelta;
                         surfaceNormal += (neighborMass * invRestDensity) * kernelGradient;
                         if (cohesion > kEpsilon)
                         {
@@ -139,7 +152,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
                         if (cflRadius > kEpsilon)
                         {
-                            const float projected = dot(pairDelta, delta / distance);
+                            const float projected = dot(relDelta, delta / distance);
                             if (projected < -cflRadius)
                             {
                                 pairDelta -=

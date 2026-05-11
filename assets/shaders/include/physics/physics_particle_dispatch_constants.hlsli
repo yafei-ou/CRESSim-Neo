@@ -13,7 +13,7 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint softTetCount;
     uint fluidIterations;
     float reserved0;
-    uint reserved1;
+    uint iterationIndex;
     uint reserved2;
 };
 
