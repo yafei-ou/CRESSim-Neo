@@ -122,19 +122,20 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
     world.ensureDerivedStateUpToDate();
 
-    const std::uint32_t rigidBodyCount       = world.rigidBodyCount();
-    const std::uint32_t colliderCount        = world.colliderCount();
-    const ParticleSoAHost &particles         = world.particles();
-    const std::vector<SoftEdge> &softEdges   = world.softEdges();
-    const std::vector<SoftTet> &softTets     = world.softTets();
-    const SoftRenderDataHost &softRenderData = world.softRenderData();
-    const RigidJointSceneHost &rigidJoints   = world.rigidJointScene();
-    const std::uint32_t fluidCount           = world.fluidCount();
-    const std::uint32_t particleCount        = static_cast<std::uint32_t>(particles.size());
-    const std::uint32_t softEdgeCount        = static_cast<std::uint32_t>(softEdges.size());
-    const std::uint32_t softTetCount         = static_cast<std::uint32_t>(softTets.size());
-    const std::uint32_t ballJointCount       = static_cast<std::uint32_t>(rigidJoints.ball.size());
-    const std::uint32_t hingeJointCount      = static_cast<std::uint32_t>(rigidJoints.hinge.size());
+    const std::uint32_t rigidBodyCount                  = world.rigidBodyCount();
+    const std::uint32_t colliderCount                   = world.colliderCount();
+    const ParticleSoAHost &particles                    = world.particles();
+    const std::vector<FluidMaterialGpu> &fluidMaterials = world.fluidMaterials();
+    const std::vector<SoftEdge> &softEdges              = world.softEdges();
+    const std::vector<SoftTet> &softTets                = world.softTets();
+    const SoftRenderDataHost &softRenderData            = world.softRenderData();
+    const RigidJointSceneHost &rigidJoints              = world.rigidJointScene();
+    const std::uint32_t fluidCount                      = world.fluidCount();
+    const std::uint32_t particleCount    = static_cast<std::uint32_t>(particles.size());
+    const std::uint32_t softEdgeCount    = static_cast<std::uint32_t>(softEdges.size());
+    const std::uint32_t softTetCount     = static_cast<std::uint32_t>(softTets.size());
+    const std::uint32_t ballJointCount   = static_cast<std::uint32_t>(rigidJoints.ball.size());
+    const std::uint32_t hingeJointCount  = static_cast<std::uint32_t>(rigidJoints.hinge.size());
     const std::uint32_t sliderJointCount = static_cast<std::uint32_t>(rigidJoints.slider.size());
     const std::uint32_t softRenderTriangleCount =
         static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
@@ -148,10 +149,13 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     {
         particleGridCellSize =
             std::max(particleGridCellSize, particles.radii[particleIndex] * 2.0f);
-        if (particleIndex < particles.fluidSmoothingRadii.size())
+        if (particleIndex < particles.fluidMaterialIndices.size() &&
+            particles.fluidMaterialIndices[particleIndex] != 0xffffffffu &&
+            particles.fluidMaterialIndices[particleIndex] < fluidMaterials.size())
         {
-            particleGridCellSize =
-                std::max(particleGridCellSize, particles.fluidSmoothingRadii[particleIndex]);
+            particleGridCellSize = std::max(
+                particleGridCellSize,
+                fluidMaterials[particles.fluidMaterialIndices[particleIndex]].smoothingRadius);
         }
     }
     particleGridCellSize   = std::max(particleGridCellSize, 0.1f);
@@ -163,7 +167,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
     if (!mImpl->sceneState.ensureCapacity(
             computeBackend.renderDevice, rigidBodyCount, colliderCount, particleCount,
-            softEdgeCount, softTetCount, ballJointCount, hingeJointCount, sliderJointCount,
+            static_cast<std::uint32_t>(world.particleContactMaterials().size()),
+            static_cast<std::uint32_t>(fluidMaterials.size()), softEdgeCount, softTetCount,
+            ballJointCount, hingeJointCount, sliderJointCount,
             static_cast<std::uint32_t>(softRenderData.fallbackNormals.size()),
             static_cast<std::uint32_t>(softRenderData.vertexTriangleIndices.size()),
             softRenderTriangleCount,

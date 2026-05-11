@@ -87,16 +87,16 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsInvMassBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> previousPositionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> velocitiesBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> materialsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> radiiBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> environmentIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleKindsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> ownerTypesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> ownerIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> owningSoftBodyIndicesBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidRestDensitiesBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidViscositiesBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidSmoothingRadiiBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleMaterialIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidMaterialIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleContactMaterialsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidMaterialsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> phasesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> collisionLayersBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> collisionMasksBuffer;
@@ -285,9 +285,11 @@ public:
 
     bool ensureCapacity(Diligent::IRenderDevice *renderDevice, std::uint32_t bodyCount,
                         std::uint32_t colliderCount, std::uint32_t particleCount,
-                        std::uint32_t softEdgeCount, std::uint32_t softTetCount,
-                        std::uint32_t ballJointCount, std::uint32_t hingeJointCount,
-                        std::uint32_t sliderJointCount, std::uint32_t softRenderVertexCount,
+                        std::uint32_t particleContactMaterialCount,
+                        std::uint32_t fluidMaterialCount, std::uint32_t softEdgeCount,
+                        std::uint32_t softTetCount, std::uint32_t ballJointCount,
+                        std::uint32_t hingeJointCount, std::uint32_t sliderJointCount,
+                        std::uint32_t softRenderVertexCount,
                         std::uint32_t softRenderTriangleIndexCount,
                         std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
                         std::uint32_t softBodyBoundsChunkCount, Diligent::Uint64 sharedContextMask,
@@ -356,8 +358,9 @@ private:
                                          const JointCollisionSuppressionHost &suppression,
                                          std::uint32_t bodyCount);
     bool uploadRigidJoints(Diligent::IDeviceContext *computeContext, const PhysicsWorld &world);
-    bool uploadParticles(Diligent::IDeviceContext *computeContext,
-                         const ParticleSoAHost &particles);
+    bool uploadParticles(Diligent::IDeviceContext *computeContext, const ParticleSoAHost &particles,
+                         const std::vector<Diligent::float4> &particleContactMaterials,
+                         const std::vector<FluidMaterialGpu> &fluidMaterials);
     bool uploadSoftTopology(Diligent::IDeviceContext *computeContext, std::uint32_t particleCount,
                             const SoftRenderDataHost &softRenderData,
                             const std::vector<SoftEdge> &softEdges,
@@ -375,6 +378,8 @@ private:
     std::uint32_t mRigidBodyCapacity                         = 0;
     std::uint32_t mColliderCapacity                          = 0;
     std::uint32_t mSoftParticleCapacity                      = 0;
+    std::uint32_t mParticleContactMaterialCapacity           = 0;
+    std::uint32_t mFluidMaterialCapacity                     = 0;
     std::uint32_t mSoftEdgeCapacity                          = 0;
     std::uint32_t mSoftTetCapacity                           = 0;
     std::uint32_t mParticleBroadPhaseEntryCapacity           = 0;
@@ -384,6 +389,8 @@ private:
     std::uint32_t mColliderCount                             = 0;
     std::uint32_t mSoftBodyCount                             = 0;
     std::uint32_t mSoftParticleCount                         = 0;
+    std::uint32_t mParticleContactMaterialCount              = 0;
+    std::uint32_t mFluidMaterialCount                        = 0;
     std::uint32_t mSoftEdgeCount                             = 0;
     std::uint32_t mSoftTetCount                              = 0;
     std::uint32_t mBroadPhaseNodeCapacity                    = 0;

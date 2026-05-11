@@ -94,6 +94,8 @@ int main()
         sceneView.soft.particles.previousPositionsBuffer == nullptr ||
         sceneView.soft.particles.velocitiesBuffer == nullptr ||
         sceneView.soft.particles.radiiBuffer == nullptr ||
+        sceneView.soft.particles.particleMaterialIndicesBuffer == nullptr ||
+        sceneView.soft.particles.particleContactMaterialsBuffer == nullptr ||
         sceneView.soft.particles.environmentIndicesBuffer == nullptr ||
         sceneView.soft.particles.owningSoftBodyIndicesBuffer == nullptr ||
         sceneView.soft.particles.phasesBuffer == nullptr ||
@@ -103,6 +105,13 @@ int main()
         sceneView.soft.edgesBuffer == nullptr || sceneView.soft.tetsBuffer == nullptr)
     {
         CRESSIM_LOG_ERROR("Soft GPU scene view is missing required buffers.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    if (sceneView.soft.particles.contactMaterialCount == 0u)
+    {
+        CRESSIM_LOG_ERROR("Soft GPU scene view did not upload contact material table.");
         runtime.shutdown();
         return 1;
     }

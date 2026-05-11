@@ -8,7 +8,8 @@ static const float kSoftMaxCorrectionPerIter = 0.05;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePreviousPositions);
-CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleMaterials);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleMaterialIndices);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleContactMaterials);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleContact, g_ParticleContacts);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleNeighborMeta, g_ParticleNeighborMeta);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_ParticlePositionCorrections);
@@ -51,9 +52,11 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
+    const uint materialIndexA = CRESSIM_SB_LOAD(g_ParticleMaterialIndices, particleA);
+    const uint materialIndexB = CRESSIM_SB_LOAD(g_ParticleMaterialIndices, particleB);
     const float3 combinedMaterial = CombineContactMaterial(
-        CRESSIM_SB_LOAD(g_ParticleMaterials, particleA),
-        CRESSIM_SB_LOAD(g_ParticleMaterials, particleB));
+        CRESSIM_SB_LOAD(g_ParticleContactMaterials, materialIndexA),
+        CRESSIM_SB_LOAD(g_ParticleContactMaterials, materialIndexB));
     const float3 normal =
         SafeNormalize(contact.normalPenetration.xyz, float3(0.0, 1.0, 0.0));
     const float3 relativeDisplacement =

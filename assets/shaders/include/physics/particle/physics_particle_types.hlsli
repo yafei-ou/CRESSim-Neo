@@ -77,6 +77,14 @@ struct GpuParticleContact
     float4 material;
 };
 
+struct GpuFluidMaterial
+{
+    float restDensity;
+    float viscosity;
+    float smoothingRadius;
+    float reserved0;
+};
+
 struct GpuSoftEdge
 {
     uint particleA;

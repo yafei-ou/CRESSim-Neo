@@ -116,3 +116,10 @@ add_cressim_test(
     SOURCE physics_fluid_unified_particle_pool.cpp
     LIBS cressim_neo_engine
 )
+
+add_cressim_test(
+    SUITE physics
+    NAME particle_material_tables
+    SOURCE physics_particle_material_tables.cpp
+    LIBS cressim_neo_engine
+)

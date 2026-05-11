@@ -57,6 +57,8 @@ public:
     const RigidJointSceneHost &rigidJointScene() const noexcept;
     const JointCollisionSuppressionHost &jointCollisionSuppression() const noexcept;
     const ParticleSoAHost &particles() const noexcept;
+    const std::vector<Diligent::float4> &particleContactMaterials() const noexcept;
+    const std::vector<FluidMaterialGpu> &fluidMaterials() const noexcept;
     const std::vector<SoftEdge> &softEdges() const noexcept;
     const std::vector<SoftTet> &softTets() const noexcept;
     const SoftRenderDataHost &softRenderData() const noexcept;
@@ -164,6 +166,8 @@ private:
     std::uint32_t enabledColliderCountForEntity(common::EntityId entityId) const noexcept;
     static void normalizeSoftBodyState(SoftBodyState &state) noexcept;
     static void normalizeFluidState(FluidState &state) noexcept;
+    bool validateFluidMaterialCompatibility(const FluidState &candidate,
+                                            const FluidState *previousState) const noexcept;
     static SoftBodyChangeKind classifySoftBodyChange(const SoftBodyState &previousState,
                                                      const SoftBodyState &candidate) noexcept;
     static RigidJointChangeKind classifyBallJointChange(bool inserted) noexcept;
@@ -214,6 +218,8 @@ private:
     std::vector<SoftBodyDerivedCache> mSoftBodyDerivedCaches{};
     std::vector<FluidDerivedCache> mFluidDerivedCaches{};
     ParticleSoAHost mParticles{};
+    std::vector<Diligent::float4> mParticleContactMaterials{};
+    std::vector<FluidMaterialGpu> mFluidMaterials{};
     std::vector<SoftEdge> mSoftEdges{};
     std::vector<SoftTet> mSoftTets{};
     SoftRenderDataHost mSoftRenderData{};

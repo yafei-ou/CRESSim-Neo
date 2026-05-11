@@ -65,6 +65,8 @@ int main()
     world.ensureDerivedStateUpToDate();
 
     const auto &particles = world.particles();
+    const auto &contactMaterials = world.particleContactMaterials();
+    const auto &fluidMaterials = world.fluidMaterials();
     if (world.softBodyCount() != 1u || world.fluidCount() != 1u || particles.size() != 5u)
     {
         CRESSIM_LOG_ERROR("Unexpected unified particle pool sizes.\n");
@@ -79,7 +81,7 @@ int main()
         {
             ++softCount;
             if (particles.ownerTypes[i] != static_cast<std::uint32_t>(ParticleOwnerType::SoftBody) ||
-                particles.fluidRestDensities[i] != 0.0f || particles.fluidViscosities[i] != 0.0f)
+                particles.fluidMaterialIndices[i] != 0xffffffffu)
             {
                 CRESSIM_LOG_ERROR("Soft particle metadata leaked fluid parameters.\n");
                 return 1;
@@ -88,10 +90,12 @@ int main()
         else if (particles.particleKinds[i] == static_cast<std::uint32_t>(ParticleKind::Fluid))
         {
             ++fluidCount;
+            const std::uint32_t fluidMaterialIndex = particles.fluidMaterialIndices[i];
             if (particles.ownerTypes[i] != static_cast<std::uint32_t>(ParticleOwnerType::FluidBody) ||
-                particles.fluidRestDensities[i] != 900.0f ||
-                particles.fluidViscosities[i] != 0.15f ||
-                particles.fluidSmoothingRadii[i] != 0.3f)
+                fluidMaterialIndex >= fluidMaterials.size() ||
+                fluidMaterials[fluidMaterialIndex].restDensity != 900.0f ||
+                fluidMaterials[fluidMaterialIndex].viscosity != 0.15f ||
+                fluidMaterials[fluidMaterialIndex].smoothingRadius != 0.3f)
             {
                 CRESSIM_LOG_ERROR("Fluid particle metadata was not propagated.\n");
                 return 1;
@@ -107,6 +111,12 @@ int main()
     if (softCount != 4u || fluidCount != 1u)
     {
         CRESSIM_LOG_ERROR("Unified particle pool kind counts are incorrect.\n");
+        return 1;
+    }
+
+    if (contactMaterials.size() != 1u || fluidMaterials.size() != 1u)
+    {
+        CRESSIM_LOG_ERROR("Unified material tables were not deduplicated as expected.\n");
         return 1;
     }
 

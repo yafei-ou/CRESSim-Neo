@@ -44,3 +44,8 @@ add_cressim_example(
     NAME physics_fluid_debug_particles
     SOURCE fluid_debug_particles.cpp
 )
+
+add_cressim_example(
+    NAME physics_particle_material_showcase
+    SOURCE particle_material_showcase.cpp
+)

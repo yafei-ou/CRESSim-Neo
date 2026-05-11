@@ -12,7 +12,8 @@ static const float kRestitutionPenetrationThreshold = 2.0 * kContactSlop;
 // This pass is restitution-only and operates on reconstructed post-solve velocities.
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleMaterials);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleMaterialIndices);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleContactMaterials);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleVelocities);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
@@ -92,8 +93,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
+    const uint materialIndex = CRESSIM_SB_LOAD(g_ParticleMaterialIndices, particleIndex);
     const float3 combinedMaterial = CombineContactMaterial(
-        CRESSIM_SB_LOAD(g_ParticleMaterials, particleIndex),
+        CRESSIM_SB_LOAD(g_ParticleContactMaterials, materialIndex),
         CRESSIM_SB_LOAD(g_ColliderMaterials, contact.colliderIndex));
     const bool enableRestitution =
         (-normalVelocity > kRestitutionVelocityThreshold) &&

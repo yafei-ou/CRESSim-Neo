@@ -8,8 +8,8 @@ CRESSIM_STRUCTURED_BUFFER(GpuMortonCodeElement, g_SortedParticleBroadPhaseKeys);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(uint4, g_ParticleBroadPhaseMetadata);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleKinds);
-CRESSIM_STRUCTURED_BUFFER(float, g_FluidRestDensities);
-CRESSIM_STRUCTURED_BUFFER(float, g_FluidSmoothingRadii);
+CRESSIM_STRUCTURED_BUFFER(uint, g_FluidMaterialIndices);
+CRESSIM_STRUCTURED_BUFFER(GpuFluidMaterial, g_FluidMaterials);
 
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_FluidDensities);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_FluidLambdas);
@@ -43,9 +43,11 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const float selfMass = 1.0 / selfInvMass;
     const float3 selfPosition = selfPositionInvMass.xyz;
-    const float restDensity = max(CRESSIM_SB_LOAD(g_FluidRestDensities, particleIndex), 1.0);
+    const uint fluidMaterialIndex = CRESSIM_SB_LOAD(g_FluidMaterialIndices, particleIndex);
+    const GpuFluidMaterial fluidMaterial = CRESSIM_SB_LOAD(g_FluidMaterials, fluidMaterialIndex);
+    const float restDensity = max(fluidMaterial.restDensity, 1.0);
     const float invRestDensity = 1.0 / restDensity;
-    const float smoothingRadius = max(CRESSIM_SB_LOAD(g_FluidSmoothingRadii, particleIndex), 1.0e-4);
+    const float smoothingRadius = max(fluidMaterial.smoothingRadius, 1.0e-4);
     const uint4 selfMetadata = CRESSIM_SB_LOAD(g_ParticleBroadPhaseMetadata, particleIndex);
     const uint selfEnvironment = selfMetadata.x;
     const uint selfLayer = selfMetadata.z;

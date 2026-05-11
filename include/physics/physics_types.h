@@ -116,7 +116,7 @@ struct FluidSourceDesc
     FluidRegularGridSource regularGrid;
 };
 
-struct SoftBodyMaterialDesc
+struct ParticleContactMaterialDesc
 {
     float friction       = 0.0f;
     float restitution    = 0.0f;
@@ -124,15 +124,31 @@ struct SoftBodyMaterialDesc
     float staticFriction = -1.0f;
 };
 
+struct SoftBodyMaterialDesc
+{
+    ParticleContactMaterialDesc contact{};
+};
+
 struct FluidMaterialDesc
 {
-    float friction        = 0.0f;
-    float restitution     = 0.0f;
-    float damping         = 0.0f;
-    float staticFriction  = -1.0f;
+    ParticleContactMaterialDesc contact{};
     float restDensity     = 1000.0f;
     float viscosity       = 0.01f;
     float smoothingRadius = 0.25f;
+};
+
+struct FluidMaterialGpu
+{
+    float restDensity     = 1000.0f;
+    float viscosity       = 0.01f;
+    float smoothingRadius = 0.25f;
+    float reserved0       = 0.0f;
+
+    constexpr bool operator==(const FluidMaterialGpu &rhs) const noexcept
+    {
+        return restDensity == rhs.restDensity && viscosity == rhs.viscosity &&
+               smoothingRadius == rhs.smoothingRadius && reserved0 == rhs.reserved0;
+    }
 };
 
 struct RigidBodyState
@@ -179,18 +195,19 @@ struct SoftBodyState
     SoftBodySourceDesc source{};
     SoftBodyMaterialDesc material{};
     common::Transform restTransform{};
-    float particleMass           = 1.0f;
-    float particleRadius         = 0.125f;
-    float edgeCompliance         = 0.0f;
-    float volumeCompliance       = 0.0f;
-    bool simulated               = true;
-    bool selfCollisionEnabled    = false;
-    std::uint32_t particleOffset = 0u;
-    std::uint32_t particleCount  = 0u;
-    std::uint32_t edgeOffset     = 0u;
-    std::uint32_t edgeCount      = 0u;
-    std::uint32_t tetOffset      = 0u;
-    std::uint32_t tetCount       = 0u;
+    float particleMass                 = 1.0f;
+    float particleRadius               = 0.125f;
+    float edgeCompliance               = 0.0f;
+    float volumeCompliance             = 0.0f;
+    bool simulated                     = true;
+    bool selfCollisionEnabled          = false;
+    std::uint32_t contactMaterialIndex = 0u;
+    std::uint32_t particleOffset       = 0u;
+    std::uint32_t particleCount        = 0u;
+    std::uint32_t edgeOffset           = 0u;
+    std::uint32_t edgeCount            = 0u;
+    std::uint32_t tetOffset            = 0u;
+    std::uint32_t tetCount             = 0u;
     std::vector<Diligent::float3> restPositions;
     std::vector<Diligent::uint3> boundaryFaces;
 };
@@ -204,11 +221,13 @@ struct FluidState
     FluidSourceDesc source{};
     FluidMaterialDesc material{};
     common::Transform restTransform{};
-    float particleMass           = 1.0f;
-    float particleRadius         = 0.125f;
-    bool simulated               = true;
-    std::uint32_t particleOffset = 0u;
-    std::uint32_t particleCount  = 0u;
+    float particleMass                 = 1.0f;
+    float particleRadius               = 0.125f;
+    bool simulated                     = true;
+    std::uint32_t contactMaterialIndex = 0u;
+    std::uint32_t fluidMaterialIndex   = 0u;
+    std::uint32_t particleOffset       = 0u;
+    std::uint32_t particleCount        = 0u;
     std::vector<Diligent::float3> restPositions;
 };
 
@@ -234,16 +253,14 @@ struct ParticleSoAHost
     std::vector<Diligent::float4> positionsInvMass;
     std::vector<Diligent::float4> previousPositions;
     std::vector<Diligent::float4> velocities;
-    std::vector<Diligent::float4> materials;
     std::vector<float> radii;
     std::vector<std::uint32_t> environmentIndices;
     std::vector<std::uint32_t> particleKinds;
     std::vector<std::uint32_t> ownerTypes;
     std::vector<std::uint32_t> ownerIndices;
     std::vector<std::uint32_t> owningSoftBodyIndices;
-    std::vector<float> fluidRestDensities;
-    std::vector<float> fluidViscosities;
-    std::vector<float> fluidSmoothingRadii;
+    std::vector<std::uint32_t> particleMaterialIndices;
+    std::vector<std::uint32_t> fluidMaterialIndices;
     std::vector<std::uint32_t> phases;
     std::vector<std::uint32_t> collisionLayers;
     std::vector<std::uint32_t> collisionMasks;
@@ -266,16 +283,14 @@ struct ParticleSoAHost
         positionsInvMass.clear();
         previousPositions.clear();
         velocities.clear();
-        materials.clear();
         radii.clear();
         environmentIndices.clear();
         particleKinds.clear();
         ownerTypes.clear();
         ownerIndices.clear();
         owningSoftBodyIndices.clear();
-        fluidRestDensities.clear();
-        fluidViscosities.clear();
-        fluidSmoothingRadii.clear();
+        particleMaterialIndices.clear();
+        fluidMaterialIndices.clear();
         phases.clear();
         collisionLayers.clear();
         collisionMasks.clear();

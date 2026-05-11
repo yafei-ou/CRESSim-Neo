@@ -40,9 +40,9 @@ int main()
     softBody.particleRadius                       = 0.10f;
     softBody.edgeCompliance                       = 0.01f;
     softBody.volumeCompliance                     = 0.02f;
-    softBody.material.friction                    = 0.30f;
-    softBody.material.restitution                 = 0.10f;
-    softBody.material.damping                     = 0.05f;
+    softBody.material.contact.friction            = 0.30f;
+    softBody.material.contact.restitution         = 0.10f;
+    softBody.material.contact.damping             = 0.05f;
     softBody.selfCollisionEnabled                 = false;
     softBody.collisionLayer                       = 0x2u;
     softBody.collisionMask                        = 0x5u;
@@ -103,9 +103,9 @@ int main()
     }
 
     engine::SoftBodyComponent updated = *storedComponent;
-    updated.material.friction         = 0.65f;
-    updated.material.restitution      = 0.20f;
-    updated.material.damping          = 0.15f;
+    updated.material.contact.friction    = 0.65f;
+    updated.material.contact.restitution = 0.20f;
+    updated.material.contact.damping     = 0.15f;
     updated.particleMass              = 2.0f;
     updated.particleRadius            = 0.20f;
     updated.edgeCompliance            = 0.05f;
@@ -148,9 +148,12 @@ int main()
         return 1;
     }
 
-    if (!nearlyEqual(particlesAfterUpdate.materials[particleIndex].x, 0.65f) ||
-        !nearlyEqual(particlesAfterUpdate.materials[particleIndex].y, 0.20f) ||
-        !nearlyEqual(particlesAfterUpdate.materials[particleIndex].z, 0.15f) ||
+    const std::uint32_t materialIndex = particlesAfterUpdate.particleMaterialIndices[particleIndex];
+    const auto &contactMaterials = physicsWorld.particleContactMaterials();
+    if (materialIndex >= contactMaterials.size() ||
+        !nearlyEqual(contactMaterials[materialIndex].x, 0.65f) ||
+        !nearlyEqual(contactMaterials[materialIndex].y, 0.20f) ||
+        !nearlyEqual(contactMaterials[materialIndex].z, 0.15f) ||
         !nearlyEqual(particlesAfterUpdate.radii[particleIndex], 0.20f) ||
         particlesAfterUpdate.collisionLayers[particleIndex] != 0x8u ||
         particlesAfterUpdate.collisionMasks[particleIndex] != 0x14u)

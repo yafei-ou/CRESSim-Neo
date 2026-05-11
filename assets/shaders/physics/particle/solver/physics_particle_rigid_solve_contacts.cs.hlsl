@@ -10,7 +10,8 @@ static const float kSoftMaxCorrectionPerIter = 0.05;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePreviousPositions);
-CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleMaterials);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleMaterialIndices);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleContactMaterials);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
@@ -73,8 +74,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 normal =
         SafeNormalize(contact.normalPenetration.xyz, float3(0.0, 1.0, 0.0));
     float3 invInertiaRigid = CRESSIM_SB_LOAD(g_RigidBodyInverseInertiaLocal, rigidBodyIndex).xyz;
+    const uint materialIndex = CRESSIM_SB_LOAD(g_ParticleMaterialIndices, particleIndex);
     const float3 combinedMaterial = CombineContactMaterial(
-        CRESSIM_SB_LOAD(g_ParticleMaterials, particleIndex),
+        CRESSIM_SB_LOAD(g_ParticleContactMaterials, materialIndex),
         CRESSIM_SB_LOAD(g_ColliderMaterials, contact.colliderIndex));
     if (invMassRigid <= kEpsilon)
     {

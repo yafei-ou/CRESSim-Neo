@@ -7,7 +7,8 @@ static const float kRestitutionVelocityThreshold = 0.5;
 static const float kRestitutionPenetrationThreshold = 2.0 * kContactSlop;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleMaterials);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleMaterialIndices);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleContactMaterials);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleVelocities);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleContact, g_ParticleContacts);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleNeighborMeta, g_ParticleNeighborMeta);
@@ -58,9 +59,11 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
+    const uint materialIndexA = CRESSIM_SB_LOAD(g_ParticleMaterialIndices, particleA);
+    const uint materialIndexB = CRESSIM_SB_LOAD(g_ParticleMaterialIndices, particleB);
     const float3 combinedMaterial = CombineContactMaterial(
-        CRESSIM_SB_LOAD(g_ParticleMaterials, particleA),
-        CRESSIM_SB_LOAD(g_ParticleMaterials, particleB));
+        CRESSIM_SB_LOAD(g_ParticleContactMaterials, materialIndexA),
+        CRESSIM_SB_LOAD(g_ParticleContactMaterials, materialIndexB));
     const bool enableRestitution =
         (-normalVelocity > kRestitutionVelocityThreshold) &&
         (contact.normalPenetration.w <= kRestitutionPenetrationThreshold);
