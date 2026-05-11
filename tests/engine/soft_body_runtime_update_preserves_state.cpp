@@ -1,7 +1,7 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/world.h"
-#include "physics/soft_phase.h"
+#include "physics/particle_phase.h"
 
 #include <cmath>
 
@@ -142,7 +142,7 @@ int main()
     }
 
     if (particlesAfterUpdate.environmentIndices[particleIndex] != 1u ||
-        !physics::softParticlePhaseSelfCollideEnabled(particlesAfterUpdate.phases[particleIndex]))
+        !physics::particlePhaseSelfCollideEnabled(particlesAfterUpdate.phases[particleIndex]))
     {
         CRESSIM_LOG_ERROR("Runtime soft-body update did not refresh particle metadata.");
         return 1;

@@ -9,8 +9,8 @@ static const uint kParticleKindFluid = 1u;
 static const uint kParticleOwnerTypeNone = 0u;
 static const uint kParticleOwnerTypeSoftBody = 1u;
 static const uint kParticleOwnerTypeFluidBody = 2u;
-static const uint kSoftCandidatePairTypeSoftSoft = 0u;
-static const uint kSoftCandidatePairTypeSoftRigid = 1u;
+static const uint kParticleCandidatePairTypeParticleParticle = 0u;
+static const uint kParticleCandidatePairTypeParticleRigid = 1u;
 static const uint kSoftRigidDedupCacheSize = 16u;
 static const uint kSoftRigidColliderIterationCap = 64u;
 static const uint kSoftPhaseGroupMask = 0x7fffffffu;
@@ -164,12 +164,12 @@ struct GpuSoftBodyBoundsChunk
     uint reserved0;
 };
 
-uint SoftParticlePhaseGroup(uint phase)
+uint ParticlePhaseGroup(uint phase)
 {
     return phase & kSoftPhaseGroupMask;
 }
 
-bool SoftParticlePhaseSelfCollideEnabled(uint phase)
+bool ParticlePhaseSelfCollideEnabled(uint phase)
 {
     return (phase & kSoftPhaseSelfCollideFlag) != 0u;
 }

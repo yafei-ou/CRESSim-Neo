@@ -2,8 +2,8 @@
 
 #include "common/logger.h"
 #include "common/math_utils_runtime.h"
+#include "physics/particle_phase.h"
 #include "physics/soft_body_authoring.h"
-#include "physics/soft_phase.h"
 
 #include <algorithm>
 #include <cmath>
@@ -1819,7 +1819,7 @@ void PhysicsWorld::applySoftBodyRuntimeProperties(std::uint32_t index,
     softBody.contactMaterialIndex = findOrAppendParticleContactMaterial(
         mParticleContactMaterials, toParticleContactMaterial(softBody.material.contact));
 
-    const std::uint32_t phase         = packSoftParticlePhase(index, softBody.selfCollisionEnabled);
+    const std::uint32_t phase         = packParticlePhase(index, softBody.selfCollisionEnabled);
     const std::uint32_t particleBegin = softBody.particleOffset;
     const std::uint32_t particleEnd   = std::min<std::uint32_t>(
         particleBegin + softBody.particleCount, static_cast<std::uint32_t>(mParticles.size()));
@@ -2318,7 +2318,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.particleMaterialIndices.push_back(softBody.contactMaterialIndex);
             mParticles.fluidMaterialIndices.push_back(0xffffffffu);
             mParticles.phases.push_back(
-                packSoftParticlePhase(softBodyIndex, softBody.selfCollisionEnabled));
+                packParticlePhase(softBodyIndex, softBody.selfCollisionEnabled));
             mParticles.collisionLayers.push_back(softBody.collisionLayer);
             mParticles.collisionMasks.push_back(softBody.collisionMask);
             adjacencyLists.emplace_back();
@@ -2412,7 +2412,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.particleMaterialIndices.push_back(fluid.contactMaterialIndex);
             mParticles.fluidMaterialIndices.push_back(fluid.fluidMaterialIndex);
             mParticles.phases.push_back(
-                packSoftParticlePhase(mSoftBodySnapshot.size() + fluidIndex, true));
+                packParticlePhase(mSoftBodySnapshot.size() + fluidIndex, true));
             mParticles.collisionLayers.push_back(fluid.collisionLayer);
             mParticles.collisionMasks.push_back(fluid.collisionMask);
             adjacencyLists.emplace_back();

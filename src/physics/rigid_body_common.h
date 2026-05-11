@@ -151,9 +151,9 @@ struct GpuSoftRenderDispatchConstants
     std::uint32_t reserved0           = 0u;
 };
 
-constexpr std::uint32_t kParticleBroadPhaseEntryTypeSoft = 0u;
-constexpr std::uint32_t kSoftCandidatePairTypeSoftSoft   = 0u;
-constexpr std::uint32_t kSoftCandidatePairTypeSoftRigid  = 1u;
+constexpr std::uint32_t kParticleBroadPhaseEntryTypeSoft           = 0u;
+constexpr std::uint32_t kParticleCandidatePairTypeParticleParticle = 0u;
+constexpr std::uint32_t kParticleCandidatePairTypeParticleRigid    = 1u;
 
 enum class GpuPhysicsIndirectDispatchSlot : std::uint32_t
 {

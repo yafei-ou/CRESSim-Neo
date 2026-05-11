@@ -92,7 +92,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                     }
 
                     GpuParticleCandidatePair pair;
-                    pair.pairType = kSoftCandidatePairTypeSoftSoft;
+                    pair.pairType = kParticleCandidatePairTypeParticleParticle;
                     pair.indexA = softIndex;
                     pair.indexB = otherSoftIndex;
                     pair.auxIndex = 0u;

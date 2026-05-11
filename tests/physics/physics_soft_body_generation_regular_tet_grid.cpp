@@ -1,5 +1,5 @@
 #include "physics/physics_world.h"
-#include "physics/soft_phase.h"
+#include "physics/particle_phase.h"
 #include "common/logger.h"
 
 int main()
@@ -57,7 +57,7 @@ int main()
             CRESSIM_LOG_ERROR("Soft particle collision filter metadata mismatch.");
             return 1;
         }
-        if (particles.phases[i] != packSoftParticlePhase(0u, true))
+        if (particles.phases[i] != packParticlePhase(0u, true))
         {
             CRESSIM_LOG_ERROR("Soft particle phase metadata mismatch.");
             return 1;

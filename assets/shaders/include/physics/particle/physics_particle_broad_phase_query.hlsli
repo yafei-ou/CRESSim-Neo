@@ -90,10 +90,10 @@ bool IsValidSoftSoftCandidate(uint softIndex, float3 softPosition, float softRad
 
     const uint otherKind = CRESSIM_SB_LOAD(g_ParticleKinds, otherSoftIndex);
     if (softKind == kParticleKindSoftSolid && otherKind == kParticleKindSoftSolid &&
-        SoftParticlePhaseGroup(softPhase) == SoftParticlePhaseGroup(otherPhase))
+        ParticlePhaseGroup(softPhase) == ParticlePhaseGroup(otherPhase))
     {
-        const bool selfCollideA = SoftParticlePhaseSelfCollideEnabled(softPhase);
-        const bool selfCollideB = SoftParticlePhaseSelfCollideEnabled(otherPhase);
+        const bool selfCollideA = ParticlePhaseSelfCollideEnabled(softPhase);
+        const bool selfCollideB = ParticlePhaseSelfCollideEnabled(otherPhase);
         if (!selfCollideA || !selfCollideB || IsAdjacentSoftParticle(softIndex, otherSoftIndex))
         {
             return false;

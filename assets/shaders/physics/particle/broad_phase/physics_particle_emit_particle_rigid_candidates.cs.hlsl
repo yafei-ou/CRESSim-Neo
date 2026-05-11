@@ -89,7 +89,7 @@ void EmitCandidatesFromBvh(bool useStaticBvh, float3 queryMin, float3 queryMax,
                 }
 
                 GpuParticleCandidatePair pair;
-                pair.pairType = kSoftCandidatePairTypeSoftRigid;
+                pair.pairType = kParticleCandidatePairTypeParticleRigid;
                 pair.indexA = softIndex;
                 pair.indexB = rigidBodyIndex;
                 pair.auxIndex = 0u;
