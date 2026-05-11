@@ -132,24 +132,45 @@ struct SoftBodyMaterialDesc
 struct FluidMaterialDesc
 {
     ParticleContactMaterialDesc contact{};
-    float restDensity     = 1000.0f;
-    float viscosity       = 0.01f;
-    float smoothingRadius = 0.25f;
+    float restDensity          = 1000.0f;
+    float viscosity            = 0.01f;
+    float smoothingRadius      = 0.25f;
+    float cohesion             = 0.0f;
+    float surfaceTension       = 0.0f;
+    float vorticityConfinement = 0.0f;
+    float adhesion             = 0.0f;
+    float gravityScale         = 1.0f;
+    float cflCoefficient       = 1.0f;
 };
 
 struct FluidMaterialGpu
 {
-    float restDensity     = 1000.0f;
-    float viscosity       = 0.01f;
-    float smoothingRadius = 0.25f;
-    float reserved0       = 0.0f;
+    float restDensity          = 1000.0f;
+    float viscosity            = 0.01f;
+    float smoothingRadius      = 0.25f;
+    float cohesion             = 0.0f;
+    float surfaceTension       = 0.0f;
+    float vorticityConfinement = 0.0f;
+    float adhesion             = 0.0f;
+    float gravityScale         = 1.0f;
+    float cflCoefficient       = 1.0f;
+    float reserved0            = 0.0f;
+    float reserved1            = 0.0f;
+    float reserved2            = 0.0f;
 
     constexpr bool operator==(const FluidMaterialGpu &rhs) const noexcept
     {
         return restDensity == rhs.restDensity && viscosity == rhs.viscosity &&
-               smoothingRadius == rhs.smoothingRadius && reserved0 == rhs.reserved0;
+               smoothingRadius == rhs.smoothingRadius && cohesion == rhs.cohesion &&
+               surfaceTension == rhs.surfaceTension &&
+               vorticityConfinement == rhs.vorticityConfinement && adhesion == rhs.adhesion &&
+               gravityScale == rhs.gravityScale && cflCoefficient == rhs.cflCoefficient &&
+               reserved0 == rhs.reserved0 && reserved1 == rhs.reserved1 &&
+               reserved2 == rhs.reserved2;
     }
 };
+
+static_assert(sizeof(FluidMaterialGpu) == 48u);
 
 struct RigidBodyState
 {

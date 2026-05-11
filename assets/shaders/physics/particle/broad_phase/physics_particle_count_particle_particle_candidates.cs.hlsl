@@ -73,9 +73,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                     }
 
                     uint otherSoftIndex = 0u;
-                    if (IsValidSoftSoftCandidate(softIndex, softPosition, softRadius, softKind, softEnvironment,
-                                                 softPhase, softLayer, softMask, candidateEntry,
-                                                 otherSoftIndex))
+                    if (IsValidParticleParticleCandidate(
+                            softIndex, softPosition, softRadius, softKind, softEnvironment,
+                            softPhase, softLayer, softMask, candidateEntry, otherSoftIndex))
                     {
                         ++count;
                     }

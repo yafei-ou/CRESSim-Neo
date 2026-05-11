@@ -22,6 +22,7 @@ struct PhysicsSolverDesc
     std::uint32_t softContactIterations       = 0;
     std::uint32_t rigidJointIterations        = 0;
     std::uint32_t rigidRigidContactIterations = 0;
+    float fluidBoundaryDensityScale           = 1.0f;
     bool enableBlockingReadback               = true;
 };
 

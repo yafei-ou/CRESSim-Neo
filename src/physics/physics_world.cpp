@@ -91,8 +91,24 @@ Diligent::float4 toParticleContactMaterial(const ParticleContactMaterialDesc &ma
 
 FluidMaterialGpu toFluidSolverMaterial(const FluidMaterialDesc &material)
 {
-    return FluidMaterialGpu{material.restDensity, material.viscosity, material.smoothingRadius,
+    return FluidMaterialGpu{material.restDensity,
+                            material.viscosity,
+                            material.smoothingRadius,
+                            material.cohesion,
+                            material.surfaceTension,
+                            material.vorticityConfinement,
+                            material.adhesion,
+                            material.gravityScale,
+                            material.cflCoefficient,
+                            0.0f,
+                            0.0f,
                             0.0f};
+}
+
+bool nearlyEqual(float a, float b, float epsilon = 1.0e-4f) noexcept
+{
+    const float scale = std::max({1.0f, std::abs(a), std::abs(b)});
+    return std::abs(a - b) <= epsilon * scale;
 }
 
 void normalizeParticleContactMaterial(ParticleContactMaterialDesc &material) noexcept
@@ -108,9 +124,14 @@ void normalizeParticleContactMaterial(ParticleContactMaterialDesc &material) noe
 void normalizeFluidMaterial(FluidMaterialDesc &material) noexcept
 {
     normalizeParticleContactMaterial(material.contact);
-    material.restDensity     = std::max(material.restDensity, 1.0f);
-    material.viscosity       = std::max(material.viscosity, 0.0f);
-    material.smoothingRadius = std::max(material.smoothingRadius, 1.0e-4f);
+    material.restDensity          = std::max(material.restDensity, 1.0f);
+    material.viscosity            = std::max(material.viscosity, 0.0f);
+    material.smoothingRadius      = std::max(material.smoothingRadius, 1.0e-4f);
+    material.cohesion             = std::max(material.cohesion, 0.0f);
+    material.surfaceTension       = std::max(material.surfaceTension, 0.0f);
+    material.vorticityConfinement = std::max(material.vorticityConfinement, 0.0f);
+    material.adhesion             = std::max(material.adhesion, 0.0f);
+    material.cflCoefficient       = std::max(material.cflCoefficient, 0.0f);
 }
 
 std::uint32_t findOrAppendParticleContactMaterial(std::vector<Diligent::float4> &materials,
@@ -1720,8 +1741,8 @@ bool PhysicsWorld::validateFluidMaterialCompatibility(
             continue;
         }
 
-        if (existing.material.restDensity != candidate.material.restDensity ||
-            existing.material.smoothingRadius != candidate.material.smoothingRadius)
+        if (!nearlyEqual(existing.material.restDensity, candidate.material.restDensity) ||
+            !nearlyEqual(existing.material.smoothingRadius, candidate.material.smoothingRadius))
         {
             CRESSIM_LOG_ERROR(
                 "Fluid materials must currently share restDensity and smoothingRadius. Entity ",

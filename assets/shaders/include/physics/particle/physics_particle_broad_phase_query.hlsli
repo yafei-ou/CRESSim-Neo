@@ -47,7 +47,7 @@ GpuParticleCellRange FindCellRange(uint targetKey)
     return missingRange;
 }
 
-bool IsAdjacentSoftParticle(uint particleIndex, uint candidateIndex)
+bool IsAdjacentParticle(uint particleIndex, uint candidateIndex)
 {
     const uint neighborOffset = CRESSIM_SB_LOAD(g_ParticleAdjacencyOffsets, particleIndex);
     const uint neighborCount = CRESSIM_SB_LOAD(g_ParticleAdjacencyCounts, particleIndex);
@@ -62,20 +62,22 @@ bool IsAdjacentSoftParticle(uint particleIndex, uint candidateIndex)
     return false;
 }
 
-bool IsValidSoftSoftCandidate(uint softIndex, float3 softPosition, float softRadius,
-                              uint softKind, uint softEnvironment, uint softPhase, uint softLayer, uint softMask,
-                              GpuParticleBroadPhaseEntry candidateEntry, out uint otherSoftIndex)
+bool IsValidParticleParticleCandidate(uint particleIndex, float3 particlePosition, float particleRadius,
+                                      uint particleKind, uint particleEnvironment,
+                                      uint particlePhase, uint particleLayer, uint particleMask,
+                                      GpuParticleBroadPhaseEntry candidateEntry,
+                                      out uint otherParticleIndex)
 {
-    otherSoftIndex = candidateEntry.particleIndex;
+    otherParticleIndex = candidateEntry.particleIndex;
     if (candidateEntry.particleType != kParticleBroadPhaseEntryTypeSoft ||
-        otherSoftIndex <= softIndex)
+        otherParticleIndex <= particleIndex)
     {
         return false;
     }
 
-    const uint4 otherMetadata = CRESSIM_SB_LOAD(g_ParticleBroadPhaseMetadata, otherSoftIndex);
+    const uint4 otherMetadata = CRESSIM_SB_LOAD(g_ParticleBroadPhaseMetadata, otherParticleIndex);
     const uint otherEnvironment = otherMetadata.x;
-    if (otherEnvironment != softEnvironment)
+    if (otherEnvironment != particleEnvironment)
     {
         return false;
     }
@@ -83,26 +85,29 @@ bool IsValidSoftSoftCandidate(uint softIndex, float3 softPosition, float softRad
     const uint otherPhase = otherMetadata.y;
     const uint otherLayer = otherMetadata.z;
     const uint otherMask = otherMetadata.w;
-    if ((softMask & otherLayer) == 0u || (otherMask & softLayer) == 0u)
+    if ((particleMask & otherLayer) == 0u || (otherMask & particleLayer) == 0u)
     {
         return false;
     }
 
-    const uint otherKind = CRESSIM_SB_LOAD(g_ParticleKinds, otherSoftIndex);
-    if (softKind == kParticleKindSoftSolid && otherKind == kParticleKindSoftSolid &&
-        ParticlePhaseGroup(softPhase) == ParticlePhaseGroup(otherPhase))
+    const uint otherKind = CRESSIM_SB_LOAD(g_ParticleKinds, otherParticleIndex);
+    if (particleKind == kParticleKindSoftSolid && otherKind == kParticleKindSoftSolid &&
+        ParticlePhaseGroup(particlePhase) == ParticlePhaseGroup(otherPhase))
     {
-        const bool selfCollideA = ParticlePhaseSelfCollideEnabled(softPhase);
+        const bool selfCollideA = ParticlePhaseSelfCollideEnabled(particlePhase);
         const bool selfCollideB = ParticlePhaseSelfCollideEnabled(otherPhase);
-        if (!selfCollideA || !selfCollideB || IsAdjacentSoftParticle(softIndex, otherSoftIndex))
+        if (!selfCollideA || !selfCollideB ||
+            IsAdjacentParticle(particleIndex, otherParticleIndex))
         {
             return false;
         }
     }
 
-    const float3 otherPosition = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, otherSoftIndex).xyz;
-    const float combinedRadius = softRadius + CRESSIM_SB_LOAD(g_ParticleRadii, otherSoftIndex);
-    const float3 deltaPos = otherPosition - softPosition;
+    const float3 otherPosition =
+        CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, otherParticleIndex).xyz;
+    const float combinedRadius =
+        particleRadius + CRESSIM_SB_LOAD(g_ParticleRadii, otherParticleIndex);
+    const float3 deltaPos = otherPosition - particlePosition;
     return dot(deltaPos, deltaPos) <= combinedRadius * combinedRadius;
 }
 

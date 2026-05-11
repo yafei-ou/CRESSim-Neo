@@ -239,10 +239,11 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             mImpl->sceneState.particleCandidatePairCapacity();
         particleConstants.particleCellRangeCapacity =
             nextPowerOfTwo(std::max<std::uint32_t>(particleCount * 2u, 1u));
-        particleConstants.softEdgeCount     = softEdgeCount;
-        particleConstants.softTetCount      = softTetCount;
-        particleConstants.fluidIterations   = fluidIterations;
-        particleConstants.fluidGravityScale = 1.0f;
+        particleConstants.softEdgeCount   = softEdgeCount;
+        particleConstants.softTetCount    = softTetCount;
+        particleConstants.fluidIterations = fluidIterations;
+        particleConstants.fluidBoundaryDensityScale =
+            std::max(mDesc.fluidBoundaryDensityScale, 0.0f);
 
         const bool hasParticlePairWork = particleCount > 0u;
         const bool hasFluidWork        = fluidCount > 0u && particleCount > 0u;
@@ -644,6 +645,21 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                                                            mImpl->sceneState, particleConstants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ApplyFluidXsphViscosity dispatch.");
+            return false;
+        }
+        if (hasFluidWork &&
+            !mImpl->passDispatcher.computeFluidVorticity(computeBackend.computeContext,
+                                                         mImpl->sceneState, particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ComputeFluidVorticity dispatch.");
+            return false;
+        }
+        if (hasFluidWork &&
+            !mImpl->passDispatcher.applyFluidVorticityConfinement(
+                computeBackend.computeContext, mImpl->sceneState, particleConstants))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: ApplyFluidVorticityConfinement dispatch.");
             return false;
         }
         if (hasSoftSoftContactWork && softContactIterations > 0u &&

@@ -79,8 +79,9 @@ void spawnStaticBox(cressim::neo::engine::World &world, MeshHandle mesh, Materia
 }
 
 bool spawnFluid(cressim::neo::engine::World &world, const Diligent::float3 &position,
-                const Diligent::float3 &size, float viscosity,
-                const cressim::neo::physics::ParticleContactMaterialDesc &contactMaterial)
+                const Diligent::float3 &size,
+                const cressim::neo::physics::FluidMaterialDesc &material,
+                float particleMassScale = 0.8f)
 {
     const auto entity = world.createEntity();
 
@@ -93,13 +94,11 @@ bool spawnFluid(cressim::neo::engine::World &world, const Diligent::float3 &posi
     fluid.source.regularGrid.size = size;
     fluid.source.regularGrid.targetParticleSpacing = 0.22f;
     fluid.particleRadius = 0.11f;
+    fluid.material = material;
     fluid.material.smoothingRadius = 4.0f * fluid.particleRadius;
-    fluid.material.restDensity = 1000.0f;
-    fluid.material.viscosity = viscosity;
-    fluid.material.contact = contactMaterial;
     const float particleDiameter = 2.0f * fluid.particleRadius;
-    fluid.particleMass =
-        0.8f * particleDiameter * particleDiameter * particleDiameter * fluid.material.restDensity;
+    fluid.particleMass = particleMassScale * particleDiameter * particleDiameter *
+                         particleDiameter * fluid.material.restDensity;
     fluid.collisionLayer = 0x1u;
     fluid.collisionMask = 0xffffffffu;
     return world.setFluid(entity, fluid);
@@ -235,19 +234,34 @@ int main(int argc, char **argv)
     softContact.restitution = 0.05f;
     softContact.damping = 0.08f;
 
-    if (!spawnFluid(world, {-1.65f, 2.15f, 0.0f}, {1.5f, 0.8f, 1.3f}, 0.01f, fluidContact))
+    cressim::neo::physics::FluidMaterialDesc baselineFluid{};
+    baselineFluid.contact = fluidContact;
+    baselineFluid.restDensity = 1000.0f;
+    baselineFluid.smoothingRadius = 0.44f;
+    baselineFluid.viscosity = 0.03f;
+    baselineFluid.gravityScale = 1.0f;
+    baselineFluid.cflCoefficient = 1.0f;
+
+    // Keep the comparison modest so the example demonstrates material variation
+    // rather than turning into a stress test for the less-mature fluid terms.
+    cressim::neo::physics::FluidMaterialDesc thickerFluid = baselineFluid;
+    thickerFluid.cohesion = 0.015f;
+    thickerFluid.viscosity = 0.05f;
+    thickerFluid.gravityScale = 1.05f;
+
+    if (!spawnFluid(world, {-1.65f, 2.15f, 0.0f}, {1.5f, 0.8f, 1.3f}, baselineFluid, 0.72f))
     {
         runtime.shutdown();
         viewer.shutdown();
-        CRESSIM_LOG_ERROR("Failed to author low-viscosity fluid body.\n");
+        CRESSIM_LOG_ERROR("Failed to author baseline fluid body.\n");
         return 1;
     }
 
-    if (!spawnFluid(world, {1.65f, 2.15f, 0.0f}, {1.5f, 0.8f, 1.3f}, 0.9f, fluidContact))
+    if (!spawnFluid(world, {1.65f, 2.15f, 0.0f}, {1.5f, 0.8f, 1.3f}, thickerFluid, 0.78f))
     {
         runtime.shutdown();
         viewer.shutdown();
-        CRESSIM_LOG_ERROR("Failed to author high-viscosity fluid body.\n");
+        CRESSIM_LOG_ERROR("Failed to author thicker fluid body.\n");
         return 1;
     }
 

@@ -117,6 +117,12 @@ public:
     bool applyFluidXsphViscosity(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState,
                                  const GpuParticleDispatchConstants &constants);
+    bool computeFluidVorticity(Diligent::IDeviceContext *computeContext,
+                               const PhysicsSceneGpuState &sceneState,
+                               const GpuParticleDispatchConstants &constants);
+    bool applyFluidVorticityConfinement(Diligent::IDeviceContext *computeContext,
+                                        const PhysicsSceneGpuState &sceneState,
+                                        const GpuParticleDispatchConstants &constants);
     bool solveParticleContactVelocities(Diligent::IDeviceContext *computeContext,
                                         const PhysicsSceneGpuState &sceneState,
                                         std::uint32_t particleCount, std::uint32_t iterations);
@@ -308,6 +314,8 @@ private:
     gpu::GpuComputePass mComputeFluidDeltaPositionsPass;
     gpu::GpuComputePass mApplyFluidDeltaPositionsPass;
     gpu::GpuComputePass mApplyFluidXsphViscosityPass;
+    gpu::GpuComputePass mComputeFluidVorticityPass;
+    gpu::GpuComputePass mApplyFluidVorticityConfinementPass;
     gpu::GpuComputePass mSolveParticleContactVelocitiesPass;
     gpu::GpuComputePass mSolveParticleRigidContactVelocitiesPass;
     gpu::GpuComputePass mApplyParticleContactVelocitiesPass;

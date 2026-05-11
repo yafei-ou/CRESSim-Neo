@@ -47,6 +47,11 @@ FluidState makeFluid(EntityId entityId, float offsetX, float viscosity)
     state.material.restDensity = 950.0f;
     state.material.viscosity = viscosity;
     state.material.smoothingRadius = 0.28f;
+    state.material.gravityScale = 0.85f + viscosity;
+    state.material.cohesion = 0.02f * (1.0f + viscosity);
+    state.material.surfaceTension = 0.01f * (1.0f + viscosity);
+    state.material.vorticityConfinement = 0.03f * (1.0f + viscosity);
+    state.material.cflCoefficient = 0.75f;
     return state;
 }
 
@@ -129,6 +134,13 @@ int main()
                 return 1;
             }
         }
+    }
+
+    if (fluidMaterials[fluidA->fluidMaterialIndex].gravityScale >=
+        fluidMaterials[fluidB->fluidMaterialIndex].gravityScale)
+    {
+        CRESSIM_LOG_ERROR("Distinct fluid material properties were not preserved.\n");
+        return 1;
     }
 
     CRESSIM_LOG_INFO("Particle/fluid material table checks passed.\n");

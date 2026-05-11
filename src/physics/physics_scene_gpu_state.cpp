@@ -395,6 +395,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.fluidDensitiesBuffer != nullptr &&
         mTransientState.fluidLambdasBuffer != nullptr &&
         mTransientState.fluidDeltaPositionsBuffer != nullptr &&
+        mTransientState.fluidVorticitiesBuffer != nullptr &&
         mTransientState.softEdgeLambdasBuffer != nullptr &&
         mTransientState.softTetLambdasBuffer != nullptr &&
         mTransientState.softEdgeCorrectionsBuffer != nullptr &&
@@ -982,6 +983,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.fluidDeltaPositionsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidVorticities",
+                                sizeof(Diligent::float4), newSoftParticleCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.fluidVorticitiesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftEdgeLambdas", sizeof(float),
                                 newSoftEdgeCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,

@@ -6,6 +6,8 @@ CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticlePreviousPositions);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticleVelocities);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleKinds);
+CRESSIM_STRUCTURED_BUFFER(uint, g_FluidMaterialIndices);
+CRESSIM_STRUCTURED_BUFFER(GpuFluidMaterial, g_FluidMaterials);
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -33,7 +35,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     float gravityScale = 1.0;
     if (CRESSIM_SB_LOAD(g_ParticleKinds, idx) == kParticleKindFluid)
     {
-        gravityScale = fluidGravityScale;
+        const uint fluidMaterialIndex = CRESSIM_SB_LOAD(g_FluidMaterialIndices, idx);
+        gravityScale =
+            CRESSIM_SB_LOAD(g_FluidMaterials, fluidMaterialIndex).gravityScale;
     }
     velocity += kGravity * (dt * gravityScale);
     const float3 predictedPosition = position + velocity * dt;

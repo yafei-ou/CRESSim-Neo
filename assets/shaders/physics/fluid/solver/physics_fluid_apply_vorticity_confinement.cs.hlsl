@@ -8,9 +8,9 @@ CRESSIM_STRUCTURED_BUFFER(GpuMortonCodeElement, g_SortedParticleBroadPhaseKeys);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(uint4, g_ParticleBroadPhaseMetadata);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleKinds);
-CRESSIM_STRUCTURED_BUFFER(float, g_FluidDensities);
 CRESSIM_STRUCTURED_BUFFER(uint, g_FluidMaterialIndices);
 CRESSIM_STRUCTURED_BUFFER(GpuFluidMaterial, g_FluidMaterials);
+CRESSIM_STRUCTURED_BUFFER(float4, g_FluidVorticities);
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticleVelocitiesRW);
 
@@ -32,8 +32,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const uint fluidMaterialIndex = CRESSIM_SB_LOAD(g_FluidMaterialIndices, particleIndex);
     const GpuFluidMaterial fluidMaterial = CRESSIM_SB_LOAD(g_FluidMaterials, fluidMaterialIndex);
-    const float viscosity = max(fluidMaterial.viscosity, 0.0);
-    if (viscosity <= kEpsilon)
+    const float confinement = max(fluidMaterial.vorticityConfinement, 0.0);
+    if (confinement <= kEpsilon)
     {
         return;
     }
@@ -45,8 +45,15 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
+    const float4 selfCurl4 = CRESSIM_SB_LOAD(g_FluidVorticities, particleIndex);
+    const float3 selfCurl = selfCurl4.xyz;
+    const float selfCurlMagnitude = selfCurl4.w;
+    if (selfCurlMagnitude <= kEpsilon)
+    {
+        return;
+    }
+
     const float3 selfPosition = selfPositionInvMass.xyz;
-    const float3 selfVelocity = CRESSIM_SB_LOAD(g_ParticleVelocitiesRW, particleIndex).xyz;
     const float smoothingRadius = max(fluidMaterial.smoothingRadius, 1.0e-4);
     const uint4 selfMetadata = CRESSIM_SB_LOAD(g_ParticleBroadPhaseMetadata, particleIndex);
     const uint selfEnvironment = selfMetadata.x;
@@ -55,7 +62,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const GpuParticleBroadPhaseEntry selfEntry =
         CRESSIM_SB_LOAD(g_ParticleBroadPhaseEntries, particleIndex);
 
-    float3 correction = float3(0.0, 0.0, 0.0);
+    float3 vorticityGrad = float3(0.0, 0.0, 0.0);
 
     [loop]
     for (int dz = -1; dz <= 1; ++dz)
@@ -92,12 +99,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
                     const uint neighborIndex = candidateEntry.particleIndex;
                     if (!ShouldProcessFluidNeighbor(particleIndex, selfEnvironment, selfLayer,
-                                                    selfMask, neighborIndex))
-                    {
-                        continue;
-                    }
-
-                    if (!AreSameFluidMaterial(particleIndex, neighborIndex))
+                                                    selfMask, neighborIndex) ||
+                        !AreSameFluidMaterial(particleIndex, neighborIndex))
                     {
                         continue;
                     }
@@ -112,28 +115,28 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
                     const float3 delta = selfPosition - neighborPositionInvMass.xyz;
                     const float distance = length(delta);
-                    if (distance >= smoothingRadius)
+                    if (distance <= kEpsilon || distance >= smoothingRadius)
                     {
                         continue;
                     }
 
-                    const float density = CRESSIM_SB_LOAD(g_FluidDensities, neighborIndex);
-                    if (density <= kEpsilon)
-                    {
-                        continue;
-                    }
-
-                    const float neighborMass = 1.0 / neighborInvMass;
-                    const float3 neighborVelocity =
-                        CRESSIM_SB_LOAD(g_ParticleVelocitiesRW, neighborIndex).xyz;
-                    correction += (neighborMass / density) *
-                                  (neighborVelocity - selfVelocity) *
-                                  FluidCubicKernel(distance, smoothingRadius);
+                    const float neighborCurlMagnitude =
+                        CRESSIM_SB_LOAD(g_FluidVorticities, neighborIndex).w;
+                    vorticityGrad += (neighborCurlMagnitude - selfCurlMagnitude) *
+                                     FluidCubicKernelGradient(delta, distance, smoothingRadius);
                 }
             }
         }
     }
 
+    const float gradLength = length(vorticityGrad);
+    if (gradLength <= kEpsilon)
+    {
+        return;
+    }
+
+    const float3 vorticityForce = confinement * cross(vorticityGrad / gradLength, selfCurl);
+    const float3 velocity = CRESSIM_SB_LOAD(g_ParticleVelocitiesRW, particleIndex).xyz;
     CRESSIM_SB_STORE(g_ParticleVelocitiesRW, particleIndex,
-                     float4(selfVelocity + viscosity * correction, 0.0));
+                     float4(velocity + dt * vorticityForce, 0.0));
 }

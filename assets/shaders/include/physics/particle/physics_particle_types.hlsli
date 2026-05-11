@@ -13,8 +13,8 @@ static const uint kParticleCandidatePairTypeParticleParticle = 0u;
 static const uint kParticleCandidatePairTypeParticleRigid = 1u;
 static const uint kSoftRigidDedupCacheSize = 16u;
 static const uint kSoftRigidColliderIterationCap = 64u;
-static const uint kSoftPhaseGroupMask = 0x7fffffffu;
-static const uint kSoftPhaseSelfCollideFlag = 0x80000000u;
+static const uint kParticlePhaseGroupMask = 0x7fffffffu;
+static const uint kParticlePhaseSelfCollideFlag = 0x80000000u;
 
 struct GpuParticleBroadPhaseEntry
 {
@@ -82,7 +82,15 @@ struct GpuFluidMaterial
     float restDensity;
     float viscosity;
     float smoothingRadius;
+    float cohesion;
+    float surfaceTension;
+    float vorticityConfinement;
+    float adhesion;
+    float gravityScale;
+    float cflCoefficient;
     float reserved0;
+    float reserved1;
+    float reserved2;
 };
 
 struct GpuSoftEdge
@@ -166,12 +174,12 @@ struct GpuSoftBodyBoundsChunk
 
 uint ParticlePhaseGroup(uint phase)
 {
-    return phase & kSoftPhaseGroupMask;
+    return phase & kParticlePhaseGroupMask;
 }
 
 bool ParticlePhaseSelfCollideEnabled(uint phase)
 {
-    return (phase & kSoftPhaseSelfCollideFlag) != 0u;
+    return (phase & kParticlePhaseSelfCollideFlag) != 0u;
 }
 
 #endif // CRESSIM_NEO_PHYSICS_PARTICLE_TYPES_HLSLI

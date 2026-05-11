@@ -11,8 +11,8 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint particleCellRangeCapacity;
     uint softEdgeCount;
     uint softTetCount;
-    float fluidGravityScale;
     uint fluidIterations;
+    float fluidBoundaryDensityScale;
     uint reserved0;
     uint reserved1;
 };

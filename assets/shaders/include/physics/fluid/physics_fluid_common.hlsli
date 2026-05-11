@@ -7,6 +7,7 @@
 #include "../particle/physics_particle_types.hlsli"
 
 static const float kFluidLambdaEpsilon = 1.0e-6;
+static const float kFluidSurfaceNormalThreshold = 1.0e-4;
 
 GpuParticleCellRange FindParticleCellRange(uint targetKey)
 {
@@ -74,6 +75,12 @@ bool ShouldProcessFluidNeighbor(uint selfIndex, uint selfEnvironment, uint selfL
     return (selfMask & otherLayer) != 0u && (otherMask & selfLayer) != 0u;
 }
 
+bool AreSameFluidMaterial(uint particleIndex, uint otherIndex)
+{
+    return CRESSIM_SB_LOAD(g_FluidMaterialIndices, particleIndex) ==
+           CRESSIM_SB_LOAD(g_FluidMaterialIndices, otherIndex);
+}
+
 float FluidCubicKernel(float distance, float smoothingRadius)
 {
     if (distance >= smoothingRadius)
@@ -120,6 +127,27 @@ float3 FluidCubicKernelGradient(float3 delta, float distance, float smoothingRad
 
     const float oneMinusQ = 1.0 - q;
     return l * (-(oneMinusQ * oneMinusQ)) * gradQ;
+}
+
+float FluidCohesionKernel(float distance, float smoothingRadius)
+{
+    if (distance <= kEpsilon || distance >= smoothingRadius)
+    {
+        return 0.0;
+    }
+
+    const float q = distance / smoothingRadius;
+
+    // Use a PhysX-style cubic cohesion profile:
+    // C(0) = -1, C(restRatio) = 0, C(1) = 0, dC/dx(0) = 0.
+    // This avoids the old behavior where cohesion was purely attractive at all
+    // non-zero distances, which made the usable parameter range extremely narrow.
+    const float restRatio = 0.5;
+    const float restRatioSq = restRatio * restRatio;
+    const float cohesion1 = -(1.0 + restRatio) / restRatioSq;
+    const float cohesion2 =
+        (restRatioSq + restRatio + 1.0) / restRatioSq;
+    return cohesion1 * q * q * q + cohesion2 * q * q - 1.0;
 }
 
 #endif // CRESSIM_NEO_PHYSICS_FLUID_COMMON_HLSLI
