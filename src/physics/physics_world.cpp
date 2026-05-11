@@ -89,20 +89,34 @@ Diligent::float4 toParticleContactMaterial(const ParticleContactMaterialDesc &ma
                             material.staticFriction};
 }
 
-FluidMaterialGpu toFluidSolverMaterial(const FluidMaterialDesc &material)
+FluidMaterialGpu toFluidSolverMaterial(const FluidMaterialDesc &material,
+                                       float particleRadius) noexcept
 {
-    return FluidMaterialGpu{material.restDensity,
-                            material.viscosity,
-                            material.smoothingRadius,
-                            material.cohesion,
-                            material.surfaceTension,
-                            material.vorticityConfinement,
-                            material.adhesion,
+    const float restDensity = std::max(material.restDensity, 1.0f);
+    const float invRestDensity = 1.0f / restDensity;
+    const float smoothingRadius = std::max(material.smoothingRadius, 1.0e-4f);
+    const float invSmoothingRadius = 1.0f / smoothingRadius;
+    const float fluidRestDistance = std::max(2.0f * particleRadius, 1.0e-4f);
+    const float restRatio = std::clamp(fluidRestDistance * invSmoothingRadius, 1.0e-3f, 0.999f);
+    const float restRatioSq = restRatio * restRatio;
+    const float cohesion1 = -(1.0f + restRatio) / restRatioSq;
+    const float cohesion2 =
+        (restRatioSq + restRatio + 1.0f) / restRatioSq;
+    const float surfaceConstraintScale = std::max(smoothingRadius, 1.0e-4f);
+
+    return FluidMaterialGpu{restDensity,
+                            invRestDensity,
+                            smoothingRadius,
+                            invSmoothingRadius,
+                            material.viscosity * invRestDensity,
+                            material.cohesion * smoothingRadius,
+                            cohesion1,
+                            cohesion2,
+                            (material.surfaceTension * invRestDensity) /
+                                surfaceConstraintScale,
+                            material.vorticityConfinement * invRestDensity,
                             material.gravityScale,
-                            material.cflCoefficient,
-                            0.0f,
-                            0.0f,
-                            0.0f};
+                            material.cflCoefficient * smoothingRadius};
 }
 
 bool nearlyEqual(float a, float b, float epsilon = 1.0e-4f) noexcept
@@ -130,7 +144,7 @@ void normalizeFluidMaterial(FluidMaterialDesc &material) noexcept
     material.cohesion             = std::max(material.cohesion, 0.0f);
     material.surfaceTension       = std::max(material.surfaceTension, 0.0f);
     material.vorticityConfinement = std::max(material.vorticityConfinement, 0.0f);
-    material.adhesion             = std::max(material.adhesion, 0.0f);
+    material.gravityScale         = std::max(material.gravityScale, 0.0f);
     material.cflCoefficient       = std::max(material.cflCoefficient, 0.0f);
 }
 
@@ -1742,10 +1756,12 @@ bool PhysicsWorld::validateFluidMaterialCompatibility(
         }
 
         if (!nearlyEqual(existing.material.restDensity, candidate.material.restDensity) ||
-            !nearlyEqual(existing.material.smoothingRadius, candidate.material.smoothingRadius))
+            !nearlyEqual(existing.material.smoothingRadius, candidate.material.smoothingRadius) ||
+            !nearlyEqual(existing.particleRadius, candidate.particleRadius))
         {
             CRESSIM_LOG_ERROR(
-                "Fluid materials must currently share restDensity and smoothingRadius. Entity ",
+                "Fluid materials must currently share restDensity, smoothingRadius, and "
+                "particleRadius. Entity ",
                 candidate.entityId, " is incompatible with existing fluid entity ",
                 existing.entityId, ".");
             return false;
@@ -2402,8 +2418,8 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
         normalizeFluidState(fluid);
         fluid.contactMaterialIndex = findOrAppendParticleContactMaterial(
             mParticleContactMaterials, toParticleContactMaterial(fluid.material.contact));
-        fluid.fluidMaterialIndex =
-            findOrAppendFluidMaterial(mFluidMaterials, toFluidSolverMaterial(fluid.material));
+        fluid.fluidMaterialIndex = findOrAppendFluidMaterial(
+            mFluidMaterials, toFluidSolverMaterial(fluid.material, fluid.particleRadius));
         fluid.particleOffset = static_cast<std::uint32_t>(mParticles.size());
 
         if (fluidIndex >= mFluidDerivedCaches.size())

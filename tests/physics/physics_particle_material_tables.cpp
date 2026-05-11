@@ -137,7 +137,9 @@ int main()
     }
 
     if (fluidMaterials[fluidA->fluidMaterialIndex].gravityScale >=
-        fluidMaterials[fluidB->fluidMaterialIndex].gravityScale)
+            fluidMaterials[fluidB->fluidMaterialIndex].gravityScale ||
+        fluidMaterials[fluidA->fluidMaterialIndex].viscosityDerived >=
+            fluidMaterials[fluidB->fluidMaterialIndex].viscosityDerived)
     {
         CRESSIM_LOG_ERROR("Distinct fluid material properties were not preserved.\n");
         return 1;

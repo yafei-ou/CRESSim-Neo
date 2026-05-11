@@ -80,17 +80,17 @@ struct GpuParticleContact
 struct GpuFluidMaterial
 {
     float restDensity;
-    float viscosity;
+    float invRestDensity;
     float smoothingRadius;
-    float cohesion;
-    float surfaceTension;
-    float vorticityConfinement;
-    float adhesion;
+    float invSmoothingRadius;
+    float viscosityDerived;
+    float cohesionDerived;
+    float cohesion1;
+    float cohesion2;
+    float surfaceTensionDerived;
+    float vorticityConfinementDerived;
     float gravityScale;
-    float cflCoefficient;
-    float reserved0;
-    float reserved1;
-    float reserved2;
+    float cflRadius;
 };
 
 struct GpuSoftEdge

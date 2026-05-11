@@ -44,11 +44,11 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint fluidMaterialIndex = CRESSIM_SB_LOAD(g_FluidMaterialIndices, particleIndex);
     const GpuFluidMaterial fluidMaterial = CRESSIM_SB_LOAD(g_FluidMaterials, fluidMaterialIndex);
     const float restDensity = max(fluidMaterial.restDensity, 1.0);
-    const float invRestDensity = 1.0 / restDensity;
+    const float invRestDensity = max(fluidMaterial.invRestDensity, 1.0e-6);
     const float smoothingRadius = max(fluidMaterial.smoothingRadius, 1.0e-4);
-    const float cohesion = max(fluidMaterial.cohesion, 0.0);
-    const float surfaceTension = max(fluidMaterial.surfaceTension, 0.0);
-    const float cflCoefficient = max(fluidMaterial.cflCoefficient, 0.0);
+    const float cohesion = max(fluidMaterial.cohesionDerived, 0.0);
+    const float surfaceTension = max(fluidMaterial.surfaceTensionDerived, 0.0);
+    const float cflRadius = max(fluidMaterial.cflRadius, 0.0);
     const uint4 selfMetadata = CRESSIM_SB_LOAD(g_ParticleBroadPhaseMetadata, particleIndex);
     const uint selfEnvironment = selfMetadata.x;
     const uint selfLayer = selfMetadata.z;
@@ -58,6 +58,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     float3 deltaPosition = float3(0.0, 0.0, 0.0);
     float3 surfaceNormal = float3(0.0, 0.0, 0.0);
+    float interactionWeight = 0.0;
 
     [loop]
     for (int dz = -1; dz <= 1; ++dz)
@@ -119,7 +120,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                     const float neighborMass = 1.0 / neighborInvMass;
                     const float3 kernelGradient =
                         FluidCubicKernelGradient(delta, distance, smoothingRadius);
-                    deltaPosition +=
+                    float3 pairDelta =
                         (neighborMass * (lambda + neighborLambda) * invRestDensity) *
                         kernelGradient;
 
@@ -128,12 +129,27 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                         surfaceNormal += (neighborMass * invRestDensity) * kernelGradient;
                         if (cohesion > kEpsilon)
                         {
-                            deltaPosition -=
-                                (neighborMass * invRestDensity * cohesion *
-                                 FluidCohesionKernel(distance, smoothingRadius)) *
+                            pairDelta -=
+                                (cohesion *
+                                 FluidCohesionKernel(distance, smoothingRadius,
+                                                     fluidMaterial.cohesion1,
+                                                     fluidMaterial.cohesion2)) *
                                 (delta / distance);
                         }
+
+                        if (cflRadius > kEpsilon)
+                        {
+                            const float projected = dot(pairDelta, delta / distance);
+                            if (projected < -cflRadius)
+                            {
+                                pairDelta -=
+                                    (delta / distance) * (projected + cflRadius) * 0.5;
+                            }
+                        }
                     }
+
+                    deltaPosition += pairDelta;
+                    interactionWeight += 1.0;
                 }
             }
         }
@@ -148,15 +164,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         }
     }
 
-    if (cflCoefficient > kEpsilon)
-    {
-        const float maxDelta = cflCoefficient * max(particleGridCellSize, 1.0e-4) * 0.5;
-        const float deltaLength = length(deltaPosition);
-        if (deltaLength > maxDelta)
-        {
-            deltaPosition *= maxDelta / deltaLength;
-        }
-    }
+    deltaPosition *= kFluidSolveCoefficient;
 
-    CRESSIM_SB_STORE(g_FluidDeltaPositions, particleIndex, float4(deltaPosition, 0.0));
+    CRESSIM_SB_STORE(g_FluidDeltaPositions, particleIndex,
+                     float4(deltaPosition, interactionWeight));
 }

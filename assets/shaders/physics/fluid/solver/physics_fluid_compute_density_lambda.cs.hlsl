@@ -46,7 +46,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint fluidMaterialIndex = CRESSIM_SB_LOAD(g_FluidMaterialIndices, particleIndex);
     const GpuFluidMaterial fluidMaterial = CRESSIM_SB_LOAD(g_FluidMaterials, fluidMaterialIndex);
     const float restDensity = max(fluidMaterial.restDensity, 1.0);
-    const float invRestDensity = 1.0 / restDensity;
+    const float invRestDensity = max(fluidMaterial.invRestDensity, 1.0e-6);
     const float smoothingRadius = max(fluidMaterial.smoothingRadius, 1.0e-4);
     const uint4 selfMetadata = CRESSIM_SB_LOAD(g_ParticleBroadPhaseMetadata, particleIndex);
     const uint selfEnvironment = selfMetadata.x;

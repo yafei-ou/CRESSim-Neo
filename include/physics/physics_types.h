@@ -138,35 +138,36 @@ struct FluidMaterialDesc
     float cohesion             = 0.0f;
     float surfaceTension       = 0.0f;
     float vorticityConfinement = 0.0f;
-    float adhesion             = 0.0f;
     float gravityScale         = 1.0f;
     float cflCoefficient       = 1.0f;
 };
 
 struct FluidMaterialGpu
 {
-    float restDensity          = 1000.0f;
-    float viscosity            = 0.01f;
-    float smoothingRadius      = 0.25f;
-    float cohesion             = 0.0f;
-    float surfaceTension       = 0.0f;
-    float vorticityConfinement = 0.0f;
-    float adhesion             = 0.0f;
-    float gravityScale         = 1.0f;
-    float cflCoefficient       = 1.0f;
-    float reserved0            = 0.0f;
-    float reserved1            = 0.0f;
-    float reserved2            = 0.0f;
+    float restDensity               = 1000.0f;
+    float invRestDensity            = 1.0f / 1000.0f;
+    float smoothingRadius           = 0.25f;
+    float invSmoothingRadius        = 4.0f;
+    float viscosityDerived          = 0.01f / 1000.0f;
+    float cohesionDerived           = 0.0f;
+    float cohesion1                = 0.0f;
+    float cohesion2                = 0.0f;
+    float surfaceTensionDerived     = 0.0f;
+    float vorticityConfinementDerived = 0.0f;
+    float gravityScale              = 1.0f;
+    float cflRadius                 = 0.25f;
 
     constexpr bool operator==(const FluidMaterialGpu &rhs) const noexcept
     {
-        return restDensity == rhs.restDensity && viscosity == rhs.viscosity &&
-               smoothingRadius == rhs.smoothingRadius && cohesion == rhs.cohesion &&
-               surfaceTension == rhs.surfaceTension &&
-               vorticityConfinement == rhs.vorticityConfinement && adhesion == rhs.adhesion &&
-               gravityScale == rhs.gravityScale && cflCoefficient == rhs.cflCoefficient &&
-               reserved0 == rhs.reserved0 && reserved1 == rhs.reserved1 &&
-               reserved2 == rhs.reserved2;
+        return restDensity == rhs.restDensity && invRestDensity == rhs.invRestDensity &&
+               smoothingRadius == rhs.smoothingRadius &&
+               invSmoothingRadius == rhs.invSmoothingRadius &&
+               viscosityDerived == rhs.viscosityDerived &&
+               cohesionDerived == rhs.cohesionDerived && cohesion1 == rhs.cohesion1 &&
+               cohesion2 == rhs.cohesion2 &&
+               surfaceTensionDerived == rhs.surfaceTensionDerived &&
+               vorticityConfinementDerived == rhs.vorticityConfinementDerived &&
+               gravityScale == rhs.gravityScale && cflRadius == rhs.cflRadius;
     }
 };
 

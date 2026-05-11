@@ -32,7 +32,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const uint fluidMaterialIndex = CRESSIM_SB_LOAD(g_FluidMaterialIndices, particleIndex);
     const GpuFluidMaterial fluidMaterial = CRESSIM_SB_LOAD(g_FluidMaterials, fluidMaterialIndex);
-    const float confinement = max(fluidMaterial.vorticityConfinement, 0.0);
+    const float confinement = max(fluidMaterial.vorticityConfinementDerived, 0.0);
     if (confinement <= kEpsilon)
     {
         return;

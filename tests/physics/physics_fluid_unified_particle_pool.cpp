@@ -47,7 +47,6 @@ FluidState makeFluid(EntityId entityId)
     state.material.cohesion = 0.04f;
     state.material.surfaceTension = 0.02f;
     state.material.vorticityConfinement = 0.03f;
-    state.material.adhesion = 0.05f;
     state.material.cflCoefficient = 0.8f;
     state.restTransform.position = {2.0f, 0.0f, 0.0f};
     return state;
@@ -100,10 +99,10 @@ int main()
             if (particles.ownerTypes[i] != static_cast<std::uint32_t>(ParticleOwnerType::FluidBody) ||
                 fluidMaterialIndex >= fluidMaterials.size() ||
                 fluidMaterials[fluidMaterialIndex].restDensity != 900.0f ||
-                fluidMaterials[fluidMaterialIndex].viscosity != 0.15f ||
+                fluidMaterials[fluidMaterialIndex].viscosityDerived <= 0.0f ||
                 fluidMaterials[fluidMaterialIndex].smoothingRadius != 0.3f ||
                 fluidMaterials[fluidMaterialIndex].gravityScale != 0.9f ||
-                fluidMaterials[fluidMaterialIndex].cohesion != 0.04f)
+                fluidMaterials[fluidMaterialIndex].cohesionDerived <= 0.0f)
             {
                 CRESSIM_LOG_ERROR("Fluid particle metadata was not propagated.\n");
                 return 1;

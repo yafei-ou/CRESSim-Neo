@@ -8,6 +8,7 @@
 
 static const float kFluidLambdaEpsilon = 1.0e-6;
 static const float kFluidSurfaceNormalThreshold = 1.0e-4;
+static const float kFluidSolveCoefficient = 0.35;
 
 GpuParticleCellRange FindParticleCellRange(uint targetKey)
 {
@@ -129,7 +130,8 @@ float3 FluidCubicKernelGradient(float3 delta, float distance, float smoothingRad
     return l * (-(oneMinusQ * oneMinusQ)) * gradQ;
 }
 
-float FluidCohesionKernel(float distance, float smoothingRadius)
+float FluidCohesionKernel(float distance, float smoothingRadius, float cohesion1,
+                          float cohesion2)
 {
     if (distance <= kEpsilon || distance >= smoothingRadius)
     {
@@ -137,16 +139,6 @@ float FluidCohesionKernel(float distance, float smoothingRadius)
     }
 
     const float q = distance / smoothingRadius;
-
-    // Use a PhysX-style cubic cohesion profile:
-    // C(0) = -1, C(restRatio) = 0, C(1) = 0, dC/dx(0) = 0.
-    // This avoids the old behavior where cohesion was purely attractive at all
-    // non-zero distances, which made the usable parameter range extremely narrow.
-    const float restRatio = 0.5;
-    const float restRatioSq = restRatio * restRatio;
-    const float cohesion1 = -(1.0 + restRatio) / restRatioSq;
-    const float cohesion2 =
-        (restRatioSq + restRatio + 1.0) / restRatioSq;
     return cohesion1 * q * q * q + cohesion2 * q * q - 1.0;
 }
 

@@ -242,8 +242,6 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         particleConstants.softEdgeCount   = softEdgeCount;
         particleConstants.softTetCount    = softTetCount;
         particleConstants.fluidIterations = fluidIterations;
-        particleConstants.fluidBoundaryDensityScale =
-            std::max(mDesc.fluidBoundaryDensityScale, 0.0f);
 
         const bool hasParticlePairWork = particleCount > 0u;
         const bool hasFluidWork        = fluidCount > 0u && particleCount > 0u;
