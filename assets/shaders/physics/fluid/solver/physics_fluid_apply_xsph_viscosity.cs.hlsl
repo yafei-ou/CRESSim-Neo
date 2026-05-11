@@ -32,7 +32,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const uint fluidMaterialIndex = CRESSIM_SB_LOAD(g_FluidMaterialIndices, particleIndex);
     const GpuFluidMaterial fluidMaterial = CRESSIM_SB_LOAD(g_FluidMaterials, fluidMaterialIndex);
-    const float viscosity = max(fluidMaterial.viscosityDerived, 0.0);
+    const float viscosity = dt * max(fluidMaterial.viscosityDerived, 0.0);
     if (viscosity <= kEpsilon)
     {
         return;

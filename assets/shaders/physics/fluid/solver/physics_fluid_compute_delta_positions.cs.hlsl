@@ -47,8 +47,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float restDensity = max(fluidMaterial.restDensity, 1.0);
     const float invRestDensity = max(fluidMaterial.invRestDensity, 1.0e-6);
     const float smoothingRadius = max(fluidMaterial.smoothingRadius, 1.0e-4);
-    const float cohesion = max(fluidMaterial.cohesionDerived, 0.0);
-    const float surfaceTension = max(fluidMaterial.surfaceTensionDerived, 0.0);
+    const float cohesion = dt * max(fluidMaterial.cohesionDerived, 0.0);
+    const float surfaceTension = dt * max(fluidMaterial.surfaceTensionDerived, 0.0);
     const float cflRadius = max(fluidMaterial.cflRadius, 0.0);
     const uint4 selfMetadata = CRESSIM_SB_LOAD(g_ParticleBroadPhaseMetadata, particleIndex);
     const uint selfEnvironment = selfMetadata.x;

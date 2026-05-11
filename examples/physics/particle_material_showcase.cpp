@@ -245,7 +245,7 @@ int main(int argc, char **argv)
     // Keep the comparison modest so the example demonstrates material variation
     // rather than turning into a stress test for the less-mature fluid terms.
     cressim::neo::physics::FluidMaterialDesc thickerFluid = baselineFluid;
-    thickerFluid.cohesion = 0.005f;
+    thickerFluid.cohesion = 1.5f;
     thickerFluid.viscosity = 0.05f;
     thickerFluid.gravityScale = 1.05f;
 
