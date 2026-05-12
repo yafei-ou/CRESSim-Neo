@@ -45,7 +45,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         (iterationIndex > 0u)
             ? CRESSIM_SB_LOAD(g_FluidIterationDelta, particleIndex).xyz
             : float3(0.0, 0.0, 0.0);
-    const float3 selfPosition = selfPositionInvMass.xyz;
+    const float3 selfPosition = selfPositionInvMass.xyz + selfAccumulatedDelta;
     const float selfConstraint = CRESSIM_SB_LOAD(g_FluidConstraints, particleIndex);
     const uint fluidMaterialIndex = CRESSIM_SB_LOAD(g_FluidMaterialIndices, particleIndex);
     const GpuFluidMaterial fluidMaterial = CRESSIM_SB_LOAD(g_FluidMaterials, fluidMaterialIndex);
@@ -121,7 +121,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                                               neighborIndex)
                                   .xyz
                             : float3(0.0, 0.0, 0.0);
-                    const float3 neighborPosition = neighborPositionInvMass.xyz;
+                    const float3 neighborPosition =
+                        neighborPositionInvMass.xyz + neighborAccumulatedDelta;
 
                     const float3 delta = selfPosition - neighborPosition;
                     const float distance = length(delta);

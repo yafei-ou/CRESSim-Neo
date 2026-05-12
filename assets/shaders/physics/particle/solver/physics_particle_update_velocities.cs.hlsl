@@ -31,6 +31,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     float3 position = positionInvMass.xyz;
     if (CRESSIM_SB_LOAD(g_ParticleKinds, idx) == kParticleKindFluid)
     {
+        position += CRESSIM_SB_LOAD(g_FluidIterationDelta, idx).xyz;
+        CRESSIM_SB_STORE(g_ParticlePositionsInvMass, idx, float4(position, positionInvMass.w));
         CRESSIM_SB_STORE(g_FluidIterationDelta, idx,
                          float4(0.0, 0.0, 0.0, 0.0));
     }
