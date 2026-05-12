@@ -49,3 +49,8 @@ add_cressim_example(
     NAME physics_fluid_material_showcase_multi_env
     SOURCE fluid_material_showcase_multi_env.cpp
 )
+
+add_cressim_example(
+    NAME physics_fluid_tall_block_stress
+    SOURCE fluid_tall_block_stress.cpp
+)
