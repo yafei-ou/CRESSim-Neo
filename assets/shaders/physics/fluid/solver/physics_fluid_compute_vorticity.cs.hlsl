@@ -1,16 +1,13 @@
 #include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
 #include "../../../include/physics/particle/physics_particle_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_broad_phase_types.hlsli"
-
-CRESSIM_STRUCTURED_BUFFER(GpuParticleBroadPhaseEntry, g_ParticleBroadPhaseEntries);
-CRESSIM_STRUCTURED_BUFFER(GpuParticleCellRange, g_ParticleCellRanges);
-CRESSIM_STRUCTURED_BUFFER(GpuMortonCodeElement, g_SortedParticleBroadPhaseKeys);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(uint4, g_ParticleBroadPhaseMetadata);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleKinds);
 CRESSIM_STRUCTURED_BUFFER(uint, g_FluidMaterialIndices);
 CRESSIM_STRUCTURED_BUFFER(GpuFluidMaterial, g_FluidMaterials);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleVelocitiesRW);
+CRESSIM_STRUCTURED_BUFFER(uint, g_FluidNeighborCounts);
+CRESSIM_STRUCTURED_BUFFER(uint, g_FluidNeighborOffsets);
+CRESSIM_STRUCTURED_BUFFER(GpuParticleCandidatePair, g_FluidNeighborPairs);
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_FluidVorticities);
 
@@ -50,78 +47,34 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 selfPosition = selfPositionInvMass.xyz;
     const float3 selfVelocity = CRESSIM_SB_LOAD(g_ParticleVelocitiesRW, particleIndex).xyz;
     const float smoothingRadius = max(fluidMaterial.smoothingRadius, 1.0e-4);
-    const uint4 selfMetadata = CRESSIM_SB_LOAD(g_ParticleBroadPhaseMetadata, particleIndex);
-    const uint selfEnvironment = selfMetadata.x;
-    const uint selfLayer = selfMetadata.z;
-    const uint selfMask = selfMetadata.w;
-    const GpuParticleBroadPhaseEntry selfEntry =
-        CRESSIM_SB_LOAD(g_ParticleBroadPhaseEntries, particleIndex);
-
     float3 curl = float3(0.0, 0.0, 0.0);
+    const uint neighborOffset = CRESSIM_SB_LOAD(g_FluidNeighborOffsets, particleIndex);
+    const uint neighborCount = CRESSIM_SB_LOAD(g_FluidNeighborCounts, particleIndex);
 
     [loop]
-    for (int dz = -1; dz <= 1; ++dz)
+    for (uint i = 0u; i < neighborCount; ++i)
     {
-        [loop]
-        for (int dy = -1; dy <= 1; ++dy)
+        const GpuParticleCandidatePair pair =
+            CRESSIM_SB_LOAD(g_FluidNeighborPairs, neighborOffset + i);
+        const uint neighborIndex = pair.indexB;
+        if (!AreSameFluidMaterial(particleIndex, neighborIndex))
         {
-            [loop]
-            for (int dx = -1; dx <= 1; ++dx)
-            {
-                const int targetCellX = selfEntry.cellX + dx;
-                const int targetCellY = selfEntry.cellY + dy;
-                const int targetCellZ = selfEntry.cellZ + dz;
-                const uint targetKey =
-                    ComputeParticleGridCellKey(targetCellX, targetCellY, targetCellZ);
-                const GpuParticleCellRange range = FindParticleCellRange(targetKey);
-                if (range.cellKey == kInvalidIndex)
-                {
-                    continue;
-                }
-
-                [loop]
-                for (uint sortedIndex = range.startIndex; sortedIndex < range.endIndex; ++sortedIndex)
-                {
-                    const GpuMortonCodeElement keyEntry =
-                        CRESSIM_SB_LOAD(g_SortedParticleBroadPhaseKeys, sortedIndex);
-                    const GpuParticleBroadPhaseEntry candidateEntry =
-                        CRESSIM_SB_LOAD(g_ParticleBroadPhaseEntries, keyEntry.elementIdx);
-                    if (candidateEntry.cellX != targetCellX || candidateEntry.cellY != targetCellY ||
-                        candidateEntry.cellZ != targetCellZ)
-                    {
-                        continue;
-                    }
-
-                    const uint neighborIndex = candidateEntry.particleIndex;
-                    if (!ShouldProcessFluidNeighbor(particleIndex, selfEnvironment, selfLayer,
-                                                    selfMask, neighborIndex) ||
-                        !AreSameFluidMaterial(particleIndex, neighborIndex))
-                    {
-                        continue;
-                    }
-
-                    const float4 neighborPositionInvMass =
-                        CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, neighborIndex);
-                    const float neighborInvMass = neighborPositionInvMass.w;
-                    if (neighborInvMass <= kEpsilon)
-                    {
-                        continue;
-                    }
-
-                    const float3 delta = selfPosition - neighborPositionInvMass.xyz;
-                    const float distance = length(delta);
-                    if (distance <= kEpsilon || distance >= smoothingRadius)
-                    {
-                        continue;
-                    }
-
-                    const float3 neighborVelocity =
-                        CRESSIM_SB_LOAD(g_ParticleVelocitiesRW, neighborIndex).xyz;
-                    curl += cross(neighborVelocity - selfVelocity,
-                                  FluidSpikyKernelGradient(delta, distance, smoothingRadius));
-                }
-            }
+            continue;
         }
+
+        const float4 neighborPositionInvMass =
+            CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, neighborIndex);
+        const float3 delta = selfPosition - neighborPositionInvMass.xyz;
+        const float distance = length(delta);
+        if (distance <= kEpsilon || distance >= smoothingRadius)
+        {
+            continue;
+        }
+
+        const float3 neighborVelocity =
+            CRESSIM_SB_LOAD(g_ParticleVelocitiesRW, neighborIndex).xyz;
+        curl += cross(neighborVelocity - selfVelocity,
+                      FluidSpikyKernelGradient(delta, distance, smoothingRadius));
     }
 
     CRESSIM_SB_STORE(g_FluidVorticities, particleIndex, float4(curl, length(curl)));

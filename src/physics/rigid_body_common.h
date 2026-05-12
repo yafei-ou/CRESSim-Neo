@@ -138,7 +138,7 @@ struct GpuParticleDispatchConstants
     std::uint32_t softEdgeCount                 = 0;
     std::uint32_t softTetCount                  = 0;
     std::uint32_t fluidIterations               = 0;
-    float reserved0                             = 0.0f;
+    std::uint32_t fluidNeighborPairCapacity     = 0;
     std::uint32_t iterationIndex                = 0;
     std::uint32_t reserved2                     = 0;
 };

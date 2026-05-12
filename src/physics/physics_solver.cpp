@@ -219,14 +219,15 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         particleConstants.particleGridCellSize = particleGridCellSize;
         particleConstants.particleCandidatePairCapacity =
             mImpl->sceneState.particleCandidatePairCapacity();
+        particleConstants.fluidNeighborPairCapacity = mImpl->sceneState.fluidNeighborPairCapacity();
         particleConstants.particleCellRangeCapacity =
             nextPowerOfTwo(std::max<std::uint32_t>(particleCount * 2u, 1u));
         particleConstants.softEdgeCount   = softEdgeCount;
         particleConstants.softTetCount    = softTetCount;
         particleConstants.fluidIterations = fluidIterations;
 
-        const bool hasParticlePairWork = particleCount > 0u;
-        const bool hasFluidWork        = fluidCount > 0u && particleCount > 0u;
+        const bool hasParticleNeighborWork = particleCount > 0u;
+        const bool hasFluidWork            = fluidCount > 0u && particleCount > 0u;
         const bool hasSoftInternalWork =
             particleCount > 0u && (softEdgeCount > 0u || softTetCount > 0u);
         const bool hasSoftSoftContactWork    = particleCount > 1u;
@@ -352,8 +353,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         }
 
         mImpl->lastStepHadRigidBroadPhaseWork = hasRigidBroadPhaseWork;
-        mImpl->lastStepHadSoftPairWork        = hasParticlePairWork;
-        if (hasParticlePairWork)
+        mImpl->lastStepHadSoftPairWork        = hasParticleNeighborWork;
+        if (hasParticleNeighborWork)
         {
             if (!mImpl->passDispatcher.clearParticleNeighborMeta(computeBackend.computeContext,
                                                                  mImpl->sceneState))
@@ -431,6 +432,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 const bool needJointOnlyRigidConstants =
                     !runRigidRigidContacts && (runBallJoints || runHingeJoints || runSliderJoints);
 
+                if (runFluidSolve &&
+                    !mImpl->passDispatcher.buildFluidNeighborPairs(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: BuildFluidNeighborPairs dispatch.");
+                    return false;
+                }
                 if (runFluidSolve &&
                     !mImpl->passDispatcher.computeFluidDensityConstraints(
                         computeBackend.computeContext, mImpl->sceneState, particleConstants))
@@ -619,6 +628,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 computeBackend.computeContext, mImpl->sceneState, particleCount, particleConstants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateParticleVelocities dispatch.");
+            return false;
+        }
+        if (hasFluidWork &&
+            !mImpl->passDispatcher.buildFluidNeighborPairs(computeBackend.computeContext,
+                                                           mImpl->sceneState, particleConstants))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: BuildFluidNeighborPairs post-update dispatch.");
             return false;
         }
         if (hasFluidWork &&

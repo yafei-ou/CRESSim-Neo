@@ -36,6 +36,8 @@ extern const gpu::GpuComputePassDefinition kSolveParticleExplicitContacts;
 extern const gpu::GpuComputePassDefinition kSolveParticleRigidContacts;
 extern const gpu::GpuComputePassDefinition kApplyParticlePositionCorrections;
 extern const gpu::GpuComputePassDefinition kUpdateParticleVelocities;
+extern const gpu::GpuComputePassDefinition kCountFluidNeighborPairs;
+extern const gpu::GpuComputePassDefinition kEmitFluidNeighborPairs;
 extern const gpu::GpuComputePassDefinition kComputeFluidDensityConstraints;
 extern const gpu::GpuComputePassDefinition kComputeFluidDeltaPositions;
 extern const gpu::GpuComputePassDefinition kApplyFluidDeltaPositions;

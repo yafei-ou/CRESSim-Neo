@@ -384,6 +384,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.softNeighborMetaBuffer != nullptr &&
         mTransientState.physicsIndirectArgsBuffer != nullptr &&
         mTransientState.softSoftCandidatePairsBuffer != nullptr &&
+        mTransientState.fluidNeighborPairsBuffer != nullptr &&
         mTransientState.softRigidCandidatePairsBuffer != nullptr &&
         mTransientState.softRigidContactsBuffer != nullptr &&
         mTransientState.softContactsBuffer != nullptr &&
@@ -483,6 +484,12 @@ bool PhysicsSceneGpuState::ensureCapacity(
         nextPowerOfTwo(std::max<std::uint32_t>(newParticleBroadPhaseEntryCapacity * 2u, 64u));
     const std::uint32_t newSoftCandidatePairCapacity =
         std::max<std::uint32_t>(particleCount * 8u, 64u);
+    // Fluid neighbors are stored as directed per-particle pairs, so they need a
+    // materially larger transient budget than the soft contact candidate lists.
+    // This is still a heuristic and may truncate in very dense scenes until we
+    // add explicit overflow reporting for the fluid path.
+    const std::uint32_t newFluidNeighborPairCapacity =
+        std::max<std::uint32_t>(particleCount * 64u, 64u);
     const std::uint32_t newSoftScanCapacity =
         std::max(newParticleBroadPhaseEntryCapacity, newSoftCandidatePairCapacity);
     const std::uint32_t newSoftParticleAdjacencyCapacity =
@@ -532,6 +539,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mFluidMaterialCapacity >= newFluidMaterialCapacity &&
         mParticleBroadPhaseEntryCapacity >= newParticleBroadPhaseEntryCapacity &&
         mSoftCandidatePairCapacity >= newSoftCandidatePairCapacity &&
+        mFluidNeighborPairCapacity >= newFluidNeighborPairCapacity &&
         mSoftScanScratchCapacity >= newSoftScanCapacity &&
         mSoftIncidentEdgeCapacity >= newSoftIncidentEdgeCapacity &&
         mSoftIncidentTetCapacity >= newSoftIncidentTetCapacity &&
@@ -926,6 +934,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.softSoftCandidatePairsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidNeighborPairs",
+                                sizeof(GpuParticleCandidatePair), newFluidNeighborPairCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.fluidNeighborPairsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRigidCandidatePairs",
                                 sizeof(GpuParticleCandidatePair), newSoftCandidatePairCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -1392,6 +1405,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mSoftEdgeCapacity != newSoftEdgeCapacity || mSoftTetCapacity != newSoftTetCapacity ||
         mParticleBroadPhaseEntryCapacity != newParticleBroadPhaseEntryCapacity ||
         mSoftCandidatePairCapacity != newSoftCandidatePairCapacity ||
+        mFluidNeighborPairCapacity != newFluidNeighborPairCapacity ||
         mSoftScanScratchCapacity != newSoftScanCapacity ||
         mSoftParticleAdjacencyCapacity != newSoftParticleAdjacencyCapacity ||
         mSoftIncidentEdgeCapacity != newSoftIncidentEdgeCapacity ||
@@ -1411,6 +1425,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
     mSoftTetCapacity                           = newSoftTetCapacity;
     mParticleBroadPhaseEntryCapacity           = newParticleBroadPhaseEntryCapacity;
     mSoftCandidatePairCapacity                 = newSoftCandidatePairCapacity;
+    mFluidNeighborPairCapacity                 = newFluidNeighborPairCapacity;
     mSoftScanScratchCapacity                   = newSoftScanCapacity;
     mSoftParticleAdjacencyCapacity             = newSoftParticleAdjacencyCapacity;
     mSoftIncidentEdgeCapacity                  = newSoftIncidentEdgeCapacity;
@@ -2629,6 +2644,11 @@ std::uint32_t PhysicsSceneGpuState::candidatePairCapacity() const noexcept
 std::uint32_t PhysicsSceneGpuState::particleCandidatePairCapacity() const noexcept
 {
     return mSoftCandidatePairCapacity;
+}
+
+std::uint32_t PhysicsSceneGpuState::fluidNeighborPairCapacity() const noexcept
+{
+    return mFluidNeighborPairCapacity;
 }
 
 bool PhysicsSceneGpuState::correctionBuffersNeedClear() const noexcept

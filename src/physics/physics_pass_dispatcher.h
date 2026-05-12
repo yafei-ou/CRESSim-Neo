@@ -108,6 +108,9 @@ public:
     bool computeFluidDensityConstraints(Diligent::IDeviceContext *computeContext,
                                         const PhysicsSceneGpuState &sceneState,
                                         const GpuParticleDispatchConstants &constants);
+    bool buildFluidNeighborPairs(Diligent::IDeviceContext *computeContext,
+                                 const PhysicsSceneGpuState &sceneState,
+                                 const GpuParticleDispatchConstants &constants);
     bool computeFluidDeltaPositions(Diligent::IDeviceContext *computeContext,
                                     const PhysicsSceneGpuState &sceneState,
                                     const GpuParticleDispatchConstants &constants);
@@ -307,6 +310,8 @@ private:
     gpu::GpuComputePass mSolveParticleRigidContactsPass;
     gpu::GpuComputePass mApplyParticlePositionCorrectionsPass;
     gpu::GpuComputePass mUpdateParticleVelocitiesPass;
+    gpu::GpuComputePass mCountFluidNeighborPairsPass;
+    gpu::GpuComputePass mEmitFluidNeighborPairsPass;
     gpu::GpuComputePass mComputeFluidDensityConstraintsPass;
     gpu::GpuComputePass mComputeFluidDeltaPositionsPass;
     gpu::GpuComputePass mApplyFluidDeltaPositionsPass;

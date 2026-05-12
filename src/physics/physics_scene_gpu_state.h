@@ -144,6 +144,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softNeighborMetaBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> physicsIndirectArgsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softSoftCandidatePairsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidNeighborPairsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidCandidatePairsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softRigidContactsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softContactsBuffer;
@@ -327,6 +328,7 @@ public:
     std::uint32_t sliderVelocityDriveJointCount() const noexcept;
     std::uint32_t candidatePairCapacity() const noexcept;
     std::uint32_t particleCandidatePairCapacity() const noexcept;
+    std::uint32_t fluidNeighborPairCapacity() const noexcept;
     bool correctionBuffersNeedClear() const noexcept;
     void setCorrectionBuffersNeedClear(bool needClear) noexcept;
     bool staticBroadPhaseDirty() const noexcept;
@@ -384,6 +386,7 @@ private:
     std::uint32_t mSoftTetCapacity                           = 0;
     std::uint32_t mParticleBroadPhaseEntryCapacity           = 0;
     std::uint32_t mSoftCandidatePairCapacity                 = 0;
+    std::uint32_t mFluidNeighborPairCapacity                 = 0;
     std::uint32_t mSoftParticleAdjacencyCapacity             = 0;
     std::uint32_t mRigidBodyCount                            = 0;
     std::uint32_t mColliderCount                             = 0;
