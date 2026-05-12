@@ -1527,8 +1527,8 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
     const SoftRenderDataHost &softRenderData            = world.softRenderData();
     const std::vector<SoftEdge> &softEdges              = world.softEdges();
     const std::vector<SoftTet> &softTets                = world.softTets();
-    const std::uint64_t worldRevision                   = world.authoredRevision();
-    const std::uint64_t softTopologyRevision            = world.softBodyTopologyRevision();
+    const std::uint64_t softParticleRevision            = world.softParticleRevision();
+    const std::uint64_t softTopologyRevision            = world.softGpuTopologyRevision();
     if (static_cast<std::uint32_t>(rigidBodies.size()) != bodyCount ||
         static_cast<std::uint32_t>(colliders.size()) != colliderCount)
     {
@@ -1590,12 +1590,12 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
         return false;
     }
 
-    const bool needsSoftParticleUpload =
-        mSoftParticleUploadResetRequired || mLastUploadedSoftParticleRevision != worldRevision;
+    const bool needsSoftParticleUpload = mSoftParticleUploadResetRequired ||
+                                         mLastUploadedSoftParticleRevision != softParticleRevision;
     const bool needsSoftTopologyUpload =
         mSoftTopologyUploadResetRequired ||
         mLastUploadedSoftTopologyRevision != softTopologyRevision ||
-        mLastUploadedSoftParticleRevision != worldRevision;
+        mLastUploadedSoftParticleRevision != softParticleRevision;
 
     if ((needsSoftParticleUpload &&
          !uploadParticles(computeContext, particles, particleContactMaterials, fluidMaterials)) ||
@@ -1620,7 +1620,7 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
     mColliderUploadResetRequired      = false;
     mSoftParticleUploadResetRequired  = false;
     mSoftTopologyUploadResetRequired  = false;
-    mLastUploadedSoftParticleRevision = worldRevision;
+    mLastUploadedSoftParticleRevision = softParticleRevision;
     mLastUploadedSoftTopologyRevision = softTopologyRevision;
     mStaticBroadPhaseDirty            = mStaticBroadPhaseDirty || world.staticBroadPhaseDirty();
     world.clearStaticBroadPhaseDirty();

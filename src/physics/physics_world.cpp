@@ -534,6 +534,8 @@ void PhysicsWorld::clear()
     mStaticBroadPhaseDirty          = true;
     mActiveMovingColliderCount      = 0u;
     mStaticColliderCount            = 0u;
+    mParticleGridCellSize           = 0.1f;
+    mSoftBodyBoundsChunkCount       = 0u;
     mNextRigidBodyId                = 1u;
     mNextColliderId                 = 1u;
     mNextBallJointId                = 1u;
@@ -544,6 +546,8 @@ void PhysicsWorld::clear()
     ++mRigidJointModeRevision;
     ++mRigidJointTopologyRevision;
     ++mSoftBodyTopologyRevision;
+    ++mSoftParticleRevision;
+    ++mSoftGpuTopologyRevision;
     ++mAuthoredRevision;
     ++mSimulationRevision;
 }
@@ -924,6 +928,7 @@ bool PhysicsWorld::upsertSoftBody(const SoftBodyState &state)
                                         SoftBodyChangeKind::RuntimePropertiesOnly)
     {
         applySoftBodyRuntimeProperties(it->second, normalizedState);
+        ++mSoftParticleRevision;
         ++mAuthoredRevision;
         return true;
     }
@@ -949,6 +954,8 @@ bool PhysicsWorld::upsertSoftBody(const SoftBodyState &state)
 
     mSoftBodyDerivedStateDirty = true;
     ++mSoftBodyTopologyRevision;
+    ++mSoftParticleRevision;
+    ++mSoftGpuTopologyRevision;
     ++mAuthoredRevision;
     return true;
 }
@@ -986,6 +993,8 @@ bool PhysicsWorld::upsertFluid(const FluidState &state)
     }
     mSoftBodyDerivedStateDirty = true;
     ++mSoftBodyTopologyRevision;
+    ++mSoftParticleRevision;
+    ++mSoftGpuTopologyRevision;
     ++mAuthoredRevision;
     return true;
 }
@@ -1012,6 +1021,8 @@ bool PhysicsWorld::removeSoftBody(common::EntityId entityId)
     mTetGenMeshCache.erase(entityId);
     mSoftBodyDerivedStateDirty = true;
     ++mSoftBodyTopologyRevision;
+    ++mSoftParticleRevision;
+    ++mSoftGpuTopologyRevision;
     ++mAuthoredRevision;
     return true;
 }
@@ -1037,6 +1048,8 @@ bool PhysicsWorld::removeFluid(common::EntityId entityId)
     mEntityToFluidIndex.erase(it);
     mSoftBodyDerivedStateDirty = true;
     ++mSoftBodyTopologyRevision;
+    ++mSoftParticleRevision;
+    ++mSoftGpuTopologyRevision;
     ++mAuthoredRevision;
     return true;
 }
@@ -1424,6 +1437,8 @@ const SoftRenderDataHost &PhysicsWorld::softRenderData() const noexcept
 void PhysicsWorld::setSoftRenderData(const SoftRenderDataHost &data)
 {
     mSoftRenderData = data;
+    recomputeSoftBodyBoundsChunkCount();
+    ++mSoftGpuTopologyRevision;
     ++mAuthoredRevision;
 }
 
@@ -1540,6 +1555,20 @@ std::uint32_t PhysicsWorld::activeMovingColliderCount() const noexcept
 std::uint32_t PhysicsWorld::staticColliderCount() const noexcept
 {
     return mStaticColliderCount;
+}
+
+float PhysicsWorld::particleGridCellSize() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return mParticleGridCellSize;
+}
+
+std::uint32_t PhysicsWorld::softBodyBoundsChunkCount() const noexcept
+{
+    return mSoftBodyBoundsChunkCount;
 }
 
 void PhysicsWorld::integrateRigidBodiesCpu(float dt) noexcept
@@ -1659,6 +1688,16 @@ std::uint64_t PhysicsWorld::rigidJointModeRevision() const noexcept
 std::uint64_t PhysicsWorld::softBodyTopologyRevision() const noexcept
 {
     return mSoftBodyTopologyRevision;
+}
+
+std::uint64_t PhysicsWorld::softParticleRevision() const noexcept
+{
+    return mSoftParticleRevision;
+}
+
+std::uint64_t PhysicsWorld::softGpuTopologyRevision() const noexcept
+{
+    return mSoftGpuTopologyRevision;
 }
 
 void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost &soa, std::uint32_t index,
@@ -1984,6 +2023,8 @@ void PhysicsWorld::applySoftBodyRuntimeProperties(std::uint32_t index,
     {
         mSoftTets[tetIndex].compliance = softBody.volumeCompliance;
     }
+
+    recomputeParticleGridCellSize();
 }
 
 void PhysicsWorld::removeCollidersForEntity(common::EntityId entityId) noexcept
@@ -2569,7 +2610,36 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
                                            neighbors.end());
     }
 
+    recomputeParticleGridCellSize();
     mSoftBodyDerivedStateDirty = false;
+}
+
+void PhysicsWorld::recomputeParticleGridCellSize() noexcept
+{
+    float gridCellSize = 0.0f;
+    for (std::size_t particleIndex = 0; particleIndex < mParticles.radii.size(); ++particleIndex)
+    {
+        gridCellSize = std::max(gridCellSize, mParticles.radii[particleIndex] * 2.0f);
+        if (particleIndex < mParticles.fluidMaterialIndices.size() &&
+            mParticles.fluidMaterialIndices[particleIndex] != 0xffffffffu &&
+            mParticles.fluidMaterialIndices[particleIndex] < mFluidMaterials.size())
+        {
+            gridCellSize = std::max(
+                gridCellSize,
+                mFluidMaterials[mParticles.fluidMaterialIndices[particleIndex]].smoothingRadius);
+        }
+    }
+
+    mParticleGridCellSize = std::max(gridCellSize, 0.1f);
+}
+
+void PhysicsWorld::recomputeSoftBodyBoundsChunkCount() noexcept
+{
+    mSoftBodyBoundsChunkCount = 0u;
+    for (const Diligent::uint2 &range : mSoftRenderData.softBodyParticleRanges)
+    {
+        mSoftBodyBoundsChunkCount += (range.y + 64u - 1u) / 64u;
+    }
 }
 
 bool PhysicsWorld::prepareFluidStateForInsert(const FluidState &candidate,

@@ -139,26 +139,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const std::uint32_t sliderJointCount = static_cast<std::uint32_t>(rigidJoints.slider.size());
     const std::uint32_t softRenderTriangleCount =
         static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
-    std::uint32_t softBodyBoundsChunkCount = 0u;
-    for (const Diligent::uint2 &range : softRenderData.softBodyParticleRanges)
-    {
-        softBodyBoundsChunkCount += (range.y + 64u - 1u) / 64u;
-    }
-    float particleGridCellSize = 0.0f;
-    for (std::size_t particleIndex = 0; particleIndex < particles.radii.size(); ++particleIndex)
-    {
-        particleGridCellSize =
-            std::max(particleGridCellSize, particles.radii[particleIndex] * 2.0f);
-        if (particleIndex < particles.fluidMaterialIndices.size() &&
-            particles.fluidMaterialIndices[particleIndex] != 0xffffffffu &&
-            particles.fluidMaterialIndices[particleIndex] < fluidMaterials.size())
-        {
-            particleGridCellSize = std::max(
-                particleGridCellSize,
-                fluidMaterials[particles.fluidMaterialIndices[particleIndex]].smoothingRadius);
-        }
-    }
-    particleGridCellSize   = std::max(particleGridCellSize, 0.1f);
+    const std::uint32_t softBodyBoundsChunkCount = world.softBodyBoundsChunkCount();
+    const float particleGridCellSize             = world.particleGridCellSize();
     const bool hasSoftData = particleCount > 0u || softEdgeCount > 0u || softTetCount > 0u;
     if (rigidBodyCount == 0u && !hasSoftData)
     {

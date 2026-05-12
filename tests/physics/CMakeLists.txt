@@ -123,3 +123,10 @@ add_cressim_test(
     SOURCE physics_particle_material_tables.cpp
     LIBS cressim_neo_engine
 )
+
+add_cressim_test(
+    SUITE physics
+    NAME soft_revision_tracking
+    SOURCE physics_soft_revision_tracking.cpp
+    LIBS cressim_neo_engine
+)

@@ -81,6 +81,8 @@ public:
     void clearStaticBroadPhaseDirty() noexcept;
     std::uint32_t activeMovingColliderCount() const noexcept;
     std::uint32_t staticColliderCount() const noexcept;
+    float particleGridCellSize() const noexcept;
+    std::uint32_t softBodyBoundsChunkCount() const noexcept;
 
     void integrateRigidBodiesCpu(float dt) noexcept;
     bool syncRigidBodyStateFromSimulation(std::uint32_t index,
@@ -102,6 +104,8 @@ public:
     std::uint64_t rigidJointSceneRevision() const noexcept;
     std::uint64_t rigidJointModeRevision() const noexcept;
     std::uint64_t softBodyTopologyRevision() const noexcept;
+    std::uint64_t softParticleRevision() const noexcept;
+    std::uint64_t softGpuTopologyRevision() const noexcept;
 
 private:
     enum class SoftBodyChangeKind
@@ -180,6 +184,8 @@ private:
     void applyRigidJointChange(RigidJointChangeKind changeKind) noexcept;
     void applySoftBodyRuntimeProperties(std::uint32_t index,
                                         const SoftBodyState &normalizedState) noexcept;
+    void recomputeParticleGridCellSize() noexcept;
+    void recomputeSoftBodyBoundsChunkCount() noexcept;
     bool prepareSoftBodyStateForInsert(const SoftBodyState &candidate,
                                        const SoftBodyState *previousState,
                                        SoftBodyDerivedCache &derivedCache) noexcept;
@@ -238,6 +244,8 @@ private:
     bool mStaticBroadPhaseDirty                  = false;
     std::uint32_t mActiveMovingColliderCount     = 0u;
     std::uint32_t mStaticColliderCount           = 0u;
+    float mParticleGridCellSize                  = 0.1f;
+    std::uint32_t mSoftBodyBoundsChunkCount      = 0u;
     std::uint64_t mAuthoredRevision              = 0;
     std::uint64_t mSimulationRevision            = 0;
     std::uint64_t mRigidBodyTopologyRevision     = 0;
@@ -245,6 +253,8 @@ private:
     std::uint64_t mRigidJointModeRevision        = 0;
     std::uint64_t mRigidJointTopologyRevision    = 0;
     std::uint64_t mSoftBodyTopologyRevision      = 0;
+    std::uint64_t mSoftParticleRevision          = 0;
+    std::uint64_t mSoftGpuTopologyRevision       = 0;
     RigidBodyId mNextRigidBodyId                 = 1u;
     ColliderId mNextColliderId                   = 1u;
     BallJointId mNextBallJointId                 = 1u;

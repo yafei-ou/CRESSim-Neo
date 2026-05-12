@@ -181,9 +181,9 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
-    config.physicsDesc.substeps = 4u;
+    config.physicsDesc.substeps = 1u;
     config.physicsDesc.defaultIterations = 10u;
-    config.physicsDesc.fluidIterations = 5u;
+    config.physicsDesc.fluidIterations = 10u;
     config.physicsDesc.softContactIterations = 8u;
     config.physicsDesc.softInternalIterations = 4u;
 
@@ -191,7 +191,7 @@ int main(int argc, char **argv)
     ViewerExampleDefaults viewerDefaults{};
     viewerDefaults.windowTitle = "CRESSim Neo Particle Material Showcase";
     viewerDefaults.showStats = true;
-    viewerDefaults.vSync = true;
+    viewerDefaults.vSync = false;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
     viewerDesc.enableDebugParticles = true;
 
@@ -249,13 +249,13 @@ int main(int argc, char **argv)
     fluidContact.friction = 0.04f;
     fluidContact.staticFriction = 0.06f;
     fluidContact.restitution = 0.0f;
-    fluidContact.damping = 0.02f;
+    fluidContact.damping = 0.2f;
 
     cressim::neo::physics::ParticleContactMaterialDesc softContact{};
     softContact.friction = 0.55f;
     softContact.staticFriction = 0.75f;
     softContact.restitution = 0.05f;
-    softContact.damping = 0.08f;
+    softContact.damping = 0.8f;
 
     cressim::neo::physics::FluidMaterialDesc baselineFluid{};
     baselineFluid.contact = fluidContact;
