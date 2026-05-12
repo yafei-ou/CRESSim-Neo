@@ -218,7 +218,7 @@ constexpr Diligent::ShaderResourceVariableDesc kEmitParticleRigidCandidatePairsV
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
-constexpr Diligent::ShaderResourceVariableDesc kCountFluidNeighborPairsVars[] = {
+constexpr Diligent::ShaderResourceVariableDesc kBuildFluidNeighborPairsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleBroadPhaseEntries",
@@ -240,33 +240,6 @@ constexpr Diligent::ShaderResourceVariableDesc kCountFluidNeighborPairsVars[] = 
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidIterationDelta",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_CandidateCounts",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-};
-
-constexpr Diligent::ShaderResourceVariableDesc kEmitFluidNeighborPairsVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleBroadPhaseEntries",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleCellRanges",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SortedParticleBroadPhaseKeys",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleBroadPhaseMetadata",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleKinds",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidMaterialIndices",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidMaterials",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidIterationDelta",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_CandidateCounts",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_CandidateOffsets",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidNeighborPairs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -520,8 +493,6 @@ constexpr Diligent::ShaderResourceVariableDesc kComputeFluidDensityConstraintsVa
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidNeighborCounts",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidNeighborOffsets",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidNeighborPairs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidConstraints",
@@ -548,8 +519,6 @@ constexpr Diligent::ShaderResourceVariableDesc kComputeFluidDeltaPositionsVars[]
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidSurfaceNormals",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidNeighborCounts",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidNeighborOffsets",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidNeighborPairs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -583,8 +552,6 @@ constexpr Diligent::ShaderResourceVariableDesc kComputeFluidVorticityVars[] = {
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidNeighborCounts",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidNeighborOffsets",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidNeighborPairs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidVorticities",
@@ -605,8 +572,6 @@ constexpr Diligent::ShaderResourceVariableDesc kApplyFluidVorticityConfinementVa
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidVorticities",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidNeighborCounts",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidNeighborOffsets",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidNeighborPairs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -1499,20 +1464,12 @@ const gpu::GpuComputePassDefinition kUpdateParticleVelocities{
     std::size(kUpdateParticleVelocitiesVars),
 };
 
-const gpu::GpuComputePassDefinition kCountFluidNeighborPairs{
-    "physics/fluid/solver/physics_fluid_count_neighbors.cs.hlsl",
-    "CRESSimNeo.Physics.CountFluidNeighborPairs.CS",
-    "CRESSimNeo.Physics.CountFluidNeighborPairs.PSO",
-    kCountFluidNeighborPairsVars,
-    std::size(kCountFluidNeighborPairsVars),
-};
-
-const gpu::GpuComputePassDefinition kEmitFluidNeighborPairs{
-    "physics/fluid/solver/physics_fluid_emit_neighbors.cs.hlsl",
-    "CRESSimNeo.Physics.EmitFluidNeighborPairs.CS",
-    "CRESSimNeo.Physics.EmitFluidNeighborPairs.PSO",
-    kEmitFluidNeighborPairsVars,
-    std::size(kEmitFluidNeighborPairsVars),
+const gpu::GpuComputePassDefinition kBuildFluidNeighborPairs{
+    "physics/fluid/solver/physics_fluid_build_neighbors.cs.hlsl",
+    "CRESSimNeo.Physics.BuildFluidNeighborPairs.CS",
+    "CRESSimNeo.Physics.BuildFluidNeighborPairs.PSO",
+    kBuildFluidNeighborPairsVars,
+    std::size(kBuildFluidNeighborPairsVars),
 };
 
 const gpu::GpuComputePassDefinition kComputeFluidDensityConstraints{

@@ -329,6 +329,7 @@ public:
     std::uint32_t candidatePairCapacity() const noexcept;
     std::uint32_t particleCandidatePairCapacity() const noexcept;
     std::uint32_t fluidNeighborPairCapacity() const noexcept;
+    std::uint32_t maxFluidNeighborhood() const noexcept;
     bool correctionBuffersNeedClear() const noexcept;
     void setCorrectionBuffersNeedClear(bool needClear) noexcept;
     bool staticBroadPhaseDirty() const noexcept;
@@ -387,6 +388,7 @@ private:
     std::uint32_t mParticleBroadPhaseEntryCapacity           = 0;
     std::uint32_t mSoftCandidatePairCapacity                 = 0;
     std::uint32_t mFluidNeighborPairCapacity                 = 0;
+    std::uint32_t mMaxFluidNeighborhood                      = 0;
     std::uint32_t mSoftParticleAdjacencyCapacity             = 0;
     std::uint32_t mRigidBodyCount                            = 0;
     std::uint32_t mColliderCount                             = 0;

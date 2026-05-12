@@ -8,7 +8,6 @@ CRESSIM_STRUCTURED_BUFFER(float, g_FluidConstraints);
 CRESSIM_STRUCTURED_BUFFER(float4, g_FluidIterationDelta);
 CRESSIM_STRUCTURED_BUFFER(float4, g_FluidSurfaceNormals);
 CRESSIM_STRUCTURED_BUFFER(uint, g_FluidNeighborCounts);
-CRESSIM_STRUCTURED_BUFFER(uint, g_FluidNeighborOffsets);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleCandidatePair, g_FluidNeighborPairs);
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_FluidDeltaPositions);
@@ -56,8 +55,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 selfSurfaceNormal =
         (surfaceTension > kEpsilon) ? CRESSIM_SB_LOAD(g_FluidSurfaceNormals, particleIndex).xyz
                                     : float3(0.0, 0.0, 0.0);
-    const uint neighborOffset = CRESSIM_SB_LOAD(g_FluidNeighborOffsets, particleIndex);
     const uint neighborCount = CRESSIM_SB_LOAD(g_FluidNeighborCounts, particleIndex);
+    const uint neighborOffset = particleIndex * maxFluidNeighborhood;
 
     [loop]
     for (uint i = 0u; i < neighborCount; ++i)

@@ -484,12 +484,13 @@ bool PhysicsSceneGpuState::ensureCapacity(
         nextPowerOfTwo(std::max<std::uint32_t>(newParticleBroadPhaseEntryCapacity * 2u, 64u));
     const std::uint32_t newSoftCandidatePairCapacity =
         std::max<std::uint32_t>(particleCount * 8u, 64u);
-    // Fluid neighbors are stored as directed per-particle pairs, so they need a
-    // materially larger transient budget than the soft contact candidate lists.
-    // This is still a heuristic and may truncate in very dense scenes until we
-    // add explicit overflow reporting for the fluid path.
-    const std::uint32_t newFluidNeighborPairCapacity =
-        std::max<std::uint32_t>(particleCount * 64u, 64u);
+    // Fluid neighbors are stored in fixed per-particle slots so the solver can
+    // index them directly without a scan/offset pass. This is still a heuristic
+    // and may truncate in very dense scenes until we add explicit overflow
+    // reporting for the fluid path.
+    const std::uint32_t newMaxFluidNeighborhood = kDefaultFluidMaxNeighborhood;
+    const std::uint32_t newFluidNeighborPairCapacity = std::max<std::uint32_t>(
+        particleCount * newMaxFluidNeighborhood, newMaxFluidNeighborhood);
     const std::uint32_t newSoftScanCapacity =
         std::max(newParticleBroadPhaseEntryCapacity, newSoftCandidatePairCapacity);
     const std::uint32_t newSoftParticleAdjacencyCapacity =
@@ -1406,6 +1407,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mParticleBroadPhaseEntryCapacity != newParticleBroadPhaseEntryCapacity ||
         mSoftCandidatePairCapacity != newSoftCandidatePairCapacity ||
         mFluidNeighborPairCapacity != newFluidNeighborPairCapacity ||
+        mMaxFluidNeighborhood != newMaxFluidNeighborhood ||
         mSoftScanScratchCapacity != newSoftScanCapacity ||
         mSoftParticleAdjacencyCapacity != newSoftParticleAdjacencyCapacity ||
         mSoftIncidentEdgeCapacity != newSoftIncidentEdgeCapacity ||
@@ -1426,6 +1428,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
     mParticleBroadPhaseEntryCapacity           = newParticleBroadPhaseEntryCapacity;
     mSoftCandidatePairCapacity                 = newSoftCandidatePairCapacity;
     mFluidNeighborPairCapacity                 = newFluidNeighborPairCapacity;
+    mMaxFluidNeighborhood                      = newMaxFluidNeighborhood;
     mSoftScanScratchCapacity                   = newSoftScanCapacity;
     mSoftParticleAdjacencyCapacity             = newSoftParticleAdjacencyCapacity;
     mSoftIncidentEdgeCapacity                  = newSoftIncidentEdgeCapacity;
@@ -2649,6 +2652,11 @@ std::uint32_t PhysicsSceneGpuState::particleCandidatePairCapacity() const noexce
 std::uint32_t PhysicsSceneGpuState::fluidNeighborPairCapacity() const noexcept
 {
     return mFluidNeighborPairCapacity;
+}
+
+std::uint32_t PhysicsSceneGpuState::maxFluidNeighborhood() const noexcept
+{
+    return mMaxFluidNeighborhood;
 }
 
 bool PhysicsSceneGpuState::correctionBuffersNeedClear() const noexcept

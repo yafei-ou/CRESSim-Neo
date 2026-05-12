@@ -12,8 +12,9 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleKinds);
 CRESSIM_STRUCTURED_BUFFER(uint, g_FluidMaterialIndices);
 CRESSIM_STRUCTURED_BUFFER(GpuFluidMaterial, g_FluidMaterials);
 CRESSIM_STRUCTURED_BUFFER(float4, g_FluidIterationDelta);
-
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_CandidateCounts);
+
+CRESSIM_RW_STRUCTURED_BUFFER(GpuParticleCandidatePair, g_FluidNeighborPairs);
 
 #include "../../../include/physics/fluid/physics_fluid_neighbor_build.hlsli"
 
@@ -28,16 +29,22 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     if (CRESSIM_SB_LOAD(g_ParticleKinds, particleIndex) != kParticleKindFluid)
     {
-        CRESSIM_SB_STORE(g_CandidateCounts, particleIndex, 0u);
         return;
     }
 
     const float4 selfPositionInvMass = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex);
     if (selfPositionInvMass.w <= kEpsilon)
     {
+        return;
+    }
+
+    if (maxFluidNeighborhood == 0u)
+    {
         CRESSIM_SB_STORE(g_CandidateCounts, particleIndex, 0u);
         return;
     }
+
+    const uint candidateOffset = particleIndex * maxFluidNeighborhood;
 
     const float3 selfAccumulatedDelta =
         (iterationIndex > 0u)
@@ -54,7 +61,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const GpuParticleBroadPhaseEntry selfEntry =
         CRESSIM_SB_LOAD(g_ParticleBroadPhaseEntries, particleIndex);
 
-    uint count = 0u;
+    uint writeIndex = candidateOffset;
+    uint candidateCount = 0u;
 
     [loop]
     for (int dz = -1; dz <= 1; ++dz)
@@ -114,11 +122,26 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                         continue;
                     }
 
-                    ++count;
+                    if (candidateCount >= maxFluidNeighborhood)
+                    {
+                        continue;
+                    }
+
+                    GpuParticleCandidatePair pair;
+                    pair.pairType = kParticleCandidatePairTypeParticleParticle;
+                    pair.indexA = particleIndex;
+                    pair.indexB = neighborIndex;
+                    pair.auxIndex = 0u;
+                    CRESSIM_SB_STORE(g_FluidNeighborPairs, writeIndex, pair);
+                    ++writeIndex;
+                    ++candidateCount;
                 }
             }
         }
     }
 
-    CRESSIM_SB_STORE(g_CandidateCounts, particleIndex, count);
+    // This path currently clamps each particle to a fixed neighborhood budget and
+    // can silently truncate dense fluid neighborhoods. Keep that behavior for now
+    // until we add a dedicated overflow meta/reporting path.
+    CRESSIM_SB_STORE(g_CandidateCounts, particleIndex, candidateCount);
 }

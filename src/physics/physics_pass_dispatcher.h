@@ -310,8 +310,7 @@ private:
     gpu::GpuComputePass mSolveParticleRigidContactsPass;
     gpu::GpuComputePass mApplyParticlePositionCorrectionsPass;
     gpu::GpuComputePass mUpdateParticleVelocitiesPass;
-    gpu::GpuComputePass mCountFluidNeighborPairsPass;
-    gpu::GpuComputePass mEmitFluidNeighborPairsPass;
+    gpu::GpuComputePass mBuildFluidNeighborPairsPass;
     gpu::GpuComputePass mComputeFluidDensityConstraintsPass;
     gpu::GpuComputePass mComputeFluidDeltaPositionsPass;
     gpu::GpuComputePass mApplyFluidDeltaPositionsPass;

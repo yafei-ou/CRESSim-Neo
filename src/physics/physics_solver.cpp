@@ -220,6 +220,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         particleConstants.particleCandidatePairCapacity =
             mImpl->sceneState.particleCandidatePairCapacity();
         particleConstants.fluidNeighborPairCapacity = mImpl->sceneState.fluidNeighborPairCapacity();
+        particleConstants.maxFluidNeighborhood      = mImpl->sceneState.maxFluidNeighborhood();
         particleConstants.particleCellRangeCapacity =
             nextPowerOfTwo(std::max<std::uint32_t>(particleCount * 2u, 1u));
         particleConstants.softEdgeCount   = softEdgeCount;
