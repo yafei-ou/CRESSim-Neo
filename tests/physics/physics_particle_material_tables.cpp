@@ -44,9 +44,7 @@ FluidState makeFluid(EntityId entityId, float offsetX, float viscosity)
     state.material.contact.restitution = 0.1f;
     state.material.contact.damping = 0.05f;
     state.material.contact.staticFriction = 0.6f;
-    state.material.restDensity = 950.0f;
     state.material.viscosity = viscosity;
-    state.material.smoothingRadius = 0.28f;
     state.material.gravityScale = 0.85f + viscosity;
     state.material.cohesion = 0.02f * (1.0f + viscosity);
     state.material.surfaceTension = 0.01f * (1.0f + viscosity);
@@ -71,10 +69,10 @@ int main()
     }
 
     FluidState incompatible = makeFluid(2003u, 8.0f, 0.08f);
-    incompatible.material.restDensity = 1200.0f;
+    incompatible.particleRadius = 0.2f;
     if (world.upsertFluid(incompatible))
     {
-        CRESSIM_LOG_ERROR("Incompatible fluid density model should have been rejected.\n");
+        CRESSIM_LOG_ERROR("Incompatible fluid spacing model should have been rejected.\n");
         return 1;
     }
 

@@ -1,6 +1,8 @@
 #include "physics/physics_world.h"
 #include "common/logger.h"
 
+#include <cmath>
+
 namespace
 {
 
@@ -40,9 +42,7 @@ FluidState makeFluid(EntityId entityId)
     state.source.regularGrid.targetParticleSpacing = 0.2f;
     state.particleMass = 0.5f;
     state.particleRadius = 0.1f;
-    state.material.restDensity = 900.0f;
     state.material.viscosity = 0.15f;
-    state.material.smoothingRadius = 0.3f;
     state.material.gravityScale = 0.9f;
     state.material.cohesion = 0.04f;
     state.material.surfaceTension = 0.02f;
@@ -98,9 +98,9 @@ int main()
             const std::uint32_t fluidMaterialIndex = particles.fluidMaterialIndices[i];
             if (particles.ownerTypes[i] != static_cast<std::uint32_t>(ParticleOwnerType::FluidBody) ||
                 fluidMaterialIndex >= fluidMaterials.size() ||
-                fluidMaterials[fluidMaterialIndex].restDensity != 900.0f ||
+                fluidMaterials[fluidMaterialIndex].restDensity <= 0.0f ||
                 fluidMaterials[fluidMaterialIndex].viscosityDerived <= 0.0f ||
-                fluidMaterials[fluidMaterialIndex].smoothingRadius != 0.3f ||
+                std::abs(fluidMaterials[fluidMaterialIndex].smoothingRadius - 0.4f) > 1.0e-5f ||
                 fluidMaterials[fluidMaterialIndex].gravityScale != 0.9f ||
                 fluidMaterials[fluidMaterialIndex].cohesionDerived <= 0.0f)
             {

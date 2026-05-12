@@ -122,8 +122,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
                     const float neighborCurlMagnitude =
                         CRESSIM_SB_LOAD(g_FluidVorticities, neighborIndex).w;
-                    vorticityGrad += (neighborCurlMagnitude - selfCurlMagnitude) *
-                                     FluidCubicKernelGradient(delta, distance, smoothingRadius);
+                    vorticityGrad += neighborCurlMagnitude *
+                                     FluidSpikyKernelGradient(delta, distance, smoothingRadius);
                 }
             }
         }

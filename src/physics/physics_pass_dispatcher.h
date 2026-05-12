@@ -105,18 +105,15 @@ public:
                                   const PhysicsSceneGpuState &sceneState,
                                   std::uint32_t particleCount,
                                   const GpuParticleDispatchConstants &constants);
-    bool computeFluidDensityLambda(Diligent::IDeviceContext *computeContext,
-                                   const PhysicsSceneGpuState &sceneState,
-                                   const GpuParticleDispatchConstants &constants);
+    bool computeFluidDensityConstraints(Diligent::IDeviceContext *computeContext,
+                                        const PhysicsSceneGpuState &sceneState,
+                                        const GpuParticleDispatchConstants &constants);
     bool computeFluidDeltaPositions(Diligent::IDeviceContext *computeContext,
                                     const PhysicsSceneGpuState &sceneState,
                                     const GpuParticleDispatchConstants &constants);
     bool applyFluidDeltaPositions(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState,
                                   const GpuParticleDispatchConstants &constants);
-    bool applyFluidXsphViscosity(Diligent::IDeviceContext *computeContext,
-                                 const PhysicsSceneGpuState &sceneState,
-                                 const GpuParticleDispatchConstants &constants);
     bool computeFluidVorticity(Diligent::IDeviceContext *computeContext,
                                const PhysicsSceneGpuState &sceneState,
                                const GpuParticleDispatchConstants &constants);
@@ -310,10 +307,9 @@ private:
     gpu::GpuComputePass mSolveParticleRigidContactsPass;
     gpu::GpuComputePass mApplyParticlePositionCorrectionsPass;
     gpu::GpuComputePass mUpdateParticleVelocitiesPass;
-    gpu::GpuComputePass mComputeFluidDensityLambdaPass;
+    gpu::GpuComputePass mComputeFluidDensityConstraintsPass;
     gpu::GpuComputePass mComputeFluidDeltaPositionsPass;
     gpu::GpuComputePass mApplyFluidDeltaPositionsPass;
-    gpu::GpuComputePass mApplyFluidXsphViscosityPass;
     gpu::GpuComputePass mComputeFluidVorticityPass;
     gpu::GpuComputePass mApplyFluidVorticityConfinementPass;
     gpu::GpuComputePass mSolveParticleContactVelocitiesPass;

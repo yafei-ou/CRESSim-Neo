@@ -78,6 +78,30 @@ void spawnStaticBox(cressim::neo::engine::World &world, MeshHandle mesh, Materia
     world.addCollider(entity, collider);
 }
 
+void spawnStaticCollisionBox(cressim::neo::engine::World &world,
+                             const Diligent::float3 &position,
+                             const Diligent::float3 &halfExtents)
+{
+    const auto entity = world.createEntity();
+
+    TransformComponent transform{};
+    transform.worldTransform.position = position;
+    transform.worldTransform.scale = halfExtents;
+    world.setTransform(entity, transform);
+
+    RigidBodyComponent body{};
+    body.simulated = true;
+    body.bodyType = RigidBodyType::Static;
+    body.inverseMass = 0.0f;
+    body.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
+    world.setRigidBody(entity, body);
+
+    ColliderComponent collider{};
+    collider.shapeType = ColliderShapeType::Box;
+    collider.shapeParams = {1.0f, 1.0f, 1.0f, 0.0f};
+    world.addCollider(entity, collider);
+}
+
 bool spawnFluid(cressim::neo::engine::World &world, const Diligent::float3 &position,
                 const Diligent::float3 &size,
                 const cressim::neo::physics::FluidMaterialDesc &material,
@@ -95,10 +119,9 @@ bool spawnFluid(cressim::neo::engine::World &world, const Diligent::float3 &posi
     fluid.source.regularGrid.targetParticleSpacing = 0.22f;
     fluid.particleRadius = 0.11f;
     fluid.material = material;
-    fluid.material.smoothingRadius = 4.0f * fluid.particleRadius;
     const float particleDiameter = 2.0f * fluid.particleRadius;
     fluid.particleMass = particleMassScale * particleDiameter * particleDiameter *
-                         particleDiameter * fluid.material.restDensity;
+                         particleDiameter * 1000.0f;
     fluid.collisionLayer = 0x1u;
     fluid.collisionMask = 0xffffffffu;
     return world.setFluid(entity, fluid);
@@ -215,12 +238,12 @@ int main(int argc, char **argv)
     const MaterialHandle dividerMaterial =
         registerMaterial(resources, "ParticleMaterialShowcase.Divider", {0.72f, 0.48f, 0.18f}, 0.4f);
 
-    spawnStaticBox(world, boxMesh, floorMaterial, {0.0f, -1.0f, 0.0f}, {4.8f, 0.15f, 4.2f});
-    spawnStaticBox(world, boxMesh, wallMaterial, {-4.65f, 0.85f, 0.0f}, {0.15f, 2.0f, 4.2f});
-    spawnStaticBox(world, boxMesh, wallMaterial, {4.65f, 0.85f, 0.0f}, {0.15f, 2.0f, 4.2f});
-    spawnStaticBox(world, boxMesh, wallMaterial, {0.0f, 0.85f, -4.05f}, {4.8f, 2.0f, 0.15f});
-    spawnStaticBox(world, boxMesh, wallMaterial, {0.0f, 0.85f, 4.05f}, {4.8f, 2.0f, 0.15f});
-    spawnStaticBox(world, boxMesh, dividerMaterial, {0.0f, -0.35f, 0.0f}, {0.3f, 0.7f, 1.15f});
+    spawnStaticBox(world, boxMesh, floorMaterial, {0.0f, -1.0f, 0.0f}, {3.2f, 0.15f, 3.0f});
+    spawnStaticBox(world, boxMesh, wallMaterial, {-3.05f, -0.15f, 0.0f}, {0.15f, 1.0f, 3.0f});
+    spawnStaticBox(world, boxMesh, wallMaterial, {3.05f, -0.15f, 0.0f}, {0.15f, 1.0f, 3.0f});
+    spawnStaticCollisionBox(world, {0.0f, -0.15f, -2.85f}, {3.2f, 1.0f, 0.15f});
+    spawnStaticBox(world, boxMesh, wallMaterial, {0.0f, -0.15f, 2.85f}, {3.2f, 1.0f, 0.15f});
+    spawnStaticBox(world, boxMesh, dividerMaterial, {0.0f, -0.15f, 0.0f}, {0.25f, 1.0f, 3.0f});
 
     cressim::neo::physics::ParticleContactMaterialDesc fluidContact{};
     fluidContact.friction = 0.04f;
@@ -236,20 +259,21 @@ int main(int argc, char **argv)
 
     cressim::neo::physics::FluidMaterialDesc baselineFluid{};
     baselineFluid.contact = fluidContact;
-    baselineFluid.restDensity = 1000.0f;
-    baselineFluid.smoothingRadius = 0.44f;
-    baselineFluid.viscosity = 0.03f;
-    baselineFluid.gravityScale = 1.0f;
+    baselineFluid.viscosity = 0.0f;
+    baselineFluid.gravityScale = 0.2f;
     baselineFluid.cflCoefficient = 1.0f;
 
     // Keep the comparison modest so the example demonstrates material variation
     // rather than turning into a stress test for the less-mature fluid terms.
     cressim::neo::physics::FluidMaterialDesc thickerFluid = baselineFluid;
-    thickerFluid.cohesion = 1.5f;
+    thickerFluid.cohesion = 10.0f;
+    thickerFluid.surfaceTension = 20.0f;
+    // thickerFluid.vorticityConfinement = 10.0f;
+    // thickerFluid.cflCoefficient = 10.0f;
     thickerFluid.viscosity = 0.05f;
-    thickerFluid.gravityScale = 1.05f;
+    thickerFluid.gravityScale = 0.2f;
 
-    if (!spawnFluid(world, {-1.65f, 2.15f, 0.0f}, {1.5f, 0.8f, 1.3f}, baselineFluid, 0.72f))
+    if (!spawnFluid(world, {-1.575f, 2.2f, 0.0f}, {2.5f, 2.2f, 5.4f}, baselineFluid, 1.0f))
     {
         runtime.shutdown();
         viewer.shutdown();
@@ -257,7 +281,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (!spawnFluid(world, {1.65f, 2.15f, 0.0f}, {1.5f, 0.8f, 1.3f}, thickerFluid, 0.78f))
+    if (!spawnFluid(world, {1.575f, 2.2f, 0.0f}, {2.5f, 2.2f, 5.4f}, thickerFluid, 1.0f))
     {
         runtime.shutdown();
         viewer.shutdown();
@@ -265,7 +289,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (!spawnSoftBody(world, {0.0f, 3.35f, 0.0f}, softContact))
+    if (!spawnSoftBody(world, {0.0f, 5.45f, 0.0f}, softContact))
     {
         runtime.shutdown();
         viewer.shutdown();

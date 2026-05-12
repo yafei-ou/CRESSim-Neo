@@ -132,9 +132,7 @@ struct SoftBodyMaterialDesc
 struct FluidMaterialDesc
 {
     ParticleContactMaterialDesc contact{};
-    float restDensity          = 1000.0f;
     float viscosity            = 0.01f;
-    float smoothingRadius      = 0.25f;
     float cohesion             = 0.0f;
     float surfaceTension       = 0.0f;
     float vorticityConfinement = 0.0f;
@@ -146,12 +144,12 @@ struct FluidMaterialGpu
 {
     float restDensity               = 1000.0f;
     float invRestDensity            = 1.0f / 1000.0f;
-    float smoothingRadius           = 0.25f;
-    float invSmoothingRadius        = 4.0f;
+    float smoothingRadius           = 0.4f;
+    float densityConstraintScaleDerived = 1.0f;
     float viscosityDerived          = 0.01f / 1000.0f;
     float cohesionDerived           = 0.0f;
-    float cohesion1                = 0.0f;
-    float cohesion2                = 0.0f;
+    float cohesion1                 = 0.0f;
+    float cohesion2                 = 0.0f;
     float surfaceTensionDerived     = 0.0f;
     float vorticityConfinementDerived = 0.0f;
     float gravityScale              = 1.0f;
@@ -161,7 +159,7 @@ struct FluidMaterialGpu
     {
         return restDensity == rhs.restDensity && invRestDensity == rhs.invRestDensity &&
                smoothingRadius == rhs.smoothingRadius &&
-               invSmoothingRadius == rhs.invSmoothingRadius &&
+               densityConstraintScaleDerived == rhs.densityConstraintScaleDerived &&
                viscosityDerived == rhs.viscosityDerived &&
                cohesionDerived == rhs.cohesionDerived && cohesion1 == rhs.cohesion1 &&
                cohesion2 == rhs.cohesion2 &&

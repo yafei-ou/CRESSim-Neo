@@ -6,6 +6,7 @@
 #include "physics/soft_body_authoring.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <unordered_set>
 
@@ -89,25 +90,131 @@ Diligent::float4 toParticleContactMaterial(const ParticleContactMaterialDesc &ma
                             material.staticFriction};
 }
 
+constexpr float kFluidKernelPi = 3.14159265358979323846f;
+constexpr float kFluidContactDistanceMultiplier = 2.0f / 0.6f;
+
+float fluidSpikyWeight(float distance, float supportRadius) noexcept
+{
+    const float oneMinusQ = 1.0f - distance / supportRadius;
+    const float k =
+        15.0f / (kFluidKernelPi * supportRadius * supportRadius * supportRadius);
+    return k * oneMinusQ * oneMinusQ;
+}
+
+float fluidSpikyWeightDerivative(float distance, float supportRadius) noexcept
+{
+    const float oneMinusQ = 1.0f - distance / supportRadius;
+    const float k =
+        15.0f / (kFluidKernelPi * supportRadius * supportRadius * supportRadius);
+    return -k * 2.0f * oneMinusQ / supportRadius;
+}
+
+std::uint32_t tightPack3D(float radius, float separation,
+                          std::array<Diligent::float3, 2048> &points) noexcept
+{
+    const int dim = static_cast<int>(std::ceil(radius / separation));
+    std::uint32_t count = 0u;
+    const float rowScale = std::sqrt(0.75f) * separation;
+
+    for (int z = -dim; z <= dim; ++z)
+    {
+        for (int y = -dim; y <= dim; ++y)
+        {
+            for (int x = -dim; x <= dim; ++x)
+            {
+                const float xpos =
+                    x * separation + (((y + z) & 1) != 0 ? separation * 0.5f : 0.0f);
+                const Diligent::float3 sample{xpos, y * rowScale, z * rowScale};
+                const float magnitudeSq = sample.x * sample.x + sample.y * sample.y +
+                                          sample.z * sample.z;
+                if (magnitudeSq == 0.0f)
+                {
+                    continue;
+                }
+
+                if (std::sqrt(magnitudeSq) <= radius)
+                {
+                    if (count == points.size())
+                    {
+                        return count;
+                    }
+                    points[count++] = sample;
+                }
+            }
+        }
+    }
+
+    return count;
+}
+
+void calculateFluidSolveScales(float restDistance, float supportRadius, float &restDensity,
+                               float &densityConstraintScale,
+                               float &surfaceConstraintScale) noexcept
+{
+    std::array<Diligent::float3, 2048> samples{};
+    const std::uint32_t count = tightPack3D(supportRadius, restDistance, samples);
+
+    restDensity = 0.0f;
+    densityConstraintScale = 0.0f;
+    float a = 0.0f;
+    float b = 0.0f;
+
+    for (std::uint32_t i = 0u; i < count; ++i)
+    {
+        const Diligent::float3 sample = samples[i];
+        const float distance =
+            std::sqrt(sample.x * sample.x + sample.y * sample.y + sample.z * sample.z);
+
+        restDensity += fluidSpikyWeight(distance, supportRadius);
+        const float derivative = fluidSpikyWeightDerivative(distance, supportRadius);
+        densityConstraintScale += derivative * derivative;
+
+        if (sample.y <= 0.0f && distance > 0.0f)
+        {
+            const float cosTheta = sample.y / distance;
+            a += derivative * cosTheta;
+            b -= distance * cosTheta;
+        }
+    }
+
+    if (restDensity <= 1.0e-6f)
+    {
+        restDensity = 1.0f;
+    }
+    if (densityConstraintScale <= 1.0e-6f)
+    {
+        densityConstraintScale = 1.0f;
+    }
+    surfaceConstraintScale =
+        (std::abs(b) > 1.0e-6f && std::abs(a) > 1.0e-6f) ? std::abs(a / b) : 1.0f;
+}
+
 FluidMaterialGpu toFluidSolverMaterial(const FluidMaterialDesc &material,
                                        float particleRadius) noexcept
 {
-    const float restDensity = std::max(material.restDensity, 1.0f);
-    const float invRestDensity = 1.0f / restDensity;
-    const float smoothingRadius = std::max(material.smoothingRadius, 1.0e-4f);
-    const float invSmoothingRadius = 1.0f / smoothingRadius;
     const float fluidRestDistance = std::max(2.0f * particleRadius, 1.0e-4f);
-    const float restRatio = std::clamp(fluidRestDistance * invSmoothingRadius, 1.0e-3f, 0.999f);
+    // PhysX-like shared density model: support/contact distance is derived from spacing
+    // rather than taken directly from the authored material.
+    const float smoothingRadius =
+        std::max(kFluidContactDistanceMultiplier * particleRadius, fluidRestDistance);
+    float restDensity = 0.0f;
+    float densityConstraintScale = 0.0f;
+    float surfaceConstraintScale = 0.0f;
+    calculateFluidSolveScales(fluidRestDistance, smoothingRadius, restDensity,
+                              densityConstraintScale, surfaceConstraintScale);
+
+    const float invRestDensity = 1.0f / restDensity;
+    const float restRatio =
+        std::clamp(fluidRestDistance / smoothingRadius, 1.0e-3f, 0.999f);
     const float restRatioSq = restRatio * restRatio;
     const float cohesion1 = -(1.0f + restRatio) / restRatioSq;
     const float cohesion2 =
         (restRatioSq + restRatio + 1.0f) / restRatioSq;
-    const float surfaceConstraintScale = std::max(smoothingRadius, 1.0e-4f);
 
     return FluidMaterialGpu{restDensity,
                             invRestDensity,
                             smoothingRadius,
-                            invSmoothingRadius,
+                            1.0f / std::max(densityConstraintScale, 1.0e-6f),
                             material.viscosity * invRestDensity,
                             material.cohesion * smoothingRadius,
                             cohesion1,
@@ -138,9 +245,7 @@ void normalizeParticleContactMaterial(ParticleContactMaterialDesc &material) noe
 void normalizeFluidMaterial(FluidMaterialDesc &material) noexcept
 {
     normalizeParticleContactMaterial(material.contact);
-    material.restDensity          = std::max(material.restDensity, 1.0f);
     material.viscosity            = std::max(material.viscosity, 0.0f);
-    material.smoothingRadius      = std::max(material.smoothingRadius, 1.0e-4f);
     material.cohesion             = std::max(material.cohesion, 0.0f);
     material.surfaceTension       = std::max(material.surfaceTension, 0.0f);
     material.vorticityConfinement = std::max(material.vorticityConfinement, 0.0f);
@@ -1755,13 +1860,11 @@ bool PhysicsWorld::validateFluidMaterialCompatibility(
             continue;
         }
 
-        if (!nearlyEqual(existing.material.restDensity, candidate.material.restDensity) ||
-            !nearlyEqual(existing.material.smoothingRadius, candidate.material.smoothingRadius) ||
-            !nearlyEqual(existing.particleRadius, candidate.particleRadius))
+        if (!nearlyEqual(existing.particleRadius, candidate.particleRadius))
         {
             CRESSIM_LOG_ERROR(
-                "Fluid materials must currently share restDensity, smoothingRadius, and "
-                "particleRadius. Entity ",
+                "Fluid bodies must currently share particleRadius because the fluid solve "
+                "model is spacing-derived. Entity ",
                 candidate.entityId, " is incompatible with existing fluid entity ",
                 existing.entityId, ".");
             return false;

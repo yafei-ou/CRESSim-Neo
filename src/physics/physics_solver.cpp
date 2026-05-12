@@ -450,11 +450,11 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     !runRigidRigidContacts && (runBallJoints || runHingeJoints || runSliderJoints);
 
                 if (runFluidSolve &&
-                    !mImpl->passDispatcher.computeFluidDensityLambda(
+                    !mImpl->passDispatcher.computeFluidDensityConstraints(
                         computeBackend.computeContext, mImpl->sceneState, particleConstants))
                 {
                     CRESSIM_LOG_ERROR(
-                        "PhysicsSolver::step failed: ComputeFluidDensityLambda dispatch.");
+                        "PhysicsSolver::step failed: ComputeFluidDensityConstraints dispatch.");
                     return false;
                 }
                 if (runFluidSolve &&
@@ -637,13 +637,6 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 computeBackend.computeContext, mImpl->sceneState, particleCount, particleConstants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateParticleVelocities dispatch.");
-            return false;
-        }
-        if (hasFluidWork &&
-            !mImpl->passDispatcher.applyFluidXsphViscosity(computeBackend.computeContext,
-                                                           mImpl->sceneState, particleConstants))
-        {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ApplyFluidXsphViscosity dispatch.");
             return false;
         }
         if (hasFluidWork &&

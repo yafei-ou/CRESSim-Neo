@@ -204,11 +204,9 @@ int main(int argc, char **argv)
     fluid.source.regularGrid.size = {3.6f, 0.9f, 1.4f};
     fluid.source.regularGrid.targetParticleSpacing = 0.24f;
     fluid.particleRadius = 0.12f;
-    fluid.material.smoothingRadius = 4.0f * fluid.particleRadius;
-    fluid.material.restDensity = 1000.0f;
     const float particleDiameter = 2.0f * fluid.particleRadius;
     fluid.particleMass =
-        0.8f * particleDiameter * particleDiameter * particleDiameter * fluid.material.restDensity;
+        0.8f * particleDiameter * particleDiameter * particleDiameter * 1000.0f;
     fluid.material.viscosity = 0.02f;
     fluid.collisionLayer = 0x1u;
     fluid.collisionMask = 0xffffffffu;

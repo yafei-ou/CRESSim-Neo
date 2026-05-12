@@ -392,10 +392,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.activeSoftContactsBuffer != nullptr &&
         mTransientState.softPositionCorrectionsBuffer != nullptr &&
         mTransientState.softVelocityCorrectionsBuffer != nullptr &&
-        mTransientState.fluidDensitiesBuffer != nullptr &&
-        mTransientState.fluidLambdasBuffer != nullptr &&
+        mTransientState.fluidConstraintsBuffer != nullptr &&
         mTransientState.fluidDeltaPositionsBuffer != nullptr &&
-        mTransientState.fluidAccumulatedDeltaPositionsBuffer != nullptr &&
+        mTransientState.fluidIterationDeltaBuffer != nullptr &&
+        mTransientState.fluidSurfaceNormalsBuffer != nullptr &&
         mTransientState.fluidVorticitiesBuffer != nullptr &&
         mTransientState.softEdgeLambdasBuffer != nullptr &&
         mTransientState.softTetLambdasBuffer != nullptr &&
@@ -969,27 +969,28 @@ bool PhysicsSceneGpuState::ensureCapacity(
             Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
             Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask, useNativeFloatAtomics,
             mTransientState.softVelocityCorrectionsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidDensities", sizeof(float),
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidConstraints",
+                                sizeof(float),
                                 newSoftParticleCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.fluidDensitiesBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidLambdas", sizeof(float),
-                                newSoftParticleCapacity,
-                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
-                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.fluidLambdasBuffer) ||
+                                mTransientState.fluidConstraintsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidDeltaPositions",
                                 sizeof(Diligent::float4), newSoftParticleCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.fluidDeltaPositionsBuffer) ||
         !ensureStructuredBuffer(renderDevice,
-                                "CRESSimNeo.Physics.FluidAccumulatedDeltaPositions",
+                                "CRESSimNeo.Physics.FluidIterationDelta",
                                 sizeof(Diligent::float4), newSoftParticleCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.fluidAccumulatedDeltaPositionsBuffer) ||
+                                mTransientState.fluidIterationDeltaBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidSurfaceNormals",
+                                sizeof(Diligent::float4), newSoftParticleCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.fluidSurfaceNormalsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidVorticities",
                                 sizeof(Diligent::float4), newSoftParticleCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,

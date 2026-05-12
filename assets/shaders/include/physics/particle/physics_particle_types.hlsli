@@ -82,7 +82,7 @@ struct GpuFluidMaterial
     float restDensity;
     float invRestDensity;
     float smoothingRadius;
-    float invSmoothingRadius;
+    float densityConstraintScaleDerived;
     float viscosityDerived;
     float cohesionDerived;
     float cohesion1;

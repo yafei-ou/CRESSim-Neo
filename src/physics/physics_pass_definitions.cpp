@@ -443,15 +443,19 @@ constexpr Diligent::ShaderResourceVariableDesc kUpdateParticleVelocitiesVars[] =
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePreviousPositions",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleKinds",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleMaterialIndices",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleContactMaterials",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleVelocities",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidIterationDelta",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
-constexpr Diligent::ShaderResourceVariableDesc kComputeFluidDensityLambdaVars[] = {
+constexpr Diligent::ShaderResourceVariableDesc kComputeFluidDensityConstraintsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleBroadPhaseEntries",
@@ -470,9 +474,9 @@ constexpr Diligent::ShaderResourceVariableDesc kComputeFluidDensityLambdaVars[] 
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidMaterials",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidDensities",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidConstraints",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidLambdas",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidSurfaceNormals",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
@@ -495,9 +499,11 @@ constexpr Diligent::ShaderResourceVariableDesc kComputeFluidDeltaPositionsVars[]
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidMaterials",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidLambdas",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidConstraints",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_PreviousFluidAccumulatedDeltaPositions",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidIterationDelta",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidSurfaceNormals",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidDeltaPositions",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -506,38 +512,13 @@ constexpr Diligent::ShaderResourceVariableDesc kComputeFluidDeltaPositionsVars[]
 constexpr Diligent::ShaderResourceVariableDesc kApplyFluidDeltaPositionsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleKinds",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidDeltaPositions",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_PreviousFluidAccumulatedDeltaPositions",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-};
-
-constexpr Diligent::ShaderResourceVariableDesc kApplyFluidXsphViscosityVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleBroadPhaseEntries",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleCellRanges",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_SortedParticleBroadPhaseKeys",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleBroadPhaseMetadata",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleKinds",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidDensities",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidMaterialIndices",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidMaterials",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleVelocitiesRW",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidIterationDelta",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
@@ -1480,12 +1461,12 @@ const gpu::GpuComputePassDefinition kUpdateParticleVelocities{
     std::size(kUpdateParticleVelocitiesVars),
 };
 
-const gpu::GpuComputePassDefinition kComputeFluidDensityLambda{
+const gpu::GpuComputePassDefinition kComputeFluidDensityConstraints{
     "physics/fluid/solver/physics_fluid_compute_density_lambda.cs.hlsl",
-    "CRESSimNeo.Physics.ComputeFluidDensityLambda.CS",
-    "CRESSimNeo.Physics.ComputeFluidDensityLambda.PSO",
-    kComputeFluidDensityLambdaVars,
-    std::size(kComputeFluidDensityLambdaVars),
+    "CRESSimNeo.Physics.ComputeFluidDensityConstraints.CS",
+    "CRESSimNeo.Physics.ComputeFluidDensityConstraints.PSO",
+    kComputeFluidDensityConstraintsVars,
+    std::size(kComputeFluidDensityConstraintsVars),
 };
 
 const gpu::GpuComputePassDefinition kComputeFluidDeltaPositions{
@@ -1502,14 +1483,6 @@ const gpu::GpuComputePassDefinition kApplyFluidDeltaPositions{
     "CRESSimNeo.Physics.ApplyFluidDeltaPositions.PSO",
     kApplyFluidDeltaPositionsVars,
     std::size(kApplyFluidDeltaPositionsVars),
-};
-
-const gpu::GpuComputePassDefinition kApplyFluidXsphViscosity{
-    "physics/fluid/solver/physics_fluid_apply_xsph_viscosity.cs.hlsl",
-    "CRESSimNeo.Physics.ApplyFluidXsphViscosity.CS",
-    "CRESSimNeo.Physics.ApplyFluidXsphViscosity.PSO",
-    kApplyFluidXsphViscosityVars,
-    std::size(kApplyFluidXsphViscosityVars),
 };
 
 const gpu::GpuComputePassDefinition kComputeFluidVorticity{

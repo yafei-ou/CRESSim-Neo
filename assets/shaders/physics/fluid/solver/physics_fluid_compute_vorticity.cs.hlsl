@@ -118,7 +118,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                     const float3 neighborVelocity =
                         CRESSIM_SB_LOAD(g_ParticleVelocitiesRW, neighborIndex).xyz;
                     curl += cross(neighborVelocity - selfVelocity,
-                                  FluidCubicKernelGradient(delta, distance, smoothingRadius));
+                                  FluidSpikyKernelGradient(delta, distance, smoothingRadius));
                 }
             }
         }

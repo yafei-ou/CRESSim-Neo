@@ -38,9 +38,7 @@ int main()
     fluid.source.regularGrid.targetParticleSpacing = 0.2f;
     fluid.particleMass = 0.5f;
     fluid.particleRadius = 0.1f;
-    fluid.material.restDensity = 900.0f;
     fluid.material.viscosity = 0.05f;
-    fluid.material.smoothingRadius = 0.25f;
     if (!world.setFluid(fluidEntity, fluid))
     {
         CRESSIM_LOG_ERROR("Failed to author fluid component.\n");

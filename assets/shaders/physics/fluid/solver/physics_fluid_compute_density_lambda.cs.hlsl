@@ -11,8 +11,8 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleKinds);
 CRESSIM_STRUCTURED_BUFFER(uint, g_FluidMaterialIndices);
 CRESSIM_STRUCTURED_BUFFER(GpuFluidMaterial, g_FluidMaterials);
 
-CRESSIM_RW_STRUCTURED_BUFFER(float, g_FluidDensities);
-CRESSIM_RW_STRUCTURED_BUFFER(float, g_FluidLambdas);
+CRESSIM_RW_STRUCTURED_BUFFER(float, g_FluidConstraints);
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_FluidSurfaceNormals);
 
 #include "../../../include/physics/fluid/physics_fluid_common.hlsli"
 
@@ -27,8 +27,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     if (CRESSIM_SB_LOAD(g_ParticleKinds, particleIndex) != kParticleKindFluid)
     {
-        CRESSIM_SB_STORE(g_FluidDensities, particleIndex, 0.0);
-        CRESSIM_SB_STORE(g_FluidLambdas, particleIndex, 0.0);
+        CRESSIM_SB_STORE(g_FluidConstraints, particleIndex, 0.0);
+        CRESSIM_SB_STORE(g_FluidSurfaceNormals, particleIndex, float4(0.0, 0.0, 0.0, 0.0));
         return;
     }
 
@@ -36,18 +36,19 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float selfInvMass = selfPositionInvMass.w;
     if (selfInvMass <= kEpsilon)
     {
-        CRESSIM_SB_STORE(g_FluidDensities, particleIndex, 0.0);
-        CRESSIM_SB_STORE(g_FluidLambdas, particleIndex, 0.0);
+        CRESSIM_SB_STORE(g_FluidConstraints, particleIndex, 0.0);
+        CRESSIM_SB_STORE(g_FluidSurfaceNormals, particleIndex, float4(0.0, 0.0, 0.0, 0.0));
         return;
     }
 
-    const float selfMass = 1.0 / selfInvMass;
     const float3 selfPosition = selfPositionInvMass.xyz;
     const uint fluidMaterialIndex = CRESSIM_SB_LOAD(g_FluidMaterialIndices, particleIndex);
     const GpuFluidMaterial fluidMaterial = CRESSIM_SB_LOAD(g_FluidMaterials, fluidMaterialIndex);
     const float restDensity = max(fluidMaterial.restDensity, 1.0);
-    const float invRestDensity = max(fluidMaterial.invRestDensity, 1.0e-6);
+    const float densityConstraintScale =
+        max(fluidMaterial.densityConstraintScaleDerived, 1.0e-6);
     const float smoothingRadius = max(fluidMaterial.smoothingRadius, 1.0e-4);
+    const float surfaceTension = max(fluidMaterial.surfaceTensionDerived, 0.0);
     const uint4 selfMetadata = CRESSIM_SB_LOAD(g_ParticleBroadPhaseMetadata, particleIndex);
     const uint selfEnvironment = selfMetadata.x;
     const uint selfLayer = selfMetadata.z;
@@ -55,9 +56,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const GpuParticleBroadPhaseEntry selfEntry =
         CRESSIM_SB_LOAD(g_ParticleBroadPhaseEntries, particleIndex);
 
-    float density = selfMass * FluidCubicKernelZero(smoothingRadius);
-    float3 gradI = float3(0.0, 0.0, 0.0);
-    float sumGradSq = 0.0;
+    float density = 0.0;
+    float3 surfaceNormal = float3(0.0, 0.0, 0.0);
 
     [loop]
     for (int dz = -1; dz <= 1; ++dz)
@@ -107,30 +107,38 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                         continue;
                     }
 
-                    const float3 delta = selfPosition - neighborPositionInvMass.xyz;
+                    const float3 neighborPosition = neighborPositionInvMass.xyz;
+                    const float3 delta = selfPosition - neighborPosition;
                     const float distance = length(delta);
                     if (distance >= smoothingRadius)
                     {
                         continue;
                     }
 
-                    const float neighborMass = 1.0 / neighborInvMass;
-                    density += neighborMass * FluidCubicKernel(distance, smoothingRadius);
+                    density += FluidSpikyKernel(distance, smoothingRadius);
 
-                    const float3 gradC = (neighborMass * invRestDensity) *
-                                         FluidCubicKernelGradient(delta, distance, smoothingRadius);
-                    gradI += gradC;
-                    sumGradSq += dot(gradC, gradC);
+                    if (surfaceTension > kEpsilon)
+                    {
+                        surfaceNormal += FluidSpikyKernelGradient(delta, distance, smoothingRadius);
+                    }
                 }
             }
         }
     }
 
-    sumGradSq += dot(gradI, gradI);
-    const float constraint = max(density / restDensity - 1.0, 0.0);
-    const float lambda =
-        (constraint > 0.0) ? (-constraint / (sumGradSq + kFluidLambdaEpsilon)) : 0.0;
+    const float constraint =
+        max(density - restDensity, -restDensity * 0.005) * densityConstraintScale;
 
-    CRESSIM_SB_STORE(g_FluidDensities, particleIndex, density);
-    CRESSIM_SB_STORE(g_FluidLambdas, particleIndex, lambda);
+    if (surfaceTension > kEpsilon)
+    {
+        surfaceNormal *= surfaceTension;
+        CRESSIM_SB_STORE(g_FluidSurfaceNormals, particleIndex,
+                         float4(surfaceNormal, 0.0));
+    }
+    else
+    {
+        CRESSIM_SB_STORE(g_FluidSurfaceNormals, particleIndex, float4(0.0, 0.0, 0.0, 0.0));
+    }
+
+    CRESSIM_SB_STORE(g_FluidConstraints, particleIndex, constraint);
 }
