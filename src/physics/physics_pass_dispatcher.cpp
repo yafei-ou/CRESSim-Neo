@@ -19,6 +19,7 @@ namespace
 
 constexpr std::uint32_t kComputeThreadGroupSize = 64u;
 constexpr std::uint32_t kNarrowPhaseChunkSize   = 128u;
+constexpr std::uint32_t kMaxPreparedScanLevels  = 8u;
 
 constexpr std::size_t kDefaultVariant = 0u;
 constexpr std::size_t kAltVariant     = 1u;
@@ -34,11 +35,9 @@ Diligent::Uint64 indirectArgsOffset(GpuPhysicsIndirectDispatchSlot slot)
            sizeof(GpuDispatchIndirectArgs);
 }
 
-GpuPhysicsScanConstants makeScanConstants(std::uint32_t elementCount)
+Diligent::Uint64 paddedIndirectArgsOffset(std::uint32_t slot)
 {
-    GpuPhysicsScanConstants result{};
-    result.elementCount = elementCount;
-    return result;
+    return static_cast<Diligent::Uint64>(slot) * sizeof(GpuPaddedDispatchIndirectArgs);
 }
 
 GpuPhysicsRadixConstants makeRadixConstants(std::uint32_t elementCount, std::uint32_t bitIndex)
@@ -115,10 +114,10 @@ bool PhysicsPassDispatcher::writeSoftRenderDispatchConstants(
                                 sizeof(constants));
 }
 
-bool PhysicsPassDispatcher::writeScanConstants(Diligent::IDeviceContext *computeContext,
-                                               const GpuPhysicsScanConstants &constants)
+bool PhysicsPassDispatcher::writeScanDispatchConstants(
+    Diligent::IDeviceContext *computeContext, const GpuPhysicsScanDispatchConstants &constants)
 {
-    return writeConstantsBuffer(computeContext, mScanConstantsBuffer, &constants,
+    return writeConstantsBuffer(computeContext, mScanDispatchConstantsBuffer, &constants,
                                 sizeof(constants));
 }
 
@@ -189,6 +188,8 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mEmitParticleRigidCandidatePairsPass, kEmitParticleRigidCandidatePairs) ||
         !initPass(mGenerateParticleExplicitContactsPass, kGenerateParticleExplicitContacts) ||
         !initPass(mGenerateParticleRigidContactsPass, kGenerateParticleRigidContacts) ||
+        !initPass(mPrepareExplicitContactScanPass, kPrepareExplicitContactScan) ||
+        !initPass(mPrepareRigidContactScanPass, kPrepareRigidContactScan) ||
         !initPass(mPrepareParticleCandidateIndirectArgsPass,
                   kPrepareParticleCandidateIndirectArgs) ||
         !initPass(mPrepareParticleActiveIndirectArgsPass, kPrepareParticleActiveIndirectArgs) ||
@@ -285,8 +286,45 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
            createConstantsBuffer("CRESSimNeo.Physics.SoftRenderDispatchConstants",
                                  sizeof(GpuSoftRenderDispatchConstants),
                                  mSoftRenderDispatchConstantsBuffer) &&
-           createConstantsBuffer("CRESSimNeo.Physics.ScanConstants",
-                                 sizeof(GpuPhysicsScanConstants), mScanConstantsBuffer) &&
+           createConstantsBuffer("CRESSimNeo.Physics.ScanDispatchConstants",
+                                 sizeof(GpuPhysicsScanDispatchConstants),
+                                 mScanDispatchConstantsBuffer) &&
+           [&]() -> bool
+           {
+               Diligent::BufferDesc scanConstantsDesc{};
+               scanConstantsDesc.Name = "CRESSimNeo.Physics.ScanConstants";
+               scanConstantsDesc.Size =
+                   static_cast<Diligent::Uint64>(sizeof(GpuPhysicsScanConstants) *
+                                                 kMaxPreparedScanLevels);
+               scanConstantsDesc.Usage = Diligent::USAGE_DEFAULT;
+               scanConstantsDesc.BindFlags =
+                   Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE;
+               scanConstantsDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+               scanConstantsDesc.ElementByteStride = sizeof(GpuPhysicsScanConstants);
+               scanConstantsDesc.ImmediateContextMask = mPhysicsContextMask;
+               backendContext.renderDevice->CreateBuffer(scanConstantsDesc, nullptr,
+                                                         &mScanConstantsBuffer);
+               if (mScanConstantsBuffer == nullptr)
+               {
+                   return false;
+               }
+
+               Diligent::BufferDesc scanArgsDesc{};
+               scanArgsDesc.Name = "CRESSimNeo.Physics.ScanIndirectArgs";
+               scanArgsDesc.Size =
+                   static_cast<Diligent::Uint64>(sizeof(GpuPaddedDispatchIndirectArgs) *
+                                                 kMaxPreparedScanLevels);
+               scanArgsDesc.Usage = Diligent::USAGE_DEFAULT;
+               scanArgsDesc.BindFlags = Diligent::BIND_UNORDERED_ACCESS |
+                                        Diligent::BIND_SHADER_RESOURCE |
+                                        Diligent::BIND_INDIRECT_DRAW_ARGS;
+               scanArgsDesc.Mode = Diligent::BUFFER_MODE_STRUCTURED;
+               scanArgsDesc.ElementByteStride = sizeof(GpuPaddedDispatchIndirectArgs);
+               scanArgsDesc.ImmediateContextMask = mPhysicsContextMask;
+               backendContext.renderDevice->CreateBuffer(scanArgsDesc, nullptr,
+                                                         &mScanIndirectArgsBuffer);
+               return mScanIndirectArgsBuffer != nullptr;
+           }() &&
            createConstantsBuffer("CRESSimNeo.Physics.RadixConstants",
                                  sizeof(GpuPhysicsRadixConstants), mRadixConstantsBuffer) &&
            createConstantsBuffer("CRESSimNeo.Physics.BroadPhaseBuildConstants",
@@ -297,95 +335,174 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
                                  mBroadPhaseReductionConstantsBuffer);
 }
 
-bool PhysicsPassDispatcher::dispatchScanBlockPass(Diligent::IDeviceContext *computeContext,
-                                                  const PhysicsSceneGpuState &,
-                                                  Diligent::IBuffer *input,
-                                                  Diligent::IBuffer *output,
-                                                  Diligent::IBuffer *blockSums, std::uint32_t count)
+bool PhysicsPassDispatcher::dispatchPreparedScanBlockPass(
+    Diligent::IDeviceContext *computeContext, Diligent::IBuffer *input, Diligent::IBuffer *output,
+    Diligent::IBuffer *blockSums, Diligent::IBuffer *indirectArgsBuffer,
+    std::uint32_t scanLevelIndex, std::uint32_t dispatchElementCount, bool useIndirect)
 {
-    if (count == 0u)
+    if (!useIndirect && dispatchElementCount == 0u)
     {
         return true;
     }
 
     const std::array bindings{
-        gpu::GpuBufferBinding{"PhysicsScanConstantsBuffer", mScanConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsScanDispatchConstantsBuffer", mScanDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ScanConstants", mScanConstantsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ScanInput", input, Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ScanOutput", output, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_BlockSums", blockSums, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    const GpuPhysicsScanConstants scanConstants = makeScanConstants(count);
-    return writeScanConstants(computeContext, scanConstants) &&
-           mScanBlockPass.dispatch(computeContext, kDefaultVariant, bindings,
-                                   dispatchGroupCount(count));
+    const GpuPhysicsScanDispatchConstants scanDispatchConstants{scanLevelIndex, 0u, 0u, 0u};
+    return writeScanDispatchConstants(computeContext, scanDispatchConstants) &&
+           (useIndirect
+                ? mScanBlockPass.dispatchIndirect(computeContext, kDefaultVariant, bindings,
+                                                 indirectArgsBuffer,
+                                                 paddedIndirectArgsOffset(scanLevelIndex))
+                : mScanBlockPass.dispatch(
+                      computeContext, kDefaultVariant, bindings,
+                      dispatchGroupCount(dispatchElementCount)));
 }
 
-bool PhysicsPassDispatcher::dispatchScanAddOffsetsPass(Diligent::IDeviceContext *computeContext,
-                                                       Diligent::IBuffer *output,
-                                                       Diligent::IBuffer *scannedBlockOffsets,
-                                                       std::uint32_t count)
+bool PhysicsPassDispatcher::dispatchPreparedScanAddOffsetsPass(
+    Diligent::IDeviceContext *computeContext, Diligent::IBuffer *output,
+    Diligent::IBuffer *scannedBlockOffsets, Diligent::IBuffer *indirectArgsBuffer,
+    std::uint32_t scanLevelIndex, std::uint32_t dispatchElementCount, bool useIndirect)
 {
-    if (count == 0u)
+    if (!useIndirect && dispatchElementCount == 0u)
     {
         return true;
     }
 
     const std::array bindings{
-        gpu::GpuBufferBinding{"PhysicsScanConstantsBuffer", mScanConstantsBuffer,
+        gpu::GpuBufferBinding{"PhysicsScanDispatchConstantsBuffer", mScanDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ScanConstants", mScanConstantsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ScannedBlockOffsets", scannedBlockOffsets,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ScanOutput", output, Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    const GpuPhysicsScanConstants scanConstants = makeScanConstants(count);
-    return writeScanConstants(computeContext, scanConstants) &&
-           mScanAddOffsetsPass.dispatch(computeContext, kDefaultVariant, bindings,
-                                        dispatchGroupCount(count));
+    const GpuPhysicsScanDispatchConstants scanDispatchConstants{scanLevelIndex, 0u, 0u, 0u};
+    return writeScanDispatchConstants(computeContext, scanDispatchConstants) &&
+           (useIndirect
+                ? mScanAddOffsetsPass.dispatchIndirect(
+                      computeContext, kDefaultVariant, bindings, indirectArgsBuffer,
+                      paddedIndirectArgsOffset(scanLevelIndex))
+                : mScanAddOffsetsPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                               dispatchGroupCount(dispatchElementCount)));
 }
 
-bool PhysicsPassDispatcher::dispatchExclusiveScanPass(Diligent::IDeviceContext *computeContext,
-                                                      const PhysicsSceneGpuState &sceneState,
-                                                      Diligent::IBuffer *input,
-                                                      Diligent::IBuffer *output,
-                                                      std::uint32_t count,
-                                                      std::uint32_t recursionLevel)
+bool PhysicsPassDispatcher::dispatchExclusiveScanPrepared(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    Diligent::IBuffer *input, Diligent::IBuffer *output, Diligent::IBuffer *indirectArgsBuffer,
+    bool useIndirect, const std::uint32_t *directCounts)
+{
+    const auto &transientState = sceneState.transientBuffers();
+    const std::size_t maxLevels =
+        std::min<std::size_t>(kMaxPreparedScanLevels, transientState.scanBlockSumsBuffers.size());
+    if (maxLevels == 0u || maxLevels > transientState.scanScannedBlockSumsBuffers.size())
+    {
+        return false;
+    }
+
+    if (!dispatchPreparedScanBlockPass(computeContext, input, output,
+                                       transientState.scanBlockSumsBuffers[0],
+                                       indirectArgsBuffer, 0u,
+                                       directCounts != nullptr ? directCounts[0] : 1u,
+                                       useIndirect))
+    {
+        return false;
+    }
+
+    for (std::size_t level = 1u; level < maxLevels; ++level)
+    {
+        if (!dispatchPreparedScanBlockPass(
+                computeContext, transientState.scanBlockSumsBuffers[level - 1u],
+                transientState.scanScannedBlockSumsBuffers[level - 1u],
+                transientState.scanBlockSumsBuffers[level], indirectArgsBuffer,
+                static_cast<std::uint32_t>(level),
+                directCounts != nullptr ? directCounts[level] : 1u, useIndirect))
+        {
+            return false;
+        }
+    }
+
+    for (std::size_t scanLevelIndex = maxLevels; scanLevelIndex-- > 1u;)
+    {
+        if (!dispatchPreparedScanAddOffsetsPass(
+                computeContext,
+                transientState.scanScannedBlockSumsBuffers[scanLevelIndex - 1u],
+                transientState.scanScannedBlockSumsBuffers[scanLevelIndex], indirectArgsBuffer,
+                static_cast<std::uint32_t>(scanLevelIndex),
+                directCounts != nullptr ? directCounts[scanLevelIndex] : 1u, useIndirect))
+        {
+            return false;
+        }
+    }
+
+    return dispatchPreparedScanAddOffsetsPass(computeContext, output,
+                                              transientState.scanScannedBlockSumsBuffers[0],
+                                              indirectArgsBuffer, 0u,
+                                              directCounts != nullptr ? directCounts[0] : 1u,
+                                              useIndirect);
+}
+
+bool PhysicsPassDispatcher::dispatchExclusiveScanWithCpuCount(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    Diligent::IBuffer *input, Diligent::IBuffer *output, std::uint32_t count)
 {
     if (count == 0u)
     {
         return true;
     }
 
-    const auto &transientState = sceneState.transientBuffers();
-    if (recursionLevel >= transientState.scanBlockSumsBuffers.size() ||
-        recursionLevel >= transientState.scanScannedBlockSumsBuffers.size())
+    std::array<GpuPhysicsScanConstants, kMaxPreparedScanLevels> scanConstants{};
+    std::array<std::uint32_t, kMaxPreparedScanLevels> directCounts{};
+    std::uint32_t levelCount = count;
+    for (std::size_t level = 0u; level < scanConstants.size(); ++level)
     {
-        return false;
+        scanConstants[level].elementCount = levelCount;
+        const std::uint32_t groupCount =
+            levelCount == 0u ? 0u : dispatchGroupCount(levelCount);
+        scanConstants[level].hasParentOffsets = groupCount > 1u ? 1u : 0u;
+        directCounts[level] = levelCount;
+        levelCount = scanConstants[level].hasParentOffsets != 0u ? groupCount : 0u;
     }
 
-    Diligent::IBuffer *blockSums = transientState.scanBlockSumsBuffers[recursionLevel];
-    Diligent::IBuffer *scannedBlockSums =
-        transientState.scanScannedBlockSumsBuffers[recursionLevel];
-    if (!dispatchScanBlockPass(computeContext, sceneState, input, output, blockSums, count))
-    {
-        return false;
-    }
+    computeContext->UpdateBuffer(mScanConstantsBuffer, 0u,
+                                 static_cast<Diligent::Uint32>(sizeof(scanConstants)),
+                                 scanConstants.data(),
+                                 Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    return dispatchExclusiveScanPrepared(computeContext, sceneState, input, output, nullptr, false,
+                                         directCounts.data());
+}
 
-    const std::uint32_t groupCount = dispatchGroupCount(count);
-    if (groupCount <= 1u)
-    {
-        return true;
-    }
+bool PhysicsPassDispatcher::dispatchExclusiveScanWithGpuCount(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    Diligent::IBuffer *input, Diligent::IBuffer *output, bool particleRigidCandidates)
+{
+    const auto &transient = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"g_ParticleNeighborMeta", transient.softNeighborMetaBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ScanConstantsRW", mScanConstantsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_ScanIndirectArgsRW", mScanIndirectArgsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
 
-    if (!dispatchExclusiveScanPass(computeContext, sceneState, blockSums, scannedBlockSums,
-                                   groupCount, recursionLevel + 1u))
-    {
-        return false;
-    }
-
-    return dispatchScanAddOffsetsPass(computeContext, output, scannedBlockSums, count);
+    const bool prepared =
+        particleRigidCandidates
+            ? mPrepareRigidContactScanPass.dispatch(computeContext, kDefaultVariant, bindings, 1u)
+            : mPrepareExplicitContactScanPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                       1u);
+    return prepared &&
+           dispatchExclusiveScanPrepared(computeContext, sceneState, input, output,
+                                         mScanIndirectArgsBuffer, true, nullptr);
 }
 
 bool PhysicsPassDispatcher::clearRigidCorrections(Diligent::IDeviceContext *computeContext,
@@ -644,8 +761,10 @@ bool PhysicsPassDispatcher::buildParticleCellRanges(Diligent::IDeviceContext *co
     const auto &transient = sceneState.transientBuffers();
     if (!markParticleCellRangeStarts(computeContext, sceneState, totalParticleLikeCount,
                                      constants) ||
-        !dispatchExclusiveScanPass(computeContext, sceneState, transient.softRadixBitFlagsBuffer,
-                                   transient.softRadixBitOffsetsBuffer, totalParticleLikeCount))
+        !dispatchExclusiveScanWithCpuCount(computeContext, sceneState,
+                                           transient.softRadixBitFlagsBuffer,
+                                           transient.softRadixBitOffsetsBuffer,
+                                           totalParticleLikeCount))
     {
         return false;
     }
@@ -774,8 +893,9 @@ bool PhysicsPassDispatcher::buildParticleParticleCandidatePairs(
     return writeParticleDispatchConstants(computeContext, constants) &&
            mCountParticleParticleCandidatePairsPass.dispatch(
                computeContext, kDefaultVariant, countBindings, dispatchGroupCount(particleCount)) &&
-           dispatchExclusiveScanPass(computeContext, sceneState, transient.softRadixBitFlagsBuffer,
-                                     transient.softRadixBitOffsetsBuffer, particleCount) &&
+           dispatchExclusiveScanWithCpuCount(computeContext, sceneState,
+                                             transient.softRadixBitFlagsBuffer,
+                                             transient.softRadixBitOffsetsBuffer, particleCount) &&
            mFinalizeParticleParticleCandidatePairsPass.dispatch(computeContext, kDefaultVariant,
                                                                 finalizeBindings, 1u) &&
            mEmitParticleParticleCandidatePairsPass.dispatch(
@@ -862,8 +982,9 @@ bool PhysicsPassDispatcher::buildParticleRigidCandidatePairs(
     return writeParticleDispatchConstants(computeContext, constants) &&
            mCountParticleRigidCandidatePairsPass.dispatch(
                computeContext, kDefaultVariant, countBindings, dispatchGroupCount(particleCount)) &&
-           dispatchExclusiveScanPass(computeContext, sceneState, transient.softRadixBitFlagsBuffer,
-                                     transient.softRadixBitOffsetsBuffer, particleCount) &&
+           dispatchExclusiveScanWithCpuCount(computeContext, sceneState,
+                                             transient.softRadixBitFlagsBuffer,
+                                             transient.softRadixBitOffsetsBuffer, particleCount) &&
            mFinalizeParticleRigidCandidatePairsPass.dispatch(computeContext, kDefaultVariant,
                                                              finalizeBindings, 1u) &&
            mEmitParticleRigidCandidatePairsPass.dispatch(
@@ -1025,9 +1146,9 @@ bool PhysicsPassDispatcher::compactParticleExplicitContacts(
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    return dispatchExclusiveScanPass(computeContext, sceneState, transient.softRadixBitFlagsBuffer,
-                                     transient.softRadixBitOffsetsBuffer,
-                                     sceneState.particleCandidatePairCapacity()) &&
+    return dispatchExclusiveScanWithGpuCount(computeContext, sceneState,
+                                             transient.softRadixBitFlagsBuffer,
+                                             transient.softRadixBitOffsetsBuffer, false) &&
            writeParticleDispatchConstants(computeContext, constants) &&
            mFinalizeActiveParticleExplicitContactsPass.dispatch(computeContext, kDefaultVariant,
                                                                 finalizeBindings, 1u) &&
@@ -1068,9 +1189,9 @@ bool PhysicsPassDispatcher::compactParticleRigidContacts(
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    return dispatchExclusiveScanPass(computeContext, sceneState, transient.softRadixBitFlagsBuffer,
-                                     transient.softRadixBitOffsetsBuffer,
-                                     sceneState.particleCandidatePairCapacity()) &&
+    return dispatchExclusiveScanWithGpuCount(computeContext, sceneState,
+                                             transient.softRadixBitFlagsBuffer,
+                                             transient.softRadixBitOffsetsBuffer, true) &&
            writeParticleDispatchConstants(computeContext, constants) &&
            mFinalizeActiveParticleRigidContactsPass.dispatch(computeContext, kDefaultVariant,
                                                              finalizeBindings, 1u) &&
@@ -2041,13 +2162,13 @@ bool PhysicsPassDispatcher::compactBroadPhaseBodySets(Diligent::IDeviceContext *
     // - activeIndex:        0 1 2
     // - activeBodyIndices:  1 3 4
 
-    if (!dispatchExclusiveScanPass(
+    if (!dispatchExclusiveScanWithCpuCount(
             computeContext, sceneState, sceneState.transientBuffers().activeBodyFlagsBuffer,
             sceneState.transientBuffers().activeBodyOffsetsBuffer, constants.colliderCount))
     {
         return false;
     }
-    if (!dispatchExclusiveScanPass(
+    if (!dispatchExclusiveScanWithCpuCount(
             computeContext, sceneState, sceneState.transientBuffers().staticBodyFlagsBuffer,
             sceneState.transientBuffers().staticBodyOffsetsBuffer, constants.colliderCount))
     {
@@ -2280,8 +2401,8 @@ bool PhysicsPassDispatcher::dispatchRadixSortPass(Diligent::IDeviceContext *comp
             return false;
         }
 
-        if (!dispatchExclusiveScanPass(computeContext, sceneState, radixBitFlags, radixBitOffsets,
-                                       count))
+        if (!dispatchExclusiveScanWithCpuCount(computeContext, sceneState, radixBitFlags,
+                                               radixBitOffsets, count))
         {
             return false;
         }
@@ -2382,8 +2503,8 @@ bool PhysicsPassDispatcher::dispatchSoftRadixSortPass(Diligent::IDeviceContext *
             return false;
         }
 
-        if (!dispatchExclusiveScanPass(computeContext, sceneState, radixBitFlags, radixBitOffsets,
-                                       count))
+        if (!dispatchExclusiveScanWithCpuCount(computeContext, sceneState, radixBitFlags,
+                                               radixBitOffsets, count))
         {
             return false;
         }
@@ -2690,9 +2811,10 @@ bool PhysicsPassDispatcher::finalizeBroadPhasePairs(Diligent::IDeviceContext *co
 
     for (std::uint32_t pairType = 0u; pairType < kRigidPairTypeCount; ++pairType)
     {
-        if (!dispatchExclusiveScanPass(computeContext, sceneState,
-                                       transient.pairCountBuffers[pairType],
-                                       transient.pairOffsetBuffers[pairType], activeMovingCount))
+        if (!dispatchExclusiveScanWithCpuCount(computeContext, sceneState,
+                                               transient.pairCountBuffers[pairType],
+                                               transient.pairOffsetBuffers[pairType],
+                                               activeMovingCount))
         {
             return false;
         }
@@ -3638,6 +3760,8 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mEmitParticleRigidCandidatePairsPass.forceRecreateAllVariants() &&
            mGenerateParticleExplicitContactsPass.forceRecreateAllVariants() &&
            mGenerateParticleRigidContactsPass.forceRecreateAllVariants() &&
+           mPrepareExplicitContactScanPass.forceRecreateAllVariants() &&
+           mPrepareRigidContactScanPass.forceRecreateAllVariants() &&
            mPrepareParticleCandidateIndirectArgsPass.forceRecreateAllVariants() &&
            mPrepareParticleActiveIndirectArgsPass.forceRecreateAllVariants() &&
            mFinalizeActiveParticleExplicitContactsPass.forceRecreateAllVariants() &&

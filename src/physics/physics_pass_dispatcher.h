@@ -210,8 +210,8 @@ private:
                                         const GpuParticleDispatchConstants &constants);
     bool writeSoftRenderDispatchConstants(Diligent::IDeviceContext *computeContext,
                                           const GpuSoftRenderDispatchConstants &constants);
-    bool writeScanConstants(Diligent::IDeviceContext *computeContext,
-                            const GpuPhysicsScanConstants &constants);
+    bool writeScanDispatchConstants(Diligent::IDeviceContext *computeContext,
+                                    const GpuPhysicsScanDispatchConstants &constants);
     bool writeRadixConstants(Diligent::IDeviceContext *computeContext,
                              const GpuPhysicsRadixConstants &constants);
     bool writeBroadPhaseBuildConstants(Diligent::IDeviceContext *computeContext,
@@ -220,17 +220,31 @@ private:
                                            const GpuBroadPhaseReductionConstants &constants);
     bool writeConstantsBuffer(Diligent::IDeviceContext *computeContext, Diligent::IBuffer *buffer,
                               const void *constants, std::size_t constantsSize);
-    bool dispatchScanBlockPass(Diligent::IDeviceContext *computeContext,
-                               const PhysicsSceneGpuState &sceneState, Diligent::IBuffer *input,
-                               Diligent::IBuffer *output, Diligent::IBuffer *blockSums,
-                               std::uint32_t count);
-    bool dispatchScanAddOffsetsPass(Diligent::IDeviceContext *computeContext,
-                                    Diligent::IBuffer *output,
-                                    Diligent::IBuffer *scannedBlockOffsets, std::uint32_t count);
-    bool dispatchExclusiveScanPass(Diligent::IDeviceContext *computeContext,
-                                   const PhysicsSceneGpuState &sceneState, Diligent::IBuffer *input,
-                                   Diligent::IBuffer *output, std::uint32_t count,
-                                   std::uint32_t recursionLevel = 0u);
+    bool dispatchPreparedScanBlockPass(Diligent::IDeviceContext *computeContext,
+                                       Diligent::IBuffer *input, Diligent::IBuffer *output,
+                                       Diligent::IBuffer *blockSums,
+                                       Diligent::IBuffer *indirectArgsBuffer,
+                                       std::uint32_t scanLevelIndex,
+                                       std::uint32_t dispatchElementCount, bool useIndirect);
+    bool dispatchPreparedScanAddOffsetsPass(Diligent::IDeviceContext *computeContext,
+                                            Diligent::IBuffer *output,
+                                            Diligent::IBuffer *scannedBlockOffsets,
+                                            Diligent::IBuffer *indirectArgsBuffer,
+                                            std::uint32_t scanLevelIndex,
+                                            std::uint32_t dispatchElementCount, bool useIndirect);
+    bool dispatchExclusiveScanPrepared(Diligent::IDeviceContext *computeContext,
+                                       const PhysicsSceneGpuState &sceneState,
+                                       Diligent::IBuffer *input, Diligent::IBuffer *output,
+                                       Diligent::IBuffer *indirectArgsBuffer, bool useIndirect,
+                                       const std::uint32_t *directCounts = nullptr);
+    bool dispatchExclusiveScanWithCpuCount(Diligent::IDeviceContext *computeContext,
+                                           const PhysicsSceneGpuState &sceneState,
+                                           Diligent::IBuffer *input, Diligent::IBuffer *output,
+                                           std::uint32_t count);
+    bool dispatchExclusiveScanWithGpuCount(Diligent::IDeviceContext *computeContext,
+                                           const PhysicsSceneGpuState &sceneState,
+                                           Diligent::IBuffer *input, Diligent::IBuffer *output,
+                                           bool particleRigidCandidates);
     bool dispatchReduceBroadPhaseExtentPass(Diligent::IDeviceContext *computeContext,
                                             const PhysicsSceneGpuState &sceneState,
                                             std::uint32_t bodyCount, bool useStaticSet);
@@ -295,6 +309,8 @@ private:
     gpu::GpuComputePass mEmitParticleRigidCandidatePairsPass;
     gpu::GpuComputePass mGenerateParticleExplicitContactsPass;
     gpu::GpuComputePass mGenerateParticleRigidContactsPass;
+    gpu::GpuComputePass mPrepareExplicitContactScanPass;
+    gpu::GpuComputePass mPrepareRigidContactScanPass;
     gpu::GpuComputePass mPrepareParticleCandidateIndirectArgsPass;
     gpu::GpuComputePass mPrepareParticleActiveIndirectArgsPass;
     gpu::GpuComputePass mFinalizeActiveParticleExplicitContactsPass;
@@ -361,7 +377,9 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidJointDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mParticleDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftRenderDispatchConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanIndirectArgsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRadixConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mBroadPhaseBuildConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mBroadPhaseReductionConstantsBuffer;

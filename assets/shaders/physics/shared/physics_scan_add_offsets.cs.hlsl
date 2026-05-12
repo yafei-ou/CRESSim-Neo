@@ -7,8 +7,13 @@ CRESSIM_RW_STRUCTURED_BUFFER(uint, g_ScanOutput);
 [numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID,
                                  uint3 groupID : SV_GroupID)
 {
+    if (!ScanHasParentOffsets())
+    {
+        return;
+    }
+
     const uint index = dispatchThreadID.x;
-    if (index >= elementCount)
+    if (index >= ScanElementCount())
     {
         return;
     }

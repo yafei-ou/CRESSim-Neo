@@ -718,7 +718,9 @@ constexpr Diligent::ShaderResourceVariableDesc kUpdateWorldAabbsVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kScanBlockVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsScanConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsScanDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ScanConstants",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ScanInput", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ScanOutput",
@@ -727,12 +729,23 @@ constexpr Diligent::ShaderResourceVariableDesc kScanBlockVars[] = {
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kScanAddOffsetsVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsScanConstantsBuffer",
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsScanDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ScanConstants",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ScannedBlockOffsets",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ScanOutput",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kPrepareParticleContactScanVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleNeighborMeta",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ScanConstantsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ScanIndirectArgsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 constexpr Diligent::ShaderResourceVariableDesc kCompactBodySetVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
@@ -1342,6 +1355,22 @@ const gpu::GpuComputePassDefinition kGenerateParticleExplicitContacts{
     "CRESSimNeo.Physics.GenerateParticleExplicitContacts.PSO",
     kGenerateParticleExplicitContactsVars,
     std::size(kGenerateParticleExplicitContactsVars),
+};
+
+const gpu::GpuComputePassDefinition kPrepareExplicitContactScan{
+    "physics/shared/physics_prepare_explicit_contact_scan.cs.hlsl",
+    "CRESSimNeo.Physics.PrepareExplicitContactScan.CS",
+    "CRESSimNeo.Physics.PrepareExplicitContactScan.PSO",
+    kPrepareParticleContactScanVars,
+    std::size(kPrepareParticleContactScanVars),
+};
+
+const gpu::GpuComputePassDefinition kPrepareRigidContactScan{
+    "physics/shared/physics_prepare_rigid_contact_scan.cs.hlsl",
+    "CRESSimNeo.Physics.PrepareRigidContactScan.CS",
+    "CRESSimNeo.Physics.PrepareRigidContactScan.PSO",
+    kPrepareParticleContactScanVars,
+    std::size(kPrepareParticleContactScanVars),
 };
 
 const gpu::GpuComputePassDefinition kPrepareParticleCandidateIndirectArgs{

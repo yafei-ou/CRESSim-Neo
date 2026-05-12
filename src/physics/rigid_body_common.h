@@ -113,9 +113,17 @@ struct GpuSliderJoint
 struct GpuPhysicsScanConstants
 {
     std::uint32_t elementCount = 0;
-    std::uint32_t reserved0    = 0;
+    std::uint32_t hasParentOffsets = 0;
     std::uint32_t reserved1    = 0;
     std::uint32_t reserved2    = 0;
+};
+
+struct GpuPhysicsScanDispatchConstants
+{
+    std::uint32_t scanLevelIndex = 0;
+    std::uint32_t reserved0      = 0;
+    std::uint32_t reserved1      = 0;
+    std::uint32_t reserved2      = 0;
 };
 
 struct GpuPhysicsRadixConstants
@@ -176,6 +184,14 @@ struct GpuDispatchIndirectArgs
     std::uint32_t groupCountX = 0u;
     std::uint32_t groupCountY = 1u;
     std::uint32_t groupCountZ = 1u;
+};
+
+struct GpuPaddedDispatchIndirectArgs
+{
+    std::uint32_t groupCountX = 0u;
+    std::uint32_t groupCountY = 1u;
+    std::uint32_t groupCountZ = 1u;
+    std::uint32_t reserved0   = 0u;
 };
 
 struct GpuParticleBroadPhaseEntry
@@ -473,9 +489,11 @@ struct GpuRigidContact
 static_assert(sizeof(GpuRigidDispatchConstants) == 48u);
 static_assert(sizeof(GpuRigidJointDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
+static_assert(sizeof(GpuPhysicsScanDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
 static_assert(sizeof(GpuParticleDispatchConstants) == 48u);
 static_assert(sizeof(GpuDispatchIndirectArgs) == 12u);
+static_assert(sizeof(GpuPaddedDispatchIndirectArgs) == 16u);
 static_assert(sizeof(GpuParticleBroadPhaseEntry) == 32u);
 static_assert(sizeof(GpuParticleCandidatePair) == 16u);
 static_assert(sizeof(GpuParticleNeighborMeta) == 32u);

@@ -21,6 +21,8 @@ extern const gpu::GpuComputePassDefinition kFinalizeParticleRigidCandidatePairs;
 extern const gpu::GpuComputePassDefinition kEmitParticleRigidCandidatePairs;
 extern const gpu::GpuComputePassDefinition kGenerateParticleExplicitContacts;
 extern const gpu::GpuComputePassDefinition kGenerateParticleRigidContacts;
+extern const gpu::GpuComputePassDefinition kPrepareExplicitContactScan;
+extern const gpu::GpuComputePassDefinition kPrepareRigidContactScan;
 extern const gpu::GpuComputePassDefinition kPrepareParticleCandidateIndirectArgs;
 extern const gpu::GpuComputePassDefinition kPrepareParticleActiveIndirectArgs;
 extern const gpu::GpuComputePassDefinition kFinalizeActiveParticleExplicitContacts;
