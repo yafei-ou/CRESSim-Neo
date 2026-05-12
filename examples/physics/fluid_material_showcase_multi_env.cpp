@@ -6,6 +6,9 @@
 #include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <stdexcept>
 
 namespace
@@ -32,6 +35,13 @@ using cressim::neo::physics::SoftBodySourceKind;
 using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
+constexpr float kEnvSpacing              = 20.0f;
+constexpr std::uint32_t kDefaultEnvCount = 4u;
+constexpr float kFluidParticleSpacing    = 0.18f;
+constexpr float kFluidParticleRadius     = 0.09f;
+constexpr float kSoftParticleSpacing     = 0.24f;
+constexpr float kSoftParticleRadius      = 0.12f;
+
 MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &resources,
                                 const char *name, const Diligent::float3 &baseColor,
                                 float roughness)
@@ -46,13 +56,27 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
 
 void printUsage(const char *appName)
 {
-    cressim::neo::examples::helpers::printUsage(appName, "", false);
+    cressim::neo::examples::helpers::printUsage(appName, "", true);
 }
 
-void spawnStaticBox(cressim::neo::engine::World &world, MeshHandle mesh, MaterialHandle material,
-                    const Diligent::float3 &position, const Diligent::float3 &halfExtents)
+Diligent::float3 envOrigin(std::uint32_t envIndex, std::uint32_t envCount)
 {
-    const auto entity = world.createEntity();
+    const std::uint32_t cols = std::max(
+        1u, static_cast<std::uint32_t>(std::ceil(std::sqrt(static_cast<float>(envCount)))));
+    const std::uint32_t rows = std::max(1u, (envCount + cols - 1u) / cols);
+    const std::uint32_t col  = envIndex % cols;
+    const std::uint32_t row  = envIndex / cols;
+    const float xCenter      = (static_cast<float>(cols) - 1.0f) * 0.5f;
+    const float zCenter      = (static_cast<float>(rows) - 1.0f) * 0.5f;
+    return {(static_cast<float>(col) - xCenter) * kEnvSpacing, 0.0f,
+            (static_cast<float>(row) - zCenter) * kEnvSpacing};
+}
+
+void spawnStaticBox(cressim::neo::engine::World &world, std::uint32_t envIndex, MeshHandle mesh,
+                    MaterialHandle material, const Diligent::float3 &position,
+                    const Diligent::float3 &halfExtents)
+{
+    const auto entity = world.createEntity(envIndex);
 
     TransformComponent transform{};
     transform.worldTransform.position = position;
@@ -78,11 +102,11 @@ void spawnStaticBox(cressim::neo::engine::World &world, MeshHandle mesh, Materia
     world.addCollider(entity, collider);
 }
 
-void spawnStaticCollisionBox(cressim::neo::engine::World &world,
+void spawnStaticCollisionBox(cressim::neo::engine::World &world, std::uint32_t envIndex,
                              const Diligent::float3 &position,
                              const Diligent::float3 &halfExtents)
 {
-    const auto entity = world.createEntity();
+    const auto entity = world.createEntity(envIndex);
 
     TransformComponent transform{};
     transform.worldTransform.position = position;
@@ -102,12 +126,13 @@ void spawnStaticCollisionBox(cressim::neo::engine::World &world,
     world.addCollider(entity, collider);
 }
 
-bool spawnFluid(cressim::neo::engine::World &world, const Diligent::float3 &position,
+bool spawnFluid(cressim::neo::engine::World &world, std::uint32_t envIndex,
+                const Diligent::float3 &position,
                 const Diligent::float3 &size,
                 const cressim::neo::physics::FluidMaterialDesc &material,
                 float particleMassScale = 0.8f)
 {
-    const auto entity = world.createEntity();
+    const auto entity = world.createEntity(envIndex);
 
     TransformComponent transform{};
     transform.worldTransform.position = position;
@@ -116,8 +141,8 @@ bool spawnFluid(cressim::neo::engine::World &world, const Diligent::float3 &posi
     FluidComponent fluid{};
     fluid.source.kind = FluidSourceKind::RegularGrid;
     fluid.source.regularGrid.size = size;
-    fluid.source.regularGrid.targetParticleSpacing = 0.22f;
-    fluid.particleRadius = 0.11f;
+    fluid.source.regularGrid.targetParticleSpacing = kFluidParticleSpacing;
+    fluid.particleRadius = kFluidParticleRadius;
     fluid.material = material;
     const float particleDiameter = 2.0f * fluid.particleRadius;
     fluid.particleMass = particleMassScale * particleDiameter * particleDiameter *
@@ -127,10 +152,11 @@ bool spawnFluid(cressim::neo::engine::World &world, const Diligent::float3 &posi
     return world.setFluid(entity, fluid);
 }
 
-bool spawnSoftBody(cressim::neo::engine::World &world, const Diligent::float3 &position,
+bool spawnSoftBody(cressim::neo::engine::World &world, std::uint32_t envIndex,
+                   const Diligent::float3 &position,
                    const cressim::neo::physics::ParticleContactMaterialDesc &contactMaterial)
 {
-    const auto entity = world.createEntity();
+    const auto entity = world.createEntity(envIndex);
 
     TransformComponent transform{};
     transform.worldTransform.position = position;
@@ -141,9 +167,9 @@ bool spawnSoftBody(cressim::neo::engine::World &world, const Diligent::float3 &p
     SoftBodyComponent softBody{};
     softBody.source.kind = SoftBodySourceKind::RegularGrid;
     softBody.source.regularGrid.size = {0.9f, 0.9f, 0.9f};
-    softBody.source.regularGrid.targetParticleSpacing = 0.3f;
+    softBody.source.regularGrid.targetParticleSpacing = kSoftParticleSpacing;
     softBody.particleMass = 0.12f;
-    softBody.particleRadius = 0.15f;
+    softBody.particleRadius = kSoftParticleRadius;
     softBody.edgeCompliance = 0.0f;
     softBody.volumeCompliance = 0.0008f;
     softBody.material.contact = contactMaterial;
@@ -153,18 +179,103 @@ bool spawnSoftBody(cressim::neo::engine::World &world, const Diligent::float3 &p
     return world.setSoftBody(entity, softBody);
 }
 
+void authorEnvironment(cressim::neo::engine::Runtime &runtime, std::uint32_t envIndex,
+                       std::uint32_t envCount, MeshHandle boxMesh, MaterialHandle floorMaterial,
+                       MaterialHandle wallMaterial, MaterialHandle dividerMaterial,
+                       const cressim::neo::physics::FluidMaterialDesc &baselineFluid,
+                       const cressim::neo::physics::FluidMaterialDesc &thickerFluid,
+                       const cressim::neo::physics::ParticleContactMaterialDesc &softContact,
+                       cressim::neo::common::EntityId &outCameraEntity)
+{
+    auto &world                   = runtime.getWorld();
+    const Diligent::float3 origin = envOrigin(envIndex, envCount);
+    const float phase             = static_cast<float>(envIndex) * 0.61f;
+    cressim::neo::physics::FluidMaterialDesc envBaselineFluid = baselineFluid;
+    cressim::neo::physics::FluidMaterialDesc envThickerFluid  = thickerFluid;
+
+    envBaselineFluid.gravityScale *= 0.92f + 0.10f * std::cos(phase);
+    envBaselineFluid.viscosity += 0.18f * (0.5f + 0.5f * std::sin(phase * 1.7f));
+
+    envThickerFluid.gravityScale *= 0.94f + 0.08f * std::sin(phase * 0.9f);
+    envThickerFluid.viscosity *= 0.85f + 0.30f * (0.5f + 0.5f * std::cos(phase * 1.3f));
+    envThickerFluid.cohesion *= 0.88f + 0.24f * (0.5f + 0.5f * std::sin(phase * 1.1f));
+    envThickerFluid.surfaceTension *=
+        0.86f + 0.28f * (0.5f + 0.5f * std::cos(phase * 0.8f));
+
+    outCameraEntity = world.createEntity(envIndex);
+    TransformComponent cameraTransform{};
+    cameraTransform.worldTransform.position = origin + Diligent::float3{0.0f, 3.4f, -9.0f};
+    cameraTransform.worldTransform.rotation =
+        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, 0.22f);
+    world.setTransform(outCameraEntity, cameraTransform);
+    CameraComponent camera{};
+    camera.verticalFovDegrees = 42.0f;
+    camera.renderOrder        = static_cast<int>(envIndex);
+    world.setCamera(outCameraEntity, camera);
+
+    const auto lightEntity = world.createEntity(envIndex);
+    DirectionalLightComponent light{};
+    light.direction = {-0.45f, -1.0f, 0.35f};
+    light.color = {1.0f, 0.98f, 0.95f};
+    light.intensity = 7.0f;
+    world.setDirectionalLight(lightEntity, light);
+
+    spawnStaticCollisionBox(world, envIndex, origin + Diligent::float3{0.0f, -1.0f, 0.0f},
+                            {3.2f, 0.15f, 3.0f});
+    spawnStaticBox(world, envIndex, boxMesh, wallMaterial,
+                   origin + Diligent::float3{-3.05f, -0.15f, 0.0f},
+                   {0.15f, 1.0f, 3.0f});
+    spawnStaticBox(world, envIndex, boxMesh, wallMaterial,
+                   origin + Diligent::float3{3.05f, -0.15f, 0.0f},
+                   {0.15f, 1.0f, 3.0f});
+    spawnStaticCollisionBox(world, envIndex,
+                            origin + Diligent::float3{0.0f, -0.15f, -2.85f},
+                            {3.2f, 1.0f, 0.15f});
+    spawnStaticBox(world, envIndex, boxMesh, wallMaterial,
+                   origin + Diligent::float3{0.0f, -0.15f, 2.85f},
+                   {3.2f, 1.0f, 0.15f});
+    spawnStaticBox(world, envIndex, boxMesh, dividerMaterial,
+                   origin + Diligent::float3{0.0f, -0.15f, 0.0f},
+                   {0.25f, 1.0f, 3.0f});
+    spawnStaticBox(world, envIndex, boxMesh, floorMaterial,
+                   origin + Diligent::float3{0.0f, -1.16f, 0.0f},
+                   {3.2f, 0.04f, 3.0f});
+
+    if (!spawnFluid(world, envIndex,
+                    origin + Diligent::float3{-1.575f, 1.0f, 0.0f},
+                    {2.5f, 2.2f, 5.2f}, envBaselineFluid, 1.0f))
+    {
+        throw std::runtime_error("Failed to author baseline fluid body.");
+    }
+
+    if (!spawnFluid(world, envIndex,
+                    origin + Diligent::float3{1.575f, 1.0f, 0.0f},
+                    {2.5f, 2.2f, 5.2f}, envThickerFluid, 1.0f))
+    {
+        throw std::runtime_error("Failed to author thicker fluid body.");
+    }
+
+    if (!spawnSoftBody(world, envIndex,
+                       origin + Diligent::float3{0.0f, 5.45f, 0.0f},
+                       softContact))
+    {
+        throw std::runtime_error("Failed to author soft-body particle block.");
+    }
+}
+
 } // namespace
 
 int main(int argc, char **argv)
 {
     CommonExampleOptions options{};
+    options.envCount = kDefaultEnvCount;
 
     try
     {
         for (int i = 1; i < argc; ++i)
         {
             if (cressim::neo::examples::helpers::tryParseCommonArgument(
-                    argc, argv, i, options, false))
+                    argc, argv, i, options, true))
             {
                 continue;
             }
@@ -181,6 +292,7 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+    config.sceneLayout.envCount = options.envCount;
     config.physicsDesc.substeps = 1u;
     config.physicsDesc.defaultIterations = 10u;
     config.physicsDesc.fluidIterations = 10u;
@@ -189,7 +301,7 @@ int main(int argc, char **argv)
 
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
-    viewerDefaults.windowTitle = "CRESSim Neo Particle Material Showcase";
+    viewerDefaults.windowTitle = "CRESSim Neo Fluid Material Showcase Multi-Env";
     viewerDefaults.showStats = true;
     viewerDefaults.vSync = false;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
@@ -209,25 +321,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    auto &world = runtime.getWorld();
-
-    const auto cameraEntity = world.createEntity();
-    TransformComponent cameraTransform{};
-    cameraTransform.worldTransform.position = {0.0f, 3.4f, -9.0f};
-    cameraTransform.worldTransform.rotation =
-        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, 0.22f);
-    world.setTransform(cameraEntity, cameraTransform);
-    CameraComponent camera{};
-    camera.verticalFovDegrees = 42.0f;
-    world.setCamera(cameraEntity, camera);
-
-    const auto lightEntity = world.createEntity();
-    DirectionalLightComponent light{};
-    light.direction = {-0.45f, -1.0f, 0.35f};
-    light.color = {1.0f, 0.98f, 0.95f};
-    light.intensity = 7.0f;
-    world.setDirectionalLight(lightEntity, light);
-
     auto &resources = runtime.getResources();
     const MeshHandle boxMesh = resources.registerMesh(
         cressim::neo::examples::helpers::makeCubeMesh(1.0f, "ParticleMaterialShowcase.BoxMesh"));
@@ -237,13 +330,6 @@ int main(int argc, char **argv)
         registerMaterial(resources, "ParticleMaterialShowcase.Wall", {0.14f, 0.34f, 0.68f}, 0.6f);
     const MaterialHandle dividerMaterial =
         registerMaterial(resources, "ParticleMaterialShowcase.Divider", {0.72f, 0.48f, 0.18f}, 0.4f);
-
-    spawnStaticCollisionBox(world, {0.0f, -1.0f, 0.0f}, {3.2f, 0.15f, 3.0f});
-    spawnStaticBox(world, boxMesh, wallMaterial, {-3.05f, -0.15f, 0.0f}, {0.15f, 1.0f, 3.0f});
-    spawnStaticBox(world, boxMesh, wallMaterial, {3.05f, -0.15f, 0.0f}, {0.15f, 1.0f, 3.0f});
-    spawnStaticCollisionBox(world, {0.0f, -0.15f, -2.85f}, {3.2f, 1.0f, 0.15f});
-    spawnStaticBox(world, boxMesh, wallMaterial, {0.0f, -0.15f, 2.85f}, {3.2f, 1.0f, 0.15f});
-    spawnStaticBox(world, boxMesh, dividerMaterial, {0.0f, -0.15f, 0.0f}, {0.25f, 1.0f, 3.0f});
 
     cressim::neo::physics::ParticleContactMaterialDesc fluidContact{};
     fluidContact.friction = 0.04f;
@@ -273,29 +359,35 @@ int main(int argc, char **argv)
     thickerFluid.viscosity = 5.0f;
     thickerFluid.gravityScale = 0.2f;
 
-    if (!spawnFluid(world, {-1.575f, 1.0f, 0.0f}, {2.5f, 2.2f, 5.2f}, baselineFluid, 1.0f))
+    cressim::neo::common::EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;
+    try
+    {
+        for (std::uint32_t envIndex = 0u; envIndex < options.envCount; ++envIndex)
+        {
+            cressim::neo::common::EntityId envCameraEntity = cressim::neo::common::kInvalidEntityId;
+            authorEnvironment(runtime, envIndex, options.envCount, boxMesh, floorMaterial,
+                              wallMaterial, dividerMaterial, baselineFluid, thickerFluid,
+                              softContact, envCameraEntity);
+            if (envIndex == 0u)
+            {
+                cameraEntity = envCameraEntity;
+            }
+        }
+    }
+    catch (const std::runtime_error &error)
     {
         runtime.shutdown();
         viewer.shutdown();
-        CRESSIM_LOG_ERROR("Failed to author baseline fluid body.\n");
+        CRESSIM_LOG_ERROR(error.what(), "\n");
         return 1;
     }
 
-    if (!spawnFluid(world, {1.575f, 1.0f, 0.0f}, {2.5f, 2.2f, 5.2f}, thickerFluid, 1.0f))
-    {
-        runtime.shutdown();
-        viewer.shutdown();
-        CRESSIM_LOG_ERROR("Failed to author thicker fluid body.\n");
-        return 1;
-    }
-
-    if (!spawnSoftBody(world, {0.0f, 5.45f, 0.0f}, softContact))
-    {
-        runtime.shutdown();
-        viewer.shutdown();
-        CRESSIM_LOG_ERROR("Failed to author soft-body particle block.\n");
-        return 1;
-    }
+    runtime.getWorld().physicsWorld().ensureDerivedStateUpToDate();
+    const auto &particles = runtime.getWorld().physicsWorld().particles();
+    CRESSIM_LOG_INFO("Fluid material showcase multi-env authored ", particles.size(),
+                     " particles across ", options.envCount, " environments. Fluid bodies=",
+                     runtime.getWorld().physicsWorld().fluidCount(), ", soft bodies=",
+                     runtime.getWorld().physicsWorld().softBodyCount(), ".\n");
 
     DebugViewerCameraBinding binding{};
     binding.cameraEntity = cameraEntity;

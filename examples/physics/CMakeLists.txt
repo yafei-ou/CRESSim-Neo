@@ -46,6 +46,6 @@ add_cressim_example(
 )
 
 add_cressim_example(
-    NAME physics_particle_material_showcase
-    SOURCE particle_material_showcase.cpp
+    NAME physics_fluid_material_showcase_multi_env
+    SOURCE fluid_material_showcase_multi_env.cpp
 )
