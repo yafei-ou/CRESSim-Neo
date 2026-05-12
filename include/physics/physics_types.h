@@ -142,27 +142,26 @@ struct FluidMaterialDesc
 
 struct FluidMaterialGpu
 {
-    float restDensity               = 1000.0f;
-    float invRestDensity            = 1.0f / 1000.0f;
-    float smoothingRadius           = 0.4f;
+    float restDensity                   = 1000.0f;
+    float invRestDensity                = 1.0f / 1000.0f;
+    float smoothingRadius               = 0.4f;
     float densityConstraintScaleDerived = 1.0f;
-    float viscosityDerived          = 0.01f / 1000.0f;
-    float cohesionDerived           = 0.0f;
-    float cohesion1                 = 0.0f;
-    float cohesion2                 = 0.0f;
-    float surfaceTensionDerived     = 0.0f;
-    float vorticityConfinementDerived = 0.0f;
-    float gravityScale              = 1.0f;
-    float cflRadius                 = 0.25f;
+    float viscosityDerived              = 0.01f / 1000.0f;
+    float cohesionDerived               = 0.0f;
+    float cohesion1                     = 0.0f;
+    float cohesion2                     = 0.0f;
+    float surfaceTensionDerived         = 0.0f;
+    float vorticityConfinementDerived   = 0.0f;
+    float gravityScale                  = 1.0f;
+    float cflRadius                     = 0.25f;
 
     constexpr bool operator==(const FluidMaterialGpu &rhs) const noexcept
     {
         return restDensity == rhs.restDensity && invRestDensity == rhs.invRestDensity &&
                smoothingRadius == rhs.smoothingRadius &&
                densityConstraintScaleDerived == rhs.densityConstraintScaleDerived &&
-               viscosityDerived == rhs.viscosityDerived &&
-               cohesionDerived == rhs.cohesionDerived && cohesion1 == rhs.cohesion1 &&
-               cohesion2 == rhs.cohesion2 &&
+               viscosityDerived == rhs.viscosityDerived && cohesionDerived == rhs.cohesionDerived &&
+               cohesion1 == rhs.cohesion1 && cohesion2 == rhs.cohesion2 &&
                surfaceTensionDerived == rhs.surfaceTensionDerived &&
                vorticityConfinementDerived == rhs.vorticityConfinementDerived &&
                gravityScale == rhs.gravityScale && cflRadius == rhs.cflRadius;

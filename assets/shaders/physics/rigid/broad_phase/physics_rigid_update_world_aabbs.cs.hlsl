@@ -9,9 +9,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyScales);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ColliderOwnerRigidBodyIndices);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ColliderShapeTypes);
-CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderShapeParams);
-CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalPositions);
-CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalOrientations);
+CRESSIM_STRUCTURED_BUFFER(GpuColliderGeometryData, g_ColliderGeometryData);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ColliderEnabledFlags);
 
 CRESSIM_RW_STRUCTURED_BUFFER(GpuBodyAabb, g_BodyAabbs);
@@ -54,10 +52,12 @@ CRESSIM_RW_STRUCTURED_BUFFER(uint, g_StaticBodyFlags);
     const float4 scale = CRESSIM_SB_LOAD(g_RigidBodyScales, ownerBodyIndex);
     const uint bodyType = CRESSIM_SB_LOAD(g_RigidBodyTypes, ownerBodyIndex);
     const uint shapeType = CRESSIM_SB_LOAD(g_ColliderShapeTypes, colliderIndex);
-    const float4 colliderParams = CRESSIM_SB_LOAD(g_ColliderShapeParams, colliderIndex);
-    const float3 localPosition = CRESSIM_SB_REF(g_ColliderLocalPositions, colliderIndex).xyz * scale.xyz;
+    const GpuColliderGeometryData colliderGeometry =
+        CRESSIM_SB_LOAD(g_ColliderGeometryData, colliderIndex);
+    const float4 colliderParams = colliderGeometry.shapeParams;
+    const float3 localPosition = colliderGeometry.localPosition.xyz * scale.xyz;
     const float4 localOrientation =
-        QuaternionNormalize(CRESSIM_SB_LOAD(g_ColliderLocalOrientations, colliderIndex));
+        QuaternionNormalize(colliderGeometry.localOrientation);
     const float3 colliderPosition =
         ComposeColliderWorldPosition(bodyPositionInvMass.xyz, bodyOrientation, localPosition);
     const float4 colliderOrientation =

@@ -437,6 +437,13 @@ struct GpuColliderBroadPhaseData
     std::uint32_t reserved2        = 0;
 };
 
+struct GpuColliderGeometryData
+{
+    Diligent::float4 shapeParams{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localPosition{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localOrientation{0.0f, 0.0f, 0.0f, 1.0f};
+};
+
 struct GpuColliderContactData
 {
     std::uint32_t ownerBody = 0;
@@ -496,6 +503,7 @@ static_assert(sizeof(GpuNarrowPhaseChunk) == 16u);
 static_assert(sizeof(GpuNarrowPhaseMeta) == 16u);
 static_assert(sizeof(GpuBroadPhaseMeta) == 32u);
 static_assert(sizeof(GpuColliderBroadPhaseData) == 32u);
+static_assert(sizeof(GpuColliderGeometryData) == 48u);
 static_assert(sizeof(GpuColliderContactData) == 80u);
 static_assert(sizeof(GpuRigidContact) == 80u);
 

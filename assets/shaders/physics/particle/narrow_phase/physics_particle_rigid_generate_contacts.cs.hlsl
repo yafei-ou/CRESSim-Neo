@@ -1,6 +1,7 @@
 #include "../../../include/physics/particle/physics_particle_types.hlsli"
 #include "../../../include/physics/core/physics_math.hlsli"
 #include "../../../include/physics/collision/physics_shape_common.hlsli"
+#include "../../../include/physics/rigid/physics_rigid_types.hlsli"
 #include "../../../include/physics/rigid/physics_rigid_broad_phase_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
@@ -14,9 +15,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyScales);
 CRESSIM_STRUCTURED_BUFFER(uint2, g_BodyColliderRanges);
 CRESSIM_STRUCTURED_BUFFER(uint, g_BodyColliderIndices);
 
-CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderShapeParams);
-CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalPositions);
-CRESSIM_STRUCTURED_BUFFER(float4, g_ColliderLocalOrientations);
+CRESSIM_STRUCTURED_BUFFER(GpuColliderGeometryData, g_ColliderGeometryData);
 CRESSIM_STRUCTURED_BUFFER(GpuColliderBroadPhaseData, g_ColliderBroadPhaseData);
 
 CRESSIM_STRUCTURED_BUFFER(GpuParticleCandidatePair, g_ParticleCandidatePairs);
@@ -89,10 +88,11 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             continue;
         }
 
-        const float3 colliderLocalPosition =
-            CRESSIM_SB_LOAD(g_ColliderLocalPositions, colliderIndex).xyz;
+        const GpuColliderGeometryData colliderGeometry =
+            CRESSIM_SB_LOAD(g_ColliderGeometryData, colliderIndex);
+        const float3 colliderLocalPosition = colliderGeometry.localPosition.xyz;
         const float4 colliderLocalOrientation =
-            QuaternionNormalize(CRESSIM_SB_LOAD(g_ColliderLocalOrientations, colliderIndex));
+            QuaternionNormalize(colliderGeometry.localOrientation);
         const float3 colliderWorldPosition =
             ComposeColliderWorldPosition(bodyPosition, bodyOrientation, colliderLocalPosition);
         const float4 colliderWorldOrientation =
@@ -104,7 +104,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         float3 candidateContactWorld = float3(0.0, 0.0, 0.0);
         float signedDistance = 0.0;
         const uint shapeType = broadPhase.shapeType;
-        const float4 shapeParams = CRESSIM_SB_LOAD(g_ColliderShapeParams, colliderIndex);
+        const float4 shapeParams = colliderGeometry.shapeParams;
 
         if (shapeType == kColliderSphere)
         {

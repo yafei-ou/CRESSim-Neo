@@ -38,11 +38,9 @@ public:
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> ownerRigidBodyIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> broadPhaseDataBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> geometryDataBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> contactDataBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeTypesBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeParamsBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> localPositionsBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> localOrientationsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> enabledFlagsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> materialBuffer;
     };

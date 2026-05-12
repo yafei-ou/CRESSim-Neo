@@ -427,7 +427,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         {
             for (std::uint32_t iteration = 0u; iteration < maxPhaseIterations; ++iteration)
             {
-                constants.iterationIndex = iteration;
+                constants.iterationIndex         = iteration;
                 particleConstants.iterationIndex = iteration;
                 const bool runSoftInternal =
                     hasSoftInternalWork && iteration < softInternalIterations;

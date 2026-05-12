@@ -247,6 +247,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const auto rigidBodyTypesBefore     = mPersistentRigidBodies.bodyTypesBuffer.RawPtr();
     const auto colliderOwnersBefore     = mPersistentColliders.ownerRigidBodyIndicesBuffer.RawPtr();
     const auto colliderBroadPhaseBefore = mPersistentColliders.broadPhaseDataBuffer.RawPtr();
+    const auto colliderGeometryBefore   = mPersistentColliders.geometryDataBuffer.RawPtr();
     const auto bodyColliderRangesBefore =
         mPersistentBodyColliderMapping.colliderRangesBuffer.RawPtr();
     const auto bodyColliderIndicesBefore =
@@ -311,11 +312,9 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentRigidBodies.kinematicTargetFlagsBuffer != nullptr &&
         mPersistentColliders.ownerRigidBodyIndicesBuffer != nullptr &&
         mPersistentColliders.broadPhaseDataBuffer != nullptr &&
+        mPersistentColliders.geometryDataBuffer != nullptr &&
         mPersistentColliders.contactDataBuffer != nullptr &&
         mPersistentColliders.shapeTypesBuffer != nullptr &&
-        mPersistentColliders.shapeParamsBuffer != nullptr &&
-        mPersistentColliders.localPositionsBuffer != nullptr &&
-        mPersistentColliders.localOrientationsBuffer != nullptr &&
         mPersistentColliders.enabledFlagsBuffer != nullptr &&
         mPersistentColliders.materialBuffer != nullptr &&
         mPersistentBodyColliderMapping.colliderOffsetsBuffer != nullptr &&
@@ -617,22 +616,15 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentColliders.broadPhaseDataBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderGeometryData",
+                                sizeof(GpuColliderGeometryData), newColliderCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentColliders.geometryDataBuffer) ||
         !ensureStructuredBuffer(
             renderDevice, "CRESSimNeo.Physics.ColliderShapeTypes", sizeof(std::uint32_t),
             newColliderCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
             Diligent::CPU_ACCESS_NONE, contextMask, mPersistentColliders.shapeTypesBuffer) ||
-        !ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.ColliderShapeParams", sizeof(Diligent::float4),
-            newColliderCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentColliders.shapeParamsBuffer) ||
-        !ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.ColliderLocalPositions", sizeof(Diligent::float4),
-            newColliderCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentColliders.localPositionsBuffer) ||
-        !ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.ColliderLocalOrientations", sizeof(Diligent::float4),
-            newColliderCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentColliders.localOrientationsBuffer) ||
         !ensureStructuredBuffer(
             renderDevice, "CRESSimNeo.Physics.ColliderEnabledFlags", sizeof(std::uint32_t),
             newColliderCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -969,8 +961,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
             Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
             Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask, useNativeFloatAtomics,
             mTransientState.softVelocityCorrectionsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidConstraints",
-                                sizeof(float),
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidConstraints", sizeof(float),
                                 newSoftParticleCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
@@ -980,8 +971,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.fluidDeltaPositionsBuffer) ||
-        !ensureStructuredBuffer(renderDevice,
-                                "CRESSimNeo.Physics.FluidIterationDelta",
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidIterationDelta",
                                 sizeof(Diligent::float4), newSoftParticleCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
@@ -1450,6 +1440,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         rigidBodyTypesBefore != mPersistentRigidBodies.bodyTypesBuffer.RawPtr() ||
         colliderOwnersBefore != mPersistentColliders.ownerRigidBodyIndicesBuffer.RawPtr() ||
         colliderBroadPhaseBefore != mPersistentColliders.broadPhaseDataBuffer.RawPtr() ||
+        colliderGeometryBefore != mPersistentColliders.geometryDataBuffer.RawPtr() ||
         bodyColliderRangesBefore != mPersistentBodyColliderMapping.colliderRangesBuffer.RawPtr() ||
         bodyColliderIndicesBefore !=
             mPersistentBodyColliderMapping.colliderIndicesBuffer.RawPtr() ||
@@ -1729,12 +1720,6 @@ bool PhysicsSceneGpuState::uploadColliderRange(Diligent::IDeviceContext *compute
                                      colliders.ownerRigidBodyIndices, begin, count) ||
         !updateStructuredBufferRange(computeContext, mPersistentColliders.shapeTypesBuffer,
                                      colliders.shapeTypes, begin, count) ||
-        !updateStructuredBufferRange(computeContext, mPersistentColliders.shapeParamsBuffer,
-                                     colliders.shapeParams, begin, count) ||
-        !updateStructuredBufferRange(computeContext, mPersistentColliders.localPositionsBuffer,
-                                     colliders.localPositions, begin, count) ||
-        !updateStructuredBufferRange(computeContext, mPersistentColliders.localOrientationsBuffer,
-                                     colliders.localOrientations, begin, count) ||
         !updateStructuredBufferRange(computeContext, mPersistentColliders.enabledFlagsBuffer,
                                      colliders.enabledFlags, begin, count) ||
         !updateStructuredBufferRange(computeContext, mPersistentColliders.materialBuffer,
@@ -1758,6 +1743,21 @@ bool PhysicsSceneGpuState::uploadColliderRange(Diligent::IDeviceContext *compute
         entry.material                  = colliders.frictionRestitution[sourceIndex];
     }
 
+    std::vector<GpuColliderGeometryData> geometryData(count);
+    for (std::uint32_t i = 0; i < count; ++i)
+    {
+        const std::uint32_t sourceIndex = begin + i;
+        GpuColliderGeometryData &entry  = geometryData[i];
+        entry.shapeParams               = colliders.shapeParams[sourceIndex];
+        entry.localPosition             = colliders.localPositions[sourceIndex];
+        entry.localOrientation          = colliders.localOrientations[sourceIndex];
+    }
+
+    computeContext->UpdateBuffer(
+        mPersistentColliders.geometryDataBuffer,
+        static_cast<Diligent::Uint64>(begin) * sizeof(GpuColliderGeometryData),
+        static_cast<Diligent::Uint64>(count) * sizeof(GpuColliderGeometryData), geometryData.data(),
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     computeContext->UpdateBuffer(
         mPersistentColliders.contactDataBuffer,
         static_cast<Diligent::Uint64>(begin) * sizeof(GpuColliderContactData),

@@ -90,30 +90,28 @@ Diligent::float4 toParticleContactMaterial(const ParticleContactMaterialDesc &ma
                             material.staticFriction};
 }
 
-constexpr float kFluidKernelPi = 3.14159265358979323846f;
+constexpr float kFluidKernelPi                  = 3.14159265358979323846f;
 constexpr float kFluidContactDistanceMultiplier = 2.0f / 0.6f;
 
 float fluidSpikyWeight(float distance, float supportRadius) noexcept
 {
     const float oneMinusQ = 1.0f - distance / supportRadius;
-    const float k =
-        15.0f / (kFluidKernelPi * supportRadius * supportRadius * supportRadius);
+    const float k = 15.0f / (kFluidKernelPi * supportRadius * supportRadius * supportRadius);
     return k * oneMinusQ * oneMinusQ;
 }
 
 float fluidSpikyWeightDerivative(float distance, float supportRadius) noexcept
 {
     const float oneMinusQ = 1.0f - distance / supportRadius;
-    const float k =
-        15.0f / (kFluidKernelPi * supportRadius * supportRadius * supportRadius);
+    const float k = 15.0f / (kFluidKernelPi * supportRadius * supportRadius * supportRadius);
     return -k * 2.0f * oneMinusQ / supportRadius;
 }
 
 std::uint32_t tightPack3D(float radius, float separation,
                           std::array<Diligent::float3, 2048> &points) noexcept
 {
-    const int dim = static_cast<int>(std::ceil(radius / separation));
-    std::uint32_t count = 0u;
+    const int dim        = static_cast<int>(std::ceil(radius / separation));
+    std::uint32_t count  = 0u;
     const float rowScale = std::sqrt(0.75f) * separation;
 
     for (int z = -dim; z <= dim; ++z)
@@ -122,11 +120,10 @@ std::uint32_t tightPack3D(float radius, float separation,
         {
             for (int x = -dim; x <= dim; ++x)
             {
-                const float xpos =
-                    x * separation + (((y + z) & 1) != 0 ? separation * 0.5f : 0.0f);
+                const float xpos = x * separation + (((y + z) & 1) != 0 ? separation * 0.5f : 0.0f);
                 const Diligent::float3 sample{xpos, y * rowScale, z * rowScale};
-                const float magnitudeSq = sample.x * sample.x + sample.y * sample.y +
-                                          sample.z * sample.z;
+                const float magnitudeSq =
+                    sample.x * sample.x + sample.y * sample.y + sample.z * sample.z;
                 if (magnitudeSq == 0.0f)
                 {
                     continue;
@@ -154,10 +151,10 @@ void calculateFluidSolveScales(float restDistance, float supportRadius, float &r
     std::array<Diligent::float3, 2048> samples{};
     const std::uint32_t count = tightPack3D(supportRadius, restDistance, samples);
 
-    restDensity = 0.0f;
+    restDensity            = 0.0f;
     densityConstraintScale = 0.0f;
-    float a = 0.0f;
-    float b = 0.0f;
+    float a                = 0.0f;
+    float b                = 0.0f;
 
     for (std::uint32_t i = 0u; i < count; ++i)
     {
@@ -197,19 +194,17 @@ FluidMaterialGpu toFluidSolverMaterial(const FluidMaterialDesc &material,
     // rather than taken directly from the authored material.
     const float smoothingRadius =
         std::max(kFluidContactDistanceMultiplier * particleRadius, fluidRestDistance);
-    float restDensity = 0.0f;
+    float restDensity            = 0.0f;
     float densityConstraintScale = 0.0f;
     float surfaceConstraintScale = 0.0f;
     calculateFluidSolveScales(fluidRestDistance, smoothingRadius, restDensity,
                               densityConstraintScale, surfaceConstraintScale);
 
     const float invRestDensity = 1.0f / restDensity;
-    const float restRatio =
-        std::clamp(fluidRestDistance / smoothingRadius, 1.0e-3f, 0.999f);
-    const float restRatioSq = restRatio * restRatio;
-    const float cohesion1 = -(1.0f + restRatio) / restRatioSq;
-    const float cohesion2 =
-        (restRatioSq + restRatio + 1.0f) / restRatioSq;
+    const float restRatio      = std::clamp(fluidRestDistance / smoothingRadius, 1.0e-3f, 0.999f);
+    const float restRatioSq    = restRatio * restRatio;
+    const float cohesion1      = -(1.0f + restRatio) / restRatioSq;
+    const float cohesion2      = (restRatioSq + restRatio + 1.0f) / restRatioSq;
 
     return FluidMaterialGpu{restDensity,
                             invRestDensity,
@@ -219,8 +214,7 @@ FluidMaterialGpu toFluidSolverMaterial(const FluidMaterialDesc &material,
                             material.cohesion * smoothingRadius,
                             cohesion1,
                             cohesion2,
-                            (material.surfaceTension * invRestDensity) /
-                                surfaceConstraintScale,
+                            (material.surfaceTension * invRestDensity) / surfaceConstraintScale,
                             material.vorticityConfinement * invRestDensity,
                             material.gravityScale,
                             material.cflCoefficient * smoothingRadius};
