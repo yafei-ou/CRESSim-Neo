@@ -238,7 +238,7 @@ int main(int argc, char **argv)
     const MaterialHandle dividerMaterial =
         registerMaterial(resources, "ParticleMaterialShowcase.Divider", {0.72f, 0.48f, 0.18f}, 0.4f);
 
-    spawnStaticBox(world, boxMesh, floorMaterial, {0.0f, -1.0f, 0.0f}, {3.2f, 0.15f, 3.0f});
+    spawnStaticCollisionBox(world, {0.0f, -1.0f, 0.0f}, {3.2f, 0.15f, 3.0f});
     spawnStaticBox(world, boxMesh, wallMaterial, {-3.05f, -0.15f, 0.0f}, {0.15f, 1.0f, 3.0f});
     spawnStaticBox(world, boxMesh, wallMaterial, {3.05f, -0.15f, 0.0f}, {0.15f, 1.0f, 3.0f});
     spawnStaticCollisionBox(world, {0.0f, -0.15f, -2.85f}, {3.2f, 1.0f, 0.15f});
@@ -270,10 +270,10 @@ int main(int argc, char **argv)
     thickerFluid.surfaceTension = 20.0f;
     // thickerFluid.vorticityConfinement = 10.0f;
     // thickerFluid.cflCoefficient = 10.0f;
-    thickerFluid.viscosity = 0.05f;
+    thickerFluid.viscosity = 5.0f;
     thickerFluid.gravityScale = 0.2f;
 
-    if (!spawnFluid(world, {-1.575f, 2.2f, 0.0f}, {2.5f, 2.2f, 5.4f}, baselineFluid, 1.0f))
+    if (!spawnFluid(world, {-1.575f, 1.0f, 0.0f}, {2.5f, 2.2f, 5.2f}, baselineFluid, 1.0f))
     {
         runtime.shutdown();
         viewer.shutdown();
@@ -281,7 +281,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (!spawnFluid(world, {1.575f, 2.2f, 0.0f}, {2.5f, 2.2f, 5.4f}, thickerFluid, 1.0f))
+    if (!spawnFluid(world, {1.575f, 1.0f, 0.0f}, {2.5f, 2.2f, 5.2f}, thickerFluid, 1.0f))
     {
         runtime.shutdown();
         viewer.shutdown();
