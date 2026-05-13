@@ -234,8 +234,10 @@ int main(int argc, char **argv)
     cressim::neo::physics::FluidMaterialDesc fluidMaterial{};
     fluidMaterial.contact = fluidContact;
     fluidMaterial.viscosity = 0.0f;
+    fluidMaterial.cohesion = 10.0f;
     fluidMaterial.gravityScale = 0.2f;
     fluidMaterial.cflCoefficient = 1.0f;
+    fluidMaterial.surfaceTension =  100.0f;
 
     const Diligent::float3 fluidSize = {5.0f, options.fluidHeight, 5.0f};
     const Diligent::float3 fluidCenter = {0.0f, kFluidBottomY + 0.5f * fluidSize.y, 0.0f};
