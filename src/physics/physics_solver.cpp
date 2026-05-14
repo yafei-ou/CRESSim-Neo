@@ -234,8 +234,10 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         const bool hasFluidBoundaryWork    = hasFluidWork && colliderCount > 0u;
         const bool hasSoftInternalWork =
             particleCount > 0u && (softEdgeCount > 0u || softTetCount > 0u);
-        const bool hasSoftSoftContactWork    = particleCount > 1u;
-        const bool hasSoftRigidContactWork   = particleCount > 0u && colliderCount > 0u;
+        const bool hasSoftContactSolveWork = softContactIterations > 0u;
+        const bool hasSoftSoftContactWork  = hasSoftContactSolveWork && particleCount > 1u;
+        const bool hasSoftRigidContactWork =
+            hasSoftContactSolveWork && particleCount > 0u && colliderCount > 0u;
         const bool hasParticleBroadPhaseWork = hasSoftSoftContactWork || hasFluidWork;
         if (mImpl->sceneState.correctionBuffersNeedClear() &&
             !mImpl->passDispatcher.clearRigidCorrections(

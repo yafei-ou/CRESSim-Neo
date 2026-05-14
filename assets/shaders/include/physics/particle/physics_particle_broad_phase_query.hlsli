@@ -91,6 +91,11 @@ bool IsValidParticleParticleCandidate(uint particleIndex, float3 particlePositio
     }
 
     const uint otherKind = CRESSIM_SB_LOAD(g_ParticleKinds, otherParticleIndex);
+    if (particleKind == kParticleKindFluid && otherKind == kParticleKindFluid)
+    {
+        return false;
+    }
+
     if (particleKind == kParticleKindSoftSolid && otherKind == kParticleKindSoftSolid &&
         ParticlePhaseGroup(particlePhase) == ParticlePhaseGroup(otherPhase))
     {
