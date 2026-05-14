@@ -7,10 +7,11 @@
 #include "../rigid/physics_rigid_types.hlsli"
 #include "../rigid/physics_rigid_broad_phase_types.hlsli"
 
-bool ComputeFluidBoundaryGhostDelta(uint rigidBodyIndex, uint colliderIndex, float3 selfPosition,
-                                    float smoothingRadius, out float3 ghostDelta)
+bool ComputeFluidBoundaryContactInfo(uint rigidBodyIndex, uint colliderIndex, float3 selfPosition,
+                                     out float signedDistance, out float3 normalWorld)
 {
-    ghostDelta = float3(0.0, 0.0, 0.0);
+    signedDistance = 0.0;
+    normalWorld = float3(0.0, 1.0, 0.0);
 
     const GpuColliderBroadPhaseData broadPhase =
         CRESSIM_SB_LOAD(g_ColliderBroadPhaseData, colliderIndex);
@@ -31,8 +32,6 @@ bool ComputeFluidBoundaryGhostDelta(uint rigidBodyIndex, uint colliderIndex, flo
     const float4 colliderWorldOrientation = ComposeColliderWorldOrientation(
         bodyOrientation, QuaternionNormalize(colliderGeometry.localOrientation));
 
-    float signedDistance = 0.0;
-    float3 normalWorld = float3(0.0, 1.0, 0.0);
     const float4 shapeParams = colliderGeometry.shapeParams;
 
     if (broadPhase.shapeType == kColliderSphere)
@@ -83,6 +82,22 @@ bool ComputeFluidBoundaryGhostDelta(uint rigidBodyIndex, uint colliderIndex, flo
         const float distance = length(delta);
         normalWorld = distance > kEpsilon ? (delta / distance) : float3(0.0, 1.0, 0.0);
         signedDistance = distance - capsuleRadius;
+    }
+
+    return true;
+}
+
+bool ComputeFluidBoundaryGhostDelta(uint rigidBodyIndex, uint colliderIndex, float3 selfPosition,
+                                    float smoothingRadius, out float3 ghostDelta)
+{
+    ghostDelta = float3(0.0, 0.0, 0.0);
+
+    float signedDistance = 0.0;
+    float3 normalWorld = float3(0.0, 1.0, 0.0);
+    if (!ComputeFluidBoundaryContactInfo(rigidBodyIndex, colliderIndex, selfPosition,
+                                         signedDistance, normalWorld))
+    {
+        return false;
     }
 
     if (signedDistance < 0.0 || signedDistance >= smoothingRadius)

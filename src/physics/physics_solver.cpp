@@ -477,6 +477,13 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                         "PhysicsSolver::step failed: ApplyFluidDeltaPositions dispatch.");
                     return false;
                 }
+                if (runFluidSolve &&
+                    !mImpl->passDispatcher.clampFluidBoundary(computeBackend.computeContext,
+                                                              mImpl->sceneState, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ClampFluidBoundary dispatch.");
+                    return false;
+                }
                 if (runSoftInternal && !mImpl->passDispatcher.solveSoftEdgeConstraints(
                                            computeBackend.computeContext, mImpl->sceneState,
                                            softEdgeCount, particleConstants))
@@ -641,6 +648,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 computeBackend.computeContext, mImpl->sceneState, particleCount, particleConstants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateParticleVelocities dispatch.");
+            return false;
+        }
+        if (hasFluidWork &&
+            !mImpl->passDispatcher.projectFluidBoundaryVelocities(
+                computeBackend.computeContext, mImpl->sceneState, particleConstants))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: ProjectFluidBoundaryVelocities dispatch.");
             return false;
         }
         if (hasFluidWork &&

@@ -54,3 +54,8 @@ add_cressim_example(
     NAME physics_fluid_tall_block_stress
     SOURCE fluid_tall_block_stress.cpp
 )
+
+add_cressim_example(
+    NAME physics_fluid_single_source_moving_splitter
+    SOURCE fluid_single_source_moving_splitter.cpp
+)

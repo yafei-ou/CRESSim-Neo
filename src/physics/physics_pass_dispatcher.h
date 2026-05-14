@@ -121,6 +121,12 @@ public:
     bool applyFluidDeltaPositions(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState,
                                   const GpuParticleDispatchConstants &constants);
+    bool clampFluidBoundary(Diligent::IDeviceContext *computeContext,
+                            const PhysicsSceneGpuState &sceneState,
+                            const GpuParticleDispatchConstants &constants);
+    bool projectFluidBoundaryVelocities(Diligent::IDeviceContext *computeContext,
+                                        const PhysicsSceneGpuState &sceneState,
+                                        const GpuParticleDispatchConstants &constants);
     bool computeFluidVorticity(Diligent::IDeviceContext *computeContext,
                                const PhysicsSceneGpuState &sceneState,
                                const GpuParticleDispatchConstants &constants);
@@ -337,6 +343,8 @@ private:
     gpu::GpuComputePass mComputeFluidDensityConstraintsPass;
     gpu::GpuComputePass mComputeFluidDeltaPositionsPass;
     gpu::GpuComputePass mApplyFluidDeltaPositionsPass;
+    gpu::GpuComputePass mClampFluidBoundaryPass;
+    gpu::GpuComputePass mProjectFluidBoundaryVelocitiesPass;
     gpu::GpuComputePass mComputeFluidVorticityPass;
     gpu::GpuComputePass mApplyFluidVorticityConfinementPass;
     gpu::GpuComputePass mSolveParticleContactVelocitiesPass;
