@@ -6,7 +6,7 @@
 #include "../particle/physics_particle_types.hlsli"
 
 static const float kFluidConstraintEpsilon = 1.0e-6;
-static const float kFluidSolveCoefficient = 0.01;
+static const float kFluidSolveCoefficient = 0.7;
 static const float kFluidBoundaryDensityScale = 0.12;
 static const float kFluidBoundaryDeltaScale = 0.08;
 
