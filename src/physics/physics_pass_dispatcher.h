@@ -60,6 +60,10 @@ public:
                                           const PhysicsSceneGpuState &sceneState,
                                           std::uint32_t particleCount,
                                           const GpuParticleDispatchConstants &constants);
+    bool buildFluidBoundaryCandidatePairs(Diligent::IDeviceContext *computeContext,
+                                          const PhysicsSceneGpuState &sceneState,
+                                          std::uint32_t particleCount,
+                                          const GpuParticleDispatchConstants &constants);
     bool prepareParticleCandidateIndirectArgs(Diligent::IDeviceContext *computeContext,
                                               const PhysicsSceneGpuState &sceneState);
     bool prepareParticleActiveIndirectArgs(Diligent::IDeviceContext *computeContext,
@@ -307,6 +311,9 @@ private:
     gpu::GpuComputePass mCountParticleRigidCandidatePairsPass;
     gpu::GpuComputePass mFinalizeParticleRigidCandidatePairsPass;
     gpu::GpuComputePass mEmitParticleRigidCandidatePairsPass;
+    gpu::GpuComputePass mCountFluidBoundaryCandidatePairsPass;
+    gpu::GpuComputePass mFinalizeFluidBoundaryCandidatePairsPass;
+    gpu::GpuComputePass mEmitFluidBoundaryCandidatePairsPass;
     gpu::GpuComputePass mGenerateParticleExplicitContactsPass;
     gpu::GpuComputePass mGenerateParticleRigidContactsPass;
     gpu::GpuComputePass mPrepareExplicitContactScanPass;

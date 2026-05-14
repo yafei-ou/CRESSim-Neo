@@ -1,19 +1,28 @@
 #include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
 #include "../../../include/physics/particle/physics_particle_types.hlsli"
+#include "../../../include/physics/rigid/physics_rigid_broad_phase_types.hlsli"
+#include "../../../include/physics/rigid/physics_rigid_types.hlsli"
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleKinds);
 CRESSIM_STRUCTURED_BUFFER(uint, g_FluidMaterialIndices);
 CRESSIM_STRUCTURED_BUFFER(GpuFluidMaterial, g_FluidMaterials);
-CRESSIM_STRUCTURED_BUFFER(float, g_FluidConstraints);
 CRESSIM_STRUCTURED_BUFFER(float4, g_FluidIterationDelta);
 CRESSIM_STRUCTURED_BUFFER(float4, g_FluidSurfaceNormals);
 CRESSIM_STRUCTURED_BUFFER(uint, g_FluidNeighborCounts);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleCandidatePair, g_FluidNeighborPairs);
+CRESSIM_STRUCTURED_BUFFER(uint2, g_FluidBoundaryCandidateRanges);
+CRESSIM_STRUCTURED_BUFFER(GpuParticleCandidatePair, g_FluidBoundaryCandidatePairs);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
+CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyScales);
+CRESSIM_STRUCTURED_BUFFER(GpuColliderGeometryData, g_ColliderGeometryData);
+CRESSIM_STRUCTURED_BUFFER(GpuColliderBroadPhaseData, g_ColliderBroadPhaseData);
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_FluidDeltaPositions);
 
 #define CRESSIM_FLUID_COMMON_HAS_MATERIAL_INDICES 1
 #include "../../../include/physics/fluid/physics_fluid_common.hlsli"
+#include "../../../include/physics/fluid/physics_fluid_boundary_common.hlsli"
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -43,7 +52,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             ? CRESSIM_SB_LOAD(g_FluidIterationDelta, particleIndex).xyz
             : float3(0.0, 0.0, 0.0);
     const float3 selfPosition = selfPositionInvMass.xyz + selfAccumulatedDelta;
-    const float selfConstraint = CRESSIM_SB_LOAD(g_FluidConstraints, particleIndex);
+    const float4 selfSurfaceNormalAndConstraint =
+        CRESSIM_SB_LOAD(g_FluidSurfaceNormals, particleIndex);
+    const float selfConstraint = selfSurfaceNormalAndConstraint.w;
     const uint fluidMaterialIndex = CRESSIM_SB_LOAD(g_FluidMaterialIndices, particleIndex);
     const GpuFluidMaterial fluidMaterial = CRESSIM_SB_LOAD(g_FluidMaterials, fluidMaterialIndex);
     const float smoothingRadius = max(fluidMaterial.smoothingRadius, 1.0e-4);
@@ -54,7 +65,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     float3 deltaPosition = float3(0.0, 0.0, 0.0);
     float interactionWeight = 0.0;
     const float3 selfSurfaceNormal =
-        (surfaceTension > kEpsilon) ? CRESSIM_SB_LOAD(g_FluidSurfaceNormals, particleIndex).xyz
+        (surfaceTension > kEpsilon) ? selfSurfaceNormalAndConstraint.xyz
                                     : float3(0.0, 0.0, 0.0);
     const uint neighborCount = CRESSIM_SB_LOAD(g_FluidNeighborCounts, particleIndex);
     const uint neighborOffset = particleIndex * maxFluidNeighborhood;
@@ -86,7 +97,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             continue;
         }
 
-        const float neighborConstraint = CRESSIM_SB_LOAD(g_FluidConstraints, neighborIndex);
+        const float4 neighborSurfaceNormalAndConstraint =
+            CRESSIM_SB_LOAD(g_FluidSurfaceNormals, neighborIndex);
+        const float neighborConstraint = neighborSurfaceNormalAndConstraint.w;
         const float3 nij = delta / distance;
         const float derivative = FluidSpikyKernelDerivative(distance, smoothingRadius);
         float3 pairDelta =
@@ -123,8 +136,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
             if (surfaceTension > kEpsilon)
             {
-                const float3 neighborSurfaceNormal =
-                    CRESSIM_SB_LOAD(g_FluidSurfaceNormals, neighborIndex).xyz;
+                const float3 neighborSurfaceNormal = neighborSurfaceNormalAndConstraint.xyz;
                 pairDelta -= dt * (selfSurfaceNormal - neighborSurfaceNormal);
             }
         }
@@ -134,7 +146,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     const float3 boundaryDelta =
-        ComputeManualFluidBoundaryDelta(selfPosition, smoothingRadius, selfConstraint);
+        ComputeFluidBoundaryDeltaFromCandidates(particleIndex, selfPosition, smoothingRadius,
+                                                selfConstraint);
 
     const float3 packedDelta =
         deltaPosition * kFluidSolveCoefficient + boundaryDelta;

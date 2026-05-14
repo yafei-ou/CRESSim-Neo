@@ -40,12 +40,17 @@ struct GpuParticleNeighborMeta
 {
     uint particleParticleCandidateCount;
     uint particleRigidCandidateCount;
+    uint fluidBoundaryCandidateCount;
     uint requiredParticleParticleCandidateCount;
     uint requiredParticleRigidCandidateCount;
+    uint requiredFluidBoundaryCandidateCount;
     uint particleParticleCandidateOverflow;
     uint particleRigidCandidateOverflow;
+    uint fluidBoundaryCandidateOverflow;
     uint activeParticleContactCount;
     uint activeParticleRigidContactCount;
+    uint reserved0;
+    uint reserved1;
 };
 
 struct GpuParticleCellRange

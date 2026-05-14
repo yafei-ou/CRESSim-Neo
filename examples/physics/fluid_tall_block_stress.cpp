@@ -102,6 +102,30 @@ void spawnStaticBox(cressim::neo::engine::World &world, MeshHandle mesh, Materia
     world.addCollider(entity, collider);
 }
 
+void spawnStaticCollisionBox(cressim::neo::engine::World &world,
+                             const Diligent::float3 &position,
+                             const Diligent::float3 &halfExtents)
+{
+    const auto entity = world.createEntity();
+
+    TransformComponent transform{};
+    transform.worldTransform.position = position;
+    transform.worldTransform.scale = halfExtents;
+    world.setTransform(entity, transform);
+
+    RigidBodyComponent body{};
+    body.simulated = true;
+    body.bodyType = RigidBodyType::Static;
+    body.inverseMass = 0.0f;
+    body.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
+    world.setRigidBody(entity, body);
+
+    ColliderComponent collider{};
+    collider.shapeType = ColliderShapeType::Box;
+    collider.shapeParams = {1.0f, 1.0f, 1.0f, 0.0f};
+    world.addCollider(entity, collider);
+}
+
 bool spawnFluid(cressim::neo::engine::World &world, const Diligent::float3 &position,
                 const Diligent::float3 &size,
                 const cressim::neo::physics::FluidMaterialDesc &material)
@@ -211,8 +235,19 @@ int main(int argc, char **argv)
     light.intensity = 7.0f;
     world.setDirectionalLight(lightEntity, light);
 
-    // This scene currently relies on the virtual fluid boundary path rather than
-    // authored rigid walls, so we do not spawn the container colliders here.
+    auto &resources = runtime.getResources();
+    const MeshHandle boxMesh = resources.registerMesh(
+        cressim::neo::examples::helpers::makeCubeMesh(1.0f, "TallFluidStress.BoxMesh"));
+    const MaterialHandle floorMaterial =
+        registerMaterial(resources, "TallFluidStress.Floor", {0.78f, 0.80f, 0.84f}, 0.92f);
+    const MaterialHandle wallMaterial =
+        registerMaterial(resources, "TallFluidStress.Wall", {0.16f, 0.42f, 0.82f}, 0.58f);
+
+    spawnStaticBox(world, boxMesh, floorMaterial, {0.0f, -1.0f, 0.0f}, {2.35f, 0.15f, 2.35f});
+    spawnStaticBox(world, boxMesh, wallMaterial, {-2.35f, 3.5f, 0.0f}, {0.15f, 4.5f, 2.35f});
+    spawnStaticBox(world, boxMesh, wallMaterial, {2.35f, 3.5f, 0.0f}, {0.15f, 4.5f, 2.35f});
+    spawnStaticCollisionBox(world, {0.0f, 3.5f, -2.35f}, {2.35f, 4.5f, 0.15f});
+    spawnStaticBox(world, boxMesh, wallMaterial, {0.0f, 3.5f, 2.35f}, {2.35f, 4.5f, 0.15f});
 
     cressim::neo::physics::ParticleContactMaterialDesc fluidContact{};
     fluidContact.friction = 0.04f;

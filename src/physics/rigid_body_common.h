@@ -142,6 +142,7 @@ struct GpuParticleDispatchConstants
     std::uint32_t rigidColliderCount            = 0;
     float particleGridCellSize                  = 0.0f;
     std::uint32_t particleCandidatePairCapacity = 0;
+    std::uint32_t fluidBoundaryCandidatePairCapacity = 0;
     std::uint32_t particleCellRangeCapacity     = 0;
     std::uint32_t softEdgeCount                 = 0;
     std::uint32_t softTetCount                  = 0;
@@ -218,12 +219,17 @@ struct GpuParticleNeighborMeta
 {
     std::uint32_t particleParticleCandidateCount         = 0;
     std::uint32_t particleRigidCandidateCount            = 0;
+    std::uint32_t fluidBoundaryCandidateCount            = 0;
     std::uint32_t requiredParticleParticleCandidateCount = 0;
     std::uint32_t requiredParticleRigidCandidateCount    = 0;
+    std::uint32_t requiredFluidBoundaryCandidateCount    = 0;
     std::uint32_t particleParticleCandidateOverflow      = 0;
     std::uint32_t particleRigidCandidateOverflow         = 0;
+    std::uint32_t fluidBoundaryCandidateOverflow         = 0;
     std::uint32_t activeParticleContactCount             = 0;
     std::uint32_t activeParticleRigidContactCount        = 0;
+    std::uint32_t reserved0                              = 0;
+    std::uint32_t reserved1                              = 0;
 };
 
 struct GpuParticleCellRange
@@ -491,12 +497,12 @@ static_assert(sizeof(GpuRigidJointDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
-static_assert(sizeof(GpuParticleDispatchConstants) == 48u);
+static_assert(sizeof(GpuParticleDispatchConstants) == 52u);
 static_assert(sizeof(GpuDispatchIndirectArgs) == 12u);
 static_assert(sizeof(GpuPaddedDispatchIndirectArgs) == 16u);
 static_assert(sizeof(GpuParticleBroadPhaseEntry) == 32u);
 static_assert(sizeof(GpuParticleCandidatePair) == 16u);
-static_assert(sizeof(GpuParticleNeighborMeta) == 32u);
+static_assert(sizeof(GpuParticleNeighborMeta) == 52u);
 static_assert(sizeof(GpuParticleCellRange) == 16u);
 static_assert(sizeof(GpuParticleRigidContact) == 64u);
 static_assert(sizeof(GpuParticleContact) == 32u);

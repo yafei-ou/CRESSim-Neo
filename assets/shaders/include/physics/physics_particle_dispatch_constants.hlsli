@@ -8,6 +8,7 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint rigidColliderCount;
     float particleGridCellSize;
     uint particleCandidatePairCapacity;
+    uint fluidBoundaryCandidatePairCapacity;
     uint particleCellRangeCapacity;
     uint softEdgeCount;
     uint softTetCount;

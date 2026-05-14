@@ -29,8 +29,26 @@ int main()
 
     const common::EntityId fluidEntity = world.createEntity();
     engine::TransformComponent fluidTransform{};
-    fluidTransform.worldTransform.position = {0.0f, 1.5f, 0.0f};
+    fluidTransform.worldTransform.position = {0.0f, 0.45f, 0.0f};
     world.setTransform(fluidEntity, fluidTransform);
+
+    const common::EntityId floorEntity = world.createEntity();
+    engine::TransformComponent floorTransform{};
+    floorTransform.worldTransform.position = {0.0f, 0.0f, 0.0f};
+    floorTransform.worldTransform.scale = {1.0f, 0.1f, 1.0f};
+    world.setTransform(floorEntity, floorTransform);
+
+    engine::RigidBodyComponent floorBody{};
+    floorBody.simulated = true;
+    floorBody.bodyType = physics::RigidBodyType::Static;
+    floorBody.inverseMass = 0.0f;
+    floorBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
+    world.setRigidBody(floorEntity, floorBody);
+
+    engine::ColliderComponent floorCollider{};
+    floorCollider.shapeType = physics::ColliderShapeType::Box;
+    floorCollider.shapeParams = {1.0f, 1.0f, 1.0f, 0.0f};
+    world.addCollider(floorEntity, floorCollider);
 
     engine::FluidComponent fluid{};
     fluid.source.kind = physics::FluidSourceKind::RegularGrid;
@@ -61,7 +79,7 @@ int main()
 
     common::FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
-    for (std::uint32_t i = 0u; i < 3u; ++i)
+    for (std::uint32_t i = 0u; i < 30u; ++i)
     {
         frame.frameIndex = i;
         frame.timeSeconds = static_cast<double>(i) * static_cast<double>(frame.deltaSeconds);
@@ -82,6 +100,12 @@ int main()
     if (!(finalY < initialY))
     {
         CRESSIM_LOG_ERROR("Fluid particle did not advance under gravity.\n");
+        runtime.shutdown();
+        return 1;
+    }
+    if (finalY < -0.05f)
+    {
+        CRESSIM_LOG_ERROR("Fluid particle escaped through the authored static floor.\n");
         runtime.shutdown();
         return 1;
     }

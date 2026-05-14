@@ -219,6 +219,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         particleConstants.particleGridCellSize = particleGridCellSize;
         particleConstants.particleCandidatePairCapacity =
             mImpl->sceneState.particleCandidatePairCapacity();
+        particleConstants.fluidBoundaryCandidatePairCapacity =
+            mImpl->sceneState.fluidBoundaryCandidatePairCapacity();
         particleConstants.fluidNeighborPairCapacity = mImpl->sceneState.fluidNeighborPairCapacity();
         particleConstants.maxFluidNeighborhood      = mImpl->sceneState.maxFluidNeighborhood();
         particleConstants.particleCellRangeCapacity =
@@ -229,6 +231,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
         const bool hasParticleNeighborWork = particleCount > 0u;
         const bool hasFluidWork            = fluidCount > 0u && particleCount > 0u;
+        const bool hasFluidBoundaryWork    = hasFluidWork && colliderCount > 0u;
         const bool hasSoftInternalWork =
             particleCount > 0u && (softEdgeCount > 0u || softTetCount > 0u);
         const bool hasSoftSoftContactWork    = particleCount > 1u;
@@ -380,7 +383,17 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     "PhysicsSolver::step failed: BuildSoftRigidCandidatePairs dispatch.");
                 return false;
             }
-            if (!mImpl->passDispatcher.prepareParticleCandidateIndirectArgs(
+            if (hasFluidBoundaryWork &&
+                !mImpl->passDispatcher.buildFluidBoundaryCandidatePairs(
+                    computeBackend.computeContext, mImpl->sceneState, particleCount,
+                    particleConstants))
+            {
+                CRESSIM_LOG_ERROR(
+                    "PhysicsSolver::step failed: BuildFluidBoundaryCandidatePairs dispatch.");
+                return false;
+            }
+            if ((hasSoftSoftContactWork || hasSoftRigidContactWork) &&
+                !mImpl->passDispatcher.prepareParticleCandidateIndirectArgs(
                     computeBackend.computeContext, mImpl->sceneState))
             {
                 CRESSIM_LOG_ERROR(
@@ -778,14 +791,20 @@ bool PhysicsSolver::validateGpuMetaBlocking()
             return false;
         }
         if (particleNeighborMeta.particleParticleCandidateOverflow != 0u ||
-            particleNeighborMeta.particleRigidCandidateOverflow != 0u)
+            particleNeighborMeta.particleRigidCandidateOverflow != 0u ||
+            particleNeighborMeta.fluidBoundaryCandidateOverflow != 0u)
         {
             CRESSIM_LOG_ERROR("PhysicsSolver validation failed: particle candidate overflow "
                               "(particle-particle required=",
                               particleNeighborMeta.requiredParticleParticleCandidateCount,
                               ", particle-rigid required=",
                               particleNeighborMeta.requiredParticleRigidCandidateCount,
-                              ", capacity=", mImpl->sceneState.particleCandidatePairCapacity(),
+                              ", fluid-boundary required=",
+                              particleNeighborMeta.requiredFluidBoundaryCandidateCount,
+                              ", particle-rigid capacity=",
+                              mImpl->sceneState.particleCandidatePairCapacity(),
+                              ", fluid-boundary capacity=",
+                              mImpl->sceneState.fluidBoundaryCandidatePairCapacity(),
                               ").");
             return false;
         }

@@ -385,6 +385,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.physicsIndirectArgsBuffer != nullptr &&
         mTransientState.softSoftCandidatePairsBuffer != nullptr &&
         mTransientState.fluidNeighborPairsBuffer != nullptr &&
+        mTransientState.fluidBoundaryCandidateCountsBuffer != nullptr &&
+        mTransientState.fluidBoundaryCandidateOffsetsBuffer != nullptr &&
+        mTransientState.fluidBoundaryCandidateRangesBuffer != nullptr &&
+        mTransientState.fluidBoundaryCandidatePairsBuffer != nullptr &&
         mTransientState.softRigidCandidatePairsBuffer != nullptr &&
         mTransientState.softRigidContactsBuffer != nullptr &&
         mTransientState.softContactsBuffer != nullptr &&
@@ -484,6 +488,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         nextPowerOfTwo(std::max<std::uint32_t>(newParticleBroadPhaseEntryCapacity * 2u, 64u));
     const std::uint32_t newSoftCandidatePairCapacity =
         std::max<std::uint32_t>(particleCount * 8u, 64u);
+    const std::uint32_t newFluidBoundaryCandidatePairCapacity =
+        std::max<std::uint32_t>(particleCount * 32u, 64u);
     // Fluid neighbors are stored in fixed per-particle slots so the solver can
     // index them directly without a scan/offset pass. This is still a heuristic
     // and may truncate in very dense scenes until we add explicit overflow
@@ -540,6 +546,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mFluidMaterialCapacity >= newFluidMaterialCapacity &&
         mParticleBroadPhaseEntryCapacity >= newParticleBroadPhaseEntryCapacity &&
         mSoftCandidatePairCapacity >= newSoftCandidatePairCapacity &&
+        mFluidBoundaryCandidatePairCapacity >= newFluidBoundaryCandidatePairCapacity &&
         mFluidNeighborPairCapacity >= newFluidNeighborPairCapacity &&
         mSoftScanScratchCapacity >= newSoftScanCapacity &&
         mSoftIncidentEdgeCapacity >= newSoftIncidentEdgeCapacity &&
@@ -940,6 +947,27 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.fluidNeighborPairsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidBoundaryCandidateCounts",
+                                sizeof(std::uint32_t), newSoftParticleCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.fluidBoundaryCandidateCountsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidBoundaryCandidateOffsets",
+                                sizeof(std::uint32_t), newSoftParticleCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.fluidBoundaryCandidateOffsetsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidBoundaryCandidateRanges",
+                                sizeof(Diligent::uint2), newSoftParticleCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.fluidBoundaryCandidateRangesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidBoundaryCandidatePairs",
+                                sizeof(GpuParticleCandidatePair),
+                                newFluidBoundaryCandidatePairCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.fluidBoundaryCandidatePairsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRigidCandidatePairs",
                                 sizeof(GpuParticleCandidatePair), newSoftCandidatePairCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -1406,6 +1434,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mSoftEdgeCapacity != newSoftEdgeCapacity || mSoftTetCapacity != newSoftTetCapacity ||
         mParticleBroadPhaseEntryCapacity != newParticleBroadPhaseEntryCapacity ||
         mSoftCandidatePairCapacity != newSoftCandidatePairCapacity ||
+        mFluidBoundaryCandidatePairCapacity != newFluidBoundaryCandidatePairCapacity ||
         mFluidNeighborPairCapacity != newFluidNeighborPairCapacity ||
         mMaxFluidNeighborhood != newMaxFluidNeighborhood ||
         mSoftScanScratchCapacity != newSoftScanCapacity ||
@@ -1427,6 +1456,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
     mSoftTetCapacity                           = newSoftTetCapacity;
     mParticleBroadPhaseEntryCapacity           = newParticleBroadPhaseEntryCapacity;
     mSoftCandidatePairCapacity                 = newSoftCandidatePairCapacity;
+    mFluidBoundaryCandidatePairCapacity        = newFluidBoundaryCandidatePairCapacity;
     mFluidNeighborPairCapacity                 = newFluidNeighborPairCapacity;
     mMaxFluidNeighborhood                      = newMaxFluidNeighborhood;
     mSoftScanScratchCapacity                   = newSoftScanCapacity;
@@ -2647,6 +2677,11 @@ std::uint32_t PhysicsSceneGpuState::candidatePairCapacity() const noexcept
 std::uint32_t PhysicsSceneGpuState::particleCandidatePairCapacity() const noexcept
 {
     return mSoftCandidatePairCapacity;
+}
+
+std::uint32_t PhysicsSceneGpuState::fluidBoundaryCandidatePairCapacity() const noexcept
+{
+    return mFluidBoundaryCandidatePairCapacity;
 }
 
 std::uint32_t PhysicsSceneGpuState::fluidNeighborPairCapacity() const noexcept
