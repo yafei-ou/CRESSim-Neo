@@ -56,6 +56,6 @@ add_cressim_example(
 )
 
 add_cressim_example(
-    NAME physics_fluid_single_source_moving_splitter
-    SOURCE fluid_single_source_moving_splitter.cpp
+    NAME physics_fluid_moving_splitter
+    SOURCE fluid_moving_splitter.cpp
 )
