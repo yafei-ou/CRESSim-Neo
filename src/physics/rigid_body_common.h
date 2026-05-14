@@ -112,10 +112,10 @@ struct GpuSliderJoint
 
 struct GpuPhysicsScanConstants
 {
-    std::uint32_t elementCount = 0;
+    std::uint32_t elementCount     = 0;
     std::uint32_t hasParentOffsets = 0;
-    std::uint32_t reserved1    = 0;
-    std::uint32_t reserved2    = 0;
+    std::uint32_t reserved1        = 0;
+    std::uint32_t reserved2        = 0;
 };
 
 struct GpuPhysicsScanDispatchConstants
@@ -137,19 +137,19 @@ struct GpuPhysicsRadixConstants
 // Shared particle/fluid dispatch constants.
 struct GpuParticleDispatchConstants
 {
-    float dt                                    = 0.0f;
-    std::uint32_t particleCount                 = 0;
-    std::uint32_t rigidColliderCount            = 0;
-    float particleGridCellSize                  = 0.0f;
-    std::uint32_t particleCandidatePairCapacity = 0;
+    float dt                                         = 0.0f;
+    std::uint32_t particleCount                      = 0;
+    std::uint32_t rigidColliderCount                 = 0;
+    float particleGridCellSize                       = 0.0f;
+    std::uint32_t particleCandidatePairCapacity      = 0;
     std::uint32_t fluidBoundaryCandidatePairCapacity = 0;
-    std::uint32_t particleCellRangeCapacity     = 0;
-    std::uint32_t softEdgeCount                 = 0;
-    std::uint32_t softTetCount                  = 0;
-    std::uint32_t fluidIterations               = 0;
-    std::uint32_t fluidNeighborPairCapacity     = 0;
-    std::uint32_t maxFluidNeighborhood          = 0;
-    std::uint32_t iterationIndex                = 0;
+    std::uint32_t particleCellRangeCapacity          = 0;
+    std::uint32_t softEdgeCount                      = 0;
+    std::uint32_t softTetCount                       = 0;
+    std::uint32_t fluidIterations                    = 0;
+    std::uint32_t fluidNeighborPairCapacity          = 0;
+    std::uint32_t maxFluidNeighborhood               = 0;
+    std::uint32_t iterationIndex                     = 0;
 };
 
 struct GpuSoftRenderDispatchConstants

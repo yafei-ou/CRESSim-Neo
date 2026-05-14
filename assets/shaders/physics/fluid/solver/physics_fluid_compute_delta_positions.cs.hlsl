@@ -7,7 +7,7 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleKinds);
 CRESSIM_STRUCTURED_BUFFER(uint, g_FluidMaterialIndices);
 CRESSIM_STRUCTURED_BUFFER(GpuFluidMaterial, g_FluidMaterials);
 CRESSIM_STRUCTURED_BUFFER(float4, g_FluidIterationDelta);
-CRESSIM_STRUCTURED_BUFFER(float4, g_FluidSurfaceNormals);
+CRESSIM_STRUCTURED_BUFFER(float4, g_FluidSurfaceNormalConstraints);
 CRESSIM_STRUCTURED_BUFFER(uint, g_FluidNeighborCounts);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleCandidatePair, g_FluidNeighborPairs);
 CRESSIM_STRUCTURED_BUFFER(uint2, g_FluidBoundaryCandidateRanges);
@@ -53,7 +53,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             : float3(0.0, 0.0, 0.0);
     const float3 selfPosition = selfPositionInvMass.xyz + selfAccumulatedDelta;
     const float4 selfSurfaceNormalAndConstraint =
-        CRESSIM_SB_LOAD(g_FluidSurfaceNormals, particleIndex);
+        CRESSIM_SB_LOAD(g_FluidSurfaceNormalConstraints, particleIndex);
     const float selfConstraint = selfSurfaceNormalAndConstraint.w;
     const uint fluidMaterialIndex = CRESSIM_SB_LOAD(g_FluidMaterialIndices, particleIndex);
     const GpuFluidMaterial fluidMaterial = CRESSIM_SB_LOAD(g_FluidMaterials, fluidMaterialIndex);
@@ -98,7 +98,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         }
 
         const float4 neighborSurfaceNormalAndConstraint =
-            CRESSIM_SB_LOAD(g_FluidSurfaceNormals, neighborIndex);
+            CRESSIM_SB_LOAD(g_FluidSurfaceNormalConstraints, neighborIndex);
         const float neighborConstraint = neighborSurfaceNormalAndConstraint.w;
         const float3 nij = delta / distance;
         const float derivative = FluidSpikyKernelDerivative(distance, smoothingRadius);

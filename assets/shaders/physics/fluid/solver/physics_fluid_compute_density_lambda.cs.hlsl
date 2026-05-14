@@ -17,7 +17,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyScales);
 CRESSIM_STRUCTURED_BUFFER(GpuColliderGeometryData, g_ColliderGeometryData);
 CRESSIM_STRUCTURED_BUFFER(GpuColliderBroadPhaseData, g_ColliderBroadPhaseData);
 
-CRESSIM_RW_STRUCTURED_BUFFER(float4, g_FluidSurfaceNormals);
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_FluidSurfaceNormalConstraints);
 
 #define CRESSIM_FLUID_COMMON_HAS_MATERIAL_INDICES 1
 #include "../../../include/physics/fluid/physics_fluid_common.hlsli"
@@ -34,7 +34,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     if (CRESSIM_SB_LOAD(g_ParticleKinds, particleIndex) != kParticleKindFluid)
     {
-        CRESSIM_SB_STORE(g_FluidSurfaceNormals, particleIndex, float4(0.0, 0.0, 0.0, 0.0));
+        CRESSIM_SB_STORE(g_FluidSurfaceNormalConstraints, particleIndex,
+                         float4(0.0, 0.0, 0.0, 0.0));
         return;
     }
 
@@ -42,7 +43,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float selfInvMass = selfPositionInvMass.w;
     if (selfInvMass <= kEpsilon)
     {
-        CRESSIM_SB_STORE(g_FluidSurfaceNormals, particleIndex, float4(0.0, 0.0, 0.0, 0.0));
+        CRESSIM_SB_STORE(g_FluidSurfaceNormalConstraints, particleIndex,
+                         float4(0.0, 0.0, 0.0, 0.0));
         return;
     }
 
@@ -100,11 +102,12 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     if (surfaceTension > kEpsilon)
     {
         surfaceNormal *= surfaceTension;
-        CRESSIM_SB_STORE(g_FluidSurfaceNormals, particleIndex,
+        CRESSIM_SB_STORE(g_FluidSurfaceNormalConstraints, particleIndex,
                          float4(surfaceNormal, constraint));
     }
     else
     {
-        CRESSIM_SB_STORE(g_FluidSurfaceNormals, particleIndex, float4(0.0, 0.0, 0.0, constraint));
+        CRESSIM_SB_STORE(g_FluidSurfaceNormalConstraints, particleIndex,
+                         float4(0.0, 0.0, 0.0, constraint));
     }
 }

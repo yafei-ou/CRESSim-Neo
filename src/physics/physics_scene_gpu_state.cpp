@@ -396,10 +396,9 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.activeSoftContactsBuffer != nullptr &&
         mTransientState.softPositionCorrectionsBuffer != nullptr &&
         mTransientState.softVelocityCorrectionsBuffer != nullptr &&
-        mTransientState.fluidConstraintsBuffer != nullptr &&
         mTransientState.fluidDeltaPositionsBuffer != nullptr &&
         mTransientState.fluidIterationDeltaBuffer != nullptr &&
-        mTransientState.fluidSurfaceNormalsBuffer != nullptr &&
+        mTransientState.fluidSurfaceNormalConstraintsBuffer != nullptr &&
         mTransientState.fluidVorticitiesBuffer != nullptr &&
         mTransientState.softEdgeLambdasBuffer != nullptr &&
         mTransientState.softTetLambdasBuffer != nullptr &&
@@ -495,8 +494,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
     // and may truncate in very dense scenes until we add explicit overflow
     // reporting for the fluid path.
     const std::uint32_t newMaxFluidNeighborhood = kDefaultFluidMaxNeighborhood;
-    const std::uint32_t newFluidNeighborPairCapacity = std::max<std::uint32_t>(
-        particleCount * newMaxFluidNeighborhood, newMaxFluidNeighborhood);
+    const std::uint32_t newFluidNeighborPairCapacity =
+        std::max<std::uint32_t>(particleCount * newMaxFluidNeighborhood, newMaxFluidNeighborhood);
     const std::uint32_t newSoftScanCapacity =
         std::max(newParticleBroadPhaseEntryCapacity, newSoftCandidatePairCapacity);
     const std::uint32_t newSoftParticleAdjacencyCapacity =
@@ -1003,11 +1002,6 @@ bool PhysicsSceneGpuState::ensureCapacity(
             Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
             Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask, useNativeFloatAtomics,
             mTransientState.softVelocityCorrectionsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidConstraints", sizeof(float),
-                                newSoftParticleCapacity,
-                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
-                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.fluidConstraintsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidDeltaPositions",
                                 sizeof(Diligent::float4), newSoftParticleCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -1018,11 +1012,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.fluidIterationDeltaBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidSurfaceNormals",
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidSurfaceNormalConstraints",
                                 sizeof(Diligent::float4), newSoftParticleCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.fluidSurfaceNormalsBuffer) ||
+                                mTransientState.fluidSurfaceNormalConstraintsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidVorticities",
                                 sizeof(Diligent::float4), newSoftParticleCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,

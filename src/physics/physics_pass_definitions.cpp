@@ -571,7 +571,7 @@ constexpr Diligent::ShaderResourceVariableDesc kComputeFluidDensityConstraintsVa
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ColliderBroadPhaseData",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidSurfaceNormals",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidSurfaceNormalConstraints",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
@@ -588,7 +588,7 @@ constexpr Diligent::ShaderResourceVariableDesc kComputeFluidDeltaPositionsVars[]
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidIterationDelta",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidSurfaceNormals",
+    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidSurfaceNormalConstraints",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FluidNeighborCounts",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},

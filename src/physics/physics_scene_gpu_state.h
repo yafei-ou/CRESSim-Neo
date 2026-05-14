@@ -156,10 +156,9 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> activeSoftContactsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softPositionCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softVelocityCorrectionsBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidConstraintsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidDeltaPositionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidIterationDeltaBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidSurfaceNormalsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidSurfaceNormalConstraintsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidVorticitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetLambdasBuffer;

@@ -383,10 +383,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     "PhysicsSolver::step failed: BuildSoftRigidCandidatePairs dispatch.");
                 return false;
             }
-            if (hasFluidBoundaryWork &&
-                !mImpl->passDispatcher.buildFluidBoundaryCandidatePairs(
-                    computeBackend.computeContext, mImpl->sceneState, particleCount,
-                    particleConstants))
+            if (hasFluidBoundaryWork && !mImpl->passDispatcher.buildFluidBoundaryCandidatePairs(
+                                            computeBackend.computeContext, mImpl->sceneState,
+                                            particleCount, particleConstants))
             {
                 CRESSIM_LOG_ERROR(
                     "PhysicsSolver::step failed: BuildFluidBoundaryCandidatePairs dispatch.");
@@ -794,18 +793,17 @@ bool PhysicsSolver::validateGpuMetaBlocking()
             particleNeighborMeta.particleRigidCandidateOverflow != 0u ||
             particleNeighborMeta.fluidBoundaryCandidateOverflow != 0u)
         {
-            CRESSIM_LOG_ERROR("PhysicsSolver validation failed: particle candidate overflow "
-                              "(particle-particle required=",
-                              particleNeighborMeta.requiredParticleParticleCandidateCount,
-                              ", particle-rigid required=",
-                              particleNeighborMeta.requiredParticleRigidCandidateCount,
-                              ", fluid-boundary required=",
-                              particleNeighborMeta.requiredFluidBoundaryCandidateCount,
-                              ", particle-rigid capacity=",
-                              mImpl->sceneState.particleCandidatePairCapacity(),
-                              ", fluid-boundary capacity=",
-                              mImpl->sceneState.fluidBoundaryCandidatePairCapacity(),
-                              ").");
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver validation failed: particle candidate overflow "
+                "(particle-particle required=",
+                particleNeighborMeta.requiredParticleParticleCandidateCount,
+                ", particle-rigid required=",
+                particleNeighborMeta.requiredParticleRigidCandidateCount,
+                ", fluid-boundary required=",
+                particleNeighborMeta.requiredFluidBoundaryCandidateCount,
+                ", particle-rigid capacity=", mImpl->sceneState.particleCandidatePairCapacity(),
+                ", fluid-boundary capacity=",
+                mImpl->sceneState.fluidBoundaryCandidatePairCapacity(), ").");
             return false;
         }
     }
