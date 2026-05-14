@@ -11,6 +11,7 @@ CRESSIM_STRUCTURED_BUFFER(GpuParticleCandidatePair, g_FluidNeighborPairs);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_FluidConstraints);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_FluidSurfaceNormals);
 
+#define CRESSIM_FLUID_COMMON_HAS_MATERIAL_INDICES 1
 #include "../../../include/physics/fluid/physics_fluid_common.hlsli"
 
 [numthreads(64, 1, 1)]
@@ -82,6 +83,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             surfaceNormal += FluidSpikyKernelGradient(delta, distance, smoothingRadius);
         }
     }
+
+    AccumulateManualFluidBoundaryDensity(selfPosition, smoothingRadius, surfaceTension, density,
+                                         surfaceNormal);
 
     const float constraint =
         max(density - restDensity, -restDensity * 0.005) * densityConstraintScale;

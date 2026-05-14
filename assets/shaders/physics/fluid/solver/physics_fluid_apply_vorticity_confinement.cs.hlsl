@@ -10,6 +10,7 @@ CRESSIM_STRUCTURED_BUFFER(GpuParticleCandidatePair, g_FluidNeighborPairs);
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticleVelocitiesRW);
 
+#define CRESSIM_FLUID_COMMON_HAS_MATERIAL_INDICES 1
 #include "../../../include/physics/fluid/physics_fluid_common.hlsli"
 
 [numthreads(64, 1, 1)]

@@ -211,19 +211,8 @@ int main(int argc, char **argv)
     light.intensity = 7.0f;
     world.setDirectionalLight(lightEntity, light);
 
-    auto &resources = runtime.getResources();
-    const MeshHandle boxMesh = resources.registerMesh(
-        cressim::neo::examples::helpers::makeCubeMesh(1.0f, "FluidTallBlockStress.BoxMesh"));
-    const MaterialHandle floorMaterial =
-        registerMaterial(resources, "FluidTallBlockStress.Floor", {0.80f, 0.82f, 0.85f}, 0.95f);
-    const MaterialHandle wallMaterial =
-        registerMaterial(resources, "FluidTallBlockStress.Wall", {0.14f, 0.34f, 0.68f}, 0.60f);
-
-    spawnStaticBox(world, boxMesh, floorMaterial, {0.0f, -1.16f, 0.0f}, {3.2f, 0.04f, 3.0f});
-    spawnStaticBox(world, boxMesh, wallMaterial, {-3.05f, -0.15f, 0.0f}, {0.15f, 1.0f, 3.0f});
-    spawnStaticBox(world, boxMesh, wallMaterial, {3.05f, -0.15f, 0.0f}, {0.15f, 1.0f, 3.0f});
-    spawnStaticBox(world, boxMesh, wallMaterial, {0.0f, -0.15f, -2.85f}, {3.2f, 1.0f, 0.15f});
-    spawnStaticBox(world, boxMesh, wallMaterial, {0.0f, -0.15f, 2.85f}, {3.2f, 1.0f, 0.15f});
+    // This scene currently relies on the virtual fluid boundary path rather than
+    // authored rigid walls, so we do not spawn the container colliders here.
 
     cressim::neo::physics::ParticleContactMaterialDesc fluidContact{};
     fluidContact.friction = 0.04f;
@@ -237,9 +226,10 @@ int main(int argc, char **argv)
     fluidMaterial.cohesion = 10.0f;
     fluidMaterial.gravityScale = 0.2f;
     fluidMaterial.cflCoefficient = 1.0f;
-    fluidMaterial.surfaceTension =  100.0f;
+    fluidMaterial.vorticityConfinement = 1.0f;
+    fluidMaterial.surfaceTension =  10.0f;
 
-    const Diligent::float3 fluidSize = {5.0f, options.fluidHeight, 5.0f};
+    const Diligent::float3 fluidSize = {2.5f, options.fluidHeight, 2.5f};
     const Diligent::float3 fluidCenter = {0.0f, kFluidBottomY + 0.5f * fluidSize.y, 0.0f};
     if (!spawnFluid(world, fluidCenter, fluidSize, fluidMaterial))
     {

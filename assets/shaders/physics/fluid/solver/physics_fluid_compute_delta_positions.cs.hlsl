@@ -12,6 +12,7 @@ CRESSIM_STRUCTURED_BUFFER(GpuParticleCandidatePair, g_FluidNeighborPairs);
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_FluidDeltaPositions);
 
+#define CRESSIM_FLUID_COMMON_HAS_MATERIAL_INDICES 1
 #include "../../../include/physics/fluid/physics_fluid_common.hlsli"
 
 [numthreads(64, 1, 1)]
@@ -132,8 +133,12 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         interactionWeight += 1.0;
     }
 
-    deltaPosition *= kFluidSolveCoefficient;
+    const float3 boundaryDelta =
+        ComputeManualFluidBoundaryDelta(selfPosition, smoothingRadius, selfConstraint);
+
+    const float3 packedDelta =
+        deltaPosition * kFluidSolveCoefficient + boundaryDelta;
 
     CRESSIM_SB_STORE(g_FluidDeltaPositions, particleIndex,
-                     float4(deltaPosition, interactionWeight));
+                     float4(packedDelta, interactionWeight));
 }
