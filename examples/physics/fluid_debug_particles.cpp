@@ -215,6 +215,7 @@ int main(int argc, char **argv)
     fluid.particleMass =
         0.8f * particleDiameter * particleDiameter * particleDiameter * 1000.0f;
     fluid.material.viscosity = 0.02f;
+    fluid.material.cohesion = 0.1f;
     fluid.collisionLayer = 0x1u;
     fluid.collisionMask = 0xffffffffu;
     if (!world.setFluid(fluidEntity, fluid))

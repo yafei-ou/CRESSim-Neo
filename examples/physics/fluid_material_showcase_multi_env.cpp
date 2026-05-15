@@ -359,11 +359,11 @@ int main(int argc, char **argv)
     // Keep the comparison modest so the example demonstrates material variation
     // rather than turning into a stress test for the less-mature fluid terms.
     cressim::neo::physics::FluidMaterialDesc thickerFluid = baselineFluid;
-    thickerFluid.cohesion = 10.0f;
-    thickerFluid.surfaceTension = 20.0f;
+    thickerFluid.cohesion = 1.0f;
+    thickerFluid.surfaceTension = 1.0f;
     // thickerFluid.vorticityConfinement = 10.0f;
     // thickerFluid.cflCoefficient = 10.0f;
-    thickerFluid.viscosity = 5.0f;
+    thickerFluid.viscosity = 1.0f;
     thickerFluid.gravityScale = 0.2f;
 
     cressim::neo::common::EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;

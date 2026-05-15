@@ -14,7 +14,7 @@ CRESSIM_RW_STRUCTURED_BUFFER(float4, g_FluidAnisotropy1RW);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_FluidAnisotropy2RW);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_FluidAnisotropy3RW);
 
-static const float kFluidRenderAnisotropyScale = 5.0;
+static const float kFluidRenderAnisotropyScale = 1.1;
 static const float kFluidRenderAnisotropyMin = 1.0;
 static const float kFluidRenderAnisotropyMax = 2.0;
 

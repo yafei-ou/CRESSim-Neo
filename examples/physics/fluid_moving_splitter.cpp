@@ -199,31 +199,31 @@ cressim::neo::physics::FluidMaterialDesc fluidMaterialForEnv(std::uint32_t envIn
     {
     case 0u:
         material.viscosity = 1.0f;
-        material.cohesion = 4.0f;
+        material.cohesion = 0.2f;
         material.gravityScale = 0.85f;
         material.vorticityConfinement = 0.2f;
-        material.surfaceTension = 4.0f;
+        material.surfaceTension = 0.0f;
         break;
     case 1u:
         material.viscosity = 6.5f;
-        material.cohesion = 18.0f;
+        material.cohesion = 0.4f;
         material.gravityScale = 0.65f;
         material.vorticityConfinement = 0.35f;
-        material.surfaceTension = 12.0f;
+        material.surfaceTension = 1.0f;
         break;
     case 2u:
         material.viscosity = 2.5f;
-        material.cohesion = 28.0f;
+        material.cohesion = 0.8f;
         material.gravityScale = 0.55f;
         material.vorticityConfinement = 0.1f;
-        material.surfaceTension = 24.0f;
+        material.surfaceTension = 2.0f;
         break;
     default:
         material.viscosity = 0.35f;
-        material.cohesion = 8.0f;
+        material.cohesion = 1.6f;
         material.gravityScale = 1.05f;
         material.vorticityConfinement = 0.8f;
-        material.surfaceTension = 6.0f;
+        material.surfaceTension = 4.0f;
         break;
     }
 
