@@ -494,7 +494,7 @@ public:
                 outputOverrideCameraEntity = presentedCameraEntity;
             }
 
-            graphics::RenderFrameOptions renderOptions{};
+            graphics::RenderFrameOptions renderOptions = runtime.renderFrameOptions();
             renderOptions.presentedCameraEntity  = presentedCameraEntity;
             renderOptions.presentationTarget     = presentationTargetDesc;
             renderOptions.debugParticles.enabled = mDesc.enableDebugParticles;

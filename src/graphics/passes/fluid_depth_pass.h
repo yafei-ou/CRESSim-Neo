@@ -44,9 +44,9 @@ private:
         std::uint32_t cameraIndex = 0u;
         std::uint32_t sceneDepthLayer = 0u;
         std::uint32_t envIndex = 0u;
-        float padding0 = 0.0f;
-        float depthEdgeThreshold = 0.2f;
         float padding1 = 0.0f;
+        float depthEdgeThreshold = 0.2f;
+        float padding0 = 0.0f;
         float padding2 = 0.0f;
     };
 

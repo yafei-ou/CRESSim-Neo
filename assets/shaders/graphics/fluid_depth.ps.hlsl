@@ -19,6 +19,7 @@ cbuffer GraphicsFluidDepth
 };
 
 #define g_FluidDepthCameraIndex g_FluidDepthParams.x
+#define g_FluidDepthDepthEdgeThreshold g_FluidDepthMisc.y
 
 CRESSIM_STRUCTURED_BUFFER(CameraInput, g_CameraInputs);
 Texture2DArray<float> g_SceneDepth;
@@ -83,7 +84,7 @@ float main(PSInput In) : SV_Target
     const float sceneDepth = g_SceneDepth.SampleLevel(g_SceneDepth_sampler,
                                                       float3(uv, In.SceneDepthLayer), 0.0);
     const float linearSceneDepth = linearizeDepth(sceneDepth, nearClip, farClip);
-    if (linearDepth >= linearSceneDepth - g_FluidDepthMisc.y)
+    if (linearDepth >= linearSceneDepth - g_FluidDepthDepthEdgeThreshold)
     {
         discard;
     }
