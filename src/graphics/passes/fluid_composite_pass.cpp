@@ -131,7 +131,7 @@ Diligent::IPipelineState *FluidCompositePass::getOrCreatePipeline(
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType =
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
-    constexpr Diligent::ShaderResourceVariableDesc kVarsNoDistortion[] = {
+    constexpr Diligent::ShaderResourceVariableDesc kVarsNoRefraction[] = {
         {Diligent::SHADER_TYPE_PIXEL, "g_CameraInputs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_LightInputs",
@@ -143,7 +143,7 @@ Diligent::IPipelineState *FluidCompositePass::getOrCreatePipeline(
         {Diligent::SHADER_TYPE_PIXEL, "g_SceneDepth",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
-    constexpr Diligent::ShaderResourceVariableDesc kVarsWithDistortion[] = {
+    constexpr Diligent::ShaderResourceVariableDesc kVarsWithRefraction[] = {
         {Diligent::SHADER_TYPE_PIXEL, "g_CameraInputs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_LightInputs",
@@ -159,15 +159,15 @@ Diligent::IPipelineState *FluidCompositePass::getOrCreatePipeline(
     };
     if (key.enableBackgroundRefraction)
     {
-        psoCreateInfo.PSODesc.ResourceLayout.Variables = kVarsWithDistortion;
+        psoCreateInfo.PSODesc.ResourceLayout.Variables = kVarsWithRefraction;
         psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
-            static_cast<Diligent::Uint32>(std::size(kVarsWithDistortion));
+            static_cast<Diligent::Uint32>(std::size(kVarsWithRefraction));
     }
     else
     {
-        psoCreateInfo.PSODesc.ResourceLayout.Variables = kVarsNoDistortion;
+        psoCreateInfo.PSODesc.ResourceLayout.Variables = kVarsNoRefraction;
         psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
-            static_cast<Diligent::Uint32>(std::size(kVarsNoDistortion));
+            static_cast<Diligent::Uint32>(std::size(kVarsNoRefraction));
     }
     psoCreateInfo.pVS = vertexShader;
     psoCreateInfo.pPS = pixelShader;
