@@ -85,6 +85,8 @@ struct GpuRenderTargetDesc
     Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_D32_FLOAT;
     // Enables sampling this target in later shader passes.
     bool shaderReadable                  = true;
+    // Enables unordered-access views for color textures used by compute passes.
+    bool unorderedAccess                 = false;
     std::string debugName;
 };
 

@@ -56,7 +56,7 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
 
 void printUsage(const char *appName)
 {
-    cressim::neo::examples::helpers::printUsage(appName, "", true);
+    cressim::neo::examples::helpers::printUsage(appName, " [--debug-particles]", true);
 }
 
 Diligent::float3 envOrigin(std::uint32_t envIndex, std::uint32_t envCount)
@@ -269,6 +269,7 @@ int main(int argc, char **argv)
 {
     CommonExampleOptions options{};
     options.envCount = kDefaultEnvCount;
+    bool debugParticles = false;
 
     try
     {
@@ -277,6 +278,12 @@ int main(int argc, char **argv)
             if (cressim::neo::examples::helpers::tryParseCommonArgument(
                     argc, argv, i, options, true))
             {
+                continue;
+            }
+
+            if (std::string{argv[i]} == "--debug-particles")
+            {
+                debugParticles = true;
                 continue;
             }
 
@@ -305,7 +312,7 @@ int main(int argc, char **argv)
     viewerDefaults.showStats = true;
     viewerDefaults.vSync = false;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
-    viewerDesc.enableDebugParticles = true;
+    viewerDesc.enableDebugParticles = debugParticles;
 
     if (!viewer.initialize(viewerDesc, config))
     {

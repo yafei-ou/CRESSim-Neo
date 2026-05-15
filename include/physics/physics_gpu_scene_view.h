@@ -38,6 +38,10 @@ struct PhysicsGpuParticleBufferView
     Diligent::IBuffer *adjacencyOffsetsBuffer         = nullptr;
     Diligent::IBuffer *adjacencyCountsBuffer          = nullptr;
     Diligent::IBuffer *adjacencyIndicesBuffer         = nullptr;
+    Diligent::IBuffer *fluidSurfaceNormalConstraintsBuffer = nullptr;
+    Diligent::IBuffer *fluidAnisotropy1Buffer         = nullptr;
+    Diligent::IBuffer *fluidAnisotropy2Buffer         = nullptr;
+    Diligent::IBuffer *fluidAnisotropy3Buffer         = nullptr;
     std::uint32_t count                               = 0;
     std::uint32_t contactMaterialCount                = 0;
     std::uint32_t fluidMaterialCount                  = 0;

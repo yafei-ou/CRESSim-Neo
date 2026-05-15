@@ -133,6 +133,9 @@ public:
     bool applyFluidVorticityConfinement(Diligent::IDeviceContext *computeContext,
                                         const PhysicsSceneGpuState &sceneState,
                                         const GpuParticleDispatchConstants &constants);
+    bool buildFluidRenderAnisotropy(Diligent::IDeviceContext *computeContext,
+                                    const PhysicsSceneGpuState &sceneState,
+                                    const GpuParticleDispatchConstants &constants);
     bool solveParticleContactVelocities(Diligent::IDeviceContext *computeContext,
                                         const PhysicsSceneGpuState &sceneState,
                                         std::uint32_t particleCount, std::uint32_t iterations);
@@ -347,6 +350,7 @@ private:
     gpu::GpuComputePass mProjectFluidBoundaryVelocitiesPass;
     gpu::GpuComputePass mComputeFluidVorticityPass;
     gpu::GpuComputePass mApplyFluidVorticityConfinementPass;
+    gpu::GpuComputePass mBuildFluidRenderAnisotropyPass;
     gpu::GpuComputePass mSolveParticleContactVelocitiesPass;
     gpu::GpuComputePass mSolveParticleRigidContactVelocitiesPass;
     gpu::GpuComputePass mApplyParticleContactVelocitiesPass;

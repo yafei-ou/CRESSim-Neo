@@ -683,6 +683,13 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 "PhysicsSolver::step failed: ApplyFluidVorticityConfinement dispatch.");
             return false;
         }
+        if (hasFluidWork &&
+            !mImpl->passDispatcher.buildFluidRenderAnisotropy(
+                computeBackend.computeContext, mImpl->sceneState, particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: BuildFluidRenderAnisotropy dispatch.");
+            return false;
+        }
         if (hasSoftSoftContactWork && softContactIterations > 0u &&
             !mImpl->passDispatcher.solveParticleContactVelocities(computeBackend.computeContext,
                                                                   mImpl->sceneState, particleCount,

@@ -330,6 +330,7 @@ int main(int argc, char **argv)
 {
     ExampleOptions options{};
     options.common.envCount = kDefaultEnvCount;
+    bool debugParticles = false;
 
     try
     {
@@ -351,14 +352,22 @@ int main(int argc, char **argv)
                 continue;
             }
 
-            cressim::neo::examples::helpers::printUsage(argv[0], " [--fluid-height H]", true);
+            if (arg == "--debug-particles")
+            {
+                debugParticles = true;
+                continue;
+            }
+
+            cressim::neo::examples::helpers::printUsage(
+                argv[0], " [--fluid-height H] [--debug-particles]", true);
             return 2;
         }
     }
     catch (const std::invalid_argument &error)
     {
         CRESSIM_LOG_ERROR(error.what(), "\n");
-        cressim::neo::examples::helpers::printUsage(argv[0], " [--fluid-height H]", true);
+        cressim::neo::examples::helpers::printUsage(
+            argv[0], " [--fluid-height H] [--debug-particles]", true);
         return 2;
     }
 
@@ -377,7 +386,7 @@ int main(int argc, char **argv)
     viewerDefaults.vSync = false;
     auto viewerDesc =
         cressim::neo::examples::helpers::makeViewerDesc(options.common, viewerDefaults);
-    viewerDesc.enableDebugParticles = true;
+    viewerDesc.enableDebugParticles = debugParticles;
 
     if (!viewer.initialize(viewerDesc, config))
     {

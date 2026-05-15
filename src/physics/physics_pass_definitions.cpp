@@ -735,6 +735,23 @@ constexpr Diligent::ShaderResourceVariableDesc kApplyFluidVorticityConfinementVa
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kBuildFluidRenderAnisotropyVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleKinds",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleRadii",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidSurfaceNormalConstraints",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidAnisotropy1RW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidAnisotropy2RW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_FluidAnisotropy3RW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kSolveParticleContactVelocitiesVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -1737,6 +1754,14 @@ const gpu::GpuComputePassDefinition kApplyFluidVorticityConfinement{
     "CRESSimNeo.Physics.ApplyFluidVorticityConfinement.PSO",
     kApplyFluidVorticityConfinementVars,
     std::size(kApplyFluidVorticityConfinementVars),
+};
+
+const gpu::GpuComputePassDefinition kBuildFluidRenderAnisotropy{
+    "physics/fluid/render/physics_fluid_build_render_anisotropy.cs.hlsl",
+    "CRESSimNeo.Physics.BuildFluidRenderAnisotropy.CS",
+    "CRESSimNeo.Physics.BuildFluidRenderAnisotropy.PSO",
+    kBuildFluidRenderAnisotropyVars,
+    std::size(kBuildFluidRenderAnisotropyVars),
 };
 
 const gpu::GpuComputePassDefinition kSolveParticleContactVelocities{

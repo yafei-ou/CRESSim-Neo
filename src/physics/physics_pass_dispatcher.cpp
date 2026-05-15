@@ -219,6 +219,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mProjectFluidBoundaryVelocitiesPass, kProjectFluidBoundaryVelocities) ||
         !initPass(mComputeFluidVorticityPass, kComputeFluidVorticity) ||
         !initPass(mApplyFluidVorticityConfinementPass, kApplyFluidVorticityConfinement) ||
+        !initPass(mBuildFluidRenderAnisotropyPass, kBuildFluidRenderAnisotropy) ||
         !initPass(mSolveParticleContactVelocitiesPass, kSolveParticleContactVelocities) ||
         !initPass(mSolveParticleRigidContactVelocitiesPass, kSolveParticleRigidContactVelocities) ||
         !initPass(mApplyParticleContactVelocitiesPass, kApplyParticleContactVelocities) ||
@@ -2007,6 +2008,41 @@ bool PhysicsPassDispatcher::applyFluidVorticityConfinement(
            mApplyFluidVorticityConfinementPass.dispatch(
                computeContext, kDefaultVariant, bindings,
                dispatchGroupCount(constants.particleCount));
+}
+
+bool PhysicsPassDispatcher::buildFluidRenderAnisotropy(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    const GpuParticleDispatchConstants &constants)
+{
+    if (constants.particleCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &particles = sceneState.persistentParticles();
+    const auto &transient = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleKinds", particles.particleKindsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleRadii", particles.radiiBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_FluidSurfaceNormalConstraints",
+                              transient.fluidSurfaceNormalConstraintsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_FluidAnisotropy1RW", transient.fluidAnisotropy1Buffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_FluidAnisotropy2RW", transient.fluidAnisotropy2Buffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_FluidAnisotropy3RW", transient.fluidAnisotropy3Buffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mBuildFluidRenderAnisotropyPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                    dispatchGroupCount(constants.particleCount));
 }
 
 bool PhysicsPassDispatcher::dispatchSolveParticleContactVelocitiesPass(
@@ -4041,6 +4077,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mProjectFluidBoundaryVelocitiesPass.forceRecreateAllVariants() &&
            mComputeFluidVorticityPass.forceRecreateAllVariants() &&
            mApplyFluidVorticityConfinementPass.forceRecreateAllVariants() &&
+           mBuildFluidRenderAnisotropyPass.forceRecreateAllVariants() &&
            mSolveParticleContactVelocitiesPass.forceRecreateAllVariants() &&
            mSolveParticleRigidContactVelocitiesPass.forceRecreateAllVariants() &&
            mApplyParticleContactVelocitiesPass.forceRecreateAllVariants() &&

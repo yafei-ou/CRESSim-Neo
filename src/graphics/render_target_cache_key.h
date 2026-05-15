@@ -24,6 +24,7 @@ struct RenderTargetFamilyKey
     bool color                           = true;
     bool depth                           = true;
     bool shaderReadable                  = true;
+    bool unorderedAccess                 = false;
     bool layeredRendering                = true;
     Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
     Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
@@ -33,6 +34,7 @@ struct RenderTargetFamilyKey
     {
         return width == rhs.width && height == rhs.height && color == rhs.color &&
                depth == rhs.depth && shaderReadable == rhs.shaderReadable &&
+               unorderedAccess == rhs.unorderedAccess &&
                layeredRendering == rhs.layeredRendering && colorFormat == rhs.colorFormat &&
                depthFormat == rhs.depthFormat && debugName == rhs.debugName;
     }
@@ -48,6 +50,7 @@ struct RenderTargetFamilyKeyHasher
         hashCombine(seed, key.color);
         hashCombine(seed, key.depth);
         hashCombine(seed, key.shaderReadable);
+        hashCombine(seed, key.unorderedAccess);
         hashCombine(seed, key.layeredRendering);
         hashCombine(seed, static_cast<std::uint32_t>(key.colorFormat));
         hashCombine(seed, static_cast<std::uint32_t>(key.depthFormat));
@@ -79,9 +82,10 @@ struct RenderTargetCacheKeyHasher
 
 inline RenderTargetFamilyKey makeRenderTargetFamilyKey(const gpu::GpuRenderTargetDesc &desc)
 {
-    return RenderTargetFamilyKey{desc.width,       desc.height,         desc.color,
-                                 desc.depth,       desc.shaderReadable, desc.layeredRendering,
-                                 desc.colorFormat, desc.depthFormat,    desc.debugName};
+    return RenderTargetFamilyKey{desc.width,          desc.height,         desc.color,
+                                 desc.depth,          desc.shaderReadable, desc.unorderedAccess,
+                                 desc.layeredRendering, desc.colorFormat, desc.depthFormat,
+                                 desc.debugName};
 }
 
 inline RenderTargetCacheKey makeRenderTargetCacheKey(const gpu::GpuRenderTargetDesc &desc)

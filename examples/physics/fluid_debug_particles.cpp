@@ -33,7 +33,7 @@ using cressim::neo::viewer::DebugViewerCameraBinding;
 
 void printUsage(const char *appName)
 {
-    cressim::neo::examples::helpers::printUsage(appName, "", false);
+    cressim::neo::examples::helpers::printUsage(appName, " [--debug-particles]", false);
 }
 
 MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &resources,
@@ -105,6 +105,7 @@ void spawnStaticBox(cressim::neo::engine::World &world, cressim::neo::common::En
 int main(int argc, char **argv)
 {
     CommonExampleOptions options{};
+    bool debugParticles = false;
 
     try
     {
@@ -113,6 +114,12 @@ int main(int argc, char **argv)
             if (cressim::neo::examples::helpers::tryParseCommonArgument(
                     argc, argv, i, options, false))
             {
+                continue;
+            }
+
+            if (std::string{argv[i]} == "--debug-particles")
+            {
+                debugParticles = true;
                 continue;
             }
 
@@ -140,7 +147,7 @@ int main(int argc, char **argv)
     viewerDefaults.showStats = true;
     viewerDefaults.vSync = true;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
-    viewerDesc.enableDebugParticles = true;
+    viewerDesc.enableDebugParticles = debugParticles;
 
     if (!viewer.initialize(viewerDesc, config))
     {

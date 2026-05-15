@@ -50,11 +50,24 @@ struct RenderFrameOptions
         float fallbackRadius   = 0.15f;
     };
 
+    struct FluidRenderingOptions
+    {
+        bool enabled                        = false;
+        Diligent::float4 tint              = {0.32f, 0.62f, 0.95f, 0.72f};
+        float smoothness                   = 0.92f;
+        Diligent::float3 specular          = {0.35f, 0.4f, 0.45f};
+        float fresnel                      = 0.8f;
+        float depthEdgeThreshold           = 0.2f;
+        float normalEdgeThreshold          = 0.5f;
+        float filterRadiusPixels           = 3.0f;
+    };
+
     common::EntityId presentedCameraEntity = common::kInvalidEntityId;
     std::optional<gpu::GpuPresentationTargetDesc> presentationTarget{};
     ToneMapper toneMapper = ToneMapper::Reinhard;
     float exposure        = 1.0f;
     DebugParticleOptions debugParticles{};
+    FluidRenderingOptions fluid{};
 };
 
 struct RenderStats

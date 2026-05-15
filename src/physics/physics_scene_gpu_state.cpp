@@ -399,6 +399,9 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.fluidDeltaPositionsBuffer != nullptr &&
         mTransientState.fluidIterationDeltaBuffer != nullptr &&
         mTransientState.fluidSurfaceNormalConstraintsBuffer != nullptr &&
+        mTransientState.fluidAnisotropy1Buffer != nullptr &&
+        mTransientState.fluidAnisotropy2Buffer != nullptr &&
+        mTransientState.fluidAnisotropy3Buffer != nullptr &&
         mTransientState.fluidVorticitiesBuffer != nullptr &&
         mTransientState.softEdgeLambdasBuffer != nullptr &&
         mTransientState.softTetLambdasBuffer != nullptr &&
@@ -1017,6 +1020,21 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.fluidSurfaceNormalConstraintsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidAnisotropy1",
+                                sizeof(Diligent::float4), newSoftParticleCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.fluidAnisotropy1Buffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidAnisotropy2",
+                                sizeof(Diligent::float4), newSoftParticleCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.fluidAnisotropy2Buffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidAnisotropy3",
+                                sizeof(Diligent::float4), newSoftParticleCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.fluidAnisotropy3Buffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidVorticities",
                                 sizeof(Diligent::float4), newSoftParticleCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -2751,6 +2769,11 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.particles.adjacencyOffsetsBuffer = mPersistentParticles.adjacencyOffsetsBuffer;
     view.soft.particles.adjacencyCountsBuffer  = mPersistentParticles.adjacencyCountsBuffer;
     view.soft.particles.adjacencyIndicesBuffer = mPersistentParticles.adjacencyIndicesBuffer;
+    view.soft.particles.fluidSurfaceNormalConstraintsBuffer =
+        mTransientState.fluidSurfaceNormalConstraintsBuffer;
+    view.soft.particles.fluidAnisotropy1Buffer = mTransientState.fluidAnisotropy1Buffer;
+    view.soft.particles.fluidAnisotropy2Buffer = mTransientState.fluidAnisotropy2Buffer;
+    view.soft.particles.fluidAnisotropy3Buffer = mTransientState.fluidAnisotropy3Buffer;
     view.soft.particles.count                  = mSoftParticleCount;
     view.soft.particles.contactMaterialCount   = mParticleContactMaterialCount;
     view.soft.particles.fluidMaterialCount     = mFluidMaterialCount;

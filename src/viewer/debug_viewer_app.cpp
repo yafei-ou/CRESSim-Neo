@@ -354,6 +354,7 @@ public:
         initialOptions.presentedCameraEntity  = presentedCameraEntity;
         initialOptions.presentationTarget     = std::nullopt;
         initialOptions.debugParticles.enabled = mDesc.enableDebugParticles;
+        initialOptions.fluid.enabled          = !mDesc.enableDebugParticles;
         runtime.setRenderFrameOptions(initialOptions);
 
         const auto refreshCameraStateFromPresentedEntity = [&](common::EntityId cameraEntity,
@@ -497,6 +498,7 @@ public:
             renderOptions.presentedCameraEntity  = presentedCameraEntity;
             renderOptions.presentationTarget     = presentationTargetDesc;
             renderOptions.debugParticles.enabled = mDesc.enableDebugParticles;
+            renderOptions.fluid.enabled          = !mDesc.enableDebugParticles;
             runtime.setRenderFrameOptions(renderOptions);
 
             frame.frameIndex += 1u;

@@ -58,7 +58,9 @@ float parsePositiveFloat(const std::string &value, const char *optionName)
 
 void printUsage(const char *appName)
 {
-    cressim::neo::examples::helpers::printUsage(appName, " [--fluid-height H]", false);
+    cressim::neo::examples::helpers::printUsage(appName,
+                                                " [--fluid-height H] [--debug-particles]",
+                                                false);
 }
 
 MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &resources,
@@ -155,6 +157,7 @@ bool spawnFluid(cressim::neo::engine::World &world, const Diligent::float3 &posi
 int main(int argc, char **argv)
 {
     StressOptions options{};
+    bool debugParticles = false;
 
     try
     {
@@ -173,6 +176,12 @@ int main(int argc, char **argv)
                     cressim::neo::examples::helpers::requireOptionValue(
                         argc, argv, i, "--fluid-height"),
                     "fluid height");
+                continue;
+            }
+
+            if (arg == "--debug-particles")
+            {
+                debugParticles = true;
                 continue;
             }
 
@@ -201,7 +210,7 @@ int main(int argc, char **argv)
     viewerDefaults.vSync = false;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options.common,
                                                                       viewerDefaults);
-    viewerDesc.enableDebugParticles = true;
+    viewerDesc.enableDebugParticles = debugParticles;
 
     if (!viewer.initialize(viewerDesc, config))
     {
