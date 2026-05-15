@@ -41,7 +41,7 @@ private:
         std::uint32_t cameraIndex                = 0u;
         std::uint32_t fluidDepthLayer            = 0u;
         std::uint32_t sceneDepthLayer            = 0u;
-        std::uint32_t paddingParams              = 0u;
+        std::uint32_t mainLightIndex             = 0u;
         float fresnel                            = 0.8f;
         float refractionIor                      = 1.33f;
         float refractionViewThickness            = 0.35f;

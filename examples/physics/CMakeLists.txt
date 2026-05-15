@@ -59,3 +59,8 @@ add_cressim_example(
     NAME physics_fluid_moving_splitter
     SOURCE fluid_moving_splitter.cpp
 )
+
+add_cressim_example(
+    NAME physics_fluid_lighting_showcase
+    SOURCE fluid_lighting_showcase.cpp
+)

@@ -1,6 +1,7 @@
 #include "graphics/passes/fluid_composite_pass.h"
 
 #include "gpu/shader_library.h"
+#include "graphics/gpu_scene_pipeline_types.h"
 #include "graphics/passes/render_pass_types.h"
 
 #include <cstring>
@@ -133,6 +134,10 @@ Diligent::IPipelineState *FluidCompositePass::getOrCreatePipeline(
     constexpr Diligent::ShaderResourceVariableDesc kVarsNoDistortion[] = {
         {Diligent::SHADER_TYPE_PIXEL, "g_CameraInputs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_LightInputs",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_LocalLightSelections",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_FilteredFluidDepth",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_SceneDepth",
@@ -140,6 +145,10 @@ Diligent::IPipelineState *FluidCompositePass::getOrCreatePipeline(
     };
     constexpr Diligent::ShaderResourceVariableDesc kVarsWithDistortion[] = {
         {Diligent::SHADER_TYPE_PIXEL, "g_CameraInputs",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_LightInputs",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_LocalLightSelections",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_FilteredFluidDepth",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -216,7 +225,8 @@ bool FluidCompositePass::composite(
 {
     if (!mInitialized || filteredDepthSrv == nullptr || sceneDepthSrv == nullptr ||
         (options.enableBackgroundRefraction && sceneColorSrv == nullptr) ||
-        gpuScene.cameraInputsBuffer == nullptr)
+        gpuScene.cameraInputsBuffer == nullptr || gpuScene.lightInputsBuffer == nullptr ||
+        gpuScene.localLightSelectionBuffer == nullptr)
     {
         return false;
     }
@@ -249,6 +259,18 @@ bool FluidCompositePass::composite(
     {
         cameraVar->Set(
             gpuScene.cameraInputsBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+    }
+    if (Diligent::IShaderResourceVariable *lightVar =
+            binding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_LightInputs"))
+    {
+        lightVar->Set(
+            gpuScene.lightInputsBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+    }
+    if (Diligent::IShaderResourceVariable *localLightsVar =
+            binding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_LocalLightSelections"))
+    {
+        localLightsVar->Set(gpuScene.localLightSelectionBuffer->GetDefaultView(
+            Diligent::BUFFER_VIEW_SHADER_RESOURCE));
     }
     if (Diligent::IShaderResourceVariable *depthVar =
             binding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_FilteredFluidDepth"))
@@ -288,6 +310,7 @@ bool FluidCompositePass::composite(
     constants.cameraIndex             = camera.globalCameraIndex;
     constants.fluidDepthLayer         = fluidDepthLayer;
     constants.sceneDepthLayer         = sceneDepthLayer;
+    constants.mainLightIndex          = mainDirectionalLightIndex(gpuScene.layout, camera.envIndex);
     constants.fresnel                 = options.fresnel;
     constants.refractionIor           = options.refractionIor;
     constants.refractionViewThickness = options.refractionViewThickness;
