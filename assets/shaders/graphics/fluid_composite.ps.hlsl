@@ -18,6 +18,7 @@ cbuffer GraphicsFluidComposite
     float4 g_FluidSpecularSmoothness;
     uint4 g_FluidCompositeParams;
     float4 g_FluidCompositeMisc;
+    float4 g_FluidCompositeMisc2;
 };
 
 #define g_FluidCameraIndex g_FluidCompositeParams.x
@@ -26,11 +27,12 @@ cbuffer GraphicsFluidComposite
 #define g_FluidFresnel g_FluidCompositeMisc.x
 #define g_RefractionIor g_FluidCompositeMisc.y
 #define g_RefractionViewThickness g_FluidCompositeMisc.z
+#define g_NormalReconstructionDepthThreshold g_FluidCompositeMisc2.x
 
 CRESSIM_STRUCTURED_BUFFER(CameraInput, g_CameraInputs);
 Texture2DArray<float> g_FilteredFluidDepth;
 SamplerState g_FilteredFluidDepth_sampler;
-#if CRESSIM_FLUID_ENABLE_BACKGROUND_DISTORTION
+#if CRESSIM_FLUID_ENABLE_BACKGROUND_REFRACTION
 Texture2DArray<float4> g_SceneColor;
 SamplerState g_SceneColor_sampler;
 #endif
@@ -87,6 +89,26 @@ float2 projectViewPosToUv(float3 viewPos, CameraInput cameraInput)
     return float2(ndcX * 0.5 + 0.5, 0.5 - ndcY * 0.5);
 }
 
+float3 safeNormalize(float3 v, float3 fallback)
+{
+    const float lenSq = dot(v, v);
+    if (lenSq <= 1.0e-8)
+    {
+        return fallback;
+    }
+    return v * rsqrt(lenSq);
+}
+
+float3 reconstructNeighborViewPos(float2 uv, float sampleDepth, float3 centerPos,
+                                  CameraInput cameraInput, float threshold)
+{
+    if (sampleDepth > 999999.0 || abs(sampleDepth - centerPos.z) > threshold)
+    {
+        return centerPos;
+    }
+    return reconstructViewPos(uv, sampleDepth, cameraInput);
+}
+
 PSOutput main(PSInput In)
 {
     PSOutput Out;
@@ -111,22 +133,49 @@ PSOutput main(PSInput In)
 
     const float2 pixel = float2(1.0 / max(cameraInput.viewportAndOutputSize.z, 1.0),
                                 1.0 / max(cameraInput.viewportAndOutputSize.w, 1.0));
-    const float dx = g_FilteredFluidDepth.SampleLevel(g_FilteredFluidDepth_sampler,
-                                                      float3(uv + float2(pixel.x, 0.0), g_FluidDepthLayer), 0.0);
-    const float dy = g_FilteredFluidDepth.SampleLevel(g_FilteredFluidDepth_sampler,
-                                                      float3(uv + float2(0.0, pixel.y), g_FluidDepthLayer), 0.0);
+    const float dx1 = g_FilteredFluidDepth.SampleLevel(g_FilteredFluidDepth_sampler,
+                                                       float3(uv + float2(pixel.x, 0.0), g_FluidDepthLayer), 0.0);
+    const float dx2 = g_FilteredFluidDepth.SampleLevel(g_FilteredFluidDepth_sampler,
+                                                       float3(uv - float2(pixel.x, 0.0), g_FluidDepthLayer), 0.0);
+    const float dy1 = g_FilteredFluidDepth.SampleLevel(g_FilteredFluidDepth_sampler,
+                                                       float3(uv + float2(0.0, pixel.y), g_FluidDepthLayer), 0.0);
+    const float dy2 = g_FilteredFluidDepth.SampleLevel(g_FilteredFluidDepth_sampler,
+                                                       float3(uv - float2(0.0, pixel.y), g_FluidDepthLayer), 0.0);
     const float3 centerPos = reconstructViewPos(uv, depth, cameraInput);
-    const float3 xPos = reconstructViewPos(uv + float2(pixel.x, 0.0), dx, cameraInput);
-    const float3 yPos = reconstructViewPos(uv + float2(0.0, pixel.y), dy, cameraInput);
-    const float3 normal = normalize(cross(yPos - centerPos, xPos - centerPos));
-    const float fresnel = pow(1.0 - saturate(normal.z), 5.0);
+    const float normalDepthThreshold = max(g_NormalReconstructionDepthThreshold, 0.5);
+    const float3 xPos1 = reconstructNeighborViewPos(uv + float2(pixel.x, 0.0), dx1, centerPos,
+                                                    cameraInput, normalDepthThreshold);
+    const float3 xPos2 = reconstructNeighborViewPos(uv - float2(pixel.x, 0.0), dx2, centerPos,
+                                                    cameraInput, normalDepthThreshold);
+    const float3 yPos1 = reconstructNeighborViewPos(uv + float2(0.0, pixel.y), dy1, centerPos,
+                                                    cameraInput, normalDepthThreshold);
+    const float3 yPos2 = reconstructNeighborViewPos(uv - float2(0.0, pixel.y), dy2, centerPos,
+                                                    cameraInput, normalDepthThreshold);
+    const float3 xForward = xPos1 - centerPos;
+    const float3 xBackward = centerPos - xPos2;
+    const float3 yForward = yPos1 - centerPos;
+    const float3 yBackward = centerPos - yPos2;
+    const float3 xTangent = (dot(xForward, xForward) >= dot(xBackward, xBackward)) ? xForward : xBackward;
+    const float3 yTangent = (dot(yForward, yForward) >= dot(yBackward, yBackward)) ? yForward : yBackward;
+    float3 normal = cross(xPos1 - xPos2, yPos1 - yPos2);
+    if (dot(normal, normal) <= 1.0e-8)
+    {
+        normal = cross(xTangent, yTangent);
+    }
+    normal = safeNormalize(normal, float3(0.0, 0.0, 1.0));
+    const float3 viewDir = normalize(centerPos);
+    if (dot(normal, viewDir) > 0.0)
+    {
+        normal = -normal;
+    }
+    const float ndotv = saturate(dot(normal, -viewDir));
+    const float fresnel = pow(1.0 - ndotv, 5.0);
     const float specular = saturate(fresnel * g_FluidFresnel + g_FluidSpecularSmoothness.w * 0.25);
-    float3 color = g_FluidTint.rgb * (0.45 + 0.55 * saturate(normal.z)) +
+    float3 color = g_FluidTint.rgb * (0.45 + 0.55 * ndotv) +
                    g_FluidSpecularSmoothness.rgb * specular;
-#if CRESSIM_FLUID_ENABLE_BACKGROUND_DISTORTION
+#if CRESSIM_FLUID_ENABLE_BACKGROUND_REFRACTION
     {
         const float eta = saturate(1.0 / max(g_RefractionIor, 1.0e-3));
-        const float3 viewDir = normalize(centerPos);
         float3 refractedDir = refract(viewDir, normal, eta);
         if (dot(refractedDir, refractedDir) < 1.0e-6)
         {
@@ -139,16 +188,17 @@ PSOutput main(PSInput In)
         const float3 refractedSamplePos =
             centerPos + refractedDir * max(g_RefractionViewThickness, 0.0);
         const float2 offsetUv = saturate(projectViewPosToUv(refractedSamplePos, cameraInput));
-        const float3 backgroundColor = g_SceneColor.SampleLevel(g_SceneColor_sampler,
-                                                                float3(offsetUv, g_SceneDepthLayer), 0.0).rgb;
+        const float3 refractedBackgroundColor =
+            g_SceneColor.SampleLevel(g_SceneColor_sampler, float3(offsetUv, g_SceneDepthLayer), 0.0).rgb;
 
-        color = backgroundColor * g_FluidTint.rgb * (1.0 - 0.6 * fresnel) +
-                g_FluidTint.rgb * (0.15 + 0.25 * saturate(normal.z)) +
+        color = refractedBackgroundColor * g_FluidTint.rgb * (1.0 - 0.6 * fresnel) +
+                g_FluidTint.rgb * (0.15 + 0.25 * ndotv) +
                 g_FluidSpecularSmoothness.rgb * specular;
     }
 #endif
+
     float alpha = saturate(g_FluidTint.a * (0.7 + 0.3 * fresnel));
-#if CRESSIM_FLUID_ENABLE_BACKGROUND_DISTORTION
+#if CRESSIM_FLUID_ENABLE_BACKGROUND_REFRACTION
     {
         // The refracted background is the visible transmission term for the fluid surface,
         // so write the fluid result as the final surface color instead of blending it back

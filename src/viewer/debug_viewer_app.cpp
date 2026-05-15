@@ -350,7 +350,7 @@ public:
         frame.deltaSeconds                          = mDesc.fixedDeltaSeconds;
         common::EntityId presentedCameraEntity      = cameraBinding.cameraEntity;
         common::EntityId outputOverrideCameraEntity = common::kInvalidEntityId;
-        graphics::RenderFrameOptions initialOptions{};
+        graphics::RenderFrameOptions initialOptions = runtime.renderFrameOptions();
         initialOptions.presentedCameraEntity  = presentedCameraEntity;
         initialOptions.presentationTarget     = std::nullopt;
         initialOptions.debugParticles.enabled = mDesc.enableDebugParticles;

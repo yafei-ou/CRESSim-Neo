@@ -16,8 +16,8 @@ std::size_t FluidCompositePass::PipelineKeyHasher::operator()(const PipelineKey 
         std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.colorFormat));
     const std::size_t depthHash =
         std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.depthFormat));
-    const std::size_t distortionHash = std::hash<bool>{}(key.enableBackgroundDistortion);
-    return colorHash ^ (depthHash << 1u) ^ (distortionHash << 2u);
+    const std::size_t refractionHash = std::hash<bool>{}(key.enableBackgroundRefraction);
+    return colorHash ^ (depthHash << 1u) ^ (refractionHash << 2u);
 }
 
 bool FluidCompositePass::initialize()
@@ -102,11 +102,11 @@ Diligent::IPipelineState *FluidCompositePass::getOrCreatePipeline(
     shaderCreateInfo.Desc.ShaderType         = Diligent::SHADER_TYPE_PIXEL;
     shaderCreateInfo.Desc.Name               = "CRESSimNeo.FluidCompositePass.PS";
     shaderCreateInfo.FilePath                = "graphics/fluid_composite.ps.hlsl";
-    Diligent::ShaderMacro distortionMacros[] = {
-        {"CRESSIM_FLUID_ENABLE_BACKGROUND_DISTORTION", key.enableBackgroundDistortion ? "1" : "0"},
+    Diligent::ShaderMacro refractionMacros[] = {
+        {"CRESSIM_FLUID_ENABLE_BACKGROUND_REFRACTION", key.enableBackgroundRefraction ? "1" : "0"},
     };
     shaderCreateInfo.Macros =
-        Diligent::ShaderMacroArray{distortionMacros, static_cast<Diligent::Uint32>(1u)};
+        Diligent::ShaderMacroArray{refractionMacros, static_cast<Diligent::Uint32>(1u)};
     if (!mDevice.createShader(shaderCreateInfo, &pixelShader))
     {
         return nullptr;
@@ -148,7 +148,7 @@ Diligent::IPipelineState *FluidCompositePass::getOrCreatePipeline(
         {Diligent::SHADER_TYPE_PIXEL, "g_SceneDepth",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
-    if (key.enableBackgroundDistortion)
+    if (key.enableBackgroundRefraction)
     {
         psoCreateInfo.PSODesc.ResourceLayout.Variables = kVarsWithDistortion;
         psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
@@ -291,6 +291,7 @@ bool FluidCompositePass::composite(
     constants.fresnel                 = options.fresnel;
     constants.refractionIor           = options.refractionIor;
     constants.refractionViewThickness = options.refractionViewThickness;
+    constants.normalReconstructionDepthThreshold = options.depthEdgeThreshold;
 
     void *mapped = nullptr;
     backendContext.graphicsContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,

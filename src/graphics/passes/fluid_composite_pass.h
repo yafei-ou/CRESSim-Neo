@@ -38,26 +38,30 @@ private:
     {
         Diligent::float4 tint{0.32f, 0.62f, 0.95f, 0.72f};
         Diligent::float4 specularSmoothness{0.35f, 0.4f, 0.45f, 0.92f};
-        std::uint32_t cameraIndex     = 0u;
-        std::uint32_t fluidDepthLayer = 0u;
-        std::uint32_t sceneDepthLayer = 0u;
-        std::uint32_t paddingParams   = 0u;
-        float fresnel                 = 0.8f;
-        float refractionIor           = 1.33f;
-        float refractionViewThickness = 0.35f;
-        float padding0                = 0.0f;
+        std::uint32_t cameraIndex                = 0u;
+        std::uint32_t fluidDepthLayer            = 0u;
+        std::uint32_t sceneDepthLayer            = 0u;
+        std::uint32_t paddingParams              = 0u;
+        float fresnel                            = 0.8f;
+        float refractionIor                      = 1.33f;
+        float refractionViewThickness            = 0.35f;
+        float padding0                           = 0.0f;
+        float normalReconstructionDepthThreshold = 0.2f;
+        float padding1                           = 0.0f;
+        float padding2                           = 0.0f;
+        float padding3                           = 0.0f;
     };
 
     struct PipelineKey
     {
         Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
         Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
-        bool enableBackgroundDistortion      = false;
+        bool enableBackgroundRefraction      = false;
 
         bool operator==(const PipelineKey &rhs) const noexcept
         {
             return colorFormat == rhs.colorFormat && depthFormat == rhs.depthFormat &&
-                   enableBackgroundDistortion == rhs.enableBackgroundDistortion;
+                   enableBackgroundRefraction == rhs.enableBackgroundRefraction;
         }
     };
 
