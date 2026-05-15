@@ -684,8 +684,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
         if (hasFluidWork &&
-            !mImpl->passDispatcher.buildFluidRenderAnisotropy(
-                computeBackend.computeContext, mImpl->sceneState, particleConstants))
+            !mImpl->passDispatcher.buildFluidRenderAnisotropy(computeBackend.computeContext,
+                                                              mImpl->sceneState, particleConstants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: BuildFluidRenderAnisotropy dispatch.");
             return false;

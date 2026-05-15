@@ -179,8 +179,7 @@ bool GpuComputePass::bindBufferVariable(Diligent::IShaderResourceBinding *srb,
 }
 
 bool GpuComputePass::bindTextureVariable(Diligent::IShaderResourceBinding *srb,
-                                         const char *variableName,
-                                         Diligent::ITextureView *view)
+                                         const char *variableName, Diligent::ITextureView *view)
 {
     if (srb == nullptr || view == nullptr)
     {

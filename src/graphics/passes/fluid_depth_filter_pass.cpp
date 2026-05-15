@@ -66,8 +66,9 @@ bool FluidDepthFilterPass::initialize()
     return mInitialized;
 }
 
-bool FluidDepthFilterPass::filter(Diligent::ITextureView *sourceSrv, Diligent::ITextureView *destUav,
-                                  const ResolvedCameraView &camera, std::uint32_t sourceLayer,
+bool FluidDepthFilterPass::filter(Diligent::ITextureView *sourceSrv,
+                                  Diligent::ITextureView *destUav, const ResolvedCameraView &camera,
+                                  std::uint32_t sourceLayer,
                                   const RenderFrameOptions::FluidRenderingOptions &options)
 {
     if (!mInitialized || sourceSrv == nullptr || destUav == nullptr)
@@ -83,12 +84,11 @@ bool FluidDepthFilterPass::filter(Diligent::ITextureView *sourceSrv, Diligent::I
     }
 
     FilterConstants constants{};
-    constants.layer = sourceLayer;
-    constants.outputWidth = camera.outputTargetDesc.width;
+    constants.layer        = sourceLayer;
+    constants.outputWidth  = camera.outputTargetDesc.width;
     constants.outputHeight = camera.outputTargetDesc.height;
-    constants.filterRadius = static_cast<std::uint32_t>(options.filterRadiusPixels < 1.0f
-                                                            ? 1.0f
-                                                            : options.filterRadiusPixels);
+    constants.filterRadius = static_cast<std::uint32_t>(
+        options.filterRadiusPixels < 1.0f ? 1.0f : options.filterRadiusPixels);
     constants.depthEdgeThreshold = options.depthEdgeThreshold;
 
     void *mapped = nullptr;

@@ -34,9 +34,9 @@ struct RenderTargetFamilyKey
     {
         return width == rhs.width && height == rhs.height && color == rhs.color &&
                depth == rhs.depth && shaderReadable == rhs.shaderReadable &&
-               unorderedAccess == rhs.unorderedAccess &&
-               layeredRendering == rhs.layeredRendering && colorFormat == rhs.colorFormat &&
-               depthFormat == rhs.depthFormat && debugName == rhs.debugName;
+               unorderedAccess == rhs.unorderedAccess && layeredRendering == rhs.layeredRendering &&
+               colorFormat == rhs.colorFormat && depthFormat == rhs.depthFormat &&
+               debugName == rhs.debugName;
     }
 };
 
@@ -82,9 +82,15 @@ struct RenderTargetCacheKeyHasher
 
 inline RenderTargetFamilyKey makeRenderTargetFamilyKey(const gpu::GpuRenderTargetDesc &desc)
 {
-    return RenderTargetFamilyKey{desc.width,          desc.height,         desc.color,
-                                 desc.depth,          desc.shaderReadable, desc.unorderedAccess,
-                                 desc.layeredRendering, desc.colorFormat, desc.depthFormat,
+    return RenderTargetFamilyKey{desc.width,
+                                 desc.height,
+                                 desc.color,
+                                 desc.depth,
+                                 desc.shaderReadable,
+                                 desc.unorderedAccess,
+                                 desc.layeredRendering,
+                                 desc.colorFormat,
+                                 desc.depthFormat,
                                  desc.debugName};
 }
 

@@ -16,7 +16,8 @@ std::size_t FluidCompositePass::PipelineKeyHasher::operator()(const PipelineKey 
         std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.colorFormat));
     const std::size_t depthHash =
         std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.depthFormat));
-    return colorHash ^ (depthHash << 1u);
+    const std::size_t distortionHash = std::hash<bool>{}(key.enableBackgroundDistortion);
+    return colorHash ^ (depthHash << 1u) ^ (distortionHash << 2u);
 }
 
 bool FluidCompositePass::initialize()
@@ -98,9 +99,14 @@ Diligent::IPipelineState *FluidCompositePass::getOrCreatePipeline(
     }
 
     Diligent::RefCntAutoPtr<Diligent::IShader> pixelShader;
-    shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
-    shaderCreateInfo.Desc.Name       = "CRESSimNeo.FluidCompositePass.PS";
-    shaderCreateInfo.FilePath        = "graphics/fluid_composite.ps.hlsl";
+    shaderCreateInfo.Desc.ShaderType         = Diligent::SHADER_TYPE_PIXEL;
+    shaderCreateInfo.Desc.Name               = "CRESSimNeo.FluidCompositePass.PS";
+    shaderCreateInfo.FilePath                = "graphics/fluid_composite.ps.hlsl";
+    Diligent::ShaderMacro distortionMacros[] = {
+        {"CRESSIM_FLUID_ENABLE_BACKGROUND_DISTORTION", key.enableBackgroundDistortion ? "1" : "0"},
+    };
+    shaderCreateInfo.Macros =
+        Diligent::ShaderMacroArray{distortionMacros, static_cast<Diligent::Uint32>(1u)};
     if (!mDevice.createShader(shaderCreateInfo, &pixelShader))
     {
         return nullptr;
@@ -113,10 +119,10 @@ Diligent::IPipelineState *FluidCompositePass::getOrCreatePipeline(
     psoCreateInfo.GraphicsPipeline.RTVFormats[0]     = key.colorFormat;
     psoCreateInfo.GraphicsPipeline.DSVFormat         = key.depthFormat;
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode      = Diligent::CULL_MODE_NONE;
-    psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = Diligent::True;
+    psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode           = Diligent::CULL_MODE_NONE;
+    psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable      = Diligent::True;
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = Diligent::False;
-    auto &blend = psoCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
+    auto &blend       = psoCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
     blend.BlendEnable = Diligent::True;
     blend.SrcBlend    = Diligent::BLEND_FACTOR_SRC_ALPHA;
     blend.DestBlend   = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
@@ -124,7 +130,7 @@ Diligent::IPipelineState *FluidCompositePass::getOrCreatePipeline(
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType =
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
-    constexpr Diligent::ShaderResourceVariableDesc kVars[] = {
+    constexpr Diligent::ShaderResourceVariableDesc kVarsNoDistortion[] = {
         {Diligent::SHADER_TYPE_PIXEL, "g_CameraInputs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_FilteredFluidDepth",
@@ -132,9 +138,28 @@ Diligent::IPipelineState *FluidCompositePass::getOrCreatePipeline(
         {Diligent::SHADER_TYPE_PIXEL, "g_SceneDepth",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
-    psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
-    psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
-        static_cast<Diligent::Uint32>(std::size(kVars));
+    constexpr Diligent::ShaderResourceVariableDesc kVarsWithDistortion[] = {
+        {Diligent::SHADER_TYPE_PIXEL, "g_CameraInputs",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_FilteredFluidDepth",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_SceneColor",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_SceneDepth",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    };
+    if (key.enableBackgroundDistortion)
+    {
+        psoCreateInfo.PSODesc.ResourceLayout.Variables = kVarsWithDistortion;
+        psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
+            static_cast<Diligent::Uint32>(std::size(kVarsWithDistortion));
+    }
+    else
+    {
+        psoCreateInfo.PSODesc.ResourceLayout.Variables = kVarsNoDistortion;
+        psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
+            static_cast<Diligent::Uint32>(std::size(kVarsNoDistortion));
+    }
     psoCreateInfo.pVS = vertexShader;
     psoCreateInfo.pPS = pixelShader;
 
@@ -182,17 +207,15 @@ Diligent::IShaderResourceBinding *FluidCompositePass::getOrCreateBinding(
     return insertResult.first->second;
 }
 
-bool FluidCompositePass::composite(const gpu::GpuRenderTargetBinding &targetBinding,
-                                   const gpu::GpuRenderTargetDesc &targetDesc,
-                                   const GpuEntitySceneView &gpuScene,
-                                   const ResolvedCameraView &camera,
-                                   std::uint32_t fluidDepthLayer,
-                                   std::uint32_t sceneDepthLayer,
-                                   Diligent::ITextureView *filteredDepthSrv,
-                                   Diligent::ITextureView *sceneDepthSrv,
-                                   const RenderFrameOptions::FluidRenderingOptions &options)
+bool FluidCompositePass::composite(
+    const gpu::GpuRenderTargetBinding &targetBinding, const gpu::GpuRenderTargetDesc &targetDesc,
+    const GpuEntitySceneView &gpuScene, const ResolvedCameraView &camera,
+    std::uint32_t fluidDepthLayer, std::uint32_t sceneDepthLayer,
+    Diligent::ITextureView *filteredDepthSrv, Diligent::ITextureView *sceneColorSrv,
+    Diligent::ITextureView *sceneDepthSrv, const RenderFrameOptions::FluidRenderingOptions &options)
 {
     if (!mInitialized || filteredDepthSrv == nullptr || sceneDepthSrv == nullptr ||
+        (options.enableBackgroundRefraction && sceneColorSrv == nullptr) ||
         gpuScene.cameraInputsBuffer == nullptr)
     {
         return false;
@@ -208,7 +231,8 @@ bool FluidCompositePass::composite(const gpu::GpuRenderTargetBinding &targetBind
     }
 
     Diligent::IPipelineState *pipeline = getOrCreatePipeline(
-        backendContext.renderDevice, PipelineKey{targetDesc.colorFormat, targetDesc.depthFormat});
+        backendContext.renderDevice, PipelineKey{targetDesc.colorFormat, targetDesc.depthFormat,
+                                                 options.enableBackgroundRefraction});
     if (pipeline == nullptr)
     {
         return false;
@@ -223,8 +247,8 @@ bool FluidCompositePass::composite(const gpu::GpuRenderTargetBinding &targetBind
     if (Diligent::IShaderResourceVariable *cameraVar =
             binding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_CameraInputs"))
     {
-        cameraVar->Set(gpuScene.cameraInputsBuffer->GetDefaultView(
-            Diligent::BUFFER_VIEW_SHADER_RESOURCE));
+        cameraVar->Set(
+            gpuScene.cameraInputsBuffer->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE));
     }
     if (Diligent::IShaderResourceVariable *depthVar =
             binding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_FilteredFluidDepth"))
@@ -234,6 +258,18 @@ bool FluidCompositePass::composite(const gpu::GpuRenderTargetBinding &targetBind
             filteredDepthSrv->SetSampler(mLinearClampSampler);
         }
         depthVar->Set(filteredDepthSrv);
+    }
+    if (options.enableBackgroundRefraction)
+    {
+        if (Diligent::IShaderResourceVariable *sceneColorVar =
+                binding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_SceneColor"))
+        {
+            if (mLinearClampSampler != nullptr)
+            {
+                sceneColorSrv->SetSampler(mLinearClampSampler);
+            }
+            sceneColorVar->Set(sceneColorSrv);
+        }
     }
     if (Diligent::IShaderResourceVariable *sceneDepthVar =
             binding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_SceneDepth"))
@@ -246,14 +282,15 @@ bool FluidCompositePass::composite(const gpu::GpuRenderTargetBinding &targetBind
     }
 
     CompositeConstants constants{};
-    constants.tint = options.tint;
-    constants.specularSmoothness =
-        Diligent::float4{options.specular.x, options.specular.y, options.specular.z,
-                         options.smoothness};
-    constants.cameraIndex = camera.globalCameraIndex;
-    constants.fluidDepthLayer = fluidDepthLayer;
-    constants.sceneDepthLayer = sceneDepthLayer;
-    constants.fresnel = options.fresnel;
+    constants.tint                    = options.tint;
+    constants.specularSmoothness      = Diligent::float4{options.specular.x, options.specular.y,
+                                                         options.specular.z, options.smoothness};
+    constants.cameraIndex             = camera.globalCameraIndex;
+    constants.fluidDepthLayer         = fluidDepthLayer;
+    constants.sceneDepthLayer         = sceneDepthLayer;
+    constants.fresnel                 = options.fresnel;
+    constants.refractionIor           = options.refractionIor;
+    constants.refractionViewThickness = options.refractionViewThickness;
 
     void *mapped = nullptr;
     backendContext.graphicsContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,

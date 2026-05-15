@@ -110,7 +110,7 @@ Diligent::IPipelineState *FluidDepthPass::getOrCreatePipeline(Diligent::IRenderD
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode      = Diligent::CULL_MODE_NONE;
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable = Diligent::False;
-    auto &blend = psoCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
+    auto &blend       = psoCreateInfo.GraphicsPipeline.BlendDesc.RenderTargets[0];
     blend.BlendEnable = Diligent::True;
     blend.SrcBlend    = Diligent::BLEND_FACTOR_ONE;
     blend.DestBlend   = Diligent::BLEND_FACTOR_ONE;
@@ -155,13 +155,13 @@ Diligent::IPipelineState *FluidDepthPass::getOrCreatePipeline(Diligent::IRenderD
         return nullptr;
     }
 
-    if (Diligent::IShaderResourceVariable *vsConstants = pipeline->GetStaticVariableByName(
-            Diligent::SHADER_TYPE_VERTEX, "GraphicsFluidDepth"))
+    if (Diligent::IShaderResourceVariable *vsConstants =
+            pipeline->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "GraphicsFluidDepth"))
     {
         vsConstants->Set(mConstantsBuffer);
     }
-    if (Diligent::IShaderResourceVariable *psConstants = pipeline->GetStaticVariableByName(
-            Diligent::SHADER_TYPE_PIXEL, "GraphicsFluidDepth"))
+    if (Diligent::IShaderResourceVariable *psConstants =
+            pipeline->GetStaticVariableByName(Diligent::SHADER_TYPE_PIXEL, "GraphicsFluidDepth"))
     {
         psConstants->Set(mConstantsBuffer);
     }
@@ -170,7 +170,8 @@ Diligent::IPipelineState *FluidDepthPass::getOrCreatePipeline(Diligent::IRenderD
     return insertResult.first->second;
 }
 
-Diligent::IShaderResourceBinding *FluidDepthPass::getOrCreateBinding(Diligent::IPipelineState *pipeline)
+Diligent::IShaderResourceBinding *FluidDepthPass::getOrCreateBinding(
+    Diligent::IPipelineState *pipeline)
 {
     if (pipeline == nullptr)
     {
@@ -208,10 +209,10 @@ bool FluidDepthPass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
     const auto &particles = physicsScene.soft.particles;
     if (particles.count == 0u || particles.positionsInvMassBuffer == nullptr ||
         particles.environmentIndicesBuffer == nullptr || particles.particleKindsBuffer == nullptr ||
-        particles.fluidAnisotropy1Buffer == nullptr || particles.fluidAnisotropy2Buffer == nullptr ||
-        particles.fluidAnisotropy3Buffer == nullptr ||
-        gpuScene.preparedCamerasBuffer == nullptr || gpuScene.cameraInputsBuffer == nullptr ||
-        sceneDepthSrv == nullptr)
+        particles.fluidAnisotropy1Buffer == nullptr ||
+        particles.fluidAnisotropy2Buffer == nullptr ||
+        particles.fluidAnisotropy3Buffer == nullptr || gpuScene.preparedCamerasBuffer == nullptr ||
+        gpuScene.cameraInputsBuffer == nullptr || sceneDepthSrv == nullptr)
     {
         return false;
     }
@@ -292,9 +293,9 @@ bool FluidDepthPass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
     }
 
     DrawConstants constants{};
-    constants.cameraIndex = camera.globalCameraIndex;
-    constants.sceneDepthLayer = sceneDepthLayer;
-    constants.envIndex = camera.envIndex;
+    constants.cameraIndex        = camera.globalCameraIndex;
+    constants.sceneDepthLayer    = sceneDepthLayer;
+    constants.envIndex           = camera.envIndex;
     constants.depthEdgeThreshold = options.depthEdgeThreshold;
 
     void *mapped = nullptr;

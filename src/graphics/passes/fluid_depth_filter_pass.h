@@ -24,14 +24,14 @@ public:
 private:
     struct FilterConstants
     {
-        std::uint32_t layer = 0u;
-        std::uint32_t outputWidth = 0u;
+        std::uint32_t layer        = 0u;
+        std::uint32_t outputWidth  = 0u;
         std::uint32_t outputHeight = 0u;
         std::uint32_t filterRadius = 3u;
-        float depthEdgeThreshold = 0.2f;
-        float padding0 = 0.0f;
-        float padding1 = 0.0f;
-        float padding2 = 0.0f;
+        float depthEdgeThreshold   = 0.2f;
+        float padding0             = 0.0f;
+        float padding1             = 0.0f;
+        float padding2             = 0.0f;
     };
 
     gpu::GpuDevice &mDevice;

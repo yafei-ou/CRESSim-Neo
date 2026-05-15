@@ -479,9 +479,9 @@ bool ForwardPipeline::initialize()
         return false;
     }
 
-    mFluidDepthPass = std::make_unique<FluidDepthPass>(mDevice);
+    mFluidDepthPass       = std::make_unique<FluidDepthPass>(mDevice);
     mFluidDepthFilterPass = std::make_unique<FluidDepthFilterPass>(mDevice);
-    mFluidCompositePass = std::make_unique<FluidCompositePass>(mDevice);
+    mFluidCompositePass   = std::make_unique<FluidCompositePass>(mDevice);
     if (!mFluidDepthPass->initialize() || !mFluidDepthFilterPass->initialize() ||
         !mFluidCompositePass->initialize())
     {
@@ -607,15 +607,14 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     const bool hasLocalShadowDraws = !localShadowRegistry.empty();
     const bool needsDebugParticles =
         mDebugParticlePass != nullptr && physicsScene != nullptr && options.debugParticles.enabled;
-    const bool needsFluid =
-        mFluidDepthPass != nullptr && mFluidDepthFilterPass != nullptr &&
-        mFluidCompositePass != nullptr && physicsScene != nullptr && options.fluid.enabled &&
-        physicsScene->soft.particles.count > 0u &&
-        physicsScene->soft.particles.positionsInvMassBuffer != nullptr &&
-        physicsScene->soft.particles.particleKindsBuffer != nullptr &&
-        physicsScene->soft.particles.fluidAnisotropy1Buffer != nullptr &&
-        physicsScene->soft.particles.fluidAnisotropy2Buffer != nullptr &&
-        physicsScene->soft.particles.fluidAnisotropy3Buffer != nullptr;
+    const bool needsFluid  = mFluidDepthPass != nullptr && mFluidDepthFilterPass != nullptr &&
+                             mFluidCompositePass != nullptr && physicsScene != nullptr &&
+                             options.fluid.enabled && physicsScene->soft.particles.count > 0u &&
+                             physicsScene->soft.particles.positionsInvMassBuffer != nullptr &&
+                             physicsScene->soft.particles.particleKindsBuffer != nullptr &&
+                             physicsScene->soft.particles.fluidAnisotropy1Buffer != nullptr &&
+                             physicsScene->soft.particles.fluidAnisotropy2Buffer != nullptr &&
+                             physicsScene->soft.particles.fluidAnisotropy3Buffer != nullptr;
     const bool needsSkybox = mSkyboxPass != nullptr && batchView.cameras.front().backgroundMode ==
                                                            CameraBackgroundMode::EnvironmentCubemap;
     const bool needsSceneBuffers = hasOpaqueDraws || hasTransparentDraws || hasShadowDraws ||
@@ -1600,8 +1599,11 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
 
     if (needsFluid)
     {
+        Diligent::ITexture *sceneColorTexture = nullptr;
         Diligent::ITexture *sceneDepthTexture = nullptr;
-        if (!batchView.renderTargetDesc.depth ||
+        if (!mDevice.renderTargetSystem().tryGetRenderTargetColorTexture(
+                batchView.renderBinding.target, sceneColorTexture) ||
+            sceneColorTexture == nullptr || !batchView.renderTargetDesc.depth ||
             !mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(
                 batchView.renderBinding.target, sceneDepthTexture) ||
             sceneDepthTexture == nullptr)
@@ -1610,15 +1612,15 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         }
 
         gpu::GpuRenderTargetDesc fluidDepthDesc{};
-        fluidDepthDesc.width = batchView.renderTargetDesc.width;
-        fluidDepthDesc.height = batchView.renderTargetDesc.height;
-        fluidDepthDesc.arraySize = static_cast<std::uint32_t>(batchView.cameras.size());
-        fluidDepthDesc.color = true;
-        fluidDepthDesc.depth = false;
+        fluidDepthDesc.width            = batchView.renderTargetDesc.width;
+        fluidDepthDesc.height           = batchView.renderTargetDesc.height;
+        fluidDepthDesc.arraySize        = static_cast<std::uint32_t>(batchView.cameras.size());
+        fluidDepthDesc.color            = true;
+        fluidDepthDesc.depth            = false;
         fluidDepthDesc.layeredRendering = true;
-        fluidDepthDesc.shaderReadable = true;
-        fluidDepthDesc.colorFormat = Diligent::TEX_FORMAT_R32_FLOAT;
-        fluidDepthDesc.debugName = "CRESSimNeo.Fluid.Depth";
+        fluidDepthDesc.shaderReadable   = true;
+        fluidDepthDesc.colorFormat      = Diligent::TEX_FORMAT_R32_FLOAT;
+        fluidDepthDesc.debugName        = "CRESSimNeo.Fluid.Depth";
         const gpu::GpuRenderTargetHandle fluidDepthTarget = acquireCachedTarget(fluidDepthDesc);
         if (!mDevice.renderTargetSystem().isValidRenderTarget(fluidDepthTarget))
         {
@@ -1626,9 +1628,10 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         }
 
         gpu::GpuRenderTargetDesc fluidFilteredDesc = fluidDepthDesc;
-        fluidFilteredDesc.unorderedAccess = true;
-        fluidFilteredDesc.debugName = "CRESSimNeo.Fluid.DepthFiltered";
-        const gpu::GpuRenderTargetHandle fluidFilteredTarget = acquireCachedTarget(fluidFilteredDesc);
+        fluidFilteredDesc.unorderedAccess          = true;
+        fluidFilteredDesc.debugName                = "CRESSimNeo.Fluid.DepthFiltered";
+        const gpu::GpuRenderTargetHandle fluidFilteredTarget =
+            acquireCachedTarget(fluidFilteredDesc);
         if (!mDevice.renderTargetSystem().isValidRenderTarget(fluidFilteredTarget))
         {
             return false;
@@ -1637,24 +1640,71 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         Diligent::RefCntAutoPtr<Diligent::ITextureView> sceneDepthSrv;
         {
             Diligent::TextureViewDesc viewDesc{};
-            viewDesc.ViewType = Diligent::TEXTURE_VIEW_SHADER_RESOURCE;
-            viewDesc.TextureDim = sceneDepthTexture->GetDesc().Type;
+            viewDesc.ViewType        = Diligent::TEXTURE_VIEW_SHADER_RESOURCE;
+            viewDesc.TextureDim      = sceneDepthTexture->GetDesc().Type;
             viewDesc.MostDetailedMip = 0u;
-            viewDesc.NumMipLevels = 1u;
+            viewDesc.NumMipLevels    = 1u;
             viewDesc.FirstArraySlice = 0u;
-            viewDesc.NumArraySlices = sceneDepthTexture->GetDesc().Type ==
-                                              Diligent::RESOURCE_DIM_TEX_2D_ARRAY
-                                          ? sceneDepthTexture->GetDesc().ArraySize
-                                          : 1u;
+            viewDesc.NumArraySlices =
+                sceneDepthTexture->GetDesc().Type == Diligent::RESOURCE_DIM_TEX_2D_ARRAY
+                    ? sceneDepthTexture->GetDesc().ArraySize
+                    : 1u;
             sceneDepthTexture->CreateView(viewDesc, &sceneDepthSrv);
         }
         if (sceneDepthSrv == nullptr)
         {
-            sceneDepthSrv = sceneDepthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+            sceneDepthSrv =
+                sceneDepthTexture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
         }
         if (sceneDepthSrv == nullptr)
         {
             return false;
+        }
+
+        Diligent::RefCntAutoPtr<Diligent::ITextureView> sceneColorSnapshotSrv;
+        if (options.fluid.enableBackgroundRefraction)
+        {
+            gpu::GpuRenderTargetDesc sceneColorSnapshotDesc = batchView.renderTargetDesc;
+            sceneColorSnapshotDesc.depth                    = false;
+            sceneColorSnapshotDesc.shaderReadable           = true;
+            sceneColorSnapshotDesc.unorderedAccess          = false;
+            sceneColorSnapshotDesc.debugName                = "CRESSimNeo.Fluid.SceneColorSnapshot";
+            const gpu::GpuRenderTargetHandle sceneColorSnapshotTarget =
+                acquireCachedTarget(sceneColorSnapshotDesc);
+            if (!mDevice.renderTargetSystem().isValidRenderTarget(sceneColorSnapshotTarget))
+            {
+                return false;
+            }
+
+            Diligent::ITexture *sceneColorSnapshotTexture = nullptr;
+            if (!mDevice.renderTargetSystem().tryGetRenderTargetColorTexture(
+                    sceneColorSnapshotTarget, sceneColorSnapshotTexture) ||
+                sceneColorSnapshotTexture == nullptr)
+            {
+                return false;
+            }
+
+            for (std::uint32_t layer = 0u; layer < batchView.renderTargetDesc.arraySize; ++layer)
+            {
+                Diligent::CopyTextureAttribs copyAttribs{
+                    sceneColorTexture, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                    sceneColorSnapshotTexture, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
+                copyAttribs.SrcSlice = layer;
+                copyAttribs.DstSlice = layer;
+                backendContext.graphicsContext->CopyTexture(copyAttribs);
+            }
+
+            sceneColorSnapshotSrv = createTextureArrayView(sceneColorSnapshotTexture,
+                                                           Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+            if (sceneColorSnapshotSrv == nullptr)
+            {
+                sceneColorSnapshotSrv = sceneColorSnapshotTexture->GetDefaultView(
+                    Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+            }
+            if (sceneColorSnapshotSrv == nullptr)
+            {
+                return false;
+            }
         }
 
         for (std::uint32_t cameraIdx = 0u;
@@ -1663,10 +1713,11 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             const ResolvedCameraView &camera = batchView.cameras[cameraIdx];
             const gpu::GpuRenderTargetBinding fluidBinding{fluidDepthTarget, cameraIdx, 1u};
             mDevice.renderTargetSystem().setRenderTargetViewport(
-                fluidBinding, camera.useOutputViewport ? camera.viewport : gpu::GpuRenderViewport{});
+                fluidBinding,
+                camera.useOutputViewport ? camera.viewport : gpu::GpuRenderViewport{});
             gpu::GpuRenderPassBeginDesc fluidBegin{};
-            fluidBegin.clearColor = true;
-            fluidBegin.clearDepth = false;
+            fluidBegin.clearColor         = true;
+            fluidBegin.clearDepth         = false;
             fluidBegin.clearColorValue[0] = 1000000.0f;
             fluidBegin.clearColorValue[1] = 1000000.0f;
             fluidBegin.clearColorValue[2] = 1000000.0f;
@@ -1674,8 +1725,8 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             mDevice.renderTargetSystem().beginRenderTarget(fluidBinding, frameContext, fluidBegin);
             const std::uint32_t sceneDepthLayer =
                 camera.outputBinding.firstLayer - batchView.renderBinding.firstLayer;
-            if (!mFluidDepthPass->draw(fluidBinding, fluidDepthDesc, gpuScene, *physicsScene, camera,
-                                       sceneDepthLayer, sceneDepthSrv, options.fluid))
+            if (!mFluidDepthPass->draw(fluidBinding, fluidDepthDesc, gpuScene, *physicsScene,
+                                       camera, sceneDepthLayer, sceneDepthSrv, options.fluid))
             {
                 mDevice.renderTargetSystem().endRenderTarget(fluidBinding, frameContext);
                 return false;
@@ -1683,7 +1734,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             mDevice.renderTargetSystem().endRenderTarget(fluidBinding, frameContext);
         }
 
-        Diligent::ITexture *fluidDepthTexture = nullptr;
+        Diligent::ITexture *fluidDepthTexture    = nullptr;
         Diligent::ITexture *fluidFilteredTexture = nullptr;
         if (!mDevice.renderTargetSystem().tryGetRenderTargetColorTexture(fluidDepthTarget,
                                                                          fluidDepthTexture) ||
@@ -1722,8 +1773,8 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             const ResolvedCameraView &camera = batchView.cameras[cameraIdx];
             const std::uint32_t sceneDepthLayer =
                 camera.outputBinding.firstLayer - batchView.renderBinding.firstLayer;
-            const gpu::GpuRenderTargetBinding compositeBinding{
-                batchView.renderBinding.target, camera.outputBinding.firstLayer, 1u};
+            const gpu::GpuRenderTargetBinding compositeBinding{batchView.renderBinding.target,
+                                                               camera.outputBinding.firstLayer, 1u};
             mDevice.renderTargetSystem().setRenderTargetViewport(
                 compositeBinding,
                 camera.useOutputViewport ? camera.viewport : gpu::GpuRenderViewport{});
@@ -1734,9 +1785,8 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                                            compositeBegin);
             if (!mFluidCompositePass->composite(compositeBinding, batchView.renderTargetDesc,
                                                 gpuScene, camera, cameraIdx, sceneDepthLayer,
-                                                fluidFilteredSrv,
-                                                sceneDepthSrv,
-                                                options.fluid))
+                                                fluidFilteredSrv, sceneColorSnapshotSrv,
+                                                sceneDepthSrv, options.fluid))
             {
                 mDevice.renderTargetSystem().endRenderTarget(compositeBinding, frameContext);
                 return false;

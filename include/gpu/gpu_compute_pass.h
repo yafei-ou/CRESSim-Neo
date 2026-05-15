@@ -27,8 +27,8 @@ struct GpuBufferBinding
 
 struct GpuTextureBinding
 {
-    const char *variableName       = nullptr;
-    Diligent::ITextureView *view   = nullptr;
+    const char *variableName     = nullptr;
+    Diligent::ITextureView *view = nullptr;
 };
 
 struct GpuComputePassDefinition

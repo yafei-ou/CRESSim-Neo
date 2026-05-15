@@ -495,10 +495,10 @@ public:
             }
 
             graphics::RenderFrameOptions renderOptions = runtime.renderFrameOptions();
-            renderOptions.presentedCameraEntity  = presentedCameraEntity;
-            renderOptions.presentationTarget     = presentationTargetDesc;
-            renderOptions.debugParticles.enabled = mDesc.enableDebugParticles;
-            renderOptions.fluid.enabled          = !mDesc.enableDebugParticles;
+            renderOptions.presentedCameraEntity        = presentedCameraEntity;
+            renderOptions.presentationTarget           = presentationTargetDesc;
+            renderOptions.debugParticles.enabled       = mDesc.enableDebugParticles;
+            renderOptions.fluid.enabled                = !mDesc.enableDebugParticles;
             runtime.setRenderFrameOptions(renderOptions);
 
             frame.frameIndex += 1u;
