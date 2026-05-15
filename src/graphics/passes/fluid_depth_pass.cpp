@@ -147,10 +147,7 @@ Diligent::IPipelineState *FluidDepthPass::getOrCreatePipeline(Diligent::IRenderD
     psoCreateInfo.pPS = pixelShader;
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline;
-    // Bypass the shared graphics-PSO cache for this pass: on Vulkan this PSO has been observed
-    // to fail through the cached creation path while succeeding via direct device creation.
-    renderDevice->CreateGraphicsPipelineState(psoCreateInfo, &pipeline);
-    if (pipeline == nullptr)
+    if (!mDevice.createGraphicsPipelineState(psoCreateInfo, &pipeline))
     {
         return nullptr;
     }

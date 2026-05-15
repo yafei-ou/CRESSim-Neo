@@ -631,13 +631,21 @@ bool GpuDeviceImpl::createGraphicsPipelineState(
     }
     *pipelineState = nullptr;
 
-    if (mShaderCache.createGraphicsPipelineState(createInfo, pipelineState))
+    bool cacheAttempted = false;
+    if (mShaderCache.createGraphicsPipelineState(createInfo, pipelineState, &cacheAttempted))
     {
         return true;
     }
     if (mRenderDevice == nullptr)
     {
         return false;
+    }
+    if (cacheAttempted)
+    {
+        const char *pipelineName =
+            createInfo.PSODesc.Name != nullptr ? createInfo.PSODesc.Name : "<unnamed>";
+        CRESSIM_LOG_WARNING("cached graphics PSO creation failed for '", pipelineName,
+                            "'; falling back to direct device creation.");
     }
 
     mRenderDevice->CreateGraphicsPipelineState(createInfo, pipelineState);
