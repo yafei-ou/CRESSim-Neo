@@ -48,6 +48,17 @@ Diligent::RefCntAutoPtr<Diligent::ITextureView> createTextureArrayView(
     return view;
 }
 
+const EnvironmentFluidDesc &environmentFluidForCamera(const HostSceneView &sceneView,
+                                                      std::uint32_t envIndex)
+{
+    static const EnvironmentFluidDesc kDefaultEnvironmentFluid{};
+    if (sceneView.environmentFluids == nullptr || envIndex >= sceneView.environmentFluids->size())
+    {
+        return kDefaultEnvironmentFluid;
+    }
+    return (*sceneView.environmentFluids)[envIndex];
+}
+
 constexpr std::uint32_t kIndirectThreadGroupSize = 64u;
 
 struct IndirectCommandDesc
@@ -1675,8 +1686,18 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             return false;
         }
 
+        bool needsBackgroundRefractionSnapshot = false;
+        for (const ResolvedCameraView &camera : batchView.cameras)
+        {
+            if (environmentFluidForCamera(sceneView, camera.envIndex).enableBackgroundRefraction)
+            {
+                needsBackgroundRefractionSnapshot = true;
+                break;
+            }
+        }
+
         Diligent::RefCntAutoPtr<Diligent::ITextureView> sceneColorSnapshotSrv;
-        if (options.fluid.enableBackgroundRefraction)
+        if (needsBackgroundRefractionSnapshot)
         {
             gpu::GpuRenderTargetDesc sceneColorSnapshotDesc = batchView.renderTargetDesc;
             sceneColorSnapshotDesc.depth                    = false;
@@ -1739,8 +1760,10 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             mDevice.renderTargetSystem().beginRenderTarget(fluidBinding, frameContext, fluidBegin);
             const std::uint32_t sceneDepthLayer =
                 camera.outputBinding.firstLayer - batchView.renderBinding.firstLayer;
+            const EnvironmentFluidDesc &environmentFluid =
+                environmentFluidForCamera(sceneView, camera.envIndex);
             if (!mFluidDepthPass->draw(fluidBinding, fluidDepthDesc, gpuScene, *physicsScene,
-                                       camera, sceneDepthLayer, sceneDepthSrv, options.fluid))
+                                       camera, sceneDepthLayer, sceneDepthSrv, environmentFluid))
             {
                 mDevice.renderTargetSystem().endRenderTarget(fluidBinding, frameContext);
                 return false;
@@ -1780,9 +1803,11 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         for (std::uint32_t cameraIdx = 0u;
              cameraIdx < static_cast<std::uint32_t>(batchView.cameras.size()); ++cameraIdx)
         {
+            const EnvironmentFluidDesc &environmentFluid =
+                environmentFluidForCamera(sceneView, batchView.cameras[cameraIdx].envIndex);
             if (!mFluidDepthFilterPass->filter(fluidDepthSrv, fluidFilteredUav,
                                                batchView.cameras[cameraIdx], cameraIdx,
-                                               options.fluid))
+                                               environmentFluid))
             {
                 return false;
             }
@@ -1814,6 +1839,8 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
              cameraIdx < static_cast<std::uint32_t>(batchView.cameras.size()); ++cameraIdx)
         {
             const ResolvedCameraView &camera = batchView.cameras[cameraIdx];
+            const EnvironmentFluidDesc &environmentFluid =
+                environmentFluidForCamera(sceneView, camera.envIndex);
             const std::uint32_t sceneDepthLayer =
                 camera.outputBinding.firstLayer - batchView.renderBinding.firstLayer;
             const gpu::GpuRenderTargetBinding compositeBinding{batchView.renderBinding.target,
@@ -1829,7 +1856,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
             if (!mFluidCompositePass->composite(compositeBinding, batchView.renderTargetDesc,
                                                 gpuScene, camera, cameraIdx, sceneDepthLayer,
                                                 fluidFilteredSrv, fluidColorSrv, sceneColorSnapshotSrv,
-                                                sceneDepthSrv, options.fluid))
+                                                sceneDepthSrv, environmentFluid))
             {
                 mDevice.renderTargetSystem().endRenderTarget(compositeBinding, frameContext);
                 return false;

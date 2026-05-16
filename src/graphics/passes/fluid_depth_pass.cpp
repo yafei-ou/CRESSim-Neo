@@ -196,9 +196,9 @@ bool FluidDepthPass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
                           const cressim::neo::physics::PhysicsGpuSceneView &physicsScene,
                           const ResolvedCameraView &camera, std::uint32_t sceneDepthLayer,
                           Diligent::ITextureView *sceneDepthSrv,
-                          const RenderFrameOptions::FluidRenderingOptions &options)
+                          const EnvironmentFluidDesc &environmentFluid)
 {
-    if (!mInitialized || !options.enabled)
+    if (!mInitialized)
     {
         return false;
     }
@@ -293,7 +293,7 @@ bool FluidDepthPass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
     constants.cameraIndex        = camera.globalCameraIndex;
     constants.sceneDepthLayer    = sceneDepthLayer;
     constants.envIndex           = camera.envIndex;
-    constants.depthEdgeThreshold = options.depthEdgeThreshold;
+    constants.depthEdgeThreshold = environmentFluid.depthEdgeThreshold;
 
     void *mapped = nullptr;
     backendContext.graphicsContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,

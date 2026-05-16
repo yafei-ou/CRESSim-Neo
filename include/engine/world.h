@@ -30,6 +30,9 @@ public:
     std::uint32_t entityEnvironment(common::EntityId entityId) const noexcept;
     bool setEnvironmentIbl(std::uint32_t envIndex, const graphics::EnvironmentIblDesc &desc);
     const graphics::EnvironmentIblDesc *tryGetEnvironmentIbl(std::uint32_t envIndex) const noexcept;
+    bool setEnvironmentFluid(std::uint32_t envIndex, const graphics::EnvironmentFluidDesc &desc);
+    const graphics::EnvironmentFluidDesc *tryGetEnvironmentFluid(
+        std::uint32_t envIndex) const noexcept;
 
     bool isAlive(common::EntityId entityId) const;
     const std::vector<common::EntityId> &entities() const noexcept;
@@ -179,6 +182,7 @@ private:
     std::vector<graphics::GpuLocalLightSelection> mLocalLightSelectionsHost{};
     std::vector<graphics::GpuSoftBodyVertexBinding> mSoftBodyVertexBindingsHost{};
     std::vector<graphics::EnvironmentIblDesc> mEnvironmentIbls{};
+    std::vector<graphics::EnvironmentFluidDesc> mEnvironmentFluids{};
     std::vector<graphics::IndirectCommandRegistryEntry> mOpaqueDrawRegistryHost{};
     std::vector<graphics::TransparentDrawEntry> mTransparentDrawRegistryHost{};
     std::vector<graphics::IndirectCommandRegistryEntry> mShadowDrawRegistryHost{};

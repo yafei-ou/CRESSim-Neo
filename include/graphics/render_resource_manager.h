@@ -194,6 +194,18 @@ struct EnvironmentIblDesc
     }
 };
 
+struct EnvironmentFluidDesc
+{
+    float smoothness                = 0.92f;
+    Diligent::float3 specular       = {0.35f, 0.4f, 0.45f};
+    float fresnel                   = 0.8f;
+    float depthEdgeThreshold        = 0.2f;
+    float filterRadiusPixels        = 3.0f;
+    bool enableBackgroundRefraction = true;
+    float refractionIor             = 1.33f;
+    float refractionViewThickness   = 0.35f;
+};
+
 class CRESSIM_NEO_GRAPHICS_API RenderResourceManager
 {
 public:

@@ -223,11 +223,11 @@ bool FluidCompositePass::composite(
     std::uint32_t fluidDepthLayer, std::uint32_t sceneDepthLayer,
     Diligent::ITextureView *filteredDepthSrv, Diligent::ITextureView *surfaceColorSrv,
     Diligent::ITextureView *sceneColorSrv, Diligent::ITextureView *sceneDepthSrv,
-    const RenderFrameOptions::FluidRenderingOptions &options)
+    const EnvironmentFluidDesc &environmentFluid)
 {
     if (!mInitialized || filteredDepthSrv == nullptr || surfaceColorSrv == nullptr ||
         sceneDepthSrv == nullptr ||
-        (options.enableBackgroundRefraction && sceneColorSrv == nullptr) ||
+        (environmentFluid.enableBackgroundRefraction && sceneColorSrv == nullptr) ||
         gpuScene.cameraInputsBuffer == nullptr || gpuScene.lightInputsBuffer == nullptr ||
         gpuScene.localLightSelectionBuffer == nullptr)
     {
@@ -245,7 +245,7 @@ bool FluidCompositePass::composite(
 
     Diligent::IPipelineState *pipeline = getOrCreatePipeline(
         backendContext.renderDevice, PipelineKey{targetDesc.colorFormat, targetDesc.depthFormat,
-                                                 options.enableBackgroundRefraction});
+                                                 environmentFluid.enableBackgroundRefraction});
     if (pipeline == nullptr)
     {
         return false;
@@ -293,7 +293,7 @@ bool FluidCompositePass::composite(
         }
         surfaceColorVar->Set(surfaceColorSrv);
     }
-    if (options.enableBackgroundRefraction)
+    if (environmentFluid.enableBackgroundRefraction)
     {
         if (Diligent::IShaderResourceVariable *sceneColorVar =
                 binding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_SceneColor"))
@@ -316,16 +316,17 @@ bool FluidCompositePass::composite(
     }
 
     CompositeConstants constants{};
-    constants.specularSmoothness      = Diligent::float4{options.specular.x, options.specular.y,
-                                                         options.specular.z, options.smoothness};
+    constants.specularSmoothness = Diligent::float4{
+        environmentFluid.specular.x, environmentFluid.specular.y, environmentFluid.specular.z,
+        environmentFluid.smoothness};
     constants.cameraIndex             = camera.globalCameraIndex;
     constants.fluidDepthLayer         = fluidDepthLayer;
     constants.sceneDepthLayer         = sceneDepthLayer;
     constants.mainLightIndex          = mainDirectionalLightIndex(gpuScene.layout, camera.envIndex);
-    constants.fresnel                 = options.fresnel;
-    constants.refractionIor           = options.refractionIor;
-    constants.refractionViewThickness = options.refractionViewThickness;
-    constants.normalReconstructionDepthThreshold = options.depthEdgeThreshold;
+    constants.fresnel                 = environmentFluid.fresnel;
+    constants.refractionIor           = environmentFluid.refractionIor;
+    constants.refractionViewThickness = environmentFluid.refractionViewThickness;
+    constants.normalReconstructionDepthThreshold = environmentFluid.depthEdgeThreshold;
 
     void *mapped = nullptr;
     backendContext.graphicsContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,

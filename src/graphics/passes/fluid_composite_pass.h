@@ -32,7 +32,7 @@ public:
                    std::uint32_t sceneDepthLayer, Diligent::ITextureView *filteredDepthSrv,
                    Diligent::ITextureView *surfaceColorSrv, Diligent::ITextureView *sceneColorSrv,
                    Diligent::ITextureView *sceneDepthSrv,
-                   const RenderFrameOptions::FluidRenderingOptions &options);
+                   const EnvironmentFluidDesc &environmentFluid);
 
 private:
     struct CompositeConstants

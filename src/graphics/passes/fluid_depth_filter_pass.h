@@ -19,7 +19,7 @@ public:
     bool initialize();
     bool filter(Diligent::ITextureView *sourceSrv, Diligent::ITextureView *destUav,
                 const ResolvedCameraView &camera, std::uint32_t sourceLayer,
-                const RenderFrameOptions::FluidRenderingOptions &options);
+                const EnvironmentFluidDesc &environmentFluid);
 
 private:
     struct FilterConstants

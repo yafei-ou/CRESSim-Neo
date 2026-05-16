@@ -444,6 +444,30 @@ const graphics::EnvironmentIblDesc *World::tryGetEnvironmentIbl(
     return &mEnvironmentIbls[envIndex];
 }
 
+bool World::setEnvironmentFluid(std::uint32_t envIndex,
+                                const graphics::EnvironmentFluidDesc &desc)
+{
+    if (envIndex >= mSceneLayout.envCount)
+    {
+        return false;
+    }
+
+    ensureHostSceneStorage();
+    mWorldSceneAuthored             = true;
+    mEnvironmentFluids[envIndex] = desc;
+    return true;
+}
+
+const graphics::EnvironmentFluidDesc *World::tryGetEnvironmentFluid(
+    std::uint32_t envIndex) const noexcept
+{
+    if (envIndex >= mEnvironmentFluids.size())
+    {
+        return nullptr;
+    }
+    return &mEnvironmentFluids[envIndex];
+}
+
 bool World::isAlive(common::EntityId entityId) const
 {
     return mAlive.find(entityId) != mAlive.end();
@@ -534,6 +558,10 @@ void World::ensureHostSceneStorage()
     if (mEnvironmentIbls.size() != mSceneLayout.envCount)
     {
         mEnvironmentIbls.assign(mSceneLayout.envCount, graphics::EnvironmentIblDesc{});
+    }
+    if (mEnvironmentFluids.size() != mSceneLayout.envCount)
+    {
+        mEnvironmentFluids.assign(mSceneLayout.envCount, graphics::EnvironmentFluidDesc{});
     }
     if (mLocalLightSelectionsHost.size() != mSceneLayout.envCount)
     {
@@ -1698,6 +1726,7 @@ graphics::HostSceneView World::hostSceneView() const noexcept
         &mRenderCameras,
         &mRenderLights,
         &mEnvironmentIbls,
+        &mEnvironmentFluids,
         &mOpaqueDrawRegistryHost,
         &mTransparentDrawRegistryHost,
         &mShadowDrawRegistryHost,

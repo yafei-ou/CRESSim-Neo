@@ -82,6 +82,7 @@ struct HostSceneView
     const std::vector<CameraData> *cameras                                   = nullptr;
     const std::vector<LightData> *lights                                     = nullptr;
     const std::vector<EnvironmentIblDesc> *environmentIbls                   = nullptr;
+    const std::vector<EnvironmentFluidDesc> *environmentFluids               = nullptr;
     const std::vector<IndirectCommandRegistryEntry> *opaqueDrawRegistry      = nullptr;
     const std::vector<TransparentDrawEntry> *transparentDrawRegistry         = nullptr;
     const std::vector<IndirectCommandRegistryEntry> *shadowDrawRegistry      = nullptr;

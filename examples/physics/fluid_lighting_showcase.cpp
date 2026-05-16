@@ -277,6 +277,17 @@ int main(int argc, char **argv)
     fluidMaterial.vorticityConfinement = 0.25f;
     fluidMaterial.surfaceTension = 1.5f;
 
+    cressim::neo::graphics::EnvironmentFluidDesc fluidVisuals{};
+    fluidVisuals.smoothness = 0.95f;
+    fluidVisuals.specular = {0.38f, 0.44f, 0.50f};
+    fluidVisuals.fresnel = 0.84f;
+    fluidVisuals.depthEdgeThreshold = 0.18f;
+    fluidVisuals.filterRadiusPixels = 4.0f;
+    fluidVisuals.enableBackgroundRefraction = true;
+    fluidVisuals.refractionIor = 1.33f;
+    fluidVisuals.refractionViewThickness = 0.40f;
+    world.setEnvironmentFluid(0u, fluidVisuals);
+
     if (!spawnFluid(world, {0.0f, 0.95f, 0.0f}, {8.2f, 2.4f, 7.2f}, fluidMaterial,
                     {0.10f, 0.58f, 0.94f, 0.80f}))
     {
@@ -290,10 +301,6 @@ int main(int argc, char **argv)
     const auto &particles = world.physicsWorld().particles();
     CRESSIM_LOG_INFO("Fluid lighting showcase authored ", particles.size(),
                      " particles. Fluid bodies=", world.physicsWorld().fluidCount(), ".\n");
-
-    auto renderOptions = runtime.renderFrameOptions();
-    renderOptions.fluid.enableBackgroundRefraction = true;
-    runtime.setRenderFrameOptions(renderOptions);
 
     DebugViewerCameraBinding binding{};
     binding.cameraEntity = cameraEntity;

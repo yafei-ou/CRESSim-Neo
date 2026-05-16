@@ -184,6 +184,52 @@ Diligent::float4 thickerFluidColor(std::uint32_t envIndex)
     }
 }
 
+cressim::neo::graphics::EnvironmentFluidDesc environmentFluidSettings(std::uint32_t envIndex)
+{
+    cressim::neo::graphics::EnvironmentFluidDesc desc{};
+    switch (envIndex % 4u)
+    {
+    case 0u:
+        desc.smoothness = 0.94f;
+        desc.specular = {0.34f, 0.42f, 0.50f};
+        desc.fresnel = 0.82f;
+        desc.depthEdgeThreshold = 0.16f;
+        desc.filterRadiusPixels = 3.0f;
+        desc.enableBackgroundRefraction = true;
+        desc.refractionViewThickness = 0.28f;
+        break;
+    case 1u:
+        desc.smoothness = 0.88f;
+        desc.specular = {0.26f, 0.34f, 0.30f};
+        desc.fresnel = 0.74f;
+        desc.depthEdgeThreshold = 0.22f;
+        desc.filterRadiusPixels = 4.0f;
+        desc.enableBackgroundRefraction = true;
+        desc.refractionViewThickness = 0.42f;
+        break;
+    case 2u:
+        desc.smoothness = 0.80f;
+        desc.specular = {0.40f, 0.30f, 0.18f};
+        desc.fresnel = 0.66f;
+        desc.depthEdgeThreshold = 0.26f;
+        desc.filterRadiusPixels = 5.0f;
+        desc.enableBackgroundRefraction = false;
+        desc.refractionViewThickness = 0.35f;
+        break;
+    default:
+        desc.smoothness = 0.97f;
+        desc.specular = {0.42f, 0.34f, 0.52f};
+        desc.fresnel = 0.90f;
+        desc.depthEdgeThreshold = 0.14f;
+        desc.filterRadiusPixels = 2.0f;
+        desc.enableBackgroundRefraction = true;
+        desc.refractionIor = 1.38f;
+        desc.refractionViewThickness = 0.24f;
+        break;
+    }
+    return desc;
+}
+
 bool spawnSoftBody(cressim::neo::engine::World &world, std::uint32_t envIndex,
                    const Diligent::float3 &position,
                    const cressim::neo::physics::ParticleContactMaterialDesc &contactMaterial)
@@ -233,6 +279,7 @@ void authorEnvironment(cressim::neo::engine::Runtime &runtime, std::uint32_t env
     envThickerFluid.cohesion *= 0.88f + 0.24f * (0.5f + 0.5f * std::sin(phase * 1.1f));
     envThickerFluid.surfaceTension *=
         0.86f + 0.28f * (0.5f + 0.5f * std::cos(phase * 0.8f));
+    world.setEnvironmentFluid(envIndex, environmentFluidSettings(envIndex));
 
     outCameraEntity = world.createEntity(envIndex);
     TransformComponent cameraTransform{};
