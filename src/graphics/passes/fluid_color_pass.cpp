@@ -1,7 +1,7 @@
 #include "graphics/passes/fluid_color_pass.h"
 
-#include "graphics/gpu_scene.h"
 #include "gpu/shader_library.h"
+#include "graphics/gpu_scene.h"
 #include "graphics/passes/render_pass_types.h"
 #include "physics/physics_gpu_scene_view.h"
 
@@ -140,7 +140,7 @@ Diligent::IPipelineState *FluidColorPass::getOrCreatePipeline(Diligent::IRenderD
         {Diligent::SHADER_TYPE_PIXEL, "g_FilteredFluidDepth",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
-    psoCreateInfo.PSODesc.ResourceLayout.Variables    = kVars;
+    psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
     psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
         static_cast<Diligent::Uint32>(std::size(kVars));
     psoCreateInfo.pVS = vertexShader;

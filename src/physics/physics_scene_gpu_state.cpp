@@ -235,9 +235,9 @@ void buildConstraintAdjacencyRanges(std::uint32_t particleCount,
 bool PhysicsSceneGpuState::ensureCapacity(
     Diligent::IRenderDevice *renderDevice, std::uint32_t bodyCount, std::uint32_t colliderCount,
     std::uint32_t particleCount, std::uint32_t fluidCount,
-    std::uint32_t particleContactMaterialCount,
-    std::uint32_t fluidMaterialCount, std::uint32_t softEdgeCount, std::uint32_t softTetCount,
-    std::uint32_t ballJointCount, std::uint32_t hingeJointCount, std::uint32_t sliderJointCount,
+    std::uint32_t particleContactMaterialCount, std::uint32_t fluidMaterialCount,
+    std::uint32_t softEdgeCount, std::uint32_t softTetCount, std::uint32_t ballJointCount,
+    std::uint32_t hingeJointCount, std::uint32_t sliderJointCount,
     std::uint32_t softRenderVertexCount, std::uint32_t softRenderTriangleIndexCount,
     std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
     std::uint32_t softBodyBoundsChunkCount, Diligent::Uint64 sharedContextMask,
@@ -546,8 +546,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
 
     if (hasAllBuffers && mRigidBodyCapacity >= bodyCount && mColliderCapacity >= colliderCount &&
         mSoftParticleCapacity >= particleCount && mSoftEdgeCapacity >= softEdgeCount &&
-        mSoftTetCapacity >= softTetCount &&
-        mFluidVisualCapacity >= newFluidVisualCapacity &&
+        mSoftTetCapacity >= softTetCount && mFluidVisualCapacity >= newFluidVisualCapacity &&
         mParticleContactMaterialCapacity >= newParticleContactMaterialCapacity &&
         mFluidMaterialCapacity >= newFluidMaterialCapacity &&
         mParticleBroadPhaseEntryCapacity >= newParticleBroadPhaseEntryCapacity &&
@@ -778,11 +777,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentParticles.fluidMaterialIndicesBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidVisuals",
-                                sizeof(Diligent::float4), newFluidVisualCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentParticles.fluidVisualsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.FluidVisuals", sizeof(Diligent::float4),
+            newFluidVisualCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.fluidVisualsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ParticleContactMaterials",
                                 sizeof(Diligent::float4), newParticleContactMaterialCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -1591,7 +1589,7 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
     const BodyColliderMappingHost &bodyColliderMapping = world.bodyColliderMapping();
     const JointCollisionSuppressionHost &jointCollisionSuppression =
         world.jointCollisionSuppression();
-    const ParticleSoAHost &particles = world.particles();
+    const ParticleSoAHost &particles      = world.particles();
     const std::vector<FluidState> &fluids = world.fluidSnapshot();
     const std::vector<Diligent::float4> &particleContactMaterials =
         world.particleContactMaterials();
@@ -1670,9 +1668,8 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
         mLastUploadedSoftTopologyRevision != softTopologyRevision ||
         mLastUploadedSoftParticleRevision != softParticleRevision;
 
-    if ((needsSoftParticleUpload &&
-         !uploadParticles(computeContext, particles, fluids, particleContactMaterials,
-                          fluidMaterials)) ||
+    if ((needsSoftParticleUpload && !uploadParticles(computeContext, particles, fluids,
+                                                     particleContactMaterials, fluidMaterials)) ||
         (needsSoftTopologyUpload &&
          !uploadSoftTopology(computeContext, static_cast<std::uint32_t>(particles.size()),
                              softRenderData, softEdges, softTets)))

@@ -35,8 +35,7 @@ public:
               const gpu::GpuRenderTargetDesc &targetDesc, const GpuEntitySceneView &gpuScene,
               const cressim::neo::physics::PhysicsGpuSceneView &physicsScene,
               const ResolvedCameraView &camera, std::uint32_t sceneDepthLayer,
-              Diligent::ITextureView *sceneDepthSrv,
-              const EnvironmentFluidDesc &environmentFluid);
+              Diligent::ITextureView *sceneDepthSrv, const EnvironmentFluidDesc &environmentFluid);
 
 private:
     struct DrawConstants

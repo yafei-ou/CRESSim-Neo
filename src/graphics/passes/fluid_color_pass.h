@@ -20,7 +20,7 @@ namespace cressim::neo::graphics
 {
 struct GpuEntitySceneView;
 struct ResolvedCameraView;
-}
+} // namespace cressim::neo::graphics
 
 namespace cressim::neo::graphics::detail
 {

@@ -863,7 +863,7 @@ private:
         Diligent::float3 worldDirection = right * input.moveDirection.x +
                                           worldUp * input.moveDirection.y +
                                           forward * input.moveDirection.z;
-        worldDirection                  = common::runtime_math::safeNormalize(worldDirection);
+        worldDirection = common::runtime_math::safeNormalize(worldDirection);
 
         float movementSpeed = camera.moveSpeed;
         if (input.boost)

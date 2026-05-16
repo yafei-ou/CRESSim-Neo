@@ -316,9 +316,9 @@ bool FluidCompositePass::composite(
     }
 
     CompositeConstants constants{};
-    constants.specularSmoothness = Diligent::float4{
-        environmentFluid.specular.x, environmentFluid.specular.y, environmentFluid.specular.z,
-        environmentFluid.smoothness};
+    constants.specularSmoothness =
+        Diligent::float4{environmentFluid.specular.x, environmentFluid.specular.y,
+                         environmentFluid.specular.z, environmentFluid.smoothness};
     constants.cameraIndex             = camera.globalCameraIndex;
     constants.fluidDepthLayer         = fluidDepthLayer;
     constants.sceneDepthLayer         = sceneDepthLayer;
