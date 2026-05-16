@@ -557,11 +557,11 @@ void World::ensureHostSceneStorage()
 
     if (mEnvironmentIbls.size() != mSceneLayout.envCount)
     {
-        mEnvironmentIbls.assign(mSceneLayout.envCount, graphics::EnvironmentIblDesc{});
+        mEnvironmentIbls.resize(mSceneLayout.envCount, graphics::EnvironmentIblDesc{});
     }
     if (mEnvironmentFluids.size() != mSceneLayout.envCount)
     {
-        mEnvironmentFluids.assign(mSceneLayout.envCount, graphics::EnvironmentFluidDesc{});
+        mEnvironmentFluids.resize(mSceneLayout.envCount, graphics::EnvironmentFluidDesc{});
     }
     if (mLocalLightSelectionsHost.size() != mSceneLayout.envCount)
     {
