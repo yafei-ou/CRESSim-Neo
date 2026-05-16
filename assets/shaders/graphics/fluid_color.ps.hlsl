@@ -46,7 +46,7 @@ float4 main(PSInput In) : SV_Target
     }
 
     const float2 distVec = In.Uv - float2(0.5, 0.5);
-    if (dot(distVec, distVec) > 0.25)
+    if (dot(distVec, distVec) > 0.36)
     {
         discard;
     }

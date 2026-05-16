@@ -122,5 +122,7 @@ void main(uint vertexId : SV_VertexID, out VSOutput Out)
     Out.ViewPos = viewPos;
     Out.Uv = quadCoord * 0.5 + 0.5;
     Out.Color = CRESSIM_SB_LOAD(g_FluidVisuals, ownerIndex);
-    Out.DepthTolerance = max(scale, 0.02);
+    // Let the color pass cover a slightly wider depth band than the exact billboard
+    // depth so edge pixels survive the filtered surface match.
+    Out.DepthTolerance = max(scale * 1.35, 0.04);
 }
