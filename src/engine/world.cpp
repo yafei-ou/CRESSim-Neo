@@ -1076,6 +1076,7 @@ bool World::setFluid(common::EntityId entityId, const FluidComponent &component)
     state.environmentIndex = entityEnvironment(entityId);
     state.source           = component.source;
     state.material         = component.material;
+    state.visualColor      = component.visualColor;
     state.restTransform    = transform.worldTransform;
     state.particleMass     = component.particleMass;
     state.particleRadius   = component.particleRadius;
@@ -1494,6 +1495,7 @@ std::optional<FluidComponent> World::tryGetFluid(common::EntityId entityId) cons
     FluidComponent component{};
     component.source         = fluid->source;
     component.material       = fluid->material;
+    component.visualColor    = fluid->visualColor;
     component.particleMass   = fluid->particleMass;
     component.particleRadius = fluid->particleRadius;
     component.simulated      = fluid->simulated;

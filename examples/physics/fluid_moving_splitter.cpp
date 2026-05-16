@@ -161,7 +161,8 @@ void spawnStaticCollisionBox(cressim::neo::engine::World &world, std::uint32_t e
 
 bool spawnFluid(cressim::neo::engine::World &world, std::uint32_t envIndex,
                 const Diligent::float3 &position, const Diligent::float3 &size,
-                const cressim::neo::physics::FluidMaterialDesc &material)
+                const cressim::neo::physics::FluidMaterialDesc &material,
+                const Diligent::float4 &visualColor)
 {
     const auto entity = world.createEntity(envIndex);
 
@@ -178,9 +179,25 @@ bool spawnFluid(cressim::neo::engine::World &world, std::uint32_t envIndex,
     const float particleDiameter = 2.0f * fluid.particleRadius;
     fluid.particleMass =
         1.0f * particleDiameter * particleDiameter * particleDiameter * 1000.0f;
+    fluid.visualColor = visualColor;
     fluid.collisionLayer = 0x1u;
     fluid.collisionMask = 0xffffffffu;
     return world.setFluid(entity, fluid);
+}
+
+Diligent::float4 fluidColorForEnv(std::uint32_t envIndex)
+{
+    switch (envIndex % 4u)
+    {
+    case 0u:
+        return {0.16f, 0.68f, 0.96f, 0.70f};
+    case 1u:
+        return {0.16f, 0.84f, 0.50f, 0.72f};
+    case 2u:
+        return {0.96f, 0.56f, 0.18f, 0.74f};
+    default:
+        return {0.82f, 0.34f, 0.94f, 0.72f};
+    }
 }
 
 cressim::neo::physics::FluidMaterialDesc fluidMaterialForEnv(std::uint32_t envIndex)
@@ -311,7 +328,8 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     const Diligent::float3 fluidSize = {1.35f, fluidHeight, 2.4f};
     const Diligent::float3 fluidCenter =
         origin + Diligent::float3{-1.45f, kFluidBottomY + 0.5f * fluidSize.y, 0.0f};
-    if (!spawnFluid(world, envIndex, fluidCenter, fluidSize, fluidMaterialForEnv(envIndex)))
+    if (!spawnFluid(world, envIndex, fluidCenter, fluidSize, fluidMaterialForEnv(envIndex),
+                    fluidColorForEnv(envIndex)))
     {
         throw std::runtime_error("Failed to author fluid body.");
     }

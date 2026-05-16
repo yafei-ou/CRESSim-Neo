@@ -138,6 +138,8 @@ Diligent::IPipelineState *FluidCompositePass::getOrCreatePipeline(
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_LocalLightSelections",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_FluidSurfaceColor",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_FilteredFluidDepth",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_SceneDepth",
@@ -149,6 +151,8 @@ Diligent::IPipelineState *FluidCompositePass::getOrCreatePipeline(
         {Diligent::SHADER_TYPE_PIXEL, "g_LightInputs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_LocalLightSelections",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_FluidSurfaceColor",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_FilteredFluidDepth",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -217,10 +221,12 @@ bool FluidCompositePass::composite(
     const gpu::GpuRenderTargetBinding &targetBinding, const gpu::GpuRenderTargetDesc &targetDesc,
     const GpuEntitySceneView &gpuScene, const ResolvedCameraView &camera,
     std::uint32_t fluidDepthLayer, std::uint32_t sceneDepthLayer,
-    Diligent::ITextureView *filteredDepthSrv, Diligent::ITextureView *sceneColorSrv,
-    Diligent::ITextureView *sceneDepthSrv, const RenderFrameOptions::FluidRenderingOptions &options)
+    Diligent::ITextureView *filteredDepthSrv, Diligent::ITextureView *surfaceColorSrv,
+    Diligent::ITextureView *sceneColorSrv, Diligent::ITextureView *sceneDepthSrv,
+    const RenderFrameOptions::FluidRenderingOptions &options)
 {
-    if (!mInitialized || filteredDepthSrv == nullptr || sceneDepthSrv == nullptr ||
+    if (!mInitialized || filteredDepthSrv == nullptr || surfaceColorSrv == nullptr ||
+        sceneDepthSrv == nullptr ||
         (options.enableBackgroundRefraction && sceneColorSrv == nullptr) ||
         gpuScene.cameraInputsBuffer == nullptr || gpuScene.lightInputsBuffer == nullptr ||
         gpuScene.localLightSelectionBuffer == nullptr)
@@ -278,6 +284,15 @@ bool FluidCompositePass::composite(
         }
         depthVar->Set(filteredDepthSrv);
     }
+    if (Diligent::IShaderResourceVariable *surfaceColorVar =
+            binding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_FluidSurfaceColor"))
+    {
+        if (mLinearClampSampler != nullptr)
+        {
+            surfaceColorSrv->SetSampler(mLinearClampSampler);
+        }
+        surfaceColorVar->Set(surfaceColorSrv);
+    }
     if (options.enableBackgroundRefraction)
     {
         if (Diligent::IShaderResourceVariable *sceneColorVar =
@@ -301,7 +316,6 @@ bool FluidCompositePass::composite(
     }
 
     CompositeConstants constants{};
-    constants.tint                    = options.tint;
     constants.specularSmoothness      = Diligent::float4{options.specular.x, options.specular.y,
                                                          options.specular.z, options.smoothness};
     constants.cameraIndex             = camera.globalCameraIndex;

@@ -53,7 +53,6 @@ struct RenderFrameOptions
     struct FluidRenderingOptions
     {
         bool enabled                    = false;
-        Diligent::float4 tint           = {0.32f, 0.62f, 0.95f, 0.72f};
         float smoothness                = 0.92f;
         Diligent::float3 specular       = {0.35f, 0.4f, 0.45f};
         float fresnel                   = 0.8f;

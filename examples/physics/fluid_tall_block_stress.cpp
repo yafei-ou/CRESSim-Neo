@@ -130,7 +130,8 @@ void spawnStaticCollisionBox(cressim::neo::engine::World &world,
 
 bool spawnFluid(cressim::neo::engine::World &world, const Diligent::float3 &position,
                 const Diligent::float3 &size,
-                const cressim::neo::physics::FluidMaterialDesc &material)
+                const cressim::neo::physics::FluidMaterialDesc &material,
+                const Diligent::float4 &visualColor)
 {
     const auto entity = world.createEntity();
 
@@ -147,6 +148,7 @@ bool spawnFluid(cressim::neo::engine::World &world, const Diligent::float3 &posi
     const float particleDiameter = 2.0f * fluid.particleRadius;
     fluid.particleMass =
         1.0f * particleDiameter * particleDiameter * particleDiameter * 1000.0f;
+    fluid.visualColor = visualColor;
     fluid.collisionLayer = 0x1u;
     fluid.collisionMask = 0xffffffffu;
     return world.setFluid(entity, fluid);
@@ -275,7 +277,7 @@ int main(int argc, char **argv)
 
     const Diligent::float3 fluidSize = {2.5f, options.fluidHeight, 2.5f};
     const Diligent::float3 fluidCenter = {0.0f, kFluidBottomY + 0.5f * fluidSize.y, 0.0f};
-    if (!spawnFluid(world, fluidCenter, fluidSize, fluidMaterial))
+    if (!spawnFluid(world, fluidCenter, fluidSize, fluidMaterial, {0.18f, 0.66f, 0.95f, 0.72f}))
     {
         runtime.shutdown();
         viewer.shutdown();

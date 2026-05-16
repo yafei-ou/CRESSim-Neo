@@ -1869,6 +1869,10 @@ void PhysicsWorld::normalizeFluidState(FluidState &state) noexcept
     normalizeFluidMaterial(state.material);
     state.particleMass   = std::max(state.particleMass, 1.0e-4f);
     state.particleRadius = std::max(state.particleRadius, 1.0e-4f);
+    state.visualColor.x  = std::clamp(state.visualColor.x, 0.0f, 1.0f);
+    state.visualColor.y  = std::clamp(state.visualColor.y, 0.0f, 1.0f);
+    state.visualColor.z  = std::clamp(state.visualColor.z, 0.0f, 1.0f);
+    state.visualColor.w  = std::clamp(state.visualColor.w, 0.0f, 1.0f);
     if (state.source.kind == FluidSourceKind::RegularGrid)
     {
         state.source.regularGrid.size.x = std::max(state.source.regularGrid.size.x, 1.0e-4f);

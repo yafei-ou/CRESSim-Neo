@@ -148,7 +148,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     }
 
     if (!mImpl->sceneState.ensureCapacity(
-            computeBackend.renderDevice, rigidBodyCount, colliderCount, particleCount,
+            computeBackend.renderDevice, rigidBodyCount, colliderCount, particleCount, fluidCount,
             static_cast<std::uint32_t>(world.particleContactMaterials().size()),
             static_cast<std::uint32_t>(fluidMaterials.size()), softEdgeCount, softTetCount,
             ballJointCount, hingeJointCount, sliderJointCount,

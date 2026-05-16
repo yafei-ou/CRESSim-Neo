@@ -130,6 +130,7 @@ bool spawnFluid(cressim::neo::engine::World &world, std::uint32_t envIndex,
                 const Diligent::float3 &position,
                 const Diligent::float3 &size,
                 const cressim::neo::physics::FluidMaterialDesc &material,
+                const Diligent::float4 &visualColor,
                 float particleMassScale = 0.8f)
 {
     const auto entity = world.createEntity(envIndex);
@@ -147,9 +148,40 @@ bool spawnFluid(cressim::neo::engine::World &world, std::uint32_t envIndex,
     const float particleDiameter = 2.0f * fluid.particleRadius;
     fluid.particleMass = particleMassScale * particleDiameter * particleDiameter *
                          particleDiameter * 1000.0f;
+    fluid.visualColor = visualColor;
     fluid.collisionLayer = 0x1u;
     fluid.collisionMask = 0xffffffffu;
     return world.setFluid(entity, fluid);
+}
+
+Diligent::float4 baselineFluidColor(std::uint32_t envIndex)
+{
+    switch (envIndex % 4u)
+    {
+    case 0u:
+        return {0.18f, 0.70f, 0.96f, 0.66f};
+    case 1u:
+        return {0.22f, 0.88f, 0.58f, 0.64f};
+    case 2u:
+        return {0.98f, 0.62f, 0.20f, 0.68f};
+    default:
+        return {0.74f, 0.50f, 0.98f, 0.70f};
+    }
+}
+
+Diligent::float4 thickerFluidColor(std::uint32_t envIndex)
+{
+    switch (envIndex % 4u)
+    {
+    case 0u:
+        return {0.04f, 0.34f, 0.90f, 0.84f};
+    case 1u:
+        return {0.00f, 0.56f, 0.28f, 0.82f};
+    case 2u:
+        return {0.86f, 0.26f, 0.14f, 0.86f};
+    default:
+        return {0.44f, 0.16f, 0.82f, 0.84f};
+    }
 }
 
 bool spawnSoftBody(cressim::neo::engine::World &world, std::uint32_t envIndex,
@@ -243,14 +275,14 @@ void authorEnvironment(cressim::neo::engine::Runtime &runtime, std::uint32_t env
 
     if (!spawnFluid(world, envIndex,
                     origin + Diligent::float3{-1.575f, 1.0f, 0.0f},
-                    {2.5f, 2.2f, 5.2f}, envBaselineFluid, 1.0f))
+                    {2.5f, 2.2f, 5.2f}, envBaselineFluid, baselineFluidColor(envIndex), 1.0f))
     {
         throw std::runtime_error("Failed to author baseline fluid body.");
     }
 
     if (!spawnFluid(world, envIndex,
                     origin + Diligent::float3{1.575f, 1.0f, 0.0f},
-                    {2.5f, 2.2f, 5.2f}, envThickerFluid, 1.0f))
+                    {2.5f, 2.2f, 5.2f}, envThickerFluid, thickerFluidColor(envIndex), 1.0f))
     {
         throw std::runtime_error("Failed to author thicker fluid body.");
     }

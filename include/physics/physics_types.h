@@ -239,6 +239,7 @@ struct FluidState
     std::uint32_t collisionMask    = 0xffffffffu;
     FluidSourceDesc source{};
     FluidMaterialDesc material{};
+    Diligent::float4 visualColor{0.32f, 0.62f, 0.95f, 0.72f};
     common::Transform restTransform{};
     float particleMass                 = 1.0f;
     float particleRadius               = 0.125f;

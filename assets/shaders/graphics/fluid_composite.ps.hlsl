@@ -50,7 +50,6 @@ struct LocalLightSelection
 
 cbuffer GraphicsFluidComposite
 {
-    float4 g_FluidTint;
     float4 g_FluidSpecularSmoothness;
     uint4 g_FluidCompositeParams;
     float4 g_FluidCompositeMisc;
@@ -71,6 +70,8 @@ CRESSIM_STRUCTURED_BUFFER(LightInput, g_LightInputs);
 CRESSIM_STRUCTURED_BUFFER(LocalLightSelection, g_LocalLightSelections);
 Texture2DArray<float> g_FilteredFluidDepth;
 SamplerState g_FilteredFluidDepth_sampler;
+Texture2DArray<float4> g_FluidSurfaceColor;
+SamplerState g_FluidSurfaceColor_sampler;
 #if CRESSIM_FLUID_ENABLE_BACKGROUND_REFRACTION
 Texture2DArray<float4> g_SceneColor;
 SamplerState g_SceneColor_sampler;
@@ -325,7 +326,10 @@ PSOutput main(PSInput In)
     const float fresnel = pow(1.0 - ndotv, 5.0);
     const float surfaceFresnel = 0.6 * lerp(saturate(g_FluidFresnel), 1.0, fresnel);
     const float roughness = clamp(1.0 - g_FluidSpecularSmoothness.w, 0.04, 1.0);
-    const float fluidOpacity = saturate(g_FluidTint.a);
+    const float4 surfaceColor = g_FluidSurfaceColor.SampleLevel(
+        g_FluidSurfaceColor_sampler, float3(uv, g_FluidDepthLayer), 0.0);
+    const float3 fluidColor = saturate(surfaceColor.rgb);
+    const float fluidOpacity = saturate(surfaceColor.a);
     const float transmissionStrength = (1.0 - fluidOpacity) * (1.0 - surfaceFresnel);
     const float3 worldNormal =
         safeNormalize(quaternionRotateVector(cameraInput.orientation, normal), float3(0.0, 1.0, 0.0));
@@ -354,7 +358,7 @@ PSOutput main(PSInput In)
         const float3 refractedBackgroundColor =
             g_SceneColor.SampleLevel(g_SceneColor_sampler, float3(offsetUv, g_SceneDepthLayer), 0.0).rgb;
         const float3 transmissionTint =
-            lerp(float3(1.0, 1.0, 1.0), g_FluidTint.rgb, 0.35 * fluidOpacity);
+            lerp(float3(1.0, 1.0, 1.0), fluidColor, 0.35 * fluidOpacity);
         transmissionColor = refractedBackgroundColor * transmissionTint * transmissionStrength;
     }
 #endif
@@ -364,7 +368,7 @@ PSOutput main(PSInput In)
     {
         const LightInput mainLight = CRESSIM_SB_LOAD(g_LightInputs, g_MainLightIndex);
         directLighting += EvaluateFluidLight(mainLight, worldPos, worldNormal, worldViewDir,
-                                             g_FluidTint.rgb, surfaceSpecularColor, roughness,
+                                             fluidColor, surfaceSpecularColor, roughness,
                                              fluidOpacity);
     }
 
@@ -381,11 +385,11 @@ PSOutput main(PSInput In)
         const uint lightIndex = localSelection.lightIndices[localLightIdx];
         const LightInput localLight = CRESSIM_SB_LOAD(g_LightInputs, lightIndex);
         directLighting += EvaluateFluidLight(localLight, worldPos, worldNormal, worldViewDir,
-                                             g_FluidTint.rgb, surfaceSpecularColor, roughness,
+                                             fluidColor, surfaceSpecularColor, roughness,
                                              fluidOpacity);
     }
 
-    const float3 ambient = g_FluidTint.rgb * fluidOpacity * (0.03 + 0.05 * ndotv);
+    const float3 ambient = fluidColor * fluidOpacity * (0.03 + 0.05 * ndotv);
     float3 color = transmissionColor + ambient + directLighting;
 
     float alpha = fluidOpacity;

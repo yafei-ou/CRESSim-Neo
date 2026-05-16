@@ -100,7 +100,8 @@ void spawnStaticCollisionBox(cressim::neo::engine::World &world,
 
 bool spawnFluid(cressim::neo::engine::World &world, const Diligent::float3 &position,
                 const Diligent::float3 &size,
-                const cressim::neo::physics::FluidMaterialDesc &material)
+                const cressim::neo::physics::FluidMaterialDesc &material,
+                const Diligent::float4 &visualColor)
 {
     const auto entity = world.createEntity();
 
@@ -117,6 +118,7 @@ bool spawnFluid(cressim::neo::engine::World &world, const Diligent::float3 &posi
     const float particleDiameter = 2.0f * fluid.particleRadius;
     fluid.particleMass =
         1.0f * particleDiameter * particleDiameter * particleDiameter * 1000.0f;
+    fluid.visualColor = visualColor;
     fluid.collisionLayer = 0x1u;
     fluid.collisionMask = 0xffffffffu;
     return world.setFluid(entity, fluid);
@@ -275,7 +277,8 @@ int main(int argc, char **argv)
     fluidMaterial.vorticityConfinement = 0.25f;
     fluidMaterial.surfaceTension = 1.5f;
 
-    if (!spawnFluid(world, {0.0f, 0.95f, 0.0f}, {8.2f, 2.4f, 7.2f}, fluidMaterial))
+    if (!spawnFluid(world, {0.0f, 0.95f, 0.0f}, {8.2f, 2.4f, 7.2f}, fluidMaterial,
+                    {0.10f, 0.58f, 0.94f, 0.80f}))
     {
         runtime.shutdown();
         viewer.shutdown();
@@ -289,7 +292,6 @@ int main(int argc, char **argv)
                      " particles. Fluid bodies=", world.physicsWorld().fluidCount(), ".\n");
 
     auto renderOptions = runtime.renderFrameOptions();
-    renderOptions.fluid.tint.a = 0.8f;
     renderOptions.fluid.enableBackgroundRefraction = true;
     runtime.setRenderFrameOptions(renderOptions);
 
