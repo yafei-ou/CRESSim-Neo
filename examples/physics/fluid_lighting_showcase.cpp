@@ -283,6 +283,8 @@ int main(int argc, char **argv)
     fluidVisuals.fresnel = 0.84f;
     fluidVisuals.depthEdgeThreshold = 0.18f;
     fluidVisuals.filterRadiusPixels = 4.0f;
+    fluidVisuals.filterWorldRadius = 0.18f;
+    fluidVisuals.filterDepthThreshold = 0.11f;
     fluidVisuals.enableBackgroundRefraction = true;
     fluidVisuals.refractionIor = 1.33f;
     fluidVisuals.refractionViewThickness = 0.40f;

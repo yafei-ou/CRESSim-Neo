@@ -5,8 +5,14 @@
 #include "gpu/gpu_device.h"
 #include "graphics/passes/render_pass_types.h"
 
+#include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
+
+namespace cressim::neo::graphics
+{
+struct GpuEntitySceneView;
+}
 
 namespace cressim::neo::graphics::detail
 {
@@ -17,22 +23,20 @@ public:
     explicit FluidDepthFilterPass(gpu::GpuDevice &device);
 
     bool initialize();
-    bool filter(Diligent::ITextureView *sourceSrv, Diligent::ITextureView *destUav,
+    bool filter(const cressim::neo::graphics::GpuEntitySceneView &gpuScene,
+                Diligent::ITextureView *sourceSrv, Diligent::ITextureView *destUav,
                 const ResolvedCameraView &camera, std::uint32_t sourceLayer,
                 const EnvironmentFluidDesc &environmentFluid);
 
 private:
     struct FilterConstants
     {
-        std::uint32_t layer        = 0u;
-        std::uint32_t outputWidth  = 0u;
-        std::uint32_t outputHeight = 0u;
-        std::uint32_t filterRadius = 3u;
-        float depthEdgeThreshold   = 0.2f;
-        float padding0             = 0.0f;
-        float padding1             = 0.0f;
-        float padding2             = 0.0f;
+        // x: layer, y: cameraIndex, z: maxFilterRadius, w: reserved
+        Diligent::uint4 dispatchParams{0u, 0u, 6u, 0u};
+        // x: filterWorldRadius, y: filterDepthThreshold, z/w: reserved
+        Diligent::float4 filterParams{0.18f, 0.12f, 0.0f, 0.0f};
     };
+    static_assert(sizeof(FilterConstants) == 32u);
 
     gpu::GpuDevice &mDevice;
     bool mInitialized = false;

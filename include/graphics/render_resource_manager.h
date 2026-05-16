@@ -200,7 +200,9 @@ struct EnvironmentFluidDesc
     Diligent::float3 specular       = {0.35f, 0.4f, 0.45f};
     float fresnel                   = 0.8f;
     float depthEdgeThreshold        = 0.2f;
-    float filterRadiusPixels        = 3.0f;
+    float filterRadiusPixels        = 6.0f;
+    float filterWorldRadius         = 0.18f;
+    float filterDepthThreshold      = 0.12f;
     bool enableBackgroundRefraction = true;
     float refractionIor             = 1.33f;
     float refractionViewThickness   = 0.35f;

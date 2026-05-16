@@ -1,6 +1,7 @@
 #include "graphics/passes/fluid_depth_filter_pass.h"
 
 #include "gpu/shader_library.h"
+#include "graphics/gpu_scene.h"
 
 #include <cstring>
 
@@ -12,6 +13,8 @@ namespace
 
 constexpr Diligent::ShaderResourceVariableDesc kFilterVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "GraphicsFluidDepthFilter",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_CameraInputs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SourceDepth",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -66,12 +69,14 @@ bool FluidDepthFilterPass::initialize()
     return mInitialized;
 }
 
-bool FluidDepthFilterPass::filter(Diligent::ITextureView *sourceSrv,
+bool FluidDepthFilterPass::filter(const cressim::neo::graphics::GpuEntitySceneView &gpuScene,
+                                  Diligent::ITextureView *sourceSrv,
                                   Diligent::ITextureView *destUav, const ResolvedCameraView &camera,
                                   std::uint32_t sourceLayer,
                                   const EnvironmentFluidDesc &environmentFluid)
 {
-    if (!mInitialized || sourceSrv == nullptr || destUav == nullptr)
+    if (!mInitialized || sourceSrv == nullptr || destUav == nullptr ||
+        gpuScene.cameraInputsBuffer == nullptr)
     {
         return false;
     }
@@ -84,12 +89,15 @@ bool FluidDepthFilterPass::filter(Diligent::ITextureView *sourceSrv,
     }
 
     FilterConstants constants{};
-    constants.layer        = sourceLayer;
-    constants.outputWidth  = camera.outputTargetDesc.width;
-    constants.outputHeight = camera.outputTargetDesc.height;
-    constants.filterRadius = static_cast<std::uint32_t>(
+    constants.dispatchParams.x = sourceLayer;
+    constants.dispatchParams.y = camera.globalCameraIndex;
+    constants.dispatchParams.z = static_cast<std::uint32_t>(
         environmentFluid.filterRadiusPixels < 1.0f ? 1.0f : environmentFluid.filterRadiusPixels);
-    constants.depthEdgeThreshold = environmentFluid.depthEdgeThreshold;
+    constants.filterParams.x =
+        environmentFluid.filterWorldRadius > 1.0e-4f ? environmentFluid.filterWorldRadius : 0.18f;
+    constants.filterParams.y = environmentFluid.filterDepthThreshold > 1.0e-4f
+                                   ? environmentFluid.filterDepthThreshold
+                                   : 1.0e-4f;
 
     void *mapped = nullptr;
     backendContext.graphicsContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,
@@ -104,6 +112,8 @@ bool FluidDepthFilterPass::filter(Diligent::ITextureView *sourceSrv,
     const std::array bufferBindings{
         gpu::GpuBufferBinding{"GraphicsFluidDepthFilter", mConstantsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_CameraInputs", gpuScene.cameraInputsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
     };
     const std::array textureBindings{
         gpu::GpuTextureBinding{"g_SourceDepth", sourceSrv},
@@ -111,8 +121,9 @@ bool FluidDepthFilterPass::filter(Diligent::ITextureView *sourceSrv,
     };
 
     return mFilterPass.dispatchResources(backendContext.graphicsContext, 0u, bufferBindings,
-                                         textureBindings, dispatchGroupCount(constants.outputWidth),
-                                         dispatchGroupCount(constants.outputHeight), 1u);
+                                         textureBindings,
+                                         dispatchGroupCount(camera.outputTargetDesc.width),
+                                         dispatchGroupCount(camera.outputTargetDesc.height), 1u);
 }
 
 } // namespace cressim::neo::graphics::detail

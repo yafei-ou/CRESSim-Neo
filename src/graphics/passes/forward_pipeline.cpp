@@ -1805,7 +1805,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         {
             const EnvironmentFluidDesc &environmentFluid =
                 environmentFluidForCamera(sceneView, batchView.cameras[cameraIdx].envIndex);
-            if (!mFluidDepthFilterPass->filter(fluidDepthSrv, fluidFilteredUav,
+            if (!mFluidDepthFilterPass->filter(gpuScene, fluidDepthSrv, fluidFilteredUav,
                                                batchView.cameras[cameraIdx], cameraIdx,
                                                environmentFluid))
             {

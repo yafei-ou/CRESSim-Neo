@@ -195,6 +195,8 @@ cressim::neo::graphics::EnvironmentFluidDesc environmentFluidSettings(std::uint3
         desc.fresnel = 0.82f;
         desc.depthEdgeThreshold = 0.16f;
         desc.filterRadiusPixels = 3.0f;
+        desc.filterWorldRadius = 0.14f;
+        desc.filterDepthThreshold = 0.10f;
         desc.enableBackgroundRefraction = true;
         desc.refractionViewThickness = 0.28f;
         break;
@@ -204,6 +206,8 @@ cressim::neo::graphics::EnvironmentFluidDesc environmentFluidSettings(std::uint3
         desc.fresnel = 0.74f;
         desc.depthEdgeThreshold = 0.22f;
         desc.filterRadiusPixels = 4.0f;
+        desc.filterWorldRadius = 0.18f;
+        desc.filterDepthThreshold = 0.14f;
         desc.enableBackgroundRefraction = true;
         desc.refractionViewThickness = 0.42f;
         break;
@@ -213,6 +217,8 @@ cressim::neo::graphics::EnvironmentFluidDesc environmentFluidSettings(std::uint3
         desc.fresnel = 0.66f;
         desc.depthEdgeThreshold = 0.26f;
         desc.filterRadiusPixels = 5.0f;
+        desc.filterWorldRadius = 0.24f;
+        desc.filterDepthThreshold = 0.18f;
         desc.enableBackgroundRefraction = false;
         desc.refractionViewThickness = 0.35f;
         break;
@@ -222,6 +228,8 @@ cressim::neo::graphics::EnvironmentFluidDesc environmentFluidSettings(std::uint3
         desc.fresnel = 0.90f;
         desc.depthEdgeThreshold = 0.14f;
         desc.filterRadiusPixels = 2.0f;
+        desc.filterWorldRadius = 0.10f;
+        desc.filterDepthThreshold = 0.08f;
         desc.enableBackgroundRefraction = true;
         desc.refractionIor = 1.38f;
         desc.refractionViewThickness = 0.24f;
