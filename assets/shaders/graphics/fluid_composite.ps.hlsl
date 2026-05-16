@@ -139,6 +139,16 @@ float3 safeNormalize(float3 v, float3 fallback)
     return v * rsqrt(lenSq);
 }
 
+float3 safeNormalizeWithMinLenSq(float3 v, float3 fallback, float minLenSq)
+{
+    const float lenSq = dot(v, v);
+    if (lenSq <= minLenSq)
+    {
+        return fallback;
+    }
+    return v * rsqrt(lenSq);
+}
+
 float3 quaternionRotateVector(float4 q, float3 v)
 {
     float3 t = 2.0 * cross(q.xyz, v);
@@ -311,12 +321,30 @@ PSOutput main(PSInput In)
     const float3 yBackward = centerPos - yPos2;
     const float3 xTangent = (dot(xForward, xForward) >= dot(xBackward, xBackward)) ? xForward : xBackward;
     const float3 yTangent = (dot(yForward, yForward) >= dot(yBackward, yBackward)) ? yForward : yBackward;
-    float3 normal = cross(xPos1 - xPos2, yPos1 - yPos2);
-    if (dot(normal, normal) <= 1.0e-8)
+    const float tangentMinLenSq = 1.0e-20;
+    const float3 xCentral = xPos1 - xPos2;
+    const float3 yCentral = yPos1 - yPos2;
+    float3 normal = float3(0.0, 0.0, 0.0);
+    if (dot(xCentral, xCentral) > tangentMinLenSq &&
+        dot(yCentral, yCentral) > tangentMinLenSq)
     {
-        normal = cross(xTangent, yTangent);
+        const float3 xDir =
+            safeNormalizeWithMinLenSq(xCentral, float3(1.0, 0.0, 0.0), tangentMinLenSq);
+        const float3 yDir =
+            safeNormalizeWithMinLenSq(yCentral, float3(0.0, 1.0, 0.0), tangentMinLenSq);
+        normal = cross(xDir, yDir);
     }
-    normal = safeNormalize(normal, float3(0.0, 0.0, 1.0));
+    if (dot(normal, normal) <= 1.0e-12 &&
+        dot(xTangent, xTangent) > tangentMinLenSq &&
+        dot(yTangent, yTangent) > tangentMinLenSq)
+    {
+        const float3 xDir =
+            safeNormalizeWithMinLenSq(xTangent, float3(1.0, 0.0, 0.0), tangentMinLenSq);
+        const float3 yDir =
+            safeNormalizeWithMinLenSq(yTangent, float3(0.0, 1.0, 0.0), tangentMinLenSq);
+        normal = cross(xDir, yDir);
+    }
+    normal = safeNormalizeWithMinLenSq(normal, float3(0.0, 0.0, 1.0), 1.0e-12);
     const float3 viewDir = safeNormalize(centerPos, float3(0.0, 0.0, 1.0));
     if (dot(normal, viewDir) > 0.0)
     {
