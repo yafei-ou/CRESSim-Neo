@@ -27,6 +27,8 @@ else()
     endif()
 endif()
 
+cressim_neo_enable_clang_tidy(${TARGET_NAME})
+
 target_sources(${TARGET_NAME} PRIVATE ${PROJECT_HEADER} ${TARGET_HEADER})
 
 source_group(

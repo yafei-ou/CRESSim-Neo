@@ -34,12 +34,19 @@ option(CRESSIM_NEO_ENABLE_CLANG_TIDY "Enable clang-tidy checks during build" OFF
 if(CRESSIM_NEO_ENABLE_CLANG_TIDY)
     find_program(CRESSIM_NEO_CLANG_TIDY_EXE NAMES clang-tidy)
     if(CRESSIM_NEO_CLANG_TIDY_EXE)
-        set(CMAKE_CXX_CLANG_TIDY ${CRESSIM_NEO_CLANG_TIDY_EXE})
         message(STATUS "clang-tidy enabled: ${CRESSIM_NEO_CLANG_TIDY_EXE}")
     else()
         message(WARNING "CRESSIM_NEO_ENABLE_CLANG_TIDY is ON, but clang-tidy was not found.")
     endif()
 endif()
+
+function(cressim_neo_enable_clang_tidy target_name)
+    if(CRESSIM_NEO_CLANG_TIDY_EXE)
+        set_target_properties(${target_name} PROPERTIES
+            CXX_CLANG_TIDY "${CRESSIM_NEO_CLANG_TIDY_EXE}"
+        )
+    endif()
+endfunction()
 
 set_property(DIRECTORY PROPERTY COMPILE_DEFINITIONS
     $<$<CONFIG:Debug>:_DEBUG>
