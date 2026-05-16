@@ -51,7 +51,8 @@ Diligent::RefCntAutoPtr<Diligent::ITextureView> createTextureArrayView(
 const EnvironmentFluidDesc &environmentFluidForCamera(const HostSceneView &sceneView,
                                                       std::uint32_t envIndex)
 {
-    static const EnvironmentFluidDesc kDefaultEnvironmentFluid{};
+    static const EnvironmentFluidDesc kDefaultEnvironmentFluid =
+        defaultEnvironmentFluidDesc();
     if (sceneView.environmentFluids == nullptr || envIndex >= sceneView.environmentFluids->size())
     {
         return kDefaultEnvironmentFluid;
@@ -623,7 +624,8 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     const bool needsFluid  = mFluidDepthPass != nullptr && mFluidColorPass != nullptr &&
                              mFluidDepthFilterPass != nullptr && mFluidCompositePass != nullptr &&
                              physicsScene != nullptr &&
-                             options.fluid.enabled && physicsScene->soft.particles.count > 0u &&
+                             options.enableFluidRendering &&
+                             physicsScene->soft.particles.count > 0u &&
                              physicsScene->soft.particles.positionsInvMassBuffer != nullptr &&
                              physicsScene->soft.particles.ownerIndicesBuffer != nullptr &&
                              physicsScene->soft.particles.fluidVisualsBuffer != nullptr &&

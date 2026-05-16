@@ -50,17 +50,12 @@ struct RenderFrameOptions
         float fallbackRadius   = 0.15f;
     };
 
-    struct FluidRenderingOptions
-    {
-        bool enabled = false;
-    };
-
     common::EntityId presentedCameraEntity = common::kInvalidEntityId;
     std::optional<gpu::GpuPresentationTargetDesc> presentationTarget{};
     ToneMapper toneMapper = ToneMapper::Reinhard;
     float exposure        = 1.0f;
     DebugParticleOptions debugParticles{};
-    FluidRenderingOptions fluid{};
+    bool enableFluidRendering = false;
 };
 
 struct RenderStats

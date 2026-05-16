@@ -296,7 +296,7 @@ PSOutput main(PSInput In)
     const float dy2 = g_FilteredFluidDepth.SampleLevel(g_FilteredFluidDepth_sampler,
                                                        float3(uv - float2(0.0, pixel.y), g_FluidDepthLayer), 0.0);
     const float3 centerPos = reconstructViewPos(uv, depth, cameraInput);
-    const float normalDepthThreshold = max(g_NormalReconstructionDepthThreshold, 0.5);
+    const float normalDepthThreshold = max(g_NormalReconstructionDepthThreshold, 1.0e-4);
     const float3 xPos1 = reconstructNeighborViewPos(uv + float2(pixel.x, 0.0), dx1, centerPos,
                                                     cameraInput, normalDepthThreshold);
     const float3 xPos2 = reconstructNeighborViewPos(uv - float2(pixel.x, 0.0), dx2, centerPos,
@@ -317,7 +317,7 @@ PSOutput main(PSInput In)
         normal = cross(xTangent, yTangent);
     }
     normal = safeNormalize(normal, float3(0.0, 0.0, 1.0));
-    const float3 viewDir = normalize(centerPos);
+    const float3 viewDir = safeNormalize(centerPos, float3(0.0, 0.0, 1.0));
     if (dot(normal, viewDir) > 0.0)
     {
         normal = -normal;

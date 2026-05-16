@@ -30,14 +30,8 @@ struct PSInput
     float3 ViewPos : TEXCOORD0;
     float2 Uv : TEXCOORD1;
     float4 Color : TEXCOORD2;
+    float DepthTolerance : TEXCOORD3;
 };
-
-float mainDepth(float depth, float nearClip, float farClip)
-{
-    const float zScale = farClip / max(farClip - nearClip, 1.0e-5);
-    const float zTranslate = -nearClip * farClip / max(farClip - nearClip, 1.0e-5);
-    return zScale + zTranslate / max(depth, 1.0e-5);
-}
 
 float4 main(PSInput In) : SV_Target
 {
@@ -46,7 +40,7 @@ float4 main(PSInput In) : SV_Target
     const float fluidDepth = g_FilteredFluidDepth.SampleLevel(
         g_FilteredFluidDepth_sampler, float3(uv, g_FluidColorDepthLayer), 0.0);
     const float depth = In.ViewPos.z;
-    if (fluidDepth > 999999.0 || abs(fluidDepth - depth) > max(0.02, depth * 0.02))
+    if (fluidDepth > 999999.0 || abs(fluidDepth - depth) > In.DepthTolerance)
     {
         discard;
     }

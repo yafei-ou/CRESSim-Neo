@@ -39,6 +39,7 @@ struct VSOutput
     float3 ViewPos : TEXCOORD0;
     float2 Uv : TEXCOORD1;
     float4 Color : TEXCOORD2;
+    float DepthTolerance : TEXCOORD3;
 };
 
 float degreesToRadians(float degrees)
@@ -103,6 +104,7 @@ void main(uint vertexId : SV_VertexID, out VSOutput Out)
         Out.ViewPos = float3(0.0, 0.0, 1.0);
         Out.Uv = float2(0.0, 0.0);
         Out.Color = 0.0;
+        Out.DepthTolerance = 0.02;
         return;
     }
 
@@ -120,4 +122,5 @@ void main(uint vertexId : SV_VertexID, out VSOutput Out)
     Out.ViewPos = viewPos;
     Out.Uv = quadCoord * 0.5 + 0.5;
     Out.Color = CRESSIM_SB_LOAD(g_FluidVisuals, ownerIndex);
+    Out.DepthTolerance = max(scale, 0.02);
 }

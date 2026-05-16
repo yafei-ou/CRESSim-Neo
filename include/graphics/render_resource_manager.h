@@ -206,6 +206,11 @@ struct EnvironmentFluidDesc
     float refractionViewThickness   = 0.35f;
 };
 
+inline EnvironmentFluidDesc defaultEnvironmentFluidDesc() noexcept
+{
+    return EnvironmentFluidDesc{};
+}
+
 class CRESSIM_NEO_GRAPHICS_API RenderResourceManager
 {
 public:

@@ -20,7 +20,7 @@ int main()
     }
 
     graphics::RenderFrameOptions renderOptions{};
-    renderOptions.fluid.enabled = true;
+    renderOptions.enableFluidRendering = true;
     runtime.setRenderFrameOptions(renderOptions);
 
     auto &world = runtime.getWorld();
