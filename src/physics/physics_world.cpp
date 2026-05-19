@@ -2685,9 +2685,8 @@ bool PhysicsWorld::prepareFluidStateForInsert(const FluidState &candidate,
                     -size.x * 0.5f + (static_cast<float>(x) + 0.5f) * spacing,
                     -size.y * 0.5f + (static_cast<float>(y) + 0.5f) * spacing,
                     -size.z * 0.5f + (static_cast<float>(z) + 0.5f) * spacing};
-                derivedCache.restPositions.push_back(
-                    common::runtime_math::applyTransform(candidate.restTransform,
-                                                         objectSpacePosition));
+                derivedCache.restPositions.push_back(common::runtime_math::applyTransform(
+                    candidate.restTransform, objectSpacePosition));
             }
         }
     }
