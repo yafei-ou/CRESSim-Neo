@@ -1873,6 +1873,16 @@ void PhysicsWorld::normalizeFluidState(FluidState &state) noexcept
     state.visualColor.y  = std::clamp(state.visualColor.y, 0.0f, 1.0f);
     state.visualColor.z  = std::clamp(state.visualColor.z, 0.0f, 1.0f);
     state.visualColor.w  = std::clamp(state.visualColor.w, 0.0f, 1.0f);
+
+    const auto clampScale = [](float value) -> float
+    {
+        const float sign = value < 0.0f ? -1.0f : 1.0f;
+        return sign * std::max(std::abs(value), 1.0e-4f);
+    };
+    state.restTransform.scale.x = clampScale(state.restTransform.scale.x);
+    state.restTransform.scale.y = clampScale(state.restTransform.scale.y);
+    state.restTransform.scale.z = clampScale(state.restTransform.scale.z);
+
     if (state.source.kind == FluidSourceKind::RegularGrid)
     {
         state.source.regularGrid.size.x = std::max(state.source.regularGrid.size.x, 1.0e-4f);
@@ -2665,18 +2675,19 @@ bool PhysicsWorld::prepareFluidStateForInsert(const FluidState &candidate,
 
     derivedCache.restPositions.clear();
     derivedCache.restPositions.reserve(static_cast<std::size_t>(nx) * ny * nz);
-    const Diligent::float3 minCorner = candidate.restTransform.position - size * 0.5f;
     for (std::uint32_t z = 0u; z < nz; ++z)
     {
         for (std::uint32_t y = 0u; y < ny; ++y)
         {
             for (std::uint32_t x = 0u; x < nx; ++x)
             {
-                const Diligent::float3 local{minCorner.x + (static_cast<float>(x) + 0.5f) * spacing,
-                                             minCorner.y + (static_cast<float>(y) + 0.5f) * spacing,
-                                             minCorner.z +
-                                                 (static_cast<float>(z) + 0.5f) * spacing};
-                derivedCache.restPositions.push_back(local);
+                const Diligent::float3 objectSpacePosition{
+                    -size.x * 0.5f + (static_cast<float>(x) + 0.5f) * spacing,
+                    -size.y * 0.5f + (static_cast<float>(y) + 0.5f) * spacing,
+                    -size.z * 0.5f + (static_cast<float>(z) + 0.5f) * spacing};
+                derivedCache.restPositions.push_back(
+                    common::runtime_math::applyTransform(candidate.restTransform,
+                                                         objectSpacePosition));
             }
         }
     }

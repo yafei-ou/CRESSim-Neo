@@ -19,10 +19,6 @@ int main()
         return 0;
     }
 
-    graphics::RenderFrameOptions renderOptions{};
-    renderOptions.enableFluidRendering = true;
-    runtime.setRenderFrameOptions(renderOptions);
-
     auto &world = runtime.getWorld();
 
     const common::EntityId cameraEntity = world.createEntity();

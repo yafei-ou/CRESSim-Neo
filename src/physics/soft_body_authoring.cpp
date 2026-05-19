@@ -1,4 +1,5 @@
 #include "physics/soft_body_authoring.h"
+#include "common/math_utils_runtime.h"
 
 #include <algorithm>
 #include <array>
@@ -21,15 +22,6 @@ std::uint32_t flattenGridIndex(std::uint32_t x, std::uint32_t y, std::uint32_t z
                                const Diligent::uint3 &resolution)
 {
     return x * resolution.y * resolution.z + y * resolution.z + z;
-}
-
-Diligent::float3 applyTransform(const common::Transform &transform,
-                                const Diligent::float3 &objectSpacePosition)
-{
-    const Diligent::float3 scaled{objectSpacePosition.x * transform.scale.x,
-                                  objectSpacePosition.y * transform.scale.y,
-                                  objectSpacePosition.z * transform.scale.z};
-    return transform.rotation.RotateVector(scaled) + transform.position;
 }
 
 float signedTetVolume(const Diligent::float3 &a, const Diligent::float3 &b,
@@ -240,7 +232,7 @@ bool resolveSoftBodyTopology(const SoftBodyState &state, const TetMeshData *tetG
     for (const Diligent::float3 &objectSpacePosition : sourceMesh.objectSpaceRestPositions)
     {
         outTopology.restPositions.push_back(
-            applyTransform(state.restTransform, objectSpacePosition));
+            common::runtime_math::applyTransform(state.restTransform, objectSpacePosition));
     }
 
     const std::uint32_t particleCount =

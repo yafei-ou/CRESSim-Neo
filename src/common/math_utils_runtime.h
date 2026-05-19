@@ -1,6 +1,7 @@
 #ifndef CRESSIM_NEO_COMMON_MATH_UTILS_RUNTIME_H
 #define CRESSIM_NEO_COMMON_MATH_UTILS_RUNTIME_H
 
+#include "common/math_types.h"
 #include "gpu/gpu_types.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/BasicMath.hpp"
@@ -81,6 +82,15 @@ inline Diligent::QuaternionF quaternionFromEulerDegrees(float xDegrees, float yD
     return Diligent::QuaternionF{
         sinZ * cosX * cosY - cosZ * sinX * sinY, cosZ * sinX * cosY + sinZ * cosX * sinY,
         cosZ * cosX * sinY - sinZ * sinX * cosY, cosZ * cosX * cosY + sinZ * sinX * sinY};
+}
+
+inline Diligent::float3 applyTransform(const common::Transform &transform,
+                                       const Diligent::float3 &objectSpacePosition)
+{
+    const Diligent::float3 scaled{objectSpacePosition.x * transform.scale.x,
+                                  objectSpacePosition.y * transform.scale.y,
+                                  objectSpacePosition.z * transform.scale.z};
+    return transform.rotation.RotateVector(scaled) + transform.position;
 }
 
 inline gpu::GpuRenderViewport normalizeViewport(const gpu::GpuRenderViewport &viewport)

@@ -622,8 +622,8 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         mDebugParticlePass != nullptr && physicsScene != nullptr && options.debugParticles.enabled;
     const bool needsFluid  = mFluidDepthPass != nullptr && mFluidColorPass != nullptr &&
                              mFluidDepthFilterPass != nullptr && mFluidCompositePass != nullptr &&
-                             physicsScene != nullptr && options.enableFluidRendering &&
-                             physicsScene->soft.particles.count > 0u &&
+                             physicsScene != nullptr &&
+                             physicsScene->soft.particles.fluidVisualCount > 0u &&
                              physicsScene->soft.particles.positionsInvMassBuffer != nullptr &&
                              physicsScene->soft.particles.ownerIndicesBuffer != nullptr &&
                              physicsScene->soft.particles.fluidVisualsBuffer != nullptr &&
