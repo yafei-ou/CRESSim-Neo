@@ -27,7 +27,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     entry.cellY = gy;
     entry.cellZ = gz;
     entry.particleIndex = idx;
-    entry.particleType = kParticleBroadPhaseEntryTypeSoft;
+    entry.particleType = kParticleBroadPhaseEntryTypeParticle;
     entry.reserved0 = 0u;
     entry.reserved1 = 0u;
 

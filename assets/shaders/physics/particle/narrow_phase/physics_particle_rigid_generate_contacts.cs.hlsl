@@ -64,7 +64,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     float3 bestContactWorld = float3(0.0, 0.0, 0.0);
 
     [loop]
-    for (uint i = 0u; i < kSoftRigidColliderIterationCap; ++i)
+    for (uint i = 0u; i < kParticleRigidColliderIterationCap; ++i)
     {
         if (i >= colliderCount)
         {

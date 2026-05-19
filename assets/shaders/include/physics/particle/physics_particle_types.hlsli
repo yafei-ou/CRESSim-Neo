@@ -3,16 +3,16 @@
 
 #include "../core/physics_base.hlsli"
 
-static const uint kParticleBroadPhaseEntryTypeSoft = 0u;
-static const uint kParticleKindSoftSolid = 0u;
+static const uint kParticleBroadPhaseEntryTypeParticle = 0u;
+static const uint kParticleKindSolid = 0u;
 static const uint kParticleKindFluid = 1u;
 static const uint kParticleOwnerTypeNone = 0u;
 static const uint kParticleOwnerTypeSoftBody = 1u;
 static const uint kParticleOwnerTypeFluidBody = 2u;
 static const uint kParticleCandidatePairTypeParticleParticle = 0u;
 static const uint kParticleCandidatePairTypeParticleRigid = 1u;
-static const uint kSoftRigidDedupCacheSize = 16u;
-static const uint kSoftRigidColliderIterationCap = 64u;
+static const uint kParticleRigidDedupCacheSize = 16u;
+static const uint kParticleRigidColliderIterationCap = 64u;
 static const uint kParticlePhaseGroupMask = 0x7fffffffu;
 static const uint kParticlePhaseSelfCollideFlag = 0x80000000u;
 

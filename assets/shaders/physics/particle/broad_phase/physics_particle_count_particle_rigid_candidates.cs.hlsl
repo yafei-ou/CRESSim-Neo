@@ -17,11 +17,11 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_CandidateCounts);
 
 bool TryAppendRigidBody(uint rigidBodyIndex,
-                        inout uint seenRigidBodies[kSoftRigidDedupCacheSize],
+                        inout uint seenRigidBodies[kParticleRigidDedupCacheSize],
                         inout uint seenRigidCount)
 {
     [unroll]
-    for (uint i = 0u; i < kSoftRigidDedupCacheSize; ++i)
+    for (uint i = 0u; i < kParticleRigidDedupCacheSize; ++i)
     {
         if (i >= seenRigidCount)
         {
@@ -33,7 +33,7 @@ bool TryAppendRigidBody(uint rigidBodyIndex,
         }
     }
 
-    if (seenRigidCount < kSoftRigidDedupCacheSize)
+    if (seenRigidCount < kParticleRigidDedupCacheSize)
     {
         seenRigidBodies[seenRigidCount] = rigidBodyIndex;
         ++seenRigidCount;
@@ -43,7 +43,7 @@ bool TryAppendRigidBody(uint rigidBodyIndex,
 
 void CountCandidatesFromBvh(bool useStaticBvh, float3 queryMin, float3 queryMax,
                             uint particleKind, uint softEnvironment, uint softLayer, uint softMask,
-                            inout uint seenRigidBodies[kSoftRigidDedupCacheSize],
+                            inout uint seenRigidBodies[kParticleRigidDedupCacheSize],
                             inout uint seenRigidCount, inout uint count)
 {
     if (rigidColliderCount == 0u)
@@ -82,7 +82,7 @@ void CountCandidatesFromBvh(bool useStaticBvh, float3 queryMin, float3 queryMax,
             if (collider.enabledFlag != 0u && collider.environmentIndex == softEnvironment &&
                 (softMask & collider.collisionLayer) != 0u &&
                 (collider.collisionMask & softLayer) != 0u &&
-                (particleKind == kParticleKindSoftSolid ||
+                (particleKind == kParticleKindSolid ||
                  rigidBodyType == kRigidBodyTypeDynamic) &&
                 CRESSIM_SB_LOAD(g_BodyColliderRanges, rigidBodyIndex).y > 0u &&
                 TryAppendRigidBody(rigidBodyIndex, seenRigidBodies, seenRigidCount))
@@ -120,7 +120,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint softLayer = softMetadata.z;
     const uint softMask = softMetadata.w;
 
-    uint seenRigidBodies[kSoftRigidDedupCacheSize];
+    uint seenRigidBodies[kParticleRigidDedupCacheSize];
     uint seenRigidCount = 0u;
     uint count = 0u;
     const float3 queryExtent = float3(softRadius, softRadius, softRadius);

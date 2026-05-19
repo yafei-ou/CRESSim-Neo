@@ -160,7 +160,7 @@ struct GpuSoftRenderDispatchConstants
     std::uint32_t reserved0           = 0u;
 };
 
-constexpr std::uint32_t kParticleBroadPhaseEntryTypeSoft           = 0u;
+constexpr std::uint32_t kParticleBroadPhaseEntryTypeParticle       = 0u;
 constexpr std::uint32_t kParticleCandidatePairTypeParticleParticle = 0u;
 constexpr std::uint32_t kParticleCandidatePairTypeParticleRigid    = 1u;
 constexpr std::uint32_t kDefaultFluidMaxNeighborhood               = 128u;

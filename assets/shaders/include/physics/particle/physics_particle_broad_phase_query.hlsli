@@ -69,7 +69,7 @@ bool IsValidParticleParticleCandidate(uint particleIndex, float3 particlePositio
                                       out uint otherParticleIndex)
 {
     otherParticleIndex = candidateEntry.particleIndex;
-    if (candidateEntry.particleType != kParticleBroadPhaseEntryTypeSoft ||
+    if (candidateEntry.particleType != kParticleBroadPhaseEntryTypeParticle ||
         otherParticleIndex <= particleIndex)
     {
         return false;
@@ -96,7 +96,7 @@ bool IsValidParticleParticleCandidate(uint particleIndex, float3 particlePositio
         return false;
     }
 
-    if (particleKind == kParticleKindSoftSolid && otherKind == kParticleKindSoftSolid &&
+    if (particleKind == kParticleKindSolid && otherKind == kParticleKindSolid &&
         ParticlePhaseGroup(particlePhase) == ParticlePhaseGroup(otherPhase))
     {
         const bool selfCollideA = ParticlePhaseSelfCollideEnabled(particlePhase);
