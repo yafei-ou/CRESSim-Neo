@@ -57,6 +57,24 @@ enum class SoftBodySourceKind : std::uint32_t
     TetGenFiles = 2u,
 };
 
+enum class FluidSourceKind : std::uint32_t
+{
+    RegularGrid = 0u,
+};
+
+enum class ParticleKind : std::uint32_t
+{
+    SoftSolid = 0u,
+    Fluid     = 1u,
+};
+
+enum class ParticleOwnerType : std::uint32_t
+{
+    None      = 0u,
+    SoftBody  = 1u,
+    FluidBody = 2u,
+};
+
 struct SoftBodyRegularGridSource
 {
     Diligent::float3 size{1.0f, 1.0f, 1.0f};
@@ -86,13 +104,71 @@ struct SoftBodySourceDesc
     SoftBodyTetGenSource tetGen;
 };
 
-struct SoftBodyMaterialDesc
+struct FluidRegularGridSource
+{
+    Diligent::float3 size{1.0f, 1.0f, 1.0f};
+    float targetParticleSpacing = 0.25f;
+};
+
+struct FluidSourceDesc
+{
+    FluidSourceKind kind = FluidSourceKind::RegularGrid;
+    FluidRegularGridSource regularGrid;
+};
+
+struct ParticleContactMaterialDesc
 {
     float friction       = 0.0f;
     float restitution    = 0.0f;
     float damping        = 0.0f;
     float staticFriction = -1.0f;
 };
+
+struct SoftBodyMaterialDesc
+{
+    ParticleContactMaterialDesc contact{};
+};
+
+struct FluidMaterialDesc
+{
+    ParticleContactMaterialDesc contact{};
+    float viscosity            = 0.01f;
+    float cohesion             = 0.0f;
+    float surfaceTension       = 0.0f;
+    float vorticityConfinement = 0.0f;
+    float gravityScale         = 1.0f;
+    float cflCoefficient       = 1.0f;
+};
+
+struct FluidMaterialGpu
+{
+    float restDensity                   = 1000.0f;
+    float invRestDensity                = 1.0f / 1000.0f;
+    float smoothingRadius               = 0.4f;
+    float densityConstraintScaleDerived = 1.0f;
+    float viscosityDerived              = 0.01f / 1000.0f;
+    float cohesionDerived               = 0.0f;
+    float cohesion1                     = 0.0f;
+    float cohesion2                     = 0.0f;
+    float surfaceTensionDerived         = 0.0f;
+    float vorticityConfinementDerived   = 0.0f;
+    float gravityScale                  = 1.0f;
+    float cflRadius                     = 0.25f;
+
+    constexpr bool operator==(const FluidMaterialGpu &rhs) const noexcept
+    {
+        return restDensity == rhs.restDensity && invRestDensity == rhs.invRestDensity &&
+               smoothingRadius == rhs.smoothingRadius &&
+               densityConstraintScaleDerived == rhs.densityConstraintScaleDerived &&
+               viscosityDerived == rhs.viscosityDerived && cohesionDerived == rhs.cohesionDerived &&
+               cohesion1 == rhs.cohesion1 && cohesion2 == rhs.cohesion2 &&
+               surfaceTensionDerived == rhs.surfaceTensionDerived &&
+               vorticityConfinementDerived == rhs.vorticityConfinementDerived &&
+               gravityScale == rhs.gravityScale && cflRadius == rhs.cflRadius;
+    }
+};
+
+static_assert(sizeof(FluidMaterialGpu) == 48u);
 
 struct RigidBodyState
 {
@@ -138,20 +214,41 @@ struct SoftBodyState
     SoftBodySourceDesc source{};
     SoftBodyMaterialDesc material{};
     common::Transform restTransform{};
-    float particleMass           = 1.0f;
-    float particleRadius         = 0.125f;
-    float edgeCompliance         = 0.0f;
-    float volumeCompliance       = 0.0f;
-    bool simulated               = true;
-    bool selfCollisionEnabled    = false;
-    std::uint32_t particleOffset = 0u;
-    std::uint32_t particleCount  = 0u;
-    std::uint32_t edgeOffset     = 0u;
-    std::uint32_t edgeCount      = 0u;
-    std::uint32_t tetOffset      = 0u;
-    std::uint32_t tetCount       = 0u;
+    float particleMass                 = 1.0f;
+    float particleRadius               = 0.125f;
+    float edgeCompliance               = 0.0f;
+    float volumeCompliance             = 0.0f;
+    bool simulated                     = true;
+    bool selfCollisionEnabled          = false;
+    std::uint32_t contactMaterialIndex = 0u;
+    std::uint32_t particleOffset       = 0u;
+    std::uint32_t particleCount        = 0u;
+    std::uint32_t edgeOffset           = 0u;
+    std::uint32_t edgeCount            = 0u;
+    std::uint32_t tetOffset            = 0u;
+    std::uint32_t tetCount             = 0u;
     std::vector<Diligent::float3> restPositions;
     std::vector<Diligent::uint3> boundaryFaces;
+};
+
+struct FluidState
+{
+    common::EntityId entityId      = common::kInvalidEntityId;
+    std::uint32_t environmentIndex = 0u;
+    std::uint32_t collisionLayer   = 1u;
+    std::uint32_t collisionMask    = 0xffffffffu;
+    FluidSourceDesc source{};
+    FluidMaterialDesc material{};
+    Diligent::float4 visualColor{0.32f, 0.62f, 0.95f, 0.72f};
+    common::Transform restTransform{};
+    float particleMass                 = 1.0f;
+    float particleRadius               = 0.125f;
+    bool simulated                     = true;
+    std::uint32_t contactMaterialIndex = 0u;
+    std::uint32_t fluidMaterialIndex   = 0u;
+    std::uint32_t particleOffset       = 0u;
+    std::uint32_t particleCount        = 0u;
+    std::vector<Diligent::float3> restPositions;
 };
 
 struct SoftEdge
@@ -171,15 +268,19 @@ struct SoftTet
     std::uint32_t reserved1 = 0u;
 };
 
-struct SoftParticleSoAHost
+struct ParticleSoAHost
 {
     std::vector<Diligent::float4> positionsInvMass;
     std::vector<Diligent::float4> previousPositions;
     std::vector<Diligent::float4> velocities;
-    std::vector<Diligent::float4> materials;
     std::vector<float> radii;
     std::vector<std::uint32_t> environmentIndices;
+    std::vector<std::uint32_t> particleKinds;
+    std::vector<std::uint32_t> ownerTypes;
+    std::vector<std::uint32_t> ownerIndices;
     std::vector<std::uint32_t> owningSoftBodyIndices;
+    std::vector<std::uint32_t> particleMaterialIndices;
+    std::vector<std::uint32_t> fluidMaterialIndices;
     std::vector<std::uint32_t> phases;
     std::vector<std::uint32_t> collisionLayers;
     std::vector<std::uint32_t> collisionMasks;
@@ -202,10 +303,14 @@ struct SoftParticleSoAHost
         positionsInvMass.clear();
         previousPositions.clear();
         velocities.clear();
-        materials.clear();
         radii.clear();
         environmentIndices.clear();
+        particleKinds.clear();
+        ownerTypes.clear();
+        ownerIndices.clear();
         owningSoftBodyIndices.clear();
+        particleMaterialIndices.clear();
+        fluidMaterialIndices.clear();
         phases.clear();
         collisionLayers.clear();
         collisionMasks.clear();

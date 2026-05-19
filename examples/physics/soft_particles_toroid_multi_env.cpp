@@ -482,9 +482,9 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
                               MeshRendererComponent{toroidMesh, softBodyMaterial, true});
 
         SoftBodyComponent softBodyVariant = softBody;
-        softBodyVariant.material.friction    = toroidTuning.friction;
-        softBodyVariant.material.restitution = toroidTuning.restitution;
-        softBodyVariant.material.damping     = toroidTuning.damping;
+        softBodyVariant.material.contact.friction    = toroidTuning.friction;
+        softBodyVariant.material.contact.restitution = toroidTuning.restitution;
+        softBodyVariant.material.contact.damping     = toroidTuning.damping;
         softBodyVariant.particleMass         = toroidTuning.particleMass;
         softBodyVariant.particleRadius       = toroidTuning.particleRadius;
         softBodyVariant.edgeCompliance       = toroidTuning.edgeCompliance;

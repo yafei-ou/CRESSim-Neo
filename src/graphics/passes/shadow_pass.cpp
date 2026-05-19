@@ -239,8 +239,8 @@ bool ShadowPass::bindSceneBuffers(MaterialProgramFamily programFamily) const
         {
             return false;
         }
-        Diligent::IShaderResourceVariable *softParticleVar = shaderBinding->GetVariableByName(
-            Diligent::SHADER_TYPE_VERTEX, "g_SoftParticlePositions");
+        Diligent::IShaderResourceVariable *softParticleVar =
+            shaderBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_ParticlePositions");
         Diligent::IShaderResourceVariable *bindingVar = shaderBinding->GetVariableByName(
             Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexBindings");
         if (softParticleVar == nullptr || bindingVar == nullptr)
@@ -451,7 +451,7 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_SoftParticlePositions",
+        {Diligent::SHADER_TYPE_VERTEX, "g_ParticlePositions",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexBindings",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},

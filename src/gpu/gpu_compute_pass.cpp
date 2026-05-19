@@ -178,4 +178,25 @@ bool GpuComputePass::bindBufferVariable(Diligent::IShaderResourceBinding *srb,
     return true;
 }
 
+bool GpuComputePass::bindTextureVariable(Diligent::IShaderResourceBinding *srb,
+                                         const char *variableName, Diligent::ITextureView *view)
+{
+    if (srb == nullptr || view == nullptr)
+    {
+        CRESSIM_LOG_ERROR("GpuComputePass: invalid texture binding for '", variableName, "'.");
+        return false;
+    }
+
+    Diligent::IShaderResourceVariable *variable =
+        srb->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, variableName);
+    if (variable == nullptr)
+    {
+        CRESSIM_LOG_ERROR("GpuComputePass: shader variable not found: '", variableName, "'.");
+        return false;
+    }
+
+    variable->Set(view);
+    return true;
+}
+
 } // namespace cressim::neo::gpu

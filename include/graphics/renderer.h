@@ -55,6 +55,7 @@ struct RenderFrameOptions
     ToneMapper toneMapper = ToneMapper::Reinhard;
     float exposure        = 1.0f;
     DebugParticleOptions debugParticles{};
+    bool enableFluidRendering = false;
 };
 
 struct RenderStats

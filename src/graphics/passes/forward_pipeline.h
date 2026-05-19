@@ -21,6 +21,10 @@ class ForwardOpaquePass;
 class ShadowPass;
 class DebugParticlePass;
 class SkyboxPass;
+class FluidDepthPass;
+class FluidColorPass;
+class FluidDepthFilterPass;
+class FluidCompositePass;
 
 class ForwardPipeline
 {
@@ -46,6 +50,10 @@ private:
     std::unique_ptr<ShadowPass> mShadowPass;
     std::unique_ptr<DebugParticlePass> mDebugParticlePass;
     std::unique_ptr<SkyboxPass> mSkyboxPass;
+    std::unique_ptr<FluidDepthPass> mFluidDepthPass;
+    std::unique_ptr<FluidColorPass> mFluidColorPass;
+    std::unique_ptr<FluidDepthFilterPass> mFluidDepthFilterPass;
+    std::unique_ptr<FluidCompositePass> mFluidCompositePass;
     std::unique_ptr<GpuIndirectState> mGpuIndirectState;
     std::unordered_map<RenderTargetCacheKey, gpu::GpuRenderTargetHandle, RenderTargetCacheKeyHasher>
         mLayeredTargetCache;

@@ -1,9 +1,9 @@
-#include "../../include/physics/physics_soft_dispatch_constants.hlsli"
+#include "../../include/physics/physics_particle_dispatch_constants.hlsli"
 #include "../../include/physics/physics_atomic_float.hlsli"
 #include "../../include/structured_buffer_compat.hlsli"
 
-CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_SoftPositionCorrections);
-CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_SoftParticleVelocityCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_ParticlePositionCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_ParticleVelocityCorrections);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_SoftEdgeLambdas);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_SoftTetLambdas);
 
@@ -12,10 +12,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint idx = dispatchThreadID.x;
 
-    if (idx < softParticleCount)
+    if (idx < particleCount)
     {
-        CRESSIM_CLEAR_ATOMIC_FLOAT4_ENTRY(g_SoftPositionCorrections, idx);
-        CRESSIM_CLEAR_ATOMIC_FLOAT4_ENTRY(g_SoftParticleVelocityCorrections, idx);
+        CRESSIM_CLEAR_ATOMIC_FLOAT4_ENTRY(g_ParticlePositionCorrections, idx);
+        CRESSIM_CLEAR_ATOMIC_FLOAT4_ENTRY(g_ParticleVelocityCorrections, idx);
     }
 
     if (idx < softEdgeCount)

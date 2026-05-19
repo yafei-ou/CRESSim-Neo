@@ -30,6 +30,9 @@ public:
     std::uint32_t entityEnvironment(common::EntityId entityId) const noexcept;
     bool setEnvironmentIbl(std::uint32_t envIndex, const graphics::EnvironmentIblDesc &desc);
     const graphics::EnvironmentIblDesc *tryGetEnvironmentIbl(std::uint32_t envIndex) const noexcept;
+    bool setEnvironmentFluid(std::uint32_t envIndex, const graphics::EnvironmentFluidDesc &desc);
+    const graphics::EnvironmentFluidDesc *tryGetEnvironmentFluid(
+        std::uint32_t envIndex) const noexcept;
 
     bool isAlive(common::EntityId entityId) const;
     const std::vector<common::EntityId> &entities() const noexcept;
@@ -46,6 +49,8 @@ public:
     bool removeRigidBody(common::EntityId entityId);
     bool setSoftBody(common::EntityId entityId, const SoftBodyComponent &component);
     bool removeSoftBody(common::EntityId entityId);
+    bool setFluid(common::EntityId entityId, const FluidComponent &component);
+    bool removeFluid(common::EntityId entityId);
 
     ColliderHandle addCollider(common::EntityId entityId, const ColliderComponent &component);
     void updateCollider(ColliderHandle handle, const ColliderComponent &component);
@@ -69,6 +74,7 @@ public:
     // Read rigid body/collider through physics.
     std::optional<RigidBodyComponent> tryGetRigidBody(common::EntityId entityId) const;
     std::optional<SoftBodyComponent> tryGetSoftBody(common::EntityId entityId) const;
+    std::optional<FluidComponent> tryGetFluid(common::EntityId entityId) const;
     std::optional<ColliderComponent> tryGetCollider(ColliderHandle handle) const;
     const std::vector<ColliderHandle> &colliderHandles(common::EntityId entityId) const;
 
@@ -106,6 +112,7 @@ private:
     {
         bool hasRigidBody = false;
         bool hasSoftBody  = false;
+        bool hasFluid     = false;
         std::vector<ColliderHandle> colliders;
     };
 
@@ -175,6 +182,7 @@ private:
     std::vector<graphics::GpuLocalLightSelection> mLocalLightSelectionsHost{};
     std::vector<graphics::GpuSoftBodyVertexBinding> mSoftBodyVertexBindingsHost{};
     std::vector<graphics::EnvironmentIblDesc> mEnvironmentIbls{};
+    std::vector<graphics::EnvironmentFluidDesc> mEnvironmentFluids{};
     std::vector<graphics::IndirectCommandRegistryEntry> mOpaqueDrawRegistryHost{};
     std::vector<graphics::TransparentDrawEntry> mTransparentDrawRegistryHost{};
     std::vector<graphics::IndirectCommandRegistryEntry> mShadowDrawRegistryHost{};

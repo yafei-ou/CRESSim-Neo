@@ -14,6 +14,8 @@ function(add_cressim_example)
         ${source_path}
     )
 
+    cressim_neo_enable_clang_tidy(${target_name})
+
     target_include_directories(${target_name} PRIVATE
         "${PROJECT_SOURCE_DIR}/include"
         "${PROJECT_SOURCE_DIR}/examples"

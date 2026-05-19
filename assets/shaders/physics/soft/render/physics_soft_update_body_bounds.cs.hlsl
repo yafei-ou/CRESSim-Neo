@@ -1,8 +1,8 @@
 #include "../../../include/physics/physics_soft_render_dispatch_constants.hlsli"
-#include "../../../include/physics/soft/physics_soft_types.hlsli"
+#include "../../../include/physics/particle/physics_particle_types.hlsli"
 #include "../../../include/physics/rigid/physics_rigid_types.hlsli"
 
-CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftBodyBoundsChunk, g_SoftBodyBoundsChunks);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuBodyAabb, g_SoftBodyChunkAabbsRW);
 
@@ -37,7 +37,7 @@ void main(uint3 groupId : SV_GroupID, uint3 groupThreadId : SV_GroupThreadID)
     for (uint i = lane; i < chunk.particleCount; i += 64u)
     {
         const float3 position =
-            CRESSIM_SB_LOAD(g_SoftParticlePositionsInvMass, chunk.particleStart + i).xyz;
+            CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, chunk.particleStart + i).xyz;
         minBounds = min(minBounds, position);
         maxBounds = max(maxBounds, position);
     }

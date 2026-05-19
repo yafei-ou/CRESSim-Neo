@@ -58,7 +58,7 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
                 const SoftBodyVertexBinding binding =
                     CRESSIM_SB_LOAD(g_SoftBodyVertexBindings,
                                     metadata.softBodyVertexBindingBase + vertexId);
-                worldPos = float4(CRESSIM_SB_LOAD(g_SoftParticlePositions, binding.particleIndex).xyz,
+                worldPos = float4(CRESSIM_SB_LOAD(g_ParticlePositions, binding.particleIndex).xyz,
                                   1.0);
             }
 #endif
@@ -102,7 +102,7 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
     {
         const SoftBodyVertexBinding binding =
             CRESSIM_SB_LOAD(g_SoftBodyVertexBindings, metadata.softBodyVertexBindingBase + vertexId);
-        worldPos = float4(CRESSIM_SB_LOAD(g_SoftParticlePositions, binding.particleIndex).xyz, 1.0);
+        worldPos = float4(CRESSIM_SB_LOAD(g_ParticlePositions, binding.particleIndex).xyz, 1.0);
     }
 #endif
     Out.Position = mul(worldPos, preparedCamera.lightViewProjectionMatrices[g_CascadeIndex]);

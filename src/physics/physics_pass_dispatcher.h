@@ -26,93 +26,124 @@ public:
                                PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
                                const GpuRigidDispatchConstants &constants);
     bool predictSoft(Diligent::IDeviceContext *computeContext,
-                     const PhysicsSceneGpuState &sceneState, std::uint32_t softParticleCount,
-                     const GpuSoftDispatchConstants &constants);
+                     const PhysicsSceneGpuState &sceneState, std::uint32_t particleCount,
+                     const GpuParticleDispatchConstants &constants);
     bool buildParticleBroadPhaseEntries(Diligent::IDeviceContext *computeContext,
                                         const PhysicsSceneGpuState &sceneState,
                                         std::uint32_t totalParticleLikeCount,
-                                        const GpuSoftDispatchConstants &constants);
+                                        const GpuParticleDispatchConstants &constants);
     bool buildParticleBroadPhaseKeys(Diligent::IDeviceContext *computeContext,
                                      const PhysicsSceneGpuState &sceneState,
                                      std::uint32_t totalParticleLikeCount,
-                                     const GpuSoftDispatchConstants &constants);
+                                     const GpuParticleDispatchConstants &constants);
     bool markParticleCellRangeStarts(Diligent::IDeviceContext *computeContext,
                                      const PhysicsSceneGpuState &sceneState,
                                      std::uint32_t totalParticleLikeCount,
-                                     const GpuSoftDispatchConstants &constants);
+                                     const GpuParticleDispatchConstants &constants);
     bool clearParticleCellRanges(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState,
                                  std::uint32_t cellRangeCapacity,
-                                 const GpuSoftDispatchConstants &constants);
+                                 const GpuParticleDispatchConstants &constants);
     bool buildParticleCellRanges(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState,
                                  std::uint32_t totalParticleLikeCount,
-                                 const GpuSoftDispatchConstants &constants);
+                                 const GpuParticleDispatchConstants &constants);
     bool sortParticleBroadPhase(Diligent::IDeviceContext *computeContext,
                                 const PhysicsSceneGpuState &sceneState, std::uint32_t count);
-    bool clearSoftNeighborMeta(Diligent::IDeviceContext *computeContext,
-                               const PhysicsSceneGpuState &sceneState);
-    bool buildSoftSoftCandidatePairs(Diligent::IDeviceContext *computeContext,
-                                     const PhysicsSceneGpuState &sceneState,
-                                     std::uint32_t softParticleCount,
-                                     const GpuSoftDispatchConstants &constants);
-    bool buildSoftRigidCandidatePairs(Diligent::IDeviceContext *computeContext,
+    bool clearParticleNeighborMeta(Diligent::IDeviceContext *computeContext,
+                                   const PhysicsSceneGpuState &sceneState);
+    bool buildParticleParticleCandidatePairs(Diligent::IDeviceContext *computeContext,
+                                             const PhysicsSceneGpuState &sceneState,
+                                             std::uint32_t particleCount,
+                                             const GpuParticleDispatchConstants &constants);
+    bool buildParticleRigidCandidatePairs(Diligent::IDeviceContext *computeContext,
+                                          const PhysicsSceneGpuState &sceneState,
+                                          std::uint32_t particleCount,
+                                          const GpuParticleDispatchConstants &constants);
+    bool buildFluidBoundaryCandidatePairs(Diligent::IDeviceContext *computeContext,
+                                          const PhysicsSceneGpuState &sceneState,
+                                          std::uint32_t particleCount,
+                                          const GpuParticleDispatchConstants &constants);
+    bool prepareParticleCandidateIndirectArgs(Diligent::IDeviceContext *computeContext,
+                                              const PhysicsSceneGpuState &sceneState);
+    bool prepareParticleActiveIndirectArgs(Diligent::IDeviceContext *computeContext,
+                                           const PhysicsSceneGpuState &sceneState);
+    bool generateParticleExplicitContacts(Diligent::IDeviceContext *computeContext,
+                                          const PhysicsSceneGpuState &sceneState,
+                                          const GpuParticleDispatchConstants &constants);
+    bool generateParticleRigidContacts(Diligent::IDeviceContext *computeContext,
+                                       const PhysicsSceneGpuState &sceneState,
+                                       const GpuParticleDispatchConstants &constants);
+    bool compactParticleExplicitContacts(Diligent::IDeviceContext *computeContext,
+                                         const PhysicsSceneGpuState &sceneState,
+                                         const GpuParticleDispatchConstants &constants);
+    bool compactParticleRigidContacts(Diligent::IDeviceContext *computeContext,
                                       const PhysicsSceneGpuState &sceneState,
-                                      std::uint32_t softParticleCount,
-                                      const GpuSoftDispatchConstants &constants);
-    bool prepareSoftCandidateIndirectArgs(Diligent::IDeviceContext *computeContext,
-                                          const PhysicsSceneGpuState &sceneState);
-    bool prepareSoftActiveIndirectArgs(Diligent::IDeviceContext *computeContext,
-                                       const PhysicsSceneGpuState &sceneState);
-    bool generateSoftContacts(Diligent::IDeviceContext *computeContext,
-                              const PhysicsSceneGpuState &sceneState,
-                              const GpuSoftDispatchConstants &constants);
-    bool generateSoftRigidContacts(Diligent::IDeviceContext *computeContext,
-                                   const PhysicsSceneGpuState &sceneState,
-                                   const GpuSoftDispatchConstants &constants);
-    bool compactSoftContacts(Diligent::IDeviceContext *computeContext,
-                             const PhysicsSceneGpuState &sceneState,
-                             const GpuSoftDispatchConstants &constants);
-    bool compactSoftRigidContacts(Diligent::IDeviceContext *computeContext,
-                                  const PhysicsSceneGpuState &sceneState,
-                                  const GpuSoftDispatchConstants &constants);
+                                      const GpuParticleDispatchConstants &constants);
     bool clearSoftConstraintState(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState, std::uint32_t threadCount,
-                                  const GpuSoftDispatchConstants &constants);
+                                  const GpuParticleDispatchConstants &constants);
     bool solveSoftEdgeConstraints(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState,
                                   std::uint32_t softEdgeCount,
-                                  const GpuSoftDispatchConstants &constants);
+                                  const GpuParticleDispatchConstants &constants);
     bool solveSoftTetConstraints(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState, std::uint32_t softTetCount,
-                                 const GpuSoftDispatchConstants &constants);
+                                 const GpuParticleDispatchConstants &constants);
     bool applySoftEdgeCorrections(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState,
-                                  const GpuSoftDispatchConstants &constants);
+                                  const GpuParticleDispatchConstants &constants);
     bool applySoftTetCorrections(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState,
-                                 const GpuSoftDispatchConstants &constants);
-    bool solveSoftContacts(Diligent::IDeviceContext *computeContext,
-                           const PhysicsSceneGpuState &sceneState,
-                           const GpuSoftDispatchConstants &constants);
-    bool solveSoftRigidContacts(Diligent::IDeviceContext *computeContext,
-                                const PhysicsSceneGpuState &sceneState,
-                                const GpuSoftDispatchConstants &constants);
-    bool applySoftPositionCorrections(Diligent::IDeviceContext *computeContext,
-                                      const PhysicsSceneGpuState &sceneState,
-                                      const GpuSoftDispatchConstants &constants);
-    bool updateSoftVelocities(Diligent::IDeviceContext *computeContext,
-                              const PhysicsSceneGpuState &sceneState,
-                              std::uint32_t softParticleCount,
-                              const GpuSoftDispatchConstants &constants);
-    bool solveSoftContactVelocities(Diligent::IDeviceContext *computeContext,
+                                 const GpuParticleDispatchConstants &constants);
+    bool solveParticleExplicitContacts(Diligent::IDeviceContext *computeContext,
+                                       const PhysicsSceneGpuState &sceneState,
+                                       const GpuParticleDispatchConstants &constants);
+    bool solveParticleRigidContacts(Diligent::IDeviceContext *computeContext,
                                     const PhysicsSceneGpuState &sceneState,
-                                    std::uint32_t softParticleCount, std::uint32_t iterations);
-    bool solveSoftRigidContactVelocities(Diligent::IDeviceContext *computeContext,
-                                         const PhysicsSceneGpuState &sceneState,
-                                         std::uint32_t softParticleCount,
-                                         std::uint32_t rigidBodyCount, std::uint32_t iterations,
-                                         const GpuRigidDispatchConstants &rigidConstants);
+                                    const GpuParticleDispatchConstants &constants);
+    bool applyParticlePositionCorrections(Diligent::IDeviceContext *computeContext,
+                                          const PhysicsSceneGpuState &sceneState,
+                                          const GpuParticleDispatchConstants &constants);
+    bool updateParticleVelocities(Diligent::IDeviceContext *computeContext,
+                                  const PhysicsSceneGpuState &sceneState,
+                                  std::uint32_t particleCount,
+                                  const GpuParticleDispatchConstants &constants);
+    bool computeFluidDensityConstraints(Diligent::IDeviceContext *computeContext,
+                                        const PhysicsSceneGpuState &sceneState,
+                                        const GpuParticleDispatchConstants &constants);
+    bool buildFluidNeighborPairs(Diligent::IDeviceContext *computeContext,
+                                 const PhysicsSceneGpuState &sceneState,
+                                 const GpuParticleDispatchConstants &constants);
+    bool computeFluidDeltaPositions(Diligent::IDeviceContext *computeContext,
+                                    const PhysicsSceneGpuState &sceneState,
+                                    const GpuParticleDispatchConstants &constants);
+    bool applyFluidDeltaPositions(Diligent::IDeviceContext *computeContext,
+                                  const PhysicsSceneGpuState &sceneState,
+                                  const GpuParticleDispatchConstants &constants);
+    bool clampFluidBoundary(Diligent::IDeviceContext *computeContext,
+                            const PhysicsSceneGpuState &sceneState,
+                            const GpuParticleDispatchConstants &constants);
+    bool projectFluidBoundaryVelocities(Diligent::IDeviceContext *computeContext,
+                                        const PhysicsSceneGpuState &sceneState,
+                                        const GpuParticleDispatchConstants &constants);
+    bool computeFluidVorticity(Diligent::IDeviceContext *computeContext,
+                               const PhysicsSceneGpuState &sceneState,
+                               const GpuParticleDispatchConstants &constants);
+    bool applyFluidVorticityConfinement(Diligent::IDeviceContext *computeContext,
+                                        const PhysicsSceneGpuState &sceneState,
+                                        const GpuParticleDispatchConstants &constants);
+    bool buildFluidRenderAnisotropy(Diligent::IDeviceContext *computeContext,
+                                    const PhysicsSceneGpuState &sceneState,
+                                    const GpuParticleDispatchConstants &constants);
+    bool solveParticleContactVelocities(Diligent::IDeviceContext *computeContext,
+                                        const PhysicsSceneGpuState &sceneState,
+                                        std::uint32_t particleCount, std::uint32_t iterations);
+    bool solveParticleRigidContactVelocities(Diligent::IDeviceContext *computeContext,
+                                             const PhysicsSceneGpuState &sceneState,
+                                             std::uint32_t particleCount,
+                                             std::uint32_t rigidBodyCount, std::uint32_t iterations,
+                                             const GpuRigidDispatchConstants &rigidConstants);
     bool updateSoftTriangleNormals(Diligent::IDeviceContext *computeContext,
                                    const PhysicsSceneGpuState &sceneState,
                                    std::uint32_t renderTriangleCount);
@@ -188,12 +219,12 @@ private:
                                      const GpuRigidDispatchConstants &constants);
     bool writeRigidJointDispatchConstants(Diligent::IDeviceContext *computeContext,
                                           const GpuRigidJointDispatchConstants &constants);
-    bool writeSoftDispatchConstants(Diligent::IDeviceContext *computeContext,
-                                    const GpuSoftDispatchConstants &constants);
+    bool writeParticleDispatchConstants(Diligent::IDeviceContext *computeContext,
+                                        const GpuParticleDispatchConstants &constants);
     bool writeSoftRenderDispatchConstants(Diligent::IDeviceContext *computeContext,
                                           const GpuSoftRenderDispatchConstants &constants);
-    bool writeScanConstants(Diligent::IDeviceContext *computeContext,
-                            const GpuPhysicsScanConstants &constants);
+    bool writeScanDispatchConstants(Diligent::IDeviceContext *computeContext,
+                                    const GpuPhysicsScanDispatchConstants &constants);
     bool writeRadixConstants(Diligent::IDeviceContext *computeContext,
                              const GpuPhysicsRadixConstants &constants);
     bool writeBroadPhaseBuildConstants(Diligent::IDeviceContext *computeContext,
@@ -202,17 +233,31 @@ private:
                                            const GpuBroadPhaseReductionConstants &constants);
     bool writeConstantsBuffer(Diligent::IDeviceContext *computeContext, Diligent::IBuffer *buffer,
                               const void *constants, std::size_t constantsSize);
-    bool dispatchScanBlockPass(Diligent::IDeviceContext *computeContext,
-                               const PhysicsSceneGpuState &sceneState, Diligent::IBuffer *input,
-                               Diligent::IBuffer *output, Diligent::IBuffer *blockSums,
-                               std::uint32_t count);
-    bool dispatchScanAddOffsetsPass(Diligent::IDeviceContext *computeContext,
-                                    Diligent::IBuffer *output,
-                                    Diligent::IBuffer *scannedBlockOffsets, std::uint32_t count);
-    bool dispatchExclusiveScanPass(Diligent::IDeviceContext *computeContext,
-                                   const PhysicsSceneGpuState &sceneState, Diligent::IBuffer *input,
-                                   Diligent::IBuffer *output, std::uint32_t count,
-                                   std::uint32_t recursionLevel = 0u);
+    bool dispatchPreparedScanBlockPass(Diligent::IDeviceContext *computeContext,
+                                       Diligent::IBuffer *input, Diligent::IBuffer *output,
+                                       Diligent::IBuffer *blockSums,
+                                       Diligent::IBuffer *indirectArgsBuffer,
+                                       std::uint32_t scanLevelIndex,
+                                       std::uint32_t dispatchElementCount, bool useIndirect);
+    bool dispatchPreparedScanAddOffsetsPass(Diligent::IDeviceContext *computeContext,
+                                            Diligent::IBuffer *output,
+                                            Diligent::IBuffer *scannedBlockOffsets,
+                                            Diligent::IBuffer *indirectArgsBuffer,
+                                            std::uint32_t scanLevelIndex,
+                                            std::uint32_t dispatchElementCount, bool useIndirect);
+    bool dispatchExclusiveScanPrepared(Diligent::IDeviceContext *computeContext,
+                                       const PhysicsSceneGpuState &sceneState,
+                                       Diligent::IBuffer *input, Diligent::IBuffer *output,
+                                       Diligent::IBuffer *indirectArgsBuffer, bool useIndirect,
+                                       const std::uint32_t *directCounts = nullptr);
+    bool dispatchExclusiveScanWithCpuCount(Diligent::IDeviceContext *computeContext,
+                                           const PhysicsSceneGpuState &sceneState,
+                                           Diligent::IBuffer *input, Diligent::IBuffer *output,
+                                           std::uint32_t count);
+    bool dispatchExclusiveScanWithGpuCount(Diligent::IDeviceContext *computeContext,
+                                           const PhysicsSceneGpuState &sceneState,
+                                           Diligent::IBuffer *input, Diligent::IBuffer *output,
+                                           bool particleRigidCandidates);
     bool dispatchReduceBroadPhaseExtentPass(Diligent::IDeviceContext *computeContext,
                                             const PhysicsSceneGpuState &sceneState,
                                             std::uint32_t bodyCount, bool useStaticSet);
@@ -252,10 +297,10 @@ private:
     bool dispatchApplyRigidCorrectionsPass(Diligent::IDeviceContext *computeContext,
                                            const PhysicsSceneGpuState &sceneState,
                                            std::uint32_t rigidBodyCount);
-    bool dispatchSolveSoftContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
-                                                const PhysicsSceneGpuState &sceneState);
-    bool dispatchSolveSoftRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
-                                                     const PhysicsSceneGpuState &sceneState);
+    bool dispatchSolveParticleContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
+                                                    const PhysicsSceneGpuState &sceneState);
+    bool dispatchSolveParticleRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
+                                                         const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
                                                  const PhysicsSceneGpuState &sceneState);
 
@@ -269,32 +314,46 @@ private:
     gpu::GpuComputePass mMarkParticleCellRangeStartsPass;
     gpu::GpuComputePass mClearParticleCellRangesPass;
     gpu::GpuComputePass mBuildParticleCellRangesPass;
-    gpu::GpuComputePass mCountSoftSoftCandidatePairsPass;
-    gpu::GpuComputePass mFinalizeSoftSoftCandidatePairsPass;
-    gpu::GpuComputePass mEmitSoftSoftCandidatePairsPass;
-    gpu::GpuComputePass mCountSoftRigidCandidatePairsPass;
-    gpu::GpuComputePass mFinalizeSoftRigidCandidatePairsPass;
-    gpu::GpuComputePass mEmitSoftRigidCandidatePairsPass;
-    gpu::GpuComputePass mGenerateSoftContactsPass;
-    gpu::GpuComputePass mGenerateSoftRigidContactsPass;
-    gpu::GpuComputePass mPrepareSoftCandidateIndirectArgsPass;
-    gpu::GpuComputePass mPrepareSoftActiveIndirectArgsPass;
-    gpu::GpuComputePass mFinalizeActiveSoftContactsPass;
-    gpu::GpuComputePass mCompactActiveSoftContactsPass;
-    gpu::GpuComputePass mFinalizeActiveSoftRigidContactsPass;
-    gpu::GpuComputePass mCompactActiveSoftRigidContactsPass;
+    gpu::GpuComputePass mCountParticleParticleCandidatePairsPass;
+    gpu::GpuComputePass mFinalizeParticleParticleCandidatePairsPass;
+    gpu::GpuComputePass mEmitParticleParticleCandidatePairsPass;
+    gpu::GpuComputePass mCountParticleRigidCandidatePairsPass;
+    gpu::GpuComputePass mFinalizeParticleRigidCandidatePairsPass;
+    gpu::GpuComputePass mEmitParticleRigidCandidatePairsPass;
+    gpu::GpuComputePass mCountFluidBoundaryCandidatePairsPass;
+    gpu::GpuComputePass mFinalizeFluidBoundaryCandidatePairsPass;
+    gpu::GpuComputePass mEmitFluidBoundaryCandidatePairsPass;
+    gpu::GpuComputePass mGenerateParticleExplicitContactsPass;
+    gpu::GpuComputePass mGenerateParticleRigidContactsPass;
+    gpu::GpuComputePass mPrepareExplicitContactScanPass;
+    gpu::GpuComputePass mPrepareRigidContactScanPass;
+    gpu::GpuComputePass mPrepareParticleCandidateIndirectArgsPass;
+    gpu::GpuComputePass mPrepareParticleActiveIndirectArgsPass;
+    gpu::GpuComputePass mFinalizeActiveParticleExplicitContactsPass;
+    gpu::GpuComputePass mCompactActiveParticleExplicitContactsPass;
+    gpu::GpuComputePass mFinalizeActiveParticleRigidContactsPass;
+    gpu::GpuComputePass mCompactActiveParticleRigidContactsPass;
     gpu::GpuComputePass mClearSoftConstraintStatePass;
     gpu::GpuComputePass mSolveSoftEdgeConstraintsPass;
     gpu::GpuComputePass mSolveSoftTetConstraintsPass;
     gpu::GpuComputePass mApplySoftEdgeCorrectionsPass;
     gpu::GpuComputePass mApplySoftTetCorrectionsPass;
-    gpu::GpuComputePass mSolveSoftContactsPass;
-    gpu::GpuComputePass mSolveSoftRigidContactsPass;
-    gpu::GpuComputePass mApplySoftPositionCorrectionsPass;
-    gpu::GpuComputePass mUpdateSoftVelocitiesPass;
-    gpu::GpuComputePass mSolveSoftContactVelocitiesPass;
-    gpu::GpuComputePass mSolveSoftRigidContactVelocitiesPass;
-    gpu::GpuComputePass mApplySoftContactVelocitiesPass;
+    gpu::GpuComputePass mSolveParticleExplicitContactsPass;
+    gpu::GpuComputePass mSolveParticleRigidContactsPass;
+    gpu::GpuComputePass mApplyParticlePositionCorrectionsPass;
+    gpu::GpuComputePass mUpdateParticleVelocitiesPass;
+    gpu::GpuComputePass mBuildFluidNeighborPairsPass;
+    gpu::GpuComputePass mComputeFluidDensityConstraintsPass;
+    gpu::GpuComputePass mComputeFluidDeltaPositionsPass;
+    gpu::GpuComputePass mApplyFluidDeltaPositionsPass;
+    gpu::GpuComputePass mClampFluidBoundaryPass;
+    gpu::GpuComputePass mProjectFluidBoundaryVelocitiesPass;
+    gpu::GpuComputePass mComputeFluidVorticityPass;
+    gpu::GpuComputePass mApplyFluidVorticityConfinementPass;
+    gpu::GpuComputePass mBuildFluidRenderAnisotropyPass;
+    gpu::GpuComputePass mSolveParticleContactVelocitiesPass;
+    gpu::GpuComputePass mSolveParticleRigidContactVelocitiesPass;
+    gpu::GpuComputePass mApplyParticleContactVelocitiesPass;
     gpu::GpuComputePass mUpdateSoftTriangleNormalsPass;
     gpu::GpuComputePass mUpdateSoftRenderNormalsPass;
     gpu::GpuComputePass mUpdateSoftBodyBoundsPass;
@@ -335,9 +394,11 @@ private:
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidJointDispatchConstantsBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftDispatchConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mParticleDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftRenderDispatchConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanIndirectArgsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRadixConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mBroadPhaseBuildConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mBroadPhaseReductionConstantsBuffer;

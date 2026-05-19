@@ -39,3 +39,28 @@ add_cressim_example(
     NAME physics_soft_particles_toroid_multi_env
     SOURCE soft_particles_toroid_multi_env.cpp
 )
+
+add_cressim_example(
+    NAME physics_fluid_debug_particles
+    SOURCE fluid_debug_particles.cpp
+)
+
+add_cressim_example(
+    NAME physics_fluid_material_showcase_multi_env
+    SOURCE fluid_material_showcase_multi_env.cpp
+)
+
+add_cressim_example(
+    NAME physics_fluid_tall_block_stress
+    SOURCE fluid_tall_block_stress.cpp
+)
+
+add_cressim_example(
+    NAME physics_fluid_moving_splitter
+    SOURCE fluid_moving_splitter.cpp
+)
+
+add_cressim_example(
+    NAME physics_fluid_lighting_showcase
+    SOURCE fluid_lighting_showcase.cpp
+)

@@ -25,7 +25,8 @@ bool requiresTextureRecreate(const GpuRenderTargetDesc &currentDesc,
            currentDesc.color != updatedDesc.color || currentDesc.depth != updatedDesc.depth ||
            currentDesc.colorFormat != updatedDesc.colorFormat ||
            currentDesc.depthFormat != updatedDesc.depthFormat ||
-           currentDesc.shaderReadable != updatedDesc.shaderReadable;
+           currentDesc.shaderReadable != updatedDesc.shaderReadable ||
+           currentDesc.unorderedAccess != updatedDesc.unorderedAccess;
 }
 
 bool supportsDiligentRenderTargets(GpuBackend backend) noexcept
@@ -760,6 +761,10 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
         if (desc.shaderReadable)
         {
             colorDesc.BindFlags |= Diligent::BIND_SHADER_RESOURCE;
+        }
+        if (desc.unorderedAccess)
+        {
+            colorDesc.BindFlags |= Diligent::BIND_UNORDERED_ACCESS;
         }
         colorDesc.Usage = Diligent::USAGE_DEFAULT;
 

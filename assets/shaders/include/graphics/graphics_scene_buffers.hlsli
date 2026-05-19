@@ -163,7 +163,7 @@ CRESSIM_STRUCTURED_BUFFER(BatchCameraMetadata, g_BatchCameras);
 CRESSIM_STRUCTURED_BUFFER(uint, g_VisibleObjectIndices);
 CRESSIM_STRUCTURED_BUFFER(VisiblePairInstance, g_VisiblePairs);
 #if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
-CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositions);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositions);
 CRESSIM_STRUCTURED_BUFFER(SoftBodyVertexBinding, g_SoftBodyVertexBindings);
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftBodyVertexNormals);
 #endif

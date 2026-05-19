@@ -62,3 +62,10 @@ add_cressim_test(
     SOURCE mesh_tangent_generation.cpp
     LIBS cressim_neo_graphics
 )
+
+add_cressim_test(
+    SUITE graphics
+    NAME fluid_transparent_smoke
+    SOURCE fluid_transparent_smoke.cpp
+    LIBS cressim_neo_engine
+)

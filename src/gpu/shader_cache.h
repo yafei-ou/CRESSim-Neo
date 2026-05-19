@@ -20,9 +20,11 @@ public:
 
     bool createShader(const Diligent::ShaderCreateInfo &createInfo, Diligent::IShader **shader);
     bool createGraphicsPipelineState(const Diligent::GraphicsPipelineStateCreateInfo &createInfo,
-                                     Diligent::IPipelineState **pipelineState);
+                                     Diligent::IPipelineState **pipelineState,
+                                     bool *cacheAttempted = nullptr);
     bool createComputePipelineState(const Diligent::ComputePipelineStateCreateInfo &createInfo,
-                                    Diligent::IPipelineState **pipelineState);
+                                    Diligent::IPipelineState **pipelineState,
+                                    bool *cacheAttempted = nullptr);
 
 private:
     void loadCache();

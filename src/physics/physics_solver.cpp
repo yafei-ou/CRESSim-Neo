@@ -122,41 +122,36 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
     world.ensureDerivedStateUpToDate();
 
-    const std::uint32_t rigidBodyCount       = world.rigidBodyCount();
-    const std::uint32_t colliderCount        = world.colliderCount();
-    const SoftParticleSoAHost &softParticles = world.softParticles();
-    const std::vector<SoftEdge> &softEdges   = world.softEdges();
-    const std::vector<SoftTet> &softTets     = world.softTets();
-    const SoftRenderDataHost &softRenderData = world.softRenderData();
-    const RigidJointSceneHost &rigidJoints   = world.rigidJointScene();
-    const std::uint32_t softParticleCount    = static_cast<std::uint32_t>(softParticles.size());
-    const std::uint32_t softEdgeCount        = static_cast<std::uint32_t>(softEdges.size());
-    const std::uint32_t softTetCount         = static_cast<std::uint32_t>(softTets.size());
-    const std::uint32_t ballJointCount       = static_cast<std::uint32_t>(rigidJoints.ball.size());
-    const std::uint32_t hingeJointCount      = static_cast<std::uint32_t>(rigidJoints.hinge.size());
+    const std::uint32_t rigidBodyCount                  = world.rigidBodyCount();
+    const std::uint32_t colliderCount                   = world.colliderCount();
+    const ParticleSoAHost &particles                    = world.particles();
+    const std::vector<FluidMaterialGpu> &fluidMaterials = world.fluidMaterials();
+    const std::vector<SoftEdge> &softEdges              = world.softEdges();
+    const std::vector<SoftTet> &softTets                = world.softTets();
+    const SoftRenderDataHost &softRenderData            = world.softRenderData();
+    const RigidJointSceneHost &rigidJoints              = world.rigidJointScene();
+    const std::uint32_t fluidCount                      = world.fluidCount();
+    const std::uint32_t particleCount    = static_cast<std::uint32_t>(particles.size());
+    const std::uint32_t softEdgeCount    = static_cast<std::uint32_t>(softEdges.size());
+    const std::uint32_t softTetCount     = static_cast<std::uint32_t>(softTets.size());
+    const std::uint32_t ballJointCount   = static_cast<std::uint32_t>(rigidJoints.ball.size());
+    const std::uint32_t hingeJointCount  = static_cast<std::uint32_t>(rigidJoints.hinge.size());
     const std::uint32_t sliderJointCount = static_cast<std::uint32_t>(rigidJoints.slider.size());
     const std::uint32_t softRenderTriangleCount =
         static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
-    std::uint32_t softBodyBoundsChunkCount = 0u;
-    for (const Diligent::uint2 &range : softRenderData.softBodyParticleRanges)
-    {
-        softBodyBoundsChunkCount += (range.y + 64u - 1u) / 64u;
-    }
-    float particleGridCellSize = 0.0f;
-    for (const float radius : softParticles.radii)
-    {
-        particleGridCellSize = std::max(particleGridCellSize, radius * 2.0f);
-    }
-    particleGridCellSize   = std::max(particleGridCellSize, 0.1f);
-    const bool hasSoftData = softParticleCount > 0u || softEdgeCount > 0u || softTetCount > 0u;
+    const std::uint32_t softBodyBoundsChunkCount = world.softBodyBoundsChunkCount();
+    const float particleGridCellSize             = world.particleGridCellSize();
+    const bool hasSoftData = particleCount > 0u || softEdgeCount > 0u || softTetCount > 0u;
     if (rigidBodyCount == 0u && !hasSoftData)
     {
         return true;
     }
 
     if (!mImpl->sceneState.ensureCapacity(
-            computeBackend.renderDevice, rigidBodyCount, colliderCount, softParticleCount,
-            softEdgeCount, softTetCount, ballJointCount, hingeJointCount, sliderJointCount,
+            computeBackend.renderDevice, rigidBodyCount, colliderCount, particleCount, fluidCount,
+            static_cast<std::uint32_t>(world.particleContactMaterials().size()),
+            static_cast<std::uint32_t>(fluidMaterials.size()), softEdgeCount, softTetCount,
+            ballJointCount, hingeJointCount, sliderJointCount,
             static_cast<std::uint32_t>(softRenderData.fallbackNormals.size()),
             static_cast<std::uint32_t>(softRenderData.vertexTriangleIndices.size()),
             softRenderTriangleCount,
@@ -192,6 +187,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
     const std::uint32_t substeps          = std::max<std::uint32_t>(mDesc.substeps, 1u);
     const std::uint32_t defaultIterations = std::max<std::uint32_t>(mDesc.defaultIterations, 1u);
+    const std::uint32_t fluidIterations =
+        resolveIterations(mDesc.fluidIterations, defaultIterations);
     const std::uint32_t softInternalIterations =
         resolveIterations(mDesc.softInternalIterations, defaultIterations);
     const std::uint32_t softContactIterations =
@@ -201,7 +198,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const std::uint32_t rigidRigidContactIterations =
         resolveIterations(mDesc.rigidRigidContactIterations, defaultIterations);
     const std::uint32_t maxPhaseIterations = std::max(
-        std::max(std::max(softInternalIterations, softContactIterations), rigidJointIterations),
+        std::max(std::max(std::max(fluidIterations, softInternalIterations), softContactIterations),
+                 rigidJointIterations),
         rigidRigidContactIterations);
     const float substepDt = frameContext.deltaSeconds / static_cast<float>(substeps);
 
@@ -214,22 +212,33 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         constants.candidatePairCapacity = mImpl->sceneState.candidatePairCapacity();
         constants.substepIndex          = substep;
         constants.solverIterations      = maxPhaseIterations;
-        GpuSoftDispatchConstants softConstants{};
-        softConstants.dt                        = substepDt;
-        softConstants.softParticleCount         = softParticleCount;
-        softConstants.rigidColliderCount        = colliderCount;
-        softConstants.particleGridCellSize      = particleGridCellSize;
-        softConstants.softCandidatePairCapacity = mImpl->sceneState.softCandidatePairCapacity();
-        softConstants.softCellRangeCapacity =
-            nextPowerOfTwo(std::max<std::uint32_t>(softParticleCount * 2u, 1u));
-        softConstants.softEdgeCount = softEdgeCount;
-        softConstants.softTetCount  = softTetCount;
+        GpuParticleDispatchConstants particleConstants{};
+        particleConstants.dt                   = substepDt;
+        particleConstants.particleCount        = particleCount;
+        particleConstants.rigidColliderCount   = colliderCount;
+        particleConstants.particleGridCellSize = particleGridCellSize;
+        particleConstants.particleCandidatePairCapacity =
+            mImpl->sceneState.particleCandidatePairCapacity();
+        particleConstants.fluidBoundaryCandidatePairCapacity =
+            mImpl->sceneState.fluidBoundaryCandidatePairCapacity();
+        particleConstants.fluidNeighborPairCapacity = mImpl->sceneState.fluidNeighborPairCapacity();
+        particleConstants.maxFluidNeighborhood      = mImpl->sceneState.maxFluidNeighborhood();
+        particleConstants.particleCellRangeCapacity =
+            nextPowerOfTwo(std::max<std::uint32_t>(particleCount * 2u, 1u));
+        particleConstants.softEdgeCount   = softEdgeCount;
+        particleConstants.softTetCount    = softTetCount;
+        particleConstants.fluidIterations = fluidIterations;
 
-        const bool hasSoftPairWork = softParticleCount > 0u;
+        const bool hasParticleNeighborWork = particleCount > 0u;
+        const bool hasFluidWork            = fluidCount > 0u && particleCount > 0u;
+        const bool hasFluidBoundaryWork    = hasFluidWork && colliderCount > 0u;
         const bool hasSoftInternalWork =
-            softParticleCount > 0u && (softEdgeCount > 0u || softTetCount > 0u);
-        const bool hasSoftSoftContactWork  = softParticleCount > 1u;
-        const bool hasSoftRigidContactWork = softParticleCount > 0u && colliderCount > 0u;
+            particleCount > 0u && (softEdgeCount > 0u || softTetCount > 0u);
+        const bool hasSoftContactSolveWork = softContactIterations > 0u;
+        const bool hasSoftSoftContactWork  = hasSoftContactSolveWork && particleCount > 1u;
+        const bool hasSoftRigidContactWork =
+            hasSoftContactSolveWork && particleCount > 0u && colliderCount > 0u;
+        const bool hasParticleBroadPhaseWork = hasSoftSoftContactWork || hasFluidWork;
         if (mImpl->sceneState.correctionBuffersNeedClear() &&
             !mImpl->passDispatcher.clearRigidCorrections(
                 computeBackend.computeContext, mImpl->sceneState, rigidBodyCount, constants))
@@ -303,46 +312,46 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         }
 
         if (!mImpl->passDispatcher.predictSoft(computeBackend.computeContext, mImpl->sceneState,
-                                               softParticleCount, softConstants))
+                                               particleCount, particleConstants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SoftPredict dispatch.");
             return false;
         }
 
-        if (hasSoftSoftContactWork)
+        if (hasParticleBroadPhaseWork)
         {
             if (!mImpl->passDispatcher.buildParticleBroadPhaseEntries(
-                    computeBackend.computeContext, mImpl->sceneState, softParticleCount,
-                    softConstants))
+                    computeBackend.computeContext, mImpl->sceneState, particleCount,
+                    particleConstants))
             {
                 CRESSIM_LOG_ERROR(
                     "PhysicsSolver::step failed: BuildParticleBroadPhaseEntries dispatch.");
                 return false;
             }
-            if (!mImpl->passDispatcher.buildParticleBroadPhaseKeys(
-                    computeBackend.computeContext, mImpl->sceneState, softParticleCount,
-                    softConstants))
+            if (!mImpl->passDispatcher.buildParticleBroadPhaseKeys(computeBackend.computeContext,
+                                                                   mImpl->sceneState, particleCount,
+                                                                   particleConstants))
             {
                 CRESSIM_LOG_ERROR(
                     "PhysicsSolver::step failed: BuildParticleBroadPhaseKeys dispatch.");
                 return false;
             }
             if (!mImpl->passDispatcher.sortParticleBroadPhase(computeBackend.computeContext,
-                                                              mImpl->sceneState, softParticleCount))
+                                                              mImpl->sceneState, particleCount))
             {
                 CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SoftRigidRadixSort dispatch.");
                 return false;
             }
             if (!mImpl->passDispatcher.clearParticleCellRanges(
                     computeBackend.computeContext, mImpl->sceneState,
-                    softConstants.softCellRangeCapacity, softConstants))
+                    particleConstants.particleCellRangeCapacity, particleConstants))
             {
                 CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ClearParticleCellRanges dispatch.");
                 return false;
             }
             if (!mImpl->passDispatcher.buildParticleCellRanges(computeBackend.computeContext,
-                                                               mImpl->sceneState, softParticleCount,
-                                                               softConstants))
+                                                               mImpl->sceneState, particleCount,
+                                                               particleConstants))
             {
                 CRESSIM_LOG_ERROR("PhysicsSolver::step failed: BuildParticleCellRanges dispatch.");
                 return false;
@@ -350,53 +359,63 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         }
 
         mImpl->lastStepHadRigidBroadPhaseWork = hasRigidBroadPhaseWork;
-        mImpl->lastStepHadSoftPairWork        = hasSoftPairWork;
-        if (hasSoftPairWork)
+        mImpl->lastStepHadSoftPairWork        = hasParticleNeighborWork;
+        if (hasParticleNeighborWork)
         {
-            if (!mImpl->passDispatcher.clearSoftNeighborMeta(computeBackend.computeContext,
-                                                             mImpl->sceneState))
+            if (!mImpl->passDispatcher.clearParticleNeighborMeta(computeBackend.computeContext,
+                                                                 mImpl->sceneState))
             {
                 CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ClearSoftNeighborMeta dispatch.");
                 return false;
             }
-            if (hasSoftSoftContactWork && !mImpl->passDispatcher.buildSoftSoftCandidatePairs(
-                                              computeBackend.computeContext, mImpl->sceneState,
-                                              softParticleCount, softConstants))
+            if (hasSoftSoftContactWork &&
+                !mImpl->passDispatcher.buildParticleParticleCandidatePairs(
+                    computeBackend.computeContext, mImpl->sceneState, particleCount,
+                    particleConstants))
             {
                 CRESSIM_LOG_ERROR(
                     "PhysicsSolver::step failed: BuildSoftSoftCandidatePairs dispatch.");
                 return false;
             }
-            if (hasSoftRigidContactWork && !mImpl->passDispatcher.buildSoftRigidCandidatePairs(
+            if (hasSoftRigidContactWork && !mImpl->passDispatcher.buildParticleRigidCandidatePairs(
                                                computeBackend.computeContext, mImpl->sceneState,
-                                               softParticleCount, softConstants))
+                                               particleCount, particleConstants))
             {
                 CRESSIM_LOG_ERROR(
                     "PhysicsSolver::step failed: BuildSoftRigidCandidatePairs dispatch.");
                 return false;
             }
-            if (!mImpl->passDispatcher.prepareSoftCandidateIndirectArgs(
+            if (hasFluidBoundaryWork && !mImpl->passDispatcher.buildFluidBoundaryCandidatePairs(
+                                            computeBackend.computeContext, mImpl->sceneState,
+                                            particleCount, particleConstants))
+            {
+                CRESSIM_LOG_ERROR(
+                    "PhysicsSolver::step failed: BuildFluidBoundaryCandidatePairs dispatch.");
+                return false;
+            }
+            if ((hasSoftSoftContactWork || hasSoftRigidContactWork) &&
+                !mImpl->passDispatcher.prepareParticleCandidateIndirectArgs(
                     computeBackend.computeContext, mImpl->sceneState))
             {
                 CRESSIM_LOG_ERROR(
-                    "PhysicsSolver::step failed: PrepareSoftCandidateIndirectArgs dispatch.");
+                    "PhysicsSolver::step failed: PrepareParticleCandidateIndirectArgs dispatch.");
                 return false;
             }
         }
 
         const std::uint32_t softConstraintThreadCount =
-            std::max(softParticleCount, std::max(softEdgeCount, softTetCount));
+            std::max(particleCount, std::max(softEdgeCount, softTetCount));
         if ((hasSoftInternalWork || hasSoftSoftContactWork || hasSoftRigidContactWork) &&
             !mImpl->passDispatcher.clearSoftConstraintState(
                 computeBackend.computeContext, mImpl->sceneState, softConstraintThreadCount,
-                softConstants))
+                particleConstants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ClearSoftConstraintState dispatch.");
             return false;
         }
 
         const bool hasAnyPositionSolveWork =
-            (hasSoftInternalWork && softInternalIterations > 0u) ||
+            hasFluidWork || (hasSoftInternalWork && softInternalIterations > 0u) ||
             (hasSoftSoftContactWork && softContactIterations > 0u) ||
             (hasSoftRigidContactWork && softContactIterations > 0u) ||
             ((hasRigidBroadPhaseWork || ballJointCount > 0u || hingeJointCount > 0u ||
@@ -406,13 +425,15 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         {
             for (std::uint32_t iteration = 0u; iteration < maxPhaseIterations; ++iteration)
             {
-                constants.iterationIndex = iteration;
+                constants.iterationIndex         = iteration;
+                particleConstants.iterationIndex = iteration;
                 const bool runSoftInternal =
                     hasSoftInternalWork && iteration < softInternalIterations;
                 const bool runSoftContacts =
                     hasSoftSoftContactWork && iteration < softContactIterations;
                 const bool runSoftRigidContacts =
                     hasSoftRigidContactWork && iteration < softContactIterations;
+                const bool runFluidSolve = hasFluidWork && iteration < fluidIterations;
                 const bool runRigidRigidContacts =
                     hasRigidBroadPhaseWork && iteration < rigidRigidContactIterations;
                 const bool runBallJoints = ballJointCount > 0u && iteration < rigidJointIterations;
@@ -426,9 +447,48 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 const bool needJointOnlyRigidConstants =
                     !runRigidRigidContacts && (runBallJoints || runHingeJoints || runSliderJoints);
 
+                if (runFluidSolve &&
+                    !mImpl->passDispatcher.buildFluidNeighborPairs(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: BuildFluidNeighborPairs dispatch.");
+                    return false;
+                }
+                if (runFluidSolve &&
+                    !mImpl->passDispatcher.computeFluidDensityConstraints(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: ComputeFluidDensityConstraints dispatch.");
+                    return false;
+                }
+                if (runFluidSolve &&
+                    !mImpl->passDispatcher.computeFluidDeltaPositions(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: ComputeFluidDeltaPositions dispatch.");
+                    return false;
+                }
+                if (runFluidSolve &&
+                    !mImpl->passDispatcher.applyFluidDeltaPositions(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: ApplyFluidDeltaPositions dispatch.");
+                    return false;
+                }
+                if (runFluidSolve &&
+                    !mImpl->passDispatcher.clampFluidBoundary(computeBackend.computeContext,
+                                                              mImpl->sceneState, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ClampFluidBoundary dispatch.");
+                    return false;
+                }
                 if (runSoftInternal && !mImpl->passDispatcher.solveSoftEdgeConstraints(
                                            computeBackend.computeContext, mImpl->sceneState,
-                                           softEdgeCount, softConstants))
+                                           softEdgeCount, particleConstants))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: SolveSoftEdgeConstraints dispatch.");
@@ -436,7 +496,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 }
                 if (runSoftInternal &&
                     !mImpl->passDispatcher.applySoftEdgeCorrections(
-                        computeBackend.computeContext, mImpl->sceneState, softConstants))
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: ApplySoftEdgeCorrections dispatch.");
@@ -444,7 +504,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 }
                 if (runSoftInternal && !mImpl->passDispatcher.solveSoftTetConstraints(
                                            computeBackend.computeContext, mImpl->sceneState,
-                                           softTetCount, softConstants))
+                                           softTetCount, particleConstants))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: SolveSoftTetConstraints dispatch.");
@@ -452,63 +512,65 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 }
                 if (runSoftInternal &&
                     !mImpl->passDispatcher.applySoftTetCorrections(
-                        computeBackend.computeContext, mImpl->sceneState, softConstants))
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: ApplySoftTetCorrections dispatch.");
                     return false;
                 }
                 if (runSoftContacts &&
-                    !mImpl->passDispatcher.generateSoftContacts(computeBackend.computeContext,
-                                                                mImpl->sceneState, softConstants))
+                    !mImpl->passDispatcher.generateParticleExplicitContacts(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
                 {
-                    CRESSIM_LOG_ERROR("PhysicsSolver::step failed: GenerateSoftContacts dispatch.");
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: GenerateParticleExplicitContacts dispatch.");
                     return false;
                 }
                 if (runSoftContacts &&
-                    !mImpl->passDispatcher.compactSoftContacts(computeBackend.computeContext,
-                                                               mImpl->sceneState, softConstants))
+                    !mImpl->passDispatcher.compactParticleExplicitContacts(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
                 {
                     CRESSIM_LOG_ERROR("PhysicsSolver::step failed: CompactSoftContacts dispatch.");
                     return false;
                 }
                 if (runSoftRigidContacts &&
-                    !mImpl->passDispatcher.generateSoftRigidContacts(
-                        computeBackend.computeContext, mImpl->sceneState, softConstants))
+                    !mImpl->passDispatcher.generateParticleRigidContacts(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
                 {
                     CRESSIM_LOG_ERROR(
-                        "PhysicsSolver::step failed: GenerateSoftRigidContacts dispatch.");
+                        "PhysicsSolver::step failed: GenerateParticleRigidContacts dispatch.");
                     return false;
                 }
                 if (runSoftRigidContacts &&
-                    !mImpl->passDispatcher.compactSoftRigidContacts(
-                        computeBackend.computeContext, mImpl->sceneState, softConstants))
+                    !mImpl->passDispatcher.compactParticleRigidContacts(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: CompactSoftRigidContacts dispatch.");
                     return false;
                 }
                 if ((runSoftContacts || runSoftRigidContacts) &&
-                    !mImpl->passDispatcher.prepareSoftActiveIndirectArgs(
+                    !mImpl->passDispatcher.prepareParticleActiveIndirectArgs(
                         computeBackend.computeContext, mImpl->sceneState))
                 {
                     CRESSIM_LOG_ERROR(
-                        "PhysicsSolver::step failed: PrepareSoftActiveIndirectArgs dispatch.");
+                        "PhysicsSolver::step failed: PrepareParticleActiveIndirectArgs dispatch.");
                     return false;
                 }
                 if (runSoftContacts &&
-                    !mImpl->passDispatcher.solveSoftContacts(computeBackend.computeContext,
-                                                             mImpl->sceneState, softConstants))
+                    !mImpl->passDispatcher.solveParticleExplicitContacts(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
                 {
-                    CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SolveSoftContacts dispatch.");
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: SolveParticleExplicitContacts dispatch.");
                     return false;
                 }
                 if (runSoftRigidContacts &&
-                    !mImpl->passDispatcher.solveSoftRigidContacts(computeBackend.computeContext,
-                                                                  mImpl->sceneState, softConstants))
+                    !mImpl->passDispatcher.solveParticleRigidContacts(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
                 {
                     CRESSIM_LOG_ERROR(
-                        "PhysicsSolver::step failed: SolveSoftRigidContacts dispatch.");
+                        "PhysicsSolver::step failed: SolveParticleRigidContacts dispatch.");
                     return false;
                 }
                 if (needJointOnlyRigidConstants &&
@@ -559,11 +621,11 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     return false;
                 }
                 if (needContactSoftApply &&
-                    !mImpl->passDispatcher.applySoftPositionCorrections(
-                        computeBackend.computeContext, mImpl->sceneState, softConstants))
+                    !mImpl->passDispatcher.applyParticlePositionCorrections(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
                 {
                     CRESSIM_LOG_ERROR(
-                        "PhysicsSolver::step failed: ApplySoftPositionCorrections dispatch.");
+                        "PhysicsSolver::step failed: ApplyParticlePositionCorrections dispatch.");
                     return false;
                 }
                 if (needRigidApply && !mImpl->passDispatcher.applyRigidCorrections(
@@ -584,27 +646,66 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
 
-        if (!mImpl->passDispatcher.updateSoftVelocities(
-                computeBackend.computeContext, mImpl->sceneState, softParticleCount, softConstants))
+        if (!mImpl->passDispatcher.updateParticleVelocities(
+                computeBackend.computeContext, mImpl->sceneState, particleCount, particleConstants))
         {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftVelocities dispatch.");
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateParticleVelocities dispatch.");
+            return false;
+        }
+        if (hasFluidWork &&
+            !mImpl->passDispatcher.projectFluidBoundaryVelocities(
+                computeBackend.computeContext, mImpl->sceneState, particleConstants))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: ProjectFluidBoundaryVelocities dispatch.");
+            return false;
+        }
+        if (hasFluidWork &&
+            !mImpl->passDispatcher.buildFluidNeighborPairs(computeBackend.computeContext,
+                                                           mImpl->sceneState, particleConstants))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: BuildFluidNeighborPairs post-update dispatch.");
+            return false;
+        }
+        if (hasFluidWork &&
+            !mImpl->passDispatcher.computeFluidVorticity(computeBackend.computeContext,
+                                                         mImpl->sceneState, particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ComputeFluidVorticity dispatch.");
+            return false;
+        }
+        if (hasFluidWork &&
+            !mImpl->passDispatcher.applyFluidVorticityConfinement(
+                computeBackend.computeContext, mImpl->sceneState, particleConstants))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: ApplyFluidVorticityConfinement dispatch.");
+            return false;
+        }
+        if (hasFluidWork &&
+            !mImpl->passDispatcher.buildFluidRenderAnisotropy(computeBackend.computeContext,
+                                                              mImpl->sceneState, particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: BuildFluidRenderAnisotropy dispatch.");
             return false;
         }
         if (hasSoftSoftContactWork && softContactIterations > 0u &&
-            !mImpl->passDispatcher.solveSoftContactVelocities(computeBackend.computeContext,
-                                                              mImpl->sceneState, softParticleCount,
-                                                              softContactIterations))
+            !mImpl->passDispatcher.solveParticleContactVelocities(computeBackend.computeContext,
+                                                                  mImpl->sceneState, particleCount,
+                                                                  softContactIterations))
         {
-            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SolveSoftContactVelocities dispatch.");
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: SolveParticleContactVelocities dispatch.");
             return false;
         }
         if (hasSoftRigidContactWork && softContactIterations > 0u &&
-            !mImpl->passDispatcher.solveSoftRigidContactVelocities(
-                computeBackend.computeContext, mImpl->sceneState, softParticleCount, rigidBodyCount,
+            !mImpl->passDispatcher.solveParticleRigidContactVelocities(
+                computeBackend.computeContext, mImpl->sceneState, particleCount, rigidBodyCount,
                 softContactIterations, constants))
         {
             CRESSIM_LOG_ERROR(
-                "PhysicsSolver::step failed: SolveSoftRigidContactVelocities dispatch.");
+                "PhysicsSolver::step failed: SolveParticleRigidContactVelocities dispatch.");
             return false;
         }
         if (!mImpl->passDispatcher.updateSoftTriangleNormals(
@@ -657,10 +758,10 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         CRESSIM_LOG_ERROR("PhysicsSolver::step failed: readbackPredictedRigidStateBlocking.");
         return false;
     }
-    if (!mImpl->sceneState.readbackPredictedSoftStateBlocking(computeBackend.computeContext, world,
-                                                              softParticleCount))
+    if (!mImpl->sceneState.readbackPredictedParticleStateBlocking(computeBackend.computeContext,
+                                                                  world, particleCount))
     {
-        CRESSIM_LOG_ERROR("PhysicsSolver::step failed: readbackPredictedSoftStateBlocking.");
+        CRESSIM_LOG_ERROR("PhysicsSolver::step failed: readbackPredictedParticleStateBlocking.");
         return false;
     }
 
@@ -704,22 +805,29 @@ bool PhysicsSolver::validateGpuMetaBlocking()
 
     if (mImpl->lastStepHadSoftPairWork)
     {
-        GpuSoftNeighborMeta softNeighborMeta{};
+        GpuParticleNeighborMeta particleNeighborMeta{};
         if (!mImpl->sceneState.readbackSoftNeighborMetaBlocking(computeBackend.computeContext,
-                                                                softNeighborMeta))
+                                                                particleNeighborMeta))
         {
             CRESSIM_LOG_ERROR(
-                "PhysicsSolver::validateGpuMetaBlocking failed: soft neighbor meta readback.");
+                "PhysicsSolver::validateGpuMetaBlocking failed: particle neighbor meta readback.");
             return false;
         }
-        if (softNeighborMeta.softSoftCandidateOverflow != 0u ||
-            softNeighborMeta.softRigidCandidateOverflow != 0u)
+        if (particleNeighborMeta.particleParticleCandidateOverflow != 0u ||
+            particleNeighborMeta.particleRigidCandidateOverflow != 0u ||
+            particleNeighborMeta.fluidBoundaryCandidateOverflow != 0u)
         {
             CRESSIM_LOG_ERROR(
-                "PhysicsSolver validation failed: soft candidate overflow (soft-soft required=",
-                softNeighborMeta.requiredSoftSoftCandidateCount,
-                ", soft-rigid required=", softNeighborMeta.requiredSoftRigidCandidateCount,
-                ", capacity=", mImpl->sceneState.softCandidatePairCapacity(), ").");
+                "PhysicsSolver validation failed: particle candidate overflow "
+                "(particle-particle required=",
+                particleNeighborMeta.requiredParticleParticleCandidateCount,
+                ", particle-rigid required=",
+                particleNeighborMeta.requiredParticleRigidCandidateCount,
+                ", fluid-boundary required=",
+                particleNeighborMeta.requiredFluidBoundaryCandidateCount,
+                ", particle-rigid capacity=", mImpl->sceneState.particleCandidatePairCapacity(),
+                ", fluid-boundary capacity=",
+                mImpl->sceneState.fluidBoundaryCandidatePairCapacity(), ").");
             return false;
         }
     }

@@ -25,6 +25,12 @@ struct GpuBufferBinding
     Diligent::BUFFER_VIEW_TYPE viewType = Diligent::BUFFER_VIEW_UNDEFINED;
 };
 
+struct GpuTextureBinding
+{
+    const char *variableName     = nullptr;
+    Diligent::ITextureView *view = nullptr;
+};
+
 struct GpuComputePassDefinition
 {
     const char *shaderPath                                = nullptr;
@@ -71,6 +77,13 @@ public:
                           Diligent::IBuffer *indirectArgsBuffer,
                           Diligent::Uint64 indirectArgsOffset = 0u);
 
+    template <std::size_t NB, std::size_t NT>
+    bool dispatchResources(Diligent::IDeviceContext *computeContext, std::size_t variantIndex,
+                           const std::array<GpuBufferBinding, NB> &bufferBindings,
+                           const std::array<GpuTextureBinding, NT> &textureBindings,
+                           std::uint32_t groupCountX, std::uint32_t groupCountY = 1u,
+                           std::uint32_t groupCountZ = 1u);
+
 private:
     struct VariantState
     {
@@ -81,10 +94,15 @@ private:
     bool recreateAllVariants();
     static bool bindBufferVariable(Diligent::IShaderResourceBinding *srb, const char *variableName,
                                    Diligent::IBuffer *buffer, Diligent::BUFFER_VIEW_TYPE viewType);
+    static bool bindTextureVariable(Diligent::IShaderResourceBinding *srb, const char *variableName,
+                                    Diligent::ITextureView *view);
 
     template <std::size_t N>
     bool bindBufferVariables(std::size_t variantIndex,
                              const std::array<GpuBufferBinding, N> &bindings);
+    template <std::size_t N>
+    bool bindTextureVariables(std::size_t variantIndex,
+                              const std::array<GpuTextureBinding, N> &bindings);
 
 private:
     std::string mShaderPath;
@@ -119,6 +137,26 @@ bool GpuComputePass::bindVariant(std::size_t variantIndex,
                                  const std::array<GpuBufferBinding, N> &bindings)
 {
     return bindBufferVariables(variantIndex, bindings);
+}
+
+template <std::size_t N>
+bool GpuComputePass::bindTextureVariables(std::size_t variantIndex,
+                                          const std::array<GpuTextureBinding, N> &bindings)
+{
+    Diligent::IShaderResourceBinding *srb = variantSrb(variantIndex);
+    if (srb == nullptr)
+    {
+        return false;
+    }
+
+    for (const GpuTextureBinding &binding : bindings)
+    {
+        if (!bindTextureVariable(srb, binding.variableName, binding.view))
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 template <std::size_t N>
@@ -181,6 +219,39 @@ bool GpuComputePass::dispatchIndirect(Diligent::IDeviceContext *computeContext,
     computeContext->DispatchComputeIndirect(Diligent::DispatchComputeIndirectAttribs{
         indirectArgsBuffer, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
         indirectArgsOffset});
+    return true;
+}
+
+template <std::size_t NB, std::size_t NT>
+bool GpuComputePass::dispatchResources(Diligent::IDeviceContext *computeContext,
+                                       std::size_t variantIndex,
+                                       const std::array<GpuBufferBinding, NB> &bufferBindings,
+                                       const std::array<GpuTextureBinding, NT> &textureBindings,
+                                       std::uint32_t groupCountX, std::uint32_t groupCountY,
+                                       std::uint32_t groupCountZ)
+{
+    Diligent::IShaderResourceBinding *srb = variantSrb(variantIndex);
+    if (computeContext == nullptr || mPso == nullptr || srb == nullptr)
+    {
+        return false;
+    }
+
+    if (!bindBufferVariables(variantIndex, bufferBindings) ||
+        !bindTextureVariables(variantIndex, textureBindings))
+    {
+        return false;
+    }
+
+    srb = variantSrb(variantIndex);
+    if (srb == nullptr)
+    {
+        return false;
+    }
+
+    computeContext->SetPipelineState(mPso);
+    computeContext->CommitShaderResources(srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->DispatchCompute(
+        Diligent::DispatchComputeAttribs{groupCountX, groupCountY, groupCountZ});
     return true;
 }
 

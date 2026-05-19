@@ -126,6 +126,42 @@ inline float effectiveViewportAspect(float outputWidth, float outputHeight,
     return clampPositive(size.x, 1.0f) / clampPositive(size.y, 1.0f);
 }
 
+inline gpu::GpuRenderViewport resolvedViewport(const gpu::GpuRenderViewport &viewport,
+                                               bool useViewport)
+{
+    return useViewport ? normalizeViewport(viewport) : gpu::GpuRenderViewport{};
+}
+
+inline Diligent::float4 viewportRect(const gpu::GpuRenderViewport &viewport, bool useViewport)
+{
+    const gpu::GpuRenderViewport resolved = resolvedViewport(viewport, useViewport);
+    return Diligent::float4{resolved.x, resolved.y, resolved.width, resolved.height};
+}
+
+inline Diligent::uint4 viewportPixelRect(std::uint32_t outputWidth, std::uint32_t outputHeight,
+                                         const gpu::GpuRenderViewport &viewport, bool useViewport)
+{
+    const std::uint32_t clampedWidth      = clampExtent(outputWidth);
+    const std::uint32_t clampedHeight     = clampExtent(outputHeight);
+    const gpu::GpuRenderViewport resolved = resolvedViewport(viewport, useViewport);
+
+    const std::uint32_t x = std::min(
+        clampedWidth - 1u,
+        static_cast<std::uint32_t>(std::floor(resolved.x * static_cast<float>(clampedWidth))));
+    const std::uint32_t y = std::min(
+        clampedHeight - 1u,
+        static_cast<std::uint32_t>(std::floor(resolved.y * static_cast<float>(clampedHeight))));
+    const std::uint32_t endX = std::max(
+        x + 1u, std::min(clampedWidth,
+                         static_cast<std::uint32_t>(std::ceil((resolved.x + resolved.width) *
+                                                              static_cast<float>(clampedWidth)))));
+    const std::uint32_t endY = std::max(
+        y + 1u, std::min(clampedHeight,
+                         static_cast<std::uint32_t>(std::ceil((resolved.y + resolved.height) *
+                                                              static_cast<float>(clampedHeight)))));
+    return Diligent::uint4{x, y, endX - x, endY - y};
+}
+
 } // namespace cressim::neo::common::runtime_math
 
 #endif // CRESSIM_NEO_COMMON_MATH_UTILS_RUNTIME_H

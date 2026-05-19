@@ -14,7 +14,7 @@ groupshared uint g_SharedScan[64];
     const uint index = dispatchThreadID.x;
     const uint localIndex = groupThreadID.x;
     const uint groupBase = groupID.x * 64u;
-    const uint count = elementCount;
+    const uint count = ScanElementCount();
 
     uint value = 0u;
     if (index < count)

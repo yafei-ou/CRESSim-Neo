@@ -1,7 +1,7 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/world.h"
-#include "physics/soft_phase.h"
+#include "physics/particle_phase.h"
 
 #include <cmath>
 
@@ -40,9 +40,9 @@ int main()
     softBody.particleRadius                       = 0.10f;
     softBody.edgeCompliance                       = 0.01f;
     softBody.volumeCompliance                     = 0.02f;
-    softBody.material.friction                    = 0.30f;
-    softBody.material.restitution                 = 0.10f;
-    softBody.material.damping                     = 0.05f;
+    softBody.material.contact.friction            = 0.30f;
+    softBody.material.contact.restitution         = 0.10f;
+    softBody.material.contact.damping             = 0.05f;
     softBody.selfCollisionEnabled                 = false;
     softBody.collisionLayer                       = 0x2u;
     softBody.collisionMask                        = 0x5u;
@@ -53,7 +53,7 @@ int main()
     }
 
     physics::PhysicsWorld &physicsWorld  = world.physicsWorld();
-    const auto &initialParticles         = physicsWorld.softParticles();
+    const auto &initialParticles         = physicsWorld.particles();
     const physics::SoftBodyState *softState = physicsWorld.tryGetSoftBody(entity);
     if (softState == nullptr || softState->particleCount == 0u || initialParticles.empty())
     {
@@ -65,13 +65,13 @@ int main()
     const Diligent::float4 displacedPositionInvMass{-2.0f, 3.5f, 1.25f, 1.0f};
     const Diligent::float4 displacedPrevious{-2.25f, 3.0f, 1.0f, 0.0f};
     const Diligent::float4 displacedVelocity{4.0f, -1.5f, 0.75f, 0.0f};
-    if (!physicsWorld.syncSoftParticleStateFromSimulation(particleIndex, displacedPositionInvMass,
+    if (!physicsWorld.syncParticleStateFromSimulation(particleIndex, displacedPositionInvMass,
                                                           displacedPrevious, displacedVelocity))
     {
         CRESSIM_LOG_ERROR("Failed to seed deformed particle state.");
         return 1;
     }
-    physicsWorld.finalizeSoftParticleWriteback();
+    physicsWorld.finalizeParticleWriteback();
 
     if (!world.setEntityEnvironment(entity, 1u))
     {
@@ -80,7 +80,7 @@ int main()
     }
 
     softState = physicsWorld.tryGetSoftBody(entity);
-    const auto &particlesAfterEnv = physicsWorld.softParticles();
+    const auto &particlesAfterEnv = physicsWorld.particles();
     if (softState == nullptr || softState->environmentIndex != 1u)
     {
         CRESSIM_LOG_ERROR("Soft body environment change did not stick.");
@@ -103,9 +103,9 @@ int main()
     }
 
     engine::SoftBodyComponent updated = *storedComponent;
-    updated.material.friction         = 0.65f;
-    updated.material.restitution      = 0.20f;
-    updated.material.damping          = 0.15f;
+    updated.material.contact.friction    = 0.65f;
+    updated.material.contact.restitution = 0.20f;
+    updated.material.contact.damping     = 0.15f;
     updated.particleMass              = 2.0f;
     updated.particleRadius            = 0.20f;
     updated.edgeCompliance            = 0.05f;
@@ -120,7 +120,7 @@ int main()
     }
 
     softState = physicsWorld.tryGetSoftBody(entity);
-    const auto &particlesAfterUpdate = physicsWorld.softParticles();
+    const auto &particlesAfterUpdate = physicsWorld.particles();
     const auto &edgesAfterUpdate     = physicsWorld.softEdges();
     const auto &tetsAfterUpdate      = physicsWorld.softTets();
     if (softState == nullptr)
@@ -142,15 +142,18 @@ int main()
     }
 
     if (particlesAfterUpdate.environmentIndices[particleIndex] != 1u ||
-        !physics::softParticlePhaseSelfCollideEnabled(particlesAfterUpdate.phases[particleIndex]))
+        !physics::particlePhaseSelfCollideEnabled(particlesAfterUpdate.phases[particleIndex]))
     {
         CRESSIM_LOG_ERROR("Runtime soft-body update did not refresh particle metadata.");
         return 1;
     }
 
-    if (!nearlyEqual(particlesAfterUpdate.materials[particleIndex].x, 0.65f) ||
-        !nearlyEqual(particlesAfterUpdate.materials[particleIndex].y, 0.20f) ||
-        !nearlyEqual(particlesAfterUpdate.materials[particleIndex].z, 0.15f) ||
+    const std::uint32_t materialIndex = particlesAfterUpdate.particleMaterialIndices[particleIndex];
+    const auto &contactMaterials = physicsWorld.particleContactMaterials();
+    if (materialIndex >= contactMaterials.size() ||
+        !nearlyEqual(contactMaterials[materialIndex].x, 0.65f) ||
+        !nearlyEqual(contactMaterials[materialIndex].y, 0.20f) ||
+        !nearlyEqual(contactMaterials[materialIndex].z, 0.15f) ||
         !nearlyEqual(particlesAfterUpdate.radii[particleIndex], 0.20f) ||
         particlesAfterUpdate.collisionLayers[particleIndex] != 0x8u ||
         particlesAfterUpdate.collisionMasks[particleIndex] != 0x14u)

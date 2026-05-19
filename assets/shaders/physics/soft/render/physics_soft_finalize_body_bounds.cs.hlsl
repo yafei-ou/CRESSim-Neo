@@ -1,5 +1,5 @@
 #include "../../../include/physics/physics_soft_render_dispatch_constants.hlsli"
-#include "../../../include/physics/soft/physics_soft_types.hlsli"
+#include "../../../include/physics/particle/physics_particle_types.hlsli"
 #include "../../../include/physics/rigid/physics_rigid_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(GpuSoftBodyChunkRange, g_SoftBodyChunkRanges);

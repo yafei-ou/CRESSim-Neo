@@ -7,6 +7,7 @@
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyScales);
+CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_STRUCTURED_BUFFER(GpuColliderContactData, g_ColliderContactData);
 CRESSIM_STRUCTURED_BUFFER(GpuCandidatePair, g_CandidatePairs);
 CRESSIM_STRUCTURED_BUFFER(GpuNarrowPhaseChunk, g_NarrowPhaseChunks);
@@ -53,7 +54,9 @@ void ProcessPair(uint pairIndex, uint pairType)
 
     const float4 bodyPositionInvMassA = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyA);
     const float4 bodyPositionInvMassB = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyB);
-    if (bodyPositionInvMassA.w == 0.0 && bodyPositionInvMassB.w == 0.0)
+    const uint bodyTypeA = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyA);
+    const uint bodyTypeB = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyB);
+    if (bodyTypeA != kRigidBodyTypeDynamic && bodyTypeB != kRigidBodyTypeDynamic)
     {
         return;
     }

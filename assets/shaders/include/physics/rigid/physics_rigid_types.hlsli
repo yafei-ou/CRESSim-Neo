@@ -82,6 +82,13 @@ struct GpuColliderContactData
     float4 material;
 };
 
+struct GpuColliderGeometryData
+{
+    float4 shapeParams;
+    float4 localPosition;
+    float4 localOrientation;
+};
+
 struct GpuBallJoint
 {
     uint bodyA;

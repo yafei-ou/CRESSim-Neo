@@ -35,6 +35,13 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE physics
+    NAME fluid_compute_smoke
+    SOURCE physics_fluid_compute_smoke.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
     NAME solver_broad_phase_overflow
     SOURCE physics_solver_broad_phase_overflow.cpp
     LIBS cressim_neo_engine
@@ -100,5 +107,26 @@ add_cressim_test(
     SUITE physics
     NAME soft_gpu_scene_upload
     SOURCE physics_soft_gpu_scene_upload.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
+    NAME fluid_unified_particle_pool
+    SOURCE physics_fluid_unified_particle_pool.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
+    NAME particle_material_tables
+    SOURCE physics_particle_material_tables.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
+    NAME soft_revision_tracking
+    SOURCE physics_soft_revision_tracking.cpp
     LIBS cressim_neo_engine
 )

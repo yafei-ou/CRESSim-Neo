@@ -88,16 +88,24 @@ bool ShaderCache::createShader(const Diligent::ShaderCreateInfo &createInfo,
 
 bool ShaderCache::createGraphicsPipelineState(
     const Diligent::GraphicsPipelineStateCreateInfo &createInfo,
-    Diligent::IPipelineState **pipelineState)
+    Diligent::IPipelineState **pipelineState, bool *cacheAttempted)
 {
     if (pipelineState == nullptr)
     {
         return false;
     }
     *pipelineState = nullptr;
+    if (cacheAttempted != nullptr)
+    {
+        *cacheAttempted = false;
+    }
 
     if (mStateCache != nullptr && canUsePipelineStateCache(createInfo.PSODesc))
     {
+        if (cacheAttempted != nullptr)
+        {
+            *cacheAttempted = true;
+        }
         mStateCache->CreateGraphicsPipelineState(createInfo, pipelineState);
         return *pipelineState != nullptr;
     }
@@ -107,16 +115,24 @@ bool ShaderCache::createGraphicsPipelineState(
 
 bool ShaderCache::createComputePipelineState(
     const Diligent::ComputePipelineStateCreateInfo &createInfo,
-    Diligent::IPipelineState **pipelineState)
+    Diligent::IPipelineState **pipelineState, bool *cacheAttempted)
 {
     if (pipelineState == nullptr)
     {
         return false;
     }
     *pipelineState = nullptr;
+    if (cacheAttempted != nullptr)
+    {
+        *cacheAttempted = false;
+    }
 
     if (mStateCache != nullptr && canUsePipelineStateCache(createInfo.PSODesc))
     {
+        if (cacheAttempted != nullptr)
+        {
+            *cacheAttempted = true;
+        }
         mStateCache->CreateComputePipelineState(createInfo, pipelineState);
         return *pipelineState != nullptr;
     }

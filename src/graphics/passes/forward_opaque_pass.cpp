@@ -831,7 +831,7 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
         }
         Diligent::IShaderResourceVariable *softParticleVar =
             program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
-                                                             "g_SoftParticlePositions");
+                                                             "g_ParticlePositions");
         Diligent::IShaderResourceVariable *bindingVar =
             program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
                                                              "g_SoftBodyVertexBindings");

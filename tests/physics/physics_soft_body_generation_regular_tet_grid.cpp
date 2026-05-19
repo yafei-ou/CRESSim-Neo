@@ -1,5 +1,5 @@
 #include "physics/physics_world.h"
-#include "physics/soft_phase.h"
+#include "physics/particle_phase.h"
 #include "common/logger.h"
 
 int main()
@@ -30,7 +30,7 @@ int main()
     }
 
     const auto &softBodies = world.softBodySnapshot();
-    const auto &particles = world.softParticles();
+    const auto &particles = world.particles();
     const auto &edges = world.softEdges();
     const auto &tets = world.softTets();
     if (softBodies.size() != 1u || particles.size() != 27u || tets.size() != 40u)
@@ -57,7 +57,7 @@ int main()
             CRESSIM_LOG_ERROR("Soft particle collision filter metadata mismatch.");
             return 1;
         }
-        if (particles.phases[i] != packSoftParticlePhase(0u, true))
+        if (particles.phases[i] != packParticlePhase(0u, true))
         {
             CRESSIM_LOG_ERROR("Soft particle phase metadata mismatch.");
             return 1;

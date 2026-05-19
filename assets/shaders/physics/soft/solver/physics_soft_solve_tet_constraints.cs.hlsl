@@ -1,7 +1,7 @@
-#include "../../../include/physics/physics_soft_dispatch_constants.hlsli"
-#include "../../../include/physics/soft/physics_soft_types.hlsli"
+#include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
+#include "../../../include/physics/particle/physics_particle_types.hlsli"
 
-CRESSIM_STRUCTURED_BUFFER(float4, g_SoftParticlePositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftTet, g_SoftTets);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_SoftTetLambdas);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftTetCorrection, g_SoftTetCorrections);
@@ -26,10 +26,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint i2 = tet.particleIndices.z;
     const uint i3 = tet.particleIndices.w;
 
-    const float4 p0Inv = CRESSIM_SB_LOAD(g_SoftParticlePositionsInvMass, i0);
-    const float4 p1Inv = CRESSIM_SB_LOAD(g_SoftParticlePositionsInvMass, i1);
-    const float4 p2Inv = CRESSIM_SB_LOAD(g_SoftParticlePositionsInvMass, i2);
-    const float4 p3Inv = CRESSIM_SB_LOAD(g_SoftParticlePositionsInvMass, i3);
+    const float4 p0Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, i0);
+    const float4 p1Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, i1);
+    const float4 p2Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, i2);
+    const float4 p3Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, i3);
 
     const float w0 = p0Inv.w;
     const float w1 = p1Inv.w;

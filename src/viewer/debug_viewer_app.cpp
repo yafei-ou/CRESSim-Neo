@@ -350,10 +350,11 @@ public:
         frame.deltaSeconds                          = mDesc.fixedDeltaSeconds;
         common::EntityId presentedCameraEntity      = cameraBinding.cameraEntity;
         common::EntityId outputOverrideCameraEntity = common::kInvalidEntityId;
-        graphics::RenderFrameOptions initialOptions{};
-        initialOptions.presentedCameraEntity  = presentedCameraEntity;
-        initialOptions.presentationTarget     = std::nullopt;
-        initialOptions.debugParticles.enabled = mDesc.enableDebugParticles;
+        graphics::RenderFrameOptions initialOptions = runtime.renderFrameOptions();
+        initialOptions.presentedCameraEntity        = presentedCameraEntity;
+        initialOptions.presentationTarget           = std::nullopt;
+        initialOptions.debugParticles.enabled       = mDesc.enableDebugParticles;
+        initialOptions.enableFluidRendering         = !mDesc.enableDebugParticles;
         runtime.setRenderFrameOptions(initialOptions);
 
         const auto refreshCameraStateFromPresentedEntity = [&](common::EntityId cameraEntity,
@@ -493,10 +494,11 @@ public:
                 outputOverrideCameraEntity = presentedCameraEntity;
             }
 
-            graphics::RenderFrameOptions renderOptions{};
-            renderOptions.presentedCameraEntity  = presentedCameraEntity;
-            renderOptions.presentationTarget     = presentationTargetDesc;
-            renderOptions.debugParticles.enabled = mDesc.enableDebugParticles;
+            graphics::RenderFrameOptions renderOptions = runtime.renderFrameOptions();
+            renderOptions.presentedCameraEntity        = presentedCameraEntity;
+            renderOptions.presentationTarget           = presentationTargetDesc;
+            renderOptions.debugParticles.enabled       = mDesc.enableDebugParticles;
+            renderOptions.enableFluidRendering         = !mDesc.enableDebugParticles;
             runtime.setRenderFrameOptions(renderOptions);
 
             frame.frameIndex += 1u;

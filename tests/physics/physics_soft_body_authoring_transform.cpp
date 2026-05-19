@@ -47,7 +47,7 @@ int main()
             return 1;
         }
 
-        const auto &particles = world.softParticles();
+        const auto &particles = world.particles();
         if (particles.size() != 8u ||
             !nearlyEqual(particles.positionsInvMass[0], applyTransform(transform, {-1.0f, -1.0f, -1.0f})) ||
             !nearlyEqual(particles.positionsInvMass[7], applyTransform(transform, {1.0f, 1.0f, 1.0f})))
@@ -80,7 +80,7 @@ int main()
             return 1;
         }
 
-        const auto &particles = world.softParticles();
+        const auto &particles = world.particles();
         for (std::size_t i = 0u; i < localTetPositions.size(); ++i)
         {
             if (!nearlyEqual(particles.positionsInvMass[i], applyTransform(transform, localTetPositions[i])))
@@ -107,7 +107,7 @@ int main()
             return 1;
         }
 
-        const auto &particles = world.softParticles();
+        const auto &particles = world.particles();
         for (std::size_t i = 0u; i < localTetPositions.size(); ++i)
         {
             if (!nearlyEqual(particles.positionsInvMass[i], applyTransform(transform, localTetPositions[i])))
