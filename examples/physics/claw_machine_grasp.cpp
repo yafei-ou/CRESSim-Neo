@@ -61,7 +61,7 @@ constexpr float kRightFingerLimitMax = 0.0f;
 constexpr float kFingerStartCenterOffsetX = 0.34f;
 constexpr float kFingerHalfExtentX = 0.08f;
 constexpr Diligent::float3 kPickupObjectHalfExtents{0.22f, 0.22f, 0.22f};
-constexpr float kGripSqueezeMargin = 0.01f;
+constexpr float kGripSqueezeMargin = 0.005f;
 constexpr float kZCarriageStartY = 3.20f;
 constexpr float kPalmStartY = 2.10f;
 constexpr float kFingerStartY = 1.16f;
@@ -300,7 +300,6 @@ PoseTargets evaluateTargets(double timeSeconds)
         clampToRange(kPickupObjectPosition.z - kRobotBaseZ, kZLimitMin, kZLimitMax);
     const float dropTargetZ =
         clampToRange(kDropObjectPosition.z - kRobotBaseZ, kZLimitMin, kZLimitMax);
-    const float homeTargetZ = clampToRange(pickupTargetZ - 0.45f, kZLimitMin, kZLimitMax);
     const float descendTargetY = clampToRange(1.05f, kYLimitMin, kYLimitMax);
     const float liftTargetY = clampToRange(0.10f, kYLimitMin, kYLimitMax);
     const float releaseTargetY = clampToRange(0.85f, kYLimitMin, kYLimitMax);
@@ -311,7 +310,7 @@ PoseTargets evaluateTargets(double timeSeconds)
     const float gripCloseAmount = clampToRange(
         0.5f * std::max(initialFingerGap - desiredClosedGap, 0.0f),
         kLeftFingerLimitMin, kLeftFingerLimitMax);
-    const PoseTargets kHome{0.0f, homeTargetZ, kYLimitMin, 0.0f};
+    const PoseTargets kHome{0.0f, 0.0f, kYLimitMin, 0.0f};
     const PoseTargets kApproach{pickupTargetX, pickupTargetZ, kYLimitMin, 0.0f};
     const PoseTargets kDescend{pickupTargetX, pickupTargetZ, descendTargetY, 0.0f};
     const PoseTargets kGrip{pickupTargetX, pickupTargetZ, descendTargetY, gripCloseAmount};
@@ -584,7 +583,7 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
-    config.physicsDesc.defaultIterations = 100;
+    config.physicsDesc.defaultIterations = 10;
 
     DebugViewerApp viewer;
     ViewerExampleDefaults defaults{};
@@ -612,7 +611,7 @@ int main(int argc, char **argv)
     TransformComponent cameraTransform{};
     cameraTransform.worldTransform.position = {0.0f, 2.8f, -7.4f};
     cameraTransform.worldTransform.rotation =
-        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, -0.08f * kPi);
+        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, -30.0f * kPi);
     world.setTransform(cameraEntity, cameraTransform);
     world.setCamera(cameraEntity, CameraComponent{});
 
@@ -664,6 +663,14 @@ int main(int argc, char **argv)
         authorProps(runtime, cubeMesh, clutterMesh, tallMesh, graspMaterial, clutterMaterial);
 
         DebugViewerCallbacks callbacks{};
+        callbacks.beforeTick = [robot](const FrameContext &frame, Runtime &cbRuntime) {
+            const PoseTargets targets = evaluateTargets(frame.timeSeconds);
+            setJointTarget(cbRuntime, robot.xJoint, targets.x);
+            setJointTarget(cbRuntime, robot.zJoint, targets.z);
+            setJointTarget(cbRuntime, robot.yJoint, targets.y);
+            setJointTarget(cbRuntime, robot.leftFingerJoint, targets.grip);
+            setJointTarget(cbRuntime, robot.rightFingerJoint, -targets.grip);
+        };
 
         DebugViewerCameraBinding binding{};
         binding.cameraEntity = cameraEntity;

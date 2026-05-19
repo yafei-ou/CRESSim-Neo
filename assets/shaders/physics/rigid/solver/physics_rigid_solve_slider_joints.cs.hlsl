@@ -4,7 +4,9 @@
 #include "../../../include/physics/rigid/physics_rigid_types.hlsli"
 #include "../../../include/physics/rigid/physics_rigid_joint_solver_shared.hlsli"
 
-static const float kJointRelaxation = 0.95;
+// This smaller relaxation make joints stabler
+// TODO: we should use XPBD-style constraint
+static const float kJointRelaxation = 0.75;
 static const float kMaxJointError = 0.05;
 static const float kJointDriveRelaxation = 0.2;
 static const float kSliderTranslationRegularization = 1e-5;
