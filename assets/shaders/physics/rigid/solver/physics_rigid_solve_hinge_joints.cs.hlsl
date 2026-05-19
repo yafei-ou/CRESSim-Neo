@@ -8,6 +8,8 @@
 // TODO: we should use XPBD-style constraint
 static const float kJointRelaxation = 0.75;
 static const float kMaxJointError = 0.05;
+static const float kMaxJointAngularError = 0.12;
+static const float kMaxJointTranslationCorrection = 0.02;
 static const float kJointDriveRelaxation = 0.2;
 static const float kHingeTranslationRegularization = 1e-5;
 static const float kHingeAngularRegularization = 5e-5;
@@ -83,6 +85,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float currentAngle = ComputeHingeAngle(joint.projectionRow0, qA, qB);
     float limitTargetAngle = currentAngle;
     const bool limitActive = limitEnabled && ComputeLimitTarget(currentAngle, limitRange, limitTargetAngle);
+    const float driveTargetAngle =
+        limitEnabled ? clamp(joint.driveTargetParams.x, limitRange.x, limitRange.y)
+                     : joint.driveTargetParams.x;
 
 #if CRESSIM_JOINT_DRIVE_MODE_TARGET_POSITION
     float3 jLinA[6];
@@ -118,11 +123,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     rhs[0] = -delta.x;
     rhs[1] = -delta.y;
     rhs[2] = -delta.z;
-    const float driveTargetAngle =
-        limitEnabled ? clamp(joint.driveTargetParams.x, limitRange.x, limitRange.y)
-                     : joint.driveTargetParams.x;
-    rhs[3] = -(ComputeProjectionConstraintValue(joint.projectionRow0, qA, qB) -
-               sin(0.5 * driveTargetAngle)) * kJointDriveRelaxation;
+    rhs[3] = -sin(0.5 * ClampErrorScalar(currentAngle - driveTargetAngle, kMaxJointAngularError)) *
+             kJointDriveRelaxation;
     rhs[4] = -ComputeProjectionConstraintValue(joint.projectionRow1, qA, qB) * kJointRelaxation;
     rhs[5] = -ComputeProjectionConstraintValue(joint.projectionRow2, qA, qB) * kJointRelaxation;
 
@@ -200,8 +202,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         rhs[0] = -delta.x;
         rhs[1] = -delta.y;
         rhs[2] = -delta.z;
-        rhs[3] = -(ComputeProjectionConstraintValue(joint.projectionRow0, qA, qB) -
-                   sin(0.5 * limitTargetAngle)) * kJointRelaxation;
+        rhs[3] = -sin(0.5 * ClampErrorScalar(currentAngle - limitTargetAngle,
+                                             kMaxJointAngularError)) *
+                 kJointRelaxation;
         rhs[4] = -ComputeProjectionConstraintValue(joint.projectionRow1, qA, qB) * kJointRelaxation;
         rhs[5] = -ComputeProjectionConstraintValue(joint.projectionRow2, qA, qB) * kJointRelaxation;
 
@@ -302,15 +305,24 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 rotationA = MultiplyWorldInverseInertia(invInertiaA, qA, angularImpulseA);
     const float3 translationB = -linearImpulse * invMassB;
     const float3 rotationB = MultiplyWorldInverseInertia(invInertiaB, qB, angularImpulseB);
+    const float correctionScale =
+        ComputeCorrectionLimitScale(translationA, rotationA, translationB, rotationB,
+                                    kMaxJointTranslationCorrection, kMaxJointAngularError);
+    const float3 limitedTranslationA = translationA * correctionScale;
+    const float3 limitedRotationA = rotationA * correctionScale;
+    const float3 limitedTranslationB = translationB * correctionScale;
+    const float3 limitedRotationB = rotationB * correctionScale;
 
     if (bodyTypeA == kRigidBodyTypeDynamic && invMassA != 0.0)
     {
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyTranslationCorrections, bodyA, translationA);
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyRotationCorrections, bodyA, rotationA);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyTranslationCorrections, bodyA,
+                                      limitedTranslationA);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyRotationCorrections, bodyA, limitedRotationA);
     }
     if (bodyTypeB == kRigidBodyTypeDynamic && invMassB != 0.0)
     {
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyTranslationCorrections, bodyB, translationB);
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyRotationCorrections, bodyB, rotationB);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyTranslationCorrections, bodyB,
+                                      limitedTranslationB);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyRotationCorrections, bodyB, limitedRotationB);
     }
 }

@@ -6,6 +6,8 @@
 
 static const float kJointRelaxation = 0.95;
 static const float kMaxJointError = 0.05;
+static const float kMaxJointTranslationCorrection = 0.02;
+static const float kMaxJointAngularCorrection = 0.12;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
@@ -114,15 +116,24 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 rotationA = MultiplyWorldInverseInertia(invInertiaA, qA, angularImpulseA);
     const float3 translationB = -linearImpulse * invMassB;
     const float3 rotationB = MultiplyWorldInverseInertia(invInertiaB, qB, angularImpulseB);
+    const float correctionScale =
+        ComputeCorrectionLimitScale(translationA, rotationA, translationB, rotationB,
+                                    kMaxJointTranslationCorrection, kMaxJointAngularCorrection);
+    const float3 limitedTranslationA = translationA * correctionScale;
+    const float3 limitedRotationA = rotationA * correctionScale;
+    const float3 limitedTranslationB = translationB * correctionScale;
+    const float3 limitedRotationB = rotationB * correctionScale;
 
     if (bodyTypeA == kRigidBodyTypeDynamic && invMassA != 0.0)
     {
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyTranslationCorrections, bodyA, translationA);
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyRotationCorrections, bodyA, rotationA);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyTranslationCorrections, bodyA,
+                                      limitedTranslationA);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyRotationCorrections, bodyA, limitedRotationA);
     }
     if (bodyTypeB == kRigidBodyTypeDynamic && invMassB != 0.0)
     {
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyTranslationCorrections, bodyB, translationB);
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyRotationCorrections, bodyB, rotationB);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyTranslationCorrections, bodyB,
+                                      limitedTranslationB);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyRotationCorrections, bodyB, limitedRotationB);
     }
 }
