@@ -7,6 +7,7 @@
 #include "viewer/debug_viewer_app.h"
 #include "common/logger.h"
 
+#include <cstdlib>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -32,13 +33,101 @@ using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
-constexpr float kCompositeChildHalfExtent = 0.60f;
-constexpr float kCompositeHalfExtent      = 1.0f;
-constexpr float kCompositeChildOffset = kCompositeHalfExtent - kCompositeChildHalfExtent;
+constexpr float kCompositeOverlapChildHalfExtent = 0.60f;
+constexpr float kCompositeExactChildHalfExtent   = 0.50f;
+constexpr float kCompositeHalfExtent             = 1.0f;
+constexpr float kSceneRestitution                = 1.0f;
+constexpr float kDropStartHeight                 = 6.0f;
+
+enum class CompositeDecomposition
+{
+    Overlap,
+    Exact,
+};
+
+struct ExampleSceneOptions
+{
+    CompositeDecomposition decomposition = CompositeDecomposition::Overlap;
+    float tiltRadians = 0.0f;
+};
+
+struct CompositeShapeConfig
+{
+    float childHalfExtent = kCompositeOverlapChildHalfExtent;
+    float childOffset = kCompositeHalfExtent - kCompositeOverlapChildHalfExtent;
+};
 
 void printUsage(const char* appName)
 {
-    cressim::neo::examples::helpers::printUsage(appName, "", false);
+    cressim::neo::examples::helpers::printUsage(
+        appName,
+        " [--decomposition overlap|exact] [--tilt-radians VALUE]",
+        false);
+}
+
+float parseFloatOption(const std::string& value, const char* optionName)
+{
+    const char* begin = value.c_str();
+    char* end = nullptr;
+    const float parsed = std::strtof(begin, &end);
+    if (end == begin || *end != '\0')
+    {
+        throw std::invalid_argument(std::string("Invalid ") + optionName + ": " + value);
+    }
+
+    return parsed;
+}
+
+CompositeDecomposition parseCompositeDecomposition(const std::string& value)
+{
+    if (value == "overlap")
+    {
+        return CompositeDecomposition::Overlap;
+    }
+
+    if (value == "exact" || value == "non-overlap" || value == "non-overlapping")
+    {
+        return CompositeDecomposition::Exact;
+    }
+
+    throw std::invalid_argument("Unsupported decomposition mode: " + value);
+}
+
+bool tryParseSceneArgument(int argc, char** argv, int& index, ExampleSceneOptions& options)
+{
+    const std::string arg = argv[index];
+    if (arg == "--decomposition")
+    {
+        options.decomposition =
+            parseCompositeDecomposition(
+                cressim::neo::examples::helpers::requireOptionValue(
+                    argc, argv, index, "--decomposition"));
+        return true;
+    }
+
+    if (arg == "--tilt-radians")
+    {
+        options.tiltRadians =
+            parseFloatOption(
+                cressim::neo::examples::helpers::requireOptionValue(
+                    argc, argv, index, "--tilt-radians"),
+                "tilt radians");
+        return true;
+    }
+
+    return false;
+}
+
+CompositeShapeConfig makeCompositeShapeConfig(CompositeDecomposition decomposition)
+{
+    CompositeShapeConfig config{};
+    if (decomposition == CompositeDecomposition::Exact)
+    {
+        config.childHalfExtent = kCompositeExactChildHalfExtent;
+        config.childOffset = kCompositeHalfExtent - kCompositeExactChildHalfExtent;
+    }
+
+    return config;
 }
 
 Diligent::float4 colliderParamsForShape(ColliderShapeType shape)
@@ -68,12 +157,18 @@ struct BodySpawn
 int main(int argc, char** argv)
 {
     CommonExampleOptions options{};
+    ExampleSceneOptions sceneOptions{};
     try
     {
         for (int i = 1; i < argc; ++i)
         {
             if (cressim::neo::examples::helpers::tryParseCommonArgument(
                     argc, argv, i, options, false))
+            {
+                continue;
+            }
+
+            if (tryParseSceneArgument(argc, argv, i, sceneOptions))
             {
                 continue;
             }
@@ -90,6 +185,7 @@ int main(int argc, char** argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+    config.physicsDesc.defaultIterations = 10;
 
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
@@ -175,11 +271,17 @@ int main(int argc, char** argv)
     ColliderComponent groundCollider{};
     groundCollider.shapeType = ColliderShapeType::Box;
     groundCollider.shapeParams = {8.0f, 0.05f, 8.0f, 0.0f};
+    groundCollider.restitution = kSceneRestitution;
     world.addCollider(groundEntity, groundCollider);
 
     const auto compositeEntity = world.createEntity();
+    const CompositeShapeConfig compositeShape =
+        makeCompositeShapeConfig(sceneOptions.decomposition);
     TransformComponent compositeTransform{};
-    compositeTransform.worldTransform.position = {0.0f, 1.85f, 2.0f};
+    compositeTransform.worldTransform.position = {0.0f, kDropStartHeight, 2.0f};
+    compositeTransform.worldTransform.rotation =
+        Diligent::QuaternionF::RotationFromAxisAngle(
+            Diligent::normalize(Diligent::float3{1.0f, 0.0f, 1.0f}), sceneOptions.tiltRadians);
     world.setTransform(compositeEntity, compositeTransform);
 
     MeshRendererComponent compositeMesh{};
@@ -198,29 +300,33 @@ int main(int argc, char** argv)
     world.setRigidBody(compositeEntity, compositeBody);
 
     const std::vector<Diligent::float3> colliderOffsets = {
-        {-kCompositeChildOffset, -kCompositeChildOffset, -kCompositeChildOffset},
-        {kCompositeChildOffset, -kCompositeChildOffset, -kCompositeChildOffset},
-        {-kCompositeChildOffset, kCompositeChildOffset, -kCompositeChildOffset},
-        {kCompositeChildOffset, kCompositeChildOffset, -kCompositeChildOffset},
-        {-kCompositeChildOffset, -kCompositeChildOffset, kCompositeChildOffset},
-        {kCompositeChildOffset, -kCompositeChildOffset, kCompositeChildOffset},
-        {-kCompositeChildOffset, kCompositeChildOffset, kCompositeChildOffset},
-        {kCompositeChildOffset, kCompositeChildOffset, kCompositeChildOffset},
+        {-compositeShape.childOffset, -compositeShape.childOffset, -compositeShape.childOffset},
+        {compositeShape.childOffset, -compositeShape.childOffset, -compositeShape.childOffset},
+        {-compositeShape.childOffset, compositeShape.childOffset, -compositeShape.childOffset},
+        {compositeShape.childOffset, compositeShape.childOffset, -compositeShape.childOffset},
+        {-compositeShape.childOffset, -compositeShape.childOffset, compositeShape.childOffset},
+        {compositeShape.childOffset, -compositeShape.childOffset, compositeShape.childOffset},
+        {-compositeShape.childOffset, compositeShape.childOffset, compositeShape.childOffset},
+        {compositeShape.childOffset, compositeShape.childOffset, compositeShape.childOffset},
     };
 
     for (const Diligent::float3& offset : colliderOffsets)
     {
         ColliderComponent collider{};
         collider.shapeType = ColliderShapeType::Box;
-        collider.shapeParams = {kCompositeChildHalfExtent, kCompositeChildHalfExtent,
-                                kCompositeChildHalfExtent, 0.0f};
+        collider.shapeParams = {compositeShape.childHalfExtent, compositeShape.childHalfExtent,
+                                compositeShape.childHalfExtent, 0.0f};
         collider.localPosition = offset;
+        collider.restitution = kSceneRestitution;
         world.addCollider(compositeEntity, collider);
     }
 
     const auto singleColliderEntity = world.createEntity();
     TransformComponent singleColliderTransform{};
-    singleColliderTransform.worldTransform.position = {3.6f, 1.85f, 2.0f};
+    singleColliderTransform.worldTransform.position = {3.6f, kDropStartHeight, 2.0f};
+    singleColliderTransform.worldTransform.rotation =
+        Diligent::QuaternionF::RotationFromAxisAngle(
+            Diligent::normalize(Diligent::float3{1.0f, 0.0f, 1.0f}), sceneOptions.tiltRadians);
     world.setTransform(singleColliderEntity, singleColliderTransform);
 
     MeshRendererComponent singleColliderMesh{};
@@ -242,6 +348,7 @@ int main(int argc, char** argv)
     singleCollider.shapeType = ColliderShapeType::Box;
     singleCollider.shapeParams = {kCompositeHalfExtent, kCompositeHalfExtent,
                                   kCompositeHalfExtent, 0.0f};
+    singleCollider.restitution = kSceneRestitution;
     world.addCollider(singleColliderEntity, singleCollider);
 
     // const auto probeEntity = world.createEntity();

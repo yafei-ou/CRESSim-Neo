@@ -5,6 +5,7 @@
 #include "../../../include/physics/rigid/physics_rigid_contact_primitives.hlsli"
 #include "../../../include/physics/rigid/physics_rigid_solver_shared.hlsli"
 
+static const float kBaumgarte = 0.25;
 static const float kMaxCorrectionPerIter = 0.02; // world units, tune (e.g. 2 cm)
 static const float kRelaxation = 0.90;           // try 0.8 if jittery
 
@@ -74,7 +75,8 @@ CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
 
     const float3 n = SafeNormalize(contact.normalPenetration.xyz, float3(0.0, 1.0, 0.0));
     const float measuredPenetration = -dot(pB - pA, n);
-    const float penetration = min(measuredPenetration - kContactSlop, kMaxCorrectionPerIter);
+    const float rawPenetration = max(measuredPenetration - kContactSlop, 0.0);
+    const float penetration = min(rawPenetration * kBaumgarte, kMaxCorrectionPerIter);
     if (penetration <= 0.0)
         return;
 
