@@ -90,7 +90,6 @@ extern const gpu::GpuComputePassDefinition kClearSliderJointConstraintState;
 extern const gpu::GpuComputePassDefinition kClearRigidCorrections;
 extern const gpu::GpuComputePassDefinition kApplyRigidCorrections;
 extern const gpu::GpuComputePassDefinition kUpdateRigidVelocities;
-extern const gpu::GpuComputePassDefinition kSolveRigidContactVelocities;
 extern const gpu::GpuComputePassDefinition kApplyRigidContactVelocities;
 
 } // namespace cressim::neo::physics::passdefs

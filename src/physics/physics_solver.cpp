@@ -745,10 +745,11 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
 
-        if (hasRigidBroadPhaseWork && rigidRigidContactIterations > 0u &&
-            !mImpl->passDispatcher.solveRigidContactVelocities(
-                computeBackend.computeContext, mImpl->sceneState, rigidBodyCount,
-                rigidRigidContactIterations, constants))
+        const std::uint32_t rigidVelocityIterations =
+            std::max(rigidRigidContactIterations, rigidJointIterations);
+        if (rigidVelocityIterations > 0u && !mImpl->passDispatcher.solveRigidContactVelocities(
+                                                computeBackend.computeContext, mImpl->sceneState,
+                                                rigidBodyCount, rigidVelocityIterations, constants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SolveRigidContactVelocities dispatch.");
             return false;

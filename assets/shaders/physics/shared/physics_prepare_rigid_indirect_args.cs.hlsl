@@ -33,6 +33,4 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                      MakeArgs(narrowPhaseMeta.chunkCount));
     CRESSIM_SB_STORE(g_PhysicsIndirectDispatchArgs, kPhysicsIndirectRigidSolveContacts,
                      MakeArgs(contactSlotCount));
-    CRESSIM_SB_STORE(g_PhysicsIndirectDispatchArgs, kPhysicsIndirectRigidSolveContactVelocities,
-                     MakeArgs(contactSlotCount));
 }

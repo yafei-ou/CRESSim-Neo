@@ -307,8 +307,6 @@ private:
                                                     const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveParticleRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
                                                          const PhysicsSceneGpuState &sceneState);
-    bool dispatchSolveRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
-                                                 const PhysicsSceneGpuState &sceneState);
 
     gpu::ShaderLibrary mShaderLibrary{""};
     Diligent::Uint64 mPhysicsContextMask = 0;
@@ -397,7 +395,6 @@ private:
     gpu::GpuComputePass mClearSliderJointConstraintStatePass;
     gpu::GpuComputePass mApplyRigidCorrectionsPass;
     gpu::GpuComputePass mUpdateRigidVelocitiesPass;
-    gpu::GpuComputePass mSolveRigidContactVelocitiesPass;
     gpu::GpuComputePass mApplyRigidContactVelocitiesPass;
 
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidDispatchConstantsBuffer;

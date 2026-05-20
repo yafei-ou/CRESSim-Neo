@@ -13,8 +13,7 @@ static const uint kPhysicsIndirectSoftSolveRigidContacts = 5u;
 static const uint kPhysicsIndirectSoftSolveContactVelocities = 6u;
 static const uint kPhysicsIndirectRigidGenerateContacts = 7u;
 static const uint kPhysicsIndirectRigidSolveContacts = 8u;
-static const uint kPhysicsIndirectRigidSolveContactVelocities = 9u;
-static const uint kPhysicsIndirectDispatchSlotCount = 10u;
+static const uint kPhysicsIndirectDispatchSlotCount = 9u;
 
 struct GpuDispatchIndirectArgs
 {
