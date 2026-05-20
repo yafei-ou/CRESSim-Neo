@@ -85,6 +85,8 @@ extern const gpu::GpuComputePassDefinition kSolveSliderJointConstraintsPassive;
 extern const gpu::GpuComputePassDefinition kSolveSliderJointConstraintsTargetPosition;
 extern const gpu::GpuComputePassDefinition kSolveHingeJointTargetVelocities;
 extern const gpu::GpuComputePassDefinition kSolveSliderJointTargetVelocities;
+extern const gpu::GpuComputePassDefinition kClearHingeJointConstraintState;
+extern const gpu::GpuComputePassDefinition kClearSliderJointConstraintState;
 extern const gpu::GpuComputePassDefinition kClearRigidCorrections;
 extern const gpu::GpuComputePassDefinition kApplyRigidCorrections;
 extern const gpu::GpuComputePassDefinition kUpdateRigidVelocities;

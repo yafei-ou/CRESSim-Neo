@@ -413,6 +413,22 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ClearSoftConstraintState dispatch.");
             return false;
         }
+        if (sliderJointCount > 0u &&
+            !mImpl->passDispatcher.clearSliderJointConstraintState(
+                computeBackend.computeContext, mImpl->sceneState, sliderJointCount))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: ClearSliderJointConstraintState dispatch.");
+            return false;
+        }
+        if (hingeJointCount > 0u &&
+            !mImpl->passDispatcher.clearHingeJointConstraintState(
+                computeBackend.computeContext, mImpl->sceneState, hingeJointCount))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: ClearHingeJointConstraintState dispatch.");
+            return false;
+        }
 
         const bool hasAnyPositionSolveWork =
             hasFluidWork || (hasSoftInternalWork && softInternalIterations > 0u) ||

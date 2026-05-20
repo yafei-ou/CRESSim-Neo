@@ -446,6 +446,8 @@ struct HingeJointState
     Diligent::QuaternionF localRotationB{0.0f, 0.0f, 0.0f, 1.0f};
     float limitMin                   = 0.0f;
     float limitMax                   = 0.0f;
+    float constraintCompliance       = 0.0f;
+    float driveCompliance            = 0.0f;
     float driveTargetAngle           = 0.0f;
     float driveTargetAngularVelocity = 0.0f;
 };
@@ -463,10 +465,12 @@ struct SliderJointState
     Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF localRotationA{0.0f, 0.0f, 0.0f, 1.0f};
     Diligent::QuaternionF localRotationB{0.0f, 0.0f, 0.0f, 1.0f};
-    float limitMin            = 0.0f;
-    float limitMax            = 0.0f;
-    float driveTargetPosition = 0.0f;
-    float driveTargetVelocity = 0.0f;
+    float limitMin             = 0.0f;
+    float limitMax             = 0.0f;
+    float constraintCompliance = 0.0f;
+    float driveCompliance      = 0.0f;
+    float driveTargetPosition  = 0.0f;
+    float driveTargetVelocity  = 0.0f;
 };
 
 struct BallJointSoAHost
@@ -507,6 +511,8 @@ struct HingeJointSoAHost
     std::vector<std::uint32_t> limitEnabledFlags;
     std::vector<float> limitMins;
     std::vector<float> limitMaxs;
+    std::vector<float> constraintCompliances;
+    std::vector<float> driveCompliances;
     std::vector<float> driveTargetAngles;
     std::vector<float> driveTargetAngularVelocities;
     std::vector<Diligent::float4> projectionRow0;
@@ -533,6 +539,8 @@ struct HingeJointSoAHost
         limitEnabledFlags.clear();
         limitMins.clear();
         limitMaxs.clear();
+        constraintCompliances.clear();
+        driveCompliances.clear();
         driveTargetAngles.clear();
         driveTargetAngularVelocities.clear();
         projectionRow0.clear();
@@ -552,6 +560,8 @@ struct SliderJointSoAHost
     std::vector<std::uint32_t> limitEnabledFlags;
     std::vector<float> limitMins;
     std::vector<float> limitMaxs;
+    std::vector<float> constraintCompliances;
+    std::vector<float> driveCompliances;
     std::vector<float> driveTargetPositions;
     std::vector<float> driveTargetVelocities;
     std::vector<float> driveRestOffsets;
@@ -581,6 +591,8 @@ struct SliderJointSoAHost
         limitEnabledFlags.clear();
         limitMins.clear();
         limitMaxs.clear();
+        constraintCompliances.clear();
+        driveCompliances.clear();
         driveTargetPositions.clear();
         driveTargetVelocities.clear();
         driveRestOffsets.clear();

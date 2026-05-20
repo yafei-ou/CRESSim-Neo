@@ -213,6 +213,10 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseMetaBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseChunkCounterBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidContactsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> hingeJointLambdas0123Buffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> hingeJointLambdas45Buffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderJointLambdas0123Buffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderJointLambdas45Buffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> translationCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rotationCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> linearVelocityCorrectionsBuffer;

@@ -21,6 +21,50 @@ float3 ClampErrorVector(float3 error, float maxMagnitude)
     return error * (maxMagnitude * rsqrt(lengthSq));
 }
 
+float ClampErrorScalar(float error, float maxMagnitude)
+{
+    return clamp(error, -maxMagnitude, maxMagnitude);
+}
+
+float ComputeCorrectionLimitScale(float3 translationA, float3 rotationA,
+                                  float3 translationB, float3 rotationB,
+                                  float maxTranslationMagnitude, float maxRotationMagnitude)
+{
+    float scale = 1.0;
+
+    if (maxTranslationMagnitude > 0.0)
+    {
+        const float translationALengthSq = dot(translationA, translationA);
+        if (translationALengthSq > maxTranslationMagnitude * maxTranslationMagnitude)
+        {
+            scale = min(scale, maxTranslationMagnitude * rsqrt(translationALengthSq));
+        }
+
+        const float translationBLengthSq = dot(translationB, translationB);
+        if (translationBLengthSq > maxTranslationMagnitude * maxTranslationMagnitude)
+        {
+            scale = min(scale, maxTranslationMagnitude * rsqrt(translationBLengthSq));
+        }
+    }
+
+    if (maxRotationMagnitude > 0.0)
+    {
+        const float rotationALengthSq = dot(rotationA, rotationA);
+        if (rotationALengthSq > maxRotationMagnitude * maxRotationMagnitude)
+        {
+            scale = min(scale, maxRotationMagnitude * rsqrt(rotationALengthSq));
+        }
+
+        const float rotationBLengthSq = dot(rotationB, rotationB);
+        if (rotationBLengthSq > maxRotationMagnitude * maxRotationMagnitude)
+        {
+            scale = min(scale, maxRotationMagnitude * rsqrt(rotationBLengthSq));
+        }
+    }
+
+    return scale;
+}
+
 float4 QuaternionToWXYZ(float4 q)
 {
     return float4(q.w, q.x, q.y, q.z);

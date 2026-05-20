@@ -465,6 +465,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.narrowPhaseMetaBuffer != nullptr &&
         mTransientState.narrowPhaseChunkCounterBuffer != nullptr &&
         mTransientState.rigidContactsBuffer != nullptr &&
+        mTransientState.hingeJointLambdas0123Buffer != nullptr &&
+        mTransientState.hingeJointLambdas45Buffer != nullptr &&
+        mTransientState.sliderJointLambdas0123Buffer != nullptr &&
+        mTransientState.sliderJointLambdas45Buffer != nullptr &&
         mTransientState.translationCorrectionsBuffer != nullptr &&
         mTransientState.rotationCorrectionsBuffer != nullptr &&
         mTransientState.linearVelocityCorrectionsBuffer != nullptr &&
@@ -1327,6 +1331,26 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.rigidContactsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.HingeJointLambdas0123",
+                                sizeof(Diligent::float4), newHingeJointCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.hingeJointLambdas0123Buffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.HingeJointLambdas45",
+                                sizeof(Diligent::float4), newHingeJointCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.hingeJointLambdas45Buffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SliderJointLambdas0123",
+                                sizeof(Diligent::float4), newSliderJointCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.sliderJointLambdas0123Buffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SliderJointLambdas45",
+                                sizeof(Diligent::float4), newSliderJointCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.sliderJointLambdas45Buffer) ||
         !ensureAtomicFloatBuffer(
             renderDevice, "CRESSimNeo.Physics.TranslationCorrections", newRigidBodyCapacity,
             Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -1945,7 +1969,6 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
     {
         return true;
     }
-
     const RigidJointSceneHost &jointScene = world.rigidJointScene();
 
     std::vector<GpuBallJoint> ballJoints(jointScene.ball.size());
@@ -1984,10 +2007,11 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
         dst.projectionRow2 = jointScene.hinge.projectionRow2[i];
         dst.limitParams =
             Diligent::float4{static_cast<float>(jointScene.hinge.limitEnabledFlags[i]),
-                             jointScene.hinge.limitMins[i], jointScene.hinge.limitMaxs[i], 0.0f};
-        dst.driveTargetParams =
-            Diligent::float4{jointScene.hinge.driveTargetAngles[i],
-                             jointScene.hinge.driveTargetAngularVelocities[i], 0.0f, 0.0f};
+                             jointScene.hinge.limitMins[i], jointScene.hinge.limitMaxs[i],
+                             jointScene.hinge.constraintCompliances[i]};
+        dst.driveTargetParams = Diligent::float4{jointScene.hinge.driveTargetAngles[i],
+                                                 jointScene.hinge.driveTargetAngularVelocities[i],
+                                                 jointScene.hinge.driveCompliances[i], 0.0f};
 
         if (!needsModeIndexUpload || jointScene.hinge.enabledFlags[i] == 0u)
         {
@@ -2037,10 +2061,11 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
         dst.projectionRow2  = jointScene.slider.projectionRow2[i];
         dst.limitParams =
             Diligent::float4{static_cast<float>(jointScene.slider.limitEnabledFlags[i]),
-                             jointScene.slider.limitMins[i], jointScene.slider.limitMaxs[i], 0.0f};
-        dst.driveTargetParams = Diligent::float4{jointScene.slider.driveTargetPositions[i],
-                                                 jointScene.slider.driveRestOffsets[i],
-                                                 jointScene.slider.driveTargetVelocities[i], 0.0f};
+                             jointScene.slider.limitMins[i], jointScene.slider.limitMaxs[i],
+                             jointScene.slider.constraintCompliances[i]};
+        dst.driveTargetParams = Diligent::float4{
+            jointScene.slider.driveTargetPositions[i], jointScene.slider.driveRestOffsets[i],
+            jointScene.slider.driveTargetVelocities[i], jointScene.slider.driveCompliances[i]};
 
         if (!needsModeIndexUpload || jointScene.slider.enabledFlags[i] == 0u)
         {
