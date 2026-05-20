@@ -418,6 +418,24 @@ constexpr Diligent::ShaderResourceVariableDesc kClearSoftConstraintStateVars[] =
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kClearHingeJointConstraintStateVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidJointDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJointLambdas0123",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJointLambdas45",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kClearSliderJointConstraintStateVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidJointDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SliderJointLambdas0123",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SliderJointLambdas45",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kSolveSoftEdgeConstraintsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -1244,6 +1262,10 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveHingeJointConstraintsVars[]
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJointIndices",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJointLambdas0123",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJointLambdas45",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTranslationCorrections",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyRotationCorrections",
@@ -1264,6 +1286,10 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveSliderJointConstraintsVars[
     {Diligent::SHADER_TYPE_COMPUTE, "g_SliderJoints",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SliderJointIndices",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SliderJointLambdas0123",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SliderJointLambdas45",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTranslationCorrections",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -1698,6 +1724,22 @@ const gpu::GpuComputePassDefinition kUpdateParticleVelocities{
     "CRESSimNeo.Physics.UpdateParticleVelocities.PSO",
     kUpdateParticleVelocitiesVars,
     std::size(kUpdateParticleVelocitiesVars),
+};
+
+const gpu::GpuComputePassDefinition kClearHingeJointConstraintState{
+    "physics/rigid/solver/physics_rigid_clear_hinge_joint_constraint_state.cs.hlsl",
+    "CRESSimNeo.Physics.ClearHingeJointConstraintState.CS",
+    "CRESSimNeo.Physics.ClearHingeJointConstraintState.PSO",
+    kClearHingeJointConstraintStateVars,
+    std::size(kClearHingeJointConstraintStateVars),
+};
+
+const gpu::GpuComputePassDefinition kClearSliderJointConstraintState{
+    "physics/rigid/solver/physics_rigid_clear_slider_joint_constraint_state.cs.hlsl",
+    "CRESSimNeo.Physics.ClearSliderJointConstraintState.CS",
+    "CRESSimNeo.Physics.ClearSliderJointConstraintState.PSO",
+    kClearSliderJointConstraintStateVars,
+    std::size(kClearSliderJointConstraintStateVars),
 };
 
 const gpu::GpuComputePassDefinition kBuildFluidNeighborPairs{

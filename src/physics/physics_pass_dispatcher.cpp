@@ -254,6 +254,8 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mSolveSliderJointConstraintsPassivePass, kSolveSliderJointConstraintsPassive) ||
         !initPass(mSolveSliderJointConstraintsTargetPositionPass,
                   kSolveSliderJointConstraintsTargetPosition) ||
+        !initPass(mClearHingeJointConstraintStatePass, kClearHingeJointConstraintState) ||
+        !initPass(mClearSliderJointConstraintStatePass, kClearSliderJointConstraintState) ||
         !initPass(mSolveHingeJointTargetVelocitiesPass, kSolveHingeJointTargetVelocities) ||
         !initPass(mSolveSliderJointTargetVelocitiesPass, kSolveSliderJointTargetVelocities) ||
         !initPass(mClearRigidCorrectionsPass, kClearRigidCorrections) ||
@@ -535,6 +537,58 @@ bool PhysicsPassDispatcher::clearRigidCorrections(Diligent::IDeviceContext *comp
 
     sceneState.setCorrectionBuffersNeedClear(false);
     return true;
+}
+
+bool PhysicsPassDispatcher::clearSliderJointConstraintState(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t jointCount)
+{
+    if (jointCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &transient = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsRigidJointDispatchConstantsBuffer",
+                              mRigidJointDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SliderJointLambdas0123", transient.sliderJointLambdas0123Buffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SliderJointLambdas45", transient.sliderJointLambdas45Buffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    const GpuRigidJointDispatchConstants jointConstants{jointCount, 0u, 0u, 0u};
+    return writeRigidJointDispatchConstants(computeContext, jointConstants) &&
+           mClearSliderJointConstraintStatePass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                         dispatchGroupCount(jointCount));
+}
+
+bool PhysicsPassDispatcher::clearHingeJointConstraintState(Diligent::IDeviceContext *computeContext,
+                                                           const PhysicsSceneGpuState &sceneState,
+                                                           std::uint32_t jointCount)
+{
+    if (jointCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &transient = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsRigidJointDispatchConstantsBuffer",
+                              mRigidJointDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_HingeJointLambdas0123", transient.hingeJointLambdas0123Buffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_HingeJointLambdas45", transient.hingeJointLambdas45Buffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    const GpuRigidJointDispatchConstants jointConstants{jointCount, 0u, 0u, 0u};
+    return writeRigidJointDispatchConstants(computeContext, jointConstants) &&
+           mClearHingeJointConstraintStatePass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                        dispatchGroupCount(jointCount));
 }
 
 bool PhysicsPassDispatcher::predictRigid(Diligent::IDeviceContext *computeContext,
@@ -3460,6 +3514,10 @@ bool PhysicsPassDispatcher::dispatchSolveHingeJointConstraintsPass(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_HingeJointIndices", jointIndicesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_HingeJointLambdas0123", transient.hingeJointLambdas0123Buffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_HingeJointLambdas45", transient.hingeJointLambdas45Buffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_RigidBodyTranslationCorrections",
                               transient.translationCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
@@ -3549,6 +3607,10 @@ bool PhysicsPassDispatcher::dispatchSolveSliderJointConstraintsPass(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SliderJointIndices", jointIndicesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SliderJointLambdas0123", transient.sliderJointLambdas0123Buffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SliderJointLambdas45", transient.sliderJointLambdas45Buffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_RigidBodyTranslationCorrections",
                               transient.translationCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
@@ -4119,6 +4181,8 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mSolveHingeJointConstraintsTargetPositionPass.forceRecreateAllVariants() &&
            mSolveSliderJointConstraintsPassivePass.forceRecreateAllVariants() &&
            mSolveSliderJointConstraintsTargetPositionPass.forceRecreateAllVariants() &&
+           mClearHingeJointConstraintStatePass.forceRecreateAllVariants() &&
+           mClearSliderJointConstraintStatePass.forceRecreateAllVariants() &&
            mSolveHingeJointTargetVelocitiesPass.forceRecreateAllVariants() &&
            mSolveSliderJointTargetVelocitiesPass.forceRecreateAllVariants() &&
            mApplyRigidCorrectionsPass.forceRecreateAllVariants() &&

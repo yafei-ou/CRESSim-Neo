@@ -11,8 +11,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 namespace
 {
@@ -32,6 +34,8 @@ using cressim::neo::graphics::MaterialHandle;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshHandle;
 using cressim::neo::physics::ColliderShapeType;
+using cressim::neo::physics::HingeJointId;
+using cressim::neo::physics::HingeJointState;
 using cressim::neo::physics::RigidBodyId;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::physics::RigidJointDriveMode;
@@ -61,10 +65,22 @@ constexpr float kRightFingerLimitMax = 0.0f;
 constexpr float kFingerStartCenterOffsetX = 0.34f;
 constexpr float kFingerHalfExtentX = 0.08f;
 constexpr Diligent::float3 kPickupObjectHalfExtents{0.22f, 0.22f, 0.22f};
-constexpr float kGripSqueezeMargin = 0.005f;
+constexpr float kGripSqueezeMargin = 0.2f;
+constexpr float kFingerJointConstraintCompliance = 1.0e-6f;
+constexpr float kFingerJointDriveCompliance = 8.0e-4f;
+constexpr float kFingerHingeLimit = 0.95f;
+constexpr float kFingerHingePalmAnchorOffsetX = 0.18f;
+constexpr float kFingerHingePalmAnchorOffsetY = -0.42f;
+constexpr float kFingerHingeBodyAnchorOffsetY = 0.52f;
 constexpr float kZCarriageStartY = 3.20f;
 constexpr float kPalmStartY = 2.10f;
 constexpr float kFingerStartY = 1.16f;
+
+enum class FingerJointKind : std::uint8_t
+{
+    Slider,
+    Hinge,
+};
 
 struct RobotScene
 {
@@ -80,6 +96,9 @@ struct RobotScene
     SliderJointId yJoint = cressim::neo::physics::kInvalidSliderJointId;
     SliderJointId leftFingerJoint = cressim::neo::physics::kInvalidSliderJointId;
     SliderJointId rightFingerJoint = cressim::neo::physics::kInvalidSliderJointId;
+    HingeJointId leftFingerHinge = cressim::neo::physics::kInvalidHingeJointId;
+    HingeJointId rightFingerHinge = cressim::neo::physics::kInvalidHingeJointId;
+    FingerJointKind fingerJointKind = FingerJointKind::Slider;
 };
 
 struct PoseTargets
@@ -171,6 +190,13 @@ Diligent::QuaternionF makeJointFrameRotation(const Diligent::float3 &axisX)
     return quaternionFromBasis(x, y, z);
 }
 
+Diligent::float3 rotateVector(const Diligent::QuaternionF &q, const Diligent::float3 &v)
+{
+    const Diligent::float3 qv{q.q.x, q.q.y, q.q.z};
+    const Diligent::float3 t = 2.0f * Diligent::cross(qv, v);
+    return v + q.q.w * t + Diligent::cross(qv, t);
+}
+
 float saturate(float x)
 {
     return std::clamp(x, 0.0f, 1.0f);
@@ -190,6 +216,40 @@ float lerp(float a, float b, float t)
 float clampToRange(float value, float minValue, float maxValue)
 {
     return std::clamp(value, minValue, maxValue);
+}
+
+float computePickupGripCloseAmount()
+{
+    const float initialFingerGap = 2.0f * (kFingerStartCenterOffsetX - kFingerHalfExtentX);
+    const float objectGripWidth = 2.0f * kPickupObjectHalfExtents.x;
+    const float desiredClosedGap = std::max(objectGripWidth - (2.0f * kGripSqueezeMargin), 0.0f);
+    return clampToRange(0.5f * std::max(initialFingerGap - desiredClosedGap, 0.0f),
+                        kLeftFingerLimitMin, kLeftFingerLimitMax);
+}
+
+float computeFingerHingeOpenAngle()
+{
+    const float horizontalOffset = kFingerStartCenterOffsetX - kFingerHingePalmAnchorOffsetX;
+    return std::asin(std::clamp(horizontalOffset / kFingerHingeBodyAnchorOffsetY, -1.0f, 1.0f));
+}
+
+struct FingerPose
+{
+    Diligent::float3 position{0.0f, 0.0f, 0.0f};
+    Diligent::QuaternionF rotation{};
+};
+
+FingerPose computeHingeFingerPose(float signedAngle)
+{
+    const float sideSign = signedAngle < 0.0f ? -1.0f : 1.0f;
+    const Diligent::float3 anchorWorld{sideSign * kFingerHingePalmAnchorOffsetX,
+                                       kPalmStartY + kFingerHingePalmAnchorOffsetY,
+                                       kRobotBaseZ};
+    const Diligent::QuaternionF rotation =
+        Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 0.0f, 1.0f}, signedAngle);
+    const Diligent::float3 localAnchorB{0.0f, kFingerHingeBodyAnchorOffsetY, 0.0f};
+    const Diligent::float3 center = anchorWorld - rotateVector(rotation, localAnchorB);
+    return FingerPose{center, rotation};
 }
 
 float evalSegment(float time, float startTime, float endTime, float startValue, float endValue)
@@ -247,7 +307,9 @@ SliderJointId authorDrivenSlider(Runtime &runtime, RigidBodyId bodyA, RigidBodyI
                                  const Diligent::float3 &axis, const Diligent::float3 &anchorA,
                                  const Diligent::float3 &anchorB, float limitMin, float limitMax,
                                  float targetPosition, float targetVelocity,
-                                 bool suppressConnectedCollisions = true)
+                                 bool suppressConnectedCollisions = true,
+                                 float constraintCompliance = 0.0f,
+                                 float driveCompliance = 0.0f)
 {
     SliderJointState joint{};
     joint.bodyA = bodyA;
@@ -260,6 +322,8 @@ SliderJointId authorDrivenSlider(Runtime &runtime, RigidBodyId bodyA, RigidBodyI
     joint.limitEnabled = true;
     joint.limitMin = limitMin;
     joint.limitMax = limitMax;
+    joint.constraintCompliance = constraintCompliance;
+    joint.driveCompliance = driveCompliance;
     joint.driveMode = RigidJointDriveMode::None;
     joint.driveTargetPosition = targetPosition;
     joint.driveTargetVelocity = targetVelocity;
@@ -272,6 +336,43 @@ SliderJointId authorDrivenSlider(Runtime &runtime, RigidBodyId bodyA, RigidBodyI
     if (snapshot.empty())
     {
         throw std::runtime_error("Slider joint authored but missing from snapshot.");
+    }
+    return snapshot.back().jointId;
+}
+
+HingeJointId authorDrivenHinge(Runtime &runtime, RigidBodyId bodyA, RigidBodyId bodyB,
+                               const Diligent::float3 &axis, const Diligent::float3 &anchorA,
+                               const Diligent::float3 &anchorB, float limitMin, float limitMax,
+                               float targetAngle, float targetAngularVelocity,
+                               bool suppressConnectedCollisions = true,
+                               float constraintCompliance = 0.0f,
+                               float driveCompliance = 0.0f)
+{
+    HingeJointState joint{};
+    joint.bodyA = bodyA;
+    joint.bodyB = bodyB;
+    joint.suppressConnectedBodyCollisions = suppressConnectedCollisions;
+    joint.localAnchorA = anchorA;
+    joint.localAnchorB = anchorB;
+    joint.localRotationA = makeJointFrameRotation(axis);
+    joint.localRotationB = makeJointFrameRotation(axis);
+    joint.limitEnabled = true;
+    joint.limitMin = limitMin;
+    joint.limitMax = limitMax;
+    joint.constraintCompliance = constraintCompliance;
+    joint.driveCompliance = driveCompliance;
+    joint.driveMode = RigidJointDriveMode::None;
+    joint.driveTargetAngle = targetAngle;
+    joint.driveTargetAngularVelocity = targetAngularVelocity;
+    if (!runtime.getWorld().physicsWorld().upsertHingeJoint(joint))
+    {
+        throw std::runtime_error("Failed to author driven hinge joint.");
+    }
+
+    const auto &snapshot = runtime.getWorld().physicsWorld().hingeJointSnapshot();
+    if (snapshot.empty())
+    {
+        throw std::runtime_error("Hinge joint authored but missing from snapshot.");
     }
     return snapshot.back().jointId;
 }
@@ -290,6 +391,27 @@ void setJointTarget(Runtime &runtime, SliderJointId jointId, float targetPositio
     runtime.getWorld().physicsWorld().upsertSliderJoint(updated);
 }
 
+void setHingeJointTarget(Runtime &runtime, HingeJointId jointId, float targetAngle)
+{
+    const HingeJointState *existing = runtime.getWorld().physicsWorld().tryGetHingeJoint(jointId);
+    if (existing == nullptr)
+    {
+        return;
+    }
+
+    HingeJointState updated = *existing;
+    updated.driveMode = RigidJointDriveMode::TargetPosition;
+    updated.driveTargetAngle = targetAngle;
+    runtime.getWorld().physicsWorld().upsertHingeJoint(updated);
+}
+
+float gripToFingerHingeAngle(float gripCloseAmount)
+{
+    const float maxGripCloseAmount = std::max(computePickupGripCloseAmount(), kEpsilon);
+    const float closeT = saturate(gripCloseAmount / maxGripCloseAmount);
+    return std::clamp(lerp(computeFingerHingeOpenAngle(), 0.0f, closeT), 0.0f, kFingerHingeLimit);
+}
+
 PoseTargets evaluateTargets(double timeSeconds)
 {
     constexpr float kPeriod = 10.0f;
@@ -303,13 +425,7 @@ PoseTargets evaluateTargets(double timeSeconds)
     const float descendTargetY = clampToRange(1.05f, kYLimitMin, kYLimitMax);
     const float liftTargetY = clampToRange(0.10f, kYLimitMin, kYLimitMax);
     const float releaseTargetY = clampToRange(0.85f, kYLimitMin, kYLimitMax);
-    const float initialFingerGap =
-        2.0f * (kFingerStartCenterOffsetX - kFingerHalfExtentX);
-    const float objectGripWidth = 2.0f * kPickupObjectHalfExtents.x;
-    const float desiredClosedGap = std::max(objectGripWidth - (2.0f * kGripSqueezeMargin), 0.0f);
-    const float gripCloseAmount = clampToRange(
-        0.5f * std::max(initialFingerGap - desiredClosedGap, 0.0f),
-        kLeftFingerLimitMin, kLeftFingerLimitMax);
+    const float gripCloseAmount = computePickupGripCloseAmount();
     const PoseTargets kHome{0.0f, 0.0f, kYLimitMin, 0.0f};
     const PoseTargets kApproach{pickupTargetX, pickupTargetZ, kYLimitMin, 0.0f};
     const PoseTargets kDescend{pickupTargetX, pickupTargetZ, descendTargetY, 0.0f};
@@ -374,7 +490,7 @@ void authorGround(Runtime &runtime, MeshHandle planeMesh, MaterialHandle groundM
     const auto groundEntity = world.createEntity();
 
     TransformComponent transform{};
-    transform.worldTransform.position = {0.0f, -0.75f, 0.0f};
+    transform.worldTransform.position = {0.0f, -0.65f, 0.0f};
     world.setTransform(groundEntity, transform);
     world.setMeshRenderer(groundEntity, MeshRendererComponent{planeMesh, groundMaterial, true});
 
@@ -387,6 +503,7 @@ void authorGround(Runtime &runtime, MeshHandle planeMesh, MaterialHandle groundM
     ColliderComponent collider{};
     collider.shapeType = ColliderShapeType::Box;
     collider.shapeParams = {9.0f, 0.10f, 9.0f, 0.0f};
+    collider.localPosition = {0.0f, -collider.shapeParams.y, 0.0f};
     collider.friction = 0.9f;
     collider.staticFriction = 1.1f;
     collider.collisionLayer = kWorldLayer;
@@ -396,7 +513,8 @@ void authorGround(Runtime &runtime, MeshHandle planeMesh, MaterialHandle groundM
 
 RobotScene authorRobot(Runtime &runtime, MeshHandle beamMesh, MeshHandle carriageMesh,
                        MeshHandle palmMesh, MeshHandle fingerMesh, MaterialHandle railMaterial,
-                       MaterialHandle carriageMaterial, MaterialHandle fingerMaterial)
+                       MaterialHandle carriageMaterial, MaterialHandle fingerMaterial,
+                       FingerJointKind fingerJointKind)
 {
     auto &world = runtime.getWorld();
     RobotScene robot{};
@@ -478,18 +596,28 @@ RobotScene authorRobot(Runtime &runtime, MeshHandle beamMesh, MeshHandle carriag
     fingerCollider.staticFriction = 0.85f;
     fingerCollider.collisionLayer = kRobotLayer;
     fingerCollider.collisionMask = kWorldLayer | kObjectLayer;
+    const float hingeOpenAngle = computeFingerHingeOpenAngle();
+    const FingerPose leftFingerPose =
+        fingerJointKind == FingerJointKind::Hinge
+            ? computeHingeFingerPose(-hingeOpenAngle)
+            : FingerPose{{-kFingerStartCenterOffsetX, kFingerStartY, kRobotBaseZ},
+                         Diligent::QuaternionF{}};
     setVisibleRigidBody(runtime, robot.leftFinger, fingerMesh, fingerMaterial,
-                        {-kFingerStartCenterOffsetX, kFingerStartY, kRobotBaseZ},
-                        {1.0f, 1.0f, 1.0f}, leftBody,
-                        fingerCollider);
+                        leftFingerPose.position, {1.0f, 1.0f, 1.0f}, leftBody, fingerCollider,
+                        leftFingerPose.rotation);
 
     robot.rightFinger = world.createEntity();
     RigidBodyComponent rightBody = leftBody;
     ColliderComponent rightCollider = fingerCollider;
+    const FingerPose rightFingerPose =
+        fingerJointKind == FingerJointKind::Hinge
+            ? computeHingeFingerPose(hingeOpenAngle)
+            : FingerPose{{kFingerStartCenterOffsetX, kFingerStartY, kRobotBaseZ},
+                         Diligent::QuaternionF{}};
     setVisibleRigidBody(runtime, robot.rightFinger, fingerMesh, fingerMaterial,
-                        {kFingerStartCenterOffsetX, kFingerStartY, kRobotBaseZ},
-                        {1.0f, 1.0f, 1.0f}, rightBody,
-                        rightCollider);
+                        rightFingerPose.position, {1.0f, 1.0f, 1.0f}, rightBody, rightCollider,
+                        rightFingerPose.rotation);
+    robot.fingerJointKind = fingerJointKind;
 
     const RigidBodyId railId = requireRigidBodyId(runtime, robot.xRail);
     const RigidBodyId xId = requireRigidBodyId(runtime, robot.xCarriage);
@@ -507,14 +635,38 @@ RobotScene authorRobot(Runtime &runtime, MeshHandle beamMesh, MeshHandle carriag
     robot.yJoint = authorDrivenSlider(runtime, zId, palmId, {0.0f, -1.0f, 0.0f},
                                       {0.0f, -0.95f, 0.0f}, {0.0f, 0.15f, 0.0f},
                                       kYLimitMin, kYLimitMax, 0.0f, 1.5f);
-    robot.leftFingerJoint = authorDrivenSlider(runtime, palmId, leftId, {1.0f, 0.0f, 0.0f},
-                                               {-0.18f, -0.42f, 0.0f}, {0.0f, 0.52f, 0.0f},
-                                               kLeftFingerLimitMin, kLeftFingerLimitMax, 0.0f,
-                                               1.2f);
-    robot.rightFingerJoint = authorDrivenSlider(runtime, palmId, rightId, {1.0f, 0.0f, 0.0f},
-                                                {0.18f, -0.42f, 0.0f}, {0.0f, 0.52f, 0.0f},
-                                                kRightFingerLimitMin, kRightFingerLimitMax, 0.0f,
-                                                1.2f);
+    if (fingerJointKind == FingerJointKind::Hinge)
+    {
+        robot.leftFingerHinge = authorDrivenHinge(runtime, palmId, leftId, {0.0f, 0.0f, 1.0f},
+                                                  {-kFingerHingePalmAnchorOffsetX,
+                                                   kFingerHingePalmAnchorOffsetY, 0.0f},
+                                                  {0.0f, kFingerHingeBodyAnchorOffsetY, 0.0f},
+                                                  -kFingerHingeLimit, 0.0f, -hingeOpenAngle, 1.2f,
+                                                  true,
+                                                  kFingerJointConstraintCompliance,
+                                                  kFingerJointDriveCompliance);
+        robot.rightFingerHinge = authorDrivenHinge(runtime, palmId, rightId, {0.0f, 0.0f, 1.0f},
+                                                   {kFingerHingePalmAnchorOffsetX,
+                                                    kFingerHingePalmAnchorOffsetY, 0.0f},
+                                                   {0.0f, kFingerHingeBodyAnchorOffsetY, 0.0f},
+                                                   0.0f, kFingerHingeLimit, hingeOpenAngle, 1.2f,
+                                                   true,
+                                                   kFingerJointConstraintCompliance,
+                                                   kFingerJointDriveCompliance);
+    }
+    else
+    {
+        robot.leftFingerJoint = authorDrivenSlider(runtime, palmId, leftId, {1.0f, 0.0f, 0.0f},
+                                                   {-0.18f, -0.42f, 0.0f}, {0.0f, 0.52f, 0.0f},
+                                                   kLeftFingerLimitMin, kLeftFingerLimitMax, 0.0f,
+                                                   1.2f, true, kFingerJointConstraintCompliance,
+                                                   kFingerJointDriveCompliance);
+        robot.rightFingerJoint = authorDrivenSlider(runtime, palmId, rightId, {1.0f, 0.0f, 0.0f},
+                                                    {0.18f, -0.42f, 0.0f}, {0.0f, 0.52f, 0.0f},
+                                                    kRightFingerLimitMin, kRightFingerLimitMax, 0.0f,
+                                                    1.2f, true, kFingerJointConstraintCompliance,
+                                                    kFingerJointDriveCompliance);
+    }
     return robot;
 }
 
@@ -554,7 +706,8 @@ void authorProps(Runtime &runtime, MeshHandle cubeMesh, MeshHandle clutterMesh, 
 
 void printUsage(const char *appName)
 {
-    cressim::neo::examples::helpers::printUsage(appName, "", false);
+    cressim::neo::examples::helpers::printUsage(appName, " [--hinge-fingers]", false);
+    std::fprintf(stdout, "  --hinge-fingers  Use hinge joints for the two claw fingers.\n");
 }
 
 } // namespace
@@ -562,12 +715,19 @@ void printUsage(const char *appName)
 int main(int argc, char **argv)
 {
     CommonExampleOptions options{};
+    FingerJointKind fingerJointKind = FingerJointKind::Slider;
     try
     {
         for (int i = 1; i < argc; ++i)
         {
             if (cressim::neo::examples::helpers::tryParseCommonArgument(argc, argv, i, options, false))
             {
+                continue;
+            }
+
+            if (std::string_view{argv[i]} == "--hinge-fingers")
+            {
+                fingerJointKind = FingerJointKind::Hinge;
                 continue;
             }
 
@@ -583,7 +743,7 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
-    config.physicsDesc.defaultIterations = 10;
+    config.physicsDesc.defaultIterations = 50;
 
     DebugViewerApp viewer;
     ViewerExampleDefaults defaults{};
@@ -659,7 +819,7 @@ int main(int argc, char **argv)
         authorGround(runtime, planeMesh, groundMaterial);
         const RobotScene robot =
             authorRobot(runtime, beamMesh, carriageMesh, palmMesh, fingerMesh, railMaterial,
-                        carriageMaterial, fingerMaterial);
+                        carriageMaterial, fingerMaterial, fingerJointKind);
         authorProps(runtime, cubeMesh, clutterMesh, tallMesh, graspMaterial, clutterMaterial);
 
         DebugViewerCallbacks callbacks{};
@@ -668,8 +828,17 @@ int main(int argc, char **argv)
             setJointTarget(cbRuntime, robot.xJoint, targets.x);
             setJointTarget(cbRuntime, robot.zJoint, targets.z);
             setJointTarget(cbRuntime, robot.yJoint, targets.y);
-            setJointTarget(cbRuntime, robot.leftFingerJoint, targets.grip);
-            setJointTarget(cbRuntime, robot.rightFingerJoint, -targets.grip);
+            if (robot.fingerJointKind == FingerJointKind::Hinge)
+            {
+                const float gripAngle = gripToFingerHingeAngle(targets.grip);
+                setHingeJointTarget(cbRuntime, robot.leftFingerHinge, -gripAngle);
+                setHingeJointTarget(cbRuntime, robot.rightFingerHinge, gripAngle);
+            }
+            else
+            {
+                setJointTarget(cbRuntime, robot.leftFingerJoint, targets.grip);
+                setJointTarget(cbRuntime, robot.rightFingerJoint, -targets.grip);
+            }
         };
 
         DebugViewerCameraBinding binding{};

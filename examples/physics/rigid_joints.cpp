@@ -35,6 +35,7 @@ using cressim::neo::physics::RigidJointDriveMode;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::physics::SliderJointState;
 using cressim::neo::viewer::DebugViewerApp;
+using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
 constexpr float kEpsilon = 1.0e-6f;
@@ -46,7 +47,7 @@ constexpr std::uint32_t kBallDropLayer = 1u << 4u;
 constexpr std::uint32_t kHingeDropLayer = 1u << 5u;
 constexpr std::uint32_t kSliderDropLayer = 1u << 6u;
 constexpr float kViewerSphereMeshRadius = 0.4f;
-
+constexpr float kExampleHingeDriveCompliance = 5.0e-5f;
 struct ViewerJointOptions
 {
     bool enablePositionDriveTargets = false;
@@ -263,7 +264,9 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
     baseCollider.shapeType = ColliderShapeType::Box;
     baseCollider.shapeParams = {0.45f, 0.35f, 0.35f, 0.0f};
     baseCollider.collisionLayer = kHingeClusterLayer;
-    baseCollider.collisionMask = kHingeClusterLayer | kGroundCollisionLayer | kHingeDropLayer;
+    // Let the anchored links swing through the support body instead of being blocked by the
+    // static base collider, while still allowing environment/disturber contacts.
+    baseCollider.collisionMask = kGroundCollisionLayer | kHingeDropLayer;
     setVisibleRigidBody(runtime, baseEntity, baseMesh, anchorMaterial, {0.0f, 4.3f, 0.0f},
                         {1.0f, 1.0f, 1.0f}, baseBody, baseCollider);
 
@@ -318,6 +321,7 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
                                  : RigidJointDriveMode::None);
     upper.driveTargetAngle = -1.37f;
     upper.driveTargetAngularVelocity = -1.1f;
+    upper.driveCompliance = kExampleHingeDriveCompliance;
     if (!world.physicsWorld().upsertHingeJoint(upper))
     {
         throw std::runtime_error("Failed to author upper hinge joint.");
@@ -341,6 +345,7 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
                                  : RigidJointDriveMode::None);
     lower.driveTargetAngle = 0.1f;
     lower.driveTargetAngularVelocity = 0.9f;
+    lower.driveCompliance = kExampleHingeDriveCompliance;
     if (!world.physicsWorld().upsertHingeJoint(lower))
     {
         throw std::runtime_error("Failed to author lower hinge joint.");
@@ -657,7 +662,9 @@ int main(int argc, char **argv)
         authorDropDisturbers(runtime, hingeDropMesh, sphereMesh, ballMaterial, hingeMaterial,
                              sliderMaterial);
 
-        const bool runOk = viewer.run(runtime, DebugViewerCameraBinding{cameraEntity});
+        DebugViewerCallbacks callbacks{};
+
+        const bool runOk = viewer.run(runtime, DebugViewerCameraBinding{cameraEntity}, callbacks);
         viewer.shutdown();
         if (!runOk)
         {

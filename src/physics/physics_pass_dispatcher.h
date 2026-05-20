@@ -25,6 +25,12 @@ public:
     bool clearRigidCorrections(Diligent::IDeviceContext *computeContext,
                                PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
                                const GpuRigidDispatchConstants &constants);
+    bool clearHingeJointConstraintState(Diligent::IDeviceContext *computeContext,
+                                        const PhysicsSceneGpuState &sceneState,
+                                        std::uint32_t jointCount);
+    bool clearSliderJointConstraintState(Diligent::IDeviceContext *computeContext,
+                                         const PhysicsSceneGpuState &sceneState,
+                                         std::uint32_t jointCount);
     bool predictSoft(Diligent::IDeviceContext *computeContext,
                      const PhysicsSceneGpuState &sceneState, std::uint32_t particleCount,
                      const GpuParticleDispatchConstants &constants);
@@ -387,6 +393,8 @@ private:
     gpu::GpuComputePass mSolveSliderJointConstraintsTargetPositionPass;
     gpu::GpuComputePass mSolveHingeJointTargetVelocitiesPass;
     gpu::GpuComputePass mSolveSliderJointTargetVelocitiesPass;
+    gpu::GpuComputePass mClearHingeJointConstraintStatePass;
+    gpu::GpuComputePass mClearSliderJointConstraintStatePass;
     gpu::GpuComputePass mApplyRigidCorrectionsPass;
     gpu::GpuComputePass mUpdateRigidVelocitiesPass;
     gpu::GpuComputePass mSolveRigidContactVelocitiesPass;
