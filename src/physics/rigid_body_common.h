@@ -176,6 +176,7 @@ enum class GpuPhysicsIndirectDispatchSlot : std::uint32_t
     SoftSolveContactVelocities,
     RigidGenerateContacts,
     RigidSolveContacts,
+    RigidSolveContactVelocities,
     Count,
 };
 
@@ -491,6 +492,14 @@ struct GpuRigidContact
     Diligent::float4 material{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
+struct GpuRigidContactVelocityState
+{
+    float accumulatedNormalImpulse = 0.0f;
+    float targetNormalVelocity     = 0.0f;
+    float reserved0                = 0.0f;
+    float reserved1                = 0.0f;
+};
+
 static_assert(sizeof(GpuRigidDispatchConstants) == 48u);
 static_assert(sizeof(GpuRigidJointDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
@@ -518,6 +527,7 @@ static_assert(sizeof(GpuBodyAabb) == 32u);
 static_assert(sizeof(GpuBodyMeta) == 16u);
 static_assert(sizeof(GpuBroadPhaseElement) == 32u);
 static_assert(sizeof(GpuMortonCodeElement) == 8u);
+static_assert(sizeof(GpuRigidContactVelocityState) == 16u);
 static_assert(sizeof(GpuBroadPhaseExtent) == 32u);
 static_assert(sizeof(GpuBvhNode) == 40u);
 static_assert(sizeof(GpuBvhConstructionInfo) == 8u);

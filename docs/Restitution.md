@@ -1,74 +1,106 @@
-# Proper Rigid-Rigid Restitution with Pair Snapshots
+# Rigid-Rigid Restitution via Contact Velocity Constraints
 
 ## Summary
-Implement rigid-rigid restitution as a dedicated GPU-friendly pair-snapshot pipeline. Each body-body candidate pair owns one restitution snapshot for the frame. During rigid contact iterations, a new pair-owned prep pass performs a fixed 4-slot reduction over that pair’s contacts, latches impact data early, and refreshes contact geometry while contacts remain valid. After the positional solve and velocity reconstruction, a restitution apply pass injects bounce once per body-body pair using the latched impact speed and the latest valid stored geometry. This restores restitution without making stability depend on contact dedup or final contacts remaining active.
+Rigid-rigid restitution should follow the same contact model the codebase already uses for position solve: generate a 1-4 point manifold per candidate pair, treat each active contact slot as its own constraint, and let shared body velocities couple those constraints at the body level.
+
+The current code already has the right foundations for this:
+- `physics_rigid_generate_contacts.cs.hlsl` writes up to `kRigidContactsPerPair` contacts per pair into `g_RigidContacts`
+- `physics_rigid_solve_contacts.cs.hlsl` already solves each active contact slot independently for position correction
+- rigid velocity corrections already accumulate through shared body buffers and are applied centrally in `physics_rigid_apply_contact_velocities.cs.hlsl`
+
+Because of that, restitution should be implemented as a real rigid contact velocity solve, not as a separate one-shot pair snapshot/apply event.
+
+## Why This Fits the Codebase
+- The narrow phase already produces manifolds in the layout we want. Box-box contacts already emit up to 4 contact points; the other shape pairs already emit a single contact.
+- The position solver is already contact-based, not pair-based. Each slot in `g_RigidContacts` is effectively a contact constraint today.
+- The solver architecture already expects iterative accumulation through body correction buffers. Joint target velocity passes use the same pattern and share the same velocity correction apply path.
+- A pair-level bounce event would cut across that structure and create a second contact model just for restitution.
+
+The right abstraction here is "body-level behavior emerges from solving multiple contact constraints that all write into the same body velocities."
 
 ## Implementation Changes
-- Add a transient per-pair restitution snapshot buffer sized to `candidatePairCapacity`, indexed by `pairIndex`.
-- Add a GPU-facing snapshot struct with:
-  - `bodyA`, `bodyB`
-  - `active/valid`
-  - `latchedInitialNormalVelocity`
-  - `combinedRestitution`
-  - `storedNormal`
-  - `storedLocalPointA`
-  - `storedLocalPointB`
-  - `lastSeenIteration` or equivalent validity marker
-- Keep the current rigid positional contact solve unchanged:
-  - `physics_rigid_solve_contacts.cs.hlsl` still resolves all active contacts for penetration and position-friction
-  - no body-level contact merging or dedup is introduced
-- Add a new rigid restitution prep pass that runs once per rigid contact iteration, after rigid contacts are generated and before rigid corrections are applied for that iteration.
-- Restitution prep pass behavior per `pairIndex`:
-  - read the pair’s fixed `kRigidContactsPerPair` contact slots from `g_RigidContacts`
-  - perform a fixed-size reduction across the up to 4 active contacts
-  - choose one representative contact using most negative normal relative velocity
-  - compute normal relative velocity from the current predicted poses and current pre-reconstruction velocities available at that stage
-  - if the snapshot is empty and the representative contact is impacting beyond the restitution threshold, initialize the snapshot
-  - if the snapshot is already active and the pair still has a valid contact, refresh only geometry fields:
-    - normal
-    - localPointA
-    - localPointB
-    - material restitution if needed
-  - never overwrite the latched impact speed with a later weaker value
-  - if no valid contact exists this iteration, leave the snapshot unchanged
-- Snapshot update policy:
-  - latched fields: impact speed, body ids, active state
-  - refreshable fields: normal and local contact geometry
-  - refresh geometry only from a valid representative contact for that same pair
-- Add a new rigid restitution apply pass after `updateRigidVelocities`.
-- Restitution apply pass behavior per active snapshot:
-  - reconstruct world contact points and lever arms from the stored local points and final predicted poses
-  - compute current effective mass from final pose geometry
-  - use the latched initial normal velocity for restitution gating and target bounce speed
-  - apply one normal restitution impulse to rigid linear/angular velocity correction buffers
-  - optionally suppress restitution if current reconstructed separation along the stored normal exceeds a small threshold, to avoid bouncing clearly separated pairs
-- Keep the existing rigid velocity correction apply path:
-  - joint target velocity corrections and restitution corrections both accumulate into the same rigid velocity correction buffers
-  - the existing rigid velocity apply pass remains the single place that mutates predicted rigid velocities
-- Dispatcher/solver wiring:
-  - clear the restitution snapshot buffer once per frame before rigid contact iterations begin
-  - during each rigid contact iteration:
-    - generate contacts
-    - run restitution prep pass
-    - run positional rigid contact solve
-    - apply rigid corrections
-  - after all position iterations:
-    - reconstruct rigid velocities
-    - run restitution apply pass
-    - run rigid velocity correction apply pass
-- GPU style and performance constraints:
-  - one thread owns one `pairIndex`
-  - no CAS, append lists, or body-level shared contact structures
-  - fixed 4-way reduction only
-  - branch-light compare/select logic is preferred over variable-length global scanning
+- Keep manifold generation as-is:
+  - continue to write up to `kRigidContactsPerPair` contacts per candidate pair into `g_RigidContacts`
+  - do not add pair-level restitution snapshots or representative-contact reduction
+- Add a transient rigid contact velocity state buffer sized to `candidatePairCapacity * kRigidContactsPerPair`
+  - one state entry per `g_RigidContacts` slot
+  - this mirrors the existing per-joint lambda buffers
+- Add a GPU-facing contact velocity state struct, for example:
+  - `active`
+  - `accumulatedNormalImpulse`
+  - `targetBounceVelocity`
+  - `reserved`
+- Add a clear pass for the rigid contact velocity state buffer before the rigid velocity solve phase each substep
+- After the positional rigid solve completes and `updateRigidVelocities` reconstructs rigid velocities from the final predicted poses, regenerate rigid contacts once more
+  - this refreshes manifold points and normals from the final post-position-solve poses
+  - the velocity solve should operate on this final manifold, not on stale contacts from an earlier position iteration
+- Add a new rigid contact velocity solve pass
+  - one thread owns one contact slot
+  - dispatch over `candidatePairCount * kRigidContactsPerPair`
+  - skip inactive contacts
+
+## Velocity Solve Behavior
+For each active contact slot:
+- read `bodyA`, `bodyB`, contact normal, and local points from `g_RigidContacts`
+- reconstruct world contact points and lever arms from the final predicted poses
+- read current rigid linear/angular velocities
+- compute point velocities and relative normal velocity at that contact
+- combine restitution from the existing contact material (`contact.material.y`)
+- gate restitution with a threshold
+  - if incoming normal speed is not sufficiently negative, set target bounce to 0
+  - this avoids micro-bounce and resting jitter
+- otherwise compute the target bounce velocity for that point
+  - `targetBounceVelocity = -restitution * normalVelocity`
+- compute effective mass along the contact normal
+- solve for the incremental normal impulse needed to move the current relative normal velocity toward the target bounce velocity
+- clamp with accumulated impulse
+  - `newAccumulated = max(oldAccumulated + deltaImpulse, 0)`
+  - `appliedImpulse = newAccumulated - oldAccumulated`
+- apply the resulting linear/angular velocity corrections through the existing rigid velocity correction buffers
+
+This is the standard manifold-contact approach:
+- each point gets its own bounce target from the relative velocity at that point
+- the manifold behaves at the body level because all contact constraints share the same body velocities
+- iterative solving prevents multi-point bounce explosion better than a single pair impulse does
+
+## Solver Flow
+Recommended rigid flow per substep:
+
+1. Run the existing rigid position solve loop unchanged:
+   - generate rigid contacts
+   - solve rigid positional contacts
+   - solve rigid joints
+   - apply rigid position corrections
+2. Run `updateRigidVelocities`
+   - reconstruct rigid linear/angular velocities from the final predicted poses
+3. Regenerate rigid contacts once using the final predicted poses
+   - rebuild the final contact manifold used for velocity solve
+4. Clear rigid contact velocity state
+5. Run rigid velocity iterations:
+   - solve rigid contact velocity constraints
+   - solve hinge/slider target velocity constraints
+   - apply accumulated rigid velocity corrections
+
+Notes:
+- V1 does not need a separate restitution prep pass.
+- V1 also does not need per-pair or per-contact history across frames.
+- Accumulated normal impulse is only needed across velocity iterations within the current substep.
 
 ## Public Interfaces / Types
-- Add one transient GPU buffer for rigid pair restitution snapshots in scene state.
-- Add one shared CPU/HLSL snapshot struct with 16-byte aligned layout and static size checks.
+- Add one transient GPU buffer in scene state:
+  - rigid contact velocity state buffer
+- Add one shared CPU/HLSL struct for per-contact velocity state
 - Add two compute passes:
-  - rigid restitution prep
-  - rigid restitution apply
-- If needed, add one indirect dispatch slot or a simple direct dispatch path over candidate pairs for these passes. Default preference is dispatch over candidate pairs rather than total contact slots.
+  - clear rigid contact velocity state
+  - solve rigid contact velocities
+- Update `solveRigidContactVelocities()` in the dispatcher so it actually dispatches rigid contact velocity constraints, not only joint motor velocity passes
+
+## Scope Boundaries
+- Scope is rigid-rigid restitution only
+- Particle contact velocity paths remain unchanged
+- Positional rigid contact solve remains unchanged
+- Positional friction remains unchanged for V1
+- Do not introduce body-pair restitution collapse, representative-contact selection, or contact dedup as part of this work
 
 ## Test Plan
 - Head-on rigid-rigid collision with restitution:
@@ -76,23 +108,18 @@ Implement rigid-rigid restitution as a dedicated GPU-friendly pair-snapshot pipe
   - bounce magnitude scales with restitution coefficient
 - Resting stack with restitution enabled:
   - no persistent micro-bounce at rest
-  - no clear stacking regression from current branch
+  - threshold suppresses jitter
 - Box-box manifold with 2-4 active contacts:
-  - only one restitution event is produced for the pair
-  - all contacts still contribute to positional stability
-- Mixed-shape or compound contact scene:
-  - no multi-point bounce explosion
-  - jitter remains no worse than current stabilization branch
-- Over-corrected/separated contact case:
-  - if final raw contacts disappear, stored snapshot still allows restitution
-  - restitution is skipped when pair separation is clearly too large at apply time
+  - all active manifold points participate in restitution solve
+  - no obvious multi-point bounce explosion
+- Mixed-shape scene such as [mixed_shape_contacts.cpp](/home/yafei/Code/CRESSim-Neo/examples/physics/mixed_shape_contacts.cpp:1):
+  - restitution works across sphere/box/capsule combinations
+  - stability is no worse than the current position-only branch
 - Joint velocity regression:
-  - hinge/slider target velocity behavior remains unchanged aside from shared accumulation/apply buffers
+  - hinge/slider target velocity behavior remains correct while sharing the same velocity correction buffers
 
 ## Assumptions and Defaults
-- Scope is rigid-rigid restitution only; particle contact velocity paths remain unchanged.
-- V1 uses one restitution event per body-body candidate pair, not per contact cluster.
-- The representative contact is the active slot with the most negative normal relative velocity.
-- Final contacts are not trusted as the sole source of impact detection.
-- Stored local contact geometry is the fallback when late iterations remove the final contact.
-- General-purpose stability should not rely on contact dedup; duplicate contacts are tolerated by the positional solver, while restitution is collapsed to one pair event.
+- The final narrow-phase manifold is good enough for the first restitution version.
+- Restitution threshold should be configurable or at least kept as a clearly named constant.
+- Contact ordering only needs to remain stable within the final regenerated manifold for the duration of the velocity iterations in that substep.
+- If later we need more accurate impact-speed latching, that should be added per contact slot, not as a single pair-owned restitution event.

@@ -39,8 +39,10 @@ std::uint32_t estimateRigidCandidatePairCapacity(std::uint32_t bodyCount) noexce
         return 0u;
     }
 
-    constexpr std::uint32_t kPairsPerBodyEstimate = 32u;
-    constexpr std::uint32_t kMinCapacity          = 64u;
+    // Dense rigid stacks and compound bodies can generate far more overlaps than the
+    // old estimate handled, which led to silent truncation once piles collapsed.
+    constexpr std::uint32_t kPairsPerBodyEstimate = 128u;
+    constexpr std::uint32_t kMinCapacity          = 256u;
     return std::max<std::uint32_t>(bodyCount * kPairsPerBodyEstimate, kMinCapacity);
 }
 

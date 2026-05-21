@@ -24,6 +24,14 @@ struct GpuRigidContact
     float4 material;
 };
 
+struct GpuRigidContactVelocityState
+{
+    float accumulatedNormalImpulse;
+    float targetNormalVelocity;
+    float reserved0;
+    float reserved1;
+};
+
 struct GpuBodyAabb
 {
     float4 minBounds;

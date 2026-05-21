@@ -5,6 +5,8 @@
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyPositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyScales);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ColliderOwnerRigidBodyIndices);
@@ -46,9 +48,14 @@ CRESSIM_RW_STRUCTURED_BUFFER(uint, g_StaticBodyFlags);
         return;
     }
 
-    const float4 bodyPositionInvMass = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, ownerBodyIndex);
+    const float4 bodyPositionInvMass =
+        CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, ownerBodyIndex);
     const float4 bodyOrientation =
         QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, ownerBodyIndex));
+    const float4 previousBodyPositionInvMass =
+        CRESSIM_SB_LOAD(g_PreviousRigidBodyPositionsInvMass, ownerBodyIndex);
+    const float4 previousBodyOrientation = QuaternionNormalize(
+        CRESSIM_SB_LOAD(g_PreviousRigidBodyOrientations, ownerBodyIndex));
     const float4 scale = CRESSIM_SB_LOAD(g_RigidBodyScales, ownerBodyIndex);
     const uint bodyType = CRESSIM_SB_LOAD(g_RigidBodyTypes, ownerBodyIndex);
     const uint shapeType = CRESSIM_SB_LOAD(g_ColliderShapeTypes, colliderIndex);
@@ -62,11 +69,21 @@ CRESSIM_RW_STRUCTURED_BUFFER(uint, g_StaticBodyFlags);
         ComposeColliderWorldPosition(bodyPositionInvMass.xyz, bodyOrientation, localPosition);
     const float4 colliderOrientation =
         ComposeColliderWorldOrientation(bodyOrientation, localOrientation);
+    const float3 previousColliderPosition = ComposeColliderWorldPosition(
+        previousBodyPositionInvMass.xyz, previousBodyOrientation, localPosition);
+    const float4 previousColliderOrientation =
+        ComposeColliderWorldOrientation(previousBodyOrientation, localOrientation);
 
     float3 aabbMin = 0.0;
     float3 aabbMax = 0.0;
+    float3 previousAabbMin = 0.0;
+    float3 previousAabbMax = 0.0;
     ComputeBodyAabb(shapeType, colliderPosition, colliderOrientation, colliderParams, scale, aabbMin,
                     aabbMax);
+    ComputeBodyAabb(shapeType, previousColliderPosition, previousColliderOrientation,
+                    colliderParams, scale, previousAabbMin, previousAabbMax);
+    aabbMin = min(aabbMin, previousAabbMin);
+    aabbMax = max(aabbMax, previousAabbMax);
     aabbMin -= float3(kBroadPhaseMargin, kBroadPhaseMargin, kBroadPhaseMargin);
     aabbMax += float3(kBroadPhaseMargin, kBroadPhaseMargin, kBroadPhaseMargin);
 

@@ -56,6 +56,13 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE physics
+    NAME rigid_restitution
+    SOURCE physics_rigid_restitution.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
     NAME body_types
     SOURCE physics_body_types.cpp
     LIBS cressim_neo_engine

@@ -3,6 +3,12 @@
 
 #include "../collision/physics_shape_common.hlsli"
 
+static const float kRigidRestitutionThreshold = 0.0;
+static const float kRigidContactBiasFactor = 0.15;
+static const float kRigidContactMaxBiasVelocity = 1.0;
+static const float kMaxTotalLinearVelocityCorrectionPerIter = 10.0;
+static const float kMaxTotalAngularVelocityCorrectionPerIter = 20.0;
+
 float3 MultiplyWorldInverseInertia(float3 inverseInertiaLocal, float4 orientation, float3 value)
 {
     const float3 ax = BoxAxisX(orientation);
@@ -11,6 +17,11 @@ float3 MultiplyWorldInverseInertia(float3 inverseInertiaLocal, float4 orientatio
     return ax * (inverseInertiaLocal.x * dot(ax, value)) +
            ay * (inverseInertiaLocal.y * dot(ay, value)) +
            az * (inverseInertiaLocal.z * dot(az, value));
+}
+
+float3 ComputeContactPointVelocity(float3 linearVelocity, float3 angularVelocity, float3 leverArm)
+{
+    return linearVelocity + cross(angularVelocity, leverArm);
 }
 
 float ComputeContactEffectiveMass(float invMass, float3 inverseInertiaLocal, float4 orientation,

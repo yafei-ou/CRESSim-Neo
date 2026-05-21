@@ -78,6 +78,8 @@ extern const gpu::GpuComputePassDefinition kBuildNarrowPhaseChunks;
 extern const gpu::GpuComputePassDefinition kPrepareRigidIndirectArgs;
 extern const gpu::GpuComputePassDefinition kGenerateRigidContacts;
 extern const gpu::GpuComputePassDefinition kSolveRigidContactConstraints;
+extern const gpu::GpuComputePassDefinition kInitRigidContactVelocities;
+extern const gpu::GpuComputePassDefinition kSolveRigidContactVelocities;
 extern const gpu::GpuComputePassDefinition kSolveBallJointConstraints;
 extern const gpu::GpuComputePassDefinition kSolveHingeJointConstraintsPassive;
 extern const gpu::GpuComputePassDefinition kSolveHingeJointConstraintsTargetPosition;
