@@ -246,7 +246,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mBuildNarrowPhaseChunksPass, kBuildNarrowPhaseChunks) ||
         !initPass(mPrepareRigidIndirectArgsPass, kPrepareRigidIndirectArgs) ||
         !initPass(mGenerateRigidContactsPass, kGenerateRigidContacts) ||
-        !initPass(mSolveRigidContactConstraintsPass, kSolveRigidContactConstraints) ||
+        !initPass(mFinalRigidContactDepenetrationPass, kFinalRigidContactDepenetration) ||
         !initPass(mClearRigidBodyPairContactAggregatesPass,
                   kClearRigidBodyPairContactAggregates) ||
         !initPass(mInitRigidContactVelocitiesPass, kInitRigidContactVelocities) ||
@@ -3378,7 +3378,7 @@ bool PhysicsPassDispatcher::generateRigidContacts(Diligent::IDeviceContext *comp
     return dispatchGenerateRigidContactsPass(computeContext, sceneState);
 }
 
-bool PhysicsPassDispatcher::dispatchSolveRigidContactConstraintsPass(
+bool PhysicsPassDispatcher::dispatchFinalRigidContactDepenetrationPass(
     Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState)
 {
     if (computeContext == nullptr)
@@ -3398,10 +3398,6 @@ bool PhysicsPassDispatcher::dispatchSolveRigidContactConstraintsPass(
         gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
                               transient.predictedRigidBodies.orientationsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_PreviousRigidBodyPositionsInvMass", persistent.positionsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_PreviousRigidBodyOrientations", persistent.orientationsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RigidBodyInverseInertiaLocal",
                               persistent.inverseInertiaLocalBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -3416,15 +3412,14 @@ bool PhysicsPassDispatcher::dispatchSolveRigidContactConstraintsPass(
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    return mSolveRigidContactConstraintsPass.dispatchIndirect(
+    return mFinalRigidContactDepenetrationPass.dispatchIndirect(
         computeContext, kDefaultVariant, bindings, transient.physicsIndirectArgsBuffer,
         indirectArgsOffset(GpuPhysicsIndirectDispatchSlot::RigidSolveContacts));
 }
 
-bool PhysicsPassDispatcher::solveRigidContactConstraints(Diligent::IDeviceContext *computeContext,
-                                                         const PhysicsSceneGpuState &sceneState,
-                                                         std::uint32_t rigidBodyCount,
-                                                         const GpuRigidDispatchConstants &constants)
+bool PhysicsPassDispatcher::finalRigidContactDepenetration(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t rigidBodyCount, const GpuRigidDispatchConstants &constants)
 {
     if (computeContext == nullptr)
     {
@@ -3436,7 +3431,7 @@ bool PhysicsPassDispatcher::solveRigidContactConstraints(Diligent::IDeviceContex
     }
 
     return writeRigidDispatchConstants(computeContext, constants) &&
-           dispatchSolveRigidContactConstraintsPass(computeContext, sceneState);
+           dispatchFinalRigidContactDepenetrationPass(computeContext, sceneState);
 }
 
 bool PhysicsPassDispatcher::dispatchInitRigidContactVelocitiesPass(
@@ -4345,7 +4340,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mBuildNarrowPhaseChunksPass.forceRecreateAllVariants() &&
            mPrepareRigidIndirectArgsPass.forceRecreateAllVariants() &&
            mGenerateRigidContactsPass.forceRecreateAllVariants() &&
-           mSolveRigidContactConstraintsPass.forceRecreateAllVariants() &&
+           mFinalRigidContactDepenetrationPass.forceRecreateAllVariants() &&
            mClearRigidBodyPairContactAggregatesPass.forceRecreateAllVariants() &&
            mInitRigidContactVelocitiesPass.forceRecreateAllVariants() &&
            mPrepareRigidContactVelocityIndirectArgsPass.forceRecreateAllVariants() &&

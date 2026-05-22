@@ -1209,16 +1209,12 @@ constexpr Diligent::ShaderResourceVariableDesc kGenerateContactsVars[] = {
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
-constexpr Diligent::ShaderResourceVariableDesc kSolveRigidContactConstraintsVars[] = {
+constexpr Diligent::ShaderResourceVariableDesc kFinalRigidContactDepenetrationVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "g_BroadPhaseMeta",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyOrientations",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_PreviousRigidBodyPositionsInvMass",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_PreviousRigidBodyOrientations",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyInverseInertiaLocal",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2078,12 +2074,12 @@ const gpu::GpuComputePassDefinition kGenerateRigidContacts{
     std::size(kGenerateContactsVars),
 };
 
-const gpu::GpuComputePassDefinition kSolveRigidContactConstraints{
-    "physics/rigid/solver/physics_rigid_solve_contacts.cs.hlsl",
-    "CRESSimNeo.Physics.RigidSolveContactConstraints.CS",
-    "CRESSimNeo.Physics.RigidSolveContactConstraints.PSO",
-    kSolveRigidContactConstraintsVars,
-    std::size(kSolveRigidContactConstraintsVars),
+const gpu::GpuComputePassDefinition kFinalRigidContactDepenetration{
+    "physics/rigid/solver/physics_rigid_depenetrate_contacts.cs.hlsl",
+    "CRESSimNeo.Physics.RigidFinalContactDepenetration.CS",
+    "CRESSimNeo.Physics.RigidFinalContactDepenetration.PSO",
+    kFinalRigidContactDepenetrationVars,
+    std::size(kFinalRigidContactDepenetrationVars),
 };
 
 const gpu::GpuComputePassDefinition kClearRigidBodyPairContactAggregates{

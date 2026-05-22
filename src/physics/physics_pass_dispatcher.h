@@ -185,10 +185,10 @@ public:
                                      const PhysicsSceneGpuState &sceneState);
     bool generateRigidContacts(Diligent::IDeviceContext *computeContext,
                                const PhysicsSceneGpuState &sceneState);
-    bool solveRigidContactConstraints(Diligent::IDeviceContext *computeContext,
-                                      const PhysicsSceneGpuState &sceneState,
-                                      std::uint32_t rigidBodyCount,
-                                      const GpuRigidDispatchConstants &constants);
+    bool finalRigidContactDepenetration(Diligent::IDeviceContext *computeContext,
+                                        const PhysicsSceneGpuState &sceneState,
+                                        std::uint32_t rigidBodyCount,
+                                        const GpuRigidDispatchConstants &constants);
     bool solveBallJointConstraints(Diligent::IDeviceContext *computeContext,
                                    const PhysicsSceneGpuState &sceneState,
                                    const GpuRigidDispatchConstants &constants);
@@ -284,8 +284,8 @@ private:
                                    const PhysicsSceneGpuState &sceneState, std::uint32_t count);
     bool dispatchGenerateRigidContactsPass(Diligent::IDeviceContext *computeContext,
                                            const PhysicsSceneGpuState &sceneState);
-    bool dispatchSolveRigidContactConstraintsPass(Diligent::IDeviceContext *computeContext,
-                                                  const PhysicsSceneGpuState &sceneState);
+    bool dispatchFinalRigidContactDepenetrationPass(Diligent::IDeviceContext *computeContext,
+                                                    const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveBallJointConstraintsPass(Diligent::IDeviceContext *computeContext,
                                                const PhysicsSceneGpuState &sceneState,
                                                std::uint32_t jointCount);
@@ -404,7 +404,7 @@ private:
     gpu::GpuComputePass mPrepareRigidIndirectArgsPass;
     gpu::GpuComputePass mGenerateRigidContactsPass;
     gpu::GpuComputePass mClearRigidCorrectionsPass;
-    gpu::GpuComputePass mSolveRigidContactConstraintsPass;
+    gpu::GpuComputePass mFinalRigidContactDepenetrationPass;
     gpu::GpuComputePass mClearRigidBodyPairContactAggregatesPass;
     gpu::GpuComputePass mInitRigidContactVelocitiesPass;
     gpu::GpuComputePass mPrepareRigidContactVelocityIndirectArgsPass;
