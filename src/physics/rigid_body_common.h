@@ -11,6 +11,7 @@ namespace cressim::neo::physics
 {
 
 constexpr std::uint32_t kRigidContactsPerPair              = 4u;
+constexpr std::uint32_t kRigidBodyPairAggregateContacts    = 16u;
 constexpr std::uint32_t kRigidPairTypeCount                = 6u;
 constexpr std::uint32_t kRigidBodyTypeStatic               = 0u;
 constexpr std::uint32_t kRigidBodyTypeKinematic            = 1u;
@@ -19,6 +20,9 @@ constexpr std::uint32_t kKinematicTargetEnabled            = 1u << 0u;
 constexpr std::uint32_t kRigidJointDriveModeNone           = 0u;
 constexpr std::uint32_t kRigidJointDriveModeTargetPosition = 1u;
 constexpr std::uint32_t kRigidJointDriveModeTargetVelocity = 2u;
+constexpr std::uint32_t kRigidAggregateEntryFlagInitializing = 1u << 0u;
+constexpr std::uint32_t kRigidAggregateEntryFlagReady        = 1u << 1u;
+constexpr std::uint32_t kRigidAggregateEntryFlagOverflow     = 1u << 2u;
 
 static_assert(static_cast<std::uint32_t>(RigidBodyType::Static) == kRigidBodyTypeStatic);
 static_assert(static_cast<std::uint32_t>(RigidBodyType::Kinematic) == kRigidBodyTypeKinematic);
@@ -500,6 +504,22 @@ struct GpuRigidContactVelocityState
     float reserved1                = 0.0f;
 };
 
+struct GpuRigidBodyPairContactAggregateHeader
+{
+    std::uint32_t bodyA = 0xffffffffu;
+    std::uint32_t bodyB = 0xffffffffu;
+    std::uint32_t count = 0u;
+    std::uint32_t flags = 0u;
+};
+
+struct GpuRigidBodyPairContactAggregateSlot
+{
+    Diligent::float4 normal{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localPointA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localPointB{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 solverState{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
 static_assert(sizeof(GpuRigidDispatchConstants) == 48u);
 static_assert(sizeof(GpuRigidJointDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
@@ -528,6 +548,8 @@ static_assert(sizeof(GpuBodyMeta) == 16u);
 static_assert(sizeof(GpuBroadPhaseElement) == 32u);
 static_assert(sizeof(GpuMortonCodeElement) == 8u);
 static_assert(sizeof(GpuRigidContactVelocityState) == 16u);
+static_assert(sizeof(GpuRigidBodyPairContactAggregateHeader) == 16u);
+static_assert(sizeof(GpuRigidBodyPairContactAggregateSlot) == 64u);
 static_assert(sizeof(GpuBroadPhaseExtent) == 32u);
 static_assert(sizeof(GpuBvhNode) == 40u);
 static_assert(sizeof(GpuBvhConstructionInfo) == 8u);

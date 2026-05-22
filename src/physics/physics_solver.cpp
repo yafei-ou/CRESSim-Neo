@@ -709,7 +709,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 return false;
             }
             if (!mImpl->passDispatcher.initRigidContactVelocities(computeBackend.computeContext,
-                                                                  mImpl->sceneState))
+                                                                  mImpl->sceneState, constants))
             {
                 CRESSIM_LOG_ERROR(
                     "PhysicsSolver::step failed: InitRigidContactVelocities dispatch.");

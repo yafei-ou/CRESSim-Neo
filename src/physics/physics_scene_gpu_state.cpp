@@ -274,6 +274,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const auto rigidContactsBefore = mTransientState.rigidContactsBuffer.RawPtr();
     const auto rigidContactVelocityStateBefore =
         mTransientState.rigidContactVelocityStateBuffer.RawPtr();
+    const auto rigidAggregateHeadersBefore =
+        mTransientState.rigidBodyPairAggregateHeadersBuffer.RawPtr();
+    const auto rigidAggregateSlotsBefore =
+        mTransientState.rigidBodyPairAggregateSlotsBuffer.RawPtr();
     const auto translationCorrBefore = mTransientState.translationCorrectionsBuffer.RawPtr();
     const auto rotationCorrBefore    = mTransientState.rotationCorrectionsBuffer.RawPtr();
     const auto linearVelCorrBefore   = mTransientState.linearVelocityCorrectionsBuffer.RawPtr();
@@ -468,6 +472,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.narrowPhaseChunkCounterBuffer != nullptr &&
         mTransientState.rigidContactsBuffer != nullptr &&
         mTransientState.rigidContactVelocityStateBuffer != nullptr &&
+        mTransientState.rigidBodyPairAggregateHeadersBuffer != nullptr &&
+        mTransientState.rigidBodyPairAggregateSlotsBuffer != nullptr &&
         mTransientState.hingeJointLambdas0123Buffer != nullptr &&
         mTransientState.hingeJointLambdas45Buffer != nullptr &&
         mTransientState.sliderJointLambdas0123Buffer != nullptr &&
@@ -1339,6 +1345,19 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.rigidContactVelocityStateBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.RigidBodyPairAggregateHeaders",
+            sizeof(GpuRigidBodyPairContactAggregateHeader), newCandidatePairCapacity,
+            Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+            Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+            mTransientState.rigidBodyPairAggregateHeadersBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.RigidBodyPairAggregateSlots",
+            sizeof(GpuRigidBodyPairContactAggregateSlot),
+            newCandidatePairCapacity * kRigidBodyPairAggregateContacts,
+            Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+            Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+            mTransientState.rigidBodyPairAggregateSlotsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.HingeJointLambdas0123",
                                 sizeof(Diligent::float4), newHingeJointCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -1578,6 +1597,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
         rigidContactsBefore != mTransientState.rigidContactsBuffer.RawPtr() ||
         rigidContactVelocityStateBefore !=
             mTransientState.rigidContactVelocityStateBuffer.RawPtr() ||
+        rigidAggregateHeadersBefore !=
+            mTransientState.rigidBodyPairAggregateHeadersBuffer.RawPtr() ||
+        rigidAggregateSlotsBefore !=
+            mTransientState.rigidBodyPairAggregateSlotsBuffer.RawPtr() ||
         translationCorrBefore != mTransientState.translationCorrectionsBuffer.RawPtr() ||
         rotationCorrBefore != mTransientState.rotationCorrectionsBuffer.RawPtr() ||
         linearVelCorrBefore != mTransientState.linearVelocityCorrectionsBuffer.RawPtr() ||

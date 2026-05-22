@@ -215,7 +215,8 @@ public:
                                const PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
                                const GpuRigidDispatchConstants &constants);
     bool initRigidContactVelocities(Diligent::IDeviceContext *computeContext,
-                                    const PhysicsSceneGpuState &sceneState);
+                                    const PhysicsSceneGpuState &sceneState,
+                                    const GpuRigidDispatchConstants &constants);
     bool solveRigidContactVelocities(Diligent::IDeviceContext *computeContext,
                                      const PhysicsSceneGpuState &sceneState,
                                      std::uint32_t rigidBodyCount,
@@ -305,6 +306,9 @@ private:
                                                      std::uint32_t jointCount);
     bool dispatchBuildRigidNarrowPhaseChunksPass(Diligent::IDeviceContext *computeContext,
                                                  const PhysicsSceneGpuState &sceneState);
+    bool dispatchClearRigidBodyPairContactAggregatesPass(
+        Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+        std::uint32_t candidatePairCapacity);
     bool dispatchInitRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
                                                 const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
@@ -396,6 +400,7 @@ private:
     gpu::GpuComputePass mGenerateRigidContactsPass;
     gpu::GpuComputePass mClearRigidCorrectionsPass;
     gpu::GpuComputePass mSolveRigidContactConstraintsPass;
+    gpu::GpuComputePass mClearRigidBodyPairContactAggregatesPass;
     gpu::GpuComputePass mInitRigidContactVelocitiesPass;
     gpu::GpuComputePass mSolveRigidContactVelocitiesPass;
     gpu::GpuComputePass mSolveBallJointConstraintsPass;

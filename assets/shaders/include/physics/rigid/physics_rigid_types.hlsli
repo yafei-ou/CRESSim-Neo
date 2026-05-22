@@ -7,10 +7,14 @@
 static const uint kRigidBodyTypeStatic = 0u;
 static const uint kRigidBodyTypeKinematic = 1u;
 static const uint kRigidBodyTypeDynamic = 2u;
+static const uint kRigidBodyPairAggregateContacts = 16u;
 static const uint kKinematicTargetEnabled = 1u << 0u;
 static const uint kRigidJointDriveModeNone = 0u;
 static const uint kRigidJointDriveModeTargetPosition = 1u;
 static const uint kRigidJointDriveModeTargetVelocity = 2u;
+static const uint kRigidAggregateEntryFlagInitializing = 1u << 0u;
+static const uint kRigidAggregateEntryFlagReady = 1u << 1u;
+static const uint kRigidAggregateEntryFlagOverflow = 1u << 2u;
 
 struct GpuRigidContact
 {
@@ -30,6 +34,22 @@ struct GpuRigidContactVelocityState
     float targetNormalVelocity;
     float reserved0;
     float reserved1;
+};
+
+struct GpuRigidBodyPairContactAggregateHeader
+{
+    uint bodyA;
+    uint bodyB;
+    uint count;
+    uint flags;
+};
+
+struct GpuRigidBodyPairContactAggregateSlot
+{
+    float4 normal;
+    float4 localPointA;
+    float4 localPointB;
+    float4 solverState;
 };
 
 struct GpuBodyAabb
