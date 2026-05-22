@@ -10,6 +10,9 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyAngularVelocities);
 CRESSIM_STRUCTURED_BUFFER(GpuRigidContact, g_RigidContacts);
 CRESSIM_STRUCTURED_BUFFER(GpuBroadPhaseMeta, g_BroadPhaseMeta);
 
+CRESSIM_GLOBALLYCOHERENT_RW_STRUCTURED_BUFFER(GpuRigidBodyPairContactAggregateMapEntry,
+                                              g_RigidBodyPairAggregateMap);
+CRESSIM_GLOBALLYCOHERENT_RW_STRUCTURED_BUFFER(uint, g_RigidBodyPairAggregateActiveCount);
 CRESSIM_GLOBALLYCOHERENT_RW_STRUCTURED_BUFFER(GpuRigidBodyPairContactAggregateHeader,
                                               g_RigidBodyPairAggregateHeaders);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuRigidBodyPairContactAggregateSlot,
@@ -69,7 +72,7 @@ uint ReserveAggregateEntry(uint bodyA, uint bodyB)
 {
     if (candidatePairCapacity == 0u)
     {
-        return 0xffffffffu;
+        return kRigidInvalidAggregateIndex;
     }
 
     const uint startIndex = HashBodyPair(bodyA, bodyB) % candidatePairCapacity;
@@ -81,38 +84,59 @@ uint ReserveAggregateEntry(uint bodyA, uint bodyB)
         // cannot trap the whole dispatch in an infinite UAV spin loop.
         [loop] for (uint spin = 0u; spin < 64u; ++spin)
         {
-            const GpuRigidBodyPairContactAggregateHeader header =
-                CRESSIM_SB_LOAD(g_RigidBodyPairAggregateHeaders, aggregateIndex);
+            const GpuRigidBodyPairContactAggregateMapEntry mapEntry =
+                CRESSIM_SB_LOAD(g_RigidBodyPairAggregateMap, aggregateIndex);
 
-            if (header.flags == 0u)
+            if (mapEntry.flags == 0u)
             {
                 uint previousFlags = 0u;
                 InterlockedCompareExchange(
-                    CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, aggregateIndex).flags,
+                    CRESSIM_SB_REF(g_RigidBodyPairAggregateMap, aggregateIndex).flags,
                     0u, kRigidAggregateEntryFlagInitializing, previousFlags);
                 if (previousFlags == 0u)
                 {
-                    CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, aggregateIndex).bodyA = bodyA;
-                    CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, aggregateIndex).bodyB = bodyB;
-                    CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, aggregateIndex).count = 0u;
+                    uint pairIndex = 0u;
+                    InterlockedAdd(CRESSIM_SB_REF(g_RigidBodyPairAggregateActiveCount, 0u), 1u,
+                                   pairIndex);
+                    if (pairIndex >= candidatePairCapacity)
+                    {
+                        CRESSIM_SB_REF(g_RigidBodyPairAggregateMap, aggregateIndex).bodyA =
+                            kRigidInvalidAggregateIndex;
+                        CRESSIM_SB_REF(g_RigidBodyPairAggregateMap, aggregateIndex).bodyB =
+                            kRigidInvalidAggregateIndex;
+                        CRESSIM_SB_REF(g_RigidBodyPairAggregateMap, aggregateIndex).pairIndex =
+                            kRigidInvalidAggregateIndex;
+                        DeviceMemoryBarrier();
+                        CRESSIM_SB_REF(g_RigidBodyPairAggregateMap, aggregateIndex).flags = 0u;
+                        return kRigidInvalidAggregateIndex;
+                    }
+
+                    CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, pairIndex).bodyA = bodyA;
+                    CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, pairIndex).bodyB = bodyB;
+                    CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, pairIndex).count = 0u;
+                    CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, pairIndex).flags = 0u;
+                    CRESSIM_SB_REF(g_RigidBodyPairAggregateMap, aggregateIndex).bodyA = bodyA;
+                    CRESSIM_SB_REF(g_RigidBodyPairAggregateMap, aggregateIndex).bodyB = bodyB;
+                    CRESSIM_SB_REF(g_RigidBodyPairAggregateMap, aggregateIndex).pairIndex =
+                        pairIndex;
                     DeviceMemoryBarrier();
-                    CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, aggregateIndex).flags =
+                    CRESSIM_SB_REF(g_RigidBodyPairAggregateMap, aggregateIndex).flags =
                         kRigidAggregateEntryFlagReady;
-                    return aggregateIndex;
+                    return pairIndex;
                 }
                 continue;
             }
 
-            if ((header.flags & kRigidAggregateEntryFlagReady) != 0u)
+            if ((mapEntry.flags & kRigidAggregateEntryFlagReady) != 0u)
             {
-                if (header.bodyA == bodyA && header.bodyB == bodyB)
+                if (mapEntry.bodyA == bodyA && mapEntry.bodyB == bodyB)
                 {
-                    return aggregateIndex;
+                    return mapEntry.pairIndex;
                 }
                 break;
             }
 
-            if ((header.flags & kRigidAggregateEntryFlagInitializing) != 0u)
+            if ((mapEntry.flags & kRigidAggregateEntryFlagInitializing) != 0u)
             {
                 continue;
             }
@@ -121,12 +145,12 @@ uint ReserveAggregateEntry(uint bodyA, uint bodyB)
         }
     }
 
-    return 0xffffffffu;
+    return kRigidInvalidAggregateIndex;
 }
 
 bool ReserveAggregateSlot(uint aggregateIndex, out uint slotIndex)
 {
-    slotIndex = 0xffffffffu;
+    slotIndex = kRigidInvalidAggregateIndex;
 
     [loop] for (uint attempt = 0u; attempt < (kRigidBodyPairAggregateContacts + 1u); ++attempt)
     {
@@ -174,12 +198,12 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const GpuRigidContact contact = CanonicalizeContact(rawContact);
     const uint aggregateIndex = ReserveAggregateEntry(contact.bodyA, contact.bodyB);
-    if (aggregateIndex == 0xffffffffu)
+    if (aggregateIndex == kRigidInvalidAggregateIndex)
     {
         return;
     }
 
-    uint slotIndex = 0xffffffffu;
+    uint slotIndex = kRigidInvalidAggregateIndex;
     if (!ReserveAggregateSlot(aggregateIndex, slotIndex))
     {
         return;

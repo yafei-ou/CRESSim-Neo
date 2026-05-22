@@ -250,6 +250,8 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mClearRigidBodyPairContactAggregatesPass,
                   kClearRigidBodyPairContactAggregates) ||
         !initPass(mInitRigidContactVelocitiesPass, kInitRigidContactVelocities) ||
+        !initPass(mPrepareRigidContactVelocityIndirectArgsPass,
+                  kPrepareRigidContactVelocityIndirectArgs) ||
         !initPass(mSolveRigidContactVelocitiesPass, kSolveRigidContactVelocities) ||
         !initPass(mSolveBallJointConstraintsPass, kSolveBallJointConstraints) ||
         !initPass(mSolveHingeJointConstraintsPassivePass, kSolveHingeJointConstraintsPassive) ||
@@ -3469,6 +3471,12 @@ bool PhysicsPassDispatcher::dispatchInitRigidContactVelocitiesPass(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RigidContacts", transient.rigidContactsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyPairAggregateMap",
+                              transient.rigidBodyPairAggregateMapBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyPairAggregateActiveCount",
+                              transient.rigidBodyPairAggregateActiveCountBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_RigidBodyPairAggregateHeaders",
                               transient.rigidBodyPairAggregateHeadersBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
@@ -3499,6 +3507,12 @@ bool PhysicsPassDispatcher::dispatchClearRigidBodyPairContactAggregatesPass(
     const std::array bindings{
         gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyPairAggregateMap",
+                              transient.rigidBodyPairAggregateMapBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyPairAggregateActiveCount",
+                              transient.rigidBodyPairAggregateActiveCountBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_RigidBodyPairAggregateHeaders",
                               transient.rigidBodyPairAggregateHeadersBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
@@ -3506,6 +3520,27 @@ bool PhysicsPassDispatcher::dispatchClearRigidBodyPairContactAggregatesPass(
 
     return mClearRigidBodyPairContactAggregatesPass.dispatch(
         computeContext, kDefaultVariant, bindings, dispatchGroupCount(candidatePairCapacity));
+}
+
+bool PhysicsPassDispatcher::dispatchPrepareRigidContactVelocityIndirectArgsPass(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState)
+{
+    if (computeContext == nullptr)
+    {
+        return true;
+    }
+
+    const auto &transient = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"g_RigidBodyPairAggregateActiveCount",
+                              transient.rigidBodyPairAggregateActiveCountBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PhysicsIndirectDispatchArgs", transient.physicsIndirectArgsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return mPrepareRigidContactVelocityIndirectArgsPass.dispatch(computeContext, kDefaultVariant,
+                                                                 bindings, 1u);
 }
 
 bool PhysicsPassDispatcher::dispatchSolveRigidContactVelocitiesPass(
@@ -3523,8 +3558,6 @@ bool PhysicsPassDispatcher::dispatchSolveRigidContactVelocitiesPass(
     const auto &persistent = sceneState.persistentRigidBodies();
     const auto &transient  = sceneState.transientBuffers();
     const std::array bindings{
-        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
                               transient.predictedRigidBodies.positionsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -3542,6 +3575,9 @@ bool PhysicsPassDispatcher::dispatchSolveRigidContactVelocitiesPass(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RigidBodyTypes", persistent.bodyTypesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyPairAggregateActiveCount",
+                              transient.rigidBodyPairAggregateActiveCountBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RigidBodyPairAggregateHeaders",
                               transient.rigidBodyPairAggregateHeadersBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -3556,9 +3592,9 @@ bool PhysicsPassDispatcher::dispatchSolveRigidContactVelocitiesPass(
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    return mSolveRigidContactVelocitiesPass.dispatch(
-        computeContext, kDefaultVariant, bindings,
-        dispatchGroupCount(sceneState.candidatePairCapacity()));
+    return mSolveRigidContactVelocitiesPass.dispatchIndirect(
+        computeContext, kDefaultVariant, bindings, transient.physicsIndirectArgsBuffer,
+        indirectArgsOffset(GpuPhysicsIndirectDispatchSlot::RigidSolveContactVelocities));
 }
 
 bool PhysicsPassDispatcher::updateRigidDispatchConstants(Diligent::IDeviceContext *computeContext,
@@ -4119,14 +4155,35 @@ bool PhysicsPassDispatcher::updateRigidVelocities(Diligent::IDeviceContext *comp
                                                dispatchGroupCount(bodyCount));
 }
 
+bool PhysicsPassDispatcher::resetRigidContactVelocityAggregates(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    const GpuRigidDispatchConstants &constants)
+{
+    if (constants.candidatePairCapacity == 0u)
+    {
+        return true;
+    }
+
+    return writeRigidDispatchConstants(computeContext, constants) &&
+           dispatchClearRigidBodyPairContactAggregatesPass(
+               computeContext, sceneState, constants.candidatePairCapacity) &&
+           dispatchPrepareRigidContactVelocityIndirectArgsPass(computeContext, sceneState);
+}
+
 bool PhysicsPassDispatcher::initRigidContactVelocities(
     Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
     const GpuRigidDispatchConstants &constants)
 {
+    if (constants.candidatePairCapacity == 0u)
+    {
+        return true;
+    }
+
     return writeRigidDispatchConstants(computeContext, constants) &&
            dispatchClearRigidBodyPairContactAggregatesPass(
                computeContext, sceneState, constants.candidatePairCapacity) &&
-           dispatchInitRigidContactVelocitiesPass(computeContext, sceneState);
+           dispatchInitRigidContactVelocitiesPass(computeContext, sceneState) &&
+           dispatchPrepareRigidContactVelocityIndirectArgsPass(computeContext, sceneState);
 }
 
 bool PhysicsPassDispatcher::solveRigidContactVelocities(Diligent::IDeviceContext *computeContext,
@@ -4291,6 +4348,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mSolveRigidContactConstraintsPass.forceRecreateAllVariants() &&
            mClearRigidBodyPairContactAggregatesPass.forceRecreateAllVariants() &&
            mInitRigidContactVelocitiesPass.forceRecreateAllVariants() &&
+           mPrepareRigidContactVelocityIndirectArgsPass.forceRecreateAllVariants() &&
            mSolveRigidContactVelocitiesPass.forceRecreateAllVariants() &&
            mSolveBallJointConstraintsPass.forceRecreateAllVariants() &&
            mSolveHingeJointConstraintsPassivePass.forceRecreateAllVariants() &&

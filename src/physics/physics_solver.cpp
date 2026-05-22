@@ -708,13 +708,18 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     "PhysicsSolver::step failed: GenerateRigidContacts post-velocity dispatch.");
                 return false;
             }
-            if (!mImpl->passDispatcher.initRigidContactVelocities(computeBackend.computeContext,
-                                                                  mImpl->sceneState, constants))
-            {
-                CRESSIM_LOG_ERROR(
-                    "PhysicsSolver::step failed: InitRigidContactVelocities dispatch.");
-                return false;
-            }
+        }
+
+        if (rigidRigidContactIterations > 0u &&
+            !(hasRigidBroadPhaseWork
+                  ? mImpl->passDispatcher.initRigidContactVelocities(
+                        computeBackend.computeContext, mImpl->sceneState, constants)
+                  : mImpl->passDispatcher.resetRigidContactVelocityAggregates(
+                        computeBackend.computeContext, mImpl->sceneState, constants)))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: InitRigidContactVelocities dispatch.");
+            return false;
         }
 
         constants.iterationIndex = maxPositionPhaseIterations;

@@ -9,6 +9,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyLinearVelocities);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyAngularVelocities);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
+CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyPairAggregateActiveCount);
 CRESSIM_STRUCTURED_BUFFER(GpuRigidBodyPairContactAggregateHeader,
                           g_RigidBodyPairAggregateHeaders);
 
@@ -21,15 +22,15 @@ CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyAngularVelocityCorrections);
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint aggregateIndex = dispatchThreadID.x;
-    if (aggregateIndex >= candidatePairCapacity)
+    const uint activePairCount = CRESSIM_SB_LOAD(g_RigidBodyPairAggregateActiveCount, 0u);
+    if (aggregateIndex >= activePairCount)
     {
         return;
     }
 
     const GpuRigidBodyPairContactAggregateHeader aggregateHeader =
         CRESSIM_SB_LOAD(g_RigidBodyPairAggregateHeaders, aggregateIndex);
-    if ((aggregateHeader.flags & kRigidAggregateEntryFlagReady) == 0u ||
-        aggregateHeader.count == 0u)
+    if (aggregateHeader.count == 0u)
     {
         return;
     }

@@ -272,8 +272,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const auto staticFlagsBefore        = mTransientState.staticBodyFlagsBuffer.RawPtr();
     const auto staticOffsetsBefore      = mTransientState.staticBodyOffsetsBuffer.RawPtr();
     const auto rigidContactsBefore = mTransientState.rigidContactsBuffer.RawPtr();
-    const auto rigidContactVelocityStateBefore =
-        mTransientState.rigidContactVelocityStateBuffer.RawPtr();
+    const auto rigidAggregateMapBefore =
+        mTransientState.rigidBodyPairAggregateMapBuffer.RawPtr();
+    const auto rigidAggregateActiveCountBefore =
+        mTransientState.rigidBodyPairAggregateActiveCountBuffer.RawPtr();
     const auto rigidAggregateHeadersBefore =
         mTransientState.rigidBodyPairAggregateHeadersBuffer.RawPtr();
     const auto rigidAggregateSlotsBefore =
@@ -471,7 +473,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.narrowPhaseMetaBuffer != nullptr &&
         mTransientState.narrowPhaseChunkCounterBuffer != nullptr &&
         mTransientState.rigidContactsBuffer != nullptr &&
-        mTransientState.rigidContactVelocityStateBuffer != nullptr &&
+        mTransientState.rigidBodyPairAggregateMapBuffer != nullptr &&
+        mTransientState.rigidBodyPairAggregateActiveCountBuffer != nullptr &&
         mTransientState.rigidBodyPairAggregateHeadersBuffer != nullptr &&
         mTransientState.rigidBodyPairAggregateSlotsBuffer != nullptr &&
         mTransientState.hingeJointLambdas0123Buffer != nullptr &&
@@ -548,7 +551,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const std::uint32_t newNodeCapacity                     = std::max<std::uint32_t>(
         newColliderCapacity > 0u ? (newColliderCapacity * 2u - 1u) : 1u, 1u);
     const std::uint32_t newCandidatePairCapacity =
-        estimateRigidCandidatePairCapacity(newColliderCapacity);
+        estimateRigidCandidatePairCapacityFromColliderCount(newColliderCapacity);
     const std::uint32_t newChunkCapacity = std::max<std::uint32_t>(
         (newCandidatePairCapacity + kNarrowPhaseChunkSize - 1u) / kNarrowPhaseChunkSize, 1u);
     const std::uint32_t newRigidContactCapacity = std::max<std::uint32_t>(
@@ -1340,11 +1343,17 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.rigidContactsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidContactVelocityState",
-                                sizeof(GpuRigidContactVelocityState), newRigidContactCapacity,
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidBodyPairAggregateMap",
+                                sizeof(GpuRigidBodyPairContactAggregateMapEntry),
+                                newCandidatePairCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mTransientState.rigidContactVelocityStateBuffer) ||
+                                mTransientState.rigidBodyPairAggregateMapBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidBodyPairAggregateActiveCount",
+                                sizeof(std::uint32_t), 1u,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.rigidBodyPairAggregateActiveCountBuffer) ||
         !ensureStructuredBuffer(
             renderDevice, "CRESSimNeo.Physics.RigidBodyPairAggregateHeaders",
             sizeof(GpuRigidBodyPairContactAggregateHeader), newCandidatePairCapacity,
@@ -1595,8 +1604,9 @@ bool PhysicsSceneGpuState::ensureCapacity(
         staticFlagsBefore != mTransientState.staticBodyFlagsBuffer.RawPtr() ||
         staticOffsetsBefore != mTransientState.staticBodyOffsetsBuffer.RawPtr() ||
         rigidContactsBefore != mTransientState.rigidContactsBuffer.RawPtr() ||
-        rigidContactVelocityStateBefore !=
-            mTransientState.rigidContactVelocityStateBuffer.RawPtr() ||
+        rigidAggregateMapBefore != mTransientState.rigidBodyPairAggregateMapBuffer.RawPtr() ||
+        rigidAggregateActiveCountBefore !=
+            mTransientState.rigidBodyPairAggregateActiveCountBuffer.RawPtr() ||
         rigidAggregateHeadersBefore !=
             mTransientState.rigidBodyPairAggregateHeadersBuffer.RawPtr() ||
         rigidAggregateSlotsBefore !=

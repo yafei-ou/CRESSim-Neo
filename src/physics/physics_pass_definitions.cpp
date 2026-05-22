@@ -1247,6 +1247,10 @@ constexpr Diligent::ShaderResourceVariableDesc kInitRigidContactVelocitiesVars[]
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidContacts",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyPairAggregateMap",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyPairAggregateActiveCount",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyPairAggregateHeaders",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyPairAggregateSlots",
@@ -1256,13 +1260,22 @@ constexpr Diligent::ShaderResourceVariableDesc kInitRigidContactVelocitiesVars[]
 constexpr Diligent::ShaderResourceVariableDesc kClearRigidBodyPairContactAggregatesVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyPairAggregateMap",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyPairAggregateActiveCount",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyPairAggregateHeaders",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
-constexpr Diligent::ShaderResourceVariableDesc kSolveRigidContactVelocitiesVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
+constexpr Diligent::ShaderResourceVariableDesc kPrepareRigidContactVelocityIndirectArgsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyPairAggregateActiveCount",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PhysicsIndirectDispatchArgs",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kSolveRigidContactVelocitiesVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyOrientations",
@@ -1274,6 +1287,8 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveRigidContactVelocitiesVars[
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyInverseInertiaLocal",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTypes",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyPairAggregateActiveCount",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyPairAggregateHeaders",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2085,6 +2100,14 @@ const gpu::GpuComputePassDefinition kInitRigidContactVelocities{
     "CRESSimNeo.Physics.RigidInitContactVelocities.PSO",
     kInitRigidContactVelocitiesVars,
     std::size(kInitRigidContactVelocitiesVars),
+};
+
+const gpu::GpuComputePassDefinition kPrepareRigidContactVelocityIndirectArgs{
+    "physics/shared/physics_prepare_rigid_contact_velocity_indirect_args.cs.hlsl",
+    "CRESSimNeo.Physics.PrepareRigidContactVelocityIndirectArgs.CS",
+    "CRESSimNeo.Physics.PrepareRigidContactVelocityIndirectArgs.PSO",
+    kPrepareRigidContactVelocityIndirectArgsVars,
+    std::size(kPrepareRigidContactVelocityIndirectArgsVars),
 };
 
 const gpu::GpuComputePassDefinition kSolveRigidContactVelocities{

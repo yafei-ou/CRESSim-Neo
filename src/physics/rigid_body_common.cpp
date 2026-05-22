@@ -32,18 +32,18 @@ Diligent::QuaternionF conjugateQuaternion(const Diligent::QuaternionF &q)
 
 } // namespace
 
-std::uint32_t estimateRigidCandidatePairCapacity(std::uint32_t bodyCount) noexcept
+std::uint32_t estimateRigidCandidatePairCapacityFromColliderCount(
+    std::uint32_t colliderCount) noexcept
 {
-    if (bodyCount < 2u)
+    if (colliderCount < 2u)
     {
         return 0u;
     }
 
-    // Dense rigid stacks and compound bodies can generate far more overlaps than the
-    // old estimate handled, which led to silent truncation once piles collapsed.
-    constexpr std::uint32_t kPairsPerBodyEstimate = 128u;
-    constexpr std::uint32_t kMinCapacity          = 256u;
-    return std::max<std::uint32_t>(bodyCount * kPairsPerBodyEstimate, kMinCapacity);
+    constexpr std::uint32_t kCandidatePairsPerColliderEstimate = 32u;
+    constexpr std::uint32_t kMinCapacity                      = 64u;
+    return std::max<std::uint32_t>(colliderCount * kCandidatePairsPerColliderEstimate,
+                                   kMinCapacity);
 }
 
 EffectiveColliderDimensions computeEffectiveColliderDimensions(

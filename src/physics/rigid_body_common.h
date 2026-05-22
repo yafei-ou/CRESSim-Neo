@@ -23,6 +23,7 @@ constexpr std::uint32_t kRigidJointDriveModeTargetVelocity = 2u;
 constexpr std::uint32_t kRigidAggregateEntryFlagInitializing = 1u << 0u;
 constexpr std::uint32_t kRigidAggregateEntryFlagReady        = 1u << 1u;
 constexpr std::uint32_t kRigidAggregateEntryFlagOverflow     = 1u << 2u;
+constexpr std::uint32_t kRigidInvalidAggregateIndex          = 0xffffffffu;
 
 static_assert(static_cast<std::uint32_t>(RigidBodyType::Static) == kRigidBodyTypeStatic);
 static_assert(static_cast<std::uint32_t>(RigidBodyType::Kinematic) == kRigidBodyTypeKinematic);
@@ -496,20 +497,20 @@ struct GpuRigidContact
     Diligent::float4 material{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
-struct GpuRigidContactVelocityState
-{
-    float accumulatedNormalImpulse = 0.0f;
-    float targetNormalVelocity     = 0.0f;
-    float reserved0                = 0.0f;
-    float reserved1                = 0.0f;
-};
-
 struct GpuRigidBodyPairContactAggregateHeader
 {
-    std::uint32_t bodyA = 0xffffffffu;
-    std::uint32_t bodyB = 0xffffffffu;
+    std::uint32_t bodyA = kRigidInvalidAggregateIndex;
+    std::uint32_t bodyB = kRigidInvalidAggregateIndex;
     std::uint32_t count = 0u;
     std::uint32_t flags = 0u;
+};
+
+struct GpuRigidBodyPairContactAggregateMapEntry
+{
+    std::uint32_t bodyA     = kRigidInvalidAggregateIndex;
+    std::uint32_t bodyB     = kRigidInvalidAggregateIndex;
+    std::uint32_t pairIndex = kRigidInvalidAggregateIndex;
+    std::uint32_t flags     = 0u;
 };
 
 struct GpuRigidBodyPairContactAggregateSlot
@@ -547,8 +548,8 @@ static_assert(sizeof(GpuBodyAabb) == 32u);
 static_assert(sizeof(GpuBodyMeta) == 16u);
 static_assert(sizeof(GpuBroadPhaseElement) == 32u);
 static_assert(sizeof(GpuMortonCodeElement) == 8u);
-static_assert(sizeof(GpuRigidContactVelocityState) == 16u);
 static_assert(sizeof(GpuRigidBodyPairContactAggregateHeader) == 16u);
+static_assert(sizeof(GpuRigidBodyPairContactAggregateMapEntry) == 16u);
 static_assert(sizeof(GpuRigidBodyPairContactAggregateSlot) == 64u);
 static_assert(sizeof(GpuBroadPhaseExtent) == 32u);
 static_assert(sizeof(GpuBvhNode) == 40u);
@@ -571,7 +572,8 @@ struct EffectiveColliderDimensions
     float capsuleHalfHeight = 0.0f;
 };
 
-std::uint32_t estimateRigidCandidatePairCapacity(std::uint32_t bodyCount) noexcept;
+std::uint32_t estimateRigidCandidatePairCapacityFromColliderCount(
+    std::uint32_t colliderCount) noexcept;
 
 EffectiveColliderDimensions computeEffectiveColliderDimensions(
     ColliderShapeType shape, const Diligent::float4 &colliderParams,

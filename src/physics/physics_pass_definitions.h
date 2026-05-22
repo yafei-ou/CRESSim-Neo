@@ -80,6 +80,7 @@ extern const gpu::GpuComputePassDefinition kGenerateRigidContacts;
 extern const gpu::GpuComputePassDefinition kSolveRigidContactConstraints;
 extern const gpu::GpuComputePassDefinition kClearRigidBodyPairContactAggregates;
 extern const gpu::GpuComputePassDefinition kInitRigidContactVelocities;
+extern const gpu::GpuComputePassDefinition kPrepareRigidContactVelocityIndirectArgs;
 extern const gpu::GpuComputePassDefinition kSolveRigidContactVelocities;
 extern const gpu::GpuComputePassDefinition kSolveBallJointConstraints;
 extern const gpu::GpuComputePassDefinition kSolveHingeJointConstraintsPassive;

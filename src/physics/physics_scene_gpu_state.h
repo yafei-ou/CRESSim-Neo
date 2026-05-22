@@ -213,7 +213,8 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseMetaBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseChunkCounterBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidContactsBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidContactVelocityStateBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidBodyPairAggregateMapBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidBodyPairAggregateActiveCountBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidBodyPairAggregateHeadersBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidBodyPairAggregateSlotsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> hingeJointLambdas0123Buffer;
