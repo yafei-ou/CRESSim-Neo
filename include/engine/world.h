@@ -48,6 +48,7 @@ public:
     void setRigidBody(common::EntityId entityId, const RigidBodyComponent &component);
     bool removeRigidBody(common::EntityId entityId);
     bool setSoftBody(common::EntityId entityId, const SoftBodyComponent &component);
+    bool setMeshfreeSoftBody(common::EntityId entityId, const MeshfreeSoftBodyComponent &component);
     bool removeSoftBody(common::EntityId entityId);
     bool setFluid(common::EntityId entityId, const FluidComponent &component);
     bool removeFluid(common::EntityId entityId);

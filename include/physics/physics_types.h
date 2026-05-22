@@ -52,9 +52,10 @@ enum class RigidJointDriveMode : std::uint32_t
 
 enum class SoftBodySourceKind : std::uint32_t
 {
-    RegularGrid = 0u,
-    TetMesh     = 1u,
-    TetGenFiles = 2u,
+    RegularGrid       = 0u,
+    TetMesh           = 1u,
+    TetGenFiles       = 2u,
+    MeshfreeParticles = 3u,
 };
 
 enum class FluidSourceKind : std::uint32_t
@@ -96,12 +97,20 @@ struct SoftBodyTetGenSource
     std::vector<std::uint32_t> staticParticleIndices;
 };
 
+struct SoftBodyMeshfreeParticleSource
+{
+    std::vector<Diligent::float3> particleRestPositions;
+    std::vector<std::uint32_t> staticParticleIndices;
+    std::uint32_t neighbourCount = 12u;
+};
+
 struct SoftBodySourceDesc
 {
     SoftBodySourceKind kind = SoftBodySourceKind::RegularGrid;
     SoftBodyRegularGridSource regularGrid;
     SoftBodyTetMeshSource tetMesh;
     SoftBodyTetGenSource tetGen;
+    SoftBodyMeshfreeParticleSource meshfreeParticles;
 };
 
 struct FluidRegularGridSource

@@ -210,6 +210,11 @@ bool resolveSoftBodyTopology(const SoftBodyState &state, const TetMeshData *tetG
         sourceMesh.tetVertexIndices         = tetGenCache->tetVertexIndices;
         staticParticleIndices               = &state.source.tetGen.staticParticleIndices;
         break;
+    case SoftBodySourceKind::MeshfreeParticles:
+        sourceMesh.objectSpaceRestPositions =
+            state.source.meshfreeParticles.particleRestPositions;
+        staticParticleIndices = &state.source.meshfreeParticles.staticParticleIndices;
+        break;
     }
 
     if (sourceMesh.objectSpaceRestPositions.empty())
@@ -217,12 +222,13 @@ bool resolveSoftBodyTopology(const SoftBodyState &state, const TetMeshData *tetG
         errorMessage = "Soft body source does not contain any rest positions.";
         return false;
     }
-    if (sourceMesh.tetVertexIndices.empty())
+    const bool meshfreeSource = state.source.kind == SoftBodySourceKind::MeshfreeParticles;
+    if (!meshfreeSource && sourceMesh.tetVertexIndices.empty())
     {
         errorMessage = "Soft body source does not contain any tetrahedra.";
         return false;
     }
-    if ((sourceMesh.tetVertexIndices.size() % 4u) != 0u)
+    if (!meshfreeSource && (sourceMesh.tetVertexIndices.size() % 4u) != 0u)
     {
         errorMessage = "Soft body tetrahedron index buffer size must be divisible by 4.";
         return false;
@@ -238,6 +244,20 @@ bool resolveSoftBodyTopology(const SoftBodyState &state, const TetMeshData *tetG
     const std::uint32_t particleCount =
         static_cast<std::uint32_t>(outTopology.restPositions.size());
     outTopology.adjacencyLists.resize(particleCount);
+
+    if (meshfreeSource)
+    {
+        if (staticParticleIndices != nullptr)
+        {
+            outTopology.staticParticleIndices =
+                normalizedStaticParticleIndices(*staticParticleIndices, particleCount, errorMessage);
+            if (!errorMessage.empty())
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 
     std::set<std::uint64_t> uniqueEdges;
     struct BoundaryFaceEntry

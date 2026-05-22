@@ -451,6 +451,14 @@ bool equalSoftBodyTetGenSource(const SoftBodyTetGenSource &lhs,
            lhs.staticParticleIndices == rhs.staticParticleIndices;
 }
 
+bool equalSoftBodyMeshfreeParticleSource(const SoftBodyMeshfreeParticleSource &lhs,
+                                         const SoftBodyMeshfreeParticleSource &rhs) noexcept
+{
+    return lhs.particleRestPositions == rhs.particleRestPositions &&
+           lhs.staticParticleIndices == rhs.staticParticleIndices &&
+           lhs.neighbourCount == rhs.neighbourCount;
+}
+
 bool equalSoftBodySourceDesc(const SoftBodySourceDesc &lhs, const SoftBodySourceDesc &rhs) noexcept
 {
     if (lhs.kind != rhs.kind)
@@ -466,6 +474,8 @@ bool equalSoftBodySourceDesc(const SoftBodySourceDesc &lhs, const SoftBodySource
         return equalSoftBodyTetMeshSource(lhs.tetMesh, rhs.tetMesh);
     case SoftBodySourceKind::TetGenFiles:
         return equalSoftBodyTetGenSource(lhs.tetGen, rhs.tetGen);
+    case SoftBodySourceKind::MeshfreeParticles:
+        return equalSoftBodyMeshfreeParticleSource(lhs.meshfreeParticles, rhs.meshfreeParticles);
     }
 
     return false;
@@ -1901,6 +1911,11 @@ void PhysicsWorld::normalizeSoftBodyState(SoftBodyState &state) noexcept
         state.source.regularGrid.size.z = std::max(state.source.regularGrid.size.z, 1.0e-4f);
         state.source.regularGrid.targetParticleSpacing =
             std::max(state.source.regularGrid.targetParticleSpacing, 1.0e-4f);
+    }
+    if (state.source.kind == SoftBodySourceKind::MeshfreeParticles)
+    {
+        state.source.meshfreeParticles.neighbourCount =
+            std::max(state.source.meshfreeParticles.neighbourCount, 1u);
     }
     if (state.collisionLayer == 0u)
     {

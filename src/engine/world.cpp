@@ -1058,6 +1058,59 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
     return true;
 }
 
+bool World::setMeshfreeSoftBody(common::EntityId entityId, const MeshfreeSoftBodyComponent &component)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("setMeshfreeSoftBody requires valid entity id.");
+        return false;
+    }
+
+    if (!requireAliveEntity(entityId, "setMeshfreeSoftBody"))
+    {
+        return false;
+    }
+
+    if (!component.simulated)
+    {
+        (void)removeSoftBody(entityId);
+        return true;
+    }
+
+    TransformComponent transform{};
+    if (const std::optional<TransformComponent> t = tryGetTransform(entityId))
+    {
+        transform = *t;
+    }
+
+    physics::SoftBodyState state{};
+    state.entityId         = entityId;
+    state.environmentIndex = entityEnvironment(entityId);
+    state.source.kind      = physics::SoftBodySourceKind::MeshfreeParticles;
+    state.source.meshfreeParticles.particleRestPositions = component.particles;
+    state.source.meshfreeParticles.staticParticleIndices = component.staticParticleIndices;
+    state.source.meshfreeParticles.neighbourCount        = component.neighbourCount;
+    state.material             = component.material;
+    state.restTransform        = transform.worldTransform;
+    state.particleMass         = component.particleMass;
+    state.particleRadius       = component.particleRadius;
+    state.edgeCompliance       = component.compliance;
+    state.volumeCompliance     = 0.0f;
+    state.simulated            = component.simulated;
+    state.selfCollisionEnabled = component.selfCollisionEnabled;
+    state.collisionLayer       = component.collisionLayer;
+    state.collisionMask        = component.collisionMask;
+
+    if (!mPhysicsWorld.upsertSoftBody(state))
+    {
+        return false;
+    }
+    mPhysicsLinks[entityId].hasSoftBody = true;
+    mDrawRegistryDirty                  = true;
+    mSoftBodyRenderBindingsDirty        = true;
+    return true;
+}
+
 bool World::removeSoftBody(common::EntityId entityId)
 {
     const bool clearedAmplitudeRanges = clearUltrasoundScattererAmplitudeRanges(entityId);

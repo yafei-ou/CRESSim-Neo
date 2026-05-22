@@ -147,6 +147,21 @@ struct SoftBodyComponent
     std::uint32_t collisionMask  = 0xffffffffu;
 };
 
+struct MeshfreeSoftBodyComponent
+{
+    std::vector<Diligent::float3> particles;
+    std::vector<std::uint32_t> staticParticleIndices;
+    physics::SoftBodyMaterialDesc material{};
+    float particleRadius           = 0.001f;
+    float particleMass             = 0.001f;
+    std::uint32_t neighbourCount   = 12u;
+    float compliance               = 1.0e-6f;
+    bool simulated                 = true;
+    bool selfCollisionEnabled      = false;
+    std::uint32_t collisionLayer   = 1u;
+    std::uint32_t collisionMask    = 0xffffffffu;
+};
+
 struct FluidComponent
 {
     physics::FluidSourceDesc source{};
