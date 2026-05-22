@@ -18,9 +18,24 @@ CRESSIM_GLOBALLYCOHERENT_RW_STRUCTURED_BUFFER(GpuRigidBodyPairContactAggregateHe
 CRESSIM_RW_STRUCTURED_BUFFER(GpuRigidBodyPairContactAggregateSlot,
                              g_RigidBodyPairAggregateSlots);
 
+static const uint kRigidAggregateMaxProbeCount = 32u;
+static const uint kRigidAggregateMaxSpinCount = 16u;
+
+uint MixHashBits(uint value)
+{
+    value ^= value >> 16u;
+    value *= 0x7feb352du;
+    value ^= value >> 15u;
+    value *= 0x846ca68bu;
+    value ^= value >> 16u;
+    return value;
+}
+
 uint HashBodyPair(uint bodyA, uint bodyB)
 {
-    return (bodyA * 73856093u) ^ (bodyB * 19349663u);
+    uint hash = MixHashBits(bodyA);
+    hash ^= MixHashBits(bodyB + 0x9e3779b9u + (hash << 6u) + (hash >> 2u));
+    return MixHashBits(hash);
 }
 
 GpuRigidContact CanonicalizeContact(GpuRigidContact contact)
@@ -76,13 +91,14 @@ uint ReserveAggregateEntry(uint bodyA, uint bodyB)
     }
 
     const uint startIndex = HashBodyPair(bodyA, bodyB) % candidatePairCapacity;
-    [loop] for (uint probe = 0u; probe < candidatePairCapacity; ++probe)
+    const uint maxProbeCount = min(candidatePairCapacity, kRigidAggregateMaxProbeCount);
+    [loop] for (uint probe = 0u; probe < maxProbeCount; ++probe)
     {
         const uint aggregateIndex = (startIndex + probe) % candidatePairCapacity;
 
         // Bound the wait on in-flight entry initialization so a bad header state
         // cannot trap the whole dispatch in an infinite UAV spin loop.
-        [loop] for (uint spin = 0u; spin < 64u; ++spin)
+        [loop] for (uint spin = 0u; spin < kRigidAggregateMaxSpinCount; ++spin)
         {
             const GpuRigidBodyPairContactAggregateMapEntry mapEntry =
                 CRESSIM_SB_LOAD(g_RigidBodyPairAggregateMap, aggregateIndex);
