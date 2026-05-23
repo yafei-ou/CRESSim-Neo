@@ -476,8 +476,8 @@ void authorGround(World& world, std::uint32_t envIndex, const Diligent::float3& 
     cressim::neo::engine::ColliderComponent groundCollider{};
     groundCollider.shapeType = ColliderShapeType::Box;
     groundCollider.shapeParams = {halfExtent, 0.05f, halfExtent, 0.0f};
-    groundCollider.friction = 0.0f;
-    groundCollider.staticFriction = 0.0f;
+    groundCollider.friction = 0.1f;
+    groundCollider.staticFriction = 0.2f;
     groundCollider.restitution = 0.5f;
     world.addCollider(groundEntity, groundCollider);
 }
@@ -550,7 +550,7 @@ void authorDynamicArray(World& world, std::uint32_t envIndex, std::uint32_t envC
     const float envVelocityBiasZ = std::sin(envPhase) * 0.05f;
     const float envAngularBias = 0.20f + 0.05f * static_cast<float>(envIndex % 5u);
     const float envRestitution = 0.2f * static_cast<float>(envIndex % 4u);
-    const float envFriction = 0.35f + 0.08f * static_cast<float>(envIndex % 4u);
+    const float envFriction = 0.05f + 0.15f * static_cast<float>(envIndex % 4u);
 
     const auto meshForShape = [&](ColliderShapeType shape) {
         switch (shape)
@@ -621,6 +621,7 @@ void authorDynamicArray(World& world, std::uint32_t envIndex, std::uint32_t envC
                 collider.shapeType = shape;
                 collider.shapeParams = colliderParamsForShape(shape);
                 collider.friction = envFriction;
+                collider.staticFriction = envFriction + 0.1f;
                 collider.restitution = envRestitution;
                 world.addCollider(entity, collider);
             }
