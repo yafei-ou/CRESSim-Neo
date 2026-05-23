@@ -12,6 +12,8 @@ static const float kRelaxation = 0.90;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyPositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_STRUCTURED_BUFFER(GpuRigidContact, g_RigidContacts);
@@ -41,6 +43,8 @@ CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
 
     const float4 posInvMassA = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyA);
     const float4 posInvMassB = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyB);
+    const float4 previousPosInvMassA = CRESSIM_SB_LOAD(g_PreviousRigidBodyPositionsInvMass, bodyA);
+    const float4 previousPosInvMassB = CRESSIM_SB_LOAD(g_PreviousRigidBodyPositionsInvMass, bodyB);
     const uint bodyTypeA = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyA);
     const uint bodyTypeB = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyB);
 
@@ -51,6 +55,10 @@ CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
 
     const float4 qA = QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyA));
     const float4 qB = QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyB));
+    const float4 previousQA =
+        QuaternionNormalize(CRESSIM_SB_LOAD(g_PreviousRigidBodyOrientations, bodyA));
+    const float4 previousQB =
+        QuaternionNormalize(CRESSIM_SB_LOAD(g_PreviousRigidBodyOrientations, bodyB));
 
     float3 invInertiaA = CRESSIM_SB_REF(g_RigidBodyInverseInertiaLocal, bodyA).xyz;
     float3 invInertiaB = CRESSIM_SB_REF(g_RigidBodyInverseInertiaLocal, bodyB).xyz;
@@ -61,6 +69,10 @@ CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
 
     const float3 pA = posInvMassA.xyz + QuaternionRotate(qA, contact.localPointA.xyz);
     const float3 pB = posInvMassB.xyz + QuaternionRotate(qB, contact.localPointB.xyz);
+    const float3 previousPA =
+        previousPosInvMassA.xyz + QuaternionRotate(previousQA, contact.localPointA.xyz);
+    const float3 previousPB =
+        previousPosInvMassB.xyz + QuaternionRotate(previousQB, contact.localPointB.xyz);
 
     const float3 n = SafeNormalize(contact.normalPenetration.xyz, float3(0.0, 1.0, 0.0));
     const float measuredPenetration = -dot(pB - pA, n);
@@ -78,12 +90,37 @@ CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
         return;
 
     const float lambda = (penetration / denom) * kRelaxation;
-    const float3 translationA = -n * (invMassA * lambda);
-    const float3 rotationA =
+    float3 translationA = -n * (invMassA * lambda);
+    float3 rotationA =
         -MultiplyWorldInverseInertia(invInertiaA, qA, cross(rA, n)) * lambda;
-    const float3 translationB = n * (invMassB * lambda);
-    const float3 rotationB =
+    float3 translationB = n * (invMassB * lambda);
+    float3 rotationB =
         MultiplyWorldInverseInertia(invInertiaB, qB, cross(rB, n)) * lambda;
+
+    const float3 relativeDisplacement = (pB - previousPB) - (pA - previousPA);
+    const float3 tangentialDisplacement = ProjectOntoContactTangent(relativeDisplacement, n);
+    const float3 frictionDelta = ComputePositionFrictionDelta(
+        tangentialDisplacement, penetration, saturate(contact.material.x), saturate(contact.material.z));
+    const float frictionDistance = length(frictionDelta);
+    if (frictionDistance > 0.0)
+    {
+        const float3 tangent = frictionDelta / frictionDistance;
+        const float tangentMassA =
+            ComputeContactEffectiveMass(invMassA, invInertiaA, qA, rA, tangent);
+        const float tangentMassB =
+            ComputeContactEffectiveMass(invMassB, invInertiaB, qB, rB, tangent);
+        const float tangentDenom = tangentMassA + tangentMassB;
+        if (tangentDenom > kEpsilon)
+        {
+            const float tangentLambda = (frictionDistance / tangentDenom) * kRelaxation;
+            translationA += tangent * (invMassA * tangentLambda);
+            rotationA +=
+                MultiplyWorldInverseInertia(invInertiaA, qA, cross(rA, tangent)) * tangentLambda;
+            translationB -= tangent * (invMassB * tangentLambda);
+            rotationB -=
+                MultiplyWorldInverseInertia(invInertiaB, qB, cross(rB, tangent)) * tangentLambda;
+        }
+    }
 
     if (bodyTypeA == kRigidBodyTypeDynamic && invMassA != 0.0)
     {
