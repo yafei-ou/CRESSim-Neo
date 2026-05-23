@@ -38,6 +38,10 @@ constexpr float kCompositeExactChildHalfExtent   = 0.50f;
 constexpr float kCompositeHalfExtent             = 1.0f;
 constexpr float kSceneRestitution                = 1.0f;
 constexpr float kDropStartHeight                 = 6.0f;
+constexpr float kReferenceSphereRadius           = 0.6f;
+constexpr float kLeftReferenceX                  = -3.6f;
+constexpr float kCenterReferenceX                = 0.0f;
+constexpr float kRightReferenceX                 = 3.6f;
 
 enum class CompositeDecomposition
 {
@@ -229,6 +233,8 @@ int main(int argc, char** argv)
         cressim::neo::examples::helpers::makeCubeMesh(0.5f, "MixedShapeViewer.CubeMesh"));
     const auto largeCubeMesh = resources.registerMesh(cressim::neo::examples::helpers::makeCubeMesh(
         kCompositeHalfExtent, "MixedShapeViewer.CubeMesh"));
+    const auto sphereMesh = resources.registerMesh(cressim::neo::examples::helpers::makeSphereMesh(
+        kReferenceSphereRadius, 24u, 16u, "MixedShapeViewer.SphereMesh"));
     const auto planeMesh = resources.registerMesh(
         cressim::neo::examples::helpers::makePlaneMesh(8.0f, "MixedShapeViewer.PlaneMesh"));
 
@@ -278,7 +284,7 @@ int main(int argc, char** argv)
     const CompositeShapeConfig compositeShape =
         makeCompositeShapeConfig(sceneOptions.decomposition);
     TransformComponent compositeTransform{};
-    compositeTransform.worldTransform.position = {0.0f, kDropStartHeight, 2.0f};
+    compositeTransform.worldTransform.position = {kRightReferenceX, kDropStartHeight, 2.0f};
     compositeTransform.worldTransform.rotation =
         Diligent::QuaternionF::RotationFromAxisAngle(
             Diligent::normalize(Diligent::float3{1.0f, 0.0f, 1.0f}), sceneOptions.tiltRadians);
@@ -323,7 +329,7 @@ int main(int argc, char** argv)
 
     const auto singleColliderEntity = world.createEntity();
     TransformComponent singleColliderTransform{};
-    singleColliderTransform.worldTransform.position = {3.6f, kDropStartHeight, 2.0f};
+    singleColliderTransform.worldTransform.position = {kCenterReferenceX, kDropStartHeight, 2.0f};
     singleColliderTransform.worldTransform.rotation =
         Diligent::QuaternionF::RotationFromAxisAngle(
             Diligent::normalize(Diligent::float3{1.0f, 0.0f, 1.0f}), sceneOptions.tiltRadians);
@@ -350,6 +356,31 @@ int main(int argc, char** argv)
                                   kCompositeHalfExtent, 0.0f};
     singleCollider.restitution = kSceneRestitution;
     world.addCollider(singleColliderEntity, singleCollider);
+
+    const auto sphereReferenceEntity = world.createEntity();
+    TransformComponent sphereReferenceTransform{};
+    sphereReferenceTransform.worldTransform.position = {kLeftReferenceX, kDropStartHeight, 2.0f};
+    world.setTransform(sphereReferenceEntity, sphereReferenceTransform);
+
+    MeshRendererComponent sphereReferenceMesh{};
+    sphereReferenceMesh.mesh = sphereMesh;
+    sphereReferenceMesh.material = probeMaterial;
+    sphereReferenceMesh.visible = true;
+    world.setMeshRenderer(sphereReferenceEntity, sphereReferenceMesh);
+
+    RigidBodyComponent sphereReferenceBody{};
+    sphereReferenceBody.simulated = true;
+    sphereReferenceBody.inverseMass = 1.0f;
+    sphereReferenceBody.inverseInertiaLocal =
+        cressim::neo::examples::helpers::computeSphereInverseInertia(
+            kReferenceSphereRadius, sphereReferenceBody.inverseMass);
+    world.setRigidBody(sphereReferenceEntity, sphereReferenceBody);
+
+    ColliderComponent sphereReferenceCollider{};
+    sphereReferenceCollider.shapeType = ColliderShapeType::Sphere;
+    sphereReferenceCollider.shapeParams = {kReferenceSphereRadius, 0.0f, 0.0f, 0.0f};
+    sphereReferenceCollider.restitution = kSceneRestitution;
+    world.addCollider(sphereReferenceEntity, sphereReferenceCollider);
 
     // const auto probeEntity = world.createEntity();
     // TransformComponent probeTransform{};
