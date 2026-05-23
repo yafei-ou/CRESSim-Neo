@@ -743,6 +743,16 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+    // Grasping behavior is very dependent on substeps and iterations positional
+    // joint constraints are satisfied first; contact response is done after that using
+    // velocity solve. So the grasping behavior is not as good as treating rigid-rigid contacts
+    // as non-penetration positional constraints.
+    // This gives better contact velocity behavior, but it also means grasp stability can
+    // be weaker than an iterative non-penetration position solve when drives push bodies
+    // hard into each other.
+    // Another symptom is that joints can push a dynamic body into a static ground easily, since
+    // the non-penetration contact is never iteratively met in positional solve.
+    config.physicsDesc.substeps = 1;
     config.physicsDesc.defaultIterations = 50;
 
     DebugViewerApp viewer;

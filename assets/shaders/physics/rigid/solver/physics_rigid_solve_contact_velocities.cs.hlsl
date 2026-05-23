@@ -1,7 +1,10 @@
 #include "../../../include/physics/physics_atomic_float.hlsli"
 #include "../../../include/physics/rigid/physics_rigid_types.hlsli"
+#include "../../../include/physics/rigid/physics_rigid_contact_primitives.hlsli"
 #include "../../../include/physics/rigid/physics_rigid_solver_shared.hlsli"
 #include "../../../include/physics/physics_rigid_dispatch_constants.hlsli"
+
+static const float kRigidVelocityPenetrationStiffness = 1.0;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
@@ -107,6 +110,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             const float3 velocityB =
                 ComputeContactPointVelocity(linearVelocityB, angularVelocityB, rB);
             const float normalVelocity = dot(velocityB - velocityA, normal);
+            const float penetration =
+                max(ComputePenetrationFromPoints(pointA, pointB, normal) - kContactSlop, 0.0);
             const float normalDenom =
                 ComputeContactEffectiveMass(invMassA, invInertiaA, orientationA, rA, normal) +
                 ComputeContactEffectiveMass(invMassB, invInertiaB, orientationB, rB, normal);
@@ -115,9 +120,18 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                 continue;
             }
 
-            const float deltaImpulse = (slot.solverState.y - normalVelocity) / (normalDenom);
-            const float newAccumulated = max(slot.solverState.x + deltaImpulse, 0.0);
-            const float appliedImpulse = newAccumulated - slot.solverState.x;
+            float velocityImpulse = (slot.solverState.y - normalVelocity) / normalDenom;
+            if (velocityImpulse < -slot.solverState.x)
+            {
+                velocityImpulse = -slot.solverState.x;
+            }
+
+            const float penetrationImpulse =
+                (penetration > 0.0)
+                    ? ((kRigidVelocityPenetrationStiffness * penetration) / normalDenom)
+                    : 0.0;
+            const float appliedImpulse = velocityImpulse + penetrationImpulse;
+            const float newAccumulated = slot.solverState.x + appliedImpulse;
             slot.solverState.x = newAccumulated;
             if (abs(appliedImpulse) > kEpsilon)
             {
