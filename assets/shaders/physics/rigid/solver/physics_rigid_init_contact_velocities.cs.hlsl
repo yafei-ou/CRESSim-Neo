@@ -226,9 +226,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     GpuRigidBodyPairContactAggregateSlot aggregateSlot;
-    aggregateSlot.normal =
-        float4(SafeNormalize(contact.normalPenetration.xyz, float3(0.0, 1.0, 0.0)), 0.0);
-    aggregateSlot.localPointA = contact.localPointA;
+    aggregateSlot.normal = float4(
+        SafeNormalize(contact.normalPenetration.xyz, float3(0.0, 1.0, 0.0)),
+        saturate(contact.material.x));
+    aggregateSlot.localPointA = float4(contact.localPointA.xyz, saturate(contact.material.z));
     aggregateSlot.localPointB = contact.localPointB;
     aggregateSlot.solverState = 0.0;
 

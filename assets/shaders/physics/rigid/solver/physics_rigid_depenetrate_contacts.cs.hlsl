@@ -7,7 +7,7 @@
 
 static const float kBaumgarte = 0.25;
 // Final rigid-rigid cleanup is a single normal-only depenetration pass.
-static const float kMaxCorrectionPerIter = 0.02; // world units, tune (e.g. 2 cm)
+static const float kMaxCorrectionPerIter = 0.1;
 static const float kRelaxation = 0.90;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);

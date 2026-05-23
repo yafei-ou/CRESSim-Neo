@@ -89,8 +89,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             GpuRigidBodyPairContactAggregateSlot slot =
                 CRESSIM_SB_LOAD(g_RigidBodyPairAggregateSlots, flatSlotIndex);
             const bool hasRestitutionTarget = slot.solverState.y > 0.0;
-            if ((solvePass == 0u && !hasRestitutionTarget) ||
-                (solvePass == 1u && hasRestitutionTarget))
+            if ((solvePass == 0u && hasRestitutionTarget) ||
+                (solvePass == 1u && !hasRestitutionTarget))
             {
                 continue;
             }
@@ -115,31 +115,80 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                 continue;
             }
 
-            const float deltaImpulse = (slot.solverState.y - normalVelocity) / normalDenom;
+            const float deltaImpulse = (slot.solverState.y - normalVelocity) / (normalDenom);
             const float newAccumulated = max(slot.solverState.x + deltaImpulse, 0.0);
             const float appliedImpulse = newAccumulated - slot.solverState.x;
             slot.solverState.x = newAccumulated;
+            if (abs(appliedImpulse) > kEpsilon)
+            {
+                const float3 impulse = normal * appliedImpulse;
+                if (invMassA > kEpsilon)
+                {
+                    linearVelocityA += -impulse * invMassA;
+                    angularVelocityA +=
+                        MultiplyWorldInverseInertia(invInertiaA, orientationA, cross(rA, -impulse));
+                }
+
+                if (invMassB > kEpsilon)
+                {
+                    linearVelocityB += impulse * invMassB;
+                    angularVelocityB +=
+                        MultiplyWorldInverseInertia(invInertiaB, orientationB, cross(rB, impulse));
+                }
+            }
+
+            const float kineticFriction = saturate(slot.normal.w);
+            const float staticFriction = saturate(slot.localPointA.w);
+            const float3 postNormalVelocityA =
+                ComputeContactPointVelocity(linearVelocityA, angularVelocityA, rA);
+            const float3 postNormalVelocityB =
+                ComputeContactPointVelocity(linearVelocityB, angularVelocityB, rB);
+            const float3 tangentialVelocity =
+                ProjectOntoContactTangent(postNormalVelocityB - postNormalVelocityA, normal);
+            const float tangentialSpeed = length(tangentialVelocity);
+            if (tangentialSpeed > 1.0e-5)
+            {
+                const float3 tangent = tangentialVelocity / tangentialSpeed;
+                const float tangentDenom =
+                    ComputeContactEffectiveMass(invMassA, invInertiaA, orientationA, rA, tangent) +
+                    ComputeContactEffectiveMass(invMassB, invInertiaB, orientationB, rB, tangent);
+                if (tangentDenom > kEpsilon)
+                {
+                    const float rawTangentImpulse = -dot(tangentialVelocity, tangent) / tangentDenom;
+                    const float oldTangentAccum = slot.solverState.z;
+                    const float maxStaticImpulse = staticFriction * slot.solverState.x;
+                    const float maxDynamicImpulse = kineticFriction * slot.solverState.x;
+                    const float unclampedTangentAccum = oldTangentAccum + rawTangentImpulse;
+                    float newTangentAccum = unclampedTangentAccum;
+                    if (abs(unclampedTangentAccum) > maxStaticImpulse)
+                    {
+                        newTangentAccum =
+                            clamp(unclampedTangentAccum, -maxDynamicImpulse, maxDynamicImpulse);
+                    }
+
+                    const float appliedTangentImpulse = newTangentAccum - oldTangentAccum;
+                    slot.solverState.z = newTangentAccum;
+                    if (abs(appliedTangentImpulse) > kEpsilon)
+                    {
+                        const float3 tangentImpulse = tangent * appliedTangentImpulse;
+                        if (invMassA > kEpsilon)
+                        {
+                            linearVelocityA += -tangentImpulse * invMassA;
+                            angularVelocityA += MultiplyWorldInverseInertia(
+                                invInertiaA, orientationA, cross(rA, -tangentImpulse));
+                        }
+
+                        if (invMassB > kEpsilon)
+                        {
+                            linearVelocityB += tangentImpulse * invMassB;
+                            angularVelocityB += MultiplyWorldInverseInertia(
+                                invInertiaB, orientationB, cross(rB, tangentImpulse));
+                        }
+                    }
+                }
+            }
+
             CRESSIM_SB_STORE(g_RigidBodyPairAggregateSlots, flatSlotIndex, slot);
-
-            if (abs(appliedImpulse) <= kEpsilon)
-            {
-                continue;
-            }
-
-            const float3 impulse = normal * appliedImpulse;
-            if (invMassA > kEpsilon)
-            {
-                linearVelocityA += -impulse * invMassA;
-                angularVelocityA +=
-                    MultiplyWorldInverseInertia(invInertiaA, orientationA, cross(rA, -impulse));
-            }
-
-            if (invMassB > kEpsilon)
-            {
-                linearVelocityB += impulse * invMassB;
-                angularVelocityB +=
-                    MultiplyWorldInverseInertia(invInertiaB, orientationB, cross(rB, impulse));
-            }
         }
     }
 

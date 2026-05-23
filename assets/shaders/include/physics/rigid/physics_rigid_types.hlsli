@@ -47,9 +47,14 @@ struct GpuRigidBodyPairContactAggregateMapEntry
 
 struct GpuRigidBodyPairContactAggregateSlot
 {
+    // normal.xyz = contact normal, normal.w = kinetic friction
     float4 normal;
+    // localPointA.xyz = point in body A local space, localPointA.w = static friction
     float4 localPointA;
     float4 localPointB;
+    // solverState.x = accumulated normal impulse
+    // solverState.y = restitution target normal velocity
+    // solverState.z = accumulated tangential impulse
     float4 solverState;
 };
 

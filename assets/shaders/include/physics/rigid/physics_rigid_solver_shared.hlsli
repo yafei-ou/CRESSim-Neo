@@ -4,8 +4,6 @@
 #include "../collision/physics_shape_common.hlsli"
 
 static const float kRigidRestitutionThreshold = 0.0;
-static const float kRigidContactBiasFactor = 0.15;
-static const float kRigidContactMaxBiasVelocity = 1.0;
 static const float kMaxTotalLinearVelocityCorrectionPerIter = 10.0;
 static const float kMaxTotalAngularVelocityCorrectionPerIter = 20.0;
 
