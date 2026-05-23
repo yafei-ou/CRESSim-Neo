@@ -127,6 +127,9 @@ int main(int argc, char** argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+    // Keep CPU rigid-body state in sync so realloc-triggered full uploads do not restore old
+    // bodies to their authored spawn transforms.
+    config.physicsDesc.enableBlockingReadback = true;
 
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
