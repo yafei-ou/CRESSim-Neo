@@ -185,7 +185,7 @@ int main(int argc, char** argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
-    config.physicsDesc.defaultIterations = 10;
+    config.physicsDesc.defaultIterations = 30;
 
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};

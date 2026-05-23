@@ -4,8 +4,11 @@
 #include "../collision/physics_shape_common.hlsli"
 
 static const float kRigidRestitutionThreshold = 0.0;
-static const float kMaxTotalLinearVelocityCorrectionPerIter = 10.0;
-static const float kMaxTotalAngularVelocityCorrectionPerIter = 20.0;
+// These affects the needed number of velocity iterations; larger values lead to faster velocity
+// solver but can be unstable with more contacts; smaller values improves stability but requires
+// more velocity iterations
+static const float kMaxTotalLinearVelocityCorrectionPerIter = 0.8;
+static const float kMaxTotalAngularVelocityCorrectionPerIter = 0.5;
 
 float3 MultiplyWorldInverseInertia(float3 inverseInertiaLocal, float4 orientation, float3 value)
 {
