@@ -27,7 +27,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     header.bodyA = kRigidInvalidAggregateIndex;
     header.bodyB = kRigidInvalidAggregateIndex;
     header.count = 0u;
-    header.flags = 0u;
+    header.reserved0 = 0u;
     CRESSIM_SB_STORE(g_RigidBodyPairAggregateHeaders, aggregateIndex, header);
 
     if (aggregateIndex == 0u)

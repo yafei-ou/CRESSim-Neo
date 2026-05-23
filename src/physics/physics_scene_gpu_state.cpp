@@ -265,25 +265,24 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.predictedRigidBodies.linearVelocitiesBuffer.RawPtr();
     const auto predictedAngularBefore =
         mTransientState.predictedRigidBodies.angularVelocitiesBuffer.RawPtr();
-    const auto bodyAabbsBefore          = mTransientState.bodyAabbsBuffer.RawPtr();
-    const auto bodyMetaBefore           = mTransientState.bodyMetaBuffer.RawPtr();
-    const auto activeFlagsBefore        = mTransientState.activeBodyFlagsBuffer.RawPtr();
-    const auto activeOffsetsBefore      = mTransientState.activeBodyOffsetsBuffer.RawPtr();
-    const auto staticFlagsBefore        = mTransientState.staticBodyFlagsBuffer.RawPtr();
-    const auto staticOffsetsBefore      = mTransientState.staticBodyOffsetsBuffer.RawPtr();
-    const auto rigidContactsBefore = mTransientState.rigidContactsBuffer.RawPtr();
-    const auto rigidAggregateMapBefore =
-        mTransientState.rigidBodyPairAggregateMapBuffer.RawPtr();
+    const auto bodyAabbsBefore         = mTransientState.bodyAabbsBuffer.RawPtr();
+    const auto bodyMetaBefore          = mTransientState.bodyMetaBuffer.RawPtr();
+    const auto activeFlagsBefore       = mTransientState.activeBodyFlagsBuffer.RawPtr();
+    const auto activeOffsetsBefore     = mTransientState.activeBodyOffsetsBuffer.RawPtr();
+    const auto staticFlagsBefore       = mTransientState.staticBodyFlagsBuffer.RawPtr();
+    const auto staticOffsetsBefore     = mTransientState.staticBodyOffsetsBuffer.RawPtr();
+    const auto rigidContactsBefore     = mTransientState.rigidContactsBuffer.RawPtr();
+    const auto rigidAggregateMapBefore = mTransientState.rigidBodyPairAggregateMapBuffer.RawPtr();
     const auto rigidAggregateActiveCountBefore =
         mTransientState.rigidBodyPairAggregateActiveCountBuffer.RawPtr();
     const auto rigidAggregateHeadersBefore =
         mTransientState.rigidBodyPairAggregateHeadersBuffer.RawPtr();
     const auto rigidAggregateSlotsBefore =
         mTransientState.rigidBodyPairAggregateSlotsBuffer.RawPtr();
-    const auto translationCorrBefore = mTransientState.translationCorrectionsBuffer.RawPtr();
-    const auto rotationCorrBefore    = mTransientState.rotationCorrectionsBuffer.RawPtr();
-    const auto linearVelCorrBefore   = mTransientState.linearVelocityCorrectionsBuffer.RawPtr();
-    const auto angularVelCorrBefore  = mTransientState.angularVelocityCorrectionsBuffer.RawPtr();
+    const auto translationCorrBefore    = mTransientState.translationCorrectionsBuffer.RawPtr();
+    const auto rotationCorrBefore       = mTransientState.rotationCorrectionsBuffer.RawPtr();
+    const auto linearVelCorrBefore      = mTransientState.linearVelocityCorrectionsBuffer.RawPtr();
+    const auto angularVelCorrBefore     = mTransientState.angularVelocityCorrectionsBuffer.RawPtr();
     const auto particlePositionsBefore  = mPersistentParticles.positionsInvMassBuffer.RawPtr();
     const auto particlePreviousBefore   = mPersistentParticles.previousPositionsBuffer.RawPtr();
     const auto particleVelocitiesBefore = mPersistentParticles.velocitiesBuffer.RawPtr();
@@ -1349,24 +1348,24 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.rigidBodyPairAggregateMapBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidBodyPairAggregateActiveCount",
+        !ensureStructuredBuffer(renderDevice,
+                                "CRESSimNeo.Physics.RigidBodyPairAggregateActiveCount",
                                 sizeof(std::uint32_t), 1u,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.rigidBodyPairAggregateActiveCountBuffer) ||
-        !ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.RigidBodyPairAggregateHeaders",
-            sizeof(GpuRigidBodyPairContactAggregateHeader), newCandidatePairCapacity,
-            Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
-            Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-            mTransientState.rigidBodyPairAggregateHeadersBuffer) ||
-        !ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.RigidBodyPairAggregateSlots",
-            sizeof(GpuRigidBodyPairContactAggregateSlot),
-            newCandidatePairCapacity * kRigidBodyPairAggregateContacts,
-            Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
-            Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-            mTransientState.rigidBodyPairAggregateSlotsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidBodyPairAggregateHeaders",
+                                sizeof(GpuRigidBodyPairContactAggregateHeader),
+                                newCandidatePairCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.rigidBodyPairAggregateHeadersBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidBodyPairAggregateSlots",
+                                sizeof(GpuRigidBodyPairContactAggregateSlot),
+                                newCandidatePairCapacity * kRigidBodyPairAggregateContacts,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.rigidBodyPairAggregateSlotsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.HingeJointLambdas0123",
                                 sizeof(Diligent::float4), newHingeJointCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -1609,8 +1608,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
             mTransientState.rigidBodyPairAggregateActiveCountBuffer.RawPtr() ||
         rigidAggregateHeadersBefore !=
             mTransientState.rigidBodyPairAggregateHeadersBuffer.RawPtr() ||
-        rigidAggregateSlotsBefore !=
-            mTransientState.rigidBodyPairAggregateSlotsBuffer.RawPtr() ||
+        rigidAggregateSlotsBefore != mTransientState.rigidBodyPairAggregateSlotsBuffer.RawPtr() ||
         translationCorrBefore != mTransientState.translationCorrectionsBuffer.RawPtr() ||
         rotationCorrBefore != mTransientState.rotationCorrectionsBuffer.RawPtr() ||
         linearVelCorrBefore != mTransientState.linearVelocityCorrectionsBuffer.RawPtr() ||

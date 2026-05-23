@@ -130,7 +130,7 @@ uint ReserveAggregateEntry(uint bodyA, uint bodyB)
                     CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, pairIndex).bodyA = bodyA;
                     CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, pairIndex).bodyB = bodyB;
                     CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, pairIndex).count = 0u;
-                    CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, pairIndex).flags = 0u;
+                    CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, pairIndex).reserved0 = 0u;
                     CRESSIM_SB_REF(g_RigidBodyPairAggregateMap, aggregateIndex).bodyA = bodyA;
                     CRESSIM_SB_REF(g_RigidBodyPairAggregateMap, aggregateIndex).bodyB = bodyB;
                     CRESSIM_SB_REF(g_RigidBodyPairAggregateMap, aggregateIndex).pairIndex =
@@ -174,8 +174,6 @@ bool ReserveAggregateSlot(uint aggregateIndex, out uint slotIndex)
             CRESSIM_SB_LOAD(g_RigidBodyPairAggregateHeaders, aggregateIndex).count;
         if (currentCount >= kRigidBodyPairAggregateContacts)
         {
-            InterlockedOr(CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, aggregateIndex).flags,
-                          kRigidAggregateEntryFlagOverflow);
             return false;
         }
 
@@ -190,8 +188,6 @@ bool ReserveAggregateSlot(uint aggregateIndex, out uint slotIndex)
         }
     }
 
-    InterlockedOr(CRESSIM_SB_REF(g_RigidBodyPairAggregateHeaders, aggregateIndex).flags,
-                  kRigidAggregateEntryFlagOverflow);
     return false;
 }
 

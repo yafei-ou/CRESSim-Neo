@@ -186,28 +186,17 @@ public:
     bool generateRigidContacts(Diligent::IDeviceContext *computeContext,
                                const PhysicsSceneGpuState &sceneState);
     bool finalRigidContactDepenetration(Diligent::IDeviceContext *computeContext,
-                                        const PhysicsSceneGpuState &sceneState,
-                                        std::uint32_t rigidBodyCount,
-                                        const GpuRigidDispatchConstants &constants);
+                                        const PhysicsSceneGpuState &sceneState);
     bool solveBallJointConstraints(Diligent::IDeviceContext *computeContext,
-                                   const PhysicsSceneGpuState &sceneState,
-                                   const GpuRigidDispatchConstants &constants);
+                                   const PhysicsSceneGpuState &sceneState);
     bool solveHingeJointConstraints(Diligent::IDeviceContext *computeContext,
-                                    const PhysicsSceneGpuState &sceneState,
-                                    const GpuRigidDispatchConstants &constants);
+                                    const PhysicsSceneGpuState &sceneState);
     bool solveSliderJointConstraints(Diligent::IDeviceContext *computeContext,
-                                     const PhysicsSceneGpuState &sceneState,
-                                     const GpuRigidDispatchConstants &constants);
+                                     const PhysicsSceneGpuState &sceneState);
     bool solveHingeJointTargetVelocities(Diligent::IDeviceContext *computeContext,
-                                         const PhysicsSceneGpuState &sceneState,
-                                         const GpuRigidDispatchConstants &constants);
+                                         const PhysicsSceneGpuState &sceneState);
     bool solveSliderJointTargetVelocities(Diligent::IDeviceContext *computeContext,
-                                          const PhysicsSceneGpuState &sceneState,
-                                          const GpuRigidDispatchConstants &constants);
-    bool applyRigidVelocityCorrections(Diligent::IDeviceContext *computeContext,
-                                       const PhysicsSceneGpuState &sceneState,
-                                       std::uint32_t rigidBodyCount,
-                                       const GpuRigidDispatchConstants &constants);
+                                          const PhysicsSceneGpuState &sceneState);
     bool applyRigidCorrections(Diligent::IDeviceContext *computeContext,
                                const PhysicsSceneGpuState &sceneState, std::uint32_t rigidBodyCount,
                                const GpuRigidDispatchConstants &constants);
@@ -309,18 +298,15 @@ private:
                                                      std::uint32_t jointCount);
     bool dispatchBuildRigidNarrowPhaseChunksPass(Diligent::IDeviceContext *computeContext,
                                                  const PhysicsSceneGpuState &sceneState);
-    bool dispatchClearRigidBodyPairContactAggregatesPass(
-        Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-        std::uint32_t candidatePairCapacity);
+    bool dispatchClearRigidBodyPairContactAggregatesPass(Diligent::IDeviceContext *computeContext,
+                                                         const PhysicsSceneGpuState &sceneState,
+                                                         std::uint32_t candidatePairCapacity);
     bool dispatchInitRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
                                                 const PhysicsSceneGpuState &sceneState);
     bool dispatchPrepareRigidContactVelocityIndirectArgsPass(
         Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
                                                  const PhysicsSceneGpuState &sceneState);
-    bool dispatchApplyRigidVelocityCorrectionsPass(Diligent::IDeviceContext *computeContext,
-                                                   const PhysicsSceneGpuState &sceneState,
-                                                   std::uint32_t rigidBodyCount);
     bool dispatchApplyRigidCorrectionsPass(Diligent::IDeviceContext *computeContext,
                                            const PhysicsSceneGpuState &sceneState,
                                            std::uint32_t rigidBodyCount);

@@ -201,7 +201,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         std::max(std::max(std::max(fluidIterations, softInternalIterations), softContactIterations),
                  rigidJointIterations),
         rigidContactIterations);
-    const std::uint32_t maxPositionPhaseIterations = maxPhaseIterations;
+    const std::uint32_t maxPositionPhaseIterations =
+        std::max(std::max(fluidIterations, softInternalIterations),
+                 std::max(softContactIterations, rigidJointIterations));
     const float substepDt = frameContext.deltaSeconds / static_cast<float>(substeps);
 
     for (std::uint32_t substep = 0; substep < substeps; ++substep)
@@ -211,8 +213,6 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         constants.rigidBodyCount        = rigidBodyCount;
         constants.colliderCount         = colliderCount;
         constants.candidatePairCapacity = mImpl->sceneState.candidatePairCapacity();
-        constants.substepIndex          = substep;
-        constants.solverIterations      = maxPhaseIterations;
         GpuParticleDispatchConstants particleConstants{};
         particleConstants.dt                   = substepDt;
         particleConstants.particleCount        = particleCount;
@@ -257,8 +257,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         const bool hasRigidBroadPhaseWork = world.activeMovingColliderCount() > 0u;
         const bool hasFinalRigidDepenetration =
             hasRigidBroadPhaseWork && rigidContactIterations > 0u;
-        constants.activeMovingCount       = world.activeMovingColliderCount();
-        constants.staticBodyCount         = world.staticColliderCount();
+        constants.activeMovingCount = world.activeMovingColliderCount();
+        constants.staticBodyCount   = world.staticColliderCount();
         if (rigidBodyCount != 0u)
         {
             if (!mImpl->passDispatcher.updateRigidWorldAabbs(
@@ -443,7 +443,6 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         {
             for (std::uint32_t iteration = 0u; iteration < maxPositionPhaseIterations; ++iteration)
             {
-                constants.iterationIndex         = iteration;
                 particleConstants.iterationIndex = iteration;
                 const bool runSoftInternal =
                     hasSoftInternalWork && iteration < softInternalIterations;
@@ -597,25 +596,22 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                         "PhysicsSolver::step failed: UpdateRigidDispatchConstants dispatch.");
                     return false;
                 }
-                if (runBallJoints &&
-                    !mImpl->passDispatcher.solveBallJointConstraints(computeBackend.computeContext,
-                                                                     mImpl->sceneState, constants))
+                if (runBallJoints && !mImpl->passDispatcher.solveBallJointConstraints(
+                                         computeBackend.computeContext, mImpl->sceneState))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: SolveBallJointConstraints dispatch.");
                     return false;
                 }
-                if (runHingeJoints &&
-                    !mImpl->passDispatcher.solveHingeJointConstraints(computeBackend.computeContext,
-                                                                      mImpl->sceneState, constants))
+                if (runHingeJoints && !mImpl->passDispatcher.solveHingeJointConstraints(
+                                          computeBackend.computeContext, mImpl->sceneState))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: SolveHingeJointConstraints dispatch.");
                     return false;
                 }
-                if (runSliderJoints &&
-                    !mImpl->passDispatcher.solveSliderJointConstraints(
-                        computeBackend.computeContext, mImpl->sceneState, constants))
+                if (runSliderJoints && !mImpl->passDispatcher.solveSliderJointConstraints(
+                                           computeBackend.computeContext, mImpl->sceneState))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: SolveSliderJointConstraints dispatch.");
@@ -665,9 +661,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     "PhysicsSolver::step failed: FinalizePairs post-velocity dispatch.");
                 return false;
             }
-            if (!mImpl->passDispatcher.emitBroadPhasePairs(
-                    computeBackend.computeContext, mImpl->sceneState, constants.activeMovingCount,
-                    constants))
+            if (!mImpl->passDispatcher.emitBroadPhasePairs(computeBackend.computeContext,
+                                                           mImpl->sceneState,
+                                                           constants.activeMovingCount, constants))
             {
                 CRESSIM_LOG_ERROR(
                     "PhysicsSolver::step failed: typed pair emission post-velocity dispatch.");
@@ -691,17 +687,15 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
         if (rigidContactIterations > 0u &&
             !(hasRigidBroadPhaseWork
-                  ? mImpl->passDispatcher.initRigidContactVelocities(
-                        computeBackend.computeContext, mImpl->sceneState, constants)
+                  ? mImpl->passDispatcher.initRigidContactVelocities(computeBackend.computeContext,
+                                                                     mImpl->sceneState, constants)
                   : mImpl->passDispatcher.resetRigidContactVelocityAggregates(
                         computeBackend.computeContext, mImpl->sceneState, constants)))
         {
-            CRESSIM_LOG_ERROR(
-                "PhysicsSolver::step failed: InitRigidContactVelocities dispatch.");
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: InitRigidContactVelocities dispatch.");
             return false;
         }
 
-        constants.iterationIndex = maxPositionPhaseIterations;
         if (!mImpl->passDispatcher.updateRigidVelocities(
                 computeBackend.computeContext, mImpl->sceneState, rigidBodyCount, constants))
         {
@@ -794,10 +788,10 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
         const std::uint32_t rigidVelocityIterations =
             std::max(rigidContactIterations, rigidJointIterations);
-        if (rigidVelocityIterations > 0u && !mImpl->passDispatcher.solveRigidContactVelocities(
-                                                computeBackend.computeContext, mImpl->sceneState,
-                                                rigidBodyCount, rigidContactIterations,
-                                                rigidJointIterations, constants))
+        if (rigidVelocityIterations > 0u &&
+            !mImpl->passDispatcher.solveRigidContactVelocities(
+                computeBackend.computeContext, mImpl->sceneState, rigidBodyCount,
+                rigidContactIterations, rigidJointIterations, constants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SolveRigidContactVelocities dispatch.");
             return false;
@@ -807,8 +801,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         {
             // Final rigid-rigid cleanup removes any residual normal overlap after the
             // velocity solve without reintroducing the old iterative position-contact path.
-            if (!mImpl->passDispatcher.finalRigidContactDepenetration(
-                    computeBackend.computeContext, mImpl->sceneState, rigidBodyCount, constants))
+            if (!mImpl->passDispatcher.finalRigidContactDepenetration(computeBackend.computeContext,
+                                                                      mImpl->sceneState))
             {
                 CRESSIM_LOG_ERROR(
                     "PhysicsSolver::step failed: Final rigid depenetration dispatch.");

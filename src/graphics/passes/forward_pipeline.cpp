@@ -620,17 +620,17 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     const bool hasLocalShadowDraws = !localShadowRegistry.empty();
     const bool needsDebugParticles =
         mDebugParticlePass != nullptr && physicsScene != nullptr && options.debugParticles.enabled;
-    const bool needsFluid  = mFluidDepthPass != nullptr && mFluidColorPass != nullptr &&
-                             mFluidDepthFilterPass != nullptr && mFluidCompositePass != nullptr &&
-                             physicsScene != nullptr &&
-                             physicsScene->soft.particles.fluidVisualCount > 0u &&
-                             physicsScene->soft.particles.positionsInvMassBuffer != nullptr &&
-                             physicsScene->soft.particles.ownerIndicesBuffer != nullptr &&
-                             physicsScene->soft.particles.fluidVisualsBuffer != nullptr &&
-                             physicsScene->soft.particles.particleKindsBuffer != nullptr &&
-                             physicsScene->soft.particles.fluidAnisotropy1Buffer != nullptr &&
-                             physicsScene->soft.particles.fluidAnisotropy2Buffer != nullptr &&
-                             physicsScene->soft.particles.fluidAnisotropy3Buffer != nullptr;
+    const bool needsFluid = mFluidDepthPass != nullptr && mFluidColorPass != nullptr &&
+                            mFluidDepthFilterPass != nullptr && mFluidCompositePass != nullptr &&
+                            physicsScene != nullptr &&
+                            physicsScene->soft.particles.fluidVisualCount > 0u &&
+                            physicsScene->soft.particles.positionsInvMassBuffer != nullptr &&
+                            physicsScene->soft.particles.ownerIndicesBuffer != nullptr &&
+                            physicsScene->soft.particles.fluidVisualsBuffer != nullptr &&
+                            physicsScene->soft.particles.particleKindsBuffer != nullptr &&
+                            physicsScene->soft.particles.fluidAnisotropy1Buffer != nullptr &&
+                            physicsScene->soft.particles.fluidAnisotropy2Buffer != nullptr &&
+                            physicsScene->soft.particles.fluidAnisotropy3Buffer != nullptr;
     const bool needsSkybox = mSkyboxPass != nullptr && batchView.cameras.front().backgroundMode ==
                                                            CameraBackgroundMode::EnvironmentCubemap;
     const bool needsSceneBuffers = hasOpaqueDraws || hasTransparentDraws || hasShadowDraws ||

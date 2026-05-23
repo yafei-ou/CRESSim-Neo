@@ -19,7 +19,7 @@ std::string trim(const std::string &value)
                                         [](unsigned char ch) { return std::isspace(ch) != 0; });
     const auto end   = std::find_if_not(value.rbegin(), value.rend(),
                                         [](unsigned char ch) { return std::isspace(ch) != 0; })
-                           .base();
+                         .base();
     if (begin >= end)
     {
         return {};

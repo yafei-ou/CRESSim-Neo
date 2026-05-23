@@ -41,7 +41,7 @@ std::uint32_t estimateRigidCandidatePairCapacityFromColliderCount(
     }
 
     constexpr std::uint32_t kCandidatePairsPerColliderEstimate = 32u;
-    constexpr std::uint32_t kMinCapacity                      = 64u;
+    constexpr std::uint32_t kMinCapacity                       = 64u;
     return std::max<std::uint32_t>(colliderCount * kCandidatePairsPerColliderEstimate,
                                    kMinCapacity);
 }

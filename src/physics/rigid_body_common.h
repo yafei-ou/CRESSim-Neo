@@ -10,19 +10,18 @@
 namespace cressim::neo::physics
 {
 
-constexpr std::uint32_t kRigidContactsPerPair              = 4u;
-constexpr std::uint32_t kRigidBodyPairAggregateContacts    = 16u;
-constexpr std::uint32_t kRigidPairTypeCount                = 6u;
-constexpr std::uint32_t kRigidBodyTypeStatic               = 0u;
-constexpr std::uint32_t kRigidBodyTypeKinematic            = 1u;
-constexpr std::uint32_t kRigidBodyTypeDynamic              = 2u;
-constexpr std::uint32_t kKinematicTargetEnabled            = 1u << 0u;
-constexpr std::uint32_t kRigidJointDriveModeNone           = 0u;
-constexpr std::uint32_t kRigidJointDriveModeTargetPosition = 1u;
-constexpr std::uint32_t kRigidJointDriveModeTargetVelocity = 2u;
+constexpr std::uint32_t kRigidContactsPerPair                = 4u;
+constexpr std::uint32_t kRigidBodyPairAggregateContacts      = 16u;
+constexpr std::uint32_t kRigidPairTypeCount                  = 6u;
+constexpr std::uint32_t kRigidBodyTypeStatic                 = 0u;
+constexpr std::uint32_t kRigidBodyTypeKinematic              = 1u;
+constexpr std::uint32_t kRigidBodyTypeDynamic                = 2u;
+constexpr std::uint32_t kKinematicTargetEnabled              = 1u << 0u;
+constexpr std::uint32_t kRigidJointDriveModeNone             = 0u;
+constexpr std::uint32_t kRigidJointDriveModeTargetPosition   = 1u;
+constexpr std::uint32_t kRigidJointDriveModeTargetVelocity   = 2u;
 constexpr std::uint32_t kRigidAggregateEntryFlagInitializing = 1u << 0u;
 constexpr std::uint32_t kRigidAggregateEntryFlagReady        = 1u << 1u;
-constexpr std::uint32_t kRigidAggregateEntryFlagOverflow     = 1u << 2u;
 constexpr std::uint32_t kRigidInvalidAggregateIndex          = 0xffffffffu;
 
 static_assert(static_cast<std::uint32_t>(RigidBodyType::Static) == kRigidBodyTypeStatic);
@@ -49,18 +48,18 @@ enum class GpuRigidPairType : std::uint32_t
 
 struct GpuRigidDispatchConstants
 {
-    float dt                            = 0.0f;
-    std::uint32_t rigidBodyCount        = 0;
-    std::uint32_t colliderCount         = 0;
-    std::uint32_t activeMovingCount     = 0;
-    std::uint32_t staticBodyCount       = 0;
-    std::uint32_t candidatePairCount    = 0;
-    std::uint32_t candidatePairCapacity = 0;
-    std::uint32_t substepIndex          = 0;
-    std::uint32_t iterationIndex        = 0;
-    std::uint32_t solverIterations      = 0;
-    std::uint32_t reserved0             = 0;
-    std::uint32_t reserved1             = 0;
+    float dt                                 = 0.0f;
+    std::uint32_t rigidBodyCount             = 0;
+    std::uint32_t colliderCount              = 0;
+    std::uint32_t activeMovingCount          = 0;
+    std::uint32_t staticBodyCount            = 0;
+    std::uint32_t candidatePairCapacity      = 0;
+    std::uint32_t reservedCandidatePairCount = 0;
+    std::uint32_t reservedSubstepIndex       = 0;
+    std::uint32_t reservedIterationIndex     = 0;
+    std::uint32_t reservedSolverIterations   = 0;
+    std::uint32_t reserved0                  = 0;
+    std::uint32_t reserved1                  = 0;
 };
 
 struct GpuRigidJointDispatchConstants
@@ -499,10 +498,10 @@ struct GpuRigidContact
 
 struct GpuRigidBodyPairContactAggregateHeader
 {
-    std::uint32_t bodyA = kRigidInvalidAggregateIndex;
-    std::uint32_t bodyB = kRigidInvalidAggregateIndex;
-    std::uint32_t count = 0u;
-    std::uint32_t flags = 0u;
+    std::uint32_t bodyA     = kRigidInvalidAggregateIndex;
+    std::uint32_t bodyB     = kRigidInvalidAggregateIndex;
+    std::uint32_t count     = 0u;
+    std::uint32_t reserved0 = 0u;
 };
 
 struct GpuRigidBodyPairContactAggregateMapEntry

@@ -14,7 +14,6 @@ static const uint kRigidJointDriveModeTargetPosition = 1u;
 static const uint kRigidJointDriveModeTargetVelocity = 2u;
 static const uint kRigidAggregateEntryFlagInitializing = 1u << 0u;
 static const uint kRigidAggregateEntryFlagReady = 1u << 1u;
-static const uint kRigidAggregateEntryFlagOverflow = 1u << 2u;
 static const uint kRigidInvalidAggregateIndex = 0xffffffffu;
 
 struct GpuRigidContact
@@ -34,7 +33,7 @@ struct GpuRigidBodyPairContactAggregateHeader
     uint bodyA;
     uint bodyB;
     uint count;
-    uint flags;
+    uint reserved0;
 };
 
 struct GpuRigidBodyPairContactAggregateMapEntry
