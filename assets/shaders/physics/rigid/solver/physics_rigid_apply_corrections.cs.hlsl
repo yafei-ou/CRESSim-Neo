@@ -9,6 +9,9 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyTranslationCorrections);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
 
+static const float kMaxTotalTranslationCorrectionPerIter = 0.01;
+static const float kMaxTotalRotationCorrectionPerIter = 0.10;
+
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -21,13 +24,25 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     float4 positionInvMass = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyIndex);
     float4 orientation = QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyIndex));
     const uint bodyType = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyIndex);
-    const float3 translationCorrection =
+    float3 translationCorrection =
         CRESSIM_LOAD_ATOMIC_FLOAT3_ENTRY(g_RigidBodyTranslationCorrections, bodyIndex);
-    const float3 rotationCorrection =
+    float3 rotationCorrection =
         CRESSIM_LOAD_ATOMIC_FLOAT3_ENTRY(g_RigidBodyRotationCorrections, bodyIndex);
 
     if (bodyType == kRigidBodyTypeDynamic && positionInvMass.w != 0.0)
     {
+        const float translationLength = length(translationCorrection);
+        if (translationLength > kMaxTotalTranslationCorrectionPerIter && translationLength > kEpsilon)
+        {
+            translationCorrection *= kMaxTotalTranslationCorrectionPerIter / translationLength;
+        }
+
+        const float rotationLength = length(rotationCorrection);
+        if (rotationLength > kMaxTotalRotationCorrectionPerIter && rotationLength > kEpsilon)
+        {
+            rotationCorrection *= kMaxTotalRotationCorrectionPerIter / rotationLength;
+        }
+
         positionInvMass.xyz += translationCorrection;
         orientation =
             QuaternionNormalize(QuaternionMul(QuaternionFromRotationVector(rotationCorrection),

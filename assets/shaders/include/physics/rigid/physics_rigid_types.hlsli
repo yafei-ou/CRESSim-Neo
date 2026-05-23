@@ -7,10 +7,14 @@
 static const uint kRigidBodyTypeStatic = 0u;
 static const uint kRigidBodyTypeKinematic = 1u;
 static const uint kRigidBodyTypeDynamic = 2u;
+static const uint kRigidBodyPairAggregateContacts = 16u;
 static const uint kKinematicTargetEnabled = 1u << 0u;
 static const uint kRigidJointDriveModeNone = 0u;
 static const uint kRigidJointDriveModeTargetPosition = 1u;
 static const uint kRigidJointDriveModeTargetVelocity = 2u;
+static const uint kRigidAggregateEntryFlagInitializing = 1u << 0u;
+static const uint kRigidAggregateEntryFlagReady = 1u << 1u;
+static const uint kRigidInvalidAggregateIndex = 0xffffffffu;
 
 struct GpuRigidContact
 {
@@ -22,6 +26,35 @@ struct GpuRigidContact
     float4 localPointA;
     float4 localPointB;
     float4 material;
+};
+
+struct GpuRigidBodyPairContactAggregateHeader
+{
+    uint bodyA;
+    uint bodyB;
+    uint count;
+    uint reserved0;
+};
+
+struct GpuRigidBodyPairContactAggregateMapEntry
+{
+    uint bodyA;
+    uint bodyB;
+    uint pairIndex;
+    uint flags;
+};
+
+struct GpuRigidBodyPairContactAggregateSlot
+{
+    // normal.xyz = contact normal, normal.w = kinetic friction
+    float4 normal;
+    // localPointA.xyz = point in body A local space, localPointA.w = static friction
+    float4 localPointA;
+    float4 localPointB;
+    // solverState.x = accumulated normal impulse
+    // solverState.y = restitution target normal velocity
+    // solverState.z = accumulated tangential impulse
+    float4 solverState;
 };
 
 struct GpuBodyAabb

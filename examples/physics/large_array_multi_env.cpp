@@ -53,6 +53,10 @@ constexpr float kSpacing = 1.4f;
 constexpr float kBaseHeight = 1.5f;
 constexpr float kLayerHeight = 2.0f;
 constexpr float kEnvWorldSpacing = 72.0f;
+constexpr float kLargeArrayGroundHalfExtent = 28.0f;
+constexpr float kContainerWallThickness = 0.25f;
+constexpr float kContainerWallHalfHeight = 2.5f;
+constexpr float kContainerInnerPadding = 0.7f;
 constexpr std::uint32_t kDefaultEnvCount = 4u;
 constexpr std::uint32_t kDynamicBodiesPerEnv =
     static_cast<std::uint32_t>(kGridWidth * kGridDepth * kLayers);
@@ -82,12 +86,19 @@ enum class SkyboxBackgroundMode
     On,
 };
 
+enum class ContainerMode
+{
+    Off,
+    On,
+};
+
 struct ExampleOptions
 {
     CommonExampleOptions common{};
     LightingMode lightingMode = LightingMode::Standard;
     IblMode iblMode = IblMode::None;
     SkyboxBackgroundMode skyboxBackgroundMode = SkyboxBackgroundMode::Off;
+    ContainerMode containerMode = ContainerMode::Off;
 };
 
 struct EnvMaterialSet
@@ -159,7 +170,7 @@ void printUsage(const char* appName)
     cressim::neo::examples::helpers::printUsage(
         appName,
         " [--lighting-mode standard|mixed|matrix] [--ibl-mode none|per_env|shared]"
-        " [--skybox-background off|on]",
+        " [--skybox-background off|on] [--container off|on]",
         true);
 }
 
@@ -175,6 +186,20 @@ SkyboxBackgroundMode parseSkyboxBackgroundMode(const std::string& value)
     }
 
     throw std::invalid_argument("Unsupported skybox background mode: " + value);
+}
+
+ContainerMode parseContainerMode(const std::string& value)
+{
+    if (value == "off")
+    {
+        return ContainerMode::Off;
+    }
+    if (value == "on")
+    {
+        return ContainerMode::On;
+    }
+
+    throw std::invalid_argument("Unsupported container mode: " + value);
 }
 
 Diligent::float4 colliderParamsForShape(ColliderShapeType shape)
@@ -451,7 +476,68 @@ void authorGround(World& world, std::uint32_t envIndex, const Diligent::float3& 
     cressim::neo::engine::ColliderComponent groundCollider{};
     groundCollider.shapeType = ColliderShapeType::Box;
     groundCollider.shapeParams = {halfExtent, 0.05f, halfExtent, 0.0f};
+    groundCollider.friction = 0.1f;
+    groundCollider.staticFriction = 0.2f;
+    groundCollider.restitution = 0.5f;
     world.addCollider(groundEntity, groundCollider);
+}
+
+void authorContainerWalls(World& world, std::uint32_t envIndex, const Diligent::float3& envOrigin,
+                          MeshHandle wallMesh, MaterialHandle wallMaterial, float halfExtent,
+                          ContainerMode containerMode)
+{
+    constexpr float kMaxDynamicShapeHalfExtent = 0.52f;
+    const float arrayHalfWidth = 0.5f * static_cast<float>(kGridWidth - 1) * kSpacing;
+    const float arrayHalfDepth = 0.5f * static_cast<float>(kGridDepth - 1) * kSpacing;
+    const float innerHalfWidth =
+        std::min(arrayHalfWidth + kMaxDynamicShapeHalfExtent + kContainerInnerPadding,
+                 halfExtent - kContainerWallThickness);
+    const float innerHalfDepth =
+        std::min(arrayHalfDepth + kMaxDynamicShapeHalfExtent + kContainerInnerPadding,
+                 halfExtent - kContainerWallThickness);
+    const float groundTopY = -1.0f + 0.05f;
+    const float wallCenterY = groundTopY + kContainerWallHalfHeight;
+    const Diligent::float3 wallScaleEW{innerHalfWidth + kContainerWallThickness,
+                                       kContainerWallHalfHeight, kContainerWallThickness};
+    const Diligent::float3 wallScaleNS{kContainerWallThickness, kContainerWallHalfHeight,
+                                       innerHalfDepth + kContainerWallThickness};
+
+    const auto authorWall = [&](const Diligent::float3& position,
+                                const Diligent::float3& halfScale) {
+        const auto wallEntity = world.createEntity(envIndex);
+
+        TransformComponent wallTransform{};
+        wallTransform.worldTransform.position = position;
+        wallTransform.worldTransform.scale = halfScale;
+        world.setTransform(wallEntity, wallTransform);
+        world.setMeshRenderer(wallEntity, MeshRendererComponent{wallMesh, wallMaterial, true});
+
+        RigidBodyComponent wallBody{};
+        wallBody.simulated = true;
+        wallBody.bodyType = RigidBodyType::Static;
+        world.setRigidBody(wallEntity, wallBody);
+
+        cressim::neo::engine::ColliderComponent wallCollider{};
+        wallCollider.shapeType = ColliderShapeType::Box;
+        wallCollider.shapeParams = {1.0f, 1.0f, 1.0f, 0.0f};
+        wallCollider.friction = 0.0f;
+        wallCollider.staticFriction = 0.0f;
+        wallCollider.restitution = 0.0f;
+        world.addCollider(wallEntity, wallCollider);
+    };
+
+    authorWall(envOrigin + Diligent::float3{0.0f, wallCenterY,
+                                            innerHalfDepth + kContainerWallThickness},
+               wallScaleEW);
+    authorWall(envOrigin + Diligent::float3{0.0f, wallCenterY,
+                                            -(innerHalfDepth + kContainerWallThickness)},
+               wallScaleEW);
+    authorWall(envOrigin + Diligent::float3{innerHalfWidth + kContainerWallThickness, wallCenterY,
+                                            0.0f},
+               wallScaleNS);
+    authorWall(envOrigin + Diligent::float3{-(innerHalfWidth + kContainerWallThickness), wallCenterY,
+                                            0.0f},
+               wallScaleNS);
 }
 
 void authorDynamicArray(World& world, std::uint32_t envIndex, std::uint32_t envCount,
@@ -463,8 +549,8 @@ void authorDynamicArray(World& world, std::uint32_t envIndex, std::uint32_t envC
     const float envVelocityBiasX = std::cos(envPhase) * 0.05f;
     const float envVelocityBiasZ = std::sin(envPhase) * 0.05f;
     const float envAngularBias = 0.20f + 0.05f * static_cast<float>(envIndex % 5u);
-    const float envRestitution = 0.02f * static_cast<float>(envIndex % 4u);
-    const float envFriction = 0.35f + 0.08f * static_cast<float>(envIndex % 4u);
+    const float envRestitution = 0.2f * static_cast<float>(envIndex % 4u);
+    const float envFriction = 0.05f + 0.15f * static_cast<float>(envIndex % 4u);
 
     const auto meshForShape = [&](ColliderShapeType shape) {
         switch (shape)
@@ -535,6 +621,7 @@ void authorDynamicArray(World& world, std::uint32_t envIndex, std::uint32_t envC
                 collider.shapeType = shape;
                 collider.shapeParams = colliderParamsForShape(shape);
                 collider.friction = envFriction;
+                collider.staticFriction = envFriction + 0.1f;
                 collider.restitution = envRestitution;
                 world.addCollider(entity, collider);
             }
@@ -634,8 +721,9 @@ void authorMatrixEnvironment(World& world, std::uint32_t envIndex, std::uint32_t
 
 void authorLargeArrayEnvironment(World& world, std::uint32_t envIndex, std::uint32_t envCount,
                                  LightingMode lightingMode,
-                                 SkyboxBackgroundMode skyboxBackgroundMode, MeshHandle cubeMesh,
-                                 MeshHandle planeMesh, MeshHandle sphereMesh,
+                                 SkyboxBackgroundMode skyboxBackgroundMode,
+                                 ContainerMode containerMode,
+                                 MeshHandle cubeMesh, MeshHandle wallMesh, MeshHandle planeMesh, MeshHandle sphereMesh,
                                  MeshHandle capsuleMesh, const EnvMaterialSet& materials,
                                  EntityId& outCameraEntity)
 {
@@ -649,7 +737,12 @@ void authorLargeArrayEnvironment(World& world, std::uint32_t envIndex, std::uint
 
     authorCamera(world, envIndex, envOrigin + Diligent::float3{0.0f, 5.0f, -26.0f},
                  skyboxBackgroundMode, outCameraEntity);
-    authorGround(world, envIndex, envOrigin, planeMesh, materials.ground, 28.0f);
+    authorGround(world, envIndex, envOrigin, planeMesh, materials.ground, kLargeArrayGroundHalfExtent);
+    if (containerMode == ContainerMode::On)
+    {
+        authorContainerWalls(world, envIndex, envOrigin, wallMesh, materials.ground,
+                             kLargeArrayGroundHalfExtent, containerMode);
+    }
 
     const float envPhase = static_cast<float>(envIndex) * 0.45f;
     if (lightingMode == LightingMode::Standard)
@@ -731,6 +824,13 @@ int main(int argc, char** argv)
                         argc, argv, i, "--skybox-background"));
                 continue;
             }
+            if (arg == "--container")
+            {
+                options.containerMode = parseContainerMode(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--container"));
+                continue;
+            }
 
             printUsage(argv[0]);
             return 2;
@@ -753,6 +853,7 @@ int main(int argc, char** argv)
     config.sceneLayout.maxLightsPerEnv =
         (options.lightingMode == LightingMode::Matrix) ? 6u : 4u;
     config.sceneLayout.maxCamerasPerEnv = 1u;
+    config.physicsDesc.rigidRigidContactIterations = 20;
 
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
@@ -806,6 +907,8 @@ int main(int argc, char** argv)
 
     const auto cubeMesh = resources.registerMesh(
         cressim::neo::examples::helpers::makeCubeMesh(0.45f, "LargeArray.CubeMesh"));
+    const auto wallMesh = resources.registerMesh(
+        cressim::neo::examples::helpers::makeCubeMesh(1.0f, "LargeArray.WallMesh"));
     const auto planeMesh = resources.registerMesh(
         cressim::neo::examples::helpers::makePlaneMesh(
             (options.lightingMode == LightingMode::Matrix) ? 9.0f : 28.0f,
@@ -822,8 +925,9 @@ int main(int argc, char** argv)
         EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;
         const auto materials = createMaterials(resources, envIndex);
         authorLargeArrayEnvironment(world, envIndex, options.common.envCount,
-                                    options.lightingMode, options.skyboxBackgroundMode, cubeMesh,
-                                    planeMesh, sphereMesh, capsuleMesh, materials, cameraEntity);
+                                    options.lightingMode, options.skyboxBackgroundMode,
+                                    options.containerMode, cubeMesh, wallMesh, planeMesh,
+                                    sphereMesh, capsuleMesh, materials, cameraEntity);
         if (envIndex == 0u)
         {
             primaryCamera = cameraEntity;

@@ -3,6 +3,13 @@
 
 #include "../collision/physics_shape_common.hlsli"
 
+static const float kRigidRestitutionThreshold = 0.0;
+// These affects the needed number of velocity iterations; larger values lead to faster velocity
+// solver but can be unstable with more contacts; smaller values improves stability but requires
+// more velocity iterations
+static const float kMaxTotalLinearVelocityCorrectionPerIter = 0.8;
+static const float kMaxTotalAngularVelocityCorrectionPerIter = 0.5;
+
 float3 MultiplyWorldInverseInertia(float3 inverseInertiaLocal, float4 orientation, float3 value)
 {
     const float3 ax = BoxAxisX(orientation);
@@ -11,6 +18,11 @@ float3 MultiplyWorldInverseInertia(float3 inverseInertiaLocal, float4 orientatio
     return ax * (inverseInertiaLocal.x * dot(ax, value)) +
            ay * (inverseInertiaLocal.y * dot(ay, value)) +
            az * (inverseInertiaLocal.z * dot(az, value));
+}
+
+float3 ComputeContactPointVelocity(float3 linearVelocity, float3 angularVelocity, float3 leverArm)
+{
+    return linearVelocity + cross(angularVelocity, leverArm);
 }
 
 float ComputeContactEffectiveMass(float invMass, float3 inverseInertiaLocal, float4 orientation,
@@ -58,12 +70,6 @@ float3 ComputePositionFrictionDelta(float3 tangentialDisplacement, float penetra
     const float kineticScale =
         min(saturate(kineticFriction) * penetration / tangentialDistance, 1.0);
     return tangentialDisplacement * kineticScale;
-}
-
-float ComputeAngularEffectiveMass(float3 inverseInertiaLocal, float4 orientation, float3 axis)
-{
-    const float3 angularMass = MultiplyWorldInverseInertia(inverseInertiaLocal, orientation, axis);
-    return dot(axis, angularMass);
 }
 
 #endif // CRESSIM_NEO_PHYSICS_RIGID_SOLVER_SHARED_HLSLI

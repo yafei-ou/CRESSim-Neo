@@ -1,12 +1,7 @@
-#include "../../../include/physics/physics_rigid_dispatch_constants.hlsli"
 #include "../../../include/physics/physics_atomic_float.hlsli"
 #include "../../../include/physics/rigid/physics_rigid_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_broad_phase_types.hlsli"
-#include "../../../include/physics/rigid/physics_rigid_contact_primitives.hlsli"
 #include "../../../include/physics/rigid/physics_rigid_solver_shared.hlsli"
-
-static const float kRestitutionVelocityThreshold = 0.5;
-static const float kRestitutionPenetrationThreshold = 2.0 * kContactSlop;
+#include "../../../include/physics/physics_rigid_dispatch_constants.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
@@ -14,106 +9,202 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyLinearVelocities);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyAngularVelocities);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
-CRESSIM_STRUCTURED_BUFFER(GpuRigidContact, g_RigidContacts);
-CRESSIM_STRUCTURED_BUFFER(GpuBroadPhaseMeta, g_BroadPhaseMeta);
+CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyPairAggregateActiveCount);
+CRESSIM_STRUCTURED_BUFFER(GpuRigidBodyPairContactAggregateHeader,
+                          g_RigidBodyPairAggregateHeaders);
 
+CRESSIM_RW_STRUCTURED_BUFFER(GpuRigidBodyPairContactAggregateSlot,
+                             g_RigidBodyPairAggregateSlots);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyLinearVelocityCorrections);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyAngularVelocityCorrections);
 
-[numthreads(64, 1, 1)] void main(uint3 dispatchThreadID : SV_DispatchThreadID)
+[numthreads(64, 1, 1)]
+void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
-    const uint contactIndex = dispatchThreadID.x;
-    const GpuBroadPhaseMeta broadPhaseMeta = CRESSIM_SB_LOAD(g_BroadPhaseMeta, 0);
-    const uint totalContactSlots = broadPhaseMeta.candidatePairCount * kRigidContactsPerPair;
-    if (contactIndex >= totalContactSlots)
+    const uint aggregateIndex = dispatchThreadID.x;
+    const uint activePairCount = CRESSIM_SB_LOAD(g_RigidBodyPairAggregateActiveCount, 0u);
+    if (aggregateIndex >= activePairCount)
     {
         return;
     }
 
-    const GpuRigidContact contact = CRESSIM_SB_LOAD(g_RigidContacts, contactIndex);
-    if (contact.active == 0u)
+    const GpuRigidBodyPairContactAggregateHeader aggregateHeader =
+        CRESSIM_SB_LOAD(g_RigidBodyPairAggregateHeaders, aggregateIndex);
+    if (aggregateHeader.count == 0u)
     {
         return;
     }
 
-    const uint bodyAIndex = contact.bodyA;
-    const uint bodyBIndex = contact.bodyB;
-    const uint bodyTypeA = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyAIndex);
-    const uint bodyTypeB = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyBIndex);
-    const float4 posInvMassA = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyAIndex);
-    const float4 posInvMassB = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyBIndex);
-    const float invMassA = bodyTypeA == kRigidBodyTypeDynamic ? posInvMassA.w : 0.0;
-    const float invMassB = bodyTypeB == kRigidBodyTypeDynamic ? posInvMassB.w : 0.0;
+    const uint bodyA = aggregateHeader.bodyA;
+    const uint bodyB = aggregateHeader.bodyB;
+    const float4 positionInvMassA = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyA);
+    const float4 positionInvMassB = CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, bodyB);
+    const uint bodyTypeA = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyA);
+    const uint bodyTypeB = CRESSIM_SB_LOAD(g_RigidBodyTypes, bodyB);
+    const float invMassA = bodyTypeA == kRigidBodyTypeDynamic ? positionInvMassA.w : 0.0;
+    const float invMassB = bodyTypeB == kRigidBodyTypeDynamic ? positionInvMassB.w : 0.0;
     if (invMassA == 0.0 && invMassB == 0.0)
     {
         return;
     }
 
-    const float4 orientationA = QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyAIndex));
-    const float4 orientationB = QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyBIndex));
-    const float3 linearVelocityA = CRESSIM_SB_REF(g_PredictedRigidBodyLinearVelocities, bodyAIndex).xyz;
-    const float3 linearVelocityB = CRESSIM_SB_REF(g_PredictedRigidBodyLinearVelocities, bodyBIndex).xyz;
-    const float3 angularVelocityA = CRESSIM_SB_REF(g_PredictedRigidBodyAngularVelocities, bodyAIndex).xyz;
-    const float3 angularVelocityB = CRESSIM_SB_REF(g_PredictedRigidBodyAngularVelocities, bodyBIndex).xyz;
-    const float3 invInertiaLocalA = CRESSIM_SB_REF(g_RigidBodyInverseInertiaLocal, bodyAIndex).xyz;
-    const float3 invInertiaLocalB = CRESSIM_SB_REF(g_RigidBodyInverseInertiaLocal, bodyBIndex).xyz;
+    const float4 orientationA =
+        QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyA));
+    const float4 orientationB =
+        QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, bodyB));
+    float3 invInertiaA = CRESSIM_SB_LOAD(g_RigidBodyInverseInertiaLocal, bodyA).xyz;
+    float3 invInertiaB = CRESSIM_SB_LOAD(g_RigidBodyInverseInertiaLocal, bodyB).xyz;
+    if (invMassA == 0.0)
+        invInertiaA = 0.0;
+    if (invMassB == 0.0)
+        invInertiaB = 0.0;
 
-    const float3 normal = SafeNormalize(contact.normalPenetration.xyz, float3(0.0, 1.0, 0.0));
-    const float3 worldPointA =
-        posInvMassA.xyz + QuaternionRotate(orientationA, contact.localPointA.xyz);
-    const float3 worldPointB =
-        posInvMassB.xyz + QuaternionRotate(orientationB, contact.localPointB.xyz);
-    const float3 rA = worldPointA - posInvMassA.xyz;
-    const float3 rB = worldPointB - posInvMassB.xyz;
+    const float3 linearVelocityA0 =
+        CRESSIM_SB_LOAD(g_PredictedRigidBodyLinearVelocities, bodyA).xyz;
+    const float3 linearVelocityB0 =
+        CRESSIM_SB_LOAD(g_PredictedRigidBodyLinearVelocities, bodyB).xyz;
+    const float3 angularVelocityA0 =
+        CRESSIM_SB_LOAD(g_PredictedRigidBodyAngularVelocities, bodyA).xyz;
+    const float3 angularVelocityB0 =
+        CRESSIM_SB_LOAD(g_PredictedRigidBodyAngularVelocities, bodyB).xyz;
 
-    const float3 velocityAtA = linearVelocityA + cross(angularVelocityA, rA);
-    const float3 velocityAtB = linearVelocityB + cross(angularVelocityB, rB);
-    const float3 relativeVelocity = velocityAtB - velocityAtA;
-    const float normalVelocity = dot(relativeVelocity, normal);
-    if (normalVelocity >= 0.0)
+    float3 linearVelocityA = linearVelocityA0;
+    float3 linearVelocityB = linearVelocityB0;
+    float3 angularVelocityA = angularVelocityA0;
+    float3 angularVelocityB = angularVelocityB0;
+
+    const uint storedContactCount = min(aggregateHeader.count, kRigidBodyPairAggregateContacts);
+    [loop] for (uint solvePass = 0u; solvePass < 2u; ++solvePass)
     {
-        return;
+        [loop] for (uint contactOffset = 0u; contactOffset < kRigidBodyPairAggregateContacts;
+                    ++contactOffset)
+        {
+            if (contactOffset >= storedContactCount)
+            {
+                break;
+            }
+
+            const uint flatSlotIndex =
+                aggregateIndex * kRigidBodyPairAggregateContacts + contactOffset;
+            GpuRigidBodyPairContactAggregateSlot slot =
+                CRESSIM_SB_LOAD(g_RigidBodyPairAggregateSlots, flatSlotIndex);
+            const bool hasRestitutionTarget = slot.solverState.y > 0.0;
+            if ((solvePass == 0u && hasRestitutionTarget) ||
+                (solvePass == 1u && !hasRestitutionTarget))
+            {
+                continue;
+            }
+
+            const float3 normal = SafeNormalize(slot.normal.xyz, float3(0.0, 1.0, 0.0));
+            const float3 pointA =
+                positionInvMassA.xyz + QuaternionRotate(orientationA, slot.localPointA.xyz);
+            const float3 pointB =
+                positionInvMassB.xyz + QuaternionRotate(orientationB, slot.localPointB.xyz);
+            const float3 rA = pointA - positionInvMassA.xyz;
+            const float3 rB = pointB - positionInvMassB.xyz;
+            const float3 velocityA =
+                ComputeContactPointVelocity(linearVelocityA, angularVelocityA, rA);
+            const float3 velocityB =
+                ComputeContactPointVelocity(linearVelocityB, angularVelocityB, rB);
+            const float normalVelocity = dot(velocityB - velocityA, normal);
+            const float normalDenom =
+                ComputeContactEffectiveMass(invMassA, invInertiaA, orientationA, rA, normal) +
+                ComputeContactEffectiveMass(invMassB, invInertiaB, orientationB, rB, normal);
+            if (normalDenom <= kEpsilon)
+            {
+                continue;
+            }
+
+            const float deltaImpulse = (slot.solverState.y - normalVelocity) / (normalDenom);
+            const float newAccumulated = max(slot.solverState.x + deltaImpulse, 0.0);
+            const float appliedImpulse = newAccumulated - slot.solverState.x;
+            slot.solverState.x = newAccumulated;
+            if (abs(appliedImpulse) > kEpsilon)
+            {
+                const float3 impulse = normal * appliedImpulse;
+                if (invMassA > kEpsilon)
+                {
+                    linearVelocityA += -impulse * invMassA;
+                    angularVelocityA +=
+                        MultiplyWorldInverseInertia(invInertiaA, orientationA, cross(rA, -impulse));
+                }
+
+                if (invMassB > kEpsilon)
+                {
+                    linearVelocityB += impulse * invMassB;
+                    angularVelocityB +=
+                        MultiplyWorldInverseInertia(invInertiaB, orientationB, cross(rB, impulse));
+                }
+            }
+
+            const float kineticFriction = saturate(slot.normal.w);
+            const float staticFriction = saturate(slot.localPointA.w);
+            const float3 postNormalVelocityA =
+                ComputeContactPointVelocity(linearVelocityA, angularVelocityA, rA);
+            const float3 postNormalVelocityB =
+                ComputeContactPointVelocity(linearVelocityB, angularVelocityB, rB);
+            const float3 tangentialVelocity =
+                ProjectOntoContactTangent(postNormalVelocityB - postNormalVelocityA, normal);
+            const float tangentialSpeed = length(tangentialVelocity);
+            if (tangentialSpeed > 1.0e-5)
+            {
+                const float3 tangent = tangentialVelocity / tangentialSpeed;
+                const float tangentDenom =
+                    ComputeContactEffectiveMass(invMassA, invInertiaA, orientationA, rA, tangent) +
+                    ComputeContactEffectiveMass(invMassB, invInertiaB, orientationB, rB, tangent);
+                if (tangentDenom > kEpsilon)
+                {
+                    const float rawTangentImpulse = -dot(tangentialVelocity, tangent) / tangentDenom;
+                    const float oldTangentAccum = slot.solverState.z;
+                    const float maxStaticImpulse = staticFriction * slot.solverState.x;
+                    const float maxDynamicImpulse = kineticFriction * slot.solverState.x;
+                    const float unclampedTangentAccum = oldTangentAccum + rawTangentImpulse;
+                    float newTangentAccum = unclampedTangentAccum;
+                    if (abs(unclampedTangentAccum) > maxStaticImpulse)
+                    {
+                        newTangentAccum =
+                            clamp(unclampedTangentAccum, -maxDynamicImpulse, maxDynamicImpulse);
+                    }
+
+                    const float appliedTangentImpulse = newTangentAccum - oldTangentAccum;
+                    slot.solverState.z = newTangentAccum;
+                    if (abs(appliedTangentImpulse) > kEpsilon)
+                    {
+                        const float3 tangentImpulse = tangent * appliedTangentImpulse;
+                        if (invMassA > kEpsilon)
+                        {
+                            linearVelocityA += -tangentImpulse * invMassA;
+                            angularVelocityA += MultiplyWorldInverseInertia(
+                                invInertiaA, orientationA, cross(rA, -tangentImpulse));
+                        }
+
+                        if (invMassB > kEpsilon)
+                        {
+                            linearVelocityB += tangentImpulse * invMassB;
+                            angularVelocityB += MultiplyWorldInverseInertia(
+                                invInertiaB, orientationB, cross(rB, tangentImpulse));
+                        }
+                    }
+                }
+            }
+
+            CRESSIM_SB_STORE(g_RigidBodyPairAggregateSlots, flatSlotIndex, slot);
+        }
     }
 
-    const float normalDenomA =
-        ComputeContactEffectiveMass(invMassA, invInertiaLocalA, orientationA, rA, normal);
-    const float normalDenomB =
-        ComputeContactEffectiveMass(invMassB, invInertiaLocalB, orientationB, rB, normal);
-    const float normalDenom = normalDenomA + normalDenomB;
-    if (normalDenom <= kEpsilon)
+    if (invMassA > kEpsilon)
     {
-        return;
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyLinearVelocityCorrections, bodyA,
+                                      linearVelocityA - linearVelocityA0);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyAngularVelocityCorrections, bodyA,
+                                      angularVelocityA - angularVelocityA0);
     }
 
-    const bool enableRestitution =
-        (-normalVelocity > kRestitutionVelocityThreshold) &&
-        (contact.normalPenetration.w <= kRestitutionPenetrationThreshold);
-    const float restitution = enableRestitution ? contact.material.y : 0.0;
-    const float desiredNormalVelocity =
-        enableRestitution ? (-restitution * normalVelocity) : 0.0;
-    const float normalImpulseScalar =
-        max(0.0, (desiredNormalVelocity - normalVelocity) / normalDenom);
-    const float3 totalImpulse = normal * normalImpulseScalar;
-
-    if (invMassA != 0.0)
+    if (invMassB > kEpsilon)
     {
-        const float3 deltaLinearVelocityA = -totalImpulse * invMassA;
-        const float3 deltaAngularVelocityA =
-            MultiplyWorldInverseInertia(invInertiaLocalA, orientationA, cross(rA, -totalImpulse));
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyLinearVelocityCorrections, bodyAIndex,
-                                      deltaLinearVelocityA);
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyAngularVelocityCorrections, bodyAIndex,
-                                      deltaAngularVelocityA);
-    }
-
-    if (invMassB != 0.0)
-    {
-        const float3 deltaLinearVelocityB = totalImpulse * invMassB;
-        const float3 deltaAngularVelocityB =
-            MultiplyWorldInverseInertia(invInertiaLocalB, orientationB, cross(rB, totalImpulse));
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyLinearVelocityCorrections, bodyBIndex,
-                                      deltaLinearVelocityB);
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyAngularVelocityCorrections, bodyBIndex,
-                                      deltaAngularVelocityB);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyLinearVelocityCorrections, bodyB,
+                                      linearVelocityB - linearVelocityB0);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyAngularVelocityCorrections, bodyB,
+                                      angularVelocityB - angularVelocityB0);
     }
 }

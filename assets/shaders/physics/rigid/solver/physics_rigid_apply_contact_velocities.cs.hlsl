@@ -1,6 +1,7 @@
 #include "../../../include/physics/physics_rigid_dispatch_constants.hlsli"
 #include "../../../include/physics/physics_atomic_float.hlsli"
 #include "../../../include/physics/rigid/physics_rigid_types.hlsli"
+#include "../../../include/physics/rigid/physics_rigid_solver_shared.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 
@@ -28,8 +29,26 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     if (bodyType == kRigidBodyTypeDynamic)
     {
-        linearVelocity.xyz += linearCorrection;
-        angularVelocity.xyz += angularCorrection;
+        float3 clampedLinearCorrection = linearCorrection;
+        const float linearCorrectionLength = length(clampedLinearCorrection);
+        if (linearCorrectionLength > kMaxTotalLinearVelocityCorrectionPerIter &&
+            linearCorrectionLength > kEpsilon)
+        {
+            clampedLinearCorrection *=
+                kMaxTotalLinearVelocityCorrectionPerIter / linearCorrectionLength;
+        }
+
+        float3 clampedAngularCorrection = angularCorrection;
+        const float angularCorrectionLength = length(clampedAngularCorrection);
+        if (angularCorrectionLength > kMaxTotalAngularVelocityCorrectionPerIter &&
+            angularCorrectionLength > kEpsilon)
+        {
+            clampedAngularCorrection *=
+                kMaxTotalAngularVelocityCorrectionPerIter / angularCorrectionLength;
+        }
+
+        linearVelocity.xyz += clampedLinearCorrection;
+        angularVelocity.xyz += clampedAngularCorrection;
     }
 
     CRESSIM_SB_STORE(g_PredictedRigidBodyLinearVelocities, bodyIndex, linearVelocity);

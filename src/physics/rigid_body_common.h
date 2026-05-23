@@ -10,15 +10,19 @@
 namespace cressim::neo::physics
 {
 
-constexpr std::uint32_t kRigidContactsPerPair              = 4u;
-constexpr std::uint32_t kRigidPairTypeCount                = 6u;
-constexpr std::uint32_t kRigidBodyTypeStatic               = 0u;
-constexpr std::uint32_t kRigidBodyTypeKinematic            = 1u;
-constexpr std::uint32_t kRigidBodyTypeDynamic              = 2u;
-constexpr std::uint32_t kKinematicTargetEnabled            = 1u << 0u;
-constexpr std::uint32_t kRigidJointDriveModeNone           = 0u;
-constexpr std::uint32_t kRigidJointDriveModeTargetPosition = 1u;
-constexpr std::uint32_t kRigidJointDriveModeTargetVelocity = 2u;
+constexpr std::uint32_t kRigidContactsPerPair                = 4u;
+constexpr std::uint32_t kRigidBodyPairAggregateContacts      = 16u;
+constexpr std::uint32_t kRigidPairTypeCount                  = 6u;
+constexpr std::uint32_t kRigidBodyTypeStatic                 = 0u;
+constexpr std::uint32_t kRigidBodyTypeKinematic              = 1u;
+constexpr std::uint32_t kRigidBodyTypeDynamic                = 2u;
+constexpr std::uint32_t kKinematicTargetEnabled              = 1u << 0u;
+constexpr std::uint32_t kRigidJointDriveModeNone             = 0u;
+constexpr std::uint32_t kRigidJointDriveModeTargetPosition   = 1u;
+constexpr std::uint32_t kRigidJointDriveModeTargetVelocity   = 2u;
+constexpr std::uint32_t kRigidAggregateEntryFlagInitializing = 1u << 0u;
+constexpr std::uint32_t kRigidAggregateEntryFlagReady        = 1u << 1u;
+constexpr std::uint32_t kRigidInvalidAggregateIndex          = 0xffffffffu;
 
 static_assert(static_cast<std::uint32_t>(RigidBodyType::Static) == kRigidBodyTypeStatic);
 static_assert(static_cast<std::uint32_t>(RigidBodyType::Kinematic) == kRigidBodyTypeKinematic);
@@ -44,18 +48,18 @@ enum class GpuRigidPairType : std::uint32_t
 
 struct GpuRigidDispatchConstants
 {
-    float dt                            = 0.0f;
-    std::uint32_t rigidBodyCount        = 0;
-    std::uint32_t colliderCount         = 0;
-    std::uint32_t activeMovingCount     = 0;
-    std::uint32_t staticBodyCount       = 0;
-    std::uint32_t candidatePairCount    = 0;
-    std::uint32_t candidatePairCapacity = 0;
-    std::uint32_t substepIndex          = 0;
-    std::uint32_t iterationIndex        = 0;
-    std::uint32_t solverIterations      = 0;
-    std::uint32_t reserved0             = 0;
-    std::uint32_t reserved1             = 0;
+    float dt                                 = 0.0f;
+    std::uint32_t rigidBodyCount             = 0;
+    std::uint32_t colliderCount              = 0;
+    std::uint32_t activeMovingCount          = 0;
+    std::uint32_t staticBodyCount            = 0;
+    std::uint32_t candidatePairCapacity      = 0;
+    std::uint32_t reservedCandidatePairCount = 0;
+    std::uint32_t reservedSubstepIndex       = 0;
+    std::uint32_t reservedIterationIndex     = 0;
+    std::uint32_t reservedSolverIterations   = 0;
+    std::uint32_t reserved0                  = 0;
+    std::uint32_t reserved1                  = 0;
 };
 
 struct GpuRigidJointDispatchConstants
@@ -492,6 +496,35 @@ struct GpuRigidContact
     Diligent::float4 material{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
+struct GpuRigidBodyPairContactAggregateHeader
+{
+    std::uint32_t bodyA     = kRigidInvalidAggregateIndex;
+    std::uint32_t bodyB     = kRigidInvalidAggregateIndex;
+    std::uint32_t count     = 0u;
+    std::uint32_t reserved0 = 0u;
+};
+
+struct GpuRigidBodyPairContactAggregateMapEntry
+{
+    std::uint32_t bodyA     = kRigidInvalidAggregateIndex;
+    std::uint32_t bodyB     = kRigidInvalidAggregateIndex;
+    std::uint32_t pairIndex = kRigidInvalidAggregateIndex;
+    std::uint32_t flags     = 0u;
+};
+
+struct GpuRigidBodyPairContactAggregateSlot
+{
+    // normal.xyz = contact normal, normal.w = kinetic friction
+    Diligent::float4 normal{0.0f, 0.0f, 0.0f, 0.0f};
+    // localPointA.xyz = point in body A local space, localPointA.w = static friction
+    Diligent::float4 localPointA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localPointB{0.0f, 0.0f, 0.0f, 0.0f};
+    // solverState.x = accumulated normal impulse
+    // solverState.y = restitution target normal velocity
+    // solverState.z = accumulated tangential impulse
+    Diligent::float4 solverState{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
 static_assert(sizeof(GpuRigidDispatchConstants) == 48u);
 static_assert(sizeof(GpuRigidJointDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
@@ -519,6 +552,9 @@ static_assert(sizeof(GpuBodyAabb) == 32u);
 static_assert(sizeof(GpuBodyMeta) == 16u);
 static_assert(sizeof(GpuBroadPhaseElement) == 32u);
 static_assert(sizeof(GpuMortonCodeElement) == 8u);
+static_assert(sizeof(GpuRigidBodyPairContactAggregateHeader) == 16u);
+static_assert(sizeof(GpuRigidBodyPairContactAggregateMapEntry) == 16u);
+static_assert(sizeof(GpuRigidBodyPairContactAggregateSlot) == 64u);
 static_assert(sizeof(GpuBroadPhaseExtent) == 32u);
 static_assert(sizeof(GpuBvhNode) == 40u);
 static_assert(sizeof(GpuBvhConstructionInfo) == 8u);
@@ -540,7 +576,8 @@ struct EffectiveColliderDimensions
     float capsuleHalfHeight = 0.0f;
 };
 
-std::uint32_t estimateRigidCandidatePairCapacity(std::uint32_t bodyCount) noexcept;
+std::uint32_t estimateRigidCandidatePairCapacityFromColliderCount(
+    std::uint32_t colliderCount) noexcept;
 
 EffectiveColliderDimensions computeEffectiveColliderDimensions(
     ColliderShapeType shape, const Diligent::float4 &colliderParams,

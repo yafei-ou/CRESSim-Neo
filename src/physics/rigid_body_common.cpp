@@ -32,16 +32,18 @@ Diligent::QuaternionF conjugateQuaternion(const Diligent::QuaternionF &q)
 
 } // namespace
 
-std::uint32_t estimateRigidCandidatePairCapacity(std::uint32_t bodyCount) noexcept
+std::uint32_t estimateRigidCandidatePairCapacityFromColliderCount(
+    std::uint32_t colliderCount) noexcept
 {
-    if (bodyCount < 2u)
+    if (colliderCount < 2u)
     {
         return 0u;
     }
 
-    constexpr std::uint32_t kPairsPerBodyEstimate = 32u;
-    constexpr std::uint32_t kMinCapacity          = 64u;
-    return std::max<std::uint32_t>(bodyCount * kPairsPerBodyEstimate, kMinCapacity);
+    constexpr std::uint32_t kCandidatePairsPerColliderEstimate = 32u;
+    constexpr std::uint32_t kMinCapacity                       = 64u;
+    return std::max<std::uint32_t>(colliderCount * kCandidatePairsPerColliderEstimate,
+                                   kMinCapacity);
 }
 
 EffectiveColliderDimensions computeEffectiveColliderDimensions(
