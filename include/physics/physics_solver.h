@@ -3,6 +3,7 @@
 
 #include "common/frame_context.h"
 #include "gpu/gpu_device.h"
+#include "gpu/shared_export_buffer.h"
 #include "physics/export.h"
 #include "physics/physics_gpu_scene_view.h"
 #include "physics/physics_world.h"
@@ -36,6 +37,7 @@ public:
     bool step(const common::FrameContext &frameContext, PhysicsWorld &world);
     bool validateGpuMetaBlocking();
     PhysicsGpuSceneView gpuSceneView() const noexcept;
+    const gpu::SharedExportBuffer *softPositionsInvMassSharedBuffer() const noexcept;
 
 private:
     struct Impl;

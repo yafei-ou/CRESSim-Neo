@@ -710,10 +710,34 @@ bool GpuDeviceImpl::initializeVulkan()
         Diligent::EngineVkCreateInfo engineCreateInfo{};
         engineCreateInfo.EnableValidation =
             static_cast<Diligent::Bool>(mDesc.enableValidation ? 1 : 0);
-        std::array<const char *, 1> deviceExtensions{};
+        std::array<const char *, 2> instanceExtensions{};
+        Diligent::Uint32 requestedInstanceExtensionCount = 0u;
+        std::array<const char *, 5> deviceExtensions{};
+        Diligent::Uint32 requestedDeviceExtensionCount = 0u;
         VkPhysicalDeviceShaderAtomicFloatFeaturesEXT shaderAtomicFloatFeatures{};
-        deviceExtensions[0]                     = VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME;
-        engineCreateInfo.DeviceExtensionCount   = 1u;
+        deviceExtensions[requestedDeviceExtensionCount++] =
+            VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME;
+
+#if CRESSIM_NEO_HAS_CUDA_INTEROP
+#if PLATFORM_LINUX
+        instanceExtensions[requestedInstanceExtensionCount++] =
+            VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME;
+        instanceExtensions[requestedInstanceExtensionCount++] =
+            VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME;
+        deviceExtensions[requestedDeviceExtensionCount++] = VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME;
+        deviceExtensions[requestedDeviceExtensionCount++] =
+            VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME;
+        deviceExtensions[requestedDeviceExtensionCount++] =
+            VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME;
+        deviceExtensions[requestedDeviceExtensionCount++] =
+            VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME;
+#endif
+#endif
+
+        engineCreateInfo.InstanceExtensionCount = requestedInstanceExtensionCount;
+        engineCreateInfo.ppInstanceExtensionNames =
+            requestedInstanceExtensionCount > 0u ? instanceExtensions.data() : nullptr;
+        engineCreateInfo.DeviceExtensionCount   = requestedDeviceExtensionCount;
         engineCreateInfo.ppDeviceExtensionNames = deviceExtensions.data();
 
         shaderAtomicFloatFeatures.sType =
@@ -724,6 +748,16 @@ bool GpuDeviceImpl::initializeVulkan()
         CRESSIM_LOG_INFO("Requesting Vulkan native float atomics via ",
                          VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,
                          " with shaderBufferFloat32AtomicAdd=VK_TRUE.");
+#if CRESSIM_NEO_HAS_CUDA_INTEROP && PLATFORM_LINUX
+        CRESSIM_LOG_INFO("Requesting Vulkan CUDA interop instance extensions: ",
+                         VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME, ", ",
+                         VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME, ".");
+        CRESSIM_LOG_INFO("Requesting Vulkan CUDA interop device extensions: ",
+                         VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME, ", ",
+                         VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME, ", ",
+                         VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME, ", ",
+                         VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME, ".");
+#endif
 
         const VulkanDedicatedContextPlan dedicatedContextPlan =
             planDedicatedVulkanContexts(*factoryVk, engineCreateInfo.AdapterId);

@@ -58,10 +58,16 @@ target_include_directories(${TARGET_NAME} PRIVATE
 
 set(CRESSIM_NEO_SHADER_SOURCE_DIR "${PROJECT_SOURCE_DIR}/assets/shaders")
 target_compile_definitions(${TARGET_NAME} PRIVATE CRESSIM_NEO_SHADER_SOURCE_DIR="${CRESSIM_NEO_SHADER_SOURCE_DIR}")
+target_compile_definitions(${TARGET_NAME} PUBLIC
+    CRESSIM_NEO_HAS_CUDA_INTEROP=$<BOOL:${CRESSIM_NEO_HAS_CUDA_INTEROP}>
+)
 
 target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common)
 if(TARGET Vulkan::Headers)
     target_link_libraries(${TARGET_NAME} PRIVATE Vulkan::Headers)
+endif()
+if(CRESSIM_NEO_HAS_CUDA_INTEROP)
+    target_link_libraries(${TARGET_NAME} PRIVATE CUDA::cudart)
 endif()
 
 # Link with Diligent
@@ -78,9 +84,17 @@ if(WIN32)
 endif()
 if(TARGET Diligent-GraphicsEngineVk-static)
     target_link_libraries(${TARGET_NAME} PRIVATE Diligent-GraphicsEngineVk-static)
+    target_compile_definitions(${TARGET_NAME} PRIVATE DILIGENT_USE_VOLK=1)
+    if(TARGET volk::volk)
+        target_link_libraries(${TARGET_NAME} PRIVATE volk::volk)
+    endif()
     set(CRESSIM_NEO_GPU_HAS_DILIGENT_BACKEND ON)
 elseif(TARGET Diligent-GraphicsEngineVk-shared)
     target_link_libraries(${TARGET_NAME} PRIVATE Diligent-GraphicsEngineVk-shared)
+    target_compile_definitions(${TARGET_NAME} PRIVATE DILIGENT_USE_VOLK=1)
+    if(TARGET volk::volk)
+        target_link_libraries(${TARGET_NAME} PRIVATE volk::volk)
+    endif()
     set(CRESSIM_NEO_GPU_HAS_DILIGENT_BACKEND ON)
 endif()
 if(NOT CRESSIM_NEO_GPU_HAS_DILIGENT_BACKEND)
