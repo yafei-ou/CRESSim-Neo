@@ -7,6 +7,7 @@
 #include "physics/physics_types.h"
 
 #include <cstdint>
+#include <vector>
 
 namespace cressim::neo::engine
 {
@@ -144,6 +145,7 @@ struct SoftBodyComponent
     bool selfCollisionEnabled    = false;
     std::uint32_t collisionLayer = 1u;
     std::uint32_t collisionMask  = 0xffffffffu;
+
 };
 
 struct FluidComponent
@@ -156,6 +158,58 @@ struct FluidComponent
     bool simulated               = true;
     std::uint32_t collisionLayer = 1u;
     std::uint32_t collisionMask  = 0xffffffffu;
+
+};
+
+struct UltrasoundProbeComponent
+{
+    bool enabled                = true;
+    std::uint32_t numScanlines  = 16u;
+    float lineLength            = 12.0f;
+    float scanlineSpacing       = 0.5f;
+    float soundSpeed            = 1540.0f;
+    float worldUnitsPerMeter    = 10.0f;
+    float noiseAmplitude        = 0.0f;
+    float samplingFrequency     = 100e6f;
+    float demodulationFrequency = 2.5e6f;
+    float centerFrequency       = 2.5e6f;
+    float fractionalBandwidth   = 0.2f;
+    float beamSigmaLateral      = 1.0f;
+    float beamSigmaElevational  = 1.0f;
+    std::uint32_t radialDecimation = 4u;
+    std::uint32_t threadsPerBlock  = 128u;
+    std::uint32_t cudaNumStreams   = 1u;
+    std::uint32_t numTimeSamples   = 0u;
+    bool useArcProjection          = false;
+    bool enablePhaseDelay          = true;
+    bool cpuReadbackEnabled        = true;
+
+};
+
+struct UltrasoundScattererSourceComponent
+{
+    bool enabled              = true;
+    float density             = 0.0f;
+    float amplitudeMin        = 0.0f;
+    float amplitudeMax        = 1.0f;
+    float pointDistanceOverride = 0.0f;
+
+};
+
+struct UltrasoundRfSample
+{
+    float real = 0.0f;
+    float imag = 0.0f;
+};
+
+struct UltrasoundProbeResult
+{
+    bool valid                        = false;
+    std::uint64_t frameIndex          = 0u;
+    std::uint32_t numScanlines        = 0u;
+    std::uint32_t samplesPerScanline  = 0u;
+    std::uint64_t totalScattererCount = 0u;
+    std::vector<UltrasoundRfSample> rfSamples{};
 };
 
 } // namespace cressim::neo::engine

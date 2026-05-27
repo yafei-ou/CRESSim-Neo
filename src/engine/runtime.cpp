@@ -63,6 +63,17 @@ bool Runtime::initialize(const RuntimeConfig &config)
         return false;
     }
 
+    mUltrasoundSystem = std::make_unique<UltrasoundSystem>(*mGpuDevice, *mPhysicsSolver);
+    if (!mUltrasoundSystem || !mUltrasoundSystem->initialize())
+    {
+        mUltrasoundSystem.reset();
+        mPhysicsSolver->shutdown();
+        mPhysicsSolver.reset();
+        mGpuDevice->shutdown();
+        mGpuDevice.reset();
+        return false;
+    }
+
     mWorld.setSceneLayout(config.sceneLayout);
 
     if (hasGraphicsBackendContext(*mGpuDevice) && hasPhysicsBackendContext(*mGpuDevice))
@@ -71,6 +82,8 @@ bool Runtime::initialize(const RuntimeConfig &config)
         if (!mRenderSceneUploader || !mRenderSceneUploader->initialize(config.sceneLayout))
         {
             mRenderSceneUploader.reset();
+            mUltrasoundSystem->shutdown();
+            mUltrasoundSystem.reset();
             mPhysicsSolver->shutdown();
             mPhysicsSolver.reset();
             mGpuDevice->shutdown();
@@ -87,6 +100,11 @@ bool Runtime::initialize(const RuntimeConfig &config)
         {
             mRenderSceneUploader->shutdown();
             mRenderSceneUploader.reset();
+        }
+        if (mUltrasoundSystem)
+        {
+            mUltrasoundSystem->shutdown();
+            mUltrasoundSystem.reset();
         }
         mPhysicsSolver->shutdown();
         mPhysicsSolver.reset();
@@ -113,12 +131,18 @@ void Runtime::shutdown()
         mRenderSceneUploader->shutdown();
         mRenderSceneUploader.reset();
     }
+    if (mUltrasoundSystem)
+    {
+        mUltrasoundSystem->shutdown();
+        mUltrasoundSystem.reset();
+    }
 
     if (mPhysicsSolver)
     {
         mPhysicsSolver->shutdown();
         mPhysicsSolver.reset();
     }
+    mUltrasoundSystem.reset();
 
     if (mGpuDevice)
     {
@@ -147,6 +171,14 @@ void Runtime::tick(const common::FrameContext &frameContext)
         if (!physicsStepSucceeded)
         {
             logPhysicsStepFailure(frameContext);
+        }
+    }
+    if (physicsStepSucceeded && mUltrasoundSystem)
+    {
+        if (!mUltrasoundSystem->tick(frameContext, mWorld))
+        {
+            CRESSIM_LOG_WARNING("Runtime: ultrasound step failed at frame ",
+                                frameContext.frameIndex, ".");
         }
     }
 

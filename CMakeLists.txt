@@ -31,6 +31,7 @@ option(CRESSIM_NEO_BUILD_VIEWER "Build viewer module and supporting executables"
 option(CRESSIM_NEO_BUILD_EXAMPLES "Build standalone example executables" ON)
 option(CRESSIM_NEO_ENABLE_CLANG_TIDY "Enable clang-tidy checks during build" OFF)
 option(CRESSIM_NEO_ENABLE_CUDA_INTEROP "Enable optional CUDA interop support in GPU helpers" OFF)
+option(CRESSIM_NEO_ENABLE_ULTRASOUND "Enable optional CRESSim-Ultrasound integration" OFF)
 
 if(CRESSIM_NEO_ENABLE_CLANG_TIDY)
     find_program(CRESSIM_NEO_CLANG_TIDY_EXE NAMES clang-tidy)
@@ -119,6 +120,20 @@ if(CRESSIM_NEO_ENABLE_CUDA_INTEROP)
         message(FATAL_ERROR
             "CRESSIM_NEO_ENABLE_CUDA_INTEROP is ON, but CUDAToolkit was not found.")
     endif()
+endif()
+
+set(CRESSIM_NEO_HAS_ULTRASOUND OFF)
+if(CRESSIM_NEO_ENABLE_ULTRASOUND)
+    if(NOT CRESSIM_NEO_HAS_CUDA_INTEROP)
+        message(FATAL_ERROR
+            "CRESSIM_NEO_ENABLE_ULTRASOUND requires CRESSIM_NEO_ENABLE_CUDA_INTEROP=ON.")
+    endif()
+
+    set(CRESSIM_NEO_PREV_BUILD_TESTING ${BUILD_TESTING})
+    set(BUILD_TESTING OFF)
+    add_subdirectory(extern/CRESSim-Ultrasound EXCLUDE_FROM_ALL)
+    set(BUILD_TESTING ${CRESSIM_NEO_PREV_BUILD_TESTING})
+    set(CRESSIM_NEO_HAS_ULTRASOUND ON)
 endif()
 
 if(NOT DEFINED CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH)

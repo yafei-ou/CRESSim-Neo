@@ -51,6 +51,11 @@ public:
     bool removeSoftBody(common::EntityId entityId);
     bool setFluid(common::EntityId entityId, const FluidComponent &component);
     bool removeFluid(common::EntityId entityId);
+    void setUltrasoundProbe(common::EntityId entityId, const UltrasoundProbeComponent &component);
+    bool removeUltrasoundProbe(common::EntityId entityId);
+    void setUltrasoundScattererSource(
+        common::EntityId entityId, const UltrasoundScattererSourceComponent &component);
+    bool removeUltrasoundScattererSource(common::EntityId entityId);
 
     ColliderHandle addCollider(common::EntityId entityId, const ColliderComponent &component);
     void updateCollider(ColliderHandle handle, const ColliderComponent &component);
@@ -75,6 +80,11 @@ public:
     std::optional<RigidBodyComponent> tryGetRigidBody(common::EntityId entityId) const;
     std::optional<SoftBodyComponent> tryGetSoftBody(common::EntityId entityId) const;
     std::optional<FluidComponent> tryGetFluid(common::EntityId entityId) const;
+    std::optional<UltrasoundProbeComponent> tryGetUltrasoundProbe(common::EntityId entityId) const;
+    std::optional<UltrasoundScattererSourceComponent> tryGetUltrasoundScattererSource(
+        common::EntityId entityId) const;
+    const UltrasoundProbeResult *tryGetUltrasoundProbeResult(common::EntityId entityId) const
+        noexcept;
     std::optional<ColliderComponent> tryGetCollider(ColliderHandle handle) const;
     const std::vector<ColliderHandle> &colliderHandles(common::EntityId entityId) const;
 
@@ -104,6 +114,12 @@ public:
     const graphics::GpuEntitySceneView &gpuEntityScene() const noexcept;
     graphics::HostSceneView hostSceneView() const noexcept;
     void ensureRenderStateUpToDate(const graphics::RenderResourceManager &resources);
+    const std::unordered_map<common::EntityId, UltrasoundProbeComponent> &
+    ultrasoundProbeComponents() const noexcept;
+    const std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent> &
+    ultrasoundScattererSourceComponents() const noexcept;
+    void setUltrasoundProbeResult(common::EntityId entityId, const UltrasoundProbeResult &result);
+    void clearUltrasoundProbeResult(common::EntityId entityId);
 
 private:
     static constexpr std::uint32_t kInvalidIndex = 0xffffffffu;
@@ -163,6 +179,10 @@ private:
 
     std::unordered_map<common::EntityId, PhysicsLink> mPhysicsLinks{};
     std::unordered_map<std::uint32_t, common::EntityId> mColliderOwnerEntity{};
+    std::unordered_map<common::EntityId, UltrasoundProbeComponent> mUltrasoundProbes{};
+    std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent>
+        mUltrasoundScattererSources{};
+    std::unordered_map<common::EntityId, UltrasoundProbeResult> mUltrasoundProbeResults{};
 
     physics::PhysicsWorld mPhysicsWorld{};
     common::SceneLayoutDesc mSceneLayout{};

@@ -4,6 +4,7 @@
 #include "common/frame_context.h"
 #include "engine/export.h"
 #include "engine/render_scene_uploader.h"
+#include "engine/ultrasound_system.h"
 #include "engine/world.h"
 #include "gpu/gpu_device.h"
 #include "graphics/render_resource_manager.h"
@@ -52,6 +53,7 @@ private:
     std::unique_ptr<gpu::GpuDevice> mGpuDevice;
     std::unique_ptr<RenderSceneUploader> mRenderSceneUploader;
     std::unique_ptr<physics::PhysicsSolver> mPhysicsSolver;
+    std::unique_ptr<UltrasoundSystem> mUltrasoundSystem;
     std::unique_ptr<graphics::Renderer> mRenderer;
     graphics::RenderFrameOptions mRenderFrameOptions{};
     graphics::RenderStats mLastRenderStats{};

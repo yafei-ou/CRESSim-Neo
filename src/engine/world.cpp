@@ -270,6 +270,8 @@ bool World::destroyEntity(common::EntityId entityId)
     removeRigidBody(entityId);
     removeSoftBody(entityId);
     removeFluid(entityId);
+    removeUltrasoundProbe(entityId);
+    removeUltrasoundScattererSource(entityId);
 
     auto physIt = mPhysicsLinks.find(entityId);
     if (physIt != mPhysicsLinks.end())
@@ -1131,6 +1133,61 @@ bool World::removeFluid(common::EntityId entityId)
     return mPhysicsWorld.removeFluid(entityId);
 }
 
+void World::setUltrasoundProbe(common::EntityId entityId,
+                               const UltrasoundProbeComponent &component)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("setUltrasoundProbe requires valid entity id.");
+        return;
+    }
+    if (!requireAliveEntity(entityId, "setUltrasoundProbe"))
+    {
+        return;
+    }
+
+    if (!component.enabled)
+    {
+        (void)removeUltrasoundProbe(entityId);
+        return;
+    }
+
+    mUltrasoundProbes[entityId] = component;
+}
+
+bool World::removeUltrasoundProbe(common::EntityId entityId)
+{
+    clearUltrasoundProbeResult(entityId);
+    return mUltrasoundProbes.erase(entityId) > 0u;
+}
+
+void World::setUltrasoundScattererSource(
+    common::EntityId entityId, const UltrasoundScattererSourceComponent &component)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("setUltrasoundScattererSource requires valid entity id.");
+        return;
+    }
+    if (!requireAliveEntity(entityId, "setUltrasoundScattererSource"))
+    {
+        return;
+    }
+
+    if (!component.enabled)
+    {
+        (void)removeUltrasoundScattererSource(entityId);
+        return;
+    }
+
+    mUltrasoundScattererSources[entityId] = component;
+}
+
+bool World::removeUltrasoundScattererSource(common::EntityId entityId)
+{
+    return mUltrasoundScattererSources.erase(entityId) > 0u;
+}
+
 World::ColliderHandle World::addCollider(common::EntityId entityId,
                                          const ColliderComponent &component)
 {
@@ -1531,6 +1588,30 @@ std::optional<FluidComponent> World::tryGetFluid(common::EntityId entityId) cons
     return component;
 }
 
+std::optional<UltrasoundProbeComponent> World::tryGetUltrasoundProbe(
+    common::EntityId entityId) const
+{
+    const auto it = mUltrasoundProbes.find(entityId);
+    return it != mUltrasoundProbes.end() ? std::optional<UltrasoundProbeComponent>{it->second}
+                                         : std::nullopt;
+}
+
+std::optional<UltrasoundScattererSourceComponent> World::tryGetUltrasoundScattererSource(
+    common::EntityId entityId) const
+{
+    const auto it = mUltrasoundScattererSources.find(entityId);
+    return it != mUltrasoundScattererSources.end()
+               ? std::optional<UltrasoundScattererSourceComponent>{it->second}
+               : std::nullopt;
+}
+
+const UltrasoundProbeResult *World::tryGetUltrasoundProbeResult(common::EntityId entityId) const
+    noexcept
+{
+    const auto it = mUltrasoundProbeResults.find(entityId);
+    return it != mUltrasoundProbeResults.end() ? &it->second : nullptr;
+}
+
 std::optional<ColliderComponent> World::tryGetCollider(ColliderHandle handle) const
 {
     if (!handle.isValid())
@@ -1802,6 +1883,29 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
     clearDirtyIndexSet(mDirtyRenderableMetadataIndices, mDirtyRenderableMetadataBits);
     clearDirtyIndexSet(mDirtyCameraIndices, mDirtyCameraBits);
     clearDirtyIndexSet(mDirtyLightIndices, mDirtyLightBits);
+}
+
+const std::unordered_map<common::EntityId, UltrasoundProbeComponent> &
+World::ultrasoundProbeComponents() const noexcept
+{
+    return mUltrasoundProbes;
+}
+
+const std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent> &
+World::ultrasoundScattererSourceComponents() const noexcept
+{
+    return mUltrasoundScattererSources;
+}
+
+void World::setUltrasoundProbeResult(common::EntityId entityId,
+                                     const UltrasoundProbeResult &result)
+{
+    mUltrasoundProbeResults[entityId] = result;
+}
+
+void World::clearUltrasoundProbeResult(common::EntityId entityId)
+{
+    mUltrasoundProbeResults.erase(entityId);
 }
 
 void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager &resources)
