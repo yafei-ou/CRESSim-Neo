@@ -161,26 +161,30 @@ struct FluidComponent
 
 struct UltrasoundProbeComponent
 {
-    bool enabled                   = true;
-    std::uint32_t numScanlines     = 16u;
-    float lineLength               = 12.0f;
-    float scanlineSpacing          = 0.5f;
-    float soundSpeed               = 1540.0f;
-    float worldUnitsPerMeter       = 10.0f;
-    float noiseAmplitude           = 0.0f;
-    float samplingFrequency        = 100e6f;
-    float demodulationFrequency    = 2.5e6f;
-    float centerFrequency          = 2.5e6f;
-    float fractionalBandwidth      = 0.2f;
-    float beamSigmaLateral         = 1.0f;
-    float beamSigmaElevational     = 1.0f;
-    std::uint32_t radialDecimation = 4u;
-    std::uint32_t threadsPerBlock  = 128u;
-    std::uint32_t cudaNumStreams   = 1u;
-    std::uint32_t numTimeSamples   = 0u;
-    bool useArcProjection          = false;
-    bool enablePhaseDelay          = true;
-    bool cpuReadbackEnabled        = true;
+    bool enabled                       = true;
+    std::uint32_t numScanlines         = 16u;
+    float lineLength                   = 12.0f;
+    float scanlineSpacing              = 0.5f;
+    float soundSpeed                   = 1540.0f;
+    float worldUnitsPerMeter           = 10.0f;
+    float noiseAmplitude               = 0.0f;
+    float samplingFrequency            = 100e6f;
+    float demodulationFrequency        = 2.5e6f;
+    float centerFrequency              = 2.5e6f;
+    float fractionalBandwidth          = 0.2f;
+    float beamSigmaLateral             = 1.0f;
+    float beamSigmaElevational         = 1.0f;
+    std::uint32_t radialDecimation     = 4u;
+    std::uint32_t threadsPerBlock      = 128u;
+    std::uint32_t cudaNumStreams       = 1u;
+    std::uint32_t numTimeSamples       = 0u;
+    bool useArcProjection              = false;
+    bool enablePhaseDelay              = true;
+    bool imageEnabled                  = true;
+    std::uint32_t imageBaseHeight      = 512u;
+    bool imageUseFixedMaxNormalization = false;
+    float imageFixedMaxSignal          = 1.0f;
+    float imageDynamicRangeDb          = 60.0f;
 };
 
 struct UltrasoundScattererSourceComponent
@@ -192,20 +196,17 @@ struct UltrasoundScattererSourceComponent
     float pointDistanceOverride = 0.0f;
 };
 
-struct UltrasoundRfSample
-{
-    float real = 0.0f;
-    float imag = 0.0f;
-};
-
 struct UltrasoundProbeResult
 {
     bool valid                        = false;
+    bool imageValid                   = false;
     std::uint64_t frameIndex          = 0u;
     std::uint32_t numScanlines        = 0u;
     std::uint32_t samplesPerScanline  = 0u;
     std::uint64_t totalScattererCount = 0u;
-    std::vector<UltrasoundRfSample> rfSamples{};
+    std::uint32_t imageWidth          = 0u;
+    std::uint32_t imageHeight         = 0u;
+    gpu::GpuRenderTargetHandle imageTarget{};
 };
 
 } // namespace cressim::neo::engine
