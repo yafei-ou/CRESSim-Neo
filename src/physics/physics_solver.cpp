@@ -35,11 +35,11 @@ std::uint32_t nextPowerOfTwo(std::uint32_t value)
     return value + 1u;
 }
 
-std::uint32_t buildUniqueQueueFamilyIndices(
-    const Diligent::IDeviceContext *firstContext, const Diligent::IDeviceContext *secondContext,
-    std::array<std::uint32_t, 2> &outQueueFamilyIndices)
+std::uint32_t buildUniqueQueueFamilyIndices(const Diligent::IDeviceContext *firstContext,
+                                            const Diligent::IDeviceContext *secondContext,
+                                            std::array<std::uint32_t, 2> &outQueueFamilyIndices)
 {
-    std::uint32_t count = 0u;
+    std::uint32_t count      = 0u;
     const auto appendQueueId = [&outQueueFamilyIndices, &count](const Diligent::IDeviceContext *ctx)
     {
         if (ctx == nullptr)

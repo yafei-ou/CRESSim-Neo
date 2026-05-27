@@ -1133,8 +1133,7 @@ bool World::removeFluid(common::EntityId entityId)
     return mPhysicsWorld.removeFluid(entityId);
 }
 
-void World::setUltrasoundProbe(common::EntityId entityId,
-                               const UltrasoundProbeComponent &component)
+void World::setUltrasoundProbe(common::EntityId entityId, const UltrasoundProbeComponent &component)
 {
     if (entityId == common::kInvalidEntityId)
     {
@@ -1161,8 +1160,8 @@ bool World::removeUltrasoundProbe(common::EntityId entityId)
     return mUltrasoundProbes.erase(entityId) > 0u;
 }
 
-void World::setUltrasoundScattererSource(
-    common::EntityId entityId, const UltrasoundScattererSourceComponent &component)
+void World::setUltrasoundScattererSource(common::EntityId entityId,
+                                         const UltrasoundScattererSourceComponent &component)
 {
     if (entityId == common::kInvalidEntityId)
     {
@@ -1605,8 +1604,8 @@ std::optional<UltrasoundScattererSourceComponent> World::tryGetUltrasoundScatter
                : std::nullopt;
 }
 
-const UltrasoundProbeResult *World::tryGetUltrasoundProbeResult(common::EntityId entityId) const
-    noexcept
+const UltrasoundProbeResult *World::tryGetUltrasoundProbeResult(
+    common::EntityId entityId) const noexcept
 {
     const auto it = mUltrasoundProbeResults.find(entityId);
     return it != mUltrasoundProbeResults.end() ? &it->second : nullptr;
@@ -1783,7 +1782,7 @@ const std::vector<EntityPoseMappingEntry> &World::physicsRenderableMappings()
             EntityPoseMappingEntry entry{};
             entry.sourcePoseIndex = rigidBodyIt->second;
             entry.objectIndex     = renderable.envIndex * mSceneLayout.maxRenderableObjectsPerEnv +
-                                renderable.objectSlot;
+                                    renderable.objectSlot;
             mPhysicsRenderableMappingsCache.push_back(entry);
         }
     }
@@ -1885,20 +1884,19 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
     clearDirtyIndexSet(mDirtyLightIndices, mDirtyLightBits);
 }
 
-const std::unordered_map<common::EntityId, UltrasoundProbeComponent> &
-World::ultrasoundProbeComponents() const noexcept
+const std::unordered_map<common::EntityId, UltrasoundProbeComponent> &World::
+    ultrasoundProbeComponents() const noexcept
 {
     return mUltrasoundProbes;
 }
 
-const std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent> &
-World::ultrasoundScattererSourceComponents() const noexcept
+const std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent> &World::
+    ultrasoundScattererSourceComponents() const noexcept
 {
     return mUltrasoundScattererSources;
 }
 
-void World::setUltrasoundProbeResult(common::EntityId entityId,
-                                     const UltrasoundProbeResult &result)
+void World::setUltrasoundProbeResult(common::EntityId entityId, const UltrasoundProbeResult &result)
 {
     mUltrasoundProbeResults[entityId] = result;
 }
@@ -2423,14 +2421,14 @@ void World::refreshLightEntry(std::uint32_t lightIndex)
 
     graphics::GpuLightInput input{};
     input.positionRange      = Diligent::float4{lightData.position.x, lightData.position.y,
-                                           lightData.position.z, lightData.range};
+                                                lightData.position.z, lightData.range};
     input.directionIntensity = Diligent::float4{lightData.direction.x, lightData.direction.y,
                                                 lightData.direction.z, lightData.intensity};
     input.color = Diligent::float4{lightData.color.x, lightData.color.y, lightData.color.z, 0.0f};
     const float innerConeRadians = lightData.innerConeAngle * 0.01745329251994329577f;
     const float outerConeRadians = lightData.outerConeAngle * 0.01745329251994329577f;
     input.spotAngles     = Diligent::float4{std::cos(innerConeRadians), std::cos(outerConeRadians),
-                                        lightData.innerConeAngle, lightData.outerConeAngle};
+                                            lightData.innerConeAngle, lightData.outerConeAngle};
     input.shadowDistance = lightData.shadowDistance;
     input.shadowFadeDistance     = lightData.shadowFadeDistance;
     input.shadowBias             = lightData.shadowBias;

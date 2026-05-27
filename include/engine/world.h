@@ -53,8 +53,8 @@ public:
     bool removeFluid(common::EntityId entityId);
     void setUltrasoundProbe(common::EntityId entityId, const UltrasoundProbeComponent &component);
     bool removeUltrasoundProbe(common::EntityId entityId);
-    void setUltrasoundScattererSource(
-        common::EntityId entityId, const UltrasoundScattererSourceComponent &component);
+    void setUltrasoundScattererSource(common::EntityId entityId,
+                                      const UltrasoundScattererSourceComponent &component);
     bool removeUltrasoundScattererSource(common::EntityId entityId);
 
     ColliderHandle addCollider(common::EntityId entityId, const ColliderComponent &component);
@@ -83,8 +83,8 @@ public:
     std::optional<UltrasoundProbeComponent> tryGetUltrasoundProbe(common::EntityId entityId) const;
     std::optional<UltrasoundScattererSourceComponent> tryGetUltrasoundScattererSource(
         common::EntityId entityId) const;
-    const UltrasoundProbeResult *tryGetUltrasoundProbeResult(common::EntityId entityId) const
-        noexcept;
+    const UltrasoundProbeResult *tryGetUltrasoundProbeResult(
+        common::EntityId entityId) const noexcept;
     std::optional<ColliderComponent> tryGetCollider(ColliderHandle handle) const;
     const std::vector<ColliderHandle> &colliderHandles(common::EntityId entityId) const;
 

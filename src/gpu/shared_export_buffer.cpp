@@ -3,9 +3,9 @@
 #include "common/logger.h"
 #include "gpu/gpu_buffer_utils.h"
 
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/include/VulkanUtilities/VulkanHeaders.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/interface/RenderDeviceVk.h"
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
 
 #include <algorithm>
 
@@ -32,8 +32,7 @@ VkBufferUsageFlags toVkBufferUsage(const Diligent::BIND_FLAGS bindFlags)
 }
 
 bool findMemoryTypeIndex(const VkPhysicalDeviceMemoryProperties &memoryProperties,
-                         const std::uint32_t typeBits,
-                         const VkMemoryPropertyFlags preferredFlags,
+                         const std::uint32_t typeBits, const VkMemoryPropertyFlags preferredFlags,
                          std::uint32_t &outMemoryTypeIndex)
 {
     for (std::uint32_t index = 0u; index < memoryProperties.memoryTypeCount; ++index)
@@ -79,8 +78,7 @@ bool canUseVulkanExportableStructuredBuffer(const Diligent::IRenderDevice *rende
 #else
     return renderDevice != nullptr &&
            renderDevice->GetDeviceInfo().Type == Diligent::RENDER_DEVICE_TYPE_VULKAN &&
-           usage == Diligent::USAGE_DEFAULT &&
-           cpuAccess == Diligent::CPU_ACCESS_NONE &&
+           usage == Diligent::USAGE_DEFAULT && cpuAccess == Diligent::CPU_ACCESS_NONE &&
            (Diligent::PlatformMisc::CountOneBits(immediateContextMask) >= 1u) &&
            queueFamilyIndexCount <= 2u;
 #endif
@@ -93,17 +91,12 @@ SharedExportBuffer::~SharedExportBuffer()
     reset();
 }
 
-bool SharedExportBuffer::ensureStructuredBuffer(Diligent::IRenderDevice *renderDevice,
-                                                const char *name,
-                                                const std::uint32_t elementStride,
-                                                const std::uint32_t requiredElementCount,
-                                                const std::uint32_t minimumCapacity,
-                                                const Diligent::BIND_FLAGS bindFlags,
-                                                const Diligent::USAGE usage,
-                                                const Diligent::CPU_ACCESS_FLAGS cpuAccess,
-                                                const Diligent::Uint64 immediateContextMask,
-                                                const std::uint32_t *queueFamilyIndices,
-                                                const std::uint32_t queueFamilyIndexCount)
+bool SharedExportBuffer::ensureStructuredBuffer(
+    Diligent::IRenderDevice *renderDevice, const char *name, const std::uint32_t elementStride,
+    const std::uint32_t requiredElementCount, const std::uint32_t minimumCapacity,
+    const Diligent::BIND_FLAGS bindFlags, const Diligent::USAGE usage,
+    const Diligent::CPU_ACCESS_FLAGS cpuAccess, const Diligent::Uint64 immediateContextMask,
+    const std::uint32_t *queueFamilyIndices, const std::uint32_t queueFamilyIndexCount)
 {
     if (renderDevice == nullptr || elementStride == 0u)
     {
@@ -156,8 +149,8 @@ bool SharedExportBuffer::exportOpaqueFd(int &outFd) const noexcept
         return false;
     }
 
-    const auto getMemoryFd = reinterpret_cast<PFN_vkGetMemoryFdKHR>(
-        vkGetDeviceProcAddr(vkDevice, "vkGetMemoryFdKHR"));
+    const auto getMemoryFd =
+        reinterpret_cast<PFN_vkGetMemoryFdKHR>(vkGetDeviceProcAddr(vkDevice, "vkGetMemoryFdKHR"));
     if (getMemoryFd == nullptr)
     {
         return false;
@@ -190,13 +183,12 @@ bool SharedExportBuffer::recreateStructuredBuffer(
 {
     reset();
 
-    if (canUseVulkanExportableStructuredBuffer(renderDevice, usage, cpuAccess,
-                                               immediateContextMask, queueFamilyIndexCount))
+    if (canUseVulkanExportableStructuredBuffer(renderDevice, usage, cpuAccess, immediateContextMask,
+                                               queueFamilyIndexCount))
     {
-        if (createVulkanExportableStructuredBuffer(renderDevice, name, elementStride,
-                                                   requiredCapacity, bindFlags, usage, cpuAccess,
-                                                   immediateContextMask, queueFamilyIndices,
-                                                   queueFamilyIndexCount))
+        if (createVulkanExportableStructuredBuffer(
+                renderDevice, name, elementStride, requiredCapacity, bindFlags, usage, cpuAccess,
+                immediateContextMask, queueFamilyIndices, queueFamilyIndexCount))
         {
             return true;
         }
@@ -217,10 +209,9 @@ bool SharedExportBuffer::createGenericStructuredBuffer(
 {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer;
     std::uint32_t capacity = 0u;
-    if (!detail::ensureStructuredBufferCapacity(renderDevice, name, elementStride,
-                                                requiredCapacity, requiredCapacity, bindFlags,
-                                                usage, cpuAccess, immediateContextMask, buffer,
-                                                capacity) ||
+    if (!detail::ensureStructuredBufferCapacity(renderDevice, name, elementStride, requiredCapacity,
+                                                requiredCapacity, bindFlags, usage, cpuAccess,
+                                                immediateContextMask, buffer, capacity) ||
         buffer == nullptr)
     {
         return false;
@@ -325,8 +316,7 @@ bool SharedExportBuffer::createVulkanExportableStructuredBuffer(
         vkMemory == VK_NULL_HANDLE)
     {
         vkDestroyBuffer(vkDevice, vkBuffer, nullptr);
-        CRESSIM_LOG_WARNING("vkAllocateMemory failed for exportable shared buffer '", name,
-                            "'.");
+        CRESSIM_LOG_WARNING("vkAllocateMemory failed for exportable shared buffer '", name, "'.");
         return false;
     }
 
@@ -334,17 +324,16 @@ bool SharedExportBuffer::createVulkanExportableStructuredBuffer(
     {
         vkFreeMemory(vkDevice, vkMemory, nullptr);
         vkDestroyBuffer(vkDevice, vkBuffer, nullptr);
-        CRESSIM_LOG_WARNING("vkBindBufferMemory failed for exportable shared buffer '", name,
-                            "'.");
+        CRESSIM_LOG_WARNING("vkBindBufferMemory failed for exportable shared buffer '", name, "'.");
         return false;
     }
 
     Diligent::BufferDesc bufferDesc{};
-    bufferDesc.Name                 = name;
-    bufferDesc.Size                 = static_cast<Diligent::Uint64>(requiredCapacity) * elementStride;
-    bufferDesc.BindFlags            = bindFlags;
-    bufferDesc.Usage                = usage;
-    bufferDesc.CPUAccessFlags       = cpuAccess;
+    bufferDesc.Name           = name;
+    bufferDesc.Size           = static_cast<Diligent::Uint64>(requiredCapacity) * elementStride;
+    bufferDesc.BindFlags      = bindFlags;
+    bufferDesc.Usage          = usage;
+    bufferDesc.CPUAccessFlags = cpuAccess;
     bufferDesc.ImmediateContextMask = immediateContextMask;
     bufferDesc.Mode                 = Diligent::BUFFER_MODE_STRUCTURED;
     bufferDesc.ElementByteStride    = elementStride;

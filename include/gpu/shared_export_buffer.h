@@ -30,11 +30,9 @@ public:
     SharedExportBuffer &operator=(const SharedExportBuffer &) = delete;
 
     bool ensureStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
-                                std::uint32_t elementStride,
-                                std::uint32_t requiredElementCount,
+                                std::uint32_t elementStride, std::uint32_t requiredElementCount,
                                 std::uint32_t minimumCapacity, Diligent::BIND_FLAGS bindFlags,
-                                Diligent::USAGE usage,
-                                Diligent::CPU_ACCESS_FLAGS cpuAccess,
+                                Diligent::USAGE usage, Diligent::CPU_ACCESS_FLAGS cpuAccess,
                                 Diligent::Uint64 immediateContextMask,
                                 const std::uint32_t *queueFamilyIndices = nullptr,
                                 std::uint32_t queueFamilyIndexCount     = 0u);
@@ -80,16 +78,14 @@ public:
 
 private:
     bool recreateStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
-                                  std::uint32_t elementStride,
-                                  std::uint32_t requiredCapacity,
+                                  std::uint32_t elementStride, std::uint32_t requiredCapacity,
                                   Diligent::BIND_FLAGS bindFlags, Diligent::USAGE usage,
                                   Diligent::CPU_ACCESS_FLAGS cpuAccess,
                                   Diligent::Uint64 immediateContextMask,
                                   const std::uint32_t *queueFamilyIndices,
                                   std::uint32_t queueFamilyIndexCount);
     bool createGenericStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
-                                       std::uint32_t elementStride,
-                                       std::uint32_t requiredCapacity,
+                                       std::uint32_t elementStride, std::uint32_t requiredCapacity,
                                        Diligent::BIND_FLAGS bindFlags, Diligent::USAGE usage,
                                        Diligent::CPU_ACCESS_FLAGS cpuAccess,
                                        Diligent::Uint64 immediateContextMask);
@@ -106,8 +102,8 @@ private:
     std::uint32_t mElementStride = 0u;
     bool mExportable             = false;
     bool mOwnsNativeVulkanBuffer = false;
-    VkBuffer_T *mVkBuffer       = nullptr;
-    VkDeviceMemory_T *mVkMemory = nullptr;
+    VkBuffer_T *mVkBuffer        = nullptr;
+    VkDeviceMemory_T *mVkMemory  = nullptr;
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> mRenderDevice;
 };
 

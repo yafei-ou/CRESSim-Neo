@@ -69,10 +69,7 @@ struct CudaSharedBufferBridge::Impl
     std::uint64_t nextFenceValue            = 1u;
 };
 
-CudaStream::CudaStream() :
-    mImpl{std::make_unique<Impl>()}
-{
-}
+CudaStream::CudaStream() : mImpl{std::make_unique<Impl>()} {}
 
 CudaStream::~CudaStream()
 {
@@ -144,8 +141,8 @@ bool CudaStream::copyDeviceToHostAsync(void *dst, const void *src, const std::ui
 #else
     return mImpl != nullptr && mImpl->stream != nullptr && dst != nullptr && src != nullptr &&
            sizeBytes > 0u &&
-           cudaMemcpyAsync(dst, src, static_cast<std::size_t>(sizeBytes),
-                           cudaMemcpyDeviceToHost, mImpl->stream) == cudaSuccess;
+           cudaMemcpyAsync(dst, src, static_cast<std::size_t>(sizeBytes), cudaMemcpyDeviceToHost,
+                           mImpl->stream) == cudaSuccess;
 #endif
 }
 
@@ -158,10 +155,7 @@ bool CudaStream::supportsCudaInteropBuild() noexcept
 #endif
 }
 
-CudaExternalTimelineSemaphore::CudaExternalTimelineSemaphore() :
-    mImpl{std::make_unique<Impl>()}
-{
-}
+CudaExternalTimelineSemaphore::CudaExternalTimelineSemaphore() : mImpl{std::make_unique<Impl>()} {}
 
 CudaExternalTimelineSemaphore::~CudaExternalTimelineSemaphore()
 {
@@ -179,8 +173,8 @@ bool CudaExternalTimelineSemaphore::initializeForVulkan(Diligent::IRenderDevice 
         return false;
     }
 
-    Diligent::RefCntAutoPtr<Diligent::IRenderDeviceVk> renderDeviceVk{
-        renderDevice, Diligent::IID_RenderDeviceVk};
+    Diligent::RefCntAutoPtr<Diligent::IRenderDeviceVk> renderDeviceVk{renderDevice,
+                                                                      Diligent::IID_RenderDeviceVk};
     if (renderDeviceVk == nullptr)
     {
         return false;
@@ -266,8 +260,8 @@ void CudaExternalTimelineSemaphore::reset()
         }
     }
 
-    mImpl->vkSemaphore   = VK_NULL_HANDLE;
-    mImpl->renderDevice  = nullptr;
+    mImpl->vkSemaphore  = VK_NULL_HANDLE;
+    mImpl->renderDevice = nullptr;
 }
 
 bool CudaExternalTimelineSemaphore::isInitialized() const noexcept
@@ -293,14 +287,14 @@ bool CudaExternalTimelineSemaphore::importIntoCuda()
 #if !defined(__linux__)
     return false;
 #else
-    Diligent::RefCntAutoPtr<Diligent::IRenderDeviceVk> renderDeviceVk{
-        mImpl->renderDevice, Diligent::IID_RenderDeviceVk};
+    Diligent::RefCntAutoPtr<Diligent::IRenderDeviceVk> renderDeviceVk{mImpl->renderDevice,
+                                                                      Diligent::IID_RenderDeviceVk};
     if (renderDeviceVk == nullptr)
     {
         return false;
     }
 
-    const VkDevice vkDevice = renderDeviceVk->GetVkDevice();
+    const VkDevice vkDevice   = renderDeviceVk->GetVkDevice();
     const auto getSemaphoreFd = reinterpret_cast<PFN_vkGetSemaphoreFdKHR>(
         vkGetDeviceProcAddr(vkDevice, "vkGetSemaphoreFdKHR"));
     if (getSemaphoreFd == nullptr)
@@ -320,7 +314,7 @@ bool CudaExternalTimelineSemaphore::importIntoCuda()
     }
 
     cudaExternalSemaphoreHandleDesc handleDesc{};
-    handleDesc.type = cudaExternalSemaphoreHandleTypeOpaqueFd;
+    handleDesc.type      = cudaExternalSemaphoreHandleTypeOpaqueFd;
     handleDesc.handle.fd = semaphoreFd;
 
     const cudaError_t importResult =
@@ -416,10 +410,7 @@ bool CudaExternalTimelineSemaphore::supportsCudaInteropBuild() noexcept
 #endif
 }
 
-CudaSharedBuffer::CudaSharedBuffer() :
-    mImpl{std::make_unique<Impl>()}
-{
-}
+CudaSharedBuffer::CudaSharedBuffer() : mImpl{std::make_unique<Impl>()} {}
 
 CudaSharedBuffer::~CudaSharedBuffer()
 {
@@ -464,9 +455,9 @@ bool CudaSharedBuffer::importFromSharedExportBuffer(const SharedExportBuffer &bu
     mapDesc.offset = 0u;
     mapDesc.size   = static_cast<std::size_t>(bufferSizeInBytes);
 
-    void *mappedPointer         = nullptr;
-    const cudaError_t mapResult = cudaExternalMemoryGetMappedBuffer(
-        &mappedPointer, mImpl->cudaMemory, &mapDesc);
+    void *mappedPointer = nullptr;
+    const cudaError_t mapResult =
+        cudaExternalMemoryGetMappedBuffer(&mappedPointer, mImpl->cudaMemory, &mapDesc);
     if (mapResult != cudaSuccess || mappedPointer == nullptr)
     {
         cudaDestroyExternalMemory(mImpl->cudaMemory);
@@ -525,10 +516,7 @@ bool CudaSharedBuffer::supportsCudaInteropBuild() noexcept
 #endif
 }
 
-CudaSharedBufferBridge::CudaSharedBufferBridge() :
-    mImpl{std::make_unique<Impl>()}
-{
-}
+CudaSharedBufferBridge::CudaSharedBufferBridge() : mImpl{std::make_unique<Impl>()} {}
 
 CudaSharedBufferBridge::~CudaSharedBufferBridge()
 {

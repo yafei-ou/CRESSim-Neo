@@ -1,10 +1,10 @@
 #ifndef CRESSIM_NEO_PHYSICS_PHYSICS_SCENE_GPU_STATE_H
 #define CRESSIM_NEO_PHYSICS_PHYSICS_SCENE_GPU_STATE_H
 
+#include "gpu/shared_export_buffer.h"
 #include "physics/physics_gpu_scene_view.h"
 #include "physics/physics_world.h"
 #include "physics/rigid_body_common.h"
-#include "gpu/shared_export_buffer.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
@@ -311,8 +311,7 @@ public:
                         std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
                         std::uint32_t softBodyBoundsChunkCount, Diligent::Uint64 sharedContextMask,
                         const std::uint32_t *sharedQueueFamilyIndices,
-                        std::uint32_t sharedQueueFamilyIndexCount,
-                        bool useNativeFloatAtomics);
+                        std::uint32_t sharedQueueFamilyIndexCount, bool useNativeFloatAtomics);
     bool uploadWorldState(Diligent::IDeviceContext *computeContext, PhysicsWorld &world,
                           std::uint32_t bodyCount, std::uint32_t colliderCount);
     bool copyPredictedRigidBodiesToPersistentState(Diligent::IDeviceContext *computeContext,

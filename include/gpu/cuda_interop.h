@@ -26,7 +26,7 @@ public:
     CudaStream();
     ~CudaStream();
 
-    CudaStream(const CudaStream &) = delete;
+    CudaStream(const CudaStream &)            = delete;
     CudaStream &operator=(const CudaStream &) = delete;
 
     bool initialize();
@@ -50,7 +50,7 @@ public:
     CudaExternalTimelineSemaphore();
     ~CudaExternalTimelineSemaphore();
 
-    CudaExternalTimelineSemaphore(const CudaExternalTimelineSemaphore &) = delete;
+    CudaExternalTimelineSemaphore(const CudaExternalTimelineSemaphore &)            = delete;
     CudaExternalTimelineSemaphore &operator=(const CudaExternalTimelineSemaphore &) = delete;
 
     bool initializeForVulkan(Diligent::IRenderDevice *renderDevice, const char *name);
@@ -81,7 +81,7 @@ public:
     CudaSharedBuffer();
     ~CudaSharedBuffer();
 
-    CudaSharedBuffer(const CudaSharedBuffer &) = delete;
+    CudaSharedBuffer(const CudaSharedBuffer &)            = delete;
     CudaSharedBuffer &operator=(const CudaSharedBuffer &) = delete;
 
     bool importFromSharedExportBuffer(const SharedExportBuffer &buffer);
@@ -104,7 +104,7 @@ public:
     CudaSharedBufferBridge();
     ~CudaSharedBufferBridge();
 
-    CudaSharedBufferBridge(const CudaSharedBufferBridge &) = delete;
+    CudaSharedBufferBridge(const CudaSharedBufferBridge &)            = delete;
     CudaSharedBufferBridge &operator=(const CudaSharedBufferBridge &) = delete;
 
     bool initializeForVulkan(Diligent::IRenderDevice *renderDevice, const char *name);

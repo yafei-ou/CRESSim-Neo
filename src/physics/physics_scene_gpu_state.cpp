@@ -241,8 +241,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
     std::uint32_t softRenderVertexCount, std::uint32_t softRenderTriangleIndexCount,
     std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
     std::uint32_t softBodyBoundsChunkCount, Diligent::Uint64 sharedContextMask,
-    const std::uint32_t *sharedQueueFamilyIndices,
-    std::uint32_t sharedQueueFamilyIndexCount,
+    const std::uint32_t *sharedQueueFamilyIndices, std::uint32_t sharedQueueFamilyIndexCount,
     bool useNativeFloatAtomics)
 {
     const auto rigidPositionsBefore     = mPersistentRigidBodies.positionsBuffer.RawPtr();
