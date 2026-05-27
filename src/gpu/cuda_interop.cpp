@@ -1,4 +1,5 @@
 #include "gpu/cuda_interop.h"
+#include "gpu/shared_export_buffer.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineVulkan/include/VulkanUtilities/VulkanHeaders.h"
@@ -41,6 +42,121 @@ struct CudaExternalTimelineSemaphore::Impl
 #endif
     bool importedIntoCuda = false;
 };
+
+struct CudaStream::Impl
+{
+#if CRESSIM_NEO_HAS_CUDA_INTEROP
+    cudaStream_t stream = nullptr;
+#endif
+};
+
+struct CudaSharedBuffer::Impl
+{
+#if CRESSIM_NEO_HAS_CUDA_INTEROP
+    cudaExternalMemory_t cudaMemory = nullptr;
+#endif
+    void *devicePointer       = nullptr;
+    std::uint64_t sizeInBytes = 0u;
+    bool imported             = false;
+};
+
+struct CudaSharedBufferBridge::Impl
+{
+    CudaStream stream;
+    CudaExternalTimelineSemaphore semaphore;
+    CudaSharedBuffer sharedBuffer;
+    Diligent::IBuffer *importedSourceBuffer = nullptr;
+    std::uint64_t nextFenceValue            = 1u;
+};
+
+CudaStream::CudaStream() :
+    mImpl{std::make_unique<Impl>()}
+{
+}
+
+CudaStream::~CudaStream()
+{
+    reset();
+}
+
+bool CudaStream::initialize()
+{
+    reset();
+
+#if !CRESSIM_NEO_HAS_CUDA_INTEROP
+    return false;
+#else
+    return cudaStreamCreate(&mImpl->stream) == cudaSuccess && mImpl->stream != nullptr;
+#endif
+}
+
+void CudaStream::reset()
+{
+    if (mImpl == nullptr)
+    {
+        return;
+    }
+
+#if CRESSIM_NEO_HAS_CUDA_INTEROP
+    if (mImpl->stream != nullptr)
+    {
+        cudaStreamDestroy(mImpl->stream);
+        mImpl->stream = nullptr;
+    }
+#endif
+}
+
+bool CudaStream::isInitialized() const noexcept
+{
+#if !CRESSIM_NEO_HAS_CUDA_INTEROP
+    return false;
+#else
+    return mImpl != nullptr && mImpl->stream != nullptr;
+#endif
+}
+
+CudaStreamHandle CudaStream::handle() const noexcept
+{
+#if !CRESSIM_NEO_HAS_CUDA_INTEROP
+    return nullptr;
+#else
+    return mImpl != nullptr ? static_cast<CudaStreamHandle>(mImpl->stream) : nullptr;
+#endif
+}
+
+bool CudaStream::synchronize()
+{
+#if !CRESSIM_NEO_HAS_CUDA_INTEROP
+    return false;
+#else
+    return mImpl != nullptr && mImpl->stream != nullptr &&
+           cudaStreamSynchronize(mImpl->stream) == cudaSuccess;
+#endif
+}
+
+bool CudaStream::copyDeviceToHostAsync(void *dst, const void *src, const std::uint64_t sizeBytes)
+{
+#if !CRESSIM_NEO_HAS_CUDA_INTEROP
+    (void)dst;
+    (void)src;
+    (void)sizeBytes;
+    return false;
+#else
+    return mImpl != nullptr && mImpl->stream != nullptr && dst != nullptr && src != nullptr &&
+           sizeBytes > 0u &&
+           cudaMemcpyAsync(dst, src, static_cast<std::size_t>(sizeBytes),
+                           cudaMemcpyDeviceToHost, mImpl->stream) == cudaSuccess;
+#endif
+}
+
+bool CudaStream::supportsCudaInteropBuild() noexcept
+{
+#if CRESSIM_NEO_HAS_CUDA_INTEROP
+    return true;
+#else
+    return false;
+#endif
+}
 
 CudaExternalTimelineSemaphore::CudaExternalTimelineSemaphore() :
     mImpl{std::make_unique<Impl>()}
@@ -298,6 +414,245 @@ bool CudaExternalTimelineSemaphore::supportsCudaInteropBuild() noexcept
 #else
     return false;
 #endif
+}
+
+CudaSharedBuffer::CudaSharedBuffer() :
+    mImpl{std::make_unique<Impl>()}
+{
+}
+
+CudaSharedBuffer::~CudaSharedBuffer()
+{
+    reset();
+}
+
+bool CudaSharedBuffer::importFromSharedExportBuffer(const SharedExportBuffer &buffer)
+{
+    reset();
+
+    const std::uint64_t bufferSizeInBytes = buffer.sizeBytes();
+    if (!buffer.usesNativeSharedAllocation() || bufferSizeInBytes == 0u)
+    {
+        return false;
+    }
+
+#if !CRESSIM_NEO_HAS_CUDA_INTEROP
+    return false;
+#elif !defined(__linux__)
+    return false;
+#else
+    int memoryFd = -1;
+    if (!buffer.exportOpaqueFd(memoryFd) || memoryFd < 0)
+    {
+        return false;
+    }
+
+    cudaExternalMemoryHandleDesc handleDesc{};
+    handleDesc.type      = cudaExternalMemoryHandleTypeOpaqueFd;
+    handleDesc.handle.fd = memoryFd;
+    handleDesc.size      = static_cast<std::size_t>(bufferSizeInBytes);
+
+    const cudaError_t importResult = cudaImportExternalMemory(&mImpl->cudaMemory, &handleDesc);
+    if (importResult != cudaSuccess || mImpl->cudaMemory == nullptr)
+    {
+        closeNativeHandle(memoryFd);
+        mImpl->cudaMemory = nullptr;
+        return false;
+    }
+
+    cudaExternalMemoryBufferDesc mapDesc{};
+    mapDesc.offset = 0u;
+    mapDesc.size   = static_cast<std::size_t>(bufferSizeInBytes);
+
+    void *mappedPointer         = nullptr;
+    const cudaError_t mapResult = cudaExternalMemoryGetMappedBuffer(
+        &mappedPointer, mImpl->cudaMemory, &mapDesc);
+    if (mapResult != cudaSuccess || mappedPointer == nullptr)
+    {
+        cudaDestroyExternalMemory(mImpl->cudaMemory);
+        mImpl->cudaMemory = nullptr;
+        return false;
+    }
+
+    mImpl->devicePointer = mappedPointer;
+    mImpl->sizeInBytes   = bufferSizeInBytes;
+    mImpl->imported      = true;
+    return true;
+#endif
+}
+
+void CudaSharedBuffer::reset()
+{
+    if (mImpl == nullptr)
+    {
+        return;
+    }
+
+#if CRESSIM_NEO_HAS_CUDA_INTEROP
+    if (mImpl->cudaMemory != nullptr)
+    {
+        cudaDestroyExternalMemory(mImpl->cudaMemory);
+        mImpl->cudaMemory = nullptr;
+    }
+#endif
+
+    mImpl->devicePointer = nullptr;
+    mImpl->sizeInBytes   = 0u;
+    mImpl->imported      = false;
+}
+
+bool CudaSharedBuffer::isImported() const noexcept
+{
+    return mImpl != nullptr && mImpl->imported;
+}
+
+void *CudaSharedBuffer::devicePointer() const noexcept
+{
+    return mImpl != nullptr ? mImpl->devicePointer : nullptr;
+}
+
+std::uint64_t CudaSharedBuffer::sizeBytes() const noexcept
+{
+    return mImpl != nullptr ? mImpl->sizeInBytes : 0u;
+}
+
+bool CudaSharedBuffer::supportsCudaInteropBuild() noexcept
+{
+#if CRESSIM_NEO_HAS_CUDA_INTEROP
+    return true;
+#else
+    return false;
+#endif
+}
+
+CudaSharedBufferBridge::CudaSharedBufferBridge() :
+    mImpl{std::make_unique<Impl>()}
+{
+}
+
+CudaSharedBufferBridge::~CudaSharedBufferBridge()
+{
+    reset();
+}
+
+bool CudaSharedBufferBridge::initializeForVulkan(Diligent::IRenderDevice *renderDevice,
+                                                 const char *name)
+{
+    if (mImpl == nullptr)
+    {
+        return false;
+    }
+
+    if (!mImpl->stream.isInitialized() && !mImpl->stream.initialize())
+    {
+        return false;
+    }
+
+    if (!mImpl->semaphore.isInitialized() &&
+        !mImpl->semaphore.initializeForVulkan(renderDevice, name))
+    {
+        return false;
+    }
+
+    if (!mImpl->semaphore.isImportedIntoCuda() && !mImpl->semaphore.importIntoCuda())
+    {
+        return false;
+    }
+
+    return true;
+}
+
+void CudaSharedBufferBridge::reset()
+{
+    if (mImpl == nullptr)
+    {
+        return;
+    }
+
+    mImpl->sharedBuffer.reset();
+    mImpl->importedSourceBuffer = nullptr;
+    mImpl->nextFenceValue       = 1u;
+    mImpl->semaphore.reset();
+    mImpl->stream.reset();
+}
+
+bool CudaSharedBufferBridge::isInitialized() const noexcept
+{
+    return mImpl != nullptr && mImpl->stream.isInitialized() && mImpl->semaphore.isInitialized();
+}
+
+bool CudaSharedBufferBridge::bindSharedBuffer(const SharedExportBuffer &buffer)
+{
+    if (mImpl == nullptr || !buffer.usesNativeSharedAllocation())
+    {
+        return false;
+    }
+
+    if (mImpl->importedSourceBuffer == buffer.buffer() && mImpl->sharedBuffer.isImported())
+    {
+        return true;
+    }
+
+    mImpl->sharedBuffer.reset();
+    mImpl->importedSourceBuffer = nullptr;
+    if (!mImpl->sharedBuffer.importFromSharedExportBuffer(buffer))
+    {
+        return false;
+    }
+
+    mImpl->importedSourceBuffer = buffer.buffer();
+    return true;
+}
+
+bool CudaSharedBufferBridge::synchronizeFromDeviceContext(Diligent::IDeviceContext *context)
+{
+    if (mImpl == nullptr || context == nullptr || !mImpl->stream.isInitialized() ||
+        !mImpl->semaphore.isInitialized() || !mImpl->semaphore.isImportedIntoCuda())
+    {
+        return false;
+    }
+
+    const std::uint64_t fenceValue = mImpl->nextFenceValue++;
+    if (!mImpl->semaphore.signalOnDeviceContext(context, fenceValue))
+    {
+        return false;
+    }
+
+    context->Flush();
+    return mImpl->semaphore.waitOnCudaStream(mImpl->stream.handle(), fenceValue);
+}
+
+bool CudaSharedBufferBridge::copyDeviceToHostAsync(void *dst, const void *src,
+                                                   const std::uint64_t sizeBytes)
+{
+    return mImpl != nullptr && mImpl->stream.copyDeviceToHostAsync(dst, src, sizeBytes);
+}
+
+bool CudaSharedBufferBridge::synchronizeStream()
+{
+    return mImpl != nullptr && mImpl->stream.synchronize();
+}
+
+CudaStreamHandle CudaSharedBufferBridge::streamHandle() const noexcept
+{
+    return mImpl != nullptr ? mImpl->stream.handle() : nullptr;
+}
+
+void *CudaSharedBufferBridge::devicePointer() const noexcept
+{
+    return mImpl != nullptr ? mImpl->sharedBuffer.devicePointer() : nullptr;
+}
+
+std::uint64_t CudaSharedBufferBridge::sizeBytes() const noexcept
+{
+    return mImpl != nullptr ? mImpl->sharedBuffer.sizeBytes() : 0u;
+}
+
+bool CudaSharedBufferBridge::supportsCudaInteropBuild() noexcept
+{
+    return CudaStream::supportsCudaInteropBuild() &&
+           CudaExternalTimelineSemaphore::supportsCudaInteropBuild() &&
+           CudaSharedBuffer::supportsCudaInteropBuild();
 }
 
 } // namespace cressim::neo::gpu

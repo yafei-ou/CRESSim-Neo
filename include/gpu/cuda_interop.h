@@ -16,7 +16,33 @@ class IRenderDevice;
 namespace cressim::neo::gpu
 {
 
+class SharedExportBuffer;
+
 using CudaStreamHandle = void *;
+
+class CRESSIM_NEO_GPU_API CudaStream
+{
+public:
+    CudaStream();
+    ~CudaStream();
+
+    CudaStream(const CudaStream &) = delete;
+    CudaStream &operator=(const CudaStream &) = delete;
+
+    bool initialize();
+    void reset();
+
+    bool isInitialized() const noexcept;
+    CudaStreamHandle handle() const noexcept;
+    bool synchronize();
+    bool copyDeviceToHostAsync(void *dst, const void *src, std::uint64_t sizeBytes);
+
+    static bool supportsCudaInteropBuild() noexcept;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> mImpl;
+};
 
 class CRESSIM_NEO_GPU_API CudaExternalTimelineSemaphore
 {
@@ -41,6 +67,58 @@ public:
     bool waitOnCudaStream(CudaStreamHandle stream, std::uint64_t value);
 
     Diligent::IFence *fence() const noexcept;
+
+    static bool supportsCudaInteropBuild() noexcept;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> mImpl;
+};
+
+class CRESSIM_NEO_GPU_API CudaSharedBuffer
+{
+public:
+    CudaSharedBuffer();
+    ~CudaSharedBuffer();
+
+    CudaSharedBuffer(const CudaSharedBuffer &) = delete;
+    CudaSharedBuffer &operator=(const CudaSharedBuffer &) = delete;
+
+    bool importFromSharedExportBuffer(const SharedExportBuffer &buffer);
+    void reset();
+
+    bool isImported() const noexcept;
+    void *devicePointer() const noexcept;
+    std::uint64_t sizeBytes() const noexcept;
+
+    static bool supportsCudaInteropBuild() noexcept;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> mImpl;
+};
+
+class CRESSIM_NEO_GPU_API CudaSharedBufferBridge
+{
+public:
+    CudaSharedBufferBridge();
+    ~CudaSharedBufferBridge();
+
+    CudaSharedBufferBridge(const CudaSharedBufferBridge &) = delete;
+    CudaSharedBufferBridge &operator=(const CudaSharedBufferBridge &) = delete;
+
+    bool initializeForVulkan(Diligent::IRenderDevice *renderDevice, const char *name);
+    void reset();
+
+    bool isInitialized() const noexcept;
+    bool bindSharedBuffer(const SharedExportBuffer &buffer);
+    bool synchronizeFromDeviceContext(Diligent::IDeviceContext *context);
+    bool copyDeviceToHostAsync(void *dst, const void *src, std::uint64_t sizeBytes);
+    bool synchronizeStream();
+
+    CudaStreamHandle streamHandle() const noexcept;
+    void *devicePointer() const noexcept;
+    std::uint64_t sizeBytes() const noexcept;
 
     static bool supportsCudaInteropBuild() noexcept;
 

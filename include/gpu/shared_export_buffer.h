@@ -61,6 +61,11 @@ public:
         return mElementStride;
     }
 
+    std::uint64_t sizeBytes() const noexcept
+    {
+        return static_cast<std::uint64_t>(mCapacity) * mElementStride;
+    }
+
     bool isExportable() const noexcept
     {
         return mExportable;

@@ -1,6 +1,7 @@
 #include "physics/physics_solver.h"
 
 #include "common/logger.h"
+#include "gpu/cuda_interop.h"
 #include "physics/physics_pass_dispatcher.h"
 #include "physics/physics_scene_gpu_state.h"
 
@@ -77,12 +78,118 @@ bool hasPhysicsGpuBackend(gpu::GpuDevice &device)
            graphicsContext.renderDevice != nullptr && graphicsContext.graphicsContext != nullptr;
 }
 
+struct SoftPositionsCudaInteropProbe
+{
+    gpu::CudaSharedBufferBridge bridge;
+    bool disabled                           = false;
+    bool loggedSuccess                      = false;
+};
+
+bool ensureSoftPositionsCudaInteropProbe(SoftPositionsCudaInteropProbe &probe,
+                                         Diligent::IRenderDevice *renderDevice)
+{
+    if (probe.disabled)
+    {
+        return false;
+    }
+
+    if (!gpu::CudaStream::supportsCudaInteropBuild() ||
+        !gpu::CudaSharedBufferBridge::supportsCudaInteropBuild())
+    {
+        probe.disabled = true;
+        return false;
+    }
+
+    if (!probe.bridge.isInitialized() &&
+        !probe.bridge.initializeForVulkan(renderDevice,
+                                          "CRESSimNeo.Physics.SoftPositionsCudaProbe"))
+    {
+        CRESSIM_LOG_WARNING("PhysicsSolver: failed to initialize CUDA interop bridge for soft"
+                            " positions probe. Disabling probe.");
+        probe.disabled = true;
+        return false;
+    }
+
+    return true;
+}
+
+bool ensureSoftPositionsCudaInteropBuffer(
+    SoftPositionsCudaInteropProbe &probe, const gpu::SharedExportBuffer &sharedBuffer)
+{
+    if (probe.disabled || !sharedBuffer.usesNativeSharedAllocation())
+    {
+        return false;
+    }
+
+    if (!probe.bridge.bindSharedBuffer(sharedBuffer))
+    {
+        CRESSIM_LOG_WARNING("PhysicsSolver: failed to import shared soft positions buffer into"
+                            " CUDA. Disabling probe.");
+        probe.disabled = true;
+        return false;
+    }
+    return true;
+}
+
+bool runSoftPositionsCudaInteropProbe(SoftPositionsCudaInteropProbe &probe,
+                                      Diligent::IRenderDevice *renderDevice,
+                                      Diligent::IDeviceContext *computeContext,
+                                      const gpu::SharedExportBuffer &sharedBuffer,
+                                      const common::FrameContext &frameContext)
+{
+    if (!ensureSoftPositionsCudaInteropProbe(probe, renderDevice) ||
+        !ensureSoftPositionsCudaInteropBuffer(probe, sharedBuffer) ||
+        computeContext == nullptr)
+    {
+        return false;
+    }
+
+    if (!probe.bridge.synchronizeFromDeviceContext(computeContext))
+    {
+        CRESSIM_LOG_WARNING("PhysicsSolver: failed to synchronize CUDA soft positions probe."
+                            " Disabling probe.");
+        probe.disabled = true;
+        return false;
+    }
+
+    std::array<float, 4> samplePosition = {0.0f, 0.0f, 0.0f, 0.0f};
+    if (!probe.bridge.isInitialized() ||
+        !probe.bridge.devicePointer() ||
+        !probe.bridge.streamHandle())
+    {
+        probe.disabled = true;
+        return false;
+    }
+
+    if (!probe.bridge.copyDeviceToHostAsync(samplePosition.data(), probe.bridge.devicePointer(),
+                                            sizeof(samplePosition)) ||
+        !probe.bridge.synchronizeStream())
+    {
+        CRESSIM_LOG_WARNING("PhysicsSolver: failed to read back CUDA soft positions probe sample."
+                            " Disabling probe.");
+        probe.disabled = true;
+        return false;
+    }
+
+    if (!probe.loggedSuccess)
+    {
+        CRESSIM_LOG_INFO("PhysicsSolver: CUDA interop probe read shared soft position sample at"
+                         " frame ", frameContext.frameIndex, ": (",
+                         samplePosition[0], ", ", samplePosition[1], ", ",
+                         samplePosition[2], ", ", samplePosition[3], ").");
+        probe.loggedSuccess = true;
+    }
+
+    return true;
+}
+
 } // namespace
 
 struct PhysicsSolver::Impl
 {
     PhysicsSceneGpuState sceneState;
     PhysicsPassDispatcher passDispatcher;
+    SoftPositionsCudaInteropProbe softPositionsCudaInteropProbe;
     bool lastStepHadRigidBroadPhaseWork             = false;
     bool lastStepHadSoftPairWork                    = false;
     std::uint64_t lastAppliedRigidBindingGeneration = 0u;
@@ -812,6 +919,11 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
     }
+
+    (void)runSoftPositionsCudaInteropProbe(
+        mImpl->softPositionsCudaInteropProbe, computeBackend.renderDevice,
+        computeBackend.computeContext, mImpl->sceneState.softPositionsInvMassSharedBuffer(),
+        frameContext);
 
     if (!mDesc.enableBlockingReadback)
     {

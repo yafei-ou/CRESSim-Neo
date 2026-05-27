@@ -720,6 +720,7 @@ bool GpuDeviceImpl::initializeVulkan()
 
 #if CRESSIM_NEO_HAS_CUDA_INTEROP
 #if PLATFORM_LINUX
+        engineCreateInfo.Features.NativeFence = Diligent::DEVICE_FEATURE_STATE_ENABLED;
         instanceExtensions[requestedInstanceExtensionCount++] =
             VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME;
         instanceExtensions[requestedInstanceExtensionCount++] =
