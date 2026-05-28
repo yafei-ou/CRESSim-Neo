@@ -358,7 +358,7 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
         resolveOutputModeForFormat(request.presentationTarget.colorFormat));
     constants.toneMapper             = static_cast<std::uint32_t>(request.toneMapper);
     constants.sourceIsDisplayEncoded = request.sourceIsDisplayEncoded ? 1u : 0u;
-    constants.exposure               = request.exposure;
+    constants.resolveParams[0]       = request.exposure;
     void *mapped                     = nullptr;
     backendContext.graphicsContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,
                                               Diligent::MAP_FLAG_DISCARD, mapped);

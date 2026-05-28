@@ -32,9 +32,10 @@ private:
         std::uint32_t outputMode             = 0u;
         std::uint32_t toneMapper             = 0u;
         std::uint32_t sourceIsDisplayEncoded = 0u;
-        float exposure                       = 1.0f;
-        std::array<float, 3> padding{};
+        std::array<float, 4> resolveParams{1.0f, 0.0f, 0.0f, 0.0f};
     };
+    static_assert(sizeof(ResolveConstants) == 32u,
+                  "Display resolve constants must match the shader constant buffer layout.");
 
     struct PipelineKey
     {
