@@ -186,13 +186,23 @@ struct UltrasoundProbeComponent
     float imageFixedMaxSignal          = 1.0f;
 };
 
+struct UltrasoundAmplitudeRange
+{
+    float minimum = 0.0f;
+    float maximum = 0.0f;
+};
+
 struct UltrasoundScattererSourceComponent
 {
     bool enabled                = true;
     float density               = 1000000.0f;
-    float amplitudeMin          = 0.0f;
-    float amplitudeMax          = 1.0f;
     float pointDistanceOverride = 0.0f;
+};
+
+struct SoftBodyAuthoringParticles
+{
+    std::uint32_t particleCount = 0u;
+    std::vector<Diligent::float3> restPositions{};
 };
 
 struct UltrasoundProbeResult

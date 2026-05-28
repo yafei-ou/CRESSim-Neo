@@ -1184,7 +1184,51 @@ void World::setUltrasoundScattererSource(common::EntityId entityId,
 
 bool World::removeUltrasoundScattererSource(common::EntityId entityId)
 {
-    return mUltrasoundScattererSources.erase(entityId) > 0u;
+    const bool removedSource = mUltrasoundScattererSources.erase(entityId) > 0u;
+    const bool removedRanges = clearUltrasoundScattererAmplitudeRanges(entityId);
+    return removedSource || removedRanges;
+}
+
+void World::setUltrasoundScattererAmplitudeRanges(
+    common::EntityId entityId, const std::vector<UltrasoundAmplitudeRange> &ranges)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("setUltrasoundScattererAmplitudeRanges requires valid entity id.");
+        return;
+    }
+    if (!requireAliveEntity(entityId, "setUltrasoundScattererAmplitudeRanges"))
+    {
+        return;
+    }
+
+    std::vector<Diligent::float3> authoredRestPositions;
+    if (!mPhysicsWorld.tryGetSoftBodyAuthoringRestPositions(entityId, authoredRestPositions))
+    {
+        CRESSIM_LOG_ERROR("setUltrasoundScattererAmplitudeRanges requires a soft body on entity ",
+                          entityId, ".");
+        return;
+    }
+    if (ranges.size() != authoredRestPositions.size())
+    {
+        CRESSIM_LOG_ERROR("setUltrasoundScattererAmplitudeRanges expected ",
+                          authoredRestPositions.size(), " ranges for entity ", entityId, ", got ",
+                          ranges.size(), ".");
+        return;
+    }
+
+    mUltrasoundScattererAmplitudeRanges[entityId] = ranges;
+    ++mUltrasoundScattererAmplitudeRevision;
+}
+
+bool World::clearUltrasoundScattererAmplitudeRanges(common::EntityId entityId)
+{
+    if (mUltrasoundScattererAmplitudeRanges.erase(entityId) == 0u)
+    {
+        return false;
+    }
+    ++mUltrasoundScattererAmplitudeRevision;
+    return true;
 }
 
 World::ColliderHandle World::addCollider(common::EntityId entityId,
@@ -1604,6 +1648,31 @@ std::optional<UltrasoundScattererSourceComponent> World::tryGetUltrasoundScatter
                : std::nullopt;
 }
 
+std::optional<SoftBodyAuthoringParticles> World::tryGetSoftBodyAuthoringParticles(
+    common::EntityId entityId) const
+{
+    const physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(entityId);
+    if (softBody == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    SoftBodyAuthoringParticles particles{};
+    if (!mPhysicsWorld.tryGetSoftBodyAuthoringRestPositions(entityId, particles.restPositions))
+    {
+        return std::nullopt;
+    }
+    particles.particleCount = static_cast<std::uint32_t>(particles.restPositions.size());
+    return particles;
+}
+
+const std::vector<UltrasoundAmplitudeRange> *World::tryGetUltrasoundScattererAmplitudeRanges(
+    common::EntityId entityId) const noexcept
+{
+    const auto it = mUltrasoundScattererAmplitudeRanges.find(entityId);
+    return it != mUltrasoundScattererAmplitudeRanges.end() ? &it->second : nullptr;
+}
+
 const UltrasoundProbeResult *World::tryGetUltrasoundProbeResult(
     common::EntityId entityId) const noexcept
 {
@@ -1894,6 +1963,11 @@ const std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent> &
     ultrasoundScattererSourceComponents() const noexcept
 {
     return mUltrasoundScattererSources;
+}
+
+std::uint64_t World::ultrasoundScattererAmplitudeRevision() const noexcept
+{
+    return mUltrasoundScattererAmplitudeRevision;
 }
 
 void World::setUltrasoundProbeResult(common::EntityId entityId, const UltrasoundProbeResult &result)

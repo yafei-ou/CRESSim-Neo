@@ -56,6 +56,9 @@ public:
     void setUltrasoundScattererSource(common::EntityId entityId,
                                       const UltrasoundScattererSourceComponent &component);
     bool removeUltrasoundScattererSource(common::EntityId entityId);
+    void setUltrasoundScattererAmplitudeRanges(common::EntityId entityId,
+                                               const std::vector<UltrasoundAmplitudeRange> &ranges);
+    bool clearUltrasoundScattererAmplitudeRanges(common::EntityId entityId);
 
     ColliderHandle addCollider(common::EntityId entityId, const ColliderComponent &component);
     void updateCollider(ColliderHandle handle, const ColliderComponent &component);
@@ -83,6 +86,10 @@ public:
     std::optional<UltrasoundProbeComponent> tryGetUltrasoundProbe(common::EntityId entityId) const;
     std::optional<UltrasoundScattererSourceComponent> tryGetUltrasoundScattererSource(
         common::EntityId entityId) const;
+    std::optional<SoftBodyAuthoringParticles> tryGetSoftBodyAuthoringParticles(
+        common::EntityId entityId) const;
+    const std::vector<UltrasoundAmplitudeRange> *tryGetUltrasoundScattererAmplitudeRanges(
+        common::EntityId entityId) const noexcept;
     const UltrasoundProbeResult *tryGetUltrasoundProbeResult(
         common::EntityId entityId) const noexcept;
     std::optional<ColliderComponent> tryGetCollider(ColliderHandle handle) const;
@@ -118,6 +125,7 @@ public:
     ultrasoundProbeComponents() const noexcept;
     const std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent> &
     ultrasoundScattererSourceComponents() const noexcept;
+    std::uint64_t ultrasoundScattererAmplitudeRevision() const noexcept;
     void setUltrasoundProbeResult(common::EntityId entityId, const UltrasoundProbeResult &result);
     void clearUltrasoundProbeResult(common::EntityId entityId);
 
@@ -182,7 +190,10 @@ private:
     std::unordered_map<common::EntityId, UltrasoundProbeComponent> mUltrasoundProbes{};
     std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent>
         mUltrasoundScattererSources{};
+    std::unordered_map<common::EntityId, std::vector<UltrasoundAmplitudeRange>>
+        mUltrasoundScattererAmplitudeRanges{};
     std::unordered_map<common::EntityId, UltrasoundProbeResult> mUltrasoundProbeResults{};
+    std::uint64_t mUltrasoundScattererAmplitudeRevision = 0u;
 
     physics::PhysicsWorld mPhysicsWorld{};
     common::SceneLayoutDesc mSceneLayout{};

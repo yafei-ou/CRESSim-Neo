@@ -83,7 +83,6 @@ bool equalsSourceComponent(const UltrasoundScattererSourceComponent &lhs,
                            const UltrasoundScattererSourceComponent &rhs) noexcept
 {
     return lhs.enabled == rhs.enabled && lhs.density == rhs.density &&
-           lhs.amplitudeMin == rhs.amplitudeMin && lhs.amplitudeMax == rhs.amplitudeMax &&
            lhs.pointDistanceOverride == rhs.pointDistanceOverride;
 }
 
@@ -102,12 +101,6 @@ std::uint32_t nextPowerOfTwo(std::uint32_t value)
     value |= value >> 16u;
     return value + 1u;
 }
-
-struct UltrasoundAmplitudeRange
-{
-    float minimum = 0.0f;
-    float maximum = 1.0f;
-};
 
 struct UltrasoundImageSize
 {
@@ -389,7 +382,8 @@ struct UltrasoundSystem::Impl
 
     struct EnvironmentRuntime
     {
-        std::uint64_t softTopologyRevision = 0u;
+        std::uint64_t softTopologyRevision       = 0u;
+        std::uint64_t amplitudeAuthoringRevision = 0u;
         std::vector<common::EntityId> sourceOrder{};
         std::vector<SourceBinding> bindings{};
         std::uint64_t totalScattererCount = 0u;
@@ -412,7 +406,8 @@ struct UltrasoundSystem::Impl
             }
             bindings.clear();
             sourceOrder.clear();
-            totalScattererCount = 0u;
+            totalScattererCount        = 0u;
+            amplitudeAuthoringRevision = 0u;
 #if CRESSIM_NEO_HAS_ULTRASOUND
             if (scatterersDevice != nullptr)
             {
@@ -964,9 +959,10 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
         return false;
     }
 
-    const auto &probeComponents               = world.ultrasoundProbeComponents();
-    const auto &sourceComponents              = world.ultrasoundScattererSourceComponents();
-    const physics::PhysicsWorld &physicsWorld = world.physicsWorld();
+    const auto &probeComponents                    = world.ultrasoundProbeComponents();
+    const auto &sourceComponents                   = world.ultrasoundScattererSourceComponents();
+    const physics::PhysicsWorld &physicsWorld      = world.physicsWorld();
+    const std::uint64_t amplitudeAuthoringRevision = world.ultrasoundScattererAmplitudeRevision();
     auto *sharedBase = static_cast<std::byte *>(mImpl->bridge.devicePointer());
     if (sharedBase == nullptr)
     {
@@ -1026,18 +1022,42 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
 
     for (auto &[envIndex, sources] : sourcesByEnv)
     {
+        struct PendingSource
+        {
+            const physics::SoftBodyState *softBody = nullptr;
+            UltrasoundScattererSourceComponent component{};
+            const std::vector<UltrasoundAmplitudeRange> *amplitudeRanges = nullptr;
+        };
+
+        std::vector<PendingSource> validSources;
+        validSources.reserve(sources.size());
+        for (const auto &[softBody, sourceComponent] : sources)
+        {
+            const auto *authoredRanges =
+                world.tryGetUltrasoundScattererAmplitudeRanges(softBody->entityId);
+            if (authoredRanges == nullptr || authoredRanges->size() != softBody->particleCount)
+            {
+                continue;
+            }
+            validSources.push_back(PendingSource{softBody, sourceComponent, authoredRanges});
+        }
+
         Impl::EnvironmentRuntime &envRuntime = mImpl->environmentRuntimes[envIndex];
-        bool rebuild = envRuntime.scatterersDevice == nullptr ||
+        const bool needsScattererStorage     = !validSources.empty();
+        bool rebuild = (needsScattererStorage && envRuntime.scatterersDevice == nullptr) ||
                        envRuntime.softTopologyRevision != physicsWorld.softBodyTopologyRevision() ||
-                       envRuntime.sourceOrder.size() != sources.size();
+                       envRuntime.amplitudeAuthoringRevision != amplitudeAuthoringRevision ||
+                       envRuntime.sourceOrder.size() != validSources.size();
         if (!rebuild)
         {
-            for (std::size_t i = 0; i < sources.size(); ++i)
+            for (std::size_t i = 0; i < validSources.size(); ++i)
             {
-                if (envRuntime.sourceOrder[i] != sources[i].first->entityId ||
-                    !equalsSourceComponent(envRuntime.bindings[i].component, sources[i].second) ||
-                    envRuntime.bindings[i].particleOffset != sources[i].first->particleOffset ||
-                    envRuntime.bindings[i].particleCount != sources[i].first->particleCount)
+                if (envRuntime.sourceOrder[i] != validSources[i].softBody->entityId ||
+                    !equalsSourceComponent(envRuntime.bindings[i].component,
+                                           validSources[i].component) ||
+                    envRuntime.bindings[i].particleOffset !=
+                        validSources[i].softBody->particleOffset ||
+                    envRuntime.bindings[i].particleCount != validSources[i].softBody->particleCount)
                 {
                     rebuild = true;
                     break;
@@ -1047,30 +1067,56 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
 
         if (rebuild)
         {
-            envRuntime.reset();
-            envRuntime.softTopologyRevision = physicsWorld.softBodyTopologyRevision();
-
-            std::vector<std::vector<UltrasoundAmplitudeRange>> amplitudeRanges;
-            amplitudeRanges.reserve(sources.size());
-            std::vector<CruBounds3> sourceBounds;
-            sourceBounds.reserve(sources.size());
             for (const auto &[softBody, sourceComponent] : sources)
             {
-                const float pointDistance = resolvePointDistance(*softBody, sourceComponent);
-                sourceBounds.push_back(computeBounds(*softBody, pointDistance));
-                amplitudeRanges.emplace_back(
-                    softBody->particleCount,
-                    UltrasoundAmplitudeRange{sourceComponent.amplitudeMin,
-                                             sourceComponent.amplitudeMax});
+                const auto *authoredRanges =
+                    world.tryGetUltrasoundScattererAmplitudeRanges(softBody->entityId);
+                if (authoredRanges == nullptr)
+                {
+                    CRESSIM_LOG_WARNING("UltrasoundSystem: source entity ", softBody->entityId,
+                                        " has no authored ultrasound amplitude ranges; skipping.");
+                    continue;
+                }
+                if (authoredRanges->size() != softBody->particleCount)
+                {
+                    CRESSIM_LOG_WARNING("UltrasoundSystem: source entity ", softBody->entityId,
+                                        " has ", authoredRanges->size(),
+                                        " authored amplitude ranges for ", softBody->particleCount,
+                                        " particles; skipping.");
+                    continue;
+                }
             }
 
-            for (std::size_t i = 0; i < sources.size(); ++i)
+            envRuntime.reset();
+            envRuntime.softTopologyRevision       = physicsWorld.softBodyTopologyRevision();
+            envRuntime.amplitudeAuthoringRevision = amplitudeAuthoringRevision;
+
+            if (validSources.empty())
             {
-                const auto &[softBody, sourceComponent] = sources[i];
-                const float pointDistance = resolvePointDistance(*softBody, sourceComponent);
+                continue;
+            }
+
+            std::vector<std::vector<UltrasoundAmplitudeRange>> amplitudeRanges;
+            amplitudeRanges.reserve(validSources.size());
+            std::vector<CruBounds3> sourceBounds;
+            sourceBounds.reserve(validSources.size());
+            for (const PendingSource &source : validSources)
+            {
+                const float pointDistance =
+                    resolvePointDistance(*source.softBody, source.component);
+                sourceBounds.push_back(computeBounds(*source.softBody, pointDistance));
+                amplitudeRanges.emplace_back(source.amplitudeRanges->begin(),
+                                             source.amplitudeRanges->end());
+            }
+
+            for (std::size_t i = 0; i < validSources.size(); ++i)
+            {
+                const PendingSource &source = validSources[i];
+                const float pointDistance =
+                    resolvePointDistance(*source.softBody, source.component);
                 CruGenerateScatterersFromPointsConfig config{};
                 config.bounds          = sourceBounds[i];
-                config.density         = std::max(sourceComponent.density, 1.0f);
+                config.density         = std::max(source.component.density, 1.0f);
                 config.seed            = 1337u + static_cast<std::uint64_t>(i);
                 config.threadsPerBlock = 128;
                 config.pointDistance   = pointDistance;
@@ -1080,23 +1126,23 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
                 void *neighborWeights        = nullptr;
                 std::uint64_t scattererCount = 0u;
                 void *pointPointer =
-                    sharedBase +
-                    static_cast<std::size_t>(softBody->particleOffset) * sizeof(Diligent::float4);
+                    sharedBase + static_cast<std::size_t>(source.softBody->particleOffset) *
+                                     sizeof(Diligent::float4);
                 CruExtGenerateScatterersFromPoints(pointPointer, amplitudeRanges[i].data(),
-                                                   static_cast<int>(softBody->particleCount),
+                                                   static_cast<int>(source.softBody->particleCount),
                                                    &config, &generatedScatterers, &neighborIndices,
                                                    &neighborWeights, &scattererCount);
 
                 Impl::SourceBinding binding{};
-                binding.sourceEntityId      = softBody->entityId;
-                binding.particleOffset      = softBody->particleOffset;
-                binding.particleCount       = softBody->particleCount;
-                binding.component           = sourceComponent;
+                binding.sourceEntityId      = source.softBody->entityId;
+                binding.particleOffset      = source.softBody->particleOffset;
+                binding.particleCount       = source.softBody->particleCount;
+                binding.component           = source.component;
                 binding.scattererCount      = scattererCount;
                 binding.neighborIndices     = neighborIndices;
                 binding.neighborWeights     = neighborWeights;
                 binding.generatedScatterers = generatedScatterers;
-                envRuntime.sourceOrder.push_back(softBody->entityId);
+                envRuntime.sourceOrder.push_back(source.softBody->entityId);
                 envRuntime.bindings.push_back(std::move(binding));
                 envRuntime.totalScattererCount += scattererCount;
             }

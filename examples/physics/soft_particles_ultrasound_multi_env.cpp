@@ -21,6 +21,7 @@ using cressim::neo::engine::RigidBodyComponent;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::SoftBodyComponent;
 using cressim::neo::engine::TransformComponent;
+using cressim::neo::engine::UltrasoundAmplitudeRange;
 using cressim::neo::engine::UltrasoundProbeComponent;
 using cressim::neo::engine::UltrasoundScattererSourceComponent;
 using cressim::neo::examples::helpers::CommonExampleOptions;
@@ -42,11 +43,14 @@ constexpr float kPi                      = 3.14159265359f;
 struct SceneMaterials
 {
     MaterialHandle ground{};
+    MaterialHandle softBody{};
+    MaterialHandle probe{};
 };
 
 void printUsage(const char *appName)
 {
     cressim::neo::examples::helpers::printUsage(appName, "", true);
+    std::printf("  --debug-particles        Show debug particle rendering.\n");
 }
 
 Diligent::float3 envOrigin(std::uint32_t envIndex, std::uint32_t envCount)
@@ -74,8 +78,68 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
     return resources.registerMaterial(desc);
 }
 
+std::vector<UltrasoundAmplitudeRange> authorAmplitudeRanges(
+    const cressim::neo::engine::SoftBodyAuthoringParticles &particles)
+{
+    if (particles.restPositions.empty())
+    {
+        return {};
+    }
+
+    Diligent::float3 minimum = particles.restPositions.front();
+    Diligent::float3 maximum = particles.restPositions.front();
+    for (const Diligent::float3 &position : particles.restPositions)
+    {
+        minimum.x = std::min(minimum.x, position.x);
+        minimum.y = std::min(minimum.y, position.y);
+        minimum.z = std::min(minimum.z, position.z);
+        maximum.x = std::max(maximum.x, position.x);
+        maximum.y = std::max(maximum.y, position.y);
+        maximum.z = std::max(maximum.z, position.z);
+    }
+
+    const Diligent::float3 extent{
+        std::max(maximum.x - minimum.x, 1.0e-4f), std::max(maximum.y - minimum.y, 1.0e-4f),
+        std::max(maximum.z - minimum.z, 1.0e-4f)};
+    const Diligent::float3 center = (minimum + maximum) * 0.5f;
+
+    std::vector<UltrasoundAmplitudeRange> ranges;
+    ranges.reserve(particles.restPositions.size());
+    for (const Diligent::float3 &position : particles.restPositions)
+    {
+        const float normalizedHeight = (position.y - minimum.y) / extent.y;
+        const Diligent::float3 centered{
+            (position.x - center.x) / extent.x, (position.y - center.y) / extent.y,
+            (position.z - center.z) / extent.z};
+        const float radialDistance = std::sqrt(Diligent::dot(centered, centered));
+        const float shellWeight    = std::clamp(1.0f - radialDistance * 1.6f, 0.0f, 1.0f);
+        const float baseAmplitude =
+            std::clamp(0.15f + 0.55f * normalizedHeight + 0.25f * shellWeight, 0.0f, 1.0f);
+        const float minAmplitude = std::clamp(baseAmplitude - 0.10f, 0.0f, 1.0f);
+        const float maxAmplitude = std::clamp(baseAmplitude + 0.10f, minAmplitude, 1.0f);
+        ranges.push_back(UltrasoundAmplitudeRange{minAmplitude, maxAmplitude});
+    }
+
+    return ranges;
+}
+
+MeshHandle registerProbeMesh(cressim::neo::graphics::RenderResourceManager &resources,
+                             const UltrasoundProbeComponent &probe)
+{
+    const float lateralSpan = std::max(
+        0.04f, static_cast<float>(std::max(probe.numScanlines, 1u) - 1u) * probe.scanlineSpacing);
+    const Diligent::float3 halfExtents{
+        0.5f * (lateralSpan + 0.04f),
+        0.06f,
+        0.5f * 0.08f,
+    };
+    return resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
+        halfExtents, "SoftParticlesUltrasoundMultiEnv.ProbeMesh"));
+}
+
 void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t envCount,
-                       MeshHandle planeMesh, const SceneMaterials &materials,
+                       MeshHandle planeMesh, MeshHandle boxMesh, MeshHandle probeMesh,
+                       const SceneMaterials &materials,
                        cressim::neo::common::EntityId &outCameraEntity)
 {
     auto &world                   = runtime.getWorld();
@@ -123,6 +187,7 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     softTransform.worldTransform.rotation =
         Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 1.0f, 0.0f}, 0.15f * std::sin(phase));
     world.setTransform(softEntity, softTransform);
+    world.setMeshRenderer(softEntity, MeshRendererComponent{boxMesh, materials.softBody, true});
 
     SoftBodyComponent softBody{};
     softBody.source.kind                             = SoftBodySourceKind::RegularGrid;
@@ -144,6 +209,15 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     scattererSource.pointDistanceOverride = 0.0f;
     world.setUltrasoundScattererSource(softEntity, scattererSource);
 
+    const auto authoringParticles = world.tryGetSoftBodyAuthoringParticles(softEntity);
+    if (!authoringParticles.has_value())
+    {
+        throw std::runtime_error("Failed to query authored soft-body particles.");
+    }
+
+    world.setUltrasoundScattererAmplitudeRanges(softEntity,
+                                                authorAmplitudeRanges(*authoringParticles));
+
     const auto probeEntity = world.createEntity(envIndex);
     TransformComponent probeTransform{};
     probeTransform.worldTransform.position = origin + Diligent::float3{0.0f, 0.85f, 0.0f};
@@ -162,6 +236,18 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     probe.imageUseFixedMaxNormalization = false;
     probe.imageFixedMaxSignal           = 10.0f;
     world.setUltrasoundProbe(probeEntity, probe);
+
+    const Diligent::float3 probeDirection =
+        probeTransform.worldTransform.rotation.RotateVector(Diligent::float3{0.0f, 0.0f, 1.0f});
+    const float probeBodyDepth = 0.08f;
+    const auto probeVisualEntity = world.createEntity(envIndex);
+    TransformComponent probeVisualTransform{};
+    probeVisualTransform.worldTransform.position =
+        probeTransform.worldTransform.position - probeDirection * (0.5f * probeBodyDepth);
+    probeVisualTransform.worldTransform.rotation = probeTransform.worldTransform.rotation;
+    world.setTransform(probeVisualEntity, probeVisualTransform);
+    world.setMeshRenderer(probeVisualEntity,
+                          MeshRendererComponent{probeMesh, materials.probe, true});
 }
 
 } // namespace
@@ -170,10 +256,16 @@ int main(int argc, char **argv)
 {
     CommonExampleOptions options{};
     options.envCount = kDefaultEnvCount;
+    bool debugParticles = false;
     try
     {
         for (int i = 1; i < argc; ++i)
         {
+            if (std::strcmp(argv[i], "--debug-particles") == 0)
+            {
+                debugParticles = true;
+                continue;
+            }
             if (cressim::neo::examples::helpers::tryParseCommonArgument(argc, argv, i, options,
                                                                         true))
             {
@@ -205,7 +297,7 @@ int main(int argc, char **argv)
     DebugViewerAppDesc viewerDesc =
         cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
     viewerDesc.statsIntervalFrames  = 60u;
-    viewerDesc.enableDebugParticles = true;
+    viewerDesc.enableDebugParticles = debugParticles;
 
     if (!viewer.initialize(viewerDesc, config))
     {
@@ -221,7 +313,20 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    UltrasoundProbeComponent probeDefaults{};
+    probeDefaults.numScanlines         = 50u;
+    probeDefaults.lineLength           = 1.2f;
+    probeDefaults.scanlineSpacing      = 0.01f;
+    probeDefaults.worldUnitsPerMeter   = 10.0f;
+    probeDefaults.beamSigmaLateral     = 0.01f;
+    probeDefaults.beamSigmaElevational = 0.01f;
+    probeDefaults.imageBaseHeight      = 0u;
+    probeDefaults.imageFixedMaxSignal  = 10.0f;
+
     auto &resources = runtime.getResources();
+    const MeshHandle boxMesh = resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
+        {0.225f, 0.225f, 0.225f}, "SoftParticlesUltrasoundMultiEnv.SoftBodyMesh"));
+    const MeshHandle probeMesh = registerProbeMesh(resources, probeDefaults);
     const MeshHandle planeMesh = resources.registerMesh(
         cressim::neo::examples::helpers::makePlaneMesh(
             2.0f, "SoftParticlesUltrasoundMultiEnv.PlaneMesh"));
@@ -229,12 +334,17 @@ int main(int argc, char **argv)
     SceneMaterials materials{};
     materials.ground = registerMaterial(resources, "SoftParticlesUltrasoundMultiEnv.Ground",
                                         {0.72f, 0.75f, 0.79f}, 0.90f);
+    materials.softBody = registerMaterial(resources, "SoftParticlesUltrasoundMultiEnv.SoftBody",
+                                          {0.86f, 0.54f, 0.44f}, 0.72f);
+    materials.probe = registerMaterial(resources, "SoftParticlesUltrasoundMultiEnv.Probe",
+                                       {0.24f, 0.28f, 0.33f}, 0.30f);
 
     cressim::neo::common::EntityId primaryCamera = cressim::neo::common::kInvalidEntityId;
     for (std::uint32_t envIndex = 0u; envIndex < options.envCount; ++envIndex)
     {
         cressim::neo::common::EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;
-        authorEnvironment(runtime, envIndex, options.envCount, planeMesh, materials, cameraEntity);
+        authorEnvironment(runtime, envIndex, options.envCount, planeMesh, boxMesh, probeMesh,
+                          materials, cameraEntity);
         if (envIndex == 0u)
         {
             primaryCamera = cameraEntity;
