@@ -8,7 +8,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
 #include <stdexcept>
+#include <string>
 
 namespace
 {
@@ -39,6 +42,15 @@ using cressim::neo::viewer::DebugViewerCameraBinding;
 constexpr float kEnvSpacing              = 6.0f;
 constexpr std::uint32_t kDefaultEnvCount = 4u;
 constexpr float kPi                      = 3.14159265359f;
+constexpr float kProbeHeight             = 0.4f;
+constexpr float kProbeBodyHalfHeight     = 0.06f;
+constexpr float kProbeBodyDepth          = 0.08f;
+
+enum class ExampleProbeType
+{
+    Linear,
+    Curvilinear,
+};
 
 struct SceneMaterials
 {
@@ -51,6 +63,7 @@ void printUsage(const char *appName)
 {
     cressim::neo::examples::helpers::printUsage(appName, "", true);
     std::printf("  --debug-particles        Show debug particle rendering.\n");
+    std::printf("  --probe-type TYPE        Probe geometry: linear or curvilinear.\n");
 }
 
 Diligent::float3 envOrigin(std::uint32_t envIndex, std::uint32_t envCount)
@@ -76,6 +89,20 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
     desc.metallic  = 0.0f;
     desc.roughness = roughness;
     return resources.registerMaterial(desc);
+}
+
+ExampleProbeType parseProbeType(const std::string &value)
+{
+    if (value == "linear")
+    {
+        return ExampleProbeType::Linear;
+    }
+    if (value == "curvilinear" || value == "curved")
+    {
+        return ExampleProbeType::Curvilinear;
+    }
+
+    throw std::invalid_argument("Unsupported probe type: " + value);
 }
 
 std::vector<UltrasoundAmplitudeRange> authorAmplitudeRanges(
@@ -126,12 +153,88 @@ std::vector<UltrasoundAmplitudeRange> authorAmplitudeRanges(
 MeshHandle registerProbeMesh(cressim::neo::graphics::RenderResourceManager &resources,
                              const UltrasoundProbeComponent &probe)
 {
+    if (probe.geometry == UltrasoundProbeComponent::Geometry::Curvilinear)
+    {
+        cressim::neo::graphics::MeshResourceDesc mesh{};
+        mesh.debugName = "SoftParticlesUltrasoundMultiEnv.CurvilinearProbeMesh";
+
+        const std::uint32_t segments = std::max<std::uint32_t>(24u, probe.numScanlines);
+        const float radius = std::max(probe.probeRadius, kProbeBodyDepth);
+        const float innerRadius = std::max(radius - kProbeBodyDepth, 1.0e-4f);
+        const float outerRadius = radius;
+        const float halfAngle = 0.5f * probe.sectorAngleDegrees * (kPi / 180.0f);
+
+        const auto pointOnArc = [&](float radiusValue, float angleValue, float yValue) {
+            return Diligent::float3{
+                std::sin(angleValue) * radiusValue,
+                yValue,
+                std::cos(angleValue) * radiusValue - radius,
+            };
+        };
+
+        const auto appendQuad =
+            [&](const Diligent::float3 &a, const Diligent::float3 &b, const Diligent::float3 &c,
+                const Diligent::float3 &d) {
+                const std::uint32_t base = static_cast<std::uint32_t>(mesh.vertices.size());
+                const Diligent::float3 tangentDir = Diligent::normalize(b - a);
+                const Diligent::float3 normal = Diligent::normalize(Diligent::cross(b - a, c - a));
+                const Diligent::float4 tangent{tangentDir.x, tangentDir.y, tangentDir.z, 1.0f};
+                mesh.vertices.push_back({a, normal, 0.0f, 0.0f, tangent});
+                mesh.vertices.push_back({b, normal, 1.0f, 0.0f, tangent});
+                mesh.vertices.push_back({c, normal, 1.0f, 1.0f, tangent});
+                mesh.vertices.push_back({d, normal, 0.0f, 1.0f, tangent});
+                mesh.indices.push_back(base + 0u);
+                mesh.indices.push_back(base + 2u);
+                mesh.indices.push_back(base + 1u);
+                mesh.indices.push_back(base + 0u);
+                mesh.indices.push_back(base + 3u);
+                mesh.indices.push_back(base + 2u);
+            };
+
+        for (std::uint32_t segment = 0u; segment < segments; ++segment)
+        {
+            const float t0 = static_cast<float>(segment) / static_cast<float>(segments);
+            const float t1 = static_cast<float>(segment + 1u) / static_cast<float>(segments);
+            const float angle0 = -halfAngle + 2.0f * halfAngle * t0;
+            const float angle1 = -halfAngle + 2.0f * halfAngle * t1;
+
+            const Diligent::float3 outerTop0 = pointOnArc(outerRadius, angle0, kProbeBodyHalfHeight);
+            const Diligent::float3 outerTop1 = pointOnArc(outerRadius, angle1, kProbeBodyHalfHeight);
+            const Diligent::float3 outerBottom0 =
+                pointOnArc(outerRadius, angle0, -kProbeBodyHalfHeight);
+            const Diligent::float3 outerBottom1 =
+                pointOnArc(outerRadius, angle1, -kProbeBodyHalfHeight);
+            const Diligent::float3 innerTop0 = pointOnArc(innerRadius, angle0, kProbeBodyHalfHeight);
+            const Diligent::float3 innerTop1 = pointOnArc(innerRadius, angle1, kProbeBodyHalfHeight);
+            const Diligent::float3 innerBottom0 =
+                pointOnArc(innerRadius, angle0, -kProbeBodyHalfHeight);
+            const Diligent::float3 innerBottom1 =
+                pointOnArc(innerRadius, angle1, -kProbeBodyHalfHeight);
+
+            appendQuad(outerTop0, outerTop1, outerBottom1, outerBottom0);
+            appendQuad(innerTop1, innerTop0, innerBottom0, innerBottom1);
+            appendQuad(innerTop0, innerTop1, outerTop1, outerTop0);
+            appendQuad(outerBottom0, outerBottom1, innerBottom1, innerBottom0);
+
+            if (segment == 0u)
+            {
+                appendQuad(innerTop0, outerTop0, outerBottom0, innerBottom0);
+            }
+            if (segment + 1u == segments)
+            {
+                appendQuad(outerTop1, innerTop1, innerBottom1, outerBottom1);
+            }
+        }
+
+        return resources.registerMesh(mesh);
+    }
+
     const float lateralSpan = std::max(
         0.04f, static_cast<float>(std::max(probe.numScanlines, 1u) - 1u) * probe.scanlineSpacing);
     const Diligent::float3 halfExtents{
         0.5f * (lateralSpan + 0.04f),
-        0.06f,
-        0.5f * 0.08f,
+        kProbeBodyHalfHeight,
+        0.5f * kProbeBodyDepth,
     };
     return resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
         halfExtents, "SoftParticlesUltrasoundMultiEnv.ProbeMesh"));
@@ -139,6 +242,7 @@ MeshHandle registerProbeMesh(cressim::neo::graphics::RenderResourceManager &reso
 
 void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t envCount,
                        MeshHandle planeMesh, MeshHandle boxMesh, MeshHandle probeMesh,
+                       const UltrasoundProbeComponent &probeTemplate,
                        const SceneMaterials &materials,
                        cressim::neo::common::EntityId &outCameraEntity)
 {
@@ -220,31 +324,25 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
 
     const auto probeEntity = world.createEntity(envIndex);
     TransformComponent probeTransform{};
-    probeTransform.worldTransform.position = origin + Diligent::float3{0.0f, 0.85f, 0.0f};
+    probeTransform.worldTransform.position = origin + Diligent::float3{0.0f, kProbeHeight, 0.0f};
     probeTransform.worldTransform.rotation =
         Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, 0.5f * kPi);
     world.setTransform(probeEntity, probeTransform);
 
-    UltrasoundProbeComponent probe{};
-    probe.numScanlines                  = 50u;
-    probe.lineLength                    = 1.2f;
-    probe.scanlineSpacing               = 0.01f;
-    probe.worldUnitsPerMeter            = 10.0f;
-    probe.beamSigmaLateral              = 0.01f;
-    probe.beamSigmaElevational          = 0.01f;
-    probe.imageBaseHeight               = 0u;
-    probe.imageUseFixedMaxNormalization = false;
-    probe.imageFixedMaxSignal           = 10.0f;
+    UltrasoundProbeComponent probe = probeTemplate;
     world.setUltrasoundProbe(probeEntity, probe);
 
-    const Diligent::float3 probeDirection =
-        probeTransform.worldTransform.rotation.RotateVector(Diligent::float3{0.0f, 0.0f, 1.0f});
-    const float probeBodyDepth = 0.08f;
     const auto probeVisualEntity = world.createEntity(envIndex);
     TransformComponent probeVisualTransform{};
-    probeVisualTransform.worldTransform.position =
-        probeTransform.worldTransform.position - probeDirection * (0.5f * probeBodyDepth);
+    probeVisualTransform.worldTransform.position = probeTransform.worldTransform.position;
     probeVisualTransform.worldTransform.rotation = probeTransform.worldTransform.rotation;
+    if (probe.geometry == UltrasoundProbeComponent::Geometry::Linear)
+    {
+        const Diligent::float3 probeDirection =
+            probeTransform.worldTransform.rotation.RotateVector(Diligent::float3{0.0f, 0.0f, 1.0f});
+        probeVisualTransform.worldTransform.position =
+            probeTransform.worldTransform.position - probeDirection * (0.5f * kProbeBodyDepth);
+    }
     world.setTransform(probeVisualEntity, probeVisualTransform);
     world.setMeshRenderer(probeVisualEntity,
                           MeshRendererComponent{probeMesh, materials.probe, true});
@@ -257,6 +355,7 @@ int main(int argc, char **argv)
     CommonExampleOptions options{};
     options.envCount = kDefaultEnvCount;
     bool debugParticles = false;
+    ExampleProbeType probeType = ExampleProbeType::Linear;
     try
     {
         for (int i = 1; i < argc; ++i)
@@ -264,6 +363,12 @@ int main(int argc, char **argv)
             if (std::strcmp(argv[i], "--debug-particles") == 0)
             {
                 debugParticles = true;
+                continue;
+            }
+            if (std::strcmp(argv[i], "--probe-type") == 0)
+            {
+                probeType = parseProbeType(cressim::neo::examples::helpers::requireOptionValue(
+                    argc, argv, i, "--probe-type"));
                 continue;
             }
             if (cressim::neo::examples::helpers::tryParseCommonArgument(argc, argv, i, options,
@@ -321,7 +426,14 @@ int main(int argc, char **argv)
     probeDefaults.beamSigmaLateral     = 0.01f;
     probeDefaults.beamSigmaElevational = 0.01f;
     probeDefaults.imageBaseHeight      = 0u;
+    probeDefaults.imageUseFixedMaxNormalization = false;
     probeDefaults.imageFixedMaxSignal  = 10.0f;
+    if (probeType == ExampleProbeType::Curvilinear)
+    {
+        probeDefaults.geometry = UltrasoundProbeComponent::Geometry::Curvilinear;
+        probeDefaults.sectorAngleDegrees = 60.0f;
+        probeDefaults.probeRadius = 0.35f;
+    }
 
     auto &resources = runtime.getResources();
     const MeshHandle boxMesh = resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
@@ -344,7 +456,7 @@ int main(int argc, char **argv)
     {
         cressim::neo::common::EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;
         authorEnvironment(runtime, envIndex, options.envCount, planeMesh, boxMesh, probeMesh,
-                          materials, cameraEntity);
+                          probeDefaults, materials, cameraEntity);
         if (envIndex == 0u)
         {
             primaryCamera = cameraEntity;

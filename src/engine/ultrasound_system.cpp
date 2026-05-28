@@ -59,8 +59,10 @@ float resolvePointDistance(const physics::SoftBodyState &body,
 bool equalsProbeComponent(const UltrasoundProbeComponent &lhs,
                           const UltrasoundProbeComponent &rhs) noexcept
 {
-    return lhs.enabled == rhs.enabled && lhs.numScanlines == rhs.numScanlines &&
-           lhs.lineLength == rhs.lineLength && lhs.scanlineSpacing == rhs.scanlineSpacing &&
+    return lhs.enabled == rhs.enabled && lhs.geometry == rhs.geometry &&
+           lhs.numScanlines == rhs.numScanlines && lhs.lineLength == rhs.lineLength &&
+           lhs.scanlineSpacing == rhs.scanlineSpacing &&
+           lhs.sectorAngleDegrees == rhs.sectorAngleDegrees && lhs.probeRadius == rhs.probeRadius &&
            lhs.soundSpeed == rhs.soundSpeed && lhs.worldUnitsPerMeter == rhs.worldUnitsPerMeter &&
            lhs.noiseAmplitude == rhs.noiseAmplitude &&
            lhs.samplingFrequency == rhs.samplingFrequency &&
@@ -104,8 +106,10 @@ std::uint32_t nextPowerOfTwo(std::uint32_t value)
 
 struct UltrasoundImageSize
 {
-    std::uint32_t width  = 1u;
-    std::uint32_t height = 1u;
+    std::uint32_t width      = 1u;
+    std::uint32_t height     = 1u;
+    float probeRadiusPixels  = 0.0f;
+    float sectorAngleRadians = 0.0f;
 };
 
 std::uint32_t dispatchGroupCount(std::uint32_t threadCount, std::uint32_t groupSize) noexcept
@@ -156,6 +160,37 @@ bool equalsRfLayout(const CruRfLayout &lhs, const CruRfLayout &rhs) noexcept
 UltrasoundImageSize computeImageSize(const UltrasoundProbeComponent &probe,
                                      const CruRfLayout &layout) noexcept
 {
+    if (probe.geometry == UltrasoundProbeComponent::Geometry::Curvilinear)
+    {
+        const float nativeDepthSamples = static_cast<float>(std::max(layout.samplesPerLine, 1u));
+        const float sectorAngleRadians =
+            std::max(probe.sectorAngleDegrees * (3.14159265359f / 180.0f), 1.0e-4f);
+        const float nativeProbeRadiusPixels = std::max(probe.probeRadius, 0.0f) *
+                                              nativeDepthSamples /
+                                              std::max(probe.lineLength, 1.0e-4f);
+        const float nativeWidth =
+            std::max(1.0f, 2.0f * (nativeProbeRadiusPixels + nativeDepthSamples) *
+                               std::sin(0.5f * sectorAngleRadians));
+        const float nativeHeight =
+            std::max(1.0f, nativeProbeRadiusPixels + nativeDepthSamples -
+                               nativeProbeRadiusPixels * std::cos(0.5f * sectorAngleRadians));
+        if (probe.imageBaseHeight > 0u)
+        {
+            const std::uint32_t height = std::max(probe.imageBaseHeight, 1u);
+            const float scale          = static_cast<float>(height) / nativeHeight;
+            const std::uint32_t width  = std::max<std::uint32_t>(
+                1u, static_cast<std::uint32_t>(std::floor(nativeWidth * scale + 0.5f)));
+            return UltrasoundImageSize{width, height, nativeProbeRadiusPixels * scale,
+                                       sectorAngleRadians};
+        }
+
+        return UltrasoundImageSize{
+            std::max<std::uint32_t>(1u, static_cast<std::uint32_t>(std::floor(nativeWidth + 0.5f))),
+            std::max<std::uint32_t>(1u,
+                                    static_cast<std::uint32_t>(std::floor(nativeHeight + 0.5f))),
+            nativeProbeRadiusPixels, sectorAngleRadians};
+    }
+
     const std::uint32_t height =
         std::max(probe.imageBaseHeight > 0u ? probe.imageBaseHeight : layout.samplesPerLine, 1u);
     const std::uint32_t lateralIntervals =
@@ -165,7 +200,7 @@ UltrasoundImageSize computeImageSize(const UltrasoundProbeComponent &probe,
     const float aspect = lateralSpan / std::max(probe.lineLength, 1.0e-4f);
     const std::uint32_t width =
         std::max<std::uint32_t>(1u, static_cast<std::uint32_t>(std::floor(height * aspect + 0.5f)));
-    return UltrasoundImageSize{width, height};
+    return UltrasoundImageSize{width, height, 0.0f, 0.0f};
 }
 
 struct UltrasoundReductionConstants
@@ -186,6 +221,10 @@ struct UltrasoundImageConstants
     float scanlineSpacing                  = 1.0f;
     float fixedMaxSignal                   = 1.0f;
     std::uint32_t useFixedMaxNormalization = 0u;
+    float sectorAngleRadians               = 0.0f;
+    float probeRadiusPixels                = 0.0f;
+    float padding0                         = 0.0f;
+    float padding1                         = 0.0f;
 };
 
 constexpr std::uint32_t kUltrasoundReductionThreadGroupSize = 256u;
@@ -232,6 +271,14 @@ constexpr gpu::GpuComputePassDefinition kUltrasoundMaxFinalizePassDefinition = {
 constexpr gpu::GpuComputePassDefinition kUltrasoundImagePassDefinition = {
     "graphics/ultrasound_rf_image.cs.hlsl", "CRESSimNeo.Ultrasound.Image.CS",
     "CRESSimNeo.Ultrasound.Image.PSO",      kUltrasoundImageVars,
+    std::size(kUltrasoundImageVars),
+};
+
+constexpr gpu::GpuComputePassDefinition kUltrasoundCurvilinearImagePassDefinition = {
+    "graphics/ultrasound_rf_curvilinear.cs.hlsl",
+    "CRESSimNeo.Ultrasound.CurvilinearImage.CS",
+    "CRESSimNeo.Ultrasound.CurvilinearImage.PSO",
+    kUltrasoundImageVars,
     std::size(kUltrasoundImageVars),
 };
 #endif
@@ -502,7 +549,8 @@ struct UltrasoundSystem::Impl
     {
         gpu::GpuComputePass maxReducePass;
         gpu::GpuComputePass maxFinalizePass;
-        gpu::GpuComputePass imagePass;
+        gpu::GpuComputePass linearImagePass;
+        gpu::GpuComputePass curvilinearImagePass;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> reductionConstantsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> imageConstantsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> groupMaxBuffer;
@@ -656,8 +704,11 @@ struct UltrasoundSystem::Impl
                                                      kUltrasoundMaxReducePassDefinition) ||
             !imagePassState.maxFinalizePass.initialize(device, streamFactory, graphicsContextMask,
                                                        kUltrasoundMaxFinalizePassDefinition) ||
-            !imagePassState.imagePass.initialize(device, streamFactory, graphicsContextMask,
-                                                 kUltrasoundImagePassDefinition))
+            !imagePassState.linearImagePass.initialize(device, streamFactory, graphicsContextMask,
+                                                       kUltrasoundImagePassDefinition) ||
+            !imagePassState.curvilinearImagePass.initialize(
+                device, streamFactory, graphicsContextMask,
+                kUltrasoundCurvilinearImagePassDefinition))
         {
             return false;
         }
@@ -814,15 +865,18 @@ struct UltrasoundSystem::Impl
         }
 
         UltrasoundImageConstants imageConstants{};
-        imageConstants.numScanlines    = runtime.rfLayout.numScanlines;
-        imageConstants.samplesPerLine  = runtime.rfLayout.samplesPerLine;
-        imageConstants.imageWidth      = runtime.imageWidth;
-        imageConstants.imageHeight     = runtime.imageHeight;
-        imageConstants.lineLength      = std::max(runtime.component.lineLength, 1.0e-4f);
-        imageConstants.scanlineSpacing = std::max(runtime.component.scanlineSpacing, 1.0e-4f);
-        imageConstants.fixedMaxSignal  = std::max(runtime.component.imageFixedMaxSignal, 1.0e-6f);
+        const UltrasoundImageSize imageSize = computeImageSize(runtime.component, runtime.rfLayout);
+        imageConstants.numScanlines         = runtime.rfLayout.numScanlines;
+        imageConstants.samplesPerLine       = runtime.rfLayout.samplesPerLine;
+        imageConstants.imageWidth           = runtime.imageWidth;
+        imageConstants.imageHeight          = runtime.imageHeight;
+        imageConstants.lineLength           = std::max(runtime.component.lineLength, 1.0e-4f);
+        imageConstants.scanlineSpacing      = std::max(runtime.component.scanlineSpacing, 1.0e-4f);
+        imageConstants.fixedMaxSignal = std::max(runtime.component.imageFixedMaxSignal, 1.0e-6f);
         imageConstants.useFixedMaxNormalization =
             runtime.component.imageUseFixedMaxNormalization ? 1u : 0u;
+        imageConstants.sectorAngleRadians = imageSize.sectorAngleRadians;
+        imageConstants.probeRadiusPixels  = imageSize.probeRadiusPixels;
 
         void *mappedImageConstants = nullptr;
         graphicsBackend.graphicsContext->MapBuffer(imagePassState.imageConstantsBuffer,
@@ -848,7 +902,12 @@ struct UltrasoundSystem::Impl
             gpu::GpuTextureBinding{"g_OutputImageRW", imageUav},
         };
 
-        return imagePassState.imagePass.dispatchResources(
+        gpu::GpuComputePass &imagePass =
+            runtime.component.geometry == UltrasoundProbeComponent::Geometry::Curvilinear
+                ? imagePassState.curvilinearImagePass
+                : imagePassState.linearImagePass;
+
+        return imagePass.dispatchResources(
             graphicsBackend.graphicsContext, 0u, imageBufferBindings, imageTextureBindings,
             dispatchGroupCount(runtime.imageWidth, kUltrasoundImageThreadGroupSizeX),
             dispatchGroupCount(runtime.imageHeight, kUltrasoundImageThreadGroupSizeY), 1u);
@@ -1306,15 +1365,44 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
             runtime.scanlines.reserve(runtime.component.numScanlines);
             for (std::uint32_t i = 0u; i < runtime.component.numScanlines; ++i)
             {
-                const float centeredIndex =
-                    static_cast<float>(i) -
-                    0.5f * static_cast<float>(runtime.component.numScanlines - 1u);
-                const Diligent::float3 originPos =
-                    originCenter + lateralVec * (centeredIndex * runtime.component.scanlineSpacing);
-                const float origin[3]    = {originPos.x, originPos.y, originPos.z};
-                const float direction[3] = {directionVec.x, directionVec.y, directionVec.z};
-                const float lateral[3]   = {lateralVec.x, lateralVec.y, lateralVec.z};
-                ScanlineHandle scanline  = CruCreateScanline(origin, direction, lateral);
+                Diligent::float3 originPos = originCenter;
+                Diligent::float3 direction = directionVec;
+                Diligent::float3 lateral   = lateralVec;
+                if (runtime.component.geometry == UltrasoundProbeComponent::Geometry::Curvilinear)
+                {
+                    const float angleSpanRadians =
+                        runtime.component.sectorAngleDegrees * (3.14159265359f / 180.0f);
+                    const float angleStep =
+                        runtime.component.numScanlines > 1u
+                            ? angleSpanRadians /
+                                  static_cast<float>(runtime.component.numScanlines - 1u)
+                            : 0.0f;
+                    const float angle =
+                        -0.5f * angleSpanRadians + static_cast<float>(i) * angleStep;
+                    const float sinAngle = std::sin(angle);
+                    const float cosAngle = std::cos(angle);
+                    const float radius   = std::max(runtime.component.probeRadius, 0.0f);
+
+                    const Diligent::float3 localOriginOffset =
+                        lateralVec * (sinAngle * radius) +
+                        directionVec * ((cosAngle - 1.0f) * radius);
+                    originPos = originCenter + localOriginOffset;
+                    direction =
+                        Diligent::normalize(lateralVec * sinAngle + directionVec * cosAngle);
+                    lateral = Diligent::normalize(lateralVec * cosAngle - directionVec * sinAngle);
+                }
+                else
+                {
+                    const float centeredIndex =
+                        static_cast<float>(i) -
+                        0.5f * static_cast<float>(runtime.component.numScanlines - 1u);
+                    originPos = originCenter +
+                                lateralVec * (centeredIndex * runtime.component.scanlineSpacing);
+                }
+                const float origin[3]       = {originPos.x, originPos.y, originPos.z};
+                const float directionArr[3] = {direction.x, direction.y, direction.z};
+                const float lateralArr[3]   = {lateral.x, lateral.y, lateral.z};
+                ScanlineHandle scanline     = CruCreateScanline(origin, directionArr, lateralArr);
                 if (scanline == nullptr)
                 {
                     buildFailed = true;

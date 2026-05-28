@@ -10,6 +10,10 @@ cbuffer UltrasoundImageConstants
     float g_ScanlineSpacing;
     float g_FixedMaxSignal;
     uint g_UseFixedMaxNormalization;
+    float g_SectorAngleRadians;
+    float g_ProbeRadiusPixels;
+    float g_Padding0;
+    float g_Padding1;
 };
 
 CRESSIM_STRUCTURED_BUFFER(float2, g_RfData);

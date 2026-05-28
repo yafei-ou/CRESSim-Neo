@@ -161,10 +161,19 @@ struct FluidComponent
 
 struct UltrasoundProbeComponent
 {
+    enum class Geometry : std::uint32_t
+    {
+        Linear      = 0u,
+        Curvilinear = 1u,
+    };
+
     bool enabled                       = true;
+    Geometry geometry                  = Geometry::Linear;
     std::uint32_t numScanlines         = 16u;
     float lineLength                   = 12.0f;
     float scanlineSpacing              = 0.5f;
+    float sectorAngleDegrees           = 60.0f;
+    float probeRadius                  = 1.0f;
     float soundSpeed                   = 1540.0f;
     float worldUnitsPerMeter           = 10.0f;
     float noiseAmplitude               = 0.0f;
