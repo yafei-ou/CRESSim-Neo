@@ -314,7 +314,7 @@ bool CudaExternalTimelineSemaphore::importIntoCuda()
     }
 
     cudaExternalSemaphoreHandleDesc handleDesc{};
-    handleDesc.type      = cudaExternalSemaphoreHandleTypeOpaqueFd;
+    handleDesc.type      = cudaExternalSemaphoreHandleTypeTimelineSemaphoreFd;
     handleDesc.handle.fd = semaphoreFd;
 
     const cudaError_t importResult =
@@ -384,7 +384,7 @@ bool CudaExternalTimelineSemaphore::waitOnCudaStream(const CudaStreamHandle stre
     (void)value;
     return false;
 #else
-    if (!mImpl->importedIntoCuda || mImpl->cudaSemaphore == nullptr || stream == nullptr)
+    if (!mImpl->importedIntoCuda || mImpl->cudaSemaphore == nullptr)
     {
         return false;
     }
@@ -399,6 +399,16 @@ bool CudaExternalTimelineSemaphore::waitOnCudaStream(const CudaStreamHandle stre
 Diligent::IFence *CudaExternalTimelineSemaphore::fence() const noexcept
 {
     return mImpl != nullptr ? mImpl->fence.RawPtr() : nullptr;
+}
+
+void *CudaExternalTimelineSemaphore::cudaSemaphoreHandle() const noexcept
+{
+#if !CRESSIM_NEO_HAS_CUDA_INTEROP
+    return nullptr;
+#else
+    return (mImpl != nullptr && mImpl->importedIntoCuda) ? static_cast<void *>(mImpl->cudaSemaphore)
+                                                         : nullptr;
+#endif
 }
 
 bool CudaExternalTimelineSemaphore::supportsCudaInteropBuild() noexcept
@@ -607,7 +617,10 @@ bool CudaSharedBufferBridge::synchronizeFromDeviceContext(Diligent::IDeviceConte
     }
 
     context->Flush();
-    return mImpl->semaphore.waitOnCudaStream(mImpl->stream.handle(), fenceValue);
+    // Queue the graphics/physics completion wait on the CUDA default stream so subsequent
+    // default-stream tracker work and blocking CUDA streams observe the dependency without
+    // a host-side stream synchronize.
+    return mImpl->semaphore.waitOnCudaStream(nullptr, fenceValue);
 }
 
 bool CudaSharedBufferBridge::copyDeviceToHostAsync(void *dst, const void *src,

@@ -67,6 +67,7 @@ public:
     bool waitOnCudaStream(CudaStreamHandle stream, std::uint64_t value);
 
     Diligent::IFence *fence() const noexcept;
+    void *cudaSemaphoreHandle() const noexcept;
 
     static bool supportsCudaInteropBuild() noexcept;
 

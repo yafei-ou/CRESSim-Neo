@@ -517,7 +517,9 @@ struct UltrasoundSystem::Impl
     };
 
     gpu::CudaSharedBufferBridge bridge;
-    bool disabled = false;
+    gpu::CudaExternalTimelineSemaphore completionSemaphore;
+    std::uint64_t nextCompletionFenceValue = 1u;
+    bool disabled                          = false;
     std::unordered_map<std::uint32_t, EnvironmentRuntime> environmentRuntimes{};
     std::unordered_map<common::EntityId, ProbeRuntime> probeRuntimes{};
     ImagePassState imagePassState{};
@@ -618,6 +620,23 @@ struct UltrasoundSystem::Impl
 
         runtime.imageWidth  = size.width;
         runtime.imageHeight = size.height;
+        return true;
+    }
+
+    bool ensureCompletionSemaphoreInitialized(Diligent::IRenderDevice *renderDevice)
+    {
+        if (completionSemaphore.isInitialized())
+        {
+            return true;
+        }
+        if (renderDevice == nullptr ||
+            !completionSemaphore.initializeForVulkan(renderDevice,
+                                                     "CRESSimNeo.Ultrasound.Completion") ||
+            !completionSemaphore.importIntoCuda())
+        {
+            completionSemaphore.reset();
+            return false;
+        }
         return true;
     }
 
@@ -938,8 +957,7 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
     }
 
     if (!mImpl->bridge.bindSharedBuffer(*sharedBuffer) ||
-        !mImpl->bridge.synchronizeFromDeviceContext(computeBackend.computeContext) ||
-        !mImpl->bridge.synchronizeStream())
+        !mImpl->bridge.synchronizeFromDeviceContext(computeBackend.computeContext))
     {
         CRESSIM_LOG_WARNING("UltrasoundSystem: failed to synchronize shared soft positions.");
         mImpl->disabled = true;
@@ -1303,10 +1321,42 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
             continue;
         }
 
-        if (!CruComputeSimulate(runtime.engine) || !CruComputeSynchronize(runtime.engine))
+        bool useGpuCompletionWait =
+            mImpl->ensureCompletionSemaphoreInitialized(graphicsBackend.renderDevice) &&
+            mImpl->completionSemaphore.cudaSemaphoreHandle() != nullptr;
+        const std::uint64_t completionFenceValue =
+            useGpuCompletionWait ? mImpl->nextCompletionFenceValue++ : 0u;
+        if (useGpuCompletionWait)
+        {
+            CruComputeSetCompletionCudaSemaphore(runtime.engine,
+                                                 mImpl->completionSemaphore.cudaSemaphoreHandle(),
+                                                 completionFenceValue);
+        }
+        else
+        {
+            CruComputeSetCompletionCudaSemaphore(runtime.engine, nullptr, 0u);
+        }
+
+        if (!CruComputeSimulate(runtime.engine))
         {
             CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
                                 " simulation could not start.");
+            continue;
+        }
+        if (useGpuCompletionWait)
+        {
+            if (!mImpl->completionSemaphore.waitOnDeviceContext(graphicsBackend.graphicsContext,
+                                                                completionFenceValue))
+            {
+                CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
+                                    " could not queue GPU completion wait.");
+                continue;
+            }
+        }
+        else if (!CruComputeSynchronize(runtime.engine))
+        {
+            CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
+                                " simulation could not complete.");
             continue;
         }
 

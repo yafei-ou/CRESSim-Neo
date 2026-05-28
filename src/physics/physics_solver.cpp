@@ -509,7 +509,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 const bool runRigidContacts =
                     useInitialRigidContactSolve && iteration < rigidContactIterations;
                 const bool needContactSoftApply = runSoftContacts || runSoftRigidContacts;
-                const bool needRigidApply       = runSoftRigidContacts || runRigidContacts ||
+                const bool needRigidApply = runSoftRigidContacts || runRigidContacts ||
                                             runBallJoints || runHingeJoints || runSliderJoints;
                 const bool needJointOnlyRigidConstants =
                     runBallJoints || runHingeJoints || runSliderJoints;
