@@ -899,7 +899,7 @@ bool PhysicsPassDispatcher::buildParticleParticleCandidatePairs(
                               mParticleDispatchConstantsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_CandidateCounts", transient.softRadixBitFlagsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_CandidateOffsets", transient.softRadixBitOffsetsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleNeighborMeta", transient.softNeighborMetaBuffer,

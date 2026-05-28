@@ -20,6 +20,12 @@ namespace
 
 constexpr std::uint32_t kScenePrepareThreadGroupSize = 64u;
 
+struct SoftBodyWorldAabbFallback
+{
+    Diligent::float4 minBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 maxBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+};
+
 struct GraphicsCameraPrepareConstants
 {
     std::uint32_t cameraCount         = 0u;
@@ -87,6 +93,34 @@ constexpr gpu::GpuComputePassDefinition kScenePreparePassDefinition = {
 std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
 {
     return (threadCount + kScenePrepareThreadGroupSize - 1u) / kScenePrepareThreadGroupSize;
+}
+
+bool createStructuredSrvBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
+                               std::uint32_t elementStride, const void *initialData,
+                               Diligent::Uint64 immediateContextMask,
+                               Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer)
+{
+    if (renderDevice == nullptr || elementStride == 0u || initialData == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::BufferDesc desc{};
+    desc.Name                 = name;
+    desc.Size                 = elementStride;
+    desc.BindFlags            = Diligent::BIND_SHADER_RESOURCE;
+    desc.Usage                = Diligent::USAGE_DEFAULT;
+    desc.CPUAccessFlags       = Diligent::CPU_ACCESS_NONE;
+    desc.ImmediateContextMask = immediateContextMask;
+    desc.Mode                 = Diligent::BUFFER_MODE_STRUCTURED;
+    desc.ElementByteStride    = elementStride;
+
+    Diligent::BufferData bufferData{};
+    bufferData.pData    = initialData;
+    bufferData.DataSize = elementStride;
+
+    renderDevice->CreateBuffer(desc, &bufferData, &outBuffer);
+    return outBuffer != nullptr;
 }
 
 std::uint32_t countActiveRenderables(const std::vector<RenderableInstance> &renderables)
@@ -185,6 +219,7 @@ struct Renderer::GpuScenePrepareState
     gpu::GpuComputePass scenePreparePass;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> cameraPrepareConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> scenePrepareConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> fallbackSoftBodyWorldAabbsBuffer;
     bool initialized = false;
 };
 
@@ -279,6 +314,16 @@ bool Renderer::ensureGpuScenePrepareState()
         return false;
     }
 
+    const SoftBodyWorldAabbFallback fallbackSoftBodyWorldAabb{};
+    if (!createStructuredSrvBuffer(backendContext.renderDevice,
+                                   "CRESSimNeo.Graphics.ScenePrepare.FallbackSoftBodyWorldAabbs",
+                                   sizeof(SoftBodyWorldAabbFallback), &fallbackSoftBodyWorldAabb,
+                                   graphicsContextMask,
+                                   mGpuScenePrepare->fallbackSoftBodyWorldAabbsBuffer))
+    {
+        return false;
+    }
+
     mGpuScenePrepare->initialized = true;
     return true;
 }
@@ -368,37 +413,11 @@ bool Renderer::prepareGpuScene(const HostSceneView &world, const GpuEntitySceneV
     std::memcpy(mappedConstants, &constants, sizeof(constants));
     backendContext.graphicsContext->UnmapBuffer(mGpuScenePrepare->scenePrepareConstantsBuffer,
                                                 Diligent::MAP_WRITE);
-
+    Diligent::IBuffer *softBodyWorldAabbsBuffer =
+        mGpuScenePrepare->fallbackSoftBodyWorldAabbsBuffer;
     if (needsSoftBodyWorldAabbs)
     {
-        const std::array bindings{
-            gpu::GpuBufferBinding{"GraphicsScenePrepareConstants",
-                                  mGpuScenePrepare->scenePrepareConstantsBuffer,
-                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            gpu::GpuBufferBinding{"g_EntityPositions", sceneView.poses.positionsBuffer,
-                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            gpu::GpuBufferBinding{"g_EntityOrientations", sceneView.poses.orientationsBuffer,
-                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            gpu::GpuBufferBinding{"g_EntityScales", sceneView.poses.scalesBuffer,
-                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            gpu::GpuBufferBinding{"g_RenderableMetadata", sceneView.renderableMetadataBuffer,
-                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            gpu::GpuBufferBinding{"g_SoftBodyWorldAabbs", physicsScene->soft.worldAabbsBuffer,
-                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            gpu::GpuBufferBinding{"g_PreparedCameras", sceneView.preparedCamerasBuffer,
-                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-            gpu::GpuBufferBinding{"g_RenderableVisibilityFlagsRW",
-                                  sceneView.renderableVisibilityFlagsBuffer,
-                                  Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-            gpu::GpuBufferBinding{"g_RenderableShadowCascadeMasksRW",
-                                  sceneView.renderableShadowCascadeMasksBuffer,
-                                  Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        };
-
-        return mGpuScenePrepare->scenePreparePass.dispatch(
-            backendContext.graphicsContext, 0u, bindings,
-            dispatchGroupCount(sceneView.layout.maxRenderableObjectsPerEnv *
-                               sceneView.cameraCount));
+        softBodyWorldAabbsBuffer = physicsScene->soft.worldAabbsBuffer;
     }
 
     const std::array bindings{
@@ -412,6 +431,8 @@ bool Renderer::prepareGpuScene(const HostSceneView &world, const GpuEntitySceneV
         gpu::GpuBufferBinding{"g_EntityScales", sceneView.poses.scalesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RenderableMetadata", sceneView.renderableMetadataBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftBodyWorldAabbs", softBodyWorldAabbsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PreparedCameras", sceneView.preparedCamerasBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},

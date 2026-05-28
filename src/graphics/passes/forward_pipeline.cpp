@@ -102,6 +102,12 @@ constexpr std::uint32_t kPointShadowMapResolution = 512u;
 constexpr std::uint32_t kLocalShadowViewsPerEnv   = kShadowedLocalLightCap + kShadowedPointLightCap;
 constexpr std::uint32_t kLocalShadowEnvBoundsWords = 8u;
 
+struct SoftBodyWorldAabbFallback
+{
+    Diligent::float4 minBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 maxBounds = {0.0f, 0.0f, 0.0f, 0.0f};
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kIndirectResetVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "GraphicsIndirectResetConstants",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -306,6 +312,34 @@ bool ensureStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *n
         Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask, outBuffer, inOutCapacity);
 }
 
+bool createStructuredSrvBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
+                               std::uint32_t elementStride, const void *initialData,
+                               Diligent::Uint64 immediateContextMask,
+                               Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer)
+{
+    if (renderDevice == nullptr || elementStride == 0u || initialData == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::BufferDesc desc{};
+    desc.Name                 = name;
+    desc.Size                 = elementStride;
+    desc.BindFlags            = Diligent::BIND_SHADER_RESOURCE;
+    desc.Usage                = Diligent::USAGE_DEFAULT;
+    desc.CPUAccessFlags       = Diligent::CPU_ACCESS_NONE;
+    desc.ImmediateContextMask = immediateContextMask;
+    desc.Mode                 = Diligent::BUFFER_MODE_STRUCTURED;
+    desc.ElementByteStride    = elementStride;
+
+    Diligent::BufferData bufferData{};
+    bufferData.pData    = initialData;
+    bufferData.DataSize = elementStride;
+
+    renderDevice->CreateBuffer(desc, &bufferData, &outBuffer);
+    return outBuffer != nullptr;
+}
+
 bool writeBuffer(Diligent::IDeviceContext *context, Diligent::IBuffer *buffer, const void *data,
                  std::size_t sizeBytes)
 {
@@ -431,6 +465,7 @@ struct ForwardPipeline::GpuIndirectState
     Diligent::RefCntAutoPtr<Diligent::IBuffer> localShadowEnvBoundsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> localShadowViewBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> localShadowAssignmentBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> fallbackSoftBodyWorldAabbsBuffer;
     std::uint32_t localShadowEnvBoundsCapacity  = 0u;
     std::uint32_t localShadowViewCapacity       = 0u;
     std::uint32_t localShadowAssignmentCapacity = 0u;
@@ -577,6 +612,15 @@ bool ForwardPipeline::initialize()
     backendContext.renderDevice->CreateBuffer(
         constantsDesc, nullptr, &mGpuIndirectState->localShadowPrepareConstantsBuffer);
     if (mGpuIndirectState->localShadowPrepareConstantsBuffer == nullptr)
+    {
+        return false;
+    }
+
+    const SoftBodyWorldAabbFallback fallbackSoftBodyWorldAabb{};
+    if (!createStructuredSrvBuffer(
+            backendContext.renderDevice, "CRESSimNeo.ForwardPipeline.FallbackSoftBodyWorldAabbs",
+            sizeof(SoftBodyWorldAabbFallback), &fallbackSoftBodyWorldAabb, graphicsContextMask,
+            mGpuIndirectState->fallbackSoftBodyWorldAabbsBuffer))
     {
         return false;
     }
@@ -1176,50 +1220,32 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                 return false;
             }
 
+            Diligent::IBuffer *softBodyWorldAabbsBuffer =
+                mGpuIndirectState->fallbackSoftBodyWorldAabbsBuffer;
             if (needsSoftBodyWorldAabbs)
             {
-                const std::array envBoundsPrepareBindings{
-                    gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
-                                          mGpuIndirectState->localShadowPrepareConstantsBuffer,
-                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-                    gpu::GpuBufferBinding{"g_RenderableMetadata", gpuScene.renderableMetadataBuffer,
-                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-                    gpu::GpuBufferBinding{"g_EntityPositions", gpuScene.poses.positionsBuffer,
-                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-                    gpu::GpuBufferBinding{"g_SoftBodyWorldAabbs",
-                                          physicsScene->soft.worldAabbsBuffer,
-                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-                    gpu::GpuBufferBinding{"g_LocalShadowEnvBoundsRW",
-                                          mGpuIndirectState->localShadowEnvBoundsBuffer,
-                                          Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-                };
-                if (!mGpuIndirectState->localShadowEnvBoundsPreparePass.dispatch(
-                        backendContext.graphicsContext, 0u, envBoundsPrepareBindings,
-                        dispatchGroupCount(totalObjectCount)))
-                {
-                    return false;
-                }
+                softBodyWorldAabbsBuffer = physicsScene->soft.worldAabbsBuffer;
             }
-            else
+
+            const std::array envBoundsPrepareBindings{
+                gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
+                                      mGpuIndirectState->localShadowPrepareConstantsBuffer,
+                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                gpu::GpuBufferBinding{"g_RenderableMetadata", gpuScene.renderableMetadataBuffer,
+                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                gpu::GpuBufferBinding{"g_EntityPositions", gpuScene.poses.positionsBuffer,
+                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                gpu::GpuBufferBinding{"g_SoftBodyWorldAabbs", softBodyWorldAabbsBuffer,
+                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                gpu::GpuBufferBinding{"g_LocalShadowEnvBoundsRW",
+                                      mGpuIndirectState->localShadowEnvBoundsBuffer,
+                                      Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+            };
+            if (!mGpuIndirectState->localShadowEnvBoundsPreparePass.dispatch(
+                    backendContext.graphicsContext, 0u, envBoundsPrepareBindings,
+                    dispatchGroupCount(totalObjectCount)))
             {
-                const std::array envBoundsPrepareBindings{
-                    gpu::GpuBufferBinding{"GraphicsLocalShadowPrepareConstants",
-                                          mGpuIndirectState->localShadowPrepareConstantsBuffer,
-                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-                    gpu::GpuBufferBinding{"g_RenderableMetadata", gpuScene.renderableMetadataBuffer,
-                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-                    gpu::GpuBufferBinding{"g_EntityPositions", gpuScene.poses.positionsBuffer,
-                                          Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-                    gpu::GpuBufferBinding{"g_LocalShadowEnvBoundsRW",
-                                          mGpuIndirectState->localShadowEnvBoundsBuffer,
-                                          Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-                };
-                if (!mGpuIndirectState->localShadowEnvBoundsPreparePass.dispatch(
-                        backendContext.graphicsContext, 0u, envBoundsPrepareBindings,
-                        dispatchGroupCount(totalObjectCount)))
-                {
-                    return false;
-                }
+                return false;
             }
 
             const std::array viewPrepareBindings{

@@ -316,8 +316,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     return false;
                 }
                 if (useInitialRigidContactSolve &&
-                    !mImpl->passDispatcher.initRigidContactVelocities(
-                        computeBackend.computeContext, mImpl->sceneState, constants))
+                    !mImpl->passDispatcher.initRigidContactVelocities(computeBackend.computeContext,
+                                                                      mImpl->sceneState, constants))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: InitRigidContactVelocities initial dispatch.");
@@ -472,9 +472,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 const bool runRigidContacts =
                     useInitialRigidContactSolve && iteration < rigidContactIterations;
                 const bool needContactSoftApply = runSoftContacts || runSoftRigidContacts;
-                const bool needRigidApply =
-                    runSoftRigidContacts || runRigidContacts || runBallJoints || runHingeJoints ||
-                    runSliderJoints;
+                const bool needRigidApply       = runSoftRigidContacts || runRigidContacts ||
+                                            runBallJoints || runHingeJoints || runSliderJoints;
                 const bool needJointOnlyRigidConstants =
                     runBallJoints || runHingeJoints || runSliderJoints;
 
@@ -633,9 +632,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                         "PhysicsSolver::step failed: SolveSliderJointConstraints dispatch.");
                     return false;
                 }
-                if (runRigidContacts &&
-                    !mImpl->passDispatcher.finalRigidContactDepenetration(
-                        computeBackend.computeContext, mImpl->sceneState))
+                if (runRigidContacts && !mImpl->passDispatcher.finalRigidContactDepenetration(
+                                            computeBackend.computeContext, mImpl->sceneState))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: SolveRigidContactDepenetration dispatch.");
