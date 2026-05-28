@@ -1117,8 +1117,10 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
                     CruFreeCudaBuffer(binding.generatedScatterers);
                     binding.generatedScatterers = nullptr;
                 }
-                CruExtDeformationTrackerSetPoints(binding.tracker, pointPointer,
-                                                  static_cast<int>(binding.particleCount));
+                CruExtDeformationTrackerSetInitialPoints(binding.tracker, pointPointer,
+                                                         static_cast<int>(binding.particleCount));
+                CruExtDeformationTrackerSetCurrentPoints(binding.tracker, pointPointer,
+                                                         static_cast<int>(binding.particleCount));
                 CruExtDeformationTrackerSetScatterers(
                     binding.tracker, scattererPointer, binding.neighborIndices,
                     binding.neighborWeights, binding.scattererCount);
@@ -1136,10 +1138,6 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
 
         for (Impl::SourceBinding &binding : envRuntime.bindings)
         {
-            void *pointPointer = sharedBase + static_cast<std::size_t>(binding.particleOffset) *
-                                                  sizeof(Diligent::float4);
-            CruExtDeformationTrackerSetPoints(binding.tracker, pointPointer,
-                                              static_cast<int>(binding.particleCount));
             CruExtDeformationTrackerUpdateScatterers(binding.tracker);
         }
     }
