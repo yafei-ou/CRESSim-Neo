@@ -117,6 +117,11 @@ std::uint32_t dispatchGroupCount(std::uint32_t threadCount, std::uint32_t groupS
     return groupSize == 0u ? 0u : (threadCount + groupSize - 1u) / groupSize;
 }
 
+float resolveCurvilinearSectorAngleRadians(float sectorAngleDegrees) noexcept
+{
+    return std::max(std::abs(sectorAngleDegrees) * (3.14159265359f / 180.0f), 1.0e-4f);
+}
+
 #if CRESSIM_NEO_HAS_ULTRASOUND
 CruBounds3 computeBounds(const physics::SoftBodyState &body, float pointDistance)
 {
@@ -164,7 +169,7 @@ UltrasoundImageSize computeImageSize(const UltrasoundProbeComponent &probe,
     {
         const float nativeDepthSamples = static_cast<float>(std::max(layout.samplesPerLine, 1u));
         const float sectorAngleRadians =
-            std::max(probe.sectorAngleDegrees * (3.14159265359f / 180.0f), 1.0e-4f);
+            resolveCurvilinearSectorAngleRadians(probe.sectorAngleDegrees);
         const float nativeProbeRadiusPixels = std::max(probe.probeRadius, 0.0f) *
                                               nativeDepthSamples /
                                               std::max(probe.lineLength, 1.0e-4f);
@@ -1308,8 +1313,14 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
                 continue;
             }
 
-            const float effectiveSoundSpeed =
-                probeComponent.soundSpeed * std::max(probeComponent.worldUnitsPerMeter, 1.0f);
+            // soundSpeed and beam sigmas are authored in physical units and converted to
+            // scene units here. Probe geometry fields stay authored directly in scene units.
+            const float worldUnitsPerMeter  = std::max(probeComponent.worldUnitsPerMeter, 1.0f);
+            const float effectiveSoundSpeed = probeComponent.soundSpeed * worldUnitsPerMeter;
+            const float effectiveBeamSigmaLateral =
+                probeComponent.beamSigmaLateral * worldUnitsPerMeter;
+            const float effectiveBeamSigmaElevational =
+                probeComponent.beamSigmaElevational * worldUnitsPerMeter;
             int radialDecimation = static_cast<int>(std::max(probeComponent.radialDecimation, 1u));
             int threadsPerBlock  = static_cast<int>(std::max(probeComponent.threadsPerBlock, 1u));
             int cudaNumStreams   = static_cast<int>(std::max(probeComponent.cudaNumStreams, 1u));
@@ -1343,9 +1354,9 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
             runtime.excitation = CruCreateGaussianExcitationSignal(
                 runtime.component.samplingFrequency, runtime.component.demodulationFrequency,
                 runtime.component.centerFrequency, runtime.component.fractionalBandwidth);
-            runtime.beamProfile = CruCreateGaussianBeamProfile(
-                runtime.component.beamSigmaLateral, runtime.component.beamSigmaElevational);
-            runtime.sequence = CruCreateScanSequence(runtime.component.lineLength);
+            runtime.beamProfile = CruCreateGaussianBeamProfile(effectiveBeamSigmaLateral,
+                                                               effectiveBeamSigmaElevational);
+            runtime.sequence    = CruCreateScanSequence(runtime.component.lineLength);
             if (runtime.excitation == nullptr || runtime.beamProfile == nullptr ||
                 runtime.sequence == nullptr)
             {
@@ -1371,7 +1382,7 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
                 if (runtime.component.geometry == UltrasoundProbeComponent::Geometry::Curvilinear)
                 {
                     const float angleSpanRadians =
-                        runtime.component.sectorAngleDegrees * (3.14159265359f / 180.0f);
+                        resolveCurvilinearSectorAngleRadians(runtime.component.sectorAngleDegrees);
                     const float angleStep =
                         runtime.component.numScanlines > 1u
                             ? angleSpanRadians /

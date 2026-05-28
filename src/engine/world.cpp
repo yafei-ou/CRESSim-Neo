@@ -1051,6 +1051,7 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
     {
         return false;
     }
+    (void)clearUltrasoundScattererAmplitudeRanges(entityId);
     mPhysicsLinks[entityId].hasSoftBody = true;
     mDrawRegistryDirty                  = true;
     mSoftBodyRenderBindingsDirty        = true;
@@ -1059,7 +1060,8 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
 
 bool World::removeSoftBody(common::EntityId entityId)
 {
-    auto it = mPhysicsLinks.find(entityId);
+    const bool clearedAmplitudeRanges = clearUltrasoundScattererAmplitudeRanges(entityId);
+    auto it                           = mPhysicsLinks.find(entityId);
     if (it != mPhysicsLinks.end())
     {
         it->second.hasSoftBody = false;
@@ -1072,7 +1074,7 @@ bool World::removeSoftBody(common::EntityId entityId)
     }
     mDrawRegistryDirty           = true;
     mSoftBodyRenderBindingsDirty = true;
-    return mPhysicsWorld.removeSoftBody(entityId);
+    return mPhysicsWorld.removeSoftBody(entityId) || clearedAmplitudeRanges;
 }
 
 bool World::setFluid(common::EntityId entityId, const FluidComponent &component)

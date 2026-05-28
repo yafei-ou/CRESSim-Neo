@@ -423,8 +423,8 @@ int main(int argc, char **argv)
     probeDefaults.lineLength           = 1.2f;
     probeDefaults.scanlineSpacing      = 0.01f;
     probeDefaults.worldUnitsPerMeter   = 10.0f;
-    probeDefaults.beamSigmaLateral     = 0.01f;
-    probeDefaults.beamSigmaElevational = 0.01f;
+    probeDefaults.beamSigmaLateral     = 0.001f;
+    probeDefaults.beamSigmaElevational = 0.001f;
     probeDefaults.imageBaseHeight      = 0u;
     probeDefaults.imageUseFixedMaxNormalization = false;
     probeDefaults.imageFixedMaxSignal  = 10.0f;
