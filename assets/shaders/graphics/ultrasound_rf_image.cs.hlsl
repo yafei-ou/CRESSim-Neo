@@ -8,12 +8,8 @@ cbuffer UltrasoundImageConstants
     uint g_ImageHeight;
     float g_LineLength;
     float g_ScanlineSpacing;
-    float g_DynamicRangeDb;
     float g_FixedMaxSignal;
     uint g_UseFixedMaxNormalization;
-    uint g_Padding0;
-    uint g_Padding1;
-    uint g_Padding2;
 };
 
 CRESSIM_STRUCTURED_BUFFER(float2, g_RfData);
@@ -82,7 +78,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         : max(g_FinalMax[0], 1.0e-6f);
 
     const float normalized = saturate(magnitude / maxMagnitude);
-    const float db = 20.0f * log10(max(normalized, 1.0e-6f));
-    const float gray = saturate((db + max(g_DynamicRangeDb, 1.0f)) / max(g_DynamicRangeDb, 1.0f));
-    g_OutputImageRW[dispatchThreadID.xy] = float4(gray, gray, gray, 1.0f);
+    const float gray = normalized;
+
+    const uint flippedY = g_ImageHeight - 1u - dispatchThreadID.y;
+    g_OutputImageRW[uint2(dispatchThreadID.x, flippedY)] = float4(gray, gray, gray, 1.0f);
 }

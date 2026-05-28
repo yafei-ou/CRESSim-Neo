@@ -18,7 +18,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <limits>
 #include <memory>
 #include <unordered_map>
 #include <utility>
@@ -55,32 +54,6 @@ float resolvePointDistance(const physics::SoftBodyState &body,
     default:
         return std::max(body.particleRadius * 2.0f, 1.0e-4f);
     }
-}
-
-float computeAutoDensity(const physics::SoftBodyState &body)
-{
-    if (body.restPositions.empty())
-    {
-        return 1.0f;
-    }
-
-    Diligent::float3 minimum = body.restPositions.front();
-    Diligent::float3 maximum = body.restPositions.front();
-    for (const Diligent::float3 &position : body.restPositions)
-    {
-        minimum.x = std::min(minimum.x, position.x);
-        minimum.y = std::min(minimum.y, position.y);
-        minimum.z = std::min(minimum.z, position.z);
-        maximum.x = std::max(maximum.x, position.x);
-        maximum.y = std::max(maximum.y, position.y);
-        maximum.z = std::max(maximum.z, position.z);
-    }
-
-    const float extentX = std::max(maximum.x - minimum.x, 1.0e-4f);
-    const float extentY = std::max(maximum.y - minimum.y, 1.0e-4f);
-    const float extentZ = std::max(maximum.z - minimum.z, 1.0e-4f);
-    const float volume  = extentX * extentY * extentZ;
-    return std::max(4096.0f / volume, 1.0f);
 }
 
 CruBounds3 computeBounds(const physics::SoftBodyState &body, float pointDistance)
@@ -133,8 +106,7 @@ bool equalsProbeComponent(const UltrasoundProbeComponent &lhs,
            lhs.enablePhaseDelay == rhs.enablePhaseDelay && lhs.imageEnabled == rhs.imageEnabled &&
            lhs.imageBaseHeight == rhs.imageBaseHeight &&
            lhs.imageUseFixedMaxNormalization == rhs.imageUseFixedMaxNormalization &&
-           lhs.imageFixedMaxSignal == rhs.imageFixedMaxSignal &&
-           lhs.imageDynamicRangeDb == rhs.imageDynamicRangeDb;
+           lhs.imageFixedMaxSignal == rhs.imageFixedMaxSignal;
 }
 
 bool equalsSourceComponent(const UltrasoundScattererSourceComponent &lhs,
@@ -182,9 +154,11 @@ struct UltrasoundImageSize
     std::uint32_t height = 1u;
 };
 
-UltrasoundImageSize computeImageSize(const UltrasoundProbeComponent &probe) noexcept
+UltrasoundImageSize computeImageSize(const UltrasoundProbeComponent &probe,
+                                     const CruRfLayout &layout) noexcept
 {
-    const std::uint32_t height = std::max(probe.imageBaseHeight, 1u);
+    const std::uint32_t height =
+        std::max(probe.imageBaseHeight > 0u ? probe.imageBaseHeight : layout.samplesPerLine, 1u);
     const std::uint32_t lateralIntervals =
         probe.numScanlines > 0u ? std::max(probe.numScanlines - 1u, 1u) : 1u;
     const float lateralSpan =
@@ -217,12 +191,8 @@ struct UltrasoundImageConstants
     std::uint32_t imageHeight              = 1u;
     float lineLength                       = 1.0f;
     float scanlineSpacing                  = 1.0f;
-    float dynamicRangeDb                   = 60.0f;
     float fixedMaxSignal                   = 1.0f;
     std::uint32_t useFixedMaxNormalization = 0u;
-    std::uint32_t padding0                 = 0u;
-    std::uint32_t padding1                 = 0u;
-    std::uint32_t padding2                 = 0u;
 };
 
 constexpr std::uint32_t kUltrasoundReductionThreadGroupSize = 256u;
@@ -581,7 +551,7 @@ struct UltrasoundSystem::Impl
             return true;
         }
 
-        const UltrasoundImageSize size = computeImageSize(runtime.component);
+        const UltrasoundImageSize size = computeImageSize(runtime.component, runtime.rfLayout);
         if (renderTargetSystem.isValidRenderTarget(runtime.imageTarget) &&
             runtime.imageWidth == size.width && runtime.imageHeight == size.height)
         {
@@ -728,6 +698,10 @@ struct UltrasoundSystem::Impl
 
         if (!runtime.component.imageUseFixedMaxNormalization)
         {
+            const std::uint32_t groupCount = std::max<std::uint32_t>(
+                1u, dispatchGroupCount(runtime.rfLayout.totalSamples,
+                                       kUltrasoundReductionThreadGroupSize));
+
             UltrasoundReductionConstants reductionConstants{};
             reductionConstants.dataLength = runtime.rfLayout.totalSamples;
 
@@ -753,14 +727,24 @@ struct UltrasoundSystem::Impl
                                       Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
             };
 
-            const std::uint32_t groupCount = std::max<std::uint32_t>(
-                1u, dispatchGroupCount(runtime.rfLayout.totalSamples,
-                                       kUltrasoundReductionThreadGroupSize));
             if (!imagePassState.maxReducePass.dispatch(graphicsBackend.graphicsContext, 0u,
                                                        maxReduceBindings, groupCount, 1u, 1u))
             {
                 return false;
             }
+
+            reductionConstants.dataLength = groupCount;
+            mappedConstants               = nullptr;
+            graphicsBackend.graphicsContext->MapBuffer(imagePassState.reductionConstantsBuffer,
+                                                       Diligent::MAP_WRITE,
+                                                       Diligent::MAP_FLAG_DISCARD, mappedConstants);
+            if (mappedConstants == nullptr)
+            {
+                return false;
+            }
+            std::memcpy(mappedConstants, &reductionConstants, sizeof(reductionConstants));
+            graphicsBackend.graphicsContext->UnmapBuffer(imagePassState.reductionConstantsBuffer,
+                                                         Diligent::MAP_WRITE);
 
             const std::array maxFinalizeBindings{
                 gpu::GpuBufferBinding{"UltrasoundReductionConstants",
@@ -785,7 +769,6 @@ struct UltrasoundSystem::Impl
         imageConstants.imageHeight     = runtime.imageHeight;
         imageConstants.lineLength      = std::max(runtime.component.lineLength, 1.0e-4f);
         imageConstants.scanlineSpacing = std::max(runtime.component.scanlineSpacing, 1.0e-4f);
-        imageConstants.dynamicRangeDb  = std::max(runtime.component.imageDynamicRangeDb, 1.0f);
         imageConstants.fixedMaxSignal  = std::max(runtime.component.imageFixedMaxSignal, 1.0e-6f);
         imageConstants.useFixedMaxNormalization =
             runtime.component.imageUseFixedMaxNormalization ? 1u : 0u;
@@ -819,6 +802,7 @@ struct UltrasoundSystem::Impl
             dispatchGroupCount(runtime.imageWidth, kUltrasoundImageThreadGroupSizeX),
             dispatchGroupCount(runtime.imageHeight, kUltrasoundImageThreadGroupSizeY), 1u);
     }
+
 #endif
 };
 
@@ -1022,10 +1006,9 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
                 const auto &[softBody, sourceComponent] = sources[i];
                 const float pointDistance = resolvePointDistance(*softBody, sourceComponent);
                 CruGenerateScatterersFromPointsConfig config{};
-                config.bounds  = sourceBounds[i];
-                config.density = sourceComponent.density > 0.0f ? sourceComponent.density
-                                                                : computeAutoDensity(*softBody);
-                config.seed    = 1337u + static_cast<std::uint64_t>(i);
+                config.bounds          = sourceBounds[i];
+                config.density         = std::max(sourceComponent.density, 1.0f);
+                config.seed            = 1337u + static_cast<std::uint64_t>(i);
                 config.threadsPerBlock = 128;
                 config.pointDistance   = pointDistance;
 

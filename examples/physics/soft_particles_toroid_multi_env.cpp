@@ -28,8 +28,6 @@ using cressim::neo::engine::RigidBodyComponent;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::SoftBodyComponent;
 using cressim::neo::engine::TransformComponent;
-using cressim::neo::engine::UltrasoundProbeComponent;
-using cressim::neo::engine::UltrasoundScattererSourceComponent;
 using cressim::neo::examples::helpers::CommonExampleOptions;
 using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialHandle;
@@ -496,22 +494,7 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
         {
             throw std::runtime_error("Failed to author toroid soft body for multi-env viewer.");
         }
-        world.setUltrasoundScattererSource(softEntity, UltrasoundScattererSourceComponent{});
     }
-
-    const auto probeEntity = world.createEntity(envIndex);
-    TransformComponent probeTransform{};
-    probeTransform.worldTransform.position = origin + Diligent::float3{0.0f, 10.0f, -8.0f};
-    world.setTransform(probeEntity, probeTransform);
-
-    UltrasoundProbeComponent probe{};
-    probe.numScanlines         = 16u;
-    probe.lineLength           = 24.0f;
-    probe.scanlineSpacing      = 0.75f;
-    probe.worldUnitsPerMeter   = 10.0f;
-    probe.beamSigmaLateral     = 0.8f;
-    probe.beamSigmaElevational = 0.8f;
-    world.setUltrasoundProbe(probeEntity, probe);
 }
 
 } // namespace

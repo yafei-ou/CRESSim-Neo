@@ -184,13 +184,12 @@ struct UltrasoundProbeComponent
     std::uint32_t imageBaseHeight      = 512u;
     bool imageUseFixedMaxNormalization = false;
     float imageFixedMaxSignal          = 1.0f;
-    float imageDynamicRangeDb          = 60.0f;
 };
 
 struct UltrasoundScattererSourceComponent
 {
     bool enabled                = true;
-    float density               = 0.0f;
+    float density               = 1000000.0f;
     float amplitudeMin          = 0.0f;
     float amplitudeMax          = 1.0f;
     float pointDistanceOverride = 0.0f;
