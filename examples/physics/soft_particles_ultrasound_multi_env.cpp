@@ -119,7 +119,7 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     const auto softEntity = world.createEntity(envIndex);
     TransformComponent softTransform{};
     softTransform.worldTransform.position =
-        origin + Diligent::float3{0.0f, 0.28f + 0.02f * std::sin(phase), 0.0f};
+        origin + Diligent::float3{0.0f, 2.28f + 0.02f * std::sin(phase), 0.0f};
     softTransform.worldTransform.rotation =
         Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 1.0f, 0.0f}, 0.15f * std::sin(phase));
     world.setTransform(softEntity, softTransform);

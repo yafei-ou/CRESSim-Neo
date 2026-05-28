@@ -80,6 +80,5 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float normalized = saturate(magnitude / maxMagnitude);
     const float gray = normalized;
 
-    const uint flippedY = g_ImageHeight - 1u - dispatchThreadID.y;
-    g_OutputImageRW[uint2(dispatchThreadID.x, flippedY)] = float4(gray, gray, gray, 1.0f);
+    g_OutputImageRW[dispatchThreadID.xy] = float4(gray, gray, gray, 1.0f);
 }
