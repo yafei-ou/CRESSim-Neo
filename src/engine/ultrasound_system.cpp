@@ -56,36 +56,6 @@ float resolvePointDistance(const physics::SoftBodyState &body,
     }
 }
 
-CruBounds3 computeBounds(const physics::SoftBodyState &body, float pointDistance)
-{
-    CruBounds3 bounds{};
-    if (body.restPositions.empty())
-    {
-        return bounds;
-    }
-
-    Diligent::float3 minimum = body.restPositions.front();
-    Diligent::float3 maximum = body.restPositions.front();
-    for (const Diligent::float3 &position : body.restPositions)
-    {
-        minimum.x = std::min(minimum.x, position.x);
-        minimum.y = std::min(minimum.y, position.y);
-        minimum.z = std::min(minimum.z, position.z);
-        maximum.x = std::max(maximum.x, position.x);
-        maximum.y = std::max(maximum.y, position.y);
-        maximum.z = std::max(maximum.z, position.z);
-    }
-
-    const float padding = pointDistance * 0.5f;
-    bounds.minimum[0]   = minimum.x - padding;
-    bounds.minimum[1]   = minimum.y - padding;
-    bounds.minimum[2]   = minimum.z - padding;
-    bounds.maximum[0]   = maximum.x + padding;
-    bounds.maximum[1]   = maximum.y + padding;
-    bounds.maximum[2]   = maximum.z + padding;
-    return bounds;
-}
-
 bool equalsProbeComponent(const UltrasoundProbeComponent &lhs,
                           const UltrasoundProbeComponent &rhs) noexcept
 {
@@ -117,15 +87,6 @@ bool equalsSourceComponent(const UltrasoundScattererSourceComponent &lhs,
            lhs.pointDistanceOverride == rhs.pointDistanceOverride;
 }
 
-bool equalsRfLayout(const CruRfLayout &lhs, const CruRfLayout &rhs) noexcept
-{
-    return lhs.numScanlines == rhs.numScanlines &&
-           lhs.requiredTimeSamples == rhs.requiredTimeSamples &&
-           lhs.timeSamples == rhs.timeSamples &&
-           lhs.delayCompensationSamples == rhs.delayCompensationSamples &&
-           lhs.samplesPerLine == rhs.samplesPerLine && lhs.totalSamples == rhs.totalSamples;
-}
-
 std::uint32_t nextPowerOfTwo(std::uint32_t value)
 {
     if (value <= 1u)
@@ -154,6 +115,51 @@ struct UltrasoundImageSize
     std::uint32_t height = 1u;
 };
 
+std::uint32_t dispatchGroupCount(std::uint32_t threadCount, std::uint32_t groupSize) noexcept
+{
+    return groupSize == 0u ? 0u : (threadCount + groupSize - 1u) / groupSize;
+}
+
+#if CRESSIM_NEO_HAS_ULTRASOUND
+CruBounds3 computeBounds(const physics::SoftBodyState &body, float pointDistance)
+{
+    CruBounds3 bounds{};
+    if (body.restPositions.empty())
+    {
+        return bounds;
+    }
+
+    Diligent::float3 minimum = body.restPositions.front();
+    Diligent::float3 maximum = body.restPositions.front();
+    for (const Diligent::float3 &position : body.restPositions)
+    {
+        minimum.x = std::min(minimum.x, position.x);
+        minimum.y = std::min(minimum.y, position.y);
+        minimum.z = std::min(minimum.z, position.z);
+        maximum.x = std::max(maximum.x, position.x);
+        maximum.y = std::max(maximum.y, position.y);
+        maximum.z = std::max(maximum.z, position.z);
+    }
+
+    const float padding = pointDistance * 0.5f;
+    bounds.minimum[0]   = minimum.x - padding;
+    bounds.minimum[1]   = minimum.y - padding;
+    bounds.minimum[2]   = minimum.z - padding;
+    bounds.maximum[0]   = maximum.x + padding;
+    bounds.maximum[1]   = maximum.y + padding;
+    bounds.maximum[2]   = maximum.z + padding;
+    return bounds;
+}
+
+bool equalsRfLayout(const CruRfLayout &lhs, const CruRfLayout &rhs) noexcept
+{
+    return lhs.numScanlines == rhs.numScanlines &&
+           lhs.requiredTimeSamples == rhs.requiredTimeSamples &&
+           lhs.timeSamples == rhs.timeSamples &&
+           lhs.delayCompensationSamples == rhs.delayCompensationSamples &&
+           lhs.samplesPerLine == rhs.samplesPerLine && lhs.totalSamples == rhs.totalSamples;
+}
+
 UltrasoundImageSize computeImageSize(const UltrasoundProbeComponent &probe,
                                      const CruRfLayout &layout) noexcept
 {
@@ -169,12 +175,6 @@ UltrasoundImageSize computeImageSize(const UltrasoundProbeComponent &probe,
     return UltrasoundImageSize{width, height};
 }
 
-std::uint32_t dispatchGroupCount(std::uint32_t threadCount, std::uint32_t groupSize) noexcept
-{
-    return groupSize == 0u ? 0u : (threadCount + groupSize - 1u) / groupSize;
-}
-
-#if CRESSIM_NEO_HAS_ULTRASOUND
 struct UltrasoundReductionConstants
 {
     std::uint32_t dataLength = 0u;
@@ -266,6 +266,7 @@ struct UltrasoundSystem::Impl
         SourceBinding(const SourceBinding &)            = delete;
         SourceBinding &operator=(const SourceBinding &) = delete;
 
+#if CRESSIM_NEO_HAS_ULTRASOUND
         SourceBinding(SourceBinding &&other) noexcept
             : tracker(other.tracker), neighborIndices(other.neighborIndices),
               neighborWeights(other.neighborWeights),
@@ -315,6 +316,42 @@ struct UltrasoundSystem::Impl
             other.scattererCount      = 0u;
             return *this;
         }
+#else
+        SourceBinding(SourceBinding &&other) noexcept
+            : sourceEntityId(other.sourceEntityId), particleOffset(other.particleOffset),
+              particleCount(other.particleCount), scattererOffset(other.scattererOffset),
+              scattererCount(other.scattererCount), component(other.component)
+        {
+            other.sourceEntityId  = common::kInvalidEntityId;
+            other.particleOffset  = 0u;
+            other.particleCount   = 0u;
+            other.scattererOffset = 0u;
+            other.scattererCount  = 0u;
+        }
+
+        SourceBinding &operator=(SourceBinding &&other) noexcept
+        {
+            if (this == &other)
+            {
+                return *this;
+            }
+
+            reset();
+            sourceEntityId  = other.sourceEntityId;
+            particleOffset  = other.particleOffset;
+            particleCount   = other.particleCount;
+            scattererOffset = other.scattererOffset;
+            scattererCount  = other.scattererCount;
+            component       = other.component;
+
+            other.sourceEntityId  = common::kInvalidEntityId;
+            other.particleOffset  = 0u;
+            other.particleCount   = 0u;
+            other.scattererOffset = 0u;
+            other.scattererCount  = 0u;
+            return *this;
+        }
+#endif
 
         void reset()
         {
@@ -803,6 +840,14 @@ struct UltrasoundSystem::Impl
             dispatchGroupCount(runtime.imageHeight, kUltrasoundImageThreadGroupSizeY), 1u);
     }
 
+#endif
+#if !CRESSIM_NEO_HAS_ULTRASOUND
+    void destroyProbeImageTarget(gpu::GpuRenderTargetSystem &renderTargetSystem,
+                                 ProbeRuntime &runtime)
+    {
+        (void)renderTargetSystem;
+        (void)runtime;
+    }
 #endif
 };
 
