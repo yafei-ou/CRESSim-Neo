@@ -10,6 +10,7 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Sampler.h"
 
+#include <array>
 #include <cstdint>
 #include <unordered_map>
 
@@ -27,11 +28,14 @@ public:
 private:
     struct ResolveConstants
     {
-        std::uint32_t layer      = 0u;
-        std::uint32_t outputMode = 0u;
-        std::uint32_t toneMapper = 0u;
-        float exposure           = 1.0f;
+        std::uint32_t layer                  = 0u;
+        std::uint32_t outputMode             = 0u;
+        std::uint32_t toneMapper             = 0u;
+        std::uint32_t sourceIsDisplayEncoded = 0u;
+        std::array<float, 4> resolveParams{1.0f, 0.0f, 0.0f, 0.0f};
     };
+    static_assert(sizeof(ResolveConstants) == 32u,
+                  "Display resolve constants must match the shader constant buffer layout.");
 
     struct PipelineKey
     {

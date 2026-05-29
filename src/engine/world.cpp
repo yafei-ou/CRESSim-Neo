@@ -270,6 +270,8 @@ bool World::destroyEntity(common::EntityId entityId)
     removeRigidBody(entityId);
     removeSoftBody(entityId);
     removeFluid(entityId);
+    removeUltrasoundProbe(entityId);
+    removeUltrasoundScattererSource(entityId);
 
     auto physIt = mPhysicsLinks.find(entityId);
     if (physIt != mPhysicsLinks.end())
@@ -1049,6 +1051,7 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
     {
         return false;
     }
+    (void)clearUltrasoundScattererAmplitudeRanges(entityId);
     mPhysicsLinks[entityId].hasSoftBody = true;
     mDrawRegistryDirty                  = true;
     mSoftBodyRenderBindingsDirty        = true;
@@ -1057,7 +1060,8 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
 
 bool World::removeSoftBody(common::EntityId entityId)
 {
-    auto it = mPhysicsLinks.find(entityId);
+    const bool clearedAmplitudeRanges = clearUltrasoundScattererAmplitudeRanges(entityId);
+    auto it                           = mPhysicsLinks.find(entityId);
     if (it != mPhysicsLinks.end())
     {
         it->second.hasSoftBody = false;
@@ -1070,7 +1074,7 @@ bool World::removeSoftBody(common::EntityId entityId)
     }
     mDrawRegistryDirty           = true;
     mSoftBodyRenderBindingsDirty = true;
-    return mPhysicsWorld.removeSoftBody(entityId);
+    return mPhysicsWorld.removeSoftBody(entityId) || clearedAmplitudeRanges;
 }
 
 bool World::setFluid(common::EntityId entityId, const FluidComponent &component)
@@ -1129,6 +1133,104 @@ bool World::removeFluid(common::EntityId entityId)
     }
     mDrawRegistryDirty = true;
     return mPhysicsWorld.removeFluid(entityId);
+}
+
+void World::setUltrasoundProbe(common::EntityId entityId, const UltrasoundProbeComponent &component)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("setUltrasoundProbe requires valid entity id.");
+        return;
+    }
+    if (!requireAliveEntity(entityId, "setUltrasoundProbe"))
+    {
+        return;
+    }
+
+    if (!component.enabled)
+    {
+        (void)removeUltrasoundProbe(entityId);
+        return;
+    }
+
+    mUltrasoundProbes[entityId] = component;
+}
+
+bool World::removeUltrasoundProbe(common::EntityId entityId)
+{
+    clearUltrasoundProbeResult(entityId);
+    return mUltrasoundProbes.erase(entityId) > 0u;
+}
+
+void World::setUltrasoundScattererSource(common::EntityId entityId,
+                                         const UltrasoundScattererSourceComponent &component)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("setUltrasoundScattererSource requires valid entity id.");
+        return;
+    }
+    if (!requireAliveEntity(entityId, "setUltrasoundScattererSource"))
+    {
+        return;
+    }
+
+    if (!component.enabled)
+    {
+        (void)removeUltrasoundScattererSource(entityId);
+        return;
+    }
+
+    mUltrasoundScattererSources[entityId] = component;
+}
+
+bool World::removeUltrasoundScattererSource(common::EntityId entityId)
+{
+    const bool removedSource = mUltrasoundScattererSources.erase(entityId) > 0u;
+    const bool removedRanges = clearUltrasoundScattererAmplitudeRanges(entityId);
+    return removedSource || removedRanges;
+}
+
+void World::setUltrasoundScattererAmplitudeRanges(
+    common::EntityId entityId, const std::vector<UltrasoundAmplitudeRange> &ranges)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("setUltrasoundScattererAmplitudeRanges requires valid entity id.");
+        return;
+    }
+    if (!requireAliveEntity(entityId, "setUltrasoundScattererAmplitudeRanges"))
+    {
+        return;
+    }
+
+    std::vector<Diligent::float3> authoredRestPositions;
+    if (!mPhysicsWorld.tryGetSoftBodyAuthoringRestPositions(entityId, authoredRestPositions))
+    {
+        CRESSIM_LOG_ERROR("setUltrasoundScattererAmplitudeRanges requires a soft body on entity ",
+                          entityId, ".");
+        return;
+    }
+    if (ranges.size() != authoredRestPositions.size())
+    {
+        CRESSIM_LOG_ERROR("setUltrasoundScattererAmplitudeRanges expected ",
+                          authoredRestPositions.size(), " ranges for entity ", entityId, ", got ",
+                          ranges.size(), ".");
+        return;
+    }
+
+    mUltrasoundScattererAmplitudeRanges[entityId] = ranges;
+    ++mUltrasoundScattererAmplitudeRevision;
+}
+
+bool World::clearUltrasoundScattererAmplitudeRanges(common::EntityId entityId)
+{
+    if (mUltrasoundScattererAmplitudeRanges.erase(entityId) == 0u)
+    {
+        return false;
+    }
+    ++mUltrasoundScattererAmplitudeRevision;
+    return true;
 }
 
 World::ColliderHandle World::addCollider(common::EntityId entityId,
@@ -1531,6 +1633,55 @@ std::optional<FluidComponent> World::tryGetFluid(common::EntityId entityId) cons
     return component;
 }
 
+std::optional<UltrasoundProbeComponent> World::tryGetUltrasoundProbe(
+    common::EntityId entityId) const
+{
+    const auto it = mUltrasoundProbes.find(entityId);
+    return it != mUltrasoundProbes.end() ? std::optional<UltrasoundProbeComponent>{it->second}
+                                         : std::nullopt;
+}
+
+std::optional<UltrasoundScattererSourceComponent> World::tryGetUltrasoundScattererSource(
+    common::EntityId entityId) const
+{
+    const auto it = mUltrasoundScattererSources.find(entityId);
+    return it != mUltrasoundScattererSources.end()
+               ? std::optional<UltrasoundScattererSourceComponent>{it->second}
+               : std::nullopt;
+}
+
+std::optional<SoftBodyAuthoringParticles> World::tryGetSoftBodyAuthoringParticles(
+    common::EntityId entityId) const
+{
+    const physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(entityId);
+    if (softBody == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    SoftBodyAuthoringParticles particles{};
+    if (!mPhysicsWorld.tryGetSoftBodyAuthoringRestPositions(entityId, particles.restPositions))
+    {
+        return std::nullopt;
+    }
+    particles.particleCount = static_cast<std::uint32_t>(particles.restPositions.size());
+    return particles;
+}
+
+const std::vector<UltrasoundAmplitudeRange> *World::tryGetUltrasoundScattererAmplitudeRanges(
+    common::EntityId entityId) const noexcept
+{
+    const auto it = mUltrasoundScattererAmplitudeRanges.find(entityId);
+    return it != mUltrasoundScattererAmplitudeRanges.end() ? &it->second : nullptr;
+}
+
+const UltrasoundProbeResult *World::tryGetUltrasoundProbeResult(
+    common::EntityId entityId) const noexcept
+{
+    const auto it = mUltrasoundProbeResults.find(entityId);
+    return it != mUltrasoundProbeResults.end() ? &it->second : nullptr;
+}
+
 std::optional<ColliderComponent> World::tryGetCollider(ColliderHandle handle) const
 {
     if (!handle.isValid())
@@ -1702,7 +1853,7 @@ const std::vector<EntityPoseMappingEntry> &World::physicsRenderableMappings()
             EntityPoseMappingEntry entry{};
             entry.sourcePoseIndex = rigidBodyIt->second;
             entry.objectIndex     = renderable.envIndex * mSceneLayout.maxRenderableObjectsPerEnv +
-                                renderable.objectSlot;
+                                    renderable.objectSlot;
             mPhysicsRenderableMappingsCache.push_back(entry);
         }
     }
@@ -1802,6 +1953,33 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
     clearDirtyIndexSet(mDirtyRenderableMetadataIndices, mDirtyRenderableMetadataBits);
     clearDirtyIndexSet(mDirtyCameraIndices, mDirtyCameraBits);
     clearDirtyIndexSet(mDirtyLightIndices, mDirtyLightBits);
+}
+
+const std::unordered_map<common::EntityId, UltrasoundProbeComponent> &World::
+    ultrasoundProbeComponents() const noexcept
+{
+    return mUltrasoundProbes;
+}
+
+const std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent> &World::
+    ultrasoundScattererSourceComponents() const noexcept
+{
+    return mUltrasoundScattererSources;
+}
+
+std::uint64_t World::ultrasoundScattererAmplitudeRevision() const noexcept
+{
+    return mUltrasoundScattererAmplitudeRevision;
+}
+
+void World::setUltrasoundProbeResult(common::EntityId entityId, const UltrasoundProbeResult &result)
+{
+    mUltrasoundProbeResults[entityId] = result;
+}
+
+void World::clearUltrasoundProbeResult(common::EntityId entityId)
+{
+    mUltrasoundProbeResults.erase(entityId);
 }
 
 void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager &resources)
@@ -2319,14 +2497,14 @@ void World::refreshLightEntry(std::uint32_t lightIndex)
 
     graphics::GpuLightInput input{};
     input.positionRange      = Diligent::float4{lightData.position.x, lightData.position.y,
-                                           lightData.position.z, lightData.range};
+                                                lightData.position.z, lightData.range};
     input.directionIntensity = Diligent::float4{lightData.direction.x, lightData.direction.y,
                                                 lightData.direction.z, lightData.intensity};
     input.color = Diligent::float4{lightData.color.x, lightData.color.y, lightData.color.z, 0.0f};
     const float innerConeRadians = lightData.innerConeAngle * 0.01745329251994329577f;
     const float outerConeRadians = lightData.outerConeAngle * 0.01745329251994329577f;
     input.spotAngles     = Diligent::float4{std::cos(innerConeRadians), std::cos(outerConeRadians),
-                                        lightData.innerConeAngle, lightData.outerConeAngle};
+                                            lightData.innerConeAngle, lightData.outerConeAngle};
     input.shadowDistance = lightData.shadowDistance;
     input.shadowFadeDistance     = lightData.shadowFadeDistance;
     input.shadowBias             = lightData.shadowBias;

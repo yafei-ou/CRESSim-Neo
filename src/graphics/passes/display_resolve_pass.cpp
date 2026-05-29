@@ -2,6 +2,7 @@
 
 #include "common/math_utils_runtime.h"
 #include "gpu/shader_library.h"
+#include <algorithm>
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
 
@@ -43,6 +44,50 @@ ResolveOutputMode resolveOutputModeForFormat(Diligent::TEXTURE_FORMAT colorForma
         return ResolveOutputMode::HdrLinear;
     default:
         return ResolveOutputMode::Sdr;
+    }
+}
+
+void computePresentationViewport(const DisplayResolveRequest &request,
+                                 Diligent::Viewport &outViewport) noexcept
+{
+    outViewport.TopLeftX = 0.0f;
+    outViewport.TopLeftY = 0.0f;
+    outViewport.Width    = static_cast<float>(request.presentationTarget.width);
+    outViewport.Height   = static_cast<float>(request.presentationTarget.height);
+    outViewport.MinDepth = 0.0f;
+    outViewport.MaxDepth = 1.0f;
+
+    if (!request.preserveAspectRatio || request.sourceTargetDesc.width == 0u ||
+        request.sourceTargetDesc.height == 0u || request.presentationTarget.width == 0u ||
+        request.presentationTarget.height == 0u)
+    {
+        return;
+    }
+
+    const float sourceAspect       = static_cast<float>(request.sourceTargetDesc.width) /
+                                     static_cast<float>(request.sourceTargetDesc.height);
+    const float presentationAspect = static_cast<float>(request.presentationTarget.width) /
+                                     static_cast<float>(request.presentationTarget.height);
+    if (sourceAspect <= 0.0f || presentationAspect <= 0.0f)
+    {
+        return;
+    }
+
+    if (sourceAspect > presentationAspect)
+    {
+        const float viewportHeight =
+            static_cast<float>(request.presentationTarget.width) / sourceAspect;
+        outViewport.Height = std::max(viewportHeight, 1.0f);
+        outViewport.TopLeftY =
+            0.5f * (static_cast<float>(request.presentationTarget.height) - outViewport.Height);
+    }
+    else
+    {
+        const float viewportWidth =
+            static_cast<float>(request.presentationTarget.height) * sourceAspect;
+        outViewport.Width = std::max(viewportWidth, 1.0f);
+        outViewport.TopLeftX =
+            0.5f * (static_cast<float>(request.presentationTarget.width) - outViewport.Width);
     }
 }
 
@@ -311,9 +356,10 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     constants.layer      = request.sourceBinding.firstLayer;
     constants.outputMode = static_cast<std::uint32_t>(
         resolveOutputModeForFormat(request.presentationTarget.colorFormat));
-    constants.toneMapper = static_cast<std::uint32_t>(request.toneMapper);
-    constants.exposure   = request.exposure;
-    void *mapped         = nullptr;
+    constants.toneMapper             = static_cast<std::uint32_t>(request.toneMapper);
+    constants.sourceIsDisplayEncoded = request.sourceIsDisplayEncoded ? 1u : 0u;
+    constants.resolveParams[0]       = request.exposure;
+    void *mapped                     = nullptr;
     backendContext.graphicsContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,
                                               Diligent::MAP_FLAG_DISCARD, mapped);
     if (mapped == nullptr)
@@ -360,12 +406,7 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     }
 
     Diligent::Viewport diligentViewport{};
-    diligentViewport.TopLeftX = 0.0f;
-    diligentViewport.TopLeftY = 0.0f;
-    diligentViewport.Width    = static_cast<float>(request.presentationTarget.width);
-    diligentViewport.Height   = static_cast<float>(request.presentationTarget.height);
-    diligentViewport.MinDepth = 0.0f;
-    diligentViewport.MaxDepth = 1.0f;
+    computePresentationViewport(request, diligentViewport);
     backendContext.graphicsContext->SetViewports(
         1, &diligentViewport, request.presentationTarget.width, request.presentationTarget.height);
 

@@ -1312,6 +1312,46 @@ const SoftBodyState *PhysicsWorld::tryGetSoftBody(common::EntityId entityId) con
     return it == mEntityToSoftBodyIndex.end() ? nullptr : &mSoftBodySnapshot[it->second];
 }
 
+bool PhysicsWorld::tryGetSoftBodyAuthoringRestPositions(
+    common::EntityId entityId, std::vector<Diligent::float3> &outRestPositions) const
+{
+    outRestPositions.clear();
+
+    const SoftBodyState *softBody = tryGetSoftBody(entityId);
+    if (softBody == nullptr)
+    {
+        return false;
+    }
+
+    if (!softBody->restPositions.empty())
+    {
+        outRestPositions = softBody->restPositions;
+        return true;
+    }
+
+    ResolvedSoftBodyTopology topology{};
+    std::string errorMessage;
+    TetMeshData tetGenMeshCache{};
+    const TetGenMeshCache *tetGenCache = tryGetTetGenMeshCache(entityId);
+    const TetMeshData *cacheView       = nullptr;
+    if (tetGenCache != nullptr)
+    {
+        tetGenMeshCache.objectSpaceRestPositions = tetGenCache->objectSpaceRestPositions;
+        tetGenMeshCache.tetVertexIndices         = tetGenCache->tetVertexIndices;
+        cacheView                                = &tetGenMeshCache;
+    }
+
+    if (!resolveSoftBodyTopology(*softBody, cacheView, topology, errorMessage))
+    {
+        CRESSIM_LOG_ERROR("Failed to resolve authored soft-body particles for entity ", entityId,
+                          ": ", errorMessage);
+        return false;
+    }
+
+    outRestPositions = std::move(topology.restPositions);
+    return true;
+}
+
 FluidState *PhysicsWorld::tryGetFluid(common::EntityId entityId)
 {
     const auto it = mEntityToFluidIndex.find(entityId);

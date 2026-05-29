@@ -141,8 +141,32 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContex
 {
     (void)frameContext;
 
+    std::vector<std::uint64_t> completedRequests;
+    completedRequests.reserve(mPendingReadbackRequests.size());
+    for (const auto &[requestId, requestBinding] : mPendingReadbackRequests)
+    {
+        (void)requestBinding;
+        completedRequests.push_back(requestId);
+    }
+
     if (!mInitialized || !supportsDiligentRenderTargets(mBackend) || !mGraphicsContext)
     {
+        for (const std::uint64_t requestId : completedRequests)
+        {
+            const GpuRenderTargetBinding requestBinding = mPendingReadbackRequests[requestId];
+            mPendingReadbackRequests.erase(requestId);
+
+            GpuRenderTargetReadbackEvent event{};
+            event.binding       = requestBinding;
+            event.frameIndex    = frameContext.frameIndex;
+            const auto targetIt = mRenderTargets.find(requestBinding.target.id);
+            if (targetIt != mRenderTargets.end())
+            {
+                event.colorFormat = targetIt->second.desc.colorFormat;
+            }
+            mCompletedReadbacks[requestId] = event;
+        }
+
         for (const PendingReadbackCopy &copy : mPendingReadbackCopies)
         {
             GpuRenderTargetReadbackEvent event{};
@@ -153,6 +177,26 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContex
         }
         mPendingReadbackCopies.clear();
         return;
+    }
+
+    for (const std::uint64_t requestId : completedRequests)
+    {
+        const GpuRenderTargetBinding requestBinding = mPendingReadbackRequests[requestId];
+        mPendingReadbackRequests.erase(requestId);
+        if (queueReadbackCopy(requestBinding, frameContext.frameIndex, requestId))
+        {
+            continue;
+        }
+
+        GpuRenderTargetReadbackEvent event{};
+        event.binding       = requestBinding;
+        event.frameIndex    = frameContext.frameIndex;
+        const auto targetIt = mRenderTargets.find(requestBinding.target.id);
+        if (targetIt != mRenderTargets.end())
+        {
+            event.colorFormat = targetIt->second.desc.colorFormat;
+        }
+        mCompletedReadbacks[requestId] = event;
     }
 
     if (submitFrameCommands)

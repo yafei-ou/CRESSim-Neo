@@ -5,6 +5,7 @@
 #include "physics/physics_scene_gpu_state.h"
 
 #include <algorithm>
+#include <array>
 #include <memory>
 
 namespace cressim::neo::physics
@@ -32,6 +33,38 @@ std::uint32_t nextPowerOfTwo(std::uint32_t value)
     value |= value >> 8u;
     value |= value >> 16u;
     return value + 1u;
+}
+
+std::uint32_t buildUniqueQueueFamilyIndices(const Diligent::IDeviceContext *firstContext,
+                                            const Diligent::IDeviceContext *secondContext,
+                                            std::array<std::uint32_t, 2> &outQueueFamilyIndices)
+{
+    std::uint32_t count      = 0u;
+    const auto appendQueueId = [&outQueueFamilyIndices, &count](const Diligent::IDeviceContext *ctx)
+    {
+        if (ctx == nullptr)
+        {
+            return;
+        }
+
+        const std::uint32_t queueId = ctx->GetDesc().QueueId;
+        for (std::uint32_t i = 0u; i < count; ++i)
+        {
+            if (outQueueFamilyIndices[i] == queueId)
+            {
+                return;
+            }
+        }
+
+        if (count < outQueueFamilyIndices.size())
+        {
+            outQueueFamilyIndices[count++] = queueId;
+        }
+    };
+
+    appendQueueId(firstContext);
+    appendQueueId(secondContext);
+    return count;
 }
 
 bool hasPhysicsGpuBackend(gpu::GpuDevice &device)
@@ -141,6 +174,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
     const std::uint32_t softBodyBoundsChunkCount = world.softBodyBoundsChunkCount();
     const float particleGridCellSize             = world.particleGridCellSize();
+    std::array<std::uint32_t, 2> sharedQueueFamilyIndices{};
+    const std::uint32_t sharedQueueFamilyIndexCount = buildUniqueQueueFamilyIndices(
+        computeBackend.computeContext, graphicsBackend.graphicsContext, sharedQueueFamilyIndices);
     const bool hasSoftData = particleCount > 0u || softEdgeCount > 0u || softTetCount > 0u;
     if (rigidBodyCount == 0u && !hasSoftData)
     {
@@ -159,6 +195,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             softBodyBoundsChunkCount,
             gpu::contextMaskForId(computeBackend.contextId) |
                 gpu::contextMaskForId(graphicsBackend.contextId),
+            sharedQueueFamilyIndices.data(), sharedQueueFamilyIndexCount,
             mDevice.supportsNativePhysicsFloatAtomics()))
     {
         CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ensureCapacity.");
@@ -218,8 +255,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             mImpl->sceneState.particleCandidatePairCapacity();
         particleConstants.fluidBoundaryCandidatePairCapacity =
             mImpl->sceneState.fluidBoundaryCandidatePairCapacity();
-        particleConstants.fluidNeighborPairCapacity = mImpl->sceneState.fluidNeighborPairCapacity();
-        particleConstants.maxFluidNeighborhood      = mImpl->sceneState.maxFluidNeighborhood();
+        particleConstants.maxFluidNeighborhood = mImpl->sceneState.maxFluidNeighborhood();
         particleConstants.particleCellRangeCapacity =
             nextPowerOfTwo(std::max<std::uint32_t>(particleCount * 2u, 1u));
         particleConstants.softEdgeCount   = softEdgeCount;
@@ -472,7 +508,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 const bool runRigidContacts =
                     useInitialRigidContactSolve && iteration < rigidContactIterations;
                 const bool needContactSoftApply = runSoftContacts || runSoftRigidContacts;
-                const bool needRigidApply       = runSoftRigidContacts || runRigidContacts ||
+                const bool needRigidApply = runSoftRigidContacts || runRigidContacts ||
                                             runBallJoints || runHingeJoints || runSliderJoints;
                 const bool needJointOnlyRigidConstants =
                     runBallJoints || runHingeJoints || runSliderJoints;
@@ -867,6 +903,11 @@ bool PhysicsSolver::validateGpuMetaBlocking()
 PhysicsGpuSceneView PhysicsSolver::gpuSceneView() const noexcept
 {
     return mImpl != nullptr ? mImpl->sceneState.sceneView() : PhysicsGpuSceneView{};
+}
+
+const gpu::SharedExportBuffer *PhysicsSolver::softPositionsInvMassSharedBuffer() const noexcept
+{
+    return mImpl != nullptr ? &mImpl->sceneState.softPositionsInvMassSharedBuffer() : nullptr;
 }
 
 } // namespace cressim::neo::physics

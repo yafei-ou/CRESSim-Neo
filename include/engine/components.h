@@ -7,6 +7,7 @@
 #include "physics/physics_types.h"
 
 #include <cstdint>
+#include <vector>
 
 namespace cressim::neo::engine
 {
@@ -156,6 +157,77 @@ struct FluidComponent
     bool simulated               = true;
     std::uint32_t collisionLayer = 1u;
     std::uint32_t collisionMask  = 0xffffffffu;
+};
+
+struct UltrasoundProbeComponent
+{
+    enum class Geometry : std::uint32_t
+    {
+        Linear      = 0u,
+        Curvilinear = 1u,
+    };
+
+    bool enabled                       = true;
+    Geometry geometry                  = Geometry::Linear;
+    std::uint32_t numScanlines         = 50u;
+    float lineLength                   = 1.2f;
+    float scanlineSpacing              = 0.01f;
+    float sectorAngleDegrees           = 60.0f;
+    float probeRadius                  = 0.35f;
+    // soundSpeed and beamSigma* are authored in physical units and converted to
+    // scene units internally using worldUnitsPerMeter. Geometry fields such as
+    // lineLength, scanlineSpacing, and probeRadius remain in scene units.
+    float soundSpeed                   = 1540.0f;
+    float worldUnitsPerMeter           = 10.0f;
+    float noiseAmplitude               = 0.0f;
+    float samplingFrequency            = 100e6f;
+    float demodulationFrequency        = 2.5e6f;
+    float centerFrequency              = 2.5e6f;
+    float fractionalBandwidth          = 0.2f;
+    float beamSigmaLateral             = 0.001f;
+    float beamSigmaElevational         = 0.001f;
+    std::uint32_t radialDecimation     = 4u;
+    std::uint32_t threadsPerBlock      = 128u;
+    std::uint32_t cudaNumStreams       = 1u;
+    std::uint32_t numTimeSamples       = 0u;
+    bool useArcProjection              = false;
+    bool enablePhaseDelay              = true;
+    bool imageEnabled                  = true;
+    std::uint32_t imageBaseHeight      = 0u;
+    bool imageUseFixedMaxNormalization = false;
+    float imageFixedMaxSignal          = 1.0f;
+};
+
+struct UltrasoundAmplitudeRange
+{
+    float minimum = 0.0f;
+    float maximum = 0.0f;
+};
+
+struct UltrasoundScattererSourceComponent
+{
+    bool enabled                = true;
+    float density               = 1000000.0f;
+    float pointDistanceOverride = 0.0f;
+};
+
+struct SoftBodyAuthoringParticles
+{
+    std::uint32_t particleCount = 0u;
+    std::vector<Diligent::float3> restPositions{};
+};
+
+struct UltrasoundProbeResult
+{
+    bool valid                        = false;
+    bool imageValid                   = false;
+    std::uint64_t frameIndex          = 0u;
+    std::uint32_t numScanlines        = 0u;
+    std::uint32_t samplesPerScanline  = 0u;
+    std::uint64_t totalScattererCount = 0u;
+    std::uint32_t imageWidth          = 0u;
+    std::uint32_t imageHeight         = 0u;
+    gpu::GpuRenderTargetHandle imageTarget{};
 };
 
 } // namespace cressim::neo::engine

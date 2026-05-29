@@ -13,7 +13,6 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint softEdgeCount;
     uint softTetCount;
     uint fluidIterations;
-    uint fluidNeighborPairCapacity;
     uint maxFluidNeighborhood;
     uint iterationIndex;
 };

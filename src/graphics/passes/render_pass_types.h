@@ -46,11 +46,13 @@ struct DisplayResolveRequest
 {
     gpu::GpuRenderTargetBinding sourceBinding{};
     gpu::GpuRenderTargetDesc sourceTargetDesc{};
+    bool sourceIsDisplayEncoded = false;
     gpu::GpuPresentationTargetDesc presentationTarget{};
     ToneMapper toneMapper            = ToneMapper::Reinhard;
     float exposure                   = 1.0f;
     bool clearColor                  = false;
     bool clearDepth                  = false;
+    bool preserveAspectRatio         = false;
     Diligent::float4 clearColorValue = {0.0f, 0.0f, 0.0f, 1.0f};
     float clearDepthValue            = 1.0f;
 };

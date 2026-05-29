@@ -9,6 +9,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 project(CRESSim-Neo VERSION 0.1.0 LANGUAGES C CXX)
 
 include(CTest)
+include(CheckLanguage)
 
 set(PROJECT_VENDOR "Yafei Ou")
 set(PROJECT_DESCRIPTION "")
@@ -30,6 +31,8 @@ option(ENGINE_STATIC "Build the engine as a static library"  ON)
 option(CRESSIM_NEO_BUILD_VIEWER "Build viewer module and supporting executables" ON)
 option(CRESSIM_NEO_BUILD_EXAMPLES "Build standalone example executables" ON)
 option(CRESSIM_NEO_ENABLE_CLANG_TIDY "Enable clang-tidy checks during build" OFF)
+option(CRESSIM_NEO_ENABLE_CUDA_INTEROP "Enable optional CUDA interop support in GPU helpers" OFF)
+option(CRESSIM_NEO_ENABLE_ULTRASOUND "Enable optional CRESSim-Ultrasound integration" OFF)
 
 if(CRESSIM_NEO_ENABLE_CLANG_TIDY)
     find_program(CRESSIM_NEO_CLANG_TIDY_EXE NAMES clang-tidy)
@@ -107,6 +110,39 @@ add_subdirectory(extern/DiligentEngine/DiligentTools/ThirdParty
     ${CMAKE_BINARY_DIR}/DiligentTools/ThirdParty EXCLUDE_FROM_ALL)
 add_subdirectory(extern/DiligentEngine/DiligentTools/TextureLoader
     ${CMAKE_BINARY_DIR}/DiligentTools/TextureLoader EXCLUDE_FROM_ALL)
+
+set(CRESSIM_NEO_HAS_CUDA_INTEROP OFF)
+if(CRESSIM_NEO_ENABLE_CUDA_INTEROP)
+    find_package(CUDAToolkit QUIET)
+    if(CUDAToolkit_FOUND)
+        set(CRESSIM_NEO_HAS_CUDA_INTEROP ON)
+        message(STATUS "CUDA interop enabled with CUDAToolkit ${CUDAToolkit_VERSION}.")
+    else()
+        message(FATAL_ERROR
+            "CRESSIM_NEO_ENABLE_CUDA_INTEROP is ON, but CUDAToolkit was not found.")
+    endif()
+endif()
+
+set(CRESSIM_NEO_HAS_ULTRASOUND OFF)
+if(CRESSIM_NEO_ENABLE_ULTRASOUND)
+    if(NOT CRESSIM_NEO_HAS_CUDA_INTEROP)
+        message(FATAL_ERROR
+            "CRESSIM_NEO_ENABLE_ULTRASOUND requires CRESSIM_NEO_ENABLE_CUDA_INTEROP=ON.")
+    endif()
+
+    check_language(CUDA)
+    if(NOT CMAKE_CUDA_COMPILER)
+        message(FATAL_ERROR
+            "CRESSIM_NEO_ENABLE_ULTRASOUND requires a working CUDA compiler toolset.")
+    endif()
+    enable_language(CUDA)
+
+    set(CRESSIM_NEO_PREV_BUILD_TESTING ${BUILD_TESTING})
+    set(BUILD_TESTING OFF)
+    add_subdirectory(extern/CRESSim-Ultrasound EXCLUDE_FROM_ALL)
+    set(BUILD_TESTING ${CRESSIM_NEO_PREV_BUILD_TESTING})
+    set(CRESSIM_NEO_HAS_ULTRASOUND ON)
+endif()
 
 if(NOT DEFINED CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH)
     set(CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH "${DILIGENT_DXCOMPILER_FOR_SPIRV_PATH}" CACHE FILEPATH

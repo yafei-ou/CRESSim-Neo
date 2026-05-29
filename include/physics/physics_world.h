@@ -38,6 +38,8 @@ public:
     const ColliderState *tryGetCollider(ColliderId colliderId) const;
     SoftBodyState *tryGetSoftBody(common::EntityId entityId);
     const SoftBodyState *tryGetSoftBody(common::EntityId entityId) const;
+    bool tryGetSoftBodyAuthoringRestPositions(
+        common::EntityId entityId, std::vector<Diligent::float3> &outRestPositions) const;
     FluidState *tryGetFluid(common::EntityId entityId);
     const FluidState *tryGetFluid(common::EntityId entityId) const;
     const BallJointState *tryGetBallJoint(BallJointId jointId) const noexcept;

@@ -211,6 +211,28 @@ std::vector<EnvMainLightState> buildEnvMainLightStates(const HostSceneView &scen
     return states;
 }
 
+std::optional<DisplayResolveRequest> buildExplicitDisplayResolveRequest(
+    const RenderFrameOptions &options)
+{
+    if (!options.presentationTarget.has_value() || !options.presentedExplicitOutput.has_value() ||
+        !options.presentedExplicitOutput->isValid())
+    {
+        return std::nullopt;
+    }
+
+    DisplayResolveRequest resolveRequest{};
+    resolveRequest.sourceBinding          = options.presentedExplicitOutput->binding;
+    resolveRequest.sourceTargetDesc       = options.presentedExplicitOutput->sourceTargetDesc;
+    resolveRequest.sourceIsDisplayEncoded = options.presentedExplicitOutput->sourceIsDisplayEncoded;
+    resolveRequest.presentationTarget     = *options.presentationTarget;
+    resolveRequest.toneMapper             = options.toneMapper;
+    resolveRequest.exposure               = options.exposure;
+    resolveRequest.clearColor             = true;
+    resolveRequest.clearDepth             = false;
+    resolveRequest.preserveAspectRatio    = true;
+    return resolveRequest;
+}
+
 } // namespace
 
 struct Renderer::GpuScenePrepareState
@@ -551,6 +573,13 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
     detail::CameraOutputPlanningResult outputPlan = detail::planCameraOutputs(
         cameras, gpuScene, mDevice.renderTargetSystem(), defaultRenderTargetDesc,
         options.presentationTarget, options, mOutputPlanningState->managedPrimaryTargets, stats);
+
+    if (const std::optional<DisplayResolveRequest> explicitResolve =
+            buildExplicitDisplayResolveRequest(options);
+        explicitResolve.has_value())
+    {
+        outputPlan.displayResolve = *explicitResolve;
+    }
 
     for (auto it = mOutputPlanningState->managedPrimaryTargets.begin();
          it != mOutputPlanningState->managedPrimaryTargets.end();)

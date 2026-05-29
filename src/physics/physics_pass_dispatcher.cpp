@@ -327,7 +327,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         scanArgsDesc.Usage = Diligent::USAGE_DEFAULT;
         scanArgsDesc.BindFlags = Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE |
                                  Diligent::BIND_INDIRECT_DRAW_ARGS;
-        scanArgsDesc.Mode                 = Diligent::BUFFER_MODE_STRUCTURED;
+        scanArgsDesc.Mode      = Diligent::BUFFER_MODE_STRUCTURED;
         scanArgsDesc.ElementByteStride    = sizeof(GpuPaddedDispatchIndirectArgs);
         scanArgsDesc.ImmediateContextMask = mPhysicsContextMask;
         backendContext.renderDevice->CreateBuffer(scanArgsDesc, nullptr, &mScanIndirectArgsBuffer);

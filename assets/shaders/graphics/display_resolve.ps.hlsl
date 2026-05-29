@@ -3,7 +3,8 @@ cbuffer GraphicsDisplayResolve
     uint g_SourceLayer;
     uint g_OutputMode;
     uint g_ToneMapper;
-    float g_Exposure;
+    uint g_SourceIsDisplayEncoded;
+    float4 g_ResolveParams;
 };
 
 Texture2DArray<float4> g_SourceColor;
@@ -49,8 +50,8 @@ float3 linearToSrgb(float3 color)
 float4 main(in PSInput In) : SV_Target
 {
     float4 color = g_SourceColor.Sample(g_SourceColor_sampler, float3(In.TexCoord, (float)g_SourceLayer));
-    color.rgb = max(color.rgb, 0.0) * max(g_Exposure, 0.0);
-    if (g_OutputMode == 0)
+    color.rgb = max(color.rgb, 0.0) * max(g_ResolveParams.x, 0.0);
+    if (g_OutputMode == 0 && g_SourceIsDisplayEncoded == 0)
     {
         if (g_ToneMapper == 1)
         {
@@ -63,6 +64,10 @@ float4 main(in PSInput In) : SV_Target
         color.rgb = linearToSrgb(color.rgb);
         const float dither = interleavedGradientNoise(In.Position.xy) - 0.5;
         color.rgb = saturate(color.rgb + dither / 255.0);
+    }
+    else if (g_OutputMode == 0)
+    {
+        color.rgb = saturate(color.rgb);
     }
     return color;
 }

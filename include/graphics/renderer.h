@@ -42,6 +42,18 @@ struct RendererDesc
 
 struct RenderFrameOptions
 {
+    struct PresentedExplicitOutput
+    {
+        gpu::GpuRenderTargetBinding binding{};
+        gpu::GpuRenderTargetDesc sourceTargetDesc{};
+        bool sourceIsDisplayEncoded = false;
+
+        bool isValid() const noexcept
+        {
+            return binding.isValid();
+        }
+    };
+
     struct DebugParticleOptions
     {
         bool enabled           = false;
@@ -51,10 +63,33 @@ struct RenderFrameOptions
     };
 
     common::EntityId presentedCameraEntity = common::kInvalidEntityId;
+    std::optional<PresentedExplicitOutput> presentedExplicitOutput{};
     std::optional<gpu::GpuPresentationTargetDesc> presentationTarget{};
     ToneMapper toneMapper = ToneMapper::Reinhard;
     float exposure        = 1.0f;
     DebugParticleOptions debugParticles{};
+
+    RenderFrameOptions() = default;
+
+    RenderFrameOptions(common::EntityId presentedCameraEntityIn,
+                       std::optional<gpu::GpuPresentationTargetDesc> presentationTargetIn,
+                       ToneMapper toneMapperIn = ToneMapper::Reinhard, float exposureIn = 1.0f)
+        : presentedCameraEntity(presentedCameraEntityIn),
+          presentationTarget(std::move(presentationTargetIn)), toneMapper(toneMapperIn),
+          exposure(exposureIn)
+    {
+    }
+
+    RenderFrameOptions(
+        common::EntityId presentedCameraEntityIn, PresentedExplicitOutput presentedExplicitOutputIn,
+        std::optional<gpu::GpuPresentationTargetDesc> presentationTargetIn = std::nullopt,
+        ToneMapper toneMapperIn = ToneMapper::Reinhard, float exposureIn = 1.0f)
+        : presentedCameraEntity(presentedCameraEntityIn),
+          presentedExplicitOutput(std::move(presentedExplicitOutputIn)),
+          presentationTarget(std::move(presentationTargetIn)), toneMapper(toneMapperIn),
+          exposure(exposureIn)
+    {
+    }
 };
 
 struct RenderStats

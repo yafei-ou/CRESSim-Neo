@@ -241,6 +241,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
     std::uint32_t softRenderVertexCount, std::uint32_t softRenderTriangleIndexCount,
     std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
     std::uint32_t softBodyBoundsChunkCount, Diligent::Uint64 sharedContextMask,
+    const std::uint32_t *sharedQueueFamilyIndices, std::uint32_t sharedQueueFamilyIndexCount,
     bool useNativeFloatAtomics)
 {
     const auto rigidPositionsBefore     = mPersistentRigidBodies.positionsBuffer.RawPtr();
@@ -556,6 +557,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const std::uint32_t newRigidContactCapacity = std::max<std::uint32_t>(
         newCandidatePairCapacity * kRigidContactsPerPair, kRigidContactsPerPair);
     const Diligent::Uint64 contextMask = sharedContextMask;
+    const bool needsSharedSoftPositionsRecreate =
+        mSharedSoftPositionsInvMass.buffer() != nullptr &&
+        (mSharedSoftPositionsInvMass.capacity() < newSoftParticleCapacity ||
+         mSharedSoftPositionsInvMass.elementStride() != sizeof(Diligent::float4));
     const std::vector<std::uint32_t> reductionLevelCounts =
         buildReductionLevelCounts(std::max(newColliderCapacity, newSoftScanCapacity));
 
@@ -590,6 +595,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mSoftBodyBoundsChunkCapacity >= newSoftBodyBoundsChunkCapacity)
     {
         return true;
+    }
+
+    if (needsSharedSoftPositionsRecreate)
+    {
+        mPersistentParticles.positionsInvMassBuffer = nullptr;
     }
 
     if (!ensureStructuredBuffer(
@@ -741,11 +751,12 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentJoints.sliderVelocityDriveJointIndicesBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftPositionsInvMass",
-                                sizeof(Diligent::float4), newSoftParticleCapacity,
-                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
-                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentParticles.positionsInvMassBuffer) ||
+        !mSharedSoftPositionsInvMass.ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.SoftPositionsInvMass", sizeof(Diligent::float4),
+            newSoftParticleCapacity, newSoftParticleCapacity,
+            Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+            Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+            sharedQueueFamilyIndices, sharedQueueFamilyIndexCount) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftPreviousPositions",
                                 sizeof(Diligent::float4), newSoftParticleCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -1448,6 +1459,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
     {
         return false;
     }
+
+    mPersistentParticles.positionsInvMassBuffer = mSharedSoftPositionsInvMass.bufferRef();
 
     mTransientState.scanBlockSumsBuffers.resize(reductionLevelCounts.size());
     mTransientState.scanScannedBlockSumsBuffers.resize(reductionLevelCounts.size());
@@ -2712,6 +2725,12 @@ const PhysicsSceneGpuState::PersistentParticleBuffers &PhysicsSceneGpuState::per
     return mPersistentParticles;
 }
 
+const gpu::SharedExportBuffer &PhysicsSceneGpuState::softPositionsInvMassSharedBuffer()
+    const noexcept
+{
+    return mSharedSoftPositionsInvMass;
+}
+
 const PhysicsSceneGpuState::PersistentSoftTopologyBuffers &PhysicsSceneGpuState::
     persistentSoftTopology() const noexcept
 {
@@ -2782,11 +2801,6 @@ std::uint32_t PhysicsSceneGpuState::particleCandidatePairCapacity() const noexce
 std::uint32_t PhysicsSceneGpuState::fluidBoundaryCandidatePairCapacity() const noexcept
 {
     return mFluidBoundaryCandidatePairCapacity;
-}
-
-std::uint32_t PhysicsSceneGpuState::fluidNeighborPairCapacity() const noexcept
-{
-    return mFluidNeighborPairCapacity;
 }
 
 std::uint32_t PhysicsSceneGpuState::maxFluidNeighborhood() const noexcept
