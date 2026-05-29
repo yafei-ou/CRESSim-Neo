@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -488,6 +489,8 @@ struct UltrasoundSystem::Impl
         BeamProfileHandle beamProfile     = nullptr;
         gpu::SharedExportBuffer rfSharedBuffer{};
         gpu::CudaSharedBuffer rfCudaBuffer{};
+        gpu::CudaExternalTimelineSemaphore completionSemaphore{};
+        std::uint64_t nextCompletionFenceValue = 1u;
         std::uint32_t rfCapacitySamples = 0u;
         CruRfLayout rfLayout{};
         gpu::GpuRenderTargetHandle imageTarget{};
@@ -513,6 +516,8 @@ struct UltrasoundSystem::Impl
             }
             rfCudaBuffer.reset();
             rfSharedBuffer.reset();
+            completionSemaphore.reset();
+            nextCompletionFenceValue = 1u;
             rfCapacitySamples = 0u;
             rfLayout          = CruRfLayout{};
             imageTarget       = {};
@@ -565,8 +570,6 @@ struct UltrasoundSystem::Impl
     };
 
     gpu::CudaSharedBufferBridge bridge;
-    gpu::CudaExternalTimelineSemaphore completionSemaphore;
-    std::uint64_t nextCompletionFenceValue = 1u;
     bool disabled                          = false;
     std::unordered_map<std::uint32_t, EnvironmentRuntime> environmentRuntimes{};
     std::unordered_map<common::EntityId, ProbeRuntime> probeRuntimes{};
@@ -671,18 +674,23 @@ struct UltrasoundSystem::Impl
         return true;
     }
 
-    bool ensureCompletionSemaphoreInitialized(Diligent::IRenderDevice *renderDevice)
+    bool ensureProbeCompletionSemaphoreInitialized(ProbeRuntime &runtime,
+                                                   Diligent::IRenderDevice *renderDevice,
+                                                   const common::EntityId probeEntityId)
     {
-        if (completionSemaphore.isInitialized())
+        if (runtime.completionSemaphore.isInitialized())
         {
             return true;
         }
+        const std::string semaphoreName =
+            "CRESSimNeo.Ultrasound.Completion." + std::to_string(probeEntityId);
         if (renderDevice == nullptr ||
-            !completionSemaphore.initializeForVulkan(renderDevice,
-                                                     "CRESSimNeo.Ultrasound.Completion") ||
-            !completionSemaphore.importIntoCuda())
+            !runtime.completionSemaphore.initializeForVulkan(renderDevice,
+                                                             semaphoreName.c_str()) ||
+            !runtime.completionSemaphore.importIntoCuda())
         {
-            completionSemaphore.reset();
+            runtime.completionSemaphore.reset();
+            runtime.nextCompletionFenceValue = 1u;
             return false;
         }
         return true;
@@ -1467,14 +1475,15 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
         }
 
         bool useGpuCompletionWait =
-            mImpl->ensureCompletionSemaphoreInitialized(graphicsBackend.renderDevice) &&
-            mImpl->completionSemaphore.cudaSemaphoreHandle() != nullptr;
+            mImpl->ensureProbeCompletionSemaphoreInitialized(runtime, graphicsBackend.renderDevice,
+                                                             probeEntityId) &&
+            runtime.completionSemaphore.cudaSemaphoreHandle() != nullptr;
         const std::uint64_t completionFenceValue =
-            useGpuCompletionWait ? mImpl->nextCompletionFenceValue++ : 0u;
+            useGpuCompletionWait ? runtime.nextCompletionFenceValue++ : 0u;
         if (useGpuCompletionWait)
         {
             CruComputeSetCompletionCudaSemaphore(runtime.engine,
-                                                 mImpl->completionSemaphore.cudaSemaphoreHandle(),
+                                                 runtime.completionSemaphore.cudaSemaphoreHandle(),
                                                  completionFenceValue);
         }
         else
@@ -1490,7 +1499,7 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
         }
         if (useGpuCompletionWait)
         {
-            if (!mImpl->completionSemaphore.waitOnDeviceContext(graphicsBackend.graphicsContext,
+            if (!runtime.completionSemaphore.waitOnDeviceContext(graphicsBackend.graphicsContext,
                                                                 completionFenceValue))
             {
                 CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
