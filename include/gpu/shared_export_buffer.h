@@ -7,23 +7,28 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/GraphicsTypes.h"
 
 #include <cstdint>
-
-struct VkBuffer_T;
-struct VkDeviceMemory_T;
+#include <memory>
 
 namespace Diligent
 {
-class IBuffer;
-class IRenderDevice;
+struct IBuffer;
+struct IRenderDevice;
 } // namespace Diligent
 
 namespace cressim::neo::gpu
 {
 
+namespace vkinterop
+{
+struct NativeHandle;
+}
+
+class CudaSharedBuffer;
+
 class CRESSIM_NEO_GPU_API SharedExportBuffer
 {
 public:
-    SharedExportBuffer() = default;
+    SharedExportBuffer();
     ~SharedExportBuffer();
 
     SharedExportBuffer(const SharedExportBuffer &)            = delete;
@@ -71,40 +76,21 @@ public:
 
     bool usesNativeSharedAllocation() const noexcept
     {
-        return mOwnsNativeVulkanBuffer;
+        return mUsesNativeSharedAllocation;
     }
 
-    bool exportOpaqueFd(int &outFd) const noexcept;
-
 private:
-    bool recreateStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
-                                  std::uint32_t elementStride, std::uint32_t requiredCapacity,
-                                  Diligent::BIND_FLAGS bindFlags, Diligent::USAGE usage,
-                                  Diligent::CPU_ACCESS_FLAGS cpuAccess,
-                                  Diligent::Uint64 immediateContextMask,
-                                  const std::uint32_t *queueFamilyIndices,
-                                  std::uint32_t queueFamilyIndexCount);
-    bool createGenericStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
-                                       std::uint32_t elementStride, std::uint32_t requiredCapacity,
-                                       Diligent::BIND_FLAGS bindFlags, Diligent::USAGE usage,
-                                       Diligent::CPU_ACCESS_FLAGS cpuAccess,
-                                       Diligent::Uint64 immediateContextMask);
-    bool createVulkanExportableStructuredBuffer(
-        Diligent::IRenderDevice *renderDevice, const char *name, std::uint32_t elementStride,
-        std::uint32_t requiredCapacity, Diligent::BIND_FLAGS bindFlags, Diligent::USAGE usage,
-        Diligent::CPU_ACCESS_FLAGS cpuAccess, Diligent::Uint64 immediateContextMask,
-        const std::uint32_t *queueFamilyIndices, std::uint32_t queueFamilyIndexCount);
-    void resetNativeVulkanBuffer() noexcept;
+    friend class CudaSharedBuffer;
 
-private:
+    bool exportNativeHandle(vkinterop::NativeHandle &outHandle) const noexcept;
+
+    struct Impl;
+    std::unique_ptr<Impl> mImpl;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mBuffer;
-    std::uint32_t mCapacity      = 0u;
-    std::uint32_t mElementStride = 0u;
-    bool mExportable             = false;
-    bool mOwnsNativeVulkanBuffer = false;
-    VkBuffer_T *mVkBuffer        = nullptr;
-    VkDeviceMemory_T *mVkMemory  = nullptr;
-    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> mRenderDevice;
+    std::uint32_t mCapacity          = 0u;
+    std::uint32_t mElementStride     = 0u;
+    bool mExportable                 = false;
+    bool mUsesNativeSharedAllocation = false;
 };
 
 } // namespace cressim::neo::gpu

@@ -491,7 +491,7 @@ struct UltrasoundSystem::Impl
         gpu::CudaSharedBuffer rfCudaBuffer{};
         gpu::CudaExternalTimelineSemaphore completionSemaphore{};
         std::uint64_t nextCompletionFenceValue = 1u;
-        std::uint32_t rfCapacitySamples = 0u;
+        std::uint32_t rfCapacitySamples        = 0u;
         CruRfLayout rfLayout{};
         gpu::GpuRenderTargetHandle imageTarget{};
         std::uint32_t imageWidth  = 0u;
@@ -518,11 +518,11 @@ struct UltrasoundSystem::Impl
             rfSharedBuffer.reset();
             completionSemaphore.reset();
             nextCompletionFenceValue = 1u;
-            rfCapacitySamples = 0u;
-            rfLayout          = CruRfLayout{};
-            imageTarget       = {};
-            imageWidth        = 0u;
-            imageHeight       = 0u;
+            rfCapacitySamples        = 0u;
+            rfLayout                 = CruRfLayout{};
+            imageTarget              = {};
+            imageWidth               = 0u;
+            imageHeight              = 0u;
             for (ScanlineHandle scanline : scanlines)
             {
                 if (scanline != nullptr)
@@ -570,7 +570,7 @@ struct UltrasoundSystem::Impl
     };
 
     gpu::CudaSharedBufferBridge bridge;
-    bool disabled                          = false;
+    bool disabled = false;
     std::unordered_map<std::uint32_t, EnvironmentRuntime> environmentRuntimes{};
     std::unordered_map<common::EntityId, ProbeRuntime> probeRuntimes{};
     ImagePassState imagePassState{};
@@ -685,8 +685,7 @@ struct UltrasoundSystem::Impl
         const std::string semaphoreName =
             "CRESSimNeo.Ultrasound.Completion." + std::to_string(probeEntityId);
         if (renderDevice == nullptr ||
-            !runtime.completionSemaphore.initializeForVulkan(renderDevice,
-                                                             semaphoreName.c_str()) ||
+            !runtime.completionSemaphore.initializeForVulkan(renderDevice, semaphoreName.c_str()) ||
             !runtime.completionSemaphore.importIntoCuda())
         {
             runtime.completionSemaphore.reset();
@@ -1474,10 +1473,9 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
             continue;
         }
 
-        bool useGpuCompletionWait =
-            mImpl->ensureProbeCompletionSemaphoreInitialized(runtime, graphicsBackend.renderDevice,
-                                                             probeEntityId) &&
-            runtime.completionSemaphore.cudaSemaphoreHandle() != nullptr;
+        bool useGpuCompletionWait = mImpl->ensureProbeCompletionSemaphoreInitialized(
+                                        runtime, graphicsBackend.renderDevice, probeEntityId) &&
+                                    runtime.completionSemaphore.cudaSemaphoreHandle() != nullptr;
         const std::uint64_t completionFenceValue =
             useGpuCompletionWait ? runtime.nextCompletionFenceValue++ : 0u;
         if (useGpuCompletionWait)
@@ -1500,7 +1498,7 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
         if (useGpuCompletionWait)
         {
             if (!runtime.completionSemaphore.waitOnDeviceContext(graphicsBackend.graphicsContext,
-                                                                completionFenceValue))
+                                                                 completionFenceValue))
             {
                 CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
                                     " could not queue GPU completion wait.");

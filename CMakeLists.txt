@@ -9,6 +9,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 project(CRESSim-Neo VERSION 0.1.0 LANGUAGES C CXX)
 
 include(CTest)
+include(CheckLanguage)
 
 set(PROJECT_VENDOR "Yafei Ou")
 set(PROJECT_DESCRIPTION "")
@@ -128,6 +129,13 @@ if(CRESSIM_NEO_ENABLE_ULTRASOUND)
         message(FATAL_ERROR
             "CRESSIM_NEO_ENABLE_ULTRASOUND requires CRESSIM_NEO_ENABLE_CUDA_INTEROP=ON.")
     endif()
+
+    check_language(CUDA)
+    if(NOT CMAKE_CUDA_COMPILER)
+        message(FATAL_ERROR
+            "CRESSIM_NEO_ENABLE_ULTRASOUND requires a working CUDA compiler toolset.")
+    endif()
+    enable_language(CUDA)
 
     set(CRESSIM_NEO_PREV_BUILD_TESTING ${BUILD_TESTING})
     set(BUILD_TESTING OFF)

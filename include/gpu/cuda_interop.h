@@ -8,9 +8,9 @@
 
 namespace Diligent
 {
-class IDeviceContext;
-class IFence;
-class IRenderDevice;
+struct IDeviceContext;
+struct IFence;
+struct IRenderDevice;
 } // namespace Diligent
 
 namespace cressim::neo::gpu

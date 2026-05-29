@@ -55,7 +55,7 @@ target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 target_link_libraries(${TARGET_NAME} PUBLIC cressim_neo_common cressim_neo_graphics cressim_neo_physics cressim_neo_gpu)
 if(CRESSIM_NEO_HAS_ULTRASOUND)
-    target_link_libraries(${TARGET_NAME} PUBLIC cru_interface)
+    target_link_libraries(${TARGET_NAME} PRIVATE cru_interface)
 endif()
 
 set_target_properties(${TARGET_NAME}
