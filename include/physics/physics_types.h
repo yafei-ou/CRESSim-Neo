@@ -263,6 +263,7 @@ struct StrandState
     float particleMass                 = 1.0f;
     float particleRadius               = 0.125f;
     float distanceCompliance           = 0.0f;
+    float bendCompliance               = 0.0f;
     bool simulated                     = true;
     bool selfCollisionEnabled          = false;
     std::uint32_t contactMaterialIndex = 0u;
@@ -270,6 +271,8 @@ struct StrandState
     std::uint32_t particleCount        = 0u;
     std::uint32_t constraintOffset     = 0u;
     std::uint32_t constraintCount      = 0u;
+    std::uint32_t bendConstraintOffset = 0u;
+    std::uint32_t bendConstraintCount  = 0u;
     std::vector<Diligent::float3> restPositions;
     std::vector<std::uint32_t> staticParticleIndices;
 };
@@ -314,6 +317,20 @@ struct DeformableVolumeConstraint
 };
 
 using SoftTet = DeformableVolumeConstraint;
+
+struct DeformableBendConstraint
+{
+    std::uint32_t particle0 = 0u;
+    std::uint32_t particle1 = 0u;
+    std::uint32_t particle2 = 0u;
+    float restAngle         = 0.0f;
+    float compliance        = 0.0f;
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
+    std::uint32_t reserved2 = 0u;
+};
+
+using SoftBend = DeformableBendConstraint;
 
 struct ParticleSoAHost
 {

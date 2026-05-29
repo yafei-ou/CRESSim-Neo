@@ -19,6 +19,7 @@ int main()
     strand.particleMass          = 0.4f;
     strand.particleRadius        = 0.06f;
     strand.distanceCompliance    = 0.02f;
+    strand.bendCompliance        = 0.01f;
     strand.selfCollisionEnabled  = true;
     strand.collisionLayer        = 0x10u;
     strand.collisionMask         = 0x22u;
@@ -40,7 +41,8 @@ int main()
 
     const auto component = world.tryGetStrand(entity);
     if (!component.has_value() || component->restPositions.size() != 3u ||
-        component->distanceCompliance != strand.distanceCompliance)
+        component->distanceCompliance != strand.distanceCompliance ||
+        component->bendCompliance != strand.bendCompliance)
     {
         CRESSIM_LOG_ERROR("World::tryGetStrand did not round-trip strand data.\n");
         return 1;

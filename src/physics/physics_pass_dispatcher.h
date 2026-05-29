@@ -93,10 +93,17 @@ public:
                                   const PhysicsSceneGpuState &sceneState,
                                   std::uint32_t softEdgeCount,
                                   const GpuParticleDispatchConstants &constants);
+    bool solveSoftBendConstraints(Diligent::IDeviceContext *computeContext,
+                                  const PhysicsSceneGpuState &sceneState,
+                                  std::uint32_t softBendCount,
+                                  const GpuParticleDispatchConstants &constants);
     bool solveSoftTetConstraints(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState, std::uint32_t softTetCount,
                                  const GpuParticleDispatchConstants &constants);
     bool applySoftEdgeCorrections(Diligent::IDeviceContext *computeContext,
+                                  const PhysicsSceneGpuState &sceneState,
+                                  const GpuParticleDispatchConstants &constants);
+    bool applySoftBendCorrections(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState,
                                   const GpuParticleDispatchConstants &constants);
     bool applySoftTetCorrections(Diligent::IDeviceContext *computeContext,
@@ -346,8 +353,10 @@ private:
     gpu::GpuComputePass mCompactActiveParticleRigidContactsPass;
     gpu::GpuComputePass mClearSoftConstraintStatePass;
     gpu::GpuComputePass mSolveSoftEdgeConstraintsPass;
+    gpu::GpuComputePass mSolveSoftBendConstraintsPass;
     gpu::GpuComputePass mSolveSoftTetConstraintsPass;
     gpu::GpuComputePass mApplySoftEdgeCorrectionsPass;
+    gpu::GpuComputePass mApplySoftBendCorrectionsPass;
     gpu::GpuComputePass mApplySoftTetCorrectionsPass;
     gpu::GpuComputePass mSolveParticleExplicitContactsPass;
     gpu::GpuComputePass mSolveParticleRigidContactsPass;

@@ -15,6 +15,7 @@ int main()
     strand.particleMass         = 0.5f;
     strand.particleRadius       = 0.07f;
     strand.distanceCompliance   = 0.03f;
+    strand.bendCompliance       = 0.015f;
     strand.selfCollisionEnabled = true;
     strand.restPositions = {
         {-0.5f, 0.0f, 0.0f},
@@ -44,7 +45,8 @@ int main()
 
     const auto &particles = world.particles();
     const auto &constraints = world.distanceConstraints();
-    if (particles.size() != 3u || constraints.size() != 2u)
+    const auto &bendConstraints = world.bendConstraints();
+    if (particles.size() != 3u || constraints.size() != 2u || bendConstraints.size() != 1u)
     {
         CRESSIM_LOG_ERROR("Unexpected strand-derived particle or constraint count.\n");
         return 1;
@@ -61,9 +63,16 @@ int main()
     }
 
     if (particles.positionsInvMass[0].w != 0.0f || particles.positionsInvMass[1].w <= 0.0f ||
-        constraints[0].compliance != strand.distanceCompliance)
+        constraints[0].compliance != strand.distanceCompliance ||
+        bendConstraints[0].compliance != strand.bendCompliance)
     {
         CRESSIM_LOG_ERROR("Strand particle masses or constraint properties are incorrect.\n");
+        return 1;
+    }
+
+    if (authored->bendConstraintCount != 1u || authored->constraintCount != 2u)
+    {
+        CRESSIM_LOG_ERROR("Strand constraint counts were not populated as expected.\n");
         return 1;
     }
 

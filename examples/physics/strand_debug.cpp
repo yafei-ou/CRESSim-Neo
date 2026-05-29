@@ -131,7 +131,8 @@ int main(int argc, char **argv)
         StrandComponent strand{};
         strand.particleMass         = 0.18f;
         strand.particleRadius       = 0.10f;
-        strand.distanceCompliance   = 0.0005f;
+        strand.distanceCompliance   = 0.0001f;
+        strand.bendCompliance       = 0.05f;
         strand.selfCollisionEnabled = false;
         strand.staticParticleIndices = {0u};
 

@@ -114,9 +114,12 @@ public:
     struct PersistentSoftTopologyBuffers
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> edgesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> bendsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> tetsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleEdgeRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentEdgesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleBendRangesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentBendsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleTetRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentTetsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexTriangleRangesBuffer;
@@ -171,8 +174,10 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidAnisotropy3Buffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidVorticitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeLambdasBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBendLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeCorrectionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBendCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyChunkAabbsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyAabbsBuffer;
@@ -309,9 +314,9 @@ public:
                         std::uint32_t colliderCount, std::uint32_t particleCount,
                         std::uint32_t fluidCount, std::uint32_t particleContactMaterialCount,
                         std::uint32_t fluidMaterialCount, std::uint32_t softEdgeCount,
-                        std::uint32_t softTetCount, std::uint32_t ballJointCount,
-                        std::uint32_t hingeJointCount, std::uint32_t sliderJointCount,
-                        std::uint32_t softRenderVertexCount,
+                        std::uint32_t softBendCount, std::uint32_t softTetCount,
+                        std::uint32_t ballJointCount, std::uint32_t hingeJointCount,
+                        std::uint32_t sliderJointCount, std::uint32_t softRenderVertexCount,
                         std::uint32_t softRenderTriangleIndexCount,
                         std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
                         std::uint32_t softBodyBoundsChunkCount, Diligent::Uint64 sharedContextMask,
@@ -391,6 +396,7 @@ private:
     bool uploadSoftTopology(Diligent::IDeviceContext *computeContext, std::uint32_t particleCount,
                             const SoftRenderDataHost &softRenderData,
                             const std::vector<DeformableDistanceConstraint> &distanceConstraints,
+                            const std::vector<DeformableBendConstraint> &bendConstraints,
                             const std::vector<DeformableVolumeConstraint> &volumeConstraints);
     gpu::SharedExportBuffer mSharedSoftPositionsInvMass;
     PersistentRigidBodyBuffers mPersistentRigidBodies;
@@ -410,6 +416,7 @@ private:
     std::uint32_t mParticleContactMaterialCapacity           = 0;
     std::uint32_t mFluidMaterialCapacity                     = 0;
     std::uint32_t mSoftEdgeCapacity                          = 0;
+    std::uint32_t mSoftBendCapacity                          = 0;
     std::uint32_t mSoftTetCapacity                           = 0;
     std::uint32_t mParticleBroadPhaseEntryCapacity           = 0;
     std::uint32_t mSoftCandidatePairCapacity                 = 0;
@@ -425,12 +432,14 @@ private:
     std::uint32_t mParticleContactMaterialCount              = 0;
     std::uint32_t mFluidMaterialCount                        = 0;
     std::uint32_t mSoftEdgeCount                             = 0;
+    std::uint32_t mSoftBendCount                             = 0;
     std::uint32_t mSoftTetCount                              = 0;
     std::uint32_t mBroadPhaseNodeCapacity                    = 0;
     std::uint32_t mCandidatePairCapacity                     = 0;
     std::uint32_t mContactCapacity                           = 0;
     std::uint32_t mSoftScanScratchCapacity                   = 0;
     std::uint32_t mSoftIncidentEdgeCapacity                  = 0;
+    std::uint32_t mSoftIncidentBendCapacity                  = 0;
     std::uint32_t mSoftIncidentTetCapacity                   = 0;
     std::uint32_t mSoftRenderVertexCapacity                  = 0;
     std::uint32_t mSoftRenderTriangleIndexCapacity           = 0;

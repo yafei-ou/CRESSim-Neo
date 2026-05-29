@@ -1124,18 +1124,19 @@ bool World::setStrand(common::EntityId entityId, const StrandComponent &componen
     }
 
     physics::StrandState state{};
-    state.entityId             = entityId;
-    state.environmentIndex     = entityEnvironment(entityId);
-    state.material             = component.material;
-    state.restPositions        = component.restPositions;
+    state.entityId              = entityId;
+    state.environmentIndex      = entityEnvironment(entityId);
+    state.material              = component.material;
+    state.restPositions         = component.restPositions;
     state.staticParticleIndices = component.staticParticleIndices;
-    state.particleMass         = component.particleMass;
-    state.particleRadius       = component.particleRadius;
-    state.distanceCompliance   = component.distanceCompliance;
-    state.simulated            = component.simulated;
-    state.selfCollisionEnabled = component.selfCollisionEnabled;
-    state.collisionLayer       = component.collisionLayer;
-    state.collisionMask        = component.collisionMask;
+    state.particleMass          = component.particleMass;
+    state.particleRadius        = component.particleRadius;
+    state.distanceCompliance    = component.distanceCompliance;
+    state.bendCompliance        = component.bendCompliance;
+    state.simulated             = component.simulated;
+    state.selfCollisionEnabled  = component.selfCollisionEnabled;
+    state.collisionLayer        = component.collisionLayer;
+    state.collisionMask         = component.collisionMask;
 
     if (!mPhysicsWorld.upsertStrand(state))
     {
@@ -1701,16 +1702,17 @@ std::optional<StrandComponent> World::tryGetStrand(common::EntityId entityId) co
     }
 
     StrandComponent component{};
-    component.material             = strand->material;
-    component.restPositions        = strand->restPositions;
+    component.material              = strand->material;
+    component.restPositions         = strand->restPositions;
     component.staticParticleIndices = strand->staticParticleIndices;
-    component.particleMass         = strand->particleMass;
-    component.particleRadius       = strand->particleRadius;
-    component.distanceCompliance   = strand->distanceCompliance;
-    component.simulated            = strand->simulated;
-    component.selfCollisionEnabled = strand->selfCollisionEnabled;
-    component.collisionLayer       = strand->collisionLayer;
-    component.collisionMask        = strand->collisionMask;
+    component.particleMass          = strand->particleMass;
+    component.particleRadius        = strand->particleRadius;
+    component.distanceCompliance    = strand->distanceCompliance;
+    component.bendCompliance        = strand->bendCompliance;
+    component.simulated             = strand->simulated;
+    component.selfCollisionEnabled  = strand->selfCollisionEnabled;
+    component.collisionLayer        = strand->collisionLayer;
+    component.collisionMask         = strand->collisionMask;
     return component;
 }
 

@@ -155,6 +155,7 @@ struct StrandComponent
     float particleMass           = 1.0f;
     float particleRadius         = 0.125f;
     float distanceCompliance     = 0.0f;
+    float bendCompliance         = 0.0f;
     bool simulated               = true;
     bool selfCollisionEnabled    = false;
     std::uint32_t collisionLayer = 1u;

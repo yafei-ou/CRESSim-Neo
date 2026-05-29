@@ -67,8 +67,10 @@ public:
     const std::vector<Diligent::float4> &particleContactMaterials() const noexcept;
     const std::vector<FluidMaterialGpu> &fluidMaterials() const noexcept;
     const std::vector<DeformableDistanceConstraint> &distanceConstraints() const noexcept;
+    const std::vector<DeformableBendConstraint> &bendConstraints() const noexcept;
     const std::vector<DeformableVolumeConstraint> &volumeConstraints() const noexcept;
     const std::vector<SoftEdge> &softEdges() const noexcept;
+    const std::vector<SoftBend> &softBends() const noexcept;
     const std::vector<SoftTet> &softTets() const noexcept;
     const SoftRenderDataHost &softRenderData() const noexcept;
     void setSoftRenderData(const SoftRenderDataHost &data);
@@ -150,6 +152,7 @@ private:
     {
         std::vector<Diligent::float3> restPositions;
         std::vector<std::array<std::uint32_t, 2>> edges;
+        std::vector<std::array<std::uint32_t, 3>> bends;
         std::vector<std::vector<std::uint32_t>> adjacencyLists;
         std::vector<std::uint32_t> staticParticleIndices;
     };
@@ -251,6 +254,7 @@ private:
     std::vector<Diligent::float4> mParticleContactMaterials{};
     std::vector<FluidMaterialGpu> mFluidMaterials{};
     std::vector<DeformableDistanceConstraint> mSoftEdges{};
+    std::vector<DeformableBendConstraint> mSoftBends{};
     std::vector<DeformableVolumeConstraint> mSoftTets{};
     SoftRenderDataHost mSoftRenderData{};
     std::vector<std::uint32_t> mRigidBodyDirtyIndices{};

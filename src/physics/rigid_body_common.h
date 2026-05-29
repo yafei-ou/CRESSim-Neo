@@ -149,10 +149,14 @@ struct GpuParticleDispatchConstants
     std::uint32_t fluidBoundaryCandidatePairCapacity = 0;
     std::uint32_t particleCellRangeCapacity          = 0;
     std::uint32_t softEdgeCount                      = 0;
+    std::uint32_t softBendCount                      = 0;
     std::uint32_t softTetCount                       = 0;
     std::uint32_t fluidIterations                    = 0;
     std::uint32_t maxFluidNeighborhood               = 0;
     std::uint32_t iterationIndex                     = 0;
+    std::uint32_t reserved0                          = 0;
+    std::uint32_t reserved1                          = 0;
+    std::uint32_t reserved2                          = 0;
 };
 
 struct GpuSoftRenderDispatchConstants
@@ -279,6 +283,14 @@ struct GpuSoftIncidentEdge
     std::uint32_t reserved1 = 0;
 };
 
+struct GpuSoftIncidentBend
+{
+    std::uint32_t bendIndex = 0;
+    std::uint32_t slot      = 0;
+    std::uint32_t reserved0 = 0;
+    std::uint32_t reserved1 = 0;
+};
+
 struct GpuSoftIncidentTet
 {
     std::uint32_t tetIndex  = 0;
@@ -331,6 +343,13 @@ struct GpuSoftTetCorrection
     Diligent::float4 correction1{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 correction2{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 correction3{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuSoftBendCorrection
+{
+    Diligent::float4 correction0{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 correction1{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 correction2{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 struct GpuBroadPhaseBuildConstants
@@ -529,7 +548,7 @@ static_assert(sizeof(GpuRigidJointDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
-static_assert(sizeof(GpuParticleDispatchConstants) == 48u);
+static_assert(sizeof(GpuParticleDispatchConstants) == 64u);
 static_assert(sizeof(GpuDispatchIndirectArgs) == 12u);
 static_assert(sizeof(GpuPaddedDispatchIndirectArgs) == 16u);
 static_assert(sizeof(GpuParticleBroadPhaseEntry) == 32u);
@@ -540,10 +559,13 @@ static_assert(sizeof(GpuParticleRigidContact) == 64u);
 static_assert(sizeof(GpuParticleContact) == 32u);
 static_assert(sizeof(GpuSoftConstraintRange) == 16u);
 static_assert(sizeof(GpuSoftIncidentEdge) == 16u);
+static_assert(sizeof(GpuSoftIncidentBend) == 16u);
 static_assert(sizeof(GpuSoftIncidentTet) == 16u);
 static_assert(sizeof(GpuSoftBodyChunkRange) == 16u);
 static_assert(sizeof(GpuSoftBodyBoundsChunk) == 16u);
 static_assert(sizeof(GpuSoftEdgeCorrection) == 32u);
+static_assert(sizeof(DeformableBendConstraint) == 32u);
+static_assert(sizeof(GpuSoftBendCorrection) == 48u);
 static_assert(sizeof(GpuSoftTetCorrection) == 64u);
 static_assert(sizeof(GpuBroadPhaseBuildConstants) == 16u);
 static_assert(sizeof(GpuBroadPhaseReductionConstants) == 16u);

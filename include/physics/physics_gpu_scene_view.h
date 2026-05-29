@@ -58,11 +58,13 @@ struct PhysicsGpuSoftSceneView
 {
     PhysicsGpuParticleBufferView particles{};
     Diligent::IBuffer *edgesBuffer         = nullptr;
+    Diligent::IBuffer *bendsBuffer         = nullptr;
     Diligent::IBuffer *tetsBuffer          = nullptr;
     Diligent::IBuffer *renderNormalsBuffer = nullptr;
     Diligent::IBuffer *worldAabbsBuffer    = nullptr;
     std::uint32_t softBodyCount            = 0;
     std::uint32_t edgeCount                = 0;
+    std::uint32_t bendCount                = 0;
     std::uint32_t tetCount                 = 0;
     std::uint64_t bindingGeneration        = 0;
 };

@@ -161,15 +161,15 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const std::vector<FluidMaterialGpu> &fluidMaterials = world.fluidMaterials();
     const std::vector<DeformableDistanceConstraint> &distanceConstraints =
         world.distanceConstraints();
-    const std::vector<DeformableVolumeConstraint> &volumeConstraints =
-        world.volumeConstraints();
-    const SoftRenderDataHost &softRenderData            = world.softRenderData();
-    const RigidJointSceneHost &rigidJoints              = world.rigidJointScene();
-    const std::uint32_t fluidCount                      = world.fluidCount();
+    const std::vector<DeformableBendConstraint> &bendConstraints     = world.bendConstraints();
+    const std::vector<DeformableVolumeConstraint> &volumeConstraints = world.volumeConstraints();
+    const SoftRenderDataHost &softRenderData                         = world.softRenderData();
+    const RigidJointSceneHost &rigidJoints                           = world.rigidJointScene();
+    const std::uint32_t fluidCount                                   = world.fluidCount();
     const std::uint32_t particleCount    = static_cast<std::uint32_t>(particles.size());
-    const std::uint32_t softEdgeCount =
-        static_cast<std::uint32_t>(distanceConstraints.size());
-    const std::uint32_t softTetCount = static_cast<std::uint32_t>(volumeConstraints.size());
+    const std::uint32_t softEdgeCount    = static_cast<std::uint32_t>(distanceConstraints.size());
+    const std::uint32_t softBendCount    = static_cast<std::uint32_t>(bendConstraints.size());
+    const std::uint32_t softTetCount     = static_cast<std::uint32_t>(volumeConstraints.size());
     const std::uint32_t ballJointCount   = static_cast<std::uint32_t>(rigidJoints.ball.size());
     const std::uint32_t hingeJointCount  = static_cast<std::uint32_t>(rigidJoints.hinge.size());
     const std::uint32_t sliderJointCount = static_cast<std::uint32_t>(rigidJoints.slider.size());
@@ -180,7 +180,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     std::array<std::uint32_t, 2> sharedQueueFamilyIndices{};
     const std::uint32_t sharedQueueFamilyIndexCount = buildUniqueQueueFamilyIndices(
         computeBackend.computeContext, graphicsBackend.graphicsContext, sharedQueueFamilyIndices);
-    const bool hasSoftData = particleCount > 0u || softEdgeCount > 0u || softTetCount > 0u;
+    const bool hasSoftData =
+        particleCount > 0u || softEdgeCount > 0u || softBendCount > 0u || softTetCount > 0u;
     if (rigidBodyCount == 0u && !hasSoftData)
     {
         return true;
@@ -189,8 +190,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     if (!mImpl->sceneState.ensureCapacity(
             computeBackend.renderDevice, rigidBodyCount, colliderCount, particleCount, fluidCount,
             static_cast<std::uint32_t>(world.particleContactMaterials().size()),
-            static_cast<std::uint32_t>(fluidMaterials.size()), softEdgeCount, softTetCount,
-            ballJointCount, hingeJointCount, sliderJointCount,
+            static_cast<std::uint32_t>(fluidMaterials.size()), softEdgeCount, softBendCount,
+            softTetCount, ballJointCount, hingeJointCount, sliderJointCount,
             static_cast<std::uint32_t>(softRenderData.fallbackNormals.size()),
             static_cast<std::uint32_t>(softRenderData.vertexTriangleIndices.size()),
             softRenderTriangleCount,
@@ -262,6 +263,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         particleConstants.particleCellRangeCapacity =
             nextPowerOfTwo(std::max<std::uint32_t>(particleCount * 2u, 1u));
         particleConstants.softEdgeCount   = softEdgeCount;
+        particleConstants.softBendCount   = softBendCount;
         particleConstants.softTetCount    = softTetCount;
         particleConstants.fluidIterations = fluidIterations;
 
@@ -269,7 +271,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         const bool hasFluidWork            = fluidCount > 0u && particleCount > 0u;
         const bool hasFluidBoundaryWork    = hasFluidWork && colliderCount > 0u;
         const bool hasSoftInternalWork =
-            particleCount > 0u && (softEdgeCount > 0u || softTetCount > 0u);
+            particleCount > 0u && (softEdgeCount > 0u || softBendCount > 0u || softTetCount > 0u);
         const bool hasSoftContactSolveWork = softContactIterations > 0u;
         const bool hasSoftSoftContactWork  = hasSoftContactSolveWork && particleCount > 1u;
         const bool hasSoftRigidContactWork =
@@ -458,7 +460,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         }
 
         const std::uint32_t softConstraintThreadCount =
-            std::max(particleCount, std::max(softEdgeCount, softTetCount));
+            std::max(particleCount, std::max(std::max(softEdgeCount, softBendCount), softTetCount));
         if ((hasSoftInternalWork || hasSoftSoftContactWork || hasSoftRigidContactWork) &&
             !mImpl->passDispatcher.clearSoftConstraintState(
                 computeBackend.computeContext, mImpl->sceneState, softConstraintThreadCount,
@@ -569,6 +571,22 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: ApplySoftEdgeCorrections dispatch.");
+                    return false;
+                }
+                if (runSoftInternal && !mImpl->passDispatcher.solveSoftBendConstraints(
+                                           computeBackend.computeContext, mImpl->sceneState,
+                                           softBendCount, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: SolveSoftBendConstraints dispatch.");
+                    return false;
+                }
+                if (runSoftInternal &&
+                    !mImpl->passDispatcher.applySoftBendCorrections(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: ApplySoftBendCorrections dispatch.");
                     return false;
                 }
                 if (runSoftInternal && !mImpl->passDispatcher.solveSoftTetConstraints(

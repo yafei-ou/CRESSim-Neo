@@ -204,8 +204,10 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mCompactActiveParticleRigidContactsPass, kCompactActiveParticleRigidContacts) ||
         !initPass(mClearSoftConstraintStatePass, kClearSoftConstraintState) ||
         !initPass(mSolveSoftEdgeConstraintsPass, kSolveSoftEdgeConstraints) ||
+        !initPass(mSolveSoftBendConstraintsPass, kSolveSoftBendConstraints) ||
         !initPass(mSolveSoftTetConstraintsPass, kSolveSoftTetConstraints) ||
         !initPass(mApplySoftEdgeCorrectionsPass, kApplySoftEdgeCorrections) ||
+        !initPass(mApplySoftBendCorrectionsPass, kApplySoftBendCorrections) ||
         !initPass(mApplySoftTetCorrectionsPass, kApplySoftTetCorrections) ||
         !initPass(mSolveParticleExplicitContactsPass, kSolveParticleExplicitContacts) ||
         !initPass(mSolveParticleRigidContactsPass, kSolveParticleRigidContacts) ||
@@ -1386,6 +1388,8 @@ bool PhysicsPassDispatcher::clearSoftConstraintState(Diligent::IDeviceContext *c
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_SoftEdgeLambdas", transient.softEdgeLambdasBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SoftBendLambdas", transient.softBendLambdasBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_SoftTetLambdas", transient.softTetLambdasBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
@@ -1425,6 +1429,38 @@ bool PhysicsPassDispatcher::solveSoftEdgeConstraints(Diligent::IDeviceContext *c
     return writeParticleDispatchConstants(computeContext, constants) &&
            mSolveSoftEdgeConstraintsPass.dispatch(computeContext, kDefaultVariant, solveBindings,
                                                   dispatchGroupCount(softEdgeCount));
+}
+
+bool PhysicsPassDispatcher::solveSoftBendConstraints(Diligent::IDeviceContext *computeContext,
+                                                     const PhysicsSceneGpuState &sceneState,
+                                                     std::uint32_t softBendCount,
+                                                     const GpuParticleDispatchConstants &constants)
+{
+    if (softBendCount == 0u || constants.particleCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles = sceneState.persistentParticles();
+    const auto &softTopology  = sceneState.persistentSoftTopology();
+    const auto &transient     = sceneState.transientBuffers();
+    const std::array solveBindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftBends", softTopology.bendsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftBendLambdas", transient.softBendLambdasBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SoftBendCorrections", transient.softBendCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mSolveSoftBendConstraintsPass.dispatch(computeContext, kDefaultVariant, solveBindings,
+                                                  dispatchGroupCount(softBendCount));
 }
 
 bool PhysicsPassDispatcher::solveSoftTetConstraints(Diligent::IDeviceContext *computeContext,
@@ -1487,6 +1523,37 @@ bool PhysicsPassDispatcher::applySoftEdgeCorrections(Diligent::IDeviceContext *c
 
     return writeParticleDispatchConstants(computeContext, constants) &&
            mApplySoftEdgeCorrectionsPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                  dispatchGroupCount(constants.particleCount));
+}
+
+bool PhysicsPassDispatcher::applySoftBendCorrections(Diligent::IDeviceContext *computeContext,
+                                                     const PhysicsSceneGpuState &sceneState,
+                                                     const GpuParticleDispatchConstants &constants)
+{
+    if (constants.particleCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles = sceneState.persistentParticles();
+    const auto &softTopology  = sceneState.persistentSoftTopology();
+    const auto &transient     = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_ParticleBendRanges", softTopology.particleBendRangesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleIncidentBends", softTopology.particleIncidentBendsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftBendCorrections", transient.softBendCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mApplySoftBendCorrectionsPass.dispatch(computeContext, kDefaultVariant, bindings,
                                                   dispatchGroupCount(constants.particleCount));
 }
 
@@ -4222,8 +4289,10 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mCompactActiveParticleRigidContactsPass.forceRecreateAllVariants() &&
            mClearSoftConstraintStatePass.forceRecreateAllVariants() &&
            mSolveSoftEdgeConstraintsPass.forceRecreateAllVariants() &&
+           mSolveSoftBendConstraintsPass.forceRecreateAllVariants() &&
            mSolveSoftTetConstraintsPass.forceRecreateAllVariants() &&
            mApplySoftEdgeCorrectionsPass.forceRecreateAllVariants() &&
+           mApplySoftBendCorrectionsPass.forceRecreateAllVariants() &&
            mApplySoftTetCorrectionsPass.forceRecreateAllVariants() &&
            mSolveParticleExplicitContactsPass.forceRecreateAllVariants() &&
            mSolveParticleRigidContactsPass.forceRecreateAllVariants() &&

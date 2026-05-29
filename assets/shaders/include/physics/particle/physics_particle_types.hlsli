@@ -115,6 +115,18 @@ struct GpuSoftTet
     uint reserved1;
 };
 
+struct GpuSoftBend
+{
+    uint particle0;
+    uint particle1;
+    uint particle2;
+    float restAngle;
+    float compliance;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+};
+
 struct GpuSoftConstraintRange
 {
     uint start;
@@ -139,6 +151,14 @@ struct GpuSoftIncidentTet
     uint reserved1;
 };
 
+struct GpuSoftIncidentBend
+{
+    uint bendIndex;
+    uint slot;
+    uint reserved0;
+    uint reserved1;
+};
+
 struct GpuSoftEdgeCorrection
 {
     float4 correctionA;
@@ -151,6 +171,13 @@ struct GpuSoftTetCorrection
     float4 correction1;
     float4 correction2;
     float4 correction3;
+};
+
+struct GpuSoftBendCorrection
+{
+    float4 correction0;
+    float4 correction1;
+    float4 correction2;
 };
 
 struct GpuSoftBodyParticleRange

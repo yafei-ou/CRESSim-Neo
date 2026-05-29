@@ -414,6 +414,8 @@ constexpr Diligent::ShaderResourceVariableDesc kClearSoftConstraintStateVars[] =
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftEdgeLambdas",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBendLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftTetLambdas",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
@@ -448,6 +450,18 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveSoftEdgeConstraintsVars[] =
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kSolveSoftBendConstraintsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBends", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBendLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBendCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kSolveSoftTetConstraintsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -470,6 +484,19 @@ constexpr Diligent::ShaderResourceVariableDesc kApplySoftEdgeCorrectionsVars[] =
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleIncidentEdges",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftEdgeCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kApplySoftBendCorrectionsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleBendRanges",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleIncidentBends",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBendCorrections",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
@@ -1719,6 +1746,14 @@ const gpu::GpuComputePassDefinition kSolveSoftEdgeConstraints{
     std::size(kSolveSoftEdgeConstraintsVars),
 };
 
+const gpu::GpuComputePassDefinition kSolveSoftBendConstraints{
+    "physics/soft/solver/physics_soft_solve_bend_constraints.cs.hlsl",
+    "CRESSimNeo.Physics.SolveSoftBendConstraints.CS",
+    "CRESSimNeo.Physics.SolveSoftBendConstraints.PSO",
+    kSolveSoftBendConstraintsVars,
+    std::size(kSolveSoftBendConstraintsVars),
+};
+
 const gpu::GpuComputePassDefinition kSolveSoftTetConstraints{
     "physics/soft/solver/physics_soft_solve_tet_constraints.cs.hlsl",
     "CRESSimNeo.Physics.SolveSoftTetConstraints.CS",
@@ -1733,6 +1768,14 @@ const gpu::GpuComputePassDefinition kApplySoftEdgeCorrections{
     "CRESSimNeo.Physics.ApplySoftEdgeCorrections.PSO",
     kApplySoftEdgeCorrectionsVars,
     std::size(kApplySoftEdgeCorrectionsVars),
+};
+
+const gpu::GpuComputePassDefinition kApplySoftBendCorrections{
+    "physics/soft/solver/physics_soft_apply_bend_corrections.cs.hlsl",
+    "CRESSimNeo.Physics.ApplySoftBendCorrections.CS",
+    "CRESSimNeo.Physics.ApplySoftBendCorrections.PSO",
+    kApplySoftBendCorrectionsVars,
+    std::size(kApplySoftBendCorrectionsVars),
 };
 
 const gpu::GpuComputePassDefinition kApplySoftTetCorrections{
