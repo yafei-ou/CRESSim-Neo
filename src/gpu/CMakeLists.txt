@@ -10,6 +10,12 @@ file(GLOB_RECURSE TARGET_SOURCE CONFIGURE_DEPENDS
     ${PROJECT_SOURCE_DIR}/src/gpu/*.cpp
 )
 
+if(NOT WIN32)
+    list(REMOVE_ITEM TARGET_SOURCE
+        ${PROJECT_SOURCE_DIR}/src/gpu/d3d12_cuda_interop.cpp
+    )
+endif()
+
 set(TARGET_NAME "cressim_neo_gpu")
 
 if(ENGINE_STATIC)

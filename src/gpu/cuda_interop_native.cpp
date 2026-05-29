@@ -107,9 +107,11 @@ bool canUseExportableStructuredBuffer(const Diligent::IRenderDevice *renderDevic
     case Diligent::RENDER_DEVICE_TYPE_VULKAN:
         return vkinterop::canUseExportableStructuredBuffer(
             renderDevice, usage, cpuAccess, immediateContextMask, queueFamilyIndexCount);
+#if defined(_WIN32)
     case Diligent::RENDER_DEVICE_TYPE_D3D12:
         return d3d12interop::canUseExportableStructuredBuffer(
             renderDevice, usage, cpuAccess, immediateContextMask, queueFamilyIndexCount);
+#endif
     default:
         return false;
     }
@@ -146,7 +148,11 @@ bool createExportableStructuredBuffer(
         return true;
     }
 
-    if (renderDevice->GetDeviceInfo().Type == Diligent::RENDER_DEVICE_TYPE_D3D12)
+    if (false)
+    {
+    }
+#if defined(_WIN32)
+    else if (renderDevice->GetDeviceInfo().Type == Diligent::RENDER_DEVICE_TYPE_D3D12)
     {
         d3d12interop::SharedBufferState d3d12State{};
         if (!d3d12interop::createExportableStructuredBuffer(
@@ -162,6 +168,7 @@ bool createExportableStructuredBuffer(
         state.ownsNativeAllocation = state.d3d12State.ownsNativeAllocation;
         return true;
     }
+#endif
 
     return false;
 }
@@ -176,9 +183,11 @@ void resetExportableStructuredBuffer(SharedBufferState &state) noexcept
         vkinterop::resetExportableStructuredBuffer(vkState);
         break;
     }
+#if defined(_WIN32)
     case Diligent::RENDER_DEVICE_TYPE_D3D12:
         d3d12interop::resetExportableStructuredBuffer(state.d3d12State);
         break;
+#endif
     default:
         break;
     }
@@ -206,8 +215,10 @@ bool exportBufferHandle(const SharedBufferState &state, NativeHandle &outHandle)
         outHandle = fromVulkanHandle(vkHandle);
         return true;
     }
+#if defined(_WIN32)
     case Diligent::RENDER_DEVICE_TYPE_D3D12:
         return d3d12interop::exportBufferHandle(state.d3d12State, outHandle);
+#endif
     default:
         return false;
     }
@@ -235,7 +246,11 @@ bool createExportableTimelineSemaphore(Diligent::IRenderDevice *renderDevice, co
         return true;
     }
 
-    if (renderDevice->GetDeviceInfo().Type == Diligent::RENDER_DEVICE_TYPE_D3D12)
+    if (false)
+    {
+    }
+#if defined(_WIN32)
+    else if (renderDevice->GetDeviceInfo().Type == Diligent::RENDER_DEVICE_TYPE_D3D12)
     {
         d3d12interop::TimelineSemaphoreState d3d12State{};
         if (!d3d12interop::createExportableTimelineSemaphore(renderDevice, name, d3d12State))
@@ -250,6 +265,7 @@ bool createExportableTimelineSemaphore(Diligent::IRenderDevice *renderDevice, co
         state.initialized  = true;
         return true;
     }
+#endif
 
     return false;
 }
@@ -282,8 +298,10 @@ bool exportSemaphoreHandle(const TimelineSemaphoreState &state, NativeHandle &ou
         outHandle = fromVulkanHandle(vkHandle);
         return true;
     }
+#if defined(_WIN32)
     case Diligent::RENDER_DEVICE_TYPE_D3D12:
         return d3d12interop::exportSemaphoreHandle(state.d3d12State, outHandle);
+#endif
     default:
         return false;
     }
