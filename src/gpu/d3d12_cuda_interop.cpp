@@ -1,13 +1,15 @@
 #include "gpu/d3d12_cuda_interop.h"
 
-#include "common/logger.h"
 #include "gpu/cuda_interop_native.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
+#include "DiligentEngine/DiligentCore/Platforms/interface/PlatformMisc.hpp"
+#if defined(_WIN32)
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineD3D12/interface/BufferD3D12.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineD3D12/interface/FenceD3D12.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngineD3D12/interface/RenderDeviceD3D12.h"
+#include "common/logger.h"
+#endif
 
 namespace cressim::neo::gpu::d3d12interop
 {

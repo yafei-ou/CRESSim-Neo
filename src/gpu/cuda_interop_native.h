@@ -2,7 +2,10 @@
 #define CRESSIM_NEO_GPU_CUDA_INTEROP_NATIVE_H
 
 #include "gpu/cuda_interop_types.h"
+
+#if defined(_WIN32)
 #include "gpu/d3d12_cuda_interop.h"
+#endif
 #include "gpu/vulkan_cuda_interop.h"
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"

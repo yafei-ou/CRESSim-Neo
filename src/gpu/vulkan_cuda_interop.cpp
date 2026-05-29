@@ -2,7 +2,7 @@
 
 #include "common/logger.h"
 
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
+#include "DiligentEngine/DiligentCore/Platforms/interface/PlatformMisc.hpp"
 
 #if defined(_WIN32)
 #include <Windows.h>

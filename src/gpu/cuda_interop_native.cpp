@@ -1,7 +1,5 @@
 #include "gpu/cuda_interop_native.h"
 
-#include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
-
 namespace cressim::neo::gpu::interop
 {
 
