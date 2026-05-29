@@ -53,7 +53,7 @@ public:
     CudaExternalTimelineSemaphore(const CudaExternalTimelineSemaphore &)            = delete;
     CudaExternalTimelineSemaphore &operator=(const CudaExternalTimelineSemaphore &) = delete;
 
-    bool initializeForVulkan(Diligent::IRenderDevice *renderDevice, const char *name);
+    bool initialize(Diligent::IRenderDevice *renderDevice, const char *name);
     void reset();
 
     bool isInitialized() const noexcept;
@@ -108,7 +108,7 @@ public:
     CudaSharedBufferBridge(const CudaSharedBufferBridge &)            = delete;
     CudaSharedBufferBridge &operator=(const CudaSharedBufferBridge &) = delete;
 
-    bool initializeForVulkan(Diligent::IRenderDevice *renderDevice, const char *name);
+    bool initialize(Diligent::IRenderDevice *renderDevice, const char *name);
     void reset();
 
     bool isInitialized() const noexcept;

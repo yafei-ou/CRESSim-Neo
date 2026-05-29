@@ -685,7 +685,7 @@ struct UltrasoundSystem::Impl
         const std::string semaphoreName =
             "CRESSimNeo.Ultrasound.Completion." + std::to_string(probeEntityId);
         if (renderDevice == nullptr ||
-            !runtime.completionSemaphore.initializeForVulkan(renderDevice, semaphoreName.c_str()) ||
+            !runtime.completionSemaphore.initialize(renderDevice, semaphoreName.c_str()) ||
             !runtime.completionSemaphore.importIntoCuda())
         {
             runtime.completionSemaphore.reset();
@@ -1014,8 +1014,8 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
     }
 
     if (!mImpl->bridge.isInitialized() &&
-        !mImpl->bridge.initializeForVulkan(computeBackend.renderDevice,
-                                           "CRESSimNeo.Engine.UltrasoundSystem"))
+        !mImpl->bridge.initialize(computeBackend.renderDevice,
+                                  "CRESSimNeo.Engine.UltrasoundSystem"))
     {
         CRESSIM_LOG_WARNING("UltrasoundSystem: failed to initialize CUDA interop bridge.");
         mImpl->disabled = true;

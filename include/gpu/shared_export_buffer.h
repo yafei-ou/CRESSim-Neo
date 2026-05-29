@@ -1,6 +1,7 @@
 #ifndef CRESSIM_NEO_GPU_SHARED_EXPORT_BUFFER_H
 #define CRESSIM_NEO_GPU_SHARED_EXPORT_BUFFER_H
 
+#include "gpu/cuda_interop_types.h"
 #include "gpu/export.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
@@ -17,11 +18,6 @@ struct IRenderDevice;
 
 namespace cressim::neo::gpu
 {
-
-namespace vkinterop
-{
-struct NativeHandle;
-}
 
 class CudaSharedBuffer;
 
@@ -79,10 +75,12 @@ public:
         return mUsesNativeSharedAllocation;
     }
 
+    Diligent::RENDER_DEVICE_TYPE nativeRenderDeviceType() const noexcept;
+
 private:
     friend class CudaSharedBuffer;
 
-    bool exportNativeHandle(vkinterop::NativeHandle &outHandle) const noexcept;
+    bool exportNativeHandle(interop::NativeHandle &outHandle) const noexcept;
 
     struct Impl;
     std::unique_ptr<Impl> mImpl;

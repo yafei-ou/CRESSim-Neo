@@ -1,8 +1,8 @@
 #include "gpu/shared_export_buffer.h"
 
 #include "common/logger.h"
+#include "gpu/cuda_interop_native.h"
 #include "gpu/gpu_buffer_utils.h"
-#include "gpu/vulkan_cuda_interop.h"
 
 #include <algorithm>
 
@@ -11,7 +11,7 @@ namespace cressim::neo::gpu
 
 struct SharedExportBuffer::Impl
 {
-    vkinterop::SharedBufferState nativeSharedState;
+    interop::SharedBufferState nativeSharedState;
 };
 
 SharedExportBuffer::SharedExportBuffer() : mImpl{std::make_unique<Impl>()} {}
@@ -43,9 +43,9 @@ bool SharedExportBuffer::ensureStructuredBuffer(
     reset();
 
     if (mImpl != nullptr &&
-        vkinterop::canUseExportableStructuredBuffer(renderDevice, usage, cpuAccess,
-                                                    immediateContextMask, queueFamilyIndexCount) &&
-        vkinterop::createExportableStructuredBuffer(
+        interop::canUseExportableStructuredBuffer(renderDevice, usage, cpuAccess,
+                                                  immediateContextMask, queueFamilyIndexCount) &&
+        interop::createExportableStructuredBuffer(
             renderDevice, name, elementStride, requiredCapacity, bindFlags, usage, cpuAccess,
             immediateContextMask, queueFamilyIndices, queueFamilyIndexCount,
             mImpl->nativeSharedState, mBuffer))
@@ -57,11 +57,11 @@ bool SharedExportBuffer::ensureStructuredBuffer(
         return true;
     }
 
-    if (vkinterop::canUseExportableStructuredBuffer(renderDevice, usage, cpuAccess,
-                                                    immediateContextMask, queueFamilyIndexCount))
+    if (interop::canUseExportableStructuredBuffer(renderDevice, usage, cpuAccess,
+                                                  immediateContextMask, queueFamilyIndexCount))
     {
         CRESSIM_LOG_WARNING("Falling back to a non-exportable Diligent buffer for '", name,
-                            "' after Vulkan shared-buffer allocation failed.");
+                            "' after native shared-buffer allocation failed.");
     }
 
     std::uint32_t capacity = 0u;
@@ -86,7 +86,7 @@ void SharedExportBuffer::reset()
     mBuffer = nullptr;
     if (mImpl != nullptr)
     {
-        vkinterop::resetExportableStructuredBuffer(mImpl->nativeSharedState);
+        interop::resetExportableStructuredBuffer(mImpl->nativeSharedState);
     }
     mCapacity                   = 0u;
     mElementStride              = 0u;
@@ -94,15 +94,21 @@ void SharedExportBuffer::reset()
     mUsesNativeSharedAllocation = false;
 }
 
-bool SharedExportBuffer::exportNativeHandle(vkinterop::NativeHandle &outHandle) const noexcept
+bool SharedExportBuffer::exportNativeHandle(interop::NativeHandle &outHandle) const noexcept
 {
     if (mImpl == nullptr)
     {
-        vkinterop::releaseOwnership(outHandle);
+        interop::releaseOwnership(outHandle);
         return false;
     }
 
-    return vkinterop::exportBufferHandle(mImpl->nativeSharedState, outHandle);
+    return interop::exportBufferHandle(mImpl->nativeSharedState, outHandle);
+}
+
+Diligent::RENDER_DEVICE_TYPE SharedExportBuffer::nativeRenderDeviceType() const noexcept
+{
+    return mImpl != nullptr ? mImpl->nativeSharedState.deviceType
+                            : Diligent::RENDER_DEVICE_TYPE_UNDEFINED;
 }
 
 } // namespace cressim::neo::gpu

@@ -1,8 +1,9 @@
 #include "gpu/cuda_interop.h"
+#include "gpu/cuda_interop_native.h"
 #include "gpu/shared_export_buffer.h"
-#include "gpu/vulkan_cuda_interop.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
+#include "common/logger.h"
 
 #if CRESSIM_NEO_HAS_CUDA_INTEROP
 #include <cuda_runtime_api.h>
@@ -13,7 +14,7 @@ namespace cressim::neo::gpu
 
 struct CudaExternalTimelineSemaphore::Impl
 {
-    vkinterop::TimelineSemaphoreState nativeSemaphore;
+    interop::TimelineSemaphoreState nativeSemaphore;
 
 #if CRESSIM_NEO_HAS_CUDA_INTEROP
     cudaExternalSemaphore_t cudaSemaphore = nullptr;
@@ -140,18 +141,17 @@ CudaExternalTimelineSemaphore::~CudaExternalTimelineSemaphore()
     reset();
 }
 
-bool CudaExternalTimelineSemaphore::initializeForVulkan(Diligent::IRenderDevice *renderDevice,
-                                                        const char *name)
+bool CudaExternalTimelineSemaphore::initialize(Diligent::IRenderDevice *renderDevice,
+                                               const char *name)
 {
     reset();
 
-    if (renderDevice == nullptr || mImpl == nullptr ||
-        renderDevice->GetDeviceInfo().Type != Diligent::RENDER_DEVICE_TYPE_VULKAN)
+    if (renderDevice == nullptr || mImpl == nullptr)
     {
         return false;
     }
 
-    return vkinterop::createExportableTimelineSemaphore(renderDevice, name, mImpl->nativeSemaphore);
+    return interop::createExportableTimelineSemaphore(renderDevice, name, mImpl->nativeSemaphore);
 }
 
 void CudaExternalTimelineSemaphore::reset()
@@ -170,13 +170,13 @@ void CudaExternalTimelineSemaphore::reset()
     }
 #endif
 
-    vkinterop::resetExportableTimelineSemaphore(mImpl->nativeSemaphore);
+    interop::resetExportableTimelineSemaphore(mImpl->nativeSemaphore);
 }
 
 bool CudaExternalTimelineSemaphore::isInitialized() const noexcept
 {
-    return mImpl != nullptr && mImpl->nativeSemaphore.fence != nullptr &&
-           mImpl->nativeSemaphore.vkSemaphore != VK_NULL_HANDLE;
+    return mImpl != nullptr && mImpl->nativeSemaphore.initialized &&
+           mImpl->nativeSemaphore.fence != nullptr;
 }
 
 bool CudaExternalTimelineSemaphore::isImportedIntoCuda() const noexcept
@@ -194,16 +194,32 @@ bool CudaExternalTimelineSemaphore::importIntoCuda()
         return isInitialized() && mImpl->importedIntoCuda;
     }
 
-    vkinterop::NativeHandle nativeHandle{};
-    if (!vkinterop::exportSemaphoreHandle(mImpl->nativeSemaphore, nativeHandle) ||
-        !vkinterop::isValid(nativeHandle))
+    interop::NativeHandle nativeHandle{};
+    if (!interop::exportSemaphoreHandle(mImpl->nativeSemaphore, nativeHandle) ||
+        !interop::isValid(nativeHandle))
     {
+        CRESSIM_LOG_WARNING(
+            "CudaExternalTimelineSemaphore: failed to export native semaphore handle.");
         return false;
     }
 
     cudaExternalSemaphoreHandleDesc handleDesc{};
 #if defined(_WIN32)
-    handleDesc.type                = cudaExternalSemaphoreHandleTypeTimelineSemaphoreWin32;
+    switch (mImpl->nativeSemaphore.deviceType)
+    {
+    case Diligent::RENDER_DEVICE_TYPE_D3D12:
+        handleDesc.type = cudaExternalSemaphoreHandleTypeD3D12Fence;
+        break;
+    case Diligent::RENDER_DEVICE_TYPE_VULKAN:
+        handleDesc.type = cudaExternalSemaphoreHandleTypeTimelineSemaphoreWin32;
+        break;
+    default:
+        interop::closeNativeHandle(nativeHandle);
+        CRESSIM_LOG_WARNING(
+            "CudaExternalTimelineSemaphore: unsupported Win32 semaphore device type ",
+            static_cast<int>(mImpl->nativeSemaphore.deviceType), ".");
+        return false;
+    }
     handleDesc.handle.win32.handle = nativeHandle.win32Handle;
 #elif defined(__linux__)
     handleDesc.type      = cudaExternalSemaphoreHandleTypeTimelineSemaphoreFd;
@@ -216,16 +232,19 @@ bool CudaExternalTimelineSemaphore::importIntoCuda()
         cudaImportExternalSemaphore(&mImpl->cudaSemaphore, &handleDesc);
     if (importResult != cudaSuccess || mImpl->cudaSemaphore == nullptr)
     {
-        vkinterop::closeNativeHandle(nativeHandle);
+        interop::closeNativeHandle(nativeHandle);
         mImpl->cudaSemaphore = nullptr;
+        CRESSIM_LOG_WARNING(
+            "CudaExternalTimelineSemaphore: cudaImportExternalSemaphore failed with code ",
+            static_cast<int>(importResult), ".");
         return false;
     }
 
 #if defined(_WIN32)
     // CUDA retains the imported semaphore, but Win32 handle ownership stays with the caller.
-    vkinterop::closeNativeHandle(nativeHandle);
+    interop::closeNativeHandle(nativeHandle);
 #else
-    vkinterop::releaseOwnership(nativeHandle);
+    interop::releaseOwnership(nativeHandle);
 #endif
 
     mImpl->importedIntoCuda = true;
@@ -343,15 +362,30 @@ bool CudaSharedBuffer::importFromSharedExportBuffer(const SharedExportBuffer &bu
 #elif !defined(_WIN32) && !defined(__linux__)
     return false;
 #else
-    vkinterop::NativeHandle nativeHandle{};
-    if (!buffer.exportNativeHandle(nativeHandle) || !vkinterop::isValid(nativeHandle))
+    interop::NativeHandle nativeHandle{};
+    if (!buffer.exportNativeHandle(nativeHandle) || !interop::isValid(nativeHandle))
     {
+        CRESSIM_LOG_WARNING("CudaSharedBuffer: failed to export native buffer handle.");
         return false;
     }
 
     cudaExternalMemoryHandleDesc handleDesc{};
 #if defined(_WIN32)
-    handleDesc.type                = cudaExternalMemoryHandleTypeOpaqueWin32;
+    switch (buffer.nativeRenderDeviceType())
+    {
+    case Diligent::RENDER_DEVICE_TYPE_D3D12:
+        handleDesc.type  = cudaExternalMemoryHandleTypeD3D12Resource;
+        handleDesc.flags = cudaExternalMemoryDedicated;
+        break;
+    case Diligent::RENDER_DEVICE_TYPE_VULKAN:
+        handleDesc.type = cudaExternalMemoryHandleTypeOpaqueWin32;
+        break;
+    default:
+        interop::closeNativeHandle(nativeHandle);
+        CRESSIM_LOG_WARNING("CudaSharedBuffer: unsupported Win32 memory device type ",
+                            static_cast<int>(buffer.nativeRenderDeviceType()), ".");
+        return false;
+    }
     handleDesc.handle.win32.handle = nativeHandle.win32Handle;
 #else
     handleDesc.type      = cudaExternalMemoryHandleTypeOpaqueFd;
@@ -362,16 +396,18 @@ bool CudaSharedBuffer::importFromSharedExportBuffer(const SharedExportBuffer &bu
     const cudaError_t importResult = cudaImportExternalMemory(&mImpl->cudaMemory, &handleDesc);
     if (importResult != cudaSuccess || mImpl->cudaMemory == nullptr)
     {
-        vkinterop::closeNativeHandle(nativeHandle);
+        interop::closeNativeHandle(nativeHandle);
         mImpl->cudaMemory = nullptr;
+        CRESSIM_LOG_WARNING("CudaSharedBuffer: cudaImportExternalMemory failed with code ",
+                            static_cast<int>(importResult), ".");
         return false;
     }
 
 #if defined(_WIN32)
     // CUDA retains the imported memory, but Win32 handle ownership stays with the caller.
-    vkinterop::closeNativeHandle(nativeHandle);
+    interop::closeNativeHandle(nativeHandle);
 #else
-    vkinterop::releaseOwnership(nativeHandle);
+    interop::releaseOwnership(nativeHandle);
 #endif
 
     cudaExternalMemoryBufferDesc mapDesc{};
@@ -385,6 +421,8 @@ bool CudaSharedBuffer::importFromSharedExportBuffer(const SharedExportBuffer &bu
     {
         cudaDestroyExternalMemory(mImpl->cudaMemory);
         mImpl->cudaMemory = nullptr;
+        CRESSIM_LOG_WARNING("CudaSharedBuffer: cudaExternalMemoryGetMappedBuffer failed with code ",
+                            static_cast<int>(mapResult), ".");
         return false;
     }
 
@@ -446,8 +484,7 @@ CudaSharedBufferBridge::~CudaSharedBufferBridge()
     reset();
 }
 
-bool CudaSharedBufferBridge::initializeForVulkan(Diligent::IRenderDevice *renderDevice,
-                                                 const char *name)
+bool CudaSharedBufferBridge::initialize(Diligent::IRenderDevice *renderDevice, const char *name)
 {
     if (mImpl == nullptr)
     {
@@ -456,17 +493,19 @@ bool CudaSharedBufferBridge::initializeForVulkan(Diligent::IRenderDevice *render
 
     if (!mImpl->stream.isInitialized() && !mImpl->stream.initialize())
     {
+        CRESSIM_LOG_WARNING("CudaSharedBufferBridge: failed to initialize CUDA stream.");
         return false;
     }
 
-    if (!mImpl->semaphore.isInitialized() &&
-        !mImpl->semaphore.initializeForVulkan(renderDevice, name))
+    if (!mImpl->semaphore.isInitialized() && !mImpl->semaphore.initialize(renderDevice, name))
     {
+        CRESSIM_LOG_WARNING("CudaSharedBufferBridge: failed to create exportable semaphore.");
         return false;
     }
 
     if (!mImpl->semaphore.isImportedIntoCuda() && !mImpl->semaphore.importIntoCuda())
     {
+        CRESSIM_LOG_WARNING("CudaSharedBufferBridge: failed to import semaphore into CUDA.");
         return false;
     }
 
