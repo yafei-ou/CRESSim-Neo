@@ -151,7 +151,6 @@ struct GpuParticleDispatchConstants
     std::uint32_t softEdgeCount                      = 0;
     std::uint32_t softTetCount                       = 0;
     std::uint32_t fluidIterations                    = 0;
-    std::uint32_t fluidNeighborPairCapacity          = 0;
     std::uint32_t maxFluidNeighborhood               = 0;
     std::uint32_t iterationIndex                     = 0;
 };
@@ -530,7 +529,7 @@ static_assert(sizeof(GpuRigidJointDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
-static_assert(sizeof(GpuParticleDispatchConstants) == 52u);
+static_assert(sizeof(GpuParticleDispatchConstants) == 48u);
 static_assert(sizeof(GpuDispatchIndirectArgs) == 12u);
 static_assert(sizeof(GpuPaddedDispatchIndirectArgs) == 16u);
 static_assert(sizeof(GpuParticleBroadPhaseEntry) == 32u);

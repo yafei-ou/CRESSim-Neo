@@ -347,7 +347,6 @@ public:
     std::uint32_t candidatePairCapacity() const noexcept;
     std::uint32_t particleCandidatePairCapacity() const noexcept;
     std::uint32_t fluidBoundaryCandidatePairCapacity() const noexcept;
-    std::uint32_t fluidNeighborPairCapacity() const noexcept;
     std::uint32_t maxFluidNeighborhood() const noexcept;
     bool correctionBuffersNeedClear() const noexcept;
     void setCorrectionBuffersNeedClear(bool needClear) noexcept;

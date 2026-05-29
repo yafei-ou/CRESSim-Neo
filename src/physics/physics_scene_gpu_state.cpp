@@ -2803,11 +2803,6 @@ std::uint32_t PhysicsSceneGpuState::fluidBoundaryCandidatePairCapacity() const n
     return mFluidBoundaryCandidatePairCapacity;
 }
 
-std::uint32_t PhysicsSceneGpuState::fluidNeighborPairCapacity() const noexcept
-{
-    return mFluidNeighborPairCapacity;
-}
-
 std::uint32_t PhysicsSceneGpuState::maxFluidNeighborhood() const noexcept
 {
     return mMaxFluidNeighborhood;
