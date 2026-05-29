@@ -5,13 +5,17 @@
 #include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
 
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -26,12 +30,16 @@ using cressim::neo::engine::SoftBodyComponent;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::engine::UltrasoundAmplitudeRange;
 using cressim::neo::engine::UltrasoundProbeComponent;
+using cressim::neo::engine::UltrasoundProbeResult;
 using cressim::neo::engine::UltrasoundScattererSourceComponent;
 using cressim::neo::examples::helpers::CommonExampleOptions;
 using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialHandle;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshHandle;
+using cressim::neo::gpu::GpuDevice;
+using cressim::neo::gpu::GpuRenderTargetReadbackEvent;
+using cressim::neo::gpu::GpuRenderTargetReadbackRequest;
 using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::physics::SoftBodySourceKind;
@@ -64,6 +72,175 @@ void printUsage(const char *appName)
     cressim::neo::examples::helpers::printUsage(appName, "", true);
     std::printf("  --debug-particles        Show debug particle rendering.\n");
     std::printf("  --probe-type TYPE        Probe geometry: linear or curvilinear.\n");
+    std::printf("  --save-probe-images      Save all probe ultrasound images to the current "
+                "working directory and quit.\n");
+    std::printf("  --save-probe-delay-seconds N\n");
+    std::printf("                           When saving probe images, wait N simulated seconds "
+                "before capture. Use 0 for the first frame.\n");
+}
+
+bool isValidReadback(const GpuRenderTargetReadbackEvent &event)
+{
+    if (event.width == 0u || event.height == 0u)
+    {
+        return false;
+    }
+
+    const auto &formatAttribs = Diligent::GetTextureFormatAttribs(event.colorFormat);
+    if (formatAttribs.Format == Diligent::TEX_FORMAT_UNKNOWN || formatAttribs.IsTypeless ||
+        formatAttribs.ComponentType == Diligent::COMPONENT_TYPE_COMPRESSED)
+    {
+        return false;
+    }
+
+    const std::uint32_t minStride = event.width * formatAttribs.GetElementSize();
+    if (event.rowStrideBytes < minStride)
+    {
+        return false;
+    }
+
+    return event.colorBytes.size() >=
+           static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height);
+}
+
+float halfToFloat(std::uint16_t value)
+{
+    const std::uint32_t sign = static_cast<std::uint32_t>(value & 0x8000u) << 16u;
+    std::uint32_t exponent   = (value >> 10u) & 0x1fu;
+    std::uint32_t mantissa   = value & 0x03ffu;
+
+    std::uint32_t bits = 0u;
+    if (exponent == 0u)
+    {
+        if (mantissa != 0u)
+        {
+            exponent = 113u;
+            while ((mantissa & 0x0400u) == 0u)
+            {
+                mantissa <<= 1u;
+                --exponent;
+            }
+            mantissa &= 0x03ffu;
+            bits = sign | (exponent << 23u) | (mantissa << 13u);
+        }
+        else
+        {
+            bits = sign;
+        }
+    }
+    else if (exponent == 0x1fu)
+    {
+        bits = sign | 0x7f800000u | (mantissa << 13u);
+    }
+    else
+    {
+        bits = sign | ((exponent + 112u) << 23u) | (mantissa << 13u);
+    }
+
+    float result = 0.0f;
+    std::memcpy(&result, &bits, sizeof(result));
+    return result;
+}
+
+struct ReadbackPixel
+{
+    float r = 0.0f;
+    float g = 0.0f;
+    float b = 0.0f;
+};
+
+ReadbackPixel decodePixel(const GpuRenderTargetReadbackEvent &event, std::uint32_t x,
+                          std::uint32_t y)
+{
+    ReadbackPixel pixel{};
+    if (!isValidReadback(event))
+    {
+        return pixel;
+    }
+
+    const auto &formatAttribs = Diligent::GetTextureFormatAttribs(event.colorFormat);
+    const std::size_t offset =
+        static_cast<std::size_t>(y) * event.rowStrideBytes +
+        static_cast<std::size_t>(x) * formatAttribs.GetElementSize();
+
+    if (event.colorFormat == Diligent::TEX_FORMAT_RGBA16_FLOAT)
+    {
+        const std::uint16_t pixelR =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 0u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 1u]) << 8u);
+        const std::uint16_t pixelG =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 2u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 3u]) << 8u);
+        const std::uint16_t pixelB =
+            static_cast<std::uint16_t>(event.colorBytes[offset + 4u]) |
+            (static_cast<std::uint16_t>(event.colorBytes[offset + 5u]) << 8u);
+        pixel.r = halfToFloat(pixelR);
+        pixel.g = halfToFloat(pixelG);
+        pixel.b = halfToFloat(pixelB);
+        return pixel;
+    }
+
+    if (event.colorFormat == Diligent::TEX_FORMAT_BGRA8_UNORM ||
+        event.colorFormat == Diligent::TEX_FORMAT_BGRA8_UNORM_SRGB)
+    {
+        pixel.r = static_cast<float>(event.colorBytes[offset + 2u]) / 255.0f;
+        pixel.g = static_cast<float>(event.colorBytes[offset + 1u]) / 255.0f;
+        pixel.b = static_cast<float>(event.colorBytes[offset + 0u]) / 255.0f;
+        return pixel;
+    }
+
+    pixel.r = static_cast<float>(event.colorBytes[offset + 0u]) / 255.0f;
+    pixel.g = static_cast<float>(event.colorBytes[offset + 1u]) / 255.0f;
+    pixel.b = static_cast<float>(event.colorBytes[offset + 2u]) / 255.0f;
+    return pixel;
+}
+
+std::uint8_t encodeByte(float value)
+{
+    return static_cast<std::uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f));
+}
+
+bool writePpm(const std::string &path, const GpuRenderTargetReadbackEvent &event)
+{
+    if (!isValidReadback(event))
+    {
+        return false;
+    }
+
+    std::ofstream out(path, std::ios::binary);
+    if (!out.is_open())
+    {
+        return false;
+    }
+
+    out << "P6\n" << event.width << " " << event.height << "\n255\n";
+    std::vector<std::uint8_t> rgbRow(static_cast<std::size_t>(event.width) * 3u);
+    for (std::uint32_t y = 0u; y < event.height; ++y)
+    {
+        for (std::uint32_t x = 0u; x < event.width; ++x)
+        {
+            const ReadbackPixel pixel = decodePixel(event, x, y);
+            rgbRow[static_cast<std::size_t>(x) * 3u + 0u] = encodeByte(pixel.r);
+            rgbRow[static_cast<std::size_t>(x) * 3u + 1u] = encodeByte(pixel.g);
+            rgbRow[static_cast<std::size_t>(x) * 3u + 2u] = encodeByte(pixel.b);
+        }
+        out.write(reinterpret_cast<const char *>(rgbRow.data()),
+                  static_cast<std::streamsize>(rgbRow.size()));
+    }
+
+    return out.good();
+}
+
+float parseNonNegativeFloat(const std::string &value, const char *optionName)
+{
+    std::size_t parsedLength = 0u;
+    const float parsedValue  = std::stof(value, &parsedLength);
+    if (parsedLength != value.size() || parsedValue < 0.0f)
+    {
+        throw std::invalid_argument(std::string("Expected non-negative float for ") + optionName +
+                                    ": " + value);
+    }
+    return parsedValue;
 }
 
 Diligent::float3 envOrigin(std::uint32_t envIndex, std::uint32_t envCount)
@@ -244,7 +421,8 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
                        MeshHandle planeMesh, MeshHandle boxMesh, MeshHandle probeMesh,
                        const UltrasoundProbeComponent &probeTemplate,
                        const SceneMaterials &materials,
-                       cressim::neo::common::EntityId &outCameraEntity)
+                       cressim::neo::common::EntityId &outCameraEntity,
+                       cressim::neo::common::EntityId &outProbeEntity)
 {
     auto &world                   = runtime.getWorld();
     const Diligent::float3 origin = envOrigin(envIndex, envCount);
@@ -331,6 +509,7 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
 
     UltrasoundProbeComponent probe = probeTemplate;
     world.setUltrasoundProbe(probeEntity, probe);
+    outProbeEntity = probeEntity;
 
     const auto probeVisualEntity = world.createEntity(envIndex);
     TransformComponent probeVisualTransform{};
@@ -348,6 +527,87 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
                           MeshRendererComponent{probeMesh, materials.probe, true});
 }
 
+bool saveProbeImagesAndQuit(Runtime &runtime,
+                            const std::vector<cressim::neo::common::EntityId> &probeEntities,
+                            float captureDelaySeconds)
+{
+    GpuDevice *graphicsDevice = runtime.getGpuDevice();
+    if (graphicsDevice == nullptr)
+    {
+        CRESSIM_LOG_ERROR("Probe image export failed: no GPU device.\n");
+        return false;
+    }
+
+    cressim::neo::common::FrameContext frame{};
+    frame.deltaSeconds = 1.0f / 60.0f;
+    const std::uint64_t settleFrames = std::max<std::uint64_t>(
+        1u, static_cast<std::uint64_t>(
+                std::ceil(captureDelaySeconds / std::max(frame.deltaSeconds, 1.0e-6f))));
+    for (std::uint64_t i = 0u; i < settleFrames; ++i)
+    {
+        runtime.tick(frame);
+        ++frame.frameIndex;
+        frame.timeSeconds += static_cast<double>(frame.deltaSeconds);
+    }
+
+    std::vector<std::pair<cressim::neo::common::EntityId, GpuRenderTargetReadbackRequest>>
+        readbackRequests;
+    readbackRequests.reserve(probeEntities.size());
+    for (const cressim::neo::common::EntityId probeEntity : probeEntities)
+    {
+        const UltrasoundProbeResult *probeResult =
+            runtime.getWorld().tryGetUltrasoundProbeResult(probeEntity);
+        if (probeResult == nullptr || !probeResult->valid || !probeResult->imageValid)
+        {
+            CRESSIM_LOG_ERROR("Probe image export failed: probe entity ", probeEntity,
+                              " did not produce a valid ultrasound image after ",
+                              captureDelaySeconds, " seconds of simulation.\n");
+            return false;
+        }
+
+        const GpuRenderTargetReadbackRequest request =
+            graphicsDevice->renderTargetSystem().requestRenderTargetReadback(
+                cressim::neo::gpu::GpuRenderTargetBinding{probeResult->imageTarget, 0u, 1u});
+        if (request.id == 0u)
+        {
+            CRESSIM_LOG_ERROR("Probe image export failed: could not queue readback for probe entity ",
+                              probeEntity, ".\n");
+            return false;
+        }
+
+        readbackRequests.emplace_back(probeEntity, request);
+    }
+
+    runtime.tick(frame);
+
+    bool savedAnyImage = false;
+    for (const auto &[probeEntity, request] : readbackRequests)
+    {
+        GpuRenderTargetReadbackEvent event{};
+        if (!graphicsDevice->renderTargetSystem().tryGetRenderTargetReadback(request, event) ||
+            !isValidReadback(event))
+        {
+            CRESSIM_LOG_ERROR("Probe image export failed: incomplete readback for probe entity ",
+                              probeEntity, ".\n");
+            return false;
+        }
+
+        const std::string outputPath =
+            "ultrasound_probe_" + std::to_string(probeEntity) + ".ppm";
+        if (!writePpm(outputPath, event))
+        {
+            CRESSIM_LOG_ERROR("Probe image export failed: could not write ", outputPath, ".\n");
+            return false;
+        }
+
+        CRESSIM_LOG_INFO("Saved ultrasound image for probe entity=", probeEntity, " to ",
+                         outputPath);
+        savedAnyImage = true;
+    }
+
+    return savedAnyImage;
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -355,6 +615,8 @@ int main(int argc, char **argv)
     CommonExampleOptions options{};
     options.envCount = kDefaultEnvCount;
     bool debugParticles = false;
+    bool saveProbeImages = false;
+    float saveProbeDelaySeconds = 0.0f;
     ExampleProbeType probeType = ExampleProbeType::Linear;
     try
     {
@@ -369,6 +631,19 @@ int main(int argc, char **argv)
             {
                 probeType = parseProbeType(cressim::neo::examples::helpers::requireOptionValue(
                     argc, argv, i, "--probe-type"));
+                continue;
+            }
+            if (std::strcmp(argv[i], "--save-probe-images") == 0)
+            {
+                saveProbeImages = true;
+                continue;
+            }
+            if (std::strcmp(argv[i], "--save-probe-delay-seconds") == 0)
+            {
+                saveProbeDelaySeconds = parseNonNegativeFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--save-probe-delay-seconds"),
+                    "--save-probe-delay-seconds");
                 continue;
             }
             if (cressim::neo::examples::helpers::tryParseCommonArgument(argc, argv, i, options,
@@ -395,19 +670,22 @@ int main(int argc, char **argv)
     config.sceneLayout.envCount               = options.envCount;
 
     DebugViewerApp viewer;
-    ViewerExampleDefaults viewerDefaults{};
-    viewerDefaults.windowTitle = "CRESSim Neo Ultrasound Soft Cube Viewer";
-    viewerDefaults.showStats   = true;
-    viewerDefaults.vSync       = false;
-    DebugViewerAppDesc viewerDesc =
-        cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
-    viewerDesc.statsIntervalFrames  = 60u;
-    viewerDesc.enableDebugParticles = debugParticles;
-
-    if (!viewer.initialize(viewerDesc, config))
+    if (!saveProbeImages)
     {
-        CRESSIM_LOG_ERROR("Viewer initialization failed.\n");
-        return 1;
+        ViewerExampleDefaults viewerDefaults{};
+        viewerDefaults.windowTitle = "CRESSim Neo Ultrasound Soft Cube Viewer";
+        viewerDefaults.showStats   = true;
+        viewerDefaults.vSync       = false;
+        DebugViewerAppDesc viewerDesc =
+            cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
+        viewerDesc.statsIntervalFrames  = 60u;
+        viewerDesc.enableDebugParticles = debugParticles;
+
+        if (!viewer.initialize(viewerDesc, config))
+        {
+            CRESSIM_LOG_ERROR("Viewer initialization failed.\n");
+            return 1;
+        }
     }
 
     Runtime runtime;
@@ -452,15 +730,26 @@ int main(int argc, char **argv)
                                        {0.24f, 0.28f, 0.33f}, 0.30f);
 
     cressim::neo::common::EntityId primaryCamera = cressim::neo::common::kInvalidEntityId;
+    std::vector<cressim::neo::common::EntityId> probeEntities;
+    probeEntities.reserve(options.envCount);
     for (std::uint32_t envIndex = 0u; envIndex < options.envCount; ++envIndex)
     {
         cressim::neo::common::EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;
+        cressim::neo::common::EntityId probeEntity  = cressim::neo::common::kInvalidEntityId;
         authorEnvironment(runtime, envIndex, options.envCount, planeMesh, boxMesh, probeMesh,
-                          probeDefaults, materials, cameraEntity);
+                          probeDefaults, materials, cameraEntity, probeEntity);
         if (envIndex == 0u)
         {
             primaryCamera = cameraEntity;
         }
+        probeEntities.push_back(probeEntity);
+    }
+
+    if (saveProbeImages)
+    {
+        const bool saved = saveProbeImagesAndQuit(runtime, probeEntities, saveProbeDelaySeconds);
+        runtime.shutdown();
+        return saved ? 0 : 1;
     }
 
     CRESSIM_LOG_INFO("Viewer controls: press U to toggle ultrasound image presentation, "
