@@ -379,15 +379,14 @@ void SharedExportBuffer::resetNativeVulkanBuffer() noexcept
                                                                       Diligent::IID_RenderDeviceVk};
     if (renderDeviceVk != nullptr)
     {
+        // Diligent owns the imported VkBuffer handle after CreateBufferFromVulkanResource().
+        // IdleGPU() flushes the backend release queue so the buffer wrapper is gone before
+        // we free the dedicated exportable allocation that still belongs to this class.
         mRenderDevice->IdleGPU();
 
         const VkDevice vkDevice = renderDeviceVk->GetVkDevice();
         if (vkDevice != VK_NULL_HANDLE)
         {
-            if (mVkBuffer != nullptr)
-            {
-                vkDestroyBuffer(vkDevice, mVkBuffer, nullptr);
-            }
             if (mVkMemory != nullptr)
             {
                 vkFreeMemory(vkDevice, mVkMemory, nullptr);

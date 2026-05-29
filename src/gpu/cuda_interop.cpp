@@ -246,19 +246,9 @@ void CudaExternalTimelineSemaphore::reset()
     }
 #endif
 
+    // Diligent owns the imported VkSemaphore handle after CreateFenceFromVulkanResource().
+    // Releasing the fence tears down the native semaphore via the backend release queue.
     mImpl->fence = nullptr;
-
-    if (mImpl->renderDevice != nullptr && mImpl->vkSemaphore != VK_NULL_HANDLE)
-    {
-        mImpl->renderDevice->IdleGPU();
-
-        Diligent::RefCntAutoPtr<Diligent::IRenderDeviceVk> renderDeviceVk{
-            mImpl->renderDevice, Diligent::IID_RenderDeviceVk};
-        if (renderDeviceVk != nullptr && renderDeviceVk->GetVkDevice() != VK_NULL_HANDLE)
-        {
-            vkDestroySemaphore(renderDeviceVk->GetVkDevice(), mImpl->vkSemaphore, nullptr);
-        }
-    }
 
     mImpl->vkSemaphore  = VK_NULL_HANDLE;
     mImpl->renderDevice = nullptr;
