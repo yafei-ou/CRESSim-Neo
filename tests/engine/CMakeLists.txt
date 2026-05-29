@@ -32,6 +32,14 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE engine
+    NAME strand_component_authoring
+    SOURCE strand_component_authoring.cpp
+    INCLUDE_SRC
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
     NAME soft_body_simulated_toggle
     SOURCE soft_body_simulated_toggle.cpp
     INCLUDE_SRC

@@ -41,6 +41,11 @@ add_cressim_example(
 )
 
 add_cressim_example(
+    NAME physics_strand_debug
+    SOURCE strand_debug.cpp
+)
+
+add_cressim_example(
     NAME physics_soft_particles_toroid_multi_env
     SOURCE soft_particles_toroid_multi_env.cpp
 )

@@ -73,6 +73,23 @@ enum class ParticleOwnerType : std::uint32_t
     None      = 0u,
     SoftBody  = 1u,
     FluidBody = 2u,
+    Strand    = 3u,
+};
+
+enum class DeformableObjectKind : std::uint32_t
+{
+    None     = 0u,
+    SoftBody = 1u,
+    Strand   = 2u,
+    Cluster  = 3u,
+};
+
+enum class ParticleStrandRole : std::uint32_t
+{
+    None       = 0u,
+    NeedleTip  = 1u,
+    NeedleBody = 2u,
+    Thread     = 3u,
 };
 
 struct SoftBodyRegularGridSource
@@ -125,6 +142,11 @@ struct ParticleContactMaterialDesc
 };
 
 struct SoftBodyMaterialDesc
+{
+    ParticleContactMaterialDesc contact{};
+};
+
+struct StrandMaterialDesc
 {
     ParticleContactMaterialDesc contact{};
 };
@@ -231,6 +253,27 @@ struct SoftBodyState
     std::vector<Diligent::uint3> boundaryFaces;
 };
 
+struct StrandState
+{
+    common::EntityId entityId      = common::kInvalidEntityId;
+    std::uint32_t environmentIndex = 0u;
+    std::uint32_t collisionLayer   = 1u;
+    std::uint32_t collisionMask    = 0xffffffffu;
+    StrandMaterialDesc material{};
+    float particleMass                 = 1.0f;
+    float particleRadius               = 0.125f;
+    float distanceCompliance           = 0.0f;
+    bool simulated                     = true;
+    bool selfCollisionEnabled          = false;
+    std::uint32_t contactMaterialIndex = 0u;
+    std::uint32_t particleOffset       = 0u;
+    std::uint32_t particleCount        = 0u;
+    std::uint32_t constraintOffset     = 0u;
+    std::uint32_t constraintCount      = 0u;
+    std::vector<Diligent::float3> restPositions;
+    std::vector<std::uint32_t> staticParticleIndices;
+};
+
 struct FluidState
 {
     common::EntityId entityId      = common::kInvalidEntityId;
@@ -251,7 +294,7 @@ struct FluidState
     std::vector<Diligent::float3> restPositions;
 };
 
-struct SoftEdge
+struct DeformableDistanceConstraint
 {
     std::uint32_t particleA = 0u;
     std::uint32_t particleB = 0u;
@@ -259,7 +302,9 @@ struct SoftEdge
     float compliance        = 0.0f;
 };
 
-struct SoftTet
+using SoftEdge = DeformableDistanceConstraint;
+
+struct DeformableVolumeConstraint
 {
     Diligent::uint4 particleIndices{0u, 0u, 0u, 0u};
     float restVolume        = 0.0f;
@@ -267,6 +312,8 @@ struct SoftTet
     std::uint32_t reserved0 = 0u;
     std::uint32_t reserved1 = 0u;
 };
+
+using SoftTet = DeformableVolumeConstraint;
 
 struct ParticleSoAHost
 {
@@ -278,6 +325,11 @@ struct ParticleSoAHost
     std::vector<std::uint32_t> particleKinds;
     std::vector<std::uint32_t> ownerTypes;
     std::vector<std::uint32_t> ownerIndices;
+    std::vector<std::uint32_t> deformableObjectKinds;
+    std::vector<std::uint32_t> deformableObjectIndices;
+    std::vector<std::uint32_t> strandIds;
+    std::vector<std::uint32_t> strandOrders;
+    std::vector<std::uint32_t> strandRoles;
     std::vector<std::uint32_t> owningSoftBodyIndices;
     std::vector<std::uint32_t> particleMaterialIndices;
     std::vector<std::uint32_t> fluidMaterialIndices;
@@ -308,6 +360,11 @@ struct ParticleSoAHost
         particleKinds.clear();
         ownerTypes.clear();
         ownerIndices.clear();
+        deformableObjectKinds.clear();
+        deformableObjectIndices.clear();
+        strandIds.clear();
+        strandOrders.clear();
+        strandRoles.clear();
         owningSoftBodyIndices.clear();
         particleMaterialIndices.clear();
         fluidMaterialIndices.clear();

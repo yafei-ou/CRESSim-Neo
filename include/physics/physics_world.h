@@ -23,8 +23,10 @@ public:
     bool removeCollider(ColliderId colliderId);
     void replaceColliders(common::EntityId entityId, const std::vector<ColliderState> &colliders);
     bool upsertSoftBody(const SoftBodyState &state);
+    bool upsertStrand(const StrandState &state);
     bool upsertFluid(const FluidState &state);
     bool removeSoftBody(common::EntityId entityId);
+    bool removeStrand(common::EntityId entityId);
     bool removeFluid(common::EntityId entityId);
     bool upsertBallJoint(const BallJointState &state);
     bool upsertHingeJoint(const HingeJointState &state);
@@ -38,6 +40,8 @@ public:
     const ColliderState *tryGetCollider(ColliderId colliderId) const;
     SoftBodyState *tryGetSoftBody(common::EntityId entityId);
     const SoftBodyState *tryGetSoftBody(common::EntityId entityId) const;
+    StrandState *tryGetStrand(common::EntityId entityId);
+    const StrandState *tryGetStrand(common::EntityId entityId) const;
     bool tryGetSoftBodyAuthoringRestPositions(
         common::EntityId entityId, std::vector<Diligent::float3> &outRestPositions) const;
     FluidState *tryGetFluid(common::EntityId entityId);
@@ -49,6 +53,7 @@ public:
     const std::vector<RigidBodyState> &rigidBodySnapshot() const noexcept;
     const std::vector<ColliderState> &colliderSnapshot() const noexcept;
     const std::vector<SoftBodyState> &softBodySnapshot() const noexcept;
+    const std::vector<StrandState> &strandSnapshot() const noexcept;
     const std::vector<FluidState> &fluidSnapshot() const noexcept;
     const std::vector<BallJointState> &ballJointSnapshot() const noexcept;
     const std::vector<HingeJointState> &hingeJointSnapshot() const noexcept;
@@ -61,6 +66,8 @@ public:
     const ParticleSoAHost &particles() const noexcept;
     const std::vector<Diligent::float4> &particleContactMaterials() const noexcept;
     const std::vector<FluidMaterialGpu> &fluidMaterials() const noexcept;
+    const std::vector<DeformableDistanceConstraint> &distanceConstraints() const noexcept;
+    const std::vector<DeformableVolumeConstraint> &volumeConstraints() const noexcept;
     const std::vector<SoftEdge> &softEdges() const noexcept;
     const std::vector<SoftTet> &softTets() const noexcept;
     const SoftRenderDataHost &softRenderData() const noexcept;
@@ -72,6 +79,7 @@ public:
     std::uint32_t rigidBodyCount() const noexcept;
     std::uint32_t colliderCount() const noexcept;
     std::uint32_t softBodyCount() const noexcept;
+    std::uint32_t strandCount() const noexcept;
     std::uint32_t fluidCount() const noexcept;
     bool rigidBodyCountDirty() const noexcept;
     bool colliderCountDirty() const noexcept;
@@ -138,6 +146,14 @@ private:
         std::vector<Diligent::float3> restPositions;
     };
 
+    struct StrandDerivedCache
+    {
+        std::vector<Diligent::float3> restPositions;
+        std::vector<std::array<std::uint32_t, 2>> edges;
+        std::vector<std::vector<std::uint32_t>> adjacencyLists;
+        std::vector<std::uint32_t> staticParticleIndices;
+    };
+
     static void writeRigidBodySoAAt(RigidBodySoAHost &soa, std::uint32_t index,
                                     const RigidBodyState &state);
     static void writeColliderSoAAt(ColliderSoAHost &soa, std::uint32_t index,
@@ -171,6 +187,7 @@ private:
     std::uint32_t broadPhaseContributionForCollider(const ColliderState &collider) const noexcept;
     std::uint32_t enabledColliderCountForEntity(common::EntityId entityId) const noexcept;
     static void normalizeSoftBodyState(SoftBodyState &state) noexcept;
+    static void normalizeStrandState(StrandState &state) noexcept;
     static void normalizeFluidState(FluidState &state) noexcept;
     bool validateFluidMaterialCompatibility(const FluidState &candidate,
                                             const FluidState *previousState) const noexcept;
@@ -191,6 +208,8 @@ private:
     bool prepareSoftBodyStateForInsert(const SoftBodyState &candidate,
                                        const SoftBodyState *previousState,
                                        SoftBodyDerivedCache &derivedCache) noexcept;
+    bool prepareStrandStateForInsert(const StrandState &candidate,
+                                     StrandDerivedCache &derivedCache) noexcept;
     bool prepareFluidStateForInsert(const FluidState &candidate,
                                     FluidDerivedCache &derivedCache) noexcept;
 
@@ -214,22 +233,25 @@ private:
     std::unordered_map<ColliderId, std::uint32_t> mColliderIdToIndex{};
     std::unordered_map<common::EntityId, std::vector<ColliderId>> mEntityToColliderIds{};
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToSoftBodyIndex{};
+    std::unordered_map<common::EntityId, std::uint32_t> mEntityToStrandIndex{};
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToFluidIndex{};
     std::unordered_map<common::EntityId, TetGenMeshCache> mTetGenMeshCache{};
     std::vector<RigidBodyState> mRigidBodySnapshot{};
     std::vector<ColliderState> mColliderSnapshot{};
     std::vector<SoftBodyState> mSoftBodySnapshot{};
+    std::vector<StrandState> mStrandSnapshot{};
     std::vector<FluidState> mFluidSnapshot{};
     std::vector<BallJointState> mBallJointSnapshot{};
     std::vector<HingeJointState> mHingeJointSnapshot{};
     std::vector<SliderJointState> mSliderJointSnapshot{};
     std::vector<SoftBodyDerivedCache> mSoftBodyDerivedCaches{};
+    std::vector<StrandDerivedCache> mStrandDerivedCaches{};
     std::vector<FluidDerivedCache> mFluidDerivedCaches{};
     ParticleSoAHost mParticles{};
     std::vector<Diligent::float4> mParticleContactMaterials{};
     std::vector<FluidMaterialGpu> mFluidMaterials{};
-    std::vector<SoftEdge> mSoftEdges{};
-    std::vector<SoftTet> mSoftTets{};
+    std::vector<DeformableDistanceConstraint> mSoftEdges{};
+    std::vector<DeformableVolumeConstraint> mSoftTets{};
     SoftRenderDataHost mSoftRenderData{};
     std::vector<std::uint32_t> mRigidBodyDirtyIndices{};
     std::vector<std::uint32_t> mColliderDirtyIndices{};

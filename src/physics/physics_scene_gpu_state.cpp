@@ -349,6 +349,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentParticles.particleKindsBuffer != nullptr &&
         mPersistentParticles.ownerTypesBuffer != nullptr &&
         mPersistentParticles.ownerIndicesBuffer != nullptr &&
+        mPersistentParticles.deformableObjectKindsBuffer != nullptr &&
+        mPersistentParticles.deformableObjectIndicesBuffer != nullptr &&
+        mPersistentParticles.strandIdsBuffer != nullptr &&
+        mPersistentParticles.strandOrdersBuffer != nullptr &&
+        mPersistentParticles.strandRolesBuffer != nullptr &&
         mPersistentParticles.owningSoftBodyIndicesBuffer != nullptr &&
         mPersistentParticles.particleMaterialIndicesBuffer != nullptr &&
         mPersistentParticles.fluidMaterialIndicesBuffer != nullptr &&
@@ -788,6 +793,31 @@ bool PhysicsSceneGpuState::ensureCapacity(
             renderDevice, "CRESSimNeo.Physics.ParticleOwnerIndices", sizeof(std::uint32_t),
             newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
             Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.ownerIndicesBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.DeformableObjectKinds", sizeof(std::uint32_t),
+            newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask,
+            mPersistentParticles.deformableObjectKindsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.DeformableObjectIndices", sizeof(std::uint32_t),
+            newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask,
+            mPersistentParticles.deformableObjectIndicesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ParticleStrandIds",
+                                sizeof(std::uint32_t), newSoftParticleCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentParticles.strandIdsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ParticleStrandOrders",
+                                sizeof(std::uint32_t), newSoftParticleCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentParticles.strandOrdersBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ParticleStrandRoles",
+                                sizeof(std::uint32_t), newSoftParticleCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentParticles.strandRolesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftBodyIndices",
                                 sizeof(std::uint32_t), newSoftParticleCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -1673,8 +1703,10 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
         world.particleContactMaterials();
     const std::vector<FluidMaterialGpu> &fluidMaterials = world.fluidMaterials();
     const SoftRenderDataHost &softRenderData            = world.softRenderData();
-    const std::vector<SoftEdge> &softEdges              = world.softEdges();
-    const std::vector<SoftTet> &softTets                = world.softTets();
+    const std::vector<DeformableDistanceConstraint> &distanceConstraints =
+        world.distanceConstraints();
+    const std::vector<DeformableVolumeConstraint> &volumeConstraints =
+        world.volumeConstraints();
     const std::uint64_t softParticleRevision            = world.softParticleRevision();
     const std::uint64_t softTopologyRevision            = world.softGpuTopologyRevision();
     if (static_cast<std::uint32_t>(rigidBodies.size()) != bodyCount ||
@@ -1683,8 +1715,8 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
         return false;
     }
 
-    if (bodyCount == 0u && colliderCount == 0u && particles.empty() && softEdges.empty() &&
-        softTets.empty())
+    if (bodyCount == 0u && colliderCount == 0u && particles.empty() &&
+        distanceConstraints.empty() && volumeConstraints.empty())
     {
         mRigidBodyCount                      = 0u;
         mColliderCount                       = 0u;
@@ -1750,7 +1782,7 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
                                                      particleContactMaterials, fluidMaterials)) ||
         (needsSoftTopologyUpload &&
          !uploadSoftTopology(computeContext, static_cast<std::uint32_t>(particles.size()),
-                             softRenderData, softEdges, softTets)))
+                             softRenderData, distanceConstraints, volumeConstraints)))
     {
         return false;
     }
@@ -1764,8 +1796,10 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
     mFluidCount                       = static_cast<std::uint32_t>(fluids.size());
     mParticleContactMaterialCount     = static_cast<std::uint32_t>(particleContactMaterials.size());
     mFluidMaterialCount               = static_cast<std::uint32_t>(fluidMaterials.size());
-    mSoftEdgeCount                    = static_cast<std::uint32_t>(softEdges.size());
-    mSoftTetCount                     = static_cast<std::uint32_t>(softTets.size());
+    mSoftEdgeCount =
+        static_cast<std::uint32_t>(distanceConstraints.size());
+    mSoftTetCount =
+        static_cast<std::uint32_t>(volumeConstraints.size());
     mRigidBodyUploadResetRequired     = false;
     mColliderUploadResetRequired      = false;
     mSoftParticleUploadResetRequired  = false;
@@ -2243,6 +2277,18 @@ bool PhysicsSceneGpuState::uploadParticles(
            updateStructuredBufferRange(computeContext, mPersistentParticles.ownerIndicesBuffer,
                                        particles.ownerIndices, 0u, count) &&
            updateStructuredBufferRange(computeContext,
+                                       mPersistentParticles.deformableObjectKindsBuffer,
+                                       particles.deformableObjectKinds, 0u, count) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentParticles.deformableObjectIndicesBuffer,
+                                       particles.deformableObjectIndices, 0u, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentParticles.strandIdsBuffer,
+                                       particles.strandIds, 0u, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentParticles.strandOrdersBuffer,
+                                       particles.strandOrders, 0u, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentParticles.strandRolesBuffer,
+                                       particles.strandRoles, 0u, count) &&
+           updateStructuredBufferRange(computeContext,
                                        mPersistentParticles.owningSoftBodyIndicesBuffer,
                                        particles.owningSoftBodyIndices, 0u, count) &&
            updateStructuredBufferRange(computeContext,
@@ -2292,8 +2338,10 @@ bool PhysicsSceneGpuState::uploadParticles(
 bool PhysicsSceneGpuState::uploadSoftTopology(Diligent::IDeviceContext *computeContext,
                                               std::uint32_t particleCount,
                                               const SoftRenderDataHost &softRenderData,
-                                              const std::vector<SoftEdge> &softEdges,
-                                              const std::vector<SoftTet> &softTets)
+                                              const std::vector<DeformableDistanceConstraint>
+                                                  &distanceConstraints,
+                                              const std::vector<DeformableVolumeConstraint>
+                                                  &volumeConstraints)
 {
     if (computeContext == nullptr)
     {
@@ -2301,10 +2349,11 @@ bool PhysicsSceneGpuState::uploadSoftTopology(Diligent::IDeviceContext *computeC
     }
 
     std::vector<std::vector<GpuSoftIncidentEdge>> particleEdgeRefs(particleCount);
-    for (std::uint32_t edgeIndex = 0u; edgeIndex < static_cast<std::uint32_t>(softEdges.size());
+    for (std::uint32_t edgeIndex = 0u;
+         edgeIndex < static_cast<std::uint32_t>(distanceConstraints.size());
          ++edgeIndex)
     {
-        const SoftEdge &edge = softEdges[edgeIndex];
+        const DeformableDistanceConstraint &edge = distanceConstraints[edgeIndex];
         if (edge.particleA < particleCount)
         {
             particleEdgeRefs[edge.particleA].push_back(GpuSoftIncidentEdge{edgeIndex, 0u, 0u, 0u});
@@ -2316,10 +2365,11 @@ bool PhysicsSceneGpuState::uploadSoftTopology(Diligent::IDeviceContext *computeC
     }
 
     std::vector<std::vector<GpuSoftIncidentTet>> particleTetRefs(particleCount);
-    for (std::uint32_t tetIndex = 0u; tetIndex < static_cast<std::uint32_t>(softTets.size());
+    for (std::uint32_t tetIndex = 0u;
+         tetIndex < static_cast<std::uint32_t>(volumeConstraints.size());
          ++tetIndex)
     {
-        const SoftTet &tet = softTets[tetIndex];
+        const DeformableVolumeConstraint &tet = volumeConstraints[tetIndex];
         const std::array<std::uint32_t, 4u> particleIndices{
             tet.particleIndices[0], tet.particleIndices[1], tet.particleIndices[2],
             tet.particleIndices[3]};
@@ -2337,7 +2387,7 @@ bool PhysicsSceneGpuState::uploadSoftTopology(Diligent::IDeviceContext *computeC
     std::vector<GpuSoftConstraintRange> particleEdgeRanges;
     buildConstraintAdjacencyRanges(particleCount, particleEdgeRefs, particleEdgeRanges);
     std::vector<GpuSoftIncidentEdge> incidentEdges;
-    incidentEdges.reserve(softEdges.size() * 2u);
+    incidentEdges.reserve(distanceConstraints.size() * 2u);
     for (const auto &refs : particleEdgeRefs)
     {
         incidentEdges.insert(incidentEdges.end(), refs.begin(), refs.end());
@@ -2346,7 +2396,7 @@ bool PhysicsSceneGpuState::uploadSoftTopology(Diligent::IDeviceContext *computeC
     std::vector<GpuSoftConstraintRange> particleTetRanges;
     buildConstraintAdjacencyRanges(particleCount, particleTetRefs, particleTetRanges);
     std::vector<GpuSoftIncidentTet> incidentTets;
-    incidentTets.reserve(softTets.size() * 4u);
+    incidentTets.reserve(volumeConstraints.size() * 4u);
     for (const auto &refs : particleTetRefs)
     {
         incidentTets.insert(incidentTets.end(), refs.begin(), refs.end());
@@ -2383,10 +2433,11 @@ bool PhysicsSceneGpuState::uploadSoftTopology(Diligent::IDeviceContext *computeC
     }
 
     return updateStructuredBufferRange(computeContext, mPersistentSoftTopology.edgesBuffer,
-                                       softEdges, 0u,
-                                       static_cast<std::uint32_t>(softEdges.size())) &&
-           updateStructuredBufferRange(computeContext, mPersistentSoftTopology.tetsBuffer, softTets,
-                                       0u, static_cast<std::uint32_t>(softTets.size())) &&
+                                       distanceConstraints, 0u,
+                                       static_cast<std::uint32_t>(distanceConstraints.size())) &&
+           updateStructuredBufferRange(computeContext, mPersistentSoftTopology.tetsBuffer,
+                                       volumeConstraints, 0u,
+                                       static_cast<std::uint32_t>(volumeConstraints.size())) &&
            updateStructuredBufferRange(computeContext,
                                        mPersistentSoftTopology.particleEdgeRangesBuffer,
                                        particleEdgeRanges, 0u, particleCount) &&
@@ -2856,6 +2907,13 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.particles.particleKindsBuffer      = mPersistentParticles.particleKindsBuffer;
     view.soft.particles.ownerTypesBuffer         = mPersistentParticles.ownerTypesBuffer;
     view.soft.particles.ownerIndicesBuffer       = mPersistentParticles.ownerIndicesBuffer;
+    view.soft.particles.deformableObjectKindsBuffer =
+        mPersistentParticles.deformableObjectKindsBuffer;
+    view.soft.particles.deformableObjectIndicesBuffer =
+        mPersistentParticles.deformableObjectIndicesBuffer;
+    view.soft.particles.strandIdsBuffer    = mPersistentParticles.strandIdsBuffer;
+    view.soft.particles.strandOrdersBuffer = mPersistentParticles.strandOrdersBuffer;
+    view.soft.particles.strandRolesBuffer  = mPersistentParticles.strandRolesBuffer;
     view.soft.particles.owningSoftBodyIndicesBuffer =
         mPersistentParticles.owningSoftBodyIndicesBuffer;
     view.soft.particles.particleMaterialIndicesBuffer =

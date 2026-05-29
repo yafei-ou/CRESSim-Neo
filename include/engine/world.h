@@ -49,6 +49,8 @@ public:
     bool removeRigidBody(common::EntityId entityId);
     bool setSoftBody(common::EntityId entityId, const SoftBodyComponent &component);
     bool removeSoftBody(common::EntityId entityId);
+    bool setStrand(common::EntityId entityId, const StrandComponent &component);
+    bool removeStrand(common::EntityId entityId);
     bool setFluid(common::EntityId entityId, const FluidComponent &component);
     bool removeFluid(common::EntityId entityId);
     void setUltrasoundProbe(common::EntityId entityId, const UltrasoundProbeComponent &component);
@@ -82,6 +84,7 @@ public:
     // Read rigid body/collider through physics.
     std::optional<RigidBodyComponent> tryGetRigidBody(common::EntityId entityId) const;
     std::optional<SoftBodyComponent> tryGetSoftBody(common::EntityId entityId) const;
+    std::optional<StrandComponent> tryGetStrand(common::EntityId entityId) const;
     std::optional<FluidComponent> tryGetFluid(common::EntityId entityId) const;
     std::optional<UltrasoundProbeComponent> tryGetUltrasoundProbe(common::EntityId entityId) const;
     std::optional<UltrasoundScattererSourceComponent> tryGetUltrasoundScattererSource(
@@ -136,6 +139,7 @@ private:
     {
         bool hasRigidBody = false;
         bool hasSoftBody  = false;
+        bool hasStrand    = false;
         bool hasFluid     = false;
         std::vector<ColliderHandle> colliders;
     };

@@ -159,14 +159,17 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const std::uint32_t colliderCount                   = world.colliderCount();
     const ParticleSoAHost &particles                    = world.particles();
     const std::vector<FluidMaterialGpu> &fluidMaterials = world.fluidMaterials();
-    const std::vector<SoftEdge> &softEdges              = world.softEdges();
-    const std::vector<SoftTet> &softTets                = world.softTets();
+    const std::vector<DeformableDistanceConstraint> &distanceConstraints =
+        world.distanceConstraints();
+    const std::vector<DeformableVolumeConstraint> &volumeConstraints =
+        world.volumeConstraints();
     const SoftRenderDataHost &softRenderData            = world.softRenderData();
     const RigidJointSceneHost &rigidJoints              = world.rigidJointScene();
     const std::uint32_t fluidCount                      = world.fluidCount();
     const std::uint32_t particleCount    = static_cast<std::uint32_t>(particles.size());
-    const std::uint32_t softEdgeCount    = static_cast<std::uint32_t>(softEdges.size());
-    const std::uint32_t softTetCount     = static_cast<std::uint32_t>(softTets.size());
+    const std::uint32_t softEdgeCount =
+        static_cast<std::uint32_t>(distanceConstraints.size());
+    const std::uint32_t softTetCount = static_cast<std::uint32_t>(volumeConstraints.size());
     const std::uint32_t ballJointCount   = static_cast<std::uint32_t>(rigidJoints.ball.size());
     const std::uint32_t hingeJointCount  = static_cast<std::uint32_t>(rigidJoints.hinge.size());
     const std::uint32_t sliderJointCount = static_cast<std::uint32_t>(rigidJoints.slider.size());

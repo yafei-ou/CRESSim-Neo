@@ -147,6 +147,20 @@ struct SoftBodyComponent
     std::uint32_t collisionMask  = 0xffffffffu;
 };
 
+struct StrandComponent
+{
+    physics::StrandMaterialDesc material{};
+    std::vector<Diligent::float3> restPositions{};
+    std::vector<std::uint32_t> staticParticleIndices{};
+    float particleMass           = 1.0f;
+    float particleRadius         = 0.125f;
+    float distanceCompliance     = 0.0f;
+    bool simulated               = true;
+    bool selfCollisionEnabled    = false;
+    std::uint32_t collisionLayer = 1u;
+    std::uint32_t collisionMask  = 0xffffffffu;
+};
+
 struct FluidComponent
 {
     physics::FluidSourceDesc source{};

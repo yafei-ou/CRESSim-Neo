@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <sstream>
 #include <unordered_set>
 
 namespace cressim::neo::physics
@@ -105,6 +106,30 @@ float fluidSpikyWeightDerivative(float distance, float supportRadius) noexcept
     const float oneMinusQ = 1.0f - distance / supportRadius;
     const float k = 15.0f / (kFluidKernelPi * supportRadius * supportRadius * supportRadius);
     return -k * 2.0f * oneMinusQ / supportRadius;
+}
+
+std::vector<std::uint32_t> validateStaticParticleIndices(
+    const std::vector<std::uint32_t> &indices, const std::uint32_t particleCount,
+    std::string &errorMessage)
+{
+    std::vector<std::uint32_t> result = indices;
+    std::sort(result.begin(), result.end());
+    result.erase(std::unique(result.begin(), result.end()), result.end());
+
+    for (const std::uint32_t index : result)
+    {
+        if (index >= particleCount)
+        {
+            std::ostringstream stream;
+            stream << "Static particle index " << index << " is out of range for "
+                   << particleCount << " particles.";
+            errorMessage = stream.str();
+            return {};
+        }
+    }
+
+    errorMessage.clear();
+    return result;
 }
 
 std::uint32_t tightPack3D(float radius, float separation,
@@ -502,16 +527,19 @@ void PhysicsWorld::clear()
     mColliderIdToIndex.clear();
     mEntityToColliderIds.clear();
     mEntityToSoftBodyIndex.clear();
+    mEntityToStrandIndex.clear();
     mEntityToFluidIndex.clear();
     mTetGenMeshCache.clear();
     mRigidBodySnapshot.clear();
     mColliderSnapshot.clear();
     mSoftBodySnapshot.clear();
+    mStrandSnapshot.clear();
     mFluidSnapshot.clear();
     mBallJointSnapshot.clear();
     mHingeJointSnapshot.clear();
     mSliderJointSnapshot.clear();
     mSoftBodyDerivedCaches.clear();
+    mStrandDerivedCaches.clear();
     mFluidDerivedCaches.clear();
     mParticles.clear();
     mParticleContactMaterials.clear();
@@ -960,6 +988,39 @@ bool PhysicsWorld::upsertSoftBody(const SoftBodyState &state)
     return true;
 }
 
+bool PhysicsWorld::upsertStrand(const StrandState &state)
+{
+    StrandState normalizedState = state;
+    normalizeStrandState(normalizedState);
+
+    StrandDerivedCache derivedCache;
+    if (!prepareStrandStateForInsert(normalizedState, derivedCache))
+    {
+        return false;
+    }
+
+    const auto it = mEntityToStrandIndex.find(normalizedState.entityId);
+    if (it == mEntityToStrandIndex.end())
+    {
+        mEntityToStrandIndex.emplace(normalizedState.entityId,
+                                     static_cast<std::uint32_t>(mStrandSnapshot.size()));
+        mStrandSnapshot.push_back(normalizedState);
+        mStrandDerivedCaches.push_back(std::move(derivedCache));
+    }
+    else
+    {
+        mStrandSnapshot[it->second]      = normalizedState;
+        mStrandDerivedCaches[it->second] = std::move(derivedCache);
+    }
+
+    mSoftBodyDerivedStateDirty = true;
+    ++mSoftBodyTopologyRevision;
+    ++mSoftParticleRevision;
+    ++mSoftGpuTopologyRevision;
+    ++mAuthoredRevision;
+    return true;
+}
+
 bool PhysicsWorld::upsertFluid(const FluidState &state)
 {
     FluidState normalizedState = state;
@@ -1019,6 +1080,33 @@ bool PhysicsWorld::removeSoftBody(common::EntityId entityId)
     mSoftBodyDerivedCaches.pop_back();
     mEntityToSoftBodyIndex.erase(it);
     mTetGenMeshCache.erase(entityId);
+    mSoftBodyDerivedStateDirty = true;
+    ++mSoftBodyTopologyRevision;
+    ++mSoftParticleRevision;
+    ++mSoftGpuTopologyRevision;
+    ++mAuthoredRevision;
+    return true;
+}
+
+bool PhysicsWorld::removeStrand(common::EntityId entityId)
+{
+    const auto it = mEntityToStrandIndex.find(entityId);
+    if (it == mEntityToStrandIndex.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t index = it->second;
+    const std::uint32_t last  = static_cast<std::uint32_t>(mStrandSnapshot.size() - 1u);
+    if (index != last)
+    {
+        mStrandSnapshot[index]      = mStrandSnapshot[last];
+        mStrandDerivedCaches[index] = std::move(mStrandDerivedCaches[last]);
+        mEntityToStrandIndex[mStrandSnapshot[index].entityId] = index;
+    }
+    mStrandSnapshot.pop_back();
+    mStrandDerivedCaches.pop_back();
+    mEntityToStrandIndex.erase(it);
     mSoftBodyDerivedStateDirty = true;
     ++mSoftBodyTopologyRevision;
     ++mSoftParticleRevision;
@@ -1312,6 +1400,18 @@ const SoftBodyState *PhysicsWorld::tryGetSoftBody(common::EntityId entityId) con
     return it == mEntityToSoftBodyIndex.end() ? nullptr : &mSoftBodySnapshot[it->second];
 }
 
+StrandState *PhysicsWorld::tryGetStrand(common::EntityId entityId)
+{
+    const auto it = mEntityToStrandIndex.find(entityId);
+    return it == mEntityToStrandIndex.end() ? nullptr : &mStrandSnapshot[it->second];
+}
+
+const StrandState *PhysicsWorld::tryGetStrand(common::EntityId entityId) const
+{
+    const auto it = mEntityToStrandIndex.find(entityId);
+    return it == mEntityToStrandIndex.end() ? nullptr : &mStrandSnapshot[it->second];
+}
+
 bool PhysicsWorld::tryGetSoftBodyAuthoringRestPositions(
     common::EntityId entityId, std::vector<Diligent::float3> &outRestPositions) const
 {
@@ -1377,6 +1477,11 @@ const std::vector<ColliderState> &PhysicsWorld::colliderSnapshot() const noexcep
 const std::vector<SoftBodyState> &PhysicsWorld::softBodySnapshot() const noexcept
 {
     return mSoftBodySnapshot;
+}
+
+const std::vector<StrandState> &PhysicsWorld::strandSnapshot() const noexcept
+{
+    return mStrandSnapshot;
 }
 
 const std::vector<FluidState> &PhysicsWorld::fluidSnapshot() const noexcept
@@ -1455,7 +1560,7 @@ const std::vector<FluidMaterialGpu> &PhysicsWorld::fluidMaterials() const noexce
     return mFluidMaterials;
 }
 
-const std::vector<SoftEdge> &PhysicsWorld::softEdges() const noexcept
+const std::vector<DeformableDistanceConstraint> &PhysicsWorld::distanceConstraints() const noexcept
 {
     if (mSoftBodyDerivedStateDirty)
     {
@@ -1464,13 +1569,23 @@ const std::vector<SoftEdge> &PhysicsWorld::softEdges() const noexcept
     return mSoftEdges;
 }
 
-const std::vector<SoftTet> &PhysicsWorld::softTets() const noexcept
+const std::vector<DeformableVolumeConstraint> &PhysicsWorld::volumeConstraints() const noexcept
 {
     if (mSoftBodyDerivedStateDirty)
     {
         const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
     }
     return mSoftTets;
+}
+
+const std::vector<SoftEdge> &PhysicsWorld::softEdges() const noexcept
+{
+    return distanceConstraints();
+}
+
+const std::vector<SoftTet> &PhysicsWorld::softTets() const noexcept
+{
+    return volumeConstraints();
 }
 
 const SoftRenderDataHost &PhysicsWorld::softRenderData() const noexcept
@@ -1540,6 +1655,11 @@ std::uint32_t PhysicsWorld::colliderCount() const noexcept
 std::uint32_t PhysicsWorld::softBodyCount() const noexcept
 {
     return static_cast<std::uint32_t>(mSoftBodySnapshot.size());
+}
+
+std::uint32_t PhysicsWorld::strandCount() const noexcept
+{
+    return static_cast<std::uint32_t>(mStrandSnapshot.size());
 }
 
 std::uint32_t PhysicsWorld::fluidCount() const noexcept
@@ -1902,6 +2022,18 @@ void PhysicsWorld::normalizeSoftBodyState(SoftBodyState &state) noexcept
         state.source.regularGrid.targetParticleSpacing =
             std::max(state.source.regularGrid.targetParticleSpacing, 1.0e-4f);
     }
+    if (state.collisionLayer == 0u)
+    {
+        state.collisionLayer = 1u;
+    }
+}
+
+void PhysicsWorld::normalizeStrandState(StrandState &state) noexcept
+{
+    normalizeParticleContactMaterial(state.material.contact);
+    state.particleMass         = std::max(state.particleMass, 1.0e-4f);
+    state.particleRadius       = std::max(state.particleRadius, 1.0e-4f);
+    state.distanceCompliance   = std::max(state.distanceCompliance, 0.0f);
     if (state.collisionLayer == 0u)
     {
         state.collisionLayer = 1u;
@@ -2501,6 +2633,12 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
     mSoftTets.clear();
     std::vector<std::vector<std::uint32_t>> adjacencyLists;
 
+    const std::uint32_t softBodyPhaseGroupBase = 0u;
+    const std::uint32_t strandPhaseGroupBase =
+        static_cast<std::uint32_t>(mSoftBodySnapshot.size());
+    const std::uint32_t fluidPhaseGroupBase =
+        strandPhaseGroupBase + static_cast<std::uint32_t>(mStrandSnapshot.size());
+
     for (std::uint32_t softBodyIndex = 0u; softBodyIndex < mSoftBodySnapshot.size();
          ++softBodyIndex)
     {
@@ -2551,11 +2689,18 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.ownerTypes.push_back(
                 static_cast<std::uint32_t>(ParticleOwnerType::SoftBody));
             mParticles.ownerIndices.push_back(softBodyIndex);
+            mParticles.deformableObjectKinds.push_back(
+                static_cast<std::uint32_t>(DeformableObjectKind::SoftBody));
+            mParticles.deformableObjectIndices.push_back(softBodyIndex);
+            mParticles.strandIds.push_back(0xffffffffu);
+            mParticles.strandOrders.push_back(0xffffffffu);
+            mParticles.strandRoles.push_back(
+                static_cast<std::uint32_t>(ParticleStrandRole::None));
             mParticles.owningSoftBodyIndices.push_back(softBodyIndex);
             mParticles.particleMaterialIndices.push_back(softBody.contactMaterialIndex);
             mParticles.fluidMaterialIndices.push_back(0xffffffffu);
-            mParticles.phases.push_back(
-                packParticlePhase(softBodyIndex, softBody.selfCollisionEnabled));
+            mParticles.phases.push_back(packParticlePhase(
+                softBodyPhaseGroupBase + softBodyIndex, softBody.selfCollisionEnabled));
             mParticles.collisionLayers.push_back(softBody.collisionLayer);
             mParticles.collisionMasks.push_back(softBody.collisionMask);
             adjacencyLists.emplace_back();
@@ -2612,6 +2757,98 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
         softBody.tetCount  = static_cast<std::uint32_t>(mSoftTets.size()) - softBody.tetOffset;
     }
 
+    for (std::uint32_t strandIndex = 0u; strandIndex < mStrandSnapshot.size(); ++strandIndex)
+    {
+        StrandState &strand = mStrandSnapshot[strandIndex];
+        normalizeStrandState(strand);
+        strand.contactMaterialIndex = findOrAppendParticleContactMaterial(
+            mParticleContactMaterials, toParticleContactMaterial(strand.material.contact));
+
+        strand.particleOffset  = static_cast<std::uint32_t>(mParticles.size());
+        strand.constraintOffset = static_cast<std::uint32_t>(mSoftEdges.size());
+
+        if (strandIndex >= mStrandDerivedCaches.size())
+        {
+            strand.particleCount   = 0u;
+            strand.constraintCount = 0u;
+            continue;
+        }
+
+        const StrandDerivedCache &topology = mStrandDerivedCaches[strandIndex];
+        const float inverseMass =
+            strand.particleMass > 0.0f ? 1.0f / strand.particleMass : 0.0f;
+        std::unordered_set<std::uint32_t> staticParticles(topology.staticParticleIndices.begin(),
+                                                          topology.staticParticleIndices.end());
+        strand.restPositions = topology.restPositions;
+        strand.particleCount = static_cast<std::uint32_t>(topology.restPositions.size());
+        for (std::uint32_t localParticleIndex = 0u; localParticleIndex < strand.particleCount;
+             ++localParticleIndex)
+        {
+            const Diligent::float3 &position = topology.restPositions[localParticleIndex];
+            const float particleInvMass =
+                staticParticles.find(localParticleIndex) != staticParticles.end() ? 0.0f
+                                                                                  : inverseMass;
+            mParticles.positionsInvMass.push_back(
+                Diligent::float4{position.x, position.y, position.z, particleInvMass});
+            mParticles.previousPositions.push_back(
+                Diligent::float4{position.x, position.y, position.z, 0.0f});
+            mParticles.velocities.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
+            mParticles.radii.push_back(strand.particleRadius);
+            mParticles.environmentIndices.push_back(strand.environmentIndex);
+            mParticles.particleKinds.push_back(static_cast<std::uint32_t>(ParticleKind::SoftSolid));
+            mParticles.ownerTypes.push_back(static_cast<std::uint32_t>(ParticleOwnerType::Strand));
+            mParticles.ownerIndices.push_back(strandIndex);
+            mParticles.deformableObjectKinds.push_back(
+                static_cast<std::uint32_t>(DeformableObjectKind::Strand));
+            mParticles.deformableObjectIndices.push_back(strandIndex);
+            mParticles.strandIds.push_back(strandIndex);
+            mParticles.strandOrders.push_back(localParticleIndex);
+            mParticles.strandRoles.push_back(
+                static_cast<std::uint32_t>(ParticleStrandRole::None));
+            mParticles.owningSoftBodyIndices.push_back(0xffffffffu);
+            mParticles.particleMaterialIndices.push_back(strand.contactMaterialIndex);
+            mParticles.fluidMaterialIndices.push_back(0xffffffffu);
+            mParticles.phases.push_back(packParticlePhase(
+                strandPhaseGroupBase + strandIndex, strand.selfCollisionEnabled));
+            mParticles.collisionLayers.push_back(strand.collisionLayer);
+            mParticles.collisionMasks.push_back(strand.collisionMask);
+            adjacencyLists.emplace_back();
+        }
+
+        for (std::uint32_t localParticleIndex = 0u;
+             localParticleIndex < static_cast<std::uint32_t>(topology.adjacencyLists.size());
+             ++localParticleIndex)
+        {
+            auto &globalAdjacency = adjacencyLists[strand.particleOffset + localParticleIndex];
+            globalAdjacency.reserve(topology.adjacencyLists[localParticleIndex].size());
+            for (const std::uint32_t localNeighbor : topology.adjacencyLists[localParticleIndex])
+            {
+                globalAdjacency.push_back(strand.particleOffset + localNeighbor);
+            }
+        }
+
+        for (const auto &edgeDesc : topology.edges)
+        {
+            const std::uint32_t globalA = strand.particleOffset + edgeDesc[0];
+            const std::uint32_t globalB = strand.particleOffset + edgeDesc[1];
+            const Diligent::float3 delta{
+                topology.restPositions[edgeDesc[1]].x - topology.restPositions[edgeDesc[0]].x,
+                topology.restPositions[edgeDesc[1]].y - topology.restPositions[edgeDesc[0]].y,
+                topology.restPositions[edgeDesc[1]].z - topology.restPositions[edgeDesc[0]].z,
+            };
+
+            DeformableDistanceConstraint edge{};
+            edge.particleA  = globalA;
+            edge.particleB  = globalB;
+            edge.restLength = std::sqrt(Diligent::dot(delta, delta));
+            edge.compliance = strand.distanceCompliance;
+            mSoftEdges.push_back(edge);
+        }
+
+        strand.constraintCount =
+            static_cast<std::uint32_t>(mSoftEdges.size()) - strand.constraintOffset;
+    }
+
     for (std::uint32_t fluidIndex = 0u; fluidIndex < mFluidSnapshot.size(); ++fluidIndex)
     {
         FluidState &fluid = mFluidSnapshot[fluidIndex];
@@ -2645,11 +2882,18 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.ownerTypes.push_back(
                 static_cast<std::uint32_t>(ParticleOwnerType::FluidBody));
             mParticles.ownerIndices.push_back(fluidIndex);
+            mParticles.deformableObjectKinds.push_back(
+                static_cast<std::uint32_t>(DeformableObjectKind::None));
+            mParticles.deformableObjectIndices.push_back(0xffffffffu);
+            mParticles.strandIds.push_back(0xffffffffu);
+            mParticles.strandOrders.push_back(0xffffffffu);
+            mParticles.strandRoles.push_back(
+                static_cast<std::uint32_t>(ParticleStrandRole::None));
             mParticles.owningSoftBodyIndices.push_back(0xffffffffu);
             mParticles.particleMaterialIndices.push_back(fluid.contactMaterialIndex);
             mParticles.fluidMaterialIndices.push_back(fluid.fluidMaterialIndex);
             mParticles.phases.push_back(
-                packParticlePhase(mSoftBodySnapshot.size() + fluidIndex, true));
+                packParticlePhase(fluidPhaseGroupBase + fluidIndex, true));
             mParticles.collisionLayers.push_back(fluid.collisionLayer);
             mParticles.collisionMasks.push_back(fluid.collisionMask);
             adjacencyLists.emplace_back();
@@ -2738,6 +2982,41 @@ bool PhysicsWorld::prepareFluidStateForInsert(const FluidState &candidate,
             }
         }
     }
+    return true;
+}
+
+bool PhysicsWorld::prepareStrandStateForInsert(const StrandState &candidate,
+                                               StrandDerivedCache &derivedCache) noexcept
+{
+    derivedCache = {};
+    if (candidate.restPositions.size() < 2u)
+    {
+        CRESSIM_LOG_ERROR("Failed to author strand for entity ", candidate.entityId,
+                          ": strand must contain at least two rest positions.");
+        return false;
+    }
+
+    derivedCache.restPositions = candidate.restPositions;
+    derivedCache.adjacencyLists.resize(candidate.restPositions.size());
+    for (std::uint32_t i = 0u; i + 1u < static_cast<std::uint32_t>(candidate.restPositions.size());
+         ++i)
+    {
+        derivedCache.edges.push_back({i, i + 1u});
+        derivedCache.adjacencyLists[i].push_back(i + 1u);
+        derivedCache.adjacencyLists[i + 1u].push_back(i);
+    }
+
+    std::string errorMessage;
+    derivedCache.staticParticleIndices = validateStaticParticleIndices(
+        candidate.staticParticleIndices,
+        static_cast<std::uint32_t>(candidate.restPositions.size()), errorMessage);
+    if (!errorMessage.empty())
+    {
+        CRESSIM_LOG_ERROR("Failed to author strand for entity ", candidate.entityId, ": ",
+                          errorMessage);
+        return false;
+    }
+
     return true;
 }
 

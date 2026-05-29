@@ -269,6 +269,7 @@ bool World::destroyEntity(common::EntityId entityId)
     removeSpotLight(entityId);
     removeRigidBody(entityId);
     removeSoftBody(entityId);
+    removeStrand(entityId);
     removeFluid(entityId);
     removeUltrasoundProbe(entityId);
     removeUltrasoundScattererSource(entityId);
@@ -348,6 +349,18 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
                 }
             }
         }
+        if (physIt->second.hasStrand)
+        {
+            if (physics::StrandState *strand = mPhysicsWorld.tryGetStrand(entityId))
+            {
+                physics::StrandState updated = *strand;
+                updated.environmentIndex     = envIndex;
+                if (!mPhysicsWorld.upsertStrand(updated))
+                {
+                    return false;
+                }
+            }
+        }
         if (physIt->second.hasFluid)
         {
             if (physics::FluidState *fluid = mPhysicsWorld.tryGetFluid(entityId))
@@ -387,6 +400,20 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
                     {
                         CRESSIM_LOG_ERROR("setEntityEnvironment failed to restore previous "
                                           "soft-body environment for entity ",
+                                          entityId, ".");
+                    }
+                }
+            }
+            if (physIt->second.hasStrand)
+            {
+                if (physics::StrandState *strand = mPhysicsWorld.tryGetStrand(entityId))
+                {
+                    physics::StrandState reverted = *strand;
+                    reverted.environmentIndex     = previousEnv;
+                    if (!mPhysicsWorld.upsertStrand(reverted))
+                    {
+                        CRESSIM_LOG_ERROR("setEntityEnvironment failed to restore previous "
+                                          "strand environment for entity ",
                                           entityId, ".");
                     }
                 }
@@ -1077,6 +1104,58 @@ bool World::removeSoftBody(common::EntityId entityId)
     return mPhysicsWorld.removeSoftBody(entityId) || clearedAmplitudeRanges;
 }
 
+bool World::setStrand(common::EntityId entityId, const StrandComponent &component)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("setStrand requires valid entity id.");
+        return false;
+    }
+
+    if (!requireAliveEntity(entityId, "setStrand"))
+    {
+        return false;
+    }
+
+    if (!component.simulated)
+    {
+        (void)removeStrand(entityId);
+        return true;
+    }
+
+    physics::StrandState state{};
+    state.entityId             = entityId;
+    state.environmentIndex     = entityEnvironment(entityId);
+    state.material             = component.material;
+    state.restPositions        = component.restPositions;
+    state.staticParticleIndices = component.staticParticleIndices;
+    state.particleMass         = component.particleMass;
+    state.particleRadius       = component.particleRadius;
+    state.distanceCompliance   = component.distanceCompliance;
+    state.simulated            = component.simulated;
+    state.selfCollisionEnabled = component.selfCollisionEnabled;
+    state.collisionLayer       = component.collisionLayer;
+    state.collisionMask        = component.collisionMask;
+
+    if (!mPhysicsWorld.upsertStrand(state))
+    {
+        return false;
+    }
+
+    mPhysicsLinks[entityId].hasStrand = true;
+    return true;
+}
+
+bool World::removeStrand(common::EntityId entityId)
+{
+    auto it = mPhysicsLinks.find(entityId);
+    if (it != mPhysicsLinks.end())
+    {
+        it->second.hasStrand = false;
+    }
+    return mPhysicsWorld.removeStrand(entityId);
+}
+
 bool World::setFluid(common::EntityId entityId, const FluidComponent &component)
 {
     if (entityId == common::kInvalidEntityId)
@@ -1610,6 +1689,28 @@ std::optional<SoftBodyComponent> World::tryGetSoftBody(common::EntityId entityId
     component.selfCollisionEnabled = softBody->selfCollisionEnabled;
     component.collisionLayer       = softBody->collisionLayer;
     component.collisionMask        = softBody->collisionMask;
+    return component;
+}
+
+std::optional<StrandComponent> World::tryGetStrand(common::EntityId entityId) const
+{
+    const physics::StrandState *strand = mPhysicsWorld.tryGetStrand(entityId);
+    if (!strand)
+    {
+        return std::nullopt;
+    }
+
+    StrandComponent component{};
+    component.material             = strand->material;
+    component.restPositions        = strand->restPositions;
+    component.staticParticleIndices = strand->staticParticleIndices;
+    component.particleMass         = strand->particleMass;
+    component.particleRadius       = strand->particleRadius;
+    component.distanceCompliance   = strand->distanceCompliance;
+    component.simulated            = strand->simulated;
+    component.selfCollisionEnabled = strand->selfCollisionEnabled;
+    component.collisionLayer       = strand->collisionLayer;
+    component.collisionMask        = strand->collisionMask;
     return component;
 }
 
