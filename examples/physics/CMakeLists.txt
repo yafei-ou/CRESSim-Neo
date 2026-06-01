@@ -51,6 +51,11 @@ add_cressim_example(
 )
 
 add_cressim_example(
+    NAME physics_meshfree_debug_graph
+    SOURCE meshfree_debug_graph.cpp
+)
+
+add_cressim_example(
     NAME physics_fluid_debug_particles
     SOURCE fluid_debug_particles.cpp
 )
