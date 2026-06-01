@@ -16,9 +16,11 @@ namespace
 {
 
 using cressim::neo::engine::CameraComponent;
+using cressim::neo::engine::ColliderComponent;
 using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::MeshfreeSoftBodyComponent;
+using cressim::neo::engine::RigidBodyComponent;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::examples::helpers::CommonExampleOptions;
@@ -27,6 +29,8 @@ using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MaterialHandle;
 using cressim::neo::graphics::MeshHandle;
 using cressim::neo::graphics::MeshResourceDesc;
+using cressim::neo::physics::ColliderShapeType;
+using cressim::neo::physics::RigidBodyType;
 using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
@@ -85,23 +89,6 @@ MeshResourceDesc makeMeshfreeAnchorMesh(const std::vector<Diligent::float3> &par
     return mesh;
 }
 
-std::vector<std::uint32_t> makePinnedTopCorners(std::uint32_t sideCount)
-{
-    const std::uint32_t topY = sideCount - 1u;
-    const auto particleIndex = [sideCount](std::uint32_t x, std::uint32_t y,
-                                           std::uint32_t z) -> std::uint32_t
-    {
-        return z * sideCount * sideCount + y * sideCount + x;
-    };
-
-    return {
-        particleIndex(0u, topY, 0u),
-        particleIndex(sideCount - 1u, topY, 0u),
-        particleIndex(0u, topY, sideCount - 1u),
-        particleIndex(sideCount - 1u, topY, sideCount - 1u),
-    };
-}
-
 void applyDebugParticleGraphOptions(Runtime &runtime)
 {
     cressim::neo::graphics::RenderFrameOptions renderOptions = runtime.renderFrameOptions();
@@ -143,9 +130,11 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
-    config.physicsDesc.substeps               = 1u;
-    config.physicsDesc.defaultIterations      = 8u;
-    config.physicsDesc.softInternalIterations = 12u;
+    config.physicsDesc.substeps                    = 4u;
+    config.physicsDesc.defaultIterations           = 16u;
+    config.physicsDesc.softInternalIterations      = 32u;
+    config.physicsDesc.softContactIterations       = 12u;
+    config.physicsDesc.rigidRigidContactIterations = 0u;
 
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
@@ -175,9 +164,9 @@ int main(int argc, char **argv)
 
     const auto cameraEntity = world.createEntity();
     TransformComponent cameraTransform{};
-    cameraTransform.worldTransform.position = {0.0f, 1.15f, -4.2f};
+    cameraTransform.worldTransform.position = {0.0f, 0.85f, -4.2f};
     cameraTransform.worldTransform.rotation =
-        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, 0.18f);
+        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, 0.10f);
     world.setTransform(cameraEntity, cameraTransform);
     CameraComponent camera{};
     camera.verticalFovDegrees = 42.0f;
@@ -204,6 +193,19 @@ int main(int argc, char **argv)
     world.setTransform(groundEntity, groundTransform);
     world.setMeshRenderer(groundEntity,
                           MeshRendererComponent{groundMesh, groundMaterial, true});
+    RigidBodyComponent groundBody{};
+    groundBody.bodyType            = RigidBodyType::Static;
+    groundBody.inverseMass         = 0.0f;
+    groundBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
+    world.setRigidBody(groundEntity, groundBody);
+    ColliderComponent groundCollider{};
+    groundCollider.shapeType      = ColliderShapeType::Box;
+    groundCollider.shapeParams    = {4.0f, 0.05f, 4.0f, 0.0f};
+    groundCollider.friction       = 0.55f;
+    groundCollider.staticFriction = 0.75f;
+    groundCollider.collisionLayer = 0x1u;
+    groundCollider.collisionMask  = 0x2u;
+    world.addCollider(groundEntity, groundCollider);
 
     constexpr std::uint32_t kSideCount = 3u;
     constexpr float kParticleSpacing   = 0.34f;
@@ -212,22 +214,23 @@ int main(int argc, char **argv)
 
     const auto softEntity = world.createEntity();
     TransformComponent softTransform{};
-    softTransform.worldTransform.position = {0.0f, 0.2f, 0.0f};
-    softTransform.worldTransform.scale    = {0.72f, 0.72f, 0.72f};
+    softTransform.worldTransform.position = {0.0f, 1.05f, 0.0f};
     world.setTransform(softEntity, softTransform);
     world.setMeshRenderer(softEntity,
                           MeshRendererComponent{anchorMesh, anchorMaterial, true});
 
     MeshfreeSoftBodyComponent softBody{};
-    softBody.particles              = std::move(particles);
-    softBody.staticParticleIndices  = makePinnedTopCorners(kSideCount);
-    softBody.neighbourCount         = 8u;
-    softBody.particleRadius         = 0.055f;
-    softBody.particleMass           = 0.02f;
-    softBody.compliance             = 1.0e-6f;
-    softBody.selfCollisionEnabled   = false;
-    softBody.collisionLayer         = 0x1u;
-    softBody.collisionMask          = 0x0u;
+    softBody.particles                       = std::move(particles);
+    softBody.neighbourCount                  = 12u;
+    softBody.particleRadius                  = 0.06f;
+    softBody.particleMass                    = 0.04f;
+    softBody.compliance                      = 2.0e-5f;
+    softBody.material.contact.friction       = 0.45f;
+    softBody.material.contact.staticFriction = 0.60f;
+    softBody.material.contact.damping        = 0.60f;
+    softBody.selfCollisionEnabled            = false;
+    softBody.collisionLayer                  = 0x2u;
+    softBody.collisionMask                   = 0x1u;
     if (!world.setMeshfreeSoftBody(softEntity, softBody))
     {
         runtime.shutdown();

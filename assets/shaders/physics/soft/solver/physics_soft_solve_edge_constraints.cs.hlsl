@@ -16,6 +16,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     const GpuSoftEdge edge = CRESSIM_SB_LOAD(g_SoftEdges, edgeIndex);
+    GpuSoftEdgeCorrection edgeCorrection;
+    edgeCorrection.correctionA = float4(0.0, 0.0, 0.0, 0.0);
+    edgeCorrection.correctionB = float4(0.0, 0.0, 0.0, 0.0);
+
     const uint particleA = edge.particleA;
     const uint particleB = edge.particleB;
 
@@ -26,6 +30,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float wSum = wA + wB;
     if (wSum <= kEpsilon)
     {
+        CRESSIM_SB_STORE(g_SoftEdgeCorrections, edgeIndex, edgeCorrection);
         return;
     }
 
@@ -33,6 +38,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float lengthSq = dot(delta, delta);
     if (lengthSq <= kEpsilon)
     {
+        CRESSIM_SB_STORE(g_SoftEdgeCorrections, edgeIndex, edgeCorrection);
         return;
     }
 
@@ -46,6 +52,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float denominator = wSum + alpha;
     if (denominator <= kEpsilon)
     {
+        CRESSIM_SB_STORE(g_SoftEdgeCorrections, edgeIndex, edgeCorrection);
         return;
     }
 
@@ -54,7 +61,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const float3 correctionA = wA * deltaLambda * gradientA * kSoftInternalRelaxation;
     const float3 correctionB = wB * deltaLambda * gradientB * kSoftInternalRelaxation;
-    GpuSoftEdgeCorrection edgeCorrection;
     edgeCorrection.correctionA = float4(correctionA, 0.0);
     edgeCorrection.correctionB = float4(correctionB, 0.0);
     CRESSIM_SB_STORE(g_SoftEdgeCorrections, edgeIndex, edgeCorrection);
