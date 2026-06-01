@@ -15,6 +15,8 @@ struct CameraInput
 cbuffer GraphicsDebugParticles
 {
     float4 g_DebugParticleColor;
+    float4 g_DebugParticleStaticColor;
+    float4 g_DebugParticleEdgeColor;
     uint4 g_DebugParticleParams;
     float4 g_DebugParticleMisc;
 };
@@ -29,6 +31,7 @@ struct PSInput
     float3 ViewPos : TEXCOORD0;
     float2 QuadCoord : TEXCOORD1;
     nointerpolation float Radius : TEXCOORD2;
+    nointerpolation float4 Color : TEXCOORD3;
 };
 
 struct PSOutput
@@ -66,7 +69,7 @@ PSOutput main(in PSInput In)
     const float zScale = farClip / max(farClip - nearClip, 1.0e-5);
     const float zTranslate = -nearClip * farClip / max(farClip - nearClip, 1.0e-5);
 
-    Out.Color = float4(g_DebugParticleColor.rgb * shade, g_DebugParticleColor.a);
+    Out.Color = float4(In.Color.rgb * shade, In.Color.a);
     Out.Depth = zScale + zTranslate / viewPos.z;
     return Out;
 }

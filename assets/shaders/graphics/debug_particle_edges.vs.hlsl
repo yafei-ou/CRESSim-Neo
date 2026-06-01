@@ -1,4 +1,5 @@
 #include "include/graphics/graphics_scene_buffers.hlsli"
+#include "include/physics/particle/physics_particle_types.hlsli"
 
 struct CameraInput
 {
@@ -24,23 +25,15 @@ cbuffer GraphicsDebugParticles
 #define g_DebugParticleCameraIndex g_DebugParticleParams.x
 #define g_DebugParticleTargetLayer g_DebugParticleParams.y
 #define g_DebugParticleEnvIndex g_DebugParticleParams.z
-#define g_DebugParticleFlags g_DebugParticleParams.w
-#define g_DebugParticleFallbackRadius g_DebugParticleMisc.x
-#define CRESSIM_DEBUG_PARTICLE_USE_RADII 1u
-#define CRESSIM_DEBUG_PARTICLE_HIGHLIGHT_STATIC 2u
 
 CRESSIM_STRUCTURED_BUFFER(CameraInput, g_CameraInputs);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(float, g_ParticleRadii);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleEnvironmentIndices);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftEdge, g_SoftEdges);
 
 struct VSOutput
 {
     float4 Position : SV_Position;
-    float3 ViewPos : TEXCOORD0;
-    float2 QuadCoord : TEXCOORD1;
-    nointerpolation float Radius : TEXCOORD2;
-    nointerpolation float4 Color : TEXCOORD3;
 #if MANUAL_LAYER_EXPORT
     uint Layer : SV_RenderTargetArrayIndex;
 #endif
@@ -77,82 +70,35 @@ float4x4 buildProjectionMatrix(float verticalFovDegrees, float aspect, float nea
         0.0,    0.0,    zTranslate, 0.0);
 }
 
-float2 quadCornerForVertex(uint triangleVertexIndex)
-{
-    if (triangleVertexIndex == 0u)
-    {
-        return float2(-1.0, -1.0);
-    }
-    if (triangleVertexIndex == 1u)
-    {
-        return float2(1.0, -1.0);
-    }
-    if (triangleVertexIndex == 2u)
-    {
-        return float2(-1.0, 1.0);
-    }
-    if (triangleVertexIndex == 3u)
-    {
-        return float2(-1.0, 1.0);
-    }
-    if (triangleVertexIndex == 4u)
-    {
-        return float2(1.0, -1.0);
-    }
-    return float2(1.0, 1.0);
-}
-
 void main(uint vertexId : SV_VertexID, out VSOutput Out)
 {
-    const uint particleIndex = vertexId / 6u;
-    const uint triangleVertexIndex = vertexId % 6u;
+    const uint edgeIndex = vertexId / 2u;
+    const uint endpointIndex = vertexId & 1u;
+    const GpuSoftEdge edge = CRESSIM_SB_LOAD(g_SoftEdges, edgeIndex);
+    const uint particleIndex = endpointIndex == 0u ? edge.particleA : edge.particleB;
+
     const PreparedCamera preparedCamera = CRESSIM_SB_LOAD(g_PreparedCameras, g_DebugParticleCameraIndex);
     const CameraInput cameraInput = CRESSIM_SB_LOAD(g_CameraInputs, g_DebugParticleCameraIndex);
-
-    const float4 particlePositionInvMass = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex);
     const uint particleEnvIndex = CRESSIM_SB_LOAD(g_ParticleEnvironmentIndices, particleIndex);
-    float particleRadius = g_DebugParticleFallbackRadius;
-    if ((g_DebugParticleFlags & CRESSIM_DEBUG_PARTICLE_USE_RADII) != 0u)
-    {
-        particleRadius = CRESSIM_SB_LOAD(g_ParticleRadii, particleIndex);
-    }
-    particleRadius = max(particleRadius, 1.0e-4);
 
     if (preparedCamera.active == 0u || cameraInput.active == 0u ||
         particleEnvIndex != g_DebugParticleEnvIndex)
     {
         Out.Position = float4(2.0, 2.0, 2.0, 1.0);
-        Out.ViewPos = float3(0.0, 0.0, 1.0);
-        Out.QuadCoord = float2(0.0, 0.0);
-        Out.Radius = particleRadius;
-        Out.Color = float4(0.0, 0.0, 0.0, 0.0);
 #if MANUAL_LAYER_EXPORT
         Out.Layer = g_DebugParticleTargetLayer;
 #endif
         return;
     }
 
-    const float4 worldPos = float4(particlePositionInvMass.xyz, 1.0);
-    const float3 viewCenter = mul(worldPos, preparedCamera.viewMatrix).xyz;
-    const float2 quadCoord = quadCornerForVertex(triangleVertexIndex);
-    const float3 viewPos = viewCenter + float3(quadCoord * particleRadius, 0.0);
-
-    const float aspect =
-        computeEffectiveViewportAspect(cameraInput.viewportAndOutputSize);
+    const float4 particlePositionInvMass = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex);
+    const float3 viewPos = mul(float4(particlePositionInvMass.xyz, 1.0), preparedCamera.viewMatrix).xyz;
+    const float aspect = computeEffectiveViewportAspect(cameraInput.viewportAndOutputSize);
     const float4x4 projectionMatrix =
         buildProjectionMatrix(cameraInput.projectionParams.x, aspect,
                               cameraInput.projectionParams.y, cameraInput.projectionParams.z);
 
     Out.Position = mul(float4(viewPos, 1.0), projectionMatrix);
-    Out.ViewPos = viewPos;
-    Out.QuadCoord = quadCoord;
-    Out.Radius = particleRadius;
-    Out.Color = g_DebugParticleColor;
-    if ((g_DebugParticleFlags & CRESSIM_DEBUG_PARTICLE_HIGHLIGHT_STATIC) != 0u &&
-        particlePositionInvMass.w <= 0.0)
-    {
-        Out.Color = g_DebugParticleStaticColor;
-    }
 #if MANUAL_LAYER_EXPORT
     Out.Layer = g_DebugParticleTargetLayer;
 #endif
