@@ -9,11 +9,44 @@
 #include "physics/physics_scene_gpu_state.h"
 
 #include <algorithm>
+#include <array>
 #include <memory>
 #include <vector>
 
 namespace
 {
+
+std::uint32_t buildUniqueQueueFamilyIndices(const Diligent::IDeviceContext *firstContext,
+                                            const Diligent::IDeviceContext *secondContext,
+                                            std::array<std::uint32_t, 2> &outQueueFamilyIndices)
+{
+    std::uint32_t count      = 0u;
+    const auto appendQueueId = [&outQueueFamilyIndices, &count](const Diligent::IDeviceContext *ctx)
+    {
+        if (ctx == nullptr)
+        {
+            return;
+        }
+
+        const std::uint32_t queueId = ctx->GetDesc().QueueId;
+        for (std::uint32_t i = 0u; i < count; ++i)
+        {
+            if (outQueueFamilyIndices[i] == queueId)
+            {
+                return;
+            }
+        }
+
+        if (count < outQueueFamilyIndices.size())
+        {
+            outQueueFamilyIndices[count++] = queueId;
+        }
+    };
+
+    appendQueueId(firstContext);
+    appendQueueId(secondContext);
+    return count;
+}
 
 bool uploadRenderScene(cressim::neo::engine::RenderSceneUploader &uploader,
                        cressim::neo::engine::World &world,
@@ -66,6 +99,9 @@ bool uploadPhysicsScene(cressim::neo::physics::PhysicsSceneGpuState &sceneState,
     const Diligent::Uint64 sharedContextMask =
         cressim::neo::gpu::contextMaskForId(computeBackend.contextId) |
         cressim::neo::gpu::contextMaskForId(graphicsBackend.contextId);
+    std::array<std::uint32_t, 2> sharedQueueFamilyIndices{};
+    const std::uint32_t sharedQueueFamilyIndexCount = buildUniqueQueueFamilyIndices(
+        computeBackend.computeContext, graphicsBackend.graphicsContext, sharedQueueFamilyIndices);
 
     if (!sceneState.ensureCapacity(
             computeBackend.renderDevice, bodyCount, colliderCount,
@@ -83,7 +119,7 @@ bool uploadPhysicsScene(cressim::neo::physics::PhysicsSceneGpuState &sceneState,
             std::max<std::uint32_t>(
                 static_cast<std::uint32_t>(softRenderData.softBodyParticleRanges.size()), 1u),
             std::max<std::uint32_t>(physicsWorld.softBodyBoundsChunkCount(), 1u),
-            sharedContextMask,
+            sharedContextMask, sharedQueueFamilyIndices.data(), sharedQueueFamilyIndexCount,
             device.supportsNativePhysicsFloatAtomics()))
     {
         return false;
