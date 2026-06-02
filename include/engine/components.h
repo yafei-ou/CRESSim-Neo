@@ -112,9 +112,9 @@ struct RigidBodyComponent
     Diligent::float3 inverseInertiaLocal{1.0f, 1.0f, 1.0f};
     std::vector<Diligent::float3> proxyParticleLocalPositions{};
     physics::ParticleContactMaterialDesc proxyParticleMaterial{};
-    physics::RigidBodyType bodyType = physics::RigidBodyType::Dynamic;
-    float inverseMass               = 1.0f;
-    float proxyParticleRadius       = 0.0f;
+    physics::RigidBodyType bodyType   = physics::RigidBodyType::Dynamic;
+    float inverseMass                 = 1.0f;
+    float proxyParticleRadius         = 0.0f;
     std::uint32_t proxyCollisionLayer = 1u;
     std::uint32_t proxyCollisionMask  = 0xffffffffu;
     Diligent::float3 kinematicTargetPosition{0.0f, 0.0f, 0.0f};

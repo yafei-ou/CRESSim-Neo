@@ -1303,7 +1303,7 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
         const auto probeTransform =
             world.tryGetTransform(probeEntityId).value_or(TransformComponent{});
         Impl::ProbeRuntime &runtime = mImpl->probeRuntimes[probeEntityId];
-        bool rebuild = runtime.engine == nullptr || runtime.envIndex != envIndex ||
+        bool rebuild                = runtime.engine == nullptr || runtime.envIndex != envIndex ||
                        runtime.boundScattererCount != envRuntime.totalScattererCount ||
                        !equalsProbeComponent(runtime.component, probeComponent);
         if (rebuild)

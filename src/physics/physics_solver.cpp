@@ -273,8 +273,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         const bool hasFluidBoundaryWork    = hasFluidWork && colliderCount > 0u;
         const bool hasSoftInternalWork =
             particleCount > 0u && (softEdgeCount > 0u || softBendCount > 0u || softTetCount > 0u);
-        const bool hasSoftContactSolveWork = softContactIterations > 0u;
-        const bool hasSoftSoftContactWork  = hasSoftContactSolveWork && particleCount > 1u;
+        const bool hasSoftContactSolveWork       = softContactIterations > 0u;
+        const bool hasSoftSoftContactWork        = hasSoftContactSolveWork && particleCount > 1u;
         const bool hasParticleRigidCandidateWork = particleCount > 0u && colliderCount > 0u;
         const bool hasSoftRigidContactWork =
             hasSoftContactSolveWork && hasParticleRigidCandidateWork;
@@ -372,8 +372,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
 
         if (particleCount > 0u && rigidBodyCount > 0u &&
             !mImpl->passDispatcher.syncRigidProxyParticles(
-                computeBackend.computeContext, mImpl->sceneState, particleCount,
-                particleConstants))
+                computeBackend.computeContext, mImpl->sceneState, particleCount, particleConstants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SyncRigidProxyParticles dispatch.");
             return false;
@@ -474,16 +473,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         }
         if (useInitialRigidContactSolve && hasParticleRigidCandidateWork &&
-            !mImpl->passDispatcher.generateProxyRigidContacts(
-                computeBackend.computeContext, mImpl->sceneState, particleConstants))
+            !mImpl->passDispatcher.generateProxyRigidContacts(computeBackend.computeContext,
+                                                              mImpl->sceneState, particleConstants))
         {
-            CRESSIM_LOG_ERROR(
-                "PhysicsSolver::step failed: GenerateProxyRigidContacts dispatch.");
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: GenerateProxyRigidContacts dispatch.");
             return false;
         }
-        if (useInitialRigidContactSolve &&
-            !mImpl->passDispatcher.prepareRigidIndirectArgs(computeBackend.computeContext,
-                                                            mImpl->sceneState))
+        if (useInitialRigidContactSolve && !mImpl->passDispatcher.prepareRigidIndirectArgs(
+                                               computeBackend.computeContext, mImpl->sceneState))
         {
             CRESSIM_LOG_ERROR(
                 "PhysicsSolver::step failed: PrepareRigidIndirectArgs final dispatch.");
@@ -552,7 +549,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 const bool runRigidContacts =
                     useInitialRigidContactSolve && iteration < rigidContactIterations;
                 const bool needContactSoftApply = runSoftContacts || runSoftRigidContacts;
-                const bool needRigidApply = runSoftRigidContacts || runRigidContacts ||
+                const bool needRigidApply       = runSoftRigidContacts || runRigidContacts ||
                                             runBallJoints || runHingeJoints || runSliderJoints;
                 const bool needJointOnlyRigidConstants =
                     runBallJoints || runHingeJoints || runSliderJoints;
@@ -752,9 +749,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     return false;
                 }
                 if (needRigidApply && particleCount > 0u && rigidBodyCount > 0u &&
-                    !mImpl->passDispatcher.syncRigidProxyParticles(
-                        computeBackend.computeContext, mImpl->sceneState, particleCount,
-                        particleConstants))
+                    !mImpl->passDispatcher.syncRigidProxyParticles(computeBackend.computeContext,
+                                                                   mImpl->sceneState, particleCount,
+                                                                   particleConstants))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: SyncRigidProxyParticles iterative dispatch.");
@@ -823,10 +820,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
         if (hasSoftSoftContactWork && softContactIterations > 0u &&
-            !mImpl->passDispatcher.solveParticleContactVelocities(computeBackend.computeContext,
-                                                                  mImpl->sceneState, particleCount,
-                                                                  rigidBodyCount,
-                                                                  softContactIterations, constants))
+            !mImpl->passDispatcher.solveParticleContactVelocities(
+                computeBackend.computeContext, mImpl->sceneState, particleCount, rigidBodyCount,
+                softContactIterations, constants))
         {
             CRESSIM_LOG_ERROR(
                 "PhysicsSolver::step failed: SolveParticleContactVelocities dispatch.");
@@ -941,8 +937,8 @@ bool PhysicsSolver::validateGpuMetaBlocking()
         if (!mImpl->sceneState.readbackProxyRigidContactMetaBlocking(computeBackend.computeContext,
                                                                      proxyMeta))
         {
-            CRESSIM_LOG_ERROR(
-                "PhysicsSolver::validateGpuMetaBlocking failed: proxy rigid contact meta readback.");
+            CRESSIM_LOG_ERROR("PhysicsSolver::validateGpuMetaBlocking failed: proxy rigid contact "
+                              "meta readback.");
             return false;
         }
         if (proxyMeta.overflow != 0u)
@@ -953,11 +949,11 @@ bool PhysicsSolver::validateGpuMetaBlocking()
                 mImpl->sceneState.rigidContactCapacity() > primitiveContactCount
                     ? (mImpl->sceneState.rigidContactCapacity() - primitiveContactCount)
                     : 0u;
-            CRESSIM_LOG_ERROR("PhysicsSolver validation failed: proxy rigid contact overflow "
-                              "(required=",
-                              proxyMeta.requiredContactCount, ", proxy capacity=",
-                              proxyCapacity, ", total rigid contact capacity=",
-                              mImpl->sceneState.rigidContactCapacity(), ").");
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver validation failed: proxy rigid contact overflow "
+                "(required=",
+                proxyMeta.requiredContactCount, ", proxy capacity=", proxyCapacity,
+                ", total rigid contact capacity=", mImpl->sceneState.rigidContactCapacity(), ").");
             return false;
         }
     }

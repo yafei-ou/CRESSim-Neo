@@ -155,8 +155,7 @@ public:
                                     const GpuParticleDispatchConstants &constants);
     bool solveParticleContactVelocities(Diligent::IDeviceContext *computeContext,
                                         const PhysicsSceneGpuState &sceneState,
-                                        std::uint32_t particleCount,
-                                        std::uint32_t rigidBodyCount,
+                                        std::uint32_t particleCount, std::uint32_t rigidBodyCount,
                                         std::uint32_t iterations,
                                         const GpuRigidDispatchConstants &rigidConstants);
     bool solveParticleRigidContactVelocities(Diligent::IDeviceContext *computeContext,

@@ -92,8 +92,6 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleKindsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> ownerTypesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> ownerIndicesBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> deformableObjectKindsBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> deformableObjectIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandIdsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandOrdersBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandRolesBuffer;

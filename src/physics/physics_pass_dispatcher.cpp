@@ -331,7 +331,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         scanArgsDesc.Usage = Diligent::USAGE_DEFAULT;
         scanArgsDesc.BindFlags = Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE |
                                  Diligent::BIND_INDIRECT_DRAW_ARGS;
-        scanArgsDesc.Mode      = Diligent::BUFFER_MODE_STRUCTURED;
+        scanArgsDesc.Mode                 = Diligent::BUFFER_MODE_STRUCTURED;
         scanArgsDesc.ElementByteStride    = sizeof(GpuPaddedDispatchIndirectArgs);
         scanArgsDesc.ImmediateContextMask = mPhysicsContextMask;
         backendContext.renderDevice->CreateBuffer(scanArgsDesc, nullptr, &mScanIndirectArgsBuffer);
@@ -722,8 +722,7 @@ bool PhysicsPassDispatcher::syncRigidProxyParticles(Diligent::IDeviceContext *co
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass", predicted.positionsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
-                              predicted.orientationsBuffer,
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations", predicted.orientationsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", particles.positionsInvMassBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
@@ -2321,12 +2320,10 @@ bool PhysicsPassDispatcher::dispatchSolveParticleContactVelocitiesPass(
         indirectArgsOffset(GpuPhysicsIndirectDispatchSlot::SoftSolveContactVelocities));
 }
 
-bool PhysicsPassDispatcher::solveParticleContactVelocities(Diligent::IDeviceContext *computeContext,
-                                                           const PhysicsSceneGpuState &sceneState,
-                                                           std::uint32_t particleCount,
-                                                           std::uint32_t rigidBodyCount,
-                                                           std::uint32_t iterations,
-                                                           const GpuRigidDispatchConstants &rigidConstants)
+bool PhysicsPassDispatcher::solveParticleContactVelocities(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t particleCount, std::uint32_t rigidBodyCount, std::uint32_t iterations,
+    const GpuRigidDispatchConstants &rigidConstants)
 {
     if (computeContext == nullptr)
     {
@@ -2385,11 +2382,10 @@ bool PhysicsPassDispatcher::solveParticleContactVelocities(Diligent::IDeviceCont
         {
             return false;
         }
-        if (rigidBodyCount > 0u &&
-            (!writeRigidDispatchConstants(computeContext, rigidConstants) ||
-             !mApplyRigidContactVelocitiesPass.dispatch(
-                 computeContext, kDefaultVariant, applyRigidBindings,
-                 dispatchGroupCount(rigidBodyCount))))
+        if (rigidBodyCount > 0u && (!writeRigidDispatchConstants(computeContext, rigidConstants) ||
+                                    !mApplyRigidContactVelocitiesPass.dispatch(
+                                        computeContext, kDefaultVariant, applyRigidBindings,
+                                        dispatchGroupCount(rigidBodyCount))))
         {
             return false;
         }

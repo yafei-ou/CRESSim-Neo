@@ -49,18 +49,18 @@ enum class GpuRigidPairType : std::uint32_t
 
 struct GpuRigidDispatchConstants
 {
-    float dt                                 = 0.0f;
-    std::uint32_t rigidBodyCount             = 0;
-    std::uint32_t colliderCount              = 0;
-    std::uint32_t activeMovingCount          = 0;
-    std::uint32_t staticBodyCount            = 0;
-    std::uint32_t candidatePairCapacity      = 0;
-    std::uint32_t contactCapacity            = 0;
-    std::uint32_t reservedSubstepIndex       = 0;
-    std::uint32_t reservedIterationIndex     = 0;
-    std::uint32_t reservedSolverIterations   = 0;
-    std::uint32_t reserved0                  = 0;
-    std::uint32_t reserved1                  = 0;
+    float dt                               = 0.0f;
+    std::uint32_t rigidBodyCount           = 0;
+    std::uint32_t colliderCount            = 0;
+    std::uint32_t activeMovingCount        = 0;
+    std::uint32_t staticBodyCount          = 0;
+    std::uint32_t candidatePairCapacity    = 0;
+    std::uint32_t contactCapacity          = 0;
+    std::uint32_t reservedSubstepIndex     = 0;
+    std::uint32_t reservedIterationIndex   = 0;
+    std::uint32_t reservedSolverIterations = 0;
+    std::uint32_t reserved0                = 0;
+    std::uint32_t reserved1                = 0;
 };
 
 struct GpuRigidJointDispatchConstants

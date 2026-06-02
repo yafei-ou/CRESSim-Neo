@@ -993,24 +993,24 @@ void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent &co
     }
 
     physics::RigidBodyState state{};
-    state.entityId                = entityId;
-    state.position                = transform.worldTransform.position;
-    state.rotation                = transform.worldTransform.rotation;
-    state.scale                   = transform.worldTransform.scale;
-    state.linearVelocity          = component.linearVelocity;
-    state.angularVelocity         = component.angularVelocity;
-    state.inverseMass             = component.inverseMass;
-    state.inverseInertiaLocal     = component.inverseInertiaLocal;
+    state.entityId                    = entityId;
+    state.position                    = transform.worldTransform.position;
+    state.rotation                    = transform.worldTransform.rotation;
+    state.scale                       = transform.worldTransform.scale;
+    state.linearVelocity              = component.linearVelocity;
+    state.angularVelocity             = component.angularVelocity;
+    state.inverseMass                 = component.inverseMass;
+    state.inverseInertiaLocal         = component.inverseInertiaLocal;
     state.proxyParticleLocalPositions = component.proxyParticleLocalPositions;
     state.proxyParticleMaterial       = component.proxyParticleMaterial;
     state.proxyParticleRadius         = component.proxyParticleRadius;
     state.proxyCollisionLayer         = component.proxyCollisionLayer;
     state.proxyCollisionMask          = component.proxyCollisionMask;
-    state.bodyType                = component.bodyType;
-    state.environmentIndex        = entityEnvironment(entityId);
-    state.kinematicTargetPosition = component.kinematicTargetPosition;
-    state.kinematicTargetRotation = component.kinematicTargetRotation;
-    state.kinematicTargetEnabled  = component.kinematicTargetEnabled;
+    state.bodyType                    = component.bodyType;
+    state.environmentIndex            = entityEnvironment(entityId);
+    state.kinematicTargetPosition     = component.kinematicTargetPosition;
+    state.kinematicTargetRotation     = component.kinematicTargetRotation;
+    state.kinematicTargetEnabled      = component.kinematicTargetEnabled;
 
     mPhysicsWorld.upsertRigidBody(state);
     mPhysicsLinks[entityId].hasRigidBody = true;
@@ -1664,20 +1664,20 @@ std::optional<RigidBodyComponent> World::tryGetRigidBody(common::EntityId entity
     }
 
     RigidBodyComponent component{};
-    component.simulated               = true;
-    component.bodyType                = rb->bodyType;
-    component.linearVelocity          = rb->linearVelocity;
-    component.angularVelocity         = rb->angularVelocity;
-    component.inverseMass             = rb->inverseMass;
-    component.inverseInertiaLocal     = rb->inverseInertiaLocal;
+    component.simulated                   = true;
+    component.bodyType                    = rb->bodyType;
+    component.linearVelocity              = rb->linearVelocity;
+    component.angularVelocity             = rb->angularVelocity;
+    component.inverseMass                 = rb->inverseMass;
+    component.inverseInertiaLocal         = rb->inverseInertiaLocal;
     component.proxyParticleLocalPositions = rb->proxyParticleLocalPositions;
     component.proxyParticleMaterial       = rb->proxyParticleMaterial;
     component.proxyParticleRadius         = rb->proxyParticleRadius;
     component.proxyCollisionLayer         = rb->proxyCollisionLayer;
     component.proxyCollisionMask          = rb->proxyCollisionMask;
-    component.kinematicTargetPosition = rb->kinematicTargetPosition;
-    component.kinematicTargetRotation = rb->kinematicTargetRotation;
-    component.kinematicTargetEnabled  = rb->kinematicTargetEnabled;
+    component.kinematicTargetPosition     = rb->kinematicTargetPosition;
+    component.kinematicTargetRotation     = rb->kinematicTargetRotation;
+    component.kinematicTargetEnabled      = rb->kinematicTargetEnabled;
     return component;
 }
 
@@ -1966,7 +1966,7 @@ const std::vector<EntityPoseMappingEntry> &World::physicsRenderableMappings()
             EntityPoseMappingEntry entry{};
             entry.sourcePoseIndex = rigidBodyIt->second;
             entry.objectIndex     = renderable.envIndex * mSceneLayout.maxRenderableObjectsPerEnv +
-                                    renderable.objectSlot;
+                                renderable.objectSlot;
             mPhysicsRenderableMappingsCache.push_back(entry);
         }
     }
@@ -2610,14 +2610,14 @@ void World::refreshLightEntry(std::uint32_t lightIndex)
 
     graphics::GpuLightInput input{};
     input.positionRange      = Diligent::float4{lightData.position.x, lightData.position.y,
-                                                lightData.position.z, lightData.range};
+                                           lightData.position.z, lightData.range};
     input.directionIntensity = Diligent::float4{lightData.direction.x, lightData.direction.y,
                                                 lightData.direction.z, lightData.intensity};
     input.color = Diligent::float4{lightData.color.x, lightData.color.y, lightData.color.z, 0.0f};
     const float innerConeRadians = lightData.innerConeAngle * 0.01745329251994329577f;
     const float outerConeRadians = lightData.outerConeAngle * 0.01745329251994329577f;
     input.spotAngles     = Diligent::float4{std::cos(innerConeRadians), std::cos(outerConeRadians),
-                                            lightData.innerConeAngle, lightData.outerConeAngle};
+                                        lightData.innerConeAngle, lightData.outerConeAngle};
     input.shadowDistance = lightData.shadowDistance;
     input.shadowFadeDistance     = lightData.shadowFadeDistance;
     input.shadowBias             = lightData.shadowBias;

@@ -53,8 +53,6 @@ int main()
     }
 
     if (particles.ownerTypes[0] != static_cast<std::uint32_t>(physics::ParticleOwnerType::Strand) ||
-        particles.deformableObjectKinds[0] !=
-            static_cast<std::uint32_t>(physics::DeformableObjectKind::Strand) ||
         particles.strandIds[0] != 0u || particles.strandOrders[2] != 2u ||
         particles.strandRoles[1] != static_cast<std::uint32_t>(physics::ParticleStrandRole::None))
     {

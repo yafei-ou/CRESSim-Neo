@@ -77,14 +77,6 @@ enum class ParticleOwnerType : std::uint32_t
     RigidBody = 4u,
 };
 
-enum class DeformableObjectKind : std::uint32_t
-{
-    None      = 0u,
-    SoftBody  = 1u,
-    Strand    = 2u,
-    RigidBody = 3u,
-};
-
 enum class ParticleStrandRole : std::uint32_t
 {
     None       = 0u,
@@ -211,10 +203,10 @@ struct RigidBodyState
     bool kinematicTargetEnabled = false;
     float proxyParticleRadius   = 0.0f;
     ParticleContactMaterialDesc proxyParticleMaterial{};
-    std::uint32_t proxyCollisionLayer = 1u;
-    std::uint32_t proxyCollisionMask  = 0xffffffffu;
-    std::uint32_t proxyParticleOffset = 0u;
-    std::uint32_t proxyParticleCount  = 0u;
+    std::uint32_t proxyCollisionLayer        = 1u;
+    std::uint32_t proxyCollisionMask         = 0xffffffffu;
+    std::uint32_t proxyParticleOffset        = 0u;
+    std::uint32_t proxyParticleCount         = 0u;
     std::uint32_t proxyParticleMaterialIndex = 0u;
     Diligent::float4 proxyParticleContactMaterial{0.0f, 0.0f, 0.0f, 0.0f};
     std::vector<Diligent::float3> proxyParticleLocalPositions;
@@ -352,8 +344,6 @@ struct ParticleSoAHost
     std::vector<std::uint32_t> particleKinds;
     std::vector<std::uint32_t> ownerTypes;
     std::vector<std::uint32_t> ownerIndices;
-    std::vector<std::uint32_t> deformableObjectKinds;
-    std::vector<std::uint32_t> deformableObjectIndices;
     std::vector<std::uint32_t> strandIds;
     std::vector<std::uint32_t> strandOrders;
     std::vector<std::uint32_t> strandRoles;
@@ -388,8 +378,6 @@ struct ParticleSoAHost
         particleKinds.clear();
         ownerTypes.clear();
         ownerIndices.clear();
-        deformableObjectKinds.clear();
-        deformableObjectIndices.clear();
         strandIds.clear();
         strandOrders.clear();
         strandRoles.clear();

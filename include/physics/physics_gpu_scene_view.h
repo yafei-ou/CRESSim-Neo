@@ -27,8 +27,6 @@ struct PhysicsGpuParticleBufferView
     Diligent::IBuffer *particleKindsBuffer                 = nullptr;
     Diligent::IBuffer *ownerTypesBuffer                    = nullptr;
     Diligent::IBuffer *ownerIndicesBuffer                  = nullptr;
-    Diligent::IBuffer *deformableObjectKindsBuffer         = nullptr;
-    Diligent::IBuffer *deformableObjectIndicesBuffer       = nullptr;
     Diligent::IBuffer *strandIdsBuffer                     = nullptr;
     Diligent::IBuffer *strandOrdersBuffer                  = nullptr;
     Diligent::IBuffer *strandRolesBuffer                   = nullptr;

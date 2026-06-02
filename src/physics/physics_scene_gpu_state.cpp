@@ -244,9 +244,9 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const std::uint32_t *sharedQueueFamilyIndices, std::uint32_t sharedQueueFamilyIndexCount,
     bool useNativeFloatAtomics)
 {
-    const auto rigidPositionsBefore     = mPersistentRigidBodies.positionsBuffer.RawPtr();
-    const auto rigidOrientationsBefore  = mPersistentRigidBodies.orientationsBuffer.RawPtr();
-    const auto rigidBodyTypesBefore     = mPersistentRigidBodies.bodyTypesBuffer.RawPtr();
+    const auto rigidPositionsBefore    = mPersistentRigidBodies.positionsBuffer.RawPtr();
+    const auto rigidOrientationsBefore = mPersistentRigidBodies.orientationsBuffer.RawPtr();
+    const auto rigidBodyTypesBefore    = mPersistentRigidBodies.bodyTypesBuffer.RawPtr();
     const auto rigidProxyMaterialsBefore =
         mPersistentRigidBodies.proxyParticleContactMaterialsBuffer.RawPtr();
     const auto colliderOwnersBefore     = mPersistentColliders.ownerRigidBodyIndicesBuffer.RawPtr();
@@ -268,13 +268,13 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.predictedRigidBodies.linearVelocitiesBuffer.RawPtr();
     const auto predictedAngularBefore =
         mTransientState.predictedRigidBodies.angularVelocitiesBuffer.RawPtr();
-    const auto bodyAabbsBefore         = mTransientState.bodyAabbsBuffer.RawPtr();
-    const auto bodyMetaBefore          = mTransientState.bodyMetaBuffer.RawPtr();
-    const auto activeFlagsBefore       = mTransientState.activeBodyFlagsBuffer.RawPtr();
-    const auto activeOffsetsBefore     = mTransientState.activeBodyOffsetsBuffer.RawPtr();
-    const auto staticFlagsBefore       = mTransientState.staticBodyFlagsBuffer.RawPtr();
-    const auto staticOffsetsBefore     = mTransientState.staticBodyOffsetsBuffer.RawPtr();
-    const auto rigidContactsBefore     = mTransientState.rigidContactsBuffer.RawPtr();
+    const auto bodyAabbsBefore             = mTransientState.bodyAabbsBuffer.RawPtr();
+    const auto bodyMetaBefore              = mTransientState.bodyMetaBuffer.RawPtr();
+    const auto activeFlagsBefore           = mTransientState.activeBodyFlagsBuffer.RawPtr();
+    const auto activeOffsetsBefore         = mTransientState.activeBodyOffsetsBuffer.RawPtr();
+    const auto staticFlagsBefore           = mTransientState.staticBodyFlagsBuffer.RawPtr();
+    const auto staticOffsetsBefore         = mTransientState.staticBodyOffsetsBuffer.RawPtr();
+    const auto rigidContactsBefore         = mTransientState.rigidContactsBuffer.RawPtr();
     const auto proxyRigidContactMetaBefore = mTransientState.proxyRigidContactMetaBuffer.RawPtr();
     const auto rigidAggregateMapBefore = mTransientState.rigidBodyPairAggregateMapBuffer.RawPtr();
     const auto rigidAggregateActiveCountBefore =
@@ -354,8 +354,6 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentParticles.particleKindsBuffer != nullptr &&
         mPersistentParticles.ownerTypesBuffer != nullptr &&
         mPersistentParticles.ownerIndicesBuffer != nullptr &&
-        mPersistentParticles.deformableObjectKindsBuffer != nullptr &&
-        mPersistentParticles.deformableObjectIndicesBuffer != nullptr &&
         mPersistentParticles.strandIdsBuffer != nullptr &&
         mPersistentParticles.strandOrdersBuffer != nullptr &&
         mPersistentParticles.strandRolesBuffer != nullptr &&
@@ -656,8 +654,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 newRigidBodyCapacity, Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.bodyTypesBuffer) ||
-        !ensureStructuredBuffer(renderDevice,
-                                "CRESSimNeo.Physics.RigidBodyProxyParticleMaterials",
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidBodyProxyParticleMaterials",
                                 sizeof(Diligent::float4), newRigidBodyCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
@@ -817,16 +814,6 @@ bool PhysicsSceneGpuState::ensureCapacity(
             renderDevice, "CRESSimNeo.Physics.ParticleOwnerIndices", sizeof(std::uint32_t),
             newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
             Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.ownerIndicesBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.DeformableObjectKinds",
-                                sizeof(std::uint32_t), newSoftParticleCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentParticles.deformableObjectKindsBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.DeformableObjectIndices",
-                                sizeof(std::uint32_t), newSoftParticleCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentParticles.deformableObjectIndicesBuffer) ||
         !ensureStructuredBuffer(
             renderDevice, "CRESSimNeo.Physics.ParticleStrandIds", sizeof(std::uint32_t),
             newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -1438,8 +1425,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.proxyRigidContactMetaBuffer) ||
-        !ensureStructuredBuffer(renderDevice,
-                                "CRESSimNeo.Physics.ProxyRigidContactMeta.Readback",
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ProxyRigidContactMeta.Readback",
                                 sizeof(GpuProxyRigidContactMeta), 1u, Diligent::BIND_NONE,
                                 Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
                                 mReadbackRigidBodies.proxyRigidContactMetaBuffer) ||
@@ -1953,9 +1939,9 @@ bool PhysicsSceneGpuState::uploadRigidBodyRange(Diligent::IDeviceContext *comput
                                        rigidBodies.inverseInertiaLocal, begin, count) &&
            updateStructuredBufferRange(computeContext, mPersistentRigidBodies.bodyTypesBuffer,
                                        rigidBodies.bodyTypes, begin, count) &&
-           updateStructuredBufferRange(
-               computeContext, mPersistentRigidBodies.proxyParticleContactMaterialsBuffer,
-               rigidBodies.proxyParticleContactMaterials, begin, count) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentRigidBodies.proxyParticleContactMaterialsBuffer,
+                                       rigidBodies.proxyParticleContactMaterials, begin, count) &&
            updateStructuredBufferRange(computeContext,
                                        mPersistentRigidBodies.kinematicTargetPositionsBuffer,
                                        rigidBodies.kinematicTargetPositions, begin, count) &&
@@ -2348,12 +2334,6 @@ bool PhysicsSceneGpuState::uploadParticles(
                                        particles.ownerTypes, 0u, count) &&
            updateStructuredBufferRange(computeContext, mPersistentParticles.ownerIndicesBuffer,
                                        particles.ownerIndices, 0u, count) &&
-           updateStructuredBufferRange(computeContext,
-                                       mPersistentParticles.deformableObjectKindsBuffer,
-                                       particles.deformableObjectKinds, 0u, count) &&
-           updateStructuredBufferRange(computeContext,
-                                       mPersistentParticles.deformableObjectIndicesBuffer,
-                                       particles.deformableObjectIndices, 0u, count) &&
            updateStructuredBufferRange(computeContext, mPersistentParticles.strandIdsBuffer,
                                        particles.strandIds, 0u, count) &&
            updateStructuredBufferRange(computeContext, mPersistentParticles.strandOrdersBuffer,
@@ -2393,9 +2373,9 @@ bool PhysicsSceneGpuState::uploadParticles(
                computeContext, mPersistentParticles.adjacencyIndicesBuffer,
                particles.adjacencyIndices, 0u,
                static_cast<std::uint32_t>(particles.adjacencyIndices.size())) &&
-           updateStructuredBufferRange(
-               computeContext, mPersistentParticles.rigidProxyLocalPositionsBuffer,
-               particles.rigidProxyLocalPositions, 0u, count) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentParticles.rigidProxyLocalPositionsBuffer,
+                                       particles.rigidProxyLocalPositions, 0u, count) &&
            [&]()
     {
         std::vector<Diligent::uint4> metadata(count);
@@ -2672,8 +2652,8 @@ bool PhysicsSceneGpuState::readbackProxyRigidContactMetaBlocking(
     computeContext->WaitForIdle();
 
     void *mappedMeta = nullptr;
-    computeContext->MapBuffer(mReadbackRigidBodies.proxyRigidContactMetaBuffer,
-                              Diligent::MAP_READ, Diligent::MAP_FLAG_DO_NOT_WAIT, mappedMeta);
+    computeContext->MapBuffer(mReadbackRigidBodies.proxyRigidContactMetaBuffer, Diligent::MAP_READ,
+                              Diligent::MAP_FLAG_DO_NOT_WAIT, mappedMeta);
     if (mappedMeta == nullptr)
     {
         return false;
@@ -3051,13 +3031,9 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.particles.particleKindsBuffer      = mPersistentParticles.particleKindsBuffer;
     view.soft.particles.ownerTypesBuffer         = mPersistentParticles.ownerTypesBuffer;
     view.soft.particles.ownerIndicesBuffer       = mPersistentParticles.ownerIndicesBuffer;
-    view.soft.particles.deformableObjectKindsBuffer =
-        mPersistentParticles.deformableObjectKindsBuffer;
-    view.soft.particles.deformableObjectIndicesBuffer =
-        mPersistentParticles.deformableObjectIndicesBuffer;
-    view.soft.particles.strandIdsBuffer    = mPersistentParticles.strandIdsBuffer;
-    view.soft.particles.strandOrdersBuffer = mPersistentParticles.strandOrdersBuffer;
-    view.soft.particles.strandRolesBuffer  = mPersistentParticles.strandRolesBuffer;
+    view.soft.particles.strandIdsBuffer          = mPersistentParticles.strandIdsBuffer;
+    view.soft.particles.strandOrdersBuffer       = mPersistentParticles.strandOrdersBuffer;
+    view.soft.particles.strandRolesBuffer        = mPersistentParticles.strandRolesBuffer;
     view.soft.particles.owningSoftBodyIndicesBuffer =
         mPersistentParticles.owningSoftBodyIndicesBuffer;
     view.soft.particles.particleMaterialIndicesBuffer =

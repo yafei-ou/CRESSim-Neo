@@ -714,8 +714,8 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
 
     if (index != last)
     {
-        movedProxyParticles = !mRigidBodySnapshot[last].proxyParticleLocalPositions.empty();
-        mRigidBodySnapshot[index]                    = mRigidBodySnapshot[last];
+        movedProxyParticles       = !mRigidBodySnapshot[last].proxyParticleLocalPositions.empty();
+        mRigidBodySnapshot[index] = mRigidBodySnapshot[last];
         mRigidBodies.rigidBodyIds[index]             = mRigidBodies.rigidBodyIds[last];
         mRigidBodies.entityIds[index]                = mRigidBodies.entityIds[last];
         mRigidBodies.positionsInvMass[index]         = mRigidBodies.positionsInvMass[last];
@@ -1908,18 +1908,18 @@ std::uint64_t PhysicsWorld::softGpuTopologyRevision() const noexcept
 void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost &soa, std::uint32_t index,
                                        const RigidBodyState &state)
 {
-    soa.rigidBodyIds[index]                = state.rigidBodyId;
-    soa.entityIds[index]                   = state.entityId;
-    soa.positionsInvMass[index]            = toPositionInvMass(state);
-    soa.orientations[index]                = toOrientation(state);
-    soa.scales[index]                      = toScale(state);
-    soa.linearVelocities[index]            = toLinearVelocity(state);
-    soa.angularVelocities[index]           = toAngularVelocity(state);
-    soa.inverseInertiaLocal[index]         = toInverseInertiaLocal(state);
-    soa.bodyTypes[index]                   = static_cast<std::uint32_t>(state.bodyType);
-    soa.kinematicTargetPositions[index]    = toKinematicTargetPosition(state);
-    soa.kinematicTargetOrientations[index] = toKinematicTargetOrientation(state);
-    soa.kinematicTargetFlags[index]        = state.kinematicTargetEnabled ? 1u : 0u;
+    soa.rigidBodyIds[index]                  = state.rigidBodyId;
+    soa.entityIds[index]                     = state.entityId;
+    soa.positionsInvMass[index]              = toPositionInvMass(state);
+    soa.orientations[index]                  = toOrientation(state);
+    soa.scales[index]                        = toScale(state);
+    soa.linearVelocities[index]              = toLinearVelocity(state);
+    soa.angularVelocities[index]             = toAngularVelocity(state);
+    soa.inverseInertiaLocal[index]           = toInverseInertiaLocal(state);
+    soa.bodyTypes[index]                     = static_cast<std::uint32_t>(state.bodyType);
+    soa.kinematicTargetPositions[index]      = toKinematicTargetPosition(state);
+    soa.kinematicTargetOrientations[index]   = toKinematicTargetOrientation(state);
+    soa.kinematicTargetFlags[index]          = state.kinematicTargetEnabled ? 1u : 0u;
     soa.proxyParticleContactMaterials[index] = state.proxyParticleContactMaterial;
 }
 
@@ -2700,9 +2700,9 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
     {
         RigidBodyState &rigidBody = mRigidBodySnapshot[rigidBodyIndex];
         normalizeRigidBodyState(rigidBody);
-        rigidBody.proxyParticleOffset = static_cast<std::uint32_t>(mParticles.size());
-        rigidBody.proxyParticleCount  = 0u;
-        rigidBody.proxyParticleMaterialIndex = 0u;
+        rigidBody.proxyParticleOffset          = static_cast<std::uint32_t>(mParticles.size());
+        rigidBody.proxyParticleCount           = 0u;
+        rigidBody.proxyParticleMaterialIndex   = 0u;
         rigidBody.proxyParticleContactMaterial = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
         if (rigidBodyIndex < mRigidBodies.proxyParticleContactMaterials.size())
         {
@@ -2737,9 +2737,9 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
 
         for (const Diligent::float3 &localPosition : rigidBody.proxyParticleLocalPositions)
         {
-            const Diligent::float3 scaledLocal{
-                localPosition.x * rigidBody.scale.x, localPosition.y * rigidBody.scale.y,
-                localPosition.z * rigidBody.scale.z};
+            const Diligent::float3 scaledLocal{localPosition.x * rigidBody.scale.x,
+                                               localPosition.y * rigidBody.scale.y,
+                                               localPosition.z * rigidBody.scale.z};
             const Diligent::float3 worldPosition =
                 rigidBody.rotation.RotateVector(scaledLocal) + rigidBody.position;
             mParticles.positionsInvMass.push_back(
@@ -2753,9 +2753,6 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.ownerTypes.push_back(
                 static_cast<std::uint32_t>(ParticleOwnerType::RigidBody));
             mParticles.ownerIndices.push_back(rigidBodyIndex);
-            mParticles.deformableObjectKinds.push_back(
-                static_cast<std::uint32_t>(DeformableObjectKind::RigidBody));
-            mParticles.deformableObjectIndices.push_back(rigidBodyIndex);
             mParticles.strandIds.push_back(0xffffffffu);
             mParticles.strandOrders.push_back(0xffffffffu);
             mParticles.strandRoles.push_back(static_cast<std::uint32_t>(ParticleStrandRole::None));
@@ -2823,9 +2820,6 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.ownerTypes.push_back(
                 static_cast<std::uint32_t>(ParticleOwnerType::SoftBody));
             mParticles.ownerIndices.push_back(softBodyIndex);
-            mParticles.deformableObjectKinds.push_back(
-                static_cast<std::uint32_t>(DeformableObjectKind::SoftBody));
-            mParticles.deformableObjectIndices.push_back(softBodyIndex);
             mParticles.strandIds.push_back(0xffffffffu);
             mParticles.strandOrders.push_back(0xffffffffu);
             mParticles.strandRoles.push_back(static_cast<std::uint32_t>(ParticleStrandRole::None));
@@ -2933,9 +2927,6 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.particleKinds.push_back(static_cast<std::uint32_t>(ParticleKind::SoftSolid));
             mParticles.ownerTypes.push_back(static_cast<std::uint32_t>(ParticleOwnerType::Strand));
             mParticles.ownerIndices.push_back(strandIndex);
-            mParticles.deformableObjectKinds.push_back(
-                static_cast<std::uint32_t>(DeformableObjectKind::Strand));
-            mParticles.deformableObjectIndices.push_back(strandIndex);
             mParticles.strandIds.push_back(strandIndex);
             mParticles.strandOrders.push_back(localParticleIndex);
             mParticles.strandRoles.push_back(static_cast<std::uint32_t>(ParticleStrandRole::None));
@@ -3044,9 +3035,6 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.ownerTypes.push_back(
                 static_cast<std::uint32_t>(ParticleOwnerType::FluidBody));
             mParticles.ownerIndices.push_back(fluidIndex);
-            mParticles.deformableObjectKinds.push_back(
-                static_cast<std::uint32_t>(DeformableObjectKind::None));
-            mParticles.deformableObjectIndices.push_back(0xffffffffu);
             mParticles.strandIds.push_back(0xffffffffu);
             mParticles.strandOrders.push_back(0xffffffffu);
             mParticles.strandRoles.push_back(static_cast<std::uint32_t>(ParticleStrandRole::None));
