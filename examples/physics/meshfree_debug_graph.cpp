@@ -4,9 +4,13 @@
 #include "helpers/example_cli.h"
 #include "helpers/shape_meshes.h"
 #include "helpers/viewer_example.h"
+#include "physics/load_particle_cloud.h"
 #include "viewer/debug_viewer_app.h"
 
+#include <algorithm>
+#include <cstdlib>
 #include <cstdint>
+#include <filesystem>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -28,16 +32,63 @@ using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MaterialHandle;
 using cressim::neo::graphics::MeshHandle;
-using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
+struct MeshfreeDebugOptions
+{
+    CommonExampleOptions common{};
+    bool useCube = false;
+    bool drawConstraintEdges = false;
+    bool vSync = false;
+    std::filesystem::path cloudPath =
+        std::filesystem::path(__FILE__).parent_path() / "fixtures" / "gallbladder_particles.bin";
+    std::uint32_t neighbourCount = 12u;
+    float cloudScale = 0.035f;
+    float particleRadius = 0.035f;
+};
+
+struct ParticleBounds
+{
+    Diligent::float3 min{};
+    Diligent::float3 max{};
+    Diligent::float3 center{};
+    Diligent::float3 extent{};
+};
+
 void printUsage(const char *appName)
 {
-    cressim::neo::examples::helpers::printUsage(appName, "", false);
+    cressim::neo::examples::helpers::printUsage(
+        appName,
+        " [--cube] [--cloud PATH] [--cloud-scale S] [--neighbours N] [--particle-radius R]"
+        " [--draw-edges] [--vsync]",
+        false);
+}
+
+std::uint32_t parsePositiveUint32(const char *value, const char *optionName)
+{
+    char *end = nullptr;
+    const unsigned long parsed = std::strtoul(value, &end, 10);
+    if (end == value || *end != '\0' || parsed == 0ul ||
+        parsed > static_cast<unsigned long>(UINT32_MAX))
+    {
+        throw std::invalid_argument(std::string("Invalid ") + optionName + ": " + value);
+    }
+    return static_cast<std::uint32_t>(parsed);
+}
+
+float parsePositiveFloat(const char *value, const char *optionName)
+{
+    char *end = nullptr;
+    const float parsed = std::strtof(value, &end);
+    if (end == value || *end != '\0' || !(parsed > 0.0f))
+    {
+        throw std::invalid_argument(std::string("Invalid ") + optionName + ": " + value);
+    }
+    return parsed;
 }
 
 MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &resources,
@@ -74,32 +125,76 @@ std::vector<Diligent::float3> makeParticleBlock(std::uint32_t sideCount, float s
     return particles;
 }
 
-MeshResourceDesc makeMeshfreeAnchorMesh(const std::vector<Diligent::float3> &particles)
+ParticleBounds computeParticleBounds(const std::vector<Diligent::float3> &particles)
 {
-    MeshResourceDesc mesh{};
-    mesh.debugName = "MeshfreeDebug.RestParticleAnchorMesh";
-    mesh.vertices.reserve(particles.size());
-    for (const Diligent::float3 &particle : particles)
+    ParticleBounds bounds{};
+    if (particles.empty())
     {
-        MeshResourceDesc::Vertex vertex{};
-        vertex.position = particle;
-        mesh.vertices.push_back(vertex);
+        return bounds;
     }
 
-    return mesh;
+    bounds.min = particles.front();
+    bounds.max = particles.front();
+    for (const Diligent::float3 &particle : particles)
+    {
+        bounds.min.x = std::min(bounds.min.x, particle.x);
+        bounds.min.y = std::min(bounds.min.y, particle.y);
+        bounds.min.z = std::min(bounds.min.z, particle.z);
+        bounds.max.x = std::max(bounds.max.x, particle.x);
+        bounds.max.y = std::max(bounds.max.y, particle.y);
+        bounds.max.z = std::max(bounds.max.z, particle.z);
+    }
+
+    bounds.center = {(bounds.min.x + bounds.max.x) * 0.5f,
+                     (bounds.min.y + bounds.max.y) * 0.5f,
+                     (bounds.min.z + bounds.max.z) * 0.5f};
+    bounds.extent = {bounds.max.x - bounds.min.x, bounds.max.y - bounds.min.y,
+                     bounds.max.z - bounds.min.z};
+    return bounds;
 }
 
-void applyDebugParticleGraphOptions(Runtime &runtime)
+void centerAndScaleParticles(std::vector<Diligent::float3> &particles, const float scale)
+{
+    const ParticleBounds bounds = computeParticleBounds(particles);
+    for (Diligent::float3 &particle : particles)
+    {
+        particle = (particle - bounds.center) * scale;
+    }
+}
+
+std::vector<Diligent::float3> loadConfiguredParticles(const MeshfreeDebugOptions &options)
+{
+    if (options.useCube)
+    {
+        constexpr std::uint32_t kSideCount = 3u;
+        constexpr float kParticleSpacing   = 0.35f;
+        return makeParticleBlock(kSideCount, kParticleSpacing);
+    }
+
+    std::vector<Diligent::float3> particles;
+    std::string errorMessage;
+    if (!cressim::neo::physics::readParticleCloudBin(options.cloudPath, particles, errorMessage))
+    {
+        CRESSIM_LOG_ERROR(errorMessage, "\n");
+        return {};
+    }
+
+    centerAndScaleParticles(particles, options.cloudScale);
+    return particles;
+}
+
+void applyDebugParticleGraphOptions(Runtime &runtime, const bool drawConstraintEdges,
+                                    const float particleRadius)
 {
     cressim::neo::graphics::RenderFrameOptions renderOptions = runtime.renderFrameOptions();
     renderOptions.debugParticles.enabled                  = true;
-    renderOptions.debugParticles.drawConstraintEdges      = true;
+    renderOptions.debugParticles.drawConstraintEdges      = drawConstraintEdges;
     renderOptions.debugParticles.highlightStaticParticles = true;
     renderOptions.debugParticles.useParticleRadii         = true;
     renderOptions.debugParticles.color                    = {0.18f, 0.74f, 1.0f, 1.0f};
     renderOptions.debugParticles.staticColor              = {1.0f, 0.22f, 0.12f, 1.0f};
     renderOptions.debugParticles.edgeColor                = {1.0f, 0.86f, 0.18f, 1.0f};
-    renderOptions.debugParticles.fallbackRadius           = 0.045f;
+    renderOptions.debugParticles.fallbackRadius           = particleRadius;
     runtime.setRenderFrameOptions(renderOptions);
 }
 
@@ -107,14 +202,62 @@ void applyDebugParticleGraphOptions(Runtime &runtime)
 
 int main(int argc, char **argv)
 {
-    CommonExampleOptions options{};
+    MeshfreeDebugOptions options{};
     try
     {
         for (int i = 1; i < argc; ++i)
         {
             if (cressim::neo::examples::helpers::tryParseCommonArgument(
-                    argc, argv, i, options, false))
+                    argc, argv, i, options.common, false))
             {
+                continue;
+            }
+
+            const std::string arg = argv[i];
+            if (arg == "--cube")
+            {
+                options.useCube = true;
+                continue;
+            }
+            if (arg == "--cloud")
+            {
+                options.cloudPath = cressim::neo::examples::helpers::requireOptionValue(
+                    argc, argv, i, "--cloud");
+                options.useCube = false;
+                continue;
+            }
+            if (arg == "--cloud-scale")
+            {
+                options.cloudScale = parsePositiveFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--cloud-scale"),
+                    "--cloud-scale");
+                continue;
+            }
+            if (arg == "--neighbours")
+            {
+                options.neighbourCount = parsePositiveUint32(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--neighbours"),
+                    "--neighbours");
+                continue;
+            }
+            if (arg == "--particle-radius")
+            {
+                options.particleRadius = parsePositiveFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--particle-radius"),
+                    "--particle-radius");
+                continue;
+            }
+            if (arg == "--draw-edges")
+            {
+                options.drawConstraintEdges = true;
+                continue;
+            }
+            if (arg == "--vsync")
+            {
+                options.vSync = true;
                 continue;
             }
 
@@ -129,21 +272,23 @@ int main(int argc, char **argv)
         return 2;
     }
 
-    auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
-    config.physicsDesc.substeps                    = 4u;
+    auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options.common);
+    config.physicsDesc.substeps                    = options.useCube ? 4u : 6u;
     config.physicsDesc.defaultIterations           = 16u;
-    config.physicsDesc.softInternalIterations      = 32u;
-    config.physicsDesc.softContactIterations       = 12u;
+    config.physicsDesc.softInternalIterations      = options.useCube ? 32u : 16u;
+    config.physicsDesc.softContactIterations       = options.useCube ? 12u : 16u;
     config.physicsDesc.rigidRigidContactIterations = 0u;
 
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
-    viewerDefaults.windowTitle = "CRESSim Neo Meshfree Debug Graph";
+    viewerDefaults.windowTitle = options.useCube ? "CRESSim Neo Meshfree Cube Debug Graph"
+                                                 : "CRESSim Neo Gallbladder Particle Cloud";
     viewerDefaults.width       = 960u;
     viewerDefaults.height      = 640u;
     viewerDefaults.showStats   = true;
-    viewerDefaults.vSync       = true;
-    auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
+    viewerDefaults.vSync       = options.vSync;
+    auto viewerDesc =
+        cressim::neo::examples::helpers::makeViewerDesc(options.common, viewerDefaults);
     viewerDesc.enableDebugParticles = true;
 
     if (!viewer.initialize(viewerDesc, config))
@@ -184,12 +329,12 @@ int main(int argc, char **argv)
         cressim::neo::examples::helpers::makePlaneMesh(4.0f, "MeshfreeDebug.GroundMesh"));
     const MaterialHandle groundMaterial =
         registerMaterial(resources, "MeshfreeDebug.Ground", {0.18f, 0.20f, 0.22f}, 0.86f);
-    const MaterialHandle anchorMaterial =
-        registerMaterial(resources, "MeshfreeDebug.Anchor", {0.20f, 0.65f, 0.92f}, 0.62f);
 
+    constexpr float kGroundSurfaceY       = -0.72f;
+    constexpr float kGroundColliderHalfY  = 0.35f;
     const auto groundEntity = world.createEntity();
     TransformComponent groundTransform{};
-    groundTransform.worldTransform.position = {0.0f, -0.72f, 0.0f};
+    groundTransform.worldTransform.position = {0.0f, kGroundSurfaceY, 0.0f};
     world.setTransform(groundEntity, groundTransform);
     world.setMeshRenderer(groundEntity,
                           MeshRendererComponent{groundMesh, groundMaterial, true});
@@ -200,30 +345,38 @@ int main(int argc, char **argv)
     world.setRigidBody(groundEntity, groundBody);
     ColliderComponent groundCollider{};
     groundCollider.shapeType      = ColliderShapeType::Box;
-    groundCollider.shapeParams    = {4.0f, 0.05f, 4.0f, 0.0f};
+    groundCollider.shapeParams    = {4.0f, kGroundColliderHalfY, 4.0f, 0.0f};
+    groundCollider.localPosition  = {0.0f, -kGroundColliderHalfY, 0.0f};
     groundCollider.friction       = 0.55f;
     groundCollider.staticFriction = 0.75f;
     groundCollider.collisionLayer = 0x1u;
     groundCollider.collisionMask  = 0x2u;
     world.addCollider(groundEntity, groundCollider);
 
-    constexpr std::uint32_t kSideCount = 3u;
-    constexpr float kParticleSpacing   = 0.34f;
-    std::vector<Diligent::float3> particles = makeParticleBlock(kSideCount, kParticleSpacing);
-    const MeshHandle anchorMesh = resources.registerMesh(makeMeshfreeAnchorMesh(particles));
+    std::vector<Diligent::float3> particles = loadConfiguredParticles(options);
+    if (particles.empty())
+    {
+        runtime.shutdown();
+        viewer.shutdown();
+        CRESSIM_LOG_ERROR("No meshfree particles were loaded.\n");
+        return 1;
+    }
+    const ParticleBounds particleBounds = computeParticleBounds(particles);
+    CRESSIM_LOG_INFO("Meshfree debug source: ", particles.size(), " particles, bounds min=(",
+                     particleBounds.min.x, ", ", particleBounds.min.y, ", ",
+                     particleBounds.min.z, "), max=(", particleBounds.max.x, ", ",
+                     particleBounds.max.y, ", ", particleBounds.max.z, ").\n");
 
     const auto softEntity = world.createEntity();
     TransformComponent softTransform{};
     softTransform.worldTransform.position = {0.0f, 1.05f, 0.0f};
     world.setTransform(softEntity, softTransform);
-    world.setMeshRenderer(softEntity,
-                          MeshRendererComponent{anchorMesh, anchorMaterial, true});
 
     MeshfreeSoftBodyComponent softBody{};
     softBody.particles                       = std::move(particles);
-    softBody.neighbourCount                  = 12u;
-    softBody.particleRadius                  = 0.06f;
-    softBody.particleMass                    = 0.04f;
+    softBody.neighbourCount                  = options.neighbourCount;
+    softBody.particleRadius                  = options.useCube ? 0.06f : options.particleRadius;
+    softBody.particleMass                    = options.useCube ? 0.04f : 0.0002f;
     softBody.compliance                      = 2.0e-5f;
     softBody.material.contact.friction       = 0.45f;
     softBody.material.contact.staticFriction = 0.60f;
@@ -239,12 +392,24 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    applyDebugParticleGraphOptions(runtime);
+    world.physicsWorld().ensureDerivedStateUpToDate();
+    if (const cressim::neo::physics::SoftBodyState *softState =
+            world.physicsWorld().tryGetSoftBody(softEntity))
+    {
+        CRESSIM_LOG_INFO("Meshfree XPBD graph: ", softState->edgeCount, " distance constraints",
+                         options.drawConstraintEdges ? " (edge debug draw enabled).\n"
+                                                     : " (edge debug draw disabled).\n");
+    }
+
+    applyDebugParticleGraphOptions(runtime, options.drawConstraintEdges,
+                                   options.useCube ? 0.045f : options.particleRadius);
 
     DebugViewerCallbacks callbacks{};
-    callbacks.beforeTick = [](const cressim::neo::common::FrameContext &, Runtime &callbackRuntime)
+    callbacks.beforeTick = [&options](const cressim::neo::common::FrameContext &,
+                                      Runtime &callbackRuntime)
     {
-        applyDebugParticleGraphOptions(callbackRuntime);
+        applyDebugParticleGraphOptions(callbackRuntime, options.drawConstraintEdges,
+                                       options.useCube ? 0.045f : options.particleRadius);
     };
 
     DebugViewerCameraBinding binding{};
