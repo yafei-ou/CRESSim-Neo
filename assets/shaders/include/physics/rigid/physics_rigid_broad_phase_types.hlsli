@@ -59,6 +59,14 @@ struct GpuBroadPhaseMeta
     uint reserved1;
 };
 
+struct GpuProxyRigidContactMeta
+{
+    uint activeContactCount;
+    uint requiredContactCount;
+    uint overflow;
+    uint reserved0;
+};
+
 struct GpuColliderBroadPhaseData
 {
     uint ownerBody;

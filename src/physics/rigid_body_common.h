@@ -35,6 +35,7 @@ static_assert(static_cast<std::uint32_t>(RigidJointDriveMode::TargetVelocity) ==
 static_assert(static_cast<std::uint32_t>(ColliderShapeType::Sphere) == 0u);
 static_assert(static_cast<std::uint32_t>(ColliderShapeType::Box) == 1u);
 static_assert(static_cast<std::uint32_t>(ColliderShapeType::Capsule) == 2u);
+static_assert(static_cast<std::uint32_t>(ParticleOwnerType::RigidBody) == 4u);
 
 enum class GpuRigidPairType : std::uint32_t
 {
@@ -54,7 +55,7 @@ struct GpuRigidDispatchConstants
     std::uint32_t activeMovingCount          = 0;
     std::uint32_t staticBodyCount            = 0;
     std::uint32_t candidatePairCapacity      = 0;
-    std::uint32_t reservedCandidatePairCount = 0;
+    std::uint32_t contactCapacity            = 0;
     std::uint32_t reservedSubstepIndex       = 0;
     std::uint32_t reservedIterationIndex     = 0;
     std::uint32_t reservedSolverIterations   = 0;
@@ -470,6 +471,14 @@ struct GpuBroadPhaseMeta
     std::uint32_t reserved1          = 0;
 };
 
+struct GpuProxyRigidContactMeta
+{
+    std::uint32_t activeContactCount   = 0u;
+    std::uint32_t requiredContactCount = 0u;
+    std::uint32_t overflow             = 0u;
+    std::uint32_t reserved0            = 0u;
+};
+
 struct GpuColliderBroadPhaseData
 {
     std::uint32_t ownerBody        = 0;
@@ -584,6 +593,7 @@ static_assert(sizeof(GpuRigidPairRange) == 16u);
 static_assert(sizeof(GpuNarrowPhaseChunk) == 16u);
 static_assert(sizeof(GpuNarrowPhaseMeta) == 16u);
 static_assert(sizeof(GpuBroadPhaseMeta) == 32u);
+static_assert(sizeof(GpuProxyRigidContactMeta) == 16u);
 static_assert(sizeof(GpuColliderBroadPhaseData) == 32u);
 static_assert(sizeof(GpuColliderGeometryData) == 48u);
 static_assert(sizeof(GpuColliderContactData) == 80u);

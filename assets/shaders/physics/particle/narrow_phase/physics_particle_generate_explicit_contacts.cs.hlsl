@@ -1,8 +1,11 @@
 #include "../../../include/physics/particle/physics_particle_types.hlsli"
+#include "../../../include/physics/rigid/physics_rigid_solver_shared.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float, g_ParticleRadii);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleKinds);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleMaterialIndices);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleContactMaterials);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleCandidatePair, g_ParticleCandidatePairs);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleNeighborMeta, g_ParticleNeighborMeta);
 
@@ -27,6 +30,11 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint particleB = pair.indexB;
     const uint kindA = CRESSIM_SB_LOAD(g_ParticleKinds, particleA);
     const uint kindB = CRESSIM_SB_LOAD(g_ParticleKinds, particleB);
+    const uint materialIndexA = CRESSIM_SB_LOAD(g_ParticleMaterialIndices, particleA);
+    const uint materialIndexB = CRESSIM_SB_LOAD(g_ParticleMaterialIndices, particleB);
+    outContact.material.xyz = CombineContactMaterial(
+        CRESSIM_SB_LOAD(g_ParticleContactMaterials, materialIndexA),
+        CRESSIM_SB_LOAD(g_ParticleContactMaterials, materialIndexB));
     if (kindA == kParticleKindFluid && kindB == kParticleKindFluid)
     {
         CRESSIM_SB_STORE(g_ParticleContacts, pairIndex, outContact);

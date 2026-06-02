@@ -609,11 +609,19 @@ RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
             toKinematicTargetOrientation(normalizedState));
         mRigidBodies.kinematicTargetFlags.push_back(normalizedState.kinematicTargetEnabled ? 1u
                                                                                            : 0u);
+        mRigidBodies.proxyParticleContactMaterials.push_back(
+            normalizedState.proxyParticleContactMaterial);
         markRigidBodyDirty(index);
         markRigidBodyCountDirty();
         mBodyColliderMappingDirty       = true;
         mJointCollisionSuppressionDirty = true;
         mStaticBroadPhaseDirty          = mStaticBroadPhaseDirty || isStaticBody(normalizedState);
+        if (!normalizedState.proxyParticleLocalPositions.empty())
+        {
+            mSoftBodyDerivedStateDirty = true;
+            ++mSoftParticleRevision;
+            ++mSoftGpuTopologyRevision;
+        }
         ++mRigidBodyTopologyRevision;
         ++mAuthoredRevision;
         return mRigidBodySnapshot.back();
@@ -647,6 +655,13 @@ RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
     writeRigidBodySoAAt(mRigidBodies, index, normalizedState);
     mRigidBodySnapshot[index] = normalizedState;
     markRigidBodyDirty(index);
+    if (!previousState.proxyParticleLocalPositions.empty() ||
+        !normalizedState.proxyParticleLocalPositions.empty())
+    {
+        mSoftBodyDerivedStateDirty = true;
+        ++mSoftParticleRevision;
+        ++mSoftGpuTopologyRevision;
+    }
     if (previousState.environmentIndex != normalizedState.environmentIndex)
     {
         auto colliderHandlesIt = mEntityToColliderIds.find(previousState.entityId);
@@ -693,9 +708,13 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     const std::uint32_t last        = static_cast<std::uint32_t>(mRigidBodies.size() - 1u);
     const RigidBodyId removedBodyId = mRigidBodySnapshot[index].rigidBodyId;
     const bool removedStatic        = isStaticBody(mRigidBodySnapshot[index]);
+    const bool removedProxyParticles =
+        !mRigidBodySnapshot[index].proxyParticleLocalPositions.empty();
+    bool movedProxyParticles = false;
 
     if (index != last)
     {
+        movedProxyParticles = !mRigidBodySnapshot[last].proxyParticleLocalPositions.empty();
         mRigidBodySnapshot[index]                    = mRigidBodySnapshot[last];
         mRigidBodies.rigidBodyIds[index]             = mRigidBodies.rigidBodyIds[last];
         mRigidBodies.entityIds[index]                = mRigidBodies.entityIds[last];
@@ -730,11 +749,18 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     mRigidBodies.kinematicTargetPositions.pop_back();
     mRigidBodies.kinematicTargetOrientations.pop_back();
     mRigidBodies.kinematicTargetFlags.pop_back();
+    mRigidBodies.proxyParticleContactMaterials.pop_back();
 
     markRigidBodyCountDirty();
     markColliderCountDirty(true);
     mBodyColliderMappingDirty = true;
     mStaticBroadPhaseDirty    = mStaticBroadPhaseDirty || removedStatic;
+    if (removedProxyParticles || movedProxyParticles)
+    {
+        mSoftBodyDerivedStateDirty = true;
+        ++mSoftParticleRevision;
+        ++mSoftGpuTopologyRevision;
+    }
     pruneRigidJointsForBody(removedBodyId);
     ++mRigidBodyTopologyRevision;
     mRigidJointSceneDirty           = true;
@@ -1894,6 +1920,7 @@ void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost &soa, std::uint32_t inde
     soa.kinematicTargetPositions[index]    = toKinematicTargetPosition(state);
     soa.kinematicTargetOrientations[index] = toKinematicTargetOrientation(state);
     soa.kinematicTargetFlags[index]        = state.kinematicTargetEnabled ? 1u : 0u;
+    soa.proxyParticleContactMaterials[index] = state.proxyParticleContactMaterial;
 }
 
 void PhysicsWorld::writeColliderSoAAt(ColliderSoAHost &soa, std::uint32_t index,
@@ -1997,6 +2024,17 @@ void PhysicsWorld::normalizeRigidBodyState(RigidBodyState &state) noexcept
     {
         state.kinematicTargetPosition = state.position;
         state.kinematicTargetRotation = state.rotation;
+    }
+
+    state.proxyParticleRadius = std::max(state.proxyParticleRadius, 0.0f);
+    normalizeParticleContactMaterial(state.proxyParticleMaterial);
+    if (state.proxyCollisionLayer == 0u)
+    {
+        state.proxyCollisionLayer = 1u;
+    }
+    if (state.proxyParticleLocalPositions.empty())
+    {
+        state.proxyParticleRadius = 0.0f;
     }
 }
 
@@ -2654,6 +2692,86 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
     const std::uint32_t strandPhaseGroupBase = static_cast<std::uint32_t>(mSoftBodySnapshot.size());
     const std::uint32_t fluidPhaseGroupBase =
         strandPhaseGroupBase + static_cast<std::uint32_t>(mStrandSnapshot.size());
+    const std::uint32_t rigidProxyPhaseGroupBase =
+        fluidPhaseGroupBase + static_cast<std::uint32_t>(mFluidSnapshot.size());
+
+    for (std::uint32_t rigidBodyIndex = 0u; rigidBodyIndex < mRigidBodySnapshot.size();
+         ++rigidBodyIndex)
+    {
+        RigidBodyState &rigidBody = mRigidBodySnapshot[rigidBodyIndex];
+        normalizeRigidBodyState(rigidBody);
+        rigidBody.proxyParticleOffset = static_cast<std::uint32_t>(mParticles.size());
+        rigidBody.proxyParticleCount  = 0u;
+        rigidBody.proxyParticleMaterialIndex = 0u;
+        rigidBody.proxyParticleContactMaterial = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
+        if (rigidBodyIndex < mRigidBodies.proxyParticleContactMaterials.size())
+        {
+            if (mRigidBodies.proxyParticleContactMaterials[rigidBodyIndex] !=
+                rigidBody.proxyParticleContactMaterial)
+            {
+                mRigidBodies.proxyParticleContactMaterials[rigidBodyIndex] =
+                    rigidBody.proxyParticleContactMaterial;
+                markRigidBodyDirty(rigidBodyIndex);
+            }
+        }
+
+        if (rigidBody.proxyParticleLocalPositions.empty() || rigidBody.proxyParticleRadius <= 0.0f)
+        {
+            continue;
+        }
+
+        rigidBody.proxyParticleContactMaterial =
+            toParticleContactMaterial(rigidBody.proxyParticleMaterial);
+        rigidBody.proxyParticleMaterialIndex = findOrAppendParticleContactMaterial(
+            mParticleContactMaterials, rigidBody.proxyParticleContactMaterial);
+        if (rigidBodyIndex < mRigidBodies.proxyParticleContactMaterials.size())
+        {
+            if (mRigidBodies.proxyParticleContactMaterials[rigidBodyIndex] !=
+                rigidBody.proxyParticleContactMaterial)
+            {
+                mRigidBodies.proxyParticleContactMaterials[rigidBodyIndex] =
+                    rigidBody.proxyParticleContactMaterial;
+                markRigidBodyDirty(rigidBodyIndex);
+            }
+        }
+
+        for (const Diligent::float3 &localPosition : rigidBody.proxyParticleLocalPositions)
+        {
+            const Diligent::float3 scaledLocal{
+                localPosition.x * rigidBody.scale.x, localPosition.y * rigidBody.scale.y,
+                localPosition.z * rigidBody.scale.z};
+            const Diligent::float3 worldPosition =
+                rigidBody.rotation.RotateVector(scaledLocal) + rigidBody.position;
+            mParticles.positionsInvMass.push_back(
+                Diligent::float4{worldPosition.x, worldPosition.y, worldPosition.z, 0.0f});
+            mParticles.previousPositions.push_back(
+                Diligent::float4{worldPosition.x, worldPosition.y, worldPosition.z, 0.0f});
+            mParticles.velocities.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
+            mParticles.radii.push_back(rigidBody.proxyParticleRadius);
+            mParticles.environmentIndices.push_back(rigidBody.environmentIndex);
+            mParticles.particleKinds.push_back(static_cast<std::uint32_t>(ParticleKind::SoftSolid));
+            mParticles.ownerTypes.push_back(
+                static_cast<std::uint32_t>(ParticleOwnerType::RigidBody));
+            mParticles.ownerIndices.push_back(rigidBodyIndex);
+            mParticles.deformableObjectKinds.push_back(
+                static_cast<std::uint32_t>(DeformableObjectKind::RigidBody));
+            mParticles.deformableObjectIndices.push_back(rigidBodyIndex);
+            mParticles.strandIds.push_back(0xffffffffu);
+            mParticles.strandOrders.push_back(0xffffffffu);
+            mParticles.strandRoles.push_back(static_cast<std::uint32_t>(ParticleStrandRole::None));
+            mParticles.owningSoftBodyIndices.push_back(0xffffffffu);
+            mParticles.particleMaterialIndices.push_back(rigidBody.proxyParticleMaterialIndex);
+            mParticles.fluidMaterialIndices.push_back(0xffffffffu);
+            mParticles.phases.push_back(
+                packParticlePhase(rigidProxyPhaseGroupBase + rigidBodyIndex, false));
+            mParticles.collisionLayers.push_back(rigidBody.proxyCollisionLayer);
+            mParticles.collisionMasks.push_back(rigidBody.proxyCollisionMask);
+            mParticles.rigidProxyLocalPositions.push_back(
+                Diligent::float4{scaledLocal.x, scaledLocal.y, scaledLocal.z, 0.0f});
+            adjacencyLists.emplace_back();
+            ++rigidBody.proxyParticleCount;
+        }
+    }
 
     for (std::uint32_t softBodyIndex = 0u; softBodyIndex < mSoftBodySnapshot.size();
          ++softBodyIndex)
@@ -2718,6 +2836,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
                                                           softBody.selfCollisionEnabled));
             mParticles.collisionLayers.push_back(softBody.collisionLayer);
             mParticles.collisionMasks.push_back(softBody.collisionMask);
+            mParticles.rigidProxyLocalPositions.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
             adjacencyLists.emplace_back();
         }
 
@@ -2827,6 +2946,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
                 packParticlePhase(strandPhaseGroupBase + strandIndex, strand.selfCollisionEnabled));
             mParticles.collisionLayers.push_back(strand.collisionLayer);
             mParticles.collisionMasks.push_back(strand.collisionMask);
+            mParticles.rigidProxyLocalPositions.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
             adjacencyLists.emplace_back();
         }
 
@@ -2936,6 +3056,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.phases.push_back(packParticlePhase(fluidPhaseGroupBase + fluidIndex, true));
             mParticles.collisionLayers.push_back(fluid.collisionLayer);
             mParticles.collisionMasks.push_back(fluid.collisionMask);
+            mParticles.rigidProxyLocalPositions.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
             adjacencyLists.emplace_back();
         }
     }

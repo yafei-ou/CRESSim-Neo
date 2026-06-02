@@ -1001,6 +1001,11 @@ void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent &co
     state.angularVelocity         = component.angularVelocity;
     state.inverseMass             = component.inverseMass;
     state.inverseInertiaLocal     = component.inverseInertiaLocal;
+    state.proxyParticleLocalPositions = component.proxyParticleLocalPositions;
+    state.proxyParticleMaterial       = component.proxyParticleMaterial;
+    state.proxyParticleRadius         = component.proxyParticleRadius;
+    state.proxyCollisionLayer         = component.proxyCollisionLayer;
+    state.proxyCollisionMask          = component.proxyCollisionMask;
     state.bodyType                = component.bodyType;
     state.environmentIndex        = entityEnvironment(entityId);
     state.kinematicTargetPosition = component.kinematicTargetPosition;
@@ -1665,6 +1670,11 @@ std::optional<RigidBodyComponent> World::tryGetRigidBody(common::EntityId entity
     component.angularVelocity         = rb->angularVelocity;
     component.inverseMass             = rb->inverseMass;
     component.inverseInertiaLocal     = rb->inverseInertiaLocal;
+    component.proxyParticleLocalPositions = rb->proxyParticleLocalPositions;
+    component.proxyParticleMaterial       = rb->proxyParticleMaterial;
+    component.proxyParticleRadius         = rb->proxyParticleRadius;
+    component.proxyCollisionLayer         = rb->proxyCollisionLayer;
+    component.proxyCollisionMask          = rb->proxyCollisionMask;
     component.kinematicTargetPosition = rb->kinematicTargetPosition;
     component.kinematicTargetRotation = rb->kinematicTargetRotation;
     component.kinematicTargetEnabled  = rb->kinematicTargetEnabled;

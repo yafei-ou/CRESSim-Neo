@@ -30,6 +30,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> angularVelocitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> inverseInertiaLocalBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyTypesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> proxyParticleContactMaterialsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> kinematicTargetPositionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> kinematicTargetOrientationsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> kinematicTargetFlagsBuffer;
@@ -109,6 +110,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> adjacencyCountsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> adjacencyIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> broadPhaseMetadataBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidProxyLocalPositionsBuffer;
     };
 
     struct PersistentSoftTopologyBuffers
@@ -224,6 +226,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseMetaBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseChunkCounterBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidContactsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> proxyRigidContactMetaBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidBodyPairAggregateMapBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidBodyPairAggregateActiveCountBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidBodyPairAggregateHeadersBuffer;
@@ -245,6 +248,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> linearVelocitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> angularVelocitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> broadPhaseMetaBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> proxyRigidContactMetaBuffer;
     };
 
     struct ParticleReadbackBuffers
@@ -328,6 +332,8 @@ public:
                                                    std::uint32_t bodyCount);
     bool readbackBroadPhaseMetaBlocking(Diligent::IDeviceContext *computeContext,
                                         GpuBroadPhaseMeta &outMeta);
+    bool readbackProxyRigidContactMetaBlocking(Diligent::IDeviceContext *computeContext,
+                                               GpuProxyRigidContactMeta &outMeta);
     bool readbackPredictedRigidStateBlocking(Diligent::IDeviceContext *computeContext,
                                              PhysicsWorld &world, std::uint32_t bodyCount);
     bool readbackPredictedParticleStateBlocking(Diligent::IDeviceContext *computeContext,
@@ -355,6 +361,7 @@ public:
     std::uint32_t sliderPositionDriveJointCount() const noexcept;
     std::uint32_t sliderVelocityDriveJointCount() const noexcept;
     std::uint32_t candidatePairCapacity() const noexcept;
+    std::uint32_t rigidContactCapacity() const noexcept;
     std::uint32_t particleCandidatePairCapacity() const noexcept;
     std::uint32_t fluidBoundaryCandidatePairCapacity() const noexcept;
     std::uint32_t maxFluidNeighborhood() const noexcept;

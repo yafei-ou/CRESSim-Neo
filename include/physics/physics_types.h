@@ -74,14 +74,15 @@ enum class ParticleOwnerType : std::uint32_t
     SoftBody  = 1u,
     FluidBody = 2u,
     Strand    = 3u,
+    RigidBody = 4u,
 };
 
 enum class DeformableObjectKind : std::uint32_t
 {
-    None     = 0u,
-    SoftBody = 1u,
-    Strand   = 2u,
-    Cluster  = 3u,
+    None      = 0u,
+    SoftBody  = 1u,
+    Strand    = 2u,
+    RigidBody = 3u,
 };
 
 enum class ParticleStrandRole : std::uint32_t
@@ -208,6 +209,15 @@ struct RigidBodyState
     Diligent::float3 kinematicTargetPosition{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF kinematicTargetRotation{0.0f, 0.0f, 0.0f, 1.0f};
     bool kinematicTargetEnabled = false;
+    float proxyParticleRadius   = 0.0f;
+    ParticleContactMaterialDesc proxyParticleMaterial{};
+    std::uint32_t proxyCollisionLayer = 1u;
+    std::uint32_t proxyCollisionMask  = 0xffffffffu;
+    std::uint32_t proxyParticleOffset = 0u;
+    std::uint32_t proxyParticleCount  = 0u;
+    std::uint32_t proxyParticleMaterialIndex = 0u;
+    Diligent::float4 proxyParticleContactMaterial{0.0f, 0.0f, 0.0f, 0.0f};
+    std::vector<Diligent::float3> proxyParticleLocalPositions;
 };
 
 struct ColliderState
@@ -356,6 +366,7 @@ struct ParticleSoAHost
     std::vector<std::uint32_t> adjacencyOffsets;
     std::vector<std::uint32_t> adjacencyCounts;
     std::vector<std::uint32_t> adjacencyIndices;
+    std::vector<Diligent::float4> rigidProxyLocalPositions;
 
     std::size_t size() const noexcept
     {
@@ -391,6 +402,7 @@ struct ParticleSoAHost
         adjacencyOffsets.clear();
         adjacencyCounts.clear();
         adjacencyIndices.clear();
+        rigidProxyLocalPositions.clear();
     }
 };
 
@@ -408,6 +420,7 @@ struct RigidBodySoAHost
     std::vector<Diligent::float4> kinematicTargetPositions;
     std::vector<Diligent::float4> kinematicTargetOrientations;
     std::vector<std::uint32_t> kinematicTargetFlags;
+    std::vector<Diligent::float4> proxyParticleContactMaterials;
 
     std::size_t size() const noexcept
     {
@@ -433,6 +446,7 @@ struct RigidBodySoAHost
         kinematicTargetPositions.clear();
         kinematicTargetOrientations.clear();
         kinematicTargetFlags.clear();
+        proxyParticleContactMaterials.clear();
     }
 };
 

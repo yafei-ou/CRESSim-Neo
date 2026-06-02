@@ -34,6 +34,10 @@ public:
     bool predictSoft(Diligent::IDeviceContext *computeContext,
                      const PhysicsSceneGpuState &sceneState, std::uint32_t particleCount,
                      const GpuParticleDispatchConstants &constants);
+    bool syncRigidProxyParticles(Diligent::IDeviceContext *computeContext,
+                                 const PhysicsSceneGpuState &sceneState,
+                                 std::uint32_t particleCount,
+                                 const GpuParticleDispatchConstants &constants);
     bool buildParticleBroadPhaseEntries(Diligent::IDeviceContext *computeContext,
                                         const PhysicsSceneGpuState &sceneState,
                                         std::uint32_t totalParticleLikeCount,
@@ -151,7 +155,10 @@ public:
                                     const GpuParticleDispatchConstants &constants);
     bool solveParticleContactVelocities(Diligent::IDeviceContext *computeContext,
                                         const PhysicsSceneGpuState &sceneState,
-                                        std::uint32_t particleCount, std::uint32_t iterations);
+                                        std::uint32_t particleCount,
+                                        std::uint32_t rigidBodyCount,
+                                        std::uint32_t iterations,
+                                        const GpuRigidDispatchConstants &rigidConstants);
     bool solveParticleRigidContactVelocities(Diligent::IDeviceContext *computeContext,
                                              const PhysicsSceneGpuState &sceneState,
                                              std::uint32_t particleCount,
@@ -192,6 +199,9 @@ public:
                                      const PhysicsSceneGpuState &sceneState);
     bool generateRigidContacts(Diligent::IDeviceContext *computeContext,
                                const PhysicsSceneGpuState &sceneState);
+    bool generateProxyRigidContacts(Diligent::IDeviceContext *computeContext,
+                                    const PhysicsSceneGpuState &sceneState,
+                                    const GpuParticleDispatchConstants &constants);
     bool finalRigidContactDepenetration(Diligent::IDeviceContext *computeContext,
                                         const PhysicsSceneGpuState &sceneState);
     bool solveBallJointConstraints(Diligent::IDeviceContext *computeContext,
@@ -280,6 +290,9 @@ private:
                                    const PhysicsSceneGpuState &sceneState, std::uint32_t count);
     bool dispatchGenerateRigidContactsPass(Diligent::IDeviceContext *computeContext,
                                            const PhysicsSceneGpuState &sceneState);
+    bool dispatchGenerateProxyRigidContactsPass(Diligent::IDeviceContext *computeContext,
+                                                const PhysicsSceneGpuState &sceneState,
+                                                const GpuParticleDispatchConstants &constants);
     bool dispatchFinalRigidContactDepenetrationPass(Diligent::IDeviceContext *computeContext,
                                                     const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveBallJointConstraintsPass(Diligent::IDeviceContext *computeContext,
@@ -327,6 +340,7 @@ private:
 
     gpu::GpuComputePass mRigidPredictPass;
     gpu::GpuComputePass mSoftPredictPass;
+    gpu::GpuComputePass mSyncRigidProxyParticlesPass;
     gpu::GpuComputePass mBuildParticleBroadPhaseEntriesPass;
     gpu::GpuComputePass mBuildParticleBroadPhaseKeysPass;
     gpu::GpuComputePass mMarkParticleCellRangeStartsPass;
@@ -398,6 +412,7 @@ private:
     gpu::GpuComputePass mBuildNarrowPhaseChunksPass;
     gpu::GpuComputePass mPrepareRigidIndirectArgsPass;
     gpu::GpuComputePass mGenerateRigidContactsPass;
+    gpu::GpuComputePass mGenerateProxyRigidContactsPass;
     gpu::GpuComputePass mClearRigidCorrectionsPass;
     gpu::GpuComputePass mFinalRigidContactDepenetrationPass;
     gpu::GpuComputePass mClearRigidBodyPairContactAggregatesPass;
