@@ -43,12 +43,21 @@ struct MeshfreeDebugOptions
     CommonExampleOptions common{};
     bool useCube = false;
     bool drawConstraintEdges = false;
+    bool pinToGround = true;
     bool vSync = false;
     std::filesystem::path cloudPath =
         std::filesystem::path(__FILE__).parent_path() / "fixtures" / "gallbladder_particles.bin";
     std::uint32_t neighbourCount = 12u;
+    std::uint32_t substeps = 0u;
+    std::uint32_t softInternalIterations = 0u;
+    std::uint32_t softContactIterations = 0u;
     float cloudScale = 0.035f;
     float particleRadius = 0.035f;
+    float particleMass = 0.0f;
+    float compliance = -1.0f;
+    float damping = -1.0f;
+    float pinBand = 0.01f;
+    Diligent::float3 rotationDegrees{0.0f, 0.0f, 0.0f};
 };
 
 struct ParticleBounds
@@ -64,8 +73,22 @@ void printUsage(const char *appName)
     cressim::neo::examples::helpers::printUsage(
         appName,
         " [--cube] [--cloud PATH] [--cloud-scale S] [--neighbours N] [--particle-radius R]"
+        " [--particle-mass M] [--compliance C] [--damping D] [--substeps N]"
+        " [--soft-iterations N] [--contact-iterations N] [--rotation-degrees X Y Z]"
+        " [--rotate-x DEG] [--rotate-y DEG] [--rotate-z DEG] [--pin-band B] [--drop]"
         " [--draw-edges] [--vsync]",
         false);
+}
+
+float parseFloat(const char *value, const char *optionName)
+{
+    char *end = nullptr;
+    const float parsed = std::strtof(value, &end);
+    if (end == value || *end != '\0')
+    {
+        throw std::invalid_argument(std::string("Invalid ") + optionName + ": " + value);
+    }
+    return parsed;
 }
 
 std::uint32_t parsePositiveUint32(const char *value, const char *optionName)
@@ -85,6 +108,46 @@ float parsePositiveFloat(const char *value, const char *optionName)
     char *end = nullptr;
     const float parsed = std::strtof(value, &end);
     if (end == value || *end != '\0' || !(parsed > 0.0f))
+    {
+        throw std::invalid_argument(std::string("Invalid ") + optionName + ": " + value);
+    }
+    return parsed;
+}
+
+Diligent::float3 parseFloat3(int argc, char **argv, int &index, const char *optionName)
+{
+    const float x = parseFloat(
+        cressim::neo::examples::helpers::requireOptionValue(argc, argv, index, optionName),
+        optionName);
+    const float y = parseFloat(
+        cressim::neo::examples::helpers::requireOptionValue(argc, argv, index, optionName),
+        optionName);
+    const float z = parseFloat(
+        cressim::neo::examples::helpers::requireOptionValue(argc, argv, index, optionName),
+        optionName);
+    return {x, y, z};
+}
+
+Diligent::QuaternionF makeEulerRotationDegrees(const Diligent::float3 &degrees)
+{
+    const float radiansPerDegree = Diligent::PI_F / 180.0f;
+    const Diligent::QuaternionF rotationX =
+        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f},
+                                                     degrees.x * radiansPerDegree);
+    const Diligent::QuaternionF rotationY =
+        Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 1.0f, 0.0f},
+                                                     degrees.y * radiansPerDegree);
+    const Diligent::QuaternionF rotationZ =
+        Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 0.0f, 1.0f},
+                                                     degrees.z * radiansPerDegree);
+    return rotationZ * rotationY * rotationX;
+}
+
+float parseNonNegativeFloat(const char *value, const char *optionName)
+{
+    char *end = nullptr;
+    const float parsed = std::strtof(value, &end);
+    if (end == value || *end != '\0' || parsed < 0.0f)
     {
         throw std::invalid_argument(std::string("Invalid ") + optionName + ": " + value);
     }
@@ -160,6 +223,57 @@ void centerAndScaleParticles(std::vector<Diligent::float3> &particles, const flo
     {
         particle = (particle - bounds.center) * scale;
     }
+}
+
+ParticleBounds computeRotatedParticleBounds(const std::vector<Diligent::float3> &particles,
+                                            const Diligent::QuaternionF &rotation)
+{
+    ParticleBounds bounds{};
+    if (particles.empty())
+    {
+        return bounds;
+    }
+
+    std::vector<Diligent::float3> rotatedParticles;
+    rotatedParticles.reserve(particles.size());
+    for (const Diligent::float3 &particle : particles)
+    {
+        rotatedParticles.push_back(rotation.RotateVector(particle));
+    }
+    return computeParticleBounds(rotatedParticles);
+}
+
+std::vector<std::uint32_t> selectGroundPinParticles(
+    const std::vector<Diligent::float3> &particles, const Diligent::QuaternionF &rotation,
+    const float pinBand)
+{
+    std::vector<std::uint32_t> staticParticleIndices;
+    if (particles.empty())
+    {
+        return staticParticleIndices;
+    }
+
+    float minY = rotation.RotateVector(particles.front()).y;
+    for (const Diligent::float3 &particle : particles)
+    {
+        minY = std::min(minY, rotation.RotateVector(particle).y);
+    }
+
+    const float maxPinnedY = minY + std::max(pinBand, 0.0f);
+    for (std::uint32_t particleIndex = 0u;
+         particleIndex < static_cast<std::uint32_t>(particles.size()); ++particleIndex)
+    {
+        if (rotation.RotateVector(particles[particleIndex]).y <= maxPinnedY)
+        {
+            staticParticleIndices.push_back(particleIndex);
+        }
+    }
+
+    if (staticParticleIndices.empty())
+    {
+        staticParticleIndices.push_back(0u);
+    }
+    return staticParticleIndices;
 }
 
 std::vector<Diligent::float3> loadConfiguredParticles(const MeshfreeDebugOptions &options)
@@ -250,6 +364,101 @@ int main(int argc, char **argv)
                     "--particle-radius");
                 continue;
             }
+            if (arg == "--particle-mass")
+            {
+                options.particleMass = parsePositiveFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--particle-mass"),
+                    "--particle-mass");
+                continue;
+            }
+            if (arg == "--compliance")
+            {
+                options.compliance = parseNonNegativeFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--compliance"),
+                    "--compliance");
+                continue;
+            }
+            if (arg == "--damping")
+            {
+                options.damping = parseNonNegativeFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--damping"),
+                    "--damping");
+                continue;
+            }
+            if (arg == "--substeps")
+            {
+                options.substeps = parsePositiveUint32(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--substeps"),
+                    "--substeps");
+                continue;
+            }
+            if (arg == "--soft-iterations")
+            {
+                options.softInternalIterations = parsePositiveUint32(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--soft-iterations"),
+                    "--soft-iterations");
+                continue;
+            }
+            if (arg == "--contact-iterations")
+            {
+                options.softContactIterations = parsePositiveUint32(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--contact-iterations"),
+                    "--contact-iterations");
+                continue;
+            }
+            if (arg == "--rotation-degrees")
+            {
+                options.rotationDegrees = parseFloat3(argc, argv, i, "--rotation-degrees");
+                continue;
+            }
+            if (arg == "--rotate-x")
+            {
+                options.rotationDegrees.x = parseFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--rotate-x"),
+                    "--rotate-x");
+                continue;
+            }
+            if (arg == "--rotate-y")
+            {
+                options.rotationDegrees.y = parseFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--rotate-y"),
+                    "--rotate-y");
+                continue;
+            }
+            if (arg == "--rotate-z")
+            {
+                options.rotationDegrees.z = parseFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--rotate-z"),
+                    "--rotate-z");
+                continue;
+            }
+            if (arg == "--pin-band")
+            {
+                options.pinBand = parsePositiveFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--pin-band"),
+                    "--pin-band");
+                continue;
+            }
+            if (arg == "--pin-to-ground")
+            {
+                options.pinToGround = true;
+                continue;
+            }
+            if (arg == "--drop")
+            {
+                options.pinToGround = false;
+                continue;
+            }
             if (arg == "--draw-edges")
             {
                 options.drawConstraintEdges = true;
@@ -275,16 +484,28 @@ int main(int argc, char **argv)
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options.common);
     config.physicsDesc.substeps                    = options.useCube ? 4u : 6u;
     config.physicsDesc.defaultIterations           = 16u;
-    config.physicsDesc.softInternalIterations      = options.useCube ? 32u : 16u;
-    config.physicsDesc.softContactIterations       = options.useCube ? 12u : 16u;
+    config.physicsDesc.softInternalIterations      = options.useCube ? 32u : 96u;
+    config.physicsDesc.softContactIterations       = options.useCube ? 12u : 48u;
     config.physicsDesc.rigidRigidContactIterations = 0u;
+    if (options.substeps != 0u)
+    {
+        config.physicsDesc.substeps = options.substeps;
+    }
+    if (options.softInternalIterations != 0u)
+    {
+        config.physicsDesc.softInternalIterations = options.softInternalIterations;
+    }
+    if (options.softContactIterations != 0u)
+    {
+        config.physicsDesc.softContactIterations = options.softContactIterations;
+    }
 
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
     viewerDefaults.windowTitle = options.useCube ? "CRESSim Neo Meshfree Cube Debug Graph"
                                                  : "CRESSim Neo Gallbladder Particle Cloud";
-    viewerDefaults.width       = 960u;
-    viewerDefaults.height      = 640u;
+    viewerDefaults.width       = 1920u;
+    viewerDefaults.height      = 1080u;
     viewerDefaults.showStats   = true;
     viewerDefaults.vSync       = options.vSync;
     auto viewerDesc =
@@ -367,20 +588,40 @@ int main(int argc, char **argv)
                      particleBounds.min.z, "), max=(", particleBounds.max.x, ", ",
                      particleBounds.max.y, ", ", particleBounds.max.z, ").\n");
 
+    const float configuredParticleRadius = options.useCube ? 0.06f : options.particleRadius;
+    const Diligent::QuaternionF softRotation = makeEulerRotationDegrees(options.rotationDegrees);
+    const ParticleBounds rotatedParticleBounds =
+        computeRotatedParticleBounds(particles, softRotation);
+    const float groundParticleCenterY = kGroundSurfaceY + configuredParticleRadius;
+    const float initialSoftY =
+        options.pinToGround ? groundParticleCenterY - rotatedParticleBounds.min.y : 1.05f;
+
     const auto softEntity = world.createEntity();
     TransformComponent softTransform{};
-    softTransform.worldTransform.position = {0.0f, 1.05f, 0.0f};
+    softTransform.worldTransform.position = {0.0f, initialSoftY, 0.0f};
+    softTransform.worldTransform.rotation = softRotation;
     world.setTransform(softEntity, softTransform);
 
     MeshfreeSoftBodyComponent softBody{};
     softBody.particles                       = std::move(particles);
+    if (options.pinToGround)
+    {
+        softBody.staticParticleIndices =
+            selectGroundPinParticles(softBody.particles, softRotation, options.pinBand);
+    }
     softBody.neighbourCount                  = options.neighbourCount;
-    softBody.particleRadius                  = options.useCube ? 0.06f : options.particleRadius;
-    softBody.particleMass                    = options.useCube ? 0.04f : 0.0002f;
-    softBody.compliance                      = 2.0e-5f;
+    softBody.particleRadius                  = configuredParticleRadius;
+    softBody.particleMass                    = options.particleMass > 0.0f
+                                                   ? options.particleMass
+                                                   : (options.useCube ? 0.04f : 0.0002f);
+    softBody.compliance                      = options.compliance >= 0.0f
+                                                   ? options.compliance
+                                                   : (options.useCube ? 2.0e-5f : 5.0e-3f);
     softBody.material.contact.friction       = 0.45f;
     softBody.material.contact.staticFriction = 0.60f;
-    softBody.material.contact.damping        = 0.60f;
+    softBody.material.contact.damping        = options.damping >= 0.0f
+                                                   ? options.damping
+                                                   : (options.useCube ? 0.60f : 6.00f);
     softBody.selfCollisionEnabled            = false;
     softBody.collisionLayer                  = 0x2u;
     softBody.collisionMask                   = 0x1u;
@@ -396,9 +637,29 @@ int main(int argc, char **argv)
     if (const cressim::neo::physics::SoftBodyState *softState =
             world.physicsWorld().tryGetSoftBody(softEntity))
     {
+        const float averageDegree =
+            softState->particleCount > 0u
+                ? (2.0f * static_cast<float>(softState->edgeCount)) /
+                      static_cast<float>(softState->particleCount)
+                : 0.0f;
         CRESSIM_LOG_INFO("Meshfree XPBD graph: ", softState->edgeCount, " distance constraints",
                          options.drawConstraintEdges ? " (edge debug draw enabled).\n"
                                                      : " (edge debug draw disabled).\n");
+        CRESSIM_LOG_INFO("Meshfree XPBD tuning: neighbours=", softBody.neighbourCount,
+                         ", average degree=", averageDegree,
+                         ", substeps=", config.physicsDesc.substeps,
+                         ", soft iterations=", config.physicsDesc.softInternalIterations,
+                         ", contact iterations=", config.physicsDesc.softContactIterations,
+                         ", compliance=", softBody.compliance,
+                         ", damping=", softBody.material.contact.damping,
+                         ", particle mass=", softBody.particleMass,
+                         ", rotation degrees=(", options.rotationDegrees.x, ", ",
+                         options.rotationDegrees.y, ", ", options.rotationDegrees.z, ").\n");
+        CRESSIM_LOG_INFO("Meshfree XPBD pinning: ",
+                         options.pinToGround ? "enabled" : "disabled",
+                         ", static particles=", softBody.staticParticleIndices.size(),
+                         ", pin band=", options.pinBand,
+                         ", initial center y=", initialSoftY, ".\n");
     }
 
     applyDebugParticleGraphOptions(runtime, options.drawConstraintEdges,
