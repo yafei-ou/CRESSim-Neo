@@ -1076,6 +1076,7 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
     state.volumeCompliance     = component.volumeCompliance;
     state.simulated            = component.simulated;
     state.selfCollisionEnabled = component.selfCollisionEnabled;
+    state.supportsSuturing     = component.supportsSuturing;
     state.collisionLayer       = component.collisionLayer;
     state.collisionMask        = component.collisionMask;
 
@@ -1140,6 +1141,10 @@ bool World::setStrand(common::EntityId entityId, const StrandComponent &componen
     state.bendCompliance        = component.bendCompliance;
     state.simulated             = component.simulated;
     state.selfCollisionEnabled  = component.selfCollisionEnabled;
+    state.suturingEnabled       = component.suturingEnabled;
+    state.needleTipParticleIndex = component.needleTipParticleIndex;
+    state.needleTipKinematic    = component.needleTipKinematic;
+    state.pathNodeSpacing       = component.pathNodeSpacing;
     state.collisionLayer        = component.collisionLayer;
     state.collisionMask         = component.collisionMask;
 
@@ -1698,6 +1703,7 @@ std::optional<SoftBodyComponent> World::tryGetSoftBody(common::EntityId entityId
     component.volumeCompliance     = softBody->volumeCompliance;
     component.simulated            = softBody->simulated;
     component.selfCollisionEnabled = softBody->selfCollisionEnabled;
+    component.supportsSuturing     = softBody->supportsSuturing;
     component.collisionLayer       = softBody->collisionLayer;
     component.collisionMask        = softBody->collisionMask;
     return component;
@@ -1721,6 +1727,10 @@ std::optional<StrandComponent> World::tryGetStrand(common::EntityId entityId) co
     component.bendCompliance        = strand->bendCompliance;
     component.simulated             = strand->simulated;
     component.selfCollisionEnabled  = strand->selfCollisionEnabled;
+    component.suturingEnabled       = strand->suturingEnabled;
+    component.needleTipParticleIndex = strand->needleTipParticleIndex;
+    component.needleTipKinematic    = strand->needleTipKinematic;
+    component.pathNodeSpacing       = strand->pathNodeSpacing;
     component.collisionLayer        = strand->collisionLayer;
     component.collisionMask         = strand->collisionMask;
     return component;

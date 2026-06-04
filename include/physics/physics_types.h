@@ -85,6 +85,21 @@ enum class ParticleStrandRole : std::uint32_t
     Thread     = 3u,
 };
 
+enum class StrandInsertionState : std::uint32_t
+{
+    Outside = 0u,
+    Inside  = 1u,
+};
+
+struct SuturingPathNode
+{
+    std::uint32_t softBodyIndex = 0xffffffffu;
+    std::uint32_t tetIndex      = 0xffffffffu;
+    Diligent::float4 barycentrics{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float3 tangent{0.0f, 0.0f, 0.0f};
+    float arcLength = 0.0f;
+};
+
 struct SoftBodyRegularGridSource
 {
     Diligent::float3 size{1.0f, 1.0f, 1.0f};
@@ -235,6 +250,7 @@ struct SoftBodyState
     std::uint32_t environmentIndex = 0u;
     std::uint32_t collisionLayer   = 1u;
     std::uint32_t collisionMask    = 0xffffffffu;
+    bool supportsSuturing          = false;
     SoftBodySourceDesc source{};
     SoftBodyMaterialDesc material{};
     common::Transform restTransform{};
@@ -261,6 +277,10 @@ struct StrandState
     std::uint32_t environmentIndex = 0u;
     std::uint32_t collisionLayer   = 1u;
     std::uint32_t collisionMask    = 0xffffffffu;
+    bool suturingEnabled           = false;
+    std::uint32_t needleTipParticleIndex = 0u;
+    bool needleTipKinematic             = true;
+    float pathNodeSpacing = 0.2f;
     StrandMaterialDesc material{};
     float particleMass                 = 1.0f;
     float particleRadius               = 0.125f;

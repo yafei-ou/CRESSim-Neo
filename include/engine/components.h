@@ -148,6 +148,7 @@ struct SoftBodyComponent
     float volumeCompliance       = 0.001f;
     bool simulated               = true;
     bool selfCollisionEnabled    = false;
+    bool supportsSuturing        = false;
     std::uint32_t collisionLayer = 1u;
     std::uint32_t collisionMask  = 0xffffffffu;
 };
@@ -163,6 +164,10 @@ struct StrandComponent
     float bendCompliance         = 0.0f;
     bool simulated               = true;
     bool selfCollisionEnabled    = false;
+    bool suturingEnabled         = false;
+    std::uint32_t needleTipParticleIndex = 0u;
+    bool needleTipKinematic      = true;
+    float pathNodeSpacing        = 0.2f;
     std::uint32_t collisionLayer = 1u;
     std::uint32_t collisionMask  = 0xffffffffu;
 };

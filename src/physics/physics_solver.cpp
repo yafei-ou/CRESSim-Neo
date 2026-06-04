@@ -895,6 +895,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         CRESSIM_LOG_ERROR("PhysicsSolver::step failed: readbackPredictedParticleStateBlocking.");
         return false;
     }
+    world.runCpuSuturingPostProcess();
 
     return true;
 }

@@ -107,6 +107,10 @@ public:
                                          const Diligent::float4 &positionInvMass,
                                          const Diligent::float4 &previousPosition,
                                          const Diligent::float4 &velocity) noexcept;
+    bool overrideStrandParticlePosition(common::EntityId entityId, std::uint32_t localParticleIndex,
+                                        const Diligent::float3 &position,
+                                        bool updatePreviousPosition = true) noexcept;
+    void runCpuSuturingPostProcess() noexcept;
     void finalizeParticleWriteback() noexcept;
 
     std::uint64_t authoredRevision() const noexcept;
@@ -126,6 +130,12 @@ private:
         TopologyRebuild,
     };
 
+    enum class StrandChangeKind
+    {
+        RuntimePropertiesOnly,
+        TopologyRebuild,
+    };
+
     enum class RigidJointChangeKind
     {
         PayloadOnly,
@@ -140,6 +150,7 @@ private:
         std::vector<std::array<std::uint32_t, 4>> tets;
         std::vector<Diligent::uint3> boundaryFaces;
         std::vector<std::vector<std::uint32_t>> adjacencyLists;
+        std::vector<std::vector<std::uint32_t>> incidentTetLists;
         std::vector<std::uint32_t> staticParticleIndices;
     };
 
@@ -155,6 +166,24 @@ private:
         std::vector<std::array<std::uint32_t, 3>> bends;
         std::vector<std::vector<std::uint32_t>> adjacencyLists;
         std::vector<std::uint32_t> staticParticleIndices;
+    };
+
+    struct StrandParticleInsertionState
+    {
+        StrandInsertionState state       = StrandInsertionState::Outside;
+        StrandInsertionState previous    = StrandInsertionState::Outside;
+        std::uint32_t softBodyIndex      = 0xffffffffu;
+        std::uint32_t tetIndex           = 0xffffffffu;
+        Diligent::float4 barycentrics{0.0f, 0.0f, 0.0f, 0.0f};
+        std::uint32_t nearestPathNode    = 0xffffffffu;
+    };
+
+    struct StrandSuturingState
+    {
+        std::vector<StrandParticleInsertionState> particleStates;
+        std::vector<SuturingPathNode> pathNodes;
+        bool pathActive              = false;
+        std::uint32_t activeSoftBody = 0xffffffffu;
     };
 
     static void writeRigidBodySoAAt(RigidBodySoAHost &soa, std::uint32_t index,
@@ -196,6 +225,8 @@ private:
                                             const FluidState *previousState) const noexcept;
     static SoftBodyChangeKind classifySoftBodyChange(const SoftBodyState &previousState,
                                                      const SoftBodyState &candidate) noexcept;
+    static StrandChangeKind classifyStrandChange(const StrandState &previousState,
+                                                 const StrandState &candidate) noexcept;
     static RigidJointChangeKind classifyBallJointChange(bool inserted) noexcept;
     static RigidJointChangeKind classifyHingeJointChange(const HingeJointState &previousState,
                                                          const HingeJointState &candidate,
@@ -206,6 +237,8 @@ private:
     void applyRigidJointChange(RigidJointChangeKind changeKind) noexcept;
     void applySoftBodyRuntimeProperties(std::uint32_t index,
                                         const SoftBodyState &normalizedState) noexcept;
+    void applyStrandRuntimeProperties(std::uint32_t index,
+                                      const StrandState &normalizedState) noexcept;
     void recomputeParticleGridCellSize() noexcept;
     void recomputeSoftBodyBoundsChunkCount() noexcept;
     bool prepareSoftBodyStateForInsert(const SoftBodyState &candidate,
@@ -215,6 +248,10 @@ private:
                                      StrandDerivedCache &derivedCache) noexcept;
     bool prepareFluidStateForInsert(const FluidState &candidate,
                                     FluidDerivedCache &derivedCache) noexcept;
+    bool classifyPointInTet(std::uint32_t tetIndex, const Diligent::float3 &point,
+                            Diligent::float4 &outBarycentrics) const noexcept;
+    Diligent::float3 evaluatePathNodeWorldPosition(const SuturingPathNode &node) const noexcept;
+    void updateSuturingPathTangents(StrandSuturingState &state) noexcept;
 
     struct TetGenMeshCache
     {
@@ -250,6 +287,7 @@ private:
     std::vector<SoftBodyDerivedCache> mSoftBodyDerivedCaches{};
     std::vector<StrandDerivedCache> mStrandDerivedCaches{};
     std::vector<FluidDerivedCache> mFluidDerivedCaches{};
+    std::vector<StrandSuturingState> mStrandSuturingStates{};
     ParticleSoAHost mParticles{};
     std::vector<Diligent::float4> mParticleContactMaterials{};
     std::vector<FluidMaterialGpu> mFluidMaterials{};

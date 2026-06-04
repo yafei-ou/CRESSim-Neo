@@ -51,6 +51,11 @@ add_cressim_example(
 )
 
 add_cressim_example(
+    NAME physics_strand_suturing_path_follow
+    SOURCE strand_suturing_path_follow.cpp
+)
+
+add_cressim_example(
     NAME physics_soft_particles_toroid_multi_env
     SOURCE soft_particles_toroid_multi_env.cpp
 )
