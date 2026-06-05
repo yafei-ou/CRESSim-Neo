@@ -119,7 +119,6 @@ public:
     bool overrideStrandParticlePosition(common::EntityId entityId, std::uint32_t localParticleIndex,
                                         const Diligent::float3 &position,
                                         bool updatePreviousPosition = true) noexcept;
-    void runCpuSuturingPostProcess() noexcept;
     void finalizeParticleWriteback() noexcept;
 
     std::uint64_t authoredRevision() const noexcept;
@@ -257,11 +256,6 @@ private:
                                      StrandDerivedCache &derivedCache) noexcept;
     bool prepareFluidStateForInsert(const FluidState &candidate,
                                     FluidDerivedCache &derivedCache) noexcept;
-    bool classifyPointInTet(std::uint32_t tetIndex, const Diligent::float3 &point,
-                            Diligent::float4 &outBarycentrics) const noexcept;
-    Diligent::float3 evaluatePathNodeWorldPosition(const SuturingPathNode &node) const noexcept;
-    void updateSuturingPathTangents(StrandSuturingState &state) noexcept;
-
     struct TetGenMeshCache
     {
         std::string nodeFile;
