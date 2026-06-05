@@ -134,6 +134,14 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyWorldAabbsBuffer;
     };
 
+    struct PersistentSuturingBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> pairsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> insertionStatesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> pathHeadersBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> pathNodesBuffer;
+    };
+
     struct PreviousRigidBodyBuffers
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsBuffer;
@@ -321,7 +329,11 @@ public:
                         std::uint32_t sliderJointCount, std::uint32_t softRenderVertexCount,
                         std::uint32_t softRenderTriangleIndexCount,
                         std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
-                        std::uint32_t softBodyBoundsChunkCount, Diligent::Uint64 sharedContextMask,
+                        std::uint32_t softBodyBoundsChunkCount,
+                        std::uint32_t suturingPairCount,
+                        std::uint32_t suturingPathHeaderCount,
+                        std::uint32_t suturingPathNodeCount,
+                        Diligent::Uint64 sharedContextMask,
                         const std::uint32_t *sharedQueueFamilyIndices,
                         std::uint32_t sharedQueueFamilyIndexCount, bool useNativeFloatAtomics);
     bool uploadWorldState(Diligent::IDeviceContext *computeContext, PhysicsWorld &world,
@@ -403,6 +415,10 @@ private:
                             const std::vector<DeformableDistanceConstraint> &distanceConstraints,
                             const std::vector<DeformableBendConstraint> &bendConstraints,
                             const std::vector<DeformableVolumeConstraint> &volumeConstraints);
+    bool uploadSuturingState(Diligent::IDeviceContext *computeContext, std::uint32_t particleCount,
+                             const std::vector<StrandSoftSuturingPair> &pairs,
+                             std::uint32_t pathHeaderCount,
+                             std::uint32_t pathNodeCount);
     gpu::SharedExportBuffer mSharedSoftPositionsInvMass;
     PersistentRigidBodyBuffers mPersistentRigidBodies;
     PersistentColliderBuffers mPersistentColliders;
@@ -411,12 +427,16 @@ private:
     PersistentJointBuffers mPersistentJoints;
     PersistentParticleBuffers mPersistentParticles;
     PersistentSoftTopologyBuffers mPersistentSoftTopology;
+    PersistentSuturingBuffers mPersistentSuturing;
     SolverTransientBuffers mTransientState;
     RigidBodyReadbackBuffers mReadbackRigidBodies;
     ParticleReadbackBuffers mReadbackParticles;
     std::uint32_t mRigidBodyCapacity                         = 0;
     std::uint32_t mColliderCapacity                          = 0;
     std::uint32_t mSoftParticleCapacity                      = 0;
+    std::uint32_t mSuturingPairCapacity                      = 0;
+    std::uint32_t mSuturingPathHeaderCapacity                = 0;
+    std::uint32_t mSuturingPathNodeCapacity                  = 0;
     std::uint32_t mFluidVisualCapacity                       = 0;
     std::uint32_t mParticleContactMaterialCapacity           = 0;
     std::uint32_t mFluidMaterialCapacity                     = 0;
@@ -439,6 +459,9 @@ private:
     std::uint32_t mSoftEdgeCount                             = 0;
     std::uint32_t mSoftBendCount                             = 0;
     std::uint32_t mSoftTetCount                              = 0;
+    std::uint32_t mSuturingPairCount                         = 0;
+    std::uint32_t mSuturingPathHeaderCount                   = 0;
+    std::uint32_t mSuturingPathNodeCount                     = 0;
     std::uint32_t mBroadPhaseNodeCapacity                    = 0;
     std::uint32_t mCandidatePairCapacity                     = 0;
     std::uint32_t mContactCapacity                           = 0;

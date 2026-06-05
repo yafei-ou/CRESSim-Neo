@@ -380,6 +380,8 @@ constexpr Diligent::ShaderResourceVariableDesc kGenerateParticleExplicitContacts
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleKinds",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleOwningSoftBodyIndices",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleMaterialIndices",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleContactMaterials",
@@ -387,6 +389,8 @@ constexpr Diligent::ShaderResourceVariableDesc kGenerateParticleExplicitContacts
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleCandidatePairs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleNeighborMeta",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SuturingInsertionStates",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_ContactActiveFlags",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -448,6 +452,40 @@ constexpr Diligent::ShaderResourceVariableDesc kClearSoftConstraintStateVars[] =
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBendLambdas",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftTetLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kClassifySuturingStrandParticlesVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleEnvironmentIndices",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleStrandIds",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleStrandRoles",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftTets", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SuturingPairs",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SuturingInsertionStates",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kUpdateSuturingTipPathsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftTets", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SuturingPairs",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SuturingInsertionStates",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SuturingPathHeaders",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SuturingPathNodes",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
@@ -1854,6 +1892,22 @@ const gpu::GpuComputePassDefinition kClearSoftConstraintState{
     "CRESSimNeo.Physics.ClearSoftConstraintState.PSO",
     kClearSoftConstraintStateVars,
     std::size(kClearSoftConstraintStateVars),
+};
+
+const gpu::GpuComputePassDefinition kClassifySuturingStrandParticles{
+    "physics/soft/solver/physics_suturing_classify_strand_particles.cs.hlsl",
+    "CRESSimNeo.Physics.ClassifySuturingStrandParticles.CS",
+    "CRESSimNeo.Physics.ClassifySuturingStrandParticles.PSO",
+    kClassifySuturingStrandParticlesVars,
+    std::size(kClassifySuturingStrandParticlesVars),
+};
+
+const gpu::GpuComputePassDefinition kUpdateSuturingTipPaths{
+    "physics/soft/solver/physics_suturing_update_tip_paths.cs.hlsl",
+    "CRESSimNeo.Physics.UpdateSuturingTipPaths.CS",
+    "CRESSimNeo.Physics.UpdateSuturingTipPaths.PSO",
+    kUpdateSuturingTipPathsVars,
+    std::size(kUpdateSuturingTipPathsVars),
 };
 
 const gpu::GpuComputePassDefinition kSolveSoftEdgeConstraints{

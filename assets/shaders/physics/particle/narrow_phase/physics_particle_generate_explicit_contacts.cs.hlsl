@@ -4,10 +4,12 @@
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float, g_ParticleRadii);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleKinds);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwningSoftBodyIndices);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleMaterialIndices);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleContactMaterials);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleCandidatePair, g_ParticleCandidatePairs);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleNeighborMeta, g_ParticleNeighborMeta);
+CRESSIM_STRUCTURED_BUFFER(GpuStrandInsertionStateStorage, g_SuturingInsertionStates);
 
 CRESSIM_RW_STRUCTURED_BUFFER(GpuParticleContact, g_ParticleContacts);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_ContactActiveFlags);
@@ -28,6 +30,25 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const uint particleA = pair.indexA;
     const uint particleB = pair.indexB;
+    const GpuStrandInsertionStateStorage insertionA =
+        CRESSIM_SB_LOAD(g_SuturingInsertionStates, particleA);
+    const GpuStrandInsertionStateStorage insertionB =
+        CRESSIM_SB_LOAD(g_SuturingInsertionStates, particleB);
+    const uint owningSoftBodyA = CRESSIM_SB_LOAD(g_ParticleOwningSoftBodyIndices, particleA);
+    const uint owningSoftBodyB = CRESSIM_SB_LOAD(g_ParticleOwningSoftBodyIndices, particleB);
+    const bool suppressA = insertionA.state == kStrandInsertionStateInside &&
+                           insertionA.softBodyIndex != kInvalidSuturingIndex &&
+                           owningSoftBodyB == insertionA.softBodyIndex;
+    const bool suppressB = insertionB.state == kStrandInsertionStateInside &&
+                           insertionB.softBodyIndex != kInvalidSuturingIndex &&
+                           owningSoftBodyA == insertionB.softBodyIndex;
+    if (suppressA || suppressB)
+    {
+        CRESSIM_SB_STORE(g_ParticleContacts, pairIndex, outContact);
+        CRESSIM_SB_STORE(g_ContactActiveFlags, pairIndex, 0u);
+        return;
+    }
+
     const uint kindA = CRESSIM_SB_LOAD(g_ParticleKinds, particleA);
     const uint kindB = CRESSIM_SB_LOAD(g_ParticleKinds, particleB);
     const uint materialIndexA = CRESSIM_SB_LOAD(g_ParticleMaterialIndices, particleA);

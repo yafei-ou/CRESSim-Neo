@@ -72,6 +72,7 @@ public:
     const std::vector<SoftEdge> &softEdges() const noexcept;
     const std::vector<SoftBend> &softBends() const noexcept;
     const std::vector<SoftTet> &softTets() const noexcept;
+    const std::vector<StrandSoftSuturingPair> &suturingPairs() const noexcept;
     const SoftRenderDataHost &softRenderData() const noexcept;
     void setSoftRenderData(const SoftRenderDataHost &data);
     void ensureDerivedStateUpToDate() const noexcept;
@@ -95,6 +96,10 @@ public:
     std::uint32_t staticColliderCount() const noexcept;
     float particleGridCellSize() const noexcept;
     std::uint32_t softBodyBoundsChunkCount() const noexcept;
+    std::uint32_t maxSuturingPathsPerPair() const noexcept;
+    std::uint32_t maxSuturingNodesPerPath() const noexcept;
+    std::uint32_t reservedSuturingPathHeaderCount() const noexcept;
+    std::uint32_t reservedSuturingPathNodeCount() const noexcept;
 
     void integrateRigidBodiesCpu(float dt) noexcept;
     bool syncRigidBodyStateFromSimulation(std::uint32_t index,
@@ -288,6 +293,7 @@ private:
     std::vector<StrandDerivedCache> mStrandDerivedCaches{};
     std::vector<FluidDerivedCache> mFluidDerivedCaches{};
     std::vector<StrandSuturingState> mStrandSuturingStates{};
+    std::vector<StrandSoftSuturingPair> mSuturingPairs{};
     ParticleSoAHost mParticles{};
     std::vector<Diligent::float4> mParticleContactMaterials{};
     std::vector<FluidMaterialGpu> mFluidMaterials{};
@@ -312,6 +318,10 @@ private:
     std::uint32_t mStaticColliderCount           = 0u;
     float mParticleGridCellSize                  = 0.1f;
     std::uint32_t mSoftBodyBoundsChunkCount      = 0u;
+    std::uint32_t mMaxSuturingPathsPerPair       = 4u;
+    std::uint32_t mMaxSuturingNodesPerPath       = 128u;
+    std::uint32_t mReservedSuturingPathHeaders   = 0u;
+    std::uint32_t mReservedSuturingPathNodes     = 0u;
     std::uint64_t mAuthoredRevision              = 0;
     std::uint64_t mSimulationRevision            = 0;
     std::uint64_t mRigidBodyTopologyRevision     = 0;

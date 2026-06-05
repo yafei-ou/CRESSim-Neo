@@ -91,6 +91,33 @@ enum class StrandInsertionState : std::uint32_t
     Inside  = 1u,
 };
 
+constexpr std::uint32_t kInvalidSuturingIndex = 0xffffffffu;
+
+struct GpuStrandInsertionState
+{
+    std::uint32_t state           = static_cast<std::uint32_t>(StrandInsertionState::Outside);
+    std::uint32_t softBodyIndex   = kInvalidSuturingIndex;
+    std::uint32_t tetIndex        = kInvalidSuturingIndex;
+    std::uint32_t pathIndex       = kInvalidSuturingIndex;
+    std::uint32_t nearestNodeIndex = kInvalidSuturingIndex;
+    std::uint32_t reserved0       = 0u;
+    std::uint32_t reserved1       = 0u;
+    std::uint32_t reserved2       = 0u;
+    Diligent::float4 barycentrics{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct SuturingPathHeader
+{
+    std::uint32_t strandIndex  = kInvalidSuturingIndex;
+    std::uint32_t softBodyIndex = kInvalidSuturingIndex;
+    std::uint32_t nodeStart    = 0u;
+    std::uint32_t nodeCount    = 0u;
+    std::uint32_t flags        = 0u;
+    std::uint32_t reserved0    = 0u;
+    std::uint32_t reserved1    = 0u;
+    std::uint32_t reserved2    = 0u;
+};
+
 struct SuturingPathNode
 {
     std::uint32_t softBodyIndex = 0xffffffffu;
@@ -98,6 +125,27 @@ struct SuturingPathNode
     Diligent::float4 barycentrics{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float3 tangent{0.0f, 0.0f, 0.0f};
     float arcLength = 0.0f;
+};
+
+struct StrandSoftSuturingPair
+{
+    std::uint32_t strandIndex         = kInvalidSuturingIndex;
+    std::uint32_t softBodyIndex       = kInvalidSuturingIndex;
+    std::uint32_t strandParticleStart = 0u;
+    std::uint32_t strandParticleCount = 0u;
+    std::uint32_t tipParticleIndex    = kInvalidSuturingIndex;
+    std::uint32_t softTetStart        = 0u;
+    std::uint32_t softTetCount        = 0u;
+    std::uint32_t softCollisionLayer  = 0u;
+    std::uint32_t pathStart           = 0u;
+    std::uint32_t pathCount           = 0u;
+    std::uint32_t nodeStart           = 0u;
+    std::uint32_t nodeCount           = 0u;
+    std::uint32_t activePathIndex     = kInvalidSuturingIndex;
+    std::uint32_t environmentIndex    = 0u;
+    float pathNodeSpacing             = 0.0f;
+    std::uint32_t reserved0           = 0u;
+    std::uint32_t reserved1           = 0u;
 };
 
 struct SoftBodyRegularGridSource

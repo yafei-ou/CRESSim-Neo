@@ -196,7 +196,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             static_cast<std::uint32_t>(softRenderData.vertexTriangleIndices.size()),
             softRenderTriangleCount,
             static_cast<std::uint32_t>(softRenderData.softBodyParticleRanges.size()),
-            softBodyBoundsChunkCount,
+            softBodyBoundsChunkCount, static_cast<std::uint32_t>(world.suturingPairs().size()),
+            world.reservedSuturingPathHeaderCount(), world.reservedSuturingPathNodeCount(),
             gpu::contextMaskForId(computeBackend.contextId) |
                 gpu::contextMaskForId(graphicsBackend.contextId),
             sharedQueueFamilyIndices.data(), sharedQueueFamilyIndexCount,
@@ -267,6 +268,10 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         particleConstants.softBendCount   = softBendCount;
         particleConstants.softTetCount    = softTetCount;
         particleConstants.fluidIterations = fluidIterations;
+        particleConstants.suturingPairCount =
+            static_cast<std::uint32_t>(world.suturingPairs().size());
+        particleConstants.suturingPathHeaderCount = world.reservedSuturingPathHeaderCount();
+        particleConstants.suturingPathNodeCount   = world.reservedSuturingPathNodeCount();
 
         const bool hasParticleNeighborWork = particleCount > 0u;
         const bool hasFluidWork            = fluidCount > 0u && particleCount > 0u;
@@ -414,6 +419,26 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                                                                particleConstants))
             {
                 CRESSIM_LOG_ERROR("PhysicsSolver::step failed: BuildParticleCellRanges dispatch.");
+                return false;
+            }
+        }
+
+        if (particleCount > 0u && particleConstants.suturingPairCount > 0u)
+        {
+            if (!mImpl->passDispatcher.classifySuturingStrandParticles(
+                    computeBackend.computeContext, mImpl->sceneState, particleCount,
+                    particleConstants))
+            {
+                CRESSIM_LOG_ERROR(
+                    "PhysicsSolver::step failed: ClassifySuturingStrandParticles dispatch.");
+                return false;
+            }
+            if (!mImpl->passDispatcher.updateSuturingTipPaths(
+                    computeBackend.computeContext, mImpl->sceneState,
+                    particleConstants.suturingPairCount, particleConstants))
+            {
+                CRESSIM_LOG_ERROR(
+                    "PhysicsSolver::step failed: UpdateSuturingTipPaths dispatch.");
                 return false;
             }
         }

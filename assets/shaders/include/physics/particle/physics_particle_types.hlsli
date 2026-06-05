@@ -11,6 +11,13 @@ static const uint kParticleOwnerTypeSoftBody = 1u;
 static const uint kParticleOwnerTypeFluidBody = 2u;
 static const uint kParticleOwnerTypeStrand = 3u;
 static const uint kParticleOwnerTypeRigidBody = 4u;
+static const uint kParticleStrandRoleNone = 0u;
+static const uint kParticleStrandRoleNeedleTip = 1u;
+static const uint kParticleStrandRoleNeedleBody = 2u;
+static const uint kParticleStrandRoleThread = 3u;
+static const uint kStrandInsertionStateOutside = 0u;
+static const uint kStrandInsertionStateInside = 1u;
+static const uint kInvalidSuturingIndex = 0xffffffffu;
 static const uint kParticleCandidatePairTypeParticleParticle = 0u;
 static const uint kParticleCandidatePairTypeParticleRigid = 1u;
 static const uint kParticleRigidDedupCacheSize = 16u;
@@ -204,6 +211,60 @@ struct GpuSoftBodyBoundsChunk
     uint particleStart;
     uint particleCount;
     uint reserved0;
+};
+
+struct GpuSuturingPair
+{
+    uint strandIndex;
+    uint softBodyIndex;
+    uint strandParticleStart;
+    uint strandParticleCount;
+    uint tipParticleIndex;
+    uint softTetStart;
+    uint softTetCount;
+    uint softCollisionLayer;
+    uint pathStart;
+    uint pathCount;
+    uint nodeStart;
+    uint nodeCount;
+    uint activePathIndex;
+    uint environmentIndex;
+    float pathNodeSpacing;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuSuturingPathHeader
+{
+    uint strandIndex;
+    uint softBodyIndex;
+    uint nodeStart;
+    uint nodeCount;
+    uint flags;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+};
+
+struct GpuSuturingPathNode
+{
+    uint softBodyIndex;
+    uint tetIndex;
+    float4 barycentrics;
+    float4 tangentArcLength;
+};
+
+struct GpuStrandInsertionStateStorage
+{
+    uint state;
+    uint softBodyIndex;
+    uint tetIndex;
+    uint pathIndex;
+    uint nearestNodeIndex;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+    float4 barycentrics;
 };
 
 uint ParticlePhaseGroup(uint phase)

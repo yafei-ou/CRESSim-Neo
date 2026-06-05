@@ -543,6 +543,9 @@ void PhysicsWorld::clear()
     mStrandDerivedCaches.clear();
     mFluidDerivedCaches.clear();
     mStrandSuturingStates.clear();
+    mSuturingPairs.clear();
+    mReservedSuturingPathHeaders = 0u;
+    mReservedSuturingPathNodes   = 0u;
     mParticles.clear();
     mParticleContactMaterials.clear();
     mFluidMaterials.clear();
@@ -1647,6 +1650,15 @@ const std::vector<SoftTet> &PhysicsWorld::softTets() const noexcept
     return volumeConstraints();
 }
 
+const std::vector<StrandSoftSuturingPair> &PhysicsWorld::suturingPairs() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return mSuturingPairs;
+}
+
 const SoftRenderDataHost &PhysicsWorld::softRenderData() const noexcept
 {
     return mSoftRenderData;
@@ -1792,6 +1804,34 @@ float PhysicsWorld::particleGridCellSize() const noexcept
 std::uint32_t PhysicsWorld::softBodyBoundsChunkCount() const noexcept
 {
     return mSoftBodyBoundsChunkCount;
+}
+
+std::uint32_t PhysicsWorld::maxSuturingPathsPerPair() const noexcept
+{
+    return mMaxSuturingPathsPerPair;
+}
+
+std::uint32_t PhysicsWorld::maxSuturingNodesPerPath() const noexcept
+{
+    return mMaxSuturingNodesPerPath;
+}
+
+std::uint32_t PhysicsWorld::reservedSuturingPathHeaderCount() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return mReservedSuturingPathHeaders;
+}
+
+std::uint32_t PhysicsWorld::reservedSuturingPathNodeCount() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return mReservedSuturingPathNodes;
 }
 
 void PhysicsWorld::integrateRigidBodiesCpu(float dt) noexcept
@@ -3601,6 +3641,50 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.collisionMasks.push_back(fluid.collisionMask);
             mParticles.rigidProxyLocalPositions.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
             adjacencyLists.emplace_back();
+        }
+    }
+
+    mSuturingPairs.clear();
+    mReservedSuturingPathHeaders = 0u;
+    mReservedSuturingPathNodes   = 0u;
+    for (std::uint32_t strandIndex = 0u; strandIndex < mStrandSnapshot.size(); ++strandIndex)
+    {
+        const StrandState &strand = mStrandSnapshot[strandIndex];
+        if (!strand.suturingEnabled || strand.particleCount == 0u)
+        {
+            continue;
+        }
+
+        for (std::uint32_t softBodyIndex = 0u; softBodyIndex < mSoftBodySnapshot.size();
+             ++softBodyIndex)
+        {
+            const SoftBodyState &softBody = mSoftBodySnapshot[softBodyIndex];
+            if (!softBody.supportsSuturing || softBody.particleCount == 0u ||
+                softBody.environmentIndex != strand.environmentIndex)
+            {
+                continue;
+            }
+
+            StrandSoftSuturingPair pair{};
+            pair.strandIndex         = strandIndex;
+            pair.softBodyIndex       = softBodyIndex;
+            pair.strandParticleStart = strand.particleOffset;
+            pair.strandParticleCount = strand.particleCount;
+            pair.tipParticleIndex    = strand.particleOffset + strand.needleTipParticleIndex;
+            pair.softTetStart        = softBody.tetOffset;
+            pair.softTetCount        = softBody.tetCount;
+            pair.softCollisionLayer  = softBody.collisionLayer;
+            pair.pathStart           = mReservedSuturingPathHeaders;
+            pair.pathCount           = mMaxSuturingPathsPerPair;
+            pair.nodeStart           = mReservedSuturingPathNodes;
+            pair.nodeCount           = mMaxSuturingPathsPerPair * mMaxSuturingNodesPerPath;
+            pair.activePathIndex     = kInvalidSuturingIndex;
+            pair.environmentIndex    = strand.environmentIndex;
+            pair.pathNodeSpacing     = strand.pathNodeSpacing;
+            mSuturingPairs.push_back(pair);
+
+            mReservedSuturingPathHeaders += mMaxSuturingPathsPerPair;
+            mReservedSuturingPathNodes += mMaxSuturingPathsPerPair * mMaxSuturingNodesPerPath;
         }
     }
 

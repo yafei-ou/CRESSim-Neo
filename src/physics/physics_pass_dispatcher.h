@@ -93,6 +93,14 @@ public:
     bool clearSoftConstraintState(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState, std::uint32_t threadCount,
                                   const GpuParticleDispatchConstants &constants);
+    bool classifySuturingStrandParticles(Diligent::IDeviceContext *computeContext,
+                                         const PhysicsSceneGpuState &sceneState,
+                                         std::uint32_t particleCount,
+                                         const GpuParticleDispatchConstants &constants);
+    bool updateSuturingTipPaths(Diligent::IDeviceContext *computeContext,
+                                const PhysicsSceneGpuState &sceneState,
+                                std::uint32_t suturingPairCount,
+                                const GpuParticleDispatchConstants &constants);
     bool solveSoftEdgeConstraints(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState,
                                   std::uint32_t softEdgeCount,
@@ -333,6 +341,13 @@ private:
                                                     const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveParticleRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
                                                          const PhysicsSceneGpuState &sceneState);
+    bool dispatchClassifySuturingStrandParticlesPass(
+        Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+        std::uint32_t particleCount, const GpuParticleDispatchConstants &constants);
+    bool dispatchUpdateSuturingTipPathsPass(Diligent::IDeviceContext *computeContext,
+                                            const PhysicsSceneGpuState &sceneState,
+                                            std::uint32_t suturingPairCount,
+                                            const GpuParticleDispatchConstants &constants);
 
     gpu::ShaderLibrary mShaderLibrary{""};
     Diligent::Uint64 mPhysicsContextMask = 0;
@@ -365,6 +380,8 @@ private:
     gpu::GpuComputePass mFinalizeActiveParticleRigidContactsPass;
     gpu::GpuComputePass mCompactActiveParticleRigidContactsPass;
     gpu::GpuComputePass mClearSoftConstraintStatePass;
+    gpu::GpuComputePass mClassifySuturingStrandParticlesPass;
+    gpu::GpuComputePass mUpdateSuturingTipPathsPass;
     gpu::GpuComputePass mSolveSoftEdgeConstraintsPass;
     gpu::GpuComputePass mSolveSoftBendConstraintsPass;
     gpu::GpuComputePass mSolveSoftTetConstraintsPass;
