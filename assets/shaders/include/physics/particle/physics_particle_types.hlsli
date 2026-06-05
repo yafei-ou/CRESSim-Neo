@@ -231,7 +231,6 @@ struct GpuSuturingPair
     uint environmentIndex;
     float pathNodeSpacing;
     uint reserved0;
-    uint reserved1;
 };
 
 struct GpuSuturingPathHeader
@@ -252,6 +251,8 @@ struct GpuSuturingPathNode
     uint tetIndex;
     float4 barycentrics;
     float4 tangentArcLength;
+    uint reserved0;
+    uint reserved1;
 };
 
 struct GpuStrandInsertionStateStorage

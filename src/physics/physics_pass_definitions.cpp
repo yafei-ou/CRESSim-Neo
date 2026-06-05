@@ -489,6 +489,46 @@ constexpr Diligent::ShaderResourceVariableDesc kUpdateSuturingTipPathsVars[] = {
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kAssignSuturingInsideParticlesVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleEnvironmentIndices",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleStrandIds",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleStrandRoles",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SuturingPairs",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SuturingInsertionStates",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SuturingPathHeaders",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SuturingPathNodes",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftTets", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kSolveSuturingNodePathConstraintsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleStrandRoles",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SuturingInsertionStates",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SuturingPathHeaders",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SuturingPathNodes",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftTets", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kClearHingeJointConstraintStateVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidJointDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -1908,6 +1948,22 @@ const gpu::GpuComputePassDefinition kUpdateSuturingTipPaths{
     "CRESSimNeo.Physics.UpdateSuturingTipPaths.PSO",
     kUpdateSuturingTipPathsVars,
     std::size(kUpdateSuturingTipPathsVars),
+};
+
+const gpu::GpuComputePassDefinition kAssignSuturingInsideParticles{
+    "physics/soft/solver/physics_suturing_assign_inside_particles.cs.hlsl",
+    "CRESSimNeo.Physics.AssignSuturingInsideParticles.CS",
+    "CRESSimNeo.Physics.AssignSuturingInsideParticles.PSO",
+    kAssignSuturingInsideParticlesVars,
+    std::size(kAssignSuturingInsideParticlesVars),
+};
+
+const gpu::GpuComputePassDefinition kSolveSuturingNodePathConstraints{
+    "physics/soft/solver/physics_suturing_solve_node_path_constraints.cs.hlsl",
+    "CRESSimNeo.Physics.SolveSuturingNodePathConstraints.CS",
+    "CRESSimNeo.Physics.SolveSuturingNodePathConstraints.PSO",
+    kSolveSuturingNodePathConstraintsVars,
+    std::size(kSolveSuturingNodePathConstraintsVars),
 };
 
 const gpu::GpuComputePassDefinition kSolveSoftEdgeConstraints{

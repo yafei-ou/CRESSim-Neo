@@ -145,7 +145,6 @@ struct StrandSoftSuturingPair
     std::uint32_t environmentIndex    = 0u;
     float pathNodeSpacing             = 0.0f;
     std::uint32_t reserved0           = 0u;
-    std::uint32_t reserved1           = 0u;
 };
 
 struct SoftBodyRegularGridSource

@@ -350,7 +350,6 @@ struct GpuSuturingPair
     std::uint32_t environmentIndex    = 0u;
     float pathNodeSpacing             = 0.0f;
     std::uint32_t reserved0           = 0u;
-    std::uint32_t reserved1           = 0u;
 };
 
 struct GpuSuturingPathHeader
@@ -371,6 +370,8 @@ struct GpuSuturingPathNode
     std::uint32_t tetIndex      = 0u;
     Diligent::float4 barycentrics{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 tangentArcLength{0.0f, 0.0f, 0.0f, 0.0f};
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
 };
 
 struct GpuStrandInsertionStateStorage
@@ -624,9 +625,9 @@ static_assert(sizeof(GpuSoftConstraintRange) == 16u);
 static_assert(sizeof(GpuSoftIncidentEdge) == 16u);
 static_assert(sizeof(GpuSoftIncidentBend) == 16u);
 static_assert(sizeof(GpuSoftIncidentTet) == 16u);
-static_assert(sizeof(GpuSuturingPair) == 68u);
+static_assert(sizeof(GpuSuturingPair) == 64u);
 static_assert(sizeof(GpuSuturingPathHeader) == 32u);
-static_assert(sizeof(GpuSuturingPathNode) == 40u);
+static_assert(sizeof(GpuSuturingPathNode) == 48u);
 static_assert(sizeof(GpuStrandInsertionStateStorage) == 48u);
 static_assert(sizeof(GpuSoftBodyChunkRange) == 16u);
 static_assert(sizeof(GpuSoftBodyBoundsChunk) == 16u);

@@ -101,6 +101,14 @@ public:
                                 const PhysicsSceneGpuState &sceneState,
                                 std::uint32_t suturingPairCount,
                                 const GpuParticleDispatchConstants &constants);
+    bool assignSuturingInsideParticles(Diligent::IDeviceContext *computeContext,
+                                       const PhysicsSceneGpuState &sceneState,
+                                       std::uint32_t particleCount,
+                                       const GpuParticleDispatchConstants &constants);
+    bool solveSuturingNodePathConstraints(Diligent::IDeviceContext *computeContext,
+                                          const PhysicsSceneGpuState &sceneState,
+                                          std::uint32_t particleCount,
+                                          const GpuParticleDispatchConstants &constants);
     bool solveSoftEdgeConstraints(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState,
                                   std::uint32_t softEdgeCount,
@@ -348,6 +356,12 @@ private:
                                             const PhysicsSceneGpuState &sceneState,
                                             std::uint32_t suturingPairCount,
                                             const GpuParticleDispatchConstants &constants);
+    bool dispatchAssignSuturingInsideParticlesPass(
+        Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+        std::uint32_t particleCount, const GpuParticleDispatchConstants &constants);
+    bool dispatchSolveSuturingNodePathConstraintsPass(
+        Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+        std::uint32_t particleCount, const GpuParticleDispatchConstants &constants);
 
     gpu::ShaderLibrary mShaderLibrary{""};
     Diligent::Uint64 mPhysicsContextMask = 0;
@@ -382,6 +396,8 @@ private:
     gpu::GpuComputePass mClearSoftConstraintStatePass;
     gpu::GpuComputePass mClassifySuturingStrandParticlesPass;
     gpu::GpuComputePass mUpdateSuturingTipPathsPass;
+    gpu::GpuComputePass mAssignSuturingInsideParticlesPass;
+    gpu::GpuComputePass mSolveSuturingNodePathConstraintsPass;
     gpu::GpuComputePass mSolveSoftEdgeConstraintsPass;
     gpu::GpuComputePass mSolveSoftBendConstraintsPass;
     gpu::GpuComputePass mSolveSoftTetConstraintsPass;

@@ -518,7 +518,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mReadbackParticles.positionsBuffer != nullptr &&
         mReadbackParticles.previousPositionsBuffer != nullptr &&
         mReadbackParticles.velocitiesBuffer != nullptr &&
-        mReadbackParticles.neighborMetaBuffer != nullptr;
+        mReadbackParticles.neighborMetaBuffer != nullptr &&
+        mReadbackParticles.suturingInsertionStatesBuffer != nullptr &&
+        mReadbackParticles.suturingPathHeadersBuffer != nullptr &&
+        mReadbackParticles.suturingPathNodesBuffer != nullptr;
     const std::uint32_t newRigidBodyCapacity    = std::max<std::uint32_t>(bodyCount, 64u);
     const std::uint32_t newColliderCapacity     = std::max<std::uint32_t>(colliderCount, 64u);
     const std::uint32_t newSoftParticleCapacity = std::max<std::uint32_t>(particleCount, 64u);
@@ -1570,7 +1573,23 @@ bool PhysicsSceneGpuState::ensureCapacity(
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftNeighborMeta.Readback",
                                 sizeof(GpuParticleNeighborMeta), 1u, Diligent::BIND_NONE,
                                 Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
-                                mReadbackParticles.neighborMetaBuffer))
+                                mReadbackParticles.neighborMetaBuffer) ||
+        !ensureStructuredBuffer(renderDevice,
+                                "CRESSimNeo.Physics.SuturingInsertionStates.Readback",
+                                sizeof(GpuStrandInsertionStateStorage), newSoftParticleCapacity,
+                                Diligent::BIND_NONE, Diligent::USAGE_STAGING,
+                                Diligent::CPU_ACCESS_READ, contextMask,
+                                mReadbackParticles.suturingInsertionStatesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SuturingPathHeaders.Readback",
+                                sizeof(GpuSuturingPathHeader), newSuturingPathHeaderCapacity,
+                                Diligent::BIND_NONE, Diligent::USAGE_STAGING,
+                                Diligent::CPU_ACCESS_READ, contextMask,
+                                mReadbackParticles.suturingPathHeadersBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SuturingPathNodes.Readback",
+                                sizeof(GpuSuturingPathNode), newSuturingPathNodeCapacity,
+                                Diligent::BIND_NONE, Diligent::USAGE_STAGING,
+                                Diligent::CPU_ACCESS_READ, contextMask,
+                                mReadbackParticles.suturingPathNodesBuffer))
     {
         return false;
     }
@@ -1885,8 +1904,10 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
                                          mLastUploadedSoftParticleRevision != softParticleRevision;
     const bool needsSoftTopologyUpload =
         mSoftTopologyUploadResetRequired ||
-        mLastUploadedSoftTopologyRevision != softTopologyRevision ||
-        mLastUploadedSoftParticleRevision != softParticleRevision;
+        mLastUploadedSoftTopologyRevision != softTopologyRevision;
+    const bool needsSuturingStateUpload =
+        mSoftTopologyUploadResetRequired ||
+        mLastUploadedSoftTopologyRevision != softTopologyRevision;
 
     if ((needsSoftParticleUpload && !uploadParticles(computeContext, particles, fluids,
                                                      particleContactMaterials, fluidMaterials)) ||
@@ -1897,7 +1918,7 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
     {
         return false;
     }
-    if (needsSoftTopologyUpload &&
+    if (needsSuturingStateUpload &&
         !uploadSuturingState(computeContext, static_cast<std::uint32_t>(particles.size()),
                              suturingPairs, suturingPathHeaderCount, suturingPathNodeCount))
     {
@@ -2654,7 +2675,7 @@ bool PhysicsSceneGpuState::uploadSuturingState(
             pair.softTetCount,        pair.softCollisionLayer,  pair.pathStart,
             pair.pathCount,           pair.nodeStart,           pair.nodeCount,
             pair.activePathIndex,     pair.environmentIndex,    pair.pathNodeSpacing,
-            pair.reserved0,           pair.reserved1};
+            pair.reserved0};
     }
 
     std::vector<GpuStrandInsertionStateStorage> insertionStates(particleCount);
@@ -2679,6 +2700,8 @@ bool PhysicsSceneGpuState::uploadSuturingState(
     {
         node.softBodyIndex = kInvalidSuturingIndex;
         node.tetIndex      = kInvalidSuturingIndex;
+        node.reserved0     = 0u;
+        node.reserved1     = 0u;
     }
 
     return updateStructuredBufferRange(computeContext, mPersistentSuturing.pairsBuffer, gpuPairs,
@@ -2948,6 +2971,88 @@ bool PhysicsSceneGpuState::readbackPredictedParticleStateBlocking(
     computeContext->UnmapBuffer(mReadbackParticles.positionsBuffer, Diligent::MAP_READ);
     computeContext->UnmapBuffer(mReadbackParticles.previousPositionsBuffer, Diligent::MAP_READ);
     computeContext->UnmapBuffer(mReadbackParticles.velocitiesBuffer, Diligent::MAP_READ);
+    return true;
+}
+
+bool PhysicsSceneGpuState::readbackSuturingStateBlocking(Diligent::IDeviceContext *computeContext,
+                                                         PhysicsWorld &world,
+                                                         std::uint32_t particleCount,
+                                                         std::uint32_t pathHeaderCount,
+                                                         std::uint32_t pathNodeCount)
+{
+    if (computeContext == nullptr)
+    {
+        return false;
+    }
+    if (particleCount == 0u && pathHeaderCount == 0u && pathNodeCount == 0u)
+    {
+        return true;
+    }
+    if (mPersistentSuturing.insertionStatesBuffer == nullptr ||
+        mPersistentSuturing.pathHeadersBuffer == nullptr ||
+        mPersistentSuturing.pathNodesBuffer == nullptr ||
+        mReadbackParticles.suturingInsertionStatesBuffer == nullptr ||
+        mReadbackParticles.suturingPathHeadersBuffer == nullptr ||
+        mReadbackParticles.suturingPathNodesBuffer == nullptr)
+    {
+        return false;
+    }
+
+    std::vector<GpuStrandInsertionStateStorage> gpuInsertionStates(particleCount);
+    std::vector<GpuSuturingPathHeader> gpuPathHeaders(pathHeaderCount);
+    std::vector<GpuSuturingPathNode> gpuPathNodes(pathNodeCount);
+    if (!readbackBufferRangeBlocking(computeContext, mPersistentSuturing.insertionStatesBuffer,
+                                     mReadbackParticles.suturingInsertionStatesBuffer, 0u,
+                                     particleCount, gpuInsertionStates.data()) ||
+        !readbackBufferRangeBlocking(computeContext, mPersistentSuturing.pathHeadersBuffer,
+                                     mReadbackParticles.suturingPathHeadersBuffer, 0u,
+                                     pathHeaderCount, gpuPathHeaders.data()) ||
+        !readbackBufferRangeBlocking(computeContext, mPersistentSuturing.pathNodesBuffer,
+                                     mReadbackParticles.suturingPathNodesBuffer, 0u,
+                                     pathNodeCount, gpuPathNodes.data()))
+    {
+        return false;
+    }
+
+    std::vector<GpuStrandInsertionState> insertionStates(gpuInsertionStates.size());
+    for (std::size_t i = 0; i < gpuInsertionStates.size(); ++i)
+    {
+        const GpuStrandInsertionStateStorage &gpuState = gpuInsertionStates[i];
+        insertionStates[i] = GpuStrandInsertionState{gpuState.state,
+                                                     gpuState.softBodyIndex,
+                                                     gpuState.tetIndex,
+                                                     gpuState.pathIndex,
+                                                     gpuState.nearestNodeIndex,
+                                                     gpuState.reserved0,
+                                                     gpuState.reserved1,
+                                                     gpuState.reserved2,
+                                                     gpuState.barycentrics};
+    }
+
+    std::vector<SuturingPathHeader> pathHeaders(gpuPathHeaders.size());
+    for (std::size_t i = 0; i < gpuPathHeaders.size(); ++i)
+    {
+        const GpuSuturingPathHeader &gpuHeader = gpuPathHeaders[i];
+        pathHeaders[i] = SuturingPathHeader{gpuHeader.strandIndex,  gpuHeader.softBodyIndex,
+                                            gpuHeader.nodeStart,    gpuHeader.nodeCount,
+                                            gpuHeader.flags,        gpuHeader.reserved0,
+                                            gpuHeader.reserved1,    gpuHeader.reserved2};
+    }
+
+    std::vector<SuturingPathNode> pathNodes(gpuPathNodes.size());
+    for (std::size_t i = 0; i < gpuPathNodes.size(); ++i)
+    {
+        const GpuSuturingPathNode &gpuNode = gpuPathNodes[i];
+        pathNodes[i] = SuturingPathNode{gpuNode.softBodyIndex,
+                                        gpuNode.tetIndex,
+                                        gpuNode.barycentrics,
+                                        Diligent::float3{gpuNode.tangentArcLength.x,
+                                                         gpuNode.tangentArcLength.y,
+                                                         gpuNode.tangentArcLength.z},
+                                        gpuNode.tangentArcLength.w};
+    }
+
+    world.syncSuturingStateFromSimulation(insertionStates, pathHeaders, pathNodes);
     return true;
 }
 

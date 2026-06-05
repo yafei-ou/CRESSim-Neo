@@ -263,6 +263,9 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> previousPositionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> velocitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> neighborMetaBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> suturingInsertionStatesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> suturingPathHeadersBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> suturingPathNodesBuffer;
     };
 
     struct BroadPhaseCompactionTailReadback
@@ -348,6 +351,10 @@ public:
                                              PhysicsWorld &world, std::uint32_t bodyCount);
     bool readbackPredictedParticleStateBlocking(Diligent::IDeviceContext *computeContext,
                                                 PhysicsWorld &world, std::uint32_t particleCount);
+    bool readbackSuturingStateBlocking(Diligent::IDeviceContext *computeContext,
+                                       PhysicsWorld &world, std::uint32_t particleCount,
+                                       std::uint32_t pathHeaderCount,
+                                       std::uint32_t pathNodeCount);
     bool readbackSoftNeighborMetaBlocking(Diligent::IDeviceContext *computeContext,
                                           GpuParticleNeighborMeta &outMeta);
 

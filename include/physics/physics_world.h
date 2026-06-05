@@ -112,6 +112,10 @@ public:
                                          const Diligent::float4 &positionInvMass,
                                          const Diligent::float4 &previousPosition,
                                          const Diligent::float4 &velocity) noexcept;
+    void syncSuturingStateFromSimulation(
+        const std::vector<GpuStrandInsertionState> &insertionStates,
+        const std::vector<SuturingPathHeader> &pathHeaders,
+        const std::vector<SuturingPathNode> &pathNodes) noexcept;
     bool overrideStrandParticlePosition(common::EntityId entityId, std::uint32_t localParticleIndex,
                                         const Diligent::float3 &position,
                                         bool updatePreviousPosition = true) noexcept;
