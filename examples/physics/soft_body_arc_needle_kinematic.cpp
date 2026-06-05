@@ -6,7 +6,6 @@
 #include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
 
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -183,8 +182,6 @@ int main(int argc, char **argv)
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
     config.physicsDesc.substeps = 6u;
     config.physicsDesc.defaultIterations = 14u;
-    config.physicsDesc.softContactIterations = 10u;
-    config.physicsDesc.rigidRigidContactIterations = 10u;
 
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
@@ -269,7 +266,7 @@ int main(int argc, char **argv)
         softBody.source.regularGrid.size, softBody.source.regularGrid.targetParticleSpacing);
     softBody.particleMass = 0.08f;
     softBody.particleRadius = 0.08f;
-    softBody.edgeCompliance = 0.0001f;
+    softBody.edgeCompliance = 0.0002f;
     softBody.volumeCompliance = 0.0005f;
     softBody.selfCollisionEnabled = false;
     softBody.supportsSuturing = true;
@@ -285,18 +282,17 @@ int main(int argc, char **argv)
 
     const float needleParticleRadius = 0.1f;
     const std::vector<Diligent::float3> needleProxyParticles =
-        makeArcProxyParticles(0.95f, -0.9f * kPi, -0.1f * kPi, 1u);
+        makeArcProxyParticles(0.95f, -0.1f * kPi, -0.9f * kPi, 10u);
     constexpr float kNeedleInverseMass = 1.4f;
     const ProxyMassProperties needleMassProperties =
         computeProxyMassProperties(needleProxyParticles, needleParticleRadius, kNeedleInverseMass);
-    const std::uint32_t tipProxyIndex =
-        static_cast<std::uint32_t>(needleMassProperties.centeredPoints.size() - 1u);
+    const std::uint32_t tipProxyIndex = 0u;
 
     const auto needleEntity = world.createEntity();
     const Diligent::float3 tipTangentLocal =
         needleProxyParticles.size() >= 2u
             ? Diligent::normalize(needleProxyParticles[tipProxyIndex] -
-                                  needleProxyParticles[tipProxyIndex - 1u])
+                                  needleProxyParticles[tipProxyIndex + 1u])
             : Diligent::float3{1.0f, 0.0f, 0.0f};
     const Diligent::float3 desiredTipTangentWorld = Diligent::normalize(
         Diligent::float3{1.0f, 0.12f, 0.0f});
