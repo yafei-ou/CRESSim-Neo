@@ -55,8 +55,9 @@ std::vector<std::uint32_t> makeBottomLayerStaticIndices(const Diligent::float3 &
     };
 
     std::vector<std::uint32_t> result;
-    result.reserve(static_cast<std::size_t>(resolution.x) * resolution.z);
-    for (std::uint32_t x = 0u; x < resolution.x; ++x)
+    const std::uint32_t leftPinnedColumns = std::max(1u, (resolution.x + 2u) / 3u);
+    result.reserve(static_cast<std::size_t>(leftPinnedColumns) * resolution.z);
+    for (std::uint32_t x = 0u; x < leftPinnedColumns; ++x)
     {
         for (std::uint32_t z = 0u; z < resolution.z; ++z)
         {
