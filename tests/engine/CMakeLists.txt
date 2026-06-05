@@ -40,6 +40,14 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE engine
+    NAME rigid_body_proxy_suturing_component
+    SOURCE rigid_body_proxy_suturing_component.cpp
+    INCLUDE_SRC
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
     NAME soft_body_simulated_toggle
     SOURCE soft_body_simulated_toggle.cpp
     INCLUDE_SRC

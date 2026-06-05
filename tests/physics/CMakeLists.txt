@@ -119,6 +119,13 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE physics
+    NAME rigid_proxy_suturing_authoring
+    SOURCE physics_rigid_proxy_suturing_authoring.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
     NAME soft_gpu_scene_upload
     SOURCE physics_soft_gpu_scene_upload.cpp
     LIBS cressim_neo_engine

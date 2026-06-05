@@ -660,8 +660,26 @@ RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
     writeRigidBodySoAAt(mRigidBodies, index, normalizedState);
     mRigidBodySnapshot[index] = normalizedState;
     markRigidBodyDirty(index);
-    if (!previousState.proxyParticleLocalPositions.empty() ||
-        !normalizedState.proxyParticleLocalPositions.empty())
+    const bool proxyMaterialChanged =
+        previousState.proxyParticleMaterial.friction != normalizedState.proxyParticleMaterial.friction ||
+        previousState.proxyParticleMaterial.restitution !=
+            normalizedState.proxyParticleMaterial.restitution ||
+        previousState.proxyParticleMaterial.damping != normalizedState.proxyParticleMaterial.damping ||
+        previousState.proxyParticleMaterial.staticFriction !=
+            normalizedState.proxyParticleMaterial.staticFriction;
+    const bool proxyLayoutChanged =
+        previousState.proxyParticleLocalPositions != normalizedState.proxyParticleLocalPositions ||
+        previousState.proxyParticleRadius != normalizedState.proxyParticleRadius ||
+        proxyMaterialChanged ||
+        previousState.proxyCollisionLayer != normalizedState.proxyCollisionLayer ||
+        previousState.proxyCollisionMask != normalizedState.proxyCollisionMask ||
+        previousState.scale != normalizedState.scale ||
+        previousState.environmentIndex != normalizedState.environmentIndex ||
+        previousState.suturingEnabled != normalizedState.suturingEnabled ||
+        previousState.needleTipProxyIndex != normalizedState.needleTipProxyIndex;
+    if ((!previousState.proxyParticleLocalPositions.empty() ||
+         !normalizedState.proxyParticleLocalPositions.empty()) &&
+        proxyLayoutChanged)
     {
         mSoftBodyDerivedStateDirty = true;
         ++mSoftParticleRevision;
@@ -2251,6 +2269,14 @@ void PhysicsWorld::normalizeRigidBodyState(RigidBodyState &state) noexcept
     if (state.proxyParticleLocalPositions.empty())
     {
         state.proxyParticleRadius = 0.0f;
+        state.needleTipProxyIndex = 0u;
+        state.suturingEnabled     = false;
+    }
+    else
+    {
+        state.needleTipProxyIndex = std::min<std::uint32_t>(
+            state.needleTipProxyIndex,
+            static_cast<std::uint32_t>(state.proxyParticleLocalPositions.size() - 1u));
     }
 }
 
@@ -3023,6 +3049,8 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
         strandPhaseGroupBase + static_cast<std::uint32_t>(mStrandSnapshot.size());
     const std::uint32_t rigidProxyPhaseGroupBase =
         fluidPhaseGroupBase + static_cast<std::uint32_t>(mFluidSnapshot.size());
+    const std::uint32_t rigidProxySuturingGroupBase =
+        static_cast<std::uint32_t>(mStrandSnapshot.size());
 
     for (std::uint32_t rigidBodyIndex = 0u; rigidBodyIndex < mRigidBodySnapshot.size();
          ++rigidBodyIndex)
@@ -3064,8 +3092,10 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             }
         }
 
-        for (const Diligent::float3 &localPosition : rigidBody.proxyParticleLocalPositions)
+        for (std::uint32_t proxyLocalIndex = 0u;
+             proxyLocalIndex < rigidBody.proxyParticleLocalPositions.size(); ++proxyLocalIndex)
         {
+            const Diligent::float3 &localPosition = rigidBody.proxyParticleLocalPositions[proxyLocalIndex];
             const Diligent::float3 scaledLocal{localPosition.x * rigidBody.scale.x,
                                                localPosition.y * rigidBody.scale.y,
                                                localPosition.z * rigidBody.scale.z};
@@ -3082,9 +3112,17 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.ownerTypes.push_back(
                 static_cast<std::uint32_t>(ParticleOwnerType::RigidBody));
             mParticles.ownerIndices.push_back(rigidBodyIndex);
-            mParticles.strandIds.push_back(0xffffffffu);
-            mParticles.strandOrders.push_back(0xffffffffu);
-            mParticles.strandRoles.push_back(static_cast<std::uint32_t>(ParticleStrandRole::None));
+            mParticles.strandIds.push_back(rigidBody.suturingEnabled
+                                               ? rigidProxySuturingGroupBase + rigidBodyIndex
+                                               : 0xffffffffu);
+            mParticles.strandOrders.push_back(rigidBody.suturingEnabled ? proxyLocalIndex
+                                                                        : 0xffffffffu);
+            mParticles.strandRoles.push_back(static_cast<std::uint32_t>(
+                rigidBody.suturingEnabled
+                    ? (proxyLocalIndex == rigidBody.needleTipProxyIndex
+                           ? ParticleStrandRole::NeedleTip
+                           : ParticleStrandRole::NeedleBody)
+                    : ParticleStrandRole::None));
             mParticles.owningSoftBodyIndices.push_back(0xffffffffu);
             mParticles.particleMaterialIndices.push_back(rigidBody.proxyParticleMaterialIndex);
             mParticles.fluidMaterialIndices.push_back(0xffffffffu);
@@ -3420,6 +3458,48 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             pair.activePathIndex     = kInvalidSuturingIndex;
             pair.environmentIndex    = strand.environmentIndex;
             pair.pathNodeSpacing     = strand.pathNodeSpacing;
+            mSuturingPairs.push_back(pair);
+
+            mReservedSuturingPathHeaders += mMaxSuturingPathsPerPair;
+            mReservedSuturingPathNodes += mMaxSuturingPathsPerPair * mMaxSuturingNodesPerPath;
+        }
+    }
+
+    for (std::uint32_t rigidBodyIndex = 0u; rigidBodyIndex < mRigidBodySnapshot.size();
+         ++rigidBodyIndex)
+    {
+        const RigidBodyState &rigidBody = mRigidBodySnapshot[rigidBodyIndex];
+        if (!rigidBody.suturingEnabled || rigidBody.proxyParticleCount == 0u)
+        {
+            continue;
+        }
+
+        for (std::uint32_t softBodyIndex = 0u; softBodyIndex < mSoftBodySnapshot.size();
+             ++softBodyIndex)
+        {
+            const SoftBodyState &softBody = mSoftBodySnapshot[softBodyIndex];
+            if (!softBody.supportsSuturing || softBody.particleCount == 0u ||
+                softBody.environmentIndex != rigidBody.environmentIndex)
+            {
+                continue;
+            }
+
+            StrandSoftSuturingPair pair{};
+            pair.strandIndex         = rigidProxySuturingGroupBase + rigidBodyIndex;
+            pair.softBodyIndex       = softBodyIndex;
+            pair.strandParticleStart = rigidBody.proxyParticleOffset;
+            pair.strandParticleCount = rigidBody.proxyParticleCount;
+            pair.tipParticleIndex    = rigidBody.proxyParticleOffset + rigidBody.needleTipProxyIndex;
+            pair.softTetStart        = softBody.tetOffset;
+            pair.softTetCount        = softBody.tetCount;
+            pair.softCollisionLayer  = softBody.collisionLayer;
+            pair.pathStart           = mReservedSuturingPathHeaders;
+            pair.pathCount           = mMaxSuturingPathsPerPair;
+            pair.nodeStart           = mReservedSuturingPathNodes;
+            pair.nodeCount           = mMaxSuturingPathsPerPair * mMaxSuturingNodesPerPath;
+            pair.activePathIndex     = kInvalidSuturingIndex;
+            pair.environmentIndex    = rigidBody.environmentIndex;
+            pair.pathNodeSpacing     = std::max(rigidBody.proxyParticleRadius * 1.5f, 1.0e-4f);
             mSuturingPairs.push_back(pair);
 
             mReservedSuturingPathHeaders += mMaxSuturingPathsPerPair;

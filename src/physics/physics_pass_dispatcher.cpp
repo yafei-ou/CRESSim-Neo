@@ -1623,6 +1623,7 @@ bool PhysicsPassDispatcher::dispatchSolveSuturingNodePathConstraintsPass(
     const auto &softParticles = sceneState.persistentParticles();
     const auto &softTopology  = sceneState.persistentSoftTopology();
     const auto &transient     = sceneState.transientBuffers();
+    const auto &persistentRigid = sceneState.persistentRigidBodies();
     const PhysicsGpuSceneView sceneView = sceneState.sceneView();
     const auto &suturing = sceneView.soft;
     const std::array bindings{
@@ -1631,7 +1632,14 @@ bool PhysicsPassDispatcher::dispatchSolveSuturingNodePathConstraintsPass(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerTypes", softParticles.ownerTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerIndices", softParticles.ownerIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleStrandRoles", softParticles.strandRolesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidProxyLocalPositions",
+                              softParticles.rigidProxyLocalPositionsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SuturingInsertionStates", suturing.strandInsertionStatesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -1641,8 +1649,25 @@ bool PhysicsPassDispatcher::dispatchSolveSuturingNodePathConstraintsPass(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SoftTets", softTopology.tetsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+                              transient.predictedRigidBodies.positionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
+                              transient.predictedRigidBodies.orientationsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyInverseInertiaLocal",
+                              persistentRigid.inverseInertiaLocalBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyTypes", persistentRigid.bodyTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticlePositionCorrections",
                               transient.softPositionCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyTranslationCorrections",
+                              transient.translationCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyRotationCorrections",
+                              transient.rotationCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 

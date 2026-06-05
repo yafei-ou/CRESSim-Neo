@@ -7,6 +7,7 @@
 #include "viewer/debug_viewer_app.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <stdexcept>
@@ -16,6 +17,7 @@
 namespace
 {
 
+using cressim::neo::common::FrameContext;
 using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::ColliderComponent;
 using cressim::neo::engine::DirectionalLightComponent;
@@ -32,9 +34,44 @@ using cressim::neo::physics::ParticleContactMaterialDesc;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::physics::SoftBodySourceKind;
 using cressim::neo::viewer::DebugViewerApp;
+using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
 constexpr float kPi = 3.14159265358979323846f;
+
+std::uint32_t flattenGridIndex(std::uint32_t x, std::uint32_t y, std::uint32_t z,
+                               const Diligent::uint3 &resolution)
+{
+    return x * resolution.y * resolution.z + y * resolution.z + z;
+}
+
+std::vector<std::uint32_t> makeRightSideStaticIndices(const Diligent::float3 &size, float spacing)
+{
+    const float clampedSpacing = std::max(spacing, 1.0e-4f);
+    const auto deriveResolution = [clampedSpacing](const float extent) -> std::uint32_t
+    {
+        return std::max<std::uint32_t>(2u, static_cast<std::uint32_t>(std::ceil(extent / clampedSpacing)) +
+                                               1u);
+    };
+
+    const Diligent::uint3 resolution{
+        deriveResolution(std::max(size.x, 1.0e-4f)),
+        deriveResolution(std::max(size.y, 1.0e-4f)),
+        deriveResolution(std::max(size.z, 1.0e-4f)),
+    };
+
+    std::vector<std::uint32_t> result;
+    result.reserve(static_cast<std::size_t>(resolution.y) * resolution.z);
+    const std::uint32_t rightX = resolution.x - 1u;
+    for (std::uint32_t y = 0u; y < resolution.y; ++y)
+    {
+        for (std::uint32_t z = 0u; z < resolution.z; ++z)
+        {
+            result.push_back(flattenGridIndex(rightX, y, z, resolution));
+        }
+    }
+    return result;
+}
 
 void printUsage(const char *appName)
 {
@@ -46,7 +83,7 @@ std::vector<Diligent::float3> makeArcProxyParticles(float arcRadius, float start
                                                     float endAngleRadians,
                                                     std::uint32_t sampleCount)
 {
-    const std::uint32_t count = std::max(sampleCount, 2u);
+    const std::uint32_t count = std::max(sampleCount, 1u);
     std::vector<Diligent::float3> points;
     points.reserve(count);
 
@@ -107,6 +144,15 @@ ProxyMassProperties computeProxyMassProperties(const std::vector<Diligent::float
     return properties;
 }
 
+float signedAngleXY(const Diligent::float3 &from, const Diligent::float3 &to)
+{
+    const Diligent::float2 a = Diligent::normalize(Diligent::float2{from.x, from.y});
+    const Diligent::float2 b = Diligent::normalize(Diligent::float2{to.x, to.y});
+    const float dot = std::clamp(a.x * b.x + a.y * b.y, -1.0f, 1.0f);
+    const float det = a.x * b.y - a.y * b.x;
+    return std::atan2(det, dot);
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -142,7 +188,7 @@ int main(int argc, char **argv)
 
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
-    viewerDefaults.windowTitle = "CRESSim Neo Soft Body Arc Needle";
+    viewerDefaults.windowTitle = "CRESSim Neo Kinematic Arc Needle";
     viewerDefaults.showStats = true;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
     viewerDesc.enableDebugParticles = true;
@@ -182,10 +228,10 @@ int main(int argc, char **argv)
 
     auto &resources = runtime.getResources();
     const auto groundMesh = resources.registerMesh(
-        cressim::neo::examples::helpers::makePlaneMesh(12.0f, "SoftBodyArcNeedle.GroundMesh"));
+        cressim::neo::examples::helpers::makePlaneMesh(12.0f, "KinematicArcNeedle.GroundMesh"));
 
     MaterialResourceDesc groundMaterialDesc{};
-    groundMaterialDesc.debugName = "SoftBodyArcNeedle.GroundMaterial";
+    groundMaterialDesc.debugName = "KinematicArcNeedle.GroundMaterial";
     groundMaterialDesc.baseColor = {0.76f, 0.79f, 0.82f};
     groundMaterialDesc.roughness = 0.94f;
     const auto groundMaterial = resources.registerMaterial(groundMaterialDesc);
@@ -212,20 +258,20 @@ int main(int argc, char **argv)
 
     const auto softEntity = world.createEntity();
     TransformComponent softTransform{};
-    softTransform.worldTransform.position = {0.0f, 0.55f, 0.0f};
-    softTransform.worldTransform.rotation =
-        Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 1.0f, 0.0f}, 0.2f);
+    softTransform.worldTransform.position = {0.0f, -0.44f, 0.0f};
     world.setTransform(softEntity, softTransform);
 
     SoftBodyComponent softBody{};
     softBody.source.kind = SoftBodySourceKind::RegularGrid;
     softBody.source.regularGrid.size = {2.0f, 1.0f, 1.2f};
     softBody.source.regularGrid.targetParticleSpacing = 0.24f;
+    softBody.source.regularGrid.staticParticleIndices = makeRightSideStaticIndices(
+        softBody.source.regularGrid.size, softBody.source.regularGrid.targetParticleSpacing);
     softBody.particleMass = 0.08f;
-    softBody.particleRadius = 0.12f;
-    softBody.edgeCompliance = 0.0f;
-    softBody.volumeCompliance = 0.0007f;
-    softBody.selfCollisionEnabled = true;
+    softBody.particleRadius = 0.08f;
+    softBody.edgeCompliance = 0.0001f;
+    softBody.volumeCompliance = 0.0005f;
+    softBody.selfCollisionEnabled = false;
     softBody.supportsSuturing = true;
     softBody.material.contact.friction = 0.48f;
     softBody.material.contact.staticFriction = 0.58f;
@@ -237,20 +283,49 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    const float needleParticleRadius = 0.11f;
+    const float needleParticleRadius = 0.1f;
     const std::vector<Diligent::float3> needleProxyParticles =
-        makeArcProxyParticles(0.95f, -0.9f * kPi, -0.1f * kPi, 18u);
+        makeArcProxyParticles(0.95f, -0.9f * kPi, -0.1f * kPi, 1u);
     constexpr float kNeedleInverseMass = 1.4f;
     const ProxyMassProperties needleMassProperties =
         computeProxyMassProperties(needleProxyParticles, needleParticleRadius, kNeedleInverseMass);
+    const std::uint32_t tipProxyIndex =
+        static_cast<std::uint32_t>(needleMassProperties.centeredPoints.size() - 1u);
 
     const auto needleEntity = world.createEntity();
+    const Diligent::float3 tipTangentLocal =
+        needleProxyParticles.size() >= 2u
+            ? Diligent::normalize(needleProxyParticles[tipProxyIndex] -
+                                  needleProxyParticles[tipProxyIndex - 1u])
+            : Diligent::float3{1.0f, 0.0f, 0.0f};
+    const Diligent::float3 desiredTipTangentWorld = Diligent::normalize(
+        Diligent::float3{1.0f, 0.12f, 0.0f});
+
+    const float kBaseNeedleAngle = signedAngleXY(tipTangentLocal, desiredTipTangentWorld);
+    constexpr float kInsertionRotationDelta = 0.32f;
+    auto computeNeedleRotation = [](float angle)
+    {
+        return Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 0.0f, 1.0f}, angle);
+    };
+
+    const Diligent::float3 arcCenterLocal = -needleMassProperties.centerOfMass;
+    const Diligent::float3 tipFromArcCenterLocal = needleProxyParticles[tipProxyIndex];
+
+    auto computeNeedleBodyPositionFromArcCenter = [&](const Diligent::float3 &arcCenterPosition,
+                                                      const Diligent::QuaternionF &needleRotation)
+    {
+        return arcCenterPosition - needleRotation.RotateVector(arcCenterLocal);
+    };
+
+    const Diligent::QuaternionF needleRotation = computeNeedleRotation(kBaseNeedleAngle);
+    const Diligent::float3 startTipPosition{-1.6f, -0.24f, 0.0f};
+    const Diligent::float3 startArcCenterPosition =
+        startTipPosition - needleRotation.RotateVector(tipFromArcCenterLocal);
+
     TransformComponent needleTransform{};
-    needleTransform.worldTransform.position = {0.0f, 3.2f, 0.0f};
-    needleTransform.worldTransform.rotation =
-        Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 0.0f, 1.0f}, 0.3f);
-    needleTransform.worldTransform.position +=
-        needleTransform.worldTransform.rotation.RotateVector(needleMassProperties.centerOfMass);
+    needleTransform.worldTransform.rotation = needleRotation;
+    needleTransform.worldTransform.position =
+        computeNeedleBodyPositionFromArcCenter(startArcCenterPosition, needleRotation);
     world.setTransform(needleEntity, needleTransform);
 
     ParticleContactMaterialDesc needleContactMaterial{};
@@ -260,7 +335,7 @@ int main(int argc, char **argv)
 
     RigidBodyComponent needleBody{};
     needleBody.simulated = true;
-    needleBody.bodyType = RigidBodyType::Dynamic;
+    needleBody.bodyType = RigidBodyType::Kinematic;
     needleBody.inverseMass = kNeedleInverseMass;
     needleBody.inverseInertiaLocal = needleMassProperties.inverseInertiaLocal;
     needleBody.proxyParticleLocalPositions = needleMassProperties.centeredPoints;
@@ -269,13 +344,68 @@ int main(int argc, char **argv)
     needleBody.proxyCollisionLayer = 0x1u;
     needleBody.proxyCollisionMask = 0xffffffffu;
     needleBody.suturingEnabled = true;
-    needleBody.needleTipProxyIndex =
-        static_cast<std::uint32_t>(needleMassProperties.centeredPoints.size() - 1u);
+    needleBody.needleTipProxyIndex = tipProxyIndex;
+    needleBody.kinematicTargetEnabled = true;
+    needleBody.kinematicTargetRotation = needleRotation;
+    needleBody.kinematicTargetPosition = needleTransform.worldTransform.position;
     world.setRigidBody(needleEntity, needleBody);
+
+    DebugViewerCallbacks callbacks{};
+    callbacks.beforeTick =
+        [needleEntity, computeNeedleBodyPositionFromArcCenter, computeNeedleRotation,
+         startArcCenterPosition, kBaseNeedleAngle](const FrameContext &frame, Runtime &cbRuntime)
+    {
+        auto needleBody = cbRuntime.getWorld().tryGetRigidBody(needleEntity);
+        if (!needleBody.has_value())
+        {
+            return;
+        }
+
+        const float t = static_cast<float>(frame.timeSeconds);
+        const float cycleDuration = 12.0f;
+        const float horizontalPhase = 0.35f;
+        const float cycle = std::fmod(std::max(t, 0.0f), cycleDuration) / cycleDuration;
+
+        Diligent::float3 arcCenterPosition = startArcCenterPosition;
+        if (cycle <= horizontalPhase)
+        {
+            const float u = cycle / horizontalPhase;
+            arcCenterPosition.x = startArcCenterPosition.x + 1.2f * u;
+        }
+        else
+        {
+            const float u = (cycle - horizontalPhase) / (1.0f - horizontalPhase);
+            const float easedU = u * u * (3.0f - 2.0f * u);
+            arcCenterPosition.x = startArcCenterPosition.x + 1.2f;
+            arcCenterPosition.y = startArcCenterPosition.y + 2.6f * easedU;
+        }
+
+        float needleAngle = kBaseNeedleAngle;
+        if (cycle <= horizontalPhase)
+        {
+            const float u = cycle / horizontalPhase;
+            const float easedU = u * u * (3.0f - 2.0f * u);
+            needleAngle += kInsertionRotationDelta * easedU;
+        }
+        else
+        {
+            const float u = (cycle - horizontalPhase) / (1.0f - horizontalPhase);
+            const float easedU = u * u * (3.0f - 2.0f * u);
+            needleAngle += kInsertionRotationDelta * (1.0f - easedU);
+        }
+        const Diligent::QuaternionF needleRotation = computeNeedleRotation(needleAngle);
+
+        needleBody->bodyType = RigidBodyType::Kinematic;
+        needleBody->kinematicTargetEnabled = true;
+        needleBody->kinematicTargetRotation = needleRotation;
+        needleBody->kinematicTargetPosition =
+            computeNeedleBodyPositionFromArcCenter(arcCenterPosition, needleRotation);
+        cbRuntime.getWorld().setRigidBody(needleEntity, *needleBody);
+    };
 
     DebugViewerCameraBinding binding{};
     binding.cameraEntity = cameraEntity;
-    const bool runOk = viewer.run(runtime, binding);
+    const bool runOk = viewer.run(runtime, binding, callbacks);
 
     runtime.shutdown();
     viewer.shutdown();

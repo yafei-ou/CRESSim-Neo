@@ -1006,6 +1006,8 @@ void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent &co
     state.proxyParticleRadius         = component.proxyParticleRadius;
     state.proxyCollisionLayer         = component.proxyCollisionLayer;
     state.proxyCollisionMask          = component.proxyCollisionMask;
+    state.suturingEnabled             = component.suturingEnabled;
+    state.needleTipProxyIndex         = component.needleTipProxyIndex;
     state.bodyType                    = component.bodyType;
     state.environmentIndex            = entityEnvironment(entityId);
     state.kinematicTargetPosition     = component.kinematicTargetPosition;
@@ -1680,6 +1682,8 @@ std::optional<RigidBodyComponent> World::tryGetRigidBody(common::EntityId entity
     component.proxyParticleRadius         = rb->proxyParticleRadius;
     component.proxyCollisionLayer         = rb->proxyCollisionLayer;
     component.proxyCollisionMask          = rb->proxyCollisionMask;
+    component.suturingEnabled             = rb->suturingEnabled;
+    component.needleTipProxyIndex         = rb->needleTipProxyIndex;
     component.kinematicTargetPosition     = rb->kinematicTargetPosition;
     component.kinematicTargetRotation     = rb->kinematicTargetRotation;
     component.kinematicTargetEnabled      = rb->kinematicTargetEnabled;

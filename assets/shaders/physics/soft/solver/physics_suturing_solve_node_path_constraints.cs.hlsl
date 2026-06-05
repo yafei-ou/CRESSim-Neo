@@ -1,14 +1,26 @@
 #include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
 #include "../../../include/physics/physics_atomic_float.hlsli"
 #include "../../../include/physics/particle/physics_particle_types.hlsli"
+#include "../../../include/physics/rigid/physics_rigid_types.hlsli"
+#include "../../../include/physics/rigid/physics_rigid_contact_primitives.hlsli"
+#include "../../../include/physics/rigid/physics_rigid_solver_shared.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerTypes);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerIndices);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleStrandRoles);
+CRESSIM_STRUCTURED_BUFFER(float4, g_RigidProxyLocalPositions);
 CRESSIM_STRUCTURED_BUFFER(GpuStrandInsertionStateStorage, g_SuturingInsertionStates);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingPathHeader, g_SuturingPathHeaders);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingPathNode, g_SuturingPathNodes);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftTet, g_SoftTets);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
+CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
+CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_ParticlePositionCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyTranslationCorrections);
+CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
 
 static const float kSuturingRelaxation = 0.05;
 static const float kSuturingMaxCorrection = 0.02;
@@ -107,11 +119,34 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const GpuSoftTet tet = CRESSIM_SB_LOAD(g_SoftTets, node.tetIndex);
     const float4 particlePosInvMass = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex);
-    const float invMassParticle = particlePosInvMass.w;
     const float4 p0Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet.particleIndices.x);
     const float4 p1Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet.particleIndices.y);
     const float4 p2Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet.particleIndices.z);
     const float4 p3Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet.particleIndices.w);
+    const uint ownerType = CRESSIM_SB_LOAD(g_ParticleOwnerTypes, particleIndex);
+    const bool proxy = ownerType == kParticleOwnerTypeRigidBody;
+
+    float effectiveParticleMass = particlePosInvMass.w;
+    float invMassRigid = 0.0;
+    float3 invInertiaRigid = 0.0;
+    float4 rigidOrientation = float4(0.0, 0.0, 0.0, 1.0);
+    float3 rRigid = 0.0;
+    uint rigidBodyIndex = 0u;
+    if (proxy)
+    {
+        rigidBodyIndex = CRESSIM_SB_LOAD(g_ParticleOwnerIndices, particleIndex);
+        const uint bodyType = CRESSIM_SB_LOAD(g_RigidBodyTypes, rigidBodyIndex);
+        const float4 rigidPositionInvMass =
+            CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, rigidBodyIndex);
+        rigidOrientation =
+            QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, rigidBodyIndex));
+        invMassRigid = bodyType == kRigidBodyTypeDynamic ? rigidPositionInvMass.w : 0.0;
+        invInertiaRigid = invMassRigid > kEpsilon
+                              ? CRESSIM_SB_LOAD(g_RigidBodyInverseInertiaLocal, rigidBodyIndex).xyz
+                              : 0.0;
+        const float3 localProxy = CRESSIM_SB_LOAD(g_RigidProxyLocalPositions, particleIndex).xyz;
+        rRigid = QuaternionRotate(rigidOrientation, localProxy);
+    }
 
     const float w0 = p0Inv.w;
     const float w1 = p1Inv.w;
@@ -128,28 +163,49 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
+    const float radialLength = sqrt(radialLengthSq);
+    const float3 radialDirection = radial / radialLength;
+    if (proxy)
+    {
+        effectiveParticleMass =
+            ComputeContactEffectiveMass(invMassRigid, invInertiaRigid, rigidOrientation, rRigid,
+                                        radialDirection);
+    }
+
     const float effectiveTetMass =
         w0 * node.barycentrics.x * node.barycentrics.x +
         w1 * node.barycentrics.y * node.barycentrics.y +
         w2 * node.barycentrics.z * node.barycentrics.z +
         w3 * node.barycentrics.w * node.barycentrics.w;
-    const float denom = invMassParticle + effectiveTetMass;
+    const float denom = effectiveParticleMass + effectiveTetMass;
     if (denom <= 1.0e-8)
     {
         return;
     }
 
-    float3 correction = (radial / denom) * kSuturingRelaxation;
+    const float lambda = (radialLength / denom) * kSuturingRelaxation;
+    float3 correction = radialDirection * lambda;
     const float correctionLength = length(correction);
     if (correctionLength > kSuturingMaxCorrection)
     {
         correction *= kSuturingMaxCorrection / max(correctionLength, kEpsilon);
     }
 
-    if (invMassParticle > kEpsilon)
+    if (!proxy && particlePosInvMass.w > kEpsilon)
     {
         CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_ParticlePositionCorrections, particleIndex,
-                                      -correction * invMassParticle);
+                                      -correction * particlePosInvMass.w);
+    }
+
+    if (proxy && invMassRigid > kEpsilon)
+    {
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyTranslationCorrections, rigidBodyIndex,
+                                      -correction * invMassRigid);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(
+            g_RigidBodyRotationCorrections, rigidBodyIndex,
+            -MultiplyWorldInverseInertia(invInertiaRigid, rigidOrientation,
+                                         cross(rRigid, radialDirection)) *
+                lambda);
     }
 
     if (w0 > kEpsilon)

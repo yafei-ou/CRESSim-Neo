@@ -117,6 +117,8 @@ struct RigidBodyComponent
     float proxyParticleRadius         = 0.0f;
     std::uint32_t proxyCollisionLayer = 1u;
     std::uint32_t proxyCollisionMask  = 0xffffffffu;
+    bool suturingEnabled              = false;
+    std::uint32_t needleTipProxyIndex = 0u;
     Diligent::float3 kinematicTargetPosition{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF kinematicTargetRotation{0.0f, 0.0f, 0.0f, 1.0f};
     bool kinematicTargetEnabled = false;

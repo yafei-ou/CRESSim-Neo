@@ -51,6 +51,11 @@ add_cressim_example(
 )
 
 add_cressim_example(
+    NAME physics_soft_body_arc_needle_kinematic
+    SOURCE soft_body_arc_needle_kinematic.cpp
+)
+
+add_cressim_example(
     NAME physics_strand_debug
     SOURCE strand_debug.cpp
 )

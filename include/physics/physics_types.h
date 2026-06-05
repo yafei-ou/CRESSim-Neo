@@ -270,6 +270,8 @@ struct RigidBodyState
     std::uint32_t proxyParticleOffset        = 0u;
     std::uint32_t proxyParticleCount         = 0u;
     std::uint32_t proxyParticleMaterialIndex = 0u;
+    bool suturingEnabled                     = false;
+    std::uint32_t needleTipProxyIndex        = 0u;
     Diligent::float4 proxyParticleContactMaterial{0.0f, 0.0f, 0.0f, 0.0f};
     std::vector<Diligent::float3> proxyParticleLocalPositions;
 };

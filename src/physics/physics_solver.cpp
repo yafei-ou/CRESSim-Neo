@@ -811,6 +811,24 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                         "PhysicsSolver::step failed: ApplyParticlePositionCorrections suturing dispatch.");
                     return false;
                 }
+                if (hasSuturingCouplingWork && rigidBodyCount > 0u &&
+                    !mImpl->passDispatcher.applyRigidCorrections(
+                        computeBackend.computeContext, mImpl->sceneState, rigidBodyCount,
+                        constants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: ApplyRigidCorrections suturing dispatch.");
+                    return false;
+                }
+                if (hasSuturingCouplingWork && rigidBodyCount > 0u && particleCount > 0u &&
+                    !mImpl->passDispatcher.syncRigidProxyParticles(
+                        computeBackend.computeContext, mImpl->sceneState, particleCount,
+                        particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: SyncRigidProxyParticles suturing dispatch.");
+                    return false;
+                }
             }
         }
 
