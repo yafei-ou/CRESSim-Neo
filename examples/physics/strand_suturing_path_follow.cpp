@@ -55,9 +55,10 @@ std::vector<std::uint32_t> makeBottomLayerStaticIndices(const Diligent::float3 &
     };
 
     std::vector<std::uint32_t> result;
-    const std::uint32_t leftPinnedColumns = std::max(1u, (resolution.x + 2u) / 3u);
-    result.reserve(static_cast<std::size_t>(leftPinnedColumns) * resolution.z);
-    for (std::uint32_t x = 0u; x < leftPinnedColumns; ++x)
+    const std::uint32_t rightPinnedColumns = std::max(1u, (resolution.x + 2u) / 3u);
+    const std::uint32_t startX = resolution.x - rightPinnedColumns;
+    result.reserve(static_cast<std::size_t>(rightPinnedColumns) * resolution.z);
+    for (std::uint32_t x = startX; x < resolution.x; ++x)
     {
         for (std::uint32_t z = 0u; z < resolution.z; ++z)
         {
@@ -219,20 +220,34 @@ int main(int argc, char **argv)
         const float t = static_cast<float>(frame.timeSeconds);
         const float cycleDuration = 12.0f;
         const float horizontalPhase = 0.35f;
+        const float liftPhase       = 0.30f;
+        const float leftPullPhase   = 1.0f - horizontalPhase - liftPhase;
+        const float startX          = -1.8f;
+        const float exitX           = -0.1f;
+        const float endX            = -2.1f;
+        const float baseY           = -0.05f;
+        const float liftedY         = 1.1f;
         const float cycle = std::fmod(std::max(t, 0.0f), cycleDuration) / cycleDuration;
-        float x = 0.0f;
-        float y = -0.05f;
+        float x = startX;
+        float y = baseY;
         if (cycle <= horizontalPhase)
         {
             const float u = cycle / horizontalPhase;
-            x = -1.8f + 1.7f * u;
+            x = startX + (exitX - startX) * u;
+        }
+        else if (cycle <= horizontalPhase + liftPhase)
+        {
+            const float u = (cycle - horizontalPhase) / liftPhase;
+            const float easedU = u * u * (3.0f - 2.0f * u);
+            x = exitX;
+            y = baseY + (liftedY - baseY) * easedU;
         }
         else
         {
-            const float u = (cycle - horizontalPhase) / (1.0f - horizontalPhase);
+            const float u = (cycle - horizontalPhase - liftPhase) / leftPullPhase;
             const float easedU = u * u * (3.0f - 2.0f * u);
-            x = -0.1f;
-            y = -0.05f + 5.35f * easedU;
+            x = exitX + (endX - exitX) * easedU;
+            y = liftedY;
         }
         cbRuntime.getWorld().physicsWorld().overrideStrandParticlePosition(
             strandEntity, 0u, Diligent::float3{x, y, 0.0f}, true);
