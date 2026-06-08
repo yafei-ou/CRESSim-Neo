@@ -150,6 +150,9 @@ struct SoftBodyComponent
 struct MeshfreeSoftBodyComponent
 {
     std::vector<Diligent::float3> particles;
+    std::vector<Diligent::float3> surfaceRestPositions;
+    std::vector<Diligent::float3> surfaceNormals;
+    std::vector<Diligent::uint3> surfaceTriangles;
     std::vector<std::uint32_t> staticParticleIndices;
     physics::SoftBodyMaterialDesc material{};
     float particleRadius           = 0.001f;

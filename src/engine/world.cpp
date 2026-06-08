@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cmath>
+#include <limits>
 #include <map>
 
 namespace cressim::neo::engine
@@ -231,6 +232,127 @@ std::optional<std::uint32_t> findMatchingRestVertexLocal(
     }
 
     return bestIndex;
+}
+
+graphics::GpuSoftBodyVertexBinding makeExactSoftBodyVertexBinding(
+    std::uint32_t particleIndex) noexcept
+{
+    graphics::GpuSoftBodyVertexBinding binding{};
+    binding.particleIndices = Diligent::uint4{particleIndex, particleIndex, particleIndex,
+                                              particleIndex};
+    binding.weights         = Diligent::float4{1.0f, 0.0f, 0.0f, 0.0f};
+    return binding;
+}
+
+graphics::GpuSoftBodyVertexBinding makeNearestParticleSkinBinding(
+    const Diligent::float3 &visualVertexLocal,
+    const std::vector<Diligent::float3> &restPositionsLocal,
+    std::uint32_t particleOffset) noexcept
+{
+    struct Candidate
+    {
+        float distanceSq          = std::numeric_limits<float>::max();
+        std::uint32_t localIndex  = 0u;
+        bool valid                = false;
+    };
+
+    std::array<Candidate, 4u> nearest{};
+    for (std::uint32_t localParticleIndex = 0u;
+         localParticleIndex < static_cast<std::uint32_t>(restPositionsLocal.size());
+         ++localParticleIndex)
+    {
+        const Diligent::float3 delta = restPositionsLocal[localParticleIndex] - visualVertexLocal;
+        const float distanceSq       = Diligent::dot(delta, delta);
+        for (std::size_t slot = 0u; slot < nearest.size(); ++slot)
+        {
+            if (nearest[slot].valid && distanceSq >= nearest[slot].distanceSq)
+            {
+                continue;
+            }
+
+            for (std::size_t moveSlot = nearest.size() - 1u; moveSlot > slot; --moveSlot)
+            {
+                nearest[moveSlot] = nearest[moveSlot - 1u];
+            }
+            nearest[slot] = Candidate{distanceSq, localParticleIndex, true};
+            break;
+        }
+    }
+
+    graphics::GpuSoftBodyVertexBinding binding{};
+    const std::uint32_t fallbackParticleIndex =
+        particleOffset + (nearest[0].valid ? nearest[0].localIndex : 0u);
+    binding.particleIndices = Diligent::uint4{fallbackParticleIndex, fallbackParticleIndex,
+                                              fallbackParticleIndex, fallbackParticleIndex};
+    binding.weights         = Diligent::float4{1.0f, 0.0f, 0.0f, 0.0f};
+    if (!nearest[0].valid)
+    {
+        return binding;
+    }
+
+    std::array<float, 4u> rawWeights{};
+    float weightSum = 0.0f;
+    constexpr float kDistanceEpsilon = 1.0e-6f;
+    for (std::size_t slot = 0u; slot < nearest.size(); ++slot)
+    {
+        if (!nearest[slot].valid)
+        {
+            continue;
+        }
+
+        const std::uint32_t particleIndex = particleOffset + nearest[slot].localIndex;
+        const float distance              = std::sqrt(std::max(nearest[slot].distanceSq, 0.0f));
+        const float rawWeight             = 1.0f / (distance + kDistanceEpsilon);
+        rawWeights[slot]                  = rawWeight;
+        weightSum += rawWeight;
+
+        if (slot == 0u)
+        {
+            binding.particleIndices.x = particleIndex;
+        }
+        else if (slot == 1u)
+        {
+            binding.particleIndices.y = particleIndex;
+        }
+        else if (slot == 2u)
+        {
+            binding.particleIndices.z = particleIndex;
+        }
+        else
+        {
+            binding.particleIndices.w = particleIndex;
+        }
+    }
+
+    if (weightSum <= 0.0f)
+    {
+        return binding;
+    }
+
+    binding.weights = Diligent::float4{rawWeights[0] / weightSum, rawWeights[1] / weightSum,
+                                       rawWeights[2] / weightSum, rawWeights[3] / weightSum};
+    return binding;
+}
+
+std::uint32_t dominantParticleIndex(const graphics::GpuSoftBodyVertexBinding &binding) noexcept
+{
+    std::uint32_t particleIndex = binding.particleIndices.x;
+    float weight                = binding.weights.x;
+    if (binding.weights.y > weight)
+    {
+        particleIndex = binding.particleIndices.y;
+        weight        = binding.weights.y;
+    }
+    if (binding.weights.z > weight)
+    {
+        particleIndex = binding.particleIndices.z;
+        weight        = binding.weights.z;
+    }
+    if (binding.weights.w > weight)
+    {
+        particleIndex = binding.particleIndices.w;
+    }
+    return particleIndex;
 }
 
 } // namespace
@@ -1088,6 +1210,9 @@ bool World::setMeshfreeSoftBody(common::EntityId entityId, const MeshfreeSoftBod
     state.environmentIndex = entityEnvironment(entityId);
     state.source.kind      = physics::SoftBodySourceKind::MeshfreeParticles;
     state.source.meshfreeParticles.particleRestPositions = component.particles;
+    state.source.meshfreeParticles.surfaceRestPositions  = component.surfaceRestPositions;
+    state.source.meshfreeParticles.surfaceNormals        = component.surfaceNormals;
+    state.source.meshfreeParticles.surfaceTriangles      = component.surfaceTriangles;
     state.source.meshfreeParticles.staticParticleIndices = component.staticParticleIndices;
     state.source.meshfreeParticles.neighbourCount        = component.neighbourCount;
     state.material             = component.material;
@@ -2081,9 +2206,14 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
             continue;
         }
 
+        const bool useNearestParticleSkinning =
+            softBody->source.kind == physics::SoftBodySourceKind::MeshfreeParticles;
         std::unordered_map<QuantizedPointKey, std::uint32_t, QuantizedPointKeyHash>
             restIndexByQuantizedPosition;
-        restIndexByQuantizedPosition.reserve(softBody->restPositions.size());
+        if (!useNearestParticleSkinning)
+        {
+            restIndexByQuantizedPosition.reserve(softBody->restPositions.size());
+        }
         std::vector<Diligent::float3> restPositionsLocal;
         restPositionsLocal.reserve(softBody->restPositions.size());
         for (std::uint32_t localParticleIndex = 0u;
@@ -2093,8 +2223,12 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
             const Diligent::float3 localRestPosition = inverseTransformPoint(
                 softBody->restTransform, softBody->restPositions[localParticleIndex]);
             restPositionsLocal.push_back(localRestPosition);
-            restIndexByQuantizedPosition.try_emplace(
-                quantizePoint(localRestPosition, kSoftBodyVertexMatchEpsilon), localParticleIndex);
+            if (!useNearestParticleSkinning)
+            {
+                restIndexByQuantizedPosition.try_emplace(
+                    quantizePoint(localRestPosition, kSoftBodyVertexMatchEpsilon),
+                    localParticleIndex);
+            }
         }
 
         const std::uint32_t bindingBase =
@@ -2106,18 +2240,30 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
         std::vector<std::vector<std::uint32_t>> incidentTriangles(mesh->vertices.size());
         for (const graphics::MeshResourceDesc::Vertex &vertex : mesh->vertices)
         {
-            const std::optional<std::uint32_t> matchedRestIndex = findMatchingRestVertexLocal(
-                vertex.position, restPositionsLocal, restIndexByQuantizedPosition,
-                kSoftBodyVertexMatchEpsilon);
-            if (!matchedRestIndex.has_value())
+            graphics::GpuSoftBodyVertexBinding binding{};
+            if (useNearestParticleSkinning)
             {
-                valid = false;
-                break;
+                binding = makeNearestParticleSkinBinding(vertex.position, restPositionsLocal,
+                                                         softBody->particleOffset);
+            }
+            else
+            {
+                const std::optional<std::uint32_t> matchedRestIndex = findMatchingRestVertexLocal(
+                    vertex.position, restPositionsLocal, restIndexByQuantizedPosition,
+                    kSoftBodyVertexMatchEpsilon);
+                if (!matchedRestIndex.has_value())
+                {
+                    valid = false;
+                    break;
+                }
+
+                binding = makeExactSoftBodyVertexBinding(softBody->particleOffset +
+                                                         matchedRestIndex.value());
             }
 
-            graphics::GpuSoftBodyVertexBinding binding{};
-            binding.particleIndex = softBody->particleOffset + matchedRestIndex.value();
             mSoftBodyVertexBindingsHost.push_back(binding);
+            softRenderData.vertexBindings.push_back(
+                physics::SoftRenderVertexBinding{binding.particleIndices, binding.weights});
             const Diligent::float3 fallbackNormal =
                 transformNormal(softBody->restTransform, vertex.normal);
             softRenderData.fallbackNormals.emplace_back(fallbackNormal.x, fallbackNormal.y,
@@ -2129,8 +2275,12 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
         {
             CRESSIM_LOG_ERROR("Soft-body render binding build failed for entity ",
                               renderable.entityId,
-                              ": visual mesh vertices must match tet rest vertices exactly.");
+                              useNearestParticleSkinning
+                                  ? ": visual mesh vertices could not be bound to meshfree "
+                                    "particles."
+                                  : ": visual mesh vertices must match tet rest vertices exactly.");
             mSoftBodyVertexBindingsHost.resize(bindingBase);
+            softRenderData.vertexBindings.resize(bindingBase);
             softRenderData.fallbackNormals.resize(normalBase);
             softRenderData.vertexTriangleRanges.resize(rangeBase);
             continue;
@@ -2151,11 +2301,11 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
             }
 
             const std::uint32_t particleIndex0 =
-                mSoftBodyVertexBindingsHost[bindingBase + i0].particleIndex;
+                dominantParticleIndex(mSoftBodyVertexBindingsHost[bindingBase + i0]);
             const std::uint32_t particleIndex1 =
-                mSoftBodyVertexBindingsHost[bindingBase + i1].particleIndex;
+                dominantParticleIndex(mSoftBodyVertexBindingsHost[bindingBase + i1]);
             const std::uint32_t particleIndex2 =
-                mSoftBodyVertexBindingsHost[bindingBase + i2].particleIndex;
+                dominantParticleIndex(mSoftBodyVertexBindingsHost[bindingBase + i2]);
             const std::uint32_t renderTriangleIndex =
                 static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
             softRenderData.triangleParticleIndices.emplace_back(particleIndex0, particleIndex1,

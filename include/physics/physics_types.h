@@ -100,6 +100,9 @@ struct SoftBodyTetGenSource
 struct SoftBodyMeshfreeParticleSource
 {
     std::vector<Diligent::float3> particleRestPositions;
+    std::vector<Diligent::float3> surfaceRestPositions;
+    std::vector<Diligent::float3> surfaceNormals;
+    std::vector<Diligent::uint3> surfaceTriangles;
     std::vector<std::uint32_t> staticParticleIndices;
     std::uint32_t neighbourCount = 12u;
 };
@@ -648,8 +651,15 @@ struct SoftRenderVertexTriangleRange
     std::uint32_t reserved1 = 0u;
 };
 
+struct SoftRenderVertexBinding
+{
+    Diligent::uint4 particleIndices{0u, 0u, 0u, 0u};
+    Diligent::float4 weights{1.0f, 0.0f, 0.0f, 0.0f};
+};
+
 struct SoftRenderDataHost
 {
+    std::vector<SoftRenderVertexBinding> vertexBindings;
     std::vector<Diligent::float4> fallbackNormals;
     std::vector<SoftRenderVertexTriangleRange> vertexTriangleRanges;
     std::vector<std::uint32_t> vertexTriangleIndices;
@@ -658,6 +668,7 @@ struct SoftRenderDataHost
 
     void clear()
     {
+        vertexBindings.clear();
         fallbackNormals.clear();
         vertexTriangleRanges.clear();
         vertexTriangleIndices.clear();

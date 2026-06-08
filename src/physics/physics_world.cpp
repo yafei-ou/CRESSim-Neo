@@ -455,6 +455,9 @@ bool equalSoftBodyMeshfreeParticleSource(const SoftBodyMeshfreeParticleSource &l
                                          const SoftBodyMeshfreeParticleSource &rhs) noexcept
 {
     return lhs.particleRestPositions == rhs.particleRestPositions &&
+           lhs.surfaceRestPositions == rhs.surfaceRestPositions &&
+           lhs.surfaceNormals == rhs.surfaceNormals &&
+           lhs.surfaceTriangles == rhs.surfaceTriangles &&
            lhs.staticParticleIndices == rhs.staticParticleIndices &&
            lhs.neighbourCount == rhs.neighbourCount;
 }
