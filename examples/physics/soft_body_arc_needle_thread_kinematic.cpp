@@ -269,7 +269,7 @@ int main(int argc, char **argv)
     softBody.particleMass = 0.08f;
     softBody.particleRadius = 0.08f;
     softBody.edgeCompliance = 0.0005f;
-    softBody.volumeCompliance = 0.0005f;
+    softBody.volumeCompliance = 0.001f;
     softBody.selfCollisionEnabled = false;
     softBody.supportsSuturing = true;
     softBody.material.contact.friction = 0.48f;
@@ -353,7 +353,7 @@ int main(int argc, char **argv)
     const auto strandEntity = world.createEntity();
     StrandComponent strand{};
     strand.particleMass = 0.12f;
-    strand.particleRadius = 0.06f;
+    strand.particleRadius = 0.08f;
     strand.distanceCompliance = 0.000001f;
     strand.bendCompliance = 0.03f;
     strand.selfCollisionEnabled = false;
@@ -372,7 +372,7 @@ int main(int argc, char **argv)
     const Diligent::float3 tailWorldPosition =
         needleTransform.worldTransform.position +
         needleRotation.RotateVector(needleMassProperties.centeredPoints[tailProxyIndex]);
-    const float strandSpacing = 0.14f;
+    const float strandSpacing = softBody.source.regularGrid.targetParticleSpacing;
     for (std::uint32_t i = 0u; i < 18u; ++i)
     {
         const float offset = strandSpacing * static_cast<float>(i);
@@ -394,7 +394,7 @@ int main(int argc, char **argv)
     needleThreadAttachment.particleB.entityId = strandEntity;
     needleThreadAttachment.particleB.type = AuthoredParticleReferenceType::StrandParticle;
     needleThreadAttachment.particleB.localParticleIndex = 0u;
-    needleThreadAttachment.restLength = 0.0f;
+    needleThreadAttachment.restLength = strandSpacing;
     needleThreadAttachment.compliance = 0.0f;
     world.upsertParticleDistanceConstraint(needleThreadAttachment);
 
@@ -410,9 +410,9 @@ int main(int argc, char **argv)
         }
 
         const float t = static_cast<float>(frame.timeSeconds);
-        const float cycleDuration = 12.0f;
+        const float cycleDuration = 16.0f;
         const float horizontalPhase = 0.34f;
-        const float rotationPhase = 0.36f;
+        const float rotationPhase = 0.46f;
         const float pullUpPhaseStart = horizontalPhase + rotationPhase;
         const float cycle = std::fmod(std::max(t, 0.0f), cycleDuration) / cycleDuration;
 
