@@ -43,6 +43,9 @@ constexpr HingeJointId kInvalidHingeJointId = 0u;
 using SliderJointId                           = std::uint32_t;
 constexpr SliderJointId kInvalidSliderJointId = 0u;
 
+using ParticleConstraintId = std::uint32_t;
+constexpr ParticleConstraintId kInvalidParticleConstraintId = 0u;
+
 enum class RigidJointDriveMode : std::uint32_t
 {
     None           = 0u,
@@ -75,6 +78,13 @@ enum class ParticleOwnerType : std::uint32_t
     FluidBody = 2u,
     Strand    = 3u,
     RigidBody = 4u,
+};
+
+enum class AuthoredParticleReferenceType : std::uint32_t
+{
+    SoftBodyParticle  = 0u,
+    StrandParticle    = 1u,
+    RigidProxyParticle = 2u,
 };
 
 enum class ParticleStrandRole : std::uint32_t
@@ -366,6 +376,23 @@ struct FluidState
     std::uint32_t particleOffset       = 0u;
     std::uint32_t particleCount        = 0u;
     std::vector<Diligent::float3> restPositions;
+};
+
+struct AuthoredParticleReference
+{
+    common::EntityId entityId = common::kInvalidEntityId;
+    AuthoredParticleReferenceType type = AuthoredParticleReferenceType::StrandParticle;
+    std::uint32_t localParticleIndex = 0u;
+};
+
+struct AuthoredParticleDistanceConstraintState
+{
+    ParticleConstraintId constraintId = kInvalidParticleConstraintId;
+    AuthoredParticleReference particleA{};
+    AuthoredParticleReference particleB{};
+    float restLength = 0.0f;
+    float compliance = 0.0f;
+    bool enabled = true;
 };
 
 struct DeformableDistanceConstraint

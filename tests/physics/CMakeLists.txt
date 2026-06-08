@@ -126,6 +126,13 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE physics
+    NAME particle_distance_constraint_authoring
+    SOURCE physics_particle_distance_constraint_authoring.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
     NAME soft_gpu_scene_upload
     SOURCE physics_soft_gpu_scene_upload.cpp
     LIBS cressim_neo_engine

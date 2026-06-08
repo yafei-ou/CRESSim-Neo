@@ -1169,6 +1169,17 @@ bool World::removeStrand(common::EntityId entityId)
     return mPhysicsWorld.removeStrand(entityId);
 }
 
+physics::AuthoredParticleDistanceConstraintState &World::upsertParticleDistanceConstraint(
+    const physics::AuthoredParticleDistanceConstraintState &state)
+{
+    return mPhysicsWorld.upsertParticleDistanceConstraint(state);
+}
+
+bool World::removeParticleDistanceConstraint(physics::ParticleConstraintId constraintId)
+{
+    return mPhysicsWorld.removeParticleDistanceConstraint(constraintId);
+}
+
 bool World::setFluid(common::EntityId entityId, const FluidComponent &component)
 {
     if (entityId == common::kInvalidEntityId)
@@ -1758,6 +1769,12 @@ std::optional<FluidComponent> World::tryGetFluid(common::EntityId entityId) cons
     component.collisionLayer = fluid->collisionLayer;
     component.collisionMask  = fluid->collisionMask;
     return component;
+}
+
+const physics::AuthoredParticleDistanceConstraintState *World::tryGetParticleDistanceConstraint(
+    physics::ParticleConstraintId constraintId) const noexcept
+{
+    return mPhysicsWorld.tryGetParticleDistanceConstraint(constraintId);
 }
 
 std::optional<UltrasoundProbeComponent> World::tryGetUltrasoundProbe(

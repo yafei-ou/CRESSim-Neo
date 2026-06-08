@@ -53,6 +53,9 @@ public:
     bool removeStrand(common::EntityId entityId);
     bool setFluid(common::EntityId entityId, const FluidComponent &component);
     bool removeFluid(common::EntityId entityId);
+    physics::AuthoredParticleDistanceConstraintState &upsertParticleDistanceConstraint(
+        const physics::AuthoredParticleDistanceConstraintState &state);
+    bool removeParticleDistanceConstraint(physics::ParticleConstraintId constraintId);
     void setUltrasoundProbe(common::EntityId entityId, const UltrasoundProbeComponent &component);
     bool removeUltrasoundProbe(common::EntityId entityId);
     void setUltrasoundScattererSource(common::EntityId entityId,
@@ -86,6 +89,8 @@ public:
     std::optional<SoftBodyComponent> tryGetSoftBody(common::EntityId entityId) const;
     std::optional<StrandComponent> tryGetStrand(common::EntityId entityId) const;
     std::optional<FluidComponent> tryGetFluid(common::EntityId entityId) const;
+    const physics::AuthoredParticleDistanceConstraintState *tryGetParticleDistanceConstraint(
+        physics::ParticleConstraintId constraintId) const noexcept;
     std::optional<UltrasoundProbeComponent> tryGetUltrasoundProbe(common::EntityId entityId) const;
     std::optional<UltrasoundScattererSourceComponent> tryGetUltrasoundScattererSource(
         common::EntityId entityId) const;

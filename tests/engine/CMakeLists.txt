@@ -48,6 +48,14 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE engine
+    NAME particle_distance_constraint_authoring
+    SOURCE particle_distance_constraint_authoring.cpp
+    INCLUDE_SRC
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
     NAME soft_body_simulated_toggle
     SOURCE soft_body_simulated_toggle.cpp
     INCLUDE_SRC

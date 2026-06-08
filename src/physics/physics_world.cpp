@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <optional>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -530,12 +531,14 @@ void PhysicsWorld::clear()
     mEntityToSoftBodyIndex.clear();
     mEntityToStrandIndex.clear();
     mEntityToFluidIndex.clear();
+    mParticleConstraintIdToIndex.clear();
     mTetGenMeshCache.clear();
     mRigidBodySnapshot.clear();
     mColliderSnapshot.clear();
     mSoftBodySnapshot.clear();
     mStrandSnapshot.clear();
     mFluidSnapshot.clear();
+    mParticleDistanceConstraintSnapshot.clear();
     mBallJointSnapshot.clear();
     mHingeJointSnapshot.clear();
     mSliderJointSnapshot.clear();
@@ -575,6 +578,7 @@ void PhysicsWorld::clear()
     mNextBallJointId                = 1u;
     mNextHingeJointId               = 1u;
     mNextSliderJointId              = 1u;
+    mNextParticleConstraintId       = 1u;
     ++mRigidBodyTopologyRevision;
     ++mRigidJointSceneRevision;
     ++mRigidJointModeRevision;
@@ -1124,6 +1128,37 @@ bool PhysicsWorld::upsertFluid(const FluidState &state)
     return true;
 }
 
+AuthoredParticleDistanceConstraintState &PhysicsWorld::upsertParticleDistanceConstraint(
+    const AuthoredParticleDistanceConstraintState &state)
+{
+    AuthoredParticleDistanceConstraintState normalizedState = state;
+    normalizedState.restLength = std::max(normalizedState.restLength, 0.0f);
+    normalizedState.compliance = std::max(normalizedState.compliance, 0.0f);
+
+    auto it = mParticleConstraintIdToIndex.find(normalizedState.constraintId);
+    if (normalizedState.constraintId == kInvalidParticleConstraintId ||
+        it == mParticleConstraintIdToIndex.end())
+    {
+        normalizedState.constraintId = mNextParticleConstraintId++;
+        const std::uint32_t index =
+            static_cast<std::uint32_t>(mParticleDistanceConstraintSnapshot.size());
+        mParticleConstraintIdToIndex.emplace(normalizedState.constraintId, index);
+        mParticleDistanceConstraintSnapshot.push_back(normalizedState);
+        mSoftBodyDerivedStateDirty = true;
+        ++mSoftBodyTopologyRevision;
+        ++mSoftGpuTopologyRevision;
+        ++mAuthoredRevision;
+        return mParticleDistanceConstraintSnapshot.back();
+    }
+
+    mParticleDistanceConstraintSnapshot[it->second] = normalizedState;
+    mSoftBodyDerivedStateDirty = true;
+    ++mSoftBodyTopologyRevision;
+    ++mSoftGpuTopologyRevision;
+    ++mAuthoredRevision;
+    return mParticleDistanceConstraintSnapshot[it->second];
+}
+
 bool PhysicsWorld::removeSoftBody(common::EntityId entityId)
 {
     const auto it = mEntityToSoftBodyIndex.find(entityId);
@@ -1203,6 +1238,33 @@ bool PhysicsWorld::removeFluid(common::EntityId entityId)
     mSoftBodyDerivedStateDirty = true;
     ++mSoftBodyTopologyRevision;
     ++mSoftParticleRevision;
+    ++mSoftGpuTopologyRevision;
+    ++mAuthoredRevision;
+    return true;
+}
+
+bool PhysicsWorld::removeParticleDistanceConstraint(ParticleConstraintId constraintId)
+{
+    const auto it = mParticleConstraintIdToIndex.find(constraintId);
+    if (it == mParticleConstraintIdToIndex.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t index = it->second;
+    const std::uint32_t last =
+        static_cast<std::uint32_t>(mParticleDistanceConstraintSnapshot.size() - 1u);
+    if (index != last)
+    {
+        mParticleDistanceConstraintSnapshot[index] = mParticleDistanceConstraintSnapshot[last];
+        mParticleConstraintIdToIndex[mParticleDistanceConstraintSnapshot[index].constraintId] =
+            index;
+    }
+
+    mParticleConstraintIdToIndex.erase(it);
+    mParticleDistanceConstraintSnapshot.pop_back();
+    mSoftBodyDerivedStateDirty = true;
+    ++mSoftBodyTopologyRevision;
     ++mSoftGpuTopologyRevision;
     ++mAuthoredRevision;
     return true;
@@ -1530,6 +1592,22 @@ const FluidState *PhysicsWorld::tryGetFluid(common::EntityId entityId) const
     return it == mEntityToFluidIndex.end() ? nullptr : &mFluidSnapshot[it->second];
 }
 
+AuthoredParticleDistanceConstraintState *PhysicsWorld::tryGetParticleDistanceConstraint(
+    ParticleConstraintId constraintId)
+{
+    const auto it = mParticleConstraintIdToIndex.find(constraintId);
+    return it == mParticleConstraintIdToIndex.end() ? nullptr
+                                                    : &mParticleDistanceConstraintSnapshot[it->second];
+}
+
+const AuthoredParticleDistanceConstraintState *PhysicsWorld::tryGetParticleDistanceConstraint(
+    ParticleConstraintId constraintId) const
+{
+    const auto it = mParticleConstraintIdToIndex.find(constraintId);
+    return it == mParticleConstraintIdToIndex.end() ? nullptr
+                                                    : &mParticleDistanceConstraintSnapshot[it->second];
+}
+
 const std::vector<RigidBodyState> &PhysicsWorld::rigidBodySnapshot() const noexcept
 {
     return mRigidBodySnapshot;
@@ -1553,6 +1631,12 @@ const std::vector<StrandState> &PhysicsWorld::strandSnapshot() const noexcept
 const std::vector<FluidState> &PhysicsWorld::fluidSnapshot() const noexcept
 {
     return mFluidSnapshot;
+}
+
+const std::vector<AuthoredParticleDistanceConstraintState> &
+PhysicsWorld::particleDistanceConstraintSnapshot() const noexcept
+{
+    return mParticleDistanceConstraintSnapshot;
 }
 
 const std::vector<BallJointState> &PhysicsWorld::ballJointSnapshot() const noexcept
@@ -3419,6 +3503,74 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.rigidProxyLocalPositions.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
             adjacencyLists.emplace_back();
         }
+    }
+
+    const auto resolveParticleReference =
+        [this](const AuthoredParticleReference &reference) -> std::optional<std::uint32_t>
+    {
+        switch (reference.type)
+        {
+        case AuthoredParticleReferenceType::SoftBodyParticle:
+        {
+            const SoftBodyState *softBody = tryGetSoftBody(reference.entityId);
+            if (softBody == nullptr || reference.localParticleIndex >= softBody->particleCount)
+            {
+                return std::nullopt;
+            }
+            return softBody->particleOffset + reference.localParticleIndex;
+        }
+        case AuthoredParticleReferenceType::StrandParticle:
+        {
+            const StrandState *strand = tryGetStrand(reference.entityId);
+            if (strand == nullptr || reference.localParticleIndex >= strand->particleCount)
+            {
+                return std::nullopt;
+            }
+            return strand->particleOffset + reference.localParticleIndex;
+        }
+        case AuthoredParticleReferenceType::RigidProxyParticle:
+        {
+            const RigidBodyState *rigidBody = tryGetRigidBody(reference.entityId);
+            if (rigidBody == nullptr ||
+                reference.localParticleIndex >= rigidBody->proxyParticleCount)
+            {
+                return std::nullopt;
+            }
+            return rigidBody->proxyParticleOffset + reference.localParticleIndex;
+        }
+        }
+
+        return std::nullopt;
+    };
+
+    for (const AuthoredParticleDistanceConstraintState &constraint :
+         mParticleDistanceConstraintSnapshot)
+    {
+        if (!constraint.enabled)
+        {
+            continue;
+        }
+
+        const auto particleA = resolveParticleReference(constraint.particleA);
+        const auto particleB = resolveParticleReference(constraint.particleB);
+        if (!particleA.has_value() || !particleB.has_value() || *particleA == *particleB)
+        {
+            continue;
+        }
+
+        if (*particleA >= mParticles.environmentIndices.size() ||
+            *particleB >= mParticles.environmentIndices.size() ||
+            mParticles.environmentIndices[*particleA] != mParticles.environmentIndices[*particleB])
+        {
+            continue;
+        }
+
+        DeformableDistanceConstraint resolved{};
+        resolved.particleA = *particleA;
+        resolved.particleB = *particleB;
+        resolved.restLength = constraint.restLength;
+        resolved.compliance = constraint.compliance;
+        mSoftEdges.push_back(resolved);
     }
 
     mSuturingPairs.clear();
