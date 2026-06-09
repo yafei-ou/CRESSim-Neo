@@ -80,10 +80,9 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
         metadata.softBodyVertexNormalBase != CRESSIM_INVALID_SOFT_BODY_VERTEX_BASE &&
         vertexId < metadata.softBodyVertexCount)
     {
-        const SoftBodyVertexBinding binding =
-            CRESSIM_SB_LOAD(g_SoftBodyVertexBindings, metadata.softBodyVertexBindingBase + vertexId);
         const float3 deformedPos =
-            CRESSIM_SB_LOAD(g_ParticlePositions, binding.particleIndex).xyz;
+            CRESSIM_SB_LOAD(g_SoftBodyRenderPositions,
+                            metadata.softBodyVertexBindingBase + vertexId).xyz;
         worldPos = float4(deformedPos, 1.0);
         worldNormal =
             normalize(CRESSIM_SB_LOAD(g_SoftBodyVertexNormals,

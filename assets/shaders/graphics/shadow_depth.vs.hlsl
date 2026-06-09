@@ -55,11 +55,10 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
             if (metadata.softBodyVertexBindingBase != CRESSIM_INVALID_SOFT_BODY_VERTEX_BASE &&
                 vertexId < metadata.softBodyVertexCount)
             {
-                const SoftBodyVertexBinding binding =
-                    CRESSIM_SB_LOAD(g_SoftBodyVertexBindings,
-                                    metadata.softBodyVertexBindingBase + vertexId);
-                worldPos = float4(CRESSIM_SB_LOAD(g_ParticlePositions, binding.particleIndex).xyz,
-                                  1.0);
+                const float3 deformedPos =
+                    CRESSIM_SB_LOAD(g_SoftBodyRenderPositions,
+                                    metadata.softBodyVertexBindingBase + vertexId).xyz;
+                worldPos = float4(deformedPos, 1.0);
             }
 #endif
             Out.Position = mul(worldPos, shadowView.lightViewProjectionMatrices[localMatrixIndex]);
@@ -100,9 +99,10 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
     if (metadata.softBodyVertexBindingBase != CRESSIM_INVALID_SOFT_BODY_VERTEX_BASE &&
         vertexId < metadata.softBodyVertexCount)
     {
-        const SoftBodyVertexBinding binding =
-            CRESSIM_SB_LOAD(g_SoftBodyVertexBindings, metadata.softBodyVertexBindingBase + vertexId);
-        worldPos = float4(CRESSIM_SB_LOAD(g_ParticlePositions, binding.particleIndex).xyz, 1.0);
+        const float3 deformedPos =
+            CRESSIM_SB_LOAD(g_SoftBodyRenderPositions,
+                            metadata.softBodyVertexBindingBase + vertexId).xyz;
+        worldPos = float4(deformedPos, 1.0);
     }
 #endif
     Out.Position = mul(worldPos, preparedCamera.lightViewProjectionMatrices[g_CascadeIndex]);
