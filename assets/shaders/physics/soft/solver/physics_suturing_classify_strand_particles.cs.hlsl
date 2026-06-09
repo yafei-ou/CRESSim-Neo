@@ -1,10 +1,15 @@
 #include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
 #include "../../../include/physics/particle/physics_particle_types.hlsli"
 
+CRESSIM_STRUCTURED_BUFFER(uint4, g_SuturingParticleRefs);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleEnvironmentIndices);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleStrandIds);
-CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleStrandRoles);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerTypes);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwningSoftBodyIndices);
+CRESSIM_STRUCTURED_BUFFER(uint4, g_SuturingCandidateParticles);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftConstraintRange, g_ParticleTetRanges);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftIncidentTet, g_ParticleIncidentTets);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftTet, g_SoftTets);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingPair, g_SuturingPairs);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuStrandInsertionStateStorage, g_SuturingInsertionStates);
@@ -36,14 +41,32 @@ bool BarycentricsInside(float4 bary)
            bary.w <= 1.0 + eps;
 }
 
+bool HasMatchingSuturingPair(uint strandIndex, uint environmentIndex, uint softBodyIndex)
+{
+    [loop]
+    for (uint pairIndex = 0u; pairIndex < suturingPairCount; ++pairIndex)
+    {
+        const GpuSuturingPair pair = CRESSIM_SB_LOAD(g_SuturingPairs, pairIndex);
+        if (pair.strandIndex == strandIndex && pair.environmentIndex == environmentIndex &&
+            pair.softBodyIndex == softBodyIndex)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
-    const uint particleIndex = dispatchThreadID.x;
-    if (particleIndex >= particleCount)
+    const uint compactIndex = dispatchThreadID.x;
+    if (compactIndex >= suturingParticleCount)
     {
         return;
     }
+    const uint4 particleRef = CRESSIM_SB_LOAD(g_SuturingParticleRefs, compactIndex);
+    const uint particleIndex = particleRef.x;
 
     GpuStrandInsertionStateStorage state;
     state.state = kStrandInsertionStateOutside;
@@ -56,7 +79,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     state.reserved2 = 0u;
     state.barycentrics = float4(0.0, 0.0, 0.0, 0.0);
 
-    const uint strandRole = CRESSIM_SB_LOAD(g_ParticleStrandRoles, particleIndex);
+    const uint strandRole = particleRef.y;
     if (strandRole == kParticleStrandRoleNone || suturingPairCount == 0u)
     {
         CRESSIM_SB_STORE(g_SuturingInsertionStates, particleIndex, state);
@@ -69,18 +92,34 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex).xyz;
 
     [loop]
-    for (uint pairIndex = 0u; pairIndex < suturingPairCount; ++pairIndex)
+    for (uint candidateIndex = 0u; candidateIndex < maxSuturingCandidatesPerParticle; ++candidateIndex)
     {
-        const GpuSuturingPair pair = CRESSIM_SB_LOAD(g_SuturingPairs, pairIndex);
-        if (pair.strandIndex != strandIndex || pair.environmentIndex != environmentIndex)
+        const uint4 candidate =
+            CRESSIM_SB_LOAD(g_SuturingCandidateParticles,
+                            compactIndex * maxSuturingCandidatesPerParticle + candidateIndex);
+        const uint otherParticleIndex = candidate.x;
+
+        if (otherParticleIndex >= particleCount ||
+            CRESSIM_SB_LOAD(g_ParticleOwnerTypes, otherParticleIndex) != kParticleOwnerTypeSoftBody)
         {
             continue;
         }
 
-        const uint tetEnd = pair.softTetStart + pair.softTetCount;
-        [loop]
-        for (uint tetIndex = pair.softTetStart; tetIndex < tetEnd; ++tetIndex)
+        const uint softBodyIndex = CRESSIM_SB_LOAD(g_ParticleOwningSoftBodyIndices, otherParticleIndex);
+        if (softBodyIndex == kInvalidSuturingIndex ||
+            !HasMatchingSuturingPair(strandIndex, environmentIndex, softBodyIndex))
         {
+            continue;
+        }
+
+        const GpuSoftConstraintRange tetRange =
+            CRESSIM_SB_LOAD(g_ParticleTetRanges, otherParticleIndex);
+        [loop]
+        for (uint incidentTetOffset = 0u; incidentTetOffset < tetRange.count; ++incidentTetOffset)
+        {
+            const GpuSoftIncidentTet incidentTet =
+                CRESSIM_SB_LOAD(g_ParticleIncidentTets, tetRange.start + incidentTetOffset);
+            const uint tetIndex = incidentTet.tetIndex;
             const GpuSoftTet tet = CRESSIM_SB_LOAD(g_SoftTets, tetIndex);
             const float3 p0 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet.particleIndices.x).xyz;
             const float3 p1 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet.particleIndices.y).xyz;
@@ -93,7 +132,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             }
 
             state.state = kStrandInsertionStateInside;
-            state.softBodyIndex = pair.softBodyIndex;
+            state.softBodyIndex = softBodyIndex;
             state.tetIndex = tetIndex;
             state.barycentrics = bary;
             break;

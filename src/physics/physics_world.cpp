@@ -1849,6 +1849,15 @@ const std::vector<StrandSoftSuturingPair> &PhysicsWorld::suturingPairs() const n
     return mSuturingPairs;
 }
 
+const std::vector<std::uint32_t> &PhysicsWorld::suturingParticleIndices() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return mParticles.suturingParticleIndices;
+}
+
 const SoftRenderDataHost &PhysicsWorld::softRenderData() const noexcept
 {
     return mSoftRenderData;
@@ -2004,6 +2013,15 @@ std::uint32_t PhysicsWorld::maxSuturingPathsPerPair() const noexcept
 std::uint32_t PhysicsWorld::maxSuturingNodesPerPath() const noexcept
 {
     return mMaxSuturingNodesPerPath;
+}
+
+std::uint32_t PhysicsWorld::suturingParticleCount() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return static_cast<std::uint32_t>(mParticles.suturingParticleIndices.size());
 }
 
 std::uint32_t PhysicsWorld::reservedSuturingPathHeaderCount() const noexcept
@@ -3920,6 +3938,25 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
                     0u,
                     0u};
         }
+    }
+
+    mParticles.suturingParticleIndices.clear();
+    mParticles.suturingParticleIndices.reserve(mParticles.size());
+    for (std::uint32_t particleIndex = 0u;
+         particleIndex < static_cast<std::uint32_t>(mParticles.strandRoles.size()); ++particleIndex)
+    {
+        if (mParticles.strandRoles[particleIndex] ==
+            static_cast<std::uint32_t>(ParticleStrandRole::None))
+        {
+            mParticles.suturingNeighborLinks[particleIndex].z = kInvalidSuturingIndex;
+            mParticles.suturingNeighborLinks[particleIndex].w = 0u;
+            continue;
+        }
+
+        mParticles.suturingNeighborLinks[particleIndex].z =
+            static_cast<std::uint32_t>(mParticles.suturingParticleIndices.size());
+        mParticles.suturingNeighborLinks[particleIndex].w = 0u;
+        mParticles.suturingParticleIndices.push_back(particleIndex);
     }
 
     for (const AuthoredParticleDistanceConstraintState &constraint :

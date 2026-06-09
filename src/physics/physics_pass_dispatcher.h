@@ -93,21 +93,28 @@ public:
     bool clearSoftConstraintState(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState, std::uint32_t threadCount,
                                   const GpuParticleDispatchConstants &constants);
-    bool classifySuturingStrandParticles(Diligent::IDeviceContext *computeContext,
-                                         const PhysicsSceneGpuState &sceneState,
-                                         std::uint32_t particleCount,
-                                         const GpuParticleDispatchConstants &constants);
+    bool clearSuturingCandidates(Diligent::IDeviceContext *computeContext,
+                                 const PhysicsSceneGpuState &sceneState,
+                                 std::uint32_t suturingParticleCount,
+                                 const GpuParticleDispatchConstants &constants);
+    bool gatherSuturingCandidates(Diligent::IDeviceContext *computeContext,
+                                  const PhysicsSceneGpuState &sceneState,
+                                  const GpuParticleDispatchConstants &constants);
+    bool classifySuturingParticles(Diligent::IDeviceContext *computeContext,
+                                   const PhysicsSceneGpuState &sceneState,
+                                   std::uint32_t suturingParticleCount,
+                                   const GpuParticleDispatchConstants &constants);
     bool updateSuturingTipPaths(Diligent::IDeviceContext *computeContext,
                                 const PhysicsSceneGpuState &sceneState,
                                 std::uint32_t suturingPairCount,
                                 const GpuParticleDispatchConstants &constants);
     bool assignSuturingInsideParticles(Diligent::IDeviceContext *computeContext,
                                        const PhysicsSceneGpuState &sceneState,
-                                       std::uint32_t particleCount,
+                                       std::uint32_t suturingParticleCount,
                                        const GpuParticleDispatchConstants &constants);
     bool solveSuturingNodePathConstraints(Diligent::IDeviceContext *computeContext,
                                           const PhysicsSceneGpuState &sceneState,
-                                          std::uint32_t particleCount,
+                                          std::uint32_t suturingParticleCount,
                                           const GpuParticleDispatchConstants &constants);
     bool solveSoftEdgeConstraints(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState,
@@ -349,9 +356,16 @@ private:
                                                     const PhysicsSceneGpuState &sceneState);
     bool dispatchSolveParticleRigidContactVelocitiesPass(Diligent::IDeviceContext *computeContext,
                                                          const PhysicsSceneGpuState &sceneState);
-    bool dispatchClassifySuturingStrandParticlesPass(
+    bool dispatchClearSuturingCandidatesPass(Diligent::IDeviceContext *computeContext,
+                                             const PhysicsSceneGpuState &sceneState,
+                                             std::uint32_t suturingParticleCount,
+                                             const GpuParticleDispatchConstants &constants);
+    bool dispatchGatherSuturingCandidatesPass(Diligent::IDeviceContext *computeContext,
+                                              const PhysicsSceneGpuState &sceneState,
+                                              const GpuParticleDispatchConstants &constants);
+    bool dispatchClassifySuturingParticlesPass(
         Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-        std::uint32_t particleCount, const GpuParticleDispatchConstants &constants);
+        std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants);
     bool dispatchUpdateSuturingTipPathsPass(Diligent::IDeviceContext *computeContext,
                                             const PhysicsSceneGpuState &sceneState,
                                             std::uint32_t suturingPairCount,
@@ -394,7 +408,9 @@ private:
     gpu::GpuComputePass mFinalizeActiveParticleRigidContactsPass;
     gpu::GpuComputePass mCompactActiveParticleRigidContactsPass;
     gpu::GpuComputePass mClearSoftConstraintStatePass;
-    gpu::GpuComputePass mClassifySuturingStrandParticlesPass;
+    gpu::GpuComputePass mClearSuturingCandidatesPass;
+    gpu::GpuComputePass mGatherSuturingCandidatesPass;
+    gpu::GpuComputePass mClassifySuturingParticlesPass;
     gpu::GpuComputePass mUpdateSuturingTipPathsPass;
     gpu::GpuComputePass mAssignSuturingInsideParticlesPass;
     gpu::GpuComputePass mSolveSuturingNodePathConstraintsPass;

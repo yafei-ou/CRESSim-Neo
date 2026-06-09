@@ -19,6 +19,10 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint suturingPairCount;
     uint suturingPathHeaderCount;
     uint suturingPathNodeCount;
+    uint suturingParticleCount;
+    uint maxSuturingCandidatesPerParticle;
+    uint reserved0;
+    uint reserved1;
 };
 
 static const float kSoftInternalRelaxation = 0.2;

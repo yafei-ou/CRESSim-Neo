@@ -176,6 +176,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const std::uint32_t softRenderTriangleCount =
         static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
     const std::uint32_t softBodyBoundsChunkCount = world.softBodyBoundsChunkCount();
+    const std::uint32_t suturingParticleCount    = world.suturingParticleCount();
     const float particleGridCellSize             = world.particleGridCellSize();
     std::array<std::uint32_t, 2> sharedQueueFamilyIndices{};
     const std::uint32_t sharedQueueFamilyIndexCount = buildUniqueQueueFamilyIndices(
@@ -272,6 +273,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             static_cast<std::uint32_t>(world.suturingPairs().size());
         particleConstants.suturingPathHeaderCount = world.reservedSuturingPathHeaderCount();
         particleConstants.suturingPathNodeCount   = world.reservedSuturingPathNodeCount();
+        particleConstants.suturingParticleCount   = suturingParticleCount;
+        particleConstants.maxSuturingCandidatesPerParticle =
+            kMaxSuturingCandidatesPerParticle;
 
         const bool hasParticleNeighborWork = particleCount > 0u;
         const bool hasFluidWork            = fluidCount > 0u && particleCount > 0u;
@@ -284,7 +288,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         const bool hasSoftRigidContactWork =
             hasSoftContactSolveWork && hasParticleRigidCandidateWork;
         const bool hasSuturingCouplingWork =
-            particleCount > 0u && particleConstants.suturingPairCount > 0u;
+            suturingParticleCount > 0u && particleConstants.suturingPairCount > 0u;
         const bool hasParticleBroadPhaseWork =
             hasSoftSoftContactWork || hasFluidWork || hasParticleRigidCandidateWork;
         if (mImpl->sceneState.correctionBuffersNeedClear() &&
@@ -425,26 +429,6 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             }
         }
 
-        if (particleCount > 0u && particleConstants.suturingPairCount > 0u)
-        {
-            if (!mImpl->passDispatcher.classifySuturingStrandParticles(
-                    computeBackend.computeContext, mImpl->sceneState, particleCount,
-                    particleConstants))
-            {
-                CRESSIM_LOG_ERROR(
-                    "PhysicsSolver::step failed: ClassifySuturingStrandParticles dispatch.");
-                return false;
-            }
-            if (!mImpl->passDispatcher.updateSuturingTipPaths(
-                    computeBackend.computeContext, mImpl->sceneState,
-                    particleConstants.suturingPairCount, particleConstants))
-            {
-                CRESSIM_LOG_ERROR(
-                    "PhysicsSolver::step failed: UpdateSuturingTipPaths dispatch.");
-                return false;
-            }
-        }
-
         mImpl->lastStepHadRigidBroadPhaseWork = hasRigidBroadPhaseWork;
         mImpl->lastStepHadSoftPairWork        = hasParticleNeighborWork;
         if (hasParticleNeighborWork)
@@ -487,6 +471,39 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             {
                 CRESSIM_LOG_ERROR(
                     "PhysicsSolver::step failed: PrepareParticleCandidateIndirectArgs dispatch.");
+                return false;
+            }
+        }
+
+        if (suturingParticleCount > 0u && particleConstants.suturingPairCount > 0u)
+        {
+            if (!mImpl->passDispatcher.clearSuturingCandidates(
+                    computeBackend.computeContext, mImpl->sceneState, suturingParticleCount,
+                    particleConstants))
+            {
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ClearSuturingCandidates dispatch.");
+                return false;
+            }
+            if (hasSoftSoftContactWork &&
+                !mImpl->passDispatcher.gatherSuturingCandidates(
+                    computeBackend.computeContext, mImpl->sceneState, particleConstants))
+            {
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: GatherSuturingCandidates dispatch.");
+                return false;
+            }
+            if (!mImpl->passDispatcher.classifySuturingParticles(
+                    computeBackend.computeContext, mImpl->sceneState, suturingParticleCount,
+                    particleConstants))
+            {
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ClassifySuturingParticles dispatch.");
+                return false;
+            }
+            if (!mImpl->passDispatcher.updateSuturingTipPaths(
+                    computeBackend.computeContext, mImpl->sceneState,
+                    particleConstants.suturingPairCount, particleConstants))
+            {
+                CRESSIM_LOG_ERROR(
+                    "PhysicsSolver::step failed: UpdateSuturingTipPaths dispatch.");
                 return false;
             }
         }
@@ -787,7 +804,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 }
                 if (hasSuturingCouplingWork &&
                     !mImpl->passDispatcher.assignSuturingInsideParticles(
-                        computeBackend.computeContext, mImpl->sceneState, particleCount,
+                        computeBackend.computeContext, mImpl->sceneState, suturingParticleCount,
                         particleConstants))
                 {
                     CRESSIM_LOG_ERROR(
@@ -796,7 +813,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 }
                 if (hasSuturingCouplingWork &&
                     !mImpl->passDispatcher.solveSuturingNodePathConstraints(
-                        computeBackend.computeContext, mImpl->sceneState, particleCount,
+                        computeBackend.computeContext, mImpl->sceneState, suturingParticleCount,
                         particleConstants))
                 {
                     CRESSIM_LOG_ERROR(

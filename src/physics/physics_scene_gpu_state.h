@@ -137,6 +137,7 @@ public:
     struct PersistentSuturingBuffers
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> pairsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleRefsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> insertionStatesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> pathHeadersBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> pathNodesBuffer;
@@ -162,6 +163,8 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softNeighborMetaBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> physicsIndirectArgsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softSoftCandidatePairsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> suturingCandidateCountsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> suturingCandidateParticlesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidNeighborPairsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidBoundaryCandidateCountsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidBoundaryCandidateOffsetsBuffer;
@@ -422,7 +425,9 @@ private:
                             const std::vector<DeformableDistanceConstraint> &distanceConstraints,
                             const std::vector<DeformableBendConstraint> &bendConstraints,
                             const std::vector<DeformableVolumeConstraint> &volumeConstraints);
-    bool uploadSuturingState(Diligent::IDeviceContext *computeContext, std::uint32_t particleCount,
+    bool uploadSuturingState(Diligent::IDeviceContext *computeContext,
+                             const ParticleSoAHost &particles, std::uint32_t particleCount,
+                             const std::vector<std::uint32_t> &suturingParticleIndices,
                              const std::vector<StrandSoftSuturingPair> &pairs,
                              std::uint32_t pathHeaderCount,
                              std::uint32_t pathNodeCount);
@@ -442,6 +447,7 @@ private:
     std::uint32_t mColliderCapacity                          = 0;
     std::uint32_t mSoftParticleCapacity                      = 0;
     std::uint32_t mSuturingPairCapacity                      = 0;
+    std::uint32_t mSuturingParticleCapacity                  = 0;
     std::uint32_t mSuturingPathHeaderCapacity                = 0;
     std::uint32_t mSuturingPathNodeCapacity                  = 0;
     std::uint32_t mFluidVisualCapacity                       = 0;
@@ -467,6 +473,7 @@ private:
     std::uint32_t mSoftBendCount                             = 0;
     std::uint32_t mSoftTetCount                              = 0;
     std::uint32_t mSuturingPairCount                         = 0;
+    std::uint32_t mSuturingParticleCount                     = 0;
     std::uint32_t mSuturingPathHeaderCount                   = 0;
     std::uint32_t mSuturingPathNodeCount                     = 0;
     std::uint32_t mBroadPhaseNodeCapacity                    = 0;

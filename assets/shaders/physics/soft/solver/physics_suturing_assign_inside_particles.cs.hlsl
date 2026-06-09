@@ -1,10 +1,10 @@
 #include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
 #include "../../../include/physics/particle/physics_particle_types.hlsli"
 
+CRESSIM_STRUCTURED_BUFFER(uint4, g_SuturingParticleRefs);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleEnvironmentIndices);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleStrandIds);
-CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleStrandRoles);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingPair, g_SuturingPairs);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuStrandInsertionStateStorage, g_SuturingInsertionStates);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingPathHeader, g_SuturingPathHeaders);
@@ -30,17 +30,19 @@ float3 EvaluatePathNodePosition(GpuSuturingPathNode node)
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
-    const uint particleIndex = dispatchThreadID.x;
-    if (particleIndex >= particleCount)
+    const uint compactIndex = dispatchThreadID.x;
+    if (compactIndex >= suturingParticleCount)
     {
         return;
     }
+    const uint4 particleRef = CRESSIM_SB_LOAD(g_SuturingParticleRefs, compactIndex);
+    const uint particleIndex = particleRef.x;
 
     GpuStrandInsertionStateStorage state = CRESSIM_SB_LOAD(g_SuturingInsertionStates, particleIndex);
     state.pathIndex = kInvalidSuturingIndex;
     state.nearestNodeIndex = kInvalidSuturingIndex;
 
-    const uint strandRole = CRESSIM_SB_LOAD(g_ParticleStrandRoles, particleIndex);
+    const uint strandRole = particleRef.y;
     if (state.state != kStrandInsertionStateInside || strandRole == kParticleStrandRoleNone ||
         strandRole == kParticleStrandRoleNeedleTip || state.softBodyIndex == kInvalidSuturingIndex)
     {

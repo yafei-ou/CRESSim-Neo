@@ -456,6 +456,7 @@ struct ParticleSoAHost
     std::vector<std::uint32_t> strandOrders;
     std::vector<std::uint32_t> strandRoles;
     std::vector<Diligent::uint4> suturingNeighborLinks;
+    std::vector<std::uint32_t> suturingParticleIndices;
     std::vector<std::uint32_t> owningSoftBodyIndices;
     std::vector<std::uint32_t> particleMaterialIndices;
     std::vector<std::uint32_t> fluidMaterialIndices;
@@ -491,6 +492,7 @@ struct ParticleSoAHost
         strandOrders.clear();
         strandRoles.clear();
         suturingNeighborLinks.clear();
+        suturingParticleIndices.clear();
         owningSoftBodyIndices.clear();
         particleMaterialIndices.clear();
         fluidMaterialIndices.clear();

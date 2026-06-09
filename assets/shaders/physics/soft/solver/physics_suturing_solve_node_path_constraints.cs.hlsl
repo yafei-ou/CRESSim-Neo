@@ -5,10 +5,10 @@
 #include "../../../include/physics/rigid/physics_rigid_contact_primitives.hlsli"
 #include "../../../include/physics/rigid/physics_rigid_solver_shared.hlsli"
 
+CRESSIM_STRUCTURED_BUFFER(uint4, g_SuturingParticleRefs);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerTypes);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerIndices);
-CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleStrandRoles);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidProxyLocalPositions);
 CRESSIM_STRUCTURED_BUFFER(GpuStrandInsertionStateStorage, g_SuturingInsertionStates);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingPathHeader, g_SuturingPathHeaders);
@@ -22,7 +22,7 @@ CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_ParticlePositionCorrections);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyTranslationCorrections);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
 
-static const float kSuturingRelaxation = 0.05;
+static const float kSuturingRelaxation = 0.01;
 static const float kSuturingMaxCorrection = 0.02;
 
 float3 EvaluatePathNodePosition(GpuSuturingPathNode node)
@@ -90,13 +90,15 @@ float3 EvaluatePathTangent(uint pathIndex, uint nodeIndex)
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
-    const uint particleIndex = dispatchThreadID.x;
-    if (particleIndex >= particleCount)
+    const uint compactIndex = dispatchThreadID.x;
+    if (compactIndex >= suturingParticleCount)
     {
         return;
     }
+    const uint4 particleRef = CRESSIM_SB_LOAD(g_SuturingParticleRefs, compactIndex);
+    const uint particleIndex = particleRef.x;
 
-    const uint strandRole = CRESSIM_SB_LOAD(g_ParticleStrandRoles, particleIndex);
+    const uint strandRole = particleRef.y;
     if (strandRole == kParticleStrandRoleNone || strandRole == kParticleStrandRoleNeedleTip)
     {
         return;

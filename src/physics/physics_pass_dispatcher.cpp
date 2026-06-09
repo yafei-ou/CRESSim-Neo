@@ -204,7 +204,9 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mFinalizeActiveParticleRigidContactsPass, kFinalizeActiveParticleRigidContacts) ||
         !initPass(mCompactActiveParticleRigidContactsPass, kCompactActiveParticleRigidContacts) ||
         !initPass(mClearSoftConstraintStatePass, kClearSoftConstraintState) ||
-        !initPass(mClassifySuturingStrandParticlesPass, kClassifySuturingStrandParticles) ||
+        !initPass(mClearSuturingCandidatesPass, kClearSuturingCandidates) ||
+        !initPass(mGatherSuturingCandidatesPass, kGatherSuturingCandidates) ||
+        !initPass(mClassifySuturingParticlesPass, kClassifySuturingParticles) ||
         !initPass(mUpdateSuturingTipPathsPass, kUpdateSuturingTipPaths) ||
         !initPass(mAssignSuturingInsideParticlesPass, kAssignSuturingInsideParticles) ||
         !initPass(mSolveSuturingNodePathConstraintsPass, kSolveSuturingNodePathConstraints) ||
@@ -1476,22 +1478,107 @@ bool PhysicsPassDispatcher::clearSoftConstraintState(Diligent::IDeviceContext *c
                                                   dispatchGroupCount(threadCount));
 }
 
-bool PhysicsPassDispatcher::dispatchClassifySuturingStrandParticlesPass(
+bool PhysicsPassDispatcher::dispatchClearSuturingCandidatesPass(
     Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    std::uint32_t particleCount, const GpuParticleDispatchConstants &constants)
+    std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants)
 {
-    if (computeContext == nullptr || particleCount == 0u || constants.suturingPairCount == 0u)
+    if (computeContext == nullptr || suturingParticleCount == 0u || constants.suturingPairCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &transient = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingCandidateCounts",
+                              transient.suturingCandidateCountsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SuturingCandidateParticles",
+                              transient.suturingCandidateParticlesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mClearSuturingCandidatesPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                 dispatchGroupCount(suturingParticleCount));
+}
+
+bool PhysicsPassDispatcher::clearSuturingCandidates(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants)
+{
+    return dispatchClearSuturingCandidatesPass(computeContext, sceneState, suturingParticleCount,
+                                               constants);
+}
+
+bool PhysicsPassDispatcher::dispatchGatherSuturingCandidatesPass(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    const GpuParticleDispatchConstants &constants)
+{
+    if (computeContext == nullptr || constants.suturingPairCount == 0u ||
+        constants.suturingParticleCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles = sceneState.persistentParticles();
+    const auto &transient     = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerTypes", softParticles.ownerTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingNeighborLinks",
+                              softParticles.suturingNeighborLinksBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleCandidatePairs", transient.softSoftCandidatePairsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleNeighborMeta", transient.softNeighborMetaBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingCandidateCounts",
+                              transient.suturingCandidateCountsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SuturingCandidateParticles",
+                              transient.suturingCandidateParticlesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mGatherSuturingCandidatesPass.dispatchIndirect(
+               computeContext, kDefaultVariant, bindings, transient.physicsIndirectArgsBuffer,
+               indirectArgsOffset(GpuPhysicsIndirectDispatchSlot::SoftGenerateContacts));
+}
+
+bool PhysicsPassDispatcher::gatherSuturingCandidates(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    const GpuParticleDispatchConstants &constants)
+{
+    return dispatchGatherSuturingCandidatesPass(computeContext, sceneState, constants);
+}
+
+bool PhysicsPassDispatcher::dispatchClassifySuturingParticlesPass(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants)
+{
+    if (computeContext == nullptr || suturingParticleCount == 0u || constants.suturingPairCount == 0u)
     {
         return true;
     }
 
     const auto &softParticles = sceneState.persistentParticles();
     const auto &softTopology  = sceneState.persistentSoftTopology();
+    const auto &transient     = sceneState.transientBuffers();
     const PhysicsGpuSceneView sceneView = sceneState.sceneView();
     const auto &suturing = sceneView.soft;
     const std::array bindings{
         gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
                               mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingParticleRefs",
+                              suturing.suturingParticleRefsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -1500,7 +1587,18 @@ bool PhysicsPassDispatcher::dispatchClassifySuturingStrandParticlesPass(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleStrandIds", softParticles.strandIdsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_ParticleStrandRoles", softParticles.strandRolesBuffer,
+        gpu::GpuBufferBinding{"g_ParticleOwnerTypes", softParticles.ownerTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwningSoftBodyIndices",
+                              softParticles.owningSoftBodyIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingCandidateParticles",
+                              transient.suturingCandidateParticlesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleTetRanges", softTopology.particleTetRangesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleIncidentTets",
+                              softTopology.particleIncidentTetsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SoftTets", softTopology.tetsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -1511,16 +1609,16 @@ bool PhysicsPassDispatcher::dispatchClassifySuturingStrandParticlesPass(
     };
 
     return writeParticleDispatchConstants(computeContext, constants) &&
-           mClassifySuturingStrandParticlesPass.dispatch(
-               computeContext, kDefaultVariant, bindings, dispatchGroupCount(particleCount));
+           mClassifySuturingParticlesPass.dispatch(
+               computeContext, kDefaultVariant, bindings, dispatchGroupCount(suturingParticleCount));
 }
 
-bool PhysicsPassDispatcher::classifySuturingStrandParticles(
+bool PhysicsPassDispatcher::classifySuturingParticles(
     Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    std::uint32_t particleCount, const GpuParticleDispatchConstants &constants)
+    std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants)
 {
-    return dispatchClassifySuturingStrandParticlesPass(computeContext, sceneState, particleCount,
-                                                       constants);
+    return dispatchClassifySuturingParticlesPass(computeContext, sceneState, suturingParticleCount,
+                                                 constants);
 }
 
 bool PhysicsPassDispatcher::dispatchUpdateSuturingTipPathsPass(
@@ -1569,9 +1667,9 @@ bool PhysicsPassDispatcher::updateSuturingTipPaths(
 
 bool PhysicsPassDispatcher::dispatchAssignSuturingInsideParticlesPass(
     Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    std::uint32_t particleCount, const GpuParticleDispatchConstants &constants)
+    std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants)
 {
-    if (computeContext == nullptr || particleCount == 0u || constants.suturingPairCount == 0u)
+    if (computeContext == nullptr || suturingParticleCount == 0u || constants.suturingPairCount == 0u)
     {
         return true;
     }
@@ -1584,14 +1682,15 @@ bool PhysicsPassDispatcher::dispatchAssignSuturingInsideParticlesPass(
         gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
                               mParticleDispatchConstantsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingParticleRefs",
+                              suturing.suturingParticleRefsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleEnvironmentIndices",
                               softParticles.environmentIndicesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleStrandIds", softParticles.strandIdsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_ParticleStrandRoles", softParticles.strandRolesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SuturingPairs", suturing.suturingPairsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -1607,22 +1706,22 @@ bool PhysicsPassDispatcher::dispatchAssignSuturingInsideParticlesPass(
 
     return writeParticleDispatchConstants(computeContext, constants) &&
            mAssignSuturingInsideParticlesPass.dispatch(
-               computeContext, kDefaultVariant, bindings, dispatchGroupCount(particleCount));
+               computeContext, kDefaultVariant, bindings, dispatchGroupCount(suturingParticleCount));
 }
 
 bool PhysicsPassDispatcher::assignSuturingInsideParticles(
     Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    std::uint32_t particleCount, const GpuParticleDispatchConstants &constants)
+    std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants)
 {
-    return dispatchAssignSuturingInsideParticlesPass(computeContext, sceneState, particleCount,
+    return dispatchAssignSuturingInsideParticlesPass(computeContext, sceneState, suturingParticleCount,
                                                      constants);
 }
 
 bool PhysicsPassDispatcher::dispatchSolveSuturingNodePathConstraintsPass(
     Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    std::uint32_t particleCount, const GpuParticleDispatchConstants &constants)
+    std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants)
 {
-    if (computeContext == nullptr || particleCount == 0u || constants.suturingPairCount == 0u)
+    if (computeContext == nullptr || suturingParticleCount == 0u || constants.suturingPairCount == 0u)
     {
         return true;
     }
@@ -1637,13 +1736,14 @@ bool PhysicsPassDispatcher::dispatchSolveSuturingNodePathConstraintsPass(
         gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
                               mParticleDispatchConstantsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingParticleRefs",
+                              suturing.suturingParticleRefsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleOwnerTypes", softParticles.ownerTypesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleOwnerIndices", softParticles.ownerIndicesBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_ParticleStrandRoles", softParticles.strandRolesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RigidProxyLocalPositions",
                               softParticles.rigidProxyLocalPositionsBuffer,
@@ -1680,14 +1780,14 @@ bool PhysicsPassDispatcher::dispatchSolveSuturingNodePathConstraintsPass(
 
     return writeParticleDispatchConstants(computeContext, constants) &&
            mSolveSuturingNodePathConstraintsPass.dispatch(
-               computeContext, kDefaultVariant, bindings, dispatchGroupCount(particleCount));
+               computeContext, kDefaultVariant, bindings, dispatchGroupCount(suturingParticleCount));
 }
 
 bool PhysicsPassDispatcher::solveSuturingNodePathConstraints(
     Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    std::uint32_t particleCount, const GpuParticleDispatchConstants &constants)
+    std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants)
 {
-    return dispatchSolveSuturingNodePathConstraintsPass(computeContext, sceneState, particleCount,
+    return dispatchSolveSuturingNodePathConstraintsPass(computeContext, sceneState, suturingParticleCount,
                                                         constants);
 }
 
@@ -4734,7 +4834,9 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mFinalizeActiveParticleRigidContactsPass.forceRecreateAllVariants() &&
            mCompactActiveParticleRigidContactsPass.forceRecreateAllVariants() &&
            mClearSoftConstraintStatePass.forceRecreateAllVariants() &&
-           mClassifySuturingStrandParticlesPass.forceRecreateAllVariants() &&
+           mClearSuturingCandidatesPass.forceRecreateAllVariants() &&
+           mGatherSuturingCandidatesPass.forceRecreateAllVariants() &&
+           mClassifySuturingParticlesPass.forceRecreateAllVariants() &&
            mUpdateSuturingTipPathsPass.forceRecreateAllVariants() &&
            mAssignSuturingInsideParticlesPass.forceRecreateAllVariants() &&
            mSolveSuturingNodePathConstraintsPass.forceRecreateAllVariants() &&

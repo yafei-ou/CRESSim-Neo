@@ -258,7 +258,7 @@ int main(int argc, char **argv)
 
     const auto softEntity = world.createEntity();
     TransformComponent softTransform{};
-    softTransform.worldTransform.position = {0.0f, -0.44f, 0.0f};
+    softTransform.worldTransform.position = {0.0f, -0.42f, 0.0f};
     world.setTransform(softEntity, softTransform);
 
     SoftBodyComponent softBody{};
@@ -268,7 +268,7 @@ int main(int argc, char **argv)
     softBody.source.regularGrid.staticParticleIndices = makeRightSideStaticIndices(
         softBody.source.regularGrid.size, softBody.source.regularGrid.targetParticleSpacing);
     softBody.particleMass = 0.08f;
-    softBody.particleRadius = 0.08f;
+    softBody.particleRadius = 0.09f;
     softBody.edgeCompliance = 0.0005f;
     softBody.volumeCompliance = 0.001f;
     softBody.selfCollisionEnabled = false;
@@ -354,7 +354,7 @@ int main(int argc, char **argv)
     const auto strandEntity = world.createEntity();
     StrandComponent strand{};
     strand.particleMass = 0.12f;
-    strand.particleRadius = 0.08f;
+    strand.particleRadius = 0.1f;
     strand.distanceCompliance = 0.000001f;
     strand.bendCompliance = 0.03f;
     strand.selfCollisionEnabled = false;
@@ -421,37 +421,39 @@ int main(int argc, char **argv)
         }
 
         const float t = static_cast<float>(frame.timeSeconds);
-        const float cycleDuration = 16.0f;
-        const float horizontalPhase = 0.34f;
-        const float rotationPhase = 0.46f;
-        const float pullUpPhaseStart = horizontalPhase + rotationPhase;
-        const float cycle = std::fmod(std::max(t, 0.0f), cycleDuration) / cycleDuration;
+        const float horizontalDuration = 5.44f;
+        const float rotationDuration = 7.36f;
+        const float pullUpDuration = 6.0f;
+        const float cycleDuration = horizontalDuration + rotationDuration + pullUpDuration;
+        const float cycleTime = std::fmod(std::max(t, 0.0f), cycleDuration);
+        const float rotationPhaseStart = horizontalDuration;
+        const float pullUpPhaseStart = horizontalDuration + rotationDuration;
 
         Diligent::float3 arcCenterPosition = startArcCenterPosition;
-        if (cycle <= horizontalPhase)
+        if (cycleTime <= rotationPhaseStart)
         {
-            const float u = cycle / horizontalPhase;
+            const float u = cycleTime / horizontalDuration;
             arcCenterPosition.x = startArcCenterPosition.x + 1.2f * u;
         }
-        else if (cycle <= pullUpPhaseStart)
+        else if (cycleTime <= pullUpPhaseStart)
         {
             arcCenterPosition.x = startArcCenterPosition.x + 1.2f;
         }
         else
         {
             arcCenterPosition.x = startArcCenterPosition.x + 1.2f;
-            const float u = (cycle - pullUpPhaseStart) / (1.0f - pullUpPhaseStart);
+            const float u = (cycleTime - pullUpPhaseStart) / pullUpDuration;
             arcCenterPosition.y = startArcCenterPosition.y + 5.4f * u;
         }
 
         float needleAngle = kBaseNeedleAngle;
-        if (cycle <= horizontalPhase)
+        if (cycleTime <= rotationPhaseStart)
         {
             needleAngle = kBaseNeedleAngle;
         }
-        else if (cycle <= pullUpPhaseStart)
+        else if (cycleTime <= pullUpPhaseStart)
         {
-            const float u = (cycle - horizontalPhase) / rotationPhase;
+            const float u = (cycleTime - rotationPhaseStart) / rotationDuration;
             needleAngle += kRotationStageAngleDelta * u;
         }
         else

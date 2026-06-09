@@ -158,6 +158,10 @@ struct GpuParticleDispatchConstants
     std::uint32_t suturingPairCount                  = 0;
     std::uint32_t suturingPathHeaderCount            = 0;
     std::uint32_t suturingPathNodeCount              = 0;
+    std::uint32_t suturingParticleCount              = 0;
+    std::uint32_t maxSuturingCandidatesPerParticle   = 0;
+    std::uint32_t reserved0                          = 0;
+    std::uint32_t reserved1                          = 0;
 };
 
 struct GpuSoftRenderDispatchConstants
@@ -172,6 +176,7 @@ constexpr std::uint32_t kParticleBroadPhaseEntryTypeParticle       = 0u;
 constexpr std::uint32_t kParticleCandidatePairTypeParticleParticle = 0u;
 constexpr std::uint32_t kParticleCandidatePairTypeParticleRigid    = 1u;
 constexpr std::uint32_t kDefaultFluidMaxNeighborhood               = 128u;
+constexpr std::uint32_t kMaxSuturingCandidatesPerParticle          = 32u;
 
 enum class GpuPhysicsIndirectDispatchSlot : std::uint32_t
 {
@@ -613,7 +618,7 @@ static_assert(sizeof(GpuRigidJointDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
-static_assert(sizeof(GpuParticleDispatchConstants) == 64u);
+static_assert(sizeof(GpuParticleDispatchConstants) == 80u);
 static_assert(sizeof(GpuDispatchIndirectArgs) == 12u);
 static_assert(sizeof(GpuPaddedDispatchIndirectArgs) == 16u);
 static_assert(sizeof(GpuParticleBroadPhaseEntry) == 32u);

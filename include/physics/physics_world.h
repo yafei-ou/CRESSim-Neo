@@ -89,6 +89,7 @@ public:
     const std::vector<SoftBend> &softBends() const noexcept;
     const std::vector<SoftTet> &softTets() const noexcept;
     const std::vector<StrandSoftSuturingPair> &suturingPairs() const noexcept;
+    const std::vector<std::uint32_t> &suturingParticleIndices() const noexcept;
     const SoftRenderDataHost &softRenderData() const noexcept;
     void setSoftRenderData(const SoftRenderDataHost &data);
     void ensureDerivedStateUpToDate() const noexcept;
@@ -114,6 +115,7 @@ public:
     std::uint32_t softBodyBoundsChunkCount() const noexcept;
     std::uint32_t maxSuturingPathsPerPair() const noexcept;
     std::uint32_t maxSuturingNodesPerPath() const noexcept;
+    std::uint32_t suturingParticleCount() const noexcept;
     std::uint32_t reservedSuturingPathHeaderCount() const noexcept;
     std::uint32_t reservedSuturingPathNodeCount() const noexcept;
 
