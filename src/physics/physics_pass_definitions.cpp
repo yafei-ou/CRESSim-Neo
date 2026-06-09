@@ -841,6 +841,17 @@ constexpr Diligent::ShaderResourceVariableDesc kApplyParticleContactVelocitiesVa
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kSkinSoftRenderVerticesVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftRenderDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftRenderVertexBindings",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBodyRenderPositionsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kUpdateSoftRenderNormalsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftRenderDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -1893,6 +1904,14 @@ const gpu::GpuComputePassDefinition kUpdateSoftTriangleNormals{
     "CRESSimNeo.Physics.UpdateSoftTriangleNormals.PSO",
     kUpdateSoftTriangleNormalsVars,
     std::size(kUpdateSoftTriangleNormalsVars),
+};
+
+const gpu::GpuComputePassDefinition kSkinSoftRenderVertices{
+    "physics/soft/render/physics_soft_skin_render_vertices.cs.hlsl",
+    "CRESSimNeo.Physics.SkinSoftRenderVertices.CS",
+    "CRESSimNeo.Physics.SkinSoftRenderVertices.PSO",
+    kSkinSoftRenderVerticesVars,
+    std::size(kSkinSoftRenderVerticesVars),
 };
 
 const gpu::GpuComputePassDefinition kUpdateSoftRenderNormals{

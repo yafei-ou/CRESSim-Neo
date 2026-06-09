@@ -150,6 +150,9 @@ public:
                                              std::uint32_t particleCount,
                                              std::uint32_t rigidBodyCount, std::uint32_t iterations,
                                              const GpuRigidDispatchConstants &rigidConstants);
+    bool skinSoftRenderVertices(Diligent::IDeviceContext *computeContext,
+                                const PhysicsSceneGpuState &sceneState,
+                                std::uint32_t renderVertexCount);
     bool updateSoftTriangleNormals(Diligent::IDeviceContext *computeContext,
                                    const PhysicsSceneGpuState &sceneState,
                                    std::uint32_t renderTriangleCount);
@@ -365,6 +368,7 @@ private:
     gpu::GpuComputePass mSolveParticleContactVelocitiesPass;
     gpu::GpuComputePass mSolveParticleRigidContactVelocitiesPass;
     gpu::GpuComputePass mApplyParticleContactVelocitiesPass;
+    gpu::GpuComputePass mSkinSoftRenderVerticesPass;
     gpu::GpuComputePass mUpdateSoftTriangleNormalsPass;
     gpu::GpuComputePass mUpdateSoftRenderNormalsPass;
     gpu::GpuComputePass mUpdateSoftBodyBoundsPass;

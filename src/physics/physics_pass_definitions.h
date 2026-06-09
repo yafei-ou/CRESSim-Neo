@@ -53,6 +53,7 @@ extern const gpu::GpuComputePassDefinition kBuildFluidRenderAnisotropy;
 extern const gpu::GpuComputePassDefinition kSolveParticleContactVelocities;
 extern const gpu::GpuComputePassDefinition kSolveParticleRigidContactVelocities;
 extern const gpu::GpuComputePassDefinition kApplyParticleContactVelocities;
+extern const gpu::GpuComputePassDefinition kSkinSoftRenderVertices;
 extern const gpu::GpuComputePassDefinition kUpdateSoftTriangleNormals;
 extern const gpu::GpuComputePassDefinition kUpdateSoftRenderNormals;
 extern const gpu::GpuComputePassDefinition kUpdateSoftBodyBounds;

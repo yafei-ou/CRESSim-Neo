@@ -101,8 +101,7 @@ std::vector<Diligent::ShaderResourceVariableDesc> buildResourceLayoutVariables(
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_PreparedCameras");
     if (programFamily == MaterialProgramFamily::SoftBodyLit)
     {
-        appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_ParticlePositions");
-        appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexBindings");
+        appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyRenderPositions");
         appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexNormals");
     }
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_LightInputs");

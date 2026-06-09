@@ -823,38 +823,31 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
     if (programFamily == MaterialProgramFamily::SoftBodyLit)
     {
         if (mPhysicsScene == nullptr ||
-            mPhysicsScene->soft.particles.positionsInvMassBuffer == nullptr ||
-            mSceneView.softBodyVertexBindingBuffer == nullptr ||
+            mPhysicsScene->soft.renderPositionsBuffer == nullptr ||
             mPhysicsScene->soft.renderNormalsBuffer == nullptr)
         {
             return false;
         }
-        Diligent::IShaderResourceVariable *softParticleVar =
+        Diligent::IShaderResourceVariable *softPositionVar =
             program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
-                                                             "g_ParticlePositions");
-        Diligent::IShaderResourceVariable *bindingVar =
-            program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
-                                                             "g_SoftBodyVertexBindings");
+                                                             "g_SoftBodyRenderPositions");
         Diligent::IShaderResourceVariable *normalVar =
             program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
                                                              "g_SoftBodyVertexNormals");
-        if (softParticleVar == nullptr || bindingVar == nullptr || normalVar == nullptr)
+        if (softPositionVar == nullptr || normalVar == nullptr)
         {
             return false;
         }
-        Diligent::IBufferView *softParticleSrv =
-            mPhysicsScene->soft.particles.positionsInvMassBuffer->GetDefaultView(
+        Diligent::IBufferView *softPositionSrv =
+            mPhysicsScene->soft.renderPositionsBuffer->GetDefaultView(
                 Diligent::BUFFER_VIEW_SHADER_RESOURCE);
-        Diligent::IBufferView *bindingSrv = mSceneView.softBodyVertexBindingBuffer->GetDefaultView(
-            Diligent::BUFFER_VIEW_SHADER_RESOURCE);
         Diligent::IBufferView *normalSrv = mPhysicsScene->soft.renderNormalsBuffer->GetDefaultView(
             Diligent::BUFFER_VIEW_SHADER_RESOURCE);
-        if (softParticleSrv == nullptr || bindingSrv == nullptr || normalSrv == nullptr)
+        if (softPositionSrv == nullptr || normalSrv == nullptr)
         {
             return false;
         }
-        softParticleVar->Set(softParticleSrv);
-        bindingVar->Set(bindingSrv);
+        softPositionVar->Set(softPositionSrv);
         normalVar->Set(normalSrv);
     }
     return true;

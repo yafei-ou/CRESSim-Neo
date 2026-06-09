@@ -54,6 +54,7 @@ struct PhysicsGpuSoftSceneView
     PhysicsGpuParticleBufferView particles{};
     Diligent::IBuffer *edgesBuffer         = nullptr;
     Diligent::IBuffer *tetsBuffer          = nullptr;
+    Diligent::IBuffer *renderPositionsBuffer = nullptr;
     Diligent::IBuffer *renderNormalsBuffer = nullptr;
     Diligent::IBuffer *worldAabbsBuffer    = nullptr;
     std::uint32_t softBodyCount            = 0;

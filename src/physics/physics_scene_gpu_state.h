@@ -116,12 +116,14 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentTetsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexTriangleRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexTriangleIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexBindingsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> renderTriangleParticleIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> renderTriangleNormalsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyParticleRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyChunkRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyBoundsChunksBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyFallbackNormalsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyRenderPositionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyRenderNormalsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyWorldAabbsBuffer;
     };

@@ -234,30 +234,24 @@ bool ShadowPass::bindSceneBuffers(MaterialProgramFamily programFamily) const
     if (programFamily == MaterialProgramFamily::SoftBodyLit)
     {
         if (mPhysicsScene == nullptr ||
-            mPhysicsScene->soft.particles.positionsInvMassBuffer == nullptr ||
-            mSceneView.softBodyVertexBindingBuffer == nullptr)
+            mPhysicsScene->soft.renderPositionsBuffer == nullptr)
         {
             return false;
         }
-        Diligent::IShaderResourceVariable *softParticleVar =
-            shaderBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_ParticlePositions");
-        Diligent::IShaderResourceVariable *bindingVar = shaderBinding->GetVariableByName(
-            Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexBindings");
-        if (softParticleVar == nullptr || bindingVar == nullptr)
+        Diligent::IShaderResourceVariable *softPositionVar = shaderBinding->GetVariableByName(
+            Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyRenderPositions");
+        if (softPositionVar == nullptr)
         {
             return false;
         }
-        Diligent::IBufferView *softParticleSrv =
-            mPhysicsScene->soft.particles.positionsInvMassBuffer->GetDefaultView(
+        Diligent::IBufferView *softPositionSrv =
+            mPhysicsScene->soft.renderPositionsBuffer->GetDefaultView(
                 Diligent::BUFFER_VIEW_SHADER_RESOURCE);
-        Diligent::IBufferView *bindingSrv = mSceneView.softBodyVertexBindingBuffer->GetDefaultView(
-            Diligent::BUFFER_VIEW_SHADER_RESOURCE);
-        if (softParticleSrv == nullptr || bindingSrv == nullptr)
+        if (softPositionSrv == nullptr)
         {
             return false;
         }
-        softParticleVar->Set(softParticleSrv);
-        bindingVar->Set(bindingSrv);
+        softPositionVar->Set(softPositionSrv);
     }
     return true;
 }
@@ -451,15 +445,13 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_ParticlePositions",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexBindings",
+        {Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyRenderPositions",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     psoCreateInfo.PSODesc.ResourceLayout.Variables    = kVars;
     psoCreateInfo.PSODesc.ResourceLayout.NumVariables = static_cast<Diligent::Uint32>(
         programFamily == MaterialProgramFamily::SoftBodyLit ? std::size(kVars)
-                                                            : std::size(kVars) - 2u);
+                                                            : std::size(kVars) - 1u);
 
     constexpr Diligent::LayoutElement kLayoutElements[] = {
         Diligent::LayoutElement{0, 0, 3, Diligent::VT_FLOAT32, Diligent::False},
