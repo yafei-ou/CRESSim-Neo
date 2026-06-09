@@ -5,6 +5,7 @@
 #include "helpers/shape_meshes.h"
 #include "helpers/viewer_example.h"
 #include "physics/load_particle_cloud.h"
+#include "physics/load_surface_mesh.h"
 #include "viewer/debug_viewer_app.h"
 
 #include <algorithm>
@@ -29,11 +30,15 @@ using cressim::neo::engine::Runtime;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::examples::helpers::CommonExampleOptions;
 using cressim::neo::examples::helpers::ViewerExampleDefaults;
+using cressim::neo::graphics::MaterialFeatureFlags;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MaterialHandle;
+using cressim::neo::graphics::MaterialRenderMode;
 using cressim::neo::graphics::MeshHandle;
+using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::physics::RigidBodyType;
+using cressim::neo::physics::SurfaceMeshData;
 using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
@@ -43,10 +48,14 @@ struct MeshfreeDebugOptions
     CommonExampleOptions common{};
     bool useCube = false;
     bool drawConstraintEdges = false;
+    bool debugParticlesExplicit = false;
+    bool showDebugParticles = false;
     bool pinToGround = true;
     bool vSync = false;
     std::filesystem::path cloudPath =
         std::filesystem::path(__FILE__).parent_path() / "fixtures" / "gallbladder_particles.bin";
+    std::filesystem::path surfacePath =
+        std::filesystem::path(__FILE__).parent_path() / "fixtures" / "Gallbladder.obj";
     std::uint32_t neighbourCount = 12u;
     std::uint32_t substeps = 0u;
     std::uint32_t softInternalIterations = 0u;
@@ -73,10 +82,11 @@ void printUsage(const char *appName)
     cressim::neo::examples::helpers::printUsage(
         appName,
         " [--cube] [--cloud PATH] [--cloud-scale S] [--neighbours N] [--particle-radius R]"
+        " [--surface PATH]"
         " [--particle-mass M] [--compliance C] [--damping D] [--substeps N]"
         " [--soft-iterations N] [--contact-iterations N] [--rotation-degrees X Y Z]"
         " [--rotate-x DEG] [--rotate-y DEG] [--rotate-z DEG] [--pin-band B] [--drop]"
-        " [--draw-edges] [--vsync]",
+        " [--show-particles] [--hide-particles] [--draw-edges] [--vsync]",
         false);
 }
 
@@ -166,6 +176,20 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
     return resources.registerMaterial(desc);
 }
 
+MaterialHandle registerSurfaceShellMaterial(
+    cressim::neo::graphics::RenderResourceManager &resources)
+{
+    MaterialResourceDesc desc{};
+    desc.debugName             = "MeshfreeDebug.GallbladderSurfaceShell";
+    desc.baseColor             = {0.5647f, 0.9333f, 0.5647f}; //{0.82f, 0.28f, 0.34f};
+    desc.roughness             = 0.68f;
+    desc.renderMode            = MaterialRenderMode::Opaque;
+    desc.opacity               = 1.0f;
+    desc.castsShadows          = true;
+    desc.pipeline.featureFlags = MaterialFeatureFlags::DoubleSided;
+    return resources.registerMaterial(desc);
+}
+
 std::vector<Diligent::float3> makeParticleBlock(std::uint32_t sideCount, float spacing)
 {
     std::vector<Diligent::float3> particles;
@@ -225,6 +249,41 @@ void centerAndScaleParticles(std::vector<Diligent::float3> &particles, const flo
     }
 }
 
+void centerAndScaleSurface(SurfaceMeshData &surface, const Diligent::float3 &center,
+                           const float scale)
+{
+    for (Diligent::float3 &position : surface.surfaceRestPositions)
+    {
+        position = (position - center) * scale;
+    }
+}
+
+MeshResourceDesc makeSurfaceMeshResource(const SurfaceMeshData &surface, const char *debugName)
+{
+    MeshResourceDesc mesh{};
+    mesh.debugName = debugName;
+    mesh.vertices.reserve(surface.surfaceRestPositions.size());
+    for (std::size_t i = 0u; i < surface.surfaceRestPositions.size(); ++i)
+    {
+        MeshResourceDesc::Vertex vertex{};
+        vertex.position = surface.surfaceRestPositions[i];
+        if (i < surface.surfaceNormals.size())
+        {
+            vertex.normal = surface.surfaceNormals[i];
+        }
+        mesh.vertices.push_back(vertex);
+    }
+
+    mesh.indices.reserve(surface.surfaceTriangles.size() * 3u);
+    for (const Diligent::uint3 &triangle : surface.surfaceTriangles)
+    {
+        mesh.indices.push_back(triangle.x);
+        mesh.indices.push_back(triangle.y);
+        mesh.indices.push_back(triangle.z);
+    }
+    return mesh;
+}
+
 ParticleBounds computeRotatedParticleBounds(const std::vector<Diligent::float3> &particles,
                                             const Diligent::QuaternionF &rotation)
 {
@@ -276,13 +335,16 @@ std::vector<std::uint32_t> selectGroundPinParticles(
     return staticParticleIndices;
 }
 
-std::vector<Diligent::float3> loadConfiguredParticles(const MeshfreeDebugOptions &options)
+std::vector<Diligent::float3> loadConfiguredParticles(const MeshfreeDebugOptions &options,
+                                                      ParticleBounds &outSourceBounds)
 {
     if (options.useCube)
     {
         constexpr std::uint32_t kSideCount = 3u;
         constexpr float kParticleSpacing   = 0.35f;
-        return makeParticleBlock(kSideCount, kParticleSpacing);
+        std::vector<Diligent::float3> particles = makeParticleBlock(kSideCount, kParticleSpacing);
+        outSourceBounds = computeParticleBounds(particles);
+        return particles;
     }
 
     std::vector<Diligent::float3> particles;
@@ -293,15 +355,17 @@ std::vector<Diligent::float3> loadConfiguredParticles(const MeshfreeDebugOptions
         return {};
     }
 
+    outSourceBounds = computeParticleBounds(particles);
     centerAndScaleParticles(particles, options.cloudScale);
     return particles;
 }
 
-void applyDebugParticleGraphOptions(Runtime &runtime, const bool drawConstraintEdges,
+void applyDebugParticleGraphOptions(Runtime &runtime, const bool enabled,
+                                    const bool drawConstraintEdges,
                                     const float particleRadius)
 {
     cressim::neo::graphics::RenderFrameOptions renderOptions = runtime.renderFrameOptions();
-    renderOptions.debugParticles.enabled                  = true;
+    renderOptions.debugParticles.enabled                  = enabled;
     renderOptions.debugParticles.drawConstraintEdges      = drawConstraintEdges;
     renderOptions.debugParticles.highlightStaticParticles = true;
     renderOptions.debugParticles.useParticleRadii         = true;
@@ -338,6 +402,12 @@ int main(int argc, char **argv)
                 options.cloudPath = cressim::neo::examples::helpers::requireOptionValue(
                     argc, argv, i, "--cloud");
                 options.useCube = false;
+                continue;
+            }
+            if (arg == "--surface")
+            {
+                options.surfacePath = cressim::neo::examples::helpers::requireOptionValue(
+                    argc, argv, i, "--surface");
                 continue;
             }
             if (arg == "--cloud-scale")
@@ -462,6 +532,20 @@ int main(int argc, char **argv)
             if (arg == "--draw-edges")
             {
                 options.drawConstraintEdges = true;
+                options.showDebugParticles = true;
+                options.debugParticlesExplicit = true;
+                continue;
+            }
+            if (arg == "--show-particles")
+            {
+                options.showDebugParticles = true;
+                options.debugParticlesExplicit = true;
+                continue;
+            }
+            if (arg == "--hide-particles")
+            {
+                options.showDebugParticles = false;
+                options.debugParticlesExplicit = true;
                 continue;
             }
             if (arg == "--vsync")
@@ -474,11 +558,17 @@ int main(int argc, char **argv)
             return 2;
         }
     }
+
     catch (const std::invalid_argument &error)
     {
         CRESSIM_LOG_ERROR(error.what(), "\n");
         printUsage(argv[0]);
         return 2;
+    }
+
+    if (!options.debugParticlesExplicit)
+    {
+        options.showDebugParticles = options.useCube;
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options.common);
@@ -510,7 +600,7 @@ int main(int argc, char **argv)
     viewerDefaults.vSync       = options.vSync;
     auto viewerDesc =
         cressim::neo::examples::helpers::makeViewerDesc(options.common, viewerDefaults);
-    viewerDesc.enableDebugParticles = true;
+    viewerDesc.enableDebugParticles = options.showDebugParticles;
 
     if (!viewer.initialize(viewerDesc, config))
     {
@@ -550,6 +640,7 @@ int main(int argc, char **argv)
         cressim::neo::examples::helpers::makePlaneMesh(4.0f, "MeshfreeDebug.GroundMesh"));
     const MaterialHandle groundMaterial =
         registerMaterial(resources, "MeshfreeDebug.Ground", {0.18f, 0.20f, 0.22f}, 0.86f);
+    const MaterialHandle surfaceShellMaterial = registerSurfaceShellMaterial(resources);
 
     constexpr float kGroundSurfaceY       = -0.72f;
     constexpr float kGroundColliderHalfY  = 0.35f;
@@ -574,7 +665,9 @@ int main(int argc, char **argv)
     groundCollider.collisionMask  = 0x2u;
     world.addCollider(groundEntity, groundCollider);
 
-    std::vector<Diligent::float3> particles = loadConfiguredParticles(options);
+    ParticleBounds sourceParticleBounds{};
+    std::vector<Diligent::float3> particles =
+        loadConfiguredParticles(options, sourceParticleBounds);
     if (particles.empty())
     {
         runtime.shutdown();
@@ -587,6 +680,25 @@ int main(int argc, char **argv)
                      particleBounds.min.x, ", ", particleBounds.min.y, ", ",
                      particleBounds.min.z, "), max=(", particleBounds.max.x, ", ",
                      particleBounds.max.y, ", ", particleBounds.max.z, ").\n");
+
+    SurfaceMeshData surfaceMesh;
+    if (!options.useCube)
+    {
+        std::string surfaceErrorMessage;
+        if (!cressim::neo::physics::readObjSurfaceMesh(options.surfacePath, surfaceMesh,
+                                                       surfaceErrorMessage))
+        {
+            runtime.shutdown();
+            viewer.shutdown();
+            CRESSIM_LOG_ERROR(surfaceErrorMessage, "\n");
+            return 1;
+        }
+        centerAndScaleSurface(surfaceMesh, sourceParticleBounds.center, options.cloudScale);
+        CRESSIM_LOG_INFO("Gallbladder surface shell: ",
+                         surfaceMesh.surfaceRestPositions.size(), " vertices, ",
+                         surfaceMesh.surfaceTriangles.size(), " triangles from ",
+                         options.surfacePath.string(), ".\n");
+    }
 
     const float configuredParticleRadius = options.useCube ? 0.06f : options.particleRadius;
     const Diligent::QuaternionF softRotation = makeEulerRotationDegrees(options.rotationDegrees);
@@ -604,6 +716,9 @@ int main(int argc, char **argv)
 
     MeshfreeSoftBodyComponent softBody{};
     softBody.particles                       = std::move(particles);
+    softBody.surfaceRestPositions            = surfaceMesh.surfaceRestPositions;
+    softBody.surfaceNormals                  = surfaceMesh.surfaceNormals;
+    softBody.surfaceTriangles                = surfaceMesh.surfaceTriangles;
     if (options.pinToGround)
     {
         softBody.staticParticleIndices =
@@ -631,6 +746,14 @@ int main(int argc, char **argv)
         viewer.shutdown();
         CRESSIM_LOG_ERROR("Failed to author meshfree debug soft body.\n");
         return 1;
+    }
+
+    if (!surfaceMesh.surfaceRestPositions.empty())
+    {
+        const MeshHandle surfaceShellMesh = resources.registerMesh(
+            makeSurfaceMeshResource(surfaceMesh, "MeshfreeDebug.GallbladderSurfaceShellMesh"));
+        world.setMeshRenderer(softEntity,
+                              MeshRendererComponent{surfaceShellMesh, surfaceShellMaterial, true});
     }
 
     world.physicsWorld().ensureDerivedStateUpToDate();
@@ -662,14 +785,16 @@ int main(int argc, char **argv)
                          ", initial center y=", initialSoftY, ".\n");
     }
 
-    applyDebugParticleGraphOptions(runtime, options.drawConstraintEdges,
+    applyDebugParticleGraphOptions(runtime, options.showDebugParticles,
+                                   options.drawConstraintEdges,
                                    options.useCube ? 0.045f : options.particleRadius);
 
     DebugViewerCallbacks callbacks{};
     callbacks.beforeTick = [&options](const cressim::neo::common::FrameContext &,
                                       Runtime &callbackRuntime)
     {
-        applyDebugParticleGraphOptions(callbackRuntime, options.drawConstraintEdges,
+        applyDebugParticleGraphOptions(callbackRuntime, options.showDebugParticles,
+                                       options.drawConstraintEdges,
                                        options.useCube ? 0.045f : options.particleRadius);
     };
 

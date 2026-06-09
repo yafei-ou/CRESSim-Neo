@@ -199,6 +199,19 @@ int main()
         device->shutdown();
         return 1;
     }
+    graphics::MeshResourceDesc softSurfaceMesh{};
+    softSurfaceMesh.debugName = "DebugParticleGraphSmoke.SoftSurface";
+    softSurfaceMesh.vertices.resize(3u);
+    softSurfaceMesh.vertices[0].position = {-0.5f, 0.0f, 0.0f};
+    softSurfaceMesh.vertices[1].position = {0.0f, 0.0f, 0.0f};
+    softSurfaceMesh.vertices[2].position = {0.0f, 0.5f, 0.0f};
+    softSurfaceMesh.indices              = {0u, 1u, 2u};
+    graphics::MaterialResourceDesc softSurfaceMaterial{};
+    softSurfaceMaterial.debugName = "DebugParticleGraphSmoke.SoftSurfaceMaterial";
+    world.setMeshRenderer(
+        softEntity,
+        engine::MeshRendererComponent{resources.registerMesh(softSurfaceMesh),
+                                      resources.registerMaterial(softSurfaceMaterial), true});
 
     physics::PhysicsSceneGpuState physicsSceneState;
     if (!uploadRenderScene(uploader, world, resources, *device) ||
