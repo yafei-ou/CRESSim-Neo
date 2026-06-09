@@ -70,7 +70,6 @@ struct PhysicsGpuSoftSceneView
     std::uint32_t bendCount                = 0;
     std::uint32_t tetCount                 = 0;
     std::uint32_t suturingPairCount        = 0;
-    std::uint32_t suturingParticleCount    = 0;
     std::uint32_t suturingPathHeaderCount  = 0;
     std::uint32_t suturingPathNodeCount    = 0;
     std::uint64_t bindingGeneration        = 0;

@@ -3,8 +3,6 @@
 
 CRESSIM_STRUCTURED_BUFFER(uint4, g_SuturingParticleRefs);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleEnvironmentIndices);
-CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleStrandIds);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingPair, g_SuturingPairs);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuStrandInsertionStateStorage, g_SuturingInsertionStates);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingPathHeader, g_SuturingPathHeaders);
@@ -50,8 +48,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const uint strandIndex = CRESSIM_SB_LOAD(g_ParticleStrandIds, particleIndex);
-    const uint environmentIndex = CRESSIM_SB_LOAD(g_ParticleEnvironmentIndices, particleIndex);
+    const uint strandIndex = particleRef.z;
+    const uint environmentIndex = particleRef.w;
     const float3 particlePosition = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex).xyz;
 
     uint matchedPairIndex = kInvalidSuturingIndex;

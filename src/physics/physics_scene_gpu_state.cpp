@@ -2749,7 +2749,15 @@ bool PhysicsSceneGpuState::uploadSuturingState(
             const std::uint32_t role = particleIndex < particles.strandRoles.size()
                                            ? particles.strandRoles[particleIndex]
                                            : static_cast<std::uint32_t>(ParticleStrandRole::None);
-            suturingParticleRefs[i] = Diligent::uint4{particleIndex, role, 0u, 0u};
+            const std::uint32_t strandId = particleIndex < particles.strandIds.size()
+                                               ? particles.strandIds[particleIndex]
+                                               : kInvalidSuturingIndex;
+            const std::uint32_t environmentIndex =
+                particleIndex < particles.environmentIndices.size()
+                    ? particles.environmentIndices[particleIndex]
+                    : 0u;
+            suturingParticleRefs[i] =
+                Diligent::uint4{particleIndex, role, strandId, environmentIndex};
         }
         return updateStructuredBufferRange(
             computeContext, mPersistentSuturing.particleRefsBuffer, suturingParticleRefs, 0u,
@@ -3350,7 +3358,6 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.bendCount           = mSoftBendCount;
     view.soft.tetCount            = mSoftTetCount;
     view.soft.suturingPairCount       = mSuturingPairCount;
-    view.soft.suturingParticleCount   = mSuturingParticleCount;
     view.soft.suturingPathHeaderCount = mSuturingPathHeaderCount;
     view.soft.suturingPathNodeCount   = mSuturingPathNodeCount;
     view.soft.bindingGeneration   = mSoftBindingGeneration;
