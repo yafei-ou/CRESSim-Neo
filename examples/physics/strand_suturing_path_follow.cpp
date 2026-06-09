@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 
 namespace
@@ -26,7 +27,11 @@ using cressim::neo::engine::TransformComponent;
 using cressim::neo::examples::helpers::CommonExampleOptions;
 using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialResourceDesc;
+using cressim::neo::physics::AuthoredParticleDistanceConstraintState;
+using cressim::neo::physics::AuthoredParticleReferenceType;
+using cressim::neo::physics::AuthoredSuturingSequenceState;
 using cressim::neo::physics::ColliderShapeType;
+using cressim::neo::physics::ParticleContactMaterialDesc;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::physics::SoftBodySourceKind;
 using cressim::neo::viewer::DebugViewerApp;
@@ -101,10 +106,9 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
-    config.physicsDesc.enableBlockingReadback = true;
-    config.physicsDesc.substeps               = 2u;
-    config.physicsDesc.defaultIterations      = 8u;
-    config.physicsDesc.softContactIterations  = 4u;
+    config.physicsDesc.substeps              = 2u;
+    config.physicsDesc.defaultIterations     = 8u;
+    config.physicsDesc.softContactIterations = 4u;
 
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
@@ -187,6 +191,31 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    const auto driverEntity = world.createEntity();
+    TransformComponent driverTransform{};
+    driverTransform.worldTransform.position = {-1.8f, -0.05f, 0.0f};
+    world.setTransform(driverEntity, driverTransform);
+
+    ParticleContactMaterialDesc driverContactMaterial{};
+    driverContactMaterial.friction = 0.32f;
+    driverContactMaterial.staticFriction = 0.4f;
+    driverContactMaterial.damping = 0.02f;
+
+    RigidBodyComponent driverBody{};
+    driverBody.simulated = true;
+    driverBody.bodyType = RigidBodyType::Kinematic;
+    driverBody.inverseMass = 1.0f;
+    driverBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
+    driverBody.proxyParticleLocalPositions = {{0.0f, 0.0f, 0.0f}};
+    driverBody.proxyParticleMaterial = driverContactMaterial;
+    driverBody.proxyParticleRadius = 0.075f;
+    driverBody.proxyCollisionLayer = 0x4u;
+    driverBody.proxyCollisionMask = 0x1u;
+    driverBody.kinematicTargetEnabled = true;
+    driverBody.kinematicTargetPosition = driverTransform.worldTransform.position;
+    driverBody.kinematicTargetRotation = driverTransform.worldTransform.rotation;
+    world.setRigidBody(driverEntity, driverBody);
+
     const auto strandEntity = world.createEntity();
     StrandComponent strand{};
     strand.particleMass         = 0.12f;
@@ -194,11 +223,11 @@ int main(int argc, char **argv)
     strand.distanceCompliance   = 0.000001f;
     strand.bendCompliance       = 0.03f;
     strand.selfCollisionEnabled = false;
-    strand.suturingEnabled      = true;
-    strand.needleTipParticleIndex = 0u;
-    strand.needleTipKinematic   = true;
+    strand.suturingEnabled      = false;
+    strand.needleTipKinematic   = false;
     strand.pathNodeSpacing      = 0.16f;
-    strand.staticParticleIndices = {0u};
+    strand.collisionLayer       = 0x2u;
+    strand.collisionMask        = 0x1u;
     for (std::uint32_t i = 0u; i < 22u; ++i)
     {
         strand.restPositions.push_back(
@@ -213,8 +242,31 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    AuthoredParticleDistanceConstraintState driverAttachment{};
+    driverAttachment.particleA.entityId = driverEntity;
+    driverAttachment.particleA.type = AuthoredParticleReferenceType::RigidProxyParticle;
+    driverAttachment.particleA.localParticleIndex = 0u;
+    driverAttachment.particleB.entityId = strandEntity;
+    driverAttachment.particleB.type = AuthoredParticleReferenceType::StrandParticle;
+    driverAttachment.particleB.localParticleIndex = 0u;
+    driverAttachment.restLength = 0.0f;
+    driverAttachment.compliance = 0.0f;
+    world.upsertParticleDistanceConstraint(driverAttachment);
+
+    AuthoredSuturingSequenceState suturingSequence{};
+    suturingSequence.pathNodeSpacing = strand.pathNodeSpacing;
+    suturingSequence.entries.push_back(
+        {driverEntity, AuthoredParticleReferenceType::RigidProxyParticle, 0u});
+    for (std::uint32_t particleIndex = 0u;
+         particleIndex < static_cast<std::uint32_t>(strand.restPositions.size()); ++particleIndex)
+    {
+        suturingSequence.entries.push_back(
+            {strandEntity, AuthoredParticleReferenceType::StrandParticle, particleIndex});
+    }
+    world.upsertSuturingSequence(suturingSequence);
+
     DebugViewerCallbacks callbacks{};
-    callbacks.beforeTick = [strandEntity](const cressim::neo::common::FrameContext &frame,
+    callbacks.beforeTick = [driverEntity](const cressim::neo::common::FrameContext &frame,
                                           Runtime &cbRuntime)
     {
         const float t = static_cast<float>(frame.timeSeconds);
@@ -249,8 +301,17 @@ int main(int argc, char **argv)
             x = exitX + (endX - exitX) * easedU;
             y = liftedY;
         }
-        cbRuntime.getWorld().physicsWorld().overrideStrandParticlePosition(
-            strandEntity, 0u, Diligent::float3{x, y, 0.0f}, true);
+
+        std::optional<RigidBodyComponent> driverBody = cbRuntime.getWorld().tryGetRigidBody(driverEntity);
+        if (!driverBody.has_value())
+        {
+            return;
+        }
+
+        driverBody->bodyType = RigidBodyType::Kinematic;
+        driverBody->kinematicTargetEnabled = true;
+        driverBody->kinematicTargetPosition = Diligent::float3{x, y, 0.0f};
+        cbRuntime.getWorld().setRigidBody(driverEntity, *driverBody);
     };
 
     DebugViewerCameraBinding binding{};

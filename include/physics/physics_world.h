@@ -130,13 +130,6 @@ public:
                                          const Diligent::float4 &positionInvMass,
                                          const Diligent::float4 &previousPosition,
                                          const Diligent::float4 &velocity) noexcept;
-    void syncSuturingStateFromSimulation(
-        const std::vector<GpuStrandInsertionState> &insertionStates,
-        const std::vector<SuturingPathHeader> &pathHeaders,
-        const std::vector<SuturingPathNode> &pathNodes) noexcept;
-    bool overrideStrandParticlePosition(common::EntityId entityId, std::uint32_t localParticleIndex,
-                                        const Diligent::float3 &position,
-                                        bool updatePreviousPosition = true) noexcept;
     void finalizeParticleWriteback() noexcept;
 
     std::uint64_t authoredRevision() const noexcept;
@@ -192,24 +185,6 @@ private:
         std::vector<std::array<std::uint32_t, 3>> bends;
         std::vector<std::vector<std::uint32_t>> adjacencyLists;
         std::vector<std::uint32_t> staticParticleIndices;
-    };
-
-    struct StrandParticleInsertionState
-    {
-        StrandInsertionState state       = StrandInsertionState::Outside;
-        StrandInsertionState previous    = StrandInsertionState::Outside;
-        std::uint32_t softBodyIndex      = 0xffffffffu;
-        std::uint32_t tetIndex           = 0xffffffffu;
-        Diligent::float4 barycentrics{0.0f, 0.0f, 0.0f, 0.0f};
-        std::uint32_t nearestPathNode    = 0xffffffffu;
-    };
-
-    struct StrandSuturingState
-    {
-        std::vector<StrandParticleInsertionState> particleStates;
-        std::vector<SuturingPathNode> pathNodes;
-        bool pathActive              = false;
-        std::uint32_t activeSoftBody = 0xffffffffu;
     };
 
     static void writeRigidBodySoAAt(RigidBodySoAHost &soa, std::uint32_t index,
@@ -312,7 +287,6 @@ private:
     std::vector<SoftBodyDerivedCache> mSoftBodyDerivedCaches{};
     std::vector<StrandDerivedCache> mStrandDerivedCaches{};
     std::vector<FluidDerivedCache> mFluidDerivedCaches{};
-    std::vector<StrandSuturingState> mStrandSuturingStates{};
     std::vector<StrandSoftSuturingPair> mSuturingPairs{};
     ParticleSoAHost mParticles{};
     std::vector<Diligent::float4> mParticleContactMaterials{};

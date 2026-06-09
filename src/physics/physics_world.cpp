@@ -547,7 +547,6 @@ void PhysicsWorld::clear()
     mSoftBodyDerivedCaches.clear();
     mStrandDerivedCaches.clear();
     mFluidDerivedCaches.clear();
-    mStrandSuturingStates.clear();
     mSuturingPairs.clear();
     mReservedSuturingPathHeaders = 0u;
     mReservedSuturingPathNodes   = 0u;
@@ -1075,13 +1074,11 @@ bool PhysicsWorld::upsertStrand(const StrandState &state)
                                      static_cast<std::uint32_t>(mStrandSnapshot.size()));
         mStrandSnapshot.push_back(normalizedState);
         mStrandDerivedCaches.push_back(std::move(derivedCache));
-        mStrandSuturingStates.emplace_back();
     }
     else
     {
         mStrandSnapshot[it->second]      = normalizedState;
         mStrandDerivedCaches[it->second] = std::move(derivedCache);
-        mStrandSuturingStates[it->second] = {};
     }
 
     mSoftBodyDerivedStateDirty = true;
@@ -1243,12 +1240,10 @@ bool PhysicsWorld::removeStrand(common::EntityId entityId)
     {
         mStrandSnapshot[index]      = mStrandSnapshot[last];
         mStrandDerivedCaches[index] = std::move(mStrandDerivedCaches[last]);
-        mStrandSuturingStates[index] = std::move(mStrandSuturingStates[last]);
         mEntityToStrandIndex[mStrandSnapshot[index].entityId] = index;
     }
     mStrandSnapshot.pop_back();
     mStrandDerivedCaches.pop_back();
-    mStrandSuturingStates.pop_back();
     mEntityToStrandIndex.erase(it);
     mSoftBodyDerivedStateDirty = true;
     ++mSoftBodyTopologyRevision;
@@ -2114,248 +2109,6 @@ bool PhysicsWorld::syncParticleStateFromSimulation(std::uint32_t index,
     mParticles.positionsInvMass[index]  = positionInvMass;
     mParticles.previousPositions[index] = previousPosition;
     mParticles.velocities[index]        = velocity;
-    return true;
-}
-
-void PhysicsWorld::syncSuturingStateFromSimulation(
-    const std::vector<GpuStrandInsertionState> &insertionStates,
-    const std::vector<SuturingPathHeader> &pathHeaders,
-    const std::vector<SuturingPathNode> &pathNodes) noexcept
-{
-    ensureSoftBodyDerivedStateUpToDate();
-
-    if (mStrandSuturingStates.size() < mStrandSnapshot.size())
-    {
-        mStrandSuturingStates.resize(mStrandSnapshot.size());
-    }
-
-    for (StrandSuturingState &state : mStrandSuturingStates)
-    {
-        state.pathNodes.clear();
-        state.pathActive     = false;
-        state.activeSoftBody = kInvalidSuturingIndex;
-    }
-
-    for (std::uint32_t strandIndex = 0u; strandIndex < mStrandSnapshot.size(); ++strandIndex)
-    {
-        const StrandState &strand = mStrandSnapshot[strandIndex];
-        StrandSuturingState &suturing = mStrandSuturingStates[strandIndex];
-        suturing.particleStates.resize(strand.particleCount);
-        for (std::uint32_t localParticleIndex = 0u; localParticleIndex < strand.particleCount;
-             ++localParticleIndex)
-        {
-            StrandParticleInsertionState &particleState =
-                suturing.particleStates[localParticleIndex];
-            particleState.previous        = particleState.state;
-            particleState.state           = StrandInsertionState::Outside;
-            particleState.softBodyIndex   = kInvalidSuturingIndex;
-            particleState.tetIndex        = kInvalidSuturingIndex;
-            particleState.nearestPathNode = kInvalidSuturingIndex;
-            particleState.barycentrics    = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
-
-            const std::uint32_t particleIndex = strand.particleOffset + localParticleIndex;
-            if (particleIndex >= insertionStates.size())
-            {
-                continue;
-            }
-
-            const GpuStrandInsertionState &gpuState = insertionStates[particleIndex];
-            particleState.state =
-                static_cast<StrandInsertionState>(gpuState.state);
-            particleState.softBodyIndex   = gpuState.softBodyIndex;
-            particleState.tetIndex        = gpuState.tetIndex;
-            particleState.barycentrics    = gpuState.barycentrics;
-        }
-    }
-
-    const std::uint32_t authoredSequenceSuturingGroupBase =
-        static_cast<std::uint32_t>(mStrandSnapshot.size() + mRigidBodySnapshot.size());
-    std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> sequenceGroupToStrands{};
-    for (std::uint32_t sequenceIndex = 0u;
-         sequenceIndex < static_cast<std::uint32_t>(mSuturingSequenceSnapshot.size());
-         ++sequenceIndex)
-    {
-        const AuthoredSuturingSequenceState &sequence = mSuturingSequenceSnapshot[sequenceIndex];
-        if (!sequence.enabled)
-        {
-            continue;
-        }
-
-        const std::uint32_t groupId = authoredSequenceSuturingGroupBase + sequenceIndex;
-        auto &strandIndices = sequenceGroupToStrands[groupId];
-        for (const AuthoredParticleReference &entry : sequence.entries)
-        {
-            if (entry.type != AuthoredParticleReferenceType::StrandParticle)
-            {
-                continue;
-            }
-
-            const auto strandIt = mEntityToStrandIndex.find(entry.entityId);
-            if (strandIt == mEntityToStrandIndex.end())
-            {
-                continue;
-            }
-
-            if (std::find(strandIndices.begin(), strandIndices.end(), strandIt->second) ==
-                strandIndices.end())
-            {
-                strandIndices.push_back(strandIt->second);
-            }
-        }
-    }
-
-    std::vector<std::unordered_map<std::uint32_t, std::uint32_t>> globalToLocalNodeMaps(
-        mStrandSnapshot.size());
-
-    for (const StrandSoftSuturingPair &pair : mSuturingPairs)
-    {
-        if (pair.strandIndex < mStrandSuturingStates.size())
-        {
-            StrandSuturingState &suturing = mStrandSuturingStates[pair.strandIndex];
-            auto &nodeMap                  = globalToLocalNodeMaps[pair.strandIndex];
-
-            if (pair.activePathIndex != kInvalidSuturingIndex)
-            {
-                suturing.pathActive     = true;
-                suturing.activeSoftBody = pair.softBodyIndex;
-            }
-
-            const std::uint32_t headerEnd =
-                std::min(pair.pathStart + pair.pathCount,
-                         static_cast<std::uint32_t>(pathHeaders.size()));
-            for (std::uint32_t headerIndex = pair.pathStart; headerIndex < headerEnd; ++headerIndex)
-            {
-                const SuturingPathHeader &header = pathHeaders[headerIndex];
-                if (header.strandIndex != pair.strandIndex ||
-                    header.softBodyIndex != pair.softBodyIndex || header.nodeCount == 0u)
-                {
-                    continue;
-                }
-
-                const std::uint32_t nodeEnd =
-                    std::min(header.nodeStart + header.nodeCount,
-                             static_cast<std::uint32_t>(pathNodes.size()));
-                for (std::uint32_t globalNodeIndex = header.nodeStart; globalNodeIndex < nodeEnd;
-                     ++globalNodeIndex)
-                {
-                    nodeMap.emplace(globalNodeIndex,
-                                    static_cast<std::uint32_t>(suturing.pathNodes.size()));
-                    suturing.pathNodes.push_back(pathNodes[globalNodeIndex]);
-                }
-            }
-            continue;
-        }
-
-        const auto sequenceIt = sequenceGroupToStrands.find(pair.strandIndex);
-        if (sequenceIt == sequenceGroupToStrands.end())
-        {
-            continue;
-        }
-
-        const std::uint32_t headerEnd =
-            std::min(pair.pathStart + pair.pathCount, static_cast<std::uint32_t>(pathHeaders.size()));
-        for (const std::uint32_t strandIndex : sequenceIt->second)
-        {
-            if (strandIndex >= mStrandSuturingStates.size())
-            {
-                continue;
-            }
-
-            StrandSuturingState &suturing = mStrandSuturingStates[strandIndex];
-            auto &nodeMap = globalToLocalNodeMaps[strandIndex];
-            if (pair.activePathIndex != kInvalidSuturingIndex)
-            {
-                suturing.pathActive = true;
-                suturing.activeSoftBody = pair.softBodyIndex;
-            }
-
-            for (std::uint32_t headerIndex = pair.pathStart; headerIndex < headerEnd; ++headerIndex)
-            {
-                const SuturingPathHeader &header = pathHeaders[headerIndex];
-                if (header.strandIndex != pair.strandIndex ||
-                    header.softBodyIndex != pair.softBodyIndex || header.nodeCount == 0u)
-                {
-                    continue;
-                }
-
-                const std::uint32_t nodeEnd =
-                    std::min(header.nodeStart + header.nodeCount,
-                             static_cast<std::uint32_t>(pathNodes.size()));
-                for (std::uint32_t globalNodeIndex = header.nodeStart; globalNodeIndex < nodeEnd;
-                     ++globalNodeIndex)
-                {
-                    if (nodeMap.find(globalNodeIndex) != nodeMap.end())
-                    {
-                        continue;
-                    }
-                    nodeMap.emplace(globalNodeIndex,
-                                    static_cast<std::uint32_t>(suturing.pathNodes.size()));
-                    suturing.pathNodes.push_back(pathNodes[globalNodeIndex]);
-                }
-            }
-        }
-    }
-
-    for (std::uint32_t strandIndex = 0u; strandIndex < mStrandSnapshot.size(); ++strandIndex)
-    {
-        const StrandState &strand = mStrandSnapshot[strandIndex];
-        StrandSuturingState &suturing = mStrandSuturingStates[strandIndex];
-        const auto &nodeMap = globalToLocalNodeMaps[strandIndex];
-        for (std::uint32_t localParticleIndex = 0u; localParticleIndex < strand.particleCount;
-             ++localParticleIndex)
-        {
-            const std::uint32_t particleIndex = strand.particleOffset + localParticleIndex;
-            if (particleIndex >= insertionStates.size())
-            {
-                continue;
-            }
-
-            const GpuStrandInsertionState &gpuState = insertionStates[particleIndex];
-            auto it = nodeMap.find(gpuState.nearestNodeIndex);
-            suturing.particleStates[localParticleIndex].nearestPathNode =
-                it != nodeMap.end() ? it->second : kInvalidSuturingIndex;
-        }
-    }
-}
-
-bool PhysicsWorld::overrideStrandParticlePosition(common::EntityId entityId,
-                                                  std::uint32_t localParticleIndex,
-                                                  const Diligent::float3 &position,
-                                                  bool updatePreviousPosition) noexcept
-{
-    ensureSoftBodyDerivedStateUpToDate();
-
-    const auto it = mEntityToStrandIndex.find(entityId);
-    if (it == mEntityToStrandIndex.end() || it->second >= mStrandSnapshot.size())
-    {
-        return false;
-    }
-
-    const StrandState &strand = mStrandSnapshot[it->second];
-    if (localParticleIndex >= strand.particleCount)
-    {
-        return false;
-    }
-
-    const std::uint32_t particleIndex = strand.particleOffset + localParticleIndex;
-    if (particleIndex >= mParticles.size())
-    {
-        return false;
-    }
-
-    const Diligent::float4 previousPositionInvMass = mParticles.positionsInvMass[particleIndex];
-    const Diligent::float3 previousPosition{previousPositionInvMass.x, previousPositionInvMass.y,
-                                            previousPositionInvMass.z};
-    mParticles.positionsInvMass[particleIndex].x = position.x;
-    mParticles.positionsInvMass[particleIndex].y = position.y;
-    mParticles.positionsInvMass[particleIndex].z = position.z;
-    mParticles.previousPositions[particleIndex] =
-        updatePreviousPosition
-            ? Diligent::float4{previousPosition.x, previousPosition.y, previousPosition.z, 0.0f}
-            : Diligent::float4{position.x, position.y, position.z, 0.0f};
-    mParticles.velocities[particleIndex] = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
-    ++mSoftParticleRevision;
-    ++mSimulationRevision;
     return true;
 }
 

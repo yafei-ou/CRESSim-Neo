@@ -984,13 +984,6 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         CRESSIM_LOG_ERROR("PhysicsSolver::step failed: readbackPredictedParticleStateBlocking.");
         return false;
     }
-    if (!mImpl->sceneState.readbackSuturingStateBlocking(
-            computeBackend.computeContext, world, particleCount,
-            world.reservedSuturingPathHeaderCount(), world.reservedSuturingPathNodeCount()))
-    {
-        CRESSIM_LOG_ERROR("PhysicsSolver::step failed: readbackSuturingStateBlocking.");
-        return false;
-    }
 
     return true;
 }
