@@ -1175,9 +1175,20 @@ physics::AuthoredParticleDistanceConstraintState &World::upsertParticleDistanceC
     return mPhysicsWorld.upsertParticleDistanceConstraint(state);
 }
 
+physics::AuthoredSuturingSequenceState &World::upsertSuturingSequence(
+    const physics::AuthoredSuturingSequenceState &state)
+{
+    return mPhysicsWorld.upsertSuturingSequence(state);
+}
+
 bool World::removeParticleDistanceConstraint(physics::ParticleConstraintId constraintId)
 {
     return mPhysicsWorld.removeParticleDistanceConstraint(constraintId);
+}
+
+bool World::removeSuturingSequence(physics::SuturingSequenceId sequenceId)
+{
+    return mPhysicsWorld.removeSuturingSequence(sequenceId);
 }
 
 bool World::setFluid(common::EntityId entityId, const FluidComponent &component)
@@ -1775,6 +1786,12 @@ const physics::AuthoredParticleDistanceConstraintState *World::tryGetParticleDis
     physics::ParticleConstraintId constraintId) const noexcept
 {
     return mPhysicsWorld.tryGetParticleDistanceConstraint(constraintId);
+}
+
+const physics::AuthoredSuturingSequenceState *World::tryGetSuturingSequence(
+    physics::SuturingSequenceId sequenceId) const noexcept
+{
+    return mPhysicsWorld.tryGetSuturingSequence(sequenceId);
 }
 
 std::optional<UltrasoundProbeComponent> World::tryGetUltrasoundProbe(

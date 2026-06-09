@@ -55,7 +55,10 @@ public:
     bool removeFluid(common::EntityId entityId);
     physics::AuthoredParticleDistanceConstraintState &upsertParticleDistanceConstraint(
         const physics::AuthoredParticleDistanceConstraintState &state);
+    physics::AuthoredSuturingSequenceState &upsertSuturingSequence(
+        const physics::AuthoredSuturingSequenceState &state);
     bool removeParticleDistanceConstraint(physics::ParticleConstraintId constraintId);
+    bool removeSuturingSequence(physics::SuturingSequenceId sequenceId);
     void setUltrasoundProbe(common::EntityId entityId, const UltrasoundProbeComponent &component);
     bool removeUltrasoundProbe(common::EntityId entityId);
     void setUltrasoundScattererSource(common::EntityId entityId,
@@ -91,6 +94,8 @@ public:
     std::optional<FluidComponent> tryGetFluid(common::EntityId entityId) const;
     const physics::AuthoredParticleDistanceConstraintState *tryGetParticleDistanceConstraint(
         physics::ParticleConstraintId constraintId) const noexcept;
+    const physics::AuthoredSuturingSequenceState *tryGetSuturingSequence(
+        physics::SuturingSequenceId sequenceId) const noexcept;
     std::optional<UltrasoundProbeComponent> tryGetUltrasoundProbe(common::EntityId entityId) const;
     std::optional<UltrasoundScattererSourceComponent> tryGetUltrasoundScattererSource(
         common::EntityId entityId) const;

@@ -133,6 +133,13 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE physics
+    NAME suturing_sequence_authoring
+    SOURCE physics_suturing_sequence_authoring.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
     NAME soft_gpu_scene_upload
     SOURCE physics_soft_gpu_scene_upload.cpp
     LIBS cressim_neo_engine

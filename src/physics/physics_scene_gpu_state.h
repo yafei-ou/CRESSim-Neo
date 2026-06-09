@@ -93,8 +93,8 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> ownerTypesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> ownerIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandIdsBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandOrdersBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandRolesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> suturingNeighborLinksBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> owningSoftBodyIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleMaterialIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidMaterialIndicesBuffer;

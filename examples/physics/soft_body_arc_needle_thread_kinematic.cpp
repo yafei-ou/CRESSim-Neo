@@ -30,6 +30,7 @@ using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::physics::AuthoredParticleDistanceConstraintState;
 using cressim::neo::physics::AuthoredParticleReferenceType;
+using cressim::neo::physics::AuthoredSuturingSequenceState;
 using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::physics::ParticleContactMaterialDesc;
 using cressim::neo::physics::RigidBodyType;
@@ -343,7 +344,7 @@ int main(int argc, char **argv)
     needleBody.proxyParticleRadius = needleParticleRadius;
     needleBody.proxyCollisionLayer = 0x4u;
     needleBody.proxyCollisionMask = 0x1u;
-    needleBody.suturingEnabled = true;
+    needleBody.suturingEnabled = false;
     needleBody.needleTipProxyIndex = tipProxyIndex;
     needleBody.kinematicTargetEnabled = true;
     needleBody.kinematicTargetRotation = needleRotation;
@@ -362,16 +363,10 @@ int main(int argc, char **argv)
     strand.collisionLayer = 0x2u;
     strand.collisionMask = 0x1u;
 
-    const Diligent::float3 tailDirectionLocal =
-        needleProxyParticles.size() >= 2u
-            ? Diligent::normalize(needleProxyParticles[tailProxyIndex] -
-                                  needleProxyParticles[tailProxyIndex - 1u])
-            : Diligent::float3{1.0f, 0.0f, 0.0f};
-    const Diligent::float3 tailDirectionWorld =
-        needleRotation.RotateVector(tailDirectionLocal);
     const Diligent::float3 tailWorldPosition =
         needleTransform.worldTransform.position +
         needleRotation.RotateVector(needleMassProperties.centeredPoints[tailProxyIndex]);
+    const Diligent::float3 tailDirectionWorld{1.0f, 0.0f, 0.0f};
     const float strandSpacing = softBody.source.regularGrid.targetParticleSpacing;
     for (std::uint32_t i = 0u; i < 18u; ++i)
     {
@@ -397,6 +392,22 @@ int main(int argc, char **argv)
     needleThreadAttachment.restLength = strandSpacing;
     needleThreadAttachment.compliance = 0.0f;
     world.upsertParticleDistanceConstraint(needleThreadAttachment);
+
+    AuthoredSuturingSequenceState suturingSequence{};
+    suturingSequence.pathNodeSpacing = strandSpacing;
+    for (std::uint32_t proxyIndex = 0u;
+         proxyIndex < static_cast<std::uint32_t>(needleProxyParticles.size()); ++proxyIndex)
+    {
+        suturingSequence.entries.push_back(
+            {needleEntity, AuthoredParticleReferenceType::RigidProxyParticle, proxyIndex});
+    }
+    for (std::uint32_t particleIndex = 0u;
+         particleIndex < static_cast<std::uint32_t>(strand.restPositions.size()); ++particleIndex)
+    {
+        suturingSequence.entries.push_back(
+            {strandEntity, AuthoredParticleReferenceType::StrandParticle, particleIndex});
+    }
+    world.upsertSuturingSequence(suturingSequence);
 
     DebugViewerCallbacks callbacks{};
     callbacks.beforeTick =
@@ -430,7 +441,7 @@ int main(int argc, char **argv)
         {
             arcCenterPosition.x = startArcCenterPosition.x + 1.2f;
             const float u = (cycle - pullUpPhaseStart) / (1.0f - pullUpPhaseStart);
-            arcCenterPosition.y = startArcCenterPosition.y + 2.6f * u;
+            arcCenterPosition.y = startArcCenterPosition.y + 5.4f * u;
         }
 
         float needleAngle = kBaseNeedleAngle;

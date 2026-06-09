@@ -46,6 +46,9 @@ constexpr SliderJointId kInvalidSliderJointId = 0u;
 using ParticleConstraintId = std::uint32_t;
 constexpr ParticleConstraintId kInvalidParticleConstraintId = 0u;
 
+using SuturingSequenceId = std::uint32_t;
+constexpr SuturingSequenceId kInvalidSuturingSequenceId = 0u;
+
 enum class RigidJointDriveMode : std::uint32_t
 {
     None           = 0u,
@@ -395,6 +398,15 @@ struct AuthoredParticleDistanceConstraintState
     bool enabled = true;
 };
 
+struct AuthoredSuturingSequenceState
+{
+    SuturingSequenceId sequenceId = kInvalidSuturingSequenceId;
+    std::vector<AuthoredParticleReference> entries{};
+    std::uint32_t tipEntryIndex = 0u;
+    float pathNodeSpacing = 0.0f;
+    bool enabled = true;
+};
+
 struct DeformableDistanceConstraint
 {
     std::uint32_t particleA = 0u;
@@ -443,6 +455,7 @@ struct ParticleSoAHost
     std::vector<std::uint32_t> strandIds;
     std::vector<std::uint32_t> strandOrders;
     std::vector<std::uint32_t> strandRoles;
+    std::vector<Diligent::uint4> suturingNeighborLinks;
     std::vector<std::uint32_t> owningSoftBodyIndices;
     std::vector<std::uint32_t> particleMaterialIndices;
     std::vector<std::uint32_t> fluidMaterialIndices;
@@ -477,6 +490,7 @@ struct ParticleSoAHost
         strandIds.clear();
         strandOrders.clear();
         strandRoles.clear();
+        suturingNeighborLinks.clear();
         owningSoftBodyIndices.clear();
         particleMaterialIndices.clear();
         fluidMaterialIndices.clear();

@@ -56,6 +56,14 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE engine
+    NAME suturing_sequence_authoring
+    SOURCE suturing_sequence_authoring.cpp
+    INCLUDE_SRC
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
     NAME soft_body_simulated_toggle
     SOURCE soft_body_simulated_toggle.cpp
     INCLUDE_SRC

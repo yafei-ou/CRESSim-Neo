@@ -361,8 +361,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentParticles.ownerTypesBuffer != nullptr &&
         mPersistentParticles.ownerIndicesBuffer != nullptr &&
         mPersistentParticles.strandIdsBuffer != nullptr &&
-        mPersistentParticles.strandOrdersBuffer != nullptr &&
         mPersistentParticles.strandRolesBuffer != nullptr &&
+        mPersistentParticles.suturingNeighborLinksBuffer != nullptr &&
         mPersistentParticles.owningSoftBodyIndicesBuffer != nullptr &&
         mPersistentParticles.particleMaterialIndicesBuffer != nullptr &&
         mPersistentParticles.fluidMaterialIndicesBuffer != nullptr &&
@@ -841,13 +841,14 @@ bool PhysicsSceneGpuState::ensureCapacity(
             newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
             Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.strandIdsBuffer) ||
         !ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.ParticleStrandOrders", sizeof(std::uint32_t),
-            newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.strandOrdersBuffer) ||
-        !ensureStructuredBuffer(
             renderDevice, "CRESSimNeo.Physics.ParticleStrandRoles", sizeof(std::uint32_t),
             newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
             Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.strandRolesBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.SuturingNeighborLinks",
+            sizeof(Diligent::uint4), newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE,
+            Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+            mPersistentParticles.suturingNeighborLinksBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftBodyIndices",
                                 sizeof(std::uint32_t), newSoftParticleCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -2421,10 +2422,11 @@ bool PhysicsSceneGpuState::uploadParticles(
                                        particles.ownerIndices, 0u, count) &&
            updateStructuredBufferRange(computeContext, mPersistentParticles.strandIdsBuffer,
                                        particles.strandIds, 0u, count) &&
-           updateStructuredBufferRange(computeContext, mPersistentParticles.strandOrdersBuffer,
-                                       particles.strandOrders, 0u, count) &&
            updateStructuredBufferRange(computeContext, mPersistentParticles.strandRolesBuffer,
                                        particles.strandRoles, 0u, count) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentParticles.suturingNeighborLinksBuffer,
+                                       particles.suturingNeighborLinks, 0u, count) &&
            updateStructuredBufferRange(computeContext,
                                        mPersistentParticles.owningSoftBodyIndicesBuffer,
                                        particles.owningSoftBodyIndices, 0u, count) &&
@@ -3258,8 +3260,9 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.particles.ownerTypesBuffer         = mPersistentParticles.ownerTypesBuffer;
     view.soft.particles.ownerIndicesBuffer       = mPersistentParticles.ownerIndicesBuffer;
     view.soft.particles.strandIdsBuffer          = mPersistentParticles.strandIdsBuffer;
-    view.soft.particles.strandOrdersBuffer       = mPersistentParticles.strandOrdersBuffer;
     view.soft.particles.strandRolesBuffer        = mPersistentParticles.strandRolesBuffer;
+    view.soft.particles.suturingNeighborLinksBuffer =
+        mPersistentParticles.suturingNeighborLinksBuffer;
     view.soft.particles.owningSoftBodyIndicesBuffer =
         mPersistentParticles.owningSoftBodyIndicesBuffer;
     view.soft.particles.particleMaterialIndicesBuffer =

@@ -27,10 +27,13 @@ public:
     bool upsertFluid(const FluidState &state);
     AuthoredParticleDistanceConstraintState &upsertParticleDistanceConstraint(
         const AuthoredParticleDistanceConstraintState &state);
+    AuthoredSuturingSequenceState &upsertSuturingSequence(
+        const AuthoredSuturingSequenceState &state);
     bool removeSoftBody(common::EntityId entityId);
     bool removeStrand(common::EntityId entityId);
     bool removeFluid(common::EntityId entityId);
     bool removeParticleDistanceConstraint(ParticleConstraintId constraintId);
+    bool removeSuturingSequence(SuturingSequenceId sequenceId);
     bool upsertBallJoint(const BallJointState &state);
     bool upsertHingeJoint(const HingeJointState &state);
     bool upsertSliderJoint(const SliderJointState &state);
@@ -53,6 +56,9 @@ public:
         ParticleConstraintId constraintId);
     const AuthoredParticleDistanceConstraintState *tryGetParticleDistanceConstraint(
         ParticleConstraintId constraintId) const;
+    AuthoredSuturingSequenceState *tryGetSuturingSequence(SuturingSequenceId sequenceId);
+    const AuthoredSuturingSequenceState *tryGetSuturingSequence(
+        SuturingSequenceId sequenceId) const;
     const BallJointState *tryGetBallJoint(BallJointId jointId) const noexcept;
     const HingeJointState *tryGetHingeJoint(HingeJointId jointId) const noexcept;
     const SliderJointState *tryGetSliderJoint(SliderJointId jointId) const noexcept;
@@ -64,6 +70,7 @@ public:
     const std::vector<FluidState> &fluidSnapshot() const noexcept;
     const std::vector<AuthoredParticleDistanceConstraintState> &
     particleDistanceConstraintSnapshot() const noexcept;
+    const std::vector<AuthoredSuturingSequenceState> &suturingSequenceSnapshot() const noexcept;
     const std::vector<BallJointState> &ballJointSnapshot() const noexcept;
     const std::vector<HingeJointState> &hingeJointSnapshot() const noexcept;
     const std::vector<SliderJointState> &sliderJointSnapshot() const noexcept;
@@ -288,6 +295,7 @@ private:
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToStrandIndex{};
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToFluidIndex{};
     std::unordered_map<ParticleConstraintId, std::uint32_t> mParticleConstraintIdToIndex{};
+    std::unordered_map<SuturingSequenceId, std::uint32_t> mSuturingSequenceIdToIndex{};
     std::unordered_map<common::EntityId, TetGenMeshCache> mTetGenMeshCache{};
     std::vector<RigidBodyState> mRigidBodySnapshot{};
     std::vector<ColliderState> mColliderSnapshot{};
@@ -295,6 +303,7 @@ private:
     std::vector<StrandState> mStrandSnapshot{};
     std::vector<FluidState> mFluidSnapshot{};
     std::vector<AuthoredParticleDistanceConstraintState> mParticleDistanceConstraintSnapshot{};
+    std::vector<AuthoredSuturingSequenceState> mSuturingSequenceSnapshot{};
     std::vector<BallJointState> mBallJointSnapshot{};
     std::vector<HingeJointState> mHingeJointSnapshot{};
     std::vector<SliderJointState> mSliderJointSnapshot{};
@@ -346,6 +355,7 @@ private:
     HingeJointId mNextHingeJointId               = 1u;
     SliderJointId mNextSliderJointId             = 1u;
     ParticleConstraintId mNextParticleConstraintId = 1u;
+    SuturingSequenceId mNextSuturingSequenceId     = 1u;
 };
 
 } // namespace cressim::neo::physics
