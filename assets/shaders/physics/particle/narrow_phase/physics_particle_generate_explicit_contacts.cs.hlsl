@@ -115,16 +115,27 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         ShouldSuppressSequenceLeaderContact(particleA, owningSoftBodyB);
     const bool suppressNeedleLeaderB =
         ShouldSuppressSequenceLeaderContact(particleB, owningSoftBodyA);
+    const uint strandRoleA = CRESSIM_SB_LOAD(g_ParticleStrandRoles, particleA);
+    const uint strandRoleB = CRESSIM_SB_LOAD(g_ParticleStrandRoles, particleB);
+    const bool suppressTailA =
+        owningSoftBodyB != kInvalidSuturingIndex &&
+        (strandRoleA == kParticleStrandRoleNeedleBody || strandRoleA == kParticleStrandRoleThread) &&
+        CRESSIM_SB_LOAD(g_SuturingNeighborLinks, particleA).y == kInvalidSuturingIndex;
+    const bool suppressTailB =
+        owningSoftBodyA != kInvalidSuturingIndex &&
+        (strandRoleB == kParticleStrandRoleNeedleBody || strandRoleB == kParticleStrandRoleThread) &&
+        CRESSIM_SB_LOAD(g_SuturingNeighborLinks, particleB).y == kInvalidSuturingIndex;
     const bool suppressNeedleTipA =
         ownerTypeA == kParticleOwnerTypeRigidBody &&
-        CRESSIM_SB_LOAD(g_ParticleStrandRoles, particleA) == kParticleStrandRoleNeedleTip &&
+        strandRoleA == kParticleStrandRoleNeedleTip &&
         owningSoftBodyB != kInvalidSuturingIndex;
     const bool suppressNeedleTipB =
         ownerTypeB == kParticleOwnerTypeRigidBody &&
-        CRESSIM_SB_LOAD(g_ParticleStrandRoles, particleB) == kParticleStrandRoleNeedleTip &&
+        strandRoleB == kParticleStrandRoleNeedleTip &&
         owningSoftBodyA != kInvalidSuturingIndex;
     if (suppressA || suppressB || suppressNeedleFollowerA || suppressNeedleFollowerB ||
-        suppressNeedleLeaderA || suppressNeedleLeaderB || suppressNeedleTipA ||
+        suppressNeedleLeaderA || suppressNeedleLeaderB || suppressTailA || suppressTailB ||
+        suppressNeedleTipA ||
         suppressNeedleTipB)
     {
         CRESSIM_SB_STORE(g_ParticleContacts, pairIndex, outContact);
