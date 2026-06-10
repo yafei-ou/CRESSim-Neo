@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -40,6 +41,13 @@ using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
 constexpr float kPi = 3.14159265358979323846f;
+
+enum class SuturingExampleMode
+{
+    NeedleOnly,
+    NeedleThread,
+    StrandOnly,
+};
 
 std::uint32_t flattenGridIndex(std::uint32_t x, std::uint32_t y, std::uint32_t z,
                                const Diligent::uint3 &resolution)
@@ -75,10 +83,48 @@ std::vector<std::uint32_t> makeRightSideStaticIndices(const Diligent::float3 &si
     return result;
 }
 
+SuturingExampleMode parseMode(const std::string &value)
+{
+    if (value == "needle")
+    {
+        return SuturingExampleMode::NeedleOnly;
+    }
+    if (value == "thread" || value == "needle-thread" || value == "needle_thread")
+    {
+        return SuturingExampleMode::NeedleThread;
+    }
+    if (value == "strand" || value == "leader" || value == "strand-only" ||
+        value == "strand_only")
+    {
+        return SuturingExampleMode::StrandOnly;
+    }
+
+    throw std::invalid_argument("Unsupported mode: " + value +
+                                ". Expected needle, thread, or strand.");
+}
+
+const char *modeWindowTitle(SuturingExampleMode mode)
+{
+    switch (mode)
+    {
+    case SuturingExampleMode::NeedleOnly:
+        return "CRESSim Neo Kinematic Arc Needle Suturing";
+    case SuturingExampleMode::NeedleThread:
+        return "CRESSim Neo Kinematic Arc Needle With Strand";
+    case SuturingExampleMode::StrandOnly:
+        return "CRESSim Neo Kinematic Suturing Strand Driver";
+    }
+
+    return "CRESSim Neo Suturing Example";
+}
+
 void printUsage(const char *appName)
 {
     cressim::neo::examples::helpers::printUsage(
-        appName, "  Debug particle rendering is enabled by default.\n", false);
+        appName,
+        "  --mode needle|thread|strand  Select suturing demo variant (default: thread).\n"
+        "  Debug particle rendering is enabled by default.\n",
+        false);
 }
 
 std::vector<Diligent::float3> makeArcProxyParticles(float arcRadius, float startAngleRadians,
@@ -160,11 +206,23 @@ float signedAngleXY(const Diligent::float3 &from, const Diligent::float3 &to)
 int main(int argc, char **argv)
 {
     CommonExampleOptions options{};
+    SuturingExampleMode mode = SuturingExampleMode::NeedleThread;
 
     try
     {
         for (int i = 1; i < argc; ++i)
         {
+            const std::string arg = argv[i];
+            if (arg == "--mode")
+            {
+                if (i + 1 >= argc)
+                {
+                    throw std::invalid_argument("--mode requires a value.");
+                }
+                mode = parseMode(argv[++i]);
+                continue;
+            }
+
             if (cressim::neo::examples::helpers::tryParseCommonArgument(
                     argc, argv, i, options, false))
             {
@@ -188,7 +246,7 @@ int main(int argc, char **argv)
 
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
-    viewerDefaults.windowTitle = "CRESSim Neo Kinematic Arc Needle With Strand";
+    viewerDefaults.windowTitle = modeWindowTitle(mode);
     viewerDefaults.showStats = true;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
     viewerDesc.enableDebugParticles = true;
@@ -283,192 +341,301 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    const float needleParticleRadius = 0.1f;
-    const std::vector<Diligent::float3> needleProxyParticles =
-        makeArcProxyParticles(0.95f, -0.1f * kPi, -0.9f * kPi, 10u);
-    constexpr float kNeedleInverseMass = 1.4f;
-    const ProxyMassProperties needleMassProperties =
-        computeProxyMassProperties(needleProxyParticles, needleParticleRadius, kNeedleInverseMass);
-    const std::uint32_t tipProxyIndex = 0u;
-    const std::uint32_t tailProxyIndex =
-        static_cast<std::uint32_t>(needleMassProperties.centeredPoints.size() - 1u);
+    const float strandSpacing = softBody.source.regularGrid.targetParticleSpacing;
+    const bool strandEnabled = mode != SuturingExampleMode::NeedleOnly;
+    const bool useArcNeedle = mode != SuturingExampleMode::StrandOnly;
 
-    const auto needleEntity = world.createEntity();
-    const Diligent::float3 tipTangentLocal =
-        needleProxyParticles.size() >= 2u
-            ? Diligent::normalize(needleProxyParticles[tipProxyIndex] -
-                                  needleProxyParticles[tipProxyIndex + 1u])
-            : Diligent::float3{1.0f, 0.0f, 0.0f};
-    const Diligent::float3 desiredTipTangentWorld = Diligent::normalize(
-        Diligent::float3{1.0f, 0.12f, 0.0f});
+    const auto driverEntity = world.createEntity();
+    TransformComponent driverTransform{};
 
-    const float kBaseNeedleAngle = signedAngleXY(tipTangentLocal, desiredTipTangentWorld);
-    constexpr float kRotationStageAngleDelta = 3.35f;
+    ParticleContactMaterialDesc driverContactMaterial{};
+    driverContactMaterial.friction = 0.32f;
+    driverContactMaterial.staticFriction = 0.4f;
+    driverContactMaterial.damping = 0.02f;
+
+    RigidBodyComponent driverBody{};
+    driverBody.simulated = true;
+    driverBody.bodyType = RigidBodyType::Kinematic;
+    driverBody.proxyCollisionLayer = 0x4u;
+    driverBody.proxyCollisionMask = 0x1u;
+    driverBody.kinematicTargetEnabled = true;
+
+    std::uint32_t tipProxyIndex = 0u;
+    std::uint32_t tailProxyIndex = 0u;
+    float baseNeedleAngle = 0.0f;
+    Diligent::float3 startArcCenterPosition{0.0f, 0.0f, 0.0f};
     auto computeNeedleRotation = [](float angle)
     {
         return Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 0.0f, 1.0f}, angle);
     };
-
-    const Diligent::float3 arcCenterLocal = -needleMassProperties.centerOfMass;
-    const Diligent::float3 tipFromArcCenterLocal = needleProxyParticles[tipProxyIndex];
-
-    auto computeNeedleBodyPositionFromArcCenter = [&](const Diligent::float3 &arcCenterPosition,
-                                                      const Diligent::QuaternionF &needleRotation)
+    std::function<Diligent::float3(const Diligent::float3 &, const Diligent::QuaternionF &)>
+        computeNeedleBodyPositionFromArcCenter =
+        [](const Diligent::float3 &arcCenterPosition, const Diligent::QuaternionF &)
     {
-        return arcCenterPosition - needleRotation.RotateVector(arcCenterLocal);
+        return arcCenterPosition;
     };
+    Diligent::QuaternionF initialDriverRotation{};
+    Diligent::float3 strandAnchorWorldPosition{0.0f, 0.0f, 0.0f};
 
-    const Diligent::QuaternionF needleRotation = computeNeedleRotation(kBaseNeedleAngle);
-    const Diligent::float3 startTipPosition{-1.6f, -0.24f, 0.0f};
-    const Diligent::float3 startArcCenterPosition =
-        startTipPosition - needleRotation.RotateVector(tipFromArcCenterLocal);
-
-    TransformComponent needleTransform{};
-    needleTransform.worldTransform.rotation = needleRotation;
-    needleTransform.worldTransform.position =
-        computeNeedleBodyPositionFromArcCenter(startArcCenterPosition, needleRotation);
-    world.setTransform(needleEntity, needleTransform);
-
-    ParticleContactMaterialDesc needleContactMaterial{};
-    needleContactMaterial.friction = 0.32f;
-    needleContactMaterial.staticFriction = 0.4f;
-    needleContactMaterial.damping = 0.02f;
-
-    RigidBodyComponent needleBody{};
-    needleBody.simulated = true;
-    needleBody.bodyType = RigidBodyType::Kinematic;
-    needleBody.inverseMass = kNeedleInverseMass;
-    needleBody.inverseInertiaLocal = needleMassProperties.inverseInertiaLocal;
-    needleBody.proxyParticleLocalPositions = needleMassProperties.centeredPoints;
-    needleBody.proxyParticleMaterial = needleContactMaterial;
-    needleBody.proxyParticleRadius = needleParticleRadius;
-    needleBody.proxyCollisionLayer = 0x4u;
-    needleBody.proxyCollisionMask = 0x1u;
-    needleBody.suturingEnabled = false;
-    needleBody.needleTipProxyIndex = tipProxyIndex;
-    needleBody.kinematicTargetEnabled = true;
-    needleBody.kinematicTargetRotation = needleRotation;
-    needleBody.kinematicTargetPosition = needleTransform.worldTransform.position;
-    world.setRigidBody(needleEntity, needleBody);
-
-    const auto strandEntity = world.createEntity();
-    StrandComponent strand{};
-    strand.particleMass = 0.12f;
-    strand.particleRadius = 0.1f;
-    strand.distanceCompliance = 0.000001f;
-    strand.bendCompliance = 0.03f;
-    strand.selfCollisionEnabled = false;
-    strand.suturingEnabled = false;
-    strand.needleTipKinematic = false;
-    strand.collisionLayer = 0x2u;
-    strand.collisionMask = 0x1u;
-
-    const Diligent::float3 tailWorldPosition =
-        needleTransform.worldTransform.position +
-        needleRotation.RotateVector(needleMassProperties.centeredPoints[tailProxyIndex]);
-    const Diligent::float3 tailDirectionWorld{1.0f, 0.0f, 0.0f};
-    const float strandSpacing = softBody.source.regularGrid.targetParticleSpacing;
-    for (std::uint32_t i = 0u; i < 18u; ++i)
+    if (useArcNeedle)
     {
-        const float offset = strandSpacing * static_cast<float>(i);
-        strand.restPositions.push_back(tailWorldPosition - tailDirectionWorld * offset);
+        const float needleParticleRadius = 0.1f;
+        const std::vector<Diligent::float3> needleProxyParticles =
+            makeArcProxyParticles(0.95f, -0.1f * kPi, -0.9f * kPi, 10u);
+        constexpr float kNeedleInverseMass = 1.4f;
+        const ProxyMassProperties needleMassProperties = computeProxyMassProperties(
+            needleProxyParticles, needleParticleRadius, kNeedleInverseMass);
+        tipProxyIndex = 0u;
+        tailProxyIndex =
+            static_cast<std::uint32_t>(needleMassProperties.centeredPoints.size() - 1u);
+
+        const Diligent::float3 tipTangentLocal =
+            needleProxyParticles.size() >= 2u
+                ? Diligent::normalize(needleProxyParticles[tipProxyIndex] -
+                                      needleProxyParticles[tipProxyIndex + 1u])
+                : Diligent::float3{1.0f, 0.0f, 0.0f};
+        const Diligent::float3 desiredTipTangentWorld =
+            Diligent::normalize(Diligent::float3{1.0f, 0.12f, 0.0f});
+
+        baseNeedleAngle = signedAngleXY(tipTangentLocal, desiredTipTangentWorld);
+        const Diligent::float3 arcCenterLocal = -needleMassProperties.centerOfMass;
+        const Diligent::float3 tipFromArcCenterLocal = needleProxyParticles[tipProxyIndex];
+        computeNeedleBodyPositionFromArcCenter =
+            [arcCenterLocal](const Diligent::float3 &arcCenterPosition,
+                             const Diligent::QuaternionF &needleRotation)
+        {
+            return arcCenterPosition - needleRotation.RotateVector(arcCenterLocal);
+        };
+
+        initialDriverRotation = computeNeedleRotation(baseNeedleAngle);
+        const Diligent::float3 startTipPosition{-1.6f, -0.24f, 0.0f};
+        startArcCenterPosition =
+            startTipPosition - initialDriverRotation.RotateVector(tipFromArcCenterLocal);
+        driverTransform.worldTransform.rotation = initialDriverRotation;
+        driverTransform.worldTransform.position =
+            computeNeedleBodyPositionFromArcCenter(startArcCenterPosition, initialDriverRotation);
+
+        driverBody.inverseMass = kNeedleInverseMass;
+        driverBody.inverseInertiaLocal = needleMassProperties.inverseInertiaLocal;
+        driverBody.proxyParticleLocalPositions = needleMassProperties.centeredPoints;
+        driverBody.proxyParticleMaterial = driverContactMaterial;
+        driverBody.proxyParticleRadius = needleParticleRadius;
+        driverBody.needleTipProxyIndex = tipProxyIndex;
+        driverBody.kinematicTargetRotation = initialDriverRotation;
+        driverBody.kinematicTargetPosition = driverTransform.worldTransform.position;
+        strandAnchorWorldPosition =
+            driverTransform.worldTransform.position +
+            initialDriverRotation.RotateVector(needleMassProperties.centeredPoints[tailProxyIndex]);
+    }
+    else
+    {
+        tipProxyIndex = 0u;
+        tailProxyIndex = 0u;
+        driverTransform.worldTransform.position = {-1.8f, -0.24f, 0.0f};
+        driverTransform.worldTransform.rotation = computeNeedleRotation(0.0f);
+        driverBody.inverseMass = 1.0f;
+        driverBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
+        driverBody.proxyParticleLocalPositions = {{0.0f, 0.0f, 0.0f}};
+        driverBody.proxyParticleMaterial = driverContactMaterial;
+        driverBody.proxyParticleRadius = 0.1f;
+        driverBody.needleTipProxyIndex = 0u;
+        driverBody.kinematicTargetRotation = driverTransform.worldTransform.rotation;
+        driverBody.kinematicTargetPosition = driverTransform.worldTransform.position;
+        strandAnchorWorldPosition = driverTransform.worldTransform.position;
     }
 
-    if (!world.setStrand(strandEntity, strand))
-    {
-        runtime.shutdown();
-        viewer.shutdown();
-        CRESSIM_LOG_ERROR("Failed to author attached strand.\n");
-        return 1;
-    }
+    world.setTransform(driverEntity, driverTransform);
+    world.setRigidBody(driverEntity, driverBody);
 
-    AuthoredParticleDistanceConstraintState needleThreadAttachment{};
-    needleThreadAttachment.particleA.entityId = needleEntity;
-    needleThreadAttachment.particleA.type = AuthoredParticleReferenceType::RigidProxyParticle;
-    needleThreadAttachment.particleA.localParticleIndex = tailProxyIndex;
-    needleThreadAttachment.particleB.entityId = strandEntity;
-    needleThreadAttachment.particleB.type = AuthoredParticleReferenceType::StrandParticle;
-    needleThreadAttachment.particleB.localParticleIndex = 0u;
-    needleThreadAttachment.restLength = strandSpacing;
-    needleThreadAttachment.compliance = 0.0f;
-    world.upsertParticleDistanceConstraint(needleThreadAttachment);
+    const float driverAttachmentRestLength = strandEnabled ? strandSpacing : 0.0f;
+    std::uint32_t strandParticleCount = 0u;
+    if (strandEnabled)
+    {
+        const auto strandEntity = world.createEntity();
+        StrandComponent strand{};
+        strand.particleMass = 0.12f;
+        strand.particleRadius = 0.1f;
+        strand.distanceCompliance = 0.000001f;
+        strand.bendCompliance = 0.03f;
+        strand.selfCollisionEnabled = false;
+        strand.suturingEnabled = false;
+        strand.needleTipKinematic = false;
+        strand.collisionLayer = 0x2u;
+        strand.collisionMask = 0x1u;
 
-    AuthoredSuturingSequenceState suturingSequence{};
-    suturingSequence.pathNodeSpacing = strandSpacing;
-    for (std::uint32_t proxyIndex = 0u;
-         proxyIndex < static_cast<std::uint32_t>(needleProxyParticles.size()); ++proxyIndex)
-    {
-        suturingSequence.entries.push_back(
-            {needleEntity, AuthoredParticleReferenceType::RigidProxyParticle, proxyIndex});
+        const Diligent::float3 strandDirectionWorld{1.0f, 0.0f, 0.0f};
+        const std::uint32_t count = 18u;
+        for (std::uint32_t i = 0u; i < count; ++i)
+        {
+            const float offset =
+                driverAttachmentRestLength + strandSpacing * static_cast<float>(i);
+            strand.restPositions.push_back(strandAnchorWorldPosition - strandDirectionWorld * offset);
+        }
+        strandParticleCount = static_cast<std::uint32_t>(strand.restPositions.size());
+
+        if (!world.setStrand(strandEntity, strand))
+        {
+            runtime.shutdown();
+            viewer.shutdown();
+            CRESSIM_LOG_ERROR("Failed to author attached strand.\n");
+            return 1;
+        }
+
+        AuthoredParticleDistanceConstraintState driverAttachment{};
+        driverAttachment.particleA.entityId = driverEntity;
+        driverAttachment.particleA.type = AuthoredParticleReferenceType::RigidProxyParticle;
+        driverAttachment.particleA.localParticleIndex = tailProxyIndex;
+        driverAttachment.particleB.entityId = strandEntity;
+        driverAttachment.particleB.type = AuthoredParticleReferenceType::StrandParticle;
+        driverAttachment.particleB.localParticleIndex = 0u;
+        driverAttachment.restLength = driverAttachmentRestLength;
+        driverAttachment.compliance = 0.0f;
+        world.upsertParticleDistanceConstraint(driverAttachment);
+
+        AuthoredSuturingSequenceState suturingSequence{};
+        suturingSequence.pathNodeSpacing = strandSpacing;
+        for (std::uint32_t proxyIndex = 0u;
+             proxyIndex < static_cast<std::uint32_t>(driverBody.proxyParticleLocalPositions.size());
+             ++proxyIndex)
+        {
+            suturingSequence.entries.push_back(
+                {driverEntity, AuthoredParticleReferenceType::RigidProxyParticle, proxyIndex});
+        }
+        for (std::uint32_t particleIndex = 0u; particleIndex < strandParticleCount; ++particleIndex)
+        {
+            suturingSequence.entries.push_back(
+                {strandEntity, AuthoredParticleReferenceType::StrandParticle, particleIndex});
+        }
+        world.upsertSuturingSequence(suturingSequence);
     }
-    for (std::uint32_t particleIndex = 0u;
-         particleIndex < static_cast<std::uint32_t>(strand.restPositions.size()); ++particleIndex)
+    else
     {
-        suturingSequence.entries.push_back(
-            {strandEntity, AuthoredParticleReferenceType::StrandParticle, particleIndex});
+        AuthoredSuturingSequenceState suturingSequence{};
+        suturingSequence.pathNodeSpacing = strandSpacing;
+        for (std::uint32_t proxyIndex = 0u;
+             proxyIndex < static_cast<std::uint32_t>(driverBody.proxyParticleLocalPositions.size());
+             ++proxyIndex)
+        {
+            suturingSequence.entries.push_back(
+                {driverEntity, AuthoredParticleReferenceType::RigidProxyParticle, proxyIndex});
+        }
+        world.upsertSuturingSequence(suturingSequence);
     }
-    world.upsertSuturingSequence(suturingSequence);
 
     DebugViewerCallbacks callbacks{};
-    callbacks.beforeTick =
-        [needleEntity, computeNeedleBodyPositionFromArcCenter, computeNeedleRotation,
-         startArcCenterPosition, kBaseNeedleAngle](const FrameContext &frame, Runtime &cbRuntime)
+    if (useArcNeedle)
     {
-        auto needleBody = cbRuntime.getWorld().tryGetRigidBody(needleEntity);
-        if (!needleBody.has_value())
+        callbacks.beforeTick =
+            [driverEntity, computeNeedleBodyPositionFromArcCenter, computeNeedleRotation,
+             startArcCenterPosition, baseNeedleAngle](const FrameContext &frame, Runtime &cbRuntime)
         {
-            return;
-        }
+            auto driverBody = cbRuntime.getWorld().tryGetRigidBody(driverEntity);
+            if (!driverBody.has_value())
+            {
+                return;
+            }
 
-        const float t = static_cast<float>(frame.timeSeconds);
-        const float horizontalDuration = 5.44f;
-        const float rotationDuration = 7.36f;
-        const float pullUpDuration = 6.0f;
-        const float cycleDuration = horizontalDuration + rotationDuration + pullUpDuration;
-        const float cycleTime = std::fmod(std::max(t, 0.0f), cycleDuration);
-        const float rotationPhaseStart = horizontalDuration;
-        const float pullUpPhaseStart = horizontalDuration + rotationDuration;
+            const float t = static_cast<float>(frame.timeSeconds);
+            const float horizontalDuration = 5.44f;
+            const float rotationDuration = 7.36f;
+            const float pullUpDuration = 6.0f;
+            const float cycleDuration = horizontalDuration + rotationDuration + pullUpDuration;
+            const float cycleTime = std::fmod(std::max(t, 0.0f), cycleDuration);
+            const float rotationPhaseStart = horizontalDuration;
+            const float pullUpPhaseStart = horizontalDuration + rotationDuration;
 
-        Diligent::float3 arcCenterPosition = startArcCenterPosition;
-        if (cycleTime <= rotationPhaseStart)
-        {
-            const float u = cycleTime / horizontalDuration;
-            arcCenterPosition.x = startArcCenterPosition.x + 1.2f * u;
-        }
-        else if (cycleTime <= pullUpPhaseStart)
-        {
-            arcCenterPosition.x = startArcCenterPosition.x + 1.2f;
-        }
-        else
-        {
-            arcCenterPosition.x = startArcCenterPosition.x + 1.2f;
-            const float u = (cycleTime - pullUpPhaseStart) / pullUpDuration;
-            arcCenterPosition.y = startArcCenterPosition.y + 5.4f * u;
-        }
+            Diligent::float3 arcCenterPosition = startArcCenterPosition;
+            if (cycleTime <= rotationPhaseStart)
+            {
+                const float u = cycleTime / horizontalDuration;
+                arcCenterPosition.x = startArcCenterPosition.x + 1.2f * u;
+            }
+            else if (cycleTime <= pullUpPhaseStart)
+            {
+                arcCenterPosition.x = startArcCenterPosition.x + 1.2f;
+            }
+            else
+            {
+                arcCenterPosition.x = startArcCenterPosition.x + 1.2f;
+                const float u = (cycleTime - pullUpPhaseStart) / pullUpDuration;
+                arcCenterPosition.y = startArcCenterPosition.y + 5.4f * u;
+            }
 
-        float needleAngle = kBaseNeedleAngle;
-        if (cycleTime <= rotationPhaseStart)
-        {
-            needleAngle = kBaseNeedleAngle;
-        }
-        else if (cycleTime <= pullUpPhaseStart)
-        {
-            const float u = (cycleTime - rotationPhaseStart) / rotationDuration;
-            needleAngle += kRotationStageAngleDelta * u;
-        }
-        else
-        {
-            needleAngle += kRotationStageAngleDelta;
-        }
-        const Diligent::QuaternionF needleRotation = computeNeedleRotation(needleAngle);
+            float needleAngle = baseNeedleAngle;
+            if (cycleTime <= rotationPhaseStart)
+            {
+                needleAngle = baseNeedleAngle;
+            }
+            else if (cycleTime <= pullUpPhaseStart)
+            {
+                const float u = (cycleTime - rotationPhaseStart) / rotationDuration;
+                needleAngle += 3.35f * u;
+            }
+            else
+            {
+                needleAngle += 3.35f;
+            }
+            const Diligent::QuaternionF needleRotation = computeNeedleRotation(needleAngle);
 
-        needleBody->bodyType = RigidBodyType::Kinematic;
-        needleBody->kinematicTargetEnabled = true;
-        needleBody->kinematicTargetRotation = needleRotation;
-        needleBody->kinematicTargetPosition =
-            computeNeedleBodyPositionFromArcCenter(arcCenterPosition, needleRotation);
-        cbRuntime.getWorld().setRigidBody(needleEntity, *needleBody);
-    };
+            driverBody->bodyType = RigidBodyType::Kinematic;
+            driverBody->kinematicTargetEnabled = true;
+            driverBody->kinematicTargetRotation = needleRotation;
+            driverBody->kinematicTargetPosition =
+                computeNeedleBodyPositionFromArcCenter(arcCenterPosition, needleRotation);
+            cbRuntime.getWorld().setRigidBody(driverEntity, *driverBody);
+        };
+    }
+    else
+    {
+        callbacks.beforeTick = [driverEntity](const FrameContext &frame, Runtime &cbRuntime)
+        {
+            auto driverBody = cbRuntime.getWorld().tryGetRigidBody(driverEntity);
+            if (!driverBody.has_value())
+            {
+                return;
+            }
+
+            const float t = static_cast<float>(frame.timeSeconds);
+            const float cycleDuration = 12.0f;
+            const float horizontalPhase = 0.35f;
+            const float liftPhase = 0.30f;
+            const float leftPullPhase = 1.0f - horizontalPhase - liftPhase;
+            const float startX = -1.8f;
+            const float exitX = -0.1f;
+            const float endX = -2.1f;
+            const float baseY = -0.24f;
+            const float liftedY = 0.90f;
+            const float cycle = std::fmod(std::max(t, 0.0f), cycleDuration) / cycleDuration;
+            float x = startX;
+            float y = baseY;
+            if (cycle <= horizontalPhase)
+            {
+                const float u = cycle / horizontalPhase;
+                x = startX + (exitX - startX) * u;
+            }
+            else if (cycle <= horizontalPhase + liftPhase)
+            {
+                const float u = (cycle - horizontalPhase) / liftPhase;
+                const float easedU = u * u * (3.0f - 2.0f * u);
+                x = exitX;
+                y = baseY + (liftedY - baseY) * easedU;
+            }
+            else
+            {
+                const float u = (cycle - horizontalPhase - liftPhase) / leftPullPhase;
+                const float easedU = u * u * (3.0f - 2.0f * u);
+                x = exitX + (endX - exitX) * easedU;
+                y = liftedY;
+            }
+
+            driverBody->bodyType = RigidBodyType::Kinematic;
+            driverBody->kinematicTargetEnabled = true;
+            driverBody->kinematicTargetRotation =
+                Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 0.0f, 1.0f}, 0.0f);
+            driverBody->kinematicTargetPosition = Diligent::float3{x, y, 0.0f};
+            cbRuntime.getWorld().setRigidBody(driverEntity, *driverBody);
+        };
+    }
 
     DebugViewerCameraBinding binding{};
     binding.cameraEntity = cameraEntity;

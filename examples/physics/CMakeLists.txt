@@ -46,28 +46,8 @@ add_cressim_example(
 )
 
 add_cressim_example(
-    NAME physics_soft_body_arc_needle
-    SOURCE soft_body_arc_needle.cpp
-)
-
-add_cressim_example(
-    NAME physics_soft_body_arc_needle_kinematic
-    SOURCE soft_body_arc_needle_kinematic.cpp
-)
-
-add_cressim_example(
     NAME physics_soft_body_arc_needle_thread_kinematic
     SOURCE soft_body_arc_needle_thread_kinematic.cpp
-)
-
-add_cressim_example(
-    NAME physics_strand_debug
-    SOURCE strand_debug.cpp
-)
-
-add_cressim_example(
-    NAME physics_strand_suturing_path_follow
-    SOURCE strand_suturing_path_follow.cpp
 )
 
 add_cressim_example(
