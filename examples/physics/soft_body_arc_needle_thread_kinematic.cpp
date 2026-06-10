@@ -459,7 +459,6 @@ int main(int argc, char **argv)
         strand.bendCompliance = 0.03f;
         strand.selfCollisionEnabled = false;
         strand.suturingEnabled = false;
-        strand.needleTipKinematic = false;
         strand.collisionLayer = 0x2u;
         strand.collisionMask = 0x1u;
 

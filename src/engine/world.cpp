@@ -1144,8 +1144,6 @@ bool World::setStrand(common::EntityId entityId, const StrandComponent &componen
     state.simulated             = component.simulated;
     state.selfCollisionEnabled  = component.selfCollisionEnabled;
     state.suturingEnabled       = component.suturingEnabled;
-    state.needleTipParticleIndex = component.needleTipParticleIndex;
-    state.needleTipKinematic    = component.needleTipKinematic;
     state.pathNodeSpacing       = component.pathNodeSpacing;
     state.collisionLayer        = component.collisionLayer;
     state.collisionMask         = component.collisionMask;
@@ -1754,8 +1752,6 @@ std::optional<StrandComponent> World::tryGetStrand(common::EntityId entityId) co
     component.simulated             = strand->simulated;
     component.selfCollisionEnabled  = strand->selfCollisionEnabled;
     component.suturingEnabled       = strand->suturingEnabled;
-    component.needleTipParticleIndex = strand->needleTipParticleIndex;
-    component.needleTipKinematic    = strand->needleTipKinematic;
     component.pathNodeSpacing       = strand->pathNodeSpacing;
     component.collisionLayer        = strand->collisionLayer;
     component.collisionMask         = strand->collisionMask;

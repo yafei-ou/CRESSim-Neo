@@ -2362,22 +2362,6 @@ void PhysicsWorld::normalizeStrandState(StrandState &state) noexcept
     {
         state.collisionLayer = 1u;
     }
-    if (!state.restPositions.empty())
-    {
-        state.needleTipParticleIndex =
-            std::min<std::uint32_t>(state.needleTipParticleIndex,
-                                    static_cast<std::uint32_t>(state.restPositions.size() - 1u));
-        if (state.needleTipKinematic)
-        {
-            const auto it =
-                std::find(state.staticParticleIndices.begin(), state.staticParticleIndices.end(),
-                          state.needleTipParticleIndex);
-            if (it == state.staticParticleIndices.end())
-            {
-                state.staticParticleIndices.push_back(state.needleTipParticleIndex);
-            }
-        }
-    }
 }
 
 void PhysicsWorld::normalizeFluidState(FluidState &state) noexcept
@@ -2600,8 +2584,6 @@ void PhysicsWorld::applyStrandRuntimeProperties(std::uint32_t index,
     strand.simulated                = normalizedState.simulated;
     strand.selfCollisionEnabled     = normalizedState.selfCollisionEnabled;
     strand.suturingEnabled          = normalizedState.suturingEnabled;
-    strand.needleTipParticleIndex   = normalizedState.needleTipParticleIndex;
-    strand.needleTipKinematic       = normalizedState.needleTipKinematic;
     strand.pathNodeSpacing          = normalizedState.pathNodeSpacing;
     strand.staticParticleIndices    = normalizedState.staticParticleIndices;
     strand.contactMaterialIndex = findOrAppendParticleContactMaterial(
@@ -2628,7 +2610,7 @@ void PhysicsWorld::applyStrandRuntimeProperties(std::uint32_t index,
         mParticles.collisionMasks[particleIndex]          = strand.collisionMask;
         mParticles.strandRoles[particleIndex] =
             static_cast<std::uint32_t>(strand.suturingEnabled
-                                           ? (localIndex == strand.needleTipParticleIndex
+                                           ? (localIndex == 0u
                                                   ? ParticleStrandRole::NeedleTip
                                                   : ParticleStrandRole::NeedleBody)
                                            : ParticleStrandRole::None);
@@ -3339,7 +3321,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.strandOrders.push_back(localParticleIndex);
             mParticles.strandRoles.push_back(static_cast<std::uint32_t>(
                 strand.suturingEnabled
-                    ? (localParticleIndex == strand.needleTipParticleIndex
+                    ? (localParticleIndex == 0u
                            ? ParticleStrandRole::NeedleTip
                            : ParticleStrandRole::NeedleBody)
                     : ParticleStrandRole::None));
@@ -3769,7 +3751,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             pair.softBodyIndex       = softBodyIndex;
             pair.strandParticleStart = strand.particleOffset;
             pair.strandParticleCount = strand.particleCount;
-            pair.tipParticleIndex    = strand.particleOffset + strand.needleTipParticleIndex;
+            pair.tipParticleIndex    = strand.particleOffset;
             pair.softTetStart        = softBody.tetOffset;
             pair.softTetCount        = softBody.tetCount;
             pair.softCollisionLayer  = softBody.collisionLayer;

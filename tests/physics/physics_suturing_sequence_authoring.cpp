@@ -38,8 +38,6 @@ int main()
     thread.entityId = 5003u;
     thread.environmentIndex = 2u;
     thread.suturingEnabled = true;
-    thread.needleTipParticleIndex = 0u;
-    thread.needleTipKinematic = false;
     thread.pathNodeSpacing = 0.18f;
     thread.restPositions = {
         {0.1f, 0.0f, 0.0f},

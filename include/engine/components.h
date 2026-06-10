@@ -167,8 +167,8 @@ struct StrandComponent
     bool simulated               = true;
     bool selfCollisionEnabled    = false;
     bool suturingEnabled         = false;
-    std::uint32_t needleTipParticleIndex = 0u;
-    bool needleTipKinematic      = true;
+    // Without an authored suturing sequence, suturing-enabled strands currently use
+    // local particle 0 as the implicit tip/path author.
     float pathNodeSpacing        = 0.2f;
     std::uint32_t collisionLayer = 1u;
     std::uint32_t collisionMask  = 0xffffffffu;

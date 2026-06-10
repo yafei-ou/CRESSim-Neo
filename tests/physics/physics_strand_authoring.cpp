@@ -20,8 +20,6 @@ int main()
     strand.bendCompliance       = 0.015f;
     strand.selfCollisionEnabled = true;
     strand.suturingEnabled      = true;
-    strand.needleTipParticleIndex = 1u;
-    strand.needleTipKinematic   = true;
     strand.pathNodeSpacing      = 0.2f;
     strand.restPositions = {
         {-0.5f, 0.0f, 0.0f},
@@ -49,9 +47,7 @@ int main()
         return 1;
     }
 
-    if (!authored->suturingEnabled || authored->needleTipParticleIndex != 1u ||
-        !authored->needleTipKinematic ||
-        std::abs(authored->pathNodeSpacing - 0.2f) > 1.0e-6f)
+    if (!authored->suturingEnabled || std::abs(authored->pathNodeSpacing - 0.2f) > 1.0e-6f)
     {
         CRESSIM_LOG_ERROR("Strand suturing metadata was not preserved in authored state.\n");
         return 1;
@@ -68,7 +64,8 @@ int main()
 
     if (particles.ownerTypes[0] != static_cast<std::uint32_t>(physics::ParticleOwnerType::Strand) ||
         particles.strandIds[0] != 0u || particles.strandOrders[2] != 2u ||
-        particles.strandRoles[1] != static_cast<std::uint32_t>(physics::ParticleStrandRole::NeedleTip) ||
+        particles.strandRoles[0] != static_cast<std::uint32_t>(physics::ParticleStrandRole::NeedleTip) ||
+        particles.strandRoles[1] != static_cast<std::uint32_t>(physics::ParticleStrandRole::NeedleBody) ||
         particles.strandRoles[2] != static_cast<std::uint32_t>(physics::ParticleStrandRole::NeedleBody))
     {
         CRESSIM_LOG_ERROR("Strand particle metadata was not populated as expected.\n");
@@ -76,7 +73,7 @@ int main()
     }
 
     if (std::abs(particles.positionsInvMass[0].w) > 1.0e-6f ||
-        std::abs(particles.positionsInvMass[1].w) > 1.0e-6f ||
+        particles.positionsInvMass[1].w <= 0.0f ||
         particles.positionsInvMass[2].w <= 0.0f ||
         std::abs(constraints[0].compliance - strand.distanceCompliance) > 1.0e-6f ||
         std::abs(bendConstraints[0].compliance - strand.bendCompliance) > 1.0e-6f)

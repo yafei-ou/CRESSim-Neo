@@ -340,8 +340,6 @@ struct StrandState
     std::uint32_t collisionLayer   = 1u;
     std::uint32_t collisionMask    = 0xffffffffu;
     bool suturingEnabled           = false;
-    std::uint32_t needleTipParticleIndex = 0u;
-    bool needleTipKinematic             = true;
     float pathNodeSpacing = 0.2f;
     StrandMaterialDesc material{};
     float particleMass                 = 1.0f;
@@ -402,6 +400,8 @@ struct AuthoredSuturingSequenceState
 {
     SuturingSequenceId sequenceId = kInvalidSuturingSequenceId;
     std::vector<AuthoredParticleReference> entries{};
+    // The selected tip entry authors the suturing path. In the current prototype,
+    // the sequence tip and tail also suppress same-soft-body exterior contact.
     std::uint32_t tipEntryIndex = 0u;
     float pathNodeSpacing = 0.0f;
     bool enabled = true;
