@@ -126,8 +126,8 @@ struct SuturingPathHeader
     std::uint32_t nodeStart       = 0u;
     std::uint32_t nodeCount       = 0u;
     std::uint32_t flags           = 0u;
-    std::uint32_t reserved0       = 0u;
-    std::uint32_t reserved1       = 0u;
+    std::uint32_t needleTangentialDragBits = 0u;
+    std::uint32_t threadTangentialDragBits = 0u;
     std::uint32_t reserved2       = 0u;
 };
 
@@ -149,7 +149,6 @@ struct StrandSoftSuturingPair
     std::uint32_t tipParticleIndex    = kInvalidSuturingIndex;
     std::uint32_t softTetStart        = 0u;
     std::uint32_t softTetCount        = 0u;
-    std::uint32_t softCollisionLayer  = 0u;
     std::uint32_t pathStart           = 0u;
     std::uint32_t pathCount           = 0u;
     std::uint32_t nodeStart           = 0u;
@@ -157,7 +156,8 @@ struct StrandSoftSuturingPair
     std::uint32_t activePathIndex     = kInvalidSuturingIndex;
     std::uint32_t environmentIndex    = 0u;
     float pathNodeSpacing             = 0.0f;
-    std::uint32_t reserved0           = 0u;
+    std::uint32_t needleTangentialDragBits = 0u;
+    std::uint32_t threadTangentialDragBits = 0u;
 };
 
 struct SoftBodyRegularGridSource
@@ -404,7 +404,8 @@ struct AuthoredSuturingSequenceState
     // the sequence tip and tail also suppress same-soft-body exterior contact.
     std::uint32_t tipEntryIndex = 0u;
     float pathNodeSpacing = 0.0f;
-    float tangentialDrag = 0.0f;
+    float needleTangentialDrag = 0.0f;
+    float threadTangentialDrag = 0.0f;
     bool enabled = true;
 };
 

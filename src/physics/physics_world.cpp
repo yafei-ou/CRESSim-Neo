@@ -1173,7 +1173,10 @@ AuthoredSuturingSequenceState &PhysicsWorld::upsertSuturingSequence(
 {
     AuthoredSuturingSequenceState normalizedState = state;
     normalizedState.pathNodeSpacing = std::max(normalizedState.pathNodeSpacing, 0.0f);
-    normalizedState.tangentialDrag = std::max(normalizedState.tangentialDrag, 0.0f);
+    normalizedState.needleTangentialDrag =
+        std::max(normalizedState.needleTangentialDrag, 0.0f);
+    normalizedState.threadTangentialDrag =
+        std::max(normalizedState.threadTangentialDrag, 0.0f);
     if (normalizedState.entries.empty())
     {
         normalizedState.tipEntryIndex = 0u;
@@ -3511,7 +3514,8 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
         std::uint32_t environmentIndex = 0u;
         std::uint32_t tipEntryIndex = 0u;
         float pathNodeSpacing = 0.0f;
-        float tangentialDrag = 0.0f;
+        float needleTangentialDrag = 0.0f;
+        float threadTangentialDrag = 0.0f;
         std::uint32_t groupId = kInvalidSuturingIndex;
     };
 
@@ -3586,7 +3590,8 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
         }
 
         resolved.environmentIndex = *environmentIndex;
-        resolved.tangentialDrag = sequence.tangentialDrag;
+        resolved.needleTangentialDrag = sequence.needleTangentialDrag;
+        resolved.threadTangentialDrag = sequence.threadTangentialDrag;
         if (sequence.pathNodeSpacing > 0.0f)
         {
             resolved.pathNodeSpacing = sequence.pathNodeSpacing;
@@ -3766,7 +3771,6 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             pair.tipParticleIndex    = strand.particleOffset;
             pair.softTetStart        = softBody.tetOffset;
             pair.softTetCount        = softBody.tetCount;
-            pair.softCollisionLayer  = softBody.collisionLayer;
             pair.pathStart           = mReservedSuturingPathHeaders;
             pair.pathCount           = mMaxSuturingPathsPerPair;
             pair.nodeStart           = mReservedSuturingPathNodes;
@@ -3774,7 +3778,8 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             pair.activePathIndex     = kInvalidSuturingIndex;
             pair.environmentIndex    = strand.environmentIndex;
             pair.pathNodeSpacing     = strand.pathNodeSpacing;
-            pair.reserved0           = encodeSuturingFloat(0.0f);
+            pair.needleTangentialDragBits = encodeSuturingFloat(0.0f);
+            pair.threadTangentialDragBits = encodeSuturingFloat(0.0f);
             mSuturingPairs.push_back(pair);
 
             mReservedSuturingPathHeaders += mMaxSuturingPathsPerPair;
@@ -3810,7 +3815,6 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             pair.tipParticleIndex    = rigidBody.proxyParticleOffset + rigidBody.needleTipProxyIndex;
             pair.softTetStart        = softBody.tetOffset;
             pair.softTetCount        = softBody.tetCount;
-            pair.softCollisionLayer  = softBody.collisionLayer;
             pair.pathStart           = mReservedSuturingPathHeaders;
             pair.pathCount           = mMaxSuturingPathsPerPair;
             pair.nodeStart           = mReservedSuturingPathNodes;
@@ -3818,7 +3822,8 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             pair.activePathIndex     = kInvalidSuturingIndex;
             pair.environmentIndex    = rigidBody.environmentIndex;
             pair.pathNodeSpacing     = std::max(rigidBody.proxyParticleRadius * 1.5f, 1.0e-4f);
-            pair.reserved0           = encodeSuturingFloat(0.0f);
+            pair.needleTangentialDragBits = encodeSuturingFloat(0.0f);
+            pair.threadTangentialDragBits = encodeSuturingFloat(0.0f);
             mSuturingPairs.push_back(pair);
 
             mReservedSuturingPathHeaders += mMaxSuturingPathsPerPair;
@@ -3859,7 +3864,6 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             pair.tipParticleIndex    = sequence.particleIndices[sequence.tipEntryIndex];
             pair.softTetStart        = softBody.tetOffset;
             pair.softTetCount        = softBody.tetCount;
-            pair.softCollisionLayer  = softBody.collisionLayer;
             pair.pathStart           = mReservedSuturingPathHeaders;
             pair.pathCount           = mMaxSuturingPathsPerPair;
             pair.nodeStart           = mReservedSuturingPathNodes;
@@ -3867,7 +3871,8 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             pair.activePathIndex     = kInvalidSuturingIndex;
             pair.environmentIndex    = sequence.environmentIndex;
             pair.pathNodeSpacing     = sequence.pathNodeSpacing;
-            pair.reserved0           = encodeSuturingFloat(sequence.tangentialDrag);
+            pair.needleTangentialDragBits = encodeSuturingFloat(sequence.needleTangentialDrag);
+            pair.threadTangentialDragBits = encodeSuturingFloat(sequence.threadTangentialDrag);
             mSuturingPairs.push_back(pair);
 
             mReservedSuturingPathHeaders += mMaxSuturingPathsPerPair;

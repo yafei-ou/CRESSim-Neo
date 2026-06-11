@@ -231,7 +231,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         }
     }
 
-    const float suturingTangentialDrag = asfloat(node.reserved0);
+    const float suturingTangentialDrag =
+        strandRole == kParticleStrandRoleThread ? asfloat(node.threadTangentialDragBits)
+                                                : asfloat(node.needleTangentialDragBits);
     if (suturingTangentialDrag > 0.0 && abs(tangentialRelativeDisplacement) > 1.0e-6)
     {
         float effectiveTangentialParticleMass = effectiveParticleMass;

@@ -222,7 +222,6 @@ struct GpuSuturingPair
     uint tipParticleIndex;
     uint softTetStart;
     uint softTetCount;
-    uint softCollisionLayer;
     uint pathStart;
     uint pathCount;
     uint nodeStart;
@@ -230,7 +229,8 @@ struct GpuSuturingPair
     uint activePathIndex;
     uint environmentIndex;
     float pathNodeSpacing;
-    uint reserved0;
+    uint needleTangentialDragBits;
+    uint threadTangentialDragBits;
 };
 
 struct GpuSuturingPathHeader
@@ -240,8 +240,8 @@ struct GpuSuturingPathHeader
     uint nodeStart;
     uint nodeCount;
     uint flags;
-    uint reserved0;
-    uint reserved1;
+    uint needleTangentialDragBits;
+    uint threadTangentialDragBits;
     uint reserved2;
 };
 
@@ -251,8 +251,8 @@ struct GpuSuturingPathNode
     uint tetIndex;
     float4 barycentrics;
     float4 tangentArcLength;
-    uint reserved0;
-    uint reserved1;
+    uint needleTangentialDragBits;
+    uint threadTangentialDragBits;
 };
 
 struct GpuSuturingInsertionStateStorage

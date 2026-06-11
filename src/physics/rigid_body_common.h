@@ -347,7 +347,6 @@ struct GpuSuturingPair
     std::uint32_t tipParticleIndex    = 0u;
     std::uint32_t softTetStart        = 0u;
     std::uint32_t softTetCount        = 0u;
-    std::uint32_t softCollisionLayer  = 0u;
     std::uint32_t pathStart           = 0u;
     std::uint32_t pathCount           = 0u;
     std::uint32_t nodeStart           = 0u;
@@ -355,7 +354,8 @@ struct GpuSuturingPair
     std::uint32_t activePathIndex     = 0u;
     std::uint32_t environmentIndex    = 0u;
     float pathNodeSpacing             = 0.0f;
-    std::uint32_t reserved0           = 0u;
+    std::uint32_t needleTangentialDragBits = 0u;
+    std::uint32_t threadTangentialDragBits = 0u;
 };
 
 struct GpuSuturingPathHeader
@@ -365,8 +365,8 @@ struct GpuSuturingPathHeader
     std::uint32_t nodeStart       = 0u;
     std::uint32_t nodeCount       = 0u;
     std::uint32_t flags           = 0u;
-    std::uint32_t reserved0       = 0u;
-    std::uint32_t reserved1       = 0u;
+    std::uint32_t needleTangentialDragBits = 0u;
+    std::uint32_t threadTangentialDragBits = 0u;
     std::uint32_t reserved2       = 0u;
 };
 
@@ -376,8 +376,8 @@ struct GpuSuturingPathNode
     std::uint32_t tetIndex      = 0u;
     Diligent::float4 barycentrics{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 tangentArcLength{0.0f, 0.0f, 0.0f, 0.0f};
-    std::uint32_t reserved0 = 0u;
-    std::uint32_t reserved1 = 0u;
+    std::uint32_t needleTangentialDragBits = 0u;
+    std::uint32_t threadTangentialDragBits = 0u;
 };
 
 struct GpuSuturingInsertionStateStorage

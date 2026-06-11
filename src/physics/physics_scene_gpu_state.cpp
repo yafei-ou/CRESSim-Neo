@@ -2691,10 +2691,10 @@ bool PhysicsSceneGpuState::uploadSuturingState(
         gpuPairs[i] = GpuSuturingPair{
             pair.suturingGroupId,     pair.softBodyIndex,       pair.strandParticleStart,
             pair.strandParticleCount, pair.tipParticleIndex,    pair.softTetStart,
-            pair.softTetCount,        pair.softCollisionLayer,  pair.pathStart,
-            pair.pathCount,           pair.nodeStart,           pair.nodeCount,
-            pair.activePathIndex,     pair.environmentIndex,    pair.pathNodeSpacing,
-            pair.reserved0};
+            pair.softTetCount,        pair.pathStart,           pair.pathCount,
+            pair.nodeStart,           pair.nodeCount,           pair.activePathIndex,
+            pair.environmentIndex,    pair.pathNodeSpacing,
+            pair.needleTangentialDragBits, pair.threadTangentialDragBits};
     }
 
     std::vector<GpuSuturingInsertionStateStorage> insertionStates(particleCount);
@@ -2712,6 +2712,8 @@ bool PhysicsSceneGpuState::uploadSuturingState(
     {
         header.suturingGroupId = kInvalidSuturingIndex;
         header.softBodyIndex = kInvalidSuturingIndex;
+        header.needleTangentialDragBits = 0u;
+        header.threadTangentialDragBits = 0u;
     }
 
     std::vector<GpuSuturingPathNode> pathNodes(pathNodeCount);
@@ -2719,8 +2721,8 @@ bool PhysicsSceneGpuState::uploadSuturingState(
     {
         node.softBodyIndex = kInvalidSuturingIndex;
         node.tetIndex      = kInvalidSuturingIndex;
-        node.reserved0     = 0u;
-        node.reserved1     = 0u;
+        node.needleTangentialDragBits = 0u;
+        node.threadTangentialDragBits = 0u;
     }
 
     return updateStructuredBufferRange(computeContext, mPersistentSuturing.pairsBuffer, gpuPairs,

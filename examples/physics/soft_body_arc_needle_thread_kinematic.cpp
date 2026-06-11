@@ -493,7 +493,8 @@ int main(int argc, char **argv)
 
         AuthoredSuturingSequenceState suturingSequence{};
         suturingSequence.pathNodeSpacing = strandSpacing;
-        suturingSequence.tangentialDrag = 0.0005f;
+        suturingSequence.needleTangentialDrag = 0.0005f;
+        suturingSequence.threadTangentialDrag = 0.05f;
         for (std::uint32_t proxyIndex = 0u;
              proxyIndex < static_cast<std::uint32_t>(driverBody.proxyParticleLocalPositions.size());
              ++proxyIndex)
@@ -512,7 +513,8 @@ int main(int argc, char **argv)
     {
         AuthoredSuturingSequenceState suturingSequence{};
         suturingSequence.pathNodeSpacing = strandSpacing;
-        suturingSequence.tangentialDrag = 0.0005f;
+        suturingSequence.needleTangentialDrag = 0.0005f;
+        suturingSequence.threadTangentialDrag = 0.05f;
         for (std::uint32_t proxyIndex = 0u;
              proxyIndex < static_cast<std::uint32_t>(driverBody.proxyParticleLocalPositions.size());
              ++proxyIndex)
