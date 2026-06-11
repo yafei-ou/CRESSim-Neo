@@ -40,7 +40,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     state.pathIndex = kInvalidSuturingIndex;
     state.nearestNodeIndex = kInvalidSuturingIndex;
 
-    const uint strandRole = particleRef.y;
+    const uint strandRole = particleRef.y & 0xffffu;
     if (state.state != kSuturingInsertionStateInside || strandRole == kParticleStrandRoleNone ||
         strandRole == kParticleStrandRoleNeedleTip || state.softBodyIndex == kInvalidSuturingIndex)
     {

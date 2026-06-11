@@ -77,7 +77,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     state.reserved2 = 0u;
     state.barycentrics = float4(0.0, 0.0, 0.0, 0.0);
 
-    const uint strandRole = particleRef.y;
+    const uint strandRole = particleRef.y & 0xffffu;
     if (strandRole == kParticleStrandRoleNone || suturingPairCount == 0u)
     {
         CRESSIM_SB_STORE(g_SuturingInsertionStates, particleIndex, state);

@@ -7,23 +7,24 @@
 
 CRESSIM_STRUCTURED_BUFFER(uint4, g_SuturingParticleRefs);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerTypes);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePreviousPositions);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerIndices);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidProxyLocalPositions);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingInsertionStateStorage, g_SuturingInsertionStates);
-CRESSIM_STRUCTURED_BUFFER(GpuSuturingPathHeader, g_SuturingPathHeaders);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingPathNode, g_SuturingPathNodes);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftTet, g_SoftTets);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyPositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
-CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_ParticlePositionCorrections);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyTranslationCorrections);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
 
 static const float kSuturingRelaxation = 0.01;
 static const float kSuturingMaxCorrection = 0.02;
+static const float kSuturingMaxTangentialCorrection = 0.004;
 
 float3 EvaluatePathNodePosition(GpuSuturingPathNode node)
 {
@@ -44,32 +45,39 @@ float3 EvaluatePathNodePosition(GpuSuturingPathNode node)
 float3 EvaluatePathTangent(uint pathIndex, uint nodeIndex)
 {
     if (pathIndex == kInvalidSuturingIndex || pathIndex >= suturingPathHeaderCount ||
-        nodeIndex == kInvalidSuturingIndex || nodeIndex >= suturingPathNodeCount)
+        nodeIndex == kInvalidSuturingIndex || nodeIndex >= suturingPathNodeCount ||
+        maxSuturingNodesPerPath == 0u)
     {
         return float3(0.0, 0.0, 1.0);
     }
 
-    const GpuSuturingPathHeader header = CRESSIM_SB_LOAD(g_SuturingPathHeaders, pathIndex);
-    if (header.nodeCount == 0u || nodeIndex < header.nodeStart ||
-        nodeIndex >= header.nodeStart + header.nodeCount)
+    const GpuSuturingPathNode node = CRESSIM_SB_LOAD(g_SuturingPathNodes, nodeIndex);
+    const uint nodeWindowStart = pathIndex * maxSuturingNodesPerPath;
+    const uint nodeWindowEnd = min(nodeWindowStart + maxSuturingNodesPerPath, suturingPathNodeCount);
+    if (nodeIndex < nodeWindowStart || nodeIndex >= nodeWindowEnd)
     {
         return float3(0.0, 0.0, 1.0);
     }
 
     float3 tangent = float3(0.0, 0.0, 0.0);
-    const float3 currentPosition =
-        EvaluatePathNodePosition(CRESSIM_SB_LOAD(g_SuturingPathNodes, nodeIndex));
-    if (nodeIndex > header.nodeStart)
+    const float3 currentPosition = EvaluatePathNodePosition(node);
+    if (nodeIndex > nodeWindowStart)
     {
-        const float3 prevPosition =
-            EvaluatePathNodePosition(CRESSIM_SB_LOAD(g_SuturingPathNodes, nodeIndex - 1u));
-        tangent += currentPosition - prevPosition;
+        const GpuSuturingPathNode prevNode =
+            CRESSIM_SB_LOAD(g_SuturingPathNodes, nodeIndex - 1u);
+        if (prevNode.tetIndex != kInvalidSuturingIndex && prevNode.softBodyIndex == node.softBodyIndex)
+        {
+            tangent += currentPosition - EvaluatePathNodePosition(prevNode);
+        }
     }
-    if (nodeIndex + 1u < header.nodeStart + header.nodeCount)
+    if (nodeIndex + 1u < nodeWindowEnd)
     {
-        const float3 nextPosition =
-            EvaluatePathNodePosition(CRESSIM_SB_LOAD(g_SuturingPathNodes, nodeIndex + 1u));
-        tangent += nextPosition - currentPosition;
+        const GpuSuturingPathNode nextNode =
+            CRESSIM_SB_LOAD(g_SuturingPathNodes, nodeIndex + 1u);
+        if (nextNode.tetIndex != kInvalidSuturingIndex && nextNode.softBodyIndex == node.softBodyIndex)
+        {
+            tangent += EvaluatePathNodePosition(nextNode) - currentPosition;
+        }
     }
 
     if (dot(tangent, tangent) > kEpsilon)
@@ -77,7 +85,6 @@ float3 EvaluatePathTangent(uint pathIndex, uint nodeIndex)
         return normalize(tangent);
     }
 
-    const GpuSuturingPathNode node = CRESSIM_SB_LOAD(g_SuturingPathNodes, nodeIndex);
     tangent = node.tangentArcLength.xyz;
     if (dot(tangent, tangent) > kEpsilon)
     {
@@ -85,6 +92,22 @@ float3 EvaluatePathTangent(uint pathIndex, uint nodeIndex)
     }
 
     return float3(0.0, 0.0, 1.0);
+}
+
+float3 EvaluatePreviousPathNodePosition(GpuSuturingPathNode node)
+{
+    if (node.tetIndex == kInvalidSuturingIndex || node.tetIndex >= softTetCount)
+    {
+        return float3(0.0, 0.0, 0.0);
+    }
+
+    const GpuSoftTet tet = CRESSIM_SB_LOAD(g_SoftTets, node.tetIndex);
+    const float3 p0 = CRESSIM_SB_LOAD(g_ParticlePreviousPositions, tet.particleIndices.x).xyz;
+    const float3 p1 = CRESSIM_SB_LOAD(g_ParticlePreviousPositions, tet.particleIndices.y).xyz;
+    const float3 p2 = CRESSIM_SB_LOAD(g_ParticlePreviousPositions, tet.particleIndices.z).xyz;
+    const float3 p3 = CRESSIM_SB_LOAD(g_ParticlePreviousPositions, tet.particleIndices.w).xyz;
+    return p0 * node.barycentrics.x + p1 * node.barycentrics.y + p2 * node.barycentrics.z +
+           p3 * node.barycentrics.w;
 }
 
 [numthreads(64, 1, 1)]
@@ -98,7 +121,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint4 particleRef = CRESSIM_SB_LOAD(g_SuturingParticleRefs, compactIndex);
     const uint particleIndex = particleRef.x;
 
-    const uint strandRole = particleRef.y;
+    const uint strandRole = particleRef.y & 0xffffu;
+    const uint ownerType = particleRef.y >> 16u;
     if (strandRole == kParticleStrandRoleNone || strandRole == kParticleStrandRoleNeedleTip)
     {
         return;
@@ -125,24 +149,28 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float4 p1Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet.particleIndices.y);
     const float4 p2Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet.particleIndices.z);
     const float4 p3Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet.particleIndices.w);
-    const uint ownerType = CRESSIM_SB_LOAD(g_ParticleOwnerTypes, particleIndex);
     const bool proxy = ownerType == kParticleOwnerTypeRigidBody;
 
     float effectiveParticleMass = particlePosInvMass.w;
     float invMassRigid = 0.0;
     float3 invInertiaRigid = 0.0;
     float4 rigidOrientation = float4(0.0, 0.0, 0.0, 1.0);
+    float4 previousRigidOrientation = float4(0.0, 0.0, 0.0, 1.0);
+    float4 previousRigidPositionInvMass = float4(0.0, 0.0, 0.0, 0.0);
     float3 rRigid = 0.0;
     uint rigidBodyIndex = 0u;
     if (proxy)
     {
         rigidBodyIndex = CRESSIM_SB_LOAD(g_ParticleOwnerIndices, particleIndex);
-        const uint bodyType = CRESSIM_SB_LOAD(g_RigidBodyTypes, rigidBodyIndex);
         const float4 rigidPositionInvMass =
             CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, rigidBodyIndex);
         rigidOrientation =
             QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, rigidBodyIndex));
-        invMassRigid = bodyType == kRigidBodyTypeDynamic ? rigidPositionInvMass.w : 0.0;
+        previousRigidPositionInvMass =
+            CRESSIM_SB_LOAD(g_PreviousRigidBodyPositionsInvMass, rigidBodyIndex);
+        previousRigidOrientation =
+            QuaternionNormalize(CRESSIM_SB_LOAD(g_PreviousRigidBodyOrientations, rigidBodyIndex));
+        invMassRigid = rigidPositionInvMass.w > kEpsilon ? rigidPositionInvMass.w : 0.0;
         invInertiaRigid = invMassRigid > kEpsilon
                               ? CRESSIM_SB_LOAD(g_RigidBodyInverseInertiaLocal, rigidBodyIndex).xyz
                               : 0.0;
@@ -156,10 +184,19 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float w3 = p3Inv.w;
 
     const float3 pathPosition = EvaluatePathNodePosition(node);
+    const float3 previousPathPosition = EvaluatePreviousPathNodePosition(node);
     const float3 tangent = EvaluatePathTangent(state.pathIndex, state.nearestNodeIndex);
     const float3 delta = particlePosInvMass.xyz - pathPosition;
     const float3 radial = delta - tangent * dot(delta, tangent);
     const float radialLengthSq = dot(radial, radial);
+    const float3 particlePreviousPosition =
+        proxy ? (previousRigidPositionInvMass.xyz +
+                 QuaternionRotate(previousRigidOrientation,
+                                  CRESSIM_SB_LOAD(g_RigidProxyLocalPositions, particleIndex).xyz))
+              : CRESSIM_SB_LOAD(g_ParticlePreviousPositions, particleIndex).xyz;
+    const float3 particleDx = particlePosInvMass.xyz - particlePreviousPosition;
+    const float3 pathDx = pathPosition - previousPathPosition;
+    const float tangentialRelativeDisplacement = dot(particleDx - pathDx, tangent);
     const float effectiveTetMass =
         w0 * node.barycentrics.x * node.barycentrics.x +
         w1 * node.barycentrics.y * node.barycentrics.y +
@@ -191,6 +228,36 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                     kSuturingMaxCorrection / max(radialCorrectionLength, kEpsilon);
             }
             correction += radialCorrection;
+        }
+    }
+
+    const float suturingTangentialDrag = asfloat(node.reserved0);
+    if (suturingTangentialDrag > 0.0 && abs(tangentialRelativeDisplacement) > 1.0e-6)
+    {
+        float effectiveTangentialParticleMass = effectiveParticleMass;
+        if (proxy)
+        {
+            effectiveTangentialParticleMass =
+                ComputeContactEffectiveMass(invMassRigid, invInertiaRigid, rigidOrientation, rRigid,
+                                            tangent);
+        }
+
+        const float tangentialDenom = effectiveTangentialParticleMass + effectiveTetMass;
+        if (tangentialDenom > 1.0e-8)
+        {
+            const float tangentialLambda =
+                (abs(tangentialRelativeDisplacement) / tangentialDenom) *
+                suturingTangentialDrag;
+            float3 tangentialCorrection =
+                tangent * (sign(tangentialRelativeDisplacement) * tangentialLambda);
+            const float tangentialCorrectionLength = length(tangentialCorrection);
+            if (tangentialCorrectionLength > kSuturingMaxTangentialCorrection)
+            {
+                tangentialCorrection *=
+                    kSuturingMaxTangentialCorrection /
+                    max(tangentialCorrectionLength, kEpsilon);
+            }
+            correction += tangentialCorrection;
         }
     }
 

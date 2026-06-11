@@ -276,6 +276,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         particleConstants.suturingParticleCount   = suturingParticleCount;
         particleConstants.maxSuturingCandidatesPerParticle =
             kMaxSuturingCandidatesPerParticle;
+        particleConstants.maxSuturingNodesPerPath = world.maxSuturingNodesPerPath();
 
         const bool hasParticleNeighborWork = particleCount > 0u;
         const bool hasFluidWork            = fluidCount > 0u && particleCount > 0u;

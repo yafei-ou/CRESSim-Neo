@@ -2734,6 +2734,9 @@ bool PhysicsSceneGpuState::uploadSuturingState(
             const std::uint32_t role = particleIndex < particles.strandRoles.size()
                                            ? particles.strandRoles[particleIndex]
                                            : static_cast<std::uint32_t>(ParticleStrandRole::None);
+            const std::uint32_t ownerType = particleIndex < particles.ownerTypes.size()
+                                                ? particles.ownerTypes[particleIndex]
+                                                : 0u;
             const std::uint32_t strandId = particleIndex < particles.strandIds.size()
                                                ? particles.strandIds[particleIndex]
                                                : kInvalidSuturingIndex;
@@ -2742,7 +2745,8 @@ bool PhysicsSceneGpuState::uploadSuturingState(
                     ? particles.environmentIndices[particleIndex]
                     : 0u;
             suturingParticleRefs[i] =
-                Diligent::uint4{particleIndex, role, strandId, environmentIndex};
+                Diligent::uint4{particleIndex, role | (ownerType << 16u), strandId,
+                                environmentIndex};
         }
         return updateStructuredBufferRange(
             computeContext, mPersistentSuturing.particleRefsBuffer, suturingParticleRefs, 0u,

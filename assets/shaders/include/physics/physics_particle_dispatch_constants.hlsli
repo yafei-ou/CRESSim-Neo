@@ -21,7 +21,7 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint suturingPathNodeCount;
     uint suturingParticleCount;
     uint maxSuturingCandidatesPerParticle;
-    uint reserved0;
+    uint maxSuturingNodesPerPath;
     uint reserved1;
 };
 

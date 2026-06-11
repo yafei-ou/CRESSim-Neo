@@ -160,7 +160,7 @@ struct GpuParticleDispatchConstants
     std::uint32_t suturingPathNodeCount              = 0;
     std::uint32_t suturingParticleCount              = 0;
     std::uint32_t maxSuturingCandidatesPerParticle   = 0;
-    std::uint32_t reserved0                          = 0;
+    std::uint32_t maxSuturingNodesPerPath            = 0;
     std::uint32_t reserved1                          = 0;
 };
 
