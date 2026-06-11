@@ -1020,7 +1020,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSuturing.particleRefsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SuturingInsertionStates",
-                                sizeof(GpuStrandInsertionStateStorage), newSoftParticleCapacity,
+                                sizeof(GpuSuturingInsertionStateStorage), newSoftParticleCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSuturing.insertionStatesBuffer) ||
@@ -2689,7 +2689,7 @@ bool PhysicsSceneGpuState::uploadSuturingState(
     {
         const StrandSoftSuturingPair &pair = pairs[i];
         gpuPairs[i] = GpuSuturingPair{
-            pair.strandIndex,         pair.softBodyIndex,       pair.strandParticleStart,
+            pair.suturingGroupId,     pair.softBodyIndex,       pair.strandParticleStart,
             pair.strandParticleCount, pair.tipParticleIndex,    pair.softTetStart,
             pair.softTetCount,        pair.softCollisionLayer,  pair.pathStart,
             pair.pathCount,           pair.nodeStart,           pair.nodeCount,
@@ -2697,10 +2697,10 @@ bool PhysicsSceneGpuState::uploadSuturingState(
             pair.reserved0};
     }
 
-    std::vector<GpuStrandInsertionStateStorage> insertionStates(particleCount);
-    for (GpuStrandInsertionStateStorage &state : insertionStates)
+    std::vector<GpuSuturingInsertionStateStorage> insertionStates(particleCount);
+    for (GpuSuturingInsertionStateStorage &state : insertionStates)
     {
-        state.state            = static_cast<std::uint32_t>(StrandInsertionState::Outside);
+        state.state            = static_cast<std::uint32_t>(SuturingInsertionState::Outside);
         state.softBodyIndex    = kInvalidSuturingIndex;
         state.tetIndex         = kInvalidSuturingIndex;
         state.pathIndex        = kInvalidSuturingIndex;
@@ -2710,7 +2710,7 @@ bool PhysicsSceneGpuState::uploadSuturingState(
     std::vector<GpuSuturingPathHeader> pathHeaders(pathHeaderCount);
     for (GpuSuturingPathHeader &header : pathHeaders)
     {
-        header.strandIndex  = kInvalidSuturingIndex;
+        header.suturingGroupId = kInvalidSuturingIndex;
         header.softBodyIndex = kInvalidSuturingIndex;
     }
 
@@ -3251,7 +3251,7 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.tetsBuffer                       = mPersistentSoftTopology.tetsBuffer;
     view.soft.suturingPairsBuffer              = mPersistentSuturing.pairsBuffer;
     view.soft.suturingParticleRefsBuffer       = mPersistentSuturing.particleRefsBuffer;
-    view.soft.strandInsertionStatesBuffer      = mPersistentSuturing.insertionStatesBuffer;
+    view.soft.suturingInsertionStatesBuffer    = mPersistentSuturing.insertionStatesBuffer;
     view.soft.suturingPathHeadersBuffer        = mPersistentSuturing.pathHeadersBuffer;
     view.soft.suturingPathNodesBuffer          = mPersistentSuturing.pathNodesBuffer;
     view.soft.renderNormalsBuffer = mPersistentSoftTopology.softBodyRenderNormalsBuffer;

@@ -122,7 +122,7 @@ int main()
     }
 
     const physics::StrandSoftSuturingPair &pair = pairs.front();
-    if (pair.strandIndex != expectedGroupId ||
+    if (pair.suturingGroupId != expectedGroupId ||
         pair.tipParticleIndex != authoredNeedle->proxyParticleOffset ||
         pair.pathNodeSpacing != 0.22f)
     {

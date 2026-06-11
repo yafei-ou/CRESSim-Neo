@@ -10,7 +10,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerTypes);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerIndices);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidProxyLocalPositions);
-CRESSIM_STRUCTURED_BUFFER(GpuStrandInsertionStateStorage, g_SuturingInsertionStates);
+CRESSIM_STRUCTURED_BUFFER(GpuSuturingInsertionStateStorage, g_SuturingInsertionStates);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingPathHeader, g_SuturingPathHeaders);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingPathNode, g_SuturingPathNodes);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftTet, g_SoftTets);
@@ -104,8 +104,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const GpuStrandInsertionStateStorage state = CRESSIM_SB_LOAD(g_SuturingInsertionStates, particleIndex);
-    if (state.state != kStrandInsertionStateInside || state.pathIndex == kInvalidSuturingIndex ||
+    const GpuSuturingInsertionStateStorage state =
+        CRESSIM_SB_LOAD(g_SuturingInsertionStates, particleIndex);
+    if (state.state != kSuturingInsertionStateInside || state.pathIndex == kInvalidSuturingIndex ||
         state.pathIndex >= suturingPathHeaderCount ||
         state.nearestNodeIndex == kInvalidSuturingIndex ||
         state.nearestNodeIndex >= suturingPathNodeCount)
@@ -118,7 +119,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     {
         return;
     }
-
     const GpuSoftTet tet = CRESSIM_SB_LOAD(g_SoftTets, node.tetIndex);
     const float4 particlePosInvMass = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex);
     const float4 p0Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet.particleIndices.x);
@@ -160,37 +160,44 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 delta = particlePosInvMass.xyz - pathPosition;
     const float3 radial = delta - tangent * dot(delta, tangent);
     const float radialLengthSq = dot(radial, radial);
-    if (radialLengthSq <= 1.0e-8)
-    {
-        return;
-    }
-
-    const float radialLength = sqrt(radialLengthSq);
-    const float3 radialDirection = radial / radialLength;
-    if (proxy)
-    {
-        effectiveParticleMass =
-            ComputeContactEffectiveMass(invMassRigid, invInertiaRigid, rigidOrientation, rRigid,
-                                        radialDirection);
-    }
-
     const float effectiveTetMass =
         w0 * node.barycentrics.x * node.barycentrics.x +
         w1 * node.barycentrics.y * node.barycentrics.y +
         w2 * node.barycentrics.z * node.barycentrics.z +
         w3 * node.barycentrics.w * node.barycentrics.w;
-    const float denom = effectiveParticleMass + effectiveTetMass;
-    if (denom <= 1.0e-8)
+    float3 correction = float3(0.0, 0.0, 0.0);
+
+    if (radialLengthSq > 1.0e-8)
     {
-        return;
+        const float radialLength = sqrt(radialLengthSq);
+        const float3 radialDirection = radial / radialLength;
+        float effectiveRadialParticleMass = effectiveParticleMass;
+        if (proxy)
+        {
+            effectiveRadialParticleMass =
+                ComputeContactEffectiveMass(invMassRigid, invInertiaRigid, rigidOrientation, rRigid,
+                                            radialDirection);
+        }
+
+        const float radialDenom = effectiveRadialParticleMass + effectiveTetMass;
+        if (radialDenom > 1.0e-8)
+        {
+            const float radialLambda = (radialLength / radialDenom) * kSuturingRelaxation;
+            float3 radialCorrection = radialDirection * radialLambda;
+            const float radialCorrectionLength = length(radialCorrection);
+            if (radialCorrectionLength > kSuturingMaxCorrection)
+            {
+                radialCorrection *=
+                    kSuturingMaxCorrection / max(radialCorrectionLength, kEpsilon);
+            }
+            correction += radialCorrection;
+        }
     }
 
-    const float lambda = (radialLength / denom) * kSuturingRelaxation;
-    float3 correction = radialDirection * lambda;
     const float correctionLength = length(correction);
-    if (correctionLength > kSuturingMaxCorrection)
+    if (correctionLength <= 1.0e-8)
     {
-        correction *= kSuturingMaxCorrection / max(correctionLength, kEpsilon);
+        return;
     }
 
     if (!proxy && particlePosInvMass.w > kEpsilon)
@@ -206,8 +213,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         CRESSIM_ATOMIC_ADD_FLOAT3_CAS(
             g_RigidBodyRotationCorrections, rigidBodyIndex,
             -MultiplyWorldInverseInertia(invInertiaRigid, rigidOrientation,
-                                         cross(rRigid, radialDirection)) *
-                lambda);
+                                         cross(rRigid, correction)));
     }
 
     if (w0 > kEpsilon)

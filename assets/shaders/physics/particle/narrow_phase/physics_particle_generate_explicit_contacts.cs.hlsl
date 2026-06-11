@@ -12,7 +12,7 @@ CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleMaterialIndices);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleContactMaterials);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleCandidatePair, g_ParticleCandidatePairs);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleNeighborMeta, g_ParticleNeighborMeta);
-CRESSIM_STRUCTURED_BUFFER(GpuStrandInsertionStateStorage, g_SuturingInsertionStates);
+CRESSIM_STRUCTURED_BUFFER(GpuSuturingInsertionStateStorage, g_SuturingInsertionStates);
 
 CRESSIM_RW_STRUCTURED_BUFFER(GpuParticleContact, g_ParticleContacts);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_ContactActiveFlags);
@@ -36,9 +36,9 @@ bool ShouldSuppressSequenceFollowerContact(uint particleIndex, uint otherOwningS
         return false;
     }
 
-    const GpuStrandInsertionStateStorage predecessorState =
+    const GpuSuturingInsertionStateStorage predecessorState =
         CRESSIM_SB_LOAD(g_SuturingInsertionStates, predecessorIndex);
-    if (predecessorState.state == kStrandInsertionStateInside &&
+    if (predecessorState.state == kSuturingInsertionStateInside &&
         predecessorState.softBodyIndex == otherOwningSoftBody)
     {
         return true;
@@ -66,9 +66,9 @@ bool ShouldSuppressSequenceLeaderContact(uint particleIndex, uint otherOwningSof
         return false;
     }
 
-    const GpuStrandInsertionStateStorage nextState =
+    const GpuSuturingInsertionStateStorage nextState =
         CRESSIM_SB_LOAD(g_SuturingInsertionStates, nextIndex);
-    if (nextState.state == kStrandInsertionStateInside &&
+    if (nextState.state == kSuturingInsertionStateInside &&
         nextState.softBodyIndex == otherOwningSoftBody)
     {
         return true;
@@ -93,18 +93,18 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const uint particleA = pair.indexA;
     const uint particleB = pair.indexB;
-    const GpuStrandInsertionStateStorage insertionA =
+    const GpuSuturingInsertionStateStorage insertionA =
         CRESSIM_SB_LOAD(g_SuturingInsertionStates, particleA);
-    const GpuStrandInsertionStateStorage insertionB =
+    const GpuSuturingInsertionStateStorage insertionB =
         CRESSIM_SB_LOAD(g_SuturingInsertionStates, particleB);
     const uint ownerTypeA = CRESSIM_SB_LOAD(g_ParticleOwnerTypes, particleA);
     const uint ownerTypeB = CRESSIM_SB_LOAD(g_ParticleOwnerTypes, particleB);
     const uint owningSoftBodyA = CRESSIM_SB_LOAD(g_ParticleOwningSoftBodyIndices, particleA);
     const uint owningSoftBodyB = CRESSIM_SB_LOAD(g_ParticleOwningSoftBodyIndices, particleB);
-    const bool suppressA = insertionA.state == kStrandInsertionStateInside &&
+    const bool suppressA = insertionA.state == kSuturingInsertionStateInside &&
                            insertionA.softBodyIndex != kInvalidSuturingIndex &&
                            owningSoftBodyB == insertionA.softBodyIndex;
-    const bool suppressB = insertionB.state == kStrandInsertionStateInside &&
+    const bool suppressB = insertionB.state == kSuturingInsertionStateInside &&
                            insertionB.softBodyIndex != kInvalidSuturingIndex &&
                            owningSoftBodyA == insertionB.softBodyIndex;
     const bool suppressNeedleFollowerA =

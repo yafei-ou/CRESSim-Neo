@@ -15,8 +15,8 @@ static const uint kParticleStrandRoleNone = 0u;
 static const uint kParticleStrandRoleNeedleTip = 1u;
 static const uint kParticleStrandRoleNeedleBody = 2u;
 static const uint kParticleStrandRoleThread = 3u;
-static const uint kStrandInsertionStateOutside = 0u;
-static const uint kStrandInsertionStateInside = 1u;
+static const uint kSuturingInsertionStateOutside = 0u;
+static const uint kSuturingInsertionStateInside = 1u;
 static const uint kInvalidSuturingIndex = 0xffffffffu;
 static const uint kParticleCandidatePairTypeParticleParticle = 0u;
 static const uint kParticleCandidatePairTypeParticleRigid = 1u;
@@ -215,7 +215,7 @@ struct GpuSoftBodyBoundsChunk
 
 struct GpuSuturingPair
 {
-    uint strandIndex;
+    uint suturingGroupId;
     uint softBodyIndex;
     uint strandParticleStart;
     uint strandParticleCount;
@@ -235,7 +235,7 @@ struct GpuSuturingPair
 
 struct GpuSuturingPathHeader
 {
-    uint strandIndex;
+    uint suturingGroupId;
     uint softBodyIndex;
     uint nodeStart;
     uint nodeCount;
@@ -255,7 +255,7 @@ struct GpuSuturingPathNode
     uint reserved1;
 };
 
-struct GpuStrandInsertionStateStorage
+struct GpuSuturingInsertionStateStorage
 {
     uint state;
     uint softBodyIndex;

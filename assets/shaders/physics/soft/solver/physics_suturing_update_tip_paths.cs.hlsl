@@ -3,7 +3,7 @@
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftTet, g_SoftTets);
-CRESSIM_STRUCTURED_BUFFER(GpuStrandInsertionStateStorage, g_SuturingInsertionStates);
+CRESSIM_STRUCTURED_BUFFER(GpuSuturingInsertionStateStorage, g_SuturingInsertionStates);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuSuturingPair, g_SuturingPairs);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuSuturingPathHeader, g_SuturingPathHeaders);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuSuturingPathNode, g_SuturingPathNodes);
@@ -39,9 +39,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const GpuStrandInsertionStateStorage tipState =
+    const GpuSuturingInsertionStateStorage tipState =
         CRESSIM_SB_LOAD(g_SuturingInsertionStates, pair.tipParticleIndex);
-    if (tipState.state != kStrandInsertionStateInside || tipState.softBodyIndex != pair.softBodyIndex)
+    if (tipState.state != kSuturingInsertionStateInside || tipState.softBodyIndex != pair.softBodyIndex)
     {
         pair.activePathIndex = kInvalidSuturingIndex;
         CRESSIM_SB_STORE(g_SuturingPairs, pairIndex, pair);
@@ -56,17 +56,18 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         for (uint pathIndex = pair.pathStart; pathIndex < pair.pathStart + pair.pathCount; ++pathIndex)
         {
             GpuSuturingPathHeader header = CRESSIM_SB_LOAD(g_SuturingPathHeaders, pathIndex);
-            if (header.strandIndex != kInvalidSuturingIndex)
+            if (header.suturingGroupId != kInvalidSuturingIndex)
             {
                 continue;
             }
 
             const uint localPath = pathIndex - pair.pathStart;
-            header.strandIndex = pair.strandIndex;
+            header.suturingGroupId = pair.suturingGroupId;
             header.softBodyIndex = pair.softBodyIndex;
             header.nodeStart = pair.nodeStart + localPath * nodesPerPath;
             header.nodeCount = 1u;
             header.flags = 1u;
+            header.reserved0 = pair.reserved0;
             CRESSIM_SB_STORE(g_SuturingPathHeaders, pathIndex, header);
 
             GpuSuturingPathNode node;

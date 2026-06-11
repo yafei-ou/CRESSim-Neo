@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstring>
 #include <optional>
 #include <sstream>
 #include <unordered_map>
@@ -22,6 +23,14 @@ namespace
 constexpr std::uint32_t kBroadPhaseContributionNone   = 0u;
 constexpr std::uint32_t kBroadPhaseContributionMoving = 1u;
 constexpr std::uint32_t kBroadPhaseContributionStatic = 2u;
+
+std::uint32_t encodeSuturingFloat(float value) noexcept
+{
+    std::uint32_t encoded = 0u;
+    static_assert(sizeof(encoded) == sizeof(value));
+    std::memcpy(&encoded, &value, sizeof(encoded));
+    return encoded;
+}
 
 Diligent::float4 toPositionInvMass(const RigidBodyState &state)
 {
@@ -1164,6 +1173,7 @@ AuthoredSuturingSequenceState &PhysicsWorld::upsertSuturingSequence(
 {
     AuthoredSuturingSequenceState normalizedState = state;
     normalizedState.pathNodeSpacing = std::max(normalizedState.pathNodeSpacing, 0.0f);
+    normalizedState.tangentialDrag = std::max(normalizedState.tangentialDrag, 0.0f);
     if (normalizedState.entries.empty())
     {
         normalizedState.tipEntryIndex = 0u;
@@ -3501,6 +3511,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
         std::uint32_t environmentIndex = 0u;
         std::uint32_t tipEntryIndex = 0u;
         float pathNodeSpacing = 0.0f;
+        float tangentialDrag = 0.0f;
         std::uint32_t groupId = kInvalidSuturingIndex;
     };
 
@@ -3575,6 +3586,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
         }
 
         resolved.environmentIndex = *environmentIndex;
+        resolved.tangentialDrag = sequence.tangentialDrag;
         if (sequence.pathNodeSpacing > 0.0f)
         {
             resolved.pathNodeSpacing = sequence.pathNodeSpacing;
@@ -3747,7 +3759,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             }
 
             StrandSoftSuturingPair pair{};
-            pair.strandIndex         = strandIndex;
+            pair.suturingGroupId     = strandIndex;
             pair.softBodyIndex       = softBodyIndex;
             pair.strandParticleStart = strand.particleOffset;
             pair.strandParticleCount = strand.particleCount;
@@ -3762,6 +3774,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             pair.activePathIndex     = kInvalidSuturingIndex;
             pair.environmentIndex    = strand.environmentIndex;
             pair.pathNodeSpacing     = strand.pathNodeSpacing;
+            pair.reserved0           = encodeSuturingFloat(0.0f);
             mSuturingPairs.push_back(pair);
 
             mReservedSuturingPathHeaders += mMaxSuturingPathsPerPair;
@@ -3790,7 +3803,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             }
 
             StrandSoftSuturingPair pair{};
-            pair.strandIndex         = rigidProxySuturingGroupBase + rigidBodyIndex;
+            pair.suturingGroupId     = rigidProxySuturingGroupBase + rigidBodyIndex;
             pair.softBodyIndex       = softBodyIndex;
             pair.strandParticleStart = rigidBody.proxyParticleOffset;
             pair.strandParticleCount = rigidBody.proxyParticleCount;
@@ -3805,6 +3818,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             pair.activePathIndex     = kInvalidSuturingIndex;
             pair.environmentIndex    = rigidBody.environmentIndex;
             pair.pathNodeSpacing     = std::max(rigidBody.proxyParticleRadius * 1.5f, 1.0e-4f);
+            pair.reserved0           = encodeSuturingFloat(0.0f);
             mSuturingPairs.push_back(pair);
 
             mReservedSuturingPathHeaders += mMaxSuturingPathsPerPair;
@@ -3838,7 +3852,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             }
 
             StrandSoftSuturingPair pair{};
-            pair.strandIndex         = sequence.groupId;
+            pair.suturingGroupId     = sequence.groupId;
             pair.softBodyIndex       = softBodyIndex;
             pair.strandParticleStart = particleStart;
             pair.strandParticleCount = particleEnd - particleStart + 1u;
@@ -3853,6 +3867,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             pair.activePathIndex     = kInvalidSuturingIndex;
             pair.environmentIndex    = sequence.environmentIndex;
             pair.pathNodeSpacing     = sequence.pathNodeSpacing;
+            pair.reserved0           = encodeSuturingFloat(sequence.tangentialDrag);
             mSuturingPairs.push_back(pair);
 
             mReservedSuturingPathHeaders += mMaxSuturingPathsPerPair;

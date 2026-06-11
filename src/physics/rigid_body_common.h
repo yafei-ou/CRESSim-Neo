@@ -340,7 +340,7 @@ struct GpuSoftBodyBoundsChunk
 
 struct GpuSuturingPair
 {
-    std::uint32_t strandIndex         = 0u;
+    std::uint32_t suturingGroupId     = 0u;
     std::uint32_t softBodyIndex       = 0u;
     std::uint32_t strandParticleStart = 0u;
     std::uint32_t strandParticleCount = 0u;
@@ -360,14 +360,14 @@ struct GpuSuturingPair
 
 struct GpuSuturingPathHeader
 {
-    std::uint32_t strandIndex  = 0u;
-    std::uint32_t softBodyIndex = 0u;
-    std::uint32_t nodeStart    = 0u;
-    std::uint32_t nodeCount    = 0u;
-    std::uint32_t flags        = 0u;
-    std::uint32_t reserved0    = 0u;
-    std::uint32_t reserved1    = 0u;
-    std::uint32_t reserved2    = 0u;
+    std::uint32_t suturingGroupId = 0u;
+    std::uint32_t softBodyIndex   = 0u;
+    std::uint32_t nodeStart       = 0u;
+    std::uint32_t nodeCount       = 0u;
+    std::uint32_t flags           = 0u;
+    std::uint32_t reserved0       = 0u;
+    std::uint32_t reserved1       = 0u;
+    std::uint32_t reserved2       = 0u;
 };
 
 struct GpuSuturingPathNode
@@ -380,7 +380,7 @@ struct GpuSuturingPathNode
     std::uint32_t reserved1 = 0u;
 };
 
-struct GpuStrandInsertionStateStorage
+struct GpuSuturingInsertionStateStorage
 {
     std::uint32_t state            = 0u;
     std::uint32_t softBodyIndex    = 0u;
@@ -634,7 +634,7 @@ static_assert(sizeof(GpuSoftIncidentTet) == 16u);
 static_assert(sizeof(GpuSuturingPair) == 64u);
 static_assert(sizeof(GpuSuturingPathHeader) == 32u);
 static_assert(sizeof(GpuSuturingPathNode) == 48u);
-static_assert(sizeof(GpuStrandInsertionStateStorage) == 48u);
+static_assert(sizeof(GpuSuturingInsertionStateStorage) == 48u);
 static_assert(sizeof(GpuSoftBodyChunkRange) == 16u);
 static_assert(sizeof(GpuSoftBodyBoundsChunk) == 16u);
 static_assert(sizeof(GpuSoftEdgeCorrection) == 32u);

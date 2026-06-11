@@ -4,7 +4,7 @@
 CRESSIM_STRUCTURED_BUFFER(uint4, g_SuturingParticleRefs);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingPair, g_SuturingPairs);
-CRESSIM_RW_STRUCTURED_BUFFER(GpuStrandInsertionStateStorage, g_SuturingInsertionStates);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuSuturingInsertionStateStorage, g_SuturingInsertionStates);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingPathHeader, g_SuturingPathHeaders);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingPathNode, g_SuturingPathNodes);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftTet, g_SoftTets);
@@ -36,19 +36,19 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint4 particleRef = CRESSIM_SB_LOAD(g_SuturingParticleRefs, compactIndex);
     const uint particleIndex = particleRef.x;
 
-    GpuStrandInsertionStateStorage state = CRESSIM_SB_LOAD(g_SuturingInsertionStates, particleIndex);
+    GpuSuturingInsertionStateStorage state = CRESSIM_SB_LOAD(g_SuturingInsertionStates, particleIndex);
     state.pathIndex = kInvalidSuturingIndex;
     state.nearestNodeIndex = kInvalidSuturingIndex;
 
     const uint strandRole = particleRef.y;
-    if (state.state != kStrandInsertionStateInside || strandRole == kParticleStrandRoleNone ||
+    if (state.state != kSuturingInsertionStateInside || strandRole == kParticleStrandRoleNone ||
         strandRole == kParticleStrandRoleNeedleTip || state.softBodyIndex == kInvalidSuturingIndex)
     {
         CRESSIM_SB_STORE(g_SuturingInsertionStates, particleIndex, state);
         return;
     }
 
-    const uint strandIndex = particleRef.z;
+    const uint suturingGroupId = particleRef.z;
     const uint environmentIndex = particleRef.w;
     const float3 particlePosition = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex).xyz;
 
@@ -57,7 +57,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     for (uint pairIndex = 0u; pairIndex < suturingPairCount; ++pairIndex)
     {
         const GpuSuturingPair pair = CRESSIM_SB_LOAD(g_SuturingPairs, pairIndex);
-        if (pair.strandIndex == strandIndex && pair.environmentIndex == environmentIndex &&
+        if (pair.suturingGroupId == suturingGroupId && pair.environmentIndex == environmentIndex &&
             pair.softBodyIndex == state.softBodyIndex)
         {
             matchedPairIndex = pairIndex;
@@ -81,7 +81,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     for (uint pathIndex = pair.pathStart; pathIndex < headerEnd; ++pathIndex)
     {
         const GpuSuturingPathHeader header = CRESSIM_SB_LOAD(g_SuturingPathHeaders, pathIndex);
-        if (header.strandIndex != pair.strandIndex || header.softBodyIndex != pair.softBodyIndex ||
+        if (header.suturingGroupId != pair.suturingGroupId ||
+            header.softBodyIndex != pair.softBodyIndex ||
             header.nodeCount == 0u)
         {
             continue;
