@@ -341,13 +341,10 @@ public:
                         std::uint32_t sliderJointCount, std::uint32_t softRenderVertexCount,
                         std::uint32_t softRenderTriangleIndexCount,
                         std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
-                        std::uint32_t softBodyBoundsChunkCount,
-                        std::uint32_t suturingPairCount,
-                        std::uint32_t suturingPathHeaderCount,
-                        std::uint32_t suturingPathNodeCount, std::uint32_t curveRenderCount,
-                        std::uint32_t curveRenderParticleIndexCount,
-                        std::uint32_t curveRenderVertexCount,
-                        Diligent::Uint64 sharedContextMask,
+                        std::uint32_t softBodyBoundsChunkCount, std::uint32_t suturingPairCount,
+                        std::uint32_t suturingPathHeaderCount, std::uint32_t suturingPathNodeCount,
+                        std::uint32_t curveRenderCount, std::uint32_t curveRenderParticleIndexCount,
+                        std::uint32_t curveRenderVertexCount, Diligent::Uint64 sharedContextMask,
                         const std::uint32_t *sharedQueueFamilyIndices,
                         std::uint32_t sharedQueueFamilyIndexCount, bool useNativeFloatAtomics);
     bool uploadWorldState(Diligent::IDeviceContext *computeContext, PhysicsWorld &world,
@@ -436,8 +433,7 @@ private:
                              const ParticleSoAHost &particles, std::uint32_t particleCount,
                              const std::vector<std::uint32_t> &suturingParticleIndices,
                              const std::vector<StrandSoftSuturingPair> &pairs,
-                             std::uint32_t pathHeaderCount,
-                             std::uint32_t pathNodeCount);
+                             std::uint32_t pathHeaderCount, std::uint32_t pathNodeCount);
     gpu::SharedExportBuffer mSharedSoftPositionsInvMass;
     PersistentRigidBodyBuffers mPersistentRigidBodies;
     PersistentColliderBuffers mPersistentColliders;

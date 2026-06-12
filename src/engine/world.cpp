@@ -1829,8 +1829,8 @@ std::optional<StrandComponent> World::tryGetStrand(common::EntityId entityId) co
     return component;
 }
 
-std::optional<ProceduralDeformableCurveRenderComponent>
-World::tryGetProceduralDeformableCurveRender(common::EntityId entityId) const
+std::optional<ProceduralDeformableCurveRenderComponent> World::
+    tryGetProceduralDeformableCurveRender(common::EntityId entityId) const
 {
     const auto it = mProceduralDeformableCurveRenders.find(entityId);
     return it != mProceduralDeformableCurveRenders.end()
@@ -2102,7 +2102,7 @@ const std::vector<EntityPoseMappingEntry> &World::physicsRenderableMappings()
             EntityPoseMappingEntry entry{};
             entry.sourcePoseIndex = rigidBodyIt->second;
             entry.objectIndex     = renderable.envIndex * mSceneLayout.maxRenderableObjectsPerEnv +
-                                renderable.objectSlot;
+                                    renderable.objectSlot;
             mPhysicsRenderableMappingsCache.push_back(entry);
         }
     }
@@ -2166,7 +2166,7 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
     }
     if (mCachedCurveRenderPhysicsRevision != physicsRevision)
     {
-        mCurveRenderBindingsDirty    = true;
+        mCurveRenderBindingsDirty         = true;
         mCachedCurveRenderPhysicsRevision = physicsRevision;
     }
 
@@ -2400,8 +2400,8 @@ void World::rebuildCurveRenderBindings(const graphics::RenderResourceManager &re
 {
     std::fill(mCurveRenderVertexBaseByObject.begin(), mCurveRenderVertexBaseByObject.end(),
               kInvalidSlot);
-    std::fill(mCurveRenderVertexNormalBaseByObject.begin(), mCurveRenderVertexNormalBaseByObject.end(),
-              kInvalidSlot);
+    std::fill(mCurveRenderVertexNormalBaseByObject.begin(),
+              mCurveRenderVertexNormalBaseByObject.end(), kInvalidSlot);
     std::fill(mCurveRenderIndexByObject.begin(), mCurveRenderIndexByObject.end(), kInvalidSlot);
     std::fill(mCurveRenderVertexCountByObject.begin(), mCurveRenderVertexCountByObject.end(), 0u);
 
@@ -2422,7 +2422,8 @@ void World::rebuildCurveRenderBindings(const graphics::RenderResourceManager &re
         }
         case physics::AuthoredParticleReferenceType::SoftBodyParticle:
         {
-            const physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(reference.entityId);
+            const physics::SoftBodyState *softBody =
+                mPhysicsWorld.tryGetSoftBody(reference.entityId);
             if (softBody == nullptr || reference.localParticleIndex >= softBody->particleCount)
             {
                 return std::nullopt;
@@ -2501,11 +2502,12 @@ void World::rebuildCurveRenderBindings(const graphics::RenderResourceManager &re
             continue;
         }
 
-        const std::uint32_t particleCount = static_cast<std::uint32_t>(resolvedParticleIndices.size());
+        const std::uint32_t particleCount =
+            static_cast<std::uint32_t>(resolvedParticleIndices.size());
         const std::uint32_t expectedVertexCount = particleCount * radialResolution;
-        const std::uint32_t expectedIndexCount =
-            (particleCount - 1u) * radialResolution * 6u;
-        if (mesh->vertices.size() != expectedVertexCount || mesh->indices.size() != expectedIndexCount)
+        const std::uint32_t expectedIndexCount  = (particleCount - 1u) * radialResolution * 6u;
+        if (mesh->vertices.size() != expectedVertexCount ||
+            mesh->indices.size() != expectedIndexCount)
         {
             CRESSIM_LOG_ERROR("Curve render binding build failed for entity ", renderable.entityId,
                               ": visual mesh topology must match the canonical tube layout for ",
@@ -2514,7 +2516,8 @@ void World::rebuildCurveRenderBindings(const graphics::RenderResourceManager &re
             continue;
         }
 
-        const std::uint32_t curveIndex = static_cast<std::uint32_t>(curveRenderData.descriptors.size());
+        const std::uint32_t curveIndex =
+            static_cast<std::uint32_t>(curveRenderData.descriptors.size());
         const std::uint32_t particleIndexStart =
             static_cast<std::uint32_t>(curveRenderData.particleIndices.size());
         const std::uint32_t vertexBase = curveIndex == 0u
@@ -2534,10 +2537,10 @@ void World::rebuildCurveRenderBindings(const graphics::RenderResourceManager &re
             component.radius,
         });
 
-        mCurveRenderVertexBaseByObject[objectIndex]   = vertexBase;
+        mCurveRenderVertexBaseByObject[objectIndex]       = vertexBase;
         mCurveRenderVertexNormalBaseByObject[objectIndex] = vertexBase;
-        mCurveRenderIndexByObject[objectIndex]        = curveIndex;
-        mCurveRenderVertexCountByObject[objectIndex]  = expectedVertexCount;
+        mCurveRenderIndexByObject[objectIndex]            = curveIndex;
+        mCurveRenderVertexCountByObject[objectIndex]      = expectedVertexCount;
     }
 
     for (std::uint32_t objectIndex = 0u;
@@ -2626,8 +2629,8 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
                     localBoundsMax = Diligent::float3{0.0f, 0.0f, 0.0f};
                     hasBounds      = true;
                 }
-                entry.deformVertexBase = mSoftBodyVertexBindingBaseByObject[objectIndex];
-                entry.deformNormalBase = mSoftBodyVertexNormalBaseByObject[objectIndex];
+                entry.deformVertexBase  = mSoftBodyVertexBindingBaseByObject[objectIndex];
+                entry.deformNormalBase  = mSoftBodyVertexNormalBaseByObject[objectIndex];
                 entry.deformVertexCount = mSoftBodyVertexCountByObject[objectIndex];
                 entry.deformableType =
                     static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::SoftBody);
@@ -2637,10 +2640,10 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
                 curveIt != mProceduralDeformableCurveRenders.end() && curveIt->second.enabled &&
                 mCurveRenderIndexByObject[objectIndex] != kInvalidSlot)
             {
-                entry.deformVertexBase = mCurveRenderVertexBaseByObject[objectIndex];
-                entry.deformNormalBase = mCurveRenderVertexNormalBaseByObject[objectIndex];
+                entry.deformVertexBase  = mCurveRenderVertexBaseByObject[objectIndex];
+                entry.deformNormalBase  = mCurveRenderVertexNormalBaseByObject[objectIndex];
                 entry.deformVertexCount = mCurveRenderVertexCountByObject[objectIndex];
-                entry.deformableIndex = mCurveRenderIndexByObject[objectIndex];
+                entry.deformableIndex   = mCurveRenderIndexByObject[objectIndex];
                 entry.deformableType =
                     static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::Curve);
                 localBoundsMin = Diligent::float3{0.0f, 0.0f, 0.0f};
@@ -2711,10 +2714,10 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
             (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
                 ? graphics::MaterialProgramFamily::SoftBodyLit
                 : (mProceduralDeformableCurveRenders.find(renderable.entityId) !=
-                           mProceduralDeformableCurveRenders.end() &&
-                       mCurveRenderIndexByObject[objectIndex] != kInvalidSlot
-                   ? graphics::MaterialProgramFamily::CurveLit
-                   : material->pipeline.programFamily);
+                               mProceduralDeformableCurveRenders.end() &&
+                           mCurveRenderIndexByObject[objectIndex] != kInvalidSlot
+                       ? graphics::MaterialProgramFamily::CurveLit
+                       : material->pipeline.programFamily);
 
         const DrawBucketKey key{
             renderOrder,
@@ -2936,14 +2939,14 @@ void World::refreshLightEntry(std::uint32_t lightIndex)
 
     graphics::GpuLightInput input{};
     input.positionRange      = Diligent::float4{lightData.position.x, lightData.position.y,
-                                           lightData.position.z, lightData.range};
+                                                lightData.position.z, lightData.range};
     input.directionIntensity = Diligent::float4{lightData.direction.x, lightData.direction.y,
                                                 lightData.direction.z, lightData.intensity};
     input.color = Diligent::float4{lightData.color.x, lightData.color.y, lightData.color.z, 0.0f};
     const float innerConeRadians = lightData.innerConeAngle * 0.01745329251994329577f;
     const float outerConeRadians = lightData.outerConeAngle * 0.01745329251994329577f;
     input.spotAngles     = Diligent::float4{std::cos(innerConeRadians), std::cos(outerConeRadians),
-                                        lightData.innerConeAngle, lightData.outerConeAngle};
+                                            lightData.innerConeAngle, lightData.outerConeAngle};
     input.shadowDistance = lightData.shadowDistance;
     input.shadowFadeDistance     = lightData.shadowFadeDistance;
     input.shadowBias             = lightData.shadowBias;

@@ -162,8 +162,7 @@ bool hasActiveDeformableRenderables(const std::vector<GpuRenderableMetadata> *me
     for (const GpuRenderableMetadata &entry : *metadata)
     {
         if ((entry.flags & static_cast<std::uint32_t>(GpuRenderableFlags::Active)) != 0u &&
-            entry.deformableType !=
-                static_cast<std::uint32_t>(GpuRenderableDeformableType::None))
+            entry.deformableType != static_cast<std::uint32_t>(GpuRenderableDeformableType::None))
         {
             return true;
         }
@@ -441,8 +440,7 @@ bool Renderer::prepareGpuScene(const HostSceneView &world, const GpuEntitySceneV
                                                 Diligent::MAP_WRITE);
     Diligent::IBuffer *softBodyWorldAabbsBuffer =
         mGpuScenePrepare->fallbackSoftBodyWorldAabbsBuffer;
-    Diligent::IBuffer *curveWorldAabbsBuffer =
-        mGpuScenePrepare->fallbackSoftBodyWorldAabbsBuffer;
+    Diligent::IBuffer *curveWorldAabbsBuffer = mGpuScenePrepare->fallbackSoftBodyWorldAabbsBuffer;
     if (needsSoftBodyWorldAabbs)
     {
         softBodyWorldAabbsBuffer = physicsScene->soft.worldAabbsBuffer;

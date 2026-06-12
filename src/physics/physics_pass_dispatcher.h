@@ -193,8 +193,7 @@ public:
                                  const PhysicsSceneGpuState &sceneState,
                                  std::uint32_t renderVertexCount);
     bool updateCurveRenderData(Diligent::IDeviceContext *computeContext,
-                               const PhysicsSceneGpuState &sceneState,
-                               std::uint32_t curveCount);
+                               const PhysicsSceneGpuState &sceneState, std::uint32_t curveCount);
     bool updateSoftBodyBounds(Diligent::IDeviceContext *computeContext,
                               const PhysicsSceneGpuState &sceneState, std::uint32_t softBodyCount,
                               std::uint32_t softBodyBoundsChunkCount);
@@ -368,16 +367,18 @@ private:
     bool dispatchGatherSuturingCandidatesPass(Diligent::IDeviceContext *computeContext,
                                               const PhysicsSceneGpuState &sceneState,
                                               const GpuParticleDispatchConstants &constants);
-    bool dispatchClassifySuturingParticlesPass(
-        Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-        std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants);
+    bool dispatchClassifySuturingParticlesPass(Diligent::IDeviceContext *computeContext,
+                                               const PhysicsSceneGpuState &sceneState,
+                                               std::uint32_t suturingParticleCount,
+                                               const GpuParticleDispatchConstants &constants);
     bool dispatchUpdateSuturingTipPathsPass(Diligent::IDeviceContext *computeContext,
                                             const PhysicsSceneGpuState &sceneState,
                                             std::uint32_t suturingPairCount,
                                             const GpuParticleDispatchConstants &constants);
-    bool dispatchAssignSuturingInsideParticlesPass(
-        Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-        std::uint32_t particleCount, const GpuParticleDispatchConstants &constants);
+    bool dispatchAssignSuturingInsideParticlesPass(Diligent::IDeviceContext *computeContext,
+                                                   const PhysicsSceneGpuState &sceneState,
+                                                   std::uint32_t particleCount,
+                                                   const GpuParticleDispatchConstants &constants);
     bool dispatchSolveSuturingNodePathConstraintsPass(
         Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
         std::uint32_t particleCount, const GpuParticleDispatchConstants &constants);

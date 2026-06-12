@@ -82,10 +82,10 @@ public:
     const std::vector<StrandState> &strandSnapshot() const noexcept;
     const std::vector<FluidState> &fluidSnapshot() const noexcept;
     const std::vector<AuthoredParticleSequenceState> &particleSequenceSnapshot() const noexcept;
-    const std::vector<AuthoredParticleDistanceConstraintState> &
-    particleDistanceConstraintSnapshot() const noexcept;
-    const std::vector<AuthoredParticleCollisionFilterState> &
-    particleCollisionFilterSnapshot() const noexcept;
+    const std::vector<AuthoredParticleDistanceConstraintState> &particleDistanceConstraintSnapshot()
+        const noexcept;
+    const std::vector<AuthoredParticleCollisionFilterState> &particleCollisionFilterSnapshot()
+        const noexcept;
     const std::vector<AuthoredSuturingSequenceState> &suturingSequenceSnapshot() const noexcept;
     const std::vector<BallJointState> &ballJointSnapshot() const noexcept;
     const std::vector<HingeJointState> &hingeJointSnapshot() const noexcept;
@@ -292,7 +292,8 @@ private:
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToFluidIndex{};
     std::unordered_map<ParticleSequenceId, std::uint32_t> mParticleSequenceIdToIndex{};
     std::unordered_map<ParticleConstraintId, std::uint32_t> mParticleConstraintIdToIndex{};
-    std::unordered_map<ParticleCollisionFilterId, std::uint32_t> mParticleCollisionFilterIdToIndex{};
+    std::unordered_map<ParticleCollisionFilterId, std::uint32_t>
+        mParticleCollisionFilterIdToIndex{};
     std::unordered_map<SuturingSequenceId, std::uint32_t> mSuturingSequenceIdToIndex{};
     std::unordered_map<common::EntityId, TetGenMeshCache> mTetGenMeshCache{};
     std::vector<RigidBodyState> mRigidBodySnapshot{};
@@ -323,42 +324,42 @@ private:
     std::vector<std::uint32_t> mColliderDirtyIndices{};
     std::vector<std::uint8_t> mRigidBodyDirtyBits{};
     std::vector<std::uint8_t> mColliderDirtyBits{};
-    bool mRigidBodyCountDirty                    = false;
-    bool mColliderCountDirty                     = false;
-    bool mFullRigidBodyUploadRequired            = false;
-    bool mFullColliderUploadRequired             = false;
-    mutable bool mBodyColliderMappingDirty       = true;
-    mutable bool mRigidJointSceneDirty           = true;
-    mutable bool mJointCollisionSuppressionDirty = true;
-    bool mSoftBodyDerivedStateDirty              = true;
-    bool mStaticBroadPhaseDirty                  = false;
-    std::uint32_t mActiveMovingColliderCount     = 0u;
-    std::uint32_t mStaticColliderCount           = 0u;
-    float mParticleGridCellSize                  = 0.1f;
-    std::uint32_t mSoftBodyBoundsChunkCount      = 0u;
-    std::uint32_t mMaxSuturingPathsPerPair       = 4u;
-    std::uint32_t mMaxSuturingNodesPerPath       = 128u;
-    std::uint32_t mReservedSuturingPathHeaders   = 0u;
-    std::uint32_t mReservedSuturingPathNodes     = 0u;
-    std::uint64_t mAuthoredRevision              = 0;
-    std::uint64_t mSimulationRevision            = 0;
-    std::uint64_t mRigidBodyTopologyRevision     = 0;
-    std::uint64_t mRigidJointSceneRevision       = 0;
-    std::uint64_t mRigidJointModeRevision        = 0;
-    std::uint64_t mRigidJointTopologyRevision    = 0;
-    std::uint64_t mSoftBodyTopologyRevision      = 0;
-    std::uint64_t mSoftParticleRevision          = 0;
-    std::uint64_t mSoftGpuTopologyRevision       = 0;
-    std::uint64_t mCurveRenderRevision           = 0;
-    RigidBodyId mNextRigidBodyId                 = 1u;
-    ColliderId mNextColliderId                   = 1u;
-    BallJointId mNextBallJointId                 = 1u;
-    HingeJointId mNextHingeJointId               = 1u;
-    SliderJointId mNextSliderJointId             = 1u;
-    ParticleSequenceId mNextParticleSequenceId   = 1u;
-    ParticleConstraintId mNextParticleConstraintId = 1u;
+    bool mRigidBodyCountDirty                                = false;
+    bool mColliderCountDirty                                 = false;
+    bool mFullRigidBodyUploadRequired                        = false;
+    bool mFullColliderUploadRequired                         = false;
+    mutable bool mBodyColliderMappingDirty                   = true;
+    mutable bool mRigidJointSceneDirty                       = true;
+    mutable bool mJointCollisionSuppressionDirty             = true;
+    bool mSoftBodyDerivedStateDirty                          = true;
+    bool mStaticBroadPhaseDirty                              = false;
+    std::uint32_t mActiveMovingColliderCount                 = 0u;
+    std::uint32_t mStaticColliderCount                       = 0u;
+    float mParticleGridCellSize                              = 0.1f;
+    std::uint32_t mSoftBodyBoundsChunkCount                  = 0u;
+    std::uint32_t mMaxSuturingPathsPerPair                   = 4u;
+    std::uint32_t mMaxSuturingNodesPerPath                   = 128u;
+    std::uint32_t mReservedSuturingPathHeaders               = 0u;
+    std::uint32_t mReservedSuturingPathNodes                 = 0u;
+    std::uint64_t mAuthoredRevision                          = 0;
+    std::uint64_t mSimulationRevision                        = 0;
+    std::uint64_t mRigidBodyTopologyRevision                 = 0;
+    std::uint64_t mRigidJointSceneRevision                   = 0;
+    std::uint64_t mRigidJointModeRevision                    = 0;
+    std::uint64_t mRigidJointTopologyRevision                = 0;
+    std::uint64_t mSoftBodyTopologyRevision                  = 0;
+    std::uint64_t mSoftParticleRevision                      = 0;
+    std::uint64_t mSoftGpuTopologyRevision                   = 0;
+    std::uint64_t mCurveRenderRevision                       = 0;
+    RigidBodyId mNextRigidBodyId                             = 1u;
+    ColliderId mNextColliderId                               = 1u;
+    BallJointId mNextBallJointId                             = 1u;
+    HingeJointId mNextHingeJointId                           = 1u;
+    SliderJointId mNextSliderJointId                         = 1u;
+    ParticleSequenceId mNextParticleSequenceId               = 1u;
+    ParticleConstraintId mNextParticleConstraintId           = 1u;
     ParticleCollisionFilterId mNextParticleCollisionFilterId = 1u;
-    SuturingSequenceId mNextSuturingSequenceId     = 1u;
+    SuturingSequenceId mNextSuturingSequenceId               = 1u;
 };
 
 } // namespace cressim::neo::physics

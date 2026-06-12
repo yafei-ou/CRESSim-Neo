@@ -874,12 +874,10 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
         {
             return false;
         }
-        Diligent::IBufferView *positionSrv =
-            mPhysicsScene->curve.positionsBuffer->GetDefaultView(
-                Diligent::BUFFER_VIEW_SHADER_RESOURCE);
-        Diligent::IBufferView *normalSrv =
-            mPhysicsScene->curve.normalsBuffer->GetDefaultView(
-                Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        Diligent::IBufferView *positionSrv = mPhysicsScene->curve.positionsBuffer->GetDefaultView(
+            Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        Diligent::IBufferView *normalSrv = mPhysicsScene->curve.normalsBuffer->GetDefaultView(
+            Diligent::BUFFER_VIEW_SHADER_RESOURCE);
         if (positionSrv == nullptr || normalSrv == nullptr)
         {
             return false;

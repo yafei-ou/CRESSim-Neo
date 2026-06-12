@@ -64,8 +64,8 @@ void computePresentationViewport(const DisplayResolveRequest &request,
         return;
     }
 
-    const float sourceAspect = static_cast<float>(request.sourceTargetDesc.width) /
-                               static_cast<float>(request.sourceTargetDesc.height);
+    const float sourceAspect       = static_cast<float>(request.sourceTargetDesc.width) /
+                                     static_cast<float>(request.sourceTargetDesc.height);
     const float presentationAspect = static_cast<float>(request.presentationTarget.width) /
                                      static_cast<float>(request.presentationTarget.height);
     if (sourceAspect <= 0.0f || presentationAspect <= 0.0f)

@@ -80,14 +80,14 @@ enum class GpuRenderableDeformableType : std::uint32_t
 
 struct GpuRenderableMetadata
 {
-    std::uint32_t flags              = static_cast<std::uint32_t>(GpuRenderableFlags::None);
-    std::uint32_t deformVertexBase   = 0u;
-    std::uint32_t deformNormalBase   = 0u;
-    std::uint32_t deformableIndex    = 0xffffffffu;
-    std::uint32_t deformVertexCount  = 0u;
-    std::uint32_t deformableType     = 0u;
-    std::uint32_t reserved1          = 0u;
-    std::uint32_t reserved2          = 0u;
+    std::uint32_t flags             = static_cast<std::uint32_t>(GpuRenderableFlags::None);
+    std::uint32_t deformVertexBase  = 0u;
+    std::uint32_t deformNormalBase  = 0u;
+    std::uint32_t deformableIndex   = 0xffffffffu;
+    std::uint32_t deformVertexCount = 0u;
+    std::uint32_t deformableType    = 0u;
+    std::uint32_t reserved1         = 0u;
+    std::uint32_t reserved2         = 0u;
     Diligent::float4 localBoundsMin{};
     Diligent::float4 localBoundsMax{};
 };

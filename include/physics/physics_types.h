@@ -43,16 +43,16 @@ constexpr HingeJointId kInvalidHingeJointId = 0u;
 using SliderJointId                           = std::uint32_t;
 constexpr SliderJointId kInvalidSliderJointId = 0u;
 
-using ParticleConstraintId = std::uint32_t;
+using ParticleConstraintId                                  = std::uint32_t;
 constexpr ParticleConstraintId kInvalidParticleConstraintId = 0u;
 
-using ParticleCollisionFilterId = std::uint32_t;
+using ParticleCollisionFilterId                                       = std::uint32_t;
 constexpr ParticleCollisionFilterId kInvalidParticleCollisionFilterId = 0u;
 
-using ParticleSequenceId = std::uint32_t;
+using ParticleSequenceId                                = std::uint32_t;
 constexpr ParticleSequenceId kInvalidParticleSequenceId = 0u;
 
-using SuturingSequenceId = std::uint32_t;
+using SuturingSequenceId                                = std::uint32_t;
 constexpr SuturingSequenceId kInvalidSuturingSequenceId = 0u;
 
 enum class RigidJointDriveMode : std::uint32_t
@@ -91,8 +91,8 @@ enum class ParticleOwnerType : std::uint32_t
 
 enum class AuthoredParticleReferenceType : std::uint32_t
 {
-    SoftBodyParticle  = 0u,
-    StrandParticle    = 1u,
+    SoftBodyParticle   = 0u,
+    StrandParticle     = 1u,
     RigidProxyParticle = 2u,
 };
 
@@ -127,14 +127,14 @@ struct GpuSuturingInsertionState
 
 struct SuturingPathHeader
 {
-    std::uint32_t suturingGroupId = kInvalidSuturingIndex;
-    std::uint32_t softBodyIndex   = kInvalidSuturingIndex;
-    std::uint32_t nodeStart       = 0u;
-    std::uint32_t nodeCount       = 0u;
-    std::uint32_t flags           = 0u;
+    std::uint32_t suturingGroupId          = kInvalidSuturingIndex;
+    std::uint32_t softBodyIndex            = kInvalidSuturingIndex;
+    std::uint32_t nodeStart                = 0u;
+    std::uint32_t nodeCount                = 0u;
+    std::uint32_t flags                    = 0u;
     std::uint32_t needleTangentialDragBits = 0u;
     std::uint32_t threadTangentialDragBits = 0u;
-    std::uint32_t reserved2       = 0u;
+    std::uint32_t reserved2                = 0u;
 };
 
 struct SuturingPathNode
@@ -148,20 +148,20 @@ struct SuturingPathNode
 
 struct StrandSoftSuturingPair
 {
-    std::uint32_t suturingGroupId     = kInvalidSuturingIndex;
-    std::uint32_t softBodyIndex       = kInvalidSuturingIndex;
-    std::uint32_t strandParticleStart = 0u;
-    std::uint32_t strandParticleCount = 0u;
-    std::uint32_t tipParticleIndex    = kInvalidSuturingIndex;
-    std::uint32_t softTetStart        = 0u;
-    std::uint32_t softTetCount        = 0u;
-    std::uint32_t pathStart           = 0u;
-    std::uint32_t pathCount           = 0u;
-    std::uint32_t nodeStart           = 0u;
-    std::uint32_t nodeCount           = 0u;
-    std::uint32_t activePathIndex     = kInvalidSuturingIndex;
-    std::uint32_t environmentIndex    = 0u;
-    float pathNodeSpacing             = 0.0f;
+    std::uint32_t suturingGroupId          = kInvalidSuturingIndex;
+    std::uint32_t softBodyIndex            = kInvalidSuturingIndex;
+    std::uint32_t strandParticleStart      = 0u;
+    std::uint32_t strandParticleCount      = 0u;
+    std::uint32_t tipParticleIndex         = kInvalidSuturingIndex;
+    std::uint32_t softTetStart             = 0u;
+    std::uint32_t softTetCount             = 0u;
+    std::uint32_t pathStart                = 0u;
+    std::uint32_t pathCount                = 0u;
+    std::uint32_t nodeStart                = 0u;
+    std::uint32_t nodeCount                = 0u;
+    std::uint32_t activePathIndex          = kInvalidSuturingIndex;
+    std::uint32_t environmentIndex         = 0u;
+    float pathNodeSpacing                  = 0.0f;
     std::uint32_t needleTangentialDragBits = 0u;
     std::uint32_t threadTangentialDragBits = 0u;
 };
@@ -346,7 +346,7 @@ struct StrandState
     std::uint32_t collisionLayer   = 1u;
     std::uint32_t collisionMask    = 0xffffffffu;
     bool suturingEnabled           = false;
-    float pathNodeSpacing = 0.2f;
+    float pathNodeSpacing          = 0.2f;
     StrandMaterialDesc material{};
     float particleMass                 = 1.0f;
     float particleRadius               = 0.125f;
@@ -387,9 +387,9 @@ struct FluidState
 
 struct AuthoredParticleReference
 {
-    common::EntityId entityId = common::kInvalidEntityId;
+    common::EntityId entityId          = common::kInvalidEntityId;
     AuthoredParticleReferenceType type = AuthoredParticleReferenceType::StrandParticle;
-    std::uint32_t localParticleIndex = 0u;
+    std::uint32_t localParticleIndex   = 0u;
 };
 
 struct AuthoredParticleDistanceConstraintState
@@ -399,7 +399,7 @@ struct AuthoredParticleDistanceConstraintState
     AuthoredParticleReference particleB{};
     float restLength = 0.0f;
     float compliance = 0.0f;
-    bool enabled = true;
+    bool enabled     = true;
 };
 
 struct AuthoredParticleCollisionFilterState
@@ -408,7 +408,7 @@ struct AuthoredParticleCollisionFilterState
     AuthoredParticleReference particle{};
     std::uint32_t collisionLayer = 1u;
     std::uint32_t collisionMask  = 0xffffffffu;
-    bool enabled = true;
+    bool enabled                 = true;
 };
 
 struct AuthoredParticleSequenceState
@@ -425,10 +425,10 @@ struct AuthoredSuturingSequenceState
     // The selected tip entry authors the suturing path. In the current prototype,
     // the sequence tip and tail also suppress same-soft-body exterior contact.
     std::uint32_t tipEntryIndex = 0u;
-    float pathNodeSpacing = 0.0f;
-    float needleTangentialDrag = 0.0f;
-    float threadTangentialDrag = 0.0f;
-    bool enabled = true;
+    float pathNodeSpacing       = 0.0f;
+    float needleTangentialDrag  = 0.0f;
+    float threadTangentialDrag  = 0.0f;
+    bool enabled                = true;
 };
 
 struct DeformableDistanceConstraint

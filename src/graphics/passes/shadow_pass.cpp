@@ -26,7 +26,7 @@ void ShadowPass::setGpuSceneView(const GpuEntitySceneView &sceneView) noexcept
 {
     const bool sceneBindingsChanged = mSceneView.bindingGeneration != 0u &&
                                       mSceneView.bindingGeneration != sceneView.bindingGeneration;
-    mSceneView = sceneView;
+    mSceneView                      = sceneView;
     if (sceneBindingsChanged)
     {
         mShaderResourceBinding         = nullptr;
@@ -99,9 +99,8 @@ bool ShadowPass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBinding,
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> &pipelineState =
         drawCommand.programFamily == MaterialProgramFamily::SoftBodyLit
             ? mSoftBodyPipelineState
-            : (drawCommand.programFamily == MaterialProgramFamily::CurveLit
-                   ? mCurvePipelineState
-                   : mPipelineState);
+            : (drawCommand.programFamily == MaterialProgramFamily::CurveLit ? mCurvePipelineState
+                                                                            : mPipelineState);
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> &shaderBinding =
         drawCommand.programFamily == MaterialProgramFamily::SoftBodyLit
             ? mSoftBodyShaderResourceBinding
@@ -273,15 +272,14 @@ bool ShadowPass::bindSceneBuffers(MaterialProgramFamily programFamily) const
         {
             return false;
         }
-        Diligent::IShaderResourceVariable *positionVar =
-            shaderBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "g_CurveRenderPositions");
+        Diligent::IShaderResourceVariable *positionVar = shaderBinding->GetVariableByName(
+            Diligent::SHADER_TYPE_VERTEX, "g_CurveRenderPositions");
         if (positionVar == nullptr)
         {
             return false;
         }
-        Diligent::IBufferView *positionSrv =
-            mPhysicsScene->curve.positionsBuffer->GetDefaultView(
-                Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        Diligent::IBufferView *positionSrv = mPhysicsScene->curve.positionsBuffer->GetDefaultView(
+            Diligent::BUFFER_VIEW_SHADER_RESOURCE);
         if (positionSrv == nullptr)
         {
             return false;
@@ -364,9 +362,8 @@ bool ShadowPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
     Diligent::IPipelineState *pipeline =
         drawCommand.programFamily == MaterialProgramFamily::SoftBodyLit
             ? mSoftBodyPipelineState
-            : (drawCommand.programFamily == MaterialProgramFamily::CurveLit
-                   ? mCurvePipelineState
-                   : mPipelineState);
+            : (drawCommand.programFamily == MaterialProgramFamily::CurveLit ? mCurvePipelineState
+                                                                            : mPipelineState);
     Diligent::IShaderResourceBinding *shaderBinding =
         drawCommand.programFamily == MaterialProgramFamily::SoftBodyLit
             ? mSoftBodyShaderResourceBinding
@@ -423,18 +420,16 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
     shaderCreateInfo.Desc.Name =
         programFamily == MaterialProgramFamily::SoftBodyLit
             ? "CRESSimNeo.ShadowPass.SoftBody.VS"
-            : (programFamily == MaterialProgramFamily::CurveLit
-                   ? "CRESSimNeo.ShadowPass.Curve.VS"
-                   : "CRESSimNeo.ShadowPass.VS");
-    shaderCreateInfo.FilePath  = kShadowVsRelativePath;
+            : (programFamily == MaterialProgramFamily::CurveLit ? "CRESSimNeo.ShadowPass.Curve.VS"
+                                                                : "CRESSimNeo.ShadowPass.VS");
+    shaderCreateInfo.FilePath                   = kShadowVsRelativePath;
     shaderCreateInfo.pShaderSourceStreamFactory = streamFactory;
     Diligent::ShaderMacro shadowMacros[]        = {
         {"MANUAL_LAYER_EXPORT", "1"},
         {programFamily == MaterialProgramFamily::SoftBodyLit
              ? "CRESSIM_PROGRAM_FAMILY_SOFT_BODY"
-             : (programFamily == MaterialProgramFamily::CurveLit
-                    ? "CRESSIM_PROGRAM_FAMILY_CURVE"
-                    : ""),
+             : (programFamily == MaterialProgramFamily::CurveLit ? "CRESSIM_PROGRAM_FAMILY_CURVE"
+                                                                 : ""),
          programFamily != MaterialProgramFamily::StandardLit ? "1" : ""},
     };
     shaderCreateInfo.Macros = Diligent::ShaderMacroArray{
@@ -456,10 +451,9 @@ bool ShadowPass::createPipeline(Diligent::IRenderDevice *renderDevice,
     psoCreateInfo.PSODesc.Name =
         programFamily == MaterialProgramFamily::SoftBodyLit
             ? "CRESSimNeo.ShadowPass.SoftBody.PSO"
-            : (programFamily == MaterialProgramFamily::CurveLit
-                   ? "CRESSimNeo.ShadowPass.Curve.PSO"
-                   : "CRESSimNeo.ShadowPass.PSO");
-    psoCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
+            : (programFamily == MaterialProgramFamily::CurveLit ? "CRESSimNeo.ShadowPass.Curve.PSO"
+                                                                : "CRESSimNeo.ShadowPass.PSO");
+    psoCreateInfo.PSODesc.PipelineType               = Diligent::PIPELINE_TYPE_GRAPHICS;
     psoCreateInfo.GraphicsPipeline.NumRenderTargets  = 0;
     psoCreateInfo.GraphicsPipeline.DSVFormat         = Diligent::TEX_FORMAT_D32_FLOAT;
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;

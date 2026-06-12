@@ -289,9 +289,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         particleConstants.suturingPathHeaderCount = world.reservedSuturingPathHeaderCount();
         particleConstants.suturingPathNodeCount   = world.reservedSuturingPathNodeCount();
         particleConstants.suturingParticleCount   = suturingParticleCount;
-        particleConstants.maxSuturingCandidatesPerParticle =
-            kMaxSuturingCandidatesPerParticle;
-        particleConstants.maxSuturingNodesPerPath = world.maxSuturingNodesPerPath();
+        particleConstants.maxSuturingCandidatesPerParticle = kMaxSuturingCandidatesPerParticle;
+        particleConstants.maxSuturingNodesPerPath          = world.maxSuturingNodesPerPath();
 
         const bool hasParticleNeighborWork = particleCount > 0u;
         const bool hasFluidWork            = fluidCount > 0u && particleCount > 0u;
@@ -511,15 +510,15 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     computeBackend.computeContext, mImpl->sceneState, suturingParticleCount,
                     particleConstants))
             {
-                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ClassifySuturingParticles dispatch.");
+                CRESSIM_LOG_ERROR(
+                    "PhysicsSolver::step failed: ClassifySuturingParticles dispatch.");
                 return false;
             }
             if (!mImpl->passDispatcher.updateSuturingTipPaths(
                     computeBackend.computeContext, mImpl->sceneState,
                     particleConstants.suturingPairCount, particleConstants))
             {
-                CRESSIM_LOG_ERROR(
-                    "PhysicsSolver::step failed: UpdateSuturingTipPaths dispatch.");
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSuturingTipPaths dispatch.");
                 return false;
             }
         }
@@ -585,8 +584,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         const bool hasAnyPositionSolveWork =
             hasFluidWork || (hasSoftInternalWork && softInternalIterations > 0u) ||
             (hasSoftSoftContactWork && softContactIterations > 0u) ||
-            (hasSoftRigidContactWork && softContactIterations > 0u) ||
-            hasSuturingCouplingWork ||
+            (hasSoftRigidContactWork && softContactIterations > 0u) || hasSuturingCouplingWork ||
             useInitialRigidContactSolve ||
             ((ballJointCount > 0u || hingeJointCount > 0u || sliderJointCount > 0u) &&
              rigidJointIterations > 0u);
@@ -610,7 +608,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 const bool runRigidContacts =
                     useInitialRigidContactSolve && iteration < rigidContactIterations;
                 const bool needContactSoftApply = runSoftContacts || runSoftRigidContacts;
-                const bool needRigidApply       = runSoftRigidContacts || runRigidContacts ||
+                const bool needRigidApply = runSoftRigidContacts || runRigidContacts ||
                                             runBallJoints || runHingeJoints || runSliderJoints;
                 const bool needJointOnlyRigidConstants =
                     runBallJoints || runHingeJoints || runSliderJoints;
@@ -818,10 +816,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                         "PhysicsSolver::step failed: SyncRigidProxyParticles iterative dispatch.");
                     return false;
                 }
-                if (hasSuturingCouplingWork &&
-                    !mImpl->passDispatcher.assignSuturingInsideParticles(
-                        computeBackend.computeContext, mImpl->sceneState, suturingParticleCount,
-                        particleConstants))
+                if (hasSuturingCouplingWork && !mImpl->passDispatcher.assignSuturingInsideParticles(
+                                                   computeBackend.computeContext, mImpl->sceneState,
+                                                   suturingParticleCount, particleConstants))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: AssignSuturingInsideParticles dispatch.");
@@ -840,23 +837,23 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     !mImpl->passDispatcher.applyParticlePositionCorrections(
                         computeBackend.computeContext, mImpl->sceneState, particleConstants))
                 {
-                    CRESSIM_LOG_ERROR(
-                        "PhysicsSolver::step failed: ApplyParticlePositionCorrections suturing dispatch.");
+                    CRESSIM_LOG_ERROR("PhysicsSolver::step failed: "
+                                      "ApplyParticlePositionCorrections suturing dispatch.");
                     return false;
                 }
                 if (hasSuturingCouplingWork && rigidBodyCount > 0u &&
-                    !mImpl->passDispatcher.applyRigidCorrections(
-                        computeBackend.computeContext, mImpl->sceneState, rigidBodyCount,
-                        constants))
+                    !mImpl->passDispatcher.applyRigidCorrections(computeBackend.computeContext,
+                                                                 mImpl->sceneState, rigidBodyCount,
+                                                                 constants))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: ApplyRigidCorrections suturing dispatch.");
                     return false;
                 }
                 if (hasSuturingCouplingWork && rigidBodyCount > 0u && particleCount > 0u &&
-                    !mImpl->passDispatcher.syncRigidProxyParticles(
-                        computeBackend.computeContext, mImpl->sceneState, particleCount,
-                        particleConstants))
+                    !mImpl->passDispatcher.syncRigidProxyParticles(computeBackend.computeContext,
+                                                                   mImpl->sceneState, particleCount,
+                                                                   particleConstants))
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: SyncRigidProxyParticles suturing dispatch.");
@@ -962,8 +959,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftBodyBounds dispatch.");
             return false;
         }
-        if (!mImpl->passDispatcher.updateCurveRenderData(
-                computeBackend.computeContext, mImpl->sceneState, curveRenderCount))
+        if (!mImpl->passDispatcher.updateCurveRenderData(computeBackend.computeContext,
+                                                         mImpl->sceneState, curveRenderCount))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateCurveRenderData dispatch.");
             return false;
