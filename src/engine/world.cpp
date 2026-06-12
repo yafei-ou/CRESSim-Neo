@@ -1212,6 +1212,7 @@ physics::AuthoredParticleSequenceState &World::upsertParticleSequence(
     const physics::AuthoredParticleSequenceState &state)
 {
     mCurveRenderBindingsDirty = true;
+    mDrawRegistryDirty        = true;
     return mPhysicsWorld.upsertParticleSequence(state);
 }
 

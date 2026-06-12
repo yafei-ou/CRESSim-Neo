@@ -1259,10 +1259,12 @@ AuthoredParticleSequenceState &PhysicsWorld::upsertParticleSequence(
         const std::uint32_t index  = static_cast<std::uint32_t>(mParticleSequenceSnapshot.size());
         mParticleSequenceIdToIndex.emplace(normalizedState.sequenceId, index);
         mParticleSequenceSnapshot.push_back(normalizedState);
+        ++mAuthoredRevision;
         return mParticleSequenceSnapshot.back();
     }
 
     mParticleSequenceSnapshot[it->second] = normalizedState;
+    ++mAuthoredRevision;
     return mParticleSequenceSnapshot[it->second];
 }
 
@@ -1393,6 +1395,7 @@ bool PhysicsWorld::removeParticleSequence(ParticleSequenceId sequenceId)
 
     mParticleSequenceIdToIndex.erase(it);
     mParticleSequenceSnapshot.pop_back();
+    ++mAuthoredRevision;
     return true;
 }
 
