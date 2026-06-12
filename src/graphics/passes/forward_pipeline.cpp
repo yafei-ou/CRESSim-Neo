@@ -222,6 +222,8 @@ constexpr Diligent::ShaderResourceVariableDesc kLocalShadowEnvBoundsPrepareVars[
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBodyWorldAabbs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_CurveWorldAabbs",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_LocalShadowEnvBoundsRW",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
 };
@@ -372,7 +374,7 @@ bool updateConstants(Diligent::IDeviceContext *context, Diligent::IBuffer *const
     return true;
 }
 
-bool hasActiveSoftBodyRenderables(const std::vector<GpuRenderableMetadata> *metadata)
+bool hasActiveDeformableRenderables(const std::vector<GpuRenderableMetadata> *metadata)
 {
     if (metadata == nullptr)
     {
@@ -382,7 +384,7 @@ bool hasActiveSoftBodyRenderables(const std::vector<GpuRenderableMetadata> *meta
     for (const GpuRenderableMetadata &entry : *metadata)
     {
         if ((entry.flags & static_cast<std::uint32_t>(GpuRenderableFlags::Active)) != 0u &&
-            entry.softBodyIndex != 0xffffffffu)
+            entry.deformableType != static_cast<std::uint32_t>(GpuRenderableDeformableType::None))
         {
             return true;
         }
@@ -1198,9 +1200,10 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         if (envCount > 0u)
         {
             const bool needsSoftBodyWorldAabbs =
-                hasActiveSoftBodyRenderables(sceneView.renderableMetadata);
+                hasActiveDeformableRenderables(sceneView.renderableMetadata);
             if (needsSoftBodyWorldAabbs &&
-                (physicsScene == nullptr || physicsScene->soft.worldAabbsBuffer == nullptr))
+                (physicsScene == nullptr || physicsScene->soft.worldAabbsBuffer == nullptr ||
+                 physicsScene->curve.worldAabbsBuffer == nullptr))
             {
                 return false;
             }
@@ -1222,9 +1225,12 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
 
             Diligent::IBuffer *softBodyWorldAabbsBuffer =
                 mGpuIndirectState->fallbackSoftBodyWorldAabbsBuffer;
+            Diligent::IBuffer *curveWorldAabbsBuffer =
+                mGpuIndirectState->fallbackSoftBodyWorldAabbsBuffer;
             if (needsSoftBodyWorldAabbs)
             {
                 softBodyWorldAabbsBuffer = physicsScene->soft.worldAabbsBuffer;
+                curveWorldAabbsBuffer    = physicsScene->curve.worldAabbsBuffer;
             }
 
             const std::array envBoundsPrepareBindings{
@@ -1236,6 +1242,8 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                 gpu::GpuBufferBinding{"g_EntityPositions", gpuScene.poses.positionsBuffer,
                                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
                 gpu::GpuBufferBinding{"g_SoftBodyWorldAabbs", softBodyWorldAabbsBuffer,
+                                      Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+                gpu::GpuBufferBinding{"g_CurveWorldAabbs", curveWorldAabbsBuffer,
                                       Diligent::BUFFER_VIEW_SHADER_RESOURCE},
                 gpu::GpuBufferBinding{"g_LocalShadowEnvBoundsRW",
                                       mGpuIndirectState->localShadowEnvBoundsBuffer,

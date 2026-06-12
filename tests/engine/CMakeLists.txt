@@ -32,6 +32,38 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE engine
+    NAME strand_component_authoring
+    SOURCE strand_component_authoring.cpp
+    INCLUDE_SRC
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
+    NAME rigid_body_proxy_suturing_component
+    SOURCE rigid_body_proxy_suturing_component.cpp
+    INCLUDE_SRC
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
+    NAME particle_distance_constraint_authoring
+    SOURCE particle_distance_constraint_authoring.cpp
+    INCLUDE_SRC
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
+    NAME suturing_sequence_authoring
+    SOURCE suturing_sequence_authoring.cpp
+    INCLUDE_SRC
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
     NAME soft_body_simulated_toggle
     SOURCE soft_body_simulated_toggle.cpp
     INCLUDE_SRC

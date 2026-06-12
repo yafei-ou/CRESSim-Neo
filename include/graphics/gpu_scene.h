@@ -71,16 +71,23 @@ enum class GpuRenderableFlags : std::uint32_t
 };
 CRESSIM_NEO_DEFINE_ENUM_FLAGS(GpuRenderableFlags)
 
+enum class GpuRenderableDeformableType : std::uint32_t
+{
+    None     = 0u,
+    SoftBody = 1u,
+    Curve    = 2u,
+};
+
 struct GpuRenderableMetadata
 {
-    std::uint32_t flags                     = static_cast<std::uint32_t>(GpuRenderableFlags::None);
-    std::uint32_t softBodyVertexBindingBase = 0u;
-    std::uint32_t softBodyVertexNormalBase  = 0u;
-    std::uint32_t softBodyIndex             = 0xffffffffu;
-    std::uint32_t softBodyVertexCount       = 0u;
-    std::uint32_t reserved0                 = 0u;
-    std::uint32_t reserved1                 = 0u;
-    std::uint32_t reserved2                 = 0u;
+    std::uint32_t flags             = static_cast<std::uint32_t>(GpuRenderableFlags::None);
+    std::uint32_t deformVertexBase  = 0u;
+    std::uint32_t deformNormalBase  = 0u;
+    std::uint32_t deformableIndex   = 0xffffffffu;
+    std::uint32_t deformVertexCount = 0u;
+    std::uint32_t deformableType    = 0u;
+    std::uint32_t reserved1         = 0u;
+    std::uint32_t reserved2         = 0u;
     Diligent::float4 localBoundsMin{};
     Diligent::float4 localBoundsMax{};
 };

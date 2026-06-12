@@ -45,8 +45,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint particleIndex = contact.particleIndex;
     const float4 softPositionInvMass =
         CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex);
-    const float3 previousSoftPosition =
-        CRESSIM_SB_LOAD(g_ParticlePreviousPositions, particleIndex).xyz;
+    const float3 softPosition = softPositionInvMass.xyz;
+    const float3 previousSoftPosition = CRESSIM_SB_LOAD(g_ParticlePreviousPositions, particleIndex).xyz;
     const float invMassSoft = softPositionInvMass.w;
     const uint rigidBodyIndex = contact.rigidBodyIndex;
     const float4 previousRigidPositionInvMass =
@@ -91,7 +91,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 rRigid = rigidContactPoint - rigidPositionInvMass.xyz;
     const float normalMassRigid =
         ComputeContactEffectiveMass(invMassRigid, invInertiaRigid, rigidOrientation, rRigid, normal);
-    const float denom = invMassSoft + normalMassRigid;
+    const float normalMassSoft = invMassSoft;
+    const float denom = normalMassSoft + normalMassRigid;
     if (denom <= kEpsilon)
     {
         return;
@@ -104,7 +105,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         -MultiplyWorldInverseInertia(invInertiaRigid, rigidOrientation, cross(rRigid, normal)) * lambda;
 
     const float3 relativeDisplacement =
-        (rigidContactPoint - previousRigidContactPoint) - (softPositionInvMass.xyz - previousSoftPosition);
+        (rigidContactPoint - previousRigidContactPoint) - (softPosition - previousSoftPosition);
     const float3 tangentialDisplacement = ProjectOntoContactTangent(relativeDisplacement, normal);
     const float3 frictionDelta = ComputePositionFrictionDelta(
         tangentialDisplacement, penetration, combinedMaterial.x, combinedMaterial.z);
@@ -112,9 +113,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     if (frictionDistance > 0.0)
     {
         const float3 tangent = frictionDelta / frictionDistance;
+        const float tangentMassSoft = invMassSoft;
         const float tangentMassRigid = ComputeContactEffectiveMass(invMassRigid, invInertiaRigid,
-                                                                  rigidOrientation, rRigid, tangent);
-        const float tangentDenom = invMassSoft + tangentMassRigid;
+                                                                   rigidOrientation, rRigid, tangent);
+        const float tangentDenom = tangentMassSoft + tangentMassRigid;
         if (tangentDenom > kEpsilon)
         {
             const float tangentLambda = frictionDistance / tangentDenom;

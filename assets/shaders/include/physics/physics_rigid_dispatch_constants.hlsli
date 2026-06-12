@@ -9,7 +9,7 @@ cbuffer PhysicsRigidDispatchConstantsBuffer
     uint activeMovingCount;
     uint staticBodyCount;
     uint candidatePairCapacity;
-    uint reservedCandidatePairCount;
+    uint contactCapacity;
     uint reservedSubstepIndex;
     uint reservedIterationIndex;
     uint reservedSolverIterations;

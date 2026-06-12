@@ -46,6 +46,7 @@ int main()
     softBody.selfCollisionEnabled                 = false;
     softBody.collisionLayer                       = 0x2u;
     softBody.collisionMask                        = 0x5u;
+    softBody.supportsSuturing                     = true;
     if (!world.setSoftBody(entity, softBody))
     {
         CRESSIM_LOG_ERROR("Failed to author soft body for runtime-update preservation test.");
@@ -58,6 +59,11 @@ int main()
     if (softState == nullptr || softState->particleCount == 0u || initialParticles.empty())
     {
         CRESSIM_LOG_ERROR("Authored soft body did not produce any particles.");
+        return 1;
+    }
+    if (!softState->supportsSuturing)
+    {
+        CRESSIM_LOG_ERROR("Soft body suturing flag was not preserved after authoring.");
         return 1;
     }
 
@@ -101,6 +107,11 @@ int main()
         CRESSIM_LOG_ERROR("World failed to return the stored soft-body component.");
         return 1;
     }
+    if (!storedComponent->supportsSuturing)
+    {
+        CRESSIM_LOG_ERROR("World did not round-trip the soft-body suturing flag.");
+        return 1;
+    }
 
     engine::SoftBodyComponent updated = *storedComponent;
     updated.material.contact.friction    = 0.65f;
@@ -126,6 +137,11 @@ int main()
     if (softState == nullptr)
     {
         CRESSIM_LOG_ERROR("Soft body disappeared after runtime update.");
+        return 1;
+    }
+    if (!softState->supportsSuturing)
+    {
+        CRESSIM_LOG_ERROR("Runtime update lost the soft-body suturing flag.");
         return 1;
     }
 

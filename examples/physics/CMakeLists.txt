@@ -31,6 +31,11 @@ add_cressim_example(
 )
 
 add_cressim_example(
+    NAME physics_rigid_proxy_particles
+    SOURCE rigid_proxy_particles.cpp
+)
+
+add_cressim_example(
     NAME physics_claw_machine_grasp
     SOURCE claw_machine_grasp.cpp
 )
@@ -38,6 +43,11 @@ add_cressim_example(
 add_cressim_example(
     NAME physics_soft_particles_multi_env
     SOURCE soft_particles_multi_env.cpp
+)
+
+add_cressim_example(
+    NAME physics_soft_body_arc_needle_thread_kinematic
+    SOURCE soft_body_arc_needle_thread_kinematic.cpp
 )
 
 add_cressim_example(

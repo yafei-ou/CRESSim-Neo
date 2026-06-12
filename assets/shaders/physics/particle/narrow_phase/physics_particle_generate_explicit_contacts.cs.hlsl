@@ -1,13 +1,81 @@
 #include "../../../include/physics/particle/physics_particle_types.hlsli"
+#include "../../../include/physics/rigid/physics_rigid_solver_shared.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float, g_ParticleRadii);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleKinds);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerTypes);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleStrandRoles);
+CRESSIM_STRUCTURED_BUFFER(uint4, g_SuturingNeighborLinks);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwningSoftBodyIndices);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleMaterialIndices);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ParticleContactMaterials);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleCandidatePair, g_ParticleCandidatePairs);
 CRESSIM_STRUCTURED_BUFFER(GpuParticleNeighborMeta, g_ParticleNeighborMeta);
+CRESSIM_STRUCTURED_BUFFER(GpuSuturingInsertionStateStorage, g_SuturingInsertionStates);
 
 CRESSIM_RW_STRUCTURED_BUFFER(GpuParticleContact, g_ParticleContacts);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_ContactActiveFlags);
+
+bool ShouldSuppressSequenceFollowerContact(uint particleIndex, uint otherOwningSoftBody)
+{
+    if (otherOwningSoftBody == kInvalidSuturingIndex)
+    {
+        return false;
+    }
+
+    const uint strandRole = CRESSIM_SB_LOAD(g_ParticleStrandRoles, particleIndex);
+    if (strandRole != kParticleStrandRoleNeedleBody && strandRole != kParticleStrandRoleThread)
+    {
+        return false;
+    }
+
+    const uint predecessorIndex = CRESSIM_SB_LOAD(g_SuturingNeighborLinks, particleIndex).x;
+    if (predecessorIndex == kInvalidSuturingIndex)
+    {
+        return false;
+    }
+
+    const GpuSuturingInsertionStateStorage predecessorState =
+        CRESSIM_SB_LOAD(g_SuturingInsertionStates, predecessorIndex);
+    if (predecessorState.state == kSuturingInsertionStateInside &&
+        predecessorState.softBodyIndex == otherOwningSoftBody)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+bool ShouldSuppressSequenceLeaderContact(uint particleIndex, uint otherOwningSoftBody)
+{
+    if (otherOwningSoftBody == kInvalidSuturingIndex)
+    {
+        return false;
+    }
+
+    const uint strandRole = CRESSIM_SB_LOAD(g_ParticleStrandRoles, particleIndex);
+    if (strandRole != kParticleStrandRoleNeedleBody && strandRole != kParticleStrandRoleThread)
+    {
+        return false;
+    }
+
+    const uint nextIndex = CRESSIM_SB_LOAD(g_SuturingNeighborLinks, particleIndex).y;
+    if (nextIndex == kInvalidSuturingIndex)
+    {
+        return false;
+    }
+
+    const GpuSuturingInsertionStateStorage nextState =
+        CRESSIM_SB_LOAD(g_SuturingInsertionStates, nextIndex);
+    if (nextState.state == kSuturingInsertionStateInside &&
+        nextState.softBodyIndex == otherOwningSoftBody)
+    {
+        return true;
+    }
+
+    return false;
+}
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -25,8 +93,63 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const uint particleA = pair.indexA;
     const uint particleB = pair.indexB;
+    const GpuSuturingInsertionStateStorage insertionA =
+        CRESSIM_SB_LOAD(g_SuturingInsertionStates, particleA);
+    const GpuSuturingInsertionStateStorage insertionB =
+        CRESSIM_SB_LOAD(g_SuturingInsertionStates, particleB);
+    const uint ownerTypeA = CRESSIM_SB_LOAD(g_ParticleOwnerTypes, particleA);
+    const uint ownerTypeB = CRESSIM_SB_LOAD(g_ParticleOwnerTypes, particleB);
+    const uint owningSoftBodyA = CRESSIM_SB_LOAD(g_ParticleOwningSoftBodyIndices, particleA);
+    const uint owningSoftBodyB = CRESSIM_SB_LOAD(g_ParticleOwningSoftBodyIndices, particleB);
+    const bool suppressA = insertionA.state == kSuturingInsertionStateInside &&
+                           insertionA.softBodyIndex != kInvalidSuturingIndex &&
+                           owningSoftBodyB == insertionA.softBodyIndex;
+    const bool suppressB = insertionB.state == kSuturingInsertionStateInside &&
+                           insertionB.softBodyIndex != kInvalidSuturingIndex &&
+                           owningSoftBodyA == insertionB.softBodyIndex;
+    const bool suppressNeedleFollowerA =
+        ShouldSuppressSequenceFollowerContact(particleA, owningSoftBodyB);
+    const bool suppressNeedleFollowerB =
+        ShouldSuppressSequenceFollowerContact(particleB, owningSoftBodyA);
+    const bool suppressNeedleLeaderA =
+        ShouldSuppressSequenceLeaderContact(particleA, owningSoftBodyB);
+    const bool suppressNeedleLeaderB =
+        ShouldSuppressSequenceLeaderContact(particleB, owningSoftBodyA);
+    const uint strandRoleA = CRESSIM_SB_LOAD(g_ParticleStrandRoles, particleA);
+    const uint strandRoleB = CRESSIM_SB_LOAD(g_ParticleStrandRoles, particleB);
+    const bool suppressTailA =
+        owningSoftBodyB != kInvalidSuturingIndex &&
+        (strandRoleA == kParticleStrandRoleNeedleBody || strandRoleA == kParticleStrandRoleThread) &&
+        CRESSIM_SB_LOAD(g_SuturingNeighborLinks, particleA).y == kInvalidSuturingIndex;
+    const bool suppressTailB =
+        owningSoftBodyA != kInvalidSuturingIndex &&
+        (strandRoleB == kParticleStrandRoleNeedleBody || strandRoleB == kParticleStrandRoleThread) &&
+        CRESSIM_SB_LOAD(g_SuturingNeighborLinks, particleB).y == kInvalidSuturingIndex;
+    const bool suppressNeedleTipA =
+        ownerTypeA == kParticleOwnerTypeRigidBody &&
+        strandRoleA == kParticleStrandRoleNeedleTip &&
+        owningSoftBodyB != kInvalidSuturingIndex;
+    const bool suppressNeedleTipB =
+        ownerTypeB == kParticleOwnerTypeRigidBody &&
+        strandRoleB == kParticleStrandRoleNeedleTip &&
+        owningSoftBodyA != kInvalidSuturingIndex;
+    if (suppressA || suppressB || suppressNeedleFollowerA || suppressNeedleFollowerB ||
+        suppressNeedleLeaderA || suppressNeedleLeaderB || suppressTailA || suppressTailB ||
+        suppressNeedleTipA ||
+        suppressNeedleTipB)
+    {
+        CRESSIM_SB_STORE(g_ParticleContacts, pairIndex, outContact);
+        CRESSIM_SB_STORE(g_ContactActiveFlags, pairIndex, 0u);
+        return;
+    }
+
     const uint kindA = CRESSIM_SB_LOAD(g_ParticleKinds, particleA);
     const uint kindB = CRESSIM_SB_LOAD(g_ParticleKinds, particleB);
+    const uint materialIndexA = CRESSIM_SB_LOAD(g_ParticleMaterialIndices, particleA);
+    const uint materialIndexB = CRESSIM_SB_LOAD(g_ParticleMaterialIndices, particleB);
+    outContact.material.xyz = CombineContactMaterial(
+        CRESSIM_SB_LOAD(g_ParticleContactMaterials, materialIndexA),
+        CRESSIM_SB_LOAD(g_ParticleContactMaterials, materialIndexB));
     if (kindA == kParticleKindFluid && kindB == kParticleKindFluid)
     {
         CRESSIM_SB_STORE(g_ParticleContacts, pairIndex, outContact);

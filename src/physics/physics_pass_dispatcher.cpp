@@ -114,6 +114,13 @@ bool PhysicsPassDispatcher::writeSoftRenderDispatchConstants(
                                 sizeof(constants));
 }
 
+bool PhysicsPassDispatcher::writeCurveRenderDispatchConstants(
+    Diligent::IDeviceContext *computeContext, const GpuCurveRenderDispatchConstants &constants)
+{
+    return writeConstantsBuffer(computeContext, mCurveRenderDispatchConstantsBuffer, &constants,
+                                sizeof(constants));
+}
+
 bool PhysicsPassDispatcher::writeScanDispatchConstants(
     Diligent::IDeviceContext *computeContext, const GpuPhysicsScanDispatchConstants &constants)
 {
@@ -174,6 +181,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
     using namespace passdefs;
 
     if (!initPass(mRigidPredictPass, kPredictRigid) || !initPass(mSoftPredictPass, kSoftPredict) ||
+        !initPass(mSyncRigidProxyParticlesPass, kSyncRigidProxyParticles) ||
         !initPass(mBuildParticleBroadPhaseEntriesPass, kBuildParticleBroadPhaseEntries) ||
         !initPass(mBuildParticleBroadPhaseKeysPass, kBuildParticleBroadPhaseKeys) ||
         !initPass(mMarkParticleCellRangeStartsPass, kMarkParticleCellRangeStarts) ||
@@ -203,9 +211,17 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mFinalizeActiveParticleRigidContactsPass, kFinalizeActiveParticleRigidContacts) ||
         !initPass(mCompactActiveParticleRigidContactsPass, kCompactActiveParticleRigidContacts) ||
         !initPass(mClearSoftConstraintStatePass, kClearSoftConstraintState) ||
+        !initPass(mClearSuturingCandidatesPass, kClearSuturingCandidates) ||
+        !initPass(mGatherSuturingCandidatesPass, kGatherSuturingCandidates) ||
+        !initPass(mClassifySuturingParticlesPass, kClassifySuturingParticles) ||
+        !initPass(mUpdateSuturingTipPathsPass, kUpdateSuturingTipPaths) ||
+        !initPass(mAssignSuturingInsideParticlesPass, kAssignSuturingInsideParticles) ||
+        !initPass(mSolveSuturingNodePathConstraintsPass, kSolveSuturingNodePathConstraints) ||
         !initPass(mSolveSoftEdgeConstraintsPass, kSolveSoftEdgeConstraints) ||
+        !initPass(mSolveSoftBendConstraintsPass, kSolveSoftBendConstraints) ||
         !initPass(mSolveSoftTetConstraintsPass, kSolveSoftTetConstraints) ||
         !initPass(mApplySoftEdgeCorrectionsPass, kApplySoftEdgeCorrections) ||
+        !initPass(mApplySoftBendCorrectionsPass, kApplySoftBendCorrections) ||
         !initPass(mApplySoftTetCorrectionsPass, kApplySoftTetCorrections) ||
         !initPass(mSolveParticleExplicitContactsPass, kSolveParticleExplicitContacts) ||
         !initPass(mSolveParticleRigidContactsPass, kSolveParticleRigidContacts) ||
@@ -225,6 +241,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mApplyParticleContactVelocitiesPass, kApplyParticleContactVelocities) ||
         !initPass(mUpdateSoftTriangleNormalsPass, kUpdateSoftTriangleNormals) ||
         !initPass(mUpdateSoftRenderNormalsPass, kUpdateSoftRenderNormals) ||
+        !initPass(mUpdateCurveRenderDataPass, kUpdateCurveRenderData) ||
         !initPass(mUpdateSoftBodyBoundsPass, kUpdateSoftBodyBounds) ||
         !initPass(mFinalizeSoftBodyBoundsPass, kFinalizeSoftBodyBounds) ||
         !initPass(mUpdateRigidWorldAabbsPass, kUpdateRigidWorldAabbs) ||
@@ -246,6 +263,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mBuildNarrowPhaseChunksPass, kBuildNarrowPhaseChunks) ||
         !initPass(mPrepareRigidIndirectArgsPass, kPrepareRigidIndirectArgs) ||
         !initPass(mGenerateRigidContactsPass, kGenerateRigidContacts) ||
+        !initPass(mGenerateProxyRigidContactsPass, kGenerateProxyRigidContacts) ||
         !initPass(mFinalRigidContactDepenetrationPass, kFinalRigidContactDepenetration) ||
         !initPass(mClearRigidBodyPairContactAggregatesPass, kClearRigidBodyPairContactAggregates) ||
         !initPass(mInitRigidContactVelocitiesPass, kInitRigidContactVelocities) ||
@@ -298,6 +316,9 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
                createConstantsBuffer("CRESSimNeo.Physics.SoftRenderDispatchConstants",
                                      sizeof(GpuSoftRenderDispatchConstants),
                                      mSoftRenderDispatchConstantsBuffer) &&
+               createConstantsBuffer("CRESSimNeo.Physics.CurveRenderDispatchConstants",
+                                     sizeof(GpuCurveRenderDispatchConstants),
+                                     mCurveRenderDispatchConstantsBuffer) &&
                createConstantsBuffer("CRESSimNeo.Physics.ScanDispatchConstants",
                                      sizeof(GpuPhysicsScanDispatchConstants),
                                      mScanDispatchConstantsBuffer) &&
@@ -688,6 +709,47 @@ bool PhysicsPassDispatcher::predictSoft(Diligent::IDeviceContext *computeContext
                                      dispatchGroupCount(particleCount));
 }
 
+bool PhysicsPassDispatcher::syncRigidProxyParticles(Diligent::IDeviceContext *computeContext,
+                                                    const PhysicsSceneGpuState &sceneState,
+                                                    std::uint32_t particleCount,
+                                                    const GpuParticleDispatchConstants &constants)
+{
+    if (computeContext == nullptr)
+    {
+        return false;
+    }
+    if (particleCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &particles = sceneState.persistentParticles();
+    const auto &rigid     = sceneState.persistentRigidBodies();
+    const auto &predicted = sceneState.transientBuffers().predictedRigidBodies;
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerTypes", particles.ownerTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerIndices", particles.ownerIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidProxyLocalPositions",
+                              particles.rigidProxyLocalPositionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass", predicted.positionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations", predicted.orientationsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", particles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mSyncRigidProxyParticlesPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                 dispatchGroupCount(particleCount));
+}
+
 bool PhysicsPassDispatcher::buildParticleBroadPhaseEntries(
     Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
     std::uint32_t totalParticleLikeCount, const GpuParticleDispatchConstants &constants)
@@ -975,6 +1037,10 @@ bool PhysicsPassDispatcher::buildParticleRigidCandidatePairs(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleKinds", softParticles.particleKindsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerTypes", softParticles.ownerTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerIndices", softParticles.ownerIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleBroadPhaseMetadata",
                               softParticles.broadPhaseMetadataBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -1013,6 +1079,10 @@ bool PhysicsPassDispatcher::buildParticleRigidCandidatePairs(
         gpu::GpuBufferBinding{"g_ParticleRadii", softParticles.radiiBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleKinds", softParticles.particleKindsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerTypes", softParticles.ownerTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerIndices", softParticles.ownerIndicesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleBroadPhaseMetadata",
                               softParticles.broadPhaseMetadataBuffer,
@@ -1162,8 +1232,10 @@ bool PhysicsPassDispatcher::generateParticleExplicitContacts(
         return true;
     }
 
-    const auto &softParticles = sceneState.persistentParticles();
-    const auto &transient     = sceneState.transientBuffers();
+    const auto &softParticles           = sceneState.persistentParticles();
+    const auto &transient               = sceneState.transientBuffers();
+    const PhysicsGpuSceneView sceneView = sceneState.sceneView();
+    const auto &suturing                = sceneView.soft;
     const std::array bindings{
         gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -1171,9 +1243,26 @@ bool PhysicsPassDispatcher::generateParticleExplicitContacts(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleKinds", softParticles.particleKindsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerTypes", softParticles.ownerTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleStrandRoles", softParticles.strandRolesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingNeighborLinks", softParticles.suturingNeighborLinksBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwningSoftBodyIndices",
+                              softParticles.owningSoftBodyIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleMaterialIndices",
+                              softParticles.particleMaterialIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleContactMaterials",
+                              softParticles.particleContactMaterialsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleCandidatePairs", transient.softSoftCandidatePairsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleNeighborMeta", transient.softNeighborMetaBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingInsertionStates", suturing.suturingInsertionStatesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ContactActiveFlags", transient.softRadixBitFlagsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
@@ -1207,6 +1296,8 @@ bool PhysicsPassDispatcher::generateParticleRigidContacts(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleBroadPhaseMetadata",
                               softParticles.broadPhaseMetadataBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerTypes", softParticles.ownerTypesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
                               transient.predictedRigidBodies.positionsBuffer,
@@ -1386,6 +1477,8 @@ bool PhysicsPassDispatcher::clearSoftConstraintState(Diligent::IDeviceContext *c
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_SoftEdgeLambdas", transient.softEdgeLambdasBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SoftBendLambdas", transient.softBendLambdasBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_SoftTetLambdas", transient.softTetLambdasBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
@@ -1393,6 +1486,311 @@ bool PhysicsPassDispatcher::clearSoftConstraintState(Diligent::IDeviceContext *c
     return writeParticleDispatchConstants(computeContext, constants) &&
            mClearSoftConstraintStatePass.dispatch(computeContext, kDefaultVariant, bindings,
                                                   dispatchGroupCount(threadCount));
+}
+
+bool PhysicsPassDispatcher::dispatchClearSuturingCandidatesPass(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants)
+{
+    if (computeContext == nullptr || suturingParticleCount == 0u ||
+        constants.suturingPairCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &transient = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingCandidateCounts", transient.suturingCandidateCountsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SuturingCandidateParticles",
+                              transient.suturingCandidateParticlesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mClearSuturingCandidatesPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                 dispatchGroupCount(suturingParticleCount));
+}
+
+bool PhysicsPassDispatcher::clearSuturingCandidates(Diligent::IDeviceContext *computeContext,
+                                                    const PhysicsSceneGpuState &sceneState,
+                                                    std::uint32_t suturingParticleCount,
+                                                    const GpuParticleDispatchConstants &constants)
+{
+    return dispatchClearSuturingCandidatesPass(computeContext, sceneState, suturingParticleCount,
+                                               constants);
+}
+
+bool PhysicsPassDispatcher::dispatchGatherSuturingCandidatesPass(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    const GpuParticleDispatchConstants &constants)
+{
+    if (computeContext == nullptr || constants.suturingPairCount == 0u ||
+        constants.suturingParticleCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles = sceneState.persistentParticles();
+    const auto &transient     = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerTypes", softParticles.ownerTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingNeighborLinks", softParticles.suturingNeighborLinksBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleCandidatePairs", transient.softSoftCandidatePairsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleNeighborMeta", transient.softNeighborMetaBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingCandidateCounts", transient.suturingCandidateCountsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SuturingCandidateParticles",
+                              transient.suturingCandidateParticlesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mGatherSuturingCandidatesPass.dispatchIndirect(
+               computeContext, kDefaultVariant, bindings, transient.physicsIndirectArgsBuffer,
+               indirectArgsOffset(GpuPhysicsIndirectDispatchSlot::SoftGenerateContacts));
+}
+
+bool PhysicsPassDispatcher::gatherSuturingCandidates(Diligent::IDeviceContext *computeContext,
+                                                     const PhysicsSceneGpuState &sceneState,
+                                                     const GpuParticleDispatchConstants &constants)
+{
+    return dispatchGatherSuturingCandidatesPass(computeContext, sceneState, constants);
+}
+
+bool PhysicsPassDispatcher::dispatchClassifySuturingParticlesPass(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants)
+{
+    if (computeContext == nullptr || suturingParticleCount == 0u ||
+        constants.suturingPairCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles           = sceneState.persistentParticles();
+    const auto &softTopology            = sceneState.persistentSoftTopology();
+    const auto &transient               = sceneState.transientBuffers();
+    const PhysicsGpuSceneView sceneView = sceneState.sceneView();
+    const auto &suturing                = sceneView.soft;
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingParticleRefs", suturing.suturingParticleRefsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerTypes", softParticles.ownerTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwningSoftBodyIndices",
+                              softParticles.owningSoftBodyIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingCandidateParticles",
+                              transient.suturingCandidateParticlesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleTetRanges", softTopology.particleTetRangesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleIncidentTets", softTopology.particleIncidentTetsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftTets", softTopology.tetsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingPairs", suturing.suturingPairsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingInsertionStates", suturing.suturingInsertionStatesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mClassifySuturingParticlesPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                   dispatchGroupCount(suturingParticleCount));
+}
+
+bool PhysicsPassDispatcher::classifySuturingParticles(Diligent::IDeviceContext *computeContext,
+                                                      const PhysicsSceneGpuState &sceneState,
+                                                      std::uint32_t suturingParticleCount,
+                                                      const GpuParticleDispatchConstants &constants)
+{
+    return dispatchClassifySuturingParticlesPass(computeContext, sceneState, suturingParticleCount,
+                                                 constants);
+}
+
+bool PhysicsPassDispatcher::dispatchUpdateSuturingTipPathsPass(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t suturingPairCount, const GpuParticleDispatchConstants &constants)
+{
+    if (computeContext == nullptr || suturingPairCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles           = sceneState.persistentParticles();
+    const auto &softTopology            = sceneState.persistentSoftTopology();
+    const PhysicsGpuSceneView sceneView = sceneState.sceneView();
+    const auto &suturing                = sceneView.soft;
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftTets", softTopology.tetsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingPairs", suturing.suturingPairsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SuturingInsertionStates", suturing.suturingInsertionStatesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingPathHeaders", suturing.suturingPathHeadersBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SuturingPathNodes", suturing.suturingPathNodesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mUpdateSuturingTipPathsPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                dispatchGroupCount(suturingPairCount));
+}
+
+bool PhysicsPassDispatcher::updateSuturingTipPaths(Diligent::IDeviceContext *computeContext,
+                                                   const PhysicsSceneGpuState &sceneState,
+                                                   std::uint32_t suturingPairCount,
+                                                   const GpuParticleDispatchConstants &constants)
+{
+    return dispatchUpdateSuturingTipPathsPass(computeContext, sceneState, suturingPairCount,
+                                              constants);
+}
+
+bool PhysicsPassDispatcher::dispatchAssignSuturingInsideParticlesPass(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants)
+{
+    if (computeContext == nullptr || suturingParticleCount == 0u ||
+        constants.suturingPairCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles           = sceneState.persistentParticles();
+    const auto &softTopology            = sceneState.persistentSoftTopology();
+    const PhysicsGpuSceneView sceneView = sceneState.sceneView();
+    const auto &suturing                = sceneView.soft;
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingParticleRefs", suturing.suturingParticleRefsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingPairs", suturing.suturingPairsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingInsertionStates", suturing.suturingInsertionStatesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SuturingPathHeaders", suturing.suturingPathHeadersBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingPathNodes", suturing.suturingPathNodesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftTets", softTopology.tetsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mAssignSuturingInsideParticlesPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                       dispatchGroupCount(suturingParticleCount));
+}
+
+bool PhysicsPassDispatcher::assignSuturingInsideParticles(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants)
+{
+    return dispatchAssignSuturingInsideParticlesPass(computeContext, sceneState,
+                                                     suturingParticleCount, constants);
+}
+
+bool PhysicsPassDispatcher::dispatchSolveSuturingNodePathConstraintsPass(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants)
+{
+    if (computeContext == nullptr || suturingParticleCount == 0u ||
+        constants.suturingPairCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles           = sceneState.persistentParticles();
+    const auto &softTopology            = sceneState.persistentSoftTopology();
+    const auto &transient               = sceneState.transientBuffers();
+    const auto &persistentRigid         = sceneState.persistentRigidBodies();
+    const PhysicsGpuSceneView sceneView = sceneState.sceneView();
+    const auto &suturing                = sceneView.soft;
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingParticleRefs", suturing.suturingParticleRefsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePreviousPositions", softParticles.previousPositionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerIndices", softParticles.ownerIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidProxyLocalPositions",
+                              softParticles.rigidProxyLocalPositionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingInsertionStates", suturing.suturingInsertionStatesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingPathNodes", suturing.suturingPathNodesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftTets", softTopology.tetsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PreviousRigidBodyPositionsInvMass",
+                              transient.previousRigidBodies.positionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PreviousRigidBodyOrientations",
+                              transient.previousRigidBodies.orientationsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+                              transient.predictedRigidBodies.positionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
+                              transient.predictedRigidBodies.orientationsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyInverseInertiaLocal",
+                              persistentRigid.inverseInertiaLocalBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionCorrections",
+                              transient.softPositionCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyTranslationCorrections",
+                              transient.translationCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyRotationCorrections", transient.rotationCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mSolveSuturingNodePathConstraintsPass.dispatch(
+               computeContext, kDefaultVariant, bindings,
+               dispatchGroupCount(suturingParticleCount));
+}
+
+bool PhysicsPassDispatcher::solveSuturingNodePathConstraints(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t suturingParticleCount, const GpuParticleDispatchConstants &constants)
+{
+    return dispatchSolveSuturingNodePathConstraintsPass(computeContext, sceneState,
+                                                        suturingParticleCount, constants);
 }
 
 bool PhysicsPassDispatcher::solveSoftEdgeConstraints(Diligent::IDeviceContext *computeContext,
@@ -1425,6 +1823,38 @@ bool PhysicsPassDispatcher::solveSoftEdgeConstraints(Diligent::IDeviceContext *c
     return writeParticleDispatchConstants(computeContext, constants) &&
            mSolveSoftEdgeConstraintsPass.dispatch(computeContext, kDefaultVariant, solveBindings,
                                                   dispatchGroupCount(softEdgeCount));
+}
+
+bool PhysicsPassDispatcher::solveSoftBendConstraints(Diligent::IDeviceContext *computeContext,
+                                                     const PhysicsSceneGpuState &sceneState,
+                                                     std::uint32_t softBendCount,
+                                                     const GpuParticleDispatchConstants &constants)
+{
+    if (softBendCount == 0u || constants.particleCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles = sceneState.persistentParticles();
+    const auto &softTopology  = sceneState.persistentSoftTopology();
+    const auto &transient     = sceneState.transientBuffers();
+    const std::array solveBindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftBends", softTopology.bendsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftBendLambdas", transient.softBendLambdasBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SoftBendCorrections", transient.softBendCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mSolveSoftBendConstraintsPass.dispatch(computeContext, kDefaultVariant, solveBindings,
+                                                  dispatchGroupCount(softBendCount));
 }
 
 bool PhysicsPassDispatcher::solveSoftTetConstraints(Diligent::IDeviceContext *computeContext,
@@ -1490,6 +1920,37 @@ bool PhysicsPassDispatcher::applySoftEdgeCorrections(Diligent::IDeviceContext *c
                                                   dispatchGroupCount(constants.particleCount));
 }
 
+bool PhysicsPassDispatcher::applySoftBendCorrections(Diligent::IDeviceContext *computeContext,
+                                                     const PhysicsSceneGpuState &sceneState,
+                                                     const GpuParticleDispatchConstants &constants)
+{
+    if (constants.particleCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softParticles = sceneState.persistentParticles();
+    const auto &softTopology  = sceneState.persistentSoftTopology();
+    const auto &transient     = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_ParticleBendRanges", softTopology.particleBendRangesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleIncidentBends", softTopology.particleIncidentBendsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftBendCorrections", transient.softBendCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mApplySoftBendCorrectionsPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                  dispatchGroupCount(constants.particleCount));
+}
+
 bool PhysicsPassDispatcher::applySoftTetCorrections(Diligent::IDeviceContext *computeContext,
                                                     const PhysicsSceneGpuState &sceneState,
                                                     const GpuParticleDispatchConstants &constants)
@@ -1530,18 +1991,36 @@ bool PhysicsPassDispatcher::solveParticleExplicitContacts(
         return true;
     }
 
-    const auto &softParticles = sceneState.persistentParticles();
-    const auto &transient     = sceneState.transientBuffers();
+    const auto &softParticles   = sceneState.persistentParticles();
+    const auto &persistentRigid = sceneState.persistentRigidBodies();
+    const auto &transient       = sceneState.transientBuffers();
     const std::array solveBindings{
         gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticlePreviousPositions", softParticles.previousPositionsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_ParticleMaterialIndices",
-                              softParticles.particleMaterialIndicesBuffer,
+        gpu::GpuBufferBinding{"g_ParticleOwnerTypes", softParticles.ownerTypesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_ParticleContactMaterials",
-                              softParticles.particleContactMaterialsBuffer,
+        gpu::GpuBufferBinding{"g_ParticleOwnerIndices", softParticles.ownerIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidProxyLocalPositions",
+                              softParticles.rigidProxyLocalPositionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PreviousRigidBodyPositionsInvMass",
+                              persistentRigid.positionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PreviousRigidBodyOrientations", persistentRigid.orientationsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+                              transient.predictedRigidBodies.positionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
+                              transient.predictedRigidBodies.orientationsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyInverseInertiaLocal",
+                              persistentRigid.inverseInertiaLocalBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyTypes", persistentRigid.bodyTypesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleContacts", transient.activeSoftContactsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -1549,6 +2028,11 @@ bool PhysicsPassDispatcher::solveParticleExplicitContacts(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticlePositionCorrections",
                               transient.softPositionCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyTranslationCorrections",
+                              transient.translationCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyRotationCorrections", transient.rotationCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
@@ -1571,6 +2055,8 @@ bool PhysicsPassDispatcher::solveParticleRigidContacts(
     const auto &persistentColliders = sceneState.persistentColliders();
     const auto &transient           = sceneState.transientBuffers();
     const std::array solveBindings{
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticlePreviousPositions", softParticles.previousPositionsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleMaterialIndices",
@@ -1583,8 +2069,6 @@ bool PhysicsPassDispatcher::solveParticleRigidContacts(
                               persistentRigid.positionsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PreviousRigidBodyOrientations", persistentRigid.orientationsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
                               transient.predictedRigidBodies.positionsBuffer,
@@ -2118,19 +2602,38 @@ bool PhysicsPassDispatcher::dispatchSolveParticleContactVelocitiesPass(
         return true;
     }
 
-    const auto &softParticles = sceneState.persistentParticles();
-    const auto &transient     = sceneState.transientBuffers();
+    const auto &softParticles   = sceneState.persistentParticles();
+    const auto &persistentRigid = sceneState.persistentRigidBodies();
+    const auto &transient       = sceneState.transientBuffers();
 
     const std::array bindings{
         gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_ParticleMaterialIndices",
-                              softParticles.particleMaterialIndicesBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_ParticleContactMaterials",
-                              softParticles.particleContactMaterialsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleVelocities", softParticles.velocitiesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerTypes", softParticles.ownerTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerIndices", softParticles.ownerIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidProxyLocalPositions",
+                              softParticles.rigidProxyLocalPositionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+                              transient.predictedRigidBodies.positionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
+                              transient.predictedRigidBodies.orientationsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyLinearVelocities",
+                              transient.predictedRigidBodies.linearVelocitiesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyAngularVelocities",
+                              transient.predictedRigidBodies.angularVelocitiesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyInverseInertiaLocal",
+                              persistentRigid.inverseInertiaLocalBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyTypes", persistentRigid.bodyTypesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleContacts", transient.activeSoftContactsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -2139,6 +2642,12 @@ bool PhysicsPassDispatcher::dispatchSolveParticleContactVelocitiesPass(
         gpu::GpuBufferBinding{"g_ParticleVelocityCorrections",
                               transient.softVelocityCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyLinearVelocityCorrections",
+                              transient.linearVelocityCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyAngularVelocityCorrections",
+                              transient.angularVelocityCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
     return mSolveParticleContactVelocitiesPass.dispatchIndirect(
@@ -2146,10 +2655,10 @@ bool PhysicsPassDispatcher::dispatchSolveParticleContactVelocitiesPass(
         indirectArgsOffset(GpuPhysicsIndirectDispatchSlot::SoftSolveContactVelocities));
 }
 
-bool PhysicsPassDispatcher::solveParticleContactVelocities(Diligent::IDeviceContext *computeContext,
-                                                           const PhysicsSceneGpuState &sceneState,
-                                                           std::uint32_t particleCount,
-                                                           std::uint32_t iterations)
+bool PhysicsPassDispatcher::solveParticleContactVelocities(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t particleCount, std::uint32_t rigidBodyCount, std::uint32_t iterations,
+    const GpuRigidDispatchConstants &rigidConstants)
 {
     if (computeContext == nullptr)
     {
@@ -2160,8 +2669,9 @@ bool PhysicsPassDispatcher::solveParticleContactVelocities(Diligent::IDeviceCont
         return true;
     }
 
-    const auto &softParticles = sceneState.persistentParticles();
-    const auto &transient     = sceneState.transientBuffers();
+    const auto &softParticles   = sceneState.persistentParticles();
+    const auto &persistentRigid = sceneState.persistentRigidBodies();
+    const auto &transient       = sceneState.transientBuffers();
     const std::array applyBindings{
         gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
                               mParticleDispatchConstantsBuffer,
@@ -2174,8 +2684,27 @@ bool PhysicsPassDispatcher::solveParticleContactVelocities(Diligent::IDeviceCont
                               transient.softVelocityCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
+    const std::array applyRigidBindings{
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyTypes", persistentRigid.bodyTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyLinearVelocities",
+                              transient.predictedRigidBodies.linearVelocitiesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyAngularVelocities",
+                              transient.predictedRigidBodies.angularVelocitiesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyLinearVelocityCorrections",
+                              transient.linearVelocityCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyAngularVelocityCorrections",
+                              transient.angularVelocityCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
 
-    if (!mApplyParticleContactVelocitiesPass.bindVariant(kDefaultVariant, applyBindings))
+    if (!mApplyParticleContactVelocitiesPass.bindVariant(kDefaultVariant, applyBindings) ||
+        !mApplyRigidContactVelocitiesPass.bindVariant(kDefaultVariant, applyRigidBindings))
     {
         return false;
     }
@@ -2185,6 +2714,13 @@ bool PhysicsPassDispatcher::solveParticleContactVelocities(Diligent::IDeviceCont
         if (!dispatchSolveParticleContactVelocitiesPass(computeContext, sceneState) ||
             !mApplyParticleContactVelocitiesPass.dispatch(
                 computeContext, kDefaultVariant, applyBindings, dispatchGroupCount(particleCount)))
+        {
+            return false;
+        }
+        if (rigidBodyCount > 0u && (!writeRigidDispatchConstants(computeContext, rigidConstants) ||
+                                    !mApplyRigidContactVelocitiesPass.dispatch(
+                                        computeContext, kDefaultVariant, applyRigidBindings,
+                                        dispatchGroupCount(rigidBodyCount))))
         {
             return false;
         }
@@ -2396,6 +2932,41 @@ bool PhysicsPassDispatcher::updateSoftRenderNormals(Diligent::IDeviceContext *co
     return writeSoftRenderDispatchConstants(computeContext, constants) &&
            mUpdateSoftRenderNormalsPass.dispatch(computeContext, kDefaultVariant, bindings,
                                                  dispatchGroupCount(renderVertexCount));
+}
+
+bool PhysicsPassDispatcher::updateCurveRenderData(Diligent::IDeviceContext *computeContext,
+                                                  const PhysicsSceneGpuState &sceneState,
+                                                  std::uint32_t curveCount)
+{
+    if (curveCount == 0u)
+    {
+        return true;
+    }
+
+    const GpuCurveRenderDispatchConstants constants{curveCount, 0u, 0u, 0u};
+    const auto &softParticles = sceneState.persistentParticles();
+    const auto &curveRender   = sceneState.persistentCurveRender();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsCurveRenderDispatchConstantsBuffer",
+                              mCurveRenderDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_CurveRenderDescriptors", curveRender.descriptorsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_CurveRenderParticleIndices", curveRender.particleIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_CurveRenderPositionsRW", curveRender.positionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_CurveRenderNormalsRW", curveRender.normalsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_CurveWorldAabbsRW", curveRender.worldAabbsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeCurveRenderDispatchConstants(computeContext, constants) &&
+           mUpdateCurveRenderDataPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                               dispatchGroupCount(curveCount));
 }
 
 bool PhysicsPassDispatcher::updateSoftBodyBounds(Diligent::IDeviceContext *computeContext,
@@ -3317,6 +3888,8 @@ bool PhysicsPassDispatcher::prepareRigidIndirectArgs(Diligent::IDeviceContext *c
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_NarrowPhaseMeta", transient.narrowPhaseMetaBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ProxyRigidContactMeta", transient.proxyRigidContactMetaBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PhysicsIndirectDispatchArgs", transient.physicsIndirectArgsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
@@ -3373,6 +3946,78 @@ bool PhysicsPassDispatcher::generateRigidContacts(Diligent::IDeviceContext *comp
     return dispatchGenerateRigidContactsPass(computeContext, sceneState);
 }
 
+bool PhysicsPassDispatcher::dispatchGenerateProxyRigidContactsPass(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    const GpuParticleDispatchConstants &constants)
+{
+    if (computeContext == nullptr || constants.particleCount == 0u)
+    {
+        return true;
+    }
+
+    const GpuProxyRigidContactMeta zeroMeta{};
+    computeContext->UpdateBuffer(sceneState.transientBuffers().proxyRigidContactMetaBuffer, 0u,
+                                 sizeof(GpuProxyRigidContactMeta), &zeroMeta,
+                                 Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    const auto &particles           = sceneState.persistentParticles();
+    const auto &rigidBodies         = sceneState.persistentRigidBodies();
+    const auto &bodyColliderMapping = sceneState.persistentBodyColliderMapping();
+    const auto &colliders           = sceneState.persistentColliders();
+    const auto &transient           = sceneState.transientBuffers();
+
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_BroadPhaseMeta", transient.broadPhaseMetaBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ProxyRigidContactMeta", transient.proxyRigidContactMetaBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", particles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleRadii", particles.radiiBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerTypes", particles.ownerTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleOwnerIndices", particles.ownerIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+                              transient.predictedRigidBodies.positionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
+                              transient.predictedRigidBodies.orientationsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyScales", rigidBodies.scalesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyProxyParticleContactMaterials",
+                              rigidBodies.proxyParticleContactMaterialsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_BodyColliderRanges", bodyColliderMapping.colliderRangesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_BodyColliderIndices", bodyColliderMapping.colliderIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ColliderContactData", colliders.contactDataBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleCandidatePairs", transient.softRigidCandidatePairsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticleNeighborMeta", transient.softNeighborMetaBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidContacts", transient.rigidContactsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return mGenerateProxyRigidContactsPass.dispatchIndirect(
+        computeContext, kDefaultVariant, bindings, transient.physicsIndirectArgsBuffer,
+        indirectArgsOffset(GpuPhysicsIndirectDispatchSlot::SoftGenerateRigidContacts));
+}
+
+bool PhysicsPassDispatcher::generateProxyRigidContacts(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    const GpuParticleDispatchConstants &constants)
+{
+    return dispatchGenerateProxyRigidContactsPass(computeContext, sceneState, constants);
+}
+
 bool PhysicsPassDispatcher::dispatchFinalRigidContactDepenetrationPass(
     Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState)
 {
@@ -3386,6 +4031,8 @@ bool PhysicsPassDispatcher::dispatchFinalRigidContactDepenetrationPass(
 
     const std::array bindings{
         gpu::GpuBufferBinding{"g_BroadPhaseMeta", transient.broadPhaseMetaBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ProxyRigidContactMeta", transient.proxyRigidContactMetaBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
                               transient.predictedRigidBodies.positionsBuffer,
@@ -3446,6 +4093,8 @@ bool PhysicsPassDispatcher::dispatchInitRigidContactVelocitiesPass(
         gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_BroadPhaseMeta", transient.broadPhaseMetaBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ProxyRigidContactMeta", transient.proxyRigidContactMetaBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
                               transient.predictedRigidBodies.positionsBuffer,
@@ -4196,6 +4845,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
 {
     return mRigidPredictPass.forceRecreateAllVariants() &&
            mSoftPredictPass.forceRecreateAllVariants() &&
+           mSyncRigidProxyParticlesPass.forceRecreateAllVariants() &&
            mBuildParticleBroadPhaseEntriesPass.forceRecreateAllVariants() &&
            mBuildParticleBroadPhaseKeysPass.forceRecreateAllVariants() &&
            mMarkParticleCellRangeStartsPass.forceRecreateAllVariants() &&
@@ -4221,9 +4871,17 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mFinalizeActiveParticleRigidContactsPass.forceRecreateAllVariants() &&
            mCompactActiveParticleRigidContactsPass.forceRecreateAllVariants() &&
            mClearSoftConstraintStatePass.forceRecreateAllVariants() &&
+           mClearSuturingCandidatesPass.forceRecreateAllVariants() &&
+           mGatherSuturingCandidatesPass.forceRecreateAllVariants() &&
+           mClassifySuturingParticlesPass.forceRecreateAllVariants() &&
+           mUpdateSuturingTipPathsPass.forceRecreateAllVariants() &&
+           mAssignSuturingInsideParticlesPass.forceRecreateAllVariants() &&
+           mSolveSuturingNodePathConstraintsPass.forceRecreateAllVariants() &&
            mSolveSoftEdgeConstraintsPass.forceRecreateAllVariants() &&
+           mSolveSoftBendConstraintsPass.forceRecreateAllVariants() &&
            mSolveSoftTetConstraintsPass.forceRecreateAllVariants() &&
            mApplySoftEdgeCorrectionsPass.forceRecreateAllVariants() &&
+           mApplySoftBendCorrectionsPass.forceRecreateAllVariants() &&
            mApplySoftTetCorrectionsPass.forceRecreateAllVariants() &&
            mSolveParticleExplicitContactsPass.forceRecreateAllVariants() &&
            mSolveParticleRigidContactsPass.forceRecreateAllVariants() &&
@@ -4243,6 +4901,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mApplyParticleContactVelocitiesPass.forceRecreateAllVariants() &&
            mUpdateSoftTriangleNormalsPass.forceRecreateAllVariants() &&
            mUpdateSoftRenderNormalsPass.forceRecreateAllVariants() &&
+           mUpdateCurveRenderDataPass.forceRecreateAllVariants() &&
            mUpdateSoftBodyBoundsPass.forceRecreateAllVariants() &&
            mFinalizeSoftBodyBoundsPass.forceRecreateAllVariants() &&
            mClearRigidCorrectionsPass.forceRecreateAllVariants() &&
@@ -4266,6 +4925,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mBuildNarrowPhaseChunksPass.forceRecreateAllVariants() &&
            mPrepareRigidIndirectArgsPass.forceRecreateAllVariants() &&
            mGenerateRigidContactsPass.forceRecreateAllVariants() &&
+           mGenerateProxyRigidContactsPass.forceRecreateAllVariants() &&
            mFinalRigidContactDepenetrationPass.forceRecreateAllVariants() &&
            mClearRigidBodyPairContactAggregatesPass.forceRecreateAllVariants() &&
            mInitRigidContactVelocitiesPass.forceRecreateAllVariants() &&

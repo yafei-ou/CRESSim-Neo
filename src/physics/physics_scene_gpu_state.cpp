@@ -236,17 +236,22 @@ bool PhysicsSceneGpuState::ensureCapacity(
     Diligent::IRenderDevice *renderDevice, std::uint32_t bodyCount, std::uint32_t colliderCount,
     std::uint32_t particleCount, std::uint32_t fluidCount,
     std::uint32_t particleContactMaterialCount, std::uint32_t fluidMaterialCount,
-    std::uint32_t softEdgeCount, std::uint32_t softTetCount, std::uint32_t ballJointCount,
-    std::uint32_t hingeJointCount, std::uint32_t sliderJointCount,
+    std::uint32_t softEdgeCount, std::uint32_t softBendCount, std::uint32_t softTetCount,
+    std::uint32_t ballJointCount, std::uint32_t hingeJointCount, std::uint32_t sliderJointCount,
     std::uint32_t softRenderVertexCount, std::uint32_t softRenderTriangleIndexCount,
     std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
-    std::uint32_t softBodyBoundsChunkCount, Diligent::Uint64 sharedContextMask,
+    std::uint32_t softBodyBoundsChunkCount, std::uint32_t suturingPairCount,
+    std::uint32_t suturingPathHeaderCount, std::uint32_t suturingPathNodeCount,
+    std::uint32_t curveRenderCount, std::uint32_t curveRenderParticleIndexCount,
+    std::uint32_t curveRenderVertexCount, Diligent::Uint64 sharedContextMask,
     const std::uint32_t *sharedQueueFamilyIndices, std::uint32_t sharedQueueFamilyIndexCount,
     bool useNativeFloatAtomics)
 {
-    const auto rigidPositionsBefore     = mPersistentRigidBodies.positionsBuffer.RawPtr();
-    const auto rigidOrientationsBefore  = mPersistentRigidBodies.orientationsBuffer.RawPtr();
-    const auto rigidBodyTypesBefore     = mPersistentRigidBodies.bodyTypesBuffer.RawPtr();
+    const auto rigidPositionsBefore    = mPersistentRigidBodies.positionsBuffer.RawPtr();
+    const auto rigidOrientationsBefore = mPersistentRigidBodies.orientationsBuffer.RawPtr();
+    const auto rigidBodyTypesBefore    = mPersistentRigidBodies.bodyTypesBuffer.RawPtr();
+    const auto rigidProxyMaterialsBefore =
+        mPersistentRigidBodies.proxyParticleContactMaterialsBuffer.RawPtr();
     const auto colliderOwnersBefore     = mPersistentColliders.ownerRigidBodyIndicesBuffer.RawPtr();
     const auto colliderBroadPhaseBefore = mPersistentColliders.broadPhaseDataBuffer.RawPtr();
     const auto colliderGeometryBefore   = mPersistentColliders.geometryDataBuffer.RawPtr();
@@ -266,13 +271,14 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.predictedRigidBodies.linearVelocitiesBuffer.RawPtr();
     const auto predictedAngularBefore =
         mTransientState.predictedRigidBodies.angularVelocitiesBuffer.RawPtr();
-    const auto bodyAabbsBefore         = mTransientState.bodyAabbsBuffer.RawPtr();
-    const auto bodyMetaBefore          = mTransientState.bodyMetaBuffer.RawPtr();
-    const auto activeFlagsBefore       = mTransientState.activeBodyFlagsBuffer.RawPtr();
-    const auto activeOffsetsBefore     = mTransientState.activeBodyOffsetsBuffer.RawPtr();
-    const auto staticFlagsBefore       = mTransientState.staticBodyFlagsBuffer.RawPtr();
-    const auto staticOffsetsBefore     = mTransientState.staticBodyOffsetsBuffer.RawPtr();
-    const auto rigidContactsBefore     = mTransientState.rigidContactsBuffer.RawPtr();
+    const auto bodyAabbsBefore             = mTransientState.bodyAabbsBuffer.RawPtr();
+    const auto bodyMetaBefore              = mTransientState.bodyMetaBuffer.RawPtr();
+    const auto activeFlagsBefore           = mTransientState.activeBodyFlagsBuffer.RawPtr();
+    const auto activeOffsetsBefore         = mTransientState.activeBodyOffsetsBuffer.RawPtr();
+    const auto staticFlagsBefore           = mTransientState.staticBodyFlagsBuffer.RawPtr();
+    const auto staticOffsetsBefore         = mTransientState.staticBodyOffsetsBuffer.RawPtr();
+    const auto rigidContactsBefore         = mTransientState.rigidContactsBuffer.RawPtr();
+    const auto proxyRigidContactMetaBefore = mTransientState.proxyRigidContactMetaBuffer.RawPtr();
     const auto rigidAggregateMapBefore = mTransientState.rigidBodyPairAggregateMapBuffer.RawPtr();
     const auto rigidAggregateActiveCountBefore =
         mTransientState.rigidBodyPairAggregateActiveCountBuffer.RawPtr();
@@ -303,10 +309,19 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const auto sliderVelocityDriveIndicesBefore =
         mPersistentJoints.sliderVelocityDriveJointIndicesBuffer.RawPtr();
     const auto softEdgesBefore = mPersistentSoftTopology.edgesBuffer.RawPtr();
+    const auto softBendsBefore = mPersistentSoftTopology.bendsBuffer.RawPtr();
     const auto softTetsBefore  = mPersistentSoftTopology.tetsBuffer.RawPtr();
     const auto softRenderNormalsBefore =
         mPersistentSoftTopology.softBodyRenderNormalsBuffer.RawPtr();
-    const auto softWorldAabbsBefore = mPersistentSoftTopology.softBodyWorldAabbsBuffer.RawPtr();
+    const auto softWorldAabbsBefore     = mPersistentSoftTopology.softBodyWorldAabbsBuffer.RawPtr();
+    const auto suturingPairsBefore      = mPersistentSuturing.pairsBuffer.RawPtr();
+    const auto suturingInsertionsBefore = mPersistentSuturing.insertionStatesBuffer.RawPtr();
+    const auto suturingPathHeadersBefore = mPersistentSuturing.pathHeadersBuffer.RawPtr();
+    const auto suturingPathNodesBefore   = mPersistentSuturing.pathNodesBuffer.RawPtr();
+    const auto curveDescriptorsBefore    = mPersistentCurveRender.descriptorsBuffer.RawPtr();
+    const auto curvePositionsBefore      = mPersistentCurveRender.positionsBuffer.RawPtr();
+    const auto curveNormalsBefore        = mPersistentCurveRender.normalsBuffer.RawPtr();
+    const auto curveWorldAabbsBefore     = mPersistentCurveRender.worldAabbsBuffer.RawPtr();
 
     const bool hasAllBuffers =
         mPersistentRigidBodies.positionsBuffer != nullptr &&
@@ -316,6 +331,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentRigidBodies.angularVelocitiesBuffer != nullptr &&
         mPersistentRigidBodies.inverseInertiaLocalBuffer != nullptr &&
         mPersistentRigidBodies.bodyTypesBuffer != nullptr &&
+        mPersistentRigidBodies.proxyParticleContactMaterialsBuffer != nullptr &&
         mPersistentRigidBodies.kinematicTargetPositionsBuffer != nullptr &&
         mPersistentRigidBodies.kinematicTargetOrientationsBuffer != nullptr &&
         mPersistentRigidBodies.kinematicTargetFlagsBuffer != nullptr &&
@@ -349,6 +365,9 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentParticles.particleKindsBuffer != nullptr &&
         mPersistentParticles.ownerTypesBuffer != nullptr &&
         mPersistentParticles.ownerIndicesBuffer != nullptr &&
+        mPersistentParticles.strandIdsBuffer != nullptr &&
+        mPersistentParticles.strandRolesBuffer != nullptr &&
+        mPersistentParticles.suturingNeighborLinksBuffer != nullptr &&
         mPersistentParticles.owningSoftBodyIndicesBuffer != nullptr &&
         mPersistentParticles.particleMaterialIndicesBuffer != nullptr &&
         mPersistentParticles.fluidMaterialIndicesBuffer != nullptr &&
@@ -362,10 +381,14 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentParticles.adjacencyCountsBuffer != nullptr &&
         mPersistentParticles.adjacencyIndicesBuffer != nullptr &&
         mPersistentParticles.broadPhaseMetadataBuffer != nullptr &&
+        mPersistentParticles.rigidProxyLocalPositionsBuffer != nullptr &&
         mPersistentSoftTopology.edgesBuffer != nullptr &&
+        mPersistentSoftTopology.bendsBuffer != nullptr &&
         mPersistentSoftTopology.tetsBuffer != nullptr &&
         mPersistentSoftTopology.particleEdgeRangesBuffer != nullptr &&
         mPersistentSoftTopology.particleIncidentEdgesBuffer != nullptr &&
+        mPersistentSoftTopology.particleBendRangesBuffer != nullptr &&
+        mPersistentSoftTopology.particleIncidentBendsBuffer != nullptr &&
         mPersistentSoftTopology.particleTetRangesBuffer != nullptr &&
         mPersistentSoftTopology.particleIncidentTetsBuffer != nullptr &&
         mPersistentSoftTopology.renderVertexTriangleRangesBuffer != nullptr &&
@@ -378,6 +401,16 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentSoftTopology.softBodyFallbackNormalsBuffer != nullptr &&
         mPersistentSoftTopology.softBodyRenderNormalsBuffer != nullptr &&
         mPersistentSoftTopology.softBodyWorldAabbsBuffer != nullptr &&
+        mPersistentSuturing.pairsBuffer != nullptr &&
+        mPersistentSuturing.particleRefsBuffer != nullptr &&
+        mPersistentSuturing.insertionStatesBuffer != nullptr &&
+        mPersistentSuturing.pathHeadersBuffer != nullptr &&
+        mPersistentSuturing.pathNodesBuffer != nullptr &&
+        mPersistentCurveRender.descriptorsBuffer != nullptr &&
+        mPersistentCurveRender.particleIndicesBuffer != nullptr &&
+        mPersistentCurveRender.positionsBuffer != nullptr &&
+        mPersistentCurveRender.normalsBuffer != nullptr &&
+        mPersistentCurveRender.worldAabbsBuffer != nullptr &&
         mTransientState.predictedRigidBodies.positionsBuffer != nullptr &&
         mTransientState.predictedRigidBodies.orientationsBuffer != nullptr &&
         mTransientState.predictedRigidBodies.linearVelocitiesBuffer != nullptr &&
@@ -394,6 +427,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.softNeighborMetaBuffer != nullptr &&
         mTransientState.physicsIndirectArgsBuffer != nullptr &&
         mTransientState.softSoftCandidatePairsBuffer != nullptr &&
+        mTransientState.suturingCandidateCountsBuffer != nullptr &&
+        mTransientState.suturingCandidateParticlesBuffer != nullptr &&
         mTransientState.fluidNeighborPairsBuffer != nullptr &&
         mTransientState.fluidBoundaryCandidateCountsBuffer != nullptr &&
         mTransientState.fluidBoundaryCandidateOffsetsBuffer != nullptr &&
@@ -414,8 +449,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.fluidAnisotropy3Buffer != nullptr &&
         mTransientState.fluidVorticitiesBuffer != nullptr &&
         mTransientState.softEdgeLambdasBuffer != nullptr &&
+        mTransientState.softBendLambdasBuffer != nullptr &&
         mTransientState.softTetLambdasBuffer != nullptr &&
         mTransientState.softEdgeCorrectionsBuffer != nullptr &&
+        mTransientState.softBendCorrectionsBuffer != nullptr &&
         mTransientState.softTetCorrectionsBuffer != nullptr &&
         mTransientState.softBodyChunkAabbsBuffer != nullptr &&
         mTransientState.bodyAabbsBuffer != nullptr && mTransientState.bodyMetaBuffer != nullptr &&
@@ -473,6 +510,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.narrowPhaseMetaBuffer != nullptr &&
         mTransientState.narrowPhaseChunkCounterBuffer != nullptr &&
         mTransientState.rigidContactsBuffer != nullptr &&
+        mTransientState.proxyRigidContactMetaBuffer != nullptr &&
         mTransientState.rigidBodyPairAggregateMapBuffer != nullptr &&
         mTransientState.rigidBodyPairAggregateActiveCountBuffer != nullptr &&
         mTransientState.rigidBodyPairAggregateHeadersBuffer != nullptr &&
@@ -502,6 +540,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         std::max<std::uint32_t>(particleContactMaterialCount, 1u);
     const std::uint32_t newFluidMaterialCapacity = std::max<std::uint32_t>(fluidMaterialCount, 1u);
     const std::uint32_t newSoftEdgeCapacity      = std::max<std::uint32_t>(softEdgeCount, 64u);
+    const std::uint32_t newSoftBendCapacity      = std::max<std::uint32_t>(softBendCount, 64u);
     const std::uint32_t newSoftTetCapacity       = std::max<std::uint32_t>(softTetCount, 64u);
     const std::uint32_t newParticleBroadPhaseEntryCapacity =
         std::max<std::uint32_t>(particleCount, 64u);
@@ -520,10 +559,12 @@ bool PhysicsSceneGpuState::ensureCapacity(
         std::max<std::uint32_t>(particleCount * newMaxFluidNeighborhood, newMaxFluidNeighborhood);
     const std::uint32_t newSoftScanCapacity =
         std::max(newParticleBroadPhaseEntryCapacity, newSoftCandidatePairCapacity);
-    const std::uint32_t newSoftParticleAdjacencyCapacity =
-        std::max<std::uint32_t>(std::max(softEdgeCount * 2u, softTetCount * 12u), 64u);
+    const std::uint32_t newSoftParticleAdjacencyCapacity = std::max<std::uint32_t>(
+        std::max(std::max(softEdgeCount * 2u, softBendCount * 3u), softTetCount * 12u), 64u);
     const std::uint32_t newSoftIncidentEdgeCapacity =
         std::max<std::uint32_t>(softEdgeCount * 2u, 64u);
+    const std::uint32_t newSoftIncidentBendCapacity =
+        std::max<std::uint32_t>(softBendCount * 3u, 64u);
     const std::uint32_t newSoftIncidentTetCapacity =
         std::max<std::uint32_t>(softTetCount * 4u, 64u);
     const std::uint32_t newSoftRenderVertexCapacity =
@@ -535,6 +576,19 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const std::uint32_t newSoftBodyRangeCapacity = std::max<std::uint32_t>(softBodyRangeCount, 64u);
     const std::uint32_t newSoftBodyBoundsChunkCapacity =
         std::max<std::uint32_t>(softBodyBoundsChunkCount, 64u);
+    const std::uint32_t newSuturingPairCapacity = std::max<std::uint32_t>(suturingPairCount, 1u);
+    const std::uint32_t newSuturingParticleCapacity = std::max<std::uint32_t>(particleCount, 1u);
+    const std::uint32_t newSuturingPathHeaderCapacity =
+        std::max<std::uint32_t>(suturingPathHeaderCount, 1u);
+    const std::uint32_t newSuturingPathNodeCapacity =
+        std::max<std::uint32_t>(suturingPathNodeCount, 1u);
+    const std::uint32_t newCurveRenderCapacity = std::max<std::uint32_t>(curveRenderCount, 1u);
+    const std::uint32_t newCurveRenderParticleIndexCapacity =
+        std::max<std::uint32_t>(curveRenderParticleIndexCount, 1u);
+    const std::uint32_t newCurveRenderVertexCapacity =
+        std::max<std::uint32_t>(curveRenderVertexCount, 1u);
+    const std::uint32_t newSuturingCandidateSlotCapacity = std::max<std::uint32_t>(
+        newSuturingParticleCapacity * kMaxSuturingCandidatesPerParticle, 1u);
     const std::uint32_t newJointCollisionSuppressionOffsetCapacity =
         std::max<std::uint32_t>(bodyCount + 1u, 1u);
     const std::uint32_t newJointCollisionSuppressionNeighborCapacity =
@@ -555,7 +609,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const std::uint32_t newChunkCapacity = std::max<std::uint32_t>(
         (newCandidatePairCapacity + kNarrowPhaseChunkSize - 1u) / kNarrowPhaseChunkSize, 1u);
     const std::uint32_t newRigidContactCapacity = std::max<std::uint32_t>(
-        newCandidatePairCapacity * kRigidContactsPerPair, kRigidContactsPerPair);
+        newCandidatePairCapacity * kRigidContactsPerPair + newSoftCandidatePairCapacity,
+        kRigidContactsPerPair);
     const Diligent::Uint64 contextMask = sharedContextMask;
     const bool needsSharedSoftPositionsRecreate =
         mSharedSoftPositionsInvMass.buffer() != nullptr &&
@@ -566,7 +621,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
 
     if (hasAllBuffers && mRigidBodyCapacity >= bodyCount && mColliderCapacity >= colliderCount &&
         mSoftParticleCapacity >= particleCount && mSoftEdgeCapacity >= softEdgeCount &&
-        mSoftTetCapacity >= softTetCount && mFluidVisualCapacity >= newFluidVisualCapacity &&
+        mSoftBendCapacity >= softBendCount && mSoftTetCapacity >= softTetCount &&
+        mFluidVisualCapacity >= newFluidVisualCapacity &&
         mParticleContactMaterialCapacity >= newParticleContactMaterialCapacity &&
         mFluidMaterialCapacity >= newFluidMaterialCapacity &&
         mParticleBroadPhaseEntryCapacity >= newParticleBroadPhaseEntryCapacity &&
@@ -575,6 +631,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mFluidNeighborPairCapacity >= newFluidNeighborPairCapacity &&
         mSoftScanScratchCapacity >= newSoftScanCapacity &&
         mSoftIncidentEdgeCapacity >= newSoftIncidentEdgeCapacity &&
+        mSoftIncidentBendCapacity >= newSoftIncidentBendCapacity &&
         mSoftIncidentTetCapacity >= newSoftIncidentTetCapacity &&
         mSoftRenderVertexCapacity >= newSoftRenderVertexCapacity &&
         mSoftRenderTriangleIndexCapacity >= newSoftRenderTriangleIndexCapacity &&
@@ -592,6 +649,13 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mSliderPassiveJointIndexCapacity >= newSliderPassiveJointIndexCapacity &&
         mSliderPositionDriveIndexCapacity >= newSliderPositionDriveIndexCapacity &&
         mSliderVelocityDriveIndexCapacity >= newSliderVelocityDriveIndexCapacity &&
+        mSuturingPairCapacity >= newSuturingPairCapacity &&
+        mSuturingParticleCapacity >= newSuturingParticleCapacity &&
+        mSuturingPathHeaderCapacity >= newSuturingPathHeaderCapacity &&
+        mSuturingPathNodeCapacity >= newSuturingPathNodeCapacity &&
+        mCurveRenderCapacity >= newCurveRenderCapacity &&
+        mCurveRenderParticleIndexCapacity >= newCurveRenderParticleIndexCapacity &&
+        mCurveRenderVertexCapacity >= newCurveRenderVertexCapacity &&
         mSoftBodyBoundsChunkCapacity >= newSoftBodyBoundsChunkCapacity)
     {
         return true;
@@ -633,6 +697,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 newRigidBodyCapacity, Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.bodyTypesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidBodyProxyParticleMaterials",
+                                sizeof(Diligent::float4), newRigidBodyCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentRigidBodies.proxyParticleContactMaterialsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.KinematicTargetPositions",
                                 sizeof(Diligent::float4), newRigidBodyCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -788,6 +857,19 @@ bool PhysicsSceneGpuState::ensureCapacity(
             renderDevice, "CRESSimNeo.Physics.ParticleOwnerIndices", sizeof(std::uint32_t),
             newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
             Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.ownerIndicesBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.ParticleStrandIds", sizeof(std::uint32_t),
+            newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.strandIdsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.ParticleStrandRoles", sizeof(std::uint32_t),
+            newSoftParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentParticles.strandRolesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SuturingNeighborLinks",
+                                sizeof(Diligent::uint4), newSoftParticleCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentParticles.suturingNeighborLinksBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftBodyIndices",
                                 sizeof(std::uint32_t), newSoftParticleCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -841,6 +923,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentParticles.adjacencyIndicesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidProxyLocalPositions",
+                                sizeof(Diligent::float4), newSoftParticleCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentParticles.rigidProxyLocalPositionsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftBroadPhaseMetadata",
                                 sizeof(Diligent::uint4), newSoftParticleCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -850,6 +937,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 newSoftEdgeCapacity, Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftTopology.edgesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftBends", sizeof(SoftBend),
+                                newSoftBendCapacity, Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSoftTopology.bendsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftTets", sizeof(SoftTet),
                                 newSoftTetCapacity, Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
@@ -864,6 +955,16 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftTopology.particleIncidentEdgesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftParticleBendRanges",
+                                sizeof(GpuSoftConstraintRange), newSoftParticleCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSoftTopology.particleBendRangesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftIncidentBends",
+                                sizeof(GpuSoftIncidentBend), newSoftIncidentBendCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSoftTopology.particleIncidentBendsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftParticleTetRanges",
                                 sizeof(GpuSoftConstraintRange), newSoftParticleCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -924,6 +1025,55 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftTopology.softBodyWorldAabbsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SuturingPairs",
+                                sizeof(GpuSuturingPair), newSuturingPairCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSuturing.pairsBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.SuturingParticleRefs", sizeof(Diligent::uint4),
+            newSuturingParticleCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentSuturing.particleRefsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SuturingInsertionStates",
+                                sizeof(GpuSuturingInsertionStateStorage), newSoftParticleCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSuturing.insertionStatesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SuturingPathHeaders",
+                                sizeof(GpuSuturingPathHeader), newSuturingPathHeaderCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSuturing.pathHeadersBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SuturingPathNodes",
+                                sizeof(GpuSuturingPathNode), newSuturingPathNodeCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSuturing.pathNodesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.CurveRenderDescriptors",
+                                sizeof(GpuCurveRenderDescriptor), newCurveRenderCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentCurveRender.descriptorsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.CurveRenderParticleIndices",
+                                sizeof(std::uint32_t), newCurveRenderParticleIndexCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentCurveRender.particleIndicesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.CurveRenderPositions",
+                                sizeof(Diligent::float4), newCurveRenderVertexCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentCurveRender.positionsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.CurveRenderNormals",
+                                sizeof(Diligent::float4), newCurveRenderVertexCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentCurveRender.normalsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.CurveWorldAabbs",
+                                sizeof(GpuBodyAabb), newCurveRenderCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentCurveRender.worldAabbsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ParticleBroadPhaseEntries",
                                 sizeof(GpuParticleBroadPhaseEntry),
                                 newParticleBroadPhaseEntryCapacity,
@@ -977,6 +1127,16 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.softSoftCandidatePairsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SuturingCandidateCounts",
+                                sizeof(std::uint32_t), newSuturingParticleCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.suturingCandidateCountsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SuturingCandidateParticles",
+                                sizeof(Diligent::uint4), newSuturingCandidateSlotCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.suturingCandidateParticlesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.FluidNeighborPairs",
                                 sizeof(GpuParticleCandidatePair), newFluidNeighborPairCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -1078,6 +1238,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.softEdgeLambdasBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftBendLambdas", sizeof(float),
+                                newSoftBendCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.softBendLambdasBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftTetLambdas", sizeof(float),
                                 newSoftTetCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -1088,6 +1253,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.softEdgeCorrectionsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftBendCorrections",
+                                sizeof(GpuSoftBendCorrection), newSoftBendCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.softBendCorrectionsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftTetCorrections",
                                 sizeof(GpuSoftTetCorrection), newSoftTetCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -1353,6 +1523,15 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.rigidContactsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ProxyRigidContactMeta",
+                                sizeof(GpuProxyRigidContactMeta), 1u,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mTransientState.proxyRigidContactMetaBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ProxyRigidContactMeta.Readback",
+                                sizeof(GpuProxyRigidContactMeta), 1u, Diligent::BIND_NONE,
+                                Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
+                                mReadbackRigidBodies.proxyRigidContactMetaBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.RigidBodyPairAggregateMap",
                                 sizeof(GpuRigidBodyPairContactAggregateMapEntry),
                                 newCandidatePairCapacity,
@@ -1455,7 +1634,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftNeighborMeta.Readback",
                                 sizeof(GpuParticleNeighborMeta), 1u, Diligent::BIND_NONE,
                                 Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
-                                mReadbackParticles.neighborMetaBuffer))
+                                mReadbackParticles.neighborMetaBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ProxyRigidContactMeta.Readback",
+                                sizeof(GpuProxyRigidContactMeta), 1u, Diligent::BIND_NONE,
+                                Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
+                                mReadbackRigidBodies.proxyRigidContactMetaBuffer))
     {
         return false;
     }
@@ -1523,7 +1706,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mFluidVisualCapacity != newFluidVisualCapacity ||
         mParticleContactMaterialCapacity != newParticleContactMaterialCapacity ||
         mFluidMaterialCapacity != newFluidMaterialCapacity ||
-        mSoftEdgeCapacity != newSoftEdgeCapacity || mSoftTetCapacity != newSoftTetCapacity ||
+        mSoftEdgeCapacity != newSoftEdgeCapacity || mSoftBendCapacity != newSoftBendCapacity ||
+        mSoftTetCapacity != newSoftTetCapacity ||
         mParticleBroadPhaseEntryCapacity != newParticleBroadPhaseEntryCapacity ||
         mSoftCandidatePairCapacity != newSoftCandidatePairCapacity ||
         mFluidBoundaryCandidatePairCapacity != newFluidBoundaryCandidatePairCapacity ||
@@ -1532,20 +1716,36 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mSoftScanScratchCapacity != newSoftScanCapacity ||
         mSoftParticleAdjacencyCapacity != newSoftParticleAdjacencyCapacity ||
         mSoftIncidentEdgeCapacity != newSoftIncidentEdgeCapacity ||
+        mSoftIncidentBendCapacity != newSoftIncidentBendCapacity ||
         mSoftIncidentTetCapacity != newSoftIncidentTetCapacity ||
         mSoftRenderVertexCapacity != newSoftRenderVertexCapacity ||
         mSoftRenderTriangleIndexCapacity != newSoftRenderTriangleIndexCapacity ||
         mSoftRenderTriangleCapacity != newSoftRenderTriangleCapacity ||
         mSoftBodyRangeCapacity != newSoftBodyRangeCapacity ||
+        mSuturingPairCapacity != newSuturingPairCapacity ||
+        mSuturingParticleCapacity != newSuturingParticleCapacity ||
+        mSuturingPathHeaderCapacity != newSuturingPathHeaderCapacity ||
+        mSuturingPathNodeCapacity != newSuturingPathNodeCapacity ||
+        mCurveRenderCapacity != newCurveRenderCapacity ||
+        mCurveRenderParticleIndexCapacity != newCurveRenderParticleIndexCapacity ||
+        mCurveRenderVertexCapacity != newCurveRenderVertexCapacity ||
         mSoftBodyBoundsChunkCapacity != newSoftBodyBoundsChunkCapacity;
 
     mRigidBodyCapacity                         = newRigidBodyCapacity;
     mColliderCapacity                          = newColliderCapacity;
     mSoftParticleCapacity                      = newSoftParticleCapacity;
+    mSuturingPairCapacity                      = newSuturingPairCapacity;
+    mSuturingParticleCapacity                  = newSuturingParticleCapacity;
+    mSuturingPathHeaderCapacity                = newSuturingPathHeaderCapacity;
+    mSuturingPathNodeCapacity                  = newSuturingPathNodeCapacity;
+    mCurveRenderCapacity                       = newCurveRenderCapacity;
+    mCurveRenderParticleIndexCapacity          = newCurveRenderParticleIndexCapacity;
+    mCurveRenderVertexCapacity                 = newCurveRenderVertexCapacity;
     mFluidVisualCapacity                       = newFluidVisualCapacity;
     mParticleContactMaterialCapacity           = newParticleContactMaterialCapacity;
     mFluidMaterialCapacity                     = newFluidMaterialCapacity;
     mSoftEdgeCapacity                          = newSoftEdgeCapacity;
+    mSoftBendCapacity                          = newSoftBendCapacity;
     mSoftTetCapacity                           = newSoftTetCapacity;
     mParticleBroadPhaseEntryCapacity           = newParticleBroadPhaseEntryCapacity;
     mSoftCandidatePairCapacity                 = newSoftCandidatePairCapacity;
@@ -1555,6 +1755,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
     mSoftScanScratchCapacity                   = newSoftScanCapacity;
     mSoftParticleAdjacencyCapacity             = newSoftParticleAdjacencyCapacity;
     mSoftIncidentEdgeCapacity                  = newSoftIncidentEdgeCapacity;
+    mSoftIncidentBendCapacity                  = newSoftIncidentBendCapacity;
     mSoftIncidentTetCapacity                   = newSoftIncidentTetCapacity;
     mSoftRenderVertexCapacity                  = newSoftRenderVertexCapacity;
     mSoftRenderTriangleIndexCapacity           = newSoftRenderTriangleIndexCapacity;
@@ -1579,6 +1780,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         rigidPositionsBefore != mPersistentRigidBodies.positionsBuffer.RawPtr() ||
         rigidOrientationsBefore != mPersistentRigidBodies.orientationsBuffer.RawPtr() ||
         rigidBodyTypesBefore != mPersistentRigidBodies.bodyTypesBuffer.RawPtr() ||
+        rigidProxyMaterialsBefore !=
+            mPersistentRigidBodies.proxyParticleContactMaterialsBuffer.RawPtr() ||
         colliderOwnersBefore != mPersistentColliders.ownerRigidBodyIndicesBuffer.RawPtr() ||
         colliderBroadPhaseBefore != mPersistentColliders.broadPhaseDataBuffer.RawPtr() ||
         colliderGeometryBefore != mPersistentColliders.geometryDataBuffer.RawPtr() ||
@@ -1616,6 +1819,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         staticFlagsBefore != mTransientState.staticBodyFlagsBuffer.RawPtr() ||
         staticOffsetsBefore != mTransientState.staticBodyOffsetsBuffer.RawPtr() ||
         rigidContactsBefore != mTransientState.rigidContactsBuffer.RawPtr() ||
+        proxyRigidContactMetaBefore != mTransientState.proxyRigidContactMetaBuffer.RawPtr() ||
         rigidAggregateMapBefore != mTransientState.rigidBodyPairAggregateMapBuffer.RawPtr() ||
         rigidAggregateActiveCountBefore !=
             mTransientState.rigidBodyPairAggregateActiveCountBuffer.RawPtr() ||
@@ -1632,7 +1836,16 @@ bool PhysicsSceneGpuState::ensureCapacity(
         particlePreviousBefore != mPersistentParticles.previousPositionsBuffer.RawPtr() ||
         particleVelocitiesBefore != mPersistentParticles.velocitiesBuffer.RawPtr() ||
         softEdgesBefore != mPersistentSoftTopology.edgesBuffer.RawPtr() ||
+        softBendsBefore != mPersistentSoftTopology.bendsBuffer.RawPtr() ||
         softTetsBefore != mPersistentSoftTopology.tetsBuffer.RawPtr() ||
+        suturingPairsBefore != mPersistentSuturing.pairsBuffer.RawPtr() ||
+        suturingInsertionsBefore != mPersistentSuturing.insertionStatesBuffer.RawPtr() ||
+        suturingPathHeadersBefore != mPersistentSuturing.pathHeadersBuffer.RawPtr() ||
+        suturingPathNodesBefore != mPersistentSuturing.pathNodesBuffer.RawPtr() ||
+        curveDescriptorsBefore != mPersistentCurveRender.descriptorsBuffer.RawPtr() ||
+        curvePositionsBefore != mPersistentCurveRender.positionsBuffer.RawPtr() ||
+        curveNormalsBefore != mPersistentCurveRender.normalsBuffer.RawPtr() ||
+        curveWorldAabbsBefore != mPersistentCurveRender.worldAabbsBuffer.RawPtr() ||
         softRenderNormalsBefore != mPersistentSoftTopology.softBodyRenderNormalsBuffer.RawPtr() ||
         softWorldAabbsBefore != mPersistentSoftTopology.softBodyWorldAabbsBuffer.RawPtr();
     if (rigidBindingsChanged)
@@ -1673,18 +1886,26 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
         world.particleContactMaterials();
     const std::vector<FluidMaterialGpu> &fluidMaterials = world.fluidMaterials();
     const SoftRenderDataHost &softRenderData            = world.softRenderData();
-    const std::vector<SoftEdge> &softEdges              = world.softEdges();
-    const std::vector<SoftTet> &softTets                = world.softTets();
-    const std::uint64_t softParticleRevision            = world.softParticleRevision();
-    const std::uint64_t softTopologyRevision            = world.softGpuTopologyRevision();
+    const CurveRenderDataHost &curveRenderData          = world.curveRenderData();
+    const std::vector<DeformableDistanceConstraint> &distanceConstraints =
+        world.distanceConstraints();
+    const std::vector<DeformableBendConstraint> &bendConstraints     = world.bendConstraints();
+    const std::vector<DeformableVolumeConstraint> &volumeConstraints = world.volumeConstraints();
+    const std::vector<StrandSoftSuturingPair> &suturingPairs         = world.suturingPairs();
+    const std::vector<std::uint32_t> &suturingParticleIndices = world.suturingParticleIndices();
+    const std::uint32_t suturingPathHeaderCount = world.reservedSuturingPathHeaderCount();
+    const std::uint32_t suturingPathNodeCount   = world.reservedSuturingPathNodeCount();
+    const std::uint64_t softParticleRevision    = world.softParticleRevision();
+    const std::uint64_t softTopologyRevision    = world.softGpuTopologyRevision();
+    const std::uint64_t curveRenderRevision     = world.curveRenderRevision();
     if (static_cast<std::uint32_t>(rigidBodies.size()) != bodyCount ||
         static_cast<std::uint32_t>(colliders.size()) != colliderCount)
     {
         return false;
     }
 
-    if (bodyCount == 0u && colliderCount == 0u && particles.empty() && softEdges.empty() &&
-        softTets.empty())
+    if (bodyCount == 0u && colliderCount == 0u && particles.empty() &&
+        distanceConstraints.empty() && bendConstraints.empty() && volumeConstraints.empty())
     {
         mRigidBodyCount                      = 0u;
         mColliderCount                       = 0u;
@@ -1697,7 +1918,13 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
         mParticleContactMaterialCount        = 0u;
         mFluidMaterialCount                  = 0u;
         mSoftEdgeCount                       = 0u;
+        mSoftBendCount                       = 0u;
         mSoftTetCount                        = 0u;
+        mSuturingPairCount                   = 0u;
+        mSuturingParticleCount               = 0u;
+        mSuturingPathHeaderCount             = 0u;
+        mSuturingPathNodeCount               = 0u;
+        mCurveRenderCount                    = 0u;
         mHingePassiveJointCount              = 0u;
         mHingePositionDriveJointCount        = 0u;
         mHingeVelocityDriveJointCount        = 0u;
@@ -1739,39 +1966,60 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
         return false;
     }
 
-    const bool needsSoftParticleUpload = mSoftParticleUploadResetRequired ||
-                                         mLastUploadedSoftParticleRevision != softParticleRevision;
-    const bool needsSoftTopologyUpload =
-        mSoftTopologyUploadResetRequired ||
-        mLastUploadedSoftTopologyRevision != softTopologyRevision ||
-        mLastUploadedSoftParticleRevision != softParticleRevision;
+    const bool needsSoftParticleUpload  = mSoftParticleUploadResetRequired ||
+                                          mLastUploadedSoftParticleRevision != softParticleRevision;
+    const bool needsSoftTopologyUpload  = mSoftTopologyUploadResetRequired ||
+                                          mLastUploadedSoftTopologyRevision != softTopologyRevision;
+    const bool needsSuturingStateUpload = mSoftTopologyUploadResetRequired ||
+                                          mLastUploadedSoftTopologyRevision != softTopologyRevision;
+    const bool needsCurveRenderUpload =
+        mSoftTopologyUploadResetRequired || mLastUploadedCurveRenderRevision != curveRenderRevision;
 
     if ((needsSoftParticleUpload && !uploadParticles(computeContext, particles, fluids,
                                                      particleContactMaterials, fluidMaterials)) ||
         (needsSoftTopologyUpload &&
          !uploadSoftTopology(computeContext, static_cast<std::uint32_t>(particles.size()),
-                             softRenderData, softEdges, softTets)))
+                             softRenderData, distanceConstraints, bendConstraints,
+                             volumeConstraints)))
+    {
+        return false;
+    }
+    if (needsSuturingStateUpload &&
+        !uploadSuturingState(computeContext, particles,
+                             static_cast<std::uint32_t>(particles.size()), suturingParticleIndices,
+                             suturingPairs, suturingPathHeaderCount, suturingPathNodeCount))
+    {
+        return false;
+    }
+    if (needsCurveRenderUpload && !uploadCurveRenderData(computeContext, curveRenderData))
     {
         return false;
     }
 
     world.clearRigidBodyUploadState();
     world.clearColliderUploadState();
-    mRigidBodyCount                   = bodyCount;
-    mColliderCount                    = colliderCount;
-    mSoftBodyCount                    = world.softBodyCount();
-    mSoftParticleCount                = static_cast<std::uint32_t>(particles.size());
-    mFluidCount                       = static_cast<std::uint32_t>(fluids.size());
-    mParticleContactMaterialCount     = static_cast<std::uint32_t>(particleContactMaterials.size());
-    mFluidMaterialCount               = static_cast<std::uint32_t>(fluidMaterials.size());
-    mSoftEdgeCount                    = static_cast<std::uint32_t>(softEdges.size());
-    mSoftTetCount                     = static_cast<std::uint32_t>(softTets.size());
-    mRigidBodyUploadResetRequired     = false;
-    mColliderUploadResetRequired      = false;
+    mRigidBodyCount               = bodyCount;
+    mColliderCount                = colliderCount;
+    mSoftBodyCount                = world.softBodyCount();
+    mSoftParticleCount            = static_cast<std::uint32_t>(particles.size());
+    mFluidCount                   = static_cast<std::uint32_t>(fluids.size());
+    mParticleContactMaterialCount = static_cast<std::uint32_t>(particleContactMaterials.size());
+    mFluidMaterialCount           = static_cast<std::uint32_t>(fluidMaterials.size());
+    mSoftEdgeCount                = static_cast<std::uint32_t>(distanceConstraints.size());
+    mSoftBendCount                = static_cast<std::uint32_t>(bendConstraints.size());
+    mSoftTetCount                 = static_cast<std::uint32_t>(volumeConstraints.size());
+    mSuturingPairCount            = static_cast<std::uint32_t>(suturingPairs.size());
+    mSuturingParticleCount        = static_cast<std::uint32_t>(suturingParticleIndices.size());
+    mSuturingPathHeaderCount      = suturingPathHeaderCount;
+    mSuturingPathNodeCount        = suturingPathNodeCount;
+    mCurveRenderCount             = static_cast<std::uint32_t>(curveRenderData.descriptors.size());
+    mRigidBodyUploadResetRequired = false;
+    mColliderUploadResetRequired  = false;
     mSoftParticleUploadResetRequired  = false;
     mSoftTopologyUploadResetRequired  = false;
     mLastUploadedSoftParticleRevision = softParticleRevision;
     mLastUploadedSoftTopologyRevision = softTopologyRevision;
+    mLastUploadedCurveRenderRevision  = curveRenderRevision;
     mStaticBroadPhaseDirty            = mStaticBroadPhaseDirty || world.staticBroadPhaseDirty();
     world.clearStaticBroadPhaseDirty();
     return true;
@@ -1851,6 +2099,9 @@ bool PhysicsSceneGpuState::uploadRigidBodyRange(Diligent::IDeviceContext *comput
            updateStructuredBufferRange(computeContext, mPersistentRigidBodies.bodyTypesBuffer,
                                        rigidBodies.bodyTypes, begin, count) &&
            updateStructuredBufferRange(computeContext,
+                                       mPersistentRigidBodies.proxyParticleContactMaterialsBuffer,
+                                       rigidBodies.proxyParticleContactMaterials, begin, count) &&
+           updateStructuredBufferRange(computeContext,
                                        mPersistentRigidBodies.kinematicTargetPositionsBuffer,
                                        rigidBodies.kinematicTargetPositions, begin, count) &&
            updateStructuredBufferRange(computeContext,
@@ -1885,7 +2136,7 @@ bool PhysicsSceneGpuState::uploadColliderRange(Diligent::IDeviceContext *compute
         GpuColliderContactData &entry   = contactData[i];
         entry.ownerBody                 = colliders.ownerRigidBodyIndices[sourceIndex];
         entry.shapeType                 = colliders.shapeTypes[sourceIndex];
-        entry.reserved0                 = 0u;
+        entry.reserved0                 = colliders.enabledFlags[sourceIndex];
         entry.reserved1                 = 0u;
         entry.shapeParams               = colliders.shapeParams[sourceIndex];
         entry.localPosition             = colliders.localPositions[sourceIndex];
@@ -2242,6 +2493,13 @@ bool PhysicsSceneGpuState::uploadParticles(
                                        particles.ownerTypes, 0u, count) &&
            updateStructuredBufferRange(computeContext, mPersistentParticles.ownerIndicesBuffer,
                                        particles.ownerIndices, 0u, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentParticles.strandIdsBuffer,
+                                       particles.strandIds, 0u, count) &&
+           updateStructuredBufferRange(computeContext, mPersistentParticles.strandRolesBuffer,
+                                       particles.strandRoles, 0u, count) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentParticles.suturingNeighborLinksBuffer,
+                                       particles.suturingNeighborLinks, 0u, count) &&
            updateStructuredBufferRange(computeContext,
                                        mPersistentParticles.owningSoftBodyIndicesBuffer,
                                        particles.owningSoftBodyIndices, 0u, count) &&
@@ -2275,6 +2533,9 @@ bool PhysicsSceneGpuState::uploadParticles(
                computeContext, mPersistentParticles.adjacencyIndicesBuffer,
                particles.adjacencyIndices, 0u,
                static_cast<std::uint32_t>(particles.adjacencyIndices.size())) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentParticles.rigidProxyLocalPositionsBuffer,
+                                       particles.rigidProxyLocalPositions, 0u, count) &&
            [&]()
     {
         std::vector<Diligent::uint4> metadata(count);
@@ -2289,11 +2550,12 @@ bool PhysicsSceneGpuState::uploadParticles(
     }();
 }
 
-bool PhysicsSceneGpuState::uploadSoftTopology(Diligent::IDeviceContext *computeContext,
-                                              std::uint32_t particleCount,
-                                              const SoftRenderDataHost &softRenderData,
-                                              const std::vector<SoftEdge> &softEdges,
-                                              const std::vector<SoftTet> &softTets)
+bool PhysicsSceneGpuState::uploadSoftTopology(
+    Diligent::IDeviceContext *computeContext, std::uint32_t particleCount,
+    const SoftRenderDataHost &softRenderData,
+    const std::vector<DeformableDistanceConstraint> &distanceConstraints,
+    const std::vector<DeformableBendConstraint> &bendConstraints,
+    const std::vector<DeformableVolumeConstraint> &volumeConstraints)
 {
     if (computeContext == nullptr)
     {
@@ -2301,10 +2563,10 @@ bool PhysicsSceneGpuState::uploadSoftTopology(Diligent::IDeviceContext *computeC
     }
 
     std::vector<std::vector<GpuSoftIncidentEdge>> particleEdgeRefs(particleCount);
-    for (std::uint32_t edgeIndex = 0u; edgeIndex < static_cast<std::uint32_t>(softEdges.size());
-         ++edgeIndex)
+    for (std::uint32_t edgeIndex = 0u;
+         edgeIndex < static_cast<std::uint32_t>(distanceConstraints.size()); ++edgeIndex)
     {
-        const SoftEdge &edge = softEdges[edgeIndex];
+        const DeformableDistanceConstraint &edge = distanceConstraints[edgeIndex];
         if (edge.particleA < particleCount)
         {
             particleEdgeRefs[edge.particleA].push_back(GpuSoftIncidentEdge{edgeIndex, 0u, 0u, 0u});
@@ -2315,11 +2577,29 @@ bool PhysicsSceneGpuState::uploadSoftTopology(Diligent::IDeviceContext *computeC
         }
     }
 
-    std::vector<std::vector<GpuSoftIncidentTet>> particleTetRefs(particleCount);
-    for (std::uint32_t tetIndex = 0u; tetIndex < static_cast<std::uint32_t>(softTets.size());
-         ++tetIndex)
+    std::vector<std::vector<GpuSoftIncidentBend>> particleBendRefs(particleCount);
+    for (std::uint32_t bendIndex = 0u;
+         bendIndex < static_cast<std::uint32_t>(bendConstraints.size()); ++bendIndex)
     {
-        const SoftTet &tet = softTets[tetIndex];
+        const DeformableBendConstraint &bend = bendConstraints[bendIndex];
+        const std::array<std::uint32_t, 3u> particleIndices{bend.particle0, bend.particle1,
+                                                            bend.particle2};
+        for (std::uint32_t slot = 0u; slot < particleIndices.size(); ++slot)
+        {
+            const std::uint32_t particleIndex = particleIndices[slot];
+            if (particleIndex < particleCount)
+            {
+                particleBendRefs[particleIndex].push_back(
+                    GpuSoftIncidentBend{bendIndex, slot, 0u, 0u});
+            }
+        }
+    }
+
+    std::vector<std::vector<GpuSoftIncidentTet>> particleTetRefs(particleCount);
+    for (std::uint32_t tetIndex = 0u;
+         tetIndex < static_cast<std::uint32_t>(volumeConstraints.size()); ++tetIndex)
+    {
+        const DeformableVolumeConstraint &tet = volumeConstraints[tetIndex];
         const std::array<std::uint32_t, 4u> particleIndices{
             tet.particleIndices[0], tet.particleIndices[1], tet.particleIndices[2],
             tet.particleIndices[3]};
@@ -2337,16 +2617,25 @@ bool PhysicsSceneGpuState::uploadSoftTopology(Diligent::IDeviceContext *computeC
     std::vector<GpuSoftConstraintRange> particleEdgeRanges;
     buildConstraintAdjacencyRanges(particleCount, particleEdgeRefs, particleEdgeRanges);
     std::vector<GpuSoftIncidentEdge> incidentEdges;
-    incidentEdges.reserve(softEdges.size() * 2u);
+    incidentEdges.reserve(distanceConstraints.size() * 2u);
     for (const auto &refs : particleEdgeRefs)
     {
         incidentEdges.insert(incidentEdges.end(), refs.begin(), refs.end());
     }
 
+    std::vector<GpuSoftConstraintRange> particleBendRanges;
+    buildConstraintAdjacencyRanges(particleCount, particleBendRefs, particleBendRanges);
+    std::vector<GpuSoftIncidentBend> incidentBends;
+    incidentBends.reserve(bendConstraints.size() * 3u);
+    for (const auto &refs : particleBendRefs)
+    {
+        incidentBends.insert(incidentBends.end(), refs.begin(), refs.end());
+    }
+
     std::vector<GpuSoftConstraintRange> particleTetRanges;
     buildConstraintAdjacencyRanges(particleCount, particleTetRefs, particleTetRanges);
     std::vector<GpuSoftIncidentTet> incidentTets;
-    incidentTets.reserve(softTets.size() * 4u);
+    incidentTets.reserve(volumeConstraints.size() * 4u);
     for (const auto &refs : particleTetRefs)
     {
         incidentTets.insert(incidentTets.end(), refs.begin(), refs.end());
@@ -2383,16 +2672,26 @@ bool PhysicsSceneGpuState::uploadSoftTopology(Diligent::IDeviceContext *computeC
     }
 
     return updateStructuredBufferRange(computeContext, mPersistentSoftTopology.edgesBuffer,
-                                       softEdges, 0u,
-                                       static_cast<std::uint32_t>(softEdges.size())) &&
-           updateStructuredBufferRange(computeContext, mPersistentSoftTopology.tetsBuffer, softTets,
-                                       0u, static_cast<std::uint32_t>(softTets.size())) &&
+                                       distanceConstraints, 0u,
+                                       static_cast<std::uint32_t>(distanceConstraints.size())) &&
+           updateStructuredBufferRange(computeContext, mPersistentSoftTopology.bendsBuffer,
+                                       bendConstraints, 0u,
+                                       static_cast<std::uint32_t>(bendConstraints.size())) &&
+           updateStructuredBufferRange(computeContext, mPersistentSoftTopology.tetsBuffer,
+                                       volumeConstraints, 0u,
+                                       static_cast<std::uint32_t>(volumeConstraints.size())) &&
            updateStructuredBufferRange(computeContext,
                                        mPersistentSoftTopology.particleEdgeRangesBuffer,
                                        particleEdgeRanges, 0u, particleCount) &&
            updateStructuredBufferRange(
                computeContext, mPersistentSoftTopology.particleIncidentEdgesBuffer, incidentEdges,
                0u, static_cast<std::uint32_t>(incidentEdges.size())) &&
+           updateStructuredBufferRange(computeContext,
+                                       mPersistentSoftTopology.particleBendRangesBuffer,
+                                       particleBendRanges, 0u, particleCount) &&
+           updateStructuredBufferRange(
+               computeContext, mPersistentSoftTopology.particleIncidentBendsBuffer, incidentBends,
+               0u, static_cast<std::uint32_t>(incidentBends.size())) &&
            updateStructuredBufferRange(computeContext,
                                        mPersistentSoftTopology.particleTetRangesBuffer,
                                        particleTetRanges, 0u, particleCount) &&
@@ -2429,6 +2728,152 @@ bool PhysicsSceneGpuState::uploadSoftTopology(Diligent::IDeviceContext *computeC
                computeContext, mPersistentSoftTopology.softBodyRenderNormalsBuffer,
                softRenderData.fallbackNormals, 0u,
                static_cast<std::uint32_t>(softRenderData.fallbackNormals.size()));
+}
+
+bool PhysicsSceneGpuState::uploadCurveRenderData(Diligent::IDeviceContext *computeContext,
+                                                 const CurveRenderDataHost &curveRenderData)
+{
+    if (computeContext == nullptr)
+    {
+        return false;
+    }
+
+    std::vector<GpuCurveRenderDescriptor> descriptors(curveRenderData.descriptors.size());
+    for (std::size_t i = 0; i < curveRenderData.descriptors.size(); ++i)
+    {
+        const CurveRenderDescriptorHost &src = curveRenderData.descriptors[i];
+        descriptors[i]                       = GpuCurveRenderDescriptor{
+            src.particleIndexStart, src.particleCount,    src.vertexBase, src.vertexCount,
+            src.radialResolution,   src.environmentIndex, src.radius};
+    }
+
+    std::vector<Diligent::float4> zeroedVertices;
+    std::uint32_t totalVertexCount = 0u;
+    for (const CurveRenderDescriptorHost &descriptor : curveRenderData.descriptors)
+    {
+        totalVertexCount =
+            std::max(totalVertexCount, descriptor.vertexBase + descriptor.vertexCount);
+    }
+    zeroedVertices.assign(totalVertexCount, Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
+
+    std::vector<GpuBodyAabb> emptyAabbs(curveRenderData.descriptors.size());
+    for (GpuBodyAabb &aabb : emptyAabbs)
+    {
+        aabb.minBounds = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
+        aabb.maxBounds = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
+    }
+
+    return updateStructuredBufferRange(computeContext, mPersistentCurveRender.descriptorsBuffer,
+                                       descriptors, 0u,
+                                       static_cast<std::uint32_t>(descriptors.size())) &&
+           updateStructuredBufferRange(
+               computeContext, mPersistentCurveRender.particleIndicesBuffer,
+               curveRenderData.particleIndices, 0u,
+               static_cast<std::uint32_t>(curveRenderData.particleIndices.size())) &&
+           updateStructuredBufferRange(computeContext, mPersistentCurveRender.positionsBuffer,
+                                       zeroedVertices, 0u, totalVertexCount) &&
+           updateStructuredBufferRange(computeContext, mPersistentCurveRender.normalsBuffer,
+                                       zeroedVertices, 0u, totalVertexCount) &&
+           updateStructuredBufferRange(computeContext, mPersistentCurveRender.worldAabbsBuffer,
+                                       emptyAabbs, 0u,
+                                       static_cast<std::uint32_t>(emptyAabbs.size()));
+}
+
+bool PhysicsSceneGpuState::uploadSuturingState(
+    Diligent::IDeviceContext *computeContext, const ParticleSoAHost &particles,
+    std::uint32_t particleCount, const std::vector<std::uint32_t> &suturingParticleIndices,
+    const std::vector<StrandSoftSuturingPair> &pairs, std::uint32_t pathHeaderCount,
+    std::uint32_t pathNodeCount)
+{
+    if (computeContext == nullptr)
+    {
+        return false;
+    }
+
+    std::vector<GpuSuturingPair> gpuPairs(pairs.size());
+    for (std::size_t i = 0; i < pairs.size(); ++i)
+    {
+        const StrandSoftSuturingPair &pair = pairs[i];
+        gpuPairs[i]                        = GpuSuturingPair{pair.suturingGroupId,
+                                                             pair.softBodyIndex,
+                                                             pair.strandParticleStart,
+                                                             pair.strandParticleCount,
+                                                             pair.tipParticleIndex,
+                                                             pair.softTetStart,
+                                                             pair.softTetCount,
+                                                             pair.pathStart,
+                                                             pair.pathCount,
+                                                             pair.nodeStart,
+                                                             pair.nodeCount,
+                                                             pair.activePathIndex,
+                                                             pair.environmentIndex,
+                                                             pair.pathNodeSpacing,
+                                                             pair.needleTangentialDragBits,
+                                                             pair.threadTangentialDragBits};
+    }
+
+    std::vector<GpuSuturingInsertionStateStorage> insertionStates(particleCount);
+    for (GpuSuturingInsertionStateStorage &state : insertionStates)
+    {
+        state.state            = static_cast<std::uint32_t>(SuturingInsertionState::Outside);
+        state.softBodyIndex    = kInvalidSuturingIndex;
+        state.tetIndex         = kInvalidSuturingIndex;
+        state.pathIndex        = kInvalidSuturingIndex;
+        state.nearestNodeIndex = kInvalidSuturingIndex;
+    }
+
+    std::vector<GpuSuturingPathHeader> pathHeaders(pathHeaderCount);
+    for (GpuSuturingPathHeader &header : pathHeaders)
+    {
+        header.suturingGroupId          = kInvalidSuturingIndex;
+        header.softBodyIndex            = kInvalidSuturingIndex;
+        header.needleTangentialDragBits = 0u;
+        header.threadTangentialDragBits = 0u;
+    }
+
+    std::vector<GpuSuturingPathNode> pathNodes(pathNodeCount);
+    for (GpuSuturingPathNode &node : pathNodes)
+    {
+        node.softBodyIndex            = kInvalidSuturingIndex;
+        node.tetIndex                 = kInvalidSuturingIndex;
+        node.needleTangentialDragBits = 0u;
+        node.threadTangentialDragBits = 0u;
+    }
+
+    return updateStructuredBufferRange(computeContext, mPersistentSuturing.pairsBuffer, gpuPairs,
+                                       0u, static_cast<std::uint32_t>(gpuPairs.size())) &&
+           [&]()
+    {
+        std::vector<Diligent::uint4> suturingParticleRefs(suturingParticleIndices.size());
+        for (std::size_t i = 0; i < suturingParticleIndices.size(); ++i)
+        {
+            const std::uint32_t particleIndex = suturingParticleIndices[i];
+            const std::uint32_t role = particleIndex < particles.strandRoles.size()
+                                           ? particles.strandRoles[particleIndex]
+                                           : static_cast<std::uint32_t>(ParticleStrandRole::None);
+            const std::uint32_t ownerType = particleIndex < particles.ownerTypes.size()
+                                                ? particles.ownerTypes[particleIndex]
+                                                : 0u;
+            const std::uint32_t strandId  = particleIndex < particles.strandIds.size()
+                                                ? particles.strandIds[particleIndex]
+                                                : kInvalidSuturingIndex;
+            const std::uint32_t environmentIndex =
+                particleIndex < particles.environmentIndices.size()
+                    ? particles.environmentIndices[particleIndex]
+                    : 0u;
+            suturingParticleRefs[i] = Diligent::uint4{particleIndex, role | (ownerType << 16u),
+                                                      strandId, environmentIndex};
+        }
+        return updateStructuredBufferRange(computeContext, mPersistentSuturing.particleRefsBuffer,
+                                           suturingParticleRefs, 0u,
+                                           static_cast<std::uint32_t>(suturingParticleRefs.size()));
+    }() &&
+           updateStructuredBufferRange(computeContext, mPersistentSuturing.insertionStatesBuffer,
+                                       insertionStates, 0u, particleCount) &&
+           updateStructuredBufferRange(computeContext, mPersistentSuturing.pathHeadersBuffer,
+                                       pathHeaders, 0u, pathHeaderCount) &&
+           updateStructuredBufferRange(computeContext, mPersistentSuturing.pathNodesBuffer,
+                                       pathNodes, 0u, pathNodeCount);
 }
 
 bool PhysicsSceneGpuState::copyPredictedRigidBodiesToPersistentState(
@@ -2492,6 +2937,37 @@ bool PhysicsSceneGpuState::readbackBroadPhaseMetaBlocking(Diligent::IDeviceConte
 
     outMeta = *static_cast<const GpuBroadPhaseMeta *>(mappedMeta);
     computeContext->UnmapBuffer(mReadbackRigidBodies.broadPhaseMetaBuffer, Diligent::MAP_READ);
+    return true;
+}
+
+bool PhysicsSceneGpuState::readbackProxyRigidContactMetaBlocking(
+    Diligent::IDeviceContext *computeContext, GpuProxyRigidContactMeta &outMeta)
+{
+    if (computeContext == nullptr || mTransientState.proxyRigidContactMetaBuffer == nullptr ||
+        mReadbackRigidBodies.proxyRigidContactMetaBuffer == nullptr)
+    {
+        return false;
+    }
+
+    computeContext->CopyBuffer(mTransientState.proxyRigidContactMetaBuffer, 0u,
+                               Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                               mReadbackRigidBodies.proxyRigidContactMetaBuffer, 0u,
+                               sizeof(GpuProxyRigidContactMeta),
+                               Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->Flush();
+    computeContext->WaitForIdle();
+
+    void *mappedMeta = nullptr;
+    computeContext->MapBuffer(mReadbackRigidBodies.proxyRigidContactMetaBuffer, Diligent::MAP_READ,
+                              Diligent::MAP_FLAG_DO_NOT_WAIT, mappedMeta);
+    if (mappedMeta == nullptr)
+    {
+        return false;
+    }
+
+    outMeta = *static_cast<const GpuProxyRigidContactMeta *>(mappedMeta);
+    computeContext->UnmapBuffer(mReadbackRigidBodies.proxyRigidContactMetaBuffer,
+                                Diligent::MAP_READ);
     return true;
 }
 
@@ -2737,6 +3213,12 @@ const PhysicsSceneGpuState::PersistentSoftTopologyBuffers &PhysicsSceneGpuState:
     return mPersistentSoftTopology;
 }
 
+const PhysicsSceneGpuState::PersistentCurveRenderBuffers &PhysicsSceneGpuState::
+    persistentCurveRender() const noexcept
+{
+    return mPersistentCurveRender;
+}
+
 const PhysicsSceneGpuState::SolverTransientBuffers &PhysicsSceneGpuState::transientBuffers()
     const noexcept
 {
@@ -2791,6 +3273,11 @@ std::uint32_t PhysicsSceneGpuState::sliderVelocityDriveJointCount() const noexce
 std::uint32_t PhysicsSceneGpuState::candidatePairCapacity() const noexcept
 {
     return mCandidatePairCapacity;
+}
+
+std::uint32_t PhysicsSceneGpuState::rigidContactCapacity() const noexcept
+{
+    return mContactCapacity;
 }
 
 std::uint32_t PhysicsSceneGpuState::particleCandidatePairCapacity() const noexcept
@@ -2856,6 +3343,10 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.particles.particleKindsBuffer      = mPersistentParticles.particleKindsBuffer;
     view.soft.particles.ownerTypesBuffer         = mPersistentParticles.ownerTypesBuffer;
     view.soft.particles.ownerIndicesBuffer       = mPersistentParticles.ownerIndicesBuffer;
+    view.soft.particles.strandIdsBuffer          = mPersistentParticles.strandIdsBuffer;
+    view.soft.particles.strandRolesBuffer        = mPersistentParticles.strandRolesBuffer;
+    view.soft.particles.suturingNeighborLinksBuffer =
+        mPersistentParticles.suturingNeighborLinksBuffer;
     view.soft.particles.owningSoftBodyIndicesBuffer =
         mPersistentParticles.owningSoftBodyIndicesBuffer;
     view.soft.particles.particleMaterialIndicesBuffer =
@@ -2882,13 +3373,30 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.particles.contactMaterialCount   = mParticleContactMaterialCount;
     view.soft.particles.fluidMaterialCount     = mFluidMaterialCount;
     view.soft.edgesBuffer                      = mPersistentSoftTopology.edgesBuffer;
+    view.soft.bendsBuffer                      = mPersistentSoftTopology.bendsBuffer;
     view.soft.tetsBuffer                       = mPersistentSoftTopology.tetsBuffer;
-    view.soft.renderNormalsBuffer = mPersistentSoftTopology.softBodyRenderNormalsBuffer;
-    view.soft.worldAabbsBuffer    = mPersistentSoftTopology.softBodyWorldAabbsBuffer;
-    view.soft.softBodyCount       = mSoftBodyCount;
-    view.soft.edgeCount           = mSoftEdgeCount;
-    view.soft.tetCount            = mSoftTetCount;
-    view.soft.bindingGeneration   = mSoftBindingGeneration;
+    view.soft.suturingPairsBuffer              = mPersistentSuturing.pairsBuffer;
+    view.soft.suturingParticleRefsBuffer       = mPersistentSuturing.particleRefsBuffer;
+    view.soft.suturingInsertionStatesBuffer    = mPersistentSuturing.insertionStatesBuffer;
+    view.soft.suturingPathHeadersBuffer        = mPersistentSuturing.pathHeadersBuffer;
+    view.soft.suturingPathNodesBuffer          = mPersistentSuturing.pathNodesBuffer;
+    view.soft.renderNormalsBuffer     = mPersistentSoftTopology.softBodyRenderNormalsBuffer;
+    view.soft.worldAabbsBuffer        = mPersistentSoftTopology.softBodyWorldAabbsBuffer;
+    view.soft.softBodyCount           = mSoftBodyCount;
+    view.soft.edgeCount               = mSoftEdgeCount;
+    view.soft.bendCount               = mSoftBendCount;
+    view.soft.tetCount                = mSoftTetCount;
+    view.soft.suturingPairCount       = mSuturingPairCount;
+    view.soft.suturingPathHeaderCount = mSuturingPathHeaderCount;
+    view.soft.suturingPathNodeCount   = mSuturingPathNodeCount;
+    view.soft.bindingGeneration       = mSoftBindingGeneration;
+    view.curve.descriptorsBuffer      = mPersistentCurveRender.descriptorsBuffer;
+    view.curve.particleIndicesBuffer  = mPersistentCurveRender.particleIndicesBuffer;
+    view.curve.positionsBuffer        = mPersistentCurveRender.positionsBuffer;
+    view.curve.normalsBuffer          = mPersistentCurveRender.normalsBuffer;
+    view.curve.worldAabbsBuffer       = mPersistentCurveRender.worldAabbsBuffer;
+    view.curve.curveCount             = mCurveRenderCount;
+    view.curve.bindingGeneration      = mSoftBindingGeneration;
     return view;
 }
 

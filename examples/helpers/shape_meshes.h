@@ -246,6 +246,205 @@ inline graphics::MeshResourceDesc makeCapsuleMesh(float radius, float halfHeight
     return mesh;
 }
 
+inline graphics::MeshResourceDesc makeCanonicalCurveTubeMesh(std::uint32_t sampleCount,
+                                                             std::uint32_t radialResolution,
+                                                             const std::string &debugName,
+                                                             float uvScale = 1.0f)
+{
+    graphics::MeshResourceDesc mesh{};
+    mesh.debugName = debugName;
+
+    const std::uint32_t clampedSamples = std::max(sampleCount, 2u);
+    const std::uint32_t clampedRadialResolution = std::max(radialResolution, 3u);
+    mesh.vertices.reserve(static_cast<std::size_t>(clampedSamples) * clampedRadialResolution);
+    mesh.indices.reserve(static_cast<std::size_t>(clampedSamples - 1u) * clampedRadialResolution *
+                         6u);
+
+    const float longitudinalScale = std::max(uvScale, 1.0e-4f);
+    for (std::uint32_t sampleIndex = 0u; sampleIndex < clampedSamples; ++sampleIndex)
+    {
+        const float u = (clampedSamples > 1u)
+                            ? (static_cast<float>(sampleIndex) /
+                               static_cast<float>(clampedSamples - 1u)) *
+                                  longitudinalScale
+                            : 0.0f;
+        const float x = static_cast<float>(sampleIndex);
+        for (std::uint32_t radialIndex = 0u; radialIndex < clampedRadialResolution; ++radialIndex)
+        {
+            const float v = static_cast<float>(radialIndex) /
+                            static_cast<float>(clampedRadialResolution);
+            const float angle = v * (2.0f * detail::kPi);
+            const Diligent::float3 normal{0.0f, std::cos(angle), std::sin(angle)};
+            constexpr Diligent::float4 tangent{1.0f, 0.0f, 0.0f, 1.0f};
+            mesh.vertices.push_back({{x, normal.y, normal.z}, normal, u, v, tangent});
+        }
+    }
+
+    for (std::uint32_t sampleIndex = 0u; sampleIndex + 1u < clampedSamples; ++sampleIndex)
+    {
+        const std::uint32_t ringBase = sampleIndex * clampedRadialResolution;
+        const std::uint32_t nextRingBase = ringBase + clampedRadialResolution;
+        for (std::uint32_t radialIndex = 0u; radialIndex < clampedRadialResolution; ++radialIndex)
+        {
+            const std::uint32_t nextRadialIndex = (radialIndex + 1u) % clampedRadialResolution;
+            const std::uint32_t i0 = ringBase + radialIndex;
+            const std::uint32_t i1 = ringBase + nextRadialIndex;
+            const std::uint32_t i2 = nextRingBase + radialIndex;
+            const std::uint32_t i3 = nextRingBase + nextRadialIndex;
+            mesh.indices.push_back(i0);
+            mesh.indices.push_back(i2);
+            mesh.indices.push_back(i1);
+            mesh.indices.push_back(i1);
+            mesh.indices.push_back(i2);
+            mesh.indices.push_back(i3);
+        }
+    }
+
+    return mesh;
+}
+
+inline graphics::MeshResourceDesc makePolylineTubeMesh(const std::vector<Diligent::float3> &points,
+                                                       std::uint32_t radialResolution,
+                                                       float radius,
+                                                       const std::string &debugName,
+                                                       float uvScale = 1.0f,
+                                                       float startRadiusScale = 1.0f,
+                                                       float endRadiusScale = 1.0f)
+{
+    graphics::MeshResourceDesc mesh{};
+    mesh.debugName = debugName;
+
+    const std::uint32_t sampleCount = static_cast<std::uint32_t>(points.size());
+    const std::uint32_t clampedRadialResolution = std::max(radialResolution, 3u);
+    const float clampedRadius = std::max(radius, 1.0e-5f);
+    const float clampedUvScale = std::max(uvScale, 1.0e-4f);
+    if (sampleCount < 2u)
+    {
+        return mesh;
+    }
+
+    mesh.vertices.reserve(static_cast<std::size_t>(sampleCount) * clampedRadialResolution);
+    mesh.indices.reserve(static_cast<std::size_t>(sampleCount - 1u) * clampedRadialResolution * 6u);
+
+    auto normalizeOrFallback = [](const Diligent::float3 &value,
+                                  const Diligent::float3 &fallback) -> Diligent::float3
+    {
+        const float lenSq = Diligent::dot(value, value);
+        return lenSq > 1.0e-12f ? value / std::sqrt(lenSq) : fallback;
+    };
+    auto chooseReferenceAxis = [](const Diligent::float3 &tangent) -> Diligent::float3
+    {
+        return std::abs(tangent.y) < 0.95f ? Diligent::float3{0.0f, 1.0f, 0.0f}
+                                           : Diligent::float3{1.0f, 0.0f, 0.0f};
+    };
+    auto rotateAroundAxis = [](const Diligent::float3 &value, const Diligent::float3 &axis,
+                               float sinAngle, float cosAngle) -> Diligent::float3
+    {
+        return value * cosAngle + Diligent::cross(axis, value) * sinAngle +
+               axis * Diligent::dot(axis, value) * (1.0f - cosAngle);
+    };
+
+    std::vector<float> arcLengths(sampleCount, 0.0f);
+    for (std::uint32_t i = 1u; i < sampleCount; ++i)
+    {
+        arcLengths[i] =
+            arcLengths[i - 1u] + Diligent::length(points[i] - points[i - 1u]) * clampedUvScale;
+    }
+    const float totalArcLength = std::max(arcLengths.back(), 1.0e-4f);
+
+    Diligent::float3 prevTangent =
+        normalizeOrFallback(points[1] - points[0], Diligent::float3{1.0f, 0.0f, 0.0f});
+    Diligent::float3 normal = normalizeOrFallback(
+        Diligent::cross(chooseReferenceAxis(prevTangent), prevTangent),
+        Diligent::float3{0.0f, 0.0f, 1.0f});
+    Diligent::float3 binormal =
+        normalizeOrFallback(Diligent::cross(prevTangent, normal), Diligent::float3{0.0f, 1.0f, 0.0f});
+
+    for (std::uint32_t sampleIndex = 0u; sampleIndex < sampleCount; ++sampleIndex)
+    {
+        const Diligent::float3 center = points[sampleIndex];
+        Diligent::float3 tangent = prevTangent;
+        if (sampleIndex == 0u)
+        {
+            tangent = normalizeOrFallback(points[1] - center, prevTangent);
+        }
+        else if (sampleIndex + 1u >= sampleCount)
+        {
+            tangent = normalizeOrFallback(center - points[sampleIndex - 1u], prevTangent);
+        }
+        else
+        {
+            tangent = normalizeOrFallback(points[sampleIndex + 1u] - points[sampleIndex - 1u],
+                                          prevTangent);
+        }
+
+        if (sampleIndex > 0u)
+        {
+            const Diligent::float3 axis = Diligent::cross(prevTangent, tangent);
+            const float axisLenSq = Diligent::dot(axis, axis);
+            if (axisLenSq > 1.0e-12f)
+            {
+                const float axisLen = std::sqrt(axisLenSq);
+                const Diligent::float3 unitAxis = axis / axisLen;
+                const float cosAngle =
+                    std::clamp(Diligent::dot(prevTangent, tangent), -1.0f, 1.0f);
+                const float sinAngle = std::min(axisLen, 1.0f);
+                normal = rotateAroundAxis(normal, unitAxis, sinAngle, cosAngle);
+            }
+            normal =
+                normalizeOrFallback(normal - tangent * Diligent::dot(normal, tangent),
+                                    normalizeOrFallback(
+                                        Diligent::cross(chooseReferenceAxis(tangent), tangent),
+                                        Diligent::float3{0.0f, 0.0f, 1.0f}));
+            binormal = normalizeOrFallback(Diligent::cross(tangent, normal), binormal);
+        }
+
+        const float t = sampleCount > 1u
+                            ? static_cast<float>(sampleIndex) / static_cast<float>(sampleCount - 1u)
+                            : 0.0f;
+        const float radiusScale = (1.0f - t) * startRadiusScale + t * endRadiusScale;
+        const float sampleRadius = clampedRadius * std::max(radiusScale, 0.0f);
+        const float u = arcLengths[sampleIndex] / totalArcLength;
+
+        for (std::uint32_t radialIndex = 0u; radialIndex < clampedRadialResolution; ++radialIndex)
+        {
+            const float v = static_cast<float>(radialIndex) /
+                            static_cast<float>(clampedRadialResolution);
+            const float angle = v * (2.0f * detail::kPi);
+            const float s = std::sin(angle);
+            const float c = std::cos(angle);
+            const Diligent::float3 radialDirection = c * normal + s * binormal;
+            mesh.vertices.push_back({center + radialDirection * sampleRadius,
+                                     normalizeOrFallback(radialDirection, normal), u, v,
+                                     Diligent::float4{tangent.x, tangent.y, tangent.z, 1.0f}});
+        }
+
+        prevTangent = tangent;
+    }
+
+    for (std::uint32_t sampleIndex = 0u; sampleIndex + 1u < sampleCount; ++sampleIndex)
+    {
+        const std::uint32_t ringBase = sampleIndex * clampedRadialResolution;
+        const std::uint32_t nextRingBase = ringBase + clampedRadialResolution;
+        for (std::uint32_t radialIndex = 0u; radialIndex < clampedRadialResolution; ++radialIndex)
+        {
+            const std::uint32_t nextRadialIndex = (radialIndex + 1u) % clampedRadialResolution;
+            const std::uint32_t i0 = ringBase + radialIndex;
+            const std::uint32_t i1 = ringBase + nextRadialIndex;
+            const std::uint32_t i2 = nextRingBase + radialIndex;
+            const std::uint32_t i3 = nextRingBase + nextRadialIndex;
+            mesh.indices.push_back(i0);
+            mesh.indices.push_back(i2);
+            mesh.indices.push_back(i1);
+            mesh.indices.push_back(i1);
+            mesh.indices.push_back(i2);
+            mesh.indices.push_back(i3);
+        }
+    }
+
+    return mesh;
+}
+
 } // namespace cressim::neo::examples::helpers
 
 #endif

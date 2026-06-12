@@ -6,6 +6,8 @@
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float, g_ParticleRadii);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleKinds);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerTypes);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerIndices);
 CRESSIM_STRUCTURED_BUFFER(uint4, g_ParticleBroadPhaseMetadata);
 CRESSIM_STRUCTURED_BUFFER(GpuBroadPhaseMeta, g_BroadPhaseMeta);
 CRESSIM_STRUCTURED_BUFFER(GpuBvhNode, g_BvhNodes);
@@ -45,7 +47,8 @@ bool TryAppendRigidBody(uint rigidBodyIndex,
 
 void EmitCandidatesFromBvh(bool useStaticBvh, float3 queryMin, float3 queryMax,
                            uint particleKind, uint softEnvironment, uint softLayer,
-                           uint softMask, uint softIndex,
+                           uint softMask, uint softIndex, bool rigidProxyOwner,
+                           uint owningRigidBodyIndex,
                            inout uint seenRigidBodies[kParticleRigidDedupCacheSize],
                            inout uint seenRigidCount, inout uint writeIndex)
 {
@@ -81,6 +84,10 @@ void EmitCandidatesFromBvh(bool useStaticBvh, float3 queryMin, float3 queryMax,
             const GpuColliderBroadPhaseData collider =
                 CRESSIM_SB_LOAD(g_ColliderBroadPhaseData, colliderIndex);
             const uint rigidBodyIndex = collider.ownerBody;
+            if (rigidProxyOwner && rigidBodyIndex == owningRigidBodyIndex)
+            {
+                continue;
+            }
             const uint rigidBodyType = CRESSIM_SB_LOAD(g_RigidBodyTypes, rigidBodyIndex);
             if (collider.enabledFlag != 0u && collider.environmentIndex == softEnvironment &&
                 (softMask & collider.collisionLayer) != 0u &&
@@ -139,6 +146,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint softEnvironment = softMetadata.x;
     const uint softLayer = softMetadata.z;
     const uint softMask = softMetadata.w;
+    const uint ownerType = CRESSIM_SB_LOAD(g_ParticleOwnerTypes, softIndex);
+    const bool rigidProxyOwner = ownerType == kParticleOwnerTypeRigidBody;
+    const uint owningRigidBodyIndex = CRESSIM_SB_LOAD(g_ParticleOwnerIndices, softIndex);
     uint seenRigidBodies[kParticleRigidDedupCacheSize];
     uint seenRigidCount = 0u;
     uint writeIndex = CRESSIM_SB_LOAD(g_CandidateOffsets, softIndex);
@@ -150,9 +160,11 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     if (broadPhaseMeta.activeMovingCount > 0u)
     {
         EmitCandidatesFromBvh(false, queryMin, queryMax, particleKind, softEnvironment,
-                              softLayer, softMask, softIndex, seenRigidBodies,
+                              softLayer, softMask, softIndex, rigidProxyOwner,
+                              owningRigidBodyIndex, seenRigidBodies,
                               seenRigidCount, writeIndex);
     }
     EmitCandidatesFromBvh(true, queryMin, queryMax, particleKind, softEnvironment, softLayer,
-                          softMask, softIndex, seenRigidBodies, seenRigidCount, writeIndex);
+                          softMask, softIndex, rigidProxyOwner, owningRigidBodyIndex,
+                          seenRigidBodies, seenRigidCount, writeIndex);
 }

@@ -30,6 +30,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> angularVelocitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> inverseInertiaLocalBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyTypesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> proxyParticleContactMaterialsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> kinematicTargetPositionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> kinematicTargetOrientationsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> kinematicTargetFlagsBuffer;
@@ -91,6 +92,9 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleKindsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> ownerTypesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> ownerIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandIdsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandRolesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> suturingNeighborLinksBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> owningSoftBodyIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleMaterialIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidMaterialIndicesBuffer;
@@ -104,14 +108,18 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> adjacencyCountsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> adjacencyIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> broadPhaseMetadataBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidProxyLocalPositionsBuffer;
     };
 
     struct PersistentSoftTopologyBuffers
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> edgesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> bendsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> tetsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleEdgeRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentEdgesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleBendRangesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentBendsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleTetRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentTetsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexTriangleRangesBuffer;
@@ -124,6 +132,24 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyFallbackNormalsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyRenderNormalsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyWorldAabbsBuffer;
+    };
+
+    struct PersistentSuturingBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> pairsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleRefsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> insertionStatesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> pathHeadersBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> pathNodesBuffer;
+    };
+
+    struct PersistentCurveRenderBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> descriptorsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> normalsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> worldAabbsBuffer;
     };
 
     struct PreviousRigidBodyBuffers
@@ -146,6 +172,8 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softNeighborMetaBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> physicsIndirectArgsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softSoftCandidatePairsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> suturingCandidateCountsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> suturingCandidateParticlesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidNeighborPairsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidBoundaryCandidateCountsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidBoundaryCandidateOffsetsBuffer;
@@ -166,8 +194,10 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidAnisotropy3Buffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidVorticitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeLambdasBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBendLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeCorrectionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softBendCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyChunkAabbsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyAabbsBuffer;
@@ -214,6 +244,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseMetaBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> narrowPhaseChunkCounterBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidContactsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> proxyRigidContactMetaBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidBodyPairAggregateMapBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidBodyPairAggregateActiveCountBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidBodyPairAggregateHeadersBuffer;
@@ -235,6 +266,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> linearVelocitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> angularVelocitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> broadPhaseMetaBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> proxyRigidContactMetaBuffer;
     };
 
     struct ParticleReadbackBuffers
@@ -304,12 +336,15 @@ public:
                         std::uint32_t colliderCount, std::uint32_t particleCount,
                         std::uint32_t fluidCount, std::uint32_t particleContactMaterialCount,
                         std::uint32_t fluidMaterialCount, std::uint32_t softEdgeCount,
-                        std::uint32_t softTetCount, std::uint32_t ballJointCount,
-                        std::uint32_t hingeJointCount, std::uint32_t sliderJointCount,
-                        std::uint32_t softRenderVertexCount,
+                        std::uint32_t softBendCount, std::uint32_t softTetCount,
+                        std::uint32_t ballJointCount, std::uint32_t hingeJointCount,
+                        std::uint32_t sliderJointCount, std::uint32_t softRenderVertexCount,
                         std::uint32_t softRenderTriangleIndexCount,
                         std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
-                        std::uint32_t softBodyBoundsChunkCount, Diligent::Uint64 sharedContextMask,
+                        std::uint32_t softBodyBoundsChunkCount, std::uint32_t suturingPairCount,
+                        std::uint32_t suturingPathHeaderCount, std::uint32_t suturingPathNodeCount,
+                        std::uint32_t curveRenderCount, std::uint32_t curveRenderParticleIndexCount,
+                        std::uint32_t curveRenderVertexCount, Diligent::Uint64 sharedContextMask,
                         const std::uint32_t *sharedQueueFamilyIndices,
                         std::uint32_t sharedQueueFamilyIndexCount, bool useNativeFloatAtomics);
     bool uploadWorldState(Diligent::IDeviceContext *computeContext, PhysicsWorld &world,
@@ -318,6 +353,8 @@ public:
                                                    std::uint32_t bodyCount);
     bool readbackBroadPhaseMetaBlocking(Diligent::IDeviceContext *computeContext,
                                         GpuBroadPhaseMeta &outMeta);
+    bool readbackProxyRigidContactMetaBlocking(Diligent::IDeviceContext *computeContext,
+                                               GpuProxyRigidContactMeta &outMeta);
     bool readbackPredictedRigidStateBlocking(Diligent::IDeviceContext *computeContext,
                                              PhysicsWorld &world, std::uint32_t bodyCount);
     bool readbackPredictedParticleStateBlocking(Diligent::IDeviceContext *computeContext,
@@ -334,6 +371,7 @@ public:
     const PersistentParticleBuffers &persistentParticles() const noexcept;
     const gpu::SharedExportBuffer &softPositionsInvMassSharedBuffer() const noexcept;
     const PersistentSoftTopologyBuffers &persistentSoftTopology() const noexcept;
+    const PersistentCurveRenderBuffers &persistentCurveRender() const noexcept;
     const SolverTransientBuffers &transientBuffers() const noexcept;
     std::uint32_t ballJointCount() const noexcept;
     std::uint32_t hingeJointCount() const noexcept;
@@ -345,6 +383,7 @@ public:
     std::uint32_t sliderPositionDriveJointCount() const noexcept;
     std::uint32_t sliderVelocityDriveJointCount() const noexcept;
     std::uint32_t candidatePairCapacity() const noexcept;
+    std::uint32_t rigidContactCapacity() const noexcept;
     std::uint32_t particleCandidatePairCapacity() const noexcept;
     std::uint32_t fluidBoundaryCandidatePairCapacity() const noexcept;
     std::uint32_t maxFluidNeighborhood() const noexcept;
@@ -385,8 +424,16 @@ private:
                          const std::vector<FluidMaterialGpu> &fluidMaterials);
     bool uploadSoftTopology(Diligent::IDeviceContext *computeContext, std::uint32_t particleCount,
                             const SoftRenderDataHost &softRenderData,
-                            const std::vector<SoftEdge> &softEdges,
-                            const std::vector<SoftTet> &softTets);
+                            const std::vector<DeformableDistanceConstraint> &distanceConstraints,
+                            const std::vector<DeformableBendConstraint> &bendConstraints,
+                            const std::vector<DeformableVolumeConstraint> &volumeConstraints);
+    bool uploadCurveRenderData(Diligent::IDeviceContext *computeContext,
+                               const CurveRenderDataHost &curveRenderData);
+    bool uploadSuturingState(Diligent::IDeviceContext *computeContext,
+                             const ParticleSoAHost &particles, std::uint32_t particleCount,
+                             const std::vector<std::uint32_t> &suturingParticleIndices,
+                             const std::vector<StrandSoftSuturingPair> &pairs,
+                             std::uint32_t pathHeaderCount, std::uint32_t pathNodeCount);
     gpu::SharedExportBuffer mSharedSoftPositionsInvMass;
     PersistentRigidBodyBuffers mPersistentRigidBodies;
     PersistentColliderBuffers mPersistentColliders;
@@ -395,16 +442,26 @@ private:
     PersistentJointBuffers mPersistentJoints;
     PersistentParticleBuffers mPersistentParticles;
     PersistentSoftTopologyBuffers mPersistentSoftTopology;
+    PersistentSuturingBuffers mPersistentSuturing;
+    PersistentCurveRenderBuffers mPersistentCurveRender;
     SolverTransientBuffers mTransientState;
     RigidBodyReadbackBuffers mReadbackRigidBodies;
     ParticleReadbackBuffers mReadbackParticles;
     std::uint32_t mRigidBodyCapacity                         = 0;
     std::uint32_t mColliderCapacity                          = 0;
     std::uint32_t mSoftParticleCapacity                      = 0;
+    std::uint32_t mSuturingPairCapacity                      = 0;
+    std::uint32_t mSuturingParticleCapacity                  = 0;
+    std::uint32_t mSuturingPathHeaderCapacity                = 0;
+    std::uint32_t mSuturingPathNodeCapacity                  = 0;
+    std::uint32_t mCurveRenderCapacity                       = 0;
+    std::uint32_t mCurveRenderParticleIndexCapacity          = 0;
+    std::uint32_t mCurveRenderVertexCapacity                 = 0;
     std::uint32_t mFluidVisualCapacity                       = 0;
     std::uint32_t mParticleContactMaterialCapacity           = 0;
     std::uint32_t mFluidMaterialCapacity                     = 0;
     std::uint32_t mSoftEdgeCapacity                          = 0;
+    std::uint32_t mSoftBendCapacity                          = 0;
     std::uint32_t mSoftTetCapacity                           = 0;
     std::uint32_t mParticleBroadPhaseEntryCapacity           = 0;
     std::uint32_t mSoftCandidatePairCapacity                 = 0;
@@ -420,12 +477,19 @@ private:
     std::uint32_t mParticleContactMaterialCount              = 0;
     std::uint32_t mFluidMaterialCount                        = 0;
     std::uint32_t mSoftEdgeCount                             = 0;
+    std::uint32_t mSoftBendCount                             = 0;
     std::uint32_t mSoftTetCount                              = 0;
+    std::uint32_t mSuturingPairCount                         = 0;
+    std::uint32_t mSuturingParticleCount                     = 0;
+    std::uint32_t mSuturingPathHeaderCount                   = 0;
+    std::uint32_t mSuturingPathNodeCount                     = 0;
+    std::uint32_t mCurveRenderCount                          = 0;
     std::uint32_t mBroadPhaseNodeCapacity                    = 0;
     std::uint32_t mCandidatePairCapacity                     = 0;
     std::uint32_t mContactCapacity                           = 0;
     std::uint32_t mSoftScanScratchCapacity                   = 0;
     std::uint32_t mSoftIncidentEdgeCapacity                  = 0;
+    std::uint32_t mSoftIncidentBendCapacity                  = 0;
     std::uint32_t mSoftIncidentTetCapacity                   = 0;
     std::uint32_t mSoftRenderVertexCapacity                  = 0;
     std::uint32_t mSoftRenderTriangleIndexCapacity           = 0;
@@ -456,6 +520,7 @@ private:
     std::uint64_t mLastUploadedRigidJointModeRevision        = 0;
     std::uint64_t mLastUploadedSoftParticleRevision          = 0;
     std::uint64_t mLastUploadedSoftTopologyRevision          = 0;
+    std::uint64_t mLastUploadedCurveRenderRevision           = 0;
     std::uint32_t mBallJointCount                            = 0;
     std::uint32_t mHingeJointCount                           = 0;
     std::uint32_t mSliderJointCount                          = 0;
