@@ -8,6 +8,8 @@ CRESSIM_RW_STRUCTURED_BUFFER(GpuSuturingPair, g_SuturingPairs);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuSuturingPathHeader, g_SuturingPathHeaders);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuSuturingPathNode, g_SuturingPathNodes);
 
+static const float kPathNodeLowerSpacingScale = 1.2 / 1.7;
+
 float3 EvaluatePathNodePosition(GpuSuturingPathNode node)
 {
     if (node.tetIndex == kInvalidSuturingIndex || node.tetIndex >= softTetCount)
@@ -22,6 +24,17 @@ float3 EvaluatePathNodePosition(GpuSuturingPathNode node)
     const float3 p3 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet.particleIndices.w).xyz;
     return p0 * node.barycentrics.x + p1 * node.barycentrics.y + p2 * node.barycentrics.z +
            p3 * node.barycentrics.w;
+}
+
+float4 NormalizeBarycentrics(float4 barycentrics)
+{
+    barycentrics = max(barycentrics, 0.0);
+    const float sum = barycentrics.x + barycentrics.y + barycentrics.z + barycentrics.w;
+    if (sum <= kEpsilon)
+    {
+        return float4(0.25, 0.25, 0.25, 0.25);
+    }
+    return barycentrics / sum;
 }
 
 [numthreads(64, 1, 1)]
@@ -100,8 +113,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 tipPosition = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, pair.tipParticleIndex).xyz;
     const float3 lastPosition = EvaluatePathNodePosition(lastNode);
     const float3 delta = tipPosition - lastPosition;
+    const float upperSpacing = max(pair.pathNodeSpacing, 1.0e-4);
+    const float lowerSpacing = max(upperSpacing * kPathNodeLowerSpacingScale, 1.0e-4);
     const float distance = length(delta);
-    if (distance < max(pair.pathNodeSpacing, 1.0e-4))
+    if (distance < lowerSpacing)
     {
         return;
     }
@@ -110,16 +125,39 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    GpuSuturingPathNode node;
-    node.softBodyIndex = pair.softBodyIndex;
-    node.tetIndex = tipState.tetIndex;
-    node.barycentrics = tipState.barycentrics;
     const float3 tangent = distance > kEpsilon ? normalize(delta) : float3(0.0, 0.0, 1.0);
-    node.tangentArcLength = float4(tangent, lastNode.tangentArcLength.w + distance);
-    node.needleTangentialDragBits = pair.needleTangentialDragBits;
-    node.threadTangentialDragBits = pair.threadTangentialDragBits;
+    uint appendCount = 1u;
+    if (distance > upperSpacing)
+    {
+        appendCount = max((uint)floor(distance / upperSpacing), 1u);
+        appendCount = min(appendCount, nodesPerPath - header.nodeCount);
+    }
 
-    CRESSIM_SB_STORE(g_SuturingPathNodes, header.nodeStart + header.nodeCount, node);
-    header.nodeCount += 1u;
+    const bool canInterpolateEmbeddedNodes =
+        lastNode.tetIndex == tipState.tetIndex && lastNode.tetIndex != kInvalidSuturingIndex;
+    if (!canInterpolateEmbeddedNodes)
+    {
+        appendCount = 1u;
+    }
+
+    float4 lastBarycentrics = lastNode.barycentrics;
+    for (uint appendIndex = 0u; appendIndex < appendCount; ++appendIndex)
+    {
+        const float u = (float)(appendIndex + 1u) / (float)appendCount;
+        GpuSuturingPathNode node;
+        node.softBodyIndex = pair.softBodyIndex;
+        node.tetIndex = tipState.tetIndex;
+        node.barycentrics =
+            canInterpolateEmbeddedNodes
+                ? NormalizeBarycentrics(lerp(lastBarycentrics, tipState.barycentrics, u))
+                : tipState.barycentrics;
+        node.tangentArcLength = float4(
+            tangent, lastNode.tangentArcLength.w + distance * ((float)(appendIndex + 1u) / (float)appendCount));
+        node.needleTangentialDragBits = pair.needleTangentialDragBits;
+        node.threadTangentialDragBits = pair.threadTangentialDragBits;
+        CRESSIM_SB_STORE(g_SuturingPathNodes, header.nodeStart + header.nodeCount, node);
+        header.nodeCount += 1u;
+    }
+
     CRESSIM_SB_STORE(g_SuturingPathHeaders, activePathIndex, header);
 }
