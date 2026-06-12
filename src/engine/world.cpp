@@ -270,6 +270,7 @@ bool World::destroyEntity(common::EntityId entityId)
     removeRigidBody(entityId);
     removeSoftBody(entityId);
     removeStrand(entityId);
+    removeProceduralDeformableCurveRender(entityId);
     removeFluid(entityId);
     removeUltrasoundProbe(entityId);
     removeUltrasoundScattererSource(entityId);
@@ -531,6 +532,10 @@ void World::ensureHostSceneStorage()
         mSoftBodyVertexBindingBaseByObject.assign(objectCapacity, kInvalidSlot);
         mSoftBodyVertexNormalBaseByObject.assign(objectCapacity, kInvalidSlot);
         mSoftBodyVertexCountByObject.assign(objectCapacity, 0u);
+        mCurveRenderVertexBaseByObject.assign(objectCapacity, kInvalidSlot);
+        mCurveRenderVertexNormalBaseByObject.assign(objectCapacity, kInvalidSlot);
+        mCurveRenderIndexByObject.assign(objectCapacity, kInvalidSlot);
+        mCurveRenderVertexCountByObject.assign(objectCapacity, 0u);
         mOpaqueDrawRegistryHost.clear();
         mTransparentDrawRegistryHost.clear();
         mShadowDrawRegistryHost.clear();
@@ -550,6 +555,7 @@ void World::ensureHostSceneStorage()
         mDrawRegistryDirty              = true;
         mPhysicsRenderableMappingsDirty = true;
         mSoftBodyRenderBindingsDirty    = true;
+        mCurveRenderBindingsDirty       = true;
     }
 
     const std::size_t cameraCapacity = mSceneLayout.totalCameraCapacity();
@@ -745,6 +751,7 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
     mDrawRegistryDirty              = true;
     mPhysicsRenderableMappingsDirty = true;
     mSoftBodyRenderBindingsDirty    = true;
+    mCurveRenderBindingsDirty       = true;
 }
 
 void World::setCamera(common::EntityId entityId, const CameraComponent &component)
@@ -1167,6 +1174,47 @@ bool World::removeStrand(common::EntityId entityId)
     return mPhysicsWorld.removeStrand(entityId);
 }
 
+void World::setProceduralDeformableCurveRender(
+    common::EntityId entityId, const ProceduralDeformableCurveRenderComponent &component)
+{
+    if (!requireAliveEntity(entityId, "setProceduralDeformableCurveRender"))
+    {
+        return;
+    }
+
+    mProceduralDeformableCurveRenders[entityId] = component;
+    if (const auto renderIt = mRenderableIndices.find(entityId);
+        renderIt != mRenderableIndices.end())
+    {
+        markRenderableMetadataDirty(static_cast<std::uint32_t>(renderIt->second));
+    }
+    mCurveRenderBindingsDirty = true;
+    mDrawRegistryDirty        = true;
+}
+
+bool World::removeProceduralDeformableCurveRender(common::EntityId entityId)
+{
+    const bool removed = mProceduralDeformableCurveRenders.erase(entityId) > 0u;
+    if (removed)
+    {
+        if (const auto renderIt = mRenderableIndices.find(entityId);
+            renderIt != mRenderableIndices.end())
+        {
+            markRenderableMetadataDirty(static_cast<std::uint32_t>(renderIt->second));
+        }
+        mCurveRenderBindingsDirty = true;
+        mDrawRegistryDirty        = true;
+    }
+    return removed;
+}
+
+physics::AuthoredParticleSequenceState &World::upsertParticleSequence(
+    const physics::AuthoredParticleSequenceState &state)
+{
+    mCurveRenderBindingsDirty = true;
+    return mPhysicsWorld.upsertParticleSequence(state);
+}
+
 physics::AuthoredParticleDistanceConstraintState &World::upsertParticleDistanceConstraint(
     const physics::AuthoredParticleDistanceConstraintState &state)
 {
@@ -1182,6 +1230,17 @@ physics::AuthoredSuturingSequenceState &World::upsertSuturingSequence(
 bool World::removeParticleDistanceConstraint(physics::ParticleConstraintId constraintId)
 {
     return mPhysicsWorld.removeParticleDistanceConstraint(constraintId);
+}
+
+bool World::removeParticleSequence(physics::ParticleSequenceId sequenceId)
+{
+    const bool removed = mPhysicsWorld.removeParticleSequence(sequenceId);
+    if (removed)
+    {
+        mCurveRenderBindingsDirty = true;
+        mDrawRegistryDirty        = true;
+    }
+    return removed;
 }
 
 bool World::removeSuturingSequence(physics::SuturingSequenceId sequenceId)
@@ -1501,6 +1560,7 @@ bool World::removeMeshRenderer(common::EntityId entityId)
     mDrawRegistryDirty              = true;
     mPhysicsRenderableMappingsDirty = true;
     mSoftBodyRenderBindingsDirty    = true;
+    mCurveRenderBindingsDirty       = true;
     return true;
 }
 
@@ -1758,6 +1818,15 @@ std::optional<StrandComponent> World::tryGetStrand(common::EntityId entityId) co
     return component;
 }
 
+std::optional<ProceduralDeformableCurveRenderComponent>
+World::tryGetProceduralDeformableCurveRender(common::EntityId entityId) const
+{
+    const auto it = mProceduralDeformableCurveRenders.find(entityId);
+    return it != mProceduralDeformableCurveRenders.end()
+               ? std::optional<ProceduralDeformableCurveRenderComponent>{it->second}
+               : std::nullopt;
+}
+
 std::optional<FluidComponent> World::tryGetFluid(common::EntityId entityId) const
 {
     const physics::FluidState *fluid = mPhysicsWorld.tryGetFluid(entityId);
@@ -1782,6 +1851,12 @@ const physics::AuthoredParticleDistanceConstraintState *World::tryGetParticleDis
     physics::ParticleConstraintId constraintId) const noexcept
 {
     return mPhysicsWorld.tryGetParticleDistanceConstraint(constraintId);
+}
+
+const physics::AuthoredParticleSequenceState *World::tryGetParticleSequence(
+    physics::ParticleSequenceId sequenceId) const noexcept
+{
+    return mPhysicsWorld.tryGetParticleSequence(sequenceId);
 }
 
 const physics::AuthoredSuturingSequenceState *World::tryGetSuturingSequence(
@@ -2072,11 +2147,21 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
         }
         mCachedSoftBodyPhysicsRevision = physicsRevision;
     }
+    if (mCachedCurveRenderPhysicsRevision != physicsRevision)
+    {
+        mCurveRenderBindingsDirty    = true;
+        mCachedCurveRenderPhysicsRevision = physicsRevision;
+    }
 
     if (mSoftBodyRenderBindingsDirty)
     {
         mPhysicsWorld.ensureSoftBodyDerivedStateUpToDate();
         rebuildSoftBodyRenderBindings(resources);
+    }
+    if (mCurveRenderBindingsDirty)
+    {
+        mPhysicsWorld.ensureSoftBodyDerivedStateUpToDate();
+        rebuildCurveRenderBindings(resources);
     }
 
     for (const std::uint32_t objectIndex : mDirtyRenderablePoseIndices)
@@ -2294,6 +2379,163 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
     mPhysicsWorld.setSoftRenderData(softRenderData);
 }
 
+void World::rebuildCurveRenderBindings(const graphics::RenderResourceManager &resources)
+{
+    std::fill(mCurveRenderVertexBaseByObject.begin(), mCurveRenderVertexBaseByObject.end(),
+              kInvalidSlot);
+    std::fill(mCurveRenderVertexNormalBaseByObject.begin(), mCurveRenderVertexNormalBaseByObject.end(),
+              kInvalidSlot);
+    std::fill(mCurveRenderIndexByObject.begin(), mCurveRenderIndexByObject.end(), kInvalidSlot);
+    std::fill(mCurveRenderVertexCountByObject.begin(), mCurveRenderVertexCountByObject.end(), 0u);
+
+    physics::CurveRenderDataHost curveRenderData;
+    const auto resolveParticleReference =
+        [this](const physics::AuthoredParticleReference &reference) -> std::optional<std::uint32_t>
+    {
+        switch (reference.type)
+        {
+        case physics::AuthoredParticleReferenceType::StrandParticle:
+        {
+            const physics::StrandState *strand = mPhysicsWorld.tryGetStrand(reference.entityId);
+            if (strand == nullptr || reference.localParticleIndex >= strand->particleCount)
+            {
+                return std::nullopt;
+            }
+            return strand->particleOffset + reference.localParticleIndex;
+        }
+        case physics::AuthoredParticleReferenceType::SoftBodyParticle:
+        {
+            const physics::SoftBodyState *softBody = mPhysicsWorld.tryGetSoftBody(reference.entityId);
+            if (softBody == nullptr || reference.localParticleIndex >= softBody->particleCount)
+            {
+                return std::nullopt;
+            }
+            return softBody->particleOffset + reference.localParticleIndex;
+        }
+        case physics::AuthoredParticleReferenceType::RigidProxyParticle:
+            return std::nullopt;
+        }
+        return std::nullopt;
+    };
+
+    for (std::uint32_t objectIndex = 0u;
+         objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
+    {
+        const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
+        if (renderable.entityId == common::kInvalidEntityId ||
+            renderable.objectSlot == kInvalidSlot)
+        {
+            continue;
+        }
+
+        const auto componentIt = mProceduralDeformableCurveRenders.find(renderable.entityId);
+        if (componentIt == mProceduralDeformableCurveRenders.end())
+        {
+            continue;
+        }
+
+        const ProceduralDeformableCurveRenderComponent &component = componentIt->second;
+        if (!component.enabled || component.sequenceId == physics::kInvalidParticleSequenceId)
+        {
+            continue;
+        }
+
+        const auto physicsLinkIt = mPhysicsLinks.find(renderable.entityId);
+        const bool entityHasSoftBody =
+            physicsLinkIt != mPhysicsLinks.end() && physicsLinkIt->second.hasSoftBody;
+        if (entityHasSoftBody)
+        {
+            // A renderable currently selects exactly one deformable draw path/metadata family.
+            // Supporting both soft-body surface deformation and procedural curve deformation on
+            // the same renderable would require splitting them into separate renderables or
+            // generalizing the draw metadata model. Until then, skip the curve binding here.
+            CRESSIM_LOG_WARNING(
+                "Procedural deformable curve rendering is not supported on the same renderable "
+                "entity as a soft body. Curve render binding for entity ",
+                renderable.entityId, " will be skipped.");
+            continue;
+        }
+
+        const physics::AuthoredParticleSequenceState *sequence =
+            mPhysicsWorld.tryGetParticleSequence(component.sequenceId);
+        const graphics::MeshResourceDesc *mesh = resources.tryGetMesh(renderable.mesh);
+        if (sequence == nullptr || !sequence->enabled || mesh == nullptr)
+        {
+            continue;
+        }
+
+        const std::uint32_t radialResolution = std::max(component.radialResolution, 3u);
+        std::vector<std::uint32_t> resolvedParticleIndices;
+        resolvedParticleIndices.reserve(sequence->entries.size());
+        bool valid = !sequence->entries.empty();
+        for (const physics::AuthoredParticleReference &entry : sequence->entries)
+        {
+            const std::optional<std::uint32_t> particleIndex = resolveParticleReference(entry);
+            if (!particleIndex.has_value())
+            {
+                valid = false;
+                break;
+            }
+            resolvedParticleIndices.push_back(*particleIndex);
+        }
+
+        if (!valid || resolvedParticleIndices.size() < 2u || component.radius <= 0.0f)
+        {
+            continue;
+        }
+
+        const std::uint32_t particleCount = static_cast<std::uint32_t>(resolvedParticleIndices.size());
+        const std::uint32_t expectedVertexCount = particleCount * radialResolution;
+        const std::uint32_t expectedIndexCount =
+            (particleCount - 1u) * radialResolution * 6u;
+        if (mesh->vertices.size() != expectedVertexCount || mesh->indices.size() != expectedIndexCount)
+        {
+            CRESSIM_LOG_ERROR("Curve render binding build failed for entity ", renderable.entityId,
+                              ": visual mesh topology must match the canonical tube layout for ",
+                              particleCount, " samples and radial resolution ", radialResolution,
+                              ".");
+            continue;
+        }
+
+        const std::uint32_t curveIndex = static_cast<std::uint32_t>(curveRenderData.descriptors.size());
+        const std::uint32_t particleIndexStart =
+            static_cast<std::uint32_t>(curveRenderData.particleIndices.size());
+        const std::uint32_t vertexBase = curveIndex == 0u
+                                             ? 0u
+                                             : (curveRenderData.descriptors.back().vertexBase +
+                                                curveRenderData.descriptors.back().vertexCount);
+        curveRenderData.particleIndices.insert(curveRenderData.particleIndices.end(),
+                                               resolvedParticleIndices.begin(),
+                                               resolvedParticleIndices.end());
+        curveRenderData.descriptors.push_back(physics::CurveRenderDescriptorHost{
+            particleIndexStart,
+            particleCount,
+            vertexBase,
+            expectedVertexCount,
+            radialResolution,
+            renderable.envIndex,
+            component.radius,
+        });
+
+        mCurveRenderVertexBaseByObject[objectIndex]   = vertexBase;
+        mCurveRenderVertexNormalBaseByObject[objectIndex] = vertexBase;
+        mCurveRenderIndexByObject[objectIndex]        = curveIndex;
+        mCurveRenderVertexCountByObject[objectIndex]  = expectedVertexCount;
+    }
+
+    for (std::uint32_t objectIndex = 0u;
+         objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
+    {
+        if (mRenderables[objectIndex].entityId != common::kInvalidEntityId)
+        {
+            markRenderableMetadataDirty(objectIndex);
+        }
+    }
+
+    mCurveRenderBindingsDirty = false;
+    mPhysicsWorld.setCurveRenderData(curveRenderData);
+}
+
 void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources)
 {
     // TODO: some metadata depends on resources too, not just world state:
@@ -2312,10 +2554,12 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
         const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
         graphics::GpuRenderableMetadata entry{};
         graphics::GpuRenderableFlags renderableFlags = graphics::GpuRenderableFlags::None;
-        entry.softBodyVertexBindingBase              = kInvalidSlot;
-        entry.softBodyVertexNormalBase               = kInvalidSlot;
-        entry.softBodyIndex                          = kInvalidSlot;
-        entry.softBodyVertexCount                    = 0u;
+        entry.deformVertexBase                       = kInvalidSlot;
+        entry.deformNormalBase                       = kInvalidSlot;
+        entry.deformableIndex                        = kInvalidSlot;
+        entry.deformVertexCount                      = 0u;
+        entry.deformableType =
+            static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::None);
         if (renderable.entityId != common::kInvalidEntityId &&
             renderable.objectSlot != kInvalidSlot)
         {
@@ -2353,7 +2597,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
                     {
                         if (softBodies[softBodyIndex].entityId == renderable.entityId)
                         {
-                            entry.softBodyIndex = softBodyIndex;
+                            entry.deformableIndex = softBodyIndex;
                             break;
                         }
                     }
@@ -2365,9 +2609,26 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
                     localBoundsMax = Diligent::float3{0.0f, 0.0f, 0.0f};
                     hasBounds      = true;
                 }
-                entry.softBodyVertexBindingBase = mSoftBodyVertexBindingBaseByObject[objectIndex];
-                entry.softBodyVertexNormalBase  = mSoftBodyVertexNormalBaseByObject[objectIndex];
-                entry.softBodyVertexCount       = mSoftBodyVertexCountByObject[objectIndex];
+                entry.deformVertexBase = mSoftBodyVertexBindingBaseByObject[objectIndex];
+                entry.deformNormalBase = mSoftBodyVertexNormalBaseByObject[objectIndex];
+                entry.deformVertexCount = mSoftBodyVertexCountByObject[objectIndex];
+                entry.deformableType =
+                    static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::SoftBody);
+            }
+
+            if (const auto curveIt = mProceduralDeformableCurveRenders.find(renderable.entityId);
+                curveIt != mProceduralDeformableCurveRenders.end() && curveIt->second.enabled &&
+                mCurveRenderIndexByObject[objectIndex] != kInvalidSlot)
+            {
+                entry.deformVertexBase = mCurveRenderVertexBaseByObject[objectIndex];
+                entry.deformNormalBase = mCurveRenderVertexNormalBaseByObject[objectIndex];
+                entry.deformVertexCount = mCurveRenderVertexCountByObject[objectIndex];
+                entry.deformableIndex = mCurveRenderIndexByObject[objectIndex];
+                entry.deformableType =
+                    static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::Curve);
+                localBoundsMin = Diligent::float3{0.0f, 0.0f, 0.0f};
+                localBoundsMax = Diligent::float3{0.0f, 0.0f, 0.0f};
+                hasBounds      = true;
             }
 
             if (!hasBounds &&
@@ -2432,7 +2693,11 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
         const graphics::MaterialProgramFamily programFamily =
             (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
                 ? graphics::MaterialProgramFamily::SoftBodyLit
-                : material->pipeline.programFamily;
+                : (mProceduralDeformableCurveRenders.find(renderable.entityId) !=
+                           mProceduralDeformableCurveRenders.end() &&
+                       mCurveRenderIndexByObject[objectIndex] != kInvalidSlot
+                   ? graphics::MaterialProgramFamily::CurveLit
+                   : material->pipeline.programFamily);
 
         const DrawBucketKey key{
             renderOrder,

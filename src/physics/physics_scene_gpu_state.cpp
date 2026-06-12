@@ -242,6 +242,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
     std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
     std::uint32_t softBodyBoundsChunkCount, std::uint32_t suturingPairCount,
     std::uint32_t suturingPathHeaderCount, std::uint32_t suturingPathNodeCount,
+    std::uint32_t curveRenderCount, std::uint32_t curveRenderParticleIndexCount,
+    std::uint32_t curveRenderVertexCount,
     Diligent::Uint64 sharedContextMask,
     const std::uint32_t *sharedQueueFamilyIndices, std::uint32_t sharedQueueFamilyIndexCount,
     bool useNativeFloatAtomics)
@@ -317,6 +319,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const auto suturingInsertionsBefore = mPersistentSuturing.insertionStatesBuffer.RawPtr();
     const auto suturingPathHeadersBefore = mPersistentSuturing.pathHeadersBuffer.RawPtr();
     const auto suturingPathNodesBefore = mPersistentSuturing.pathNodesBuffer.RawPtr();
+    const auto curveDescriptorsBefore = mPersistentCurveRender.descriptorsBuffer.RawPtr();
+    const auto curvePositionsBefore = mPersistentCurveRender.positionsBuffer.RawPtr();
+    const auto curveNormalsBefore = mPersistentCurveRender.normalsBuffer.RawPtr();
+    const auto curveWorldAabbsBefore = mPersistentCurveRender.worldAabbsBuffer.RawPtr();
 
     const bool hasAllBuffers =
         mPersistentRigidBodies.positionsBuffer != nullptr &&
@@ -401,6 +407,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentSuturing.insertionStatesBuffer != nullptr &&
         mPersistentSuturing.pathHeadersBuffer != nullptr &&
         mPersistentSuturing.pathNodesBuffer != nullptr &&
+        mPersistentCurveRender.descriptorsBuffer != nullptr &&
+        mPersistentCurveRender.particleIndicesBuffer != nullptr &&
+        mPersistentCurveRender.positionsBuffer != nullptr &&
+        mPersistentCurveRender.normalsBuffer != nullptr &&
+        mPersistentCurveRender.worldAabbsBuffer != nullptr &&
         mTransientState.predictedRigidBodies.positionsBuffer != nullptr &&
         mTransientState.predictedRigidBodies.orientationsBuffer != nullptr &&
         mTransientState.predictedRigidBodies.linearVelocitiesBuffer != nullptr &&
@@ -574,6 +585,12 @@ bool PhysicsSceneGpuState::ensureCapacity(
         std::max<std::uint32_t>(suturingPathHeaderCount, 1u);
     const std::uint32_t newSuturingPathNodeCapacity =
         std::max<std::uint32_t>(suturingPathNodeCount, 1u);
+    const std::uint32_t newCurveRenderCapacity =
+        std::max<std::uint32_t>(curveRenderCount, 1u);
+    const std::uint32_t newCurveRenderParticleIndexCapacity =
+        std::max<std::uint32_t>(curveRenderParticleIndexCount, 1u);
+    const std::uint32_t newCurveRenderVertexCapacity =
+        std::max<std::uint32_t>(curveRenderVertexCount, 1u);
     const std::uint32_t newSuturingCandidateSlotCapacity = std::max<std::uint32_t>(
         newSuturingParticleCapacity * kMaxSuturingCandidatesPerParticle, 1u);
     const std::uint32_t newJointCollisionSuppressionOffsetCapacity =
@@ -640,6 +657,9 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mSuturingParticleCapacity >= newSuturingParticleCapacity &&
         mSuturingPathHeaderCapacity >= newSuturingPathHeaderCapacity &&
         mSuturingPathNodeCapacity >= newSuturingPathNodeCapacity &&
+        mCurveRenderCapacity >= newCurveRenderCapacity &&
+        mCurveRenderParticleIndexCapacity >= newCurveRenderParticleIndexCapacity &&
+        mCurveRenderVertexCapacity >= newCurveRenderVertexCapacity &&
         mSoftBodyBoundsChunkCapacity >= newSoftBodyBoundsChunkCapacity)
     {
         return true;
@@ -1034,6 +1054,31 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSuturing.pathNodesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.CurveRenderDescriptors",
+                                sizeof(GpuCurveRenderDescriptor), newCurveRenderCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentCurveRender.descriptorsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.CurveRenderParticleIndices",
+                                sizeof(std::uint32_t), newCurveRenderParticleIndexCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentCurveRender.particleIndicesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.CurveRenderPositions",
+                                sizeof(Diligent::float4), newCurveRenderVertexCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentCurveRender.positionsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.CurveRenderNormals",
+                                sizeof(Diligent::float4), newCurveRenderVertexCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentCurveRender.normalsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.CurveWorldAabbs",
+                                sizeof(GpuBodyAabb), newCurveRenderCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentCurveRender.worldAabbsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ParticleBroadPhaseEntries",
                                 sizeof(GpuParticleBroadPhaseEntry),
                                 newParticleBroadPhaseEntryCapacity,
@@ -1686,6 +1731,9 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mSuturingParticleCapacity != newSuturingParticleCapacity ||
         mSuturingPathHeaderCapacity != newSuturingPathHeaderCapacity ||
         mSuturingPathNodeCapacity != newSuturingPathNodeCapacity ||
+        mCurveRenderCapacity != newCurveRenderCapacity ||
+        mCurveRenderParticleIndexCapacity != newCurveRenderParticleIndexCapacity ||
+        mCurveRenderVertexCapacity != newCurveRenderVertexCapacity ||
         mSoftBodyBoundsChunkCapacity != newSoftBodyBoundsChunkCapacity;
 
     mRigidBodyCapacity                         = newRigidBodyCapacity;
@@ -1695,6 +1743,9 @@ bool PhysicsSceneGpuState::ensureCapacity(
     mSuturingParticleCapacity                  = newSuturingParticleCapacity;
     mSuturingPathHeaderCapacity                = newSuturingPathHeaderCapacity;
     mSuturingPathNodeCapacity                  = newSuturingPathNodeCapacity;
+    mCurveRenderCapacity                       = newCurveRenderCapacity;
+    mCurveRenderParticleIndexCapacity          = newCurveRenderParticleIndexCapacity;
+    mCurveRenderVertexCapacity                 = newCurveRenderVertexCapacity;
     mFluidVisualCapacity                       = newFluidVisualCapacity;
     mParticleContactMaterialCapacity           = newParticleContactMaterialCapacity;
     mFluidMaterialCapacity                     = newFluidMaterialCapacity;
@@ -1796,6 +1847,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
         suturingInsertionsBefore != mPersistentSuturing.insertionStatesBuffer.RawPtr() ||
         suturingPathHeadersBefore != mPersistentSuturing.pathHeadersBuffer.RawPtr() ||
         suturingPathNodesBefore != mPersistentSuturing.pathNodesBuffer.RawPtr() ||
+        curveDescriptorsBefore != mPersistentCurveRender.descriptorsBuffer.RawPtr() ||
+        curvePositionsBefore != mPersistentCurveRender.positionsBuffer.RawPtr() ||
+        curveNormalsBefore != mPersistentCurveRender.normalsBuffer.RawPtr() ||
+        curveWorldAabbsBefore != mPersistentCurveRender.worldAabbsBuffer.RawPtr() ||
         softRenderNormalsBefore != mPersistentSoftTopology.softBodyRenderNormalsBuffer.RawPtr() ||
         softWorldAabbsBefore != mPersistentSoftTopology.softBodyWorldAabbsBuffer.RawPtr();
     if (rigidBindingsChanged)
@@ -1836,6 +1891,7 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
         world.particleContactMaterials();
     const std::vector<FluidMaterialGpu> &fluidMaterials = world.fluidMaterials();
     const SoftRenderDataHost &softRenderData            = world.softRenderData();
+    const CurveRenderDataHost &curveRenderData          = world.curveRenderData();
     const std::vector<DeformableDistanceConstraint> &distanceConstraints =
         world.distanceConstraints();
     const std::vector<DeformableBendConstraint> &bendConstraints     = world.bendConstraints();
@@ -1846,6 +1902,7 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
     const std::uint32_t suturingPathNodeCount   = world.reservedSuturingPathNodeCount();
     const std::uint64_t softParticleRevision                         = world.softParticleRevision();
     const std::uint64_t softTopologyRevision = world.softGpuTopologyRevision();
+    const std::uint64_t curveRenderRevision = world.curveRenderRevision();
     if (static_cast<std::uint32_t>(rigidBodies.size()) != bodyCount ||
         static_cast<std::uint32_t>(colliders.size()) != colliderCount)
     {
@@ -1872,6 +1929,7 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
         mSuturingParticleCount               = 0u;
         mSuturingPathHeaderCount             = 0u;
         mSuturingPathNodeCount               = 0u;
+        mCurveRenderCount                    = 0u;
         mHingePassiveJointCount              = 0u;
         mHingePositionDriveJointCount        = 0u;
         mHingeVelocityDriveJointCount        = 0u;
@@ -1921,6 +1979,9 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
     const bool needsSuturingStateUpload =
         mSoftTopologyUploadResetRequired ||
         mLastUploadedSoftTopologyRevision != softTopologyRevision;
+    const bool needsCurveRenderUpload =
+        mSoftTopologyUploadResetRequired ||
+        mLastUploadedCurveRenderRevision != curveRenderRevision;
 
     if ((needsSoftParticleUpload && !uploadParticles(computeContext, particles, fluids,
                                                      particleContactMaterials, fluidMaterials)) ||
@@ -1936,6 +1997,11 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
                              static_cast<std::uint32_t>(particles.size()),
                              suturingParticleIndices, suturingPairs, suturingPathHeaderCount,
                              suturingPathNodeCount))
+    {
+        return false;
+    }
+    if (needsCurveRenderUpload &&
+        !uploadCurveRenderData(computeContext, curveRenderData))
     {
         return false;
     }
@@ -1956,12 +2022,15 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
     mSuturingParticleCount            = static_cast<std::uint32_t>(suturingParticleIndices.size());
     mSuturingPathHeaderCount          = suturingPathHeaderCount;
     mSuturingPathNodeCount            = suturingPathNodeCount;
+    mCurveRenderCount                 =
+        static_cast<std::uint32_t>(curveRenderData.descriptors.size());
     mRigidBodyUploadResetRequired     = false;
     mColliderUploadResetRequired      = false;
     mSoftParticleUploadResetRequired  = false;
     mSoftTopologyUploadResetRequired  = false;
     mLastUploadedSoftParticleRevision = softParticleRevision;
     mLastUploadedSoftTopologyRevision = softTopologyRevision;
+    mLastUploadedCurveRenderRevision  = curveRenderRevision;
     mStaticBroadPhaseDirty            = mStaticBroadPhaseDirty || world.staticBroadPhaseDirty();
     world.clearStaticBroadPhaseDirty();
     return true;
@@ -2672,6 +2741,54 @@ bool PhysicsSceneGpuState::uploadSoftTopology(
                static_cast<std::uint32_t>(softRenderData.fallbackNormals.size()));
 }
 
+bool PhysicsSceneGpuState::uploadCurveRenderData(
+    Diligent::IDeviceContext *computeContext, const CurveRenderDataHost &curveRenderData)
+{
+    if (computeContext == nullptr)
+    {
+        return false;
+    }
+
+    std::vector<GpuCurveRenderDescriptor> descriptors(curveRenderData.descriptors.size());
+    for (std::size_t i = 0; i < curveRenderData.descriptors.size(); ++i)
+    {
+        const CurveRenderDescriptorHost &src = curveRenderData.descriptors[i];
+        descriptors[i] = GpuCurveRenderDescriptor{src.particleIndexStart, src.particleCount,
+                                                  src.vertexBase,         src.vertexCount,
+                                                  src.radialResolution,   src.environmentIndex,
+                                                  src.radius};
+    }
+
+    std::vector<Diligent::float4> zeroedVertices;
+    std::uint32_t totalVertexCount = 0u;
+    for (const CurveRenderDescriptorHost &descriptor : curveRenderData.descriptors)
+    {
+        totalVertexCount = std::max(totalVertexCount, descriptor.vertexBase + descriptor.vertexCount);
+    }
+    zeroedVertices.assign(totalVertexCount, Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
+
+    std::vector<GpuBodyAabb> emptyAabbs(curveRenderData.descriptors.size());
+    for (GpuBodyAabb &aabb : emptyAabbs)
+    {
+        aabb.minBounds = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
+        aabb.maxBounds = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
+    }
+
+    return updateStructuredBufferRange(computeContext, mPersistentCurveRender.descriptorsBuffer,
+                                       descriptors, 0u,
+                                       static_cast<std::uint32_t>(descriptors.size())) &&
+           updateStructuredBufferRange(computeContext, mPersistentCurveRender.particleIndicesBuffer,
+                                       curveRenderData.particleIndices, 0u,
+                                       static_cast<std::uint32_t>(curveRenderData.particleIndices.size())) &&
+           updateStructuredBufferRange(computeContext, mPersistentCurveRender.positionsBuffer,
+                                       zeroedVertices, 0u, totalVertexCount) &&
+           updateStructuredBufferRange(computeContext, mPersistentCurveRender.normalsBuffer,
+                                       zeroedVertices, 0u, totalVertexCount) &&
+           updateStructuredBufferRange(computeContext, mPersistentCurveRender.worldAabbsBuffer,
+                                       emptyAabbs, 0u,
+                                       static_cast<std::uint32_t>(emptyAabbs.size()));
+}
+
 bool PhysicsSceneGpuState::uploadSuturingState(
     Diligent::IDeviceContext *computeContext, const ParticleSoAHost &particles,
     std::uint32_t particleCount,
@@ -3099,6 +3216,12 @@ const PhysicsSceneGpuState::PersistentSoftTopologyBuffers &PhysicsSceneGpuState:
     return mPersistentSoftTopology;
 }
 
+const PhysicsSceneGpuState::PersistentCurveRenderBuffers &PhysicsSceneGpuState::
+    persistentCurveRender() const noexcept
+{
+    return mPersistentCurveRender;
+}
+
 const PhysicsSceneGpuState::SolverTransientBuffers &PhysicsSceneGpuState::transientBuffers()
     const noexcept
 {
@@ -3270,6 +3393,13 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.suturingPathHeaderCount = mSuturingPathHeaderCount;
     view.soft.suturingPathNodeCount   = mSuturingPathNodeCount;
     view.soft.bindingGeneration   = mSoftBindingGeneration;
+    view.curve.descriptorsBuffer    = mPersistentCurveRender.descriptorsBuffer;
+    view.curve.particleIndicesBuffer = mPersistentCurveRender.particleIndicesBuffer;
+    view.curve.positionsBuffer      = mPersistentCurveRender.positionsBuffer;
+    view.curve.normalsBuffer        = mPersistentCurveRender.normalsBuffer;
+    view.curve.worldAabbsBuffer     = mPersistentCurveRender.worldAabbsBuffer;
+    view.curve.curveCount           = mCurveRenderCount;
+    view.curve.bindingGeneration    = mSoftBindingGeneration;
     return view;
 }
 

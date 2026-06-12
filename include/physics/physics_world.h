@@ -25,6 +25,8 @@ public:
     bool upsertSoftBody(const SoftBodyState &state);
     bool upsertStrand(const StrandState &state);
     bool upsertFluid(const FluidState &state);
+    AuthoredParticleSequenceState &upsertParticleSequence(
+        const AuthoredParticleSequenceState &state);
     AuthoredParticleDistanceConstraintState &upsertParticleDistanceConstraint(
         const AuthoredParticleDistanceConstraintState &state);
     AuthoredSuturingSequenceState &upsertSuturingSequence(
@@ -32,6 +34,7 @@ public:
     bool removeSoftBody(common::EntityId entityId);
     bool removeStrand(common::EntityId entityId);
     bool removeFluid(common::EntityId entityId);
+    bool removeParticleSequence(ParticleSequenceId sequenceId);
     bool removeParticleDistanceConstraint(ParticleConstraintId constraintId);
     bool removeSuturingSequence(SuturingSequenceId sequenceId);
     bool upsertBallJoint(const BallJointState &state);
@@ -52,6 +55,9 @@ public:
         common::EntityId entityId, std::vector<Diligent::float3> &outRestPositions) const;
     FluidState *tryGetFluid(common::EntityId entityId);
     const FluidState *tryGetFluid(common::EntityId entityId) const;
+    AuthoredParticleSequenceState *tryGetParticleSequence(ParticleSequenceId sequenceId);
+    const AuthoredParticleSequenceState *tryGetParticleSequence(
+        ParticleSequenceId sequenceId) const;
     AuthoredParticleDistanceConstraintState *tryGetParticleDistanceConstraint(
         ParticleConstraintId constraintId);
     const AuthoredParticleDistanceConstraintState *tryGetParticleDistanceConstraint(
@@ -68,6 +74,7 @@ public:
     const std::vector<SoftBodyState> &softBodySnapshot() const noexcept;
     const std::vector<StrandState> &strandSnapshot() const noexcept;
     const std::vector<FluidState> &fluidSnapshot() const noexcept;
+    const std::vector<AuthoredParticleSequenceState> &particleSequenceSnapshot() const noexcept;
     const std::vector<AuthoredParticleDistanceConstraintState> &
     particleDistanceConstraintSnapshot() const noexcept;
     const std::vector<AuthoredSuturingSequenceState> &suturingSequenceSnapshot() const noexcept;
@@ -92,6 +99,8 @@ public:
     const std::vector<std::uint32_t> &suturingParticleIndices() const noexcept;
     const SoftRenderDataHost &softRenderData() const noexcept;
     void setSoftRenderData(const SoftRenderDataHost &data);
+    const CurveRenderDataHost &curveRenderData() const noexcept;
+    void setCurveRenderData(const CurveRenderDataHost &data);
     void ensureDerivedStateUpToDate() const noexcept;
     void ensureSoftBodyDerivedStateUpToDate() noexcept;
     const std::vector<std::uint32_t> &rigidBodyDirtyIndices() const noexcept;
@@ -141,6 +150,7 @@ public:
     std::uint64_t softBodyTopologyRevision() const noexcept;
     std::uint64_t softParticleRevision() const noexcept;
     std::uint64_t softGpuTopologyRevision() const noexcept;
+    std::uint64_t curveRenderRevision() const noexcept;
 
 private:
     enum class SoftBodyChangeKind
@@ -271,6 +281,7 @@ private:
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToSoftBodyIndex{};
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToStrandIndex{};
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToFluidIndex{};
+    std::unordered_map<ParticleSequenceId, std::uint32_t> mParticleSequenceIdToIndex{};
     std::unordered_map<ParticleConstraintId, std::uint32_t> mParticleConstraintIdToIndex{};
     std::unordered_map<SuturingSequenceId, std::uint32_t> mSuturingSequenceIdToIndex{};
     std::unordered_map<common::EntityId, TetGenMeshCache> mTetGenMeshCache{};
@@ -279,6 +290,7 @@ private:
     std::vector<SoftBodyState> mSoftBodySnapshot{};
     std::vector<StrandState> mStrandSnapshot{};
     std::vector<FluidState> mFluidSnapshot{};
+    std::vector<AuthoredParticleSequenceState> mParticleSequenceSnapshot{};
     std::vector<AuthoredParticleDistanceConstraintState> mParticleDistanceConstraintSnapshot{};
     std::vector<AuthoredSuturingSequenceState> mSuturingSequenceSnapshot{};
     std::vector<BallJointState> mBallJointSnapshot{};
@@ -295,6 +307,7 @@ private:
     std::vector<DeformableBendConstraint> mSoftBends{};
     std::vector<DeformableVolumeConstraint> mSoftTets{};
     SoftRenderDataHost mSoftRenderData{};
+    CurveRenderDataHost mCurveRenderData{};
     std::vector<std::uint32_t> mRigidBodyDirtyIndices{};
     std::vector<std::uint32_t> mColliderDirtyIndices{};
     std::vector<std::uint8_t> mRigidBodyDirtyBits{};
@@ -325,11 +338,13 @@ private:
     std::uint64_t mSoftBodyTopologyRevision      = 0;
     std::uint64_t mSoftParticleRevision          = 0;
     std::uint64_t mSoftGpuTopologyRevision       = 0;
+    std::uint64_t mCurveRenderRevision           = 0;
     RigidBodyId mNextRigidBodyId                 = 1u;
     ColliderId mNextColliderId                   = 1u;
     BallJointId mNextBallJointId                 = 1u;
     HingeJointId mNextHingeJointId               = 1u;
     SliderJointId mNextSliderJointId             = 1u;
+    ParticleSequenceId mNextParticleSequenceId   = 1u;
     ParticleConstraintId mNextParticleConstraintId = 1u;
     SuturingSequenceId mNextSuturingSequenceId     = 1u;
 };

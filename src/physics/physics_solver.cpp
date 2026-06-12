@@ -164,6 +164,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const std::vector<DeformableBendConstraint> &bendConstraints     = world.bendConstraints();
     const std::vector<DeformableVolumeConstraint> &volumeConstraints = world.volumeConstraints();
     const SoftRenderDataHost &softRenderData                         = world.softRenderData();
+    const CurveRenderDataHost &curveRenderData                       = world.curveRenderData();
     const RigidJointSceneHost &rigidJoints                           = world.rigidJointScene();
     const std::uint32_t fluidCount                                   = world.fluidCount();
     const std::uint32_t particleCount    = static_cast<std::uint32_t>(particles.size());
@@ -175,6 +176,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const std::uint32_t sliderJointCount = static_cast<std::uint32_t>(rigidJoints.slider.size());
     const std::uint32_t softRenderTriangleCount =
         static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
+    const std::uint32_t curveRenderCount =
+        static_cast<std::uint32_t>(curveRenderData.descriptors.size());
     const std::uint32_t softBodyBoundsChunkCount = world.softBodyBoundsChunkCount();
     const std::uint32_t suturingParticleCount    = world.suturingParticleCount();
     const float particleGridCellSize             = world.particleGridCellSize();
@@ -199,6 +202,18 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             static_cast<std::uint32_t>(softRenderData.softBodyParticleRanges.size()),
             softBodyBoundsChunkCount, static_cast<std::uint32_t>(world.suturingPairs().size()),
             world.reservedSuturingPathHeaderCount(), world.reservedSuturingPathNodeCount(),
+            static_cast<std::uint32_t>(curveRenderData.descriptors.size()),
+            static_cast<std::uint32_t>(curveRenderData.particleIndices.size()),
+            [&curveRenderData]()
+            {
+                std::uint32_t totalVertexCount = 0u;
+                for (const CurveRenderDescriptorHost &descriptor : curveRenderData.descriptors)
+                {
+                    totalVertexCount =
+                        std::max(totalVertexCount, descriptor.vertexBase + descriptor.vertexCount);
+                }
+                return totalVertexCount;
+            }(),
             gpu::contextMaskForId(computeBackend.contextId) |
                 gpu::contextMaskForId(graphicsBackend.contextId),
             sharedQueueFamilyIndices.data(), sharedQueueFamilyIndexCount,
@@ -945,6 +960,12 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                                                         softBodyBoundsChunkCount))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftBodyBounds dispatch.");
+            return false;
+        }
+        if (!mImpl->passDispatcher.updateCurveRenderData(
+                computeBackend.computeContext, mImpl->sceneState, curveRenderCount))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateCurveRenderData dispatch.");
             return false;
         }
 

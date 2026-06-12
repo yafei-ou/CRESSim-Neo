@@ -857,6 +857,36 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
         bindingVar->Set(bindingSrv);
         normalVar->Set(normalSrv);
     }
+    else if (programFamily == MaterialProgramFamily::CurveLit)
+    {
+        if (mPhysicsScene == nullptr || mPhysicsScene->curve.positionsBuffer == nullptr ||
+            mPhysicsScene->curve.normalsBuffer == nullptr)
+        {
+            return false;
+        }
+        Diligent::IShaderResourceVariable *positionVar =
+            program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                                             "g_CurveRenderPositions");
+        Diligent::IShaderResourceVariable *normalVar =
+            program.shaderResourceBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                                             "g_CurveRenderNormals");
+        if (positionVar == nullptr || normalVar == nullptr)
+        {
+            return false;
+        }
+        Diligent::IBufferView *positionSrv =
+            mPhysicsScene->curve.positionsBuffer->GetDefaultView(
+                Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        Diligent::IBufferView *normalSrv =
+            mPhysicsScene->curve.normalsBuffer->GetDefaultView(
+                Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+        if (positionSrv == nullptr || normalSrv == nullptr)
+        {
+            return false;
+        }
+        positionVar->Set(positionSrv);
+        normalVar->Set(normalSrv);
+    }
     return true;
 }
 

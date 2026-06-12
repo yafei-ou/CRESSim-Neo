@@ -143,6 +143,15 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> pathNodesBuffer;
     };
 
+    struct PersistentCurveRenderBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> descriptorsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> normalsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> worldAabbsBuffer;
+    };
+
     struct PreviousRigidBodyBuffers
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsBuffer;
@@ -335,7 +344,9 @@ public:
                         std::uint32_t softBodyBoundsChunkCount,
                         std::uint32_t suturingPairCount,
                         std::uint32_t suturingPathHeaderCount,
-                        std::uint32_t suturingPathNodeCount,
+                        std::uint32_t suturingPathNodeCount, std::uint32_t curveRenderCount,
+                        std::uint32_t curveRenderParticleIndexCount,
+                        std::uint32_t curveRenderVertexCount,
                         Diligent::Uint64 sharedContextMask,
                         const std::uint32_t *sharedQueueFamilyIndices,
                         std::uint32_t sharedQueueFamilyIndexCount, bool useNativeFloatAtomics);
@@ -363,6 +374,7 @@ public:
     const PersistentParticleBuffers &persistentParticles() const noexcept;
     const gpu::SharedExportBuffer &softPositionsInvMassSharedBuffer() const noexcept;
     const PersistentSoftTopologyBuffers &persistentSoftTopology() const noexcept;
+    const PersistentCurveRenderBuffers &persistentCurveRender() const noexcept;
     const SolverTransientBuffers &transientBuffers() const noexcept;
     std::uint32_t ballJointCount() const noexcept;
     std::uint32_t hingeJointCount() const noexcept;
@@ -418,6 +430,8 @@ private:
                             const std::vector<DeformableDistanceConstraint> &distanceConstraints,
                             const std::vector<DeformableBendConstraint> &bendConstraints,
                             const std::vector<DeformableVolumeConstraint> &volumeConstraints);
+    bool uploadCurveRenderData(Diligent::IDeviceContext *computeContext,
+                               const CurveRenderDataHost &curveRenderData);
     bool uploadSuturingState(Diligent::IDeviceContext *computeContext,
                              const ParticleSoAHost &particles, std::uint32_t particleCount,
                              const std::vector<std::uint32_t> &suturingParticleIndices,
@@ -433,6 +447,7 @@ private:
     PersistentParticleBuffers mPersistentParticles;
     PersistentSoftTopologyBuffers mPersistentSoftTopology;
     PersistentSuturingBuffers mPersistentSuturing;
+    PersistentCurveRenderBuffers mPersistentCurveRender;
     SolverTransientBuffers mTransientState;
     RigidBodyReadbackBuffers mReadbackRigidBodies;
     ParticleReadbackBuffers mReadbackParticles;
@@ -443,6 +458,9 @@ private:
     std::uint32_t mSuturingParticleCapacity                  = 0;
     std::uint32_t mSuturingPathHeaderCapacity                = 0;
     std::uint32_t mSuturingPathNodeCapacity                  = 0;
+    std::uint32_t mCurveRenderCapacity                       = 0;
+    std::uint32_t mCurveRenderParticleIndexCapacity          = 0;
+    std::uint32_t mCurveRenderVertexCapacity                 = 0;
     std::uint32_t mFluidVisualCapacity                       = 0;
     std::uint32_t mParticleContactMaterialCapacity           = 0;
     std::uint32_t mFluidMaterialCapacity                     = 0;
@@ -469,6 +487,7 @@ private:
     std::uint32_t mSuturingParticleCount                     = 0;
     std::uint32_t mSuturingPathHeaderCount                   = 0;
     std::uint32_t mSuturingPathNodeCount                     = 0;
+    std::uint32_t mCurveRenderCount                          = 0;
     std::uint32_t mBroadPhaseNodeCapacity                    = 0;
     std::uint32_t mCandidatePairCapacity                     = 0;
     std::uint32_t mContactCapacity                           = 0;
@@ -505,6 +524,7 @@ private:
     std::uint64_t mLastUploadedRigidJointModeRevision        = 0;
     std::uint64_t mLastUploadedSoftParticleRevision          = 0;
     std::uint64_t mLastUploadedSoftTopologyRevision          = 0;
+    std::uint64_t mLastUploadedCurveRenderRevision           = 0;
     std::uint32_t mBallJointCount                            = 0;
     std::uint32_t mHingeJointCount                           = 0;
     std::uint32_t mSliderJointCount                          = 0;

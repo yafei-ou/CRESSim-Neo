@@ -52,6 +52,10 @@ Diligent::ShaderMacroArray buildFeatureMacros(std::array<Diligent::ShaderMacro, 
     {
         macros[count++] = Diligent::ShaderMacro{"CRESSIM_PROGRAM_FAMILY_SOFT_BODY", "1"};
     }
+    else if (programFamily == MaterialProgramFamily::CurveLit)
+    {
+        macros[count++] = Diligent::ShaderMacro{"CRESSIM_PROGRAM_FAMILY_CURVE", "1"};
+    }
     if (hasFlag(featureFlags, MaterialFeatureFlags::AlphaTest))
     {
         macros[count++] = Diligent::ShaderMacro{"CRESSIM_FEATURE_ALPHA_TEST", "1"};
@@ -104,6 +108,11 @@ std::vector<Diligent::ShaderResourceVariableDesc> buildResourceLayoutVariables(
         appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_ParticlePositions");
         appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexBindings");
         appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyVertexNormals");
+    }
+    else if (programFamily == MaterialProgramFamily::CurveLit)
+    {
+        appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_CurveRenderPositions");
+        appendVariable(vars, Diligent::SHADER_TYPE_VERTEX, "g_CurveRenderNormals");
     }
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_LightInputs");
     appendVariable(vars, Diligent::SHADER_TYPE_PIXEL, "g_LocalLightSelections");
@@ -229,7 +238,8 @@ bool MaterialProgramRegistry::createProgram(const ProgramKey &key, ProgramResour
     if ((key.passClass != MainPassClass::ForwardOpaque &&
          key.passClass != MainPassClass::ForwardTransparent) ||
         (key.programFamily != MaterialProgramFamily::StandardLit &&
-         key.programFamily != MaterialProgramFamily::SoftBodyLit))
+         key.programFamily != MaterialProgramFamily::SoftBodyLit &&
+         key.programFamily != MaterialProgramFamily::CurveLit))
     {
         return false;
     }

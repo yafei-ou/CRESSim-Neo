@@ -540,6 +540,7 @@ void PhysicsWorld::clear()
     mEntityToSoftBodyIndex.clear();
     mEntityToStrandIndex.clear();
     mEntityToFluidIndex.clear();
+    mParticleSequenceIdToIndex.clear();
     mParticleConstraintIdToIndex.clear();
     mSuturingSequenceIdToIndex.clear();
     mTetGenMeshCache.clear();
@@ -548,6 +549,7 @@ void PhysicsWorld::clear()
     mSoftBodySnapshot.clear();
     mStrandSnapshot.clear();
     mFluidSnapshot.clear();
+    mParticleSequenceSnapshot.clear();
     mParticleDistanceConstraintSnapshot.clear();
     mSuturingSequenceSnapshot.clear();
     mBallJointSnapshot.clear();
@@ -566,6 +568,7 @@ void PhysicsWorld::clear()
     mSoftBends.clear();
     mSoftTets.clear();
     mSoftRenderData.clear();
+    mCurveRenderData.clear();
     mRigidBodyDirtyIndices.clear();
     mColliderDirtyIndices.clear();
     mRigidBodyDirtyBits.clear();
@@ -588,6 +591,7 @@ void PhysicsWorld::clear()
     mNextBallJointId                = 1u;
     mNextHingeJointId               = 1u;
     mNextSliderJointId              = 1u;
+    mNextParticleSequenceId         = 1u;
     mNextParticleConstraintId       = 1u;
     mNextSuturingSequenceId         = 1u;
     ++mRigidBodyTopologyRevision;
@@ -1211,6 +1215,25 @@ AuthoredSuturingSequenceState &PhysicsWorld::upsertSuturingSequence(
     return mSuturingSequenceSnapshot[it->second];
 }
 
+AuthoredParticleSequenceState &PhysicsWorld::upsertParticleSequence(
+    const AuthoredParticleSequenceState &state)
+{
+    AuthoredParticleSequenceState normalizedState = state;
+    auto it = mParticleSequenceIdToIndex.find(normalizedState.sequenceId);
+    if (normalizedState.sequenceId == kInvalidParticleSequenceId ||
+        it == mParticleSequenceIdToIndex.end())
+    {
+        normalizedState.sequenceId = mNextParticleSequenceId++;
+        const std::uint32_t index = static_cast<std::uint32_t>(mParticleSequenceSnapshot.size());
+        mParticleSequenceIdToIndex.emplace(normalizedState.sequenceId, index);
+        mParticleSequenceSnapshot.push_back(normalizedState);
+        return mParticleSequenceSnapshot.back();
+    }
+
+    mParticleSequenceSnapshot[it->second] = normalizedState;
+    return mParticleSequenceSnapshot[it->second];
+}
+
 bool PhysicsWorld::removeSoftBody(common::EntityId entityId)
 {
     const auto it = mEntityToSoftBodyIndex.find(entityId);
@@ -1317,6 +1340,27 @@ bool PhysicsWorld::removeParticleDistanceConstraint(ParticleConstraintId constra
     ++mSoftBodyTopologyRevision;
     ++mSoftGpuTopologyRevision;
     ++mAuthoredRevision;
+    return true;
+}
+
+bool PhysicsWorld::removeParticleSequence(ParticleSequenceId sequenceId)
+{
+    const auto it = mParticleSequenceIdToIndex.find(sequenceId);
+    if (it == mParticleSequenceIdToIndex.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t index = it->second;
+    const std::uint32_t last = static_cast<std::uint32_t>(mParticleSequenceSnapshot.size() - 1u);
+    if (index != last)
+    {
+        mParticleSequenceSnapshot[index] = mParticleSequenceSnapshot[last];
+        mParticleSequenceIdToIndex[mParticleSequenceSnapshot[index].sequenceId] = index;
+    }
+
+    mParticleSequenceIdToIndex.erase(it);
+    mParticleSequenceSnapshot.pop_back();
     return true;
 }
 
@@ -1667,6 +1711,21 @@ const FluidState *PhysicsWorld::tryGetFluid(common::EntityId entityId) const
     return it == mEntityToFluidIndex.end() ? nullptr : &mFluidSnapshot[it->second];
 }
 
+AuthoredParticleSequenceState *PhysicsWorld::tryGetParticleSequence(ParticleSequenceId sequenceId)
+{
+    const auto it = mParticleSequenceIdToIndex.find(sequenceId);
+    return it == mParticleSequenceIdToIndex.end() ? nullptr
+                                                  : &mParticleSequenceSnapshot[it->second];
+}
+
+const AuthoredParticleSequenceState *PhysicsWorld::tryGetParticleSequence(
+    ParticleSequenceId sequenceId) const
+{
+    const auto it = mParticleSequenceIdToIndex.find(sequenceId);
+    return it == mParticleSequenceIdToIndex.end() ? nullptr
+                                                  : &mParticleSequenceSnapshot[it->second];
+}
+
 AuthoredParticleDistanceConstraintState *PhysicsWorld::tryGetParticleDistanceConstraint(
     ParticleConstraintId constraintId)
 {
@@ -1722,6 +1781,11 @@ const std::vector<StrandState> &PhysicsWorld::strandSnapshot() const noexcept
 const std::vector<FluidState> &PhysicsWorld::fluidSnapshot() const noexcept
 {
     return mFluidSnapshot;
+}
+
+const std::vector<AuthoredParticleSequenceState> &PhysicsWorld::particleSequenceSnapshot() const noexcept
+{
+    return mParticleSequenceSnapshot;
 }
 
 const std::vector<AuthoredParticleDistanceConstraintState> &
@@ -1877,6 +1941,17 @@ void PhysicsWorld::setSoftRenderData(const SoftRenderDataHost &data)
     recomputeSoftBodyBoundsChunkCount();
     ++mSoftGpuTopologyRevision;
     ++mAuthoredRevision;
+}
+
+const CurveRenderDataHost &PhysicsWorld::curveRenderData() const noexcept
+{
+    return mCurveRenderData;
+}
+
+void PhysicsWorld::setCurveRenderData(const CurveRenderDataHost &data)
+{
+    mCurveRenderData = data;
+    ++mCurveRenderRevision;
 }
 
 void PhysicsWorld::ensureDerivedStateUpToDate() const noexcept
@@ -2177,6 +2252,11 @@ std::uint64_t PhysicsWorld::softParticleRevision() const noexcept
 std::uint64_t PhysicsWorld::softGpuTopologyRevision() const noexcept
 {
     return mSoftGpuTopologyRevision;
+}
+
+std::uint64_t PhysicsWorld::curveRenderRevision() const noexcept
+{
+    return mCurveRenderRevision;
 }
 
 void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost &soa, std::uint32_t index,

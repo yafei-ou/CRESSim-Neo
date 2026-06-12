@@ -74,6 +74,8 @@ constexpr Diligent::ShaderResourceVariableDesc kScenePrepareVars[] = {
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftBodyWorldAabbs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_CurveWorldAabbs",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_PreparedCameras",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RenderableVisibilityFlagsRW",
@@ -150,7 +152,7 @@ std::uint32_t countActiveLights(const std::vector<LightData> &lights)
     return count;
 }
 
-bool hasActiveSoftBodyRenderables(const std::vector<GpuRenderableMetadata> *metadata)
+bool hasActiveDeformableRenderables(const std::vector<GpuRenderableMetadata> *metadata)
 {
     if (metadata == nullptr)
     {
@@ -160,7 +162,8 @@ bool hasActiveSoftBodyRenderables(const std::vector<GpuRenderableMetadata> *meta
     for (const GpuRenderableMetadata &entry : *metadata)
     {
         if ((entry.flags & static_cast<std::uint32_t>(GpuRenderableFlags::Active)) != 0u &&
-            entry.softBodyIndex != 0xffffffffu)
+            entry.deformableType !=
+                static_cast<std::uint32_t>(GpuRenderableDeformableType::None))
         {
             return true;
         }
@@ -371,9 +374,10 @@ bool Renderer::prepareGpuScene(const HostSceneView &world, const GpuEntitySceneV
     {
         return false;
     }
-    const bool needsSoftBodyWorldAabbs = hasActiveSoftBodyRenderables(world.renderableMetadata);
+    const bool needsSoftBodyWorldAabbs = hasActiveDeformableRenderables(world.renderableMetadata);
     if (needsSoftBodyWorldAabbs &&
-        (physicsScene == nullptr || physicsScene->soft.worldAabbsBuffer == nullptr))
+        (physicsScene == nullptr || physicsScene->soft.worldAabbsBuffer == nullptr ||
+         physicsScene->curve.worldAabbsBuffer == nullptr))
     {
         return false;
     }
@@ -437,9 +441,12 @@ bool Renderer::prepareGpuScene(const HostSceneView &world, const GpuEntitySceneV
                                                 Diligent::MAP_WRITE);
     Diligent::IBuffer *softBodyWorldAabbsBuffer =
         mGpuScenePrepare->fallbackSoftBodyWorldAabbsBuffer;
+    Diligent::IBuffer *curveWorldAabbsBuffer =
+        mGpuScenePrepare->fallbackSoftBodyWorldAabbsBuffer;
     if (needsSoftBodyWorldAabbs)
     {
         softBodyWorldAabbsBuffer = physicsScene->soft.worldAabbsBuffer;
+        curveWorldAabbsBuffer    = physicsScene->curve.worldAabbsBuffer;
     }
 
     const std::array bindings{
@@ -455,6 +462,8 @@ bool Renderer::prepareGpuScene(const HostSceneView &world, const GpuEntitySceneV
         gpu::GpuBufferBinding{"g_RenderableMetadata", sceneView.renderableMetadataBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SoftBodyWorldAabbs", softBodyWorldAabbsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_CurveWorldAabbs", curveWorldAabbsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PreparedCameras", sceneView.preparedCamerasBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},

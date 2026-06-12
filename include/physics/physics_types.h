@@ -46,6 +46,9 @@ constexpr SliderJointId kInvalidSliderJointId = 0u;
 using ParticleConstraintId = std::uint32_t;
 constexpr ParticleConstraintId kInvalidParticleConstraintId = 0u;
 
+using ParticleSequenceId = std::uint32_t;
+constexpr ParticleSequenceId kInvalidParticleSequenceId = 0u;
+
 using SuturingSequenceId = std::uint32_t;
 constexpr SuturingSequenceId kInvalidSuturingSequenceId = 0u;
 
@@ -393,6 +396,13 @@ struct AuthoredParticleDistanceConstraintState
     AuthoredParticleReference particleB{};
     float restLength = 0.0f;
     float compliance = 0.0f;
+    bool enabled = true;
+};
+
+struct AuthoredParticleSequenceState
+{
+    ParticleSequenceId sequenceId = kInvalidParticleSequenceId;
+    std::vector<AuthoredParticleReference> entries{};
     bool enabled = true;
 };
 
@@ -844,6 +854,29 @@ struct SoftRenderDataHost
         vertexTriangleIndices.clear();
         triangleParticleIndices.clear();
         softBodyParticleRanges.clear();
+    }
+};
+
+struct CurveRenderDescriptorHost
+{
+    std::uint32_t particleIndexStart = 0u;
+    std::uint32_t particleCount      = 0u;
+    std::uint32_t vertexBase         = 0u;
+    std::uint32_t vertexCount        = 0u;
+    std::uint32_t radialResolution   = 0u;
+    std::uint32_t environmentIndex   = 0u;
+    float radius                     = 0.0f;
+};
+
+struct CurveRenderDataHost
+{
+    std::vector<CurveRenderDescriptorHost> descriptors;
+    std::vector<std::uint32_t> particleIndices;
+
+    void clear()
+    {
+        descriptors.clear();
+        particleIndices.clear();
     }
 };
 

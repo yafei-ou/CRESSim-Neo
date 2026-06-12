@@ -50,9 +50,12 @@ int main()
     world.ensureRenderStateUpToDate(resources);
 
     const auto &beforeMetadata = world.renderableMetadata();
-    if (beforeMetadata.empty() || beforeMetadata[0].softBodyIndex == 0xffffffffu ||
-        beforeMetadata[0].softBodyVertexBindingBase == 0xffffffffu ||
-        beforeMetadata[0].softBodyVertexCount == 0u)
+    if (beforeMetadata.empty() ||
+        beforeMetadata[0].deformableType !=
+            static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::SoftBody) ||
+        beforeMetadata[0].deformableIndex == 0xffffffffu ||
+        beforeMetadata[0].deformVertexBase == 0xffffffffu ||
+        beforeMetadata[0].deformVertexCount == 0u)
     {
         CRESSIM_LOG_ERROR("Soft body render metadata was not populated before toggle.");
         return 1;
@@ -80,10 +83,12 @@ int main()
         return 1;
     }
 
-    if (afterMetadata[0].softBodyIndex != 0xffffffffu ||
-        afterMetadata[0].softBodyVertexBindingBase != 0xffffffffu ||
-        afterMetadata[0].softBodyVertexNormalBase != 0xffffffffu ||
-        afterMetadata[0].softBodyVertexCount != 0u)
+    if (afterMetadata[0].deformableType !=
+            static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::None) ||
+        afterMetadata[0].deformableIndex != 0xffffffffu ||
+        afterMetadata[0].deformVertexBase != 0xffffffffu ||
+        afterMetadata[0].deformNormalBase != 0xffffffffu ||
+        afterMetadata[0].deformVertexCount != 0u)
     {
         CRESSIM_LOG_ERROR("Soft body render metadata was not cleared after simulated=false.");
         return 1;

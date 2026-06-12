@@ -172,6 +172,14 @@ struct GpuSoftRenderDispatchConstants
     std::uint32_t reserved0           = 0u;
 };
 
+struct GpuCurveRenderDispatchConstants
+{
+    std::uint32_t curveCount = 0u;
+    std::uint32_t reserved0  = 0u;
+    std::uint32_t reserved1  = 0u;
+    std::uint32_t reserved2  = 0u;
+};
+
 constexpr std::uint32_t kParticleBroadPhaseEntryTypeParticle       = 0u;
 constexpr std::uint32_t kParticleCandidatePairTypeParticleParticle = 0u;
 constexpr std::uint32_t kParticleCandidatePairTypeParticleRigid    = 1u;
@@ -336,6 +344,17 @@ struct GpuSoftBodyBoundsChunk
     std::uint32_t particleStart = 0u;
     std::uint32_t particleCount = 0u;
     std::uint32_t reserved0     = 0u;
+};
+
+struct GpuCurveRenderDescriptor
+{
+    std::uint32_t particleIndexStart = 0u;
+    std::uint32_t particleCount      = 0u;
+    std::uint32_t vertexBase         = 0u;
+    std::uint32_t vertexCount        = 0u;
+    std::uint32_t radialResolution   = 0u;
+    std::uint32_t environmentIndex   = 0u;
+    float radius                     = 0.0f;
 };
 
 struct GpuSuturingPair

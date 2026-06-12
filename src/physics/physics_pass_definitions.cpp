@@ -1091,6 +1091,23 @@ constexpr Diligent::ShaderResourceVariableDesc kUpdateSoftTriangleNormalsVars[] 
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kUpdateCurveRenderDataVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsCurveRenderDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_CurveRenderDescriptors",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_CurveRenderParticleIndices",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_CurveRenderPositionsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_CurveRenderNormalsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_CurveWorldAabbsRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kUpdateSoftBodyBoundsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsSoftRenderDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2240,6 +2257,14 @@ const gpu::GpuComputePassDefinition kUpdateSoftRenderNormals{
     "CRESSimNeo.Physics.UpdateSoftRenderNormals.PSO",
     kUpdateSoftRenderNormalsVars,
     std::size(kUpdateSoftRenderNormalsVars),
+};
+
+const gpu::GpuComputePassDefinition kUpdateCurveRenderData{
+    "physics/curve/render/physics_curve_update_render_data.cs.hlsl",
+    "CRESSimNeo.Physics.UpdateCurveRenderData.CS",
+    "CRESSimNeo.Physics.UpdateCurveRenderData.PSO",
+    kUpdateCurveRenderDataVars,
+    std::size(kUpdateCurveRenderDataVars),
 };
 
 const gpu::GpuComputePassDefinition kUpdateSoftBodyBounds{

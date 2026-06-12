@@ -192,6 +192,9 @@ public:
     bool updateSoftRenderNormals(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState,
                                  std::uint32_t renderVertexCount);
+    bool updateCurveRenderData(Diligent::IDeviceContext *computeContext,
+                               const PhysicsSceneGpuState &sceneState,
+                               std::uint32_t curveCount);
     bool updateSoftBodyBounds(Diligent::IDeviceContext *computeContext,
                               const PhysicsSceneGpuState &sceneState, std::uint32_t softBodyCount,
                               std::uint32_t softBodyBoundsChunkCount);
@@ -267,6 +270,8 @@ private:
                                         const GpuParticleDispatchConstants &constants);
     bool writeSoftRenderDispatchConstants(Diligent::IDeviceContext *computeContext,
                                           const GpuSoftRenderDispatchConstants &constants);
+    bool writeCurveRenderDispatchConstants(Diligent::IDeviceContext *computeContext,
+                                           const GpuCurveRenderDispatchConstants &constants);
     bool writeScanDispatchConstants(Diligent::IDeviceContext *computeContext,
                                     const GpuPhysicsScanDispatchConstants &constants);
     bool writeRadixConstants(Diligent::IDeviceContext *computeContext,
@@ -438,6 +443,7 @@ private:
     gpu::GpuComputePass mApplyParticleContactVelocitiesPass;
     gpu::GpuComputePass mUpdateSoftTriangleNormalsPass;
     gpu::GpuComputePass mUpdateSoftRenderNormalsPass;
+    gpu::GpuComputePass mUpdateCurveRenderDataPass;
     gpu::GpuComputePass mUpdateSoftBodyBoundsPass;
     gpu::GpuComputePass mFinalizeSoftBodyBoundsPass;
     gpu::GpuComputePass mUpdateRigidWorldAabbsPass;
@@ -484,6 +490,7 @@ private:
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mRigidJointDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mParticleDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mSoftRenderDispatchConstantsBuffer;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> mCurveRenderDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanDispatchConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanConstantsBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mScanIndirectArgsBuffer;

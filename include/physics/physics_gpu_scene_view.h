@@ -75,10 +75,22 @@ struct PhysicsGpuSoftSceneView
     std::uint64_t bindingGeneration        = 0;
 };
 
+struct PhysicsGpuCurveSceneView
+{
+    Diligent::IBuffer *descriptorsBuffer    = nullptr;
+    Diligent::IBuffer *particleIndicesBuffer = nullptr;
+    Diligent::IBuffer *positionsBuffer      = nullptr;
+    Diligent::IBuffer *normalsBuffer        = nullptr;
+    Diligent::IBuffer *worldAabbsBuffer     = nullptr;
+    std::uint32_t curveCount                = 0;
+    std::uint64_t bindingGeneration         = 0;
+};
+
 struct CRESSIM_NEO_PHYSICS_API PhysicsGpuSceneView
 {
     PhysicsGpuRigidSceneView rigid{};
     PhysicsGpuSoftSceneView soft{};
+    PhysicsGpuCurveSceneView curve{};
 };
 
 } // namespace cressim::neo::physics

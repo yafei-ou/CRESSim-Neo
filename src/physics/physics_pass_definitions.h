@@ -64,6 +64,7 @@ extern const gpu::GpuComputePassDefinition kSolveParticleRigidContactVelocities;
 extern const gpu::GpuComputePassDefinition kApplyParticleContactVelocities;
 extern const gpu::GpuComputePassDefinition kUpdateSoftTriangleNormals;
 extern const gpu::GpuComputePassDefinition kUpdateSoftRenderNormals;
+extern const gpu::GpuComputePassDefinition kUpdateCurveRenderData;
 extern const gpu::GpuComputePassDefinition kUpdateSoftBodyBounds;
 extern const gpu::GpuComputePassDefinition kFinalizeSoftBodyBounds;
 extern const gpu::GpuComputePassDefinition kUpdateRigidWorldAabbs;

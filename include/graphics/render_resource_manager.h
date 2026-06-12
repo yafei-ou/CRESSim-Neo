@@ -34,6 +34,7 @@ enum class MaterialProgramFamily
 {
     StandardLit,
     SoftBodyLit,
+    CurveLit,
 };
 
 enum class MaterialRenderMode

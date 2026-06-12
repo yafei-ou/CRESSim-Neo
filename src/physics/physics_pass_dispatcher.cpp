@@ -114,6 +114,13 @@ bool PhysicsPassDispatcher::writeSoftRenderDispatchConstants(
                                 sizeof(constants));
 }
 
+bool PhysicsPassDispatcher::writeCurveRenderDispatchConstants(
+    Diligent::IDeviceContext *computeContext, const GpuCurveRenderDispatchConstants &constants)
+{
+    return writeConstantsBuffer(computeContext, mCurveRenderDispatchConstantsBuffer, &constants,
+                                sizeof(constants));
+}
+
 bool PhysicsPassDispatcher::writeScanDispatchConstants(
     Diligent::IDeviceContext *computeContext, const GpuPhysicsScanDispatchConstants &constants)
 {
@@ -234,6 +241,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mApplyParticleContactVelocitiesPass, kApplyParticleContactVelocities) ||
         !initPass(mUpdateSoftTriangleNormalsPass, kUpdateSoftTriangleNormals) ||
         !initPass(mUpdateSoftRenderNormalsPass, kUpdateSoftRenderNormals) ||
+        !initPass(mUpdateCurveRenderDataPass, kUpdateCurveRenderData) ||
         !initPass(mUpdateSoftBodyBoundsPass, kUpdateSoftBodyBounds) ||
         !initPass(mFinalizeSoftBodyBoundsPass, kFinalizeSoftBodyBounds) ||
         !initPass(mUpdateRigidWorldAabbsPass, kUpdateRigidWorldAabbs) ||
@@ -308,6 +316,9 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
                createConstantsBuffer("CRESSimNeo.Physics.SoftRenderDispatchConstants",
                                      sizeof(GpuSoftRenderDispatchConstants),
                                      mSoftRenderDispatchConstantsBuffer) &&
+               createConstantsBuffer("CRESSimNeo.Physics.CurveRenderDispatchConstants",
+                                     sizeof(GpuCurveRenderDispatchConstants),
+                                     mCurveRenderDispatchConstantsBuffer) &&
                createConstantsBuffer("CRESSimNeo.Physics.ScanDispatchConstants",
                                      sizeof(GpuPhysicsScanDispatchConstants),
                                      mScanDispatchConstantsBuffer) &&
@@ -2925,6 +2936,42 @@ bool PhysicsPassDispatcher::updateSoftRenderNormals(Diligent::IDeviceContext *co
                                                  dispatchGroupCount(renderVertexCount));
 }
 
+bool PhysicsPassDispatcher::updateCurveRenderData(Diligent::IDeviceContext *computeContext,
+                                                  const PhysicsSceneGpuState &sceneState,
+                                                  std::uint32_t curveCount)
+{
+    if (curveCount == 0u)
+    {
+        return true;
+    }
+
+    const GpuCurveRenderDispatchConstants constants{curveCount, 0u, 0u, 0u};
+    const auto &softParticles = sceneState.persistentParticles();
+    const auto &curveRender   = sceneState.persistentCurveRender();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsCurveRenderDispatchConstantsBuffer",
+                              mCurveRenderDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_CurveRenderDescriptors", curveRender.descriptorsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_CurveRenderParticleIndices",
+                              curveRender.particleIndicesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_CurveRenderPositionsRW", curveRender.positionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_CurveRenderNormalsRW", curveRender.normalsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_CurveWorldAabbsRW", curveRender.worldAabbsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeCurveRenderDispatchConstants(computeContext, constants) &&
+           mUpdateCurveRenderDataPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                               dispatchGroupCount(curveCount));
+}
+
 bool PhysicsPassDispatcher::updateSoftBodyBounds(Diligent::IDeviceContext *computeContext,
                                                  const PhysicsSceneGpuState &sceneState,
                                                  std::uint32_t softBodyCount,
@@ -4857,6 +4904,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mApplyParticleContactVelocitiesPass.forceRecreateAllVariants() &&
            mUpdateSoftTriangleNormalsPass.forceRecreateAllVariants() &&
            mUpdateSoftRenderNormalsPass.forceRecreateAllVariants() &&
+           mUpdateCurveRenderDataPass.forceRecreateAllVariants() &&
            mUpdateSoftBodyBoundsPass.forceRecreateAllVariants() &&
            mFinalizeSoftBodyBoundsPass.forceRecreateAllVariants() &&
            mClearRigidCorrectionsPass.forceRecreateAllVariants() &&

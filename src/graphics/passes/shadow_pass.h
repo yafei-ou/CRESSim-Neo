@@ -79,8 +79,10 @@ private:
     MeshGpuCache mMeshGpuCache;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mPipelineState;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> mSoftBodyPipelineState;
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> mCurvePipelineState;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mShaderResourceBinding;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mSoftBodyShaderResourceBinding;
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> mCurveShaderResourceBinding;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mShadowPerPassBuffer;
     GpuEntitySceneView mSceneView{};

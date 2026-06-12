@@ -21,6 +21,7 @@ using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::ColliderComponent;
 using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
+using cressim::neo::engine::ProceduralDeformableCurveRenderComponent;
 using cressim::neo::engine::RigidBodyComponent;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::SoftBodyComponent;
@@ -30,6 +31,7 @@ using cressim::neo::examples::helpers::CommonExampleOptions;
 using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::physics::AuthoredParticleDistanceConstraintState;
+using cressim::neo::physics::AuthoredParticleSequenceState;
 using cressim::neo::physics::AuthoredParticleReferenceType;
 using cressim::neo::physics::AuthoredSuturingSequenceState;
 using cressim::neo::physics::ColliderShapeType;
@@ -123,7 +125,7 @@ void printUsage(const char *appName)
     cressim::neo::examples::helpers::printUsage(
         appName,
         "  --mode needle|thread|strand  Select suturing demo variant (default: thread).\n"
-        "  Debug particle rendering is enabled by default.\n",
+        "  --debug-particles           Show debug particles instead of mesh presentation.\n",
         false);
 }
 
@@ -207,6 +209,7 @@ int main(int argc, char **argv)
 {
     CommonExampleOptions options{};
     SuturingExampleMode mode = SuturingExampleMode::NeedleThread;
+    bool debugParticles = false;
 
     try
     {
@@ -222,10 +225,15 @@ int main(int argc, char **argv)
                 mode = parseMode(argv[++i]);
                 continue;
             }
-
             if (cressim::neo::examples::helpers::tryParseCommonArgument(
                     argc, argv, i, options, false))
             {
+                continue;
+            }
+
+            if (arg == "--debug-particles")
+            {
+                debugParticles = true;
                 continue;
             }
 
@@ -249,7 +257,7 @@ int main(int argc, char **argv)
     viewerDefaults.windowTitle = modeWindowTitle(mode);
     viewerDefaults.showStats = true;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
-    viewerDesc.enableDebugParticles = true;
+    viewerDesc.enableDebugParticles = debugParticles;
 
     if (!viewer.initialize(viewerDesc, config))
     {
@@ -293,6 +301,27 @@ int main(int argc, char **argv)
     groundMaterialDesc.baseColor = {0.76f, 0.79f, 0.82f};
     groundMaterialDesc.roughness = 0.94f;
     const auto groundMaterial = resources.registerMaterial(groundMaterialDesc);
+
+    MaterialResourceDesc threadMaterialDesc{};
+    threadMaterialDesc.debugName = "KinematicArcNeedleThread.ThreadMaterial";
+    threadMaterialDesc.baseColor = {0.16f, 0.52f, 0.22f};
+    threadMaterialDesc.roughness = 0.72f;
+    threadMaterialDesc.metallic = 0.0f;
+    const auto threadMaterial = resources.registerMaterial(threadMaterialDesc);
+
+    MaterialResourceDesc softMaterialDesc{};
+    softMaterialDesc.debugName = "KinematicArcNeedleThread.SoftBodyMaterial";
+    softMaterialDesc.baseColor = {0.84f, 0.57f, 0.49f};
+    softMaterialDesc.roughness = 0.82f;
+    softMaterialDesc.metallic = 0.0f;
+    const auto softMaterial = resources.registerMaterial(softMaterialDesc);
+
+    MaterialResourceDesc needleMaterialDesc{};
+    needleMaterialDesc.debugName = "KinematicArcNeedleThread.NeedleMaterial";
+    needleMaterialDesc.baseColor = {0.78f, 0.78f, 0.82f};
+    needleMaterialDesc.roughness = 0.22f;
+    needleMaterialDesc.metallic = 0.88f;
+    const auto needleMaterial = resources.registerMaterial(needleMaterialDesc);
 
     const auto groundEntity = world.createEntity();
     TransformComponent groundTransform{};
@@ -339,6 +368,14 @@ int main(int argc, char **argv)
         viewer.shutdown();
         CRESSIM_LOG_ERROR("Failed to author soft body.\n");
         return 1;
+    }
+    if (!debugParticles)
+    {
+        const auto softMesh = resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
+            {softBody.source.regularGrid.size.x * 0.5f, softBody.source.regularGrid.size.y * 0.5f,
+             softBody.source.regularGrid.size.z * 0.5f},
+            "KinematicArcNeedleThread.SoftBodyMesh"));
+        world.setMeshRenderer(softEntity, MeshRendererComponent{softMesh, softMaterial, true});
     }
 
     const float strandSpacing = softBody.source.regularGrid.targetParticleSpacing;
@@ -426,6 +463,16 @@ int main(int argc, char **argv)
         strandAnchorWorldPosition =
             driverTransform.worldTransform.position +
             initialDriverRotation.RotateVector(needleMassProperties.centeredPoints[tailProxyIndex]);
+
+        if (!debugParticles)
+        {
+            const auto needleMesh = resources.registerMesh(
+                cressim::neo::examples::helpers::makePolylineTubeMesh(
+                    needleMassProperties.centeredPoints, 12u, 0.085f,
+                    "KinematicArcNeedleThread.NeedleMesh", 3.5f, 0.18f, 0.78f));
+            world.setMeshRenderer(driverEntity,
+                                  MeshRendererComponent{needleMesh, needleMaterial, true});
+        }
     }
     else
     {
@@ -442,6 +489,15 @@ int main(int argc, char **argv)
         driverBody.kinematicTargetRotation = driverTransform.worldTransform.rotation;
         driverBody.kinematicTargetPosition = driverTransform.worldTransform.position;
         strandAnchorWorldPosition = driverTransform.worldTransform.position;
+
+        if (!debugParticles)
+        {
+            const auto leaderMesh = resources.registerMesh(
+                cressim::neo::examples::helpers::makeCapsuleMesh(
+                    0.085f, 0.12f, 16u, 8u, 2u, "KinematicArcNeedleThread.LeaderMesh"));
+            world.setMeshRenderer(driverEntity,
+                                  MeshRendererComponent{leaderMesh, needleMaterial, true});
+        }
     }
 
     world.setTransform(driverEntity, driverTransform);
@@ -449,9 +505,11 @@ int main(int argc, char **argv)
 
     const float driverAttachmentRestLength = strandEnabled ? strandSpacing : 0.0f;
     std::uint32_t strandParticleCount = 0u;
+    cressim::neo::common::EntityId strandEntity = cressim::neo::common::kInvalidEntityId;
     if (strandEnabled)
     {
-        const auto strandEntity = world.createEntity();
+        strandEntity = world.createEntity();
+        world.setTransform(strandEntity, TransformComponent{});
         StrandComponent strand{};
         strand.particleMass = 0.12f;
         strand.particleRadius = 0.1f;
@@ -508,6 +566,33 @@ int main(int argc, char **argv)
                 {strandEntity, AuthoredParticleReferenceType::StrandParticle, particleIndex});
         }
         world.upsertSuturingSequence(suturingSequence);
+
+        AuthoredParticleSequenceState renderSequence{};
+        for (std::uint32_t particleIndex = 0u; particleIndex < strandParticleCount; ++particleIndex)
+        {
+            renderSequence.entries.push_back(
+                {strandEntity, AuthoredParticleReferenceType::StrandParticle, particleIndex});
+        }
+        auto &authoredRenderSequence = world.upsertParticleSequence(renderSequence);
+
+        if (!debugParticles)
+        {
+            constexpr std::uint32_t kThreadRadialResolution = 10u;
+            const auto threadMesh = resources.registerMesh(
+                cressim::neo::examples::helpers::makeCanonicalCurveTubeMesh(
+                    strandParticleCount, kThreadRadialResolution,
+                    "KinematicArcNeedleThread.ThreadCurveMesh", 4.0f));
+            world.setMeshRenderer(strandEntity,
+                                  MeshRendererComponent{threadMesh, threadMaterial, true});
+            world.setProceduralDeformableCurveRender(
+                strandEntity,
+                ProceduralDeformableCurveRenderComponent{
+                    authoredRenderSequence.sequenceId,
+                    0.05f,
+                    kThreadRadialResolution,
+                    true,
+                });
+        }
     }
     else
     {

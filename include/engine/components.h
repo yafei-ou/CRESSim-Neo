@@ -174,6 +174,14 @@ struct StrandComponent
     std::uint32_t collisionMask  = 0xffffffffu;
 };
 
+struct ProceduralDeformableCurveRenderComponent
+{
+    physics::ParticleSequenceId sequenceId = physics::kInvalidParticleSequenceId;
+    float radius                           = 0.05f;
+    std::uint32_t radialResolution         = 8u;
+    bool enabled                           = true;
+};
+
 struct FluidComponent
 {
     physics::FluidSourceDesc source{};
