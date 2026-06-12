@@ -93,6 +93,10 @@ public:
     bool clearSoftConstraintState(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState, std::uint32_t threadCount,
                                   const GpuParticleDispatchConstants &constants);
+    bool clearRoutedCableConstraintState(Diligent::IDeviceContext *computeContext,
+                                         const PhysicsSceneGpuState &sceneState,
+                                         std::uint32_t routedCableCount,
+                                         const GpuRigidDispatchConstants &constants);
     bool clearSuturingCandidates(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState,
                                  std::uint32_t suturingParticleCount,
@@ -237,6 +241,10 @@ public:
                                     const PhysicsSceneGpuState &sceneState);
     bool solveSliderJointConstraints(Diligent::IDeviceContext *computeContext,
                                      const PhysicsSceneGpuState &sceneState);
+    bool solveRoutedCableConstraints(Diligent::IDeviceContext *computeContext,
+                                     const PhysicsSceneGpuState &sceneState,
+                                     std::uint32_t routedCableCount,
+                                     const GpuRigidDispatchConstants &constants);
     bool solveHingeJointTargetVelocities(Diligent::IDeviceContext *computeContext,
                                          const PhysicsSceneGpuState &sceneState);
     bool solveSliderJointTargetVelocities(Diligent::IDeviceContext *computeContext,
@@ -417,6 +425,7 @@ private:
     gpu::GpuComputePass mFinalizeActiveParticleRigidContactsPass;
     gpu::GpuComputePass mCompactActiveParticleRigidContactsPass;
     gpu::GpuComputePass mClearSoftConstraintStatePass;
+    gpu::GpuComputePass mClearRoutedCableConstraintStatePass;
     gpu::GpuComputePass mClearSuturingCandidatesPass;
     gpu::GpuComputePass mGatherSuturingCandidatesPass;
     gpu::GpuComputePass mClassifySuturingParticlesPass;
@@ -483,6 +492,7 @@ private:
     gpu::GpuComputePass mSolveHingeJointConstraintsTargetPositionPass;
     gpu::GpuComputePass mSolveSliderJointConstraintsPassivePass;
     gpu::GpuComputePass mSolveSliderJointConstraintsTargetPositionPass;
+    gpu::GpuComputePass mSolveRoutedCableConstraintsPass;
     gpu::GpuComputePass mSolveHingeJointTargetVelocitiesPass;
     gpu::GpuComputePass mSolveSliderJointTargetVelocitiesPass;
     gpu::GpuComputePass mClearHingeJointConstraintStatePass;

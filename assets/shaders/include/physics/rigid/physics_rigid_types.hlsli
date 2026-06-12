@@ -166,6 +166,27 @@ struct GpuSliderJoint
     float4 driveTargetParams;
 };
 
+struct GpuRoutedCableConstraint
+{
+    uint routePointStart;
+    uint routePointCount;
+    float targetLength;
+    float compliance;
+    uint tensionOnly;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+};
+
+struct GpuRoutedCableRoutePoint
+{
+    uint rigidBodyIndex;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+    float4 localGuideOffset;
+};
+
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)
 {
     const uint lo = min(shapeTypeA, shapeTypeB);

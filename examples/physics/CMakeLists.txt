@@ -31,6 +31,11 @@ add_cressim_example(
 )
 
 add_cressim_example(
+    NAME physics_routed_cable_cdcr
+    SOURCE routed_cable_cdcr.cpp
+)
+
+add_cressim_example(
     NAME physics_rigid_proxy_particles
     SOURCE rigid_proxy_particles.cpp
 )

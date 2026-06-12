@@ -46,6 +46,9 @@ constexpr SliderJointId kInvalidSliderJointId = 0u;
 using ParticleConstraintId                                  = std::uint32_t;
 constexpr ParticleConstraintId kInvalidParticleConstraintId = 0u;
 
+using RoutedCableConstraintId                                  = std::uint32_t;
+constexpr RoutedCableConstraintId kInvalidRoutedCableConstraintId = 0u;
+
 using ParticleCollisionFilterId                                       = std::uint32_t;
 constexpr ParticleCollisionFilterId kInvalidParticleCollisionFilterId = 0u;
 
@@ -414,6 +417,27 @@ struct AuthoredParticleDistanceConstraintState
     bool enabled     = true;
 };
 
+struct AuthoredRoutedCableRoutePoint
+{
+    common::EntityId entityId = common::kInvalidEntityId;
+    Diligent::float3 localGuideOffset{0.0f, 0.0f, 0.0f};
+
+    constexpr bool operator==(const AuthoredRoutedCableRoutePoint &rhs) const noexcept
+    {
+        return entityId == rhs.entityId && localGuideOffset == rhs.localGuideOffset;
+    }
+};
+
+struct AuthoredRoutedCableConstraintState
+{
+    RoutedCableConstraintId constraintId = kInvalidRoutedCableConstraintId;
+    std::vector<AuthoredRoutedCableRoutePoint> routePoints{};
+    float targetLength = 0.0f;
+    float compliance   = 0.0f;
+    bool tensionOnly   = true;
+    bool enabled       = true;
+};
+
 struct AuthoredParticleCollisionFilterState
 {
     ParticleCollisionFilterId filterId = kInvalidParticleCollisionFilterId;
@@ -477,6 +501,27 @@ struct DeformableBendConstraint
 };
 
 using SoftBend = DeformableBendConstraint;
+
+struct RoutedCableConstraint
+{
+    std::uint32_t routePointStart = 0u;
+    std::uint32_t routePointCount = 0u;
+    float targetLength            = 0.0f;
+    float compliance              = 0.0f;
+    std::uint32_t tensionOnly     = 1u;
+    std::uint32_t reserved0       = 0u;
+    std::uint32_t reserved1       = 0u;
+    std::uint32_t reserved2       = 0u;
+};
+
+struct RoutedCableRoutePoint
+{
+    std::uint32_t rigidBodyIndex = 0u;
+    std::uint32_t reserved0      = 0u;
+    std::uint32_t reserved1      = 0u;
+    std::uint32_t reserved2      = 0u;
+    Diligent::float4 localGuideOffset{0.0f, 0.0f, 0.0f, 0.0f};
+};
 
 struct ParticleSoAHost
 {

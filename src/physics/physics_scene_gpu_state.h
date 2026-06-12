@@ -74,6 +74,12 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderVelocityDriveJointIndicesBuffer;
     };
 
+    struct PersistentRoutedCableBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> descriptorsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> routePointsBuffer;
+    };
+
     struct PredictedRigidBodyBuffers
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> positionsBuffer;
@@ -259,6 +265,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rotationCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> linearVelocityCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> angularVelocityCorrectionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> routedCableLambdasBuffer;
     };
 
     struct RigidBodyReadbackBuffers
@@ -345,6 +352,7 @@ public:
                         std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
                         std::uint32_t softBodyBoundsChunkCount, std::uint32_t suturingPairCount,
                         std::uint32_t suturingPathHeaderCount, std::uint32_t suturingPathNodeCount,
+                        std::uint32_t routedCableCount, std::uint32_t routedCableRoutePointCount,
                         std::uint32_t curveRenderCount, std::uint32_t curveRenderParticleIndexCount,
                         std::uint32_t curveRenderVertexCount, Diligent::Uint64 sharedContextMask,
                         const std::uint32_t *sharedQueueFamilyIndices,
@@ -370,6 +378,7 @@ public:
     const PersistentJointCollisionSuppressionBuffers &persistentJointCollisionSuppression()
         const noexcept;
     const PersistentJointBuffers &persistentJoints() const noexcept;
+    const PersistentRoutedCableBuffers &persistentRoutedCables() const noexcept;
     const PersistentParticleBuffers &persistentParticles() const noexcept;
     const gpu::SharedExportBuffer &softPositionsInvMassSharedBuffer() const noexcept;
     const PersistentSoftTopologyBuffers &persistentSoftTopology() const noexcept;
@@ -420,6 +429,10 @@ private:
                                          const JointCollisionSuppressionHost &suppression,
                                          std::uint32_t bodyCount);
     bool uploadRigidJoints(Diligent::IDeviceContext *computeContext, const PhysicsWorld &world);
+    bool uploadRoutedCableTopology(
+        Diligent::IDeviceContext *computeContext,
+        const std::vector<RoutedCableConstraint> &constraints,
+        const std::vector<RoutedCableRoutePoint> &routePoints);
     bool uploadParticles(Diligent::IDeviceContext *computeContext, const ParticleSoAHost &particles,
                          const std::vector<FluidState> &fluids,
                          const std::vector<Diligent::float4> &particleContactMaterials,
@@ -442,6 +455,7 @@ private:
     PersistentBodyColliderMappingBuffers mPersistentBodyColliderMapping;
     PersistentJointCollisionSuppressionBuffers mPersistentJointCollisionSuppression;
     PersistentJointBuffers mPersistentJoints;
+    PersistentRoutedCableBuffers mPersistentRoutedCables;
     PersistentParticleBuffers mPersistentParticles;
     PersistentSoftTopologyBuffers mPersistentSoftTopology;
     PersistentSuturingBuffers mPersistentSuturing;
@@ -459,6 +473,8 @@ private:
     std::uint32_t mCurveRenderCapacity                       = 0;
     std::uint32_t mCurveRenderParticleIndexCapacity          = 0;
     std::uint32_t mCurveRenderVertexCapacity                 = 0;
+    std::uint32_t mRoutedCableCapacity                       = 0;
+    std::uint32_t mRoutedCableRoutePointCapacity             = 0;
     std::uint32_t mFluidVisualCapacity                       = 0;
     std::uint32_t mParticleContactMaterialCapacity           = 0;
     std::uint32_t mFluidMaterialCapacity                     = 0;
@@ -486,6 +502,7 @@ private:
     std::uint32_t mSuturingPathHeaderCount                   = 0;
     std::uint32_t mSuturingPathNodeCount                     = 0;
     std::uint32_t mCurveRenderCount                          = 0;
+    std::uint32_t mRoutedCableCount                          = 0;
     std::uint32_t mBroadPhaseNodeCapacity                    = 0;
     std::uint32_t mCandidatePairCapacity                     = 0;
     std::uint32_t mContactCapacity                           = 0;
@@ -522,6 +539,8 @@ private:
     std::uint64_t mLastUploadedRigidJointModeRevision        = 0;
     std::uint64_t mLastUploadedSoftParticleRevision          = 0;
     std::uint64_t mLastUploadedSoftTopologyRevision          = 0;
+    std::uint64_t mLastUploadedRoutedCableRevision           = 0;
+    std::uint64_t mLastUploadedRoutedCableTopologyRevision   = 0;
     std::uint64_t mLastUploadedCurveRenderRevision           = 0;
     std::uint32_t mBallJointCount                            = 0;
     std::uint32_t mHingeJointCount                           = 0;

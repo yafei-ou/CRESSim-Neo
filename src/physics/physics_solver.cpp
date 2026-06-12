@@ -163,6 +163,10 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         world.distanceConstraints();
     const std::vector<DeformableBendConstraint> &bendConstraints     = world.bendConstraints();
     const std::vector<DeformableVolumeConstraint> &volumeConstraints = world.volumeConstraints();
+    const std::vector<RoutedCableConstraint> &routedCableConstraints =
+        world.routedCableConstraints();
+    const std::vector<RoutedCableRoutePoint> &routedCableRoutePoints =
+        world.routedCableRoutePoints();
     const SoftRenderDataHost &softRenderData                         = world.softRenderData();
     const CurveRenderDataHost &curveRenderData                       = world.curveRenderData();
     const RigidJointSceneHost &rigidJoints                           = world.rigidJointScene();
@@ -171,6 +175,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const std::uint32_t softEdgeCount    = static_cast<std::uint32_t>(distanceConstraints.size());
     const std::uint32_t softBendCount    = static_cast<std::uint32_t>(bendConstraints.size());
     const std::uint32_t softTetCount     = static_cast<std::uint32_t>(volumeConstraints.size());
+    const std::uint32_t routedCableCount =
+        static_cast<std::uint32_t>(routedCableConstraints.size());
     const std::uint32_t ballJointCount   = static_cast<std::uint32_t>(rigidJoints.ball.size());
     const std::uint32_t hingeJointCount  = static_cast<std::uint32_t>(rigidJoints.hinge.size());
     const std::uint32_t sliderJointCount = static_cast<std::uint32_t>(rigidJoints.slider.size());
@@ -202,6 +208,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             static_cast<std::uint32_t>(softRenderData.softBodyParticleRanges.size()),
             softBodyBoundsChunkCount, static_cast<std::uint32_t>(world.suturingPairs().size()),
             world.reservedSuturingPathHeaderCount(), world.reservedSuturingPathNodeCount(),
+            routedCableCount, static_cast<std::uint32_t>(routedCableRoutePoints.size()),
             static_cast<std::uint32_t>(curveRenderData.descriptors.size()),
             static_cast<std::uint32_t>(curveRenderData.particleIndices.size()),
             [&curveRenderData]()
@@ -268,6 +275,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         constants.colliderCount         = colliderCount;
         constants.candidatePairCapacity = mImpl->sceneState.candidatePairCapacity();
         constants.contactCapacity       = mImpl->sceneState.rigidContactCapacity();
+        constants.reserved0             = routedCableCount;
         GpuParticleDispatchConstants particleConstants{};
         particleConstants.dt                   = substepDt;
         particleConstants.particleCount        = particleCount;
@@ -304,6 +312,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             hasSoftContactSolveWork && hasParticleRigidCandidateWork;
         const bool hasSuturingCouplingWork =
             suturingParticleCount > 0u && particleConstants.suturingPairCount > 0u;
+        const bool hasRoutedCableWork = routedCableCount > 0u;
         const bool hasParticleBroadPhaseWork =
             hasSoftSoftContactWork || hasFluidWork || hasParticleRigidCandidateWork;
         if (mImpl->sceneState.correctionBuffersNeedClear() &&
@@ -572,6 +581,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 "PhysicsSolver::step failed: ClearSliderJointConstraintState dispatch.");
             return false;
         }
+        if (hasRoutedCableWork &&
+            !mImpl->passDispatcher.clearRoutedCableConstraintState(
+                computeBackend.computeContext, mImpl->sceneState, routedCableCount, constants))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: ClearRoutedCableConstraintState dispatch.");
+            return false;
+        }
         if (hingeJointCount > 0u &&
             !mImpl->passDispatcher.clearHingeJointConstraintState(
                 computeBackend.computeContext, mImpl->sceneState, hingeJointCount))
@@ -585,6 +602,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             hasFluidWork || (hasSoftInternalWork && softInternalIterations > 0u) ||
             (hasSoftSoftContactWork && softContactIterations > 0u) ||
             (hasSoftRigidContactWork && softContactIterations > 0u) || hasSuturingCouplingWork ||
+            hasRoutedCableWork ||
             useInitialRigidContactSolve ||
             ((ballJointCount > 0u || hingeJointCount > 0u || sliderJointCount > 0u) &&
              rigidJointIterations > 0u);
@@ -608,8 +626,10 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 const bool runRigidContacts =
                     useInitialRigidContactSolve && iteration < rigidContactIterations;
                 const bool needContactSoftApply = runSoftContacts || runSoftRigidContacts;
+                const bool needRoutedCableApply = hasRoutedCableWork;
                 const bool needRigidApply = runSoftRigidContacts || runRigidContacts ||
-                                            runBallJoints || runHingeJoints || runSliderJoints;
+                                            runBallJoints || runHingeJoints || runSliderJoints ||
+                                            needRoutedCableApply;
                 const bool needJointOnlyRigidConstants =
                     runBallJoints || runHingeJoints || runSliderJoints;
 
@@ -789,6 +809,15 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: SolveRigidContactDepenetration dispatch.");
+                    return false;
+                }
+                if (hasRoutedCableWork &&
+                    !mImpl->passDispatcher.solveRoutedCableConstraints(
+                        computeBackend.computeContext, mImpl->sceneState, routedCableCount,
+                        constants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: SolveRoutedCableConstraints dispatch.");
                     return false;
                 }
                 if (needContactSoftApply &&

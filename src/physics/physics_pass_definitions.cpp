@@ -461,6 +461,13 @@ constexpr Diligent::ShaderResourceVariableDesc kClearSoftConstraintStateVars[] =
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kClearRoutedCableConstraintStateVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RoutedCableLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kClearSuturingCandidatesVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -1664,6 +1671,29 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveSliderJointConstraintsVars[
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kSolveRoutedCableConstraintsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyOrientations",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyInverseInertiaLocal",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTypes",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RoutedCableConstraints",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RoutedCableRoutePoints",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RoutedCableLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTranslationCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyRotationCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kSolveHingeJointTargetVelocitiesVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2012,6 +2042,14 @@ const gpu::GpuComputePassDefinition kClearSoftConstraintState{
     "CRESSimNeo.Physics.ClearSoftConstraintState.PSO",
     kClearSoftConstraintStateVars,
     std::size(kClearSoftConstraintStateVars),
+};
+
+const gpu::GpuComputePassDefinition kClearRoutedCableConstraintState{
+    "physics/rigid/solver/physics_rigid_clear_routed_cable_constraint_state.cs.hlsl",
+    "CRESSimNeo.Physics.ClearRoutedCableConstraintState.CS",
+    "CRESSimNeo.Physics.ClearRoutedCableConstraintState.PSO",
+    kClearRoutedCableConstraintStateVars,
+    std::size(kClearRoutedCableConstraintStateVars),
 };
 
 const gpu::GpuComputePassDefinition kClearSuturingCandidates{
@@ -2555,6 +2593,14 @@ const gpu::GpuComputePassDefinition kSolveSliderJointConstraintsTargetPosition{
     std::size(kSolveSliderJointConstraintsVars),
     kJointDriveModeTargetPositionMacros,
     std::size(kJointDriveModeTargetPositionMacros),
+};
+
+const gpu::GpuComputePassDefinition kSolveRoutedCableConstraints{
+    "physics/rigid/solver/physics_rigid_solve_routed_cable_constraints.cs.hlsl",
+    "CRESSimNeo.Physics.RigidSolveRoutedCableConstraints.CS",
+    "CRESSimNeo.Physics.RigidSolveRoutedCableConstraints.PSO",
+    kSolveRoutedCableConstraintsVars,
+    std::size(kSolveRoutedCableConstraintsVars),
 };
 
 const gpu::GpuComputePassDefinition kSolveHingeJointTargetVelocities{

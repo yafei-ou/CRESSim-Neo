@@ -29,6 +29,8 @@ public:
         const AuthoredParticleSequenceState &state);
     AuthoredParticleDistanceConstraintState &upsertParticleDistanceConstraint(
         const AuthoredParticleDistanceConstraintState &state);
+    AuthoredRoutedCableConstraintState &upsertRoutedCableConstraint(
+        const AuthoredRoutedCableConstraintState &state);
     AuthoredParticleCollisionFilterState &upsertParticleCollisionFilter(
         const AuthoredParticleCollisionFilterState &state);
     AuthoredSuturingSequenceState &upsertSuturingSequence(
@@ -38,6 +40,7 @@ public:
     bool removeFluid(common::EntityId entityId);
     bool removeParticleSequence(ParticleSequenceId sequenceId);
     bool removeParticleDistanceConstraint(ParticleConstraintId constraintId);
+    bool removeRoutedCableConstraint(RoutedCableConstraintId constraintId);
     bool removeParticleCollisionFilter(ParticleCollisionFilterId filterId);
     bool removeSuturingSequence(SuturingSequenceId sequenceId);
     bool upsertBallJoint(const BallJointState &state);
@@ -65,6 +68,10 @@ public:
         ParticleConstraintId constraintId);
     const AuthoredParticleDistanceConstraintState *tryGetParticleDistanceConstraint(
         ParticleConstraintId constraintId) const;
+    AuthoredRoutedCableConstraintState *tryGetRoutedCableConstraint(
+        RoutedCableConstraintId constraintId);
+    const AuthoredRoutedCableConstraintState *tryGetRoutedCableConstraint(
+        RoutedCableConstraintId constraintId) const;
     AuthoredParticleCollisionFilterState *tryGetParticleCollisionFilter(
         ParticleCollisionFilterId filterId);
     const AuthoredParticleCollisionFilterState *tryGetParticleCollisionFilter(
@@ -83,6 +90,8 @@ public:
     const std::vector<FluidState> &fluidSnapshot() const noexcept;
     const std::vector<AuthoredParticleSequenceState> &particleSequenceSnapshot() const noexcept;
     const std::vector<AuthoredParticleDistanceConstraintState> &particleDistanceConstraintSnapshot()
+        const noexcept;
+    const std::vector<AuthoredRoutedCableConstraintState> &routedCableConstraintSnapshot()
         const noexcept;
     const std::vector<AuthoredParticleCollisionFilterState> &particleCollisionFilterSnapshot()
         const noexcept;
@@ -104,6 +113,8 @@ public:
     const std::vector<SoftEdge> &softEdges() const noexcept;
     const std::vector<SoftBend> &softBends() const noexcept;
     const std::vector<SoftTet> &softTets() const noexcept;
+    const std::vector<RoutedCableConstraint> &routedCableConstraints() const noexcept;
+    const std::vector<RoutedCableRoutePoint> &routedCableRoutePoints() const noexcept;
     const std::vector<StrandSoftSuturingPair> &suturingPairs() const noexcept;
     const std::vector<std::uint32_t> &suturingParticleIndices() const noexcept;
     const SoftRenderDataHost &softRenderData() const noexcept;
@@ -159,6 +170,8 @@ public:
     std::uint64_t softBodyTopologyRevision() const noexcept;
     std::uint64_t softParticleRevision() const noexcept;
     std::uint64_t softGpuTopologyRevision() const noexcept;
+    std::uint64_t routedCableRevision() const noexcept;
+    std::uint64_t routedCableTopologyRevision() const noexcept;
     std::uint64_t curveRenderRevision() const noexcept;
 
 private:
@@ -292,6 +305,7 @@ private:
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToFluidIndex{};
     std::unordered_map<ParticleSequenceId, std::uint32_t> mParticleSequenceIdToIndex{};
     std::unordered_map<ParticleConstraintId, std::uint32_t> mParticleConstraintIdToIndex{};
+    std::unordered_map<RoutedCableConstraintId, std::uint32_t> mRoutedCableConstraintIdToIndex{};
     std::unordered_map<ParticleCollisionFilterId, std::uint32_t>
         mParticleCollisionFilterIdToIndex{};
     std::unordered_map<SuturingSequenceId, std::uint32_t> mSuturingSequenceIdToIndex{};
@@ -303,6 +317,7 @@ private:
     std::vector<FluidState> mFluidSnapshot{};
     std::vector<AuthoredParticleSequenceState> mParticleSequenceSnapshot{};
     std::vector<AuthoredParticleDistanceConstraintState> mParticleDistanceConstraintSnapshot{};
+    std::vector<AuthoredRoutedCableConstraintState> mRoutedCableConstraintSnapshot{};
     std::vector<AuthoredParticleCollisionFilterState> mParticleCollisionFilterSnapshot{};
     std::vector<AuthoredSuturingSequenceState> mSuturingSequenceSnapshot{};
     std::vector<BallJointState> mBallJointSnapshot{};
@@ -318,6 +333,8 @@ private:
     std::vector<DeformableDistanceConstraint> mSoftEdges{};
     std::vector<DeformableBendConstraint> mSoftBends{};
     std::vector<DeformableVolumeConstraint> mSoftTets{};
+    std::vector<RoutedCableConstraint> mRoutedCableConstraints{};
+    std::vector<RoutedCableRoutePoint> mRoutedCableRoutePoints{};
     SoftRenderDataHost mSoftRenderData{};
     CurveRenderDataHost mCurveRenderData{};
     std::vector<std::uint32_t> mRigidBodyDirtyIndices{};
@@ -350,6 +367,8 @@ private:
     std::uint64_t mSoftBodyTopologyRevision                  = 0;
     std::uint64_t mSoftParticleRevision                      = 0;
     std::uint64_t mSoftGpuTopologyRevision                   = 0;
+    std::uint64_t mRoutedCableRevision                       = 0;
+    std::uint64_t mRoutedCableTopologyRevision               = 0;
     std::uint64_t mCurveRenderRevision                       = 0;
     RigidBodyId mNextRigidBodyId                             = 1u;
     ColliderId mNextColliderId                               = 1u;
@@ -358,6 +377,7 @@ private:
     SliderJointId mNextSliderJointId                         = 1u;
     ParticleSequenceId mNextParticleSequenceId               = 1u;
     ParticleConstraintId mNextParticleConstraintId           = 1u;
+    RoutedCableConstraintId mNextRoutedCableConstraintId     = 1u;
     ParticleCollisionFilterId mNextParticleCollisionFilterId = 1u;
     SuturingSequenceId mNextSuturingSequenceId               = 1u;
 };

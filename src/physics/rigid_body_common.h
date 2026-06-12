@@ -71,6 +71,27 @@ struct GpuRigidJointDispatchConstants
     std::uint32_t reserved2  = 0u;
 };
 
+struct GpuRoutedCableConstraint
+{
+    std::uint32_t routePointStart = 0u;
+    std::uint32_t routePointCount = 0u;
+    float targetLength            = 0.0f;
+    float compliance              = 0.0f;
+    std::uint32_t tensionOnly     = 1u;
+    std::uint32_t reserved0       = 0u;
+    std::uint32_t reserved1       = 0u;
+    std::uint32_t reserved2       = 0u;
+};
+
+struct GpuRoutedCableRoutePoint
+{
+    std::uint32_t rigidBodyIndex = 0u;
+    std::uint32_t reserved0      = 0u;
+    std::uint32_t reserved1      = 0u;
+    std::uint32_t reserved2      = 0u;
+    Diligent::float4 localGuideOffset{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
 struct GpuBallJoint
 {
     std::uint32_t bodyA     = 0u;
@@ -634,6 +655,8 @@ struct GpuRigidBodyPairContactAggregateSlot
 
 static_assert(sizeof(GpuRigidDispatchConstants) == 48u);
 static_assert(sizeof(GpuRigidJointDispatchConstants) == 16u);
+static_assert(sizeof(GpuRoutedCableConstraint) == 32u);
+static_assert(sizeof(GpuRoutedCableRoutePoint) == 32u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
