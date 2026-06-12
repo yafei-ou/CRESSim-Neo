@@ -29,6 +29,8 @@ public:
         const AuthoredParticleSequenceState &state);
     AuthoredParticleDistanceConstraintState &upsertParticleDistanceConstraint(
         const AuthoredParticleDistanceConstraintState &state);
+    AuthoredParticleCollisionFilterState &upsertParticleCollisionFilter(
+        const AuthoredParticleCollisionFilterState &state);
     AuthoredSuturingSequenceState &upsertSuturingSequence(
         const AuthoredSuturingSequenceState &state);
     bool removeSoftBody(common::EntityId entityId);
@@ -36,6 +38,7 @@ public:
     bool removeFluid(common::EntityId entityId);
     bool removeParticleSequence(ParticleSequenceId sequenceId);
     bool removeParticleDistanceConstraint(ParticleConstraintId constraintId);
+    bool removeParticleCollisionFilter(ParticleCollisionFilterId filterId);
     bool removeSuturingSequence(SuturingSequenceId sequenceId);
     bool upsertBallJoint(const BallJointState &state);
     bool upsertHingeJoint(const HingeJointState &state);
@@ -62,6 +65,10 @@ public:
         ParticleConstraintId constraintId);
     const AuthoredParticleDistanceConstraintState *tryGetParticleDistanceConstraint(
         ParticleConstraintId constraintId) const;
+    AuthoredParticleCollisionFilterState *tryGetParticleCollisionFilter(
+        ParticleCollisionFilterId filterId);
+    const AuthoredParticleCollisionFilterState *tryGetParticleCollisionFilter(
+        ParticleCollisionFilterId filterId) const;
     AuthoredSuturingSequenceState *tryGetSuturingSequence(SuturingSequenceId sequenceId);
     const AuthoredSuturingSequenceState *tryGetSuturingSequence(
         SuturingSequenceId sequenceId) const;
@@ -77,6 +84,8 @@ public:
     const std::vector<AuthoredParticleSequenceState> &particleSequenceSnapshot() const noexcept;
     const std::vector<AuthoredParticleDistanceConstraintState> &
     particleDistanceConstraintSnapshot() const noexcept;
+    const std::vector<AuthoredParticleCollisionFilterState> &
+    particleCollisionFilterSnapshot() const noexcept;
     const std::vector<AuthoredSuturingSequenceState> &suturingSequenceSnapshot() const noexcept;
     const std::vector<BallJointState> &ballJointSnapshot() const noexcept;
     const std::vector<HingeJointState> &hingeJointSnapshot() const noexcept;
@@ -283,6 +292,7 @@ private:
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToFluidIndex{};
     std::unordered_map<ParticleSequenceId, std::uint32_t> mParticleSequenceIdToIndex{};
     std::unordered_map<ParticleConstraintId, std::uint32_t> mParticleConstraintIdToIndex{};
+    std::unordered_map<ParticleCollisionFilterId, std::uint32_t> mParticleCollisionFilterIdToIndex{};
     std::unordered_map<SuturingSequenceId, std::uint32_t> mSuturingSequenceIdToIndex{};
     std::unordered_map<common::EntityId, TetGenMeshCache> mTetGenMeshCache{};
     std::vector<RigidBodyState> mRigidBodySnapshot{};
@@ -292,6 +302,7 @@ private:
     std::vector<FluidState> mFluidSnapshot{};
     std::vector<AuthoredParticleSequenceState> mParticleSequenceSnapshot{};
     std::vector<AuthoredParticleDistanceConstraintState> mParticleDistanceConstraintSnapshot{};
+    std::vector<AuthoredParticleCollisionFilterState> mParticleCollisionFilterSnapshot{};
     std::vector<AuthoredSuturingSequenceState> mSuturingSequenceSnapshot{};
     std::vector<BallJointState> mBallJointSnapshot{};
     std::vector<HingeJointState> mHingeJointSnapshot{};
@@ -346,6 +357,7 @@ private:
     SliderJointId mNextSliderJointId             = 1u;
     ParticleSequenceId mNextParticleSequenceId   = 1u;
     ParticleConstraintId mNextParticleConstraintId = 1u;
+    ParticleCollisionFilterId mNextParticleCollisionFilterId = 1u;
     SuturingSequenceId mNextSuturingSequenceId     = 1u;
 };
 

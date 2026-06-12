@@ -542,6 +542,7 @@ void PhysicsWorld::clear()
     mEntityToFluidIndex.clear();
     mParticleSequenceIdToIndex.clear();
     mParticleConstraintIdToIndex.clear();
+    mParticleCollisionFilterIdToIndex.clear();
     mSuturingSequenceIdToIndex.clear();
     mTetGenMeshCache.clear();
     mRigidBodySnapshot.clear();
@@ -551,6 +552,7 @@ void PhysicsWorld::clear()
     mFluidSnapshot.clear();
     mParticleSequenceSnapshot.clear();
     mParticleDistanceConstraintSnapshot.clear();
+    mParticleCollisionFilterSnapshot.clear();
     mSuturingSequenceSnapshot.clear();
     mBallJointSnapshot.clear();
     mHingeJointSnapshot.clear();
@@ -593,6 +595,7 @@ void PhysicsWorld::clear()
     mNextSliderJointId              = 1u;
     mNextParticleSequenceId         = 1u;
     mNextParticleConstraintId       = 1u;
+    mNextParticleCollisionFilterId  = 1u;
     mNextSuturingSequenceId         = 1u;
     ++mRigidBodyTopologyRevision;
     ++mRigidJointSceneRevision;
@@ -1172,6 +1175,37 @@ AuthoredParticleDistanceConstraintState &PhysicsWorld::upsertParticleDistanceCon
     return mParticleDistanceConstraintSnapshot[it->second];
 }
 
+AuthoredParticleCollisionFilterState &PhysicsWorld::upsertParticleCollisionFilter(
+    const AuthoredParticleCollisionFilterState &state)
+{
+    AuthoredParticleCollisionFilterState normalizedState = state;
+    if (normalizedState.collisionLayer == 0u)
+    {
+        normalizedState.collisionLayer = 1u;
+    }
+
+    auto it = mParticleCollisionFilterIdToIndex.find(normalizedState.filterId);
+    if (normalizedState.filterId == kInvalidParticleCollisionFilterId ||
+        it == mParticleCollisionFilterIdToIndex.end())
+    {
+        normalizedState.filterId = mNextParticleCollisionFilterId++;
+        const std::uint32_t index =
+            static_cast<std::uint32_t>(mParticleCollisionFilterSnapshot.size());
+        mParticleCollisionFilterIdToIndex.emplace(normalizedState.filterId, index);
+        mParticleCollisionFilterSnapshot.push_back(normalizedState);
+        mSoftBodyDerivedStateDirty = true;
+        ++mSoftParticleRevision;
+        ++mAuthoredRevision;
+        return mParticleCollisionFilterSnapshot.back();
+    }
+
+    mParticleCollisionFilterSnapshot[it->second] = normalizedState;
+    mSoftBodyDerivedStateDirty = true;
+    ++mSoftParticleRevision;
+    ++mAuthoredRevision;
+    return mParticleCollisionFilterSnapshot[it->second];
+}
+
 AuthoredSuturingSequenceState &PhysicsWorld::upsertSuturingSequence(
     const AuthoredSuturingSequenceState &state)
 {
@@ -1361,6 +1395,31 @@ bool PhysicsWorld::removeParticleSequence(ParticleSequenceId sequenceId)
 
     mParticleSequenceIdToIndex.erase(it);
     mParticleSequenceSnapshot.pop_back();
+    return true;
+}
+
+bool PhysicsWorld::removeParticleCollisionFilter(ParticleCollisionFilterId filterId)
+{
+    const auto it = mParticleCollisionFilterIdToIndex.find(filterId);
+    if (it == mParticleCollisionFilterIdToIndex.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t index = it->second;
+    const std::uint32_t last =
+        static_cast<std::uint32_t>(mParticleCollisionFilterSnapshot.size() - 1u);
+    if (index != last)
+    {
+        mParticleCollisionFilterSnapshot[index] = mParticleCollisionFilterSnapshot[last];
+        mParticleCollisionFilterIdToIndex[mParticleCollisionFilterSnapshot[index].filterId] = index;
+    }
+
+    mParticleCollisionFilterIdToIndex.erase(it);
+    mParticleCollisionFilterSnapshot.pop_back();
+    mSoftBodyDerivedStateDirty = true;
+    ++mSoftParticleRevision;
+    ++mAuthoredRevision;
     return true;
 }
 
@@ -1742,6 +1801,24 @@ const AuthoredParticleDistanceConstraintState *PhysicsWorld::tryGetParticleDista
                                                     : &mParticleDistanceConstraintSnapshot[it->second];
 }
 
+AuthoredParticleCollisionFilterState *PhysicsWorld::tryGetParticleCollisionFilter(
+    ParticleCollisionFilterId filterId)
+{
+    const auto it = mParticleCollisionFilterIdToIndex.find(filterId);
+    return it == mParticleCollisionFilterIdToIndex.end()
+               ? nullptr
+               : &mParticleCollisionFilterSnapshot[it->second];
+}
+
+const AuthoredParticleCollisionFilterState *PhysicsWorld::tryGetParticleCollisionFilter(
+    ParticleCollisionFilterId filterId) const
+{
+    const auto it = mParticleCollisionFilterIdToIndex.find(filterId);
+    return it == mParticleCollisionFilterIdToIndex.end()
+               ? nullptr
+               : &mParticleCollisionFilterSnapshot[it->second];
+}
+
 AuthoredSuturingSequenceState *PhysicsWorld::tryGetSuturingSequence(
     SuturingSequenceId sequenceId)
 {
@@ -1792,6 +1869,12 @@ const std::vector<AuthoredParticleDistanceConstraintState> &
 PhysicsWorld::particleDistanceConstraintSnapshot() const noexcept
 {
     return mParticleDistanceConstraintSnapshot;
+}
+
+const std::vector<AuthoredParticleCollisionFilterState> &
+PhysicsWorld::particleCollisionFilterSnapshot() const noexcept
+{
+    return mParticleCollisionFilterSnapshot;
 }
 
 const std::vector<AuthoredSuturingSequenceState> &PhysicsWorld::suturingSequenceSnapshot() const noexcept
@@ -3586,6 +3669,26 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
 
         return std::nullopt;
     };
+
+    for (const AuthoredParticleCollisionFilterState &authoredFilter :
+         mParticleCollisionFilterSnapshot)
+    {
+        if (!authoredFilter.enabled)
+        {
+            continue;
+        }
+
+        const std::optional<std::uint32_t> particleIndex =
+            resolveParticleReference(authoredFilter.particle);
+        if (!particleIndex.has_value() || *particleIndex >= mParticles.collisionLayers.size() ||
+            *particleIndex >= mParticles.collisionMasks.size())
+        {
+            continue;
+        }
+
+        mParticles.collisionLayers[*particleIndex] = authoredFilter.collisionLayer;
+        mParticles.collisionMasks[*particleIndex]  = authoredFilter.collisionMask;
+    }
 
     struct ResolvedSuturingSequence
     {

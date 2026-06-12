@@ -31,6 +31,7 @@ using cressim::neo::examples::helpers::CommonExampleOptions;
 using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::physics::AuthoredParticleDistanceConstraintState;
+using cressim::neo::physics::AuthoredParticleCollisionFilterState;
 using cressim::neo::physics::AuthoredParticleSequenceState;
 using cressim::neo::physics::AuthoredParticleReferenceType;
 using cressim::neo::physics::AuthoredSuturingSequenceState;
@@ -394,7 +395,7 @@ int main(int argc, char **argv)
     driverBody.simulated = true;
     driverBody.bodyType = RigidBodyType::Kinematic;
     driverBody.proxyCollisionLayer = 0x4u;
-    driverBody.proxyCollisionMask = 0x1u;
+    driverBody.proxyCollisionMask = 0x1u | 0x2u;
     driverBody.kinematicTargetEnabled = true;
 
     std::uint32_t tipProxyIndex = 0u;
@@ -503,7 +504,7 @@ int main(int argc, char **argv)
     world.setTransform(driverEntity, driverTransform);
     world.setRigidBody(driverEntity, driverBody);
 
-    const float driverAttachmentRestLength = strandEnabled ? strandSpacing : 0.0f;
+    const float driverAttachmentRestLength = 0.0f;
     std::uint32_t strandParticleCount = 0u;
     cressim::neo::common::EntityId strandEntity = cressim::neo::common::kInvalidEntityId;
     if (strandEnabled)
@@ -518,7 +519,7 @@ int main(int argc, char **argv)
         strand.selfCollisionEnabled = false;
         strand.suturingEnabled = false;
         strand.collisionLayer = 0x2u;
-        strand.collisionMask = 0x1u;
+        strand.collisionMask = 0x1u | 0x4u;
 
         const Diligent::float3 strandDirectionWorld{1.0f, 0.0f, 0.0f};
         const std::uint32_t count = 18u;
@@ -549,6 +550,14 @@ int main(int argc, char **argv)
         driverAttachment.compliance = 0.0f;
         world.upsertParticleDistanceConstraint(driverAttachment);
 
+        AuthoredParticleCollisionFilterState tailAnchorFilter{};
+        tailAnchorFilter.particle.entityId = driverEntity;
+        tailAnchorFilter.particle.type = AuthoredParticleReferenceType::RigidProxyParticle;
+        tailAnchorFilter.particle.localParticleIndex = tailProxyIndex;
+        tailAnchorFilter.collisionLayer = driverBody.proxyCollisionLayer;
+        tailAnchorFilter.collisionMask = 0u;
+        world.upsertParticleCollisionFilter(tailAnchorFilter);
+
         AuthoredSuturingSequenceState suturingSequence{};
         suturingSequence.pathNodeSpacing = strandSpacing;
         suturingSequence.needleTangentialDrag = 0.0005f;
@@ -557,6 +566,10 @@ int main(int argc, char **argv)
              proxyIndex < static_cast<std::uint32_t>(driverBody.proxyParticleLocalPositions.size());
              ++proxyIndex)
         {
+            if (proxyIndex == tailProxyIndex)
+            {
+                continue;
+            }
             suturingSequence.entries.push_back(
                 {driverEntity, AuthoredParticleReferenceType::RigidProxyParticle, proxyIndex});
         }

@@ -1221,6 +1221,12 @@ physics::AuthoredParticleDistanceConstraintState &World::upsertParticleDistanceC
     return mPhysicsWorld.upsertParticleDistanceConstraint(state);
 }
 
+physics::AuthoredParticleCollisionFilterState &World::upsertParticleCollisionFilter(
+    const physics::AuthoredParticleCollisionFilterState &state)
+{
+    return mPhysicsWorld.upsertParticleCollisionFilter(state);
+}
+
 physics::AuthoredSuturingSequenceState &World::upsertSuturingSequence(
     const physics::AuthoredSuturingSequenceState &state)
 {
@@ -1230,6 +1236,11 @@ physics::AuthoredSuturingSequenceState &World::upsertSuturingSequence(
 bool World::removeParticleDistanceConstraint(physics::ParticleConstraintId constraintId)
 {
     return mPhysicsWorld.removeParticleDistanceConstraint(constraintId);
+}
+
+bool World::removeParticleCollisionFilter(physics::ParticleCollisionFilterId filterId)
+{
+    return mPhysicsWorld.removeParticleCollisionFilter(filterId);
 }
 
 bool World::removeParticleSequence(physics::ParticleSequenceId sequenceId)
@@ -1851,6 +1862,12 @@ const physics::AuthoredParticleDistanceConstraintState *World::tryGetParticleDis
     physics::ParticleConstraintId constraintId) const noexcept
 {
     return mPhysicsWorld.tryGetParticleDistanceConstraint(constraintId);
+}
+
+const physics::AuthoredParticleCollisionFilterState *World::tryGetParticleCollisionFilter(
+    physics::ParticleCollisionFilterId filterId) const noexcept
+{
+    return mPhysicsWorld.tryGetParticleCollisionFilter(filterId);
 }
 
 const physics::AuthoredParticleSequenceState *World::tryGetParticleSequence(

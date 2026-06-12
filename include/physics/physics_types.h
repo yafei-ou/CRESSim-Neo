@@ -46,6 +46,9 @@ constexpr SliderJointId kInvalidSliderJointId = 0u;
 using ParticleConstraintId = std::uint32_t;
 constexpr ParticleConstraintId kInvalidParticleConstraintId = 0u;
 
+using ParticleCollisionFilterId = std::uint32_t;
+constexpr ParticleCollisionFilterId kInvalidParticleCollisionFilterId = 0u;
+
 using ParticleSequenceId = std::uint32_t;
 constexpr ParticleSequenceId kInvalidParticleSequenceId = 0u;
 
@@ -396,6 +399,15 @@ struct AuthoredParticleDistanceConstraintState
     AuthoredParticleReference particleB{};
     float restLength = 0.0f;
     float compliance = 0.0f;
+    bool enabled = true;
+};
+
+struct AuthoredParticleCollisionFilterState
+{
+    ParticleCollisionFilterId filterId = kInvalidParticleCollisionFilterId;
+    AuthoredParticleReference particle{};
+    std::uint32_t collisionLayer = 1u;
+    std::uint32_t collisionMask  = 0xffffffffu;
     bool enabled = true;
 };
 
