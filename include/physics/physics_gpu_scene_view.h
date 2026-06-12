@@ -13,11 +13,13 @@ namespace cressim::neo::physics
 struct PhysicsGpuRigidSceneView
 {
     common::PoseBufferView poses{};
-    Diligent::IBuffer *routedCableDescriptorsBuffer = nullptr;
-    Diligent::IBuffer *routedCableRoutePointsBuffer = nullptr;
-    std::uint32_t routedCableCount = 0;
-    std::uint32_t colliderCount     = 0;
-    std::uint64_t bindingGeneration = 0;
+    Diligent::IBuffer *routedCableDescriptorsBuffer   = nullptr;
+    Diligent::IBuffer *routedCableRoutePointsBuffer   = nullptr;
+    Diligent::IBuffer *routedCableDebugSegmentsBuffer = nullptr;
+    std::uint32_t routedCableCount                    = 0;
+    std::uint32_t routedCableDebugSegmentCount        = 0;
+    std::uint32_t colliderCount                       = 0;
+    std::uint64_t bindingGeneration                   = 0;
 };
 
 struct PhysicsGpuParticleBufferView

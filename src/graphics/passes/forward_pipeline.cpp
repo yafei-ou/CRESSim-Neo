@@ -4,6 +4,7 @@
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
 #include "graphics/passes/debug_particle_pass.h"
+#include "graphics/passes/debug_routed_cable_pass.h"
 #include "graphics/passes/fluid_color_pass.h"
 #include "graphics/passes/fluid_composite_pass.h"
 #include "graphics/passes/fluid_depth_filter_pass.h"
@@ -528,6 +529,16 @@ bool ForwardPipeline::initialize()
         return false;
     }
 
+    mDebugRoutedCablePass = std::make_unique<DebugRoutedCablePass>(mDevice);
+    if (!mDebugRoutedCablePass->initialize())
+    {
+        mDebugRoutedCablePass.reset();
+        mDebugParticlePass.reset();
+        mShadowPass.reset();
+        mForwardOpaquePass.reset();
+        return false;
+    }
+
     mFluidDepthPass       = std::make_unique<FluidDepthPass>(mDevice);
     mFluidColorPass       = std::make_unique<FluidColorPass>(mDevice);
     mFluidDepthFilterPass = std::make_unique<FluidDepthFilterPass>(mDevice);
@@ -666,6 +677,9 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     const bool hasLocalShadowDraws = !localShadowRegistry.empty();
     const bool needsDebugParticles =
         mDebugParticlePass != nullptr && physicsScene != nullptr && options.debugParticles.enabled;
+    const bool needsDebugRoutedCables = mDebugRoutedCablePass != nullptr &&
+                                        physicsScene != nullptr &&
+                                        options.debugRoutedCables.enabled;
     const bool needsFluid  = mFluidDepthPass != nullptr && mFluidColorPass != nullptr &&
                              mFluidDepthFilterPass != nullptr && mFluidCompositePass != nullptr &&
                              physicsScene != nullptr &&
@@ -680,8 +694,8 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     const bool needsSkybox = mSkyboxPass != nullptr && batchView.cameras.front().backgroundMode ==
                                                            CameraBackgroundMode::EnvironmentCubemap;
     const bool needsSceneBuffers = hasOpaqueDraws || hasTransparentDraws || hasShadowDraws ||
-                                   hasLocalShadowDraws || needsDebugParticles || needsSkybox ||
-                                   needsFluid;
+                                   hasLocalShadowDraws || needsDebugParticles ||
+                                   needsDebugRoutedCables || needsSkybox || needsFluid;
 
     if (!needsSceneBuffers)
     {
@@ -1552,12 +1566,17 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                            options.debugParticles);
         }
     };
-
-    if (!hasTransparentDraws && mDebugParticlePass != nullptr && physicsScene != nullptr &&
-        options.debugParticles.enabled)
+    const auto drawDebugRoutedCables = [&]() -> void
     {
-        drawDebugParticles();
-    }
+        for (const ResolvedCameraView &camera : batchView.cameras)
+        {
+            const std::uint32_t targetLayer =
+                camera.outputBinding.firstLayer - batchView.renderBinding.firstLayer;
+            (void)mDebugRoutedCablePass->draw(batchView.renderBinding, batchView.renderTargetDesc,
+                                              gpuScene, *physicsScene, camera, targetLayer,
+                                              options.debugRoutedCables);
+        }
+    };
 
     mDevice.renderTargetSystem().endRenderTarget(batchView.renderBinding, frameContext);
 
@@ -1899,8 +1918,9 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         }
     }
 
-    if (hasTransparentDraws && mDebugParticlePass != nullptr && physicsScene != nullptr &&
-        options.debugParticles.enabled)
+    if ((options.debugParticles.enabled || options.debugRoutedCables.enabled) &&
+        ((mDebugParticlePass != nullptr && physicsScene != nullptr) ||
+         (mDebugRoutedCablePass != nullptr && physicsScene != nullptr)))
     {
         mDevice.renderTargetSystem().setRenderTargetViewport(batchView.renderBinding,
                                                              viewportForBatch(batchView));
@@ -1909,7 +1929,16 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         debugBegin.clearDepth = false;
         mDevice.renderTargetSystem().beginRenderTarget(batchView.renderBinding, frameContext,
                                                        debugBegin);
-        drawDebugParticles();
+        if (mDebugParticlePass != nullptr && physicsScene != nullptr &&
+            options.debugParticles.enabled)
+        {
+            drawDebugParticles();
+        }
+        if (mDebugRoutedCablePass != nullptr && physicsScene != nullptr &&
+            options.debugRoutedCables.enabled)
+        {
+            drawDebugRoutedCables();
+        }
         mDevice.renderTargetSystem().endRenderTarget(batchView.renderBinding, frameContext);
     }
 

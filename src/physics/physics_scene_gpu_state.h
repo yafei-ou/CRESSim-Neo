@@ -78,6 +78,7 @@ public:
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> descriptorsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> routePointsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> debugSegmentsBuffer;
     };
 
     struct PredictedRigidBodyBuffers
@@ -353,7 +354,8 @@ public:
                         std::uint32_t softBodyBoundsChunkCount, std::uint32_t suturingPairCount,
                         std::uint32_t suturingPathHeaderCount, std::uint32_t suturingPathNodeCount,
                         std::uint32_t routedCableCount, std::uint32_t routedCableRoutePointCount,
-                        std::uint32_t curveRenderCount, std::uint32_t curveRenderParticleIndexCount,
+                        std::uint32_t routedCableDebugSegmentCount, std::uint32_t curveRenderCount,
+                        std::uint32_t curveRenderParticleIndexCount,
                         std::uint32_t curveRenderVertexCount, Diligent::Uint64 sharedContextMask,
                         const std::uint32_t *sharedQueueFamilyIndices,
                         std::uint32_t sharedQueueFamilyIndexCount, bool useNativeFloatAtomics);
@@ -429,10 +431,10 @@ private:
                                          const JointCollisionSuppressionHost &suppression,
                                          std::uint32_t bodyCount);
     bool uploadRigidJoints(Diligent::IDeviceContext *computeContext, const PhysicsWorld &world);
-    bool uploadRoutedCableTopology(
-        Diligent::IDeviceContext *computeContext,
-        const std::vector<RoutedCableConstraint> &constraints,
-        const std::vector<RoutedCableRoutePoint> &routePoints);
+    bool uploadRoutedCableTopology(Diligent::IDeviceContext *computeContext,
+                                   const std::vector<RigidBodyState> &rigidBodies,
+                                   const std::vector<RoutedCableConstraint> &constraints,
+                                   const std::vector<RoutedCableRoutePoint> &routePoints);
     bool uploadParticles(Diligent::IDeviceContext *computeContext, const ParticleSoAHost &particles,
                          const std::vector<FluidState> &fluids,
                          const std::vector<Diligent::float4> &particleContactMaterials,
@@ -475,6 +477,7 @@ private:
     std::uint32_t mCurveRenderVertexCapacity                 = 0;
     std::uint32_t mRoutedCableCapacity                       = 0;
     std::uint32_t mRoutedCableRoutePointCapacity             = 0;
+    std::uint32_t mRoutedCableDebugSegmentCapacity           = 0;
     std::uint32_t mFluidVisualCapacity                       = 0;
     std::uint32_t mParticleContactMaterialCapacity           = 0;
     std::uint32_t mFluidMaterialCapacity                     = 0;
@@ -503,6 +506,7 @@ private:
     std::uint32_t mSuturingPathNodeCount                     = 0;
     std::uint32_t mCurveRenderCount                          = 0;
     std::uint32_t mRoutedCableCount                          = 0;
+    std::uint32_t mRoutedCableDebugSegmentCount              = 0;
     std::uint32_t mBroadPhaseNodeCapacity                    = 0;
     std::uint32_t mCandidatePairCapacity                     = 0;
     std::uint32_t mContactCapacity                           = 0;

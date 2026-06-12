@@ -187,6 +187,14 @@ struct GpuRoutedCableRoutePoint
     float4 localGuideOffset;
 };
 
+struct GpuRoutedCableDebugSegment
+{
+    uint routePointIndexA;
+    uint routePointIndexB;
+    uint envIndex;
+    uint cableIndex;
+};
+
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)
 {
     const uint lo = min(shapeTypeA, shapeTypeB);

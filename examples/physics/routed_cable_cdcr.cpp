@@ -330,6 +330,12 @@ int main(int argc, char **argv)
         cable                   = world.upsertRoutedCableConstraint(cable);
     }
 
+    auto renderOptions                      = runtime.renderFrameOptions();
+    renderOptions.debugRoutedCables.enabled = true;
+    renderOptions.debugRoutedCables.radius  = 0.028f;
+    renderOptions.debugRoutedCables.opacity = 0.95f;
+    runtime.setRenderFrameOptions(renderOptions);
+
     const float maxPull        = std::max(0.0f, sceneOptions.pullAmplitude);
     const float driveFrequency = (2.0f * kPi) / std::max(sceneOptions.drivePeriodSeconds, 0.1f);
 

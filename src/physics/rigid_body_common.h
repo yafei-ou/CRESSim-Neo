@@ -92,6 +92,14 @@ struct GpuRoutedCableRoutePoint
     Diligent::float4 localGuideOffset{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
+struct GpuRoutedCableDebugSegment
+{
+    std::uint32_t routePointIndexA = 0u;
+    std::uint32_t routePointIndexB = 0u;
+    std::uint32_t envIndex         = 0u;
+    std::uint32_t cableIndex       = 0u;
+};
+
 struct GpuBallJoint
 {
     std::uint32_t bodyA     = 0u;
@@ -657,6 +665,7 @@ static_assert(sizeof(GpuRigidDispatchConstants) == 48u);
 static_assert(sizeof(GpuRigidJointDispatchConstants) == 16u);
 static_assert(sizeof(GpuRoutedCableConstraint) == 32u);
 static_assert(sizeof(GpuRoutedCableRoutePoint) == 32u);
+static_assert(sizeof(GpuRoutedCableDebugSegment) == 16u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);

@@ -66,12 +66,21 @@ struct RenderFrameOptions
         float fallbackRadius             = 0.15f;
     };
 
+    struct DebugRoutedCableOptions
+    {
+        bool enabled   = false;
+        float radius   = 0.03f;
+        float opacity  = 1.0f;
+        bool depthTest = true;
+    };
+
     common::EntityId presentedCameraEntity = common::kInvalidEntityId;
     std::optional<PresentedExplicitOutput> presentedExplicitOutput{};
     std::optional<gpu::GpuPresentationTargetDesc> presentationTarget{};
     ToneMapper toneMapper = ToneMapper::Reinhard;
     float exposure        = 1.0f;
     DebugParticleOptions debugParticles{};
+    DebugRoutedCableOptions debugRoutedCables{};
 
     RenderFrameOptions() = default;
 
