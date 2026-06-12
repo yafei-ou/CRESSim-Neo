@@ -2602,7 +2602,8 @@ PhysicsWorld::SoftBodyChangeKind PhysicsWorld::classifySoftBodyChange(
     const SoftBodyState &previousState, const SoftBodyState &candidate) noexcept
 {
     if (!equalSoftBodySourceDesc(previousState.source, candidate.source) ||
-        previousState.restTransform != candidate.restTransform)
+        previousState.restTransform != candidate.restTransform ||
+        previousState.supportsSuturing != candidate.supportsSuturing)
     {
         return SoftBodyChangeKind::TopologyRebuild;
     }
@@ -2614,7 +2615,9 @@ PhysicsWorld::StrandChangeKind PhysicsWorld::classifyStrandChange(
     const StrandState &previousState, const StrandState &candidate) noexcept
 {
     if (previousState.restPositions != candidate.restPositions ||
-        previousState.staticParticleIndices != candidate.staticParticleIndices)
+        previousState.staticParticleIndices != candidate.staticParticleIndices ||
+        previousState.suturingEnabled != candidate.suturingEnabled ||
+        previousState.pathNodeSpacing != candidate.pathNodeSpacing)
     {
         return StrandChangeKind::TopologyRebuild;
     }
@@ -3721,6 +3724,8 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
 
         bool validSequence = true;
         std::optional<std::uint32_t> environmentIndex;
+        std::unordered_set<common::EntityId> resolvedRigidEntities{};
+        std::unordered_set<common::EntityId> resolvedStrandEntities{};
         for (const AuthoredParticleReference &entry : sequence.entries)
         {
             if (entry.type == AuthoredParticleReferenceType::SoftBodyParticle)
@@ -3752,11 +3757,11 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             resolved.particleIndices.push_back(*particleIndex);
             if (entry.type == AuthoredParticleReferenceType::RigidProxyParticle)
             {
-                sequenceRigidEntities.insert(entry.entityId);
+                resolvedRigidEntities.insert(entry.entityId);
             }
             else if (entry.type == AuthoredParticleReferenceType::StrandParticle)
             {
-                sequenceStrandEntities.insert(entry.entityId);
+                resolvedStrandEntities.insert(entry.entityId);
             }
         }
 
@@ -3793,6 +3798,8 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             }
         }
 
+        sequenceRigidEntities.insert(resolvedRigidEntities.begin(), resolvedRigidEntities.end());
+        sequenceStrandEntities.insert(resolvedStrandEntities.begin(), resolvedStrandEntities.end());
         resolvedSequences.push_back(std::move(resolved));
     }
 
