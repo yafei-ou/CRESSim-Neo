@@ -459,6 +459,10 @@ constexpr Diligent::ShaderResourceVariableDesc kClearSoftConstraintStateVars[] =
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftTetLambdas",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegmentLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandJointLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kClearRigidParticleAttachmentConstraintStateVars[] = {
@@ -692,6 +696,79 @@ constexpr Diligent::ShaderResourceVariableDesc kApplySoftTetCorrectionsVars[] = 
     {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleIncidentTets",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftTetCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kSolveStrandSegmentConstraintsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegments",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegmentLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegmentCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kApplyStrandSegmentCorrectionsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleStrandSegmentRanges",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleIncidentStrandSegments",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegmentCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegmentStates",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kSolveStrandJointConstraintsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegments",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandJoints",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegmentStates",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandJointLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandJointCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kApplyStrandJointCorrectionsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleStrandJointRanges",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticleIncidentStrandJoints",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandJointCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandJoints",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegmentStates",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kReconcileStrandSegmentFramesVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegments",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegmentStates",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
@@ -2222,6 +2299,46 @@ const gpu::GpuComputePassDefinition kApplySoftTetCorrections{
     "CRESSimNeo.Physics.ApplySoftTetCorrections.PSO",
     kApplySoftTetCorrectionsVars,
     std::size(kApplySoftTetCorrectionsVars),
+};
+
+const gpu::GpuComputePassDefinition kSolveStrandSegmentConstraints{
+    "physics/soft/solver/physics_strand_solve_segment_constraints.cs.hlsl",
+    "CRESSimNeo.Physics.SolveStrandSegmentConstraints.CS",
+    "CRESSimNeo.Physics.SolveStrandSegmentConstraints.PSO",
+    kSolveStrandSegmentConstraintsVars,
+    std::size(kSolveStrandSegmentConstraintsVars),
+};
+
+const gpu::GpuComputePassDefinition kApplyStrandSegmentCorrections{
+    "physics/soft/solver/physics_strand_apply_segment_corrections.cs.hlsl",
+    "CRESSimNeo.Physics.ApplyStrandSegmentCorrections.CS",
+    "CRESSimNeo.Physics.ApplyStrandSegmentCorrections.PSO",
+    kApplyStrandSegmentCorrectionsVars,
+    std::size(kApplyStrandSegmentCorrectionsVars),
+};
+
+const gpu::GpuComputePassDefinition kSolveStrandJointConstraints{
+    "physics/soft/solver/physics_strand_solve_joint_constraints.cs.hlsl",
+    "CRESSimNeo.Physics.SolveStrandJointConstraints.CS",
+    "CRESSimNeo.Physics.SolveStrandJointConstraints.PSO",
+    kSolveStrandJointConstraintsVars,
+    std::size(kSolveStrandJointConstraintsVars),
+};
+
+const gpu::GpuComputePassDefinition kApplyStrandJointCorrections{
+    "physics/soft/solver/physics_strand_apply_joint_corrections.cs.hlsl",
+    "CRESSimNeo.Physics.ApplyStrandJointCorrections.CS",
+    "CRESSimNeo.Physics.ApplyStrandJointCorrections.PSO",
+    kApplyStrandJointCorrectionsVars,
+    std::size(kApplyStrandJointCorrectionsVars),
+};
+
+const gpu::GpuComputePassDefinition kReconcileStrandSegmentFrames{
+    "physics/soft/solver/physics_strand_reconcile_segment_frames.cs.hlsl",
+    "CRESSimNeo.Physics.ReconcileStrandSegmentFrames.CS",
+    "CRESSimNeo.Physics.ReconcileStrandSegmentFrames.PSO",
+    kReconcileStrandSegmentFramesVars,
+    std::size(kReconcileStrandSegmentFramesVars),
 };
 
 const gpu::GpuComputePassDefinition kSolveParticleRigidContacts{

@@ -13,6 +13,8 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint softEdgeCount;
     uint softBendCount;
     uint softTetCount;
+    uint strandSegmentCount;
+    uint strandJointCount;
     uint fluidIterations;
     uint maxFluidNeighborhood;
     uint iterationIndex;
@@ -23,6 +25,8 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint maxSuturingCandidatesPerParticle;
     uint maxSuturingNodesPerPath;
     uint reserved1;
+    uint reserved2;
+    uint reserved3;
 };
 
 static const float kSoftInternalRelaxation = 0.2;

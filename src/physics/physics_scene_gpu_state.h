@@ -125,12 +125,19 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> edgesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bendsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> tetsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandSegmentsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandJointsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandSegmentStatesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleEdgeRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentEdgesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleBendRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentBendsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleTetRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentTetsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleStrandSegmentRangesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentStrandSegmentsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleStrandJointRangesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentStrandJointsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexTriangleRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexTriangleIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexBindingsBuffer;
@@ -210,6 +217,10 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBendCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetCorrectionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandSegmentLambdasBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandJointLambdasBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandSegmentCorrectionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandJointCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyChunkAabbsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyAabbsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyMetaBuffer;
@@ -351,6 +362,7 @@ public:
                         std::uint32_t fluidCount, std::uint32_t particleContactMaterialCount,
                         std::uint32_t fluidMaterialCount, std::uint32_t softEdgeCount,
                         std::uint32_t softBendCount, std::uint32_t softTetCount,
+                        std::uint32_t strandSegmentCount, std::uint32_t strandJointCount,
                         std::uint32_t ballJointCount, std::uint32_t hingeJointCount,
                         std::uint32_t sliderJointCount,
                         std::uint32_t rigidParticleAttachmentCount,
@@ -456,7 +468,10 @@ private:
                             const SoftRenderDataHost &softRenderData,
                             const std::vector<DeformableDistanceConstraint> &distanceConstraints,
                             const std::vector<DeformableBendConstraint> &bendConstraints,
-                            const std::vector<DeformableVolumeConstraint> &volumeConstraints);
+                            const std::vector<DeformableVolumeConstraint> &volumeConstraints,
+                            const std::vector<StrandSegmentConstraint> &strandSegments,
+                            const std::vector<StrandJointConstraint> &strandJoints,
+                            const std::vector<StrandSegmentState> &strandSegmentStates);
     bool uploadCurveRenderData(Diligent::IDeviceContext *computeContext,
                                const CurveRenderDataHost &curveRenderData);
     bool uploadSuturingState(Diligent::IDeviceContext *computeContext,
@@ -499,6 +514,8 @@ private:
     std::uint32_t mSoftEdgeCapacity                          = 0;
     std::uint32_t mSoftBendCapacity                          = 0;
     std::uint32_t mSoftTetCapacity                           = 0;
+    std::uint32_t mStrandSegmentCapacity                     = 0;
+    std::uint32_t mStrandJointCapacity                       = 0;
     std::uint32_t mParticleBroadPhaseEntryCapacity           = 0;
     std::uint32_t mSoftCandidatePairCapacity                 = 0;
     std::uint32_t mFluidBoundaryCandidatePairCapacity        = 0;
@@ -515,6 +532,8 @@ private:
     std::uint32_t mSoftEdgeCount                             = 0;
     std::uint32_t mSoftBendCount                             = 0;
     std::uint32_t mSoftTetCount                              = 0;
+    std::uint32_t mStrandSegmentCount                        = 0;
+    std::uint32_t mStrandJointCount                          = 0;
     std::uint32_t mSuturingPairCount                         = 0;
     std::uint32_t mSuturingParticleCount                     = 0;
     std::uint32_t mSuturingPathHeaderCount                   = 0;
@@ -531,6 +550,8 @@ private:
     std::uint32_t mSoftIncidentEdgeCapacity                  = 0;
     std::uint32_t mSoftIncidentBendCapacity                  = 0;
     std::uint32_t mSoftIncidentTetCapacity                   = 0;
+    std::uint32_t mStrandIncidentSegmentCapacity             = 0;
+    std::uint32_t mStrandIncidentJointCapacity               = 0;
     std::uint32_t mSoftRenderVertexCapacity                  = 0;
     std::uint32_t mSoftRenderTriangleIndexCapacity           = 0;
     std::uint32_t mSoftRenderTriangleCapacity                = 0;

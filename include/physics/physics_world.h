@@ -132,6 +132,9 @@ public:
     const std::vector<SoftEdge> &softEdges() const noexcept;
     const std::vector<SoftBend> &softBends() const noexcept;
     const std::vector<SoftTet> &softTets() const noexcept;
+    const std::vector<StrandSegmentConstraint> &strandSegments() const noexcept;
+    const std::vector<StrandJointConstraint> &strandJoints() const noexcept;
+    const std::vector<StrandSegmentState> &strandSegmentStates() const noexcept;
     const std::vector<RigidParticleAttachmentConstraint> &rigidParticleAttachments() const noexcept;
     const std::vector<RigidDistanceConstraint> &rigidDistanceConstraints() const noexcept;
     const std::vector<RoutedCableConstraint> &routedCableConstraints() const noexcept;
@@ -238,9 +241,15 @@ private:
     struct StrandDerivedCache
     {
         std::vector<Diligent::float3> restPositions;
-        std::vector<std::array<std::uint32_t, 2>> edges;
-        std::vector<std::array<std::uint32_t, 3>> bends;
+        std::vector<std::array<std::uint32_t, 2>> segments;
+        std::vector<std::array<std::uint32_t, 2>> joints;
         std::vector<std::vector<std::uint32_t>> adjacencyLists;
+        std::vector<std::vector<std::uint32_t>> incidentSegmentLists;
+        std::vector<std::vector<std::uint32_t>> incidentJointLists;
+        std::vector<float> restSegmentLengths;
+        std::vector<Diligent::QuaternionF> restSegmentOrientations;
+        std::vector<Diligent::float3> restSegmentMaterialNormals;
+        std::vector<Diligent::QuaternionF> restJointRelativeOrientations;
         std::vector<std::uint32_t> staticParticleIndices;
     };
 
@@ -365,6 +374,9 @@ private:
     std::vector<DeformableDistanceConstraint> mSoftEdges{};
     std::vector<DeformableBendConstraint> mSoftBends{};
     std::vector<DeformableVolumeConstraint> mSoftTets{};
+    std::vector<StrandSegmentConstraint> mStrandSegments{};
+    std::vector<StrandJointConstraint> mStrandJoints{};
+    std::vector<StrandSegmentState> mStrandSegmentStates{};
     std::vector<RigidParticleAttachmentConstraint> mRigidParticleAttachments{};
     std::vector<RigidDistanceConstraint> mRigidDistanceConstraints{};
     std::vector<RoutedCableConstraint> mRoutedCableConstraints{};

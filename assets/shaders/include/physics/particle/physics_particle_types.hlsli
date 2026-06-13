@@ -160,6 +160,22 @@ struct GpuSoftIncidentTet
     uint reserved1;
 };
 
+struct GpuStrandIncidentSegment
+{
+    uint segmentIndex;
+    uint slot;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuStrandIncidentJoint
+{
+    uint jointIndex;
+    uint slot;
+    uint reserved0;
+    uint reserved1;
+};
+
 struct GpuSoftIncidentBend
 {
     uint bendIndex;
@@ -187,6 +203,46 @@ struct GpuSoftBendCorrection
     float4 correction0;
     float4 correction1;
     float4 correction2;
+};
+
+struct GpuStrandSegment
+{
+    uint particleA;
+    uint particleB;
+    float restLength;
+    float compliance;
+    float4 restOrientation;
+    float4 materialFrame;
+};
+
+struct GpuStrandJoint
+{
+    uint segmentA;
+    uint segmentB;
+    float bendCompliance;
+    float twistCompliance;
+    float4 restRelativeOrientation;
+};
+
+struct GpuStrandSegmentState
+{
+    float4 orientation;
+};
+
+struct GpuStrandSegmentCorrection
+{
+    float4 correctionA;
+    float4 correctionB;
+    float4 orientation;
+};
+
+struct GpuStrandJointCorrection
+{
+    float4 correction0;
+    float4 correction1;
+    float4 correction2;
+    float4 orientationA;
+    float4 orientationB;
 };
 
 struct GpuSoftBodyParticleRange

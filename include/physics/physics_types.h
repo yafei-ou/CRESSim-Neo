@@ -372,16 +372,19 @@ struct StrandState
     float particleMass                 = 1.0f;
     float particleRadius               = 0.125f;
     float distanceCompliance           = 0.0f;
+    float stretchShearCompliance       = 0.0f;
     float bendCompliance               = 0.0f;
+    float twistCompliance              = 0.0f;
+    Diligent::float3 rootMaterialNormal{0.0f, 1.0f, 0.0f};
     bool simulated                     = true;
     bool selfCollisionEnabled          = false;
     std::uint32_t contactMaterialIndex = 0u;
     std::uint32_t particleOffset       = 0u;
     std::uint32_t particleCount        = 0u;
-    std::uint32_t constraintOffset     = 0u;
-    std::uint32_t constraintCount      = 0u;
-    std::uint32_t bendConstraintOffset = 0u;
-    std::uint32_t bendConstraintCount  = 0u;
+    std::uint32_t segmentOffset        = 0u;
+    std::uint32_t segmentCount         = 0u;
+    std::uint32_t jointOffset          = 0u;
+    std::uint32_t jointCount           = 0u;
     std::vector<Diligent::float3> restPositions;
     std::vector<std::uint32_t> staticParticleIndices;
 };
@@ -530,6 +533,30 @@ struct DeformableBendConstraint
 };
 
 using SoftBend = DeformableBendConstraint;
+
+struct StrandSegmentConstraint
+{
+    std::uint32_t particleA = 0u;
+    std::uint32_t particleB = 0u;
+    float restLength        = 0.0f;
+    float compliance        = 0.0f;
+    Diligent::float4 restOrientation{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::float4 materialFrame{0.0f, 1.0f, 0.0f, 0.0f};
+};
+
+struct StrandJointConstraint
+{
+    std::uint32_t segmentA  = 0u;
+    std::uint32_t segmentB  = 0u;
+    float bendCompliance    = 0.0f;
+    float twistCompliance   = 0.0f;
+    Diligent::float4 restRelativeOrientation{0.0f, 0.0f, 0.0f, 1.0f};
+};
+
+struct StrandSegmentState
+{
+    Diligent::float4 orientation{0.0f, 0.0f, 0.0f, 1.0f};
+};
 
 struct RoutedCableConstraint
 {

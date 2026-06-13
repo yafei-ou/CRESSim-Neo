@@ -1325,7 +1325,10 @@ bool World::setStrand(common::EntityId entityId, const StrandComponent &componen
     state.particleMass          = component.particleMass;
     state.particleRadius        = component.particleRadius;
     state.distanceCompliance    = component.distanceCompliance;
+    state.stretchShearCompliance = component.stretchShearCompliance;
     state.bendCompliance        = component.bendCompliance;
+    state.twistCompliance       = component.twistCompliance;
+    state.rootMaterialNormal    = component.rootMaterialNormal;
     state.simulated             = component.simulated;
     state.selfCollisionEnabled  = component.selfCollisionEnabled;
     state.suturingEnabled       = component.suturingEnabled;
@@ -2032,7 +2035,10 @@ std::optional<StrandComponent> World::tryGetStrand(common::EntityId entityId) co
     component.particleMass          = strand->particleMass;
     component.particleRadius        = strand->particleRadius;
     component.distanceCompliance    = strand->distanceCompliance;
+    component.stretchShearCompliance = strand->stretchShearCompliance;
     component.bendCompliance        = strand->bendCompliance;
+    component.twistCompliance       = strand->twistCompliance;
+    component.rootMaterialNormal    = strand->rootMaterialNormal;
     component.simulated             = strand->simulated;
     component.selfCollisionEnabled  = strand->selfCollisionEnabled;
     component.suturingEnabled       = strand->suturingEnabled;

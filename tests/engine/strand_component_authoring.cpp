@@ -19,7 +19,9 @@ int main()
     strand.particleMass          = 0.4f;
     strand.particleRadius        = 0.06f;
     strand.distanceCompliance    = 0.02f;
+    strand.stretchShearCompliance = 0.02f;
     strand.bendCompliance        = 0.01f;
+    strand.twistCompliance       = 0.005f;
     strand.selfCollisionEnabled  = true;
     strand.collisionLayer        = 0x10u;
     strand.collisionMask         = 0x22u;
@@ -50,7 +52,9 @@ int main()
     const auto component = world.tryGetStrand(entity);
     if (!component.has_value() || component->restPositions.size() != 3u ||
         component->distanceCompliance != strand.distanceCompliance ||
+        component->stretchShearCompliance != strand.stretchShearCompliance ||
         component->bendCompliance != strand.bendCompliance ||
+        component->twistCompliance != strand.twistCompliance ||
         component->suturingEnabled != strand.suturingEnabled ||
         std::abs(component->pathNodeSpacing - strand.pathNodeSpacing) > 1.0e-6f)
     {

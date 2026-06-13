@@ -360,6 +360,111 @@ Diligent::QuaternionF quaternionMultiply(const Diligent::QuaternionF &a,
                                  a.q.w * b.q.w - a.q.x * b.q.x - a.q.y * b.q.y - a.q.z * b.q.z};
 }
 
+Diligent::QuaternionF normalizeQuaternion(const Diligent::QuaternionF &q) noexcept
+{
+    return common::runtime_math::normalizeQuaternion(q);
+}
+
+Diligent::QuaternionF quaternionFromBasis(const Diligent::float3 &xAxis,
+                                          const Diligent::float3 &yAxis,
+                                          const Diligent::float3 &zAxis) noexcept
+{
+    const float m00 = xAxis.x;
+    const float m01 = yAxis.x;
+    const float m02 = zAxis.x;
+    const float m10 = xAxis.y;
+    const float m11 = yAxis.y;
+    const float m12 = zAxis.y;
+    const float m20 = xAxis.z;
+    const float m21 = yAxis.z;
+    const float m22 = zAxis.z;
+
+    const float trace = m00 + m11 + m22;
+    Diligent::QuaternionF result{};
+    if (trace > 0.0f)
+    {
+        const float s = std::sqrt(trace + 1.0f) * 2.0f;
+        result.q.w    = 0.25f * s;
+        result.q.x    = (m21 - m12) / s;
+        result.q.y    = (m02 - m20) / s;
+        result.q.z    = (m10 - m01) / s;
+    }
+    else if (m00 > m11 && m00 > m22)
+    {
+        const float s = std::sqrt(1.0f + m00 - m11 - m22) * 2.0f;
+        result.q.w    = (m21 - m12) / s;
+        result.q.x    = 0.25f * s;
+        result.q.y    = (m01 + m10) / s;
+        result.q.z    = (m02 + m20) / s;
+    }
+    else if (m11 > m22)
+    {
+        const float s = std::sqrt(1.0f + m11 - m00 - m22) * 2.0f;
+        result.q.w    = (m02 - m20) / s;
+        result.q.x    = (m01 + m10) / s;
+        result.q.y    = 0.25f * s;
+        result.q.z    = (m12 + m21) / s;
+    }
+    else
+    {
+        const float s = std::sqrt(1.0f + m22 - m00 - m11) * 2.0f;
+        result.q.w    = (m10 - m01) / s;
+        result.q.x    = (m02 + m20) / s;
+        result.q.y    = (m12 + m21) / s;
+        result.q.z    = 0.25f * s;
+    }
+
+    return normalizeQuaternion(result);
+}
+
+Diligent::float3 defaultRootMaterialNormal(const Diligent::float3 &segmentDirection,
+                                           const Diligent::float3 &authoredNormal) noexcept
+{
+    const Diligent::float3 direction = safeNormalize(segmentDirection, Diligent::float3{1.0f, 0.0f, 0.0f});
+    Diligent::float3 normal          = authoredNormal;
+    if (Diligent::dot(normal, normal) <= 1.0e-8f)
+    {
+        normal = Diligent::float3{0.0f, 1.0f, 0.0f};
+    }
+
+    normal = normal - direction * Diligent::dot(normal, direction);
+    if (Diligent::dot(normal, normal) <= 1.0e-8f)
+    {
+        Diligent::float3 fallback{0.0f, 1.0f, 0.0f};
+        if (std::abs(Diligent::dot(direction, fallback)) > 0.9f)
+        {
+            fallback = Diligent::float3{1.0f, 0.0f, 0.0f};
+        }
+        normal = fallback - direction * Diligent::dot(fallback, direction);
+    }
+
+    return safeNormalize(normal, Diligent::float3{0.0f, 1.0f, 0.0f});
+}
+
+Diligent::float3 parallelTransportNormal(const Diligent::float3 &previousTangent,
+                                         const Diligent::float3 &nextTangent,
+                                         const Diligent::float3 &previousNormal) noexcept
+{
+    Diligent::float3 transported = previousNormal - nextTangent * Diligent::dot(previousNormal, nextTangent);
+    if (Diligent::dot(transported, transported) <= 1.0e-8f)
+    {
+        transported = defaultRootMaterialNormal(nextTangent, previousNormal);
+    }
+    return safeNormalize(transported, defaultRootMaterialNormal(nextTangent, previousNormal));
+}
+
+Diligent::QuaternionF segmentOrientationFromTangentNormal(const Diligent::float3 &tangent,
+                                                          const Diligent::float3 &materialNormal) noexcept
+{
+    const Diligent::float3 xAxis = safeNormalize(tangent, Diligent::float3{1.0f, 0.0f, 0.0f});
+    const Diligent::float3 yAxis =
+        safeNormalize(materialNormal - xAxis * Diligent::dot(materialNormal, xAxis),
+                      defaultRootMaterialNormal(xAxis, materialNormal));
+    const Diligent::float3 zAxis = safeNormalize(Diligent::cross(xAxis, yAxis),
+                                                 Diligent::float3{0.0f, 0.0f, 1.0f});
+    return quaternionFromBasis(xAxis, yAxis, zAxis);
+}
+
 void computeMatrixQ(const Diligent::QuaternionF &q, float outQ[4][4]) noexcept
 {
     outQ[0][0] = q.q.w;
@@ -588,6 +693,9 @@ void PhysicsWorld::clear()
     mSoftEdges.clear();
     mSoftBends.clear();
     mSoftTets.clear();
+    mStrandSegments.clear();
+    mStrandJoints.clear();
+    mStrandSegmentStates.clear();
     mRigidParticleAttachments.clear();
     mRigidDistanceConstraints.clear();
     mRoutedCableConstraints.clear();
@@ -2303,6 +2411,33 @@ const std::vector<SoftTet> &PhysicsWorld::softTets() const noexcept
     return volumeConstraints();
 }
 
+const std::vector<StrandSegmentConstraint> &PhysicsWorld::strandSegments() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return mStrandSegments;
+}
+
+const std::vector<StrandJointConstraint> &PhysicsWorld::strandJoints() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return mStrandJoints;
+}
+
+const std::vector<StrandSegmentState> &PhysicsWorld::strandSegmentStates() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return mStrandSegmentStates;
+}
+
 const std::vector<RigidParticleAttachmentConstraint> &PhysicsWorld::rigidParticleAttachments()
     const noexcept
 {
@@ -2909,11 +3044,17 @@ void PhysicsWorld::normalizeSoftBodyState(SoftBodyState &state) noexcept
 void PhysicsWorld::normalizeStrandState(StrandState &state) noexcept
 {
     normalizeParticleContactMaterial(state.material.contact);
-    state.particleMass       = std::max(state.particleMass, 1.0e-4f);
-    state.particleRadius     = std::max(state.particleRadius, 1.0e-4f);
-    state.distanceCompliance = std::max(state.distanceCompliance, 0.0f);
-    state.bendCompliance     = std::max(state.bendCompliance, 0.0f);
-    state.pathNodeSpacing    = std::max(state.pathNodeSpacing, 1.0e-4f);
+    state.particleMass            = std::max(state.particleMass, 1.0e-4f);
+    state.particleRadius          = std::max(state.particleRadius, 1.0e-4f);
+    state.distanceCompliance      = std::max(state.distanceCompliance, 0.0f);
+    state.stretchShearCompliance  = std::max(state.stretchShearCompliance, 0.0f);
+    state.bendCompliance          = std::max(state.bendCompliance, 0.0f);
+    state.twistCompliance         = std::max(state.twistCompliance, 0.0f);
+    state.pathNodeSpacing         = std::max(state.pathNodeSpacing, 1.0e-4f);
+    if (state.stretchShearCompliance <= 0.0f)
+    {
+        state.stretchShearCompliance = state.distanceCompliance;
+    }
     if (state.collisionLayer == 0u)
     {
         state.collisionLayer = 1u;
@@ -2996,7 +3137,10 @@ PhysicsWorld::StrandChangeKind PhysicsWorld::classifyStrandChange(
     if (previousState.restPositions != candidate.restPositions ||
         previousState.staticParticleIndices != candidate.staticParticleIndices ||
         previousState.suturingEnabled != candidate.suturingEnabled ||
-        previousState.pathNodeSpacing != candidate.pathNodeSpacing)
+        previousState.pathNodeSpacing != candidate.pathNodeSpacing ||
+        previousState.rootMaterialNormal.x != candidate.rootMaterialNormal.x ||
+        previousState.rootMaterialNormal.y != candidate.rootMaterialNormal.y ||
+        previousState.rootMaterialNormal.z != candidate.rootMaterialNormal.z)
     {
         return StrandChangeKind::TopologyRebuild;
     }
@@ -3139,7 +3283,10 @@ void PhysicsWorld::applyStrandRuntimeProperties(std::uint32_t index,
     strand.particleMass          = normalizedState.particleMass;
     strand.particleRadius        = normalizedState.particleRadius;
     strand.distanceCompliance    = normalizedState.distanceCompliance;
+    strand.stretchShearCompliance = normalizedState.stretchShearCompliance;
     strand.bendCompliance        = normalizedState.bendCompliance;
+    strand.twistCompliance       = normalizedState.twistCompliance;
+    strand.rootMaterialNormal    = normalizedState.rootMaterialNormal;
     strand.simulated             = normalizedState.simulated;
     strand.selfCollisionEnabled  = normalizedState.selfCollisionEnabled;
     strand.suturingEnabled       = normalizedState.suturingEnabled;
@@ -3173,20 +3320,21 @@ void PhysicsWorld::applyStrandRuntimeProperties(std::uint32_t index,
                                    : ParticleStrandRole::None);
     }
 
-    const std::uint32_t edgeBegin = strand.constraintOffset;
-    const std::uint32_t edgeEnd =
-        std::min(edgeBegin + strand.constraintCount, static_cast<std::uint32_t>(mSoftEdges.size()));
-    for (std::uint32_t edgeIndex = edgeBegin; edgeIndex < edgeEnd; ++edgeIndex)
+    const std::uint32_t segmentBegin = strand.segmentOffset;
+    const std::uint32_t segmentEnd = std::min(segmentBegin + strand.segmentCount,
+                                              static_cast<std::uint32_t>(mStrandSegments.size()));
+    for (std::uint32_t segmentIndex = segmentBegin; segmentIndex < segmentEnd; ++segmentIndex)
     {
-        mSoftEdges[edgeIndex].compliance = strand.distanceCompliance;
+        mStrandSegments[segmentIndex].compliance = strand.stretchShearCompliance;
     }
 
-    const std::uint32_t bendBegin = strand.bendConstraintOffset;
-    const std::uint32_t bendEnd   = std::min(bendBegin + strand.bendConstraintCount,
-                                             static_cast<std::uint32_t>(mSoftBends.size()));
-    for (std::uint32_t bendIndex = bendBegin; bendIndex < bendEnd; ++bendIndex)
+    const std::uint32_t jointBegin = strand.jointOffset;
+    const std::uint32_t jointEnd = std::min(jointBegin + strand.jointCount,
+                                            static_cast<std::uint32_t>(mStrandJoints.size()));
+    for (std::uint32_t jointIndex = jointBegin; jointIndex < jointEnd; ++jointIndex)
     {
-        mSoftBends[bendIndex].compliance = strand.bendCompliance;
+        mStrandJoints[jointIndex].bendCompliance  = strand.bendCompliance;
+        mStrandJoints[jointIndex].twistCompliance = strand.twistCompliance;
     }
 
     recomputeParticleGridCellSize();
@@ -3607,6 +3755,9 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
     mSoftEdges.clear();
     mSoftBends.clear();
     mSoftTets.clear();
+    mStrandSegments.clear();
+    mStrandJoints.clear();
+    mStrandSegmentStates.clear();
     mRigidParticleAttachments.clear();
     mRigidDistanceConstraints.clear();
     mRoutedCableConstraints.clear();
@@ -3841,15 +3992,15 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
         strand.contactMaterialIndex = findOrAppendParticleContactMaterial(
             mParticleContactMaterials, toParticleContactMaterial(strand.material.contact));
 
-        strand.particleOffset       = static_cast<std::uint32_t>(mParticles.size());
-        strand.constraintOffset     = static_cast<std::uint32_t>(mSoftEdges.size());
-        strand.bendConstraintOffset = static_cast<std::uint32_t>(mSoftBends.size());
+        strand.particleOffset = static_cast<std::uint32_t>(mParticles.size());
+        strand.segmentOffset  = static_cast<std::uint32_t>(mStrandSegments.size());
+        strand.jointOffset    = static_cast<std::uint32_t>(mStrandJoints.size());
 
         if (strandIndex >= mStrandDerivedCaches.size())
         {
-            strand.particleCount       = 0u;
-            strand.constraintCount     = 0u;
-            strand.bendConstraintCount = 0u;
+            strand.particleCount = 0u;
+            strand.segmentCount  = 0u;
+            strand.jointCount    = 0u;
             continue;
         }
 
@@ -3913,53 +4064,41 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             }
         }
 
-        for (const auto &edgeDesc : topology.edges)
+        for (std::uint32_t segmentIndex = 0u;
+             segmentIndex < static_cast<std::uint32_t>(topology.segments.size()); ++segmentIndex)
         {
-            const std::uint32_t globalA = strand.particleOffset + edgeDesc[0];
-            const std::uint32_t globalB = strand.particleOffset + edgeDesc[1];
-            const Diligent::float3 delta{
-                topology.restPositions[edgeDesc[1]].x - topology.restPositions[edgeDesc[0]].x,
-                topology.restPositions[edgeDesc[1]].y - topology.restPositions[edgeDesc[0]].y,
-                topology.restPositions[edgeDesc[1]].z - topology.restPositions[edgeDesc[0]].z,
-            };
-
-            DeformableDistanceConstraint edge{};
-            edge.particleA  = globalA;
-            edge.particleB  = globalB;
-            edge.restLength = std::sqrt(Diligent::dot(delta, delta));
-            edge.compliance = strand.distanceCompliance;
-            mSoftEdges.push_back(edge);
+            const auto &segmentDesc = topology.segments[segmentIndex];
+            StrandSegmentConstraint segment{};
+            segment.particleA              = strand.particleOffset + segmentDesc[0];
+            segment.particleB              = strand.particleOffset + segmentDesc[1];
+            segment.restLength             = topology.restSegmentLengths[segmentIndex];
+            segment.compliance             = strand.stretchShearCompliance;
+            const Diligent::QuaternionF q  = topology.restSegmentOrientations[segmentIndex];
+            segment.restOrientation        = Diligent::float4{q.q.x, q.q.y, q.q.z, q.q.w};
+            const Diligent::float3 normal  = topology.restSegmentMaterialNormals[segmentIndex];
+            segment.materialFrame          = Diligent::float4{normal.x, normal.y, normal.z, 0.0f};
+            mStrandSegments.push_back(segment);
+            mStrandSegmentStates.push_back(StrandSegmentState{segment.restOrientation});
         }
 
-        for (const auto &bendDesc : topology.bends)
+        for (std::uint32_t jointIndex = 0u;
+             jointIndex < static_cast<std::uint32_t>(topology.joints.size()); ++jointIndex)
         {
-            const Diligent::float3 edge0 =
-                topology.restPositions[bendDesc[0]] - topology.restPositions[bendDesc[1]];
-            const Diligent::float3 edge1 =
-                topology.restPositions[bendDesc[2]] - topology.restPositions[bendDesc[1]];
-            const float length0 = std::sqrt(Diligent::dot(edge0, edge0));
-            const float length1 = std::sqrt(Diligent::dot(edge1, edge1));
-            float restAngle     = 0.0f;
-            if (length0 > 1.0e-6f && length1 > 1.0e-6f)
-            {
-                const float cosTheta =
-                    std::clamp(Diligent::dot(edge0 / length0, edge1 / length1), -1.0f, 1.0f);
-                restAngle = std::acos(cosTheta);
-            }
-
-            DeformableBendConstraint bend{};
-            bend.particle0  = strand.particleOffset + bendDesc[0];
-            bend.particle1  = strand.particleOffset + bendDesc[1];
-            bend.particle2  = strand.particleOffset + bendDesc[2];
-            bend.restAngle  = restAngle;
-            bend.compliance = strand.bendCompliance;
-            mSoftBends.push_back(bend);
+            const auto &jointDesc = topology.joints[jointIndex];
+            StrandJointConstraint joint{};
+            joint.segmentA        = strand.segmentOffset + jointDesc[0];
+            joint.segmentB        = strand.segmentOffset + jointDesc[1];
+            joint.bendCompliance  = strand.bendCompliance;
+            joint.twistCompliance = strand.twistCompliance;
+            const Diligent::QuaternionF q = topology.restJointRelativeOrientations[jointIndex];
+            joint.restRelativeOrientation = Diligent::float4{q.q.x, q.q.y, q.q.z, q.q.w};
+            mStrandJoints.push_back(joint);
         }
 
-        strand.constraintCount =
-            static_cast<std::uint32_t>(mSoftEdges.size()) - strand.constraintOffset;
-        strand.bendConstraintCount =
-            static_cast<std::uint32_t>(mSoftBends.size()) - strand.bendConstraintOffset;
+        strand.segmentCount =
+            static_cast<std::uint32_t>(mStrandSegments.size()) - strand.segmentOffset;
+        strand.jointCount =
+            static_cast<std::uint32_t>(mStrandJoints.size()) - strand.jointOffset;
     }
 
     for (std::uint32_t fluidIndex = 0u; fluidIndex < mFluidSnapshot.size(); ++fluidIndex)
@@ -4685,17 +4824,56 @@ bool PhysicsWorld::prepareStrandStateForInsert(const StrandState &candidate,
 
     derivedCache.restPositions = candidate.restPositions;
     derivedCache.adjacencyLists.resize(candidate.restPositions.size());
-    for (std::uint32_t i = 0u; i + 1u < static_cast<std::uint32_t>(candidate.restPositions.size());
-         ++i)
+    derivedCache.incidentSegmentLists.resize(candidate.restPositions.size());
+    derivedCache.incidentJointLists.resize(candidate.restPositions.size());
+
+    const std::uint32_t particleCount =
+        static_cast<std::uint32_t>(candidate.restPositions.size());
+    derivedCache.segments.reserve(particleCount - 1u);
+    derivedCache.restSegmentLengths.reserve(particleCount - 1u);
+    derivedCache.restSegmentOrientations.reserve(particleCount - 1u);
+    derivedCache.restSegmentMaterialNormals.reserve(particleCount - 1u);
+
+    Diligent::float3 previousNormal{0.0f, 1.0f, 0.0f};
+    Diligent::float3 previousTangent{1.0f, 0.0f, 0.0f};
+    for (std::uint32_t i = 0u; i + 1u < particleCount; ++i)
     {
-        derivedCache.edges.push_back({i, i + 1u});
+        derivedCache.segments.push_back({i, i + 1u});
         derivedCache.adjacencyLists[i].push_back(i + 1u);
         derivedCache.adjacencyLists[i + 1u].push_back(i);
+        derivedCache.incidentSegmentLists[i].push_back(i);
+        derivedCache.incidentSegmentLists[i + 1u].push_back(i);
+
+        const Diligent::float3 delta = candidate.restPositions[i + 1u] - candidate.restPositions[i];
+        const float restLength       = std::sqrt(Diligent::dot(delta, delta));
+        const Diligent::float3 tangent =
+            safeNormalize(delta, Diligent::float3{1.0f, 0.0f, 0.0f});
+        Diligent::float3 materialNormal =
+            i == 0u ? defaultRootMaterialNormal(tangent, candidate.rootMaterialNormal)
+                    : parallelTransportNormal(previousTangent, tangent, previousNormal);
+        materialNormal = safeNormalize(materialNormal, Diligent::float3{0.0f, 1.0f, 0.0f});
+
+        derivedCache.restSegmentLengths.push_back(restLength);
+        derivedCache.restSegmentMaterialNormals.push_back(materialNormal);
+        derivedCache.restSegmentOrientations.push_back(
+            segmentOrientationFromTangentNormal(tangent, materialNormal));
+        previousNormal  = materialNormal;
+        previousTangent = tangent;
     }
-    for (std::uint32_t i = 0u; i + 2u < static_cast<std::uint32_t>(candidate.restPositions.size());
+
+    derivedCache.joints.reserve(particleCount > 2u ? particleCount - 2u : 0u);
+    derivedCache.restJointRelativeOrientations.reserve(derivedCache.joints.capacity());
+    for (std::uint32_t i = 0u; i + 1u < static_cast<std::uint32_t>(derivedCache.segments.size());
          ++i)
     {
-        derivedCache.bends.push_back({i, i + 1u, i + 2u});
+        derivedCache.joints.push_back({i, i + 1u});
+        const std::uint32_t middleParticle = i + 1u;
+        derivedCache.incidentJointLists[middleParticle].push_back(i);
+        derivedCache.incidentJointLists[i].push_back(i);
+        derivedCache.incidentJointLists[i + 2u].push_back(i);
+        derivedCache.restJointRelativeOrientations.push_back(quaternionMultiply(
+            quaternionConjugate(derivedCache.restSegmentOrientations[i]),
+            derivedCache.restSegmentOrientations[i + 1u]));
     }
 
     std::string errorMessage;

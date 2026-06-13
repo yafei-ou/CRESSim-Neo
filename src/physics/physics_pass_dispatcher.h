@@ -147,6 +147,26 @@ public:
     bool applySoftTetCorrections(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState,
                                  const GpuParticleDispatchConstants &constants);
+    bool solveStrandSegmentConstraints(Diligent::IDeviceContext *computeContext,
+                                       const PhysicsSceneGpuState &sceneState,
+                                       std::uint32_t strandSegmentCount,
+                                       const GpuParticleDispatchConstants &constants);
+    bool applyStrandSegmentCorrections(Diligent::IDeviceContext *computeContext,
+                                       const PhysicsSceneGpuState &sceneState,
+                                       std::uint32_t dispatchCount,
+                                       const GpuParticleDispatchConstants &constants);
+    bool solveStrandJointConstraints(Diligent::IDeviceContext *computeContext,
+                                     const PhysicsSceneGpuState &sceneState,
+                                     std::uint32_t strandJointCount,
+                                     const GpuParticleDispatchConstants &constants);
+    bool applyStrandJointCorrections(Diligent::IDeviceContext *computeContext,
+                                     const PhysicsSceneGpuState &sceneState,
+                                     std::uint32_t dispatchCount,
+                                     const GpuParticleDispatchConstants &constants);
+    bool reconcileStrandSegmentFrames(Diligent::IDeviceContext *computeContext,
+                                      const PhysicsSceneGpuState &sceneState,
+                                      std::uint32_t strandSegmentCount,
+                                      const GpuParticleDispatchConstants &constants);
     bool solveParticleExplicitContacts(Diligent::IDeviceContext *computeContext,
                                        const PhysicsSceneGpuState &sceneState,
                                        const GpuParticleDispatchConstants &constants);
@@ -454,6 +474,11 @@ private:
     gpu::GpuComputePass mApplySoftEdgeCorrectionsPass;
     gpu::GpuComputePass mApplySoftBendCorrectionsPass;
     gpu::GpuComputePass mApplySoftTetCorrectionsPass;
+    gpu::GpuComputePass mSolveStrandSegmentConstraintsPass;
+    gpu::GpuComputePass mApplyStrandSegmentCorrectionsPass;
+    gpu::GpuComputePass mSolveStrandJointConstraintsPass;
+    gpu::GpuComputePass mApplyStrandJointCorrectionsPass;
+    gpu::GpuComputePass mReconcileStrandSegmentFramesPass;
     gpu::GpuComputePass mSolveParticleExplicitContactsPass;
     gpu::GpuComputePass mSolveParticleRigidContactsPass;
     gpu::GpuComputePass mApplyParticlePositionCorrectionsPass;

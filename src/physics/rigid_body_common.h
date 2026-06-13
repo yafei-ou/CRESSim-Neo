@@ -200,6 +200,8 @@ struct GpuParticleDispatchConstants
     std::uint32_t softEdgeCount                      = 0;
     std::uint32_t softBendCount                      = 0;
     std::uint32_t softTetCount                       = 0;
+    std::uint32_t strandSegmentCount                 = 0;
+    std::uint32_t strandJointCount                   = 0;
     std::uint32_t fluidIterations                    = 0;
     std::uint32_t maxFluidNeighborhood               = 0;
     std::uint32_t iterationIndex                     = 0;
@@ -210,6 +212,8 @@ struct GpuParticleDispatchConstants
     std::uint32_t maxSuturingCandidatesPerParticle   = 0;
     std::uint32_t maxSuturingNodesPerPath            = 0;
     std::uint32_t reserved1                          = 0;
+    std::uint32_t reserved2                          = 0;
+    std::uint32_t reserved3                          = 0;
 };
 
 struct GpuSoftRenderDispatchConstants
@@ -362,6 +366,22 @@ struct GpuSoftIncidentTet
     std::uint32_t reserved1 = 0;
 };
 
+struct GpuStrandIncidentSegment
+{
+    std::uint32_t segmentIndex = 0u;
+    std::uint32_t slot         = 0u;
+    std::uint32_t reserved0    = 0u;
+    std::uint32_t reserved1    = 0u;
+};
+
+struct GpuStrandIncidentJoint
+{
+    std::uint32_t jointIndex = 0u;
+    std::uint32_t slot       = 0u;
+    std::uint32_t reserved0  = 0u;
+    std::uint32_t reserved1  = 0u;
+};
+
 struct GpuSoftRenderVertexTriangleRange
 {
     std::uint32_t start     = 0u;
@@ -479,6 +499,22 @@ struct GpuSoftBendCorrection
     Diligent::float4 correction0{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 correction1{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 correction2{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuStrandSegmentCorrection
+{
+    Diligent::float4 correctionA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 correctionB{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 orientation{0.0f, 0.0f, 0.0f, 1.0f};
+};
+
+struct GpuStrandJointCorrection
+{
+    Diligent::float4 correction0{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 correction1{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 correction2{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 orientationA{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::float4 orientationB{0.0f, 0.0f, 0.0f, 1.0f};
 };
 
 struct GpuBroadPhaseBuildConstants
@@ -690,7 +726,7 @@ static_assert(sizeof(GpuRigidParticleAttachmentConstraint) == 32u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
-static_assert(sizeof(GpuParticleDispatchConstants) == 80u);
+static_assert(sizeof(GpuParticleDispatchConstants) == 96u);
 static_assert(sizeof(GpuDispatchIndirectArgs) == 12u);
 static_assert(sizeof(GpuPaddedDispatchIndirectArgs) == 16u);
 static_assert(sizeof(GpuParticleBroadPhaseEntry) == 32u);
@@ -703,6 +739,8 @@ static_assert(sizeof(GpuSoftConstraintRange) == 16u);
 static_assert(sizeof(GpuSoftIncidentEdge) == 16u);
 static_assert(sizeof(GpuSoftIncidentBend) == 16u);
 static_assert(sizeof(GpuSoftIncidentTet) == 16u);
+static_assert(sizeof(GpuStrandIncidentSegment) == 16u);
+static_assert(sizeof(GpuStrandIncidentJoint) == 16u);
 static_assert(sizeof(GpuSuturingPair) == 64u);
 static_assert(sizeof(GpuSuturingPathHeader) == 32u);
 static_assert(sizeof(GpuSuturingPathNode) == 48u);
@@ -712,6 +750,11 @@ static_assert(sizeof(GpuSoftBodyBoundsChunk) == 16u);
 static_assert(sizeof(GpuSoftEdgeCorrection) == 32u);
 static_assert(sizeof(DeformableBendConstraint) == 32u);
 static_assert(sizeof(GpuSoftBendCorrection) == 48u);
+static_assert(sizeof(StrandSegmentConstraint) == 48u);
+static_assert(sizeof(StrandJointConstraint) == 32u);
+static_assert(sizeof(StrandSegmentState) == 16u);
+static_assert(sizeof(GpuStrandSegmentCorrection) == 48u);
+static_assert(sizeof(GpuStrandJointCorrection) == 80u);
 static_assert(sizeof(GpuSoftTetCorrection) == 64u);
 static_assert(sizeof(GpuBroadPhaseBuildConstants) == 16u);
 static_assert(sizeof(GpuBroadPhaseReductionConstants) == 16u);

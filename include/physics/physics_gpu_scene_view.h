@@ -67,6 +67,9 @@ struct PhysicsGpuSoftSceneView
     Diligent::IBuffer *edgesBuffer                   = nullptr;
     Diligent::IBuffer *bendsBuffer                   = nullptr;
     Diligent::IBuffer *tetsBuffer                    = nullptr;
+    Diligent::IBuffer *strandSegmentsBuffer          = nullptr;
+    Diligent::IBuffer *strandJointsBuffer            = nullptr;
+    Diligent::IBuffer *strandSegmentStatesBuffer     = nullptr;
     Diligent::IBuffer *suturingPairsBuffer           = nullptr;
     Diligent::IBuffer *suturingParticleRefsBuffer    = nullptr;
     Diligent::IBuffer *suturingInsertionStatesBuffer = nullptr;
@@ -79,6 +82,8 @@ struct PhysicsGpuSoftSceneView
     std::uint32_t edgeCount                          = 0;
     std::uint32_t bendCount                          = 0;
     std::uint32_t tetCount                           = 0;
+    std::uint32_t strandSegmentCount                 = 0;
+    std::uint32_t strandJointCount                   = 0;
     std::uint32_t suturingPairCount                  = 0;
     std::uint32_t suturingPathHeaderCount            = 0;
     std::uint32_t suturingPathNodeCount              = 0;
