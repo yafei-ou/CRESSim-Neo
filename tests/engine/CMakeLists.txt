@@ -64,6 +64,14 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE engine
+    NAME rigid_distance_constraint_authoring
+    SOURCE rigid_distance_constraint_authoring.cpp
+    INCLUDE_SRC
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
     NAME suturing_sequence_authoring
     SOURCE suturing_sequence_authoring.cpp
     INCLUDE_SRC

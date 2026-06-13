@@ -195,6 +195,16 @@ struct GpuRoutedCableDebugSegment
     uint cableIndex;
 };
 
+struct GpuRigidDistanceConstraint
+{
+    uint rigidBodyIndexA;
+    uint rigidBodyIndexB;
+    float restDistance;
+    float compliance;
+    float4 localAnchorA;
+    float4 localAnchorB;
+};
+
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)
 {
     const uint lo = min(shapeTypeA, shapeTypeB);

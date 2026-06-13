@@ -29,6 +29,8 @@ public:
         const AuthoredParticleSequenceState &state);
     AuthoredParticleDistanceConstraintState &upsertParticleDistanceConstraint(
         const AuthoredParticleDistanceConstraintState &state);
+    AuthoredRigidDistanceConstraintState &upsertRigidDistanceConstraint(
+        const AuthoredRigidDistanceConstraintState &state);
     AuthoredRoutedCableConstraintState &upsertRoutedCableConstraint(
         const AuthoredRoutedCableConstraintState &state);
     AuthoredParticleCollisionFilterState &upsertParticleCollisionFilter(
@@ -40,6 +42,7 @@ public:
     bool removeFluid(common::EntityId entityId);
     bool removeParticleSequence(ParticleSequenceId sequenceId);
     bool removeParticleDistanceConstraint(ParticleConstraintId constraintId);
+    bool removeRigidDistanceConstraint(RigidDistanceConstraintId constraintId);
     bool removeRoutedCableConstraint(RoutedCableConstraintId constraintId);
     bool removeParticleCollisionFilter(ParticleCollisionFilterId filterId);
     bool removeSuturingSequence(SuturingSequenceId sequenceId);
@@ -68,6 +71,10 @@ public:
         ParticleConstraintId constraintId);
     const AuthoredParticleDistanceConstraintState *tryGetParticleDistanceConstraint(
         ParticleConstraintId constraintId) const;
+    AuthoredRigidDistanceConstraintState *tryGetRigidDistanceConstraint(
+        RigidDistanceConstraintId constraintId);
+    const AuthoredRigidDistanceConstraintState *tryGetRigidDistanceConstraint(
+        RigidDistanceConstraintId constraintId) const;
     AuthoredRoutedCableConstraintState *tryGetRoutedCableConstraint(
         RoutedCableConstraintId constraintId);
     const AuthoredRoutedCableConstraintState *tryGetRoutedCableConstraint(
@@ -91,6 +98,8 @@ public:
     const std::vector<AuthoredParticleSequenceState> &particleSequenceSnapshot() const noexcept;
     const std::vector<AuthoredParticleDistanceConstraintState> &particleDistanceConstraintSnapshot()
         const noexcept;
+    const std::vector<AuthoredRigidDistanceConstraintState> &rigidDistanceConstraintSnapshot()
+        const noexcept;
     const std::vector<AuthoredRoutedCableConstraintState> &routedCableConstraintSnapshot()
         const noexcept;
     const std::vector<AuthoredParticleCollisionFilterState> &particleCollisionFilterSnapshot()
@@ -113,6 +122,7 @@ public:
     const std::vector<SoftEdge> &softEdges() const noexcept;
     const std::vector<SoftBend> &softBends() const noexcept;
     const std::vector<SoftTet> &softTets() const noexcept;
+    const std::vector<RigidDistanceConstraint> &rigidDistanceConstraints() const noexcept;
     const std::vector<RoutedCableConstraint> &routedCableConstraints() const noexcept;
     const std::vector<RoutedCableRoutePoint> &routedCableRoutePoints() const noexcept;
     const std::vector<StrandSoftSuturingPair> &suturingPairs() const noexcept;
@@ -170,6 +180,8 @@ public:
     std::uint64_t softBodyTopologyRevision() const noexcept;
     std::uint64_t softParticleRevision() const noexcept;
     std::uint64_t softGpuTopologyRevision() const noexcept;
+    std::uint64_t rigidDistanceConstraintRevision() const noexcept;
+    std::uint64_t rigidDistanceConstraintTopologyRevision() const noexcept;
     std::uint64_t routedCableRevision() const noexcept;
     std::uint64_t routedCableTopologyRevision() const noexcept;
     std::uint64_t curveRenderRevision() const noexcept;
@@ -305,6 +317,8 @@ private:
     std::unordered_map<common::EntityId, std::uint32_t> mEntityToFluidIndex{};
     std::unordered_map<ParticleSequenceId, std::uint32_t> mParticleSequenceIdToIndex{};
     std::unordered_map<ParticleConstraintId, std::uint32_t> mParticleConstraintIdToIndex{};
+    std::unordered_map<RigidDistanceConstraintId, std::uint32_t>
+        mRigidDistanceConstraintIdToIndex{};
     std::unordered_map<RoutedCableConstraintId, std::uint32_t> mRoutedCableConstraintIdToIndex{};
     std::unordered_map<ParticleCollisionFilterId, std::uint32_t>
         mParticleCollisionFilterIdToIndex{};
@@ -317,6 +331,7 @@ private:
     std::vector<FluidState> mFluidSnapshot{};
     std::vector<AuthoredParticleSequenceState> mParticleSequenceSnapshot{};
     std::vector<AuthoredParticleDistanceConstraintState> mParticleDistanceConstraintSnapshot{};
+    std::vector<AuthoredRigidDistanceConstraintState> mRigidDistanceConstraintSnapshot{};
     std::vector<AuthoredRoutedCableConstraintState> mRoutedCableConstraintSnapshot{};
     std::vector<AuthoredParticleCollisionFilterState> mParticleCollisionFilterSnapshot{};
     std::vector<AuthoredSuturingSequenceState> mSuturingSequenceSnapshot{};
@@ -333,6 +348,7 @@ private:
     std::vector<DeformableDistanceConstraint> mSoftEdges{};
     std::vector<DeformableBendConstraint> mSoftBends{};
     std::vector<DeformableVolumeConstraint> mSoftTets{};
+    std::vector<RigidDistanceConstraint> mRigidDistanceConstraints{};
     std::vector<RoutedCableConstraint> mRoutedCableConstraints{};
     std::vector<RoutedCableRoutePoint> mRoutedCableRoutePoints{};
     SoftRenderDataHost mSoftRenderData{};
@@ -367,6 +383,8 @@ private:
     std::uint64_t mSoftBodyTopologyRevision                  = 0;
     std::uint64_t mSoftParticleRevision                      = 0;
     std::uint64_t mSoftGpuTopologyRevision                   = 0;
+    std::uint64_t mRigidDistanceConstraintRevision           = 0;
+    std::uint64_t mRigidDistanceConstraintTopologyRevision   = 0;
     std::uint64_t mRoutedCableRevision                       = 0;
     std::uint64_t mRoutedCableTopologyRevision               = 0;
     std::uint64_t mCurveRenderRevision                       = 0;
@@ -377,6 +395,7 @@ private:
     SliderJointId mNextSliderJointId                         = 1u;
     ParticleSequenceId mNextParticleSequenceId               = 1u;
     ParticleConstraintId mNextParticleConstraintId           = 1u;
+    RigidDistanceConstraintId mNextRigidDistanceConstraintId = 1u;
     RoutedCableConstraintId mNextRoutedCableConstraintId     = 1u;
     ParticleCollisionFilterId mNextParticleCollisionFilterId = 1u;
     SuturingSequenceId mNextSuturingSequenceId               = 1u;

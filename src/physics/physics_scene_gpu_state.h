@@ -76,6 +76,7 @@ public:
 
     struct PersistentRoutedCableBuffers
     {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidDistanceConstraintsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> descriptorsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> routePointsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> debugSegmentsBuffer;
@@ -262,6 +263,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> hingeJointLambdas45Buffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderJointLambdas0123Buffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderJointLambdas45Buffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidDistanceConstraintLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> translationCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rotationCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> linearVelocityCorrectionsBuffer;
@@ -348,7 +350,9 @@ public:
                         std::uint32_t fluidMaterialCount, std::uint32_t softEdgeCount,
                         std::uint32_t softBendCount, std::uint32_t softTetCount,
                         std::uint32_t ballJointCount, std::uint32_t hingeJointCount,
-                        std::uint32_t sliderJointCount, std::uint32_t softRenderVertexCount,
+                        std::uint32_t sliderJointCount,
+                        std::uint32_t rigidDistanceConstraintCount,
+                        std::uint32_t softRenderVertexCount,
                         std::uint32_t softRenderTriangleIndexCount,
                         std::uint32_t softRenderTriangleCount, std::uint32_t softBodyRangeCount,
                         std::uint32_t softBodyBoundsChunkCount, std::uint32_t suturingPairCount,
@@ -435,6 +439,9 @@ private:
                                    const std::vector<RigidBodyState> &rigidBodies,
                                    const std::vector<RoutedCableConstraint> &constraints,
                                    const std::vector<RoutedCableRoutePoint> &routePoints);
+    bool uploadRigidDistanceConstraints(
+        Diligent::IDeviceContext *computeContext,
+        const std::vector<RigidDistanceConstraint> &constraints);
     bool uploadParticles(Diligent::IDeviceContext *computeContext, const ParticleSoAHost &particles,
                          const std::vector<FluidState> &fluids,
                          const std::vector<Diligent::float4> &particleContactMaterials,
@@ -478,6 +485,7 @@ private:
     std::uint32_t mRoutedCableCapacity                       = 0;
     std::uint32_t mRoutedCableRoutePointCapacity             = 0;
     std::uint32_t mRoutedCableDebugSegmentCapacity           = 0;
+    std::uint32_t mRigidDistanceConstraintCapacity           = 0;
     std::uint32_t mFluidVisualCapacity                       = 0;
     std::uint32_t mParticleContactMaterialCapacity           = 0;
     std::uint32_t mFluidMaterialCapacity                     = 0;
@@ -505,6 +513,7 @@ private:
     std::uint32_t mSuturingPathHeaderCount                   = 0;
     std::uint32_t mSuturingPathNodeCount                     = 0;
     std::uint32_t mCurveRenderCount                          = 0;
+    std::uint32_t mRigidDistanceConstraintCount              = 0;
     std::uint32_t mRoutedCableCount                          = 0;
     std::uint32_t mRoutedCableDebugSegmentCount              = 0;
     std::uint32_t mBroadPhaseNodeCapacity                    = 0;
@@ -543,6 +552,8 @@ private:
     std::uint64_t mLastUploadedRigidJointModeRevision        = 0;
     std::uint64_t mLastUploadedSoftParticleRevision          = 0;
     std::uint64_t mLastUploadedSoftTopologyRevision          = 0;
+    std::uint64_t mLastUploadedRigidDistanceConstraintRevision         = 0;
+    std::uint64_t mLastUploadedRigidDistanceConstraintTopologyRevision = 0;
     std::uint64_t mLastUploadedRoutedCableRevision           = 0;
     std::uint64_t mLastUploadedRoutedCableTopologyRevision   = 0;
     std::uint64_t mLastUploadedCurveRenderRevision           = 0;

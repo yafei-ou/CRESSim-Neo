@@ -61,6 +61,8 @@ public:
         const physics::AuthoredParticleSequenceState &state);
     physics::AuthoredParticleDistanceConstraintState &upsertParticleDistanceConstraint(
         const physics::AuthoredParticleDistanceConstraintState &state);
+    physics::AuthoredRigidDistanceConstraintState &upsertRigidDistanceConstraint(
+        const physics::AuthoredRigidDistanceConstraintState &state);
     physics::AuthoredRoutedCableConstraintState &upsertRoutedCableConstraint(
         const physics::AuthoredRoutedCableConstraintState &state);
     physics::AuthoredParticleCollisionFilterState &upsertParticleCollisionFilter(
@@ -68,6 +70,7 @@ public:
     physics::AuthoredSuturingSequenceState &upsertSuturingSequence(
         const physics::AuthoredSuturingSequenceState &state);
     bool removeParticleDistanceConstraint(physics::ParticleConstraintId constraintId);
+    bool removeRigidDistanceConstraint(physics::RigidDistanceConstraintId constraintId);
     bool removeRoutedCableConstraint(physics::RoutedCableConstraintId constraintId);
     bool removeParticleCollisionFilter(physics::ParticleCollisionFilterId filterId);
     bool removeSuturingSequence(physics::SuturingSequenceId sequenceId);
@@ -110,6 +113,8 @@ public:
         physics::ParticleSequenceId sequenceId) const noexcept;
     const physics::AuthoredParticleDistanceConstraintState *tryGetParticleDistanceConstraint(
         physics::ParticleConstraintId constraintId) const noexcept;
+    const physics::AuthoredRigidDistanceConstraintState *tryGetRigidDistanceConstraint(
+        physics::RigidDistanceConstraintId constraintId) const noexcept;
     const physics::AuthoredRoutedCableConstraintState *tryGetRoutedCableConstraint(
         physics::RoutedCableConstraintId constraintId) const noexcept;
     const physics::AuthoredParticleCollisionFilterState *tryGetParticleCollisionFilter(

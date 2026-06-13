@@ -34,6 +34,7 @@ extern const gpu::GpuComputePassDefinition kCompactActiveParticleExplicitContact
 extern const gpu::GpuComputePassDefinition kFinalizeActiveParticleRigidContacts;
 extern const gpu::GpuComputePassDefinition kCompactActiveParticleRigidContacts;
 extern const gpu::GpuComputePassDefinition kClearSoftConstraintState;
+extern const gpu::GpuComputePassDefinition kClearRigidDistanceConstraintState;
 extern const gpu::GpuComputePassDefinition kClearRoutedCableConstraintState;
 extern const gpu::GpuComputePassDefinition kClearSuturingCandidates;
 extern const gpu::GpuComputePassDefinition kGatherSuturingCandidates;
@@ -100,6 +101,7 @@ extern const gpu::GpuComputePassDefinition kSolveHingeJointConstraintsPassive;
 extern const gpu::GpuComputePassDefinition kSolveHingeJointConstraintsTargetPosition;
 extern const gpu::GpuComputePassDefinition kSolveSliderJointConstraintsPassive;
 extern const gpu::GpuComputePassDefinition kSolveSliderJointConstraintsTargetPosition;
+extern const gpu::GpuComputePassDefinition kSolveRigidDistanceConstraints;
 extern const gpu::GpuComputePassDefinition kSolveRoutedCableConstraints;
 extern const gpu::GpuComputePassDefinition kSolveHingeJointTargetVelocities;
 extern const gpu::GpuComputePassDefinition kSolveSliderJointTargetVelocities;

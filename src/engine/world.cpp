@@ -1400,6 +1400,12 @@ physics::AuthoredParticleDistanceConstraintState &World::upsertParticleDistanceC
     return mPhysicsWorld.upsertParticleDistanceConstraint(state);
 }
 
+physics::AuthoredRigidDistanceConstraintState &World::upsertRigidDistanceConstraint(
+    const physics::AuthoredRigidDistanceConstraintState &state)
+{
+    return mPhysicsWorld.upsertRigidDistanceConstraint(state);
+}
+
 physics::AuthoredRoutedCableConstraintState &World::upsertRoutedCableConstraint(
     const physics::AuthoredRoutedCableConstraintState &state)
 {
@@ -1421,6 +1427,11 @@ physics::AuthoredSuturingSequenceState &World::upsertSuturingSequence(
 bool World::removeParticleDistanceConstraint(physics::ParticleConstraintId constraintId)
 {
     return mPhysicsWorld.removeParticleDistanceConstraint(constraintId);
+}
+
+bool World::removeRigidDistanceConstraint(physics::RigidDistanceConstraintId constraintId)
+{
+    return mPhysicsWorld.removeRigidDistanceConstraint(constraintId);
 }
 
 bool World::removeRoutedCableConstraint(physics::RoutedCableConstraintId constraintId)
@@ -2052,6 +2063,12 @@ const physics::AuthoredParticleDistanceConstraintState *World::tryGetParticleDis
     physics::ParticleConstraintId constraintId) const noexcept
 {
     return mPhysicsWorld.tryGetParticleDistanceConstraint(constraintId);
+}
+
+const physics::AuthoredRigidDistanceConstraintState *World::tryGetRigidDistanceConstraint(
+    physics::RigidDistanceConstraintId constraintId) const noexcept
+{
+    return mPhysicsWorld.tryGetRigidDistanceConstraint(constraintId);
 }
 
 const physics::AuthoredRoutedCableConstraintState *World::tryGetRoutedCableConstraint(

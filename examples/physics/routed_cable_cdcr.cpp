@@ -35,6 +35,7 @@ using cressim::neo::graphics::MaterialHandle;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::physics::AuthoredRoutedCableConstraintState;
 using cressim::neo::physics::AuthoredRoutedCableRoutePoint;
+using cressim::neo::physics::AuthoredRigidDistanceConstraintState;
 using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::viewer::DebugViewerApp;
@@ -47,15 +48,32 @@ constexpr std::uint32_t kDiskLayer   = 1u << 1u;
 
 struct ExampleOptions
 {
-    std::uint32_t diskCount  = 7u;
-    float pullAmplitude      = 0.6f;
-    float drivePeriodSeconds = 8.0f;
+    enum class ActuationMode
+    {
+        TravelingWave,
+        SideBend,
+        Twist,
+    };
+
+    std::uint32_t diskCount   = 9u;
+    float pullAmplitude       = 0.42f;
+    float drivePeriodSeconds  = 7.0f;
+    float diskSpacing         = 0.68f;
+    float guideRadius         = 0.34f;
+    float backboneCompliance  = 7.5e-7f;
+    bool enableBackbone       = true;
+    bool selfCollideDisks     = true;
+    ActuationMode actuationMode = ActuationMode::TravelingWave;
 };
 
 void printUsage(const char *appName)
 {
     cressim::neo::examples::helpers::printUsage(
-        appName, " [--disks N] [--pull VALUE] [--period VALUE]", false);
+        appName,
+        " [--disks N] [--pull VALUE] [--period VALUE] [--spacing VALUE]"
+        " [--guide-radius VALUE] [--backbone-compliance VALUE]"
+        " [--mode traveling|bend|twist] [--no-backbone] [--no-self-collide]",
+        false);
 }
 
 std::uint32_t parseUIntOption(const std::string &value, const char *optionName)
@@ -80,6 +98,25 @@ float parseFloatOption(const std::string &value, const char *optionName)
         throw std::invalid_argument(std::string("Invalid ") + optionName + ": " + value);
     }
     return parsed;
+}
+
+ExampleOptions::ActuationMode parseActuationMode(const std::string &value)
+{
+    if (value == "traveling")
+    {
+        return ExampleOptions::ActuationMode::TravelingWave;
+    }
+    if (value == "bend")
+    {
+        return ExampleOptions::ActuationMode::SideBend;
+    }
+    if (value == "twist")
+    {
+        return ExampleOptions::ActuationMode::Twist;
+    }
+
+    throw std::invalid_argument(
+        "--mode must be one of: traveling, bend, twist.");
 }
 
 bool tryParseSceneArgument(int argc, char **argv, int &index, ExampleOptions &options)
@@ -117,6 +154,63 @@ bool tryParseSceneArgument(int argc, char **argv, int &index, ExampleOptions &op
         return true;
     }
 
+    if (arg == "--spacing")
+    {
+        options.diskSpacing = parseFloatOption(
+            cressim::neo::examples::helpers::requireOptionValue(argc, argv, index, "--spacing"),
+            "disk spacing");
+        if (options.diskSpacing <= 0.0f)
+        {
+            throw std::invalid_argument("--spacing must be greater than zero.");
+        }
+        return true;
+    }
+
+    if (arg == "--guide-radius")
+    {
+        options.guideRadius = parseFloatOption(
+            cressim::neo::examples::helpers::requireOptionValue(argc, argv, index,
+                                                                 "--guide-radius"),
+            "guide radius");
+        if (options.guideRadius < 0.0f)
+        {
+            throw std::invalid_argument("--guide-radius must be non-negative.");
+        }
+        return true;
+    }
+
+    if (arg == "--backbone-compliance")
+    {
+        options.backboneCompliance =
+            parseFloatOption(cressim::neo::examples::helpers::requireOptionValue(
+                                 argc, argv, index, "--backbone-compliance"),
+                             "backbone compliance");
+        if (options.backboneCompliance < 0.0f)
+        {
+            throw std::invalid_argument("--backbone-compliance must be non-negative.");
+        }
+        return true;
+    }
+
+    if (arg == "--mode")
+    {
+        options.actuationMode = parseActuationMode(
+            cressim::neo::examples::helpers::requireOptionValue(argc, argv, index, "--mode"));
+        return true;
+    }
+
+    if (arg == "--no-backbone")
+    {
+        options.enableBackbone = false;
+        return true;
+    }
+
+    if (arg == "--no-self-collide")
+    {
+        options.selfCollideDisks = false;
+        return true;
+    }
+
     return false;
 }
 
@@ -141,6 +235,26 @@ float computeCableLength(const std::vector<Diligent::float3> &positions,
         total += length((positions[i] + offsets[i]) - (positions[i - 1u] + offsets[i - 1u]));
     }
     return total;
+}
+
+float computeActuationWeight(ExampleOptions::ActuationMode mode, std::uint32_t cableIndex,
+                             float phase) noexcept
+{
+    switch (mode)
+    {
+    case ExampleOptions::ActuationMode::TravelingWave:
+        return 0.5f + 0.5f * std::sin(phase);
+    case ExampleOptions::ActuationMode::SideBend:
+        if (cableIndex == 0u)
+        {
+            return 0.2f + 0.8f * (0.5f + 0.5f * std::sin(phase));
+        }
+        return 0.1f + 0.2f * (0.5f + 0.5f * std::sin(phase));
+    case ExampleOptions::ActuationMode::Twist:
+        return std::max(0.0f, std::cos(phase));
+    }
+
+    return 0.0f;
 }
 
 } // namespace
@@ -219,7 +333,7 @@ int main(int argc, char **argv)
 
     const auto cameraEntity = world.createEntity();
     TransformComponent cameraTransform{};
-    cameraTransform.worldTransform.position = {0.0f, 1.2f, -8.5f};
+    cameraTransform.worldTransform.position = {0.0f, 0.9f, -9.2f};
     world.setTransform(cameraEntity, cameraTransform);
     world.setCamera(cameraEntity, CameraComponent{});
 
@@ -248,10 +362,8 @@ int main(int argc, char **argv)
     groundCollider.staticFriction = 0.9f;
     world.addCollider(groundEntity, groundCollider);
 
-    constexpr Diligent::float3 kDiskHalfExtents{0.55f, 0.08f, 0.55f};
-    constexpr float kDiskSpacing     = 0.82f;
+    constexpr Diligent::float3 kDiskHalfExtents{0.48f, 0.06f, 0.48f};
     constexpr float kTopY            = 4.75f;
-    constexpr float kGuideRadius     = 0.38f;
     constexpr float kGuideY          = 0.0f;
     constexpr float kCableCompliance = 2.5e-5f;
 
@@ -263,7 +375,7 @@ int main(int argc, char **argv)
     for (std::uint32_t i = 0; i < sceneOptions.diskCount; ++i)
     {
         const auto entity = world.createEntity();
-        const float y     = kTopY - static_cast<float>(i) * kDiskSpacing;
+        const float y     = kTopY - static_cast<float>(i) * sceneOptions.diskSpacing;
         diskEntities.push_back(entity);
         diskPositions.push_back({0.0f, y, 0.0f});
 
@@ -295,19 +407,33 @@ int main(int argc, char **argv)
         ColliderComponent collider{};
         collider.shapeType   = ColliderShapeType::Box;
         collider.shapeParams = {kDiskHalfExtents.x, kDiskHalfExtents.y, kDiskHalfExtents.z, 0.0f};
-        collider.friction    = 0.45f;
+        collider.friction    = 0.52f;
         collider.staticFriction = 0.6f;
         collider.collisionLayer = kDiskLayer;
-        collider.collisionMask  = kGroundLayer;
+        collider.collisionMask =
+            sceneOptions.selfCollideDisks ? (kGroundLayer | kDiskLayer) : kGroundLayer;
         world.addCollider(entity, collider);
+    }
+
+    std::vector<AuthoredRigidDistanceConstraintState> backboneConstraints;
+    backboneConstraints.reserve(sceneOptions.diskCount > 0u ? sceneOptions.diskCount - 1u : 0u);
+    for (std::uint32_t i = 1u; sceneOptions.enableBackbone && i < sceneOptions.diskCount; ++i)
+    {
+        AuthoredRigidDistanceConstraintState constraint{};
+        constraint.entityA = diskEntities[i - 1u];
+        constraint.entityB = diskEntities[i];
+        constraint.restDistance = sceneOptions.diskSpacing;
+        constraint.compliance = sceneOptions.backboneCompliance;
+        constraint.enabled = true;
+        backboneConstraints.push_back(world.upsertRigidDistanceConstraint(constraint));
     }
 
     std::array<std::vector<Diligent::float3>, 3u> cableOffsets{};
     for (std::uint32_t cableIndex = 0; cableIndex < 3u; ++cableIndex)
     {
         const float angle = (2.0f * kPi * static_cast<float>(cableIndex)) / 3.0f;
-        const Diligent::float3 localGuideOffset{kGuideRadius * std::cos(angle), kGuideY,
-                                                kGuideRadius * std::sin(angle)};
+        const Diligent::float3 localGuideOffset{sceneOptions.guideRadius * std::cos(angle), kGuideY,
+                                                sceneOptions.guideRadius * std::sin(angle)};
         cableOffsets[cableIndex].assign(sceneOptions.diskCount, localGuideOffset);
     }
 
@@ -338,22 +464,23 @@ int main(int argc, char **argv)
 
     const float maxPull        = std::max(0.0f, sceneOptions.pullAmplitude);
     const float driveFrequency = (2.0f * kPi) / std::max(sceneOptions.drivePeriodSeconds, 0.1f);
+    const ExampleOptions::ActuationMode actuationMode = sceneOptions.actuationMode;
 
     DebugViewerCallbacks callbacks{};
-    callbacks.beforeTick = [cables, restLengths, maxPull,
-                            driveFrequency](const FrameContext &frame, Runtime &cbRuntime) mutable
+    callbacks.beforeTick = [cables, restLengths, maxPull, driveFrequency,
+                            actuationMode](const FrameContext &frame, Runtime &cbRuntime) mutable
     {
         const float t             = static_cast<float>(frame.timeSeconds);
         const float settle        = std::clamp((t - 1.0f) / 1.5f, 0.0f, 1.0f);
-        const float commonTighten = 0.18f * maxPull * settle;
+        const float commonTighten = 0.12f * maxPull * settle;
         for (std::uint32_t cableIndex = 0; cableIndex < 3u; ++cableIndex)
         {
             const float phase =
                 driveFrequency * t + (2.0f * kPi * static_cast<float>(cableIndex)) / 3.0f;
-            const float oscillation = 0.5f + 0.5f * std::sin(phase);
+            const float actuationWeight = computeActuationWeight(actuationMode, cableIndex, phase);
             auto updated            = cables[cableIndex];
             updated.targetLength    = std::max(0.0f, restLengths[cableIndex] - commonTighten -
-                                                         maxPull * settle * oscillation);
+                                                         maxPull * settle * actuationWeight);
             cables[cableIndex]      = cbRuntime.getWorld().upsertRoutedCableConstraint(updated);
         }
     };

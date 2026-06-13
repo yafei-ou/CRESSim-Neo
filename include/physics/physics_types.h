@@ -43,6 +43,9 @@ constexpr HingeJointId kInvalidHingeJointId = 0u;
 using SliderJointId                           = std::uint32_t;
 constexpr SliderJointId kInvalidSliderJointId = 0u;
 
+using RigidDistanceConstraintId = std::uint32_t;
+constexpr RigidDistanceConstraintId kInvalidRigidDistanceConstraintId = 0u;
+
 using ParticleConstraintId                                  = std::uint32_t;
 constexpr ParticleConstraintId kInvalidParticleConstraintId = 0u;
 
@@ -417,6 +420,18 @@ struct AuthoredParticleDistanceConstraintState
     bool enabled     = true;
 };
 
+struct AuthoredRigidDistanceConstraintState
+{
+    RigidDistanceConstraintId constraintId = kInvalidRigidDistanceConstraintId;
+    common::EntityId entityA               = common::kInvalidEntityId;
+    common::EntityId entityB               = common::kInvalidEntityId;
+    Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
+    Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
+    float restDistance = 0.0f;
+    float compliance   = 0.0f;
+    bool enabled       = true;
+};
+
 struct AuthoredRoutedCableRoutePoint
 {
     common::EntityId entityId = common::kInvalidEntityId;
@@ -521,6 +536,16 @@ struct RoutedCableRoutePoint
     std::uint32_t reserved1      = 0u;
     std::uint32_t reserved2      = 0u;
     Diligent::float4 localGuideOffset{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct RigidDistanceConstraint
+{
+    std::uint32_t rigidBodyIndexA = 0u;
+    std::uint32_t rigidBodyIndexB = 0u;
+    float restDistance            = 0.0f;
+    float compliance              = 0.0f;
+    Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 struct ParticleSoAHost
