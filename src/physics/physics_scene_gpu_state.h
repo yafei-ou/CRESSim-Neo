@@ -76,6 +76,7 @@ public:
 
     struct PersistentRoutedCableBuffers
     {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidParticleAttachmentsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidDistanceConstraintsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> descriptorsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> routePointsBuffer;
@@ -263,6 +264,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> hingeJointLambdas45Buffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderJointLambdas0123Buffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderJointLambdas45Buffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidParticleAttachmentLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidDistanceConstraintLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> translationCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rotationCorrectionsBuffer;
@@ -351,6 +353,7 @@ public:
                         std::uint32_t softBendCount, std::uint32_t softTetCount,
                         std::uint32_t ballJointCount, std::uint32_t hingeJointCount,
                         std::uint32_t sliderJointCount,
+                        std::uint32_t rigidParticleAttachmentCount,
                         std::uint32_t rigidDistanceConstraintCount,
                         std::uint32_t softRenderVertexCount,
                         std::uint32_t softRenderTriangleIndexCount,
@@ -439,6 +442,9 @@ private:
                                    const std::vector<RigidBodyState> &rigidBodies,
                                    const std::vector<RoutedCableConstraint> &constraints,
                                    const std::vector<RoutedCableRoutePoint> &routePoints);
+    bool uploadRigidParticleAttachments(
+        Diligent::IDeviceContext *computeContext,
+        const std::vector<RigidParticleAttachmentConstraint> &constraints);
     bool uploadRigidDistanceConstraints(
         Diligent::IDeviceContext *computeContext,
         const std::vector<RigidDistanceConstraint> &constraints);
@@ -485,6 +491,7 @@ private:
     std::uint32_t mRoutedCableCapacity                       = 0;
     std::uint32_t mRoutedCableRoutePointCapacity             = 0;
     std::uint32_t mRoutedCableDebugSegmentCapacity           = 0;
+    std::uint32_t mRigidParticleAttachmentCapacity           = 0;
     std::uint32_t mRigidDistanceConstraintCapacity           = 0;
     std::uint32_t mFluidVisualCapacity                       = 0;
     std::uint32_t mParticleContactMaterialCapacity           = 0;
@@ -513,6 +520,7 @@ private:
     std::uint32_t mSuturingPathHeaderCount                   = 0;
     std::uint32_t mSuturingPathNodeCount                     = 0;
     std::uint32_t mCurveRenderCount                          = 0;
+    std::uint32_t mRigidParticleAttachmentCount              = 0;
     std::uint32_t mRigidDistanceConstraintCount              = 0;
     std::uint32_t mRoutedCableCount                          = 0;
     std::uint32_t mRoutedCableDebugSegmentCount              = 0;
@@ -552,6 +560,8 @@ private:
     std::uint64_t mLastUploadedRigidJointModeRevision        = 0;
     std::uint64_t mLastUploadedSoftParticleRevision          = 0;
     std::uint64_t mLastUploadedSoftTopologyRevision          = 0;
+    std::uint64_t mLastUploadedRigidParticleAttachmentRevision         = 0;
+    std::uint64_t mLastUploadedRigidParticleAttachmentTopologyRevision = 0;
     std::uint64_t mLastUploadedRigidDistanceConstraintRevision         = 0;
     std::uint64_t mLastUploadedRigidDistanceConstraintTopologyRevision = 0;
     std::uint64_t mLastUploadedRoutedCableRevision           = 0;

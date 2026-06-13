@@ -49,6 +49,9 @@ constexpr RigidDistanceConstraintId kInvalidRigidDistanceConstraintId = 0u;
 using ParticleConstraintId                                  = std::uint32_t;
 constexpr ParticleConstraintId kInvalidParticleConstraintId = 0u;
 
+using RigidParticleAttachmentConstraintId = std::uint32_t;
+constexpr RigidParticleAttachmentConstraintId kInvalidRigidParticleAttachmentConstraintId = 0u;
+
 using RoutedCableConstraintId                                  = std::uint32_t;
 constexpr RoutedCableConstraintId kInvalidRoutedCableConstraintId = 0u;
 
@@ -432,6 +435,17 @@ struct AuthoredRigidDistanceConstraintState
     bool enabled       = true;
 };
 
+struct AuthoredRigidParticleAttachmentConstraintState
+{
+    RigidParticleAttachmentConstraintId constraintId =
+        kInvalidRigidParticleAttachmentConstraintId;
+    AuthoredParticleReference particle{};
+    common::EntityId rigidBodyEntityId = common::kInvalidEntityId;
+    Diligent::float3 localAnchor{0.0f, 0.0f, 0.0f};
+    float compliance = 0.0f;
+    bool enabled     = true;
+};
+
 struct AuthoredRoutedCableRoutePoint
 {
     common::EntityId entityId = common::kInvalidEntityId;
@@ -546,6 +560,15 @@ struct RigidDistanceConstraint
     float compliance              = 0.0f;
     Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct RigidParticleAttachmentConstraint
+{
+    std::uint32_t particleIndex  = 0u;
+    std::uint32_t rigidBodyIndex = 0u;
+    float compliance             = 0.0f;
+    std::uint32_t reserved0      = 0u;
+    Diligent::float4 localAnchor{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 struct ParticleSoAHost

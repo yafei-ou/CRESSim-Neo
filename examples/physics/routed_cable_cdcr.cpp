@@ -26,16 +26,21 @@ using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::ColliderComponent;
 using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
+using cressim::neo::engine::ProceduralDeformableCurveRenderComponent;
 using cressim::neo::engine::RigidBodyComponent;
 using cressim::neo::engine::Runtime;
+using cressim::neo::engine::StrandComponent;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::examples::helpers::CommonExampleOptions;
 using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialHandle;
 using cressim::neo::graphics::MaterialResourceDesc;
+using cressim::neo::physics::AuthoredParticleReference;
+using cressim::neo::physics::AuthoredParticleReferenceType;
+using cressim::neo::physics::AuthoredParticleSequenceState;
+using cressim::neo::physics::AuthoredRigidParticleAttachmentConstraintState;
 using cressim::neo::physics::AuthoredRoutedCableConstraintState;
 using cressim::neo::physics::AuthoredRoutedCableRoutePoint;
-using cressim::neo::physics::AuthoredRigidDistanceConstraintState;
 using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::viewer::DebugViewerApp;
@@ -52,18 +57,16 @@ struct ExampleOptions
     {
         TravelingWave,
         SideBend,
-        Twist,
     };
 
     std::uint32_t diskCount   = 9u;
-    float pullAmplitude       = 0.42f;
+    float pullAmplitude       = 0.72f;
     float drivePeriodSeconds  = 7.0f;
     float diskSpacing         = 0.68f;
     float guideRadius         = 0.34f;
     float backboneCompliance  = 7.5e-7f;
-    bool enableBackbone       = true;
-    bool selfCollideDisks     = true;
-    ActuationMode actuationMode = ActuationMode::TravelingWave;
+    bool selfCollideDisks     = false;
+    ActuationMode actuationMode = ActuationMode::SideBend;
 };
 
 void printUsage(const char *appName)
@@ -72,7 +75,7 @@ void printUsage(const char *appName)
         appName,
         " [--disks N] [--pull VALUE] [--period VALUE] [--spacing VALUE]"
         " [--guide-radius VALUE] [--backbone-compliance VALUE]"
-        " [--mode traveling|bend|twist] [--no-backbone] [--no-self-collide]",
+        " [--mode traveling|bend] [--self-collide]",
         false);
 }
 
@@ -110,13 +113,9 @@ ExampleOptions::ActuationMode parseActuationMode(const std::string &value)
     {
         return ExampleOptions::ActuationMode::SideBend;
     }
-    if (value == "twist")
-    {
-        return ExampleOptions::ActuationMode::Twist;
-    }
 
     throw std::invalid_argument(
-        "--mode must be one of: traveling, bend, twist.");
+        "--mode must be one of: traveling, bend.");
 }
 
 bool tryParseSceneArgument(int argc, char **argv, int &index, ExampleOptions &options)
@@ -199,15 +198,9 @@ bool tryParseSceneArgument(int argc, char **argv, int &index, ExampleOptions &op
         return true;
     }
 
-    if (arg == "--no-backbone")
+    if (arg == "--self-collide")
     {
-        options.enableBackbone = false;
-        return true;
-    }
-
-    if (arg == "--no-self-collide")
-    {
-        options.selfCollideDisks = false;
+        options.selfCollideDisks = true;
         return true;
     }
 
@@ -240,18 +233,18 @@ float computeCableLength(const std::vector<Diligent::float3> &positions,
 float computeActuationWeight(ExampleOptions::ActuationMode mode, std::uint32_t cableIndex,
                              float phase) noexcept
 {
+    const float cableAngle = (2.0f * kPi * static_cast<float>(cableIndex)) / 3.0f;
     switch (mode)
     {
     case ExampleOptions::ActuationMode::TravelingWave:
-        return 0.5f + 0.5f * std::sin(phase);
+        return std::max(0.0f, 0.35f + 0.65f * std::sin(phase));
     case ExampleOptions::ActuationMode::SideBend:
-        if (cableIndex == 0u)
-        {
-            return 0.2f + 0.8f * (0.5f + 0.5f * std::sin(phase));
-        }
-        return 0.1f + 0.2f * (0.5f + 0.5f * std::sin(phase));
-    case ExampleOptions::ActuationMode::Twist:
-        return std::max(0.0f, std::cos(phase));
+    {
+        const float bendDirection = phase;
+        const float alignment = std::cos(cableAngle - bendDirection);
+        const float activeSide = std::max(0.0f, alignment);
+        return activeSide * activeSide;
+    }
     }
 
     return 0.0f;
@@ -415,17 +408,55 @@ int main(int argc, char **argv)
         world.addCollider(entity, collider);
     }
 
-    std::vector<AuthoredRigidDistanceConstraintState> backboneConstraints;
-    backboneConstraints.reserve(sceneOptions.diskCount > 0u ? sceneOptions.diskCount - 1u : 0u);
-    for (std::uint32_t i = 1u; sceneOptions.enableBackbone && i < sceneOptions.diskCount; ++i)
+    const auto backboneEntity = world.createEntity();
+    StrandComponent backbone{};
+    backbone.restPositions.reserve(sceneOptions.diskCount);
+    backbone.staticParticleIndices.push_back(0u);
+    backbone.particleMass       = 0.3f;
+    backbone.particleRadius     = 0.075f;
+    backbone.distanceCompliance = std::max(sceneOptions.backboneCompliance * 0.1f, 1.0e-9f);
+    backbone.bendCompliance     = sceneOptions.backboneCompliance;
+    backbone.selfCollisionEnabled = false;
+    backbone.suturingEnabled      = false;
+    backbone.collisionLayer       = 0u;
+    backbone.collisionMask        = 0u;
+    for (const Diligent::float3 &diskPosition : diskPositions)
     {
-        AuthoredRigidDistanceConstraintState constraint{};
-        constraint.entityA = diskEntities[i - 1u];
-        constraint.entityB = diskEntities[i];
-        constraint.restDistance = sceneOptions.diskSpacing;
-        constraint.compliance = sceneOptions.backboneCompliance;
-        constraint.enabled = true;
-        backboneConstraints.push_back(world.upsertRigidDistanceConstraint(constraint));
+        backbone.restPositions.push_back(diskPosition);
+    }
+    if (!world.setStrand(backboneEntity, backbone))
+    {
+        CRESSIM_LOG_ERROR("Failed to author CDCR backbone strand.\n");
+        runtime.shutdown();
+        viewer.shutdown();
+        return 1;
+    }
+
+    AuthoredParticleSequenceState backboneSequence{};
+    backboneSequence.entries.reserve(sceneOptions.diskCount);
+    for (std::uint32_t i = 0u; i < sceneOptions.diskCount; ++i)
+    {
+        backboneSequence.entries.push_back(
+            AuthoredParticleReference{backboneEntity, AuthoredParticleReferenceType::StrandParticle,
+                                      i});
+    }
+    backboneSequence = world.upsertParticleSequence(backboneSequence);
+    world.setProceduralDeformableCurveRender(
+        backboneEntity, ProceduralDeformableCurveRenderComponent{backboneSequence.sequenceId, 0.08f,
+                                                                 10u, true});
+
+    std::vector<AuthoredRigidParticleAttachmentConstraintState> diskAttachments;
+    diskAttachments.reserve(sceneOptions.diskCount);
+    for (std::uint32_t i = 0u; i < sceneOptions.diskCount; ++i)
+    {
+        AuthoredRigidParticleAttachmentConstraintState attachment{};
+        attachment.particle = AuthoredParticleReference{
+            backboneEntity, AuthoredParticleReferenceType::StrandParticle, i};
+        attachment.rigidBodyEntityId = diskEntities[i];
+        attachment.localAnchor       = {0.0f, 0.0f, 0.0f};
+        attachment.compliance        = std::max(sceneOptions.backboneCompliance * 0.5f, 0.0f);
+        attachment.enabled           = true;
+        diskAttachments.push_back(world.upsertRigidParticleAttachmentConstraint(attachment));
     }
 
     std::array<std::vector<Diligent::float3>, 3u> cableOffsets{};
@@ -472,15 +503,19 @@ int main(int argc, char **argv)
     {
         const float t             = static_cast<float>(frame.timeSeconds);
         const float settle        = std::clamp((t - 1.0f) / 1.5f, 0.0f, 1.0f);
-        const float commonTighten = 0.12f * maxPull * settle;
+        const float commonTighten =
+            actuationMode == ExampleOptions::ActuationMode::SideBend ? 0.0f
+                                                                     : 0.08f * maxPull * settle;
         for (std::uint32_t cableIndex = 0; cableIndex < 3u; ++cableIndex)
         {
-            const float phase =
-                driveFrequency * t + (2.0f * kPi * static_cast<float>(cableIndex)) / 3.0f;
+            const float phase = actuationMode == ExampleOptions::ActuationMode::SideBend
+                                    ? driveFrequency * t
+                                    : driveFrequency * t +
+                                          (2.0f * kPi * static_cast<float>(cableIndex)) / 3.0f;
             const float actuationWeight = computeActuationWeight(actuationMode, cableIndex, phase);
             auto updated            = cables[cableIndex];
-            updated.targetLength    = std::max(0.0f, restLengths[cableIndex] - commonTighten -
-                                                         maxPull * settle * actuationWeight);
+            updated.targetLength    = std::max(
+                0.0f, restLengths[cableIndex] - commonTighten - maxPull * settle * actuationWeight);
             cables[cableIndex]      = cbRuntime.getWorld().upsertRoutedCableConstraint(updated);
         }
     };

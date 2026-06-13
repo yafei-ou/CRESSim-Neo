@@ -1400,6 +1400,12 @@ physics::AuthoredParticleDistanceConstraintState &World::upsertParticleDistanceC
     return mPhysicsWorld.upsertParticleDistanceConstraint(state);
 }
 
+physics::AuthoredRigidParticleAttachmentConstraintState &World::upsertRigidParticleAttachmentConstraint(
+    const physics::AuthoredRigidParticleAttachmentConstraintState &state)
+{
+    return mPhysicsWorld.upsertRigidParticleAttachmentConstraint(state);
+}
+
 physics::AuthoredRigidDistanceConstraintState &World::upsertRigidDistanceConstraint(
     const physics::AuthoredRigidDistanceConstraintState &state)
 {
@@ -1427,6 +1433,12 @@ physics::AuthoredSuturingSequenceState &World::upsertSuturingSequence(
 bool World::removeParticleDistanceConstraint(physics::ParticleConstraintId constraintId)
 {
     return mPhysicsWorld.removeParticleDistanceConstraint(constraintId);
+}
+
+bool World::removeRigidParticleAttachmentConstraint(
+    physics::RigidParticleAttachmentConstraintId constraintId)
+{
+    return mPhysicsWorld.removeRigidParticleAttachmentConstraint(constraintId);
 }
 
 bool World::removeRigidDistanceConstraint(physics::RigidDistanceConstraintId constraintId)
@@ -2063,6 +2075,13 @@ const physics::AuthoredParticleDistanceConstraintState *World::tryGetParticleDis
     physics::ParticleConstraintId constraintId) const noexcept
 {
     return mPhysicsWorld.tryGetParticleDistanceConstraint(constraintId);
+}
+
+const physics::AuthoredRigidParticleAttachmentConstraintState *
+World::tryGetRigidParticleAttachmentConstraint(
+    physics::RigidParticleAttachmentConstraintId constraintId) const noexcept
+{
+    return mPhysicsWorld.tryGetRigidParticleAttachmentConstraint(constraintId);
 }
 
 const physics::AuthoredRigidDistanceConstraintState *World::tryGetRigidDistanceConstraint(

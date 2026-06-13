@@ -133,6 +133,13 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE physics
+    NAME rigid_particle_attachment_constraint_authoring
+    SOURCE physics_rigid_particle_attachment_constraint_authoring.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
     NAME routed_cable_constraint_authoring
     SOURCE physics_routed_cable_constraint_authoring.cpp
     LIBS cressim_neo_engine

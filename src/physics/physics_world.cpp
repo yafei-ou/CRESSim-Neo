@@ -555,6 +555,7 @@ void PhysicsWorld::clear()
     mEntityToFluidIndex.clear();
     mParticleSequenceIdToIndex.clear();
     mParticleConstraintIdToIndex.clear();
+    mRigidParticleAttachmentConstraintIdToIndex.clear();
     mRigidDistanceConstraintIdToIndex.clear();
     mRoutedCableConstraintIdToIndex.clear();
     mParticleCollisionFilterIdToIndex.clear();
@@ -567,6 +568,7 @@ void PhysicsWorld::clear()
     mFluidSnapshot.clear();
     mParticleSequenceSnapshot.clear();
     mParticleDistanceConstraintSnapshot.clear();
+    mRigidParticleAttachmentConstraintSnapshot.clear();
     mRigidDistanceConstraintSnapshot.clear();
     mRoutedCableConstraintSnapshot.clear();
     mParticleCollisionFilterSnapshot.clear();
@@ -586,6 +588,7 @@ void PhysicsWorld::clear()
     mSoftEdges.clear();
     mSoftBends.clear();
     mSoftTets.clear();
+    mRigidParticleAttachments.clear();
     mRigidDistanceConstraints.clear();
     mRoutedCableConstraints.clear();
     mRoutedCableRoutePoints.clear();
@@ -615,6 +618,7 @@ void PhysicsWorld::clear()
     mNextSliderJointId              = 1u;
     mNextParticleSequenceId         = 1u;
     mNextParticleConstraintId       = 1u;
+    mNextRigidParticleAttachmentConstraintId = 1u;
     mNextRigidDistanceConstraintId  = 1u;
     mNextRoutedCableConstraintId    = 1u;
     mNextParticleCollisionFilterId  = 1u;
@@ -626,6 +630,8 @@ void PhysicsWorld::clear()
     ++mSoftBodyTopologyRevision;
     ++mSoftParticleRevision;
     ++mSoftGpuTopologyRevision;
+    ++mRigidParticleAttachmentRevision;
+    ++mRigidParticleAttachmentTopologyRevision;
     ++mRigidDistanceConstraintRevision;
     ++mRigidDistanceConstraintTopologyRevision;
     ++mRoutedCableRevision;
@@ -1201,6 +1207,46 @@ AuthoredParticleDistanceConstraintState &PhysicsWorld::upsertParticleDistanceCon
     return mParticleDistanceConstraintSnapshot[it->second];
 }
 
+AuthoredRigidParticleAttachmentConstraintState &PhysicsWorld::upsertRigidParticleAttachmentConstraint(
+    const AuthoredRigidParticleAttachmentConstraintState &state)
+{
+    AuthoredRigidParticleAttachmentConstraintState normalizedState = state;
+    normalizedState.compliance = std::max(normalizedState.compliance, 0.0f);
+
+    auto it = mRigidParticleAttachmentConstraintIdToIndex.find(normalizedState.constraintId);
+    if (normalizedState.constraintId == kInvalidRigidParticleAttachmentConstraintId ||
+        it == mRigidParticleAttachmentConstraintIdToIndex.end())
+    {
+        normalizedState.constraintId = mNextRigidParticleAttachmentConstraintId++;
+        const std::uint32_t index =
+            static_cast<std::uint32_t>(mRigidParticleAttachmentConstraintSnapshot.size());
+        mRigidParticleAttachmentConstraintIdToIndex.emplace(normalizedState.constraintId, index);
+        mRigidParticleAttachmentConstraintSnapshot.push_back(normalizedState);
+        mSoftBodyDerivedStateDirty = true;
+        ++mRigidParticleAttachmentRevision;
+        ++mRigidParticleAttachmentTopologyRevision;
+        ++mAuthoredRevision;
+        return mRigidParticleAttachmentConstraintSnapshot.back();
+    }
+
+    const AuthoredRigidParticleAttachmentConstraintState &previous =
+        mRigidParticleAttachmentConstraintSnapshot[it->second];
+    const bool topologyChanged =
+        previous.particle.entityId != normalizedState.particle.entityId ||
+        previous.particle.type != normalizedState.particle.type ||
+        previous.particle.localParticleIndex != normalizedState.particle.localParticleIndex ||
+        previous.rigidBodyEntityId != normalizedState.rigidBodyEntityId;
+    mRigidParticleAttachmentConstraintSnapshot[it->second] = normalizedState;
+    mSoftBodyDerivedStateDirty                             = true;
+    ++mRigidParticleAttachmentRevision;
+    if (topologyChanged)
+    {
+        ++mRigidParticleAttachmentTopologyRevision;
+    }
+    ++mAuthoredRevision;
+    return mRigidParticleAttachmentConstraintSnapshot[it->second];
+}
+
 AuthoredRigidDistanceConstraintState &PhysicsWorld::upsertRigidDistanceConstraint(
     const AuthoredRigidDistanceConstraintState &state)
 {
@@ -1475,6 +1521,35 @@ bool PhysicsWorld::removeParticleDistanceConstraint(ParticleConstraintId constra
     mSoftBodyDerivedStateDirty = true;
     ++mSoftBodyTopologyRevision;
     ++mSoftGpuTopologyRevision;
+    ++mAuthoredRevision;
+    return true;
+}
+
+bool PhysicsWorld::removeRigidParticleAttachmentConstraint(
+    RigidParticleAttachmentConstraintId constraintId)
+{
+    const auto it = mRigidParticleAttachmentConstraintIdToIndex.find(constraintId);
+    if (it == mRigidParticleAttachmentConstraintIdToIndex.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t index = it->second;
+    const std::uint32_t last =
+        static_cast<std::uint32_t>(mRigidParticleAttachmentConstraintSnapshot.size() - 1u);
+    if (index != last)
+    {
+        mRigidParticleAttachmentConstraintSnapshot[index] =
+            mRigidParticleAttachmentConstraintSnapshot[last];
+        mRigidParticleAttachmentConstraintIdToIndex
+            [mRigidParticleAttachmentConstraintSnapshot[index].constraintId] = index;
+    }
+
+    mRigidParticleAttachmentConstraintIdToIndex.erase(it);
+    mRigidParticleAttachmentConstraintSnapshot.pop_back();
+    mSoftBodyDerivedStateDirty = true;
+    ++mRigidParticleAttachmentRevision;
+    ++mRigidParticleAttachmentTopologyRevision;
     ++mAuthoredRevision;
     return true;
 }
@@ -1959,6 +2034,26 @@ const AuthoredParticleDistanceConstraintState *PhysicsWorld::tryGetParticleDista
                : &mParticleDistanceConstraintSnapshot[it->second];
 }
 
+AuthoredRigidParticleAttachmentConstraintState *
+PhysicsWorld::tryGetRigidParticleAttachmentConstraint(
+    RigidParticleAttachmentConstraintId constraintId)
+{
+    const auto it = mRigidParticleAttachmentConstraintIdToIndex.find(constraintId);
+    return it == mRigidParticleAttachmentConstraintIdToIndex.end()
+               ? nullptr
+               : &mRigidParticleAttachmentConstraintSnapshot[it->second];
+}
+
+const AuthoredRigidParticleAttachmentConstraintState *
+PhysicsWorld::tryGetRigidParticleAttachmentConstraint(
+    RigidParticleAttachmentConstraintId constraintId) const
+{
+    const auto it = mRigidParticleAttachmentConstraintIdToIndex.find(constraintId);
+    return it == mRigidParticleAttachmentConstraintIdToIndex.end()
+               ? nullptr
+               : &mRigidParticleAttachmentConstraintSnapshot[it->second];
+}
+
 AuthoredRigidDistanceConstraintState *PhysicsWorld::tryGetRigidDistanceConstraint(
     RigidDistanceConstraintId constraintId)
 {
@@ -2063,6 +2158,12 @@ const std::vector<AuthoredParticleDistanceConstraintState> &PhysicsWorld::
     particleDistanceConstraintSnapshot() const noexcept
 {
     return mParticleDistanceConstraintSnapshot;
+}
+
+const std::vector<AuthoredRigidParticleAttachmentConstraintState> &PhysicsWorld::
+    rigidParticleAttachmentConstraintSnapshot() const noexcept
+{
+    return mRigidParticleAttachmentConstraintSnapshot;
 }
 
 const std::vector<AuthoredRigidDistanceConstraintState> &PhysicsWorld::
@@ -2200,6 +2301,16 @@ const std::vector<SoftBend> &PhysicsWorld::softBends() const noexcept
 const std::vector<SoftTet> &PhysicsWorld::softTets() const noexcept
 {
     return volumeConstraints();
+}
+
+const std::vector<RigidParticleAttachmentConstraint> &PhysicsWorld::rigidParticleAttachments()
+    const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return mRigidParticleAttachments;
 }
 
 const std::vector<RigidDistanceConstraint> &PhysicsWorld::rigidDistanceConstraints() const noexcept
@@ -2569,6 +2680,16 @@ std::uint64_t PhysicsWorld::softParticleRevision() const noexcept
 std::uint64_t PhysicsWorld::softGpuTopologyRevision() const noexcept
 {
     return mSoftGpuTopologyRevision;
+}
+
+std::uint64_t PhysicsWorld::rigidParticleAttachmentRevision() const noexcept
+{
+    return mRigidParticleAttachmentRevision;
+}
+
+std::uint64_t PhysicsWorld::rigidParticleAttachmentTopologyRevision() const noexcept
+{
+    return mRigidParticleAttachmentTopologyRevision;
 }
 
 std::uint64_t PhysicsWorld::rigidDistanceConstraintRevision() const noexcept
@@ -3486,6 +3607,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
     mSoftEdges.clear();
     mSoftBends.clear();
     mSoftTets.clear();
+    mRigidParticleAttachments.clear();
     mRigidDistanceConstraints.clear();
     mRoutedCableConstraints.clear();
     mRoutedCableRoutePoints.clear();
@@ -4190,6 +4312,40 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
         resolved.restLength = constraint.restLength;
         resolved.compliance = constraint.compliance;
         mSoftEdges.push_back(resolved);
+    }
+
+    for (const AuthoredRigidParticleAttachmentConstraintState &constraint :
+         mRigidParticleAttachmentConstraintSnapshot)
+    {
+        if (!constraint.enabled)
+        {
+            continue;
+        }
+
+        const auto particleIndex = resolveParticleReference(constraint.particle);
+        const std::optional<std::uint32_t> rigidBodyIndex =
+            resolveRigidBodyIndex(constraint.rigidBodyEntityId);
+        if (!particleIndex.has_value() || !rigidBodyIndex.has_value() ||
+            *particleIndex >= mParticles.environmentIndices.size() ||
+            *rigidBodyIndex >= mRigidBodySnapshot.size())
+        {
+            continue;
+        }
+
+        if (mParticles.environmentIndices[*particleIndex] !=
+            mRigidBodySnapshot[*rigidBodyIndex].environmentIndex)
+        {
+            continue;
+        }
+
+        mRigidParticleAttachments.push_back(RigidParticleAttachmentConstraint{
+            *particleIndex,
+            *rigidBodyIndex,
+            constraint.compliance,
+            0u,
+            Diligent::float4{constraint.localAnchor.x, constraint.localAnchor.y,
+                             constraint.localAnchor.z, 0.0f},
+        });
     }
 
     for (const AuthoredRigidDistanceConstraintState &constraint :
