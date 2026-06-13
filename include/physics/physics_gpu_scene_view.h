@@ -70,6 +70,8 @@ struct PhysicsGpuSoftSceneView
     Diligent::IBuffer *strandSegmentsBuffer          = nullptr;
     Diligent::IBuffer *strandJointsBuffer            = nullptr;
     Diligent::IBuffer *strandSegmentStatesBuffer     = nullptr;
+    Diligent::IBuffer *segmentStrandJointRangesBuffer = nullptr;
+    Diligent::IBuffer *segmentIncidentStrandJointsBuffer = nullptr;
     Diligent::IBuffer *suturingPairsBuffer           = nullptr;
     Diligent::IBuffer *suturingParticleRefsBuffer    = nullptr;
     Diligent::IBuffer *suturingInsertionStatesBuffer = nullptr;

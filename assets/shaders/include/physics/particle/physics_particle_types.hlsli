@@ -241,8 +241,8 @@ struct GpuStrandJointCorrection
     float4 correction0;
     float4 correction1;
     float4 correction2;
-    float4 orientationA;
-    float4 orientationB;
+    float4 twistRotationA;
+    float4 twistRotationB;
 };
 
 struct GpuSoftBodyParticleRange

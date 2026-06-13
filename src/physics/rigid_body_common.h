@@ -513,8 +513,8 @@ struct GpuStrandJointCorrection
     Diligent::float4 correction0{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 correction1{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 correction2{0.0f, 0.0f, 0.0f, 0.0f};
-    Diligent::float4 orientationA{0.0f, 0.0f, 0.0f, 1.0f};
-    Diligent::float4 orientationB{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::float4 twistRotationA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 twistRotationB{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 struct GpuBroadPhaseBuildConstants

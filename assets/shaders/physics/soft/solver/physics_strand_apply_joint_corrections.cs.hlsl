@@ -1,11 +1,13 @@
 #include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
 #include "../../../include/physics/particle/physics_particle_types.hlsli"
+#include "../../../include/physics/core/physics_math.hlsli"
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftConstraintRange, g_ParticleStrandJointRanges);
 CRESSIM_STRUCTURED_BUFFER(GpuStrandIncidentJoint, g_ParticleIncidentStrandJoints);
 CRESSIM_STRUCTURED_BUFFER(GpuStrandJointCorrection, g_StrandJointCorrections);
-CRESSIM_STRUCTURED_BUFFER(GpuStrandJoint, g_StrandJoints);
+CRESSIM_STRUCTURED_BUFFER(GpuSoftConstraintRange, g_SegmentStrandJointRanges);
+CRESSIM_STRUCTURED_BUFFER(GpuStrandIncidentJoint, g_SegmentIncidentStrandJoints);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuStrandSegmentState, g_StrandSegmentStates);
 
 [numthreads(64, 1, 1)]
@@ -43,16 +45,23 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         }
     }
 
-    if (index < strandJointCount)
+    if (index < strandSegmentCount)
     {
-        const GpuStrandJoint joint = CRESSIM_SB_LOAD(g_StrandJoints, index);
-        const GpuStrandJointCorrection correction =
-            CRESSIM_SB_LOAD(g_StrandJointCorrections, index);
-        GpuStrandSegmentState stateA;
-        stateA.orientation = correction.orientationA;
-        GpuStrandSegmentState stateB;
-        stateB.orientation = correction.orientationB;
-        CRESSIM_SB_STORE(g_StrandSegmentStates, joint.segmentA, stateA);
-        CRESSIM_SB_STORE(g_StrandSegmentStates, joint.segmentB, stateB);
+        const GpuSoftConstraintRange range = CRESSIM_SB_LOAD(g_SegmentStrandJointRanges, index);
+        GpuStrandSegmentState state = CRESSIM_SB_LOAD(g_StrandSegmentStates, index);
+        float3 totalTwistRotation = float3(0.0, 0.0, 0.0);
+        for (uint offset = 0u; offset < range.count; ++offset)
+        {
+            const GpuStrandIncidentJoint ref =
+                CRESSIM_SB_LOAD(g_SegmentIncidentStrandJoints, range.start + offset);
+            const GpuStrandJointCorrection correction =
+                CRESSIM_SB_LOAD(g_StrandJointCorrections, ref.jointIndex);
+            totalTwistRotation +=
+                ref.slot == 0u ? correction.twistRotationA.xyz : correction.twistRotationB.xyz;
+        }
+
+        state.orientation = QuaternionNormalize(
+            QuaternionMul(state.orientation, QuaternionFromRotationVector(totalTwistRotation)));
+        CRESSIM_SB_STORE(g_StrandSegmentStates, index, state);
     }
 }

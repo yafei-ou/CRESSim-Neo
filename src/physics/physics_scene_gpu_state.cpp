@@ -418,6 +418,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentSoftTopology.particleIncidentStrandSegmentsBuffer != nullptr &&
         mPersistentSoftTopology.particleStrandJointRangesBuffer != nullptr &&
         mPersistentSoftTopology.particleIncidentStrandJointsBuffer != nullptr &&
+        mPersistentSoftTopology.segmentStrandJointRangesBuffer != nullptr &&
+        mPersistentSoftTopology.segmentIncidentStrandJointsBuffer != nullptr &&
         mPersistentSoftTopology.renderVertexTriangleRangesBuffer != nullptr &&
         mPersistentSoftTopology.renderVertexTriangleIndicesBuffer != nullptr &&
         mPersistentSoftTopology.renderTriangleParticleIndicesBuffer != nullptr &&
@@ -608,6 +610,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
         std::max<std::uint32_t>(strandSegmentCount * 2u, 64u);
     const std::uint32_t newStrandIncidentJointCapacity =
         std::max<std::uint32_t>(strandJointCount * 3u, 64u);
+    const std::uint32_t newStrandSegmentIncidentJointCapacity =
+        std::max<std::uint32_t>(strandJointCount * 2u, 64u);
     const std::uint32_t newSoftRenderVertexCapacity =
         std::max<std::uint32_t>(softRenderVertexCount, 64u);
     const std::uint32_t newSoftRenderTriangleIndexCapacity =
@@ -687,6 +691,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mSoftIncidentTetCapacity >= newSoftIncidentTetCapacity &&
         mStrandIncidentSegmentCapacity >= newStrandIncidentSegmentCapacity &&
         mStrandIncidentJointCapacity >= newStrandIncidentJointCapacity &&
+        mStrandSegmentIncidentJointCapacity >= newStrandSegmentIncidentJointCapacity &&
         mSoftRenderVertexCapacity >= newSoftRenderVertexCapacity &&
         mSoftRenderTriangleIndexCapacity >= newSoftRenderTriangleIndexCapacity &&
         mSoftRenderTriangleCapacity >= newSoftRenderTriangleCapacity &&
@@ -1097,6 +1102,17 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftTopology.particleIncidentStrandJointsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SegmentStrandJointRanges",
+                                sizeof(GpuSoftConstraintRange), newStrandSegmentCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSoftTopology.segmentStrandJointRangesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SegmentIncidentStrandJoints",
+                                sizeof(GpuStrandIncidentJoint),
+                                newStrandSegmentIncidentJointCapacity,
+                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
+                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSoftTopology.segmentIncidentStrandJointsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRenderVertexTriangleRanges",
                                 sizeof(GpuSoftRenderVertexTriangleRange),
                                 newSoftRenderVertexCapacity, Diligent::BIND_SHADER_RESOURCE,
@@ -1891,6 +1907,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mSoftIncidentTetCapacity != newSoftIncidentTetCapacity ||
         mStrandIncidentSegmentCapacity != newStrandIncidentSegmentCapacity ||
         mStrandIncidentJointCapacity != newStrandIncidentJointCapacity ||
+        mStrandSegmentIncidentJointCapacity != newStrandSegmentIncidentJointCapacity ||
         mSoftRenderVertexCapacity != newSoftRenderVertexCapacity ||
         mSoftRenderTriangleIndexCapacity != newSoftRenderTriangleIndexCapacity ||
         mSoftRenderTriangleCapacity != newSoftRenderTriangleCapacity ||
@@ -1944,6 +1961,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
     mSoftIncidentTetCapacity                   = newSoftIncidentTetCapacity;
     mStrandIncidentSegmentCapacity             = newStrandIncidentSegmentCapacity;
     mStrandIncidentJointCapacity               = newStrandIncidentJointCapacity;
+    mStrandSegmentIncidentJointCapacity        = newStrandSegmentIncidentJointCapacity;
     mSoftRenderVertexCapacity                  = newSoftRenderVertexCapacity;
     mSoftRenderTriangleIndexCapacity           = newSoftRenderTriangleIndexCapacity;
     mSoftRenderTriangleCapacity                = newSoftRenderTriangleCapacity;
@@ -2911,6 +2929,7 @@ bool PhysicsSceneGpuState::uploadSoftTopology(
     }
 
     std::vector<std::vector<GpuStrandIncidentJoint>> particleStrandJointRefs(particleCount);
+    std::vector<std::vector<GpuStrandIncidentJoint>> segmentStrandJointRefs(strandSegments.size());
     for (std::uint32_t jointIndex = 0u;
          jointIndex < static_cast<std::uint32_t>(strandJoints.size()); ++jointIndex)
     {
@@ -2933,6 +2952,11 @@ bool PhysicsSceneGpuState::uploadSoftTopology(
                     GpuStrandIncidentJoint{jointIndex, slot, 0u, 0u});
             }
         }
+
+        segmentStrandJointRefs[joint.segmentA].push_back(
+            GpuStrandIncidentJoint{jointIndex, 0u, 0u, 0u});
+        segmentStrandJointRefs[joint.segmentB].push_back(
+            GpuStrandIncidentJoint{jointIndex, 1u, 0u, 0u});
     }
 
     std::vector<GpuSoftConstraintRange> particleEdgeRanges;
@@ -2980,6 +3004,17 @@ bool PhysicsSceneGpuState::uploadSoftTopology(
     for (const auto &refs : particleStrandJointRefs)
     {
         incidentStrandJoints.insert(incidentStrandJoints.end(), refs.begin(), refs.end());
+    }
+
+    std::vector<GpuSoftConstraintRange> segmentStrandJointRanges;
+    buildConstraintAdjacencyRanges(static_cast<std::uint32_t>(strandSegments.size()),
+                                   segmentStrandJointRefs, segmentStrandJointRanges);
+    std::vector<GpuStrandIncidentJoint> segmentIncidentStrandJoints;
+    segmentIncidentStrandJoints.reserve(strandJoints.size() * 2u);
+    for (const auto &refs : segmentStrandJointRefs)
+    {
+        segmentIncidentStrandJoints.insert(segmentIncidentStrandJoints.end(), refs.begin(),
+                                           refs.end());
     }
 
     std::vector<GpuSoftRenderVertexTriangleRange> renderVertexTriangleRanges(
@@ -3066,6 +3101,14 @@ bool PhysicsSceneGpuState::uploadSoftTopology(
                computeContext, mPersistentSoftTopology.particleIncidentStrandJointsBuffer,
                incidentStrandJoints, 0u,
                static_cast<std::uint32_t>(incidentStrandJoints.size())) &&
+           updateStructuredBufferRange(
+               computeContext, mPersistentSoftTopology.segmentStrandJointRangesBuffer,
+               segmentStrandJointRanges, 0u,
+               static_cast<std::uint32_t>(segmentStrandJointRanges.size())) &&
+           updateStructuredBufferRange(
+               computeContext, mPersistentSoftTopology.segmentIncidentStrandJointsBuffer,
+               segmentIncidentStrandJoints, 0u,
+               static_cast<std::uint32_t>(segmentIncidentStrandJoints.size())) &&
            updateStructuredBufferRange(
                computeContext, mPersistentSoftTopology.renderVertexTriangleRangesBuffer,
                renderVertexTriangleRanges, 0u,
@@ -3894,6 +3937,10 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.strandSegmentsBuffer             = mPersistentSoftTopology.strandSegmentsBuffer;
     view.soft.strandJointsBuffer               = mPersistentSoftTopology.strandJointsBuffer;
     view.soft.strandSegmentStatesBuffer        = mPersistentSoftTopology.strandSegmentStatesBuffer;
+    view.soft.segmentStrandJointRangesBuffer   =
+        mPersistentSoftTopology.segmentStrandJointRangesBuffer;
+    view.soft.segmentIncidentStrandJointsBuffer =
+        mPersistentSoftTopology.segmentIncidentStrandJointsBuffer;
     view.soft.suturingPairsBuffer              = mPersistentSuturing.pairsBuffer;
     view.soft.suturingParticleRefsBuffer       = mPersistentSuturing.particleRefsBuffer;
     view.soft.suturingInsertionStatesBuffer    = mPersistentSuturing.insertionStatesBuffer;

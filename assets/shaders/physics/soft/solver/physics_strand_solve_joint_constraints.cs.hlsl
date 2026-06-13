@@ -27,6 +27,27 @@ float ComputeRestBendAngle(float4 restRelativeOrientation)
     return acos(restCosTheta);
 }
 
+float ComputeTwistConstraintAroundLocalX(float4 qA, float4 qB, float4 restRelative)
+{
+    const float4 relative = QuaternionMul(QuaternionConjugate(QuaternionNormalize(qA)),
+                                          QuaternionNormalize(qB));
+    float4 errorQ = QuaternionMul(QuaternionConjugate(QuaternionNormalize(restRelative)), relative);
+    errorQ = QuaternionNormalize(errorQ);
+    if (errorQ.w < 0.0)
+    {
+        errorQ = -errorQ;
+    }
+
+    float2 twistPlane = float2(errorQ.x, errorQ.w);
+    const float twistPlaneLengthSq = dot(twistPlane, twistPlane);
+    if (twistPlaneLengthSq <= kEpsilon)
+    {
+        return 0.0;
+    }
+    twistPlane *= rsqrt(twistPlaneLengthSq);
+    return 2.0 * atan2(twistPlane.x, twistPlane.y);
+}
+
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -51,8 +72,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     correction.correction0 = float4(0.0, 0.0, 0.0, 0.0);
     correction.correction1 = float4(0.0, 0.0, 0.0, 0.0);
     correction.correction2 = float4(0.0, 0.0, 0.0, 0.0);
-    correction.orientationA = CRESSIM_SB_LOAD(g_StrandSegmentStates, joint.segmentA).orientation;
-    correction.orientationB = CRESSIM_SB_LOAD(g_StrandSegmentStates, joint.segmentB).orientation;
+    correction.twistRotationA = float4(0.0, 0.0, 0.0, 0.0);
+    correction.twistRotationB = float4(0.0, 0.0, 0.0, 0.0);
+    const float4 orientationA = CRESSIM_SB_LOAD(g_StrandSegmentStates, joint.segmentA).orientation;
+    const float4 orientationB = CRESSIM_SB_LOAD(g_StrandSegmentStates, joint.segmentB).orientation;
 
     const float w0 = positionInvMass0.w;
     const float w1 = positionInvMass1.w;
@@ -101,6 +124,19 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         correction.correction0 = float4(w0 * deltaLambda * gradient0 * kSoftInternalRelaxation, 0.0);
         correction.correction1 = float4(w1 * deltaLambda * gradient1 * kSoftInternalRelaxation, 0.0);
         correction.correction2 = float4(w2 * deltaLambda * gradient2 * kSoftInternalRelaxation, 0.0);
+    }
+
+    if (joint.twistCompliance >= 0.0)
+    {
+        const float twistConstraint =
+            ComputeTwistConstraintAroundLocalX(orientationA, orientationB,
+                                               joint.restRelativeOrientation);
+        const float twistAlpha = max(joint.twistCompliance, 0.0) / max(dt * dt, kEpsilon);
+        const float twistDeltaLambda = -twistConstraint / max(2.0 + twistAlpha, kEpsilon);
+        const float halfTwist =
+            0.5 * twistDeltaLambda * kSoftInternalRelaxation;
+        correction.twistRotationA = float4(halfTwist, 0.0, 0.0, 0.0);
+        correction.twistRotationB = float4(-halfTwist, 0.0, 0.0, 0.0);
     }
 
     CRESSIM_SB_STORE(g_StrandJointCorrections, jointIndex, correction);

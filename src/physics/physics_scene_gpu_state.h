@@ -138,6 +138,8 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentStrandSegmentsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleStrandJointRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentStrandJointsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> segmentStrandJointRangesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> segmentIncidentStrandJointsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexTriangleRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexTriangleIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexBindingsBuffer;
@@ -552,6 +554,7 @@ private:
     std::uint32_t mSoftIncidentTetCapacity                   = 0;
     std::uint32_t mStrandIncidentSegmentCapacity             = 0;
     std::uint32_t mStrandIncidentJointCapacity               = 0;
+    std::uint32_t mStrandSegmentIncidentJointCapacity        = 0;
     std::uint32_t mSoftRenderVertexCapacity                  = 0;
     std::uint32_t mSoftRenderTriangleIndexCapacity           = 0;
     std::uint32_t mSoftRenderTriangleCapacity                = 0;
