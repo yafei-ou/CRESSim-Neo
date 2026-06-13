@@ -16,7 +16,6 @@ int main()
     strand.collisionMask        = 0x24u;
     strand.particleMass         = 0.5f;
     strand.particleRadius       = 0.07f;
-    strand.distanceCompliance   = 0.03f;
     strand.stretchShearCompliance = 0.03f;
     strand.bendCompliance       = 0.015f;
     strand.twistCompliance      = 0.01f;

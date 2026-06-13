@@ -18,7 +18,6 @@ int main()
     strand.staticParticleIndices = {0u};
     strand.particleMass          = 0.4f;
     strand.particleRadius        = 0.06f;
-    strand.distanceCompliance    = 0.02f;
     strand.stretchShearCompliance = 0.02f;
     strand.bendCompliance        = 0.01f;
     strand.twistCompliance       = 0.005f;
@@ -51,7 +50,6 @@ int main()
 
     const auto component = world.tryGetStrand(entity);
     if (!component.has_value() || component->restPositions.size() != 3u ||
-        component->distanceCompliance != strand.distanceCompliance ||
         component->stretchShearCompliance != strand.stretchShearCompliance ||
         component->bendCompliance != strand.bendCompliance ||
         component->twistCompliance != strand.twistCompliance ||

@@ -414,7 +414,8 @@ int main(int argc, char **argv)
     backbone.staticParticleIndices.push_back(0u);
     backbone.particleMass       = 0.3f;
     backbone.particleRadius     = 0.075f;
-    backbone.distanceCompliance = std::max(sceneOptions.backboneCompliance * 0.1f, 1.0e-9f);
+    backbone.stretchShearCompliance =
+        std::max(sceneOptions.backboneCompliance * 0.1f, 1.0e-9f);
     backbone.bendCompliance     = sceneOptions.backboneCompliance;
     backbone.selfCollisionEnabled = false;
     backbone.suturingEnabled      = false;

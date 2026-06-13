@@ -9,15 +9,6 @@ CRESSIM_STRUCTURED_BUFFER(GpuStrandSegmentState, g_StrandSegmentStates);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_StrandJointLambdas);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuStrandJointCorrection, g_StrandJointCorrections);
 
-float ComputeTwistConstraint(float4 qA, float4 qB, float4 restRelative)
-{
-    const float4 relative = QuaternionMul(QuaternionConjugate(QuaternionNormalize(qA)),
-                                          QuaternionNormalize(qB));
-    const float4 errorQ =
-        QuaternionMul(QuaternionConjugate(QuaternionNormalize(restRelative)), relative);
-    return 2.0 * acos(clamp(errorQ.w, -1.0, 1.0));
-}
-
 float ComputeRestBendAngle(float4 restRelativeOrientation)
 {
     const float3 restTangentB = QuaternionRotate(QuaternionNormalize(restRelativeOrientation),

@@ -3046,15 +3046,10 @@ void PhysicsWorld::normalizeStrandState(StrandState &state) noexcept
     normalizeParticleContactMaterial(state.material.contact);
     state.particleMass            = std::max(state.particleMass, 1.0e-4f);
     state.particleRadius          = std::max(state.particleRadius, 1.0e-4f);
-    state.distanceCompliance      = std::max(state.distanceCompliance, 0.0f);
     state.stretchShearCompliance  = std::max(state.stretchShearCompliance, 0.0f);
     state.bendCompliance          = std::max(state.bendCompliance, 0.0f);
     state.twistCompliance         = std::max(state.twistCompliance, 0.0f);
     state.pathNodeSpacing         = std::max(state.pathNodeSpacing, 1.0e-4f);
-    if (state.stretchShearCompliance <= 0.0f)
-    {
-        state.stretchShearCompliance = state.distanceCompliance;
-    }
     if (state.collisionLayer == 0u)
     {
         state.collisionLayer = 1u;
@@ -3282,7 +3277,6 @@ void PhysicsWorld::applyStrandRuntimeProperties(std::uint32_t index,
     strand.material              = normalizedState.material;
     strand.particleMass          = normalizedState.particleMass;
     strand.particleRadius        = normalizedState.particleRadius;
-    strand.distanceCompliance    = normalizedState.distanceCompliance;
     strand.stretchShearCompliance = normalizedState.stretchShearCompliance;
     strand.bendCompliance        = normalizedState.bendCompliance;
     strand.twistCompliance       = normalizedState.twistCompliance;

@@ -62,7 +62,6 @@ int main()
     };
     strand.particleMass            = 0.5f;
     strand.particleRadius          = 0.05f;
-    strand.distanceCompliance      = 0.01f;
     strand.stretchShearCompliance  = 0.01f;
     strand.bendCompliance          = 0.02f;
     strand.twistCompliance         = 0.03f;
