@@ -49,7 +49,6 @@ extern const gpu::GpuComputePassDefinition kSolveSoftTetConstraints;
 extern const gpu::GpuComputePassDefinition kApplySoftEdgeCorrections;
 extern const gpu::GpuComputePassDefinition kApplySoftBendCorrections;
 extern const gpu::GpuComputePassDefinition kApplySoftTetCorrections;
-extern const gpu::GpuComputePassDefinition kReconcileStrandSegmentFrames;
 extern const gpu::GpuComputePassDefinition kSolveStrandSegmentConstraints;
 extern const gpu::GpuComputePassDefinition kApplyStrandSegmentCorrections;
 extern const gpu::GpuComputePassDefinition kSolveStrandJointConstraints;

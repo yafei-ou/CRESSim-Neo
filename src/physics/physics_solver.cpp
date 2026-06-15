@@ -668,16 +668,6 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
              rigidJointIterations > 0u);
         if (hasAnyPositionSolveWork)
         {
-            if (hasSoftInternalWork &&
-                !mImpl->passDispatcher.reconcileStrandSegmentFrames(
-                    computeBackend.computeContext, mImpl->sceneState, strandSegmentCount,
-                    particleConstants))
-            {
-                CRESSIM_LOG_ERROR(
-                    "PhysicsSolver::step failed: ReconcileStrandSegmentFrames dispatch.");
-                return false;
-            }
-
             for (std::uint32_t iteration = 0u; iteration < maxPositionPhaseIterations; ++iteration)
             {
                 particleConstants.iterationIndex = iteration;

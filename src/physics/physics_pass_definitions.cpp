@@ -701,17 +701,6 @@ constexpr Diligent::ShaderResourceVariableDesc kApplySoftTetCorrectionsVars[] = 
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
-constexpr Diligent::ShaderResourceVariableDesc kReconcileStrandSegmentFramesVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegments",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegmentStates",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-};
-
 constexpr Diligent::ShaderResourceVariableDesc kSolveStrandSegmentConstraintsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -746,6 +735,10 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveStrandJointConstraintsVars[
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_StrandJoints",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegments",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegmentStates",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2321,14 +2314,6 @@ const gpu::GpuComputePassDefinition kApplySoftTetCorrections{
     "CRESSimNeo.Physics.ApplySoftTetCorrections.PSO",
     kApplySoftTetCorrectionsVars,
     std::size(kApplySoftTetCorrectionsVars),
-};
-
-const gpu::GpuComputePassDefinition kReconcileStrandSegmentFrames{
-    "physics/soft/solver/physics_strand_reconcile_segment_frames.cs.hlsl",
-    "CRESSimNeo.Physics.ReconcileStrandSegmentFrames.CS",
-    "CRESSimNeo.Physics.ReconcileStrandSegmentFrames.PSO",
-    kReconcileStrandSegmentFramesVars,
-    std::size(kReconcileStrandSegmentFramesVars),
 };
 
 const gpu::GpuComputePassDefinition kSolveStrandSegmentConstraints{

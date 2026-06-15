@@ -3,6 +3,8 @@
 #include "../../../include/physics/core/physics_math.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(GpuStrandJoint, g_StrandJoints);
+CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
+CRESSIM_STRUCTURED_BUFFER(GpuStrandSegment, g_StrandSegments);
 CRESSIM_STRUCTURED_BUFFER(GpuStrandSegmentState, g_StrandSegmentStates);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_StrandJointLambdas);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuStrandJointCorrection, g_StrandJointCorrections);
@@ -49,6 +51,18 @@ float3x3 Inverse3x3(float3x3 m)
                     c12 * invDet, c20 * invDet, c21 * invDet, c22 * invDet);
 }
 
+float ComputeStrandOrientationInvMass(float wA, float wB, float restLength)
+{
+    const float dynamicWeightSum = max(wA + wB, 0.0);
+    if (dynamicWeightSum <= kEpsilon || restLength <= kEpsilon)
+    {
+        return 0.0;
+    }
+
+    const float averageInvMass = dynamicWeightSum * 0.5;
+    return 12.0 * averageInvMass / max(restLength * restLength, kEpsilon);
+}
+
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -59,6 +73,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     const GpuStrandJoint joint = CRESSIM_SB_LOAD(g_StrandJoints, jointIndex);
+    const GpuStrandSegment segmentA = CRESSIM_SB_LOAD(g_StrandSegments, joint.segmentA);
+    const GpuStrandSegment segmentB = CRESSIM_SB_LOAD(g_StrandSegments, joint.segmentB);
     GpuStrandJointCorrection correction;
     correction.correction0 = float4(0.0, 0.0, 0.0, 0.0);
     correction.correction1 = float4(0.0, 0.0, 0.0, 0.0);
@@ -69,6 +85,14 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         CRESSIM_SB_LOAD(g_StrandSegmentStates, joint.segmentA).orientation);
     const float4 orientationB = QuaternionNormalize(
         CRESSIM_SB_LOAD(g_StrandSegmentStates, joint.segmentB).orientation);
+    const float wA0 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, segmentA.particleA).w;
+    const float wA1 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, segmentA.particleB).w;
+    const float wB0 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, segmentB.particleA).w;
+    const float wB1 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, segmentB.particleB).w;
+    const float orientationInvMassA =
+        ComputeStrandOrientationInvMass(wA0, wA1, segmentA.restLength);
+    const float orientationInvMassB =
+        ComputeStrandOrientationInvMass(wB0, wB1, segmentB.restLength);
     float4 relative = QuaternionNormalize(QuaternionMul(QuaternionConjugate(orientationA), orientationB));
     float4 restRelative = QuaternionNormalize(joint.restRelativeOrientation);
     if (dot(relative, restRelative) < 0.0)
@@ -100,14 +124,14 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 gradBW = -va;
 
     float3x3 system = alphaMatrix;
-    system += OuterProduct3(gradAX, gradAX);
-    system += OuterProduct3(gradAY, gradAY);
-    system += OuterProduct3(gradAZ, gradAZ);
-    system += OuterProduct3(gradAW, gradAW);
-    system += OuterProduct3(gradBX, gradBX);
-    system += OuterProduct3(gradBY, gradBY);
-    system += OuterProduct3(gradBZ, gradBZ);
-    system += OuterProduct3(gradBW, gradBW);
+    system += orientationInvMassA * OuterProduct3(gradAX, gradAX);
+    system += orientationInvMassA * OuterProduct3(gradAY, gradAY);
+    system += orientationInvMassA * OuterProduct3(gradAZ, gradAZ);
+    system += orientationInvMassA * OuterProduct3(gradAW, gradAW);
+    system += orientationInvMassB * OuterProduct3(gradBX, gradBX);
+    system += orientationInvMassB * OuterProduct3(gradBY, gradBY);
+    system += orientationInvMassB * OuterProduct3(gradBZ, gradBZ);
+    system += orientationInvMassB * OuterProduct3(gradBW, gradBW);
 
     const float3 rhs = -(constraint + alphaVector * lambda.xyz);
     const float3 deltaLambda = Mul3x3(Inverse3x3(system), rhs);
@@ -118,11 +142,11 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         correction.twistRotationA =
             float4(dot(gradAX, deltaLambda), dot(gradAY, deltaLambda), dot(gradAZ, deltaLambda),
                    dot(gradAW, deltaLambda)) *
-            kSoftInternalRelaxation;
+            (orientationInvMassA * kSoftInternalRelaxation);
         correction.twistRotationB =
             float4(dot(gradBX, deltaLambda), dot(gradBY, deltaLambda), dot(gradBZ, deltaLambda),
                    dot(gradBW, deltaLambda)) *
-            kSoftInternalRelaxation;
+            (orientationInvMassB * kSoftInternalRelaxation);
     }
 
     CRESSIM_SB_STORE(g_StrandJointCorrections, jointIndex, correction);

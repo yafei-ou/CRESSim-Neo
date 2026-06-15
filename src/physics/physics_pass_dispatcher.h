@@ -147,10 +147,6 @@ public:
     bool applySoftTetCorrections(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState,
                                  const GpuParticleDispatchConstants &constants);
-    bool reconcileStrandSegmentFrames(Diligent::IDeviceContext *computeContext,
-                                      const PhysicsSceneGpuState &sceneState,
-                                      std::uint32_t strandSegmentCount,
-                                      const GpuParticleDispatchConstants &constants);
     bool solveStrandSegmentConstraints(Diligent::IDeviceContext *computeContext,
                                        const PhysicsSceneGpuState &sceneState,
                                        std::uint32_t strandSegmentCount,
@@ -482,7 +478,6 @@ private:
     gpu::GpuComputePass mApplySoftEdgeCorrectionsPass;
     gpu::GpuComputePass mApplySoftBendCorrectionsPass;
     gpu::GpuComputePass mApplySoftTetCorrectionsPass;
-    gpu::GpuComputePass mReconcileStrandSegmentFramesPass;
     gpu::GpuComputePass mSolveStrandSegmentConstraintsPass;
     gpu::GpuComputePass mApplyStrandSegmentCorrectionsPass;
     gpu::GpuComputePass mSolveStrandJointConstraintsPass;

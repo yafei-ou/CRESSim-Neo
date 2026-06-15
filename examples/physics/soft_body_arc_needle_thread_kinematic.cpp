@@ -515,7 +515,7 @@ int main(int argc, char **argv)
         strand.particleMass = 0.12f;
         strand.particleRadius = 0.1f;
         strand.stretchShearCompliance = 0.000001f;
-        strand.bendCompliance = 0.0005f;
+        strand.bendCompliance = 0.005f;
         strand.selfCollisionEnabled = false;
         strand.suturingEnabled = false;
         strand.collisionLayer = 0x2u;

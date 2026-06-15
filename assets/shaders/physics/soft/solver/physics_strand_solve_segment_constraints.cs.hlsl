@@ -50,6 +50,18 @@ float3x3 Inverse3x3(float3x3 m)
                     c12 * invDet, c20 * invDet, c21 * invDet, c22 * invDet);
 }
 
+float ComputeStrandOrientationInvMass(float wA, float wB, float restLength)
+{
+    const float dynamicWeightSum = max(wA + wB, 0.0);
+    if (dynamicWeightSum <= kEpsilon || restLength <= kEpsilon)
+    {
+        return 0.0;
+    }
+
+    const float averageInvMass = dynamicWeightSum * 0.5;
+    return 12.0 * averageInvMass / max(restLength * restLength, kEpsilon);
+}
+
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -89,6 +101,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float4 q = QuaternionNormalize(state.orientation);
     const float3 axis = QuaternionRotate(q, float3(1.0, 0.0, 0.0));
     const float invRestLength = rcp(max(segment.restLength, kEpsilon));
+    const float orientationInvMass =
+        ComputeStrandOrientationInvMass(wA, wB, segment.restLength);
     const float3 constraint = delta * invRestLength - axis;
     const float alpha = max(segment.stretchShearCompliance, 0.0) / max(dt * dt, kEpsilon);
     const float4 lambdaState = CRESSIM_SB_LOAD(g_StrandSegmentLambdas, segmentIndex);
@@ -96,18 +110,21 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const float3 qv = q.xyz;
     const float qw = q.w;
-    const float3 jAxisX = 2.0 * float3(qv.x, qv.y, qv.z);
-    const float3 jAxisY = 2.0 * float3(-qv.y, qv.x, -qw);
-    const float3 jAxisZ = 2.0 * float3(-qv.z, qw, qv.x);
-    const float3 jAxisW = 2.0 * float3(qw, qv.z, -qv.y);
+    // Paper gradient for c = delta / restLength - R(q) * e with local tangent e = +X.
+    // The source expression is authored for quaternion order (w, x, y, z); we store (x, y, z, w),
+    // so the scalar column is emitted last.
+    const float3 gradQw = 2.0 * float3(qw, qv.z, -qv.y);
+    const float3 gradQx = 2.0 * float3(0.0, qv.y, qv.z);
+    const float3 gradQy = 2.0 * float3(-qv.y, 0.0, -qw);
+    const float3 gradQz = 2.0 * float3(-qv.z, qw, 0.0);
 
     float3x3 system = float3x3(wSum * invRestLength * invRestLength + alpha, 0.0, 0.0, 0.0,
                                wSum * invRestLength * invRestLength + alpha, 0.0, 0.0, 0.0,
                                wSum * invRestLength * invRestLength + alpha);
-    system += OuterProduct3(jAxisX, jAxisX);
-    system += OuterProduct3(jAxisY, jAxisY);
-    system += OuterProduct3(jAxisZ, jAxisZ);
-    system += OuterProduct3(jAxisW, jAxisW);
+    system += orientationInvMass * OuterProduct3(gradQx, gradQx);
+    system += orientationInvMass * OuterProduct3(gradQy, gradQy);
+    system += orientationInvMass * OuterProduct3(gradQz, gradQz);
+    system += orientationInvMass * OuterProduct3(gradQw, gradQw);
 
     const float3 rhs = -(constraint + alpha * lambda);
     const float3 deltaLambda = Mul3x3(Inverse3x3(system), rhs);
@@ -119,9 +136,10 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             float4(-wA * invRestLength * deltaLambda * kSoftInternalRelaxation, 0.0);
         correction.correctionB =
             float4(wB * invRestLength * deltaLambda * kSoftInternalRelaxation, 0.0);
-        const float4 quatGradient = -float4(dot(jAxisX, deltaLambda), dot(jAxisY, deltaLambda),
-                                            dot(jAxisZ, deltaLambda), dot(jAxisW, deltaLambda));
-        correction.angularCorrection = quatGradient * kSoftInternalRelaxation;
+        const float4 quatGradient = -float4(dot(gradQx, deltaLambda), dot(gradQy, deltaLambda),
+                                            dot(gradQz, deltaLambda), dot(gradQw, deltaLambda));
+        correction.angularCorrection =
+            quatGradient * (orientationInvMass * kSoftInternalRelaxation);
     }
 
     CRESSIM_SB_STORE(g_StrandSegmentCorrections, segmentIndex, correction);
