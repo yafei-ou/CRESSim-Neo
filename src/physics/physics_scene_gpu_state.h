@@ -127,6 +127,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> tetsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandSegmentsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandJointsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandDistanceConstraintsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandSegmentStatesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleEdgeRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentEdgesBuffer;
@@ -221,8 +222,10 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandSegmentLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandJointLambdasBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandDistanceLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandSegmentCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> strandJointCorrectionsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandDistanceCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBodyChunkAabbsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyAabbsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> bodyMetaBuffer;
@@ -365,6 +368,7 @@ public:
                         std::uint32_t fluidMaterialCount, std::uint32_t softEdgeCount,
                         std::uint32_t softBendCount, std::uint32_t softTetCount,
                         std::uint32_t strandSegmentCount, std::uint32_t strandJointCount,
+                        std::uint32_t strandDistanceCount,
                         std::uint32_t ballJointCount, std::uint32_t hingeJointCount,
                         std::uint32_t sliderJointCount,
                         std::uint32_t rigidParticleAttachmentCount,
@@ -473,6 +477,7 @@ private:
                             const std::vector<DeformableVolumeConstraint> &volumeConstraints,
                             const std::vector<StrandSegmentConstraint> &strandSegments,
                             const std::vector<StrandJointConstraint> &strandJoints,
+                            const std::vector<StrandDistanceConstraint> &strandDistanceConstraints,
                             const std::vector<StrandSegmentState> &strandSegmentStates);
     bool uploadCurveRenderData(Diligent::IDeviceContext *computeContext,
                                const CurveRenderDataHost &curveRenderData);
@@ -518,6 +523,7 @@ private:
     std::uint32_t mSoftTetCapacity                           = 0;
     std::uint32_t mStrandSegmentCapacity                     = 0;
     std::uint32_t mStrandJointCapacity                       = 0;
+    std::uint32_t mStrandDistanceCapacity                    = 0;
     std::uint32_t mParticleBroadPhaseEntryCapacity           = 0;
     std::uint32_t mSoftCandidatePairCapacity                 = 0;
     std::uint32_t mFluidBoundaryCandidatePairCapacity        = 0;
@@ -536,6 +542,7 @@ private:
     std::uint32_t mSoftTetCount                              = 0;
     std::uint32_t mStrandSegmentCount                        = 0;
     std::uint32_t mStrandJointCount                          = 0;
+    std::uint32_t mStrandDistanceCount                       = 0;
     std::uint32_t mSuturingPairCount                         = 0;
     std::uint32_t mSuturingParticleCount                     = 0;
     std::uint32_t mSuturingPathHeaderCount                   = 0;

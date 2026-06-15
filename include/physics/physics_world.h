@@ -134,6 +134,7 @@ public:
     const std::vector<SoftTet> &softTets() const noexcept;
     const std::vector<StrandSegmentConstraint> &strandSegments() const noexcept;
     const std::vector<StrandJointConstraint> &strandJoints() const noexcept;
+    const std::vector<StrandDistanceConstraint> &strandDistanceConstraints() const noexcept;
     const std::vector<StrandSegmentState> &strandSegmentStates() const noexcept;
     const std::vector<RigidParticleAttachmentConstraint> &rigidParticleAttachments() const noexcept;
     const std::vector<RigidDistanceConstraint> &rigidDistanceConstraints() const noexcept;
@@ -248,7 +249,6 @@ private:
         std::vector<std::vector<std::uint32_t>> incidentJointLists;
         std::vector<float> restSegmentLengths;
         std::vector<Diligent::QuaternionF> restSegmentOrientations;
-        std::vector<Diligent::float3> restSegmentMaterialNormals;
         std::vector<Diligent::QuaternionF> restJointRelativeOrientations;
         std::vector<std::uint32_t> staticParticleIndices;
     };
@@ -376,6 +376,7 @@ private:
     std::vector<DeformableVolumeConstraint> mSoftTets{};
     std::vector<StrandSegmentConstraint> mStrandSegments{};
     std::vector<StrandJointConstraint> mStrandJoints{};
+    std::vector<StrandDistanceConstraint> mStrandDistanceConstraints{};
     std::vector<StrandSegmentState> mStrandSegmentStates{};
     std::vector<RigidParticleAttachmentConstraint> mRigidParticleAttachments{};
     std::vector<RigidDistanceConstraint> mRigidDistanceConstraints{};

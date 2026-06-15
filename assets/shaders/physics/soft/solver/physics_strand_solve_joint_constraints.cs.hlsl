@@ -2,41 +2,51 @@
 #include "../../../include/physics/particle/physics_particle_types.hlsli"
 #include "../../../include/physics/core/physics_math.hlsli"
 
-CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(GpuStrandSegment, g_StrandSegments);
 CRESSIM_STRUCTURED_BUFFER(GpuStrandJoint, g_StrandJoints);
 CRESSIM_STRUCTURED_BUFFER(GpuStrandSegmentState, g_StrandSegmentStates);
-CRESSIM_RW_STRUCTURED_BUFFER(float, g_StrandJointLambdas);
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_StrandJointLambdas);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuStrandJointCorrection, g_StrandJointCorrections);
 
-float ComputeRestBendAngle(float4 restRelativeOrientation)
+float3x3 OuterProduct3(float3 a, float3 b)
 {
-    const float3 restTangentB = QuaternionRotate(QuaternionNormalize(restRelativeOrientation),
-                                                 float3(1.0, 0.0, 0.0));
-    const float restCosTheta = clamp(dot(float3(-1.0, 0.0, 0.0), restTangentB),
-                                     -1.0 + 1.0e-4, 1.0 - 1.0e-4);
-    return acos(restCosTheta);
+    return float3x3(a.x * b.x, a.x * b.y, a.x * b.z, a.y * b.x, a.y * b.y, a.y * b.z, a.z * b.x,
+                    a.z * b.y, a.z * b.z);
 }
 
-float ComputeTwistConstraintAroundLocalX(float4 qA, float4 qB, float4 restRelative)
+float3 Mul3x3(float3x3 m, float3 v)
 {
-    const float4 relative = QuaternionMul(QuaternionConjugate(QuaternionNormalize(qA)),
-                                          QuaternionNormalize(qB));
-    float4 errorQ = QuaternionMul(QuaternionConjugate(QuaternionNormalize(restRelative)), relative);
-    errorQ = QuaternionNormalize(errorQ);
-    if (errorQ.w < 0.0)
+    return float3(dot(m[0], v), dot(m[1], v), dot(m[2], v));
+}
+
+float3x3 Inverse3x3(float3x3 m)
+{
+    const float a00 = m[0][0];
+    const float a01 = m[0][1];
+    const float a02 = m[0][2];
+    const float a10 = m[1][0];
+    const float a11 = m[1][1];
+    const float a12 = m[1][2];
+    const float a20 = m[2][0];
+    const float a21 = m[2][1];
+    const float a22 = m[2][2];
+    const float c00 = a11 * a22 - a12 * a21;
+    const float c01 = a02 * a21 - a01 * a22;
+    const float c02 = a01 * a12 - a02 * a11;
+    const float c10 = a12 * a20 - a10 * a22;
+    const float c11 = a00 * a22 - a02 * a20;
+    const float c12 = a02 * a10 - a00 * a12;
+    const float c20 = a10 * a21 - a11 * a20;
+    const float c21 = a01 * a20 - a00 * a21;
+    const float c22 = a00 * a11 - a01 * a10;
+    const float det = a00 * c00 + a01 * c10 + a02 * c20;
+    if (abs(det) <= kEpsilon)
     {
-        errorQ = -errorQ;
+        return float3x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
     }
 
-    float2 twistPlane = float2(errorQ.x, errorQ.w);
-    const float twistPlaneLengthSq = dot(twistPlane, twistPlane);
-    if (twistPlaneLengthSq <= kEpsilon)
-    {
-        return 0.0;
-    }
-    twistPlane *= rsqrt(twistPlaneLengthSq);
-    return 2.0 * atan2(twistPlane.x, twistPlane.y);
+    const float invDet = rcp(det);
+    return float3x3(c00 * invDet, c01 * invDet, c02 * invDet, c10 * invDet, c11 * invDet,
+                    c12 * invDet, c20 * invDet, c21 * invDet, c22 * invDet);
 }
 
 [numthreads(64, 1, 1)]
@@ -49,85 +59,70 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     const GpuStrandJoint joint = CRESSIM_SB_LOAD(g_StrandJoints, jointIndex);
-    const GpuStrandSegment segmentA = CRESSIM_SB_LOAD(g_StrandSegments, joint.segmentA);
-    const GpuStrandSegment segmentB = CRESSIM_SB_LOAD(g_StrandSegments, joint.segmentB);
-    const uint particle0 = segmentA.particleA;
-    const uint particle1 = segmentA.particleB;
-    const uint particle2 = segmentB.particleB;
-
-    const float4 positionInvMass0 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particle0);
-    const float4 positionInvMass1 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particle1);
-    const float4 positionInvMass2 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particle2);
-
     GpuStrandJointCorrection correction;
     correction.correction0 = float4(0.0, 0.0, 0.0, 0.0);
     correction.correction1 = float4(0.0, 0.0, 0.0, 0.0);
     correction.correction2 = float4(0.0, 0.0, 0.0, 0.0);
     correction.twistRotationA = float4(0.0, 0.0, 0.0, 0.0);
     correction.twistRotationB = float4(0.0, 0.0, 0.0, 0.0);
-    const float4 orientationA = CRESSIM_SB_LOAD(g_StrandSegmentStates, joint.segmentA).orientation;
-    const float4 orientationB = CRESSIM_SB_LOAD(g_StrandSegmentStates, joint.segmentB).orientation;
-
-    const float w0 = positionInvMass0.w;
-    const float w1 = positionInvMass1.w;
-    const float w2 = positionInvMass2.w;
-    if (w0 + w1 + w2 <= kEpsilon)
+    const float4 orientationA = QuaternionNormalize(
+        CRESSIM_SB_LOAD(g_StrandSegmentStates, joint.segmentA).orientation);
+    const float4 orientationB = QuaternionNormalize(
+        CRESSIM_SB_LOAD(g_StrandSegmentStates, joint.segmentB).orientation);
+    float4 relative = QuaternionNormalize(QuaternionMul(QuaternionConjugate(orientationA), orientationB));
+    float4 restRelative = QuaternionNormalize(joint.restRelativeOrientation);
+    if (dot(relative, restRelative) < 0.0)
     {
-        CRESSIM_SB_STORE(g_StrandJointCorrections, jointIndex, correction);
-        return;
+        restRelative = -restRelative;
     }
 
-    const float3 edge0 = positionInvMass0.xyz - positionInvMass1.xyz;
-    const float3 edge1 = positionInvMass2.xyz - positionInvMass1.xyz;
-    const float length0Sq = dot(edge0, edge0);
-    const float length1Sq = dot(edge1, edge1);
-    if (length0Sq <= kEpsilon || length1Sq <= kEpsilon)
-    {
-        CRESSIM_SB_STORE(g_StrandJointCorrections, jointIndex, correction);
-        return;
-    }
-
-    const float length0 = sqrt(length0Sq);
-    const float length1 = sqrt(length1Sq);
-    const float3 dir0 = edge0 / length0;
-    const float3 dir1 = edge1 / length1;
-    const float cosTheta = clamp(dot(dir0, dir1), -1.0 + 1.0e-4, 1.0 - 1.0e-4);
-    const float sinThetaSq = max(1.0 - cosTheta * cosTheta, 1.0e-8);
-    const float sinTheta = sqrt(sinThetaSq);
-    const float theta = acos(cosTheta);
-
-    const float3 gradient0 = -(dir1 - cosTheta * dir0) / max(length0 * sinTheta, kEpsilon);
-    const float3 gradient2 = -(dir0 - cosTheta * dir1) / max(length1 * sinTheta, kEpsilon);
-    const float3 gradient1 = -(gradient0 + gradient2);
-    const float denominator =
-        w0 * dot(gradient0, gradient0) + w1 * dot(gradient1, gradient1) +
-        w2 * dot(gradient2, gradient2);
-
+    const float3 constraint = relative.xyz - restRelative.xyz;
+    const float4 lambda = CRESSIM_SB_LOAD(g_StrandJointLambdas, jointIndex);
     const float bendAlpha = max(joint.bendCompliance, 0.0) / max(dt * dt, kEpsilon);
-    const float restAngle = ComputeRestBendAngle(joint.restRelativeOrientation);
-    const float constraint = theta - restAngle;
-    const float lambda = CRESSIM_SB_LOAD(g_StrandJointLambdas, jointIndex);
-    if (denominator + bendAlpha > kEpsilon)
-    {
-        const float deltaLambda =
-            -(constraint + bendAlpha * lambda) / (denominator + bendAlpha);
-        CRESSIM_SB_STORE(g_StrandJointLambdas, jointIndex, lambda + deltaLambda);
-        correction.correction0 = float4(w0 * deltaLambda * gradient0 * kSoftInternalRelaxation, 0.0);
-        correction.correction1 = float4(w1 * deltaLambda * gradient1 * kSoftInternalRelaxation, 0.0);
-        correction.correction2 = float4(w2 * deltaLambda * gradient2 * kSoftInternalRelaxation, 0.0);
-    }
+    const float twistAlpha = max(joint.twistCompliance, 0.0) / max(dt * dt, kEpsilon);
+    const float3 alphaVector = float3(twistAlpha, bendAlpha, bendAlpha);
+    const float3x3 alphaMatrix = float3x3(alphaVector.x, 0.0, 0.0, 0.0, alphaVector.y, 0.0, 0.0,
+                                          0.0, alphaVector.z);
 
-    if (joint.twistCompliance >= 0.0)
+    const float3 va = orientationA.xyz;
+    const float wa = orientationA.w;
+    const float3 vb = orientationB.xyz;
+    const float wb = orientationB.w;
+
+    const float3 gradAX = float3(-wb, vb.z, -vb.y);
+    const float3 gradAY = float3(-vb.z, -wb, vb.x);
+    const float3 gradAZ = float3(vb.y, -vb.x, -wb);
+    const float3 gradAW = vb;
+
+    const float3 gradBX = float3(wa, -va.z, va.y);
+    const float3 gradBY = float3(va.z, wa, -va.x);
+    const float3 gradBZ = float3(-va.y, va.x, wa);
+    const float3 gradBW = -va;
+
+    float3x3 system = alphaMatrix;
+    system += OuterProduct3(gradAX, gradAX);
+    system += OuterProduct3(gradAY, gradAY);
+    system += OuterProduct3(gradAZ, gradAZ);
+    system += OuterProduct3(gradAW, gradAW);
+    system += OuterProduct3(gradBX, gradBX);
+    system += OuterProduct3(gradBY, gradBY);
+    system += OuterProduct3(gradBZ, gradBZ);
+    system += OuterProduct3(gradBW, gradBW);
+
+    const float3 rhs = -(constraint + alphaVector * lambda.xyz);
+    const float3 deltaLambda = Mul3x3(Inverse3x3(system), rhs);
+    if (dot(deltaLambda, deltaLambda) > 0.0)
     {
-        const float twistConstraint =
-            ComputeTwistConstraintAroundLocalX(orientationA, orientationB,
-                                               joint.restRelativeOrientation);
-        const float twistAlpha = max(joint.twistCompliance, 0.0) / max(dt * dt, kEpsilon);
-        const float twistDeltaLambda = -twistConstraint / max(2.0 + twistAlpha, kEpsilon);
-        const float halfTwist =
-            0.5 * twistDeltaLambda * kSoftInternalRelaxation;
-        correction.twistRotationA = float4(halfTwist, 0.0, 0.0, 0.0);
-        correction.twistRotationB = float4(-halfTwist, 0.0, 0.0, 0.0);
+        CRESSIM_SB_STORE(g_StrandJointLambdas, jointIndex,
+                         float4(lambda.xyz + deltaLambda, 0.0));
+        correction.twistRotationA =
+            float4(dot(gradAX, deltaLambda), dot(gradAY, deltaLambda), dot(gradAZ, deltaLambda),
+                   dot(gradAW, deltaLambda)) *
+            kSoftInternalRelaxation;
+        correction.twistRotationB =
+            float4(dot(gradBX, deltaLambda), dot(gradBY, deltaLambda), dot(gradBZ, deltaLambda),
+                   dot(gradBW, deltaLambda)) *
+            kSoftInternalRelaxation;
     }
 
     CRESSIM_SB_STORE(g_StrandJointCorrections, jointIndex, correction);

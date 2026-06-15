@@ -202,6 +202,7 @@ struct GpuParticleDispatchConstants
     std::uint32_t softTetCount                       = 0;
     std::uint32_t strandSegmentCount                 = 0;
     std::uint32_t strandJointCount                   = 0;
+    std::uint32_t strandDistanceCount                = 0;
     std::uint32_t fluidIterations                    = 0;
     std::uint32_t maxFluidNeighborhood               = 0;
     std::uint32_t iterationIndex                     = 0;
@@ -211,9 +212,8 @@ struct GpuParticleDispatchConstants
     std::uint32_t suturingParticleCount              = 0;
     std::uint32_t maxSuturingCandidatesPerParticle   = 0;
     std::uint32_t maxSuturingNodesPerPath            = 0;
+    std::uint32_t reserved0                          = 0;
     std::uint32_t reserved1                          = 0;
-    std::uint32_t reserved2                          = 0;
-    std::uint32_t reserved3                          = 0;
 };
 
 struct GpuSoftRenderDispatchConstants
@@ -505,7 +505,7 @@ struct GpuStrandSegmentCorrection
 {
     Diligent::float4 correctionA{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 correctionB{0.0f, 0.0f, 0.0f, 0.0f};
-    Diligent::float4 orientation{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::float4 angularCorrection{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 struct GpuStrandJointCorrection
@@ -750,8 +750,9 @@ static_assert(sizeof(GpuSoftBodyBoundsChunk) == 16u);
 static_assert(sizeof(GpuSoftEdgeCorrection) == 32u);
 static_assert(sizeof(DeformableBendConstraint) == 32u);
 static_assert(sizeof(GpuSoftBendCorrection) == 48u);
-static_assert(sizeof(StrandSegmentConstraint) == 48u);
+static_assert(sizeof(StrandSegmentConstraint) == 32u);
 static_assert(sizeof(StrandJointConstraint) == 32u);
+static_assert(sizeof(StrandDistanceConstraint) == 32u);
 static_assert(sizeof(StrandSegmentState) == 16u);
 static_assert(sizeof(GpuStrandSegmentCorrection) == 48u);
 static_assert(sizeof(GpuStrandJointCorrection) == 80u);

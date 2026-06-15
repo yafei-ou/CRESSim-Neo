@@ -210,9 +210,8 @@ struct GpuStrandSegment
     uint particleA;
     uint particleB;
     float restLength;
-    float compliance;
+    float stretchShearCompliance;
     float4 restOrientation;
-    float4 materialFrame;
 };
 
 struct GpuStrandJoint
@@ -233,7 +232,7 @@ struct GpuStrandSegmentCorrection
 {
     float4 correctionA;
     float4 correctionB;
-    float4 orientation;
+    float4 angularCorrection;
 };
 
 struct GpuStrandJointCorrection
@@ -243,6 +242,18 @@ struct GpuStrandJointCorrection
     float4 correction2;
     float4 twistRotationA;
     float4 twistRotationB;
+};
+
+struct GpuStrandDistanceConstraint
+{
+    uint particleA;
+    uint particleB;
+    float restLength;
+    float distanceCompliance;
+    uint solverMode;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
 };
 
 struct GpuSoftBodyParticleRange

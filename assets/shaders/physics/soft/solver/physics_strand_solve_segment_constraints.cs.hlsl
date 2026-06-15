@@ -4,51 +4,50 @@
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuStrandSegment, g_StrandSegments);
-CRESSIM_RW_STRUCTURED_BUFFER(float, g_StrandSegmentLambdas);
+CRESSIM_STRUCTURED_BUFFER(GpuStrandSegmentState, g_StrandSegmentStates);
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_StrandSegmentLambdas);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuStrandSegmentCorrection, g_StrandSegmentCorrections);
 
-float4 ComputeSegmentOrientation(float3 delta, float3 materialHint)
+float3x3 OuterProduct3(float3 a, float3 b)
 {
-    const float3 tangent = SafeNormalize(delta, float3(1.0, 0.0, 0.0));
-    float3 normal = materialHint.xyz - tangent * dot(materialHint.xyz, tangent);
-    if (dot(normal, normal) <= 1.0e-8)
-    {
-        normal = abs(tangent.y) < 0.9 ? float3(0.0, 1.0, 0.0) : float3(1.0, 0.0, 0.0);
-        normal -= tangent * dot(normal, tangent);
-    }
-    normal = SafeNormalize(normal, float3(0.0, 1.0, 0.0));
-    const float3 binormal = SafeNormalize(cross(tangent, normal), float3(0.0, 0.0, 1.0));
+    return float3x3(a.x * b.x, a.x * b.y, a.x * b.z, a.y * b.x, a.y * b.y, a.y * b.z, a.z * b.x,
+                    a.z * b.y, a.z * b.z);
+}
 
-    const float m00 = tangent.x;
-    const float m11 = normal.y;
-    const float m22 = binormal.z;
-    const float trace = m00 + m11 + m22;
-    float4 q;
-    if (trace > 0.0)
+float3 Mul3x3(float3x3 m, float3 v)
+{
+    return float3(dot(m[0], v), dot(m[1], v), dot(m[2], v));
+}
+
+float3x3 Inverse3x3(float3x3 m)
+{
+    const float a00 = m[0][0];
+    const float a01 = m[0][1];
+    const float a02 = m[0][2];
+    const float a10 = m[1][0];
+    const float a11 = m[1][1];
+    const float a12 = m[1][2];
+    const float a20 = m[2][0];
+    const float a21 = m[2][1];
+    const float a22 = m[2][2];
+    const float c00 = a11 * a22 - a12 * a21;
+    const float c01 = a02 * a21 - a01 * a22;
+    const float c02 = a01 * a12 - a02 * a11;
+    const float c10 = a12 * a20 - a10 * a22;
+    const float c11 = a00 * a22 - a02 * a20;
+    const float c12 = a02 * a10 - a00 * a12;
+    const float c20 = a10 * a21 - a11 * a20;
+    const float c21 = a01 * a20 - a00 * a21;
+    const float c22 = a00 * a11 - a01 * a10;
+    const float det = a00 * c00 + a01 * c10 + a02 * c20;
+    if (abs(det) <= kEpsilon)
     {
-        const float s = sqrt(trace + 1.0) * 2.0;
-        q = float4((normal.z - binormal.y) / s, (binormal.x - tangent.z) / s,
-                   (tangent.y - normal.x) / s, 0.25 * s);
+        return float3x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
     }
-    else if (tangent.x > normal.y && tangent.x > binormal.z)
-    {
-        const float s = sqrt(1.0 + tangent.x - normal.y - binormal.z) * 2.0;
-        q = float4(0.25 * s, (normal.x + tangent.y) / s, (binormal.x + tangent.z) / s,
-                   (normal.z - binormal.y) / s);
-    }
-    else if (normal.y > binormal.z)
-    {
-        const float s = sqrt(1.0 + normal.y - tangent.x - binormal.z) * 2.0;
-        q = float4((normal.x + tangent.y) / s, 0.25 * s, (binormal.y + normal.z) / s,
-                   (binormal.x - tangent.z) / s);
-    }
-    else
-    {
-        const float s = sqrt(1.0 + binormal.z - tangent.x - normal.y) * 2.0;
-        q = float4((binormal.x + tangent.z) / s, (binormal.y + normal.z) / s, 0.25 * s,
-                   (tangent.y - normal.x) / s);
-    }
-    return QuaternionNormalize(q);
+
+    const float invDet = rcp(det);
+    return float3x3(c00 * invDet, c01 * invDet, c02 * invDet, c10 * invDet, c11 * invDet,
+                    c12 * invDet, c20 * invDet, c21 * invDet, c22 * invDet);
 }
 
 [numthreads(64, 1, 1)]
@@ -70,7 +69,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     GpuStrandSegmentCorrection correction;
     correction.correctionA = float4(0.0, 0.0, 0.0, 0.0);
     correction.correctionB = float4(0.0, 0.0, 0.0, 0.0);
-    correction.orientation = segment.restOrientation;
+    correction.angularCorrection = float4(0.0, 0.0, 0.0, 0.0);
 
     if (wSum <= kEpsilon)
     {
@@ -86,23 +85,44 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const float length = sqrt(lengthSq);
-    const float3 gradientA = -delta / length;
-    const float3 gradientB = -gradientA;
-    const float alpha = max(segment.compliance, 0.0) / max(dt * dt, kEpsilon);
-    const float constraint = length - segment.restLength;
-    const float lambda = CRESSIM_SB_LOAD(g_StrandSegmentLambdas, segmentIndex);
-    const float denominator = wSum + alpha;
-    if (denominator > kEpsilon)
+    const GpuStrandSegmentState state = CRESSIM_SB_LOAD(g_StrandSegmentStates, segmentIndex);
+    const float4 q = QuaternionNormalize(state.orientation);
+    const float3 axis = QuaternionRotate(q, float3(1.0, 0.0, 0.0));
+    const float invRestLength = rcp(max(segment.restLength, kEpsilon));
+    const float3 constraint = delta * invRestLength - axis;
+    const float alpha = max(segment.stretchShearCompliance, 0.0) / max(dt * dt, kEpsilon);
+    const float4 lambdaState = CRESSIM_SB_LOAD(g_StrandSegmentLambdas, segmentIndex);
+    const float3 lambda = lambdaState.xyz;
+
+    const float3 qv = q.xyz;
+    const float qw = q.w;
+    const float3 jAxisX = 2.0 * float3(qv.x, qv.y, qv.z);
+    const float3 jAxisY = 2.0 * float3(-qv.y, qv.x, -qw);
+    const float3 jAxisZ = 2.0 * float3(-qv.z, qw, qv.x);
+    const float3 jAxisW = 2.0 * float3(qw, qv.z, -qv.y);
+
+    float3x3 system = float3x3(wSum * invRestLength * invRestLength + alpha, 0.0, 0.0, 0.0,
+                               wSum * invRestLength * invRestLength + alpha, 0.0, 0.0, 0.0,
+                               wSum * invRestLength * invRestLength + alpha);
+    system += OuterProduct3(jAxisX, jAxisX);
+    system += OuterProduct3(jAxisY, jAxisY);
+    system += OuterProduct3(jAxisZ, jAxisZ);
+    system += OuterProduct3(jAxisW, jAxisW);
+
+    const float3 rhs = -(constraint + alpha * lambda);
+    const float3 deltaLambda = Mul3x3(Inverse3x3(system), rhs);
+    if (dot(deltaLambda, deltaLambda) > 0.0)
     {
-        const float deltaLambda = -(constraint + alpha * lambda) / denominator;
-        CRESSIM_SB_STORE(g_StrandSegmentLambdas, segmentIndex, lambda + deltaLambda);
+        CRESSIM_SB_STORE(g_StrandSegmentLambdas, segmentIndex,
+                         float4(lambda + deltaLambda, 0.0));
         correction.correctionA =
-            float4(wA * deltaLambda * gradientA * kSoftInternalRelaxation, 0.0);
+            float4(-wA * invRestLength * deltaLambda * kSoftInternalRelaxation, 0.0);
         correction.correctionB =
-            float4(wB * deltaLambda * gradientB * kSoftInternalRelaxation, 0.0);
+            float4(wB * invRestLength * deltaLambda * kSoftInternalRelaxation, 0.0);
+        const float4 quatGradient = -float4(dot(jAxisX, deltaLambda), dot(jAxisY, deltaLambda),
+                                            dot(jAxisZ, deltaLambda), dot(jAxisW, deltaLambda));
+        correction.angularCorrection = quatGradient * kSoftInternalRelaxation;
     }
 
-    correction.orientation = ComputeSegmentOrientation(delta, segment.materialFrame);
     CRESSIM_SB_STORE(g_StrandSegmentCorrections, segmentIndex, correction);
 }

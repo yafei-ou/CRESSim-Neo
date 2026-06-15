@@ -1,5 +1,6 @@
 #include "../../../include/physics/physics_particle_dispatch_constants.hlsli"
 #include "../../../include/physics/particle/physics_particle_types.hlsli"
+#include "../../../include/physics/core/physics_math.hlsli"
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftConstraintRange, g_ParticleStrandSegmentRanges);
@@ -35,8 +36,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     {
         const GpuStrandSegmentCorrection correction =
             CRESSIM_SB_LOAD(g_StrandSegmentCorrections, index);
-        GpuStrandSegmentState state;
-        state.orientation = correction.orientation;
+        GpuStrandSegmentState state = CRESSIM_SB_LOAD(g_StrandSegmentStates, index);
+        state.orientation = QuaternionNormalize(state.orientation + correction.angularCorrection);
         CRESSIM_SB_STORE(g_StrandSegmentStates, index, state);
     }
 }

@@ -2429,6 +2429,15 @@ const std::vector<StrandJointConstraint> &PhysicsWorld::strandJoints() const noe
     return mStrandJoints;
 }
 
+const std::vector<StrandDistanceConstraint> &PhysicsWorld::strandDistanceConstraints() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return mStrandDistanceConstraints;
+}
+
 const std::vector<StrandSegmentState> &PhysicsWorld::strandSegmentStates() const noexcept
 {
     if (mSoftBodyDerivedStateDirty)
@@ -3049,6 +3058,11 @@ void PhysicsWorld::normalizeStrandState(StrandState &state) noexcept
     state.stretchShearCompliance  = std::max(state.stretchShearCompliance, 0.0f);
     state.bendCompliance          = std::max(state.bendCompliance, 0.0f);
     state.twistCompliance         = std::max(state.twistCompliance, 0.0f);
+    if (state.distanceCompliance < 0.0f)
+    {
+        state.distanceCompliance = state.stretchShearCompliance;
+    }
+    state.distanceCompliance = std::max(state.distanceCompliance, 0.0f);
     state.pathNodeSpacing         = std::max(state.pathNodeSpacing, 1.0e-4f);
     if (state.collisionLayer == 0u)
     {
@@ -3278,15 +3292,17 @@ void PhysicsWorld::applyStrandRuntimeProperties(std::uint32_t index,
     strand.particleMass          = normalizedState.particleMass;
     strand.particleRadius        = normalizedState.particleRadius;
     strand.stretchShearCompliance = normalizedState.stretchShearCompliance;
-    strand.bendCompliance        = normalizedState.bendCompliance;
-    strand.twistCompliance       = normalizedState.twistCompliance;
-    strand.rootMaterialNormal    = normalizedState.rootMaterialNormal;
-    strand.simulated             = normalizedState.simulated;
-    strand.selfCollisionEnabled  = normalizedState.selfCollisionEnabled;
-    strand.suturingEnabled       = normalizedState.suturingEnabled;
-    strand.pathNodeSpacing       = normalizedState.pathNodeSpacing;
-    strand.staticParticleIndices = normalizedState.staticParticleIndices;
-    strand.contactMaterialIndex  = findOrAppendParticleContactMaterial(
+    strand.bendCompliance         = normalizedState.bendCompliance;
+    strand.twistCompliance        = normalizedState.twistCompliance;
+    strand.distanceCompliance     = normalizedState.distanceCompliance;
+    strand.distanceSolverMode     = normalizedState.distanceSolverMode;
+    strand.rootMaterialNormal     = normalizedState.rootMaterialNormal;
+    strand.simulated              = normalizedState.simulated;
+    strand.selfCollisionEnabled   = normalizedState.selfCollisionEnabled;
+    strand.suturingEnabled        = normalizedState.suturingEnabled;
+    strand.pathNodeSpacing        = normalizedState.pathNodeSpacing;
+    strand.staticParticleIndices  = normalizedState.staticParticleIndices;
+    strand.contactMaterialIndex   = findOrAppendParticleContactMaterial(
         mParticleContactMaterials, toParticleContactMaterial(strand.material.contact));
 
     const std::uint32_t particleBegin = strand.particleOffset;
@@ -3319,7 +3335,7 @@ void PhysicsWorld::applyStrandRuntimeProperties(std::uint32_t index,
                                               static_cast<std::uint32_t>(mStrandSegments.size()));
     for (std::uint32_t segmentIndex = segmentBegin; segmentIndex < segmentEnd; ++segmentIndex)
     {
-        mStrandSegments[segmentIndex].compliance = strand.stretchShearCompliance;
+        mStrandSegments[segmentIndex].stretchShearCompliance = strand.stretchShearCompliance;
     }
 
     const std::uint32_t jointBegin = strand.jointOffset;
@@ -3329,6 +3345,16 @@ void PhysicsWorld::applyStrandRuntimeProperties(std::uint32_t index,
     {
         mStrandJoints[jointIndex].bendCompliance  = strand.bendCompliance;
         mStrandJoints[jointIndex].twistCompliance = strand.twistCompliance;
+    }
+
+    const std::uint32_t distanceBegin = strand.segmentOffset;
+    const std::uint32_t distanceEnd = std::min(distanceBegin + strand.segmentCount,
+                                               static_cast<std::uint32_t>(mStrandDistanceConstraints.size()));
+    for (std::uint32_t distanceIndex = distanceBegin; distanceIndex < distanceEnd; ++distanceIndex)
+    {
+        mStrandDistanceConstraints[distanceIndex].distanceCompliance = strand.distanceCompliance;
+        mStrandDistanceConstraints[distanceIndex].solverMode =
+            static_cast<std::uint32_t>(strand.distanceSolverMode);
     }
 
     recomputeParticleGridCellSize();
@@ -3751,6 +3777,7 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
     mSoftTets.clear();
     mStrandSegments.clear();
     mStrandJoints.clear();
+    mStrandDistanceConstraints.clear();
     mStrandSegmentStates.clear();
     mRigidParticleAttachments.clear();
     mRigidDistanceConstraints.clear();
@@ -4066,13 +4093,22 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             segment.particleA              = strand.particleOffset + segmentDesc[0];
             segment.particleB              = strand.particleOffset + segmentDesc[1];
             segment.restLength             = topology.restSegmentLengths[segmentIndex];
-            segment.compliance             = strand.stretchShearCompliance;
+            segment.stretchShearCompliance = strand.stretchShearCompliance;
             const Diligent::QuaternionF q  = topology.restSegmentOrientations[segmentIndex];
             segment.restOrientation        = Diligent::float4{q.q.x, q.q.y, q.q.z, q.q.w};
-            const Diligent::float3 normal  = topology.restSegmentMaterialNormals[segmentIndex];
-            segment.materialFrame          = Diligent::float4{normal.x, normal.y, normal.z, 0.0f};
             mStrandSegments.push_back(segment);
             mStrandSegmentStates.push_back(StrandSegmentState{segment.restOrientation});
+
+            StrandDistanceConstraint distanceConstraint{};
+            distanceConstraint.particleA = segment.particleA;
+            distanceConstraint.particleB = segment.particleB;
+            distanceConstraint.restLength = segment.restLength;
+            distanceConstraint.distanceCompliance = strand.distanceCompliance;
+            distanceConstraint.solverMode = static_cast<std::uint32_t>(strand.distanceSolverMode);
+            distanceConstraint.reserved0 = 0u;
+            distanceConstraint.reserved1 = 0u;
+            distanceConstraint.reserved2 = 0u;
+            mStrandDistanceConstraints.push_back(distanceConstraint);
         }
 
         for (std::uint32_t jointIndex = 0u;
@@ -4826,7 +4862,6 @@ bool PhysicsWorld::prepareStrandStateForInsert(const StrandState &candidate,
     derivedCache.segments.reserve(particleCount - 1u);
     derivedCache.restSegmentLengths.reserve(particleCount - 1u);
     derivedCache.restSegmentOrientations.reserve(particleCount - 1u);
-    derivedCache.restSegmentMaterialNormals.reserve(particleCount - 1u);
 
     Diligent::float3 previousNormal{0.0f, 1.0f, 0.0f};
     Diligent::float3 previousTangent{1.0f, 0.0f, 0.0f};
@@ -4840,6 +4875,12 @@ bool PhysicsWorld::prepareStrandStateForInsert(const StrandState &candidate,
 
         const Diligent::float3 delta = candidate.restPositions[i + 1u] - candidate.restPositions[i];
         const float restLength       = std::sqrt(Diligent::dot(delta, delta));
+        if (restLength <= 1.0e-6f)
+        {
+            CRESSIM_LOG_ERROR("Failed to author strand for entity ", candidate.entityId,
+                              ": consecutive rest positions must not be degenerate.");
+            return false;
+        }
         const Diligent::float3 tangent =
             safeNormalize(delta, Diligent::float3{1.0f, 0.0f, 0.0f});
         Diligent::float3 materialNormal =
@@ -4848,7 +4889,6 @@ bool PhysicsWorld::prepareStrandStateForInsert(const StrandState &candidate,
         materialNormal = safeNormalize(materialNormal, Diligent::float3{0.0f, 1.0f, 0.0f});
 
         derivedCache.restSegmentLengths.push_back(restLength);
-        derivedCache.restSegmentMaterialNormals.push_back(materialNormal);
         derivedCache.restSegmentOrientations.push_back(
             segmentOrientationFromTangentNormal(tangent, materialNormal));
         previousNormal  = materialNormal;

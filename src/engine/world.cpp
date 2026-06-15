@@ -1325,15 +1325,17 @@ bool World::setStrand(common::EntityId entityId, const StrandComponent &componen
     state.particleMass          = component.particleMass;
     state.particleRadius        = component.particleRadius;
     state.stretchShearCompliance = component.stretchShearCompliance;
-    state.bendCompliance        = component.bendCompliance;
-    state.twistCompliance       = component.twistCompliance;
-    state.rootMaterialNormal    = component.rootMaterialNormal;
-    state.simulated             = component.simulated;
-    state.selfCollisionEnabled  = component.selfCollisionEnabled;
-    state.suturingEnabled       = component.suturingEnabled;
-    state.pathNodeSpacing       = component.pathNodeSpacing;
-    state.collisionLayer        = component.collisionLayer;
-    state.collisionMask         = component.collisionMask;
+    state.bendCompliance         = component.bendCompliance;
+    state.twistCompliance        = component.twistCompliance;
+    state.distanceCompliance     = component.distanceCompliance;
+    state.distanceSolverMode     = component.distanceSolverMode;
+    state.rootMaterialNormal     = component.rootMaterialNormal;
+    state.simulated              = component.simulated;
+    state.selfCollisionEnabled   = component.selfCollisionEnabled;
+    state.suturingEnabled        = component.suturingEnabled;
+    state.pathNodeSpacing        = component.pathNodeSpacing;
+    state.collisionLayer         = component.collisionLayer;
+    state.collisionMask          = component.collisionMask;
 
     if (!mPhysicsWorld.upsertStrand(state))
     {
@@ -2034,15 +2036,17 @@ std::optional<StrandComponent> World::tryGetStrand(common::EntityId entityId) co
     component.particleMass          = strand->particleMass;
     component.particleRadius        = strand->particleRadius;
     component.stretchShearCompliance = strand->stretchShearCompliance;
-    component.bendCompliance        = strand->bendCompliance;
-    component.twistCompliance       = strand->twistCompliance;
-    component.rootMaterialNormal    = strand->rootMaterialNormal;
-    component.simulated             = strand->simulated;
-    component.selfCollisionEnabled  = strand->selfCollisionEnabled;
-    component.suturingEnabled       = strand->suturingEnabled;
-    component.pathNodeSpacing       = strand->pathNodeSpacing;
-    component.collisionLayer        = strand->collisionLayer;
-    component.collisionMask         = strand->collisionMask;
+    component.bendCompliance         = strand->bendCompliance;
+    component.twistCompliance        = strand->twistCompliance;
+    component.distanceCompliance     = strand->distanceCompliance;
+    component.distanceSolverMode     = strand->distanceSolverMode;
+    component.rootMaterialNormal     = strand->rootMaterialNormal;
+    component.simulated              = strand->simulated;
+    component.selfCollisionEnabled   = strand->selfCollisionEnabled;
+    component.suturingEnabled        = strand->suturingEnabled;
+    component.pathNodeSpacing        = strand->pathNodeSpacing;
+    component.collisionLayer         = strand->collisionLayer;
+    component.collisionMask          = strand->collisionMask;
     return component;
 }
 

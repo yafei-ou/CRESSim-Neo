@@ -2,9 +2,6 @@
 #include "../../../include/physics/particle/physics_particle_types.hlsli"
 #include "../../../include/physics/core/physics_math.hlsli"
 
-CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(GpuSoftConstraintRange, g_ParticleStrandJointRanges);
-CRESSIM_STRUCTURED_BUFFER(GpuStrandIncidentJoint, g_ParticleIncidentStrandJoints);
 CRESSIM_STRUCTURED_BUFFER(GpuStrandJointCorrection, g_StrandJointCorrections);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftConstraintRange, g_SegmentStrandJointRanges);
 CRESSIM_STRUCTURED_BUFFER(GpuStrandIncidentJoint, g_SegmentIncidentStrandJoints);
@@ -14,54 +11,22 @@ CRESSIM_RW_STRUCTURED_BUFFER(GpuStrandSegmentState, g_StrandSegmentStates);
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint index = dispatchThreadID.x;
-    if (index < particleCount)
-    {
-        const float4 positionInvMass = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, index);
-        if (positionInvMass.w > kEpsilon)
-        {
-            const GpuSoftConstraintRange range = CRESSIM_SB_LOAD(g_ParticleStrandJointRanges, index);
-            float3 totalCorrection = float3(0.0, 0.0, 0.0);
-            for (uint offset = 0u; offset < range.count; ++offset)
-            {
-                const GpuStrandIncidentJoint ref =
-                    CRESSIM_SB_LOAD(g_ParticleIncidentStrandJoints, range.start + offset);
-                const GpuStrandJointCorrection correction =
-                    CRESSIM_SB_LOAD(g_StrandJointCorrections, ref.jointIndex);
-                if (ref.slot == 0u)
-                {
-                    totalCorrection += correction.correction0.xyz;
-                }
-                else if (ref.slot == 1u)
-                {
-                    totalCorrection += correction.correction1.xyz;
-                }
-                else
-                {
-                    totalCorrection += correction.correction2.xyz;
-                }
-            }
-            CRESSIM_SB_STORE(g_ParticlePositionsInvMass, index,
-                             float4(positionInvMass.xyz + totalCorrection, positionInvMass.w));
-        }
-    }
-
     if (index < strandSegmentCount)
     {
         const GpuSoftConstraintRange range = CRESSIM_SB_LOAD(g_SegmentStrandJointRanges, index);
         GpuStrandSegmentState state = CRESSIM_SB_LOAD(g_StrandSegmentStates, index);
-        float3 totalTwistRotation = float3(0.0, 0.0, 0.0);
+        float4 totalOrientationCorrection = float4(0.0, 0.0, 0.0, 0.0);
         for (uint offset = 0u; offset < range.count; ++offset)
         {
             const GpuStrandIncidentJoint ref =
                 CRESSIM_SB_LOAD(g_SegmentIncidentStrandJoints, range.start + offset);
             const GpuStrandJointCorrection correction =
                 CRESSIM_SB_LOAD(g_StrandJointCorrections, ref.jointIndex);
-            totalTwistRotation +=
-                ref.slot == 0u ? correction.twistRotationA.xyz : correction.twistRotationB.xyz;
+            totalOrientationCorrection +=
+                ref.slot == 0u ? correction.twistRotationA : correction.twistRotationB;
         }
 
-        state.orientation = QuaternionNormalize(
-            QuaternionMul(state.orientation, QuaternionFromRotationVector(totalTwistRotation)));
+        state.orientation = QuaternionNormalize(state.orientation + totalOrientationCorrection);
         CRESSIM_SB_STORE(g_StrandSegmentStates, index, state);
     }
 }
