@@ -89,11 +89,13 @@ bool uploadPhysicsScene(cressim::neo::physics::PhysicsSceneGpuState &sceneState,
     auto &physicsWorld = world.physicsWorld();
     physicsWorld.ensureDerivedStateUpToDate();
     const auto &particles          = physicsWorld.particles();
-    const auto &softEdges          = physicsWorld.softEdges();
-    const auto &softTets           = physicsWorld.softTets();
-    const auto &softRenderData     = physicsWorld.softRenderData();
-    const auto &rigidJoints        = physicsWorld.rigidJointScene();
-    const std::uint32_t bodyCount  = physicsWorld.rigidBodyCount();
+    const auto &softEdges             = physicsWorld.softEdges();
+    const auto &softBends             = physicsWorld.bendConstraints();
+    const auto &softTets              = physicsWorld.softTets();
+    const auto &softRenderData        = physicsWorld.softRenderData();
+    const auto &curveRenderData       = physicsWorld.curveRenderData();
+    const auto &rigidJoints           = physicsWorld.rigidJointScene();
+    const std::uint32_t bodyCount     = physicsWorld.rigidBodyCount();
     const std::uint32_t colliderCount = physicsWorld.colliderCount();
 
     const Diligent::Uint64 sharedContextMask =
@@ -109,6 +111,7 @@ bool uploadPhysicsScene(cressim::neo::physics::PhysicsSceneGpuState &sceneState,
             static_cast<std::uint32_t>(physicsWorld.particleContactMaterials().size()),
             static_cast<std::uint32_t>(physicsWorld.fluidMaterials().size()),
             static_cast<std::uint32_t>(softEdges.size()),
+            static_cast<std::uint32_t>(softBends.size()),
             static_cast<std::uint32_t>(softTets.size()),
             static_cast<std::uint32_t>(rigidJoints.ball.size()),
             static_cast<std::uint32_t>(rigidJoints.hinge.size()),
@@ -119,6 +122,12 @@ bool uploadPhysicsScene(cressim::neo::physics::PhysicsSceneGpuState &sceneState,
             std::max<std::uint32_t>(
                 static_cast<std::uint32_t>(softRenderData.softBodyParticleRanges.size()), 1u),
             std::max<std::uint32_t>(physicsWorld.softBodyBoundsChunkCount(), 1u),
+            static_cast<std::uint32_t>(physicsWorld.suturingPairs().size()),
+            physicsWorld.reservedSuturingPathHeaderCount(),
+            physicsWorld.reservedSuturingPathNodeCount(),
+            static_cast<std::uint32_t>(curveRenderData.descriptors.size()),
+            static_cast<std::uint32_t>(curveRenderData.particleIndices.size()),
+            0u,
             sharedContextMask, sharedQueueFamilyIndices.data(), sharedQueueFamilyIndexCount,
             device.supportsNativePhysicsFloatAtomics()))
     {
@@ -239,8 +248,10 @@ int main()
     {
         metadataOverride.front().flags =
             static_cast<std::uint32_t>(graphics::GpuRenderableFlags::Active);
-        metadataOverride.front().softBodyIndex = 0u;
-        hostSceneView.renderableMetadata       = &metadataOverride;
+        metadataOverride.front().deformableIndex = 0u;
+        metadataOverride.front().deformableType =
+            static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::SoftBody);
+        hostSceneView.renderableMetadata = &metadataOverride;
     }
     const graphics::RenderStats stats =
         renderer->render(frame, hostSceneView, &physicsSceneView, options);

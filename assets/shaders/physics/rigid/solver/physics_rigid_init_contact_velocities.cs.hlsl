@@ -9,6 +9,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyLinearVelocities);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyAngularVelocities);
 CRESSIM_STRUCTURED_BUFFER(GpuRigidContact, g_RigidContacts);
 CRESSIM_STRUCTURED_BUFFER(GpuBroadPhaseMeta, g_BroadPhaseMeta);
+CRESSIM_STRUCTURED_BUFFER(GpuProxyRigidContactMeta, g_ProxyRigidContactMeta);
 
 CRESSIM_GLOBALLYCOHERENT_RW_STRUCTURED_BUFFER(GpuRigidBodyPairContactAggregateMapEntry,
                                               g_RigidBodyPairAggregateMap);
@@ -196,7 +197,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     const uint contactIndex = dispatchThreadID.x;
     const GpuBroadPhaseMeta broadPhaseMeta = CRESSIM_SB_LOAD(g_BroadPhaseMeta, 0u);
-    const uint totalContactSlots = broadPhaseMeta.candidatePairCount * kRigidContactsPerPair;
+    const GpuProxyRigidContactMeta proxyMeta = CRESSIM_SB_LOAD(g_ProxyRigidContactMeta, 0u);
+    const uint totalContactSlots =
+        broadPhaseMeta.candidatePairCount * kRigidContactsPerPair + proxyMeta.activeContactCount;
     if (contactIndex >= totalContactSlots)
     {
         return;

@@ -112,6 +112,41 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE physics
+    NAME strand_authoring
+    SOURCE physics_strand_authoring.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
+    NAME rigid_proxy_suturing_authoring
+    SOURCE physics_rigid_proxy_suturing_authoring.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
+    NAME particle_distance_constraint_authoring
+    SOURCE physics_particle_distance_constraint_authoring.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
+    NAME suturing_sequence_authoring
+    SOURCE physics_suturing_sequence_authoring.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
+    NAME suturing_runtime_updates
+    SOURCE physics_suturing_runtime_updates.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE physics
     NAME soft_gpu_scene_upload
     SOURCE physics_soft_gpu_scene_upload.cpp
     LIBS cressim_neo_engine

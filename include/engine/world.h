@@ -50,8 +50,24 @@ public:
     bool setSoftBody(common::EntityId entityId, const SoftBodyComponent &component);
     bool setMeshfreeSoftBody(common::EntityId entityId, const MeshfreeSoftBodyComponent &component);
     bool removeSoftBody(common::EntityId entityId);
+    bool setStrand(common::EntityId entityId, const StrandComponent &component);
+    bool removeStrand(common::EntityId entityId);
+    void setProceduralDeformableCurveRender(
+        common::EntityId entityId, const ProceduralDeformableCurveRenderComponent &component);
+    bool removeProceduralDeformableCurveRender(common::EntityId entityId);
     bool setFluid(common::EntityId entityId, const FluidComponent &component);
     bool removeFluid(common::EntityId entityId);
+    physics::AuthoredParticleSequenceState &upsertParticleSequence(
+        const physics::AuthoredParticleSequenceState &state);
+    physics::AuthoredParticleDistanceConstraintState &upsertParticleDistanceConstraint(
+        const physics::AuthoredParticleDistanceConstraintState &state);
+    physics::AuthoredParticleCollisionFilterState &upsertParticleCollisionFilter(
+        const physics::AuthoredParticleCollisionFilterState &state);
+    physics::AuthoredSuturingSequenceState &upsertSuturingSequence(
+        const physics::AuthoredSuturingSequenceState &state);
+    bool removeParticleDistanceConstraint(physics::ParticleConstraintId constraintId);
+    bool removeParticleCollisionFilter(physics::ParticleCollisionFilterId filterId);
+    bool removeSuturingSequence(physics::SuturingSequenceId sequenceId);
     void setUltrasoundProbe(common::EntityId entityId, const UltrasoundProbeComponent &component);
     bool removeUltrasoundProbe(common::EntityId entityId);
     void setUltrasoundScattererSource(common::EntityId entityId,
@@ -83,7 +99,18 @@ public:
     // Read rigid body/collider through physics.
     std::optional<RigidBodyComponent> tryGetRigidBody(common::EntityId entityId) const;
     std::optional<SoftBodyComponent> tryGetSoftBody(common::EntityId entityId) const;
+    std::optional<StrandComponent> tryGetStrand(common::EntityId entityId) const;
+    std::optional<ProceduralDeformableCurveRenderComponent> tryGetProceduralDeformableCurveRender(
+        common::EntityId entityId) const;
     std::optional<FluidComponent> tryGetFluid(common::EntityId entityId) const;
+    const physics::AuthoredParticleSequenceState *tryGetParticleSequence(
+        physics::ParticleSequenceId sequenceId) const noexcept;
+    const physics::AuthoredParticleDistanceConstraintState *tryGetParticleDistanceConstraint(
+        physics::ParticleConstraintId constraintId) const noexcept;
+    const physics::AuthoredParticleCollisionFilterState *tryGetParticleCollisionFilter(
+        physics::ParticleCollisionFilterId filterId) const noexcept;
+    const physics::AuthoredSuturingSequenceState *tryGetSuturingSequence(
+        physics::SuturingSequenceId sequenceId) const noexcept;
     std::optional<UltrasoundProbeComponent> tryGetUltrasoundProbe(common::EntityId entityId) const;
     std::optional<UltrasoundScattererSourceComponent> tryGetUltrasoundScattererSource(
         common::EntityId entityId) const;
@@ -129,6 +156,7 @@ public:
     std::uint64_t ultrasoundScattererAmplitudeRevision() const noexcept;
     void setUltrasoundProbeResult(common::EntityId entityId, const UltrasoundProbeResult &result);
     void clearUltrasoundProbeResult(common::EntityId entityId);
+    bool removeParticleSequence(physics::ParticleSequenceId sequenceId);
 
 private:
     static constexpr std::uint32_t kInvalidIndex = 0xffffffffu;
@@ -137,6 +165,7 @@ private:
     {
         bool hasRigidBody = false;
         bool hasSoftBody  = false;
+        bool hasStrand    = false;
         bool hasFluid     = false;
         std::vector<ColliderHandle> colliders;
     };
@@ -149,6 +178,7 @@ private:
     void refreshLightEntry(std::uint32_t lightIndex);
     void rebuildLocalLightSelections();
     void rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager &resources);
+    void rebuildCurveRenderBindings(const graphics::RenderResourceManager &resources);
     void refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources);
     void rebuildDrawRegistries(const graphics::RenderResourceManager &resources);
     void clearDirtyIndexSet(std::vector<std::uint32_t> &dirtyIndices,
@@ -189,6 +219,8 @@ private:
     std::unordered_map<common::EntityId, PhysicsLink> mPhysicsLinks{};
     std::unordered_map<std::uint32_t, common::EntityId> mColliderOwnerEntity{};
     std::unordered_map<common::EntityId, UltrasoundProbeComponent> mUltrasoundProbes{};
+    std::unordered_map<common::EntityId, ProceduralDeformableCurveRenderComponent>
+        mProceduralDeformableCurveRenders{};
     std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent>
         mUltrasoundScattererSources{};
     std::unordered_map<common::EntityId, std::vector<UltrasoundAmplitudeRange>>
@@ -245,13 +277,19 @@ private:
     bool mDrawRegistryDirty              = true;
     bool mPhysicsRenderableMappingsDirty = true;
     bool mSoftBodyRenderBindingsDirty    = true;
+    bool mCurveRenderBindingsDirty       = true;
     std::vector<std::uint32_t> mSoftBodyVertexBindingBaseByObject{};
     std::vector<std::uint32_t> mSoftBodyVertexNormalBaseByObject{};
     std::vector<std::uint32_t> mSoftBodyVertexCountByObject{};
+    std::vector<std::uint32_t> mCurveRenderVertexBaseByObject{};
+    std::vector<std::uint32_t> mCurveRenderVertexNormalBaseByObject{};
+    std::vector<std::uint32_t> mCurveRenderIndexByObject{};
+    std::vector<std::uint32_t> mCurveRenderVertexCountByObject{};
 
     std::uint64_t mCachedPhysicsRenderableMappingsBodyTopologyRevision = ~0ull;
     std::uint64_t mCachedSoftBodyRenderTopologyRevision                = ~0ull;
     std::uint64_t mCachedSoftBodyPhysicsRevision                       = ~0ull;
+    std::uint64_t mCachedCurveRenderPhysicsRevision                    = ~0ull;
 };
 
 } // namespace cressim::neo::engine

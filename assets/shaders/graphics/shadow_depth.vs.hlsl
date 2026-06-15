@@ -17,7 +17,7 @@ struct VSOutput
 };
 
 void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
-#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
+#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY) || defined(CRESSIM_PROGRAM_FAMILY_CURVE)
     , uint vertexId : SV_VertexID
 #endif
 )
@@ -52,13 +52,21 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
             float4 worldPos = float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
 #if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
             const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
-            if (metadata.softBodyVertexBindingBase != CRESSIM_INVALID_SOFT_BODY_VERTEX_BASE &&
-                vertexId < metadata.softBodyVertexCount)
+            if (metadata.deformVertexBase != CRESSIM_INVALID_DEFORM_VERTEX_BASE &&
+                vertexId < metadata.deformVertexCount)
             {
                 const float3 deformedPos =
-                    CRESSIM_SB_LOAD(g_SoftBodyRenderPositions,
-                                    metadata.softBodyVertexBindingBase + vertexId).xyz;
+                    CRESSIM_SB_LOAD(g_SoftBodyRenderPositions, metadata.deformVertexBase + vertexId).xyz;
                 worldPos = float4(deformedPos, 1.0);
+            }
+#elif defined(CRESSIM_PROGRAM_FAMILY_CURVE)
+            const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
+            if (metadata.deformVertexBase != CRESSIM_INVALID_DEFORM_VERTEX_BASE &&
+                vertexId < metadata.deformVertexCount)
+            {
+                worldPos = float4(CRESSIM_SB_LOAD(g_CurveRenderPositions,
+                                                  metadata.deformVertexBase + vertexId).xyz,
+                                  1.0);
             }
 #endif
             Out.Position = mul(worldPos, shadowView.lightViewProjectionMatrices[localMatrixIndex]);
@@ -96,13 +104,21 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
     float4 worldPos = float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
 #if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
     const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
-    if (metadata.softBodyVertexBindingBase != CRESSIM_INVALID_SOFT_BODY_VERTEX_BASE &&
-        vertexId < metadata.softBodyVertexCount)
+    if (metadata.deformVertexBase != CRESSIM_INVALID_DEFORM_VERTEX_BASE &&
+        vertexId < metadata.deformVertexCount)
     {
         const float3 deformedPos =
-            CRESSIM_SB_LOAD(g_SoftBodyRenderPositions,
-                            metadata.softBodyVertexBindingBase + vertexId).xyz;
+            CRESSIM_SB_LOAD(g_SoftBodyRenderPositions, metadata.deformVertexBase + vertexId).xyz;
         worldPos = float4(deformedPos, 1.0);
+    }
+#elif defined(CRESSIM_PROGRAM_FAMILY_CURVE)
+    const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
+    if (metadata.deformVertexBase != CRESSIM_INVALID_DEFORM_VERTEX_BASE &&
+        vertexId < metadata.deformVertexCount)
+    {
+        worldPos =
+            float4(CRESSIM_SB_LOAD(g_CurveRenderPositions, metadata.deformVertexBase + vertexId).xyz,
+                   1.0);
     }
 #endif
     Out.Position = mul(worldPos, preparedCamera.lightViewProjectionMatrices[g_CascadeIndex]);

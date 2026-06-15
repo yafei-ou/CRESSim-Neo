@@ -43,6 +43,18 @@ constexpr HingeJointId kInvalidHingeJointId = 0u;
 using SliderJointId                           = std::uint32_t;
 constexpr SliderJointId kInvalidSliderJointId = 0u;
 
+using ParticleConstraintId                                  = std::uint32_t;
+constexpr ParticleConstraintId kInvalidParticleConstraintId = 0u;
+
+using ParticleCollisionFilterId                                       = std::uint32_t;
+constexpr ParticleCollisionFilterId kInvalidParticleCollisionFilterId = 0u;
+
+using ParticleSequenceId                                = std::uint32_t;
+constexpr ParticleSequenceId kInvalidParticleSequenceId = 0u;
+
+using SuturingSequenceId                                = std::uint32_t;
+constexpr SuturingSequenceId kInvalidSuturingSequenceId = 0u;
+
 enum class RigidJointDriveMode : std::uint32_t
 {
     None           = 0u,
@@ -74,6 +86,85 @@ enum class ParticleOwnerType : std::uint32_t
     None      = 0u,
     SoftBody  = 1u,
     FluidBody = 2u,
+    Strand    = 3u,
+    RigidBody = 4u,
+};
+
+enum class AuthoredParticleReferenceType : std::uint32_t
+{
+    SoftBodyParticle   = 0u,
+    StrandParticle     = 1u,
+    RigidProxyParticle = 2u,
+};
+
+enum class ParticleStrandRole : std::uint32_t
+{
+    None       = 0u,
+    NeedleTip  = 1u,
+    NeedleBody = 2u,
+    Thread     = 3u,
+};
+
+enum class SuturingInsertionState : std::uint32_t
+{
+    Outside = 0u,
+    Inside  = 1u,
+};
+
+constexpr std::uint32_t kInvalidSuturingIndex = 0xffffffffu;
+
+struct GpuSuturingInsertionState
+{
+    std::uint32_t state            = static_cast<std::uint32_t>(SuturingInsertionState::Outside);
+    std::uint32_t softBodyIndex    = kInvalidSuturingIndex;
+    std::uint32_t tetIndex         = kInvalidSuturingIndex;
+    std::uint32_t pathIndex        = kInvalidSuturingIndex;
+    std::uint32_t nearestNodeIndex = kInvalidSuturingIndex;
+    std::uint32_t reserved0        = 0u;
+    std::uint32_t reserved1        = 0u;
+    std::uint32_t reserved2        = 0u;
+    Diligent::float4 barycentrics{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct SuturingPathHeader
+{
+    std::uint32_t suturingGroupId          = kInvalidSuturingIndex;
+    std::uint32_t softBodyIndex            = kInvalidSuturingIndex;
+    std::uint32_t nodeStart                = 0u;
+    std::uint32_t nodeCount                = 0u;
+    std::uint32_t flags                    = 0u;
+    std::uint32_t needleTangentialDragBits = 0u;
+    std::uint32_t threadTangentialDragBits = 0u;
+    std::uint32_t reserved2                = 0u;
+};
+
+struct SuturingPathNode
+{
+    std::uint32_t softBodyIndex = 0xffffffffu;
+    std::uint32_t tetIndex      = 0xffffffffu;
+    Diligent::float4 barycentrics{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float3 tangent{0.0f, 0.0f, 0.0f};
+    float arcLength = 0.0f;
+};
+
+struct StrandSoftSuturingPair
+{
+    std::uint32_t suturingGroupId          = kInvalidSuturingIndex;
+    std::uint32_t softBodyIndex            = kInvalidSuturingIndex;
+    std::uint32_t strandParticleStart      = 0u;
+    std::uint32_t strandParticleCount      = 0u;
+    std::uint32_t tipParticleIndex         = kInvalidSuturingIndex;
+    std::uint32_t softTetStart             = 0u;
+    std::uint32_t softTetCount             = 0u;
+    std::uint32_t pathStart                = 0u;
+    std::uint32_t pathCount                = 0u;
+    std::uint32_t nodeStart                = 0u;
+    std::uint32_t nodeCount                = 0u;
+    std::uint32_t activePathIndex          = kInvalidSuturingIndex;
+    std::uint32_t environmentIndex         = 0u;
+    float pathNodeSpacing                  = 0.0f;
+    std::uint32_t needleTangentialDragBits = 0u;
+    std::uint32_t threadTangentialDragBits = 0u;
 };
 
 struct SoftBodyRegularGridSource
@@ -141,6 +232,11 @@ struct SoftBodyMaterialDesc
     ParticleContactMaterialDesc contact{};
 };
 
+struct StrandMaterialDesc
+{
+    ParticleContactMaterialDesc contact{};
+};
+
 struct FluidMaterialDesc
 {
     ParticleContactMaterialDesc contact{};
@@ -198,6 +294,17 @@ struct RigidBodyState
     Diligent::float3 kinematicTargetPosition{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF kinematicTargetRotation{0.0f, 0.0f, 0.0f, 1.0f};
     bool kinematicTargetEnabled = false;
+    float proxyParticleRadius   = 0.0f;
+    ParticleContactMaterialDesc proxyParticleMaterial{};
+    std::uint32_t proxyCollisionLayer        = 1u;
+    std::uint32_t proxyCollisionMask         = 0xffffffffu;
+    std::uint32_t proxyParticleOffset        = 0u;
+    std::uint32_t proxyParticleCount         = 0u;
+    std::uint32_t proxyParticleMaterialIndex = 0u;
+    bool suturingEnabled                     = false;
+    std::uint32_t needleTipProxyIndex        = 0u;
+    Diligent::float4 proxyParticleContactMaterial{0.0f, 0.0f, 0.0f, 0.0f};
+    std::vector<Diligent::float3> proxyParticleLocalPositions;
 };
 
 struct ColliderState
@@ -223,6 +330,7 @@ struct SoftBodyState
     std::uint32_t environmentIndex = 0u;
     std::uint32_t collisionLayer   = 1u;
     std::uint32_t collisionMask    = 0xffffffffu;
+    bool supportsSuturing          = false;
     SoftBodySourceDesc source{};
     SoftBodyMaterialDesc material{};
     common::Transform restTransform{};
@@ -241,6 +349,32 @@ struct SoftBodyState
     std::uint32_t tetCount             = 0u;
     std::vector<Diligent::float3> restPositions;
     std::vector<Diligent::uint3> boundaryFaces;
+};
+
+struct StrandState
+{
+    common::EntityId entityId      = common::kInvalidEntityId;
+    std::uint32_t environmentIndex = 0u;
+    std::uint32_t collisionLayer   = 1u;
+    std::uint32_t collisionMask    = 0xffffffffu;
+    bool suturingEnabled           = false;
+    float pathNodeSpacing          = 0.2f;
+    StrandMaterialDesc material{};
+    float particleMass                 = 1.0f;
+    float particleRadius               = 0.125f;
+    float distanceCompliance           = 0.0f;
+    float bendCompliance               = 0.0f;
+    bool simulated                     = true;
+    bool selfCollisionEnabled          = false;
+    std::uint32_t contactMaterialIndex = 0u;
+    std::uint32_t particleOffset       = 0u;
+    std::uint32_t particleCount        = 0u;
+    std::uint32_t constraintOffset     = 0u;
+    std::uint32_t constraintCount      = 0u;
+    std::uint32_t bendConstraintOffset = 0u;
+    std::uint32_t bendConstraintCount  = 0u;
+    std::vector<Diligent::float3> restPositions;
+    std::vector<std::uint32_t> staticParticleIndices;
 };
 
 struct FluidState
@@ -263,7 +397,53 @@ struct FluidState
     std::vector<Diligent::float3> restPositions;
 };
 
-struct SoftEdge
+struct AuthoredParticleReference
+{
+    common::EntityId entityId          = common::kInvalidEntityId;
+    AuthoredParticleReferenceType type = AuthoredParticleReferenceType::StrandParticle;
+    std::uint32_t localParticleIndex   = 0u;
+};
+
+struct AuthoredParticleDistanceConstraintState
+{
+    ParticleConstraintId constraintId = kInvalidParticleConstraintId;
+    AuthoredParticleReference particleA{};
+    AuthoredParticleReference particleB{};
+    float restLength = 0.0f;
+    float compliance = 0.0f;
+    bool enabled     = true;
+};
+
+struct AuthoredParticleCollisionFilterState
+{
+    ParticleCollisionFilterId filterId = kInvalidParticleCollisionFilterId;
+    AuthoredParticleReference particle{};
+    std::uint32_t collisionLayer = 1u;
+    std::uint32_t collisionMask  = 0xffffffffu;
+    bool enabled                 = true;
+};
+
+struct AuthoredParticleSequenceState
+{
+    ParticleSequenceId sequenceId = kInvalidParticleSequenceId;
+    std::vector<AuthoredParticleReference> entries{};
+    bool enabled = true;
+};
+
+struct AuthoredSuturingSequenceState
+{
+    SuturingSequenceId sequenceId = kInvalidSuturingSequenceId;
+    std::vector<AuthoredParticleReference> entries{};
+    // The selected tip entry authors the suturing path. In the current prototype,
+    // the sequence tip and tail also suppress same-soft-body exterior contact.
+    std::uint32_t tipEntryIndex = 0u;
+    float pathNodeSpacing       = 0.0f;
+    float needleTangentialDrag  = 0.0f;
+    float threadTangentialDrag  = 0.0f;
+    bool enabled                = true;
+};
+
+struct DeformableDistanceConstraint
 {
     std::uint32_t particleA = 0u;
     std::uint32_t particleB = 0u;
@@ -271,7 +451,9 @@ struct SoftEdge
     float compliance        = 0.0f;
 };
 
-struct SoftTet
+using SoftEdge = DeformableDistanceConstraint;
+
+struct DeformableVolumeConstraint
 {
     Diligent::uint4 particleIndices{0u, 0u, 0u, 0u};
     float restVolume        = 0.0f;
@@ -279,6 +461,22 @@ struct SoftTet
     std::uint32_t reserved0 = 0u;
     std::uint32_t reserved1 = 0u;
 };
+
+using SoftTet = DeformableVolumeConstraint;
+
+struct DeformableBendConstraint
+{
+    std::uint32_t particle0 = 0u;
+    std::uint32_t particle1 = 0u;
+    std::uint32_t particle2 = 0u;
+    float restAngle         = 0.0f;
+    float compliance        = 0.0f;
+    std::uint32_t reserved0 = 0u;
+    std::uint32_t reserved1 = 0u;
+    std::uint32_t reserved2 = 0u;
+};
+
+using SoftBend = DeformableBendConstraint;
 
 struct ParticleSoAHost
 {
@@ -290,6 +488,11 @@ struct ParticleSoAHost
     std::vector<std::uint32_t> particleKinds;
     std::vector<std::uint32_t> ownerTypes;
     std::vector<std::uint32_t> ownerIndices;
+    std::vector<std::uint32_t> strandIds;
+    std::vector<std::uint32_t> strandOrders;
+    std::vector<std::uint32_t> strandRoles;
+    std::vector<Diligent::uint4> suturingNeighborLinks;
+    std::vector<std::uint32_t> suturingParticleIndices;
     std::vector<std::uint32_t> owningSoftBodyIndices;
     std::vector<std::uint32_t> particleMaterialIndices;
     std::vector<std::uint32_t> fluidMaterialIndices;
@@ -299,6 +502,7 @@ struct ParticleSoAHost
     std::vector<std::uint32_t> adjacencyOffsets;
     std::vector<std::uint32_t> adjacencyCounts;
     std::vector<std::uint32_t> adjacencyIndices;
+    std::vector<Diligent::float4> rigidProxyLocalPositions;
 
     std::size_t size() const noexcept
     {
@@ -320,6 +524,11 @@ struct ParticleSoAHost
         particleKinds.clear();
         ownerTypes.clear();
         ownerIndices.clear();
+        strandIds.clear();
+        strandOrders.clear();
+        strandRoles.clear();
+        suturingNeighborLinks.clear();
+        suturingParticleIndices.clear();
         owningSoftBodyIndices.clear();
         particleMaterialIndices.clear();
         fluidMaterialIndices.clear();
@@ -329,6 +538,7 @@ struct ParticleSoAHost
         adjacencyOffsets.clear();
         adjacencyCounts.clear();
         adjacencyIndices.clear();
+        rigidProxyLocalPositions.clear();
     }
 };
 
@@ -346,6 +556,7 @@ struct RigidBodySoAHost
     std::vector<Diligent::float4> kinematicTargetPositions;
     std::vector<Diligent::float4> kinematicTargetOrientations;
     std::vector<std::uint32_t> kinematicTargetFlags;
+    std::vector<Diligent::float4> proxyParticleContactMaterials;
 
     std::size_t size() const noexcept
     {
@@ -371,6 +582,7 @@ struct RigidBodySoAHost
         kinematicTargetPositions.clear();
         kinematicTargetOrientations.clear();
         kinematicTargetFlags.clear();
+        proxyParticleContactMaterials.clear();
     }
 };
 
@@ -674,6 +886,29 @@ struct SoftRenderDataHost
         vertexTriangleIndices.clear();
         triangleParticleIndices.clear();
         softBodyParticleRanges.clear();
+    }
+};
+
+struct CurveRenderDescriptorHost
+{
+    std::uint32_t particleIndexStart = 0u;
+    std::uint32_t particleCount      = 0u;
+    std::uint32_t vertexBase         = 0u;
+    std::uint32_t vertexCount        = 0u;
+    std::uint32_t radialResolution   = 0u;
+    std::uint32_t environmentIndex   = 0u;
+    float radius                     = 0.0f;
+};
+
+struct CurveRenderDataHost
+{
+    std::vector<CurveRenderDescriptorHost> descriptors;
+    std::vector<std::uint32_t> particleIndices;
+
+    void clear()
+    {
+        descriptors.clear();
+        particleIndices.clear();
     }
 };
 

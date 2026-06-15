@@ -159,25 +159,33 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const std::uint32_t colliderCount                   = world.colliderCount();
     const ParticleSoAHost &particles                    = world.particles();
     const std::vector<FluidMaterialGpu> &fluidMaterials = world.fluidMaterials();
-    const std::vector<SoftEdge> &softEdges              = world.softEdges();
-    const std::vector<SoftTet> &softTets                = world.softTets();
-    const SoftRenderDataHost &softRenderData            = world.softRenderData();
-    const RigidJointSceneHost &rigidJoints              = world.rigidJointScene();
-    const std::uint32_t fluidCount                      = world.fluidCount();
+    const std::vector<DeformableDistanceConstraint> &distanceConstraints =
+        world.distanceConstraints();
+    const std::vector<DeformableBendConstraint> &bendConstraints     = world.bendConstraints();
+    const std::vector<DeformableVolumeConstraint> &volumeConstraints = world.volumeConstraints();
+    const SoftRenderDataHost &softRenderData                         = world.softRenderData();
+    const CurveRenderDataHost &curveRenderData                       = world.curveRenderData();
+    const RigidJointSceneHost &rigidJoints                           = world.rigidJointScene();
+    const std::uint32_t fluidCount                                   = world.fluidCount();
     const std::uint32_t particleCount    = static_cast<std::uint32_t>(particles.size());
-    const std::uint32_t softEdgeCount    = static_cast<std::uint32_t>(softEdges.size());
-    const std::uint32_t softTetCount     = static_cast<std::uint32_t>(softTets.size());
+    const std::uint32_t softEdgeCount    = static_cast<std::uint32_t>(distanceConstraints.size());
+    const std::uint32_t softBendCount    = static_cast<std::uint32_t>(bendConstraints.size());
+    const std::uint32_t softTetCount     = static_cast<std::uint32_t>(volumeConstraints.size());
     const std::uint32_t ballJointCount   = static_cast<std::uint32_t>(rigidJoints.ball.size());
     const std::uint32_t hingeJointCount  = static_cast<std::uint32_t>(rigidJoints.hinge.size());
     const std::uint32_t sliderJointCount = static_cast<std::uint32_t>(rigidJoints.slider.size());
     const std::uint32_t softRenderTriangleCount =
         static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
+    const std::uint32_t curveRenderCount =
+        static_cast<std::uint32_t>(curveRenderData.descriptors.size());
     const std::uint32_t softBodyBoundsChunkCount = world.softBodyBoundsChunkCount();
+    const std::uint32_t suturingParticleCount    = world.suturingParticleCount();
     const float particleGridCellSize             = world.particleGridCellSize();
     std::array<std::uint32_t, 2> sharedQueueFamilyIndices{};
     const std::uint32_t sharedQueueFamilyIndexCount = buildUniqueQueueFamilyIndices(
         computeBackend.computeContext, graphicsBackend.graphicsContext, sharedQueueFamilyIndices);
-    const bool hasSoftData = particleCount > 0u || softEdgeCount > 0u || softTetCount > 0u;
+    const bool hasSoftData =
+        particleCount > 0u || softEdgeCount > 0u || softBendCount > 0u || softTetCount > 0u;
     if (rigidBodyCount == 0u && !hasSoftData)
     {
         return true;
@@ -186,13 +194,26 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     if (!mImpl->sceneState.ensureCapacity(
             computeBackend.renderDevice, rigidBodyCount, colliderCount, particleCount, fluidCount,
             static_cast<std::uint32_t>(world.particleContactMaterials().size()),
-            static_cast<std::uint32_t>(fluidMaterials.size()), softEdgeCount, softTetCount,
-            ballJointCount, hingeJointCount, sliderJointCount,
+            static_cast<std::uint32_t>(fluidMaterials.size()), softEdgeCount, softBendCount,
+            softTetCount, ballJointCount, hingeJointCount, sliderJointCount,
             static_cast<std::uint32_t>(softRenderData.fallbackNormals.size()),
             static_cast<std::uint32_t>(softRenderData.vertexTriangleIndices.size()),
             softRenderTriangleCount,
             static_cast<std::uint32_t>(softRenderData.softBodyParticleRanges.size()),
-            softBodyBoundsChunkCount,
+            softBodyBoundsChunkCount, static_cast<std::uint32_t>(world.suturingPairs().size()),
+            world.reservedSuturingPathHeaderCount(), world.reservedSuturingPathNodeCount(),
+            static_cast<std::uint32_t>(curveRenderData.descriptors.size()),
+            static_cast<std::uint32_t>(curveRenderData.particleIndices.size()),
+            [&curveRenderData]()
+            {
+                std::uint32_t totalVertexCount = 0u;
+                for (const CurveRenderDescriptorHost &descriptor : curveRenderData.descriptors)
+                {
+                    totalVertexCount =
+                        std::max(totalVertexCount, descriptor.vertexBase + descriptor.vertexCount);
+                }
+                return totalVertexCount;
+            }(),
             gpu::contextMaskForId(computeBackend.contextId) |
                 gpu::contextMaskForId(graphicsBackend.contextId),
             sharedQueueFamilyIndices.data(), sharedQueueFamilyIndexCount,
@@ -246,6 +267,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         constants.rigidBodyCount        = rigidBodyCount;
         constants.colliderCount         = colliderCount;
         constants.candidatePairCapacity = mImpl->sceneState.candidatePairCapacity();
+        constants.contactCapacity       = mImpl->sceneState.rigidContactCapacity();
         GpuParticleDispatchConstants particleConstants{};
         particleConstants.dt                   = substepDt;
         particleConstants.particleCount        = particleCount;
@@ -259,19 +281,31 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         particleConstants.particleCellRangeCapacity =
             nextPowerOfTwo(std::max<std::uint32_t>(particleCount * 2u, 1u));
         particleConstants.softEdgeCount   = softEdgeCount;
+        particleConstants.softBendCount   = softBendCount;
         particleConstants.softTetCount    = softTetCount;
         particleConstants.fluidIterations = fluidIterations;
+        particleConstants.suturingPairCount =
+            static_cast<std::uint32_t>(world.suturingPairs().size());
+        particleConstants.suturingPathHeaderCount = world.reservedSuturingPathHeaderCount();
+        particleConstants.suturingPathNodeCount   = world.reservedSuturingPathNodeCount();
+        particleConstants.suturingParticleCount   = suturingParticleCount;
+        particleConstants.maxSuturingCandidatesPerParticle = kMaxSuturingCandidatesPerParticle;
+        particleConstants.maxSuturingNodesPerPath          = world.maxSuturingNodesPerPath();
 
         const bool hasParticleNeighborWork = particleCount > 0u;
         const bool hasFluidWork            = fluidCount > 0u && particleCount > 0u;
         const bool hasFluidBoundaryWork    = hasFluidWork && colliderCount > 0u;
         const bool hasSoftInternalWork =
-            particleCount > 0u && (softEdgeCount > 0u || softTetCount > 0u);
-        const bool hasSoftContactSolveWork = softContactIterations > 0u;
-        const bool hasSoftSoftContactWork  = hasSoftContactSolveWork && particleCount > 1u;
+            particleCount > 0u && (softEdgeCount > 0u || softBendCount > 0u || softTetCount > 0u);
+        const bool hasSoftContactSolveWork       = softContactIterations > 0u;
+        const bool hasSoftSoftContactWork        = hasSoftContactSolveWork && particleCount > 1u;
+        const bool hasParticleRigidCandidateWork = particleCount > 0u && colliderCount > 0u;
         const bool hasSoftRigidContactWork =
-            hasSoftContactSolveWork && particleCount > 0u && colliderCount > 0u;
-        const bool hasParticleBroadPhaseWork = hasSoftSoftContactWork || hasFluidWork;
+            hasSoftContactSolveWork && hasParticleRigidCandidateWork;
+        const bool hasSuturingCouplingWork =
+            suturingParticleCount > 0u && particleConstants.suturingPairCount > 0u;
+        const bool hasParticleBroadPhaseWork =
+            hasSoftSoftContactWork || hasFluidWork || hasParticleRigidCandidateWork;
         if (mImpl->sceneState.correctionBuffersNeedClear() &&
             !mImpl->passDispatcher.clearRigidCorrections(
                 computeBackend.computeContext, mImpl->sceneState, rigidBodyCount, constants))
@@ -288,7 +322,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         }
         const bool hasRigidBroadPhaseWork = world.activeMovingColliderCount() > 0u;
         const bool useInitialRigidContactSolve =
-            hasRigidBroadPhaseWork && rigidContactIterations > 0u;
+            rigidContactIterations > 0u &&
+            (hasRigidBroadPhaseWork || hasParticleRigidCandidateWork);
         constants.activeMovingCount = world.activeMovingColliderCount();
         constants.staticBodyCount   = world.staticColliderCount();
         if (rigidBodyCount != 0u)
@@ -351,14 +386,6 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                         "PhysicsSolver::step failed: GenerateRigidContacts initial dispatch.");
                     return false;
                 }
-                if (useInitialRigidContactSolve &&
-                    !mImpl->passDispatcher.initRigidContactVelocities(computeBackend.computeContext,
-                                                                      mImpl->sceneState, constants))
-                {
-                    CRESSIM_LOG_ERROR(
-                        "PhysicsSolver::step failed: InitRigidContactVelocities initial dispatch.");
-                    return false;
-                }
             }
         }
 
@@ -366,6 +393,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                                                particleCount, particleConstants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SoftPredict dispatch.");
+            return false;
+        }
+
+        if (particleCount > 0u && rigidBodyCount > 0u &&
+            !mImpl->passDispatcher.syncRigidProxyParticles(
+                computeBackend.computeContext, mImpl->sceneState, particleCount, particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SyncRigidProxyParticles dispatch.");
             return false;
         }
 
@@ -428,9 +463,10 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     "PhysicsSolver::step failed: BuildSoftSoftCandidatePairs dispatch.");
                 return false;
             }
-            if (hasSoftRigidContactWork && !mImpl->passDispatcher.buildParticleRigidCandidatePairs(
-                                               computeBackend.computeContext, mImpl->sceneState,
-                                               particleCount, particleConstants))
+            if (hasParticleRigidCandidateWork &&
+                !mImpl->passDispatcher.buildParticleRigidCandidatePairs(
+                    computeBackend.computeContext, mImpl->sceneState, particleCount,
+                    particleConstants))
             {
                 CRESSIM_LOG_ERROR(
                     "PhysicsSolver::step failed: BuildSoftRigidCandidatePairs dispatch.");
@@ -444,7 +480,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                     "PhysicsSolver::step failed: BuildFluidBoundaryCandidatePairs dispatch.");
                 return false;
             }
-            if ((hasSoftSoftContactWork || hasSoftRigidContactWork) &&
+            if ((hasSoftSoftContactWork || hasParticleRigidCandidateWork) &&
                 !mImpl->passDispatcher.prepareParticleCandidateIndirectArgs(
                     computeBackend.computeContext, mImpl->sceneState))
             {
@@ -454,8 +490,72 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             }
         }
 
+        if (suturingParticleCount > 0u && particleConstants.suturingPairCount > 0u)
+        {
+            if (!mImpl->passDispatcher.clearSuturingCandidates(
+                    computeBackend.computeContext, mImpl->sceneState, suturingParticleCount,
+                    particleConstants))
+            {
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ClearSuturingCandidates dispatch.");
+                return false;
+            }
+            if (hasSoftSoftContactWork &&
+                !mImpl->passDispatcher.gatherSuturingCandidates(
+                    computeBackend.computeContext, mImpl->sceneState, particleConstants))
+            {
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: GatherSuturingCandidates dispatch.");
+                return false;
+            }
+            if (!mImpl->passDispatcher.classifySuturingParticles(
+                    computeBackend.computeContext, mImpl->sceneState, suturingParticleCount,
+                    particleConstants))
+            {
+                CRESSIM_LOG_ERROR(
+                    "PhysicsSolver::step failed: ClassifySuturingParticles dispatch.");
+                return false;
+            }
+            if (!mImpl->passDispatcher.updateSuturingTipPaths(
+                    computeBackend.computeContext, mImpl->sceneState,
+                    particleConstants.suturingPairCount, particleConstants))
+            {
+                CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSuturingTipPaths dispatch.");
+                return false;
+            }
+        }
+
+        if (useInitialRigidContactSolve)
+        {
+            const GpuProxyRigidContactMeta zeroProxyMeta{};
+            computeBackend.computeContext->UpdateBuffer(
+                mImpl->sceneState.transientBuffers().proxyRigidContactMetaBuffer, 0u,
+                sizeof(GpuProxyRigidContactMeta), &zeroProxyMeta,
+                Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        }
+        if (useInitialRigidContactSolve && hasParticleRigidCandidateWork &&
+            !mImpl->passDispatcher.generateProxyRigidContacts(computeBackend.computeContext,
+                                                              mImpl->sceneState, particleConstants))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: GenerateProxyRigidContacts dispatch.");
+            return false;
+        }
+        if (useInitialRigidContactSolve && !mImpl->passDispatcher.prepareRigidIndirectArgs(
+                                               computeBackend.computeContext, mImpl->sceneState))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: PrepareRigidIndirectArgs final dispatch.");
+            return false;
+        }
+        if (useInitialRigidContactSolve &&
+            !mImpl->passDispatcher.initRigidContactVelocities(computeBackend.computeContext,
+                                                              mImpl->sceneState, constants))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: InitRigidContactVelocities initial dispatch.");
+            return false;
+        }
+
         const std::uint32_t softConstraintThreadCount =
-            std::max(particleCount, std::max(softEdgeCount, softTetCount));
+            std::max(particleCount, std::max(std::max(softEdgeCount, softBendCount), softTetCount));
         if ((hasSoftInternalWork || hasSoftSoftContactWork || hasSoftRigidContactWork) &&
             !mImpl->passDispatcher.clearSoftConstraintState(
                 computeBackend.computeContext, mImpl->sceneState, softConstraintThreadCount,
@@ -484,7 +584,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         const bool hasAnyPositionSolveWork =
             hasFluidWork || (hasSoftInternalWork && softInternalIterations > 0u) ||
             (hasSoftSoftContactWork && softContactIterations > 0u) ||
-            (hasSoftRigidContactWork && softContactIterations > 0u) ||
+            (hasSoftRigidContactWork && softContactIterations > 0u) || hasSuturingCouplingWork ||
             useInitialRigidContactSolve ||
             ((ballJointCount > 0u || hingeJointCount > 0u || sliderJointCount > 0u) &&
              rigidJointIterations > 0u);
@@ -566,6 +666,22 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 {
                     CRESSIM_LOG_ERROR(
                         "PhysicsSolver::step failed: ApplySoftEdgeCorrections dispatch.");
+                    return false;
+                }
+                if (runSoftInternal && !mImpl->passDispatcher.solveSoftBendConstraints(
+                                           computeBackend.computeContext, mImpl->sceneState,
+                                           softBendCount, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: SolveSoftBendConstraints dispatch.");
+                    return false;
+                }
+                if (runSoftInternal &&
+                    !mImpl->passDispatcher.applySoftBendCorrections(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: ApplySoftBendCorrections dispatch.");
                     return false;
                 }
                 if (runSoftInternal && !mImpl->passDispatcher.solveSoftTetConstraints(
@@ -691,6 +807,58 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                         "PhysicsSolver::step failed: ApplyRigidCorrections dispatch.");
                     return false;
                 }
+                if (needRigidApply && particleCount > 0u && rigidBodyCount > 0u &&
+                    !mImpl->passDispatcher.syncRigidProxyParticles(computeBackend.computeContext,
+                                                                   mImpl->sceneState, particleCount,
+                                                                   particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: SyncRigidProxyParticles iterative dispatch.");
+                    return false;
+                }
+                if (hasSuturingCouplingWork && !mImpl->passDispatcher.assignSuturingInsideParticles(
+                                                   computeBackend.computeContext, mImpl->sceneState,
+                                                   suturingParticleCount, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: AssignSuturingInsideParticles dispatch.");
+                    return false;
+                }
+                if (hasSuturingCouplingWork &&
+                    !mImpl->passDispatcher.solveSuturingNodePathConstraints(
+                        computeBackend.computeContext, mImpl->sceneState, suturingParticleCount,
+                        particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: SolveSuturingNodePathConstraints dispatch.");
+                    return false;
+                }
+                if (hasSuturingCouplingWork &&
+                    !mImpl->passDispatcher.applyParticlePositionCorrections(
+                        computeBackend.computeContext, mImpl->sceneState, particleConstants))
+                {
+                    CRESSIM_LOG_ERROR("PhysicsSolver::step failed: "
+                                      "ApplyParticlePositionCorrections suturing dispatch.");
+                    return false;
+                }
+                if (hasSuturingCouplingWork && rigidBodyCount > 0u &&
+                    !mImpl->passDispatcher.applyRigidCorrections(computeBackend.computeContext,
+                                                                 mImpl->sceneState, rigidBodyCount,
+                                                                 constants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: ApplyRigidCorrections suturing dispatch.");
+                    return false;
+                }
+                if (hasSuturingCouplingWork && rigidBodyCount > 0u && particleCount > 0u &&
+                    !mImpl->passDispatcher.syncRigidProxyParticles(computeBackend.computeContext,
+                                                                   mImpl->sceneState, particleCount,
+                                                                   particleConstants))
+                {
+                    CRESSIM_LOG_ERROR(
+                        "PhysicsSolver::step failed: SyncRigidProxyParticles suturing dispatch.");
+                    return false;
+                }
             }
         }
 
@@ -754,9 +922,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
         if (hasSoftSoftContactWork && softContactIterations > 0u &&
-            !mImpl->passDispatcher.solveParticleContactVelocities(computeBackend.computeContext,
-                                                                  mImpl->sceneState, particleCount,
-                                                                  softContactIterations))
+            !mImpl->passDispatcher.solveParticleContactVelocities(
+                computeBackend.computeContext, mImpl->sceneState, particleCount, rigidBodyCount,
+                softContactIterations, constants))
         {
             CRESSIM_LOG_ERROR(
                 "PhysicsSolver::step failed: SolveParticleContactVelocities dispatch.");
@@ -796,6 +964,12 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                                                         softBodyBoundsChunkCount))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateSoftBodyBounds dispatch.");
+            return false;
+        }
+        if (!mImpl->passDispatcher.updateCurveRenderData(computeBackend.computeContext,
+                                                         mImpl->sceneState, curveRenderCount))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateCurveRenderData dispatch.");
             return false;
         }
 
@@ -871,6 +1045,30 @@ bool PhysicsSolver::validateGpuMetaBlocking()
             CRESSIM_LOG_ERROR("PhysicsSolver validation failed: candidate pair overflow (required=",
                               broadPhaseMeta.requiredPairCount,
                               ", capacity=", mImpl->sceneState.candidatePairCapacity(), ").");
+            return false;
+        }
+
+        GpuProxyRigidContactMeta proxyMeta{};
+        if (!mImpl->sceneState.readbackProxyRigidContactMetaBlocking(computeBackend.computeContext,
+                                                                     proxyMeta))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::validateGpuMetaBlocking failed: proxy rigid contact "
+                              "meta readback.");
+            return false;
+        }
+        if (proxyMeta.overflow != 0u)
+        {
+            const std::uint32_t primitiveContactCount =
+                broadPhaseMeta.candidatePairCount * kRigidContactsPerPair;
+            const std::uint32_t proxyCapacity =
+                mImpl->sceneState.rigidContactCapacity() > primitiveContactCount
+                    ? (mImpl->sceneState.rigidContactCapacity() - primitiveContactCount)
+                    : 0u;
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver validation failed: proxy rigid contact overflow "
+                "(required=",
+                proxyMeta.requiredContactCount, ", proxy capacity=", proxyCapacity,
+                ", total rigid contact capacity=", mImpl->sceneState.rigidContactCapacity(), ").");
             return false;
         }
     }

@@ -7,6 +7,7 @@
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float, g_ParticleRadii);
 CRESSIM_STRUCTURED_BUFFER(uint4, g_ParticleBroadPhaseMetadata);
+CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerTypes);
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
@@ -40,6 +41,13 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const uint particleIndex = pair.indexA;
     const uint rigidBodyIndex = pair.indexB;
+    const uint ownerType = CRESSIM_SB_LOAD(g_ParticleOwnerTypes, particleIndex);
+    if (ownerType == kParticleOwnerTypeRigidBody)
+    {
+        CRESSIM_SB_STORE(g_ParticleRigidContacts, pairIndex, outContact);
+        CRESSIM_SB_STORE(g_ContactActiveFlags, pairIndex, 0u);
+        return;
+    }
     const float3 softPosition =
         CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex).xyz;
     const float softRadius = CRESSIM_SB_LOAD(g_ParticleRadii, particleIndex);

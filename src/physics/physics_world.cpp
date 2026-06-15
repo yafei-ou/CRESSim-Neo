@@ -8,6 +8,10 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstring>
+#include <optional>
+#include <sstream>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace cressim::neo::physics
@@ -19,6 +23,14 @@ namespace
 constexpr std::uint32_t kBroadPhaseContributionNone   = 0u;
 constexpr std::uint32_t kBroadPhaseContributionMoving = 1u;
 constexpr std::uint32_t kBroadPhaseContributionStatic = 2u;
+
+std::uint32_t encodeSuturingFloat(float value) noexcept
+{
+    std::uint32_t encoded = 0u;
+    static_assert(sizeof(encoded) == sizeof(value));
+    std::memcpy(&encoded, &value, sizeof(encoded));
+    return encoded;
+}
 
 Diligent::float4 toPositionInvMass(const RigidBodyState &state)
 {
@@ -105,6 +117,30 @@ float fluidSpikyWeightDerivative(float distance, float supportRadius) noexcept
     const float oneMinusQ = 1.0f - distance / supportRadius;
     const float k = 15.0f / (kFluidKernelPi * supportRadius * supportRadius * supportRadius);
     return -k * 2.0f * oneMinusQ / supportRadius;
+}
+
+std::vector<std::uint32_t> validateStaticParticleIndices(const std::vector<std::uint32_t> &indices,
+                                                         const std::uint32_t particleCount,
+                                                         std::string &errorMessage)
+{
+    std::vector<std::uint32_t> result = indices;
+    std::sort(result.begin(), result.end());
+    result.erase(std::unique(result.begin(), result.end()), result.end());
+
+    for (const std::uint32_t index : result)
+    {
+        if (index >= particleCount)
+        {
+            std::ostringstream stream;
+            stream << "Static particle index " << index << " is out of range for " << particleCount
+                   << " particles.";
+            errorMessage = stream.str();
+            return {};
+        }
+    }
+
+    errorMessage.clear();
+    return result;
 }
 
 std::uint32_t tightPack3D(float radius, float separation,
@@ -515,23 +551,39 @@ void PhysicsWorld::clear()
     mColliderIdToIndex.clear();
     mEntityToColliderIds.clear();
     mEntityToSoftBodyIndex.clear();
+    mEntityToStrandIndex.clear();
     mEntityToFluidIndex.clear();
+    mParticleSequenceIdToIndex.clear();
+    mParticleConstraintIdToIndex.clear();
+    mParticleCollisionFilterIdToIndex.clear();
+    mSuturingSequenceIdToIndex.clear();
     mTetGenMeshCache.clear();
     mRigidBodySnapshot.clear();
     mColliderSnapshot.clear();
     mSoftBodySnapshot.clear();
+    mStrandSnapshot.clear();
     mFluidSnapshot.clear();
+    mParticleSequenceSnapshot.clear();
+    mParticleDistanceConstraintSnapshot.clear();
+    mParticleCollisionFilterSnapshot.clear();
+    mSuturingSequenceSnapshot.clear();
     mBallJointSnapshot.clear();
     mHingeJointSnapshot.clear();
     mSliderJointSnapshot.clear();
     mSoftBodyDerivedCaches.clear();
+    mStrandDerivedCaches.clear();
     mFluidDerivedCaches.clear();
+    mSuturingPairs.clear();
+    mReservedSuturingPathHeaders = 0u;
+    mReservedSuturingPathNodes   = 0u;
     mParticles.clear();
     mParticleContactMaterials.clear();
     mFluidMaterials.clear();
     mSoftEdges.clear();
+    mSoftBends.clear();
     mSoftTets.clear();
     mSoftRenderData.clear();
+    mCurveRenderData.clear();
     mRigidBodyDirtyIndices.clear();
     mColliderDirtyIndices.clear();
     mRigidBodyDirtyBits.clear();
@@ -554,6 +606,10 @@ void PhysicsWorld::clear()
     mNextBallJointId                = 1u;
     mNextHingeJointId               = 1u;
     mNextSliderJointId              = 1u;
+    mNextParticleSequenceId         = 1u;
+    mNextParticleConstraintId       = 1u;
+    mNextParticleCollisionFilterId  = 1u;
+    mNextSuturingSequenceId         = 1u;
     ++mRigidBodyTopologyRevision;
     ++mRigidJointSceneRevision;
     ++mRigidJointModeRevision;
@@ -593,11 +649,19 @@ RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
             toKinematicTargetOrientation(normalizedState));
         mRigidBodies.kinematicTargetFlags.push_back(normalizedState.kinematicTargetEnabled ? 1u
                                                                                            : 0u);
+        mRigidBodies.proxyParticleContactMaterials.push_back(
+            normalizedState.proxyParticleContactMaterial);
         markRigidBodyDirty(index);
         markRigidBodyCountDirty();
         mBodyColliderMappingDirty       = true;
         mJointCollisionSuppressionDirty = true;
         mStaticBroadPhaseDirty          = mStaticBroadPhaseDirty || isStaticBody(normalizedState);
+        if (!normalizedState.proxyParticleLocalPositions.empty())
+        {
+            mSoftBodyDerivedStateDirty = true;
+            ++mSoftParticleRevision;
+            ++mSoftGpuTopologyRevision;
+        }
         ++mRigidBodyTopologyRevision;
         ++mAuthoredRevision;
         return mRigidBodySnapshot.back();
@@ -631,6 +695,32 @@ RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
     writeRigidBodySoAAt(mRigidBodies, index, normalizedState);
     mRigidBodySnapshot[index] = normalizedState;
     markRigidBodyDirty(index);
+    const bool proxyMaterialChanged = previousState.proxyParticleMaterial.friction !=
+                                          normalizedState.proxyParticleMaterial.friction ||
+                                      previousState.proxyParticleMaterial.restitution !=
+                                          normalizedState.proxyParticleMaterial.restitution ||
+                                      previousState.proxyParticleMaterial.damping !=
+                                          normalizedState.proxyParticleMaterial.damping ||
+                                      previousState.proxyParticleMaterial.staticFriction !=
+                                          normalizedState.proxyParticleMaterial.staticFriction;
+    const bool proxyLayoutChanged =
+        previousState.proxyParticleLocalPositions != normalizedState.proxyParticleLocalPositions ||
+        previousState.proxyParticleRadius != normalizedState.proxyParticleRadius ||
+        proxyMaterialChanged ||
+        previousState.proxyCollisionLayer != normalizedState.proxyCollisionLayer ||
+        previousState.proxyCollisionMask != normalizedState.proxyCollisionMask ||
+        previousState.scale != normalizedState.scale ||
+        previousState.environmentIndex != normalizedState.environmentIndex ||
+        previousState.suturingEnabled != normalizedState.suturingEnabled ||
+        previousState.needleTipProxyIndex != normalizedState.needleTipProxyIndex;
+    if ((!previousState.proxyParticleLocalPositions.empty() ||
+         !normalizedState.proxyParticleLocalPositions.empty()) &&
+        proxyLayoutChanged)
+    {
+        mSoftBodyDerivedStateDirty = true;
+        ++mSoftParticleRevision;
+        ++mSoftGpuTopologyRevision;
+    }
     if (previousState.environmentIndex != normalizedState.environmentIndex)
     {
         auto colliderHandlesIt = mEntityToColliderIds.find(previousState.entityId);
@@ -677,10 +767,14 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     const std::uint32_t last        = static_cast<std::uint32_t>(mRigidBodies.size() - 1u);
     const RigidBodyId removedBodyId = mRigidBodySnapshot[index].rigidBodyId;
     const bool removedStatic        = isStaticBody(mRigidBodySnapshot[index]);
+    const bool removedProxyParticles =
+        !mRigidBodySnapshot[index].proxyParticleLocalPositions.empty();
+    bool movedProxyParticles = false;
 
     if (index != last)
     {
-        mRigidBodySnapshot[index]                    = mRigidBodySnapshot[last];
+        movedProxyParticles       = !mRigidBodySnapshot[last].proxyParticleLocalPositions.empty();
+        mRigidBodySnapshot[index] = mRigidBodySnapshot[last];
         mRigidBodies.rigidBodyIds[index]             = mRigidBodies.rigidBodyIds[last];
         mRigidBodies.entityIds[index]                = mRigidBodies.entityIds[last];
         mRigidBodies.positionsInvMass[index]         = mRigidBodies.positionsInvMass[last];
@@ -714,11 +808,18 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     mRigidBodies.kinematicTargetPositions.pop_back();
     mRigidBodies.kinematicTargetOrientations.pop_back();
     mRigidBodies.kinematicTargetFlags.pop_back();
+    mRigidBodies.proxyParticleContactMaterials.pop_back();
 
     markRigidBodyCountDirty();
     markColliderCountDirty(true);
     mBodyColliderMappingDirty = true;
     mStaticBroadPhaseDirty    = mStaticBroadPhaseDirty || removedStatic;
+    if (removedProxyParticles || movedProxyParticles)
+    {
+        mSoftBodyDerivedStateDirty = true;
+        ++mSoftParticleRevision;
+        ++mSoftGpuTopologyRevision;
+    }
     pruneRigidJointsForBody(removedBodyId);
     ++mRigidBodyTopologyRevision;
     mRigidJointSceneDirty           = true;
@@ -973,6 +1074,50 @@ bool PhysicsWorld::upsertSoftBody(const SoftBodyState &state)
     return true;
 }
 
+bool PhysicsWorld::upsertStrand(const StrandState &state)
+{
+    StrandState normalizedState = state;
+    normalizeStrandState(normalizedState);
+
+    const auto it = mEntityToStrandIndex.find(normalizedState.entityId);
+    const StrandState *previousState =
+        it != mEntityToStrandIndex.end() ? &mStrandSnapshot[it->second] : nullptr;
+    if (previousState != nullptr && classifyStrandChange(*previousState, normalizedState) ==
+                                        StrandChangeKind::RuntimePropertiesOnly)
+    {
+        applyStrandRuntimeProperties(it->second, normalizedState);
+        ++mSoftParticleRevision;
+        ++mAuthoredRevision;
+        return true;
+    }
+
+    StrandDerivedCache derivedCache;
+    if (!prepareStrandStateForInsert(normalizedState, derivedCache))
+    {
+        return false;
+    }
+
+    if (it == mEntityToStrandIndex.end())
+    {
+        mEntityToStrandIndex.emplace(normalizedState.entityId,
+                                     static_cast<std::uint32_t>(mStrandSnapshot.size()));
+        mStrandSnapshot.push_back(normalizedState);
+        mStrandDerivedCaches.push_back(std::move(derivedCache));
+    }
+    else
+    {
+        mStrandSnapshot[it->second]      = normalizedState;
+        mStrandDerivedCaches[it->second] = std::move(derivedCache);
+    }
+
+    mSoftBodyDerivedStateDirty = true;
+    ++mSoftBodyTopologyRevision;
+    ++mSoftParticleRevision;
+    ++mSoftGpuTopologyRevision;
+    ++mAuthoredRevision;
+    return true;
+}
+
 bool PhysicsWorld::upsertFluid(const FluidState &state)
 {
     FluidState normalizedState = state;
@@ -1012,6 +1157,130 @@ bool PhysicsWorld::upsertFluid(const FluidState &state)
     return true;
 }
 
+AuthoredParticleDistanceConstraintState &PhysicsWorld::upsertParticleDistanceConstraint(
+    const AuthoredParticleDistanceConstraintState &state)
+{
+    AuthoredParticleDistanceConstraintState normalizedState = state;
+    normalizedState.restLength = std::max(normalizedState.restLength, 0.0f);
+    normalizedState.compliance = std::max(normalizedState.compliance, 0.0f);
+
+    auto it = mParticleConstraintIdToIndex.find(normalizedState.constraintId);
+    if (normalizedState.constraintId == kInvalidParticleConstraintId ||
+        it == mParticleConstraintIdToIndex.end())
+    {
+        normalizedState.constraintId = mNextParticleConstraintId++;
+        const std::uint32_t index =
+            static_cast<std::uint32_t>(mParticleDistanceConstraintSnapshot.size());
+        mParticleConstraintIdToIndex.emplace(normalizedState.constraintId, index);
+        mParticleDistanceConstraintSnapshot.push_back(normalizedState);
+        mSoftBodyDerivedStateDirty = true;
+        ++mSoftBodyTopologyRevision;
+        ++mSoftGpuTopologyRevision;
+        ++mAuthoredRevision;
+        return mParticleDistanceConstraintSnapshot.back();
+    }
+
+    mParticleDistanceConstraintSnapshot[it->second] = normalizedState;
+    mSoftBodyDerivedStateDirty                      = true;
+    ++mSoftBodyTopologyRevision;
+    ++mSoftGpuTopologyRevision;
+    ++mAuthoredRevision;
+    return mParticleDistanceConstraintSnapshot[it->second];
+}
+
+AuthoredParticleCollisionFilterState &PhysicsWorld::upsertParticleCollisionFilter(
+    const AuthoredParticleCollisionFilterState &state)
+{
+    AuthoredParticleCollisionFilterState normalizedState = state;
+    if (normalizedState.collisionLayer == 0u)
+    {
+        normalizedState.collisionLayer = 1u;
+    }
+
+    auto it = mParticleCollisionFilterIdToIndex.find(normalizedState.filterId);
+    if (normalizedState.filterId == kInvalidParticleCollisionFilterId ||
+        it == mParticleCollisionFilterIdToIndex.end())
+    {
+        normalizedState.filterId = mNextParticleCollisionFilterId++;
+        const std::uint32_t index =
+            static_cast<std::uint32_t>(mParticleCollisionFilterSnapshot.size());
+        mParticleCollisionFilterIdToIndex.emplace(normalizedState.filterId, index);
+        mParticleCollisionFilterSnapshot.push_back(normalizedState);
+        mSoftBodyDerivedStateDirty = true;
+        ++mSoftParticleRevision;
+        ++mAuthoredRevision;
+        return mParticleCollisionFilterSnapshot.back();
+    }
+
+    mParticleCollisionFilterSnapshot[it->second] = normalizedState;
+    mSoftBodyDerivedStateDirty                   = true;
+    ++mSoftParticleRevision;
+    ++mAuthoredRevision;
+    return mParticleCollisionFilterSnapshot[it->second];
+}
+
+AuthoredSuturingSequenceState &PhysicsWorld::upsertSuturingSequence(
+    const AuthoredSuturingSequenceState &state)
+{
+    AuthoredSuturingSequenceState normalizedState = state;
+    normalizedState.pathNodeSpacing               = std::max(normalizedState.pathNodeSpacing, 0.0f);
+    normalizedState.needleTangentialDrag = std::max(normalizedState.needleTangentialDrag, 0.0f);
+    normalizedState.threadTangentialDrag = std::max(normalizedState.threadTangentialDrag, 0.0f);
+    if (normalizedState.entries.empty())
+    {
+        normalizedState.tipEntryIndex = 0u;
+    }
+    else
+    {
+        normalizedState.tipEntryIndex = std::min<std::uint32_t>(
+            normalizedState.tipEntryIndex,
+            static_cast<std::uint32_t>(normalizedState.entries.size() - 1u));
+    }
+
+    auto it = mSuturingSequenceIdToIndex.find(normalizedState.sequenceId);
+    if (normalizedState.sequenceId == kInvalidSuturingSequenceId ||
+        it == mSuturingSequenceIdToIndex.end())
+    {
+        normalizedState.sequenceId = mNextSuturingSequenceId++;
+        const std::uint32_t index  = static_cast<std::uint32_t>(mSuturingSequenceSnapshot.size());
+        mSuturingSequenceIdToIndex.emplace(normalizedState.sequenceId, index);
+        mSuturingSequenceSnapshot.push_back(normalizedState);
+        mSoftBodyDerivedStateDirty = true;
+        ++mSoftBodyTopologyRevision;
+        ++mSoftGpuTopologyRevision;
+        ++mAuthoredRevision;
+        return mSuturingSequenceSnapshot.back();
+    }
+
+    mSuturingSequenceSnapshot[it->second] = normalizedState;
+    mSoftBodyDerivedStateDirty            = true;
+    ++mSoftBodyTopologyRevision;
+    ++mSoftGpuTopologyRevision;
+    ++mAuthoredRevision;
+    return mSuturingSequenceSnapshot[it->second];
+}
+
+AuthoredParticleSequenceState &PhysicsWorld::upsertParticleSequence(
+    const AuthoredParticleSequenceState &state)
+{
+    AuthoredParticleSequenceState normalizedState = state;
+    auto it = mParticleSequenceIdToIndex.find(normalizedState.sequenceId);
+    if (normalizedState.sequenceId == kInvalidParticleSequenceId ||
+        it == mParticleSequenceIdToIndex.end())
+    {
+        normalizedState.sequenceId = mNextParticleSequenceId++;
+        const std::uint32_t index  = static_cast<std::uint32_t>(mParticleSequenceSnapshot.size());
+        mParticleSequenceIdToIndex.emplace(normalizedState.sequenceId, index);
+        mParticleSequenceSnapshot.push_back(normalizedState);
+        ++mAuthoredRevision;
+        return mParticleSequenceSnapshot.back();
+    }
+
+    mParticleSequenceSnapshot[it->second] = normalizedState;
+    ++mAuthoredRevision;
+    return mParticleSequenceSnapshot[it->second];
+}
+
 bool PhysicsWorld::removeSoftBody(common::EntityId entityId)
 {
     const auto it = mEntityToSoftBodyIndex.find(entityId);
@@ -1032,6 +1301,33 @@ bool PhysicsWorld::removeSoftBody(common::EntityId entityId)
     mSoftBodyDerivedCaches.pop_back();
     mEntityToSoftBodyIndex.erase(it);
     mTetGenMeshCache.erase(entityId);
+    mSoftBodyDerivedStateDirty = true;
+    ++mSoftBodyTopologyRevision;
+    ++mSoftParticleRevision;
+    ++mSoftGpuTopologyRevision;
+    ++mAuthoredRevision;
+    return true;
+}
+
+bool PhysicsWorld::removeStrand(common::EntityId entityId)
+{
+    const auto it = mEntityToStrandIndex.find(entityId);
+    if (it == mEntityToStrandIndex.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t index = it->second;
+    const std::uint32_t last  = static_cast<std::uint32_t>(mStrandSnapshot.size() - 1u);
+    if (index != last)
+    {
+        mStrandSnapshot[index]      = mStrandSnapshot[last];
+        mStrandDerivedCaches[index] = std::move(mStrandDerivedCaches[last]);
+        mEntityToStrandIndex[mStrandSnapshot[index].entityId] = index;
+    }
+    mStrandSnapshot.pop_back();
+    mStrandDerivedCaches.pop_back();
+    mEntityToStrandIndex.erase(it);
     mSoftBodyDerivedStateDirty = true;
     ++mSoftBodyTopologyRevision;
     ++mSoftParticleRevision;
@@ -1062,6 +1358,105 @@ bool PhysicsWorld::removeFluid(common::EntityId entityId)
     mSoftBodyDerivedStateDirty = true;
     ++mSoftBodyTopologyRevision;
     ++mSoftParticleRevision;
+    ++mSoftGpuTopologyRevision;
+    ++mAuthoredRevision;
+    return true;
+}
+
+bool PhysicsWorld::removeParticleDistanceConstraint(ParticleConstraintId constraintId)
+{
+    const auto it = mParticleConstraintIdToIndex.find(constraintId);
+    if (it == mParticleConstraintIdToIndex.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t index = it->second;
+    const std::uint32_t last =
+        static_cast<std::uint32_t>(mParticleDistanceConstraintSnapshot.size() - 1u);
+    if (index != last)
+    {
+        mParticleDistanceConstraintSnapshot[index] = mParticleDistanceConstraintSnapshot[last];
+        mParticleConstraintIdToIndex[mParticleDistanceConstraintSnapshot[index].constraintId] =
+            index;
+    }
+
+    mParticleConstraintIdToIndex.erase(it);
+    mParticleDistanceConstraintSnapshot.pop_back();
+    mSoftBodyDerivedStateDirty = true;
+    ++mSoftBodyTopologyRevision;
+    ++mSoftGpuTopologyRevision;
+    ++mAuthoredRevision;
+    return true;
+}
+
+bool PhysicsWorld::removeParticleSequence(ParticleSequenceId sequenceId)
+{
+    const auto it = mParticleSequenceIdToIndex.find(sequenceId);
+    if (it == mParticleSequenceIdToIndex.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t index = it->second;
+    const std::uint32_t last  = static_cast<std::uint32_t>(mParticleSequenceSnapshot.size() - 1u);
+    if (index != last)
+    {
+        mParticleSequenceSnapshot[index] = mParticleSequenceSnapshot[last];
+        mParticleSequenceIdToIndex[mParticleSequenceSnapshot[index].sequenceId] = index;
+    }
+
+    mParticleSequenceIdToIndex.erase(it);
+    mParticleSequenceSnapshot.pop_back();
+    ++mAuthoredRevision;
+    return true;
+}
+
+bool PhysicsWorld::removeParticleCollisionFilter(ParticleCollisionFilterId filterId)
+{
+    const auto it = mParticleCollisionFilterIdToIndex.find(filterId);
+    if (it == mParticleCollisionFilterIdToIndex.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t index = it->second;
+    const std::uint32_t last =
+        static_cast<std::uint32_t>(mParticleCollisionFilterSnapshot.size() - 1u);
+    if (index != last)
+    {
+        mParticleCollisionFilterSnapshot[index] = mParticleCollisionFilterSnapshot[last];
+        mParticleCollisionFilterIdToIndex[mParticleCollisionFilterSnapshot[index].filterId] = index;
+    }
+
+    mParticleCollisionFilterIdToIndex.erase(it);
+    mParticleCollisionFilterSnapshot.pop_back();
+    mSoftBodyDerivedStateDirty = true;
+    ++mSoftParticleRevision;
+    ++mAuthoredRevision;
+    return true;
+}
+
+bool PhysicsWorld::removeSuturingSequence(SuturingSequenceId sequenceId)
+{
+    const auto it = mSuturingSequenceIdToIndex.find(sequenceId);
+    if (it == mSuturingSequenceIdToIndex.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t index = it->second;
+    const std::uint32_t last  = static_cast<std::uint32_t>(mSuturingSequenceSnapshot.size() - 1u);
+    if (index != last)
+    {
+        mSuturingSequenceSnapshot[index] = mSuturingSequenceSnapshot[last];
+        mSuturingSequenceIdToIndex[mSuturingSequenceSnapshot[index].sequenceId] = index;
+    }
+
+    mSuturingSequenceIdToIndex.erase(it);
+    mSuturingSequenceSnapshot.pop_back();
+    mSoftBodyDerivedStateDirty = true;
+    ++mSoftBodyTopologyRevision;
     ++mSoftGpuTopologyRevision;
     ++mAuthoredRevision;
     return true;
@@ -1325,6 +1720,18 @@ const SoftBodyState *PhysicsWorld::tryGetSoftBody(common::EntityId entityId) con
     return it == mEntityToSoftBodyIndex.end() ? nullptr : &mSoftBodySnapshot[it->second];
 }
 
+StrandState *PhysicsWorld::tryGetStrand(common::EntityId entityId)
+{
+    const auto it = mEntityToStrandIndex.find(entityId);
+    return it == mEntityToStrandIndex.end() ? nullptr : &mStrandSnapshot[it->second];
+}
+
+const StrandState *PhysicsWorld::tryGetStrand(common::EntityId entityId) const
+{
+    const auto it = mEntityToStrandIndex.find(entityId);
+    return it == mEntityToStrandIndex.end() ? nullptr : &mStrandSnapshot[it->second];
+}
+
 bool PhysicsWorld::tryGetSoftBodyAuthoringRestPositions(
     common::EntityId entityId, std::vector<Diligent::float3> &outRestPositions) const
 {
@@ -1377,6 +1784,72 @@ const FluidState *PhysicsWorld::tryGetFluid(common::EntityId entityId) const
     return it == mEntityToFluidIndex.end() ? nullptr : &mFluidSnapshot[it->second];
 }
 
+AuthoredParticleSequenceState *PhysicsWorld::tryGetParticleSequence(ParticleSequenceId sequenceId)
+{
+    const auto it = mParticleSequenceIdToIndex.find(sequenceId);
+    return it == mParticleSequenceIdToIndex.end() ? nullptr
+                                                  : &mParticleSequenceSnapshot[it->second];
+}
+
+const AuthoredParticleSequenceState *PhysicsWorld::tryGetParticleSequence(
+    ParticleSequenceId sequenceId) const
+{
+    const auto it = mParticleSequenceIdToIndex.find(sequenceId);
+    return it == mParticleSequenceIdToIndex.end() ? nullptr
+                                                  : &mParticleSequenceSnapshot[it->second];
+}
+
+AuthoredParticleDistanceConstraintState *PhysicsWorld::tryGetParticleDistanceConstraint(
+    ParticleConstraintId constraintId)
+{
+    const auto it = mParticleConstraintIdToIndex.find(constraintId);
+    return it == mParticleConstraintIdToIndex.end()
+               ? nullptr
+               : &mParticleDistanceConstraintSnapshot[it->second];
+}
+
+const AuthoredParticleDistanceConstraintState *PhysicsWorld::tryGetParticleDistanceConstraint(
+    ParticleConstraintId constraintId) const
+{
+    const auto it = mParticleConstraintIdToIndex.find(constraintId);
+    return it == mParticleConstraintIdToIndex.end()
+               ? nullptr
+               : &mParticleDistanceConstraintSnapshot[it->second];
+}
+
+AuthoredParticleCollisionFilterState *PhysicsWorld::tryGetParticleCollisionFilter(
+    ParticleCollisionFilterId filterId)
+{
+    const auto it = mParticleCollisionFilterIdToIndex.find(filterId);
+    return it == mParticleCollisionFilterIdToIndex.end()
+               ? nullptr
+               : &mParticleCollisionFilterSnapshot[it->second];
+}
+
+const AuthoredParticleCollisionFilterState *PhysicsWorld::tryGetParticleCollisionFilter(
+    ParticleCollisionFilterId filterId) const
+{
+    const auto it = mParticleCollisionFilterIdToIndex.find(filterId);
+    return it == mParticleCollisionFilterIdToIndex.end()
+               ? nullptr
+               : &mParticleCollisionFilterSnapshot[it->second];
+}
+
+AuthoredSuturingSequenceState *PhysicsWorld::tryGetSuturingSequence(SuturingSequenceId sequenceId)
+{
+    const auto it = mSuturingSequenceIdToIndex.find(sequenceId);
+    return it == mSuturingSequenceIdToIndex.end() ? nullptr
+                                                  : &mSuturingSequenceSnapshot[it->second];
+}
+
+const AuthoredSuturingSequenceState *PhysicsWorld::tryGetSuturingSequence(
+    SuturingSequenceId sequenceId) const
+{
+    const auto it = mSuturingSequenceIdToIndex.find(sequenceId);
+    return it == mSuturingSequenceIdToIndex.end() ? nullptr
+                                                  : &mSuturingSequenceSnapshot[it->second];
+}
+
 const std::vector<RigidBodyState> &PhysicsWorld::rigidBodySnapshot() const noexcept
 {
     return mRigidBodySnapshot;
@@ -1392,9 +1865,38 @@ const std::vector<SoftBodyState> &PhysicsWorld::softBodySnapshot() const noexcep
     return mSoftBodySnapshot;
 }
 
+const std::vector<StrandState> &PhysicsWorld::strandSnapshot() const noexcept
+{
+    return mStrandSnapshot;
+}
+
 const std::vector<FluidState> &PhysicsWorld::fluidSnapshot() const noexcept
 {
     return mFluidSnapshot;
+}
+
+const std::vector<AuthoredParticleSequenceState> &PhysicsWorld::particleSequenceSnapshot()
+    const noexcept
+{
+    return mParticleSequenceSnapshot;
+}
+
+const std::vector<AuthoredParticleDistanceConstraintState> &PhysicsWorld::
+    particleDistanceConstraintSnapshot() const noexcept
+{
+    return mParticleDistanceConstraintSnapshot;
+}
+
+const std::vector<AuthoredParticleCollisionFilterState> &PhysicsWorld::
+    particleCollisionFilterSnapshot() const noexcept
+{
+    return mParticleCollisionFilterSnapshot;
+}
+
+const std::vector<AuthoredSuturingSequenceState> &PhysicsWorld::suturingSequenceSnapshot()
+    const noexcept
+{
+    return mSuturingSequenceSnapshot;
 }
 
 const std::vector<BallJointState> &PhysicsWorld::ballJointSnapshot() const noexcept
@@ -1468,7 +1970,7 @@ const std::vector<FluidMaterialGpu> &PhysicsWorld::fluidMaterials() const noexce
     return mFluidMaterials;
 }
 
-const std::vector<SoftEdge> &PhysicsWorld::softEdges() const noexcept
+const std::vector<DeformableDistanceConstraint> &PhysicsWorld::distanceConstraints() const noexcept
 {
     if (mSoftBodyDerivedStateDirty)
     {
@@ -1477,13 +1979,55 @@ const std::vector<SoftEdge> &PhysicsWorld::softEdges() const noexcept
     return mSoftEdges;
 }
 
-const std::vector<SoftTet> &PhysicsWorld::softTets() const noexcept
+const std::vector<DeformableBendConstraint> &PhysicsWorld::bendConstraints() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return mSoftBends;
+}
+
+const std::vector<DeformableVolumeConstraint> &PhysicsWorld::volumeConstraints() const noexcept
 {
     if (mSoftBodyDerivedStateDirty)
     {
         const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
     }
     return mSoftTets;
+}
+
+const std::vector<SoftEdge> &PhysicsWorld::softEdges() const noexcept
+{
+    return distanceConstraints();
+}
+
+const std::vector<SoftBend> &PhysicsWorld::softBends() const noexcept
+{
+    return bendConstraints();
+}
+
+const std::vector<SoftTet> &PhysicsWorld::softTets() const noexcept
+{
+    return volumeConstraints();
+}
+
+const std::vector<StrandSoftSuturingPair> &PhysicsWorld::suturingPairs() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return mSuturingPairs;
+}
+
+const std::vector<std::uint32_t> &PhysicsWorld::suturingParticleIndices() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return mParticles.suturingParticleIndices;
 }
 
 const SoftRenderDataHost &PhysicsWorld::softRenderData() const noexcept
@@ -1497,6 +2041,17 @@ void PhysicsWorld::setSoftRenderData(const SoftRenderDataHost &data)
     recomputeSoftBodyBoundsChunkCount();
     ++mSoftGpuTopologyRevision;
     ++mAuthoredRevision;
+}
+
+const CurveRenderDataHost &PhysicsWorld::curveRenderData() const noexcept
+{
+    return mCurveRenderData;
+}
+
+void PhysicsWorld::setCurveRenderData(const CurveRenderDataHost &data)
+{
+    mCurveRenderData = data;
+    ++mCurveRenderRevision;
 }
 
 void PhysicsWorld::ensureDerivedStateUpToDate() const noexcept
@@ -1553,6 +2108,11 @@ std::uint32_t PhysicsWorld::colliderCount() const noexcept
 std::uint32_t PhysicsWorld::softBodyCount() const noexcept
 {
     return static_cast<std::uint32_t>(mSoftBodySnapshot.size());
+}
+
+std::uint32_t PhysicsWorld::strandCount() const noexcept
+{
+    return static_cast<std::uint32_t>(mStrandSnapshot.size());
 }
 
 std::uint32_t PhysicsWorld::fluidCount() const noexcept
@@ -1626,6 +2186,43 @@ float PhysicsWorld::particleGridCellSize() const noexcept
 std::uint32_t PhysicsWorld::softBodyBoundsChunkCount() const noexcept
 {
     return mSoftBodyBoundsChunkCount;
+}
+
+std::uint32_t PhysicsWorld::maxSuturingPathsPerPair() const noexcept
+{
+    return mMaxSuturingPathsPerPair;
+}
+
+std::uint32_t PhysicsWorld::maxSuturingNodesPerPath() const noexcept
+{
+    return mMaxSuturingNodesPerPath;
+}
+
+std::uint32_t PhysicsWorld::suturingParticleCount() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return static_cast<std::uint32_t>(mParticles.suturingParticleIndices.size());
+}
+
+std::uint32_t PhysicsWorld::reservedSuturingPathHeaderCount() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return mReservedSuturingPathHeaders;
+}
+
+std::uint32_t PhysicsWorld::reservedSuturingPathNodeCount() const noexcept
+{
+    if (mSoftBodyDerivedStateDirty)
+    {
+        const_cast<PhysicsWorld *>(this)->rebuildSoftBodyDerivedState();
+    }
+    return mReservedSuturingPathNodes;
 }
 
 void PhysicsWorld::integrateRigidBodiesCpu(float dt) noexcept
@@ -1757,21 +2354,27 @@ std::uint64_t PhysicsWorld::softGpuTopologyRevision() const noexcept
     return mSoftGpuTopologyRevision;
 }
 
+std::uint64_t PhysicsWorld::curveRenderRevision() const noexcept
+{
+    return mCurveRenderRevision;
+}
+
 void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost &soa, std::uint32_t index,
                                        const RigidBodyState &state)
 {
-    soa.rigidBodyIds[index]                = state.rigidBodyId;
-    soa.entityIds[index]                   = state.entityId;
-    soa.positionsInvMass[index]            = toPositionInvMass(state);
-    soa.orientations[index]                = toOrientation(state);
-    soa.scales[index]                      = toScale(state);
-    soa.linearVelocities[index]            = toLinearVelocity(state);
-    soa.angularVelocities[index]           = toAngularVelocity(state);
-    soa.inverseInertiaLocal[index]         = toInverseInertiaLocal(state);
-    soa.bodyTypes[index]                   = static_cast<std::uint32_t>(state.bodyType);
-    soa.kinematicTargetPositions[index]    = toKinematicTargetPosition(state);
-    soa.kinematicTargetOrientations[index] = toKinematicTargetOrientation(state);
-    soa.kinematicTargetFlags[index]        = state.kinematicTargetEnabled ? 1u : 0u;
+    soa.rigidBodyIds[index]                  = state.rigidBodyId;
+    soa.entityIds[index]                     = state.entityId;
+    soa.positionsInvMass[index]              = toPositionInvMass(state);
+    soa.orientations[index]                  = toOrientation(state);
+    soa.scales[index]                        = toScale(state);
+    soa.linearVelocities[index]              = toLinearVelocity(state);
+    soa.angularVelocities[index]             = toAngularVelocity(state);
+    soa.inverseInertiaLocal[index]           = toInverseInertiaLocal(state);
+    soa.bodyTypes[index]                     = static_cast<std::uint32_t>(state.bodyType);
+    soa.kinematicTargetPositions[index]      = toKinematicTargetPosition(state);
+    soa.kinematicTargetOrientations[index]   = toKinematicTargetOrientation(state);
+    soa.kinematicTargetFlags[index]          = state.kinematicTargetEnabled ? 1u : 0u;
+    soa.proxyParticleContactMaterials[index] = state.proxyParticleContactMaterial;
 }
 
 void PhysicsWorld::writeColliderSoAAt(ColliderSoAHost &soa, std::uint32_t index,
@@ -1876,6 +2479,25 @@ void PhysicsWorld::normalizeRigidBodyState(RigidBodyState &state) noexcept
         state.kinematicTargetPosition = state.position;
         state.kinematicTargetRotation = state.rotation;
     }
+
+    state.proxyParticleRadius = std::max(state.proxyParticleRadius, 0.0f);
+    normalizeParticleContactMaterial(state.proxyParticleMaterial);
+    if (state.proxyCollisionLayer == 0u)
+    {
+        state.proxyCollisionLayer = 1u;
+    }
+    if (state.proxyParticleLocalPositions.empty())
+    {
+        state.proxyParticleRadius = 0.0f;
+        state.needleTipProxyIndex = 0u;
+        state.suturingEnabled     = false;
+    }
+    else
+    {
+        state.needleTipProxyIndex = std::min<std::uint32_t>(
+            state.needleTipProxyIndex,
+            static_cast<std::uint32_t>(state.proxyParticleLocalPositions.size() - 1u));
+    }
 }
 
 void PhysicsWorld::normalizeColliderState(ColliderState &state) noexcept
@@ -1920,6 +2542,20 @@ void PhysicsWorld::normalizeSoftBodyState(SoftBodyState &state) noexcept
         state.source.meshfreeParticles.neighbourCount =
             std::max(state.source.meshfreeParticles.neighbourCount, 1u);
     }
+    if (state.collisionLayer == 0u)
+    {
+        state.collisionLayer = 1u;
+    }
+}
+
+void PhysicsWorld::normalizeStrandState(StrandState &state) noexcept
+{
+    normalizeParticleContactMaterial(state.material.contact);
+    state.particleMass       = std::max(state.particleMass, 1.0e-4f);
+    state.particleRadius     = std::max(state.particleRadius, 1.0e-4f);
+    state.distanceCompliance = std::max(state.distanceCompliance, 0.0f);
+    state.bendCompliance     = std::max(state.bendCompliance, 0.0f);
+    state.pathNodeSpacing    = std::max(state.pathNodeSpacing, 1.0e-4f);
     if (state.collisionLayer == 0u)
     {
         state.collisionLayer = 1u;
@@ -1987,12 +2623,27 @@ PhysicsWorld::SoftBodyChangeKind PhysicsWorld::classifySoftBodyChange(
     const SoftBodyState &previousState, const SoftBodyState &candidate) noexcept
 {
     if (!equalSoftBodySourceDesc(previousState.source, candidate.source) ||
-        previousState.restTransform != candidate.restTransform)
+        previousState.restTransform != candidate.restTransform ||
+        previousState.supportsSuturing != candidate.supportsSuturing)
     {
         return SoftBodyChangeKind::TopologyRebuild;
     }
 
     return SoftBodyChangeKind::RuntimePropertiesOnly;
+}
+
+PhysicsWorld::StrandChangeKind PhysicsWorld::classifyStrandChange(
+    const StrandState &previousState, const StrandState &candidate) noexcept
+{
+    if (previousState.restPositions != candidate.restPositions ||
+        previousState.staticParticleIndices != candidate.staticParticleIndices ||
+        previousState.suturingEnabled != candidate.suturingEnabled ||
+        previousState.pathNodeSpacing != candidate.pathNodeSpacing)
+    {
+        return StrandChangeKind::TopologyRebuild;
+    }
+
+    return StrandChangeKind::RuntimePropertiesOnly;
 }
 
 PhysicsWorld::RigidJointChangeKind PhysicsWorld::classifyBallJointChange(bool inserted) noexcept
@@ -2064,6 +2715,7 @@ void PhysicsWorld::applySoftBodyRuntimeProperties(std::uint32_t index,
     softBody.volumeCompliance     = normalizedState.volumeCompliance;
     softBody.simulated            = normalizedState.simulated;
     softBody.selfCollisionEnabled = normalizedState.selfCollisionEnabled;
+    softBody.supportsSuturing     = normalizedState.supportsSuturing;
 
     softBody.contactMaterialIndex = findOrAppendParticleContactMaterial(
         mParticleContactMaterials, toParticleContactMaterial(softBody.material.contact));
@@ -2098,6 +2750,85 @@ void PhysicsWorld::applySoftBodyRuntimeProperties(std::uint32_t index,
     for (std::uint32_t tetIndex = tetBegin; tetIndex < tetEnd; ++tetIndex)
     {
         mSoftTets[tetIndex].compliance = softBody.volumeCompliance;
+    }
+
+    recomputeParticleGridCellSize();
+}
+
+void PhysicsWorld::applyStrandRuntimeProperties(std::uint32_t index,
+                                                const StrandState &normalizedState) noexcept
+{
+    if (index >= mStrandSnapshot.size())
+    {
+        return;
+    }
+
+    if (mSoftBodyDerivedStateDirty)
+    {
+        rebuildSoftBodyDerivedState();
+    }
+
+    if (index >= mStrandSnapshot.size() || index >= mStrandDerivedCaches.size())
+    {
+        return;
+    }
+
+    StrandState &strand          = mStrandSnapshot[index];
+    strand.environmentIndex      = normalizedState.environmentIndex;
+    strand.collisionLayer        = normalizedState.collisionLayer;
+    strand.collisionMask         = normalizedState.collisionMask;
+    strand.material              = normalizedState.material;
+    strand.particleMass          = normalizedState.particleMass;
+    strand.particleRadius        = normalizedState.particleRadius;
+    strand.distanceCompliance    = normalizedState.distanceCompliance;
+    strand.bendCompliance        = normalizedState.bendCompliance;
+    strand.simulated             = normalizedState.simulated;
+    strand.selfCollisionEnabled  = normalizedState.selfCollisionEnabled;
+    strand.suturingEnabled       = normalizedState.suturingEnabled;
+    strand.pathNodeSpacing       = normalizedState.pathNodeSpacing;
+    strand.staticParticleIndices = normalizedState.staticParticleIndices;
+    strand.contactMaterialIndex  = findOrAppendParticleContactMaterial(
+        mParticleContactMaterials, toParticleContactMaterial(strand.material.contact));
+
+    const std::uint32_t particleBegin = strand.particleOffset;
+    const std::uint32_t particleEnd   = std::min(particleBegin + strand.particleCount,
+                                                 static_cast<std::uint32_t>(mParticles.size()));
+    const std::uint32_t phase         = packParticlePhase(
+        static_cast<std::uint32_t>(mSoftBodySnapshot.size()) + index, strand.selfCollisionEnabled);
+    const float inverseMass = strand.particleMass > 0.0f ? 1.0f / strand.particleMass : 0.0f;
+    std::unordered_set<std::uint32_t> staticParticles(strand.staticParticleIndices.begin(),
+                                                      strand.staticParticleIndices.end());
+    for (std::uint32_t particleIndex = particleBegin; particleIndex < particleEnd; ++particleIndex)
+    {
+        const std::uint32_t localIndex = particleIndex - particleBegin;
+        mParticles.positionsInvMass[particleIndex].w =
+            staticParticles.find(localIndex) != staticParticles.end() ? 0.0f : inverseMass;
+        mParticles.radii[particleIndex]                   = strand.particleRadius;
+        mParticles.environmentIndices[particleIndex]      = strand.environmentIndex;
+        mParticles.particleMaterialIndices[particleIndex] = strand.contactMaterialIndex;
+        mParticles.phases[particleIndex]                  = phase;
+        mParticles.collisionLayers[particleIndex]         = strand.collisionLayer;
+        mParticles.collisionMasks[particleIndex]          = strand.collisionMask;
+        mParticles.strandRoles[particleIndex]             = static_cast<std::uint32_t>(
+            strand.suturingEnabled ? (localIndex == 0u ? ParticleStrandRole::NeedleTip
+                                                       : ParticleStrandRole::NeedleBody)
+                                   : ParticleStrandRole::None);
+    }
+
+    const std::uint32_t edgeBegin = strand.constraintOffset;
+    const std::uint32_t edgeEnd =
+        std::min(edgeBegin + strand.constraintCount, static_cast<std::uint32_t>(mSoftEdges.size()));
+    for (std::uint32_t edgeIndex = edgeBegin; edgeIndex < edgeEnd; ++edgeIndex)
+    {
+        mSoftEdges[edgeIndex].compliance = strand.distanceCompliance;
+    }
+
+    const std::uint32_t bendBegin = strand.bendConstraintOffset;
+    const std::uint32_t bendEnd   = std::min(bendBegin + strand.bendConstraintCount,
+                                             static_cast<std::uint32_t>(mSoftBends.size()));
+    for (std::uint32_t bendIndex = bendBegin; bendIndex < bendEnd; ++bendIndex)
+    {
+        mSoftBends[bendIndex].compliance = strand.bendCompliance;
     }
 
     recomputeParticleGridCellSize();
@@ -2516,8 +3247,113 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
     mParticleContactMaterials.clear();
     mFluidMaterials.clear();
     mSoftEdges.clear();
+    mSoftBends.clear();
     mSoftTets.clear();
     std::vector<std::vector<std::uint32_t>> adjacencyLists;
+
+    const std::uint32_t softBodyPhaseGroupBase = 0u;
+    const std::uint32_t strandPhaseGroupBase = static_cast<std::uint32_t>(mSoftBodySnapshot.size());
+    const std::uint32_t fluidPhaseGroupBase =
+        strandPhaseGroupBase + static_cast<std::uint32_t>(mStrandSnapshot.size());
+    const std::uint32_t rigidProxyPhaseGroupBase =
+        fluidPhaseGroupBase + static_cast<std::uint32_t>(mFluidSnapshot.size());
+    const std::uint32_t rigidProxySuturingGroupBase =
+        static_cast<std::uint32_t>(mStrandSnapshot.size());
+
+    for (std::uint32_t rigidBodyIndex = 0u; rigidBodyIndex < mRigidBodySnapshot.size();
+         ++rigidBodyIndex)
+    {
+        RigidBodyState &rigidBody = mRigidBodySnapshot[rigidBodyIndex];
+        normalizeRigidBodyState(rigidBody);
+        rigidBody.proxyParticleOffset          = static_cast<std::uint32_t>(mParticles.size());
+        rigidBody.proxyParticleCount           = 0u;
+        rigidBody.proxyParticleMaterialIndex   = 0u;
+        rigidBody.proxyParticleContactMaterial = Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f};
+        if (rigidBodyIndex < mRigidBodies.proxyParticleContactMaterials.size())
+        {
+            if (mRigidBodies.proxyParticleContactMaterials[rigidBodyIndex] !=
+                rigidBody.proxyParticleContactMaterial)
+            {
+                mRigidBodies.proxyParticleContactMaterials[rigidBodyIndex] =
+                    rigidBody.proxyParticleContactMaterial;
+                markRigidBodyDirty(rigidBodyIndex);
+            }
+        }
+
+        if (rigidBody.proxyParticleLocalPositions.empty() || rigidBody.proxyParticleRadius <= 0.0f)
+        {
+            continue;
+        }
+
+        rigidBody.proxyParticleContactMaterial =
+            toParticleContactMaterial(rigidBody.proxyParticleMaterial);
+        rigidBody.proxyParticleMaterialIndex = findOrAppendParticleContactMaterial(
+            mParticleContactMaterials, rigidBody.proxyParticleContactMaterial);
+        if (rigidBodyIndex < mRigidBodies.proxyParticleContactMaterials.size())
+        {
+            if (mRigidBodies.proxyParticleContactMaterials[rigidBodyIndex] !=
+                rigidBody.proxyParticleContactMaterial)
+            {
+                mRigidBodies.proxyParticleContactMaterials[rigidBodyIndex] =
+                    rigidBody.proxyParticleContactMaterial;
+                markRigidBodyDirty(rigidBodyIndex);
+            }
+        }
+
+        for (std::uint32_t proxyLocalIndex = 0u;
+             proxyLocalIndex < rigidBody.proxyParticleLocalPositions.size(); ++proxyLocalIndex)
+        {
+            const Diligent::float3 &localPosition =
+                rigidBody.proxyParticleLocalPositions[proxyLocalIndex];
+            const Diligent::float3 scaledLocal{localPosition.x * rigidBody.scale.x,
+                                               localPosition.y * rigidBody.scale.y,
+                                               localPosition.z * rigidBody.scale.z};
+            const Diligent::float3 worldPosition =
+                rigidBody.rotation.RotateVector(scaledLocal) + rigidBody.position;
+            mParticles.positionsInvMass.push_back(
+                Diligent::float4{worldPosition.x, worldPosition.y, worldPosition.z, 0.0f});
+            mParticles.previousPositions.push_back(
+                Diligent::float4{worldPosition.x, worldPosition.y, worldPosition.z, 0.0f});
+            mParticles.velocities.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
+            mParticles.radii.push_back(rigidBody.proxyParticleRadius);
+            mParticles.environmentIndices.push_back(rigidBody.environmentIndex);
+            mParticles.particleKinds.push_back(static_cast<std::uint32_t>(ParticleKind::SoftSolid));
+            mParticles.ownerTypes.push_back(
+                static_cast<std::uint32_t>(ParticleOwnerType::RigidBody));
+            mParticles.ownerIndices.push_back(rigidBodyIndex);
+            mParticles.strandIds.push_back(rigidBody.suturingEnabled
+                                               ? rigidProxySuturingGroupBase + rigidBodyIndex
+                                               : 0xffffffffu);
+            mParticles.strandOrders.push_back(rigidBody.suturingEnabled ? proxyLocalIndex
+                                                                        : 0xffffffffu);
+            mParticles.strandRoles.push_back(static_cast<std::uint32_t>(
+                rigidBody.suturingEnabled ? (proxyLocalIndex == rigidBody.needleTipProxyIndex
+                                                 ? ParticleStrandRole::NeedleTip
+                                                 : ParticleStrandRole::NeedleBody)
+                                          : ParticleStrandRole::None));
+            mParticles.suturingNeighborLinks.push_back(Diligent::uint4{
+                rigidBody.suturingEnabled && proxyLocalIndex > 0u
+                    ? rigidBody.proxyParticleOffset + proxyLocalIndex - 1u
+                    : kInvalidSuturingIndex,
+                rigidBody.suturingEnabled &&
+                        proxyLocalIndex + 1u <
+                            static_cast<std::uint32_t>(rigidBody.proxyParticleLocalPositions.size())
+                    ? rigidBody.proxyParticleOffset + proxyLocalIndex + 1u
+                    : kInvalidSuturingIndex,
+                0u, 0u});
+            mParticles.owningSoftBodyIndices.push_back(0xffffffffu);
+            mParticles.particleMaterialIndices.push_back(rigidBody.proxyParticleMaterialIndex);
+            mParticles.fluidMaterialIndices.push_back(0xffffffffu);
+            mParticles.phases.push_back(
+                packParticlePhase(rigidProxyPhaseGroupBase + rigidBodyIndex, false));
+            mParticles.collisionLayers.push_back(rigidBody.proxyCollisionLayer);
+            mParticles.collisionMasks.push_back(rigidBody.proxyCollisionMask);
+            mParticles.rigidProxyLocalPositions.push_back(
+                Diligent::float4{scaledLocal.x, scaledLocal.y, scaledLocal.z, 0.0f});
+            adjacencyLists.emplace_back();
+            ++rigidBody.proxyParticleCount;
+        }
+    }
 
     for (std::uint32_t softBodyIndex = 0u; softBodyIndex < mSoftBodySnapshot.size();
          ++softBodyIndex)
@@ -2569,13 +3405,19 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.ownerTypes.push_back(
                 static_cast<std::uint32_t>(ParticleOwnerType::SoftBody));
             mParticles.ownerIndices.push_back(softBodyIndex);
+            mParticles.strandIds.push_back(0xffffffffu);
+            mParticles.strandOrders.push_back(0xffffffffu);
+            mParticles.strandRoles.push_back(static_cast<std::uint32_t>(ParticleStrandRole::None));
+            mParticles.suturingNeighborLinks.push_back(
+                Diligent::uint4{kInvalidSuturingIndex, kInvalidSuturingIndex, 0u, 0u});
             mParticles.owningSoftBodyIndices.push_back(softBodyIndex);
             mParticles.particleMaterialIndices.push_back(softBody.contactMaterialIndex);
             mParticles.fluidMaterialIndices.push_back(0xffffffffu);
-            mParticles.phases.push_back(
-                packParticlePhase(softBodyIndex, softBody.selfCollisionEnabled));
+            mParticles.phases.push_back(packParticlePhase(softBodyPhaseGroupBase + softBodyIndex,
+                                                          softBody.selfCollisionEnabled));
             mParticles.collisionLayers.push_back(softBody.collisionLayer);
             mParticles.collisionMasks.push_back(softBody.collisionMask);
+            mParticles.rigidProxyLocalPositions.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
             adjacencyLists.emplace_back();
         }
 
@@ -2630,6 +3472,134 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
         softBody.tetCount  = static_cast<std::uint32_t>(mSoftTets.size()) - softBody.tetOffset;
     }
 
+    for (std::uint32_t strandIndex = 0u; strandIndex < mStrandSnapshot.size(); ++strandIndex)
+    {
+        StrandState &strand = mStrandSnapshot[strandIndex];
+        normalizeStrandState(strand);
+        strand.contactMaterialIndex = findOrAppendParticleContactMaterial(
+            mParticleContactMaterials, toParticleContactMaterial(strand.material.contact));
+
+        strand.particleOffset       = static_cast<std::uint32_t>(mParticles.size());
+        strand.constraintOffset     = static_cast<std::uint32_t>(mSoftEdges.size());
+        strand.bendConstraintOffset = static_cast<std::uint32_t>(mSoftBends.size());
+
+        if (strandIndex >= mStrandDerivedCaches.size())
+        {
+            strand.particleCount       = 0u;
+            strand.constraintCount     = 0u;
+            strand.bendConstraintCount = 0u;
+            continue;
+        }
+
+        const StrandDerivedCache &topology = mStrandDerivedCaches[strandIndex];
+        const float inverseMass = strand.particleMass > 0.0f ? 1.0f / strand.particleMass : 0.0f;
+        std::unordered_set<std::uint32_t> staticParticles(topology.staticParticleIndices.begin(),
+                                                          topology.staticParticleIndices.end());
+        strand.restPositions = topology.restPositions;
+        strand.particleCount = static_cast<std::uint32_t>(topology.restPositions.size());
+        for (std::uint32_t localParticleIndex = 0u; localParticleIndex < strand.particleCount;
+             ++localParticleIndex)
+        {
+            const Diligent::float3 &position = topology.restPositions[localParticleIndex];
+            const float particleInvMass =
+                staticParticles.find(localParticleIndex) != staticParticles.end() ? 0.0f
+                                                                                  : inverseMass;
+            mParticles.positionsInvMass.push_back(
+                Diligent::float4{position.x, position.y, position.z, particleInvMass});
+            mParticles.previousPositions.push_back(
+                Diligent::float4{position.x, position.y, position.z, 0.0f});
+            mParticles.velocities.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
+            mParticles.radii.push_back(strand.particleRadius);
+            mParticles.environmentIndices.push_back(strand.environmentIndex);
+            mParticles.particleKinds.push_back(static_cast<std::uint32_t>(ParticleKind::SoftSolid));
+            mParticles.ownerTypes.push_back(static_cast<std::uint32_t>(ParticleOwnerType::Strand));
+            mParticles.ownerIndices.push_back(strandIndex);
+            mParticles.strandIds.push_back(strandIndex);
+            mParticles.strandOrders.push_back(localParticleIndex);
+            mParticles.strandRoles.push_back(static_cast<std::uint32_t>(
+                strand.suturingEnabled ? (localParticleIndex == 0u ? ParticleStrandRole::NeedleTip
+                                                                   : ParticleStrandRole::NeedleBody)
+                                       : ParticleStrandRole::None));
+            mParticles.suturingNeighborLinks.push_back(Diligent::uint4{
+                strand.suturingEnabled && localParticleIndex > 0u
+                    ? strand.particleOffset + localParticleIndex - 1u
+                    : kInvalidSuturingIndex,
+                strand.suturingEnabled && localParticleIndex + 1u < strand.particleCount
+                    ? strand.particleOffset + localParticleIndex + 1u
+                    : kInvalidSuturingIndex,
+                0u, 0u});
+            mParticles.owningSoftBodyIndices.push_back(0xffffffffu);
+            mParticles.particleMaterialIndices.push_back(strand.contactMaterialIndex);
+            mParticles.fluidMaterialIndices.push_back(0xffffffffu);
+            mParticles.phases.push_back(
+                packParticlePhase(strandPhaseGroupBase + strandIndex, strand.selfCollisionEnabled));
+            mParticles.collisionLayers.push_back(strand.collisionLayer);
+            mParticles.collisionMasks.push_back(strand.collisionMask);
+            mParticles.rigidProxyLocalPositions.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
+            adjacencyLists.emplace_back();
+        }
+
+        for (std::uint32_t localParticleIndex = 0u;
+             localParticleIndex < static_cast<std::uint32_t>(topology.adjacencyLists.size());
+             ++localParticleIndex)
+        {
+            auto &globalAdjacency = adjacencyLists[strand.particleOffset + localParticleIndex];
+            globalAdjacency.reserve(topology.adjacencyLists[localParticleIndex].size());
+            for (const std::uint32_t localNeighbor : topology.adjacencyLists[localParticleIndex])
+            {
+                globalAdjacency.push_back(strand.particleOffset + localNeighbor);
+            }
+        }
+
+        for (const auto &edgeDesc : topology.edges)
+        {
+            const std::uint32_t globalA = strand.particleOffset + edgeDesc[0];
+            const std::uint32_t globalB = strand.particleOffset + edgeDesc[1];
+            const Diligent::float3 delta{
+                topology.restPositions[edgeDesc[1]].x - topology.restPositions[edgeDesc[0]].x,
+                topology.restPositions[edgeDesc[1]].y - topology.restPositions[edgeDesc[0]].y,
+                topology.restPositions[edgeDesc[1]].z - topology.restPositions[edgeDesc[0]].z,
+            };
+
+            DeformableDistanceConstraint edge{};
+            edge.particleA  = globalA;
+            edge.particleB  = globalB;
+            edge.restLength = std::sqrt(Diligent::dot(delta, delta));
+            edge.compliance = strand.distanceCompliance;
+            mSoftEdges.push_back(edge);
+        }
+
+        for (const auto &bendDesc : topology.bends)
+        {
+            const Diligent::float3 edge0 =
+                topology.restPositions[bendDesc[0]] - topology.restPositions[bendDesc[1]];
+            const Diligent::float3 edge1 =
+                topology.restPositions[bendDesc[2]] - topology.restPositions[bendDesc[1]];
+            const float length0 = std::sqrt(Diligent::dot(edge0, edge0));
+            const float length1 = std::sqrt(Diligent::dot(edge1, edge1));
+            float restAngle     = 0.0f;
+            if (length0 > 1.0e-6f && length1 > 1.0e-6f)
+            {
+                const float cosTheta =
+                    std::clamp(Diligent::dot(edge0 / length0, edge1 / length1), -1.0f, 1.0f);
+                restAngle = std::acos(cosTheta);
+            }
+
+            DeformableBendConstraint bend{};
+            bend.particle0  = strand.particleOffset + bendDesc[0];
+            bend.particle1  = strand.particleOffset + bendDesc[1];
+            bend.particle2  = strand.particleOffset + bendDesc[2];
+            bend.restAngle  = restAngle;
+            bend.compliance = strand.bendCompliance;
+            mSoftBends.push_back(bend);
+        }
+
+        strand.constraintCount =
+            static_cast<std::uint32_t>(mSoftEdges.size()) - strand.constraintOffset;
+        strand.bendConstraintCount =
+            static_cast<std::uint32_t>(mSoftBends.size()) - strand.bendConstraintOffset;
+    }
+
     for (std::uint32_t fluidIndex = 0u; fluidIndex < mFluidSnapshot.size(); ++fluidIndex)
     {
         FluidState &fluid = mFluidSnapshot[fluidIndex];
@@ -2663,14 +3633,455 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             mParticles.ownerTypes.push_back(
                 static_cast<std::uint32_t>(ParticleOwnerType::FluidBody));
             mParticles.ownerIndices.push_back(fluidIndex);
+            mParticles.strandIds.push_back(0xffffffffu);
+            mParticles.strandOrders.push_back(0xffffffffu);
+            mParticles.strandRoles.push_back(static_cast<std::uint32_t>(ParticleStrandRole::None));
+            mParticles.suturingNeighborLinks.push_back(
+                Diligent::uint4{kInvalidSuturingIndex, kInvalidSuturingIndex, 0u, 0u});
             mParticles.owningSoftBodyIndices.push_back(0xffffffffu);
             mParticles.particleMaterialIndices.push_back(fluid.contactMaterialIndex);
             mParticles.fluidMaterialIndices.push_back(fluid.fluidMaterialIndex);
-            mParticles.phases.push_back(
-                packParticlePhase(mSoftBodySnapshot.size() + fluidIndex, true));
+            mParticles.phases.push_back(packParticlePhase(fluidPhaseGroupBase + fluidIndex, true));
             mParticles.collisionLayers.push_back(fluid.collisionLayer);
             mParticles.collisionMasks.push_back(fluid.collisionMask);
+            mParticles.rigidProxyLocalPositions.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 0.0f});
             adjacencyLists.emplace_back();
+        }
+    }
+
+    const auto resolveParticleReference =
+        [this](const AuthoredParticleReference &reference) -> std::optional<std::uint32_t>
+    {
+        switch (reference.type)
+        {
+        case AuthoredParticleReferenceType::SoftBodyParticle:
+        {
+            const SoftBodyState *softBody = tryGetSoftBody(reference.entityId);
+            if (softBody == nullptr || reference.localParticleIndex >= softBody->particleCount)
+            {
+                return std::nullopt;
+            }
+            return softBody->particleOffset + reference.localParticleIndex;
+        }
+        case AuthoredParticleReferenceType::StrandParticle:
+        {
+            const StrandState *strand = tryGetStrand(reference.entityId);
+            if (strand == nullptr || reference.localParticleIndex >= strand->particleCount)
+            {
+                return std::nullopt;
+            }
+            return strand->particleOffset + reference.localParticleIndex;
+        }
+        case AuthoredParticleReferenceType::RigidProxyParticle:
+        {
+            const RigidBodyState *rigidBody = tryGetRigidBody(reference.entityId);
+            if (rigidBody == nullptr ||
+                reference.localParticleIndex >= rigidBody->proxyParticleCount)
+            {
+                return std::nullopt;
+            }
+            return rigidBody->proxyParticleOffset + reference.localParticleIndex;
+        }
+        }
+
+        return std::nullopt;
+    };
+
+    for (const AuthoredParticleCollisionFilterState &authoredFilter :
+         mParticleCollisionFilterSnapshot)
+    {
+        if (!authoredFilter.enabled)
+        {
+            continue;
+        }
+
+        const std::optional<std::uint32_t> particleIndex =
+            resolveParticleReference(authoredFilter.particle);
+        if (!particleIndex.has_value() || *particleIndex >= mParticles.collisionLayers.size() ||
+            *particleIndex >= mParticles.collisionMasks.size())
+        {
+            continue;
+        }
+
+        mParticles.collisionLayers[*particleIndex] = authoredFilter.collisionLayer;
+        mParticles.collisionMasks[*particleIndex]  = authoredFilter.collisionMask;
+    }
+
+    struct ResolvedSuturingSequence
+    {
+        const AuthoredSuturingSequenceState *authored = nullptr;
+        std::vector<std::uint32_t> particleIndices{};
+        std::uint32_t environmentIndex = 0u;
+        std::uint32_t tipEntryIndex    = 0u;
+        float pathNodeSpacing          = 0.0f;
+        float needleTangentialDrag     = 0.0f;
+        float threadTangentialDrag     = 0.0f;
+        std::uint32_t groupId          = kInvalidSuturingIndex;
+    };
+
+    const std::uint32_t authoredSequenceSuturingGroupBase =
+        rigidProxySuturingGroupBase + static_cast<std::uint32_t>(mRigidBodySnapshot.size());
+    std::vector<ResolvedSuturingSequence> resolvedSequences{};
+    resolvedSequences.reserve(mSuturingSequenceSnapshot.size());
+    std::unordered_set<common::EntityId> sequenceRigidEntities{};
+    std::unordered_set<common::EntityId> sequenceStrandEntities{};
+
+    for (std::uint32_t sequenceIndex = 0u;
+         sequenceIndex < static_cast<std::uint32_t>(mSuturingSequenceSnapshot.size());
+         ++sequenceIndex)
+    {
+        const AuthoredSuturingSequenceState &sequence = mSuturingSequenceSnapshot[sequenceIndex];
+        if (!sequence.enabled || sequence.entries.empty())
+        {
+            continue;
+        }
+
+        ResolvedSuturingSequence resolved{};
+        resolved.authored      = &sequence;
+        resolved.tipEntryIndex = std::min<std::uint32_t>(
+            sequence.tipEntryIndex, static_cast<std::uint32_t>(sequence.entries.size() - 1u));
+        resolved.groupId = authoredSequenceSuturingGroupBase + sequenceIndex;
+        resolved.particleIndices.reserve(sequence.entries.size());
+
+        bool validSequence = true;
+        std::optional<std::uint32_t> environmentIndex;
+        std::unordered_set<common::EntityId> resolvedRigidEntities{};
+        std::unordered_set<common::EntityId> resolvedStrandEntities{};
+        for (const AuthoredParticleReference &entry : sequence.entries)
+        {
+            if (entry.type == AuthoredParticleReferenceType::SoftBodyParticle)
+            {
+                validSequence = false;
+                break;
+            }
+
+            const auto particleIndex = resolveParticleReference(entry);
+            if (!particleIndex.has_value() ||
+                *particleIndex >= mParticles.environmentIndices.size())
+            {
+                validSequence = false;
+                break;
+            }
+
+            const std::uint32_t entryEnvironmentIndex =
+                mParticles.environmentIndices[*particleIndex];
+            if (!environmentIndex.has_value())
+            {
+                environmentIndex = entryEnvironmentIndex;
+            }
+            else if (*environmentIndex != entryEnvironmentIndex)
+            {
+                validSequence = false;
+                break;
+            }
+
+            resolved.particleIndices.push_back(*particleIndex);
+            if (entry.type == AuthoredParticleReferenceType::RigidProxyParticle)
+            {
+                resolvedRigidEntities.insert(entry.entityId);
+            }
+            else if (entry.type == AuthoredParticleReferenceType::StrandParticle)
+            {
+                resolvedStrandEntities.insert(entry.entityId);
+            }
+        }
+
+        if (!validSequence || resolved.particleIndices.empty() ||
+            resolved.tipEntryIndex >= resolved.particleIndices.size() ||
+            !environmentIndex.has_value())
+        {
+            continue;
+        }
+
+        resolved.environmentIndex     = *environmentIndex;
+        resolved.needleTangentialDrag = sequence.needleTangentialDrag;
+        resolved.threadTangentialDrag = sequence.threadTangentialDrag;
+        if (sequence.pathNodeSpacing > 0.0f)
+        {
+            resolved.pathNodeSpacing = sequence.pathNodeSpacing;
+        }
+        else
+        {
+            const AuthoredParticleReference &tipReference =
+                sequence.entries[resolved.tipEntryIndex];
+            if (tipReference.type == AuthoredParticleReferenceType::RigidProxyParticle)
+            {
+                const RigidBodyState *rigidBody = tryGetRigidBody(tipReference.entityId);
+                resolved.pathNodeSpacing =
+                    rigidBody != nullptr ? std::max(rigidBody->proxyParticleRadius * 1.5f, 1.0e-4f)
+                                         : 0.2f;
+            }
+            else
+            {
+                const StrandState *strand = tryGetStrand(tipReference.entityId);
+                resolved.pathNodeSpacing =
+                    strand != nullptr ? std::max(strand->pathNodeSpacing, 1.0e-4f) : 0.2f;
+            }
+        }
+
+        sequenceRigidEntities.insert(resolvedRigidEntities.begin(), resolvedRigidEntities.end());
+        sequenceStrandEntities.insert(resolvedStrandEntities.begin(), resolvedStrandEntities.end());
+        resolvedSequences.push_back(std::move(resolved));
+    }
+
+    for (std::uint32_t rigidBodyIndex = 0u; rigidBodyIndex < mRigidBodySnapshot.size();
+         ++rigidBodyIndex)
+    {
+        const RigidBodyState &rigidBody = mRigidBodySnapshot[rigidBodyIndex];
+        if (sequenceRigidEntities.find(rigidBody.entityId) == sequenceRigidEntities.end())
+        {
+            continue;
+        }
+
+        const std::uint32_t end =
+            std::min(rigidBody.proxyParticleOffset + rigidBody.proxyParticleCount,
+                     static_cast<std::uint32_t>(mParticles.strandIds.size()));
+        for (std::uint32_t particleIndex = rigidBody.proxyParticleOffset; particleIndex < end;
+             ++particleIndex)
+        {
+            mParticles.strandIds[particleIndex]    = kInvalidSuturingIndex;
+            mParticles.strandOrders[particleIndex] = kInvalidSuturingIndex;
+            mParticles.strandRoles[particleIndex] =
+                static_cast<std::uint32_t>(ParticleStrandRole::None);
+        }
+    }
+
+    for (std::uint32_t strandIndex = 0u; strandIndex < mStrandSnapshot.size(); ++strandIndex)
+    {
+        const StrandState &strand = mStrandSnapshot[strandIndex];
+        if (sequenceStrandEntities.find(strand.entityId) == sequenceStrandEntities.end())
+        {
+            continue;
+        }
+
+        const std::uint32_t end = std::min(strand.particleOffset + strand.particleCount,
+                                           static_cast<std::uint32_t>(mParticles.strandIds.size()));
+        for (std::uint32_t particleIndex = strand.particleOffset; particleIndex < end;
+             ++particleIndex)
+        {
+            mParticles.strandIds[particleIndex]    = kInvalidSuturingIndex;
+            mParticles.strandOrders[particleIndex] = kInvalidSuturingIndex;
+            mParticles.strandRoles[particleIndex] =
+                static_cast<std::uint32_t>(ParticleStrandRole::None);
+        }
+    }
+
+    for (const ResolvedSuturingSequence &sequence : resolvedSequences)
+    {
+        for (std::uint32_t entryIndex = 0u;
+             entryIndex < static_cast<std::uint32_t>(sequence.particleIndices.size()); ++entryIndex)
+        {
+            const std::uint32_t particleIndex = sequence.particleIndices[entryIndex];
+            if (particleIndex >= mParticles.strandIds.size())
+            {
+                continue;
+            }
+
+            mParticles.strandIds[particleIndex]    = sequence.groupId;
+            mParticles.strandOrders[particleIndex] = entryIndex;
+            const AuthoredParticleReference &entry = sequence.authored->entries[entryIndex];
+            const ParticleStrandRole role =
+                entryIndex == sequence.tipEntryIndex
+                    ? ParticleStrandRole::NeedleTip
+                    : (entry.type == AuthoredParticleReferenceType::RigidProxyParticle
+                           ? ParticleStrandRole::NeedleBody
+                           : ParticleStrandRole::Thread);
+            mParticles.strandRoles[particleIndex]           = static_cast<std::uint32_t>(role);
+            mParticles.suturingNeighborLinks[particleIndex] = Diligent::uint4{
+                entryIndex > 0u ? sequence.particleIndices[entryIndex - 1u] : kInvalidSuturingIndex,
+                entryIndex + 1u < sequence.particleIndices.size()
+                    ? sequence.particleIndices[entryIndex + 1u]
+                    : kInvalidSuturingIndex,
+                0u, 0u};
+        }
+    }
+
+    mParticles.suturingParticleIndices.clear();
+    mParticles.suturingParticleIndices.reserve(mParticles.size());
+    for (std::uint32_t particleIndex = 0u;
+         particleIndex < static_cast<std::uint32_t>(mParticles.strandRoles.size()); ++particleIndex)
+    {
+        if (mParticles.strandRoles[particleIndex] ==
+            static_cast<std::uint32_t>(ParticleStrandRole::None))
+        {
+            mParticles.suturingNeighborLinks[particleIndex].z = kInvalidSuturingIndex;
+            mParticles.suturingNeighborLinks[particleIndex].w = 0u;
+            continue;
+        }
+
+        mParticles.suturingNeighborLinks[particleIndex].z =
+            static_cast<std::uint32_t>(mParticles.suturingParticleIndices.size());
+        mParticles.suturingNeighborLinks[particleIndex].w = 0u;
+        mParticles.suturingParticleIndices.push_back(particleIndex);
+    }
+
+    for (const AuthoredParticleDistanceConstraintState &constraint :
+         mParticleDistanceConstraintSnapshot)
+    {
+        if (!constraint.enabled)
+        {
+            continue;
+        }
+
+        const auto particleA = resolveParticleReference(constraint.particleA);
+        const auto particleB = resolveParticleReference(constraint.particleB);
+        if (!particleA.has_value() || !particleB.has_value() || *particleA == *particleB)
+        {
+            continue;
+        }
+
+        if (*particleA >= mParticles.environmentIndices.size() ||
+            *particleB >= mParticles.environmentIndices.size() ||
+            mParticles.environmentIndices[*particleA] != mParticles.environmentIndices[*particleB])
+        {
+            continue;
+        }
+
+        DeformableDistanceConstraint resolved{};
+        resolved.particleA  = *particleA;
+        resolved.particleB  = *particleB;
+        resolved.restLength = constraint.restLength;
+        resolved.compliance = constraint.compliance;
+        mSoftEdges.push_back(resolved);
+    }
+
+    mSuturingPairs.clear();
+    mReservedSuturingPathHeaders = 0u;
+    mReservedSuturingPathNodes   = 0u;
+    for (std::uint32_t strandIndex = 0u; strandIndex < mStrandSnapshot.size(); ++strandIndex)
+    {
+        const StrandState &strand = mStrandSnapshot[strandIndex];
+        if (!strand.suturingEnabled || strand.particleCount == 0u ||
+            sequenceStrandEntities.find(strand.entityId) != sequenceStrandEntities.end())
+        {
+            continue;
+        }
+
+        for (std::uint32_t softBodyIndex = 0u; softBodyIndex < mSoftBodySnapshot.size();
+             ++softBodyIndex)
+        {
+            const SoftBodyState &softBody = mSoftBodySnapshot[softBodyIndex];
+            if (!softBody.supportsSuturing || softBody.particleCount == 0u ||
+                softBody.environmentIndex != strand.environmentIndex)
+            {
+                continue;
+            }
+
+            StrandSoftSuturingPair pair{};
+            pair.suturingGroupId          = strandIndex;
+            pair.softBodyIndex            = softBodyIndex;
+            pair.strandParticleStart      = strand.particleOffset;
+            pair.strandParticleCount      = strand.particleCount;
+            pair.tipParticleIndex         = strand.particleOffset;
+            pair.softTetStart             = softBody.tetOffset;
+            pair.softTetCount             = softBody.tetCount;
+            pair.pathStart                = mReservedSuturingPathHeaders;
+            pair.pathCount                = mMaxSuturingPathsPerPair;
+            pair.nodeStart                = mReservedSuturingPathNodes;
+            pair.nodeCount                = mMaxSuturingPathsPerPair * mMaxSuturingNodesPerPath;
+            pair.activePathIndex          = kInvalidSuturingIndex;
+            pair.environmentIndex         = strand.environmentIndex;
+            pair.pathNodeSpacing          = strand.pathNodeSpacing;
+            pair.needleTangentialDragBits = encodeSuturingFloat(0.0f);
+            pair.threadTangentialDragBits = encodeSuturingFloat(0.0f);
+            mSuturingPairs.push_back(pair);
+
+            mReservedSuturingPathHeaders += mMaxSuturingPathsPerPair;
+            mReservedSuturingPathNodes += mMaxSuturingPathsPerPair * mMaxSuturingNodesPerPath;
+        }
+    }
+
+    for (std::uint32_t rigidBodyIndex = 0u; rigidBodyIndex < mRigidBodySnapshot.size();
+         ++rigidBodyIndex)
+    {
+        const RigidBodyState &rigidBody = mRigidBodySnapshot[rigidBodyIndex];
+        if (!rigidBody.suturingEnabled || rigidBody.proxyParticleCount == 0u ||
+            sequenceRigidEntities.find(rigidBody.entityId) != sequenceRigidEntities.end())
+        {
+            continue;
+        }
+
+        for (std::uint32_t softBodyIndex = 0u; softBodyIndex < mSoftBodySnapshot.size();
+             ++softBodyIndex)
+        {
+            const SoftBodyState &softBody = mSoftBodySnapshot[softBodyIndex];
+            if (!softBody.supportsSuturing || softBody.particleCount == 0u ||
+                softBody.environmentIndex != rigidBody.environmentIndex)
+            {
+                continue;
+            }
+
+            StrandSoftSuturingPair pair{};
+            pair.suturingGroupId     = rigidProxySuturingGroupBase + rigidBodyIndex;
+            pair.softBodyIndex       = softBodyIndex;
+            pair.strandParticleStart = rigidBody.proxyParticleOffset;
+            pair.strandParticleCount = rigidBody.proxyParticleCount;
+            pair.tipParticleIndex = rigidBody.proxyParticleOffset + rigidBody.needleTipProxyIndex;
+            pair.softTetStart     = softBody.tetOffset;
+            pair.softTetCount     = softBody.tetCount;
+            pair.pathStart        = mReservedSuturingPathHeaders;
+            pair.pathCount        = mMaxSuturingPathsPerPair;
+            pair.nodeStart        = mReservedSuturingPathNodes;
+            pair.nodeCount        = mMaxSuturingPathsPerPair * mMaxSuturingNodesPerPath;
+            pair.activePathIndex  = kInvalidSuturingIndex;
+            pair.environmentIndex = rigidBody.environmentIndex;
+            pair.pathNodeSpacing  = std::max(rigidBody.proxyParticleRadius * 1.5f, 1.0e-4f);
+            pair.needleTangentialDragBits = encodeSuturingFloat(0.0f);
+            pair.threadTangentialDragBits = encodeSuturingFloat(0.0f);
+            mSuturingPairs.push_back(pair);
+
+            mReservedSuturingPathHeaders += mMaxSuturingPathsPerPair;
+            mReservedSuturingPathNodes += mMaxSuturingPathsPerPair * mMaxSuturingNodesPerPath;
+        }
+    }
+
+    for (const ResolvedSuturingSequence &sequence : resolvedSequences)
+    {
+        if (sequence.particleIndices.empty() ||
+            sequence.tipEntryIndex >= sequence.particleIndices.size())
+        {
+            continue;
+        }
+
+        std::uint32_t particleStart = sequence.particleIndices[0];
+        std::uint32_t particleEnd   = sequence.particleIndices[0];
+        for (const std::uint32_t particleIndex : sequence.particleIndices)
+        {
+            particleStart = std::min(particleStart, particleIndex);
+            particleEnd   = std::max(particleEnd, particleIndex);
+        }
+
+        for (std::uint32_t softBodyIndex = 0u; softBodyIndex < mSoftBodySnapshot.size();
+             ++softBodyIndex)
+        {
+            const SoftBodyState &softBody = mSoftBodySnapshot[softBodyIndex];
+            if (!softBody.supportsSuturing || softBody.particleCount == 0u ||
+                softBody.environmentIndex != sequence.environmentIndex)
+            {
+                continue;
+            }
+
+            StrandSoftSuturingPair pair{};
+            pair.suturingGroupId          = sequence.groupId;
+            pair.softBodyIndex            = softBodyIndex;
+            pair.strandParticleStart      = particleStart;
+            pair.strandParticleCount      = particleEnd - particleStart + 1u;
+            pair.tipParticleIndex         = sequence.particleIndices[sequence.tipEntryIndex];
+            pair.softTetStart             = softBody.tetOffset;
+            pair.softTetCount             = softBody.tetCount;
+            pair.pathStart                = mReservedSuturingPathHeaders;
+            pair.pathCount                = mMaxSuturingPathsPerPair;
+            pair.nodeStart                = mReservedSuturingPathNodes;
+            pair.nodeCount                = mMaxSuturingPathsPerPair * mMaxSuturingNodesPerPath;
+            pair.activePathIndex          = kInvalidSuturingIndex;
+            pair.environmentIndex         = sequence.environmentIndex;
+            pair.pathNodeSpacing          = sequence.pathNodeSpacing;
+            pair.needleTangentialDragBits = encodeSuturingFloat(sequence.needleTangentialDrag);
+            pair.threadTangentialDragBits = encodeSuturingFloat(sequence.threadTangentialDrag);
+            mSuturingPairs.push_back(pair);
+
+            mReservedSuturingPathHeaders += mMaxSuturingPathsPerPair;
+            mReservedSuturingPathNodes += mMaxSuturingPathsPerPair * mMaxSuturingNodesPerPath;
         }
     }
 
@@ -2759,6 +4170,46 @@ bool PhysicsWorld::prepareFluidStateForInsert(const FluidState &candidate,
     return true;
 }
 
+bool PhysicsWorld::prepareStrandStateForInsert(const StrandState &candidate,
+                                               StrandDerivedCache &derivedCache) noexcept
+{
+    derivedCache = {};
+    if (candidate.restPositions.size() < 2u)
+    {
+        CRESSIM_LOG_ERROR("Failed to author strand for entity ", candidate.entityId,
+                          ": strand must contain at least two rest positions.");
+        return false;
+    }
+
+    derivedCache.restPositions = candidate.restPositions;
+    derivedCache.adjacencyLists.resize(candidate.restPositions.size());
+    for (std::uint32_t i = 0u; i + 1u < static_cast<std::uint32_t>(candidate.restPositions.size());
+         ++i)
+    {
+        derivedCache.edges.push_back({i, i + 1u});
+        derivedCache.adjacencyLists[i].push_back(i + 1u);
+        derivedCache.adjacencyLists[i + 1u].push_back(i);
+    }
+    for (std::uint32_t i = 0u; i + 2u < static_cast<std::uint32_t>(candidate.restPositions.size());
+         ++i)
+    {
+        derivedCache.bends.push_back({i, i + 1u, i + 2u});
+    }
+
+    std::string errorMessage;
+    derivedCache.staticParticleIndices = validateStaticParticleIndices(
+        candidate.staticParticleIndices, static_cast<std::uint32_t>(candidate.restPositions.size()),
+        errorMessage);
+    if (!errorMessage.empty())
+    {
+        CRESSIM_LOG_ERROR("Failed to author strand for entity ", candidate.entityId, ": ",
+                          errorMessage);
+        return false;
+    }
+
+    return true;
+}
+
 bool PhysicsWorld::prepareSoftBodyStateForInsert(const SoftBodyState &candidate,
                                                  const SoftBodyState *previousState,
                                                  SoftBodyDerivedCache &derivedCache) noexcept
@@ -2822,6 +4273,23 @@ bool PhysicsWorld::prepareSoftBodyStateForInsert(const SoftBodyState &candidate,
     derivedCache.boundaryFaces         = std::move(resolvedTopology.boundaryFaces);
     derivedCache.adjacencyLists        = std::move(resolvedTopology.adjacencyLists);
     derivedCache.staticParticleIndices = std::move(resolvedTopology.staticParticleIndices);
+    if (candidate.supportsSuturing)
+    {
+        derivedCache.incidentTetLists.assign(derivedCache.restPositions.size(), {});
+        for (std::uint32_t tetIndex = 0u;
+             tetIndex < static_cast<std::uint32_t>(derivedCache.tets.size()); ++tetIndex)
+        {
+            const auto &tet = derivedCache.tets[tetIndex];
+            for (std::uint32_t slot = 0u; slot < 4u; ++slot)
+            {
+                derivedCache.incidentTetLists[tet[slot]].push_back(tetIndex);
+            }
+        }
+    }
+    else
+    {
+        derivedCache.incidentTetLists.clear();
+    }
 
     if (candidate.source.kind == SoftBodySourceKind::TetGenFiles)
     {

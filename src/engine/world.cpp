@@ -391,6 +391,8 @@ bool World::destroyEntity(common::EntityId entityId)
     removeSpotLight(entityId);
     removeRigidBody(entityId);
     removeSoftBody(entityId);
+    removeStrand(entityId);
+    removeProceduralDeformableCurveRender(entityId);
     removeFluid(entityId);
     removeUltrasoundProbe(entityId);
     removeUltrasoundScattererSource(entityId);
@@ -470,6 +472,18 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
                 }
             }
         }
+        if (physIt->second.hasStrand)
+        {
+            if (physics::StrandState *strand = mPhysicsWorld.tryGetStrand(entityId))
+            {
+                physics::StrandState updated = *strand;
+                updated.environmentIndex     = envIndex;
+                if (!mPhysicsWorld.upsertStrand(updated))
+                {
+                    return false;
+                }
+            }
+        }
         if (physIt->second.hasFluid)
         {
             if (physics::FluidState *fluid = mPhysicsWorld.tryGetFluid(entityId))
@@ -509,6 +523,20 @@ bool World::setEntityEnvironment(common::EntityId entityId, std::uint32_t envInd
                     {
                         CRESSIM_LOG_ERROR("setEntityEnvironment failed to restore previous "
                                           "soft-body environment for entity ",
+                                          entityId, ".");
+                    }
+                }
+            }
+            if (physIt->second.hasStrand)
+            {
+                if (physics::StrandState *strand = mPhysicsWorld.tryGetStrand(entityId))
+                {
+                    physics::StrandState reverted = *strand;
+                    reverted.environmentIndex     = previousEnv;
+                    if (!mPhysicsWorld.upsertStrand(reverted))
+                    {
+                        CRESSIM_LOG_ERROR("setEntityEnvironment failed to restore previous "
+                                          "strand environment for entity ",
                                           entityId, ".");
                     }
                 }
@@ -626,6 +654,10 @@ void World::ensureHostSceneStorage()
         mSoftBodyVertexBindingBaseByObject.assign(objectCapacity, kInvalidSlot);
         mSoftBodyVertexNormalBaseByObject.assign(objectCapacity, kInvalidSlot);
         mSoftBodyVertexCountByObject.assign(objectCapacity, 0u);
+        mCurveRenderVertexBaseByObject.assign(objectCapacity, kInvalidSlot);
+        mCurveRenderVertexNormalBaseByObject.assign(objectCapacity, kInvalidSlot);
+        mCurveRenderIndexByObject.assign(objectCapacity, kInvalidSlot);
+        mCurveRenderVertexCountByObject.assign(objectCapacity, 0u);
         mOpaqueDrawRegistryHost.clear();
         mTransparentDrawRegistryHost.clear();
         mShadowDrawRegistryHost.clear();
@@ -645,6 +677,7 @@ void World::ensureHostSceneStorage()
         mDrawRegistryDirty              = true;
         mPhysicsRenderableMappingsDirty = true;
         mSoftBodyRenderBindingsDirty    = true;
+        mCurveRenderBindingsDirty       = true;
     }
 
     const std::size_t cameraCapacity = mSceneLayout.totalCameraCapacity();
@@ -840,6 +873,7 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
     mDrawRegistryDirty              = true;
     mPhysicsRenderableMappingsDirty = true;
     mSoftBodyRenderBindingsDirty    = true;
+    mCurveRenderBindingsDirty       = true;
 }
 
 void World::setCamera(common::EntityId entityId, const CameraComponent &component)
@@ -1088,19 +1122,26 @@ void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent &co
     }
 
     physics::RigidBodyState state{};
-    state.entityId                = entityId;
-    state.position                = transform.worldTransform.position;
-    state.rotation                = transform.worldTransform.rotation;
-    state.scale                   = transform.worldTransform.scale;
-    state.linearVelocity          = component.linearVelocity;
-    state.angularVelocity         = component.angularVelocity;
-    state.inverseMass             = component.inverseMass;
-    state.inverseInertiaLocal     = component.inverseInertiaLocal;
-    state.bodyType                = component.bodyType;
-    state.environmentIndex        = entityEnvironment(entityId);
-    state.kinematicTargetPosition = component.kinematicTargetPosition;
-    state.kinematicTargetRotation = component.kinematicTargetRotation;
-    state.kinematicTargetEnabled  = component.kinematicTargetEnabled;
+    state.entityId                    = entityId;
+    state.position                    = transform.worldTransform.position;
+    state.rotation                    = transform.worldTransform.rotation;
+    state.scale                       = transform.worldTransform.scale;
+    state.linearVelocity              = component.linearVelocity;
+    state.angularVelocity             = component.angularVelocity;
+    state.inverseMass                 = component.inverseMass;
+    state.inverseInertiaLocal         = component.inverseInertiaLocal;
+    state.proxyParticleLocalPositions = component.proxyParticleLocalPositions;
+    state.proxyParticleMaterial       = component.proxyParticleMaterial;
+    state.proxyParticleRadius         = component.proxyParticleRadius;
+    state.proxyCollisionLayer         = component.proxyCollisionLayer;
+    state.proxyCollisionMask          = component.proxyCollisionMask;
+    state.suturingEnabled             = component.suturingEnabled;
+    state.needleTipProxyIndex         = component.needleTipProxyIndex;
+    state.bodyType                    = component.bodyType;
+    state.environmentIndex            = entityEnvironment(entityId);
+    state.kinematicTargetPosition     = component.kinematicTargetPosition;
+    state.kinematicTargetRotation     = component.kinematicTargetRotation;
+    state.kinematicTargetEnabled      = component.kinematicTargetEnabled;
 
     mPhysicsWorld.upsertRigidBody(state);
     mPhysicsLinks[entityId].hasRigidBody = true;
@@ -1166,6 +1207,7 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
     state.volumeCompliance     = component.volumeCompliance;
     state.simulated            = component.simulated;
     state.selfCollisionEnabled = component.selfCollisionEnabled;
+    state.supportsSuturing     = component.supportsSuturing;
     state.collisionLayer       = component.collisionLayer;
     state.collisionMask        = component.collisionMask;
 
@@ -1253,6 +1295,147 @@ bool World::removeSoftBody(common::EntityId entityId)
     mDrawRegistryDirty           = true;
     mSoftBodyRenderBindingsDirty = true;
     return mPhysicsWorld.removeSoftBody(entityId) || clearedAmplitudeRanges;
+}
+
+bool World::setStrand(common::EntityId entityId, const StrandComponent &component)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("setStrand requires valid entity id.");
+        return false;
+    }
+
+    if (!requireAliveEntity(entityId, "setStrand"))
+    {
+        return false;
+    }
+
+    if (!component.simulated)
+    {
+        (void)removeStrand(entityId);
+        return true;
+    }
+
+    physics::StrandState state{};
+    state.entityId              = entityId;
+    state.environmentIndex      = entityEnvironment(entityId);
+    state.material              = component.material;
+    state.restPositions         = component.restPositions;
+    state.staticParticleIndices = component.staticParticleIndices;
+    state.particleMass          = component.particleMass;
+    state.particleRadius        = component.particleRadius;
+    state.distanceCompliance    = component.distanceCompliance;
+    state.bendCompliance        = component.bendCompliance;
+    state.simulated             = component.simulated;
+    state.selfCollisionEnabled  = component.selfCollisionEnabled;
+    state.suturingEnabled       = component.suturingEnabled;
+    state.pathNodeSpacing       = component.pathNodeSpacing;
+    state.collisionLayer        = component.collisionLayer;
+    state.collisionMask         = component.collisionMask;
+
+    if (!mPhysicsWorld.upsertStrand(state))
+    {
+        return false;
+    }
+
+    mPhysicsLinks[entityId].hasStrand = true;
+    return true;
+}
+
+bool World::removeStrand(common::EntityId entityId)
+{
+    auto it = mPhysicsLinks.find(entityId);
+    if (it != mPhysicsLinks.end())
+    {
+        it->second.hasStrand = false;
+    }
+    return mPhysicsWorld.removeStrand(entityId);
+}
+
+void World::setProceduralDeformableCurveRender(
+    common::EntityId entityId, const ProceduralDeformableCurveRenderComponent &component)
+{
+    if (!requireAliveEntity(entityId, "setProceduralDeformableCurveRender"))
+    {
+        return;
+    }
+
+    mProceduralDeformableCurveRenders[entityId] = component;
+    if (const auto renderIt = mRenderableIndices.find(entityId);
+        renderIt != mRenderableIndices.end())
+    {
+        markRenderableMetadataDirty(static_cast<std::uint32_t>(renderIt->second));
+    }
+    mCurveRenderBindingsDirty = true;
+    mDrawRegistryDirty        = true;
+}
+
+bool World::removeProceduralDeformableCurveRender(common::EntityId entityId)
+{
+    const bool removed = mProceduralDeformableCurveRenders.erase(entityId) > 0u;
+    if (removed)
+    {
+        if (const auto renderIt = mRenderableIndices.find(entityId);
+            renderIt != mRenderableIndices.end())
+        {
+            markRenderableMetadataDirty(static_cast<std::uint32_t>(renderIt->second));
+        }
+        mCurveRenderBindingsDirty = true;
+        mDrawRegistryDirty        = true;
+    }
+    return removed;
+}
+
+physics::AuthoredParticleSequenceState &World::upsertParticleSequence(
+    const physics::AuthoredParticleSequenceState &state)
+{
+    mCurveRenderBindingsDirty = true;
+    mDrawRegistryDirty        = true;
+    return mPhysicsWorld.upsertParticleSequence(state);
+}
+
+physics::AuthoredParticleDistanceConstraintState &World::upsertParticleDistanceConstraint(
+    const physics::AuthoredParticleDistanceConstraintState &state)
+{
+    return mPhysicsWorld.upsertParticleDistanceConstraint(state);
+}
+
+physics::AuthoredParticleCollisionFilterState &World::upsertParticleCollisionFilter(
+    const physics::AuthoredParticleCollisionFilterState &state)
+{
+    return mPhysicsWorld.upsertParticleCollisionFilter(state);
+}
+
+physics::AuthoredSuturingSequenceState &World::upsertSuturingSequence(
+    const physics::AuthoredSuturingSequenceState &state)
+{
+    return mPhysicsWorld.upsertSuturingSequence(state);
+}
+
+bool World::removeParticleDistanceConstraint(physics::ParticleConstraintId constraintId)
+{
+    return mPhysicsWorld.removeParticleDistanceConstraint(constraintId);
+}
+
+bool World::removeParticleCollisionFilter(physics::ParticleCollisionFilterId filterId)
+{
+    return mPhysicsWorld.removeParticleCollisionFilter(filterId);
+}
+
+bool World::removeParticleSequence(physics::ParticleSequenceId sequenceId)
+{
+    const bool removed = mPhysicsWorld.removeParticleSequence(sequenceId);
+    if (removed)
+    {
+        mCurveRenderBindingsDirty = true;
+        mDrawRegistryDirty        = true;
+    }
+    return removed;
+}
+
+bool World::removeSuturingSequence(physics::SuturingSequenceId sequenceId)
+{
+    return mPhysicsWorld.removeSuturingSequence(sequenceId);
 }
 
 bool World::setFluid(common::EntityId entityId, const FluidComponent &component)
@@ -1567,6 +1750,7 @@ bool World::removeMeshRenderer(common::EntityId entityId)
     mDrawRegistryDirty              = true;
     mPhysicsRenderableMappingsDirty = true;
     mSoftBodyRenderBindingsDirty    = true;
+    mCurveRenderBindingsDirty       = true;
     return true;
 }
 
@@ -1757,15 +1941,22 @@ std::optional<RigidBodyComponent> World::tryGetRigidBody(common::EntityId entity
     }
 
     RigidBodyComponent component{};
-    component.simulated               = true;
-    component.bodyType                = rb->bodyType;
-    component.linearVelocity          = rb->linearVelocity;
-    component.angularVelocity         = rb->angularVelocity;
-    component.inverseMass             = rb->inverseMass;
-    component.inverseInertiaLocal     = rb->inverseInertiaLocal;
-    component.kinematicTargetPosition = rb->kinematicTargetPosition;
-    component.kinematicTargetRotation = rb->kinematicTargetRotation;
-    component.kinematicTargetEnabled  = rb->kinematicTargetEnabled;
+    component.simulated                   = true;
+    component.bodyType                    = rb->bodyType;
+    component.linearVelocity              = rb->linearVelocity;
+    component.angularVelocity             = rb->angularVelocity;
+    component.inverseMass                 = rb->inverseMass;
+    component.inverseInertiaLocal         = rb->inverseInertiaLocal;
+    component.proxyParticleLocalPositions = rb->proxyParticleLocalPositions;
+    component.proxyParticleMaterial       = rb->proxyParticleMaterial;
+    component.proxyParticleRadius         = rb->proxyParticleRadius;
+    component.proxyCollisionLayer         = rb->proxyCollisionLayer;
+    component.proxyCollisionMask          = rb->proxyCollisionMask;
+    component.suturingEnabled             = rb->suturingEnabled;
+    component.needleTipProxyIndex         = rb->needleTipProxyIndex;
+    component.kinematicTargetPosition     = rb->kinematicTargetPosition;
+    component.kinematicTargetRotation     = rb->kinematicTargetRotation;
+    component.kinematicTargetEnabled      = rb->kinematicTargetEnabled;
     return component;
 }
 
@@ -1786,9 +1977,44 @@ std::optional<SoftBodyComponent> World::tryGetSoftBody(common::EntityId entityId
     component.volumeCompliance     = softBody->volumeCompliance;
     component.simulated            = softBody->simulated;
     component.selfCollisionEnabled = softBody->selfCollisionEnabled;
+    component.supportsSuturing     = softBody->supportsSuturing;
     component.collisionLayer       = softBody->collisionLayer;
     component.collisionMask        = softBody->collisionMask;
     return component;
+}
+
+std::optional<StrandComponent> World::tryGetStrand(common::EntityId entityId) const
+{
+    const physics::StrandState *strand = mPhysicsWorld.tryGetStrand(entityId);
+    if (!strand)
+    {
+        return std::nullopt;
+    }
+
+    StrandComponent component{};
+    component.material              = strand->material;
+    component.restPositions         = strand->restPositions;
+    component.staticParticleIndices = strand->staticParticleIndices;
+    component.particleMass          = strand->particleMass;
+    component.particleRadius        = strand->particleRadius;
+    component.distanceCompliance    = strand->distanceCompliance;
+    component.bendCompliance        = strand->bendCompliance;
+    component.simulated             = strand->simulated;
+    component.selfCollisionEnabled  = strand->selfCollisionEnabled;
+    component.suturingEnabled       = strand->suturingEnabled;
+    component.pathNodeSpacing       = strand->pathNodeSpacing;
+    component.collisionLayer        = strand->collisionLayer;
+    component.collisionMask         = strand->collisionMask;
+    return component;
+}
+
+std::optional<ProceduralDeformableCurveRenderComponent> World::
+    tryGetProceduralDeformableCurveRender(common::EntityId entityId) const
+{
+    const auto it = mProceduralDeformableCurveRenders.find(entityId);
+    return it != mProceduralDeformableCurveRenders.end()
+               ? std::optional<ProceduralDeformableCurveRenderComponent>{it->second}
+               : std::nullopt;
 }
 
 std::optional<FluidComponent> World::tryGetFluid(common::EntityId entityId) const
@@ -1809,6 +2035,30 @@ std::optional<FluidComponent> World::tryGetFluid(common::EntityId entityId) cons
     component.collisionLayer = fluid->collisionLayer;
     component.collisionMask  = fluid->collisionMask;
     return component;
+}
+
+const physics::AuthoredParticleDistanceConstraintState *World::tryGetParticleDistanceConstraint(
+    physics::ParticleConstraintId constraintId) const noexcept
+{
+    return mPhysicsWorld.tryGetParticleDistanceConstraint(constraintId);
+}
+
+const physics::AuthoredParticleCollisionFilterState *World::tryGetParticleCollisionFilter(
+    physics::ParticleCollisionFilterId filterId) const noexcept
+{
+    return mPhysicsWorld.tryGetParticleCollisionFilter(filterId);
+}
+
+const physics::AuthoredParticleSequenceState *World::tryGetParticleSequence(
+    physics::ParticleSequenceId sequenceId) const noexcept
+{
+    return mPhysicsWorld.tryGetParticleSequence(sequenceId);
+}
+
+const physics::AuthoredSuturingSequenceState *World::tryGetSuturingSequence(
+    physics::SuturingSequenceId sequenceId) const noexcept
+{
+    return mPhysicsWorld.tryGetSuturingSequence(sequenceId);
 }
 
 std::optional<UltrasoundProbeComponent> World::tryGetUltrasoundProbe(
@@ -2093,11 +2343,21 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
         }
         mCachedSoftBodyPhysicsRevision = physicsRevision;
     }
+    if (mCachedCurveRenderPhysicsRevision != physicsRevision)
+    {
+        mCurveRenderBindingsDirty         = true;
+        mCachedCurveRenderPhysicsRevision = physicsRevision;
+    }
 
     if (mSoftBodyRenderBindingsDirty)
     {
         mPhysicsWorld.ensureSoftBodyDerivedStateUpToDate();
         rebuildSoftBodyRenderBindings(resources);
+    }
+    if (mCurveRenderBindingsDirty)
+    {
+        mPhysicsWorld.ensureSoftBodyDerivedStateUpToDate();
+        rebuildCurveRenderBindings(resources);
     }
 
     for (const std::uint32_t objectIndex : mDirtyRenderablePoseIndices)
@@ -2340,6 +2600,166 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
     mPhysicsWorld.setSoftRenderData(softRenderData);
 }
 
+void World::rebuildCurveRenderBindings(const graphics::RenderResourceManager &resources)
+{
+    std::fill(mCurveRenderVertexBaseByObject.begin(), mCurveRenderVertexBaseByObject.end(),
+              kInvalidSlot);
+    std::fill(mCurveRenderVertexNormalBaseByObject.begin(),
+              mCurveRenderVertexNormalBaseByObject.end(), kInvalidSlot);
+    std::fill(mCurveRenderIndexByObject.begin(), mCurveRenderIndexByObject.end(), kInvalidSlot);
+    std::fill(mCurveRenderVertexCountByObject.begin(), mCurveRenderVertexCountByObject.end(), 0u);
+
+    physics::CurveRenderDataHost curveRenderData;
+    const auto resolveParticleReference =
+        [this](const physics::AuthoredParticleReference &reference) -> std::optional<std::uint32_t>
+    {
+        switch (reference.type)
+        {
+        case physics::AuthoredParticleReferenceType::StrandParticle:
+        {
+            const physics::StrandState *strand = mPhysicsWorld.tryGetStrand(reference.entityId);
+            if (strand == nullptr || reference.localParticleIndex >= strand->particleCount)
+            {
+                return std::nullopt;
+            }
+            return strand->particleOffset + reference.localParticleIndex;
+        }
+        case physics::AuthoredParticleReferenceType::SoftBodyParticle:
+        {
+            const physics::SoftBodyState *softBody =
+                mPhysicsWorld.tryGetSoftBody(reference.entityId);
+            if (softBody == nullptr || reference.localParticleIndex >= softBody->particleCount)
+            {
+                return std::nullopt;
+            }
+            return softBody->particleOffset + reference.localParticleIndex;
+        }
+        case physics::AuthoredParticleReferenceType::RigidProxyParticle:
+            return std::nullopt;
+        }
+        return std::nullopt;
+    };
+
+    for (std::uint32_t objectIndex = 0u;
+         objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
+    {
+        const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
+        if (renderable.entityId == common::kInvalidEntityId ||
+            renderable.objectSlot == kInvalidSlot)
+        {
+            continue;
+        }
+
+        const auto componentIt = mProceduralDeformableCurveRenders.find(renderable.entityId);
+        if (componentIt == mProceduralDeformableCurveRenders.end())
+        {
+            continue;
+        }
+
+        const ProceduralDeformableCurveRenderComponent &component = componentIt->second;
+        if (!component.enabled || component.sequenceId == physics::kInvalidParticleSequenceId)
+        {
+            continue;
+        }
+
+        const auto physicsLinkIt = mPhysicsLinks.find(renderable.entityId);
+        const bool entityHasSoftBody =
+            physicsLinkIt != mPhysicsLinks.end() && physicsLinkIt->second.hasSoftBody;
+        if (entityHasSoftBody)
+        {
+            // A renderable currently selects exactly one deformable draw path/metadata family.
+            // Supporting both soft-body surface deformation and procedural curve deformation on
+            // the same renderable would require splitting them into separate renderables or
+            // generalizing the draw metadata model. Until then, skip the curve binding here.
+            CRESSIM_LOG_WARNING(
+                "Procedural deformable curve rendering is not supported on the same renderable "
+                "entity as a soft body. Curve render binding for entity ",
+                renderable.entityId, " will be skipped.");
+            continue;
+        }
+
+        const physics::AuthoredParticleSequenceState *sequence =
+            mPhysicsWorld.tryGetParticleSequence(component.sequenceId);
+        const graphics::MeshResourceDesc *mesh = resources.tryGetMesh(renderable.mesh);
+        if (sequence == nullptr || !sequence->enabled || mesh == nullptr)
+        {
+            continue;
+        }
+
+        const std::uint32_t radialResolution = std::max(component.radialResolution, 3u);
+        std::vector<std::uint32_t> resolvedParticleIndices;
+        resolvedParticleIndices.reserve(sequence->entries.size());
+        bool valid = !sequence->entries.empty();
+        for (const physics::AuthoredParticleReference &entry : sequence->entries)
+        {
+            const std::optional<std::uint32_t> particleIndex = resolveParticleReference(entry);
+            if (!particleIndex.has_value())
+            {
+                valid = false;
+                break;
+            }
+            resolvedParticleIndices.push_back(*particleIndex);
+        }
+
+        if (!valid || resolvedParticleIndices.size() < 2u || component.radius <= 0.0f)
+        {
+            continue;
+        }
+
+        const std::uint32_t particleCount =
+            static_cast<std::uint32_t>(resolvedParticleIndices.size());
+        const std::uint32_t expectedVertexCount = particleCount * radialResolution;
+        const std::uint32_t expectedIndexCount  = (particleCount - 1u) * radialResolution * 6u;
+        if (mesh->vertices.size() != expectedVertexCount ||
+            mesh->indices.size() != expectedIndexCount)
+        {
+            CRESSIM_LOG_ERROR("Curve render binding build failed for entity ", renderable.entityId,
+                              ": visual mesh topology must match the canonical tube layout for ",
+                              particleCount, " samples and radial resolution ", radialResolution,
+                              ".");
+            continue;
+        }
+
+        const std::uint32_t curveIndex =
+            static_cast<std::uint32_t>(curveRenderData.descriptors.size());
+        const std::uint32_t particleIndexStart =
+            static_cast<std::uint32_t>(curveRenderData.particleIndices.size());
+        const std::uint32_t vertexBase = curveIndex == 0u
+                                             ? 0u
+                                             : (curveRenderData.descriptors.back().vertexBase +
+                                                curveRenderData.descriptors.back().vertexCount);
+        curveRenderData.particleIndices.insert(curveRenderData.particleIndices.end(),
+                                               resolvedParticleIndices.begin(),
+                                               resolvedParticleIndices.end());
+        curveRenderData.descriptors.push_back(physics::CurveRenderDescriptorHost{
+            particleIndexStart,
+            particleCount,
+            vertexBase,
+            expectedVertexCount,
+            radialResolution,
+            renderable.envIndex,
+            component.radius,
+        });
+
+        mCurveRenderVertexBaseByObject[objectIndex]       = vertexBase;
+        mCurveRenderVertexNormalBaseByObject[objectIndex] = vertexBase;
+        mCurveRenderIndexByObject[objectIndex]            = curveIndex;
+        mCurveRenderVertexCountByObject[objectIndex]      = expectedVertexCount;
+    }
+
+    for (std::uint32_t objectIndex = 0u;
+         objectIndex < static_cast<std::uint32_t>(mRenderables.size()); ++objectIndex)
+    {
+        if (mRenderables[objectIndex].entityId != common::kInvalidEntityId)
+        {
+            markRenderableMetadataDirty(objectIndex);
+        }
+    }
+
+    mCurveRenderBindingsDirty = false;
+    mPhysicsWorld.setCurveRenderData(curveRenderData);
+}
+
 void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager &resources)
 {
     // TODO: some metadata depends on resources too, not just world state:
@@ -2358,10 +2778,12 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
         const graphics::RenderableInstance &renderable = mRenderables[objectIndex];
         graphics::GpuRenderableMetadata entry{};
         graphics::GpuRenderableFlags renderableFlags = graphics::GpuRenderableFlags::None;
-        entry.softBodyVertexBindingBase              = kInvalidSlot;
-        entry.softBodyVertexNormalBase               = kInvalidSlot;
-        entry.softBodyIndex                          = kInvalidSlot;
-        entry.softBodyVertexCount                    = 0u;
+        entry.deformVertexBase                       = kInvalidSlot;
+        entry.deformNormalBase                       = kInvalidSlot;
+        entry.deformableIndex                        = kInvalidSlot;
+        entry.deformVertexCount                      = 0u;
+        entry.deformableType =
+            static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::None);
         if (renderable.entityId != common::kInvalidEntityId &&
             renderable.objectSlot != kInvalidSlot)
         {
@@ -2399,7 +2821,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
                     {
                         if (softBodies[softBodyIndex].entityId == renderable.entityId)
                         {
-                            entry.softBodyIndex = softBodyIndex;
+                            entry.deformableIndex = softBodyIndex;
                             break;
                         }
                     }
@@ -2411,9 +2833,26 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
                     localBoundsMax = Diligent::float3{0.0f, 0.0f, 0.0f};
                     hasBounds      = true;
                 }
-                entry.softBodyVertexBindingBase = mSoftBodyVertexBindingBaseByObject[objectIndex];
-                entry.softBodyVertexNormalBase  = mSoftBodyVertexNormalBaseByObject[objectIndex];
-                entry.softBodyVertexCount       = mSoftBodyVertexCountByObject[objectIndex];
+                entry.deformVertexBase  = mSoftBodyVertexBindingBaseByObject[objectIndex];
+                entry.deformNormalBase  = mSoftBodyVertexNormalBaseByObject[objectIndex];
+                entry.deformVertexCount = mSoftBodyVertexCountByObject[objectIndex];
+                entry.deformableType =
+                    static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::SoftBody);
+            }
+
+            if (const auto curveIt = mProceduralDeformableCurveRenders.find(renderable.entityId);
+                curveIt != mProceduralDeformableCurveRenders.end() && curveIt->second.enabled &&
+                mCurveRenderIndexByObject[objectIndex] != kInvalidSlot)
+            {
+                entry.deformVertexBase  = mCurveRenderVertexBaseByObject[objectIndex];
+                entry.deformNormalBase  = mCurveRenderVertexNormalBaseByObject[objectIndex];
+                entry.deformVertexCount = mCurveRenderVertexCountByObject[objectIndex];
+                entry.deformableIndex   = mCurveRenderIndexByObject[objectIndex];
+                entry.deformableType =
+                    static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::Curve);
+                localBoundsMin = Diligent::float3{0.0f, 0.0f, 0.0f};
+                localBoundsMax = Diligent::float3{0.0f, 0.0f, 0.0f};
+                hasBounds      = true;
             }
 
             if (!hasBounds &&
@@ -2478,7 +2917,11 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
         const graphics::MaterialProgramFamily programFamily =
             (physIt != mPhysicsLinks.end() && physIt->second.hasSoftBody)
                 ? graphics::MaterialProgramFamily::SoftBodyLit
-                : material->pipeline.programFamily;
+                : (mProceduralDeformableCurveRenders.find(renderable.entityId) !=
+                               mProceduralDeformableCurveRenders.end() &&
+                           mCurveRenderIndexByObject[objectIndex] != kInvalidSlot
+                       ? graphics::MaterialProgramFamily::CurveLit
+                       : material->pipeline.programFamily);
 
         const DrawBucketKey key{
             renderOrder,

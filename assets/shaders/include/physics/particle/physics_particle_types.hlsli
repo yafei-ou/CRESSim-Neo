@@ -9,6 +9,15 @@ static const uint kParticleKindFluid = 1u;
 static const uint kParticleOwnerTypeNone = 0u;
 static const uint kParticleOwnerTypeSoftBody = 1u;
 static const uint kParticleOwnerTypeFluidBody = 2u;
+static const uint kParticleOwnerTypeStrand = 3u;
+static const uint kParticleOwnerTypeRigidBody = 4u;
+static const uint kParticleStrandRoleNone = 0u;
+static const uint kParticleStrandRoleNeedleTip = 1u;
+static const uint kParticleStrandRoleNeedleBody = 2u;
+static const uint kParticleStrandRoleThread = 3u;
+static const uint kSuturingInsertionStateOutside = 0u;
+static const uint kSuturingInsertionStateInside = 1u;
+static const uint kInvalidSuturingIndex = 0xffffffffu;
 static const uint kParticleCandidatePairTypeParticleParticle = 0u;
 static const uint kParticleCandidatePairTypeParticleRigid = 1u;
 static const uint kParticleRigidDedupCacheSize = 16u;
@@ -115,6 +124,18 @@ struct GpuSoftTet
     uint reserved1;
 };
 
+struct GpuSoftBend
+{
+    uint particle0;
+    uint particle1;
+    uint particle2;
+    float restAngle;
+    float compliance;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+};
+
 struct GpuSoftConstraintRange
 {
     uint start;
@@ -139,6 +160,14 @@ struct GpuSoftIncidentTet
     uint reserved1;
 };
 
+struct GpuSoftIncidentBend
+{
+    uint bendIndex;
+    uint slot;
+    uint reserved0;
+    uint reserved1;
+};
+
 struct GpuSoftEdgeCorrection
 {
     float4 correctionA;
@@ -151,6 +180,13 @@ struct GpuSoftTetCorrection
     float4 correction1;
     float4 correction2;
     float4 correction3;
+};
+
+struct GpuSoftBendCorrection
+{
+    float4 correction0;
+    float4 correction1;
+    float4 correction2;
 };
 
 struct GpuSoftBodyParticleRange
@@ -175,6 +211,61 @@ struct GpuSoftBodyBoundsChunk
     uint particleStart;
     uint particleCount;
     uint reserved0;
+};
+
+struct GpuSuturingPair
+{
+    uint suturingGroupId;
+    uint softBodyIndex;
+    uint strandParticleStart;
+    uint strandParticleCount;
+    uint tipParticleIndex;
+    uint softTetStart;
+    uint softTetCount;
+    uint pathStart;
+    uint pathCount;
+    uint nodeStart;
+    uint nodeCount;
+    uint activePathIndex;
+    uint environmentIndex;
+    float pathNodeSpacing;
+    uint needleTangentialDragBits;
+    uint threadTangentialDragBits;
+};
+
+struct GpuSuturingPathHeader
+{
+    uint suturingGroupId;
+    uint softBodyIndex;
+    uint nodeStart;
+    uint nodeCount;
+    uint flags;
+    uint needleTangentialDragBits;
+    uint threadTangentialDragBits;
+    uint reserved2;
+};
+
+struct GpuSuturingPathNode
+{
+    uint softBodyIndex;
+    uint tetIndex;
+    float4 barycentrics;
+    float4 tangentArcLength;
+    uint needleTangentialDragBits;
+    uint threadTangentialDragBits;
+};
+
+struct GpuSuturingInsertionStateStorage
+{
+    uint state;
+    uint softBodyIndex;
+    uint tetIndex;
+    uint pathIndex;
+    uint nearestNodeIndex;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+    float4 barycentrics;
 };
 
 uint ParticlePhaseGroup(uint phase)

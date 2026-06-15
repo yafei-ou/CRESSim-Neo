@@ -110,8 +110,15 @@ struct RigidBodyComponent
     Diligent::float3 linearVelocity{0.0f, 0.0f, 0.0f};
     Diligent::float3 angularVelocity{0.0f, 0.0f, 0.0f};
     Diligent::float3 inverseInertiaLocal{1.0f, 1.0f, 1.0f};
-    physics::RigidBodyType bodyType = physics::RigidBodyType::Dynamic;
-    float inverseMass               = 1.0f;
+    std::vector<Diligent::float3> proxyParticleLocalPositions{};
+    physics::ParticleContactMaterialDesc proxyParticleMaterial{};
+    physics::RigidBodyType bodyType   = physics::RigidBodyType::Dynamic;
+    float inverseMass                 = 1.0f;
+    float proxyParticleRadius         = 0.0f;
+    std::uint32_t proxyCollisionLayer = 1u;
+    std::uint32_t proxyCollisionMask  = 0xffffffffu;
+    bool suturingEnabled              = false;
+    std::uint32_t needleTipProxyIndex = 0u;
     Diligent::float3 kinematicTargetPosition{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF kinematicTargetRotation{0.0f, 0.0f, 0.0f, 1.0f};
     bool kinematicTargetEnabled = false;
@@ -143,6 +150,7 @@ struct SoftBodyComponent
     float volumeCompliance       = 0.001f;
     bool simulated               = true;
     bool selfCollisionEnabled    = false;
+    bool supportsSuturing        = false;
     std::uint32_t collisionLayer = 1u;
     std::uint32_t collisionMask  = 0xffffffffu;
 };
@@ -163,6 +171,33 @@ struct MeshfreeSoftBodyComponent
     bool selfCollisionEnabled      = false;
     std::uint32_t collisionLayer   = 1u;
     std::uint32_t collisionMask    = 0xffffffffu;
+};
+
+struct StrandComponent
+{
+    physics::StrandMaterialDesc material{};
+    std::vector<Diligent::float3> restPositions{};
+    std::vector<std::uint32_t> staticParticleIndices{};
+    float particleMass           = 1.0f;
+    float particleRadius         = 0.125f;
+    float distanceCompliance     = 0.0f;
+    float bendCompliance         = 0.0f;
+    bool simulated               = true;
+    bool selfCollisionEnabled    = false;
+    bool suturingEnabled         = false;
+    // Without an authored suturing sequence, suturing-enabled strands currently use
+    // local particle 0 as the implicit tip/path author.
+    float pathNodeSpacing        = 0.2f;
+    std::uint32_t collisionLayer = 1u;
+    std::uint32_t collisionMask  = 0xffffffffu;
+};
+
+struct ProceduralDeformableCurveRenderComponent
+{
+    physics::ParticleSequenceId sequenceId = physics::kInvalidParticleSequenceId;
+    float radius                           = 0.05f;
+    std::uint32_t radialResolution         = 8u;
+    bool enabled                           = true;
 };
 
 struct FluidComponent
