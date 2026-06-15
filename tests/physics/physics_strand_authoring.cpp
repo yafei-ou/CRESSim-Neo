@@ -20,7 +20,6 @@ int main()
     strand.bendCompliance       = 0.015f;
     strand.twistCompliance      = 0.01f;
     strand.distanceCompliance   = 0.002f;
-    strand.distanceSolverMode   = physics::StrandState::DistanceSolverMode::Jacobi;
     strand.selfCollisionEnabled = true;
     strand.suturingEnabled      = true;
     strand.pathNodeSpacing      = 0.2f;

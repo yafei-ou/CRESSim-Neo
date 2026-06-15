@@ -184,8 +184,6 @@ struct StrandComponent
     float bendCompliance         = 0.0f;
     float twistCompliance        = 0.0f;
     float distanceCompliance     = 0.0f;
-    physics::StrandState::DistanceSolverMode distanceSolverMode =
-        physics::StrandState::DistanceSolverMode::Jacobi;
     Diligent::float3 rootMaterialNormal{0.0f, 1.0f, 0.0f};
     bool simulated               = true;
     bool selfCollisionEnabled    = false;

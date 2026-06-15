@@ -250,10 +250,6 @@ struct GpuStrandDistanceConstraint
     uint particleB;
     float restLength;
     float distanceCompliance;
-    uint solverMode;
-    uint reserved0;
-    uint reserved1;
-    uint reserved2;
 };
 
 struct GpuSoftBodyParticleRange

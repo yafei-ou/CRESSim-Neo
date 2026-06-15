@@ -21,12 +21,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     correction.correctionA = float4(0.0, 0.0, 0.0, 0.0);
     correction.correctionB = float4(0.0, 0.0, 0.0, 0.0);
 
-    if (constraint.solverMode == 0u)
-    {
-        CRESSIM_SB_STORE(g_StrandDistanceCorrections, constraintIndex, correction);
-        return;
-    }
-
     const float4 positionInvMassA = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, constraint.particleA);
     const float4 positionInvMassB = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, constraint.particleB);
     const float wA = positionInvMassA.w;

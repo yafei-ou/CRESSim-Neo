@@ -752,7 +752,7 @@ static_assert(sizeof(DeformableBendConstraint) == 32u);
 static_assert(sizeof(GpuSoftBendCorrection) == 48u);
 static_assert(sizeof(StrandSegmentConstraint) == 32u);
 static_assert(sizeof(StrandJointConstraint) == 32u);
-static_assert(sizeof(StrandDistanceConstraint) == 32u);
+static_assert(sizeof(StrandDistanceConstraint) == 16u);
 static_assert(sizeof(StrandSegmentState) == 16u);
 static_assert(sizeof(GpuStrandSegmentCorrection) == 48u);
 static_assert(sizeof(GpuStrandJointCorrection) == 80u);

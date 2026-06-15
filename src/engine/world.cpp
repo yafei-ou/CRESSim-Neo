@@ -1328,7 +1328,6 @@ bool World::setStrand(common::EntityId entityId, const StrandComponent &componen
     state.bendCompliance         = component.bendCompliance;
     state.twistCompliance        = component.twistCompliance;
     state.distanceCompliance     = component.distanceCompliance;
-    state.distanceSolverMode     = component.distanceSolverMode;
     state.rootMaterialNormal     = component.rootMaterialNormal;
     state.simulated              = component.simulated;
     state.selfCollisionEnabled   = component.selfCollisionEnabled;
@@ -2039,7 +2038,6 @@ std::optional<StrandComponent> World::tryGetStrand(common::EntityId entityId) co
     component.bendCompliance         = strand->bendCompliance;
     component.twistCompliance        = strand->twistCompliance;
     component.distanceCompliance     = strand->distanceCompliance;
-    component.distanceSolverMode     = strand->distanceSolverMode;
     component.rootMaterialNormal     = strand->rootMaterialNormal;
     component.simulated              = strand->simulated;
     component.selfCollisionEnabled   = strand->selfCollisionEnabled;

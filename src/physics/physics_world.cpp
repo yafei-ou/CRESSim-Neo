@@ -3295,7 +3295,6 @@ void PhysicsWorld::applyStrandRuntimeProperties(std::uint32_t index,
     strand.bendCompliance         = normalizedState.bendCompliance;
     strand.twistCompliance        = normalizedState.twistCompliance;
     strand.distanceCompliance     = normalizedState.distanceCompliance;
-    strand.distanceSolverMode     = normalizedState.distanceSolverMode;
     strand.rootMaterialNormal     = normalizedState.rootMaterialNormal;
     strand.simulated              = normalizedState.simulated;
     strand.selfCollisionEnabled   = normalizedState.selfCollisionEnabled;
@@ -3353,8 +3352,6 @@ void PhysicsWorld::applyStrandRuntimeProperties(std::uint32_t index,
     for (std::uint32_t distanceIndex = distanceBegin; distanceIndex < distanceEnd; ++distanceIndex)
     {
         mStrandDistanceConstraints[distanceIndex].distanceCompliance = strand.distanceCompliance;
-        mStrandDistanceConstraints[distanceIndex].solverMode =
-            static_cast<std::uint32_t>(strand.distanceSolverMode);
     }
 
     recomputeParticleGridCellSize();
@@ -4104,10 +4101,6 @@ void PhysicsWorld::rebuildSoftBodyDerivedState() noexcept
             distanceConstraint.particleB = segment.particleB;
             distanceConstraint.restLength = segment.restLength;
             distanceConstraint.distanceCompliance = strand.distanceCompliance;
-            distanceConstraint.solverMode = static_cast<std::uint32_t>(strand.distanceSolverMode);
-            distanceConstraint.reserved0 = 0u;
-            distanceConstraint.reserved1 = 0u;
-            distanceConstraint.reserved2 = 0u;
             mStrandDistanceConstraints.push_back(distanceConstraint);
         }
 

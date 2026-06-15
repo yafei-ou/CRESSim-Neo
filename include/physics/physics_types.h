@@ -375,13 +375,6 @@ struct StrandState
     float bendCompliance               = 0.0f;
     float twistCompliance              = 0.0f;
     float distanceCompliance           = 0.0f;
-    enum class DistanceSolverMode : std::uint32_t
-    {
-        None   = 0u,
-        Jacobi = 1u,
-        Direct = 2u,
-    };
-    DistanceSolverMode distanceSolverMode = DistanceSolverMode::Jacobi;
     Diligent::float3 rootMaterialNormal{0.0f, 1.0f, 0.0f};
     bool simulated                     = true;
     bool selfCollisionEnabled          = false;
@@ -561,14 +554,10 @@ struct StrandJointConstraint
 
 struct StrandDistanceConstraint
 {
-    std::uint32_t particleA          = 0u;
-    std::uint32_t particleB          = 0u;
-    float restLength                 = 0.0f;
+    std::uint32_t particleA  = 0u;
+    std::uint32_t particleB  = 0u;
+    float restLength         = 0.0f;
     float distanceCompliance = 0.0f;
-    std::uint32_t solverMode         = 0u;
-    std::uint32_t reserved0          = 0u;
-    std::uint32_t reserved1          = 0u;
-    std::uint32_t reserved2          = 0u;
 };
 
 struct StrandSegmentState
