@@ -214,6 +214,20 @@ struct GpuRigidParticleAttachmentConstraint
     float4 localAnchor;
 };
 
+struct GpuStrandRigidAttachmentConstraint
+{
+    uint segmentIndex;
+    uint rigidBodyIndex;
+    float segmentT;
+    float translationCompliance;
+    float rotationCompliance;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+    float4 localAnchor;
+    float4 localRotation;
+};
+
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)
 {
     const uint lo = min(shapeTypeA, shapeTypeB);

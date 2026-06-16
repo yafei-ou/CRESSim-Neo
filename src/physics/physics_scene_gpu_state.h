@@ -77,6 +77,7 @@ public:
     struct PersistentRoutedCableBuffers
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidParticleAttachmentsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandRigidAttachmentsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidDistanceConstraintsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> descriptorsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> routePointsBuffer;
@@ -141,6 +142,8 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> particleIncidentStrandJointsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> segmentStrandJointRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> segmentIncidentStrandJointsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> segmentStrandRigidAttachmentRangesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> segmentIncidentStrandRigidAttachmentsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexTriangleRangesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexTriangleIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> renderVertexBindingsBuffer;
@@ -281,12 +284,14 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderJointLambdas0123Buffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderJointLambdas45Buffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidParticleAttachmentLambdasBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandRigidAttachmentLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidDistanceConstraintLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> translationCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rotationCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> linearVelocityCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> angularVelocityCorrectionsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> routedCableLambdasBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> strandRigidAttachmentCorrectionsBuffer;
     };
 
     struct RigidBodyReadbackBuffers
@@ -372,6 +377,7 @@ public:
                         std::uint32_t ballJointCount, std::uint32_t hingeJointCount,
                         std::uint32_t sliderJointCount,
                         std::uint32_t rigidParticleAttachmentCount,
+                        std::uint32_t strandRigidAttachmentCount,
                         std::uint32_t rigidDistanceConstraintCount,
                         std::uint32_t softRenderVertexCount,
                         std::uint32_t softRenderTriangleIndexCount,
@@ -463,6 +469,9 @@ private:
     bool uploadRigidParticleAttachments(
         Diligent::IDeviceContext *computeContext,
         const std::vector<RigidParticleAttachmentConstraint> &constraints);
+    bool uploadStrandRigidAttachments(
+        Diligent::IDeviceContext *computeContext,
+        const std::vector<StrandRigidAttachmentConstraint> &constraints);
     bool uploadRigidDistanceConstraints(
         Diligent::IDeviceContext *computeContext,
         const std::vector<RigidDistanceConstraint> &constraints);
@@ -478,7 +487,8 @@ private:
                             const std::vector<StrandSegmentConstraint> &strandSegments,
                             const std::vector<StrandJointConstraint> &strandJoints,
                             const std::vector<StrandDistanceConstraint> &strandDistanceConstraints,
-                            const std::vector<StrandSegmentState> &strandSegmentStates);
+                            const std::vector<StrandSegmentState> &strandSegmentStates,
+                            const std::vector<StrandRigidAttachmentConstraint> &strandRigidAttachments);
     bool uploadCurveRenderData(Diligent::IDeviceContext *computeContext,
                                const CurveRenderDataHost &curveRenderData);
     bool uploadSuturingState(Diligent::IDeviceContext *computeContext,
@@ -514,6 +524,7 @@ private:
     std::uint32_t mRoutedCableRoutePointCapacity             = 0;
     std::uint32_t mRoutedCableDebugSegmentCapacity           = 0;
     std::uint32_t mRigidParticleAttachmentCapacity           = 0;
+    std::uint32_t mStrandRigidAttachmentCapacity             = 0;
     std::uint32_t mRigidDistanceConstraintCapacity           = 0;
     std::uint32_t mFluidVisualCapacity                       = 0;
     std::uint32_t mParticleContactMaterialCapacity           = 0;
@@ -549,6 +560,7 @@ private:
     std::uint32_t mSuturingPathNodeCount                     = 0;
     std::uint32_t mCurveRenderCount                          = 0;
     std::uint32_t mRigidParticleAttachmentCount              = 0;
+    std::uint32_t mStrandRigidAttachmentCount                = 0;
     std::uint32_t mRigidDistanceConstraintCount              = 0;
     std::uint32_t mRoutedCableCount                          = 0;
     std::uint32_t mRoutedCableDebugSegmentCount              = 0;
@@ -562,6 +574,7 @@ private:
     std::uint32_t mStrandIncidentSegmentCapacity             = 0;
     std::uint32_t mStrandIncidentJointCapacity               = 0;
     std::uint32_t mStrandSegmentIncidentJointCapacity        = 0;
+    std::uint32_t mStrandSegmentIncidentAttachmentCapacity   = 0;
     std::uint32_t mSoftRenderVertexCapacity                  = 0;
     std::uint32_t mSoftRenderTriangleIndexCapacity           = 0;
     std::uint32_t mSoftRenderTriangleCapacity                = 0;
@@ -593,6 +606,8 @@ private:
     std::uint64_t mLastUploadedSoftTopologyRevision          = 0;
     std::uint64_t mLastUploadedRigidParticleAttachmentRevision         = 0;
     std::uint64_t mLastUploadedRigidParticleAttachmentTopologyRevision = 0;
+    std::uint64_t mLastUploadedStrandRigidAttachmentRevision           = 0;
+    std::uint64_t mLastUploadedStrandRigidAttachmentTopologyRevision   = 0;
     std::uint64_t mLastUploadedRigidDistanceConstraintRevision         = 0;
     std::uint64_t mLastUploadedRigidDistanceConstraintTopologyRevision = 0;
     std::uint64_t mLastUploadedRoutedCableRevision           = 0;

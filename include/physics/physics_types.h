@@ -52,6 +52,9 @@ constexpr ParticleConstraintId kInvalidParticleConstraintId = 0u;
 using RigidParticleAttachmentConstraintId = std::uint32_t;
 constexpr RigidParticleAttachmentConstraintId kInvalidRigidParticleAttachmentConstraintId = 0u;
 
+using StrandRigidAttachmentConstraintId = std::uint32_t;
+constexpr StrandRigidAttachmentConstraintId kInvalidStrandRigidAttachmentConstraintId = 0u;
+
 using RoutedCableConstraintId                                  = std::uint32_t;
 constexpr RoutedCableConstraintId kInvalidRoutedCableConstraintId = 0u;
 
@@ -449,6 +452,21 @@ struct AuthoredRigidParticleAttachmentConstraintState
     bool enabled     = true;
 };
 
+struct AuthoredStrandRigidAttachmentConstraintState
+{
+    StrandRigidAttachmentConstraintId constraintId =
+        kInvalidStrandRigidAttachmentConstraintId;
+    common::EntityId strandEntityId    = common::kInvalidEntityId;
+    std::uint32_t localSegmentIndex    = 0u;
+    float segmentT                     = 0.0f;
+    common::EntityId rigidBodyEntityId = common::kInvalidEntityId;
+    Diligent::float3 localAnchor{0.0f, 0.0f, 0.0f};
+    Diligent::QuaternionF localRotation{0.0f, 0.0f, 0.0f, 1.0f};
+    float translationCompliance = 0.0f;
+    float rotationCompliance    = 0.0f;
+    bool enabled                = true;
+};
+
 struct AuthoredRoutedCableRoutePoint
 {
     common::EntityId entityId = common::kInvalidEntityId;
@@ -603,6 +621,20 @@ struct RigidParticleAttachmentConstraint
     float compliance             = 0.0f;
     std::uint32_t reserved0      = 0u;
     Diligent::float4 localAnchor{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct StrandRigidAttachmentConstraint
+{
+    std::uint32_t segmentIndex          = 0u;
+    std::uint32_t rigidBodyIndex        = 0u;
+    float segmentT                      = 0.0f;
+    float translationCompliance         = 0.0f;
+    float rotationCompliance            = 0.0f;
+    std::uint32_t reserved0             = 0u;
+    std::uint32_t reserved1             = 0u;
+    std::uint32_t reserved2             = 0u;
+    Diligent::float4 localAnchor{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localRotation{0.0f, 0.0f, 0.0f, 1.0f};
 };
 
 struct ParticleSoAHost

@@ -474,6 +474,13 @@ constexpr Diligent::ShaderResourceVariableDesc kClearRigidParticleAttachmentCons
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kClearStrandRigidAttachmentConstraintStateVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandRigidAttachmentLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kClearRoutedCableConstraintStateVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -756,6 +763,19 @@ constexpr Diligent::ShaderResourceVariableDesc kApplyStrandJointCorrectionsVars[
     {Diligent::SHADER_TYPE_COMPUTE, "g_SegmentStrandJointRanges",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SegmentIncidentStrandJoints",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegmentStates",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kApplyStrandRigidAttachmentCorrectionsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandRigidAttachmentCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SegmentStrandRigidAttachmentRanges",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SegmentIncidentStrandRigidAttachments",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegmentStates",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -1846,6 +1866,37 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveRigidParticleAttachmentCons
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kSolveStrandRigidAttachmentConstraintsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegments",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandSegmentStates",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyOrientations",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyInverseInertiaLocal",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTypes",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandRigidAttachments",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandRigidAttachmentLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_StrandRigidAttachmentCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTranslationCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyRotationCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kSolveHingeJointTargetVelocitiesVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2204,6 +2255,14 @@ const gpu::GpuComputePassDefinition kClearRigidParticleAttachmentConstraintState
     std::size(kClearRigidParticleAttachmentConstraintStateVars),
 };
 
+const gpu::GpuComputePassDefinition kClearStrandRigidAttachmentConstraintState{
+    "physics/rigid/solver/physics_rigid_clear_strand_rigid_attachment_constraint_state.cs.hlsl",
+    "CRESSimNeo.Physics.ClearStrandRigidAttachmentConstraintState.CS",
+    "CRESSimNeo.Physics.ClearStrandRigidAttachmentConstraintState.PSO",
+    kClearStrandRigidAttachmentConstraintStateVars,
+    std::size(kClearStrandRigidAttachmentConstraintStateVars),
+};
+
 const gpu::GpuComputePassDefinition kClearRoutedCableConstraintState{
     "physics/rigid/solver/physics_rigid_clear_routed_cable_constraint_state.cs.hlsl",
     "CRESSimNeo.Physics.ClearRoutedCableConstraintState.CS",
@@ -2346,6 +2405,14 @@ const gpu::GpuComputePassDefinition kApplyStrandJointCorrections{
     "CRESSimNeo.Physics.ApplyStrandJointCorrections.PSO",
     kApplyStrandJointCorrectionsVars,
     std::size(kApplyStrandJointCorrectionsVars),
+};
+
+const gpu::GpuComputePassDefinition kApplyStrandRigidAttachmentCorrections{
+    "physics/soft/solver/physics_strand_apply_rigid_attachment_corrections.cs.hlsl",
+    "CRESSimNeo.Physics.ApplyStrandRigidAttachmentCorrections.CS",
+    "CRESSimNeo.Physics.ApplyStrandRigidAttachmentCorrections.PSO",
+    kApplyStrandRigidAttachmentCorrectionsVars,
+    std::size(kApplyStrandRigidAttachmentCorrectionsVars),
 };
 
 const gpu::GpuComputePassDefinition kSolveStrandDistanceConstraints{
@@ -2833,6 +2900,14 @@ const gpu::GpuComputePassDefinition kSolveRigidParticleAttachmentConstraints{
     "CRESSimNeo.Physics.RigidSolveRigidParticleAttachmentConstraints.PSO",
     kSolveRigidParticleAttachmentConstraintsVars,
     std::size(kSolveRigidParticleAttachmentConstraintsVars),
+};
+
+const gpu::GpuComputePassDefinition kSolveStrandRigidAttachmentConstraints{
+    "physics/rigid/solver/physics_rigid_solve_strand_rigid_attachment_constraints.cs.hlsl",
+    "CRESSimNeo.Physics.RigidSolveStrandRigidAttachmentConstraints.CS",
+    "CRESSimNeo.Physics.RigidSolveStrandRigidAttachmentConstraints.PSO",
+    kSolveStrandRigidAttachmentConstraintsVars,
+    std::size(kSolveStrandRigidAttachmentConstraintsVars),
 };
 
 const gpu::GpuComputePassDefinition kSolveHingeJointTargetVelocities{

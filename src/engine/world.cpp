@@ -1409,6 +1409,12 @@ physics::AuthoredRigidParticleAttachmentConstraintState &World::upsertRigidParti
     return mPhysicsWorld.upsertRigidParticleAttachmentConstraint(state);
 }
 
+physics::AuthoredStrandRigidAttachmentConstraintState &World::upsertStrandRigidAttachmentConstraint(
+    const physics::AuthoredStrandRigidAttachmentConstraintState &state)
+{
+    return mPhysicsWorld.upsertStrandRigidAttachmentConstraint(state);
+}
+
 physics::AuthoredRigidDistanceConstraintState &World::upsertRigidDistanceConstraint(
     const physics::AuthoredRigidDistanceConstraintState &state)
 {
@@ -1442,6 +1448,12 @@ bool World::removeRigidParticleAttachmentConstraint(
     physics::RigidParticleAttachmentConstraintId constraintId)
 {
     return mPhysicsWorld.removeRigidParticleAttachmentConstraint(constraintId);
+}
+
+bool World::removeStrandRigidAttachmentConstraint(
+    physics::StrandRigidAttachmentConstraintId constraintId)
+{
+    return mPhysicsWorld.removeStrandRigidAttachmentConstraint(constraintId);
 }
 
 bool World::removeRigidDistanceConstraint(physics::RigidDistanceConstraintId constraintId)
@@ -2088,6 +2100,13 @@ World::tryGetRigidParticleAttachmentConstraint(
     physics::RigidParticleAttachmentConstraintId constraintId) const noexcept
 {
     return mPhysicsWorld.tryGetRigidParticleAttachmentConstraint(constraintId);
+}
+
+const physics::AuthoredStrandRigidAttachmentConstraintState *
+World::tryGetStrandRigidAttachmentConstraint(
+    physics::StrandRigidAttachmentConstraintId constraintId) const noexcept
+{
+    return mPhysicsWorld.tryGetStrandRigidAttachmentConstraint(constraintId);
 }
 
 const physics::AuthoredRigidDistanceConstraintState *World::tryGetRigidDistanceConstraint(

@@ -176,6 +176,14 @@ struct GpuStrandIncidentJoint
     uint reserved1;
 };
 
+struct GpuStrandIncidentAttachment
+{
+    uint attachmentIndex;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+};
+
 struct GpuSoftIncidentBend
 {
     uint bendIndex;
@@ -242,6 +250,17 @@ struct GpuStrandJointCorrection
     float4 correction2;
     float4 twistRotationA;
     float4 twistRotationB;
+};
+
+struct GpuStrandRigidAttachmentLambda
+{
+    float4 translation;
+    float4 rotation;
+};
+
+struct GpuStrandRigidAttachmentCorrection
+{
+    float4 segmentRotation;
 };
 
 struct GpuStrandDistanceConstraint

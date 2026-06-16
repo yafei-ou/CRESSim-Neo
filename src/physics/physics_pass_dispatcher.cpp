@@ -213,6 +213,8 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mClearSoftConstraintStatePass, kClearSoftConstraintState) ||
         !initPass(mClearRigidParticleAttachmentConstraintStatePass,
                   kClearRigidParticleAttachmentConstraintState) ||
+        !initPass(mClearStrandRigidAttachmentConstraintStatePass,
+                  kClearStrandRigidAttachmentConstraintState) ||
         !initPass(mClearRigidDistanceConstraintStatePass, kClearRigidDistanceConstraintState) ||
         !initPass(mClearRoutedCableConstraintStatePass, kClearRoutedCableConstraintState) ||
         !initPass(mClearSuturingCandidatesPass, kClearSuturingCandidates) ||
@@ -231,6 +233,8 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mApplyStrandSegmentCorrectionsPass, kApplyStrandSegmentCorrections) ||
         !initPass(mSolveStrandJointConstraintsPass, kSolveStrandJointConstraints) ||
         !initPass(mApplyStrandJointCorrectionsPass, kApplyStrandJointCorrections) ||
+        !initPass(mApplyStrandRigidAttachmentCorrectionsPass,
+                  kApplyStrandRigidAttachmentCorrections) ||
         !initPass(mSolveStrandDistanceConstraintsPass, kSolveStrandDistanceConstraints) ||
         !initPass(mApplyStrandDistanceCorrectionsPass, kApplyStrandDistanceCorrections) ||
         !initPass(mSolveParticleExplicitContactsPass, kSolveParticleExplicitContacts) ||
@@ -290,6 +294,8 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
                   kSolveSliderJointConstraintsTargetPosition) ||
         !initPass(mSolveRigidParticleAttachmentConstraintsPass,
                   kSolveRigidParticleAttachmentConstraints) ||
+        !initPass(mSolveStrandRigidAttachmentConstraintsPass,
+                  kSolveStrandRigidAttachmentConstraints) ||
         !initPass(mSolveRigidDistanceConstraintsPass, kSolveRigidDistanceConstraints) ||
         !initPass(mSolveRoutedCableConstraintsPass, kSolveRoutedCableConstraints) ||
         !initPass(mClearHingeJointConstraintStatePass, kClearHingeJointConstraintState) ||
@@ -1556,6 +1562,31 @@ bool PhysicsPassDispatcher::clearRigidParticleAttachmentConstraintState(
                computeContext, kDefaultVariant, bindings, dispatchGroupCount(constraintCount));
 }
 
+bool PhysicsPassDispatcher::clearStrandRigidAttachmentConstraintState(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t constraintCount, const GpuRigidDispatchConstants &constants)
+{
+    if (constraintCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &transient = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_StrandRigidAttachmentLambdas",
+                              transient.strandRigidAttachmentLambdasBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    GpuRigidDispatchConstants dispatchConstants = constants;
+    dispatchConstants.reserved0 = constraintCount;
+    return writeRigidDispatchConstants(computeContext, dispatchConstants) &&
+           mClearStrandRigidAttachmentConstraintStatePass.dispatch(
+               computeContext, kDefaultVariant, bindings, dispatchGroupCount(constraintCount));
+}
+
 bool PhysicsPassDispatcher::clearRigidDistanceConstraintState(
     Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
     std::uint32_t constraintCount, const GpuRigidDispatchConstants &constants)
@@ -2211,6 +2242,39 @@ bool PhysicsPassDispatcher::applyStrandJointCorrections(
     return writeParticleDispatchConstants(computeContext, constants) &&
            mApplyStrandJointCorrectionsPass.dispatch(computeContext, kDefaultVariant, bindings,
                                                      dispatchGroupCount(dispatchCount));
+}
+
+bool PhysicsPassDispatcher::applyStrandRigidAttachmentCorrections(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t dispatchCount, const GpuParticleDispatchConstants &constants)
+{
+    if (dispatchCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &softTopology = sceneState.persistentSoftTopology();
+    const auto &transient    = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
+                              mParticleDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_StrandRigidAttachmentCorrections",
+                              transient.strandRigidAttachmentCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SegmentStrandRigidAttachmentRanges",
+                              softTopology.segmentStrandRigidAttachmentRangesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SegmentIncidentStrandRigidAttachments",
+                              softTopology.segmentIncidentStrandRigidAttachmentsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_StrandSegmentStates", softTopology.strandSegmentStatesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeParticleDispatchConstants(computeContext, constants) &&
+           mApplyStrandRigidAttachmentCorrectionsPass.dispatch(
+               computeContext, kDefaultVariant, bindings, dispatchGroupCount(dispatchCount));
 }
 
 bool PhysicsPassDispatcher::solveStrandDistanceConstraints(
@@ -4872,6 +4936,73 @@ bool PhysicsPassDispatcher::solveRigidParticleAttachmentConstraints(
                computeContext, kDefaultVariant, bindings, dispatchGroupCount(constraintCount));
 }
 
+bool PhysicsPassDispatcher::solveStrandRigidAttachmentConstraints(
+    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
+    std::uint32_t constraintCount, const GpuRigidDispatchConstants &constants)
+{
+    if (computeContext == nullptr)
+    {
+        return false;
+    }
+    if (constraintCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &persistentBodies    = sceneState.persistentRigidBodies();
+    const auto &persistentParticles = sceneState.persistentParticles();
+    const auto &persistentCables    = sceneState.persistentRoutedCables();
+    const auto &softTopology        = sceneState.persistentSoftTopology();
+    const auto &transient           = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass",
+                              persistentParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_StrandSegments", softTopology.strandSegmentsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_StrandSegmentStates", softTopology.strandSegmentStatesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+                              transient.predictedRigidBodies.positionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
+                              transient.predictedRigidBodies.orientationsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyInverseInertiaLocal",
+                              persistentBodies.inverseInertiaLocalBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_RigidBodyTypes", persistentBodies.bodyTypesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_StrandRigidAttachments",
+                              persistentCables.strandRigidAttachmentsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_StrandRigidAttachmentLambdas",
+                              transient.strandRigidAttachmentLambdasBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_StrandRigidAttachmentCorrections",
+                              transient.strandRigidAttachmentCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_ParticlePositionCorrections",
+                              transient.softPositionCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyTranslationCorrections",
+                              transient.translationCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_RigidBodyRotationCorrections", transient.rotationCorrectionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    GpuRigidDispatchConstants dispatchConstants = constants;
+    dispatchConstants.reserved0 = constraintCount;
+    dispatchConstants.reserved1 = sceneState.sceneView().soft.particles.count;
+    dispatchConstants.reserved2 = sceneState.sceneView().soft.strandSegmentCount;
+    return writeRigidDispatchConstants(computeContext, dispatchConstants) &&
+           mSolveStrandRigidAttachmentConstraintsPass.dispatch(
+               computeContext, kDefaultVariant, bindings, dispatchGroupCount(constraintCount));
+}
+
 bool PhysicsPassDispatcher::solveRoutedCableConstraints(
     Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
     std::uint32_t routedCableCount, const GpuRigidDispatchConstants &constants)
@@ -5359,6 +5490,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mCompactActiveParticleRigidContactsPass.forceRecreateAllVariants() &&
            mClearSoftConstraintStatePass.forceRecreateAllVariants() &&
            mClearRigidParticleAttachmentConstraintStatePass.forceRecreateAllVariants() &&
+           mClearStrandRigidAttachmentConstraintStatePass.forceRecreateAllVariants() &&
            mClearRigidDistanceConstraintStatePass.forceRecreateAllVariants() &&
            mClearRoutedCableConstraintStatePass.forceRecreateAllVariants() &&
            mClearSuturingCandidatesPass.forceRecreateAllVariants() &&
@@ -5377,6 +5509,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mApplyStrandSegmentCorrectionsPass.forceRecreateAllVariants() &&
            mSolveStrandJointConstraintsPass.forceRecreateAllVariants() &&
            mApplyStrandJointCorrectionsPass.forceRecreateAllVariants() &&
+           mApplyStrandRigidAttachmentCorrectionsPass.forceRecreateAllVariants() &&
            mSolveStrandDistanceConstraintsPass.forceRecreateAllVariants() &&
            mApplyStrandDistanceCorrectionsPass.forceRecreateAllVariants() &&
            mSolveParticleExplicitContactsPass.forceRecreateAllVariants() &&
@@ -5433,6 +5566,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mSolveSliderJointConstraintsPassivePass.forceRecreateAllVariants() &&
            mSolveSliderJointConstraintsTargetPositionPass.forceRecreateAllVariants() &&
            mSolveRigidParticleAttachmentConstraintsPass.forceRecreateAllVariants() &&
+           mSolveStrandRigidAttachmentConstraintsPass.forceRecreateAllVariants() &&
            mSolveRigidDistanceConstraintsPass.forceRecreateAllVariants() &&
            mSolveRoutedCableConstraintsPass.forceRecreateAllVariants() &&
            mClearHingeJointConstraintStatePass.forceRecreateAllVariants() &&

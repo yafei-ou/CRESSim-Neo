@@ -36,6 +36,11 @@ add_cressim_example(
 )
 
 add_cressim_example(
+    NAME physics_strand_twist_sensitivity
+    SOURCE strand_twist_sensitivity.cpp
+)
+
+add_cressim_example(
     NAME physics_rigid_proxy_particles
     SOURCE rigid_proxy_particles.cpp
 )
