@@ -74,6 +74,14 @@ struct RenderFrameOptions
         bool depthTest = true;
     };
 
+    struct DebugStrandFrameOptions
+    {
+        bool enabled    = false;
+        float axisLength = 0.18f;
+        float thickness  = 0.02f;
+        float opacity    = 1.0f;
+    };
+
     common::EntityId presentedCameraEntity = common::kInvalidEntityId;
     std::optional<PresentedExplicitOutput> presentedExplicitOutput{};
     std::optional<gpu::GpuPresentationTargetDesc> presentationTarget{};
@@ -81,6 +89,7 @@ struct RenderFrameOptions
     float exposure        = 1.0f;
     DebugParticleOptions debugParticles{};
     DebugRoutedCableOptions debugRoutedCables{};
+    DebugStrandFrameOptions debugStrandFrames{};
 
     RenderFrameOptions() = default;
 

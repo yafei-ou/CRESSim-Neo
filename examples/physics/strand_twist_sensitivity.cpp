@@ -55,14 +55,6 @@ struct ExampleOptions
     float stretchShearCompliance   = 2.0e-6f;
 };
 
-struct MarkerBinding
-{
-    EntityId entity               = 0u;
-    std::uint32_t localSegment    = 0u;
-    float segmentT                = 0.5f;
-    Diligent::float3 restPosition{};
-};
-
 struct RodRig
 {
     EntityId strandEntity                     = 0u;
@@ -70,7 +62,6 @@ struct RodRig
     Diligent::float3 tipRest{};
     Diligent::QuaternionF restSegmentRotation{};
     float phaseOffset                         = 0.0f;
-    std::vector<MarkerBinding> markers{};
 };
 
 void printUsage(const char *appName)
@@ -243,27 +234,6 @@ void setKinematicHandle(Runtime &runtime, EntityId entity, const Diligent::float
     world.setRigidBody(entity, body);
 }
 
-void setDynamicMarker(Runtime &runtime, EntityId entity, const Diligent::float3 &position,
-                      const Diligent::QuaternionF &rotation, MaterialHandle material,
-                      cressim::neo::graphics::MeshHandle mesh, const Diligent::float3 &scale)
-{
-    auto &world = runtime.getWorld();
-
-    TransformComponent transform{};
-    transform.worldTransform.position = position;
-    transform.worldTransform.rotation = rotation;
-    transform.worldTransform.scale    = scale;
-    world.setTransform(entity, transform);
-    world.setMeshRenderer(entity, MeshRendererComponent{mesh, material, true});
-
-    RigidBodyComponent body{};
-    body.simulated           = true;
-    body.bodyType            = RigidBodyType::Dynamic;
-    body.inverseMass         = 8.0f;
-    body.inverseInertiaLocal = {24.0f, 40.0f, 40.0f};
-    world.setRigidBody(entity, body);
-}
-
 Diligent::QuaternionF quaternionFromBasis(const Diligent::float3 &xAxis,
                                           const Diligent::float3 &yAxis,
                                           const Diligent::float3 &zAxis) noexcept
@@ -355,11 +325,6 @@ Diligent::QuaternionF segmentOrientationFromRest(const Diligent::float3 &segment
     return quaternionFromBasis(tangent, yAxis, zAxis);
 }
 
-Diligent::float3 lerpFloat3(const Diligent::float3 &a, const Diligent::float3 &b, float t) noexcept
-{
-    return a + (b - a) * t;
-}
-
 void authorSegmentAttachment(Runtime &runtime, EntityId strandEntity, std::uint32_t localSegmentIndex,
                              float segmentT, EntityId rigidEntity, float translationCompliance,
                              float rotationCompliance)
@@ -384,9 +349,8 @@ void setKinematicHandle(Runtime &runtime, EntityId entity, const Diligent::float
 
 RodRig authorRodRig(Runtime &runtime, const ExampleOptions &options, float xOffset,
                     float twistCompliance, float phaseOffset, MaterialHandle rodMaterial,
-                    MaterialHandle tipHandleMaterial, MaterialHandle markerMaterial,
+                    MaterialHandle tipHandleMaterial,
                     cressim::neo::graphics::MeshHandle handleMesh,
-                    cressim::neo::graphics::MeshHandle markerMesh,
                     cressim::neo::graphics::MeshHandle strandMesh)
 {
     auto &world = runtime.getWorld();
@@ -446,29 +410,6 @@ RodRig authorRodRig(Runtime &runtime, const ExampleOptions &options, float xOffs
                        tipHandleMaterial, handleMesh, {0.22f, 0.045f, 0.11f});
     authorSegmentAttachment(runtime, rig.strandEntity, options.particleCount - 2u, 1.0f,
                             rig.tipHandleEntity, 0.0f, 0.0f);
-
-    const std::uint32_t markerSegments[] = {2u, options.particleCount / 2u, options.particleCount - 4u};
-    rig.markers.reserve(std::size(markerSegments));
-    for (std::uint32_t markerSegment : markerSegments)
-    {
-        if (markerSegment >= options.particleCount - 1u)
-        {
-            continue;
-        }
-
-        MarkerBinding marker{};
-        marker.entity            = world.createEntity();
-        marker.localSegment      = markerSegment;
-        marker.segmentT          = 0.5f;
-        marker.restPosition      =
-            lerpFloat3(strand.restPositions[markerSegment], strand.restPositions[markerSegment + 1u],
-                       marker.segmentT);
-        setDynamicMarker(runtime, marker.entity, marker.restPosition, rig.restSegmentRotation,
-                         markerMaterial, markerMesh, {0.10f, 0.022f, 0.07f});
-        authorSegmentAttachment(runtime, rig.strandEntity, marker.localSegment, marker.segmentT,
-                                marker.entity, 0.0f, 0.0f);
-        rig.markers.push_back(marker);
-    }
 
     return rig;
 }
@@ -573,9 +514,6 @@ int main(int argc, char **argv)
     const auto handleMesh = resources.registerMesh(
         cressim::neo::examples::helpers::makeBoxMesh(
             {1.0f, 1.0f, 1.0f}, "PhysicsStrandTwistSensitivity.HandleMesh"));
-    const auto markerMesh = resources.registerMesh(
-        cressim::neo::examples::helpers::makeBoxMesh(
-            {1.0f, 1.0f, 1.0f}, "PhysicsStrandTwistSensitivity.MarkerMesh"));
     const auto strandMesh = resources.registerMesh(
         cressim::neo::examples::helpers::makeCanonicalCurveTubeMesh(
             sceneOptions.particleCount, 12u, "PhysicsStrandTwistSensitivity.StrandMesh", 4.0f));
@@ -589,15 +527,9 @@ int main(int argc, char **argv)
     const auto stiffTipMaterial =
         registerMaterial(resources, "PhysicsStrandTwistSensitivity.StiffTip", {0.90f, 0.98f, 0.94f},
                          0.22f);
-    const auto stiffMarkerMaterial =
-        registerMaterial(resources, "PhysicsStrandTwistSensitivity.StiffMarker", {0.62f, 0.94f, 0.78f},
-                         0.28f);
     const auto softTipMaterial =
         registerMaterial(resources, "PhysicsStrandTwistSensitivity.SoftTip", {0.99f, 0.94f, 0.84f},
                          0.22f);
-    const auto softMarkerMaterial =
-        registerMaterial(resources, "PhysicsStrandTwistSensitivity.SoftMarker", {0.98f, 0.74f, 0.54f},
-                         0.28f);
 
     const auto cameraEntity = world.createEntity();
     TransformComponent cameraTransform{};
@@ -614,21 +546,26 @@ int main(int argc, char **argv)
 
     const RodRig stiffRig =
         authorRodRig(runtime, sceneOptions, -1.8f, sceneOptions.stiffTwistCompliance, 0.0f,
-                     stiffRodMaterial, stiffTipMaterial, stiffMarkerMaterial, handleMesh,
-                     markerMesh, strandMesh);
+                     stiffRodMaterial, stiffTipMaterial, handleMesh, strandMesh);
     const RodRig softRig =
         authorRodRig(runtime, sceneOptions, 1.8f, sceneOptions.softTwistCompliance, 0.0f,
-                     softRodMaterial, softTipMaterial, softMarkerMaterial, handleMesh,
-                     markerMesh, strandMesh);
+                     softRodMaterial, softTipMaterial, handleMesh, strandMesh);
+
+    auto renderOptions                         = runtime.renderFrameOptions();
+    renderOptions.debugStrandFrames.enabled    = true;
+    renderOptions.debugStrandFrames.axisLength = 0.24f;
+    renderOptions.debugStrandFrames.thickness  = 0.018f;
+    renderOptions.debugStrandFrames.opacity    = 0.95f;
+    runtime.setRenderFrameOptions(renderOptions);
 
     CRESSIM_LOG_INFO(
         "Twist sensitivity example loaded.\n"
         "Left rod: stiff twist compliance=", sceneOptions.stiffTwistCompliance,
         " Right rod: soft twist compliance=", sceneOptions.softTwistCompliance, "\n"
-        "Expected behavior: the bright top handle twists the tip segment directly, and the small "
-        "attached marker bars show how much of that rotation reaches lower segments. The left rod "
-        "should keep those marker bars more aligned with the driven tip, while the right rod should "
-        "let the rotation stay more localized near the top.\n");
+        "Expected behavior: the bright top handle twists the tip segment directly, and the debug "
+        "RGB frame axes show the actual GPU segment orientations along each strand. The left rod "
+        "should keep the colored frames rotating more coherently down the rod, while the right rod "
+        "should localize more of the twist near the driven tip.\n");
 
     DebugViewerCallbacks callbacks{};
     callbacks.beforeTick =
