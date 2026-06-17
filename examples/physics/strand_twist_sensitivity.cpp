@@ -325,9 +325,13 @@ Diligent::QuaternionF segmentOrientationFromRest(const Diligent::float3 &segment
     return quaternionFromBasis(tangent, yAxis, zAxis);
 }
 
-void authorSegmentAttachment(Runtime &runtime, EntityId strandEntity, std::uint32_t localSegmentIndex,
-                             float segmentT, EntityId rigidEntity, float translationCompliance,
-                             float rotationCompliance)
+// This helper uses the strand rigid-attachment path as a rigid-driven follower:
+// the handle drives the strand segment pose, but the strand does not push back
+// physically onto the handle.
+void authorRigidDrivenSegmentFollow(Runtime &runtime, EntityId strandEntity,
+                                    std::uint32_t localSegmentIndex, float segmentT,
+                                    EntityId rigidEntity, float translationCompliance,
+                                    float rotationCompliance)
 {
     AuthoredStrandRigidAttachmentConstraintState attachment{};
     attachment.strandEntityId         = strandEntity;
@@ -408,8 +412,8 @@ RodRig authorRodRig(Runtime &runtime, const ExampleOptions &options, float xOffs
 
     setKinematicHandle(runtime, rig.tipHandleEntity, rig.tipRest, rig.restSegmentRotation,
                        tipHandleMaterial, handleMesh, {0.22f, 0.045f, 0.11f});
-    authorSegmentAttachment(runtime, rig.strandEntity, options.particleCount - 2u, 1.0f,
-                            rig.tipHandleEntity, 0.0f, 0.0f);
+    authorRigidDrivenSegmentFollow(runtime, rig.strandEntity, options.particleCount - 2u, 1.0f,
+                                   rig.tipHandleEntity, 0.0f, 0.0f);
 
     return rig;
 }

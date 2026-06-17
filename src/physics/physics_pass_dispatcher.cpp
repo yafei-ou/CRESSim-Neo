@@ -4949,7 +4949,6 @@ bool PhysicsPassDispatcher::solveStrandRigidAttachmentConstraints(
         return true;
     }
 
-    const auto &persistentBodies    = sceneState.persistentRigidBodies();
     const auto &persistentParticles = sceneState.persistentParticles();
     const auto &persistentCables    = sceneState.persistentRoutedCables();
     const auto &softTopology        = sceneState.persistentSoftTopology();
@@ -4970,11 +4969,6 @@ bool PhysicsPassDispatcher::solveStrandRigidAttachmentConstraints(
         gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
                               transient.predictedRigidBodies.orientationsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_RigidBodyInverseInertiaLocal",
-                              persistentBodies.inverseInertiaLocalBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_RigidBodyTypes", persistentBodies.bodyTypesBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_StrandRigidAttachments",
                               persistentCables.strandRigidAttachmentsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -4987,17 +4981,11 @@ bool PhysicsPassDispatcher::solveStrandRigidAttachmentConstraints(
         gpu::GpuBufferBinding{"g_ParticlePositionCorrections",
                               transient.softPositionCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        gpu::GpuBufferBinding{"g_RigidBodyTranslationCorrections",
-                              transient.translationCorrectionsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        gpu::GpuBufferBinding{"g_RigidBodyRotationCorrections", transient.rotationCorrectionsBuffer,
-                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
     GpuRigidDispatchConstants dispatchConstants = constants;
     dispatchConstants.reserved0 = constraintCount;
     dispatchConstants.reserved1 = sceneState.sceneView().soft.particles.count;
-    dispatchConstants.reserved2 = sceneState.sceneView().soft.strandSegmentCount;
     return writeRigidDispatchConstants(computeContext, dispatchConstants) &&
            mSolveStrandRigidAttachmentConstraintsPass.dispatch(
                computeContext, kDefaultVariant, bindings, dispatchGroupCount(constraintCount));

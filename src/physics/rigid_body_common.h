@@ -61,10 +61,6 @@ struct GpuRigidDispatchConstants
     std::uint32_t reservedSolverIterations = 0;
     std::uint32_t reserved0                = 0;
     std::uint32_t reserved1                = 0;
-    std::uint32_t reserved2                = 0;
-    std::uint32_t reserved3                = 0;
-    std::uint32_t reserved4                = 0;
-    std::uint32_t reserved5                = 0;
 };
 
 struct GpuRigidJointDispatchConstants
@@ -753,7 +749,7 @@ struct GpuRigidBodyPairContactAggregateSlot
     Diligent::float4 solverState{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
-static_assert(sizeof(GpuRigidDispatchConstants) == 64u);
+static_assert(sizeof(GpuRigidDispatchConstants) == 48u);
 static_assert(sizeof(GpuRigidJointDispatchConstants) == 16u);
 static_assert(sizeof(GpuRoutedCableConstraint) == 32u);
 static_assert(sizeof(GpuRoutedCableRoutePoint) == 32u);

@@ -16,14 +16,10 @@ CRESSIM_STRUCTURED_BUFFER(GpuStrandSegment, g_StrandSegments);
 CRESSIM_STRUCTURED_BUFFER(GpuStrandSegmentState, g_StrandSegmentStates);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
-CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
-CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_STRUCTURED_BUFFER(GpuStrandRigidAttachmentConstraint, g_StrandRigidAttachments);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuStrandRigidAttachmentLambda, g_StrandRigidAttachmentLambdas);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuStrandRigidAttachmentCorrection, g_StrandRigidAttachmentCorrections);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_ParticlePositionCorrections);
-CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyTranslationCorrections);
-CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
 
 float ComputeStrandOrientationInvMass(float wA, float wB, float restLength)
 {
@@ -64,7 +60,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const GpuStrandRigidAttachmentConstraint constraint =
         CRESSIM_SB_LOAD(g_StrandRigidAttachments, constraintIndex);
-    if (constraint.segmentIndex >= reserved2 || constraint.rigidBodyIndex >= rigidBodyCount)
+    if (constraint.rigidBodyIndex >= rigidBodyCount)
     {
         return;
     }
@@ -79,25 +75,20 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float4 particleB = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, segment.particleB);
     const float4 rigidPositionInvMass =
         CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, constraint.rigidBodyIndex);
-    const uint rigidBodyType = CRESSIM_SB_LOAD(g_RigidBodyTypes, constraint.rigidBodyIndex);
-
-    const float invMassA = particleA.w;
-    const float invMassB = particleB.w;
-    const float invMassRigid = rigidBodyType == kRigidBodyTypeDynamic ? rigidPositionInvMass.w : 0.0;
 
     const float t = saturate(constraint.segmentT);
     const float weightA = 1.0 - t;
     const float weightB = t;
+    const float invMassA = particleA.w;
+    const float invMassB = particleB.w;
+    const float strandStationInvMass = invMassA * weightA * weightA + invMassB * weightB * weightB;
+    if (strandStationInvMass <= kEpsilon)
+    {
+        return;
+    }
 
     const float4 rigidOrientation = QuaternionNormalize(
         CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, constraint.rigidBodyIndex));
-    float3 invInertiaRigid =
-        CRESSIM_SB_LOAD(g_RigidBodyInverseInertiaLocal, constraint.rigidBodyIndex).xyz;
-    if (invMassRigid <= kEpsilon)
-    {
-        invInertiaRigid = 0.0;
-    }
-
     const float3 worldLeverArm = QuaternionRotate(rigidOrientation, constraint.localAnchor.xyz);
     const float3 rigidAnchorPosition = rigidPositionInvMass.xyz + worldLeverArm;
     const float3 strandStationPosition = lerp(particleA.xyz, particleB.xyz, t);
@@ -109,8 +100,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     float3 particleCorrectionA = 0.0;
     float3 particleCorrectionB = 0.0;
-    float3 rigidTranslationCorrection = 0.0;
-    float3 rigidRotationCorrection = 0.0;
     float3 segmentRotationCorrection = 0.0;
 
     const float3 translationConstraint = strandStationPosition - rigidAnchorPosition;
@@ -123,12 +112,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                           : axisIndex == 1u ? float3(0.0, 1.0, 0.0)
                                              : float3(0.0, 0.0, 1.0);
         const float c = dot(translationConstraint, axis);
-        const float3 angularJacobian = cross(worldLeverArm, axis);
-        float denominator = invMassA * weightA * weightA + invMassB * weightB * weightB + invMassRigid;
-        denominator += dot(angularJacobian,
-                           MultiplyWorldInverseInertia(invInertiaRigid, rigidOrientation,
-                                                       angularJacobian));
-        denominator += translationAlpha;
+        const float denominator = strandStationInvMass + translationAlpha;
         if (denominator <= kEpsilon)
         {
             continue;
@@ -138,10 +122,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         translationLambda[axisIndex] += deltaLambda;
         particleCorrectionA += axis * (deltaLambda * invMassA * weightA * kAttachmentRelaxation);
         particleCorrectionB += axis * (deltaLambda * invMassB * weightB * kAttachmentRelaxation);
-        rigidTranslationCorrection -= axis * (deltaLambda * invMassRigid * kAttachmentRelaxation);
-        rigidRotationCorrection -=
-            MultiplyWorldInverseInertia(invInertiaRigid, rigidOrientation, angularJacobian) *
-            (deltaLambda * kAttachmentRelaxation);
     }
 
     const float4 segmentOrientation =
@@ -166,9 +146,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                           : axisIndex == 1u ? float3(0.0, 1.0, 0.0)
                                              : float3(0.0, 0.0, 1.0);
         const float c = dot(rotationConstraint, axis);
-        const float rigidAngularDenom =
-            dot(axis, MultiplyWorldInverseInertia(invInertiaRigid, rigidOrientation, axis));
-        const float denominator = orientationInvMass + rigidAngularDenom + rotationAlpha;
+        const float denominator = orientationInvMass + rotationAlpha;
         if (denominator <= kEpsilon)
         {
             continue;
@@ -178,9 +156,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         rotationLambda[axisIndex] += deltaLambda;
         segmentRotationCorrection +=
             axis * (deltaLambda * orientationInvMass * kAttachmentRelaxation);
-        rigidRotationCorrection -=
-            MultiplyWorldInverseInertia(invInertiaRigid, rigidOrientation, axis) *
-            (deltaLambda * kAttachmentRelaxation);
     }
 
     lambdaState.translation = float4(translationLambda, 0.0);
@@ -190,8 +165,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     float scale = 1.0;
     scale = min(scale, ComputeLimitScale(particleCorrectionA, kMaxAttachmentTranslationCorrection));
     scale = min(scale, ComputeLimitScale(particleCorrectionB, kMaxAttachmentTranslationCorrection));
-    scale = min(scale, ComputeLimitScale(rigidTranslationCorrection, kMaxAttachmentTranslationCorrection));
-    scale = min(scale, ComputeLimitScale(rigidRotationCorrection, kMaxAttachmentAngularCorrection));
     scale = min(scale, ComputeLimitScale(segmentRotationCorrection, kMaxAttachmentAngularCorrection));
 
     if (invMassA > kEpsilon)
@@ -204,14 +177,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_ParticlePositionCorrections, segment.particleB,
                                       particleCorrectionB * scale);
     }
-    if (invMassRigid > kEpsilon)
-    {
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyTranslationCorrections, constraint.rigidBodyIndex,
-                                      rigidTranslationCorrection * scale);
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_RigidBodyRotationCorrections, constraint.rigidBodyIndex,
-                                      rigidRotationCorrection * scale);
-    }
-
     GpuStrandRigidAttachmentCorrection correction;
     correction.segmentRotation = float4(segmentRotationCorrection * scale, 0.0);
     CRESSIM_SB_STORE(g_StrandRigidAttachmentCorrections, constraintIndex, correction);

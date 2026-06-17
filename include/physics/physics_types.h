@@ -454,6 +454,8 @@ struct AuthoredRigidParticleAttachmentConstraintState
 
 struct AuthoredStrandRigidAttachmentConstraintState
 {
+    // This constraint is intentionally one-way: the rigid body drives the strand
+    // station pose, but the strand does not push force or torque back into the rigid body.
     StrandRigidAttachmentConstraintId constraintId =
         kInvalidStrandRigidAttachmentConstraintId;
     common::EntityId strandEntityId    = common::kInvalidEntityId;
@@ -625,6 +627,7 @@ struct RigidParticleAttachmentConstraint
 
 struct StrandRigidAttachmentConstraint
 {
+    // Runtime form of the one-way rigid-driven strand follow constraint.
     std::uint32_t segmentIndex          = 0u;
     std::uint32_t rigidBodyIndex        = 0u;
     float segmentT                      = 0.0f;
