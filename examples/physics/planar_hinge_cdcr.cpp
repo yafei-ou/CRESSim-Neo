@@ -52,10 +52,10 @@ constexpr float kViewerSphereMeshRadius = 0.4f;
 struct ExampleOptions
 {
     std::uint32_t linkCount      = 7u;
-    float pullAmplitude          = 0.55f;
-    float drivePeriodSeconds     = 5.5f;
-    float cableCompliance        = 1.0e-5f;
-    float driveCompliance        = 6.0e-5f;
+    float pullAmplitude          = 0.95f;
+    float drivePeriodSeconds     = 25.5f;
+    float cableCompliance        = 1.0e-9f;
+    float driveCompliance        = 8.0e-4f;
     float hingeLimitRadians      = 0.65f;
     bool suppressNeighborCollide = true;
 };
@@ -329,7 +329,7 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
-    config.physicsDesc.defaultIterations = 48u;
+    config.physicsDesc.defaultIterations = 100u;
 
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
@@ -542,8 +542,9 @@ int main(int argc, char **argv)
 
     const float maxPull = std::max(0.0f, sceneOptions.pullAmplitude);
     const float driveFrequency = (2.0f * kPi) / std::max(sceneOptions.drivePeriodSeconds, 0.1f);
+    const float releaseGain = 1.35f;
     DebugViewerCallbacks callbacks{};
-    callbacks.beforeTick = [cables, restLengths, maxPull, driveFrequency](
+    callbacks.beforeTick = [cables, restLengths, maxPull, driveFrequency, releaseGain](
                                const FrameContext &frame, Runtime &cbRuntime) mutable
     {
         const float t      = static_cast<float>(frame.timeSeconds);
@@ -552,11 +553,14 @@ int main(int argc, char **argv)
         const float shortenLeft  = std::max(0.0f, phase) * maxPull * settle;
         const float shortenRight = std::max(0.0f, -phase) * maxPull * settle;
         const std::array<float, 2u> shortenings{shortenLeft, shortenRight};
+        const std::array<float, 2u> releases{shortenRight * releaseGain,
+                                             shortenLeft * releaseGain};
 
         for (std::uint32_t cableIndex = 0u; cableIndex < 2u; ++cableIndex)
         {
             auto updated         = cables[cableIndex];
-            updated.targetLength = std::max(0.0f, restLengths[cableIndex] - shortenings[cableIndex]);
+            updated.targetLength = std::max(
+                0.0f, restLengths[cableIndex] - shortenings[cableIndex] + releases[cableIndex]);
             cables[cableIndex]   = cbRuntime.getWorld().upsertRoutedCableConstraint(updated);
         }
     };
