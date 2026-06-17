@@ -36,6 +36,11 @@ add_cressim_example(
 )
 
 add_cressim_example(
+    NAME physics_planar_hinge_cdcr
+    SOURCE planar_hinge_cdcr.cpp
+)
+
+add_cressim_example(
     NAME physics_strand_twist_sensitivity
     SOURCE strand_twist_sensitivity.cpp
 )
