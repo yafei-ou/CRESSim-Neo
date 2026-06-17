@@ -1563,8 +1563,8 @@ bool PhysicsPassDispatcher::clearRoutedCableConstraintState(
     };
 
     return writeRigidDispatchConstants(computeContext, constants) &&
-           mClearRoutedCableConstraintStatePass.dispatch(
-               computeContext, kDefaultVariant, bindings, dispatchGroupCount(routedCableCount));
+           mClearRoutedCableConstraintStatePass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                         dispatchGroupCount(routedCableCount));
 }
 
 bool PhysicsPassDispatcher::clearRigidParticleAttachmentConstraintState(
@@ -1586,7 +1586,7 @@ bool PhysicsPassDispatcher::clearRigidParticleAttachmentConstraintState(
     };
 
     GpuRigidDispatchConstants dispatchConstants = constants;
-    dispatchConstants.reserved0 = constraintCount;
+    dispatchConstants.reserved0                 = constraintCount;
     return writeRigidDispatchConstants(computeContext, dispatchConstants) &&
            mClearRigidParticleAttachmentConstraintStatePass.dispatch(
                computeContext, kDefaultVariant, bindings, dispatchGroupCount(constraintCount));
@@ -1611,7 +1611,7 @@ bool PhysicsPassDispatcher::clearStrandRigidAttachmentConstraintState(
     };
 
     GpuRigidDispatchConstants dispatchConstants = constants;
-    dispatchConstants.reserved0 = constraintCount;
+    dispatchConstants.reserved0                 = constraintCount;
     return writeRigidDispatchConstants(computeContext, dispatchConstants) &&
            mClearStrandRigidAttachmentConstraintStatePass.dispatch(
                computeContext, kDefaultVariant, bindings, dispatchGroupCount(constraintCount));
@@ -1636,7 +1636,7 @@ bool PhysicsPassDispatcher::clearRigidDistanceConstraintState(
     };
 
     GpuRigidDispatchConstants dispatchConstants = constants;
-    dispatchConstants.reserved0 = constraintCount;
+    dispatchConstants.reserved0                 = constraintCount;
     return writeRigidDispatchConstants(computeContext, dispatchConstants) &&
            mClearRigidDistanceConstraintStatePass.dispatch(
                computeContext, kDefaultVariant, bindings, dispatchGroupCount(constraintCount));
@@ -2232,8 +2232,7 @@ bool PhysicsPassDispatcher::solveStrandJointConstraints(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_StrandJointLambdas", transient.strandJointLambdasBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        gpu::GpuBufferBinding{"g_StrandJointCorrections",
-                              transient.strandJointCorrectionsBuffer,
+        gpu::GpuBufferBinding{"g_StrandJointCorrections", transient.strandJointCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
@@ -2251,8 +2250,8 @@ bool PhysicsPassDispatcher::applyStrandJointCorrections(
         return true;
     }
 
-    const auto &softTopology  = sceneState.persistentSoftTopology();
-    const auto &transient     = sceneState.transientBuffers();
+    const auto &softTopology = sceneState.persistentSoftTopology();
+    const auto &transient    = sceneState.transientBuffers();
     const std::array bindings{
         gpu::GpuBufferBinding{"PhysicsParticleDispatchConstantsBuffer",
                               mParticleDispatchConstantsBuffer,
@@ -3277,8 +3276,7 @@ bool PhysicsPassDispatcher::skinSoftRenderVertices(Diligent::IDeviceContext *com
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_SoftRenderVertexBindings",
-                              softTopology.renderVertexBindingsBuffer,
+        gpu::GpuBufferBinding{"g_SoftRenderVertexBindings", softTopology.renderVertexBindingsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SoftBodyRenderPositionsRW",
                               softTopology.softBodyRenderPositionsBuffer,
@@ -4771,12 +4769,12 @@ bool PhysicsPassDispatcher::dispatchSolveSphericalJointConstraintsPass(
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
-    return mSolveSphericalJointConstraintsPass.dispatch(
-        computeContext, kDefaultVariant, bindings, dispatchGroupCount(jointCount));
+    return mSolveSphericalJointConstraintsPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                        dispatchGroupCount(jointCount));
 }
 
-bool PhysicsPassDispatcher::solveSphericalJointConstraints(
-    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState)
+bool PhysicsPassDispatcher::solveSphericalJointConstraints(Diligent::IDeviceContext *computeContext,
+                                                           const PhysicsSceneGpuState &sceneState)
 {
     const std::uint32_t jointCount = sceneState.sphericalJointCount();
     if (computeContext == nullptr)
@@ -5026,8 +5024,8 @@ bool PhysicsPassDispatcher::solveRigidParticleAttachmentConstraints(
     };
 
     GpuRigidDispatchConstants dispatchConstants = constants;
-    dispatchConstants.reserved0 = constraintCount;
-    dispatchConstants.reserved1 = sceneState.sceneView().soft.particles.count;
+    dispatchConstants.reserved0                 = constraintCount;
+    dispatchConstants.reserved1                 = sceneState.sceneView().soft.particles.count;
     return writeRigidDispatchConstants(computeContext, dispatchConstants) &&
            mSolveRigidParticleAttachmentConstraintsPass.dispatch(
                computeContext, kDefaultVariant, bindings, dispatchGroupCount(constraintCount));
@@ -5081,16 +5079,17 @@ bool PhysicsPassDispatcher::solveStrandRigidAttachmentConstraints(
     };
 
     GpuRigidDispatchConstants dispatchConstants = constants;
-    dispatchConstants.reserved0 = constraintCount;
-    dispatchConstants.reserved1 = sceneState.sceneView().soft.particles.count;
+    dispatchConstants.reserved0                 = constraintCount;
+    dispatchConstants.reserved1                 = sceneState.sceneView().soft.particles.count;
     return writeRigidDispatchConstants(computeContext, dispatchConstants) &&
            mSolveStrandRigidAttachmentConstraintsPass.dispatch(
                computeContext, kDefaultVariant, bindings, dispatchGroupCount(constraintCount));
 }
 
-bool PhysicsPassDispatcher::solveRoutedCableConstraints(
-    Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-    std::uint32_t routedCableCount, const GpuRigidDispatchConstants &constants)
+bool PhysicsPassDispatcher::solveRoutedCableConstraints(Diligent::IDeviceContext *computeContext,
+                                                        const PhysicsSceneGpuState &sceneState,
+                                                        std::uint32_t routedCableCount,
+                                                        const GpuRigidDispatchConstants &constants)
 {
     if (computeContext == nullptr)
     {
@@ -5118,11 +5117,9 @@ bool PhysicsPassDispatcher::solveRoutedCableConstraints(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RigidBodyTypes", persistentBodies.bodyTypesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_RoutedCableConstraints",
-                              persistentCables.descriptorsBuffer,
+        gpu::GpuBufferBinding{"g_RoutedCableConstraints", persistentCables.descriptorsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_RoutedCableRoutePoints",
-                              persistentCables.routePointsBuffer,
+        gpu::GpuBufferBinding{"g_RoutedCableRoutePoints", persistentCables.routePointsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RoutedCableLambdas", transient.routedCableLambdasBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
@@ -5182,10 +5179,10 @@ bool PhysicsPassDispatcher::solveRigidDistanceConstraints(
     };
 
     GpuRigidDispatchConstants dispatchConstants = constants;
-    dispatchConstants.reserved0 = constraintCount;
+    dispatchConstants.reserved0                 = constraintCount;
     return writeRigidDispatchConstants(computeContext, dispatchConstants) &&
-           mSolveRigidDistanceConstraintsPass.dispatch(
-               computeContext, kDefaultVariant, bindings, dispatchGroupCount(constraintCount));
+           mSolveRigidDistanceConstraintsPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                       dispatchGroupCount(constraintCount));
 }
 
 bool PhysicsPassDispatcher::dispatchSolveHingeJointVelocityTargetsPass(

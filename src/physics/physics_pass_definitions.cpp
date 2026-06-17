@@ -467,11 +467,12 @@ constexpr Diligent::ShaderResourceVariableDesc kClearSoftConstraintStateVars[] =
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
-constexpr Diligent::ShaderResourceVariableDesc kClearRigidParticleAttachmentConstraintStateVars[] = {
-    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
-    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidParticleAttachmentLambdas",
-     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+constexpr Diligent::ShaderResourceVariableDesc kClearRigidParticleAttachmentConstraintStateVars[] =
+    {
+        {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+        {Diligent::SHADER_TYPE_COMPUTE, "g_RigidParticleAttachmentLambdas",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kClearStrandRigidAttachmentConstraintStateVars[] = {

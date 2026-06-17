@@ -42,7 +42,7 @@ bool parseObjFaceVertex(const std::string &token, std::int32_t &positionIndex,
         return true;
     }
 
-    positionIndex = std::stoi(token.substr(0u, firstSlash));
+    positionIndex                 = std::stoi(token.substr(0u, firstSlash));
     const std::size_t secondSlash = token.find('/', firstSlash + 1u);
     if (secondSlash != std::string::npos && secondSlash + 1u < token.size())
     {
@@ -65,9 +65,9 @@ void recomputeNormals(SurfaceMeshData &mesh)
             continue;
         }
 
-        const Diligent::float3 &p0 = mesh.surfaceRestPositions[triangle.x];
-        const Diligent::float3 &p1 = mesh.surfaceRestPositions[triangle.y];
-        const Diligent::float3 &p2 = mesh.surfaceRestPositions[triangle.z];
+        const Diligent::float3 &p0        = mesh.surfaceRestPositions[triangle.x];
+        const Diligent::float3 &p1        = mesh.surfaceRestPositions[triangle.y];
+        const Diligent::float3 &p2        = mesh.surfaceRestPositions[triangle.z];
         const Diligent::float3 faceNormal = Diligent::cross(p2 - p0, p1 - p0);
         if (Diligent::dot(faceNormal, faceNormal) <= 1.0e-12f)
         {
@@ -149,7 +149,8 @@ bool readObjSurfaceMesh(const std::filesystem::path &path, SurfaceMeshData &mesh
                     continue;
                 }
 
-                const auto emitVertex = [&](const std::string &faceToken) -> std::uint32_t {
+                const auto emitVertex = [&](const std::string &faceToken) -> std::uint32_t
+                {
                     if (const auto it = vertexCache.find(faceToken); it != vertexCache.end())
                     {
                         return it->second;
@@ -203,9 +204,8 @@ bool readObjSurfaceMesh(const std::filesystem::path &path, SurfaceMeshData &mesh
     const bool hasValidImportedNormals =
         mesh.surfaceNormals.size() == mesh.surfaceRestPositions.size() &&
         std::all_of(mesh.surfaceNormals.begin(), mesh.surfaceNormals.end(),
-                    [](const Diligent::float3 &normal) {
-                        return Diligent::dot(normal, normal) > 1.0e-8f;
-                    });
+                    [](const Diligent::float3 &normal)
+                    { return Diligent::dot(normal, normal) > 1.0e-8f; });
     if (!hasValidImportedNormals)
     {
         recomputeNormals(mesh);

@@ -46,7 +46,7 @@ constexpr HingeJointId kInvalidHingeJointId = 0u;
 using SliderJointId                           = std::uint32_t;
 constexpr SliderJointId kInvalidSliderJointId = 0u;
 
-using RigidDistanceConstraintId = std::uint32_t;
+using RigidDistanceConstraintId                                       = std::uint32_t;
 constexpr RigidDistanceConstraintId kInvalidRigidDistanceConstraintId = 0u;
 
 using ParticleConstraintId                                  = std::uint32_t;
@@ -58,7 +58,7 @@ constexpr RigidParticleAttachmentConstraintId kInvalidRigidParticleAttachmentCon
 using StrandRigidAttachmentConstraintId = std::uint32_t;
 constexpr StrandRigidAttachmentConstraintId kInvalidStrandRigidAttachmentConstraintId = 0u;
 
-using RoutedCableConstraintId                                  = std::uint32_t;
+using RoutedCableConstraintId                                     = std::uint32_t;
 constexpr RoutedCableConstraintId kInvalidRoutedCableConstraintId = 0u;
 
 using ParticleCollisionFilterId                                       = std::uint32_t;
@@ -376,12 +376,12 @@ struct StrandState
     bool suturingEnabled           = false;
     float pathNodeSpacing          = 0.2f;
     StrandMaterialDesc material{};
-    float particleMass                 = 1.0f;
-    float particleRadius               = 0.125f;
-    float stretchShearCompliance       = 0.0f;
-    float bendCompliance               = 0.0f;
-    float twistCompliance              = 0.0f;
-    float distanceCompliance           = 0.0f;
+    float particleMass           = 1.0f;
+    float particleRadius         = 0.125f;
+    float stretchShearCompliance = 0.0f;
+    float bendCompliance         = 0.0f;
+    float twistCompliance        = 0.0f;
+    float distanceCompliance     = 0.0f;
     Diligent::float3 rootMaterialNormal{0.0f, 1.0f, 0.0f};
     bool simulated                     = true;
     bool selfCollisionEnabled          = false;
@@ -447,8 +447,7 @@ struct AuthoredRigidDistanceConstraintState
 
 struct AuthoredRigidParticleAttachmentConstraintState
 {
-    RigidParticleAttachmentConstraintId constraintId =
-        kInvalidRigidParticleAttachmentConstraintId;
+    RigidParticleAttachmentConstraintId constraintId = kInvalidRigidParticleAttachmentConstraintId;
     AuthoredParticleReference particle{};
     common::EntityId rigidBodyEntityId = common::kInvalidEntityId;
     Diligent::float3 localAnchor{0.0f, 0.0f, 0.0f};
@@ -460,12 +459,11 @@ struct AuthoredStrandRigidAttachmentConstraintState
 {
     // This constraint is intentionally one-way: the rigid body drives the strand
     // station pose, but the strand does not push force or torque back into the rigid body.
-    StrandRigidAttachmentConstraintId constraintId =
-        kInvalidStrandRigidAttachmentConstraintId;
-    common::EntityId strandEntityId    = common::kInvalidEntityId;
-    std::uint32_t localSegmentIndex    = 0u;
-    float segmentT                     = 0.0f;
-    common::EntityId rigidBodyEntityId = common::kInvalidEntityId;
+    StrandRigidAttachmentConstraintId constraintId = kInvalidStrandRigidAttachmentConstraintId;
+    common::EntityId strandEntityId                = common::kInvalidEntityId;
+    std::uint32_t localSegmentIndex                = 0u;
+    float segmentT                                 = 0.0f;
+    common::EntityId rigidBodyEntityId             = common::kInvalidEntityId;
     Diligent::float3 localAnchor{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF localRotation{0.0f, 0.0f, 0.0f, 1.0f};
     float translationCompliance = 0.0f;
@@ -560,19 +558,19 @@ using SoftBend = DeformableBendConstraint;
 
 struct StrandSegmentConstraint
 {
-    std::uint32_t particleA = 0u;
-    std::uint32_t particleB = 0u;
-    float restLength        = 0.0f;
+    std::uint32_t particleA      = 0u;
+    std::uint32_t particleB      = 0u;
+    float restLength             = 0.0f;
     float stretchShearCompliance = 0.0f;
     Diligent::float4 restOrientation{0.0f, 0.0f, 0.0f, 1.0f};
 };
 
 struct StrandJointConstraint
 {
-    std::uint32_t segmentA  = 0u;
-    std::uint32_t segmentB  = 0u;
-    float bendCompliance    = 0.0f;
-    float twistCompliance   = 0.0f;
+    std::uint32_t segmentA = 0u;
+    std::uint32_t segmentB = 0u;
+    float bendCompliance   = 0.0f;
+    float twistCompliance  = 0.0f;
     Diligent::float4 restRelativeOrientation{0.0f, 0.0f, 0.0f, 1.0f};
 };
 
@@ -632,14 +630,14 @@ struct RigidParticleAttachmentConstraint
 struct StrandRigidAttachmentConstraint
 {
     // Runtime form of the one-way rigid-driven strand follow constraint.
-    std::uint32_t segmentIndex          = 0u;
-    std::uint32_t rigidBodyIndex        = 0u;
-    float segmentT                      = 0.0f;
-    float translationCompliance         = 0.0f;
-    float rotationCompliance            = 0.0f;
-    std::uint32_t reserved0             = 0u;
-    std::uint32_t reserved1             = 0u;
-    std::uint32_t reserved2             = 0u;
+    std::uint32_t segmentIndex   = 0u;
+    std::uint32_t rigidBodyIndex = 0u;
+    float segmentT               = 0.0f;
+    float translationCompliance  = 0.0f;
+    float rotationCompliance     = 0.0f;
+    std::uint32_t reserved0      = 0u;
+    std::uint32_t reserved1      = 0u;
+    std::uint32_t reserved2      = 0u;
     Diligent::float4 localAnchor{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localRotation{0.0f, 0.0f, 0.0f, 1.0f};
 };
@@ -855,14 +853,14 @@ struct SphericalJointState
     Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
     Diligent::QuaternionF localRotationA{0.0f, 0.0f, 0.0f, 1.0f};
     Diligent::QuaternionF localRotationB{0.0f, 0.0f, 0.0f, 1.0f};
-    float swingLimitY            = 0.0f;
-    float swingLimitZ            = 0.0f;
-    float twistLimitMin          = 0.0f;
-    float twistLimitMax          = 0.0f;
-    float constraintCompliance   = 0.0f;
-    float swingCompliance        = 0.0f;
-    float twistCompliance        = 0.0f;
-    float driveCompliance        = 0.0f;
+    float swingLimitY          = 0.0f;
+    float swingLimitZ          = 0.0f;
+    float twistLimitMin        = 0.0f;
+    float twistLimitMax        = 0.0f;
+    float constraintCompliance = 0.0f;
+    float swingCompliance      = 0.0f;
+    float twistCompliance      = 0.0f;
+    float driveCompliance      = 0.0f;
     Diligent::QuaternionF driveTargetOrientation{0.0f, 0.0f, 0.0f, 1.0f};
 };
 

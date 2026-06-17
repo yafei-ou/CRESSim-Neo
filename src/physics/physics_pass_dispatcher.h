@@ -96,12 +96,14 @@ public:
     bool clearSoftConstraintState(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState, std::uint32_t threadCount,
                                   const GpuParticleDispatchConstants &constants);
-    bool clearRigidParticleAttachmentConstraintState(
-        Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-        std::uint32_t constraintCount, const GpuRigidDispatchConstants &constants);
-    bool clearStrandRigidAttachmentConstraintState(
-        Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-        std::uint32_t constraintCount, const GpuRigidDispatchConstants &constants);
+    bool clearRigidParticleAttachmentConstraintState(Diligent::IDeviceContext *computeContext,
+                                                     const PhysicsSceneGpuState &sceneState,
+                                                     std::uint32_t constraintCount,
+                                                     const GpuRigidDispatchConstants &constants);
+    bool clearStrandRigidAttachmentConstraintState(Diligent::IDeviceContext *computeContext,
+                                                   const PhysicsSceneGpuState &sceneState,
+                                                   std::uint32_t constraintCount,
+                                                   const GpuRigidDispatchConstants &constants);
     bool clearRigidDistanceConstraintState(Diligent::IDeviceContext *computeContext,
                                            const PhysicsSceneGpuState &sceneState,
                                            std::uint32_t constraintCount,
@@ -284,12 +286,14 @@ public:
                                     const PhysicsSceneGpuState &sceneState);
     bool solveSliderJointConstraints(Diligent::IDeviceContext *computeContext,
                                      const PhysicsSceneGpuState &sceneState);
-    bool solveRigidParticleAttachmentConstraints(
-        Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-        std::uint32_t constraintCount, const GpuRigidDispatchConstants &constants);
-    bool solveStrandRigidAttachmentConstraints(
-        Diligent::IDeviceContext *computeContext, const PhysicsSceneGpuState &sceneState,
-        std::uint32_t constraintCount, const GpuRigidDispatchConstants &constants);
+    bool solveRigidParticleAttachmentConstraints(Diligent::IDeviceContext *computeContext,
+                                                 const PhysicsSceneGpuState &sceneState,
+                                                 std::uint32_t constraintCount,
+                                                 const GpuRigidDispatchConstants &constants);
+    bool solveStrandRigidAttachmentConstraints(Diligent::IDeviceContext *computeContext,
+                                               const PhysicsSceneGpuState &sceneState,
+                                               std::uint32_t constraintCount,
+                                               const GpuRigidDispatchConstants &constants);
     bool solveRigidDistanceConstraints(Diligent::IDeviceContext *computeContext,
                                        const PhysicsSceneGpuState &sceneState,
                                        std::uint32_t constraintCount,

@@ -10,20 +10,20 @@
 namespace cressim::neo::physics
 {
 
-constexpr std::uint32_t kRigidContactsPerPair                = 4u;
-constexpr std::uint32_t kRigidBodyPairAggregateContacts      = 16u;
-constexpr std::uint32_t kRigidPairTypeCount                  = 6u;
-constexpr std::uint32_t kRigidBodyTypeStatic                 = 0u;
-constexpr std::uint32_t kRigidBodyTypeKinematic              = 1u;
-constexpr std::uint32_t kRigidBodyTypeDynamic                = 2u;
-constexpr std::uint32_t kKinematicTargetEnabled              = 1u << 0u;
-constexpr std::uint32_t kRigidJointDriveModeNone             = 0u;
-constexpr std::uint32_t kRigidJointDriveModeTargetPosition   = 1u;
-constexpr std::uint32_t kRigidJointDriveModeTargetVelocity   = 2u;
+constexpr std::uint32_t kRigidContactsPerPair                 = 4u;
+constexpr std::uint32_t kRigidBodyPairAggregateContacts       = 16u;
+constexpr std::uint32_t kRigidPairTypeCount                   = 6u;
+constexpr std::uint32_t kRigidBodyTypeStatic                  = 0u;
+constexpr std::uint32_t kRigidBodyTypeKinematic               = 1u;
+constexpr std::uint32_t kRigidBodyTypeDynamic                 = 2u;
+constexpr std::uint32_t kKinematicTargetEnabled               = 1u << 0u;
+constexpr std::uint32_t kRigidJointDriveModeNone              = 0u;
+constexpr std::uint32_t kRigidJointDriveModeTargetPosition    = 1u;
+constexpr std::uint32_t kRigidJointDriveModeTargetVelocity    = 2u;
 constexpr std::uint32_t kRigidJointDriveModeTargetOrientation = 3u;
-constexpr std::uint32_t kRigidAggregateEntryFlagInitializing = 1u << 0u;
-constexpr std::uint32_t kRigidAggregateEntryFlagReady        = 1u << 1u;
-constexpr std::uint32_t kRigidInvalidAggregateIndex          = 0xffffffffu;
+constexpr std::uint32_t kRigidAggregateEntryFlagInitializing  = 1u << 0u;
+constexpr std::uint32_t kRigidAggregateEntryFlagReady         = 1u << 1u;
+constexpr std::uint32_t kRigidInvalidAggregateIndex           = 0xffffffffu;
 
 static_assert(static_cast<std::uint32_t>(RigidBodyType::Static) == kRigidBodyTypeStatic);
 static_assert(static_cast<std::uint32_t>(RigidBodyType::Kinematic) == kRigidBodyTypeKinematic);
@@ -124,14 +124,14 @@ struct GpuRigidParticleAttachmentConstraint
 
 struct GpuStrandRigidAttachmentConstraint
 {
-    std::uint32_t segmentIndex          = 0u;
-    std::uint32_t rigidBodyIndex        = 0u;
-    float segmentT                      = 0.0f;
-    float translationCompliance         = 0.0f;
-    float rotationCompliance            = 0.0f;
-    std::uint32_t reserved0             = 0u;
-    std::uint32_t reserved1             = 0u;
-    std::uint32_t reserved2             = 0u;
+    std::uint32_t segmentIndex   = 0u;
+    std::uint32_t rigidBodyIndex = 0u;
+    float segmentT               = 0.0f;
+    float translationCompliance  = 0.0f;
+    float rotationCompliance     = 0.0f;
+    std::uint32_t reserved0      = 0u;
+    std::uint32_t reserved1      = 0u;
+    std::uint32_t reserved2      = 0u;
     Diligent::float4 localAnchor{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localRotation{0.0f, 0.0f, 0.0f, 1.0f};
 };

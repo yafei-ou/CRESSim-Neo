@@ -238,22 +238,21 @@ graphics::GpuSoftBodyVertexBinding makeExactSoftBodyVertexBinding(
     std::uint32_t particleIndex) noexcept
 {
     graphics::GpuSoftBodyVertexBinding binding{};
-    binding.particleIndices = Diligent::uint4{particleIndex, particleIndex, particleIndex,
-                                              particleIndex};
-    binding.weights         = Diligent::float4{1.0f, 0.0f, 0.0f, 0.0f};
+    binding.particleIndices =
+        Diligent::uint4{particleIndex, particleIndex, particleIndex, particleIndex};
+    binding.weights = Diligent::float4{1.0f, 0.0f, 0.0f, 0.0f};
     return binding;
 }
 
 graphics::GpuSoftBodyVertexBinding makeNearestParticleSkinBinding(
     const Diligent::float3 &visualVertexLocal,
-    const std::vector<Diligent::float3> &restPositionsLocal,
-    std::uint32_t particleOffset) noexcept
+    const std::vector<Diligent::float3> &restPositionsLocal, std::uint32_t particleOffset) noexcept
 {
     struct Candidate
     {
-        float distanceSq          = std::numeric_limits<float>::max();
-        std::uint32_t localIndex  = 0u;
-        bool valid                = false;
+        float distanceSq         = std::numeric_limits<float>::max();
+        std::uint32_t localIndex = 0u;
+        bool valid               = false;
     };
 
     std::array<Candidate, 4u> nearest{};
@@ -291,7 +290,7 @@ graphics::GpuSoftBodyVertexBinding makeNearestParticleSkinBinding(
     }
 
     std::array<float, 4u> rawWeights{};
-    float weightSum = 0.0f;
+    float weightSum                  = 0.0f;
     constexpr float kDistanceEpsilon = 1.0e-6f;
     for (std::size_t slot = 0u; slot < nearest.size(); ++slot)
     {
@@ -1222,7 +1221,8 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
     return true;
 }
 
-bool World::setMeshfreeSoftBody(common::EntityId entityId, const MeshfreeSoftBodyComponent &component)
+bool World::setMeshfreeSoftBody(common::EntityId entityId,
+                                const MeshfreeSoftBodyComponent &component)
 {
     if (entityId == common::kInvalidEntityId)
     {
@@ -1257,16 +1257,16 @@ bool World::setMeshfreeSoftBody(common::EntityId entityId, const MeshfreeSoftBod
     state.source.meshfreeParticles.surfaceTriangles      = component.surfaceTriangles;
     state.source.meshfreeParticles.staticParticleIndices = component.staticParticleIndices;
     state.source.meshfreeParticles.neighbourCount        = component.neighbourCount;
-    state.material             = component.material;
-    state.restTransform        = transform.worldTransform;
-    state.particleMass         = component.particleMass;
-    state.particleRadius       = component.particleRadius;
-    state.edgeCompliance       = component.compliance;
-    state.volumeCompliance     = 0.0f;
-    state.simulated            = component.simulated;
-    state.selfCollisionEnabled = component.selfCollisionEnabled;
-    state.collisionLayer       = component.collisionLayer;
-    state.collisionMask        = component.collisionMask;
+    state.material                                       = component.material;
+    state.restTransform                                  = transform.worldTransform;
+    state.particleMass                                   = component.particleMass;
+    state.particleRadius                                 = component.particleRadius;
+    state.edgeCompliance                                 = component.compliance;
+    state.volumeCompliance                               = 0.0f;
+    state.simulated                                      = component.simulated;
+    state.selfCollisionEnabled                           = component.selfCollisionEnabled;
+    state.collisionLayer                                 = component.collisionLayer;
+    state.collisionMask                                  = component.collisionMask;
 
     if (!mPhysicsWorld.upsertSoftBody(state))
     {
@@ -1317,13 +1317,13 @@ bool World::setStrand(common::EntityId entityId, const StrandComponent &componen
     }
 
     physics::StrandState state{};
-    state.entityId              = entityId;
-    state.environmentIndex      = entityEnvironment(entityId);
-    state.material              = component.material;
-    state.restPositions         = component.restPositions;
-    state.staticParticleIndices = component.staticParticleIndices;
-    state.particleMass          = component.particleMass;
-    state.particleRadius        = component.particleRadius;
+    state.entityId               = entityId;
+    state.environmentIndex       = entityEnvironment(entityId);
+    state.material               = component.material;
+    state.restPositions          = component.restPositions;
+    state.staticParticleIndices  = component.staticParticleIndices;
+    state.particleMass           = component.particleMass;
+    state.particleRadius         = component.particleRadius;
     state.stretchShearCompliance = component.stretchShearCompliance;
     state.bendCompliance         = component.bendCompliance;
     state.twistCompliance        = component.twistCompliance;
@@ -1424,9 +1424,8 @@ bool World::upsertRigidDistanceConstraint(
     return mPhysicsWorld.upsertRigidDistanceConstraint(state, outAuthored);
 }
 
-bool World::upsertRoutedCableConstraint(
-    const physics::AuthoredRoutedCableConstraintState &state,
-    physics::AuthoredRoutedCableConstraintState *outAuthored)
+bool World::upsertRoutedCableConstraint(const physics::AuthoredRoutedCableConstraintState &state,
+                                        physics::AuthoredRoutedCableConstraintState *outAuthored)
 {
     return mPhysicsWorld.upsertRoutedCableConstraint(state, outAuthored);
 }
@@ -2045,11 +2044,11 @@ std::optional<StrandComponent> World::tryGetStrand(common::EntityId entityId) co
     }
 
     StrandComponent component{};
-    component.material              = strand->material;
-    component.restPositions         = strand->restPositions;
-    component.staticParticleIndices = strand->staticParticleIndices;
-    component.particleMass          = strand->particleMass;
-    component.particleRadius        = strand->particleRadius;
+    component.material               = strand->material;
+    component.restPositions          = strand->restPositions;
+    component.staticParticleIndices  = strand->staticParticleIndices;
+    component.particleMass           = strand->particleMass;
+    component.particleRadius         = strand->particleRadius;
     component.stretchShearCompliance = strand->stretchShearCompliance;
     component.bendCompliance         = strand->bendCompliance;
     component.twistCompliance        = strand->twistCompliance;
@@ -2099,16 +2098,16 @@ const physics::AuthoredParticleDistanceConstraintState *World::tryGetParticleDis
     return mPhysicsWorld.tryGetParticleDistanceConstraint(constraintId);
 }
 
-const physics::AuthoredRigidParticleAttachmentConstraintState *
-World::tryGetRigidParticleAttachmentConstraint(
-    physics::RigidParticleAttachmentConstraintId constraintId) const noexcept
+const physics::AuthoredRigidParticleAttachmentConstraintState *World::
+    tryGetRigidParticleAttachmentConstraint(
+        physics::RigidParticleAttachmentConstraintId constraintId) const noexcept
 {
     return mPhysicsWorld.tryGetRigidParticleAttachmentConstraint(constraintId);
 }
 
-const physics::AuthoredStrandRigidAttachmentConstraintState *
-World::tryGetStrandRigidAttachmentConstraint(
-    physics::StrandRigidAttachmentConstraintId constraintId) const noexcept
+const physics::AuthoredStrandRigidAttachmentConstraintState *World::
+    tryGetStrandRigidAttachmentConstraint(
+        physics::StrandRigidAttachmentConstraintId constraintId) const noexcept
 {
     return mPhysicsWorld.tryGetStrandRigidAttachmentConstraint(constraintId);
 }

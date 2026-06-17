@@ -70,9 +70,9 @@ public:
     bool upsertRigidDistanceConstraint(
         const physics::AuthoredRigidDistanceConstraintState &state,
         physics::AuthoredRigidDistanceConstraintState *outAuthored = nullptr);
-    bool upsertRoutedCableConstraint(const physics::AuthoredRoutedCableConstraintState &state,
-                                     physics::AuthoredRoutedCableConstraintState *outAuthored =
-                                         nullptr);
+    bool upsertRoutedCableConstraint(
+        const physics::AuthoredRoutedCableConstraintState &state,
+        physics::AuthoredRoutedCableConstraintState *outAuthored = nullptr);
     physics::AuthoredParticleCollisionFilterState &upsertParticleCollisionFilter(
         const physics::AuthoredParticleCollisionFilterState &state);
     physics::AuthoredSuturingSequenceState &upsertSuturingSequence(
