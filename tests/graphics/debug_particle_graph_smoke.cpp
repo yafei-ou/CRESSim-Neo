@@ -95,8 +95,34 @@ bool uploadPhysicsScene(cressim::neo::physics::PhysicsSceneGpuState &sceneState,
     const auto &softRenderData        = physicsWorld.softRenderData();
     const auto &curveRenderData       = physicsWorld.curveRenderData();
     const auto &rigidJoints           = physicsWorld.rigidJointScene();
+    const auto &strandSegments        = physicsWorld.strandSegments();
+    const auto &strandJoints          = physicsWorld.strandJoints();
+    const auto &strandDistanceConstraints = physicsWorld.strandDistanceConstraints();
+    const auto &rigidParticleAttachments   = physicsWorld.rigidParticleAttachments();
+    const auto &strandRigidAttachments     = physicsWorld.strandRigidAttachments();
+    const auto &rigidDistanceConstraints   = physicsWorld.rigidDistanceConstraints();
+    const auto &routedCableConstraints     = physicsWorld.routedCableConstraints();
+    const auto &routedCableRoutePoints     = physicsWorld.routedCableRoutePoints();
     const std::uint32_t bodyCount     = physicsWorld.rigidBodyCount();
     const std::uint32_t colliderCount = physicsWorld.colliderCount();
+    std::uint32_t routedCableDebugSegmentCount = 0u;
+    for (const auto &constraint : routedCableConstraints)
+    {
+        if (constraint.routePointCount > 1u)
+        {
+            routedCableDebugSegmentCount += constraint.routePointCount - 1u;
+        }
+    }
+    const std::uint32_t curveRenderVertexCount = [&curveRenderData]()
+    {
+        std::uint32_t totalVertexCount = 0u;
+        for (const auto &descriptor : curveRenderData.descriptors)
+        {
+            totalVertexCount =
+                std::max(totalVertexCount, descriptor.vertexBase + descriptor.vertexCount);
+        }
+        return totalVertexCount;
+    }();
 
     const Diligent::Uint64 sharedContextMask =
         cressim::neo::gpu::contextMaskForId(computeBackend.contextId) |
@@ -113,9 +139,16 @@ bool uploadPhysicsScene(cressim::neo::physics::PhysicsSceneGpuState &sceneState,
             static_cast<std::uint32_t>(softEdges.size()),
             static_cast<std::uint32_t>(softBends.size()),
             static_cast<std::uint32_t>(softTets.size()),
+            static_cast<std::uint32_t>(strandSegments.size()),
+            static_cast<std::uint32_t>(strandJoints.size()),
+            static_cast<std::uint32_t>(strandDistanceConstraints.size()),
             static_cast<std::uint32_t>(rigidJoints.ball.size()),
+            static_cast<std::uint32_t>(rigidJoints.spherical.size()),
             static_cast<std::uint32_t>(rigidJoints.hinge.size()),
             static_cast<std::uint32_t>(rigidJoints.slider.size()),
+            static_cast<std::uint32_t>(rigidParticleAttachments.size()),
+            static_cast<std::uint32_t>(strandRigidAttachments.size()),
+            static_cast<std::uint32_t>(rigidDistanceConstraints.size()),
             static_cast<std::uint32_t>(softRenderData.fallbackNormals.size()),
             static_cast<std::uint32_t>(softRenderData.vertexTriangleIndices.size()),
             static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size()),
@@ -125,9 +158,12 @@ bool uploadPhysicsScene(cressim::neo::physics::PhysicsSceneGpuState &sceneState,
             static_cast<std::uint32_t>(physicsWorld.suturingPairs().size()),
             physicsWorld.reservedSuturingPathHeaderCount(),
             physicsWorld.reservedSuturingPathNodeCount(),
+            static_cast<std::uint32_t>(routedCableConstraints.size()),
+            static_cast<std::uint32_t>(routedCableRoutePoints.size()),
+            routedCableDebugSegmentCount,
             static_cast<std::uint32_t>(curveRenderData.descriptors.size()),
             static_cast<std::uint32_t>(curveRenderData.particleIndices.size()),
-            0u,
+            curveRenderVertexCount,
             sharedContextMask, sharedQueueFamilyIndices.data(), sharedQueueFamilyIndexCount,
             device.supportsNativePhysicsFloatAtomics()))
     {
