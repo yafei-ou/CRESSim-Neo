@@ -17,10 +17,8 @@ struct RenderableMetadata
 
 struct SoftBodyVertexBinding
 {
-    uint particleIndex;
-    uint reserved0;
-    uint reserved1;
-    uint reserved2;
+    uint4 particleIndices;
+    float4 weights;
 };
 
 struct SoftBodyWorldAabb
@@ -163,8 +161,7 @@ CRESSIM_STRUCTURED_BUFFER(BatchCameraMetadata, g_BatchCameras);
 CRESSIM_STRUCTURED_BUFFER(uint, g_VisibleObjectIndices);
 CRESSIM_STRUCTURED_BUFFER(VisiblePairInstance, g_VisiblePairs);
 #if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
-CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositions);
-CRESSIM_STRUCTURED_BUFFER(SoftBodyVertexBinding, g_SoftBodyVertexBindings);
+CRESSIM_STRUCTURED_BUFFER(float4, g_SoftBodyRenderPositions);
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftBodyVertexNormals);
 #endif
 #if defined(CRESSIM_PROGRAM_FAMILY_CURVE)

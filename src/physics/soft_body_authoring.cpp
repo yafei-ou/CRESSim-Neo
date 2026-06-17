@@ -7,6 +7,7 @@
 #include <set>
 #include <sstream>
 #include <unordered_map>
+#include <utility>
 
 namespace cressim::neo::physics
 {
@@ -175,6 +176,62 @@ bool buildRegularGridSource(const SoftBodyRegularGridSource &source, TetMeshData
     return true;
 }
 
+void buildMeshfreeKNearestGraph(const std::vector<Diligent::float3> &restPositions,
+                                std::uint32_t neighbourCount,
+                                ResolvedSoftBodyTopology &outTopology)
+{
+    const std::uint32_t particleCount = static_cast<std::uint32_t>(restPositions.size());
+    if (particleCount < 2u)
+    {
+        return;
+    }
+
+    neighbourCount = std::min(neighbourCount, particleCount - 1u);
+    std::set<std::uint64_t> uniqueEdges;
+    std::vector<std::pair<float, std::uint32_t>> nearest;
+    nearest.reserve(particleCount - 1u);
+
+    for (std::uint32_t particleIndex = 0u; particleIndex < particleCount; ++particleIndex)
+    {
+        nearest.clear();
+        const Diligent::float3 &position = restPositions[particleIndex];
+        for (std::uint32_t candidateIndex = 0u; candidateIndex < particleCount; ++candidateIndex)
+        {
+            if (candidateIndex == particleIndex)
+            {
+                continue;
+            }
+
+            const Diligent::float3 delta = restPositions[candidateIndex] - position;
+            nearest.emplace_back(Diligent::dot(delta, delta), candidateIndex);
+        }
+
+        std::sort(nearest.begin(), nearest.end(),
+            [](const auto &lhs, const auto &rhs)
+            {
+                if (lhs.first != rhs.first)
+                {
+                    return lhs.first < rhs.first;
+                }
+                return lhs.second < rhs.second;
+            }
+        );
+
+        for (std::uint32_t neighbourSlot = 0u; neighbourSlot < neighbourCount; ++neighbourSlot)
+        {
+            const std::uint32_t neighbourIndex = nearest[neighbourSlot].second;
+            outTopology.adjacencyLists[particleIndex].push_back(neighbourIndex);
+            outTopology.adjacencyLists[neighbourIndex].push_back(particleIndex);
+
+            if (uniqueEdges.insert(sortedEdgeKey(particleIndex, neighbourIndex)).second)
+            {
+                outTopology.edges.push_back({std::min(particleIndex, neighbourIndex),
+                                             std::max(particleIndex, neighbourIndex)});
+            }
+        }
+    }
+}
+
 } // namespace
 
 bool resolveSoftBodyTopology(const SoftBodyState &state, const TetMeshData *tetGenCache,
@@ -210,6 +267,11 @@ bool resolveSoftBodyTopology(const SoftBodyState &state, const TetMeshData *tetG
         sourceMesh.tetVertexIndices         = tetGenCache->tetVertexIndices;
         staticParticleIndices               = &state.source.tetGen.staticParticleIndices;
         break;
+    case SoftBodySourceKind::MeshfreeParticles:
+        sourceMesh.objectSpaceRestPositions =
+            state.source.meshfreeParticles.particleRestPositions;
+        staticParticleIndices = &state.source.meshfreeParticles.staticParticleIndices;
+        break;
     }
 
     if (sourceMesh.objectSpaceRestPositions.empty())
@@ -217,12 +279,13 @@ bool resolveSoftBodyTopology(const SoftBodyState &state, const TetMeshData *tetG
         errorMessage = "Soft body source does not contain any rest positions.";
         return false;
     }
-    if (sourceMesh.tetVertexIndices.empty())
+    const bool meshfreeSource = state.source.kind == SoftBodySourceKind::MeshfreeParticles;
+    if (!meshfreeSource && sourceMesh.tetVertexIndices.empty())
     {
         errorMessage = "Soft body source does not contain any tetrahedra.";
         return false;
     }
-    if ((sourceMesh.tetVertexIndices.size() % 4u) != 0u)
+    if (!meshfreeSource && (sourceMesh.tetVertexIndices.size() % 4u) != 0u)
     {
         errorMessage = "Soft body tetrahedron index buffer size must be divisible by 4.";
         return false;
@@ -238,6 +301,23 @@ bool resolveSoftBodyTopology(const SoftBodyState &state, const TetMeshData *tetG
     const std::uint32_t particleCount =
         static_cast<std::uint32_t>(outTopology.restPositions.size());
     outTopology.adjacencyLists.resize(particleCount);
+
+    if (meshfreeSource)
+    {
+        buildMeshfreeKNearestGraph(outTopology.restPositions,
+                                   state.source.meshfreeParticles.neighbourCount, outTopology);
+
+        if (staticParticleIndices != nullptr)
+        {
+            outTopology.staticParticleIndices =
+                normalizedStaticParticleIndices(*staticParticleIndices, particleCount, errorMessage);
+            if (!errorMessage.empty())
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 
     std::set<std::uint64_t> uniqueEdges;
     struct BoundaryFaceEntry

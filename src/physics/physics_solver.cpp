@@ -939,6 +939,13 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 "PhysicsSolver::step failed: SolveParticleRigidContactVelocities dispatch.");
             return false;
         }
+        if (!mImpl->passDispatcher.skinSoftRenderVertices(
+                computeBackend.computeContext, mImpl->sceneState,
+                static_cast<std::uint32_t>(softRenderData.vertexBindings.size())))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SkinSoftRenderVertices dispatch.");
+            return false;
+        }
         if (!mImpl->passDispatcher.updateSoftTriangleNormals(
                 computeBackend.computeContext, mImpl->sceneState, softRenderTriangleCount))
         {

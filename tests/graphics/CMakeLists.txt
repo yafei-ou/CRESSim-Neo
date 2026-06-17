@@ -69,3 +69,11 @@ add_cressim_test(
     SOURCE fluid_transparent_smoke.cpp
     LIBS cressim_neo_engine
 )
+
+add_cressim_test(
+    SUITE graphics
+    NAME debug_particle_graph_smoke
+    SOURCE debug_particle_graph_smoke.cpp
+    INCLUDE_SRC
+    LIBS cressim_neo_engine
+)

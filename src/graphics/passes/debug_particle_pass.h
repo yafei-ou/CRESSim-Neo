@@ -40,6 +40,8 @@ private:
     struct DrawConstants
     {
         Diligent::float4 color{0.2f, 0.8f, 1.0f, 1.0f};
+        Diligent::float4 staticColor{1.0f, 0.18f, 0.08f, 1.0f};
+        Diligent::float4 edgeColor{1.0f, 0.86f, 0.18f, 1.0f};
         std::uint32_t cameraIndex = 0u;
         std::uint32_t targetLayer = 0u;
         std::uint32_t envIndex    = 0u;
@@ -69,7 +71,15 @@ private:
     bool ensureConstants(Diligent::IRenderDevice *renderDevice);
     Diligent::IPipelineState *getOrCreatePipeline(Diligent::IRenderDevice *renderDevice,
                                                   const PipelineKey &key);
+    Diligent::IPipelineState *getOrCreateEdgePipeline(Diligent::IRenderDevice *renderDevice,
+                                                      const PipelineKey &key);
     Diligent::IShaderResourceBinding *getOrCreateBinding(Diligent::IPipelineState *pipeline);
+    bool drawConstraintEdges(const gpu::GpuRenderTargetDesc &targetDesc,
+                             const GpuEntitySceneView &gpuScene,
+                             const cressim::neo::physics::PhysicsGpuSceneView &physicsScene,
+                             Diligent::IRenderDevice *renderDevice,
+                             Diligent::IDeviceContext *graphicsContext,
+                             const DrawConstants &constants);
 
     gpu::GpuDevice &mDevice;
     bool mInitialized = false;
@@ -78,6 +88,9 @@ private:
     std::unordered_map<PipelineKey, Diligent::RefCntAutoPtr<Diligent::IPipelineState>,
                        PipelineKeyHasher>
         mPipelines;
+    std::unordered_map<PipelineKey, Diligent::RefCntAutoPtr<Diligent::IPipelineState>,
+                       PipelineKeyHasher>
+        mEdgePipelines;
     std::unordered_map<Diligent::IPipelineState *,
                        Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>>
         mBindings;

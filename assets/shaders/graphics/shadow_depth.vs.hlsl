@@ -55,11 +55,9 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
             if (metadata.deformVertexBase != CRESSIM_INVALID_DEFORM_VERTEX_BASE &&
                 vertexId < metadata.deformVertexCount)
             {
-                const SoftBodyVertexBinding binding =
-                    CRESSIM_SB_LOAD(g_SoftBodyVertexBindings,
-                                    metadata.deformVertexBase + vertexId);
-                worldPos = float4(CRESSIM_SB_LOAD(g_ParticlePositions, binding.particleIndex).xyz,
-                                  1.0);
+                const float3 deformedPos =
+                    CRESSIM_SB_LOAD(g_SoftBodyRenderPositions, metadata.deformVertexBase + vertexId).xyz;
+                worldPos = float4(deformedPos, 1.0);
             }
 #elif defined(CRESSIM_PROGRAM_FAMILY_CURVE)
             const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
@@ -109,9 +107,9 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
     if (metadata.deformVertexBase != CRESSIM_INVALID_DEFORM_VERTEX_BASE &&
         vertexId < metadata.deformVertexCount)
     {
-        const SoftBodyVertexBinding binding =
-            CRESSIM_SB_LOAD(g_SoftBodyVertexBindings, metadata.deformVertexBase + vertexId);
-        worldPos = float4(CRESSIM_SB_LOAD(g_ParticlePositions, binding.particleIndex).xyz, 1.0);
+        const float3 deformedPos =
+            CRESSIM_SB_LOAD(g_SoftBodyRenderPositions, metadata.deformVertexBase + vertexId).xyz;
+        worldPos = float4(deformedPos, 1.0);
     }
 #elif defined(CRESSIM_PROGRAM_FAMILY_CURVE)
     const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);

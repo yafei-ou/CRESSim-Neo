@@ -95,11 +95,10 @@ static_assert(sizeof(GpuRenderableMetadata) == 64u);
 
 struct GpuSoftBodyVertexBinding
 {
-    std::uint32_t particleIndex = 0u;
-    std::uint32_t reserved0     = 0u;
-    std::uint32_t reserved1     = 0u;
-    std::uint32_t reserved2     = 0u;
+    Diligent::uint4 particleIndices{0u, 0u, 0u, 0u};
+    Diligent::float4 weights{1.0f, 0.0f, 0.0f, 0.0f};
 };
+static_assert(sizeof(GpuSoftBodyVertexBinding) == 32u);
 
 struct GpuRenderableQueueInfo
 {

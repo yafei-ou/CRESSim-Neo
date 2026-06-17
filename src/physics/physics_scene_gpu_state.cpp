@@ -985,6 +985,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftTopology.renderVertexTriangleIndicesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRenderVertexBindings",
+                                sizeof(SoftRenderVertexBinding),
+                                newSoftRenderVertexCapacity, Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSoftTopology.renderVertexBindingsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRenderTriangleParticles",
                                 sizeof(Diligent::uint4), newSoftRenderTriangleCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -1015,6 +1020,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftTopology.softBodyFallbackNormalsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRenderPositions",
+                                sizeof(Diligent::float4), newSoftRenderVertexCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentSoftTopology.softBodyRenderPositionsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftRenderNormals",
                                 sizeof(Diligent::float4), newSoftRenderVertexCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -2654,6 +2664,8 @@ bool PhysicsSceneGpuState::uploadSoftTopology(
         softRenderData.softBodyParticleRanges.size());
     std::vector<GpuSoftBodyChunkRange> softBodyChunkRanges(
         softRenderData.softBodyParticleRanges.size());
+    std::vector<Diligent::float4> initialRenderPositions(softRenderData.vertexBindings.size(),
+                                                         Diligent::float4{});
     std::vector<GpuSoftBodyBoundsChunk> softBodyBoundsChunks;
     for (std::size_t i = 0; i < softRenderData.softBodyParticleRanges.size(); ++i)
     {
@@ -2707,6 +2719,10 @@ bool PhysicsSceneGpuState::uploadSoftTopology(
                softRenderData.vertexTriangleIndices, 0u,
                static_cast<std::uint32_t>(softRenderData.vertexTriangleIndices.size())) &&
            updateStructuredBufferRange(
+               computeContext, mPersistentSoftTopology.renderVertexBindingsBuffer,
+               softRenderData.vertexBindings, 0u,
+               static_cast<std::uint32_t>(softRenderData.vertexBindings.size())) &&
+           updateStructuredBufferRange(
                computeContext, mPersistentSoftTopology.renderTriangleParticleIndicesBuffer,
                softRenderData.triangleParticleIndices, 0u,
                static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size())) &&
@@ -2724,6 +2740,10 @@ bool PhysicsSceneGpuState::uploadSoftTopology(
                computeContext, mPersistentSoftTopology.softBodyFallbackNormalsBuffer,
                softRenderData.fallbackNormals, 0u,
                static_cast<std::uint32_t>(softRenderData.fallbackNormals.size())) &&
+           updateStructuredBufferRange(
+               computeContext, mPersistentSoftTopology.softBodyRenderPositionsBuffer,
+               initialRenderPositions, 0u,
+               static_cast<std::uint32_t>(initialRenderPositions.size())) &&
            updateStructuredBufferRange(
                computeContext, mPersistentSoftTopology.softBodyRenderNormalsBuffer,
                softRenderData.fallbackNormals, 0u,
@@ -3380,6 +3400,7 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.soft.suturingInsertionStatesBuffer    = mPersistentSuturing.insertionStatesBuffer;
     view.soft.suturingPathHeadersBuffer        = mPersistentSuturing.pathHeadersBuffer;
     view.soft.suturingPathNodesBuffer          = mPersistentSuturing.pathNodesBuffer;
+    view.soft.renderPositionsBuffer   = mPersistentSoftTopology.softBodyRenderPositionsBuffer;
     view.soft.renderNormalsBuffer     = mPersistentSoftTopology.softBodyRenderNormalsBuffer;
     view.soft.worldAabbsBuffer        = mPersistentSoftTopology.softBodyWorldAabbsBuffer;
     view.soft.softBodyCount           = mSoftBodyCount;

@@ -64,9 +64,10 @@ enum class RigidJointDriveMode : std::uint32_t
 
 enum class SoftBodySourceKind : std::uint32_t
 {
-    RegularGrid = 0u,
-    TetMesh     = 1u,
-    TetGenFiles = 2u,
+    RegularGrid       = 0u,
+    TetMesh           = 1u,
+    TetGenFiles       = 2u,
+    MeshfreeParticles = 3u,
 };
 
 enum class FluidSourceKind : std::uint32_t
@@ -187,12 +188,23 @@ struct SoftBodyTetGenSource
     std::vector<std::uint32_t> staticParticleIndices;
 };
 
+struct SoftBodyMeshfreeParticleSource
+{
+    std::vector<Diligent::float3> particleRestPositions;
+    std::vector<Diligent::float3> surfaceRestPositions;
+    std::vector<Diligent::float3> surfaceNormals;
+    std::vector<Diligent::uint3> surfaceTriangles;
+    std::vector<std::uint32_t> staticParticleIndices;
+    std::uint32_t neighbourCount = 12u;
+};
+
 struct SoftBodySourceDesc
 {
     SoftBodySourceKind kind = SoftBodySourceKind::RegularGrid;
     SoftBodyRegularGridSource regularGrid;
     SoftBodyTetMeshSource tetMesh;
     SoftBodyTetGenSource tetGen;
+    SoftBodyMeshfreeParticleSource meshfreeParticles;
 };
 
 struct FluidRegularGridSource
@@ -851,8 +863,15 @@ struct SoftRenderVertexTriangleRange
     std::uint32_t reserved1 = 0u;
 };
 
+struct SoftRenderVertexBinding
+{
+    Diligent::uint4 particleIndices{0u, 0u, 0u, 0u};
+    Diligent::float4 weights{1.0f, 0.0f, 0.0f, 0.0f};
+};
+
 struct SoftRenderDataHost
 {
+    std::vector<SoftRenderVertexBinding> vertexBindings;
     std::vector<Diligent::float4> fallbackNormals;
     std::vector<SoftRenderVertexTriangleRange> vertexTriangleRanges;
     std::vector<std::uint32_t> vertexTriangleIndices;
@@ -861,6 +880,7 @@ struct SoftRenderDataHost
 
     void clear()
     {
+        vertexBindings.clear();
         fallbackNormals.clear();
         vertexTriangleRanges.clear();
         vertexTriangleIndices.clear();

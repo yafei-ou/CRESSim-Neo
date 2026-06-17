@@ -239,6 +239,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mSolveParticleContactVelocitiesPass, kSolveParticleContactVelocities) ||
         !initPass(mSolveParticleRigidContactVelocitiesPass, kSolveParticleRigidContactVelocities) ||
         !initPass(mApplyParticleContactVelocitiesPass, kApplyParticleContactVelocities) ||
+        !initPass(mSkinSoftRenderVerticesPass, kSkinSoftRenderVertices) ||
         !initPass(mUpdateSoftTriangleNormalsPass, kUpdateSoftTriangleNormals) ||
         !initPass(mUpdateSoftRenderNormalsPass, kUpdateSoftRenderNormals) ||
         !initPass(mUpdateCurveRenderDataPass, kUpdateCurveRenderData) ||
@@ -2865,6 +2866,37 @@ bool PhysicsPassDispatcher::solveParticleRigidContactVelocities(
     }
 
     return true;
+}
+
+bool PhysicsPassDispatcher::skinSoftRenderVertices(Diligent::IDeviceContext *computeContext,
+                                                   const PhysicsSceneGpuState &sceneState,
+                                                   std::uint32_t renderVertexCount)
+{
+    if (renderVertexCount == 0u)
+    {
+        return true;
+    }
+
+    const GpuSoftRenderDispatchConstants constants{renderVertexCount, 0u, 0u, 0u};
+    const auto &softParticles = sceneState.persistentParticles();
+    const auto &softTopology  = sceneState.persistentSoftTopology();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsSoftRenderDispatchConstantsBuffer",
+                              mSoftRenderDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftRenderVertexBindings",
+                              softTopology.renderVertexBindingsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SoftBodyRenderPositionsRW",
+                              softTopology.softBodyRenderPositionsBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    return writeSoftRenderDispatchConstants(computeContext, constants) &&
+           mSkinSoftRenderVerticesPass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                dispatchGroupCount(renderVertexCount));
 }
 
 bool PhysicsPassDispatcher::updateSoftTriangleNormals(Diligent::IDeviceContext *computeContext,
