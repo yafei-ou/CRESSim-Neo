@@ -2202,6 +2202,10 @@ bool PhysicsSceneGpuState::ensureCapacity(
     mRigidJointUploadResetRequired   = true;
     mSoftParticleUploadResetRequired = true;
     mSoftTopologyUploadResetRequired = true;
+    mRigidParticleAttachmentGpuDirty = true;
+    mStrandRigidAttachmentGpuDirty   = true;
+    mRigidDistanceConstraintGpuDirty = true;
+    mRoutedCableGpuDirty             = true;
     return true;
 }
 
@@ -2248,21 +2252,16 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
     const std::uint32_t suturingPathHeaderCount     = world.reservedSuturingPathHeaderCount();
     const std::uint32_t suturingPathNodeCount       = world.reservedSuturingPathNodeCount();
     const std::uint64_t softParticleRevision        = world.softParticleRevision();
-    const std::uint64_t softTopologyRevision        = world.softGpuTopologyRevision();
-    const std::uint64_t rigidParticleAttachmentRevision =
-        world.rigidParticleAttachmentRevision();
-    const std::uint64_t rigidParticleAttachmentTopologyRevision =
-        world.rigidParticleAttachmentTopologyRevision();
-    const std::uint64_t strandRigidAttachmentRevision =
-        world.strandRigidAttachmentRevision();
-    const std::uint64_t strandRigidAttachmentTopologyRevision =
-        world.strandRigidAttachmentTopologyRevision();
-    const std::uint64_t rigidDistanceConstraintRevision =
-        world.rigidDistanceConstraintRevision();
-    const std::uint64_t rigidDistanceConstraintTopologyRevision =
-        world.rigidDistanceConstraintTopologyRevision();
-    const std::uint64_t routedCableRevision         = world.routedCableRevision();
-    const std::uint64_t routedCableTopologyRevision = world.routedCableTopologyRevision();
+    const std::uint64_t softTopologyRevision        = world.softTopologyRevision();
+    const std::uint64_t softConstraintAdjacencyRevision =
+        world.softConstraintAdjacencyRevision();
+    const std::uint64_t rigidParticleAttachmentResolvedRevision =
+        world.rigidParticleAttachmentResolvedRevision();
+    const std::uint64_t strandRigidAttachmentResolvedRevision =
+        world.strandRigidAttachmentResolvedRevision();
+    const std::uint64_t rigidDistanceConstraintResolvedRevision =
+        world.rigidDistanceConstraintResolvedRevision();
+    const std::uint64_t routedCableResolvedRevision = world.routedCableResolvedRevision();
     const std::uint64_t curveRenderRevision         = world.curveRenderRevision();
     if (static_cast<std::uint32_t>(rigidBodies.size()) != bodyCount ||
         static_cast<std::uint32_t>(colliders.size()) != colliderCount)
@@ -2276,40 +2275,14 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
         distanceConstraints.empty() && bendConstraints.empty() && volumeConstraints.empty() &&
         strandSegments.empty() && strandJoints.empty() && strandDistanceConstraints.empty())
     {
-        mRigidBodyCount                      = 0u;
-        mColliderCount                       = 0u;
-        mBallJointCount                      = 0u;
-        mHingeJointCount                     = 0u;
-        mSliderJointCount                    = 0u;
-        mSoftBodyCount                       = 0u;
-        mSoftParticleCount                   = 0u;
-        mFluidCount                          = 0u;
-        mParticleContactMaterialCount        = 0u;
-        mFluidMaterialCount                  = 0u;
-        mSoftEdgeCount                       = 0u;
-        mSoftBendCount                       = 0u;
-        mSoftTetCount                        = 0u;
-        mStrandSegmentCount                  = 0u;
-        mStrandJointCount                    = 0u;
-        mStrandDistanceCount                 = 0u;
-        mRigidDistanceConstraintCount        = 0u;
-        mStrandRigidAttachmentCount          = 0u;
-        mRoutedCableCount                    = 0u;
-        mRoutedCableDebugSegmentCount        = 0u;
-        mSuturingPairCount                   = 0u;
-        mSuturingParticleCount               = 0u;
-        mSuturingPathHeaderCount             = 0u;
-        mSuturingPathNodeCount               = 0u;
-        mCurveRenderCount                    = 0u;
-        mHingePassiveJointCount              = 0u;
-        mHingePositionDriveJointCount        = 0u;
-        mHingeVelocityDriveJointCount        = 0u;
-        mSliderPassiveJointCount             = 0u;
-        mSliderPositionDriveJointCount       = 0u;
-        mSliderVelocityDriveJointCount       = 0u;
+        clearPublishedSceneCounts();
         mRigidJointUploadResetRequired       = true;
         mSoftParticleUploadResetRequired     = true;
         mSoftTopologyUploadResetRequired     = true;
+        mRigidParticleAttachmentGpuDirty     = true;
+        mStrandRigidAttachmentGpuDirty       = true;
+        mRigidDistanceConstraintGpuDirty     = true;
+        mRoutedCableGpuDirty                 = true;
         mLastUploadedRigidJointSceneRevision = world.rigidJointSceneRevision();
         mLastUploadedRigidJointModeRevision  = world.rigidJointModeRevision();
         world.clearRigidBodyUploadState();
@@ -2347,32 +2320,30 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
     const bool needsSoftTopologyUpload = mSoftTopologyUploadResetRequired ||
                                          mLastUploadedSoftTopologyRevision != softTopologyRevision;
     const bool needsRoutedCableUpload =
-        mSoftTopologyUploadResetRequired ||
-        mLastUploadedRoutedCableRevision != routedCableRevision ||
-        mLastUploadedRoutedCableTopologyRevision != routedCableTopologyRevision;
+        mRoutedCableGpuDirty || mLastUploadedRoutedCableResolvedRevision != routedCableResolvedRevision;
     const bool needsRigidParticleAttachmentUpload =
-        mSoftTopologyUploadResetRequired ||
-        mLastUploadedRigidParticleAttachmentRevision != rigidParticleAttachmentRevision ||
-        mLastUploadedRigidParticleAttachmentTopologyRevision !=
-            rigidParticleAttachmentTopologyRevision;
+        mRigidParticleAttachmentGpuDirty ||
+        mLastUploadedRigidParticleAttachmentResolvedRevision !=
+        rigidParticleAttachmentResolvedRevision;
     const bool needsStrandRigidAttachmentUpload =
-        mSoftTopologyUploadResetRequired ||
-        mLastUploadedStrandRigidAttachmentRevision != strandRigidAttachmentRevision ||
-        mLastUploadedStrandRigidAttachmentTopologyRevision !=
-            strandRigidAttachmentTopologyRevision;
+        mStrandRigidAttachmentGpuDirty ||
+        mLastUploadedStrandRigidAttachmentResolvedRevision !=
+        strandRigidAttachmentResolvedRevision;
     const bool needsRigidDistanceConstraintUpload =
-        mSoftTopologyUploadResetRequired ||
-        mLastUploadedRigidDistanceConstraintRevision != rigidDistanceConstraintRevision ||
-        mLastUploadedRigidDistanceConstraintTopologyRevision !=
-            rigidDistanceConstraintTopologyRevision;
+        mRigidDistanceConstraintGpuDirty ||
+        mLastUploadedRigidDistanceConstraintResolvedRevision !=
+        rigidDistanceConstraintResolvedRevision;
     const bool needsSuturingStateUpload = mSoftTopologyUploadResetRequired ||
                                           mLastUploadedSoftTopologyRevision != softTopologyRevision;
     const bool needsCurveRenderUpload =
         mSoftTopologyUploadResetRequired || mLastUploadedCurveRenderRevision != curveRenderRevision;
+    const bool needsSoftConstraintAdjacencyUpload =
+        mSoftTopologyUploadResetRequired ||
+        mLastUploadedSoftConstraintAdjacencyRevision != softConstraintAdjacencyRevision;
 
     if ((needsSoftParticleUpload && !uploadParticles(computeContext, particles, fluids,
                                                      particleContactMaterials, fluidMaterials)) ||
-        (needsSoftTopologyUpload &&
+        ((needsSoftTopologyUpload || needsSoftConstraintAdjacencyUpload) &&
          !uploadSoftTopology(computeContext, static_cast<std::uint32_t>(particles.size()),
                              softRenderData, distanceConstraints, bendConstraints,
                              volumeConstraints, strandSegments, strandJoints,
@@ -2416,10 +2387,96 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
 
     world.clearRigidBodyUploadState();
     world.clearColliderUploadState();
+    publishSceneCounts(world, bodyCount, colliderCount, fluids, particleContactMaterials,
+                       fluidMaterials, distanceConstraints, bendConstraints, volumeConstraints,
+                       strandSegments, strandJoints, strandDistanceConstraints,
+                       rigidParticleAttachments, strandRigidAttachments, rigidDistanceConstraints,
+                       routedCableConstraints, suturingPairs, suturingParticleIndices,
+                       suturingPathHeaderCount, suturingPathNodeCount, curveRenderData);
+    mRigidBodyUploadResetRequired = false;
+    mColliderUploadResetRequired  = false;
+    mSoftParticleUploadResetRequired         = false;
+    mSoftTopologyUploadResetRequired         = false;
+    mRigidParticleAttachmentGpuDirty         = false;
+    mStrandRigidAttachmentGpuDirty           = false;
+    mRigidDistanceConstraintGpuDirty         = false;
+    mRoutedCableGpuDirty                     = false;
+    mLastUploadedSoftParticleRevision        = softParticleRevision;
+    mLastUploadedSoftTopologyRevision        = softTopologyRevision;
+    mLastUploadedSoftConstraintAdjacencyRevision         = softConstraintAdjacencyRevision;
+    mLastUploadedRigidParticleAttachmentResolvedRevision =
+        rigidParticleAttachmentResolvedRevision;
+    mLastUploadedStrandRigidAttachmentResolvedRevision =
+        strandRigidAttachmentResolvedRevision;
+    mLastUploadedRigidDistanceConstraintResolvedRevision =
+        rigidDistanceConstraintResolvedRevision;
+    mLastUploadedRoutedCableResolvedRevision = routedCableResolvedRevision;
+    mLastUploadedCurveRenderRevision         = curveRenderRevision;
+    mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || world.staticBroadPhaseDirty();
+    world.clearStaticBroadPhaseDirty();
+    return true;
+}
+
+void PhysicsSceneGpuState::clearPublishedSceneCounts() noexcept
+{
+    mRigidBodyCount                = 0u;
+    mColliderCount                 = 0u;
+    mBallJointCount                = 0u;
+    mHingeJointCount               = 0u;
+    mSliderJointCount              = 0u;
+    mSoftBodyCount                 = 0u;
+    mSoftParticleCount             = 0u;
+    mFluidCount                    = 0u;
+    mParticleContactMaterialCount  = 0u;
+    mFluidMaterialCount            = 0u;
+    mSoftEdgeCount                 = 0u;
+    mSoftBendCount                 = 0u;
+    mSoftTetCount                  = 0u;
+    mStrandSegmentCount            = 0u;
+    mStrandJointCount              = 0u;
+    mStrandDistanceCount           = 0u;
+    mSuturingPairCount             = 0u;
+    mSuturingParticleCount         = 0u;
+    mSuturingPathHeaderCount       = 0u;
+    mSuturingPathNodeCount         = 0u;
+    mCurveRenderCount              = 0u;
+    mRigidParticleAttachmentCount  = 0u;
+    mStrandRigidAttachmentCount    = 0u;
+    mRigidDistanceConstraintCount  = 0u;
+    mRoutedCableCount              = 0u;
+    mRoutedCableDebugSegmentCount  = 0u;
+    mHingePassiveJointCount        = 0u;
+    mHingePositionDriveJointCount  = 0u;
+    mHingeVelocityDriveJointCount  = 0u;
+    mSliderPassiveJointCount       = 0u;
+    mSliderPositionDriveJointCount = 0u;
+    mSliderVelocityDriveJointCount = 0u;
+}
+
+void PhysicsSceneGpuState::publishSceneCounts(
+    const PhysicsWorld &world, std::uint32_t bodyCount, std::uint32_t colliderCount,
+    const std::vector<FluidState> &fluids,
+    const std::vector<Diligent::float4> &particleContactMaterials,
+    const std::vector<FluidMaterialGpu> &fluidMaterials,
+    const std::vector<DeformableDistanceConstraint> &distanceConstraints,
+    const std::vector<DeformableBendConstraint> &bendConstraints,
+    const std::vector<DeformableVolumeConstraint> &volumeConstraints,
+    const std::vector<StrandSegmentConstraint> &strandSegments,
+    const std::vector<StrandJointConstraint> &strandJoints,
+    const std::vector<StrandDistanceConstraint> &strandDistanceConstraints,
+    const std::vector<RigidParticleAttachmentConstraint> &rigidParticleAttachments,
+    const std::vector<StrandRigidAttachmentConstraint> &strandRigidAttachments,
+    const std::vector<RigidDistanceConstraint> &rigidDistanceConstraints,
+    const std::vector<RoutedCableConstraint> &routedCableConstraints,
+    const std::vector<StrandSoftSuturingPair> &suturingPairs,
+    const std::vector<std::uint32_t> &suturingParticleIndices,
+    std::uint32_t suturingPathHeaderCount, std::uint32_t suturingPathNodeCount,
+    const CurveRenderDataHost &curveRenderData) noexcept
+{
     mRigidBodyCount               = bodyCount;
     mColliderCount                = colliderCount;
     mSoftBodyCount                = world.softBodyCount();
-    mSoftParticleCount            = static_cast<std::uint32_t>(particles.size());
+    mSoftParticleCount            = static_cast<std::uint32_t>(world.particles().size());
     mFluidCount                   = static_cast<std::uint32_t>(fluids.size());
     mParticleContactMaterialCount = static_cast<std::uint32_t>(particleContactMaterials.size());
     mFluidMaterialCount           = static_cast<std::uint32_t>(fluidMaterials.size());
@@ -2441,32 +2498,11 @@ bool PhysicsSceneGpuState::uploadWorldState(Diligent::IDeviceContext *computeCon
             mRoutedCableDebugSegmentCount += constraint.routePointCount - 1u;
         }
     }
-    mSuturingPairCount            = static_cast<std::uint32_t>(suturingPairs.size());
-    mSuturingParticleCount        = static_cast<std::uint32_t>(suturingParticleIndices.size());
-    mSuturingPathHeaderCount      = suturingPathHeaderCount;
-    mSuturingPathNodeCount        = suturingPathNodeCount;
-    mCurveRenderCount             = static_cast<std::uint32_t>(curveRenderData.descriptors.size());
-    mRigidBodyUploadResetRequired = false;
-    mColliderUploadResetRequired  = false;
-    mSoftParticleUploadResetRequired         = false;
-    mSoftTopologyUploadResetRequired         = false;
-    mLastUploadedSoftParticleRevision        = softParticleRevision;
-    mLastUploadedSoftTopologyRevision        = softTopologyRevision;
-    mLastUploadedRigidParticleAttachmentRevision         = rigidParticleAttachmentRevision;
-    mLastUploadedRigidParticleAttachmentTopologyRevision =
-        rigidParticleAttachmentTopologyRevision;
-    mLastUploadedStrandRigidAttachmentRevision         = strandRigidAttachmentRevision;
-    mLastUploadedStrandRigidAttachmentTopologyRevision =
-        strandRigidAttachmentTopologyRevision;
-    mLastUploadedRigidDistanceConstraintRevision         = rigidDistanceConstraintRevision;
-    mLastUploadedRigidDistanceConstraintTopologyRevision =
-        rigidDistanceConstraintTopologyRevision;
-    mLastUploadedRoutedCableRevision         = routedCableRevision;
-    mLastUploadedRoutedCableTopologyRevision = routedCableTopologyRevision;
-    mLastUploadedCurveRenderRevision         = curveRenderRevision;
-    mStaticBroadPhaseDirty = mStaticBroadPhaseDirty || world.staticBroadPhaseDirty();
-    world.clearStaticBroadPhaseDirty();
-    return true;
+    mSuturingPairCount       = static_cast<std::uint32_t>(suturingPairs.size());
+    mSuturingParticleCount   = static_cast<std::uint32_t>(suturingParticleIndices.size());
+    mSuturingPathHeaderCount = suturingPathHeaderCount;
+    mSuturingPathNodeCount   = suturingPathNodeCount;
+    mCurveRenderCount        = static_cast<std::uint32_t>(curveRenderData.descriptors.size());
 }
 
 bool PhysicsSceneGpuState::uploadRigidBodies(Diligent::IDeviceContext *computeContext,

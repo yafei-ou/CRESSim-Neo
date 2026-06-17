@@ -395,6 +395,29 @@ public:
                         std::uint32_t sharedQueueFamilyIndexCount, bool useNativeFloatAtomics);
     bool uploadWorldState(Diligent::IDeviceContext *computeContext, PhysicsWorld &world,
                           std::uint32_t bodyCount, std::uint32_t colliderCount);
+    void clearPublishedSceneCounts() noexcept;
+    void publishSceneCounts(const PhysicsWorld &world, std::uint32_t bodyCount,
+                            std::uint32_t colliderCount,
+                            const std::vector<FluidState> &fluids,
+                            const std::vector<Diligent::float4> &particleContactMaterials,
+                            const std::vector<FluidMaterialGpu> &fluidMaterials,
+                            const std::vector<DeformableDistanceConstraint> &distanceConstraints,
+                            const std::vector<DeformableBendConstraint> &bendConstraints,
+                            const std::vector<DeformableVolumeConstraint> &volumeConstraints,
+                            const std::vector<StrandSegmentConstraint> &strandSegments,
+                            const std::vector<StrandJointConstraint> &strandJoints,
+                            const std::vector<StrandDistanceConstraint> &strandDistanceConstraints,
+                            const std::vector<RigidParticleAttachmentConstraint>
+                                &rigidParticleAttachments,
+                            const std::vector<StrandRigidAttachmentConstraint>
+                                &strandRigidAttachments,
+                            const std::vector<RigidDistanceConstraint> &rigidDistanceConstraints,
+                            const std::vector<RoutedCableConstraint> &routedCableConstraints,
+                            const std::vector<StrandSoftSuturingPair> &suturingPairs,
+                            const std::vector<std::uint32_t> &suturingParticleIndices,
+                            std::uint32_t suturingPathHeaderCount,
+                            std::uint32_t suturingPathNodeCount,
+                            const CurveRenderDataHost &curveRenderData) noexcept;
     bool copyPredictedRigidBodiesToPersistentState(Diligent::IDeviceContext *computeContext,
                                                    std::uint32_t bodyCount);
     bool readbackBroadPhaseMetaBlocking(Diligent::IDeviceContext *computeContext,
@@ -603,21 +626,22 @@ private:
     bool mRigidJointUploadResetRequired                      = true;
     bool mSoftParticleUploadResetRequired                    = true;
     bool mSoftTopologyUploadResetRequired                    = true;
+    bool mRigidParticleAttachmentGpuDirty                    = true;
+    bool mStrandRigidAttachmentGpuDirty                      = true;
+    bool mRigidDistanceConstraintGpuDirty                    = true;
+    bool mRoutedCableGpuDirty                                = true;
     std::uint64_t mRigidBindingGeneration                    = 1u;
     std::uint64_t mSoftBindingGeneration                     = 1u;
     std::uint64_t mLastUploadedRigidJointSceneRevision       = 0;
     std::uint64_t mLastUploadedRigidJointModeRevision        = 0;
     std::uint64_t mLastUploadedSoftParticleRevision          = 0;
     std::uint64_t mLastUploadedSoftTopologyRevision          = 0;
-    std::uint64_t mLastUploadedRigidParticleAttachmentRevision         = 0;
-    std::uint64_t mLastUploadedRigidParticleAttachmentTopologyRevision = 0;
-    std::uint64_t mLastUploadedStrandRigidAttachmentRevision           = 0;
-    std::uint64_t mLastUploadedStrandRigidAttachmentTopologyRevision   = 0;
-    std::uint64_t mLastUploadedRigidDistanceConstraintRevision         = 0;
-    std::uint64_t mLastUploadedRigidDistanceConstraintTopologyRevision = 0;
-    std::uint64_t mLastUploadedRoutedCableRevision           = 0;
-    std::uint64_t mLastUploadedRoutedCableTopologyRevision   = 0;
-    std::uint64_t mLastUploadedCurveRenderRevision           = 0;
+    std::uint64_t mLastUploadedSoftConstraintAdjacencyRevision         = 0;
+    std::uint64_t mLastUploadedRigidParticleAttachmentResolvedRevision = 0;
+    std::uint64_t mLastUploadedStrandRigidAttachmentResolvedRevision   = 0;
+    std::uint64_t mLastUploadedRigidDistanceConstraintResolvedRevision = 0;
+    std::uint64_t mLastUploadedRoutedCableResolvedRevision             = 0;
+    std::uint64_t mLastUploadedCurveRenderRevision                     = 0;
     std::uint32_t mBallJointCount                            = 0;
     std::uint32_t mSphericalJointCount                       = 0;
     std::uint32_t mHingeJointCount                           = 0;

@@ -51,7 +51,7 @@ int main()
     }
 
     const std::uint64_t particleRevisionBeforeRender = world.softParticleRevision();
-    const std::uint64_t topologyRevisionBeforeRender = world.softGpuTopologyRevision();
+    const std::uint64_t topologyRevisionBeforeRender = world.softTopologyRevision();
 
     SoftRenderDataHost renderData{};
     renderData.fallbackNormals.emplace_back(0.0f, 1.0f, 0.0f, 0.0f);
@@ -69,7 +69,7 @@ int main()
         CRESSIM_LOG_ERROR("Soft render data update should not bump soft particle revision.");
         return 1;
     }
-    if (world.softGpuTopologyRevision() != topologyRevisionBeforeRender + 1u)
+    if (world.softTopologyRevision() != topologyRevisionBeforeRender + 1u)
     {
         CRESSIM_LOG_ERROR("Soft render data update should bump soft GPU topology revision.");
         return 1;
@@ -93,7 +93,7 @@ int main()
         CRESSIM_LOG_ERROR("Runtime soft body update did not refresh cached particle grid cell size.");
         return 1;
     }
-    if (world.softGpuTopologyRevision() != topologyRevisionBeforeRender + 1u)
+    if (world.softTopologyRevision() != topologyRevisionBeforeRender + 1u)
     {
         CRESSIM_LOG_ERROR("Runtime soft body update should not bump soft GPU topology revision.");
         return 1;

@@ -35,7 +35,12 @@ int main()
     attachment.particle.localParticleIndex = 1u;
     attachment.rigidBodyEntityId           = diskEntity;
 
-    const auto &authored = world.upsertRigidParticleAttachmentConstraint(attachment);
+    physics::AuthoredRigidParticleAttachmentConstraintState authored{};
+    if (!world.upsertRigidParticleAttachmentConstraint(attachment, &authored))
+    {
+        CRESSIM_LOG_ERROR("Engine world rigid-particle attachment authoring failed.\n");
+        return 1;
+    }
     const auto *roundTripped = world.tryGetRigidParticleAttachmentConstraint(authored.constraintId);
     if (roundTripped == nullptr ||
         roundTripped->particle.entityId != backboneEntity ||

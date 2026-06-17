@@ -25,7 +25,12 @@ int main()
     constraint.entityB = bodyB;
     constraint.restDistance = 0.6f;
 
-    const auto &authored = world.upsertRigidDistanceConstraint(constraint);
+    physics::AuthoredRigidDistanceConstraintState authored{};
+    if (!world.upsertRigidDistanceConstraint(constraint, &authored))
+    {
+        CRESSIM_LOG_ERROR("Engine world rigid distance authoring failed.\n");
+        return 1;
+    }
     const auto *roundTripped = world.tryGetRigidDistanceConstraint(authored.constraintId);
     if (roundTripped == nullptr || roundTripped->entityA != bodyA || roundTripped->entityB != bodyB)
     {

@@ -506,7 +506,7 @@ int main(int argc, char **argv)
         cable.enabled           = true;
         restLengths[cableIndex] = computeCableLength(restPoints);
         cable.targetLength      = restLengths[cableIndex];
-        cable                   = world.upsertRoutedCableConstraint(cable);
+        world.upsertRoutedCableConstraint(cable, &cable);
     }
 
     auto renderOptions                      = runtime.renderFrameOptions();
@@ -534,7 +534,7 @@ int main(int argc, char **argv)
             auto updated         = cables[cableIndex];
             updated.targetLength =
                 std::max(0.0f, restLengths[cableIndex] - maxPull * settle * actuationWeight);
-            cables[cableIndex]   = cbRuntime.getWorld().upsertRoutedCableConstraint(updated);
+            cbRuntime.getWorld().upsertRoutedCableConstraint(updated, &cables[cableIndex]);
         }
     };
 

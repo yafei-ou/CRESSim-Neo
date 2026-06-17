@@ -39,8 +39,9 @@ int main()
     attachment.localAnchor                = {0.0f, 0.15f, 0.0f};
     attachment.compliance                 = 0.02f;
 
-    const auto &authored = world.upsertRigidParticleAttachmentConstraint(attachment);
-    if (authored.constraintId == physics::kInvalidRigidParticleAttachmentConstraintId)
+    physics::AuthoredRigidParticleAttachmentConstraintState authored{};
+    if (!world.upsertRigidParticleAttachmentConstraint(attachment, &authored) ||
+        authored.constraintId == physics::kInvalidRigidParticleAttachmentConstraintId)
     {
         CRESSIM_LOG_ERROR("Rigid-particle attachment id was not assigned.\n");
         return 1;
@@ -64,27 +65,31 @@ int main()
         return 1;
     }
 
-    const std::uint64_t topologyRevision = world.rigidParticleAttachmentTopologyRevision();
-    const std::uint64_t payloadRevision  = world.rigidParticleAttachmentRevision();
+    const std::uint64_t definitionRevision = world.rigidParticleAttachmentDefinitionRevision();
+    const std::uint64_t resolvedRevision   = world.rigidParticleAttachmentResolvedRevision();
     physics::AuthoredRigidParticleAttachmentConstraintState updated = authored;
     updated.compliance = 0.05f;
     updated.enabled    = false;
-    world.upsertRigidParticleAttachmentConstraint(updated);
-    if (world.rigidParticleAttachmentTopologyRevision() != topologyRevision ||
-        world.rigidParticleAttachmentRevision() == payloadRevision ||
+    if (!world.upsertRigidParticleAttachmentConstraint(updated) ||
+        world.rigidParticleAttachmentDefinitionRevision() == definitionRevision ||
         !world.rigidParticleAttachments().empty())
     {
         CRESSIM_LOG_ERROR("Rigid-particle attachment runtime payload update behaved incorrectly.\n");
         return 1;
     }
+    if (world.rigidParticleAttachmentResolvedRevision() == resolvedRevision)
+    {
+        CRESSIM_LOG_ERROR("Resolved rigid-particle attachment revision did not rebuild.\n");
+        return 1;
+    }
 
-    updated.enabled                = true;
-    updated.rigidBodyEntityId      = 0u;
-    world.upsertRigidParticleAttachmentConstraint(updated);
-    if (world.rigidParticleAttachmentTopologyRevision() == topologyRevision ||
+    updated.enabled           = true;
+    updated.rigidBodyEntityId = 0u;
+    if (world.upsertRigidParticleAttachmentConstraint(updated) ||
+        world.rigidParticleAttachmentConstraintSnapshot().size() != 1u ||
         !world.rigidParticleAttachments().empty())
     {
-        CRESSIM_LOG_ERROR("Invalid rigid-particle attachment topology update did not rebuild.\n");
+        CRESSIM_LOG_ERROR("Invalid rigid-particle attachment should be rejected.\n");
         return 1;
     }
 

@@ -36,7 +36,12 @@ int main()
     attachment.segmentT          = 0.5f;
     attachment.rigidBodyEntityId = diskEntity;
 
-    const auto &authored = world.upsertStrandRigidAttachmentConstraint(attachment);
+    physics::AuthoredStrandRigidAttachmentConstraintState authored{};
+    if (!world.upsertStrandRigidAttachmentConstraint(attachment, &authored))
+    {
+        CRESSIM_LOG_ERROR("Engine world strand-rigid attachment authoring failed.\n");
+        return 1;
+    }
     const auto *roundTripped = world.tryGetStrandRigidAttachmentConstraint(authored.constraintId);
     if (roundTripped == nullptr ||
         roundTripped->strandEntityId != backboneEntity ||

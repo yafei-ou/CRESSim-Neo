@@ -41,8 +41,9 @@ int main()
     attachment.translationCompliance  = 0.01f;
     attachment.rotationCompliance     = 0.03f;
 
-    const auto &authored = world.upsertStrandRigidAttachmentConstraint(attachment);
-    if (authored.constraintId == physics::kInvalidStrandRigidAttachmentConstraintId)
+    physics::AuthoredStrandRigidAttachmentConstraintState authored{};
+    if (!world.upsertStrandRigidAttachmentConstraint(attachment, &authored) ||
+        authored.constraintId == physics::kInvalidStrandRigidAttachmentConstraintId)
     {
         CRESSIM_LOG_ERROR("Strand-rigid attachment id was not assigned.\n");
         return 1;
@@ -68,29 +69,62 @@ int main()
         return 1;
     }
 
-    const std::uint64_t topologyRevision = world.strandRigidAttachmentTopologyRevision();
-    const std::uint64_t payloadRevision  = world.strandRigidAttachmentRevision();
-    const std::uint64_t softTopologyRevision = world.softGpuTopologyRevision();
+    const std::uint64_t definitionRevision = world.strandRigidAttachmentDefinitionRevision();
+    const std::uint64_t resolvedRevision   = world.strandRigidAttachmentResolvedRevision();
+    const std::uint64_t adjacencyRevision  = world.softConstraintAdjacencyRevision();
     physics::AuthoredStrandRigidAttachmentConstraintState updated = authored;
     updated.rotationCompliance = 0.06f;
-    updated.enabled            = false;
-    world.upsertStrandRigidAttachmentConstraint(updated);
-    if (world.strandRigidAttachmentTopologyRevision() != topologyRevision ||
-        world.strandRigidAttachmentRevision() == payloadRevision ||
-        world.softGpuTopologyRevision() == softTopologyRevision ||
-        !world.strandRigidAttachments().empty())
+    if (!world.upsertStrandRigidAttachmentConstraint(updated) ||
+        world.strandRigidAttachmentDefinitionRevision() == definitionRevision ||
+        world.strandRigidAttachments().size() != 1u)
     {
         CRESSIM_LOG_ERROR("Strand-rigid attachment runtime payload update behaved incorrectly.\n");
+        return 1;
+    }
+    if (world.strandRigidAttachmentResolvedRevision() == resolvedRevision)
+    {
+        CRESSIM_LOG_ERROR("Resolved strand-rigid attachment revision did not rebuild.\n");
+        return 1;
+    }
+    if (world.softConstraintAdjacencyRevision() != adjacencyRevision)
+    {
+        CRESSIM_LOG_ERROR("Payload-only strand-rigid update should not change soft adjacency.\n");
+        return 1;
+    }
+
+    updated.enabled            = false;
+    if (!world.upsertStrandRigidAttachmentConstraint(updated) ||
+        !world.strandRigidAttachments().empty())
+    {
+        CRESSIM_LOG_ERROR("Disabling strand-rigid attachment did not rebuild.\n");
         return 1;
     }
 
     updated.enabled           = true;
     updated.localSegmentIndex = 9u;
-    world.upsertStrandRigidAttachmentConstraint(updated);
-    if (world.strandRigidAttachmentTopologyRevision() == topologyRevision ||
+    if (world.upsertStrandRigidAttachmentConstraint(updated) ||
+        world.strandRigidAttachmentConstraintSnapshot().size() != 1u ||
         !world.strandRigidAttachments().empty())
     {
-        CRESSIM_LOG_ERROR("Invalid strand-rigid attachment topology update did not rebuild.\n");
+        CRESSIM_LOG_ERROR("Invalid strand-rigid attachment should be rejected.\n");
+        return 1;
+    }
+
+    updated.localSegmentIndex = 1u;
+    if (!world.upsertStrandRigidAttachmentConstraint(updated))
+    {
+        CRESSIM_LOG_ERROR("Valid strand-rigid attachment update failed.\n");
+        return 1;
+    }
+    if (world.strandRigidAttachments().size() != 1u)
+    {
+        CRESSIM_LOG_ERROR("Valid strand-rigid attachment did not rebuild.\n");
+        return 1;
+    }
+
+    if (!world.removeRigidBody(disk.entityId) || !world.strandRigidAttachments().empty())
+    {
+        CRESSIM_LOG_ERROR("Removing attached rigid body should drop strand-rigid attachments.\n");
         return 1;
     }
 
@@ -99,6 +133,17 @@ int main()
         !world.strandRigidAttachments().empty())
     {
         CRESSIM_LOG_ERROR("Removing strand-rigid attachment failed.\n");
+        return 1;
+    }
+
+    physics::PhysicsWorld invalidWorld;
+    invalidWorld.upsertStrand(backbone);
+    physics::AuthoredStrandRigidAttachmentConstraintState invalidAttachment = attachment;
+    invalidAttachment.rigidBodyEntityId = disk.entityId + 100u;
+    if (invalidWorld.upsertStrandRigidAttachmentConstraint(invalidAttachment) ||
+        !invalidWorld.strandRigidAttachmentConstraintSnapshot().empty())
+    {
+        CRESSIM_LOG_ERROR("Attachment targeting a missing rigid body should be rejected.\n");
         return 1;
     }
 

@@ -1403,28 +1403,32 @@ physics::AuthoredParticleDistanceConstraintState &World::upsertParticleDistanceC
     return mPhysicsWorld.upsertParticleDistanceConstraint(state);
 }
 
-physics::AuthoredRigidParticleAttachmentConstraintState &World::upsertRigidParticleAttachmentConstraint(
-    const physics::AuthoredRigidParticleAttachmentConstraintState &state)
+bool World::upsertRigidParticleAttachmentConstraint(
+    const physics::AuthoredRigidParticleAttachmentConstraintState &state,
+    physics::AuthoredRigidParticleAttachmentConstraintState *outAuthored)
 {
-    return mPhysicsWorld.upsertRigidParticleAttachmentConstraint(state);
+    return mPhysicsWorld.upsertRigidParticleAttachmentConstraint(state, outAuthored);
 }
 
-physics::AuthoredStrandRigidAttachmentConstraintState &World::upsertStrandRigidAttachmentConstraint(
-    const physics::AuthoredStrandRigidAttachmentConstraintState &state)
+bool World::upsertStrandRigidAttachmentConstraint(
+    const physics::AuthoredStrandRigidAttachmentConstraintState &state,
+    physics::AuthoredStrandRigidAttachmentConstraintState *outAuthored)
 {
-    return mPhysicsWorld.upsertStrandRigidAttachmentConstraint(state);
+    return mPhysicsWorld.upsertStrandRigidAttachmentConstraint(state, outAuthored);
 }
 
-physics::AuthoredRigidDistanceConstraintState &World::upsertRigidDistanceConstraint(
-    const physics::AuthoredRigidDistanceConstraintState &state)
+bool World::upsertRigidDistanceConstraint(
+    const physics::AuthoredRigidDistanceConstraintState &state,
+    physics::AuthoredRigidDistanceConstraintState *outAuthored)
 {
-    return mPhysicsWorld.upsertRigidDistanceConstraint(state);
+    return mPhysicsWorld.upsertRigidDistanceConstraint(state, outAuthored);
 }
 
-physics::AuthoredRoutedCableConstraintState &World::upsertRoutedCableConstraint(
-    const physics::AuthoredRoutedCableConstraintState &state)
+bool World::upsertRoutedCableConstraint(
+    const physics::AuthoredRoutedCableConstraintState &state,
+    physics::AuthoredRoutedCableConstraintState *outAuthored)
 {
-    return mPhysicsWorld.upsertRoutedCableConstraint(state);
+    return mPhysicsWorld.upsertRoutedCableConstraint(state, outAuthored);
 }
 
 physics::AuthoredParticleCollisionFilterState &World::upsertParticleCollisionFilter(

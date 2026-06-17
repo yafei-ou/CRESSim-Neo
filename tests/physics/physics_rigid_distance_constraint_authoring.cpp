@@ -29,8 +29,9 @@ int main()
     constraint.restDistance = 0.8f;
     constraint.compliance = 0.01f;
 
-    const auto &authored = world.upsertRigidDistanceConstraint(constraint);
-    if (authored.constraintId == physics::kInvalidRigidDistanceConstraintId)
+    physics::AuthoredRigidDistanceConstraintState authored{};
+    if (!world.upsertRigidDistanceConstraint(constraint, &authored) ||
+        authored.constraintId == physics::kInvalidRigidDistanceConstraintId)
     {
         CRESSIM_LOG_ERROR("Rigid distance constraint id was not assigned.\n");
         return 1;
@@ -51,28 +52,31 @@ int main()
         return 1;
     }
 
-    const std::uint64_t topologyRevision = world.rigidDistanceConstraintTopologyRevision();
-    const std::uint64_t payloadRevision = world.rigidDistanceConstraintRevision();
+    const std::uint64_t definitionRevision = world.rigidDistanceConstraintDefinitionRevision();
+    const std::uint64_t resolvedRevision = world.rigidDistanceConstraintResolvedRevision();
     physics::AuthoredRigidDistanceConstraintState updated = authored;
     updated.restDistance = 0.5f;
     updated.enabled = false;
-    world.upsertRigidDistanceConstraint(updated);
-    if (world.rigidDistanceConstraintTopologyRevision() != topologyRevision ||
-        world.rigidDistanceConstraintRevision() == payloadRevision ||
+    if (!world.upsertRigidDistanceConstraint(updated) ||
+        world.rigidDistanceConstraintDefinitionRevision() == definitionRevision ||
         !world.rigidDistanceConstraints().empty())
     {
         CRESSIM_LOG_ERROR("Rigid distance runtime payload update behaved incorrectly.\n");
         return 1;
     }
+    if (world.rigidDistanceConstraintResolvedRevision() == resolvedRevision)
+    {
+        CRESSIM_LOG_ERROR("Resolved rigid distance revision did not rebuild.\n");
+        return 1;
+    }
 
     updated.enabled = true;
     updated.localAnchorB = {0.0f, 0.2f, 0.0f};
-    world.upsertRigidDistanceConstraint(updated);
-    if (world.rigidDistanceConstraintTopologyRevision() == topologyRevision ||
+    if (!world.upsertRigidDistanceConstraint(updated) ||
         world.rigidDistanceConstraints().size() != 1u ||
         world.rigidDistanceConstraints()[0].localAnchorB.y != 0.2f)
     {
-        CRESSIM_LOG_ERROR("Rigid distance topology update did not rebuild.\n");
+        CRESSIM_LOG_ERROR("Rigid distance update did not rebuild.\n");
         return 1;
     }
 
@@ -83,10 +87,11 @@ int main()
     physics::AuthoredRigidDistanceConstraintState invalid{};
     invalid.entityA = bodyA.entityId;
     invalid.entityB = bodyC.entityId;
-    world.upsertRigidDistanceConstraint(invalid);
-    if (world.rigidDistanceConstraints().size() != 1u)
+    if (world.upsertRigidDistanceConstraint(invalid) ||
+        world.rigidDistanceConstraintSnapshot().size() != 1u ||
+        world.rigidDistanceConstraints().size() != 1u)
     {
-        CRESSIM_LOG_ERROR("Invalid cross-environment rigid distance should not resolve.\n");
+        CRESSIM_LOG_ERROR("Invalid cross-environment rigid distance should be rejected.\n");
         return 1;
     }
 

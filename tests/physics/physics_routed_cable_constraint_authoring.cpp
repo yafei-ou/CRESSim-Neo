@@ -35,8 +35,9 @@ int main()
     cable.targetLength = 1.5f;
     cable.compliance = 0.01f;
 
-    const auto &authored = world.upsertRoutedCableConstraint(cable);
-    if (authored.constraintId == physics::kInvalidRoutedCableConstraintId)
+    physics::AuthoredRoutedCableConstraintState authored{};
+    if (!world.upsertRoutedCableConstraint(cable, &authored) ||
+        authored.constraintId == physics::kInvalidRoutedCableConstraintId)
     {
         CRESSIM_LOG_ERROR("Routed cable constraint id was not assigned.\n");
         return 1;
@@ -60,27 +61,46 @@ int main()
         return 1;
     }
 
-    const std::uint64_t topologyRevision = world.routedCableTopologyRevision();
-    const std::uint64_t payloadRevision = world.routedCableRevision();
+    const std::uint64_t definitionRevision = world.routedCableDefinitionRevision();
+    const std::uint64_t resolvedRevision = world.routedCableResolvedRevision();
     physics::AuthoredRoutedCableConstraintState updated = authored;
     updated.targetLength = 1.0f;
     updated.enabled = false;
-    world.upsertRoutedCableConstraint(updated);
-    if (world.routedCableTopologyRevision() != topologyRevision ||
-        world.routedCableRevision() == payloadRevision ||
+    if (!world.upsertRoutedCableConstraint(updated) ||
+        world.routedCableDefinitionRevision() == definitionRevision ||
         !world.routedCableConstraints().empty())
     {
         CRESSIM_LOG_ERROR("Runtime routed cable payload update behaved incorrectly.\n");
         return 1;
     }
+    if (world.routedCableResolvedRevision() == resolvedRevision)
+    {
+        CRESSIM_LOG_ERROR("Resolved routed cable revision did not rebuild.\n");
+        return 1;
+    }
 
     updated.enabled = true;
     updated.routePoints.push_back({bodyA.entityId, {0.0f, 0.2f, 0.0f}});
-    world.upsertRoutedCableConstraint(updated);
-    if (world.routedCableTopologyRevision() == topologyRevision ||
+    if (!world.upsertRoutedCableConstraint(updated) ||
         world.routedCableRoutePoints().size() != 4u)
     {
-        CRESSIM_LOG_ERROR("Routed cable topology update did not rebuild.\n");
+        CRESSIM_LOG_ERROR("Routed cable update did not rebuild.\n");
+        return 1;
+    }
+
+    bodyB.environmentIndex = 7u;
+    world.upsertRigidBody(bodyB);
+    if (!world.routedCableConstraints().empty() || !world.routedCableRoutePoints().empty())
+    {
+        CRESSIM_LOG_ERROR("Routed cable should be dropped after body environment migration.\n");
+        return 1;
+    }
+
+    bodyB.environmentIndex = bodyA.environmentIndex;
+    world.upsertRigidBody(bodyB);
+    if (world.routedCableConstraints().size() != 1u || world.routedCableRoutePoints().size() != 4u)
+    {
+        CRESSIM_LOG_ERROR("Routed cable did not rebuild after body returned to the environment.\n");
         return 1;
     }
 
@@ -93,10 +113,11 @@ int main()
         {bodyA.entityId, {0.0f, 0.0f, 0.0f}},
         {bodyD.entityId, {0.0f, 0.0f, 0.0f}},
     };
-    const auto &invalidAuthored = world.upsertRoutedCableConstraint(invalid);
-    if (world.routedCableConstraints().size() != 1u)
+    if (world.upsertRoutedCableConstraint(invalid) ||
+        world.routedCableConstraintSnapshot().size() != 1u ||
+        world.routedCableConstraints().size() != 1u)
     {
-        CRESSIM_LOG_ERROR("Invalid cross-environment routed cable should not resolve.\n");
+        CRESSIM_LOG_ERROR("Invalid cross-environment routed cable should be rejected.\n");
         return 1;
     }
 

@@ -21,7 +21,12 @@ int main()
     };
     cable.targetLength = 0.5f;
 
-    const auto &authored = world.upsertRoutedCableConstraint(cable);
+    physics::AuthoredRoutedCableConstraintState authored{};
+    if (!world.upsertRoutedCableConstraint(cable, &authored))
+    {
+        CRESSIM_LOG_ERROR("Engine routed cable authoring failed.\n");
+        return 1;
+    }
     const auto *roundTripped = world.tryGetRoutedCableConstraint(authored.constraintId);
     if (roundTripped == nullptr || roundTripped->routePoints.size() != 2u ||
         roundTripped->targetLength != 0.5f)

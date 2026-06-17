@@ -29,14 +29,16 @@ public:
         const AuthoredParticleSequenceState &state);
     AuthoredParticleDistanceConstraintState &upsertParticleDistanceConstraint(
         const AuthoredParticleDistanceConstraintState &state);
-    AuthoredRigidParticleAttachmentConstraintState &upsertRigidParticleAttachmentConstraint(
-        const AuthoredRigidParticleAttachmentConstraintState &state);
-    AuthoredStrandRigidAttachmentConstraintState &upsertStrandRigidAttachmentConstraint(
-        const AuthoredStrandRigidAttachmentConstraintState &state);
-    AuthoredRigidDistanceConstraintState &upsertRigidDistanceConstraint(
-        const AuthoredRigidDistanceConstraintState &state);
-    AuthoredRoutedCableConstraintState &upsertRoutedCableConstraint(
-        const AuthoredRoutedCableConstraintState &state);
+    bool upsertRigidParticleAttachmentConstraint(
+        const AuthoredRigidParticleAttachmentConstraintState &state,
+        AuthoredRigidParticleAttachmentConstraintState *outAuthored = nullptr);
+    bool upsertStrandRigidAttachmentConstraint(
+        const AuthoredStrandRigidAttachmentConstraintState &state,
+        AuthoredStrandRigidAttachmentConstraintState *outAuthored = nullptr);
+    bool upsertRigidDistanceConstraint(const AuthoredRigidDistanceConstraintState &state,
+                                      AuthoredRigidDistanceConstraintState *outAuthored = nullptr);
+    bool upsertRoutedCableConstraint(const AuthoredRoutedCableConstraintState &state,
+                                     AuthoredRoutedCableConstraintState *outAuthored = nullptr);
     AuthoredParticleCollisionFilterState &upsertParticleCollisionFilter(
         const AuthoredParticleCollisionFilterState &state);
     AuthoredSuturingSequenceState &upsertSuturingSequence(
@@ -209,15 +211,16 @@ public:
     std::uint64_t rigidJointModeRevision() const noexcept;
     std::uint64_t softBodyTopologyRevision() const noexcept;
     std::uint64_t softParticleRevision() const noexcept;
-    std::uint64_t softGpuTopologyRevision() const noexcept;
-    std::uint64_t rigidParticleAttachmentRevision() const noexcept;
-    std::uint64_t rigidParticleAttachmentTopologyRevision() const noexcept;
-    std::uint64_t strandRigidAttachmentRevision() const noexcept;
-    std::uint64_t strandRigidAttachmentTopologyRevision() const noexcept;
-    std::uint64_t rigidDistanceConstraintRevision() const noexcept;
-    std::uint64_t rigidDistanceConstraintTopologyRevision() const noexcept;
-    std::uint64_t routedCableRevision() const noexcept;
-    std::uint64_t routedCableTopologyRevision() const noexcept;
+    std::uint64_t softTopologyRevision() const noexcept;
+    std::uint64_t softConstraintAdjacencyRevision() const noexcept;
+    std::uint64_t rigidParticleAttachmentDefinitionRevision() const noexcept;
+    std::uint64_t rigidParticleAttachmentResolvedRevision() const noexcept;
+    std::uint64_t strandRigidAttachmentDefinitionRevision() const noexcept;
+    std::uint64_t strandRigidAttachmentResolvedRevision() const noexcept;
+    std::uint64_t rigidDistanceConstraintDefinitionRevision() const noexcept;
+    std::uint64_t rigidDistanceConstraintResolvedRevision() const noexcept;
+    std::uint64_t routedCableDefinitionRevision() const noexcept;
+    std::uint64_t routedCableResolvedRevision() const noexcept;
     std::uint64_t curveRenderRevision() const noexcept;
 
 private:
@@ -298,6 +301,17 @@ private:
     void rebuildRigidJointScene() const noexcept;
     void rebuildJointCollisionSuppression() const noexcept;
     void rebuildSoftBodyDerivedState() noexcept;
+    void rebuildResolvedRigidParticleAttachments() noexcept;
+    void rebuildResolvedStrandRigidAttachments() noexcept;
+    void rebuildResolvedRigidDistanceConstraints() noexcept;
+    void rebuildResolvedRoutedCables() noexcept;
+    void ensureResolvedConstraintStateUpToDate() noexcept;
+    void invalidateSoftDerivedState() noexcept;
+    void invalidateResolvedRigidParticleAttachments() noexcept;
+    void invalidateResolvedStrandRigidAttachments(bool alsoSoftAdjacency) noexcept;
+    void invalidateResolvedRigidDistanceConstraints() noexcept;
+    void invalidateResolvedRoutedCables() noexcept;
+    void invalidateAllRigidBodyDependentResolvedConstraints() noexcept;
     void markAllRigidBodiesDirty() noexcept;
     void markAllCollidersDirty() noexcept;
     std::uint32_t broadPhaseContributionForCollider(const ColliderState &collider) const noexcept;
@@ -421,7 +435,12 @@ private:
     mutable bool mBodyColliderMappingDirty                   = true;
     mutable bool mRigidJointSceneDirty                       = true;
     mutable bool mJointCollisionSuppressionDirty             = true;
-    bool mSoftBodyDerivedStateDirty                          = true;
+    bool mSoftDerivedStateDirty                              = true;
+    bool mResolvedRigidParticleAttachmentsDirty              = true;
+    bool mResolvedStrandRigidAttachmentsDirty                = true;
+    bool mResolvedRigidDistanceConstraintsDirty              = true;
+    bool mResolvedRoutedCablesDirty                          = true;
+    bool mSoftConstraintAdjacencyDirty                       = true;
     bool mStaticBroadPhaseDirty                              = false;
     std::uint32_t mActiveMovingColliderCount                 = 0u;
     std::uint32_t mStaticColliderCount                       = 0u;
@@ -439,15 +458,16 @@ private:
     std::uint64_t mRigidJointTopologyRevision                = 0;
     std::uint64_t mSoftBodyTopologyRevision                  = 0;
     std::uint64_t mSoftParticleRevision                      = 0;
-    std::uint64_t mSoftGpuTopologyRevision                   = 0;
-    std::uint64_t mRigidParticleAttachmentRevision           = 0;
-    std::uint64_t mRigidParticleAttachmentTopologyRevision   = 0;
-    std::uint64_t mStrandRigidAttachmentRevision             = 0;
-    std::uint64_t mStrandRigidAttachmentTopologyRevision     = 0;
-    std::uint64_t mRigidDistanceConstraintRevision           = 0;
-    std::uint64_t mRigidDistanceConstraintTopologyRevision   = 0;
-    std::uint64_t mRoutedCableRevision                       = 0;
-    std::uint64_t mRoutedCableTopologyRevision               = 0;
+    std::uint64_t mSoftTopologyRevision                      = 0;
+    std::uint64_t mSoftConstraintAdjacencyRevision           = 0;
+    std::uint64_t mRigidParticleAttachmentDefinitionRevision = 0;
+    std::uint64_t mRigidParticleAttachmentResolvedRevision   = 0;
+    std::uint64_t mStrandRigidAttachmentDefinitionRevision   = 0;
+    std::uint64_t mStrandRigidAttachmentResolvedRevision     = 0;
+    std::uint64_t mRigidDistanceConstraintDefinitionRevision = 0;
+    std::uint64_t mRigidDistanceConstraintResolvedRevision   = 0;
+    std::uint64_t mRoutedCableDefinitionRevision             = 0;
+    std::uint64_t mRoutedCableResolvedRevision               = 0;
     std::uint64_t mCurveRenderRevision                       = 0;
     RigidBodyId mNextRigidBodyId                             = 1u;
     ColliderId mNextColliderId                               = 1u;

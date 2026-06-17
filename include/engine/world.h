@@ -61,14 +61,18 @@ public:
         const physics::AuthoredParticleSequenceState &state);
     physics::AuthoredParticleDistanceConstraintState &upsertParticleDistanceConstraint(
         const physics::AuthoredParticleDistanceConstraintState &state);
-    physics::AuthoredRigidParticleAttachmentConstraintState &upsertRigidParticleAttachmentConstraint(
-        const physics::AuthoredRigidParticleAttachmentConstraintState &state);
-    physics::AuthoredStrandRigidAttachmentConstraintState &upsertStrandRigidAttachmentConstraint(
-        const physics::AuthoredStrandRigidAttachmentConstraintState &state);
-    physics::AuthoredRigidDistanceConstraintState &upsertRigidDistanceConstraint(
-        const physics::AuthoredRigidDistanceConstraintState &state);
-    physics::AuthoredRoutedCableConstraintState &upsertRoutedCableConstraint(
-        const physics::AuthoredRoutedCableConstraintState &state);
+    bool upsertRigidParticleAttachmentConstraint(
+        const physics::AuthoredRigidParticleAttachmentConstraintState &state,
+        physics::AuthoredRigidParticleAttachmentConstraintState *outAuthored = nullptr);
+    bool upsertStrandRigidAttachmentConstraint(
+        const physics::AuthoredStrandRigidAttachmentConstraintState &state,
+        physics::AuthoredStrandRigidAttachmentConstraintState *outAuthored = nullptr);
+    bool upsertRigidDistanceConstraint(
+        const physics::AuthoredRigidDistanceConstraintState &state,
+        physics::AuthoredRigidDistanceConstraintState *outAuthored = nullptr);
+    bool upsertRoutedCableConstraint(const physics::AuthoredRoutedCableConstraintState &state,
+                                     physics::AuthoredRoutedCableConstraintState *outAuthored =
+                                         nullptr);
     physics::AuthoredParticleCollisionFilterState &upsertParticleCollisionFilter(
         const physics::AuthoredParticleCollisionFilterState &state);
     physics::AuthoredSuturingSequenceState &upsertSuturingSequence(
