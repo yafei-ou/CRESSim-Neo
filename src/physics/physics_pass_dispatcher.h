@@ -28,6 +28,9 @@ public:
     bool clearHingeJointConstraintState(Diligent::IDeviceContext *computeContext,
                                         const PhysicsSceneGpuState &sceneState,
                                         std::uint32_t jointCount);
+    bool clearSphericalJointConstraintState(Diligent::IDeviceContext *computeContext,
+                                            const PhysicsSceneGpuState &sceneState,
+                                            std::uint32_t jointCount);
     bool clearSliderJointConstraintState(Diligent::IDeviceContext *computeContext,
                                          const PhysicsSceneGpuState &sceneState,
                                          std::uint32_t jointCount);
@@ -275,6 +278,8 @@ public:
                                         const PhysicsSceneGpuState &sceneState);
     bool solveBallJointConstraints(Diligent::IDeviceContext *computeContext,
                                    const PhysicsSceneGpuState &sceneState);
+    bool solveSphericalJointConstraints(Diligent::IDeviceContext *computeContext,
+                                        const PhysicsSceneGpuState &sceneState);
     bool solveHingeJointConstraints(Diligent::IDeviceContext *computeContext,
                                     const PhysicsSceneGpuState &sceneState);
     bool solveSliderJointConstraints(Diligent::IDeviceContext *computeContext,
@@ -383,6 +388,9 @@ private:
     bool dispatchSolveBallJointConstraintsPass(Diligent::IDeviceContext *computeContext,
                                                const PhysicsSceneGpuState &sceneState,
                                                std::uint32_t jointCount);
+    bool dispatchSolveSphericalJointConstraintsPass(Diligent::IDeviceContext *computeContext,
+                                                    const PhysicsSceneGpuState &sceneState,
+                                                    std::uint32_t jointCount);
     bool dispatchSolveHingeJointConstraintsPass(Diligent::IDeviceContext *computeContext,
                                                 gpu::GpuComputePass &pass,
                                                 const PhysicsSceneGpuState &sceneState,
@@ -546,6 +554,7 @@ private:
     gpu::GpuComputePass mPrepareRigidContactVelocityIndirectArgsPass;
     gpu::GpuComputePass mSolveRigidContactVelocitiesPass;
     gpu::GpuComputePass mSolveBallJointConstraintsPass;
+    gpu::GpuComputePass mSolveSphericalJointConstraintsPass;
     gpu::GpuComputePass mSolveHingeJointConstraintsPassivePass;
     gpu::GpuComputePass mSolveHingeJointConstraintsTargetPositionPass;
     gpu::GpuComputePass mSolveSliderJointConstraintsPassivePass;
@@ -557,6 +566,7 @@ private:
     gpu::GpuComputePass mSolveHingeJointTargetVelocitiesPass;
     gpu::GpuComputePass mSolveSliderJointTargetVelocitiesPass;
     gpu::GpuComputePass mClearHingeJointConstraintStatePass;
+    gpu::GpuComputePass mClearSphericalJointConstraintStatePass;
     gpu::GpuComputePass mClearSliderJointConstraintStatePass;
     gpu::GpuComputePass mApplyRigidCorrectionsPass;
     gpu::GpuComputePass mUpdateRigidVelocitiesPass;

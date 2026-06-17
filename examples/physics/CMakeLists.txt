@@ -41,6 +41,11 @@ add_cressim_example(
 )
 
 add_cressim_example(
+    NAME physics_rigid_spherical_cdcr
+    SOURCE rigid_spherical_cdcr.cpp
+)
+
+add_cressim_example(
     NAME physics_strand_twist_sensitivity
     SOURCE strand_twist_sensitivity.cpp
 )

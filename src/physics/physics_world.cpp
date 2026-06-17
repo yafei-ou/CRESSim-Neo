@@ -681,6 +681,7 @@ void PhysicsWorld::clear()
     mParticleCollisionFilterSnapshot.clear();
     mSuturingSequenceSnapshot.clear();
     mBallJointSnapshot.clear();
+    mSphericalJointSnapshot.clear();
     mHingeJointSnapshot.clear();
     mSliderJointSnapshot.clear();
     mSoftBodyDerivedCaches.clear();
@@ -726,6 +727,7 @@ void PhysicsWorld::clear()
     mNextRigidBodyId                = 1u;
     mNextColliderId                 = 1u;
     mNextBallJointId                = 1u;
+    mNextSphericalJointId           = 1u;
     mNextHingeJointId               = 1u;
     mNextSliderJointId              = 1u;
     mNextParticleSequenceId         = 1u;
@@ -1964,6 +1966,78 @@ bool PhysicsWorld::upsertHingeJoint(const HingeJointState &state)
     return true;
 }
 
+bool PhysicsWorld::upsertSphericalJoint(const SphericalJointState &state)
+{
+    SphericalJointState normalized = state;
+    if (normalized.bodyA == kInvalidRigidBodyId || normalized.bodyB == kInvalidRigidBodyId ||
+        normalized.bodyA == normalized.bodyB)
+    {
+        return false;
+    }
+
+    normalized.localRotationA =
+        common::runtime_math::normalizeQuaternion(normalized.localRotationA);
+    normalized.localRotationB =
+        common::runtime_math::normalizeQuaternion(normalized.localRotationB);
+    normalized.driveTargetOrientation =
+        common::runtime_math::normalizeQuaternion(normalized.driveTargetOrientation);
+    normalized.constraintCompliance = std::max(normalized.constraintCompliance, 0.0f);
+    normalized.swingCompliance      = std::max(normalized.swingCompliance, 0.0f);
+    normalized.twistCompliance      = std::max(normalized.twistCompliance, 0.0f);
+    normalized.driveCompliance      = std::max(normalized.driveCompliance, 0.0f);
+    normalized.swingLimitY          = std::max(normalized.swingLimitY, 0.0f);
+    normalized.swingLimitZ          = std::max(normalized.swingLimitZ, 0.0f);
+    if (normalized.limitEnabled && normalized.twistLimitMin > normalized.twistLimitMax)
+    {
+        std::swap(normalized.twistLimitMin, normalized.twistLimitMax);
+    }
+    if (!normalized.limitEnabled)
+    {
+        normalized.swingLimitY   = 0.0f;
+        normalized.swingLimitZ   = 0.0f;
+        normalized.twistLimitMin = 0.0f;
+        normalized.twistLimitMax = 0.0f;
+    }
+    if (normalized.driveMode != RigidJointDriveMode::None &&
+        normalized.driveMode != RigidJointDriveMode::TargetOrientation)
+    {
+        return false;
+    }
+    if (normalized.jointId == kInvalidSphericalJointId)
+    {
+        normalized.jointId = mNextSphericalJointId++;
+    }
+
+    const auto bodyAIt = mRigidBodyIdToIndex.find(normalized.bodyA);
+    const auto bodyBIt = mRigidBodyIdToIndex.find(normalized.bodyB);
+    if (bodyAIt == mRigidBodyIdToIndex.end() || bodyBIt == mRigidBodyIdToIndex.end())
+    {
+        return false;
+    }
+    if (mRigidBodySnapshot[bodyAIt->second].environmentIndex !=
+        mRigidBodySnapshot[bodyBIt->second].environmentIndex)
+    {
+        return false;
+    }
+
+    auto it = std::find_if(mSphericalJointSnapshot.begin(), mSphericalJointSnapshot.end(),
+                           [&](const SphericalJointState &existing)
+                           { return existing.jointId == normalized.jointId; });
+    const bool inserted = it == mSphericalJointSnapshot.end();
+    const SphericalJointState previousState = inserted ? SphericalJointState{} : *it;
+    if (inserted)
+    {
+        mSphericalJointSnapshot.push_back(normalized);
+    }
+    else
+    {
+        *it = normalized;
+    }
+
+    applyRigidJointChange(classifySphericalJointChange(previousState, normalized, inserted));
+    return true;
+}
+
 bool PhysicsWorld::upsertSliderJoint(const SliderJointState &state)
 {
     SliderJointState normalized = state;
@@ -2059,6 +2133,20 @@ bool PhysicsWorld::removeHingeJoint(HingeJointId jointId)
     return false;
 }
 
+bool PhysicsWorld::removeSphericalJoint(SphericalJointId jointId)
+{
+    auto it = std::find_if(mSphericalJointSnapshot.begin(), mSphericalJointSnapshot.end(),
+                           [&](const SphericalJointState &state)
+                           { return state.jointId == jointId; });
+    if (it != mSphericalJointSnapshot.end())
+    {
+        mSphericalJointSnapshot.erase(it);
+        applyRigidJointChange(RigidJointChangeKind::TopologyRebuild);
+        return true;
+    }
+    return false;
+}
+
 bool PhysicsWorld::removeSliderJoint(SliderJointId jointId)
 {
     auto it = std::find_if(mSliderJointSnapshot.begin(), mSliderJointSnapshot.end(),
@@ -2096,6 +2184,14 @@ const BallJointState *PhysicsWorld::tryGetBallJoint(BallJointId jointId) const n
         std::find_if(mBallJointSnapshot.begin(), mBallJointSnapshot.end(),
                      [&](const BallJointState &state) { return state.jointId == jointId; });
     return it == mBallJointSnapshot.end() ? nullptr : &(*it);
+}
+
+const SphericalJointState *PhysicsWorld::tryGetSphericalJoint(SphericalJointId jointId) const noexcept
+{
+    const auto it =
+        std::find_if(mSphericalJointSnapshot.begin(), mSphericalJointSnapshot.end(),
+                     [&](const SphericalJointState &state) { return state.jointId == jointId; });
+    return it == mSphericalJointSnapshot.end() ? nullptr : &(*it);
 }
 
 const HingeJointState *PhysicsWorld::tryGetHingeJoint(HingeJointId jointId) const noexcept
@@ -2408,6 +2504,11 @@ const std::vector<AuthoredSuturingSequenceState> &PhysicsWorld::suturingSequence
 const std::vector<BallJointState> &PhysicsWorld::ballJointSnapshot() const noexcept
 {
     return mBallJointSnapshot;
+}
+
+const std::vector<SphericalJointState> &PhysicsWorld::sphericalJointSnapshot() const noexcept
+{
+    return mSphericalJointSnapshot;
 }
 
 const std::vector<HingeJointState> &PhysicsWorld::hingeJointSnapshot() const noexcept
@@ -3306,6 +3407,23 @@ PhysicsWorld::RigidJointChangeKind PhysicsWorld::classifyHingeJointChange(
     return RigidJointChangeKind::PayloadOnly;
 }
 
+PhysicsWorld::RigidJointChangeKind PhysicsWorld::classifySphericalJointChange(
+    const SphericalJointState &previousState, const SphericalJointState &candidate,
+    bool inserted) noexcept
+{
+    if (inserted)
+    {
+        return RigidJointChangeKind::TopologyRebuild;
+    }
+
+    if (previousState.enabled != candidate.enabled || previousState.driveMode != candidate.driveMode)
+    {
+        return RigidJointChangeKind::ModeRebuild;
+    }
+
+    return RigidJointChangeKind::PayloadOnly;
+}
+
 PhysicsWorld::RigidJointChangeKind PhysicsWorld::classifySliderJointChange(
     const SliderJointState &previousState, const SliderJointState &candidate,
     bool inserted) noexcept
@@ -3622,10 +3740,11 @@ bool PhysicsWorld::pruneRigidJointsForBody(RigidBodyId rigidBodyId) noexcept
         return container.size() != originalSize;
     };
 
-    const bool removedBall   = removeByBody(mBallJointSnapshot);
-    const bool removedHinge  = removeByBody(mHingeJointSnapshot);
-    const bool removedSlider = removeByBody(mSliderJointSnapshot);
-    return removedBall || removedHinge || removedSlider;
+    const bool removedBall      = removeByBody(mBallJointSnapshot);
+    const bool removedSpherical = removeByBody(mSphericalJointSnapshot);
+    const bool removedHinge     = removeByBody(mHingeJointSnapshot);
+    const bool removedSlider    = removeByBody(mSliderJointSnapshot);
+    return removedBall || removedSpherical || removedHinge || removedSlider;
 }
 
 void PhysicsWorld::rebuildBodyColliderMapping() const noexcept
@@ -3742,6 +3861,54 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
         self->mRigidJointScene.hinge.projectionRow2.push_back(projectionRows[2]);
     };
 
+    auto appendSpherical = [&](const SphericalJointState &joint)
+    {
+        const auto bodyAIt = self->mRigidBodyIdToIndex.find(joint.bodyA);
+        const auto bodyBIt = self->mRigidBodyIdToIndex.find(joint.bodyB);
+        if (bodyAIt == self->mRigidBodyIdToIndex.end() ||
+            bodyBIt == self->mRigidBodyIdToIndex.end())
+        {
+            return;
+        }
+        const std::uint32_t bodyIndexA = bodyAIt->second;
+        const std::uint32_t bodyIndexB = bodyBIt->second;
+        if (self->mRigidBodySnapshot[bodyIndexA].environmentIndex !=
+            self->mRigidBodySnapshot[bodyIndexB].environmentIndex)
+        {
+            return;
+        }
+
+        self->mRigidJointScene.spherical.bodyIndicesA.push_back(bodyIndexA);
+        self->mRigidJointScene.spherical.bodyIndicesB.push_back(bodyIndexB);
+        self->mRigidJointScene.spherical.enabledFlags.push_back(joint.enabled ? 1u : 0u);
+        self->mRigidJointScene.spherical.driveModes.push_back(
+            static_cast<std::uint32_t>(joint.driveMode));
+        self->mRigidJointScene.spherical.localAnchorsA.push_back(
+            toFloat4(joint.localAnchorA, 0.0f));
+        self->mRigidJointScene.spherical.localAnchorsB.push_back(
+            toFloat4(joint.localAnchorB, 0.0f));
+        self->mRigidJointScene.spherical.localRotationsA.push_back(
+            Diligent::float4{joint.localRotationA.q.x, joint.localRotationA.q.y,
+                             joint.localRotationA.q.z, joint.localRotationA.q.w});
+        self->mRigidJointScene.spherical.localRotationsB.push_back(
+            Diligent::float4{joint.localRotationB.q.x, joint.localRotationB.q.y,
+                             joint.localRotationB.q.z, joint.localRotationB.q.w});
+        self->mRigidJointScene.spherical.limitEnabledFlags.push_back(joint.limitEnabled ? 1u : 0u);
+        self->mRigidJointScene.spherical.swingLimitYs.push_back(joint.swingLimitY);
+        self->mRigidJointScene.spherical.swingLimitZs.push_back(joint.swingLimitZ);
+        self->mRigidJointScene.spherical.twistLimitMins.push_back(joint.twistLimitMin);
+        self->mRigidJointScene.spherical.twistLimitMaxs.push_back(joint.twistLimitMax);
+        self->mRigidJointScene.spherical.constraintCompliances.push_back(
+            joint.constraintCompliance);
+        self->mRigidJointScene.spherical.swingCompliances.push_back(joint.swingCompliance);
+        self->mRigidJointScene.spherical.twistCompliances.push_back(joint.twistCompliance);
+        self->mRigidJointScene.spherical.driveCompliances.push_back(joint.driveCompliance);
+        self->mRigidJointScene.spherical.driveTargetOrientations.push_back(
+            Diligent::float4{joint.driveTargetOrientation.q.x, joint.driveTargetOrientation.q.y,
+                             joint.driveTargetOrientation.q.z,
+                             joint.driveTargetOrientation.q.w});
+    };
+
     auto appendSlider = [&](const SliderJointState &joint)
     {
         const auto bodyAIt = self->mRigidBodyIdToIndex.find(joint.bodyA);
@@ -3805,6 +3972,10 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
     {
         appendBall(joint);
     }
+    for (const SphericalJointState &joint : self->mSphericalJointSnapshot)
+    {
+        appendSpherical(joint);
+    }
     for (const HingeJointState &joint : self->mHingeJointSnapshot)
     {
         appendHinge(joint);
@@ -3826,9 +3997,9 @@ void PhysicsWorld::rebuildJointCollisionSuppression() const noexcept
     }
 
     std::vector<std::pair<std::uint32_t, std::uint32_t>> directedPairs;
-    directedPairs.reserve(
-        (mBallJointSnapshot.size() + mHingeJointSnapshot.size() + mSliderJointSnapshot.size()) *
-        2u);
+    directedPairs.reserve((mBallJointSnapshot.size() + mSphericalJointSnapshot.size() +
+                           mHingeJointSnapshot.size() + mSliderJointSnapshot.size()) *
+                          2u);
 
     const auto appendPair = [&](RigidBodyId bodyAId, RigidBodyId bodyBId)
     {
@@ -3860,6 +4031,13 @@ void PhysicsWorld::rebuildJointCollisionSuppression() const noexcept
         }
     }
     for (const HingeJointState &joint : mHingeJointSnapshot)
+    {
+        if (joint.enabled && joint.suppressConnectedBodyCollisions)
+        {
+            appendPair(joint.bodyA, joint.bodyB);
+        }
+    }
+    for (const SphericalJointState &joint : mSphericalJointSnapshot)
     {
         if (joint.enabled && joint.suppressConnectedBodyCollisions)
         {

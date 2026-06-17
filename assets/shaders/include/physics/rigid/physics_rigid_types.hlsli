@@ -12,6 +12,7 @@ static const uint kKinematicTargetEnabled = 1u << 0u;
 static const uint kRigidJointDriveModeNone = 0u;
 static const uint kRigidJointDriveModeTargetPosition = 1u;
 static const uint kRigidJointDriveModeTargetVelocity = 2u;
+static const uint kRigidJointDriveModeTargetOrientation = 3u;
 static const uint kRigidAggregateEntryFlagInitializing = 1u << 0u;
 static const uint kRigidAggregateEntryFlagReady = 1u << 1u;
 static const uint kRigidInvalidAggregateIndex = 0xffffffffu;
@@ -130,6 +131,22 @@ struct GpuBallJoint
     uint reserved0;
     float4 localAnchorA;
     float4 localAnchorB;
+};
+
+struct GpuSphericalJoint
+{
+    uint bodyA;
+    uint bodyB;
+    uint enabled;
+    uint driveMode;
+    float4 localAnchorA;
+    float4 localAnchorB;
+    float4 localRotationA;
+    float4 localRotationB;
+    float4 limitParams0;
+    float4 limitParams1;
+    float4 driveTargetOrientation;
+    float4 driveParams;
 };
 
 struct GpuHingeJoint

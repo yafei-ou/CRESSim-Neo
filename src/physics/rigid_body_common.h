@@ -20,6 +20,7 @@ constexpr std::uint32_t kKinematicTargetEnabled              = 1u << 0u;
 constexpr std::uint32_t kRigidJointDriveModeNone             = 0u;
 constexpr std::uint32_t kRigidJointDriveModeTargetPosition   = 1u;
 constexpr std::uint32_t kRigidJointDriveModeTargetVelocity   = 2u;
+constexpr std::uint32_t kRigidJointDriveModeTargetOrientation = 3u;
 constexpr std::uint32_t kRigidAggregateEntryFlagInitializing = 1u << 0u;
 constexpr std::uint32_t kRigidAggregateEntryFlagReady        = 1u << 1u;
 constexpr std::uint32_t kRigidInvalidAggregateIndex          = 0xffffffffu;
@@ -32,6 +33,8 @@ static_assert(static_cast<std::uint32_t>(RigidJointDriveMode::TargetPosition) ==
               kRigidJointDriveModeTargetPosition);
 static_assert(static_cast<std::uint32_t>(RigidJointDriveMode::TargetVelocity) ==
               kRigidJointDriveModeTargetVelocity);
+static_assert(static_cast<std::uint32_t>(RigidJointDriveMode::TargetOrientation) ==
+              kRigidJointDriveModeTargetOrientation);
 static_assert(static_cast<std::uint32_t>(ColliderShapeType::Sphere) == 0u);
 static_assert(static_cast<std::uint32_t>(ColliderShapeType::Box) == 1u);
 static_assert(static_cast<std::uint32_t>(ColliderShapeType::Capsule) == 2u);
@@ -141,6 +144,22 @@ struct GpuBallJoint
     std::uint32_t reserved0 = 0u;
     Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuSphericalJoint
+{
+    std::uint32_t bodyA     = 0u;
+    std::uint32_t bodyB     = 0u;
+    std::uint32_t enabled   = 0u;
+    std::uint32_t driveMode = 0u;
+    Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localRotationA{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::float4 localRotationB{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::float4 limitParams0{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 limitParams1{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 driveTargetOrientation{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::float4 driveParams{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 struct GpuHingeJoint
@@ -757,6 +776,7 @@ static_assert(sizeof(GpuRoutedCableDebugSegment) == 16u);
 static_assert(sizeof(GpuRigidDistanceConstraint) == 48u);
 static_assert(sizeof(GpuRigidParticleAttachmentConstraint) == 32u);
 static_assert(sizeof(GpuStrandRigidAttachmentConstraint) == 64u);
+static_assert(sizeof(GpuSphericalJoint) == 144u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);

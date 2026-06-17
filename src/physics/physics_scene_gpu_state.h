@@ -64,6 +64,7 @@ public:
     struct PersistentJointBuffers
     {
         Diligent::RefCntAutoPtr<Diligent::IBuffer> ballJointsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> sphericalJointsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> hingeJointsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderJointsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> hingePassiveJointIndicesBuffer;
@@ -279,6 +280,8 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidBodyPairAggregateActiveCountBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidBodyPairAggregateHeadersBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> rigidBodyPairAggregateSlotsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> sphericalJointTranslationLambdasBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> sphericalJointRotationLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> hingeJointLambdas0123Buffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> hingeJointLambdas45Buffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderJointLambdas0123Buffer;
@@ -374,8 +377,8 @@ public:
                         std::uint32_t softBendCount, std::uint32_t softTetCount,
                         std::uint32_t strandSegmentCount, std::uint32_t strandJointCount,
                         std::uint32_t strandDistanceCount,
-                        std::uint32_t ballJointCount, std::uint32_t hingeJointCount,
-                        std::uint32_t sliderJointCount,
+                        std::uint32_t ballJointCount, std::uint32_t sphericalJointCount,
+                        std::uint32_t hingeJointCount, std::uint32_t sliderJointCount,
                         std::uint32_t rigidParticleAttachmentCount,
                         std::uint32_t strandRigidAttachmentCount,
                         std::uint32_t rigidDistanceConstraintCount,
@@ -418,6 +421,7 @@ public:
     const PersistentCurveRenderBuffers &persistentCurveRender() const noexcept;
     const SolverTransientBuffers &transientBuffers() const noexcept;
     std::uint32_t ballJointCount() const noexcept;
+    std::uint32_t sphericalJointCount() const noexcept;
     std::uint32_t hingeJointCount() const noexcept;
     std::uint32_t sliderJointCount() const noexcept;
     std::uint32_t hingePassiveJointCount() const noexcept;
@@ -583,6 +587,7 @@ private:
     std::uint32_t mJointCollisionSuppressionOffsetCapacity   = 0;
     std::uint32_t mJointCollisionSuppressionNeighborCapacity = 0;
     std::uint32_t mBallJointCapacity                         = 0;
+    std::uint32_t mSphericalJointCapacity                    = 0;
     std::uint32_t mHingeJointCapacity                        = 0;
     std::uint32_t mSliderJointCapacity                       = 0;
     std::uint32_t mHingePassiveJointIndexCapacity            = 0;
@@ -614,6 +619,7 @@ private:
     std::uint64_t mLastUploadedRoutedCableTopologyRevision   = 0;
     std::uint64_t mLastUploadedCurveRenderRevision           = 0;
     std::uint32_t mBallJointCount                            = 0;
+    std::uint32_t mSphericalJointCount                       = 0;
     std::uint32_t mHingeJointCount                           = 0;
     std::uint32_t mSliderJointCount                          = 0;
     std::uint32_t mHingePassiveJointCount                    = 0;

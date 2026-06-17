@@ -55,9 +55,11 @@ public:
     bool removeParticleCollisionFilter(ParticleCollisionFilterId filterId);
     bool removeSuturingSequence(SuturingSequenceId sequenceId);
     bool upsertBallJoint(const BallJointState &state);
+    bool upsertSphericalJoint(const SphericalJointState &state);
     bool upsertHingeJoint(const HingeJointState &state);
     bool upsertSliderJoint(const SliderJointState &state);
     bool removeBallJoint(BallJointId jointId);
+    bool removeSphericalJoint(SphericalJointId jointId);
     bool removeHingeJoint(HingeJointId jointId);
     bool removeSliderJoint(SliderJointId jointId);
 
@@ -103,6 +105,7 @@ public:
     const AuthoredSuturingSequenceState *tryGetSuturingSequence(
         SuturingSequenceId sequenceId) const;
     const BallJointState *tryGetBallJoint(BallJointId jointId) const noexcept;
+    const SphericalJointState *tryGetSphericalJoint(SphericalJointId jointId) const noexcept;
     const HingeJointState *tryGetHingeJoint(HingeJointId jointId) const noexcept;
     const SliderJointState *tryGetSliderJoint(SliderJointId jointId) const noexcept;
 
@@ -126,6 +129,7 @@ public:
         const noexcept;
     const std::vector<AuthoredSuturingSequenceState> &suturingSequenceSnapshot() const noexcept;
     const std::vector<BallJointState> &ballJointSnapshot() const noexcept;
+    const std::vector<SphericalJointState> &sphericalJointSnapshot() const noexcept;
     const std::vector<HingeJointState> &hingeJointSnapshot() const noexcept;
     const std::vector<SliderJointState> &sliderJointSnapshot() const noexcept;
     const RigidBodySoAHost &rigidBodySoA() const noexcept;
@@ -308,6 +312,9 @@ private:
     static StrandChangeKind classifyStrandChange(const StrandState &previousState,
                                                  const StrandState &candidate) noexcept;
     static RigidJointChangeKind classifyBallJointChange(bool inserted) noexcept;
+    static RigidJointChangeKind classifySphericalJointChange(
+        const SphericalJointState &previousState, const SphericalJointState &candidate,
+        bool inserted) noexcept;
     static RigidJointChangeKind classifyHingeJointChange(const HingeJointState &previousState,
                                                          const HingeJointState &candidate,
                                                          bool inserted) noexcept;
@@ -379,6 +386,7 @@ private:
     std::vector<AuthoredParticleCollisionFilterState> mParticleCollisionFilterSnapshot{};
     std::vector<AuthoredSuturingSequenceState> mSuturingSequenceSnapshot{};
     std::vector<BallJointState> mBallJointSnapshot{};
+    std::vector<SphericalJointState> mSphericalJointSnapshot{};
     std::vector<HingeJointState> mHingeJointSnapshot{};
     std::vector<SliderJointState> mSliderJointSnapshot{};
     std::vector<SoftBodyDerivedCache> mSoftBodyDerivedCaches{};
@@ -444,6 +452,7 @@ private:
     RigidBodyId mNextRigidBodyId                             = 1u;
     ColliderId mNextColliderId                               = 1u;
     BallJointId mNextBallJointId                             = 1u;
+    SphericalJointId mNextSphericalJointId                   = 1u;
     HingeJointId mNextHingeJointId                           = 1u;
     SliderJointId mNextSliderJointId                         = 1u;
     ParticleSequenceId mNextParticleSequenceId               = 1u;

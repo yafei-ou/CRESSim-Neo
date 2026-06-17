@@ -624,6 +624,15 @@ constexpr Diligent::ShaderResourceVariableDesc kClearHingeJointConstraintStateVa
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kClearSphericalJointConstraintStateVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidJointDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SphericalJointTranslationLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SphericalJointRotationLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kClearSliderJointConstraintStateVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidJointDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -1747,6 +1756,31 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveBallJointConstraintsVars[] 
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kSolveSphericalJointConstraintsVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidJointDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyOrientations",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyInverseInertiaLocal",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTypes",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SphericalJoints",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SphericalJointTranslationLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SphericalJointRotationLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyTranslationCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyRotationCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kSolveHingeJointConstraintsVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2463,6 +2497,14 @@ const gpu::GpuComputePassDefinition kClearHingeJointConstraintState{
     std::size(kClearHingeJointConstraintStateVars),
 };
 
+const gpu::GpuComputePassDefinition kClearSphericalJointConstraintState{
+    "physics/rigid/solver/physics_rigid_clear_spherical_joint_constraint_state.cs.hlsl",
+    "CRESSimNeo.Physics.ClearSphericalJointConstraintState.CS",
+    "CRESSimNeo.Physics.ClearSphericalJointConstraintState.PSO",
+    kClearSphericalJointConstraintStateVars,
+    std::size(kClearSphericalJointConstraintStateVars),
+};
+
 const gpu::GpuComputePassDefinition kClearSliderJointConstraintState{
     "physics/rigid/solver/physics_rigid_clear_slider_joint_constraint_state.cs.hlsl",
     "CRESSimNeo.Physics.ClearSliderJointConstraintState.CS",
@@ -2828,6 +2870,14 @@ const gpu::GpuComputePassDefinition kSolveBallJointConstraints{
     "CRESSimNeo.Physics.RigidSolveBallJointConstraints.PSO",
     kSolveBallJointConstraintsVars,
     std::size(kSolveBallJointConstraintsVars),
+};
+
+const gpu::GpuComputePassDefinition kSolveSphericalJointConstraints{
+    "physics/rigid/solver/physics_rigid_solve_spherical_joints.cs.hlsl",
+    "CRESSimNeo.Physics.RigidSolveSphericalJointConstraints.CS",
+    "CRESSimNeo.Physics.RigidSolveSphericalJointConstraints.PSO",
+    kSolveSphericalJointConstraintsVars,
+    std::size(kSolveSphericalJointConstraintsVars),
 };
 
 const gpu::GpuComputePassDefinition kSolveHingeJointConstraintsPassive{

@@ -37,6 +37,9 @@ constexpr ColliderId kInvalidColliderId = 0u;
 using BallJointId                         = std::uint32_t;
 constexpr BallJointId kInvalidBallJointId = 0u;
 
+using SphericalJointId                              = std::uint32_t;
+constexpr SphericalJointId kInvalidSphericalJointId = 0u;
+
 using HingeJointId                          = std::uint32_t;
 constexpr HingeJointId kInvalidHingeJointId = 0u;
 
@@ -69,9 +72,10 @@ constexpr SuturingSequenceId kInvalidSuturingSequenceId = 0u;
 
 enum class RigidJointDriveMode : std::uint32_t
 {
-    None           = 0u,
-    TargetPosition = 1u,
-    TargetVelocity = 2u,
+    None              = 0u,
+    TargetPosition    = 1u,
+    TargetVelocity    = 2u,
+    TargetOrientation = 3u,
 };
 
 enum class SoftBodySourceKind : std::uint32_t
@@ -838,6 +842,30 @@ struct HingeJointState
     float driveTargetAngularVelocity = 0.0f;
 };
 
+struct SphericalJointState
+{
+    SphericalJointId jointId             = kInvalidSphericalJointId;
+    bool enabled                         = true;
+    bool suppressConnectedBodyCollisions = false;
+    RigidJointDriveMode driveMode        = RigidJointDriveMode::None;
+    bool limitEnabled                    = false;
+    RigidBodyId bodyA                    = kInvalidRigidBodyId;
+    RigidBodyId bodyB                    = kInvalidRigidBodyId;
+    Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
+    Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
+    Diligent::QuaternionF localRotationA{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::QuaternionF localRotationB{0.0f, 0.0f, 0.0f, 1.0f};
+    float swingLimitY            = 0.0f;
+    float swingLimitZ            = 0.0f;
+    float twistLimitMin          = 0.0f;
+    float twistLimitMax          = 0.0f;
+    float constraintCompliance   = 0.0f;
+    float swingCompliance        = 0.0f;
+    float twistCompliance        = 0.0f;
+    float driveCompliance        = 0.0f;
+    Diligent::QuaternionF driveTargetOrientation{0.0f, 0.0f, 0.0f, 1.0f};
+};
+
 struct SliderJointState
 {
     SliderJointId jointId                = kInvalidSliderJointId;
@@ -935,6 +963,58 @@ struct HingeJointSoAHost
     }
 };
 
+struct SphericalJointSoAHost
+{
+    std::vector<std::uint32_t> bodyIndicesA;
+    std::vector<std::uint32_t> bodyIndicesB;
+    std::vector<std::uint32_t> enabledFlags;
+    std::vector<std::uint32_t> driveModes;
+    std::vector<Diligent::float4> localAnchorsA;
+    std::vector<Diligent::float4> localAnchorsB;
+    std::vector<Diligent::float4> localRotationsA;
+    std::vector<Diligent::float4> localRotationsB;
+    std::vector<std::uint32_t> limitEnabledFlags;
+    std::vector<float> swingLimitYs;
+    std::vector<float> swingLimitZs;
+    std::vector<float> twistLimitMins;
+    std::vector<float> twistLimitMaxs;
+    std::vector<float> constraintCompliances;
+    std::vector<float> swingCompliances;
+    std::vector<float> twistCompliances;
+    std::vector<float> driveCompliances;
+    std::vector<Diligent::float4> driveTargetOrientations;
+
+    std::size_t size() const noexcept
+    {
+        return bodyIndicesA.size();
+    }
+    bool empty() const noexcept
+    {
+        return bodyIndicesA.empty();
+    }
+    void clear()
+    {
+        bodyIndicesA.clear();
+        bodyIndicesB.clear();
+        enabledFlags.clear();
+        driveModes.clear();
+        localAnchorsA.clear();
+        localAnchorsB.clear();
+        localRotationsA.clear();
+        localRotationsB.clear();
+        limitEnabledFlags.clear();
+        swingLimitYs.clear();
+        swingLimitZs.clear();
+        twistLimitMins.clear();
+        twistLimitMaxs.clear();
+        constraintCompliances.clear();
+        swingCompliances.clear();
+        twistCompliances.clear();
+        driveCompliances.clear();
+        driveTargetOrientations.clear();
+    }
+};
+
 struct SliderJointSoAHost
 {
     std::vector<std::uint32_t> bodyIndicesA;
@@ -994,12 +1074,14 @@ struct SliderJointSoAHost
 struct RigidJointSceneHost
 {
     BallJointSoAHost ball;
+    SphericalJointSoAHost spherical;
     HingeJointSoAHost hinge;
     SliderJointSoAHost slider;
 
     void clear()
     {
         ball.clear();
+        spherical.clear();
         hinge.clear();
         slider.clear();
     }
