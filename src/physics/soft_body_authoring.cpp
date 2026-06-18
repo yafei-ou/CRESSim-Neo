@@ -177,8 +177,7 @@ bool buildRegularGridSource(const SoftBodyRegularGridSource &source, TetMeshData
 }
 
 void buildMeshfreeKNearestGraph(const std::vector<Diligent::float3> &restPositions,
-                                std::uint32_t neighbourCount,
-                                ResolvedSoftBodyTopology &outTopology)
+                                std::uint32_t neighbourCount, ResolvedSoftBodyTopology &outTopology)
 {
     const std::uint32_t particleCount = static_cast<std::uint32_t>(restPositions.size());
     if (particleCount < 2u)
@@ -207,15 +206,14 @@ void buildMeshfreeKNearestGraph(const std::vector<Diligent::float3> &restPositio
         }
 
         std::sort(nearest.begin(), nearest.end(),
-            [](const auto &lhs, const auto &rhs)
-            {
-                if (lhs.first != rhs.first)
-                {
-                    return lhs.first < rhs.first;
-                }
-                return lhs.second < rhs.second;
-            }
-        );
+                  [](const auto &lhs, const auto &rhs)
+                  {
+                      if (lhs.first != rhs.first)
+                      {
+                          return lhs.first < rhs.first;
+                      }
+                      return lhs.second < rhs.second;
+                  });
 
         for (std::uint32_t neighbourSlot = 0u; neighbourSlot < neighbourCount; ++neighbourSlot)
         {
@@ -268,9 +266,8 @@ bool resolveSoftBodyTopology(const SoftBodyState &state, const TetMeshData *tetG
         staticParticleIndices               = &state.source.tetGen.staticParticleIndices;
         break;
     case SoftBodySourceKind::MeshfreeParticles:
-        sourceMesh.objectSpaceRestPositions =
-            state.source.meshfreeParticles.particleRestPositions;
-        staticParticleIndices = &state.source.meshfreeParticles.staticParticleIndices;
+        sourceMesh.objectSpaceRestPositions = state.source.meshfreeParticles.particleRestPositions;
+        staticParticleIndices               = &state.source.meshfreeParticles.staticParticleIndices;
         break;
     }
 
@@ -309,8 +306,8 @@ bool resolveSoftBodyTopology(const SoftBodyState &state, const TetMeshData *tetG
 
         if (staticParticleIndices != nullptr)
         {
-            outTopology.staticParticleIndices =
-                normalizedStaticParticleIndices(*staticParticleIndices, particleCount, errorMessage);
+            outTopology.staticParticleIndices = normalizedStaticParticleIndices(
+                *staticParticleIndices, particleCount, errorMessage);
             if (!errorMessage.empty())
             {
                 return false;

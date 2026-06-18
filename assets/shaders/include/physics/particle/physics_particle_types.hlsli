@@ -160,6 +160,30 @@ struct GpuSoftIncidentTet
     uint reserved1;
 };
 
+struct GpuStrandIncidentSegment
+{
+    uint segmentIndex;
+    uint slot;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuStrandIncidentJoint
+{
+    uint jointIndex;
+    uint slot;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GpuStrandIncidentAttachment
+{
+    uint attachmentIndex;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+};
+
 struct GpuSoftIncidentBend
 {
     uint bendIndex;
@@ -187,6 +211,64 @@ struct GpuSoftBendCorrection
     float4 correction0;
     float4 correction1;
     float4 correction2;
+};
+
+struct GpuStrandSegment
+{
+    uint particleA;
+    uint particleB;
+    float restLength;
+    float stretchShearCompliance;
+    float4 restOrientation;
+};
+
+struct GpuStrandJoint
+{
+    uint segmentA;
+    uint segmentB;
+    float bendCompliance;
+    float twistCompliance;
+    float4 restRelativeOrientation;
+};
+
+struct GpuStrandSegmentState
+{
+    float4 orientation;
+};
+
+struct GpuStrandSegmentCorrection
+{
+    float4 correctionA;
+    float4 correctionB;
+    float4 angularCorrection;
+};
+
+struct GpuStrandJointCorrection
+{
+    float4 correction0;
+    float4 correction1;
+    float4 correction2;
+    float4 twistRotationA;
+    float4 twistRotationB;
+};
+
+struct GpuStrandRigidAttachmentLambda
+{
+    float4 translation;
+    float4 rotation;
+};
+
+struct GpuStrandRigidAttachmentCorrection
+{
+    float4 segmentRotation;
+};
+
+struct GpuStrandDistanceConstraint
+{
+    uint particleA;
+    uint particleB;
+    float restLength;
+    float distanceCompliance;
 };
 
 struct GpuSoftBodyParticleRange

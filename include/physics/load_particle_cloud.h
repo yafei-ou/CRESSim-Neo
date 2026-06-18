@@ -13,9 +13,11 @@ namespace cressim::neo::physics
 {
 
 CRESSIM_NEO_PHYSICS_API bool readParticleCloudBin(const std::filesystem::path &path,
-    std::vector<Diligent::float3> &particles, std::string &errorMessage);
+                                                  std::vector<Diligent::float3> &particles,
+                                                  std::string &errorMessage);
 
-CRESSIM_NEO_PHYSICS_API std::vector<Diligent::float3> loadParticleCloud(const std::filesystem::path &path);
+CRESSIM_NEO_PHYSICS_API std::vector<Diligent::float3> loadParticleCloud(
+    const std::filesystem::path &path);
 
 } // namespace cressim::neo::physics
 

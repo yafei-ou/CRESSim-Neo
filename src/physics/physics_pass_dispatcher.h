@@ -28,6 +28,9 @@ public:
     bool clearHingeJointConstraintState(Diligent::IDeviceContext *computeContext,
                                         const PhysicsSceneGpuState &sceneState,
                                         std::uint32_t jointCount);
+    bool clearSphericalJointConstraintState(Diligent::IDeviceContext *computeContext,
+                                            const PhysicsSceneGpuState &sceneState,
+                                            std::uint32_t jointCount);
     bool clearSliderJointConstraintState(Diligent::IDeviceContext *computeContext,
                                          const PhysicsSceneGpuState &sceneState,
                                          std::uint32_t jointCount);
@@ -93,6 +96,22 @@ public:
     bool clearSoftConstraintState(Diligent::IDeviceContext *computeContext,
                                   const PhysicsSceneGpuState &sceneState, std::uint32_t threadCount,
                                   const GpuParticleDispatchConstants &constants);
+    bool clearRigidParticleAttachmentConstraintState(Diligent::IDeviceContext *computeContext,
+                                                     const PhysicsSceneGpuState &sceneState,
+                                                     std::uint32_t constraintCount,
+                                                     const GpuRigidDispatchConstants &constants);
+    bool clearStrandRigidAttachmentConstraintState(Diligent::IDeviceContext *computeContext,
+                                                   const PhysicsSceneGpuState &sceneState,
+                                                   std::uint32_t constraintCount,
+                                                   const GpuRigidDispatchConstants &constants);
+    bool clearRigidDistanceConstraintState(Diligent::IDeviceContext *computeContext,
+                                           const PhysicsSceneGpuState &sceneState,
+                                           std::uint32_t constraintCount,
+                                           const GpuRigidDispatchConstants &constants);
+    bool clearRoutedCableConstraintState(Diligent::IDeviceContext *computeContext,
+                                         const PhysicsSceneGpuState &sceneState,
+                                         std::uint32_t routedCableCount,
+                                         const GpuRigidDispatchConstants &constants);
     bool clearSuturingCandidates(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState,
                                  std::uint32_t suturingParticleCount,
@@ -136,6 +155,34 @@ public:
     bool applySoftTetCorrections(Diligent::IDeviceContext *computeContext,
                                  const PhysicsSceneGpuState &sceneState,
                                  const GpuParticleDispatchConstants &constants);
+    bool solveStrandSegmentConstraints(Diligent::IDeviceContext *computeContext,
+                                       const PhysicsSceneGpuState &sceneState,
+                                       std::uint32_t strandSegmentCount,
+                                       const GpuParticleDispatchConstants &constants);
+    bool applyStrandSegmentCorrections(Diligent::IDeviceContext *computeContext,
+                                       const PhysicsSceneGpuState &sceneState,
+                                       std::uint32_t dispatchCount,
+                                       const GpuParticleDispatchConstants &constants);
+    bool solveStrandJointConstraints(Diligent::IDeviceContext *computeContext,
+                                     const PhysicsSceneGpuState &sceneState,
+                                     std::uint32_t strandJointCount,
+                                     const GpuParticleDispatchConstants &constants);
+    bool applyStrandJointCorrections(Diligent::IDeviceContext *computeContext,
+                                     const PhysicsSceneGpuState &sceneState,
+                                     std::uint32_t dispatchCount,
+                                     const GpuParticleDispatchConstants &constants);
+    bool applyStrandRigidAttachmentCorrections(Diligent::IDeviceContext *computeContext,
+                                               const PhysicsSceneGpuState &sceneState,
+                                               std::uint32_t dispatchCount,
+                                               const GpuParticleDispatchConstants &constants);
+    bool solveStrandDistanceConstraints(Diligent::IDeviceContext *computeContext,
+                                        const PhysicsSceneGpuState &sceneState,
+                                        std::uint32_t strandDistanceCount,
+                                        const GpuParticleDispatchConstants &constants);
+    bool applyStrandDistanceCorrections(Diligent::IDeviceContext *computeContext,
+                                        const PhysicsSceneGpuState &sceneState,
+                                        std::uint32_t particleCount,
+                                        const GpuParticleDispatchConstants &constants);
     bool solveParticleExplicitContacts(Diligent::IDeviceContext *computeContext,
                                        const PhysicsSceneGpuState &sceneState,
                                        const GpuParticleDispatchConstants &constants);
@@ -233,10 +280,28 @@ public:
                                         const PhysicsSceneGpuState &sceneState);
     bool solveBallJointConstraints(Diligent::IDeviceContext *computeContext,
                                    const PhysicsSceneGpuState &sceneState);
+    bool solveSphericalJointConstraints(Diligent::IDeviceContext *computeContext,
+                                        const PhysicsSceneGpuState &sceneState);
     bool solveHingeJointConstraints(Diligent::IDeviceContext *computeContext,
                                     const PhysicsSceneGpuState &sceneState);
     bool solveSliderJointConstraints(Diligent::IDeviceContext *computeContext,
                                      const PhysicsSceneGpuState &sceneState);
+    bool solveRigidParticleAttachmentConstraints(Diligent::IDeviceContext *computeContext,
+                                                 const PhysicsSceneGpuState &sceneState,
+                                                 std::uint32_t constraintCount,
+                                                 const GpuRigidDispatchConstants &constants);
+    bool solveStrandRigidAttachmentConstraints(Diligent::IDeviceContext *computeContext,
+                                               const PhysicsSceneGpuState &sceneState,
+                                               std::uint32_t constraintCount,
+                                               const GpuRigidDispatchConstants &constants);
+    bool solveRigidDistanceConstraints(Diligent::IDeviceContext *computeContext,
+                                       const PhysicsSceneGpuState &sceneState,
+                                       std::uint32_t constraintCount,
+                                       const GpuRigidDispatchConstants &constants);
+    bool solveRoutedCableConstraints(Diligent::IDeviceContext *computeContext,
+                                     const PhysicsSceneGpuState &sceneState,
+                                     std::uint32_t routedCableCount,
+                                     const GpuRigidDispatchConstants &constants);
     bool solveHingeJointTargetVelocities(Diligent::IDeviceContext *computeContext,
                                          const PhysicsSceneGpuState &sceneState);
     bool solveSliderJointTargetVelocities(Diligent::IDeviceContext *computeContext,
@@ -327,6 +392,9 @@ private:
     bool dispatchSolveBallJointConstraintsPass(Diligent::IDeviceContext *computeContext,
                                                const PhysicsSceneGpuState &sceneState,
                                                std::uint32_t jointCount);
+    bool dispatchSolveSphericalJointConstraintsPass(Diligent::IDeviceContext *computeContext,
+                                                    const PhysicsSceneGpuState &sceneState,
+                                                    std::uint32_t jointCount);
     bool dispatchSolveHingeJointConstraintsPass(Diligent::IDeviceContext *computeContext,
                                                 gpu::GpuComputePass &pass,
                                                 const PhysicsSceneGpuState &sceneState,
@@ -417,6 +485,10 @@ private:
     gpu::GpuComputePass mFinalizeActiveParticleRigidContactsPass;
     gpu::GpuComputePass mCompactActiveParticleRigidContactsPass;
     gpu::GpuComputePass mClearSoftConstraintStatePass;
+    gpu::GpuComputePass mClearRigidParticleAttachmentConstraintStatePass;
+    gpu::GpuComputePass mClearStrandRigidAttachmentConstraintStatePass;
+    gpu::GpuComputePass mClearRigidDistanceConstraintStatePass;
+    gpu::GpuComputePass mClearRoutedCableConstraintStatePass;
     gpu::GpuComputePass mClearSuturingCandidatesPass;
     gpu::GpuComputePass mGatherSuturingCandidatesPass;
     gpu::GpuComputePass mClassifySuturingParticlesPass;
@@ -429,6 +501,13 @@ private:
     gpu::GpuComputePass mApplySoftEdgeCorrectionsPass;
     gpu::GpuComputePass mApplySoftBendCorrectionsPass;
     gpu::GpuComputePass mApplySoftTetCorrectionsPass;
+    gpu::GpuComputePass mSolveStrandSegmentConstraintsPass;
+    gpu::GpuComputePass mApplyStrandSegmentCorrectionsPass;
+    gpu::GpuComputePass mSolveStrandJointConstraintsPass;
+    gpu::GpuComputePass mApplyStrandJointCorrectionsPass;
+    gpu::GpuComputePass mApplyStrandRigidAttachmentCorrectionsPass;
+    gpu::GpuComputePass mSolveStrandDistanceConstraintsPass;
+    gpu::GpuComputePass mApplyStrandDistanceCorrectionsPass;
     gpu::GpuComputePass mSolveParticleExplicitContactsPass;
     gpu::GpuComputePass mSolveParticleRigidContactsPass;
     gpu::GpuComputePass mApplyParticlePositionCorrectionsPass;
@@ -479,13 +558,19 @@ private:
     gpu::GpuComputePass mPrepareRigidContactVelocityIndirectArgsPass;
     gpu::GpuComputePass mSolveRigidContactVelocitiesPass;
     gpu::GpuComputePass mSolveBallJointConstraintsPass;
+    gpu::GpuComputePass mSolveSphericalJointConstraintsPass;
     gpu::GpuComputePass mSolveHingeJointConstraintsPassivePass;
     gpu::GpuComputePass mSolveHingeJointConstraintsTargetPositionPass;
     gpu::GpuComputePass mSolveSliderJointConstraintsPassivePass;
     gpu::GpuComputePass mSolveSliderJointConstraintsTargetPositionPass;
+    gpu::GpuComputePass mSolveRigidParticleAttachmentConstraintsPass;
+    gpu::GpuComputePass mSolveStrandRigidAttachmentConstraintsPass;
+    gpu::GpuComputePass mSolveRigidDistanceConstraintsPass;
+    gpu::GpuComputePass mSolveRoutedCableConstraintsPass;
     gpu::GpuComputePass mSolveHingeJointTargetVelocitiesPass;
     gpu::GpuComputePass mSolveSliderJointTargetVelocitiesPass;
     gpu::GpuComputePass mClearHingeJointConstraintStatePass;
+    gpu::GpuComputePass mClearSphericalJointConstraintStatePass;
     gpu::GpuComputePass mClearSliderJointConstraintStatePass;
     gpu::GpuComputePass mApplyRigidCorrectionsPass;
     gpu::GpuComputePass mUpdateRigidVelocitiesPass;

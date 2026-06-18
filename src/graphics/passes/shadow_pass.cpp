@@ -240,8 +240,7 @@ bool ShadowPass::bindSceneBuffers(MaterialProgramFamily programFamily) const
 
     if (programFamily == MaterialProgramFamily::SoftBodyLit)
     {
-        if (mPhysicsScene == nullptr ||
-            mPhysicsScene->soft.renderPositionsBuffer == nullptr)
+        if (mPhysicsScene == nullptr || mPhysicsScene->soft.renderPositionsBuffer == nullptr)
         {
             return false;
         }

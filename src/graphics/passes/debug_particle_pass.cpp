@@ -359,9 +359,8 @@ bool DebugParticlePass::drawConstraintEdges(
         return false;
     }
 
-    Diligent::IPipelineState *pipeline =
-        getOrCreateEdgePipeline(renderDevice,
-                                PipelineKey{targetDesc.colorFormat, targetDesc.depthFormat});
+    Diligent::IPipelineState *pipeline = getOrCreateEdgePipeline(
+        renderDevice, PipelineKey{targetDesc.colorFormat, targetDesc.depthFormat});
     if (pipeline == nullptr)
     {
         return false;
@@ -497,15 +496,14 @@ bool DebugParticlePass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
     }
 
     DrawConstants constants{};
-    constants.color          = options.color;
-    constants.staticColor    = options.staticColor;
-    constants.edgeColor      = options.edgeColor;
-    constants.cameraIndex    = camera.globalCameraIndex;
-    constants.targetLayer    = targetLayer;
-    constants.envIndex       = camera.envIndex;
-    constants.flags          = useParticleRadii ? kUseParticleRadiiFlag : 0u;
-    constants.flags |=
-        options.highlightStaticParticles ? kHighlightStaticParticlesFlag : 0u;
+    constants.color       = options.color;
+    constants.staticColor = options.staticColor;
+    constants.edgeColor   = options.edgeColor;
+    constants.cameraIndex = camera.globalCameraIndex;
+    constants.targetLayer = targetLayer;
+    constants.envIndex    = camera.envIndex;
+    constants.flags       = useParticleRadii ? kUseParticleRadiiFlag : 0u;
+    constants.flags |= options.highlightStaticParticles ? kHighlightStaticParticlesFlag : 0u;
     constants.fallbackRadius = options.fallbackRadius;
 
     void *mapped = nullptr;

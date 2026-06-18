@@ -12,6 +12,7 @@ using cressim::neo::physics::RigidJointDriveMode;
 using cressim::neo::physics::RigidBodyState;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::physics::SliderJointState;
+using cressim::neo::physics::SphericalJointState;
 
 constexpr float kEpsilon = 1.0e-6f;
 
@@ -130,6 +131,30 @@ int main()
     }
     ball.jointId = world.ballJointSnapshot().back().jointId;
 
+    SphericalJointState spherical{};
+    spherical.bodyA = bodyA->rigidBodyId;
+    spherical.bodyB = bodyB->rigidBodyId;
+    spherical.suppressConnectedBodyCollisions = true;
+    spherical.localRotationA = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
+    spherical.localRotationB = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
+    spherical.limitEnabled = true;
+    spherical.swingLimitY = 0.2f;
+    spherical.swingLimitZ = 0.3f;
+    spherical.twistLimitMin = -0.4f;
+    spherical.twistLimitMax = 0.5f;
+    spherical.constraintCompliance = 0.01f;
+    spherical.swingCompliance = 0.02f;
+    spherical.twistCompliance = 0.03f;
+    spherical.driveMode = RigidJointDriveMode::TargetOrientation;
+    spherical.driveCompliance = 0.04f;
+    spherical.driveTargetOrientation = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
+    if (!world.upsertSphericalJoint(spherical))
+    {
+        CRESSIM_LOG_ERROR("Failed to insert spherical joint.");
+        return 1;
+    }
+    spherical.jointId = world.sphericalJointSnapshot().back().jointId;
+
     HingeJointState hinge{};
     hinge.bodyA = bodyA->rigidBodyId;
     hinge.bodyB = bodyB->rigidBodyId;
@@ -176,10 +201,19 @@ int main()
         CRESSIM_LOG_ERROR("Cross-environment ball joint should be rejected.");
         return 1;
     }
+    SphericalJointState crossEnvSpherical{};
+    crossEnvSpherical.bodyA = bodyA->rigidBodyId;
+    crossEnvSpherical.bodyB = bodyC->rigidBodyId;
+    if (world.upsertSphericalJoint(crossEnvSpherical))
+    {
+        CRESSIM_LOG_ERROR("Cross-environment spherical joint should be rejected.");
+        return 1;
+    }
 
     const auto &scene = world.rigidJointScene();
     const auto &suppression = world.jointCollisionSuppression();
-    if (scene.ball.size() != 1u || scene.hinge.size() != 1u || scene.slider.size() != 1u)
+    if (scene.ball.size() != 1u || scene.spherical.size() != 1u || scene.hinge.size() != 1u ||
+        scene.slider.size() != 1u)
     {
         CRESSIM_LOG_ERROR("Unexpected rigid joint scene counts.");
         return 1;
@@ -198,6 +232,12 @@ int main()
     if (!world.upsertBallJoint(ball))
     {
         CRESSIM_LOG_ERROR("Failed to disable ball joint.");
+        return 1;
+    }
+    spherical.enabled = false;
+    if (!world.upsertSphericalJoint(spherical))
+    {
+        CRESSIM_LOG_ERROR("Failed to disable spherical joint.");
         return 1;
     }
 
@@ -219,12 +259,35 @@ int main()
         CRESSIM_LOG_ERROR("Failed to re-enable ball joint.");
         return 1;
     }
+    spherical.enabled = true;
+    if (!world.upsertSphericalJoint(spherical))
+    {
+        CRESSIM_LOG_ERROR("Failed to re-enable spherical joint.");
+        return 1;
+    }
 
     if (scene.ball.bodyIndicesA.front() != 0u || scene.ball.bodyIndicesB.front() != 1u ||
+        scene.spherical.bodyIndicesA.front() != 0u || scene.spherical.bodyIndicesB.front() != 1u ||
         scene.hinge.bodyIndicesA.front() != 0u || scene.hinge.bodyIndicesB.front() != 1u ||
         scene.slider.bodyIndicesA.front() != 0u || scene.slider.bodyIndicesB.front() != 1u)
     {
         CRESSIM_LOG_ERROR("Rigid joint scene body indices were not rebuilt correctly.");
+        return 1;
+    }
+
+    if (scene.spherical.driveModes.front() !=
+            static_cast<std::uint32_t>(RigidJointDriveMode::TargetOrientation) ||
+        scene.spherical.limitEnabledFlags.front() != 1u ||
+        std::fabs(scene.spherical.swingLimitYs.front() - 0.2f) > kEpsilon ||
+        std::fabs(scene.spherical.swingLimitZs.front() - 0.3f) > kEpsilon ||
+        std::fabs(scene.spherical.twistLimitMins.front() + 0.4f) > kEpsilon ||
+        std::fabs(scene.spherical.twistLimitMaxs.front() - 0.5f) > kEpsilon ||
+        std::fabs(scene.spherical.constraintCompliances.front() - 0.01f) > kEpsilon ||
+        std::fabs(scene.spherical.swingCompliances.front() - 0.02f) > kEpsilon ||
+        std::fabs(scene.spherical.twistCompliances.front() - 0.03f) > kEpsilon ||
+        std::fabs(scene.spherical.driveCompliances.front() - 0.04f) > kEpsilon)
+    {
+        CRESSIM_LOG_ERROR("Spherical drive target state was not rebuilt correctly.");
         return 1;
     }
 
@@ -297,13 +360,15 @@ int main()
 
     world.removeRigidBody(1001u);
     const auto &sceneAfterRemoval = world.rigidJointScene();
-    if (!sceneAfterRemoval.ball.empty() || !sceneAfterRemoval.hinge.empty() ||
+    if (!sceneAfterRemoval.ball.empty() || !sceneAfterRemoval.spherical.empty() ||
+        !sceneAfterRemoval.hinge.empty() ||
         !sceneAfterRemoval.slider.empty())
     {
         CRESSIM_LOG_ERROR("Joint scene should drop joints referencing removed bodies.");
         return 1;
     }
-    if (!world.ballJointSnapshot().empty() || !world.hingeJointSnapshot().empty() ||
+    if (!world.ballJointSnapshot().empty() || !world.sphericalJointSnapshot().empty() ||
+        !world.hingeJointSnapshot().empty() ||
         !world.sliderJointSnapshot().empty())
     {
         CRESSIM_LOG_ERROR("Authored joint snapshots should drop joints referencing removed bodies.");

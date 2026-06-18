@@ -20,8 +20,7 @@ struct SurfaceMeshData
 };
 
 CRESSIM_NEO_PHYSICS_API bool readObjSurfaceMesh(const std::filesystem::path &path,
-                                                SurfaceMeshData &mesh,
-                                                std::string &errorMessage);
+                                                SurfaceMeshData &mesh, std::string &errorMessage);
 
 CRESSIM_NEO_PHYSICS_API SurfaceMeshData loadObjSurfaceMesh(const std::filesystem::path &path);
 

@@ -514,8 +514,8 @@ int main(int argc, char **argv)
         StrandComponent strand{};
         strand.particleMass = 0.12f;
         strand.particleRadius = 0.1f;
-        strand.distanceCompliance = 0.000001f;
-        strand.bendCompliance = 0.03f;
+        strand.stretchShearCompliance = 0.000001f;
+        strand.bendCompliance = 0.005f;
         strand.selfCollisionEnabled = false;
         strand.suturingEnabled = false;
         strand.collisionLayer = 0x2u;

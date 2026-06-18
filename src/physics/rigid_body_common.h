@@ -10,19 +10,20 @@
 namespace cressim::neo::physics
 {
 
-constexpr std::uint32_t kRigidContactsPerPair                = 4u;
-constexpr std::uint32_t kRigidBodyPairAggregateContacts      = 16u;
-constexpr std::uint32_t kRigidPairTypeCount                  = 6u;
-constexpr std::uint32_t kRigidBodyTypeStatic                 = 0u;
-constexpr std::uint32_t kRigidBodyTypeKinematic              = 1u;
-constexpr std::uint32_t kRigidBodyTypeDynamic                = 2u;
-constexpr std::uint32_t kKinematicTargetEnabled              = 1u << 0u;
-constexpr std::uint32_t kRigidJointDriveModeNone             = 0u;
-constexpr std::uint32_t kRigidJointDriveModeTargetPosition   = 1u;
-constexpr std::uint32_t kRigidJointDriveModeTargetVelocity   = 2u;
-constexpr std::uint32_t kRigidAggregateEntryFlagInitializing = 1u << 0u;
-constexpr std::uint32_t kRigidAggregateEntryFlagReady        = 1u << 1u;
-constexpr std::uint32_t kRigidInvalidAggregateIndex          = 0xffffffffu;
+constexpr std::uint32_t kRigidContactsPerPair                 = 4u;
+constexpr std::uint32_t kRigidBodyPairAggregateContacts       = 16u;
+constexpr std::uint32_t kRigidPairTypeCount                   = 6u;
+constexpr std::uint32_t kRigidBodyTypeStatic                  = 0u;
+constexpr std::uint32_t kRigidBodyTypeKinematic               = 1u;
+constexpr std::uint32_t kRigidBodyTypeDynamic                 = 2u;
+constexpr std::uint32_t kKinematicTargetEnabled               = 1u << 0u;
+constexpr std::uint32_t kRigidJointDriveModeNone              = 0u;
+constexpr std::uint32_t kRigidJointDriveModeTargetPosition    = 1u;
+constexpr std::uint32_t kRigidJointDriveModeTargetVelocity    = 2u;
+constexpr std::uint32_t kRigidJointDriveModeTargetOrientation = 3u;
+constexpr std::uint32_t kRigidAggregateEntryFlagInitializing  = 1u << 0u;
+constexpr std::uint32_t kRigidAggregateEntryFlagReady         = 1u << 1u;
+constexpr std::uint32_t kRigidInvalidAggregateIndex           = 0xffffffffu;
 
 static_assert(static_cast<std::uint32_t>(RigidBodyType::Static) == kRigidBodyTypeStatic);
 static_assert(static_cast<std::uint32_t>(RigidBodyType::Kinematic) == kRigidBodyTypeKinematic);
@@ -32,6 +33,8 @@ static_assert(static_cast<std::uint32_t>(RigidJointDriveMode::TargetPosition) ==
               kRigidJointDriveModeTargetPosition);
 static_assert(static_cast<std::uint32_t>(RigidJointDriveMode::TargetVelocity) ==
               kRigidJointDriveModeTargetVelocity);
+static_assert(static_cast<std::uint32_t>(RigidJointDriveMode::TargetOrientation) ==
+              kRigidJointDriveModeTargetOrientation);
 static_assert(static_cast<std::uint32_t>(ColliderShapeType::Sphere) == 0u);
 static_assert(static_cast<std::uint32_t>(ColliderShapeType::Box) == 1u);
 static_assert(static_cast<std::uint32_t>(ColliderShapeType::Capsule) == 2u);
@@ -71,6 +74,68 @@ struct GpuRigidJointDispatchConstants
     std::uint32_t reserved2  = 0u;
 };
 
+struct GpuRoutedCableConstraint
+{
+    std::uint32_t routePointStart = 0u;
+    std::uint32_t routePointCount = 0u;
+    float targetLength            = 0.0f;
+    float compliance              = 0.0f;
+    std::uint32_t tensionOnly     = 1u;
+    std::uint32_t reserved0       = 0u;
+    std::uint32_t reserved1       = 0u;
+    std::uint32_t reserved2       = 0u;
+};
+
+struct GpuRoutedCableRoutePoint
+{
+    std::uint32_t rigidBodyIndex = 0u;
+    std::uint32_t reserved0      = 0u;
+    std::uint32_t reserved1      = 0u;
+    std::uint32_t reserved2      = 0u;
+    Diligent::float4 localGuideOffset{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuRoutedCableDebugSegment
+{
+    std::uint32_t routePointIndexA = 0u;
+    std::uint32_t routePointIndexB = 0u;
+    std::uint32_t envIndex         = 0u;
+    std::uint32_t cableIndex       = 0u;
+};
+
+struct GpuRigidDistanceConstraint
+{
+    std::uint32_t rigidBodyIndexA = 0u;
+    std::uint32_t rigidBodyIndexB = 0u;
+    float restDistance            = 0.0f;
+    float compliance              = 0.0f;
+    Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuRigidParticleAttachmentConstraint
+{
+    std::uint32_t particleIndex  = 0u;
+    std::uint32_t rigidBodyIndex = 0u;
+    float compliance             = 0.0f;
+    std::uint32_t reserved0      = 0u;
+    Diligent::float4 localAnchor{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuStrandRigidAttachmentConstraint
+{
+    std::uint32_t segmentIndex   = 0u;
+    std::uint32_t rigidBodyIndex = 0u;
+    float segmentT               = 0.0f;
+    float translationCompliance  = 0.0f;
+    float rotationCompliance     = 0.0f;
+    std::uint32_t reserved0      = 0u;
+    std::uint32_t reserved1      = 0u;
+    std::uint32_t reserved2      = 0u;
+    Diligent::float4 localAnchor{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localRotation{0.0f, 0.0f, 0.0f, 1.0f};
+};
+
 struct GpuBallJoint
 {
     std::uint32_t bodyA     = 0u;
@@ -79,6 +144,22 @@ struct GpuBallJoint
     std::uint32_t reserved0 = 0u;
     Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuSphericalJoint
+{
+    std::uint32_t bodyA     = 0u;
+    std::uint32_t bodyB     = 0u;
+    std::uint32_t enabled   = 0u;
+    std::uint32_t driveMode = 0u;
+    Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localRotationA{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::float4 localRotationB{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::float4 limitParams0{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 limitParams1{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 driveTargetOrientation{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::float4 driveParams{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 struct GpuHingeJoint
@@ -152,6 +233,9 @@ struct GpuParticleDispatchConstants
     std::uint32_t softEdgeCount                      = 0;
     std::uint32_t softBendCount                      = 0;
     std::uint32_t softTetCount                       = 0;
+    std::uint32_t strandSegmentCount                 = 0;
+    std::uint32_t strandJointCount                   = 0;
+    std::uint32_t strandDistanceCount                = 0;
     std::uint32_t fluidIterations                    = 0;
     std::uint32_t maxFluidNeighborhood               = 0;
     std::uint32_t iterationIndex                     = 0;
@@ -161,6 +245,7 @@ struct GpuParticleDispatchConstants
     std::uint32_t suturingParticleCount              = 0;
     std::uint32_t maxSuturingCandidatesPerParticle   = 0;
     std::uint32_t maxSuturingNodesPerPath            = 0;
+    std::uint32_t reserved0                          = 0;
     std::uint32_t reserved1                          = 0;
 };
 
@@ -314,6 +399,30 @@ struct GpuSoftIncidentTet
     std::uint32_t reserved1 = 0;
 };
 
+struct GpuStrandIncidentSegment
+{
+    std::uint32_t segmentIndex = 0u;
+    std::uint32_t slot         = 0u;
+    std::uint32_t reserved0    = 0u;
+    std::uint32_t reserved1    = 0u;
+};
+
+struct GpuStrandIncidentJoint
+{
+    std::uint32_t jointIndex = 0u;
+    std::uint32_t slot       = 0u;
+    std::uint32_t reserved0  = 0u;
+    std::uint32_t reserved1  = 0u;
+};
+
+struct GpuStrandIncidentAttachment
+{
+    std::uint32_t attachmentIndex = 0u;
+    std::uint32_t reserved0       = 0u;
+    std::uint32_t reserved1       = 0u;
+    std::uint32_t reserved2       = 0u;
+};
+
 struct GpuSoftRenderVertexTriangleRange
 {
     std::uint32_t start     = 0u;
@@ -431,6 +540,33 @@ struct GpuSoftBendCorrection
     Diligent::float4 correction0{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 correction1{0.0f, 0.0f, 0.0f, 0.0f};
     Diligent::float4 correction2{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuStrandSegmentCorrection
+{
+    Diligent::float4 correctionA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 correctionB{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 angularCorrection{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuStrandJointCorrection
+{
+    Diligent::float4 correction0{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 correction1{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 correction2{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 twistRotationA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 twistRotationB{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuStrandRigidAttachmentLambda
+{
+    Diligent::float4 translation{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 rotation{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct GpuStrandRigidAttachmentCorrection
+{
+    Diligent::float4 segmentRotation{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 struct GpuBroadPhaseBuildConstants
@@ -634,10 +770,17 @@ struct GpuRigidBodyPairContactAggregateSlot
 
 static_assert(sizeof(GpuRigidDispatchConstants) == 48u);
 static_assert(sizeof(GpuRigidJointDispatchConstants) == 16u);
+static_assert(sizeof(GpuRoutedCableConstraint) == 32u);
+static_assert(sizeof(GpuRoutedCableRoutePoint) == 32u);
+static_assert(sizeof(GpuRoutedCableDebugSegment) == 16u);
+static_assert(sizeof(GpuRigidDistanceConstraint) == 48u);
+static_assert(sizeof(GpuRigidParticleAttachmentConstraint) == 32u);
+static_assert(sizeof(GpuStrandRigidAttachmentConstraint) == 64u);
+static_assert(sizeof(GpuSphericalJoint) == 144u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
-static_assert(sizeof(GpuParticleDispatchConstants) == 80u);
+static_assert(sizeof(GpuParticleDispatchConstants) == 96u);
 static_assert(sizeof(GpuDispatchIndirectArgs) == 12u);
 static_assert(sizeof(GpuPaddedDispatchIndirectArgs) == 16u);
 static_assert(sizeof(GpuParticleBroadPhaseEntry) == 32u);
@@ -650,6 +793,9 @@ static_assert(sizeof(GpuSoftConstraintRange) == 16u);
 static_assert(sizeof(GpuSoftIncidentEdge) == 16u);
 static_assert(sizeof(GpuSoftIncidentBend) == 16u);
 static_assert(sizeof(GpuSoftIncidentTet) == 16u);
+static_assert(sizeof(GpuStrandIncidentSegment) == 16u);
+static_assert(sizeof(GpuStrandIncidentJoint) == 16u);
+static_assert(sizeof(GpuStrandIncidentAttachment) == 16u);
 static_assert(sizeof(GpuSuturingPair) == 64u);
 static_assert(sizeof(GpuSuturingPathHeader) == 32u);
 static_assert(sizeof(GpuSuturingPathNode) == 48u);
@@ -659,6 +805,14 @@ static_assert(sizeof(GpuSoftBodyBoundsChunk) == 16u);
 static_assert(sizeof(GpuSoftEdgeCorrection) == 32u);
 static_assert(sizeof(DeformableBendConstraint) == 32u);
 static_assert(sizeof(GpuSoftBendCorrection) == 48u);
+static_assert(sizeof(StrandSegmentConstraint) == 32u);
+static_assert(sizeof(StrandJointConstraint) == 32u);
+static_assert(sizeof(StrandDistanceConstraint) == 16u);
+static_assert(sizeof(StrandSegmentState) == 16u);
+static_assert(sizeof(GpuStrandSegmentCorrection) == 48u);
+static_assert(sizeof(GpuStrandJointCorrection) == 80u);
+static_assert(sizeof(GpuStrandRigidAttachmentLambda) == 32u);
+static_assert(sizeof(GpuStrandRigidAttachmentCorrection) == 16u);
 static_assert(sizeof(GpuSoftTetCorrection) == 64u);
 static_assert(sizeof(GpuBroadPhaseBuildConstants) == 16u);
 static_assert(sizeof(GpuBroadPhaseReductionConstants) == 16u);

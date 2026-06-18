@@ -12,6 +12,7 @@ static const uint kKinematicTargetEnabled = 1u << 0u;
 static const uint kRigidJointDriveModeNone = 0u;
 static const uint kRigidJointDriveModeTargetPosition = 1u;
 static const uint kRigidJointDriveModeTargetVelocity = 2u;
+static const uint kRigidJointDriveModeTargetOrientation = 3u;
 static const uint kRigidAggregateEntryFlagInitializing = 1u << 0u;
 static const uint kRigidAggregateEntryFlagReady = 1u << 1u;
 static const uint kRigidInvalidAggregateIndex = 0xffffffffu;
@@ -132,6 +133,22 @@ struct GpuBallJoint
     float4 localAnchorB;
 };
 
+struct GpuSphericalJoint
+{
+    uint bodyA;
+    uint bodyB;
+    uint enabled;
+    uint driveMode;
+    float4 localAnchorA;
+    float4 localAnchorB;
+    float4 localRotationA;
+    float4 localRotationB;
+    float4 limitParams0;
+    float4 limitParams1;
+    float4 driveTargetOrientation;
+    float4 driveParams;
+};
+
 struct GpuHingeJoint
 {
     uint bodyA;
@@ -164,6 +181,68 @@ struct GpuSliderJoint
     float4 projectionRow2;
     float4 limitParams;
     float4 driveTargetParams;
+};
+
+struct GpuRoutedCableConstraint
+{
+    uint routePointStart;
+    uint routePointCount;
+    float targetLength;
+    float compliance;
+    uint tensionOnly;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+};
+
+struct GpuRoutedCableRoutePoint
+{
+    uint rigidBodyIndex;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+    float4 localGuideOffset;
+};
+
+struct GpuRoutedCableDebugSegment
+{
+    uint routePointIndexA;
+    uint routePointIndexB;
+    uint envIndex;
+    uint cableIndex;
+};
+
+struct GpuRigidDistanceConstraint
+{
+    uint rigidBodyIndexA;
+    uint rigidBodyIndexB;
+    float restDistance;
+    float compliance;
+    float4 localAnchorA;
+    float4 localAnchorB;
+};
+
+struct GpuRigidParticleAttachmentConstraint
+{
+    uint particleIndex;
+    uint rigidBodyIndex;
+    float compliance;
+    uint reserved0;
+    float4 localAnchor;
+};
+
+struct GpuStrandRigidAttachmentConstraint
+{
+    uint segmentIndex;
+    uint rigidBodyIndex;
+    float segmentT;
+    float translationCompliance;
+    float rotationCompliance;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
+    float4 localAnchor;
+    float4 localRotation;
 };
 
 uint ComputeRigidPairType(uint shapeTypeA, uint shapeTypeB)

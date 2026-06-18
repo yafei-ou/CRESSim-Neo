@@ -20,6 +20,8 @@ namespace cressim::neo::graphics::detail
 class ForwardOpaquePass;
 class ShadowPass;
 class DebugParticlePass;
+class DebugRoutedCablePass;
+class DebugStrandFramePass;
 class SkyboxPass;
 class FluidDepthPass;
 class FluidColorPass;
@@ -49,6 +51,8 @@ private:
     std::unique_ptr<ForwardOpaquePass> mForwardOpaquePass;
     std::unique_ptr<ShadowPass> mShadowPass;
     std::unique_ptr<DebugParticlePass> mDebugParticlePass;
+    std::unique_ptr<DebugRoutedCablePass> mDebugRoutedCablePass;
+    std::unique_ptr<DebugStrandFramePass> mDebugStrandFramePass;
     std::unique_ptr<SkyboxPass> mSkyboxPass;
     std::unique_ptr<FluidDepthPass> mFluidDepthPass;
     std::unique_ptr<FluidColorPass> mFluidColorPass;

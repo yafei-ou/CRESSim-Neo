@@ -24,7 +24,7 @@ int main()
     physics::StrandState strand{};
     strand.entityId = 9002u;
     strand.environmentIndex = 3u;
-    strand.distanceCompliance = 0.02f;
+    strand.stretchShearCompliance = 0.02f;
     strand.bendCompliance = 0.01f;
     strand.restPositions = {
         {0.2f, 0.0f, 0.0f},
@@ -69,7 +69,7 @@ int main()
     }
 
     const auto &constraints = world.distanceConstraints();
-    if (constraints.size() != 3u)
+    if (constraints.size() != 1u)
     {
         CRESSIM_LOG_ERROR("Resolved distance constraints did not include authored attachment.\n");
         return 1;
@@ -92,7 +92,7 @@ int main()
     updated.enabled = false;
     world.upsertParticleDistanceConstraint(updated);
 
-    if (world.distanceConstraints().size() != 2u)
+    if (world.distanceConstraints().size() != 0u)
     {
         CRESSIM_LOG_ERROR("Disabled authored particle constraint should not resolve.\n");
         return 1;
@@ -100,7 +100,7 @@ int main()
 
     updated.enabled = true;
     world.upsertParticleDistanceConstraint(updated);
-    if (world.distanceConstraints().size() != 3u ||
+    if (world.distanceConstraints().size() != 1u ||
         std::abs(world.distanceConstraints().back().compliance - 0.01f) > 1.0e-6f)
     {
         CRESSIM_LOG_ERROR("Updated authored particle constraint did not rebuild correctly.\n");
@@ -109,7 +109,7 @@ int main()
 
     if (!world.removeParticleDistanceConstraint(authored.constraintId) ||
         !world.particleDistanceConstraintSnapshot().empty() ||
-        world.distanceConstraints().size() != 2u)
+        !world.distanceConstraints().empty())
     {
         CRESSIM_LOG_ERROR("Removing authored particle distance constraint failed.\n");
         return 1;

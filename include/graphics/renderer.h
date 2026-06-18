@@ -56,14 +56,30 @@ struct RenderFrameOptions
 
     struct DebugParticleOptions
     {
-        bool enabled                     = false;
-        Diligent::float4 color           = {0.2f, 0.8f, 1.0f, 1.0f};
-        Diligent::float4 staticColor     = {1.0f, 0.18f, 0.08f, 1.0f};
-        Diligent::float4 edgeColor       = {1.0f, 0.86f, 0.18f, 1.0f};
-        bool useParticleRadii            = true;
-        bool highlightStaticParticles    = true;
-        bool drawConstraintEdges         = false;
-        float fallbackRadius             = 0.15f;
+        bool enabled                  = false;
+        Diligent::float4 color        = {0.2f, 0.8f, 1.0f, 1.0f};
+        Diligent::float4 staticColor  = {1.0f, 0.18f, 0.08f, 1.0f};
+        Diligent::float4 edgeColor    = {1.0f, 0.86f, 0.18f, 1.0f};
+        bool useParticleRadii         = true;
+        bool highlightStaticParticles = true;
+        bool drawConstraintEdges      = false;
+        float fallbackRadius          = 0.15f;
+    };
+
+    struct DebugRoutedCableOptions
+    {
+        bool enabled   = false;
+        float radius   = 0.03f;
+        float opacity  = 1.0f;
+        bool depthTest = true;
+    };
+
+    struct DebugStrandFrameOptions
+    {
+        bool enabled     = false;
+        float axisLength = 0.18f;
+        float thickness  = 0.02f;
+        float opacity    = 1.0f;
     };
 
     common::EntityId presentedCameraEntity = common::kInvalidEntityId;
@@ -72,6 +88,8 @@ struct RenderFrameOptions
     ToneMapper toneMapper = ToneMapper::Reinhard;
     float exposure        = 1.0f;
     DebugParticleOptions debugParticles{};
+    DebugRoutedCableOptions debugRoutedCables{};
+    DebugStrandFrameOptions debugStrandFrames{};
 
     RenderFrameOptions() = default;
 

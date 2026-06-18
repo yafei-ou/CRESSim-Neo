@@ -37,14 +37,29 @@ constexpr ColliderId kInvalidColliderId = 0u;
 using BallJointId                         = std::uint32_t;
 constexpr BallJointId kInvalidBallJointId = 0u;
 
+using SphericalJointId                              = std::uint32_t;
+constexpr SphericalJointId kInvalidSphericalJointId = 0u;
+
 using HingeJointId                          = std::uint32_t;
 constexpr HingeJointId kInvalidHingeJointId = 0u;
 
 using SliderJointId                           = std::uint32_t;
 constexpr SliderJointId kInvalidSliderJointId = 0u;
 
+using RigidDistanceConstraintId                                       = std::uint32_t;
+constexpr RigidDistanceConstraintId kInvalidRigidDistanceConstraintId = 0u;
+
 using ParticleConstraintId                                  = std::uint32_t;
 constexpr ParticleConstraintId kInvalidParticleConstraintId = 0u;
+
+using RigidParticleAttachmentConstraintId = std::uint32_t;
+constexpr RigidParticleAttachmentConstraintId kInvalidRigidParticleAttachmentConstraintId = 0u;
+
+using StrandRigidAttachmentConstraintId = std::uint32_t;
+constexpr StrandRigidAttachmentConstraintId kInvalidStrandRigidAttachmentConstraintId = 0u;
+
+using RoutedCableConstraintId                                     = std::uint32_t;
+constexpr RoutedCableConstraintId kInvalidRoutedCableConstraintId = 0u;
 
 using ParticleCollisionFilterId                                       = std::uint32_t;
 constexpr ParticleCollisionFilterId kInvalidParticleCollisionFilterId = 0u;
@@ -57,9 +72,10 @@ constexpr SuturingSequenceId kInvalidSuturingSequenceId = 0u;
 
 enum class RigidJointDriveMode : std::uint32_t
 {
-    None           = 0u,
-    TargetPosition = 1u,
-    TargetVelocity = 2u,
+    None              = 0u,
+    TargetPosition    = 1u,
+    TargetVelocity    = 2u,
+    TargetOrientation = 3u,
 };
 
 enum class SoftBodySourceKind : std::uint32_t
@@ -360,19 +376,22 @@ struct StrandState
     bool suturingEnabled           = false;
     float pathNodeSpacing          = 0.2f;
     StrandMaterialDesc material{};
-    float particleMass                 = 1.0f;
-    float particleRadius               = 0.125f;
-    float distanceCompliance           = 0.0f;
-    float bendCompliance               = 0.0f;
+    float particleMass           = 1.0f;
+    float particleRadius         = 0.125f;
+    float stretchShearCompliance = 0.0f;
+    float bendCompliance         = 0.0f;
+    float twistCompliance        = 0.0f;
+    float distanceCompliance     = 0.0f;
+    Diligent::float3 rootMaterialNormal{0.0f, 1.0f, 0.0f};
     bool simulated                     = true;
     bool selfCollisionEnabled          = false;
     std::uint32_t contactMaterialIndex = 0u;
     std::uint32_t particleOffset       = 0u;
     std::uint32_t particleCount        = 0u;
-    std::uint32_t constraintOffset     = 0u;
-    std::uint32_t constraintCount      = 0u;
-    std::uint32_t bendConstraintOffset = 0u;
-    std::uint32_t bendConstraintCount  = 0u;
+    std::uint32_t segmentOffset        = 0u;
+    std::uint32_t segmentCount         = 0u;
+    std::uint32_t jointOffset          = 0u;
+    std::uint32_t jointCount           = 0u;
     std::vector<Diligent::float3> restPositions;
     std::vector<std::uint32_t> staticParticleIndices;
 };
@@ -412,6 +431,65 @@ struct AuthoredParticleDistanceConstraintState
     float restLength = 0.0f;
     float compliance = 0.0f;
     bool enabled     = true;
+};
+
+struct AuthoredRigidDistanceConstraintState
+{
+    RigidDistanceConstraintId constraintId = kInvalidRigidDistanceConstraintId;
+    common::EntityId entityA               = common::kInvalidEntityId;
+    common::EntityId entityB               = common::kInvalidEntityId;
+    Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
+    Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
+    float restDistance = 0.0f;
+    float compliance   = 0.0f;
+    bool enabled       = true;
+};
+
+struct AuthoredRigidParticleAttachmentConstraintState
+{
+    RigidParticleAttachmentConstraintId constraintId = kInvalidRigidParticleAttachmentConstraintId;
+    AuthoredParticleReference particle{};
+    common::EntityId rigidBodyEntityId = common::kInvalidEntityId;
+    Diligent::float3 localAnchor{0.0f, 0.0f, 0.0f};
+    float compliance = 0.0f;
+    bool enabled     = true;
+};
+
+struct AuthoredStrandRigidAttachmentConstraintState
+{
+    // This constraint is intentionally one-way: the rigid body drives the strand
+    // station pose, but the strand does not push force or torque back into the rigid body.
+    StrandRigidAttachmentConstraintId constraintId = kInvalidStrandRigidAttachmentConstraintId;
+    common::EntityId strandEntityId                = common::kInvalidEntityId;
+    std::uint32_t localSegmentIndex                = 0u;
+    float segmentT                                 = 0.0f;
+    common::EntityId rigidBodyEntityId             = common::kInvalidEntityId;
+    Diligent::float3 localAnchor{0.0f, 0.0f, 0.0f};
+    Diligent::QuaternionF localRotation{0.0f, 0.0f, 0.0f, 1.0f};
+    float translationCompliance = 0.0f;
+    float rotationCompliance    = 0.0f;
+    bool enabled                = true;
+};
+
+struct AuthoredRoutedCableRoutePoint
+{
+    common::EntityId entityId = common::kInvalidEntityId;
+    Diligent::float3 localGuideOffset{0.0f, 0.0f, 0.0f};
+
+    constexpr bool operator==(const AuthoredRoutedCableRoutePoint &rhs) const noexcept
+    {
+        return entityId == rhs.entityId && localGuideOffset == rhs.localGuideOffset;
+    }
+};
+
+struct AuthoredRoutedCableConstraintState
+{
+    RoutedCableConstraintId constraintId = kInvalidRoutedCableConstraintId;
+    std::vector<AuthoredRoutedCableRoutePoint> routePoints{};
+    float targetLength = 0.0f;
+    float compliance   = 0.0f;
+    bool tensionOnly   = true;
+    bool enabled       = true;
 };
 
 struct AuthoredParticleCollisionFilterState
@@ -477,6 +555,92 @@ struct DeformableBendConstraint
 };
 
 using SoftBend = DeformableBendConstraint;
+
+struct StrandSegmentConstraint
+{
+    std::uint32_t particleA      = 0u;
+    std::uint32_t particleB      = 0u;
+    float restLength             = 0.0f;
+    float stretchShearCompliance = 0.0f;
+    Diligent::float4 restOrientation{0.0f, 0.0f, 0.0f, 1.0f};
+};
+
+struct StrandJointConstraint
+{
+    std::uint32_t segmentA = 0u;
+    std::uint32_t segmentB = 0u;
+    float bendCompliance   = 0.0f;
+    float twistCompliance  = 0.0f;
+    Diligent::float4 restRelativeOrientation{0.0f, 0.0f, 0.0f, 1.0f};
+};
+
+struct StrandDistanceConstraint
+{
+    std::uint32_t particleA  = 0u;
+    std::uint32_t particleB  = 0u;
+    float restLength         = 0.0f;
+    float distanceCompliance = 0.0f;
+};
+
+struct StrandSegmentState
+{
+    Diligent::float4 orientation{0.0f, 0.0f, 0.0f, 1.0f};
+};
+
+struct RoutedCableConstraint
+{
+    std::uint32_t routePointStart = 0u;
+    std::uint32_t routePointCount = 0u;
+    float targetLength            = 0.0f;
+    float compliance              = 0.0f;
+    std::uint32_t tensionOnly     = 1u;
+    std::uint32_t reserved0       = 0u;
+    std::uint32_t reserved1       = 0u;
+    std::uint32_t reserved2       = 0u;
+};
+
+struct RoutedCableRoutePoint
+{
+    std::uint32_t rigidBodyIndex = 0u;
+    std::uint32_t reserved0      = 0u;
+    std::uint32_t reserved1      = 0u;
+    std::uint32_t reserved2      = 0u;
+    Diligent::float4 localGuideOffset{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct RigidDistanceConstraint
+{
+    std::uint32_t rigidBodyIndexA = 0u;
+    std::uint32_t rigidBodyIndexB = 0u;
+    float restDistance            = 0.0f;
+    float compliance              = 0.0f;
+    Diligent::float4 localAnchorA{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localAnchorB{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct RigidParticleAttachmentConstraint
+{
+    std::uint32_t particleIndex  = 0u;
+    std::uint32_t rigidBodyIndex = 0u;
+    float compliance             = 0.0f;
+    std::uint32_t reserved0      = 0u;
+    Diligent::float4 localAnchor{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
+struct StrandRigidAttachmentConstraint
+{
+    // Runtime form of the one-way rigid-driven strand follow constraint.
+    std::uint32_t segmentIndex   = 0u;
+    std::uint32_t rigidBodyIndex = 0u;
+    float segmentT               = 0.0f;
+    float translationCompliance  = 0.0f;
+    float rotationCompliance     = 0.0f;
+    std::uint32_t reserved0      = 0u;
+    std::uint32_t reserved1      = 0u;
+    std::uint32_t reserved2      = 0u;
+    Diligent::float4 localAnchor{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 localRotation{0.0f, 0.0f, 0.0f, 1.0f};
+};
 
 struct ParticleSoAHost
 {
@@ -676,6 +840,30 @@ struct HingeJointState
     float driveTargetAngularVelocity = 0.0f;
 };
 
+struct SphericalJointState
+{
+    SphericalJointId jointId             = kInvalidSphericalJointId;
+    bool enabled                         = true;
+    bool suppressConnectedBodyCollisions = false;
+    RigidJointDriveMode driveMode        = RigidJointDriveMode::None;
+    bool limitEnabled                    = false;
+    RigidBodyId bodyA                    = kInvalidRigidBodyId;
+    RigidBodyId bodyB                    = kInvalidRigidBodyId;
+    Diligent::float3 localAnchorA{0.0f, 0.0f, 0.0f};
+    Diligent::float3 localAnchorB{0.0f, 0.0f, 0.0f};
+    Diligent::QuaternionF localRotationA{0.0f, 0.0f, 0.0f, 1.0f};
+    Diligent::QuaternionF localRotationB{0.0f, 0.0f, 0.0f, 1.0f};
+    float swingLimitY          = 0.0f;
+    float swingLimitZ          = 0.0f;
+    float twistLimitMin        = 0.0f;
+    float twistLimitMax        = 0.0f;
+    float constraintCompliance = 0.0f;
+    float swingCompliance      = 0.0f;
+    float twistCompliance      = 0.0f;
+    float driveCompliance      = 0.0f;
+    Diligent::QuaternionF driveTargetOrientation{0.0f, 0.0f, 0.0f, 1.0f};
+};
+
 struct SliderJointState
 {
     SliderJointId jointId                = kInvalidSliderJointId;
@@ -773,6 +961,58 @@ struct HingeJointSoAHost
     }
 };
 
+struct SphericalJointSoAHost
+{
+    std::vector<std::uint32_t> bodyIndicesA;
+    std::vector<std::uint32_t> bodyIndicesB;
+    std::vector<std::uint32_t> enabledFlags;
+    std::vector<std::uint32_t> driveModes;
+    std::vector<Diligent::float4> localAnchorsA;
+    std::vector<Diligent::float4> localAnchorsB;
+    std::vector<Diligent::float4> localRotationsA;
+    std::vector<Diligent::float4> localRotationsB;
+    std::vector<std::uint32_t> limitEnabledFlags;
+    std::vector<float> swingLimitYs;
+    std::vector<float> swingLimitZs;
+    std::vector<float> twistLimitMins;
+    std::vector<float> twistLimitMaxs;
+    std::vector<float> constraintCompliances;
+    std::vector<float> swingCompliances;
+    std::vector<float> twistCompliances;
+    std::vector<float> driveCompliances;
+    std::vector<Diligent::float4> driveTargetOrientations;
+
+    std::size_t size() const noexcept
+    {
+        return bodyIndicesA.size();
+    }
+    bool empty() const noexcept
+    {
+        return bodyIndicesA.empty();
+    }
+    void clear()
+    {
+        bodyIndicesA.clear();
+        bodyIndicesB.clear();
+        enabledFlags.clear();
+        driveModes.clear();
+        localAnchorsA.clear();
+        localAnchorsB.clear();
+        localRotationsA.clear();
+        localRotationsB.clear();
+        limitEnabledFlags.clear();
+        swingLimitYs.clear();
+        swingLimitZs.clear();
+        twistLimitMins.clear();
+        twistLimitMaxs.clear();
+        constraintCompliances.clear();
+        swingCompliances.clear();
+        twistCompliances.clear();
+        driveCompliances.clear();
+        driveTargetOrientations.clear();
+    }
+};
+
 struct SliderJointSoAHost
 {
     std::vector<std::uint32_t> bodyIndicesA;
@@ -832,12 +1072,14 @@ struct SliderJointSoAHost
 struct RigidJointSceneHost
 {
     BallJointSoAHost ball;
+    SphericalJointSoAHost spherical;
     HingeJointSoAHost hinge;
     SliderJointSoAHost slider;
 
     void clear()
     {
         ball.clear();
+        spherical.clear();
         hinge.clear();
         slider.clear();
     }

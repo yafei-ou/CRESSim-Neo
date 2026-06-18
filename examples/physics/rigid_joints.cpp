@@ -33,6 +33,7 @@ using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::physics::HingeJointState;
 using cressim::neo::physics::RigidJointDriveMode;
 using cressim::neo::physics::RigidBodyType;
+using cressim::neo::physics::SphericalJointState;
 using cressim::neo::physics::SliderJointState;
 using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerCallbacks;
@@ -46,8 +47,39 @@ constexpr std::uint32_t kSliderClusterLayer = 1u << 3u;
 constexpr std::uint32_t kBallDropLayer = 1u << 4u;
 constexpr std::uint32_t kHingeDropLayer = 1u << 5u;
 constexpr std::uint32_t kSliderDropLayer = 1u << 6u;
+constexpr std::uint32_t kSphericalClusterLayer = 1u << 7u;
+constexpr std::uint32_t kSphericalDropLayer = 1u << 8u;
 constexpr float kViewerSphereMeshRadius = 0.4f;
-constexpr float kExampleHingeDriveCompliance = 5.0e-5f;
+constexpr float kAnchorHalfExtent = 0.35f;
+constexpr float kHingeBaseHalfX = 0.45f;
+constexpr float kHingeBaseHalfY = 0.35f;
+constexpr float kHingeBaseHalfZ = 0.35f;
+constexpr float kExampleHingeDriveCompliance = 2.5e-4f;
+constexpr float kExampleSliderDriveCompliance = 3.0e-4f;
+constexpr float kExampleSphericalDriveCompliance = 8.0e-5f;
+constexpr float kExampleSphericalFreeCompliance = 1.0e6f;
+constexpr float kUpperHingeRestAngle = -Diligent::PI_F * 0.5f;
+constexpr float kLowerHingeRestAngle = 0.0f;
+constexpr float kHorizontalSliderDriveCenter = 0.12f;
+constexpr float kVerticalSliderDriveCenter = 0.32f;
+
+struct AuthoredHingeJointIds
+{
+    cressim::neo::physics::HingeJointId upper = cressim::neo::physics::kInvalidHingeJointId;
+    cressim::neo::physics::HingeJointId lower = cressim::neo::physics::kInvalidHingeJointId;
+};
+
+struct AuthoredSliderJointIds
+{
+    cressim::neo::physics::SliderJointId horizontal = cressim::neo::physics::kInvalidSliderJointId;
+    cressim::neo::physics::SliderJointId vertical   = cressim::neo::physics::kInvalidSliderJointId;
+};
+
+struct AuthoredSphericalJointIds
+{
+    std::vector<cressim::neo::physics::SphericalJointId> chain{};
+};
+
 struct ViewerJointOptions
 {
     bool enablePositionDriveTargets = false;
@@ -248,11 +280,14 @@ void authorBallJointCluster(Runtime &runtime, MeshHandle anchorMesh, MeshHandle 
     }
 }
 
-void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle linkMesh,
-                             MaterialHandle anchorMaterial, MaterialHandle bodyMaterial,
-                             const ViewerJointOptions &options)
+AuthoredHingeJointIds authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh,
+                                              MeshHandle linkMesh,
+                                              MaterialHandle anchorMaterial,
+                                              MaterialHandle bodyMaterial,
+                                              const ViewerJointOptions &options)
 {
     auto &world = runtime.getWorld();
+    AuthoredHingeJointIds jointIds{};
     constexpr float kLinkHalfX = 0.25f;
     constexpr float kLinkHalfY = 1.1f;
 
@@ -262,13 +297,14 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
     baseBody.inverseMass = 0.0f;
     ColliderComponent baseCollider{};
     baseCollider.shapeType = ColliderShapeType::Box;
-    baseCollider.shapeParams = {0.45f, 0.35f, 0.35f, 0.0f};
+    baseCollider.shapeParams = {kHingeBaseHalfX, kHingeBaseHalfY, kHingeBaseHalfZ, 0.0f};
     baseCollider.collisionLayer = kHingeClusterLayer;
     // Let the anchored links swing through the support body instead of being blocked by the
     // static base collider, while still allowing environment/disturber contacts.
     baseCollider.collisionMask = kGroundCollisionLayer | kHingeDropLayer;
     setVisibleRigidBody(runtime, baseEntity, baseMesh, anchorMaterial, {0.0f, 4.3f, 0.0f},
-                        {1.0f, 1.0f, 1.0f}, baseBody, baseCollider);
+                        {2.0f * kHingeBaseHalfX, 2.0f * kHingeBaseHalfY, 2.0f * kHingeBaseHalfZ},
+                        baseBody, baseCollider);
 
     const Diligent::QuaternionF swingRotation =
         Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 0.0f, 1.0f}, -Diligent::PI_F * 0.5f);
@@ -276,7 +312,7 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
         swingRotation.RotateVector(Diligent::float3{0.0f, kLinkHalfY, 0.0f});
     const Diligent::float3 bottomAnchorOffset =
         swingRotation.RotateVector(Diligent::float3{0.0f, -kLinkHalfY, 0.0f});
-    const Diligent::float3 baseAnchor = {0.0f, 4.3f - 0.35f, 0.0f};
+    const Diligent::float3 baseAnchor = {0.0f, 4.3f - kHingeBaseHalfY, 0.0f};
     const Diligent::float3 firstCenter = baseAnchor - topAnchorOffset;
     const Diligent::float3 lowerAnchor = firstCenter + bottomAnchorOffset;
     const Diligent::float3 secondCenter = lowerAnchor - topAnchorOffset;
@@ -307,7 +343,7 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
     upper.bodyA = requireRigidBodyId(runtime, baseEntity);
     upper.bodyB = requireRigidBodyId(runtime, links[0]);
     upper.suppressConnectedBodyCollisions = options.suppressConnectedBodyCollisions;
-    upper.localAnchorA = {0.0f, -0.35f, 0.0f};
+    upper.localAnchorA = {0.0f, -kHingeBaseHalfY, 0.0f};
     upper.localAnchorB = {0.0f, 1.1f, 0.0f};
     upper.localRotationA = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
     upper.localRotationB = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
@@ -319,13 +355,14 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
                           : (options.enablePositionDriveTargets
                                  ? RigidJointDriveMode::TargetPosition
                                  : RigidJointDriveMode::None);
-    upper.driveTargetAngle = -1.37f;
-    upper.driveTargetAngularVelocity = -1.1f;
+    upper.driveTargetAngle = kUpperHingeRestAngle;
+    upper.driveTargetAngularVelocity = 0.0f;
     upper.driveCompliance = kExampleHingeDriveCompliance;
     if (!world.physicsWorld().upsertHingeJoint(upper))
     {
         throw std::runtime_error("Failed to author upper hinge joint.");
     }
+    jointIds.upper = world.physicsWorld().hingeJointSnapshot().back().jointId;
 
     HingeJointState lower{};
     lower.bodyA = requireRigidBodyId(runtime, links[0]);
@@ -343,20 +380,25 @@ void authorHingeJointCluster(Runtime &runtime, MeshHandle baseMesh, MeshHandle l
                           : (options.enablePositionDriveTargets
                                  ? RigidJointDriveMode::TargetPosition
                                  : RigidJointDriveMode::None);
-    lower.driveTargetAngle = 0.1f;
-    lower.driveTargetAngularVelocity = 0.9f;
+    lower.driveTargetAngle = kLowerHingeRestAngle;
+    lower.driveTargetAngularVelocity = 0.0f;
     lower.driveCompliance = kExampleHingeDriveCompliance;
     if (!world.physicsWorld().upsertHingeJoint(lower))
     {
         throw std::runtime_error("Failed to author lower hinge joint.");
     }
+    jointIds.lower = world.physicsWorld().hingeJointSnapshot().back().jointId;
+    return jointIds;
 }
 
-void authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh, MeshHandle sliderMesh,
-                              MaterialHandle guideMaterial, MaterialHandle sliderMaterial,
-                              const ViewerJointOptions &options)
+AuthoredSliderJointIds authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh,
+                                                MeshHandle sliderMesh,
+                                                MaterialHandle guideMaterial,
+                                                MaterialHandle sliderMaterial,
+                                                const ViewerJointOptions &options)
 {
     auto &world = runtime.getWorld();
+    AuthoredSliderJointIds jointIds{};
     constexpr Diligent::float3 kGuideHalfExtents = {3.8f, 0.45f, 0.45f};
     constexpr Diligent::float3 kSliderHalfExtents = {0.7f, 0.7f, 0.7f};
 
@@ -378,7 +420,7 @@ void authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh, MeshHandle
     sliderBody.inverseInertiaLocal =
         cressim::neo::examples::helpers::computeBoxInverseInertia(
             kSliderHalfExtents, sliderBody.inverseMass);
-    sliderBody.linearVelocity = {1.5f, 0.0f, 0.0f};
+    sliderBody.linearVelocity = {0.35f, 0.0f, 0.0f};
     sliderBody.angularVelocity = {0.0f, 0.0f, 0.0f};
     ColliderComponent sliderCollider{};
     sliderCollider.shapeType = ColliderShapeType::Box;
@@ -402,12 +444,14 @@ void authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh, MeshHandle
                                      : (options.enablePositionDriveTargets
                                             ? RigidJointDriveMode::TargetPosition
                                             : RigidJointDriveMode::None);
-    horizontalSlider.driveTargetPosition = 0.20f;
-    horizontalSlider.driveTargetVelocity = 1.4f;
+    horizontalSlider.driveCompliance = kExampleSliderDriveCompliance;
+    horizontalSlider.driveTargetPosition = kHorizontalSliderDriveCenter;
+    horizontalSlider.driveTargetVelocity = 0.0f;
     if (!world.physicsWorld().upsertSliderJoint(horizontalSlider))
     {
         throw std::runtime_error("Failed to author slider joint.");
     }
+    jointIds.horizontal = world.physicsWorld().sliderJointSnapshot().back().jointId;
 
     const auto stageEntity = world.createEntity();
     RigidBodyComponent stageBody{};
@@ -437,17 +481,115 @@ void authorSliderJointCluster(Runtime &runtime, MeshHandle guideMesh, MeshHandle
                                    : (options.enablePositionDriveTargets
                                           ? RigidJointDriveMode::TargetPosition
                                           : RigidJointDriveMode::None);
-    verticalSlider.driveTargetPosition = 0.50f;
-    verticalSlider.driveTargetVelocity = 0.8f;
+    verticalSlider.driveCompliance = kExampleSliderDriveCompliance;
+    verticalSlider.driveTargetPosition = kVerticalSliderDriveCenter;
+    verticalSlider.driveTargetVelocity = 0.0f;
     if (!world.physicsWorld().upsertSliderJoint(verticalSlider))
     {
         throw std::runtime_error("Failed to author vertical slider joint.");
     }
+    jointIds.vertical = world.physicsWorld().sliderJointSnapshot().back().jointId;
+    return jointIds;
+}
+
+AuthoredSphericalJointIds authorSphericalJointCluster(Runtime &runtime, MeshHandle baseMesh,
+                                                      MeshHandle linkMesh,
+                                                      MaterialHandle anchorMaterial,
+                                                      MaterialHandle bodyMaterial,
+                                                      const ViewerJointOptions &options)
+{
+    auto &world = runtime.getWorld();
+    AuthoredSphericalJointIds jointIds{};
+    constexpr Diligent::float3 kDiskHalfExtents = {0.75f, 0.18f, 0.75f};
+    constexpr float kDiskSpacing = 1.45f;
+    constexpr Diligent::float3 kClusterOrigin = {-14.0f, 7.2f, 0.0f};
+    constexpr std::uint32_t kDiskCount = 3u;
+
+    std::vector<cressim::neo::common::EntityId> disks;
+    disks.reserve(kDiskCount);
+    for (std::uint32_t i = 0u; i < kDiskCount; ++i)
+    {
+        const auto entity = world.createEntity();
+        RigidBodyComponent body{};
+        Diligent::float3 visualScale = {2.0f * kDiskHalfExtents.x, 2.0f * kDiskHalfExtents.y,
+                                        2.0f * kDiskHalfExtents.z};
+        if (i == 0u)
+        {
+            body.bodyType = RigidBodyType::Static;
+            body.inverseMass = 0.0f;
+            visualScale = {2.0f * kAnchorHalfExtent, 2.0f * kAnchorHalfExtent,
+                           2.0f * kAnchorHalfExtent};
+        }
+        else
+        {
+            body.inverseMass = 0.85f;
+            body.inverseInertiaLocal =
+                cressim::neo::examples::helpers::computeBoxInverseInertia(
+                    kDiskHalfExtents, body.inverseMass);
+        }
+
+        ColliderComponent collider{};
+        collider.shapeType = ColliderShapeType::Box;
+        collider.shapeParams = i == 0u
+                                   ? Diligent::float4{kAnchorHalfExtent, kAnchorHalfExtent,
+                                                      kAnchorHalfExtent, 0.0f}
+                                   : Diligent::float4{kDiskHalfExtents.x, kDiskHalfExtents.y,
+                                                      kDiskHalfExtents.z, 0.0f};
+        collider.collisionLayer = kSphericalClusterLayer;
+        collider.collisionMask = kGroundCollisionLayer | kSphericalDropLayer;
+        setVisibleRigidBody(runtime, entity, i == 0u ? baseMesh : linkMesh,
+                            i == 0u ? anchorMaterial : bodyMaterial,
+                            kClusterOrigin - Diligent::float3{0.0f, kDiskSpacing * static_cast<float>(i), 0.0f},
+                            visualScale, body, collider);
+        disks.push_back(entity);
+    }
+
+    for (std::uint32_t i = 1u; i < kDiskCount; ++i)
+    {
+        SphericalJointState joint{};
+        joint.bodyA = requireRigidBodyId(runtime, disks[i - 1u]);
+        joint.bodyB = requireRigidBodyId(runtime, disks[i]);
+        joint.suppressConnectedBodyCollisions = options.suppressConnectedBodyCollisions;
+        joint.localAnchorA = {0.0f, -0.5f * kDiskSpacing, 0.0f};
+        joint.localAnchorB = {0.0f, 0.5f * kDiskSpacing, 0.0f};
+        joint.localRotationA = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
+        joint.localRotationB = makeJointFrameRotation({0.0f, 1.0f, 0.0f});
+        joint.constraintCompliance = 0.0f;
+        if (options.enablePositionDriveTargets || options.enableVelocityDriveTargets)
+        {
+            joint.limitEnabled = true;
+            joint.swingLimitY = 0.65f;
+            joint.swingLimitZ = 0.65f;
+            joint.twistLimitMin = -0.45f;
+            joint.twistLimitMax = 0.45f;
+            joint.swingCompliance = 5.0e-5f;
+            joint.twistCompliance = 8.0e-5f;
+            joint.driveMode = RigidJointDriveMode::TargetOrientation;
+            joint.driveCompliance = kExampleSphericalDriveCompliance;
+            joint.driveTargetOrientation =
+                Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 0.0f, 1.0f},
+                                                             i == 1u ? 0.42f : -0.28f) *
+                Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f},
+                                                             i == 1u ? 0.10f : -0.08f);
+        }
+        else
+        {
+            joint.limitEnabled = false;
+            joint.swingCompliance = kExampleSphericalFreeCompliance;
+            joint.twistCompliance = kExampleSphericalFreeCompliance;
+        }
+        if (!world.physicsWorld().upsertSphericalJoint(joint))
+        {
+            throw std::runtime_error("Failed to author spherical joint cluster.");
+        }
+        jointIds.chain.push_back(world.physicsWorld().sphericalJointSnapshot().back().jointId);
+    }
+    return jointIds;
 }
 
 void authorDropDisturbers(Runtime &runtime, MeshHandle hingeDropMesh, MeshHandle sphereMesh,
                           MaterialHandle ballMaterial, MaterialHandle hingeMaterial,
-                          MaterialHandle sliderMaterial)
+                          MaterialHandle sliderMaterial, MaterialHandle sphericalMaterial)
 {
     auto &world = runtime.getWorld();
 
@@ -500,6 +642,22 @@ void authorDropDisturbers(Runtime &runtime, MeshHandle hingeDropMesh, MeshHandle
     setVisibleRigidBody(runtime, sliderDrop, sphereMesh, sliderMaterial, {6.7f, 6.6f, 0.0f},
                         {kDropSphereVisualScale, kDropSphereVisualScale, kDropSphereVisualScale},
                         sliderDropBody, sliderDropCollider);
+
+    const auto sphericalDrop = world.createEntity();
+    RigidBodyComponent sphericalDropBody{};
+    sphericalDropBody.inverseMass = 0.72f;
+    sphericalDropBody.inverseInertiaLocal =
+        cressim::neo::examples::helpers::computeSphereInverseInertia(
+            kDropSphereRadius, sphericalDropBody.inverseMass);
+    sphericalDropBody.linearVelocity = {-0.2f, 0.0f, -0.6f};
+    ColliderComponent sphericalDropCollider{};
+    sphericalDropCollider.shapeType = ColliderShapeType::Sphere;
+    sphericalDropCollider.shapeParams = {kDropSphereRadius, 0.0f, 0.0f, 0.0f};
+    sphericalDropCollider.collisionLayer = kSphericalDropLayer;
+    sphericalDropCollider.collisionMask = kSphericalClusterLayer | kGroundCollisionLayer;
+    setVisibleRigidBody(runtime, sphericalDrop, sphereMesh, sphericalMaterial, {-12.8f, 9.8f, 0.3f},
+                        {kDropSphereVisualScale, kDropSphereVisualScale, kDropSphereVisualScale},
+                        sphericalDropBody, sphericalDropCollider);
 }
 
 } // namespace
@@ -581,12 +739,12 @@ int main(int argc, char **argv)
 
         const auto cameraEntity = world.createEntity();
         TransformComponent cameraTransform{};
-        cameraTransform.worldTransform.position = {0.0f, 5.5f, -18.0f};
+        cameraTransform.worldTransform.position = {-3.5f, 5.7f, -24.0f};
         cameraTransform.worldTransform.rotation =
             Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, 0.18f);
         world.setTransform(cameraEntity, cameraTransform);
         CameraComponent camera{};
-        camera.verticalFovDegrees = 42.0f;
+        camera.verticalFovDegrees = 48.0f;
         world.setCamera(cameraEntity, camera);
 
         const auto lightEntity = world.createEntity();
@@ -605,8 +763,8 @@ int main(int argc, char **argv)
             resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
                 {0.35f, 0.35f, 0.35f}, "RigidJointViewer.BoxMesh"));
         const MeshHandle hingeBaseMesh =
-            resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
-                {0.45f, 0.35f, 0.35f}, "RigidJointViewer.BoxMesh"));
+            resources.registerMesh(cressim::neo::examples::helpers::makeCubeMesh(
+                0.5f, "RigidJointViewer.UnitCubeMesh"));
         const MeshHandle hingeLinkMesh =
             resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
                 {0.25f, 1.1f, 0.25f}, "RigidJointViewer.BoxMesh"));
@@ -619,6 +777,9 @@ int main(int argc, char **argv)
         const MeshHandle sliderCarriageMesh =
             resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
                 {0.7f, 0.7f, 0.7f}, "RigidJointViewer.BoxMesh"));
+        const MeshHandle sphericalDiskMesh =
+            resources.registerMesh(cressim::neo::examples::helpers::makeCubeMesh(
+                0.5f, "RigidJointViewer.SphericalUnitCubeMesh"));
 
         const MaterialHandle groundMaterial =
             registerMaterial(resources, "RigidJointViewer.Ground", {0.70f, 0.72f, 0.76f}, 0.88f);
@@ -630,6 +791,8 @@ int main(int argc, char **argv)
             registerMaterial(resources, "RigidJointViewer.Hinge", {0.93f, 0.38f, 0.29f}, 0.42f);
         const MaterialHandle sliderMaterial =
             registerMaterial(resources, "RigidJointViewer.Slider", {0.30f, 0.88f, 0.50f}, 0.34f);
+        const MaterialHandle sphericalMaterial =
+            registerMaterial(resources, "RigidJointViewer.Spherical", {0.94f, 0.56f, 0.22f}, 0.36f);
         const MaterialHandle guideMaterial =
             registerMaterial(resources, "RigidJointViewer.Guide", {0.25f, 0.34f, 0.36f}, 0.74f);
 
@@ -650,19 +813,138 @@ int main(int argc, char **argv)
         groundCollider.collisionLayer = kGroundCollisionLayer;
         groundCollider.collisionMask =
             kGroundCollisionLayer | kBallClusterLayer | kHingeClusterLayer | kSliderClusterLayer |
-            kBallDropLayer | kHingeDropLayer | kSliderDropLayer;
+            kSphericalClusterLayer | kBallDropLayer | kHingeDropLayer | kSliderDropLayer |
+            kSphericalDropLayer;
         world.addCollider(groundEntity, groundCollider);
 
         authorBallJointCluster(runtime, ballAnchorMesh, sphereMesh, anchorMaterial, ballMaterial,
                                jointOptions);
-        authorHingeJointCluster(runtime, hingeBaseMesh, hingeLinkMesh, anchorMaterial,
-                                hingeMaterial, jointOptions);
-        authorSliderJointCluster(runtime, sliderGuideMesh, sliderCarriageMesh, guideMaterial,
-                                 sliderMaterial, jointOptions);
+        const AuthoredHingeJointIds hingeJointIds =
+            authorHingeJointCluster(runtime, hingeBaseMesh, hingeLinkMesh, anchorMaterial,
+                                    hingeMaterial, jointOptions);
+        const AuthoredSliderJointIds sliderJointIds =
+            authorSliderJointCluster(runtime, sliderGuideMesh, sliderCarriageMesh, guideMaterial,
+                                     sliderMaterial, jointOptions);
+        const AuthoredSphericalJointIds sphericalJointIds =
+            authorSphericalJointCluster(runtime, ballAnchorMesh, sphericalDiskMesh,
+                                        anchorMaterial, sphericalMaterial, jointOptions);
         authorDropDisturbers(runtime, hingeDropMesh, sphereMesh, ballMaterial, hingeMaterial,
-                             sliderMaterial);
+                             sliderMaterial, sphericalMaterial);
 
         DebugViewerCallbacks callbacks{};
+        if (jointOptions.enablePositionDriveTargets || jointOptions.enableVelocityDriveTargets)
+        {
+            callbacks.beforeTick =
+                [jointOptions, hingeJointIds, sliderJointIds, sphericalJointIds](
+                    const cressim::neo::common::FrameContext &frame, Runtime &cbRuntime)
+            {
+                auto &physicsWorld = cbRuntime.getWorld().physicsWorld();
+                const float t = static_cast<float>(frame.timeSeconds);
+                const float settle = std::clamp(t / 1.5f, 0.0f, 1.0f);
+
+                auto driveWave = [t, settle](float frequencyHz, float amplitude, float phase)
+                {
+                    const float angle = (2.0f * Diligent::PI_F * frequencyHz * t) + phase;
+                    return amplitude * settle * std::sin(angle);
+                };
+                auto velocityWave = [t, settle](float frequencyHz, float amplitude, float phase)
+                {
+                    const float angle = (2.0f * Diligent::PI_F * frequencyHz * t) + phase;
+                    return amplitude * settle * std::cos(angle);
+                };
+
+                if (auto *upper = physicsWorld.tryGetHingeJoint(hingeJointIds.upper))
+                {
+                    auto updated = *upper;
+                    if (jointOptions.enableVelocityDriveTargets)
+                    {
+                        updated.driveTargetAngularVelocity =
+                            velocityWave(0.22f, 0.55f, 0.0f);
+                    }
+                    else
+                    {
+                        updated.driveTargetAngle =
+                            kUpperHingeRestAngle + driveWave(0.18f, 0.55f, 0.0f);
+                    }
+                    physicsWorld.upsertHingeJoint(updated);
+                }
+
+                if (auto *lower = physicsWorld.tryGetHingeJoint(hingeJointIds.lower))
+                {
+                    auto updated = *lower;
+                    if (jointOptions.enableVelocityDriveTargets)
+                    {
+                        updated.driveTargetAngularVelocity =
+                            velocityWave(0.27f, 0.40f, Diligent::PI_F * 0.55f);
+                    }
+                    else
+                    {
+                        updated.driveTargetAngle =
+                            kLowerHingeRestAngle +
+                            driveWave(0.21f, 0.42f, Diligent::PI_F * 0.55f);
+                    }
+                    physicsWorld.upsertHingeJoint(updated);
+                }
+
+                if (auto *horizontal = physicsWorld.tryGetSliderJoint(sliderJointIds.horizontal))
+                {
+                    auto updated = *horizontal;
+                    if (jointOptions.enableVelocityDriveTargets)
+                    {
+                        updated.driveTargetVelocity = velocityWave(0.24f, 0.60f, 0.0f);
+                    }
+                    else
+                    {
+                        updated.driveTargetPosition =
+                            kHorizontalSliderDriveCenter + driveWave(0.19f, 0.45f, 0.0f);
+                    }
+                    physicsWorld.upsertSliderJoint(updated);
+                }
+
+                if (auto *vertical = physicsWorld.tryGetSliderJoint(sliderJointIds.vertical))
+                {
+                    auto updated = *vertical;
+                    if (jointOptions.enableVelocityDriveTargets)
+                    {
+                        updated.driveTargetVelocity = velocityWave(0.29f, 0.40f,
+                                                                   Diligent::PI_F * 0.45f);
+                    }
+                    else
+                    {
+                        updated.driveTargetPosition =
+                            kVerticalSliderDriveCenter +
+                            driveWave(0.23f, 0.28f, Diligent::PI_F * 0.45f);
+                    }
+                    physicsWorld.upsertSliderJoint(updated);
+                }
+
+                if (jointOptions.enablePositionDriveTargets || jointOptions.enableVelocityDriveTargets)
+                {
+                    for (std::size_t i = 0; i < sphericalJointIds.chain.size(); ++i)
+                    {
+                        if (auto *joint = physicsWorld.tryGetSphericalJoint(
+                                sphericalJointIds.chain[i]))
+                        {
+                            auto updated = *joint;
+                            updated.driveMode = RigidJointDriveMode::TargetOrientation;
+                            const float primary =
+                                driveWave(0.17f + 0.03f * static_cast<float>(i), 0.32f,
+                                          static_cast<float>(i) * Diligent::PI_F * 0.5f);
+                            const float secondary =
+                                driveWave(0.17f + 0.03f * static_cast<float>(i), 0.10f,
+                                          static_cast<float>(i) * Diligent::PI_F * 0.5f +
+                                              Diligent::PI_F * 0.25f);
+                            updated.driveTargetOrientation =
+                                Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 0.0f, 1.0f},
+                                                                             primary) *
+                                Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f},
+                                                                             secondary);
+                            physicsWorld.upsertSphericalJoint(updated);
+                        }
+                    }
+                }
+            };
+        }
 
         const bool runOk = viewer.run(runtime, DebugViewerCameraBinding{cameraEntity}, callbacks);
         viewer.shutdown();

@@ -163,14 +163,14 @@ struct MeshfreeSoftBodyComponent
     std::vector<Diligent::uint3> surfaceTriangles;
     std::vector<std::uint32_t> staticParticleIndices;
     physics::SoftBodyMaterialDesc material{};
-    float particleRadius           = 0.001f;
-    float particleMass             = 0.001f;
-    std::uint32_t neighbourCount   = 12u;
-    float compliance               = 1.0e-6f;
-    bool simulated                 = true;
-    bool selfCollisionEnabled      = false;
-    std::uint32_t collisionLayer   = 1u;
-    std::uint32_t collisionMask    = 0xffffffffu;
+    float particleRadius         = 0.001f;
+    float particleMass           = 0.001f;
+    std::uint32_t neighbourCount = 12u;
+    float compliance             = 1.0e-6f;
+    bool simulated               = true;
+    bool selfCollisionEnabled    = false;
+    std::uint32_t collisionLayer = 1u;
+    std::uint32_t collisionMask  = 0xffffffffu;
 };
 
 struct StrandComponent
@@ -180,8 +180,11 @@ struct StrandComponent
     std::vector<std::uint32_t> staticParticleIndices{};
     float particleMass           = 1.0f;
     float particleRadius         = 0.125f;
-    float distanceCompliance     = 0.0f;
+    float stretchShearCompliance = 0.0f;
     float bendCompliance         = 0.0f;
+    float twistCompliance        = 0.0f;
+    float distanceCompliance     = 0.0f;
+    Diligent::float3 rootMaterialNormal{0.0f, 1.0f, 0.0f};
     bool simulated               = true;
     bool selfCollisionEnabled    = false;
     bool suturingEnabled         = false;

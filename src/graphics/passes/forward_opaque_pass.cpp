@@ -822,8 +822,7 @@ bool ForwardOpaquePass::bindSceneBuffers(MaterialProgramRegistry::ProgramResourc
 
     if (programFamily == MaterialProgramFamily::SoftBodyLit)
     {
-        if (mPhysicsScene == nullptr ||
-            mPhysicsScene->soft.renderPositionsBuffer == nullptr ||
+        if (mPhysicsScene == nullptr || mPhysicsScene->soft.renderPositionsBuffer == nullptr ||
             mPhysicsScene->soft.renderNormalsBuffer == nullptr)
         {
             return false;

@@ -20,8 +20,7 @@ constexpr std::uintmax_t kParticleBytes    = sizeof(float) * 3u;
 
 std::uint32_t readUint32LittleEndian(const unsigned char *bytes) noexcept
 {
-    return static_cast<std::uint32_t>(bytes[0]) |
-           (static_cast<std::uint32_t>(bytes[1]) << 8u) |
+    return static_cast<std::uint32_t>(bytes[0]) | (static_cast<std::uint32_t>(bytes[1]) << 8u) |
            (static_cast<std::uint32_t>(bytes[2]) << 16u) |
            (static_cast<std::uint32_t>(bytes[3]) << 24u);
 }
@@ -29,8 +28,7 @@ std::uint32_t readUint32LittleEndian(const unsigned char *bytes) noexcept
 } // namespace
 
 bool readParticleCloudBin(const std::filesystem::path &path,
-                          std::vector<Diligent::float3> &particles,
-                          std::string &errorMessage)
+                          std::vector<Diligent::float3> &particles, std::string &errorMessage)
 {
     particles.clear();
     errorMessage.clear();
@@ -113,9 +111,9 @@ bool readParticleCloudBin(const std::filesystem::path &path,
     const unsigned char *data = bytes.data() + dataOffset;
     for (std::uintmax_t i = 0u; i < particleCount; ++i)
     {
-        float x = 0.0f;
-        float y = 0.0f;
-        float z = 0.0f;
+        float x                            = 0.0f;
+        float y                            = 0.0f;
+        float z                            = 0.0f;
         const unsigned char *particleBytes = data + i * kParticleBytes;
         std::memcpy(&x, particleBytes + 0u * sizeof(float), sizeof(float));
         std::memcpy(&y, particleBytes + 1u * sizeof(float), sizeof(float));

@@ -30,6 +30,7 @@ int main()
 
     engine::World &world            = runtime.getWorld();
     const common::EntityId softBody = world.createEntity();
+    const common::EntityId strandEntity = world.createEntity();
 
     engine::TransformComponent transform{};
     transform.worldTransform.position = {0.0f, 1.0f, 0.0f};
@@ -49,6 +50,26 @@ int main()
     if (!world.setSoftBody(softBody, soft))
     {
         CRESSIM_LOG_ERROR("Failed to author soft body in GPU scene upload test.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    engine::StrandComponent strand{};
+    strand.restPositions = {
+        {-0.2f, 1.5f, 0.0f},
+        {0.0f, 1.7f, 0.0f},
+        {0.2f, 1.5f, 0.0f},
+    };
+    strand.particleMass            = 0.5f;
+    strand.particleRadius          = 0.05f;
+    strand.stretchShearCompliance  = 0.01f;
+    strand.bendCompliance          = 0.02f;
+    strand.twistCompliance         = 0.03f;
+    strand.rootMaterialNormal      = {0.0f, 0.0f, 1.0f};
+    strand.selfCollisionEnabled    = true;
+    if (!world.setStrand(strandEntity, strand))
+    {
+        CRESSIM_LOG_ERROR("Failed to author strand in GPU scene upload test.");
         runtime.shutdown();
         return 1;
     }
@@ -82,8 +103,14 @@ int main()
         static_cast<std::uint32_t>(world.physicsWorld().softEdges().size());
     const std::uint32_t expectedTetCount =
         static_cast<std::uint32_t>(world.physicsWorld().softTets().size());
+    const std::uint32_t expectedStrandSegmentCount =
+        static_cast<std::uint32_t>(world.physicsWorld().strandSegments().size());
+    const std::uint32_t expectedStrandJointCount =
+        static_cast<std::uint32_t>(world.physicsWorld().strandJoints().size());
     if (sceneView.soft.softBodyCount != 1u || sceneView.soft.particles.count != expectedParticleCount ||
-        sceneView.soft.edgeCount != expectedEdgeCount || sceneView.soft.tetCount != expectedTetCount)
+        sceneView.soft.edgeCount != expectedEdgeCount || sceneView.soft.tetCount != expectedTetCount ||
+        sceneView.soft.strandSegmentCount != expectedStrandSegmentCount ||
+        sceneView.soft.strandJointCount != expectedStrandJointCount)
     {
         CRESSIM_LOG_ERROR("Unexpected soft GPU scene counts.");
         runtime.shutdown();
@@ -102,7 +129,11 @@ int main()
         sceneView.soft.particles.adjacencyOffsetsBuffer == nullptr ||
         sceneView.soft.particles.adjacencyCountsBuffer == nullptr ||
         sceneView.soft.particles.adjacencyIndicesBuffer == nullptr ||
-        sceneView.soft.edgesBuffer == nullptr || sceneView.soft.tetsBuffer == nullptr)
+        sceneView.soft.edgesBuffer == nullptr || sceneView.soft.tetsBuffer == nullptr ||
+        sceneView.soft.strandSegmentsBuffer == nullptr || sceneView.soft.strandJointsBuffer == nullptr ||
+        sceneView.soft.strandSegmentStatesBuffer == nullptr ||
+        sceneView.soft.segmentStrandJointRangesBuffer == nullptr ||
+        sceneView.soft.segmentIncidentStrandJointsBuffer == nullptr)
     {
         CRESSIM_LOG_ERROR("Soft GPU scene view is missing required buffers.");
         runtime.shutdown();

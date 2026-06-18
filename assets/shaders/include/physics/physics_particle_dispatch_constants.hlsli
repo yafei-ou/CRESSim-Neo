@@ -13,6 +13,9 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint softEdgeCount;
     uint softBendCount;
     uint softTetCount;
+    uint strandSegmentCount;
+    uint strandJointCount;
+    uint strandDistanceCount;
     uint fluidIterations;
     uint maxFluidNeighborhood;
     uint iterationIndex;
@@ -22,6 +25,7 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint suturingParticleCount;
     uint maxSuturingCandidatesPerParticle;
     uint maxSuturingNodesPerPath;
+    uint reserved0;
     uint reserved1;
 };
 

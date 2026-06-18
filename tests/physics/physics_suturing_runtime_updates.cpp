@@ -83,6 +83,35 @@ int main()
         return 1;
     }
 
+    const std::uint64_t topologyRevisionBeforeMigration = world.softTopologyRevision();
+    strand.environmentIndex = 7u;
+    if (!world.upsertStrand(strand))
+    {
+        CRESSIM_LOG_ERROR("Failed to migrate strand environment at runtime.\n");
+        return 1;
+    }
+    if (!world.suturingPairs().empty() || world.softTopologyRevision() != topologyRevisionBeforeMigration + 1u)
+    {
+        CRESSIM_LOG_ERROR(
+            "Strand environment migration should rebuild suturing topology and drop fallback pairs.\n");
+        return 1;
+    }
+
+    const std::uint64_t topologyRevisionBeforeSoftMigration = world.softTopologyRevision();
+    softBody.environmentIndex = strand.environmentIndex;
+    if (!world.upsertSoftBody(softBody))
+    {
+        CRESSIM_LOG_ERROR("Failed to migrate soft-body environment at runtime.\n");
+        return 1;
+    }
+    if (world.suturingPairs().size() != 1u ||
+        world.softTopologyRevision() != topologyRevisionBeforeSoftMigration + 1u)
+    {
+        CRESSIM_LOG_ERROR(
+            "Soft-body environment migration should rebuild suturing topology in the new environment.\n");
+        return 1;
+    }
+
     physics::AuthoredSuturingSequenceState invalidSequence{};
     invalidSequence.entries = {
         {strand.entityId, physics::AuthoredParticleReferenceType::StrandParticle, 0u},
