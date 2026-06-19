@@ -564,14 +564,13 @@ bool saveProbeImagesAndQuit(Runtime &runtime,
             CRESSIM_LOG_ERROR("Probe image export failed: staged physics step failed.\n");
             return false;
         }
-        if (!runtime.stepSensors(frame))
+        if (!runtime.stepSimulationSensors(frame))
         {
             CRESSIM_LOG_ERROR("Probe image export failed: staged sensor step failed.\n");
             return false;
         }
-        runtime.syncRenderScene();
-        runtime.render(frame);
-        runtime.pollReadbacks();
+        runtime.stepVisualSensors(frame);
+        runtime.flushSimulationSensors();
         ++frame.frameIndex;
         frame.timeSeconds += static_cast<double>(frame.deltaSeconds);
     }
@@ -611,14 +610,13 @@ bool saveProbeImagesAndQuit(Runtime &runtime,
         CRESSIM_LOG_ERROR("Probe image export failed: staged capture physics step failed.\n");
         return false;
     }
-    if (!runtime.stepSensors(frame))
+    if (!runtime.stepSimulationSensors(frame))
     {
         CRESSIM_LOG_ERROR("Probe image export failed: staged capture sensor step failed.\n");
         return false;
     }
-    runtime.syncRenderScene();
-    runtime.render(frame);
-    runtime.pollReadbacks();
+    runtime.stepVisualSensors(frame);
+    runtime.flushSimulationSensors();
 
     bool savedAnyImage = false;
     for (const auto &[probeEntity, request] : readbackRequests)

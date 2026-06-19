@@ -653,11 +653,10 @@ public:
             const bool physicsStepSucceeded = runtime.stepPhysics(frame);
             if (physicsStepSucceeded)
             {
-                (void)runtime.stepSensors(frame);
+                (void)runtime.stepSimulationSensors(frame);
             }
-            runtime.syncRenderScene();
-            runtime.render(frame);
-            runtime.pollReadbacks();
+            runtime.stepVisualSensors(frame);
+            runtime.flushSimulationSensors();
 
             if (callbacks.afterTick)
             {

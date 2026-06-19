@@ -109,14 +109,14 @@ int main()
         runtime.shutdown();
         return 0;
     }
-    if (!runtime.stepSensors(frame))
+    if (!runtime.stepSimulationSensors(frame))
     {
         CRESSIM_LOG_WARNING(
             "Skipping runtime ultrasound staging test because staged ultrasound execution failed.");
         runtime.shutdown();
         return 0;
     }
-    runtime.pollReadbacks();
+    runtime.flushSimulationSensors();
 
     const engine::UltrasoundProbeResult *executedResult =
         world.tryGetUltrasoundProbeResult(probeEntity);

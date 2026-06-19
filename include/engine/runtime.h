@@ -36,12 +36,12 @@ public:
     // Only the legacy tick() path performs implicit prepare().
     void prepare();
     bool stepPhysics(const common::FrameContext &frameContext);
-    bool stepSensors(const common::FrameContext &frameContext);
-    void syncRenderScene();
-    void render(const common::FrameContext &frameContext);
-    void pollReadbacks();
-    [[deprecated("Use prepare(), stepPhysics(), stepSensors(), syncRenderScene(), render(), and "
-                 "pollReadbacks() instead.")]]
+    bool stepSimulationSensors(const common::FrameContext &frameContext);
+    void stepVisualSensors(const common::FrameContext &frameContext);
+    // Flushes pending simulation-sensor work when no visual step is issued.
+    void flushSimulationSensors();
+    [[deprecated("Use prepare(), stepPhysics(), stepSimulationSensors(), "
+                 "stepVisualSensors(), and flushSimulationSensors() instead.")]]
     void tick(const common::FrameContext &frameContext);
 
     World &getWorld() noexcept;
@@ -70,9 +70,8 @@ private:
     World mWorld;
     graphics::RenderResourceManager mResources;
     common::FrameContext mLastFrameContext{};
-    bool mRenderSceneSynchronized = false;
-    bool mFrameBoundaryPending    = false;
-    bool mHasPhysicsState         = false;
+    bool mFrameBoundaryPending = false;
+    bool mHasPhysicsState      = false;
 };
 
 } // namespace cressim::neo::engine
