@@ -384,6 +384,14 @@ struct FluidMaterialGpu
 
 static_assert(sizeof(FluidMaterialGpu) == 48u);
 
+enum SoftEdgeFlags : std::uint32_t
+{
+    Edge_Active    = 1u << 0u,
+    Edge_Cut       = 1u << 1u,
+    Edge_Fractured = 1u << 2u,
+    Edge_Disabled  = 1u << 3u,
+};
+
 struct RigidBodyState
 {
     RigidBodyId rigidBodyId        = kInvalidRigidBodyId;
@@ -443,6 +451,8 @@ struct SoftBodyState
     float particleMass                 = 1.0f;
     float particleRadius               = 0.125f;
     float edgeCompliance               = 0.0f;
+    float edgeFailureThreshold         = 1.0e6f;
+    float edgeCutResistance            = 1.0f;
     float volumeCompliance             = 0.0f;
     SoftBodyShapeMatchingDesc shapeMatching{};
     bool selfCollisionEnabled          = false;
@@ -609,16 +619,15 @@ struct AuthoredSuturingSequenceState
 
 struct DeformableDistanceConstraint
 {
-    std::uint32_t particleA = 0u;
-    std::uint32_t particleB = 0u;
-    float restLength        = 0.0f;
-    float compliance        = 0.0f;
-    // Keep authored constraints resident in the GPU edge buffer so enable/disable can be
-    // evaluated by the solver instead of changing the constraint's GPU identity.
-    std::uint32_t enabled   = 1u;
-    std::uint32_t reserved0 = 0u;
-    std::uint32_t reserved1 = 0u;
-    std::uint32_t reserved2 = 0u;
+    std::uint32_t particleA        = 0u;
+    std::uint32_t particleB        = 0u;
+    float restLength               = 0.0f;
+    float compliance               = 0.0f;
+    float damage                   = 0.0f;
+    float strain                   = 0.0f;
+    float failureThreshold         = 1.0e6f;
+    float cutResistance            = 1.0f;
+    std::uint32_t flags            = Edge_Active;
 };
 
 using SoftEdge = DeformableDistanceConstraint;

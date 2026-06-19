@@ -166,6 +166,8 @@ public:
     const std::vector<DeformableBendConstraint> &bendConstraints() const noexcept;
     const std::vector<DeformableVolumeConstraint> &volumeConstraints() const noexcept;
     const std::vector<SoftEdge> &softEdges() const noexcept;
+    bool setSoftEdgeState(std::uint32_t edgeIndex, const SoftEdge &edge) noexcept;
+    bool setSoftEdgeFlags(std::uint32_t edgeIndex, std::uint32_t flags) noexcept;
     const std::vector<SoftBend> &softBends() const noexcept;
     const std::vector<SoftTet> &softTets() const noexcept;
     const std::vector<StrandSegmentConstraint> &strandSegments() const noexcept;

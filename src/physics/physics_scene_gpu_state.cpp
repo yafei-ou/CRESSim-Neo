@@ -1208,7 +1208,8 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentParticles.broadPhaseMetadataBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftEdges", sizeof(SoftEdge),
-                                newSoftEdgeCapacity, Diligent::BIND_SHADER_RESOURCE,
+                                newSoftEdgeCapacity,
+                                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentSoftTopology.edgesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftBends", sizeof(SoftBend),

@@ -14,6 +14,9 @@ namespace
 
 constexpr std::uint32_t kUseParticleRadiiFlag         = 1u << 0u;
 constexpr std::uint32_t kHighlightStaticParticlesFlag = 1u << 1u;
+constexpr std::uint32_t kShowCutEdgesFlag             = 1u << 2u;
+constexpr std::uint32_t kShowStrainFlag               = 1u << 3u;
+constexpr std::uint32_t kShowDamageFlag               = 1u << 4u;
 constexpr std::uint32_t kShapePrimitiveCenters        = 0u;
 constexpr std::uint32_t kShapePrimitiveAxes           = 1u;
 constexpr std::uint32_t kShapePrimitiveMembers        = 2u;
@@ -510,20 +513,29 @@ bool DebugParticlePass::draw(const gpu::GpuRenderTargetBinding &targetBinding,
     }
 
     DrawConstants constants{};
-    constants.color       = options.color;
-    constants.staticColor = options.staticColor;
-    constants.edgeColor   = options.edgeColor;
-    constants.cameraIndex = camera.globalCameraIndex;
-    constants.targetLayer = targetLayer;
-    constants.envIndex    = camera.envIndex;
-    constants.flags       = useParticleRadii ? kUseParticleRadiiFlag : 0u;
+    constants.color               = options.color;
+    constants.staticColor         = options.staticColor;
+    constants.edgeColor           = options.edgeColor;
+    constants.edgeHighStrainColor = options.edgeHighStrainColor;
+    constants.edgeDamagedColor    = options.edgeDamagedColor;
+    constants.edgeDisabledColor   = options.edgeDisabledColor;
+    constants.cameraIndex         = camera.globalCameraIndex;
+    constants.targetLayer         = targetLayer;
+    constants.envIndex            = camera.envIndex;
+    constants.flags               = useParticleRadii ? kUseParticleRadiiFlag : 0u;
     constants.flags |= options.highlightStaticParticles ? kHighlightStaticParticlesFlag : 0u;
+    constants.flags |= options.showCutEdges ? kShowCutEdgesFlag : 0u;
+    constants.flags |= options.showStrain ? kShowStrainFlag : 0u;
+    constants.flags |= options.showDamage ? kShowDamageFlag : 0u;
+    constants.shapeModes = options.shapeMatchingModes;
     constants.maxMembershipCount =
         std::max<std::uint32_t>(options.shapeMaxMembershipCount, 1u);
-    constants.fallbackRadius        = options.fallbackRadius;
-    constants.shapeCenterRadius     = options.shapeCenterRadius;
-    constants.shapeAxisLength       = options.shapeAxisLength;
-    constants.shapeCorrectionScale  = options.shapeCorrectionScale;
+    constants.fallbackRadius         = options.fallbackRadius;
+    constants.highStrainThreshold    = options.highStrainThreshold;
+    constants.damageDisplayThreshold = options.damageDisplayThreshold;
+    constants.shapeCenterRadius      = options.shapeCenterRadius;
+    constants.shapeAxisLength        = options.shapeAxisLength;
+    constants.shapeCorrectionScale   = options.shapeCorrectionScale;
 
     void *mapped = nullptr;
     backendContext.graphicsContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,

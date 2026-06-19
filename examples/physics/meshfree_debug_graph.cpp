@@ -7,6 +7,7 @@
 #include "helpers/viewer_example.h"
 #include "physics/load_particle_cloud.h"
 #include "physics/load_surface_mesh.h"
+#include "physics/physics_world.h"
 #include "viewer/debug_viewer_app.h"
 
 #include <algorithm>
@@ -52,6 +53,14 @@ struct MeshfreeDebugOptions
     bool debugParticlesExplicit = false;
     bool showDebugParticles = false;
     bool pinToGround = true;
+    bool disableEdgeTest = false;
+    bool disableEdgeRegion = false;
+    bool enableFracture = false;
+    bool enableCuttingTool = false;
+    bool instantCut = false;
+    bool showCutEdges = false;
+    bool showStrain = false;
+    bool showDamage = false;
     bool vSync = false;
     std::filesystem::path cloudPath =
         cressim::neo::examples::helpers::assetPath("physics/fixtures/cube_particles.bin");
@@ -69,6 +78,11 @@ struct MeshfreeDebugOptions
     float damping = -1.0f;
     float pinBand = 0.01f;
     float shapeCorrectionDebugScale = 40.0f;
+    float fractureThreshold = 0.35f;
+    float toolRadius = 0.003f;
+    float toolStrength = 5.0f;
+    float disableEdgeRegionRadius = 0.0f;
+    Diligent::float3 disableEdgeRegionCenter{0.0f, 0.0f, 0.0f};
     Diligent::float3 rotationDegrees{0.0f, 0.0f, 0.0f};
 };
 
@@ -92,6 +106,17 @@ struct ShapeMatchingTopologyStats
     float meanMembershipsPerParticle            = 0.0f;
 };
 
+struct EdgeDebugStats
+{
+    std::uint32_t activeCount = 0u;
+    std::uint32_t disabledCount = 0u;
+    std::uint32_t cutCount = 0u;
+    std::uint32_t fracturedCount = 0u;
+    float maxStrain = 0.0f;
+    float averageStrain = 0.0f;
+    float maxDamage = 0.0f;
+};
+
 void printUsage(const char *appName)
 {
     cressim::neo::examples::helpers::printUsage(
@@ -104,7 +129,10 @@ void printUsage(const char *appName)
         " [--enable-shape-matching] [--shape-cluster-size N] [--shape-memberships N]"
         " [--shape-iterations N] [--shape-stiffness S] [--draw-shape-clusters]"
         " [--shape-correction-debug-scale S] [--disable-cut-aware-clusters]"
-        " [--show-particles] [--hide-particles] [--draw-edges] [--vsync]",
+        " [--show-particles] [--hide-particles] [--draw-edges] [--disable-edge-test]"
+        " [--disable-edge-region X Y Z R] [--enable-fracture] [--fracture-threshold S]"
+        " [--enable-cutting-tool] [--tool-radius R] [--tool-strength S] [--instant-cut]"
+        " [--show-cut-edges] [--show-strain] [--show-damage] [--vsync]",
         false);
 }
 
@@ -353,6 +381,165 @@ std::vector<std::uint32_t> selectGroundPinParticles(
     return staticParticleIndices;
 }
 
+float length3(const Diligent::float3 &value)
+{
+    return std::sqrt(Diligent::dot(value, value));
+}
+
+float segmentDistanceToPoint(const Diligent::float3 &a, const Diligent::float3 &b,
+                             const Diligent::float3 &point)
+{
+    const Diligent::float3 ab = b - a;
+    const float abLengthSq = Diligent::dot(ab, ab);
+    if (abLengthSq <= 1.0e-12f)
+    {
+        return length3(point - a);
+    }
+
+    const float t = std::clamp(Diligent::dot(point - a, ab) / abLengthSq, 0.0f, 1.0f);
+    return length3((a + ab * t) - point);
+}
+
+EdgeDebugStats computeEdgeDebugStats(const cressim::neo::physics::PhysicsWorld &physicsWorld)
+{
+    EdgeDebugStats stats{};
+    const auto &particles = physicsWorld.particles();
+    const auto &edges = physicsWorld.softEdges();
+    float strainSum = 0.0f;
+    std::uint32_t strainCount = 0u;
+
+    for (const cressim::neo::physics::SoftEdge &edge : edges)
+    {
+        const bool active = (edge.flags & cressim::neo::physics::Edge_Active) != 0u;
+        const bool disabled = (edge.flags & cressim::neo::physics::Edge_Disabled) != 0u;
+        stats.activeCount += active && !disabled ? 1u : 0u;
+        stats.disabledCount += disabled || !active ? 1u : 0u;
+        stats.cutCount += (edge.flags & cressim::neo::physics::Edge_Cut) != 0u ? 1u : 0u;
+        stats.fracturedCount +=
+            (edge.flags & cressim::neo::physics::Edge_Fractured) != 0u ? 1u : 0u;
+        stats.maxDamage = std::max(stats.maxDamage, edge.damage);
+
+        if (edge.particleA >= particles.positionsInvMass.size() ||
+            edge.particleB >= particles.positionsInvMass.size() || edge.restLength <= 1.0e-6f)
+        {
+            continue;
+        }
+
+        const Diligent::float4 &a4 = particles.positionsInvMass[edge.particleA];
+        const Diligent::float4 &b4 = particles.positionsInvMass[edge.particleB];
+        const Diligent::float3 a{a4.x, a4.y, a4.z};
+        const Diligent::float3 b{b4.x, b4.y, b4.z};
+        const float strain = std::abs((length3(b - a) - edge.restLength) / edge.restLength);
+        stats.maxStrain = std::max(stats.maxStrain, strain);
+        strainSum += strain;
+        ++strainCount;
+    }
+
+    stats.averageStrain = strainCount > 0u ? strainSum / static_cast<float>(strainCount) : 0.0f;
+    return stats;
+}
+
+void logEdgeDebugStats(const char *label, const EdgeDebugStats &stats)
+{
+    CRESSIM_LOG_INFO(label, ": active edges=", stats.activeCount,
+                     ", disabled edges=", stats.disabledCount,
+                     ", cut edges=", stats.cutCount,
+                     ", fractured edges=", stats.fracturedCount,
+                     ", max strain=", stats.maxStrain,
+                     ", average strain=", stats.averageStrain,
+                     ", max damage=", stats.maxDamage, ".\n");
+}
+
+bool edgeIntersectsDisableSelection(const MeshfreeDebugOptions &options,
+                                    const Diligent::float3 &a,
+                                    const Diligent::float3 &b,
+                                    float planeX)
+{
+    if (options.disableEdgeTest && ((a.x <= planeX && b.x >= planeX) ||
+                                    (b.x <= planeX && a.x >= planeX)))
+    {
+        return true;
+    }
+
+    if (!options.disableEdgeRegion)
+    {
+        return false;
+    }
+
+    return segmentDistanceToPoint(a, b, options.disableEdgeRegionCenter) <=
+           options.disableEdgeRegionRadius;
+}
+
+std::uint32_t applyManualEdgeDisabling(Runtime &runtime, cressim::neo::common::EntityId softEntity,
+                                       const MeshfreeDebugOptions &options, float planeX)
+{
+    if (!options.disableEdgeTest && !options.disableEdgeRegion && !options.enableCuttingTool)
+    {
+        return 0u;
+    }
+
+    auto &physicsWorld = runtime.getWorld().physicsWorld();
+    physicsWorld.ensureDerivedStateUpToDate();
+    const cressim::neo::physics::SoftBodyState *softState =
+        physicsWorld.tryGetSoftBody(softEntity);
+    if (softState == nullptr)
+    {
+        return 0u;
+    }
+
+    const auto &particles = physicsWorld.particles();
+    const auto &edges = physicsWorld.softEdges();
+    const std::uint32_t edgeEnd =
+        std::min(softState->edgeOffset + softState->edgeCount,
+                 static_cast<std::uint32_t>(edges.size()));
+    std::uint32_t selectedEdgeCount = 0u;
+
+    for (std::uint32_t edgeIndex = softState->edgeOffset; edgeIndex < edgeEnd; ++edgeIndex)
+    {
+        const cressim::neo::physics::SoftEdge &edge = edges[edgeIndex];
+        if (edge.particleA >= particles.positionsInvMass.size() ||
+            edge.particleB >= particles.positionsInvMass.size())
+        {
+            continue;
+        }
+
+        const Diligent::float4 &a4 = particles.positionsInvMass[edge.particleA];
+        const Diligent::float4 &b4 = particles.positionsInvMass[edge.particleB];
+        const Diligent::float3 a{a4.x, a4.y, a4.z};
+        const Diligent::float3 b{b4.x, b4.y, b4.z};
+        const bool selected =
+            edgeIntersectsDisableSelection(options, a, b, planeX) ||
+            (options.enableCuttingTool &&
+             segmentDistanceToPoint(a, b, options.disableEdgeRegionCenter) <= options.toolRadius);
+        if (!selected)
+        {
+            continue;
+        }
+
+        cressim::neo::physics::SoftEdge updated = edge;
+        updated.flags |= cressim::neo::physics::Edge_Cut;
+        if (options.instantCut || options.disableEdgeTest || options.disableEdgeRegion)
+        {
+            updated.damage = 1.0f;
+        }
+        else
+        {
+            updated.damage = std::clamp(
+                updated.damage + options.toolStrength / std::max(updated.cutResistance, 1.0e-6f),
+                0.0f, 1.0f);
+        }
+        if (updated.damage >= 1.0f)
+        {
+            updated.flags |= cressim::neo::physics::Edge_Disabled;
+            updated.flags &= ~cressim::neo::physics::Edge_Active;
+        }
+        ++selectedEdgeCount;
+        physicsWorld.setSoftEdgeState(edgeIndex, updated);
+    }
+
+    return selectedEdgeCount;
+}
+
 std::vector<Diligent::float3> loadConfiguredParticles(const MeshfreeDebugOptions &options,
                                                       ParticleBounds &outSourceBounds)
 {
@@ -369,23 +556,32 @@ std::vector<Diligent::float3> loadConfiguredParticles(const MeshfreeDebugOptions
     return particles;
 }
 
-void applyDebugParticleGraphOptions(Runtime &runtime, const bool enabled,
-                                    const bool drawConstraintEdges,
-                                    const float particleRadius,
-                                    const std::uint32_t shapeMaxMembershipCount,
-                                    const float shapeCorrectionDebugScale)
+void applyDebugParticleGraphOptions(Runtime &runtime, const MeshfreeDebugOptions &options,
+                                    const std::uint32_t shapeMaxMembershipCount)
 {
     cressim::neo::graphics::RenderFrameOptions renderOptions = runtime.renderFrameOptions();
-    renderOptions.debugParticles.enabled                  = enabled;
-    renderOptions.debugParticles.drawConstraintEdges      = drawConstraintEdges;
+    renderOptions.debugParticles.enabled                  = options.showDebugParticles;
+    renderOptions.debugParticles.drawConstraintEdges      = options.drawConstraintEdges;
     renderOptions.debugParticles.highlightStaticParticles = true;
     renderOptions.debugParticles.useParticleRadii         = true;
+    renderOptions.debugParticles.shapeMatchingModes =
+        options.drawShapeClusters
+            ? (cressim::neo::graphics::DebugShapeMatching_MembershipCount |
+               cressim::neo::graphics::DebugShapeMatching_CorrectionMagnitude)
+            : 0u;
     renderOptions.debugParticles.shapeMaxMembershipCount  = shapeMaxMembershipCount;
-    renderOptions.debugParticles.shapeCorrectionScale     = shapeCorrectionDebugScale;
+    renderOptions.debugParticles.shapeCorrectionScale     = options.shapeCorrectionDebugScale;
     renderOptions.debugParticles.color                    = {0.18f, 0.74f, 1.0f, 1.0f};
     renderOptions.debugParticles.staticColor              = {1.0f, 0.22f, 0.12f, 1.0f};
-    renderOptions.debugParticles.edgeColor                = {1.0f, 0.86f, 0.18f, 1.0f};
-    renderOptions.debugParticles.fallbackRadius           = particleRadius;
+    renderOptions.debugParticles.edgeColor                = {1.0f, 1.0f, 1.0f, 1.0f};
+    renderOptions.debugParticles.edgeHighStrainColor      = {1.0f, 0.08f, 0.04f, 1.0f};
+    renderOptions.debugParticles.edgeDamagedColor         = {1.0f, 0.48f, 0.04f, 1.0f};
+    renderOptions.debugParticles.edgeDisabledColor        = {0.0f, 0.0f, 0.0f, 1.0f};
+    renderOptions.debugParticles.showCutEdges             = options.showCutEdges;
+    renderOptions.debugParticles.showStrain               = options.showStrain;
+    renderOptions.debugParticles.showDamage               = options.showDamage;
+    renderOptions.debugParticles.highStrainThreshold      = options.fractureThreshold;
+    renderOptions.debugParticles.fallbackRadius           = options.particleRadius;
     runtime.setRenderFrameOptions(renderOptions);
 }
 
@@ -569,6 +765,13 @@ int main(int argc, char **argv)
                     "--shape-correction-debug-scale");
                 continue;
             }
+            if (arg == "--draw-shape-clusters")
+            {
+                options.drawShapeClusters = true;
+                options.showDebugParticles = true;
+                options.debugParticlesExplicit = true;
+                continue;
+            }
             if (arg == "--disable-cut-aware-clusters")
             {
                 options.shapeMatching.cutAware = false;
@@ -609,6 +812,104 @@ int main(int argc, char **argv)
                     cressim::neo::examples::helpers::requireOptionValue(
                         argc, argv, i, "--pin-band"),
                     "--pin-band");
+                continue;
+            }
+            if (arg == "--disable-edge-test")
+            {
+                options.disableEdgeTest = true;
+                options.drawConstraintEdges = true;
+                options.showDebugParticles = true;
+                options.debugParticlesExplicit = true;
+                continue;
+            }
+            if (arg == "--disable-edge-region")
+            {
+                options.disableEdgeRegionCenter =
+                    parseFloat3(argc, argv, i, "--disable-edge-region");
+                options.disableEdgeRegionRadius = parsePositiveFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--disable-edge-region"),
+                    "--disable-edge-region");
+                options.disableEdgeRegion = true;
+                options.drawConstraintEdges = true;
+                options.showDebugParticles = true;
+                options.debugParticlesExplicit = true;
+                continue;
+            }
+            if (arg == "--enable-fracture")
+            {
+                options.enableFracture = true;
+                options.showDamage = true;
+                options.drawConstraintEdges = true;
+                options.showDebugParticles = true;
+                options.debugParticlesExplicit = true;
+                continue;
+            }
+            if (arg == "--fracture-threshold")
+            {
+                options.fractureThreshold = parsePositiveFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--fracture-threshold"),
+                    "--fracture-threshold");
+                continue;
+            }
+            if (arg == "--enable-cutting-tool")
+            {
+                options.enableCuttingTool = true;
+                options.showCutEdges = true;
+                options.drawConstraintEdges = true;
+                options.showDebugParticles = true;
+                options.debugParticlesExplicit = true;
+                continue;
+            }
+            if (arg == "--tool-radius")
+            {
+                options.toolRadius = parsePositiveFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--tool-radius"),
+                    "--tool-radius");
+                continue;
+            }
+            if (arg == "--tool-strength")
+            {
+                options.toolStrength = parsePositiveFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--tool-strength"),
+                    "--tool-strength");
+                continue;
+            }
+            if (arg == "--instant-cut")
+            {
+                options.instantCut = true;
+                options.enableCuttingTool = true;
+                options.showCutEdges = true;
+                options.drawConstraintEdges = true;
+                options.showDebugParticles = true;
+                options.debugParticlesExplicit = true;
+                continue;
+            }
+            if (arg == "--show-cut-edges")
+            {
+                options.showCutEdges = true;
+                options.drawConstraintEdges = true;
+                options.showDebugParticles = true;
+                options.debugParticlesExplicit = true;
+                continue;
+            }
+            if (arg == "--show-strain")
+            {
+                options.showStrain = true;
+                options.drawConstraintEdges = true;
+                options.showDebugParticles = true;
+                options.debugParticlesExplicit = true;
+                continue;
+            }
+            if (arg == "--show-damage")
+            {
+                options.showDamage = true;
+                options.drawConstraintEdges = true;
+                options.showDebugParticles = true;
+                options.debugParticlesExplicit = true;
                 continue;
             }
             if (arg == "--pin-to-ground")
@@ -813,6 +1114,10 @@ int main(int argc, char **argv)
                                                    ? options.compliance
                                                    : 2.0e-5f;
     softBody.shapeMatching                   = options.shapeMatching;
+    softBody.edgeFailureThreshold            = options.enableFracture
+                                                   ? options.fractureThreshold
+                                                   : 1.0e6f;
+    softBody.edgeCutResistance               = std::max(options.toolStrength, 1.0e-6f);
     softBody.material.contact.friction       = 0.45f;
     softBody.material.contact.staticFriction = 0.60f;
     softBody.material.contact.damping        = options.damping >= 0.0f
@@ -827,6 +1132,14 @@ int main(int argc, char **argv)
         viewer.shutdown();
         CRESSIM_LOG_ERROR("Failed to author meshfree debug soft body.\n");
         return 1;
+    }
+
+    const std::uint32_t disabledEdgeCount = applyManualEdgeDisabling(
+        runtime, softEntity, options, softTransform.worldTransform.position.x);
+    if (disabledEdgeCount > 0u)
+    {
+        CRESSIM_LOG_INFO("Manual edge disabling selected ", disabledEdgeCount,
+                         " edges. Disabled/cut edges are skipped by the XPBD distance solve.\n");
     }
 
     if (!options.drawConstraintEdges && !surfaceMesh.surfaceRestPositions.empty())
@@ -892,23 +1205,29 @@ int main(int argc, char **argv)
                          ", static particles=", softBody.staticParticleIndices.size(),
                          ", pin band=", options.pinBand,
                          ", initial center y=", initialSoftY, ".\n");
+        logEdgeDebugStats("Meshfree XPBD edge state",
+                          computeEdgeDebugStats(world.physicsWorld()));
     }
 
-    applyDebugParticleGraphOptions(runtime, options.showDebugParticles,
-                                   options.drawConstraintEdges,
-                                   options.particleRadius,
-                                   shapeStats.maximumMembershipsPerParticle,
-                                   options.shapeCorrectionDebugScale);
+    applyDebugParticleGraphOptions(runtime, options,
+                                   shapeStats.maximumMembershipsPerParticle);
 
     DebugViewerCallbacks callbacks{};
-    callbacks.beforeTick = [&options, shapeStats](const cressim::neo::common::FrameContext &,
-                                                  Runtime &callbackRuntime)
+    callbacks.beforeTick = [&options, shapeStats](
+                               const cressim::neo::common::FrameContext &frame,
+                               Runtime &callbackRuntime)
     {
-        applyDebugParticleGraphOptions(callbackRuntime, options.showDebugParticles,
-                                       options.drawConstraintEdges,
-                                       options.particleRadius,
-                                       shapeStats.maximumMembershipsPerParticle,
-                                       options.shapeCorrectionDebugScale);
+        applyDebugParticleGraphOptions(callbackRuntime, options,
+                                       shapeStats.maximumMembershipsPerParticle);
+        if ((options.drawConstraintEdges || options.disableEdgeTest ||
+             options.disableEdgeRegion || options.enableFracture) &&
+            (frame.frameIndex % 120u) == 0u)
+        {
+            callbackRuntime.getWorld().physicsWorld().ensureDerivedStateUpToDate();
+            logEdgeDebugStats("Meshfree XPBD edge state",
+                              computeEdgeDebugStats(
+                                  callbackRuntime.getWorld().physicsWorld()));
+        }
     };
     callbacks.afterTick = [&viewerDesc](const cressim::neo::common::FrameContext &frame,
                                         Runtime &callbackRuntime)
