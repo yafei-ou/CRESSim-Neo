@@ -40,9 +40,6 @@ public:
     void stepVisualSensors(const common::FrameContext &frameContext);
     // Flushes pending simulation-sensor work when no visual step is issued.
     void flushSimulationSensors();
-    [[deprecated("Use prepare(), stepPhysics(), stepSimulationSensors(), "
-                 "stepVisualSensors(), and flushSimulationSensors() instead.")]]
-    void tick(const common::FrameContext &frameContext);
 
     World &getWorld() noexcept;
     const World &getWorld() const noexcept;

@@ -46,7 +46,13 @@ GpuPresentationReadbackEvent renderAndReadback(Runtime &runtime, GpuDevice &grap
                                                FrameContext &frame)
 {
     const GpuPresentationReadbackRequest request = graphicsDevice.requestPresentationReadback();
-    runtime.tick(frame);
+    runtime.prepare();
+    const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+    if (physicsStepSucceeded)
+    {
+        (void)runtime.stepSimulationSensors(frame);
+    }
+    runtime.stepVisualSensors(frame);
 
     GpuPresentationReadbackEvent event{};
     if (request.id == 0u || !graphicsDevice.tryGetPresentationReadback(request, event))
@@ -176,7 +182,13 @@ struct ScenarioRunner
 
         auto tickFrame = [&]()
         {
-            runtime.tick(frame);
+            runtime.prepare();
+            const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+            if (physicsStepSucceeded)
+            {
+                (void)runtime.stepSimulationSensors(frame);
+            }
+            runtime.stepVisualSensors(frame);
             ++frame.frameIndex;
             frame.timeSeconds =
                 static_cast<double>(frame.frameIndex) * static_cast<double>(frame.deltaSeconds);

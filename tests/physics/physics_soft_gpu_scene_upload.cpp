@@ -86,7 +86,13 @@ int main()
 
     common::FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
-    runtime.tick(frame);
+    runtime.prepare();
+    const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+    if (physicsStepSucceeded)
+    {
+        (void)runtime.stepSimulationSensors(frame);
+    }
+    runtime.stepVisualSensors(frame);
 
     const physics::PhysicsSolver *solver = runtime.getPhysicsSolver();
     if (solver == nullptr)

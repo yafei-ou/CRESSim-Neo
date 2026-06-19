@@ -50,7 +50,13 @@ bool initializeAndShutdownRuntime(GpuBackend backend, std::uint64_t iteration)
     frame.deltaSeconds = 1.0f / 60.0f;
     frame.frameIndex   = iteration;
     frame.timeSeconds  = static_cast<double>(iteration) * frame.deltaSeconds;
-    runtime.tick(frame);
+    runtime.prepare();
+    const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+    if (physicsStepSucceeded)
+    {
+        (void)runtime.stepSimulationSensors(frame);
+    }
+    runtime.stepVisualSensors(frame);
     runtime.shutdown();
     return true;
 }

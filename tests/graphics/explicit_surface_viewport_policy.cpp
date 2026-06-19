@@ -61,7 +61,13 @@ GpuRenderTargetReadbackEvent renderAndReadback(Runtime& runtime, GpuDevice& grap
     const GpuRenderTargetReadbackRequest request =
         graphicsDevice.renderTargetSystem().requestRenderTargetReadback(
             GpuRenderTargetBinding{target, 0u, 1u});
-    runtime.tick(frame);
+    runtime.prepare();
+    const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+    if (physicsStepSucceeded)
+    {
+        (void)runtime.stepSimulationSensors(frame);
+    }
+    runtime.stepVisualSensors(frame);
 
     GpuRenderTargetReadbackEvent event{};
     if (request.id == 0u || !graphicsDevice.renderTargetSystem().tryGetRenderTargetReadback(request, event))
@@ -150,7 +156,13 @@ int main(int argc, char** argv)
     frame.deltaSeconds = 1.0f / 60.0f;
     frame.frameIndex   = 0u;
     frame.timeSeconds  = 0.0;
-    runtime.tick(frame);
+    runtime.prepare();
+    const bool secondPhysicsStepSucceeded = runtime.stepPhysics(frame);
+    if (secondPhysicsStepSucceeded)
+    {
+        (void)runtime.stepSimulationSensors(frame);
+    }
+    runtime.stepVisualSensors(frame);
 
     auto& resources = runtime.getResources();
     MeshResourceDesc meshDesc{};
@@ -181,7 +193,13 @@ int main(int argc, char** argv)
     world.setCamera(cameraEntity, camera);
     frame.frameIndex  = 1u;
     frame.timeSeconds = static_cast<double>(frame.deltaSeconds);
-    runtime.tick(frame);
+    runtime.prepare();
+    const bool thirdPhysicsStepSucceeded = runtime.stepPhysics(frame);
+    if (thirdPhysicsStepSucceeded)
+    {
+        (void)runtime.stepSimulationSensors(frame);
+    }
+    runtime.stepVisualSensors(frame);
 
     frame.frameIndex  = 2u;
     frame.timeSeconds = static_cast<double>(frame.frameIndex) * static_cast<double>(frame.deltaSeconds);

@@ -20,7 +20,13 @@ using cressim::neo::graphics::MeshResourceDesc;
 
 void tick(Runtime& runtime, FrameContext& frame)
 {
-    runtime.tick(frame);
+    runtime.prepare();
+    const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+    if (physicsStepSucceeded)
+    {
+        (void)runtime.stepSimulationSensors(frame);
+    }
+    runtime.stepVisualSensors(frame);
     frame.frameIndex += 1u;
     frame.timeSeconds += frame.deltaSeconds;
 }

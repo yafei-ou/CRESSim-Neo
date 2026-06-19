@@ -302,18 +302,6 @@ void Runtime::flushSimulationSensors()
     mFrameBoundaryPending = false;
 }
 
-void Runtime::tick(const common::FrameContext &frameContext)
-{
-    prepare();
-    const bool physicsStepSucceeded = stepPhysics(frameContext);
-    if (physicsStepSucceeded)
-    {
-        (void)stepSimulationSensors(frameContext);
-    }
-    stepVisualSensors(frameContext);
-    flushSimulationSensors();
-}
-
 World &Runtime::getWorld() noexcept
 {
     return mWorld;

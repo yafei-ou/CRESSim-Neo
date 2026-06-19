@@ -52,7 +52,13 @@ int main()
     {
         frame.frameIndex  = i;
         frame.timeSeconds = static_cast<double>(i) * static_cast<double>(frame.deltaSeconds);
-        runtime.tick(frame);
+        runtime.prepare();
+        const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+        if (physicsStepSucceeded)
+        {
+            (void)runtime.stepSimulationSensors(frame);
+        }
+        runtime.stepVisualSensors(frame);
     }
 
     const physics::RigidBodyState* finalRigidBody = world.physicsWorld().tryGetRigidBody(rigidEntity);

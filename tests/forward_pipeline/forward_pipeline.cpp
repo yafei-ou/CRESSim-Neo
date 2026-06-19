@@ -167,7 +167,13 @@ bool runIblTierScenario(IblQualityTier iblQualityTier)
     frame.deltaSeconds = 1.0f / 60.0f;
     frame.frameIndex   = 0u;
     frame.timeSeconds  = 0.0;
-    runtime.tick(frame);
+    runtime.prepare();
+    const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+    if (physicsStepSucceeded)
+    {
+        (void)runtime.stepSimulationSensors(frame);
+    }
+    runtime.stepVisualSensors(frame);
     const RenderStats stats = runtime.lastRenderStats();
     runtime.shutdown();
     return stats.renderableCount == 1u && stats.renderedCameraCount == 1u &&
@@ -309,17 +315,35 @@ int main()
     frame.deltaSeconds = 1.0f / 60.0f;
     frame.frameIndex = 0;
     frame.timeSeconds = 0.0;
-    runtime.tick(frame);
+    runtime.prepare();
+    const bool firstPhysicsStepSucceeded = runtime.stepPhysics(frame);
+    if (firstPhysicsStepSucceeded)
+    {
+        (void)runtime.stepSimulationSensors(frame);
+    }
+    runtime.stepVisualSensors(frame);
     const RenderStats firstFrame = runtime.lastRenderStats();
 
     frame.frameIndex = 1;
     frame.timeSeconds = frame.deltaSeconds;
-    runtime.tick(frame);
+    runtime.prepare();
+    const bool secondPhysicsStepSucceeded = runtime.stepPhysics(frame);
+    if (secondPhysicsStepSucceeded)
+    {
+        (void)runtime.stepSimulationSensors(frame);
+    }
+    runtime.stepVisualSensors(frame);
     const RenderStats secondFrame = runtime.lastRenderStats();
 
     frame.frameIndex = 2;
     frame.timeSeconds = static_cast<double>(frame.deltaSeconds) * 2.0;
-    runtime.tick(frame);
+    runtime.prepare();
+    const bool thirdPhysicsStepSucceeded = runtime.stepPhysics(frame);
+    if (thirdPhysicsStepSucceeded)
+    {
+        (void)runtime.stepSimulationSensors(frame);
+    }
+    runtime.stepVisualSensors(frame);
     const RenderStats thirdFrame = runtime.lastRenderStats();
 
     runtime.shutdown();
