@@ -38,8 +38,7 @@ public:
     bool stepPhysics(const common::FrameContext &frameContext);
     bool stepSimulationSensors(const common::FrameContext &frameContext);
     void stepVisualSensors(const common::FrameContext &frameContext);
-    // Flushes pending simulation-sensor work when no visual step is issued.
-    void flushSimulationSensors();
+    void endFrame(const common::FrameContext &frameContext);
 
     World &getWorld() noexcept;
     const World &getWorld() const noexcept;
@@ -67,8 +66,8 @@ private:
     World mWorld;
     graphics::RenderResourceManager mResources;
     common::FrameContext mLastFrameContext{};
-    bool mFrameBoundaryPending = false;
-    bool mHasPhysicsState      = false;
+    bool mDeviceFrameActive = false;
+    bool mHasPhysicsState   = false;
 };
 
 } // namespace cressim::neo::engine

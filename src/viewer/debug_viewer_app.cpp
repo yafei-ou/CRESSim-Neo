@@ -81,7 +81,7 @@ std::vector<common::EntityId> sortedUltrasoundProbeEntities(
     {
         (void)component;
         const engine::UltrasoundProbeResult *result = world.tryGetUltrasoundProbeResult(entityId);
-        if (result == nullptr || !result->valid)
+        if (result == nullptr || !result->prepared)
         {
             continue;
         }
@@ -539,7 +539,7 @@ public:
             {
                 const engine::UltrasoundProbeResult *probeResult =
                     world.tryGetUltrasoundProbeResult(presentedUltrasoundProbeEntity);
-                if (probeResult == nullptr || !probeResult->valid)
+                if (probeResult == nullptr || !probeResult->prepared)
                 {
                     const common::EntityId nextProbe =
                         cyclePresentedUltrasoundProbe(world, presentedUltrasoundProbeEntity, 1);
@@ -616,7 +616,7 @@ public:
             {
                 const engine::UltrasoundProbeResult *probeResult =
                     world.tryGetUltrasoundProbeResult(presentedUltrasoundProbeEntity);
-                if (probeResult != nullptr && probeResult->valid)
+                if (probeResult != nullptr && probeResult->prepared)
                 {
                     gpu::GpuRenderTargetDesc probeTargetDesc{};
                     if (gpu::GpuDevice *const device = runtime.getGpuDevice();
@@ -656,7 +656,7 @@ public:
                 (void)runtime.stepSimulationSensors(frame);
             }
             runtime.stepVisualSensors(frame);
-            runtime.flushSimulationSensors();
+            runtime.endFrame(frame);
 
             if (callbacks.afterTick)
             {

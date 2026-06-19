@@ -153,6 +153,7 @@ int main()
     FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
     runtime.stepVisualSensors(frame);
+    runtime.endFrame(frame);
 
     GpuRenderTargetReadbackEvent firstEvent{};
     if (!device->renderTargetSystem().tryGetRenderTargetReadback(firstRequest, firstEvent) ||
@@ -175,6 +176,7 @@ int main()
         device->renderTargetSystem().requestRenderTargetReadback(
             cressim::neo::gpu::GpuRenderTargetBinding{target, 0u, 1u});
     runtime.stepVisualSensors(frame);
+    runtime.endFrame(frame);
 
     GpuRenderTargetReadbackEvent secondEvent{};
     if (!device->renderTargetSystem().tryGetRenderTargetReadback(secondRequest, secondEvent) ||

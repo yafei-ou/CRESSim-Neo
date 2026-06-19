@@ -57,6 +57,7 @@ bool initializeAndShutdownRuntime(GpuBackend backend, std::uint64_t iteration)
         (void)runtime.stepSimulationSensors(frame);
     }
     runtime.stepVisualSensors(frame);
+    runtime.endFrame(frame);
     runtime.shutdown();
     return true;
 }

@@ -28,6 +28,18 @@ bool hasPhysicsBackendContext(gpu::GpuDevice &device)
            computeContext.renderDevice != nullptr && computeContext.computeContext != nullptr;
 }
 
+void ensureDeviceFrameActive(gpu::GpuDevice *device, const common::FrameContext &frameContext,
+                             bool &inOutDeviceFrameActive)
+{
+    if (device == nullptr || inOutDeviceFrameActive)
+    {
+        return;
+    }
+
+    device->beginFrame(frameContext);
+    inOutDeviceFrameActive = true;
+}
+
 bool syncGpuScene(World &world, gpu::GpuDevice *device, RenderSceneUploader *uploader,
                   physics::PhysicsSolver *physicsSolver, bool usePhysicsPoses)
 {
@@ -162,6 +174,12 @@ void Runtime::shutdown()
         return;
     }
 
+    if (mDeviceFrameActive && mGpuDevice)
+    {
+        mGpuDevice->endFrame(mLastFrameContext);
+        mDeviceFrameActive = false;
+    }
+
     mRenderer.reset();
 
     if (mRenderSceneUploader)
@@ -187,12 +205,12 @@ void Runtime::shutdown()
         mGpuDevice.reset();
     }
 
-    mLastRenderStats      = {};
-    mRenderFrameOptions   = {};
-    mLastFrameContext     = {};
-    mFrameBoundaryPending = false;
-    mHasPhysicsState      = false;
-    mInitialized          = false;
+    mLastRenderStats    = {};
+    mRenderFrameOptions = {};
+    mLastFrameContext   = {};
+    mDeviceFrameActive  = false;
+    mHasPhysicsState    = false;
+    mInitialized        = false;
 }
 
 void Runtime::prepare()
@@ -252,15 +270,13 @@ bool Runtime::stepSimulationSensors(const common::FrameContext &frameContext)
         return true;
     }
 
+    ensureDeviceFrameActive(mGpuDevice.get(), frameContext, mDeviceFrameActive);
+
     const bool succeeded = mUltrasoundSystem->execute(frameContext, mWorld);
     if (!succeeded)
     {
         CRESSIM_LOG_WARNING("Runtime: ultrasound step failed at frame ", frameContext.frameIndex,
                             ".");
-    }
-    else
-    {
-        mFrameBoundaryPending = true;
     }
     return succeeded;
 }
@@ -277,6 +293,8 @@ void Runtime::stepVisualSensors(const common::FrameContext &frameContext)
 
     mLastFrameContext = frameContext;
 
+    ensureDeviceFrameActive(mGpuDevice.get(), frameContext, mDeviceFrameActive);
+
     physics::PhysicsGpuSceneView physicsSceneView{};
     const physics::PhysicsGpuSceneView *physicsScenePtr = nullptr;
     if (mPhysicsSolver)
@@ -285,21 +303,25 @@ void Runtime::stepVisualSensors(const common::FrameContext &frameContext)
         physicsScenePtr  = &physicsSceneView;
     }
 
-    mLastRenderStats      = mRenderer->render(frameContext, mWorld.hostSceneView(), physicsScenePtr,
-                                              mRenderFrameOptions);
-    mFrameBoundaryPending = false;
+    mLastRenderStats = mRenderer->render(frameContext, mWorld.hostSceneView(), physicsScenePtr,
+                                         mRenderFrameOptions);
 }
 
-void Runtime::flushSimulationSensors()
+void Runtime::endFrame(const common::FrameContext &frameContext)
 {
-    if (!mInitialized || !mFrameBoundaryPending || !mGpuDevice)
+    if (!mInitialized)
     {
         return;
     }
 
-    mGpuDevice->beginFrame(mLastFrameContext);
-    mGpuDevice->endFrame(mLastFrameContext);
-    mFrameBoundaryPending = false;
+    mLastFrameContext = frameContext;
+    if (!mDeviceFrameActive || !mGpuDevice)
+    {
+        return;
+    }
+
+    mGpuDevice->endFrame(frameContext);
+    mDeviceFrameActive = false;
 }
 
 World &Runtime::getWorld() noexcept

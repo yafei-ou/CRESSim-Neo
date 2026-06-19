@@ -375,6 +375,7 @@ int main(int argc, char** argv)
             (void)runtime.stepSimulationSensors(frame);
         }
         runtime.stepVisualSensors(frame);
+        runtime.endFrame(frame);
     }
 
     GpuRenderTargetReadbackEvent backOnlyCapture{};

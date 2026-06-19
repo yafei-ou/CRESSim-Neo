@@ -953,8 +953,8 @@ struct UltrasoundSystem::Impl
                                     const ProbeRuntime &runtime) const
     {
         UltrasoundProbeResult result{};
-        result.valid              = true;
-        result.imageValid         = false;
+        result.prepared           = true;
+        result.completed          = false;
         result.numScanlines       = runtime.rfLayout.numScanlines;
         result.samplesPerScanline = runtime.rfLayout.samplesPerLine;
         result.imageWidth         = runtime.imageWidth;
@@ -969,8 +969,8 @@ struct UltrasoundSystem::Impl
                                      const std::uint64_t frameIndex, const bool imageValid) const
     {
         UltrasoundProbeResult result{};
-        result.valid               = true;
-        result.imageValid          = imageValid;
+        result.prepared            = true;
+        result.completed           = imageValid;
         result.numScanlines        = runtime.rfLayout.numScanlines;
         result.samplesPerScanline  = runtime.rfLayout.samplesPerLine;
         result.totalScattererCount = totalScattererCount;
@@ -979,7 +979,7 @@ struct UltrasoundSystem::Impl
         result.imageTarget         = runtime.imageTarget;
         if (imageValid)
         {
-            result.frameIndex = frameIndex;
+            result.completedFrameIndex = frameIndex;
         }
         world.setUltrasoundProbeResult(probeEntityId, result);
     }

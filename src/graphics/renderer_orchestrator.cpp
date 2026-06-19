@@ -528,8 +528,6 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
         return stats;
     }
 
-    mDevice.beginFrame(frameContext);
-
     const std::vector<RenderableInstance> &renderables =
         world.renderables != nullptr ? *world.renderables : std::vector<RenderableInstance>{};
     const std::vector<LightData> emptyLights;
@@ -554,13 +552,11 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
                                     backendContext.graphicsContext != nullptr;
     if (!hasGraphicsBackend)
     {
-        mDevice.endFrame(frameContext);
         return stats;
     }
 
     if (!prepareGpuScene(world, gpuScene, physicsScene))
     {
-        mDevice.endFrame(frameContext);
         return stats;
     }
 
@@ -572,7 +568,6 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
     gpu::GpuRenderTargetDesc defaultRenderTargetDesc{};
     if (!mDevice.tryGetDefaultRenderTargetDesc(defaultRenderTargetDesc))
     {
-        mDevice.endFrame(frameContext);
         return stats;
     }
 
@@ -627,8 +622,6 @@ RenderStats Renderer::render(const common::FrameContext &frameContext, const Hos
     }
 
     stats.drawCalls = stats.opaqueDrawCalls + stats.transparentDrawCalls + stats.shadowDrawCalls;
-
-    mDevice.endFrame(frameContext);
     return stats;
 }
 

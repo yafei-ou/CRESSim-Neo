@@ -174,6 +174,7 @@ bool runIblTierScenario(IblQualityTier iblQualityTier)
         (void)runtime.stepSimulationSensors(frame);
     }
     runtime.stepVisualSensors(frame);
+    runtime.endFrame(frame);
     const RenderStats stats = runtime.lastRenderStats();
     runtime.shutdown();
     return stats.renderableCount == 1u && stats.renderedCameraCount == 1u &&
@@ -322,6 +323,7 @@ int main()
         (void)runtime.stepSimulationSensors(frame);
     }
     runtime.stepVisualSensors(frame);
+    runtime.endFrame(frame);
     const RenderStats firstFrame = runtime.lastRenderStats();
 
     frame.frameIndex = 1;
@@ -333,6 +335,7 @@ int main()
         (void)runtime.stepSimulationSensors(frame);
     }
     runtime.stepVisualSensors(frame);
+    runtime.endFrame(frame);
     const RenderStats secondFrame = runtime.lastRenderStats();
 
     frame.frameIndex = 2;
@@ -344,6 +347,7 @@ int main()
         (void)runtime.stepSimulationSensors(frame);
     }
     runtime.stepVisualSensors(frame);
+    runtime.endFrame(frame);
     const RenderStats thirdFrame = runtime.lastRenderStats();
 
     runtime.shutdown();

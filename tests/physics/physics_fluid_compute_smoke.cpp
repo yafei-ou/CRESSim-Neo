@@ -90,6 +90,7 @@ int main()
             (void)runtime.stepSimulationSensors(frame);
         }
         runtime.stepVisualSensors(frame);
+        runtime.endFrame(frame);
     }
 
     world.physicsWorld().ensureDerivedStateUpToDate();

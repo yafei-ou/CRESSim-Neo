@@ -68,6 +68,7 @@ GpuRenderTargetReadbackEvent renderAndReadback(Runtime& runtime, GpuDevice& grap
         (void)runtime.stepSimulationSensors(frame);
     }
     runtime.stepVisualSensors(frame);
+    runtime.endFrame(frame);
 
     GpuRenderTargetReadbackEvent event{};
     if (request.id == 0u || !graphicsDevice.renderTargetSystem().tryGetRenderTargetReadback(request, event))
@@ -163,6 +164,7 @@ int main(int argc, char** argv)
         (void)runtime.stepSimulationSensors(frame);
     }
     runtime.stepVisualSensors(frame);
+    runtime.endFrame(frame);
 
     auto& resources = runtime.getResources();
     MeshResourceDesc meshDesc{};
@@ -200,6 +202,7 @@ int main(int argc, char** argv)
         (void)runtime.stepSimulationSensors(frame);
     }
     runtime.stepVisualSensors(frame);
+    runtime.endFrame(frame);
 
     frame.frameIndex  = 2u;
     frame.timeSeconds = static_cast<double>(frame.frameIndex) * static_cast<double>(frame.deltaSeconds);

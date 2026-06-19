@@ -54,6 +54,7 @@ int main()
             (void)runtime.stepSimulationSensors(frame);
         }
         runtime.stepVisualSensors(frame);
+        runtime.endFrame(frame);
     }
 
     const std::optional<engine::TransformComponent> finalTransform =

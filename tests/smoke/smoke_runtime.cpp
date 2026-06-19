@@ -254,6 +254,7 @@ int runSmoke(cressim::neo::gpu::GpuBackend backend)
             (void)runtime.stepSimulationSensors(frame);
         }
         runtime.stepVisualSensors(frame);
+        runtime.endFrame(frame);
     }
 
     std::uint32_t readbackEvents = 0;

@@ -59,6 +59,7 @@ int main()
             (void)runtime.stepSimulationSensors(frame);
         }
         runtime.stepVisualSensors(frame);
+        runtime.endFrame(frame);
     }
 
     const physics::RigidBodyState* finalRigidBody = world.physicsWorld().tryGetRigidBody(rigidEntity);

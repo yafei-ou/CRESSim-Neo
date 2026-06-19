@@ -27,6 +27,7 @@ void tick(Runtime& runtime, FrameContext& frame)
         (void)runtime.stepSimulationSensors(frame);
     }
     runtime.stepVisualSensors(frame);
+    runtime.endFrame(frame);
     frame.frameIndex += 1u;
     frame.timeSeconds += frame.deltaSeconds;
 }

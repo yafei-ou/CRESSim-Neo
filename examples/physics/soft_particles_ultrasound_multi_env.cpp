@@ -570,7 +570,7 @@ bool saveProbeImagesAndQuit(Runtime &runtime,
             return false;
         }
         runtime.stepVisualSensors(frame);
-        runtime.flushSimulationSensors();
+        runtime.endFrame(frame);
         ++frame.frameIndex;
         frame.timeSeconds += static_cast<double>(frame.deltaSeconds);
     }
@@ -584,7 +584,7 @@ bool saveProbeImagesAndQuit(Runtime &runtime,
     {
         const UltrasoundProbeResult *probeResult =
             runtime.getWorld().tryGetUltrasoundProbeResult(probeEntity);
-        if (probeResult == nullptr || !probeResult->valid)
+        if (probeResult == nullptr || !probeResult->prepared)
         {
             CRESSIM_LOG_ERROR("Probe image export failed: probe entity ", probeEntity,
                               " did not expose a valid ultrasound output after prepare().\n");
@@ -616,14 +616,14 @@ bool saveProbeImagesAndQuit(Runtime &runtime,
         return false;
     }
     runtime.stepVisualSensors(frame);
-    runtime.flushSimulationSensors();
+    runtime.endFrame(frame);
 
     bool savedAnyImage = false;
     for (const auto &[probeEntity, request] : readbackRequests)
     {
         const UltrasoundProbeResult *probeResult =
             runtime.getWorld().tryGetUltrasoundProbeResult(probeEntity);
-        if (probeResult == nullptr || !probeResult->valid || !probeResult->imageValid)
+        if (probeResult == nullptr || !probeResult->prepared || !probeResult->completed)
         {
             CRESSIM_LOG_ERROR("Probe image export failed: probe entity ", probeEntity,
                               " did not produce a valid ultrasound image for frame 0 capture.\n");

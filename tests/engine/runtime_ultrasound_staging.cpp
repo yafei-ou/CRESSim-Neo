@@ -81,7 +81,7 @@ int main()
 
     const engine::UltrasoundProbeResult *preparedResult =
         world.tryGetUltrasoundProbeResult(probeEntity);
-    if (preparedResult == nullptr || !preparedResult->valid ||
+    if (preparedResult == nullptr || !preparedResult->prepared ||
         preparedResult->imageTarget.id == common::kInvalidResourceId)
     {
         CRESSIM_LOG_WARNING(
@@ -116,11 +116,11 @@ int main()
         runtime.shutdown();
         return 0;
     }
-    runtime.flushSimulationSensors();
+    runtime.endFrame(frame);
 
     const engine::UltrasoundProbeResult *executedResult =
         world.tryGetUltrasoundProbeResult(probeEntity);
-    if (executedResult == nullptr || !executedResult->valid || !executedResult->imageValid)
+    if (executedResult == nullptr || !executedResult->prepared || !executedResult->completed)
     {
         CRESSIM_LOG_WARNING(
             "Skipping runtime ultrasound staging test because probe image generation is unavailable.");

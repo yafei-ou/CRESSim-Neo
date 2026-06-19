@@ -93,6 +93,7 @@ int main()
         (void)runtime.stepSimulationSensors(frame);
     }
     runtime.stepVisualSensors(frame);
+    runtime.endFrame(frame);
 
     const physics::PhysicsSolver *solver = runtime.getPhysicsSolver();
     if (solver == nullptr)

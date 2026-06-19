@@ -53,6 +53,7 @@ GpuPresentationReadbackEvent renderAndReadback(Runtime &runtime, GpuDevice &grap
         (void)runtime.stepSimulationSensors(frame);
     }
     runtime.stepVisualSensors(frame);
+    runtime.endFrame(frame);
 
     GpuPresentationReadbackEvent event{};
     if (request.id == 0u || !graphicsDevice.tryGetPresentationReadback(request, event))
@@ -189,6 +190,7 @@ struct ScenarioRunner
                 (void)runtime.stepSimulationSensors(frame);
             }
             runtime.stepVisualSensors(frame);
+            runtime.endFrame(frame);
             ++frame.frameIndex;
             frame.timeSeconds =
                 static_cast<double>(frame.frameIndex) * static_cast<double>(frame.deltaSeconds);
