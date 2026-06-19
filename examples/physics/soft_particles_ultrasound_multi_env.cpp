@@ -470,7 +470,7 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     //   ultrasound capture is meaningful
     const float groundTopHeight = -0.15f + 0.05f;
     const float cubeHalfHeight  = 0.5f * 0.45f;
-    const float minSpawnHeight  = groundTopHeight + cubeHalfHeight + 0.04f;
+    const float minSpawnHeight  = groundTopHeight + cubeHalfHeight + 0.08f;
     const float maxSpawnHeight  = kProbeHeight + cubeHalfHeight - 0.04f;
     const float spawnT = envCount > 1u
                              ? static_cast<float>(envIndex) / static_cast<float>(envCount - 1u)
@@ -554,32 +554,24 @@ bool saveProbeImagesAndQuit(Runtime &runtime,
     cressim::neo::common::FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
 
-    const auto runStagedFrame = [&](const cressim::neo::common::FrameContext &stagedFrame) -> bool
-    {
-        runtime.prepare();
-        if (!runtime.stepPhysics(stagedFrame))
-        {
-            return false;
-        }
-        if (!runtime.stepSensors(stagedFrame))
-        {
-            return false;
-        }
-        runtime.syncRenderScene();
-        runtime.render(stagedFrame);
-        runtime.pollReadbacks();
-        return true;
-    };
-
     const std::uint64_t settleFrames = static_cast<std::uint64_t>(
         std::ceil(captureDelaySeconds / std::max(frame.deltaSeconds, 1.0e-6f)));
     for (std::uint64_t i = 0u; i < settleFrames; ++i)
     {
-        if (!runStagedFrame(frame))
+        runtime.prepare();
+        if (!runtime.stepPhysics(frame))
         {
-            CRESSIM_LOG_ERROR("Probe image export failed: staged runtime step failed.\n");
+            CRESSIM_LOG_ERROR("Probe image export failed: staged physics step failed.\n");
             return false;
         }
+        if (!runtime.stepSensors(frame))
+        {
+            CRESSIM_LOG_ERROR("Probe image export failed: staged sensor step failed.\n");
+            return false;
+        }
+        runtime.syncRenderScene();
+        runtime.render(frame);
+        runtime.pollReadbacks();
         ++frame.frameIndex;
         frame.timeSeconds += static_cast<double>(frame.deltaSeconds);
     }
@@ -613,11 +605,20 @@ bool saveProbeImagesAndQuit(Runtime &runtime,
         readbackRequests.emplace_back(probeEntity, request);
     }
 
-    if (!runStagedFrame(frame))
+    runtime.prepare();
+    if (!runtime.stepPhysics(frame))
     {
-        CRESSIM_LOG_ERROR("Probe image export failed: staged capture frame failed.\n");
+        CRESSIM_LOG_ERROR("Probe image export failed: staged capture physics step failed.\n");
         return false;
     }
+    if (!runtime.stepSensors(frame))
+    {
+        CRESSIM_LOG_ERROR("Probe image export failed: staged capture sensor step failed.\n");
+        return false;
+    }
+    runtime.syncRenderScene();
+    runtime.render(frame);
+    runtime.pollReadbacks();
 
     bool savedAnyImage = false;
     for (const auto &[probeEntity, request] : readbackRequests)
