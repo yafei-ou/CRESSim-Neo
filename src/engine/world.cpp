@@ -1574,6 +1574,8 @@ bool World::setSoftBody(common::EntityId entityId, const SoftBodyComponent &comp
     state.particleMass         = component.particleMass;
     state.particleRadius       = component.particleRadius;
     state.edgeCompliance       = component.edgeCompliance;
+    state.edgeFailureThreshold = component.edgeFailureThreshold;
+    state.edgeCutResistance    = component.edgeCutResistance;
     state.volumeCompliance     = component.volumeCompliance;
     state.selfCollisionEnabled = component.selfCollisionEnabled;
     state.supportsSuturing     = component.supportsSuturing;
@@ -1621,16 +1623,18 @@ bool World::setMeshfreeSoftBody(common::EntityId entityId,
     state.source.meshfreeParticles.surfaceTriangles      = component.surfaceTriangles;
     state.source.meshfreeParticles.staticParticleIndices = component.staticParticleIndices;
     state.source.meshfreeParticles.neighbourCount        = component.neighbourCount;
-    state.material                                       = component.material;
-    state.restTransform                                  = transform.worldTransform;
-    state.particleMass                                   = component.particleMass;
-    state.particleRadius                                 = component.particleRadius;
-    state.edgeCompliance                                 = component.compliance;
-    state.volumeCompliance                               = 0.0f;
-    state.shapeMatching                                  = component.shapeMatching;
-    state.selfCollisionEnabled                           = component.selfCollisionEnabled;
-    state.collisionLayer                                 = component.collisionLayer;
-    state.collisionMask                                  = component.collisionMask;
+    state.material             = component.material;
+    state.restTransform        = transform.worldTransform;
+    state.particleMass         = component.particleMass;
+    state.particleRadius       = component.particleRadius;
+    state.edgeCompliance       = component.compliance;
+    state.edgeFailureThreshold = component.edgeFailureThreshold;
+    state.edgeCutResistance    = component.edgeCutResistance;
+    state.volumeCompliance     = 0.0f;
+    state.shapeMatching        = component.shapeMatching;
+    state.selfCollisionEnabled = component.selfCollisionEnabled;
+    state.collisionLayer       = component.collisionLayer;
+    state.collisionMask        = component.collisionMask;
 
     if (!mImpl->mPhysicsWorld.upsertSoftBody(state))
     {
@@ -2550,6 +2554,8 @@ std::optional<SoftBodyComponent> World::tryGetSoftBody(common::EntityId entityId
     component.particleMass         = softBody->particleMass;
     component.particleRadius       = softBody->particleRadius;
     component.edgeCompliance       = softBody->edgeCompliance;
+    component.edgeFailureThreshold = softBody->edgeFailureThreshold;
+    component.edgeCutResistance    = softBody->edgeCutResistance;
     component.volumeCompliance     = softBody->volumeCompliance;
     component.selfCollisionEnabled = softBody->selfCollisionEnabled;
     component.supportsSuturing     = softBody->supportsSuturing;

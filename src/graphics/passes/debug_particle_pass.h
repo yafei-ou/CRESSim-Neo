@@ -41,7 +41,10 @@ private:
     {
         Diligent::float4 color{0.2f, 0.8f, 1.0f, 1.0f};
         Diligent::float4 staticColor{1.0f, 0.18f, 0.08f, 1.0f};
-        Diligent::float4 edgeColor{1.0f, 0.86f, 0.18f, 1.0f};
+        Diligent::float4 edgeColor{1.0f, 1.0f, 1.0f, 1.0f};
+        Diligent::float4 edgeHighStrainColor{1.0f, 0.08f, 0.04f, 1.0f};
+        Diligent::float4 edgeDamagedColor{1.0f, 0.48f, 0.04f, 1.0f};
+        Diligent::float4 edgeDisabledColor{0.0f, 0.0f, 0.0f, 1.0f};
         std::uint32_t cameraIndex = 0u;
         std::uint32_t targetLayer = 0u;
         std::uint32_t envIndex    = 0u;
@@ -51,9 +54,13 @@ private:
         std::uint32_t maxMembershipCount = 1u;
         std::uint32_t padding0           = 0u;
         float fallbackRadius             = 0.15f;
+        float highStrainThreshold        = 0.35f;
+        float damageDisplayThreshold     = 0.01f;
+        float shapeCorrectionScale       = 40.0f;
         float shapeCenterRadius          = 0.055f;
         float shapeAxisLength            = 0.09f;
-        float shapeCorrectionScale       = 40.0f;
+        float padding1                   = 0.0f;
+        float padding2                   = 0.0f;
     };
 
     struct PipelineKey

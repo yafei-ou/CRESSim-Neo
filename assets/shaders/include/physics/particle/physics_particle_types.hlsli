@@ -27,6 +27,10 @@ static const uint kParticlePhaseSelfCollideFlag = 0x80000000u;
 static const uint kShapeClusterActive = 1u << 0u;
 static const uint kShapeClusterCutDisabled = 1u << 1u;
 static const uint kShapeClusterDegenerate = 1u << 2u;
+static const uint kSoftEdgeActiveFlag = 1u << 0u;
+static const uint kSoftEdgeCutFlag = 1u << 1u;
+static const uint kSoftEdgeFracturedFlag = 1u << 2u;
+static const uint kSoftEdgeDisabledFlag = 1u << 3u;
 
 struct GpuParticleBroadPhaseEntry
 {
@@ -116,10 +120,11 @@ struct GpuSoftEdge
     uint particleB;
     float restLength;
     float compliance;
-    uint enabled;
-    uint reserved0;
-    uint reserved1;
-    uint reserved2;
+    float damage;
+    float strain;
+    float failureThreshold;
+    float cutResistance;
+    uint flags;
 };
 
 struct GpuSoftTet

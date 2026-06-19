@@ -171,6 +171,8 @@ struct SoftBodyComponent
     float particleRadius = 0.125f;            ///< Collision radius per particle.
     float edgeCompliance =
         0.0f; ///< Extended Position Based Dynamics (XPBD) edge constraint compliance.
+    float edgeFailureThreshold = 1.0e6f; ///< Strain threshold at which an edge fractures.
+    float edgeCutResistance = 1.0f;      ///< Resistance multiplier for cutting-tool damage.
     float volumeCompliance       = 0.001f;      ///< XPBD volume conservation constraint compliance.
     bool selfCollisionEnabled    = false;       ///< Enable internal self-collision handling.
     bool supportsSuturing        = false;       ///< Enable surgical thread suturing insertion.
@@ -191,7 +193,10 @@ struct MeshfreeSoftBodyComponent
     float particleMass           = 0.001f;              ///< Mass per particle.
     std::uint32_t neighbourCount = 12u;                 ///< Particle neighbor interaction count.
     float compliance             = 1.0e-6f;             ///< Constraint compliance parameter.
+    float edgeFailureThreshold   = 1.0e6f;              ///< Strain threshold at which an edge fractures.
+    float edgeCutResistance      = 1.0f;                ///< Resistance multiplier for cutting-tool damage.
     physics::SoftBodyShapeMatchingDesc shapeMatching{}; ///< Shape-matching cluster settings.
+    bool simulated = true;                              ///< Whether this body participates in simulation.
     bool selfCollisionEnabled    = false;               ///< Enable self-collision.
     std::uint32_t collisionLayer = 1u;                  ///< Collision layer.
     std::uint32_t collisionMask  = 0xffffffffu;         ///< Collision mask.

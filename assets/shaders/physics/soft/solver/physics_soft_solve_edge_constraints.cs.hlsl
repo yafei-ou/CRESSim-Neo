@@ -3,7 +3,7 @@
 #include "physics_particle_types.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(GpuSoftEdge, g_SoftEdges);
+CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftEdge, g_SoftEdges);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_SoftEdgeLambdas);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuSoftEdgeCorrection, g_SoftEdgeCorrections);
 
@@ -16,13 +16,15 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const GpuSoftEdge edge = CRESSIM_SB_LOAD(g_SoftEdges, edgeIndex);
+    GpuSoftEdge edge = CRESSIM_SB_LOAD(g_SoftEdges, edgeIndex);
     GpuSoftEdgeCorrection edgeCorrection;
     edgeCorrection.correctionA = float4(0.0, 0.0, 0.0, 0.0);
     edgeCorrection.correctionB = float4(0.0, 0.0, 0.0, 0.0);
 
-    if (edge.enabled == 0u)
+    if ((edge.flags & kSoftEdgeActiveFlag) == 0u ||
+        (edge.flags & kSoftEdgeDisabledFlag) != 0u)
     {
+        CRESSIM_SB_STORE(g_SoftEdgeLambdas, edgeIndex, 0.0);
         CRESSIM_SB_STORE(g_SoftEdgeCorrections, edgeIndex, edgeCorrection);
         return;
     }
@@ -55,6 +57,25 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float compliance = max(edge.compliance, 0.0);
     const float alpha = compliance / max(dt * dt, kEpsilon);
     const float constraint = length - edge.restLength;
+    const float strainDenominator = max(edge.restLength, kEpsilon);
+    edge.strain = constraint / strainDenominator;
+    const float strainMagnitude = abs(edge.strain);
+    if (edge.failureThreshold > 0.0 && strainMagnitude > edge.failureThreshold)
+    {
+        const float excess = strainMagnitude - edge.failureThreshold;
+        edge.damage = saturate(edge.damage + excess / max(edge.cutResistance, kEpsilon));
+        if (edge.damage >= 1.0)
+        {
+            edge.flags = (edge.flags | kSoftEdgeFracturedFlag | kSoftEdgeDisabledFlag) &
+                         ~kSoftEdgeActiveFlag;
+            CRESSIM_SB_STORE(g_SoftEdges, edgeIndex, edge);
+            CRESSIM_SB_STORE(g_SoftEdgeLambdas, edgeIndex, 0.0);
+            CRESSIM_SB_STORE(g_SoftEdgeCorrections, edgeIndex, edgeCorrection);
+            return;
+        }
+    }
+    CRESSIM_SB_STORE(g_SoftEdges, edgeIndex, edge);
+
     const float lambda = CRESSIM_SB_LOAD(g_SoftEdgeLambdas, edgeIndex);
     const float denominator = wSum + alpha;
     if (denominator <= kEpsilon)

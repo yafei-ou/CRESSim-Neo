@@ -460,6 +460,14 @@ struct FluidMaterialGpu
 
 static_assert(sizeof(FluidMaterialGpu) == 48u);
 
+enum SoftEdgeFlags : std::uint32_t
+{
+    Edge_Active    = 1u << 0u,
+    Edge_Cut       = 1u << 1u,
+    Edge_Fractured = 1u << 2u,
+    Edge_Disabled  = 1u << 3u,
+};
+
 /// @brief Complete dynamic and kinematic state descriptor for an authored rigid body.
 struct RigidBodyState
 {
@@ -535,6 +543,8 @@ struct SoftBodyState
     float particleMass     = 1.0f;     ///< Mass per soft-body particle.
     float particleRadius   = 0.125f;   ///< Collision radius per particle.
     float edgeCompliance   = 0.0f;     ///< Distance/elastic edge constraint compliance.
+    float edgeFailureThreshold = 1.0e6f; ///< Strain threshold at which an edge fractures.
+    float edgeCutResistance = 1.0f;      ///< Resistance multiplier for cutting-tool damage.
     float volumeCompliance = 0.0f;     ///< Tetrahedral hydrostatic volume constraint compliance.
     SoftBodyShapeMatchingDesc shapeMatching{}; ///< Shape-matching cluster settings.
     bool selfCollisionEnabled =
@@ -736,12 +746,11 @@ struct DeformableDistanceConstraint
     std::uint32_t particleB = 0u;   ///< Index of second particle.
     float restLength        = 0.0f; ///< Target rest distance.
     float compliance        = 0.0f; ///< XPBD constraint compliance.
-    /// Keep authored constraints resident in the GPU edge buffer so enable/disable can be
-    /// evaluated by the solver instead of changing the constraint's GPU identity.
-    std::uint32_t enabled   = 1u;
-    std::uint32_t reserved0 = 0u; ///< Reserved padding.
-    std::uint32_t reserved1 = 0u; ///< Reserved padding.
-    std::uint32_t reserved2 = 0u; ///< Reserved padding.
+    float damage = 0.0f;                ///< Accumulated cutting damage.
+    float strain = 0.0f;                ///< Current normalized edge strain.
+    float failureThreshold = 1.0e6f;    ///< Strain threshold for fracture.
+    float cutResistance = 1.0f;         ///< Cutting damage resistance.
+    std::uint32_t flags = Edge_Active;  ///< Active/cut/fracture state flags.
 };
 
 /// @brief Alias for deformable distance edge constraint.

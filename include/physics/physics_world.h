@@ -594,6 +594,9 @@ public:
     /// @return Const reference to SoftEdge vector.
     const std::vector<SoftEdge> &softEdges() const noexcept;
 
+    bool setSoftEdgeState(std::uint32_t edgeIndex, const SoftEdge &edge) noexcept;
+    bool setSoftEdgeFlags(std::uint32_t edgeIndex, std::uint32_t flags) noexcept;
+
     /// @brief Gets alias view of deformable bending constraints.
     /// @return Const reference to SoftBend vector.
     const std::vector<SoftBend> &softBends() const noexcept;

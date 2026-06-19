@@ -1,12 +1,17 @@
 #include "graphics_scene_buffers.hlsli"
 #include "graphics_camera_input.hlsli"
+#include "physics_particle_types.hlsli"
 
 cbuffer GraphicsDebugParticles
 {
     float4 g_DebugParticleColor;
     float4 g_DebugParticleStaticColor;
     float4 g_DebugParticleEdgeColor;
+    float4 g_DebugParticleEdgeHighStrainColor;
+    float4 g_DebugParticleEdgeDamagedColor;
+    float4 g_DebugParticleEdgeDisabledColor;
     uint4 g_DebugParticleParams;
+    uint4 g_DebugShapeParams;
     float4 g_DebugParticleMisc;
 };
 
@@ -14,14 +19,21 @@ cbuffer GraphicsDebugParticles
 #define g_DebugParticleTargetLayer g_DebugParticleParams.y
 #define g_DebugParticleEnvIndex g_DebugParticleParams.z
 #define g_DebugParticleFlags g_DebugParticleParams.w
+#define g_DebugShapeModes g_DebugShapeParams.x
+#define g_DebugShapeMaxMembershipCount g_DebugShapeParams.z
 #define g_DebugParticleFallbackRadius g_DebugParticleMisc.x
+#define g_DebugShapeCorrectionScale g_DebugParticleMisc.w
 #define CRESSIM_DEBUG_PARTICLE_USE_RADII 1u
 #define CRESSIM_DEBUG_PARTICLE_HIGHLIGHT_STATIC 2u
+#define CRESSIM_DEBUG_SHAPE_MEMBERSHIP_COUNT 8u
+#define CRESSIM_DEBUG_SHAPE_CORRECTION_MAGNITUDE 64u
 
 CRESSIM_STRUCTURED_BUFFER(CameraInput, g_CameraInputs);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float, g_ParticleRadii);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleEnvironmentIndices);
+CRESSIM_STRUCTURED_BUFFER(GpuParticleShapeMembershipRange, g_ParticleShapeMembershipRanges);
+CRESSIM_STRUCTURED_BUFFER(float, g_ShapeCorrectionMagnitudes);
 
 struct VSOutput
 {
@@ -137,7 +149,21 @@ void main(uint vertexId : SV_VertexID, out VSOutput Out)
     Out.QuadCoord = quadCoord;
     Out.Radius = particleRadius;
     Out.Color = g_DebugParticleColor;
-    if ((g_DebugParticleFlags & CRESSIM_DEBUG_PARTICLE_HIGHLIGHT_STATIC) != 0u &&
+    if ((g_DebugShapeModes & CRESSIM_DEBUG_SHAPE_CORRECTION_MAGNITUDE) != 0u)
+    {
+        const float correctionMagnitude = CRESSIM_SB_LOAD(g_ShapeCorrectionMagnitudes, particleIndex);
+        const float t = saturate(correctionMagnitude * max(g_DebugShapeCorrectionScale, 0.0));
+        Out.Color = lerp(float4(0.12, 0.72, 1.0, 1.0), float4(1.0, 0.92, 0.0, 1.0), t);
+    }
+    else if ((g_DebugShapeModes & CRESSIM_DEBUG_SHAPE_MEMBERSHIP_COUNT) != 0u)
+    {
+        const GpuParticleShapeMembershipRange range =
+            CRESSIM_SB_LOAD(g_ParticleShapeMembershipRanges, particleIndex);
+        const float t =
+            saturate(float(range.count) / float(max(g_DebugShapeMaxMembershipCount, 1u)));
+        Out.Color = lerp(g_DebugParticleColor, float4(1.0, 0.92, 0.0, 1.0), t);
+    }
+    else if ((g_DebugParticleFlags & CRESSIM_DEBUG_PARTICLE_HIGHLIGHT_STATIC) != 0u &&
         particlePositionInvMass.w <= 0.0)
     {
         Out.Color = g_DebugParticleStaticColor;

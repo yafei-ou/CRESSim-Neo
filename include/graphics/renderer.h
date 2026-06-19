@@ -90,12 +90,21 @@ struct RenderFrameOptions
                                         1.0f}; ///< Color for pinned/static particles.
         Diligent::float4 edgeColor   = {1.0f, 0.86f, 0.18f,
                                         1.0f}; ///< Color for distance constraint debug lines.
+        Diligent::float4 edgeHighStrainColor = {1.0f, 0.08f, 0.04f, 1.0f};
+        Diligent::float4 edgeDamagedColor = {1.0f, 0.48f, 0.04f, 1.0f};
+        Diligent::float4 edgeDisabledColor = {0.0f, 0.0f, 0.0f, 1.0f};
         bool useParticleRadii = true; ///< Use actual particle radii instead of fallbackRadius.
         bool highlightStaticParticles = true; ///< Visually tint static particles differently.
         bool drawConstraintEdges =
             false;                    ///< Draw wireframe edges between constrained particle pairs.
+        bool showCutEdges = false;
+        bool showStrain = false;
+        bool showDamage = false;
+        std::uint32_t shapeMatchingModes = 0u;
         std::uint32_t shapeMaxMembershipCount = 1u; ///< Maximum memberships for debug normalization.
         float fallbackRadius = 0.15f; ///< Fallback radius in world units if unassigned.
+        float highStrainThreshold = 0.35f;
+        float damageDisplayThreshold = 0.01f;
         float shapeCenterRadius = 0.055f;    ///< Shape-cluster center marker radius.
         float shapeAxisLength = 0.09f;       ///< Shape-cluster local-axis length.
         float shapeCorrectionScale = 40.0f;  ///< Shape-correction visualization scale.
