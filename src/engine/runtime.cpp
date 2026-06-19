@@ -28,6 +28,44 @@ bool hasPhysicsBackendContext(gpu::GpuDevice &device)
            computeContext.renderDevice != nullptr && computeContext.computeContext != nullptr;
 }
 
+bool syncGpuScene(World &world, gpu::GpuDevice *device, RenderSceneUploader *uploader,
+                  physics::PhysicsSolver *physicsSolver, bool usePhysicsPoses)
+{
+    if (uploader == nullptr)
+    {
+        world.setGpuEntityScene({});
+        return false;
+    }
+
+    bool gpuSceneReady = uploader->uploadEntityPoseData(world.renderObjectPositions(),
+                                                        world.renderObjectOrientations(),
+                                                        world.renderObjectScales());
+    if (gpuSceneReady && usePhysicsPoses && physicsSolver != nullptr)
+    {
+        if (!uploader->applyMappedEntityPoses(physicsSolver->gpuSceneView().rigid.poses,
+                                              world.physicsRenderableMappings()))
+        {
+            gpuSceneReady = false;
+        }
+    }
+
+    if (gpuSceneReady && uploader->uploadRenderableMetadata(world.renderableMetadata()) &&
+        uploader->uploadRenderableQueueInfo(world.renderableQueueInfo()) &&
+        uploader->uploadSoftBodyVertexBindings(world.softBodyVertexBindings()) &&
+        uploader->uploadCameraInputs(world.cameraInputs()) &&
+        uploader->uploadLightInputs(world.lightInputs()) &&
+        uploader->uploadLocalLightSelections(world.localLightSelections()) &&
+        (!device || device->waitForPhysicsOnGraphics()))
+    {
+        world.setGpuEntityScene(uploader->sceneView());
+        return true;
+    }
+
+    CRESSIM_LOG_WARNING("Runtime: GPU scene sync failed.");
+    world.setGpuEntityScene({});
+    return false;
+}
+
 } // namespace
 
 Runtime::~Runtime()
@@ -142,7 +180,6 @@ void Runtime::shutdown()
         mPhysicsSolver->shutdown();
         mPhysicsSolver.reset();
     }
-    mUltrasoundSystem.reset();
 
     if (mGpuDevice)
     {
@@ -150,12 +187,16 @@ void Runtime::shutdown()
         mGpuDevice.reset();
     }
 
-    mLastRenderStats    = {};
-    mRenderFrameOptions = {};
-    mInitialized        = false;
+    mLastRenderStats         = {};
+    mRenderFrameOptions      = {};
+    mLastFrameContext        = {};
+    mRenderSceneSynchronized = false;
+    mFrameBoundaryPending    = false;
+    mHasPhysicsState         = false;
+    mInitialized             = false;
 }
 
-void Runtime::tick(const common::FrameContext &frameContext)
+void Runtime::prepare()
 {
     if (!mInitialized)
     {
@@ -163,6 +204,25 @@ void Runtime::tick(const common::FrameContext &frameContext)
     }
 
     mWorld.ensureRenderStateUpToDate(mResources);
+    if (mUltrasoundSystem)
+    {
+        if (!mUltrasoundSystem->prepare(mWorld))
+        {
+            CRESSIM_LOG_WARNING("Runtime: ultrasound prepare failed.");
+        }
+    }
+    mHasPhysicsState         = false;
+    mRenderSceneSynchronized = false;
+}
+
+bool Runtime::stepPhysics(const common::FrameContext &frameContext)
+{
+    if (!mInitialized)
+    {
+        return false;
+    }
+
+    mLastFrameContext = frameContext;
 
     bool physicsStepSucceeded = true;
     if (mPhysicsSolver)
@@ -173,50 +233,70 @@ void Runtime::tick(const common::FrameContext &frameContext)
             logPhysicsStepFailure(frameContext);
         }
     }
-    if (physicsStepSucceeded && mUltrasoundSystem)
+    if (physicsStepSucceeded)
     {
-        if (!mUltrasoundSystem->tick(frameContext, mWorld))
-        {
-            CRESSIM_LOG_WARNING("Runtime: ultrasound step failed at frame ",
-                                frameContext.frameIndex, ".");
-        }
+        mHasPhysicsState = true;
+    }
+    mRenderSceneSynchronized = false;
+    return physicsStepSucceeded;
+}
+
+bool Runtime::stepSensors(const common::FrameContext &frameContext)
+{
+    if (!mInitialized)
+    {
+        return false;
     }
 
-    if (mRenderSceneUploader)
-    {
-        bool gpuSceneReady = mRenderSceneUploader->uploadEntityPoseData(
-            mWorld.renderObjectPositions(), mWorld.renderObjectOrientations(),
-            mWorld.renderObjectScales());
-        if (gpuSceneReady && physicsStepSucceeded && mPhysicsSolver)
-        {
-            if (!mRenderSceneUploader->applyMappedEntityPoses(
-                    mPhysicsSolver->gpuSceneView().rigid.poses, mWorld.physicsRenderableMappings()))
-            {
-                gpuSceneReady = false;
-            }
-        }
+    mLastFrameContext = frameContext;
 
-        if (gpuSceneReady &&
-            mRenderSceneUploader->uploadRenderableMetadata(mWorld.renderableMetadata()) &&
-            mRenderSceneUploader->uploadRenderableQueueInfo(mWorld.renderableQueueInfo()) &&
-            mRenderSceneUploader->uploadSoftBodyVertexBindings(mWorld.softBodyVertexBindings()) &&
-            mRenderSceneUploader->uploadCameraInputs(mWorld.cameraInputs()) &&
-            mRenderSceneUploader->uploadLightInputs(mWorld.lightInputs()) &&
-            mRenderSceneUploader->uploadLocalLightSelections(mWorld.localLightSelections()) &&
-            (!mGpuDevice || mGpuDevice->waitForPhysicsOnGraphics()))
-        {
-            mWorld.setGpuEntityScene(mRenderSceneUploader->sceneView());
-        }
-        else
-        {
-            CRESSIM_LOG_WARNING("Runtime: GPU scene sync failed.");
-            mWorld.setGpuEntityScene({});
-        }
+    if (!mUltrasoundSystem)
+    {
+        return true;
+    }
+
+    const bool succeeded = mUltrasoundSystem->execute(frameContext, mWorld);
+    if (!succeeded)
+    {
+        CRESSIM_LOG_WARNING("Runtime: ultrasound step failed at frame ", frameContext.frameIndex,
+                            ".");
     }
     else
     {
-        mWorld.setGpuEntityScene({});
+        mFrameBoundaryPending = true;
     }
+    return succeeded;
+}
+
+void Runtime::syncRenderScene()
+{
+    if (!mInitialized)
+    {
+        return;
+    }
+
+    if (syncGpuScene(mWorld, mGpuDevice.get(), mRenderSceneUploader.get(), mPhysicsSolver.get(),
+                     mHasPhysicsState))
+    {
+        mRenderSceneSynchronized = true;
+        return;
+    }
+    mRenderSceneSynchronized = false;
+}
+
+void Runtime::render(const common::FrameContext &frameContext)
+{
+    if (!mInitialized)
+    {
+        return;
+    }
+
+    if (!mRenderSceneSynchronized)
+    {
+        syncRenderScene();
+    }
+
+    mLastFrameContext = frameContext;
 
     physics::PhysicsGpuSceneView physicsSceneView{};
     const physics::PhysicsGpuSceneView *physicsScenePtr = nullptr;
@@ -226,8 +306,34 @@ void Runtime::tick(const common::FrameContext &frameContext)
         physicsScenePtr  = &physicsSceneView;
     }
 
-    mLastRenderStats = mRenderer->render(frameContext, mWorld.hostSceneView(), physicsScenePtr,
-                                         mRenderFrameOptions);
+    mLastRenderStats      = mRenderer->render(frameContext, mWorld.hostSceneView(), physicsScenePtr,
+                                              mRenderFrameOptions);
+    mFrameBoundaryPending = false;
+}
+
+void Runtime::pollReadbacks()
+{
+    if (!mInitialized || !mFrameBoundaryPending || !mGpuDevice)
+    {
+        return;
+    }
+
+    mGpuDevice->beginFrame(mLastFrameContext);
+    mGpuDevice->endFrame(mLastFrameContext);
+    mFrameBoundaryPending = false;
+}
+
+void Runtime::tick(const common::FrameContext &frameContext)
+{
+    prepare();
+    const bool physicsStepSucceeded = stepPhysics(frameContext);
+    if (physicsStepSucceeded)
+    {
+        (void)stepSensors(frameContext);
+    }
+    syncRenderScene();
+    render(frameContext);
+    pollReadbacks();
 }
 
 World &Runtime::getWorld() noexcept

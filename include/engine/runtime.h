@@ -32,6 +32,16 @@ public:
     bool initialize(const RuntimeConfig &config = RuntimeConfig{});
     void shutdown();
 
+    // Staged entry points require the caller to keep authored state prepared.
+    // Only the legacy tick() path performs implicit prepare().
+    void prepare();
+    bool stepPhysics(const common::FrameContext &frameContext);
+    bool stepSensors(const common::FrameContext &frameContext);
+    void syncRenderScene();
+    void render(const common::FrameContext &frameContext);
+    void pollReadbacks();
+    [[deprecated("Use prepare(), stepPhysics(), stepSensors(), syncRenderScene(), render(), and "
+                 "pollReadbacks() instead.")]]
     void tick(const common::FrameContext &frameContext);
 
     World &getWorld() noexcept;
@@ -59,6 +69,10 @@ private:
     graphics::RenderStats mLastRenderStats{};
     World mWorld;
     graphics::RenderResourceManager mResources;
+    common::FrameContext mLastFrameContext{};
+    bool mRenderSceneSynchronized = false;
+    bool mFrameBoundaryPending    = false;
+    bool mHasPhysicsState         = false;
 };
 
 } // namespace cressim::neo::engine

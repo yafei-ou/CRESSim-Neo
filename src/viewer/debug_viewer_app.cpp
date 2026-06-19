@@ -81,7 +81,7 @@ std::vector<common::EntityId> sortedUltrasoundProbeEntities(
     {
         (void)component;
         const engine::UltrasoundProbeResult *result = world.tryGetUltrasoundProbeResult(entityId);
-        if (result == nullptr || !result->valid || !result->imageValid)
+        if (result == nullptr || !result->valid)
         {
             continue;
         }
@@ -539,7 +539,7 @@ public:
             {
                 const engine::UltrasoundProbeResult *probeResult =
                     world.tryGetUltrasoundProbeResult(presentedUltrasoundProbeEntity);
-                if (probeResult == nullptr || !probeResult->valid || !probeResult->imageValid)
+                if (probeResult == nullptr || !probeResult->valid)
                 {
                     const common::EntityId nextProbe =
                         cyclePresentedUltrasoundProbe(world, presentedUltrasoundProbeEntity, 1);
@@ -616,7 +616,7 @@ public:
             {
                 const engine::UltrasoundProbeResult *probeResult =
                     world.tryGetUltrasoundProbeResult(presentedUltrasoundProbeEntity);
-                if (probeResult != nullptr && probeResult->valid && probeResult->imageValid)
+                if (probeResult != nullptr && probeResult->valid)
                 {
                     gpu::GpuRenderTargetDesc probeTargetDesc{};
                     if (gpu::GpuDevice *const device = runtime.getGpuDevice();
@@ -649,7 +649,15 @@ public:
                 callbacks.beforeTick(frame, runtime);
             }
 
-            runtime.tick(frame);
+            runtime.prepare();
+            const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+            if (physicsStepSucceeded)
+            {
+                (void)runtime.stepSensors(frame);
+            }
+            runtime.syncRenderScene();
+            runtime.render(frame);
+            runtime.pollReadbacks();
 
             if (callbacks.afterTick)
             {

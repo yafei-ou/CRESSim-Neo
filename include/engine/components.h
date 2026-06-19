@@ -275,7 +275,9 @@ struct SoftBodyAuthoringParticles
 
 struct UltrasoundProbeResult
 {
+    // valid means probe output metadata/handles are published for the current authoring state.
     bool valid                        = false;
+    // imageValid means the current frame wrote image content into imageTarget.
     bool imageValid                   = false;
     std::uint64_t frameIndex          = 0u;
     std::uint32_t numScanlines        = 0u;

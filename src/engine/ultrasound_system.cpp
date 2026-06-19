@@ -594,6 +594,178 @@ struct UltrasoundSystem::Impl
         runtime.reset();
     }
 
+    void resetProbeRuntimePreservingImageTarget(ProbeRuntime &runtime)
+    {
+        const gpu::GpuRenderTargetHandle preservedTarget = runtime.imageTarget;
+        const std::uint32_t preservedWidth               = runtime.imageWidth;
+        const std::uint32_t preservedHeight              = runtime.imageHeight;
+        runtime.imageTarget                              = {};
+        runtime.imageWidth                               = 0u;
+        runtime.imageHeight                              = 0u;
+        runtime.reset();
+        runtime.imageTarget = preservedTarget;
+        runtime.imageWidth  = preservedWidth;
+        runtime.imageHeight = preservedHeight;
+    }
+
+    void clearPublishedProbeResult(World &world, const common::EntityId probeEntityId) const
+    {
+        world.clearUltrasoundProbeResult(probeEntityId);
+    }
+
+    bool rebuildProbeRuntime(
+        gpu::GpuDevice &device, const gpu::GpuGraphicsBackendContext &graphicsBackend, World &world,
+        const common::EntityId probeEntityId, ProbeRuntime &runtime, const std::uint32_t envIndex,
+        const UltrasoundProbeComponent &probeComponent, const TransformComponent &probeTransform,
+        const std::uint64_t boundScattererCount, const bool preserveImageTarget)
+    {
+        if (preserveImageTarget)
+        {
+            resetProbeRuntimePreservingImageTarget(runtime);
+        }
+        else
+        {
+            resetProbeRuntime(device.renderTargetSystem(), runtime);
+        }
+
+        runtime.component           = probeComponent;
+        runtime.envIndex            = envIndex;
+        runtime.boundScattererCount = boundScattererCount;
+
+        runtime.engine = CruComputeCreate();
+        if (runtime.engine == nullptr)
+        {
+            CRESSIM_LOG_WARNING("UltrasoundSystem: failed to create simulation engine.");
+            clearPublishedProbeResult(world, probeEntityId);
+            return false;
+        }
+
+        // soundSpeed and beam sigmas are authored in physical units and converted to
+        // scene units here. Probe geometry fields stay authored directly in scene units.
+        const float worldUnitsPerMeter  = std::max(probeComponent.worldUnitsPerMeter, 1.0f);
+        const float effectiveSoundSpeed = probeComponent.soundSpeed * worldUnitsPerMeter;
+        const float effectiveBeamSigmaLateral =
+            probeComponent.beamSigmaLateral * worldUnitsPerMeter;
+        const float effectiveBeamSigmaElevational =
+            probeComponent.beamSigmaElevational * worldUnitsPerMeter;
+        int radialDecimation = static_cast<int>(std::max(probeComponent.radialDecimation, 1u));
+        int threadsPerBlock  = static_cast<int>(std::max(probeComponent.threadsPerBlock, 1u));
+        int cudaNumStreams   = static_cast<int>(std::max(probeComponent.cudaNumStreams, 1u));
+        int numTimeSamples   = static_cast<int>(probeComponent.numTimeSamples);
+        if (numTimeSamples <= 0)
+        {
+            const float requiredMaxTime   = 2.0f * probeComponent.lineLength / effectiveSoundSpeed;
+            const auto requiredNumSamples = static_cast<std::uint32_t>(
+                std::floor(probeComponent.samplingFrequency * requiredMaxTime + 0.5f));
+            numTimeSamples = static_cast<int>(
+                std::max<std::uint32_t>(16384u, nextPowerOfTwo(requiredNumSamples + 2048u)));
+        }
+        CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eSoundSpeed,
+                               &effectiveSoundSpeed);
+        CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eNoiseAmplitude,
+                               &runtime.component.noiseAmplitude);
+        CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eUseArcProjection,
+                               &runtime.component.useArcProjection);
+        CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eRadialDecimation,
+                               &radialDecimation);
+        CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eEnablePhaseDelay,
+                               &runtime.component.enablePhaseDelay);
+        CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eNumTimeSamples,
+                               &numTimeSamples);
+        CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eThreadsPerBlock,
+                               &threadsPerBlock);
+        CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eCudaNumStreams,
+                               &cudaNumStreams);
+
+        runtime.excitation = CruCreateGaussianExcitationSignal(
+            runtime.component.samplingFrequency, runtime.component.demodulationFrequency,
+            runtime.component.centerFrequency, runtime.component.fractionalBandwidth);
+        runtime.beamProfile =
+            CruCreateGaussianBeamProfile(effectiveBeamSigmaLateral, effectiveBeamSigmaElevational);
+        runtime.sequence = CruCreateScanSequence(runtime.component.lineLength);
+        if (runtime.excitation == nullptr || runtime.beamProfile == nullptr ||
+            runtime.sequence == nullptr)
+        {
+            resetProbeRuntime(device.renderTargetSystem(), runtime);
+            clearPublishedProbeResult(world, probeEntityId);
+            return false;
+        }
+        CruComputeSetExcitation(runtime.engine, runtime.excitation);
+        CruComputeSetBeamProfile(runtime.engine, runtime.beamProfile);
+
+        const Diligent::float3 originCenter = probeTransform.worldTransform.position;
+        const Diligent::float3 directionVec =
+            probeTransform.worldTransform.rotation.RotateVector(Diligent::float3{0.0f, 0.0f, 1.0f});
+        const Diligent::float3 lateralVec =
+            probeTransform.worldTransform.rotation.RotateVector(Diligent::float3{1.0f, 0.0f, 0.0f});
+        bool buildFailed = false;
+        runtime.scanlines.reserve(runtime.component.numScanlines);
+        for (std::uint32_t i = 0u; i < runtime.component.numScanlines; ++i)
+        {
+            Diligent::float3 originPos = originCenter;
+            Diligent::float3 direction = directionVec;
+            Diligent::float3 lateral   = lateralVec;
+            if (runtime.component.geometry == UltrasoundProbeComponent::Geometry::Curvilinear)
+            {
+                const float angleSpanRadians =
+                    resolveCurvilinearSectorAngleRadians(runtime.component.sectorAngleDegrees);
+                const float angleStep =
+                    runtime.component.numScanlines > 1u
+                        ? angleSpanRadians / static_cast<float>(runtime.component.numScanlines - 1u)
+                        : 0.0f;
+                const float angle    = -0.5f * angleSpanRadians + static_cast<float>(i) * angleStep;
+                const float sinAngle = std::sin(angle);
+                const float cosAngle = std::cos(angle);
+                const float radius   = std::max(runtime.component.probeRadius, 0.0f);
+
+                const Diligent::float3 localOriginOffset =
+                    lateralVec * (sinAngle * radius) + directionVec * ((cosAngle - 1.0f) * radius);
+                originPos = originCenter + localOriginOffset;
+                direction = Diligent::normalize(lateralVec * sinAngle + directionVec * cosAngle);
+                lateral   = Diligent::normalize(lateralVec * cosAngle - directionVec * sinAngle);
+            }
+            else
+            {
+                const float centeredIndex =
+                    static_cast<float>(i) -
+                    0.5f * static_cast<float>(runtime.component.numScanlines - 1u);
+                originPos =
+                    originCenter + lateralVec * (centeredIndex * runtime.component.scanlineSpacing);
+            }
+            const float origin[3]       = {originPos.x, originPos.y, originPos.z};
+            const float directionArr[3] = {direction.x, direction.y, direction.z};
+            const float lateralArr[3]   = {lateral.x, lateral.y, lateral.z};
+            ScanlineHandle scanline     = CruCreateScanline(origin, directionArr, lateralArr);
+            if (scanline == nullptr)
+            {
+                buildFailed = true;
+                break;
+            }
+            runtime.scanlines.push_back(scanline);
+            CruScanSequenceAddScanline(runtime.sequence, scanline);
+        }
+        if (buildFailed)
+        {
+            resetProbeRuntime(device.renderTargetSystem(), runtime);
+            clearPublishedProbeResult(world, probeEntityId);
+            return false;
+        }
+
+        CruComputeSetScanSequence(runtime.engine, runtime.sequence);
+        runtime.rfLayout = CruComputeGetRfLayout(runtime.engine);
+        if (!ensureProbeRfBuffer(runtime, graphicsBackend.renderDevice,
+                                 gpu::contextMaskForId(graphicsBackend.contextId),
+                                 runtime.rfLayout) ||
+            !ensureProbeImageTarget(device.renderTargetSystem(), runtime))
+        {
+            resetProbeRuntime(device.renderTargetSystem(), runtime);
+            clearPublishedProbeResult(world, probeEntityId);
+            return false;
+        }
+
+        return true;
+    }
+
     bool ensureProbeRfBuffer(ProbeRuntime &runtime, Diligent::IRenderDevice *renderDevice,
                              Diligent::Uint64 graphicsContextMask, const CruRfLayout &layout)
     {
@@ -775,6 +947,41 @@ struct UltrasoundSystem::Impl
             Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
             Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, graphicsContextMask,
             imagePassState.finalMaxBuffer, finalMaxCapacity);
+    }
+
+    void publishPreparedProbeResult(World &world, const common::EntityId probeEntityId,
+                                    const ProbeRuntime &runtime) const
+    {
+        UltrasoundProbeResult result{};
+        result.valid              = true;
+        result.imageValid         = false;
+        result.numScanlines       = runtime.rfLayout.numScanlines;
+        result.samplesPerScanline = runtime.rfLayout.samplesPerLine;
+        result.imageWidth         = runtime.imageWidth;
+        result.imageHeight        = runtime.imageHeight;
+        result.imageTarget        = runtime.imageTarget;
+        world.setUltrasoundProbeResult(probeEntityId, result);
+    }
+
+    void publishProbeExecutionResult(World &world, const common::EntityId probeEntityId,
+                                     const ProbeRuntime &runtime,
+                                     const std::uint64_t totalScattererCount,
+                                     const std::uint64_t frameIndex, const bool imageValid) const
+    {
+        UltrasoundProbeResult result{};
+        result.valid               = true;
+        result.imageValid          = imageValid;
+        result.numScanlines        = runtime.rfLayout.numScanlines;
+        result.samplesPerScanline  = runtime.rfLayout.samplesPerLine;
+        result.totalScattererCount = totalScattererCount;
+        result.imageWidth          = runtime.imageWidth;
+        result.imageHeight         = runtime.imageHeight;
+        result.imageTarget         = runtime.imageTarget;
+        if (imageValid)
+        {
+            result.frameIndex = frameIndex;
+        }
+        world.setUltrasoundProbeResult(probeEntityId, result);
     }
 
     bool renderProbeImage(gpu::GpuDevice &device,
@@ -970,7 +1177,130 @@ void UltrasoundSystem::shutdown()
     mInitialized = false;
 }
 
-bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &world)
+bool UltrasoundSystem::prepare(World &world)
+{
+    if (!mInitialized)
+    {
+        return false;
+    }
+
+#if !CRESSIM_NEO_HAS_ULTRASOUND
+    (void)world;
+    return true;
+#else
+    if (mImpl->disabled)
+    {
+        return false;
+    }
+
+    gpu::GpuGraphicsBackendContext graphicsBackend{};
+    if (!mDevice.tryGetGraphicsBackendContext(graphicsBackend) ||
+        graphicsBackend.renderDevice == nullptr)
+    {
+        return true;
+    }
+
+    const auto &probeComponents               = world.ultrasoundProbeComponents();
+    const auto &sourceComponents              = world.ultrasoundScattererSourceComponents();
+    const physics::PhysicsWorld &physicsWorld = world.physicsWorld();
+
+    for (auto it = mImpl->probeRuntimes.begin(); it != mImpl->probeRuntimes.end();)
+    {
+        if (probeComponents.find(it->first) == probeComponents.end() ||
+            !probeComponents.at(it->first).enabled)
+        {
+            world.clearUltrasoundProbeResult(it->first);
+            mImpl->destroyProbeImageTarget(mDevice.renderTargetSystem(), it->second);
+            it = mImpl->probeRuntimes.erase(it);
+            continue;
+        }
+        ++it;
+    }
+
+    std::unordered_set<std::uint32_t> validSourceEnvironments;
+    for (const auto &[sourceEntityId, sourceComponent] : sourceComponents)
+    {
+        if (!sourceComponent.enabled)
+        {
+            continue;
+        }
+
+        const physics::SoftBodyState *softBody = physicsWorld.tryGetSoftBody(sourceEntityId);
+        if (softBody == nullptr || !softBody->simulated || softBody->particleCount == 0u)
+        {
+            continue;
+        }
+
+        const auto *authoredRanges = world.tryGetUltrasoundScattererAmplitudeRanges(sourceEntityId);
+        if (authoredRanges == nullptr || authoredRanges->size() != softBody->particleCount)
+        {
+            continue;
+        }
+
+        validSourceEnvironments.insert(world.entityEnvironment(sourceEntityId));
+    }
+
+    for (const auto &[probeEntityId, probeComponent] : probeComponents)
+    {
+        if (!probeComponent.enabled)
+        {
+            world.clearUltrasoundProbeResult(probeEntityId);
+            continue;
+        }
+
+        const std::uint32_t envIndex = world.entityEnvironment(probeEntityId);
+        if (validSourceEnvironments.find(envIndex) == validSourceEnvironments.end())
+        {
+            world.clearUltrasoundProbeResult(probeEntityId);
+            auto runtimeIt = mImpl->probeRuntimes.find(probeEntityId);
+            if (runtimeIt != mImpl->probeRuntimes.end())
+            {
+                mImpl->destroyProbeImageTarget(mDevice.renderTargetSystem(), runtimeIt->second);
+                mImpl->probeRuntimes.erase(runtimeIt);
+            }
+            continue;
+        }
+
+        const auto probeTransform =
+            world.tryGetTransform(probeEntityId).value_or(TransformComponent{});
+        Impl::ProbeRuntime &runtime = mImpl->probeRuntimes[probeEntityId];
+        bool rebuild                = runtime.engine == nullptr || runtime.envIndex != envIndex ||
+                                      !equalsProbeComponent(runtime.component, probeComponent);
+        if (rebuild &&
+            !mImpl->rebuildProbeRuntime(mDevice, graphicsBackend, world, probeEntityId, runtime,
+                                        envIndex, probeComponent, probeTransform, 0u, false))
+        {
+            continue;
+        }
+
+        const CruRfLayout refreshedLayout = CruComputeGetRfLayout(runtime.engine);
+        if (!equalsRfLayout(runtime.rfLayout, refreshedLayout) &&
+            !mImpl->ensureProbeRfBuffer(runtime, graphicsBackend.renderDevice,
+                                        gpu::contextMaskForId(graphicsBackend.contextId),
+                                        refreshedLayout))
+        {
+            CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
+                                " could not resize RF output buffer.");
+            mImpl->clearPublishedProbeResult(world, probeEntityId);
+            continue;
+        }
+        runtime.rfLayout = refreshedLayout;
+
+        if (!mImpl->ensureProbeImageTarget(mDevice.renderTargetSystem(), runtime))
+        {
+            CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
+                                " could not create image target.");
+            mImpl->clearPublishedProbeResult(world, probeEntityId);
+            continue;
+        }
+        mImpl->publishPreparedProbeResult(world, probeEntityId, runtime);
+    }
+
+    return true;
+#endif
+}
+
+bool UltrasoundSystem::execute(const common::FrameContext &frameContext, World &world)
 {
     if (!mInitialized)
     {
@@ -1030,35 +1360,16 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
         return false;
     }
 
-    const auto &probeComponents                    = world.ultrasoundProbeComponents();
-    const auto &sourceComponents                   = world.ultrasoundScattererSourceComponents();
-    const physics::PhysicsWorld &physicsWorld      = world.physicsWorld();
-    const std::uint64_t amplitudeAuthoringRevision = world.ultrasoundScattererAmplitudeRevision();
-    auto *sharedBase = static_cast<std::byte *>(mImpl->bridge.devicePointer());
+    const auto &probeComponents = world.ultrasoundProbeComponents();
+    auto *sharedBase            = static_cast<std::byte *>(mImpl->bridge.devicePointer());
     if (sharedBase == nullptr)
     {
         return true;
     }
 
-    for (auto it = mImpl->probeRuntimes.begin(); it != mImpl->probeRuntimes.end();)
-    {
-        if (probeComponents.find(it->first) == probeComponents.end())
-        {
-            world.clearUltrasoundProbeResult(it->first);
-            mImpl->destroyProbeImageTarget(mDevice.renderTargetSystem(), it->second);
-            it = mImpl->probeRuntimes.erase(it);
-        }
-        else if (!probeComponents.at(it->first).enabled)
-        {
-            world.clearUltrasoundProbeResult(it->first);
-            mImpl->destroyProbeImageTarget(mDevice.renderTargetSystem(), it->second);
-            it = mImpl->probeRuntimes.erase(it);
-        }
-        else
-        {
-            ++it;
-        }
-    }
+    const auto &sourceComponents                   = world.ultrasoundScattererSourceComponents();
+    const physics::PhysicsWorld &physicsWorld      = world.physicsWorld();
+    const std::uint64_t amplitudeAuthoringRevision = world.ultrasoundScattererAmplitudeRevision();
 
     std::unordered_map<
         std::uint32_t,
@@ -1138,26 +1449,6 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
 
         if (rebuild)
         {
-            for (const auto &[softBody, sourceComponent] : sources)
-            {
-                const auto *authoredRanges =
-                    world.tryGetUltrasoundScattererAmplitudeRanges(softBody->entityId);
-                if (authoredRanges == nullptr)
-                {
-                    CRESSIM_LOG_WARNING("UltrasoundSystem: source entity ", softBody->entityId,
-                                        " has no authored ultrasound amplitude ranges; skipping.");
-                    continue;
-                }
-                if (authoredRanges->size() != softBody->particleCount)
-                {
-                    CRESSIM_LOG_WARNING("UltrasoundSystem: source entity ", softBody->entityId,
-                                        " has ", authoredRanges->size(),
-                                        " authored amplitude ranges for ", softBody->particleCount,
-                                        " particles; skipping.");
-                    continue;
-                }
-            }
-
             envRuntime.reset();
             envRuntime.softTopologyRevision       = physicsWorld.softBodyTopologyRevision();
             envRuntime.amplitudeAuthoringRevision = amplitudeAuthoringRevision;
@@ -1270,9 +1561,22 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
                              envRuntime.bindings.size(), " soft-body bindings and ",
                              envRuntime.totalScattererCount, " total scatterers.");
         }
+    }
 
+    for (auto &[envIndex, envRuntime] : mImpl->environmentRuntimes)
+    {
+        (void)envIndex;
         for (Impl::SourceBinding &binding : envRuntime.bindings)
         {
+            if (binding.tracker == nullptr)
+            {
+                continue;
+            }
+
+            void *pointPointer = sharedBase + static_cast<std::size_t>(binding.particleOffset) *
+                                                  sizeof(Diligent::float4);
+            CruExtDeformationTrackerSetCurrentPoints(binding.tracker, pointPointer,
+                                                     static_cast<int>(binding.particleCount));
             CruExtDeformationTrackerUpdateScatterers(binding.tracker);
         }
     }
@@ -1281,7 +1585,6 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
     {
         if (!probeComponent.enabled)
         {
-            world.clearUltrasoundProbeResult(probeEntityId);
             continue;
         }
 
@@ -1289,161 +1592,27 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
         auto envIt                   = mImpl->environmentRuntimes.find(envIndex);
         if (envIt == mImpl->environmentRuntimes.end() || envIt->second.totalScattererCount == 0u)
         {
-            world.clearUltrasoundProbeResult(probeEntityId);
-            auto runtimeIt = mImpl->probeRuntimes.find(probeEntityId);
-            if (runtimeIt != mImpl->probeRuntimes.end())
-            {
-                mImpl->destroyProbeImageTarget(mDevice.renderTargetSystem(), runtimeIt->second);
-                mImpl->probeRuntimes.erase(runtimeIt);
-            }
+            continue;
+        }
+
+        auto runtimeIt = mImpl->probeRuntimes.find(probeEntityId);
+        if (runtimeIt == mImpl->probeRuntimes.end())
+        {
             continue;
         }
 
         const Impl::EnvironmentRuntime &envRuntime = envIt->second;
+        Impl::ProbeRuntime &runtime                = runtimeIt->second;
         const auto probeTransform =
             world.tryGetTransform(probeEntityId).value_or(TransformComponent{});
-        Impl::ProbeRuntime &runtime = mImpl->probeRuntimes[probeEntityId];
-        bool rebuild = runtime.engine == nullptr || runtime.envIndex != envIndex ||
-                       runtime.boundScattererCount != envRuntime.totalScattererCount ||
-                       !equalsProbeComponent(runtime.component, probeComponent);
-        if (rebuild)
+        const bool rebuild = runtime.engine == nullptr || runtime.envIndex != envIndex ||
+                             runtime.boundScattererCount != envRuntime.totalScattererCount ||
+                             !equalsProbeComponent(runtime.component, probeComponent);
+        if (rebuild && !mImpl->rebuildProbeRuntime(
+                           mDevice, graphicsBackend, world, probeEntityId, runtime, envIndex,
+                           probeComponent, probeTransform, envRuntime.totalScattererCount, true))
         {
-            mImpl->resetProbeRuntime(mDevice.renderTargetSystem(), runtime);
-            runtime.component           = probeComponent;
-            runtime.envIndex            = envIndex;
-            runtime.boundScattererCount = envRuntime.totalScattererCount;
-
-            runtime.engine = CruComputeCreate();
-            if (runtime.engine == nullptr)
-            {
-                CRESSIM_LOG_WARNING("UltrasoundSystem: failed to create simulation engine.");
-                continue;
-            }
-
-            // soundSpeed and beam sigmas are authored in physical units and converted to
-            // scene units here. Probe geometry fields stay authored directly in scene units.
-            const float worldUnitsPerMeter  = std::max(probeComponent.worldUnitsPerMeter, 1.0f);
-            const float effectiveSoundSpeed = probeComponent.soundSpeed * worldUnitsPerMeter;
-            const float effectiveBeamSigmaLateral =
-                probeComponent.beamSigmaLateral * worldUnitsPerMeter;
-            const float effectiveBeamSigmaElevational =
-                probeComponent.beamSigmaElevational * worldUnitsPerMeter;
-            int radialDecimation = static_cast<int>(std::max(probeComponent.radialDecimation, 1u));
-            int threadsPerBlock  = static_cast<int>(std::max(probeComponent.threadsPerBlock, 1u));
-            int cudaNumStreams   = static_cast<int>(std::max(probeComponent.cudaNumStreams, 1u));
-            int numTimeSamples   = static_cast<int>(probeComponent.numTimeSamples);
-            if (numTimeSamples <= 0)
-            {
-                const float requiredMaxTime =
-                    2.0f * probeComponent.lineLength / effectiveSoundSpeed;
-                const auto requiredNumSamples = static_cast<std::uint32_t>(
-                    std::floor(probeComponent.samplingFrequency * requiredMaxTime + 0.5f));
-                numTimeSamples = static_cast<int>(
-                    std::max<std::uint32_t>(16384u, nextPowerOfTwo(requiredNumSamples + 2048u)));
-            }
-            CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eSoundSpeed,
-                                   &effectiveSoundSpeed);
-            CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eNoiseAmplitude,
-                                   &runtime.component.noiseAmplitude);
-            CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eUseArcProjection,
-                                   &runtime.component.useArcProjection);
-            CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eRadialDecimation,
-                                   &radialDecimation);
-            CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eEnablePhaseDelay,
-                                   &runtime.component.enablePhaseDelay);
-            CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eNumTimeSamples,
-                                   &numTimeSamples);
-            CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eThreadsPerBlock,
-                                   &threadsPerBlock);
-            CruComputeSetParameter(runtime.engine, CruSimulationParameterType_eCudaNumStreams,
-                                   &cudaNumStreams);
-
-            runtime.excitation = CruCreateGaussianExcitationSignal(
-                runtime.component.samplingFrequency, runtime.component.demodulationFrequency,
-                runtime.component.centerFrequency, runtime.component.fractionalBandwidth);
-            runtime.beamProfile = CruCreateGaussianBeamProfile(effectiveBeamSigmaLateral,
-                                                               effectiveBeamSigmaElevational);
-            runtime.sequence    = CruCreateScanSequence(runtime.component.lineLength);
-            if (runtime.excitation == nullptr || runtime.beamProfile == nullptr ||
-                runtime.sequence == nullptr)
-            {
-                mImpl->resetProbeRuntime(mDevice.renderTargetSystem(), runtime);
-                continue;
-            }
-            CruComputeSetExcitation(runtime.engine, runtime.excitation);
-            CruComputeSetBeamProfile(runtime.engine, runtime.beamProfile);
-
-            const Diligent::float3 originCenter = probeTransform.worldTransform.position;
-            const Diligent::float3 directionVec =
-                probeTransform.worldTransform.rotation.RotateVector(
-                    Diligent::float3{0.0f, 0.0f, 1.0f});
-            const Diligent::float3 lateralVec = probeTransform.worldTransform.rotation.RotateVector(
-                Diligent::float3{1.0f, 0.0f, 0.0f});
-            bool buildFailed = false;
-            runtime.scanlines.reserve(runtime.component.numScanlines);
-            for (std::uint32_t i = 0u; i < runtime.component.numScanlines; ++i)
-            {
-                Diligent::float3 originPos = originCenter;
-                Diligent::float3 direction = directionVec;
-                Diligent::float3 lateral   = lateralVec;
-                if (runtime.component.geometry == UltrasoundProbeComponent::Geometry::Curvilinear)
-                {
-                    const float angleSpanRadians =
-                        resolveCurvilinearSectorAngleRadians(runtime.component.sectorAngleDegrees);
-                    const float angleStep =
-                        runtime.component.numScanlines > 1u
-                            ? angleSpanRadians /
-                                  static_cast<float>(runtime.component.numScanlines - 1u)
-                            : 0.0f;
-                    const float angle =
-                        -0.5f * angleSpanRadians + static_cast<float>(i) * angleStep;
-                    const float sinAngle = std::sin(angle);
-                    const float cosAngle = std::cos(angle);
-                    const float radius   = std::max(runtime.component.probeRadius, 0.0f);
-
-                    const Diligent::float3 localOriginOffset =
-                        lateralVec * (sinAngle * radius) +
-                        directionVec * ((cosAngle - 1.0f) * radius);
-                    originPos = originCenter + localOriginOffset;
-                    direction =
-                        Diligent::normalize(lateralVec * sinAngle + directionVec * cosAngle);
-                    lateral = Diligent::normalize(lateralVec * cosAngle - directionVec * sinAngle);
-                }
-                else
-                {
-                    const float centeredIndex =
-                        static_cast<float>(i) -
-                        0.5f * static_cast<float>(runtime.component.numScanlines - 1u);
-                    originPos = originCenter +
-                                lateralVec * (centeredIndex * runtime.component.scanlineSpacing);
-                }
-                const float origin[3]       = {originPos.x, originPos.y, originPos.z};
-                const float directionArr[3] = {direction.x, direction.y, direction.z};
-                const float lateralArr[3]   = {lateral.x, lateral.y, lateral.z};
-                ScanlineHandle scanline     = CruCreateScanline(origin, directionArr, lateralArr);
-                if (scanline == nullptr)
-                {
-                    buildFailed = true;
-                    break;
-                }
-                runtime.scanlines.push_back(scanline);
-                CruScanSequenceAddScanline(runtime.sequence, scanline);
-            }
-            if (buildFailed)
-            {
-                mImpl->resetProbeRuntime(mDevice.renderTargetSystem(), runtime);
-                continue;
-            }
-            CruComputeSetScanSequence(runtime.engine, runtime.sequence);
-            runtime.rfLayout = CruComputeGetRfLayout(runtime.engine);
-            if (!mImpl->ensureProbeRfBuffer(runtime, graphicsBackend.renderDevice,
-                                            gpu::contextMaskForId(graphicsBackend.contextId),
-                                            runtime.rfLayout) ||
-                !mImpl->ensureProbeImageTarget(mDevice.renderTargetSystem(), runtime))
-            {
-                mImpl->resetProbeRuntime(mDevice.renderTargetSystem(), runtime);
-                continue;
-            }
+            continue;
         }
 
         auto *envScatterersBase = static_cast<std::byte *>(envRuntime.scatterersDevice);
@@ -1462,6 +1631,7 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
         {
             CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
                                 " could not resize RF output buffer.");
+            mImpl->clearPublishedProbeResult(world, probeEntityId);
             continue;
         }
         runtime.rfLayout = refreshedLayout;
@@ -1470,6 +1640,7 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
         {
             CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
                                 " could not create image target.");
+            mImpl->clearPublishedProbeResult(world, probeEntityId);
             continue;
         }
 
@@ -1493,6 +1664,7 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
         {
             CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
                                 " simulation could not start.");
+            mImpl->publishPreparedProbeResult(world, probeEntityId, runtime);
             continue;
         }
         if (useGpuCompletionWait)
@@ -1502,6 +1674,7 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
             {
                 CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
                                     " could not queue GPU completion wait.");
+                mImpl->publishPreparedProbeResult(world, probeEntityId, runtime);
                 continue;
             }
         }
@@ -1509,26 +1682,21 @@ bool UltrasoundSystem::tick(const common::FrameContext &frameContext, World &wor
         {
             CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
                                 " simulation could not complete.");
+            mImpl->publishPreparedProbeResult(world, probeEntityId, runtime);
             continue;
         }
 
-        UltrasoundProbeResult result{};
-        result.frameIndex          = frameContext.frameIndex;
-        result.valid               = true;
-        result.numScanlines        = runtime.rfLayout.numScanlines;
-        result.samplesPerScanline  = runtime.rfLayout.samplesPerLine;
-        result.totalScattererCount = envRuntime.totalScattererCount;
+        bool imageValid = false;
         if (runtime.component.imageEnabled)
         {
             if (mImpl->renderProbeImage(mDevice, graphicsBackend, runtime))
             {
-                result.imageValid  = true;
-                result.imageWidth  = runtime.imageWidth;
-                result.imageHeight = runtime.imageHeight;
-                result.imageTarget = runtime.imageTarget;
+                imageValid = true;
             }
         }
-        world.setUltrasoundProbeResult(probeEntityId, result);
+        mImpl->publishProbeExecutionResult(world, probeEntityId, runtime,
+                                           envRuntime.totalScattererCount, frameContext.frameIndex,
+                                           imageValid);
     }
 
     return true;

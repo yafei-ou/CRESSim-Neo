@@ -29,7 +29,8 @@ public:
 
     bool initialize();
     void shutdown();
-    bool tick(const common::FrameContext &frameContext, World &world);
+    bool prepare(World &world);
+    bool execute(const common::FrameContext &frameContext, World &world);
 
 private:
     struct Impl;

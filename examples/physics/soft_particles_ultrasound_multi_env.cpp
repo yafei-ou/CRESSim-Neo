@@ -464,8 +464,21 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
 
     const auto softEntity = world.createEntity(envIndex);
     TransformComponent softTransform{};
+    // Spawn heights are derived from scene geometry instead of tuned by eye:
+    // - the cube must start above the ground to avoid an explosive initial overlap
+    // - the cube must still intersect the downward probe beam on frame 0 so first-frame
+    //   ultrasound capture is meaningful
+    const float groundTopHeight = -0.15f + 0.05f;
+    const float cubeHalfHeight  = 0.5f * 0.45f;
+    const float minSpawnHeight  = groundTopHeight + cubeHalfHeight + 0.04f;
+    const float maxSpawnHeight  = kProbeHeight + cubeHalfHeight - 0.04f;
+    const float spawnT = envCount > 1u
+                             ? static_cast<float>(envIndex) / static_cast<float>(envCount - 1u)
+                             : 0.0f;
+    const float softSpawnHeight =
+        minSpawnHeight + (maxSpawnHeight - minSpawnHeight) * spawnT;
     softTransform.worldTransform.position =
-        origin + Diligent::float3{0.0f, 2.28f + 0.02f * std::sin(phase), 0.0f};
+        origin + Diligent::float3{0.0f, softSpawnHeight, 0.0f};
     softTransform.worldTransform.rotation =
         Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 1.0f, 0.0f}, 0.15f * std::sin(phase));
     world.setTransform(softEntity, softTransform);
@@ -540,15 +553,38 @@ bool saveProbeImagesAndQuit(Runtime &runtime,
 
     cressim::neo::common::FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
-    const std::uint64_t settleFrames = std::max<std::uint64_t>(
-        1u, static_cast<std::uint64_t>(
-                std::ceil(captureDelaySeconds / std::max(frame.deltaSeconds, 1.0e-6f))));
+
+    const auto runStagedFrame = [&](const cressim::neo::common::FrameContext &stagedFrame) -> bool
+    {
+        runtime.prepare();
+        if (!runtime.stepPhysics(stagedFrame))
+        {
+            return false;
+        }
+        if (!runtime.stepSensors(stagedFrame))
+        {
+            return false;
+        }
+        runtime.syncRenderScene();
+        runtime.render(stagedFrame);
+        runtime.pollReadbacks();
+        return true;
+    };
+
+    const std::uint64_t settleFrames = static_cast<std::uint64_t>(
+        std::ceil(captureDelaySeconds / std::max(frame.deltaSeconds, 1.0e-6f)));
     for (std::uint64_t i = 0u; i < settleFrames; ++i)
     {
-        runtime.tick(frame);
+        if (!runStagedFrame(frame))
+        {
+            CRESSIM_LOG_ERROR("Probe image export failed: staged runtime step failed.\n");
+            return false;
+        }
         ++frame.frameIndex;
         frame.timeSeconds += static_cast<double>(frame.deltaSeconds);
     }
+
+    runtime.prepare();
 
     std::vector<std::pair<cressim::neo::common::EntityId, GpuRenderTargetReadbackRequest>>
         readbackRequests;
@@ -557,11 +593,10 @@ bool saveProbeImagesAndQuit(Runtime &runtime,
     {
         const UltrasoundProbeResult *probeResult =
             runtime.getWorld().tryGetUltrasoundProbeResult(probeEntity);
-        if (probeResult == nullptr || !probeResult->valid || !probeResult->imageValid)
+        if (probeResult == nullptr || !probeResult->valid)
         {
             CRESSIM_LOG_ERROR("Probe image export failed: probe entity ", probeEntity,
-                              " did not produce a valid ultrasound image after ",
-                              captureDelaySeconds, " seconds of simulation.\n");
+                              " did not expose a valid ultrasound output after prepare().\n");
             return false;
         }
 
@@ -578,11 +613,24 @@ bool saveProbeImagesAndQuit(Runtime &runtime,
         readbackRequests.emplace_back(probeEntity, request);
     }
 
-    runtime.tick(frame);
+    if (!runStagedFrame(frame))
+    {
+        CRESSIM_LOG_ERROR("Probe image export failed: staged capture frame failed.\n");
+        return false;
+    }
 
     bool savedAnyImage = false;
     for (const auto &[probeEntity, request] : readbackRequests)
     {
+        const UltrasoundProbeResult *probeResult =
+            runtime.getWorld().tryGetUltrasoundProbeResult(probeEntity);
+        if (probeResult == nullptr || !probeResult->valid || !probeResult->imageValid)
+        {
+            CRESSIM_LOG_ERROR("Probe image export failed: probe entity ", probeEntity,
+                              " did not produce a valid ultrasound image for frame 0 capture.\n");
+            return false;
+        }
+
         GpuRenderTargetReadbackEvent event{};
         if (!graphicsDevice->renderTargetSystem().tryGetRenderTargetReadback(request, event) ||
             !isValidReadback(event))

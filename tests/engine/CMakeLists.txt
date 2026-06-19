@@ -149,3 +149,17 @@ add_cressim_test(
     INCLUDE_SRC
     LIBS cressim_neo_engine
 )
+
+add_cressim_test(
+    SUITE engine
+    NAME runtime_staging
+    SOURCE runtime_staging.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
+    NAME runtime_ultrasound_staging
+    SOURCE runtime_ultrasound_staging.cpp
+    LIBS cressim_neo_engine
+)
