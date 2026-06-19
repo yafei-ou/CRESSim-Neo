@@ -311,8 +311,8 @@ struct GpuSuturingPair
     uint activePathIndex;
     uint environmentIndex;
     float pathNodeSpacing;
-    uint needleTangentialDragBits;
-    uint threadTangentialDragBits;
+    uint reserved0;
+    uint reserved1;
 };
 
 struct GpuSuturingPathHeader
@@ -322,8 +322,8 @@ struct GpuSuturingPathHeader
     uint nodeStart;
     uint nodeCount;
     uint flags;
-    uint needleTangentialDragBits;
-    uint threadTangentialDragBits;
+    uint reserved0;
+    uint reserved1;
     uint reserved2;
 };
 
@@ -333,8 +333,8 @@ struct GpuSuturingPathNode
     uint tetIndex;
     float4 barycentrics;
     float4 tangentArcLength;
-    uint needleTangentialDragBits;
-    uint threadTangentialDragBits;
+    uint reserved0;
+    uint reserved1;
 };
 
 struct GpuSuturingInsertionStateStorage
@@ -344,7 +344,7 @@ struct GpuSuturingInsertionStateStorage
     uint tetIndex;
     uint pathIndex;
     uint nearestNodeIndex;
-    uint reserved0;
+    uint closestSegmentTBits;
     uint reserved1;
     uint reserved2;
     float4 barycentrics;

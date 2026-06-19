@@ -250,8 +250,8 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
-    config.physicsDesc.substeps = 6u;
-    config.physicsDesc.defaultIterations = 14u;
+    config.physicsDesc.substeps = 1u;
+    config.physicsDesc.defaultIterations = 100u;
 
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
@@ -477,9 +477,10 @@ int main(int argc, char **argv)
     }
     else
     {
+        constexpr float kStrandOnlyBaseY = -0.5f;
         tipProxyIndex = 0u;
         tailProxyIndex = 0u;
-        driverTransform.worldTransform.position = {-1.8f, -0.24f, 0.0f};
+        driverTransform.worldTransform.position = {-1.8f, kStrandOnlyBaseY, 0.0f};
         driverTransform.worldTransform.rotation = computeNeedleRotation(0.0f);
         driverBody.inverseMass = 1.0f;
         driverBody.inverseInertiaLocal = {0.0f, 0.0f, 0.0f};
@@ -560,8 +561,6 @@ int main(int argc, char **argv)
 
         AuthoredSuturingSequenceState suturingSequence{};
         suturingSequence.pathNodeSpacing = strandSpacing;
-        suturingSequence.needleTangentialDrag = 0.0005f;
-        suturingSequence.threadTangentialDrag = 0.05f;
         for (std::uint32_t proxyIndex = 0u;
              proxyIndex < static_cast<std::uint32_t>(driverBody.proxyParticleLocalPositions.size());
              ++proxyIndex)
@@ -611,8 +610,6 @@ int main(int argc, char **argv)
     {
         AuthoredSuturingSequenceState suturingSequence{};
         suturingSequence.pathNodeSpacing = strandSpacing;
-        suturingSequence.needleTangentialDrag = 0.0005f;
-        suturingSequence.threadTangentialDrag = 0.05f;
         for (std::uint32_t proxyIndex = 0u;
              proxyIndex < static_cast<std::uint32_t>(driverBody.proxyParticleLocalPositions.size());
              ++proxyIndex)
@@ -704,7 +701,7 @@ int main(int argc, char **argv)
             const float startX = -1.8f;
             const float exitX = -0.1f;
             const float endX = -2.1f;
-            const float baseY = -0.24f;
+            const float baseY = -0.5f;
             const float liftedY = 0.90f;
             const float cycle = std::fmod(std::max(t, 0.0f), cycleDuration) / cycleDuration;
             float x = startX;

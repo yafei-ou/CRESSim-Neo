@@ -25,6 +25,34 @@ float3 EvaluatePathNodePosition(GpuSuturingPathNode node)
            p3 * node.barycentrics.w;
 }
 
+float ComputeSegmentClosestDistanceSq(float3 a, float3 b, float3 queryPosition)
+{
+    const float3 ab = b - a;
+    const float abLengthSq = dot(ab, ab);
+    if (abLengthSq <= kEpsilon)
+    {
+        const float3 delta = queryPosition - a;
+        return dot(delta, delta);
+    }
+
+    const float t = clamp(dot(queryPosition - a, ab) / abLengthSq, 0.0, 1.0);
+    const float3 closestPoint = lerp(a, b, t);
+    const float3 delta = queryPosition - closestPoint;
+    return dot(delta, delta);
+}
+
+float ComputeClosestPointParameter(float3 a, float3 b, float3 queryPosition)
+{
+    const float3 ab = b - a;
+    const float abLengthSq = dot(ab, ab);
+    if (abLengthSq <= kEpsilon)
+    {
+        return 0.0;
+    }
+
+    return clamp(dot(queryPosition - a, ab) / abLengthSq, 0.0, 1.0);
+}
+
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -89,10 +117,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         }
 
         const uint nodeEnd = header.nodeStart + header.nodeCount;
-        [loop]
-        for (uint nodeIndex = header.nodeStart; nodeIndex < nodeEnd; ++nodeIndex)
+        if (header.nodeCount == 1u)
         {
-            const GpuSuturingPathNode node = CRESSIM_SB_LOAD(g_SuturingPathNodes, nodeIndex);
+            const GpuSuturingPathNode node = CRESSIM_SB_LOAD(g_SuturingPathNodes, header.nodeStart);
             const float3 nodePosition = EvaluatePathNodePosition(node);
             const float3 delta = particlePosition - nodePosition;
             const float distanceSq = dot(delta, delta);
@@ -100,7 +127,28 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             {
                 bestDistanceSq = distanceSq;
                 bestPathIndex = pathIndex;
+                bestNodeIndex = header.nodeStart;
+                state.closestSegmentTBits = asuint(0.0);
+            }
+            continue;
+        }
+
+        [loop]
+        for (uint nodeIndex = header.nodeStart; nodeIndex + 1u < nodeEnd; ++nodeIndex)
+        {
+            const GpuSuturingPathNode node0 = CRESSIM_SB_LOAD(g_SuturingPathNodes, nodeIndex);
+            const GpuSuturingPathNode node1 = CRESSIM_SB_LOAD(g_SuturingPathNodes, nodeIndex + 1u);
+            const float3 nodePosition0 = EvaluatePathNodePosition(node0);
+            const float3 nodePosition1 = EvaluatePathNodePosition(node1);
+            const float distanceSq = ComputeSegmentClosestDistanceSq(
+                nodePosition0, nodePosition1, particlePosition);
+            if (distanceSq < bestDistanceSq)
+            {
+                bestDistanceSq = distanceSq;
+                bestPathIndex = pathIndex;
                 bestNodeIndex = nodeIndex;
+                state.closestSegmentTBits =
+                    asuint(ComputeClosestPointParameter(nodePosition0, nodePosition1, particlePosition));
             }
         }
     }

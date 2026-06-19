@@ -3576,22 +3576,14 @@ bool PhysicsSceneGpuState::uploadSuturingState(
     for (std::size_t i = 0; i < pairs.size(); ++i)
     {
         const StrandSoftSuturingPair &pair = pairs[i];
-        gpuPairs[i]                        = GpuSuturingPair{pair.suturingGroupId,
-                                                             pair.softBodyIndex,
-                                                             pair.strandParticleStart,
-                                                             pair.strandParticleCount,
-                                                             pair.tipParticleIndex,
-                                                             pair.softTetStart,
-                                                             pair.softTetCount,
-                                                             pair.pathStart,
-                                                             pair.pathCount,
-                                                             pair.nodeStart,
-                                                             pair.nodeCount,
-                                                             pair.activePathIndex,
-                                                             pair.environmentIndex,
-                                                             pair.pathNodeSpacing,
-                                                             pair.needleTangentialDragBits,
-                                                             pair.threadTangentialDragBits};
+        gpuPairs[i] = GpuSuturingPair{pair.suturingGroupId,     pair.softBodyIndex,
+                                      pair.strandParticleStart, pair.strandParticleCount,
+                                      pair.tipParticleIndex,    pair.softTetStart,
+                                      pair.softTetCount,        pair.pathStart,
+                                      pair.pathCount,           pair.nodeStart,
+                                      pair.nodeCount,           pair.activePathIndex,
+                                      pair.environmentIndex,    pair.pathNodeSpacing,
+                                      pair.reserved0,           pair.reserved1};
     }
 
     std::vector<GpuSuturingInsertionStateStorage> insertionStates(particleCount);
@@ -3607,19 +3599,15 @@ bool PhysicsSceneGpuState::uploadSuturingState(
     std::vector<GpuSuturingPathHeader> pathHeaders(pathHeaderCount);
     for (GpuSuturingPathHeader &header : pathHeaders)
     {
-        header.suturingGroupId          = kInvalidSuturingIndex;
-        header.softBodyIndex            = kInvalidSuturingIndex;
-        header.needleTangentialDragBits = 0u;
-        header.threadTangentialDragBits = 0u;
+        header.suturingGroupId = kInvalidSuturingIndex;
+        header.softBodyIndex   = kInvalidSuturingIndex;
     }
 
     std::vector<GpuSuturingPathNode> pathNodes(pathNodeCount);
     for (GpuSuturingPathNode &node : pathNodes)
     {
-        node.softBodyIndex            = kInvalidSuturingIndex;
-        node.tetIndex                 = kInvalidSuturingIndex;
-        node.needleTangentialDragBits = 0u;
-        node.threadTangentialDragBits = 0u;
+        node.softBodyIndex = kInvalidSuturingIndex;
+        node.tetIndex      = kInvalidSuturingIndex;
     }
 
     return updateStructuredBufferRange(computeContext, mPersistentSuturing.pairsBuffer, gpuPairs,

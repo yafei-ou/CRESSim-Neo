@@ -61,9 +61,6 @@ int main()
     };
     sequence.tipEntryIndex = 0u;
     sequence.pathNodeSpacing = 0.22f;
-    sequence.needleTangentialDrag = 0.002f;
-    sequence.threadTangentialDrag = 0.01f;
-
     const auto &authoredSequence = world.upsertSuturingSequence(sequence);
     if (authoredSequence.sequenceId == physics::kInvalidSuturingSequenceId ||
         world.suturingSequenceSnapshot().size() != 1u)

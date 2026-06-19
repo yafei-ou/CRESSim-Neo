@@ -80,8 +80,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             header.nodeStart = pair.nodeStart + localPath * nodesPerPath;
             header.nodeCount = 1u;
             header.flags = 1u;
-            header.needleTangentialDragBits = pair.needleTangentialDragBits;
-            header.threadTangentialDragBits = pair.threadTangentialDragBits;
             CRESSIM_SB_STORE(g_SuturingPathHeaders, pathIndex, header);
 
             GpuSuturingPathNode node;
@@ -89,8 +87,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             node.tetIndex = tipState.tetIndex;
             node.barycentrics = tipState.barycentrics;
             node.tangentArcLength = float4(0.0, 0.0, 1.0, 0.0);
-            node.needleTangentialDragBits = pair.needleTangentialDragBits;
-            node.threadTangentialDragBits = pair.threadTangentialDragBits;
             CRESSIM_SB_STORE(g_SuturingPathNodes, header.nodeStart, node);
 
             activePathIndex = pathIndex;
@@ -153,8 +149,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                 : tipState.barycentrics;
         node.tangentArcLength = float4(
             tangent, lastNode.tangentArcLength.w + distance * ((float)(appendIndex + 1u) / (float)appendCount));
-        node.needleTangentialDragBits = pair.needleTangentialDragBits;
-        node.threadTangentialDragBits = pair.threadTangentialDragBits;
         CRESSIM_SB_STORE(g_SuturingPathNodes, header.nodeStart + header.nodeCount, node);
         header.nodeCount += 1u;
     }

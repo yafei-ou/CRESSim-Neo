@@ -1883,7 +1883,6 @@ bool PhysicsPassDispatcher::dispatchSolveSuturingNodePathConstraintsPass(
 
     const auto &softParticles           = sceneState.persistentParticles();
     const auto &softTopology            = sceneState.persistentSoftTopology();
-    const auto &transient               = sceneState.transientBuffers();
     const auto &persistentRigid         = sceneState.persistentRigidBodies();
     const PhysicsGpuSceneView sceneView = sceneState.sceneView();
     const auto &suturing                = sceneView.soft;
@@ -1895,8 +1894,6 @@ bool PhysicsPassDispatcher::dispatchSolveSuturingNodePathConstraintsPass(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticlePositionsInvMass", softParticles.positionsInvMassBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_ParticlePreviousPositions", softParticles.previousPositionsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticleOwnerIndices", softParticles.ownerIndicesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RigidProxyLocalPositions",
@@ -1904,32 +1901,29 @@ bool PhysicsPassDispatcher::dispatchSolveSuturingNodePathConstraintsPass(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SuturingInsertionStates", suturing.suturingInsertionStatesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SuturingPathHeaders", suturing.suturingPathHeadersBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SuturingPathNodes", suturing.suturingPathNodesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_SoftTets", softTopology.tetsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_PreviousRigidBodyPositionsInvMass",
-                              transient.previousRigidBodies.positionsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
-        gpu::GpuBufferBinding{"g_PreviousRigidBodyOrientations",
-                              transient.previousRigidBodies.orientationsBuffer,
-                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
-                              transient.predictedRigidBodies.positionsBuffer,
+                              sceneState.transientBuffers().predictedRigidBodies.positionsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
-                              transient.predictedRigidBodies.orientationsBuffer,
+                              sceneState.transientBuffers().predictedRigidBodies.orientationsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_RigidBodyInverseInertiaLocal",
                               persistentRigid.inverseInertiaLocalBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_ParticlePositionCorrections",
-                              transient.softPositionCorrectionsBuffer,
+                              sceneState.transientBuffers().softPositionCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_RigidBodyTranslationCorrections",
-                              transient.translationCorrectionsBuffer,
+                              sceneState.transientBuffers().translationCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
-        gpu::GpuBufferBinding{"g_RigidBodyRotationCorrections", transient.rotationCorrectionsBuffer,
+        gpu::GpuBufferBinding{"g_RigidBodyRotationCorrections",
+                              sceneState.transientBuffers().rotationCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 

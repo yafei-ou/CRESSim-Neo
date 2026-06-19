@@ -72,7 +72,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     state.tetIndex = kInvalidSuturingIndex;
     state.pathIndex = kInvalidSuturingIndex;
     state.nearestNodeIndex = kInvalidSuturingIndex;
-    state.reserved0 = 0u;
+    state.closestSegmentTBits = 0u;
     state.reserved1 = 0u;
     state.reserved2 = 0u;
     state.barycentrics = float4(0.0, 0.0, 0.0, 0.0);

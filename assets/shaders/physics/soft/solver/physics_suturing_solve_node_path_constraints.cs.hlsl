@@ -7,14 +7,12 @@
 
 CRESSIM_STRUCTURED_BUFFER(uint4, g_SuturingParticleRefs);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePreviousPositions);
 CRESSIM_STRUCTURED_BUFFER(uint, g_ParticleOwnerIndices);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidProxyLocalPositions);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingInsertionStateStorage, g_SuturingInsertionStates);
+CRESSIM_STRUCTURED_BUFFER(GpuSuturingPathHeader, g_SuturingPathHeaders);
 CRESSIM_STRUCTURED_BUFFER(GpuSuturingPathNode, g_SuturingPathNodes);
 CRESSIM_STRUCTURED_BUFFER(GpuSoftTet, g_SoftTets);
-CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyPositionsInvMass);
-CRESSIM_STRUCTURED_BUFFER(float4, g_PreviousRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
@@ -22,9 +20,8 @@ CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_ParticlePositionCorrections);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyTranslationCorrections);
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyRotationCorrections);
 
-static const float kSuturingRelaxation = 0.01;
-static const float kSuturingMaxCorrection = 0.02;
-static const float kSuturingMaxTangentialCorrection = 0.004;
+static const float kSuturingRelaxation = 0.2;
+static const float kSuturingMaxCorrection = 0.2;
 
 float3 EvaluatePathNodePosition(GpuSuturingPathNode node)
 {
@@ -94,20 +91,13 @@ float3 EvaluatePathTangent(uint pathIndex, uint nodeIndex)
     return float3(0.0, 0.0, 1.0);
 }
 
-float3 EvaluatePreviousPathNodePosition(GpuSuturingPathNode node)
+float ComputeEmbeddedTetMass(float4 p0Inv, float4 p1Inv, float4 p2Inv, float4 p3Inv,
+                             float4 barycentrics)
 {
-    if (node.tetIndex == kInvalidSuturingIndex || node.tetIndex >= softTetCount)
-    {
-        return float3(0.0, 0.0, 0.0);
-    }
-
-    const GpuSoftTet tet = CRESSIM_SB_LOAD(g_SoftTets, node.tetIndex);
-    const float3 p0 = CRESSIM_SB_LOAD(g_ParticlePreviousPositions, tet.particleIndices.x).xyz;
-    const float3 p1 = CRESSIM_SB_LOAD(g_ParticlePreviousPositions, tet.particleIndices.y).xyz;
-    const float3 p2 = CRESSIM_SB_LOAD(g_ParticlePreviousPositions, tet.particleIndices.z).xyz;
-    const float3 p3 = CRESSIM_SB_LOAD(g_ParticlePreviousPositions, tet.particleIndices.w).xyz;
-    return p0 * node.barycentrics.x + p1 * node.barycentrics.y + p2 * node.barycentrics.z +
-           p3 * node.barycentrics.w;
+    return p0Inv.w * barycentrics.x * barycentrics.x +
+           p1Inv.w * barycentrics.y * barycentrics.y +
+           p2Inv.w * barycentrics.z * barycentrics.z +
+           p3Inv.w * barycentrics.w * barycentrics.w;
 }
 
 [numthreads(64, 1, 1)]
@@ -138,25 +128,57 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const GpuSuturingPathNode node = CRESSIM_SB_LOAD(g_SuturingPathNodes, state.nearestNodeIndex);
-    if (node.tetIndex == kInvalidSuturingIndex || node.tetIndex >= softTetCount)
+    const GpuSuturingPathHeader pathHeader =
+        CRESSIM_SB_LOAD(g_SuturingPathHeaders, state.pathIndex);
+    if (pathHeader.nodeCount == 0u || state.nearestNodeIndex < pathHeader.nodeStart ||
+        state.nearestNodeIndex >= pathHeader.nodeStart + pathHeader.nodeCount)
     {
         return;
     }
-    const GpuSoftTet tet = CRESSIM_SB_LOAD(g_SoftTets, node.tetIndex);
+
+    const GpuSuturingPathNode node0 = CRESSIM_SB_LOAD(g_SuturingPathNodes, state.nearestNodeIndex);
+    if (node0.tetIndex == kInvalidSuturingIndex || node0.tetIndex >= softTetCount)
+    {
+        return;
+    }
+    const uint nodeWindowEnd = min(pathHeader.nodeStart + pathHeader.nodeCount, suturingPathNodeCount);
+    const bool hasSegment = pathHeader.nodeCount > 1u && state.nearestNodeIndex + 1u < nodeWindowEnd;
+    GpuSuturingPathNode node1 = node0;
+    if (hasSegment)
+    {
+        node1 = CRESSIM_SB_LOAD(g_SuturingPathNodes, state.nearestNodeIndex + 1u);
+    }
+    if (hasSegment && (node1.tetIndex == kInvalidSuturingIndex || node1.tetIndex >= softTetCount ||
+                       node1.softBodyIndex != node0.softBodyIndex))
+    {
+        return;
+    }
+
+    const GpuSoftTet tet0 = CRESSIM_SB_LOAD(g_SoftTets, node0.tetIndex);
     const float4 particlePosInvMass = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, particleIndex);
-    const float4 p0Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet.particleIndices.x);
-    const float4 p1Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet.particleIndices.y);
-    const float4 p2Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet.particleIndices.z);
-    const float4 p3Inv = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet.particleIndices.w);
+    const float4 p0Inv0 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet0.particleIndices.x);
+    const float4 p1Inv0 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet0.particleIndices.y);
+    const float4 p2Inv0 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet0.particleIndices.z);
+    const float4 p3Inv0 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet0.particleIndices.w);
+    GpuSoftTet tet1 = tet0;
+    float4 p0Inv1 = p0Inv0;
+    float4 p1Inv1 = p1Inv0;
+    float4 p2Inv1 = p2Inv0;
+    float4 p3Inv1 = p3Inv0;
+    if (hasSegment && node1.tetIndex != node0.tetIndex)
+    {
+        tet1 = CRESSIM_SB_LOAD(g_SoftTets, node1.tetIndex);
+        p0Inv1 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet1.particleIndices.x);
+        p1Inv1 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet1.particleIndices.y);
+        p2Inv1 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet1.particleIndices.z);
+        p3Inv1 = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, tet1.particleIndices.w);
+    }
     const bool proxy = ownerType == kParticleOwnerTypeRigidBody;
 
     float effectiveParticleMass = particlePosInvMass.w;
     float invMassRigid = 0.0;
     float3 invInertiaRigid = 0.0;
     float4 rigidOrientation = float4(0.0, 0.0, 0.0, 1.0);
-    float4 previousRigidOrientation = float4(0.0, 0.0, 0.0, 1.0);
-    float4 previousRigidPositionInvMass = float4(0.0, 0.0, 0.0, 0.0);
     float3 rRigid = 0.0;
     uint rigidBodyIndex = 0u;
     if (proxy)
@@ -166,10 +188,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             CRESSIM_SB_LOAD(g_PredictedRigidBodyPositionsInvMass, rigidBodyIndex);
         rigidOrientation =
             QuaternionNormalize(CRESSIM_SB_LOAD(g_PredictedRigidBodyOrientations, rigidBodyIndex));
-        previousRigidPositionInvMass =
-            CRESSIM_SB_LOAD(g_PreviousRigidBodyPositionsInvMass, rigidBodyIndex);
-        previousRigidOrientation =
-            QuaternionNormalize(CRESSIM_SB_LOAD(g_PreviousRigidBodyOrientations, rigidBodyIndex));
         invMassRigid = rigidPositionInvMass.w > kEpsilon ? rigidPositionInvMass.w : 0.0;
         invInertiaRigid = invMassRigid > kEpsilon
                               ? CRESSIM_SB_LOAD(g_RigidBodyInverseInertiaLocal, rigidBodyIndex).xyz
@@ -178,30 +196,36 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         rRigid = QuaternionRotate(rigidOrientation, localProxy);
     }
 
-    const float w0 = p0Inv.w;
-    const float w1 = p1Inv.w;
-    const float w2 = p2Inv.w;
-    const float w3 = p3Inv.w;
+    const float w0 = p0Inv0.w;
+    const float w1 = p1Inv0.w;
+    const float w2 = p2Inv0.w;
+    const float w3 = p3Inv0.w;
 
-    const float3 pathPosition = EvaluatePathNodePosition(node);
-    const float3 previousPathPosition = EvaluatePreviousPathNodePosition(node);
-    const float3 tangent = EvaluatePathTangent(state.pathIndex, state.nearestNodeIndex);
+    const float3 pathPosition0 = EvaluatePathNodePosition(node0);
+    const float3 pathPosition1 = hasSegment ? EvaluatePathNodePosition(node1) : pathPosition0;
+    const float segmentT = hasSegment ? clamp(asfloat(state.closestSegmentTBits), 0.0, 1.0) : 0.0;
+    const float3 pathPosition = lerp(pathPosition0, pathPosition1, segmentT);
+    float3 tangent = hasSegment ? (pathPosition1 - pathPosition0)
+                                : EvaluatePathTangent(state.pathIndex, state.nearestNodeIndex);
+    if (dot(tangent, tangent) > kEpsilon)
+    {
+        tangent = normalize(tangent);
+    }
+    else
+    {
+        tangent = EvaluatePathTangent(state.pathIndex, state.nearestNodeIndex);
+    }
     const float3 delta = particlePosInvMass.xyz - pathPosition;
     const float3 radial = delta - tangent * dot(delta, tangent);
     const float radialLengthSq = dot(radial, radial);
-    const float3 particlePreviousPosition =
-        proxy ? (previousRigidPositionInvMass.xyz +
-                 QuaternionRotate(previousRigidOrientation,
-                                  CRESSIM_SB_LOAD(g_RigidProxyLocalPositions, particleIndex).xyz))
-              : CRESSIM_SB_LOAD(g_ParticlePreviousPositions, particleIndex).xyz;
-    const float3 particleDx = particlePosInvMass.xyz - particlePreviousPosition;
-    const float3 pathDx = pathPosition - previousPathPosition;
-    const float tangentialRelativeDisplacement = dot(particleDx - pathDx, tangent);
-    const float effectiveTetMass =
-        w0 * node.barycentrics.x * node.barycentrics.x +
-        w1 * node.barycentrics.y * node.barycentrics.y +
-        w2 * node.barycentrics.z * node.barycentrics.z +
-        w3 * node.barycentrics.w * node.barycentrics.w;
+    const float segmentWeight0 = hasSegment ? (1.0 - segmentT) : 1.0;
+    const float segmentWeight1 = hasSegment ? segmentT : 0.0;
+    const float effectiveTetMass0 =
+        ComputeEmbeddedTetMass(p0Inv0, p1Inv0, p2Inv0, p3Inv0, node0.barycentrics);
+    const float effectiveTetMass1 =
+        hasSegment ? ComputeEmbeddedTetMass(p0Inv1, p1Inv1, p2Inv1, p3Inv1, node1.barycentrics) : 0.0;
+    const float effectiveTetMass = segmentWeight0 * segmentWeight0 * effectiveTetMass0 +
+                                   segmentWeight1 * segmentWeight1 * effectiveTetMass1;
     float3 correction = float3(0.0, 0.0, 0.0);
 
     if (radialLengthSq > 1.0e-8)
@@ -231,38 +255,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         }
     }
 
-    const float suturingTangentialDrag =
-        strandRole == kParticleStrandRoleThread ? asfloat(node.threadTangentialDragBits)
-                                                : asfloat(node.needleTangentialDragBits);
-    if (suturingTangentialDrag > 0.0 && abs(tangentialRelativeDisplacement) > 1.0e-6)
-    {
-        float effectiveTangentialParticleMass = effectiveParticleMass;
-        if (proxy)
-        {
-            effectiveTangentialParticleMass =
-                ComputeContactEffectiveMass(invMassRigid, invInertiaRigid, rigidOrientation, rRigid,
-                                            tangent);
-        }
-
-        const float tangentialDenom = effectiveTangentialParticleMass + effectiveTetMass;
-        if (tangentialDenom > 1.0e-8)
-        {
-            const float tangentialLambda =
-                (abs(tangentialRelativeDisplacement) / tangentialDenom) *
-                suturingTangentialDrag;
-            float3 tangentialCorrection =
-                tangent * (sign(tangentialRelativeDisplacement) * tangentialLambda);
-            const float tangentialCorrectionLength = length(tangentialCorrection);
-            if (tangentialCorrectionLength > kSuturingMaxTangentialCorrection)
-            {
-                tangentialCorrection *=
-                    kSuturingMaxTangentialCorrection /
-                    max(tangentialCorrectionLength, kEpsilon);
-            }
-            correction += tangentialCorrection;
-        }
-    }
-
     const float correctionLength = length(correction);
     if (correctionLength <= 1.0e-8)
     {
@@ -285,24 +277,56 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                                          cross(rRigid, correction)));
     }
 
-    if (w0 > kEpsilon)
+    if (p0Inv0.w > kEpsilon && segmentWeight0 > kEpsilon)
     {
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_ParticlePositionCorrections, tet.particleIndices.x,
-                                      correction * w0 * node.barycentrics.x);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(
+            g_ParticlePositionCorrections, tet0.particleIndices.x,
+            correction * segmentWeight0 * p0Inv0.w * node0.barycentrics.x);
     }
-    if (w1 > kEpsilon)
+    if (p1Inv0.w > kEpsilon && segmentWeight0 > kEpsilon)
     {
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_ParticlePositionCorrections, tet.particleIndices.y,
-                                      correction * w1 * node.barycentrics.y);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(
+            g_ParticlePositionCorrections, tet0.particleIndices.y,
+            correction * segmentWeight0 * p1Inv0.w * node0.barycentrics.y);
     }
-    if (w2 > kEpsilon)
+    if (p2Inv0.w > kEpsilon && segmentWeight0 > kEpsilon)
     {
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_ParticlePositionCorrections, tet.particleIndices.z,
-                                      correction * w2 * node.barycentrics.z);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(
+            g_ParticlePositionCorrections, tet0.particleIndices.z,
+            correction * segmentWeight0 * p2Inv0.w * node0.barycentrics.z);
     }
-    if (w3 > kEpsilon)
+    if (p3Inv0.w > kEpsilon && segmentWeight0 > kEpsilon)
     {
-        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(g_ParticlePositionCorrections, tet.particleIndices.w,
-                                      correction * w3 * node.barycentrics.w);
+        CRESSIM_ATOMIC_ADD_FLOAT3_CAS(
+            g_ParticlePositionCorrections, tet0.particleIndices.w,
+            correction * segmentWeight0 * p3Inv0.w * node0.barycentrics.w);
+    }
+
+    if (hasSegment)
+    {
+        if (p0Inv1.w > kEpsilon && segmentWeight1 > kEpsilon)
+        {
+            CRESSIM_ATOMIC_ADD_FLOAT3_CAS(
+                g_ParticlePositionCorrections, tet1.particleIndices.x,
+                correction * segmentWeight1 * p0Inv1.w * node1.barycentrics.x);
+        }
+        if (p1Inv1.w > kEpsilon && segmentWeight1 > kEpsilon)
+        {
+            CRESSIM_ATOMIC_ADD_FLOAT3_CAS(
+                g_ParticlePositionCorrections, tet1.particleIndices.y,
+                correction * segmentWeight1 * p1Inv1.w * node1.barycentrics.y);
+        }
+        if (p2Inv1.w > kEpsilon && segmentWeight1 > kEpsilon)
+        {
+            CRESSIM_ATOMIC_ADD_FLOAT3_CAS(
+                g_ParticlePositionCorrections, tet1.particleIndices.z,
+                correction * segmentWeight1 * p2Inv1.w * node1.barycentrics.z);
+        }
+        if (p3Inv1.w > kEpsilon && segmentWeight1 > kEpsilon)
+        {
+            CRESSIM_ATOMIC_ADD_FLOAT3_CAS(
+                g_ParticlePositionCorrections, tet1.particleIndices.w,
+                correction * segmentWeight1 * p3Inv1.w * node1.barycentrics.w);
+        }
     }
 }

@@ -131,27 +131,27 @@ constexpr std::uint32_t kInvalidSuturingIndex = 0xffffffffu;
 
 struct GpuSuturingInsertionState
 {
-    std::uint32_t state            = static_cast<std::uint32_t>(SuturingInsertionState::Outside);
-    std::uint32_t softBodyIndex    = kInvalidSuturingIndex;
-    std::uint32_t tetIndex         = kInvalidSuturingIndex;
-    std::uint32_t pathIndex        = kInvalidSuturingIndex;
-    std::uint32_t nearestNodeIndex = kInvalidSuturingIndex;
-    std::uint32_t reserved0        = 0u;
-    std::uint32_t reserved1        = 0u;
-    std::uint32_t reserved2        = 0u;
+    std::uint32_t state               = static_cast<std::uint32_t>(SuturingInsertionState::Outside);
+    std::uint32_t softBodyIndex       = kInvalidSuturingIndex;
+    std::uint32_t tetIndex            = kInvalidSuturingIndex;
+    std::uint32_t pathIndex           = kInvalidSuturingIndex;
+    std::uint32_t nearestNodeIndex    = kInvalidSuturingIndex;
+    std::uint32_t closestSegmentTBits = 0u;
+    std::uint32_t reserved1           = 0u;
+    std::uint32_t reserved2           = 0u;
     Diligent::float4 barycentrics{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
 struct SuturingPathHeader
 {
-    std::uint32_t suturingGroupId          = kInvalidSuturingIndex;
-    std::uint32_t softBodyIndex            = kInvalidSuturingIndex;
-    std::uint32_t nodeStart                = 0u;
-    std::uint32_t nodeCount                = 0u;
-    std::uint32_t flags                    = 0u;
-    std::uint32_t needleTangentialDragBits = 0u;
-    std::uint32_t threadTangentialDragBits = 0u;
-    std::uint32_t reserved2                = 0u;
+    std::uint32_t suturingGroupId = kInvalidSuturingIndex;
+    std::uint32_t softBodyIndex   = kInvalidSuturingIndex;
+    std::uint32_t nodeStart       = 0u;
+    std::uint32_t nodeCount       = 0u;
+    std::uint32_t flags           = 0u;
+    std::uint32_t reserved0       = 0u;
+    std::uint32_t reserved1       = 0u;
+    std::uint32_t reserved2       = 0u;
 };
 
 struct SuturingPathNode
@@ -165,22 +165,22 @@ struct SuturingPathNode
 
 struct StrandSoftSuturingPair
 {
-    std::uint32_t suturingGroupId          = kInvalidSuturingIndex;
-    std::uint32_t softBodyIndex            = kInvalidSuturingIndex;
-    std::uint32_t strandParticleStart      = 0u;
-    std::uint32_t strandParticleCount      = 0u;
-    std::uint32_t tipParticleIndex         = kInvalidSuturingIndex;
-    std::uint32_t softTetStart             = 0u;
-    std::uint32_t softTetCount             = 0u;
-    std::uint32_t pathStart                = 0u;
-    std::uint32_t pathCount                = 0u;
-    std::uint32_t nodeStart                = 0u;
-    std::uint32_t nodeCount                = 0u;
-    std::uint32_t activePathIndex          = kInvalidSuturingIndex;
-    std::uint32_t environmentIndex         = 0u;
-    float pathNodeSpacing                  = 0.0f;
-    std::uint32_t needleTangentialDragBits = 0u;
-    std::uint32_t threadTangentialDragBits = 0u;
+    std::uint32_t suturingGroupId     = kInvalidSuturingIndex;
+    std::uint32_t softBodyIndex       = kInvalidSuturingIndex;
+    std::uint32_t strandParticleStart = 0u;
+    std::uint32_t strandParticleCount = 0u;
+    std::uint32_t tipParticleIndex    = kInvalidSuturingIndex;
+    std::uint32_t softTetStart        = 0u;
+    std::uint32_t softTetCount        = 0u;
+    std::uint32_t pathStart           = 0u;
+    std::uint32_t pathCount           = 0u;
+    std::uint32_t nodeStart           = 0u;
+    std::uint32_t nodeCount           = 0u;
+    std::uint32_t activePathIndex     = kInvalidSuturingIndex;
+    std::uint32_t environmentIndex    = 0u;
+    float pathNodeSpacing             = 0.0f;
+    std::uint32_t reserved0           = 0u;
+    std::uint32_t reserved1           = 0u;
 };
 
 struct SoftBodyRegularGridSource
@@ -516,8 +516,6 @@ struct AuthoredSuturingSequenceState
     // the sequence tip and tail also suppress same-soft-body exterior contact.
     std::uint32_t tipEntryIndex = 0u;
     float pathNodeSpacing       = 0.0f;
-    float needleTangentialDrag  = 0.0f;
-    float threadTangentialDrag  = 0.0f;
     bool enabled                = true;
 };
 
