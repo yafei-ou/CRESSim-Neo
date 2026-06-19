@@ -57,6 +57,7 @@ FluidState makeFluid(EntityId entityId)
 int main()
 {
     PhysicsWorld world;
+    constexpr float kExpectedSmoothingRadius = (2.0f / 0.6f) * 0.1f;
 
     const EntityId softEntity = 1001u;
     const EntityId fluidEntity = 1002u;
@@ -100,7 +101,8 @@ int main()
                 fluidMaterialIndex >= fluidMaterials.size() ||
                 fluidMaterials[fluidMaterialIndex].restDensity <= 0.0f ||
                 fluidMaterials[fluidMaterialIndex].viscosityDerived <= 0.0f ||
-                std::abs(fluidMaterials[fluidMaterialIndex].smoothingRadius - 0.4f) > 1.0e-5f ||
+                std::abs(fluidMaterials[fluidMaterialIndex].smoothingRadius -
+                         kExpectedSmoothingRadius) > 1.0e-5f ||
                 fluidMaterials[fluidMaterialIndex].gravityScale != 0.9f ||
                 fluidMaterials[fluidMaterialIndex].cohesionDerived <= 0.0f)
             {

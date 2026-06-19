@@ -51,9 +51,10 @@ int main()
         return 1;
     }
 
-    const auto &constraints = world.physicsWorld().distanceConstraints();
-    if (constraints.size() != 3u ||
-        std::abs(constraints.back().compliance - 0.015f) > 1.0e-6f)
+    const auto &deformableConstraints = world.physicsWorld().distanceConstraints();
+    const auto &strandConstraints = world.physicsWorld().strandDistanceConstraints();
+    if (deformableConstraints.size() != 1u || strandConstraints.size() != 2u ||
+        std::abs(deformableConstraints.back().compliance - 0.015f) > 1.0e-6f)
     {
         CRESSIM_LOG_ERROR("Physics world did not resolve authored attachment constraint.\n");
         return 1;

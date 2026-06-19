@@ -1,16 +1,32 @@
 #ifndef CRESSIM_NEO_PHYSICS_PHYSICS_WORLD_H
 #define CRESSIM_NEO_PHYSICS_PHYSICS_WORLD_H
 
+#include "common/flags.h"
 #include "physics/export.h"
 #include "physics/physics_types.h"
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
 namespace cressim::neo::physics
 {
+
+enum class PhysicsRebuildFlags : std::uint32_t
+{
+    None                             = 0u,
+    SoftParticleLayout               = 1u << 0u,
+    SoftConstraintData               = 1u << 1u,
+    SuturingData                     = 1u << 2u,
+    ResolvedRigidParticleAttachments = 1u << 3u,
+    ResolvedStrandRigidAttachments   = 1u << 4u,
+    ResolvedRigidDistanceConstraints = 1u << 5u,
+    ResolvedRoutedCables             = 1u << 6u,
+};
+
+CRESSIM_NEO_DEFINE_ENUM_FLAGS(PhysicsRebuildFlags)
 
 class CRESSIM_NEO_PHYSICS_API PhysicsWorld
 {
@@ -298,11 +314,14 @@ private:
     void rebuildBodyColliderMapping() const noexcept;
     void rebuildRigidJointScene() const noexcept;
     void rebuildJointCollisionSuppression() const noexcept;
-    void rebuildSoftBodyDerivedState() noexcept;
+    void rebuildSoftParticleLayout() noexcept;
+    void rebuildSoftConstraintData() noexcept;
+    void rebuildSuturingData() noexcept;
     void rebuildResolvedRigidParticleAttachments() noexcept;
     void rebuildResolvedStrandRigidAttachments() noexcept;
     void rebuildResolvedRigidDistanceConstraints() noexcept;
     void rebuildResolvedRoutedCables() noexcept;
+    void ensureRebuildDomainsUpToDate(PhysicsRebuildFlags flags) noexcept;
     void ensureResolvedConstraintStateUpToDate() noexcept;
     void invalidateSoftDerivedState() noexcept;
     void invalidateResolvedRigidParticleAttachments() noexcept;
@@ -310,10 +329,15 @@ private:
     void invalidateResolvedRigidDistanceConstraints() noexcept;
     void invalidateResolvedRoutedCables() noexcept;
     void invalidateAllRigidBodyDependentResolvedConstraints() noexcept;
+    void markRebuildDirty(PhysicsRebuildFlags flags) noexcept;
+    void clearRebuildDirty(PhysicsRebuildFlags flags) noexcept;
+    bool isRebuildDirty(PhysicsRebuildFlags flags) const noexcept;
     void markAllRigidBodiesDirty() noexcept;
     void markAllCollidersDirty() noexcept;
     std::uint32_t broadPhaseContributionForCollider(const ColliderState &collider) const noexcept;
     std::uint32_t enabledColliderCountForEntity(common::EntityId entityId) const noexcept;
+    std::optional<std::uint32_t> resolveParticleReference(
+        const AuthoredParticleReference &reference) const noexcept;
     static void normalizeSoftBodyState(SoftBodyState &state) noexcept;
     static void normalizeStrandState(StrandState &state) noexcept;
     static void normalizeFluidState(FluidState &state) noexcept;
@@ -426,19 +450,19 @@ private:
     std::vector<std::uint32_t> mColliderDirtyIndices{};
     std::vector<std::uint8_t> mRigidBodyDirtyBits{};
     std::vector<std::uint8_t> mColliderDirtyBits{};
-    bool mRigidBodyCountDirty                                                    = false;
-    bool mColliderCountDirty                                                     = false;
-    bool mFullRigidBodyUploadRequired                                            = false;
-    bool mFullColliderUploadRequired                                             = false;
-    mutable bool mBodyColliderMappingDirty                                       = true;
-    mutable bool mRigidJointSceneDirty                                           = true;
-    mutable bool mJointCollisionSuppressionDirty                                 = true;
-    bool mSoftDerivedStateDirty                                                  = true;
-    bool mResolvedRigidParticleAttachmentsDirty                                  = true;
-    bool mResolvedStrandRigidAttachmentsDirty                                    = true;
-    bool mResolvedRigidDistanceConstraintsDirty                                  = true;
-    bool mResolvedRoutedCablesDirty                                              = true;
-    bool mSoftConstraintAdjacencyDirty                                           = true;
+    bool mRigidBodyCountDirty                    = false;
+    bool mColliderCountDirty                     = false;
+    bool mFullRigidBodyUploadRequired            = false;
+    bool mFullColliderUploadRequired             = false;
+    mutable bool mBodyColliderMappingDirty       = true;
+    mutable bool mRigidJointSceneDirty           = true;
+    mutable bool mJointCollisionSuppressionDirty = true;
+    PhysicsRebuildFlags mRebuildFlags =
+        PhysicsRebuildFlags::SoftParticleLayout | PhysicsRebuildFlags::SoftConstraintData |
+        PhysicsRebuildFlags::SuturingData | PhysicsRebuildFlags::ResolvedRigidParticleAttachments |
+        PhysicsRebuildFlags::ResolvedStrandRigidAttachments |
+        PhysicsRebuildFlags::ResolvedRigidDistanceConstraints |
+        PhysicsRebuildFlags::ResolvedRoutedCables;
     bool mStaticBroadPhaseDirty                                                  = false;
     std::uint32_t mActiveMovingColliderCount                                     = 0u;
     std::uint32_t mStaticColliderCount                                           = 0u;
