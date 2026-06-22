@@ -8,9 +8,11 @@
 
 #include <cstdint>
 #include <cmath>
+#include <algorithm>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -29,7 +31,7 @@ using cressim::neo::viewer::DebugViewerCallbacks;
 
 void printUsage(const char *appName)
 {
-    cressim::neo::examples::helpers::printUsage(appName, "", false);
+    cressim::neo::examples::helpers::printUsage(appName, "", true);
 }
 
 Diligent::QuaternionF quaternionFromEulerDegrees(float pitchDegrees, float yawDegrees,
@@ -54,11 +56,12 @@ Diligent::QuaternionF quaternionFromEulerDegrees(float pitchDegrees, float yawDe
 }
 
 void spawnRenderable(cressim::neo::engine::World &world, cressim::neo::graphics::MeshHandle mesh,
+                     std::uint32_t envIndex,
                      cressim::neo::graphics::MaterialHandle material,
                      const Diligent::float3 &position, const Diligent::float3 &scale,
                      const Diligent::QuaternionF &rotation = Diligent::QuaternionF{})
 {
-    const auto entity = world.createEntity();
+    const auto entity = world.createEntity(envIndex);
     TransformComponent transform{};
     transform.worldTransform.position = position;
     transform.worldTransform.scale    = scale;
@@ -82,7 +85,7 @@ int main(int argc, char **argv)
         for (int i = 1; i < argc; ++i)
         {
             if (cressim::neo::examples::helpers::tryParseCommonArgument(
-                    argc, argv, i, options, false))
+                    argc, argv, i, options, true))
             {
                 continue;
             }
@@ -99,6 +102,8 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+    const std::uint32_t environmentCount = std::max(options.envCount, 3u);
+    config.sceneLayout.envCount          = environmentCount;
 
     DebugViewerApp viewer;
     ViewerExampleDefaults viewerDefaults{};
@@ -132,19 +137,10 @@ int main(int argc, char **argv)
 
     auto &world = runtime.getWorld();
 
-    const auto colorCameraEntity = world.createEntity();
-    TransformComponent cameraTransform{};
-    cameraTransform.worldTransform.position = {0.0f, 2.25f, -8.0f};
-    world.setTransform(colorCameraEntity, cameraTransform);
-    CameraComponent colorCamera{};
-    colorCamera.verticalFovDegrees = 50.0f;
-    colorCamera.nearClip           = 0.05f;
-    colorCamera.farClip            = 40.0f;
-    world.setCamera(colorCameraEntity, colorCamera);
-
     cressim::neo::gpu::GpuRenderTargetDesc depthTargetDesc{};
     depthTargetDesc.width     = 960u;
     depthTargetDesc.height    = 540u;
+    depthTargetDesc.arraySize = environmentCount;
     depthTargetDesc.color     = false;
     depthTargetDesc.depth     = true;
     depthTargetDesc.debugName = "DepthCameraExample.DepthTarget";
@@ -157,28 +153,6 @@ int main(int argc, char **argv)
         CRESSIM_LOG_ERROR("Depth target creation failed.\n");
         return 1;
     }
-
-    const auto depthCameraEntity = world.createEntity();
-    world.setTransform(depthCameraEntity, cameraTransform);
-    CameraComponent depthCamera{};
-    depthCamera.product            = CameraComponent::Product::Depth;
-    depthCamera.verticalFovDegrees = colorCamera.verticalFovDegrees;
-    depthCamera.nearClip           = colorCamera.nearClip;
-    depthCamera.farClip            = colorCamera.farClip;
-    depthCamera.output.mode        = cressim::neo::gpu::RenderOutputMode::ExplicitSurface;
-    depthCamera.output.binding     = cressim::neo::gpu::GpuRenderTargetBinding{depthTarget, 0u, 1u};
-    depthCamera.outputWidth        = depthTargetDesc.width;
-    depthCamera.outputHeight       = depthTargetDesc.height;
-    depthCamera.clearColor         = false;
-    depthCamera.clearDepth         = true;
-    world.setCamera(depthCameraEntity, depthCamera);
-
-    const auto lightEntity = world.createEntity();
-    DirectionalLightComponent light{};
-    light.direction = {-0.55f, -1.0f, 0.25f};
-    light.color     = {1.0f, 0.98f, 0.95f};
-    light.intensity = 7.5f;
-    world.setDirectionalLight(lightEntity, light);
 
     auto &resources = runtime.getResources();
     const auto cubeMesh = resources.registerMesh(
@@ -213,35 +187,104 @@ int main(int argc, char **argv)
     amberMaterial.roughness = 0.42f;
     const auto amberMaterialHandle = resources.registerMaterial(amberMaterial);
 
-    spawnRenderable(world, groundMesh, groundMaterialHandle, {0.0f, -1.0f, 6.0f},
-                    {1.0f, 1.0f, 1.0f});
-    spawnRenderable(world, cubeMesh, coralMaterialHandle, {-1.8f, -0.15f, 3.5f},
-                    {1.0f, 1.5f, 1.0f});
-    spawnRenderable(world, cubeMesh, tealMaterialHandle, {1.6f, 0.3f, 6.2f},
-                    {1.25f, 1.25f, 1.25f},
-                    quaternionFromEulerDegrees(18.0f, 28.0f, 0.0f));
-    spawnRenderable(world, sphereMesh, amberMaterialHandle, {0.0f, 0.1f, 2.3f},
-                    {1.0f, 1.0f, 1.0f});
+    std::vector<cressim::neo::common::EntityId> colorCameraEntities;
+    std::vector<cressim::neo::common::EntityId> depthCameraEntities;
+    colorCameraEntities.reserve(environmentCount);
+    depthCameraEntities.reserve(environmentCount);
 
-    CRESSIM_LOG_INFO("Depth camera example ready. Camera mode shows shaded color. Press U in the "
-                     "viewer to toggle the authored depth camera output.");
+    for (std::uint32_t envIndex = 0u; envIndex < environmentCount; ++envIndex)
+    {
+        const float envOffset = (static_cast<float>(envIndex) -
+                                 0.5f * static_cast<float>(environmentCount - 1u)) *
+                                18.0f;
+        const float cameraYaw = -8.0f + static_cast<float>(envIndex) * 6.0f;
+        const float cameraHeight = 2.0f + static_cast<float>(envIndex) * 0.18f;
+        const float farBias = static_cast<float>(envIndex) * 3.0f;
+
+        const auto colorCameraEntity = world.createEntity(envIndex);
+        TransformComponent cameraTransform{};
+        cameraTransform.worldTransform.position = {envOffset, cameraHeight, -8.0f};
+        cameraTransform.worldTransform.rotation =
+            quaternionFromEulerDegrees(-4.0f, cameraYaw, 0.0f);
+        world.setTransform(colorCameraEntity, cameraTransform);
+
+        CameraComponent colorCamera{};
+        colorCamera.verticalFovDegrees = 50.0f + static_cast<float>(envIndex) * 2.0f;
+        colorCamera.nearClip           = 0.05f;
+        colorCamera.farClip            = 40.0f + farBias;
+        world.setCamera(colorCameraEntity, colorCamera);
+        colorCameraEntities.push_back(colorCameraEntity);
+
+        const auto depthCameraEntity = world.createEntity(envIndex);
+        world.setTransform(depthCameraEntity, cameraTransform);
+        CameraComponent depthCamera{};
+        depthCamera.product            = CameraComponent::Product::Depth;
+        depthCamera.verticalFovDegrees = colorCamera.verticalFovDegrees;
+        depthCamera.nearClip           = colorCamera.nearClip;
+        depthCamera.farClip            = colorCamera.farClip;
+        depthCamera.output.mode        = cressim::neo::gpu::RenderOutputMode::ExplicitSurface;
+        depthCamera.output.binding =
+            cressim::neo::gpu::GpuRenderTargetBinding{depthTarget, envIndex, 1u};
+        depthCamera.outputWidth  = depthTargetDesc.width;
+        depthCamera.outputHeight = depthTargetDesc.height;
+        depthCamera.clearColor   = false;
+        depthCamera.clearDepth   = true;
+        world.setCamera(depthCameraEntity, depthCamera);
+        depthCameraEntities.push_back(depthCameraEntity);
+
+        const auto lightEntity = world.createEntity(envIndex);
+        DirectionalLightComponent light{};
+        light.direction = {-0.55f + 0.08f * static_cast<float>(envIndex), -1.0f,
+                           0.25f - 0.04f * static_cast<float>(envIndex)};
+        light.color = {1.0f, 0.98f - 0.03f * static_cast<float>(envIndex),
+                       0.95f - 0.04f * static_cast<float>(envIndex)};
+        light.intensity = 7.5f + 0.6f * static_cast<float>(envIndex);
+        world.setDirectionalLight(lightEntity, light);
+
+        spawnRenderable(world, groundMesh, envIndex, groundMaterialHandle,
+                        {envOffset, -1.0f, 6.0f}, {1.0f, 1.0f, 1.0f});
+        spawnRenderable(world, cubeMesh, envIndex, coralMaterialHandle,
+                        {envOffset - 1.8f, -0.15f, 3.5f + 0.35f * static_cast<float>(envIndex)},
+                        {1.0f, 1.5f, 1.0f},
+                        quaternionFromEulerDegrees(0.0f, 8.0f * static_cast<float>(envIndex), 0.0f));
+        spawnRenderable(world, cubeMesh, envIndex, tealMaterialHandle,
+                        {envOffset + 1.6f, 0.3f, 6.2f - 0.45f * static_cast<float>(envIndex)},
+                        {1.1f + 0.12f * static_cast<float>(envIndex),
+                         1.1f + 0.12f * static_cast<float>(envIndex),
+                         1.1f + 0.12f * static_cast<float>(envIndex)},
+                        quaternionFromEulerDegrees(18.0f + 4.0f * static_cast<float>(envIndex),
+                                                   28.0f - 6.0f * static_cast<float>(envIndex), 0.0f));
+        spawnRenderable(world, sphereMesh, envIndex, amberMaterialHandle,
+                        {envOffset, 0.1f + 0.08f * static_cast<float>(envIndex),
+                         2.3f + 0.25f * static_cast<float>(envIndex)},
+                        {1.0f, 1.0f, 1.0f});
+    }
+
+    CRESSIM_LOG_INFO("Depth camera example ready with ", environmentCount,
+                     " environments. Camera mode shows shaded color. Press U in the viewer to "
+                     "toggle the authored depth camera output.");
 
     DebugViewerCallbacks callbacks{};
-    callbacks.beforeTick = [colorCameraEntity, depthCameraEntity](
+    callbacks.beforeTick = [colorCameraEntities, depthCameraEntities](
                                const cressim::neo::common::FrameContext &, Runtime &runtimeRef)
     {
         auto &worldRef = runtimeRef.getWorld();
-        const std::optional<TransformComponent> colorTransform =
-            worldRef.tryGetTransform(colorCameraEntity);
-        if (!colorTransform.has_value())
+        const std::size_t pairCount = std::min(colorCameraEntities.size(), depthCameraEntities.size());
+        for (std::size_t pairIndex = 0u; pairIndex < pairCount; ++pairIndex)
         {
-            return;
-        }
+            const std::optional<TransformComponent> colorTransform =
+                worldRef.tryGetTransform(colorCameraEntities[pairIndex]);
+            if (!colorTransform.has_value())
+            {
+                continue;
+            }
 
-        worldRef.setTransform(depthCameraEntity, *colorTransform);
+            worldRef.setTransform(depthCameraEntities[pairIndex], *colorTransform);
+        }
     };
 
-    const bool ran = viewer.run(runtime, DebugViewerCameraBinding{colorCameraEntity}, callbacks);
+    const bool ran =
+        viewer.run(runtime, DebugViewerCameraBinding{colorCameraEntities.front()}, callbacks);
 
     runtime.shutdown();
     viewer.shutdown();
