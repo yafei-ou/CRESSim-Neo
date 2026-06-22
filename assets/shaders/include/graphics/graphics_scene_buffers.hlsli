@@ -149,29 +149,43 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_EntityPositions);
 CRESSIM_STRUCTURED_BUFFER(float4, g_EntityOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_EntityScales);
 CRESSIM_STRUCTURED_BUFFER(RenderableMetadata, g_RenderableMetadata);
+#if !defined(CRESSIM_CAMERA_DEPTH_PASS)
 CRESSIM_STRUCTURED_BUFFER(RenderableQueueInfo, g_RenderableQueueInfo);
+#endif
 CRESSIM_STRUCTURED_BUFFER(uint, g_RenderableVisibilityFlags);
+#if !defined(CRESSIM_CAMERA_DEPTH_PASS)
 CRESSIM_STRUCTURED_BUFFER(uint, g_RenderableShadowCascadeMasks);
+#endif
 CRESSIM_STRUCTURED_BUFFER(PreparedCamera, g_PreparedCameras);
+#if !defined(CRESSIM_CAMERA_DEPTH_PASS)
 CRESSIM_STRUCTURED_BUFFER(LightInput, g_LightInputs);
 CRESSIM_STRUCTURED_BUFFER(LocalLightSelection, g_LocalLightSelections);
 CRESSIM_STRUCTURED_BUFFER(LightShadowAssignment, g_LightShadowAssignments);
 CRESSIM_STRUCTURED_BUFFER(LocalShadowView, g_LocalShadowViews);
+#endif
 CRESSIM_STRUCTURED_BUFFER(BatchCameraMetadata, g_BatchCameras);
+#if !defined(CRESSIM_CAMERA_DEPTH_PASS)
 CRESSIM_STRUCTURED_BUFFER(uint, g_VisibleObjectIndices);
+#endif
 CRESSIM_STRUCTURED_BUFFER(VisiblePairInstance, g_VisiblePairs);
 #if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftBodyRenderPositions);
+#if !defined(CRESSIM_CAMERA_DEPTH_PASS)
 CRESSIM_STRUCTURED_BUFFER(float4, g_SoftBodyVertexNormals);
+#endif
 #endif
 #if defined(CRESSIM_PROGRAM_FAMILY_CURVE)
 CRESSIM_STRUCTURED_BUFFER(float4, g_CurveRenderPositions);
+#if !defined(CRESSIM_CAMERA_DEPTH_PASS)
 CRESSIM_STRUCTURED_BUFFER(float4, g_CurveRenderNormals);
 #endif
+#endif
+#if !defined(CRESSIM_CAMERA_DEPTH_PASS)
 CRESSIM_STRUCTURED_BUFFER(SoftBodyWorldAabb, g_SoftBodyWorldAabbs);
 CRESSIM_STRUCTURED_BUFFER(SoftBodyWorldAabb, g_CurveWorldAabbs);
 #if defined(CRESSIM_IBL_DIFFUSE_ONLY) || defined(CRESSIM_IBL_FULL)
 CRESSIM_STRUCTURED_BUFFER(EnvironmentIblLookupEntry, g_EnvironmentIblLookup);
+#endif
 #endif
 
 static const uint CRESSIM_RENDERABLE_FLAG_ACTIVE = 1u << 0u;

@@ -1,5 +1,8 @@
-#include "include/graphics/graphics_shadow_constants.hlsli"
+#include "include/graphics/graphics_per_object.hlsli"
 #include "include/graphics/graphics_scene_buffers.hlsli"
+#if !defined(CRESSIM_CAMERA_DEPTH_PASS)
+#include "include/graphics/graphics_shadow_constants.hlsli"
+#endif
 
 struct VSInput
 {
@@ -23,8 +26,11 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
 )
 {
 #if defined(CRESSIM_CAMERA_DEPTH_PASS)
-    const uint objectIndex = g_InstanceIndex;
-    const uint cameraIndex = g_ShadowMatrixIndex;
+    const VisiblePairInstance pair = CRESSIM_SB_LOAD(g_VisiblePairs, g_DrawListOffset + instanceId);
+    const BatchCameraMetadata batchCamera = CRESSIM_SB_LOAD(g_BatchCameras, pair.batchCameraIndex);
+    const uint objectIndex = pair.objectIndex;
+    const uint cameraIndex = batchCamera.globalCameraIndex;
+    const uint colorLayer = batchCamera.colorLayer;
     const PreparedCamera preparedCamera = CRESSIM_SB_LOAD(g_PreparedCameras, cameraIndex);
 
     bool poseValid = false;
@@ -40,7 +46,7 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
     {
         Out.Position = float4(2.0, 2.0, 2.0, 1.0);
 #if MANUAL_LAYER_EXPORT
-        Out.Layer = 0u;
+        Out.Layer = colorLayer;
 #endif
         return;
     }
@@ -68,7 +74,7 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
 
     Out.Position = mul(worldPos, preparedCamera.viewProjectionMatrix);
 #if MANUAL_LAYER_EXPORT
-    Out.Layer = 0u;
+    Out.Layer = colorLayer;
 #endif
     return;
 #else

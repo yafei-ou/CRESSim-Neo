@@ -2,35 +2,11 @@
 
 #include "physics/physics_gpu_scene_view.h"
 
-#include <array>
 #include <cstring>
 #include <string>
 
 namespace cressim::neo::graphics::detail
 {
-
-namespace
-{
-
-struct DummyVisiblePairInstance
-{
-    std::uint32_t objectIndex        = 0u;
-    std::uint32_t batchCameraIndex   = 0u;
-    std::uint32_t bucketIndex        = 0u;
-    std::uint32_t shadowSubviewIndex = 0u;
-};
-
-struct DummyBatchCameraMetadata
-{
-    std::array<std::uint32_t, 8> values{};
-};
-
-struct DummyLocalShadowView
-{
-    std::array<float, 116> values{};
-};
-
-} // namespace
 
 CameraDepthPass::CameraDepthPass(gpu::GpuDevice &device, RenderResourceManager &resourceManager)
     : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
@@ -42,12 +18,6 @@ bool CameraDepthPass::initialize()
 {
     mShaderLibrary = gpu::ShaderLibrary(mDevice.shaderSourceDirectory());
     mInitialized   = true;
-    return true;
-}
-
-bool CameraDepthPass::beginCamera(std::uint32_t currentCameraIndex)
-{
-    mCurrentCameraIndex = currentCameraIndex;
     return true;
 }
 
@@ -67,6 +37,16 @@ void CameraDepthPass::setPhysicsSceneView(const physics::PhysicsGpuSceneView *ph
     mPhysicsScene = physicsScene;
 }
 
+void CameraDepthPass::setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept
+{
+    mVisiblePairBuffer = buffer;
+}
+
+void CameraDepthPass::setBatchCameraBuffer(Diligent::IBuffer *buffer) noexcept
+{
+    mBatchCameraBuffer = buffer;
+}
+
 std::size_t CameraDepthPass::PipelineKeyHasher::operator()(const PipelineKey &key) const noexcept
 {
     const std::size_t programHash =
@@ -83,21 +63,6 @@ bool CameraDepthPass::ensureConstantBuffers(Diligent::IRenderDevice *renderDevic
         return false;
     }
 
-    if (mPerFrameBuffer == nullptr)
-    {
-        Diligent::BufferDesc constantBufferDesc{};
-        constantBufferDesc.Name           = "CRESSimNeo.CameraDepthPass.GraphicsShadowPerPass";
-        constantBufferDesc.Size           = sizeof(PerFrameConstants);
-        constantBufferDesc.Usage          = Diligent::USAGE_DYNAMIC;
-        constantBufferDesc.BindFlags      = Diligent::BIND_UNIFORM_BUFFER;
-        constantBufferDesc.CPUAccessFlags = Diligent::CPU_ACCESS_WRITE;
-        renderDevice->CreateBuffer(constantBufferDesc, nullptr, &mPerFrameBuffer);
-        if (mPerFrameBuffer == nullptr)
-        {
-            return false;
-        }
-    }
-
     if (mPerObjectBuffer == nullptr)
     {
         Diligent::BufferDesc constantBufferDesc{};
@@ -111,48 +76,6 @@ bool CameraDepthPass::ensureConstantBuffers(Diligent::IRenderDevice *renderDevic
         {
             return false;
         }
-    }
-
-    auto ensureStructuredSrvBuffer = [renderDevice](const char *name, std::uint32_t elementStride,
-                                                    const void *initialData,
-                                                    Diligent::RefCntAutoPtr<Diligent::IBuffer> &outBuffer)
-    {
-        if (outBuffer != nullptr)
-        {
-            return true;
-        }
-
-        Diligent::BufferDesc desc{};
-        desc.Name              = name;
-        desc.Size              = elementStride;
-        desc.BindFlags         = Diligent::BIND_SHADER_RESOURCE;
-        desc.Usage             = Diligent::USAGE_DEFAULT;
-        desc.CPUAccessFlags    = Diligent::CPU_ACCESS_NONE;
-        desc.Mode              = Diligent::BUFFER_MODE_STRUCTURED;
-        desc.ElementByteStride = elementStride;
-
-        Diligent::BufferData bufferData{};
-        bufferData.pData    = initialData;
-        bufferData.DataSize = elementStride;
-
-        renderDevice->CreateBuffer(desc, &bufferData, &outBuffer);
-        return outBuffer != nullptr;
-    };
-
-    static const DummyVisiblePairInstance kDummyVisiblePair{};
-    static const DummyBatchCameraMetadata kDummyBatchCamera{};
-    static const DummyLocalShadowView kDummyLocalShadowView{};
-    if (!ensureStructuredSrvBuffer("CRESSimNeo.CameraDepthPass.FallbackVisiblePairs",
-                                   sizeof(kDummyVisiblePair), &kDummyVisiblePair,
-                                   mFallbackVisiblePairsBuffer) ||
-        !ensureStructuredSrvBuffer("CRESSimNeo.CameraDepthPass.FallbackBatchCameras",
-                                   sizeof(kDummyBatchCamera), &kDummyBatchCamera,
-                                   mFallbackBatchCamerasBuffer) ||
-        !ensureStructuredSrvBuffer("CRESSimNeo.CameraDepthPass.FallbackLocalShadowViews",
-                                   sizeof(kDummyLocalShadowView), &kDummyLocalShadowView,
-                                   mFallbackLocalShadowViewsBuffer))
-    {
-        return false;
     }
 
     return true;
@@ -191,7 +114,7 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(Diligent::IRender
                    ? "CRESSimNeo.CameraDepthPass.Curve.VS"
                    : "CRESSimNeo.CameraDepthPass.VS");
     Diligent::ShaderMacro shaderMacros[] = {
-        {"MANUAL_LAYER_EXPORT", "0"},
+        {"MANUAL_LAYER_EXPORT", "1"},
         {"CRESSIM_CAMERA_DEPTH_PASS", "1"},
         {key.programFamily == MaterialProgramFamily::SoftBodyLit
              ? "CRESSIM_PROGRAM_FAMILY_SOFT_BODY"
@@ -242,13 +165,9 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(Diligent::IRender
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_RenderableVisibilityFlags",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_RenderableShadowCascadeMasks",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_LocalShadowViews",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -264,13 +183,9 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(Diligent::IRender
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_RenderableVisibilityFlags",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_RenderableShadowCascadeMasks",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_LocalShadowViews",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -288,13 +203,9 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(Diligent::IRender
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_RenderableVisibilityFlags",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_RenderableShadowCascadeMasks",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_VisiblePairs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_VERTEX, "g_LocalShadowViews",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -336,15 +247,12 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(Diligent::IRender
         return nullptr;
     }
 
-    Diligent::IShaderResourceVariable *perFrameVar =
-        pipeline->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "GraphicsShadowPerPass");
     Diligent::IShaderResourceVariable *perObjectVar =
         pipeline->GetStaticVariableByName(Diligent::SHADER_TYPE_VERTEX, "GraphicsPerObject");
-    if (perFrameVar == nullptr || perObjectVar == nullptr)
+    if (perObjectVar == nullptr)
     {
         return nullptr;
     }
-    perFrameVar->Set(mPerFrameBuffer);
     perObjectVar->Set(mPerObjectBuffer);
 
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> shaderBinding;
@@ -417,9 +325,8 @@ bool CameraDepthPass::bindSceneBuffers(Diligent::IShaderResourceBinding *shaderB
         mSceneView.poses.orientationsBuffer == nullptr || mSceneView.poses.scalesBuffer == nullptr ||
         mSceneView.renderableMetadataBuffer == nullptr ||
         mSceneView.renderableVisibilityFlagsBuffer == nullptr ||
-        mSceneView.renderableShadowCascadeMasksBuffer == nullptr ||
-        mSceneView.preparedCamerasBuffer == nullptr || mFallbackVisiblePairsBuffer == nullptr ||
-        mFallbackBatchCamerasBuffer == nullptr || mFallbackLocalShadowViewsBuffer == nullptr)
+        mSceneView.preparedCamerasBuffer == nullptr || mVisiblePairBuffer == nullptr ||
+        mBatchCameraBuffer == nullptr)
     {
         return false;
     }
@@ -436,10 +343,8 @@ bool CameraDepthPass::bindSceneBuffers(Diligent::IShaderResourceBinding *shaderB
         {"g_EntityScales", mSceneView.poses.scalesBuffer, true},
         {"g_RenderableMetadata", mSceneView.renderableMetadataBuffer, true},
         {"g_RenderableVisibilityFlags", mSceneView.renderableVisibilityFlagsBuffer, true},
-        {"g_RenderableShadowCascadeMasks", mSceneView.renderableShadowCascadeMasksBuffer, false},
-        {"g_VisiblePairs", mFallbackVisiblePairsBuffer, false},
-        {"g_BatchCameras", mFallbackBatchCamerasBuffer, false},
-        {"g_LocalShadowViews", mFallbackLocalShadowViewsBuffer, false},
+        {"g_VisiblePairs", mVisiblePairBuffer, true},
+        {"g_BatchCameras", mBatchCameraBuffer, true},
         {"g_PreparedCameras", mSceneView.preparedCamerasBuffer, true},
     };
     for (const VariableBinding &binding : bindings)
@@ -519,23 +424,11 @@ bool CameraDepthPass::bindSceneBuffers(Diligent::IShaderResourceBinding *shaderB
 bool CameraDepthPass::updatePerDrawConstants(Diligent::IDeviceContext *graphicsContext,
                                              const ForwardDrawCommand &drawCommand)
 {
-    PerFrameConstants perFrame{};
-    perFrame.shadowPassParams[0] = mCurrentCameraIndex;
-    void *mapped = nullptr;
-    graphicsContext->MapBuffer(mPerFrameBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
-                               mapped);
-    if (mapped == nullptr)
-    {
-        return false;
-    }
-    std::memcpy(mapped, &perFrame, sizeof(perFrame));
-    graphicsContext->UnmapBuffer(mPerFrameBuffer, Diligent::MAP_WRITE);
-
     PerObjectConstants perObject{};
     perObject.instanceIndex     = drawCommand.instanceIndex;
     perObject.drawListOffset    = drawCommand.drawListOffset;
     perObject.useDrawListBuffer = drawCommand.useDrawListBuffer;
-    mapped                      = nullptr;
+    void *mapped                = nullptr;
     graphicsContext->MapBuffer(mPerObjectBuffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD,
                                mapped);
     if (mapped == nullptr)
@@ -559,11 +452,13 @@ void CameraDepthPass::bindGeometry(Diligent::IDeviceContext *graphicsContext,
                                     Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
-bool CameraDepthPass::drawIndexed(const gpu::GpuRenderTargetBinding &targetBinding,
-                                  const ForwardDrawCommand &drawCommand)
+bool CameraDepthPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
+                                   const ForwardDrawCommand &drawCommand,
+                                   Diligent::IBuffer *indirectArgsBuffer,
+                                   Diligent::Uint64 argsOffsetBytes)
 {
     DrawSetup setup{};
-    if (!prepareDraw(targetBinding, drawCommand, setup))
+    if (!prepareDraw(targetBinding, drawCommand, setup) || indirectArgsBuffer == nullptr)
     {
         return false;
     }
@@ -606,12 +501,14 @@ bool CameraDepthPass::drawIndexed(const gpu::GpuRenderTargetBinding &targetBindi
     setup.backendContext.graphicsContext->CommitShaderResources(
         shaderBinding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    Diligent::DrawIndexedAttribs drawAttrs{};
-    drawAttrs.IndexType    = Diligent::VT_UINT32;
-    drawAttrs.NumIndices   = drawCommand.indexCount;
-    drawAttrs.NumInstances = 1u;
-    drawAttrs.Flags        = Diligent::DRAW_FLAG_VERIFY_ALL;
-    setup.backendContext.graphicsContext->DrawIndexed(drawAttrs);
+    Diligent::DrawIndexedIndirectAttribs drawAttrs{};
+    drawAttrs.IndexType      = Diligent::VT_UINT32;
+    drawAttrs.pAttribsBuffer = indirectArgsBuffer;
+    drawAttrs.DrawArgsOffset = argsOffsetBytes;
+    drawAttrs.Flags          = Diligent::DRAW_FLAG_VERIFY_ALL;
+    drawAttrs.AttribsBufferStateTransitionMode =
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+    setup.backendContext.graphicsContext->DrawIndexedIndirect(drawAttrs);
     return true;
 }
 

@@ -29,22 +29,19 @@ public:
     CameraDepthPass(gpu::GpuDevice &device, RenderResourceManager &resourceManager);
 
     bool initialize();
-    bool beginCamera(std::uint32_t currentCameraIndex);
     void setGpuSceneView(const GpuEntitySceneView &sceneView) noexcept;
     void setPhysicsSceneView(const physics::PhysicsGpuSceneView *physicsScene) noexcept;
-    bool drawIndexed(const gpu::GpuRenderTargetBinding &targetBinding,
-                     const ForwardDrawCommand &drawCommand);
+    void setVisiblePairBuffer(Diligent::IBuffer *buffer) noexcept;
+    void setBatchCameraBuffer(Diligent::IBuffer *buffer) noexcept;
+    bool drawIndirect(const gpu::GpuRenderTargetBinding &targetBinding,
+                      const ForwardDrawCommand &drawCommand, Diligent::IBuffer *indirectArgsBuffer,
+                      Diligent::Uint64 argsOffsetBytes);
 
 private:
     struct DrawSetup
     {
         gpu::GpuGraphicsBackendContext backendContext{};
         MeshGpuCache::CachedBuffers *meshBuffers = nullptr;
-    };
-
-    struct PerFrameConstants
-    {
-        std::uint32_t shadowPassParams[4] = {0u, 0u, 0u, 0u};
     };
 
     struct PerObjectConstants
@@ -90,11 +87,9 @@ private:
     bool mInitialized = false;
     gpu::ShaderLibrary mShaderLibrary;
     MeshGpuCache mMeshGpuCache;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerFrameBuffer;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mFallbackVisiblePairsBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mFallbackBatchCamerasBuffer;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> mFallbackLocalShadowViewsBuffer;
+    Diligent::IBuffer *mVisiblePairBuffer = nullptr;
+    Diligent::IBuffer *mBatchCameraBuffer = nullptr;
     std::unordered_map<PipelineKey, Diligent::RefCntAutoPtr<Diligent::IPipelineState>,
                        PipelineKeyHasher>
         mPipelines;
@@ -103,7 +98,6 @@ private:
         mShaderBindings;
     GpuEntitySceneView mSceneView{};
     const physics::PhysicsGpuSceneView *mPhysicsScene = nullptr;
-    std::uint32_t mCurrentCameraIndex                 = 0u;
 };
 
 } // namespace cressim::neo::graphics::detail

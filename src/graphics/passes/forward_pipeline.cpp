@@ -62,22 +62,6 @@ const EnvironmentFluidDesc &environmentFluidForCamera(const HostSceneView &scene
     return (*sceneView.environmentFluids)[envIndex];
 }
 
-MaterialProgramFamily cameraDepthProgramFamily(const MaterialResourceDesc &material,
-                                               const GpuRenderableMetadata &metadata) noexcept
-{
-    const auto deformableType =
-        static_cast<GpuRenderableDeformableType>(metadata.deformableType);
-    if (deformableType == GpuRenderableDeformableType::SoftBody)
-    {
-        return MaterialProgramFamily::SoftBodyLit;
-    }
-    if (deformableType == GpuRenderableDeformableType::Curve)
-    {
-        return MaterialProgramFamily::CurveLit;
-    }
-    return material.pipeline.programFamily;
-}
-
 constexpr std::uint32_t kIndirectThreadGroupSize = 64u;
 
 struct IndirectCommandDesc
@@ -798,87 +782,6 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     }
     const Diligent::Uint64 graphicsContextMask = gpu::contextMaskForId(backendContext.contextId);
 
-    if (depthBatch)
-    {
-        if (mCameraDepthPass == nullptr || !batchView.renderTargetDesc.depth)
-        {
-            return false;
-        }
-        if (sceneView.renderables == nullptr || sceneView.renderableMetadata == nullptr)
-        {
-            return false;
-        }
-
-        const auto &renderables = *sceneView.renderables;
-        const auto &metadata    = *sceneView.renderableMetadata;
-
-        for (const ResolvedCameraView &camera : batchView.cameras)
-        {
-            const gpu::GpuRenderTargetBinding depthBinding{
-                batchView.renderBinding.target, camera.outputBinding.firstLayer, 1u};
-            mDevice.renderTargetSystem().setRenderTargetViewport(
-                depthBinding, camera.useOutputViewport ? camera.viewport : gpu::GpuRenderViewport{});
-
-            gpu::GpuRenderPassBeginDesc depthBegin{};
-            depthBegin.clearColor = false;
-            depthBegin.clearDepth = camera.clearDepth;
-            depthBegin.clearDepthValue = camera.clearDepthValue;
-            mDevice.renderTargetSystem().beginRenderTarget(depthBinding, frameContext, depthBegin);
-
-            if (!mCameraDepthPass->beginCamera(camera.globalCameraIndex))
-            {
-                mDevice.renderTargetSystem().endRenderTarget(depthBinding, frameContext);
-                return false;
-            }
-
-            const std::uint32_t renderableCount =
-                std::min(static_cast<std::uint32_t>(renderables.size()),
-                         static_cast<std::uint32_t>(metadata.size()));
-            for (std::uint32_t objectIndex = 0u; objectIndex < renderableCount; ++objectIndex)
-            {
-                const RenderableInstance &renderable = renderables[objectIndex];
-                const GpuRenderableMetadata &renderableMetadata = metadata[objectIndex];
-                if (!renderable.visible ||
-                    (renderableMetadata.flags &
-                     static_cast<std::uint32_t>(GpuRenderableFlags::Active)) == 0u ||
-                    (renderableMetadata.flags &
-                     static_cast<std::uint32_t>(GpuRenderableFlags::Opaque)) == 0u)
-                {
-                    continue;
-                }
-
-                const MaterialResourceDesc *material =
-                    mResourceManager.tryGetMaterial(renderable.material);
-                const MeshResourceDesc *mesh = mResourceManager.tryGetMesh(renderable.mesh);
-                if (material == nullptr || mesh == nullptr || usesTransparentPass(*material))
-                {
-                    continue;
-                }
-                ForwardDrawCommand drawCommand{};
-                drawCommand.instanceIndex      = objectIndex;
-                drawCommand.useDrawListBuffer  = 0u;
-                drawCommand.drawListOffset     = 0u;
-                drawCommand.programFamily =
-                    cameraDepthProgramFamily(*material, renderableMetadata);
-                drawCommand.materialFeatureFlags = effectiveMaterialFeatureFlags(*material);
-                drawCommand.meshId               = renderable.mesh.id;
-                drawCommand.materialId           = renderable.material.id;
-                drawCommand.meshVersion          = mResourceManager.meshVersion(renderable.mesh);
-                drawCommand.indexCount =
-                    static_cast<std::uint32_t>(mesh->indices.size());
-                if (!mCameraDepthPass->drawIndexed(depthBinding, drawCommand))
-                {
-                    continue;
-                }
-                ++outStats.opaqueDrawCalls;
-            }
-
-            mDevice.renderTargetSystem().endRenderTarget(depthBinding, frameContext);
-        }
-
-        return true;
-    }
-
     const std::uint32_t envCount                  = gpuScene.layout.envCount;
     const std::uint32_t totalLightCount           = gpuScene.layout.totalLightCapacity();
     const std::uint32_t totalObjectCount          = gpuScene.layout.totalRenderableObjectCapacity();
@@ -1250,6 +1153,43 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                            "CRESSimNeo.ForwardPipeline.Opaque", kQueueModeOpaque, batchCameraCount))
     {
         return false;
+    }
+    if (depthBatch)
+    {
+        if (mCameraDepthPass == nullptr || !batchView.renderTargetDesc.depth)
+        {
+            return false;
+        }
+
+        mCameraDepthPass->setVisiblePairBuffer(mGpuIndirectState->opaque.visiblePairBuffer);
+        mCameraDepthPass->setBatchCameraBuffer(mGpuIndirectState->opaque.batchCameraBuffer);
+        mDevice.renderTargetSystem().setRenderTargetViewport(batchView.renderBinding,
+                                                             viewportForBatch(batchView));
+        gpu::GpuRenderPassBeginDesc depthBegin{};
+        depthBegin.clearColor      = false;
+        depthBegin.clearDepth      = batchView.cameras.front().clearDepth;
+        depthBegin.clearDepthValue = batchView.cameras.front().clearDepthValue;
+        mDevice.renderTargetSystem().beginRenderTarget(batchView.renderBinding, frameContext,
+                                                       depthBegin);
+
+        for (std::uint32_t commandIndex = 0u;
+             commandIndex < static_cast<std::uint32_t>(opaqueRegistry.size()); ++commandIndex)
+        {
+            ForwardDrawCommand drawCommand = opaqueRegistry[commandIndex].drawCommand;
+            drawCommand.drawListOffset     = mGpuIndirectState->opaque.drawListOffsets[commandIndex];
+            drawCommand.useDrawListBuffer  = 1u;
+            if (mCameraDepthPass->drawIndirect(
+                    batchView.renderBinding, drawCommand,
+                    mGpuIndirectState->opaque.drawIndexedCommandsBuffer,
+                    static_cast<Diligent::Uint64>(commandIndex) *
+                        sizeof(DrawIndexedIndirectArgs)))
+            {
+                ++outStats.opaqueDrawCalls;
+            }
+        }
+
+        mDevice.renderTargetSystem().endRenderTarget(batchView.renderBinding, frameContext);
+        return true;
     }
     const std::uint32_t shadowCameraCount = static_cast<std::uint32_t>(shadowBatchCameras.size());
     if (!uploadIndirectSet(mGpuIndirectState->shadow, shadowRegistry,
