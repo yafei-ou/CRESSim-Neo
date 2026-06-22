@@ -223,12 +223,15 @@ std::optional<DisplayResolveRequest> buildExplicitDisplayResolveRequest(
     }
 
     DisplayResolveRequest resolveRequest{};
+    resolveRequest.sourceKind             = options.presentedExplicitOutput->sourceKind;
     resolveRequest.sourceBinding          = options.presentedExplicitOutput->binding;
     resolveRequest.sourceTargetDesc       = options.presentedExplicitOutput->sourceTargetDesc;
     resolveRequest.sourceIsDisplayEncoded = options.presentedExplicitOutput->sourceIsDisplayEncoded;
     resolveRequest.presentationTarget     = *options.presentationTarget;
     resolveRequest.toneMapper             = options.toneMapper;
     resolveRequest.exposure               = options.exposure;
+    resolveRequest.nearClip               = options.presentedExplicitOutput->nearClip;
+    resolveRequest.farClip                = options.presentedExplicitOutput->farClip;
     resolveRequest.clearColor             = true;
     resolveRequest.clearDepth             = false;
     resolveRequest.preserveAspectRatio    = true;

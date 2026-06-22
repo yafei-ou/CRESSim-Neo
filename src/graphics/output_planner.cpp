@@ -70,6 +70,7 @@ void populateResolvedCameraView(const CameraData &camera, const GpuEntitySceneVi
                                 ResolvedCameraView &outView)
 {
     outView.entityId          = camera.entityId;
+    outView.product           = camera.product;
     outView.viewport          = common::runtime_math::normalizeViewport(camera.viewport);
     outView.clearColor        = camera.clearColor;
     outView.clearDepth        = camera.clearDepth;
@@ -95,6 +96,12 @@ void logInvalidExplicitTarget(const CameraData &camera)
                         " because its render target binding is invalid.");
 }
 
+void logUnsupportedCameraOutput(const CameraData &camera, const char *reason)
+{
+    CRESSIM_LOG_WARNING("Renderer: skipping camera entity ", camera.entityId, " because ",
+                        reason, ".");
+}
+
 } // namespace
 
 CameraOutputPlanningResult planCameraOutputs(
@@ -118,6 +125,10 @@ CameraOutputPlanningResult planCameraOutputs(
     for (const CameraData &camera : cameras)
     {
         if (camera.output.mode != gpu::RenderOutputMode::ManagedPrimary)
+        {
+            continue;
+        }
+        if (camera.product == CameraData::Product::Depth)
         {
             continue;
         }
@@ -198,6 +209,12 @@ CameraOutputPlanningResult planCameraOutputs(
     {
         if (camera.output.mode == gpu::RenderOutputMode::ManagedPrimary)
         {
+            if (camera.product == CameraData::Product::Depth)
+            {
+                logUnsupportedCameraOutput(
+                    camera, "depth cameras currently require ExplicitSurface output binding");
+                continue;
+            }
             const RenderTargetFamilyKey key = makeRenderTargetFamilyKey(
                 buildManagedPrimaryDesc(camera, defaultRenderTargetDesc, presentationTarget));
             const auto familyIt = managedFamilies.find(key);
@@ -256,6 +273,16 @@ CameraOutputPlanningResult planCameraOutputs(
         if (!renderTargetSystem.tryGetRenderTargetDesc(target, targetDesc))
         {
             logInvalidExplicitTarget(camera);
+            continue;
+        }
+        if (camera.product == CameraData::Product::Color && !targetDesc.color)
+        {
+            logUnsupportedCameraOutput(camera, "its Color product needs a color-capable target");
+            continue;
+        }
+        if (camera.product == CameraData::Product::Depth && !targetDesc.depth)
+        {
+            logUnsupportedCameraOutput(camera, "its Depth product needs a depth-capable target");
             continue;
         }
 

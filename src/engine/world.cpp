@@ -917,6 +917,9 @@ void World::setCamera(common::EntityId entityId, const CameraComponent &componen
     cameraData.verticalFovDegrees = component.verticalFovDegrees;
     cameraData.nearClip           = component.nearClip;
     cameraData.farClip            = component.farClip;
+    cameraData.product            = component.product == CameraComponent::Product::Depth
+                                        ? graphics::CameraData::Product::Depth
+                                        : graphics::CameraData::Product::Color;
     cameraData.output             = component.output;
     cameraData.outputWidth        = component.outputWidth;
     cameraData.outputHeight       = component.outputHeight;
@@ -1894,6 +1897,9 @@ std::optional<CameraComponent> World::tryGetCamera(common::EntityId entityId) co
     component.verticalFovDegrees = camera.verticalFovDegrees;
     component.nearClip           = camera.nearClip;
     component.farClip            = camera.farClip;
+    component.product            = camera.product == graphics::CameraData::Product::Depth
+                                       ? CameraComponent::Product::Depth
+                                       : CameraComponent::Product::Color;
     component.output             = camera.output;
     component.outputWidth        = camera.outputWidth;
     component.outputHeight       = camera.outputHeight;

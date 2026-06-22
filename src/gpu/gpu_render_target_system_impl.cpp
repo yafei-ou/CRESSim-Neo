@@ -129,8 +129,11 @@ void GpuRenderTargetSystemImpl::shutdown()
     mActiveRenderTargetBinding     = {};
     mRenderTargets.clear();
     mPendingReadbackRequests.clear();
+    mPendingDepthReadbackRequests.clear();
     mPendingReadbackCopies.clear();
+    mPendingDepthReadbackCopies.clear();
     mCompletedReadbacks.clear();
+    mCompletedDepthReadbacks.clear();
     mReadbackFence   = nullptr;
     mRenderDevice    = nullptr;
     mGraphicsContext = nullptr;
@@ -147,6 +150,13 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContex
     {
         (void)requestBinding;
         completedRequests.push_back(requestId);
+    }
+    std::vector<std::uint64_t> completedDepthRequests;
+    completedDepthRequests.reserve(mPendingDepthReadbackRequests.size());
+    for (const auto &[requestId, requestBinding] : mPendingDepthReadbackRequests)
+    {
+        (void)requestBinding;
+        completedDepthRequests.push_back(requestId);
     }
 
     if (!mInitialized || !supportsDiligentRenderTargets(mBackend) || !mGraphicsContext)
@@ -166,6 +176,21 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContex
             }
             mCompletedReadbacks[requestId] = event;
         }
+        for (const std::uint64_t requestId : completedDepthRequests)
+        {
+            const GpuRenderTargetBinding requestBinding = mPendingDepthReadbackRequests[requestId];
+            mPendingDepthReadbackRequests.erase(requestId);
+
+            GpuRenderTargetDepthReadbackEvent event{};
+            event.binding       = requestBinding;
+            event.frameIndex    = frameContext.frameIndex;
+            const auto targetIt = mRenderTargets.find(requestBinding.target.id);
+            if (targetIt != mRenderTargets.end())
+            {
+                event.depthFormat = targetIt->second.desc.depthFormat;
+            }
+            mCompletedDepthReadbacks[requestId] = event;
+        }
 
         for (const PendingReadbackCopy &copy : mPendingReadbackCopies)
         {
@@ -176,6 +201,15 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContex
             mCompletedReadbacks[copy.requestId] = event;
         }
         mPendingReadbackCopies.clear();
+        for (const PendingDepthReadbackCopy &copy : mPendingDepthReadbackCopies)
+        {
+            GpuRenderTargetDepthReadbackEvent event{};
+            event.binding                       = copy.binding;
+            event.frameIndex                    = copy.frameIndex;
+            event.depthFormat                   = copy.depthFormat;
+            mCompletedDepthReadbacks[copy.requestId] = event;
+        }
+        mPendingDepthReadbackCopies.clear();
         return;
     }
 
@@ -197,6 +231,25 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContex
             event.colorFormat = targetIt->second.desc.colorFormat;
         }
         mCompletedReadbacks[requestId] = event;
+    }
+    for (const std::uint64_t requestId : completedDepthRequests)
+    {
+        const GpuRenderTargetBinding requestBinding = mPendingDepthReadbackRequests[requestId];
+        mPendingDepthReadbackRequests.erase(requestId);
+        if (queueDepthReadbackCopy(requestBinding, frameContext.frameIndex, requestId))
+        {
+            continue;
+        }
+
+        GpuRenderTargetDepthReadbackEvent event{};
+        event.binding       = requestBinding;
+        event.frameIndex    = frameContext.frameIndex;
+        const auto targetIt = mRenderTargets.find(requestBinding.target.id);
+        if (targetIt != mRenderTargets.end())
+        {
+            event.depthFormat = targetIt->second.desc.depthFormat;
+        }
+        mCompletedDepthReadbacks[requestId] = event;
     }
 
     if (submitFrameCommands)
@@ -259,6 +312,61 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContex
     }
 
     mPendingReadbackCopies.clear();
+
+    for (const PendingDepthReadbackCopy &copy : mPendingDepthReadbackCopies)
+    {
+        GpuRenderTargetDepthReadbackEvent event{};
+        event.binding     = copy.binding;
+        event.frameIndex  = copy.frameIndex;
+        event.depthFormat = copy.depthFormat;
+
+        if (copy.stagingTexture != nullptr && copy.width > 0 && copy.height > 0)
+        {
+            if (mReadbackFence != nullptr && copy.fenceValue > 0)
+            {
+                mReadbackFence->Wait(copy.fenceValue);
+            }
+
+            Diligent::MappedTextureSubresource mappedData{};
+            mGraphicsContext->MapTextureSubresource(copy.stagingTexture, 0, 0, Diligent::MAP_READ,
+                                                    Diligent::MAP_FLAG_DO_NOT_WAIT, nullptr,
+                                                    mappedData);
+
+            if (mappedData.pData != nullptr)
+            {
+                const auto &formatAttribs = Diligent::GetTextureFormatAttribs(copy.depthFormat);
+                const std::uint32_t pixelStrideBytes = formatAttribs.GetElementSize();
+                if (pixelStrideBytes == 0u)
+                {
+                    mGraphicsContext->UnmapTextureSubresource(copy.stagingTexture, 0, 0);
+                    mCompletedDepthReadbacks[copy.requestId] = event;
+                    continue;
+                }
+
+                event.width          = copy.width;
+                event.height         = copy.height;
+                event.rowStrideBytes = copy.width * pixelStrideBytes;
+                event.depthBytes.resize(static_cast<std::size_t>(event.rowStrideBytes) *
+                                        static_cast<std::size_t>(event.height));
+
+                const auto *srcRows = static_cast<const std::uint8_t *>(mappedData.pData);
+                auto *dstRows       = event.depthBytes.data();
+                for (std::uint32_t y = 0; y < event.height; ++y)
+                {
+                    std::memcpy(dstRows + static_cast<std::size_t>(y) * event.rowStrideBytes,
+                                srcRows + static_cast<std::size_t>(y) *
+                                              static_cast<std::size_t>(mappedData.Stride),
+                                event.rowStrideBytes);
+                }
+
+                mGraphicsContext->UnmapTextureSubresource(copy.stagingTexture, 0, 0);
+            }
+        }
+
+        mCompletedDepthReadbacks[copy.requestId] = event;
+    }
+
+    mPendingDepthReadbackCopies.clear();
 }
 
 void GpuRenderTargetSystemImpl::fillBackendContextState(GpuGraphicsBackendContext &outContext) const
@@ -399,6 +507,17 @@ void GpuRenderTargetSystemImpl::destroyRenderTarget(GpuRenderTargetHandle target
         event.colorFormat              = targetColorFormat;
         mCompletedReadbacks[requestId] = std::move(event);
     };
+    auto completeDepthRequestWithEmptyResult = [&](std::uint64_t requestId)
+    {
+        GpuRenderTargetDepthReadbackEvent event{};
+        event.binding                       = GpuRenderTargetBinding{target, 0u, 1u};
+        const auto targetIt = mRenderTargets.find(target.id);
+        if (targetIt != mRenderTargets.end())
+        {
+            event.depthFormat = targetIt->second.desc.depthFormat;
+        }
+        mCompletedDepthReadbacks[requestId] = std::move(event);
+    };
 
     for (auto it = mPendingReadbackRequests.begin(); it != mPendingReadbackRequests.end();)
     {
@@ -410,6 +529,17 @@ void GpuRenderTargetSystemImpl::destroyRenderTarget(GpuRenderTargetHandle target
 
         completeRequestWithEmptyResult(it->first);
         it = mPendingReadbackRequests.erase(it);
+    }
+    for (auto it = mPendingDepthReadbackRequests.begin(); it != mPendingDepthReadbackRequests.end();)
+    {
+        if (it->second.target.id != target.id)
+        {
+            ++it;
+            continue;
+        }
+
+        completeDepthRequestWithEmptyResult(it->first);
+        it = mPendingDepthReadbackRequests.erase(it);
     }
 
     mPendingReadbackCopies.erase(std::remove_if(mPendingReadbackCopies.begin(),
@@ -424,6 +554,18 @@ void GpuRenderTargetSystemImpl::destroyRenderTarget(GpuRenderTargetHandle target
                                                     return true;
                                                 }),
                                  mPendingReadbackCopies.end());
+    mPendingDepthReadbackCopies.erase(
+        std::remove_if(mPendingDepthReadbackCopies.begin(), mPendingDepthReadbackCopies.end(),
+                       [&](const PendingDepthReadbackCopy &copy)
+                       {
+                           if (copy.binding.target.id != target.id)
+                           {
+                               return false;
+                           }
+                           completeDepthRequestWithEmptyResult(copy.requestId);
+                           return true;
+                       }),
+        mPendingDepthReadbackCopies.end());
     mRenderTargets.erase(target.id);
 }
 
@@ -698,6 +840,33 @@ GpuRenderTargetReadbackRequest GpuRenderTargetSystemImpl::requestRenderTargetRea
     return request;
 }
 
+GpuRenderTargetDepthReadbackRequest GpuRenderTargetSystemImpl::requestRenderTargetDepthReadback(
+    const GpuRenderTargetBinding &binding)
+{
+    GpuRenderTargetDepthReadbackRequest request{};
+
+    const auto it = mRenderTargets.find(binding.target.id);
+    if (it == mRenderTargets.end() || it->second.depthTexture == nullptr)
+    {
+        return request;
+    }
+
+    const GpuRenderTargetBinding normalized = normalizeBinding(binding, it->second);
+    if (normalized.layerCount != 1u)
+    {
+        return request;
+    }
+
+    std::uint64_t requestId = mNextReadbackRequestId++;
+    if (requestId == 0)
+    {
+        requestId = mNextReadbackRequestId++;
+    }
+    request.id = requestId;
+    mPendingDepthReadbackRequests.emplace(requestId, normalized);
+    return request;
+}
+
 bool GpuRenderTargetSystemImpl::tryGetRenderTargetReadback(GpuRenderTargetReadbackRequest request,
                                                            GpuRenderTargetReadbackEvent &outEvent)
 {
@@ -714,6 +883,25 @@ bool GpuRenderTargetSystemImpl::tryGetRenderTargetReadback(GpuRenderTargetReadba
 
     outEvent = completedIt->second;
     mCompletedReadbacks.erase(completedIt);
+    return true;
+}
+
+bool GpuRenderTargetSystemImpl::tryGetRenderTargetDepthReadback(
+    GpuRenderTargetDepthReadbackRequest request, GpuRenderTargetDepthReadbackEvent &outEvent)
+{
+    if (request.id == 0)
+    {
+        return false;
+    }
+
+    const auto completedIt = mCompletedDepthReadbacks.find(request.id);
+    if (completedIt == mCompletedDepthReadbacks.end())
+    {
+        return false;
+    }
+
+    outEvent = completedIt->second;
+    mCompletedDepthReadbacks.erase(completedIt);
     return true;
 }
 
@@ -933,6 +1121,74 @@ bool GpuRenderTargetSystemImpl::queueReadbackCopy(const GpuRenderTargetBinding &
     readbackCopy.colorFormat    = resources.desc.colorFormat;
     readbackCopy.stagingTexture = std::move(stagingTexture);
     mPendingReadbackCopies.push_back(std::move(readbackCopy));
+    return true;
+}
+
+bool GpuRenderTargetSystemImpl::queueDepthReadbackCopy(const GpuRenderTargetBinding &binding,
+                                                       std::uint64_t frameIndex,
+                                                       std::uint64_t requestId)
+{
+    if (!mRenderDevice || !mGraphicsContext || !mReadbackFence ||
+        !supportsDiligentRenderTargets(mBackend) || requestId == 0)
+    {
+        return false;
+    }
+
+    const auto targetIt = mRenderTargets.find(binding.target.id);
+    if (targetIt == mRenderTargets.end())
+    {
+        return false;
+    }
+
+    const RenderTargetResources &resources  = targetIt->second;
+    const GpuRenderTargetBinding normalized = normalizeBinding(binding, resources);
+    if (normalized.layerCount != 1u || resources.depthTexture == nullptr)
+    {
+        return false;
+    }
+
+    const auto &formatAttribs = Diligent::GetTextureFormatAttribs(resources.depthFormat);
+    if (formatAttribs.GetElementSize() == 0u || formatAttribs.IsTypeless)
+    {
+        return false;
+    }
+
+    Diligent::TextureDesc stagingDesc = resources.depthTexture->GetDesc();
+    const std::string stagingName     = resources.desc.debugName + ".DepthReadback";
+    stagingDesc.Name                  = stagingName.c_str();
+    stagingDesc.Type                  = Diligent::RESOURCE_DIM_TEX_2D;
+    stagingDesc.ArraySize             = 1u;
+    stagingDesc.BindFlags             = Diligent::BIND_NONE;
+    stagingDesc.Usage                 = Diligent::USAGE_STAGING;
+    stagingDesc.CPUAccessFlags        = Diligent::CPU_ACCESS_READ;
+    stagingDesc.MiscFlags             = Diligent::MISC_TEXTURE_FLAG_NONE;
+
+    Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
+    mRenderDevice->CreateTexture(stagingDesc, nullptr, &stagingTexture);
+    if (stagingTexture == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::CopyTextureAttribs copyAttribs{
+        resources.depthTexture, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION, stagingTexture,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION};
+    copyAttribs.SrcSlice = normalized.firstLayer;
+    mGraphicsContext->CopyTexture(copyAttribs);
+
+    const std::uint64_t fenceValue = mNextReadbackFenceValue++;
+    mGraphicsContext->EnqueueSignal(mReadbackFence, fenceValue);
+
+    PendingDepthReadbackCopy readbackCopy{};
+    readbackCopy.requestId      = requestId;
+    readbackCopy.binding        = normalized;
+    readbackCopy.frameIndex     = frameIndex;
+    readbackCopy.fenceValue     = fenceValue;
+    readbackCopy.width          = resources.desc.width;
+    readbackCopy.height         = resources.desc.height;
+    readbackCopy.depthFormat    = resources.depthFormat;
+    readbackCopy.stagingTexture = std::move(stagingTexture);
+    mPendingDepthReadbackCopies.push_back(std::move(readbackCopy));
     return true;
 }
 

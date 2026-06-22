@@ -40,6 +40,10 @@ public:
         const GpuRenderTargetBinding &binding)                                      = 0;
     virtual bool tryGetRenderTargetReadback(GpuRenderTargetReadbackRequest request,
                                             GpuRenderTargetReadbackEvent &outEvent) = 0;
+    virtual GpuRenderTargetDepthReadbackRequest requestRenderTargetDepthReadback(
+        const GpuRenderTargetBinding &binding) = 0;
+    virtual bool tryGetRenderTargetDepthReadback(GpuRenderTargetDepthReadbackRequest request,
+                                                 GpuRenderTargetDepthReadbackEvent &outEvent) = 0;
     virtual bool tryGetRenderTargetColorTexture(GpuRenderTargetHandle target,
                                                 Diligent::ITexture *&outTexture)    = 0;
     virtual bool tryGetRenderTargetDepthTexture(GpuRenderTargetHandle target,

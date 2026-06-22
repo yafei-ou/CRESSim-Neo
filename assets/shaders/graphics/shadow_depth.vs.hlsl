@@ -22,6 +22,57 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
 #endif
 )
 {
+#if defined(CRESSIM_CAMERA_DEPTH_PASS)
+    const uint objectIndex = g_InstanceIndex;
+    const uint cameraIndex = g_ShadowMatrixIndex;
+    const PreparedCamera preparedCamera = CRESSIM_SB_LOAD(g_PreparedCameras, cameraIndex);
+
+    bool poseValid = false;
+    float3 position = float3(0.0, 0.0, 0.0);
+    float4 orientation = float4(0.0, 0.0, 0.0, 1.0);
+    float3 scale = float3(1.0, 1.0, 1.0);
+    loadRenderablePose(objectIndex, poseValid, position, orientation, scale);
+
+    const uint localObjectIndex = objectIndex - preparedCamera.objectRangeStart;
+    const uint visibilityIndex = preparedCamera.visibilityDataOffset + localObjectIndex;
+    if (!poseValid || preparedCamera.active == 0u ||
+        CRESSIM_SB_LOAD(g_RenderableVisibilityFlags, visibilityIndex) == 0u)
+    {
+        Out.Position = float4(2.0, 2.0, 2.0, 1.0);
+#if MANUAL_LAYER_EXPORT
+        Out.Layer = 0u;
+#endif
+        return;
+    }
+
+    float4 worldPos = float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
+#if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
+    const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
+    if (metadata.deformVertexBase != CRESSIM_INVALID_DEFORM_VERTEX_BASE &&
+        vertexId < metadata.deformVertexCount)
+    {
+        const float3 deformedPos =
+            CRESSIM_SB_LOAD(g_SoftBodyRenderPositions, metadata.deformVertexBase + vertexId).xyz;
+        worldPos = float4(deformedPos, 1.0);
+    }
+#elif defined(CRESSIM_PROGRAM_FAMILY_CURVE)
+    const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
+    if (metadata.deformVertexBase != CRESSIM_INVALID_DEFORM_VERTEX_BASE &&
+        vertexId < metadata.deformVertexCount)
+    {
+        worldPos =
+            float4(CRESSIM_SB_LOAD(g_CurveRenderPositions, metadata.deformVertexBase + vertexId).xyz,
+                   1.0);
+    }
+#endif
+
+    Out.Position = mul(worldPos, preparedCamera.viewProjectionMatrix);
+#if MANUAL_LAYER_EXPORT
+    Out.Layer = 0u;
+#endif
+    return;
+#else
+
     uint objectIndex = g_InstanceIndex;
     uint cameraIndex = 0u;
     uint shadowLayer = 0u;
@@ -124,5 +175,6 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
     Out.Position = mul(worldPos, preparedCamera.lightViewProjectionMatrices[g_CascadeIndex]);
 #if MANUAL_LAYER_EXPORT
     Out.Layer = shadowLayer;
+#endif
 #endif
 }

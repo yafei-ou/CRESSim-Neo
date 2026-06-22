@@ -36,6 +36,12 @@ struct MeshRendererComponent
 
 struct CameraComponent
 {
+    enum class Product : std::uint32_t
+    {
+        Color = 0u,
+        Depth = 1u,
+    };
+
     enum class BackgroundMode : std::uint32_t
     {
         ClearColor         = 0u,
@@ -45,6 +51,7 @@ struct CameraComponent
     float verticalFovDegrees = 60.0f;
     float nearClip           = 0.01f;
     float farClip            = 1000.0f;
+    Product product          = Product::Color;
 
     // ManagedPrimary renders into the renderer-managed primary layered surface for presentation.
     // ExplicitSurface renders directly into the bound target layer. Binding a non-array target

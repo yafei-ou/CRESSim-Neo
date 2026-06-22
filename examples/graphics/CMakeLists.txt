@@ -14,3 +14,8 @@ add_cressim_example(
     NAME graphics_transparent
     SOURCE transparent.cpp
 )
+
+add_cressim_example(
+    NAME graphics_depth_camera
+    SOURCE depth_camera.cpp
+)

@@ -44,9 +44,18 @@ struct RenderFrameOptions
 {
     struct PresentedExplicitOutput
     {
+        enum class SourceKind : std::uint32_t
+        {
+            Color = 0u,
+            Depth = 1u,
+        };
+
         gpu::GpuRenderTargetBinding binding{};
         gpu::GpuRenderTargetDesc sourceTargetDesc{};
+        SourceKind sourceKind        = SourceKind::Color;
         bool sourceIsDisplayEncoded = false;
+        float nearClip              = 0.01f;
+        float farClip               = 1000.0f;
 
         bool isValid() const noexcept
         {

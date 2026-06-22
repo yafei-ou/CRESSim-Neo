@@ -6,6 +6,7 @@
 #include "graphics/passes/debug_particle_pass.h"
 #include "graphics/passes/debug_routed_cable_pass.h"
 #include "graphics/passes/debug_strand_frame_pass.h"
+#include "graphics/passes/camera_depth_pass.h"
 #include "graphics/passes/fluid_color_pass.h"
 #include "graphics/passes/fluid_composite_pass.h"
 #include "graphics/passes/fluid_depth_filter_pass.h"
@@ -59,6 +60,22 @@ const EnvironmentFluidDesc &environmentFluidForCamera(const HostSceneView &scene
         return kDefaultEnvironmentFluid;
     }
     return (*sceneView.environmentFluids)[envIndex];
+}
+
+MaterialProgramFamily cameraDepthProgramFamily(const MaterialResourceDesc &material,
+                                               const GpuRenderableMetadata &metadata) noexcept
+{
+    const auto deformableType =
+        static_cast<GpuRenderableDeformableType>(metadata.deformableType);
+    if (deformableType == GpuRenderableDeformableType::SoftBody)
+    {
+        return MaterialProgramFamily::SoftBodyLit;
+    }
+    if (deformableType == GpuRenderableDeformableType::Curve)
+    {
+        return MaterialProgramFamily::CurveLit;
+    }
+    return material.pipeline.programFamily;
 }
 
 constexpr std::uint32_t kIndirectThreadGroupSize = 64u;
@@ -505,10 +522,19 @@ bool ForwardPipeline::initialize()
         return false;
     }
 
+    mCameraDepthPass = std::make_unique<CameraDepthPass>(mDevice, mResourceManager);
+    if (!mCameraDepthPass->initialize())
+    {
+        mCameraDepthPass.reset();
+        mForwardOpaquePass.reset();
+        return false;
+    }
+
     mShadowPass = std::make_unique<ShadowPass>(mDevice, mResourceManager);
     if (!mShadowPass->initialize())
     {
         mShadowPass.reset();
+        mCameraDepthPass.reset();
         mForwardOpaquePass.reset();
         return false;
     }
@@ -517,6 +543,7 @@ bool ForwardPipeline::initialize()
     if (!mSkyboxPass->initialize())
     {
         mSkyboxPass.reset();
+        mCameraDepthPass.reset();
         mForwardOpaquePass.reset();
         return false;
     }
@@ -526,6 +553,7 @@ bool ForwardPipeline::initialize()
     {
         mDebugParticlePass.reset();
         mShadowPass.reset();
+        mCameraDepthPass.reset();
         mForwardOpaquePass.reset();
         return false;
     }
@@ -536,6 +564,7 @@ bool ForwardPipeline::initialize()
         mDebugRoutedCablePass.reset();
         mDebugParticlePass.reset();
         mShadowPass.reset();
+        mCameraDepthPass.reset();
         mForwardOpaquePass.reset();
         return false;
     }
@@ -547,6 +576,7 @@ bool ForwardPipeline::initialize()
         mDebugRoutedCablePass.reset();
         mDebugParticlePass.reset();
         mShadowPass.reset();
+        mCameraDepthPass.reset();
         mForwardOpaquePass.reset();
         return false;
     }
@@ -667,6 +697,7 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     {
         return false;
     }
+    const bool depthBatch = batchView.cameras.front().product == CameraData::Product::Depth;
 
     const GpuEntitySceneView emptyGpuScene{};
     const GpuEntitySceneView &gpuScene =
@@ -747,6 +778,11 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     mForwardOpaquePass->setGpuSceneView(gpuScene);
     mForwardOpaquePass->setPhysicsSceneView(physicsScene);
     mForwardOpaquePass->setEnvironmentIbls(sceneView.environmentIbls, gpuScene.layout.envCount);
+    if (mCameraDepthPass != nullptr)
+    {
+        mCameraDepthPass->setGpuSceneView(gpuScene);
+        mCameraDepthPass->setPhysicsSceneView(physicsScene);
+    }
     if (mShadowPass != nullptr)
     {
         mShadowPass->setGpuSceneView(gpuScene);
@@ -761,6 +797,87 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
         return false;
     }
     const Diligent::Uint64 graphicsContextMask = gpu::contextMaskForId(backendContext.contextId);
+
+    if (depthBatch)
+    {
+        if (mCameraDepthPass == nullptr || !batchView.renderTargetDesc.depth)
+        {
+            return false;
+        }
+        if (sceneView.renderables == nullptr || sceneView.renderableMetadata == nullptr)
+        {
+            return false;
+        }
+
+        const auto &renderables = *sceneView.renderables;
+        const auto &metadata    = *sceneView.renderableMetadata;
+
+        for (const ResolvedCameraView &camera : batchView.cameras)
+        {
+            const gpu::GpuRenderTargetBinding depthBinding{
+                batchView.renderBinding.target, camera.outputBinding.firstLayer, 1u};
+            mDevice.renderTargetSystem().setRenderTargetViewport(
+                depthBinding, camera.useOutputViewport ? camera.viewport : gpu::GpuRenderViewport{});
+
+            gpu::GpuRenderPassBeginDesc depthBegin{};
+            depthBegin.clearColor = false;
+            depthBegin.clearDepth = camera.clearDepth;
+            depthBegin.clearDepthValue = camera.clearDepthValue;
+            mDevice.renderTargetSystem().beginRenderTarget(depthBinding, frameContext, depthBegin);
+
+            if (!mCameraDepthPass->beginCamera(camera.globalCameraIndex))
+            {
+                mDevice.renderTargetSystem().endRenderTarget(depthBinding, frameContext);
+                return false;
+            }
+
+            const std::uint32_t renderableCount =
+                std::min(static_cast<std::uint32_t>(renderables.size()),
+                         static_cast<std::uint32_t>(metadata.size()));
+            for (std::uint32_t objectIndex = 0u; objectIndex < renderableCount; ++objectIndex)
+            {
+                const RenderableInstance &renderable = renderables[objectIndex];
+                const GpuRenderableMetadata &renderableMetadata = metadata[objectIndex];
+                if (!renderable.visible ||
+                    (renderableMetadata.flags &
+                     static_cast<std::uint32_t>(GpuRenderableFlags::Active)) == 0u ||
+                    (renderableMetadata.flags &
+                     static_cast<std::uint32_t>(GpuRenderableFlags::Opaque)) == 0u)
+                {
+                    continue;
+                }
+
+                const MaterialResourceDesc *material =
+                    mResourceManager.tryGetMaterial(renderable.material);
+                const MeshResourceDesc *mesh = mResourceManager.tryGetMesh(renderable.mesh);
+                if (material == nullptr || mesh == nullptr || usesTransparentPass(*material))
+                {
+                    continue;
+                }
+                ForwardDrawCommand drawCommand{};
+                drawCommand.instanceIndex      = objectIndex;
+                drawCommand.useDrawListBuffer  = 0u;
+                drawCommand.drawListOffset     = 0u;
+                drawCommand.programFamily =
+                    cameraDepthProgramFamily(*material, renderableMetadata);
+                drawCommand.materialFeatureFlags = effectiveMaterialFeatureFlags(*material);
+                drawCommand.meshId               = renderable.mesh.id;
+                drawCommand.materialId           = renderable.material.id;
+                drawCommand.meshVersion          = mResourceManager.meshVersion(renderable.mesh);
+                drawCommand.indexCount =
+                    static_cast<std::uint32_t>(mesh->indices.size());
+                if (!mCameraDepthPass->drawIndexed(depthBinding, drawCommand))
+                {
+                    continue;
+                }
+                ++outStats.opaqueDrawCalls;
+            }
+
+            mDevice.renderTargetSystem().endRenderTarget(depthBinding, frameContext);
+        }
+
+        return true;
+    }
 
     const std::uint32_t envCount                  = gpuScene.layout.envCount;
     const std::uint32_t totalLightCount           = gpuScene.layout.totalLightCapacity();

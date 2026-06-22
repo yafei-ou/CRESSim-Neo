@@ -215,6 +215,8 @@ Diligent::IPipelineState *DisplayResolvePass::getOrCreatePipeline(
     constexpr Diligent::ShaderResourceVariableDesc kVars[] = {
         {Diligent::SHADER_TYPE_PIXEL, "g_SourceColor",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_SourceDepth",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
     psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
@@ -266,7 +268,7 @@ Diligent::IShaderResourceBinding *DisplayResolvePass::getOrCreateResolveBinding(
     return insertResult.first->second;
 }
 
-Diligent::RefCntAutoPtr<Diligent::ITextureView> DisplayResolvePass::createArraySrv(
+Diligent::RefCntAutoPtr<Diligent::ITextureView> DisplayResolvePass::createSourceSrv(
     Diligent::ITexture *texture) const
 {
     if (texture == nullptr)
@@ -277,12 +279,13 @@ Diligent::RefCntAutoPtr<Diligent::ITextureView> DisplayResolvePass::createArrayS
     const Diligent::TextureDesc &textureDesc = texture->GetDesc();
     Diligent::TextureViewDesc viewDesc{};
     viewDesc.ViewType        = Diligent::TEXTURE_VIEW_SHADER_RESOURCE;
-    viewDesc.TextureDim      = textureDesc.Type;
+    viewDesc.TextureDim      = Diligent::RESOURCE_DIM_TEX_2D_ARRAY;
     viewDesc.MostDetailedMip = 0u;
     viewDesc.NumMipLevels    = 1u;
     viewDesc.FirstArraySlice = 0u;
-    viewDesc.NumArraySlices =
-        textureDesc.Type == Diligent::RESOURCE_DIM_TEX_2D_ARRAY ? textureDesc.ArraySize : 1u;
+    viewDesc.NumArraySlices = textureDesc.Type == Diligent::RESOURCE_DIM_TEX_2D_ARRAY
+                                  ? textureDesc.ArraySize
+                                  : 1u;
 
     Diligent::RefCntAutoPtr<Diligent::ITextureView> srv;
     texture->CreateView(viewDesc, &srv);
@@ -310,9 +313,15 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     }
 
     Diligent::ITexture *sourceTexture = nullptr;
-    if (!mDevice.renderTargetSystem().tryGetRenderTargetColorTexture(request.sourceBinding.target,
-                                                                     sourceTexture) ||
-        sourceTexture == nullptr)
+    const bool useDepthSource =
+        request.sourceKind == RenderFrameOptions::PresentedExplicitOutput::SourceKind::Depth;
+    const bool hasSourceTexture =
+        useDepthSource
+            ? mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(request.sourceBinding.target,
+                                                                          sourceTexture)
+            : mDevice.renderTargetSystem().tryGetRenderTargetColorTexture(request.sourceBinding.target,
+                                                                          sourceTexture);
+    if (!hasSourceTexture || sourceTexture == nullptr)
     {
         return false;
     }
@@ -333,7 +342,7 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
         return false;
     }
 
-    Diligent::RefCntAutoPtr<Diligent::ITextureView> sourceSrv = createArraySrv(sourceTexture);
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> sourceSrv = createSourceSrv(sourceTexture);
     if (sourceSrv == nullptr)
     {
         return false;
@@ -346,11 +355,14 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     }
     Diligent::IShaderResourceVariable *sourceColorVar =
         resolveBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_SourceColor");
-    if (sourceColorVar == nullptr)
+    Diligent::IShaderResourceVariable *sourceDepthVar =
+        resolveBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_SourceDepth");
+    if (sourceColorVar == nullptr || sourceDepthVar == nullptr)
     {
         return false;
     }
-    sourceColorVar->Set(sourceSrv);
+    sourceColorVar->Set(useDepthSource ? nullptr : sourceSrv);
+    sourceDepthVar->Set(useDepthSource ? sourceSrv : nullptr);
 
     ResolveConstants constants{};
     constants.layer      = request.sourceBinding.firstLayer;
@@ -358,7 +370,10 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
         resolveOutputModeForFormat(request.presentationTarget.colorFormat));
     constants.toneMapper             = static_cast<std::uint32_t>(request.toneMapper);
     constants.sourceIsDisplayEncoded = request.sourceIsDisplayEncoded ? 1u : 0u;
+    constants.sourceKind             = static_cast<std::uint32_t>(request.sourceKind);
     constants.resolveParams[0]       = request.exposure;
+    constants.resolveParams[1]       = request.nearClip;
+    constants.resolveParams[2]       = request.farClip;
     void *mapped                     = nullptr;
     backendContext.graphicsContext->MapBuffer(mConstantsBuffer, Diligent::MAP_WRITE,
                                               Diligent::MAP_FLAG_DISCARD, mapped);

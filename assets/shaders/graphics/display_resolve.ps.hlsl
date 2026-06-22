@@ -4,11 +4,17 @@ cbuffer GraphicsDisplayResolve
     uint g_OutputMode;
     uint g_ToneMapper;
     uint g_SourceIsDisplayEncoded;
+    uint g_SourceKind;
+    uint g_ResolveReserved0;
+    uint g_ResolveReserved1;
+    uint g_ResolveReserved2;
     float4 g_ResolveParams;
 };
 
 Texture2DArray<float4> g_SourceColor;
 SamplerState g_SourceColor_sampler;
+Texture2DArray<float> g_SourceDepth;
+SamplerState g_SourceDepth_sampler;
 
 struct PSInput
 {
@@ -47,10 +53,34 @@ float3 linearToSrgb(float3 color)
     return lerp(lower, higher, cutoff);
 }
 
+float depthToLinear01(float depthSample, float nearClip, float farClip)
+{
+    if (nearClip <= 0.0 || farClip <= nearClip)
+    {
+        return saturate(depthSample);
+    }
+    const float zNdc = depthSample * 2.0 - 1.0;
+    const float linearDepth = (2.0 * nearClip * farClip) /
+                              max(farClip + nearClip - zNdc * (farClip - nearClip), 1.0e-6);
+    return saturate((linearDepth - nearClip) / max(farClip - nearClip, 1.0e-6));
+}
+
 float4 main(in PSInput In) : SV_Target
 {
-    float4 color = g_SourceColor.Sample(g_SourceColor_sampler, float3(In.TexCoord, (float)g_SourceLayer));
-    color.rgb = max(color.rgb, 0.0) * max(g_ResolveParams.x, 0.0);
+    float4 color = float4(0.0, 0.0, 0.0, 1.0);
+    if (g_SourceKind == 1)
+    {
+        const float depth =
+            g_SourceDepth.Sample(g_SourceDepth_sampler, float3(In.TexCoord, (float)g_SourceLayer));
+        const float linearDepth01 = depthToLinear01(depth, g_ResolveParams.y, g_ResolveParams.z);
+        const float displayValue = 1.0 - linearDepth01;
+        color = float4(displayValue.xxx, 1.0);
+    }
+    else
+    {
+        color = g_SourceColor.Sample(g_SourceColor_sampler, float3(In.TexCoord, (float)g_SourceLayer));
+        color.rgb = max(color.rgb, 0.0) * max(g_ResolveParams.x, 0.0);
+    }
     if (g_OutputMode == 0 && g_SourceIsDisplayEncoded == 0)
     {
         if (g_ToneMapper == 1)

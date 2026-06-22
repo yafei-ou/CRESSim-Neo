@@ -46,6 +46,31 @@ inline bool isValidReadback(const ReadbackEvent& event)
            static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height);
 }
 
+template <typename ReadbackEvent>
+inline bool isValidDepthReadback(const ReadbackEvent& event)
+{
+    if (event.width == 0u || event.height == 0u)
+    {
+        return false;
+    }
+
+    const auto& formatAttribs = Diligent::GetTextureFormatAttribs(event.depthFormat);
+    if (formatAttribs.Format == Diligent::TEX_FORMAT_UNKNOWN || formatAttribs.IsTypeless ||
+        formatAttribs.ComponentType == Diligent::COMPONENT_TYPE_COMPRESSED)
+    {
+        return false;
+    }
+
+    const std::uint32_t minStride = event.width * formatAttribs.GetElementSize();
+    if (event.rowStrideBytes < minStride)
+    {
+        return false;
+    }
+
+    return event.depthBytes.size() >=
+           static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height);
+}
+
 inline float halfToFloat(std::uint16_t value)
 {
     const std::uint32_t sign = static_cast<std::uint32_t>(value & 0x8000u) << 16u;
@@ -83,6 +108,33 @@ inline float halfToFloat(std::uint16_t value)
     float result = 0.0f;
     std::memcpy(&result, &bits, sizeof(result));
     return result;
+}
+
+template <typename ReadbackEvent>
+inline float decodeDepthValue(const ReadbackEvent& event, std::uint32_t x, std::uint32_t y)
+{
+    if (!isValidDepthReadback(event))
+    {
+        return 0.0f;
+    }
+
+    const std::size_t offset =
+        static_cast<std::size_t>(y) * event.rowStrideBytes +
+        static_cast<std::size_t>(x) *
+            Diligent::GetTextureFormatAttribs(event.depthFormat).GetElementSize();
+    if (event.depthFormat == Diligent::TEX_FORMAT_D32_FLOAT)
+    {
+        float depth = 0.0f;
+        std::memcpy(&depth, event.depthBytes.data() + offset, sizeof(depth));
+        return depth;
+    }
+    if (event.depthFormat == Diligent::TEX_FORMAT_D16_UNORM)
+    {
+        const std::uint16_t raw = static_cast<std::uint16_t>(event.depthBytes[offset + 0u]) |
+                                  (static_cast<std::uint16_t>(event.depthBytes[offset + 1u]) << 8u);
+        return static_cast<float>(raw) / 65535.0f;
+    }
+    return 0.0f;
 }
 
 template <typename ReadbackEvent>

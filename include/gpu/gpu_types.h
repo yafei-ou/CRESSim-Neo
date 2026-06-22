@@ -126,6 +126,22 @@ struct GpuRenderTargetReadbackRequest
     std::uint64_t id = 0;
 };
 
+struct GpuRenderTargetDepthReadbackEvent
+{
+    GpuRenderTargetBinding binding{};
+    std::uint64_t frameIndex             = 0;
+    Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
+    std::uint32_t width                  = 0;
+    std::uint32_t height                 = 0;
+    std::uint32_t rowStrideBytes         = 0;
+    std::vector<std::uint8_t> depthBytes{};
+};
+
+struct GpuRenderTargetDepthReadbackRequest
+{
+    std::uint64_t id = 0;
+};
+
 struct GpuPresentationTargetDesc
 {
     std::uint32_t width                  = 0;
