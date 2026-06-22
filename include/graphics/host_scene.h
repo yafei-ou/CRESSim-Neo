@@ -34,8 +34,8 @@ struct CameraData
 {
     enum class Product : std::uint32_t
     {
-        Color = 0u,
-        Depth = 1u,
+        ColorDepth = 0u,
+        Depth      = 1u,
     };
 
     common::EntityId entityId = common::kInvalidEntityId;
@@ -45,7 +45,7 @@ struct CameraData
     float verticalFovDegrees = 60.0f;
     float nearClip           = 0.01f;
     float farClip            = 1000.0f;
-    Product product          = Product::Color;
+    Product product          = Product::ColorDepth;
 
     // Render output and scheduling controls copied from engine::CameraComponent.
     gpu::RenderOutputBinding output{};

@@ -38,8 +38,8 @@ struct CameraComponent
 {
     enum class Product : std::uint32_t
     {
-        Color = 0u,
-        Depth = 1u,
+        ColorDepth = 0u,
+        Depth      = 1u,
     };
 
     enum class BackgroundMode : std::uint32_t
@@ -51,11 +51,11 @@ struct CameraComponent
     float verticalFovDegrees = 60.0f;
     float nearClip           = 0.01f;
     float farClip            = 1000.0f;
-    Product product          = Product::Color;
+    Product product          = Product::ColorDepth;
 
-    // ManagedPrimary renders into the renderer-managed primary layered surface for presentation.
-    // ExplicitSurface renders directly into the bound target layer. Binding a non-array target
-    // still means every camera targeting it shares layer 0.
+    // ManagedPrimary renders the normal ColorDepth camera product into the renderer-managed
+    // layered presentation surface. ExplicitSurface renders directly into the bound target layer.
+    // Binding a non-array target still means every camera targeting it shares layer 0.
     gpu::RenderOutputBinding output{};
     // Optional per-camera output resize request (0 keeps current target size).
     std::uint32_t outputWidth  = 0;

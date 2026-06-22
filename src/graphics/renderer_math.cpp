@@ -14,7 +14,7 @@ CameraData defaultCamera()
     camera.verticalFovDegrees = 60.0f;
     camera.nearClip           = 0.01f;
     camera.farClip            = 1000.0f;
-    camera.product            = CameraData::Product::Color;
+    camera.product            = CameraData::Product::ColorDepth;
     camera.viewport           = {};
     camera.clearColor         = true;
     camera.clearDepth         = true;

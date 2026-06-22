@@ -43,13 +43,15 @@ enum class PresentedOutputMode
 enum class PresentedExplicitOutputKind
 {
     UltrasoundProbeImage,
-    DepthCamera,
+    CameraProduct,
 };
 
 struct PresentedExplicitOutputEntry
 {
     PresentedExplicitOutputKind kind = PresentedExplicitOutputKind::UltrasoundProbeImage;
     common::EntityId entityId        = common::kInvalidEntityId;
+    graphics::RenderFrameOptions::PresentedExplicitOutput::SourceKind sourceKind =
+        graphics::RenderFrameOptions::PresentedExplicitOutput::SourceKind::Color;
 };
 
 std::vector<common::EntityId> sortedCameraEntities(const cressim::neo::engine::World &world)
@@ -59,7 +61,8 @@ std::vector<common::EntityId> sortedCameraEntities(const cressim::neo::engine::W
     for (const graphics::CameraData &camera : world.cameras())
     {
         if (camera.entityId == common::kInvalidEntityId || camera.cameraSlot == 0xffffffffu ||
-            camera.product != graphics::CameraData::Product::Color)
+            camera.product != graphics::CameraData::Product::ColorDepth ||
+            camera.output.mode != gpu::RenderOutputMode::ManagedPrimary)
         {
             continue;
         }
@@ -94,14 +97,26 @@ std::vector<PresentedExplicitOutputEntry> sortedPresentedExplicitOutputs(
     for (const graphics::CameraData &camera : world.cameras())
     {
         if (camera.entityId == common::kInvalidEntityId || camera.cameraSlot == 0xffffffffu ||
-            camera.product != graphics::CameraData::Product::Depth ||
             camera.output.mode != gpu::RenderOutputMode::ExplicitSurface ||
             !camera.output.binding.isValid())
         {
             continue;
         }
-        outputs.push_back(PresentedExplicitOutputEntry{PresentedExplicitOutputKind::DepthCamera,
-                                                       camera.entityId});
+        if (camera.product == graphics::CameraData::Product::ColorDepth)
+        {
+            outputs.push_back(PresentedExplicitOutputEntry{
+                PresentedExplicitOutputKind::CameraProduct, camera.entityId,
+                graphics::RenderFrameOptions::PresentedExplicitOutput::SourceKind::Color});
+            outputs.push_back(PresentedExplicitOutputEntry{
+                PresentedExplicitOutputKind::CameraProduct, camera.entityId,
+                graphics::RenderFrameOptions::PresentedExplicitOutput::SourceKind::Depth});
+        }
+        else if (camera.product == graphics::CameraData::Product::Depth)
+        {
+            outputs.push_back(PresentedExplicitOutputEntry{
+                PresentedExplicitOutputKind::CameraProduct, camera.entityId,
+                graphics::RenderFrameOptions::PresentedExplicitOutput::SourceKind::Depth});
+        }
     }
 
     for (const auto &[entityId, component] : world.ultrasoundProbeComponents())
@@ -124,7 +139,15 @@ std::vector<PresentedExplicitOutputEntry> sortedPresentedExplicitOutputs(
                   {
                       return lhs.kind < rhs.kind;
                   }
-                  return lhs.entityId < rhs.entityId;
+                  if (lhs.entityId != rhs.entityId)
+                  {
+                      return lhs.entityId < rhs.entityId;
+                  }
+                  if (lhs.sourceKind != rhs.sourceKind)
+                  {
+                      return lhs.sourceKind < rhs.sourceKind;
+                  }
+                  return false;
               });
     return outputs;
 }
@@ -161,9 +184,13 @@ PresentedExplicitOutputEntry cyclePresentedExplicitOutput(
         return {};
     }
 
-    const auto currentIt = std::find_if(
-        outputs.begin(), outputs.end(), [&](const PresentedExplicitOutputEntry &entry) noexcept
-        { return entry.kind == currentOutput.kind && entry.entityId == currentOutput.entityId; });
+    const auto currentIt = std::find_if(outputs.begin(), outputs.end(),
+                                        [&](const PresentedExplicitOutputEntry &entry) noexcept
+                                        {
+                                            return entry.kind == currentOutput.kind &&
+                                                   entry.entityId == currentOutput.entityId &&
+                                                   entry.sourceKind == currentOutput.sourceKind;
+                                        });
     if (currentIt == outputs.end())
     {
         return outputs.front();
@@ -450,7 +477,7 @@ public:
         if (const std::optional<CameraComponent> presentedCamera =
                 world.tryGetCamera(presentedCameraEntity);
             !presentedCamera.has_value() ||
-            presentedCamera->product != CameraComponent::Product::Color)
+            presentedCamera->product != CameraComponent::Product::ColorDepth)
         {
             const std::vector<common::EntityId> colorCameras = sortedCameraEntities(world);
             if (!colorCameras.empty())
@@ -550,8 +577,10 @@ public:
                     {
                         presentedOutputMode     = PresentedOutputMode::ExplicitOutput;
                         presentedExplicitOutput = firstOutput;
-                        CRESSIM_LOG_INFO("viewer presenting explicit output entity=",
-                                         presentedExplicitOutput.entityId);
+                        CRESSIM_LOG_INFO(
+                            "viewer presenting explicit output entity=",
+                            presentedExplicitOutput.entityId, " source=",
+                            static_cast<std::uint32_t>(presentedExplicitOutput.sourceKind));
                     }
                 }
                 else
@@ -568,8 +597,10 @@ public:
                 {
                     presentedOutputMode     = PresentedOutputMode::ExplicitOutput;
                     presentedExplicitOutput = nextOutput;
-                    CRESSIM_LOG_INFO("viewer presenting explicit output entity=",
-                                     presentedExplicitOutput.entityId);
+                    CRESSIM_LOG_INFO(
+                        "viewer presenting explicit output entity=",
+                        presentedExplicitOutput.entityId,
+                        " source=", static_cast<std::uint32_t>(presentedExplicitOutput.sourceKind));
                 }
             }
             if (consumeKeyPress(mDesc.keymap.cyclePresentedProbeNext))
@@ -580,8 +611,10 @@ public:
                 {
                     presentedOutputMode     = PresentedOutputMode::ExplicitOutput;
                     presentedExplicitOutput = nextOutput;
-                    CRESSIM_LOG_INFO("viewer presenting explicit output entity=",
-                                     presentedExplicitOutput.entityId);
+                    CRESSIM_LOG_INFO(
+                        "viewer presenting explicit output entity=",
+                        presentedExplicitOutput.entityId,
+                        " source=", static_cast<std::uint32_t>(presentedExplicitOutput.sourceKind));
                 }
             }
             if (!world.isAlive(presentedCameraEntity))
@@ -601,7 +634,8 @@ public:
                                 [&](const PresentedExplicitOutputEntry &entry) noexcept
                                 {
                                     return entry.kind == presentedExplicitOutput.kind &&
-                                           entry.entityId == presentedExplicitOutput.entityId;
+                                           entry.entityId == presentedExplicitOutput.entityId &&
+                                           entry.sourceKind == presentedExplicitOutput.sourceKind;
                                 });
                 if (!currentOutputStillAvailable)
                 {
@@ -710,11 +744,13 @@ public:
                         presentedOutputMode = PresentedOutputMode::Camera;
                     }
                 }
-                else
+                else if (presentedExplicitOutput.kind == PresentedExplicitOutputKind::CameraProduct)
                 {
                     const std::optional<CameraComponent> camera =
                         world.tryGetCamera(presentedExplicitOutput.entityId);
-                    if (!camera.has_value() || camera->product != CameraComponent::Product::Depth ||
+                    if (!camera.has_value() ||
+                        (camera->product != CameraComponent::Product::ColorDepth &&
+                         camera->product != CameraComponent::Product::Depth) ||
                         camera->output.mode != gpu::RenderOutputMode::ExplicitSurface ||
                         !camera->output.binding.isValid())
                     {
@@ -722,27 +758,45 @@ public:
                     }
                     else
                     {
-                        gpu::GpuRenderTargetDesc depthTargetDesc{};
+                        gpu::GpuRenderTargetDesc targetDesc{};
                         if (gpu::GpuDevice *const device = runtime.getGpuDevice();
                             device != nullptr &&
                             device->renderTargetSystem().tryGetRenderTargetDesc(
-                                camera->output.binding.target, depthTargetDesc))
+                                camera->output.binding.target, targetDesc))
                         {
-                            graphics::RenderFrameOptions::PresentedExplicitOutput explicitOutput{};
-                            explicitOutput.binding            = camera->output.binding;
-                            explicitOutput.binding.layerCount = 1u;
-                            explicitOutput.sourceTargetDesc   = depthTargetDesc;
-                            explicitOutput.sourceKind         = graphics::RenderFrameOptions::
-                                PresentedExplicitOutput::SourceKind::Depth;
-                            explicitOutput.nearClip               = camera->nearClip;
-                            explicitOutput.farClip                = camera->farClip;
-                            renderOptions.presentedExplicitOutput = explicitOutput;
+                            const bool validSourceKind =
+                                presentedExplicitOutput.sourceKind ==
+                                        graphics::RenderFrameOptions::PresentedExplicitOutput::
+                                            SourceKind::Color
+                                    ? (camera->product == CameraComponent::Product::ColorDepth &&
+                                       targetDesc.color)
+                                    : targetDesc.depth;
+                            if (!validSourceKind)
+                            {
+                                presentedOutputMode = PresentedOutputMode::Camera;
+                            }
+                            else
+                            {
+                                graphics::RenderFrameOptions::PresentedExplicitOutput
+                                    explicitOutput{};
+                                explicitOutput.binding            = camera->output.binding;
+                                explicitOutput.binding.layerCount = 1u;
+                                explicitOutput.sourceTargetDesc   = targetDesc;
+                                explicitOutput.sourceKind = presentedExplicitOutput.sourceKind;
+                                explicitOutput.nearClip   = camera->nearClip;
+                                explicitOutput.farClip    = camera->farClip;
+                                renderOptions.presentedExplicitOutput = explicitOutput;
+                            }
                         }
                         else
                         {
                             presentedOutputMode = PresentedOutputMode::Camera;
                         }
                     }
+                }
+                else
+                {
+                    presentedOutputMode = PresentedOutputMode::Camera;
                 }
             }
             runtime.setRenderFrameOptions(renderOptions);

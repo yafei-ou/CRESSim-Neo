@@ -275,9 +275,12 @@ CameraOutputPlanningResult planCameraOutputs(
             logInvalidExplicitTarget(camera);
             continue;
         }
-        if (camera.product == CameraData::Product::Color && !targetDesc.color)
+        if (camera.product == CameraData::Product::ColorDepth &&
+            (!targetDesc.color || !targetDesc.depth))
         {
-            logUnsupportedCameraOutput(camera, "its Color product needs a color-capable target");
+            logUnsupportedCameraOutput(
+                camera,
+                "its ColorDepth product needs an explicit target with both color and depth");
             continue;
         }
         if (camera.product == CameraData::Product::Depth && !targetDesc.depth)

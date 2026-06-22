@@ -18,10 +18,10 @@ using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshResourceDesc;
-using cressim::neo::gpu::GpuRenderTargetDepthReadbackEvent;
-using cressim::neo::gpu::GpuRenderTargetDepthReadbackRequest;
 using cressim::neo::gpu::GpuRenderTargetDesc;
 using cressim::neo::gpu::GpuRenderTargetHandle;
+using cressim::neo::gpu::GpuRenderTargetReadbackEvent;
+using cressim::neo::gpu::GpuRenderTargetReadbackRequest;
 
 float degreesToRadians(float value)
 {
@@ -171,8 +171,8 @@ int main()
 
     FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
-    GpuRenderTargetDepthReadbackRequest firstRequest{};
-    GpuRenderTargetDepthReadbackRequest secondRequest{};
+    GpuRenderTargetReadbackRequest firstRequest{};
+    GpuRenderTargetReadbackRequest secondRequest{};
 
     for (std::uint64_t frameIndex = 0u; frameIndex < 2u; ++frameIndex)
     {
@@ -183,8 +183,8 @@ int main()
         }
 
         runtime.prepare();
-        const GpuRenderTargetDepthReadbackRequest request =
-            graphicsDevice->renderTargetSystem().requestRenderTargetDepthReadback(
+        const GpuRenderTargetReadbackRequest request =
+            graphicsDevice->renderTargetSystem().requestRenderTargetReadback(
                 cressim::neo::gpu::GpuRenderTargetBinding{target, 0u, 1u});
         if (request.id == 0u)
         {
@@ -208,13 +208,13 @@ int main()
         runtime.endFrame(frame);
     }
 
-    GpuRenderTargetDepthReadbackEvent firstEvent{};
-    GpuRenderTargetDepthReadbackEvent secondEvent{};
+    GpuRenderTargetReadbackEvent firstEvent{};
+    GpuRenderTargetReadbackEvent secondEvent{};
     const bool firstValid =
-        graphicsDevice->renderTargetSystem().tryGetRenderTargetDepthReadback(firstRequest, firstEvent) &&
+        graphicsDevice->renderTargetSystem().tryGetRenderTargetReadback(firstRequest, firstEvent) &&
         cressim::neo::tests::helpers::isValidDepthReadback(firstEvent);
     const bool secondValid =
-        graphicsDevice->renderTargetSystem().tryGetRenderTargetDepthReadback(secondRequest, secondEvent) &&
+        graphicsDevice->renderTargetSystem().tryGetRenderTargetReadback(secondRequest, secondEvent) &&
         cressim::neo::tests::helpers::isValidDepthReadback(secondEvent);
     runtime.shutdown();
 

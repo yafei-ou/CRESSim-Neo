@@ -16,6 +16,6 @@ add_cressim_example(
 )
 
 add_cressim_example(
-    NAME graphics_depth_camera
-    SOURCE depth_camera.cpp
+    NAME graphics_camera_outputs
+    SOURCE camera_outputs.cpp
 )

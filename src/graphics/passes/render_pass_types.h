@@ -21,7 +21,7 @@ enum class MainPassClass
 struct ResolvedCameraView
 {
     common::EntityId entityId   = common::kInvalidEntityId;
-    CameraData::Product product = CameraData::Product::Color;
+    CameraData::Product product = CameraData::Product::ColorDepth;
     gpu::GpuRenderTargetBinding outputBinding{};
     gpu::GpuRenderTargetDesc outputTargetDesc{};
     gpu::GpuRenderViewport viewport{};

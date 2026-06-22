@@ -49,7 +49,7 @@ inline bool isValidReadback(const ReadbackEvent& event)
 template <typename ReadbackEvent>
 inline bool isValidDepthReadback(const ReadbackEvent& event)
 {
-    if (event.width == 0u || event.height == 0u)
+    if (event.depthWidth == 0u || event.depthHeight == 0u)
     {
         return false;
     }
@@ -61,14 +61,15 @@ inline bool isValidDepthReadback(const ReadbackEvent& event)
         return false;
     }
 
-    const std::uint32_t minStride = event.width * formatAttribs.GetElementSize();
-    if (event.rowStrideBytes < minStride)
+    const std::uint32_t minStride = event.depthWidth * formatAttribs.GetElementSize();
+    if (event.depthRowStrideBytes < minStride)
     {
         return false;
     }
 
     return event.depthBytes.size() >=
-           static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height);
+           static_cast<std::size_t>(event.depthRowStrideBytes) *
+               static_cast<std::size_t>(event.depthHeight);
 }
 
 inline float halfToFloat(std::uint16_t value)
@@ -119,7 +120,7 @@ inline float decodeDepthValue(const ReadbackEvent& event, std::uint32_t x, std::
     }
 
     const std::size_t offset =
-        static_cast<std::size_t>(y) * event.rowStrideBytes +
+        static_cast<std::size_t>(y) * event.depthRowStrideBytes +
         static_cast<std::size_t>(x) *
             Diligent::GetTextureFormatAttribs(event.depthFormat).GetElementSize();
     if (event.depthFormat == Diligent::TEX_FORMAT_D32_FLOAT)

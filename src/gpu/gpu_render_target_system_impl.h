@@ -49,10 +49,6 @@ public:
         const GpuRenderTargetBinding &binding) override;
     bool tryGetRenderTargetReadback(GpuRenderTargetReadbackRequest request,
                                     GpuRenderTargetReadbackEvent &outEvent) override;
-    GpuRenderTargetDepthReadbackRequest requestRenderTargetDepthReadback(
-        const GpuRenderTargetBinding &binding) override;
-    bool tryGetRenderTargetDepthReadback(GpuRenderTargetDepthReadbackRequest request,
-                                         GpuRenderTargetDepthReadbackEvent &outEvent) override;
     bool tryGetRenderTargetColorTexture(GpuRenderTargetHandle target,
                                         Diligent::ITexture *&outTexture) override;
     bool tryGetRenderTargetDepthTexture(GpuRenderTargetHandle target,
@@ -77,23 +73,12 @@ private:
     {
         std::uint64_t requestId = 0;
         GpuRenderTargetBinding binding{};
-        std::uint64_t frameIndex             = 0;
-        std::uint64_t fenceValue             = 0;
-        std::uint32_t width                  = 0;
-        std::uint32_t height                 = 0;
-        Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
-        Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
-    };
-
-    struct PendingDepthReadbackCopy
-    {
-        std::uint64_t requestId = 0;
-        GpuRenderTargetBinding binding{};
-        std::uint64_t frameIndex             = 0;
-        std::uint64_t fenceValue             = 0;
-        std::uint32_t width                  = 0;
-        std::uint32_t height                 = 0;
-        Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
+        std::uint64_t frameIndex        = 0;
+        std::uint64_t fenceValue        = 0;
+        std::uint32_t width             = 0;
+        std::uint32_t height            = 0;
+        Diligent::TEXTURE_FORMAT format = Diligent::TEX_FORMAT_UNKNOWN;
+        bool depthAttachment            = false;
         Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
     };
 
@@ -109,8 +94,6 @@ private:
                                                         const GpuRenderTargetBinding &binding);
     bool queueReadbackCopy(const GpuRenderTargetBinding &binding, std::uint64_t frameIndex,
                            std::uint64_t requestId);
-    bool queueDepthReadbackCopy(const GpuRenderTargetBinding &binding, std::uint64_t frameIndex,
-                                std::uint64_t requestId);
 
 private:
     bool mInitialized                                       = false;
@@ -126,11 +109,8 @@ private:
 
     std::unordered_map<common::ResourceId, RenderTargetResources> mRenderTargets;
     std::unordered_map<std::uint64_t, GpuRenderTargetBinding> mPendingReadbackRequests;
-    std::unordered_map<std::uint64_t, GpuRenderTargetBinding> mPendingDepthReadbackRequests;
     std::vector<PendingReadbackCopy> mPendingReadbackCopies;
-    std::vector<PendingDepthReadbackCopy> mPendingDepthReadbackCopies;
     std::unordered_map<std::uint64_t, GpuRenderTargetReadbackEvent> mCompletedReadbacks;
-    std::unordered_map<std::uint64_t, GpuRenderTargetDepthReadbackEvent> mCompletedDepthReadbacks;
 
     Diligent::RefCntAutoPtr<Diligent::IFence> mReadbackFence;
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> mRenderDevice;
