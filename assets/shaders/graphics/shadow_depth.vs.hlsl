@@ -17,6 +17,9 @@ struct VSOutput
 #if MANUAL_LAYER_EXPORT
     uint Layer : SV_RenderTargetArrayIndex;
 #endif
+#if defined(CRESSIM_CAMERA_SEGMENTATION_PASS)
+    nointerpolation uint SegmentationId : TEXCOORD0;
+#endif
 };
 
 void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
@@ -32,6 +35,7 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
     const uint cameraIndex = batchCamera.globalCameraIndex;
     const uint colorLayer = batchCamera.colorLayer;
     const PreparedCamera preparedCamera = CRESSIM_SB_LOAD(g_PreparedCameras, cameraIndex);
+    const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
 
     bool poseValid = false;
     float3 position = float3(0.0, 0.0, 0.0);
@@ -48,12 +52,14 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
 #if MANUAL_LAYER_EXPORT
         Out.Layer = colorLayer;
 #endif
+#if defined(CRESSIM_CAMERA_SEGMENTATION_PASS)
+        Out.SegmentationId = 0u;
+#endif
         return;
     }
 
     float4 worldPos = float4(quaternionRotateVector(orientation, In.Position * scale) + position, 1.0);
 #if defined(CRESSIM_PROGRAM_FAMILY_SOFT_BODY)
-    const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
     if (metadata.deformVertexBase != CRESSIM_INVALID_DEFORM_VERTEX_BASE &&
         vertexId < metadata.deformVertexCount)
     {
@@ -62,7 +68,6 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
         worldPos = float4(deformedPos, 1.0);
     }
 #elif defined(CRESSIM_PROGRAM_FAMILY_CURVE)
-    const RenderableMetadata metadata = CRESSIM_SB_LOAD(g_RenderableMetadata, objectIndex);
     if (metadata.deformVertexBase != CRESSIM_INVALID_DEFORM_VERTEX_BASE &&
         vertexId < metadata.deformVertexCount)
     {
@@ -75,6 +80,9 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
     Out.Position = mul(worldPos, preparedCamera.viewProjectionMatrix);
 #if MANUAL_LAYER_EXPORT
     Out.Layer = colorLayer;
+#endif
+#if defined(CRESSIM_CAMERA_SEGMENTATION_PASS)
+    Out.SegmentationId = metadata.segmentationId;
 #endif
     return;
 #else

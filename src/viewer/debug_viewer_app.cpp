@@ -117,6 +117,15 @@ std::vector<PresentedExplicitOutputEntry> sortedPresentedExplicitOutputs(
                 PresentedExplicitOutputKind::CameraProduct, camera.entityId,
                 graphics::RenderFrameOptions::PresentedExplicitOutput::SourceKind::Depth});
         }
+        else if (camera.product == graphics::CameraData::Product::SegmentationDepth)
+        {
+            outputs.push_back(PresentedExplicitOutputEntry{
+                PresentedExplicitOutputKind::CameraProduct, camera.entityId,
+                graphics::RenderFrameOptions::PresentedExplicitOutput::SourceKind::Segmentation});
+            outputs.push_back(PresentedExplicitOutputEntry{
+                PresentedExplicitOutputKind::CameraProduct, camera.entityId,
+                graphics::RenderFrameOptions::PresentedExplicitOutput::SourceKind::Depth});
+        }
     }
 
     for (const auto &[entityId, component] : world.ultrasoundProbeComponents())
@@ -750,7 +759,8 @@ public:
                         world.tryGetCamera(presentedExplicitOutput.entityId);
                     if (!camera.has_value() ||
                         (camera->product != CameraComponent::Product::ColorDepth &&
-                         camera->product != CameraComponent::Product::Depth) ||
+                         camera->product != CameraComponent::Product::Depth &&
+                         camera->product != CameraComponent::Product::SegmentationDepth) ||
                         camera->output.mode != gpu::RenderOutputMode::ExplicitSurface ||
                         !camera->output.binding.isValid())
                     {
@@ -770,7 +780,15 @@ public:
                                             SourceKind::Color
                                     ? (camera->product == CameraComponent::Product::ColorDepth &&
                                        targetDesc.color)
-                                    : targetDesc.depth;
+                                    : (presentedExplicitOutput.sourceKind ==
+                                               graphics::RenderFrameOptions::
+                                                   PresentedExplicitOutput::SourceKind::Segmentation
+                                           ? (camera->product ==
+                                                  CameraComponent::Product::SegmentationDepth &&
+                                              targetDesc.color &&
+                                              targetDesc.colorFormat ==
+                                                  Diligent::TEX_FORMAT_R32_UINT)
+                                           : targetDesc.depth);
                             if (!validSourceKind)
                             {
                                 presentedOutputMode = PresentedOutputMode::Camera;
@@ -783,8 +801,12 @@ public:
                                 explicitOutput.binding.layerCount = 1u;
                                 explicitOutput.sourceTargetDesc   = targetDesc;
                                 explicitOutput.sourceKind = presentedExplicitOutput.sourceKind;
-                                explicitOutput.nearClip   = camera->nearClip;
-                                explicitOutput.farClip    = camera->farClip;
+                                explicitOutput.sourceIsDisplayEncoded =
+                                    presentedExplicitOutput.sourceKind ==
+                                    graphics::RenderFrameOptions::PresentedExplicitOutput::
+                                        SourceKind::Segmentation;
+                                explicitOutput.nearClip               = camera->nearClip;
+                                explicitOutput.farClip                = camera->farClip;
                                 renderOptions.presentedExplicitOutput = explicitOutput;
                             }
                         }

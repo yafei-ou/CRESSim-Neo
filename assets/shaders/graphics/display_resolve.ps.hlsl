@@ -15,6 +15,28 @@ Texture2DArray<float4> g_SourceColor;
 SamplerState g_SourceColor_sampler;
 Texture2DArray<float> g_SourceDepth;
 SamplerState g_SourceDepth_sampler;
+Texture2DArray<uint> g_SourceSegmentation;
+
+float3 segmentationColor(uint id)
+{
+    if (id == 0u)
+    {
+        return float3(0.0, 0.0, 0.0);
+    }
+
+    uint hash = id;
+    hash ^= 2747636419u;
+    hash *= 2654435769u;
+    hash ^= hash >> 16u;
+    hash *= 2654435769u;
+    hash ^= hash >> 16u;
+    hash *= 2654435769u;
+
+    const float r = float((hash >> 0u) & 255u) / 255.0;
+    const float g = float((hash >> 8u) & 255u) / 255.0;
+    const float b = float((hash >> 16u) & 255u) / 255.0;
+    return 0.2 + 0.8 * float3(r, g, b);
+}
 
 struct PSInput
 {
@@ -75,6 +97,18 @@ float4 main(in PSInput In) : SV_Target
         const float linearDepth01 = depthToLinear01(depth, g_ResolveParams.y, g_ResolveParams.z);
         const float displayValue = 1.0 - linearDepth01;
         color = float4(displayValue.xxx, 1.0);
+    }
+    else if (g_SourceKind == 2)
+    {
+        uint width = 0u;
+        uint height = 0u;
+        uint layers = 0u;
+        g_SourceSegmentation.GetDimensions(width, height, layers);
+        const float2 clampedUv = saturate(In.TexCoord);
+        const uint2 pixel = uint2(min((uint)(clampedUv.x * width), max(width, 1u) - 1u),
+                                  min((uint)(clampedUv.y * height), max(height, 1u) - 1u));
+        const uint id = g_SourceSegmentation.Load(int4(pixel, g_SourceLayer, 0));
+        color = float4(segmentationColor(id), 1.0);
     }
     else
     {

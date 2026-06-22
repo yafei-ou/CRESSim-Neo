@@ -217,6 +217,8 @@ Diligent::IPipelineState *DisplayResolvePass::getOrCreatePipeline(
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_SourceDepth",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_SourceSegmentation",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
     psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
@@ -314,6 +316,8 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     Diligent::ITexture *sourceTexture = nullptr;
     const bool useDepthSource =
         request.sourceKind == RenderFrameOptions::PresentedExplicitOutput::SourceKind::Depth;
+    const bool useSegmentationSource =
+        request.sourceKind == RenderFrameOptions::PresentedExplicitOutput::SourceKind::Segmentation;
     const bool hasSourceTexture = useDepthSource
                                       ? mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(
                                             request.sourceBinding.target, sourceTexture)
@@ -355,12 +359,15 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
         resolveBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_SourceColor");
     Diligent::IShaderResourceVariable *sourceDepthVar =
         resolveBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_SourceDepth");
-    if (sourceColorVar == nullptr || sourceDepthVar == nullptr)
+    Diligent::IShaderResourceVariable *sourceSegmentationVar =
+        resolveBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_SourceSegmentation");
+    if (sourceColorVar == nullptr || sourceDepthVar == nullptr || sourceSegmentationVar == nullptr)
     {
         return false;
     }
-    sourceColorVar->Set(useDepthSource ? nullptr : sourceSrv);
+    sourceColorVar->Set((useDepthSource || useSegmentationSource) ? nullptr : sourceSrv);
     sourceDepthVar->Set(useDepthSource ? sourceSrv : nullptr);
+    sourceSegmentationVar->Set(useSegmentationSource ? sourceSrv : nullptr);
 
     ResolveConstants constants{};
     constants.layer      = request.sourceBinding.firstLayer;

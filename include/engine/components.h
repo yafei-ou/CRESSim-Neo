@@ -31,15 +31,17 @@ struct MeshRendererComponent
 {
     graphics::MeshHandle mesh{};
     graphics::MaterialHandle material{};
-    bool visible = true;
+    std::uint32_t segmentationId = 0u;
+    bool visible                 = true;
 };
 
 struct CameraComponent
 {
     enum class Product : std::uint32_t
     {
-        ColorDepth = 0u,
-        Depth      = 1u,
+        ColorDepth        = 0u,
+        Depth             = 1u,
+        SegmentationDepth = 2u,
     };
 
     enum class BackgroundMode : std::uint32_t

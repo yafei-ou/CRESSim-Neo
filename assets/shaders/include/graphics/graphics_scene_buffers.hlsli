@@ -9,7 +9,7 @@ struct RenderableMetadata
     uint deformableIndex;
     uint deformVertexCount;
     uint deformableType;
-    uint reserved1;
+    uint segmentationId;
     uint reserved2;
     float4 localBoundsMin;
     float4 localBoundsMax;

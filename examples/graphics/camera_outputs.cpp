@@ -33,19 +33,20 @@ enum class SensorProductMode
 {
     ColorDepth,
     DepthOnly,
-    Both,
+    SegmentationDepth,
+    All,
 };
 
 struct ExampleOptions
 {
     CommonExampleOptions common{};
-    SensorProductMode sensorProducts = SensorProductMode::Both;
+    SensorProductMode sensorProducts = SensorProductMode::All;
 };
 
 void printUsage(const char *appName)
 {
     cressim::neo::examples::helpers::printUsage(
-        appName, " [--sensor-product colordepth|depth|both]", true);
+        appName, " [--sensor-product colordepth|depth|segmentation|all]", true);
 }
 
 SensorProductMode parseSensorProductMode(const std::string &value)
@@ -58,9 +59,13 @@ SensorProductMode parseSensorProductMode(const std::string &value)
     {
         return SensorProductMode::DepthOnly;
     }
-    if (value == "both")
+    if (value == "segmentation" || value == "segmentation-depth")
     {
-        return SensorProductMode::Both;
+        return SensorProductMode::SegmentationDepth;
+    }
+    if (value == "all" || value == "both")
+    {
+        return SensorProductMode::All;
     }
 
     throw std::invalid_argument("Unsupported --sensor-product value: " + value);
@@ -90,6 +95,7 @@ Diligent::QuaternionF quaternionFromEulerDegrees(float pitchDegrees, float yawDe
 void spawnRenderable(cressim::neo::engine::World &world, cressim::neo::graphics::MeshHandle mesh,
                      std::uint32_t envIndex,
                      cressim::neo::graphics::MaterialHandle material,
+                     std::uint32_t segmentationId,
                      const Diligent::float3 &position, const Diligent::float3 &scale,
                      const Diligent::QuaternionF &rotation = Diligent::QuaternionF{})
 {
@@ -101,19 +107,25 @@ void spawnRenderable(cressim::neo::engine::World &world, cressim::neo::graphics:
     world.setTransform(entity, transform);
 
     MeshRendererComponent renderer{};
-    renderer.mesh     = mesh;
-    renderer.material = material;
+    renderer.mesh           = mesh;
+    renderer.material       = material;
+    renderer.segmentationId = segmentationId;
     world.setMeshRenderer(entity, renderer);
 }
 
 bool wantsColorDepthSensor(SensorProductMode mode)
 {
-    return mode == SensorProductMode::ColorDepth || mode == SensorProductMode::Both;
+    return mode == SensorProductMode::ColorDepth || mode == SensorProductMode::All;
 }
 
 bool wantsDepthSensor(SensorProductMode mode)
 {
-    return mode == SensorProductMode::DepthOnly || mode == SensorProductMode::Both;
+    return mode == SensorProductMode::DepthOnly || mode == SensorProductMode::All;
+}
+
+bool wantsSegmentationSensor(SensorProductMode mode)
+{
+    return mode == SensorProductMode::SegmentationDepth || mode == SensorProductMode::All;
 }
 
 void syncSensorCamera(Runtime &runtime, cressim::neo::common::EntityId sourceCameraEntity,
@@ -250,6 +262,28 @@ int main(int argc, char **argv)
         }
     }
 
+    cressim::neo::gpu::GpuRenderTargetHandle segmentationTarget{};
+    if (wantsSegmentationSensor(options.sensorProducts))
+    {
+        cressim::neo::gpu::GpuRenderTargetDesc segmentationTargetDesc{};
+        segmentationTargetDesc.width       = 960u;
+        segmentationTargetDesc.height      = 540u;
+        segmentationTargetDesc.arraySize   = environmentCount;
+        segmentationTargetDesc.color       = true;
+        segmentationTargetDesc.depth       = true;
+        segmentationTargetDesc.colorFormat = Diligent::TEX_FORMAT_R32_UINT;
+        segmentationTargetDesc.debugName   = "CameraOutputsExample.SegmentationDepthTarget";
+        segmentationTarget =
+            device->renderTargetSystem().createRenderTarget(segmentationTargetDesc);
+        if (!device->renderTargetSystem().isValidRenderTarget(segmentationTarget))
+        {
+            runtime.shutdown();
+            viewer.shutdown();
+            CRESSIM_LOG_ERROR("SegmentationDepth target creation failed.\n");
+            return 1;
+        }
+    }
+
     auto &resources = runtime.getResources();
     const auto cubeMesh = resources.registerMesh(
         cressim::neo::examples::helpers::makeCubeMesh(0.8f, "CameraOutputsExample.CubeMesh"));
@@ -286,9 +320,11 @@ int main(int argc, char **argv)
     std::vector<cressim::neo::common::EntityId> viewerCameraEntities;
     std::vector<cressim::neo::common::EntityId> colorDepthSensorEntities;
     std::vector<cressim::neo::common::EntityId> depthSensorEntities;
+    std::vector<cressim::neo::common::EntityId> segmentationSensorEntities;
     viewerCameraEntities.reserve(environmentCount);
     colorDepthSensorEntities.reserve(environmentCount);
     depthSensorEntities.reserve(environmentCount);
+    segmentationSensorEntities.reserve(environmentCount);
 
     for (std::uint32_t envIndex = 0u; envIndex < environmentCount; ++envIndex)
     {
@@ -355,6 +391,27 @@ int main(int argc, char **argv)
             depthSensorEntities.push_back(sensorEntity);
         }
 
+        if (wantsSegmentationSensor(options.sensorProducts))
+        {
+            const auto sensorEntity = world.createEntity(envIndex);
+            world.setTransform(sensorEntity, cameraTransform);
+
+            CameraComponent sensorCamera{};
+            sensorCamera.product            = CameraComponent::Product::SegmentationDepth;
+            sensorCamera.verticalFovDegrees = viewerCamera.verticalFovDegrees;
+            sensorCamera.nearClip           = viewerCamera.nearClip;
+            sensorCamera.farClip            = viewerCamera.farClip;
+            sensorCamera.output.mode        = cressim::neo::gpu::RenderOutputMode::ExplicitSurface;
+            sensorCamera.output.binding =
+                cressim::neo::gpu::GpuRenderTargetBinding{segmentationTarget, envIndex, 1u};
+            sensorCamera.outputWidth  = 960u;
+            sensorCamera.outputHeight = 540u;
+            sensorCamera.clearColor   = true;
+            sensorCamera.clearDepth   = true;
+            world.setCamera(sensorEntity, sensorCamera);
+            segmentationSensorEntities.push_back(sensorEntity);
+        }
+
         const auto lightEntity = world.createEntity(envIndex);
         DirectionalLightComponent light{};
         light.direction = {-0.55f + 0.08f * static_cast<float>(envIndex), -1.0f,
@@ -364,20 +421,20 @@ int main(int argc, char **argv)
         light.intensity = 7.5f + 0.6f * static_cast<float>(envIndex);
         world.setDirectionalLight(lightEntity, light);
 
-        spawnRenderable(world, groundMesh, envIndex, groundMaterialHandle,
+        spawnRenderable(world, groundMesh, envIndex, groundMaterialHandle, 1u,
                         {envOffset, -1.0f, 6.0f}, {1.0f, 1.0f, 1.0f});
-        spawnRenderable(world, cubeMesh, envIndex, coralMaterialHandle,
+        spawnRenderable(world, cubeMesh, envIndex, coralMaterialHandle, 2u,
                         {envOffset - 1.8f, -0.15f, 3.5f + 0.35f * static_cast<float>(envIndex)},
                         {1.0f, 1.5f, 1.0f},
                         quaternionFromEulerDegrees(0.0f, 8.0f * static_cast<float>(envIndex), 0.0f));
-        spawnRenderable(world, cubeMesh, envIndex, tealMaterialHandle,
+        spawnRenderable(world, cubeMesh, envIndex, tealMaterialHandle, 3u,
                         {envOffset + 1.6f, 0.3f, 6.2f - 0.45f * static_cast<float>(envIndex)},
                         {1.1f + 0.12f * static_cast<float>(envIndex),
                          1.1f + 0.12f * static_cast<float>(envIndex),
                          1.1f + 0.12f * static_cast<float>(envIndex)},
                         quaternionFromEulerDegrees(18.0f + 4.0f * static_cast<float>(envIndex),
                                                    28.0f - 6.0f * static_cast<float>(envIndex), 0.0f));
-        spawnRenderable(world, sphereMesh, envIndex, amberMaterialHandle,
+        spawnRenderable(world, sphereMesh, envIndex, amberMaterialHandle, 4u,
                         {envOffset, 0.1f + 0.08f * static_cast<float>(envIndex),
                          2.3f + 0.25f * static_cast<float>(envIndex)},
                         {1.0f, 1.0f, 1.0f});
@@ -385,16 +442,22 @@ int main(int argc, char **argv)
 
     const char *modeLabel = options.sensorProducts == SensorProductMode::ColorDepth
                                 ? "ColorDepth"
-                                : (options.sensorProducts == SensorProductMode::DepthOnly ? "Depth"
-                                                                                           : "Both");
+                                : (options.sensorProducts == SensorProductMode::DepthOnly
+                                       ? "Depth"
+                                       : (options.sensorProducts ==
+                                                  SensorProductMode::SegmentationDepth
+                                              ? "SegmentationDepth"
+                                              : "All"));
     CRESSIM_LOG_INFO("Camera outputs example ready with ", environmentCount,
                      " environments and sensor mode=", modeLabel,
                      ". Camera mode shows the managed-primary viewer camera. "
                      "Press U to switch to explicit sensor outputs, then use , and . to cycle "
-                     "between ColorDepth color, ColorDepth depth, and Depth-only outputs when present.");
+                     "between ColorDepth color, ColorDepth depth, Depth-only, "
+                     "SegmentationDepth segmentation, and SegmentationDepth depth outputs when present.");
 
     DebugViewerCallbacks callbacks{};
-    callbacks.beforeTick = [viewerCameraEntities, colorDepthSensorEntities, depthSensorEntities](
+    callbacks.beforeTick = [viewerCameraEntities, colorDepthSensorEntities, depthSensorEntities,
+                            segmentationSensorEntities](
                                const cressim::neo::common::FrameContext &, Runtime &runtimeRef)
     {
         const std::size_t colorDepthCount =
@@ -409,6 +472,14 @@ int main(int argc, char **argv)
         for (std::size_t index = 0u; index < depthCount; ++index)
         {
             syncSensorCamera(runtimeRef, viewerCameraEntities[index], depthSensorEntities[index]);
+        }
+
+        const std::size_t segmentationCount =
+            std::min(viewerCameraEntities.size(), segmentationSensorEntities.size());
+        for (std::size_t index = 0u; index < segmentationCount; ++index)
+        {
+            syncSensorCamera(runtimeRef, viewerCameraEntities[index],
+                             segmentationSensorEntities[index]);
         }
     };
 

@@ -21,10 +21,11 @@ enum class CameraBackgroundMode : std::uint32_t
 
 struct RenderableInstance
 {
-    common::EntityId entityId = common::kInvalidEntityId;
-    std::uint32_t envIndex    = 0u;
-    std::uint32_t objectSlot  = 0xffffffffu;
-    bool visible              = true;
+    common::EntityId entityId    = common::kInvalidEntityId;
+    std::uint32_t envIndex       = 0u;
+    std::uint32_t objectSlot     = 0xffffffffu;
+    bool visible                 = true;
+    std::uint32_t segmentationId = 0u;
     common::Transform worldTransform{};
     MeshHandle mesh{};
     MaterialHandle material{};
@@ -34,8 +35,9 @@ struct CameraData
 {
     enum class Product : std::uint32_t
     {
-        ColorDepth = 0u,
-        Depth      = 1u,
+        ColorDepth        = 0u,
+        Depth             = 1u,
+        SegmentationDepth = 2u,
     };
 
     common::EntityId entityId = common::kInvalidEntityId;

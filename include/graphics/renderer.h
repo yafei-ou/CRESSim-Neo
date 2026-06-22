@@ -46,8 +46,9 @@ struct RenderFrameOptions
     {
         enum class SourceKind : std::uint32_t
         {
-            Color = 0u,
-            Depth = 1u,
+            Color        = 0u,
+            Depth        = 1u,
+            Segmentation = 2u,
         };
 
         gpu::GpuRenderTargetBinding binding{};

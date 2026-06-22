@@ -195,6 +195,20 @@ inline ReadbackPixel decodePixel(const ReadbackEvent& event, std::uint32_t x, st
 }
 
 template <typename ReadbackEvent>
+inline std::uint32_t decodeUint32Pixel(const ReadbackEvent& event, std::uint32_t x, std::uint32_t y)
+{
+    if (!isValidReadback(event) || event.colorFormat != Diligent::TEX_FORMAT_R32_UINT)
+    {
+        return 0u;
+    }
+
+    const std::size_t offset = pixelOffset(event, x, y);
+    std::uint32_t value      = 0u;
+    std::memcpy(&value, event.colorBytes.data() + offset, sizeof(value));
+    return value;
+}
+
+template <typename ReadbackEvent>
 inline ReadbackPixel readCenterPixel(const ReadbackEvent& event)
 {
     ReadbackPixel pixel{};

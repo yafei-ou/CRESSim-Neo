@@ -866,6 +866,7 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
     graphics::RenderableInstance &renderable = mRenderables[objectIndex];
     renderable.mesh                          = component.mesh;
     renderable.material                      = component.material;
+    renderable.segmentationId                = component.segmentationId;
     renderable.visible                       = component.visible;
     markRenderableMetadataDirty(objectIndex);
     markRenderablePoseDirty(objectIndex);
@@ -917,17 +918,27 @@ void World::setCamera(common::EntityId entityId, const CameraComponent &componen
     cameraData.verticalFovDegrees = component.verticalFovDegrees;
     cameraData.nearClip           = component.nearClip;
     cameraData.farClip            = component.farClip;
-    cameraData.product            = component.product == CameraComponent::Product::Depth
-                                        ? graphics::CameraData::Product::Depth
-                                        : graphics::CameraData::Product::ColorDepth;
-    cameraData.output             = component.output;
-    cameraData.outputWidth        = component.outputWidth;
-    cameraData.outputHeight       = component.outputHeight;
-    cameraData.viewport           = component.viewport;
-    cameraData.clearColor         = component.clearColor;
-    cameraData.clearDepth         = component.clearDepth;
-    cameraData.clearColorValue    = component.clearColorValue;
-    cameraData.clearDepthValue    = component.clearDepthValue;
+    switch (component.product)
+    {
+    case CameraComponent::Product::Depth:
+        cameraData.product = graphics::CameraData::Product::Depth;
+        break;
+    case CameraComponent::Product::SegmentationDepth:
+        cameraData.product = graphics::CameraData::Product::SegmentationDepth;
+        break;
+    case CameraComponent::Product::ColorDepth:
+    default:
+        cameraData.product = graphics::CameraData::Product::ColorDepth;
+        break;
+    }
+    cameraData.output          = component.output;
+    cameraData.outputWidth     = component.outputWidth;
+    cameraData.outputHeight    = component.outputHeight;
+    cameraData.viewport        = component.viewport;
+    cameraData.clearColor      = component.clearColor;
+    cameraData.clearDepth      = component.clearDepth;
+    cameraData.clearColorValue = component.clearColorValue;
+    cameraData.clearDepthValue = component.clearDepthValue;
     cameraData.backgroundMode =
         component.backgroundMode == CameraComponent::BackgroundMode::EnvironmentCubemap
             ? graphics::CameraBackgroundMode::EnvironmentCubemap
@@ -1878,9 +1889,10 @@ std::optional<MeshRendererComponent> World::tryGetMeshRenderer(common::EntityId 
 
     const std::uint32_t index = static_cast<std::uint32_t>(it->second);
     MeshRendererComponent component{};
-    component.mesh     = mRenderables[index].mesh;
-    component.material = mRenderables[index].material;
-    component.visible  = mRenderables[index].visible;
+    component.mesh           = mRenderables[index].mesh;
+    component.material       = mRenderables[index].material;
+    component.segmentationId = mRenderables[index].segmentationId;
+    component.visible        = mRenderables[index].visible;
     return component;
 }
 
@@ -1897,17 +1909,27 @@ std::optional<CameraComponent> World::tryGetCamera(common::EntityId entityId) co
     component.verticalFovDegrees = camera.verticalFovDegrees;
     component.nearClip           = camera.nearClip;
     component.farClip            = camera.farClip;
-    component.product            = camera.product == graphics::CameraData::Product::Depth
-                                       ? CameraComponent::Product::Depth
-                                       : CameraComponent::Product::ColorDepth;
-    component.output             = camera.output;
-    component.outputWidth        = camera.outputWidth;
-    component.outputHeight       = camera.outputHeight;
-    component.viewport           = camera.viewport;
-    component.clearColor         = camera.clearColor;
-    component.clearDepth         = camera.clearDepth;
-    component.clearColorValue    = camera.clearColorValue;
-    component.clearDepthValue    = camera.clearDepthValue;
+    switch (camera.product)
+    {
+    case graphics::CameraData::Product::Depth:
+        component.product = CameraComponent::Product::Depth;
+        break;
+    case graphics::CameraData::Product::SegmentationDepth:
+        component.product = CameraComponent::Product::SegmentationDepth;
+        break;
+    case graphics::CameraData::Product::ColorDepth:
+    default:
+        component.product = CameraComponent::Product::ColorDepth;
+        break;
+    }
+    component.output          = camera.output;
+    component.outputWidth     = camera.outputWidth;
+    component.outputHeight    = camera.outputHeight;
+    component.viewport        = camera.viewport;
+    component.clearColor      = camera.clearColor;
+    component.clearDepth      = camera.clearDepth;
+    component.clearColorValue = camera.clearColorValue;
+    component.clearDepthValue = camera.clearDepthValue;
     component.backgroundMode =
         camera.backgroundMode == graphics::CameraBackgroundMode::EnvironmentCubemap
             ? CameraComponent::BackgroundMode::EnvironmentCubemap
@@ -2871,6 +2893,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
         entry.deformVertexCount                      = 0u;
         entry.deformableType =
             static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::None);
+        entry.segmentationId = renderable.segmentationId;
         if (renderable.entityId != common::kInvalidEntityId &&
             renderable.objectSlot != kInvalidSlot)
         {

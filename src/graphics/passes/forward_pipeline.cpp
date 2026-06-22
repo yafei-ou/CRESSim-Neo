@@ -4,6 +4,7 @@
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
 #include "graphics/passes/camera_depth_pass.h"
+#include "graphics/passes/camera_segmentation_pass.h"
 #include "graphics/passes/debug_particle_pass.h"
 #include "graphics/passes/debug_routed_cable_pass.h"
 #include "graphics/passes/debug_strand_frame_pass.h"
@@ -514,10 +515,20 @@ bool ForwardPipeline::initialize()
         return false;
     }
 
+    mCameraSegmentationPass = std::make_unique<CameraSegmentationPass>(mDevice, mResourceManager);
+    if (!mCameraSegmentationPass->initialize())
+    {
+        mCameraSegmentationPass.reset();
+        mCameraDepthPass.reset();
+        mForwardOpaquePass.reset();
+        return false;
+    }
+
     mShadowPass = std::make_unique<ShadowPass>(mDevice, mResourceManager);
     if (!mShadowPass->initialize())
     {
         mShadowPass.reset();
+        mCameraSegmentationPass.reset();
         mCameraDepthPass.reset();
         mForwardOpaquePass.reset();
         return false;
@@ -527,6 +538,7 @@ bool ForwardPipeline::initialize()
     if (!mSkyboxPass->initialize())
     {
         mSkyboxPass.reset();
+        mCameraSegmentationPass.reset();
         mCameraDepthPass.reset();
         mForwardOpaquePass.reset();
         return false;
@@ -537,6 +549,7 @@ bool ForwardPipeline::initialize()
     {
         mDebugParticlePass.reset();
         mShadowPass.reset();
+        mCameraSegmentationPass.reset();
         mCameraDepthPass.reset();
         mForwardOpaquePass.reset();
         return false;
@@ -548,6 +561,7 @@ bool ForwardPipeline::initialize()
         mDebugRoutedCablePass.reset();
         mDebugParticlePass.reset();
         mShadowPass.reset();
+        mCameraSegmentationPass.reset();
         mCameraDepthPass.reset();
         mForwardOpaquePass.reset();
         return false;
@@ -560,6 +574,7 @@ bool ForwardPipeline::initialize()
         mDebugRoutedCablePass.reset();
         mDebugParticlePass.reset();
         mShadowPass.reset();
+        mCameraSegmentationPass.reset();
         mCameraDepthPass.reset();
         mForwardOpaquePass.reset();
         return false;
@@ -681,7 +696,10 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     {
         return false;
     }
-    const bool depthBatch = batchView.cameras.front().product == CameraData::Product::Depth;
+    const CameraData::Product batchProduct = batchView.cameras.front().product;
+    const bool colorDepthBatch             = batchProduct == CameraData::Product::ColorDepth;
+    const bool depthBatch                  = batchProduct == CameraData::Product::Depth;
+    const bool segmentationBatch           = batchProduct == CameraData::Product::SegmentationDepth;
 
     const GpuEntitySceneView emptyGpuScene{};
     const GpuEntitySceneView &gpuScene =
@@ -698,31 +716,32 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     const std::vector<IndirectCommandRegistryEntry> &localShadowRegistry =
         sceneView.localShadowDrawRegistry != nullptr ? *sceneView.localShadowDrawRegistry
                                                      : emptyRegistry;
-    const bool hasOpaqueDraws      = !opaqueRegistry.empty();
-    const bool hasTransparentDraws = !transparentRegistry.empty();
-    const bool hasShadowDraws      = !shadowRegistry.empty();
-    const bool hasLocalShadowDraws = !localShadowRegistry.empty();
-    const bool needsDebugParticles =
-        mDebugParticlePass != nullptr && physicsScene != nullptr && options.debugParticles.enabled;
-    const bool needsDebugRoutedCables = mDebugRoutedCablePass != nullptr &&
+    const bool hasOpaqueDraws         = !opaqueRegistry.empty();
+    const bool hasTransparentDraws    = colorDepthBatch && !transparentRegistry.empty();
+    const bool hasShadowDraws         = colorDepthBatch && !shadowRegistry.empty();
+    const bool hasLocalShadowDraws    = colorDepthBatch && !localShadowRegistry.empty();
+    const bool needsDebugParticles    = colorDepthBatch && mDebugParticlePass != nullptr &&
+                                        physicsScene != nullptr && options.debugParticles.enabled;
+    const bool needsDebugRoutedCables = colorDepthBatch && mDebugRoutedCablePass != nullptr &&
                                         physicsScene != nullptr &&
                                         options.debugRoutedCables.enabled;
-    const bool needsDebugStrandFrames = mDebugStrandFramePass != nullptr &&
+    const bool needsDebugStrandFrames = colorDepthBatch && mDebugStrandFramePass != nullptr &&
                                         physicsScene != nullptr &&
                                         options.debugStrandFrames.enabled;
-    const bool needsFluid  = mFluidDepthPass != nullptr && mFluidColorPass != nullptr &&
-                             mFluidDepthFilterPass != nullptr && mFluidCompositePass != nullptr &&
-                             physicsScene != nullptr &&
-                             physicsScene->soft.particles.fluidVisualCount > 0u &&
-                             physicsScene->soft.particles.positionsInvMassBuffer != nullptr &&
-                             physicsScene->soft.particles.ownerIndicesBuffer != nullptr &&
-                             physicsScene->soft.particles.fluidVisualsBuffer != nullptr &&
-                             physicsScene->soft.particles.particleKindsBuffer != nullptr &&
-                             physicsScene->soft.particles.fluidAnisotropy1Buffer != nullptr &&
-                             physicsScene->soft.particles.fluidAnisotropy2Buffer != nullptr &&
-                             physicsScene->soft.particles.fluidAnisotropy3Buffer != nullptr;
-    const bool needsSkybox = mSkyboxPass != nullptr && batchView.cameras.front().backgroundMode ==
-                                                           CameraBackgroundMode::EnvironmentCubemap;
+    const bool needsFluid = colorDepthBatch && mFluidDepthPass != nullptr &&
+                            mFluidColorPass != nullptr && mFluidDepthFilterPass != nullptr &&
+                            mFluidCompositePass != nullptr && physicsScene != nullptr &&
+                            physicsScene->soft.particles.fluidVisualCount > 0u &&
+                            physicsScene->soft.particles.positionsInvMassBuffer != nullptr &&
+                            physicsScene->soft.particles.ownerIndicesBuffer != nullptr &&
+                            physicsScene->soft.particles.fluidVisualsBuffer != nullptr &&
+                            physicsScene->soft.particles.particleKindsBuffer != nullptr &&
+                            physicsScene->soft.particles.fluidAnisotropy1Buffer != nullptr &&
+                            physicsScene->soft.particles.fluidAnisotropy2Buffer != nullptr &&
+                            physicsScene->soft.particles.fluidAnisotropy3Buffer != nullptr;
+    const bool needsSkybox =
+        colorDepthBatch && mSkyboxPass != nullptr &&
+        batchView.cameras.front().backgroundMode == CameraBackgroundMode::EnvironmentCubemap;
     const bool needsSceneBuffers = hasOpaqueDraws || hasTransparentDraws || hasShadowDraws ||
                                    hasLocalShadowDraws || needsDebugParticles ||
                                    needsDebugRoutedCables || needsDebugStrandFrames ||
@@ -766,6 +785,11 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
     {
         mCameraDepthPass->setGpuSceneView(gpuScene);
         mCameraDepthPass->setPhysicsSceneView(physicsScene);
+    }
+    if (mCameraSegmentationPass != nullptr)
+    {
+        mCameraSegmentationPass->setGpuSceneView(gpuScene);
+        mCameraSegmentationPass->setPhysicsSceneView(physicsScene);
     }
     if (mShadowPass != nullptr)
     {
@@ -1182,6 +1206,48 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
                                                mGpuIndirectState->opaque.drawIndexedCommandsBuffer,
                                                static_cast<Diligent::Uint64>(commandIndex) *
                                                    sizeof(DrawIndexedIndirectArgs)))
+            {
+                ++outStats.opaqueDrawCalls;
+            }
+        }
+
+        mDevice.renderTargetSystem().endRenderTarget(batchView.renderBinding, frameContext);
+        return true;
+    }
+    if (segmentationBatch)
+    {
+        if (mCameraSegmentationPass == nullptr || !batchView.renderTargetDesc.color ||
+            !batchView.renderTargetDesc.depth ||
+            batchView.renderTargetDesc.colorFormat != Diligent::TEX_FORMAT_R32_UINT)
+        {
+            return false;
+        }
+
+        mCameraSegmentationPass->setVisiblePairBuffer(mGpuIndirectState->opaque.visiblePairBuffer);
+        mCameraSegmentationPass->setBatchCameraBuffer(mGpuIndirectState->opaque.batchCameraBuffer);
+        mDevice.renderTargetSystem().setRenderTargetViewport(batchView.renderBinding,
+                                                             viewportForBatch(batchView));
+        gpu::GpuRenderPassBeginDesc segmentationBegin{};
+        segmentationBegin.clearColor         = batchView.cameras.front().clearColor;
+        segmentationBegin.clearColorValue[0] = 0.0f;
+        segmentationBegin.clearColorValue[1] = 0.0f;
+        segmentationBegin.clearColorValue[2] = 0.0f;
+        segmentationBegin.clearColorValue[3] = 0.0f;
+        segmentationBegin.clearDepth         = batchView.cameras.front().clearDepth;
+        segmentationBegin.clearDepthValue    = batchView.cameras.front().clearDepthValue;
+        mDevice.renderTargetSystem().beginRenderTarget(batchView.renderBinding, frameContext,
+                                                       segmentationBegin);
+
+        for (std::uint32_t commandIndex = 0u;
+             commandIndex < static_cast<std::uint32_t>(opaqueRegistry.size()); ++commandIndex)
+        {
+            ForwardDrawCommand drawCommand = opaqueRegistry[commandIndex].drawCommand;
+            drawCommand.drawListOffset    = mGpuIndirectState->opaque.drawListOffsets[commandIndex];
+            drawCommand.useDrawListBuffer = 1u;
+            if (mCameraSegmentationPass->drawIndirect(
+                    batchView.renderBinding, drawCommand,
+                    mGpuIndirectState->opaque.drawIndexedCommandsBuffer,
+                    static_cast<Diligent::Uint64>(commandIndex) * sizeof(DrawIndexedIndirectArgs)))
             {
                 ++outStats.opaqueDrawCalls;
             }

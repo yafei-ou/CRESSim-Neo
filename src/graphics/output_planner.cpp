@@ -128,7 +128,7 @@ CameraOutputPlanningResult planCameraOutputs(
         {
             continue;
         }
-        if (camera.product == CameraData::Product::Depth)
+        if (camera.product != CameraData::Product::ColorDepth)
         {
             continue;
         }
@@ -209,10 +209,13 @@ CameraOutputPlanningResult planCameraOutputs(
     {
         if (camera.output.mode == gpu::RenderOutputMode::ManagedPrimary)
         {
-            if (camera.product == CameraData::Product::Depth)
+            if (camera.product != CameraData::Product::ColorDepth)
             {
                 logUnsupportedCameraOutput(
-                    camera, "depth cameras currently require ExplicitSurface output binding");
+                    camera, camera.product == CameraData::Product::Depth
+                                ? "depth cameras currently require ExplicitSurface output binding"
+                                : "SegmentationDepth cameras currently require ExplicitSurface "
+                                  "output binding");
                 continue;
             }
             const RenderTargetFamilyKey key = makeRenderTargetFamilyKey(
@@ -286,6 +289,16 @@ CameraOutputPlanningResult planCameraOutputs(
         if (camera.product == CameraData::Product::Depth && !targetDesc.depth)
         {
             logUnsupportedCameraOutput(camera, "its Depth product needs a depth-capable target");
+            continue;
+        }
+        if (camera.product == CameraData::Product::SegmentationDepth &&
+            (!targetDesc.color || !targetDesc.depth ||
+             targetDesc.colorFormat != Diligent::TEX_FORMAT_R32_UINT))
+        {
+            logUnsupportedCameraOutput(
+                camera,
+                "its SegmentationDepth product needs an explicit target with color+depth and "
+                "R32_UINT color format");
             continue;
         }
 
