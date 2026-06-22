@@ -283,9 +283,8 @@ Diligent::RefCntAutoPtr<Diligent::ITextureView> DisplayResolvePass::createSource
     viewDesc.MostDetailedMip = 0u;
     viewDesc.NumMipLevels    = 1u;
     viewDesc.FirstArraySlice = 0u;
-    viewDesc.NumArraySlices = textureDesc.Type == Diligent::RESOURCE_DIM_TEX_2D_ARRAY
-                                  ? textureDesc.ArraySize
-                                  : 1u;
+    viewDesc.NumArraySlices =
+        textureDesc.Type == Diligent::RESOURCE_DIM_TEX_2D_ARRAY ? textureDesc.ArraySize : 1u;
 
     Diligent::RefCntAutoPtr<Diligent::ITextureView> srv;
     texture->CreateView(viewDesc, &srv);
@@ -315,12 +314,11 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     Diligent::ITexture *sourceTexture = nullptr;
     const bool useDepthSource =
         request.sourceKind == RenderFrameOptions::PresentedExplicitOutput::SourceKind::Depth;
-    const bool hasSourceTexture =
-        useDepthSource
-            ? mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(request.sourceBinding.target,
-                                                                          sourceTexture)
-            : mDevice.renderTargetSystem().tryGetRenderTargetColorTexture(request.sourceBinding.target,
-                                                                          sourceTexture);
+    const bool hasSourceTexture = useDepthSource
+                                      ? mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(
+                                            request.sourceBinding.target, sourceTexture)
+                                      : mDevice.renderTargetSystem().tryGetRenderTargetColorTexture(
+                                            request.sourceBinding.target, sourceTexture);
     if (!hasSourceTexture || sourceTexture == nullptr)
     {
         return false;

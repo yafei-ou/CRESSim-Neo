@@ -81,8 +81,8 @@ bool CameraDepthPass::ensureConstantBuffers(Diligent::IRenderDevice *renderDevic
     return true;
 }
 
-Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(Diligent::IRenderDevice *renderDevice,
-                                                               const PipelineKey &key)
+Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
+    Diligent::IRenderDevice *renderDevice, const PipelineKey &key)
 {
     auto it = mPipelines.find(key);
     if (it != mPipelines.end())
@@ -107,25 +107,24 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(Diligent::IRender
     shaderCreateInfo.Desc.ShaderType                 = Diligent::SHADER_TYPE_VERTEX;
     shaderCreateInfo.FilePath                        = "graphics/shadow_depth.vs.hlsl";
     shaderCreateInfo.pShaderSourceStreamFactory      = streamFactory;
-    shaderCreateInfo.Desc.Name =
-        key.programFamily == MaterialProgramFamily::SoftBodyLit
-            ? "CRESSimNeo.CameraDepthPass.SoftBody.VS"
-            : (key.programFamily == MaterialProgramFamily::CurveLit
-                   ? "CRESSimNeo.CameraDepthPass.Curve.VS"
-                   : "CRESSimNeo.CameraDepthPass.VS");
+    shaderCreateInfo.Desc.Name = key.programFamily == MaterialProgramFamily::SoftBodyLit
+                                     ? "CRESSimNeo.CameraDepthPass.SoftBody.VS"
+                                     : (key.programFamily == MaterialProgramFamily::CurveLit
+                                            ? "CRESSimNeo.CameraDepthPass.Curve.VS"
+                                            : "CRESSimNeo.CameraDepthPass.VS");
     Diligent::ShaderMacro shaderMacros[] = {
         {"MANUAL_LAYER_EXPORT", "1"},
         {"CRESSIM_CAMERA_DEPTH_PASS", "1"},
         {key.programFamily == MaterialProgramFamily::SoftBodyLit
              ? "CRESSIM_PROGRAM_FAMILY_SOFT_BODY"
-             : (key.programFamily == MaterialProgramFamily::CurveLit ? "CRESSIM_PROGRAM_FAMILY_CURVE"
-                                                                     : ""),
+             : (key.programFamily == MaterialProgramFamily::CurveLit
+                    ? "CRESSIM_PROGRAM_FAMILY_CURVE"
+                    : ""),
          key.programFamily != MaterialProgramFamily::StandardLit ? "1" : ""},
     };
     shaderCreateInfo.Macros = Diligent::ShaderMacroArray{
-        shaderMacros,
-        static_cast<Diligent::Uint32>(key.programFamily == MaterialProgramFamily::StandardLit ? 2u
-                                                                                               : 3u)};
+        shaderMacros, static_cast<Diligent::Uint32>(
+                          key.programFamily == MaterialProgramFamily::StandardLit ? 2u : 3u)};
 
     Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
     if (!mDevice.createShader(shaderCreateInfo, &vertexShader))
@@ -138,13 +137,12 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(Diligent::IRender
     }
 
     Diligent::GraphicsPipelineStateCreateInfo psoCreateInfo{};
-    psoCreateInfo.PSODesc.Name =
-        key.programFamily == MaterialProgramFamily::SoftBodyLit
-            ? "CRESSimNeo.CameraDepthPass.SoftBody.PSO"
-            : (key.programFamily == MaterialProgramFamily::CurveLit
-                   ? "CRESSimNeo.CameraDepthPass.Curve.PSO"
-                   : "CRESSimNeo.CameraDepthPass.PSO");
-    psoCreateInfo.PSODesc.PipelineType               = Diligent::PIPELINE_TYPE_GRAPHICS;
+    psoCreateInfo.PSODesc.Name         = key.programFamily == MaterialProgramFamily::SoftBodyLit
+                                             ? "CRESSimNeo.CameraDepthPass.SoftBody.PSO"
+                                             : (key.programFamily == MaterialProgramFamily::CurveLit
+                                                    ? "CRESSimNeo.CameraDepthPass.Curve.PSO"
+                                                    : "CRESSimNeo.CameraDepthPass.PSO");
+    psoCreateInfo.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
     psoCreateInfo.GraphicsPipeline.NumRenderTargets  = 0;
     psoCreateInfo.GraphicsPipeline.DSVFormat         = key.depthFormat;
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -299,8 +297,8 @@ bool CameraDepthPass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBindi
         return false;
     }
     if (backendContext.renderDevice == nullptr || backendContext.graphicsContext == nullptr ||
-        !backendContext.activeRenderTargetHasDepth || drawCommand.meshId == common::kInvalidResourceId ||
-        drawCommand.indexCount < 3u)
+        !backendContext.activeRenderTargetHasDepth ||
+        drawCommand.meshId == common::kInvalidResourceId || drawCommand.indexCount < 3u)
     {
         return false;
     }
@@ -322,7 +320,8 @@ bool CameraDepthPass::bindSceneBuffers(Diligent::IShaderResourceBinding *shaderB
                                        MaterialProgramFamily programFamily) const
 {
     if (shaderBinding == nullptr || mSceneView.poses.positionsBuffer == nullptr ||
-        mSceneView.poses.orientationsBuffer == nullptr || mSceneView.poses.scalesBuffer == nullptr ||
+        mSceneView.poses.orientationsBuffer == nullptr ||
+        mSceneView.poses.scalesBuffer == nullptr ||
         mSceneView.renderableMetadataBuffer == nullptr ||
         mSceneView.renderableVisibilityFlagsBuffer == nullptr ||
         mSceneView.preparedCamerasBuffer == nullptr || mVisiblePairBuffer == nullptr ||
@@ -379,9 +378,8 @@ bool CameraDepthPass::bindSceneBuffers(Diligent::IShaderResourceBinding *shaderB
         {
             return false;
         }
-        Diligent::IShaderResourceVariable *positionVar =
-            shaderBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
-                                             "g_SoftBodyRenderPositions");
+        Diligent::IShaderResourceVariable *positionVar = shaderBinding->GetVariableByName(
+            Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyRenderPositions");
         if (positionVar == nullptr)
         {
             return false;
@@ -402,9 +400,8 @@ bool CameraDepthPass::bindSceneBuffers(Diligent::IShaderResourceBinding *shaderB
         {
             return false;
         }
-        Diligent::IShaderResourceVariable *positionVar =
-            shaderBinding->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
-                                             "g_CurveRenderPositions");
+        Diligent::IShaderResourceVariable *positionVar = shaderBinding->GetVariableByName(
+            Diligent::SHADER_TYPE_VERTEX, "g_CurveRenderPositions");
         if (positionVar == nullptr)
         {
             return false;

@@ -12,7 +12,8 @@ bool sameBatchCompatibility(const ResolvedCameraView &lhs, const ResolvedCameraV
 {
     const gpu::GpuRenderTargetDesc &lhsDesc = lhs.outputTargetDesc;
     const gpu::GpuRenderTargetDesc &rhsDesc = rhs.outputTargetDesc;
-    return lhs.product == rhs.product && lhs.outputBinding.target.id == rhs.outputBinding.target.id &&
+    return lhs.product == rhs.product &&
+           lhs.outputBinding.target.id == rhs.outputBinding.target.id &&
            lhsDesc.width == rhsDesc.width && lhsDesc.height == rhsDesc.height &&
            lhsDesc.color == rhsDesc.color && lhsDesc.depth == rhsDesc.depth &&
            lhsDesc.shaderReadable == rhsDesc.shaderReadable &&

@@ -54,8 +54,8 @@ private:
 
     struct PipelineKey
     {
-        MaterialProgramFamily programFamily       = MaterialProgramFamily::StandardLit;
-        Diligent::TEXTURE_FORMAT depthFormat      = Diligent::TEX_FORMAT_UNKNOWN;
+        MaterialProgramFamily programFamily  = MaterialProgramFamily::StandardLit;
+        Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
 
         bool operator==(const PipelineKey &rhs) const noexcept
         {

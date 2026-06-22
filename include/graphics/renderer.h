@@ -52,7 +52,7 @@ struct RenderFrameOptions
 
         gpu::GpuRenderTargetBinding binding{};
         gpu::GpuRenderTargetDesc sourceTargetDesc{};
-        SourceKind sourceKind        = SourceKind::Color;
+        SourceKind sourceKind       = SourceKind::Color;
         bool sourceIsDisplayEncoded = false;
         float nearClip              = 0.01f;
         float farClip               = 1000.0f;

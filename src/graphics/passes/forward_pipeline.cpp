@@ -3,10 +3,10 @@
 #include "gpu/gpu_buffer_utils.h"
 #include "gpu/gpu_compute_pass.h"
 #include "gpu/shader_library.h"
+#include "graphics/passes/camera_depth_pass.h"
 #include "graphics/passes/debug_particle_pass.h"
 #include "graphics/passes/debug_routed_cable_pass.h"
 #include "graphics/passes/debug_strand_frame_pass.h"
-#include "graphics/passes/camera_depth_pass.h"
 #include "graphics/passes/fluid_color_pass.h"
 #include "graphics/passes/fluid_composite_pass.h"
 #include "graphics/passes/fluid_depth_filter_pass.h"
@@ -1176,13 +1176,12 @@ bool ForwardPipeline::executeBatch(const common::FrameContext &frameContext,
              commandIndex < static_cast<std::uint32_t>(opaqueRegistry.size()); ++commandIndex)
         {
             ForwardDrawCommand drawCommand = opaqueRegistry[commandIndex].drawCommand;
-            drawCommand.drawListOffset     = mGpuIndirectState->opaque.drawListOffsets[commandIndex];
-            drawCommand.useDrawListBuffer  = 1u;
-            if (mCameraDepthPass->drawIndirect(
-                    batchView.renderBinding, drawCommand,
-                    mGpuIndirectState->opaque.drawIndexedCommandsBuffer,
-                    static_cast<Diligent::Uint64>(commandIndex) *
-                        sizeof(DrawIndexedIndirectArgs)))
+            drawCommand.drawListOffset    = mGpuIndirectState->opaque.drawListOffsets[commandIndex];
+            drawCommand.useDrawListBuffer = 1u;
+            if (mCameraDepthPass->drawIndirect(batchView.renderBinding, drawCommand,
+                                               mGpuIndirectState->opaque.drawIndexedCommandsBuffer,
+                                               static_cast<Diligent::Uint64>(commandIndex) *
+                                                   sizeof(DrawIndexedIndirectArgs)))
             {
                 ++outStats.opaqueDrawCalls;
             }

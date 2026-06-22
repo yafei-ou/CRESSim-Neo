@@ -204,9 +204,9 @@ void GpuRenderTargetSystemImpl::endFrame(const common::FrameContext &frameContex
         for (const PendingDepthReadbackCopy &copy : mPendingDepthReadbackCopies)
         {
             GpuRenderTargetDepthReadbackEvent event{};
-            event.binding                       = copy.binding;
-            event.frameIndex                    = copy.frameIndex;
-            event.depthFormat                   = copy.depthFormat;
+            event.binding                            = copy.binding;
+            event.frameIndex                         = copy.frameIndex;
+            event.depthFormat                        = copy.depthFormat;
             mCompletedDepthReadbacks[copy.requestId] = event;
         }
         mPendingDepthReadbackCopies.clear();
@@ -510,7 +510,7 @@ void GpuRenderTargetSystemImpl::destroyRenderTarget(GpuRenderTargetHandle target
     auto completeDepthRequestWithEmptyResult = [&](std::uint64_t requestId)
     {
         GpuRenderTargetDepthReadbackEvent event{};
-        event.binding                       = GpuRenderTargetBinding{target, 0u, 1u};
+        event.binding       = GpuRenderTargetBinding{target, 0u, 1u};
         const auto targetIt = mRenderTargets.find(target.id);
         if (targetIt != mRenderTargets.end())
         {
@@ -530,7 +530,8 @@ void GpuRenderTargetSystemImpl::destroyRenderTarget(GpuRenderTargetHandle target
         completeRequestWithEmptyResult(it->first);
         it = mPendingReadbackRequests.erase(it);
     }
-    for (auto it = mPendingDepthReadbackRequests.begin(); it != mPendingDepthReadbackRequests.end();)
+    for (auto it = mPendingDepthReadbackRequests.begin();
+         it != mPendingDepthReadbackRequests.end();)
     {
         if (it->second.target.id != target.id)
         {

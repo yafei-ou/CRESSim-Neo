@@ -100,8 +100,8 @@ std::vector<PresentedExplicitOutputEntry> sortedPresentedExplicitOutputs(
         {
             continue;
         }
-        outputs.push_back(
-            PresentedExplicitOutputEntry{PresentedExplicitOutputKind::DepthCamera, camera.entityId});
+        outputs.push_back(PresentedExplicitOutputEntry{PresentedExplicitOutputKind::DepthCamera,
+                                                       camera.entityId});
     }
 
     for (const auto &[entityId, component] : world.ultrasoundProbeComponents())
@@ -112,8 +112,8 @@ std::vector<PresentedExplicitOutputEntry> sortedPresentedExplicitOutputs(
         {
             continue;
         }
-        outputs.push_back(PresentedExplicitOutputEntry{PresentedExplicitOutputKind::UltrasoundProbeImage,
-                                                       entityId});
+        outputs.push_back(PresentedExplicitOutputEntry{
+            PresentedExplicitOutputKind::UltrasoundProbeImage, entityId});
     }
 
     std::sort(outputs.begin(), outputs.end(),
@@ -161,13 +161,9 @@ PresentedExplicitOutputEntry cyclePresentedExplicitOutput(
         return {};
     }
 
-    const auto currentIt =
-        std::find_if(outputs.begin(), outputs.end(),
-                     [&](const PresentedExplicitOutputEntry &entry) noexcept
-                     {
-                         return entry.kind == currentOutput.kind &&
-                                entry.entityId == currentOutput.entityId;
-                     });
+    const auto currentIt = std::find_if(
+        outputs.begin(), outputs.end(), [&](const PresentedExplicitOutputEntry &entry) noexcept
+        { return entry.kind == currentOutput.kind && entry.entityId == currentOutput.entityId; });
     if (currentIt == outputs.end())
     {
         return outputs.front();
@@ -439,8 +435,8 @@ public:
 
         mLastTickTime = std::chrono::steady_clock::now();
         common::FrameContext frame{};
-        frame.deltaSeconds                          = mDesc.fixedDeltaSeconds;
-        common::EntityId presentedCameraEntity      = cameraBinding.cameraEntity;
+        frame.deltaSeconds                     = mDesc.fixedDeltaSeconds;
+        common::EntityId presentedCameraEntity = cameraBinding.cameraEntity;
         PresentedExplicitOutputEntry presentedExplicitOutput{};
         PresentedOutputMode presentedOutputMode     = PresentedOutputMode::Camera;
         common::EntityId outputOverrideCameraEntity = common::kInvalidEntityId;
@@ -451,8 +447,10 @@ public:
         initialOptions.debugParticles.enabled       = mDesc.enableDebugParticles;
         runtime.setRenderFrameOptions(initialOptions);
 
-        if (const std::optional<CameraComponent> presentedCamera = world.tryGetCamera(presentedCameraEntity);
-            !presentedCamera.has_value() || presentedCamera->product != CameraComponent::Product::Color)
+        if (const std::optional<CameraComponent> presentedCamera =
+                world.tryGetCamera(presentedCameraEntity);
+            !presentedCamera.has_value() ||
+            presentedCamera->product != CameraComponent::Product::Color)
         {
             const std::vector<common::EntityId> colorCameras = sortedCameraEntities(world);
             if (!colorCameras.empty())
@@ -598,13 +596,13 @@ public:
             if (presentedOutputMode == PresentedOutputMode::ExplicitOutput)
             {
                 const auto availableOutputs = sortedPresentedExplicitOutputs(world);
-                const bool currentOutputStillAvailable = std::any_of(
-                    availableOutputs.begin(), availableOutputs.end(),
-                    [&](const PresentedExplicitOutputEntry &entry) noexcept
-                    {
-                        return entry.kind == presentedExplicitOutput.kind &&
-                               entry.entityId == presentedExplicitOutput.entityId;
-                    });
+                const bool currentOutputStillAvailable =
+                    std::any_of(availableOutputs.begin(), availableOutputs.end(),
+                                [&](const PresentedExplicitOutputEntry &entry) noexcept
+                                {
+                                    return entry.kind == presentedExplicitOutput.kind &&
+                                           entry.entityId == presentedExplicitOutput.entityId;
+                                });
                 if (!currentOutputStillAvailable)
                 {
                     const PresentedExplicitOutputEntry nextOutput =
@@ -680,7 +678,8 @@ public:
             renderOptions.debugParticles.enabled       = mDesc.enableDebugParticles;
             if (presentedOutputMode == PresentedOutputMode::ExplicitOutput)
             {
-                if (presentedExplicitOutput.kind == PresentedExplicitOutputKind::UltrasoundProbeImage)
+                if (presentedExplicitOutput.kind ==
+                    PresentedExplicitOutputKind::UltrasoundProbeImage)
                 {
                     const engine::UltrasoundProbeResult *probeResult =
                         world.tryGetUltrasoundProbeResult(presentedExplicitOutput.entityId);
@@ -695,8 +694,8 @@ public:
                             graphics::RenderFrameOptions::PresentedExplicitOutput explicitOutput{};
                             explicitOutput.binding =
                                 gpu::GpuRenderTargetBinding{probeResult->imageTarget, 0u, 1u};
-                            explicitOutput.sourceTargetDesc       = probeTargetDesc;
-                            explicitOutput.sourceKind = graphics::RenderFrameOptions::
+                            explicitOutput.sourceTargetDesc = probeTargetDesc;
+                            explicitOutput.sourceKind       = graphics::RenderFrameOptions::
                                 PresentedExplicitOutput::SourceKind::Color;
                             explicitOutput.sourceIsDisplayEncoded = true;
                             renderOptions.presentedExplicitOutput = explicitOutput;
@@ -715,8 +714,7 @@ public:
                 {
                     const std::optional<CameraComponent> camera =
                         world.tryGetCamera(presentedExplicitOutput.entityId);
-                    if (!camera.has_value() ||
-                        camera->product != CameraComponent::Product::Depth ||
+                    if (!camera.has_value() || camera->product != CameraComponent::Product::Depth ||
                         camera->output.mode != gpu::RenderOutputMode::ExplicitSurface ||
                         !camera->output.binding.isValid())
                     {
@@ -731,13 +729,13 @@ public:
                                 camera->output.binding.target, depthTargetDesc))
                         {
                             graphics::RenderFrameOptions::PresentedExplicitOutput explicitOutput{};
-                            explicitOutput.binding              = camera->output.binding;
-                            explicitOutput.binding.layerCount   = 1u;
-                            explicitOutput.sourceTargetDesc     = depthTargetDesc;
-                            explicitOutput.sourceKind = graphics::RenderFrameOptions::
+                            explicitOutput.binding            = camera->output.binding;
+                            explicitOutput.binding.layerCount = 1u;
+                            explicitOutput.sourceTargetDesc   = depthTargetDesc;
+                            explicitOutput.sourceKind         = graphics::RenderFrameOptions::
                                 PresentedExplicitOutput::SourceKind::Depth;
-                            explicitOutput.nearClip             = camera->nearClip;
-                            explicitOutput.farClip              = camera->farClip;
+                            explicitOutput.nearClip               = camera->nearClip;
+                            explicitOutput.farClip                = camera->farClip;
                             renderOptions.presentedExplicitOutput = explicitOutput;
                         }
                         else

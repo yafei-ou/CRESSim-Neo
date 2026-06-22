@@ -98,8 +98,8 @@ void logInvalidExplicitTarget(const CameraData &camera)
 
 void logUnsupportedCameraOutput(const CameraData &camera, const char *reason)
 {
-    CRESSIM_LOG_WARNING("Renderer: skipping camera entity ", camera.entityId, " because ",
-                        reason, ".");
+    CRESSIM_LOG_WARNING("Renderer: skipping camera entity ", camera.entityId, " because ", reason,
+                        ".");
 }
 
 } // namespace
