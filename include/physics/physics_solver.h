@@ -35,6 +35,7 @@ public:
     bool initialize();
     void shutdown();
     bool step(const common::FrameContext &frameContext, PhysicsWorld &world);
+    bool syncWorldState(PhysicsWorld &world);
     bool validateGpuMetaBlocking();
     PhysicsGpuSceneView gpuSceneView() const noexcept;
     const gpu::SharedExportBuffer *softPositionsInvMassSharedBuffer() const noexcept;

@@ -163,3 +163,10 @@ add_cressim_test(
     SOURCE runtime_ultrasound_staging.cpp
     LIBS cressim_neo_engine
 )
+
+add_cressim_test(
+    SUITE engine
+    NAME runtime_custom_compute
+    SOURCE runtime_custom_compute.cpp
+    LIBS cressim_neo_engine
+)

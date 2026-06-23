@@ -40,6 +40,8 @@ struct GpuComputePassDefinition
     std::size_t variableCount                             = 0u;
     const Diligent::ShaderMacro *macros                   = nullptr;
     std::size_t macroCount                                = 0u;
+    const char *entryPoint                                = nullptr;
+    const char *shaderSource                              = nullptr;
 };
 
 class GpuComputePass

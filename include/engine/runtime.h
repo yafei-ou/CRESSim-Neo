@@ -2,6 +2,7 @@
 #define CRESSIM_NEO_ENGINE_RUNTIME_H
 
 #include "common/frame_context.h"
+#include "engine/custom_compute.h"
 #include "engine/export.h"
 #include "engine/render_scene_uploader.h"
 #include "engine/ultrasound_system.h"
@@ -16,6 +17,8 @@
 namespace cressim::neo::engine
 {
 
+class CustomComputeService;
+
 struct RuntimeConfig
 {
     gpu::GpuDeviceDesc gpuDeviceDesc{};
@@ -27,6 +30,7 @@ struct RuntimeConfig
 class CRESSIM_NEO_ENGINE_API Runtime
 {
 public:
+    Runtime();
     ~Runtime();
 
     bool initialize(const RuntimeConfig &config = RuntimeConfig{});
@@ -53,6 +57,12 @@ public:
 
     graphics::RenderResourceManager &getResources() noexcept;
     const graphics::RenderResourceManager &getResources() const noexcept;
+    std::vector<CustomComputeResourceDesc> listCustomComputeResources();
+    CustomComputePassHandle createCustomComputePass(const CustomComputePassDesc &desc);
+    bool updateCustomComputePassConstants(CustomComputePassHandle handle,
+                                          const std::vector<std::uint8_t> &data);
+    bool executeCustomComputePass(CustomComputePassHandle handle);
+    bool destroyCustomComputePass(CustomComputePassHandle handle);
 
 private:
     bool mInitialized = false;
@@ -61,6 +71,7 @@ private:
     std::unique_ptr<physics::PhysicsSolver> mPhysicsSolver;
     std::unique_ptr<UltrasoundSystem> mUltrasoundSystem;
     std::unique_ptr<graphics::Renderer> mRenderer;
+    std::unique_ptr<CustomComputeService> mCustomComputeService;
     graphics::RenderFrameOptions mRenderFrameOptions{};
     graphics::RenderStats mLastRenderStats{};
     World mWorld;

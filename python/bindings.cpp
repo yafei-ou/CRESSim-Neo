@@ -23,6 +23,14 @@ using cressim::neo::common::FrameContext;
 using cressim::neo::common::Transform;
 using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::ColliderComponent;
+using cressim::neo::engine::CustomComputeDispatchDesc;
+using cressim::neo::engine::CustomComputeDispatchMode;
+using cressim::neo::engine::CustomComputePassDesc;
+using cressim::neo::engine::CustomComputePassHandle;
+using cressim::neo::engine::CustomComputeResourceAccess;
+using cressim::neo::engine::CustomComputeResourceBindingDesc;
+using cressim::neo::engine::CustomComputeResourceDesc;
+using cressim::neo::engine::CustomComputeResourceKind;
 using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::RigidBodyComponent;
@@ -117,6 +125,64 @@ PYBIND11_MODULE(_cressim_neo, m)
     py::enum_<RenderOutputMode>(m, "RenderOutputMode")
         .value("ManagedPrimary", RenderOutputMode::ManagedPrimary)
         .value("ExplicitSurface", RenderOutputMode::ExplicitSurface);
+
+    py::enum_<CustomComputeResourceKind>(m, "CustomComputeResourceKind")
+        .value("Buffer", CustomComputeResourceKind::Buffer);
+
+    py::enum_<CustomComputeResourceAccess>(m, "CustomComputeResourceAccess")
+        .value("ReadOnly", CustomComputeResourceAccess::ReadOnly)
+        .value("WriteOnly", CustomComputeResourceAccess::WriteOnly)
+        .value("ReadWrite", CustomComputeResourceAccess::ReadWrite);
+
+    py::enum_<CustomComputeDispatchMode>(m, "CustomComputeDispatchMode")
+        .value("ExplicitGroupCount", CustomComputeDispatchMode::ExplicitGroupCount)
+        .value("ResourceElementCount", CustomComputeDispatchMode::ResourceElementCount);
+
+    py::class_<CustomComputePassHandle>(m, "CustomComputePassHandle")
+        .def(py::init<>())
+        .def_readwrite("id", &CustomComputePassHandle::id)
+        .def("is_valid", &CustomComputePassHandle::isValid);
+
+    py::class_<CustomComputeResourceDesc>(m, "CustomComputeResourceDesc")
+        .def(py::init<>())
+        .def_readwrite("key", &CustomComputeResourceDesc::key)
+        .def_readwrite("kind", &CustomComputeResourceDesc::kind)
+        .def_readwrite("access", &CustomComputeResourceDesc::access)
+        .def_readwrite("element_count", &CustomComputeResourceDesc::elementCount)
+        .def_readwrite("element_stride_bytes", &CustomComputeResourceDesc::elementStrideBytes)
+        .def_readwrite("binding_generation", &CustomComputeResourceDesc::bindingGeneration);
+
+    py::class_<CustomComputeResourceBindingDesc>(m, "CustomComputeResourceBindingDesc")
+        .def(py::init<>())
+        .def_readwrite("shader_variable_name",
+                       &CustomComputeResourceBindingDesc::shaderVariableName)
+        .def_readwrite("resource_key", &CustomComputeResourceBindingDesc::resourceKey)
+        .def_readwrite("access", &CustomComputeResourceBindingDesc::access);
+
+    py::class_<CustomComputeDispatchDesc>(m, "CustomComputeDispatchDesc")
+        .def(py::init<>())
+        .def_readwrite("mode", &CustomComputeDispatchDesc::mode)
+        .def_readwrite("group_count_x", &CustomComputeDispatchDesc::groupCountX)
+        .def_readwrite("group_count_y", &CustomComputeDispatchDesc::groupCountY)
+        .def_readwrite("group_count_z", &CustomComputeDispatchDesc::groupCountZ)
+        .def_readwrite("count_resource_key", &CustomComputeDispatchDesc::countResourceKey);
+
+    py::class_<CustomComputePassDesc>(m, "CustomComputePassDesc")
+        .def(py::init<>())
+        .def_readwrite("debug_name", &CustomComputePassDesc::debugName)
+        .def_readwrite("shader_path", &CustomComputePassDesc::shaderPath)
+        .def_readwrite("shader_source", &CustomComputePassDesc::shaderSource)
+        .def_readwrite("entry_point", &CustomComputePassDesc::entryPoint)
+        .def_readwrite("thread_group_size_x", &CustomComputePassDesc::threadGroupSizeX)
+        .def_readwrite("thread_group_size_y", &CustomComputePassDesc::threadGroupSizeY)
+        .def_readwrite("thread_group_size_z", &CustomComputePassDesc::threadGroupSizeZ)
+        .def_readwrite("resource_bindings", &CustomComputePassDesc::resourceBindings)
+        .def_readwrite("constant_buffer_variable_name",
+                       &CustomComputePassDesc::constantBufferVariableName)
+        .def_readwrite("constant_buffer_size_bytes",
+                       &CustomComputePassDesc::constantBufferSizeBytes)
+        .def_readwrite("constant_data", &CustomComputePassDesc::constantData)
+        .def_readwrite("dispatch", &CustomComputePassDesc::dispatch);
 
     py::enum_<Diligent::TEXTURE_FORMAT>(m, "TextureFormat")
         .value("Unknown", Diligent::TEX_FORMAT_UNKNOWN)
@@ -554,6 +620,18 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("step_simulation_sensors", &Runtime::stepSimulationSensors)
         .def("step_visual_sensors", &Runtime::stepVisualSensors)
         .def("end_frame", &Runtime::endFrame)
+        .def("list_custom_compute_resources", &Runtime::listCustomComputeResources)
+        .def("create_custom_compute_pass", &Runtime::createCustomComputePass)
+        .def(
+            "update_custom_compute_pass_constants",
+            [](Runtime &runtime, const CustomComputePassHandle handle, py::bytes data)
+            {
+                std::string bytes = data;
+                return runtime.updateCustomComputePassConstants(
+                    handle, std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
+            })
+        .def("execute_custom_compute_pass", &Runtime::executeCustomComputePass)
+        .def("destroy_custom_compute_pass", &Runtime::destroyCustomComputePass)
         .def("last_render_stats", &Runtime::lastRenderStats,
              py::return_value_policy::reference_internal)
         .def(

@@ -1,5 +1,6 @@
 #include "engine/runtime.h"
 
+#include "engine/custom_compute_service.h"
 #include "common/logger.h"
 
 namespace cressim::neo::engine
@@ -79,6 +80,8 @@ bool syncGpuScene(World &world, gpu::GpuDevice *device, RenderSceneUploader *upl
 }
 
 } // namespace
+
+Runtime::Runtime() = default;
 
 Runtime::~Runtime()
 {
@@ -163,6 +166,7 @@ bool Runtime::initialize(const RuntimeConfig &config)
         return false;
     }
 
+    mCustomComputeService = std::make_unique<CustomComputeService>(*mGpuDevice);
     mInitialized = true;
     return true;
 }
@@ -181,6 +185,11 @@ void Runtime::shutdown()
     }
 
     mRenderer.reset();
+    if (mCustomComputeService)
+    {
+        mCustomComputeService->clear();
+        mCustomComputeService.reset();
+    }
 
     if (mRenderSceneUploader)
     {
@@ -377,6 +386,43 @@ graphics::RenderResourceManager &Runtime::getResources() noexcept
 const graphics::RenderResourceManager &Runtime::getResources() const noexcept
 {
     return mResources;
+}
+
+std::vector<CustomComputeResourceDesc> Runtime::listCustomComputeResources()
+{
+    if (!mInitialized || mCustomComputeService == nullptr || mPhysicsSolver == nullptr)
+    {
+        return {};
+    }
+    return mCustomComputeService->listResources(*mPhysicsSolver, mWorld.physicsWorld());
+}
+
+CustomComputePassHandle Runtime::createCustomComputePass(const CustomComputePassDesc &desc)
+{
+    if (!mInitialized || mCustomComputeService == nullptr || mPhysicsSolver == nullptr)
+    {
+        return {};
+    }
+    return mCustomComputeService->createPass(*mPhysicsSolver, mWorld.physicsWorld(), desc);
+}
+
+bool Runtime::updateCustomComputePassConstants(CustomComputePassHandle handle,
+                                               const std::vector<std::uint8_t> &data)
+{
+    return mInitialized && mCustomComputeService != nullptr &&
+           mCustomComputeService->updatePassConstants(handle, data);
+}
+
+bool Runtime::executeCustomComputePass(CustomComputePassHandle handle)
+{
+    return mInitialized && mCustomComputeService != nullptr && mPhysicsSolver != nullptr &&
+           mCustomComputeService->executePass(*mPhysicsSolver, mWorld.physicsWorld(), handle);
+}
+
+bool Runtime::destroyCustomComputePass(CustomComputePassHandle handle)
+{
+    return mInitialized && mCustomComputeService != nullptr &&
+           mCustomComputeService->destroyPass(handle);
 }
 
 } // namespace cressim::neo::engine
