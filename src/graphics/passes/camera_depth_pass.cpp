@@ -10,7 +10,8 @@ namespace cressim::neo::graphics::detail
 
 CameraDepthPass::CameraDepthPass(gpu::GpuDevice &device, RenderResourceManager &resourceManager)
     : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
-      mMeshGpuCache("CRESSimNeo.CameraDepthPass")
+      mMeshGpuCache("CRESSimNeo.CameraDepthPass"),
+      mMaterialHelper(resourceManager, "CRESSimNeo.CameraDepthPass.Material")
 {
 }
 
@@ -51,9 +52,11 @@ std::size_t CameraDepthPass::PipelineKeyHasher::operator()(const PipelineKey &ke
 {
     const std::size_t programHash =
         std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.programFamily));
+    const std::size_t featureHash =
+        std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.materialFeatureFlags));
     const std::size_t depthHash =
         std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.depthFormat));
-    return programHash ^ (depthHash << 1u);
+    return programHash ^ (featureHash << 1u) ^ (depthHash << 2u);
 }
 
 bool CameraDepthPass::ensureConstantBuffers(Diligent::IRenderDevice *renderDevice)
@@ -115,6 +118,8 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
     Diligent::ShaderMacro shaderMacros[] = {
         {"MANUAL_LAYER_EXPORT", "1"},
         {"CRESSIM_CAMERA_DEPTH_PASS", "1"},
+        {"CRESSIM_FEATURE_ALPHA_TEST",
+         hasFlag(key.materialFeatureFlags, MaterialFeatureFlags::AlphaTest) ? "1" : ""},
         {key.programFamily == MaterialProgramFamily::SoftBodyLit
              ? "CRESSIM_PROGRAM_FAMILY_SOFT_BODY"
              : (key.programFamily == MaterialProgramFamily::CurveLit
@@ -123,8 +128,11 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
          key.programFamily != MaterialProgramFamily::StandardLit ? "1" : ""},
     };
     shaderCreateInfo.Macros = Diligent::ShaderMacroArray{
-        shaderMacros, static_cast<Diligent::Uint32>(
-                          key.programFamily == MaterialProgramFamily::StandardLit ? 2u : 3u)};
+        shaderMacros,
+        static_cast<Diligent::Uint32>(
+            key.programFamily == MaterialProgramFamily::StandardLit
+                ? (hasFlag(key.materialFeatureFlags, MaterialFeatureFlags::AlphaTest) ? 3u : 2u)
+                : (hasFlag(key.materialFeatureFlags, MaterialFeatureFlags::AlphaTest) ? 4u : 3u))};
 
     Diligent::RefCntAutoPtr<Diligent::IShader> vertexShader;
     if (!mDevice.createShader(shaderCreateInfo, &vertexShader))
@@ -132,6 +140,23 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
         vertexShader = nullptr;
     }
     if (vertexShader == nullptr)
+    {
+        return nullptr;
+    }
+
+    Diligent::RefCntAutoPtr<Diligent::IShader> pixelShader;
+    shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
+    shaderCreateInfo.FilePath        = "graphics/camera_depth.ps.hlsl";
+    shaderCreateInfo.Desc.Name       = key.programFamily == MaterialProgramFamily::SoftBodyLit
+                                           ? "CRESSimNeo.CameraDepthPass.SoftBody.PS"
+                                           : (key.programFamily == MaterialProgramFamily::CurveLit
+                                                  ? "CRESSimNeo.CameraDepthPass.Curve.PS"
+                                                  : "CRESSimNeo.CameraDepthPass.PS");
+    if (!mDevice.createShader(shaderCreateInfo, &pixelShader))
+    {
+        pixelShader = nullptr;
+    }
+    if (pixelShader == nullptr)
     {
         return nullptr;
     }
@@ -146,7 +171,10 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
     psoCreateInfo.GraphicsPipeline.NumRenderTargets  = 0;
     psoCreateInfo.GraphicsPipeline.DSVFormat         = key.depthFormat;
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode              = Diligent::CULL_MODE_BACK;
+    psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode =
+        hasFlag(key.materialFeatureFlags, MaterialFeatureFlags::DoubleSided)
+            ? Diligent::CULL_MODE_NONE
+            : Diligent::CULL_MODE_BACK;
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = Diligent::True;
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable         = Diligent::True;
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable    = Diligent::True;
@@ -169,6 +197,8 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_BaseColorTexture",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     constexpr Diligent::ShaderResourceVariableDesc kSoftBodyVars[] = {
         {Diligent::SHADER_TYPE_VERTEX, "g_EntityPositions",
@@ -188,6 +218,8 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyRenderPositions",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_BaseColorTexture",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     constexpr Diligent::ShaderResourceVariableDesc kCurveVars[] = {
@@ -209,6 +241,8 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_CurveRenderPositions",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_BaseColorTexture",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     psoCreateInfo.PSODesc.ResourceLayout.Variables =
         key.programFamily == MaterialProgramFamily::SoftBodyLit
@@ -229,6 +263,7 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
     psoCreateInfo.GraphicsPipeline.InputLayout.LayoutElements = kLayoutElements;
     psoCreateInfo.GraphicsPipeline.InputLayout.NumElements    = 4;
     psoCreateInfo.pVS                                         = vertexShader;
+    psoCreateInfo.pPS                                         = pixelShader;
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline;
     if (!mDevice.createGraphicsPipelineState(psoCreateInfo, &pipeline))
@@ -252,6 +287,10 @@ Diligent::IPipelineState *CameraDepthPass::getOrCreatePipeline(
         return nullptr;
     }
     perObjectVar->Set(mPerObjectBuffer);
+    if (!mMaterialHelper.initialize(renderDevice) || !mMaterialHelper.bindStaticResources(pipeline))
+    {
+        return nullptr;
+    }
 
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> shaderBinding;
     pipeline->CreateShaderResourceBinding(&shaderBinding, true);
@@ -473,7 +512,8 @@ bool CameraDepthPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBind
     }
 
     Diligent::IPipelineState *pipeline = getOrCreatePipeline(
-        setup.backendContext.renderDevice, PipelineKey{drawCommand.programFamily, depthFormat});
+        setup.backendContext.renderDevice,
+        PipelineKey{drawCommand.programFamily, drawCommand.materialFeatureFlags, depthFormat});
     if (pipeline == nullptr)
     {
         return false;
@@ -488,7 +528,18 @@ bool CameraDepthPass::drawIndirect(const gpu::GpuRenderTargetBinding &targetBind
     {
         return false;
     }
+    if (!mMaterialHelper.bindMaterialResources(setup.backendContext.renderDevice,
+                                               setup.backendContext.graphicsContext, shaderBinding,
+                                               drawCommand.materialId))
+    {
+        return false;
+    }
     if (!updatePerDrawConstants(setup.backendContext.graphicsContext, drawCommand))
+    {
+        return false;
+    }
+    if (!mMaterialHelper.updateMaterialConstants(setup.backendContext.graphicsContext,
+                                                 drawCommand.materialId))
     {
         return false;
     }

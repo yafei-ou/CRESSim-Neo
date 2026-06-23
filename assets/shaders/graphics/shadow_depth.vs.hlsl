@@ -14,6 +14,7 @@ struct VSInput
 struct VSOutput
 {
     float4 Position : SV_Position;
+    float2 TexCoord : TEXCOORD7;
 #if MANUAL_LAYER_EXPORT
     uint Layer : SV_RenderTargetArrayIndex;
 #endif
@@ -28,6 +29,7 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
 #endif
 )
 {
+    Out.TexCoord = In.TexCoord;
 #if defined(CRESSIM_CAMERA_DEPTH_PASS)
     const VisiblePairInstance pair = CRESSIM_SB_LOAD(g_VisiblePairs, g_DrawListOffset + instanceId);
     const BatchCameraMetadata batchCamera = CRESSIM_SB_LOAD(g_BatchCameras, pair.batchCameraIndex);
@@ -55,6 +57,7 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
 #if defined(CRESSIM_CAMERA_SEGMENTATION_PASS)
         Out.SegmentationId = 0u;
 #endif
+        Out.TexCoord = In.TexCoord;
         return;
     }
 
@@ -84,6 +87,7 @@ void main(in VSInput In, out VSOutput Out, uint instanceId : SV_InstanceID
 #if defined(CRESSIM_CAMERA_SEGMENTATION_PASS)
     Out.SegmentationId = metadata.segmentationId;
 #endif
+    Out.TexCoord = In.TexCoord;
     return;
 #else
 

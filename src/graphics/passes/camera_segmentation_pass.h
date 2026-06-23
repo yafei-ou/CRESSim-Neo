@@ -5,6 +5,7 @@
 #include "gpu/shader_library.h"
 #include "graphics/gpu_scene.h"
 #include "graphics/passes/forward_draw_types.h"
+#include "graphics/passes/raster_sensor_material.h"
 #include "graphics/services/mesh_gpu_cache.h"
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
@@ -54,14 +55,16 @@ private:
 
     struct PipelineKey
     {
-        MaterialProgramFamily programFamily  = MaterialProgramFamily::StandardLit;
-        Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
-        Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
+        MaterialProgramFamily programFamily       = MaterialProgramFamily::StandardLit;
+        MaterialFeatureFlags materialFeatureFlags = MaterialFeatureFlags::None;
+        Diligent::TEXTURE_FORMAT colorFormat      = Diligent::TEX_FORMAT_UNKNOWN;
+        Diligent::TEXTURE_FORMAT depthFormat      = Diligent::TEX_FORMAT_UNKNOWN;
 
         bool operator==(const PipelineKey &rhs) const noexcept
         {
-            return programFamily == rhs.programFamily && colorFormat == rhs.colorFormat &&
-                   depthFormat == rhs.depthFormat;
+            return programFamily == rhs.programFamily &&
+                   materialFeatureFlags == rhs.materialFeatureFlags &&
+                   colorFormat == rhs.colorFormat && depthFormat == rhs.depthFormat;
         }
     };
 
@@ -89,6 +92,7 @@ private:
     bool mInitialized = false;
     gpu::ShaderLibrary mShaderLibrary;
     MeshGpuCache mMeshGpuCache;
+    RasterSensorMaterialHelper mMaterialHelper;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> mPerObjectBuffer;
     Diligent::IBuffer *mVisiblePairBuffer = nullptr;
     Diligent::IBuffer *mBatchCameraBuffer = nullptr;

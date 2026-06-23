@@ -281,7 +281,7 @@ Diligent::RefCntAutoPtr<Diligent::ITextureView> DisplayResolvePass::createSource
     const Diligent::TextureDesc &textureDesc = texture->GetDesc();
     Diligent::TextureViewDesc viewDesc{};
     viewDesc.ViewType        = Diligent::TEXTURE_VIEW_SHADER_RESOURCE;
-    viewDesc.TextureDim      = Diligent::RESOURCE_DIM_TEX_2D_ARRAY;
+    viewDesc.TextureDim      = textureDesc.Type;
     viewDesc.MostDetailedMip = 0u;
     viewDesc.NumMipLevels    = 1u;
     viewDesc.FirstArraySlice = 0u;

@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <initializer_list>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -24,7 +25,11 @@ using cressim::neo::engine::Runtime;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::examples::helpers::CommonExampleOptions;
 using cressim::neo::examples::helpers::ViewerExampleDefaults;
+using cressim::neo::graphics::MaterialFeatureFlags;
+using cressim::neo::graphics::MaterialRenderMode;
 using cressim::neo::graphics::MaterialResourceDesc;
+using cressim::neo::graphics::TextureColorSpace;
+using cressim::neo::graphics::TextureResourceDesc;
 using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 using cressim::neo::viewer::DebugViewerCallbacks;
@@ -126,6 +131,19 @@ bool wantsDepthSensor(SensorProductMode mode)
 bool wantsSegmentationSensor(SensorProductMode mode)
 {
     return mode == SensorProductMode::SegmentationDepth || mode == SensorProductMode::All;
+}
+
+TextureResourceDesc makeTextureDesc(const char *debugName, std::uint32_t width,
+                                    std::uint32_t height, TextureColorSpace colorSpace,
+                                    std::initializer_list<std::uint8_t> pixels)
+{
+    TextureResourceDesc desc{};
+    desc.debugName  = debugName;
+    desc.width      = width;
+    desc.height     = height;
+    desc.colorSpace = colorSpace;
+    desc.pixelData.assign(pixels.begin(), pixels.end());
+    return desc;
 }
 
 void syncSensorCamera(Runtime &runtime, cressim::neo::common::EntityId sourceCameraEntity,
@@ -291,6 +309,16 @@ int main(int argc, char **argv)
         0.7f, 32u, 16u, "CameraOutputsExample.SphereMesh"));
     const auto groundMesh = resources.registerMesh(cressim::neo::examples::helpers::makePlaneMesh(
         14.0f, 14.0f, "CameraOutputsExample.GroundMesh"));
+    const auto panelMesh = resources.registerMesh(cressim::neo::examples::helpers::makePlaneMesh(
+        1.3f, 6.0f, "CameraOutputsExample.PanelMesh"));
+    const auto cutoutTexture = resources.registerTexture(makeTextureDesc(
+        "CameraOutputsExample.CutoutTexture", 2u, 2u, TextureColorSpace::Srgb,
+        {255u, 255u, 255u, 255u, 255u, 255u, 255u, 0u,
+         255u, 255u, 255u, 0u,   255u, 255u, 255u, 255u}));
+    const Diligent::QuaternionF frontFacingPanelRotation =
+        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, -Diligent::PI_F * 0.5f);
+    const Diligent::QuaternionF backFacingPanelRotation =
+        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, Diligent::PI_F * 0.5f);
 
     MaterialResourceDesc groundMaterial{};
     groundMaterial.debugName = "CameraOutputsExample.Ground";
@@ -316,6 +344,20 @@ int main(int argc, char **argv)
     amberMaterial.baseColor = {0.88f, 0.72f, 0.28f};
     amberMaterial.roughness = 0.42f;
     const auto amberMaterialHandle = resources.registerMaterial(amberMaterial);
+
+    MaterialResourceDesc cutoutMaterial{};
+    cutoutMaterial.debugName        = "CameraOutputsExample.Cutout";
+    cutoutMaterial.baseColor        = {0.94f, 0.38f, 0.90f};
+    cutoutMaterial.renderMode       = MaterialRenderMode::Cutout;
+    cutoutMaterial.baseColorTexture = cutoutTexture;
+    const auto cutoutMaterialHandle = resources.registerMaterial(cutoutMaterial);
+
+    MaterialResourceDesc doubleSidedMaterial{};
+    doubleSidedMaterial.debugName = "CameraOutputsExample.DoubleSided";
+    doubleSidedMaterial.baseColor = {0.22f, 0.88f, 0.54f};
+    doubleSidedMaterial.roughness = 0.68f;
+    doubleSidedMaterial.pipeline.featureFlags |= MaterialFeatureFlags::DoubleSided;
+    const auto doubleSidedMaterialHandle = resources.registerMaterial(doubleSidedMaterial);
 
     std::vector<cressim::neo::common::EntityId> viewerCameraEntities;
     std::vector<cressim::neo::common::EntityId> colorDepthSensorEntities;
@@ -438,6 +480,18 @@ int main(int argc, char **argv)
                         {envOffset, 0.1f + 0.08f * static_cast<float>(envIndex),
                          2.3f + 0.25f * static_cast<float>(envIndex)},
                         {1.0f, 1.0f, 1.0f});
+        spawnRenderable(world, panelMesh, envIndex, amberMaterialHandle, 5u,
+                        {envOffset - 2.2f, 0.35f, 5.45f + 0.08f * static_cast<float>(envIndex)},
+                        {1.35f, 1.05f, 1.0f},
+                        frontFacingPanelRotation);
+        spawnRenderable(world, panelMesh, envIndex, cutoutMaterialHandle, 6u,
+                        {envOffset - 2.2f, 0.35f, 4.7f + 0.08f * static_cast<float>(envIndex)},
+                        {1.0f, 0.9f, 1.0f},
+                        frontFacingPanelRotation);
+        spawnRenderable(world, panelMesh, envIndex, doubleSidedMaterialHandle, 7u,
+                        {envOffset + 2.45f, 0.45f, 5.05f + 0.1f * static_cast<float>(envIndex)},
+                        {1.45f, 1.15f, 1.0f},
+                        backFacingPanelRotation);
     }
 
     const char *modeLabel = options.sensorProducts == SensorProductMode::ColorDepth
@@ -453,7 +507,10 @@ int main(int argc, char **argv)
                      ". Camera mode shows the managed-primary viewer camera. "
                      "Press U to switch to explicit sensor outputs, then use , and . to cycle "
                      "between ColorDepth color, ColorDepth depth, Depth-only, "
-                     "SegmentationDepth segmentation, and SegmentationDepth depth outputs when present.");
+                     "SegmentationDepth segmentation, and SegmentationDepth depth outputs when present. "
+                     "The scene includes a left-side cutout stack with a solid backdrop plus a "
+                     "separate right-side back-facing double-sided panel so the sensor passes "
+                     "visibly exercise alpha-test discard and double-sided rendering.");
 
     DebugViewerCallbacks callbacks{};
     callbacks.beforeTick = [viewerCameraEntities, colorDepthSensorEntities, depthSensorEntities,

@@ -11,7 +11,8 @@ namespace cressim::neo::graphics::detail
 CameraSegmentationPass::CameraSegmentationPass(gpu::GpuDevice &device,
                                                RenderResourceManager &resourceManager)
     : mDevice(device), mResourceManager(resourceManager), mShaderLibrary(""),
-      mMeshGpuCache("CRESSimNeo.CameraSegmentationPass")
+      mMeshGpuCache("CRESSimNeo.CameraSegmentationPass"),
+      mMaterialHelper(resourceManager, "CRESSimNeo.CameraSegmentationPass.Material")
 {
 }
 
@@ -54,11 +55,13 @@ std::size_t CameraSegmentationPass::PipelineKeyHasher::operator()(
 {
     const std::size_t programHash =
         std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.programFamily));
+    const std::size_t featureHash =
+        std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.materialFeatureFlags));
     const std::size_t colorHash =
         std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.colorFormat));
     const std::size_t depthHash =
         std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.depthFormat));
-    return programHash ^ (colorHash << 1u) ^ (depthHash << 2u);
+    return programHash ^ (featureHash << 1u) ^ (colorHash << 2u) ^ (depthHash << 3u);
 }
 
 bool CameraSegmentationPass::ensureConstantBuffers(Diligent::IRenderDevice *renderDevice)
@@ -117,6 +120,8 @@ Diligent::IPipelineState *CameraSegmentationPass::getOrCreatePipeline(
         {"MANUAL_LAYER_EXPORT", "1"},
         {"CRESSIM_CAMERA_DEPTH_PASS", "1"},
         {"CRESSIM_CAMERA_SEGMENTATION_PASS", "1"},
+        {"CRESSIM_FEATURE_ALPHA_TEST",
+         hasFlag(key.materialFeatureFlags, MaterialFeatureFlags::AlphaTest) ? "1" : ""},
         {key.programFamily == MaterialProgramFamily::SoftBodyLit
              ? "CRESSIM_PROGRAM_FAMILY_SOFT_BODY"
              : (key.programFamily == MaterialProgramFamily::CurveLit
@@ -134,8 +139,11 @@ Diligent::IPipelineState *CameraSegmentationPass::getOrCreatePipeline(
                                                   ? "CRESSimNeo.CameraSegmentationPass.Curve.VS"
                                                   : "CRESSimNeo.CameraSegmentationPass.VS");
     shaderCreateInfo.Macros          = Diligent::ShaderMacroArray{
-        shaderMacros, static_cast<Diligent::Uint32>(
-                          key.programFamily == MaterialProgramFamily::StandardLit ? 3u : 4u)};
+        shaderMacros,
+        static_cast<Diligent::Uint32>(
+            hasFlag(key.materialFeatureFlags, MaterialFeatureFlags::AlphaTest)
+                ? (key.programFamily == MaterialProgramFamily::StandardLit ? 4u : 5u)
+                : (key.programFamily == MaterialProgramFamily::StandardLit ? 3u : 4u))};
     if (!mDevice.createShader(shaderCreateInfo, &vertexShader))
     {
         vertexShader = nullptr;
@@ -154,8 +162,11 @@ Diligent::IPipelineState *CameraSegmentationPass::getOrCreatePipeline(
                                                   ? "CRESSimNeo.CameraSegmentationPass.Curve.PS"
                                                   : "CRESSimNeo.CameraSegmentationPass.PS");
     shaderCreateInfo.Macros          = Diligent::ShaderMacroArray{
-        shaderMacros, static_cast<Diligent::Uint32>(
-                          key.programFamily == MaterialProgramFamily::StandardLit ? 3u : 4u)};
+        shaderMacros,
+        static_cast<Diligent::Uint32>(
+            hasFlag(key.materialFeatureFlags, MaterialFeatureFlags::AlphaTest)
+                ? (key.programFamily == MaterialProgramFamily::StandardLit ? 4u : 5u)
+                : (key.programFamily == MaterialProgramFamily::StandardLit ? 3u : 4u))};
     if (!mDevice.createShader(shaderCreateInfo, &pixelShader))
     {
         pixelShader = nullptr;
@@ -176,7 +187,10 @@ Diligent::IPipelineState *CameraSegmentationPass::getOrCreatePipeline(
     psoCreateInfo.GraphicsPipeline.RTVFormats[0]     = key.colorFormat;
     psoCreateInfo.GraphicsPipeline.DSVFormat         = key.depthFormat;
     psoCreateInfo.GraphicsPipeline.PrimitiveTopology = Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode              = Diligent::CULL_MODE_BACK;
+    psoCreateInfo.GraphicsPipeline.RasterizerDesc.CullMode =
+        hasFlag(key.materialFeatureFlags, MaterialFeatureFlags::DoubleSided)
+            ? Diligent::CULL_MODE_NONE
+            : Diligent::CULL_MODE_BACK;
     psoCreateInfo.GraphicsPipeline.RasterizerDesc.FrontCounterClockwise = Diligent::True;
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthEnable         = Diligent::True;
     psoCreateInfo.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable    = Diligent::True;
@@ -200,6 +214,8 @@ Diligent::IPipelineState *CameraSegmentationPass::getOrCreatePipeline(
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_BaseColorTexture",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     constexpr Diligent::ShaderResourceVariableDesc kSoftBodyVars[] = {
         {Diligent::SHADER_TYPE_VERTEX, "g_EntityPositions",
@@ -220,6 +236,8 @@ Diligent::IPipelineState *CameraSegmentationPass::getOrCreatePipeline(
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_SoftBodyRenderPositions",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_BaseColorTexture",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     constexpr Diligent::ShaderResourceVariableDesc kCurveVars[] = {
         {Diligent::SHADER_TYPE_VERTEX, "g_EntityPositions",
@@ -239,6 +257,8 @@ Diligent::IPipelineState *CameraSegmentationPass::getOrCreatePipeline(
         {Diligent::SHADER_TYPE_VERTEX, "g_PreparedCameras",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_VERTEX, "g_CurveRenderPositions",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_BaseColorTexture",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
     psoCreateInfo.PSODesc.ResourceLayout.Variables =
@@ -284,6 +304,10 @@ Diligent::IPipelineState *CameraSegmentationPass::getOrCreatePipeline(
         return nullptr;
     }
     perObjectVar->Set(mPerObjectBuffer);
+    if (!mMaterialHelper.initialize(renderDevice) || !mMaterialHelper.bindStaticResources(pipeline))
+    {
+        return nullptr;
+    }
 
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> shaderBinding;
     pipeline->CreateShaderResourceBinding(&shaderBinding, true);
@@ -494,8 +518,8 @@ bool CameraSegmentationPass::drawIndirect(const gpu::GpuRenderTargetBinding &tar
 
     Diligent::IPipelineState *pipeline = getOrCreatePipeline(
         setup.backendContext.renderDevice,
-        PipelineKey{drawCommand.programFamily, setup.backendContext.activeRenderTargetColorFormat,
-                    depthFormat});
+        PipelineKey{drawCommand.programFamily, drawCommand.materialFeatureFlags,
+                    setup.backendContext.activeRenderTargetColorFormat, depthFormat});
     if (pipeline == nullptr)
     {
         return false;
@@ -510,7 +534,18 @@ bool CameraSegmentationPass::drawIndirect(const gpu::GpuRenderTargetBinding &tar
     {
         return false;
     }
+    if (!mMaterialHelper.bindMaterialResources(setup.backendContext.renderDevice,
+                                               setup.backendContext.graphicsContext, shaderBinding,
+                                               drawCommand.materialId))
+    {
+        return false;
+    }
     if (!updatePerDrawConstants(setup.backendContext.graphicsContext, drawCommand))
+    {
+        return false;
+    }
+    if (!mMaterialHelper.updateMaterialConstants(setup.backendContext.graphicsContext,
+                                                 drawCommand.materialId))
     {
         return false;
     }
