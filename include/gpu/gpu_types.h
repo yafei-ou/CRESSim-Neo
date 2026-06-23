@@ -111,13 +111,22 @@ struct GpuRenderTargetReadbackEvent
 {
     GpuRenderTargetBinding binding{};
     std::uint64_t frameIndex             = 0;
-    // Format of color payload when available.
+    // Color payload when the target exposes a color attachment.
     Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
-    // Optional 4-channel 8-bit payload copied from the target color buffer.
+    std::uint32_t colorWidth             = 0;
+    std::uint32_t colorHeight            = 0;
+    std::uint32_t colorRowStrideBytes    = 0;
+    std::vector<std::uint8_t> colorBytes{};
+    // Legacy aliases for the color payload.
     std::uint32_t width                  = 0;
     std::uint32_t height                 = 0;
     std::uint32_t rowStrideBytes         = 0;
-    std::vector<std::uint8_t> colorBytes{};
+    // Depth payload when the target exposes a depth attachment.
+    Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
+    std::uint32_t depthWidth             = 0;
+    std::uint32_t depthHeight            = 0;
+    std::uint32_t depthRowStrideBytes    = 0;
+    std::vector<std::uint8_t> depthBytes{};
 };
 
 struct GpuRenderTargetReadbackRequest

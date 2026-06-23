@@ -20,7 +20,8 @@ enum class MainPassClass
 
 struct ResolvedCameraView
 {
-    common::EntityId entityId = common::kInvalidEntityId;
+    common::EntityId entityId   = common::kInvalidEntityId;
+    CameraData::Product product = CameraData::Product::ColorDepth;
     gpu::GpuRenderTargetBinding outputBinding{};
     gpu::GpuRenderTargetDesc outputTargetDesc{};
     gpu::GpuRenderViewport viewport{};
@@ -44,6 +45,8 @@ struct CameraBatchView
 
 struct DisplayResolveRequest
 {
+    RenderFrameOptions::PresentedExplicitOutput::SourceKind sourceKind =
+        RenderFrameOptions::PresentedExplicitOutput::SourceKind::Color;
     gpu::GpuRenderTargetBinding sourceBinding{};
     gpu::GpuRenderTargetDesc sourceTargetDesc{};
     bool sourceIsDisplayEncoded = false;
@@ -55,6 +58,8 @@ struct DisplayResolveRequest
     bool preserveAspectRatio         = false;
     Diligent::float4 clearColorValue = {0.0f, 0.0f, 0.0f, 1.0f};
     float clearDepthValue            = 1.0f;
+    float nearClip                   = 0.01f;
+    float farClip                    = 1000.0f;
 };
 
 struct EnvMainLightState

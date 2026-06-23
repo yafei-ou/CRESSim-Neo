@@ -32,9 +32,13 @@ private:
         std::uint32_t outputMode             = 0u;
         std::uint32_t toneMapper             = 0u;
         std::uint32_t sourceIsDisplayEncoded = 0u;
+        std::uint32_t sourceKind             = 0u;
+        std::uint32_t reserved0              = 0u;
+        std::uint32_t reserved1              = 0u;
+        std::uint32_t reserved2              = 0u;
         std::array<float, 4> resolveParams{1.0f, 0.0f, 0.0f, 0.0f};
     };
-    static_assert(sizeof(ResolveConstants) == 32u,
+    static_assert(sizeof(ResolveConstants) == 48u,
                   "Display resolve constants must match the shader constant buffer layout.");
 
     struct PipelineKey
@@ -57,7 +61,7 @@ private:
     Diligent::IPipelineState *getOrCreatePipeline(Diligent::IRenderDevice *renderDevice,
                                                   const PipelineKey &key);
     Diligent::IShaderResourceBinding *getOrCreateResolveBinding(Diligent::IPipelineState *pipeline);
-    Diligent::RefCntAutoPtr<Diligent::ITextureView> createArraySrv(
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> createSourceSrv(
         Diligent::ITexture *texture) const;
 
     gpu::GpuDevice &mDevice;

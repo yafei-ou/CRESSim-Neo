@@ -37,7 +37,21 @@ using cressim::neo::engine::TransformComponent;
 enum class PresentedOutputMode
 {
     Camera,
+    ExplicitOutput,
+};
+
+enum class PresentedExplicitOutputKind
+{
     UltrasoundProbeImage,
+    CameraProduct,
+};
+
+struct PresentedExplicitOutputEntry
+{
+    PresentedExplicitOutputKind kind = PresentedExplicitOutputKind::UltrasoundProbeImage;
+    common::EntityId entityId        = common::kInvalidEntityId;
+    graphics::RenderFrameOptions::PresentedExplicitOutput::SourceKind sourceKind =
+        graphics::RenderFrameOptions::PresentedExplicitOutput::SourceKind::Color;
 };
 
 std::vector<common::EntityId> sortedCameraEntities(const cressim::neo::engine::World &world)
@@ -46,7 +60,9 @@ std::vector<common::EntityId> sortedCameraEntities(const cressim::neo::engine::W
     cameras.reserve(world.cameras().size());
     for (const graphics::CameraData &camera : world.cameras())
     {
-        if (camera.entityId == common::kInvalidEntityId || camera.cameraSlot == 0xffffffffu)
+        if (camera.entityId == common::kInvalidEntityId || camera.cameraSlot == 0xffffffffu ||
+            camera.product != graphics::CameraData::Product::ColorDepth ||
+            camera.output.mode != gpu::RenderOutputMode::ManagedPrimary)
         {
             continue;
         }
@@ -72,11 +88,46 @@ std::vector<common::EntityId> sortedCameraEntities(const cressim::neo::engine::W
     return entities;
 }
 
-std::vector<common::EntityId> sortedUltrasoundProbeEntities(
+std::vector<PresentedExplicitOutputEntry> sortedPresentedExplicitOutputs(
     const cressim::neo::engine::World &world)
 {
-    std::vector<common::EntityId> entities;
-    entities.reserve(world.ultrasoundProbeComponents().size());
+    std::vector<PresentedExplicitOutputEntry> outputs;
+    outputs.reserve(world.ultrasoundProbeComponents().size() + world.cameras().size());
+
+    for (const graphics::CameraData &camera : world.cameras())
+    {
+        if (camera.entityId == common::kInvalidEntityId || camera.cameraSlot == 0xffffffffu ||
+            camera.output.mode != gpu::RenderOutputMode::ExplicitSurface ||
+            !camera.output.binding.isValid())
+        {
+            continue;
+        }
+        if (camera.product == graphics::CameraData::Product::ColorDepth)
+        {
+            outputs.push_back(PresentedExplicitOutputEntry{
+                PresentedExplicitOutputKind::CameraProduct, camera.entityId,
+                graphics::RenderFrameOptions::PresentedExplicitOutput::SourceKind::Color});
+            outputs.push_back(PresentedExplicitOutputEntry{
+                PresentedExplicitOutputKind::CameraProduct, camera.entityId,
+                graphics::RenderFrameOptions::PresentedExplicitOutput::SourceKind::Depth});
+        }
+        else if (camera.product == graphics::CameraData::Product::Depth)
+        {
+            outputs.push_back(PresentedExplicitOutputEntry{
+                PresentedExplicitOutputKind::CameraProduct, camera.entityId,
+                graphics::RenderFrameOptions::PresentedExplicitOutput::SourceKind::Depth});
+        }
+        else if (camera.product == graphics::CameraData::Product::SegmentationDepth)
+        {
+            outputs.push_back(PresentedExplicitOutputEntry{
+                PresentedExplicitOutputKind::CameraProduct, camera.entityId,
+                graphics::RenderFrameOptions::PresentedExplicitOutput::SourceKind::Segmentation});
+            outputs.push_back(PresentedExplicitOutputEntry{
+                PresentedExplicitOutputKind::CameraProduct, camera.entityId,
+                graphics::RenderFrameOptions::PresentedExplicitOutput::SourceKind::Depth});
+        }
+    }
+
     for (const auto &[entityId, component] : world.ultrasoundProbeComponents())
     {
         (void)component;
@@ -85,11 +136,29 @@ std::vector<common::EntityId> sortedUltrasoundProbeEntities(
         {
             continue;
         }
-        entities.push_back(entityId);
+        outputs.push_back(PresentedExplicitOutputEntry{
+            PresentedExplicitOutputKind::UltrasoundProbeImage, entityId});
     }
 
-    std::sort(entities.begin(), entities.end());
-    return entities;
+    std::sort(outputs.begin(), outputs.end(),
+              [](const PresentedExplicitOutputEntry &lhs,
+                 const PresentedExplicitOutputEntry &rhs) noexcept
+              {
+                  if (lhs.kind != rhs.kind)
+                  {
+                      return lhs.kind < rhs.kind;
+                  }
+                  if (lhs.entityId != rhs.entityId)
+                  {
+                      return lhs.entityId < rhs.entityId;
+                  }
+                  if (lhs.sourceKind != rhs.sourceKind)
+                  {
+                      return lhs.sourceKind < rhs.sourceKind;
+                  }
+                  return false;
+              });
+    return outputs;
 }
 
 common::EntityId cyclePresentedCamera(const cressim::neo::engine::World &world,
@@ -114,26 +183,33 @@ common::EntityId cyclePresentedCamera(const cressim::neo::engine::World &world,
     return cameras[static_cast<std::size_t>(wrappedIndex)];
 }
 
-common::EntityId cyclePresentedUltrasoundProbe(const cressim::neo::engine::World &world,
-                                               common::EntityId currentProbeEntity, int direction)
+PresentedExplicitOutputEntry cyclePresentedExplicitOutput(
+    const cressim::neo::engine::World &world, PresentedExplicitOutputEntry currentOutput,
+    int direction)
 {
-    const std::vector<common::EntityId> probes = sortedUltrasoundProbeEntities(world);
-    if (probes.empty())
+    const std::vector<PresentedExplicitOutputEntry> outputs = sortedPresentedExplicitOutputs(world);
+    if (outputs.empty())
     {
-        return common::kInvalidEntityId;
+        return {};
     }
 
-    const auto currentIt = std::find(probes.begin(), probes.end(), currentProbeEntity);
-    if (currentIt == probes.end())
+    const auto currentIt = std::find_if(outputs.begin(), outputs.end(),
+                                        [&](const PresentedExplicitOutputEntry &entry) noexcept
+                                        {
+                                            return entry.kind == currentOutput.kind &&
+                                                   entry.entityId == currentOutput.entityId &&
+                                                   entry.sourceKind == currentOutput.sourceKind;
+                                        });
+    if (currentIt == outputs.end())
     {
-        return probes.front();
+        return outputs.front();
     }
 
-    const std::ptrdiff_t count        = static_cast<std::ptrdiff_t>(probes.size());
-    const std::ptrdiff_t currentIndex = std::distance(probes.begin(), currentIt);
+    const std::ptrdiff_t count        = static_cast<std::ptrdiff_t>(outputs.size());
+    const std::ptrdiff_t currentIndex = std::distance(outputs.begin(), currentIt);
     const std::ptrdiff_t wrappedIndex =
         (currentIndex + static_cast<std::ptrdiff_t>(direction) + count) % count;
-    return probes[static_cast<std::size_t>(wrappedIndex)];
+    return outputs[static_cast<std::size_t>(wrappedIndex)];
 }
 
 float clampSpeed(float speed, float minSpeed, float maxSpeed)
@@ -395,17 +471,29 @@ public:
 
         mLastTickTime = std::chrono::steady_clock::now();
         common::FrameContext frame{};
-        frame.deltaSeconds                              = mDesc.fixedDeltaSeconds;
-        common::EntityId presentedCameraEntity          = cameraBinding.cameraEntity;
-        common::EntityId presentedUltrasoundProbeEntity = common::kInvalidEntityId;
-        PresentedOutputMode presentedOutputMode         = PresentedOutputMode::Camera;
-        common::EntityId outputOverrideCameraEntity     = common::kInvalidEntityId;
-        graphics::RenderFrameOptions initialOptions     = runtime.renderFrameOptions();
-        initialOptions.presentedCameraEntity            = presentedCameraEntity;
-        initialOptions.presentedExplicitOutput          = std::nullopt;
-        initialOptions.presentationTarget               = std::nullopt;
-        initialOptions.debugParticles.enabled           = mDesc.enableDebugParticles;
+        frame.deltaSeconds                     = mDesc.fixedDeltaSeconds;
+        common::EntityId presentedCameraEntity = cameraBinding.cameraEntity;
+        PresentedExplicitOutputEntry presentedExplicitOutput{};
+        PresentedOutputMode presentedOutputMode     = PresentedOutputMode::Camera;
+        common::EntityId outputOverrideCameraEntity = common::kInvalidEntityId;
+        graphics::RenderFrameOptions initialOptions = runtime.renderFrameOptions();
+        initialOptions.presentedCameraEntity        = presentedCameraEntity;
+        initialOptions.presentedExplicitOutput      = std::nullopt;
+        initialOptions.presentationTarget           = std::nullopt;
+        initialOptions.debugParticles.enabled       = mDesc.enableDebugParticles;
         runtime.setRenderFrameOptions(initialOptions);
+
+        if (const std::optional<CameraComponent> presentedCamera =
+                world.tryGetCamera(presentedCameraEntity);
+            !presentedCamera.has_value() ||
+            presentedCamera->product != CameraComponent::Product::ColorDepth)
+        {
+            const std::vector<common::EntityId> colorCameras = sortedCameraEntities(world);
+            if (!colorCameras.empty())
+            {
+                presentedCameraEntity = colorCameras.front();
+            }
+        }
 
         const auto refreshCameraStateFromPresentedEntity = [&](common::EntityId cameraEntity,
                                                                bool captureInitialState) -> bool
@@ -423,6 +511,12 @@ public:
             }
             return true;
         };
+
+        if (!refreshCameraStateFromPresentedEntity(presentedCameraEntity, true))
+        {
+            CRESSIM_LOG_ERROR("DebugViewerApp: failed to resolve initial presented camera.");
+            return false;
+        }
 
         while (!mExitRequested.load())
         {
@@ -486,14 +580,16 @@ public:
             {
                 if (presentedOutputMode == PresentedOutputMode::Camera)
                 {
-                    const common::EntityId firstProbe =
-                        cyclePresentedUltrasoundProbe(world, common::kInvalidEntityId, 1);
-                    if (firstProbe != common::kInvalidEntityId)
+                    const PresentedExplicitOutputEntry firstOutput =
+                        cyclePresentedExplicitOutput(world, {}, 1);
+                    if (firstOutput.entityId != common::kInvalidEntityId)
                     {
-                        presentedOutputMode            = PresentedOutputMode::UltrasoundProbeImage;
-                        presentedUltrasoundProbeEntity = firstProbe;
-                        CRESSIM_LOG_INFO("viewer presenting ultrasound probe entity=",
-                                         presentedUltrasoundProbeEntity);
+                        presentedOutputMode     = PresentedOutputMode::ExplicitOutput;
+                        presentedExplicitOutput = firstOutput;
+                        CRESSIM_LOG_INFO(
+                            "viewer presenting explicit output entity=",
+                            presentedExplicitOutput.entityId, " source=",
+                            static_cast<std::uint32_t>(presentedExplicitOutput.sourceKind));
                     }
                 }
                 else
@@ -504,26 +600,30 @@ public:
             }
             if (consumeKeyPress(mDesc.keymap.cyclePresentedProbePrevious))
             {
-                const common::EntityId nextProbe =
-                    cyclePresentedUltrasoundProbe(world, presentedUltrasoundProbeEntity, -1);
-                if (nextProbe != common::kInvalidEntityId)
+                const PresentedExplicitOutputEntry nextOutput =
+                    cyclePresentedExplicitOutput(world, presentedExplicitOutput, -1);
+                if (nextOutput.entityId != common::kInvalidEntityId)
                 {
-                    presentedOutputMode            = PresentedOutputMode::UltrasoundProbeImage;
-                    presentedUltrasoundProbeEntity = nextProbe;
-                    CRESSIM_LOG_INFO("viewer presenting ultrasound probe entity=",
-                                     presentedUltrasoundProbeEntity);
+                    presentedOutputMode     = PresentedOutputMode::ExplicitOutput;
+                    presentedExplicitOutput = nextOutput;
+                    CRESSIM_LOG_INFO(
+                        "viewer presenting explicit output entity=",
+                        presentedExplicitOutput.entityId,
+                        " source=", static_cast<std::uint32_t>(presentedExplicitOutput.sourceKind));
                 }
             }
             if (consumeKeyPress(mDesc.keymap.cyclePresentedProbeNext))
             {
-                const common::EntityId nextProbe =
-                    cyclePresentedUltrasoundProbe(world, presentedUltrasoundProbeEntity, 1);
-                if (nextProbe != common::kInvalidEntityId)
+                const PresentedExplicitOutputEntry nextOutput =
+                    cyclePresentedExplicitOutput(world, presentedExplicitOutput, 1);
+                if (nextOutput.entityId != common::kInvalidEntityId)
                 {
-                    presentedOutputMode            = PresentedOutputMode::UltrasoundProbeImage;
-                    presentedUltrasoundProbeEntity = nextProbe;
-                    CRESSIM_LOG_INFO("viewer presenting ultrasound probe entity=",
-                                     presentedUltrasoundProbeEntity);
+                    presentedOutputMode     = PresentedOutputMode::ExplicitOutput;
+                    presentedExplicitOutput = nextOutput;
+                    CRESSIM_LOG_INFO(
+                        "viewer presenting explicit output entity=",
+                        presentedExplicitOutput.entityId,
+                        " source=", static_cast<std::uint32_t>(presentedExplicitOutput.sourceKind));
                 }
             }
             if (!world.isAlive(presentedCameraEntity))
@@ -535,19 +635,26 @@ public:
                     break;
                 }
             }
-            if (presentedOutputMode == PresentedOutputMode::UltrasoundProbeImage)
+            if (presentedOutputMode == PresentedOutputMode::ExplicitOutput)
             {
-                const engine::UltrasoundProbeResult *probeResult =
-                    world.tryGetUltrasoundProbeResult(presentedUltrasoundProbeEntity);
-                if (probeResult == nullptr || !probeResult->prepared)
+                const auto availableOutputs = sortedPresentedExplicitOutputs(world);
+                const bool currentOutputStillAvailable =
+                    std::any_of(availableOutputs.begin(), availableOutputs.end(),
+                                [&](const PresentedExplicitOutputEntry &entry) noexcept
+                                {
+                                    return entry.kind == presentedExplicitOutput.kind &&
+                                           entry.entityId == presentedExplicitOutput.entityId &&
+                                           entry.sourceKind == presentedExplicitOutput.sourceKind;
+                                });
+                if (!currentOutputStillAvailable)
                 {
-                    const common::EntityId nextProbe =
-                        cyclePresentedUltrasoundProbe(world, presentedUltrasoundProbeEntity, 1);
-                    if (nextProbe == common::kInvalidEntityId)
+                    const PresentedExplicitOutputEntry nextOutput =
+                        cyclePresentedExplicitOutput(world, presentedExplicitOutput, 1);
+                    if (nextOutput.entityId == common::kInvalidEntityId)
                     {
                         presentedOutputMode = PresentedOutputMode::Camera;
                     }
-                    presentedUltrasoundProbeEntity = nextProbe;
+                    presentedExplicitOutput = nextOutput;
                 }
             }
 
@@ -612,27 +719,101 @@ public:
             renderOptions.presentedExplicitOutput      = std::nullopt;
             renderOptions.presentationTarget           = presentationTargetDesc;
             renderOptions.debugParticles.enabled       = mDesc.enableDebugParticles;
-            if (presentedOutputMode == PresentedOutputMode::UltrasoundProbeImage)
+            if (presentedOutputMode == PresentedOutputMode::ExplicitOutput)
             {
-                const engine::UltrasoundProbeResult *probeResult =
-                    world.tryGetUltrasoundProbeResult(presentedUltrasoundProbeEntity);
-                if (probeResult != nullptr && probeResult->prepared)
+                if (presentedExplicitOutput.kind ==
+                    PresentedExplicitOutputKind::UltrasoundProbeImage)
                 {
-                    gpu::GpuRenderTargetDesc probeTargetDesc{};
-                    if (gpu::GpuDevice *const device = runtime.getGpuDevice();
-                        device != nullptr && device->renderTargetSystem().tryGetRenderTargetDesc(
-                                                 probeResult->imageTarget, probeTargetDesc))
+                    const engine::UltrasoundProbeResult *probeResult =
+                        world.tryGetUltrasoundProbeResult(presentedExplicitOutput.entityId);
+                    if (probeResult != nullptr && probeResult->prepared)
                     {
-                        graphics::RenderFrameOptions::PresentedExplicitOutput explicitOutput{};
-                        explicitOutput.binding =
-                            gpu::GpuRenderTargetBinding{probeResult->imageTarget, 0u, 1u};
-                        explicitOutput.sourceTargetDesc       = probeTargetDesc;
-                        explicitOutput.sourceIsDisplayEncoded = true;
-                        renderOptions.presentedExplicitOutput = explicitOutput;
+                        gpu::GpuRenderTargetDesc probeTargetDesc{};
+                        if (gpu::GpuDevice *const device = runtime.getGpuDevice();
+                            device != nullptr &&
+                            device->renderTargetSystem().tryGetRenderTargetDesc(
+                                probeResult->imageTarget, probeTargetDesc))
+                        {
+                            graphics::RenderFrameOptions::PresentedExplicitOutput explicitOutput{};
+                            explicitOutput.binding =
+                                gpu::GpuRenderTargetBinding{probeResult->imageTarget, 0u, 1u};
+                            explicitOutput.sourceTargetDesc = probeTargetDesc;
+                            explicitOutput.sourceKind       = graphics::RenderFrameOptions::
+                                PresentedExplicitOutput::SourceKind::Color;
+                            explicitOutput.sourceIsDisplayEncoded = true;
+                            renderOptions.presentedExplicitOutput = explicitOutput;
+                        }
+                        else
+                        {
+                            presentedOutputMode = PresentedOutputMode::Camera;
+                        }
                     }
                     else
                     {
                         presentedOutputMode = PresentedOutputMode::Camera;
+                    }
+                }
+                else if (presentedExplicitOutput.kind == PresentedExplicitOutputKind::CameraProduct)
+                {
+                    const std::optional<CameraComponent> camera =
+                        world.tryGetCamera(presentedExplicitOutput.entityId);
+                    if (!camera.has_value() ||
+                        (camera->product != CameraComponent::Product::ColorDepth &&
+                         camera->product != CameraComponent::Product::Depth &&
+                         camera->product != CameraComponent::Product::SegmentationDepth) ||
+                        camera->output.mode != gpu::RenderOutputMode::ExplicitSurface ||
+                        !camera->output.binding.isValid())
+                    {
+                        presentedOutputMode = PresentedOutputMode::Camera;
+                    }
+                    else
+                    {
+                        gpu::GpuRenderTargetDesc targetDesc{};
+                        if (gpu::GpuDevice *const device = runtime.getGpuDevice();
+                            device != nullptr &&
+                            device->renderTargetSystem().tryGetRenderTargetDesc(
+                                camera->output.binding.target, targetDesc))
+                        {
+                            const bool validSourceKind =
+                                presentedExplicitOutput.sourceKind ==
+                                        graphics::RenderFrameOptions::PresentedExplicitOutput::
+                                            SourceKind::Color
+                                    ? (camera->product == CameraComponent::Product::ColorDepth &&
+                                       targetDesc.color)
+                                    : (presentedExplicitOutput.sourceKind ==
+                                               graphics::RenderFrameOptions::
+                                                   PresentedExplicitOutput::SourceKind::Segmentation
+                                           ? (camera->product ==
+                                                  CameraComponent::Product::SegmentationDepth &&
+                                              targetDesc.color &&
+                                              targetDesc.colorFormat ==
+                                                  Diligent::TEX_FORMAT_R32_UINT)
+                                           : targetDesc.depth);
+                            if (!validSourceKind)
+                            {
+                                presentedOutputMode = PresentedOutputMode::Camera;
+                            }
+                            else
+                            {
+                                graphics::RenderFrameOptions::PresentedExplicitOutput
+                                    explicitOutput{};
+                                explicitOutput.binding            = camera->output.binding;
+                                explicitOutput.binding.layerCount = 1u;
+                                explicitOutput.sourceTargetDesc   = targetDesc;
+                                explicitOutput.sourceKind = presentedExplicitOutput.sourceKind;
+                                explicitOutput.sourceIsDisplayEncoded =
+                                    presentedExplicitOutput.sourceKind ==
+                                    graphics::RenderFrameOptions::PresentedExplicitOutput::
+                                        SourceKind::Segmentation;
+                                explicitOutput.nearClip               = camera->nearClip;
+                                explicitOutput.farClip                = camera->farClip;
+                                renderOptions.presentedExplicitOutput = explicitOutput;
+                            }
+                        }
+                        else
+                        {
+                            presentedOutputMode = PresentedOutputMode::Camera;
+                        }
                     }
                 }
                 else

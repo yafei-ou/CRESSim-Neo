@@ -548,17 +548,29 @@ bool ForwardOpaquePass::prepareDraw(const gpu::GpuRenderTargetBinding &targetBin
     {
         return false;
     }
+    if (!backendContext.activeRenderTargetHasDepth)
+    {
+        return false;
+    }
 
     const bool transparentMainPass = material->renderMode == MaterialRenderMode::Transparent;
-    const Diligent::TEXTURE_FORMAT depthFormat    = backendContext.activeRenderTargetHasDepth
-                                                        ? Diligent::TEX_FORMAT_D32_FLOAT
-                                                        : Diligent::TEX_FORMAT_UNKNOWN;
+    gpu::GpuRenderTargetDesc targetDesc{};
+    Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
+    if (mDevice.renderTargetSystem().tryGetRenderTargetDesc(
+            backendContext.activeRenderTargetBinding.target, targetDesc) &&
+        targetDesc.depth)
+    {
+        depthFormat = targetDesc.depthFormat;
+    }
+    if (depthFormat == Diligent::TEX_FORMAT_UNKNOWN)
+    {
+        return false;
+    }
     const MaterialProgramRegistry::ProgramKey key = MaterialProgramRegistry::buildProgramKey(
         transparentMainPass ? MainPassClass::ForwardTransparent : MainPassClass::ForwardOpaque,
         drawCommand.programFamily, drawCommand.materialFeatureFlags, mIblQualityTier,
-        backendContext.activeRenderTargetColorFormat, depthFormat,
-        backendContext.activeRenderTargetHasDepth,
-        backendContext.activeRenderTargetHasDepth && !transparentMainPass, transparentMainPass);
+        backendContext.activeRenderTargetColorFormat, depthFormat, true, !transparentMainPass,
+        transparentMainPass);
     MaterialProgramRegistry::ProgramResources *program = mProgramRegistry->getOrCreateProgram(key);
     if (program == nullptr || program->pipelineState == nullptr)
     {

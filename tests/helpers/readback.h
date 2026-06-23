@@ -46,6 +46,32 @@ inline bool isValidReadback(const ReadbackEvent& event)
            static_cast<std::size_t>(event.rowStrideBytes) * static_cast<std::size_t>(event.height);
 }
 
+template <typename ReadbackEvent>
+inline bool isValidDepthReadback(const ReadbackEvent& event)
+{
+    if (event.depthWidth == 0u || event.depthHeight == 0u)
+    {
+        return false;
+    }
+
+    const auto& formatAttribs = Diligent::GetTextureFormatAttribs(event.depthFormat);
+    if (formatAttribs.Format == Diligent::TEX_FORMAT_UNKNOWN || formatAttribs.IsTypeless ||
+        formatAttribs.ComponentType == Diligent::COMPONENT_TYPE_COMPRESSED)
+    {
+        return false;
+    }
+
+    const std::uint32_t minStride = event.depthWidth * formatAttribs.GetElementSize();
+    if (event.depthRowStrideBytes < minStride)
+    {
+        return false;
+    }
+
+    return event.depthBytes.size() >=
+           static_cast<std::size_t>(event.depthRowStrideBytes) *
+               static_cast<std::size_t>(event.depthHeight);
+}
+
 inline float halfToFloat(std::uint16_t value)
 {
     const std::uint32_t sign = static_cast<std::uint32_t>(value & 0x8000u) << 16u;
@@ -83,6 +109,33 @@ inline float halfToFloat(std::uint16_t value)
     float result = 0.0f;
     std::memcpy(&result, &bits, sizeof(result));
     return result;
+}
+
+template <typename ReadbackEvent>
+inline float decodeDepthValue(const ReadbackEvent& event, std::uint32_t x, std::uint32_t y)
+{
+    if (!isValidDepthReadback(event))
+    {
+        return 0.0f;
+    }
+
+    const std::size_t offset =
+        static_cast<std::size_t>(y) * event.depthRowStrideBytes +
+        static_cast<std::size_t>(x) *
+            Diligent::GetTextureFormatAttribs(event.depthFormat).GetElementSize();
+    if (event.depthFormat == Diligent::TEX_FORMAT_D32_FLOAT)
+    {
+        float depth = 0.0f;
+        std::memcpy(&depth, event.depthBytes.data() + offset, sizeof(depth));
+        return depth;
+    }
+    if (event.depthFormat == Diligent::TEX_FORMAT_D16_UNORM)
+    {
+        const std::uint16_t raw = static_cast<std::uint16_t>(event.depthBytes[offset + 0u]) |
+                                  (static_cast<std::uint16_t>(event.depthBytes[offset + 1u]) << 8u);
+        return static_cast<float>(raw) / 65535.0f;
+    }
+    return 0.0f;
 }
 
 template <typename ReadbackEvent>
@@ -139,6 +192,20 @@ inline ReadbackPixel decodePixel(const ReadbackEvent& event, std::uint32_t x, st
     pixel.b = static_cast<float>(event.colorBytes[offset + 2u]) / 255.0f;
     pixel.a = static_cast<float>(event.colorBytes[offset + 3u]) / 255.0f;
     return pixel;
+}
+
+template <typename ReadbackEvent>
+inline std::uint32_t decodeUint32Pixel(const ReadbackEvent& event, std::uint32_t x, std::uint32_t y)
+{
+    if (!isValidReadback(event) || event.colorFormat != Diligent::TEX_FORMAT_R32_UINT)
+    {
+        return 0u;
+    }
+
+    const std::size_t offset = pixelOffset(event, x, y);
+    std::uint32_t value      = 0u;
+    std::memcpy(&value, event.colorBytes.data() + offset, sizeof(value));
+    return value;
 }
 
 template <typename ReadbackEvent>

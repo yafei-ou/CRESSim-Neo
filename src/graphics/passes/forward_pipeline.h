@@ -18,6 +18,8 @@ namespace cressim::neo::graphics::detail
 {
 
 class ForwardOpaquePass;
+class CameraDepthPass;
+class CameraSegmentationPass;
 class ShadowPass;
 class DebugParticlePass;
 class DebugRoutedCablePass;
@@ -49,6 +51,8 @@ private:
     RenderResourceManager &mResourceManager;
     IblQualityTier mIblQualityTier = IblQualityTier::Off;
     std::unique_ptr<ForwardOpaquePass> mForwardOpaquePass;
+    std::unique_ptr<CameraDepthPass> mCameraDepthPass;
+    std::unique_ptr<CameraSegmentationPass> mCameraSegmentationPass;
     std::unique_ptr<ShadowPass> mShadowPass;
     std::unique_ptr<DebugParticlePass> mDebugParticlePass;
     std::unique_ptr<DebugRoutedCablePass> mDebugRoutedCablePass;

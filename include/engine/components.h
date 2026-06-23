@@ -31,11 +31,19 @@ struct MeshRendererComponent
 {
     graphics::MeshHandle mesh{};
     graphics::MaterialHandle material{};
-    bool visible = true;
+    std::uint32_t segmentationId = 0u;
+    bool visible                 = true;
 };
 
 struct CameraComponent
 {
+    enum class Product : std::uint32_t
+    {
+        ColorDepth        = 0u,
+        Depth             = 1u,
+        SegmentationDepth = 2u,
+    };
+
     enum class BackgroundMode : std::uint32_t
     {
         ClearColor         = 0u,
@@ -45,10 +53,11 @@ struct CameraComponent
     float verticalFovDegrees = 60.0f;
     float nearClip           = 0.01f;
     float farClip            = 1000.0f;
+    Product product          = Product::ColorDepth;
 
-    // ManagedPrimary renders into the renderer-managed primary layered surface for presentation.
-    // ExplicitSurface renders directly into the bound target layer. Binding a non-array target
-    // still means every camera targeting it shares layer 0.
+    // ManagedPrimary renders the normal ColorDepth camera product into the renderer-managed
+    // layered presentation surface. ExplicitSurface renders directly into the bound target layer.
+    // Binding a non-array target still means every camera targeting it shares layer 0.
     gpu::RenderOutputBinding output{};
     // Optional per-camera output resize request (0 keeps current target size).
     std::uint32_t outputWidth  = 0;

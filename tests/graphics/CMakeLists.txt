@@ -43,6 +43,20 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE graphics
+    NAME depth_camera_readback
+    SOURCE depth_camera_readback.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE graphics
+    NAME segmentation_depth_camera_readback
+    SOURCE segmentation_depth_camera_readback.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE graphics
     NAME display_resolve_color_space
     SOURCE display_resolve_color_space.cpp
     LIBS cressim_neo_engine glfw

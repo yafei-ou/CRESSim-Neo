@@ -73,11 +73,12 @@ private:
     {
         std::uint64_t requestId = 0;
         GpuRenderTargetBinding binding{};
-        std::uint64_t frameIndex             = 0;
-        std::uint64_t fenceValue             = 0;
-        std::uint32_t width                  = 0;
-        std::uint32_t height                 = 0;
-        Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
+        std::uint64_t frameIndex        = 0;
+        std::uint64_t fenceValue        = 0;
+        std::uint32_t width             = 0;
+        std::uint32_t height            = 0;
+        Diligent::TEXTURE_FORMAT format = Diligent::TEX_FORMAT_UNKNOWN;
+        bool depthAttachment            = false;
         Diligent::RefCntAutoPtr<Diligent::ITexture> stagingTexture;
     };
 
