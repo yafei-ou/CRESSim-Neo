@@ -33,6 +33,12 @@ option(CRESSIM_NEO_BUILD_EXAMPLES "Build standalone example executables" ON)
 option(CRESSIM_NEO_ENABLE_CLANG_TIDY "Enable clang-tidy checks during build" OFF)
 option(CRESSIM_NEO_ENABLE_CUDA_INTEROP "Enable optional CUDA interop support in GPU helpers" OFF)
 option(CRESSIM_NEO_ENABLE_ULTRASOUND "Enable optional CRESSim-Ultrasound integration" OFF)
+option(CRESSIM_NEO_BUILD_PYTHON "Build optional Python bindings and tests" OFF)
+
+if(CRESSIM_NEO_BUILD_PYTHON)
+    # The Python extension is a shared module; keep static engine libraries PIC-capable.
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
 
 if(CRESSIM_NEO_ENABLE_CLANG_TIDY)
     find_program(CRESSIM_NEO_CLANG_TIDY_EXE NAMES clang-tidy)
@@ -149,7 +155,36 @@ if(NOT DEFINED CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH)
         "Path to the Vulkan DXC runtime library copied next to CRESSim-Neo binaries")
 endif()
 
+if(CRESSIM_NEO_BUILD_PYTHON)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
+    find_package(pybind11 CONFIG QUIET)
+
+    if(NOT pybind11_FOUND)
+        include(FetchContent)
+        set(CRESSIM_NEO_PYBIND11_SOURCE_DIR "${PROJECT_SOURCE_DIR}/extern/pybind11")
+        if(EXISTS "${CRESSIM_NEO_PYBIND11_SOURCE_DIR}/CMakeLists.txt")
+            add_subdirectory("${CRESSIM_NEO_PYBIND11_SOURCE_DIR}"
+                             "${CMAKE_BINARY_DIR}/extern/pybind11")
+        else()
+            message(STATUS "Fetching pybind11 into ${CRESSIM_NEO_PYBIND11_SOURCE_DIR}")
+            FetchContent_Declare(
+                pybind11
+                GIT_REPOSITORY https://github.com/pybind/pybind11.git
+                GIT_TAG v2.13.6
+                GIT_SHALLOW TRUE
+                SOURCE_DIR "${CRESSIM_NEO_PYBIND11_SOURCE_DIR}"
+                BINARY_DIR "${CMAKE_BINARY_DIR}/extern/pybind11"
+            )
+            FetchContent_MakeAvailable(pybind11)
+        endif()
+    endif()
+endif()
+
 add_subdirectory(src)
+
+if(CRESSIM_NEO_BUILD_PYTHON)
+    add_subdirectory(python)
+endif()
 
 if(CRESSIM_NEO_BUILD_EXAMPLES)
     add_subdirectory(examples)

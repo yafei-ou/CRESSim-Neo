@@ -1,0 +1,20 @@
+from pathlib import Path
+
+from ._cressim_neo import *  # noqa: F401,F403
+
+
+_PACKAGE_DIR = Path(__file__).resolve().parent
+_SHADERS_DIR = _PACKAGE_DIR / "shaders"
+_runtime_initialize = Runtime.initialize
+
+
+def _initialize_with_package_defaults(self, config=None):
+    if config is None:
+        config = RuntimeConfig()
+    if not config.gpu_device_desc.shader_directory:
+        config.gpu_device_desc.shader_directory = str(_SHADERS_DIR)
+    return _runtime_initialize(self, config)
+
+
+Runtime.initialize = _initialize_with_package_defaults
+
