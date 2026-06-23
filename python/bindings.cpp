@@ -2,10 +2,12 @@
 #include "common/math_types.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "examples/helpers/shape_meshes.h"
 #include "gpu/gpu_types.h"
 #include "graphics/render_resource_manager.h"
 #include "physics/physics_types.h"
 
+#include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -29,6 +31,7 @@ using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::engine::World;
 using cressim::neo::gpu::GpuBackend;
+using cressim::neo::gpu::GpuDeviceDesc;
 using cressim::neo::gpu::GpuRenderTargetBinding;
 using cressim::neo::gpu::GpuRenderTargetDesc;
 using cressim::neo::gpu::GpuRenderTargetHandle;
@@ -36,49 +39,23 @@ using cressim::neo::gpu::GpuRenderTargetReadbackEvent;
 using cressim::neo::gpu::GpuRenderTargetReadbackRequest;
 using cressim::neo::gpu::RenderOutputBinding;
 using cressim::neo::gpu::RenderOutputMode;
+using cressim::neo::graphics::IblQualityTier;
 using cressim::neo::graphics::MaterialHandle;
+using cressim::neo::graphics::MaterialPipelineDesc;
+using cressim::neo::graphics::MaterialProgramFamily;
+using cressim::neo::graphics::MaterialRenderMode;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshHandle;
 using cressim::neo::graphics::MeshResourceDesc;
+using cressim::neo::graphics::RendererDesc;
 using cressim::neo::graphics::RenderResourceManager;
+using cressim::neo::graphics::RenderStats;
+using cressim::neo::graphics::TextureHandle;
+using cressim::neo::physics::ParticleContactMaterialDesc;
+using cressim::neo::physics::PhysicsSolverDesc;
 
-MeshResourceDesc makeCubeMesh(const float halfExtent, const std::string &debugName)
-{
-    MeshResourceDesc mesh{};
-    mesh.debugName = debugName;
-    mesh.vertices.reserve(24);
-    mesh.indices.reserve(36);
-
-    const auto addFace = [&](const Diligent::float3 &normal, const Diligent::float3 &v0,
-                             const Diligent::float3 &v1, const Diligent::float3 &v2,
-                             const Diligent::float3 &v3)
-    {
-        const std::uint32_t baseIndex = static_cast<std::uint32_t>(mesh.vertices.size());
-        mesh.vertices.push_back({v0, normal, 0.0f, 0.0f});
-        mesh.vertices.push_back({v1, normal, 1.0f, 0.0f});
-        mesh.vertices.push_back({v2, normal, 1.0f, 1.0f});
-        mesh.vertices.push_back({v3, normal, 0.0f, 1.0f});
-
-        mesh.indices.push_back(baseIndex + 0u);
-        mesh.indices.push_back(baseIndex + 2u);
-        mesh.indices.push_back(baseIndex + 1u);
-        mesh.indices.push_back(baseIndex + 0u);
-        mesh.indices.push_back(baseIndex + 3u);
-        mesh.indices.push_back(baseIndex + 2u);
-    };
-
-    const float h = halfExtent;
-    addFace({0.0f, 0.0f, 1.0f}, {-h, -h, h}, {h, -h, h}, {h, h, h}, {-h, h, h});
-    addFace({0.0f, 0.0f, -1.0f}, {h, -h, -h}, {-h, -h, -h}, {-h, h, -h}, {h, h, -h});
-    addFace({-1.0f, 0.0f, 0.0f}, {-h, -h, -h}, {-h, -h, h}, {-h, h, h}, {-h, h, -h});
-    addFace({1.0f, 0.0f, 0.0f}, {h, -h, h}, {h, -h, -h}, {h, h, -h}, {h, h, h});
-    addFace({0.0f, 1.0f, 0.0f}, {-h, h, h}, {h, h, h}, {h, h, -h}, {-h, h, -h});
-    addFace({0.0f, -1.0f, 0.0f}, {-h, -h, -h}, {h, -h, -h}, {h, -h, h}, {-h, -h, h});
-
-    return mesh;
-}
-
-py::object tryGetRenderTargetReadback(Runtime &runtime, const GpuRenderTargetReadbackRequest request)
+py::object tryGetRenderTargetReadback(Runtime &runtime,
+                                      const GpuRenderTargetReadbackRequest request)
 {
     auto *device = runtime.getGpuDevice();
     if (device == nullptr)
@@ -157,6 +134,10 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("Depth", CameraComponent::Product::Depth)
         .value("SegmentationDepth", CameraComponent::Product::SegmentationDepth);
 
+    py::enum_<CameraComponent::BackgroundMode>(m, "CameraBackgroundMode")
+        .value("ClearColor", CameraComponent::BackgroundMode::ClearColor)
+        .value("EnvironmentCubemap", CameraComponent::BackgroundMode::EnvironmentCubemap);
+
     py::enum_<cressim::neo::physics::RigidBodyType>(m, "RigidBodyType")
         .value("Static", cressim::neo::physics::RigidBodyType::Static)
         .value("Kinematic", cressim::neo::physics::RigidBodyType::Kinematic)
@@ -166,6 +147,34 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("Sphere", cressim::neo::physics::ColliderShapeType::Sphere)
         .value("Box", cressim::neo::physics::ColliderShapeType::Box)
         .value("Capsule", cressim::neo::physics::ColliderShapeType::Capsule);
+
+    py::enum_<cressim::neo::gpu::VulkanShaderCompilerMode>(m, "VulkanShaderCompilerMode")
+        .value("Auto", cressim::neo::gpu::VulkanShaderCompilerMode::Auto)
+        .value("ForceDefault", cressim::neo::gpu::VulkanShaderCompilerMode::ForceDefault)
+        .value("ForceDXC", cressim::neo::gpu::VulkanShaderCompilerMode::ForceDXC);
+
+    py::enum_<MaterialProgramFamily>(m, "MaterialProgramFamily")
+        .value("StandardLit", MaterialProgramFamily::StandardLit)
+        .value("SoftBodyLit", MaterialProgramFamily::SoftBodyLit)
+        .value("CurveLit", MaterialProgramFamily::CurveLit);
+
+    py::enum_<cressim::neo::graphics::MaterialFeatureFlags>(m, "MaterialFeatureFlags",
+                                                            py::arithmetic())
+        .value("None", cressim::neo::graphics::MaterialFeatureFlags::None)
+        .value("AlphaTest", cressim::neo::graphics::MaterialFeatureFlags::AlphaTest)
+        .value("NormalMap", cressim::neo::graphics::MaterialFeatureFlags::NormalMap)
+        .value("ClearCoat", cressim::neo::graphics::MaterialFeatureFlags::ClearCoat)
+        .value("DoubleSided", cressim::neo::graphics::MaterialFeatureFlags::DoubleSided);
+
+    py::enum_<MaterialRenderMode>(m, "MaterialRenderMode")
+        .value("Opaque", MaterialRenderMode::Opaque)
+        .value("Cutout", MaterialRenderMode::Cutout)
+        .value("Transparent", MaterialRenderMode::Transparent);
+
+    py::enum_<IblQualityTier>(m, "IblQualityTier")
+        .value("Off", IblQualityTier::Off)
+        .value("DiffuseOnly", IblQualityTier::DiffuseOnly)
+        .value("Full", IblQualityTier::Full);
 
     py::class_<FrameContext>(m, "FrameContext")
         .def(py::init<>())
@@ -191,7 +200,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def(py::init<>())
         .def_readwrite("target", &GpuRenderTargetBinding::target)
         .def_readwrite("first_layer", &GpuRenderTargetBinding::firstLayer)
-        .def_readwrite("layer_count", &GpuRenderTargetBinding::layerCount);
+        .def_readwrite("layer_count", &GpuRenderTargetBinding::layerCount)
+        .def("is_valid", &GpuRenderTargetBinding::isValid)
+        .def(py::self == py::self);
 
     py::class_<RenderOutputBinding>(m, "RenderOutputBinding")
         .def(py::init<>())
@@ -218,6 +229,7 @@ PYBIND11_MODULE(_cressim_neo, m)
 
     py::class_<GpuRenderTargetReadbackEvent>(m, "GpuRenderTargetReadbackEvent")
         .def(py::init<>())
+        .def_readwrite("binding", &GpuRenderTargetReadbackEvent::binding)
         .def_readwrite("frame_index", &GpuRenderTargetReadbackEvent::frameIndex)
         .def_readwrite("color_format", &GpuRenderTargetReadbackEvent::colorFormat)
         .def_readwrite("width", &GpuRenderTargetReadbackEvent::width)
@@ -241,26 +253,83 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("max_lights_per_env",
                        &cressim::neo::common::SceneLayoutDesc::maxLightsPerEnv)
         .def_readwrite("max_cameras_per_env",
-                       &cressim::neo::common::SceneLayoutDesc::maxCamerasPerEnv);
+                       &cressim::neo::common::SceneLayoutDesc::maxCamerasPerEnv)
+        .def("total_renderable_object_capacity",
+             &cressim::neo::common::SceneLayoutDesc::totalRenderableObjectCapacity)
+        .def("total_light_capacity", &cressim::neo::common::SceneLayoutDesc::totalLightCapacity)
+        .def("total_camera_capacity", &cressim::neo::common::SceneLayoutDesc::totalCameraCapacity);
 
-    py::class_<cressim::neo::gpu::GpuDeviceDesc>(m, "GpuDeviceDesc")
+    py::class_<cressim::neo::gpu::GpuRenderViewport>(m, "GpuRenderViewport")
         .def(py::init<>())
-        .def_readwrite("preferred_backend", &cressim::neo::gpu::GpuDeviceDesc::preferredBackend)
-        .def_readwrite("enable_validation", &cressim::neo::gpu::GpuDeviceDesc::enableValidation)
-        .def_readwrite("shader_directory", &cressim::neo::gpu::GpuDeviceDesc::shaderDirectory);
+        .def_readwrite("x", &cressim::neo::gpu::GpuRenderViewport::x)
+        .def_readwrite("y", &cressim::neo::gpu::GpuRenderViewport::y)
+        .def_readwrite("width", &cressim::neo::gpu::GpuRenderViewport::width)
+        .def_readwrite("height", &cressim::neo::gpu::GpuRenderViewport::height);
+
+    py::class_<GpuDeviceDesc::PresentationDesc>(m, "GpuPresentationDesc")
+        .def(py::init<>())
+        .def_readwrite("enabled", &GpuDeviceDesc::PresentationDesc::enabled)
+        .def_readwrite("sync_interval", &GpuDeviceDesc::PresentationDesc::syncInterval)
+        .def_readwrite("preferred_color_format",
+                       &GpuDeviceDesc::PresentationDesc::preferredColorFormat)
+        .def_property(
+            "native_window", [](const GpuDeviceDesc::PresentationDesc &desc)
+            { return reinterpret_cast<std::uintptr_t>(desc.nativeWindow); },
+            [](GpuDeviceDesc::PresentationDesc &desc, const std::uintptr_t value)
+            { desc.nativeWindow = reinterpret_cast<void *>(value); })
+        .def_readwrite("native_window_id", &GpuDeviceDesc::PresentationDesc::nativeWindowId)
+        .def_property(
+            "native_display", [](const GpuDeviceDesc::PresentationDesc &desc)
+            { return reinterpret_cast<std::uintptr_t>(desc.nativeDisplay); },
+            [](GpuDeviceDesc::PresentationDesc &desc, const std::uintptr_t value)
+            { desc.nativeDisplay = reinterpret_cast<void *>(value); })
+        .def_property(
+            "native_connection", [](const GpuDeviceDesc::PresentationDesc &desc)
+            { return reinterpret_cast<std::uintptr_t>(desc.nativeConnection); },
+            [](GpuDeviceDesc::PresentationDesc &desc, const std::uintptr_t value)
+            { desc.nativeConnection = reinterpret_cast<void *>(value); });
+
+    py::class_<GpuDeviceDesc>(m, "GpuDeviceDesc")
+        .def(py::init<>())
+        .def_readwrite("preferred_backend", &GpuDeviceDesc::preferredBackend)
+        .def_readwrite("enable_validation", &GpuDeviceDesc::enableValidation)
+        .def_readwrite("default_render_target_desc", &GpuDeviceDesc::defaultRenderTargetDesc)
+        .def_readwrite("presentation", &GpuDeviceDesc::presentation)
+        .def_readwrite("vulkan_shader_compiler_mode", &GpuDeviceDesc::vulkanShaderCompilerMode)
+        .def_readwrite("shader_directory", &GpuDeviceDesc::shaderDirectory);
+
+    py::class_<RendererDesc>(m, "RendererDesc")
+        .def(py::init<>())
+        .def_readwrite("ibl_quality_tier", &RendererDesc::iblQualityTier);
+
+    py::class_<PhysicsSolverDesc>(m, "PhysicsSolverDesc")
+        .def(py::init<>())
+        .def_readwrite("substeps", &PhysicsSolverDesc::substeps)
+        .def_readwrite("default_iterations", &PhysicsSolverDesc::defaultIterations)
+        .def_readwrite("fluid_iterations", &PhysicsSolverDesc::fluidIterations)
+        .def_readwrite("soft_internal_iterations", &PhysicsSolverDesc::softInternalIterations)
+        .def_readwrite("soft_contact_iterations", &PhysicsSolverDesc::softContactIterations)
+        .def_readwrite("rigid_joint_iterations", &PhysicsSolverDesc::rigidJointIterations)
+        .def_readwrite("rigid_rigid_contact_iterations",
+                       &PhysicsSolverDesc::rigidRigidContactIterations)
+        .def_readwrite("enable_blocking_readback", &PhysicsSolverDesc::enableBlockingReadback);
 
     py::class_<RuntimeConfig>(m, "RuntimeConfig")
         .def(py::init<>())
         .def_readwrite("gpu_device_desc", &RuntimeConfig::gpuDeviceDesc)
-        .def_readwrite("scene_layout", &RuntimeConfig::sceneLayout);
+        .def_readwrite("scene_layout", &RuntimeConfig::sceneLayout)
+        .def_readwrite("renderer_desc", &RuntimeConfig::rendererDesc)
+        .def_readwrite("physics_desc", &RuntimeConfig::physicsDesc);
 
-    py::class_<MeshHandle>(m, "MeshHandle")
-        .def(py::init<>())
-        .def_readwrite("id", &MeshHandle::id);
+    py::class_<MeshHandle>(m, "MeshHandle").def(py::init<>()).def_readwrite("id", &MeshHandle::id);
 
     py::class_<MaterialHandle>(m, "MaterialHandle")
         .def(py::init<>())
         .def_readwrite("id", &MaterialHandle::id);
+
+    py::class_<TextureHandle>(m, "TextureHandle")
+        .def(py::init<>())
+        .def_readwrite("id", &TextureHandle::id);
 
     py::class_<MeshResourceDesc::Vertex>(m, "MeshVertex")
         .def(py::init<>())
@@ -276,13 +345,31 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("vertices", &MeshResourceDesc::vertices)
         .def_readwrite("indices", &MeshResourceDesc::indices);
 
+    py::class_<MaterialPipelineDesc>(m, "MaterialPipelineDesc")
+        .def(py::init<>())
+        .def_readwrite("program_family", &MaterialPipelineDesc::programFamily)
+        .def_readwrite("feature_flags", &MaterialPipelineDesc::featureFlags)
+        .def_readwrite("alpha_cutoff", &MaterialPipelineDesc::alphaCutoff);
+
     py::class_<MaterialResourceDesc>(m, "MaterialResourceDesc")
         .def(py::init<>())
         .def_readwrite("debug_name", &MaterialResourceDesc::debugName)
         .def_readwrite("base_color", &MaterialResourceDesc::baseColor)
         .def_readwrite("metallic", &MaterialResourceDesc::metallic)
         .def_readwrite("roughness", &MaterialResourceDesc::roughness)
-        .def_readwrite("opacity", &MaterialResourceDesc::opacity);
+        .def_readwrite("emissive_factor", &MaterialResourceDesc::emissiveFactor)
+        .def_readwrite("base_color_texture", &MaterialResourceDesc::baseColorTexture)
+        .def_readwrite("normal_texture", &MaterialResourceDesc::normalTexture)
+        .def_readwrite("metallic_roughness_texture",
+                       &MaterialResourceDesc::metallicRoughnessTexture)
+        .def_readwrite("emissive_texture", &MaterialResourceDesc::emissiveTexture)
+        .def_readwrite("ao_texture", &MaterialResourceDesc::aoTexture)
+        .def_readwrite("pipeline", &MaterialResourceDesc::pipeline)
+        .def_readwrite("render_mode", &MaterialResourceDesc::renderMode)
+        .def_readwrite("render_order", &MaterialResourceDesc::renderOrder)
+        .def_readwrite("opacity", &MaterialResourceDesc::opacity)
+        .def_readwrite("casts_shadows", &MaterialResourceDesc::castsShadows)
+        .def_readwrite("receives_shadows", &MaterialResourceDesc::receivesShadows);
 
     py::class_<MeshRendererComponent>(m, "MeshRendererComponent")
         .def(py::init<>())
@@ -300,10 +387,12 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("output", &CameraComponent::output)
         .def_readwrite("output_width", &CameraComponent::outputWidth)
         .def_readwrite("output_height", &CameraComponent::outputHeight)
+        .def_readwrite("viewport", &CameraComponent::viewport)
         .def_readwrite("clear_color", &CameraComponent::clearColor)
         .def_readwrite("clear_depth", &CameraComponent::clearDepth)
         .def_readwrite("clear_color_value", &CameraComponent::clearColorValue)
         .def_readwrite("clear_depth_value", &CameraComponent::clearDepthValue)
+        .def_readwrite("background_mode", &CameraComponent::backgroundMode)
         .def_readwrite("render_order", &CameraComponent::renderOrder);
 
     py::class_<DirectionalLightComponent>(m, "DirectionalLightComponent")
@@ -321,12 +410,28 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def(py::init<>())
         .def_readwrite("linear_velocity", &RigidBodyComponent::linearVelocity)
         .def_readwrite("angular_velocity", &RigidBodyComponent::angularVelocity)
+        .def_readwrite("inverse_inertia_local", &RigidBodyComponent::inverseInertiaLocal)
+        .def_readwrite("proxy_particle_local_positions",
+                       &RigidBodyComponent::proxyParticleLocalPositions)
+        .def_readwrite("proxy_particle_material", &RigidBodyComponent::proxyParticleMaterial)
         .def_readwrite("body_type", &RigidBodyComponent::bodyType)
         .def_readwrite("inverse_mass", &RigidBodyComponent::inverseMass)
+        .def_readwrite("proxy_particle_radius", &RigidBodyComponent::proxyParticleRadius)
+        .def_readwrite("proxy_collision_layer", &RigidBodyComponent::proxyCollisionLayer)
+        .def_readwrite("proxy_collision_mask", &RigidBodyComponent::proxyCollisionMask)
+        .def_readwrite("suturing_enabled", &RigidBodyComponent::suturingEnabled)
+        .def_readwrite("needle_tip_proxy_index", &RigidBodyComponent::needleTipProxyIndex)
         .def_readwrite("kinematic_target_position", &RigidBodyComponent::kinematicTargetPosition)
         .def_readwrite("kinematic_target_rotation", &RigidBodyComponent::kinematicTargetRotation)
         .def_readwrite("kinematic_target_enabled", &RigidBodyComponent::kinematicTargetEnabled)
         .def_readwrite("simulated", &RigidBodyComponent::simulated);
+
+    py::class_<ParticleContactMaterialDesc>(m, "ParticleContactMaterialDesc")
+        .def(py::init<>())
+        .def_readwrite("friction", &ParticleContactMaterialDesc::friction)
+        .def_readwrite("restitution", &ParticleContactMaterialDesc::restitution)
+        .def_readwrite("damping", &ParticleContactMaterialDesc::damping)
+        .def_readwrite("static_friction", &ParticleContactMaterialDesc::staticFriction);
 
     py::class_<ColliderComponent>(m, "ColliderComponent")
         .def(py::init<>())
@@ -343,20 +448,91 @@ PYBIND11_MODULE(_cressim_neo, m)
 
     py::class_<cressim::neo::engine::ColliderHandle>(m, "ColliderHandle")
         .def(py::init<>())
-        .def_readwrite("id", &cressim::neo::engine::ColliderHandle::id);
+        .def_readwrite("id", &cressim::neo::engine::ColliderHandle::id)
+        .def("is_valid", &cressim::neo::engine::ColliderHandle::isValid);
+
+    py::class_<RenderStats>(m, "RenderStats")
+        .def(py::init<>())
+        .def_readwrite("draw_calls", &RenderStats::drawCalls)
+        .def_readwrite("opaque_draw_calls", &RenderStats::opaqueDrawCalls)
+        .def_readwrite("transparent_draw_calls", &RenderStats::transparentDrawCalls)
+        .def_readwrite("shadow_draw_calls", &RenderStats::shadowDrawCalls)
+        .def_readwrite("renderable_count", &RenderStats::renderableCount)
+        .def_readwrite("light_count", &RenderStats::lightCount)
+        .def_readwrite("rendered_camera_count", &RenderStats::renderedCameraCount)
+        .def_readwrite("render_target_resize_requests", &RenderStats::renderTargetResizeRequests)
+        .def_readwrite("render_target_resize_no_ops", &RenderStats::renderTargetResizeNoOps)
+        .def_readwrite("render_target_recreate_count", &RenderStats::renderTargetRecreateCount)
+        .def_readwrite("render_target_resize_conflicts", &RenderStats::renderTargetResizeConflicts);
 
     py::class_<RenderResourceManager>(m, "RenderResourceManager")
         .def("register_mesh", &RenderResourceManager::registerMesh)
-        .def("register_material", &RenderResourceManager::registerMaterial);
+        .def("register_material", &RenderResourceManager::registerMaterial)
+        .def("is_valid_mesh",
+             py::overload_cast<MeshHandle>(&RenderResourceManager::isValid, py::const_))
+        .def("is_valid_material",
+             py::overload_cast<MaterialHandle>(&RenderResourceManager::isValid, py::const_))
+        .def("try_get_mesh",
+             [](const RenderResourceManager &resources, const MeshHandle mesh) -> py::object
+             {
+                 if (const auto *desc = resources.tryGetMesh(mesh))
+                 {
+                     return py::cast(*desc);
+                 }
+                 return py::none();
+             })
+        .def("try_get_material",
+             [](const RenderResourceManager &resources, const MaterialHandle material) -> py::object
+             {
+                 if (const auto *desc = resources.tryGetMaterial(material))
+                 {
+                     return py::cast(*desc);
+                 }
+                 return py::none();
+             })
+        .def("try_get_mesh_local_bounds",
+             [](const RenderResourceManager &resources, const MeshHandle mesh) -> py::object
+             {
+                 Diligent::float3 boundsMin{};
+                 Diligent::float3 boundsMax{};
+                 if (!resources.tryGetMeshLocalBounds(mesh, boundsMin, boundsMax))
+                 {
+                     return py::none();
+                 }
+                 return py::make_tuple(boundsMin, boundsMax);
+             })
+        .def("mesh_version", &RenderResourceManager::meshVersion);
 
     py::class_<World>(m, "World")
         .def("create_entity", &World::createEntity, py::arg("env_index") = 0u)
+        .def("destroy_entity", &World::destroyEntity)
+        .def("set_scene_layout", &World::setSceneLayout)
+        .def("scene_layout", &World::sceneLayout, py::return_value_policy::reference_internal)
+        .def("set_entity_environment", &World::setEntityEnvironment)
+        .def("entity_environment", &World::entityEnvironment)
+        .def("is_alive", &World::isAlive)
+        .def("entities", &World::entities, py::return_value_policy::reference_internal)
         .def("set_transform", &World::setTransform)
+        .def("remove_transform", &World::removeTransform)
+        .def("try_get_transform", &World::tryGetTransform)
         .def("set_mesh_renderer", &World::setMeshRenderer)
+        .def("remove_mesh_renderer", &World::removeMeshRenderer)
+        .def("try_get_mesh_renderer", &World::tryGetMeshRenderer)
         .def("set_camera", &World::setCamera)
+        .def("remove_camera", &World::removeCamera)
+        .def("try_get_camera", &World::tryGetCamera)
         .def("set_directional_light", &World::setDirectionalLight)
+        .def("remove_directional_light", &World::removeDirectionalLight)
+        .def("try_get_directional_light", &World::tryGetDirectionalLight)
         .def("set_rigid_body", &World::setRigidBody)
-        .def("add_collider", &World::addCollider);
+        .def("remove_rigid_body", &World::removeRigidBody)
+        .def("try_get_rigid_body", &World::tryGetRigidBody)
+        .def("add_collider", &World::addCollider)
+        .def("update_collider", &World::updateCollider)
+        .def("remove_collider", &World::removeCollider)
+        .def("try_get_collider", &World::tryGetCollider)
+        .def("collider_handles", &World::colliderHandles,
+             py::return_value_policy::reference_internal);
 
     py::class_<Runtime>(m, "Runtime")
         .def(py::init<>())
@@ -378,11 +554,14 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("step_simulation_sensors", &Runtime::stepSimulationSensors)
         .def("step_visual_sensors", &Runtime::stepVisualSensors)
         .def("end_frame", &Runtime::endFrame)
-        .def("world", [](Runtime &runtime) -> World & { return runtime.getWorld(); },
+        .def("last_render_stats", &Runtime::lastRenderStats,
              py::return_value_policy::reference_internal)
-        .def("resources",
-             [](Runtime &runtime) -> RenderResourceManager & { return runtime.getResources(); },
-             py::return_value_policy::reference_internal)
+        .def(
+            "world", [](Runtime &runtime) -> World & { return runtime.getWorld(); },
+            py::return_value_policy::reference_internal)
+        .def(
+            "resources", [](Runtime &runtime) -> RenderResourceManager &
+            { return runtime.getResources(); }, py::return_value_policy::reference_internal)
         .def("create_render_target",
              [](Runtime &runtime, const GpuRenderTargetDesc &desc)
              {
@@ -397,7 +576,8 @@ PYBIND11_MODULE(_cressim_neo, m)
              [](Runtime &runtime, const GpuRenderTargetHandle target)
              {
                  auto *device = runtime.getGpuDevice();
-                 return device != nullptr && device->renderTargetSystem().isValidRenderTarget(target);
+                 return device != nullptr &&
+                        device->renderTargetSystem().isValidRenderTarget(target);
              })
         .def("request_render_target_readback",
              [](Runtime &runtime, const GpuRenderTargetBinding &binding)
@@ -411,6 +591,17 @@ PYBIND11_MODULE(_cressim_neo, m)
              })
         .def("try_get_render_target_readback", &tryGetRenderTargetReadback);
 
-    m.def("make_cube_mesh", &makeCubeMesh, py::arg("half_extent"),
-          py::arg("debug_name") = "Python.CubeMesh");
+    m.def("make_cube_mesh", &cressim::neo::examples::helpers::makeCubeMesh, py::arg("half_extent"),
+          py::arg("debug_name") = "Python.CubeMesh", py::arg("uv_scale") = 1.0f);
+    m.def("make_box_mesh", &cressim::neo::examples::helpers::makeBoxMesh, py::arg("half_extents"),
+          py::arg("debug_name"), py::arg("uv_scale_u") = 1.0f, py::arg("uv_scale_v") = 1.0f);
+    m.def("make_plane_mesh",
+          py::overload_cast<float, const std::string &, float>(
+              &cressim::neo::examples::helpers::makePlaneMesh),
+          py::arg("half_extent"), py::arg("debug_name"), py::arg("uv_scale") = 1.0f);
+    m.def("make_sphere_mesh", &cressim::neo::examples::helpers::makeSphereMesh, py::arg("radius"),
+          py::arg("slices"), py::arg("stacks"), py::arg("debug_name"));
+    m.def("make_capsule_mesh", &cressim::neo::examples::helpers::makeCapsuleMesh, py::arg("radius"),
+          py::arg("half_height"), py::arg("slices"), py::arg("hemisphere_rings"),
+          py::arg("body_rings"), py::arg("debug_name"));
 }

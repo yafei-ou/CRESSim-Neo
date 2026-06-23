@@ -55,4 +55,7 @@ out
 .DS_Store
 extern
 
+# Python
+__pycache__
+
 !**/fixtures/**/*.obj

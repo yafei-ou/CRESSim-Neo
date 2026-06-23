@@ -198,6 +198,10 @@ endif()
 file(GLOB_RECURSE ALL_SOURCE_FILES
     ${CMAKE_SOURCE_DIR}/include/*.h
     ${CMAKE_SOURCE_DIR}/include/*.hpp
+    ${CMAKE_SOURCE_DIR}/python/*.h
+    ${CMAKE_SOURCE_DIR}/python/*.hpp
+    ${CMAKE_SOURCE_DIR}/python/*.c
+    ${CMAKE_SOURCE_DIR}/python/*.cpp
     ${CMAKE_SOURCE_DIR}/src/*.h
     ${CMAKE_SOURCE_DIR}/src/*.hpp
     ${CMAKE_SOURCE_DIR}/src/*.c
