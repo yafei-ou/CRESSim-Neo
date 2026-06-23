@@ -406,6 +406,13 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("shadow_bias", &DirectionalLightComponent::shadowBias)
         .def_readwrite("casts_shadows", &DirectionalLightComponent::castsShadows);
 
+    py::class_<ParticleContactMaterialDesc>(m, "ParticleContactMaterialDesc")
+        .def(py::init<>())
+        .def_readwrite("friction", &ParticleContactMaterialDesc::friction)
+        .def_readwrite("restitution", &ParticleContactMaterialDesc::restitution)
+        .def_readwrite("damping", &ParticleContactMaterialDesc::damping)
+        .def_readwrite("static_friction", &ParticleContactMaterialDesc::staticFriction);
+
     py::class_<RigidBodyComponent>(m, "RigidBodyComponent")
         .def(py::init<>())
         .def_readwrite("linear_velocity", &RigidBodyComponent::linearVelocity)
@@ -425,13 +432,6 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("kinematic_target_rotation", &RigidBodyComponent::kinematicTargetRotation)
         .def_readwrite("kinematic_target_enabled", &RigidBodyComponent::kinematicTargetEnabled)
         .def_readwrite("simulated", &RigidBodyComponent::simulated);
-
-    py::class_<ParticleContactMaterialDesc>(m, "ParticleContactMaterialDesc")
-        .def(py::init<>())
-        .def_readwrite("friction", &ParticleContactMaterialDesc::friction)
-        .def_readwrite("restitution", &ParticleContactMaterialDesc::restitution)
-        .def_readwrite("damping", &ParticleContactMaterialDesc::damping)
-        .def_readwrite("static_friction", &ParticleContactMaterialDesc::staticFriction);
 
     py::class_<ColliderComponent>(m, "ColliderComponent")
         .def(py::init<>())

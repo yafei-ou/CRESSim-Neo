@@ -9,6 +9,8 @@ set(CRESSIM_NEO_PYTHON_PACKAGE_INIT_TEMPLATE
     "${CMAKE_CURRENT_SOURCE_DIR}/package/__init__.py.in")
 set(CRESSIM_NEO_PYTHON_PACKAGE_INIT
     "${CMAKE_CURRENT_BINARY_DIR}/package/__init__.py")
+set(CRESSIM_NEO_PYTHON_PACKAGE_STUB
+    "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/__init__.pyi")
 
 configure_file(
     "${CRESSIM_NEO_PYTHON_PACKAGE_INIT_TEMPLATE}"
@@ -116,9 +118,6 @@ elseif(CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH)
         "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}")
 endif()
 
-set(CRESSIM_NEO_PYTHON_STUB_DIR "${CMAKE_CURRENT_BINARY_DIR}/stubs")
-set(CRESSIM_NEO_PYTHON_STUB_FILE "${CRESSIM_NEO_PYTHON_STUB_DIR}/_cressim_neo.pyi")
-
 find_program(CRESSIM_NEO_PYBIND11_STUBGEN_EXECUTABLE NAMES pybind11-stubgen)
 set(CRESSIM_NEO_PYBIND11_STUBGEN_MODE "")
 
@@ -138,26 +137,36 @@ endif()
 
 if(CRESSIM_NEO_PYBIND11_STUBGEN_MODE STREQUAL "executable")
     add_custom_command(
-        OUTPUT "${CRESSIM_NEO_PYTHON_STUB_FILE}"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${CRESSIM_NEO_PYTHON_STUB_DIR}"
+        OUTPUT "${CRESSIM_NEO_PYTHON_PACKAGE_STUB}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
         COMMAND ${CMAKE_COMMAND} -E env
             PYTHONPATH=${CRESSIM_NEO_PYTHON_PACKAGE_DIR}
             ${CRESSIM_NEO_PYBIND11_STUBGEN_EXECUTABLE}
             _cressim_neo
-            -o "${CRESSIM_NEO_PYTHON_STUB_DIR}"
+            -o "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/_cressim_neo.pyi"
+            "${CRESSIM_NEO_PYTHON_PACKAGE_STUB}"
+        COMMAND ${CMAKE_COMMAND} -E rm -f
+            "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/_cressim_neo.pyi"
         DEPENDS ${TARGET_NAME}
         VERBATIM
     )
 elseif(CRESSIM_NEO_PYBIND11_STUBGEN_MODE STREQUAL "module")
     add_custom_command(
-        OUTPUT "${CRESSIM_NEO_PYTHON_STUB_FILE}"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${CRESSIM_NEO_PYTHON_STUB_DIR}"
+        OUTPUT "${CRESSIM_NEO_PYTHON_PACKAGE_STUB}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
         COMMAND ${CMAKE_COMMAND} -E env
             PYTHONPATH=${CRESSIM_NEO_PYTHON_PACKAGE_DIR}
             ${Python3_EXECUTABLE}
             -m pybind11_stubgen
             _cressim_neo
-            -o "${CRESSIM_NEO_PYTHON_STUB_DIR}"
+            -o "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/_cressim_neo.pyi"
+            "${CRESSIM_NEO_PYTHON_PACKAGE_STUB}"
+        COMMAND ${CMAKE_COMMAND} -E rm -f
+            "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/_cressim_neo.pyi"
         DEPENDS ${TARGET_NAME}
         VERBATIM
     )
@@ -167,13 +176,13 @@ else()
 endif()
 
 if(NOT CRESSIM_NEO_PYBIND11_STUBGEN_MODE STREQUAL "")
-    add_custom_target(${TARGET_NAME}_stubs
-        DEPENDS "${CRESSIM_NEO_PYTHON_STUB_FILE}"
+    add_custom_target(${TARGET_NAME}_stubs ALL
+        DEPENDS "${CRESSIM_NEO_PYTHON_PACKAGE_STUB}"
     )
+    add_dependencies(${TARGET_NAME}_stubs ${TARGET_NAME})
     install(
-        FILES "${CRESSIM_NEO_PYTHON_STUB_FILE}"
+        FILES "${CRESSIM_NEO_PYTHON_PACKAGE_STUB}"
         DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
-        RENAME "__init__.pyi"
         OPTIONAL
     )
 endif()
