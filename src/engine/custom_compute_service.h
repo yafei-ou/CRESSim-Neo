@@ -7,6 +7,7 @@
 
 #include "DiligentEngine/DiligentCore/Common/interface/RefCntAutoPtr.hpp"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Texture.h"
 
 #include <memory>
 #include <string>
@@ -48,6 +49,7 @@ public:
 
 private:
     struct ResourceEntry;
+    struct ExpectedRenderTargetBindingState;
     struct PassState;
 
     using ResourceMap = std::unordered_map<std::string, ResourceEntry>;

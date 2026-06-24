@@ -3,6 +3,7 @@
 
 #include "engine/export.h"
 #include "engine/shared_buffer.h"
+#include "gpu/gpu_types.h"
 
 #include <cstdint>
 #include <string>
@@ -14,6 +15,7 @@ namespace cressim::neo::engine
 enum class CustomComputeResourceKind
 {
     Buffer,
+    Texture,
 };
 
 enum class CustomComputeResourceAccess
@@ -48,6 +50,9 @@ struct CustomComputeResourceBindingDesc
     std::string shaderVariableName;
     std::string resourceKey;
     SharedBufferHandle sharedBufferHandle{};
+    gpu::GpuRenderTargetBinding renderTargetBinding{};
+    gpu::GpuRenderTargetTexturePlane renderTargetTexturePlane =
+        gpu::GpuRenderTargetTexturePlane::Color;
     CustomComputeResourceAccess access = CustomComputeResourceAccess::ReadOnly;
 };
 

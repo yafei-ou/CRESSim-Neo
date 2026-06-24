@@ -108,6 +108,7 @@ using cressim::neo::gpu::GpuRenderTargetDesc;
 using cressim::neo::gpu::GpuRenderTargetHandle;
 using cressim::neo::gpu::GpuRenderTargetReadbackEvent;
 using cressim::neo::gpu::GpuRenderTargetReadbackRequest;
+using cressim::neo::gpu::GpuRenderTargetTexturePlane;
 using cressim::neo::gpu::RenderOutputBinding;
 using cressim::neo::gpu::RenderOutputMode;
 using cressim::neo::graphics::IblQualityTier;
@@ -336,12 +337,17 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("ExplicitSurface", RenderOutputMode::ExplicitSurface);
 
     py::enum_<CustomComputeResourceKind>(m, "CustomComputeResourceKind")
-        .value("Buffer", CustomComputeResourceKind::Buffer);
+        .value("Buffer", CustomComputeResourceKind::Buffer)
+        .value("Texture", CustomComputeResourceKind::Texture);
 
     py::enum_<CustomComputeResourceAccess>(m, "CustomComputeResourceAccess")
         .value("ReadOnly", CustomComputeResourceAccess::ReadOnly)
         .value("WriteOnly", CustomComputeResourceAccess::WriteOnly)
         .value("ReadWrite", CustomComputeResourceAccess::ReadWrite);
+
+    py::enum_<GpuRenderTargetTexturePlane>(m, "GpuRenderTargetTexturePlane")
+        .value("Color", GpuRenderTargetTexturePlane::Color)
+        .value("Depth", GpuRenderTargetTexturePlane::Depth);
 
     py::enum_<CustomComputeDispatchMode>(m, "CustomComputeDispatchMode")
         .value("ExplicitGroupCount", CustomComputeDispatchMode::ExplicitGroupCount)
@@ -449,6 +455,10 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("resource_key", &CustomComputeResourceBindingDesc::resourceKey)
         .def_readwrite("shared_buffer_handle",
                        &CustomComputeResourceBindingDesc::sharedBufferHandle)
+        .def_readwrite("render_target_binding",
+                       &CustomComputeResourceBindingDesc::renderTargetBinding)
+        .def_readwrite("render_target_texture_plane",
+                       &CustomComputeResourceBindingDesc::renderTargetTexturePlane)
         .def_readwrite("access", &CustomComputeResourceBindingDesc::access);
 
     py::class_<CustomComputeDispatchDesc>(m, "CustomComputeDispatchDesc")

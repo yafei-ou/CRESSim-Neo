@@ -53,6 +53,9 @@ public:
                                         Diligent::ITexture *&outTexture) override;
     bool tryGetRenderTargetDepthTexture(GpuRenderTargetHandle target,
                                         Diligent::ITexture *&outTexture) override;
+    bool tryGetRenderTargetShaderResourceView(const GpuRenderTargetBinding &binding,
+                                              GpuRenderTargetTexturePlane plane,
+                                              Diligent::ITextureView *&outView) override;
 
 private:
     struct RenderTargetResources
@@ -67,6 +70,10 @@ private:
             colorRenderTargetViews;
         std::unordered_map<std::uint64_t, Diligent::RefCntAutoPtr<Diligent::ITextureView>>
             depthStencilViews;
+        std::unordered_map<std::uint64_t, Diligent::RefCntAutoPtr<Diligent::ITextureView>>
+            colorShaderResourceViews;
+        std::unordered_map<std::uint64_t, Diligent::RefCntAutoPtr<Diligent::ITextureView>>
+            depthShaderResourceViews;
     };
 
     struct PendingReadbackCopy
@@ -92,6 +99,9 @@ private:
                                                         const GpuRenderTargetBinding &binding);
     Diligent::ITextureView *getOrCreateDepthStencilView(RenderTargetResources &resources,
                                                         const GpuRenderTargetBinding &binding);
+    Diligent::ITextureView *getOrCreateShaderResourceView(RenderTargetResources &resources,
+                                                          const GpuRenderTargetBinding &binding,
+                                                          GpuRenderTargetTexturePlane plane);
     bool queueReadbackCopy(const GpuRenderTargetBinding &binding, std::uint64_t frameIndex,
                            std::uint64_t requestId);
 

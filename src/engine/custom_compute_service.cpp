@@ -30,6 +30,12 @@ struct BufferBindingEntry
     Diligent::BUFFER_VIEW_TYPE viewType = Diligent::BUFFER_VIEW_UNDEFINED;
 };
 
+struct TextureBindingEntry
+{
+    std::string variableName;
+    Diligent::ITextureView *view = nullptr;
+};
+
 bool bindBufferVariable(Diligent::IShaderResourceBinding *srb, const BufferBindingEntry &binding)
 {
     if (srb == nullptr || binding.buffer == nullptr)
@@ -64,12 +70,50 @@ bool bindBufferVariable(Diligent::IShaderResourceBinding *srb, const BufferBindi
     return true;
 }
 
+bool bindTextureVariable(Diligent::IShaderResourceBinding *srb, const TextureBindingEntry &binding)
+{
+    if (srb == nullptr || binding.view == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::IShaderResourceVariable *variable =
+        srb->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, binding.variableName.c_str());
+    if (variable == nullptr)
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: shader variable not found: '",
+                          binding.variableName, "'.");
+        return false;
+    }
+
+    variable->Set(binding.view);
+    return true;
+}
+
+bool isSameRenderTargetDesc(const gpu::GpuRenderTargetDesc &lhs,
+                            const gpu::GpuRenderTargetDesc &rhs) noexcept
+{
+    return lhs.width == rhs.width && lhs.height == rhs.height && lhs.arraySize == rhs.arraySize &&
+           lhs.color == rhs.color && lhs.depth == rhs.depth &&
+           lhs.layeredRendering == rhs.layeredRendering && lhs.colorFormat == rhs.colorFormat &&
+           lhs.depthFormat == rhs.depthFormat && lhs.shaderReadable == rhs.shaderReadable &&
+           lhs.unorderedAccess == rhs.unorderedAccess;
+}
+
 } // namespace
 
 struct CustomComputeService::ResourceEntry
 {
     CustomComputeResourceDesc desc{};
     Diligent::IBuffer *buffer = nullptr;
+};
+
+struct CustomComputeService::ExpectedRenderTargetBindingState
+{
+    std::string variableName;
+    gpu::GpuRenderTargetBinding binding{};
+    gpu::GpuRenderTargetTexturePlane plane = gpu::GpuRenderTargetTexturePlane::Color;
+    gpu::GpuRenderTargetDesc desc{};
 };
 
 struct CustomComputeService::PassState
@@ -81,8 +125,10 @@ struct CustomComputeService::PassState
     std::vector<CustomComputeResourceBindingDesc> resourceBindings;
     std::unordered_map<std::string, std::uint64_t> expectedBindingGenerations;
     std::unordered_map<std::uint64_t, std::uint64_t> expectedSharedBufferGenerations;
+    std::vector<ExpectedRenderTargetBindingState> expectedRenderTargetBindings;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> constantBuffer;
     std::uint32_t constantBufferSizeBytes = 0u;
+    bool readsGraphicsTextures            = false;
 };
 
 CustomComputeService::CustomComputeService(gpu::GpuDevice &device) : mDevice(device) {}
@@ -170,12 +216,17 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
                                      (desc.constantBufferVariableName.empty() ? 0u : 1u));
     for (const CustomComputeResourceBindingDesc &binding : desc.resourceBindings)
     {
-        const bool hasResourceKey  = !binding.resourceKey.empty();
-        const bool hasSharedBuffer = binding.sharedBufferHandle.isValid();
-        if (binding.shaderVariableName.empty() || hasResourceKey == hasSharedBuffer)
+        const bool hasResourceKey         = !binding.resourceKey.empty();
+        const bool hasSharedBuffer        = binding.sharedBufferHandle.isValid();
+        const bool hasRenderTargetTexture = binding.renderTargetBinding.isValid();
+        const std::uint32_t sourceCount   = static_cast<std::uint32_t>(hasResourceKey) +
+                                            static_cast<std::uint32_t>(hasSharedBuffer) +
+                                            static_cast<std::uint32_t>(hasRenderTargetTexture);
+        if (binding.shaderVariableName.empty() || sourceCount != 1u)
         {
             CRESSIM_LOG_ERROR("CustomComputeService: each binding requires shaderVariableName and "
-                              "exactly one of resourceKey or sharedBufferHandle.");
+                              "exactly one of resourceKey, sharedBufferHandle, or "
+                              "renderTargetBinding.");
             return handle;
         }
         if (hasResourceKey)
@@ -198,7 +249,7 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
             passState->expectedBindingGenerations[binding.resourceKey] =
                 resourceIt->second.desc.bindingGeneration;
         }
-        else
+        else if (hasSharedBuffer)
         {
             if (sharedBuffers == nullptr)
             {
@@ -226,6 +277,65 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
                 return handle;
             }
             passState->expectedSharedBufferGenerations[binding.sharedBufferHandle.id] = 1u;
+        }
+        else
+        {
+            if (binding.access != CustomComputeResourceAccess::ReadOnly)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: render-target texture bindings only "
+                                  "support read-only access in this milestone.");
+                return handle;
+            }
+
+            gpu::GpuRenderTargetDesc targetDesc{};
+            gpu::GpuRenderTargetSystem &renderTargetSystem = mDevice.renderTargetSystem();
+            if (!renderTargetSystem.tryGetRenderTargetDesc(binding.renderTargetBinding.target,
+                                                           targetDesc))
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: invalid render-target handle ",
+                                  binding.renderTargetBinding.target.id, ".");
+                return handle;
+            }
+            if (!targetDesc.shaderReadable)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: render-target binding for variable '",
+                                  binding.shaderVariableName,
+                                  "' requires a shader-readable target.");
+                return handle;
+            }
+            if (binding.renderTargetBinding.layerCount == 0u ||
+                binding.renderTargetBinding.firstLayer + binding.renderTargetBinding.layerCount >
+                    targetDesc.arraySize)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: render-target binding for variable '",
+                                  binding.shaderVariableName, "' has an invalid layer range.");
+                return handle;
+            }
+            if ((binding.renderTargetTexturePlane == gpu::GpuRenderTargetTexturePlane::Color &&
+                 !targetDesc.color) ||
+                (binding.renderTargetTexturePlane == gpu::GpuRenderTargetTexturePlane::Depth &&
+                 !targetDesc.depth))
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: render-target binding for variable '",
+                                  binding.shaderVariableName,
+                                  "' requested an unavailable texture plane.");
+                return handle;
+            }
+            Diligent::ITextureView *textureView = nullptr;
+            if (!renderTargetSystem.tryGetRenderTargetShaderResourceView(
+                    binding.renderTargetBinding, binding.renderTargetTexturePlane, textureView) ||
+                textureView == nullptr)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: render-target shader resource view is "
+                                  "unavailable for variable '",
+                                  binding.shaderVariableName, "'.");
+                return handle;
+            }
+
+            passState->expectedRenderTargetBindings.push_back(ExpectedRenderTargetBindingState{
+                binding.shaderVariableName, binding.renderTargetBinding,
+                binding.renderTargetTexturePlane, targetDesc});
+            passState->readsGraphicsTextures = true;
         }
         passState->variableNames.push_back(binding.shaderVariableName);
     }
@@ -394,6 +504,38 @@ bool CustomComputeService::executePass(physics::PhysicsSolver &solver, physics::
         }
     }
 
+    gpu::GpuRenderTargetSystem &renderTargetSystem = mDevice.renderTargetSystem();
+    for (const ExpectedRenderTargetBindingState &entry : pass.expectedRenderTargetBindings)
+    {
+        gpu::GpuRenderTargetDesc targetDesc{};
+        if (!renderTargetSystem.tryGetRenderTargetDesc(entry.binding.target, targetDesc))
+        {
+            CRESSIM_LOG_ERROR("CustomComputeService: render-target handle ",
+                              entry.binding.target.id, " is no longer available.");
+            return false;
+        }
+        if (!isSameRenderTargetDesc(targetDesc, entry.desc))
+        {
+            CRESSIM_LOG_ERROR("CustomComputeService: render-target configuration changed for "
+                              "variable '",
+                              entry.variableName, "'. Recreate the custom compute pass.");
+            return false;
+        }
+        if (!targetDesc.shaderReadable)
+        {
+            CRESSIM_LOG_ERROR("CustomComputeService: render-target for variable '",
+                              entry.variableName, "' is no longer shader-readable.");
+            return false;
+        }
+    }
+
+    if (pass.readsGraphicsTextures && !mDevice.waitForGraphicsOnPhysics())
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: failed to synchronize graphics output before "
+                          "texture-based custom compute dispatch.");
+        return false;
+    }
+
     if (!bindPassResources(pass, resources, sharedBuffers))
     {
         return false;
@@ -548,13 +690,15 @@ bool CustomComputeService::bindPassResources(PassState &pass, const ResourceMap 
     }
 
     std::vector<BufferBindingEntry> bindings;
+    std::vector<TextureBindingEntry> textureBindings;
     bindings.reserve(pass.resourceBindings.size() + (pass.constantBuffer == nullptr ? 0u : 1u));
+    textureBindings.reserve(pass.resourceBindings.size());
     for (const CustomComputeResourceBindingDesc &bindingDesc : pass.resourceBindings)
     {
-        Diligent::IBuffer *buffer = nullptr;
         if (!bindingDesc.resourceKey.empty())
         {
-            const auto resourceIt = resources.find(bindingDesc.resourceKey);
+            Diligent::IBuffer *buffer = nullptr;
+            const auto resourceIt     = resources.find(bindingDesc.resourceKey);
             if (resourceIt == resources.end())
             {
                 CRESSIM_LOG_ERROR("CustomComputeService: unknown resource key '",
@@ -562,9 +706,12 @@ bool CustomComputeService::bindPassResources(PassState &pass, const ResourceMap 
                 return false;
             }
             buffer = resourceIt->second.buffer;
+            bindings.push_back(BufferBindingEntry{bindingDesc.shaderVariableName, buffer,
+                                                  bufferViewTypeForAccess(bindingDesc.access)});
         }
-        else
+        else if (bindingDesc.sharedBufferHandle.isValid())
         {
+            Diligent::IBuffer *buffer = nullptr;
             if (sharedBuffers == nullptr)
             {
                 CRESSIM_LOG_ERROR("CustomComputeService: shared buffer service is unavailable.");
@@ -577,9 +724,23 @@ bool CustomComputeService::bindPassResources(PassState &pass, const ResourceMap 
                                   bindingDesc.sharedBufferHandle.id, " is unavailable.");
                 return false;
             }
+            bindings.push_back(BufferBindingEntry{bindingDesc.shaderVariableName, buffer,
+                                                  bufferViewTypeForAccess(bindingDesc.access)});
         }
-        bindings.push_back(BufferBindingEntry{bindingDesc.shaderVariableName, buffer,
-                                              bufferViewTypeForAccess(bindingDesc.access)});
+        else
+        {
+            Diligent::ITextureView *view = nullptr;
+            if (!mDevice.renderTargetSystem().tryGetRenderTargetShaderResourceView(
+                    bindingDesc.renderTargetBinding, bindingDesc.renderTargetTexturePlane, view) ||
+                view == nullptr)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: render-target texture binding for "
+                                  "variable '",
+                                  bindingDesc.shaderVariableName, "' is unavailable.");
+                return false;
+            }
+            textureBindings.push_back(TextureBindingEntry{bindingDesc.shaderVariableName, view});
+        }
     }
     if (pass.constantBuffer != nullptr)
     {
@@ -591,6 +752,13 @@ bool CustomComputeService::bindPassResources(PassState &pass, const ResourceMap 
     for (const BufferBindingEntry &binding : bindings)
     {
         if (!bindBufferVariable(srb, binding))
+        {
+            return false;
+        }
+    }
+    for (const TextureBindingEntry &binding : textureBindings)
+    {
+        if (!bindTextureVariable(srb, binding))
         {
             return false;
         }

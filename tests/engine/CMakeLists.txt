@@ -173,6 +173,14 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE engine
+    NAME runtime_custom_compute_render_target
+    SOURCE runtime_custom_compute_render_target.cpp
+    INCLUDE_SRC
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
     NAME runtime_shared_buffer
     SOURCE runtime_shared_buffer.cpp
     LIBS cressim_neo_engine
