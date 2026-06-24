@@ -60,13 +60,31 @@ public:
 
     graphics::RenderResourceManager &getResources() noexcept;
     const graphics::RenderResourceManager &getResources() const noexcept;
+
+    // Creates an engine-owned exportable structured GPU buffer that can be bound in custom
+    // compute and exported to CUDA/Torch through DLPack.
     SharedBufferHandle createSharedBuffer(const SharedBufferDesc &desc);
+
+    // Destroys the runtime handle for a shared buffer. Exported DLPack tensors may keep the
+    // underlying storage alive until their consumer releases it.
     bool destroySharedBuffer(SharedBufferHandle handle);
+
+    // Lists currently registered shared-buffer handles and their metadata.
     std::vector<SharedBufferInfo> listSharedBuffers() const;
+
+    // Queries metadata for one shared buffer handle.
     bool tryGetSharedBufferInfo(SharedBufferHandle handle, SharedBufferInfo &outInfo) const;
+
+    // Returns the CUDA-facing device pointer view for one shared buffer when CUDA interop is
+    // available.
     bool tryGetSharedBufferCudaView(SharedBufferHandle handle, SharedBufferCudaView &outView) const;
+
+    // Inserts a GPU-side wait so subsequent CUDA/Torch work sees prior Vulkan/D3D compute writes.
     bool syncSharedBufferToCuda(SharedBufferHandle handle);
+
+    // Inserts a GPU-side wait so subsequent Vulkan/D3D compute work sees prior CUDA/Torch writes.
     bool syncSharedBufferFromCuda(SharedBufferHandle handle);
+
     std::vector<CustomComputeResourceDesc> listCustomComputeResources();
     CustomComputePassHandle createCustomComputePass(const CustomComputePassDesc &desc);
     bool updateCustomComputePassConstants(CustomComputePassHandle handle,
@@ -75,6 +93,10 @@ public:
     bool destroyCustomComputePass(CustomComputePassHandle handle);
 
 private:
+    friend class RuntimeInternalAccess;
+
+    std::shared_ptr<void> retainSharedBuffer(SharedBufferHandle handle) const;
+
     bool mInitialized = false;
     std::unique_ptr<gpu::GpuDevice> mGpuDevice;
     std::unique_ptr<RenderSceneUploader> mRenderSceneUploader;

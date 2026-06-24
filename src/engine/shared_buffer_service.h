@@ -34,6 +34,7 @@ public:
     std::vector<SharedBufferInfo> listBuffers() const;
     bool tryGetBufferInfo(SharedBufferHandle handle, SharedBufferInfo &outInfo) const;
     bool tryGetCudaView(SharedBufferHandle handle, SharedBufferCudaView &outView) const;
+    std::shared_ptr<void> retainBuffer(SharedBufferHandle handle) const;
     bool synchronizeToCuda(SharedBufferHandle handle, Diligent::IDeviceContext *context);
     bool synchronizeFromCuda(SharedBufferHandle handle, Diligent::IDeviceContext *context);
     Diligent::IBuffer *tryGetBuffer(SharedBufferHandle handle) const noexcept;

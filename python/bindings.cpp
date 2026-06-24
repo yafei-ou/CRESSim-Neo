@@ -2,6 +2,7 @@
 #include "common/math_types.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "engine/runtime_internal.h"
 #include "examples/helpers/shape_meshes.h"
 #include "gpu/gpu_types.h"
 #include "graphics/render_resource_manager.h"
@@ -64,6 +65,11 @@ struct DLManagedTensor
     DLTensor dl_tensor;
     void *manager_ctx;
     void (*deleter)(DLManagedTensor *self);
+};
+
+struct ExportedSharedBufferTensorContext
+{
+    std::shared_ptr<void> sharedBufferLease;
 };
 
 using cressim::neo::common::FrameContext;
@@ -142,6 +148,7 @@ void deleteManagedTensor(DLManagedTensor *managedTensor)
         return;
     }
 
+    delete static_cast<ExportedSharedBufferTensorContext *>(managedTensor->manager_ctx);
     delete[] managedTensor->dl_tensor.shape;
     delete[] managedTensor->dl_tensor.strides;
     delete managedTensor;
@@ -180,6 +187,12 @@ py::capsule exportSharedBufferToDLPack(Runtime &runtime, const SharedBufferHandl
     if (!runtime.tryGetSharedBufferCudaView(handle, view) || !view.isValid())
     {
         throw std::runtime_error("Shared buffer CUDA view is unavailable.");
+    }
+    std::shared_ptr<void> sharedBufferLease =
+        cressim::neo::engine::RuntimeInternalAccess::retainSharedBufferLease(runtime, handle);
+    if (!sharedBufferLease)
+    {
+        throw std::runtime_error("Shared buffer lease is unavailable.");
     }
     if (desc.shape.empty())
     {
@@ -229,6 +242,8 @@ py::capsule exportSharedBufferToDLPack(Runtime &runtime, const SharedBufferHandl
 
     auto *managedTensor    = new DLManagedTensor{};
     managedTensor->deleter = &deleteManagedTensor;
+    managedTensor->manager_ctx =
+        new ExportedSharedBufferTensorContext{std::move(sharedBufferLease)};
     managedTensor->dl_tensor.data =
         static_cast<void *>(static_cast<std::uint8_t *>(view.devicePointer) + desc.byteOffset);
     managedTensor->dl_tensor.device  = {kDLCUDA, view.deviceOrdinal};

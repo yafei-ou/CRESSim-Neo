@@ -128,6 +128,12 @@ bool SharedBufferService::tryGetCudaView(const SharedBufferHandle handle,
     return outView.isValid();
 }
 
+std::shared_ptr<void> SharedBufferService::retainBuffer(const SharedBufferHandle handle) const
+{
+    const auto it = mBuffers.find(handle.id);
+    return it != mBuffers.end() ? std::static_pointer_cast<void>(it->second) : nullptr;
+}
+
 Diligent::IBuffer *SharedBufferService::tryGetBuffer(const SharedBufferHandle handle) const noexcept
 {
     const auto it = mBuffers.find(handle.id);

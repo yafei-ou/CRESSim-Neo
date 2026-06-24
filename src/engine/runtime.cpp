@@ -2,6 +2,7 @@
 
 #include "common/logger.h"
 #include "engine/custom_compute_service.h"
+#include "engine/runtime_internal.h"
 #include "engine/shared_buffer_service.h"
 
 namespace cressim::neo::engine
@@ -455,6 +456,19 @@ bool Runtime::tryGetSharedBufferCudaView(const SharedBufferHandle handle,
 {
     return mInitialized && mSharedBufferService != nullptr &&
            mSharedBufferService->tryGetCudaView(handle, outView);
+}
+
+std::shared_ptr<void> Runtime::retainSharedBuffer(const SharedBufferHandle handle) const
+{
+    return mInitialized && mSharedBufferService != nullptr
+               ? mSharedBufferService->retainBuffer(handle)
+               : std::shared_ptr<void>{};
+}
+
+std::shared_ptr<void> RuntimeInternalAccess::retainSharedBufferLease(
+    const Runtime &runtime, const SharedBufferHandle handle)
+{
+    return runtime.retainSharedBuffer(handle);
 }
 
 bool Runtime::syncSharedBufferToCuda(const SharedBufferHandle handle)
