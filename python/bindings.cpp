@@ -1,6 +1,7 @@
 #include "common/frame_context.h"
 #include "common/math_types.h"
 #include "engine/components.h"
+#include "engine/rigid_layout_mapping.h"
 #include "engine/runtime.h"
 #include "engine/runtime_internal.h"
 #include "examples/helpers/shape_meshes.h"
@@ -87,6 +88,7 @@ using cressim::neo::engine::CustomComputeResourceKind;
 using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::RigidBodyComponent;
+using cressim::neo::engine::RigidLayoutMapping;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::SharedBufferAccess;
@@ -413,6 +415,23 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("dtype_bits", &SharedBufferTensorDesc::dtypeBits)
         .def_readwrite("dtype_lanes", &SharedBufferTensorDesc::dtypeLanes)
         .def_readwrite("byte_offset", &SharedBufferTensorDesc::byteOffset);
+
+    py::class_<RigidLayoutMapping>(m, "RigidLayoutMapping")
+        .def(py::init<>())
+        .def_readwrite("rigid_body_count", &RigidLayoutMapping::rigidBodyCount)
+        .def_readwrite("collider_count", &RigidLayoutMapping::colliderCount)
+        .def_readwrite("binding_generation", &RigidLayoutMapping::bindingGeneration)
+        .def_readwrite("rigid_body_entity_ids", &RigidLayoutMapping::rigidBodyEntityIds)
+        .def_readwrite("rigid_body_environment_indices",
+                       &RigidLayoutMapping::rigidBodyEnvironmentIndices)
+        .def_readwrite("collider_ids", &RigidLayoutMapping::colliderIds)
+        .def_readwrite("collider_entity_ids", &RigidLayoutMapping::colliderEntityIds)
+        .def_readwrite("collider_owner_body_indices", &RigidLayoutMapping::colliderOwnerBodyIndices)
+        .def_readwrite("collider_environment_indices",
+                       &RigidLayoutMapping::colliderEnvironmentIndices)
+        .def_readwrite("body_collider_offsets", &RigidLayoutMapping::bodyColliderOffsets)
+        .def_readwrite("body_collider_counts", &RigidLayoutMapping::bodyColliderCounts)
+        .def_readwrite("body_collider_indices", &RigidLayoutMapping::bodyColliderIndices);
 
     py::class_<CustomComputeResourceDesc>(m, "CustomComputeResourceDesc")
         .def(py::init<>())
@@ -915,6 +934,16 @@ PYBIND11_MODULE(_cressim_neo, m)
              })
         .def("sync_shared_buffer_to_cuda", &Runtime::syncSharedBufferToCuda)
         .def("sync_shared_buffer_from_cuda", &Runtime::syncSharedBufferFromCuda)
+        .def("get_prepared_rigid_layout_mapping",
+             [](Runtime &runtime)
+             {
+                 RigidLayoutMapping mapping{};
+                 if (!runtime.tryGetPreparedRigidLayoutMapping(mapping))
+                 {
+                     throw std::runtime_error("Prepared rigid layout mapping is unavailable.");
+                 }
+                 return mapping;
+             })
         .def("shared_buffer_to_dlpack", &exportSharedBufferToDLPack)
         .def("step_physics", &Runtime::stepPhysics)
         .def("step_simulation_sensors", &Runtime::stepSimulationSensors)

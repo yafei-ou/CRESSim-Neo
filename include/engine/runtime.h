@@ -5,6 +5,7 @@
 #include "engine/custom_compute.h"
 #include "engine/export.h"
 #include "engine/render_scene_uploader.h"
+#include "engine/rigid_layout_mapping.h"
 #include "engine/shared_buffer.h"
 #include "engine/ultrasound_system.h"
 #include "engine/world.h"
@@ -84,6 +85,10 @@ public:
 
     // Inserts a GPU-side wait so subsequent Vulkan/D3D compute work sees prior CUDA/Torch writes.
     bool syncSharedBufferFromCuda(SharedBufferHandle handle);
+
+    // Returns the current prepared rigid-body/collider slot mapping derived from authored state.
+    // This is valid after prepare() and does not require uploadWorld().
+    bool tryGetPreparedRigidLayoutMapping(RigidLayoutMapping &outMapping) const;
 
     std::vector<CustomComputeResourceDesc> listCustomComputeResources();
     CustomComputePassHandle createCustomComputePass(const CustomComputePassDesc &desc);

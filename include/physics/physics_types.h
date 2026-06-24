@@ -708,6 +708,7 @@ struct RigidBodySoAHost
 {
     std::vector<RigidBodyId> rigidBodyIds;
     std::vector<common::EntityId> entityIds;
+    std::vector<std::uint32_t> environmentIndices;
     std::vector<Diligent::float4> positionsInvMass;
     std::vector<Diligent::float4> orientations;
     std::vector<Diligent::float4> scales;
@@ -734,6 +735,7 @@ struct RigidBodySoAHost
     {
         rigidBodyIds.clear();
         entityIds.clear();
+        environmentIndices.clear();
         positionsInvMass.clear();
         orientations.clear();
         scales.clear();

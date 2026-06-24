@@ -505,6 +505,34 @@ bool Runtime::syncSharedBufferFromCuda(const SharedBufferHandle handle)
     return mSharedBufferService->synchronizeFromCuda(handle, computeBackend.computeContext);
 }
 
+bool Runtime::tryGetPreparedRigidLayoutMapping(RigidLayoutMapping &outMapping) const
+{
+    outMapping = {};
+    if (!mInitialized || mPhysicsSolver == nullptr)
+    {
+        return false;
+    }
+
+    const physics::PhysicsWorld &physicsWorld    = mWorld.physicsWorld();
+    const physics::RigidBodySoAHost &rigidBodies = physicsWorld.rigidBodySoA();
+    const physics::ColliderSoAHost &colliders    = physicsWorld.colliderSoA();
+    const physics::BodyColliderMappingHost &bodyColliderMapping =
+        physicsWorld.bodyColliderMapping();
+    outMapping.rigidBodyCount              = static_cast<std::uint32_t>(rigidBodies.size());
+    outMapping.colliderCount               = static_cast<std::uint32_t>(colliders.size());
+    outMapping.bindingGeneration           = physicsWorld.rigidBodyTopologyRevision();
+    outMapping.rigidBodyEntityIds          = rigidBodies.entityIds;
+    outMapping.rigidBodyEnvironmentIndices = rigidBodies.environmentIndices;
+    outMapping.colliderIds                 = colliders.colliderIds;
+    outMapping.colliderEntityIds           = colliders.entityIds;
+    outMapping.colliderOwnerBodyIndices    = colliders.ownerRigidBodyIndices;
+    outMapping.colliderEnvironmentIndices  = colliders.environmentIndices;
+    outMapping.bodyColliderOffsets         = bodyColliderMapping.colliderOffsets;
+    outMapping.bodyColliderCounts          = bodyColliderMapping.colliderCounts;
+    outMapping.bodyColliderIndices         = bodyColliderMapping.colliderIndices;
+    return true;
+}
+
 std::vector<CustomComputeResourceDesc> Runtime::listCustomComputeResources()
 {
     if (!mInitialized || mCustomComputeService == nullptr || mPhysicsSolver == nullptr)
