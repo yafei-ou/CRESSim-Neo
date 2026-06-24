@@ -14,6 +14,7 @@ Build a first Python-facing prototype that stops just before the Python vector e
   - simple math/value types needed by rigid-body authoring
 - Expose staged runtime calls exactly as they exist now:
   - `prepare()`
+  - `upload_world()`
   - `step_physics(frame_ctx)`
   - `step_simulation_sensors(frame_ctx)`
   - `step_visual_sensors(frame_ctx)`
@@ -82,7 +83,7 @@ Build a first Python-facing prototype that stops just before the Python vector e
 - Build test:
   - Python extension target compiles and links cleanly with the existing engine build.
 - Binding smoke test:
-  - Python can create a runtime, create a few entities in multiple envs, author transforms/rigid bodies/colliders, call `prepare()`, and step one frame through the staged API.
+  - Python can create a runtime, create a few entities in multiple envs, author transforms/rigid bodies/colliders, call `prepare()`, `upload_world()`, and step one frame through the staged API.
 - Mapping stability test:
   - after `prepare()`, rigid `entity_ids` and env indices are queryable and match authored entities
   - repeated steps with no structural edits keep the same mapping generation

@@ -78,6 +78,12 @@ int main()
     world.setUltrasoundProbe(probeEntity, probe);
 
     runtime.prepare();
+    if (!runtime.uploadWorld())
+    {
+        CRESSIM_LOG_ERROR("Expected staged world upload to succeed.");
+        runtime.shutdown();
+        return 1;
+    }
 
     const engine::UltrasoundProbeResult *preparedResult =
         world.tryGetUltrasoundProbeResult(probeEntity);

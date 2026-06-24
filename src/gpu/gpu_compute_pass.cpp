@@ -36,11 +36,10 @@ bool GpuComputePass::initialize(GpuDevice &device,
     Diligent::ShaderCreateInfo shaderCreateInfo{};
     shaderCreateInfo.SourceLanguage                  = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
     shaderCreateInfo.Desc.UseCombinedTextureSamplers = true;
-    shaderCreateInfo.EntryPoint =
-        definition.entryPoint != nullptr ? definition.entryPoint : "main";
-    shaderCreateInfo.Desc.ShaderType                 = Diligent::SHADER_TYPE_COMPUTE;
-    shaderCreateInfo.Desc.Name                       = mShaderName.c_str();
-    shaderCreateInfo.pShaderSourceStreamFactory      = streamFactory;
+    shaderCreateInfo.EntryPoint = definition.entryPoint != nullptr ? definition.entryPoint : "main";
+    shaderCreateInfo.Desc.ShaderType            = Diligent::SHADER_TYPE_COMPUTE;
+    shaderCreateInfo.Desc.Name                  = mShaderName.c_str();
+    shaderCreateInfo.pShaderSourceStreamFactory = streamFactory;
     if (hasShaderPath)
     {
         shaderCreateInfo.FilePath = mShaderPath.c_str();

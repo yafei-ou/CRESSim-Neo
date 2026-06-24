@@ -616,20 +616,20 @@ PYBIND11_MODULE(_cressim_neo, m)
             py::arg("config") = py::none())
         .def("shutdown", &Runtime::shutdown)
         .def("prepare", &Runtime::prepare)
+        .def("upload_world", &Runtime::uploadWorld)
         .def("step_physics", &Runtime::stepPhysics)
         .def("step_simulation_sensors", &Runtime::stepSimulationSensors)
         .def("step_visual_sensors", &Runtime::stepVisualSensors)
         .def("end_frame", &Runtime::endFrame)
         .def("list_custom_compute_resources", &Runtime::listCustomComputeResources)
         .def("create_custom_compute_pass", &Runtime::createCustomComputePass)
-        .def(
-            "update_custom_compute_pass_constants",
-            [](Runtime &runtime, const CustomComputePassHandle handle, py::bytes data)
-            {
-                std::string bytes = data;
-                return runtime.updateCustomComputePassConstants(
-                    handle, std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
-            })
+        .def("update_custom_compute_pass_constants",
+             [](Runtime &runtime, const CustomComputePassHandle handle, py::bytes data)
+             {
+                 std::string bytes = data;
+                 return runtime.updateCustomComputePassConstants(
+                     handle, std::vector<std::uint8_t>(bytes.begin(), bytes.end()));
+             })
         .def("execute_custom_compute_pass", &Runtime::executeCustomComputePass)
         .def("destroy_custom_compute_pass", &Runtime::destroyCustomComputePass)
         .def("last_render_stats", &Runtime::lastRenderStats,

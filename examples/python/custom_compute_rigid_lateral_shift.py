@@ -227,6 +227,8 @@ def main() -> int:
 
     binding = _author_scene(runtime, target)
     runtime.prepare()
+    if not runtime.upload_world():
+        raise RuntimeError("Failed to upload prepared world state.")
     custom_pass = _make_custom_pass(runtime)
 
     readbacks = []

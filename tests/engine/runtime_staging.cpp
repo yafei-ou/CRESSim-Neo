@@ -139,6 +139,12 @@ int main()
     world.setMeshRenderer(renderableEntity, MeshRendererComponent{mesh, material, true});
 
     runtime.prepare();
+    if (!runtime.uploadWorld())
+    {
+        CRESSIM_LOG_ERROR("Expected authored frame-0 upload to succeed.");
+        runtime.shutdown();
+        return 1;
+    }
 
     const GpuRenderTargetReadbackRequest firstRequest =
         device->renderTargetSystem().requestRenderTargetReadback(
@@ -169,6 +175,12 @@ int main()
     hiddenTransform.worldTransform.position = {100.0f, 0.0f, 0.0f};
     world.setTransform(renderableEntity, hiddenTransform);
     runtime.prepare();
+    if (!runtime.uploadWorld())
+    {
+        CRESSIM_LOG_ERROR("Expected authored frame-1 upload to succeed.");
+        runtime.shutdown();
+        return 1;
+    }
 
     frame.frameIndex = 1u;
     frame.timeSeconds = static_cast<double>(frame.deltaSeconds);
@@ -204,6 +216,12 @@ int main()
     rigidCollider.shapeParams = {0.5f, 0.0f, 0.0f, 0.0f};
     world.addCollider(rigidEntity, rigidCollider);
     runtime.prepare();
+    if (!runtime.uploadWorld())
+    {
+        CRESSIM_LOG_ERROR("Expected staged physics upload to succeed.");
+        runtime.shutdown();
+        return 1;
+    }
 
     constexpr std::uint32_t kPhysicsFrames = 10u;
     for (std::uint32_t i = 0u; i < kPhysicsFrames; ++i)

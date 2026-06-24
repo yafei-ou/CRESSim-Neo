@@ -559,6 +559,11 @@ bool saveProbeImagesAndQuit(Runtime &runtime,
     for (std::uint64_t i = 0u; i < settleFrames; ++i)
     {
         runtime.prepare();
+        if (!runtime.uploadWorld())
+        {
+            CRESSIM_LOG_ERROR("Probe image export failed: staged world upload failed.\n");
+            return false;
+        }
         if (!runtime.stepPhysics(frame))
         {
             CRESSIM_LOG_ERROR("Probe image export failed: staged physics step failed.\n");
@@ -605,6 +610,11 @@ bool saveProbeImagesAndQuit(Runtime &runtime,
     }
 
     runtime.prepare();
+    if (!runtime.uploadWorld())
+    {
+        CRESSIM_LOG_ERROR("Probe image export failed: staged capture world upload failed.\n");
+        return false;
+    }
     if (!runtime.stepPhysics(frame))
     {
         CRESSIM_LOG_ERROR("Probe image export failed: staged capture physics step failed.\n");

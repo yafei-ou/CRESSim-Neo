@@ -307,11 +307,10 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const ParticleSoAHost &particles   = world.particles();
     const std::vector<DeformableDistanceConstraint> &distanceConstraints =
         world.distanceConstraints();
-    const std::vector<DeformableBendConstraint> &bendConstraints = world.bendConstraints();
-    const std::vector<DeformableVolumeConstraint> &volumeConstraints =
-        world.volumeConstraints();
-    const std::vector<StrandSegmentConstraint> &strandSegments = world.strandSegments();
-    const std::vector<StrandJointConstraint> &strandJoints     = world.strandJoints();
+    const std::vector<DeformableBendConstraint> &bendConstraints     = world.bendConstraints();
+    const std::vector<DeformableVolumeConstraint> &volumeConstraints = world.volumeConstraints();
+    const std::vector<StrandSegmentConstraint> &strandSegments       = world.strandSegments();
+    const std::vector<StrandJointConstraint> &strandJoints           = world.strandJoints();
     const std::vector<StrandDistanceConstraint> &strandDistanceConstraints =
         world.strandDistanceConstraints();
     const std::vector<RigidParticleAttachmentConstraint> &rigidParticleAttachments =
@@ -322,14 +321,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         world.rigidDistanceConstraints();
     const std::vector<RoutedCableConstraint> &routedCableConstraints =
         world.routedCableConstraints();
-    const RigidJointSceneHost &rigidJoints = world.rigidJointScene();
-    const SoftRenderDataHost &softRenderData = world.softRenderData();
+    const RigidJointSceneHost &rigidJoints     = world.rigidJointScene();
+    const SoftRenderDataHost &softRenderData   = world.softRenderData();
     const CurveRenderDataHost &curveRenderData = world.curveRenderData();
-    const std::uint32_t fluidCount    = world.fluidCount();
-    const std::uint32_t particleCount = static_cast<std::uint32_t>(particles.size());
-    const std::uint32_t softEdgeCount = static_cast<std::uint32_t>(distanceConstraints.size());
-    const std::uint32_t softBendCount = static_cast<std::uint32_t>(bendConstraints.size());
-    const std::uint32_t softTetCount  = static_cast<std::uint32_t>(volumeConstraints.size());
+    const std::uint32_t fluidCount             = world.fluidCount();
+    const std::uint32_t particleCount          = static_cast<std::uint32_t>(particles.size());
+    const std::uint32_t softEdgeCount      = static_cast<std::uint32_t>(distanceConstraints.size());
+    const std::uint32_t softBendCount      = static_cast<std::uint32_t>(bendConstraints.size());
+    const std::uint32_t softTetCount       = static_cast<std::uint32_t>(volumeConstraints.size());
     const std::uint32_t strandSegmentCount = static_cast<std::uint32_t>(strandSegments.size());
     const std::uint32_t strandJointCount   = static_cast<std::uint32_t>(strandJoints.size());
     const std::uint32_t strandDistanceCount =
@@ -339,7 +338,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const std::uint32_t ballJointCount = static_cast<std::uint32_t>(rigidJoints.ball.size());
     const std::uint32_t sphericalJointCount =
         static_cast<std::uint32_t>(rigidJoints.spherical.size());
-    const std::uint32_t hingeJointCount = static_cast<std::uint32_t>(rigidJoints.hinge.size());
+    const std::uint32_t hingeJointCount  = static_cast<std::uint32_t>(rigidJoints.hinge.size());
     const std::uint32_t sliderJointCount = static_cast<std::uint32_t>(rigidJoints.slider.size());
     const std::uint32_t rigidParticleAttachmentCount =
         static_cast<std::uint32_t>(rigidParticleAttachments.size());
@@ -352,8 +351,8 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     const std::uint32_t curveRenderCount =
         static_cast<std::uint32_t>(curveRenderData.descriptors.size());
     const std::uint32_t softBodyBoundsChunkCount = world.softBodyBoundsChunkCount();
-    const std::uint32_t suturingParticleCount = world.suturingParticleCount();
-    const float particleGridCellSize          = world.particleGridCellSize();
+    const std::uint32_t suturingParticleCount    = world.suturingParticleCount();
+    const float particleGridCellSize             = world.particleGridCellSize();
 
     const std::uint32_t substeps          = std::max<std::uint32_t>(mDesc.substeps, 1u);
     const std::uint32_t defaultIterations = std::max<std::uint32_t>(mDesc.defaultIterations, 1u);

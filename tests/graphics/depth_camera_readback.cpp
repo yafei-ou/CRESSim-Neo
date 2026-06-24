@@ -183,6 +183,12 @@ int main()
         }
 
         runtime.prepare();
+        if (!runtime.uploadWorld())
+        {
+            CRESSIM_LOG_ERROR("Expected staged world upload to succeed.");
+            runtime.shutdown();
+            return 1;
+        }
         const GpuRenderTargetReadbackRequest request =
             graphicsDevice->renderTargetSystem().requestRenderTargetReadback(
                 cressim::neo::gpu::GpuRenderTargetBinding{target, 0u, 1u});

@@ -79,6 +79,8 @@ def main() -> int:
         request = None
         for frame_index in range(2):
             runtime.prepare()
+            if not runtime.upload_world():
+                raise RuntimeError("Failed to upload prepared world state.")
             request = runtime.request_render_target_readback(camera.output.binding)
             if request.id == 0:
                 raise RuntimeError("Failed to queue render-target readback request.")

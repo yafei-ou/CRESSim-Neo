@@ -248,7 +248,7 @@ int runSmoke(cressim::neo::gpu::GpuBackend backend)
         frame.frameIndex = i;
         frame.timeSeconds = static_cast<double>(i) * static_cast<double>(frame.deltaSeconds);
         runtime.prepare();
-        const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+        const bool physicsStepSucceeded = runtime.uploadWorld() && runtime.stepPhysics(frame);
         if (physicsStepSucceeded)
         {
             (void)runtime.stepSimulationSensors(frame);

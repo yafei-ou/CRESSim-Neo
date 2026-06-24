@@ -25,7 +25,7 @@ namespace
 struct BufferBindingEntry
 {
     std::string variableName;
-    Diligent::IBuffer *buffer = nullptr;
+    Diligent::IBuffer *buffer           = nullptr;
     Diligent::BUFFER_VIEW_TYPE viewType = Diligent::BUFFER_VIEW_UNDEFINED;
 };
 
@@ -83,9 +83,7 @@ struct CustomComputeService::PassState
     std::uint32_t constantBufferSizeBytes = 0u;
 };
 
-CustomComputeService::CustomComputeService(gpu::GpuDevice &device) : mDevice(device)
-{
-}
+CustomComputeService::CustomComputeService(gpu::GpuDevice &device) : mDevice(device) {}
 
 CustomComputeService::~CustomComputeService() = default;
 
@@ -106,7 +104,7 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
                                                          const CustomComputePassDesc &desc)
 {
     CustomComputePassHandle handle{};
-    const bool hasShaderPath = !desc.shaderPath.empty();
+    const bool hasShaderPath   = !desc.shaderPath.empty();
     const bool hasShaderSource = !desc.shaderSource.empty();
     if (hasShaderPath == hasShaderSource)
     {
@@ -116,7 +114,8 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
     }
     if (desc.resourceBindings.empty())
     {
-        CRESSIM_LOG_ERROR("CustomComputeService: createPass requires at least one resource binding.");
+        CRESSIM_LOG_ERROR(
+            "CustomComputeService: createPass requires at least one resource binding.");
         return handle;
     }
     if (desc.threadGroupSizeX == 0u || desc.threadGroupSizeY == 0u || desc.threadGroupSizeZ == 0u)
@@ -147,8 +146,8 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
     }
 
     gpu::GpuComputeBackendContext computeBackend{};
-    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) || computeBackend.renderDevice == nullptr ||
-        computeBackend.computeContext == nullptr)
+    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+        computeBackend.renderDevice == nullptr || computeBackend.computeContext == nullptr)
     {
         CRESSIM_LOG_ERROR("CustomComputeService: physics compute backend is unavailable.");
         return handle;
@@ -160,7 +159,7 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
         return handle;
     }
 
-    auto passState = std::make_unique<PassState>();
+    auto passState              = std::make_unique<PassState>();
     passState->desc             = desc;
     passState->resourceBindings = desc.resourceBindings;
 
@@ -170,8 +169,8 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
     {
         if (binding.shaderVariableName.empty() || binding.resourceKey.empty())
         {
-            CRESSIM_LOG_ERROR(
-                "CustomComputeService: resource bindings require shaderVariableName and resourceKey.");
+            CRESSIM_LOG_ERROR("CustomComputeService: resource bindings require shaderVariableName "
+                              "and resourceKey.");
             return handle;
         }
         const auto resourceIt = resources.find(binding.resourceKey);
@@ -209,26 +208,26 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
     if (!desc.constantBufferVariableName.empty())
     {
         passState->variableNames.push_back(desc.constantBufferVariableName);
-        passState->constantBufferSizeBytes = roundUpConstantBufferSize(
-            std::max(desc.constantBufferSizeBytes,
-                     static_cast<std::uint32_t>(desc.constantData.size())));
+        passState->constantBufferSizeBytes = roundUpConstantBufferSize(std::max(
+            desc.constantBufferSizeBytes, static_cast<std::uint32_t>(desc.constantData.size())));
         if (passState->constantBufferSizeBytes == 0u)
         {
-            CRESSIM_LOG_ERROR(
-                "CustomComputeService: constant buffer size must be non-zero when constants are enabled.");
+            CRESSIM_LOG_ERROR("CustomComputeService: constant buffer size must be non-zero when "
+                              "constants are enabled.");
             return handle;
         }
 
         Diligent::BufferDesc constantsDesc{};
-        constantsDesc.Name                 = desc.debugName.empty() ? "CRESSimNeo.CustomCompute.Constants"
-                                                                    : desc.debugName.c_str();
+        constantsDesc.Name =
+            desc.debugName.empty() ? "CRESSimNeo.CustomCompute.Constants" : desc.debugName.c_str();
         constantsDesc.Size                 = passState->constantBufferSizeBytes;
         constantsDesc.Usage                = Diligent::USAGE_DYNAMIC;
         constantsDesc.BindFlags            = Diligent::BIND_UNIFORM_BUFFER;
         constantsDesc.CPUAccessFlags       = Diligent::CPU_ACCESS_WRITE;
         constantsDesc.ImmediateContextMask = gpu::contextMaskForId(computeBackend.contextId);
 
-        computeBackend.renderDevice->CreateBuffer(constantsDesc, nullptr, &passState->constantBuffer);
+        computeBackend.renderDevice->CreateBuffer(constantsDesc, nullptr,
+                                                  &passState->constantBuffer);
         if (passState->constantBuffer == nullptr)
         {
             CRESSIM_LOG_ERROR("CustomComputeService: failed to create constant buffer.");
@@ -314,7 +313,8 @@ bool CustomComputeService::executePass(physics::PhysicsSolver &solver, physics::
     }
 
     gpu::GpuComputeBackendContext computeBackend{};
-    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) || computeBackend.computeContext == nullptr)
+    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+        computeBackend.computeContext == nullptr)
     {
         CRESSIM_LOG_ERROR("CustomComputeService: physics compute backend is unavailable.");
         return false;
@@ -365,14 +365,13 @@ bool CustomComputeService::executePass(physics::PhysicsSolver &solver, physics::
         {
             return true;
         }
-        groupCountX =
-            (countIt->second.desc.elementCount + pass.desc.threadGroupSizeX - 1u) /
-            pass.desc.threadGroupSizeX;
+        groupCountX = (countIt->second.desc.elementCount + pass.desc.threadGroupSizeX - 1u) /
+                      pass.desc.threadGroupSizeX;
         groupCountY = 1u;
         groupCountZ = 1u;
     }
 
-    Diligent::IShaderResourceBinding *srb = pass.pass.defaultSrb();
+    Diligent::IShaderResourceBinding *srb   = pass.pass.defaultSrb();
     Diligent::IPipelineState *pipelineState = pass.pass.pipelineState();
     if (srb == nullptr || pipelineState == nullptr)
     {
@@ -411,12 +410,6 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
         outDescs->clear();
     }
 
-    if (!solver.syncWorldState(world))
-    {
-        CRESSIM_LOG_ERROR("CustomComputeService: failed to synchronize GPU world state.");
-        return false;
-    }
-
     const physics::PhysicsGpuSceneView sceneView = solver.gpuSceneView();
     const auto addBuffer = [&](const std::string &key, Diligent::IBuffer *buffer,
                                CustomComputeResourceAccess access, std::uint32_t elementCount,
@@ -429,12 +422,12 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
 
         const Diligent::BufferDesc &bufferDesc = buffer->GetDesc();
         CustomComputeResourceDesc desc{};
-        desc.key               = key;
-        desc.kind              = CustomComputeResourceKind::Buffer;
-        desc.access            = access;
-        desc.elementCount      = elementCount;
+        desc.key                = key;
+        desc.kind               = CustomComputeResourceKind::Buffer;
+        desc.access             = access;
+        desc.elementCount       = elementCount;
         desc.elementStrideBytes = static_cast<std::uint32_t>(bufferDesc.ElementByteStride);
-        desc.bindingGeneration = bindingGeneration;
+        desc.bindingGeneration  = bindingGeneration;
 
         outResources.emplace(desc.key, ResourceEntry{desc, buffer});
         if (outDescs != nullptr)
@@ -481,13 +474,11 @@ bool CustomComputeService::isAccessCompatible(CustomComputeResourceAccess reques
 Diligent::BUFFER_VIEW_TYPE CustomComputeService::bufferViewTypeForAccess(
     CustomComputeResourceAccess access) noexcept
 {
-    return access == CustomComputeResourceAccess::ReadOnly
-               ? Diligent::BUFFER_VIEW_SHADER_RESOURCE
-               : Diligent::BUFFER_VIEW_UNORDERED_ACCESS;
+    return access == CustomComputeResourceAccess::ReadOnly ? Diligent::BUFFER_VIEW_SHADER_RESOURCE
+                                                           : Diligent::BUFFER_VIEW_UNORDERED_ACCESS;
 }
 
-std::uint32_t CustomComputeService::roundUpConstantBufferSize(
-    std::uint32_t sizeBytes) noexcept
+std::uint32_t CustomComputeService::roundUpConstantBufferSize(std::uint32_t sizeBytes) noexcept
 {
     if (sizeBytes == 0u)
     {
@@ -516,7 +507,8 @@ bool CustomComputeService::bindPassResources(PassState &pass, const ResourceMap 
                               bindingDesc.resourceKey, "'.");
             return false;
         }
-        bindings.push_back(BufferBindingEntry{bindingDesc.shaderVariableName, resourceIt->second.buffer,
+        bindings.push_back(BufferBindingEntry{bindingDesc.shaderVariableName,
+                                              resourceIt->second.buffer,
                                               bufferViewTypeForAccess(bindingDesc.access)});
     }
     if (pass.constantBuffer != nullptr)
@@ -550,7 +542,8 @@ bool CustomComputeService::uploadConstantData(PassState &pass,
     }
 
     gpu::GpuComputeBackendContext computeBackend{};
-    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) || computeBackend.computeContext == nullptr)
+    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+        computeBackend.computeContext == nullptr)
     {
         CRESSIM_LOG_ERROR("CustomComputeService: physics compute backend is unavailable.");
         return false;

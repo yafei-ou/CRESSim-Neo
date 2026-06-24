@@ -22,7 +22,7 @@ namespace cressim::neo::physics
 {
 class PhysicsSolver;
 class PhysicsWorld;
-}
+} // namespace cressim::neo::physics
 
 namespace cressim::neo::engine
 {
@@ -37,8 +37,7 @@ public:
                                                          physics::PhysicsWorld &world);
     CustomComputePassHandle createPass(physics::PhysicsSolver &solver, physics::PhysicsWorld &world,
                                        const CustomComputePassDesc &desc);
-    bool updatePassConstants(CustomComputePassHandle handle,
-                             const std::vector<std::uint8_t> &data);
+    bool updatePassConstants(CustomComputePassHandle handle, const std::vector<std::uint8_t> &data);
     bool executePass(physics::PhysicsSolver &solver, physics::PhysicsWorld &world,
                      CustomComputePassHandle handle);
     bool destroyPass(CustomComputePassHandle handle);

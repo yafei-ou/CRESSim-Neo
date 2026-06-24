@@ -831,7 +831,8 @@ public:
             }
 
             runtime.prepare();
-            const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+            const bool worldUploadSucceeded = runtime.uploadWorld();
+            const bool physicsStepSucceeded = worldUploadSucceeded && runtime.stepPhysics(frame);
             if (physicsStepSucceeded)
             {
                 (void)runtime.stepSimulationSensors(frame);

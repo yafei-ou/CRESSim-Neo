@@ -36,9 +36,10 @@ public:
     bool initialize(const RuntimeConfig &config = RuntimeConfig{});
     void shutdown();
 
-    // Staged entry points require the caller to keep authored state prepared.
-    // Only the legacy tick() path performs implicit prepare().
+    // Staged entry points require the caller to explicitly prepare authored state and
+    // upload it before physics/custom-compute execution.
     void prepare();
+    bool uploadWorld();
     bool stepPhysics(const common::FrameContext &frameContext);
     bool stepSimulationSensors(const common::FrameContext &frameContext);
     void stepVisualSensors(const common::FrameContext &frameContext);
@@ -78,6 +79,7 @@ private:
     graphics::RenderResourceManager mResources;
     common::FrameContext mLastFrameContext{};
     bool mDeviceFrameActive = false;
+    bool mWorldUploaded     = false;
     bool mHasPhysicsState   = false;
 };
 

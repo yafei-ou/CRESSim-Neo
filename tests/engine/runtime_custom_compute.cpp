@@ -91,6 +91,12 @@ int main()
     world.addCollider(bodyEntity, collider);
 
     runtime.prepare();
+    if (!runtime.uploadWorld())
+    {
+        CRESSIM_LOG_ERROR("Failed to upload prepared world state.");
+        runtime.shutdown();
+        return 1;
+    }
 
     const std::vector<engine::CustomComputeResourceDesc> resources =
         runtime.listCustomComputeResources();

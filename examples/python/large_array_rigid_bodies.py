@@ -325,6 +325,8 @@ def main() -> int:
         stitched_frames = []
         for frame_index in range(FRAME_COUNT):
             runtime.prepare()
+            if not runtime.upload_world():
+                raise RuntimeError("Failed to upload prepared world state.")
             requests = []
             for binding in camera_bindings:
                 request = runtime.request_render_target_readback(binding)

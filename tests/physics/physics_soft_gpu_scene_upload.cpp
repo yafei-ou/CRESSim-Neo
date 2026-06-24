@@ -87,7 +87,7 @@ int main()
     common::FrameContext frame{};
     frame.deltaSeconds = 1.0f / 60.0f;
     runtime.prepare();
-    const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+    const bool physicsStepSucceeded = runtime.uploadWorld() && runtime.stepPhysics(frame);
     if (physicsStepSucceeded)
     {
         (void)runtime.stepSimulationSensors(frame);

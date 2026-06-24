@@ -1,19 +1,13 @@
 #include "engine/runtime.h"
 
-#include "engine/custom_compute_service.h"
 #include "common/logger.h"
+#include "engine/custom_compute_service.h"
 
 namespace cressim::neo::engine
 {
 
 namespace
 {
-
-void logPhysicsStepFailure(const common::FrameContext &frameContext)
-{
-    CRESSIM_LOG_ERROR("Runtime: physics step failed at frame ", frameContext.frameIndex,
-                      " (dt=", frameContext.deltaSeconds, ").");
-}
 
 bool hasGraphicsBackendContext(gpu::GpuDevice &device)
 {
@@ -167,7 +161,7 @@ bool Runtime::initialize(const RuntimeConfig &config)
     }
 
     mCustomComputeService = std::make_unique<CustomComputeService>(*mGpuDevice);
-    mInitialized = true;
+    mInitialized          = true;
     return true;
 }
 
@@ -218,6 +212,7 @@ void Runtime::shutdown()
     mRenderFrameOptions = {};
     mLastFrameContext   = {};
     mDeviceFrameActive  = false;
+    mWorldUploaded      = false;
     mHasPhysicsState    = false;
     mInitialized        = false;
 }
@@ -237,13 +232,46 @@ void Runtime::prepare()
             CRESSIM_LOG_WARNING("Runtime: ultrasound prepare failed.");
         }
     }
+    mWorldUploaded   = false;
     mHasPhysicsState = false;
+}
+
+bool Runtime::uploadWorld()
+{
+    if (!mInitialized)
+    {
+        return false;
+    }
+
+    bool uploaded = true;
+    if (mPhysicsSolver && !mPhysicsSolver->syncWorldState(mWorld.physicsWorld()))
+    {
+        CRESSIM_LOG_ERROR("Runtime: physics world upload failed.");
+        uploaded = false;
+    }
+
+    if (uploaded && mRenderSceneUploader &&
+        !syncGpuScene(mWorld, mGpuDevice.get(), mRenderSceneUploader.get(), mPhysicsSolver.get(),
+                      false))
+    {
+        uploaded = false;
+    }
+
+    mWorldUploaded   = uploaded;
+    mHasPhysicsState = false;
+    return uploaded;
 }
 
 bool Runtime::stepPhysics(const common::FrameContext &frameContext)
 {
     if (!mInitialized)
     {
+        return false;
+    }
+    if (!mWorldUploaded)
+    {
+        CRESSIM_LOG_ERROR("Runtime: stepPhysics() requires uploadWorld() after prepare() and "
+                          "before execution.");
         return false;
     }
 
@@ -255,7 +283,8 @@ bool Runtime::stepPhysics(const common::FrameContext &frameContext)
         physicsStepSucceeded = mPhysicsSolver->step(frameContext, mWorld.physicsWorld());
         if (!physicsStepSucceeded)
         {
-            logPhysicsStepFailure(frameContext);
+            CRESSIM_LOG_ERROR("Runtime: physics step failed at frame ", frameContext.frameIndex,
+                              " (dt=", frameContext.deltaSeconds, ").");
         }
     }
     if (physicsStepSucceeded)
@@ -394,6 +423,12 @@ std::vector<CustomComputeResourceDesc> Runtime::listCustomComputeResources()
     {
         return {};
     }
+    if (!mWorldUploaded)
+    {
+        CRESSIM_LOG_ERROR("Runtime: listCustomComputeResources() requires uploadWorld() after "
+                          "prepare() and before execution.");
+        return {};
+    }
     return mCustomComputeService->listResources(*mPhysicsSolver, mWorld.physicsWorld());
 }
 
@@ -401,6 +436,12 @@ CustomComputePassHandle Runtime::createCustomComputePass(const CustomComputePass
 {
     if (!mInitialized || mCustomComputeService == nullptr || mPhysicsSolver == nullptr)
     {
+        return {};
+    }
+    if (!mWorldUploaded)
+    {
+        CRESSIM_LOG_ERROR("Runtime: createCustomComputePass() requires uploadWorld() after "
+                          "prepare() and before execution.");
         return {};
     }
     return mCustomComputeService->createPass(*mPhysicsSolver, mWorld.physicsWorld(), desc);
@@ -415,8 +456,17 @@ bool Runtime::updateCustomComputePassConstants(CustomComputePassHandle handle,
 
 bool Runtime::executeCustomComputePass(CustomComputePassHandle handle)
 {
-    return mInitialized && mCustomComputeService != nullptr && mPhysicsSolver != nullptr &&
-           mCustomComputeService->executePass(*mPhysicsSolver, mWorld.physicsWorld(), handle);
+    if (!mInitialized || mCustomComputeService == nullptr || mPhysicsSolver == nullptr)
+    {
+        return false;
+    }
+    if (!mWorldUploaded)
+    {
+        CRESSIM_LOG_ERROR("Runtime: executeCustomComputePass() requires uploadWorld() after "
+                          "prepare() and before execution.");
+        return false;
+    }
+    return mCustomComputeService->executePass(*mPhysicsSolver, mWorld.physicsWorld(), handle);
 }
 
 bool Runtime::destroyCustomComputePass(CustomComputePassHandle handle)

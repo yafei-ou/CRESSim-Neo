@@ -47,7 +47,7 @@ GpuPresentationReadbackEvent renderAndReadback(Runtime &runtime, GpuDevice &grap
 {
     const GpuPresentationReadbackRequest request = graphicsDevice.requestPresentationReadback();
     runtime.prepare();
-    const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+    const bool physicsStepSucceeded = runtime.uploadWorld() && runtime.stepPhysics(frame);
     if (physicsStepSucceeded)
     {
         (void)runtime.stepSimulationSensors(frame);
@@ -184,7 +184,7 @@ struct ScenarioRunner
         auto tickFrame = [&]()
         {
             runtime.prepare();
-            const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+            const bool physicsStepSucceeded = runtime.uploadWorld() && runtime.stepPhysics(frame);
             if (physicsStepSucceeded)
             {
                 (void)runtime.stepSimulationSensors(frame);

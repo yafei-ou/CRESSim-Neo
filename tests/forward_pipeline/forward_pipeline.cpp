@@ -168,7 +168,7 @@ bool runIblTierScenario(IblQualityTier iblQualityTier)
     frame.frameIndex   = 0u;
     frame.timeSeconds  = 0.0;
     runtime.prepare();
-    const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+    const bool physicsStepSucceeded = runtime.uploadWorld() && runtime.stepPhysics(frame);
     if (physicsStepSucceeded)
     {
         (void)runtime.stepSimulationSensors(frame);
@@ -317,7 +317,7 @@ int main()
     frame.frameIndex = 0;
     frame.timeSeconds = 0.0;
     runtime.prepare();
-    const bool firstPhysicsStepSucceeded = runtime.stepPhysics(frame);
+    const bool firstPhysicsStepSucceeded = runtime.uploadWorld() && runtime.stepPhysics(frame);
     if (firstPhysicsStepSucceeded)
     {
         (void)runtime.stepSimulationSensors(frame);
@@ -329,7 +329,7 @@ int main()
     frame.frameIndex = 1;
     frame.timeSeconds = frame.deltaSeconds;
     runtime.prepare();
-    const bool secondPhysicsStepSucceeded = runtime.stepPhysics(frame);
+    const bool secondPhysicsStepSucceeded = runtime.uploadWorld() && runtime.stepPhysics(frame);
     if (secondPhysicsStepSucceeded)
     {
         (void)runtime.stepSimulationSensors(frame);
@@ -341,7 +341,7 @@ int main()
     frame.frameIndex = 2;
     frame.timeSeconds = static_cast<double>(frame.deltaSeconds) * 2.0;
     runtime.prepare();
-    const bool thirdPhysicsStepSucceeded = runtime.stepPhysics(frame);
+    const bool thirdPhysicsStepSucceeded = runtime.uploadWorld() && runtime.stepPhysics(frame);
     if (thirdPhysicsStepSucceeded)
     {
         (void)runtime.stepSimulationSensors(frame);

@@ -69,7 +69,7 @@ struct CustomComputePassDesc
     std::string debugName;
     std::string shaderPath;
     std::string shaderSource;
-    std::string entryPoint = "main";
+    std::string entryPoint         = "main";
     std::uint32_t threadGroupSizeX = 1u;
     std::uint32_t threadGroupSizeY = 1u;
     std::uint32_t threadGroupSizeZ = 1u;
