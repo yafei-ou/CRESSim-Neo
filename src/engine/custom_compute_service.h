@@ -27,6 +27,8 @@ class PhysicsWorld;
 namespace cressim::neo::engine
 {
 
+class SharedBufferService;
+
 class CustomComputeService
 {
 public:
@@ -36,10 +38,11 @@ public:
     std::vector<CustomComputeResourceDesc> listResources(physics::PhysicsSolver &solver,
                                                          physics::PhysicsWorld &world);
     CustomComputePassHandle createPass(physics::PhysicsSolver &solver, physics::PhysicsWorld &world,
+                                       const SharedBufferService *sharedBuffers,
                                        const CustomComputePassDesc &desc);
     bool updatePassConstants(CustomComputePassHandle handle, const std::vector<std::uint8_t> &data);
     bool executePass(physics::PhysicsSolver &solver, physics::PhysicsWorld &world,
-                     CustomComputePassHandle handle);
+                     const SharedBufferService *sharedBuffers, CustomComputePassHandle handle);
     bool destroyPass(CustomComputePassHandle handle);
     void clear();
 
@@ -57,7 +60,8 @@ private:
     static Diligent::BUFFER_VIEW_TYPE bufferViewTypeForAccess(
         CustomComputeResourceAccess access) noexcept;
     static std::uint32_t roundUpConstantBufferSize(std::uint32_t sizeBytes) noexcept;
-    bool bindPassResources(PassState &pass, const ResourceMap &resources);
+    bool bindPassResources(PassState &pass, const ResourceMap &resources,
+                           const SharedBufferService *sharedBuffers);
     bool uploadConstantData(PassState &pass, const std::vector<std::uint8_t> &data);
 
 private:

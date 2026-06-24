@@ -2,6 +2,7 @@
 
 #include "common/logger.h"
 #include "engine/custom_compute_service.h"
+#include "engine/shared_buffer_service.h"
 
 namespace cressim::neo::engine
 {
@@ -161,6 +162,7 @@ bool Runtime::initialize(const RuntimeConfig &config)
     }
 
     mCustomComputeService = std::make_unique<CustomComputeService>(*mGpuDevice);
+    mSharedBufferService  = std::make_unique<SharedBufferService>(*mGpuDevice);
     mInitialized          = true;
     return true;
 }
@@ -183,6 +185,11 @@ void Runtime::shutdown()
     {
         mCustomComputeService->clear();
         mCustomComputeService.reset();
+    }
+    if (mSharedBufferService)
+    {
+        mSharedBufferService->clear();
+        mSharedBufferService.reset();
     }
 
     if (mRenderSceneUploader)
@@ -417,6 +424,73 @@ const graphics::RenderResourceManager &Runtime::getResources() const noexcept
     return mResources;
 }
 
+SharedBufferHandle Runtime::createSharedBuffer(const SharedBufferDesc &desc)
+{
+    return mInitialized && mSharedBufferService != nullptr
+               ? mSharedBufferService->createBuffer(desc)
+               : SharedBufferHandle{};
+}
+
+bool Runtime::destroySharedBuffer(const SharedBufferHandle handle)
+{
+    return mInitialized && mSharedBufferService != nullptr &&
+           mSharedBufferService->destroyBuffer(handle);
+}
+
+std::vector<SharedBufferInfo> Runtime::listSharedBuffers() const
+{
+    return mInitialized && mSharedBufferService != nullptr ? mSharedBufferService->listBuffers()
+                                                           : std::vector<SharedBufferInfo>{};
+}
+
+bool Runtime::tryGetSharedBufferInfo(const SharedBufferHandle handle,
+                                     SharedBufferInfo &outInfo) const
+{
+    return mInitialized && mSharedBufferService != nullptr &&
+           mSharedBufferService->tryGetBufferInfo(handle, outInfo);
+}
+
+bool Runtime::tryGetSharedBufferCudaView(const SharedBufferHandle handle,
+                                         SharedBufferCudaView &outView) const
+{
+    return mInitialized && mSharedBufferService != nullptr &&
+           mSharedBufferService->tryGetCudaView(handle, outView);
+}
+
+bool Runtime::syncSharedBufferToCuda(const SharedBufferHandle handle)
+{
+    if (!mInitialized || mSharedBufferService == nullptr || mGpuDevice == nullptr)
+    {
+        return false;
+    }
+
+    gpu::GpuComputeBackendContext computeBackend{};
+    if (!mGpuDevice->tryGetPhysicsBackendContext(computeBackend) ||
+        computeBackend.computeContext == nullptr)
+    {
+        return false;
+    }
+
+    return mSharedBufferService->synchronizeToCuda(handle, computeBackend.computeContext);
+}
+
+bool Runtime::syncSharedBufferFromCuda(const SharedBufferHandle handle)
+{
+    if (!mInitialized || mSharedBufferService == nullptr || mGpuDevice == nullptr)
+    {
+        return false;
+    }
+
+    gpu::GpuComputeBackendContext computeBackend{};
+    if (!mGpuDevice->tryGetPhysicsBackendContext(computeBackend) ||
+        computeBackend.computeContext == nullptr)
+    {
+        return false;
+    }
+
+    return mSharedBufferService->synchronizeFromCuda(handle, computeBackend.computeContext);
+}
+
 std::vector<CustomComputeResourceDesc> Runtime::listCustomComputeResources()
 {
     if (!mInitialized || mCustomComputeService == nullptr || mPhysicsSolver == nullptr)
@@ -444,7 +518,8 @@ CustomComputePassHandle Runtime::createCustomComputePass(const CustomComputePass
                           "prepare() and before execution.");
         return {};
     }
-    return mCustomComputeService->createPass(*mPhysicsSolver, mWorld.physicsWorld(), desc);
+    return mCustomComputeService->createPass(*mPhysicsSolver, mWorld.physicsWorld(),
+                                             mSharedBufferService.get(), desc);
 }
 
 bool Runtime::updateCustomComputePassConstants(CustomComputePassHandle handle,
@@ -466,7 +541,8 @@ bool Runtime::executeCustomComputePass(CustomComputePassHandle handle)
                           "prepare() and before execution.");
         return false;
     }
-    return mCustomComputeService->executePass(*mPhysicsSolver, mWorld.physicsWorld(), handle);
+    return mCustomComputeService->executePass(*mPhysicsSolver, mWorld.physicsWorld(),
+                                              mSharedBufferService.get(), handle);
 }
 
 bool Runtime::destroyCustomComputePass(CustomComputePassHandle handle)

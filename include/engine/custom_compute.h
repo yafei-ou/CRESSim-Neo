@@ -2,6 +2,7 @@
 #define CRESSIM_NEO_ENGINE_CUSTOM_COMPUTE_H
 
 #include "engine/export.h"
+#include "engine/shared_buffer.h"
 
 #include <cstdint>
 #include <string>
@@ -46,6 +47,7 @@ struct CustomComputeResourceBindingDesc
 {
     std::string shaderVariableName;
     std::string resourceKey;
+    SharedBufferHandle sharedBufferHandle{};
     CustomComputeResourceAccess access = CustomComputeResourceAccess::ReadOnly;
 };
 

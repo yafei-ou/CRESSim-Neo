@@ -7,17 +7,64 @@
 #include "graphics/render_resource_manager.h"
 #include "physics/physics_types.h"
 
+#include <pybind11/functional.h>
 #include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <stdexcept>
 
 namespace py = pybind11;
 
 namespace
 {
+
+enum DLDeviceType
+{
+    kDLCUDA = 2,
+};
+
+enum DLDataTypeCode
+{
+    kDLInt   = 0,
+    kDLUInt  = 1,
+    kDLFloat = 2,
+    kDLBool  = 6,
+};
+
+struct DLDevice
+{
+    int device_type;
+    int device_id;
+};
+
+struct DLDataType
+{
+    std::uint8_t code;
+    std::uint8_t bits;
+    std::uint16_t lanes;
+};
+
+struct DLTensor
+{
+    void *data;
+    DLDevice device;
+    int ndim;
+    DLDataType dtype;
+    std::int64_t *shape;
+    std::int64_t *strides;
+    std::uint64_t byte_offset;
+};
+
+struct DLManagedTensor
+{
+    DLTensor dl_tensor;
+    void *manager_ctx;
+    void (*deleter)(DLManagedTensor *self);
+};
 
 using cressim::neo::common::FrameContext;
 using cressim::neo::common::Transform;
@@ -36,6 +83,14 @@ using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::RigidBodyComponent;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
+using cressim::neo::engine::SharedBufferAccess;
+using cressim::neo::engine::SharedBufferBindFlags;
+using cressim::neo::engine::SharedBufferCudaView;
+using cressim::neo::engine::SharedBufferDesc;
+using cressim::neo::engine::SharedBufferHandle;
+using cressim::neo::engine::SharedBufferInfo;
+using cressim::neo::engine::SharedBufferTensorDesc;
+using cressim::neo::engine::SharedBufferTensorDTypeCode;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::engine::World;
 using cressim::neo::gpu::GpuBackend;
@@ -78,6 +133,143 @@ py::object tryGetRenderTargetReadback(Runtime &runtime,
     }
 
     return py::cast(event);
+}
+
+void deleteManagedTensor(DLManagedTensor *managedTensor)
+{
+    if (managedTensor == nullptr)
+    {
+        return;
+    }
+
+    delete[] managedTensor->dl_tensor.shape;
+    delete[] managedTensor->dl_tensor.strides;
+    delete managedTensor;
+}
+
+std::uint8_t toDlpackDTypeCode(const SharedBufferTensorDTypeCode code)
+{
+    switch (code)
+    {
+    case SharedBufferTensorDTypeCode::Int:
+        return kDLInt;
+    case SharedBufferTensorDTypeCode::UInt:
+        return kDLUInt;
+    case SharedBufferTensorDTypeCode::Float:
+        return kDLFloat;
+    case SharedBufferTensorDTypeCode::Bool:
+        return kDLBool;
+    }
+    return kDLUInt;
+}
+
+std::vector<std::int64_t> makeCompactStrides(const std::vector<std::int64_t> &shape)
+{
+    std::vector<std::int64_t> strides(shape.size(), 1);
+    for (std::size_t i = shape.size(); i > 1; --i)
+    {
+        strides[i - 2u] = strides[i - 1u] * shape[i - 1u];
+    }
+    return strides;
+}
+
+py::capsule exportSharedBufferToDLPack(Runtime &runtime, const SharedBufferHandle handle,
+                                       const SharedBufferTensorDesc &desc)
+{
+    SharedBufferCudaView view{};
+    if (!runtime.tryGetSharedBufferCudaView(handle, view) || !view.isValid())
+    {
+        throw std::runtime_error("Shared buffer CUDA view is unavailable.");
+    }
+    if (desc.shape.empty())
+    {
+        throw std::runtime_error("Shared buffer tensor export requires a non-empty shape.");
+    }
+    if (desc.dtypeBits == 0u || (desc.dtypeBits % 8u) != 0u || desc.dtypeLanes == 0u)
+    {
+        throw std::runtime_error("Shared buffer tensor export requires byte-aligned dtype bits "
+                                 "and non-zero lanes.");
+    }
+
+    for (const std::int64_t dim : desc.shape)
+    {
+        if (dim <= 0)
+        {
+            throw std::runtime_error("Shared buffer tensor shape dimensions must be positive.");
+        }
+    }
+
+    std::vector<std::int64_t> strides =
+        desc.strides.empty() ? makeCompactStrides(desc.shape) : desc.strides;
+    if (strides.size() != desc.shape.size())
+    {
+        throw std::runtime_error("Shared buffer tensor strides must match shape rank.");
+    }
+    for (const std::int64_t stride : strides)
+    {
+        if (stride <= 0)
+        {
+            throw std::runtime_error("Shared buffer tensor strides must be positive.");
+        }
+    }
+
+    const std::uint64_t dtypeBytes  = (static_cast<std::uint64_t>(desc.dtypeBits) / 8u) *
+                                      static_cast<std::uint64_t>(desc.dtypeLanes);
+    std::uint64_t lastElementOffset = 0u;
+    for (std::size_t i = 0; i < desc.shape.size(); ++i)
+    {
+        lastElementOffset +=
+            static_cast<std::uint64_t>(strides[i]) * static_cast<std::uint64_t>(desc.shape[i] - 1);
+    }
+    const std::uint64_t requiredBytes = desc.byteOffset + (lastElementOffset + 1u) * dtypeBytes;
+    if (requiredBytes > view.sizeBytes)
+    {
+        throw std::runtime_error("Shared buffer tensor view exceeds shared buffer bounds.");
+    }
+
+    auto *managedTensor    = new DLManagedTensor{};
+    managedTensor->deleter = &deleteManagedTensor;
+    managedTensor->dl_tensor.data =
+        static_cast<void *>(static_cast<std::uint8_t *>(view.devicePointer) + desc.byteOffset);
+    managedTensor->dl_tensor.device  = {kDLCUDA, view.deviceOrdinal};
+    managedTensor->dl_tensor.ndim    = static_cast<int>(desc.shape.size());
+    managedTensor->dl_tensor.dtype   = {toDlpackDTypeCode(desc.dtypeCode), desc.dtypeBits,
+                                        desc.dtypeLanes};
+    managedTensor->dl_tensor.shape   = new std::int64_t[desc.shape.size()];
+    managedTensor->dl_tensor.strides = new std::int64_t[strides.size()];
+    std::memcpy(managedTensor->dl_tensor.shape, desc.shape.data(),
+                desc.shape.size() * sizeof(std::int64_t));
+    std::memcpy(managedTensor->dl_tensor.strides, strides.data(),
+                strides.size() * sizeof(std::int64_t));
+    managedTensor->dl_tensor.byte_offset = 0u;
+
+    return py::capsule(managedTensor, "dltensor",
+                       [](PyObject *capsule)
+                       {
+                           if (capsule == nullptr)
+                           {
+                               return;
+                           }
+
+                           const bool isLiveCapsule = PyCapsule_IsValid(capsule, "dltensor") != 0;
+                           if (!isLiveCapsule)
+                           {
+                               PyErr_Clear();
+                               return;
+                           }
+
+                           auto *managed = static_cast<DLManagedTensor *>(
+                               PyCapsule_GetPointer(capsule, "dltensor"));
+                           if (managed == nullptr)
+                           {
+                               PyErr_Clear();
+                               return;
+                           }
+                           if (managed->deleter != nullptr)
+                           {
+                               managed->deleter(managed);
+                           }
+                       });
 }
 
 } // namespace
@@ -138,10 +330,74 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("ExplicitGroupCount", CustomComputeDispatchMode::ExplicitGroupCount)
         .value("ResourceElementCount", CustomComputeDispatchMode::ResourceElementCount);
 
+    py::enum_<SharedBufferAccess>(m, "SharedBufferAccess")
+        .value("ReadOnly", SharedBufferAccess::ReadOnly)
+        .value("WriteOnly", SharedBufferAccess::WriteOnly)
+        .value("ReadWrite", SharedBufferAccess::ReadWrite);
+
+    py::enum_<SharedBufferBindFlags>(m, "SharedBufferBindFlags", py::arithmetic())
+        .value("None", SharedBufferBindFlags::None)
+        .value("ShaderResource", SharedBufferBindFlags::ShaderResource)
+        .value("UnorderedAccess", SharedBufferBindFlags::UnorderedAccess)
+        .def("__or__", [](const SharedBufferBindFlags lhs, const SharedBufferBindFlags rhs)
+             { return lhs | rhs; })
+        .def("__and__", [](const SharedBufferBindFlags lhs, const SharedBufferBindFlags rhs)
+             { return lhs & rhs; });
+
+    py::enum_<SharedBufferTensorDTypeCode>(m, "SharedBufferTensorDTypeCode")
+        .value("Int", SharedBufferTensorDTypeCode::Int)
+        .value("UInt", SharedBufferTensorDTypeCode::UInt)
+        .value("Float", SharedBufferTensorDTypeCode::Float)
+        .value("Bool", SharedBufferTensorDTypeCode::Bool);
+
     py::class_<CustomComputePassHandle>(m, "CustomComputePassHandle")
         .def(py::init<>())
         .def_readwrite("id", &CustomComputePassHandle::id)
         .def("is_valid", &CustomComputePassHandle::isValid);
+
+    py::class_<SharedBufferHandle>(m, "SharedBufferHandle")
+        .def(py::init<>())
+        .def_readwrite("id", &SharedBufferHandle::id)
+        .def("is_valid", &SharedBufferHandle::isValid);
+
+    py::class_<SharedBufferDesc>(m, "SharedBufferDesc")
+        .def(py::init<>())
+        .def_readwrite("debug_name", &SharedBufferDesc::debugName)
+        .def_readwrite("element_stride_bytes", &SharedBufferDesc::elementStrideBytes)
+        .def_readwrite("element_count", &SharedBufferDesc::elementCount)
+        .def_readwrite("minimum_capacity", &SharedBufferDesc::minimumCapacity)
+        .def_readwrite("access", &SharedBufferDesc::access)
+        .def_readwrite("bind_flags", &SharedBufferDesc::bindFlags);
+
+    py::class_<SharedBufferInfo>(m, "SharedBufferInfo")
+        .def(py::init<>())
+        .def_readwrite("handle", &SharedBufferInfo::handle)
+        .def_readwrite("debug_name", &SharedBufferInfo::debugName)
+        .def_readwrite("element_stride_bytes", &SharedBufferInfo::elementStrideBytes)
+        .def_readwrite("element_count", &SharedBufferInfo::elementCount)
+        .def_readwrite("capacity", &SharedBufferInfo::capacity)
+        .def_readwrite("size_bytes", &SharedBufferInfo::sizeBytes)
+        .def_readwrite("access", &SharedBufferInfo::access)
+        .def_readwrite("bind_flags", &SharedBufferInfo::bindFlags)
+        .def_readwrite("exportable", &SharedBufferInfo::exportable)
+        .def_readwrite("imported_into_cuda", &SharedBufferInfo::importedIntoCuda);
+
+    py::class_<SharedBufferCudaView>(m, "SharedBufferCudaView")
+        .def(py::init<>())
+        .def_property_readonly("device_pointer", [](const SharedBufferCudaView &view)
+                               { return reinterpret_cast<std::uintptr_t>(view.devicePointer); })
+        .def_readwrite("size_bytes", &SharedBufferCudaView::sizeBytes)
+        .def_readwrite("device_ordinal", &SharedBufferCudaView::deviceOrdinal)
+        .def("is_valid", &SharedBufferCudaView::isValid);
+
+    py::class_<SharedBufferTensorDesc>(m, "SharedBufferTensorDesc")
+        .def(py::init<>())
+        .def_readwrite("shape", &SharedBufferTensorDesc::shape)
+        .def_readwrite("strides", &SharedBufferTensorDesc::strides)
+        .def_readwrite("dtype_code", &SharedBufferTensorDesc::dtypeCode)
+        .def_readwrite("dtype_bits", &SharedBufferTensorDesc::dtypeBits)
+        .def_readwrite("dtype_lanes", &SharedBufferTensorDesc::dtypeLanes)
+        .def_readwrite("byte_offset", &SharedBufferTensorDesc::byteOffset);
 
     py::class_<CustomComputeResourceDesc>(m, "CustomComputeResourceDesc")
         .def(py::init<>())
@@ -157,6 +413,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("shader_variable_name",
                        &CustomComputeResourceBindingDesc::shaderVariableName)
         .def_readwrite("resource_key", &CustomComputeResourceBindingDesc::resourceKey)
+        .def_readwrite("shared_buffer_handle",
+                       &CustomComputeResourceBindingDesc::sharedBufferHandle)
         .def_readwrite("access", &CustomComputeResourceBindingDesc::access);
 
     py::class_<CustomComputeDispatchDesc>(m, "CustomComputeDispatchDesc")
@@ -617,6 +875,32 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("shutdown", &Runtime::shutdown)
         .def("prepare", &Runtime::prepare)
         .def("upload_world", &Runtime::uploadWorld)
+        .def("create_shared_buffer", &Runtime::createSharedBuffer)
+        .def("destroy_shared_buffer", &Runtime::destroySharedBuffer)
+        .def("list_shared_buffers", &Runtime::listSharedBuffers)
+        .def("try_get_shared_buffer_info",
+             [](Runtime &runtime, const SharedBufferHandle handle) -> py::object
+             {
+                 SharedBufferInfo info{};
+                 if (!runtime.tryGetSharedBufferInfo(handle, info))
+                 {
+                     return py::none();
+                 }
+                 return py::cast(info);
+             })
+        .def("try_get_shared_buffer_cuda_view",
+             [](Runtime &runtime, const SharedBufferHandle handle) -> py::object
+             {
+                 SharedBufferCudaView view{};
+                 if (!runtime.tryGetSharedBufferCudaView(handle, view))
+                 {
+                     return py::none();
+                 }
+                 return py::cast(view);
+             })
+        .def("sync_shared_buffer_to_cuda", &Runtime::syncSharedBufferToCuda)
+        .def("sync_shared_buffer_from_cuda", &Runtime::syncSharedBufferFromCuda)
+        .def("shared_buffer_to_dlpack", &exportSharedBufferToDLPack)
         .def("step_physics", &Runtime::stepPhysics)
         .def("step_simulation_sensors", &Runtime::stepSimulationSensors)
         .def("step_visual_sensors", &Runtime::stepVisualSensors)

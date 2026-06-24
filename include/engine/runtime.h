@@ -5,6 +5,7 @@
 #include "engine/custom_compute.h"
 #include "engine/export.h"
 #include "engine/render_scene_uploader.h"
+#include "engine/shared_buffer.h"
 #include "engine/ultrasound_system.h"
 #include "engine/world.h"
 #include "gpu/gpu_device.h"
@@ -18,6 +19,7 @@ namespace cressim::neo::engine
 {
 
 class CustomComputeService;
+class SharedBufferService;
 
 struct RuntimeConfig
 {
@@ -58,6 +60,13 @@ public:
 
     graphics::RenderResourceManager &getResources() noexcept;
     const graphics::RenderResourceManager &getResources() const noexcept;
+    SharedBufferHandle createSharedBuffer(const SharedBufferDesc &desc);
+    bool destroySharedBuffer(SharedBufferHandle handle);
+    std::vector<SharedBufferInfo> listSharedBuffers() const;
+    bool tryGetSharedBufferInfo(SharedBufferHandle handle, SharedBufferInfo &outInfo) const;
+    bool tryGetSharedBufferCudaView(SharedBufferHandle handle, SharedBufferCudaView &outView) const;
+    bool syncSharedBufferToCuda(SharedBufferHandle handle);
+    bool syncSharedBufferFromCuda(SharedBufferHandle handle);
     std::vector<CustomComputeResourceDesc> listCustomComputeResources();
     CustomComputePassHandle createCustomComputePass(const CustomComputePassDesc &desc);
     bool updateCustomComputePassConstants(CustomComputePassHandle handle,
@@ -73,6 +82,7 @@ private:
     std::unique_ptr<UltrasoundSystem> mUltrasoundSystem;
     std::unique_ptr<graphics::Renderer> mRenderer;
     std::unique_ptr<CustomComputeService> mCustomComputeService;
+    std::unique_ptr<SharedBufferService> mSharedBufferService;
     graphics::RenderFrameOptions mRenderFrameOptions{};
     graphics::RenderStats mLastRenderStats{};
     World mWorld;

@@ -468,6 +468,30 @@ std::uint64_t CudaSharedBuffer::sizeBytes() const noexcept
     return mImpl != nullptr ? mImpl->sizeInBytes : 0u;
 }
 
+std::int32_t CudaSharedBuffer::deviceOrdinal() const noexcept
+{
+#if !CRESSIM_NEO_HAS_CUDA_INTEROP
+    return -1;
+#else
+    if (mImpl == nullptr || mImpl->devicePointer == nullptr)
+    {
+        return -1;
+    }
+
+    cudaPointerAttributes attributes{};
+    const cudaError_t result = cudaPointerGetAttributes(&attributes, mImpl->devicePointer);
+    if (result != cudaSuccess)
+    {
+        return -1;
+    }
+#if CUDART_VERSION >= 10000
+    return attributes.device;
+#else
+    return attributes.device;
+#endif
+#endif
+}
+
 bool CudaSharedBuffer::supportsCudaInteropBuild() noexcept
 {
 #if CRESSIM_NEO_HAS_CUDA_INTEROP
@@ -575,6 +599,35 @@ bool CudaSharedBufferBridge::synchronizeFromDeviceContext(Diligent::IDeviceConte
     return mImpl->semaphore.waitOnCudaStream(nullptr, fenceValue);
 }
 
+bool CudaSharedBufferBridge::synchronizeToDeviceContext(Diligent::IDeviceContext *context)
+{
+    if (mImpl == nullptr || context == nullptr || !mImpl->stream.isInitialized() ||
+        !mImpl->semaphore.isInitialized() || !mImpl->semaphore.isImportedIntoCuda())
+    {
+        return false;
+    }
+
+#if !CRESSIM_NEO_HAS_CUDA_INTEROP
+    return false;
+#else
+    // Torch may have written the shared allocation on an arbitrary CUDA stream that the engine
+    // does not know about. For this first prototype, conservatively synchronize the device
+    // before signaling the interop semaphore back to Vulkan/D3D12.
+    if (cudaDeviceSynchronize() != cudaSuccess)
+    {
+        return false;
+    }
+
+    const std::uint64_t fenceValue = mImpl->nextFenceValue++;
+    if (!mImpl->semaphore.signalOnCudaStream(mImpl->stream.handle(), fenceValue))
+    {
+        return false;
+    }
+
+    return mImpl->semaphore.waitOnDeviceContext(context, fenceValue);
+#endif
+}
+
 bool CudaSharedBufferBridge::copyDeviceToHostAsync(void *dst, const void *src,
                                                    const std::uint64_t sizeBytes)
 {
@@ -599,6 +652,27 @@ void *CudaSharedBufferBridge::devicePointer() const noexcept
 std::uint64_t CudaSharedBufferBridge::sizeBytes() const noexcept
 {
     return mImpl != nullptr ? mImpl->sharedBuffer.sizeBytes() : 0u;
+}
+
+std::int32_t CudaSharedBufferBridge::deviceOrdinal() const noexcept
+{
+#if !CRESSIM_NEO_HAS_CUDA_INTEROP
+    return -1;
+#else
+    const void *pointer = devicePointer();
+    if (pointer == nullptr)
+    {
+        return -1;
+    }
+
+    cudaPointerAttributes attributes{};
+    const cudaError_t result = cudaPointerGetAttributes(&attributes, pointer);
+    if (result != cudaSuccess)
+    {
+        return -1;
+    }
+    return attributes.device;
+#endif
 }
 
 bool CudaSharedBufferBridge::supportsCudaInteropBuild() noexcept

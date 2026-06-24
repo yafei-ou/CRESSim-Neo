@@ -111,18 +111,22 @@ int main()
     passDesc.debugName        = "RuntimeCustomComputeSmoke";
     passDesc.shaderSource     = kRuntimeCustomComputeShader;
     passDesc.threadGroupSizeX = 64u;
-    passDesc.resourceBindings = {
-        {"g_RigidBodyPositionsInvMass", "rigid.positions",
-         engine::CustomComputeResourceAccess::ReadOnly},
-        {"g_RigidBodyOrientations", "rigid.orientations",
-         engine::CustomComputeResourceAccess::ReadOnly},
-        {"g_RigidBodyKinematicTargetPositions", "rigid.kinematic_target_positions",
-         engine::CustomComputeResourceAccess::ReadWrite},
-        {"g_RigidBodyKinematicTargetOrientations", "rigid.kinematic_target_orientations",
-         engine::CustomComputeResourceAccess::ReadWrite},
-        {"g_RigidBodyKinematicTargetFlags", "rigid.kinematic_target_flags",
-         engine::CustomComputeResourceAccess::ReadWrite},
-    };
+    passDesc.resourceBindings.resize(5u);
+    passDesc.resourceBindings[0].shaderVariableName = "g_RigidBodyPositionsInvMass";
+    passDesc.resourceBindings[0].resourceKey        = "rigid.positions";
+    passDesc.resourceBindings[0].access = engine::CustomComputeResourceAccess::ReadOnly;
+    passDesc.resourceBindings[1].shaderVariableName = "g_RigidBodyOrientations";
+    passDesc.resourceBindings[1].resourceKey        = "rigid.orientations";
+    passDesc.resourceBindings[1].access = engine::CustomComputeResourceAccess::ReadOnly;
+    passDesc.resourceBindings[2].shaderVariableName = "g_RigidBodyKinematicTargetPositions";
+    passDesc.resourceBindings[2].resourceKey        = "rigid.kinematic_target_positions";
+    passDesc.resourceBindings[2].access = engine::CustomComputeResourceAccess::ReadWrite;
+    passDesc.resourceBindings[3].shaderVariableName = "g_RigidBodyKinematicTargetOrientations";
+    passDesc.resourceBindings[3].resourceKey = "rigid.kinematic_target_orientations";
+    passDesc.resourceBindings[3].access = engine::CustomComputeResourceAccess::ReadWrite;
+    passDesc.resourceBindings[4].shaderVariableName = "g_RigidBodyKinematicTargetFlags";
+    passDesc.resourceBindings[4].resourceKey        = "rigid.kinematic_target_flags";
+    passDesc.resourceBindings[4].access = engine::CustomComputeResourceAccess::ReadWrite;
     passDesc.dispatch.mode            = engine::CustomComputeDispatchMode::ResourceElementCount;
     passDesc.dispatch.countResourceKey = "rigid.positions";
     passDesc.constantBufferVariableName = "CustomRigidLateralShiftConstants";

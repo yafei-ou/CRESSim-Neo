@@ -1,6 +1,7 @@
 #include "engine/custom_compute_service.h"
 
 #include "common/logger.h"
+#include "engine/shared_buffer_service.h"
 #include "gpu/gpu_device.h"
 #include "gpu/gpu_types.h"
 #include "gpu/shader_library.h"
@@ -79,6 +80,7 @@ struct CustomComputeService::PassState
     std::vector<Diligent::ShaderResourceVariableDesc> variables;
     std::vector<CustomComputeResourceBindingDesc> resourceBindings;
     std::unordered_map<std::string, std::uint64_t> expectedBindingGenerations;
+    std::unordered_map<std::uint64_t, std::uint64_t> expectedSharedBufferGenerations;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> constantBuffer;
     std::uint32_t constantBufferSizeBytes = 0u;
 };
@@ -101,6 +103,7 @@ std::vector<CustomComputeResourceDesc> CustomComputeService::listResources(
 
 CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver &solver,
                                                          physics::PhysicsWorld &world,
+                                                         const SharedBufferService *sharedBuffers,
                                                          const CustomComputePassDesc &desc)
 {
     CustomComputePassHandle handle{};
@@ -167,28 +170,63 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
                                      (desc.constantBufferVariableName.empty() ? 0u : 1u));
     for (const CustomComputeResourceBindingDesc &binding : desc.resourceBindings)
     {
-        if (binding.shaderVariableName.empty() || binding.resourceKey.empty())
+        const bool hasResourceKey  = !binding.resourceKey.empty();
+        const bool hasSharedBuffer = binding.sharedBufferHandle.isValid();
+        if (binding.shaderVariableName.empty() || hasResourceKey == hasSharedBuffer)
         {
-            CRESSIM_LOG_ERROR("CustomComputeService: resource bindings require shaderVariableName "
-                              "and resourceKey.");
+            CRESSIM_LOG_ERROR("CustomComputeService: each binding requires shaderVariableName and "
+                              "exactly one of resourceKey or sharedBufferHandle.");
             return handle;
         }
-        const auto resourceIt = resources.find(binding.resourceKey);
-        if (resourceIt == resources.end())
+        if (hasResourceKey)
         {
-            CRESSIM_LOG_ERROR("CustomComputeService: unknown resource key '", binding.resourceKey,
-                              "'.");
-            return handle;
-        }
-        if (!isAccessCompatible(binding.access, resourceIt->second.desc.access))
-        {
-            CRESSIM_LOG_ERROR("CustomComputeService: binding access is not allowed for resource '",
-                              binding.resourceKey, "'.");
-            return handle;
-        }
+            const auto resourceIt = resources.find(binding.resourceKey);
+            if (resourceIt == resources.end())
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: unknown resource key '",
+                                  binding.resourceKey, "'.");
+                return handle;
+            }
+            if (!isAccessCompatible(binding.access, resourceIt->second.desc.access))
+            {
+                CRESSIM_LOG_ERROR(
+                    "CustomComputeService: binding access is not allowed for resource '",
+                    binding.resourceKey, "'.");
+                return handle;
+            }
 
-        passState->expectedBindingGenerations[binding.resourceKey] =
-            resourceIt->second.desc.bindingGeneration;
+            passState->expectedBindingGenerations[binding.resourceKey] =
+                resourceIt->second.desc.bindingGeneration;
+        }
+        else
+        {
+            if (sharedBuffers == nullptr)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: shared buffer bindings require a shared "
+                                  "buffer service.");
+                return handle;
+            }
+            if (!sharedBuffers->tryGetBuffer(binding.sharedBufferHandle))
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: invalid shared buffer handle ",
+                                  binding.sharedBufferHandle.id, ".");
+                return handle;
+            }
+            const SharedBufferAccess sharedAccess =
+                binding.access == CustomComputeResourceAccess::ReadOnly
+                    ? SharedBufferAccess::ReadOnly
+                    : (binding.access == CustomComputeResourceAccess::WriteOnly
+                           ? SharedBufferAccess::WriteOnly
+                           : SharedBufferAccess::ReadWrite);
+            if (!sharedBuffers->isAccessCompatible(binding.sharedBufferHandle, sharedAccess))
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: binding access is not allowed for shared "
+                                  "buffer handle ",
+                                  binding.sharedBufferHandle.id, ".");
+                return handle;
+            }
+            passState->expectedSharedBufferGenerations[binding.sharedBufferHandle.id] = 1u;
+        }
         passState->variableNames.push_back(binding.shaderVariableName);
     }
 
@@ -274,7 +312,7 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
         return handle;
     }
 
-    if (!bindPassResources(*passState, resources))
+    if (!bindPassResources(*passState, resources, sharedBuffers))
     {
         return handle;
     }
@@ -303,6 +341,7 @@ bool CustomComputeService::updatePassConstants(CustomComputePassHandle handle,
 }
 
 bool CustomComputeService::executePass(physics::PhysicsSolver &solver, physics::PhysicsWorld &world,
+                                       const SharedBufferService *sharedBuffers,
                                        CustomComputePassHandle handle)
 {
     const auto it = mPasses.find(handle.id);
@@ -344,7 +383,18 @@ bool CustomComputeService::executePass(physics::PhysicsSolver &solver, physics::
         }
     }
 
-    if (!bindPassResources(pass, resources))
+    for (const auto &entry : pass.expectedSharedBufferGenerations)
+    {
+        if (sharedBuffers == nullptr ||
+            !sharedBuffers->tryGetBuffer(SharedBufferHandle{entry.first}))
+        {
+            CRESSIM_LOG_ERROR("CustomComputeService: shared buffer handle ", entry.first,
+                              " is no longer available.");
+            return false;
+        }
+    }
+
+    if (!bindPassResources(pass, resources, sharedBuffers))
     {
         return false;
     }
@@ -487,7 +537,8 @@ std::uint32_t CustomComputeService::roundUpConstantBufferSize(std::uint32_t size
     return (sizeBytes + 15u) & ~15u;
 }
 
-bool CustomComputeService::bindPassResources(PassState &pass, const ResourceMap &resources)
+bool CustomComputeService::bindPassResources(PassState &pass, const ResourceMap &resources,
+                                             const SharedBufferService *sharedBuffers)
 {
     Diligent::IShaderResourceBinding *srb = pass.pass.defaultSrb();
     if (srb == nullptr)
@@ -500,15 +551,34 @@ bool CustomComputeService::bindPassResources(PassState &pass, const ResourceMap 
     bindings.reserve(pass.resourceBindings.size() + (pass.constantBuffer == nullptr ? 0u : 1u));
     for (const CustomComputeResourceBindingDesc &bindingDesc : pass.resourceBindings)
     {
-        const auto resourceIt = resources.find(bindingDesc.resourceKey);
-        if (resourceIt == resources.end())
+        Diligent::IBuffer *buffer = nullptr;
+        if (!bindingDesc.resourceKey.empty())
         {
-            CRESSIM_LOG_ERROR("CustomComputeService: unknown resource key '",
-                              bindingDesc.resourceKey, "'.");
-            return false;
+            const auto resourceIt = resources.find(bindingDesc.resourceKey);
+            if (resourceIt == resources.end())
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: unknown resource key '",
+                                  bindingDesc.resourceKey, "'.");
+                return false;
+            }
+            buffer = resourceIt->second.buffer;
         }
-        bindings.push_back(BufferBindingEntry{bindingDesc.shaderVariableName,
-                                              resourceIt->second.buffer,
+        else
+        {
+            if (sharedBuffers == nullptr)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: shared buffer service is unavailable.");
+                return false;
+            }
+            buffer = sharedBuffers->tryGetBuffer(bindingDesc.sharedBufferHandle);
+            if (buffer == nullptr)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: shared buffer handle ",
+                                  bindingDesc.sharedBufferHandle.id, " is unavailable.");
+                return false;
+            }
+        }
+        bindings.push_back(BufferBindingEntry{bindingDesc.shaderVariableName, buffer,
                                               bufferViewTypeForAccess(bindingDesc.access)});
     }
     if (pass.constantBuffer != nullptr)
