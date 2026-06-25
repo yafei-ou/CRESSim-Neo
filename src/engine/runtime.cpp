@@ -284,6 +284,7 @@ bool Runtime::stepPhysics(const common::FrameContext &frameContext)
     }
 
     mLastFrameContext = frameContext;
+    ensureDeviceFrameActive(mGpuDevice.get(), frameContext, mDeviceFrameActive);
 
     bool physicsStepSucceeded = true;
     if (mPhysicsSolver)
@@ -623,6 +624,7 @@ CustomComputePassHandle Runtime::createCustomComputePass(const CustomComputePass
                           "prepare() and before execution.");
         return {};
     }
+    ensureDeviceFrameActive(mGpuDevice.get(), mLastFrameContext, mDeviceFrameActive);
     return mCustomComputeService->createPass(*mPhysicsSolver, mWorld.physicsWorld(),
                                              mSharedBufferService.get(), desc);
 }
@@ -630,8 +632,12 @@ CustomComputePassHandle Runtime::createCustomComputePass(const CustomComputePass
 bool Runtime::updateCustomComputePassConstants(CustomComputePassHandle handle,
                                                const std::vector<std::uint8_t> &data)
 {
-    return mInitialized && mCustomComputeService != nullptr &&
-           mCustomComputeService->updatePassConstants(handle, data);
+    if (!mInitialized || mCustomComputeService == nullptr)
+    {
+        return false;
+    }
+    ensureDeviceFrameActive(mGpuDevice.get(), mLastFrameContext, mDeviceFrameActive);
+    return mCustomComputeService->updatePassConstants(handle, data);
 }
 
 bool Runtime::executeCustomComputePass(CustomComputePassHandle handle)
@@ -646,6 +652,7 @@ bool Runtime::executeCustomComputePass(CustomComputePassHandle handle)
                           "prepare() and before execution.");
         return false;
     }
+    ensureDeviceFrameActive(mGpuDevice.get(), mLastFrameContext, mDeviceFrameActive);
     return mCustomComputeService->executePass(*mPhysicsSolver, mWorld.physicsWorld(),
                                               mSharedBufferService.get(), handle);
 }

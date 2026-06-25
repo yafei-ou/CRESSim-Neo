@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import struct
 from dataclasses import dataclass
 
 from . import _cressim_neo as neo
@@ -54,17 +53,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 """
 
 
-_PRE_PHYSICS_SHADER = r"""
+_PRE_PHYSICS_SHADER_TEMPLATE = r"""
 #include "include/structured_buffer_compat.hlsli"
 #include "include/physics/rigid/physics_rigid_types.hlsli"
-
-cbuffer CartpolePrePhysicsConstants
-{
-    float actionScale;
-    float padding0;
-    float padding1;
-    float padding2;
-};
 
 CRESSIM_STRUCTURED_BUFFER(float, g_Actions);
 CRESSIM_STRUCTURED_BUFFER(uint, g_SliderJointIndices);
@@ -92,25 +83,18 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     GpuSliderJoint joint = CRESSIM_SB_LOAD(g_SliderJoints, jointIndex);
-    joint.driveTargetParams.z = CRESSIM_SB_LOAD(g_Actions, envIndex) * actionScale;
+    joint.driveTargetParams.z =
+        CRESSIM_SB_LOAD(g_Actions, envIndex) * __ACTION_SCALE__;
     CRESSIM_SB_STORE(g_SliderJoints, jointIndex, joint);
 }
 """
 
 
-_POST_PHYSICS_SHADER = r"""
+_POST_PHYSICS_SHADER_TEMPLATE = r"""
 #include "include/structured_buffer_compat.hlsli"
 #include "include/physics/core/physics_math.hlsli"
 #include "include/physics/rigid/physics_rigid_joint_solver_shared.hlsli"
 #include "include/physics/rigid/physics_rigid_types.hlsli"
-
-cbuffer CartpolePostPhysicsConstants
-{
-    float cartLimit;
-    float poleAngleLimit;
-    uint maxEpisodeSteps;
-    float padding0;
-};
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_BaseBodyIndices);
 CRESSIM_STRUCTURED_BUFFER(uint, g_CartBodyIndices);
@@ -183,8 +167,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const uint nextEpisodeStep = CRESSIM_SB_LOAD(g_EpisodeSteps, envIndex) + 1u;
     const uint terminated =
-        (abs(cartPosition) > cartLimit || abs(poleAngle) > poleAngleLimit) ? 1u : 0u;
-    const uint truncated = nextEpisodeStep >= maxEpisodeSteps ? 1u : 0u;
+        (abs(cartPosition) > __CART_LIMIT__ || abs(poleAngle) > __POLE_ANGLE_LIMIT__) ? 1u : 0u;
+    const uint truncated = nextEpisodeStep >= __MAX_EPISODE_STEPS__ ? 1u : 0u;
     const float reward = 1.0f;
     const uint obsBase = envIndex * 4u;
     CRESSIM_SB_STORE(g_Observations, obsBase + 0u, cartPosition);
@@ -392,6 +376,14 @@ def _make_tensor(
     desc.dtype_bits = 32
     desc.dtype_lanes = 1
     return torch.utils.dlpack.from_dlpack(runtime.shared_buffer_to_dlpack(handle, desc))
+
+
+def _hlsl_float(value: float) -> str:
+    return f"{float(value):.8f}f"
+
+
+def _hlsl_uint(value: int) -> str:
+    return f"{int(value)}u"
 
 
 def _create_buffer(
@@ -903,9 +895,12 @@ class CartpoleTorchVectorEnv:
                 raise RuntimeError("Failed to upload initial cartpole shared buffers.")
 
     def _create_custom_passes(self) -> None:
+        pre_shader_source = _PRE_PHYSICS_SHADER_TEMPLATE.replace(
+            "__ACTION_SCALE__", _hlsl_float(self.action_scale)
+        )
         pre_desc = neo.CustomComputePassDesc()
         pre_desc.debug_name = "Cartpole.PrePhysicsControl"
-        pre_desc.shader_source = _PRE_PHYSICS_SHADER
+        pre_desc.shader_source = pre_shader_source
         pre_desc.thread_group_size_x = 64
         pre_desc.resource_bindings = [neo.CustomComputeResourceBindingDesc() for _ in range(3)]
         pre_desc.resource_bindings[0].shader_variable_name = "g_Actions"
@@ -919,16 +914,18 @@ class CartpoleTorchVectorEnv:
         pre_desc.resource_bindings[2].access = neo.CustomComputeResourceAccess.ReadWrite
         pre_desc.dispatch.mode = neo.CustomComputeDispatchMode.ExplicitGroupCount
         pre_desc.dispatch.group_count_x = (self.env_count + 63) // 64
-        pre_desc.constant_buffer_variable_name = "CartpolePrePhysicsConstants"
-        pre_desc.constant_buffer_size_bytes = 16
-        pre_desc.constant_data = list(struct.pack("<4f", self.action_scale, 0.0, 0.0, 0.0))
         self._pre_pass = self.runtime.create_custom_compute_pass(pre_desc)
         if not self._pre_pass.is_valid():
             raise RuntimeError("Failed to create cartpole pre-physics pass.")
 
+        post_shader_source = (
+            _POST_PHYSICS_SHADER_TEMPLATE.replace("__CART_LIMIT__", _hlsl_float(self.cart_limit))
+            .replace("__POLE_ANGLE_LIMIT__", _hlsl_float(self.pole_angle_limit_radians))
+            .replace("__MAX_EPISODE_STEPS__", _hlsl_uint(self.max_episode_steps))
+        )
         post_desc = neo.CustomComputePassDesc()
         post_desc.debug_name = "Cartpole.PostPhysicsObservations"
-        post_desc.shader_source = _POST_PHYSICS_SHADER
+        post_desc.shader_source = post_shader_source
         post_desc.thread_group_size_x = 64
         post_desc.resource_bindings = [neo.CustomComputeResourceBindingDesc() for _ in range(16)]
         bindings = post_desc.resource_bindings
@@ -959,17 +956,6 @@ class CartpoleTorchVectorEnv:
                 binding.resource_key = key
         post_desc.dispatch.mode = neo.CustomComputeDispatchMode.ExplicitGroupCount
         post_desc.dispatch.group_count_x = (self.env_count + 63) // 64
-        post_desc.constant_buffer_variable_name = "CartpolePostPhysicsConstants"
-        post_desc.constant_buffer_size_bytes = 16
-        post_desc.constant_data = list(
-            struct.pack(
-                "<ffIf",
-                self.cart_limit,
-                self.pole_angle_limit_radians,
-                self.max_episode_steps,
-                0.0,
-            )
-        )
         self._post_pass = self.runtime.create_custom_compute_pass(post_desc)
         if not self._post_pass.is_valid():
             raise RuntimeError("Failed to create cartpole post-physics pass.")
@@ -1076,6 +1062,7 @@ class CartpoleTorchVectorEnv:
         if not self.runtime.execute_custom_compute_pass(self._reset_pass):
             raise RuntimeError("Failed to execute cartpole reset pass.")
         self._sync_outputs_to_cuda()
+        self.runtime.end_frame(self._frame)
         self.reset_mask_tensor.zero_()
         if not self.runtime.sync_shared_buffer_from_cuda(self.reset_mask_buffer):
             raise RuntimeError("Failed to clear cartpole reset mask after reset.")
@@ -1095,6 +1082,7 @@ class CartpoleTorchVectorEnv:
         if not self.runtime.execute_custom_compute_pass(self._post_pass):
             raise RuntimeError("Failed to execute cartpole post-physics observation pass.")
         self._sync_outputs_to_cuda()
+        self.runtime.end_frame(self._frame)
         self._frame.frame_index += 1
         self._frame.time_seconds += self._frame.delta_seconds
         return (
@@ -1112,6 +1100,7 @@ class CartpoleTorchVectorEnv:
             raise RuntimeError("Failed to execute cartpole RGB observation pass.")
         if not self.runtime.sync_shared_buffer_to_cuda(self.rgb_observation_buffer):
             raise RuntimeError("Failed to synchronize cartpole RGB observation buffer to CUDA.")
+        self.runtime.end_frame(self._frame)
         torch.cuda.synchronize(device=self.rgb_observation_tensor.device)
         return self.rgb_observation_tensor
 
