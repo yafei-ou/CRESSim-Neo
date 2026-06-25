@@ -1451,8 +1451,9 @@ bool World::upsertHingeJoint(const physics::HingeJointState &state)
     {
         return false;
     }
-    if (mPhysicsWorld.tryGetRigidBody(state.bodyA) == nullptr ||
-        mPhysicsWorld.tryGetRigidBody(state.bodyB) == nullptr)
+    const physics::RigidBodyState *bodyA = mPhysicsWorld.tryGetRigidBody(state.bodyA);
+    const physics::RigidBodyState *bodyB = mPhysicsWorld.tryGetRigidBody(state.bodyB);
+    if (bodyA == nullptr || bodyB == nullptr)
     {
         CRESSIM_LOG_ERROR("upsertHingeJoint requires rigid bodies on both connected entities.");
         return false;
@@ -1463,7 +1464,10 @@ bool World::upsertHingeJoint(const physics::HingeJointState &state)
                           "same environment.");
         return false;
     }
-    return mPhysicsWorld.upsertHingeJoint(state);
+    physics::HingeJointState resolved = state;
+    resolved.bodyA                    = bodyA->rigidBodyId;
+    resolved.bodyB                    = bodyB->rigidBodyId;
+    return mPhysicsWorld.upsertHingeJoint(resolved);
 }
 
 bool World::upsertSliderJoint(const physics::SliderJointState &state)
@@ -1473,8 +1477,9 @@ bool World::upsertSliderJoint(const physics::SliderJointState &state)
     {
         return false;
     }
-    if (mPhysicsWorld.tryGetRigidBody(state.bodyA) == nullptr ||
-        mPhysicsWorld.tryGetRigidBody(state.bodyB) == nullptr)
+    const physics::RigidBodyState *bodyA = mPhysicsWorld.tryGetRigidBody(state.bodyA);
+    const physics::RigidBodyState *bodyB = mPhysicsWorld.tryGetRigidBody(state.bodyB);
+    if (bodyA == nullptr || bodyB == nullptr)
     {
         CRESSIM_LOG_ERROR("upsertSliderJoint requires rigid bodies on both connected entities.");
         return false;
@@ -1485,7 +1490,10 @@ bool World::upsertSliderJoint(const physics::SliderJointState &state)
                           "same environment.");
         return false;
     }
-    return mPhysicsWorld.upsertSliderJoint(state);
+    physics::SliderJointState resolved = state;
+    resolved.bodyA                     = bodyA->rigidBodyId;
+    resolved.bodyB                     = bodyB->rigidBodyId;
+    return mPhysicsWorld.upsertSliderJoint(resolved);
 }
 
 physics::AuthoredParticleCollisionFilterState &World::upsertParticleCollisionFilter(
