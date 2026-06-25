@@ -1,6 +1,14 @@
+import argparse
 import math
+from pathlib import Path
 
 import cressim_neo as neo
+
+try:
+    import matplotlib.pyplot as plt
+    import numpy as np
+except ImportError as exc:
+    raise RuntimeError("This example requires matplotlib and numpy to be installed.") from exc
 
 try:
     import torch
@@ -30,24 +38,92 @@ class CartpoleActorCritic(nn.Module):
         return mean, std, value
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Train or run inference for the CRESSim CartPole PPO example.")
+    parser.add_argument("--mode", choices=("train", "infer"), default="train")
+    parser.add_argument(
+        "--model-path",
+        type=Path,
+        default=Path("artifacts/cartpole_ppo_final.pt"),
+        help="Path used to save the trained model or load it for inference.",
+    )
+    parser.add_argument("--train-env-count", type=int, default=256)
+    parser.add_argument("--infer-env-count", type=int, default=1)
+    parser.add_argument("--rollout-steps", type=int, default=128)
+    parser.add_argument("--update-count", type=int, default=500)
+    parser.add_argument("--max-episode-steps", type=int, default=500)
+    parser.add_argument("--image-width", type=int, default=512)
+    parser.add_argument("--image-height", type=int, default=512)
+    parser.add_argument("--fps", type=float, default=60.0)
+    parser.add_argument("--hidden-dim", type=int, default=128)
+    return parser.parse_args()
+
+
 def gaussian_log_prob(action: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
     variance = std.square()
     return -0.5 * (((action - mean).square() / variance) + 2.0 * std.log() + math.log(2.0 * math.pi))
 
 
-def main() -> int:
+def save_model(model: CartpoleActorCritic, model_path: Path, hidden_dim: int) -> None:
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(
+        {
+            "observation_dim": neo.CartpoleTorchVectorEnv.OBSERVATION_DIM,
+            "hidden_dim": hidden_dim,
+            "state_dict": model.state_dict(),
+        },
+        model_path,
+    )
+    print(f"saved model to {model_path}")
+
+
+def load_model(model_path: Path, device: torch.device) -> CartpoleActorCritic:
+    checkpoint = torch.load(model_path, map_location=device)
+    hidden_dim = int(checkpoint.get("hidden_dim", 128))
+    model = CartpoleActorCritic(
+        int(checkpoint.get("observation_dim", neo.CartpoleTorchVectorEnv.OBSERVATION_DIM)),
+        hidden_dim=hidden_dim,
+    ).to(device=device)
+    model.load_state_dict(checkpoint["state_dict"])
+    model.eval()
+    return model
+
+
+def create_live_figure(initial_rgb: "torch.Tensor") -> tuple["plt.Figure", np.ndarray, list["plt.Axes"]]:
+    rgb_images = np.clip(initial_rgb[..., :3].detach().cpu().numpy(), 0.0, 1.0)
+    env_count = min(rgb_images.shape[0], 4)
+    figure, axes = plt.subplots(1, env_count, figsize=(4 * env_count, 4), squeeze=False)
+    image_artists: list[np.ndarray] = []
+    flat_axes = list(axes[0])
+    for env_index in range(env_count):
+        image_artist = flat_axes[env_index].imshow(rgb_images[env_index], animated=True)
+        flat_axes[env_index].set_title(f"Env {env_index}")
+        flat_axes[env_index].axis("off")
+        image_artists.append(image_artist)
+    figure.tight_layout()
+    plt.show(block=False)
+    return figure, np.asarray(image_artists, dtype=object), flat_axes
+
+
+def update_live_figure(image_artists: np.ndarray, rgb_tensor: "torch.Tensor") -> None:
+    rgb_images = np.clip(rgb_tensor[..., :3].detach().cpu().numpy(), 0.0, 1.0)
+    for env_index, image_artist in enumerate(image_artists.tolist()):
+        image_artist.set_data(rgb_images[env_index])
+
+
+def run_training(args: argparse.Namespace) -> int:
     device = torch.device("cuda")
     env = neo.CartpoleTorchVectorEnv(
-        env_count=256,
-        max_episode_steps=500,
+        env_count=args.train_env_count,
+        max_episode_steps=args.max_episode_steps,
         reset_cart_position_range=0.05,
         reset_cart_velocity_range=0.05,
         reset_pole_angle_range_radians=0.08,
         reset_pole_angular_velocity_range=0.05,
     )
 
-    rollout_steps = 128
-    update_count = 500
+    rollout_steps = args.rollout_steps
+    update_count = args.update_count
     minibatch_size = 2048
     ppo_epochs = 4
     gamma = 0.99
@@ -58,7 +134,9 @@ def main() -> int:
     learning_rate = 3.0e-4
     max_grad_norm = 0.5
 
-    model = CartpoleActorCritic(neo.CartpoleTorchVectorEnv.OBSERVATION_DIM).to(device=device)
+    model = CartpoleActorCritic(neo.CartpoleTorchVectorEnv.OBSERVATION_DIM, hidden_dim=args.hidden_dim).to(
+        device=device
+    )
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     observation = env.reset()
@@ -193,10 +271,63 @@ def main() -> int:
                 f"mean_length={mean_length:.1f}  "
                 f"finished_episodes={len(finished_returns)}"
             )
+        save_model(model, args.model_path, args.hidden_dim)
     finally:
         env.close()
 
     return 0
+
+
+def run_inference(args: argparse.Namespace) -> int:
+    device = torch.device("cuda")
+    model = load_model(args.model_path, device)
+    env = neo.CartpoleTorchVectorEnv(
+        env_count=args.infer_env_count,
+        max_episode_steps=args.max_episode_steps,
+        reset_cart_position_range=0.05,
+        reset_cart_velocity_range=0.05,
+        reset_pole_angle_range_radians=0.08,
+        reset_pole_angular_velocity_range=0.05,
+        enable_rgb_observation=True,
+        image_width=args.image_width,
+        image_height=args.image_height,
+    )
+
+    frame_interval = 1.0 / max(args.fps, 1.0)
+    try:
+        observation = env.reset()
+        rgb = env.render()
+        figure, image_artists, _ = create_live_figure(rgb)
+
+        while plt.fignum_exists(figure.number):
+            with torch.no_grad():
+                mean, _, _ = model(observation)
+                action = mean.clamp_(-1.0, 1.0)
+
+            observation, _, terminated, truncated = env.step(action)
+            done_mask = (terminated != 0) | (truncated != 0)
+            done_indices = torch.nonzero(done_mask, as_tuple=False).flatten()
+            if done_indices.numel() > 0:
+                reset_observation = env.reset(done_indices)
+                observation = observation.clone()
+                observation[done_indices] = reset_observation[done_indices]
+
+            rgb = env.render()
+            update_live_figure(image_artists, rgb)
+            figure.canvas.draw_idle()
+            plt.pause(frame_interval)
+    finally:
+        plt.close("all")
+        env.close()
+
+    return 0
+
+
+def main() -> int:
+    args = parse_args()
+    if args.mode == "train":
+        return run_training(args)
+    return run_inference(args)
 
 
 if __name__ == "__main__":
