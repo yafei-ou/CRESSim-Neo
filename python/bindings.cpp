@@ -427,6 +427,18 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("dtype_lanes", &SharedBufferTensorDesc::dtypeLanes)
         .def_readwrite("byte_offset", &SharedBufferTensorDesc::byteOffset);
 
+    py::class_<GpuRenderTargetHandle>(m, "GpuRenderTargetHandle")
+        .def(py::init<>())
+        .def_readwrite("id", &GpuRenderTargetHandle::id);
+
+    py::class_<GpuRenderTargetBinding>(m, "GpuRenderTargetBinding")
+        .def(py::init<>())
+        .def_readwrite("target", &GpuRenderTargetBinding::target)
+        .def_readwrite("first_layer", &GpuRenderTargetBinding::firstLayer)
+        .def_readwrite("layer_count", &GpuRenderTargetBinding::layerCount)
+        .def("is_valid", &GpuRenderTargetBinding::isValid)
+        .def(py::self == py::self);
+
     py::class_<RigidLayoutMapping>(m, "RigidLayoutMapping")
         .def(py::init<>())
         .def_readwrite("rigid_body_count", &RigidLayoutMapping::rigidBodyCount)
@@ -588,18 +600,6 @@ PYBIND11_MODULE(_cressim_neo, m)
     py::class_<TransformComponent>(m, "TransformComponent")
         .def(py::init<>())
         .def_readwrite("world_transform", &TransformComponent::worldTransform);
-
-    py::class_<GpuRenderTargetHandle>(m, "GpuRenderTargetHandle")
-        .def(py::init<>())
-        .def_readwrite("id", &GpuRenderTargetHandle::id);
-
-    py::class_<GpuRenderTargetBinding>(m, "GpuRenderTargetBinding")
-        .def(py::init<>())
-        .def_readwrite("target", &GpuRenderTargetBinding::target)
-        .def_readwrite("first_layer", &GpuRenderTargetBinding::firstLayer)
-        .def_readwrite("layer_count", &GpuRenderTargetBinding::layerCount)
-        .def("is_valid", &GpuRenderTargetBinding::isValid)
-        .def(py::self == py::self);
 
     py::class_<RenderOutputBinding>(m, "RenderOutputBinding")
         .def(py::init<>())
