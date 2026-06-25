@@ -73,7 +73,9 @@ public:
     bool upsertRoutedCableConstraint(
         const physics::AuthoredRoutedCableConstraintState &state,
         physics::AuthoredRoutedCableConstraintState *outAuthored = nullptr);
+    bool upsertBallJoint(const physics::BallJointState &state);
     bool upsertHingeJoint(const physics::HingeJointState &state);
+    bool upsertSphericalJoint(const physics::SphericalJointState &state);
     bool upsertSliderJoint(const physics::SliderJointState &state);
     physics::AuthoredParticleCollisionFilterState &upsertParticleCollisionFilter(
         const physics::AuthoredParticleCollisionFilterState &state);
@@ -86,7 +88,9 @@ public:
         physics::StrandRigidAttachmentConstraintId constraintId);
     bool removeRigidDistanceConstraint(physics::RigidDistanceConstraintId constraintId);
     bool removeRoutedCableConstraint(physics::RoutedCableConstraintId constraintId);
+    bool removeBallJoint(physics::BallJointId jointId);
     bool removeHingeJoint(physics::HingeJointId jointId);
+    bool removeSphericalJoint(physics::SphericalJointId jointId);
     bool removeSliderJoint(physics::SliderJointId jointId);
     bool removeParticleCollisionFilter(physics::ParticleCollisionFilterId filterId);
     bool removeSuturingSequence(physics::SuturingSequenceId sequenceId);
@@ -102,6 +106,8 @@ public:
     ColliderHandle addCollider(common::EntityId entityId, const ColliderComponent &component);
     void updateCollider(ColliderHandle handle, const ColliderComponent &component);
     bool removeCollider(ColliderHandle handle);
+    bool replaceColliders(common::EntityId entityId,
+                          const std::vector<ColliderComponent> &components);
 
     bool removeTransform(common::EntityId entityId);
     bool removeMeshRenderer(common::EntityId entityId);
@@ -139,7 +145,10 @@ public:
         physics::RigidDistanceConstraintId constraintId) const noexcept;
     const physics::AuthoredRoutedCableConstraintState *tryGetRoutedCableConstraint(
         physics::RoutedCableConstraintId constraintId) const noexcept;
+    const physics::BallJointState *tryGetBallJoint(physics::BallJointId jointId) const noexcept;
     const physics::HingeJointState *tryGetHingeJoint(physics::HingeJointId jointId) const noexcept;
+    const physics::SphericalJointState *tryGetSphericalJoint(
+        physics::SphericalJointId jointId) const noexcept;
     const physics::SliderJointState *tryGetSliderJoint(
         physics::SliderJointId jointId) const noexcept;
     const physics::AuthoredParticleCollisionFilterState *tryGetParticleCollisionFilter(

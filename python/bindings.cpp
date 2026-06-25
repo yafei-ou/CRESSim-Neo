@@ -75,6 +75,28 @@ struct ExportedSharedBufferTensorContext
     std::shared_ptr<void> sharedBufferLease;
 };
 
+template <typename JointState>
+JointState remapJointBodiesToEntityIds(const cressim::neo::engine::World &world,
+                                       const JointState &state)
+{
+    JointState remapped        = state;
+    const auto &rigidBodies    = world.physicsWorld().rigidBodySoA();
+    const auto resolveEntityId = [&](const cressim::neo::physics::RigidBodyId bodyId)
+    {
+        for (std::size_t i = 0; i < rigidBodies.rigidBodyIds.size(); ++i)
+        {
+            if (rigidBodies.rigidBodyIds[i] == bodyId && i < rigidBodies.entityIds.size())
+            {
+                return rigidBodies.entityIds[i];
+            }
+        }
+        return bodyId;
+    };
+    remapped.bodyA = resolveEntityId(state.bodyA);
+    remapped.bodyB = resolveEntityId(state.bodyB);
+    return remapped;
+}
+
 using cressim::neo::common::FrameContext;
 using cressim::neo::common::Transform;
 using cressim::neo::engine::CameraComponent;
@@ -91,6 +113,7 @@ using cressim::neo::engine::CustomComputeResourceKind;
 using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::JointLayoutMapping;
 using cressim::neo::engine::MeshRendererComponent;
+using cressim::neo::engine::PointLightComponent;
 using cressim::neo::engine::RigidBodyComponent;
 using cressim::neo::engine::RigidDistanceConstraintLayoutMapping;
 using cressim::neo::engine::RigidLayoutMapping;
@@ -106,6 +129,7 @@ using cressim::neo::engine::SharedBufferHandle;
 using cressim::neo::engine::SharedBufferInfo;
 using cressim::neo::engine::SharedBufferTensorDesc;
 using cressim::neo::engine::SharedBufferTensorDTypeCode;
+using cressim::neo::engine::SpotLightComponent;
 using cressim::neo::engine::StrandComponent;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::engine::World;
@@ -119,6 +143,7 @@ using cressim::neo::gpu::GpuRenderTargetReadbackRequest;
 using cressim::neo::gpu::GpuRenderTargetTexturePlane;
 using cressim::neo::gpu::RenderOutputBinding;
 using cressim::neo::gpu::RenderOutputMode;
+using cressim::neo::graphics::EnvironmentIblDesc;
 using cressim::neo::graphics::IblQualityTier;
 using cressim::neo::graphics::MaterialHandle;
 using cressim::neo::graphics::MaterialPipelineDesc;
@@ -137,11 +162,13 @@ using cressim::neo::physics::AuthoredRigidDistanceConstraintState;
 using cressim::neo::physics::AuthoredRigidParticleAttachmentConstraintState;
 using cressim::neo::physics::AuthoredRoutedCableConstraintState;
 using cressim::neo::physics::AuthoredRoutedCableRoutePoint;
+using cressim::neo::physics::BallJointState;
 using cressim::neo::physics::HingeJointState;
 using cressim::neo::physics::ParticleContactMaterialDesc;
 using cressim::neo::physics::PhysicsSolverDesc;
 using cressim::neo::physics::RigidJointDriveMode;
 using cressim::neo::physics::SliderJointState;
+using cressim::neo::physics::SphericalJointState;
 using cressim::neo::physics::StrandMaterialDesc;
 
 py::object tryGetRenderTargetReadback(Runtime &runtime,
@@ -542,15 +569,30 @@ PYBIND11_MODULE(_cressim_neo, m)
 
     py::class_<JointLayoutMapping>(m, "JointLayoutMapping")
         .def(py::init<>())
+        .def_readwrite("ball_joint_count", &JointLayoutMapping::ballJointCount)
         .def_readwrite("hinge_joint_count", &JointLayoutMapping::hingeJointCount)
+        .def_readwrite("spherical_joint_count", &JointLayoutMapping::sphericalJointCount)
         .def_readwrite("slider_joint_count", &JointLayoutMapping::sliderJointCount)
         .def_readwrite("binding_generation", &JointLayoutMapping::bindingGeneration)
+        .def_readwrite("ball_joint_ids", &JointLayoutMapping::ballJointIds)
+        .def_readwrite("ball_environment_indices", &JointLayoutMapping::ballEnvironmentIndices)
+        .def_readwrite("ball_body_ids_a", &JointLayoutMapping::ballBodyIdsA)
+        .def_readwrite("ball_body_ids_b", &JointLayoutMapping::ballBodyIdsB)
+        .def_readwrite("ball_body_indices_a", &JointLayoutMapping::ballBodyIndicesA)
+        .def_readwrite("ball_body_indices_b", &JointLayoutMapping::ballBodyIndicesB)
         .def_readwrite("hinge_joint_ids", &JointLayoutMapping::hingeJointIds)
         .def_readwrite("hinge_environment_indices", &JointLayoutMapping::hingeEnvironmentIndices)
         .def_readwrite("hinge_body_ids_a", &JointLayoutMapping::hingeBodyIdsA)
         .def_readwrite("hinge_body_ids_b", &JointLayoutMapping::hingeBodyIdsB)
         .def_readwrite("hinge_body_indices_a", &JointLayoutMapping::hingeBodyIndicesA)
         .def_readwrite("hinge_body_indices_b", &JointLayoutMapping::hingeBodyIndicesB)
+        .def_readwrite("spherical_joint_ids", &JointLayoutMapping::sphericalJointIds)
+        .def_readwrite("spherical_environment_indices",
+                       &JointLayoutMapping::sphericalEnvironmentIndices)
+        .def_readwrite("spherical_body_ids_a", &JointLayoutMapping::sphericalBodyIdsA)
+        .def_readwrite("spherical_body_ids_b", &JointLayoutMapping::sphericalBodyIdsB)
+        .def_readwrite("spherical_body_indices_a", &JointLayoutMapping::sphericalBodyIndicesA)
+        .def_readwrite("spherical_body_indices_b", &JointLayoutMapping::sphericalBodyIndicesB)
         .def_readwrite("slider_joint_ids", &JointLayoutMapping::sliderJointIds)
         .def_readwrite("slider_environment_indices", &JointLayoutMapping::sliderEnvironmentIndices)
         .def_readwrite("slider_body_ids_a", &JointLayoutMapping::sliderBodyIdsA)
@@ -892,6 +934,35 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("shadow_bias", &DirectionalLightComponent::shadowBias)
         .def_readwrite("casts_shadows", &DirectionalLightComponent::castsShadows);
 
+    py::class_<PointLightComponent>(m, "PointLightComponent")
+        .def(py::init<>())
+        .def_readwrite("color", &PointLightComponent::color)
+        .def_readwrite("intensity", &PointLightComponent::intensity)
+        .def_readwrite("range", &PointLightComponent::range)
+        .def_readwrite("shadow_bias", &PointLightComponent::shadowBias)
+        .def_readwrite("casts_shadows", &PointLightComponent::castsShadows);
+
+    py::class_<SpotLightComponent>(m, "SpotLightComponent")
+        .def(py::init<>())
+        .def_readwrite("direction", &SpotLightComponent::direction)
+        .def_readwrite("color", &SpotLightComponent::color)
+        .def_readwrite("intensity", &SpotLightComponent::intensity)
+        .def_readwrite("range", &SpotLightComponent::range)
+        .def_readwrite("inner_cone_angle", &SpotLightComponent::innerConeAngle)
+        .def_readwrite("outer_cone_angle", &SpotLightComponent::outerConeAngle)
+        .def_readwrite("shadow_bias", &SpotLightComponent::shadowBias)
+        .def_readwrite("casts_shadows", &SpotLightComponent::castsShadows);
+
+    py::class_<EnvironmentIblDesc>(m, "EnvironmentIblDesc")
+        .def(py::init<>())
+        .def_readwrite("background_cubemap", &EnvironmentIblDesc::backgroundCubemap)
+        .def_readwrite("irradiance_cubemap", &EnvironmentIblDesc::irradianceCubemap)
+        .def_readwrite("prefiltered_specular_cubemap",
+                       &EnvironmentIblDesc::prefilteredSpecularCubemap)
+        .def_readwrite("intensity", &EnvironmentIblDesc::intensity)
+        .def_readwrite("background_intensity", &EnvironmentIblDesc::backgroundIntensity)
+        .def("enabled", &EnvironmentIblDesc::enabled);
+
     py::class_<ParticleContactMaterialDesc>(m, "ParticleContactMaterialDesc")
         .def(py::init<>())
         .def_readwrite("friction", &ParticleContactMaterialDesc::friction)
@@ -944,6 +1015,41 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("drive_target_angle", &HingeJointState::driveTargetAngle)
         .def_readwrite("drive_target_angular_velocity",
                        &HingeJointState::driveTargetAngularVelocity);
+
+    py::class_<BallJointState>(m, "BallJointState")
+        .def(py::init<>())
+        .def_readwrite("joint_id", &BallJointState::jointId)
+        .def_readwrite("enabled", &BallJointState::enabled)
+        .def_readwrite("suppress_connected_body_collisions",
+                       &BallJointState::suppressConnectedBodyCollisions)
+        .def_readwrite("body_a", &BallJointState::bodyA)
+        .def_readwrite("body_b", &BallJointState::bodyB)
+        .def_readwrite("local_anchor_a", &BallJointState::localAnchorA)
+        .def_readwrite("local_anchor_b", &BallJointState::localAnchorB);
+
+    py::class_<SphericalJointState>(m, "SphericalJointState")
+        .def(py::init<>())
+        .def_readwrite("joint_id", &SphericalJointState::jointId)
+        .def_readwrite("enabled", &SphericalJointState::enabled)
+        .def_readwrite("suppress_connected_body_collisions",
+                       &SphericalJointState::suppressConnectedBodyCollisions)
+        .def_readwrite("drive_mode", &SphericalJointState::driveMode)
+        .def_readwrite("limit_enabled", &SphericalJointState::limitEnabled)
+        .def_readwrite("body_a", &SphericalJointState::bodyA)
+        .def_readwrite("body_b", &SphericalJointState::bodyB)
+        .def_readwrite("local_anchor_a", &SphericalJointState::localAnchorA)
+        .def_readwrite("local_anchor_b", &SphericalJointState::localAnchorB)
+        .def_readwrite("local_rotation_a", &SphericalJointState::localRotationA)
+        .def_readwrite("local_rotation_b", &SphericalJointState::localRotationB)
+        .def_readwrite("swing_limit_y", &SphericalJointState::swingLimitY)
+        .def_readwrite("swing_limit_z", &SphericalJointState::swingLimitZ)
+        .def_readwrite("twist_limit_min", &SphericalJointState::twistLimitMin)
+        .def_readwrite("twist_limit_max", &SphericalJointState::twistLimitMax)
+        .def_readwrite("constraint_compliance", &SphericalJointState::constraintCompliance)
+        .def_readwrite("swing_compliance", &SphericalJointState::swingCompliance)
+        .def_readwrite("twist_compliance", &SphericalJointState::twistCompliance)
+        .def_readwrite("drive_compliance", &SphericalJointState::driveCompliance)
+        .def_readwrite("drive_target_orientation", &SphericalJointState::driveTargetOrientation);
 
     py::class_<SliderJointState>(m, "SliderJointState")
         .def(py::init<>())
@@ -1105,6 +1211,16 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("scene_layout", &World::sceneLayout, py::return_value_policy::reference_internal)
         .def("set_entity_environment", &World::setEntityEnvironment)
         .def("entity_environment", &World::entityEnvironment)
+        .def("set_environment_ibl", &World::setEnvironmentIbl)
+        .def("try_get_environment_ibl",
+             [](const World &world, const std::uint32_t envIndex) -> py::object
+             {
+                 if (const auto *desc = world.tryGetEnvironmentIbl(envIndex))
+                 {
+                     return py::cast(*desc);
+                 }
+                 return py::none();
+             })
         .def("is_alive", &World::isAlive)
         .def("entities", &World::entities, py::return_value_policy::reference_internal)
         .def("set_transform", &World::setTransform)
@@ -1119,12 +1235,29 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("set_directional_light", &World::setDirectionalLight)
         .def("remove_directional_light", &World::removeDirectionalLight)
         .def("try_get_directional_light", &World::tryGetDirectionalLight)
+        .def("set_point_light", &World::setPointLight)
+        .def("remove_point_light", &World::removePointLight)
+        .def("try_get_point_light", &World::tryGetPointLight)
+        .def("set_spot_light", &World::setSpotLight)
+        .def("remove_spot_light", &World::removeSpotLight)
+        .def("try_get_spot_light", &World::tryGetSpotLight)
         .def("set_rigid_body", &World::setRigidBody)
         .def("remove_rigid_body", &World::removeRigidBody)
         .def("try_get_rigid_body", &World::tryGetRigidBody)
         .def("set_strand", &World::setStrand)
         .def("remove_strand", &World::removeStrand)
         .def("try_get_strand", &World::tryGetStrand)
+        .def("upsert_ball_joint", &World::upsertBallJoint)
+        .def("remove_ball_joint", &World::removeBallJoint)
+        .def("try_get_ball_joint",
+             [](const World &world, const cressim::neo::physics::BallJointId jointId) -> py::object
+             {
+                 if (const auto *state = world.tryGetBallJoint(jointId))
+                 {
+                     return py::cast(remapJointBodiesToEntityIds(world, *state));
+                 }
+                 return py::none();
+             })
         .def("upsert_hinge_joint", &World::upsertHingeJoint)
         .def("remove_hinge_joint", &World::removeHingeJoint)
         .def("try_get_hinge_joint",
@@ -1132,7 +1265,19 @@ PYBIND11_MODULE(_cressim_neo, m)
              {
                  if (const auto *state = world.tryGetHingeJoint(jointId))
                  {
-                     return py::cast(*state);
+                     return py::cast(remapJointBodiesToEntityIds(world, *state));
+                 }
+                 return py::none();
+             })
+        .def("upsert_spherical_joint", &World::upsertSphericalJoint)
+        .def("remove_spherical_joint", &World::removeSphericalJoint)
+        .def("try_get_spherical_joint",
+             [](const World &world,
+                const cressim::neo::physics::SphericalJointId jointId) -> py::object
+             {
+                 if (const auto *state = world.tryGetSphericalJoint(jointId))
+                 {
+                     return py::cast(remapJointBodiesToEntityIds(world, *state));
                  }
                  return py::none();
              })
@@ -1144,7 +1289,7 @@ PYBIND11_MODULE(_cressim_neo, m)
             {
                 if (const auto *state = world.tryGetSliderJoint(jointId))
                 {
-                    return py::cast(*state);
+                    return py::cast(remapJointBodiesToEntityIds(world, *state));
                 }
                 return py::none();
             })
@@ -1196,6 +1341,7 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("add_collider", &World::addCollider)
         .def("update_collider", &World::updateCollider)
         .def("remove_collider", &World::removeCollider)
+        .def("replace_colliders", &World::replaceColliders)
         .def("try_get_collider", &World::tryGetCollider)
         .def("collider_handles", &World::colliderHandles,
              py::return_value_policy::reference_internal);

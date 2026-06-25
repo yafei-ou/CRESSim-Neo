@@ -1155,7 +1155,14 @@ void PhysicsWorld::replaceColliders(common::EntityId entityId,
     for (ColliderState collider : colliders)
     {
         normalizeColliderState(collider);
-        collider.colliderId       = mNextColliderId++;
+        if (collider.colliderId == kInvalidColliderId)
+        {
+            collider.colliderId = mNextColliderId++;
+        }
+        else
+        {
+            mNextColliderId = std::max(mNextColliderId, collider.colliderId + 1u);
+        }
         collider.entityId         = entityId;
         collider.ownerRigidBodyId = ownerRigidBodyId;
 

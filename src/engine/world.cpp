@@ -56,6 +56,26 @@ const std::vector<World::ColliderHandle> &emptyColliderHandleList()
     return kEmpty;
 }
 
+physics::ColliderState makeColliderState(const common::EntityId entityId,
+                                         const physics::ColliderId colliderId,
+                                         const ColliderComponent &component)
+{
+    physics::ColliderState state{};
+    state.colliderId     = colliderId;
+    state.entityId       = entityId;
+    state.shapeType      = component.shapeType;
+    state.shapeParams    = component.shapeParams;
+    state.localPosition  = component.localPosition;
+    state.localRotation  = component.localRotation;
+    state.enabled        = component.enabled;
+    state.friction       = component.friction;
+    state.staticFriction = component.staticFriction;
+    state.restitution    = component.restitution;
+    state.collisionLayer = component.collisionLayer;
+    state.collisionMask  = component.collisionMask;
+    return state;
+}
+
 std::uint32_t allocateDenseSlot(
     std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> &freeSlotsByEnv,
     std::unordered_map<std::uint32_t, std::uint32_t> &nextSlotByEnv, std::uint32_t envIndex,
@@ -1444,6 +1464,32 @@ bool World::upsertRoutedCableConstraint(const physics::AuthoredRoutedCableConstr
     return mPhysicsWorld.upsertRoutedCableConstraint(state, outAuthored);
 }
 
+bool World::upsertBallJoint(const physics::BallJointState &state)
+{
+    if (!requireAliveEntity(state.bodyA, "upsertBallJoint") ||
+        !requireAliveEntity(state.bodyB, "upsertBallJoint"))
+    {
+        return false;
+    }
+    const physics::RigidBodyState *bodyA = mPhysicsWorld.tryGetRigidBody(state.bodyA);
+    const physics::RigidBodyState *bodyB = mPhysicsWorld.tryGetRigidBody(state.bodyB);
+    if (bodyA == nullptr || bodyB == nullptr)
+    {
+        CRESSIM_LOG_ERROR("upsertBallJoint requires rigid bodies on both connected entities.");
+        return false;
+    }
+    if (entityEnvironment(state.bodyA) != entityEnvironment(state.bodyB))
+    {
+        CRESSIM_LOG_ERROR("upsertBallJoint requires both connected rigid bodies to live in the "
+                          "same environment.");
+        return false;
+    }
+    physics::BallJointState resolved = state;
+    resolved.bodyA                   = bodyA->rigidBodyId;
+    resolved.bodyB                   = bodyB->rigidBodyId;
+    return mPhysicsWorld.upsertBallJoint(resolved);
+}
+
 bool World::upsertHingeJoint(const physics::HingeJointState &state)
 {
     if (!requireAliveEntity(state.bodyA, "upsertHingeJoint") ||
@@ -1468,6 +1514,32 @@ bool World::upsertHingeJoint(const physics::HingeJointState &state)
     resolved.bodyA                    = bodyA->rigidBodyId;
     resolved.bodyB                    = bodyB->rigidBodyId;
     return mPhysicsWorld.upsertHingeJoint(resolved);
+}
+
+bool World::upsertSphericalJoint(const physics::SphericalJointState &state)
+{
+    if (!requireAliveEntity(state.bodyA, "upsertSphericalJoint") ||
+        !requireAliveEntity(state.bodyB, "upsertSphericalJoint"))
+    {
+        return false;
+    }
+    const physics::RigidBodyState *bodyA = mPhysicsWorld.tryGetRigidBody(state.bodyA);
+    const physics::RigidBodyState *bodyB = mPhysicsWorld.tryGetRigidBody(state.bodyB);
+    if (bodyA == nullptr || bodyB == nullptr)
+    {
+        CRESSIM_LOG_ERROR("upsertSphericalJoint requires rigid bodies on both connected entities.");
+        return false;
+    }
+    if (entityEnvironment(state.bodyA) != entityEnvironment(state.bodyB))
+    {
+        CRESSIM_LOG_ERROR("upsertSphericalJoint requires both connected rigid bodies to live in "
+                          "the same environment.");
+        return false;
+    }
+    physics::SphericalJointState resolved = state;
+    resolved.bodyA                        = bodyA->rigidBodyId;
+    resolved.bodyB                        = bodyB->rigidBodyId;
+    return mPhysicsWorld.upsertSphericalJoint(resolved);
 }
 
 bool World::upsertSliderJoint(const physics::SliderJointState &state)
@@ -1535,9 +1607,19 @@ bool World::removeRoutedCableConstraint(physics::RoutedCableConstraintId constra
     return mPhysicsWorld.removeRoutedCableConstraint(constraintId);
 }
 
+bool World::removeBallJoint(const physics::BallJointId jointId)
+{
+    return mPhysicsWorld.removeBallJoint(jointId);
+}
+
 bool World::removeHingeJoint(const physics::HingeJointId jointId)
 {
     return mPhysicsWorld.removeHingeJoint(jointId);
+}
+
+bool World::removeSphericalJoint(const physics::SphericalJointId jointId)
+{
+    return mPhysicsWorld.removeSphericalJoint(jointId);
 }
 
 bool World::removeSliderJoint(const physics::SliderJointId jointId)
@@ -1744,22 +1826,7 @@ World::ColliderHandle World::addCollider(common::EntityId entityId,
     }
 
     ColliderHandle handle{mNextColliderId++};
-
-    physics::ColliderState state{};
-    state.colliderId     = handle.id;
-    state.entityId       = entityId;
-    state.shapeType      = component.shapeType;
-    state.shapeParams    = component.shapeParams;
-    state.localPosition  = component.localPosition;
-    state.localRotation  = component.localRotation;
-    state.enabled        = component.enabled;
-    state.friction       = component.friction;
-    state.staticFriction = component.staticFriction;
-    state.restitution    = component.restitution;
-    state.collisionLayer = component.collisionLayer;
-    state.collisionMask  = component.collisionMask;
-
-    mPhysicsWorld.upsertCollider(state);
+    mPhysicsWorld.upsertCollider(makeColliderState(entityId, handle.id, component));
     mPhysicsLinks[entityId].colliders.push_back(handle);
     mColliderOwnerEntity[handle.id] = entityId;
     return handle;
@@ -1781,22 +1848,7 @@ void World::updateCollider(ColliderHandle handle, const ColliderComponent &compo
     }
 
     const common::EntityId entityId = ownerIt->second;
-
-    physics::ColliderState state{};
-    state.colliderId     = handle.id;
-    state.entityId       = entityId;
-    state.shapeType      = component.shapeType;
-    state.shapeParams    = component.shapeParams;
-    state.localPosition  = component.localPosition;
-    state.localRotation  = component.localRotation;
-    state.enabled        = component.enabled;
-    state.friction       = component.friction;
-    state.staticFriction = component.staticFriction;
-    state.restitution    = component.restitution;
-    state.collisionLayer = component.collisionLayer;
-    state.collisionMask  = component.collisionMask;
-
-    mPhysicsWorld.upsertCollider(state);
+    mPhysicsWorld.upsertCollider(makeColliderState(entityId, handle.id, component));
 }
 
 bool World::removeCollider(ColliderHandle handle)
@@ -1824,6 +1876,47 @@ bool World::removeCollider(ColliderHandle handle)
 
     mColliderOwnerEntity.erase(ownerIt);
     return mPhysicsWorld.removeCollider(handle.id);
+}
+
+bool World::replaceColliders(common::EntityId entityId,
+                             const std::vector<ColliderComponent> &components)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("replaceColliders requires valid entity id.");
+        return false;
+    }
+    if (!requireAliveEntity(entityId, "replaceColliders"))
+    {
+        return false;
+    }
+
+    auto body = mPhysicsLinks.find(entityId);
+    if (body == mPhysicsLinks.end() || !body->second.hasRigidBody)
+    {
+        CRESSIM_LOG_ERROR("replaceColliders requires a rigid body on the entity.");
+        return false;
+    }
+
+    std::vector<physics::ColliderState> states;
+    std::vector<ColliderHandle> handles;
+    states.reserve(components.size());
+    handles.reserve(components.size());
+    for (const ColliderComponent &component : components)
+    {
+        const ColliderHandle handle{mNextColliderId++};
+        states.push_back(makeColliderState(entityId, handle.id, component));
+        handles.push_back(handle);
+    }
+
+    mPhysicsWorld.replaceColliders(entityId, states);
+    clearColliderLinks(entityId);
+    body->second.colliders = handles;
+    for (const ColliderHandle handle : handles)
+    {
+        mColliderOwnerEntity[handle.id] = entityId;
+    }
+    return true;
 }
 
 bool World::removeTransform(common::EntityId entityId)
@@ -2214,10 +2307,22 @@ const physics::AuthoredRoutedCableConstraintState *World::tryGetRoutedCableConst
     return mPhysicsWorld.tryGetRoutedCableConstraint(constraintId);
 }
 
+const physics::BallJointState *World::tryGetBallJoint(
+    const physics::BallJointId jointId) const noexcept
+{
+    return mPhysicsWorld.tryGetBallJoint(jointId);
+}
+
 const physics::HingeJointState *World::tryGetHingeJoint(
     const physics::HingeJointId jointId) const noexcept
 {
     return mPhysicsWorld.tryGetHingeJoint(jointId);
+}
+
+const physics::SphericalJointState *World::tryGetSphericalJoint(
+    const physics::SphericalJointId jointId) const noexcept
+{
+    return mPhysicsWorld.tryGetSphericalJoint(jointId);
 }
 
 const physics::SliderJointState *World::tryGetSliderJoint(
@@ -2296,6 +2401,10 @@ const UltrasoundProbeResult *World::tryGetUltrasoundProbeResult(
 std::optional<ColliderComponent> World::tryGetCollider(ColliderHandle handle) const
 {
     if (!handle.isValid())
+    {
+        return std::nullopt;
+    }
+    if (mColliderOwnerEntity.find(handle.id) == mColliderOwnerEntity.end())
     {
         return std::nullopt;
     }

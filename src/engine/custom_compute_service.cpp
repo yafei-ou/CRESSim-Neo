@@ -725,6 +725,12 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
               sceneView.rigid.routedCableDebugSegmentsBuffer, CustomComputeResourceAccess::ReadOnly,
               sceneView.rigid.routedCableDebugSegmentCount,
               sceneView.rigid.constraintBindingGeneration);
+    addBuffer("joint.ball", sceneView.joints.ballJointsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.joints.ballJointCount,
+              sceneView.joints.bindingGeneration);
+    addBuffer("joint.spherical", sceneView.joints.sphericalJointsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.joints.sphericalJointCount,
+              sceneView.joints.bindingGeneration);
     addBuffer("joint.hinge", sceneView.joints.hingeJointsBuffer,
               CustomComputeResourceAccess::ReadWrite, sceneView.joints.hingeJointCount,
               sceneView.joints.bindingGeneration);

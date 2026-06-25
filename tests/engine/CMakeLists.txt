@@ -202,6 +202,13 @@ add_cressim_test(
 
 add_cressim_test(
     SUITE engine
+    NAME world_rigid_joint_completion
+    SOURCE world_rigid_joint_completion.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
     NAME runtime_constraint_layout_mapping
     SOURCE runtime_constraint_layout_mapping.cpp
     LIBS cressim_neo_engine

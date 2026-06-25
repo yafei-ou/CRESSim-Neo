@@ -12,9 +12,18 @@ namespace cressim::neo::engine
 
 struct CRESSIM_NEO_ENGINE_API JointLayoutMapping
 {
-    std::uint32_t hingeJointCount   = 0u;
-    std::uint32_t sliderJointCount  = 0u;
-    std::uint64_t bindingGeneration = 0u;
+    std::uint32_t ballJointCount      = 0u;
+    std::uint32_t hingeJointCount     = 0u;
+    std::uint32_t sphericalJointCount = 0u;
+    std::uint32_t sliderJointCount    = 0u;
+    std::uint64_t bindingGeneration   = 0u;
+
+    std::vector<physics::BallJointId> ballJointIds;
+    std::vector<std::uint32_t> ballEnvironmentIndices;
+    std::vector<physics::RigidBodyId> ballBodyIdsA;
+    std::vector<physics::RigidBodyId> ballBodyIdsB;
+    std::vector<std::uint32_t> ballBodyIndicesA;
+    std::vector<std::uint32_t> ballBodyIndicesB;
 
     std::vector<physics::HingeJointId> hingeJointIds;
     std::vector<std::uint32_t> hingeEnvironmentIndices;
@@ -22,6 +31,13 @@ struct CRESSIM_NEO_ENGINE_API JointLayoutMapping
     std::vector<physics::RigidBodyId> hingeBodyIdsB;
     std::vector<std::uint32_t> hingeBodyIndicesA;
     std::vector<std::uint32_t> hingeBodyIndicesB;
+
+    std::vector<physics::SphericalJointId> sphericalJointIds;
+    std::vector<std::uint32_t> sphericalEnvironmentIndices;
+    std::vector<physics::RigidBodyId> sphericalBodyIdsA;
+    std::vector<physics::RigidBodyId> sphericalBodyIdsB;
+    std::vector<std::uint32_t> sphericalBodyIndicesA;
+    std::vector<std::uint32_t> sphericalBodyIndicesB;
 
     std::vector<physics::SliderJointId> sliderJointIds;
     std::vector<std::uint32_t> sliderEnvironmentIndices;

@@ -4162,6 +4162,8 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
         std::max({mLastUploadedRigidParticleAttachmentResolvedRevision,
                   mLastUploadedRigidDistanceConstraintResolvedRevision,
                   mLastUploadedRoutedCableResolvedRevision});
+    view.joints.ballJointsBuffer               = mPersistentJoints.ballJointsBuffer;
+    view.joints.sphericalJointsBuffer          = mPersistentJoints.sphericalJointsBuffer;
     view.joints.hingeJointsBuffer              = mPersistentJoints.hingeJointsBuffer;
     view.joints.sliderJointsBuffer             = mPersistentJoints.sliderJointsBuffer;
     view.joints.hingePassiveJointIndicesBuffer = mPersistentJoints.hingePassiveJointIndicesBuffer;
@@ -4174,7 +4176,9 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
         mPersistentJoints.sliderPositionDriveJointIndicesBuffer;
     view.joints.sliderVelocityDriveJointIndicesBuffer =
         mPersistentJoints.sliderVelocityDriveJointIndicesBuffer;
+    view.joints.ballJointCount                = mBallJointCount;
     view.joints.hingeJointCount               = mHingeJointCount;
+    view.joints.sphericalJointCount           = mSphericalJointCount;
     view.joints.sliderJointCount              = mSliderJointCount;
     view.joints.hingePassiveJointCount        = mHingePassiveJointCount;
     view.joints.hingePositionDriveJointCount  = mHingePositionDriveJointCount;

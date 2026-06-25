@@ -13,7 +13,21 @@ struct AuthoredCartpoleEnv
     cressim::neo::common::EntityId base = cressim::neo::common::kInvalidEntityId;
     cressim::neo::common::EntityId cart = cressim::neo::common::kInvalidEntityId;
     cressim::neo::common::EntityId pole = cressim::neo::common::kInvalidEntityId;
+    cressim::neo::common::EntityId ballA = cressim::neo::common::kInvalidEntityId;
+    cressim::neo::common::EntityId ballB = cressim::neo::common::kInvalidEntityId;
+    cressim::neo::common::EntityId sphericalA = cressim::neo::common::kInvalidEntityId;
+    cressim::neo::common::EntityId sphericalB = cressim::neo::common::kInvalidEntityId;
+    cressim::neo::physics::RigidBodyId baseBody = cressim::neo::physics::kInvalidRigidBodyId;
+    cressim::neo::physics::RigidBodyId cartBody = cressim::neo::physics::kInvalidRigidBodyId;
+    cressim::neo::physics::RigidBodyId poleBody = cressim::neo::physics::kInvalidRigidBodyId;
+    cressim::neo::physics::RigidBodyId ballBodyA = cressim::neo::physics::kInvalidRigidBodyId;
+    cressim::neo::physics::RigidBodyId ballBodyB = cressim::neo::physics::kInvalidRigidBodyId;
+    cressim::neo::physics::RigidBodyId sphericalBodyA = cressim::neo::physics::kInvalidRigidBodyId;
+    cressim::neo::physics::RigidBodyId sphericalBodyB = cressim::neo::physics::kInvalidRigidBodyId;
+    cressim::neo::physics::BallJointId ball = cressim::neo::physics::kInvalidBallJointId;
     cressim::neo::physics::SliderJointId slider = cressim::neo::physics::kInvalidSliderJointId;
+    cressim::neo::physics::SphericalJointId spherical =
+        cressim::neo::physics::kInvalidSphericalJointId;
     cressim::neo::physics::HingeJointId hinge = cressim::neo::physics::kInvalidHingeJointId;
 };
 
@@ -119,6 +133,7 @@ AuthoredCartpoleEnv authorEnv(cressim::neo::engine::World &world, const std::uin
     baseCollider.shapeType   = physics::ColliderShapeType::Box;
     baseCollider.shapeParams = {0.15f, 0.15f, 0.15f, 0.0f};
     world.addCollider(authored.base, baseCollider);
+    authored.baseBody = world.physicsWorld().tryGetRigidBody(authored.base)->rigidBodyId;
 
     authored.cart = world.createEntity(envIndex);
     engine::TransformComponent cartTransform{};
@@ -136,6 +151,7 @@ AuthoredCartpoleEnv authorEnv(cressim::neo::engine::World &world, const std::uin
     cartCollider.shapeType   = physics::ColliderShapeType::Box;
     cartCollider.shapeParams = {kCartHalfX, kCartHalfY, kCartHalfZ, 0.0f};
     world.addCollider(authored.cart, cartCollider);
+    authored.cartBody = world.physicsWorld().tryGetRigidBody(authored.cart)->rigidBodyId;
 
     authored.pole = world.createEntity(envIndex);
     engine::TransformComponent poleTransform{};
@@ -153,6 +169,51 @@ AuthoredCartpoleEnv authorEnv(cressim::neo::engine::World &world, const std::uin
     poleCollider.shapeType   = physics::ColliderShapeType::Box;
     poleCollider.shapeParams = {kPoleHalfX, kPoleHalfY, kPoleHalfZ, 0.0f};
     world.addCollider(authored.pole, poleCollider);
+    authored.poleBody = world.physicsWorld().tryGetRigidBody(authored.pole)->rigidBodyId;
+
+    authored.ballA = world.createEntity(envIndex);
+    engine::TransformComponent ballATransform{};
+    ballATransform.worldTransform.position = {-0.8f, 0.6f, zOffset};
+    world.setTransform(authored.ballA, ballATransform);
+    engine::RigidBodyComponent ballABody{};
+    ballABody.bodyType            = physics::RigidBodyType::Dynamic;
+    ballABody.inverseMass         = 1.0f;
+    ballABody.inverseInertiaLocal = {1.0f, 1.0f, 1.0f};
+    world.setRigidBody(authored.ballA, ballABody);
+    engine::ColliderComponent ballACollider{};
+    ballACollider.shapeType   = physics::ColliderShapeType::Sphere;
+    ballACollider.shapeParams = {0.12f, 0.0f, 0.0f, 0.0f};
+    world.addCollider(authored.ballA, ballACollider);
+    authored.ballBodyA = world.physicsWorld().tryGetRigidBody(authored.ballA)->rigidBodyId;
+
+    authored.ballB = world.createEntity(envIndex);
+    engine::TransformComponent ballBTransform{};
+    ballBTransform.worldTransform.position = {-1.1f, 0.3f, zOffset};
+    world.setTransform(authored.ballB, ballBTransform);
+    engine::RigidBodyComponent ballBBody{};
+    ballBBody.bodyType            = physics::RigidBodyType::Dynamic;
+    ballBBody.inverseMass         = 0.8f;
+    ballBBody.inverseInertiaLocal = {1.2f, 1.2f, 1.2f};
+    world.setRigidBody(authored.ballB, ballBBody);
+    engine::ColliderComponent ballBCollider{};
+    ballBCollider.shapeType   = physics::ColliderShapeType::Sphere;
+    ballBCollider.shapeParams = {0.12f, 0.0f, 0.0f, 0.0f};
+    world.addCollider(authored.ballB, ballBCollider);
+    authored.ballBodyB = world.physicsWorld().tryGetRigidBody(authored.ballB)->rigidBodyId;
+
+    physics::BallJointState ball{};
+    ball.jointId                         = 3000u + envIndex;
+    ball.bodyA                           = authored.ballA;
+    ball.bodyB                           = authored.ballB;
+    ball.suppressConnectedBodyCollisions = true;
+    ball.localAnchorA                    = {0.0f, -0.12f, 0.0f};
+    ball.localAnchorB                    = {0.0f, 0.12f, 0.0f};
+    if (!world.upsertBallJoint(ball))
+    {
+        authored.ball = physics::kInvalidBallJointId;
+        return authored;
+    }
+    authored.ball = ball.jointId;
 
     physics::SliderJointState slider{};
     slider.jointId                        = 1000u + envIndex;
@@ -190,6 +251,54 @@ AuthoredCartpoleEnv authorEnv(cressim::neo::engine::World &world, const std::uin
     }
     authored.hinge = hinge.jointId;
 
+    authored.sphericalA = world.createEntity(envIndex);
+    engine::TransformComponent sphericalATransform{};
+    sphericalATransform.worldTransform.position = {0.9f, 0.7f, zOffset};
+    world.setTransform(authored.sphericalA, sphericalATransform);
+    engine::RigidBodyComponent sphericalABody{};
+    sphericalABody.bodyType            = physics::RigidBodyType::Dynamic;
+    sphericalABody.inverseMass         = 1.0f;
+    sphericalABody.inverseInertiaLocal = {1.0f, 1.0f, 1.0f};
+    world.setRigidBody(authored.sphericalA, sphericalABody);
+    engine::ColliderComponent sphericalACollider{};
+    sphericalACollider.shapeType   = physics::ColliderShapeType::Box;
+    sphericalACollider.shapeParams = {0.10f, 0.10f, 0.10f, 0.0f};
+    world.addCollider(authored.sphericalA, sphericalACollider);
+    authored.sphericalBodyA =
+        world.physicsWorld().tryGetRigidBody(authored.sphericalA)->rigidBodyId;
+
+    authored.sphericalB = world.createEntity(envIndex);
+    engine::TransformComponent sphericalBTransform{};
+    sphericalBTransform.worldTransform.position = {1.2f, 0.3f, zOffset};
+    world.setTransform(authored.sphericalB, sphericalBTransform);
+    engine::RigidBodyComponent sphericalBBody{};
+    sphericalBBody.bodyType            = physics::RigidBodyType::Dynamic;
+    sphericalBBody.inverseMass         = 0.9f;
+    sphericalBBody.inverseInertiaLocal = {1.4f, 1.4f, 1.4f};
+    world.setRigidBody(authored.sphericalB, sphericalBBody);
+    engine::ColliderComponent sphericalBCollider{};
+    sphericalBCollider.shapeType   = physics::ColliderShapeType::Box;
+    sphericalBCollider.shapeParams = {0.10f, 0.22f, 0.10f, 0.0f};
+    world.addCollider(authored.sphericalB, sphericalBCollider);
+    authored.sphericalBodyB =
+        world.physicsWorld().tryGetRigidBody(authored.sphericalB)->rigidBodyId;
+
+    physics::SphericalJointState spherical{};
+    spherical.jointId                         = 4000u + envIndex;
+    spherical.bodyA                           = authored.sphericalA;
+    spherical.bodyB                           = authored.sphericalB;
+    spherical.suppressConnectedBodyCollisions = true;
+    spherical.localAnchorA                    = {0.0f, -0.10f, 0.0f};
+    spherical.localAnchorB                    = {0.0f, 0.22f, 0.0f};
+    spherical.driveMode                       = physics::RigidJointDriveMode::TargetOrientation;
+    spherical.driveTargetOrientation          = {0.0f, 0.0f, 0.0f, 1.0f};
+    if (!world.upsertSphericalJoint(spherical))
+    {
+        authored.spherical = physics::kInvalidSphericalJointId;
+        return authored;
+    }
+    authored.spherical = spherical.jointId;
+
     return authored;
 }
 
@@ -201,30 +310,39 @@ bool verifyMapping(const cressim::neo::engine::JointLayoutMapping &mapping,
         CRESSIM_LOG_ERROR("Prepared joint mapping generation should be non-zero after prepare.");
         return false;
     }
-    if (mapping.hingeJointCount != authored.size() || mapping.sliderJointCount != authored.size())
+    if (mapping.ballJointCount != authored.size() || mapping.hingeJointCount != authored.size() ||
+        mapping.sphericalJointCount != authored.size() || mapping.sliderJointCount != authored.size())
     {
-        CRESSIM_LOG_ERROR("Unexpected hinge/slider counts in prepared joint mapping.");
+        CRESSIM_LOG_ERROR("Unexpected rigid-joint counts in prepared joint mapping.");
         return false;
     }
 
     for (std::size_t envIndex = 0; envIndex < authored.size(); ++envIndex)
     {
-        if (mapping.sliderJointIds[envIndex] != authored[envIndex].slider ||
+        if (mapping.ballJointIds[envIndex] != authored[envIndex].ball ||
+            mapping.sliderJointIds[envIndex] != authored[envIndex].slider ||
+            mapping.sphericalJointIds[envIndex] != authored[envIndex].spherical ||
             mapping.hingeJointIds[envIndex] != authored[envIndex].hinge)
         {
             CRESSIM_LOG_ERROR("Joint mapping did not preserve authored joint ids.");
             return false;
         }
-        if (mapping.sliderEnvironmentIndices[envIndex] != envIndex ||
+        if (mapping.ballEnvironmentIndices[envIndex] != envIndex ||
+            mapping.sliderEnvironmentIndices[envIndex] != envIndex ||
+            mapping.sphericalEnvironmentIndices[envIndex] != envIndex ||
             mapping.hingeEnvironmentIndices[envIndex] != envIndex)
         {
             CRESSIM_LOG_ERROR("Joint mapping environment indices are incorrect.");
             return false;
         }
-        if (mapping.sliderBodyIdsA[envIndex] != authored[envIndex].base ||
-            mapping.sliderBodyIdsB[envIndex] != authored[envIndex].cart ||
-            mapping.hingeBodyIdsA[envIndex] != authored[envIndex].cart ||
-            mapping.hingeBodyIdsB[envIndex] != authored[envIndex].pole)
+        if (mapping.ballBodyIdsA[envIndex] != authored[envIndex].ballBodyA ||
+            mapping.ballBodyIdsB[envIndex] != authored[envIndex].ballBodyB ||
+            mapping.sliderBodyIdsA[envIndex] != authored[envIndex].baseBody ||
+            mapping.sliderBodyIdsB[envIndex] != authored[envIndex].cartBody ||
+            mapping.sphericalBodyIdsA[envIndex] != authored[envIndex].sphericalBodyA ||
+            mapping.sphericalBodyIdsB[envIndex] != authored[envIndex].sphericalBodyB ||
+            mapping.hingeBodyIdsA[envIndex] != authored[envIndex].cartBody ||
+            mapping.hingeBodyIdsB[envIndex] != authored[envIndex].poleBody)
         {
             CRESSIM_LOG_ERROR("Joint mapping body ids are incorrect.");
             return false;
@@ -266,7 +384,9 @@ int main()
     for (std::uint32_t envIndex = 0; envIndex < config.sceneLayout.envCount; ++envIndex)
     {
         authored.push_back(authorEnv(world, envIndex));
-        if (authored.back().slider == physics::kInvalidSliderJointId ||
+        if (authored.back().ball == physics::kInvalidBallJointId ||
+            authored.back().slider == physics::kInvalidSliderJointId ||
+            authored.back().spherical == physics::kInvalidSphericalJointId ||
             authored.back().hinge == physics::kInvalidHingeJointId)
         {
             CRESSIM_LOG_ERROR("Failed to author cartpole joints for prepared mapping test.");
@@ -301,7 +421,8 @@ int main()
 
     const std::vector<engine::CustomComputeResourceDesc> resources =
         runtime.listCustomComputeResources();
-    if (!hasResource(resources, "joint.hinge") || !hasResource(resources, "joint.slider") ||
+    if (!hasResource(resources, "joint.ball") || !hasResource(resources, "joint.hinge") ||
+        !hasResource(resources, "joint.slider") || !hasResource(resources, "joint.spherical") ||
         !hasResource(resources, "rigid.linear_velocities") ||
         !hasResource(resources, "rigid.angular_velocities"))
     {
@@ -311,7 +432,10 @@ int main()
     }
 
     const AuthoredCartpoleEnv added = authorEnv(world, 2u);
-    if (added.slider == physics::kInvalidSliderJointId || added.hinge == physics::kInvalidHingeJointId)
+    if (added.ball == physics::kInvalidBallJointId ||
+        added.slider == physics::kInvalidSliderJointId ||
+        added.spherical == physics::kInvalidSphericalJointId ||
+        added.hinge == physics::kInvalidHingeJointId)
     {
         CRESSIM_LOG_ERROR("Failed to author additional cartpole env for generation test.");
         runtime.shutdown();
@@ -326,7 +450,9 @@ int main()
         runtime.shutdown();
         return 1;
     }
-    if (updatedMapping.hingeJointCount != mapping.hingeJointCount + 1u ||
+    if (updatedMapping.ballJointCount != mapping.ballJointCount + 1u ||
+        updatedMapping.hingeJointCount != mapping.hingeJointCount + 1u ||
+        updatedMapping.sphericalJointCount != mapping.sphericalJointCount + 1u ||
         updatedMapping.sliderJointCount != mapping.sliderJointCount + 1u)
     {
         CRESSIM_LOG_ERROR("Joint layout mapping counts did not update after structural authoring.");

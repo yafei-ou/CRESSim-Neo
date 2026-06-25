@@ -694,15 +694,41 @@ bool Runtime::tryGetPreparedJointLayoutMapping(JointLayoutMapping &outMapping) c
         return false;
     }
 
-    const physics::PhysicsWorld &physicsWorld             = mWorld.physicsWorld();
-    const physics::RigidBodySoAHost &rigidBodies          = physicsWorld.rigidBodySoA();
-    const std::vector<physics::HingeJointState> &hinges   = physicsWorld.hingeJointSnapshot();
+    const physics::PhysicsWorld &physicsWorld           = mWorld.physicsWorld();
+    const physics::RigidBodySoAHost &rigidBodies        = physicsWorld.rigidBodySoA();
+    const std::vector<physics::BallJointState> &balls   = physicsWorld.ballJointSnapshot();
+    const std::vector<physics::HingeJointState> &hinges = physicsWorld.hingeJointSnapshot();
+    const std::vector<physics::SphericalJointState> &spherical =
+        physicsWorld.sphericalJointSnapshot();
     const std::vector<physics::SliderJointState> &sliders = physicsWorld.sliderJointSnapshot();
     const physics::RigidJointSceneHost &jointScene        = physicsWorld.rigidJointScene();
 
-    outMapping.hingeJointCount   = static_cast<std::uint32_t>(hinges.size());
-    outMapping.sliderJointCount  = static_cast<std::uint32_t>(sliders.size());
-    outMapping.bindingGeneration = physicsWorld.rigidJointTopologyRevision();
+    outMapping.ballJointCount      = static_cast<std::uint32_t>(balls.size());
+    outMapping.hingeJointCount     = static_cast<std::uint32_t>(hinges.size());
+    outMapping.sphericalJointCount = static_cast<std::uint32_t>(spherical.size());
+    outMapping.sliderJointCount    = static_cast<std::uint32_t>(sliders.size());
+    outMapping.bindingGeneration   = physicsWorld.rigidJointTopologyRevision();
+
+    outMapping.ballJointIds.reserve(balls.size());
+    outMapping.ballEnvironmentIndices.reserve(balls.size());
+    outMapping.ballBodyIdsA.reserve(balls.size());
+    outMapping.ballBodyIdsB.reserve(balls.size());
+    outMapping.ballBodyIndicesA.reserve(balls.size());
+    outMapping.ballBodyIndicesB.reserve(balls.size());
+    for (std::size_t i = 0; i < balls.size(); ++i)
+    {
+        const std::uint32_t bodyIndexA = jointScene.ball.bodyIndicesA[i];
+        const std::uint32_t bodyIndexB = jointScene.ball.bodyIndicesB[i];
+        outMapping.ballJointIds.push_back(balls[i].jointId);
+        outMapping.ballEnvironmentIndices.push_back(bodyIndexA <
+                                                            rigidBodies.environmentIndices.size()
+                                                        ? rigidBodies.environmentIndices[bodyIndexA]
+                                                        : 0u);
+        outMapping.ballBodyIdsA.push_back(balls[i].bodyA);
+        outMapping.ballBodyIdsB.push_back(balls[i].bodyB);
+        outMapping.ballBodyIndicesA.push_back(bodyIndexA);
+        outMapping.ballBodyIndicesB.push_back(bodyIndexB);
+    }
 
     outMapping.hingeJointIds.reserve(hinges.size());
     outMapping.hingeEnvironmentIndices.reserve(hinges.size());
@@ -723,6 +749,27 @@ bool Runtime::tryGetPreparedJointLayoutMapping(JointLayoutMapping &outMapping) c
         outMapping.hingeBodyIdsB.push_back(hinges[i].bodyB);
         outMapping.hingeBodyIndicesA.push_back(bodyIndexA);
         outMapping.hingeBodyIndicesB.push_back(bodyIndexB);
+    }
+
+    outMapping.sphericalJointIds.reserve(spherical.size());
+    outMapping.sphericalEnvironmentIndices.reserve(spherical.size());
+    outMapping.sphericalBodyIdsA.reserve(spherical.size());
+    outMapping.sphericalBodyIdsB.reserve(spherical.size());
+    outMapping.sphericalBodyIndicesA.reserve(spherical.size());
+    outMapping.sphericalBodyIndicesB.reserve(spherical.size());
+    for (std::size_t i = 0; i < spherical.size(); ++i)
+    {
+        const std::uint32_t bodyIndexA = jointScene.spherical.bodyIndicesA[i];
+        const std::uint32_t bodyIndexB = jointScene.spherical.bodyIndicesB[i];
+        outMapping.sphericalJointIds.push_back(spherical[i].jointId);
+        outMapping.sphericalEnvironmentIndices.push_back(
+            bodyIndexA < rigidBodies.environmentIndices.size()
+                ? rigidBodies.environmentIndices[bodyIndexA]
+                : 0u);
+        outMapping.sphericalBodyIdsA.push_back(spherical[i].bodyA);
+        outMapping.sphericalBodyIdsB.push_back(spherical[i].bodyB);
+        outMapping.sphericalBodyIndicesA.push_back(bodyIndexA);
+        outMapping.sphericalBodyIndicesB.push_back(bodyIndexB);
     }
 
     outMapping.sliderJointIds.reserve(sliders.size());
