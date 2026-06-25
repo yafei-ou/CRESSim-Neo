@@ -6,6 +6,7 @@
 #include "engine/custom_compute.h"
 #include "engine/export.h"
 #include "engine/joint_layout_mapping.h"
+#include "engine/particle_layout_mapping.h"
 #include "engine/render_scene_uploader.h"
 #include "engine/rigid_layout_mapping.h"
 #include "engine/shared_buffer.h"
@@ -98,6 +99,10 @@ public:
     // Returns the current prepared rigid-adjacent constraint mapping derived from authored state.
     // This is valid after prepare() and does not require uploadWorld().
     bool tryGetPreparedConstraintLayoutMapping(ConstraintLayoutMapping &outMapping) const;
+
+    // Returns the current prepared particle/deformable slot mapping derived from authored state.
+    // This is valid after prepare() and does not require uploadWorld().
+    bool tryGetPreparedParticleLayoutMapping(ParticleLayoutMapping &outMapping) const;
 
     // Returns the current prepared hinge/slider joint slot mapping derived from authored state.
     // This is valid after prepare() and does not require uploadWorld().

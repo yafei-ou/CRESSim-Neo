@@ -644,6 +644,20 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
             outDescs->push_back(desc);
         }
     };
+    const auto bufferElementCount = [](Diligent::IBuffer *buffer) -> std::uint32_t
+    {
+        if (buffer == nullptr)
+        {
+            return 0u;
+        }
+
+        const Diligent::BufferDesc &bufferDesc = buffer->GetDesc();
+        if (bufferDesc.ElementByteStride == 0u)
+        {
+            return 0u;
+        }
+        return static_cast<std::uint32_t>(bufferDesc.Size / bufferDesc.ElementByteStride);
+    };
 
     addBuffer("rigid.positions", sceneView.rigid.statePositionsBuffer,
               CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
@@ -759,6 +773,128 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
               sceneView.joints.sliderVelocityDriveJointIndicesBuffer,
               CustomComputeResourceAccess::ReadOnly, sceneView.joints.sliderVelocityDriveJointCount,
               sceneView.joints.modeBindingGeneration);
+    addBuffer("particle.positions_inv_mass", sceneView.soft.particles.positionsInvMassBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.previous_positions", sceneView.soft.particles.previousPositionsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.velocities", sceneView.soft.particles.velocitiesBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.radii", sceneView.soft.particles.radiiBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.environment_indices", sceneView.soft.particles.environmentIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.kinds", sceneView.soft.particles.particleKindsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.owner_types", sceneView.soft.particles.ownerTypesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.owner_indices", sceneView.soft.particles.ownerIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.strand_ids", sceneView.soft.particles.strandIdsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.strand_roles", sceneView.soft.particles.strandRolesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.owning_soft_body_indices",
+              sceneView.soft.particles.owningSoftBodyIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.material_indices", sceneView.soft.particles.particleMaterialIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.fluid_material_indices",
+              sceneView.soft.particles.fluidMaterialIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.fluid_visuals", sceneView.soft.particles.fluidVisualsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.fluidVisualCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.contact_materials", sceneView.soft.particles.particleContactMaterialsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.contactMaterialCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.fluid_materials", sceneView.soft.particles.fluidMaterialsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.fluidMaterialCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.phases", sceneView.soft.particles.phasesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.collision_layers", sceneView.soft.particles.collisionLayersBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.collision_masks", sceneView.soft.particles.collisionMasksBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.adjacency_offsets", sceneView.soft.particles.adjacencyOffsetsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.adjacency_counts", sceneView.soft.particles.adjacencyCountsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.adjacency_indices", sceneView.soft.particles.adjacencyIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly,
+              bufferElementCount(sceneView.soft.particles.adjacencyIndicesBuffer),
+              sceneView.soft.bindingGeneration);
+    addBuffer("soft.edges", sceneView.soft.edgesBuffer, CustomComputeResourceAccess::ReadOnly,
+              sceneView.soft.edgeCount, sceneView.soft.bindingGeneration);
+    addBuffer("soft.bends", sceneView.soft.bendsBuffer, CustomComputeResourceAccess::ReadOnly,
+              sceneView.soft.bendCount, sceneView.soft.bindingGeneration);
+    addBuffer("soft.tets", sceneView.soft.tetsBuffer, CustomComputeResourceAccess::ReadOnly,
+              sceneView.soft.tetCount, sceneView.soft.bindingGeneration);
+    addBuffer("strand.segments", sceneView.soft.strandSegmentsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.strandSegmentCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("strand.joints", sceneView.soft.strandJointsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.strandJointCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("strand.distance_constraints", sceneView.soft.strandDistanceConstraintsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.strandDistanceCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("strand.segment_states", sceneView.soft.strandSegmentStatesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.strandSegmentCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("strand.segment_joint_ranges", sceneView.soft.segmentStrandJointRangesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.strandSegmentCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("strand.segment_incident_joints", sceneView.soft.segmentIncidentStrandJointsBuffer,
+              CustomComputeResourceAccess::ReadOnly,
+              bufferElementCount(sceneView.soft.segmentIncidentStrandJointsBuffer),
+              sceneView.soft.bindingGeneration);
+    addBuffer("suturing.pairs", sceneView.soft.suturingPairsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.suturingPairCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("suturing.particle_refs", sceneView.soft.suturingParticleRefsBuffer,
+              CustomComputeResourceAccess::ReadOnly,
+              bufferElementCount(sceneView.soft.suturingParticleRefsBuffer),
+              sceneView.soft.bindingGeneration);
+    addBuffer("suturing.insertion_states", sceneView.soft.suturingInsertionStatesBuffer,
+              CustomComputeResourceAccess::ReadOnly,
+              bufferElementCount(sceneView.soft.suturingInsertionStatesBuffer),
+              sceneView.soft.bindingGeneration);
+    addBuffer("suturing.path_headers", sceneView.soft.suturingPathHeadersBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.suturingPathHeaderCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("suturing.path_nodes", sceneView.soft.suturingPathNodesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.suturingPathNodeCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("soft.render_positions", sceneView.soft.renderPositionsBuffer,
+              CustomComputeResourceAccess::ReadOnly,
+              bufferElementCount(sceneView.soft.renderPositionsBuffer),
+              sceneView.soft.bindingGeneration);
+    addBuffer("soft.render_normals", sceneView.soft.renderNormalsBuffer,
+              CustomComputeResourceAccess::ReadOnly,
+              bufferElementCount(sceneView.soft.renderNormalsBuffer),
+              sceneView.soft.bindingGeneration);
+    addBuffer("soft.world_aabbs", sceneView.soft.worldAabbsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.softBodyCount,
+              sceneView.soft.bindingGeneration);
 
     return true;
 }

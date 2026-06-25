@@ -3,6 +3,7 @@
 #include "engine/components.h"
 #include "engine/constraint_layout_mapping.h"
 #include "engine/joint_layout_mapping.h"
+#include "engine/particle_layout_mapping.h"
 #include "engine/rigid_layout_mapping.h"
 #include "engine/runtime.h"
 #include "engine/runtime_internal.h"
@@ -111,9 +112,13 @@ using cressim::neo::engine::CustomComputeResourceBindingDesc;
 using cressim::neo::engine::CustomComputeResourceDesc;
 using cressim::neo::engine::CustomComputeResourceKind;
 using cressim::neo::engine::DirectionalLightComponent;
+using cressim::neo::engine::FluidComponent;
 using cressim::neo::engine::JointLayoutMapping;
+using cressim::neo::engine::MeshfreeSoftBodyComponent;
 using cressim::neo::engine::MeshRendererComponent;
+using cressim::neo::engine::ParticleLayoutMapping;
 using cressim::neo::engine::PointLightComponent;
+using cressim::neo::engine::ProceduralDeformableCurveRenderComponent;
 using cressim::neo::engine::RigidBodyComponent;
 using cressim::neo::engine::RigidDistanceConstraintLayoutMapping;
 using cressim::neo::engine::RigidLayoutMapping;
@@ -129,6 +134,8 @@ using cressim::neo::engine::SharedBufferHandle;
 using cressim::neo::engine::SharedBufferInfo;
 using cressim::neo::engine::SharedBufferTensorDesc;
 using cressim::neo::engine::SharedBufferTensorDTypeCode;
+using cressim::neo::engine::SoftBodyAuthoringParticles;
+using cressim::neo::engine::SoftBodyComponent;
 using cressim::neo::engine::SpotLightComponent;
 using cressim::neo::engine::StrandComponent;
 using cressim::neo::engine::TransformComponent;
@@ -143,6 +150,7 @@ using cressim::neo::gpu::GpuRenderTargetReadbackRequest;
 using cressim::neo::gpu::GpuRenderTargetTexturePlane;
 using cressim::neo::gpu::RenderOutputBinding;
 using cressim::neo::gpu::RenderOutputMode;
+using cressim::neo::graphics::EnvironmentFluidDesc;
 using cressim::neo::graphics::EnvironmentIblDesc;
 using cressim::neo::graphics::IblQualityTier;
 using cressim::neo::graphics::MaterialHandle;
@@ -155,19 +163,43 @@ using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::graphics::RendererDesc;
 using cressim::neo::graphics::RenderResourceManager;
 using cressim::neo::graphics::RenderStats;
+using cressim::neo::graphics::TextureColorSpace;
+using cressim::neo::graphics::TextureDimension;
 using cressim::neo::graphics::TextureHandle;
+using cressim::neo::graphics::TextureMipPolicy;
+using cressim::neo::graphics::TexturePixelFormat;
+using cressim::neo::graphics::TextureResourceDesc;
+using cressim::neo::physics::AuthoredParticleCollisionFilterState;
+using cressim::neo::physics::AuthoredParticleDistanceConstraintState;
 using cressim::neo::physics::AuthoredParticleReference;
 using cressim::neo::physics::AuthoredParticleReferenceType;
+using cressim::neo::physics::AuthoredParticleSequenceState;
 using cressim::neo::physics::AuthoredRigidDistanceConstraintState;
 using cressim::neo::physics::AuthoredRigidParticleAttachmentConstraintState;
 using cressim::neo::physics::AuthoredRoutedCableConstraintState;
 using cressim::neo::physics::AuthoredRoutedCableRoutePoint;
+using cressim::neo::physics::AuthoredStrandRigidAttachmentConstraintState;
+using cressim::neo::physics::AuthoredSuturingSequenceState;
 using cressim::neo::physics::BallJointState;
+using cressim::neo::physics::FluidMaterialDesc;
+using cressim::neo::physics::FluidRegularGridSource;
+using cressim::neo::physics::FluidSourceDesc;
+using cressim::neo::physics::FluidSourceKind;
 using cressim::neo::physics::HingeJointState;
 using cressim::neo::physics::ParticleContactMaterialDesc;
+using cressim::neo::physics::ParticleKind;
+using cressim::neo::physics::ParticleOwnerType;
+using cressim::neo::physics::ParticleStrandRole;
 using cressim::neo::physics::PhysicsSolverDesc;
 using cressim::neo::physics::RigidJointDriveMode;
 using cressim::neo::physics::SliderJointState;
+using cressim::neo::physics::SoftBodyMaterialDesc;
+using cressim::neo::physics::SoftBodyMeshfreeParticleSource;
+using cressim::neo::physics::SoftBodyRegularGridSource;
+using cressim::neo::physics::SoftBodySourceDesc;
+using cressim::neo::physics::SoftBodySourceKind;
+using cressim::neo::physics::SoftBodyTetGenSource;
+using cressim::neo::physics::SoftBodyTetMeshSource;
 using cressim::neo::physics::SphericalJointState;
 using cressim::neo::physics::StrandMaterialDesc;
 
@@ -358,6 +390,21 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("z", &Diligent::float4::z)
         .def_readwrite("w", &Diligent::float4::w);
 
+    py::class_<Diligent::uint3>(m, "UInt3")
+        .def(py::init<std::uint32_t, std::uint32_t, std::uint32_t>(), py::arg("x") = 0u,
+             py::arg("y") = 0u, py::arg("z") = 0u)
+        .def_readwrite("x", &Diligent::uint3::x)
+        .def_readwrite("y", &Diligent::uint3::y)
+        .def_readwrite("z", &Diligent::uint3::z);
+
+    py::class_<Diligent::uint4>(m, "UInt4")
+        .def(py::init<std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t>(),
+             py::arg("x") = 0u, py::arg("y") = 0u, py::arg("z") = 0u, py::arg("w") = 0u)
+        .def_readwrite("x", &Diligent::uint4::x)
+        .def_readwrite("y", &Diligent::uint4::y)
+        .def_readwrite("z", &Diligent::uint4::z)
+        .def_readwrite("w", &Diligent::uint4::w);
+
     py::class_<Diligent::QuaternionF>(m, "Quaternion")
         .def(py::init<float, float, float, float>(), py::arg("x") = 0.0f, py::arg("y") = 0.0f,
              py::arg("z") = 0.0f, py::arg("w") = 1.0f)
@@ -485,7 +532,7 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def(py::init<>())
         .def_readwrite("rigid_body_count", &RigidLayoutMapping::rigidBodyCount)
         .def_readwrite("collider_count", &RigidLayoutMapping::colliderCount)
-        .def_readwrite("binding_generation", &RigidLayoutMapping::bindingGeneration)
+        .def_readwrite("layout_revision", &RigidLayoutMapping::layoutRevision)
         .def_readwrite("rigid_body_ids", &RigidLayoutMapping::rigidBodyIds)
         .def_readwrite("rigid_body_entity_ids", &RigidLayoutMapping::rigidBodyEntityIds)
         .def_readwrite("rigid_body_environment_indices",
@@ -560,7 +607,7 @@ PYBIND11_MODULE(_cressim_neo, m)
 
     py::class_<ConstraintLayoutMapping>(m, "ConstraintLayoutMapping")
         .def(py::init<>())
-        .def_readwrite("binding_generation", &ConstraintLayoutMapping::bindingGeneration)
+        .def_readwrite("layout_revision", &ConstraintLayoutMapping::layoutRevision)
         .def_readwrite("rigid_particle_attachments",
                        &ConstraintLayoutMapping::rigidParticleAttachments)
         .def_readwrite("rigid_distance_constraints",
@@ -573,7 +620,7 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("hinge_joint_count", &JointLayoutMapping::hingeJointCount)
         .def_readwrite("spherical_joint_count", &JointLayoutMapping::sphericalJointCount)
         .def_readwrite("slider_joint_count", &JointLayoutMapping::sliderJointCount)
-        .def_readwrite("binding_generation", &JointLayoutMapping::bindingGeneration)
+        .def_readwrite("layout_revision", &JointLayoutMapping::layoutRevision)
         .def_readwrite("ball_joint_ids", &JointLayoutMapping::ballJointIds)
         .def_readwrite("ball_environment_indices", &JointLayoutMapping::ballEnvironmentIndices)
         .def_readwrite("ball_body_ids_a", &JointLayoutMapping::ballBodyIdsA)
@@ -599,6 +646,44 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("slider_body_ids_b", &JointLayoutMapping::sliderBodyIdsB)
         .def_readwrite("slider_body_indices_a", &JointLayoutMapping::sliderBodyIndicesA)
         .def_readwrite("slider_body_indices_b", &JointLayoutMapping::sliderBodyIndicesB);
+
+    py::class_<ParticleLayoutMapping>(m, "ParticleLayoutMapping")
+        .def(py::init<>())
+        .def_readwrite("particle_count", &ParticleLayoutMapping::particleCount)
+        .def_readwrite("soft_body_count", &ParticleLayoutMapping::softBodyCount)
+        .def_readwrite("fluid_count", &ParticleLayoutMapping::fluidCount)
+        .def_readwrite("strand_count", &ParticleLayoutMapping::strandCount)
+        .def_readwrite("layout_revision", &ParticleLayoutMapping::layoutRevision)
+        .def_readwrite("environment_indices", &ParticleLayoutMapping::environmentIndices)
+        .def_readwrite("particle_kinds", &ParticleLayoutMapping::particleKinds)
+        .def_readwrite("owner_types", &ParticleLayoutMapping::ownerTypes)
+        .def_readwrite("owner_indices", &ParticleLayoutMapping::ownerIndices)
+        .def_readwrite("strand_ids", &ParticleLayoutMapping::strandIds)
+        .def_readwrite("strand_orders", &ParticleLayoutMapping::strandOrders)
+        .def_readwrite("strand_roles", &ParticleLayoutMapping::strandRoles)
+        .def_readwrite("owning_soft_body_indices", &ParticleLayoutMapping::owningSoftBodyIndices)
+        .def_readwrite("particle_material_indices", &ParticleLayoutMapping::particleMaterialIndices)
+        .def_readwrite("fluid_material_indices", &ParticleLayoutMapping::fluidMaterialIndices)
+        .def_readwrite("phases", &ParticleLayoutMapping::phases)
+        .def_readwrite("collision_layers", &ParticleLayoutMapping::collisionLayers)
+        .def_readwrite("collision_masks", &ParticleLayoutMapping::collisionMasks)
+        .def_readwrite("adjacency_offsets", &ParticleLayoutMapping::adjacencyOffsets)
+        .def_readwrite("adjacency_counts", &ParticleLayoutMapping::adjacencyCounts)
+        .def_readwrite("soft_body_entity_ids", &ParticleLayoutMapping::softBodyEntityIds)
+        .def_readwrite("soft_body_environment_indices",
+                       &ParticleLayoutMapping::softBodyEnvironmentIndices)
+        .def_readwrite("soft_body_particle_offsets",
+                       &ParticleLayoutMapping::softBodyParticleOffsets)
+        .def_readwrite("soft_body_particle_counts", &ParticleLayoutMapping::softBodyParticleCounts)
+        .def_readwrite("fluid_entity_ids", &ParticleLayoutMapping::fluidEntityIds)
+        .def_readwrite("fluid_environment_indices", &ParticleLayoutMapping::fluidEnvironmentIndices)
+        .def_readwrite("fluid_particle_offsets", &ParticleLayoutMapping::fluidParticleOffsets)
+        .def_readwrite("fluid_particle_counts", &ParticleLayoutMapping::fluidParticleCounts)
+        .def_readwrite("strand_entity_ids", &ParticleLayoutMapping::strandEntityIds)
+        .def_readwrite("strand_environment_indices",
+                       &ParticleLayoutMapping::strandEnvironmentIndices)
+        .def_readwrite("strand_particle_offsets", &ParticleLayoutMapping::strandParticleOffsets)
+        .def_readwrite("strand_particle_counts", &ParticleLayoutMapping::strandParticleCounts);
 
     py::class_<CustomComputeResourceDesc>(m, "CustomComputeResourceDesc")
         .def(py::init<>())
@@ -682,6 +767,32 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("StrandParticle", AuthoredParticleReferenceType::StrandParticle)
         .value("RigidProxyParticle", AuthoredParticleReferenceType::RigidProxyParticle);
 
+    py::enum_<SoftBodySourceKind>(m, "SoftBodySourceKind")
+        .value("RegularGrid", SoftBodySourceKind::RegularGrid)
+        .value("TetMesh", SoftBodySourceKind::TetMesh)
+        .value("TetGenFiles", SoftBodySourceKind::TetGenFiles)
+        .value("MeshfreeParticles", SoftBodySourceKind::MeshfreeParticles);
+
+    py::enum_<FluidSourceKind>(m, "FluidSourceKind")
+        .value("RegularGrid", FluidSourceKind::RegularGrid);
+
+    py::enum_<ParticleKind>(m, "ParticleKind")
+        .value("SoftSolid", ParticleKind::SoftSolid)
+        .value("Fluid", ParticleKind::Fluid);
+
+    py::enum_<ParticleOwnerType>(m, "ParticleOwnerType")
+        .value("None", ParticleOwnerType::None)
+        .value("SoftBody", ParticleOwnerType::SoftBody)
+        .value("FluidBody", ParticleOwnerType::FluidBody)
+        .value("Strand", ParticleOwnerType::Strand)
+        .value("RigidBody", ParticleOwnerType::RigidBody);
+
+    py::enum_<ParticleStrandRole>(m, "ParticleStrandRole")
+        .value("None", ParticleStrandRole::None)
+        .value("NeedleTip", ParticleStrandRole::NeedleTip)
+        .value("NeedleBody", ParticleStrandRole::NeedleBody)
+        .value("Thread", ParticleStrandRole::Thread);
+
     py::enum_<RigidJointDriveMode>(m, "RigidJointDriveMode")
         .value("None", RigidJointDriveMode::None)
         .value("TargetPosition", RigidJointDriveMode::TargetPosition)
@@ -710,6 +821,22 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("Opaque", MaterialRenderMode::Opaque)
         .value("Cutout", MaterialRenderMode::Cutout)
         .value("Transparent", MaterialRenderMode::Transparent);
+
+    py::enum_<TextureColorSpace>(m, "TextureColorSpace")
+        .value("Linear", TextureColorSpace::Linear)
+        .value("Srgb", TextureColorSpace::Srgb);
+
+    py::enum_<TexturePixelFormat>(m, "TexturePixelFormat")
+        .value("RGBA8", TexturePixelFormat::RGBA8)
+        .value("RGBA16F", TexturePixelFormat::RGBA16F);
+
+    py::enum_<TextureMipPolicy>(m, "TextureMipPolicy")
+        .value("Disabled", TextureMipPolicy::Disabled)
+        .value("Generate", TextureMipPolicy::Generate);
+
+    py::enum_<TextureDimension>(m, "TextureDimension")
+        .value("Texture2D", TextureDimension::Texture2D)
+        .value("TextureCube", TextureDimension::TextureCube);
 
     py::enum_<IblQualityTier>(m, "IblQualityTier")
         .value("Off", IblQualityTier::Off)
@@ -899,6 +1026,23 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("casts_shadows", &MaterialResourceDesc::castsShadows)
         .def_readwrite("receives_shadows", &MaterialResourceDesc::receivesShadows);
 
+    py::class_<TextureResourceDesc::SubresourceDesc>(m, "TextureSubresourceDesc")
+        .def(py::init<>())
+        .def_readwrite("pixel_data", &TextureResourceDesc::SubresourceDesc::pixelData);
+
+    py::class_<TextureResourceDesc>(m, "TextureResourceDesc")
+        .def(py::init<>())
+        .def_readwrite("debug_name", &TextureResourceDesc::debugName)
+        .def_readwrite("width", &TextureResourceDesc::width)
+        .def_readwrite("height", &TextureResourceDesc::height)
+        .def_readwrite("mip_level_count", &TextureResourceDesc::mipLevelCount)
+        .def_readwrite("dimension", &TextureResourceDesc::dimension)
+        .def_readwrite("pixel_format", &TextureResourceDesc::pixelFormat)
+        .def_readwrite("color_space", &TextureResourceDesc::colorSpace)
+        .def_readwrite("mip_policy", &TextureResourceDesc::mipPolicy)
+        .def_readwrite("subresources", &TextureResourceDesc::subresources)
+        .def_readwrite("pixel_data", &TextureResourceDesc::pixelData);
+
     py::class_<MeshRendererComponent>(m, "MeshRendererComponent")
         .def(py::init<>())
         .def_readwrite("mesh", &MeshRendererComponent::mesh)
@@ -963,6 +1107,20 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("background_intensity", &EnvironmentIblDesc::backgroundIntensity)
         .def("enabled", &EnvironmentIblDesc::enabled);
 
+    py::class_<EnvironmentFluidDesc>(m, "EnvironmentFluidDesc")
+        .def(py::init<>())
+        .def_readwrite("smoothness", &EnvironmentFluidDesc::smoothness)
+        .def_readwrite("specular", &EnvironmentFluidDesc::specular)
+        .def_readwrite("fresnel", &EnvironmentFluidDesc::fresnel)
+        .def_readwrite("depth_edge_threshold", &EnvironmentFluidDesc::depthEdgeThreshold)
+        .def_readwrite("filter_radius_pixels", &EnvironmentFluidDesc::filterRadiusPixels)
+        .def_readwrite("filter_world_radius", &EnvironmentFluidDesc::filterWorldRadius)
+        .def_readwrite("filter_depth_threshold", &EnvironmentFluidDesc::filterDepthThreshold)
+        .def_readwrite("enable_background_refraction",
+                       &EnvironmentFluidDesc::enableBackgroundRefraction)
+        .def_readwrite("refraction_ior", &EnvironmentFluidDesc::refractionIor)
+        .def_readwrite("refraction_view_thickness", &EnvironmentFluidDesc::refractionViewThickness);
+
     py::class_<ParticleContactMaterialDesc>(m, "ParticleContactMaterialDesc")
         .def(py::init<>())
         .def_readwrite("friction", &ParticleContactMaterialDesc::friction)
@@ -970,9 +1128,73 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("damping", &ParticleContactMaterialDesc::damping)
         .def_readwrite("static_friction", &ParticleContactMaterialDesc::staticFriction);
 
+    py::class_<SoftBodyRegularGridSource>(m, "SoftBodyRegularGridSource")
+        .def(py::init<>())
+        .def_readwrite("size", &SoftBodyRegularGridSource::size)
+        .def_readwrite("target_particle_spacing", &SoftBodyRegularGridSource::targetParticleSpacing)
+        .def_readwrite("static_particle_indices",
+                       &SoftBodyRegularGridSource::staticParticleIndices);
+
+    py::class_<SoftBodyTetMeshSource>(m, "SoftBodyTetMeshSource")
+        .def(py::init<>())
+        .def_readwrite("object_space_rest_positions",
+                       &SoftBodyTetMeshSource::objectSpaceRestPositions)
+        .def_readwrite("tet_vertex_indices", &SoftBodyTetMeshSource::tetVertexIndices)
+        .def_readwrite("static_particle_indices", &SoftBodyTetMeshSource::staticParticleIndices);
+
+    py::class_<SoftBodyTetGenSource>(m, "SoftBodyTetGenSource")
+        .def(py::init<>())
+        .def_readwrite("node_file", &SoftBodyTetGenSource::nodeFile)
+        .def_readwrite("ele_file", &SoftBodyTetGenSource::eleFile)
+        .def_readwrite("static_particle_indices", &SoftBodyTetGenSource::staticParticleIndices);
+
+    py::class_<SoftBodyMeshfreeParticleSource>(m, "SoftBodyMeshfreeParticleSource")
+        .def(py::init<>())
+        .def_readwrite("particle_rest_positions",
+                       &SoftBodyMeshfreeParticleSource::particleRestPositions)
+        .def_readwrite("surface_rest_positions",
+                       &SoftBodyMeshfreeParticleSource::surfaceRestPositions)
+        .def_readwrite("surface_normals", &SoftBodyMeshfreeParticleSource::surfaceNormals)
+        .def_readwrite("surface_triangles", &SoftBodyMeshfreeParticleSource::surfaceTriangles)
+        .def_readwrite("static_particle_indices",
+                       &SoftBodyMeshfreeParticleSource::staticParticleIndices)
+        .def_readwrite("neighbour_count", &SoftBodyMeshfreeParticleSource::neighbourCount);
+
+    py::class_<SoftBodySourceDesc>(m, "SoftBodySourceDesc")
+        .def(py::init<>())
+        .def_readwrite("kind", &SoftBodySourceDesc::kind)
+        .def_readwrite("regular_grid", &SoftBodySourceDesc::regularGrid)
+        .def_readwrite("tet_mesh", &SoftBodySourceDesc::tetMesh)
+        .def_readwrite("tet_gen", &SoftBodySourceDesc::tetGen)
+        .def_readwrite("meshfree_particles", &SoftBodySourceDesc::meshfreeParticles);
+
+    py::class_<FluidRegularGridSource>(m, "FluidRegularGridSource")
+        .def(py::init<>())
+        .def_readwrite("size", &FluidRegularGridSource::size)
+        .def_readwrite("target_particle_spacing", &FluidRegularGridSource::targetParticleSpacing);
+
+    py::class_<FluidSourceDesc>(m, "FluidSourceDesc")
+        .def(py::init<>())
+        .def_readwrite("kind", &FluidSourceDesc::kind)
+        .def_readwrite("regular_grid", &FluidSourceDesc::regularGrid);
+
+    py::class_<SoftBodyMaterialDesc>(m, "SoftBodyMaterialDesc")
+        .def(py::init<>())
+        .def_readwrite("contact", &SoftBodyMaterialDesc::contact);
+
     py::class_<StrandMaterialDesc>(m, "StrandMaterialDesc")
         .def(py::init<>())
         .def_readwrite("contact", &StrandMaterialDesc::contact);
+
+    py::class_<FluidMaterialDesc>(m, "FluidMaterialDesc")
+        .def(py::init<>())
+        .def_readwrite("contact", &FluidMaterialDesc::contact)
+        .def_readwrite("viscosity", &FluidMaterialDesc::viscosity)
+        .def_readwrite("cohesion", &FluidMaterialDesc::cohesion)
+        .def_readwrite("surface_tension", &FluidMaterialDesc::surfaceTension)
+        .def_readwrite("vorticity_confinement", &FluidMaterialDesc::vorticityConfinement)
+        .def_readwrite("gravity_scale", &FluidMaterialDesc::gravityScale)
+        .def_readwrite("cfl_coefficient", &FluidMaterialDesc::cflCoefficient);
 
     py::class_<RigidBodyComponent>(m, "RigidBodyComponent")
         .def(py::init<>())
@@ -993,6 +1215,37 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("kinematic_target_rotation", &RigidBodyComponent::kinematicTargetRotation)
         .def_readwrite("kinematic_target_enabled", &RigidBodyComponent::kinematicTargetEnabled)
         .def_readwrite("simulated", &RigidBodyComponent::simulated);
+
+    py::class_<SoftBodyComponent>(m, "SoftBodyComponent")
+        .def(py::init<>())
+        .def_readwrite("source", &SoftBodyComponent::source)
+        .def_readwrite("material", &SoftBodyComponent::material)
+        .def_readwrite("particle_mass", &SoftBodyComponent::particleMass)
+        .def_readwrite("particle_radius", &SoftBodyComponent::particleRadius)
+        .def_readwrite("edge_compliance", &SoftBodyComponent::edgeCompliance)
+        .def_readwrite("volume_compliance", &SoftBodyComponent::volumeCompliance)
+        .def_readwrite("simulated", &SoftBodyComponent::simulated)
+        .def_readwrite("self_collision_enabled", &SoftBodyComponent::selfCollisionEnabled)
+        .def_readwrite("supports_suturing", &SoftBodyComponent::supportsSuturing)
+        .def_readwrite("collision_layer", &SoftBodyComponent::collisionLayer)
+        .def_readwrite("collision_mask", &SoftBodyComponent::collisionMask);
+
+    py::class_<MeshfreeSoftBodyComponent>(m, "MeshfreeSoftBodyComponent")
+        .def(py::init<>())
+        .def_readwrite("particles", &MeshfreeSoftBodyComponent::particles)
+        .def_readwrite("surface_rest_positions", &MeshfreeSoftBodyComponent::surfaceRestPositions)
+        .def_readwrite("surface_normals", &MeshfreeSoftBodyComponent::surfaceNormals)
+        .def_readwrite("surface_triangles", &MeshfreeSoftBodyComponent::surfaceTriangles)
+        .def_readwrite("static_particle_indices", &MeshfreeSoftBodyComponent::staticParticleIndices)
+        .def_readwrite("material", &MeshfreeSoftBodyComponent::material)
+        .def_readwrite("particle_radius", &MeshfreeSoftBodyComponent::particleRadius)
+        .def_readwrite("particle_mass", &MeshfreeSoftBodyComponent::particleMass)
+        .def_readwrite("neighbour_count", &MeshfreeSoftBodyComponent::neighbourCount)
+        .def_readwrite("compliance", &MeshfreeSoftBodyComponent::compliance)
+        .def_readwrite("simulated", &MeshfreeSoftBodyComponent::simulated)
+        .def_readwrite("self_collision_enabled", &MeshfreeSoftBodyComponent::selfCollisionEnabled)
+        .def_readwrite("collision_layer", &MeshfreeSoftBodyComponent::collisionLayer)
+        .def_readwrite("collision_mask", &MeshfreeSoftBodyComponent::collisionMask);
 
     py::class_<HingeJointState>(m, "HingeJointState")
         .def(py::init<>())
@@ -1104,11 +1357,68 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("collision_layer", &StrandComponent::collisionLayer)
         .def_readwrite("collision_mask", &StrandComponent::collisionMask);
 
+    py::class_<FluidComponent>(m, "FluidComponent")
+        .def(py::init<>())
+        .def_readwrite("source", &FluidComponent::source)
+        .def_readwrite("material", &FluidComponent::material)
+        .def_readwrite("visual_color", &FluidComponent::visualColor)
+        .def_readwrite("particle_mass", &FluidComponent::particleMass)
+        .def_readwrite("particle_radius", &FluidComponent::particleRadius)
+        .def_readwrite("simulated", &FluidComponent::simulated)
+        .def_readwrite("collision_layer", &FluidComponent::collisionLayer)
+        .def_readwrite("collision_mask", &FluidComponent::collisionMask);
+
+    py::class_<ProceduralDeformableCurveRenderComponent>(m,
+                                                         "ProceduralDeformableCurveRenderComponent")
+        .def(py::init<>())
+        .def_readwrite("sequence_id", &ProceduralDeformableCurveRenderComponent::sequenceId)
+        .def_readwrite("radius", &ProceduralDeformableCurveRenderComponent::radius)
+        .def_readwrite("radial_resolution",
+                       &ProceduralDeformableCurveRenderComponent::radialResolution)
+        .def_readwrite("enabled", &ProceduralDeformableCurveRenderComponent::enabled);
+
+    py::class_<SoftBodyAuthoringParticles>(m, "SoftBodyAuthoringParticles")
+        .def(py::init<>())
+        .def_readwrite("particle_count", &SoftBodyAuthoringParticles::particleCount)
+        .def_readwrite("rest_positions", &SoftBodyAuthoringParticles::restPositions);
+
     py::class_<AuthoredParticleReference>(m, "AuthoredParticleReference")
         .def(py::init<>())
         .def_readwrite("entity_id", &AuthoredParticleReference::entityId)
         .def_readwrite("type", &AuthoredParticleReference::type)
         .def_readwrite("local_particle_index", &AuthoredParticleReference::localParticleIndex);
+
+    py::class_<AuthoredParticleDistanceConstraintState>(m,
+                                                        "AuthoredParticleDistanceConstraintState")
+        .def(py::init<>())
+        .def_readwrite("constraint_id", &AuthoredParticleDistanceConstraintState::constraintId)
+        .def_readwrite("particle_a", &AuthoredParticleDistanceConstraintState::particleA)
+        .def_readwrite("particle_b", &AuthoredParticleDistanceConstraintState::particleB)
+        .def_readwrite("rest_length", &AuthoredParticleDistanceConstraintState::restLength)
+        .def_readwrite("compliance", &AuthoredParticleDistanceConstraintState::compliance)
+        .def_readwrite("enabled", &AuthoredParticleDistanceConstraintState::enabled);
+
+    py::class_<AuthoredParticleSequenceState>(m, "AuthoredParticleSequenceState")
+        .def(py::init<>())
+        .def_readwrite("sequence_id", &AuthoredParticleSequenceState::sequenceId)
+        .def_readwrite("entries", &AuthoredParticleSequenceState::entries)
+        .def_readwrite("enabled", &AuthoredParticleSequenceState::enabled);
+
+    py::class_<AuthoredParticleCollisionFilterState>(m, "AuthoredParticleCollisionFilterState")
+        .def(py::init<>())
+        .def_readwrite("filter_id", &AuthoredParticleCollisionFilterState::filterId)
+        .def_readwrite("particle", &AuthoredParticleCollisionFilterState::particle)
+        .def_readwrite("collision_layer", &AuthoredParticleCollisionFilterState::collisionLayer)
+        .def_readwrite("collision_mask", &AuthoredParticleCollisionFilterState::collisionMask)
+        .def_readwrite("enabled", &AuthoredParticleCollisionFilterState::enabled);
+
+    py::class_<AuthoredSuturingSequenceState>(m, "AuthoredSuturingSequenceState")
+        .def(py::init<>())
+        .def_readwrite("sequence_id", &AuthoredSuturingSequenceState::sequenceId)
+        .def_readwrite("entries", &AuthoredSuturingSequenceState::entries)
+        .def_readwrite("tip_entry_index", &AuthoredSuturingSequenceState::tipEntryIndex)
+        .def_readwrite("path_node_spacing", &AuthoredSuturingSequenceState::pathNodeSpacing)
+        .def_readwrite("enabled", &AuthoredSuturingSequenceState::enabled);
 
     py::class_<AuthoredRigidParticleAttachmentConstraintState>(
         m, "AuthoredRigidParticleAttachmentConstraintState")
@@ -1121,6 +1431,26 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("local_anchor", &AuthoredRigidParticleAttachmentConstraintState::localAnchor)
         .def_readwrite("compliance", &AuthoredRigidParticleAttachmentConstraintState::compliance)
         .def_readwrite("enabled", &AuthoredRigidParticleAttachmentConstraintState::enabled);
+
+    py::class_<AuthoredStrandRigidAttachmentConstraintState>(
+        m, "AuthoredStrandRigidAttachmentConstraintState")
+        .def(py::init<>())
+        .def_readwrite("constraint_id", &AuthoredStrandRigidAttachmentConstraintState::constraintId)
+        .def_readwrite("strand_entity_id",
+                       &AuthoredStrandRigidAttachmentConstraintState::strandEntityId)
+        .def_readwrite("local_segment_index",
+                       &AuthoredStrandRigidAttachmentConstraintState::localSegmentIndex)
+        .def_readwrite("segment_t", &AuthoredStrandRigidAttachmentConstraintState::segmentT)
+        .def_readwrite("rigid_body_entity_id",
+                       &AuthoredStrandRigidAttachmentConstraintState::rigidBodyEntityId)
+        .def_readwrite("local_anchor", &AuthoredStrandRigidAttachmentConstraintState::localAnchor)
+        .def_readwrite("local_rotation",
+                       &AuthoredStrandRigidAttachmentConstraintState::localRotation)
+        .def_readwrite("translation_compliance",
+                       &AuthoredStrandRigidAttachmentConstraintState::translationCompliance)
+        .def_readwrite("rotation_compliance",
+                       &AuthoredStrandRigidAttachmentConstraintState::rotationCompliance)
+        .def_readwrite("enabled", &AuthoredStrandRigidAttachmentConstraintState::enabled);
 
     py::class_<AuthoredRigidDistanceConstraintState>(m, "AuthoredRigidDistanceConstraintState")
         .def(py::init<>())
@@ -1169,10 +1499,13 @@ PYBIND11_MODULE(_cressim_neo, m)
     py::class_<RenderResourceManager>(m, "RenderResourceManager")
         .def("register_mesh", &RenderResourceManager::registerMesh)
         .def("register_material", &RenderResourceManager::registerMaterial)
+        .def("register_texture", &RenderResourceManager::registerTexture)
         .def("is_valid_mesh",
              py::overload_cast<MeshHandle>(&RenderResourceManager::isValid, py::const_))
         .def("is_valid_material",
              py::overload_cast<MaterialHandle>(&RenderResourceManager::isValid, py::const_))
+        .def("is_valid_texture",
+             py::overload_cast<TextureHandle>(&RenderResourceManager::isValid, py::const_))
         .def("try_get_mesh",
              [](const RenderResourceManager &resources, const MeshHandle mesh) -> py::object
              {
@@ -1186,6 +1519,15 @@ PYBIND11_MODULE(_cressim_neo, m)
              [](const RenderResourceManager &resources, const MaterialHandle material) -> py::object
              {
                  if (const auto *desc = resources.tryGetMaterial(material))
+                 {
+                     return py::cast(*desc);
+                 }
+                 return py::none();
+             })
+        .def("try_get_texture",
+             [](const RenderResourceManager &resources, const TextureHandle texture) -> py::object
+             {
+                 if (const auto *desc = resources.tryGetTexture(texture))
                  {
                      return py::cast(*desc);
                  }
@@ -1212,10 +1554,20 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("set_entity_environment", &World::setEntityEnvironment)
         .def("entity_environment", &World::entityEnvironment)
         .def("set_environment_ibl", &World::setEnvironmentIbl)
+        .def("set_environment_fluid", &World::setEnvironmentFluid)
         .def("try_get_environment_ibl",
              [](const World &world, const std::uint32_t envIndex) -> py::object
              {
                  if (const auto *desc = world.tryGetEnvironmentIbl(envIndex))
+                 {
+                     return py::cast(*desc);
+                 }
+                 return py::none();
+             })
+        .def("try_get_environment_fluid",
+             [](const World &world, const std::uint32_t envIndex) -> py::object
+             {
+                 if (const auto *desc = world.tryGetEnvironmentFluid(envIndex))
                  {
                      return py::cast(*desc);
                  }
@@ -1244,9 +1596,47 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("set_rigid_body", &World::setRigidBody)
         .def("remove_rigid_body", &World::removeRigidBody)
         .def("try_get_rigid_body", &World::tryGetRigidBody)
+        .def("set_soft_body", &World::setSoftBody)
+        .def("set_meshfree_soft_body", &World::setMeshfreeSoftBody)
+        .def("remove_soft_body", &World::removeSoftBody)
+        .def("try_get_soft_body", &World::tryGetSoftBody)
         .def("set_strand", &World::setStrand)
         .def("remove_strand", &World::removeStrand)
         .def("try_get_strand", &World::tryGetStrand)
+        .def("set_procedural_deformable_curve_render", &World::setProceduralDeformableCurveRender)
+        .def("remove_procedural_deformable_curve_render",
+             &World::removeProceduralDeformableCurveRender)
+        .def("try_get_procedural_deformable_curve_render",
+             &World::tryGetProceduralDeformableCurveRender)
+        .def("set_fluid", &World::setFluid)
+        .def("remove_fluid", &World::removeFluid)
+        .def("try_get_fluid", &World::tryGetFluid)
+        .def("upsert_particle_sequence", &World::upsertParticleSequence,
+             py::return_value_policy::reference_internal)
+        .def("remove_particle_sequence", &World::removeParticleSequence)
+        .def("try_get_particle_sequence",
+             [](const World &world,
+                const cressim::neo::physics::ParticleSequenceId sequenceId) -> py::object
+             {
+                 if (const auto *state = world.tryGetParticleSequence(sequenceId))
+                 {
+                     return py::cast(*state);
+                 }
+                 return py::none();
+             })
+        .def("upsert_particle_distance_constraint", &World::upsertParticleDistanceConstraint,
+             py::return_value_policy::reference_internal)
+        .def("remove_particle_distance_constraint", &World::removeParticleDistanceConstraint)
+        .def("try_get_particle_distance_constraint",
+             [](const World &world,
+                const cressim::neo::physics::ParticleConstraintId constraintId) -> py::object
+             {
+                 if (const auto *state = world.tryGetParticleDistanceConstraint(constraintId))
+                 {
+                     return py::cast(*state);
+                 }
+                 return py::none();
+             })
         .def("upsert_ball_joint", &World::upsertBallJoint)
         .def("remove_ball_joint", &World::removeBallJoint)
         .def("try_get_ball_joint",
@@ -1310,6 +1700,22 @@ PYBIND11_MODULE(_cressim_neo, m)
                  }
                  return py::none();
              })
+        .def("upsert_strand_rigid_attachment_constraint",
+             [](World &world, const AuthoredStrandRigidAttachmentConstraintState &state)
+             { return world.upsertStrandRigidAttachmentConstraint(state); })
+        .def("remove_strand_rigid_attachment_constraint",
+             &World::removeStrandRigidAttachmentConstraint)
+        .def("try_get_strand_rigid_attachment_constraint",
+             [](const World &world,
+                const cressim::neo::physics::StrandRigidAttachmentConstraintId constraintId)
+                 -> py::object
+             {
+                 if (const auto *state = world.tryGetStrandRigidAttachmentConstraint(constraintId))
+                 {
+                     return py::cast(*state);
+                 }
+                 return py::none();
+             })
         .def("upsert_rigid_distance_constraint",
              [](World &world, const AuthoredRigidDistanceConstraintState &state)
              { return world.upsertRigidDistanceConstraint(state); })
@@ -1338,13 +1744,40 @@ PYBIND11_MODULE(_cressim_neo, m)
                  }
                  return py::none();
              })
+        .def("upsert_particle_collision_filter", &World::upsertParticleCollisionFilter,
+             py::return_value_policy::reference_internal)
+        .def("remove_particle_collision_filter", &World::removeParticleCollisionFilter)
+        .def("try_get_particle_collision_filter",
+             [](const World &world,
+                const cressim::neo::physics::ParticleCollisionFilterId filterId) -> py::object
+             {
+                 if (const auto *state = world.tryGetParticleCollisionFilter(filterId))
+                 {
+                     return py::cast(*state);
+                 }
+                 return py::none();
+             })
+        .def("upsert_suturing_sequence", &World::upsertSuturingSequence,
+             py::return_value_policy::reference_internal)
+        .def("remove_suturing_sequence", &World::removeSuturingSequence)
+        .def("try_get_suturing_sequence",
+             [](const World &world,
+                const cressim::neo::physics::SuturingSequenceId sequenceId) -> py::object
+             {
+                 if (const auto *state = world.tryGetSuturingSequence(sequenceId))
+                 {
+                     return py::cast(*state);
+                 }
+                 return py::none();
+             })
         .def("add_collider", &World::addCollider)
         .def("update_collider", &World::updateCollider)
         .def("remove_collider", &World::removeCollider)
         .def("replace_colliders", &World::replaceColliders)
         .def("try_get_collider", &World::tryGetCollider)
         .def("collider_handles", &World::colliderHandles,
-             py::return_value_policy::reference_internal);
+             py::return_value_policy::reference_internal)
+        .def("try_get_soft_body_authoring_particles", &World::tryGetSoftBodyAuthoringParticles);
 
     py::class_<Runtime>(m, "Runtime")
         .def(py::init<>())
@@ -1405,6 +1838,16 @@ PYBIND11_MODULE(_cressim_neo, m)
                  if (!runtime.tryGetPreparedConstraintLayoutMapping(mapping))
                  {
                      throw std::runtime_error("Prepared constraint layout mapping is unavailable.");
+                 }
+                 return mapping;
+             })
+        .def("get_prepared_particle_layout_mapping",
+             [](Runtime &runtime)
+             {
+                 ParticleLayoutMapping mapping{};
+                 if (!runtime.tryGetPreparedParticleLayoutMapping(mapping))
+                 {
+                     throw std::runtime_error("Prepared particle layout mapping is unavailable.");
                  }
                  return mapping;
              })

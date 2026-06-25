@@ -305,7 +305,7 @@ AuthoredCartpoleEnv authorEnv(cressim::neo::engine::World &world, const std::uin
 bool verifyMapping(const cressim::neo::engine::JointLayoutMapping &mapping,
                    const std::vector<AuthoredCartpoleEnv> &authored)
 {
-    if (mapping.bindingGeneration == 0u)
+    if (mapping.layoutRevision == 0u)
     {
         CRESSIM_LOG_ERROR("Prepared joint mapping generation should be non-zero after prepare.");
         return false;
@@ -410,7 +410,7 @@ int main()
         return 1;
     }
 
-    const std::uint64_t previousGeneration = mapping.bindingGeneration;
+    const std::uint64_t previousGeneration = mapping.layoutRevision;
 
     if (!runtime.uploadWorld())
     {
@@ -459,7 +459,7 @@ int main()
         runtime.shutdown();
         return 1;
     }
-    if (updatedMapping.bindingGeneration == previousGeneration)
+    if (updatedMapping.layoutRevision == previousGeneration)
     {
         CRESSIM_LOG_ERROR("Joint layout binding generation did not change after structural authoring.");
         runtime.shutdown();

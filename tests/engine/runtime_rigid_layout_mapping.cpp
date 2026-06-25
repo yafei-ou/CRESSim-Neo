@@ -64,7 +64,7 @@ bool verifyBaseMapping(const cressim::neo::engine::RigidLayoutMapping &mapping,
         CRESSIM_LOG_ERROR("Unexpected rigid mapping counts.");
         return false;
     }
-    if (mapping.bindingGeneration == 0u)
+    if (mapping.layoutRevision == 0u)
     {
         CRESSIM_LOG_ERROR("Prepared rigid mapping generation should be non-zero after prepare.");
         return false;
@@ -269,7 +269,7 @@ int main()
         return 1;
     }
 
-    const std::uint64_t previousGeneration = mapping.bindingGeneration;
+    const std::uint64_t previousGeneration = mapping.layoutRevision;
     const std::uint32_t previousBodyCount  = mapping.rigidBodyCount;
 
     const AuthoredRigidEntities addedEnvBody = authorEnv(world, 1u, 4.0f);
@@ -289,7 +289,7 @@ int main()
         runtime.shutdown();
         return 1;
     }
-    if (updatedMapping.bindingGeneration == previousGeneration)
+    if (updatedMapping.layoutRevision == previousGeneration)
     {
         CRESSIM_LOG_ERROR("Rigid layout binding generation did not change after structural "
                           "authoring.");

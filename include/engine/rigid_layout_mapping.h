@@ -13,9 +13,9 @@ namespace cressim::neo::engine
 
 struct CRESSIM_NEO_ENGINE_API RigidLayoutMapping
 {
-    std::uint32_t rigidBodyCount    = 0u;
-    std::uint32_t colliderCount     = 0u;
-    std::uint64_t bindingGeneration = 0u;
+    std::uint32_t rigidBodyCount = 0u;
+    std::uint32_t colliderCount  = 0u;
+    std::uint64_t layoutRevision = 0u;
 
     std::vector<physics::RigidBodyId> rigidBodyIds;
     std::vector<common::EntityId> rigidBodyEntityIds;

@@ -129,7 +129,7 @@ bool verifyConstraintMapping(const cressim::neo::engine::RigidLayoutMapping &rig
 {
     using namespace cressim::neo;
 
-    if (mapping.bindingGeneration == 0u)
+    if (mapping.layoutRevision == 0u)
     {
         CRESSIM_LOG_ERROR("Constraint layout binding generation should be non-zero after prepare.");
         return false;
@@ -268,7 +268,7 @@ int main()
         return 1;
     }
 
-    const std::uint64_t previousGeneration = mapping.bindingGeneration;
+    const std::uint64_t previousGeneration = mapping.layoutRevision;
 
     if (!runtime.uploadWorld())
     {
@@ -311,7 +311,7 @@ int main()
     }
     if (updatedMapping.rigidDistanceConstraints.count !=
             mapping.rigidDistanceConstraints.count + 1u ||
-        updatedMapping.bindingGeneration == previousGeneration)
+        updatedMapping.layoutRevision == previousGeneration)
     {
         CRESSIM_LOG_ERROR("Prepared constraint layout mapping did not update after structural authoring.");
         runtime.shutdown();

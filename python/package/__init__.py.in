@@ -8,6 +8,16 @@ except RuntimeError:
     CartpoleGymnasiumAdapter = None
     CartpoleTorchVectorEnv = None
 
+try:
+    from .soft_body_env import SoftBodyTorchVectorEnv
+except RuntimeError:
+    SoftBodyTorchVectorEnv = None
+
+try:
+    from .fluid_env import FluidTorchVectorEnv
+except RuntimeError:
+    FluidTorchVectorEnv = None
+
 
 _PACKAGE_DIR = Path(__file__).resolve().parent
 _SHADERS_DIR = _PACKAGE_DIR / "shaders"

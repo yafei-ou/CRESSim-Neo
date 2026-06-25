@@ -524,7 +524,7 @@ bool Runtime::tryGetPreparedRigidLayoutMapping(RigidLayoutMapping &outMapping) c
         physicsWorld.bodyColliderMapping();
     outMapping.rigidBodyCount              = static_cast<std::uint32_t>(rigidBodies.size());
     outMapping.colliderCount               = static_cast<std::uint32_t>(colliders.size());
-    outMapping.bindingGeneration           = physicsWorld.rigidBodyTopologyRevision();
+    outMapping.layoutRevision              = physicsWorld.rigidBodyTopologyRevision();
     outMapping.rigidBodyIds                = rigidBodies.rigidBodyIds;
     outMapping.rigidBodyEntityIds          = rigidBodies.entityIds;
     outMapping.rigidBodyEnvironmentIndices = rigidBodies.environmentIndices;
@@ -576,10 +576,9 @@ bool Runtime::tryGetPreparedConstraintLayoutMapping(ConstraintLayoutMapping &out
         bodyIndexByEntity.emplace(rigidBodies.entityIds[i], i);
     }
 
-    outMapping.bindingGeneration =
-        std::max({physicsWorld.rigidParticleAttachmentDefinitionRevision(),
-                  physicsWorld.rigidDistanceConstraintDefinitionRevision(),
-                  physicsWorld.routedCableDefinitionRevision()});
+    outMapping.layoutRevision = std::max({physicsWorld.rigidParticleAttachmentDefinitionRevision(),
+                                          physicsWorld.rigidDistanceConstraintDefinitionRevision(),
+                                          physicsWorld.routedCableDefinitionRevision()});
 
     auto &attachmentMapping = outMapping.rigidParticleAttachments;
     attachmentMapping.count = static_cast<std::uint32_t>(rigidParticleAttachments.size());
@@ -686,6 +685,81 @@ bool Runtime::tryGetPreparedConstraintLayoutMapping(ConstraintLayoutMapping &out
     return true;
 }
 
+bool Runtime::tryGetPreparedParticleLayoutMapping(ParticleLayoutMapping &outMapping) const
+{
+    outMapping = {};
+    if (!mInitialized || mPhysicsSolver == nullptr)
+    {
+        return false;
+    }
+
+    const physics::PhysicsWorld &physicsWorld = mWorld.physicsWorld();
+    physicsWorld.ensureDerivedStateUpToDate();
+
+    const physics::ParticleSoAHost &particles = physicsWorld.particles();
+    const auto &softBodies                    = physicsWorld.softBodySnapshot();
+    const auto &fluids                        = physicsWorld.fluidSnapshot();
+    const auto &strands                       = physicsWorld.strandSnapshot();
+    outMapping.particleCount                  = static_cast<std::uint32_t>(particles.size());
+    outMapping.softBodyCount                  = static_cast<std::uint32_t>(softBodies.size());
+    outMapping.fluidCount                     = static_cast<std::uint32_t>(fluids.size());
+    outMapping.strandCount                    = static_cast<std::uint32_t>(strands.size());
+    outMapping.layoutRevision                 = physicsWorld.softParticleRevision();
+    outMapping.environmentIndices             = particles.environmentIndices;
+    outMapping.particleKinds                  = particles.particleKinds;
+    outMapping.ownerTypes                     = particles.ownerTypes;
+    outMapping.ownerIndices                   = particles.ownerIndices;
+    outMapping.strandIds                      = particles.strandIds;
+    outMapping.strandOrders                   = particles.strandOrders;
+    outMapping.strandRoles                    = particles.strandRoles;
+    outMapping.owningSoftBodyIndices          = particles.owningSoftBodyIndices;
+    outMapping.particleMaterialIndices        = particles.particleMaterialIndices;
+    outMapping.fluidMaterialIndices           = particles.fluidMaterialIndices;
+    outMapping.phases                         = particles.phases;
+    outMapping.collisionLayers                = particles.collisionLayers;
+    outMapping.collisionMasks                 = particles.collisionMasks;
+    outMapping.adjacencyOffsets               = particles.adjacencyOffsets;
+    outMapping.adjacencyCounts                = particles.adjacencyCounts;
+
+    outMapping.softBodyEntityIds.reserve(softBodies.size());
+    outMapping.softBodyEnvironmentIndices.reserve(softBodies.size());
+    outMapping.softBodyParticleOffsets.reserve(softBodies.size());
+    outMapping.softBodyParticleCounts.reserve(softBodies.size());
+    for (const auto &softBody : softBodies)
+    {
+        outMapping.softBodyEntityIds.push_back(softBody.entityId);
+        outMapping.softBodyEnvironmentIndices.push_back(softBody.environmentIndex);
+        outMapping.softBodyParticleOffsets.push_back(softBody.particleOffset);
+        outMapping.softBodyParticleCounts.push_back(softBody.particleCount);
+    }
+
+    outMapping.fluidEntityIds.reserve(fluids.size());
+    outMapping.fluidEnvironmentIndices.reserve(fluids.size());
+    outMapping.fluidParticleOffsets.reserve(fluids.size());
+    outMapping.fluidParticleCounts.reserve(fluids.size());
+    for (const auto &fluid : fluids)
+    {
+        outMapping.fluidEntityIds.push_back(fluid.entityId);
+        outMapping.fluidEnvironmentIndices.push_back(fluid.environmentIndex);
+        outMapping.fluidParticleOffsets.push_back(fluid.particleOffset);
+        outMapping.fluidParticleCounts.push_back(fluid.particleCount);
+    }
+
+    outMapping.strandEntityIds.reserve(strands.size());
+    outMapping.strandEnvironmentIndices.reserve(strands.size());
+    outMapping.strandParticleOffsets.reserve(strands.size());
+    outMapping.strandParticleCounts.reserve(strands.size());
+    for (const auto &strand : strands)
+    {
+        outMapping.strandEntityIds.push_back(strand.entityId);
+        outMapping.strandEnvironmentIndices.push_back(strand.environmentIndex);
+        outMapping.strandParticleOffsets.push_back(strand.particleOffset);
+        outMapping.strandParticleCounts.push_back(strand.particleCount);
+    }
+
+    return true;
+}
+
 bool Runtime::tryGetPreparedJointLayoutMapping(JointLayoutMapping &outMapping) const
 {
     outMapping = {};
@@ -707,7 +781,7 @@ bool Runtime::tryGetPreparedJointLayoutMapping(JointLayoutMapping &outMapping) c
     outMapping.hingeJointCount     = static_cast<std::uint32_t>(hinges.size());
     outMapping.sphericalJointCount = static_cast<std::uint32_t>(spherical.size());
     outMapping.sliderJointCount    = static_cast<std::uint32_t>(sliders.size());
-    outMapping.bindingGeneration   = physicsWorld.rigidJointTopologyRevision();
+    outMapping.layoutRevision      = physicsWorld.rigidJointTopologyRevision();
 
     outMapping.ballJointIds.reserve(balls.size());
     outMapping.ballEnvironmentIndices.reserve(balls.size());

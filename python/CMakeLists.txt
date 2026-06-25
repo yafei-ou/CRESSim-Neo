@@ -12,7 +12,10 @@ set(CRESSIM_NEO_PYTHON_PACKAGE_INIT
 set(CRESSIM_NEO_PYTHON_PACKAGE_STUB
     "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/__init__.pyi")
 set(CRESSIM_NEO_PYTHON_PACKAGE_EXTRA_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/package/cartpole.py")
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/cartpole.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/torch_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/soft_body_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/fluid_env.py")
 
 configure_file(
     "${CRESSIM_NEO_PYTHON_PACKAGE_INIT_TEMPLATE}"

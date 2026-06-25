@@ -213,3 +213,10 @@ add_cressim_test(
     SOURCE runtime_constraint_layout_mapping.cpp
     LIBS cressim_neo_engine
 )
+
+add_cressim_test(
+    SUITE engine
+    NAME runtime_particle_layout_mapping
+    SOURCE runtime_particle_layout_mapping.cpp
+    LIBS cressim_neo_engine
+)

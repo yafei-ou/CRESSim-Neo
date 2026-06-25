@@ -54,7 +54,7 @@ struct CRESSIM_NEO_ENGINE_API RoutedCableConstraintLayoutMapping
 
 struct CRESSIM_NEO_ENGINE_API ConstraintLayoutMapping
 {
-    std::uint64_t bindingGeneration = 0u;
+    std::uint64_t layoutRevision = 0u;
 
     RigidParticleAttachmentConstraintLayoutMapping rigidParticleAttachments;
     RigidDistanceConstraintLayoutMapping rigidDistanceConstraints;

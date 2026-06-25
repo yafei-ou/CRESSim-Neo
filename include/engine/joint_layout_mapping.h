@@ -16,7 +16,7 @@ struct CRESSIM_NEO_ENGINE_API JointLayoutMapping
     std::uint32_t hingeJointCount     = 0u;
     std::uint32_t sphericalJointCount = 0u;
     std::uint32_t sliderJointCount    = 0u;
-    std::uint64_t bindingGeneration   = 0u;
+    std::uint64_t layoutRevision      = 0u;
 
     std::vector<physics::BallJointId> ballJointIds;
     std::vector<std::uint32_t> ballEnvironmentIndices;
