@@ -194,7 +194,9 @@ py::capsule exportSharedBufferToDLPack(Runtime &runtime, const SharedBufferHandl
     SharedBufferCudaView view{};
     if (!runtime.tryGetSharedBufferCudaView(handle, view) || !view.isValid())
     {
-        throw std::runtime_error("Shared buffer CUDA view is unavailable.");
+        throw std::runtime_error(
+            "Shared buffer CUDA view is unavailable. CUDA interop may be disabled in this build "
+            "or this shared buffer may not be imported into CUDA.");
     }
     std::shared_ptr<void> sharedBufferLease =
         cressim::neo::engine::RuntimeInternalAccess::retainSharedBufferLease(runtime, handle);

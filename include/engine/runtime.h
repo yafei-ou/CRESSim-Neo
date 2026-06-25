@@ -63,8 +63,9 @@ public:
     graphics::RenderResourceManager &getResources() noexcept;
     const graphics::RenderResourceManager &getResources() const noexcept;
 
-    // Creates an engine-owned exportable structured GPU buffer that can be bound in custom
-    // compute and exported to CUDA/Torch through DLPack.
+    // Creates an engine-owned structured GPU buffer that can be bound in custom compute.
+    // When CUDA interop is available and the allocation is exportable, the same buffer can
+    // also be imported into CUDA/Torch through DLPack.
     SharedBufferHandle createSharedBuffer(const SharedBufferDesc &desc);
 
     // Destroys the runtime handle for a shared buffer. Exported DLPack tensors may keep the
@@ -78,13 +79,15 @@ public:
     bool tryGetSharedBufferInfo(SharedBufferHandle handle, SharedBufferInfo &outInfo) const;
 
     // Returns the CUDA-facing device pointer view for one shared buffer when CUDA interop is
-    // available.
+    // available and this buffer was successfully imported into CUDA.
     bool tryGetSharedBufferCudaView(SharedBufferHandle handle, SharedBufferCudaView &outView) const;
 
     // Inserts a GPU-side wait so subsequent CUDA/Torch work sees prior Vulkan/D3D compute writes.
+    // Fails when the shared buffer is not imported into CUDA.
     bool syncSharedBufferToCuda(SharedBufferHandle handle);
 
     // Inserts a GPU-side wait so subsequent Vulkan/D3D compute work sees prior CUDA/Torch writes.
+    // Fails when the shared buffer is not imported into CUDA.
     bool syncSharedBufferFromCuda(SharedBufferHandle handle);
 
     // Returns the current prepared rigid-body/collider slot mapping derived from authored state.

@@ -24,13 +24,6 @@ SharedBufferHandle SharedBufferService::createBuffer(const SharedBufferDesc &des
         CRESSIM_LOG_ERROR("SharedBufferService: bindFlags must not be None.");
         return handle;
     }
-    if (!gpu::CudaSharedBuffer::supportsCudaInteropBuild())
-    {
-        CRESSIM_LOG_ERROR("SharedBufferService: CUDA interop support is not available in this "
-                          "build.");
-        return handle;
-    }
-
     gpu::GpuComputeBackendContext computeBackend{};
     if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
         computeBackend.renderDevice == nullptr)
@@ -54,18 +47,28 @@ SharedBufferHandle SharedBufferService::createBuffer(const SharedBufferDesc &des
             Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
             gpu::contextMaskForId(computeBackend.contextId)))
     {
-        CRESSIM_LOG_ERROR("SharedBufferService: failed to create exportable shared buffer '",
-                          debugName, "'.");
+        CRESSIM_LOG_ERROR("SharedBufferService: failed to create shared buffer '", debugName, "'.");
         return handle;
     }
 
-    if (!state->sharedBuffer.usesNativeSharedAllocation() ||
-        !state->cudaBridge.initialize(computeBackend.renderDevice, debugName.c_str()) ||
-        !state->cudaBridge.bindSharedBuffer(state->sharedBuffer))
+    const bool supportsCudaInterop = gpu::CudaSharedBuffer::supportsCudaInteropBuild();
+    if (!supportsCudaInterop)
     {
-        CRESSIM_LOG_ERROR("SharedBufferService: failed to import shared buffer '", debugName,
-                          "' into CUDA.");
-        return handle;
+        CRESSIM_LOG_INFO("SharedBufferService: CUDA interop is unavailable in this build; shared "
+                         "buffer '",
+                         debugName, "' will remain engine-only.");
+    }
+    else if (!state->sharedBuffer.usesNativeSharedAllocation())
+    {
+        CRESSIM_LOG_INFO("SharedBufferService: shared buffer '", debugName,
+                         "' uses a non-exportable GPU allocation and cannot be imported into "
+                         "CUDA.");
+    }
+    else if (!state->cudaBridge.initialize(computeBackend.renderDevice, debugName.c_str()) ||
+             !state->cudaBridge.bindSharedBuffer(state->sharedBuffer))
+    {
+        CRESSIM_LOG_WARNING("SharedBufferService: failed to import shared buffer '", debugName,
+                            "' into CUDA; continuing with engine-only access.");
     }
 
     handle.id                    = mNextBufferId++;
@@ -144,14 +147,34 @@ bool SharedBufferService::synchronizeToCuda(const SharedBufferHandle handle,
                                             Diligent::IDeviceContext *context)
 {
     const auto it = mBuffers.find(handle.id);
-    return it != mBuffers.end() && it->second->cudaBridge.synchronizeFromDeviceContext(context);
+    if (it == mBuffers.end())
+    {
+        return false;
+    }
+    if (!it->second->cudaBridge.isInitialized())
+    {
+        CRESSIM_LOG_ERROR("SharedBufferService: shared buffer '", it->second->info.debugName,
+                          "' is not imported into CUDA.");
+        return false;
+    }
+    return it->second->cudaBridge.synchronizeFromDeviceContext(context);
 }
 
 bool SharedBufferService::synchronizeFromCuda(const SharedBufferHandle handle,
                                               Diligent::IDeviceContext *context)
 {
     const auto it = mBuffers.find(handle.id);
-    return it != mBuffers.end() && it->second->cudaBridge.synchronizeToDeviceContext(context);
+    if (it == mBuffers.end())
+    {
+        return false;
+    }
+    if (!it->second->cudaBridge.isInitialized())
+    {
+        CRESSIM_LOG_ERROR("SharedBufferService: shared buffer '", it->second->info.debugName,
+                          "' is not imported into CUDA.");
+        return false;
+    }
+    return it->second->cudaBridge.synchronizeToDeviceContext(context);
 }
 
 bool SharedBufferService::isAccessCompatible(const SharedBufferHandle handle,
