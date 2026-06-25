@@ -131,7 +131,7 @@ int main()
     passDesc.dispatch.countResourceKey = "rigid.positions";
     passDesc.constantBufferVariableName = "CustomRigidLateralShiftConstants";
     passDesc.constantBufferSizeBytes    = 16u;
-    const float constants[4]            = {0.5f, 0.0f, 0.0f, 0.0f};
+    const float constants[4]            = {0.25f, 0.0f, 0.0f, 0.0f};
     const auto *constantBytes = reinterpret_cast<const std::uint8_t *>(constants);
     passDesc.constantData.assign(constantBytes, constantBytes + sizeof(constants));
 
@@ -139,6 +139,19 @@ int main()
     if (!pass.isValid())
     {
         CRESSIM_LOG_ERROR("Failed to create runtime custom compute pass.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    const float updatedConstants[4] = {0.5f, 0.0f, 0.0f, 0.0f};
+    const auto *updatedConstantBytes =
+        reinterpret_cast<const std::uint8_t *>(updatedConstants);
+    std::vector<std::uint8_t> updatedConstantData(updatedConstantBytes,
+                                                  updatedConstantBytes +
+                                                      sizeof(updatedConstants));
+    if (!runtime.updateCustomComputePassConstants(pass, updatedConstantData))
+    {
+        CRESSIM_LOG_ERROR("Failed to update runtime custom compute pass constants.");
         runtime.shutdown();
         return 1;
     }

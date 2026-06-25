@@ -59,13 +59,14 @@ bool bindBufferVariable(Diligent::IShaderResourceBinding *srb, const BufferBindi
     else
     {
         Diligent::IBufferView *view = binding.buffer->GetDefaultView(binding.viewType);
-        if (view == nullptr)
+        if (view != nullptr)
         {
-            CRESSIM_LOG_ERROR("CustomComputeService: buffer view is unavailable for variable '",
-                              binding.variableName, "'.");
-            return false;
+            variable->Set(view);
         }
-        variable->Set(view);
+        else
+        {
+            variable->Set(binding.buffer);
+        }
     }
     return true;
 }
@@ -128,7 +129,8 @@ struct CustomComputeService::PassState
     std::vector<ExpectedRenderTargetBindingState> expectedRenderTargetBindings;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> constantBuffer;
     std::uint32_t constantBufferSizeBytes = 0u;
-    bool readsGraphicsTextures            = false;
+    std::vector<std::uint8_t> constantData;
+    bool readsGraphicsTextures = false;
 };
 
 CustomComputeService::CustomComputeService(gpu::GpuDevice &device) : mDevice(device) {}
@@ -355,7 +357,6 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
 
     if (!desc.constantBufferVariableName.empty())
     {
-        passState->variableNames.push_back(desc.constantBufferVariableName);
         passState->constantBufferSizeBytes = roundUpConstantBufferSize(std::max(
             desc.constantBufferSizeBytes, static_cast<std::uint32_t>(desc.constantData.size())));
         if (passState->constantBufferSizeBytes == 0u)
@@ -385,6 +386,12 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
         {
             return handle;
         }
+        passState->constantData = desc.constantData;
+    }
+
+    if (!desc.constantBufferVariableName.empty())
+    {
+        passState->variableNames.push_back(desc.constantBufferVariableName);
     }
 
     passState->variables.reserve(passState->variableNames.size());
@@ -447,7 +454,12 @@ bool CustomComputeService::updatePassConstants(CustomComputePassHandle handle,
                           " does not expose a constant buffer.");
         return false;
     }
-    return uploadConstantData(*it->second, data);
+    if (!uploadConstantData(*it->second, data))
+    {
+        return false;
+    }
+    it->second->constantData = data;
+    return true;
 }
 
 bool CustomComputeService::executePass(physics::PhysicsSolver &solver, physics::PhysicsWorld &world,
@@ -533,6 +545,11 @@ bool CustomComputeService::executePass(physics::PhysicsSolver &solver, physics::
     {
         CRESSIM_LOG_ERROR("CustomComputeService: failed to synchronize graphics output before "
                           "texture-based custom compute dispatch.");
+        return false;
+    }
+
+    if (pass.constantBuffer != nullptr && !uploadConstantData(pass, pass.constantData))
+    {
         return false;
     }
 
@@ -780,9 +797,8 @@ bool CustomComputeService::bindPassResources(PassState &pass, const ResourceMap 
     {
         bindings.push_back(BufferBindingEntry{pass.desc.constantBufferVariableName,
                                               pass.constantBuffer,
-                                              Diligent::BUFFER_VIEW_UNDEFINED});
+                                              Diligent::BUFFER_VIEW_SHADER_RESOURCE});
     }
-
     for (const BufferBindingEntry &binding : bindings)
     {
         if (!bindBufferVariable(srb, binding))

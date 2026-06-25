@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import struct
 from dataclasses import dataclass
 
 from . import _cressim_neo as neo
@@ -53,9 +54,17 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 """
 
 
-_PRE_PHYSICS_SHADER_TEMPLATE = r"""
+_PRE_PHYSICS_SHADER = r"""
 #include "include/structured_buffer_compat.hlsli"
 #include "include/physics/rigid/physics_rigid_types.hlsli"
+
+cbuffer CartpolePrePhysicsConstants
+{
+    float actionScale;
+    float padding0;
+    float padding1;
+    float padding2;
+};
 
 CRESSIM_STRUCTURED_BUFFER(float, g_Actions);
 CRESSIM_STRUCTURED_BUFFER(uint, g_SliderJointIndices);
@@ -83,30 +92,33 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
 
     GpuSliderJoint joint = CRESSIM_SB_LOAD(g_SliderJoints, jointIndex);
-    joint.driveTargetParams.z =
-        CRESSIM_SB_LOAD(g_Actions, envIndex) * __ACTION_SCALE__;
+    joint.driveTargetParams.z = CRESSIM_SB_LOAD(g_Actions, envIndex) * actionScale;
     CRESSIM_SB_STORE(g_SliderJoints, jointIndex, joint);
 }
 """
 
 
-_POST_PHYSICS_SHADER_TEMPLATE = r"""
+_POST_PHYSICS_SHADER = r"""
 #include "include/structured_buffer_compat.hlsli"
 #include "include/physics/core/physics_math.hlsli"
 #include "include/physics/rigid/physics_rigid_joint_solver_shared.hlsli"
 #include "include/physics/rigid/physics_rigid_types.hlsli"
 
+cbuffer CartpolePostPhysicsConstants
+{
+    float cartLimit;
+    float poleAngleLimit;
+    uint maxEpisodeSteps;
+    float padding0;
+};
+
 CRESSIM_STRUCTURED_BUFFER(uint, g_BaseBodyIndices);
 CRESSIM_STRUCTURED_BUFFER(uint, g_CartBodyIndices);
 CRESSIM_STRUCTURED_BUFFER(uint, g_PoleBodyIndices);
-CRESSIM_STRUCTURED_BUFFER(uint, g_SliderJointIndices);
-CRESSIM_STRUCTURED_BUFFER(uint, g_HingeJointIndices);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyLinearVelocities);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyAngularVelocities);
-CRESSIM_STRUCTURED_BUFFER(GpuSliderJoint, g_SliderJoints);
-CRESSIM_STRUCTURED_BUFFER(GpuHingeJoint, g_HingeJoints);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_Observations);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_Rewards);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_Terminated);
@@ -128,12 +140,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint baseIndex = CRESSIM_SB_LOAD(g_BaseBodyIndices, envIndex);
     const uint cartIndex = CRESSIM_SB_LOAD(g_CartBodyIndices, envIndex);
     const uint poleIndex = CRESSIM_SB_LOAD(g_PoleBodyIndices, envIndex);
-    const uint sliderIndex = CRESSIM_SB_LOAD(g_SliderJointIndices, envIndex);
-    const uint hingeIndex = CRESSIM_SB_LOAD(g_HingeJointIndices, envIndex);
 
     const float4 basePosInvMass = CRESSIM_SB_LOAD(g_RigidBodyPositionsInvMass, baseIndex);
     const float4 cartPosInvMass = CRESSIM_SB_LOAD(g_RigidBodyPositionsInvMass, cartIndex);
-    const float4 polePosInvMass = CRESSIM_SB_LOAD(g_RigidBodyPositionsInvMass, poleIndex);
     const float4 baseOrientation = QuaternionNormalize(CRESSIM_SB_LOAD(g_RigidBodyOrientations, baseIndex));
     const float4 cartOrientation = QuaternionNormalize(CRESSIM_SB_LOAD(g_RigidBodyOrientations, cartIndex));
     const float4 poleOrientation = QuaternionNormalize(CRESSIM_SB_LOAD(g_RigidBodyOrientations, poleIndex));
@@ -142,14 +151,12 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 baseAngularVelocity = CRESSIM_SB_LOAD(g_RigidBodyAngularVelocities, baseIndex).xyz;
     const float3 cartAngularVelocity = CRESSIM_SB_LOAD(g_RigidBodyAngularVelocities, cartIndex).xyz;
     const float3 poleAngularVelocityWorld = CRESSIM_SB_LOAD(g_RigidBodyAngularVelocities, poleIndex).xyz;
-    const GpuSliderJoint slider = CRESSIM_SB_LOAD(g_SliderJoints, sliderIndex);
-    const GpuHingeJoint hinge = CRESSIM_SB_LOAD(g_HingeJoints, hingeIndex);
 
     const float3 sliderAxis = SafeNormalize(
-        QuaternionRotate(baseOrientation, slider.localAxisA0.xyz),
+        QuaternionRotate(baseOrientation, float3(1.0, 0.0, 0.0)),
         float3(1.0, 0.0, 0.0));
     const float3 hingeAxis = SafeNormalize(
-        QuaternionRotate(cartOrientation, hinge.localAxisA0.xyz),
+        QuaternionRotate(cartOrientation, float3(0.0, 0.0, 1.0)),
         float3(0.0, 0.0, 1.0));
 
     const float3 cartDelta = cartPosInvMass.xyz - basePosInvMass.xyz;
@@ -167,8 +174,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const uint nextEpisodeStep = CRESSIM_SB_LOAD(g_EpisodeSteps, envIndex) + 1u;
     const uint terminated =
-        (abs(cartPosition) > __CART_LIMIT__ || abs(poleAngle) > __POLE_ANGLE_LIMIT__) ? 1u : 0u;
-    const uint truncated = nextEpisodeStep >= __MAX_EPISODE_STEPS__ ? 1u : 0u;
+        (abs(cartPosition) > cartLimit || abs(poleAngle) > poleAngleLimit) ? 1u : 0u;
+    const uint truncated = nextEpisodeStep >= maxEpisodeSteps ? 1u : 0u;
     const float reward = 1.0f;
     const uint obsBase = envIndex * 4u;
     CRESSIM_SB_STORE(g_Observations, obsBase + 0u, cartPosition);
@@ -376,15 +383,6 @@ def _make_tensor(
     desc.dtype_bits = 32
     desc.dtype_lanes = 1
     return torch.utils.dlpack.from_dlpack(runtime.shared_buffer_to_dlpack(handle, desc))
-
-
-def _hlsl_float(value: float) -> str:
-    return f"{float(value):.8f}f"
-
-
-def _hlsl_uint(value: int) -> str:
-    return f"{int(value)}u"
-
 
 def _create_buffer(
     runtime: neo.Runtime,
@@ -895,12 +893,9 @@ class CartpoleTorchVectorEnv:
                 raise RuntimeError("Failed to upload initial cartpole shared buffers.")
 
     def _create_custom_passes(self) -> None:
-        pre_shader_source = _PRE_PHYSICS_SHADER_TEMPLATE.replace(
-            "__ACTION_SCALE__", _hlsl_float(self.action_scale)
-        )
         pre_desc = neo.CustomComputePassDesc()
         pre_desc.debug_name = "Cartpole.PrePhysicsControl"
-        pre_desc.shader_source = pre_shader_source
+        pre_desc.shader_source = _PRE_PHYSICS_SHADER
         pre_desc.thread_group_size_x = 64
         pre_desc.resource_bindings = [neo.CustomComputeResourceBindingDesc() for _ in range(3)]
         pre_desc.resource_bindings[0].shader_variable_name = "g_Actions"
@@ -912,35 +907,33 @@ class CartpoleTorchVectorEnv:
         pre_desc.resource_bindings[2].shader_variable_name = "g_SliderJoints"
         pre_desc.resource_bindings[2].resource_key = "joint.slider"
         pre_desc.resource_bindings[2].access = neo.CustomComputeResourceAccess.ReadWrite
+        pre_desc.constant_buffer_variable_name = "CartpolePrePhysicsConstants"
+        pre_desc.constant_buffer_size_bytes = 16
+        pre_desc.constant_data = list(struct.pack("<4f", self.action_scale, 0.0, 0.0, 0.0))
         pre_desc.dispatch.mode = neo.CustomComputeDispatchMode.ExplicitGroupCount
         pre_desc.dispatch.group_count_x = (self.env_count + 63) // 64
         self._pre_pass = self.runtime.create_custom_compute_pass(pre_desc)
         if not self._pre_pass.is_valid():
             raise RuntimeError("Failed to create cartpole pre-physics pass.")
+        if not self.runtime.update_custom_compute_pass_constants(
+            self._pre_pass, struct.pack("<4f", self.action_scale, 0.0, 0.0, 0.0)
+        ):
+            raise RuntimeError("Failed to upload cartpole pre-physics constants.")
 
-        post_shader_source = (
-            _POST_PHYSICS_SHADER_TEMPLATE.replace("__CART_LIMIT__", _hlsl_float(self.cart_limit))
-            .replace("__POLE_ANGLE_LIMIT__", _hlsl_float(self.pole_angle_limit_radians))
-            .replace("__MAX_EPISODE_STEPS__", _hlsl_uint(self.max_episode_steps))
-        )
         post_desc = neo.CustomComputePassDesc()
         post_desc.debug_name = "Cartpole.PostPhysicsObservations"
-        post_desc.shader_source = post_shader_source
+        post_desc.shader_source = _POST_PHYSICS_SHADER
         post_desc.thread_group_size_x = 64
-        post_desc.resource_bindings = [neo.CustomComputeResourceBindingDesc() for _ in range(16)]
+        post_desc.resource_bindings = [neo.CustomComputeResourceBindingDesc() for _ in range(12)]
         bindings = post_desc.resource_bindings
         binding_specs = [
             ("g_BaseBodyIndices", self.base_body_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
             ("g_CartBodyIndices", self.cart_body_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
             ("g_PoleBodyIndices", self.pole_body_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
-            ("g_SliderJointIndices", self.slider_joint_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
-            ("g_HingeJointIndices", self.hinge_joint_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
             ("g_RigidBodyPositionsInvMass", None, "rigid.positions", neo.CustomComputeResourceAccess.ReadOnly),
             ("g_RigidBodyOrientations", None, "rigid.orientations", neo.CustomComputeResourceAccess.ReadOnly),
             ("g_RigidBodyLinearVelocities", None, "rigid.linear_velocities", neo.CustomComputeResourceAccess.ReadOnly),
             ("g_RigidBodyAngularVelocities", None, "rigid.angular_velocities", neo.CustomComputeResourceAccess.ReadOnly),
-            ("g_SliderJoints", None, "joint.slider", neo.CustomComputeResourceAccess.ReadOnly),
-            ("g_HingeJoints", None, "joint.hinge", neo.CustomComputeResourceAccess.ReadOnly),
             ("g_Observations", self.observation_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
             ("g_Rewards", self.reward_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
             ("g_Terminated", self.terminated_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
@@ -954,11 +947,33 @@ class CartpoleTorchVectorEnv:
                 binding.shared_buffer_handle = handle
             else:
                 binding.resource_key = key
+        post_desc.constant_buffer_variable_name = "CartpolePostPhysicsConstants"
+        post_desc.constant_buffer_size_bytes = 16
+        post_desc.constant_data = list(
+            struct.pack(
+                "<ffIf",
+                self.cart_limit,
+                self.pole_angle_limit_radians,
+                self.max_episode_steps,
+                0.0,
+            )
+        )
         post_desc.dispatch.mode = neo.CustomComputeDispatchMode.ExplicitGroupCount
         post_desc.dispatch.group_count_x = (self.env_count + 63) // 64
         self._post_pass = self.runtime.create_custom_compute_pass(post_desc)
         if not self._post_pass.is_valid():
             raise RuntimeError("Failed to create cartpole post-physics pass.")
+        if not self.runtime.update_custom_compute_pass_constants(
+            self._post_pass,
+            struct.pack(
+                "<ffIf",
+                self.cart_limit,
+                self.pole_angle_limit_radians,
+                self.max_episode_steps,
+                0.0,
+            ),
+        ):
+            raise RuntimeError("Failed to upload cartpole post-physics constants.")
 
         reset_desc = neo.CustomComputePassDesc()
         reset_desc.debug_name = "Cartpole.Reset"
