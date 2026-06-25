@@ -4,6 +4,7 @@
 #include "common/frame_context.h"
 #include "engine/custom_compute.h"
 #include "engine/export.h"
+#include "engine/joint_layout_mapping.h"
 #include "engine/render_scene_uploader.h"
 #include "engine/rigid_layout_mapping.h"
 #include "engine/shared_buffer.h"
@@ -89,6 +90,10 @@ public:
     // Returns the current prepared rigid-body/collider slot mapping derived from authored state.
     // This is valid after prepare() and does not require uploadWorld().
     bool tryGetPreparedRigidLayoutMapping(RigidLayoutMapping &outMapping) const;
+
+    // Returns the current prepared hinge/slider joint slot mapping derived from authored state.
+    // This is valid after prepare() and does not require uploadWorld().
+    bool tryGetPreparedJointLayoutMapping(JointLayoutMapping &outMapping) const;
 
     std::vector<CustomComputeResourceDesc> listCustomComputeResources();
     CustomComputePassHandle createCustomComputePass(const CustomComputePassDesc &desc);

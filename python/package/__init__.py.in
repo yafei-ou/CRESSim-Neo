@@ -2,6 +2,12 @@ from pathlib import Path
 
 from ._cressim_neo import *  # noqa: F401,F403
 
+try:
+    from .cartpole import CartpoleGymnasiumAdapter, CartpoleTorchVectorEnv
+except RuntimeError:
+    CartpoleGymnasiumAdapter = None
+    CartpoleTorchVectorEnv = None
+
 
 _PACKAGE_DIR = Path(__file__).resolve().parent
 _SHADERS_DIR = _PACKAGE_DIR / "shaders"
@@ -18,3 +24,8 @@ def _initialize_with_package_defaults(self, config=None):
 
 Runtime.initialize = _initialize_with_package_defaults
 
+__all__ = [
+    name
+    for name in globals()
+    if not name.startswith("_") and globals()[name] is not None
+]

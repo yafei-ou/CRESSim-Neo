@@ -1,6 +1,7 @@
 #include "common/frame_context.h"
 #include "common/math_types.h"
 #include "engine/components.h"
+#include "engine/joint_layout_mapping.h"
 #include "engine/rigid_layout_mapping.h"
 #include "engine/runtime.h"
 #include "engine/runtime_internal.h"
@@ -86,6 +87,7 @@ using cressim::neo::engine::CustomComputeResourceBindingDesc;
 using cressim::neo::engine::CustomComputeResourceDesc;
 using cressim::neo::engine::CustomComputeResourceKind;
 using cressim::neo::engine::DirectionalLightComponent;
+using cressim::neo::engine::JointLayoutMapping;
 using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::RigidBodyComponent;
 using cressim::neo::engine::RigidLayoutMapping;
@@ -123,8 +125,11 @@ using cressim::neo::graphics::RendererDesc;
 using cressim::neo::graphics::RenderResourceManager;
 using cressim::neo::graphics::RenderStats;
 using cressim::neo::graphics::TextureHandle;
+using cressim::neo::physics::HingeJointState;
 using cressim::neo::physics::ParticleContactMaterialDesc;
 using cressim::neo::physics::PhysicsSolverDesc;
+using cressim::neo::physics::RigidJointDriveMode;
+using cressim::neo::physics::SliderJointState;
 
 py::object tryGetRenderTargetReadback(Runtime &runtime,
                                       const GpuRenderTargetReadbackRequest request)
@@ -439,6 +444,24 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("body_collider_counts", &RigidLayoutMapping::bodyColliderCounts)
         .def_readwrite("body_collider_indices", &RigidLayoutMapping::bodyColliderIndices);
 
+    py::class_<JointLayoutMapping>(m, "JointLayoutMapping")
+        .def(py::init<>())
+        .def_readwrite("hinge_joint_count", &JointLayoutMapping::hingeJointCount)
+        .def_readwrite("slider_joint_count", &JointLayoutMapping::sliderJointCount)
+        .def_readwrite("binding_generation", &JointLayoutMapping::bindingGeneration)
+        .def_readwrite("hinge_joint_ids", &JointLayoutMapping::hingeJointIds)
+        .def_readwrite("hinge_environment_indices", &JointLayoutMapping::hingeEnvironmentIndices)
+        .def_readwrite("hinge_body_ids_a", &JointLayoutMapping::hingeBodyIdsA)
+        .def_readwrite("hinge_body_ids_b", &JointLayoutMapping::hingeBodyIdsB)
+        .def_readwrite("hinge_body_indices_a", &JointLayoutMapping::hingeBodyIndicesA)
+        .def_readwrite("hinge_body_indices_b", &JointLayoutMapping::hingeBodyIndicesB)
+        .def_readwrite("slider_joint_ids", &JointLayoutMapping::sliderJointIds)
+        .def_readwrite("slider_environment_indices", &JointLayoutMapping::sliderEnvironmentIndices)
+        .def_readwrite("slider_body_ids_a", &JointLayoutMapping::sliderBodyIdsA)
+        .def_readwrite("slider_body_ids_b", &JointLayoutMapping::sliderBodyIdsB)
+        .def_readwrite("slider_body_indices_a", &JointLayoutMapping::sliderBodyIndicesA)
+        .def_readwrite("slider_body_indices_b", &JointLayoutMapping::sliderBodyIndicesB);
+
     py::class_<CustomComputeResourceDesc>(m, "CustomComputeResourceDesc")
         .def(py::init<>())
         .def_readwrite("key", &CustomComputeResourceDesc::key)
@@ -515,6 +538,12 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("Sphere", cressim::neo::physics::ColliderShapeType::Sphere)
         .value("Box", cressim::neo::physics::ColliderShapeType::Box)
         .value("Capsule", cressim::neo::physics::ColliderShapeType::Capsule);
+
+    py::enum_<RigidJointDriveMode>(m, "RigidJointDriveMode")
+        .value("None", RigidJointDriveMode::None)
+        .value("TargetPosition", RigidJointDriveMode::TargetPosition)
+        .value("TargetVelocity", RigidJointDriveMode::TargetVelocity)
+        .value("TargetOrientation", RigidJointDriveMode::TargetOrientation);
 
     py::enum_<cressim::neo::gpu::VulkanShaderCompilerMode>(m, "VulkanShaderCompilerMode")
         .value("Auto", cressim::neo::gpu::VulkanShaderCompilerMode::Auto)
@@ -801,6 +830,49 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("kinematic_target_enabled", &RigidBodyComponent::kinematicTargetEnabled)
         .def_readwrite("simulated", &RigidBodyComponent::simulated);
 
+    py::class_<HingeJointState>(m, "HingeJointState")
+        .def(py::init<>())
+        .def_readwrite("joint_id", &HingeJointState::jointId)
+        .def_readwrite("enabled", &HingeJointState::enabled)
+        .def_readwrite("suppress_connected_body_collisions",
+                       &HingeJointState::suppressConnectedBodyCollisions)
+        .def_readwrite("drive_mode", &HingeJointState::driveMode)
+        .def_readwrite("limit_enabled", &HingeJointState::limitEnabled)
+        .def_readwrite("body_a", &HingeJointState::bodyA)
+        .def_readwrite("body_b", &HingeJointState::bodyB)
+        .def_readwrite("local_anchor_a", &HingeJointState::localAnchorA)
+        .def_readwrite("local_anchor_b", &HingeJointState::localAnchorB)
+        .def_readwrite("local_rotation_a", &HingeJointState::localRotationA)
+        .def_readwrite("local_rotation_b", &HingeJointState::localRotationB)
+        .def_readwrite("limit_min", &HingeJointState::limitMin)
+        .def_readwrite("limit_max", &HingeJointState::limitMax)
+        .def_readwrite("constraint_compliance", &HingeJointState::constraintCompliance)
+        .def_readwrite("drive_compliance", &HingeJointState::driveCompliance)
+        .def_readwrite("drive_target_angle", &HingeJointState::driveTargetAngle)
+        .def_readwrite("drive_target_angular_velocity",
+                       &HingeJointState::driveTargetAngularVelocity);
+
+    py::class_<SliderJointState>(m, "SliderJointState")
+        .def(py::init<>())
+        .def_readwrite("joint_id", &SliderJointState::jointId)
+        .def_readwrite("enabled", &SliderJointState::enabled)
+        .def_readwrite("suppress_connected_body_collisions",
+                       &SliderJointState::suppressConnectedBodyCollisions)
+        .def_readwrite("drive_mode", &SliderJointState::driveMode)
+        .def_readwrite("limit_enabled", &SliderJointState::limitEnabled)
+        .def_readwrite("body_a", &SliderJointState::bodyA)
+        .def_readwrite("body_b", &SliderJointState::bodyB)
+        .def_readwrite("local_anchor_a", &SliderJointState::localAnchorA)
+        .def_readwrite("local_anchor_b", &SliderJointState::localAnchorB)
+        .def_readwrite("local_rotation_a", &SliderJointState::localRotationA)
+        .def_readwrite("local_rotation_b", &SliderJointState::localRotationB)
+        .def_readwrite("limit_min", &SliderJointState::limitMin)
+        .def_readwrite("limit_max", &SliderJointState::limitMax)
+        .def_readwrite("constraint_compliance", &SliderJointState::constraintCompliance)
+        .def_readwrite("drive_compliance", &SliderJointState::driveCompliance)
+        .def_readwrite("drive_target_position", &SliderJointState::driveTargetPosition)
+        .def_readwrite("drive_target_velocity", &SliderJointState::driveTargetVelocity);
+
     py::class_<ColliderComponent>(m, "ColliderComponent")
         .def(py::init<>())
         .def_readwrite("shape_type", &ColliderComponent::shapeType)
@@ -895,6 +967,29 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("set_rigid_body", &World::setRigidBody)
         .def("remove_rigid_body", &World::removeRigidBody)
         .def("try_get_rigid_body", &World::tryGetRigidBody)
+        .def("upsert_hinge_joint", &World::upsertHingeJoint)
+        .def("remove_hinge_joint", &World::removeHingeJoint)
+        .def("try_get_hinge_joint",
+             [](const World &world, const cressim::neo::physics::HingeJointId jointId) -> py::object
+             {
+                 if (const auto *state = world.tryGetHingeJoint(jointId))
+                 {
+                     return py::cast(*state);
+                 }
+                 return py::none();
+             })
+        .def("upsert_slider_joint", &World::upsertSliderJoint)
+        .def("remove_slider_joint", &World::removeSliderJoint)
+        .def(
+            "try_get_slider_joint",
+            [](const World &world, const cressim::neo::physics::SliderJointId jointId) -> py::object
+            {
+                if (const auto *state = world.tryGetSliderJoint(jointId))
+                {
+                    return py::cast(*state);
+                }
+                return py::none();
+            })
         .def("add_collider", &World::addCollider)
         .def("update_collider", &World::updateCollider)
         .def("remove_collider", &World::removeCollider)
@@ -951,6 +1046,16 @@ PYBIND11_MODULE(_cressim_neo, m)
                  if (!runtime.tryGetPreparedRigidLayoutMapping(mapping))
                  {
                      throw std::runtime_error("Prepared rigid layout mapping is unavailable.");
+                 }
+                 return mapping;
+             })
+        .def("get_prepared_joint_layout_mapping",
+             [](Runtime &runtime)
+             {
+                 JointLayoutMapping mapping{};
+                 if (!runtime.tryGetPreparedJointLayoutMapping(mapping))
+                 {
+                     throw std::runtime_error("Prepared joint layout mapping is unavailable.");
                  }
                  return mapping;
              })

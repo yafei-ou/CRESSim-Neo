@@ -1444,6 +1444,50 @@ bool World::upsertRoutedCableConstraint(const physics::AuthoredRoutedCableConstr
     return mPhysicsWorld.upsertRoutedCableConstraint(state, outAuthored);
 }
 
+bool World::upsertHingeJoint(const physics::HingeJointState &state)
+{
+    if (!requireAliveEntity(state.bodyA, "upsertHingeJoint") ||
+        !requireAliveEntity(state.bodyB, "upsertHingeJoint"))
+    {
+        return false;
+    }
+    if (mPhysicsWorld.tryGetRigidBody(state.bodyA) == nullptr ||
+        mPhysicsWorld.tryGetRigidBody(state.bodyB) == nullptr)
+    {
+        CRESSIM_LOG_ERROR("upsertHingeJoint requires rigid bodies on both connected entities.");
+        return false;
+    }
+    if (entityEnvironment(state.bodyA) != entityEnvironment(state.bodyB))
+    {
+        CRESSIM_LOG_ERROR("upsertHingeJoint requires both connected rigid bodies to live in the "
+                          "same environment.");
+        return false;
+    }
+    return mPhysicsWorld.upsertHingeJoint(state);
+}
+
+bool World::upsertSliderJoint(const physics::SliderJointState &state)
+{
+    if (!requireAliveEntity(state.bodyA, "upsertSliderJoint") ||
+        !requireAliveEntity(state.bodyB, "upsertSliderJoint"))
+    {
+        return false;
+    }
+    if (mPhysicsWorld.tryGetRigidBody(state.bodyA) == nullptr ||
+        mPhysicsWorld.tryGetRigidBody(state.bodyB) == nullptr)
+    {
+        CRESSIM_LOG_ERROR("upsertSliderJoint requires rigid bodies on both connected entities.");
+        return false;
+    }
+    if (entityEnvironment(state.bodyA) != entityEnvironment(state.bodyB))
+    {
+        CRESSIM_LOG_ERROR("upsertSliderJoint requires both connected rigid bodies to live in the "
+                          "same environment.");
+        return false;
+    }
+    return mPhysicsWorld.upsertSliderJoint(state);
+}
+
 physics::AuthoredParticleCollisionFilterState &World::upsertParticleCollisionFilter(
     const physics::AuthoredParticleCollisionFilterState &state)
 {
@@ -1481,6 +1525,16 @@ bool World::removeRigidDistanceConstraint(physics::RigidDistanceConstraintId con
 bool World::removeRoutedCableConstraint(physics::RoutedCableConstraintId constraintId)
 {
     return mPhysicsWorld.removeRoutedCableConstraint(constraintId);
+}
+
+bool World::removeHingeJoint(const physics::HingeJointId jointId)
+{
+    return mPhysicsWorld.removeHingeJoint(jointId);
+}
+
+bool World::removeSliderJoint(const physics::SliderJointId jointId)
+{
+    return mPhysicsWorld.removeSliderJoint(jointId);
 }
 
 bool World::removeParticleCollisionFilter(physics::ParticleCollisionFilterId filterId)
@@ -2150,6 +2204,18 @@ const physics::AuthoredRoutedCableConstraintState *World::tryGetRoutedCableConst
     physics::RoutedCableConstraintId constraintId) const noexcept
 {
     return mPhysicsWorld.tryGetRoutedCableConstraint(constraintId);
+}
+
+const physics::HingeJointState *World::tryGetHingeJoint(
+    const physics::HingeJointId jointId) const noexcept
+{
+    return mPhysicsWorld.tryGetHingeJoint(jointId);
+}
+
+const physics::SliderJointState *World::tryGetSliderJoint(
+    const physics::SliderJointId jointId) const noexcept
+{
+    return mPhysicsWorld.tryGetSliderJoint(jointId);
 }
 
 const physics::AuthoredParticleCollisionFilterState *World::tryGetParticleCollisionFilter(

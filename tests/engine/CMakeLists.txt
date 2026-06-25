@@ -192,3 +192,10 @@ add_cressim_test(
     SOURCE runtime_rigid_layout_mapping.cpp
     LIBS cressim_neo_engine
 )
+
+add_cressim_test(
+    SUITE engine
+    NAME runtime_joint_layout_mapping
+    SOURCE runtime_joint_layout_mapping.cpp
+    LIBS cressim_neo_engine
+)

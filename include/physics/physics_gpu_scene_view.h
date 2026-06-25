@@ -15,6 +15,8 @@ struct PhysicsGpuRigidSceneView
     common::PoseBufferView poses{};
     Diligent::IBuffer *statePositionsBuffer              = nullptr;
     Diligent::IBuffer *stateOrientationsBuffer           = nullptr;
+    Diligent::IBuffer *stateLinearVelocitiesBuffer       = nullptr;
+    Diligent::IBuffer *stateAngularVelocitiesBuffer      = nullptr;
     Diligent::IBuffer *kinematicTargetPositionsBuffer    = nullptr;
     Diligent::IBuffer *kinematicTargetOrientationsBuffer = nullptr;
     Diligent::IBuffer *kinematicTargetFlagsBuffer        = nullptr;
@@ -30,6 +32,28 @@ struct PhysicsGpuRigidSceneView
     std::uint32_t routedCableDebugSegmentCount           = 0;
     std::uint32_t colliderCount                          = 0;
     std::uint64_t bindingGeneration                      = 0;
+};
+
+struct PhysicsGpuJointSceneView
+{
+    Diligent::IBuffer *hingeJointsBuffer                     = nullptr;
+    Diligent::IBuffer *sliderJointsBuffer                    = nullptr;
+    Diligent::IBuffer *hingePassiveJointIndicesBuffer        = nullptr;
+    Diligent::IBuffer *hingePositionDriveJointIndicesBuffer  = nullptr;
+    Diligent::IBuffer *hingeVelocityDriveJointIndicesBuffer  = nullptr;
+    Diligent::IBuffer *sliderPassiveJointIndicesBuffer       = nullptr;
+    Diligent::IBuffer *sliderPositionDriveJointIndicesBuffer = nullptr;
+    Diligent::IBuffer *sliderVelocityDriveJointIndicesBuffer = nullptr;
+    std::uint32_t hingeJointCount                            = 0u;
+    std::uint32_t sliderJointCount                           = 0u;
+    std::uint32_t hingePassiveJointCount                     = 0u;
+    std::uint32_t hingePositionDriveJointCount               = 0u;
+    std::uint32_t hingeVelocityDriveJointCount               = 0u;
+    std::uint32_t sliderPassiveJointCount                    = 0u;
+    std::uint32_t sliderPositionDriveJointCount              = 0u;
+    std::uint32_t sliderVelocityDriveJointCount              = 0u;
+    std::uint64_t bindingGeneration                          = 0u;
+    std::uint64_t modeBindingGeneration                      = 0u;
 };
 
 struct PhysicsGpuParticleBufferView
@@ -114,6 +138,7 @@ struct PhysicsGpuCurveSceneView
 struct CRESSIM_NEO_PHYSICS_API PhysicsGpuSceneView
 {
     PhysicsGpuRigidSceneView rigid{};
+    PhysicsGpuJointSceneView joints{};
     PhysicsGpuSoftSceneView soft{};
     PhysicsGpuCurveSceneView curve{};
 };

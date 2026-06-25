@@ -73,6 +73,8 @@ public:
     bool upsertRoutedCableConstraint(
         const physics::AuthoredRoutedCableConstraintState &state,
         physics::AuthoredRoutedCableConstraintState *outAuthored = nullptr);
+    bool upsertHingeJoint(const physics::HingeJointState &state);
+    bool upsertSliderJoint(const physics::SliderJointState &state);
     physics::AuthoredParticleCollisionFilterState &upsertParticleCollisionFilter(
         const physics::AuthoredParticleCollisionFilterState &state);
     physics::AuthoredSuturingSequenceState &upsertSuturingSequence(
@@ -84,6 +86,8 @@ public:
         physics::StrandRigidAttachmentConstraintId constraintId);
     bool removeRigidDistanceConstraint(physics::RigidDistanceConstraintId constraintId);
     bool removeRoutedCableConstraint(physics::RoutedCableConstraintId constraintId);
+    bool removeHingeJoint(physics::HingeJointId jointId);
+    bool removeSliderJoint(physics::SliderJointId jointId);
     bool removeParticleCollisionFilter(physics::ParticleCollisionFilterId filterId);
     bool removeSuturingSequence(physics::SuturingSequenceId sequenceId);
     void setUltrasoundProbe(common::EntityId entityId, const UltrasoundProbeComponent &component);
@@ -135,6 +139,9 @@ public:
         physics::RigidDistanceConstraintId constraintId) const noexcept;
     const physics::AuthoredRoutedCableConstraintState *tryGetRoutedCableConstraint(
         physics::RoutedCableConstraintId constraintId) const noexcept;
+    const physics::HingeJointState *tryGetHingeJoint(physics::HingeJointId jointId) const noexcept;
+    const physics::SliderJointState *tryGetSliderJoint(
+        physics::SliderJointId jointId) const noexcept;
     const physics::AuthoredParticleCollisionFilterState *tryGetParticleCollisionFilter(
         physics::ParticleCollisionFilterId filterId) const noexcept;
     const physics::AuthoredSuturingSequenceState *tryGetSuturingSequence(

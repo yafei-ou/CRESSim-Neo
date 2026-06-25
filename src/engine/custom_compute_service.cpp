@@ -629,10 +629,16 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
     };
 
     addBuffer("rigid.positions", sceneView.rigid.statePositionsBuffer,
-              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.bodyCount,
+              CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
               sceneView.rigid.bindingGeneration);
     addBuffer("rigid.orientations", sceneView.rigid.stateOrientationsBuffer,
-              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.bodyCount,
+              CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.linear_velocities", sceneView.rigid.stateLinearVelocitiesBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.angular_velocities", sceneView.rigid.stateAngularVelocitiesBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
               sceneView.rigid.bindingGeneration);
     addBuffer("rigid.kinematic_target_positions", sceneView.rigid.kinematicTargetPositionsBuffer,
               CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
@@ -644,6 +650,34 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
     addBuffer("rigid.kinematic_target_flags", sceneView.rigid.kinematicTargetFlagsBuffer,
               CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
               sceneView.rigid.bindingGeneration);
+    addBuffer("joint.hinge", sceneView.joints.hingeJointsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.joints.hingeJointCount,
+              sceneView.joints.bindingGeneration);
+    addBuffer("joint.slider", sceneView.joints.sliderJointsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.joints.sliderJointCount,
+              sceneView.joints.bindingGeneration);
+    addBuffer("joint.hinge_passive_indices", sceneView.joints.hingePassiveJointIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.joints.hingePassiveJointCount,
+              sceneView.joints.modeBindingGeneration);
+    addBuffer("joint.hinge_position_drive_indices",
+              sceneView.joints.hingePositionDriveJointIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.joints.hingePositionDriveJointCount,
+              sceneView.joints.modeBindingGeneration);
+    addBuffer("joint.hinge_velocity_drive_indices",
+              sceneView.joints.hingeVelocityDriveJointIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.joints.hingeVelocityDriveJointCount,
+              sceneView.joints.modeBindingGeneration);
+    addBuffer("joint.slider_passive_indices", sceneView.joints.sliderPassiveJointIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.joints.sliderPassiveJointCount,
+              sceneView.joints.modeBindingGeneration);
+    addBuffer("joint.slider_position_drive_indices",
+              sceneView.joints.sliderPositionDriveJointIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.joints.sliderPositionDriveJointCount,
+              sceneView.joints.modeBindingGeneration);
+    addBuffer("joint.slider_velocity_drive_indices",
+              sceneView.joints.sliderVelocityDriveJointIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.joints.sliderVelocityDriveJointCount,
+              sceneView.joints.modeBindingGeneration);
 
     return true;
 }

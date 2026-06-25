@@ -765,27 +765,29 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentParticles.positionsInvMassBuffer = nullptr;
     }
 
-    if (!ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.PositionsInvMass", sizeof(Diligent::float4),
-            newRigidBodyCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentRigidBodies.positionsBuffer) ||
-        !ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.Orientations", sizeof(Diligent::float4),
-            newRigidBodyCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentRigidBodies.orientationsBuffer) ||
+    if (!ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PositionsInvMass",
+                                sizeof(Diligent::float4), newRigidBodyCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentRigidBodies.positionsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.Orientations",
+                                sizeof(Diligent::float4), newRigidBodyCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentRigidBodies.orientationsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.Scales", sizeof(Diligent::float4),
                                 newRigidBodyCapacity, Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.scalesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.LinearVelocities",
                                 sizeof(Diligent::float4), newRigidBodyCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.linearVelocitiesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.AngularVelocities",
                                 sizeof(Diligent::float4), newRigidBodyCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.angularVelocitiesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.InverseInertiaLocal",
                                 sizeof(Diligent::float4), newRigidBodyCapacity,
@@ -885,14 +887,16 @@ bool PhysicsSceneGpuState::ensureCapacity(
             renderDevice, "CRESSimNeo.Physics.SphericalJoints", sizeof(GpuSphericalJoint),
             newSphericalJointCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
             Diligent::CPU_ACCESS_NONE, contextMask, mPersistentJoints.sphericalJointsBuffer) ||
-        !ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.HingeJoints", sizeof(GpuHingeJoint),
-            newHingeJointCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentJoints.hingeJointsBuffer) ||
-        !ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.SliderJoints", sizeof(GpuSliderJoint),
-            newSliderJointCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentJoints.sliderJointsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.HingeJoints",
+                                sizeof(GpuHingeJoint), newHingeJointCapacity,
+                                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentJoints.hingeJointsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SliderJoints",
+                                sizeof(GpuSliderJoint), newSliderJointCapacity,
+                                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentJoints.sliderJointsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.HingePassiveJointIndices",
                                 sizeof(std::uint32_t), newHingePassiveJointIndexCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -4116,6 +4120,8 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.rigid.poses.bindingGeneration  = mRigidBindingGeneration;
     view.rigid.statePositionsBuffer     = mPersistentRigidBodies.positionsBuffer;
     view.rigid.stateOrientationsBuffer  = mPersistentRigidBodies.orientationsBuffer;
+    view.rigid.stateLinearVelocitiesBuffer  = mPersistentRigidBodies.linearVelocitiesBuffer;
+    view.rigid.stateAngularVelocitiesBuffer = mPersistentRigidBodies.angularVelocitiesBuffer;
     view.rigid.kinematicTargetPositionsBuffer =
         mPersistentRigidBodies.kinematicTargetPositionsBuffer;
     view.rigid.kinematicTargetOrientationsBuffer =
@@ -4127,14 +4133,37 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.rigid.rigidParticleAttachmentCount = mRigidParticleAttachmentCount;
     view.rigid.rigidDistanceConstraintsBuffer =
         mPersistentRoutedCables.rigidDistanceConstraintsBuffer;
-    view.rigid.rigidDistanceConstraintCount      = mRigidDistanceConstraintCount;
-    view.rigid.routedCableDescriptorsBuffer      = mPersistentRoutedCables.descriptorsBuffer;
-    view.rigid.routedCableRoutePointsBuffer      = mPersistentRoutedCables.routePointsBuffer;
-    view.rigid.routedCableDebugSegmentsBuffer    = mPersistentRoutedCables.debugSegmentsBuffer;
-    view.rigid.routedCableCount                  = mRoutedCableCount;
-    view.rigid.routedCableDebugSegmentCount      = mRoutedCableDebugSegmentCount;
-    view.rigid.colliderCount                     = mColliderCount;
-    view.rigid.bindingGeneration                 = mRigidBindingGeneration;
+    view.rigid.rigidDistanceConstraintCount    = mRigidDistanceConstraintCount;
+    view.rigid.routedCableDescriptorsBuffer    = mPersistentRoutedCables.descriptorsBuffer;
+    view.rigid.routedCableRoutePointsBuffer    = mPersistentRoutedCables.routePointsBuffer;
+    view.rigid.routedCableDebugSegmentsBuffer  = mPersistentRoutedCables.debugSegmentsBuffer;
+    view.rigid.routedCableCount                = mRoutedCableCount;
+    view.rigid.routedCableDebugSegmentCount    = mRoutedCableDebugSegmentCount;
+    view.rigid.colliderCount                   = mColliderCount;
+    view.rigid.bindingGeneration               = mRigidBindingGeneration;
+    view.joints.hingeJointsBuffer              = mPersistentJoints.hingeJointsBuffer;
+    view.joints.sliderJointsBuffer             = mPersistentJoints.sliderJointsBuffer;
+    view.joints.hingePassiveJointIndicesBuffer = mPersistentJoints.hingePassiveJointIndicesBuffer;
+    view.joints.hingePositionDriveJointIndicesBuffer =
+        mPersistentJoints.hingePositionDriveJointIndicesBuffer;
+    view.joints.hingeVelocityDriveJointIndicesBuffer =
+        mPersistentJoints.hingeVelocityDriveJointIndicesBuffer;
+    view.joints.sliderPassiveJointIndicesBuffer = mPersistentJoints.sliderPassiveJointIndicesBuffer;
+    view.joints.sliderPositionDriveJointIndicesBuffer =
+        mPersistentJoints.sliderPositionDriveJointIndicesBuffer;
+    view.joints.sliderVelocityDriveJointIndicesBuffer =
+        mPersistentJoints.sliderVelocityDriveJointIndicesBuffer;
+    view.joints.hingeJointCount               = mHingeJointCount;
+    view.joints.sliderJointCount              = mSliderJointCount;
+    view.joints.hingePassiveJointCount        = mHingePassiveJointCount;
+    view.joints.hingePositionDriveJointCount  = mHingePositionDriveJointCount;
+    view.joints.hingeVelocityDriveJointCount  = mHingeVelocityDriveJointCount;
+    view.joints.sliderPassiveJointCount       = mSliderPassiveJointCount;
+    view.joints.sliderPositionDriveJointCount = mSliderPositionDriveJointCount;
+    view.joints.sliderVelocityDriveJointCount = mSliderVelocityDriveJointCount;
+    view.joints.bindingGeneration =
+        std::max(mLastUploadedRigidJointSceneRevision, mLastUploadedRigidJointModeRevision);
+    view.joints.modeBindingGeneration            = mLastUploadedRigidJointModeRevision;
     view.soft.particles.positionsInvMassBuffer   = mPersistentParticles.positionsInvMassBuffer;
     view.soft.particles.previousPositionsBuffer  = mPersistentParticles.previousPositionsBuffer;
     view.soft.particles.velocitiesBuffer         = mPersistentParticles.velocitiesBuffer;

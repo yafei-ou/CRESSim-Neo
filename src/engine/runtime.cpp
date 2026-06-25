@@ -533,6 +533,69 @@ bool Runtime::tryGetPreparedRigidLayoutMapping(RigidLayoutMapping &outMapping) c
     return true;
 }
 
+bool Runtime::tryGetPreparedJointLayoutMapping(JointLayoutMapping &outMapping) const
+{
+    outMapping = {};
+    if (!mInitialized || mPhysicsSolver == nullptr)
+    {
+        return false;
+    }
+
+    const physics::PhysicsWorld &physicsWorld             = mWorld.physicsWorld();
+    const physics::RigidBodySoAHost &rigidBodies          = physicsWorld.rigidBodySoA();
+    const std::vector<physics::HingeJointState> &hinges   = physicsWorld.hingeJointSnapshot();
+    const std::vector<physics::SliderJointState> &sliders = physicsWorld.sliderJointSnapshot();
+    const physics::RigidJointSceneHost &jointScene        = physicsWorld.rigidJointScene();
+
+    outMapping.hingeJointCount   = static_cast<std::uint32_t>(hinges.size());
+    outMapping.sliderJointCount  = static_cast<std::uint32_t>(sliders.size());
+    outMapping.bindingGeneration = physicsWorld.rigidJointTopologyRevision();
+
+    outMapping.hingeJointIds.reserve(hinges.size());
+    outMapping.hingeEnvironmentIndices.reserve(hinges.size());
+    outMapping.hingeBodyIdsA.reserve(hinges.size());
+    outMapping.hingeBodyIdsB.reserve(hinges.size());
+    outMapping.hingeBodyIndicesA.reserve(hinges.size());
+    outMapping.hingeBodyIndicesB.reserve(hinges.size());
+    for (std::size_t i = 0; i < hinges.size(); ++i)
+    {
+        const std::uint32_t bodyIndexA = jointScene.hinge.bodyIndicesA[i];
+        const std::uint32_t bodyIndexB = jointScene.hinge.bodyIndicesB[i];
+        outMapping.hingeJointIds.push_back(hinges[i].jointId);
+        outMapping.hingeEnvironmentIndices.push_back(
+            bodyIndexA < rigidBodies.environmentIndices.size()
+                ? rigidBodies.environmentIndices[bodyIndexA]
+                : 0u);
+        outMapping.hingeBodyIdsA.push_back(hinges[i].bodyA);
+        outMapping.hingeBodyIdsB.push_back(hinges[i].bodyB);
+        outMapping.hingeBodyIndicesA.push_back(bodyIndexA);
+        outMapping.hingeBodyIndicesB.push_back(bodyIndexB);
+    }
+
+    outMapping.sliderJointIds.reserve(sliders.size());
+    outMapping.sliderEnvironmentIndices.reserve(sliders.size());
+    outMapping.sliderBodyIdsA.reserve(sliders.size());
+    outMapping.sliderBodyIdsB.reserve(sliders.size());
+    outMapping.sliderBodyIndicesA.reserve(sliders.size());
+    outMapping.sliderBodyIndicesB.reserve(sliders.size());
+    for (std::size_t i = 0; i < sliders.size(); ++i)
+    {
+        const std::uint32_t bodyIndexA = jointScene.slider.bodyIndicesA[i];
+        const std::uint32_t bodyIndexB = jointScene.slider.bodyIndicesB[i];
+        outMapping.sliderJointIds.push_back(sliders[i].jointId);
+        outMapping.sliderEnvironmentIndices.push_back(
+            bodyIndexA < rigidBodies.environmentIndices.size()
+                ? rigidBodies.environmentIndices[bodyIndexA]
+                : 0u);
+        outMapping.sliderBodyIdsA.push_back(sliders[i].bodyA);
+        outMapping.sliderBodyIdsB.push_back(sliders[i].bodyB);
+        outMapping.sliderBodyIndicesA.push_back(bodyIndexA);
+        outMapping.sliderBodyIndicesB.push_back(bodyIndexB);
+    }
+
+    return true;
+}
+
 std::vector<CustomComputeResourceDesc> Runtime::listCustomComputeResources()
 {
     if (!mInitialized || mCustomComputeService == nullptr || mPhysicsSolver == nullptr)
