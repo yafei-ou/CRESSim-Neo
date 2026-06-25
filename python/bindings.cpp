@@ -1,6 +1,7 @@
 #include "common/frame_context.h"
 #include "common/math_types.h"
 #include "engine/components.h"
+#include "engine/constraint_layout_mapping.h"
 #include "engine/joint_layout_mapping.h"
 #include "engine/rigid_layout_mapping.h"
 #include "engine/runtime.h"
@@ -78,6 +79,7 @@ using cressim::neo::common::FrameContext;
 using cressim::neo::common::Transform;
 using cressim::neo::engine::CameraComponent;
 using cressim::neo::engine::ColliderComponent;
+using cressim::neo::engine::ConstraintLayoutMapping;
 using cressim::neo::engine::CustomComputeDispatchDesc;
 using cressim::neo::engine::CustomComputeDispatchMode;
 using cressim::neo::engine::CustomComputePassDesc;
@@ -90,7 +92,10 @@ using cressim::neo::engine::DirectionalLightComponent;
 using cressim::neo::engine::JointLayoutMapping;
 using cressim::neo::engine::MeshRendererComponent;
 using cressim::neo::engine::RigidBodyComponent;
+using cressim::neo::engine::RigidDistanceConstraintLayoutMapping;
 using cressim::neo::engine::RigidLayoutMapping;
+using cressim::neo::engine::RigidParticleAttachmentConstraintLayoutMapping;
+using cressim::neo::engine::RoutedCableConstraintLayoutMapping;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
 using cressim::neo::engine::SharedBufferAccess;
@@ -101,6 +106,7 @@ using cressim::neo::engine::SharedBufferHandle;
 using cressim::neo::engine::SharedBufferInfo;
 using cressim::neo::engine::SharedBufferTensorDesc;
 using cressim::neo::engine::SharedBufferTensorDTypeCode;
+using cressim::neo::engine::StrandComponent;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::engine::World;
 using cressim::neo::gpu::GpuBackend;
@@ -125,11 +131,18 @@ using cressim::neo::graphics::RendererDesc;
 using cressim::neo::graphics::RenderResourceManager;
 using cressim::neo::graphics::RenderStats;
 using cressim::neo::graphics::TextureHandle;
+using cressim::neo::physics::AuthoredParticleReference;
+using cressim::neo::physics::AuthoredParticleReferenceType;
+using cressim::neo::physics::AuthoredRigidDistanceConstraintState;
+using cressim::neo::physics::AuthoredRigidParticleAttachmentConstraintState;
+using cressim::neo::physics::AuthoredRoutedCableConstraintState;
+using cressim::neo::physics::AuthoredRoutedCableRoutePoint;
 using cressim::neo::physics::HingeJointState;
 using cressim::neo::physics::ParticleContactMaterialDesc;
 using cressim::neo::physics::PhysicsSolverDesc;
 using cressim::neo::physics::RigidJointDriveMode;
 using cressim::neo::physics::SliderJointState;
+using cressim::neo::physics::StrandMaterialDesc;
 
 py::object tryGetRenderTargetReadback(Runtime &runtime,
                                       const GpuRenderTargetReadbackRequest request)
@@ -446,17 +459,86 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("rigid_body_count", &RigidLayoutMapping::rigidBodyCount)
         .def_readwrite("collider_count", &RigidLayoutMapping::colliderCount)
         .def_readwrite("binding_generation", &RigidLayoutMapping::bindingGeneration)
+        .def_readwrite("rigid_body_ids", &RigidLayoutMapping::rigidBodyIds)
         .def_readwrite("rigid_body_entity_ids", &RigidLayoutMapping::rigidBodyEntityIds)
         .def_readwrite("rigid_body_environment_indices",
                        &RigidLayoutMapping::rigidBodyEnvironmentIndices)
         .def_readwrite("collider_ids", &RigidLayoutMapping::colliderIds)
         .def_readwrite("collider_entity_ids", &RigidLayoutMapping::colliderEntityIds)
+        .def_readwrite("collider_owner_body_ids", &RigidLayoutMapping::colliderOwnerBodyIds)
         .def_readwrite("collider_owner_body_indices", &RigidLayoutMapping::colliderOwnerBodyIndices)
         .def_readwrite("collider_environment_indices",
                        &RigidLayoutMapping::colliderEnvironmentIndices)
+        .def_readwrite("collider_shape_types", &RigidLayoutMapping::colliderShapeTypes)
+        .def_readwrite("collider_enabled", &RigidLayoutMapping::colliderEnabledFlags)
+        .def_readwrite("collider_collision_layers", &RigidLayoutMapping::colliderCollisionLayers)
+        .def_readwrite("collider_collision_masks", &RigidLayoutMapping::colliderCollisionMasks)
+        .def_readwrite("collider_local_positions", &RigidLayoutMapping::colliderLocalPositions)
+        .def_readwrite("collider_local_rotations", &RigidLayoutMapping::colliderLocalRotations)
+        .def_readwrite("collider_shape_params", &RigidLayoutMapping::colliderShapeParams)
         .def_readwrite("body_collider_offsets", &RigidLayoutMapping::bodyColliderOffsets)
         .def_readwrite("body_collider_counts", &RigidLayoutMapping::bodyColliderCounts)
         .def_readwrite("body_collider_indices", &RigidLayoutMapping::bodyColliderIndices);
+
+    py::class_<RigidParticleAttachmentConstraintLayoutMapping>(
+        m, "RigidParticleAttachmentConstraintLayoutMapping")
+        .def(py::init<>())
+        .def_readwrite("count", &RigidParticleAttachmentConstraintLayoutMapping::count)
+        .def_readwrite("constraint_ids",
+                       &RigidParticleAttachmentConstraintLayoutMapping::constraintIds)
+        .def_readwrite("environment_indices",
+                       &RigidParticleAttachmentConstraintLayoutMapping::environmentIndices)
+        .def_readwrite("rigid_body_ids",
+                       &RigidParticleAttachmentConstraintLayoutMapping::rigidBodyIds)
+        .def_readwrite("rigid_body_indices",
+                       &RigidParticleAttachmentConstraintLayoutMapping::rigidBodyIndices)
+        .def_readwrite("particle_entity_ids",
+                       &RigidParticleAttachmentConstraintLayoutMapping::particleEntityIds)
+        .def_readwrite("particle_reference_types",
+                       &RigidParticleAttachmentConstraintLayoutMapping::particleReferenceTypes)
+        .def_readwrite("particle_local_indices",
+                       &RigidParticleAttachmentConstraintLayoutMapping::particleLocalIndices)
+        .def_readwrite("enabled", &RigidParticleAttachmentConstraintLayoutMapping::enabledFlags);
+
+    py::class_<RigidDistanceConstraintLayoutMapping>(m, "RigidDistanceConstraintLayoutMapping")
+        .def(py::init<>())
+        .def_readwrite("count", &RigidDistanceConstraintLayoutMapping::count)
+        .def_readwrite("constraint_ids", &RigidDistanceConstraintLayoutMapping::constraintIds)
+        .def_readwrite("environment_indices",
+                       &RigidDistanceConstraintLayoutMapping::environmentIndices)
+        .def_readwrite("rigid_body_ids_a", &RigidDistanceConstraintLayoutMapping::rigidBodyIdsA)
+        .def_readwrite("rigid_body_ids_b", &RigidDistanceConstraintLayoutMapping::rigidBodyIdsB)
+        .def_readwrite("rigid_body_indices_a",
+                       &RigidDistanceConstraintLayoutMapping::rigidBodyIndicesA)
+        .def_readwrite("rigid_body_indices_b",
+                       &RigidDistanceConstraintLayoutMapping::rigidBodyIndicesB)
+        .def_readwrite("enabled", &RigidDistanceConstraintLayoutMapping::enabledFlags);
+
+    py::class_<RoutedCableConstraintLayoutMapping>(m, "RoutedCableConstraintLayoutMapping")
+        .def(py::init<>())
+        .def_readwrite("count", &RoutedCableConstraintLayoutMapping::count)
+        .def_readwrite("constraint_ids", &RoutedCableConstraintLayoutMapping::constraintIds)
+        .def_readwrite("environment_indices",
+                       &RoutedCableConstraintLayoutMapping::environmentIndices)
+        .def_readwrite("route_point_offsets",
+                       &RoutedCableConstraintLayoutMapping::routePointOffsets)
+        .def_readwrite("route_point_counts", &RoutedCableConstraintLayoutMapping::routePointCounts)
+        .def_readwrite("enabled", &RoutedCableConstraintLayoutMapping::enabledFlags)
+        .def_readwrite("route_point_rigid_body_ids",
+                       &RoutedCableConstraintLayoutMapping::routePointRigidBodyIds)
+        .def_readwrite("route_point_rigid_body_indices",
+                       &RoutedCableConstraintLayoutMapping::routePointRigidBodyIndices)
+        .def_readwrite("route_point_local_guide_offsets",
+                       &RoutedCableConstraintLayoutMapping::routePointLocalGuideOffsets);
+
+    py::class_<ConstraintLayoutMapping>(m, "ConstraintLayoutMapping")
+        .def(py::init<>())
+        .def_readwrite("binding_generation", &ConstraintLayoutMapping::bindingGeneration)
+        .def_readwrite("rigid_particle_attachments",
+                       &ConstraintLayoutMapping::rigidParticleAttachments)
+        .def_readwrite("rigid_distance_constraints",
+                       &ConstraintLayoutMapping::rigidDistanceConstraints)
+        .def_readwrite("routed_cables", &ConstraintLayoutMapping::routedCables);
 
     py::class_<JointLayoutMapping>(m, "JointLayoutMapping")
         .def(py::init<>())
@@ -552,6 +634,11 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("Sphere", cressim::neo::physics::ColliderShapeType::Sphere)
         .value("Box", cressim::neo::physics::ColliderShapeType::Box)
         .value("Capsule", cressim::neo::physics::ColliderShapeType::Capsule);
+
+    py::enum_<AuthoredParticleReferenceType>(m, "AuthoredParticleReferenceType")
+        .value("SoftBodyParticle", AuthoredParticleReferenceType::SoftBodyParticle)
+        .value("StrandParticle", AuthoredParticleReferenceType::StrandParticle)
+        .value("RigidProxyParticle", AuthoredParticleReferenceType::RigidProxyParticle);
 
     py::enum_<RigidJointDriveMode>(m, "RigidJointDriveMode")
         .value("None", RigidJointDriveMode::None)
@@ -812,6 +899,10 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("damping", &ParticleContactMaterialDesc::damping)
         .def_readwrite("static_friction", &ParticleContactMaterialDesc::staticFriction);
 
+    py::class_<StrandMaterialDesc>(m, "StrandMaterialDesc")
+        .def(py::init<>())
+        .def_readwrite("contact", &StrandMaterialDesc::contact);
+
     py::class_<RigidBodyComponent>(m, "RigidBodyComponent")
         .def(py::init<>())
         .def_readwrite("linear_velocity", &RigidBodyComponent::linearVelocity)
@@ -887,6 +978,68 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("restitution", &ColliderComponent::restitution)
         .def_readwrite("collision_layer", &ColliderComponent::collisionLayer)
         .def_readwrite("collision_mask", &ColliderComponent::collisionMask);
+
+    py::class_<StrandComponent>(m, "StrandComponent")
+        .def(py::init<>())
+        .def_readwrite("material", &StrandComponent::material)
+        .def_readwrite("rest_positions", &StrandComponent::restPositions)
+        .def_readwrite("static_particle_indices", &StrandComponent::staticParticleIndices)
+        .def_readwrite("particle_mass", &StrandComponent::particleMass)
+        .def_readwrite("particle_radius", &StrandComponent::particleRadius)
+        .def_readwrite("stretch_shear_compliance", &StrandComponent::stretchShearCompliance)
+        .def_readwrite("bend_compliance", &StrandComponent::bendCompliance)
+        .def_readwrite("twist_compliance", &StrandComponent::twistCompliance)
+        .def_readwrite("distance_compliance", &StrandComponent::distanceCompliance)
+        .def_readwrite("root_material_normal", &StrandComponent::rootMaterialNormal)
+        .def_readwrite("simulated", &StrandComponent::simulated)
+        .def_readwrite("self_collision_enabled", &StrandComponent::selfCollisionEnabled)
+        .def_readwrite("suturing_enabled", &StrandComponent::suturingEnabled)
+        .def_readwrite("path_node_spacing", &StrandComponent::pathNodeSpacing)
+        .def_readwrite("collision_layer", &StrandComponent::collisionLayer)
+        .def_readwrite("collision_mask", &StrandComponent::collisionMask);
+
+    py::class_<AuthoredParticleReference>(m, "AuthoredParticleReference")
+        .def(py::init<>())
+        .def_readwrite("entity_id", &AuthoredParticleReference::entityId)
+        .def_readwrite("type", &AuthoredParticleReference::type)
+        .def_readwrite("local_particle_index", &AuthoredParticleReference::localParticleIndex);
+
+    py::class_<AuthoredRigidParticleAttachmentConstraintState>(
+        m, "AuthoredRigidParticleAttachmentConstraintState")
+        .def(py::init<>())
+        .def_readwrite("constraint_id",
+                       &AuthoredRigidParticleAttachmentConstraintState::constraintId)
+        .def_readwrite("particle", &AuthoredRigidParticleAttachmentConstraintState::particle)
+        .def_readwrite("rigid_body_entity_id",
+                       &AuthoredRigidParticleAttachmentConstraintState::rigidBodyEntityId)
+        .def_readwrite("local_anchor", &AuthoredRigidParticleAttachmentConstraintState::localAnchor)
+        .def_readwrite("compliance", &AuthoredRigidParticleAttachmentConstraintState::compliance)
+        .def_readwrite("enabled", &AuthoredRigidParticleAttachmentConstraintState::enabled);
+
+    py::class_<AuthoredRigidDistanceConstraintState>(m, "AuthoredRigidDistanceConstraintState")
+        .def(py::init<>())
+        .def_readwrite("constraint_id", &AuthoredRigidDistanceConstraintState::constraintId)
+        .def_readwrite("entity_a", &AuthoredRigidDistanceConstraintState::entityA)
+        .def_readwrite("entity_b", &AuthoredRigidDistanceConstraintState::entityB)
+        .def_readwrite("local_anchor_a", &AuthoredRigidDistanceConstraintState::localAnchorA)
+        .def_readwrite("local_anchor_b", &AuthoredRigidDistanceConstraintState::localAnchorB)
+        .def_readwrite("rest_distance", &AuthoredRigidDistanceConstraintState::restDistance)
+        .def_readwrite("compliance", &AuthoredRigidDistanceConstraintState::compliance)
+        .def_readwrite("enabled", &AuthoredRigidDistanceConstraintState::enabled);
+
+    py::class_<AuthoredRoutedCableRoutePoint>(m, "AuthoredRoutedCableRoutePoint")
+        .def(py::init<>())
+        .def_readwrite("entity_id", &AuthoredRoutedCableRoutePoint::entityId)
+        .def_readwrite("local_guide_offset", &AuthoredRoutedCableRoutePoint::localGuideOffset);
+
+    py::class_<AuthoredRoutedCableConstraintState>(m, "AuthoredRoutedCableConstraintState")
+        .def(py::init<>())
+        .def_readwrite("constraint_id", &AuthoredRoutedCableConstraintState::constraintId)
+        .def_readwrite("route_points", &AuthoredRoutedCableConstraintState::routePoints)
+        .def_readwrite("target_length", &AuthoredRoutedCableConstraintState::targetLength)
+        .def_readwrite("compliance", &AuthoredRoutedCableConstraintState::compliance)
+        .def_readwrite("tension_only", &AuthoredRoutedCableConstraintState::tensionOnly)
+        .def_readwrite("enabled", &AuthoredRoutedCableConstraintState::enabled);
 
     py::class_<cressim::neo::engine::ColliderHandle>(m, "ColliderHandle")
         .def(py::init<>())
@@ -969,6 +1122,9 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("set_rigid_body", &World::setRigidBody)
         .def("remove_rigid_body", &World::removeRigidBody)
         .def("try_get_rigid_body", &World::tryGetRigidBody)
+        .def("set_strand", &World::setStrand)
+        .def("remove_strand", &World::removeStrand)
+        .def("try_get_strand", &World::tryGetStrand)
         .def("upsert_hinge_joint", &World::upsertHingeJoint)
         .def("remove_hinge_joint", &World::removeHingeJoint)
         .def("try_get_hinge_joint",
@@ -992,6 +1148,51 @@ PYBIND11_MODULE(_cressim_neo, m)
                 }
                 return py::none();
             })
+        .def("upsert_rigid_particle_attachment_constraint",
+             [](World &world, const AuthoredRigidParticleAttachmentConstraintState &state)
+             { return world.upsertRigidParticleAttachmentConstraint(state); })
+        .def("remove_rigid_particle_attachment_constraint",
+             &World::removeRigidParticleAttachmentConstraint)
+        .def("try_get_rigid_particle_attachment_constraint",
+             [](const World &world,
+                const cressim::neo::physics::RigidParticleAttachmentConstraintId constraintId)
+                 -> py::object
+             {
+                 if (const auto *state =
+                         world.tryGetRigidParticleAttachmentConstraint(constraintId))
+                 {
+                     return py::cast(*state);
+                 }
+                 return py::none();
+             })
+        .def("upsert_rigid_distance_constraint",
+             [](World &world, const AuthoredRigidDistanceConstraintState &state)
+             { return world.upsertRigidDistanceConstraint(state); })
+        .def("remove_rigid_distance_constraint", &World::removeRigidDistanceConstraint)
+        .def("try_get_rigid_distance_constraint",
+             [](const World &world,
+                const cressim::neo::physics::RigidDistanceConstraintId constraintId) -> py::object
+             {
+                 if (const auto *state = world.tryGetRigidDistanceConstraint(constraintId))
+                 {
+                     return py::cast(*state);
+                 }
+                 return py::none();
+             })
+        .def("upsert_routed_cable_constraint",
+             [](World &world, const AuthoredRoutedCableConstraintState &state)
+             { return world.upsertRoutedCableConstraint(state); })
+        .def("remove_routed_cable_constraint", &World::removeRoutedCableConstraint)
+        .def("try_get_routed_cable_constraint",
+             [](const World &world,
+                const cressim::neo::physics::RoutedCableConstraintId constraintId) -> py::object
+             {
+                 if (const auto *state = world.tryGetRoutedCableConstraint(constraintId))
+                 {
+                     return py::cast(*state);
+                 }
+                 return py::none();
+             })
         .def("add_collider", &World::addCollider)
         .def("update_collider", &World::updateCollider)
         .def("remove_collider", &World::removeCollider)
@@ -1048,6 +1249,16 @@ PYBIND11_MODULE(_cressim_neo, m)
                  if (!runtime.tryGetPreparedRigidLayoutMapping(mapping))
                  {
                      throw std::runtime_error("Prepared rigid layout mapping is unavailable.");
+                 }
+                 return mapping;
+             })
+        .def("get_prepared_constraint_layout_mapping",
+             [](Runtime &runtime)
+             {
+                 ConstraintLayoutMapping mapping{};
+                 if (!runtime.tryGetPreparedConstraintLayoutMapping(mapping))
+                 {
+                     throw std::runtime_error("Prepared constraint layout mapping is unavailable.");
                  }
                  return mapping;
              })

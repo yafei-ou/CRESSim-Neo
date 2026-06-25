@@ -2465,9 +2465,11 @@ void PhysicsSceneGpuState::publishSceneCounts(
     mStrandRigidAttachmentCount   = static_cast<std::uint32_t>(strandRigidAttachments.size());
     mRigidDistanceConstraintCount = static_cast<std::uint32_t>(rigidDistanceConstraints.size());
     mRoutedCableCount             = static_cast<std::uint32_t>(routedCableConstraints.size());
+    mRoutedCableRoutePointCount   = 0u;
     mRoutedCableDebugSegmentCount = 0u;
     for (const RoutedCableConstraint &constraint : routedCableConstraints)
     {
+        mRoutedCableRoutePointCount += constraint.routePointCount;
         if (constraint.routePointCount > 1u)
         {
             mRoutedCableDebugSegmentCount += constraint.routePointCount - 1u;
@@ -4122,25 +4124,44 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.rigid.stateOrientationsBuffer  = mPersistentRigidBodies.orientationsBuffer;
     view.rigid.stateLinearVelocitiesBuffer  = mPersistentRigidBodies.linearVelocitiesBuffer;
     view.rigid.stateAngularVelocitiesBuffer = mPersistentRigidBodies.angularVelocitiesBuffer;
+    view.rigid.inverseInertiaLocalBuffer    = mPersistentRigidBodies.inverseInertiaLocalBuffer;
+    view.rigid.bodyTypesBuffer              = mPersistentRigidBodies.bodyTypesBuffer;
+    view.rigid.proxyParticleContactMaterialsBuffer =
+        mPersistentRigidBodies.proxyParticleContactMaterialsBuffer;
     view.rigid.kinematicTargetPositionsBuffer =
         mPersistentRigidBodies.kinematicTargetPositionsBuffer;
     view.rigid.kinematicTargetOrientationsBuffer =
         mPersistentRigidBodies.kinematicTargetOrientationsBuffer;
-    view.rigid.kinematicTargetFlagsBuffer = mPersistentRigidBodies.kinematicTargetFlagsBuffer;
-    view.rigid.bodyCount                  = mRigidBodyCount;
+    view.rigid.kinematicTargetFlagsBuffer     = mPersistentRigidBodies.kinematicTargetFlagsBuffer;
+    view.rigid.colliderOwnerBodyIndicesBuffer = mPersistentColliders.ownerRigidBodyIndicesBuffer;
+    view.rigid.colliderBroadPhaseBuffer       = mPersistentColliders.broadPhaseDataBuffer;
+    view.rigid.colliderGeometryBuffer         = mPersistentColliders.geometryDataBuffer;
+    view.rigid.colliderMaterialsBuffer        = mPersistentColliders.materialBuffer;
+    view.rigid.colliderShapeTypesBuffer       = mPersistentColliders.shapeTypesBuffer;
+    view.rigid.colliderEnabledFlagsBuffer     = mPersistentColliders.enabledFlagsBuffer;
+    view.rigid.bodyColliderOffsetsBuffer = mPersistentBodyColliderMapping.colliderOffsetsBuffer;
+    view.rigid.bodyColliderCountsBuffer  = mPersistentBodyColliderMapping.colliderCountsBuffer;
+    view.rigid.bodyColliderRangesBuffer  = mPersistentBodyColliderMapping.colliderRangesBuffer;
+    view.rigid.bodyColliderIndicesBuffer = mPersistentBodyColliderMapping.colliderIndicesBuffer;
+    view.rigid.bodyCount                 = mRigidBodyCount;
     view.rigid.rigidParticleAttachmentsBuffer =
         mPersistentRoutedCables.rigidParticleAttachmentsBuffer;
     view.rigid.rigidParticleAttachmentCount = mRigidParticleAttachmentCount;
     view.rigid.rigidDistanceConstraintsBuffer =
         mPersistentRoutedCables.rigidDistanceConstraintsBuffer;
-    view.rigid.rigidDistanceConstraintCount    = mRigidDistanceConstraintCount;
-    view.rigid.routedCableDescriptorsBuffer    = mPersistentRoutedCables.descriptorsBuffer;
-    view.rigid.routedCableRoutePointsBuffer    = mPersistentRoutedCables.routePointsBuffer;
-    view.rigid.routedCableDebugSegmentsBuffer  = mPersistentRoutedCables.debugSegmentsBuffer;
-    view.rigid.routedCableCount                = mRoutedCableCount;
-    view.rigid.routedCableDebugSegmentCount    = mRoutedCableDebugSegmentCount;
-    view.rigid.colliderCount                   = mColliderCount;
-    view.rigid.bindingGeneration               = mRigidBindingGeneration;
+    view.rigid.rigidDistanceConstraintCount   = mRigidDistanceConstraintCount;
+    view.rigid.routedCableDescriptorsBuffer   = mPersistentRoutedCables.descriptorsBuffer;
+    view.rigid.routedCableRoutePointsBuffer   = mPersistentRoutedCables.routePointsBuffer;
+    view.rigid.routedCableDebugSegmentsBuffer = mPersistentRoutedCables.debugSegmentsBuffer;
+    view.rigid.routedCableCount               = mRoutedCableCount;
+    view.rigid.routedCableRoutePointCount     = mRoutedCableRoutePointCount;
+    view.rigid.routedCableDebugSegmentCount   = mRoutedCableDebugSegmentCount;
+    view.rigid.colliderCount                  = mColliderCount;
+    view.rigid.bindingGeneration              = mRigidBindingGeneration;
+    view.rigid.constraintBindingGeneration =
+        std::max({mLastUploadedRigidParticleAttachmentResolvedRevision,
+                  mLastUploadedRigidDistanceConstraintResolvedRevision,
+                  mLastUploadedRoutedCableResolvedRevision});
     view.joints.hingeJointsBuffer              = mPersistentJoints.hingeJointsBuffer;
     view.joints.sliderJointsBuffer             = mPersistentJoints.sliderJointsBuffer;
     view.joints.hingePassiveJointIndicesBuffer = mPersistentJoints.hingePassiveJointIndicesBuffer;

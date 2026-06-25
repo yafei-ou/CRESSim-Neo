@@ -1,6 +1,9 @@
 #include "common/logger.h"
 #include "engine/runtime.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace
 {
 
@@ -67,11 +70,20 @@ bool verifyBaseMapping(const cressim::neo::engine::RigidLayoutMapping &mapping,
         return false;
     }
     if (mapping.rigidBodyEntityIds.size() != mapping.rigidBodyCount ||
+        mapping.rigidBodyIds.size() != mapping.rigidBodyCount ||
         mapping.rigidBodyEnvironmentIndices.size() != mapping.rigidBodyCount ||
         mapping.colliderIds.size() != mapping.colliderCount ||
         mapping.colliderEntityIds.size() != mapping.colliderCount ||
+        mapping.colliderOwnerBodyIds.size() != mapping.colliderCount ||
         mapping.colliderOwnerBodyIndices.size() != mapping.colliderCount ||
         mapping.colliderEnvironmentIndices.size() != mapping.colliderCount ||
+        mapping.colliderShapeTypes.size() != mapping.colliderCount ||
+        mapping.colliderEnabledFlags.size() != mapping.colliderCount ||
+        mapping.colliderCollisionLayers.size() != mapping.colliderCount ||
+        mapping.colliderCollisionMasks.size() != mapping.colliderCount ||
+        mapping.colliderLocalPositions.size() != mapping.colliderCount ||
+        mapping.colliderLocalRotations.size() != mapping.colliderCount ||
+        mapping.colliderShapeParams.size() != mapping.colliderCount ||
         mapping.bodyColliderOffsets.size() != mapping.rigidBodyCount ||
         mapping.bodyColliderCounts.size() != mapping.rigidBodyCount)
     {
@@ -87,6 +99,12 @@ bool verifyBaseMapping(const cressim::neo::engine::RigidLayoutMapping &mapping,
             mapping.rigidBodyEntityIds[boxSlot] != authored[envIndex].box)
         {
             CRESSIM_LOG_ERROR("Rigid body entity slot mapping did not preserve authored order.");
+            return false;
+        }
+        if (mapping.rigidBodyIds[groundSlot] == physics::kInvalidRigidBodyId ||
+            mapping.rigidBodyIds[boxSlot] == physics::kInvalidRigidBodyId)
+        {
+            CRESSIM_LOG_ERROR("Rigid body ids should be populated in prepared mapping.");
             return false;
         }
         if (mapping.rigidBodyEnvironmentIndices[groundSlot] != envIndex ||
@@ -114,6 +132,12 @@ bool verifyBaseMapping(const cressim::neo::engine::RigidLayoutMapping &mapping,
             CRESSIM_LOG_ERROR("Collider owner-body indices are incorrect.");
             return false;
         }
+        if (mapping.colliderOwnerBodyIds[groundColliderSlot] != mapping.rigidBodyIds[groundSlot] ||
+            mapping.colliderOwnerBodyIds[boxColliderSlot] != mapping.rigidBodyIds[boxSlot])
+        {
+            CRESSIM_LOG_ERROR("Collider owner-body ids are incorrect.");
+            return false;
+        }
         if (mapping.colliderEntityIds[groundColliderSlot] != authored[envIndex].ground ||
             mapping.colliderEntityIds[boxColliderSlot] != authored[envIndex].box)
         {
@@ -126,9 +150,58 @@ bool verifyBaseMapping(const cressim::neo::engine::RigidLayoutMapping &mapping,
             CRESSIM_LOG_ERROR("Collider environment mapping is incorrect.");
             return false;
         }
+        if (mapping.colliderShapeTypes[groundColliderSlot] !=
+                static_cast<std::uint32_t>(physics::ColliderShapeType::Box) ||
+            mapping.colliderShapeTypes[boxColliderSlot] !=
+                static_cast<std::uint32_t>(physics::ColliderShapeType::Box))
+        {
+            CRESSIM_LOG_ERROR("Collider shape types are incorrect.");
+            return false;
+        }
+        if (mapping.colliderEnabledFlags[groundColliderSlot] != 1u ||
+            mapping.colliderEnabledFlags[boxColliderSlot] != 1u)
+        {
+            CRESSIM_LOG_ERROR("Collider enabled flags are incorrect.");
+            return false;
+        }
+        if (mapping.colliderCollisionLayers[groundColliderSlot] != 1u ||
+            mapping.colliderCollisionLayers[boxColliderSlot] != 1u ||
+            mapping.colliderCollisionMasks[groundColliderSlot] != 0xffffffffu ||
+            mapping.colliderCollisionMasks[boxColliderSlot] != 0xffffffffu)
+        {
+            CRESSIM_LOG_ERROR("Collider filter metadata is incorrect.");
+            return false;
+        }
+        if (std::abs(mapping.colliderLocalPositions[groundColliderSlot].x) > 1.0e-6f ||
+            std::abs(mapping.colliderLocalPositions[groundColliderSlot].y) > 1.0e-6f ||
+            std::abs(mapping.colliderLocalPositions[groundColliderSlot].z) > 1.0e-6f ||
+            std::abs(mapping.colliderLocalPositions[boxColliderSlot].x) > 1.0e-6f ||
+            std::abs(mapping.colliderLocalPositions[boxColliderSlot].y) > 1.0e-6f ||
+            std::abs(mapping.colliderLocalPositions[boxColliderSlot].z) > 1.0e-6f)
+        {
+            CRESSIM_LOG_ERROR("Collider local positions are incorrect.");
+            return false;
+        }
+        const Diligent::QuaternionF &groundRotation =
+            mapping.colliderLocalRotations[groundColliderSlot];
+        const Diligent::QuaternionF &boxRotation = mapping.colliderLocalRotations[boxColliderSlot];
+        if (std::abs(groundRotation.q.w - 1.0f) > 1.0e-6f ||
+            std::abs(boxRotation.q.w - 1.0f) > 1.0e-6f)
+        {
+            CRESSIM_LOG_ERROR("Collider local rotations are incorrect.");
+            return false;
+        }
     }
 
     return true;
+}
+
+bool hasResource(const std::vector<cressim::neo::engine::CustomComputeResourceDesc> &resources,
+                 const char *key)
+{
+    return std::any_of(resources.begin(), resources.end(),
+                       [key](const cressim::neo::engine::CustomComputeResourceDesc &resource)
+                       { return resource.key == key; });
 }
 
 } // namespace
@@ -165,6 +238,33 @@ int main()
     }
     if (!verifyBaseMapping(mapping, authored))
     {
+        runtime.shutdown();
+        return 1;
+    }
+
+    if (!runtime.uploadWorld())
+    {
+        CRESSIM_LOG_ERROR("Failed to upload world before querying rigid/collider resources.");
+        runtime.shutdown();
+        return 1;
+    }
+    const std::vector<engine::CustomComputeResourceDesc> resources =
+        runtime.listCustomComputeResources();
+    if (!hasResource(resources, "rigid.body_types") ||
+        !hasResource(resources, "rigid.inverse_inertia_local") ||
+        !hasResource(resources, "rigid.proxy_particle_contact_materials") ||
+        !hasResource(resources, "collider.owner_body_indices") ||
+        !hasResource(resources, "collider.broad_phase") ||
+        !hasResource(resources, "collider.geometry") ||
+        !hasResource(resources, "collider.materials") ||
+        !hasResource(resources, "collider.shape_types") ||
+        !hasResource(resources, "collider.enabled_flags") ||
+        !hasResource(resources, "rigid.body_collider_offsets") ||
+        !hasResource(resources, "rigid.body_collider_counts") ||
+        !hasResource(resources, "rigid.body_collider_ranges") ||
+        !hasResource(resources, "rigid.body_collider_indices"))
+    {
+        CRESSIM_LOG_ERROR("Expected rigid/collider custom compute resources are missing.");
         runtime.shutdown();
         return 1;
     }

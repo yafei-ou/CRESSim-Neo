@@ -583,6 +583,7 @@ private:
     std::uint32_t mStrandRigidAttachmentCount                          = 0;
     std::uint32_t mRigidDistanceConstraintCount                        = 0;
     std::uint32_t mRoutedCableCount                                    = 0;
+    std::uint32_t mRoutedCableRoutePointCount                          = 0;
     std::uint32_t mRoutedCableDebugSegmentCount                        = 0;
     std::uint32_t mBroadPhaseNodeCapacity                              = 0;
     std::uint32_t mCandidatePairCapacity                               = 0;

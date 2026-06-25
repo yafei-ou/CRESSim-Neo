@@ -657,6 +657,16 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
     addBuffer("rigid.angular_velocities", sceneView.rigid.stateAngularVelocitiesBuffer,
               CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
               sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.inverse_inertia_local", sceneView.rigid.inverseInertiaLocalBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.body_types", sceneView.rigid.bodyTypesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.proxy_particle_contact_materials",
+              sceneView.rigid.proxyParticleContactMaterialsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
     addBuffer("rigid.kinematic_target_positions", sceneView.rigid.kinematicTargetPositionsBuffer,
               CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
               sceneView.rigid.bindingGeneration);
@@ -667,6 +677,54 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
     addBuffer("rigid.kinematic_target_flags", sceneView.rigid.kinematicTargetFlagsBuffer,
               CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
               sceneView.rigid.bindingGeneration);
+    addBuffer("collider.owner_body_indices", sceneView.rigid.colliderOwnerBodyIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.colliderCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("collider.broad_phase", sceneView.rigid.colliderBroadPhaseBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.colliderCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("collider.geometry", sceneView.rigid.colliderGeometryBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.colliderCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("collider.materials", sceneView.rigid.colliderMaterialsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.colliderCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("collider.shape_types", sceneView.rigid.colliderShapeTypesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.colliderCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("collider.enabled_flags", sceneView.rigid.colliderEnabledFlagsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.colliderCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.body_collider_offsets", sceneView.rigid.bodyColliderOffsetsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.body_collider_counts", sceneView.rigid.bodyColliderCountsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.body_collider_ranges", sceneView.rigid.bodyColliderRangesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.body_collider_indices", sceneView.rigid.bodyColliderIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.colliderCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("constraint.rigid_particle_attachments",
+              sceneView.rigid.rigidParticleAttachmentsBuffer, CustomComputeResourceAccess::ReadOnly,
+              sceneView.rigid.rigidParticleAttachmentCount,
+              sceneView.rigid.constraintBindingGeneration);
+    addBuffer("constraint.rigid_distance_constraints",
+              sceneView.rigid.rigidDistanceConstraintsBuffer, CustomComputeResourceAccess::ReadOnly,
+              sceneView.rigid.rigidDistanceConstraintCount,
+              sceneView.rigid.constraintBindingGeneration);
+    addBuffer("constraint.routed_cable_descriptors", sceneView.rigid.routedCableDescriptorsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.routedCableCount,
+              sceneView.rigid.constraintBindingGeneration);
+    addBuffer("constraint.routed_cable_route_points", sceneView.rigid.routedCableRoutePointsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.routedCableRoutePointCount,
+              sceneView.rigid.constraintBindingGeneration);
+    addBuffer("constraint.routed_cable_debug_segments",
+              sceneView.rigid.routedCableDebugSegmentsBuffer, CustomComputeResourceAccess::ReadOnly,
+              sceneView.rigid.routedCableDebugSegmentCount,
+              sceneView.rigid.constraintBindingGeneration);
     addBuffer("joint.hinge", sceneView.joints.hingeJointsBuffer,
               CustomComputeResourceAccess::ReadWrite, sceneView.joints.hingeJointCount,
               sceneView.joints.bindingGeneration);

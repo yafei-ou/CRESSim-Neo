@@ -5,6 +5,9 @@
 #include "engine/runtime_internal.h"
 #include "engine/shared_buffer_service.h"
 
+#include <algorithm>
+#include <unordered_map>
+
 namespace cressim::neo::engine
 {
 
@@ -522,15 +525,164 @@ bool Runtime::tryGetPreparedRigidLayoutMapping(RigidLayoutMapping &outMapping) c
     outMapping.rigidBodyCount              = static_cast<std::uint32_t>(rigidBodies.size());
     outMapping.colliderCount               = static_cast<std::uint32_t>(colliders.size());
     outMapping.bindingGeneration           = physicsWorld.rigidBodyTopologyRevision();
+    outMapping.rigidBodyIds                = rigidBodies.rigidBodyIds;
     outMapping.rigidBodyEntityIds          = rigidBodies.entityIds;
     outMapping.rigidBodyEnvironmentIndices = rigidBodies.environmentIndices;
     outMapping.colliderIds                 = colliders.colliderIds;
     outMapping.colliderEntityIds           = colliders.entityIds;
+    outMapping.colliderOwnerBodyIds        = colliders.ownerRigidBodyIds;
     outMapping.colliderOwnerBodyIndices    = colliders.ownerRigidBodyIndices;
     outMapping.colliderEnvironmentIndices  = colliders.environmentIndices;
+    outMapping.colliderShapeTypes          = colliders.shapeTypes;
+    outMapping.colliderEnabledFlags        = colliders.enabledFlags;
+    outMapping.colliderCollisionLayers     = colliders.collisionLayers;
+    outMapping.colliderCollisionMasks      = colliders.collisionMasks;
+    outMapping.colliderShapeParams         = colliders.shapeParams;
     outMapping.bodyColliderOffsets         = bodyColliderMapping.colliderOffsets;
     outMapping.bodyColliderCounts          = bodyColliderMapping.colliderCounts;
     outMapping.bodyColliderIndices         = bodyColliderMapping.colliderIndices;
+    outMapping.colliderLocalPositions.reserve(colliders.localPositions.size());
+    outMapping.colliderLocalRotations.reserve(colliders.localOrientations.size());
+    for (const Diligent::float4 &position : colliders.localPositions)
+    {
+        outMapping.colliderLocalPositions.push_back({position.x, position.y, position.z});
+    }
+    for (const Diligent::float4 &rotation : colliders.localOrientations)
+    {
+        outMapping.colliderLocalRotations.push_back(
+            Diligent::QuaternionF{rotation.x, rotation.y, rotation.z, rotation.w});
+    }
+    return true;
+}
+
+bool Runtime::tryGetPreparedConstraintLayoutMapping(ConstraintLayoutMapping &outMapping) const
+{
+    outMapping = {};
+    if (!mInitialized || mPhysicsSolver == nullptr)
+    {
+        return false;
+    }
+
+    const physics::PhysicsWorld &physicsWorld    = mWorld.physicsWorld();
+    const physics::RigidBodySoAHost &rigidBodies = physicsWorld.rigidBodySoA();
+    const auto &rigidParticleAttachments = physicsWorld.rigidParticleAttachmentConstraintSnapshot();
+    const auto &rigidDistanceConstraints = physicsWorld.rigidDistanceConstraintSnapshot();
+    const auto &routedCables             = physicsWorld.routedCableConstraintSnapshot();
+
+    std::unordered_map<common::EntityId, std::uint32_t> bodyIndexByEntity;
+    bodyIndexByEntity.reserve(rigidBodies.entityIds.size());
+    for (std::uint32_t i = 0; i < static_cast<std::uint32_t>(rigidBodies.entityIds.size()); ++i)
+    {
+        bodyIndexByEntity.emplace(rigidBodies.entityIds[i], i);
+    }
+
+    outMapping.bindingGeneration =
+        std::max({physicsWorld.rigidParticleAttachmentDefinitionRevision(),
+                  physicsWorld.rigidDistanceConstraintDefinitionRevision(),
+                  physicsWorld.routedCableDefinitionRevision()});
+
+    auto &attachmentMapping = outMapping.rigidParticleAttachments;
+    attachmentMapping.count = static_cast<std::uint32_t>(rigidParticleAttachments.size());
+    attachmentMapping.constraintIds.reserve(rigidParticleAttachments.size());
+    attachmentMapping.environmentIndices.reserve(rigidParticleAttachments.size());
+    attachmentMapping.rigidBodyIds.reserve(rigidParticleAttachments.size());
+    attachmentMapping.rigidBodyIndices.reserve(rigidParticleAttachments.size());
+    attachmentMapping.particleEntityIds.reserve(rigidParticleAttachments.size());
+    attachmentMapping.particleReferenceTypes.reserve(rigidParticleAttachments.size());
+    attachmentMapping.particleLocalIndices.reserve(rigidParticleAttachments.size());
+    attachmentMapping.enabledFlags.reserve(rigidParticleAttachments.size());
+    for (const auto &constraint : rigidParticleAttachments)
+    {
+        const auto bodyIt = bodyIndexByEntity.find(constraint.rigidBodyEntityId);
+        const std::uint32_t bodyIndex =
+            bodyIt != bodyIndexByEntity.end() ? bodyIt->second : 0xffffffffu;
+        attachmentMapping.constraintIds.push_back(constraint.constraintId);
+        attachmentMapping.environmentIndices.push_back(
+            bodyIndex < rigidBodies.environmentIndices.size()
+                ? rigidBodies.environmentIndices[bodyIndex]
+                : 0u);
+        attachmentMapping.rigidBodyIds.push_back(bodyIndex < rigidBodies.rigidBodyIds.size()
+                                                     ? rigidBodies.rigidBodyIds[bodyIndex]
+                                                     : physics::kInvalidRigidBodyId);
+        attachmentMapping.rigidBodyIndices.push_back(bodyIndex);
+        attachmentMapping.particleEntityIds.push_back(constraint.particle.entityId);
+        attachmentMapping.particleReferenceTypes.push_back(
+            static_cast<std::uint32_t>(constraint.particle.type));
+        attachmentMapping.particleLocalIndices.push_back(constraint.particle.localParticleIndex);
+        attachmentMapping.enabledFlags.push_back(constraint.enabled ? 1u : 0u);
+    }
+
+    auto &distanceMapping = outMapping.rigidDistanceConstraints;
+    distanceMapping.count = static_cast<std::uint32_t>(rigidDistanceConstraints.size());
+    distanceMapping.constraintIds.reserve(rigidDistanceConstraints.size());
+    distanceMapping.environmentIndices.reserve(rigidDistanceConstraints.size());
+    distanceMapping.rigidBodyIdsA.reserve(rigidDistanceConstraints.size());
+    distanceMapping.rigidBodyIdsB.reserve(rigidDistanceConstraints.size());
+    distanceMapping.rigidBodyIndicesA.reserve(rigidDistanceConstraints.size());
+    distanceMapping.rigidBodyIndicesB.reserve(rigidDistanceConstraints.size());
+    distanceMapping.enabledFlags.reserve(rigidDistanceConstraints.size());
+    for (const auto &constraint : rigidDistanceConstraints)
+    {
+        const auto bodyItA = bodyIndexByEntity.find(constraint.entityA);
+        const auto bodyItB = bodyIndexByEntity.find(constraint.entityB);
+        const std::uint32_t bodyIndexA =
+            bodyItA != bodyIndexByEntity.end() ? bodyItA->second : 0xffffffffu;
+        const std::uint32_t bodyIndexB =
+            bodyItB != bodyIndexByEntity.end() ? bodyItB->second : 0xffffffffu;
+        distanceMapping.constraintIds.push_back(constraint.constraintId);
+        distanceMapping.environmentIndices.push_back(
+            bodyIndexA < rigidBodies.environmentIndices.size()
+                ? rigidBodies.environmentIndices[bodyIndexA]
+                : 0u);
+        distanceMapping.rigidBodyIdsA.push_back(bodyIndexA < rigidBodies.rigidBodyIds.size()
+                                                    ? rigidBodies.rigidBodyIds[bodyIndexA]
+                                                    : physics::kInvalidRigidBodyId);
+        distanceMapping.rigidBodyIdsB.push_back(bodyIndexB < rigidBodies.rigidBodyIds.size()
+                                                    ? rigidBodies.rigidBodyIds[bodyIndexB]
+                                                    : physics::kInvalidRigidBodyId);
+        distanceMapping.rigidBodyIndicesA.push_back(bodyIndexA);
+        distanceMapping.rigidBodyIndicesB.push_back(bodyIndexB);
+        distanceMapping.enabledFlags.push_back(constraint.enabled ? 1u : 0u);
+    }
+
+    auto &routedCableMapping = outMapping.routedCables;
+    routedCableMapping.count = static_cast<std::uint32_t>(routedCables.size());
+    routedCableMapping.constraintIds.reserve(routedCables.size());
+    routedCableMapping.environmentIndices.reserve(routedCables.size());
+    routedCableMapping.routePointOffsets.reserve(routedCables.size());
+    routedCableMapping.routePointCounts.reserve(routedCables.size());
+    routedCableMapping.enabledFlags.reserve(routedCables.size());
+    std::uint32_t routePointOffset = 0u;
+    for (const auto &constraint : routedCables)
+    {
+        routedCableMapping.constraintIds.push_back(constraint.constraintId);
+        routedCableMapping.routePointOffsets.push_back(routePointOffset);
+        routedCableMapping.routePointCounts.push_back(
+            static_cast<std::uint32_t>(constraint.routePoints.size()));
+        routedCableMapping.enabledFlags.push_back(constraint.enabled ? 1u : 0u);
+
+        std::uint32_t envIndex = 0u;
+        bool haveEnv           = false;
+        for (const auto &routePoint : constraint.routePoints)
+        {
+            const auto bodyIt = bodyIndexByEntity.find(routePoint.entityId);
+            const std::uint32_t bodyIndex =
+                bodyIt != bodyIndexByEntity.end() ? bodyIt->second : 0xffffffffu;
+            if (!haveEnv && bodyIndex < rigidBodies.environmentIndices.size())
+            {
+                envIndex = rigidBodies.environmentIndices[bodyIndex];
+                haveEnv  = true;
+            }
+            routedCableMapping.routePointRigidBodyIds.push_back(
+                bodyIndex < rigidBodies.rigidBodyIds.size() ? rigidBodies.rigidBodyIds[bodyIndex]
+                                                            : physics::kInvalidRigidBodyId);
+            routedCableMapping.routePointRigidBodyIndices.push_back(bodyIndex);
+            routedCableMapping.routePointLocalGuideOffsets.push_back(routePoint.localGuideOffset);
+        }
+        routedCableMapping.environmentIndices.push_back(envIndex);
+        routePointOffset += static_cast<std::uint32_t>(constraint.routePoints.size());
+    }
+
     return true;
 }
 
