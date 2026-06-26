@@ -9,6 +9,16 @@ except RuntimeError:
     CartpoleTorchVectorEnv = None
 
 try:
+    from .soft_body_pusher_env import SoftBodyPusherTorchVectorEnv
+except RuntimeError:
+    SoftBodyPusherTorchVectorEnv = None
+
+try:
+    from .fluid_pouring_env import FluidPouringTorchVectorEnv
+except RuntimeError:
+    FluidPouringTorchVectorEnv = None
+
+try:
     from .soft_body_env import SoftBodyTorchVectorEnv
 except RuntimeError:
     SoftBodyTorchVectorEnv = None
