@@ -5,55 +5,53 @@ from pathlib import Path
 
 import cressim_neo as neo
 
-try:
-    import torch  # noqa: F401
-except ImportError:
-    pass
-
 from ppo_common import PPOTrainConfig, run_inference_continuous, train_ppo_continuous
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train or run inference for the CRESSim CartPole PPO example.")
+    parser = argparse.ArgumentParser(description="Train or run inference for the CRESSim fluid pouring PPO example.")
     parser.add_argument("--mode", choices=("train", "infer"), default="train")
     parser.add_argument(
         "--model-path",
         type=Path,
-        default=Path("artifacts/cartpole_ppo_final.pt"),
+        default=Path("artifacts/fluid_pouring_ppo_final.pt"),
         help="Path used to save the trained model or load it for inference.",
     )
-    parser.add_argument("--train-env-count", type=int, default=256)
+    parser.add_argument("--train-env-count", type=int, default=64)
     parser.add_argument("--infer-env-count", type=int, default=1)
     parser.add_argument("--rollout-steps", type=int, default=128)
-    parser.add_argument("--update-count", type=int, default=500)
-    parser.add_argument("--max-episode-steps", type=int, default=500)
+    parser.add_argument("--update-count", type=int, default=400)
+    parser.add_argument("--max-episode-steps", type=int, default=240)
     parser.add_argument("--image-width", type=int, default=512)
     parser.add_argument("--image-height", type=int, default=512)
     parser.add_argument("--fps", type=float, default=60.0)
     parser.add_argument("--hidden-dim", type=int, default=128)
     return parser.parse_args()
 
-def make_train_env(env_count: int, max_episode_steps: int) -> neo.CartpoleTorchVectorEnv:
-    return neo.CartpoleTorchVectorEnv(
+
+def make_train_env(env_count: int, max_episode_steps: int) -> neo.FluidPouringTorchVectorEnv:
+    return neo.FluidPouringTorchVectorEnv(
         env_count=env_count,
         max_episode_steps=max_episode_steps,
-        reset_cart_position_range=0.05,
-        reset_cart_velocity_range=0.05,
-        reset_pole_angle_range_radians=0.08,
-        reset_pole_angular_velocity_range=0.05,
+        success_fraction=0.40,
+        reset_position_range=0.0,
+        position_action_scale=0.01,
+        tilt_action_scale=0.02,
+        source_move_range_x=3.5,
     )
 
 
 def make_infer_env(
     env_count: int, max_episode_steps: int, image_width: int, image_height: int
-) -> neo.CartpoleTorchVectorEnv:
-    return neo.CartpoleTorchVectorEnv(
+) -> neo.FluidPouringTorchVectorEnv:
+    return neo.FluidPouringTorchVectorEnv(
         env_count=env_count,
         max_episode_steps=max_episode_steps,
-        reset_cart_position_range=0.05,
-        reset_cart_velocity_range=0.05,
-        reset_pole_angle_range_radians=0.08,
-        reset_pole_angular_velocity_range=0.05,
+        success_fraction=0.40,
+        reset_position_range=0.0,
+        position_action_scale=0.01,
+        tilt_action_scale=0.02,
+        source_move_range_x=3.5,
         enable_rgb_observation=True,
         image_width=image_width,
         image_height=image_height,
@@ -63,16 +61,17 @@ def make_infer_env(
 def run_training(args: argparse.Namespace) -> int:
     return train_ppo_continuous(
         env_factory=make_train_env,
-        observation_dim=neo.CartpoleTorchVectorEnv.OBSERVATION_DIM,
-        action_dim=1,
+        observation_dim=neo.FluidPouringTorchVectorEnv.OBSERVATION_DIM,
+        action_dim=neo.FluidPouringTorchVectorEnv.ACTION_DIM,
         config=PPOTrainConfig(
-            name="cartpole",
+            name="fluid_pouring",
             model_path=args.model_path,
             train_env_count=args.train_env_count,
             rollout_steps=args.rollout_steps,
             update_count=args.update_count,
             max_episode_steps=args.max_episode_steps,
             hidden_dim=args.hidden_dim,
+            minibatch_size=1024,
         ),
     )
 
@@ -80,7 +79,7 @@ def run_training(args: argparse.Namespace) -> int:
 def run_inference(args: argparse.Namespace) -> int:
     return run_inference_continuous(
         env_factory=make_infer_env,
-        action_dim=1,
+        action_dim=neo.FluidPouringTorchVectorEnv.ACTION_DIM,
         model_path=args.model_path,
         infer_env_count=args.infer_env_count,
         max_episode_steps=args.max_episode_steps,
