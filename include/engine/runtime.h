@@ -94,18 +94,27 @@ public:
 
     // Returns the current prepared rigid-body/collider slot mapping derived from authored state.
     // This is valid after prepare() and does not require uploadWorld().
+    // The returned layoutRevision is a prepared host-side slot-layout invalidation key and is
+    // separate from the live GPU custom-compute bindingGeneration exposed after uploadWorld().
     bool tryGetPreparedRigidLayoutMapping(RigidLayoutMapping &outMapping) const;
 
     // Returns the current prepared rigid-adjacent constraint mapping derived from authored state.
     // This is valid after prepare() and does not require uploadWorld().
+    // The returned layoutRevision is a prepared host-side slot-layout invalidation key and is
+    // separate from the live GPU custom-compute bindingGeneration exposed after uploadWorld().
     bool tryGetPreparedConstraintLayoutMapping(ConstraintLayoutMapping &outMapping) const;
 
     // Returns the current prepared particle/deformable slot mapping derived from authored state.
     // This is valid after prepare() and does not require uploadWorld().
+    // The returned layoutRevision is a prepared host-side slot-layout invalidation key and is
+    // separate from the live GPU custom-compute bindingGeneration exposed after uploadWorld().
     bool tryGetPreparedParticleLayoutMapping(ParticleLayoutMapping &outMapping) const;
 
-    // Returns the current prepared hinge/slider joint slot mapping derived from authored state.
-    // This is valid after prepare() and does not require uploadWorld().
+    // Returns the current prepared rigid-joint slot mapping derived from authored state for
+    // ball, hinge, spherical, and slider joints. This is valid after prepare() and does not
+    // require uploadWorld(). The returned layoutRevision is a prepared host-side slot-layout
+    // invalidation key and is separate from the live GPU custom-compute bindingGeneration
+    // exposed after uploadWorld().
     bool tryGetPreparedJointLayoutMapping(JointLayoutMapping &outMapping) const;
 
     std::vector<CustomComputeResourceDesc> listCustomComputeResources();

@@ -15,6 +15,9 @@ struct CRESSIM_NEO_ENGINE_API RigidLayoutMapping
 {
     std::uint32_t rigidBodyCount = 0u;
     std::uint32_t colliderCount  = 0u;
+    // Prepared host-side rigid/collider slot-layout invalidation key produced by prepare().
+    // This describes when authored slot interpretation changes and is not the same as the live
+    // GPU custom-compute resource bindingGeneration exposed after uploadWorld().
     std::uint64_t layoutRevision = 0u;
 
     std::vector<physics::RigidBodyId> rigidBodyIds;

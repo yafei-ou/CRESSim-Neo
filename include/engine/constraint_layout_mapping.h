@@ -54,6 +54,9 @@ struct CRESSIM_NEO_ENGINE_API RoutedCableConstraintLayoutMapping
 
 struct CRESSIM_NEO_ENGINE_API ConstraintLayoutMapping
 {
+    // Prepared host-side constraint-layout invalidation key produced by prepare().
+    // This describes when authored slot interpretation changes and is not the same as the live
+    // GPU custom-compute resource bindingGeneration exposed after uploadWorld().
     std::uint64_t layoutRevision = 0u;
 
     RigidParticleAttachmentConstraintLayoutMapping rigidParticleAttachments;

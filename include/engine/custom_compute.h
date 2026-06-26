@@ -42,6 +42,9 @@ struct CustomComputeResourceDesc
     CustomComputeResourceAccess access = CustomComputeResourceAccess::ReadOnly;
     std::uint32_t elementCount         = 0u;
     std::uint32_t elementStrideBytes   = 0u;
+    // Live GPU resource binding invalidation key used by custom compute after uploadWorld().
+    // This is not the same as the prepared host-side layoutRevision exposed by prepared mapping
+    // queries after prepare().
     std::uint64_t bindingGeneration    = 0u;
 };
 
