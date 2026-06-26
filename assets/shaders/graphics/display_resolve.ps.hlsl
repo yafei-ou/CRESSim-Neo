@@ -4,18 +4,40 @@ cbuffer GraphicsDisplayResolve
     uint g_OutputMode;
     uint g_ToneMapper;
     uint g_SourceIsDisplayEncoded;
-    uint g_SourceKind;
-    uint g_ResolveReserved0;
-    uint g_ResolveReserved1;
-    uint g_ResolveReserved2;
     float4 g_ResolveParams;
 };
 
+#ifndef DISPLAY_RESOLVE_SOURCE_KIND
+#    define DISPLAY_RESOLVE_SOURCE_KIND 0
+#endif
+
+#ifndef DISPLAY_RESOLVE_SOURCE_IS_ARRAY
+#    define DISPLAY_RESOLVE_SOURCE_IS_ARRAY 0
+#endif
+
+#if DISPLAY_RESOLVE_SOURCE_KIND == 0
+#    if DISPLAY_RESOLVE_SOURCE_IS_ARRAY
 Texture2DArray<float4> g_SourceColor;
 SamplerState g_SourceColor_sampler;
+#    else
+Texture2D<float4> g_SourceColor;
+SamplerState g_SourceColor_sampler;
+#    endif
+#elif DISPLAY_RESOLVE_SOURCE_KIND == 1
+#    if DISPLAY_RESOLVE_SOURCE_IS_ARRAY
 Texture2DArray<float> g_SourceDepth;
 SamplerState g_SourceDepth_sampler;
+#    else
+Texture2D<float> g_SourceDepth;
+SamplerState g_SourceDepth_sampler;
+#    endif
+#else
+#    if DISPLAY_RESOLVE_SOURCE_IS_ARRAY
 Texture2DArray<uint> g_SourceSegmentation;
+#    else
+Texture2D<uint> g_SourceSegmentation;
+#    endif
+#endif
 
 float3 segmentationColor(uint id)
 {
@@ -90,31 +112,42 @@ float depthToLinear01(float depthSample, float nearClip, float farClip)
 float4 main(in PSInput In) : SV_Target
 {
     float4 color = float4(0.0, 0.0, 0.0, 1.0);
-    if (g_SourceKind == 1)
-    {
-        const float depth =
-            g_SourceDepth.Sample(g_SourceDepth_sampler, float3(In.TexCoord, (float)g_SourceLayer));
-        const float linearDepth01 = depthToLinear01(depth, g_ResolveParams.y, g_ResolveParams.z);
-        const float displayValue = 1.0 - linearDepth01;
-        color = float4(displayValue.xxx, 1.0);
-    }
-    else if (g_SourceKind == 2)
-    {
-        uint width = 0u;
-        uint height = 0u;
-        uint layers = 0u;
-        g_SourceSegmentation.GetDimensions(width, height, layers);
-        const float2 clampedUv = saturate(In.TexCoord);
-        const uint2 pixel = uint2(min((uint)(clampedUv.x * width), max(width, 1u) - 1u),
-                                  min((uint)(clampedUv.y * height), max(height, 1u) - 1u));
-        const uint id = g_SourceSegmentation.Load(int4(pixel, g_SourceLayer, 0));
-        color = float4(segmentationColor(id), 1.0);
-    }
-    else
-    {
-        color = g_SourceColor.Sample(g_SourceColor_sampler, float3(In.TexCoord, (float)g_SourceLayer));
-        color.rgb = max(color.rgb, 0.0) * max(g_ResolveParams.x, 0.0);
-    }
+#if DISPLAY_RESOLVE_SOURCE_KIND == 1
+#    if DISPLAY_RESOLVE_SOURCE_IS_ARRAY
+    const float depth = g_SourceDepth.Sample(g_SourceDepth_sampler,
+                                             float3(In.TexCoord, (float)g_SourceLayer));
+#    else
+    const float depth = g_SourceDepth.Sample(g_SourceDepth_sampler, In.TexCoord);
+#    endif
+    const float linearDepth01 = depthToLinear01(depth, g_ResolveParams.y, g_ResolveParams.z);
+    const float displayValue = 1.0 - linearDepth01;
+    color = float4(displayValue.xxx, 1.0);
+#elif DISPLAY_RESOLVE_SOURCE_KIND == 2
+    uint width = 0u;
+    uint height = 0u;
+#    if DISPLAY_RESOLVE_SOURCE_IS_ARRAY
+    uint layers = 0u;
+    g_SourceSegmentation.GetDimensions(width, height, layers);
+#    else
+    g_SourceSegmentation.GetDimensions(width, height);
+#    endif
+    const float2 clampedUv = saturate(In.TexCoord);
+    const uint2 pixel = uint2(min((uint)(clampedUv.x * width), max(width, 1u) - 1u),
+                              min((uint)(clampedUv.y * height), max(height, 1u) - 1u));
+#    if DISPLAY_RESOLVE_SOURCE_IS_ARRAY
+    const uint id = g_SourceSegmentation.Load(int4(pixel, g_SourceLayer, 0));
+#    else
+    const uint id = g_SourceSegmentation.Load(int3(pixel, 0));
+#    endif
+    color = float4(segmentationColor(id), 1.0);
+#else
+#    if DISPLAY_RESOLVE_SOURCE_IS_ARRAY
+    color = g_SourceColor.Sample(g_SourceColor_sampler, float3(In.TexCoord, (float)g_SourceLayer));
+#    else
+    color = g_SourceColor.Sample(g_SourceColor_sampler, In.TexCoord);
+#    endif
+    color.rgb = max(color.rgb, 0.0) * max(g_ResolveParams.x, 0.0);
+#endif
     if (g_OutputMode == 0 && g_SourceIsDisplayEncoded == 0)
     {
         if (g_ToneMapper == 1)
