@@ -21,6 +21,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -87,6 +88,20 @@ bool equalsSourceComponent(const UltrasoundScattererSourceComponent &lhs,
 {
     return lhs.enabled == rhs.enabled && lhs.density == rhs.density &&
            lhs.pointDistanceOverride == rhs.pointDistanceOverride;
+}
+
+TransformComponent resolveProbePose(World &world, const common::EntityId probeEntityId)
+{
+    TransformComponent transform =
+        world.tryGetTransform(probeEntityId).value_or(TransformComponent{});
+    if (const physics::RigidBodyState *rigidBody =
+            world.physicsWorld().tryGetRigidBody(probeEntityId))
+    {
+        transform.worldTransform.position = rigidBody->position;
+        transform.worldTransform.rotation = rigidBody->rotation;
+        transform.worldTransform.scale    = rigidBody->scale;
+    }
+    return transform;
 }
 
 std::uint32_t nextPowerOfTwo(std::uint32_t value)
@@ -233,9 +248,20 @@ struct UltrasoundImageConstants
     float padding1                         = 0.0f;
 };
 
+struct UltrasoundScanlineUpdateConstants
+{
+    Diligent::float4 position{0.0f, 0.0f, 0.0f, 0.0f};
+    Diligent::float4 rotation{0.0f, 0.0f, 0.0f, 1.0f};
+    std::uint32_t scanlineCount = 0u;
+    std::uint32_t padding0      = 0u;
+    std::uint32_t padding1      = 0u;
+    std::uint32_t padding2      = 0u;
+};
+
 constexpr std::uint32_t kUltrasoundReductionThreadGroupSize = 256u;
 constexpr std::uint32_t kUltrasoundImageThreadGroupSizeX    = 8u;
 constexpr std::uint32_t kUltrasoundImageThreadGroupSizeY    = 8u;
+constexpr std::uint32_t kUltrasoundScanlineThreadGroupSize  = 64u;
 
 constexpr Diligent::ShaderResourceVariableDesc kUltrasoundMaxReduceVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "UltrasoundReductionConstants",
@@ -259,6 +285,15 @@ constexpr Diligent::ShaderResourceVariableDesc kUltrasoundImageVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "g_RfData", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_FinalMax", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_OutputImageRW",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kUltrasoundScanlineUpdateVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "UltrasoundScanlineUpdateConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_LocalScanlines",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_WorldScanlinesRW",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
 };
 
@@ -286,6 +321,12 @@ constexpr gpu::GpuComputePassDefinition kUltrasoundCurvilinearImagePassDefinitio
     "CRESSimNeo.Ultrasound.CurvilinearImage.PSO",
     kUltrasoundImageVars,
     std::size(kUltrasoundImageVars),
+};
+
+constexpr gpu::GpuComputePassDefinition kUltrasoundScanlineUpdatePassDefinition = {
+    "graphics/ultrasound_scanline_update.cs.hlsl", "CRESSimNeo.Ultrasound.ScanlineUpdate.CS",
+    "CRESSimNeo.Ultrasound.ScanlineUpdate.PSO",    kUltrasoundScanlineUpdateVars,
+    std::size(kUltrasoundScanlineUpdateVars),
 };
 #endif
 
@@ -484,19 +525,23 @@ struct UltrasoundSystem::Impl
 
 #if CRESSIM_NEO_HAS_ULTRASOUND
         CruComputeHandle engine           = nullptr;
-        ScanSequenceHandle sequence       = nullptr;
         ExcitationSignalHandle excitation = nullptr;
         BeamProfileHandle beamProfile     = nullptr;
         gpu::SharedExportBuffer rfSharedBuffer{};
         gpu::CudaSharedBuffer rfCudaBuffer{};
+        gpu::SharedExportBuffer worldScanlineSharedBuffer{};
+        gpu::CudaSharedBuffer worldScanlineCudaBuffer{};
+        gpu::CudaSharedBufferBridge worldScanlineBridge{};
         gpu::CudaExternalTimelineSemaphore completionSemaphore{};
         std::uint64_t nextCompletionFenceValue = 1u;
         std::uint32_t rfCapacitySamples        = 0u;
+        std::uint32_t scanlineCapacity         = 0u;
         CruRfLayout rfLayout{};
         gpu::GpuRenderTargetHandle imageTarget{};
         std::uint32_t imageWidth  = 0u;
         std::uint32_t imageHeight = 0u;
-        std::vector<ScanlineHandle> scanlines{};
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> localScanlineTemplateBuffer;
+        std::uint32_t localScanlineTemplateCapacity = 0u;
 #endif
 
         ProbeRuntime()                                = default;
@@ -514,28 +559,21 @@ struct UltrasoundSystem::Impl
                 CruComputeDestroy(engine);
                 engine = nullptr;
             }
+            localScanlineTemplateBuffer   = nullptr;
+            localScanlineTemplateCapacity = 0u;
+            worldScanlineCudaBuffer.reset();
+            worldScanlineSharedBuffer.reset();
+            worldScanlineBridge.reset();
             rfCudaBuffer.reset();
             rfSharedBuffer.reset();
             completionSemaphore.reset();
             nextCompletionFenceValue = 1u;
             rfCapacitySamples        = 0u;
+            scanlineCapacity         = 0u;
             rfLayout                 = CruRfLayout{};
             imageTarget              = {};
             imageWidth               = 0u;
             imageHeight              = 0u;
-            for (ScanlineHandle scanline : scanlines)
-            {
-                if (scanline != nullptr)
-                {
-                    CruReleaseScanline(scanline);
-                }
-            }
-            scanlines.clear();
-            if (sequence != nullptr)
-            {
-                CruReleaseScanSequence(sequence);
-                sequence = nullptr;
-            }
             if (beamProfile != nullptr)
             {
                 CruReleaseBeamProfile(beamProfile);
@@ -569,11 +607,19 @@ struct UltrasoundSystem::Impl
         bool initialized               = false;
     };
 
+    struct ScanlinePassState
+    {
+        gpu::GpuComputePass pass;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> constantsBuffer;
+        bool initialized = false;
+    };
+
     gpu::CudaSharedBufferBridge bridge;
     bool disabled = false;
     std::unordered_map<std::uint32_t, EnvironmentRuntime> environmentRuntimes{};
     std::unordered_map<common::EntityId, ProbeRuntime> probeRuntimes{};
     ImagePassState imagePassState{};
+    ScanlinePassState scanlinePassState{};
 
 #if CRESSIM_NEO_HAS_ULTRASOUND
     void destroyProbeImageTarget(gpu::GpuRenderTargetSystem &renderTargetSystem,
@@ -613,11 +659,14 @@ struct UltrasoundSystem::Impl
         world.clearUltrasoundProbeResult(probeEntityId);
     }
 
-    bool rebuildProbeRuntime(
-        gpu::GpuDevice &device, const gpu::GpuGraphicsBackendContext &graphicsBackend, World &world,
-        const common::EntityId probeEntityId, ProbeRuntime &runtime, const std::uint32_t envIndex,
-        const UltrasoundProbeComponent &probeComponent, const TransformComponent &probeTransform,
-        const std::uint64_t boundScattererCount, const bool preserveImageTarget)
+    bool rebuildProbeRuntime(gpu::GpuDevice &device,
+                             const gpu::GpuGraphicsBackendContext &graphicsBackend, World &world,
+                             const gpu::GpuComputeBackendContext &computeBackend,
+                             const common::EntityId probeEntityId, ProbeRuntime &runtime,
+                             const std::uint32_t envIndex,
+                             const UltrasoundProbeComponent &probeComponent,
+                             const std::uint64_t boundScattererCount,
+                             const bool preserveImageTarget)
     {
         if (preserveImageTarget)
         {
@@ -682,9 +731,7 @@ struct UltrasoundSystem::Impl
             runtime.component.centerFrequency, runtime.component.fractionalBandwidth);
         runtime.beamProfile =
             CruCreateGaussianBeamProfile(effectiveBeamSigmaLateral, effectiveBeamSigmaElevational);
-        runtime.sequence = CruCreateScanSequence(runtime.component.lineLength);
-        if (runtime.excitation == nullptr || runtime.beamProfile == nullptr ||
-            runtime.sequence == nullptr)
+        if (runtime.excitation == nullptr || runtime.beamProfile == nullptr)
         {
             resetProbeRuntime(device.renderTargetSystem(), runtime);
             clearPublishedProbeResult(world, probeEntityId);
@@ -692,66 +739,12 @@ struct UltrasoundSystem::Impl
         }
         CruComputeSetExcitation(runtime.engine, runtime.excitation);
         CruComputeSetBeamProfile(runtime.engine, runtime.beamProfile);
-
-        const Diligent::float3 originCenter = probeTransform.worldTransform.position;
-        const Diligent::float3 directionVec =
-            probeTransform.worldTransform.rotation.RotateVector(Diligent::float3{0.0f, 0.0f, 1.0f});
-        const Diligent::float3 lateralVec =
-            probeTransform.worldTransform.rotation.RotateVector(Diligent::float3{1.0f, 0.0f, 0.0f});
-        bool buildFailed = false;
-        runtime.scanlines.reserve(runtime.component.numScanlines);
-        for (std::uint32_t i = 0u; i < runtime.component.numScanlines; ++i)
-        {
-            Diligent::float3 originPos = originCenter;
-            Diligent::float3 direction = directionVec;
-            Diligent::float3 lateral   = lateralVec;
-            if (runtime.component.geometry == UltrasoundProbeComponent::Geometry::Curvilinear)
-            {
-                const float angleSpanRadians =
-                    resolveCurvilinearSectorAngleRadians(runtime.component.sectorAngleDegrees);
-                const float angleStep =
-                    runtime.component.numScanlines > 1u
-                        ? angleSpanRadians / static_cast<float>(runtime.component.numScanlines - 1u)
-                        : 0.0f;
-                const float angle    = -0.5f * angleSpanRadians + static_cast<float>(i) * angleStep;
-                const float sinAngle = std::sin(angle);
-                const float cosAngle = std::cos(angle);
-                const float radius   = std::max(runtime.component.probeRadius, 0.0f);
-
-                const Diligent::float3 localOriginOffset =
-                    lateralVec * (sinAngle * radius) + directionVec * ((cosAngle - 1.0f) * radius);
-                originPos = originCenter + localOriginOffset;
-                direction = Diligent::normalize(lateralVec * sinAngle + directionVec * cosAngle);
-                lateral   = Diligent::normalize(lateralVec * cosAngle - directionVec * sinAngle);
-            }
-            else
-            {
-                const float centeredIndex =
-                    static_cast<float>(i) -
-                    0.5f * static_cast<float>(runtime.component.numScanlines - 1u);
-                originPos =
-                    originCenter + lateralVec * (centeredIndex * runtime.component.scanlineSpacing);
-            }
-            const float origin[3]       = {originPos.x, originPos.y, originPos.z};
-            const float directionArr[3] = {direction.x, direction.y, direction.z};
-            const float lateralArr[3]   = {lateral.x, lateral.y, lateral.z};
-            ScanlineHandle scanline     = CruCreateScanline(origin, directionArr, lateralArr);
-            if (scanline == nullptr)
-            {
-                buildFailed = true;
-                break;
-            }
-            runtime.scanlines.push_back(scanline);
-            CruScanSequenceAddScanline(runtime.sequence, scanline);
-        }
-        if (buildFailed)
+        if (!ensureProbeScanlineBuffers(computeBackend, runtime))
         {
             resetProbeRuntime(device.renderTargetSystem(), runtime);
             clearPublishedProbeResult(world, probeEntityId);
             return false;
         }
-
-        CruComputeSetScanSequence(runtime.engine, runtime.sequence);
         runtime.rfLayout = CruComputeGetRfLayout(runtime.engine);
         if (!ensureProbeRfBuffer(runtime, graphicsBackend.renderDevice,
                                  gpu::contextMaskForId(graphicsBackend.contextId),
@@ -865,6 +858,250 @@ struct UltrasoundSystem::Impl
             return false;
         }
         return true;
+    }
+
+    bool writeBuffer(Diligent::IDeviceContext *context, Diligent::IBuffer *buffer, const void *data,
+                     const std::size_t sizeBytes)
+    {
+        if (context == nullptr || buffer == nullptr || data == nullptr || sizeBytes == 0u)
+        {
+            return false;
+        }
+
+        const Diligent::BufferDesc &desc = buffer->GetDesc();
+        if (desc.Usage != Diligent::USAGE_DYNAMIC)
+        {
+            context->UpdateBuffer(buffer, 0u, static_cast<Diligent::Uint32>(sizeBytes), data,
+                                  Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            return true;
+        }
+
+        void *mapped = nullptr;
+        context->MapBuffer(buffer, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD, mapped);
+        if (mapped == nullptr)
+        {
+            return false;
+        }
+        std::memcpy(mapped, data, sizeBytes);
+        context->UnmapBuffer(buffer, Diligent::MAP_WRITE);
+        return true;
+    }
+
+    std::vector<CruPackedScanline> buildLocalScanlineTemplate(
+        const UltrasoundProbeComponent &probeComponent)
+    {
+        std::vector<CruPackedScanline> scanlines;
+        scanlines.reserve(probeComponent.numScanlines);
+
+        const Diligent::float3 forward{0.0f, 0.0f, 1.0f};
+        const Diligent::float3 lateralBase{1.0f, 0.0f, 0.0f};
+        for (std::uint32_t i = 0u; i < probeComponent.numScanlines; ++i)
+        {
+            Diligent::float3 localOrigin{0.0f, 0.0f, 0.0f};
+            Diligent::float3 direction = forward;
+            Diligent::float3 lateral   = lateralBase;
+            if (probeComponent.geometry == UltrasoundProbeComponent::Geometry::Curvilinear)
+            {
+                const float angleSpanRadians =
+                    resolveCurvilinearSectorAngleRadians(probeComponent.sectorAngleDegrees);
+                const float angleStep =
+                    probeComponent.numScanlines > 1u
+                        ? angleSpanRadians / static_cast<float>(probeComponent.numScanlines - 1u)
+                        : 0.0f;
+                const float angle    = -0.5f * angleSpanRadians + static_cast<float>(i) * angleStep;
+                const float sinAngle = std::sin(angle);
+                const float cosAngle = std::cos(angle);
+                const float radius   = std::max(probeComponent.probeRadius, 0.0f);
+
+                localOrigin =
+                    lateralBase * (sinAngle * radius) + forward * ((cosAngle - 1.0f) * radius);
+                direction = Diligent::normalize(lateralBase * sinAngle + forward * cosAngle);
+                lateral   = Diligent::normalize(lateralBase * cosAngle - forward * sinAngle);
+            }
+            else
+            {
+                const float centeredIndex =
+                    static_cast<float>(i) -
+                    0.5f * static_cast<float>(probeComponent.numScanlines - 1u);
+                localOrigin = lateralBase * (centeredIndex * probeComponent.scanlineSpacing);
+            }
+
+            const Diligent::float3 elevational =
+                Diligent::normalize(Diligent::cross(lateral, direction));
+            CruPackedScanline packed{};
+            packed.origin[0]               = localOrigin.x;
+            packed.origin[1]               = localOrigin.y;
+            packed.origin[2]               = localOrigin.z;
+            packed.origin[3]               = 0.0f;
+            packed.radialDirection[0]      = direction.x;
+            packed.radialDirection[1]      = direction.y;
+            packed.radialDirection[2]      = direction.z;
+            packed.radialDirection[3]      = 0.0f;
+            packed.lateralDirection[0]     = lateral.x;
+            packed.lateralDirection[1]     = lateral.y;
+            packed.lateralDirection[2]     = lateral.z;
+            packed.lateralDirection[3]     = 0.0f;
+            packed.elevationalDirection[0] = elevational.x;
+            packed.elevationalDirection[1] = elevational.y;
+            packed.elevationalDirection[2] = elevational.z;
+            packed.elevationalDirection[3] = 0.0f;
+            scanlines.push_back(packed);
+        }
+
+        return scanlines;
+    }
+
+    bool ensureScanlinePassInitialized(gpu::GpuDevice &device,
+                                       const gpu::GpuComputeBackendContext &computeBackend)
+    {
+        if (scanlinePassState.initialized)
+        {
+            return true;
+        }
+
+        gpu::ShaderLibrary shaderLibrary(device.shaderSourceDirectory());
+        Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
+        if (streamFactory == nullptr)
+        {
+            return false;
+        }
+
+        const Diligent::Uint64 computeContextMask = gpu::contextMaskForId(computeBackend.contextId);
+        if (!scanlinePassState.pass.initialize(device, streamFactory, computeContextMask,
+                                               kUltrasoundScanlineUpdatePassDefinition))
+        {
+            return false;
+        }
+
+        Diligent::BufferDesc constantsDesc{};
+        constantsDesc.Name                 = "CRESSimNeo.Ultrasound.ScanlineUpdateConstants";
+        constantsDesc.Size                 = sizeof(UltrasoundScanlineUpdateConstants);
+        constantsDesc.Usage                = Diligent::USAGE_DYNAMIC;
+        constantsDesc.BindFlags            = Diligent::BIND_UNIFORM_BUFFER;
+        constantsDesc.CPUAccessFlags       = Diligent::CPU_ACCESS_WRITE;
+        constantsDesc.ImmediateContextMask = computeContextMask;
+        computeBackend.renderDevice->CreateBuffer(constantsDesc, nullptr,
+                                                  &scanlinePassState.constantsBuffer);
+        if (scanlinePassState.constantsBuffer == nullptr)
+        {
+            return false;
+        }
+
+        scanlinePassState.initialized = true;
+        return true;
+    }
+
+    bool ensureProbeScanlineBuffers(const gpu::GpuComputeBackendContext &computeBackend,
+                                    ProbeRuntime &runtime)
+    {
+        const auto localScanlines         = buildLocalScanlineTemplate(runtime.component);
+        const std::uint32_t scanlineCount = static_cast<std::uint32_t>(localScanlines.size());
+
+        if (!gpu::detail::ensureStructuredBufferCapacity(
+                computeBackend.renderDevice, "CRESSimNeo.Ultrasound.LocalScanlines",
+                sizeof(CruPackedScanline), scanlineCount,
+                std::max<std::uint32_t>(scanlineCount, 1u), Diligent::BIND_SHADER_RESOURCE,
+                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
+                gpu::contextMaskForId(computeBackend.contextId),
+                runtime.localScanlineTemplateBuffer, runtime.localScanlineTemplateCapacity))
+        {
+            return false;
+        }
+
+        if (scanlineCount > 0u &&
+            !writeBuffer(computeBackend.computeContext, runtime.localScanlineTemplateBuffer,
+                         localScanlines.data(), localScanlines.size() * sizeof(CruPackedScanline)))
+        {
+            return false;
+        }
+
+        if (!runtime.worldScanlineSharedBuffer.ensureStructuredBuffer(
+                computeBackend.renderDevice, "CRESSimNeo.Engine.Ultrasound.WorldScanlines",
+                sizeof(CruPackedScanline), scanlineCount,
+                std::max<std::uint32_t>(scanlineCount, 1u),
+                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE,
+                gpu::contextMaskForId(computeBackend.contextId)))
+        {
+            return false;
+        }
+        runtime.scanlineCapacity = runtime.worldScanlineSharedBuffer.capacity();
+
+        if (scanlineCount == 0u)
+        {
+            runtime.worldScanlineCudaBuffer.reset();
+            runtime.worldScanlineBridge.reset();
+            CruComputeBindScanlinesDevice(runtime.engine, nullptr, 0u,
+                                          runtime.component.lineLength);
+            return true;
+        }
+
+        if (!runtime.worldScanlineCudaBuffer.importFromSharedExportBuffer(
+                runtime.worldScanlineSharedBuffer))
+        {
+            return false;
+        }
+        if (!runtime.worldScanlineBridge.isInitialized() &&
+            !runtime.worldScanlineBridge.initialize(computeBackend.renderDevice,
+                                                    "CRESSimNeo.Ultrasound.ScanlineBridge"))
+        {
+            return false;
+        }
+        if (!runtime.worldScanlineBridge.bindSharedBuffer(runtime.worldScanlineSharedBuffer))
+        {
+            return false;
+        }
+
+        CruComputeBindScanlinesDevice(
+            runtime.engine,
+            static_cast<const CruPackedScanline *>(runtime.worldScanlineCudaBuffer.devicePointer()),
+            scanlineCount, runtime.component.lineLength);
+        return true;
+    }
+
+    bool updateProbeScanlines(const gpu::GpuComputeBackendContext &computeBackend,
+                              const TransformComponent &probeTransform, ProbeRuntime &runtime)
+    {
+        if (!scanlinePassState.initialized || runtime.localScanlineTemplateBuffer == nullptr ||
+            runtime.worldScanlineSharedBuffer.buffer() == nullptr)
+        {
+            return false;
+        }
+
+        UltrasoundScanlineUpdateConstants constants{};
+        constants.position = Diligent::float4{probeTransform.worldTransform.position.x,
+                                              probeTransform.worldTransform.position.y,
+                                              probeTransform.worldTransform.position.z, 0.0f};
+        constants.rotation = Diligent::float4{
+            probeTransform.worldTransform.rotation.q.x, probeTransform.worldTransform.rotation.q.y,
+            probeTransform.worldTransform.rotation.q.z, probeTransform.worldTransform.rotation.q.w};
+        constants.scanlineCount = runtime.component.numScanlines;
+        if (!writeBuffer(computeBackend.computeContext, scanlinePassState.constantsBuffer,
+                         &constants, sizeof(constants)))
+        {
+            return false;
+        }
+
+        const std::array bindings{
+            gpu::GpuBufferBinding{"UltrasoundScanlineUpdateConstantsBuffer",
+                                  scanlinePassState.constantsBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_LocalScanlines", runtime.localScanlineTemplateBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_WorldScanlinesRW", runtime.worldScanlineSharedBuffer.buffer(),
+                                  Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        };
+
+        if (!scanlinePassState.pass.dispatch(
+                computeBackend.computeContext, 0u, bindings,
+                dispatchGroupCount(runtime.component.numScanlines,
+                                   kUltrasoundScanlineThreadGroupSize)))
+        {
+            return false;
+        }
+
+        return runtime.worldScanlineBridge.synchronizeFromDeviceContext(
+            computeBackend.computeContext);
     }
 
     bool ensureImagePassInitialized(gpu::GpuDevice &device,
@@ -1194,8 +1431,14 @@ bool UltrasoundSystem::prepare(World &world)
     }
 
     gpu::GpuGraphicsBackendContext graphicsBackend{};
+    gpu::GpuComputeBackendContext computeBackend{};
     if (!mDevice.tryGetGraphicsBackendContext(graphicsBackend) ||
         graphicsBackend.renderDevice == nullptr)
+    {
+        return true;
+    }
+    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+        computeBackend.renderDevice == nullptr || computeBackend.computeContext == nullptr)
     {
         return true;
     }
@@ -1261,14 +1504,12 @@ bool UltrasoundSystem::prepare(World &world)
             continue;
         }
 
-        const auto probeTransform =
-            world.tryGetTransform(probeEntityId).value_or(TransformComponent{});
         Impl::ProbeRuntime &runtime = mImpl->probeRuntimes[probeEntityId];
         bool rebuild                = runtime.engine == nullptr || runtime.envIndex != envIndex ||
                                       !equalsProbeComponent(runtime.component, probeComponent);
-        if (rebuild &&
-            !mImpl->rebuildProbeRuntime(mDevice, graphicsBackend, world, probeEntityId, runtime,
-                                        envIndex, probeComponent, probeTransform, 0u, false))
+        if (rebuild && !mImpl->rebuildProbeRuntime(mDevice, graphicsBackend, world, computeBackend,
+                                                   probeEntityId, runtime, envIndex, probeComponent,
+                                                   0u, false))
         {
             continue;
         }
@@ -1339,6 +1580,12 @@ bool UltrasoundSystem::execute(const common::FrameContext &frameContext, World &
     if (!mImpl->ensureImagePassInitialized(mDevice, graphicsBackend))
     {
         CRESSIM_LOG_WARNING("UltrasoundSystem: failed to initialize image compute passes.");
+        mImpl->disabled = true;
+        return false;
+    }
+    if (!mImpl->ensureScanlinePassInitialized(mDevice, computeBackend))
+    {
+        CRESSIM_LOG_WARNING("UltrasoundSystem: failed to initialize scanline compute pass.");
         mImpl->disabled = true;
         return false;
     }
@@ -1603,15 +1850,22 @@ bool UltrasoundSystem::execute(const common::FrameContext &frameContext, World &
 
         const Impl::EnvironmentRuntime &envRuntime = envIt->second;
         Impl::ProbeRuntime &runtime                = runtimeIt->second;
-        const auto probeTransform =
-            world.tryGetTransform(probeEntityId).value_or(TransformComponent{});
         const bool rebuild = runtime.engine == nullptr || runtime.envIndex != envIndex ||
                              runtime.boundScattererCount != envRuntime.totalScattererCount ||
                              !equalsProbeComponent(runtime.component, probeComponent);
-        if (rebuild && !mImpl->rebuildProbeRuntime(
-                           mDevice, graphicsBackend, world, probeEntityId, runtime, envIndex,
-                           probeComponent, probeTransform, envRuntime.totalScattererCount, true))
+        if (rebuild && !mImpl->rebuildProbeRuntime(mDevice, graphicsBackend, world, computeBackend,
+                                                   probeEntityId, runtime, envIndex, probeComponent,
+                                                   envRuntime.totalScattererCount, true))
         {
+            continue;
+        }
+
+        const TransformComponent probeTransform = resolveProbePose(world, probeEntityId);
+        if (!mImpl->updateProbeScanlines(computeBackend, probeTransform, runtime))
+        {
+            CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
+                                " could not update live scanlines.");
+            mImpl->publishPreparedProbeResult(world, probeEntityId, runtime);
             continue;
         }
 

@@ -196,7 +196,8 @@ Diligent::IPipelineState *DisplayResolvePass::getOrCreatePipeline(
     const char *sourceKindMacroValue =
         key.sourceKind == RenderFrameOptions::PresentedExplicitOutput::SourceKind::Depth
             ? "1"
-            : (key.sourceKind == RenderFrameOptions::PresentedExplicitOutput::SourceKind::Segmentation
+            : (key.sourceKind ==
+                       RenderFrameOptions::PresentedExplicitOutput::SourceKind::Segmentation
                    ? "2"
                    : "0");
     Diligent::ShaderMacro pixelShaderMacros[] = {
@@ -230,17 +231,18 @@ Diligent::IPipelineState *DisplayResolvePass::getOrCreatePipeline(
     const char *sourceVariableName =
         key.sourceKind == RenderFrameOptions::PresentedExplicitOutput::SourceKind::Depth
             ? "g_SourceDepth"
-            : (key.sourceKind == RenderFrameOptions::PresentedExplicitOutput::SourceKind::Segmentation
+            : (key.sourceKind ==
+                       RenderFrameOptions::PresentedExplicitOutput::SourceKind::Segmentation
                    ? "g_SourceSegmentation"
                    : "g_SourceColor");
     const Diligent::ShaderResourceVariableDesc sourceVar[] = {
         {Diligent::SHADER_TYPE_PIXEL, sourceVariableName,
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
-    psoCreateInfo.PSODesc.ResourceLayout.Variables = sourceVar;
+    psoCreateInfo.PSODesc.ResourceLayout.Variables    = sourceVar;
     psoCreateInfo.PSODesc.ResourceLayout.NumVariables = 1u;
-    psoCreateInfo.pVS = vertexShader;
-    psoCreateInfo.pPS = pixelShader;
+    psoCreateInfo.pVS                                 = vertexShader;
+    psoCreateInfo.pPS                                 = pixelShader;
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline;
     if (!mDevice.createGraphicsPipelineState(psoCreateInfo, &pipeline))
@@ -354,12 +356,9 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     const Diligent::TEXTURE_FORMAT depthFormat = request.presentationTarget.hasDepth
                                                      ? request.presentationTarget.depthFormat
                                                      : Diligent::TEX_FORMAT_UNKNOWN;
-    Diligent::IPipelineState *pipeline =
-        getOrCreatePipeline(backendContext.renderDevice, PipelineKey{
-                                                             request.presentationTarget.colorFormat,
-                                                             depthFormat,
-                                                             request.sourceKind,
-                                                             sourceIsArray});
+    Diligent::IPipelineState *pipeline         = getOrCreatePipeline(
+        backendContext.renderDevice, PipelineKey{request.presentationTarget.colorFormat,
+                                                 depthFormat, request.sourceKind, sourceIsArray});
     if (pipeline == nullptr)
     {
         return false;
@@ -376,9 +375,9 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     {
         return false;
     }
-    const char *sourceVariableName = useDepthSource ? "g_SourceDepth"
-                                     : (useSegmentationSource ? "g_SourceSegmentation"
-                                                              : "g_SourceColor");
+    const char *sourceVariableName =
+        useDepthSource ? "g_SourceDepth"
+                       : (useSegmentationSource ? "g_SourceSegmentation" : "g_SourceColor");
     Diligent::IShaderResourceVariable *sourceVar =
         resolveBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, sourceVariableName);
     if (sourceVar == nullptr)

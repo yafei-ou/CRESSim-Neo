@@ -46,6 +46,7 @@ using cressim::neo::physics::SoftBodySourceKind;
 using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerAppDesc;
 using cressim::neo::viewer::DebugViewerCameraBinding;
+using cressim::neo::viewer::DebugViewerCallbacks;
 
 constexpr float kEnvSpacing              = 6.0f;
 constexpr std::uint32_t kDefaultEnvCount = 4u;
@@ -67,10 +68,21 @@ struct SceneMaterials
     MaterialHandle probe{};
 };
 
+struct ProbeMotionBinding
+{
+    cressim::neo::common::EntityId probeEntity = cressim::neo::common::kInvalidEntityId;
+    cressim::neo::common::EntityId visualEntity = cressim::neo::common::kInvalidEntityId;
+    Diligent::float3 origin{};
+    UltrasoundProbeComponent::Geometry geometry =
+        UltrasoundProbeComponent::Geometry::Linear;
+    float phase = 0.0f;
+};
+
 void printUsage(const char *appName)
 {
     cressim::neo::examples::helpers::printUsage(appName, "", true);
     std::printf("  --debug-particles        Show debug particle rendering.\n");
+    std::printf("  --move-probe             Animate the ultrasound probe transform.\n");
     std::printf("  --probe-type TYPE        Probe geometry: linear or curvilinear.\n");
     std::printf("  --save-probe-images      Save all probe ultrasound images to the current "
                 "working directory and quit.\n");
@@ -422,7 +434,8 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
                        const UltrasoundProbeComponent &probeTemplate,
                        const SceneMaterials &materials,
                        cressim::neo::common::EntityId &outCameraEntity,
-                       cressim::neo::common::EntityId &outProbeEntity)
+                       cressim::neo::common::EntityId &outProbeEntity,
+                       cressim::neo::common::EntityId &outProbeVisualEntity)
 {
     auto &world                   = runtime.getWorld();
     const Diligent::float3 origin = envOrigin(envIndex, envCount);
@@ -538,6 +551,49 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     world.setTransform(probeVisualEntity, probeVisualTransform);
     world.setMeshRenderer(probeVisualEntity,
                           MeshRendererComponent{probeMesh, materials.probe, true});
+    outProbeVisualEntity = probeVisualEntity;
+}
+
+void updateProbeVisualTransform(Runtime &runtime, const ProbeMotionBinding &binding)
+{
+    auto &world = runtime.getWorld();
+    const auto probeTransform = world.tryGetTransform(binding.probeEntity);
+    if (!probeTransform.has_value())
+    {
+        return;
+    }
+
+    TransformComponent visualTransform{};
+    visualTransform.worldTransform.position = probeTransform->worldTransform.position;
+    visualTransform.worldTransform.rotation = probeTransform->worldTransform.rotation;
+    if (binding.geometry == UltrasoundProbeComponent::Geometry::Linear)
+    {
+        const Diligent::float3 probeDirection =
+            visualTransform.worldTransform.rotation.RotateVector(Diligent::float3{0.0f, 0.0f, 1.0f});
+        visualTransform.worldTransform.position -= probeDirection * (0.5f * kProbeBodyDepth);
+    }
+    world.setTransform(binding.visualEntity, visualTransform);
+}
+
+void animateProbeTransforms(const cressim::neo::common::FrameContext &frame, Runtime &runtime,
+                            const std::vector<ProbeMotionBinding> &bindings)
+{
+    auto &world = runtime.getWorld();
+    for (const ProbeMotionBinding &binding : bindings)
+    {
+        TransformComponent probeTransform{};
+        const float sweep = std::sin(0.85f * static_cast<float>(frame.timeSeconds) + binding.phase);
+        const float bob = std::sin(1.30f * static_cast<float>(frame.timeSeconds) + 0.5f * binding.phase);
+        const float roll =
+            0.16f * std::sin(0.95f * static_cast<float>(frame.timeSeconds) + 1.7f * binding.phase);
+        probeTransform.worldTransform.position =
+            binding.origin + Diligent::float3{0.22f * sweep, 0.02f * bob, 0.0f};
+        probeTransform.worldTransform.rotation =
+            Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 0.0f, 1.0f}, roll) *
+            Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, 0.5f * kPi);
+        world.setTransform(binding.probeEntity, probeTransform);
+        updateProbeVisualTransform(runtime, binding);
+    }
 }
 
 bool saveProbeImagesAndQuit(Runtime &runtime,
@@ -672,6 +728,7 @@ int main(int argc, char **argv)
     CommonExampleOptions options{};
     options.envCount = kDefaultEnvCount;
     bool debugParticles = false;
+    bool moveProbe = false;
     bool saveProbeImages = false;
     float saveProbeDelaySeconds = 0.0f;
     ExampleProbeType probeType = ExampleProbeType::Linear;
@@ -682,6 +739,11 @@ int main(int argc, char **argv)
             if (std::strcmp(argv[i], "--debug-particles") == 0)
             {
                 debugParticles = true;
+                continue;
+            }
+            if (std::strcmp(argv[i], "--move-probe") == 0)
+            {
+                moveProbe = true;
                 continue;
             }
             if (std::strcmp(argv[i], "--probe-type") == 0)
@@ -788,18 +850,29 @@ int main(int argc, char **argv)
 
     cressim::neo::common::EntityId primaryCamera = cressim::neo::common::kInvalidEntityId;
     std::vector<cressim::neo::common::EntityId> probeEntities;
+    std::vector<ProbeMotionBinding> probeBindings;
     probeEntities.reserve(options.envCount);
+    probeBindings.reserve(options.envCount);
     for (std::uint32_t envIndex = 0u; envIndex < options.envCount; ++envIndex)
     {
         cressim::neo::common::EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;
         cressim::neo::common::EntityId probeEntity  = cressim::neo::common::kInvalidEntityId;
+        cressim::neo::common::EntityId probeVisualEntity =
+            cressim::neo::common::kInvalidEntityId;
         authorEnvironment(runtime, envIndex, options.envCount, planeMesh, boxMesh, probeMesh,
-                          probeDefaults, materials, cameraEntity, probeEntity);
+                          probeDefaults, materials, cameraEntity, probeEntity, probeVisualEntity);
         if (envIndex == 0u)
         {
             primaryCamera = cameraEntity;
         }
         probeEntities.push_back(probeEntity);
+        probeBindings.push_back(ProbeMotionBinding{
+            probeEntity,
+            probeVisualEntity,
+            envOrigin(envIndex, options.envCount) + Diligent::float3{0.0f, kProbeHeight, 0.0f},
+            probeDefaults.geometry,
+            static_cast<float>(envIndex) * 0.71f,
+        });
     }
 
     if (saveProbeImages)
@@ -812,7 +885,17 @@ int main(int argc, char **argv)
     CRESSIM_LOG_INFO("Viewer controls: press U to toggle ultrasound image presentation, "
                      "',/.' to cycle probes, and [/] to cycle cameras.");
 
-    const bool ran = viewer.run(runtime, DebugViewerCameraBinding{primaryCamera});
+    DebugViewerCallbacks callbacks{};
+    if (moveProbe)
+    {
+        callbacks.beforeTick = [probeBindings](const cressim::neo::common::FrameContext &frame,
+                                               Runtime &cbRuntime)
+        {
+            animateProbeTransforms(frame, cbRuntime, probeBindings);
+        };
+    }
+
+    const bool ran = viewer.run(runtime, DebugViewerCameraBinding{primaryCamera}, callbacks);
 
     runtime.shutdown();
     viewer.shutdown();

@@ -5,6 +5,7 @@
 #include "helpers/readback.h"
 
 #include <cstdint>
+#include <cstring>
 #include <vector>
 
 int main()
@@ -139,6 +140,54 @@ int main()
         !tests::helpers::isValidReadback(event))
     {
         CRESSIM_LOG_ERROR("Expected queued ultrasound readback to complete after staged execution.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    std::vector<std::uint8_t> firstImageBytes = event.colorBytes;
+
+    probeTransform.worldTransform.position.x += 0.3f;
+    world.setTransform(probeEntity, probeTransform);
+
+    const gpu::GpuRenderTargetReadbackRequest movedRequest =
+        device->renderTargetSystem().requestRenderTargetReadback(
+            gpu::GpuRenderTargetBinding{executedResult->imageTarget, 0u, 1u});
+    if (movedRequest.id == 0u)
+    {
+        CRESSIM_LOG_ERROR("Failed to queue ultrasound readback request after moving probe.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    if (!runtime.stepPhysics(frame))
+    {
+        CRESSIM_LOG_WARNING(
+            "Skipping runtime ultrasound staging test because second staged physics step failed.");
+        runtime.shutdown();
+        return 0;
+    }
+    if (!runtime.stepSimulationSensors(frame))
+    {
+        CRESSIM_LOG_WARNING(
+            "Skipping runtime ultrasound staging test because second staged ultrasound execution failed.");
+        runtime.shutdown();
+        return 0;
+    }
+    runtime.endFrame(frame);
+
+    gpu::GpuRenderTargetReadbackEvent movedEvent{};
+    if (!device->renderTargetSystem().tryGetRenderTargetReadback(movedRequest, movedEvent) ||
+        !tests::helpers::isValidReadback(movedEvent))
+    {
+        CRESSIM_LOG_ERROR("Expected moved-probe ultrasound readback to complete.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    if (firstImageBytes.size() != movedEvent.colorBytes.size() ||
+        std::memcmp(firstImageBytes.data(), movedEvent.colorBytes.data(), firstImageBytes.size()) == 0)
+    {
+        CRESSIM_LOG_ERROR("Expected ultrasound output to change after moving the probe.");
         runtime.shutdown();
         return 1;
     }
