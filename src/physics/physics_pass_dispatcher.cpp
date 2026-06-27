@@ -3666,7 +3666,7 @@ bool PhysicsPassDispatcher::dispatchReduceBroadPhaseExtentPass(
 
         if (!writeBroadPhaseReductionConstants(computeContext, reductionConstants) ||
             !mReduceExtentExtentsPass.dispatch(computeContext, variantIndex, reduceBindings,
-                                               currentCount))
+                                               nextGroupCount))
         {
             return false;
         }

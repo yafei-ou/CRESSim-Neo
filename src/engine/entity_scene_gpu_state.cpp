@@ -1,5 +1,6 @@
 #include "entity_scene_gpu_state.h"
 
+#include "common/logger.h"
 #include "gpu/gpu_buffer_utils.h"
 #include "gpu/shader_library.h"
 
@@ -330,6 +331,33 @@ bool EntitySceneGpuState::applyMappedEntityPoses(const common::PoseBufferView &s
         return false;
     }
 
+    std::uint32_t invalidMappingCount = 0u;
+    for (std::uint32_t i = 0u; i < mappingCount; ++i)
+    {
+        const EntityPoseMappingEntry &mapping = mappings[i];
+        const bool invalidSource = mapping.sourcePoseIndex >= sourcePoses.count;
+        const bool invalidDest = mapping.entityPoseIndex >= mEntityCount;
+        if (!invalidSource && !invalidDest)
+        {
+            continue;
+        }
+
+        if (invalidMappingCount < 8u)
+        {
+            CRESSIM_LOG_ERROR("EntitySceneGpuState::applyMappedEntityPoses invalid mapping[", i,
+                              "]: sourcePoseIndex=", mapping.sourcePoseIndex,
+                              " sourceCount=", sourcePoses.count, " entityPoseIndex=",
+                              mapping.entityPoseIndex, " entityCount=", mEntityCount, ".");
+        }
+        ++invalidMappingCount;
+    }
+    if (invalidMappingCount > 0u)
+    {
+        CRESSIM_LOG_ERROR("EntitySceneGpuState::applyMappedEntityPoses rejected ",
+                          invalidMappingCount, " invalid mappings.");
+        return false;
+    }
+
     if (!writeBuffer(computeContext.computeContext, mMappingBuffer, mappings.data(),
                      mappings.size() * sizeof(EntityPoseMappingEntry)))
     {
@@ -373,7 +401,6 @@ bool EntitySceneGpuState::applyMappedEntityPoses(const common::PoseBufferView &s
     mLastMappedSourcePoseBindingGeneration  = sourcePoses.bindingGeneration;
     mLastMappedOutputPoseBindingGeneration  = mPoseBindingGeneration;
     mLastMappedPhysicsSyncBindingGeneration = mPhysicsSyncBindingGeneration;
-
     return mEntityPoseSyncPass.dispatch(computeContext.computeContext, 0u, bindings,
                                         dispatchGroupCount(mappingCount));
 }

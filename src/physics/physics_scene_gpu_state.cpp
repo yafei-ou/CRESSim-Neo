@@ -112,6 +112,35 @@ std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
     return (threadCount + kComputeThreadGroupSize - 1u) / kComputeThreadGroupSize;
 }
 
+std::vector<Diligent::IBuffer *> rawBufferPtrs(
+    const std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> &buffers)
+{
+    std::vector<Diligent::IBuffer *> result;
+    result.reserve(buffers.size());
+    for (const auto &buffer : buffers)
+    {
+        result.push_back(buffer.RawPtr());
+    }
+    return result;
+}
+
+bool rawBufferPtrsChanged(const std::vector<Diligent::IBuffer *> &before,
+                          const std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> &after)
+{
+    if (before.size() != after.size())
+    {
+        return true;
+    }
+    for (std::size_t i = 0; i < before.size(); ++i)
+    {
+        if (before[i] != after[i].RawPtr())
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::vector<std::uint32_t> buildReductionLevelCounts(std::uint32_t elementCount)
 {
     std::vector<std::uint32_t> counts;
@@ -280,8 +309,49 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const auto bodyMetaBefore              = mTransientState.bodyMetaBuffer.RawPtr();
     const auto activeFlagsBefore           = mTransientState.activeBodyFlagsBuffer.RawPtr();
     const auto activeOffsetsBefore         = mTransientState.activeBodyOffsetsBuffer.RawPtr();
+    const auto activeIndicesBefore         = mTransientState.activeBodyIndicesBuffer.RawPtr();
     const auto staticFlagsBefore           = mTransientState.staticBodyFlagsBuffer.RawPtr();
     const auto staticOffsetsBefore         = mTransientState.staticBodyOffsetsBuffer.RawPtr();
+    const auto staticIndicesBefore         = mTransientState.staticBodyIndicesBuffer.RawPtr();
+    const auto broadPhaseElementsBefore    = mTransientState.broadPhaseElementsBuffer.RawPtr();
+    const auto mortonCodesBefore           = mTransientState.mortonCodesBuffer.RawPtr();
+    const auto mortonCodesScratchBefore    = mTransientState.mortonCodesScratchBuffer.RawPtr();
+    const auto globalBroadPhaseExtentBefore =
+        mTransientState.globalBroadPhaseExtentBuffer.RawPtr();
+    const auto staticBroadPhaseElementsBefore =
+        mTransientState.staticBroadPhaseElementsBuffer.RawPtr();
+    const auto staticMortonCodesBefore        = mTransientState.staticMortonCodesBuffer.RawPtr();
+    const auto staticMortonCodesScratchBefore =
+        mTransientState.staticMortonCodesScratchBuffer.RawPtr();
+    const auto staticGlobalBroadPhaseExtentBefore =
+        mTransientState.staticGlobalBroadPhaseExtentBuffer.RawPtr();
+    const auto scanBlockSumsBefore = rawBufferPtrs(mTransientState.scanBlockSumsBuffers);
+    const auto scanScannedBlockSumsBefore =
+        rawBufferPtrs(mTransientState.scanScannedBlockSumsBuffers);
+    const auto broadPhaseExtentScratchBefore =
+        rawBufferPtrs(mTransientState.broadPhaseExtentScratchBuffers);
+    const auto staticScanBlockSumsBefore = rawBufferPtrs(mTransientState.staticScanBlockSumsBuffers);
+    const auto staticScanScannedBlockSumsBefore =
+        rawBufferPtrs(mTransientState.staticScanScannedBlockSumsBuffers);
+    const auto staticBroadPhaseExtentScratchBefore =
+        rawBufferPtrs(mTransientState.staticBroadPhaseExtentScratchBuffers);
+    const auto radixBitFlagsBefore     = mTransientState.radixBitFlagsBuffer.RawPtr();
+    const auto radixBitOffsetsBefore   = mTransientState.radixBitOffsetsBuffer.RawPtr();
+    const auto radixMetaBefore         = mTransientState.radixMetaBuffer.RawPtr();
+    const auto bvhBefore               = mTransientState.bvhBuffer.RawPtr();
+    const auto bvhConstructionBefore   = mTransientState.bvhConstructionInfoBuffer.RawPtr();
+    const auto staticRadixBitFlagsBefore   = mTransientState.staticRadixBitFlagsBuffer.RawPtr();
+    const auto staticRadixBitOffsetsBefore =
+        mTransientState.staticRadixBitOffsetsBuffer.RawPtr();
+    const auto staticRadixMetaBefore         = mTransientState.staticRadixMetaBuffer.RawPtr();
+    const auto staticBvhBefore               = mTransientState.staticBvhBuffer.RawPtr();
+    const auto staticBvhConstructionBefore   =
+        mTransientState.staticBvhConstructionInfoBuffer.RawPtr();
+    const auto candidatePairsBefore      = mTransientState.candidatePairsBuffer.RawPtr();
+    const auto broadPhaseMetaBefore      = mTransientState.broadPhaseMetaBuffer.RawPtr();
+    const auto narrowPhaseChunksBefore   = mTransientState.narrowPhaseChunksBuffer.RawPtr();
+    const auto narrowPhaseMetaBefore     = mTransientState.narrowPhaseMetaBuffer.RawPtr();
+    const auto narrowPhaseCounterBefore  = mTransientState.narrowPhaseChunkCounterBuffer.RawPtr();
     const auto rigidContactsBefore         = mTransientState.rigidContactsBuffer.RawPtr();
     const auto proxyRigidContactMetaBefore = mTransientState.proxyRigidContactMetaBuffer.RawPtr();
     const auto rigidAggregateMapBefore = mTransientState.rigidBodyPairAggregateMapBuffer.RawPtr();
@@ -2125,8 +2195,51 @@ bool PhysicsSceneGpuState::ensureCapacity(
         bodyMetaBefore != mTransientState.bodyMetaBuffer.RawPtr() ||
         activeFlagsBefore != mTransientState.activeBodyFlagsBuffer.RawPtr() ||
         activeOffsetsBefore != mTransientState.activeBodyOffsetsBuffer.RawPtr() ||
+        activeIndicesBefore != mTransientState.activeBodyIndicesBuffer.RawPtr() ||
         staticFlagsBefore != mTransientState.staticBodyFlagsBuffer.RawPtr() ||
         staticOffsetsBefore != mTransientState.staticBodyOffsetsBuffer.RawPtr() ||
+        staticIndicesBefore != mTransientState.staticBodyIndicesBuffer.RawPtr() ||
+        broadPhaseElementsBefore != mTransientState.broadPhaseElementsBuffer.RawPtr() ||
+        mortonCodesBefore != mTransientState.mortonCodesBuffer.RawPtr() ||
+        mortonCodesScratchBefore != mTransientState.mortonCodesScratchBuffer.RawPtr() ||
+        globalBroadPhaseExtentBefore !=
+            mTransientState.globalBroadPhaseExtentBuffer.RawPtr() ||
+        staticBroadPhaseElementsBefore !=
+            mTransientState.staticBroadPhaseElementsBuffer.RawPtr() ||
+        staticMortonCodesBefore != mTransientState.staticMortonCodesBuffer.RawPtr() ||
+        staticMortonCodesScratchBefore !=
+            mTransientState.staticMortonCodesScratchBuffer.RawPtr() ||
+        staticGlobalBroadPhaseExtentBefore !=
+            mTransientState.staticGlobalBroadPhaseExtentBuffer.RawPtr() ||
+        rawBufferPtrsChanged(scanBlockSumsBefore, mTransientState.scanBlockSumsBuffers) ||
+        rawBufferPtrsChanged(scanScannedBlockSumsBefore,
+                             mTransientState.scanScannedBlockSumsBuffers) ||
+        rawBufferPtrsChanged(broadPhaseExtentScratchBefore,
+                             mTransientState.broadPhaseExtentScratchBuffers) ||
+        rawBufferPtrsChanged(staticScanBlockSumsBefore,
+                             mTransientState.staticScanBlockSumsBuffers) ||
+        rawBufferPtrsChanged(staticScanScannedBlockSumsBefore,
+                             mTransientState.staticScanScannedBlockSumsBuffers) ||
+        rawBufferPtrsChanged(staticBroadPhaseExtentScratchBefore,
+                             mTransientState.staticBroadPhaseExtentScratchBuffers) ||
+        radixBitFlagsBefore != mTransientState.radixBitFlagsBuffer.RawPtr() ||
+        radixBitOffsetsBefore != mTransientState.radixBitOffsetsBuffer.RawPtr() ||
+        radixMetaBefore != mTransientState.radixMetaBuffer.RawPtr() ||
+        bvhBefore != mTransientState.bvhBuffer.RawPtr() ||
+        bvhConstructionBefore != mTransientState.bvhConstructionInfoBuffer.RawPtr() ||
+        staticRadixBitFlagsBefore != mTransientState.staticRadixBitFlagsBuffer.RawPtr() ||
+        staticRadixBitOffsetsBefore !=
+            mTransientState.staticRadixBitOffsetsBuffer.RawPtr() ||
+        staticRadixMetaBefore != mTransientState.staticRadixMetaBuffer.RawPtr() ||
+        staticBvhBefore != mTransientState.staticBvhBuffer.RawPtr() ||
+        staticBvhConstructionBefore !=
+            mTransientState.staticBvhConstructionInfoBuffer.RawPtr() ||
+        candidatePairsBefore != mTransientState.candidatePairsBuffer.RawPtr() ||
+        broadPhaseMetaBefore != mTransientState.broadPhaseMetaBuffer.RawPtr() ||
+        narrowPhaseChunksBefore != mTransientState.narrowPhaseChunksBuffer.RawPtr() ||
+        narrowPhaseMetaBefore != mTransientState.narrowPhaseMetaBuffer.RawPtr() ||
+        narrowPhaseCounterBefore !=
+            mTransientState.narrowPhaseChunkCounterBuffer.RawPtr() ||
         rigidContactsBefore != mTransientState.rigidContactsBuffer.RawPtr() ||
         proxyRigidContactMetaBefore != mTransientState.proxyRigidContactMetaBuffer.RawPtr() ||
         rigidAggregateMapBefore != mTransientState.rigidBodyPairAggregateMapBuffer.RawPtr() ||
