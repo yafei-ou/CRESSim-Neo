@@ -39,6 +39,8 @@ public:
         const std::vector<graphics::GpuLocalLightSelection> &selections);
 
     graphics::GpuEntitySceneView sceneView() const noexcept;
+    graphics::GpuEntitySceneView sceneView(const common::PoseBufferView &poses,
+                                           std::uint32_t entityCount) const noexcept;
     const common::SceneLayoutDesc &layout() const noexcept
     {
         return mLayout;

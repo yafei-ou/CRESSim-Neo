@@ -41,9 +41,15 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    const float3 position = CRESSIM_SB_REF(g_EntityPositions, renderableIndex).xyz;
-    const float4 orientation = normalize(CRESSIM_SB_LOAD(g_EntityOrientations, renderableIndex));
-    const float3 scale = CRESSIM_SB_REF(g_EntityScales, renderableIndex).xyz;
+    if (metadata.entityPoseSlot == CRESSIM_INVALID_GPU_SCENE_INDEX)
+    {
+        return;
+    }
+
+    const float3 position = CRESSIM_SB_REF(g_EntityPositions, metadata.entityPoseSlot).xyz;
+    const float4 orientation =
+        normalize(CRESSIM_SB_LOAD(g_EntityOrientations, metadata.entityPoseSlot));
+    const float3 scale = CRESSIM_SB_REF(g_EntityScales, metadata.entityPoseSlot).xyz;
 
     if (metadata.deformableType == CRESSIM_DEFORMABLE_TYPE_SOFT_BODY &&
         metadata.deformableIndex != CRESSIM_INVALID_DEFORMABLE_INDEX)

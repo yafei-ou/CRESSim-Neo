@@ -175,6 +175,10 @@ public:
     const std::vector<graphics::RenderableInstance> &renderables() const noexcept;
     const std::vector<graphics::CameraData> &cameras() const noexcept;
     const std::vector<graphics::LightData> &lights() const noexcept;
+    std::uint32_t entityPoseSlot(common::EntityId entityId) const noexcept;
+    const std::vector<Diligent::float4> &entityPosePositions() const noexcept;
+    const std::vector<Diligent::float4> &entityPoseOrientations() const noexcept;
+    const std::vector<Diligent::float4> &entityPoseScales() const noexcept;
     const std::vector<Diligent::float4> &renderObjectPositions() const noexcept;
     const std::vector<Diligent::float4> &renderObjectOrientations() const noexcept;
     const std::vector<Diligent::float4> &renderObjectScales() const noexcept;
@@ -190,6 +194,13 @@ public:
     const std::vector<graphics::IndirectCommandRegistryEntry> &localShadowDrawRegistry()
         const noexcept;
     const std::vector<EntityPoseMappingEntry> &physicsRenderableMappings();
+    std::uint64_t entityPoseRevision() const noexcept;
+    std::uint64_t renderableMetadataRevision() const noexcept;
+    std::uint64_t renderableQueueInfoRevision() const noexcept;
+    std::uint64_t softBodyVertexBindingRevision() const noexcept;
+    std::uint64_t cameraInputRevision() const noexcept;
+    std::uint64_t lightInputRevision() const noexcept;
+    std::uint64_t localLightSelectionRevision() const noexcept;
     const graphics::GpuEntitySceneView &gpuEntityScene() const noexcept;
     graphics::HostSceneView hostSceneView() const noexcept;
     void ensureRenderStateUpToDate(const graphics::RenderResourceManager &resources);
@@ -217,6 +228,10 @@ private:
     [[nodiscard]] bool requireAliveEntity(common::EntityId entityId,
                                           const char *operation) const noexcept;
     void ensureHostSceneStorage();
+    std::uint32_t ensureEntityPoseSlot(common::EntityId entityId);
+    void releaseEntityPoseSlot(common::EntityId entityId) noexcept;
+    void markEntityPoseDirty(common::EntityId entityId);
+    void refreshEntityPoseSlot(std::uint32_t entityPoseSlot);
     void refreshRenderablePose(std::uint32_t objectIndex);
     void refreshCameraEntry(std::uint32_t cameraIndex);
     void refreshLightEntry(std::uint32_t lightIndex);
@@ -259,6 +274,9 @@ private:
 
     TransformStorage mTransforms{};
     std::unordered_map<common::EntityId, std::uint32_t> mTransformIndex{};
+    std::vector<common::EntityId> mEntityPoseEntities{};
+    std::unordered_map<common::EntityId, std::uint32_t> mEntityPoseSlotByEntity{};
+    std::vector<std::uint32_t> mFreeEntityPoseSlots{};
 
     std::unordered_map<common::EntityId, PhysicsLink> mPhysicsLinks{};
     std::unordered_map<std::uint32_t, common::EntityId> mColliderOwnerEntity{};
@@ -280,6 +298,9 @@ private:
     std::vector<graphics::RenderableInstance> mRenderables{};
     std::vector<graphics::CameraData> mRenderCameras{};
     std::vector<graphics::LightData> mRenderLights{};
+    std::vector<Diligent::float4> mEntityPosePositionsHost{};
+    std::vector<Diligent::float4> mEntityPoseOrientationsHost{};
+    std::vector<Diligent::float4> mEntityPoseScalesHost{};
     std::vector<Diligent::float4> mRenderObjectPositions{};
     std::vector<Diligent::float4> mRenderObjectOrientations{};
     std::vector<Diligent::float4> mRenderObjectScales{};
@@ -310,6 +331,8 @@ private:
     std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeRenderableSlotsByEnv{};
     std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeCameraSlotsByEnv{};
     std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeLightSlotsByEnv{};
+    std::vector<std::uint32_t> mDirtyEntityPoseSlots{};
+    std::vector<std::uint8_t> mDirtyEntityPoseBits{};
     std::vector<std::uint32_t> mDirtyRenderablePoseIndices{};
     std::vector<std::uint8_t> mDirtyRenderablePoseBits{};
     std::vector<std::uint32_t> mDirtyRenderableMetadataIndices{};
@@ -334,6 +357,13 @@ private:
     std::uint64_t mCachedSoftBodyRenderTopologyRevision                = ~0ull;
     std::uint64_t mCachedSoftBodyPhysicsRevision                       = ~0ull;
     std::uint64_t mCachedCurveRenderPhysicsRevision                    = ~0ull;
+    std::uint64_t mEntityPoseRevision                                  = 1u;
+    std::uint64_t mRenderableMetadataRevision                          = 1u;
+    std::uint64_t mRenderableQueueInfoRevision                         = 1u;
+    std::uint64_t mSoftBodyVertexBindingRevision                       = 1u;
+    std::uint64_t mCameraInputRevision                                 = 1u;
+    std::uint64_t mLightInputRevision                                  = 1u;
+    std::uint64_t mLocalLightSelectionRevision                         = 1u;
 };
 
 } // namespace cressim::neo::engine

@@ -48,7 +48,12 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     }
     else
     {
-        const float3 position = CRESSIM_SB_REF(g_EntityPositions, objectIndex).xyz;
+        if (metadata.entityPoseSlot == CRESSIM_INVALID_GPU_SCENE_INDEX)
+        {
+            return;
+        }
+
+        const float3 position = CRESSIM_SB_REF(g_EntityPositions, metadata.entityPoseSlot).xyz;
         boundsMin = position;
         boundsMax = position;
     }

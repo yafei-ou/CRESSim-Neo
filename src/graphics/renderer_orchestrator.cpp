@@ -32,6 +32,10 @@ struct GraphicsCameraPrepareConstants
     std::uint32_t maxObjectsPerEnv    = 0u;
     std::uint32_t maxLightsPerEnv     = 0u;
     std::uint32_t shadowMapResolution = kShadowMapResolution;
+    std::uint32_t entityPoseCount     = 0u;
+    std::uint32_t padding0            = 0u;
+    std::uint32_t padding1            = 0u;
+    std::uint32_t padding2            = 0u;
 };
 
 struct GraphicsScenePrepareConstants
@@ -46,6 +50,10 @@ constexpr Diligent::ShaderResourceVariableDesc kCameraPrepareVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "GraphicsCameraPrepareConstants",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_CameraInputs",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_EntityPositions",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_EntityOrientations",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_LightInputs",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -396,6 +404,7 @@ bool Renderer::prepareGpuScene(const HostSceneView &world, const GpuEntitySceneV
     cameraPrepareConstants.maxObjectsPerEnv    = sceneView.layout.maxRenderableObjectsPerEnv;
     cameraPrepareConstants.maxLightsPerEnv     = sceneView.layout.maxLightsPerEnv;
     cameraPrepareConstants.shadowMapResolution = kShadowMapResolution;
+    cameraPrepareConstants.entityPoseCount     = sceneView.entityCount;
 
     void *mappedConstants = nullptr;
     backendContext.graphicsContext->MapBuffer(mGpuScenePrepare->cameraPrepareConstantsBuffer,
@@ -414,6 +423,10 @@ bool Renderer::prepareGpuScene(const HostSceneView &world, const GpuEntitySceneV
                               mGpuScenePrepare->cameraPrepareConstantsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_CameraInputs", sceneView.cameraInputsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_EntityPositions", sceneView.poses.positionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_EntityOrientations", sceneView.poses.orientationsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_LightInputs", sceneView.lightInputsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},

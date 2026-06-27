@@ -1,4 +1,5 @@
 #include "include/structured_buffer_compat.hlsli"
+#include "include/graphics/graphics_camera_input.hlsli"
 
 static const uint CRESSIM_LIGHT_TYPE_DIRECTIONAL = 0u;
 static const uint CRESSIM_LIGHT_TYPE_POINT = 1u;
@@ -6,18 +7,6 @@ static const uint CRESSIM_LIGHT_TYPE_SPOT = 2u;
 static const uint CRESSIM_INVALID_GPU_SCENE_INDEX = 0xffffffffu;
 static const uint CRESSIM_FORWARD_LOCAL_LIGHT_CAP = 8u;
 static const float PI = 3.14159265359;
-
-struct CameraInput
-{
-    float4 position;
-    float4 orientation;
-    float4 projectionParams;
-    float4 viewportAndOutputSize;
-    uint envIndex;
-    uint cameraSlot;
-    uint active;
-    uint reserved;
-};
 
 struct LightInput
 {

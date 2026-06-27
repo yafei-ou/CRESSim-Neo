@@ -118,7 +118,8 @@ int main()
             std::fabs(input.viewportAndOutputSize.x - expectedViewportWidth) > 1e-5f ||
             std::fabs(input.viewportAndOutputSize.y - expectedViewportHeight) > 1e-5f ||
             std::fabs(input.viewportAndOutputSize.z - expectedOutputWidth) > 1e-5f ||
-            std::fabs(input.viewportAndOutputSize.w - expectedOutputHeight) > 1e-5f)
+            std::fabs(input.viewportAndOutputSize.w - expectedOutputHeight) > 1e-5f ||
+            input.entityPoseSlot == 0xffffffffu)
         {
             CRESSIM_LOG_ERROR( "World->GPU camera sync did not preserve viewport-aware projection data.\n");
             return 1;

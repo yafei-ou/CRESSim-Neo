@@ -2,6 +2,7 @@
 
 #include "common/logger.h"
 #include "engine/custom_compute_service.h"
+#include "engine/entity_scene_gpu_state.h"
 #include "engine/runtime_internal.h"
 #include "engine/shared_buffer_service.h"
 
@@ -40,36 +41,92 @@ void ensureDeviceFrameActive(gpu::GpuDevice *device, const common::FrameContext 
     inOutDeviceFrameActive = true;
 }
 
-bool syncGpuScene(World &world, gpu::GpuDevice *device, RenderSceneUploader *uploader,
-                  physics::PhysicsSolver *physicsSolver, bool usePhysicsPoses)
+bool syncGpuScene(World &world, gpu::GpuDevice *device, EntitySceneGpuState *entitySceneState,
+                  RenderSceneUploader *uploader, physics::PhysicsSolver *physicsSolver,
+                  bool usePhysicsPoses, std::uint64_t &lastEntityPoseRevision,
+                  std::uint64_t &lastRenderableMetadataRevision,
+                  std::uint64_t &lastRenderableQueueInfoRevision,
+                  std::uint64_t &lastSoftBodyVertexBindingRevision,
+                  std::uint64_t &lastCameraInputRevision, std::uint64_t &lastLightInputRevision,
+                  std::uint64_t &lastLocalLightSelectionRevision)
 {
-    if (uploader == nullptr)
+    if (entitySceneState == nullptr || uploader == nullptr)
     {
         world.setGpuEntityScene({});
         return false;
     }
 
-    bool gpuSceneReady = uploader->uploadEntityPoseData(world.renderObjectPositions(),
-                                                        world.renderObjectOrientations(),
-                                                        world.renderObjectScales());
+    const std::uint64_t entityPoseRevision = world.entityPoseRevision();
+    const std::uint64_t renderableMetadataRevision = world.renderableMetadataRevision();
+    const std::uint64_t renderableQueueInfoRevision = world.renderableQueueInfoRevision();
+    const std::uint64_t softBodyVertexBindingRevision = world.softBodyVertexBindingRevision();
+    const std::uint64_t cameraInputRevision = world.cameraInputRevision();
+    const std::uint64_t lightInputRevision = world.lightInputRevision();
+    const std::uint64_t localLightSelectionRevision = world.localLightSelectionRevision();
+
+    const bool needsEntityPoseUpload = entityPoseRevision != lastEntityPoseRevision;
+    const bool needsRenderableMetadataUpload =
+        renderableMetadataRevision != lastRenderableMetadataRevision;
+    const bool needsRenderableQueueInfoUpload =
+        renderableQueueInfoRevision != lastRenderableQueueInfoRevision;
+    const bool needsSoftBodyVertexBindingUpload =
+        softBodyVertexBindingRevision != lastSoftBodyVertexBindingRevision;
+    const bool needsCameraInputUpload = cameraInputRevision != lastCameraInputRevision;
+    const bool needsLightInputUpload = lightInputRevision != lastLightInputRevision;
+    const bool needsLocalLightSelectionUpload =
+        localLightSelectionRevision != lastLocalLightSelectionRevision;
+
+    bool gpuSceneReady = true;
+    if (needsEntityPoseUpload)
+    {
+        gpuSceneReady = entitySceneState->uploadAuthoredEntityPoses(
+            world.entityPosePositions(), world.entityPoseOrientations(), world.entityPoseScales());
+    }
     if (gpuSceneReady && usePhysicsPoses && physicsSolver != nullptr)
     {
-        if (!uploader->applyMappedEntityPoses(physicsSolver->gpuSceneView().rigid.poses,
-                                              world.physicsRenderableMappings()))
+        if (!entitySceneState->applyMappedEntityPoses(physicsSolver->gpuSceneView().rigid.poses,
+                                                      world.physicsRenderableMappings()))
         {
             gpuSceneReady = false;
         }
     }
 
-    if (gpuSceneReady && uploader->uploadRenderableMetadata(world.renderableMetadata()) &&
-        uploader->uploadRenderableQueueInfo(world.renderableQueueInfo()) &&
-        uploader->uploadSoftBodyVertexBindings(world.softBodyVertexBindings()) &&
-        uploader->uploadCameraInputs(world.cameraInputs()) &&
-        uploader->uploadLightInputs(world.lightInputs()) &&
-        uploader->uploadLocalLightSelections(world.localLightSelections()) &&
-        (!device || device->waitForPhysicsOnGraphics()))
+    if (gpuSceneReady && needsRenderableMetadataUpload)
     {
-        world.setGpuEntityScene(uploader->sceneView());
+        gpuSceneReady = uploader->uploadRenderableMetadata(world.renderableMetadata());
+    }
+    if (gpuSceneReady && needsRenderableQueueInfoUpload)
+    {
+        gpuSceneReady = uploader->uploadRenderableQueueInfo(world.renderableQueueInfo());
+    }
+    if (gpuSceneReady && needsSoftBodyVertexBindingUpload)
+    {
+        gpuSceneReady = uploader->uploadSoftBodyVertexBindings(world.softBodyVertexBindings());
+    }
+    if (gpuSceneReady && needsCameraInputUpload)
+    {
+        gpuSceneReady = uploader->uploadCameraInputs(world.cameraInputs());
+    }
+    if (gpuSceneReady && needsLightInputUpload)
+    {
+        gpuSceneReady = uploader->uploadLightInputs(world.lightInputs());
+    }
+    if (gpuSceneReady && needsLocalLightSelectionUpload)
+    {
+        gpuSceneReady = uploader->uploadLocalLightSelections(world.localLightSelections());
+    }
+
+    if (gpuSceneReady && (!device || device->waitForPhysicsOnGraphics()))
+    {
+        world.setGpuEntityScene(
+            uploader->sceneView(entitySceneState->poseView(), entitySceneState->entityCount()));
+        lastEntityPoseRevision = entityPoseRevision;
+        lastRenderableMetadataRevision = renderableMetadataRevision;
+        lastRenderableQueueInfoRevision = renderableQueueInfoRevision;
+        lastSoftBodyVertexBindingRevision = softBodyVertexBindingRevision;
+        lastCameraInputRevision = cameraInputRevision;
+        lastLightInputRevision = lightInputRevision;
+        lastLocalLightSelectionRevision = localLightSelectionRevision;
         return true;
     }
 
@@ -130,9 +187,16 @@ bool Runtime::initialize(const RuntimeConfig &config)
 
     if (hasGraphicsBackendContext(*mGpuDevice) && hasPhysicsBackendContext(*mGpuDevice))
     {
+        mEntitySceneGpuState = std::make_unique<EntitySceneGpuState>(*mGpuDevice);
         mRenderSceneUploader = std::make_unique<RenderSceneUploader>(*mGpuDevice);
-        if (!mRenderSceneUploader || !mRenderSceneUploader->initialize(config.sceneLayout))
+        if (!mEntitySceneGpuState || !mEntitySceneGpuState->initialize() ||
+            !mRenderSceneUploader || !mRenderSceneUploader->initialize(config.sceneLayout))
         {
+            if (mEntitySceneGpuState)
+            {
+                mEntitySceneGpuState->shutdown();
+                mEntitySceneGpuState.reset();
+            }
             mRenderSceneUploader.reset();
             mUltrasoundSystem->shutdown();
             mUltrasoundSystem.reset();
@@ -152,6 +216,11 @@ bool Runtime::initialize(const RuntimeConfig &config)
         {
             mRenderSceneUploader->shutdown();
             mRenderSceneUploader.reset();
+        }
+        if (mEntitySceneGpuState)
+        {
+            mEntitySceneGpuState->shutdown();
+            mEntitySceneGpuState.reset();
         }
         if (mUltrasoundSystem)
         {
@@ -201,6 +270,11 @@ void Runtime::shutdown()
         mRenderSceneUploader->shutdown();
         mRenderSceneUploader.reset();
     }
+    if (mEntitySceneGpuState)
+    {
+        mEntitySceneGpuState->shutdown();
+        mEntitySceneGpuState.reset();
+    }
     if (mUltrasoundSystem)
     {
         mUltrasoundSystem->shutdown();
@@ -226,6 +300,13 @@ void Runtime::shutdown()
     mWorldUploaded      = false;
     mHasPhysicsState    = false;
     mInitialized        = false;
+    mLastUploadedEntityPoseRevision = 0u;
+    mLastUploadedRenderableMetadataRevision = 0u;
+    mLastUploadedRenderableQueueInfoRevision = 0u;
+    mLastUploadedSoftBodyVertexBindingRevision = 0u;
+    mLastUploadedCameraInputRevision = 0u;
+    mLastUploadedLightInputRevision = 0u;
+    mLastUploadedLocalLightSelectionRevision = 0u;
 }
 
 void Runtime::prepare()
@@ -261,9 +342,14 @@ bool Runtime::uploadWorld()
         uploaded = false;
     }
 
-    if (uploaded && mRenderSceneUploader &&
-        !syncGpuScene(mWorld, mGpuDevice.get(), mRenderSceneUploader.get(), mPhysicsSolver.get(),
-                      false))
+    if (uploaded && mEntitySceneGpuState && mRenderSceneUploader &&
+        !syncGpuScene(mWorld, mGpuDevice.get(), mEntitySceneGpuState.get(),
+                      mRenderSceneUploader.get(), mPhysicsSolver.get(), false,
+                      mLastUploadedEntityPoseRevision, mLastUploadedRenderableMetadataRevision,
+                      mLastUploadedRenderableQueueInfoRevision,
+                      mLastUploadedSoftBodyVertexBindingRevision,
+                      mLastUploadedCameraInputRevision, mLastUploadedLightInputRevision,
+                      mLastUploadedLocalLightSelectionRevision))
     {
         uploaded = false;
     }
@@ -338,8 +424,13 @@ void Runtime::stepVisualSensors(const common::FrameContext &frameContext)
         return;
     }
 
-    (void)syncGpuScene(mWorld, mGpuDevice.get(), mRenderSceneUploader.get(), mPhysicsSolver.get(),
-                       mHasPhysicsState);
+    (void)syncGpuScene(mWorld, mGpuDevice.get(), mEntitySceneGpuState.get(),
+                       mRenderSceneUploader.get(), mPhysicsSolver.get(), mHasPhysicsState,
+                       mLastUploadedEntityPoseRevision, mLastUploadedRenderableMetadataRevision,
+                       mLastUploadedRenderableQueueInfoRevision,
+                       mLastUploadedSoftBodyVertexBindingRevision,
+                       mLastUploadedCameraInputRevision, mLastUploadedLightInputRevision,
+                       mLastUploadedLocalLightSelectionRevision);
 
     mLastFrameContext = frameContext;
 

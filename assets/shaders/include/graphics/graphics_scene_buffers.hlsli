@@ -10,7 +10,7 @@ struct RenderableMetadata
     uint deformVertexCount;
     uint deformableType;
     uint segmentationId;
-    uint reserved2;
+    uint entityPoseSlot;
     float4 localBoundsMin;
     float4 localBoundsMax;
 };
@@ -220,10 +220,14 @@ void loadRenderablePose(uint instanceIndex, out bool isValid, out float3 positio
     {
         return;
     }
+    if (metadata.entityPoseSlot == CRESSIM_INVALID_GPU_SCENE_INDEX)
+    {
+        return;
+    }
 
-    position = CRESSIM_SB_REF(g_EntityPositions, instanceIndex).xyz;
-    orientation = normalize(CRESSIM_SB_LOAD(g_EntityOrientations, instanceIndex));
-    scale = CRESSIM_SB_REF(g_EntityScales, instanceIndex).xyz;
+    position = CRESSIM_SB_REF(g_EntityPositions, metadata.entityPoseSlot).xyz;
+    orientation = normalize(CRESSIM_SB_LOAD(g_EntityOrientations, metadata.entityPoseSlot));
+    scale = CRESSIM_SB_REF(g_EntityScales, metadata.entityPoseSlot).xyz;
     isValid = true;
 }
 

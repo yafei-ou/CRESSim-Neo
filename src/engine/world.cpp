@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <map>
 
@@ -13,6 +14,15 @@ namespace
 {
 constexpr std::uint32_t kInvalidSlot        = 0xffffffffu;
 constexpr float kSoftBodyVertexMatchEpsilon = 1.0e-3f;
+
+void bumpGeneration(std::uint64_t &generation) noexcept
+{
+    ++generation;
+    if (generation == 0u)
+    {
+        generation = 1u;
+    }
+}
 
 bool rendersInTransparentPass(const graphics::MaterialResourceDesc &material) noexcept
 {
@@ -428,6 +438,7 @@ bool World::destroyEntity(common::EntityId entityId)
     }
 
     mEntities.erase(std::remove(mEntities.begin(), mEntities.end(), entityId), mEntities.end());
+    releaseEntityPoseSlot(entityId);
     mEntityEnvironments.erase(entityId);
     return true;
 }
@@ -742,6 +753,138 @@ void World::ensureHostSceneStorage()
     {
         mLocalLightSelectionsHost.assign(mSceneLayout.envCount, graphics::GpuLocalLightSelection{});
     }
+
+    if (mDirtyEntityPoseBits.size() != mEntityPoseEntities.size())
+    {
+        mDirtyEntityPoseBits.resize(mEntityPoseEntities.size(), 0u);
+    }
+}
+
+std::uint32_t World::ensureEntityPoseSlot(common::EntityId entityId)
+{
+    const auto existing = mEntityPoseSlotByEntity.find(entityId);
+    if (existing != mEntityPoseSlotByEntity.end())
+    {
+        return existing->second;
+    }
+
+    std::uint32_t slot = kInvalidSlot;
+    if (!mFreeEntityPoseSlots.empty())
+    {
+        slot = mFreeEntityPoseSlots.back();
+        mFreeEntityPoseSlots.pop_back();
+        mEntityPoseEntities[slot] = entityId;
+    }
+    else
+    {
+        slot = static_cast<std::uint32_t>(mEntityPoseEntities.size());
+        mEntityPoseEntities.push_back(entityId);
+        mEntityPosePositionsHost.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f});
+        mEntityPoseOrientationsHost.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f});
+        mEntityPoseScalesHost.push_back(Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f});
+        mDirtyEntityPoseBits.push_back(0u);
+    }
+
+    mEntityPoseSlotByEntity.emplace(entityId, slot);
+    markEntityPoseDirty(entityId);
+    bumpGeneration(mEntityPoseRevision);
+    return slot;
+}
+
+void World::releaseEntityPoseSlot(common::EntityId entityId) noexcept
+{
+    const auto it = mEntityPoseSlotByEntity.find(entityId);
+    if (it == mEntityPoseSlotByEntity.end())
+    {
+        return;
+    }
+
+    const std::uint32_t slot = it->second;
+    if (slot < mEntityPoseEntities.size())
+    {
+        mEntityPoseEntities[slot] = common::kInvalidEntityId;
+    }
+    if (slot < mEntityPosePositionsHost.size())
+    {
+        mEntityPosePositionsHost[slot] = Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f};
+    }
+    if (slot < mEntityPoseOrientationsHost.size())
+    {
+        mEntityPoseOrientationsHost[slot] = Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f};
+    }
+    if (slot < mEntityPoseScalesHost.size())
+    {
+        mEntityPoseScalesHost[slot] = Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f};
+    }
+    if (slot < mDirtyEntityPoseBits.size())
+    {
+        enqueueDenseDirtyIndex(slot, mDirtyEntityPoseSlots, mDirtyEntityPoseBits);
+    }
+    mFreeEntityPoseSlots.push_back(slot);
+    mEntityPoseSlotByEntity.erase(it);
+    mPhysicsRenderableMappingsDirty = true;
+    bumpGeneration(mEntityPoseRevision);
+}
+
+void World::markEntityPoseDirty(common::EntityId entityId)
+{
+    const auto it = mEntityPoseSlotByEntity.find(entityId);
+    if (it == mEntityPoseSlotByEntity.end())
+    {
+        return;
+    }
+
+    const std::uint32_t slot = it->second;
+    if (slot >= mDirtyEntityPoseBits.size())
+    {
+        mDirtyEntityPoseBits.resize(slot + 1u, 0u);
+    }
+    enqueueDenseDirtyIndex(slot, mDirtyEntityPoseSlots, mDirtyEntityPoseBits);
+}
+
+void World::refreshEntityPoseSlot(std::uint32_t entityPoseSlot)
+{
+    if (entityPoseSlot >= mEntityPoseEntities.size() || entityPoseSlot >= mEntityPosePositionsHost.size() ||
+        entityPoseSlot >= mEntityPoseOrientationsHost.size() ||
+        entityPoseSlot >= mEntityPoseScalesHost.size())
+    {
+        return;
+    }
+
+    const common::EntityId entityId = mEntityPoseEntities[entityPoseSlot];
+    common::Transform transform{};
+    if (entityId != common::kInvalidEntityId)
+    {
+        transform = tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
+    }
+
+    const Diligent::float4 position{transform.position.x, transform.position.y, transform.position.z,
+                                    1.0f};
+    const Diligent::float4 orientation{transform.rotation.q.x, transform.rotation.q.y,
+                                       transform.rotation.q.z, transform.rotation.q.w};
+    const Diligent::float4 scale{transform.scale.x, transform.scale.y, transform.scale.z, 0.0f};
+
+    if (mEntityPosePositionsHost[entityPoseSlot].x != position.x ||
+        mEntityPosePositionsHost[entityPoseSlot].y != position.y ||
+        mEntityPosePositionsHost[entityPoseSlot].z != position.z ||
+        mEntityPoseOrientationsHost[entityPoseSlot].x != orientation.x ||
+        mEntityPoseOrientationsHost[entityPoseSlot].y != orientation.y ||
+        mEntityPoseOrientationsHost[entityPoseSlot].z != orientation.z ||
+        mEntityPoseOrientationsHost[entityPoseSlot].w != orientation.w ||
+        mEntityPoseScalesHost[entityPoseSlot].x != scale.x ||
+        mEntityPoseScalesHost[entityPoseSlot].y != scale.y ||
+        mEntityPoseScalesHost[entityPoseSlot].z != scale.z)
+    {
+        mEntityPosePositionsHost[entityPoseSlot]    = position;
+        mEntityPoseOrientationsHost[entityPoseSlot] = orientation;
+        mEntityPoseScalesHost[entityPoseSlot]       = scale;
+        bumpGeneration(mEntityPoseRevision);
+        return;
+    }
+
+    mEntityPosePositionsHost[entityPoseSlot]    = position;
+    mEntityPoseOrientationsHost[entityPoseSlot] = orientation;
+    mEntityPoseScalesHost[entityPoseSlot]       = scale;
 }
 
 void World::markRenderableMetadataDirty(std::uint32_t objectIndex)
@@ -804,6 +947,9 @@ void World::setTransform(common::EntityId entityId, const TransformComponent &co
         mTransforms.components[it->second] = component;
     }
 
+    ensureEntityPoseSlot(entityId);
+    markEntityPoseDirty(entityId);
+
     // Forcefully set rigid body transform from world transform. This teleports the body (no physics
     // integration). Users should not set the transform direction on an entity with a kinematic
     // rigid body.
@@ -860,6 +1006,8 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
         return;
     }
 
+    ensureEntityPoseSlot(entityId);
+
     const auto indexIt        = mRenderableIndices.find(entityId);
     std::uint32_t objectIndex = 0u;
     if (indexIt == mRenderableIndices.end())
@@ -908,6 +1056,8 @@ void World::setCamera(common::EntityId entityId, const CameraComponent &componen
     {
         return;
     }
+
+    ensureEntityPoseSlot(entityId);
 
     const auto indexIt        = mRenderCameraIndices.find(entityId);
     std::uint32_t cameraIndex = 0u;
@@ -1147,6 +1297,8 @@ void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent &co
         mPhysicsLinks[entityId].hasRigidBody = false;
         return;
     }
+
+    ensureEntityPoseSlot(entityId);
 
     TransformComponent transform{};
     if (const std::optional<TransformComponent> t = tryGetTransform(entityId))
@@ -1950,6 +2102,7 @@ bool World::removeTransform(common::EntityId entityId)
     {
         markCameraDirty(static_cast<std::uint32_t>(it->second));
     }
+    markEntityPoseDirty(entityId);
     return true;
 }
 
@@ -2465,6 +2618,27 @@ const std::vector<graphics::LightData> &World::lights() const noexcept
     return mRenderLights;
 }
 
+std::uint32_t World::entityPoseSlot(common::EntityId entityId) const noexcept
+{
+    const auto it = mEntityPoseSlotByEntity.find(entityId);
+    return it != mEntityPoseSlotByEntity.end() ? it->second : kInvalidSlot;
+}
+
+const std::vector<Diligent::float4> &World::entityPosePositions() const noexcept
+{
+    return mEntityPosePositionsHost;
+}
+
+const std::vector<Diligent::float4> &World::entityPoseOrientations() const noexcept
+{
+    return mEntityPoseOrientationsHost;
+}
+
+const std::vector<Diligent::float4> &World::entityPoseScales() const noexcept
+{
+    return mEntityPoseScalesHost;
+}
+
 const std::vector<Diligent::float4> &World::renderObjectPositions() const noexcept
 {
     return mRenderObjectPositions;
@@ -2546,34 +2720,20 @@ const std::vector<EntityPoseMappingEntry> &World::physicsRenderableMappings()
     mPhysicsRenderableMappingsCache.clear();
 
     const auto &rigidBodies = mPhysicsWorld.rigidBodySoA();
-    if (!rigidBodies.entityIds.empty() && !mRenderables.empty())
+    if (!rigidBodies.entityIds.empty())
     {
-        std::unordered_map<common::EntityId, std::uint32_t> rigidBodyIndexByEntity;
-        rigidBodyIndexByEntity.reserve(rigidBodies.entityIds.size());
         for (std::uint32_t i = 0; i < static_cast<std::uint32_t>(rigidBodies.entityIds.size()); ++i)
         {
-            rigidBodyIndexByEntity.emplace(rigidBodies.entityIds[i], i);
-        }
-
-        mPhysicsRenderableMappingsCache.reserve(mRenderables.size());
-        for (const graphics::RenderableInstance &renderable : mRenderables)
-        {
-            if (renderable.entityId == common::kInvalidEntityId ||
-                renderable.objectSlot == kInvalidSlot || !renderable.visible)
-            {
-                continue;
-            }
-
-            const auto rigidBodyIt = rigidBodyIndexByEntity.find(renderable.entityId);
-            if (rigidBodyIt == rigidBodyIndexByEntity.end())
+            const common::EntityId entityId = rigidBodies.entityIds[i];
+            const auto poseSlotIt = mEntityPoseSlotByEntity.find(entityId);
+            if (poseSlotIt == mEntityPoseSlotByEntity.end())
             {
                 continue;
             }
 
             EntityPoseMappingEntry entry{};
-            entry.sourcePoseIndex = rigidBodyIt->second;
-            entry.objectIndex     = renderable.envIndex * mSceneLayout.maxRenderableObjectsPerEnv +
-                                    renderable.objectSlot;
+            entry.sourcePoseIndex = i;
+            entry.entityPoseIndex = poseSlotIt->second;
             mPhysicsRenderableMappingsCache.push_back(entry);
         }
     }
@@ -2581,6 +2741,41 @@ const std::vector<EntityPoseMappingEntry> &World::physicsRenderableMappings()
     mPhysicsRenderableMappingsDirty                      = false;
     mCachedPhysicsRenderableMappingsBodyTopologyRevision = rigidBodyTopologyRevision;
     return mPhysicsRenderableMappingsCache;
+}
+
+std::uint64_t World::entityPoseRevision() const noexcept
+{
+    return mEntityPoseRevision;
+}
+
+std::uint64_t World::renderableMetadataRevision() const noexcept
+{
+    return mRenderableMetadataRevision;
+}
+
+std::uint64_t World::renderableQueueInfoRevision() const noexcept
+{
+    return mRenderableQueueInfoRevision;
+}
+
+std::uint64_t World::softBodyVertexBindingRevision() const noexcept
+{
+    return mSoftBodyVertexBindingRevision;
+}
+
+std::uint64_t World::cameraInputRevision() const noexcept
+{
+    return mCameraInputRevision;
+}
+
+std::uint64_t World::lightInputRevision() const noexcept
+{
+    return mLightInputRevision;
+}
+
+std::uint64_t World::localLightSelectionRevision() const noexcept
+{
+    return mLocalLightSelectionRevision;
 }
 
 const graphics::GpuEntitySceneView &World::gpuEntityScene() const noexcept
@@ -2652,6 +2847,11 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
         rebuildCurveRenderBindings(resources);
     }
 
+    for (const std::uint32_t entityPoseSlot : mDirtyEntityPoseSlots)
+    {
+        refreshEntityPoseSlot(entityPoseSlot);
+    }
+
     for (const std::uint32_t objectIndex : mDirtyRenderablePoseIndices)
     {
         refreshRenderablePose(objectIndex);
@@ -2679,6 +2879,7 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
         mDrawRegistryDirty = false;
     }
 
+    clearDirtyIndexSet(mDirtyEntityPoseSlots, mDirtyEntityPoseBits);
     clearDirtyIndexSet(mDirtyRenderablePoseIndices, mDirtyRenderablePoseBits);
     clearDirtyIndexSet(mDirtyRenderableMetadataIndices, mDirtyRenderableMetadataBits);
     clearDirtyIndexSet(mDirtyCameraIndices, mDirtyCameraBits);
@@ -2890,6 +3091,7 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
 
     mSoftBodyRenderBindingsDirty = false;
     mPhysicsWorld.setSoftRenderData(softRenderData);
+    bumpGeneration(mSoftBodyVertexBindingRevision);
 }
 
 void World::rebuildCurveRenderBindings(const graphics::RenderResourceManager &resources)
@@ -3060,6 +3262,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
     // Currently no supported mutation path exists, but if resources become mutable, World has no
     // dependency tracking to invalidate affected slots.
 
+    bool metadataChanged = false;
     for (const std::uint32_t objectIndex : mDirtyRenderableMetadataIndices)
     {
         if (objectIndex >= mRenderableMetadataHost.size() || objectIndex >= mRenderables.size())
@@ -3077,6 +3280,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
         entry.deformableType =
             static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::None);
         entry.segmentationId = renderable.segmentationId;
+        entry.entityPoseSlot = entityPoseSlot(renderable.entityId);
         if (renderable.entityId != common::kInvalidEntityId &&
             renderable.objectSlot != kInvalidSlot)
         {
@@ -3167,7 +3371,16 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
         }
         entry.flags = static_cast<std::uint32_t>(renderableFlags);
 
-        mRenderableMetadataHost[objectIndex] = entry;
+        if (std::memcmp(&mRenderableMetadataHost[objectIndex], &entry, sizeof(entry)) != 0)
+        {
+            mRenderableMetadataHost[objectIndex] = entry;
+            metadataChanged = true;
+        }
+    }
+
+    if (metadataChanged)
+    {
+        bumpGeneration(mRenderableMetadataRevision);
     }
 }
 
@@ -3333,6 +3546,8 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
         shadowCommandBaseIndex += graphics::kShadowCascadeCount;
         ++localShadowCommandIndex;
     }
+
+    bumpGeneration(mRenderableQueueInfoRevision);
 }
 
 void World::refreshRenderablePose(std::uint32_t objectIndex)
@@ -3391,7 +3606,14 @@ void World::refreshCameraEntry(std::uint32_t cameraIndex)
     graphics::CameraData &cameraData = mRenderCameras[cameraIndex];
     if (cameraData.entityId == common::kInvalidEntityId || cameraData.cameraSlot == kInvalidSlot)
     {
-        mCameraInputsHost[cameraIndex] = {};
+        const graphics::GpuCameraInput cleared{};
+        if (std::memcmp(&mCameraInputsHost[cameraIndex], &cleared, sizeof(cleared)) != 0)
+        {
+            mCameraInputsHost[cameraIndex] = cleared;
+            bumpGeneration(mCameraInputRevision);
+            return;
+        }
+        mCameraInputsHost[cameraIndex] = cleared;
         return;
     }
 
@@ -3399,12 +3621,16 @@ void World::refreshCameraEntry(std::uint32_t cameraIndex)
         tryGetTransform(cameraData.entityId).value_or(TransformComponent{}).worldTransform;
 
     graphics::GpuCameraInput input{};
-    input.position =
-        Diligent::float4{cameraData.worldTransform.position.x, cameraData.worldTransform.position.y,
-                         cameraData.worldTransform.position.z, 1.0f};
-    input.orientation = Diligent::float4{
-        cameraData.worldTransform.rotation.q.x, cameraData.worldTransform.rotation.q.y,
-        cameraData.worldTransform.rotation.q.z, cameraData.worldTransform.rotation.q.w};
+    const std::uint32_t poseSlot = entityPoseSlot(cameraData.entityId);
+    if (poseSlot == kInvalidSlot)
+    {
+        input.position = Diligent::float4{cameraData.worldTransform.position.x,
+                                          cameraData.worldTransform.position.y,
+                                          cameraData.worldTransform.position.z, 1.0f};
+        input.orientation = Diligent::float4{
+            cameraData.worldTransform.rotation.q.x, cameraData.worldTransform.rotation.q.y,
+            cameraData.worldTransform.rotation.q.z, cameraData.worldTransform.rotation.q.w};
+    }
     input.projectionParams = Diligent::float4{cameraData.verticalFovDegrees, cameraData.nearClip,
                                               cameraData.farClip, 0.0f};
     input.viewportAndOutputSize = Diligent::float4{
@@ -3413,6 +3639,13 @@ void World::refreshCameraEntry(std::uint32_t cameraIndex)
     input.envIndex                 = cameraData.envIndex;
     input.cameraSlot               = cameraData.cameraSlot;
     input.active                   = 1u;
+    input.entityPoseSlot           = poseSlot;
+    if (std::memcmp(&mCameraInputsHost[cameraIndex], &input, sizeof(input)) != 0)
+    {
+        mCameraInputsHost[cameraIndex] = input;
+        bumpGeneration(mCameraInputRevision);
+        return;
+    }
     mCameraInputsHost[cameraIndex] = input;
 }
 
@@ -3426,7 +3659,14 @@ void World::refreshLightEntry(std::uint32_t lightIndex)
     graphics::LightData &lightData = mRenderLights[lightIndex];
     if (lightData.entityId == common::kInvalidEntityId || lightData.lightSlot == kInvalidSlot)
     {
-        mLightInputsHost[lightIndex] = {};
+        const graphics::GpuLightInput cleared{};
+        if (std::memcmp(&mLightInputsHost[lightIndex], &cleared, sizeof(cleared)) != 0)
+        {
+            mLightInputsHost[lightIndex] = cleared;
+            bumpGeneration(mLightInputRevision);
+            return;
+        }
+        mLightInputsHost[lightIndex] = cleared;
         return;
     }
 
@@ -3452,6 +3692,12 @@ void World::refreshLightEntry(std::uint32_t lightIndex)
     input.type                   = static_cast<std::uint32_t>(lightData.type);
     input.active                 = 1u;
     input.castsShadows           = lightData.castsShadows ? 1u : 0u;
+    if (std::memcmp(&mLightInputsHost[lightIndex], &input, sizeof(input)) != 0)
+    {
+        mLightInputsHost[lightIndex] = input;
+        bumpGeneration(mLightInputRevision);
+        return;
+    }
     mLightInputsHost[lightIndex] = input;
 }
 
@@ -3503,6 +3749,8 @@ void World::rebuildLocalLightSelections()
             ++selection.shadowedLocalLightCount;
         }
     }
+
+    bumpGeneration(mLocalLightSelectionRevision);
 }
 
 bool World::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t envIndex)

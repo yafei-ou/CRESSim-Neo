@@ -23,6 +23,7 @@ namespace cressim::neo::engine
 {
 
 class CustomComputeService;
+class EntitySceneGpuState;
 class SharedBufferService;
 
 struct RuntimeConfig
@@ -131,6 +132,7 @@ private:
 
     bool mInitialized = false;
     std::unique_ptr<gpu::GpuDevice> mGpuDevice;
+    std::unique_ptr<EntitySceneGpuState> mEntitySceneGpuState;
     std::unique_ptr<RenderSceneUploader> mRenderSceneUploader;
     std::unique_ptr<physics::PhysicsSolver> mPhysicsSolver;
     std::unique_ptr<UltrasoundSystem> mUltrasoundSystem;
@@ -145,6 +147,13 @@ private:
     bool mDeviceFrameActive = false;
     bool mWorldUploaded     = false;
     bool mHasPhysicsState   = false;
+    std::uint64_t mLastUploadedEntityPoseRevision        = 0u;
+    std::uint64_t mLastUploadedRenderableMetadataRevision = 0u;
+    std::uint64_t mLastUploadedRenderableQueueInfoRevision = 0u;
+    std::uint64_t mLastUploadedSoftBodyVertexBindingRevision = 0u;
+    std::uint64_t mLastUploadedCameraInputRevision       = 0u;
+    std::uint64_t mLastUploadedLightInputRevision        = 0u;
+    std::uint64_t mLastUploadedLocalLightSelectionRevision = 0u;
 };
 
 } // namespace cressim::neo::engine
