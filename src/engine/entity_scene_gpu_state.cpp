@@ -212,12 +212,10 @@ bool EntitySceneGpuState::ensurePhysicsSyncCapacity(Diligent::IRenderDevice *ren
     }
 
     Diligent::IBuffer *oldMapping = mMappingBuffer;
-    const bool success =
-        ensureStructuredBuffer(renderDevice, "CRESSimNeo.Gpu.EntityPoseMappings",
-                               sizeof(EntityPoseMappingEntry), requiredCapacity,
-                               Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DYNAMIC,
-                               Diligent::CPU_ACCESS_WRITE, mPhysicsContextMask, mMappingBuffer,
-                               mPhysicsSyncCapacity, 64u);
+    const bool success            = ensureStructuredBuffer(
+        renderDevice, "CRESSimNeo.Gpu.EntityPoseMappings", sizeof(EntityPoseMappingEntry),
+        requiredCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DYNAMIC,
+        Diligent::CPU_ACCESS_WRITE, mPhysicsContextMask, mMappingBuffer, mPhysicsSyncCapacity, 64u);
     if (!success)
     {
         return false;
@@ -258,9 +256,9 @@ bool EntitySceneGpuState::writeBuffer(Diligent::IDeviceContext *computeContext,
     return true;
 }
 
-bool EntitySceneGpuState::uploadAuthoredEntityPoses(const std::vector<Diligent::float4> &positions,
-                                                    const std::vector<Diligent::float4> &orientations,
-                                                    const std::vector<Diligent::float4> &scales)
+bool EntitySceneGpuState::uploadAuthoredEntityPoses(
+    const std::vector<Diligent::float4> &positions,
+    const std::vector<Diligent::float4> &orientations, const std::vector<Diligent::float4> &scales)
 {
     if (!mInitialized)
     {
@@ -300,8 +298,8 @@ bool EntitySceneGpuState::uploadAuthoredEntityPoses(const std::vector<Diligent::
                        scales.size() * sizeof(Diligent::float4));
 }
 
-bool EntitySceneGpuState::applyMappedEntityPoses(const common::PoseBufferView &sourcePoses,
-                                                 const std::vector<EntityPoseMappingEntry> &mappings)
+bool EntitySceneGpuState::applyMappedEntityPoses(
+    const common::PoseBufferView &sourcePoses, const std::vector<EntityPoseMappingEntry> &mappings)
 {
     if (!mInitialized)
     {
@@ -325,7 +323,8 @@ bool EntitySceneGpuState::applyMappedEntityPoses(const common::PoseBufferView &s
     {
         return false;
     }
-    if (!ensureSharedPoseCapacity(computeContext.renderDevice, std::max(mEntityCount, mappingCount)) ||
+    if (!ensureSharedPoseCapacity(computeContext.renderDevice,
+                                  std::max(mEntityCount, mappingCount)) ||
         !ensurePhysicsSyncCapacity(computeContext.renderDevice, mappingCount))
     {
         return false;
@@ -335,8 +334,8 @@ bool EntitySceneGpuState::applyMappedEntityPoses(const common::PoseBufferView &s
     for (std::uint32_t i = 0u; i < mappingCount; ++i)
     {
         const EntityPoseMappingEntry &mapping = mappings[i];
-        const bool invalidSource = mapping.sourcePoseIndex >= sourcePoses.count;
-        const bool invalidDest = mapping.entityPoseIndex >= mEntityCount;
+        const bool invalidSource              = mapping.sourcePoseIndex >= sourcePoses.count;
+        const bool invalidDest                = mapping.entityPoseIndex >= mEntityCount;
         if (!invalidSource && !invalidDest)
         {
             continue;
@@ -344,10 +343,10 @@ bool EntitySceneGpuState::applyMappedEntityPoses(const common::PoseBufferView &s
 
         if (invalidMappingCount < 8u)
         {
-            CRESSIM_LOG_ERROR("EntitySceneGpuState::applyMappedEntityPoses invalid mapping[", i,
-                              "]: sourcePoseIndex=", mapping.sourcePoseIndex,
-                              " sourceCount=", sourcePoses.count, " entityPoseIndex=",
-                              mapping.entityPoseIndex, " entityCount=", mEntityCount, ".");
+            CRESSIM_LOG_ERROR(
+                "EntitySceneGpuState::applyMappedEntityPoses invalid mapping[", i,
+                "]: sourcePoseIndex=", mapping.sourcePoseIndex, " sourceCount=", sourcePoses.count,
+                " entityPoseIndex=", mapping.entityPoseIndex, " entityCount=", mEntityCount, ".");
         }
         ++invalidMappingCount;
     }

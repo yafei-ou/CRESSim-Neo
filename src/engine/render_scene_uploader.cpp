@@ -796,8 +796,8 @@ graphics::GpuEntitySceneView RenderSceneUploader::sceneView() const noexcept
     return sceneView(poses, mEntityCount);
 }
 
-graphics::GpuEntitySceneView RenderSceneUploader::sceneView(const common::PoseBufferView &poses,
-                                                            std::uint32_t entityCount) const noexcept
+graphics::GpuEntitySceneView RenderSceneUploader::sceneView(
+    const common::PoseBufferView &poses, std::uint32_t entityCount) const noexcept
 {
     graphics::GpuEntitySceneView view{};
     view.layout                             = mLayout;
@@ -815,8 +815,7 @@ graphics::GpuEntitySceneView RenderSceneUploader::sceneView(const common::PoseBu
     view.renderableCount                    = mRenderableCount;
     view.cameraCount                        = mCameraCount;
     view.lightCount                         = mLightCount;
-    view.bindingGeneration                  =
-        combineGenerations(mSceneBindingGeneration, poses.bindingGeneration);
+    view.bindingGeneration = combineGenerations(mSceneBindingGeneration, poses.bindingGeneration);
     return view;
 }
 

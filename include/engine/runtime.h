@@ -144,16 +144,16 @@ private:
     World mWorld;
     graphics::RenderResourceManager mResources;
     common::FrameContext mLastFrameContext{};
-    bool mDeviceFrameActive = false;
-    bool mWorldUploaded     = false;
-    bool mHasPhysicsState   = false;
-    std::uint64_t mLastUploadedEntityPoseRevision        = 0u;
-    std::uint64_t mLastUploadedRenderableMetadataRevision = 0u;
-    std::uint64_t mLastUploadedRenderableQueueInfoRevision = 0u;
+    bool mDeviceFrameActive                                  = false;
+    bool mWorldUploaded                                      = false;
+    bool mHasPhysicsState                                    = false;
+    std::uint64_t mLastUploadedEntityPoseRevision            = 0u;
+    std::uint64_t mLastUploadedRenderableMetadataRevision    = 0u;
+    std::uint64_t mLastUploadedRenderableQueueInfoRevision   = 0u;
     std::uint64_t mLastUploadedSoftBodyVertexBindingRevision = 0u;
-    std::uint64_t mLastUploadedCameraInputRevision       = 0u;
-    std::uint64_t mLastUploadedLightInputRevision        = 0u;
-    std::uint64_t mLastUploadedLocalLightSelectionRevision = 0u;
+    std::uint64_t mLastUploadedCameraInputRevision           = 0u;
+    std::uint64_t mLastUploadedLightInputRevision            = 0u;
+    std::uint64_t mLastUploadedLocalLightSelectionRevision   = 0u;
 };
 
 } // namespace cressim::neo::engine

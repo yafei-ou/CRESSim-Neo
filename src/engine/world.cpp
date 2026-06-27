@@ -844,7 +844,8 @@ void World::markEntityPoseDirty(common::EntityId entityId)
 
 void World::refreshEntityPoseSlot(std::uint32_t entityPoseSlot)
 {
-    if (entityPoseSlot >= mEntityPoseEntities.size() || entityPoseSlot >= mEntityPosePositionsHost.size() ||
+    if (entityPoseSlot >= mEntityPoseEntities.size() ||
+        entityPoseSlot >= mEntityPosePositionsHost.size() ||
         entityPoseSlot >= mEntityPoseOrientationsHost.size() ||
         entityPoseSlot >= mEntityPoseScalesHost.size())
     {
@@ -858,8 +859,8 @@ void World::refreshEntityPoseSlot(std::uint32_t entityPoseSlot)
         transform = tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
     }
 
-    const Diligent::float4 position{transform.position.x, transform.position.y, transform.position.z,
-                                    1.0f};
+    const Diligent::float4 position{transform.position.x, transform.position.y,
+                                    transform.position.z, 1.0f};
     const Diligent::float4 orientation{transform.rotation.q.x, transform.rotation.q.y,
                                        transform.rotation.q.z, transform.rotation.q.w};
     const Diligent::float4 scale{transform.scale.x, transform.scale.y, transform.scale.z, 0.0f};
@@ -2725,7 +2726,7 @@ const std::vector<EntityPoseMappingEntry> &World::physicsRenderableMappings()
         for (std::uint32_t i = 0; i < static_cast<std::uint32_t>(rigidBodies.entityIds.size()); ++i)
         {
             const common::EntityId entityId = rigidBodies.entityIds[i];
-            const auto poseSlotIt = mEntityPoseSlotByEntity.find(entityId);
+            const auto poseSlotIt           = mEntityPoseSlotByEntity.find(entityId);
             if (poseSlotIt == mEntityPoseSlotByEntity.end())
             {
                 continue;
@@ -3374,7 +3375,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
         if (std::memcmp(&mRenderableMetadataHost[objectIndex], &entry, sizeof(entry)) != 0)
         {
             mRenderableMetadataHost[objectIndex] = entry;
-            metadataChanged = true;
+            metadataChanged                      = true;
         }
     }
 
@@ -3624,9 +3625,9 @@ void World::refreshCameraEntry(std::uint32_t cameraIndex)
     const std::uint32_t poseSlot = entityPoseSlot(cameraData.entityId);
     if (poseSlot == kInvalidSlot)
     {
-        input.position = Diligent::float4{cameraData.worldTransform.position.x,
-                                          cameraData.worldTransform.position.y,
-                                          cameraData.worldTransform.position.z, 1.0f};
+        input.position    = Diligent::float4{cameraData.worldTransform.position.x,
+                                             cameraData.worldTransform.position.y,
+                                             cameraData.worldTransform.position.z, 1.0f};
         input.orientation = Diligent::float4{
             cameraData.worldTransform.rotation.q.x, cameraData.worldTransform.rotation.q.y,
             cameraData.worldTransform.rotation.q.z, cameraData.worldTransform.rotation.q.w};
@@ -3636,10 +3637,10 @@ void World::refreshCameraEntry(std::uint32_t cameraIndex)
     input.viewportAndOutputSize = Diligent::float4{
         cameraData.viewport.width, cameraData.viewport.height,
         static_cast<float>(cameraData.outputWidth), static_cast<float>(cameraData.outputHeight)};
-    input.envIndex                 = cameraData.envIndex;
-    input.cameraSlot               = cameraData.cameraSlot;
-    input.active                   = 1u;
-    input.entityPoseSlot           = poseSlot;
+    input.envIndex       = cameraData.envIndex;
+    input.cameraSlot     = cameraData.cameraSlot;
+    input.active         = 1u;
+    input.entityPoseSlot = poseSlot;
     if (std::memcmp(&mCameraInputsHost[cameraIndex], &input, sizeof(input)) != 0)
     {
         mCameraInputsHost[cameraIndex] = input;
@@ -3685,13 +3686,13 @@ void World::refreshLightEntry(std::uint32_t lightIndex)
     input.spotAngles     = Diligent::float4{std::cos(innerConeRadians), std::cos(outerConeRadians),
                                             lightData.innerConeAngle, lightData.outerConeAngle};
     input.shadowDistance = lightData.shadowDistance;
-    input.shadowFadeDistance     = lightData.shadowFadeDistance;
-    input.shadowBias             = lightData.shadowBias;
-    input.envIndex               = lightData.envIndex;
-    input.lightSlot              = lightData.lightSlot;
-    input.type                   = static_cast<std::uint32_t>(lightData.type);
-    input.active                 = 1u;
-    input.castsShadows           = lightData.castsShadows ? 1u : 0u;
+    input.shadowFadeDistance = lightData.shadowFadeDistance;
+    input.shadowBias         = lightData.shadowBias;
+    input.envIndex           = lightData.envIndex;
+    input.lightSlot          = lightData.lightSlot;
+    input.type               = static_cast<std::uint32_t>(lightData.type);
+    input.active             = 1u;
+    input.castsShadows       = lightData.castsShadows ? 1u : 0u;
     if (std::memcmp(&mLightInputsHost[lightIndex], &input, sizeof(input)) != 0)
     {
         mLightInputsHost[lightIndex] = input;

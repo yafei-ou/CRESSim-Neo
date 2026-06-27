@@ -41,10 +41,10 @@ private:
                      const void *data, std::size_t sizeBytes);
 
     gpu::GpuDevice &mDevice;
-    bool mInitialized                  = false;
-    std::uint32_t mPoseCapacity        = 0;
-    std::uint32_t mPhysicsSyncCapacity = 0;
-    std::uint32_t mEntityCount         = 0;
+    bool mInitialized                       = false;
+    std::uint32_t mPoseCapacity             = 0;
+    std::uint32_t mPhysicsSyncCapacity      = 0;
+    std::uint32_t mEntityCount              = 0;
     Diligent::Uint64 mGraphicsContextMask   = 0;
     Diligent::Uint64 mPhysicsContextMask    = 0;
     Diligent::Uint64 mSharedPoseContextMask = 0;
