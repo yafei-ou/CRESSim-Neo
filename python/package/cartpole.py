@@ -443,6 +443,7 @@ class CartpoleTorchVectorEnv:
         config = neo.RuntimeConfig()
         config.gpu_device_desc.preferred_backend = neo.GpuBackend.Vulkan
         config.gpu_device_desc.enable_validation = False
+        config.physics_desc.enable_blocking_readback = False
         config.scene_layout.env_count = env_count
         config.scene_layout.max_renderable_objects_per_env = 8
         config.scene_layout.max_lights_per_env = 2

@@ -515,6 +515,7 @@ class FluidPouringTorchVectorEnv(TorchStagedVectorEnvBase):
         config = neo.RuntimeConfig()
         config.gpu_device_desc.preferred_backend = neo.GpuBackend.Vulkan
         config.gpu_device_desc.enable_validation = False
+        config.physics_desc.enable_blocking_readback = False
         config.scene_layout.env_count = env_count
         if enable_rgb_observation:
             config.scene_layout.max_renderable_objects_per_env = 16

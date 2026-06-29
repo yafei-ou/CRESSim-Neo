@@ -26,7 +26,7 @@ cbuffer CameraCenteringPreVisualConstants
 };
 
 CRESSIM_STRUCTURED_BUFFER(float2, g_Actions);
-CRESSIM_STRUCTURED_BUFFER(uint2, g_CameraPoseSlots);
+CRESSIM_STRUCTURED_BUFFER(uint, g_CameraPoseSlots);
 CRESSIM_RW_STRUCTURED_BUFFER(float2, g_CameraAngles);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_EntityOrientations);
 
@@ -69,9 +69,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float4 pitchQuat = float4(pitchSin, 0.0f, 0.0f, pitchCos);
     const float4 orientation = QuaternionMul(yawQuat, pitchQuat);
 
-    const uint2 poseSlots = CRESSIM_SB_LOAD(g_CameraPoseSlots, envIndex);
-    CRESSIM_SB_STORE(g_EntityOrientations, poseSlots.x, orientation);
-    CRESSIM_SB_STORE(g_EntityOrientations, poseSlots.y, orientation);
+    const uint poseSlot = CRESSIM_SB_LOAD(g_CameraPoseSlots, envIndex);
+    CRESSIM_SB_STORE(g_EntityOrientations, poseSlot, orientation);
 }
 """
 
@@ -81,18 +80,50 @@ _CAMERA_CENTERING_REWARD_SHADER = r"""
 
 cbuffer CameraCenteringRewardConstants
 {
-    float centerThreshold;
-    uint maxEpisodeSteps;
-    float invisiblePenalty;
-    float distanceScale;
+    float4 rewardParams0;
+    float4 rewardParams1;
 };
 
-Texture2DArray<uint> g_SegmentationTarget;
-CRESSIM_STRUCTURED_BUFFER(uint, g_TargetSegmentationIds);
+CRESSIM_STRUCTURED_BUFFER(uint, g_CameraPoseSlots);
+CRESSIM_STRUCTURED_BUFFER(uint, g_TargetPoseSlots);
+CRESSIM_STRUCTURED_BUFFER(float4, g_EntityPositions);
+CRESSIM_STRUCTURED_BUFFER(float4, g_EntityOrientations);
+CRESSIM_RW_STRUCTURED_BUFFER(float, g_PreviousCenterDistances);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_Rewards);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_Terminated);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_Truncated);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_EpisodeSteps);
+
+float3 QuaternionRotate(float4 q, float3 v)
+{
+    const float3 t = 2.0f * cross(q.xyz, v);
+    return v + q.w * t + cross(q.xyz, t);
+}
+
+float ComputeCenterDistance(uint envIndex)
+{
+    const uint cameraPoseSlot = CRESSIM_SB_LOAD(g_CameraPoseSlots, envIndex);
+    const uint targetPoseSlot = CRESSIM_SB_LOAD(g_TargetPoseSlots, envIndex);
+    const float3 cameraPosition = CRESSIM_SB_LOAD(g_EntityPositions, cameraPoseSlot).xyz;
+    const float4 cameraOrientation = CRESSIM_SB_LOAD(g_EntityOrientations, cameraPoseSlot);
+    const float3 targetPosition = CRESSIM_SB_LOAD(g_EntityPositions, targetPoseSlot).xyz;
+    const float3 worldDelta = targetPosition - cameraPosition;
+    const float4 inverseCameraOrientation =
+        float4(-cameraOrientation.x, -cameraOrientation.y, -cameraOrientation.z, cameraOrientation.w);
+    const float3 viewDelta = QuaternionRotate(inverseCameraOrientation, worldDelta);
+    if (viewDelta.z <= 1.0e-4f)
+    {
+        return rewardParams1.x;
+    }
+
+    const float tanHalfVerticalFov = rewardParams1.z;
+    const float aspectRatio = rewardParams1.w;
+    const float tanHalfHorizontalFov = tanHalfVerticalFov * max(aspectRatio, 1.0e-4f);
+    const float2 centered =
+        float2(viewDelta.x / (viewDelta.z * tanHalfHorizontalFov),
+               -viewDelta.y / (viewDelta.z * tanHalfVerticalFov));
+    return length(centered);
+}
 
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
@@ -100,52 +131,26 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint envIndex = dispatchThreadID.x;
     uint envCount = 0u;
     uint stride = 0u;
-    g_TargetSegmentationIds.GetDimensions(envCount, stride);
+    g_CameraPoseSlots.GetDimensions(envCount, stride);
     if (envIndex >= envCount)
     {
         return;
     }
 
-    uint width = 0u;
-    uint height = 0u;
-    uint layers = 0u;
-    g_SegmentationTarget.GetDimensions(width, height, layers);
-
-    const uint targetId = CRESSIM_SB_LOAD(g_TargetSegmentationIds, envIndex);
-    uint visibleCount = 0u;
-    float centroidX = 0.0f;
-    float centroidY = 0.0f;
-    for (uint y = 0u; y < height; ++y)
-    {
-        for (uint x = 0u; x < width; ++x)
-        {
-            const uint value = g_SegmentationTarget.Load(int4(int(x), int(y), int(envIndex), 0));
-            if (value == targetId)
-            {
-                centroidX += float(x) + 0.5f;
-                centroidY += float(y) + 0.5f;
-                visibleCount += 1u;
-            }
-        }
-    }
-
     const uint nextEpisodeStep = CRESSIM_SB_LOAD(g_EpisodeSteps, envIndex) + 1u;
     uint terminated = 0u;
-    uint truncated = nextEpisodeStep >= maxEpisodeSteps ? 1u : 0u;
-    float reward = invisiblePenalty;
-    if (visibleCount > 0u)
+    uint truncated = nextEpisodeStep >= uint(rewardParams1.y + 0.5f) ? 1u : 0u;
+    const float previousDistance = CRESSIM_SB_LOAD(g_PreviousCenterDistances, envIndex);
+    const float currentDistance = ComputeCenterDistance(envIndex);
+    const float progressReward = (previousDistance - currentDistance) * rewardParams0.w;
+    float reward = progressReward - rewardParams0.y;
+    if (currentDistance <= rewardParams0.x)
     {
-        const float invCount = 1.0f / float(visibleCount);
-        centroidX *= invCount;
-        centroidY *= invCount;
-        const float2 normalizedCenter =
-            float2(centroidX / float(width), centroidY / float(height));
-        const float2 centered = normalizedCenter - float2(0.5f, 0.5f);
-        const float distance = length(centered);
-        reward = max(0.0f, 1.0f - distance * distanceScale);
-        terminated = distance <= centerThreshold ? 1u : 0u;
+        terminated = 1u;
+        reward += rewardParams0.z;
     }
 
+    CRESSIM_SB_STORE(g_PreviousCenterDistances, envIndex, currentDistance);
     CRESSIM_SB_STORE(g_Rewards, envIndex, reward);
     CRESSIM_SB_STORE(g_Terminated, envIndex, terminated);
     CRESSIM_SB_STORE(g_Truncated, envIndex, truncated);
@@ -187,14 +192,22 @@ _CAMERA_CENTERING_RESET_SHADER = r"""
 #include "include/structured_buffer_compat.hlsli"
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_ResetMask);
-CRESSIM_STRUCTURED_BUFFER(uint2, g_CameraPoseSlots);
+CRESSIM_STRUCTURED_BUFFER(uint, g_CameraPoseSlots);
+CRESSIM_STRUCTURED_BUFFER(uint, g_TargetPoseSlots);
 CRESSIM_STRUCTURED_BUFFER(float2, g_BaseCameraAngles);
+CRESSIM_STRUCTURED_BUFFER(float4, g_EntityPositions);
 CRESSIM_RW_STRUCTURED_BUFFER(float2, g_CameraAngles);
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_EntityOrientations);
+CRESSIM_RW_STRUCTURED_BUFFER(float, g_PreviousCenterDistances);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_Rewards);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_Terminated);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_Truncated);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_EpisodeSteps);
+
+cbuffer CameraCenteringResetConstants
+{
+    float4 resetParams;
+};
 
 float4 QuaternionMul(float4 a, float4 b)
 {
@@ -203,6 +216,12 @@ float4 QuaternionMul(float4 a, float4 b)
         a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
         a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
         a.w * b.w - dot(a.xyz, b.xyz));
+}
+
+float3 QuaternionRotate(float4 q, float3 v)
+{
+    const float3 t = 2.0f * cross(q.xyz, v);
+    return v + q.w * t + cross(q.xyz, t);
 }
 
 [numthreads(64, 1, 1)]
@@ -231,9 +250,24 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float4 pitchQuat = float4(pitchSin, 0.0f, 0.0f, pitchCos);
     const float4 orientation = QuaternionMul(yawQuat, pitchQuat);
 
-    const uint2 poseSlots = CRESSIM_SB_LOAD(g_CameraPoseSlots, envIndex);
-    CRESSIM_SB_STORE(g_EntityOrientations, poseSlots.x, orientation);
-    CRESSIM_SB_STORE(g_EntityOrientations, poseSlots.y, orientation);
+    const uint poseSlot = CRESSIM_SB_LOAD(g_CameraPoseSlots, envIndex);
+    CRESSIM_SB_STORE(g_EntityOrientations, poseSlot, orientation);
+    const uint targetPoseSlot = CRESSIM_SB_LOAD(g_TargetPoseSlots, envIndex);
+    const float3 cameraPosition = CRESSIM_SB_LOAD(g_EntityPositions, poseSlot).xyz;
+    const float3 targetPosition = CRESSIM_SB_LOAD(g_EntityPositions, targetPoseSlot).xyz;
+    const float3 worldDelta = targetPosition - cameraPosition;
+    const float4 inverseCameraOrientation = float4(-orientation.x, -orientation.y, -orientation.z, orientation.w);
+    const float3 viewDelta = QuaternionRotate(inverseCameraOrientation, worldDelta);
+    float centerDistance = resetParams.x;
+    if (viewDelta.z > 1.0e-4f)
+    {
+        const float tanHalfHorizontalFov = resetParams.z * max(resetParams.w, 1.0e-4f);
+        const float2 centered =
+            float2(viewDelta.x / (viewDelta.z * tanHalfHorizontalFov),
+                   -viewDelta.y / (viewDelta.z * resetParams.z));
+        centerDistance = length(centered);
+    }
+    CRESSIM_SB_STORE(g_PreviousCenterDistances, envIndex, centerDistance);
     CRESSIM_SB_STORE(g_Rewards, envIndex, 0.0f);
     CRESSIM_SB_STORE(g_Terminated, envIndex, 0u);
     CRESSIM_SB_STORE(g_Truncated, envIndex, 0u);
@@ -264,8 +298,8 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         self,
         env_count: int = 32,
         max_episode_steps: int = 120,
-        action_scale_yaw_degrees: float = 2.5,
-        action_scale_pitch_degrees: float = 2.0,
+        action_scale_yaw_degrees: float = 0.2,
+        action_scale_pitch_degrees: float = 0.2,
         base_yaw_degrees: float = 0.0,
         base_pitch_degrees: float = -12.5,
         reset_yaw_min_degrees: float = -16.0,
@@ -305,18 +339,19 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         config = neo.RuntimeConfig()
         config.gpu_device_desc.preferred_backend = neo.GpuBackend.Vulkan
         config.gpu_device_desc.enable_validation = False
+        config.physics_desc.enable_blocking_readback = False
         config.scene_layout.env_count = env_count
         config.scene_layout.max_renderable_objects_per_env = 4
         config.scene_layout.max_lights_per_env = 1
-        config.scene_layout.max_cameras_per_env = 2
+        config.scene_layout.max_cameras_per_env = 1
 
         self.runtime = neo.Runtime()
         if not self.runtime.initialize(config):
             raise RuntimeError("Failed to initialize camera-centering runtime.")
 
         self._initialize_render_targets()
-        self._camera_pose_slots: list[tuple[int, int]] = []
-        self._target_segmentation_ids: list[int] = []
+        self._camera_pose_slots: list[int] = []
+        self._target_pose_slots: list[int] = []
         self._author_scene(self.runtime.world())
         self.runtime.prepare()
 
@@ -344,20 +379,6 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         if not self.runtime.is_valid_render_target(self._color_render_target):
             raise RuntimeError("Failed to create camera-centering RGB render target.")
 
-        segmentation_desc = neo.GpuRenderTargetDesc()
-        segmentation_desc.width = self.image_width
-        segmentation_desc.height = self.image_height
-        segmentation_desc.array_size = self.env_count
-        segmentation_desc.color = True
-        segmentation_desc.depth = True
-        segmentation_desc.layered_rendering = True
-        segmentation_desc.shader_readable = True
-        segmentation_desc.color_format = neo.TextureFormat.R32Uint
-        segmentation_desc.debug_name = "CameraCentering.SegmentationTarget"
-        self._segmentation_render_target = self.runtime.create_render_target(segmentation_desc)
-        if not self.runtime.is_valid_render_target(self._segmentation_render_target):
-            raise RuntimeError("Failed to create camera-centering segmentation target.")
-
         resources = self.runtime.resources()
         self._target_mesh = resources.register_mesh(
             neo.make_cube_mesh(0.20, "CameraCentering.TargetMesh")
@@ -383,8 +404,6 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         camera_orientation = _quat_from_yaw_pitch(self.base_yaw, self.base_pitch)
         for env_index in range(self.env_count):
             z_offset = float(env_index) * 4.0
-            target_id = 1000 + env_index
-            self._target_segmentation_ids.append(target_id)
 
             ground_entity = world.create_entity(env_index)
             ground_transform = neo.TransformComponent()
@@ -408,9 +427,10 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
                 neo.Float3(0.90, 0.28, 0.18),
                 0.35,
             )
-            target_renderer.segmentation_id = target_id
+            target_renderer.segmentation_id = 1000 + env_index
             target_renderer.visible = True
             world.set_mesh_renderer(target_entity, target_renderer)
+            self._target_pose_slots.append(world.entity_pose_slot(target_entity))
 
             light_entity = world.create_entity(env_index)
             light = neo.DirectionalLightComponent()
@@ -442,31 +462,7 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
             color_camera.clear_color_value = neo.Float4(0.03, 0.04, 0.06, 1.0)
             world.set_camera(color_camera_entity, color_camera)
 
-            segmentation_camera_entity = world.create_entity(env_index)
-            segmentation_transform = neo.TransformComponent()
-            segmentation_transform.world_transform.position = camera_position
-            segmentation_transform.world_transform.rotation = camera_orientation
-            world.set_transform(segmentation_camera_entity, segmentation_transform)
-            segmentation_camera = neo.CameraComponent()
-            segmentation_camera.product = neo.CameraProduct.SegmentationDepth
-            segmentation_camera.vertical_fov_degrees = 50.0
-            segmentation_camera.output.mode = neo.RenderOutputMode.ExplicitSurface
-            segmentation_camera.output.binding = neo.GpuRenderTargetBinding()
-            segmentation_camera.output.binding.target = self._segmentation_render_target
-            segmentation_camera.output.binding.first_layer = env_index
-            segmentation_camera.output.binding.layer_count = 1
-            segmentation_camera.output_width = self.image_width
-            segmentation_camera.output_height = self.image_height
-            segmentation_camera.clear_color = True
-            segmentation_camera.clear_depth = True
-            world.set_camera(segmentation_camera_entity, segmentation_camera)
-
-            self._camera_pose_slots.append(
-                (
-                    world.entity_pose_slot(color_camera_entity),
-                    world.entity_pose_slot(segmentation_camera_entity),
-                )
-            )
+            self._camera_pose_slots.append(world.entity_pose_slot(color_camera_entity))
 
     def _create_shared_buffers(self) -> None:
         self.action_buffer, self.action_tensor = self._register_shared_buffer(
@@ -488,6 +484,12 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         self.reward_buffer, self.reward_tensor = self._register_shared_buffer(
             self.runtime,
             "CameraCentering.Rewards",
+            self.env_count,
+            neo.SharedBufferTensorDTypeCode.Float,
+        )
+        self.previous_center_distances_buffer, self.previous_center_distances_tensor = self._register_shared_buffer(
+            self.runtime,
+            "CameraCentering.PreviousCenterDistances",
             self.env_count,
             neo.SharedBufferTensorDTypeCode.Float,
         )
@@ -520,8 +522,14 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
             "CameraCentering.CameraPoseSlots",
             self.env_count,
             neo.SharedBufferTensorDTypeCode.UInt,
-            element_stride_bytes=8,
-            shape=[self.env_count, 2],
+            shape=[self.env_count],
+        )
+        self.target_pose_slots_buffer, self.target_pose_slots_tensor = self._register_shared_buffer(
+            self.runtime,
+            "CameraCentering.TargetPoseSlots",
+            self.env_count,
+            neo.SharedBufferTensorDTypeCode.UInt,
+            shape=[self.env_count],
         )
         self.base_camera_angles_buffer, self.base_camera_angles_tensor = self._register_shared_buffer(
             self.runtime,
@@ -539,19 +547,13 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
             element_stride_bytes=8,
             shape=[self.env_count, 2],
         )
-        self.target_segmentation_ids_buffer, self.target_segmentation_ids_tensor = self._register_shared_buffer(
-            self.runtime,
-            "CameraCentering.TargetSegmentationIds",
-            self.env_count,
-            neo.SharedBufferTensorDTypeCode.UInt,
-        )
-
     def _populate_lookup_buffers(self) -> None:
         device = self.action_tensor.device
         base_angles = [(self.base_yaw, self.base_pitch) for _ in range(self.env_count)]
         self.action_tensor.zero_()
         self.rgb_observation_tensor.zero_()
         self.reward_tensor.zero_()
+        self.previous_center_distances_tensor.zero_()
         self.terminated_tensor.zero_()
         self.truncated_tensor.zero_()
         self.episode_steps_tensor.zero_()
@@ -561,6 +563,13 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
                 self._camera_pose_slots,
                 device=device,
                 dtype=self.camera_pose_slots_tensor.dtype,
+            )
+        )
+        self.target_pose_slots_tensor.copy_(
+            torch.tensor(
+                self._target_pose_slots,
+                device=device,
+                dtype=self.target_pose_slots_tensor.dtype,
             )
         )
         self.base_camera_angles_tensor.copy_(
@@ -577,27 +586,21 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
                 dtype=self.camera_angles_tensor.dtype,
             )
         )
-        self.target_segmentation_ids_tensor.copy_(
-            torch.tensor(
-                self._target_segmentation_ids,
-                device=device,
-                dtype=self.target_segmentation_ids_tensor.dtype,
-            )
-        )
         self._sync_from_cuda(
             self.runtime,
             [
                 self.action_buffer,
                 self.rgb_observation_buffer,
                 self.reward_buffer,
+                self.previous_center_distances_buffer,
                 self.terminated_buffer,
                 self.truncated_buffer,
                 self.episode_steps_buffer,
                 self.reset_mask_buffer,
                 self.camera_pose_slots_buffer,
+                self.target_pose_slots_buffer,
                 self.base_camera_angles_buffer,
                 self.camera_angles_buffer,
-                self.target_segmentation_ids_buffer,
             ],
         )
 
@@ -649,29 +652,45 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         reward_desc.debug_name = "CameraCentering.PostVisualReward"
         reward_desc.shader_source = _CAMERA_CENTERING_REWARD_SHADER
         reward_desc.thread_group_size_x = 64
-        reward_desc.resource_bindings = [neo.CustomComputeResourceBindingDesc() for _ in range(6)]
-        reward_desc.resource_bindings[0].shader_variable_name = "g_SegmentationTarget"
-        reward_desc.resource_bindings[0].render_target_binding = neo.GpuRenderTargetBinding()
-        reward_desc.resource_bindings[0].render_target_binding.target = self._segmentation_render_target
-        reward_desc.resource_bindings[0].render_target_binding.first_layer = 0
-        reward_desc.resource_bindings[0].render_target_binding.layer_count = self.env_count
-        reward_desc.resource_bindings[0].render_target_texture_plane = neo.GpuRenderTargetTexturePlane.Color
-        reward_desc.resource_bindings[0].access = neo.CustomComputeResourceAccess.ReadOnly
+        reward_desc.resource_bindings = [neo.CustomComputeResourceBindingDesc() for _ in range(9)]
         reward_specs = [
-            ("g_TargetSegmentationIds", self.target_segmentation_ids_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
+            ("g_CameraPoseSlots", self.camera_pose_slots_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
+            ("g_TargetPoseSlots", self.target_pose_slots_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
+            ("g_EntityPositions", None, "entity.positions", neo.CustomComputeResourceAccess.ReadOnly),
+            ("g_EntityOrientations", None, "entity.orientations", neo.CustomComputeResourceAccess.ReadOnly),
+            ("g_PreviousCenterDistances", self.previous_center_distances_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
             ("g_Rewards", self.reward_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
             ("g_Terminated", self.terminated_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
             ("g_Truncated", self.truncated_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
             ("g_EpisodeSteps", self.episode_steps_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
         ]
-        for binding, (name, handle, _key, access) in zip(reward_desc.resource_bindings[1:], reward_specs):
+        for binding, (name, handle, key, access) in zip(reward_desc.resource_bindings, reward_specs):
             binding.shader_variable_name = name
-            binding.shared_buffer_handle = handle
             binding.access = access
+            if handle is not None:
+                binding.shared_buffer_handle = handle
+            else:
+                binding.resource_key = key
         reward_desc.constant_buffer_variable_name = "CameraCenteringRewardConstants"
-        reward_desc.constant_buffer_size_bytes = 16
+        reward_desc.constant_buffer_size_bytes = 32
+        step_penalty = 0.01
+        success_bonus = 1.0
+        progress_scale = 1.0
+        offscreen_distance = 2.0
+        tan_half_vertical_fov = math.tan(math.radians(25.0))
+        aspect_ratio = float(self.image_width) / max(float(self.image_height), 1.0)
         reward_desc.constant_data = list(
-            struct.pack("<fIff", self.success_center_threshold, self.max_episode_steps, -1.0, 2.5)
+            struct.pack(
+                "<8f",
+                self.success_center_threshold,
+                step_penalty,
+                success_bonus,
+                progress_scale,
+                offscreen_distance,
+                float(self.max_episode_steps),
+                tan_half_vertical_fov,
+                aspect_ratio,
+            )
         )
         reward_desc.dispatch.mode = neo.CustomComputeDispatchMode.ExplicitGroupCount
         reward_desc.dispatch.group_count_x = (self.env_count + 63) // 64
@@ -708,14 +727,28 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
             [
                 ("g_ResetMask", self.reset_mask_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_CameraPoseSlots", self.camera_pose_slots_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_TargetPoseSlots", self.target_pose_slots_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_BaseCameraAngles", self.base_camera_angles_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_EntityPositions", None, "entity.positions", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_CameraAngles", self.camera_angles_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
                 ("g_EntityOrientations", None, "entity.orientations", neo.CustomComputeResourceAccess.ReadWrite),
+                ("g_PreviousCenterDistances", self.previous_center_distances_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
                 ("g_Rewards", self.reward_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
                 ("g_Terminated", self.terminated_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
                 ("g_Truncated", self.truncated_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
                 ("g_EpisodeSteps", self.episode_steps_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
             ],
+        )
+        reset_desc.constant_buffer_variable_name = "CameraCenteringResetConstants"
+        reset_desc.constant_buffer_size_bytes = 16
+        reset_desc.constant_data = list(
+            struct.pack(
+                "<4f",
+                offscreen_distance,
+                0.0,
+                tan_half_vertical_fov,
+                aspect_ratio,
+            )
         )
         reset_desc.dispatch.mode = neo.CustomComputeDispatchMode.ExplicitGroupCount
         reset_desc.dispatch.group_count_x = (self.env_count + 63) // 64
@@ -809,9 +842,9 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         self._sync_from_cuda(self.runtime, [self.action_buffer])
         if not self.runtime.execute_custom_compute_pass(self._pre_pass):
             raise RuntimeError("Failed to execute camera-centering pre-visual pass.")
-        self.runtime.step_visual_sensors(self._frame)
         if not self.runtime.execute_custom_compute_pass(self._reward_pass):
             raise RuntimeError("Failed to execute camera-centering reward pass.")
+        self.runtime.step_visual_sensors(self._frame)
         if not self.runtime.execute_custom_compute_pass(self._rgb_pass):
             raise RuntimeError("Failed to execute camera-centering RGB pass.")
         self._sync_step_outputs_to_cuda()

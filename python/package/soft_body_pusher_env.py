@@ -400,6 +400,7 @@ class SoftBodyPusherTorchVectorEnv(TorchStagedVectorEnvBase):
         config = neo.RuntimeConfig()
         config.gpu_device_desc.preferred_backend = neo.GpuBackend.Vulkan
         config.gpu_device_desc.enable_validation = False
+        config.physics_desc.enable_blocking_readback = False
         config.physics_desc.substeps = 4
         config.physics_desc.default_iterations = 16
         config.physics_desc.soft_internal_iterations = 32

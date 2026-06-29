@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -12,12 +13,36 @@ except ImportError as exc:
     raise RuntimeError("This example requires PyTorch to be installed.") from exc
 
 
+def _normalize_observation_shape(observation_dim: int | tuple[int, ...]) -> tuple[int, ...]:
+    if isinstance(observation_dim, int):
+        return (observation_dim,)
+    if len(observation_dim) == 0:
+        raise ValueError("observation_dim must not be empty.")
+    return tuple(int(size) for size in observation_dim)
+
+
+def _flatten_observation_shape(observation_shape: tuple[int, ...]) -> int:
+    size = 1
+    for dim in observation_shape:
+        size *= dim
+    return size
+
+
 class ContinuousActorCritic(nn.Module):
-    def __init__(self, observation_dim: int, action_dim: int, hidden_dim: int = 128) -> None:
+    MODEL_KIND = "mlp"
+
+    def __init__(
+        self,
+        observation_dim: int | tuple[int, ...],
+        action_dim: int,
+        hidden_dim: int = 128,
+    ) -> None:
         super().__init__()
+        self.observation_shape = _normalize_observation_shape(observation_dim)
+        input_dim = _flatten_observation_shape(self.observation_shape)
         self.action_dim = action_dim
         self.backbone = nn.Sequential(
-            nn.Linear(observation_dim, hidden_dim),
+            nn.Linear(input_dim, hidden_dim),
             nn.Tanh(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.Tanh(),
@@ -27,7 +52,53 @@ class ContinuousActorCritic(nn.Module):
         self.log_std = nn.Parameter(torch.full((action_dim,), -0.5))
 
     def forward(self, observation: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        features = self.backbone(observation)
+        flat_observation = observation.reshape(observation.shape[0], -1)
+        features = self.backbone(flat_observation)
+        mean = self.policy_mean(features)
+        std = self.log_std.exp().unsqueeze(0).expand_as(mean)
+        value = self.value_head(features).squeeze(-1)
+        return mean, std, value
+
+
+class ImageContinuousActorCritic(nn.Module):
+    MODEL_KIND = "cnn"
+
+    def __init__(
+        self,
+        observation_dim: int | tuple[int, ...],
+        action_dim: int,
+        hidden_dim: int = 128,
+    ) -> None:
+        super().__init__()
+        self.observation_shape = _normalize_observation_shape(observation_dim)
+        if len(self.observation_shape) != 3:
+            raise ValueError("ImageContinuousActorCritic expects observation_dim=(height, width, channels).")
+        height, width, channels = self.observation_shape
+        self.action_dim = action_dim
+        self.encoder = nn.Sequential(
+            nn.Conv2d(channels, 32, kernel_size=5, stride=2, padding=2),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Flatten(),
+        )
+        with torch.no_grad():
+            dummy = torch.zeros(1, channels, height, width)
+            encoded_dim = int(self.encoder(dummy).shape[1])
+        self.backbone = nn.Sequential(
+            nn.Linear(encoded_dim, hidden_dim),
+            nn.ReLU(),
+        )
+        self.policy_mean = nn.Linear(hidden_dim, action_dim)
+        self.value_head = nn.Linear(hidden_dim, 1)
+        self.log_std = nn.Parameter(torch.full((action_dim,), -0.5))
+
+    def forward(self, observation: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        image_observation = observation.permute(0, 3, 1, 2).contiguous()
+        encoded = self.encoder(image_observation)
+        features = self.backbone(encoded)
         mean = self.policy_mean(features)
         std = self.log_std.exp().unsqueeze(0).expand_as(mean)
         value = self.value_head(features).squeeze(-1)
@@ -62,19 +133,21 @@ def gaussian_log_prob(action: torch.Tensor, mean: torch.Tensor, std: torch.Tenso
 
 
 def save_model(
-    model: ContinuousActorCritic,
+    model: nn.Module,
     model_path: Path,
     *,
-    observation_dim: int,
+    observation_dim: int | tuple[int, ...],
     action_dim: int,
     hidden_dim: int,
+    model_kind: str = ContinuousActorCritic.MODEL_KIND,
 ) -> None:
     model_path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(
         {
-            "observation_dim": observation_dim,
+            "observation_shape": list(_normalize_observation_shape(observation_dim)),
             "action_dim": action_dim,
             "hidden_dim": hidden_dim,
+            "model_kind": model_kind,
             "state_dict": model.state_dict(),
         },
         model_path,
@@ -82,10 +155,30 @@ def save_model(
     print(f"saved model to {model_path}")
 
 
-def load_model(model_path: Path, device: torch.device) -> ContinuousActorCritic:
+def _build_model(
+    model_kind: str,
+    observation_dim: int | tuple[int, ...],
+    action_dim: int,
+    hidden_dim: int,
+) -> nn.Module:
+    if model_kind == ContinuousActorCritic.MODEL_KIND:
+        return ContinuousActorCritic(observation_dim, action_dim, hidden_dim=hidden_dim)
+    if model_kind == ImageContinuousActorCritic.MODEL_KIND:
+        return ImageContinuousActorCritic(observation_dim, action_dim, hidden_dim=hidden_dim)
+    raise ValueError(f"Unsupported PPO model kind: {model_kind}")
+
+
+def load_model(model_path: Path, device: torch.device) -> nn.Module:
     checkpoint = torch.load(model_path, map_location=device)
-    model = ContinuousActorCritic(
-        int(checkpoint["observation_dim"]),
+    observation_shape = checkpoint.get("observation_shape")
+    if observation_shape is None:
+        observation_shape = (int(checkpoint["observation_dim"]),)
+    else:
+        observation_shape = tuple(int(size) for size in observation_shape)
+    model_kind = str(checkpoint.get("model_kind", ContinuousActorCritic.MODEL_KIND))
+    model = _build_model(
+        model_kind,
+        observation_shape,
         int(checkpoint["action_dim"]),
         hidden_dim=int(checkpoint.get("hidden_dim", 128)),
     ).to(device=device)
@@ -132,13 +225,20 @@ def update_live_figure(image_artists: object, rgb_tensor: "torch.Tensor") -> Non
 def train_ppo_continuous(
     *,
     env_factory: Callable[[int, int], object],
-    observation_dim: int,
+    observation_dim: int | tuple[int, ...],
     action_dim: int,
     config: PPOTrainConfig,
+    model_kind: str = ContinuousActorCritic.MODEL_KIND,
 ) -> int:
     device = torch.device(config.device)
+    observation_shape = _normalize_observation_shape(observation_dim)
     env = env_factory(config.train_env_count, config.max_episode_steps)
-    model = ContinuousActorCritic(observation_dim, action_dim, hidden_dim=config.hidden_dim).to(device=device)
+    model = _build_model(
+        model_kind,
+        observation_shape,
+        action_dim,
+        hidden_dim=config.hidden_dim,
+    ).to(device=device)
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
 
     observation = env.reset()
@@ -146,11 +246,14 @@ def train_ppo_continuous(
     running_episode_lengths = torch.zeros(env.env_count, device=device, dtype=torch.int32)
     finished_returns: list[float] = []
     finished_lengths: list[int] = []
+    training_start_time = time.perf_counter()
+    total_env_steps = 0
 
     try:
         for update_index in range(config.update_count):
+            update_start_time = time.perf_counter()
             obs_buffer = torch.empty(
-                (config.rollout_steps, env.env_count, observation_dim),
+                (config.rollout_steps, env.env_count, *observation_shape),
                 device=device,
                 dtype=torch.float32,
             )
@@ -215,6 +318,7 @@ def train_ppo_continuous(
 
                 observation = next_observation
 
+            total_env_steps += config.rollout_steps * env.env_count
             with torch.no_grad():
                 _, _, next_value = model(observation)
 
@@ -229,7 +333,7 @@ def train_ppo_continuous(
 
             returns = advantages + values_buffer
 
-            flat_observations = obs_buffer.reshape(-1, observation_dim)
+            flat_observations = obs_buffer.reshape(-1, *observation_shape)
             flat_actions = actions_buffer.reshape(-1, action_dim)
             flat_log_probs = log_prob_buffer.reshape(-1)
             flat_advantages = advantages.reshape(-1)
@@ -287,19 +391,26 @@ def train_ppo_continuous(
             recent_lengths = finished_lengths[-32:]
             mean_return = sum(recent_returns) / len(recent_returns) if recent_returns else 0.0
             mean_length = sum(recent_lengths) / len(recent_lengths) if recent_lengths else 0.0
+            update_elapsed = max(time.perf_counter() - update_start_time, 1.0e-8)
+            average_elapsed = max(time.perf_counter() - training_start_time, 1.0e-8)
+            update_fps = (config.rollout_steps * env.env_count) / update_elapsed
+            average_fps = total_env_steps / average_elapsed
             print(
                 f"{config.name} update {update_index:03d}  "
                 f"mean_return={mean_return:.2f}  "
                 f"mean_length={mean_length:.1f}  "
-                f"finished_episodes={len(finished_returns)}"
+                f"finished_episodes={len(finished_returns)}  "
+                f"fps={update_fps:.1f}  "
+                f"avg_fps={average_fps:.1f}"
             )
 
         save_model(
             model,
             config.model_path,
-            observation_dim=observation_dim,
+            observation_dim=observation_shape,
             action_dim=action_dim,
             hidden_dim=config.hidden_dim,
+            model_kind=model_kind,
         )
     finally:
         env.close()
