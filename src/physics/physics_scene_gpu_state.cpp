@@ -625,6 +625,7 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.fluidAnisotropy3Buffer != nullptr &&
         mTransientState.fluidVorticitiesBuffer != nullptr &&
         mTransientState.softEdgeLambdasBuffer != nullptr &&
+        mTransientState.softEdgeToolCountersBuffer != nullptr &&
         mTransientState.strandSegmentLambdasBuffer != nullptr &&
         mTransientState.strandDistanceLambdasBuffer != nullptr &&
         mTransientState.routedCableLambdasBuffer != nullptr &&
@@ -721,7 +722,9 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mReadbackParticles.previousPositionsBuffer != nullptr &&
         mReadbackParticles.velocitiesBuffer != nullptr &&
         mReadbackParticles.shapeCorrectionMagnitudesBuffer != nullptr &&
-        mReadbackParticles.neighborMetaBuffer != nullptr;
+        mReadbackParticles.neighborMetaBuffer != nullptr &&
+        mReadbackSoftEdges.edgesBuffer != nullptr &&
+        mReadbackSoftEdges.toolCountersBuffer != nullptr;
     const std::uint32_t newRigidBodyCapacity    = std::max<std::uint32_t>(bodyCount, 64u);
     const std::uint32_t newColliderCapacity     = std::max<std::uint32_t>(colliderCount, 64u);
     const std::uint32_t newSoftParticleCapacity = std::max<std::uint32_t>(particleCount, 64u);
@@ -1619,6 +1622,11 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mTransientState.softEdgeLambdasBuffer) ||
+        !ensureStructuredBuffer(
+            renderDevice, "CRESSimNeo.Physics.SoftEdgeToolCounters", sizeof(std::uint32_t), 4u,
+            Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+            Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+            mTransientState.softEdgeToolCountersBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.StrandSegmentLambdas",
                                 sizeof(Diligent::float4), newStrandSegmentCapacity,
                                 Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
@@ -2088,6 +2096,14 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 sizeof(GpuParticleNeighborMeta), 1u, Diligent::BIND_NONE,
                                 Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
                                 mReadbackParticles.neighborMetaBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftEdges.Readback",
+                                sizeof(SoftEdge), newSoftEdgeCapacity, Diligent::BIND_NONE,
+                                Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
+                                mReadbackSoftEdges.edgesBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SoftEdgeToolCounters.Readback",
+                                sizeof(std::uint32_t), 4u, Diligent::BIND_NONE,
+                                Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
+                                mReadbackSoftEdges.toolCountersBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ProxyRigidContactMeta.Readback",
                                 sizeof(GpuProxyRigidContactMeta), 1u, Diligent::BIND_NONE,
                                 Diligent::USAGE_STAGING, Diligent::CPU_ACCESS_READ, contextMask,
@@ -4235,6 +4251,99 @@ bool PhysicsSceneGpuState::readbackPredictedParticleStateBlocking(
     computeContext->UnmapBuffer(mReadbackParticles.positionsBuffer, Diligent::MAP_READ);
     computeContext->UnmapBuffer(mReadbackParticles.previousPositionsBuffer, Diligent::MAP_READ);
     computeContext->UnmapBuffer(mReadbackParticles.velocitiesBuffer, Diligent::MAP_READ);
+    return true;
+}
+
+bool PhysicsSceneGpuState::clearSoftEdgeToolCounters(
+    Diligent::IDeviceContext *computeContext)
+{
+    if (computeContext == nullptr || mTransientState.softEdgeToolCountersBuffer == nullptr)
+    {
+        return false;
+    }
+
+    constexpr std::array<std::uint32_t, 4u> zeros{};
+    computeContext->UpdateBuffer(mTransientState.softEdgeToolCountersBuffer, 0u,
+                                 sizeof(zeros), zeros.data(),
+                                 Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    return true;
+}
+
+bool PhysicsSceneGpuState::readbackSoftEdgeDebugStateBlocking(
+    Diligent::IDeviceContext *computeContext, PhysicsWorld &world,
+    std::uint32_t softEdgeCount, SoftEdgeToolCounters &outCounters)
+{
+    outCounters = SoftEdgeToolCounters{};
+    if (computeContext == nullptr || mPersistentSoftTopology.edgesBuffer == nullptr ||
+        mTransientState.softEdgeToolCountersBuffer == nullptr ||
+        mReadbackSoftEdges.edgesBuffer == nullptr ||
+        mReadbackSoftEdges.toolCountersBuffer == nullptr ||
+        softEdgeCount > world.softEdges().size())
+    {
+        return false;
+    }
+
+    if (softEdgeCount > 0u)
+    {
+        const Diligent::Uint64 edgeBytes =
+            static_cast<Diligent::Uint64>(softEdgeCount) * sizeof(SoftEdge);
+        computeContext->CopyBuffer(
+            mPersistentSoftTopology.edgesBuffer, 0u,
+            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+            mReadbackSoftEdges.edgesBuffer, 0u, edgeBytes,
+            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
+    computeContext->CopyBuffer(
+        mTransientState.softEdgeToolCountersBuffer, 0u,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+        mReadbackSoftEdges.toolCountersBuffer, 0u, sizeof(SoftEdgeToolCounters),
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeContext->Flush();
+    computeContext->WaitForIdle();
+
+    void *mappedEdges = nullptr;
+    void *mappedCounters = nullptr;
+    if (softEdgeCount > 0u)
+    {
+        computeContext->MapBuffer(mReadbackSoftEdges.edgesBuffer, Diligent::MAP_READ,
+                                  Diligent::MAP_FLAG_DO_NOT_WAIT, mappedEdges);
+    }
+    computeContext->MapBuffer(mReadbackSoftEdges.toolCountersBuffer, Diligent::MAP_READ,
+                              Diligent::MAP_FLAG_DO_NOT_WAIT, mappedCounters);
+    if ((softEdgeCount > 0u && mappedEdges == nullptr) || mappedCounters == nullptr)
+    {
+        if (mappedEdges != nullptr)
+        {
+            computeContext->UnmapBuffer(mReadbackSoftEdges.edgesBuffer, Diligent::MAP_READ);
+        }
+        if (mappedCounters != nullptr)
+        {
+            computeContext->UnmapBuffer(mReadbackSoftEdges.toolCountersBuffer,
+                                        Diligent::MAP_READ);
+        }
+        return false;
+    }
+
+    if (softEdgeCount > 0u)
+    {
+        const auto *edges = static_cast<const SoftEdge *>(mappedEdges);
+        for (std::uint32_t edgeIndex = 0u; edgeIndex < softEdgeCount; ++edgeIndex)
+        {
+            if (!world.syncSoftEdgeStateFromSimulation(edgeIndex, edges[edgeIndex]))
+            {
+                computeContext->UnmapBuffer(mReadbackSoftEdges.edgesBuffer,
+                                            Diligent::MAP_READ);
+                computeContext->UnmapBuffer(mReadbackSoftEdges.toolCountersBuffer,
+                                            Diligent::MAP_READ);
+                return false;
+            }
+        }
+        world.finalizeSoftEdgeWriteback();
+        computeContext->UnmapBuffer(mReadbackSoftEdges.edgesBuffer, Diligent::MAP_READ);
+    }
+
+    outCounters = *static_cast<const SoftEdgeToolCounters *>(mappedCounters);
+    computeContext->UnmapBuffer(mReadbackSoftEdges.toolCountersBuffer, Diligent::MAP_READ);
     return true;
 }
 

@@ -168,6 +168,8 @@ public:
     const std::vector<SoftEdge> &softEdges() const noexcept;
     bool setSoftEdgeState(std::uint32_t edgeIndex, const SoftEdge &edge) noexcept;
     bool setSoftEdgeFlags(std::uint32_t edgeIndex, std::uint32_t flags) noexcept;
+    const CuttingToolGPU &cuttingTool() const noexcept;
+    void setCuttingTool(const CuttingToolGPU &tool) noexcept;
     const std::vector<SoftBend> &softBends() const noexcept;
     const std::vector<SoftTet> &softTets() const noexcept;
     const std::vector<StrandSegmentConstraint> &strandSegments() const noexcept;
@@ -225,6 +227,9 @@ public:
                                          const Diligent::float4 &previousPosition,
                                          const Diligent::float4 &velocity) noexcept;
     void finalizeParticleWriteback() noexcept;
+    bool syncSoftEdgeStateFromSimulation(std::uint32_t index,
+                                         const SoftEdge &edge) noexcept;
+    void finalizeSoftEdgeWriteback() noexcept;
 
     std::uint64_t authoredRevision() const noexcept;
     std::uint64_t simulationRevision() const noexcept;

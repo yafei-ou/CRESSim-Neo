@@ -884,6 +884,7 @@ struct PhysicsWorld::Impl
     SoftRenderDataHost mSoftRenderData{};
     ShapeMatchingDataHost mShapeMatchingData{};
     CurveRenderDataHost mCurveRenderData{};
+    CuttingToolGPU mCuttingTool{};
     std::vector<std::uint32_t> mRigidBodyDirtyIndices{};
     std::vector<std::uint32_t> mColliderDirtyIndices{};
     std::vector<std::uint8_t> mRigidBodyDirtyBits{};
@@ -1049,6 +1050,7 @@ void PhysicsWorld::clear()
     mImpl->mRoutedCableRoutePoints.clear();
     mImpl->mSoftRenderData.clear();
     mImpl->mCurveRenderData.clear();
+    mImpl->mCuttingTool = CuttingToolGPU{};
     mImpl->mRigidBodyDirtyIndices.clear();
     mImpl->mColliderDirtyIndices.clear();
     mImpl->mRigidBodyDirtyBits.clear();
@@ -3132,6 +3134,20 @@ bool PhysicsWorld::setSoftEdgeFlags(std::uint32_t edgeIndex, std::uint32_t flags
     return true;
 }
 
+const CuttingToolGPU &PhysicsWorld::cuttingTool() const noexcept
+{
+    return mImpl->mCuttingTool;
+}
+
+void PhysicsWorld::setCuttingTool(const CuttingToolGPU &tool) noexcept
+{
+    mImpl->mCuttingTool              = tool;
+    mImpl->mCuttingTool.radius       = std::max(mImpl->mCuttingTool.radius, 0.0f);
+    mImpl->mCuttingTool.strength     = std::max(mImpl->mCuttingTool.strength, 0.0f);
+    mImpl->mCuttingTool.cutThreshold = std::max(mImpl->mCuttingTool.cutThreshold, 0.0f);
+    mImpl->mCuttingTool.enabled      = mImpl->mCuttingTool.enabled != 0u ? 1u : 0u;
+}
+
 const std::vector<SoftBend> &PhysicsWorld::softBends() const noexcept
 {
     return bendConstraints();
@@ -3603,6 +3619,27 @@ bool PhysicsWorld::syncParticleStateFromSimulation(std::uint32_t index,
 void PhysicsWorld::finalizeParticleWriteback() noexcept
 {
     if (mImpl->mParticles.empty())
+    {
+        return;
+    }
+    ++mImpl->mSimulationRevision;
+}
+
+bool PhysicsWorld::syncSoftEdgeStateFromSimulation(std::uint32_t index,
+                                                   const SoftEdge &edge) noexcept
+{
+    if (index >= mImpl->mSoftEdges.size())
+    {
+        return false;
+    }
+
+    mImpl->mSoftEdges[index] = edge;
+    return true;
+}
+
+void PhysicsWorld::finalizeSoftEdgeWriteback() noexcept
+{
+    if (mImpl->mSoftEdges.empty())
     {
         return;
     }

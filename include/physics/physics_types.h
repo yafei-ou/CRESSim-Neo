@@ -392,6 +392,29 @@ enum SoftEdgeFlags : std::uint32_t
     Edge_Disabled  = 1u << 3u,
 };
 
+struct CuttingToolGPU
+{
+    Diligent::float3 tipA{0.0f, 0.0f, 0.0f};
+    float radius = 0.0f;
+
+    Diligent::float3 tipB{0.0f, 0.0f, 0.0f};
+    float strength = 0.0f;
+
+    float cutThreshold = 0.0f;
+    float padding = 0.0f;
+
+    std::uint32_t enabled = 0u;
+    std::uint32_t reserved0 = 0u;
+};
+
+struct SoftEdgeToolCounters
+{
+    std::uint32_t numToolEdgeCandidates = 0u;
+    std::uint32_t numNewlyCutEdges = 0u;
+    std::uint32_t numAlreadyDisabledEdges = 0u;
+    std::uint32_t numActiveEdgesAfterCut = 0u;
+};
+
 struct RigidBodyState
 {
     RigidBodyId rigidBodyId        = kInvalidRigidBodyId;

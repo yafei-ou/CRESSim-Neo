@@ -125,6 +125,8 @@ public:
     bool validateGpuMetaBlocking();
     void setGravity(const Diligent::float3 &gravity) noexcept;
     ShapeMatchingSolverStats lastShapeMatchingStats() const noexcept;
+    bool readbackSoftEdgeDebugStateBlocking(PhysicsWorld &world,
+                                            SoftEdgeToolCounters &outCounters);
     PhysicsGpuSceneView gpuSceneView() const noexcept;
     const gpu::SharedExportBuffer *softPositionsInvMassSharedBuffer() const noexcept;
 

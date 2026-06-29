@@ -283,6 +283,7 @@ struct GpuParticleDispatchConstants
     std::uint32_t reserved0                          = 0;
     std::uint32_t reserved1                          = 0;
     Diligent::float4 gravity{0.0f, -9.81f, 0.0f, 0.0f};
+    CuttingToolGPU cuttingTool{};
 };
 
 struct GpuSoftRenderDispatchConstants
@@ -818,7 +819,7 @@ static_assert(sizeof(GpuSphericalJoint) == 144u);
 static_assert(sizeof(GpuPhysicsScanConstants) == 16u);
 static_assert(sizeof(GpuPhysicsScanDispatchConstants) == 16u);
 static_assert(sizeof(GpuPhysicsRadixConstants) == 16u);
-static_assert(sizeof(GpuParticleDispatchConstants) == 128u);
+static_assert(sizeof(GpuParticleDispatchConstants) == 176u);
 static_assert(sizeof(GpuDispatchIndirectArgs) == 12u);
 static_assert(sizeof(GpuPaddedDispatchIndirectArgs) == 16u);
 static_assert(sizeof(GpuParticleBroadPhaseEntry) == 32u);
@@ -835,6 +836,7 @@ static_assert(sizeof(GpuStrandIncidentSegment) == 16u);
 static_assert(sizeof(GpuStrandIncidentJoint) == 16u);
 static_assert(sizeof(GpuStrandIncidentAttachment) == 16u);
 static_assert(sizeof(DeformableDistanceConstraint) == 36u);
+static_assert(sizeof(SoftEdgeToolCounters) == 16u);
 static_assert(sizeof(GpuSuturingPair) == 64u);
 static_assert(sizeof(GpuSuturingPathHeader) == 32u);
 static_assert(sizeof(GpuSuturingPathNode) == 48u);
