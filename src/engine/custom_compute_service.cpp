@@ -225,8 +225,8 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
         const bool hasSharedBuffer        = binding.sharedBufferHandle.isValid();
         const bool hasRenderTargetTexture = binding.renderTargetBinding.isValid();
         const std::uint32_t sourceCount   = static_cast<std::uint32_t>(hasResourceKey) +
-                                          static_cast<std::uint32_t>(hasSharedBuffer) +
-                                          static_cast<std::uint32_t>(hasRenderTargetTexture);
+                                            static_cast<std::uint32_t>(hasSharedBuffer) +
+                                            static_cast<std::uint32_t>(hasRenderTargetTexture);
         if (binding.shaderVariableName.empty() || sourceCount != 1u)
         {
             CRESSIM_LOG_ERROR("CustomComputeService: each binding requires shaderVariableName and "

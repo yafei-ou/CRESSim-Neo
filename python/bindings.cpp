@@ -308,8 +308,8 @@ py::object exportSharedBufferToDLPack(Runtime &runtime, const SharedBufferHandle
         }
     }
 
-    const std::uint64_t dtypeBytes = (static_cast<std::uint64_t>(desc.dtypeBits) / 8u) *
-                                     static_cast<std::uint64_t>(desc.dtypeLanes);
+    const std::uint64_t dtypeBytes  = (static_cast<std::uint64_t>(desc.dtypeBits) / 8u) *
+                                      static_cast<std::uint64_t>(desc.dtypeLanes);
     std::uint64_t lastElementOffset = 0u;
     for (std::size_t i = 0; i < desc.shape.size(); ++i)
     {

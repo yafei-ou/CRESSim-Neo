@@ -1512,7 +1512,7 @@ bool UltrasoundSystem::prepare(World &world)
 
         Impl::ProbeRuntime &runtime = mImpl->probeRuntimes[probeEntityId];
         bool rebuild                = runtime.engine == nullptr || runtime.envIndex != envIndex ||
-                       !equalsProbeComponent(runtime.component, probeComponent);
+                                      !equalsProbeComponent(runtime.component, probeComponent);
         if (rebuild && !mImpl->rebuildProbeRuntime(mDevice, graphicsBackend, world, computeBackend,
                                                    probeEntityId, runtime, envIndex, probeComponent,
                                                    0u, false))
