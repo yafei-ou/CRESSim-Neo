@@ -15,6 +15,7 @@ int main()
     engine::RuntimeConfig config{};
     config.gpuDeviceDesc.preferredBackend = gpu::GpuBackend::Vulkan;
     config.gpuDeviceDesc.enableValidation = false;
+    config.physicsDesc.enableBlockingReadback = false;
 
     engine::Runtime runtime;
     if (!runtime.initialize(config))
@@ -148,6 +149,13 @@ int main()
 
     probeTransform.worldTransform.position.x += 0.3f;
     world.setTransform(probeEntity, probeTransform);
+    runtime.prepare();
+    if (!runtime.uploadWorld())
+    {
+        CRESSIM_LOG_ERROR("Expected staged world upload to succeed after moving the probe.");
+        runtime.shutdown();
+        return 1;
+    }
 
     const gpu::GpuRenderTargetReadbackRequest movedRequest =
         device->renderTargetSystem().requestRenderTargetReadback(
@@ -188,6 +196,65 @@ int main()
         std::memcmp(firstImageBytes.data(), movedEvent.colorBytes.data(), firstImageBytes.size()) == 0)
     {
         CRESSIM_LOG_ERROR("Expected ultrasound output to change after moving the probe.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    engine::RigidBodyComponent probeBody{};
+    probeBody.bodyType = physics::RigidBodyType::Dynamic;
+    probeBody.inverseMass = 1.0f;
+    probeBody.linearVelocity = {0.45f, 0.0f, 0.0f};
+    world.setRigidBody(probeEntity, probeBody);
+    runtime.prepare();
+    if (!runtime.uploadWorld())
+    {
+        CRESSIM_LOG_ERROR(
+            "Expected staged world upload to succeed after enabling rigid-driven probe motion.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    const gpu::GpuRenderTargetReadbackRequest rigidMotionRequest =
+        device->renderTargetSystem().requestRenderTargetReadback(
+            gpu::GpuRenderTargetBinding{executedResult->imageTarget, 0u, 1u});
+    if (rigidMotionRequest.id == 0u)
+    {
+        CRESSIM_LOG_ERROR("Failed to queue ultrasound readback request for rigid-driven probe.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    if (!runtime.stepPhysics(frame))
+    {
+        CRESSIM_LOG_WARNING(
+            "Skipping runtime ultrasound staging test because rigid-driven staged physics step failed.");
+        runtime.shutdown();
+        return 0;
+    }
+    if (!runtime.stepSimulationSensors(frame))
+    {
+        CRESSIM_LOG_WARNING(
+            "Skipping runtime ultrasound staging test because rigid-driven staged ultrasound execution failed.");
+        runtime.shutdown();
+        return 0;
+    }
+    runtime.endFrame(frame);
+
+    gpu::GpuRenderTargetReadbackEvent rigidMotionEvent{};
+    if (!device->renderTargetSystem().tryGetRenderTargetReadback(rigidMotionRequest, rigidMotionEvent) ||
+        !tests::helpers::isValidReadback(rigidMotionEvent))
+    {
+        CRESSIM_LOG_ERROR("Expected rigid-driven probe ultrasound readback to complete.");
+        runtime.shutdown();
+        return 1;
+    }
+
+    if (movedEvent.colorBytes.size() != rigidMotionEvent.colorBytes.size() ||
+        std::memcmp(movedEvent.colorBytes.data(), rigidMotionEvent.colorBytes.data(),
+                    movedEvent.colorBytes.size()) == 0)
+    {
+        CRESSIM_LOG_ERROR(
+            "Expected ultrasound output to change after rigid-driven probe motion without readback.");
         runtime.shutdown();
         return 1;
     }

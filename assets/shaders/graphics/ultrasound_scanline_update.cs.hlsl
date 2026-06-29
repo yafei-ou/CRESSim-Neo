@@ -1,11 +1,9 @@
 cbuffer UltrasoundScanlineUpdateConstantsBuffer
 {
-    float4 g_ProbePosition;
-    float4 g_ProbeRotation;
+    uint g_EntityPoseSlot;
     uint g_ScanlineCount;
     uint g_Padding0;
     uint g_Padding1;
-    uint g_Padding2;
 };
 
 struct PackedScanline
@@ -16,6 +14,10 @@ struct PackedScanline
     float4 elevationalDirection;
 };
 
+#include "include/structured_buffer_compat.hlsli"
+
+StructuredBuffer<float4> g_EntityPositions;
+StructuredBuffer<float4> g_EntityOrientations;
 StructuredBuffer<PackedScanline> g_LocalScanlines;
 RWStructuredBuffer<PackedScanline> g_WorldScanlinesRW;
 
@@ -36,14 +38,16 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     PackedScanline localScanline = g_LocalScanlines[index];
     PackedScanline worldScanline = localScanline;
+    const float3 probePosition = g_EntityPositions[g_EntityPoseSlot].xyz;
+    const float4 probeRotation = normalize(g_EntityOrientations[g_EntityPoseSlot]);
     worldScanline.origin.xyz =
-        quat_rotate(g_ProbeRotation, localScanline.origin.xyz) + g_ProbePosition.xyz;
+        quat_rotate(probeRotation, localScanline.origin.xyz) + probePosition;
     worldScanline.radialDirection.xyz =
-        normalize(quat_rotate(g_ProbeRotation, localScanline.radialDirection.xyz));
+        normalize(quat_rotate(probeRotation, localScanline.radialDirection.xyz));
     worldScanline.lateralDirection.xyz =
-        normalize(quat_rotate(g_ProbeRotation, localScanline.lateralDirection.xyz));
+        normalize(quat_rotate(probeRotation, localScanline.lateralDirection.xyz));
     worldScanline.elevationalDirection.xyz =
-        normalize(quat_rotate(g_ProbeRotation, localScanline.elevationalDirection.xyz));
+        normalize(quat_rotate(probeRotation, localScanline.elevationalDirection.xyz));
     worldScanline.origin.w = 0.0f;
     worldScanline.radialDirection.w = 0.0f;
     worldScanline.lateralDirection.w = 0.0f;

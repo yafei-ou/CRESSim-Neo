@@ -398,6 +398,13 @@ bool Runtime::stepSimulationSensors(const common::FrameContext &frameContext)
         return false;
     }
 
+    (void)syncGpuScene(mWorld, mGpuDevice.get(), mEntitySceneGpuState.get(),
+                       mRenderSceneUploader.get(), mPhysicsSolver.get(), mHasPhysicsState,
+                       mLastUploadedEntityPoseRevision, mLastUploadedRenderableMetadataRevision,
+                       mLastUploadedRenderableQueueInfoRevision,
+                       mLastUploadedSoftBodyVertexBindingRevision, mLastUploadedCameraInputRevision,
+                       mLastUploadedLightInputRevision, mLastUploadedLocalLightSelectionRevision);
+
     mLastFrameContext = frameContext;
 
     if (!mUltrasoundSystem)

@@ -90,19 +90,7 @@ bool equalsSourceComponent(const UltrasoundScattererSourceComponent &lhs,
            lhs.pointDistanceOverride == rhs.pointDistanceOverride;
 }
 
-TransformComponent resolveProbePose(World &world, const common::EntityId probeEntityId)
-{
-    TransformComponent transform =
-        world.tryGetTransform(probeEntityId).value_or(TransformComponent{});
-    if (const physics::RigidBodyState *rigidBody =
-            world.physicsWorld().tryGetRigidBody(probeEntityId))
-    {
-        transform.worldTransform.position = rigidBody->position;
-        transform.worldTransform.rotation = rigidBody->rotation;
-        transform.worldTransform.scale    = rigidBody->scale;
-    }
-    return transform;
-}
+constexpr std::uint32_t kInvalidScenePoseSlot = 0xffffffffu;
 
 std::uint32_t nextPowerOfTwo(std::uint32_t value)
 {
@@ -250,12 +238,10 @@ struct UltrasoundImageConstants
 
 struct UltrasoundScanlineUpdateConstants
 {
-    Diligent::float4 position{0.0f, 0.0f, 0.0f, 0.0f};
-    Diligent::float4 rotation{0.0f, 0.0f, 0.0f, 1.0f};
-    std::uint32_t scanlineCount = 0u;
-    std::uint32_t padding0      = 0u;
-    std::uint32_t padding1      = 0u;
-    std::uint32_t padding2      = 0u;
+    std::uint32_t entityPoseSlot = kInvalidScenePoseSlot;
+    std::uint32_t scanlineCount  = 0u;
+    std::uint32_t padding0       = 0u;
+    std::uint32_t padding1       = 0u;
 };
 
 constexpr std::uint32_t kUltrasoundReductionThreadGroupSize = 256u;
@@ -290,6 +276,10 @@ constexpr Diligent::ShaderResourceVariableDesc kUltrasoundImageVars[] = {
 
 constexpr Diligent::ShaderResourceVariableDesc kUltrasoundScanlineUpdateVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "UltrasoundScanlineUpdateConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_EntityPositions",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_EntityOrientations",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     {Diligent::SHADER_TYPE_COMPUTE, "g_LocalScanlines",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
@@ -519,6 +509,8 @@ struct UltrasoundSystem::Impl
 
     struct ProbeRuntime
     {
+        common::EntityId entityId    = common::kInvalidEntityId;
+        std::uint32_t entityPoseSlot = kInvalidScenePoseSlot;
         UltrasoundProbeComponent component{};
         std::uint32_t envIndex            = 0u;
         std::uint64_t boundScattererCount = 0u;
@@ -552,6 +544,8 @@ struct UltrasoundSystem::Impl
 
         void reset()
         {
+            entityId            = common::kInvalidEntityId;
+            entityPoseSlot      = kInvalidScenePoseSlot;
             boundScattererCount = 0u;
 #if CRESSIM_NEO_HAS_ULTRASOUND
             if (engine != nullptr)
@@ -680,6 +674,13 @@ struct UltrasoundSystem::Impl
         runtime.component           = probeComponent;
         runtime.envIndex            = envIndex;
         runtime.boundScattererCount = boundScattererCount;
+        runtime.entityId            = probeEntityId;
+        runtime.entityPoseSlot      = world.entityPoseSlot(probeEntityId);
+        if (runtime.entityPoseSlot == kInvalidScenePoseSlot)
+        {
+            clearPublishedProbeResult(world, probeEntityId);
+            return false;
+        }
 
         runtime.engine = CruComputeCreate();
         if (runtime.engine == nullptr)
@@ -1060,22 +1061,23 @@ struct UltrasoundSystem::Impl
     }
 
     bool updateProbeScanlines(const gpu::GpuComputeBackendContext &computeBackend,
-                              const TransformComponent &probeTransform, ProbeRuntime &runtime)
+                              const common::PoseBufferView &poseView, ProbeRuntime &runtime)
     {
         if (!scanlinePassState.initialized || runtime.localScanlineTemplateBuffer == nullptr ||
             runtime.worldScanlineSharedBuffer.buffer() == nullptr)
         {
             return false;
         }
+        if (runtime.entityPoseSlot == kInvalidScenePoseSlot ||
+            runtime.entityPoseSlot >= poseView.count || poseView.positionsBuffer == nullptr ||
+            poseView.orientationsBuffer == nullptr)
+        {
+            return false;
+        }
 
         UltrasoundScanlineUpdateConstants constants{};
-        constants.position = Diligent::float4{probeTransform.worldTransform.position.x,
-                                              probeTransform.worldTransform.position.y,
-                                              probeTransform.worldTransform.position.z, 0.0f};
-        constants.rotation = Diligent::float4{
-            probeTransform.worldTransform.rotation.q.x, probeTransform.worldTransform.rotation.q.y,
-            probeTransform.worldTransform.rotation.q.z, probeTransform.worldTransform.rotation.q.w};
-        constants.scanlineCount = runtime.component.numScanlines;
+        constants.entityPoseSlot = runtime.entityPoseSlot;
+        constants.scanlineCount  = runtime.component.numScanlines;
         if (!writeBuffer(computeBackend.computeContext, scanlinePassState.constantsBuffer,
                          &constants, sizeof(constants)))
         {
@@ -1085,6 +1087,10 @@ struct UltrasoundSystem::Impl
         const std::array bindings{
             gpu::GpuBufferBinding{"UltrasoundScanlineUpdateConstantsBuffer",
                                   scanlinePassState.constantsBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_EntityPositions", poseView.positionsBuffer,
+                                  Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+            gpu::GpuBufferBinding{"g_EntityOrientations", poseView.orientationsBuffer,
                                   Diligent::BUFFER_VIEW_SHADER_RESOURCE},
             gpu::GpuBufferBinding{"g_LocalScanlines", runtime.localScanlineTemplateBuffer,
                                   Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -1506,7 +1512,7 @@ bool UltrasoundSystem::prepare(World &world)
 
         Impl::ProbeRuntime &runtime = mImpl->probeRuntimes[probeEntityId];
         bool rebuild                = runtime.engine == nullptr || runtime.envIndex != envIndex ||
-                                      !equalsProbeComponent(runtime.component, probeComponent);
+                       !equalsProbeComponent(runtime.component, probeComponent);
         if (rebuild && !mImpl->rebuildProbeRuntime(mDevice, graphicsBackend, world, computeBackend,
                                                    probeEntityId, runtime, envIndex, probeComponent,
                                                    0u, false))
@@ -1607,8 +1613,9 @@ bool UltrasoundSystem::execute(const common::FrameContext &frameContext, World &
         return false;
     }
 
-    const auto &probeComponents = world.ultrasoundProbeComponents();
-    auto *sharedBase            = static_cast<std::byte *>(mImpl->bridge.devicePointer());
+    const auto &probeComponents                        = world.ultrasoundProbeComponents();
+    const graphics::GpuEntitySceneView &gpuEntityScene = world.gpuEntityScene();
+    auto *sharedBase = static_cast<std::byte *>(mImpl->bridge.devicePointer());
     if (sharedBase == nullptr)
     {
         return true;
@@ -1850,8 +1857,10 @@ bool UltrasoundSystem::execute(const common::FrameContext &frameContext, World &
 
         const Impl::EnvironmentRuntime &envRuntime = envIt->second;
         Impl::ProbeRuntime &runtime                = runtimeIt->second;
+        const std::uint32_t currentPoseSlot        = world.entityPoseSlot(probeEntityId);
         const bool rebuild = runtime.engine == nullptr || runtime.envIndex != envIndex ||
                              runtime.boundScattererCount != envRuntime.totalScattererCount ||
+                             runtime.entityPoseSlot != currentPoseSlot ||
                              !equalsProbeComponent(runtime.component, probeComponent);
         if (rebuild && !mImpl->rebuildProbeRuntime(mDevice, graphicsBackend, world, computeBackend,
                                                    probeEntityId, runtime, envIndex, probeComponent,
@@ -1860,8 +1869,7 @@ bool UltrasoundSystem::execute(const common::FrameContext &frameContext, World &
             continue;
         }
 
-        const TransformComponent probeTransform = resolveProbePose(world, probeEntityId);
-        if (!mImpl->updateProbeScanlines(computeBackend, probeTransform, runtime))
+        if (!mImpl->updateProbeScanlines(computeBackend, gpuEntityScene.poses, runtime))
         {
             CRESSIM_LOG_WARNING("UltrasoundSystem: probe ", probeEntityId,
                                 " could not update live scanlines.");
