@@ -978,7 +978,8 @@ std::vector<CustomComputeResourceDesc> Runtime::listCustomComputeResources()
                           "prepare() and before execution.");
         return {};
     }
-    return mCustomComputeService->listResources(*mPhysicsSolver, mWorld.physicsWorld());
+    return mCustomComputeService->listResources(*mPhysicsSolver, mWorld.physicsWorld(),
+                                                mWorld.gpuEntityScene());
 }
 
 CustomComputePassHandle Runtime::createCustomComputePass(const CustomComputePassDesc &desc)
@@ -995,7 +996,8 @@ CustomComputePassHandle Runtime::createCustomComputePass(const CustomComputePass
     }
     ensureDeviceFrameActive(mGpuDevice.get(), mLastFrameContext, mDeviceFrameActive);
     return mCustomComputeService->createPass(*mPhysicsSolver, mWorld.physicsWorld(),
-                                             mSharedBufferService.get(), desc);
+                                             mWorld.gpuEntityScene(), mSharedBufferService.get(),
+                                             desc);
 }
 
 bool Runtime::updateCustomComputePassConstants(CustomComputePassHandle handle,
@@ -1023,7 +1025,8 @@ bool Runtime::executeCustomComputePass(CustomComputePassHandle handle)
     }
     ensureDeviceFrameActive(mGpuDevice.get(), mLastFrameContext, mDeviceFrameActive);
     return mCustomComputeService->executePass(*mPhysicsSolver, mWorld.physicsWorld(),
-                                              mSharedBufferService.get(), handle);
+                                              mWorld.gpuEntityScene(), mSharedBufferService.get(),
+                                              handle);
 }
 
 bool Runtime::destroyCustomComputePass(CustomComputePassHandle handle)

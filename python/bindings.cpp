@@ -308,8 +308,8 @@ py::capsule exportSharedBufferToDLPack(Runtime &runtime, const SharedBufferHandl
         }
     }
 
-    const std::uint64_t dtypeBytes  = (static_cast<std::uint64_t>(desc.dtypeBits) / 8u) *
-                                      static_cast<std::uint64_t>(desc.dtypeLanes);
+    const std::uint64_t dtypeBytes = (static_cast<std::uint64_t>(desc.dtypeBits) / 8u) *
+                                     static_cast<std::uint64_t>(desc.dtypeLanes);
     std::uint64_t lastElementOffset = 0u;
     for (std::size_t i = 0; i < desc.shape.size(); ++i)
     {
@@ -1578,6 +1578,7 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("set_transform", &World::setTransform)
         .def("remove_transform", &World::removeTransform)
         .def("try_get_transform", &World::tryGetTransform)
+        .def("entity_pose_slot", &World::entityPoseSlot)
         .def("set_mesh_renderer", &World::setMeshRenderer)
         .def("remove_mesh_renderer", &World::removeMeshRenderer)
         .def("try_get_mesh_renderer", &World::tryGetMeshRenderer)

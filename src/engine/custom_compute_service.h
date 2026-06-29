@@ -19,6 +19,11 @@ namespace cressim::neo::gpu
 class GpuDevice;
 }
 
+namespace cressim::neo::graphics
+{
+struct GpuEntitySceneView;
+}
+
 namespace cressim::neo::physics
 {
 class PhysicsSolver;
@@ -37,12 +42,15 @@ public:
     ~CustomComputeService();
 
     std::vector<CustomComputeResourceDesc> listResources(physics::PhysicsSolver &solver,
-                                                         physics::PhysicsWorld &world);
+                                                         physics::PhysicsWorld &world,
+                                                         const graphics::GpuEntitySceneView &scene);
     CustomComputePassHandle createPass(physics::PhysicsSolver &solver, physics::PhysicsWorld &world,
+                                       const graphics::GpuEntitySceneView &scene,
                                        const SharedBufferService *sharedBuffers,
                                        const CustomComputePassDesc &desc);
     bool updatePassConstants(CustomComputePassHandle handle, const std::vector<std::uint8_t> &data);
     bool executePass(physics::PhysicsSolver &solver, physics::PhysicsWorld &world,
+                     const graphics::GpuEntitySceneView &scene,
                      const SharedBufferService *sharedBuffers, CustomComputePassHandle handle);
     bool destroyPass(CustomComputePassHandle handle);
     void clear();
@@ -55,7 +63,7 @@ private:
     using ResourceMap = std::unordered_map<std::string, ResourceEntry>;
 
     bool buildResourceRegistry(physics::PhysicsSolver &solver, physics::PhysicsWorld &world,
-                               ResourceMap &outResources,
+                               const graphics::GpuEntitySceneView &scene, ResourceMap &outResources,
                                std::vector<CustomComputeResourceDesc> *outDescs);
     static bool isAccessCompatible(CustomComputeResourceAccess requested,
                                    CustomComputeResourceAccess allowed) noexcept;

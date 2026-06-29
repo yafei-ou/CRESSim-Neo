@@ -16,6 +16,7 @@ set(CRESSIM_NEO_PYTHON_PACKAGE_EXTRA_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/package/torch_env.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/package/soft_body_pusher_env.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/package/fluid_pouring_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/camera_centering_env.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/package/soft_body_env.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/package/fluid_env.py")
 

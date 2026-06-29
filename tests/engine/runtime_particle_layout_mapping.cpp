@@ -142,6 +142,9 @@ int main()
         runtime.listCustomComputeResources();
     if (!hasResource(resources, "particle.positions_inv_mass") ||
         !hasResource(resources, "particle.velocities") ||
+        !hasResource(resources, "entity.positions") ||
+        !hasResource(resources, "entity.orientations") ||
+        !hasResource(resources, "entity.scales") ||
         !hasResource(resources, "particle.owner_indices") ||
         !hasResource(resources, "soft.edges") ||
         !hasResource(resources, "strand.segments") ||

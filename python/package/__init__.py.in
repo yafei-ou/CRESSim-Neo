@@ -19,6 +19,11 @@ except RuntimeError:
     FluidPouringTorchVectorEnv = None
 
 try:
+    from .camera_centering_env import CameraCenteringTorchVectorEnv
+except RuntimeError:
+    CameraCenteringTorchVectorEnv = None
+
+try:
     from .soft_body_env import SoftBodyTorchVectorEnv
 except RuntimeError:
     SoftBodyTorchVectorEnv = None

@@ -5,6 +5,7 @@
 #include "gpu/gpu_device.h"
 #include "gpu/gpu_types.h"
 #include "gpu/shader_library.h"
+#include "graphics/gpu_scene.h"
 #include "physics/physics_gpu_scene_view.h"
 #include "physics/physics_solver.h"
 #include "physics/physics_world.h"
@@ -138,11 +139,12 @@ CustomComputeService::CustomComputeService(gpu::GpuDevice &device) : mDevice(dev
 CustomComputeService::~CustomComputeService() = default;
 
 std::vector<CustomComputeResourceDesc> CustomComputeService::listResources(
-    physics::PhysicsSolver &solver, physics::PhysicsWorld &world)
+    physics::PhysicsSolver &solver, physics::PhysicsWorld &world,
+    const graphics::GpuEntitySceneView &scene)
 {
     std::vector<CustomComputeResourceDesc> resources;
     ResourceMap resourceMap;
-    if (!buildResourceRegistry(solver, world, resourceMap, &resources))
+    if (!buildResourceRegistry(solver, world, scene, resourceMap, &resources))
     {
         return {};
     }
@@ -151,6 +153,7 @@ std::vector<CustomComputeResourceDesc> CustomComputeService::listResources(
 
 CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver &solver,
                                                          physics::PhysicsWorld &world,
+                                                         const graphics::GpuEntitySceneView &scene,
                                                          const SharedBufferService *sharedBuffers,
                                                          const CustomComputePassDesc &desc)
 {
@@ -205,7 +208,7 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
     }
 
     ResourceMap resources;
-    if (!buildResourceRegistry(solver, world, resources, nullptr))
+    if (!buildResourceRegistry(solver, world, scene, resources, nullptr))
     {
         return handle;
     }
@@ -222,8 +225,8 @@ CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver 
         const bool hasSharedBuffer        = binding.sharedBufferHandle.isValid();
         const bool hasRenderTargetTexture = binding.renderTargetBinding.isValid();
         const std::uint32_t sourceCount   = static_cast<std::uint32_t>(hasResourceKey) +
-                                            static_cast<std::uint32_t>(hasSharedBuffer) +
-                                            static_cast<std::uint32_t>(hasRenderTargetTexture);
+                                          static_cast<std::uint32_t>(hasSharedBuffer) +
+                                          static_cast<std::uint32_t>(hasRenderTargetTexture);
         if (binding.shaderVariableName.empty() || sourceCount != 1u)
         {
             CRESSIM_LOG_ERROR("CustomComputeService: each binding requires shaderVariableName and "
@@ -463,6 +466,7 @@ bool CustomComputeService::updatePassConstants(CustomComputePassHandle handle,
 }
 
 bool CustomComputeService::executePass(physics::PhysicsSolver &solver, physics::PhysicsWorld &world,
+                                       const graphics::GpuEntitySceneView &scene,
                                        const SharedBufferService *sharedBuffers,
                                        CustomComputePassHandle handle)
 {
@@ -482,7 +486,7 @@ bool CustomComputeService::executePass(physics::PhysicsSolver &solver, physics::
     }
 
     ResourceMap resources;
-    if (!buildResourceRegistry(solver, world, resources, nullptr))
+    if (!buildResourceRegistry(solver, world, scene, resources, nullptr))
     {
         return false;
     }
@@ -610,6 +614,7 @@ void CustomComputeService::clear()
 
 bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
                                                  physics::PhysicsWorld &world,
+                                                 const graphics::GpuEntitySceneView &scene,
                                                  ResourceMap &outResources,
                                                  std::vector<CustomComputeResourceDesc> *outDescs)
 {
@@ -773,6 +778,12 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
               sceneView.joints.sliderVelocityDriveJointIndicesBuffer,
               CustomComputeResourceAccess::ReadOnly, sceneView.joints.sliderVelocityDriveJointCount,
               sceneView.joints.modeBindingGeneration);
+    addBuffer("entity.positions", scene.poses.positionsBuffer,
+              CustomComputeResourceAccess::ReadWrite, scene.poses.count, scene.bindingGeneration);
+    addBuffer("entity.orientations", scene.poses.orientationsBuffer,
+              CustomComputeResourceAccess::ReadWrite, scene.poses.count, scene.bindingGeneration);
+    addBuffer("entity.scales", scene.poses.scalesBuffer, CustomComputeResourceAccess::ReadWrite,
+              scene.poses.count, scene.bindingGeneration);
     addBuffer("particle.positions_inv_mass", sceneView.soft.particles.positionsInvMassBuffer,
               CustomComputeResourceAccess::ReadWrite, sceneView.soft.particles.count,
               sceneView.soft.bindingGeneration);
