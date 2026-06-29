@@ -204,6 +204,9 @@ public:
     /// @brief Gets shape-matching statistics from the last solver step.
     ShapeMatchingSolverStats lastShapeMatchingStats() const noexcept;
 
+    bool readbackSoftEdgeDebugStateBlocking(PhysicsWorld &world,
+                                            SoftEdgeToolCounters &outCounters);
+
     /// @brief Retrieves the current non-owning GPU buffer views for rigid, joint, soft, and curve
     /// scenes.
     /// @return PhysicsGpuSceneView containing pointers and descriptor counts.

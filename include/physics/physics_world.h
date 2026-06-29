@@ -596,6 +596,8 @@ public:
 
     bool setSoftEdgeState(std::uint32_t edgeIndex, const SoftEdge &edge) noexcept;
     bool setSoftEdgeFlags(std::uint32_t edgeIndex, std::uint32_t flags) noexcept;
+    const CuttingToolGPU &cuttingTool() const noexcept;
+    void setCuttingTool(const CuttingToolGPU &tool) noexcept;
 
     /// @brief Gets alias view of deformable bending constraints.
     /// @return Const reference to SoftBend vector.
@@ -806,6 +808,9 @@ public:
 
     /// @brief Finalizes particle state writeback into snapshot structures.
     void finalizeParticleWriteback() noexcept;
+    bool syncSoftEdgeStateFromSimulation(std::uint32_t index,
+                                         const SoftEdge &edge) noexcept;
+    void finalizeSoftEdgeWriteback() noexcept;
 
     /// @brief Monotonically increasing revision counter incremented on any authored scene change.
     /// @return Authoring revision number.

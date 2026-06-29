@@ -465,6 +465,13 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         return false;
     }
 
+    if (softEdgeCount > 0u &&
+        !mImpl->sceneState.clearSoftEdgeToolCounters(computeBackend.computeContext))
+    {
+        CRESSIM_LOG_ERROR("PhysicsSolver::step failed: clearSoftEdgeToolCounters.\n");
+        return false;
+    }
+
     for (std::uint32_t substep = 0; substep < substeps; ++substep)
     {
         GpuRigidDispatchConstants constants{};
@@ -508,6 +515,9 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
         particleConstants.maxSuturingNodesPerPath          = world.maxSuturingNodesPerPath();
         particleConstants.maximumShapeCorrection = shapeMatchingData.maximumCorrection;
         particleConstants.particleShapeMembershipIndexCount = particleShapeMembershipIndexCount;
+        particleConstants.reserved0                        = substep;
+        particleConstants.reserved1                        = substeps;
+        particleConstants.cuttingTool                      = world.cuttingTool();
 
         const bool hasParticleNeighborWork = particleCount > 0u;
         const bool hasFluidWork            = fluidCount > 0u && particleCount > 0u;
@@ -1567,6 +1577,29 @@ void PhysicsSolver::setGravity(const Diligent::float3 &gravity) noexcept
 ShapeMatchingSolverStats PhysicsSolver::lastShapeMatchingStats() const noexcept
 {
     return mImpl != nullptr ? mImpl->lastShapeStats : ShapeMatchingSolverStats{};
+}
+
+bool PhysicsSolver::readbackSoftEdgeDebugStateBlocking(
+    PhysicsWorld &world, SoftEdgeToolCounters &outCounters)
+{
+    outCounters = SoftEdgeToolCounters{};
+    if (!mImpl->mInitialized || !hasPhysicsGpuBackend(mImpl->mDevice))
+    {
+        return false;
+    }
+
+    gpu::GpuComputeBackendContext computeBackend{};
+    if (!mImpl->mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+        computeBackend.computeContext == nullptr)
+    {
+        CRESSIM_LOG_ERROR("PhysicsSolver::readbackSoftEdgeDebugStateBlocking failed: missing "
+                          "physics backend context.\n");
+        return false;
+    }
+
+    const std::uint32_t softEdgeCount = mImpl->sceneState.sceneView().soft.edgeCount;
+    return mImpl->sceneState.readbackSoftEdgeDebugStateBlocking(
+        computeBackend.computeContext, world, softEdgeCount, outCounters);
 }
 
 PhysicsGpuSceneView PhysicsSolver::gpuSceneView() const noexcept

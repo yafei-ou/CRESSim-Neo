@@ -226,6 +226,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidAnisotropy3Buffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> fluidVorticitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeLambdasBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeToolCountersBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softBendLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softTetLambdasBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> softEdgeCorrectionsBuffer;
@@ -321,6 +322,12 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> velocitiesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> shapeCorrectionMagnitudesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> neighborMetaBuffer;
+    };
+
+    struct SoftEdgeReadbackBuffers
+    {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> edgesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> toolCountersBuffer;
     };
 
     struct BroadPhaseCompactionTailReadback
@@ -432,6 +439,10 @@ public:
                                              PhysicsWorld &world, std::uint32_t bodyCount);
     bool readbackPredictedParticleStateBlocking(Diligent::IDeviceContext *computeContext,
                                                 PhysicsWorld &world, std::uint32_t particleCount);
+    bool clearSoftEdgeToolCounters(Diligent::IDeviceContext *computeContext);
+    bool readbackSoftEdgeDebugStateBlocking(Diligent::IDeviceContext *computeContext,
+                                            PhysicsWorld &world, std::uint32_t softEdgeCount,
+                                            SoftEdgeToolCounters &outCounters);
     bool readbackSoftNeighborMetaBlocking(Diligent::IDeviceContext *computeContext,
                                           GpuParticleNeighborMeta &outMeta);
     bool readbackShapeCorrectionMagnitudesBlocking(Diligent::IDeviceContext *computeContext,
@@ -543,6 +554,7 @@ private:
     SolverTransientBuffers mTransientState;
     RigidBodyReadbackBuffers mReadbackRigidBodies;
     ParticleReadbackBuffers mReadbackParticles;
+    SoftEdgeReadbackBuffers mReadbackSoftEdges;
     std::uint32_t mRigidBodyCapacity                                   = 0;
     std::uint32_t mColliderCapacity                                    = 0;
     std::uint32_t mSoftParticleCapacity                                = 0;

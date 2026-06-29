@@ -2105,6 +2105,8 @@ bool PhysicsPassDispatcher::solveSoftEdgeConstraints(Diligent::IDeviceContext *c
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
         gpu::GpuBufferBinding{"g_SoftEdgeCorrections", transient.softEdgeCorrectionsBuffer,
                               Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+        gpu::GpuBufferBinding{"g_SoftEdgeToolCounters", transient.softEdgeToolCountersBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
     };
 
     return writeParticleDispatchConstants(computeContext, constants) &&

@@ -649,6 +649,8 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveSoftEdgeConstraintsVars[] =
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftEdgeCorrections",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftEdgeToolCounters",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
 constexpr Diligent::ShaderResourceVariableDesc kSolveSoftBendConstraintsVars[] = {
