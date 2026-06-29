@@ -54,7 +54,6 @@ def make_infer_env(
         reset_cart_velocity_range=0.05,
         reset_pole_angle_range_radians=0.08,
         reset_pole_angular_velocity_range=0.05,
-        enable_rgb_observation=True,
         image_width=image_width,
         image_height=image_height,
     )

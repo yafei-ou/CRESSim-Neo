@@ -421,7 +421,6 @@ class CartpoleTorchVectorEnv:
         reset_cart_velocity_range: float = 0.05,
         reset_pole_angle_range_radians: float = 0.05,
         reset_pole_angular_velocity_range: float = 0.05,
-        enable_rgb_observation: bool = False,
         image_width: int = 64,
         image_height: int = 64,
     ) -> None:
@@ -434,7 +433,6 @@ class CartpoleTorchVectorEnv:
         self.reset_cart_velocity_range = reset_cart_velocity_range
         self.reset_pole_angle_range_radians = reset_pole_angle_range_radians
         self.reset_pole_angular_velocity_range = reset_pole_angular_velocity_range
-        self.enable_rgb_observation = enable_rgb_observation
         self.image_width = image_width
         self.image_height = image_height
         self._frame = neo.FrameContext()
@@ -446,18 +444,15 @@ class CartpoleTorchVectorEnv:
         config.gpu_device_desc.preferred_backend = neo.GpuBackend.Vulkan
         config.gpu_device_desc.enable_validation = False
         config.scene_layout.env_count = env_count
-        if enable_rgb_observation:
-            config.scene_layout.max_renderable_objects_per_env = 8
-            config.scene_layout.max_lights_per_env = 2
-            config.scene_layout.max_cameras_per_env = 1
+        config.scene_layout.max_renderable_objects_per_env = 8
+        config.scene_layout.max_lights_per_env = 2
+        config.scene_layout.max_cameras_per_env = 1
 
         self.runtime = neo.Runtime()
         if not self.runtime.initialize(config):
             raise RuntimeError("Failed to initialize cartpole runtime.")
 
-        if self.enable_rgb_observation:
-            self._initialize_rgb_observation_resources()
-
+        self._initialize_rgb_observation_resources()
         self._authored_ids = self._author_scene(self.runtime.world(), env_count)
         self.runtime.prepare()
         self._rigid_mapping = self.runtime.get_prepared_rigid_layout_mapping()
@@ -616,8 +611,7 @@ class CartpoleTorchVectorEnv:
             base_entity = world.create_entity(env_index)
             base_transform = neo.TransformComponent()
             base_transform.world_transform.position = neo.Float3(0.0, 0.5, z_offset)
-            if self.enable_rgb_observation:
-                base_transform.world_transform.scale = neo.Float3(0.30, 0.30, 0.30)
+            base_transform.world_transform.scale = neo.Float3(0.30, 0.30, 0.30)
             world.set_transform(base_entity, base_transform)
             base_body = neo.RigidBodyComponent()
             base_body.body_type = neo.RigidBodyType.Static
@@ -632,8 +626,7 @@ class CartpoleTorchVectorEnv:
             cart_entity = world.create_entity(env_index)
             cart_transform = neo.TransformComponent()
             cart_transform.world_transform.position = neo.Float3(0.0, 0.5, z_offset)
-            if self.enable_rgb_observation:
-                cart_transform.world_transform.scale = neo.Float3(0.36, 0.20, 0.20)
+            cart_transform.world_transform.scale = neo.Float3(0.36, 0.20, 0.20)
             world.set_transform(cart_entity, cart_transform)
             cart_body = neo.RigidBodyComponent()
             cart_body.body_type = neo.RigidBodyType.Dynamic
@@ -649,8 +642,7 @@ class CartpoleTorchVectorEnv:
             pole_entity = world.create_entity(env_index)
             pole_transform = neo.TransformComponent()
             pole_transform.world_transform.position = neo.Float3(0.0, 1.1, z_offset)
-            if self.enable_rgb_observation:
-                pole_transform.world_transform.scale = neo.Float3(0.10, 1.00, 0.10)
+            pole_transform.world_transform.scale = neo.Float3(0.10, 1.00, 0.10)
             world.set_transform(pole_entity, pole_transform)
             pole_body = neo.RigidBodyComponent()
             pole_body.body_type = neo.RigidBodyType.Dynamic
@@ -691,15 +683,14 @@ class CartpoleTorchVectorEnv:
             if not world.upsert_hinge_joint(hinge_joint):
                 raise RuntimeError(f"Failed to author hinge joint for env {env_index}.")
 
-            if self.enable_rgb_observation:
-                self._author_rgb_render_scene(
-                    world,
-                    env_index,
-                    base_entity,
-                    cart_entity,
-                    pole_entity,
-                    z_offset,
-                )
+            self._author_rgb_render_scene(
+                world,
+                env_index,
+                base_entity,
+                cart_entity,
+                pole_entity,
+                z_offset,
+            )
 
             authored.append(
                 _CartpoleIds(
@@ -803,17 +794,16 @@ class CartpoleTorchVectorEnv:
         )
         self._shared_handles.append(self.hinge_joint_buffer)
 
-        if self.enable_rgb_observation:
-            pixel_count = self.env_count * self.image_width * self.image_height
-            self.rgb_observation_buffer, self.rgb_observation_tensor = _create_buffer(
-                self.runtime,
-                "Cartpole.RgbObservations",
-                pixel_count,
-                neo.SharedBufferTensorDTypeCode.Float,
-                element_stride_bytes=16,
-                shape=[self.env_count, self.image_height, self.image_width, 4],
-            )
-            self._shared_handles.append(self.rgb_observation_buffer)
+        pixel_count = self.env_count * self.image_width * self.image_height
+        self.rgb_observation_buffer, self.rgb_observation_tensor = _create_buffer(
+            self.runtime,
+            "Cartpole.RgbObservations",
+            pixel_count,
+            neo.SharedBufferTensorDTypeCode.Float,
+            element_stride_bytes=16,
+            shape=[self.env_count, self.image_height, self.image_width, 4],
+        )
+        self._shared_handles.append(self.rgb_observation_buffer)
 
     def _populate_lookup_buffers(self) -> None:
         rigid_body_slots = {
@@ -1009,32 +999,31 @@ class CartpoleTorchVectorEnv:
         if not self._reset_pass.is_valid():
             raise RuntimeError("Failed to create cartpole reset pass.")
 
-        if self.enable_rgb_observation:
-            render_desc = neo.CustomComputePassDesc()
-            render_desc.debug_name = "Cartpole.RgbObservation"
-            render_desc.shader_source = _CARTPOLE_RGB_SHADER
-            render_desc.thread_group_size_x = 8
-            render_desc.thread_group_size_y = 8
-            render_desc.resource_bindings = [neo.CustomComputeResourceBindingDesc() for _ in range(2)]
-            render_desc.resource_bindings[0].shader_variable_name = "g_ColorTarget"
-            render_desc.resource_bindings[0].render_target_binding = neo.GpuRenderTargetBinding()
-            render_desc.resource_bindings[0].render_target_binding.target = self._rgb_render_target
-            render_desc.resource_bindings[0].render_target_binding.first_layer = 0
-            render_desc.resource_bindings[0].render_target_binding.layer_count = self.env_count
-            render_desc.resource_bindings[0].render_target_texture_plane = (
-                neo.GpuRenderTargetTexturePlane.Color
-            )
-            render_desc.resource_bindings[0].access = neo.CustomComputeResourceAccess.ReadOnly
-            render_desc.resource_bindings[1].shader_variable_name = "g_ColorObservation"
-            render_desc.resource_bindings[1].shared_buffer_handle = self.rgb_observation_buffer
-            render_desc.resource_bindings[1].access = neo.CustomComputeResourceAccess.ReadWrite
-            render_desc.dispatch.mode = neo.CustomComputeDispatchMode.ExplicitGroupCount
-            render_desc.dispatch.group_count_x = (self.image_width + 7) // 8
-            render_desc.dispatch.group_count_y = (self.image_height + 7) // 8
-            render_desc.dispatch.group_count_z = self.env_count
-            self._rgb_render_pass = self.runtime.create_custom_compute_pass(render_desc)
-            if not self._rgb_render_pass.is_valid():
-                raise RuntimeError("Failed to create cartpole RGB observation pass.")
+        render_desc = neo.CustomComputePassDesc()
+        render_desc.debug_name = "Cartpole.RgbObservation"
+        render_desc.shader_source = _CARTPOLE_RGB_SHADER
+        render_desc.thread_group_size_x = 8
+        render_desc.thread_group_size_y = 8
+        render_desc.resource_bindings = [neo.CustomComputeResourceBindingDesc() for _ in range(2)]
+        render_desc.resource_bindings[0].shader_variable_name = "g_ColorTarget"
+        render_desc.resource_bindings[0].render_target_binding = neo.GpuRenderTargetBinding()
+        render_desc.resource_bindings[0].render_target_binding.target = self._rgb_render_target
+        render_desc.resource_bindings[0].render_target_binding.first_layer = 0
+        render_desc.resource_bindings[0].render_target_binding.layer_count = self.env_count
+        render_desc.resource_bindings[0].render_target_texture_plane = (
+            neo.GpuRenderTargetTexturePlane.Color
+        )
+        render_desc.resource_bindings[0].access = neo.CustomComputeResourceAccess.ReadOnly
+        render_desc.resource_bindings[1].shader_variable_name = "g_ColorObservation"
+        render_desc.resource_bindings[1].shared_buffer_handle = self.rgb_observation_buffer
+        render_desc.resource_bindings[1].access = neo.CustomComputeResourceAccess.ReadWrite
+        render_desc.dispatch.mode = neo.CustomComputeDispatchMode.ExplicitGroupCount
+        render_desc.dispatch.group_count_x = (self.image_width + 7) // 8
+        render_desc.dispatch.group_count_y = (self.image_height + 7) // 8
+        render_desc.dispatch.group_count_z = self.env_count
+        self._rgb_render_pass = self.runtime.create_custom_compute_pass(render_desc)
+        if not self._rgb_render_pass.is_valid():
+            raise RuntimeError("Failed to create cartpole RGB observation pass.")
 
     def reset(self, env_ids: "torch.Tensor | list[int] | None" = None) -> "torch.Tensor":
         if env_ids is None:
@@ -1108,8 +1097,6 @@ class CartpoleTorchVectorEnv:
         )
 
     def render(self) -> "torch.Tensor":
-        if not self.enable_rgb_observation:
-            raise RuntimeError("RGB observations were not enabled for this cartpole env.")
         self.runtime.step_visual_sensors(self._frame)
         if not self.runtime.execute_custom_compute_pass(self._rgb_render_pass):
             raise RuntimeError("Failed to execute cartpole RGB observation pass.")

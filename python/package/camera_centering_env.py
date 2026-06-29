@@ -268,10 +268,12 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         action_scale_pitch_degrees: float = 2.0,
         base_yaw_degrees: float = 0.0,
         base_pitch_degrees: float = -12.5,
-        reset_yaw_range_degrees: float = 10.0,
-        reset_pitch_range_degrees: float = 3.0,
+        reset_yaw_min_degrees: float = -16.0,
+        reset_yaw_max_degrees: float = 16.0,
+        reset_pitch_min_degrees: float = -6.5,
+        reset_pitch_max_degrees: float = 30.0,
         min_pitch_degrees: float = -35.0,
-        max_pitch_degrees: float = 10.0,
+        max_pitch_degrees: float = 35.0,
         success_center_threshold: float = 0.06,
         image_width: int = 128,
         image_height: int = 128,
@@ -282,10 +284,20 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         self.action_scale_pitch = math.radians(action_scale_pitch_degrees)
         self.base_yaw = math.radians(base_yaw_degrees)
         self.base_pitch = math.radians(base_pitch_degrees)
-        self.reset_yaw_range = math.radians(reset_yaw_range_degrees)
-        self.reset_pitch_range = math.radians(reset_pitch_range_degrees)
         self.min_pitch = math.radians(min_pitch_degrees)
         self.max_pitch = math.radians(max_pitch_degrees)
+        self.reset_yaw_min = math.radians(reset_yaw_min_degrees)
+        self.reset_yaw_max = math.radians(reset_yaw_max_degrees)
+        self.reset_pitch_min = math.radians(reset_pitch_min_degrees)
+        self.reset_pitch_max = math.radians(reset_pitch_max_degrees)
+        if self.reset_yaw_min > self.reset_yaw_max:
+            raise ValueError("reset_yaw_min_degrees must be <= reset_yaw_max_degrees.")
+        if self.reset_pitch_min > self.reset_pitch_max:
+            raise ValueError("reset_pitch_min_degrees must be <= reset_pitch_max_degrees.")
+        self.reset_pitch_min = max(self.reset_pitch_min, self.min_pitch)
+        self.reset_pitch_max = min(self.reset_pitch_max, self.max_pitch)
+        if self.reset_pitch_min > self.reset_pitch_max:
+            raise ValueError("Reset pitch range does not overlap the allowed pitch limits.")
         self.success_center_threshold = success_center_threshold
         self.image_width = image_width
         self.image_height = image_height
@@ -728,15 +740,8 @@ class CameraCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
             device=self.base_camera_angles_tensor.device,
             dtype=self.base_camera_angles_tensor.dtype,
         )
-        sampled_angles[:, 0].uniform_(
-            self.base_yaw - self.reset_yaw_range,
-            self.base_yaw + self.reset_yaw_range,
-        )
-        sampled_angles[:, 1].uniform_(
-            self.base_pitch - self.reset_pitch_range,
-            self.base_pitch + self.reset_pitch_range,
-        )
-        sampled_angles[:, 1].clamp_(self.min_pitch, self.max_pitch)
+        sampled_angles[:, 0].uniform_(self.reset_yaw_min, self.reset_yaw_max)
+        sampled_angles[:, 1].uniform_(self.reset_pitch_min, self.reset_pitch_max)
         self.base_camera_angles_tensor[env_indices] = sampled_angles
 
     def _render_rgb_observation(self) -> None:
