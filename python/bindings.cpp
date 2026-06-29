@@ -260,8 +260,8 @@ std::vector<std::int64_t> makeCompactStrides(const std::vector<std::int64_t> &sh
     return strides;
 }
 
-py::capsule exportSharedBufferToDLPack(Runtime &runtime, const SharedBufferHandle handle,
-                                       const SharedBufferTensorDesc &desc)
+py::object exportSharedBufferToDLPack(Runtime &runtime, const SharedBufferHandle handle,
+                                      const SharedBufferTensorDesc &desc)
 {
     SharedBufferCudaView view{};
     if (!runtime.tryGetSharedBufferCudaView(handle, view) || !view.isValid())
