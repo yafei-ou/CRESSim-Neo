@@ -186,6 +186,8 @@ public:
     const SoftRenderDataHost &softRenderData() const noexcept;
     const ShapeMatchingDataHost &shapeMatchingData() const noexcept;
     void setSoftRenderData(const SoftRenderDataHost &data);
+    std::uint32_t validateSoftRenderSkinningAgainstActiveEdges(
+        std::vector<std::uint32_t> *outVertexComponents = nullptr) noexcept;
     const CurveRenderDataHost &curveRenderData() const noexcept;
     void setCurveRenderData(const CurveRenderDataHost &data);
     void ensureDerivedStateUpToDate() const noexcept;

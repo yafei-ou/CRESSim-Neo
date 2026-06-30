@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <optional>
 #include <sstream>
 #include <type_traits>
@@ -572,6 +573,49 @@ void clearDirtyIndices(std::vector<std::uint32_t> &dirtyIndices,
     }
     dirtyIndices.clear();
 }
+
+class DisjointSet
+{
+public:
+    explicit DisjointSet(std::uint32_t count)
+        : mParents(count)
+    {
+        for (std::uint32_t index = 0u; index < count; ++index)
+        {
+            mParents[index] = index;
+        }
+    }
+
+    std::uint32_t find(std::uint32_t index) noexcept
+    {
+        std::uint32_t root = index;
+        while (root < mParents.size() && mParents[root] != root)
+        {
+            root = mParents[root];
+        }
+
+        while (index < mParents.size() && mParents[index] != index)
+        {
+            const std::uint32_t parent = mParents[index];
+            mParents[index]            = root;
+            index                      = parent;
+        }
+        return root;
+    }
+
+    void unite(std::uint32_t lhs, std::uint32_t rhs) noexcept
+    {
+        const std::uint32_t lhsRoot = find(lhs);
+        const std::uint32_t rhsRoot = find(rhs);
+        if (lhsRoot != rhsRoot)
+        {
+            mParents[rhsRoot] = lhsRoot;
+        }
+    }
+
+private:
+    std::vector<std::uint32_t> mParents;
+};
 
 } // namespace
 
@@ -3249,6 +3293,158 @@ void PhysicsWorld::setSoftRenderData(const SoftRenderDataHost &data)
     mImpl->recomputeSoftBodyBoundsChunkCount();
     ++mImpl->mSoftTopologyRevision;
     ++mImpl->mAuthoredRevision;
+}
+
+std::uint32_t PhysicsWorld::validateSoftRenderSkinningAgainstActiveEdges(
+    std::vector<std::uint32_t> *outVertexComponents) noexcept
+{
+    mImpl->ensureRebuildDomainsUpToDate(PhysicsRebuildFlags::SoftParticleLayout |
+                                         PhysicsRebuildFlags::SoftConstraintData);
+    const std::uint32_t particleCount = static_cast<std::uint32_t>(mImpl->mParticles.size());
+    if (outVertexComponents != nullptr)
+    {
+        outVertexComponents->assign(mImpl->mSoftRenderData.vertexBindings.size(),
+                                    std::numeric_limits<std::uint32_t>::max());
+    }
+    if (particleCount == 0u || mImpl->mSoftEdges.empty() ||
+        mImpl->mSoftRenderData.vertexBindings.empty())
+    {
+        return 0u;
+    }
+
+    DisjointSet components(particleCount);
+    for (const SoftEdge &edge : mImpl->mSoftEdges)
+    {
+        if (edge.particleA >= particleCount || edge.particleB >= particleCount ||
+            (edge.flags & Edge_Active) == 0u || (edge.flags & Edge_Disabled) != 0u)
+        {
+            continue;
+        }
+
+        components.unite(edge.particleA, edge.particleB);
+    }
+
+    std::uint32_t rejectedWeightCount = 0u;
+    for (std::uint32_t vertexIndex = 0u;
+         vertexIndex < static_cast<std::uint32_t>(mImpl->mSoftRenderData.vertexBindings.size());
+         ++vertexIndex)
+    {
+        struct ComponentSupport
+        {
+            std::uint32_t component = std::numeric_limits<std::uint32_t>::max();
+            float weight            = 0.0f;
+        };
+
+        SoftRenderVertexBinding &binding = mImpl->mSoftRenderData.vertexBindings[vertexIndex];
+        std::array<ComponentSupport, 4u> supports{};
+        std::uint32_t supportCount = 0u;
+        for (std::uint32_t slot = 0u; slot < 4u; ++slot)
+        {
+            const float weight = binding.weights[slot];
+            const std::uint32_t particleIndex = binding.particleIndices[slot];
+            if (weight <= 0.0f || particleIndex >= particleCount)
+            {
+                continue;
+            }
+
+            const std::uint32_t component = components.find(particleIndex);
+            std::uint32_t supportSlot = supportCount;
+            for (std::uint32_t index = 0u; index < supportCount; ++index)
+            {
+                if (supports[index].component == component)
+                {
+                    supportSlot = index;
+                    break;
+                }
+            }
+
+            if (supportSlot == supportCount)
+            {
+                supports[supportCount].component = component;
+                supports[supportCount].weight = 0.0f;
+                ++supportCount;
+            }
+            supports[supportSlot].weight += weight;
+        }
+
+        std::uint32_t dominantComponent = std::numeric_limits<std::uint32_t>::max();
+        float dominantSupport = -1.0f;
+        for (std::uint32_t index = 0u; index < supportCount; ++index)
+        {
+            if (supports[index].weight > dominantSupport)
+            {
+                dominantSupport = supports[index].weight;
+                dominantComponent = supports[index].component;
+            }
+        }
+
+        if (outVertexComponents != nullptr && vertexIndex < outVertexComponents->size())
+        {
+            (*outVertexComponents)[vertexIndex] = dominantComponent;
+        }
+
+        if (dominantComponent == std::numeric_limits<std::uint32_t>::max())
+        {
+            continue;
+        }
+
+        std::uint32_t fallbackParticle = 0u;
+        bool hasFallbackParticle       = false;
+        float weightSum                = 0.0f;
+        bool changed                   = false;
+        for (std::uint32_t slot = 0u; slot < 4u; ++slot)
+        {
+            const std::uint32_t particleIndex = binding.particleIndices[slot];
+            float &weight                     = binding.weights[slot];
+            if (weight <= 0.0f)
+            {
+                weight = 0.0f;
+                continue;
+            }
+
+            if (particleIndex >= particleCount ||
+                components.find(particleIndex) != dominantComponent)
+            {
+                weight = 0.0f;
+                ++rejectedWeightCount;
+                changed = true;
+                continue;
+            }
+
+            if (!hasFallbackParticle)
+            {
+                fallbackParticle    = particleIndex;
+                hasFallbackParticle = true;
+            }
+            weightSum += weight;
+        }
+
+        if (changed && weightSum > 1.0e-8f)
+        {
+            const float inverseWeightSum = 1.0f / weightSum;
+            binding.weights.x *= inverseWeightSum;
+            binding.weights.y *= inverseWeightSum;
+            binding.weights.z *= inverseWeightSum;
+            binding.weights.w *= inverseWeightSum;
+        }
+        else if (changed)
+        {
+            if (!hasFallbackParticle)
+            {
+                continue;
+            }
+            binding.particleIndices =
+                Diligent::uint4{fallbackParticle, fallbackParticle, fallbackParticle,
+                                fallbackParticle};
+            binding.weights = Diligent::float4{1.0f, 0.0f, 0.0f, 0.0f};
+        }
+    }
+
+    if (rejectedWeightCount > 0u)
+    {
+        ++mImpl->mSoftTopologyRevision;
+    }
+    return rejectedWeightCount;
 }
 
 const CurveRenderDataHost &PhysicsWorld::curveRenderData() const noexcept

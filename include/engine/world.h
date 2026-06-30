@@ -217,6 +217,7 @@ public:
     const graphics::GpuEntitySceneView &gpuEntityScene() const noexcept;
     graphics::HostSceneView hostSceneView() const noexcept;
     void ensureRenderStateUpToDate(const graphics::RenderResourceManager &resources);
+    bool setRenderableMeshResource(common::EntityId entityId, graphics::MeshHandle mesh);
     const std::unordered_map<common::EntityId, UltrasoundProbeComponent> &
     ultrasoundProbeComponents() const noexcept;
     const std::unordered_map<common::EntityId, UltrasoundRendererComponent> &

@@ -332,6 +332,56 @@ MeshResourceDesc makeSurfaceMeshResource(const SurfaceMeshData &surface, const c
     return mesh;
 }
 
+std::uint32_t filterSurfaceMeshTrianglesByComponent(
+    MeshResourceDesc &surfaceMesh, const std::vector<std::uint32_t> &originalIndices,
+    const std::vector<std::uint32_t> &vertexComponents)
+{
+    if (originalIndices.empty() || vertexComponents.empty())
+    {
+        return 0u;
+    }
+
+    constexpr std::uint32_t kInvalidComponent = UINT32_MAX;
+    std::vector<std::uint32_t> filteredIndices;
+    filteredIndices.reserve(originalIndices.size());
+    std::uint32_t culledTriangleCount = 0u;
+
+    for (std::size_t triangle = 0u; triangle + 2u < originalIndices.size(); triangle += 3u)
+    {
+        const std::uint32_t i0 = originalIndices[triangle + 0u];
+        const std::uint32_t i1 = originalIndices[triangle + 1u];
+        const std::uint32_t i2 = originalIndices[triangle + 2u];
+        if (i0 >= vertexComponents.size() || i1 >= vertexComponents.size() ||
+            i2 >= vertexComponents.size())
+        {
+            filteredIndices.push_back(i0);
+            filteredIndices.push_back(i1);
+            filteredIndices.push_back(i2);
+            continue;
+        }
+
+        const std::uint32_t c0 = vertexComponents[i0];
+        const std::uint32_t c1 = vertexComponents[i1];
+        const std::uint32_t c2 = vertexComponents[i2];
+        if (c0 == kInvalidComponent || c1 == kInvalidComponent || c2 == kInvalidComponent ||
+            (c0 == c1 && c1 == c2))
+        {
+            filteredIndices.push_back(i0);
+            filteredIndices.push_back(i1);
+            filteredIndices.push_back(i2);
+            continue;
+        }
+
+        ++culledTriangleCount;
+    }
+
+    if (surfaceMesh.indices != filteredIndices)
+    {
+        surfaceMesh.indices = std::move(filteredIndices);
+    }
+    return culledTriangleCount;
+}
+
 ParticleBounds computeRotatedParticleBounds(const std::vector<Diligent::float3> &particles,
                                             const Diligent::QuaternionF &rotation)
 {
@@ -888,10 +938,6 @@ int main(int argc, char **argv)
             if (arg == "--enable-cutting-tool")
             {
                 options.enableCuttingTool = true;
-                options.showCutEdges = true;
-                options.drawConstraintEdges = true;
-                options.showDebugParticles = true;
-                options.debugParticlesExplicit = true;
                 continue;
             }
             if (arg == "--tool-radius")
@@ -914,10 +960,6 @@ int main(int argc, char **argv)
             {
                 options.instantCut = true;
                 options.enableCuttingTool = true;
-                options.showCutEdges = true;
-                options.drawConstraintEdges = true;
-                options.showDebugParticles = true;
-                options.debugParticlesExplicit = true;
                 continue;
             }
             if (arg == "--show-cut-edges")
@@ -1188,10 +1230,17 @@ int main(int argc, char **argv)
                          " edges. Disabled/cut edges are skipped by the XPBD distance solve.\n");
     }
 
-    if (!options.drawConstraintEdges && !surfaceMesh.surfaceRestPositions.empty())
+    MeshHandle surfaceShellMesh{};
+    MeshResourceDesc surfaceShellMeshResource{};
+    std::vector<std::uint32_t> surfaceShellOriginalIndices;
+    const bool surfaceShellActive =
+        !options.drawConstraintEdges && !surfaceMesh.surfaceRestPositions.empty();
+    if (surfaceShellActive)
     {
-        const MeshHandle surfaceShellMesh = resources.registerMesh(
-            makeSurfaceMeshResource(surfaceMesh, "MeshfreeDebug.CubeSurfaceShellMesh"));
+        surfaceShellMeshResource =
+            makeSurfaceMeshResource(surfaceMesh, "MeshfreeDebug.CubeSurfaceShellMesh");
+        surfaceShellOriginalIndices = surfaceShellMeshResource.indices;
+        surfaceShellMesh = resources.registerMesh(surfaceShellMeshResource);
         world.setMeshRenderer(softEntity,
                               MeshRendererComponent{surfaceShellMesh, surfaceShellMaterial, true});
     }
@@ -1275,12 +1324,19 @@ int main(int argc, char **argv)
                                                     makeCuttingToolTransform(tool));
         }
     };
-    callbacks.afterTick = [&options, &viewerDesc](const cressim::neo::common::FrameContext &frame,
-                                                  Runtime &callbackRuntime)
+    callbacks.afterTick = [&options, &viewerDesc, &resources, softEntity, &surfaceShellMesh,
+                           surfaceShellActive, &surfaceShellMeshResource,
+                           &surfaceShellOriginalIndices](
+                              const cressim::neo::common::FrameContext &frame,
+                              Runtime &callbackRuntime)
     {
-        if ((options.drawConstraintEdges || options.disableEdgeTest ||
-             options.disableEdgeRegion || options.enableFracture || options.enableCuttingTool) &&
-            (frame.frameIndex == 1u || (frame.frameIndex % 120u) == 0u))
+        const bool hasMutableEdges =
+            options.disableEdgeTest || options.disableEdgeRegion || options.enableFracture ||
+            options.enableCuttingTool;
+        const bool shouldLog = frame.frameIndex == 1u || (frame.frameIndex % 120u) == 0u;
+        const bool shouldRefreshCutSurface = hasMutableEdges && (frame.frameIndex % 4u) == 0u;
+        if ((options.drawConstraintEdges || hasMutableEdges) &&
+            (shouldLog || shouldRefreshCutSurface))
         {
             auto &physicsWorld = callbackRuntime.getWorld().physicsWorld();
             SoftEdgeToolCounters counters{};
@@ -1292,10 +1348,52 @@ int main(int argc, char **argv)
                 return;
             }
 
-            logCuttingToolDebug(physicsWorld.cuttingTool());
-            logEdgeDebugStats("Meshfree XPBD GPU edge state",
-                              computeEdgeDebugStats(physicsWorld));
-            logSoftEdgeToolCounters(counters);
+            std::vector<std::uint32_t> surfaceVertexComponents;
+            const std::uint32_t rejectedSurfaceWeights =
+                hasMutableEdges
+                    ? physicsWorld.validateSoftRenderSkinningAgainstActiveEdges(
+                          surfaceShellActive ? &surfaceVertexComponents : nullptr)
+                    : 0u;
+            std::uint32_t culledSurfaceTriangles = 0u;
+            if (surfaceShellActive && !surfaceVertexComponents.empty() &&
+                !surfaceShellOriginalIndices.empty())
+            {
+                const std::vector<std::uint32_t> beforeIndices = surfaceShellMeshResource.indices;
+                culledSurfaceTriangles = filterSurfaceMeshTrianglesByComponent(
+                    surfaceShellMeshResource, surfaceShellOriginalIndices, surfaceVertexComponents);
+                if (surfaceShellMeshResource.indices != beforeIndices)
+                {
+                    MeshHandle filteredSurfaceMesh = resources.registerMesh(surfaceShellMeshResource);
+                    if (callbackRuntime.getWorld().setRenderableMeshResource(
+                            softEntity, filteredSurfaceMesh))
+                    {
+                        surfaceShellMesh = filteredSurfaceMesh;
+                    }
+                    else
+                    {
+                        CRESSIM_LOG_WARNING("Failed to switch cut surface mesh resource.\n");
+                    }
+                }
+            }
+            if (shouldLog)
+            {
+                logCuttingToolDebug(physicsWorld.cuttingTool());
+                logEdgeDebugStats("Meshfree XPBD GPU edge state",
+                                  computeEdgeDebugStats(physicsWorld));
+                logSoftEdgeToolCounters(counters);
+                if (rejectedSurfaceWeights > 0u)
+                {
+                    CRESSIM_LOG_INFO("Topology-aware skinning rejected ",
+                                     rejectedSurfaceWeights,
+                                     " cross-component surface weights.\n");
+                }
+                if (culledSurfaceTriangles > 0u)
+                {
+                    CRESSIM_LOG_INFO("Topology-aware surface culling removed ",
+                                     culledSurfaceTriangles,
+                                     " cross-component triangles.\n");
+                }
+            }
         }
 
         if (viewerDesc.statsIntervalFrames == 0u ||
