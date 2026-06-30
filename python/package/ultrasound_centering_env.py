@@ -298,6 +298,35 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 """
 
 
+_ULTRASOUND_CENTERING_RGB_SHADER = r"""
+#include "include/structured_buffer_compat.hlsli"
+
+Texture2DArray<float4> g_ColorTarget;
+CRESSIM_RW_STRUCTURED_BUFFER(float4, g_ColorObservation);
+
+[numthreads(8, 8, 1)]
+void main(uint3 dispatchThreadID : SV_DispatchThreadID)
+{
+    uint width = 0u;
+    uint height = 0u;
+    uint layers = 0u;
+    g_ColorTarget.GetDimensions(width, height, layers);
+
+    const uint x = dispatchThreadID.x;
+    const uint y = dispatchThreadID.y;
+    const uint envIndex = dispatchThreadID.z;
+    if (x >= width || y >= height || envIndex >= layers)
+    {
+        return;
+    }
+
+    const uint pixelIndex = envIndex * width * height + y * width + x;
+    CRESSIM_SB_STORE(g_ColorObservation, pixelIndex,
+                     saturate(g_ColorTarget.Load(int4(int(x), int(y), int(envIndex), 0))));
+}
+"""
+
+
 def _probe_orientation() -> neo.Quaternion:
     angle = 0.5 * math.pi
     quat = neo.Quaternion()
@@ -327,9 +356,12 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         reset_depth_range: float = 0.06,
         lateral_move_range: float = 0.22,
         depth_move_range: float = 0.22,
-        success_center_threshold: float = 0.10,
-        success_slice_threshold: float = 0.20,
+        success_center_threshold: float = 0.05,
+        success_slice_threshold: float = 0.10,
         dark_sphere_radius: float = 0.12,
+        enable_rgb_observation: bool = False,
+        render_width: int = 256,
+        render_height: int = 256,
         debug_logging: bool = False,
     ) -> None:
         super().__init__(env_count)
@@ -349,6 +381,9 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         self.success_center_threshold = success_center_threshold
         self.success_slice_threshold = success_slice_threshold
         self.dark_sphere_radius = dark_sphere_radius
+        self.enable_rgb_observation = enable_rgb_observation
+        self.render_width = max(1, int(render_width))
+        self.render_height = max(1, int(render_height))
         self.debug_logging = debug_logging
 
         config = neo.RuntimeConfig()
@@ -376,6 +411,10 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         self._reset_probe_state_centers: list[tuple[float, float]] = []
         self._ultrasound_render_target = neo.GpuRenderTargetHandle()
         self._ultrasound_probe_layout = neo.UltrasoundProbeLayout()
+        self._rgb_render_target = neo.GpuRenderTargetHandle()
+
+        if self.enable_rgb_observation:
+            self._initialize_rgb_observation_resources()
 
         self._author_scene(self.runtime.world())
         self.runtime.prepare()
@@ -396,6 +435,55 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
             dtype=self.current_frame_tensor.dtype,
         )
         self.reset()
+
+    def _initialize_rgb_observation_resources(self) -> None:
+        resources = self.runtime.resources()
+        target_desc = neo.GpuRenderTargetDesc()
+        target_desc.width = self.render_width
+        target_desc.height = self.render_height
+        target_desc.array_size = self.env_count
+        target_desc.color = True
+        target_desc.depth = True
+        target_desc.color_format = neo.TextureFormat.RGBA8UnormSrgb
+        target_desc.layered_rendering = True
+        target_desc.shader_readable = True
+        target_desc.debug_name = "UltrasoundCentering.RgbObservationTarget"
+        self._rgb_render_target = self.runtime.create_render_target(target_desc)
+        if not self.runtime.is_valid_render_target(self._rgb_render_target):
+            raise RuntimeError("Failed to create ultrasound-centering RGB render target.")
+
+        self._rgb_soft_mesh = resources.register_mesh(
+            neo.make_box_mesh(
+                neo.Float3(0.225, 0.225, 0.225),
+                "UltrasoundCentering.RenderSoftBody",
+            )
+        )
+        self._rgb_ground_mesh = resources.register_mesh(
+            neo.make_box_mesh(
+                neo.Float3(2.0, 0.05, 2.0),
+                "UltrasoundCentering.RenderGround",
+            )
+        )
+        lateral_span = max(
+            (self.probe_num_scanlines - 1) * self.probe_scanline_spacing,
+            0.04,
+        )
+        self._rgb_probe_mesh = resources.register_mesh(
+            neo.make_box_mesh(
+                neo.Float3(0.5 * (lateral_span + 0.04), 0.06, 0.04),
+                "UltrasoundCentering.RenderProbe",
+            )
+        )
+
+    def _make_material(
+        self, debug_name: str, base_color: neo.Float3, roughness: float
+    ) -> neo.MaterialHandle:
+        material_desc = neo.MaterialResourceDesc()
+        material_desc.debug_name = debug_name
+        material_desc.base_color = base_color
+        material_desc.metallic = 0.0
+        material_desc.roughness = roughness
+        return self.runtime.resources().register_material(material_desc)
 
     def _author_scene(self, world: neo.World) -> None:
         probe_orientation = _probe_orientation()
@@ -437,7 +525,36 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         if not self.runtime.is_valid_render_target(self._ultrasound_render_target):
             raise RuntimeError("Failed to create layered ultrasound render target.")
 
+        ground_material = None
+        soft_material = None
+        probe_material = None
+        if self.enable_rgb_observation:
+            ground_material = self._make_material(
+                "UltrasoundCentering.GroundMaterial",
+                neo.Float3(0.70, 0.73, 0.78),
+                0.92,
+            )
+            soft_material = self._make_material(
+                "UltrasoundCentering.SoftMaterial",
+                neo.Float3(0.82, 0.54, 0.47),
+                0.68,
+            )
+            probe_material = self._make_material(
+                "UltrasoundCentering.ProbeMaterial",
+                neo.Float3(0.22, 0.27, 0.33),
+                0.34,
+            )
+
         for env_index in range(self.env_count):
+            if self.enable_rgb_observation:
+                light_entity = world.create_entity(env_index)
+                light = neo.DirectionalLightComponent()
+                light.direction = neo.Float3(-0.30, -1.0, 0.18)
+                light.color = neo.Float3(1.0, 1.0, 1.0)
+                light.intensity = 7.5
+                light.casts_shadows = True
+                world.set_directional_light(light_entity, light)
+
             ground_entity = world.create_entity(env_index)
             ground_transform = neo.TransformComponent()
             ground_transform.world_transform.position = neo.Float3(0.0, ground_center_y, 0.0)
@@ -452,11 +569,25 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
             ground_collider.shape_params = neo.Float4(2.0, 0.05, 2.0, 0.0)
             ground_collider.friction = 2.5
             world.add_collider(ground_entity, ground_collider)
+            if self.enable_rgb_observation:
+                ground_renderer = neo.MeshRendererComponent()
+                ground_renderer.mesh = self._rgb_ground_mesh
+                ground_renderer.material = ground_material
+                ground_renderer.segmentation_id = 100 + env_index
+                ground_renderer.visible = True
+                world.set_mesh_renderer(ground_entity, ground_renderer)
 
             soft_entity = world.create_entity(env_index)
             soft_transform = neo.TransformComponent()
             soft_transform.world_transform.position = neo.Float3(0.0, soft_spawn_y, 0.0)
             world.set_transform(soft_entity, soft_transform)
+            if self.enable_rgb_observation:
+                soft_renderer = neo.MeshRendererComponent()
+                soft_renderer.mesh = self._rgb_soft_mesh
+                soft_renderer.material = soft_material
+                soft_renderer.segmentation_id = 200 + env_index
+                soft_renderer.visible = True
+                world.set_mesh_renderer(soft_entity, soft_renderer)
             soft = neo.SoftBodyComponent()
             soft.source.kind = neo.SoftBodySourceKind.RegularGrid
             soft.source.regular_grid.size = soft_size
@@ -558,12 +689,50 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
             renderer.output.binding.first_layer = env_index
             renderer.output.binding.layer_count = 1
             world.set_ultrasound_renderer(probe_entity, renderer)
+            if self.enable_rgb_observation:
+                probe_renderer = neo.MeshRendererComponent()
+                probe_renderer.mesh = self._rgb_probe_mesh
+                probe_renderer.material = probe_material
+                probe_renderer.segmentation_id = 300 + env_index
+                probe_renderer.visible = True
+                world.set_mesh_renderer(probe_entity, probe_renderer)
             self._probe_entities.append(probe_entity)
             self._probe_pose_slots.append(world.entity_pose_slot(probe_entity))
             self._probe_base_positions.append((0.0, probe_height, 0.0, 0.0))
             self._probe_base_orientations.append(
                 (probe_orientation.x, probe_orientation.y, probe_orientation.z, probe_orientation.w)
             )
+
+            if self.enable_rgb_observation:
+                self._author_rgb_camera(world, env_index)
+
+    def _author_rgb_camera(self, world: neo.World, env_index: int) -> None:
+        camera_entity = world.create_entity(env_index)
+        camera_transform = neo.TransformComponent()
+        camera_transform.world_transform.position = neo.Float3(0.0, 1.6, -2.8)
+        tilt = neo.Quaternion()
+        tilt_angle = math.radians(12.0)
+        tilt.x = math.sin(tilt_angle * 0.5)
+        tilt.y = 0.0
+        tilt.z = 0.0
+        tilt.w = math.cos(tilt_angle * 0.5)
+        camera_transform.world_transform.rotation = tilt
+        world.set_transform(camera_entity, camera_transform)
+
+        camera = neo.CameraComponent()
+        camera.product = neo.CameraProduct.ColorDepth
+        camera.vertical_fov_degrees = 48.0
+        camera.output.mode = neo.RenderOutputMode.ExplicitSurface
+        camera.output.binding = neo.GpuRenderTargetBinding()
+        camera.output.binding.target = self._rgb_render_target
+        camera.output.binding.first_layer = env_index
+        camera.output.binding.layer_count = 1
+        camera.output_width = self.render_width
+        camera.output_height = self.render_height
+        camera.clear_color = True
+        camera.clear_depth = True
+        camera.clear_color_value = neo.Float4(0.03, 0.04, 0.06, 1.0)
+        world.set_camera(camera_entity, camera)
 
     def _build_reset_positions(self, world: neo.World) -> list[tuple[float, float, float, float]]:
         slot_by_entity = {
@@ -747,6 +916,15 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
             element_stride_bytes=16,
             shape=[self._particle_mapping.particle_count, 4],
         )
+        if self.enable_rgb_observation:
+            self.rgb_observation_buffer, self.rgb_observation_tensor = self._register_shared_buffer(
+                self.runtime,
+                "UltrasoundCentering.RgbObservation",
+                self.env_count * self.render_width * self.render_height,
+                neo.SharedBufferTensorDTypeCode.Float,
+                element_stride_bytes=16,
+                shape=[self.env_count, self.render_height, self.render_width, 4],
+            )
 
     def _populate_lookup_buffers(self) -> None:
         slot_by_entity = {
@@ -841,6 +1019,9 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
                 self.reset_positions_buffer,
             ],
         )
+        if self.enable_rgb_observation:
+            self.rgb_observation_tensor.zero_()
+            self._sync_from_cuda(self.runtime, [self.rgb_observation_buffer])
 
     def _create_custom_passes(self) -> None:
         def bind(
@@ -1008,6 +1189,29 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         obs_desc.dispatch.group_count_z = self.env_count
         self._observation_pass = self._register_custom_pass(self.runtime, obs_desc)
 
+        if self.enable_rgb_observation:
+            rgb_desc = neo.CustomComputePassDesc()
+            rgb_desc.debug_name = "UltrasoundCentering.RgbObservation"
+            rgb_desc.shader_source = _ULTRASOUND_CENTERING_RGB_SHADER
+            rgb_desc.thread_group_size_x = 8
+            rgb_desc.thread_group_size_y = 8
+            rgb_desc.resource_bindings = [neo.CustomComputeResourceBindingDesc() for _ in range(2)]
+            rgb_desc.resource_bindings[0].shader_variable_name = "g_ColorTarget"
+            rgb_desc.resource_bindings[0].render_target_binding = neo.GpuRenderTargetBinding()
+            rgb_desc.resource_bindings[0].render_target_binding.target = self._rgb_render_target
+            rgb_desc.resource_bindings[0].render_target_binding.first_layer = 0
+            rgb_desc.resource_bindings[0].render_target_binding.layer_count = self.env_count
+            rgb_desc.resource_bindings[0].render_target_texture_plane = neo.GpuRenderTargetTexturePlane.Color
+            rgb_desc.resource_bindings[0].access = neo.CustomComputeResourceAccess.ReadOnly
+            rgb_desc.resource_bindings[1].shader_variable_name = "g_ColorObservation"
+            rgb_desc.resource_bindings[1].shared_buffer_handle = self.rgb_observation_buffer
+            rgb_desc.resource_bindings[1].access = neo.CustomComputeResourceAccess.ReadWrite
+            rgb_desc.dispatch.mode = neo.CustomComputeDispatchMode.ExplicitGroupCount
+            rgb_desc.dispatch.group_count_x = (self.render_width + 7) // 8
+            rgb_desc.dispatch.group_count_y = (self.render_height + 7) // 8
+            rgb_desc.dispatch.group_count_z = self.env_count
+            self._rgb_render_pass = self._register_custom_pass(self.runtime, rgb_desc)
+
     def _sample_reset_probe_state(self, env_indices: torch.Tensor) -> None:
         sampled = torch.empty(
             (env_indices.numel(), 2),
@@ -1142,7 +1346,18 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         )
 
     def render(self) -> torch.Tensor:
-        return self.observation_tensor
+        if not self.enable_rgb_observation:
+            raise RuntimeError("RGB observations were not enabled for this ultrasound env.")
+        self.runtime.step_visual_sensors(self._frame)
+        if not self.runtime.execute_custom_compute_pass(self._rgb_render_pass):
+            raise RuntimeError("Failed to execute ultrasound RGB observation pass.")
+        self._sync_to_cuda(
+            self.runtime,
+            [self.rgb_observation_buffer],
+            device=self.rgb_observation_tensor.device,
+        )
+        self._end_frame(self.runtime, advance=False)
+        return self.rgb_observation_tensor
 
     def close(self) -> None:
         self.close_runtime(getattr(self, "runtime", None))

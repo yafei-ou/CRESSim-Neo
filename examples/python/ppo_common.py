@@ -105,6 +105,52 @@ class ImageContinuousActorCritic(nn.Module):
         return mean, std, value
 
 
+class ChannelsFirstImageContinuousActorCritic(nn.Module):
+    MODEL_KIND = "cnn_channels_first"
+
+    def __init__(
+        self,
+        observation_dim: int | tuple[int, ...],
+        action_dim: int,
+        hidden_dim: int = 128,
+    ) -> None:
+        super().__init__()
+        self.observation_shape = _normalize_observation_shape(observation_dim)
+        if len(self.observation_shape) != 3:
+            raise ValueError(
+                "ChannelsFirstImageContinuousActorCritic expects observation_dim=(channels, height, width)."
+            )
+        channels, height, width = self.observation_shape
+        self.action_dim = action_dim
+        self.encoder = nn.Sequential(
+            nn.Conv2d(channels, 32, kernel_size=5, stride=2, padding=2),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Flatten(),
+        )
+        with torch.no_grad():
+            dummy = torch.zeros(1, channels, height, width)
+            encoded_dim = int(self.encoder(dummy).shape[1])
+        self.backbone = nn.Sequential(
+            nn.Linear(encoded_dim, hidden_dim),
+            nn.ReLU(),
+        )
+        self.policy_mean = nn.Linear(hidden_dim, action_dim)
+        self.value_head = nn.Linear(hidden_dim, 1)
+        self.log_std = nn.Parameter(torch.full((action_dim,), -0.5))
+
+    def forward(self, observation: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        encoded = self.encoder(observation.contiguous())
+        features = self.backbone(encoded)
+        mean = self.policy_mean(features)
+        std = self.log_std.exp().unsqueeze(0).expand_as(mean)
+        value = self.value_head(features).squeeze(-1)
+        return mean, std, value
+
+
 @dataclass
 class PPOTrainConfig:
     name: str
@@ -165,6 +211,10 @@ def _build_model(
         return ContinuousActorCritic(observation_dim, action_dim, hidden_dim=hidden_dim)
     if model_kind == ImageContinuousActorCritic.MODEL_KIND:
         return ImageContinuousActorCritic(observation_dim, action_dim, hidden_dim=hidden_dim)
+    if model_kind == ChannelsFirstImageContinuousActorCritic.MODEL_KIND:
+        return ChannelsFirstImageContinuousActorCritic(
+            observation_dim, action_dim, hidden_dim=hidden_dim
+        )
     raise ValueError(f"Unsupported PPO model kind: {model_kind}")
 
 
@@ -193,7 +243,10 @@ def reshape_env_action(action: torch.Tensor, action_dim: int) -> torch.Tensor:
     return action
 
 
-def create_live_figure(initial_rgb: "torch.Tensor") -> tuple[object, object]:
+def create_live_figure(
+    initial_rgb: "torch.Tensor",
+    initial_observation: "torch.Tensor | None" = None,
+) -> tuple[object, object, object | None]:
     try:
         import matplotlib.pyplot as plt
         import numpy as np
@@ -202,24 +255,62 @@ def create_live_figure(initial_rgb: "torch.Tensor") -> tuple[object, object]:
 
     rgb_images = np.clip(initial_rgb[..., :3].detach().cpu().numpy(), 0.0, 1.0)
     env_count = min(rgb_images.shape[0], 4)
-    figure, axes = plt.subplots(1, env_count, figsize=(4 * env_count, 4), squeeze=False)
-    image_artists: list[object] = []
+    show_ultrasound = (
+        initial_observation is not None
+        and initial_observation.ndim == 4
+        and initial_observation.shape[0] >= env_count
+    )
+    row_count = 2 if show_ultrasound else 1
+    figure, axes = plt.subplots(
+        row_count,
+        env_count,
+        figsize=(4 * env_count, 3 * row_count + 1),
+        squeeze=False,
+    )
+    rgb_artists: list[object] = []
+    ultrasound_artists: list[object] = []
+    if show_ultrasound:
+        ultrasound_images = initial_observation[:env_count, -1].detach().cpu().numpy()
     for env_index in range(env_count):
         image_artist = axes[0, env_index].imshow(rgb_images[env_index], animated=True)
-        axes[0, env_index].set_title(f"Env {env_index}")
+        axes[0, env_index].set_title(f"Env {env_index} RGB" if show_ultrasound else f"Env {env_index}")
         axes[0, env_index].axis("off")
-        image_artists.append(image_artist)
+        rgb_artists.append(image_artist)
+        if show_ultrasound:
+            ultrasound_artist = axes[1, env_index].imshow(
+                ultrasound_images[env_index],
+                cmap="gray",
+                vmin=0.0,
+                vmax=1.0,
+                animated=True,
+            )
+            axes[1, env_index].set_title(f"Env {env_index} Ultrasound")
+            axes[1, env_index].axis("off")
+            ultrasound_artists.append(ultrasound_artist)
     figure.tight_layout()
     plt.show(block=False)
-    return figure, np.asarray(image_artists, dtype=object)
+    return (
+        figure,
+        np.asarray(rgb_artists, dtype=object),
+        np.asarray(ultrasound_artists, dtype=object) if show_ultrasound else None,
+    )
 
 
-def update_live_figure(image_artists: object, rgb_tensor: "torch.Tensor") -> None:
+def update_live_figure(
+    rgb_artists: object,
+    rgb_tensor: "torch.Tensor",
+    observation_tensor: "torch.Tensor | None" = None,
+    ultrasound_artists: object | None = None,
+) -> None:
     import numpy as np
 
     rgb_images = np.clip(rgb_tensor[..., :3].detach().cpu().numpy(), 0.0, 1.0)
-    for env_index, image_artist in enumerate(image_artists.tolist()):
+    for env_index, image_artist in enumerate(rgb_artists.tolist()):
         image_artist.set_data(rgb_images[env_index])
+    if observation_tensor is not None and ultrasound_artists is not None:
+        ultrasound_images = observation_tensor[: len(ultrasound_artists), -1].detach().cpu().numpy()
+        for env_index, ultrasound_artist in enumerate(ultrasound_artists.tolist()):
+            ultrasound_artist.set_data(ultrasound_images[env_index])
 
 
 def train_ppo_continuous(
@@ -443,7 +534,7 @@ def run_inference_continuous(
     try:
         observation = env.reset()
         rgb = env.render()
-        figure, image_artists = create_live_figure(rgb)
+        figure, rgb_artists, ultrasound_artists = create_live_figure(rgb, observation)
 
         while plt.fignum_exists(figure.number):
             with torch.no_grad():
@@ -461,7 +552,7 @@ def run_inference_continuous(
                 observation[done_indices] = reset_observation[done_indices]
 
             rgb = env.render()
-            update_live_figure(image_artists, rgb)
+            update_live_figure(rgb_artists, rgb, observation, ultrasound_artists)
             figure.canvas.draw_idle()
             plt.pause(frame_interval)
     finally:
