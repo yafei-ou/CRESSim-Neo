@@ -191,7 +191,7 @@ bool SharedBufferService::isAccessCompatible(const SharedBufferHandle handle,
     case SharedBufferAccess::ReadOnly:
         return access == SharedBufferAccess::ReadOnly;
     case SharedBufferAccess::WriteOnly:
-        return access != SharedBufferAccess::ReadOnly;
+        return access == SharedBufferAccess::WriteOnly;
     case SharedBufferAccess::ReadWrite:
         return true;
     }

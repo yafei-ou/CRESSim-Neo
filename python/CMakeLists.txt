@@ -31,6 +31,18 @@ pybind11_add_module(${TARGET_NAME} MODULE
     bindings.cpp
 )
 
+set(CRESSIM_NEO_PYTHON_RUNTIME_TARGETS
+    cressim_neo_engine
+)
+if(NOT ENGINE_STATIC)
+    list(APPEND CRESSIM_NEO_PYTHON_RUNTIME_TARGETS
+        cressim_neo_common
+        cressim_neo_graphics
+        cressim_neo_physics
+        cressim_neo_gpu
+    )
+endif()
+
 target_include_directories(${TARGET_NAME} PRIVATE
     ${PROJECT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/include
@@ -39,7 +51,7 @@ target_include_directories(${TARGET_NAME} PRIVATE
 )
 
 target_link_libraries(${TARGET_NAME} PRIVATE
-    cressim_neo_engine
+    ${CRESSIM_NEO_PYTHON_RUNTIME_TARGETS}
 )
 
 set_target_properties(${TARGET_NAME}
@@ -49,6 +61,20 @@ set_target_properties(${TARGET_NAME}
     LIBRARY_OUTPUT_DIRECTORY "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
     RUNTIME_OUTPUT_DIRECTORY "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
 )
+
+if(APPLE)
+    set_target_properties(${TARGET_NAME}
+        PROPERTIES
+        BUILD_RPATH "@loader_path"
+        INSTALL_RPATH "@loader_path"
+    )
+elseif(UNIX)
+    set_target_properties(${TARGET_NAME}
+        PROPERTIES
+        BUILD_RPATH "$ORIGIN"
+        INSTALL_RPATH "$ORIGIN"
+    )
+endif()
 
 execute_process(
     COMMAND ${Python3_EXECUTABLE} -c
@@ -97,6 +123,14 @@ install(
     LIBRARY DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
     RUNTIME DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
 )
+
+if(NOT ENGINE_STATIC)
+    install(
+        TARGETS ${CRESSIM_NEO_PYTHON_RUNTIME_TARGETS}
+        LIBRARY DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
+        RUNTIME DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
+    )
+endif()
 
 install(
     FILES "${CRESSIM_NEO_PYTHON_PACKAGE_INIT}"
@@ -218,7 +252,7 @@ if(CRESSIM_NEO_HAS_ULTRASOUND AND TARGET cru_interface)
     add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "$<TARGET_FILE:cru_interface>"
-            "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/libcru_interface.so"
+            "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/$<TARGET_FILE_NAME:cru_interface>"
     )
 endif()
 
@@ -228,4 +262,14 @@ if(CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH AND EXISTS "${CRESSIM_NEO_PYTHON_D
             "${CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH}"
             "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/${CRESSIM_NEO_PYTHON_DXC_RUNTIME_NAME}"
     )
+endif()
+
+if(NOT ENGINE_STATIC)
+    foreach(CRESSIM_NEO_PYTHON_RUNTIME_TARGET IN LISTS CRESSIM_NEO_PYTHON_RUNTIME_TARGETS)
+        add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:${CRESSIM_NEO_PYTHON_RUNTIME_TARGET}>"
+                "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/$<TARGET_FILE_NAME:${CRESSIM_NEO_PYTHON_RUNTIME_TARGET}>"
+        )
+    endforeach()
 endif()
