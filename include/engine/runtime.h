@@ -18,6 +18,7 @@
 #include "physics/physics_solver.h"
 
 #include <memory>
+#include <string>
 
 namespace cressim::neo::engine
 {
@@ -32,6 +33,16 @@ struct RuntimeConfig
     common::SceneLayoutDesc sceneLayout{};
     graphics::RendererDesc rendererDesc{};
     physics::PhysicsSolverDesc physicsDesc{};
+};
+
+struct RuntimeInfo
+{
+    std::string engineVersion;
+    std::uint32_t engineVersionMajor = 0u;
+    std::uint32_t engineVersionMinor = 0u;
+    std::uint32_t engineVersionPatch = 0u;
+    bool cudaInteropSupported        = false;
+    bool ultrasoundSupported         = false;
 };
 
 class CRESSIM_NEO_ENGINE_API Runtime
@@ -65,6 +76,7 @@ public:
 
     graphics::RenderResourceManager &getResources() noexcept;
     const graphics::RenderResourceManager &getResources() const noexcept;
+    RuntimeInfo getInfo() const noexcept;
 
     // Creates an engine-owned structured GPU buffer that can be bound in custom compute.
     // When CUDA interop is available and the allocation is exportable, the same buffer can

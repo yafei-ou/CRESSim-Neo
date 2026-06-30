@@ -397,6 +397,15 @@ class UltrasoundCenteringTorchVectorEnv(TorchStagedVectorEnvBase):
         config.scene_layout.env_count = env_count
 
         self.runtime = neo.Runtime()
+        runtime_info = self.runtime.get_info()
+        if not runtime_info.cuda_interop_supported:
+            raise RuntimeError(
+                "UltrasoundCenteringTorchVectorEnv requires CUDA interop support in this build."
+            )
+        if not runtime_info.ultrasound_supported:
+            raise RuntimeError(
+                "UltrasoundCenteringTorchVectorEnv requires ultrasound support in this build."
+            )
         if not self.runtime.initialize(config):
             raise RuntimeError("Failed to initialize ultrasound-centering runtime.")
 

@@ -126,6 +126,7 @@ using cressim::neo::engine::RigidParticleAttachmentConstraintLayoutMapping;
 using cressim::neo::engine::RoutedCableConstraintLayoutMapping;
 using cressim::neo::engine::Runtime;
 using cressim::neo::engine::RuntimeConfig;
+using cressim::neo::engine::RuntimeInfo;
 using cressim::neo::engine::SharedBufferAccess;
 using cressim::neo::engine::SharedBufferBindFlags;
 using cressim::neo::engine::SharedBufferCudaView;
@@ -985,6 +986,15 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("scene_layout", &RuntimeConfig::sceneLayout)
         .def_readwrite("renderer_desc", &RuntimeConfig::rendererDesc)
         .def_readwrite("physics_desc", &RuntimeConfig::physicsDesc);
+
+    py::class_<RuntimeInfo>(m, "RuntimeInfo")
+        .def(py::init<>())
+        .def_readwrite("engine_version", &RuntimeInfo::engineVersion)
+        .def_readwrite("engine_version_major", &RuntimeInfo::engineVersionMajor)
+        .def_readwrite("engine_version_minor", &RuntimeInfo::engineVersionMinor)
+        .def_readwrite("engine_version_patch", &RuntimeInfo::engineVersionPatch)
+        .def_readwrite("cuda_interop_supported", &RuntimeInfo::cudaInteropSupported)
+        .def_readwrite("ultrasound_supported", &RuntimeInfo::ultrasoundSupported);
 
     py::class_<MeshHandle>(m, "MeshHandle").def(py::init<>()).def_readwrite("id", &MeshHandle::id);
 
@@ -1905,6 +1915,7 @@ PYBIND11_MODULE(_cressim_neo, m)
             },
             py::arg("config") = py::none())
         .def("shutdown", &Runtime::shutdown)
+        .def("get_info", &Runtime::getInfo)
         .def("prepare", &Runtime::prepare)
         .def("upload_world", &Runtime::uploadWorld)
         .def("create_shared_buffer", &Runtime::createSharedBuffer)

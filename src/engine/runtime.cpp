@@ -5,6 +5,8 @@
 #include "engine/entity_scene_gpu_state.h"
 #include "engine/runtime_internal.h"
 #include "engine/shared_buffer_service.h"
+#include "gpu/cuda_interop.h"
+#include "version.h"
 
 #include <algorithm>
 #include <unordered_map>
@@ -523,6 +525,22 @@ graphics::RenderResourceManager &Runtime::getResources() noexcept
 const graphics::RenderResourceManager &Runtime::getResources() const noexcept
 {
     return mResources;
+}
+
+RuntimeInfo Runtime::getInfo() const noexcept
+{
+    RuntimeInfo info{};
+    info.engineVersion        = CRESSIM_NEO_VERSION;
+    info.engineVersionMajor   = CRESSIM_NEO_VERSION_MAJOR;
+    info.engineVersionMinor   = CRESSIM_NEO_VERSION_MINOR;
+    info.engineVersionPatch   = CRESSIM_NEO_VERSION_PATCH;
+    info.cudaInteropSupported = gpu::CudaSharedBuffer::supportsCudaInteropBuild();
+#if CRESSIM_NEO_HAS_ULTRASOUND
+    info.ultrasoundSupported = true;
+#else
+    info.ultrasoundSupported = false;
+#endif
+    return info;
 }
 
 SharedBufferHandle Runtime::createSharedBuffer(const SharedBufferDesc &desc)
