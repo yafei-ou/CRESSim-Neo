@@ -76,8 +76,19 @@ int main()
     probe.numScanlines = 64u;
     probe.lineLength = 1.5f;
     probe.scanlineSpacing = 0.02f;
-    probe.imageBaseHeight = 128u;
+    engine::UltrasoundRendererComponent renderer{};
+    renderer.outputHeight = 128u;
+    engine::UltrasoundProbeLayout queriedLayout{};
+    if (!runtime.computeUltrasoundProbeLayout(probe, renderer, queriedLayout) ||
+        queriedLayout.imageWidth == 0u || queriedLayout.imageHeight == 0u)
+    {
+        CRESSIM_LOG_WARNING(
+            "Skipping runtime ultrasound staging test because probe layout query failed.");
+        runtime.shutdown();
+        return 0;
+    }
     world.setUltrasoundProbe(probeEntity, probe);
+    world.setUltrasoundRenderer(probeEntity, renderer);
 
     runtime.prepare();
     if (!runtime.uploadWorld())
@@ -90,17 +101,23 @@ int main()
     const engine::UltrasoundProbeResult *preparedResult =
         world.tryGetUltrasoundProbeResult(probeEntity);
     if (preparedResult == nullptr || !preparedResult->prepared ||
-        preparedResult->imageTarget.id == common::kInvalidResourceId)
+        !preparedResult->imageBinding.isValid())
     {
         CRESSIM_LOG_WARNING(
             "Skipping runtime ultrasound staging test because prepared probe outputs are unavailable.");
         runtime.shutdown();
         return 0;
     }
+    if (preparedResult->imageWidth != queriedLayout.imageWidth ||
+        preparedResult->imageHeight != queriedLayout.imageHeight)
+    {
+        CRESSIM_LOG_ERROR("Prepared ultrasound image dimensions did not match queried layout.");
+        runtime.shutdown();
+        return 1;
+    }
 
     const gpu::GpuRenderTargetReadbackRequest request =
-        device->renderTargetSystem().requestRenderTargetReadback(
-            gpu::GpuRenderTargetBinding{preparedResult->imageTarget, 0u, 1u});
+        device->renderTargetSystem().requestRenderTargetReadback(preparedResult->imageBinding);
     if (request.id == 0u)
     {
         CRESSIM_LOG_ERROR("Failed to queue ultrasound readback request before sensor execution.");
@@ -158,8 +175,7 @@ int main()
     }
 
     const gpu::GpuRenderTargetReadbackRequest movedRequest =
-        device->renderTargetSystem().requestRenderTargetReadback(
-            gpu::GpuRenderTargetBinding{executedResult->imageTarget, 0u, 1u});
+        device->renderTargetSystem().requestRenderTargetReadback(executedResult->imageBinding);
     if (movedRequest.id == 0u)
     {
         CRESSIM_LOG_ERROR("Failed to queue ultrasound readback request after moving probe.");
@@ -215,8 +231,7 @@ int main()
     }
 
     const gpu::GpuRenderTargetReadbackRequest rigidMotionRequest =
-        device->renderTargetSystem().requestRenderTargetReadback(
-            gpu::GpuRenderTargetBinding{executedResult->imageTarget, 0u, 1u});
+        device->renderTargetSystem().requestRenderTargetReadback(executedResult->imageBinding);
     if (rigidMotionRequest.id == 0u)
     {
         CRESSIM_LOG_ERROR("Failed to queue ultrasound readback request for rigid-driven probe.");

@@ -96,6 +96,9 @@ public:
     bool removeSuturingSequence(physics::SuturingSequenceId sequenceId);
     void setUltrasoundProbe(common::EntityId entityId, const UltrasoundProbeComponent &component);
     bool removeUltrasoundProbe(common::EntityId entityId);
+    void setUltrasoundRenderer(common::EntityId entityId,
+                               const UltrasoundRendererComponent &component);
+    bool removeUltrasoundRenderer(common::EntityId entityId);
     void setUltrasoundScattererSource(common::EntityId entityId,
                                       const UltrasoundScattererSourceComponent &component);
     bool removeUltrasoundScattererSource(common::EntityId entityId);
@@ -156,6 +159,8 @@ public:
     const physics::AuthoredSuturingSequenceState *tryGetSuturingSequence(
         physics::SuturingSequenceId sequenceId) const noexcept;
     std::optional<UltrasoundProbeComponent> tryGetUltrasoundProbe(common::EntityId entityId) const;
+    std::optional<UltrasoundRendererComponent> tryGetUltrasoundRenderer(
+        common::EntityId entityId) const;
     std::optional<UltrasoundScattererSourceComponent> tryGetUltrasoundScattererSource(
         common::EntityId entityId) const;
     std::optional<SoftBodyAuthoringParticles> tryGetSoftBodyAuthoringParticles(
@@ -206,6 +211,8 @@ public:
     void ensureRenderStateUpToDate(const graphics::RenderResourceManager &resources);
     const std::unordered_map<common::EntityId, UltrasoundProbeComponent> &
     ultrasoundProbeComponents() const noexcept;
+    const std::unordered_map<common::EntityId, UltrasoundRendererComponent> &
+    ultrasoundRendererComponents() const noexcept;
     const std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent> &
     ultrasoundScattererSourceComponents() const noexcept;
     std::uint64_t ultrasoundScattererAmplitudeRevision() const noexcept;
@@ -281,6 +288,7 @@ private:
     std::unordered_map<common::EntityId, PhysicsLink> mPhysicsLinks{};
     std::unordered_map<std::uint32_t, common::EntityId> mColliderOwnerEntity{};
     std::unordered_map<common::EntityId, UltrasoundProbeComponent> mUltrasoundProbes{};
+    std::unordered_map<common::EntityId, UltrasoundRendererComponent> mUltrasoundRenderers{};
     std::unordered_map<common::EntityId, ProceduralDeformableCurveRenderComponent>
         mProceduralDeformableCurveRenders{};
     std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent>

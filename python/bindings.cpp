@@ -139,6 +139,12 @@ using cressim::neo::engine::SoftBodyComponent;
 using cressim::neo::engine::SpotLightComponent;
 using cressim::neo::engine::StrandComponent;
 using cressim::neo::engine::TransformComponent;
+using cressim::neo::engine::UltrasoundAmplitudeRange;
+using cressim::neo::engine::UltrasoundProbeComponent;
+using cressim::neo::engine::UltrasoundProbeLayout;
+using cressim::neo::engine::UltrasoundProbeResult;
+using cressim::neo::engine::UltrasoundRendererComponent;
+using cressim::neo::engine::UltrasoundScattererSourceComponent;
 using cressim::neo::engine::World;
 using cressim::neo::gpu::GpuBackend;
 using cressim::neo::gpu::GpuDeviceDesc;
@@ -747,6 +753,10 @@ PYBIND11_MODULE(_cressim_neo, m)
         .value("ColorDepth", CameraComponent::Product::ColorDepth)
         .value("Depth", CameraComponent::Product::Depth)
         .value("SegmentationDepth", CameraComponent::Product::SegmentationDepth);
+
+    py::enum_<UltrasoundProbeComponent::Geometry>(m, "UltrasoundProbeGeometry")
+        .value("Linear", UltrasoundProbeComponent::Geometry::Linear)
+        .value("Curvilinear", UltrasoundProbeComponent::Geometry::Curvilinear);
 
     py::enum_<CameraComponent::BackgroundMode>(m, "CameraBackgroundMode")
         .value("ClearColor", CameraComponent::BackgroundMode::ClearColor)
@@ -1368,6 +1378,75 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("collision_layer", &FluidComponent::collisionLayer)
         .def_readwrite("collision_mask", &FluidComponent::collisionMask);
 
+    py::class_<UltrasoundProbeComponent>(m, "UltrasoundProbeComponent")
+        .def(py::init<>())
+        .def_readwrite("enabled", &UltrasoundProbeComponent::enabled)
+        .def_readwrite("geometry", &UltrasoundProbeComponent::geometry)
+        .def_readwrite("num_scanlines", &UltrasoundProbeComponent::numScanlines)
+        .def_readwrite("line_length", &UltrasoundProbeComponent::lineLength)
+        .def_readwrite("scanline_spacing", &UltrasoundProbeComponent::scanlineSpacing)
+        .def_readwrite("sector_angle_degrees", &UltrasoundProbeComponent::sectorAngleDegrees)
+        .def_readwrite("probe_radius", &UltrasoundProbeComponent::probeRadius)
+        .def_readwrite("sound_speed", &UltrasoundProbeComponent::soundSpeed)
+        .def_readwrite("world_units_per_meter", &UltrasoundProbeComponent::worldUnitsPerMeter)
+        .def_readwrite("noise_amplitude", &UltrasoundProbeComponent::noiseAmplitude)
+        .def_readwrite("sampling_frequency", &UltrasoundProbeComponent::samplingFrequency)
+        .def_readwrite("demodulation_frequency", &UltrasoundProbeComponent::demodulationFrequency)
+        .def_readwrite("center_frequency", &UltrasoundProbeComponent::centerFrequency)
+        .def_readwrite("fractional_bandwidth", &UltrasoundProbeComponent::fractionalBandwidth)
+        .def_readwrite("beam_sigma_lateral", &UltrasoundProbeComponent::beamSigmaLateral)
+        .def_readwrite("beam_sigma_elevational", &UltrasoundProbeComponent::beamSigmaElevational)
+        .def_readwrite("radial_decimation", &UltrasoundProbeComponent::radialDecimation)
+        .def_readwrite("threads_per_block", &UltrasoundProbeComponent::threadsPerBlock)
+        .def_readwrite("cuda_num_streams", &UltrasoundProbeComponent::cudaNumStreams)
+        .def_readwrite("num_time_samples", &UltrasoundProbeComponent::numTimeSamples)
+        .def_readwrite("use_arc_projection", &UltrasoundProbeComponent::useArcProjection)
+        .def_readwrite("enable_phase_delay", &UltrasoundProbeComponent::enablePhaseDelay);
+
+    py::class_<UltrasoundRendererComponent>(m, "UltrasoundRendererComponent")
+        .def(py::init<>())
+        .def_readwrite("enabled", &UltrasoundRendererComponent::enabled)
+        .def_readwrite("output", &UltrasoundRendererComponent::output)
+        .def_readwrite("output_width", &UltrasoundRendererComponent::outputWidth)
+        .def_readwrite("output_height", &UltrasoundRendererComponent::outputHeight)
+        .def_readwrite("use_fixed_max_normalization",
+                       &UltrasoundRendererComponent::useFixedMaxNormalization)
+        .def_readwrite("fixed_max_signal", &UltrasoundRendererComponent::fixedMaxSignal);
+
+    py::class_<UltrasoundProbeLayout>(m, "UltrasoundProbeLayout")
+        .def(py::init<>())
+        .def_readwrite("num_scanlines", &UltrasoundProbeLayout::numScanlines)
+        .def_readwrite("samples_per_scanline", &UltrasoundProbeLayout::samplesPerScanline)
+        .def_readwrite("image_width", &UltrasoundProbeLayout::imageWidth)
+        .def_readwrite("image_height", &UltrasoundProbeLayout::imageHeight)
+        .def_readwrite("color_format", &UltrasoundProbeLayout::colorFormat)
+        .def_readwrite("layered_output_supported", &UltrasoundProbeLayout::layeredOutputSupported);
+
+    py::class_<UltrasoundAmplitudeRange>(m, "UltrasoundAmplitudeRange")
+        .def(py::init<>())
+        .def(py::init<float, float>(), py::arg("minimum"), py::arg("maximum"))
+        .def_readwrite("minimum", &UltrasoundAmplitudeRange::minimum)
+        .def_readwrite("maximum", &UltrasoundAmplitudeRange::maximum);
+
+    py::class_<UltrasoundScattererSourceComponent>(m, "UltrasoundScattererSourceComponent")
+        .def(py::init<>())
+        .def_readwrite("enabled", &UltrasoundScattererSourceComponent::enabled)
+        .def_readwrite("density", &UltrasoundScattererSourceComponent::density)
+        .def_readwrite("point_distance_override",
+                       &UltrasoundScattererSourceComponent::pointDistanceOverride);
+
+    py::class_<UltrasoundProbeResult>(m, "UltrasoundProbeResult")
+        .def(py::init<>())
+        .def_readwrite("prepared", &UltrasoundProbeResult::prepared)
+        .def_readwrite("completed", &UltrasoundProbeResult::completed)
+        .def_readwrite("completed_frame_index", &UltrasoundProbeResult::completedFrameIndex)
+        .def_readwrite("num_scanlines", &UltrasoundProbeResult::numScanlines)
+        .def_readwrite("samples_per_scanline", &UltrasoundProbeResult::samplesPerScanline)
+        .def_readwrite("total_scatterer_count", &UltrasoundProbeResult::totalScattererCount)
+        .def_readwrite("image_width", &UltrasoundProbeResult::imageWidth)
+        .def_readwrite("image_height", &UltrasoundProbeResult::imageHeight)
+        .def_readwrite("image_binding", &UltrasoundProbeResult::imageBinding);
+
     py::class_<ProceduralDeformableCurveRenderComponent>(m,
                                                          "ProceduralDeformableCurveRenderComponent")
         .def(py::init<>())
@@ -1612,6 +1691,37 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def("set_fluid", &World::setFluid)
         .def("remove_fluid", &World::removeFluid)
         .def("try_get_fluid", &World::tryGetFluid)
+        .def("set_ultrasound_probe", &World::setUltrasoundProbe)
+        .def("remove_ultrasound_probe", &World::removeUltrasoundProbe)
+        .def("try_get_ultrasound_probe", &World::tryGetUltrasoundProbe)
+        .def("set_ultrasound_renderer", &World::setUltrasoundRenderer)
+        .def("remove_ultrasound_renderer", &World::removeUltrasoundRenderer)
+        .def("try_get_ultrasound_renderer", &World::tryGetUltrasoundRenderer)
+        .def("set_ultrasound_scatterer_source", &World::setUltrasoundScattererSource)
+        .def("remove_ultrasound_scatterer_source", &World::removeUltrasoundScattererSource)
+        .def("try_get_ultrasound_scatterer_source", &World::tryGetUltrasoundScattererSource)
+        .def("set_ultrasound_scatterer_amplitude_ranges",
+             &World::setUltrasoundScattererAmplitudeRanges)
+        .def("clear_ultrasound_scatterer_amplitude_ranges",
+             &World::clearUltrasoundScattererAmplitudeRanges)
+        .def("try_get_ultrasound_scatterer_amplitude_ranges",
+             [](const World &world, const cressim::neo::common::EntityId entityId) -> py::object
+             {
+                 if (const auto *ranges = world.tryGetUltrasoundScattererAmplitudeRanges(entityId))
+                 {
+                     return py::cast(*ranges);
+                 }
+                 return py::none();
+             })
+        .def("try_get_ultrasound_probe_result",
+             [](const World &world, const cressim::neo::common::EntityId entityId) -> py::object
+             {
+                 if (const auto *result = world.tryGetUltrasoundProbeResult(entityId))
+                 {
+                     return py::cast(*result);
+                 }
+                 return py::none();
+             })
         .def("upsert_particle_sequence", &World::upsertParticleSequence,
              py::return_value_policy::reference_internal)
         .def("remove_particle_sequence", &World::removeParticleSequence)
@@ -1913,7 +2023,20 @@ PYBIND11_MODULE(_cressim_neo, m)
                  }
                  return device->renderTargetSystem().requestRenderTargetReadback(binding);
              })
-        .def("try_get_render_target_readback", &tryGetRenderTargetReadback);
+        .def("try_get_render_target_readback", &tryGetRenderTargetReadback)
+        .def(
+            "compute_ultrasound_probe_layout",
+            [](const Runtime &runtime, const UltrasoundProbeComponent &probe,
+               const UltrasoundRendererComponent &renderer)
+            {
+                UltrasoundProbeLayout layout{};
+                if (!runtime.computeUltrasoundProbeLayout(probe, renderer, layout))
+                {
+                    throw std::runtime_error("Failed to compute ultrasound probe layout.");
+                }
+                return layout;
+            },
+            py::arg("probe"), py::arg("renderer"));
 
     m.def("make_cube_mesh", &cressim::neo::examples::helpers::makeCubeMesh, py::arg("half_extent"),
           py::arg("debug_name") = "Python.CubeMesh", py::arg("uv_scale") = 1.0f);

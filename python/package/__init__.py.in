@@ -24,6 +24,11 @@ except RuntimeError:
     CameraCenteringTorchVectorEnv = None
 
 try:
+    from .ultrasound_centering_env import UltrasoundCenteringTorchVectorEnv
+except RuntimeError:
+    UltrasoundCenteringTorchVectorEnv = None
+
+try:
     from .soft_body_env import SoftBodyTorchVectorEnv
 except RuntimeError:
     SoftBodyTorchVectorEnv = None

@@ -966,6 +966,15 @@ bool Runtime::tryGetPreparedJointLayoutMapping(JointLayoutMapping &outMapping) c
     return true;
 }
 
+bool Runtime::computeUltrasoundProbeLayout(const UltrasoundProbeComponent &probeComponent,
+                                           const UltrasoundRendererComponent &rendererComponent,
+                                           UltrasoundProbeLayout &outLayout) const
+{
+    outLayout = {};
+    return mInitialized && mUltrasoundSystem != nullptr &&
+           mUltrasoundSystem->computeProbeLayout(probeComponent, rendererComponent, outLayout);
+}
+
 std::vector<CustomComputeResourceDesc> Runtime::listCustomComputeResources()
 {
     if (!mInitialized || mCustomComputeService == nullptr || mPhysicsSolver == nullptr)

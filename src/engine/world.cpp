@@ -424,6 +424,7 @@ bool World::destroyEntity(common::EntityId entityId)
     removeProceduralDeformableCurveRender(entityId);
     removeFluid(entityId);
     removeUltrasoundProbe(entityId);
+    removeUltrasoundRenderer(entityId);
     removeUltrasoundScattererSource(entityId);
 
     auto physIt = mPhysicsLinks.find(entityId);
@@ -1886,6 +1887,28 @@ bool World::removeUltrasoundProbe(common::EntityId entityId)
     return mUltrasoundProbes.erase(entityId) > 0u;
 }
 
+void World::setUltrasoundRenderer(common::EntityId entityId,
+                                  const UltrasoundRendererComponent &component)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("setUltrasoundRenderer requires valid entity id.");
+        return;
+    }
+    if (!requireAliveEntity(entityId, "setUltrasoundRenderer"))
+    {
+        return;
+    }
+
+    mUltrasoundRenderers[entityId] = component;
+}
+
+bool World::removeUltrasoundRenderer(common::EntityId entityId)
+{
+    clearUltrasoundProbeResult(entityId);
+    return mUltrasoundRenderers.erase(entityId) > 0u;
+}
+
 void World::setUltrasoundScattererSource(common::EntityId entityId,
                                          const UltrasoundScattererSourceComponent &component)
 {
@@ -2511,6 +2534,14 @@ std::optional<UltrasoundProbeComponent> World::tryGetUltrasoundProbe(
                                          : std::nullopt;
 }
 
+std::optional<UltrasoundRendererComponent> World::tryGetUltrasoundRenderer(
+    common::EntityId entityId) const
+{
+    const auto it = mUltrasoundRenderers.find(entityId);
+    return it != mUltrasoundRenderers.end() ? std::optional<UltrasoundRendererComponent>{it->second}
+                                            : std::nullopt;
+}
+
 std::optional<UltrasoundScattererSourceComponent> World::tryGetUltrasoundScattererSource(
     common::EntityId entityId) const
 {
@@ -2891,6 +2922,12 @@ const std::unordered_map<common::EntityId, UltrasoundProbeComponent> &World::
     ultrasoundProbeComponents() const noexcept
 {
     return mUltrasoundProbes;
+}
+
+const std::unordered_map<common::EntityId, UltrasoundRendererComponent> &World::
+    ultrasoundRendererComponents() const noexcept
+{
+    return mUltrasoundRenderers;
 }
 
 const std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent> &World::

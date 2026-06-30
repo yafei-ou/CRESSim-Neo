@@ -31,6 +31,7 @@ using cressim::neo::engine::TransformComponent;
 using cressim::neo::engine::UltrasoundAmplitudeRange;
 using cressim::neo::engine::UltrasoundProbeComponent;
 using cressim::neo::engine::UltrasoundProbeResult;
+using cressim::neo::engine::UltrasoundRendererComponent;
 using cressim::neo::engine::UltrasoundScattererSourceComponent;
 using cressim::neo::examples::helpers::CommonExampleOptions;
 using cressim::neo::examples::helpers::ViewerExampleDefaults;
@@ -432,6 +433,7 @@ MeshHandle registerProbeMesh(cressim::neo::graphics::RenderResourceManager &reso
 void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t envCount,
                        MeshHandle planeMesh, MeshHandle boxMesh, MeshHandle probeMesh,
                        const UltrasoundProbeComponent &probeTemplate,
+                       const UltrasoundRendererComponent &rendererTemplate,
                        const SceneMaterials &materials,
                        cressim::neo::common::EntityId &outCameraEntity,
                        cressim::neo::common::EntityId &outProbeEntity,
@@ -534,7 +536,9 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     world.setTransform(probeEntity, probeTransform);
 
     UltrasoundProbeComponent probe = probeTemplate;
+    UltrasoundRendererComponent renderer = rendererTemplate;
     world.setUltrasoundProbe(probeEntity, probe);
+    world.setUltrasoundRenderer(probeEntity, renderer);
     outProbeEntity = probeEntity;
 
     const auto probeVisualEntity = world.createEntity(envIndex);
@@ -654,7 +658,7 @@ bool saveProbeImagesAndQuit(Runtime &runtime,
 
         const GpuRenderTargetReadbackRequest request =
             graphicsDevice->renderTargetSystem().requestRenderTargetReadback(
-                cressim::neo::gpu::GpuRenderTargetBinding{probeResult->imageTarget, 0u, 1u});
+                probeResult->imageBinding);
         if (request.id == 0u)
         {
             CRESSIM_LOG_ERROR("Probe image export failed: could not queue readback for probe entity ",
@@ -822,9 +826,10 @@ int main(int argc, char **argv)
     probeDefaults.worldUnitsPerMeter   = 10.0f;
     probeDefaults.beamSigmaLateral     = 0.001f;
     probeDefaults.beamSigmaElevational = 0.001f;
-    probeDefaults.imageBaseHeight      = 0u;
-    probeDefaults.imageUseFixedMaxNormalization = false;
-    probeDefaults.imageFixedMaxSignal  = 10.0f;
+    UltrasoundRendererComponent rendererDefaults{};
+    rendererDefaults.outputHeight = 0u;
+    rendererDefaults.useFixedMaxNormalization = false;
+    rendererDefaults.fixedMaxSignal = 10.0f;
     if (probeType == ExampleProbeType::Curvilinear)
     {
         probeDefaults.geometry = UltrasoundProbeComponent::Geometry::Curvilinear;
@@ -860,7 +865,8 @@ int main(int argc, char **argv)
         cressim::neo::common::EntityId probeVisualEntity =
             cressim::neo::common::kInvalidEntityId;
         authorEnvironment(runtime, envIndex, options.envCount, planeMesh, boxMesh, probeMesh,
-                          probeDefaults, materials, cameraEntity, probeEntity, probeVisualEntity);
+                          probeDefaults, rendererDefaults, materials, cameraEntity, probeEntity,
+                          probeVisualEntity);
         if (envIndex == 0u)
         {
             primaryCamera = cameraEntity;

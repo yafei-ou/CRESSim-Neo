@@ -6,19 +6,33 @@ cbuffer UltrasoundImageConstants
     uint g_SamplesPerLine;
     uint g_ImageWidth;
     uint g_ImageHeight;
-    float g_LineLength;
-    float g_ScanlineSpacing;
+    uint g_OutputLayer;
     float g_FixedMaxSignal;
     uint g_UseFixedMaxNormalization;
     float g_SectorAngleRadians;
     float g_ProbeRadiusPixels;
-    float g_Padding0;
-    float g_Padding1;
+    uint g_Padding0;
+    uint g_Padding1;
+    uint g_Padding2;
 };
 
 CRESSIM_STRUCTURED_BUFFER(float2, g_RfData);
 StructuredBuffer<float> g_FinalMax;
+
+#if CRESSIM_ULTRASOUND_LAYERED_OUTPUT
+RWTexture2DArray<float4> g_OutputImageRW;
+#else
 RWTexture2D<float4> g_OutputImageRW;
+#endif
+
+void storeOutput(uint2 pixel, float4 value)
+{
+#if CRESSIM_ULTRASOUND_LAYERED_OUTPUT
+    g_OutputImageRW[int3(pixel, g_OutputLayer)] = value;
+#else
+    g_OutputImageRW[pixel] = value;
+#endif
+}
 
 float sampleMagnitude(uint scanline, uint sampleIndex)
 {
@@ -44,7 +58,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     if (g_NumScanlines == 0u || g_SamplesPerLine == 0u || g_ImageWidth == 0u || g_ImageHeight == 0u)
     {
-        g_OutputImageRW[dispatchThreadID.xy] = float4(0.0, 0.0, 0.0, 1.0);
+        storeOutput(dispatchThreadID.xy, float4(0.0, 0.0, 0.0, 1.0));
         return;
     }
 
@@ -64,7 +78,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         radius < g_ProbeRadiusPixels ||
         radius > g_ProbeRadiusPixels + float(g_SamplesPerLine))
     {
-        g_OutputImageRW[dispatchThreadID.xy] = float4(0.0, 0.0, 0.0, 1.0);
+        storeOutput(dispatchThreadID.xy, float4(0.0, 0.0, 0.0, 1.0));
         return;
     }
 
@@ -72,7 +86,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const int sampleIdx = int(floor(distanceToOrigin));
     if (sampleIdx < 0 || sampleIdx >= int(g_SamplesPerLine))
     {
-        g_OutputImageRW[dispatchThreadID.xy] = float4(0.0, 0.0, 0.0, 1.0);
+        storeOutput(dispatchThreadID.xy, float4(0.0, 0.0, 0.0, 1.0));
         return;
     }
 
@@ -96,5 +110,5 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         ? max(g_FixedMaxSignal, 1.0e-6f)
         : max(g_FinalMax[0], 1.0e-6f);
     const float gray = saturate(magnitude / maxMagnitude);
-    g_OutputImageRW[dispatchThreadID.xy] = float4(gray, gray, gray, 1.0f);
+    storeOutput(dispatchThreadID.xy, float4(gray, gray, gray, 1.0f));
 }

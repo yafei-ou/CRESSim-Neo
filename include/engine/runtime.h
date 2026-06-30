@@ -118,6 +118,10 @@ public:
     // exposed after uploadWorld().
     bool tryGetPreparedJointLayoutMapping(JointLayoutMapping &outMapping) const;
 
+    bool computeUltrasoundProbeLayout(const UltrasoundProbeComponent &probeComponent,
+                                      const UltrasoundRendererComponent &rendererComponent,
+                                      UltrasoundProbeLayout &outLayout) const;
+
     std::vector<CustomComputeResourceDesc> listCustomComputeResources();
     CustomComputePassHandle createCustomComputePass(const CustomComputePassDesc &desc);
     bool updateCustomComputePassConstants(CustomComputePassHandle handle,
