@@ -21,7 +21,7 @@ using cressim::neo::graphics::MeshResourceDesc;
 void tick(Runtime& runtime, FrameContext& frame)
 {
     runtime.prepare();
-    const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+    const bool physicsStepSucceeded = runtime.uploadWorld() && runtime.stepPhysics(frame);
     if (physicsStepSucceeded)
     {
         (void)runtime.stepSimulationSensors(frame);

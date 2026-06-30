@@ -9,7 +9,6 @@
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Sampler.h"
-
 #include <array>
 #include <cstdint>
 #include <unordered_map>
@@ -32,23 +31,23 @@ private:
         std::uint32_t outputMode             = 0u;
         std::uint32_t toneMapper             = 0u;
         std::uint32_t sourceIsDisplayEncoded = 0u;
-        std::uint32_t sourceKind             = 0u;
-        std::uint32_t reserved0              = 0u;
-        std::uint32_t reserved1              = 0u;
-        std::uint32_t reserved2              = 0u;
         std::array<float, 4> resolveParams{1.0f, 0.0f, 0.0f, 0.0f};
     };
-    static_assert(sizeof(ResolveConstants) == 48u,
+    static_assert(sizeof(ResolveConstants) == 32u,
                   "Display resolve constants must match the shader constant buffer layout.");
 
     struct PipelineKey
     {
         Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_UNKNOWN;
         Diligent::TEXTURE_FORMAT depthFormat = Diligent::TEX_FORMAT_UNKNOWN;
+        RenderFrameOptions::PresentedExplicitOutput::SourceKind sourceKind =
+            RenderFrameOptions::PresentedExplicitOutput::SourceKind::Color;
+        bool sourceIsArray = false;
 
         bool operator==(const PipelineKey &rhs) const noexcept
         {
-            return colorFormat == rhs.colorFormat && depthFormat == rhs.depthFormat;
+            return colorFormat == rhs.colorFormat && depthFormat == rhs.depthFormat &&
+                   sourceKind == rhs.sourceKind && sourceIsArray == rhs.sourceIsArray;
         }
     };
 

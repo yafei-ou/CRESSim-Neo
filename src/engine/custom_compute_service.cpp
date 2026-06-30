@@ -1,0 +1,1069 @@
+#include "engine/custom_compute_service.h"
+
+#include "common/logger.h"
+#include "engine/shared_buffer_service.h"
+#include "gpu/gpu_device.h"
+#include "gpu/gpu_types.h"
+#include "gpu/shader_library.h"
+#include "graphics/gpu_scene.h"
+#include "physics/physics_gpu_scene_view.h"
+#include "physics/physics_solver.h"
+#include "physics/physics_world.h"
+
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/Buffer.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/DeviceContext.h"
+#include "DiligentEngine/DiligentCore/Graphics/GraphicsEngine/interface/GraphicsTypes.h"
+
+#include <algorithm>
+#include <cstring>
+#include <utility>
+
+namespace cressim::neo::engine
+{
+
+namespace
+{
+
+struct BufferBindingEntry
+{
+    std::string variableName;
+    Diligent::IBuffer *buffer           = nullptr;
+    Diligent::BUFFER_VIEW_TYPE viewType = Diligent::BUFFER_VIEW_UNDEFINED;
+};
+
+struct TextureBindingEntry
+{
+    std::string variableName;
+    Diligent::ITextureView *view = nullptr;
+};
+
+bool bindBufferVariable(Diligent::IShaderResourceBinding *srb, const BufferBindingEntry &binding)
+{
+    if (srb == nullptr || binding.buffer == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::IShaderResourceVariable *variable =
+        srb->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, binding.variableName.c_str());
+    if (variable == nullptr)
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: shader variable not found: '",
+                          binding.variableName, "'.");
+        return false;
+    }
+
+    if (binding.viewType == Diligent::BUFFER_VIEW_UNDEFINED)
+    {
+        variable->Set(binding.buffer);
+    }
+    else
+    {
+        Diligent::IBufferView *view = binding.buffer->GetDefaultView(binding.viewType);
+        if (view != nullptr)
+        {
+            variable->Set(view);
+        }
+        else
+        {
+            variable->Set(binding.buffer);
+        }
+    }
+    return true;
+}
+
+bool bindTextureVariable(Diligent::IShaderResourceBinding *srb, const TextureBindingEntry &binding)
+{
+    if (srb == nullptr || binding.view == nullptr)
+    {
+        return false;
+    }
+
+    Diligent::IShaderResourceVariable *variable =
+        srb->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE, binding.variableName.c_str());
+    if (variable == nullptr)
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: shader variable not found: '",
+                          binding.variableName, "'.");
+        return false;
+    }
+
+    variable->Set(binding.view);
+    return true;
+}
+
+bool isSameRenderTargetDesc(const gpu::GpuRenderTargetDesc &lhs,
+                            const gpu::GpuRenderTargetDesc &rhs) noexcept
+{
+    return lhs.width == rhs.width && lhs.height == rhs.height && lhs.arraySize == rhs.arraySize &&
+           lhs.color == rhs.color && lhs.depth == rhs.depth &&
+           lhs.layeredRendering == rhs.layeredRendering && lhs.colorFormat == rhs.colorFormat &&
+           lhs.depthFormat == rhs.depthFormat && lhs.shaderReadable == rhs.shaderReadable &&
+           lhs.unorderedAccess == rhs.unorderedAccess;
+}
+
+} // namespace
+
+struct CustomComputeService::ResourceEntry
+{
+    CustomComputeResourceDesc desc{};
+    Diligent::IBuffer *buffer = nullptr;
+};
+
+struct CustomComputeService::ExpectedRenderTargetBindingState
+{
+    std::string variableName;
+    gpu::GpuRenderTargetBinding binding{};
+    gpu::GpuRenderTargetTexturePlane plane = gpu::GpuRenderTargetTexturePlane::Color;
+    gpu::GpuRenderTargetDesc desc{};
+};
+
+struct CustomComputeService::PassState
+{
+    CustomComputePassDesc desc{};
+    gpu::GpuComputePass pass{};
+    std::vector<std::string> variableNames;
+    std::vector<Diligent::ShaderResourceVariableDesc> variables;
+    std::vector<CustomComputeResourceBindingDesc> resourceBindings;
+    std::unordered_map<std::string, std::uint64_t> expectedBindingGenerations;
+    std::unordered_map<std::uint64_t, std::uint64_t> expectedSharedBufferGenerations;
+    std::vector<ExpectedRenderTargetBindingState> expectedRenderTargetBindings;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> constantBuffer;
+    std::uint32_t constantBufferSizeBytes = 0u;
+    std::vector<std::uint8_t> constantData;
+    bool readsGraphicsTextures = false;
+};
+
+CustomComputeService::CustomComputeService(gpu::GpuDevice &device) : mDevice(device) {}
+
+CustomComputeService::~CustomComputeService() = default;
+
+std::vector<CustomComputeResourceDesc> CustomComputeService::listResources(
+    physics::PhysicsSolver &solver, physics::PhysicsWorld &world,
+    const graphics::GpuEntitySceneView &scene)
+{
+    std::vector<CustomComputeResourceDesc> resources;
+    ResourceMap resourceMap;
+    if (!buildResourceRegistry(solver, world, scene, resourceMap, &resources))
+    {
+        return {};
+    }
+    return resources;
+}
+
+CustomComputePassHandle CustomComputeService::createPass(physics::PhysicsSolver &solver,
+                                                         physics::PhysicsWorld &world,
+                                                         const graphics::GpuEntitySceneView &scene,
+                                                         const SharedBufferService *sharedBuffers,
+                                                         const CustomComputePassDesc &desc)
+{
+    CustomComputePassHandle handle{};
+    const bool hasShaderPath   = !desc.shaderPath.empty();
+    const bool hasShaderSource = !desc.shaderSource.empty();
+    if (hasShaderPath == hasShaderSource)
+    {
+        CRESSIM_LOG_ERROR(
+            "CustomComputeService: createPass requires exactly one of shaderPath or shaderSource.");
+        return handle;
+    }
+    if (desc.resourceBindings.empty())
+    {
+        CRESSIM_LOG_ERROR(
+            "CustomComputeService: createPass requires at least one resource binding.");
+        return handle;
+    }
+    if (desc.threadGroupSizeX == 0u || desc.threadGroupSizeY == 0u || desc.threadGroupSizeZ == 0u)
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: threadgroup sizes must be non-zero.");
+        return handle;
+    }
+    if (desc.dispatch.mode == CustomComputeDispatchMode::ExplicitGroupCount &&
+        (desc.dispatch.groupCountX == 0u || desc.dispatch.groupCountY == 0u ||
+         desc.dispatch.groupCountZ == 0u))
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: explicit dispatch group counts must be non-zero.");
+        return handle;
+    }
+    if (desc.dispatch.mode == CustomComputeDispatchMode::ResourceElementCount &&
+        desc.dispatch.countResourceKey.empty())
+    {
+        CRESSIM_LOG_ERROR(
+            "CustomComputeService: resource-count dispatch requires countResourceKey.");
+        return handle;
+    }
+    if (desc.constantBufferVariableName.empty() &&
+        (desc.constantBufferSizeBytes != 0u || !desc.constantData.empty()))
+    {
+        CRESSIM_LOG_ERROR(
+            "CustomComputeService: constants require constantBufferVariableName to be set.");
+        return handle;
+    }
+
+    gpu::GpuComputeBackendContext computeBackend{};
+    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+        computeBackend.renderDevice == nullptr || computeBackend.computeContext == nullptr)
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: physics compute backend is unavailable.");
+        return handle;
+    }
+
+    ResourceMap resources;
+    if (!buildResourceRegistry(solver, world, scene, resources, nullptr))
+    {
+        return handle;
+    }
+
+    auto passState              = std::make_unique<PassState>();
+    passState->desc             = desc;
+    passState->resourceBindings = desc.resourceBindings;
+
+    passState->variableNames.reserve(desc.resourceBindings.size() +
+                                     (desc.constantBufferVariableName.empty() ? 0u : 1u));
+    for (const CustomComputeResourceBindingDesc &binding : desc.resourceBindings)
+    {
+        const bool hasResourceKey         = !binding.resourceKey.empty();
+        const bool hasSharedBuffer        = binding.sharedBufferHandle.isValid();
+        const bool hasRenderTargetTexture = binding.renderTargetBinding.isValid();
+        const std::uint32_t sourceCount   = static_cast<std::uint32_t>(hasResourceKey) +
+                                            static_cast<std::uint32_t>(hasSharedBuffer) +
+                                            static_cast<std::uint32_t>(hasRenderTargetTexture);
+        if (binding.shaderVariableName.empty() || sourceCount != 1u)
+        {
+            CRESSIM_LOG_ERROR("CustomComputeService: each binding requires shaderVariableName and "
+                              "exactly one of resourceKey, sharedBufferHandle, or "
+                              "renderTargetBinding.");
+            return handle;
+        }
+        if (hasResourceKey)
+        {
+            const auto resourceIt = resources.find(binding.resourceKey);
+            if (resourceIt == resources.end())
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: unknown resource key '",
+                                  binding.resourceKey, "'.");
+                return handle;
+            }
+            if (!isAccessCompatible(binding.access, resourceIt->second.desc.access))
+            {
+                CRESSIM_LOG_ERROR(
+                    "CustomComputeService: binding access is not allowed for resource '",
+                    binding.resourceKey, "'.");
+                return handle;
+            }
+
+            passState->expectedBindingGenerations[binding.resourceKey] =
+                resourceIt->second.desc.bindingGeneration;
+        }
+        else if (hasSharedBuffer)
+        {
+            if (sharedBuffers == nullptr)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: shared buffer bindings require a shared "
+                                  "buffer service.");
+                return handle;
+            }
+            if (!sharedBuffers->tryGetBuffer(binding.sharedBufferHandle))
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: invalid shared buffer handle ",
+                                  binding.sharedBufferHandle.id, ".");
+                return handle;
+            }
+            const SharedBufferAccess sharedAccess =
+                binding.access == CustomComputeResourceAccess::ReadOnly
+                    ? SharedBufferAccess::ReadOnly
+                    : (binding.access == CustomComputeResourceAccess::WriteOnly
+                           ? SharedBufferAccess::WriteOnly
+                           : SharedBufferAccess::ReadWrite);
+            if (!sharedBuffers->isAccessCompatible(binding.sharedBufferHandle, sharedAccess))
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: binding access is not allowed for shared "
+                                  "buffer handle ",
+                                  binding.sharedBufferHandle.id, ".");
+                return handle;
+            }
+            passState->expectedSharedBufferGenerations[binding.sharedBufferHandle.id] = 1u;
+        }
+        else
+        {
+            if (binding.access != CustomComputeResourceAccess::ReadOnly)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: render-target texture bindings only "
+                                  "support read-only access in this milestone.");
+                return handle;
+            }
+
+            gpu::GpuRenderTargetDesc targetDesc{};
+            gpu::GpuRenderTargetSystem &renderTargetSystem = mDevice.renderTargetSystem();
+            if (!renderTargetSystem.tryGetRenderTargetDesc(binding.renderTargetBinding.target,
+                                                           targetDesc))
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: invalid render-target handle ",
+                                  binding.renderTargetBinding.target.id, ".");
+                return handle;
+            }
+            if (!targetDesc.shaderReadable)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: render-target binding for variable '",
+                                  binding.shaderVariableName,
+                                  "' requires a shader-readable target.");
+                return handle;
+            }
+            if (binding.renderTargetBinding.layerCount == 0u ||
+                binding.renderTargetBinding.firstLayer + binding.renderTargetBinding.layerCount >
+                    targetDesc.arraySize)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: render-target binding for variable '",
+                                  binding.shaderVariableName, "' has an invalid layer range.");
+                return handle;
+            }
+            if ((binding.renderTargetTexturePlane == gpu::GpuRenderTargetTexturePlane::Color &&
+                 !targetDesc.color) ||
+                (binding.renderTargetTexturePlane == gpu::GpuRenderTargetTexturePlane::Depth &&
+                 !targetDesc.depth))
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: render-target binding for variable '",
+                                  binding.shaderVariableName,
+                                  "' requested an unavailable texture plane.");
+                return handle;
+            }
+            Diligent::ITextureView *textureView = nullptr;
+            if (!renderTargetSystem.tryGetRenderTargetShaderResourceView(
+                    binding.renderTargetBinding, binding.renderTargetTexturePlane, textureView) ||
+                textureView == nullptr)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: render-target shader resource view is "
+                                  "unavailable for variable '",
+                                  binding.shaderVariableName, "'.");
+                return handle;
+            }
+
+            passState->expectedRenderTargetBindings.push_back(ExpectedRenderTargetBindingState{
+                binding.shaderVariableName, binding.renderTargetBinding,
+                binding.renderTargetTexturePlane, targetDesc});
+            passState->readsGraphicsTextures = true;
+        }
+        passState->variableNames.push_back(binding.shaderVariableName);
+    }
+
+    if (desc.dispatch.mode == CustomComputeDispatchMode::ResourceElementCount)
+    {
+        const auto countIt = resources.find(desc.dispatch.countResourceKey);
+        if (countIt == resources.end())
+        {
+            CRESSIM_LOG_ERROR("CustomComputeService: unknown dispatch count resource key '",
+                              desc.dispatch.countResourceKey, "'.");
+            return handle;
+        }
+        passState->expectedBindingGenerations[desc.dispatch.countResourceKey] =
+            countIt->second.desc.bindingGeneration;
+    }
+
+    if (!desc.constantBufferVariableName.empty())
+    {
+        passState->constantBufferSizeBytes = roundUpConstantBufferSize(std::max(
+            desc.constantBufferSizeBytes, static_cast<std::uint32_t>(desc.constantData.size())));
+        if (passState->constantBufferSizeBytes == 0u)
+        {
+            CRESSIM_LOG_ERROR("CustomComputeService: constant buffer size must be non-zero when "
+                              "constants are enabled.");
+            return handle;
+        }
+
+        Diligent::BufferDesc constantsDesc{};
+        constantsDesc.Name =
+            desc.debugName.empty() ? "CRESSimNeo.CustomCompute.Constants" : desc.debugName.c_str();
+        constantsDesc.Size                 = passState->constantBufferSizeBytes;
+        constantsDesc.Usage                = Diligent::USAGE_DYNAMIC;
+        constantsDesc.BindFlags            = Diligent::BIND_UNIFORM_BUFFER;
+        constantsDesc.CPUAccessFlags       = Diligent::CPU_ACCESS_WRITE;
+        constantsDesc.ImmediateContextMask = gpu::contextMaskForId(computeBackend.contextId);
+
+        computeBackend.renderDevice->CreateBuffer(constantsDesc, nullptr,
+                                                  &passState->constantBuffer);
+        if (passState->constantBuffer == nullptr)
+        {
+            CRESSIM_LOG_ERROR("CustomComputeService: failed to create constant buffer.");
+            return handle;
+        }
+        if (!uploadConstantData(*passState, desc.constantData))
+        {
+            return handle;
+        }
+        passState->constantData = desc.constantData;
+    }
+
+    if (!desc.constantBufferVariableName.empty())
+    {
+        passState->variableNames.push_back(desc.constantBufferVariableName);
+    }
+
+    passState->variables.reserve(passState->variableNames.size());
+    for (const std::string &variableName : passState->variableNames)
+    {
+        passState->variables.push_back(Diligent::ShaderResourceVariableDesc{
+            Diligent::SHADER_TYPE_COMPUTE, variableName.c_str(),
+            Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE});
+    }
+
+    gpu::ShaderLibrary shaderLibrary(mDevice.shaderSourceDirectory());
+    Diligent::IShaderSourceInputStreamFactory *streamFactory = shaderLibrary.streamFactory();
+    if (streamFactory == nullptr)
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: shader stream factory is unavailable.");
+        return handle;
+    }
+
+    const std::string shaderName =
+        desc.debugName.empty() ? desc.shaderPath : desc.debugName + ".Shader";
+    const std::string psoName = desc.debugName.empty() ? desc.shaderPath : desc.debugName + ".PSO";
+    gpu::GpuComputePassDefinition definition{};
+    definition.shaderPath    = desc.shaderPath.c_str();
+    definition.shaderSource  = desc.shaderSource.c_str();
+    definition.shaderName    = shaderName.c_str();
+    definition.entryPoint    = desc.entryPoint.empty() ? "main" : desc.entryPoint.c_str();
+    definition.psoName       = psoName.c_str();
+    definition.variables     = passState->variables.data();
+    definition.variableCount = passState->variables.size();
+    if (!passState->pass.initialize(mDevice, streamFactory,
+                                    gpu::contextMaskForId(computeBackend.contextId), definition))
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: failed to initialize compute pass for shader '",
+                          desc.shaderPath, "'.");
+        return handle;
+    }
+
+    if (!bindPassResources(*passState, resources, sharedBuffers))
+    {
+        return handle;
+    }
+
+    handle.id          = mNextPassId++;
+    mPasses[handle.id] = std::move(passState);
+    return handle;
+}
+
+bool CustomComputeService::updatePassConstants(CustomComputePassHandle handle,
+                                               const std::vector<std::uint8_t> &data)
+{
+    const auto it = mPasses.find(handle.id);
+    if (it == mPasses.end())
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: invalid pass handle ", handle.id, ".");
+        return false;
+    }
+    if (it->second->constantBuffer == nullptr)
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: pass ", handle.id,
+                          " does not expose a constant buffer.");
+        return false;
+    }
+    if (!uploadConstantData(*it->second, data))
+    {
+        return false;
+    }
+    it->second->constantData = data;
+    return true;
+}
+
+bool CustomComputeService::executePass(physics::PhysicsSolver &solver, physics::PhysicsWorld &world,
+                                       const graphics::GpuEntitySceneView &scene,
+                                       const SharedBufferService *sharedBuffers,
+                                       CustomComputePassHandle handle)
+{
+    const auto it = mPasses.find(handle.id);
+    if (it == mPasses.end())
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: invalid pass handle ", handle.id, ".");
+        return false;
+    }
+
+    gpu::GpuComputeBackendContext computeBackend{};
+    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+        computeBackend.computeContext == nullptr)
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: physics compute backend is unavailable.");
+        return false;
+    }
+
+    ResourceMap resources;
+    if (!buildResourceRegistry(solver, world, scene, resources, nullptr))
+    {
+        return false;
+    }
+
+    PassState &pass = *it->second;
+    for (const auto &entry : pass.expectedBindingGenerations)
+    {
+        const auto resourceIt = resources.find(entry.first);
+        if (resourceIt == resources.end())
+        {
+            CRESSIM_LOG_ERROR("CustomComputeService: required resource '", entry.first,
+                              "' is no longer available.");
+            return false;
+        }
+        if (resourceIt->second.desc.bindingGeneration != entry.second)
+        {
+            CRESSIM_LOG_ERROR("CustomComputeService: resource layout changed for '", entry.first,
+                              "'. Recreate the custom compute pass.");
+            return false;
+        }
+    }
+
+    for (const auto &entry : pass.expectedSharedBufferGenerations)
+    {
+        if (sharedBuffers == nullptr ||
+            !sharedBuffers->tryGetBuffer(SharedBufferHandle{entry.first}))
+        {
+            CRESSIM_LOG_ERROR("CustomComputeService: shared buffer handle ", entry.first,
+                              " is no longer available.");
+            return false;
+        }
+    }
+
+    gpu::GpuRenderTargetSystem &renderTargetSystem = mDevice.renderTargetSystem();
+    for (const ExpectedRenderTargetBindingState &entry : pass.expectedRenderTargetBindings)
+    {
+        gpu::GpuRenderTargetDesc targetDesc{};
+        if (!renderTargetSystem.tryGetRenderTargetDesc(entry.binding.target, targetDesc))
+        {
+            CRESSIM_LOG_ERROR("CustomComputeService: render-target handle ",
+                              entry.binding.target.id, " is no longer available.");
+            return false;
+        }
+        if (!isSameRenderTargetDesc(targetDesc, entry.desc))
+        {
+            CRESSIM_LOG_ERROR("CustomComputeService: render-target configuration changed for "
+                              "variable '",
+                              entry.variableName, "'. Recreate the custom compute pass.");
+            return false;
+        }
+        if (!targetDesc.shaderReadable)
+        {
+            CRESSIM_LOG_ERROR("CustomComputeService: render-target for variable '",
+                              entry.variableName, "' is no longer shader-readable.");
+            return false;
+        }
+    }
+
+    if (pass.readsGraphicsTextures && !mDevice.waitForGraphicsOnPhysics())
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: failed to synchronize graphics output before "
+                          "texture-based custom compute dispatch.");
+        return false;
+    }
+
+    if (pass.constantBuffer != nullptr && !uploadConstantData(pass, pass.constantData))
+    {
+        return false;
+    }
+
+    if (!bindPassResources(pass, resources, sharedBuffers))
+    {
+        return false;
+    }
+
+    std::uint32_t groupCountX = pass.desc.dispatch.groupCountX;
+    std::uint32_t groupCountY = pass.desc.dispatch.groupCountY;
+    std::uint32_t groupCountZ = pass.desc.dispatch.groupCountZ;
+    if (pass.desc.dispatch.mode == CustomComputeDispatchMode::ResourceElementCount)
+    {
+        const auto countIt = resources.find(pass.desc.dispatch.countResourceKey);
+        if (countIt == resources.end())
+        {
+            CRESSIM_LOG_ERROR("CustomComputeService: dispatch count resource '",
+                              pass.desc.dispatch.countResourceKey, "' is unavailable.");
+            return false;
+        }
+        if (countIt->second.desc.elementCount == 0u)
+        {
+            return true;
+        }
+        groupCountX = (countIt->second.desc.elementCount + pass.desc.threadGroupSizeX - 1u) /
+                      pass.desc.threadGroupSizeX;
+        groupCountY = 1u;
+        groupCountZ = 1u;
+    }
+
+    Diligent::IShaderResourceBinding *srb   = pass.pass.defaultSrb();
+    Diligent::IPipelineState *pipelineState = pass.pass.pipelineState();
+    if (srb == nullptr || pipelineState == nullptr)
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: pass handle ", handle.id,
+                          " is missing pipeline state.");
+        return false;
+    }
+
+    computeBackend.computeContext->SetPipelineState(pipelineState);
+    computeBackend.computeContext->CommitShaderResources(
+        srb, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    computeBackend.computeContext->DispatchCompute(
+        Diligent::DispatchComputeAttribs{groupCountX, groupCountY, groupCountZ});
+    return true;
+}
+
+bool CustomComputeService::destroyPass(CustomComputePassHandle handle)
+{
+    return mPasses.erase(handle.id) != 0u;
+}
+
+void CustomComputeService::clear()
+{
+    mPasses.clear();
+    mNextPassId = 1u;
+}
+
+bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
+                                                 physics::PhysicsWorld &world,
+                                                 const graphics::GpuEntitySceneView &scene,
+                                                 ResourceMap &outResources,
+                                                 std::vector<CustomComputeResourceDesc> *outDescs)
+{
+    outResources.clear();
+    if (outDescs != nullptr)
+    {
+        outDescs->clear();
+    }
+
+    const physics::PhysicsGpuSceneView sceneView = solver.gpuSceneView();
+    const auto addBuffer = [&](const std::string &key, Diligent::IBuffer *buffer,
+                               CustomComputeResourceAccess access, std::uint32_t elementCount,
+                               std::uint64_t bindingGeneration)
+    {
+        if (buffer == nullptr)
+        {
+            return;
+        }
+
+        const Diligent::BufferDesc &bufferDesc = buffer->GetDesc();
+        CustomComputeResourceDesc desc{};
+        desc.key                = key;
+        desc.kind               = CustomComputeResourceKind::Buffer;
+        desc.access             = access;
+        desc.elementCount       = elementCount;
+        desc.elementStrideBytes = static_cast<std::uint32_t>(bufferDesc.ElementByteStride);
+        desc.bindingGeneration  = bindingGeneration;
+
+        outResources.emplace(desc.key, ResourceEntry{desc, buffer});
+        if (outDescs != nullptr)
+        {
+            outDescs->push_back(desc);
+        }
+    };
+    const auto bufferElementCount = [](Diligent::IBuffer *buffer) -> std::uint32_t
+    {
+        if (buffer == nullptr)
+        {
+            return 0u;
+        }
+
+        const Diligent::BufferDesc &bufferDesc = buffer->GetDesc();
+        if (bufferDesc.ElementByteStride == 0u)
+        {
+            return 0u;
+        }
+        return static_cast<std::uint32_t>(bufferDesc.Size / bufferDesc.ElementByteStride);
+    };
+
+    addBuffer("rigid.positions", sceneView.rigid.statePositionsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.orientations", sceneView.rigid.stateOrientationsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.linear_velocities", sceneView.rigid.stateLinearVelocitiesBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.angular_velocities", sceneView.rigid.stateAngularVelocitiesBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.inverse_inertia_local", sceneView.rigid.inverseInertiaLocalBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.body_types", sceneView.rigid.bodyTypesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.proxy_particle_contact_materials",
+              sceneView.rigid.proxyParticleContactMaterialsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.kinematic_target_positions", sceneView.rigid.kinematicTargetPositionsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.kinematic_target_orientations",
+              sceneView.rigid.kinematicTargetOrientationsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.kinematic_target_flags", sceneView.rigid.kinematicTargetFlagsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("collider.owner_body_indices", sceneView.rigid.colliderOwnerBodyIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.colliderCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("collider.broad_phase", sceneView.rigid.colliderBroadPhaseBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.colliderCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("collider.geometry", sceneView.rigid.colliderGeometryBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.colliderCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("collider.materials", sceneView.rigid.colliderMaterialsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.colliderCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("collider.shape_types", sceneView.rigid.colliderShapeTypesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.colliderCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("collider.enabled_flags", sceneView.rigid.colliderEnabledFlagsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.colliderCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.body_collider_offsets", sceneView.rigid.bodyColliderOffsetsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.body_collider_counts", sceneView.rigid.bodyColliderCountsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.body_collider_ranges", sceneView.rigid.bodyColliderRangesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.bodyCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("rigid.body_collider_indices", sceneView.rigid.bodyColliderIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.colliderCount,
+              sceneView.rigid.bindingGeneration);
+    addBuffer("constraint.rigid_particle_attachments",
+              sceneView.rigid.rigidParticleAttachmentsBuffer, CustomComputeResourceAccess::ReadOnly,
+              sceneView.rigid.rigidParticleAttachmentCount,
+              sceneView.rigid.constraintBindingGeneration);
+    addBuffer("constraint.rigid_distance_constraints",
+              sceneView.rigid.rigidDistanceConstraintsBuffer, CustomComputeResourceAccess::ReadOnly,
+              sceneView.rigid.rigidDistanceConstraintCount,
+              sceneView.rigid.constraintBindingGeneration);
+    addBuffer("constraint.routed_cable_descriptors", sceneView.rigid.routedCableDescriptorsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.routedCableCount,
+              sceneView.rigid.constraintBindingGeneration);
+    addBuffer("constraint.routed_cable_route_points", sceneView.rigid.routedCableRoutePointsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.routedCableRoutePointCount,
+              sceneView.rigid.constraintBindingGeneration);
+    addBuffer("constraint.routed_cable_debug_segments",
+              sceneView.rigid.routedCableDebugSegmentsBuffer, CustomComputeResourceAccess::ReadOnly,
+              sceneView.rigid.routedCableDebugSegmentCount,
+              sceneView.rigid.constraintBindingGeneration);
+    addBuffer("joint.ball", sceneView.joints.ballJointsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.joints.ballJointCount,
+              sceneView.joints.bindingGeneration);
+    addBuffer("joint.spherical", sceneView.joints.sphericalJointsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.joints.sphericalJointCount,
+              sceneView.joints.bindingGeneration);
+    addBuffer("joint.hinge", sceneView.joints.hingeJointsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.joints.hingeJointCount,
+              sceneView.joints.bindingGeneration);
+    addBuffer("joint.slider", sceneView.joints.sliderJointsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.joints.sliderJointCount,
+              sceneView.joints.bindingGeneration);
+    addBuffer("joint.hinge_passive_indices", sceneView.joints.hingePassiveJointIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.joints.hingePassiveJointCount,
+              sceneView.joints.modeBindingGeneration);
+    addBuffer("joint.hinge_position_drive_indices",
+              sceneView.joints.hingePositionDriveJointIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.joints.hingePositionDriveJointCount,
+              sceneView.joints.modeBindingGeneration);
+    addBuffer("joint.hinge_velocity_drive_indices",
+              sceneView.joints.hingeVelocityDriveJointIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.joints.hingeVelocityDriveJointCount,
+              sceneView.joints.modeBindingGeneration);
+    addBuffer("joint.slider_passive_indices", sceneView.joints.sliderPassiveJointIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.joints.sliderPassiveJointCount,
+              sceneView.joints.modeBindingGeneration);
+    addBuffer("joint.slider_position_drive_indices",
+              sceneView.joints.sliderPositionDriveJointIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.joints.sliderPositionDriveJointCount,
+              sceneView.joints.modeBindingGeneration);
+    addBuffer("joint.slider_velocity_drive_indices",
+              sceneView.joints.sliderVelocityDriveJointIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.joints.sliderVelocityDriveJointCount,
+              sceneView.joints.modeBindingGeneration);
+    addBuffer("entity.positions", scene.poses.positionsBuffer,
+              CustomComputeResourceAccess::ReadWrite, scene.poses.count, scene.bindingGeneration);
+    addBuffer("entity.orientations", scene.poses.orientationsBuffer,
+              CustomComputeResourceAccess::ReadWrite, scene.poses.count, scene.bindingGeneration);
+    addBuffer("entity.scales", scene.poses.scalesBuffer, CustomComputeResourceAccess::ReadWrite,
+              scene.poses.count, scene.bindingGeneration);
+    addBuffer("particle.positions_inv_mass", sceneView.soft.particles.positionsInvMassBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.previous_positions", sceneView.soft.particles.previousPositionsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.velocities", sceneView.soft.particles.velocitiesBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.radii", sceneView.soft.particles.radiiBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.environment_indices", sceneView.soft.particles.environmentIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.kinds", sceneView.soft.particles.particleKindsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.owner_types", sceneView.soft.particles.ownerTypesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.owner_indices", sceneView.soft.particles.ownerIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.strand_ids", sceneView.soft.particles.strandIdsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.strand_roles", sceneView.soft.particles.strandRolesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.owning_soft_body_indices",
+              sceneView.soft.particles.owningSoftBodyIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.material_indices", sceneView.soft.particles.particleMaterialIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.fluid_material_indices",
+              sceneView.soft.particles.fluidMaterialIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.fluid_visuals", sceneView.soft.particles.fluidVisualsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.fluidVisualCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.contact_materials", sceneView.soft.particles.particleContactMaterialsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.contactMaterialCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.fluid_materials", sceneView.soft.particles.fluidMaterialsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.fluidMaterialCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.phases", sceneView.soft.particles.phasesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.collision_layers", sceneView.soft.particles.collisionLayersBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.collision_masks", sceneView.soft.particles.collisionMasksBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.adjacency_offsets", sceneView.soft.particles.adjacencyOffsetsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.adjacency_counts", sceneView.soft.particles.adjacencyCountsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.particles.count,
+              sceneView.soft.bindingGeneration);
+    addBuffer("particle.adjacency_indices", sceneView.soft.particles.adjacencyIndicesBuffer,
+              CustomComputeResourceAccess::ReadOnly,
+              bufferElementCount(sceneView.soft.particles.adjacencyIndicesBuffer),
+              sceneView.soft.bindingGeneration);
+    addBuffer("soft.edges", sceneView.soft.edgesBuffer, CustomComputeResourceAccess::ReadOnly,
+              sceneView.soft.edgeCount, sceneView.soft.bindingGeneration);
+    addBuffer("soft.bends", sceneView.soft.bendsBuffer, CustomComputeResourceAccess::ReadOnly,
+              sceneView.soft.bendCount, sceneView.soft.bindingGeneration);
+    addBuffer("soft.tets", sceneView.soft.tetsBuffer, CustomComputeResourceAccess::ReadOnly,
+              sceneView.soft.tetCount, sceneView.soft.bindingGeneration);
+    addBuffer("strand.segments", sceneView.soft.strandSegmentsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.strandSegmentCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("strand.joints", sceneView.soft.strandJointsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.strandJointCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("strand.distance_constraints", sceneView.soft.strandDistanceConstraintsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.strandDistanceCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("strand.segment_states", sceneView.soft.strandSegmentStatesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.strandSegmentCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("strand.segment_joint_ranges", sceneView.soft.segmentStrandJointRangesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.strandSegmentCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("strand.segment_incident_joints", sceneView.soft.segmentIncidentStrandJointsBuffer,
+              CustomComputeResourceAccess::ReadOnly,
+              bufferElementCount(sceneView.soft.segmentIncidentStrandJointsBuffer),
+              sceneView.soft.bindingGeneration);
+    addBuffer("suturing.pairs", sceneView.soft.suturingPairsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.suturingPairCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("suturing.particle_refs", sceneView.soft.suturingParticleRefsBuffer,
+              CustomComputeResourceAccess::ReadOnly,
+              bufferElementCount(sceneView.soft.suturingParticleRefsBuffer),
+              sceneView.soft.bindingGeneration);
+    addBuffer("suturing.insertion_states", sceneView.soft.suturingInsertionStatesBuffer,
+              CustomComputeResourceAccess::ReadOnly,
+              bufferElementCount(sceneView.soft.suturingInsertionStatesBuffer),
+              sceneView.soft.bindingGeneration);
+    addBuffer("suturing.path_headers", sceneView.soft.suturingPathHeadersBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.suturingPathHeaderCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("suturing.path_nodes", sceneView.soft.suturingPathNodesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.suturingPathNodeCount,
+              sceneView.soft.bindingGeneration);
+    addBuffer("soft.render_positions", sceneView.soft.renderPositionsBuffer,
+              CustomComputeResourceAccess::ReadOnly,
+              bufferElementCount(sceneView.soft.renderPositionsBuffer),
+              sceneView.soft.bindingGeneration);
+    addBuffer("soft.render_normals", sceneView.soft.renderNormalsBuffer,
+              CustomComputeResourceAccess::ReadOnly,
+              bufferElementCount(sceneView.soft.renderNormalsBuffer),
+              sceneView.soft.bindingGeneration);
+    addBuffer("soft.world_aabbs", sceneView.soft.worldAabbsBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.soft.softBodyCount,
+              sceneView.soft.bindingGeneration);
+
+    return true;
+}
+
+bool CustomComputeService::isAccessCompatible(CustomComputeResourceAccess requested,
+                                              CustomComputeResourceAccess allowed) noexcept
+{
+    switch (allowed)
+    {
+    case CustomComputeResourceAccess::ReadOnly:
+        return requested == CustomComputeResourceAccess::ReadOnly;
+    case CustomComputeResourceAccess::WriteOnly:
+        return requested != CustomComputeResourceAccess::ReadOnly;
+    case CustomComputeResourceAccess::ReadWrite:
+        return true;
+    }
+    return false;
+}
+
+Diligent::BUFFER_VIEW_TYPE CustomComputeService::bufferViewTypeForAccess(
+    CustomComputeResourceAccess access) noexcept
+{
+    return access == CustomComputeResourceAccess::ReadOnly ? Diligent::BUFFER_VIEW_SHADER_RESOURCE
+                                                           : Diligent::BUFFER_VIEW_UNORDERED_ACCESS;
+}
+
+std::uint32_t CustomComputeService::roundUpConstantBufferSize(std::uint32_t sizeBytes) noexcept
+{
+    if (sizeBytes == 0u)
+    {
+        return 0u;
+    }
+    return (sizeBytes + 15u) & ~15u;
+}
+
+bool CustomComputeService::bindPassResources(PassState &pass, const ResourceMap &resources,
+                                             const SharedBufferService *sharedBuffers)
+{
+    Diligent::IShaderResourceBinding *srb = pass.pass.defaultSrb();
+    if (srb == nullptr)
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: pass is missing a shader resource binding.");
+        return false;
+    }
+
+    std::vector<BufferBindingEntry> bindings;
+    std::vector<TextureBindingEntry> textureBindings;
+    bindings.reserve(pass.resourceBindings.size() + (pass.constantBuffer == nullptr ? 0u : 1u));
+    textureBindings.reserve(pass.resourceBindings.size());
+    for (const CustomComputeResourceBindingDesc &bindingDesc : pass.resourceBindings)
+    {
+        if (!bindingDesc.resourceKey.empty())
+        {
+            Diligent::IBuffer *buffer = nullptr;
+            const auto resourceIt     = resources.find(bindingDesc.resourceKey);
+            if (resourceIt == resources.end())
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: unknown resource key '",
+                                  bindingDesc.resourceKey, "'.");
+                return false;
+            }
+            buffer = resourceIt->second.buffer;
+            bindings.push_back(BufferBindingEntry{bindingDesc.shaderVariableName, buffer,
+                                                  bufferViewTypeForAccess(bindingDesc.access)});
+        }
+        else if (bindingDesc.sharedBufferHandle.isValid())
+        {
+            Diligent::IBuffer *buffer = nullptr;
+            if (sharedBuffers == nullptr)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: shared buffer service is unavailable.");
+                return false;
+            }
+            buffer = sharedBuffers->tryGetBuffer(bindingDesc.sharedBufferHandle);
+            if (buffer == nullptr)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: shared buffer handle ",
+                                  bindingDesc.sharedBufferHandle.id, " is unavailable.");
+                return false;
+            }
+            bindings.push_back(BufferBindingEntry{bindingDesc.shaderVariableName, buffer,
+                                                  bufferViewTypeForAccess(bindingDesc.access)});
+        }
+        else
+        {
+            Diligent::ITextureView *view = nullptr;
+            if (!mDevice.renderTargetSystem().tryGetRenderTargetShaderResourceView(
+                    bindingDesc.renderTargetBinding, bindingDesc.renderTargetTexturePlane, view) ||
+                view == nullptr)
+            {
+                CRESSIM_LOG_ERROR("CustomComputeService: render-target texture binding for "
+                                  "variable '",
+                                  bindingDesc.shaderVariableName, "' is unavailable.");
+                return false;
+            }
+            textureBindings.push_back(TextureBindingEntry{bindingDesc.shaderVariableName, view});
+        }
+    }
+    if (pass.constantBuffer != nullptr)
+    {
+        bindings.push_back(BufferBindingEntry{pass.desc.constantBufferVariableName,
+                                              pass.constantBuffer,
+                                              Diligent::BUFFER_VIEW_SHADER_RESOURCE});
+    }
+    for (const BufferBindingEntry &binding : bindings)
+    {
+        if (!bindBufferVariable(srb, binding))
+        {
+            return false;
+        }
+    }
+    for (const TextureBindingEntry &binding : textureBindings)
+    {
+        if (!bindTextureVariable(srb, binding))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool CustomComputeService::uploadConstantData(PassState &pass,
+                                              const std::vector<std::uint8_t> &data)
+{
+    if (pass.constantBuffer == nullptr)
+    {
+        return data.empty();
+    }
+    if (data.size() > pass.constantBufferSizeBytes)
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: constant payload exceeds constant buffer size.");
+        return false;
+    }
+
+    gpu::GpuComputeBackendContext computeBackend{};
+    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+        computeBackend.computeContext == nullptr)
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: physics compute backend is unavailable.");
+        return false;
+    }
+
+    void *mapped = nullptr;
+    computeBackend.computeContext->MapBuffer(pass.constantBuffer, Diligent::MAP_WRITE,
+                                             Diligent::MAP_FLAG_DISCARD, mapped);
+    if (mapped == nullptr)
+    {
+        CRESSIM_LOG_ERROR("CustomComputeService: failed to map constant buffer.");
+        return false;
+    }
+
+    std::memset(mapped, 0, pass.constantBufferSizeBytes);
+    if (!data.empty())
+    {
+        std::memcpy(mapped, data.data(), data.size());
+    }
+    computeBackend.computeContext->UnmapBuffer(pass.constantBuffer, Diligent::MAP_WRITE);
+    return true;
+}
+
+} // namespace cressim::neo::engine

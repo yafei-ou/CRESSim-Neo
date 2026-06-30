@@ -1,17 +1,6 @@
 #include "include/graphics/graphics_scene_buffers.hlsli"
+#include "include/graphics/graphics_camera_input.hlsli"
 #include "include/physics/particle/physics_particle_types.hlsli"
-
-struct CameraInput
-{
-    float4 position;
-    float4 orientation;
-    float4 projectionParams;
-    float4 viewportAndOutputSize;
-    uint envIndex;
-    uint cameraSlot;
-    uint active;
-    uint reserved;
-};
 
 cbuffer GraphicsDebugStrandFrames
 {

@@ -62,7 +62,7 @@ GpuRenderTargetReadbackEvent renderAndReadback(Runtime& runtime, GpuDevice& grap
         graphicsDevice.renderTargetSystem().requestRenderTargetReadback(
             GpuRenderTargetBinding{target, 0u, 1u});
     runtime.prepare();
-    const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+    const bool physicsStepSucceeded = runtime.uploadWorld() && runtime.stepPhysics(frame);
     if (physicsStepSucceeded)
     {
         (void)runtime.stepSimulationSensors(frame);
@@ -158,7 +158,7 @@ int main(int argc, char** argv)
     frame.frameIndex   = 0u;
     frame.timeSeconds  = 0.0;
     runtime.prepare();
-    const bool secondPhysicsStepSucceeded = runtime.stepPhysics(frame);
+    const bool secondPhysicsStepSucceeded = runtime.uploadWorld() && runtime.stepPhysics(frame);
     if (secondPhysicsStepSucceeded)
     {
         (void)runtime.stepSimulationSensors(frame);
@@ -196,7 +196,7 @@ int main(int argc, char** argv)
     frame.frameIndex  = 1u;
     frame.timeSeconds = static_cast<double>(frame.deltaSeconds);
     runtime.prepare();
-    const bool thirdPhysicsStepSucceeded = runtime.stepPhysics(frame);
+    const bool thirdPhysicsStepSucceeded = runtime.uploadWorld() && runtime.stepPhysics(frame);
     if (thirdPhysicsStepSucceeded)
     {
         (void)runtime.stepSimulationSensors(frame);

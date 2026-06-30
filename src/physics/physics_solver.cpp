@@ -131,7 +131,7 @@ void PhysicsSolver::shutdown()
     mInitialized = false;
 }
 
-bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld &world)
+bool PhysicsSolver::syncWorldState(PhysicsWorld &world)
 {
     if (!mInitialized)
     {
@@ -260,7 +260,7 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             sharedQueueFamilyIndices.data(), sharedQueueFamilyIndexCount,
             mDevice.supportsNativePhysicsFloatAtomics()))
     {
-        CRESSIM_LOG_ERROR("PhysicsSolver::step failed: ensureCapacity.");
+        CRESSIM_LOG_ERROR("PhysicsSolver::syncWorldState failed: ensureCapacity.");
         return false;
     }
 
@@ -280,9 +280,79 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
     if (!mImpl->sceneState.uploadWorldState(computeBackend.computeContext, world, rigidBodyCount,
                                             colliderCount))
     {
-        CRESSIM_LOG_ERROR("PhysicsSolver::step failed: uploadWorldState.");
+        CRESSIM_LOG_ERROR("PhysicsSolver::syncWorldState failed: uploadWorldState.");
         return false;
     }
+
+    return true;
+}
+
+bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld &world)
+{
+    if (!syncWorldState(world))
+    {
+        return false;
+    }
+
+    gpu::GpuComputeBackendContext computeBackend{};
+    if (!mDevice.tryGetPhysicsBackendContext(computeBackend) ||
+        computeBackend.computeContext == nullptr)
+    {
+        CRESSIM_LOG_ERROR("PhysicsSolver::step failed: missing physics backend context.");
+        return false;
+    }
+
+    const std::uint32_t rigidBodyCount = world.rigidBodyCount();
+    const std::uint32_t colliderCount  = world.colliderCount();
+    const ParticleSoAHost &particles   = world.particles();
+    const std::vector<DeformableDistanceConstraint> &distanceConstraints =
+        world.distanceConstraints();
+    const std::vector<DeformableBendConstraint> &bendConstraints     = world.bendConstraints();
+    const std::vector<DeformableVolumeConstraint> &volumeConstraints = world.volumeConstraints();
+    const std::vector<StrandSegmentConstraint> &strandSegments       = world.strandSegments();
+    const std::vector<StrandJointConstraint> &strandJoints           = world.strandJoints();
+    const std::vector<StrandDistanceConstraint> &strandDistanceConstraints =
+        world.strandDistanceConstraints();
+    const std::vector<RigidParticleAttachmentConstraint> &rigidParticleAttachments =
+        world.rigidParticleAttachments();
+    const std::vector<StrandRigidAttachmentConstraint> &strandRigidAttachments =
+        world.strandRigidAttachments();
+    const std::vector<RigidDistanceConstraint> &rigidDistanceConstraints =
+        world.rigidDistanceConstraints();
+    const std::vector<RoutedCableConstraint> &routedCableConstraints =
+        world.routedCableConstraints();
+    const RigidJointSceneHost &rigidJoints     = world.rigidJointScene();
+    const SoftRenderDataHost &softRenderData   = world.softRenderData();
+    const CurveRenderDataHost &curveRenderData = world.curveRenderData();
+    const std::uint32_t fluidCount             = world.fluidCount();
+    const std::uint32_t particleCount          = static_cast<std::uint32_t>(particles.size());
+    const std::uint32_t softEdgeCount      = static_cast<std::uint32_t>(distanceConstraints.size());
+    const std::uint32_t softBendCount      = static_cast<std::uint32_t>(bendConstraints.size());
+    const std::uint32_t softTetCount       = static_cast<std::uint32_t>(volumeConstraints.size());
+    const std::uint32_t strandSegmentCount = static_cast<std::uint32_t>(strandSegments.size());
+    const std::uint32_t strandJointCount   = static_cast<std::uint32_t>(strandJoints.size());
+    const std::uint32_t strandDistanceCount =
+        static_cast<std::uint32_t>(strandDistanceConstraints.size());
+    const std::uint32_t routedCableCount =
+        static_cast<std::uint32_t>(routedCableConstraints.size());
+    const std::uint32_t ballJointCount = static_cast<std::uint32_t>(rigidJoints.ball.size());
+    const std::uint32_t sphericalJointCount =
+        static_cast<std::uint32_t>(rigidJoints.spherical.size());
+    const std::uint32_t hingeJointCount  = static_cast<std::uint32_t>(rigidJoints.hinge.size());
+    const std::uint32_t sliderJointCount = static_cast<std::uint32_t>(rigidJoints.slider.size());
+    const std::uint32_t rigidParticleAttachmentCount =
+        static_cast<std::uint32_t>(rigidParticleAttachments.size());
+    const std::uint32_t strandRigidAttachmentCount =
+        static_cast<std::uint32_t>(strandRigidAttachments.size());
+    const std::uint32_t rigidDistanceConstraintCount =
+        static_cast<std::uint32_t>(rigidDistanceConstraints.size());
+    const std::uint32_t softRenderTriangleCount =
+        static_cast<std::uint32_t>(softRenderData.triangleParticleIndices.size());
+    const std::uint32_t curveRenderCount =
+        static_cast<std::uint32_t>(curveRenderData.descriptors.size());
+    const std::uint32_t softBodyBoundsChunkCount = world.softBodyBoundsChunkCount();
+    const std::uint32_t suturingParticleCount    = world.suturingParticleCount();
+    const float particleGridCellSize             = world.particleGridCellSize();
 
     const std::uint32_t substeps          = std::max<std::uint32_t>(mDesc.substeps, 1u);
     const std::uint32_t defaultIterations = std::max<std::uint32_t>(mDesc.defaultIterations, 1u);

@@ -91,6 +91,7 @@ public:
     bool isImported() const noexcept;
     void *devicePointer() const noexcept;
     std::uint64_t sizeBytes() const noexcept;
+    std::int32_t deviceOrdinal() const noexcept;
 
     static bool supportsCudaInteropBuild() noexcept;
 
@@ -113,6 +114,7 @@ public:
 
     bool isInitialized() const noexcept;
     bool bindSharedBuffer(const SharedExportBuffer &buffer);
+    bool synchronizeToDeviceContext(Diligent::IDeviceContext *context);
     bool synchronizeFromDeviceContext(Diligent::IDeviceContext *context);
     bool copyDeviceToHostAsync(void *dst, const void *src, std::uint64_t sizeBytes);
     bool synchronizeStream();
@@ -120,6 +122,7 @@ public:
     CudaStreamHandle streamHandle() const noexcept;
     void *devicePointer() const noexcept;
     std::uint64_t sizeBytes() const noexcept;
+    std::int32_t deviceOrdinal() const noexcept;
 
     static bool supportsCudaInteropBuild() noexcept;
 

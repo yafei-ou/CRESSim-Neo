@@ -1,16 +1,5 @@
 #include "include/structured_buffer_compat.hlsli"
-
-struct CameraInput
-{
-    float4 position;
-    float4 orientation;
-    float4 projectionParams;
-    float4 viewportAndOutputSize;
-    uint envIndex;
-    uint cameraSlot;
-    uint active;
-    uint reserved;
-};
+#include "include/graphics/graphics_camera_input.hlsli"
 
 cbuffer GraphicsDebugParticles
 {

@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <map>
 
@@ -13,6 +14,15 @@ namespace
 {
 constexpr std::uint32_t kInvalidSlot        = 0xffffffffu;
 constexpr float kSoftBodyVertexMatchEpsilon = 1.0e-3f;
+
+void bumpGeneration(std::uint64_t &generation) noexcept
+{
+    ++generation;
+    if (generation == 0u)
+    {
+        generation = 1u;
+    }
+}
 
 bool rendersInTransparentPass(const graphics::MaterialResourceDesc &material) noexcept
 {
@@ -54,6 +64,26 @@ const std::vector<World::ColliderHandle> &emptyColliderHandleList()
 {
     static const std::vector<World::ColliderHandle> kEmpty;
     return kEmpty;
+}
+
+physics::ColliderState makeColliderState(const common::EntityId entityId,
+                                         const physics::ColliderId colliderId,
+                                         const ColliderComponent &component)
+{
+    physics::ColliderState state{};
+    state.colliderId     = colliderId;
+    state.entityId       = entityId;
+    state.shapeType      = component.shapeType;
+    state.shapeParams    = component.shapeParams;
+    state.localPosition  = component.localPosition;
+    state.localRotation  = component.localRotation;
+    state.enabled        = component.enabled;
+    state.friction       = component.friction;
+    state.staticFriction = component.staticFriction;
+    state.restitution    = component.restitution;
+    state.collisionLayer = component.collisionLayer;
+    state.collisionMask  = component.collisionMask;
+    return state;
 }
 
 std::uint32_t allocateDenseSlot(
@@ -394,6 +424,7 @@ bool World::destroyEntity(common::EntityId entityId)
     removeProceduralDeformableCurveRender(entityId);
     removeFluid(entityId);
     removeUltrasoundProbe(entityId);
+    removeUltrasoundRenderer(entityId);
     removeUltrasoundScattererSource(entityId);
 
     auto physIt = mPhysicsLinks.find(entityId);
@@ -408,6 +439,7 @@ bool World::destroyEntity(common::EntityId entityId)
     }
 
     mEntities.erase(std::remove(mEntities.begin(), mEntities.end(), entityId), mEntities.end());
+    releaseEntityPoseSlot(entityId);
     mEntityEnvironments.erase(entityId);
     return true;
 }
@@ -722,6 +754,139 @@ void World::ensureHostSceneStorage()
     {
         mLocalLightSelectionsHost.assign(mSceneLayout.envCount, graphics::GpuLocalLightSelection{});
     }
+
+    if (mDirtyEntityPoseBits.size() != mEntityPoseEntities.size())
+    {
+        mDirtyEntityPoseBits.resize(mEntityPoseEntities.size(), 0u);
+    }
+}
+
+std::uint32_t World::ensureEntityPoseSlot(common::EntityId entityId)
+{
+    const auto existing = mEntityPoseSlotByEntity.find(entityId);
+    if (existing != mEntityPoseSlotByEntity.end())
+    {
+        return existing->second;
+    }
+
+    std::uint32_t slot = kInvalidSlot;
+    if (!mFreeEntityPoseSlots.empty())
+    {
+        slot = mFreeEntityPoseSlots.back();
+        mFreeEntityPoseSlots.pop_back();
+        mEntityPoseEntities[slot] = entityId;
+    }
+    else
+    {
+        slot = static_cast<std::uint32_t>(mEntityPoseEntities.size());
+        mEntityPoseEntities.push_back(entityId);
+        mEntityPosePositionsHost.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f});
+        mEntityPoseOrientationsHost.push_back(Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f});
+        mEntityPoseScalesHost.push_back(Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f});
+        mDirtyEntityPoseBits.push_back(0u);
+    }
+
+    mEntityPoseSlotByEntity.emplace(entityId, slot);
+    markEntityPoseDirty(entityId);
+    bumpGeneration(mEntityPoseRevision);
+    return slot;
+}
+
+void World::releaseEntityPoseSlot(common::EntityId entityId) noexcept
+{
+    const auto it = mEntityPoseSlotByEntity.find(entityId);
+    if (it == mEntityPoseSlotByEntity.end())
+    {
+        return;
+    }
+
+    const std::uint32_t slot = it->second;
+    if (slot < mEntityPoseEntities.size())
+    {
+        mEntityPoseEntities[slot] = common::kInvalidEntityId;
+    }
+    if (slot < mEntityPosePositionsHost.size())
+    {
+        mEntityPosePositionsHost[slot] = Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f};
+    }
+    if (slot < mEntityPoseOrientationsHost.size())
+    {
+        mEntityPoseOrientationsHost[slot] = Diligent::float4{0.0f, 0.0f, 0.0f, 1.0f};
+    }
+    if (slot < mEntityPoseScalesHost.size())
+    {
+        mEntityPoseScalesHost[slot] = Diligent::float4{1.0f, 1.0f, 1.0f, 0.0f};
+    }
+    if (slot < mDirtyEntityPoseBits.size())
+    {
+        enqueueDenseDirtyIndex(slot, mDirtyEntityPoseSlots, mDirtyEntityPoseBits);
+    }
+    mFreeEntityPoseSlots.push_back(slot);
+    mEntityPoseSlotByEntity.erase(it);
+    mPhysicsRenderableMappingsDirty = true;
+    bumpGeneration(mEntityPoseRevision);
+}
+
+void World::markEntityPoseDirty(common::EntityId entityId)
+{
+    const auto it = mEntityPoseSlotByEntity.find(entityId);
+    if (it == mEntityPoseSlotByEntity.end())
+    {
+        return;
+    }
+
+    const std::uint32_t slot = it->second;
+    if (slot >= mDirtyEntityPoseBits.size())
+    {
+        mDirtyEntityPoseBits.resize(slot + 1u, 0u);
+    }
+    enqueueDenseDirtyIndex(slot, mDirtyEntityPoseSlots, mDirtyEntityPoseBits);
+}
+
+void World::refreshEntityPoseSlot(std::uint32_t entityPoseSlot)
+{
+    if (entityPoseSlot >= mEntityPoseEntities.size() ||
+        entityPoseSlot >= mEntityPosePositionsHost.size() ||
+        entityPoseSlot >= mEntityPoseOrientationsHost.size() ||
+        entityPoseSlot >= mEntityPoseScalesHost.size())
+    {
+        return;
+    }
+
+    const common::EntityId entityId = mEntityPoseEntities[entityPoseSlot];
+    common::Transform transform{};
+    if (entityId != common::kInvalidEntityId)
+    {
+        transform = tryGetTransform(entityId).value_or(TransformComponent{}).worldTransform;
+    }
+
+    const Diligent::float4 position{transform.position.x, transform.position.y,
+                                    transform.position.z, 1.0f};
+    const Diligent::float4 orientation{transform.rotation.q.x, transform.rotation.q.y,
+                                       transform.rotation.q.z, transform.rotation.q.w};
+    const Diligent::float4 scale{transform.scale.x, transform.scale.y, transform.scale.z, 0.0f};
+
+    if (mEntityPosePositionsHost[entityPoseSlot].x != position.x ||
+        mEntityPosePositionsHost[entityPoseSlot].y != position.y ||
+        mEntityPosePositionsHost[entityPoseSlot].z != position.z ||
+        mEntityPoseOrientationsHost[entityPoseSlot].x != orientation.x ||
+        mEntityPoseOrientationsHost[entityPoseSlot].y != orientation.y ||
+        mEntityPoseOrientationsHost[entityPoseSlot].z != orientation.z ||
+        mEntityPoseOrientationsHost[entityPoseSlot].w != orientation.w ||
+        mEntityPoseScalesHost[entityPoseSlot].x != scale.x ||
+        mEntityPoseScalesHost[entityPoseSlot].y != scale.y ||
+        mEntityPoseScalesHost[entityPoseSlot].z != scale.z)
+    {
+        mEntityPosePositionsHost[entityPoseSlot]    = position;
+        mEntityPoseOrientationsHost[entityPoseSlot] = orientation;
+        mEntityPoseScalesHost[entityPoseSlot]       = scale;
+        bumpGeneration(mEntityPoseRevision);
+        return;
+    }
+
+    mEntityPosePositionsHost[entityPoseSlot]    = position;
+    mEntityPoseOrientationsHost[entityPoseSlot] = orientation;
+    mEntityPoseScalesHost[entityPoseSlot]       = scale;
 }
 
 void World::markRenderableMetadataDirty(std::uint32_t objectIndex)
@@ -784,6 +949,9 @@ void World::setTransform(common::EntityId entityId, const TransformComponent &co
         mTransforms.components[it->second] = component;
     }
 
+    ensureEntityPoseSlot(entityId);
+    markEntityPoseDirty(entityId);
+
     // Forcefully set rigid body transform from world transform. This teleports the body (no physics
     // integration). Users should not set the transform direction on an entity with a kinematic
     // rigid body.
@@ -840,6 +1008,8 @@ void World::setMeshRenderer(common::EntityId entityId, const MeshRendererCompone
         return;
     }
 
+    ensureEntityPoseSlot(entityId);
+
     const auto indexIt        = mRenderableIndices.find(entityId);
     std::uint32_t objectIndex = 0u;
     if (indexIt == mRenderableIndices.end())
@@ -888,6 +1058,8 @@ void World::setCamera(common::EntityId entityId, const CameraComponent &componen
     {
         return;
     }
+
+    ensureEntityPoseSlot(entityId);
 
     const auto indexIt        = mRenderCameraIndices.find(entityId);
     std::uint32_t cameraIndex = 0u;
@@ -1127,6 +1299,8 @@ void World::setRigidBody(common::EntityId entityId, const RigidBodyComponent &co
         mPhysicsLinks[entityId].hasRigidBody = false;
         return;
     }
+
+    ensureEntityPoseSlot(entityId);
 
     TransformComponent transform{};
     if (const std::optional<TransformComponent> t = tryGetTransform(entityId))
@@ -1444,6 +1618,110 @@ bool World::upsertRoutedCableConstraint(const physics::AuthoredRoutedCableConstr
     return mPhysicsWorld.upsertRoutedCableConstraint(state, outAuthored);
 }
 
+bool World::upsertBallJoint(const physics::BallJointState &state)
+{
+    if (!requireAliveEntity(state.bodyA, "upsertBallJoint") ||
+        !requireAliveEntity(state.bodyB, "upsertBallJoint"))
+    {
+        return false;
+    }
+    const physics::RigidBodyState *bodyA = mPhysicsWorld.tryGetRigidBody(state.bodyA);
+    const physics::RigidBodyState *bodyB = mPhysicsWorld.tryGetRigidBody(state.bodyB);
+    if (bodyA == nullptr || bodyB == nullptr)
+    {
+        CRESSIM_LOG_ERROR("upsertBallJoint requires rigid bodies on both connected entities.");
+        return false;
+    }
+    if (entityEnvironment(state.bodyA) != entityEnvironment(state.bodyB))
+    {
+        CRESSIM_LOG_ERROR("upsertBallJoint requires both connected rigid bodies to live in the "
+                          "same environment.");
+        return false;
+    }
+    physics::BallJointState resolved = state;
+    resolved.bodyA                   = bodyA->rigidBodyId;
+    resolved.bodyB                   = bodyB->rigidBodyId;
+    return mPhysicsWorld.upsertBallJoint(resolved);
+}
+
+bool World::upsertHingeJoint(const physics::HingeJointState &state)
+{
+    if (!requireAliveEntity(state.bodyA, "upsertHingeJoint") ||
+        !requireAliveEntity(state.bodyB, "upsertHingeJoint"))
+    {
+        return false;
+    }
+    const physics::RigidBodyState *bodyA = mPhysicsWorld.tryGetRigidBody(state.bodyA);
+    const physics::RigidBodyState *bodyB = mPhysicsWorld.tryGetRigidBody(state.bodyB);
+    if (bodyA == nullptr || bodyB == nullptr)
+    {
+        CRESSIM_LOG_ERROR("upsertHingeJoint requires rigid bodies on both connected entities.");
+        return false;
+    }
+    if (entityEnvironment(state.bodyA) != entityEnvironment(state.bodyB))
+    {
+        CRESSIM_LOG_ERROR("upsertHingeJoint requires both connected rigid bodies to live in the "
+                          "same environment.");
+        return false;
+    }
+    physics::HingeJointState resolved = state;
+    resolved.bodyA                    = bodyA->rigidBodyId;
+    resolved.bodyB                    = bodyB->rigidBodyId;
+    return mPhysicsWorld.upsertHingeJoint(resolved);
+}
+
+bool World::upsertSphericalJoint(const physics::SphericalJointState &state)
+{
+    if (!requireAliveEntity(state.bodyA, "upsertSphericalJoint") ||
+        !requireAliveEntity(state.bodyB, "upsertSphericalJoint"))
+    {
+        return false;
+    }
+    const physics::RigidBodyState *bodyA = mPhysicsWorld.tryGetRigidBody(state.bodyA);
+    const physics::RigidBodyState *bodyB = mPhysicsWorld.tryGetRigidBody(state.bodyB);
+    if (bodyA == nullptr || bodyB == nullptr)
+    {
+        CRESSIM_LOG_ERROR("upsertSphericalJoint requires rigid bodies on both connected entities.");
+        return false;
+    }
+    if (entityEnvironment(state.bodyA) != entityEnvironment(state.bodyB))
+    {
+        CRESSIM_LOG_ERROR("upsertSphericalJoint requires both connected rigid bodies to live in "
+                          "the same environment.");
+        return false;
+    }
+    physics::SphericalJointState resolved = state;
+    resolved.bodyA                        = bodyA->rigidBodyId;
+    resolved.bodyB                        = bodyB->rigidBodyId;
+    return mPhysicsWorld.upsertSphericalJoint(resolved);
+}
+
+bool World::upsertSliderJoint(const physics::SliderJointState &state)
+{
+    if (!requireAliveEntity(state.bodyA, "upsertSliderJoint") ||
+        !requireAliveEntity(state.bodyB, "upsertSliderJoint"))
+    {
+        return false;
+    }
+    const physics::RigidBodyState *bodyA = mPhysicsWorld.tryGetRigidBody(state.bodyA);
+    const physics::RigidBodyState *bodyB = mPhysicsWorld.tryGetRigidBody(state.bodyB);
+    if (bodyA == nullptr || bodyB == nullptr)
+    {
+        CRESSIM_LOG_ERROR("upsertSliderJoint requires rigid bodies on both connected entities.");
+        return false;
+    }
+    if (entityEnvironment(state.bodyA) != entityEnvironment(state.bodyB))
+    {
+        CRESSIM_LOG_ERROR("upsertSliderJoint requires both connected rigid bodies to live in the "
+                          "same environment.");
+        return false;
+    }
+    physics::SliderJointState resolved = state;
+    resolved.bodyA                     = bodyA->rigidBodyId;
+    resolved.bodyB                     = bodyB->rigidBodyId;
+    return mPhysicsWorld.upsertSliderJoint(resolved);
+}
+
 physics::AuthoredParticleCollisionFilterState &World::upsertParticleCollisionFilter(
     const physics::AuthoredParticleCollisionFilterState &state)
 {
@@ -1481,6 +1759,26 @@ bool World::removeRigidDistanceConstraint(physics::RigidDistanceConstraintId con
 bool World::removeRoutedCableConstraint(physics::RoutedCableConstraintId constraintId)
 {
     return mPhysicsWorld.removeRoutedCableConstraint(constraintId);
+}
+
+bool World::removeBallJoint(const physics::BallJointId jointId)
+{
+    return mPhysicsWorld.removeBallJoint(jointId);
+}
+
+bool World::removeHingeJoint(const physics::HingeJointId jointId)
+{
+    return mPhysicsWorld.removeHingeJoint(jointId);
+}
+
+bool World::removeSphericalJoint(const physics::SphericalJointId jointId)
+{
+    return mPhysicsWorld.removeSphericalJoint(jointId);
+}
+
+bool World::removeSliderJoint(const physics::SliderJointId jointId)
+{
+    return mPhysicsWorld.removeSliderJoint(jointId);
 }
 
 bool World::removeParticleCollisionFilter(physics::ParticleCollisionFilterId filterId)
@@ -1589,6 +1887,28 @@ bool World::removeUltrasoundProbe(common::EntityId entityId)
     return mUltrasoundProbes.erase(entityId) > 0u;
 }
 
+void World::setUltrasoundRenderer(common::EntityId entityId,
+                                  const UltrasoundRendererComponent &component)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("setUltrasoundRenderer requires valid entity id.");
+        return;
+    }
+    if (!requireAliveEntity(entityId, "setUltrasoundRenderer"))
+    {
+        return;
+    }
+
+    mUltrasoundRenderers[entityId] = component;
+}
+
+bool World::removeUltrasoundRenderer(common::EntityId entityId)
+{
+    clearUltrasoundProbeResult(entityId);
+    return mUltrasoundRenderers.erase(entityId) > 0u;
+}
+
 void World::setUltrasoundScattererSource(common::EntityId entityId,
                                          const UltrasoundScattererSourceComponent &component)
 {
@@ -1682,22 +2002,7 @@ World::ColliderHandle World::addCollider(common::EntityId entityId,
     }
 
     ColliderHandle handle{mNextColliderId++};
-
-    physics::ColliderState state{};
-    state.colliderId     = handle.id;
-    state.entityId       = entityId;
-    state.shapeType      = component.shapeType;
-    state.shapeParams    = component.shapeParams;
-    state.localPosition  = component.localPosition;
-    state.localRotation  = component.localRotation;
-    state.enabled        = component.enabled;
-    state.friction       = component.friction;
-    state.staticFriction = component.staticFriction;
-    state.restitution    = component.restitution;
-    state.collisionLayer = component.collisionLayer;
-    state.collisionMask  = component.collisionMask;
-
-    mPhysicsWorld.upsertCollider(state);
+    mPhysicsWorld.upsertCollider(makeColliderState(entityId, handle.id, component));
     mPhysicsLinks[entityId].colliders.push_back(handle);
     mColliderOwnerEntity[handle.id] = entityId;
     return handle;
@@ -1719,22 +2024,7 @@ void World::updateCollider(ColliderHandle handle, const ColliderComponent &compo
     }
 
     const common::EntityId entityId = ownerIt->second;
-
-    physics::ColliderState state{};
-    state.colliderId     = handle.id;
-    state.entityId       = entityId;
-    state.shapeType      = component.shapeType;
-    state.shapeParams    = component.shapeParams;
-    state.localPosition  = component.localPosition;
-    state.localRotation  = component.localRotation;
-    state.enabled        = component.enabled;
-    state.friction       = component.friction;
-    state.staticFriction = component.staticFriction;
-    state.restitution    = component.restitution;
-    state.collisionLayer = component.collisionLayer;
-    state.collisionMask  = component.collisionMask;
-
-    mPhysicsWorld.upsertCollider(state);
+    mPhysicsWorld.upsertCollider(makeColliderState(entityId, handle.id, component));
 }
 
 bool World::removeCollider(ColliderHandle handle)
@@ -1762,6 +2052,47 @@ bool World::removeCollider(ColliderHandle handle)
 
     mColliderOwnerEntity.erase(ownerIt);
     return mPhysicsWorld.removeCollider(handle.id);
+}
+
+bool World::replaceColliders(common::EntityId entityId,
+                             const std::vector<ColliderComponent> &components)
+{
+    if (entityId == common::kInvalidEntityId)
+    {
+        CRESSIM_LOG_ERROR("replaceColliders requires valid entity id.");
+        return false;
+    }
+    if (!requireAliveEntity(entityId, "replaceColliders"))
+    {
+        return false;
+    }
+
+    auto body = mPhysicsLinks.find(entityId);
+    if (body == mPhysicsLinks.end() || !body->second.hasRigidBody)
+    {
+        CRESSIM_LOG_ERROR("replaceColliders requires a rigid body on the entity.");
+        return false;
+    }
+
+    std::vector<physics::ColliderState> states;
+    std::vector<ColliderHandle> handles;
+    states.reserve(components.size());
+    handles.reserve(components.size());
+    for (const ColliderComponent &component : components)
+    {
+        const ColliderHandle handle{mNextColliderId++};
+        states.push_back(makeColliderState(entityId, handle.id, component));
+        handles.push_back(handle);
+    }
+
+    mPhysicsWorld.replaceColliders(entityId, states);
+    clearColliderLinks(entityId);
+    body->second.colliders = handles;
+    for (const ColliderHandle handle : handles)
+    {
+        mColliderOwnerEntity[handle.id] = entityId;
+    }
+    return true;
 }
 
 bool World::removeTransform(common::EntityId entityId)
@@ -1795,6 +2126,7 @@ bool World::removeTransform(common::EntityId entityId)
     {
         markCameraDirty(static_cast<std::uint32_t>(it->second));
     }
+    markEntityPoseDirty(entityId);
     return true;
 }
 
@@ -2152,6 +2484,30 @@ const physics::AuthoredRoutedCableConstraintState *World::tryGetRoutedCableConst
     return mPhysicsWorld.tryGetRoutedCableConstraint(constraintId);
 }
 
+const physics::BallJointState *World::tryGetBallJoint(
+    const physics::BallJointId jointId) const noexcept
+{
+    return mPhysicsWorld.tryGetBallJoint(jointId);
+}
+
+const physics::HingeJointState *World::tryGetHingeJoint(
+    const physics::HingeJointId jointId) const noexcept
+{
+    return mPhysicsWorld.tryGetHingeJoint(jointId);
+}
+
+const physics::SphericalJointState *World::tryGetSphericalJoint(
+    const physics::SphericalJointId jointId) const noexcept
+{
+    return mPhysicsWorld.tryGetSphericalJoint(jointId);
+}
+
+const physics::SliderJointState *World::tryGetSliderJoint(
+    const physics::SliderJointId jointId) const noexcept
+{
+    return mPhysicsWorld.tryGetSliderJoint(jointId);
+}
+
 const physics::AuthoredParticleCollisionFilterState *World::tryGetParticleCollisionFilter(
     physics::ParticleCollisionFilterId filterId) const noexcept
 {
@@ -2176,6 +2532,14 @@ std::optional<UltrasoundProbeComponent> World::tryGetUltrasoundProbe(
     const auto it = mUltrasoundProbes.find(entityId);
     return it != mUltrasoundProbes.end() ? std::optional<UltrasoundProbeComponent>{it->second}
                                          : std::nullopt;
+}
+
+std::optional<UltrasoundRendererComponent> World::tryGetUltrasoundRenderer(
+    common::EntityId entityId) const
+{
+    const auto it = mUltrasoundRenderers.find(entityId);
+    return it != mUltrasoundRenderers.end() ? std::optional<UltrasoundRendererComponent>{it->second}
+                                            : std::nullopt;
 }
 
 std::optional<UltrasoundScattererSourceComponent> World::tryGetUltrasoundScattererSource(
@@ -2222,6 +2586,10 @@ const UltrasoundProbeResult *World::tryGetUltrasoundProbeResult(
 std::optional<ColliderComponent> World::tryGetCollider(ColliderHandle handle) const
 {
     if (!handle.isValid())
+    {
+        return std::nullopt;
+    }
+    if (mColliderOwnerEntity.find(handle.id) == mColliderOwnerEntity.end())
     {
         return std::nullopt;
     }
@@ -2280,6 +2648,27 @@ const std::vector<graphics::CameraData> &World::cameras() const noexcept
 const std::vector<graphics::LightData> &World::lights() const noexcept
 {
     return mRenderLights;
+}
+
+std::uint32_t World::entityPoseSlot(common::EntityId entityId) const noexcept
+{
+    const auto it = mEntityPoseSlotByEntity.find(entityId);
+    return it != mEntityPoseSlotByEntity.end() ? it->second : kInvalidSlot;
+}
+
+const std::vector<Diligent::float4> &World::entityPosePositions() const noexcept
+{
+    return mEntityPosePositionsHost;
+}
+
+const std::vector<Diligent::float4> &World::entityPoseOrientations() const noexcept
+{
+    return mEntityPoseOrientationsHost;
+}
+
+const std::vector<Diligent::float4> &World::entityPoseScales() const noexcept
+{
+    return mEntityPoseScalesHost;
 }
 
 const std::vector<Diligent::float4> &World::renderObjectPositions() const noexcept
@@ -2363,34 +2752,20 @@ const std::vector<EntityPoseMappingEntry> &World::physicsRenderableMappings()
     mPhysicsRenderableMappingsCache.clear();
 
     const auto &rigidBodies = mPhysicsWorld.rigidBodySoA();
-    if (!rigidBodies.entityIds.empty() && !mRenderables.empty())
+    if (!rigidBodies.entityIds.empty())
     {
-        std::unordered_map<common::EntityId, std::uint32_t> rigidBodyIndexByEntity;
-        rigidBodyIndexByEntity.reserve(rigidBodies.entityIds.size());
         for (std::uint32_t i = 0; i < static_cast<std::uint32_t>(rigidBodies.entityIds.size()); ++i)
         {
-            rigidBodyIndexByEntity.emplace(rigidBodies.entityIds[i], i);
-        }
-
-        mPhysicsRenderableMappingsCache.reserve(mRenderables.size());
-        for (const graphics::RenderableInstance &renderable : mRenderables)
-        {
-            if (renderable.entityId == common::kInvalidEntityId ||
-                renderable.objectSlot == kInvalidSlot || !renderable.visible)
-            {
-                continue;
-            }
-
-            const auto rigidBodyIt = rigidBodyIndexByEntity.find(renderable.entityId);
-            if (rigidBodyIt == rigidBodyIndexByEntity.end())
+            const common::EntityId entityId = rigidBodies.entityIds[i];
+            const auto poseSlotIt           = mEntityPoseSlotByEntity.find(entityId);
+            if (poseSlotIt == mEntityPoseSlotByEntity.end())
             {
                 continue;
             }
 
             EntityPoseMappingEntry entry{};
-            entry.sourcePoseIndex = rigidBodyIt->second;
-            entry.objectIndex     = renderable.envIndex * mSceneLayout.maxRenderableObjectsPerEnv +
-                                    renderable.objectSlot;
+            entry.sourcePoseIndex = i;
+            entry.entityPoseIndex = poseSlotIt->second;
             mPhysicsRenderableMappingsCache.push_back(entry);
         }
     }
@@ -2398,6 +2773,41 @@ const std::vector<EntityPoseMappingEntry> &World::physicsRenderableMappings()
     mPhysicsRenderableMappingsDirty                      = false;
     mCachedPhysicsRenderableMappingsBodyTopologyRevision = rigidBodyTopologyRevision;
     return mPhysicsRenderableMappingsCache;
+}
+
+std::uint64_t World::entityPoseRevision() const noexcept
+{
+    return mEntityPoseRevision;
+}
+
+std::uint64_t World::renderableMetadataRevision() const noexcept
+{
+    return mRenderableMetadataRevision;
+}
+
+std::uint64_t World::renderableQueueInfoRevision() const noexcept
+{
+    return mRenderableQueueInfoRevision;
+}
+
+std::uint64_t World::softBodyVertexBindingRevision() const noexcept
+{
+    return mSoftBodyVertexBindingRevision;
+}
+
+std::uint64_t World::cameraInputRevision() const noexcept
+{
+    return mCameraInputRevision;
+}
+
+std::uint64_t World::lightInputRevision() const noexcept
+{
+    return mLightInputRevision;
+}
+
+std::uint64_t World::localLightSelectionRevision() const noexcept
+{
+    return mLocalLightSelectionRevision;
 }
 
 const graphics::GpuEntitySceneView &World::gpuEntityScene() const noexcept
@@ -2469,6 +2879,11 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
         rebuildCurveRenderBindings(resources);
     }
 
+    for (const std::uint32_t entityPoseSlot : mDirtyEntityPoseSlots)
+    {
+        refreshEntityPoseSlot(entityPoseSlot);
+    }
+
     for (const std::uint32_t objectIndex : mDirtyRenderablePoseIndices)
     {
         refreshRenderablePose(objectIndex);
@@ -2496,6 +2911,7 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
         mDrawRegistryDirty = false;
     }
 
+    clearDirtyIndexSet(mDirtyEntityPoseSlots, mDirtyEntityPoseBits);
     clearDirtyIndexSet(mDirtyRenderablePoseIndices, mDirtyRenderablePoseBits);
     clearDirtyIndexSet(mDirtyRenderableMetadataIndices, mDirtyRenderableMetadataBits);
     clearDirtyIndexSet(mDirtyCameraIndices, mDirtyCameraBits);
@@ -2506,6 +2922,12 @@ const std::unordered_map<common::EntityId, UltrasoundProbeComponent> &World::
     ultrasoundProbeComponents() const noexcept
 {
     return mUltrasoundProbes;
+}
+
+const std::unordered_map<common::EntityId, UltrasoundRendererComponent> &World::
+    ultrasoundRendererComponents() const noexcept
+{
+    return mUltrasoundRenderers;
 }
 
 const std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent> &World::
@@ -2707,6 +3129,7 @@ void World::rebuildSoftBodyRenderBindings(const graphics::RenderResourceManager 
 
     mSoftBodyRenderBindingsDirty = false;
     mPhysicsWorld.setSoftRenderData(softRenderData);
+    bumpGeneration(mSoftBodyVertexBindingRevision);
 }
 
 void World::rebuildCurveRenderBindings(const graphics::RenderResourceManager &resources)
@@ -2877,6 +3300,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
     // Currently no supported mutation path exists, but if resources become mutable, World has no
     // dependency tracking to invalidate affected slots.
 
+    bool metadataChanged = false;
     for (const std::uint32_t objectIndex : mDirtyRenderableMetadataIndices)
     {
         if (objectIndex >= mRenderableMetadataHost.size() || objectIndex >= mRenderables.size())
@@ -2894,6 +3318,7 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
         entry.deformableType =
             static_cast<std::uint32_t>(graphics::GpuRenderableDeformableType::None);
         entry.segmentationId = renderable.segmentationId;
+        entry.entityPoseSlot = entityPoseSlot(renderable.entityId);
         if (renderable.entityId != common::kInvalidEntityId &&
             renderable.objectSlot != kInvalidSlot)
         {
@@ -2984,7 +3409,16 @@ void World::refreshDirtyRenderableMetadata(const graphics::RenderResourceManager
         }
         entry.flags = static_cast<std::uint32_t>(renderableFlags);
 
-        mRenderableMetadataHost[objectIndex] = entry;
+        if (std::memcmp(&mRenderableMetadataHost[objectIndex], &entry, sizeof(entry)) != 0)
+        {
+            mRenderableMetadataHost[objectIndex] = entry;
+            metadataChanged                      = true;
+        }
+    }
+
+    if (metadataChanged)
+    {
+        bumpGeneration(mRenderableMetadataRevision);
     }
 }
 
@@ -3150,6 +3584,8 @@ void World::rebuildDrawRegistries(const graphics::RenderResourceManager &resourc
         shadowCommandBaseIndex += graphics::kShadowCascadeCount;
         ++localShadowCommandIndex;
     }
+
+    bumpGeneration(mRenderableQueueInfoRevision);
 }
 
 void World::refreshRenderablePose(std::uint32_t objectIndex)
@@ -3208,7 +3644,14 @@ void World::refreshCameraEntry(std::uint32_t cameraIndex)
     graphics::CameraData &cameraData = mRenderCameras[cameraIndex];
     if (cameraData.entityId == common::kInvalidEntityId || cameraData.cameraSlot == kInvalidSlot)
     {
-        mCameraInputsHost[cameraIndex] = {};
+        const graphics::GpuCameraInput cleared{};
+        if (std::memcmp(&mCameraInputsHost[cameraIndex], &cleared, sizeof(cleared)) != 0)
+        {
+            mCameraInputsHost[cameraIndex] = cleared;
+            bumpGeneration(mCameraInputRevision);
+            return;
+        }
+        mCameraInputsHost[cameraIndex] = cleared;
         return;
     }
 
@@ -3216,20 +3659,31 @@ void World::refreshCameraEntry(std::uint32_t cameraIndex)
         tryGetTransform(cameraData.entityId).value_or(TransformComponent{}).worldTransform;
 
     graphics::GpuCameraInput input{};
-    input.position =
-        Diligent::float4{cameraData.worldTransform.position.x, cameraData.worldTransform.position.y,
-                         cameraData.worldTransform.position.z, 1.0f};
-    input.orientation = Diligent::float4{
-        cameraData.worldTransform.rotation.q.x, cameraData.worldTransform.rotation.q.y,
-        cameraData.worldTransform.rotation.q.z, cameraData.worldTransform.rotation.q.w};
+    const std::uint32_t poseSlot = entityPoseSlot(cameraData.entityId);
+    if (poseSlot == kInvalidSlot)
+    {
+        input.position    = Diligent::float4{cameraData.worldTransform.position.x,
+                                             cameraData.worldTransform.position.y,
+                                             cameraData.worldTransform.position.z, 1.0f};
+        input.orientation = Diligent::float4{
+            cameraData.worldTransform.rotation.q.x, cameraData.worldTransform.rotation.q.y,
+            cameraData.worldTransform.rotation.q.z, cameraData.worldTransform.rotation.q.w};
+    }
     input.projectionParams = Diligent::float4{cameraData.verticalFovDegrees, cameraData.nearClip,
                                               cameraData.farClip, 0.0f};
     input.viewportAndOutputSize = Diligent::float4{
         cameraData.viewport.width, cameraData.viewport.height,
         static_cast<float>(cameraData.outputWidth), static_cast<float>(cameraData.outputHeight)};
-    input.envIndex                 = cameraData.envIndex;
-    input.cameraSlot               = cameraData.cameraSlot;
-    input.active                   = 1u;
+    input.envIndex       = cameraData.envIndex;
+    input.cameraSlot     = cameraData.cameraSlot;
+    input.active         = 1u;
+    input.entityPoseSlot = poseSlot;
+    if (std::memcmp(&mCameraInputsHost[cameraIndex], &input, sizeof(input)) != 0)
+    {
+        mCameraInputsHost[cameraIndex] = input;
+        bumpGeneration(mCameraInputRevision);
+        return;
+    }
     mCameraInputsHost[cameraIndex] = input;
 }
 
@@ -3243,7 +3697,14 @@ void World::refreshLightEntry(std::uint32_t lightIndex)
     graphics::LightData &lightData = mRenderLights[lightIndex];
     if (lightData.entityId == common::kInvalidEntityId || lightData.lightSlot == kInvalidSlot)
     {
-        mLightInputsHost[lightIndex] = {};
+        const graphics::GpuLightInput cleared{};
+        if (std::memcmp(&mLightInputsHost[lightIndex], &cleared, sizeof(cleared)) != 0)
+        {
+            mLightInputsHost[lightIndex] = cleared;
+            bumpGeneration(mLightInputRevision);
+            return;
+        }
+        mLightInputsHost[lightIndex] = cleared;
         return;
     }
 
@@ -3262,13 +3723,19 @@ void World::refreshLightEntry(std::uint32_t lightIndex)
     input.spotAngles     = Diligent::float4{std::cos(innerConeRadians), std::cos(outerConeRadians),
                                             lightData.innerConeAngle, lightData.outerConeAngle};
     input.shadowDistance = lightData.shadowDistance;
-    input.shadowFadeDistance     = lightData.shadowFadeDistance;
-    input.shadowBias             = lightData.shadowBias;
-    input.envIndex               = lightData.envIndex;
-    input.lightSlot              = lightData.lightSlot;
-    input.type                   = static_cast<std::uint32_t>(lightData.type);
-    input.active                 = 1u;
-    input.castsShadows           = lightData.castsShadows ? 1u : 0u;
+    input.shadowFadeDistance = lightData.shadowFadeDistance;
+    input.shadowBias         = lightData.shadowBias;
+    input.envIndex           = lightData.envIndex;
+    input.lightSlot          = lightData.lightSlot;
+    input.type               = static_cast<std::uint32_t>(lightData.type);
+    input.active             = 1u;
+    input.castsShadows       = lightData.castsShadows ? 1u : 0u;
+    if (std::memcmp(&mLightInputsHost[lightIndex], &input, sizeof(input)) != 0)
+    {
+        mLightInputsHost[lightIndex] = input;
+        bumpGeneration(mLightInputRevision);
+        return;
+    }
     mLightInputsHost[lightIndex] = input;
 }
 
@@ -3320,6 +3787,8 @@ void World::rebuildLocalLightSelections()
             ++selection.shadowedLocalLightCount;
         }
     }
+
+    bumpGeneration(mLocalLightSelectionRevision);
 }
 
 bool World::moveRenderableToEnvironment(common::EntityId entityId, std::uint32_t envIndex)

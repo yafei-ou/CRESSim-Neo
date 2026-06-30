@@ -101,7 +101,10 @@ std::size_t DisplayResolvePass::PipelineKeyHasher::operator()(const PipelineKey 
         std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.colorFormat));
     const std::size_t depthHash =
         std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.depthFormat));
-    return colorHash ^ (depthHash << 1u);
+    const std::size_t sourceKindHash =
+        std::hash<std::uint32_t>{}(static_cast<std::uint32_t>(key.sourceKind));
+    const std::size_t sourceArrayHash = std::hash<bool>{}(key.sourceIsArray);
+    return colorHash ^ (depthHash << 1u) ^ (sourceKindHash << 2u) ^ (sourceArrayHash << 3u);
 }
 
 bool DisplayResolvePass::initialize()
@@ -190,6 +193,19 @@ Diligent::IPipelineState *DisplayResolvePass::getOrCreatePipeline(
     shaderCreateInfo.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
     shaderCreateInfo.Desc.Name       = "CRESSimNeo.DisplayResolve.PS";
     shaderCreateInfo.FilePath        = "graphics/display_resolve.ps.hlsl";
+    const char *sourceKindMacroValue =
+        key.sourceKind == RenderFrameOptions::PresentedExplicitOutput::SourceKind::Depth
+            ? "1"
+            : (key.sourceKind ==
+                       RenderFrameOptions::PresentedExplicitOutput::SourceKind::Segmentation
+                   ? "2"
+                   : "0");
+    Diligent::ShaderMacro pixelShaderMacros[] = {
+        {"DISPLAY_RESOLVE_SOURCE_KIND", sourceKindMacroValue},
+        {"DISPLAY_RESOLVE_SOURCE_IS_ARRAY", key.sourceIsArray ? "1" : "0"},
+    };
+    shaderCreateInfo.Macros = Diligent::ShaderMacroArray{
+        pixelShaderMacros, static_cast<Diligent::Uint32>(std::size(pixelShaderMacros))};
     if (!mDevice.createShader(shaderCreateInfo, &pixelShader))
     {
         pixelShader = nullptr;
@@ -212,19 +228,21 @@ Diligent::IPipelineState *DisplayResolvePass::getOrCreatePipeline(
     psoCreateInfo.PSODesc.ResourceLayout.DefaultVariableType =
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_STATIC;
 
-    constexpr Diligent::ShaderResourceVariableDesc kVars[] = {
-        {Diligent::SHADER_TYPE_PIXEL, "g_SourceColor",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_PIXEL, "g_SourceDepth",
-         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {Diligent::SHADER_TYPE_PIXEL, "g_SourceSegmentation",
+    const char *sourceVariableName =
+        key.sourceKind == RenderFrameOptions::PresentedExplicitOutput::SourceKind::Depth
+            ? "g_SourceDepth"
+            : (key.sourceKind ==
+                       RenderFrameOptions::PresentedExplicitOutput::SourceKind::Segmentation
+                   ? "g_SourceSegmentation"
+                   : "g_SourceColor");
+    const Diligent::ShaderResourceVariableDesc sourceVar[] = {
+        {Diligent::SHADER_TYPE_PIXEL, sourceVariableName,
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
     };
-    psoCreateInfo.PSODesc.ResourceLayout.Variables = kVars;
-    psoCreateInfo.PSODesc.ResourceLayout.NumVariables =
-        static_cast<Diligent::Uint32>(std::size(kVars));
-    psoCreateInfo.pVS = vertexShader;
-    psoCreateInfo.pPS = pixelShader;
+    psoCreateInfo.PSODesc.ResourceLayout.Variables    = sourceVar;
+    psoCreateInfo.PSODesc.ResourceLayout.NumVariables = 1u;
+    psoCreateInfo.pVS                                 = vertexShader;
+    psoCreateInfo.pPS                                 = pixelShader;
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline;
     if (!mDevice.createGraphicsPipelineState(psoCreateInfo, &pipeline))
@@ -318,6 +336,8 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
         request.sourceKind == RenderFrameOptions::PresentedExplicitOutput::SourceKind::Depth;
     const bool useSegmentationSource =
         request.sourceKind == RenderFrameOptions::PresentedExplicitOutput::SourceKind::Segmentation;
+    const bool sourceIsArray =
+        request.sourceTargetDesc.layeredRendering || request.sourceTargetDesc.arraySize > 1u;
     const bool hasSourceTexture = useDepthSource
                                       ? mDevice.renderTargetSystem().tryGetRenderTargetDepthTexture(
                                             request.sourceBinding.target, sourceTexture)
@@ -336,9 +356,9 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     const Diligent::TEXTURE_FORMAT depthFormat = request.presentationTarget.hasDepth
                                                      ? request.presentationTarget.depthFormat
                                                      : Diligent::TEX_FORMAT_UNKNOWN;
-    Diligent::IPipelineState *pipeline =
-        getOrCreatePipeline(backendContext.renderDevice,
-                            PipelineKey{request.presentationTarget.colorFormat, depthFormat});
+    Diligent::IPipelineState *pipeline         = getOrCreatePipeline(
+        backendContext.renderDevice, PipelineKey{request.presentationTarget.colorFormat,
+                                                 depthFormat, request.sourceKind, sourceIsArray});
     if (pipeline == nullptr)
     {
         return false;
@@ -355,19 +375,16 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
     {
         return false;
     }
-    Diligent::IShaderResourceVariable *sourceColorVar =
-        resolveBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_SourceColor");
-    Diligent::IShaderResourceVariable *sourceDepthVar =
-        resolveBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_SourceDepth");
-    Diligent::IShaderResourceVariable *sourceSegmentationVar =
-        resolveBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "g_SourceSegmentation");
-    if (sourceColorVar == nullptr || sourceDepthVar == nullptr || sourceSegmentationVar == nullptr)
+    const char *sourceVariableName =
+        useDepthSource ? "g_SourceDepth"
+                       : (useSegmentationSource ? "g_SourceSegmentation" : "g_SourceColor");
+    Diligent::IShaderResourceVariable *sourceVar =
+        resolveBinding->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, sourceVariableName);
+    if (sourceVar == nullptr)
     {
         return false;
     }
-    sourceColorVar->Set((useDepthSource || useSegmentationSource) ? nullptr : sourceSrv);
-    sourceDepthVar->Set(useDepthSource ? sourceSrv : nullptr);
-    sourceSegmentationVar->Set(useSegmentationSource ? sourceSrv : nullptr);
+    sourceVar->Set(sourceSrv);
 
     ResolveConstants constants{};
     constants.layer      = request.sourceBinding.firstLayer;
@@ -375,7 +392,6 @@ bool DisplayResolvePass::resolve(const common::FrameContext &frameContext,
         resolveOutputModeForFormat(request.presentationTarget.colorFormat));
     constants.toneMapper             = static_cast<std::uint32_t>(request.toneMapper);
     constants.sourceIsDisplayEncoded = request.sourceIsDisplayEncoded ? 1u : 0u;
-    constants.sourceKind             = static_cast<std::uint32_t>(request.sourceKind);
     constants.resolveParams[0]       = request.exposure;
     constants.resolveParams[1]       = request.nearClip;
     constants.resolveParams[2]       = request.farClip;

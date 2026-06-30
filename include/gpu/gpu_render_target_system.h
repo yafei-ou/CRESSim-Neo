@@ -37,13 +37,16 @@ public:
                                  const common::FrameContext &frameContext)  = 0;
 
     virtual GpuRenderTargetReadbackRequest requestRenderTargetReadback(
-        const GpuRenderTargetBinding &binding)                                      = 0;
+        const GpuRenderTargetBinding &binding)                                          = 0;
     virtual bool tryGetRenderTargetReadback(GpuRenderTargetReadbackRequest request,
-                                            GpuRenderTargetReadbackEvent &outEvent) = 0;
+                                            GpuRenderTargetReadbackEvent &outEvent)     = 0;
     virtual bool tryGetRenderTargetColorTexture(GpuRenderTargetHandle target,
-                                                Diligent::ITexture *&outTexture)    = 0;
+                                                Diligent::ITexture *&outTexture)        = 0;
     virtual bool tryGetRenderTargetDepthTexture(GpuRenderTargetHandle target,
-                                                Diligent::ITexture *&outTexture)    = 0;
+                                                Diligent::ITexture *&outTexture)        = 0;
+    virtual bool tryGetRenderTargetShaderResourceView(const GpuRenderTargetBinding &binding,
+                                                      GpuRenderTargetTexturePlane plane,
+                                                      Diligent::ITextureView *&outView) = 0;
 };
 
 } // namespace cressim::neo::gpu

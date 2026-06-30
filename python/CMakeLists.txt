@@ -1,0 +1,275 @@
+include(GNUInstallDirs)
+
+set(TARGET_NAME "cressim_neo_python")
+set(CRESSIM_NEO_PYTHON_PACKAGE_NAME "cressim_neo")
+set(CRESSIM_NEO_PYTHON_BUILD_ROOT "${CMAKE_BINARY_DIR}/bin")
+set(CRESSIM_NEO_PYTHON_PACKAGE_DIR
+    "${CRESSIM_NEO_PYTHON_BUILD_ROOT}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}")
+set(CRESSIM_NEO_PYTHON_PACKAGE_INIT_TEMPLATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/__init__.py.in")
+set(CRESSIM_NEO_PYTHON_PACKAGE_INIT
+    "${CMAKE_CURRENT_BINARY_DIR}/package/__init__.py")
+set(CRESSIM_NEO_PYTHON_PACKAGE_STUB
+    "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/__init__.pyi")
+set(CRESSIM_NEO_PYTHON_PACKAGE_EXTRA_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/cartpole.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/torch_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/soft_body_pusher_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/fluid_pouring_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/camera_centering_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/ultrasound_centering_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/soft_body_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/fluid_env.py")
+
+configure_file(
+    "${CRESSIM_NEO_PYTHON_PACKAGE_INIT_TEMPLATE}"
+    "${CRESSIM_NEO_PYTHON_PACKAGE_INIT}"
+    @ONLY
+)
+
+pybind11_add_module(${TARGET_NAME} MODULE
+    bindings.cpp
+)
+
+set(CRESSIM_NEO_PYTHON_RUNTIME_TARGETS
+    cressim_neo_engine
+)
+if(NOT ENGINE_STATIC)
+    list(APPEND CRESSIM_NEO_PYTHON_RUNTIME_TARGETS
+        cressim_neo_common
+        cressim_neo_graphics
+        cressim_neo_physics
+        cressim_neo_gpu
+    )
+endif()
+
+target_include_directories(${TARGET_NAME} PRIVATE
+    ${PROJECT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/include
+    ${PROJECT_SOURCE_DIR}/extern
+    ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(${TARGET_NAME} PRIVATE
+    ${CRESSIM_NEO_PYTHON_RUNTIME_TARGETS}
+)
+
+set_target_properties(${TARGET_NAME}
+    PROPERTIES
+    OUTPUT_NAME "_cressim_neo"
+    ARCHIVE_OUTPUT_DIRECTORY "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
+)
+
+if(APPLE)
+    set_target_properties(${TARGET_NAME}
+        PROPERTIES
+        BUILD_RPATH "@loader_path"
+        INSTALL_RPATH "@loader_path"
+    )
+elseif(UNIX)
+    set_target_properties(${TARGET_NAME}
+        PROPERTIES
+        BUILD_RPATH "$ORIGIN"
+        INSTALL_RPATH "$ORIGIN"
+    )
+endif()
+
+execute_process(
+    COMMAND ${Python3_EXECUTABLE} -c
+        "import sysconfig; print(sysconfig.get_path('platlib'))"
+    OUTPUT_VARIABLE CRESSIM_NEO_PYTHON_INSTALL_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+if(CRESSIM_NEO_PYTHON_INSTALL_DIR STREQUAL "")
+    set(CRESSIM_NEO_PYTHON_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}")
+endif()
+
+set(CRESSIM_NEO_PYTHON_DXC_RUNTIME_NAME "")
+set(CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH "")
+
+if(CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH)
+    set(CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}")
+    if(WIN32)
+        set(CRESSIM_NEO_PYTHON_DXC_RUNTIME_NAME "spv_dxcompiler.dll")
+    elseif(APPLE)
+        set(CRESSIM_NEO_PYTHON_DXC_RUNTIME_NAME "libdxcompiler.dylib")
+    elseif(UNIX)
+        set(CRESSIM_NEO_PYTHON_DXC_RUNTIME_NAME "libdxcompiler.so")
+    endif()
+endif()
+
+if(NOT CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH)
+    if(WIN32)
+        set(CRESSIM_NEO_PYTHON_DXC_RUNTIME_NAME "spv_dxcompiler.dll")
+    elseif(APPLE)
+        set(CRESSIM_NEO_PYTHON_DXC_RUNTIME_NAME "libdxcompiler.dylib")
+    elseif(UNIX)
+        set(CRESSIM_NEO_PYTHON_DXC_RUNTIME_NAME "libdxcompiler.so")
+    endif()
+
+    set(CRESSIM_NEO_PYTHON_DXC_RUNTIME_BUILD_FALLBACK
+        "${CMAKE_BINARY_DIR}/bin/${CRESSIM_NEO_PYTHON_DXC_RUNTIME_NAME}")
+    if(EXISTS "${CRESSIM_NEO_PYTHON_DXC_RUNTIME_BUILD_FALLBACK}")
+        set(CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH
+            "${CRESSIM_NEO_PYTHON_DXC_RUNTIME_BUILD_FALLBACK}")
+    endif()
+endif()
+
+install(
+    TARGETS ${TARGET_NAME}
+    LIBRARY DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
+    RUNTIME DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
+)
+
+if(NOT ENGINE_STATIC)
+    install(
+        TARGETS ${CRESSIM_NEO_PYTHON_RUNTIME_TARGETS}
+        LIBRARY DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
+        RUNTIME DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
+    )
+endif()
+
+install(
+    FILES "${CRESSIM_NEO_PYTHON_PACKAGE_INIT}"
+    DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
+)
+
+install(
+    FILES ${CRESSIM_NEO_PYTHON_PACKAGE_EXTRA_FILES}
+    DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
+)
+
+install(
+    DIRECTORY "${PROJECT_SOURCE_DIR}/assets/shaders"
+    DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
+)
+
+if(CRESSIM_NEO_HAS_ULTRASOUND AND TARGET cru_interface)
+    install(
+        FILES "$<TARGET_FILE:cru_interface>"
+        DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
+    )
+endif()
+
+if(CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH AND EXISTS "${CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH}")
+    install(
+        FILES "${CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH}"
+        DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
+        RENAME "${CRESSIM_NEO_PYTHON_DXC_RUNTIME_NAME}"
+    )
+elseif(CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH)
+    message(WARNING
+        "CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH does not exist for Python packaging: "
+        "${CRESSIM_NEO_VULKAN_DXC_RUNTIME_PATH}")
+endif()
+
+find_program(CRESSIM_NEO_PYBIND11_STUBGEN_EXECUTABLE NAMES pybind11-stubgen)
+set(CRESSIM_NEO_PYBIND11_STUBGEN_MODE "")
+
+if(CRESSIM_NEO_PYBIND11_STUBGEN_EXECUTABLE)
+    set(CRESSIM_NEO_PYBIND11_STUBGEN_MODE "executable")
+else()
+    execute_process(
+        COMMAND ${Python3_EXECUTABLE} -m pybind11_stubgen --help
+        RESULT_VARIABLE CRESSIM_NEO_PYBIND11_STUBGEN_MODULE_RESULT
+        OUTPUT_QUIET
+        ERROR_QUIET
+    )
+    if(CRESSIM_NEO_PYBIND11_STUBGEN_MODULE_RESULT EQUAL 0)
+        set(CRESSIM_NEO_PYBIND11_STUBGEN_MODE "module")
+    endif()
+endif()
+
+if(CRESSIM_NEO_PYBIND11_STUBGEN_MODE STREQUAL "executable")
+    add_custom_command(
+        OUTPUT "${CRESSIM_NEO_PYTHON_PACKAGE_STUB}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E env
+            PYTHONPATH=${CRESSIM_NEO_PYTHON_PACKAGE_DIR}
+            ${CRESSIM_NEO_PYBIND11_STUBGEN_EXECUTABLE}
+            _cressim_neo
+            -o "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/_cressim_neo.pyi"
+            "${CRESSIM_NEO_PYTHON_PACKAGE_STUB}"
+        COMMAND ${CMAKE_COMMAND} -E rm -f
+            "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/_cressim_neo.pyi"
+        DEPENDS ${TARGET_NAME}
+        VERBATIM
+    )
+elseif(CRESSIM_NEO_PYBIND11_STUBGEN_MODE STREQUAL "module")
+    add_custom_command(
+        OUTPUT "${CRESSIM_NEO_PYTHON_PACKAGE_STUB}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E env
+            PYTHONPATH=${CRESSIM_NEO_PYTHON_PACKAGE_DIR}
+            ${Python3_EXECUTABLE}
+            -m pybind11_stubgen
+            _cressim_neo
+            -o "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/_cressim_neo.pyi"
+            "${CRESSIM_NEO_PYTHON_PACKAGE_STUB}"
+        COMMAND ${CMAKE_COMMAND} -E rm -f
+            "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/_cressim_neo.pyi"
+        DEPENDS ${TARGET_NAME}
+        VERBATIM
+    )
+else()
+    message(WARNING
+        "pybind11-stubgen was not found. Python bindings will build without generated .pyi stubs.")
+endif()
+
+if(NOT CRESSIM_NEO_PYBIND11_STUBGEN_MODE STREQUAL "")
+    add_custom_target(${TARGET_NAME}_stubs ALL
+        DEPENDS "${CRESSIM_NEO_PYTHON_PACKAGE_STUB}"
+    )
+    add_dependencies(${TARGET_NAME}_stubs ${TARGET_NAME})
+    install(
+        FILES "${CRESSIM_NEO_PYTHON_PACKAGE_STUB}"
+        DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
+        OPTIONAL
+    )
+endif()
+
+add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CRESSIM_NEO_PYTHON_PACKAGE_INIT}"
+        "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/__init__.py"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CRESSIM_NEO_PYTHON_PACKAGE_EXTRA_FILES}
+        "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${PROJECT_SOURCE_DIR}/assets/shaders"
+        "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/shaders"
+)
+
+if(CRESSIM_NEO_HAS_ULTRASOUND AND TARGET cru_interface)
+    add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "$<TARGET_FILE:cru_interface>"
+            "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/$<TARGET_FILE_NAME:cru_interface>"
+    )
+endif()
+
+if(CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH AND EXISTS "${CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH}")
+    add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CRESSIM_NEO_PYTHON_DXC_RUNTIME_SOURCE_PATH}"
+            "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/${CRESSIM_NEO_PYTHON_DXC_RUNTIME_NAME}"
+    )
+endif()
+
+if(NOT ENGINE_STATIC)
+    foreach(CRESSIM_NEO_PYTHON_RUNTIME_TARGET IN LISTS CRESSIM_NEO_PYTHON_RUNTIME_TARGETS)
+        add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:${CRESSIM_NEO_PYTHON_RUNTIME_TARGET}>"
+                "${CRESSIM_NEO_PYTHON_PACKAGE_DIR}/$<TARGET_FILE_NAME:${CRESSIM_NEO_PYTHON_RUNTIME_TARGET}>"
+        )
+    endforeach()
+endif()

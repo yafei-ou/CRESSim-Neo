@@ -13,17 +13,66 @@ namespace cressim::neo::physics
 struct PhysicsGpuRigidSceneView
 {
     common::PoseBufferView poses{};
-    Diligent::IBuffer *rigidParticleAttachmentsBuffer = nullptr;
-    Diligent::IBuffer *rigidDistanceConstraintsBuffer = nullptr;
-    Diligent::IBuffer *routedCableDescriptorsBuffer   = nullptr;
-    Diligent::IBuffer *routedCableRoutePointsBuffer   = nullptr;
-    Diligent::IBuffer *routedCableDebugSegmentsBuffer = nullptr;
-    std::uint32_t rigidParticleAttachmentCount        = 0;
-    std::uint32_t rigidDistanceConstraintCount        = 0;
-    std::uint32_t routedCableCount                    = 0;
-    std::uint32_t routedCableDebugSegmentCount        = 0;
-    std::uint32_t colliderCount                       = 0;
-    std::uint64_t bindingGeneration                   = 0;
+    Diligent::IBuffer *statePositionsBuffer                = nullptr;
+    Diligent::IBuffer *stateOrientationsBuffer             = nullptr;
+    Diligent::IBuffer *stateLinearVelocitiesBuffer         = nullptr;
+    Diligent::IBuffer *stateAngularVelocitiesBuffer        = nullptr;
+    Diligent::IBuffer *inverseInertiaLocalBuffer           = nullptr;
+    Diligent::IBuffer *bodyTypesBuffer                     = nullptr;
+    Diligent::IBuffer *proxyParticleContactMaterialsBuffer = nullptr;
+    Diligent::IBuffer *kinematicTargetPositionsBuffer      = nullptr;
+    Diligent::IBuffer *kinematicTargetOrientationsBuffer   = nullptr;
+    Diligent::IBuffer *kinematicTargetFlagsBuffer          = nullptr;
+    Diligent::IBuffer *colliderOwnerBodyIndicesBuffer      = nullptr;
+    Diligent::IBuffer *colliderBroadPhaseBuffer            = nullptr;
+    Diligent::IBuffer *colliderGeometryBuffer              = nullptr;
+    Diligent::IBuffer *colliderMaterialsBuffer             = nullptr;
+    Diligent::IBuffer *colliderShapeTypesBuffer            = nullptr;
+    Diligent::IBuffer *colliderEnabledFlagsBuffer          = nullptr;
+    Diligent::IBuffer *bodyColliderOffsetsBuffer           = nullptr;
+    Diligent::IBuffer *bodyColliderCountsBuffer            = nullptr;
+    Diligent::IBuffer *bodyColliderRangesBuffer            = nullptr;
+    Diligent::IBuffer *bodyColliderIndicesBuffer           = nullptr;
+    Diligent::IBuffer *rigidParticleAttachmentsBuffer      = nullptr;
+    Diligent::IBuffer *rigidDistanceConstraintsBuffer      = nullptr;
+    Diligent::IBuffer *routedCableDescriptorsBuffer        = nullptr;
+    Diligent::IBuffer *routedCableRoutePointsBuffer        = nullptr;
+    Diligent::IBuffer *routedCableDebugSegmentsBuffer      = nullptr;
+    std::uint32_t bodyCount                                = 0;
+    std::uint32_t rigidParticleAttachmentCount             = 0;
+    std::uint32_t rigidDistanceConstraintCount             = 0;
+    std::uint32_t routedCableCount                         = 0;
+    std::uint32_t routedCableRoutePointCount               = 0;
+    std::uint32_t routedCableDebugSegmentCount             = 0;
+    std::uint32_t colliderCount                            = 0;
+    std::uint64_t bindingGeneration                        = 0;
+    std::uint64_t constraintBindingGeneration              = 0;
+};
+
+struct PhysicsGpuJointSceneView
+{
+    Diligent::IBuffer *ballJointsBuffer                      = nullptr;
+    Diligent::IBuffer *sphericalJointsBuffer                 = nullptr;
+    Diligent::IBuffer *hingeJointsBuffer                     = nullptr;
+    Diligent::IBuffer *sliderJointsBuffer                    = nullptr;
+    Diligent::IBuffer *hingePassiveJointIndicesBuffer        = nullptr;
+    Diligent::IBuffer *hingePositionDriveJointIndicesBuffer  = nullptr;
+    Diligent::IBuffer *hingeVelocityDriveJointIndicesBuffer  = nullptr;
+    Diligent::IBuffer *sliderPassiveJointIndicesBuffer       = nullptr;
+    Diligent::IBuffer *sliderPositionDriveJointIndicesBuffer = nullptr;
+    Diligent::IBuffer *sliderVelocityDriveJointIndicesBuffer = nullptr;
+    std::uint32_t ballJointCount                             = 0u;
+    std::uint32_t hingeJointCount                            = 0u;
+    std::uint32_t sphericalJointCount                        = 0u;
+    std::uint32_t sliderJointCount                           = 0u;
+    std::uint32_t hingePassiveJointCount                     = 0u;
+    std::uint32_t hingePositionDriveJointCount               = 0u;
+    std::uint32_t hingeVelocityDriveJointCount               = 0u;
+    std::uint32_t sliderPassiveJointCount                    = 0u;
+    std::uint32_t sliderPositionDriveJointCount              = 0u;
+    std::uint32_t sliderVelocityDriveJointCount              = 0u;
+    std::uint64_t bindingGeneration                          = 0u;
+    std::uint64_t modeBindingGeneration                      = 0u;
 };
 
 struct PhysicsGpuParticleBufferView
@@ -108,6 +157,7 @@ struct PhysicsGpuCurveSceneView
 struct CRESSIM_NEO_PHYSICS_API PhysicsGpuSceneView
 {
     PhysicsGpuRigidSceneView rigid{};
+    PhysicsGpuJointSceneView joints{};
     PhysicsGpuSoftSceneView soft{};
     PhysicsGpuCurveSceneView curve{};
 };

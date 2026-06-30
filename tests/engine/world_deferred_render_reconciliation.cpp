@@ -73,8 +73,10 @@ int main()
     }
 
     const auto& cameraInputs0 = world.cameraInputs();
-    if (cameraInputs0.empty() || cameraInputs0[0].active == 0u ||
-        !nearlyEqual(cameraInputs0[0].position.y, 1.0f))
+    const auto& cameras0 = world.cameras();
+    if (cameraInputs0.empty() || cameraInputs0[0].active == 0u || cameras0.empty() ||
+        cameraInputs0[0].entityPoseSlot == 0xffffffffu ||
+        !nearlyEqual(cameras0[0].worldTransform.position.y, 1.0f))
     {
         CRESSIM_LOG_ERROR( "Initial deferred camera flush failed.\n");
         return 1;
@@ -87,8 +89,9 @@ int main()
 
     const auto& positionsBeforeFlush = world.renderObjectPositions();
     const auto& cameraInputsBeforeFlush = world.cameraInputs();
+    const auto& camerasBeforeFlush = world.cameras();
     if (!nearlyEqual(positionsBeforeFlush[0].x, 1.0f) ||
-        !nearlyEqual(cameraInputsBeforeFlush[0].position.y, 1.0f))
+        !nearlyEqual(camerasBeforeFlush[0].worldTransform.position.y, 1.0f))
     {
         CRESSIM_LOG_ERROR( "Derived render state updated eagerly instead of deferring.\n");
         return 1;
@@ -98,14 +101,16 @@ int main()
 
     const auto& positions1 = world.renderObjectPositions();
     const auto& cameraInputs1 = world.cameraInputs();
+    const auto& cameras1 = world.cameras();
     if (!nearlyEqual(positions1[0].x, 4.0f) || !nearlyEqual(positions1[0].y, 5.0f) ||
         !nearlyEqual(positions1[0].z, 6.0f))
     {
         CRESSIM_LOG_ERROR( "Deferred renderable pose flush mismatch.\n");
         return 1;
     }
-    if (!nearlyEqual(cameraInputs1[0].position.y, 3.0f) ||
-        !nearlyEqual(cameraInputs1[0].position.z, -6.0f))
+    if (cameraInputs1[0].entityPoseSlot == 0xffffffffu ||
+        !nearlyEqual(cameras1[0].worldTransform.position.y, 3.0f) ||
+        !nearlyEqual(cameras1[0].worldTransform.position.z, -6.0f))
     {
         CRESSIM_LOG_ERROR( "Deferred camera flush mismatch.\n");
         return 1;

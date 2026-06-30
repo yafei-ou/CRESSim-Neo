@@ -58,6 +58,12 @@ struct GpuRenderTargetBinding
     }
 };
 
+enum class GpuRenderTargetTexturePlane
+{
+    Color,
+    Depth,
+};
+
 enum class RenderOutputMode
 {
     ManagedPrimary,

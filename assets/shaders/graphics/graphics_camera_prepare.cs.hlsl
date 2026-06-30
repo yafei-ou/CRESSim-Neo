@@ -1,16 +1,5 @@
 #include "include/graphics/graphics_scene_buffers.hlsli"
-
-struct CameraInput
-{
-    float4 position;
-    float4 orientation;
-    float4 projectionParams;
-    float4 viewportAndOutputSize;
-    uint envIndex;
-    uint cameraSlot;
-    uint active;
-    uint reserved;
-};
+#include "include/graphics/graphics_camera_input.hlsli"
 
 cbuffer GraphicsCameraPrepareConstants
 {
@@ -18,6 +7,10 @@ cbuffer GraphicsCameraPrepareConstants
     uint g_MaxObjectsPerEnv;
     uint g_MaxLightsPerEnv;
     uint g_ShadowMapResolution;
+    uint g_EntityPoseCount;
+    uint g_Padding0;
+    uint g_Padding1;
+    uint g_Padding2;
 };
 
 CRESSIM_STRUCTURED_BUFFER(CameraInput, g_CameraInputs);
@@ -263,8 +256,13 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    const float3 position = camera.position.xyz;
-    const float4 orientation = normalize(camera.orientation);
+    float3 position = camera.position.xyz;
+    float4 orientation = normalize(camera.orientation);
+    if (camera.entityPoseSlot < g_EntityPoseCount)
+    {
+        position = CRESSIM_SB_REF(g_EntityPositions, camera.entityPoseSlot).xyz;
+        orientation = normalize(CRESSIM_SB_LOAD(g_EntityOrientations, camera.entityPoseSlot));
+    }
     const float aspect = computeEffectiveViewportAspect(camera.viewportAndOutputSize);
     const float nearClip = max(camera.projectionParams.y, 0.001);
     const float farClip = max(camera.projectionParams.z, nearClip + 0.001);

@@ -2,6 +2,7 @@
 #define CRESSIM_NEO_ENGINE_ULTRASOUND_SYSTEM_H
 
 #include "common/frame_context.h"
+#include "engine/components.h"
 #include "engine/export.h"
 
 #include <memory>
@@ -21,6 +22,10 @@ namespace cressim::neo::engine
 
 class World;
 
+CRESSIM_NEO_ENGINE_API bool computeUltrasoundProbeLayout(
+    const UltrasoundProbeComponent &probeComponent,
+    const UltrasoundRendererComponent &rendererComponent, UltrasoundProbeLayout &outLayout);
+
 class CRESSIM_NEO_ENGINE_API UltrasoundSystem
 {
 public:
@@ -31,6 +36,9 @@ public:
     void shutdown();
     bool prepare(World &world);
     bool execute(const common::FrameContext &frameContext, World &world);
+    bool computeProbeLayout(const UltrasoundProbeComponent &probeComponent,
+                            const UltrasoundRendererComponent &rendererComponent,
+                            UltrasoundProbeLayout &outLayout) const;
 
 private:
     struct Impl;

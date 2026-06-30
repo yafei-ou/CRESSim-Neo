@@ -27,10 +27,10 @@ struct GpuCameraInput
     Diligent::float4 orientation{0.0f, 0.0f, 0.0f, 1.0f};
     Diligent::float4 projectionParams{60.0f, 0.01f, 1000.0f, 0.0f};
     Diligent::float4 viewportAndOutputSize{0.0f, 0.0f, 1.0f, 1.0f};
-    std::uint32_t envIndex   = 0u;
-    std::uint32_t cameraSlot = 0u;
-    std::uint32_t active     = 0u;
-    std::uint32_t reserved   = 0u;
+    std::uint32_t envIndex       = 0u;
+    std::uint32_t cameraSlot     = 0u;
+    std::uint32_t active         = 0u;
+    std::uint32_t entityPoseSlot = kInvalidGpuSceneIndex;
 };
 
 struct GpuLightInput
@@ -87,7 +87,7 @@ struct GpuRenderableMetadata
     std::uint32_t deformVertexCount = 0u;
     std::uint32_t deformableType    = 0u;
     std::uint32_t segmentationId    = 0u;
-    std::uint32_t reserved2         = 0u;
+    std::uint32_t entityPoseSlot    = kInvalidGpuSceneIndex;
     Diligent::float4 localBoundsMin{};
     Diligent::float4 localBoundsMax{};
 };

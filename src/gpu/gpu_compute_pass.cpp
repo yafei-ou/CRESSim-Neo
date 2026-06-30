@@ -2,6 +2,8 @@
 
 #include "common/logger.h"
 
+#include <cstring>
+
 namespace cressim::neo::gpu
 {
 
@@ -16,6 +18,16 @@ bool GpuComputePass::initialize(GpuDevice &device,
     mPso        = nullptr;
     mVariants.clear();
 
+    const bool hasShaderPath = definition.shaderPath != nullptr && definition.shaderPath[0] != '\0';
+    const bool hasShaderSource =
+        definition.shaderSource != nullptr && definition.shaderSource[0] != '\0';
+    if ((!hasShaderPath && !hasShaderSource) || (hasShaderPath && hasShaderSource))
+    {
+        CRESSIM_LOG_ERROR(
+            "GpuComputePass: expected exactly one of shaderPath or shaderSource to be provided.");
+        return false;
+    }
+
     if (streamFactory == nullptr)
     {
         return false;
@@ -24,11 +36,19 @@ bool GpuComputePass::initialize(GpuDevice &device,
     Diligent::ShaderCreateInfo shaderCreateInfo{};
     shaderCreateInfo.SourceLanguage                  = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
     shaderCreateInfo.Desc.UseCombinedTextureSamplers = true;
-    shaderCreateInfo.EntryPoint                      = "main";
-    shaderCreateInfo.Desc.ShaderType                 = Diligent::SHADER_TYPE_COMPUTE;
-    shaderCreateInfo.Desc.Name                       = mShaderName.c_str();
-    shaderCreateInfo.FilePath                        = mShaderPath.c_str();
-    shaderCreateInfo.pShaderSourceStreamFactory      = streamFactory;
+    shaderCreateInfo.EntryPoint = definition.entryPoint != nullptr ? definition.entryPoint : "main";
+    shaderCreateInfo.Desc.ShaderType            = Diligent::SHADER_TYPE_COMPUTE;
+    shaderCreateInfo.Desc.Name                  = mShaderName.c_str();
+    shaderCreateInfo.pShaderSourceStreamFactory = streamFactory;
+    if (hasShaderPath)
+    {
+        shaderCreateInfo.FilePath = mShaderPath.c_str();
+    }
+    else
+    {
+        shaderCreateInfo.Source       = definition.shaderSource;
+        shaderCreateInfo.SourceLength = std::strlen(definition.shaderSource);
+    }
     if (definition.macros != nullptr && definition.macroCount > 0u)
     {
         shaderCreateInfo.Macros = Diligent::ShaderMacroArray{

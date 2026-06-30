@@ -112,6 +112,35 @@ std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
     return (threadCount + kComputeThreadGroupSize - 1u) / kComputeThreadGroupSize;
 }
 
+std::vector<Diligent::IBuffer *> rawBufferPtrs(
+    const std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> &buffers)
+{
+    std::vector<Diligent::IBuffer *> result;
+    result.reserve(buffers.size());
+    for (const auto &buffer : buffers)
+    {
+        result.push_back(buffer.RawPtr());
+    }
+    return result;
+}
+
+bool rawBufferPtrsChanged(const std::vector<Diligent::IBuffer *> &before,
+                          const std::vector<Diligent::RefCntAutoPtr<Diligent::IBuffer>> &after)
+{
+    if (before.size() != after.size())
+    {
+        return true;
+    }
+    for (std::size_t i = 0; i < before.size(); ++i)
+    {
+        if (before[i] != after[i].RawPtr())
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::vector<std::uint32_t> buildReductionLevelCounts(std::uint32_t elementCount)
 {
     std::vector<std::uint32_t> counts;
@@ -276,12 +305,52 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mTransientState.predictedRigidBodies.linearVelocitiesBuffer.RawPtr();
     const auto predictedAngularBefore =
         mTransientState.predictedRigidBodies.angularVelocitiesBuffer.RawPtr();
-    const auto bodyAabbsBefore             = mTransientState.bodyAabbsBuffer.RawPtr();
-    const auto bodyMetaBefore              = mTransientState.bodyMetaBuffer.RawPtr();
-    const auto activeFlagsBefore           = mTransientState.activeBodyFlagsBuffer.RawPtr();
-    const auto activeOffsetsBefore         = mTransientState.activeBodyOffsetsBuffer.RawPtr();
-    const auto staticFlagsBefore           = mTransientState.staticBodyFlagsBuffer.RawPtr();
-    const auto staticOffsetsBefore         = mTransientState.staticBodyOffsetsBuffer.RawPtr();
+    const auto bodyAabbsBefore              = mTransientState.bodyAabbsBuffer.RawPtr();
+    const auto bodyMetaBefore               = mTransientState.bodyMetaBuffer.RawPtr();
+    const auto activeFlagsBefore            = mTransientState.activeBodyFlagsBuffer.RawPtr();
+    const auto activeOffsetsBefore          = mTransientState.activeBodyOffsetsBuffer.RawPtr();
+    const auto activeIndicesBefore          = mTransientState.activeBodyIndicesBuffer.RawPtr();
+    const auto staticFlagsBefore            = mTransientState.staticBodyFlagsBuffer.RawPtr();
+    const auto staticOffsetsBefore          = mTransientState.staticBodyOffsetsBuffer.RawPtr();
+    const auto staticIndicesBefore          = mTransientState.staticBodyIndicesBuffer.RawPtr();
+    const auto broadPhaseElementsBefore     = mTransientState.broadPhaseElementsBuffer.RawPtr();
+    const auto mortonCodesBefore            = mTransientState.mortonCodesBuffer.RawPtr();
+    const auto mortonCodesScratchBefore     = mTransientState.mortonCodesScratchBuffer.RawPtr();
+    const auto globalBroadPhaseExtentBefore = mTransientState.globalBroadPhaseExtentBuffer.RawPtr();
+    const auto staticBroadPhaseElementsBefore =
+        mTransientState.staticBroadPhaseElementsBuffer.RawPtr();
+    const auto staticMortonCodesBefore = mTransientState.staticMortonCodesBuffer.RawPtr();
+    const auto staticMortonCodesScratchBefore =
+        mTransientState.staticMortonCodesScratchBuffer.RawPtr();
+    const auto staticGlobalBroadPhaseExtentBefore =
+        mTransientState.staticGlobalBroadPhaseExtentBuffer.RawPtr();
+    const auto scanBlockSumsBefore = rawBufferPtrs(mTransientState.scanBlockSumsBuffers);
+    const auto scanScannedBlockSumsBefore =
+        rawBufferPtrs(mTransientState.scanScannedBlockSumsBuffers);
+    const auto broadPhaseExtentScratchBefore =
+        rawBufferPtrs(mTransientState.broadPhaseExtentScratchBuffers);
+    const auto staticScanBlockSumsBefore =
+        rawBufferPtrs(mTransientState.staticScanBlockSumsBuffers);
+    const auto staticScanScannedBlockSumsBefore =
+        rawBufferPtrs(mTransientState.staticScanScannedBlockSumsBuffers);
+    const auto staticBroadPhaseExtentScratchBefore =
+        rawBufferPtrs(mTransientState.staticBroadPhaseExtentScratchBuffers);
+    const auto radixBitFlagsBefore         = mTransientState.radixBitFlagsBuffer.RawPtr();
+    const auto radixBitOffsetsBefore       = mTransientState.radixBitOffsetsBuffer.RawPtr();
+    const auto radixMetaBefore             = mTransientState.radixMetaBuffer.RawPtr();
+    const auto bvhBefore                   = mTransientState.bvhBuffer.RawPtr();
+    const auto bvhConstructionBefore       = mTransientState.bvhConstructionInfoBuffer.RawPtr();
+    const auto staticRadixBitFlagsBefore   = mTransientState.staticRadixBitFlagsBuffer.RawPtr();
+    const auto staticRadixBitOffsetsBefore = mTransientState.staticRadixBitOffsetsBuffer.RawPtr();
+    const auto staticRadixMetaBefore       = mTransientState.staticRadixMetaBuffer.RawPtr();
+    const auto staticBvhBefore             = mTransientState.staticBvhBuffer.RawPtr();
+    const auto staticBvhConstructionBefore =
+        mTransientState.staticBvhConstructionInfoBuffer.RawPtr();
+    const auto candidatePairsBefore        = mTransientState.candidatePairsBuffer.RawPtr();
+    const auto broadPhaseMetaBefore        = mTransientState.broadPhaseMetaBuffer.RawPtr();
+    const auto narrowPhaseChunksBefore     = mTransientState.narrowPhaseChunksBuffer.RawPtr();
+    const auto narrowPhaseMetaBefore       = mTransientState.narrowPhaseMetaBuffer.RawPtr();
+    const auto narrowPhaseCounterBefore    = mTransientState.narrowPhaseChunkCounterBuffer.RawPtr();
     const auto rigidContactsBefore         = mTransientState.rigidContactsBuffer.RawPtr();
     const auto proxyRigidContactMetaBefore = mTransientState.proxyRigidContactMetaBuffer.RawPtr();
     const auto rigidAggregateMapBefore = mTransientState.rigidBodyPairAggregateMapBuffer.RawPtr();
@@ -765,27 +834,29 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentParticles.positionsInvMassBuffer = nullptr;
     }
 
-    if (!ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.PositionsInvMass", sizeof(Diligent::float4),
-            newRigidBodyCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentRigidBodies.positionsBuffer) ||
-        !ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.Orientations", sizeof(Diligent::float4),
-            newRigidBodyCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentRigidBodies.orientationsBuffer) ||
+    if (!ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.PositionsInvMass",
+                                sizeof(Diligent::float4), newRigidBodyCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentRigidBodies.positionsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.Orientations",
+                                sizeof(Diligent::float4), newRigidBodyCapacity,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentRigidBodies.orientationsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.Scales", sizeof(Diligent::float4),
                                 newRigidBodyCapacity, Diligent::BIND_SHADER_RESOURCE,
                                 Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.scalesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.LinearVelocities",
                                 sizeof(Diligent::float4), newRigidBodyCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.linearVelocitiesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.AngularVelocities",
                                 sizeof(Diligent::float4), newRigidBodyCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.angularVelocitiesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.InverseInertiaLocal",
                                 sizeof(Diligent::float4), newRigidBodyCapacity,
@@ -803,18 +874,18 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 mPersistentRigidBodies.proxyParticleContactMaterialsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.KinematicTargetPositions",
                                 sizeof(Diligent::float4), newRigidBodyCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.kinematicTargetPositionsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.KinematicTargetOrientations",
                                 sizeof(Diligent::float4), newRigidBodyCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.kinematicTargetOrientationsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.KinematicTargetFlags",
                                 sizeof(std::uint32_t), newRigidBodyCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
+                                Diligent::BIND_UNORDERED_ACCESS | Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentRigidBodies.kinematicTargetFlagsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.ColliderOwnerBodyIndices",
                                 sizeof(std::uint32_t), newColliderCapacity,
@@ -885,14 +956,16 @@ bool PhysicsSceneGpuState::ensureCapacity(
             renderDevice, "CRESSimNeo.Physics.SphericalJoints", sizeof(GpuSphericalJoint),
             newSphericalJointCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
             Diligent::CPU_ACCESS_NONE, contextMask, mPersistentJoints.sphericalJointsBuffer) ||
-        !ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.HingeJoints", sizeof(GpuHingeJoint),
-            newHingeJointCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentJoints.hingeJointsBuffer) ||
-        !ensureStructuredBuffer(
-            renderDevice, "CRESSimNeo.Physics.SliderJoints", sizeof(GpuSliderJoint),
-            newSliderJointCapacity, Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-            Diligent::CPU_ACCESS_NONE, contextMask, mPersistentJoints.sliderJointsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.HingeJoints",
+                                sizeof(GpuHingeJoint), newHingeJointCapacity,
+                                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentJoints.hingeJointsBuffer) ||
+        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SliderJoints",
+                                sizeof(GpuSliderJoint), newSliderJointCapacity,
+                                Diligent::BIND_SHADER_RESOURCE | Diligent::BIND_UNORDERED_ACCESS,
+                                Diligent::USAGE_DEFAULT, Diligent::CPU_ACCESS_NONE, contextMask,
+                                mPersistentJoints.sliderJointsBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.HingePassiveJointIndices",
                                 sizeof(std::uint32_t), newHingePassiveJointIndexCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -2121,8 +2194,45 @@ bool PhysicsSceneGpuState::ensureCapacity(
         bodyMetaBefore != mTransientState.bodyMetaBuffer.RawPtr() ||
         activeFlagsBefore != mTransientState.activeBodyFlagsBuffer.RawPtr() ||
         activeOffsetsBefore != mTransientState.activeBodyOffsetsBuffer.RawPtr() ||
+        activeIndicesBefore != mTransientState.activeBodyIndicesBuffer.RawPtr() ||
         staticFlagsBefore != mTransientState.staticBodyFlagsBuffer.RawPtr() ||
         staticOffsetsBefore != mTransientState.staticBodyOffsetsBuffer.RawPtr() ||
+        staticIndicesBefore != mTransientState.staticBodyIndicesBuffer.RawPtr() ||
+        broadPhaseElementsBefore != mTransientState.broadPhaseElementsBuffer.RawPtr() ||
+        mortonCodesBefore != mTransientState.mortonCodesBuffer.RawPtr() ||
+        mortonCodesScratchBefore != mTransientState.mortonCodesScratchBuffer.RawPtr() ||
+        globalBroadPhaseExtentBefore != mTransientState.globalBroadPhaseExtentBuffer.RawPtr() ||
+        staticBroadPhaseElementsBefore != mTransientState.staticBroadPhaseElementsBuffer.RawPtr() ||
+        staticMortonCodesBefore != mTransientState.staticMortonCodesBuffer.RawPtr() ||
+        staticMortonCodesScratchBefore != mTransientState.staticMortonCodesScratchBuffer.RawPtr() ||
+        staticGlobalBroadPhaseExtentBefore !=
+            mTransientState.staticGlobalBroadPhaseExtentBuffer.RawPtr() ||
+        rawBufferPtrsChanged(scanBlockSumsBefore, mTransientState.scanBlockSumsBuffers) ||
+        rawBufferPtrsChanged(scanScannedBlockSumsBefore,
+                             mTransientState.scanScannedBlockSumsBuffers) ||
+        rawBufferPtrsChanged(broadPhaseExtentScratchBefore,
+                             mTransientState.broadPhaseExtentScratchBuffers) ||
+        rawBufferPtrsChanged(staticScanBlockSumsBefore,
+                             mTransientState.staticScanBlockSumsBuffers) ||
+        rawBufferPtrsChanged(staticScanScannedBlockSumsBefore,
+                             mTransientState.staticScanScannedBlockSumsBuffers) ||
+        rawBufferPtrsChanged(staticBroadPhaseExtentScratchBefore,
+                             mTransientState.staticBroadPhaseExtentScratchBuffers) ||
+        radixBitFlagsBefore != mTransientState.radixBitFlagsBuffer.RawPtr() ||
+        radixBitOffsetsBefore != mTransientState.radixBitOffsetsBuffer.RawPtr() ||
+        radixMetaBefore != mTransientState.radixMetaBuffer.RawPtr() ||
+        bvhBefore != mTransientState.bvhBuffer.RawPtr() ||
+        bvhConstructionBefore != mTransientState.bvhConstructionInfoBuffer.RawPtr() ||
+        staticRadixBitFlagsBefore != mTransientState.staticRadixBitFlagsBuffer.RawPtr() ||
+        staticRadixBitOffsetsBefore != mTransientState.staticRadixBitOffsetsBuffer.RawPtr() ||
+        staticRadixMetaBefore != mTransientState.staticRadixMetaBuffer.RawPtr() ||
+        staticBvhBefore != mTransientState.staticBvhBuffer.RawPtr() ||
+        staticBvhConstructionBefore != mTransientState.staticBvhConstructionInfoBuffer.RawPtr() ||
+        candidatePairsBefore != mTransientState.candidatePairsBuffer.RawPtr() ||
+        broadPhaseMetaBefore != mTransientState.broadPhaseMetaBuffer.RawPtr() ||
+        narrowPhaseChunksBefore != mTransientState.narrowPhaseChunksBuffer.RawPtr() ||
+        narrowPhaseMetaBefore != mTransientState.narrowPhaseMetaBuffer.RawPtr() ||
+        narrowPhaseCounterBefore != mTransientState.narrowPhaseChunkCounterBuffer.RawPtr() ||
         rigidContactsBefore != mTransientState.rigidContactsBuffer.RawPtr() ||
         proxyRigidContactMetaBefore != mTransientState.proxyRigidContactMetaBuffer.RawPtr() ||
         rigidAggregateMapBefore != mTransientState.rigidBodyPairAggregateMapBuffer.RawPtr() ||
@@ -2461,9 +2571,11 @@ void PhysicsSceneGpuState::publishSceneCounts(
     mStrandRigidAttachmentCount   = static_cast<std::uint32_t>(strandRigidAttachments.size());
     mRigidDistanceConstraintCount = static_cast<std::uint32_t>(rigidDistanceConstraints.size());
     mRoutedCableCount             = static_cast<std::uint32_t>(routedCableConstraints.size());
+    mRoutedCableRoutePointCount   = 0u;
     mRoutedCableDebugSegmentCount = 0u;
     for (const RoutedCableConstraint &constraint : routedCableConstraints)
     {
+        mRoutedCableRoutePointCount += constraint.routePointCount;
         if (constraint.routePointCount > 1u)
         {
             mRoutedCableDebugSegmentCount += constraint.routePointCount - 1u;
@@ -4114,19 +4226,75 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
     view.rigid.poses.scalesBuffer       = mPersistentRigidBodies.scalesBuffer;
     view.rigid.poses.count              = mRigidBodyCount;
     view.rigid.poses.bindingGeneration  = mRigidBindingGeneration;
+    view.rigid.statePositionsBuffer     = mPersistentRigidBodies.positionsBuffer;
+    view.rigid.stateOrientationsBuffer  = mPersistentRigidBodies.orientationsBuffer;
+    view.rigid.stateLinearVelocitiesBuffer  = mPersistentRigidBodies.linearVelocitiesBuffer;
+    view.rigid.stateAngularVelocitiesBuffer = mPersistentRigidBodies.angularVelocitiesBuffer;
+    view.rigid.inverseInertiaLocalBuffer    = mPersistentRigidBodies.inverseInertiaLocalBuffer;
+    view.rigid.bodyTypesBuffer              = mPersistentRigidBodies.bodyTypesBuffer;
+    view.rigid.proxyParticleContactMaterialsBuffer =
+        mPersistentRigidBodies.proxyParticleContactMaterialsBuffer;
+    view.rigid.kinematicTargetPositionsBuffer =
+        mPersistentRigidBodies.kinematicTargetPositionsBuffer;
+    view.rigid.kinematicTargetOrientationsBuffer =
+        mPersistentRigidBodies.kinematicTargetOrientationsBuffer;
+    view.rigid.kinematicTargetFlagsBuffer     = mPersistentRigidBodies.kinematicTargetFlagsBuffer;
+    view.rigid.colliderOwnerBodyIndicesBuffer = mPersistentColliders.ownerRigidBodyIndicesBuffer;
+    view.rigid.colliderBroadPhaseBuffer       = mPersistentColliders.broadPhaseDataBuffer;
+    view.rigid.colliderGeometryBuffer         = mPersistentColliders.geometryDataBuffer;
+    view.rigid.colliderMaterialsBuffer        = mPersistentColliders.materialBuffer;
+    view.rigid.colliderShapeTypesBuffer       = mPersistentColliders.shapeTypesBuffer;
+    view.rigid.colliderEnabledFlagsBuffer     = mPersistentColliders.enabledFlagsBuffer;
+    view.rigid.bodyColliderOffsetsBuffer = mPersistentBodyColliderMapping.colliderOffsetsBuffer;
+    view.rigid.bodyColliderCountsBuffer  = mPersistentBodyColliderMapping.colliderCountsBuffer;
+    view.rigid.bodyColliderRangesBuffer  = mPersistentBodyColliderMapping.colliderRangesBuffer;
+    view.rigid.bodyColliderIndicesBuffer = mPersistentBodyColliderMapping.colliderIndicesBuffer;
+    view.rigid.bodyCount                 = mRigidBodyCount;
     view.rigid.rigidParticleAttachmentsBuffer =
         mPersistentRoutedCables.rigidParticleAttachmentsBuffer;
     view.rigid.rigidParticleAttachmentCount = mRigidParticleAttachmentCount;
     view.rigid.rigidDistanceConstraintsBuffer =
         mPersistentRoutedCables.rigidDistanceConstraintsBuffer;
-    view.rigid.rigidDistanceConstraintCount      = mRigidDistanceConstraintCount;
-    view.rigid.routedCableDescriptorsBuffer      = mPersistentRoutedCables.descriptorsBuffer;
-    view.rigid.routedCableRoutePointsBuffer      = mPersistentRoutedCables.routePointsBuffer;
-    view.rigid.routedCableDebugSegmentsBuffer    = mPersistentRoutedCables.debugSegmentsBuffer;
-    view.rigid.routedCableCount                  = mRoutedCableCount;
-    view.rigid.routedCableDebugSegmentCount      = mRoutedCableDebugSegmentCount;
-    view.rigid.colliderCount                     = mColliderCount;
-    view.rigid.bindingGeneration                 = mRigidBindingGeneration;
+    view.rigid.rigidDistanceConstraintCount   = mRigidDistanceConstraintCount;
+    view.rigid.routedCableDescriptorsBuffer   = mPersistentRoutedCables.descriptorsBuffer;
+    view.rigid.routedCableRoutePointsBuffer   = mPersistentRoutedCables.routePointsBuffer;
+    view.rigid.routedCableDebugSegmentsBuffer = mPersistentRoutedCables.debugSegmentsBuffer;
+    view.rigid.routedCableCount               = mRoutedCableCount;
+    view.rigid.routedCableRoutePointCount     = mRoutedCableRoutePointCount;
+    view.rigid.routedCableDebugSegmentCount   = mRoutedCableDebugSegmentCount;
+    view.rigid.colliderCount                  = mColliderCount;
+    view.rigid.bindingGeneration              = mRigidBindingGeneration;
+    view.rigid.constraintBindingGeneration =
+        std::max({mLastUploadedRigidParticleAttachmentResolvedRevision,
+                  mLastUploadedRigidDistanceConstraintResolvedRevision,
+                  mLastUploadedRoutedCableResolvedRevision});
+    view.joints.ballJointsBuffer               = mPersistentJoints.ballJointsBuffer;
+    view.joints.sphericalJointsBuffer          = mPersistentJoints.sphericalJointsBuffer;
+    view.joints.hingeJointsBuffer              = mPersistentJoints.hingeJointsBuffer;
+    view.joints.sliderJointsBuffer             = mPersistentJoints.sliderJointsBuffer;
+    view.joints.hingePassiveJointIndicesBuffer = mPersistentJoints.hingePassiveJointIndicesBuffer;
+    view.joints.hingePositionDriveJointIndicesBuffer =
+        mPersistentJoints.hingePositionDriveJointIndicesBuffer;
+    view.joints.hingeVelocityDriveJointIndicesBuffer =
+        mPersistentJoints.hingeVelocityDriveJointIndicesBuffer;
+    view.joints.sliderPassiveJointIndicesBuffer = mPersistentJoints.sliderPassiveJointIndicesBuffer;
+    view.joints.sliderPositionDriveJointIndicesBuffer =
+        mPersistentJoints.sliderPositionDriveJointIndicesBuffer;
+    view.joints.sliderVelocityDriveJointIndicesBuffer =
+        mPersistentJoints.sliderVelocityDriveJointIndicesBuffer;
+    view.joints.ballJointCount                = mBallJointCount;
+    view.joints.hingeJointCount               = mHingeJointCount;
+    view.joints.sphericalJointCount           = mSphericalJointCount;
+    view.joints.sliderJointCount              = mSliderJointCount;
+    view.joints.hingePassiveJointCount        = mHingePassiveJointCount;
+    view.joints.hingePositionDriveJointCount  = mHingePositionDriveJointCount;
+    view.joints.hingeVelocityDriveJointCount  = mHingeVelocityDriveJointCount;
+    view.joints.sliderPassiveJointCount       = mSliderPassiveJointCount;
+    view.joints.sliderPositionDriveJointCount = mSliderPositionDriveJointCount;
+    view.joints.sliderVelocityDriveJointCount = mSliderVelocityDriveJointCount;
+    view.joints.bindingGeneration =
+        std::max(mLastUploadedRigidJointSceneRevision, mLastUploadedRigidJointModeRevision);
+    view.joints.modeBindingGeneration            = mLastUploadedRigidJointModeRevision;
     view.soft.particles.positionsInvMassBuffer   = mPersistentParticles.positionsInvMassBuffer;
     view.soft.particles.previousPositionsBuffer  = mPersistentParticles.previousPositionsBuffer;
     view.soft.particles.velocitiesBuffer         = mPersistentParticles.velocitiesBuffer;

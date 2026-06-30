@@ -732,13 +732,14 @@ public:
                         if (gpu::GpuDevice *const device = runtime.getGpuDevice();
                             device != nullptr &&
                             device->renderTargetSystem().tryGetRenderTargetDesc(
-                                probeResult->imageTarget, probeTargetDesc))
+                                probeResult->imageBinding.target, probeTargetDesc) &&
+                            probeResult->imageBinding.isValid())
                         {
                             graphics::RenderFrameOptions::PresentedExplicitOutput explicitOutput{};
-                            explicitOutput.binding =
-                                gpu::GpuRenderTargetBinding{probeResult->imageTarget, 0u, 1u};
-                            explicitOutput.sourceTargetDesc = probeTargetDesc;
-                            explicitOutput.sourceKind       = graphics::RenderFrameOptions::
+                            explicitOutput.binding            = probeResult->imageBinding;
+                            explicitOutput.binding.layerCount = 1u;
+                            explicitOutput.sourceTargetDesc   = probeTargetDesc;
+                            explicitOutput.sourceKind         = graphics::RenderFrameOptions::
                                 PresentedExplicitOutput::SourceKind::Color;
                             explicitOutput.sourceIsDisplayEncoded = true;
                             renderOptions.presentedExplicitOutput = explicitOutput;
@@ -831,7 +832,8 @@ public:
             }
 
             runtime.prepare();
-            const bool physicsStepSucceeded = runtime.stepPhysics(frame);
+            const bool worldUploadSucceeded = runtime.uploadWorld();
+            const bool physicsStepSucceeded = worldUploadSucceeded && runtime.stepPhysics(frame);
             if (physicsStepSucceeded)
             {
                 (void)runtime.stepSimulationSensors(frame);

@@ -73,6 +73,10 @@ public:
     bool upsertRoutedCableConstraint(
         const physics::AuthoredRoutedCableConstraintState &state,
         physics::AuthoredRoutedCableConstraintState *outAuthored = nullptr);
+    bool upsertBallJoint(const physics::BallJointState &state);
+    bool upsertHingeJoint(const physics::HingeJointState &state);
+    bool upsertSphericalJoint(const physics::SphericalJointState &state);
+    bool upsertSliderJoint(const physics::SliderJointState &state);
     physics::AuthoredParticleCollisionFilterState &upsertParticleCollisionFilter(
         const physics::AuthoredParticleCollisionFilterState &state);
     physics::AuthoredSuturingSequenceState &upsertSuturingSequence(
@@ -84,10 +88,17 @@ public:
         physics::StrandRigidAttachmentConstraintId constraintId);
     bool removeRigidDistanceConstraint(physics::RigidDistanceConstraintId constraintId);
     bool removeRoutedCableConstraint(physics::RoutedCableConstraintId constraintId);
+    bool removeBallJoint(physics::BallJointId jointId);
+    bool removeHingeJoint(physics::HingeJointId jointId);
+    bool removeSphericalJoint(physics::SphericalJointId jointId);
+    bool removeSliderJoint(physics::SliderJointId jointId);
     bool removeParticleCollisionFilter(physics::ParticleCollisionFilterId filterId);
     bool removeSuturingSequence(physics::SuturingSequenceId sequenceId);
     void setUltrasoundProbe(common::EntityId entityId, const UltrasoundProbeComponent &component);
     bool removeUltrasoundProbe(common::EntityId entityId);
+    void setUltrasoundRenderer(common::EntityId entityId,
+                               const UltrasoundRendererComponent &component);
+    bool removeUltrasoundRenderer(common::EntityId entityId);
     void setUltrasoundScattererSource(common::EntityId entityId,
                                       const UltrasoundScattererSourceComponent &component);
     bool removeUltrasoundScattererSource(common::EntityId entityId);
@@ -98,6 +109,8 @@ public:
     ColliderHandle addCollider(common::EntityId entityId, const ColliderComponent &component);
     void updateCollider(ColliderHandle handle, const ColliderComponent &component);
     bool removeCollider(ColliderHandle handle);
+    bool replaceColliders(common::EntityId entityId,
+                          const std::vector<ColliderComponent> &components);
 
     bool removeTransform(common::EntityId entityId);
     bool removeMeshRenderer(common::EntityId entityId);
@@ -135,11 +148,19 @@ public:
         physics::RigidDistanceConstraintId constraintId) const noexcept;
     const physics::AuthoredRoutedCableConstraintState *tryGetRoutedCableConstraint(
         physics::RoutedCableConstraintId constraintId) const noexcept;
+    const physics::BallJointState *tryGetBallJoint(physics::BallJointId jointId) const noexcept;
+    const physics::HingeJointState *tryGetHingeJoint(physics::HingeJointId jointId) const noexcept;
+    const physics::SphericalJointState *tryGetSphericalJoint(
+        physics::SphericalJointId jointId) const noexcept;
+    const physics::SliderJointState *tryGetSliderJoint(
+        physics::SliderJointId jointId) const noexcept;
     const physics::AuthoredParticleCollisionFilterState *tryGetParticleCollisionFilter(
         physics::ParticleCollisionFilterId filterId) const noexcept;
     const physics::AuthoredSuturingSequenceState *tryGetSuturingSequence(
         physics::SuturingSequenceId sequenceId) const noexcept;
     std::optional<UltrasoundProbeComponent> tryGetUltrasoundProbe(common::EntityId entityId) const;
+    std::optional<UltrasoundRendererComponent> tryGetUltrasoundRenderer(
+        common::EntityId entityId) const;
     std::optional<UltrasoundScattererSourceComponent> tryGetUltrasoundScattererSource(
         common::EntityId entityId) const;
     std::optional<SoftBodyAuthoringParticles> tryGetSoftBodyAuthoringParticles(
@@ -159,6 +180,10 @@ public:
     const std::vector<graphics::RenderableInstance> &renderables() const noexcept;
     const std::vector<graphics::CameraData> &cameras() const noexcept;
     const std::vector<graphics::LightData> &lights() const noexcept;
+    std::uint32_t entityPoseSlot(common::EntityId entityId) const noexcept;
+    const std::vector<Diligent::float4> &entityPosePositions() const noexcept;
+    const std::vector<Diligent::float4> &entityPoseOrientations() const noexcept;
+    const std::vector<Diligent::float4> &entityPoseScales() const noexcept;
     const std::vector<Diligent::float4> &renderObjectPositions() const noexcept;
     const std::vector<Diligent::float4> &renderObjectOrientations() const noexcept;
     const std::vector<Diligent::float4> &renderObjectScales() const noexcept;
@@ -174,11 +199,20 @@ public:
     const std::vector<graphics::IndirectCommandRegistryEntry> &localShadowDrawRegistry()
         const noexcept;
     const std::vector<EntityPoseMappingEntry> &physicsRenderableMappings();
+    std::uint64_t entityPoseRevision() const noexcept;
+    std::uint64_t renderableMetadataRevision() const noexcept;
+    std::uint64_t renderableQueueInfoRevision() const noexcept;
+    std::uint64_t softBodyVertexBindingRevision() const noexcept;
+    std::uint64_t cameraInputRevision() const noexcept;
+    std::uint64_t lightInputRevision() const noexcept;
+    std::uint64_t localLightSelectionRevision() const noexcept;
     const graphics::GpuEntitySceneView &gpuEntityScene() const noexcept;
     graphics::HostSceneView hostSceneView() const noexcept;
     void ensureRenderStateUpToDate(const graphics::RenderResourceManager &resources);
     const std::unordered_map<common::EntityId, UltrasoundProbeComponent> &
     ultrasoundProbeComponents() const noexcept;
+    const std::unordered_map<common::EntityId, UltrasoundRendererComponent> &
+    ultrasoundRendererComponents() const noexcept;
     const std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent> &
     ultrasoundScattererSourceComponents() const noexcept;
     std::uint64_t ultrasoundScattererAmplitudeRevision() const noexcept;
@@ -201,6 +235,10 @@ private:
     [[nodiscard]] bool requireAliveEntity(common::EntityId entityId,
                                           const char *operation) const noexcept;
     void ensureHostSceneStorage();
+    std::uint32_t ensureEntityPoseSlot(common::EntityId entityId);
+    void releaseEntityPoseSlot(common::EntityId entityId) noexcept;
+    void markEntityPoseDirty(common::EntityId entityId);
+    void refreshEntityPoseSlot(std::uint32_t entityPoseSlot);
     void refreshRenderablePose(std::uint32_t objectIndex);
     void refreshCameraEntry(std::uint32_t cameraIndex);
     void refreshLightEntry(std::uint32_t lightIndex);
@@ -243,10 +281,14 @@ private:
 
     TransformStorage mTransforms{};
     std::unordered_map<common::EntityId, std::uint32_t> mTransformIndex{};
+    std::vector<common::EntityId> mEntityPoseEntities{};
+    std::unordered_map<common::EntityId, std::uint32_t> mEntityPoseSlotByEntity{};
+    std::vector<std::uint32_t> mFreeEntityPoseSlots{};
 
     std::unordered_map<common::EntityId, PhysicsLink> mPhysicsLinks{};
     std::unordered_map<std::uint32_t, common::EntityId> mColliderOwnerEntity{};
     std::unordered_map<common::EntityId, UltrasoundProbeComponent> mUltrasoundProbes{};
+    std::unordered_map<common::EntityId, UltrasoundRendererComponent> mUltrasoundRenderers{};
     std::unordered_map<common::EntityId, ProceduralDeformableCurveRenderComponent>
         mProceduralDeformableCurveRenders{};
     std::unordered_map<common::EntityId, UltrasoundScattererSourceComponent>
@@ -264,6 +306,9 @@ private:
     std::vector<graphics::RenderableInstance> mRenderables{};
     std::vector<graphics::CameraData> mRenderCameras{};
     std::vector<graphics::LightData> mRenderLights{};
+    std::vector<Diligent::float4> mEntityPosePositionsHost{};
+    std::vector<Diligent::float4> mEntityPoseOrientationsHost{};
+    std::vector<Diligent::float4> mEntityPoseScalesHost{};
     std::vector<Diligent::float4> mRenderObjectPositions{};
     std::vector<Diligent::float4> mRenderObjectOrientations{};
     std::vector<Diligent::float4> mRenderObjectScales{};
@@ -294,6 +339,8 @@ private:
     std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeRenderableSlotsByEnv{};
     std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeCameraSlotsByEnv{};
     std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mFreeLightSlotsByEnv{};
+    std::vector<std::uint32_t> mDirtyEntityPoseSlots{};
+    std::vector<std::uint8_t> mDirtyEntityPoseBits{};
     std::vector<std::uint32_t> mDirtyRenderablePoseIndices{};
     std::vector<std::uint8_t> mDirtyRenderablePoseBits{};
     std::vector<std::uint32_t> mDirtyRenderableMetadataIndices{};
@@ -318,6 +365,13 @@ private:
     std::uint64_t mCachedSoftBodyRenderTopologyRevision                = ~0ull;
     std::uint64_t mCachedSoftBodyPhysicsRevision                       = ~0ull;
     std::uint64_t mCachedCurveRenderPhysicsRevision                    = ~0ull;
+    std::uint64_t mEntityPoseRevision                                  = 1u;
+    std::uint64_t mRenderableMetadataRevision                          = 1u;
+    std::uint64_t mRenderableQueueInfoRevision                         = 1u;
+    std::uint64_t mSoftBodyVertexBindingRevision                       = 1u;
+    std::uint64_t mCameraInputRevision                                 = 1u;
+    std::uint64_t mLightInputRevision                                  = 1u;
+    std::uint64_t mLocalLightSelectionRevision                         = 1u;
 };
 
 } // namespace cressim::neo::engine

@@ -800,6 +800,29 @@ bool GpuRenderTargetSystemImpl::tryGetRenderTargetDepthTexture(GpuRenderTargetHa
     return true;
 }
 
+bool GpuRenderTargetSystemImpl::tryGetRenderTargetShaderResourceView(
+    const GpuRenderTargetBinding &binding, GpuRenderTargetTexturePlane plane,
+    Diligent::ITextureView *&outView)
+{
+    outView = nullptr;
+
+    if (!mInitialized || !supportsDiligentRenderTargets(mBackend))
+    {
+        return false;
+    }
+
+    const auto it = mRenderTargets.find(binding.target.id);
+    if (it == mRenderTargets.end())
+    {
+        return false;
+    }
+
+    RenderTargetResources &resources        = it->second;
+    const GpuRenderTargetBinding normalized = normalizeBinding(binding, resources);
+    outView = getOrCreateShaderResourceView(resources, normalized, plane);
+    return outView != nullptr;
+}
+
 GpuRenderTargetDesc GpuRenderTargetSystemImpl::normalizeTargetDesc(
     const GpuRenderTargetDesc &desc) const
 {
@@ -823,6 +846,8 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
     resources.depthTexture = nullptr;
     resources.colorRenderTargetViews.clear();
     resources.depthStencilViews.clear();
+    resources.colorShaderResourceViews.clear();
+    resources.depthShaderResourceViews.clear();
     resources.viewports.clear();
 
     if (desc.color)
@@ -908,6 +933,76 @@ bool GpuRenderTargetSystemImpl::createRenderTargetTextures(const GpuRenderTarget
     }
 
     return true;
+}
+
+Diligent::ITextureView *GpuRenderTargetSystemImpl::getOrCreateShaderResourceView(
+    RenderTargetResources &resources, const GpuRenderTargetBinding &binding,
+    const GpuRenderTargetTexturePlane plane)
+{
+    Diligent::ITexture *texture = plane == GpuRenderTargetTexturePlane::Color
+                                      ? resources.colorTexture.RawPtr()
+                                      : resources.depthTexture.RawPtr();
+    if (texture == nullptr)
+    {
+        return nullptr;
+    }
+
+    const Diligent::TextureDesc &textureDesc = texture->GetDesc();
+    if ((textureDesc.BindFlags & Diligent::BIND_SHADER_RESOURCE) == 0)
+    {
+        return nullptr;
+    }
+
+    auto &views = plane == GpuRenderTargetTexturePlane::Color ? resources.colorShaderResourceViews
+                                                              : resources.depthShaderResourceViews;
+    const std::uint64_t key = bindingKey(binding);
+    if (const auto it = views.find(key); it != views.end())
+    {
+        return it->second;
+    }
+
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> view;
+    const bool useDefaultView =
+        binding.firstLayer == 0u &&
+        binding.layerCount ==
+            (textureDesc.Type == Diligent::RESOURCE_DIM_TEX_2D_ARRAY ? textureDesc.ArraySize : 1u);
+    if (useDefaultView)
+    {
+        view = texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+    }
+    else
+    {
+        Diligent::TextureViewDesc viewDesc{};
+        viewDesc.ViewType = Diligent::TEXTURE_VIEW_SHADER_RESOURCE;
+        Diligent::ITextureView *defaultView =
+            texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+        if (defaultView == nullptr)
+        {
+            return nullptr;
+        }
+        viewDesc.Format = defaultView->GetDesc().Format;
+        if (textureDesc.Type == Diligent::RESOURCE_DIM_TEX_2D_ARRAY)
+        {
+            viewDesc.TextureDim      = Diligent::RESOURCE_DIM_TEX_2D_ARRAY;
+            viewDesc.FirstArraySlice = binding.firstLayer;
+            viewDesc.NumArraySlices  = binding.layerCount;
+            viewDesc.MostDetailedMip = 0u;
+            viewDesc.NumMipLevels    = 1u;
+        }
+        else
+        {
+            viewDesc.TextureDim = Diligent::RESOURCE_DIM_TEX_2D;
+        }
+        texture->CreateView(viewDesc, &view);
+    }
+
+    if (view == nullptr)
+    {
+        return nullptr;
+    }
+
+    views.emplace(key, view);
+    return view;
 }
 
 bool GpuRenderTargetSystemImpl::queueReadbackCopy(const GpuRenderTargetBinding &binding,

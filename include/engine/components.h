@@ -232,35 +232,51 @@ struct UltrasoundProbeComponent
         Curvilinear = 1u,
     };
 
-    bool enabled                       = true;
-    Geometry geometry                  = Geometry::Linear;
-    std::uint32_t numScanlines         = 50u;
-    float lineLength                   = 1.2f;
-    float scanlineSpacing              = 0.01f;
-    float sectorAngleDegrees           = 60.0f;
-    float probeRadius                  = 0.35f;
+    bool enabled                   = true;
+    Geometry geometry              = Geometry::Linear;
+    std::uint32_t numScanlines     = 50u;
+    float lineLength               = 1.2f;
+    float scanlineSpacing          = 0.01f;
+    float sectorAngleDegrees       = 60.0f;
+    float probeRadius              = 0.35f;
     // soundSpeed and beamSigma* are authored in physical units and converted to
     // scene units internally using worldUnitsPerMeter. Geometry fields such as
     // lineLength, scanlineSpacing, and probeRadius remain in scene units.
-    float soundSpeed                   = 1540.0f;
-    float worldUnitsPerMeter           = 10.0f;
-    float noiseAmplitude               = 0.0f;
-    float samplingFrequency            = 100e6f;
-    float demodulationFrequency        = 2.5e6f;
-    float centerFrequency              = 2.5e6f;
-    float fractionalBandwidth          = 0.2f;
-    float beamSigmaLateral             = 0.001f;
-    float beamSigmaElevational         = 0.001f;
-    std::uint32_t radialDecimation     = 4u;
-    std::uint32_t threadsPerBlock      = 128u;
-    std::uint32_t cudaNumStreams       = 1u;
-    std::uint32_t numTimeSamples       = 0u;
-    bool useArcProjection              = false;
-    bool enablePhaseDelay              = true;
-    bool imageEnabled                  = true;
-    std::uint32_t imageBaseHeight      = 0u;
-    bool imageUseFixedMaxNormalization = false;
-    float imageFixedMaxSignal          = 1.0f;
+    float soundSpeed               = 1540.0f;
+    float worldUnitsPerMeter       = 10.0f;
+    float noiseAmplitude           = 0.0f;
+    float samplingFrequency        = 100e6f;
+    float demodulationFrequency    = 2.5e6f;
+    float centerFrequency          = 2.5e6f;
+    float fractionalBandwidth      = 0.2f;
+    float beamSigmaLateral         = 0.001f;
+    float beamSigmaElevational     = 0.001f;
+    std::uint32_t radialDecimation = 4u;
+    std::uint32_t threadsPerBlock  = 128u;
+    std::uint32_t cudaNumStreams   = 1u;
+    std::uint32_t numTimeSamples   = 0u;
+    bool useArcProjection          = false;
+    bool enablePhaseDelay          = true;
+};
+
+struct UltrasoundRendererComponent
+{
+    bool enabled = true;
+    gpu::RenderOutputBinding output{};
+    std::uint32_t outputWidth     = 0u;
+    std::uint32_t outputHeight    = 0u;
+    bool useFixedMaxNormalization = false;
+    float fixedMaxSignal          = 1.0f;
+};
+
+struct UltrasoundProbeLayout
+{
+    std::uint32_t numScanlines           = 0u;
+    std::uint32_t samplesPerScanline     = 0u;
+    std::uint32_t imageWidth             = 0u;
+    std::uint32_t imageHeight            = 0u;
+    Diligent::TEXTURE_FORMAT colorFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
+    bool layeredOutputSupported          = true;
 };
 
 struct UltrasoundAmplitudeRange
@@ -294,7 +310,7 @@ struct UltrasoundProbeResult
     std::uint64_t totalScattererCount = 0u;
     std::uint32_t imageWidth          = 0u;
     std::uint32_t imageHeight         = 0u;
-    gpu::GpuRenderTargetHandle imageTarget{};
+    gpu::GpuRenderTargetBinding imageBinding{};
 };
 
 } // namespace cressim::neo::engine

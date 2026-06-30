@@ -10,6 +10,8 @@ struct PoseMappingEntry
 {
     uint sourcePoseIndex;
     uint entityPoseIndex;
+    uint reserved0;
+    uint reserved1;
 };
 
 #include "include/structured_buffer_compat.hlsli"

@@ -1,0 +1,61 @@
+from pathlib import Path
+
+from ._cressim_neo import *  # noqa: F401,F403
+
+try:
+    from .cartpole import CartpoleGymnasiumAdapter, CartpoleTorchVectorEnv
+except RuntimeError:
+    CartpoleGymnasiumAdapter = None
+    CartpoleTorchVectorEnv = None
+
+try:
+    from .soft_body_pusher_env import SoftBodyPusherTorchVectorEnv
+except RuntimeError:
+    SoftBodyPusherTorchVectorEnv = None
+
+try:
+    from .fluid_pouring_env import FluidPouringTorchVectorEnv
+except RuntimeError:
+    FluidPouringTorchVectorEnv = None
+
+try:
+    from .camera_centering_env import CameraCenteringTorchVectorEnv
+except RuntimeError:
+    CameraCenteringTorchVectorEnv = None
+
+try:
+    from .ultrasound_centering_env import UltrasoundCenteringTorchVectorEnv
+except RuntimeError:
+    UltrasoundCenteringTorchVectorEnv = None
+
+try:
+    from .soft_body_env import SoftBodyTorchVectorEnv
+except RuntimeError:
+    SoftBodyTorchVectorEnv = None
+
+try:
+    from .fluid_env import FluidTorchVectorEnv
+except RuntimeError:
+    FluidTorchVectorEnv = None
+
+
+_PACKAGE_DIR = Path(__file__).resolve().parent
+_SHADERS_DIR = _PACKAGE_DIR / "shaders"
+_runtime_initialize = Runtime.initialize
+
+
+def _initialize_with_package_defaults(self, config=None):
+    if config is None:
+        config = RuntimeConfig()
+    if not config.gpu_device_desc.shader_directory:
+        config.gpu_device_desc.shader_directory = str(_SHADERS_DIR)
+    return _runtime_initialize(self, config)
+
+
+Runtime.initialize = _initialize_with_package_defaults
+
+__all__ = [
+    name
+    for name in globals()
+    if not name.startswith("_") and globals()[name] is not None
+]

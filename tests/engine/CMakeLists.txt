@@ -163,3 +163,68 @@ add_cressim_test(
     SOURCE runtime_ultrasound_staging.cpp
     LIBS cressim_neo_engine
 )
+
+add_cressim_test(
+    SUITE engine
+    NAME runtime_custom_compute
+    SOURCE runtime_custom_compute.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
+    NAME runtime_custom_compute_render_target
+    SOURCE runtime_custom_compute_render_target.cpp
+    INCLUDE_SRC
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
+    NAME runtime_entity_pose_custom_compute_render
+    SOURCE runtime_entity_pose_custom_compute_render.cpp
+    INCLUDE_SRC
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
+    NAME runtime_shared_buffer
+    SOURCE runtime_shared_buffer.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
+    NAME runtime_rigid_layout_mapping
+    SOURCE runtime_rigid_layout_mapping.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
+    NAME runtime_joint_layout_mapping
+    SOURCE runtime_joint_layout_mapping.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
+    NAME world_rigid_joint_completion
+    SOURCE world_rigid_joint_completion.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
+    NAME runtime_constraint_layout_mapping
+    SOURCE runtime_constraint_layout_mapping.cpp
+    LIBS cressim_neo_engine
+)
+
+add_cressim_test(
+    SUITE engine
+    NAME runtime_particle_layout_mapping
+    SOURCE runtime_particle_layout_mapping.cpp
+    LIBS cressim_neo_engine
+)

@@ -31,6 +31,11 @@ std::uint32_t dispatchGroupCount(std::uint32_t threadCount)
     return (threadCount + kComputeThreadGroupSize - 1u) / kComputeThreadGroupSize;
 }
 
+std::uint64_t combineGenerations(std::uint64_t a, std::uint64_t b) noexcept
+{
+    return a * 1469598103934665603ull ^ (b + 1099511628211ull);
+}
+
 void bumpGeneration(std::uint64_t &generation) noexcept
 {
     ++generation;
@@ -782,13 +787,21 @@ bool RenderSceneUploader::applyMappedEntityPoses(
 
 graphics::GpuEntitySceneView RenderSceneUploader::sceneView() const noexcept
 {
+    common::PoseBufferView poses{};
+    poses.positionsBuffer    = mEntityPositionsBuffer;
+    poses.orientationsBuffer = mEntityOrientationsBuffer;
+    poses.scalesBuffer       = mEntityScalesBuffer;
+    poses.count              = mEntityCount;
+    poses.bindingGeneration  = mPoseBindingGeneration;
+    return sceneView(poses, mEntityCount);
+}
+
+graphics::GpuEntitySceneView RenderSceneUploader::sceneView(
+    const common::PoseBufferView &poses, std::uint32_t entityCount) const noexcept
+{
     graphics::GpuEntitySceneView view{};
     view.layout                             = mLayout;
-    view.poses.positionsBuffer              = mEntityPositionsBuffer;
-    view.poses.orientationsBuffer           = mEntityOrientationsBuffer;
-    view.poses.scalesBuffer                 = mEntityScalesBuffer;
-    view.poses.count                        = mEntityCount;
-    view.poses.bindingGeneration            = mPoseBindingGeneration;
+    view.poses                              = poses;
     view.renderableMetadataBuffer           = mRenderableMetadataBuffer;
     view.renderableQueueInfoBuffer          = mRenderableQueueInfoBuffer;
     view.renderableVisibilityFlagsBuffer    = mRenderableVisibilityFlagsBuffer;
@@ -798,11 +811,11 @@ graphics::GpuEntitySceneView RenderSceneUploader::sceneView() const noexcept
     view.lightInputsBuffer                  = mLightInputsBuffer;
     view.localLightSelectionBuffer          = mLocalLightSelectionBuffer;
     view.softBodyVertexBindingBuffer        = mSoftBodyVertexBindingBuffer;
-    view.entityCount                        = mEntityCount;
+    view.entityCount                        = entityCount;
     view.renderableCount                    = mRenderableCount;
     view.cameraCount                        = mCameraCount;
     view.lightCount                         = mLightCount;
-    view.bindingGeneration                  = mSceneBindingGeneration;
+    view.bindingGeneration = combineGenerations(mSceneBindingGeneration, poses.bindingGeneration);
     return view;
 }
 

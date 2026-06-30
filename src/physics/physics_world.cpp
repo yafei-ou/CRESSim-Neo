@@ -788,6 +788,7 @@ RigidBodyState &PhysicsWorld::upsertRigidBody(const RigidBodyState &state)
         mRigidBodySnapshot.push_back(normalizedState);
         mRigidBodies.rigidBodyIds.push_back(normalizedState.rigidBodyId);
         mRigidBodies.entityIds.push_back(normalizedState.entityId);
+        mRigidBodies.environmentIndices.push_back(normalizedState.environmentIndex);
         mRigidBodies.positionsInvMass.push_back(toPositionInvMass(normalizedState));
         mRigidBodies.orientations.push_back(toOrientation(normalizedState));
         mRigidBodies.scales.push_back(toScale(normalizedState));
@@ -930,6 +931,7 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
         mRigidBodySnapshot[index] = mRigidBodySnapshot[last];
         mRigidBodies.rigidBodyIds[index]             = mRigidBodies.rigidBodyIds[last];
         mRigidBodies.entityIds[index]                = mRigidBodies.entityIds[last];
+        mRigidBodies.environmentIndices[index]       = mRigidBodies.environmentIndices[last];
         mRigidBodies.positionsInvMass[index]         = mRigidBodies.positionsInvMass[last];
         mRigidBodies.orientations[index]             = mRigidBodies.orientations[last];
         mRigidBodies.scales[index]                   = mRigidBodies.scales[last];
@@ -951,6 +953,7 @@ bool PhysicsWorld::removeRigidBody(common::EntityId entityId)
     mRigidBodySnapshot.pop_back();
     mRigidBodies.rigidBodyIds.pop_back();
     mRigidBodies.entityIds.pop_back();
+    mRigidBodies.environmentIndices.pop_back();
     mRigidBodies.positionsInvMass.pop_back();
     mRigidBodies.orientations.pop_back();
     mRigidBodies.scales.pop_back();
@@ -1152,7 +1155,14 @@ void PhysicsWorld::replaceColliders(common::EntityId entityId,
     for (ColliderState collider : colliders)
     {
         normalizeColliderState(collider);
-        collider.colliderId       = mNextColliderId++;
+        if (collider.colliderId == kInvalidColliderId)
+        {
+            collider.colliderId = mNextColliderId++;
+        }
+        else
+        {
+            mNextColliderId = std::max(mNextColliderId, collider.colliderId + 1u);
+        }
         collider.entityId         = entityId;
         collider.ownerRigidBodyId = ownerRigidBodyId;
 
@@ -3282,6 +3292,7 @@ void PhysicsWorld::writeRigidBodySoAAt(RigidBodySoAHost &soa, std::uint32_t inde
 {
     soa.rigidBodyIds[index]                  = state.rigidBodyId;
     soa.entityIds[index]                     = state.entityId;
+    soa.environmentIndices[index]            = state.environmentIndex;
     soa.positionsInvMass[index]              = toPositionInvMass(state);
     soa.orientations[index]                  = toOrientation(state);
     soa.scales[index]                        = toScale(state);
