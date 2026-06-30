@@ -603,6 +603,7 @@ public:
 
     /// @brief Updates render state derived from authored world and resource state.
     void ensureRenderStateUpToDate(const graphics::RenderResourceManager &resources);
+    bool setRenderableMeshResource(common::EntityId entityId, graphics::MeshHandle mesh);
 
     /// @brief Returns ultrasound probe components keyed by entity ID.
     const std::unordered_map<common::EntityId, UltrasoundProbeComponent> &

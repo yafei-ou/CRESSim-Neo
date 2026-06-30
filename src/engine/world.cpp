@@ -3090,6 +3090,32 @@ void World::ensureRenderStateUpToDate(const graphics::RenderResourceManager &res
     mImpl->clearDirtyIndexSet(mImpl->mDirtyLightIndices, mImpl->mDirtyLightBits);
 }
 
+bool World::setRenderableMeshResource(common::EntityId entityId, graphics::MeshHandle mesh)
+{
+    const auto indexIt = mImpl->mRenderableIndices.find(entityId);
+    if (indexIt == mImpl->mRenderableIndices.end())
+    {
+        return false;
+    }
+
+    const std::uint32_t objectIndex = static_cast<std::uint32_t>(indexIt->second);
+    if (objectIndex >= mImpl->mRenderables.size())
+    {
+        return false;
+    }
+
+    graphics::RenderableInstance &renderable = mImpl->mRenderables[objectIndex];
+    if (renderable.mesh.id == mesh.id)
+    {
+        return true;
+    }
+
+    renderable.mesh = mesh;
+    mImpl->markRenderableMetadataDirty(objectIndex);
+    mImpl->mDrawRegistryDirty = true;
+    return true;
+}
+
 const std::unordered_map<common::EntityId, UltrasoundProbeComponent> &World::
     ultrasoundProbeComponents() const noexcept
 {

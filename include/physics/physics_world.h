@@ -662,6 +662,8 @@ public:
     /// @brief Sets host soft-body skinning and rendering mesh bindings.
     /// @param data Skinning and surface vertex binding data.
     void setSoftRenderData(const SoftRenderDataHost &data);
+    std::uint32_t validateSoftRenderSkinningAgainstActiveEdges(
+        std::vector<std::uint32_t> *outVertexComponents = nullptr) noexcept;
 
     /// @brief Gets host curve rendering descriptors.
     /// @return Const reference to CurveRenderDataHost.
