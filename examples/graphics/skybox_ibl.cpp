@@ -5,6 +5,7 @@
 #include "graphics/environment_ibl_baker.h"
 #include "helpers/example_cli.h"
 #include "helpers/shape_meshes.h"
+#include "helpers/skybox_example.h"
 #include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
 
@@ -56,9 +57,6 @@ EnvironmentIblDesc loadSkyboxIbl(cressim::neo::graphics::RenderResourceManager &
 {
     const std::filesystem::path skyboxDir =
         std::filesystem::path(__FILE__).parent_path() / "skybox";
-    const std::array<std::filesystem::path, 6u> facePaths = {
-        skyboxDir / "posx.jpg", skyboxDir / "negx.jpg", skyboxDir / "posy.jpg",
-        skyboxDir / "negy.jpg", skyboxDir / "posz.jpg", skyboxDir / "negz.jpg"};
 
     EnvironmentIblBakeOptions options{};
     options.irradianceSize = 16u;
@@ -67,8 +65,8 @@ EnvironmentIblDesc loadSkyboxIbl(cressim::neo::graphics::RenderResourceManager &
     options.irradianceSampleCount = 256u;
     options.specularSampleCount = 128u;
     options.intensity = 1.0f;
-    return cressim::neo::graphics::createEnvironmentIblFromCubemapFiles(resources, facePaths,
-                                                                        options);
+    return cressim::neo::examples::helpers::createEnvironmentIblFromExampleSkyboxFiles(
+        resources, skyboxDir, options);
 }
 
 } // namespace
