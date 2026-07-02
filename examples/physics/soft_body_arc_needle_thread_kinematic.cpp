@@ -1,13 +1,16 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "graphics/environment_ibl_baker.h"
 #include "helpers/example_cli.h"
 #include "helpers/shape_meshes.h"
+#include "helpers/skybox_example.h"
 #include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
 
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <stdexcept>
 #include <string>
@@ -29,6 +32,9 @@ using cressim::neo::engine::StrandComponent;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::examples::helpers::CommonExampleOptions;
 using cressim::neo::examples::helpers::ViewerExampleDefaults;
+using cressim::neo::graphics::EnvironmentIblBakeOptions;
+using cressim::neo::graphics::EnvironmentIblDesc;
+using cressim::neo::graphics::IblQualityTier;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::physics::AuthoredParticleDistanceConstraintState;
 using cressim::neo::physics::AuthoredParticleCollisionFilterState;
@@ -44,6 +50,30 @@ using cressim::neo::viewer::DebugViewerCallbacks;
 using cressim::neo::viewer::DebugViewerCameraBinding;
 
 constexpr float kPi = 3.14159265358979323846f;
+constexpr const char *kSuturingSkyboxCrossPath =
+    "examples/cubemaps/Cubemap/Cubemap_Sky_23-512x512.png";
+constexpr float kGroundCenterY = -1.1f;
+constexpr float kGroundHalfHeight = 0.08f;
+constexpr Diligent::float3 kSoftBodySize = {2.0f, 1.0f, 1.8f};
+constexpr float kSoftBodyParticleRadius = 0.09f;
+
+EnvironmentIblDesc loadSuturingSkyboxIbl(cressim::neo::graphics::RenderResourceManager &resources)
+{
+    const std::filesystem::path crossPath =
+        std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() /
+        kSuturingSkyboxCrossPath;
+
+    EnvironmentIblBakeOptions options{};
+    options.irradianceSize = 16u;
+    options.specularSize = 128u;
+    options.specularMipCount = 7u;
+    options.irradianceSampleCount = 256u;
+    options.specularSampleCount = 128u;
+    options.intensity = 0.18f;
+    options.backgroundIntensity = 1.00f;
+    return cressim::neo::examples::helpers::createEnvironmentIblFromHorizontalCross(
+        resources, crossPath, options);
+}
 
 enum class SuturingExampleMode
 {
@@ -250,6 +280,7 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+    config.rendererDesc.iblQualityTier = IblQualityTier::Full;
     config.physicsDesc.substeps = 1u;
     config.physicsDesc.defaultIterations = 100u;
 
@@ -284,16 +315,25 @@ int main(int argc, char **argv)
     world.setTransform(cameraEntity, cameraTransform);
     CameraComponent camera{};
     camera.verticalFovDegrees = 38.0f;
+    camera.backgroundMode = CameraComponent::BackgroundMode::EnvironmentCubemap;
     world.setCamera(cameraEntity, camera);
 
     const auto lightEntity = world.createEntity();
     DirectionalLightComponent light{};
     light.direction = Diligent::normalize(Diligent::float3{-0.4f, -1.0f, 0.3f});
     light.color = {1.0f, 0.98f, 0.95f};
-    light.intensity = 6.5f;
+    light.intensity = 4.8f;
     world.setDirectionalLight(lightEntity, light);
 
     auto &resources = runtime.getResources();
+    if (!world.setEnvironmentIbl(0u, loadSuturingSkyboxIbl(resources)))
+    {
+        runtime.shutdown();
+        viewer.shutdown();
+        CRESSIM_LOG_ERROR("Failed to assign suturing skybox IBL.\n");
+        return 1;
+    }
+
     const auto groundMesh = resources.registerMesh(
         cressim::neo::examples::helpers::makePlaneMesh(12.0f, "KinematicArcNeedleThread.GroundMesh"));
 
@@ -326,7 +366,7 @@ int main(int argc, char **argv)
 
     const auto groundEntity = world.createEntity();
     TransformComponent groundTransform{};
-    groundTransform.worldTransform.position = {0.0f, -1.1f, 0.0f};
+    groundTransform.worldTransform.position = {0.0f, kGroundCenterY, 0.0f};
     world.setTransform(groundEntity, groundTransform);
     world.setMeshRenderer(groundEntity, MeshRendererComponent{groundMesh, groundMaterial, true});
 
@@ -339,24 +379,26 @@ int main(int argc, char **argv)
 
     ColliderComponent groundCollider{};
     groundCollider.shapeType = ColliderShapeType::Box;
-    groundCollider.shapeParams = {12.0f, 0.08f, 12.0f, 0.0f};
+    groundCollider.shapeParams = {12.0f, kGroundHalfHeight, 12.0f, 0.0f};
     groundCollider.friction = 0.55f;
     groundCollider.staticFriction = 0.7f;
     world.addCollider(groundEntity, groundCollider);
 
     const auto softEntity = world.createEntity();
     TransformComponent softTransform{};
-    softTransform.worldTransform.position = {0.0f, -0.42f, 0.0f};
+    const float groundTopY = kGroundCenterY + kGroundHalfHeight;
+    softTransform.worldTransform.position = {
+        0.0f, groundTopY + kSoftBodyParticleRadius + 0.5f * kSoftBodySize.y, 0.0f};
     world.setTransform(softEntity, softTransform);
 
     SoftBodyComponent softBody{};
     softBody.source.kind = SoftBodySourceKind::RegularGrid;
-    softBody.source.regularGrid.size = {2.0f, 1.0f, 1.2f};
+    softBody.source.regularGrid.size = kSoftBodySize;
     softBody.source.regularGrid.targetParticleSpacing = 0.24f;
     softBody.source.regularGrid.staticParticleIndices = makeRightSideStaticIndices(
         softBody.source.regularGrid.size, softBody.source.regularGrid.targetParticleSpacing);
     softBody.particleMass = 0.08f;
-    softBody.particleRadius = 0.09f;
+    softBody.particleRadius = kSoftBodyParticleRadius;
     softBody.edgeCompliance = 0.0005f;
     softBody.volumeCompliance = 0.001f;
     softBody.selfCollisionEnabled = false;

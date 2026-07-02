@@ -17,7 +17,6 @@
 #include <filesystem>
 #include <stdexcept>
 #include <string>
-#include <vector>
 
 namespace
 {
@@ -336,11 +335,14 @@ bool assignPerEnvironmentIbl(World& world,
 }
 
 void authorCamera(World& world, std::uint32_t envIndex, const Diligent::float3& position,
-                  SkyboxBackgroundMode skyboxBackgroundMode, EntityId& outCameraEntity)
+                  float pitchRadians, SkyboxBackgroundMode skyboxBackgroundMode,
+                  EntityId& outCameraEntity)
 {
     outCameraEntity = world.createEntity(envIndex);
     TransformComponent cameraTransform{};
     cameraTransform.worldTransform.position = position;
+    cameraTransform.worldTransform.rotation =
+        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, pitchRadians);
     world.setTransform(outCameraEntity, cameraTransform);
 
     CameraComponent camera{};
@@ -575,7 +577,7 @@ void authorMatrixEnvironment(World& world, std::uint32_t envIndex, std::uint32_t
                              SkyboxBackgroundMode skyboxBackgroundMode,
                              EntityId& outCameraEntity)
 {
-    authorCamera(world, envIndex, envOrigin + Diligent::float3{0.0f, 5.4f, -18.0f},
+    authorCamera(world, envIndex, envOrigin + Diligent::float3{0.0f, 5.4f, -18.0f}, 0.18f,
                  skyboxBackgroundMode, outCameraEntity);
     authorGround(world, envIndex, envOrigin, planeMesh, materials.ground, 9.0f);
 
@@ -631,7 +633,7 @@ void authorLargeArrayEnvironment(World& world, std::uint32_t envIndex, std::uint
         return;
     }
 
-    authorCamera(world, envIndex, envOrigin + Diligent::float3{0.0f, 5.0f, -26.0f},
+    authorCamera(world, envIndex, envOrigin + Diligent::float3{0.0f, 7.0f, -24.0f}, 0.30f,
                  skyboxBackgroundMode, outCameraEntity);
     authorGround(world, envIndex, envOrigin, planeMesh, materials.ground, kLargeArrayGroundHalfExtent);
     if (containerMode == ContainerMode::On)

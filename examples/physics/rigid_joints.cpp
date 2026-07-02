@@ -1,13 +1,16 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "graphics/environment_ibl_baker.h"
 #include "helpers/viewer_example.h"
 #include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
+#include "helpers/skybox_example.h"
 #include "viewer/debug_viewer_app.h"
 
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -24,6 +27,9 @@ using cressim::neo::engine::Runtime;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::examples::helpers::CommonExampleOptions;
 using cressim::neo::examples::helpers::ViewerExampleDefaults;
+using cressim::neo::graphics::EnvironmentIblBakeOptions;
+using cressim::neo::graphics::EnvironmentIblDesc;
+using cressim::neo::graphics::IblQualityTier;
 using cressim::neo::graphics::MaterialHandle;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshHandle;
@@ -62,6 +68,9 @@ constexpr float kUpperHingeRestAngle = -Diligent::PI_F * 0.5f;
 constexpr float kLowerHingeRestAngle = 0.0f;
 constexpr float kHorizontalSliderDriveCenter = 0.12f;
 constexpr float kVerticalSliderDriveCenter = 0.32f;
+constexpr float kOverviewAreaOffsetX = 2.0f;
+constexpr const char *kRigidJointsSkyboxCrossPath =
+    "examples/cubemaps/Cubemap/Cubemap_Sky_05-512x512.png";
 
 struct AuthoredHingeJointIds
 {
@@ -176,6 +185,25 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
     return resources.registerMaterial(desc);
 }
 
+EnvironmentIblDesc loadRigidJointsSkyboxIbl(
+    cressim::neo::graphics::RenderResourceManager &resources)
+{
+    const std::filesystem::path crossPath =
+        std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() /
+        kRigidJointsSkyboxCrossPath;
+
+    EnvironmentIblBakeOptions options{};
+    options.irradianceSize = 16u;
+    options.specularSize = 128u;
+    options.specularMipCount = 7u;
+    options.irradianceSampleCount = 256u;
+    options.specularSampleCount = 128u;
+    options.intensity = 0.18f;
+    options.backgroundIntensity = 1.00f;
+    return cressim::neo::examples::helpers::createEnvironmentIblFromHorizontalCross(
+        resources, crossPath, options);
+}
+
 void setVisibleRigidBody(Runtime &runtime, cressim::neo::common::EntityId entityId,
                          MeshHandle mesh, MaterialHandle material,
                          const Diligent::float3 &position, const Diligent::float3 &scale,
@@ -204,14 +232,16 @@ cressim::neo::physics::RigidBodyId requireRigidBodyId(Runtime &runtime,
     return body->rigidBodyId;
 }
 
-void authorBallJointCluster(Runtime &runtime, MeshHandle anchorMesh, MeshHandle sphereMesh,
+void authorBallJointCluster(Runtime &runtime, MeshHandle anchorMesh, MeshHandle linkMesh,
                             MaterialHandle anchorMaterial, MaterialHandle bodyMaterial,
                             const ViewerJointOptions &options)
 {
     auto &world = runtime.getWorld();
     constexpr float kAnchorHalfExtent = 0.35f;
-    constexpr float kBobRadius = 0.4f;
-    constexpr float kLinkSpacing = 2.0f * kBobRadius;
+    constexpr float kLinkRadius = 0.22f;
+    constexpr float kLinkHalfHeight = 0.46f;
+    constexpr float kLinkHalfExtentX = kLinkHalfHeight + kLinkRadius;
+    constexpr float kLinkSpacing = 2.0f * kLinkHalfExtentX;
 
     const auto anchorEntity = world.createEntity();
     RigidBodyComponent anchorBody{};
@@ -222,10 +252,11 @@ void authorBallJointCluster(Runtime &runtime, MeshHandle anchorMesh, MeshHandle 
     anchorCollider.shapeParams = {0.35f, 0.35f, 0.35f, 0.0f};
     anchorCollider.collisionLayer = kBallClusterLayer;
     anchorCollider.collisionMask = kBallClusterLayer | kGroundCollisionLayer | kBallDropLayer;
-    setVisibleRigidBody(runtime, anchorEntity, anchorMesh, anchorMaterial, {-7.0f, 6.0f, 0.0f},
+    setVisibleRigidBody(runtime, anchorEntity, anchorMesh, anchorMaterial,
+                        {-7.0f + kOverviewAreaOffsetX, 6.0f, 0.0f},
                         {1.0f, 1.0f, 1.0f}, anchorBody, anchorCollider);
 
-    const float anchorPointX = -7.0f;
+    const float anchorPointX = -7.0f + kOverviewAreaOffsetX;
     const float anchorPointY = 6.0f - kAnchorHalfExtent;
     std::vector<cressim::neo::common::EntityId> bobs;
     for (std::uint32_t i = 0; i < 3u; ++i)
@@ -234,23 +265,25 @@ void authorBallJointCluster(Runtime &runtime, MeshHandle anchorMesh, MeshHandle 
         RigidBodyComponent body{};
         body.inverseMass = 1.0f;
         body.inverseInertiaLocal =
-            cressim::neo::examples::helpers::computeSphereInverseInertia(
-                kViewerSphereMeshRadius, body.inverseMass);
+            cressim::neo::examples::helpers::computeApproximateCapsuleInverseInertia(
+                kLinkRadius, kLinkHalfHeight, body.inverseMass);
         if (i == 2u)
         {
             body.linearVelocity = {0.0f, 0.0f, 2.2f};
         }
 
         ColliderComponent collider{};
-        collider.shapeType = ColliderShapeType::Sphere;
-        collider.shapeParams = {0.4f, 0.0f, 0.0f, 0.0f};
+        collider.shapeType = ColliderShapeType::Capsule;
+        collider.shapeParams = {kLinkRadius, kLinkHalfHeight, 0.0f, 0.0f};
         collider.collisionLayer = kBallClusterLayer;
         collider.collisionMask = kBallClusterLayer | kGroundCollisionLayer | kBallDropLayer;
         const float bobCenterX =
-            anchorPointX + kBobRadius + (kLinkSpacing * static_cast<float>(i));
-        setVisibleRigidBody(runtime, entity, sphereMesh, bodyMaterial,
+            anchorPointX + kLinkHalfExtentX + (kLinkSpacing * static_cast<float>(i));
+        setVisibleRigidBody(runtime, entity, linkMesh, bodyMaterial,
                             {bobCenterX, anchorPointY, 0.0f},
-                            {1.0f, 1.0f, 1.0f}, body, collider);
+                            {1.0f, 1.0f, 1.0f}, body, collider,
+                            Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 0.0f, 1.0f},
+                                                                         Diligent::PI_F * 0.5f));
         bobs.push_back(entity);
     }
 
@@ -259,7 +292,7 @@ void authorBallJointCluster(Runtime &runtime, MeshHandle anchorMesh, MeshHandle 
     root.bodyB = requireRigidBodyId(runtime, bobs[0]);
     root.suppressConnectedBodyCollisions = options.suppressConnectedBodyCollisions;
     root.localAnchorA = {0.0f, -kAnchorHalfExtent, 0.0f};
-    root.localAnchorB = {-kBobRadius, 0.0f, 0.0f};
+    root.localAnchorB = {0.0f, kLinkHalfExtentX, 0.0f};
     if (!world.physicsWorld().upsertBallJoint(root))
     {
         throw std::runtime_error("Failed to author root ball joint.");
@@ -271,8 +304,8 @@ void authorBallJointCluster(Runtime &runtime, MeshHandle anchorMesh, MeshHandle 
         joint.bodyA = requireRigidBodyId(runtime, bobs[i]);
         joint.bodyB = requireRigidBodyId(runtime, bobs[i + 1u]);
         joint.suppressConnectedBodyCollisions = options.suppressConnectedBodyCollisions;
-        joint.localAnchorA = {kBobRadius, 0.0f, 0.0f};
-        joint.localAnchorB = {-kBobRadius, 0.0f, 0.0f};
+        joint.localAnchorA = {0.0f, -kLinkHalfExtentX, 0.0f};
+        joint.localAnchorB = {0.0f, kLinkHalfExtentX, 0.0f};
         if (!world.physicsWorld().upsertBallJoint(joint))
         {
             throw std::runtime_error("Failed to author chain ball joint.");
@@ -302,7 +335,8 @@ AuthoredHingeJointIds authorHingeJointCluster(Runtime &runtime, MeshHandle baseM
     // Let the anchored links swing through the support body instead of being blocked by the
     // static base collider, while still allowing environment/disturber contacts.
     baseCollider.collisionMask = kGroundCollisionLayer | kHingeDropLayer;
-    setVisibleRigidBody(runtime, baseEntity, baseMesh, anchorMaterial, {0.0f, 4.3f, 0.0f},
+    setVisibleRigidBody(runtime, baseEntity, baseMesh, anchorMaterial,
+                        {0.0f + kOverviewAreaOffsetX, 4.3f, 0.0f},
                         {2.0f * kHingeBaseHalfX, 2.0f * kHingeBaseHalfY, 2.0f * kHingeBaseHalfZ},
                         baseBody, baseCollider);
 
@@ -312,7 +346,7 @@ AuthoredHingeJointIds authorHingeJointCluster(Runtime &runtime, MeshHandle baseM
         swingRotation.RotateVector(Diligent::float3{0.0f, kLinkHalfY, 0.0f});
     const Diligent::float3 bottomAnchorOffset =
         swingRotation.RotateVector(Diligent::float3{0.0f, -kLinkHalfY, 0.0f});
-    const Diligent::float3 baseAnchor = {0.0f, 4.3f - kHingeBaseHalfY, 0.0f};
+    const Diligent::float3 baseAnchor = {0.0f + kOverviewAreaOffsetX, 4.3f - kHingeBaseHalfY, 0.0f};
     const Diligent::float3 firstCenter = baseAnchor - topAnchorOffset;
     const Diligent::float3 lowerAnchor = firstCenter + bottomAnchorOffset;
     const Diligent::float3 secondCenter = lowerAnchor - topAnchorOffset;
@@ -411,7 +445,8 @@ AuthoredSliderJointIds authorSliderJointCluster(Runtime &runtime, MeshHandle gui
     guideCollider.shapeParams = {kGuideHalfExtents.x, kGuideHalfExtents.y, kGuideHalfExtents.z, 0.0f};
     guideCollider.collisionLayer = kSliderClusterLayer;
     guideCollider.collisionMask = kSliderClusterLayer | kGroundCollisionLayer | kSliderDropLayer;
-    setVisibleRigidBody(runtime, guideEntity, guideMesh, guideMaterial, {7.0f, 2.0f, 0.0f},
+    setVisibleRigidBody(runtime, guideEntity, guideMesh, guideMaterial,
+                        {7.0f + kOverviewAreaOffsetX, 2.0f, 0.0f},
                         {1.0f, 1.0f, 1.0f}, guideBody, guideCollider);
 
     const auto sliderEntity = world.createEntity();
@@ -427,7 +462,8 @@ AuthoredSliderJointIds authorSliderJointCluster(Runtime &runtime, MeshHandle gui
     sliderCollider.shapeParams = {kSliderHalfExtents.x, kSliderHalfExtents.y, kSliderHalfExtents.z, 0.0f};
     sliderCollider.collisionLayer = kSliderClusterLayer;
     sliderCollider.collisionMask = kSliderClusterLayer | kGroundCollisionLayer | kSliderDropLayer;
-    setVisibleRigidBody(runtime, sliderEntity, sliderMesh, sliderMaterial, {5.4f, 2.0f, 0.0f},
+    setVisibleRigidBody(runtime, sliderEntity, sliderMesh, sliderMaterial,
+                        {5.4f + kOverviewAreaOffsetX, 2.0f, 0.0f},
                         {1.0f, 1.0f, 1.0f}, sliderBody, sliderCollider);
 
     SliderJointState horizontalSlider{};
@@ -464,7 +500,8 @@ AuthoredSliderJointIds authorSliderJointCluster(Runtime &runtime, MeshHandle gui
     stageCollider.shapeParams = {kSliderHalfExtents.x, kSliderHalfExtents.y, kSliderHalfExtents.z, 0.0f};
     stageCollider.collisionLayer = kSliderClusterLayer;
     stageCollider.collisionMask = kSliderClusterLayer | kGroundCollisionLayer | kSliderDropLayer;
-    setVisibleRigidBody(runtime, stageEntity, sliderMesh, sliderMaterial, {5.4f, 3.20f, 0.0f},
+    setVisibleRigidBody(runtime, stageEntity, sliderMesh, sliderMaterial,
+                        {5.4f + kOverviewAreaOffsetX, 3.20f, 0.0f},
                         {1.0f, 1.0f, 1.0f}, stageBody, stageCollider);
 
     SliderJointState verticalSlider{};
@@ -502,7 +539,7 @@ AuthoredSphericalJointIds authorSphericalJointCluster(Runtime &runtime, MeshHand
     AuthoredSphericalJointIds jointIds{};
     constexpr Diligent::float3 kDiskHalfExtents = {0.75f, 0.18f, 0.75f};
     constexpr float kDiskSpacing = 1.45f;
-    constexpr Diligent::float3 kClusterOrigin = {-14.0f, 7.2f, 0.0f};
+    constexpr Diligent::float3 kClusterOrigin = {-14.0f + kOverviewAreaOffsetX, 7.2f, 0.0f};
     constexpr std::uint32_t kDiskCount = 3u;
 
     std::vector<cressim::neo::common::EntityId> disks;
@@ -607,7 +644,8 @@ void authorDropDisturbers(Runtime &runtime, MeshHandle hingeDropMesh, MeshHandle
     ballDropCollider.shapeParams = {kDropSphereRadius, 0.0f, 0.0f, 0.0f};
     ballDropCollider.collisionLayer = kBallDropLayer;
     ballDropCollider.collisionMask = kBallClusterLayer | kGroundCollisionLayer;
-    setVisibleRigidBody(runtime, ballDrop, sphereMesh, ballMaterial, {-8.0f, 8.8f, 0.2f},
+    setVisibleRigidBody(runtime, ballDrop, sphereMesh, ballMaterial,
+                        {-8.0f + kOverviewAreaOffsetX, 8.8f, 0.2f},
                         {kDropSphereVisualScale, kDropSphereVisualScale, kDropSphereVisualScale},
                         ballDropBody, ballDropCollider);
 
@@ -623,7 +661,8 @@ void authorDropDisturbers(Runtime &runtime, MeshHandle hingeDropMesh, MeshHandle
     hingeDropCollider.shapeParams = {0.4f, 0.4f, 0.4f, 0.0f};
     hingeDropCollider.collisionLayer = kHingeDropLayer;
     hingeDropCollider.collisionMask = kHingeClusterLayer | kGroundCollisionLayer;
-    setVisibleRigidBody(runtime, hingeDrop, hingeDropMesh, hingeMaterial, {0.5f, 8.4f, 0.0f},
+    setVisibleRigidBody(runtime, hingeDrop, hingeDropMesh, hingeMaterial,
+                        {0.5f + kOverviewAreaOffsetX, 8.4f, 0.0f},
                         {1.0f, 1.0f, 1.0f}, hingeDropBody, hingeDropCollider,
                         Diligent::QuaternionF::RotationFromAxisAngle({0.0f, 0.0f, 1.0f}, 0.35f));
 
@@ -639,7 +678,8 @@ void authorDropDisturbers(Runtime &runtime, MeshHandle hingeDropMesh, MeshHandle
     sliderDropCollider.shapeParams = {kDropSphereRadius, 0.0f, 0.0f, 0.0f};
     sliderDropCollider.collisionLayer = kSliderDropLayer;
     sliderDropCollider.collisionMask = kSliderClusterLayer | kGroundCollisionLayer;
-    setVisibleRigidBody(runtime, sliderDrop, sphereMesh, sliderMaterial, {6.7f, 6.6f, 0.0f},
+    setVisibleRigidBody(runtime, sliderDrop, sphereMesh, sliderMaterial,
+                        {6.7f + kOverviewAreaOffsetX, 6.6f, 0.0f},
                         {kDropSphereVisualScale, kDropSphereVisualScale, kDropSphereVisualScale},
                         sliderDropBody, sliderDropCollider);
 
@@ -655,7 +695,8 @@ void authorDropDisturbers(Runtime &runtime, MeshHandle hingeDropMesh, MeshHandle
     sphericalDropCollider.shapeParams = {kDropSphereRadius, 0.0f, 0.0f, 0.0f};
     sphericalDropCollider.collisionLayer = kSphericalDropLayer;
     sphericalDropCollider.collisionMask = kSphericalClusterLayer | kGroundCollisionLayer;
-    setVisibleRigidBody(runtime, sphericalDrop, sphereMesh, sphericalMaterial, {-12.8f, 9.8f, 0.3f},
+    setVisibleRigidBody(runtime, sphericalDrop, sphereMesh, sphericalMaterial,
+                        {-12.8f + kOverviewAreaOffsetX, 9.8f, 0.3f},
                         {kDropSphereVisualScale, kDropSphereVisualScale, kDropSphereVisualScale},
                         sphericalDropBody, sphericalDropCollider);
 }
@@ -707,6 +748,7 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+    config.rendererDesc.iblQualityTier = IblQualityTier::Full;
     config.physicsDesc.substeps = 2u;
     config.physicsDesc.rigidRigidContactIterations = 16u;
     config.physicsDesc.rigidJointIterations = 48u;
@@ -739,26 +781,35 @@ int main(int argc, char **argv)
 
         const auto cameraEntity = world.createEntity();
         TransformComponent cameraTransform{};
-        cameraTransform.worldTransform.position = {-3.5f, 5.7f, -24.0f};
+        cameraTransform.worldTransform.position = {0.0f, 5.7f, -26.0f};
         cameraTransform.worldTransform.rotation =
             Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, 0.18f);
         world.setTransform(cameraEntity, cameraTransform);
         CameraComponent camera{};
         camera.verticalFovDegrees = 48.0f;
+        camera.backgroundMode = CameraComponent::BackgroundMode::EnvironmentCubemap;
         world.setCamera(cameraEntity, camera);
 
         const auto lightEntity = world.createEntity();
         DirectionalLightComponent light{};
         light.direction = Diligent::normalize(Diligent::float3{-0.4f, -1.0f, 0.25f});
-        light.intensity = 6.5f;
+        light.intensity = 4.2f;
         world.setDirectionalLight(lightEntity, light);
 
         auto &resources = runtime.getResources();
+        if (!world.setEnvironmentIbl(0u, loadRigidJointsSkyboxIbl(resources)))
+        {
+            throw std::runtime_error("Failed to assign rigid joints skybox IBL.");
+        }
+
         const MeshHandle planeMesh = resources.registerMesh(
             cressim::neo::examples::helpers::makePlaneMesh(24.0f, "RigidJointViewer.PlaneMesh"));
         const MeshHandle sphereMesh = resources.registerMesh(
             cressim::neo::examples::helpers::makeSphereMesh(
                 0.4f, 24u, 16u, "RigidJointViewer.SphereMesh"));
+        const MeshHandle ballLinkMesh = resources.registerMesh(
+            cressim::neo::examples::helpers::makeCapsuleMesh(
+                0.22f, 0.46f, 24u, 8u, 4u, "RigidJointViewer.BallLinkCapsuleMesh"));
         const MeshHandle ballAnchorMesh =
             resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
                 {0.35f, 0.35f, 0.35f}, "RigidJointViewer.BoxMesh"));
@@ -817,7 +868,7 @@ int main(int argc, char **argv)
             kSphericalDropLayer;
         world.addCollider(groundEntity, groundCollider);
 
-        authorBallJointCluster(runtime, ballAnchorMesh, sphereMesh, anchorMaterial, ballMaterial,
+        authorBallJointCluster(runtime, ballAnchorMesh, ballLinkMesh, anchorMaterial, ballMaterial,
                                jointOptions);
         const AuthoredHingeJointIds hingeJointIds =
             authorHingeJointCluster(runtime, hingeBaseMesh, hingeLinkMesh, anchorMaterial,

@@ -1,9 +1,11 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "graphics/environment_ibl_baker.h"
 #include "helpers/viewer_example.h"
 #include "helpers/inertia.h"
 #include "helpers/shape_meshes.h"
+#include "helpers/skybox_example.h"
 #include "viewer/debug_viewer_app.h"
 
 #include <algorithm>
@@ -30,6 +32,9 @@ using cressim::neo::engine::SoftBodyComponent;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::examples::helpers::CommonExampleOptions;
 using cressim::neo::examples::helpers::ViewerExampleDefaults;
+using cressim::neo::graphics::EnvironmentIblBakeOptions;
+using cressim::neo::graphics::EnvironmentIblDesc;
+using cressim::neo::graphics::IblQualityTier;
 using cressim::neo::graphics::MaterialHandle;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshHandle;
@@ -43,6 +48,8 @@ using cressim::neo::viewer::DebugViewerCameraBinding;
 
 constexpr float kEnvSpacing              = 96.0f;
 constexpr std::uint32_t kDefaultEnvCount = 4u;
+constexpr const char *kToroidSkyboxCrossPath =
+    "examples/cubemaps/Cubemap/Cubemap_Sky_05-512x512.png";
 
 struct SceneMaterials
 {
@@ -61,8 +68,8 @@ struct EnvironmentTuning
     float softDamping            = 0.6f;
     float particleMass           = 0.02f;
     float particleRadius         = 0.35f;
-    float edgeCompliance         = 0.0f;
-    float volumeCompliance       = 0.0001f;
+    float edgeCompliance         = 0.00035f;
+    float volumeCompliance       = 0.0018f;
 };
 
 struct ToroidVariantTuning
@@ -72,8 +79,8 @@ struct ToroidVariantTuning
     float damping          = 0.6f;
     float particleMass     = 0.02f;
     float particleRadius   = 0.35f;
-    float edgeCompliance   = 0.0f;
-    float volumeCompliance = 0.0001f;
+    float edgeCompliance   = 0.00035f;
+    float volumeCompliance = 0.0018f;
 };
 
 void printUsage(const char *appName)
@@ -312,6 +319,24 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
     return resources.registerMaterial(desc);
 }
 
+EnvironmentIblDesc loadToroidSkyboxIbl(cressim::neo::graphics::RenderResourceManager &resources)
+{
+    const std::filesystem::path crossPath =
+        std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() /
+        kToroidSkyboxCrossPath;
+
+    EnvironmentIblBakeOptions options{};
+    options.irradianceSize = 16u;
+    options.specularSize = 128u;
+    options.specularMipCount = 7u;
+    options.irradianceSampleCount = 256u;
+    options.specularSampleCount = 128u;
+    options.intensity = 0.20f;
+    options.backgroundIntensity = 1.00f;
+    return cressim::neo::examples::helpers::createEnvironmentIblFromHorizontalCross(
+        resources, crossPath, options);
+}
+
 EnvironmentTuning tuningForEnvironment(std::uint32_t envIndex)
 {
     const float phase = static_cast<float>(envIndex) * 0.79f;
@@ -327,8 +352,8 @@ EnvironmentTuning tuningForEnvironment(std::uint32_t envIndex)
     tuning.softDamping      = 0.05f + 0.35f * (0.5f + 0.5f * std::sin(phase + 2.7f));
     tuning.particleMass     = 0.014f + 0.018f * (0.5f + 0.5f * std::cos(phase + 1.8f));
     tuning.particleRadius   = 0.28f + 0.12f * (0.5f + 0.5f * std::sin(phase + 3.4f));
-    tuning.edgeCompliance   = 0.00001f * static_cast<float>(envIndex % 4u);
-    tuning.volumeCompliance = 0.00005f + 0.00007f * static_cast<float>((envIndex + 1u) % 5u);
+    tuning.edgeCompliance   = 0.00024f + 0.00012f * static_cast<float>(envIndex % 4u);
+    tuning.volumeCompliance = 0.0011f + 0.00028f * static_cast<float>((envIndex + 1u) % 5u);
     return tuning;
 }
 
@@ -386,6 +411,7 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     world.setTransform(outCameraEntity, cameraTransform);
     CameraComponent camera{};
     camera.renderOrder = envIndex;
+    camera.backgroundMode = CameraComponent::BackgroundMode::EnvironmentCubemap;
     world.setCamera(outCameraEntity, camera);
 
     const auto lightEntity = world.createEntity(envIndex);
@@ -535,6 +561,7 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+    config.rendererDesc.iblQualityTier = IblQualityTier::Full;
     config.physicsDesc.softContactIterations  = 20;
     config.physicsDesc.softInternalIterations = 20;
     config.sceneLayout.envCount = options.envCount;
@@ -587,6 +614,19 @@ int main(int argc, char **argv)
     materials.obstacle =
         registerMaterial(resources, "SoftParticleToroidMultiEnv.Obstacle",
                          {0.16f, 0.43f, 0.86f}, 0.55f);
+    auto &world = runtime.getWorld();
+    const auto sharedIbl = loadToroidSkyboxIbl(resources);
+    for (std::uint32_t envIndex = 0u; envIndex < options.envCount; ++envIndex)
+    {
+        if (!world.setEnvironmentIbl(envIndex, sharedIbl))
+        {
+            runtime.shutdown();
+            viewer.shutdown();
+            CRESSIM_LOG_ERROR("Failed to assign toroid skybox IBL.\n");
+            return 1;
+        }
+    }
+
     cressim::neo::common::EntityId primaryCamera = cressim::neo::common::kInvalidEntityId;
     for (std::uint32_t envIndex = 0u; envIndex < options.envCount; ++envIndex)
     {

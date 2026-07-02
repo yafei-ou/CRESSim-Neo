@@ -1,8 +1,10 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "graphics/environment_ibl_baker.h"
 #include "helpers/example_cli.h"
 #include "helpers/shape_meshes.h"
+#include "helpers/skybox_example.h"
 #include "helpers/viewer_example.h"
 #include "viewer/debug_viewer_app.h"
 
@@ -29,6 +31,9 @@ using cressim::neo::engine::Runtime;
 using cressim::neo::engine::TransformComponent;
 using cressim::neo::examples::helpers::CommonExampleOptions;
 using cressim::neo::examples::helpers::ViewerExampleDefaults;
+using cressim::neo::graphics::EnvironmentIblBakeOptions;
+using cressim::neo::graphics::EnvironmentIblDesc;
+using cressim::neo::graphics::IblQualityTier;
 using cressim::neo::graphics::MaterialHandle;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshHandle;
@@ -51,6 +56,8 @@ constexpr float kContainerWallHalfHeight  = 4.5f;
 constexpr float kContainerCenterY         = 3.5f;
 constexpr float kSplitterHalfWidth        = 0.22f;
 constexpr float kSplitterHalfHeight       = 2.6f;
+constexpr const char *kFluidSplitterSkyboxCrossPath =
+    "examples/cubemaps/Cubemap/Cubemap_Sky_16-512x512.png";
 
 struct ExampleOptions
 {
@@ -90,6 +97,25 @@ MaterialHandle registerMaterial(cressim::neo::graphics::RenderResourceManager &r
     desc.metallic = 0.0f;
     desc.roughness = roughness;
     return resources.registerMaterial(desc);
+}
+
+EnvironmentIblDesc loadFluidSplitterSkyboxIbl(
+    cressim::neo::graphics::RenderResourceManager &resources)
+{
+    const std::filesystem::path crossPath =
+        std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() /
+        kFluidSplitterSkyboxCrossPath;
+
+    EnvironmentIblBakeOptions options{};
+    options.irradianceSize = 16u;
+    options.specularSize = 128u;
+    options.specularMipCount = 7u;
+    options.irradianceSampleCount = 256u;
+    options.specularSampleCount = 128u;
+    options.intensity = 0.24f;
+    options.backgroundIntensity = 1.00f;
+    return cressim::neo::examples::helpers::createEnvironmentIblFromHorizontalCross(
+        resources, crossPath, options);
 }
 
 Diligent::float3 envOrigin(std::uint32_t envIndex, std::uint32_t envCount)
@@ -271,13 +297,14 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     CameraComponent camera{};
     camera.verticalFovDegrees = 36.0f;
     camera.renderOrder        = static_cast<int>(envIndex);
+    camera.backgroundMode     = CameraComponent::BackgroundMode::EnvironmentCubemap;
     world.setCamera(outCameraEntity, camera);
 
     const auto lightEntity = world.createEntity(envIndex);
     DirectionalLightComponent light{};
     light.direction = {-0.45f, -1.0f, 0.35f};
     light.color = {1.0f, 0.98f, 0.95f};
-    light.intensity = 7.0f;
+    light.intensity = 5.6f;
     world.setDirectionalLight(lightEntity, light);
 
     spawnStaticBox(world, envIndex, boxMesh, floorMaterial, origin + Diligent::float3{0.0f, -1.0f, 0.0f},
@@ -390,6 +417,7 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options.common);
+    config.rendererDesc.iblQualityTier = IblQualityTier::Full;
     config.sceneLayout.envCount = options.common.envCount;
     config.physicsDesc.substeps = 1u;
     config.physicsDesc.defaultIterations = 10u;
@@ -429,6 +457,18 @@ int main(int argc, char **argv)
         registerMaterial(resources, "SingleSourceFluid.Wall", {0.16f, 0.42f, 0.82f}, 0.58f);
     const MaterialHandle splitterMaterial =
         registerMaterial(resources, "SingleSourceFluid.Splitter", {0.78f, 0.50f, 0.16f}, 0.38f);
+    auto &world = runtime.getWorld();
+    const auto sharedIbl = loadFluidSplitterSkyboxIbl(resources);
+    for (std::uint32_t envIndex = 0u; envIndex < options.common.envCount; ++envIndex)
+    {
+        if (!world.setEnvironmentIbl(envIndex, sharedIbl))
+        {
+            runtime.shutdown();
+            viewer.shutdown();
+            CRESSIM_LOG_ERROR("Failed to assign fluid moving splitter skybox IBL.\n");
+            return 1;
+        }
+    }
 
     EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;
     std::vector<SplitterState> splitters{};
