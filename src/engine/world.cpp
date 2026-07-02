@@ -3659,16 +3659,13 @@ void World::refreshCameraEntry(std::uint32_t cameraIndex)
         tryGetTransform(cameraData.entityId).value_or(TransformComponent{}).worldTransform;
 
     graphics::GpuCameraInput input{};
+    input.position =
+        Diligent::float4{cameraData.worldTransform.position.x, cameraData.worldTransform.position.y,
+                         cameraData.worldTransform.position.z, 1.0f};
+    input.orientation = Diligent::float4{
+        cameraData.worldTransform.rotation.q.x, cameraData.worldTransform.rotation.q.y,
+        cameraData.worldTransform.rotation.q.z, cameraData.worldTransform.rotation.q.w};
     const std::uint32_t poseSlot = entityPoseSlot(cameraData.entityId);
-    if (poseSlot == kInvalidSlot)
-    {
-        input.position    = Diligent::float4{cameraData.worldTransform.position.x,
-                                             cameraData.worldTransform.position.y,
-                                             cameraData.worldTransform.position.z, 1.0f};
-        input.orientation = Diligent::float4{
-            cameraData.worldTransform.rotation.q.x, cameraData.worldTransform.rotation.q.y,
-            cameraData.worldTransform.rotation.q.z, cameraData.worldTransform.rotation.q.w};
-    }
     input.projectionParams = Diligent::float4{cameraData.verticalFovDegrees, cameraData.nearClip,
                                               cameraData.farClip, 0.0f};
     input.viewportAndOutputSize = Diligent::float4{

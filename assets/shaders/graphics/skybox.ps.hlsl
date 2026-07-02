@@ -1,5 +1,6 @@
 #include "include/structured_buffer_compat.hlsli"
 #include "include/graphics/graphics_camera_input.hlsli"
+#include "include/graphics/graphics_scene_buffers.hlsli"
 
 struct EnvironmentBackgroundLookupEntry
 {
@@ -38,18 +39,13 @@ float computeEffectiveViewportAspect(float4 viewportAndOutputSize)
     return max(effectiveWidth / max(effectiveHeight, 1.0e-5), 1.0e-5);
 }
 
-float3 quaternionRotateVector(float4 q, float3 v)
-{
-    float3 t = 2.0 * cross(q.xyz, v);
-    return v + q.w * t + cross(q.xyz, t);
-}
-
 float4 main(in PSInput In) : SV_Target
 {
     const CameraInput camera = CRESSIM_SB_LOAD(g_CameraInputs, In.CameraIndex);
+    const PreparedCamera preparedCamera = CRESSIM_SB_LOAD(g_PreparedCameras, In.CameraIndex);
     const EnvironmentBackgroundLookupEntry entry =
         CRESSIM_SB_LOAD(g_EnvironmentBackgroundLookup, In.EnvIndex);
-    if (camera.active == 0u || entry.enabled == 0u)
+    if (camera.active == 0u || preparedCamera.active == 0u || entry.enabled == 0u)
     {
         discard;
     }
@@ -62,7 +58,8 @@ float4 main(in PSInput In) : SV_Target
     const float3 viewDir =
         normalize(float3(ndc.x * max(viewportAspect, 1.0e-5) * tanHalfFov,
                          ndc.y * tanHalfFov, 1.0));
-    const float3 dir = normalize(quaternionRotateVector(normalize(camera.orientation), viewDir));
+    const float3x3 worldFromView = transpose((float3x3)preparedCamera.viewMatrix);
+    const float3 dir = normalize(mul(viewDir, worldFromView));
 
     // Match the CPU baker's cubemap face convention exactly so the visible background aligns
     // with the environment used for irradiance/specular IBL generation.

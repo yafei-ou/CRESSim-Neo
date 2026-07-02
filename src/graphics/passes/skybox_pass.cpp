@@ -369,6 +369,8 @@ Diligent::IPipelineState *SkyboxPass::getOrCreatePipeline(Diligent::IRenderDevic
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_CameraInputs",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {Diligent::SHADER_TYPE_PIXEL, "g_PreparedCameras",
+         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_EnvironmentBackgroundLookup",
          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {Diligent::SHADER_TYPE_PIXEL, "g_EnvironmentBackgroundArray",
@@ -499,6 +501,8 @@ bool SkyboxPass::drawBatch(const gpu::GpuRenderTargetBinding &targetBinding,
     if (!setBufferView(Diligent::SHADER_TYPE_VERTEX, "g_BatchCameras", batchCameraBuffer) ||
         !setBufferView(Diligent::SHADER_TYPE_PIXEL, "g_CameraInputs",
                        gpuScene.cameraInputsBuffer) ||
+        !setBufferView(Diligent::SHADER_TYPE_PIXEL, "g_PreparedCameras",
+                       gpuScene.preparedCamerasBuffer) ||
         !setBufferView(Diligent::SHADER_TYPE_PIXEL, "g_EnvironmentBackgroundLookup",
                        mBackgroundLookupBuffer) ||
         !setTextureView(Diligent::SHADER_TYPE_PIXEL, "g_EnvironmentBackgroundArray",
