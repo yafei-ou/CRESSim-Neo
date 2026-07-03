@@ -189,6 +189,7 @@ struct GpuSliderJoint
     float4 projectionRow2;
     float4 limitParams;
     float4 driveTargetParams;
+    float4 driveServoParams;
 };
 
 struct GpuRoutedCableConstraint

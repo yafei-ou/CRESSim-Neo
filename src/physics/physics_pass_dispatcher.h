@@ -565,7 +565,6 @@ private:
     gpu::GpuComputePass mSolveHingeJointConstraintsPassivePass;
     gpu::GpuComputePass mSolveHingeJointConstraintsTargetPositionPass;
     gpu::GpuComputePass mSolveSliderJointConstraintsPassivePass;
-    gpu::GpuComputePass mSolveSliderJointConstraintsTargetPositionPass;
     gpu::GpuComputePass mSolveRigidParticleAttachmentConstraintsPass;
     gpu::GpuComputePass mSolveStrandRigidAttachmentConstraintsPass;
     gpu::GpuComputePass mSolveRigidDistanceConstraintsPass;

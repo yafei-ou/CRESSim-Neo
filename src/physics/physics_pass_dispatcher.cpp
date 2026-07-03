@@ -291,8 +291,6 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mSolveHingeJointConstraintsTargetPositionPass,
                   kSolveHingeJointConstraintsTargetPosition) ||
         !initPass(mSolveSliderJointConstraintsPassivePass, kSolveSliderJointConstraintsPassive) ||
-        !initPass(mSolveSliderJointConstraintsTargetPositionPass,
-                  kSolveSliderJointConstraintsTargetPosition) ||
         !initPass(mSolveRigidParticleAttachmentConstraintsPass,
                   kSolveRigidParticleAttachmentConstraints) ||
         !initPass(mSolveStrandRigidAttachmentConstraintsPass,
@@ -4968,43 +4966,22 @@ bool PhysicsPassDispatcher::dispatchSolveSliderJointConstraintsPass(
 bool PhysicsPassDispatcher::solveSliderJointConstraints(Diligent::IDeviceContext *computeContext,
                                                         const PhysicsSceneGpuState &sceneState)
 {
-    const std::uint32_t passiveJointCount       = sceneState.sliderPassiveJointCount();
-    const std::uint32_t positionDriveJointCount = sceneState.sliderPositionDriveJointCount();
+    const std::uint32_t passiveJointCount = sceneState.sliderPassiveJointCount();
     if (computeContext == nullptr)
     {
         return false;
     }
-    if (passiveJointCount == 0u && positionDriveJointCount == 0u)
+    if (passiveJointCount == 0u)
     {
         return true;
     }
 
     const auto &persistentJoints = sceneState.persistentJoints();
-    if (passiveJointCount > 0u)
-    {
-        const GpuRigidJointDispatchConstants jointConstants{passiveJointCount, 0u, 0u, 0u};
-        if (!writeRigidJointDispatchConstants(computeContext, jointConstants) ||
-            !dispatchSolveSliderJointConstraintsPass(
-                computeContext, mSolveSliderJointConstraintsPassivePass, sceneState,
-                persistentJoints.sliderPassiveJointIndicesBuffer, passiveJointCount))
-        {
-            return false;
-        }
-    }
-
-    if (positionDriveJointCount > 0u)
-    {
-        const GpuRigidJointDispatchConstants jointConstants{positionDriveJointCount, 0u, 0u, 0u};
-        if (!writeRigidJointDispatchConstants(computeContext, jointConstants) ||
-            !dispatchSolveSliderJointConstraintsPass(
-                computeContext, mSolveSliderJointConstraintsTargetPositionPass, sceneState,
-                persistentJoints.sliderPositionDriveJointIndicesBuffer, positionDriveJointCount))
-        {
-            return false;
-        }
-    }
-
-    return true;
+    const GpuRigidJointDispatchConstants jointConstants{passiveJointCount, 0u, 0u, 0u};
+    return writeRigidJointDispatchConstants(computeContext, jointConstants) &&
+           dispatchSolveSliderJointConstraintsPass(
+               computeContext, mSolveSliderJointConstraintsPassivePass, sceneState,
+               persistentJoints.sliderPassiveJointIndicesBuffer, passiveJointCount);
 }
 
 bool PhysicsPassDispatcher::solveRigidParticleAttachmentConstraints(
@@ -5684,7 +5661,6 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mSolveHingeJointConstraintsPassivePass.forceRecreateAllVariants() &&
            mSolveHingeJointConstraintsTargetPositionPass.forceRecreateAllVariants() &&
            mSolveSliderJointConstraintsPassivePass.forceRecreateAllVariants() &&
-           mSolveSliderJointConstraintsTargetPositionPass.forceRecreateAllVariants() &&
            mSolveRigidParticleAttachmentConstraintsPass.forceRecreateAllVariants() &&
            mSolveStrandRigidAttachmentConstraintsPass.forceRecreateAllVariants() &&
            mSolveRigidDistanceConstraintsPass.forceRecreateAllVariants() &&

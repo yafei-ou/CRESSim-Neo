@@ -384,8 +384,6 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentJoints.hingeVelocityDriveJointIndicesBuffer.RawPtr();
     const auto sliderPassiveIndicesBefore =
         mPersistentJoints.sliderPassiveJointIndicesBuffer.RawPtr();
-    const auto sliderPositionDriveIndicesBefore =
-        mPersistentJoints.sliderPositionDriveJointIndicesBuffer.RawPtr();
     const auto sliderVelocityDriveIndicesBefore =
         mPersistentJoints.sliderVelocityDriveJointIndicesBuffer.RawPtr();
     const auto rigidParticleAttachmentsBefore =
@@ -462,7 +460,6 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mPersistentJoints.hingePositionDriveJointIndicesBuffer != nullptr &&
         mPersistentJoints.hingeVelocityDriveJointIndicesBuffer != nullptr &&
         mPersistentJoints.sliderPassiveJointIndicesBuffer != nullptr &&
-        mPersistentJoints.sliderPositionDriveJointIndicesBuffer != nullptr &&
         mPersistentJoints.sliderVelocityDriveJointIndicesBuffer != nullptr &&
         mPersistentParticles.positionsInvMassBuffer != nullptr &&
         mPersistentParticles.previousPositionsBuffer != nullptr &&
@@ -757,7 +754,6 @@ bool PhysicsSceneGpuState::ensureCapacity(
     const std::uint32_t newHingePositionDriveIndexCapacity  = newHingeJointCapacity;
     const std::uint32_t newHingeVelocityDriveIndexCapacity  = newHingeJointCapacity;
     const std::uint32_t newSliderPassiveJointIndexCapacity  = newSliderJointCapacity;
-    const std::uint32_t newSliderPositionDriveIndexCapacity = newSliderJointCapacity;
     const std::uint32_t newSliderVelocityDriveIndexCapacity = newSliderJointCapacity;
     const std::uint32_t newNodeCapacity                     = std::max<std::uint32_t>(
         newColliderCapacity > 0u ? (newColliderCapacity * 2u - 1u) : 1u, 1u);
@@ -811,7 +807,6 @@ bool PhysicsSceneGpuState::ensureCapacity(
         mHingePositionDriveIndexCapacity >= newHingePositionDriveIndexCapacity &&
         mHingeVelocityDriveIndexCapacity >= newHingeVelocityDriveIndexCapacity &&
         mSliderPassiveJointIndexCapacity >= newSliderPassiveJointIndexCapacity &&
-        mSliderPositionDriveIndexCapacity >= newSliderPositionDriveIndexCapacity &&
         mSliderVelocityDriveIndexCapacity >= newSliderVelocityDriveIndexCapacity &&
         mSuturingPairCapacity >= newSuturingPairCapacity &&
         mSuturingParticleCapacity >= newSuturingParticleCapacity &&
@@ -993,11 +988,6 @@ bool PhysicsSceneGpuState::ensureCapacity(
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
                                 Diligent::CPU_ACCESS_NONE, contextMask,
                                 mPersistentJoints.sliderPassiveJointIndicesBuffer) ||
-        !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SliderPositionDriveJointIndices",
-                                sizeof(std::uint32_t), newSliderPositionDriveIndexCapacity,
-                                Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
-                                Diligent::CPU_ACCESS_NONE, contextMask,
-                                mPersistentJoints.sliderPositionDriveJointIndicesBuffer) ||
         !ensureStructuredBuffer(renderDevice, "CRESSimNeo.Physics.SliderVelocityDriveJointIndices",
                                 sizeof(std::uint32_t), newSliderVelocityDriveIndexCapacity,
                                 Diligent::BIND_SHADER_RESOURCE, Diligent::USAGE_DEFAULT,
@@ -2146,7 +2136,6 @@ bool PhysicsSceneGpuState::ensureCapacity(
     mHingePositionDriveIndexCapacity           = newHingePositionDriveIndexCapacity;
     mHingeVelocityDriveIndexCapacity           = newHingeVelocityDriveIndexCapacity;
     mSliderPassiveJointIndexCapacity           = newSliderPassiveJointIndexCapacity;
-    mSliderPositionDriveIndexCapacity          = newSliderPositionDriveIndexCapacity;
     mSliderVelocityDriveIndexCapacity          = newSliderVelocityDriveIndexCapacity;
     mBroadPhaseNodeCapacity                    = newNodeCapacity;
     mCandidatePairCapacity                     = newCandidatePairCapacity;
@@ -2178,8 +2167,6 @@ bool PhysicsSceneGpuState::ensureCapacity(
         hingeVelocityDriveIndicesBefore !=
             mPersistentJoints.hingeVelocityDriveJointIndicesBuffer.RawPtr() ||
         sliderPassiveIndicesBefore != mPersistentJoints.sliderPassiveJointIndicesBuffer.RawPtr() ||
-        sliderPositionDriveIndicesBefore !=
-            mPersistentJoints.sliderPositionDriveJointIndicesBuffer.RawPtr() ||
         sliderVelocityDriveIndicesBefore !=
             mPersistentJoints.sliderVelocityDriveJointIndicesBuffer.RawPtr() ||
         rigidParticleAttachmentsBefore !=
@@ -2538,7 +2525,6 @@ void PhysicsSceneGpuState::clearPublishedSceneCounts() noexcept
     mHingePositionDriveJointCount  = 0u;
     mHingeVelocityDriveJointCount  = 0u;
     mSliderPassiveJointCount       = 0u;
-    mSliderPositionDriveJointCount = 0u;
     mSliderVelocityDriveJointCount = 0u;
 }
 
@@ -2940,12 +2926,10 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
 
     std::vector<GpuSliderJoint> sliderJoints(jointScene.slider.size());
     std::vector<std::uint32_t> sliderPassiveJointIndices;
-    std::vector<std::uint32_t> sliderPositionDriveJointIndices;
     std::vector<std::uint32_t> sliderVelocityDriveJointIndices;
     if (needsModeIndexUpload)
     {
         sliderPassiveJointIndices.reserve(jointScene.slider.size());
-        sliderPositionDriveJointIndices.reserve(jointScene.slider.size());
         sliderVelocityDriveJointIndices.reserve(jointScene.slider.size());
     }
     for (std::size_t i = 0; i < sliderJoints.size(); ++i)
@@ -2970,25 +2954,22 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
         dst.driveTargetParams = Diligent::float4{
             jointScene.slider.driveTargetPositions[i], jointScene.slider.driveRestOffsets[i],
             jointScene.slider.driveTargetVelocities[i], jointScene.slider.driveCompliances[i]};
+        dst.driveServoParams = Diligent::float4{jointScene.slider.driveDampings[i],
+                                                jointScene.slider.driveMaxVelocities[i], 0.0f,
+                                                0.0f};
 
         if (!needsModeIndexUpload || jointScene.slider.enabledFlags[i] == 0u)
         {
             continue;
         }
 
+        sliderPassiveJointIndices.push_back(static_cast<std::uint32_t>(i));
         if (jointScene.slider.driveModes[i] ==
-            static_cast<std::uint32_t>(RigidJointDriveMode::TargetPosition))
-        {
-            sliderPositionDriveJointIndices.push_back(static_cast<std::uint32_t>(i));
-        }
-        else
-        {
-            sliderPassiveJointIndices.push_back(static_cast<std::uint32_t>(i));
-            if (jointScene.slider.driveModes[i] ==
+                static_cast<std::uint32_t>(RigidJointDriveMode::TargetPosition) ||
+            jointScene.slider.driveModes[i] ==
                 static_cast<std::uint32_t>(RigidJointDriveMode::TargetVelocity))
-            {
-                sliderVelocityDriveJointIndices.push_back(static_cast<std::uint32_t>(i));
-            }
+        {
+            sliderVelocityDriveJointIndices.push_back(static_cast<std::uint32_t>(i));
         }
     }
 
@@ -3035,10 +3016,6 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
              sliderPassiveJointIndices, 0u,
              static_cast<std::uint32_t>(sliderPassiveJointIndices.size())) ||
          !updateStructuredBufferRange(
-             computeContext, mPersistentJoints.sliderPositionDriveJointIndicesBuffer,
-             sliderPositionDriveJointIndices, 0u,
-             static_cast<std::uint32_t>(sliderPositionDriveJointIndices.size())) ||
-         !updateStructuredBufferRange(
              computeContext, mPersistentJoints.sliderVelocityDriveJointIndicesBuffer,
              sliderVelocityDriveJointIndices, 0u,
              static_cast<std::uint32_t>(sliderVelocityDriveJointIndices.size()))))
@@ -3058,8 +3035,6 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
         mHingeVelocityDriveJointCount =
             static_cast<std::uint32_t>(hingeVelocityDriveJointIndices.size());
         mSliderPassiveJointCount = static_cast<std::uint32_t>(sliderPassiveJointIndices.size());
-        mSliderPositionDriveJointCount =
-            static_cast<std::uint32_t>(sliderPositionDriveJointIndices.size());
         mSliderVelocityDriveJointCount =
             static_cast<std::uint32_t>(sliderVelocityDriveJointIndices.size());
     }
@@ -4172,11 +4147,6 @@ std::uint32_t PhysicsSceneGpuState::hingeVelocityDriveJointCount() const noexcep
 std::uint32_t PhysicsSceneGpuState::sliderPassiveJointCount() const noexcept
 {
     return mSliderPassiveJointCount;
-}
-
-std::uint32_t PhysicsSceneGpuState::sliderPositionDriveJointCount() const noexcept
-{
-    return mSliderPositionDriveJointCount;
 }
 
 std::uint32_t PhysicsSceneGpuState::sliderVelocityDriveJointCount() const noexcept

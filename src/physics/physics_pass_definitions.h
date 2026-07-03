@@ -110,7 +110,6 @@ extern const gpu::GpuComputePassDefinition kSolveSphericalJointConstraints;
 extern const gpu::GpuComputePassDefinition kSolveHingeJointConstraintsPassive;
 extern const gpu::GpuComputePassDefinition kSolveHingeJointConstraintsTargetPosition;
 extern const gpu::GpuComputePassDefinition kSolveSliderJointConstraintsPassive;
-extern const gpu::GpuComputePassDefinition kSolveSliderJointConstraintsTargetPosition;
 extern const gpu::GpuComputePassDefinition kSolveRigidParticleAttachmentConstraints;
 extern const gpu::GpuComputePassDefinition kSolveStrandRigidAttachmentConstraints;
 extern const gpu::GpuComputePassDefinition kSolveRigidDistanceConstraints;

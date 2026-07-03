@@ -2190,6 +2190,8 @@ bool PhysicsWorld::upsertSliderJoint(const SliderJointState &state)
     }
     normalized.constraintCompliance = std::max(normalized.constraintCompliance, 0.0f);
     normalized.driveCompliance      = std::max(normalized.driveCompliance, 0.0f);
+    normalized.driveDamping         = std::max(normalized.driveDamping, 0.0f);
+    normalized.driveMaxVelocity     = std::max(normalized.driveMaxVelocity, 0.0f);
 
     const auto bodyAIt = mRigidBodyIdToIndex.find(normalized.bodyA);
     const auto bodyBIt = mRigidBodyIdToIndex.find(normalized.bodyB);
@@ -3640,6 +3642,15 @@ PhysicsWorld::RigidJointChangeKind PhysicsWorld::classifySliderJointChange(
         return RigidJointChangeKind::TopologyRebuild;
     }
 
+    if (previousState.bodyA != candidate.bodyA || previousState.bodyB != candidate.bodyB ||
+        previousState.localAnchorA != candidate.localAnchorA ||
+        previousState.localAnchorB != candidate.localAnchorB ||
+        previousState.localRotationA != candidate.localRotationA ||
+        previousState.localRotationB != candidate.localRotationB)
+    {
+        return RigidJointChangeKind::TopologyRebuild;
+    }
+
     if (previousState.enabled != candidate.enabled ||
         previousState.driveMode != candidate.driveMode)
     {
@@ -4189,6 +4200,8 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
         self->mRigidJointScene.slider.limitMaxs.push_back(joint.limitMax);
         self->mRigidJointScene.slider.constraintCompliances.push_back(joint.constraintCompliance);
         self->mRigidJointScene.slider.driveCompliances.push_back(joint.driveCompliance);
+        self->mRigidJointScene.slider.driveDampings.push_back(joint.driveDamping);
+        self->mRigidJointScene.slider.driveMaxVelocities.push_back(joint.driveMaxVelocity);
         self->mRigidJointScene.slider.driveTargetPositions.push_back(joint.driveTargetPosition);
         self->mRigidJointScene.slider.driveTargetVelocities.push_back(joint.driveTargetVelocity);
         self->mRigidJointScene.slider.driveRestOffsets.push_back(driveRestOffset);

@@ -186,6 +186,8 @@ int main()
     slider.limitMin = -0.4f;
     slider.limitMax = 1.1f;
     slider.driveMode = RigidJointDriveMode::TargetPosition;
+    slider.driveDamping = 0.45f;
+    slider.driveMaxVelocity = 1.8f;
     slider.driveTargetPosition = 0.75f;
     slider.driveTargetVelocity = 0.6f;
     if (!world.upsertSliderJoint(slider))
@@ -310,6 +312,8 @@ int main()
         scene.slider.limitEnabledFlags.front() != 1u ||
         std::fabs(scene.slider.limitMins.front() + 0.4f) > kEpsilon ||
         std::fabs(scene.slider.limitMaxs.front() - 1.1f) > kEpsilon ||
+        std::fabs(scene.slider.driveDampings.front() - 0.45f) > kEpsilon ||
+        std::fabs(scene.slider.driveMaxVelocities.front() - 1.8f) > kEpsilon ||
         std::fabs(scene.slider.driveTargetPositions.front() - 0.75f) > kEpsilon ||
         std::fabs(scene.slider.driveTargetVelocities.front() - 0.6f) > kEpsilon)
     {

@@ -883,6 +883,8 @@ struct SliderJointState
     float limitMax             = 0.0f;
     float constraintCompliance = 0.0f;
     float driveCompliance      = 0.0f;
+    float driveDamping         = 0.0f;
+    float driveMaxVelocity     = 0.0f;
     float driveTargetPosition  = 0.0f;
     float driveTargetVelocity  = 0.0f;
 };
@@ -1036,6 +1038,8 @@ struct SliderJointSoAHost
     std::vector<float> limitMaxs;
     std::vector<float> constraintCompliances;
     std::vector<float> driveCompliances;
+    std::vector<float> driveDampings;
+    std::vector<float> driveMaxVelocities;
     std::vector<float> driveTargetPositions;
     std::vector<float> driveTargetVelocities;
     std::vector<float> driveRestOffsets;
@@ -1067,6 +1071,8 @@ struct SliderJointSoAHost
         limitMaxs.clear();
         constraintCompliances.clear();
         driveCompliances.clear();
+        driveDampings.clear();
+        driveMaxVelocities.clear();
         driveTargetPositions.clear();
         driveTargetVelocities.clear();
         driveRestOffsets.clear();
