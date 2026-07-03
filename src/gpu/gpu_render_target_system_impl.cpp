@@ -685,9 +685,22 @@ void GpuRenderTargetSystemImpl::endRenderTarget(const GpuRenderTargetBinding &bi
     }
 
     std::vector<std::uint64_t> completedRequests;
+    const std::uint32_t renderedFirstLayer    = normalized.firstLayer;
+    const std::uint32_t renderedLayerCount    = std::max(normalized.layerCount, 1u);
+    const std::uint32_t renderedPastLastLayer = renderedFirstLayer + renderedLayerCount;
     for (const auto &[requestId, requestBinding] : mPendingReadbackRequests)
     {
-        if (requestBinding.target.id == normalized.target.id)
+        if (requestBinding.target.id != normalized.target.id)
+        {
+            continue;
+        }
+
+        const std::uint32_t requestFirstLayer    = requestBinding.firstLayer;
+        const std::uint32_t requestLayerCount    = std::max(requestBinding.layerCount, 1u);
+        const std::uint32_t requestPastLastLayer = requestFirstLayer + requestLayerCount;
+        const bool overlapsRenderedLayers =
+            requestFirstLayer < renderedPastLastLayer && renderedFirstLayer < requestPastLastLayer;
+        if (overlapsRenderedLayers)
         {
             completedRequests.push_back(requestId);
         }
