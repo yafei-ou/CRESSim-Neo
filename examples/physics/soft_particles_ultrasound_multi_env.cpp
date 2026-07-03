@@ -1,8 +1,11 @@
 #include "common/logger.h"
 #include "engine/components.h"
 #include "engine/runtime.h"
+#include "helpers/readback_image_io.h"
 #include "helpers/shape_meshes.h"
+#include "helpers/skybox_example.h"
 #include "helpers/viewer_example.h"
+#include "physics/load_surface_mesh.h"
 #include "viewer/debug_viewer_app.h"
 
 #include "DiligentEngine/DiligentCore/Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
@@ -12,6 +15,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <stdexcept>
 #include <string>
@@ -38,12 +42,19 @@ using cressim::neo::examples::helpers::ViewerExampleDefaults;
 using cressim::neo::graphics::MaterialHandle;
 using cressim::neo::graphics::MaterialResourceDesc;
 using cressim::neo::graphics::MeshHandle;
+using cressim::neo::graphics::MeshResourceDesc;
+using cressim::neo::graphics::EnvironmentIblBakeOptions;
+using cressim::neo::graphics::EnvironmentIblDesc;
+using cressim::neo::graphics::IblQualityTier;
 using cressim::neo::gpu::GpuDevice;
+using cressim::neo::gpu::GpuRenderTargetDesc;
+using cressim::neo::gpu::GpuRenderTargetHandle;
 using cressim::neo::gpu::GpuRenderTargetReadbackEvent;
 using cressim::neo::gpu::GpuRenderTargetReadbackRequest;
 using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::physics::SoftBodySourceKind;
+using cressim::neo::physics::SurfaceMeshData;
 using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerAppDesc;
 using cressim::neo::viewer::DebugViewerCameraBinding;
@@ -52,10 +63,13 @@ using cressim::neo::viewer::DebugViewerCallbacks;
 constexpr float kEnvSpacing              = 6.0f;
 constexpr std::uint32_t kDefaultEnvCount = 4u;
 constexpr float kPi                      = 3.14159265359f;
-constexpr float kProbeHeight             = 0.4f;
+constexpr float kProbeHeight             = 0.35f;
 constexpr float kProbeBodyHalfHeight     = 0.06f;
 constexpr float kProbeBodyDepth          = 0.08f;
-
+constexpr const char *kUltrasoundSkyboxCrossPath =
+    "examples/cubemaps/Cubemap/Cubemap_Sky_18-512x512.png";
+constexpr std::uint32_t kSceneOutputWidth  = 1280u;
+constexpr std::uint32_t kSceneOutputHeight = 720u;
 enum class ExampleProbeType
 {
     Linear,
@@ -71,12 +85,27 @@ struct SceneMaterials
 
 struct ProbeMotionBinding
 {
+    struct VisualBinding
+    {
+        cressim::neo::common::EntityId entity = cressim::neo::common::kInvalidEntityId;
+        Diligent::float3 localPosition{0.0f, 0.0f, 0.0f};
+        Diligent::QuaternionF localRotation{0.0f, 0.0f, 0.0f, 1.0f};
+        Diligent::float3 localScale{1.0f, 1.0f, 1.0f};
+    };
+
     cressim::neo::common::EntityId probeEntity = cressim::neo::common::kInvalidEntityId;
-    cressim::neo::common::EntityId visualEntity = cressim::neo::common::kInvalidEntityId;
+    VisualBinding visual{};
     Diligent::float3 origin{};
     UltrasoundProbeComponent::Geometry geometry =
         UltrasoundProbeComponent::Geometry::Linear;
     float phase = 0.0f;
+};
+
+struct ProbeObjVisualDesc
+{
+    MeshHandle mesh{};
+    ProbeMotionBinding::VisualBinding binding{};
+    bool available = false;
 };
 
 void printUsage(const char *appName)
@@ -87,8 +116,10 @@ void printUsage(const char *appName)
     std::printf("  --probe-type TYPE        Probe geometry: linear or curvilinear.\n");
     std::printf("  --save-probe-images      Save all probe ultrasound images to the current "
                 "working directory and quit.\n");
+    std::printf("  --save-scene-images      Save scene camera color images to the current "
+                "working directory and quit.\n");
     std::printf("  --save-probe-delay-seconds N\n");
-    std::printf("                           When saving probe images, wait N simulated seconds "
+    std::printf("                           When saving images, wait N simulated seconds "
                 "before capture. Use 0 for the first frame.\n");
 }
 
@@ -213,6 +244,121 @@ std::uint8_t encodeByte(float value)
     return static_cast<std::uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f));
 }
 
+EnvironmentIblDesc loadUltrasoundSkyboxIbl(cressim::neo::graphics::RenderResourceManager &resources)
+{
+    const std::filesystem::path crossPath =
+        std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() /
+        kUltrasoundSkyboxCrossPath;
+
+    EnvironmentIblBakeOptions options{};
+    options.irradianceSize         = 16u;
+    options.specularSize           = 128u;
+    options.specularMipCount       = 7u;
+    options.irradianceSampleCount  = 256u;
+    options.specularSampleCount    = 128u;
+    options.intensity              = 0.22f;
+    options.backgroundIntensity    = 1.10f;
+    return cressim::neo::examples::helpers::createEnvironmentIblFromHorizontalCross(
+        resources, crossPath, options);
+}
+
+MeshResourceDesc makeSurfaceMeshResource(const SurfaceMeshData &surface, const char *debugName)
+{
+    MeshResourceDesc mesh{};
+    mesh.debugName = debugName;
+    mesh.vertices.reserve(surface.surfaceRestPositions.size());
+    for (std::size_t i = 0u; i < surface.surfaceRestPositions.size(); ++i)
+    {
+        MeshResourceDesc::Vertex vertex{};
+        vertex.position = surface.surfaceRestPositions[i];
+        if (i < surface.surfaceNormals.size())
+        {
+            vertex.normal = surface.surfaceNormals[i];
+        }
+        mesh.vertices.push_back(vertex);
+    }
+
+    mesh.indices.reserve(surface.surfaceTriangles.size() * 3u);
+    for (const Diligent::uint3 &triangle : surface.surfaceTriangles)
+    {
+        mesh.indices.push_back(triangle.x);
+        mesh.indices.push_back(triangle.y);
+        mesh.indices.push_back(triangle.z);
+    }
+    return mesh;
+}
+
+Diligent::float3 rotateVector(const Diligent::QuaternionF &rotation, const Diligent::float3 &value)
+{
+    return rotation.RotateVector(value);
+}
+
+void computeBoundsCorners(const Diligent::float3 &minimum, const Diligent::float3 &maximum,
+                          Diligent::float3 (&corners)[8])
+{
+    std::size_t cornerIndex = 0u;
+    for (int x = 0; x < 2; ++x)
+    {
+        for (int y = 0; y < 2; ++y)
+        {
+            for (int z = 0; z < 2; ++z)
+            {
+                corners[cornerIndex++] = {
+                    x == 0 ? minimum.x : maximum.x,
+                    y == 0 ? minimum.y : maximum.y,
+                    z == 0 ? minimum.z : maximum.z,
+                };
+            }
+        }
+    }
+}
+
+void transformBounds(const Diligent::float3 &minimum, const Diligent::float3 &maximum,
+                     const Diligent::QuaternionF &rotation, Diligent::float3 &outMinimum,
+                     Diligent::float3 &outMaximum)
+{
+    Diligent::float3 corners[8];
+    computeBoundsCorners(minimum, maximum, corners);
+
+    outMinimum = rotateVector(rotation, corners[0]);
+    outMaximum = outMinimum;
+    for (std::size_t i = 1u; i < 8u; ++i)
+    {
+        const Diligent::float3 transformed = rotateVector(rotation, corners[i]);
+        outMinimum.x = std::min(outMinimum.x, transformed.x);
+        outMinimum.y = std::min(outMinimum.y, transformed.y);
+        outMinimum.z = std::min(outMinimum.z, transformed.z);
+        outMaximum.x = std::max(outMaximum.x, transformed.x);
+        outMaximum.y = std::max(outMaximum.y, transformed.y);
+        outMaximum.z = std::max(outMaximum.z, transformed.z);
+    }
+}
+
+void applyProbeVisualTransform(Runtime &runtime, cressim::neo::common::EntityId probeEntity,
+                               const ProbeMotionBinding::VisualBinding &binding)
+{
+    if (binding.entity == cressim::neo::common::kInvalidEntityId)
+    {
+        return;
+    }
+
+    auto &world = runtime.getWorld();
+    const auto probeTransform = world.tryGetTransform(probeEntity);
+    if (!probeTransform.has_value())
+    {
+        return;
+    }
+
+    TransformComponent visualTransform{};
+    visualTransform.worldTransform.position =
+        probeTransform->worldTransform.position +
+        rotateVector(probeTransform->worldTransform.rotation, binding.localPosition);
+    visualTransform.worldTransform.rotation =
+        probeTransform->worldTransform.rotation * binding.localRotation;
+    visualTransform.worldTransform.scale = binding.localScale;
+    world.setTransform(binding.entity, visualTransform);
+}
+
 bool writePpm(const std::string &path, const GpuRenderTargetReadbackEvent &event)
 {
     if (!isValidReadback(event))
@@ -242,6 +388,180 @@ bool writePpm(const std::string &path, const GpuRenderTargetReadbackEvent &event
     }
 
     return out.good();
+}
+
+bool saveSceneAndProbeImagesAndQuit(
+    Runtime &runtime, const std::vector<cressim::neo::common::EntityId> &sceneCameraEntities,
+    const std::vector<cressim::neo::common::EntityId> &probeEntities, float captureDelaySeconds)
+{
+    GpuDevice *graphicsDevice = runtime.getGpuDevice();
+    if (graphicsDevice == nullptr)
+    {
+        CRESSIM_LOG_ERROR("Image export failed: no GPU device.\n");
+        return false;
+    }
+
+    cressim::neo::common::FrameContext frame{};
+    frame.deltaSeconds = 1.0f / 60.0f;
+
+    const std::uint64_t settleFrames = static_cast<std::uint64_t>(
+        std::ceil(captureDelaySeconds / std::max(frame.deltaSeconds, 1.0e-6f)));
+    for (std::uint64_t i = 0u; i < settleFrames; ++i)
+    {
+        runtime.prepare();
+        if (!runtime.uploadWorld())
+        {
+            CRESSIM_LOG_ERROR("Image export failed: staged world upload failed.\n");
+            return false;
+        }
+        if (!runtime.stepPhysics(frame))
+        {
+            CRESSIM_LOG_ERROR("Image export failed: staged physics step failed.\n");
+            return false;
+        }
+        if (!runtime.stepSimulationSensors(frame))
+        {
+            CRESSIM_LOG_ERROR("Image export failed: staged sensor step failed.\n");
+            return false;
+        }
+        runtime.stepVisualSensors(frame);
+        runtime.endFrame(frame);
+        ++frame.frameIndex;
+        frame.timeSeconds += static_cast<double>(frame.deltaSeconds);
+    }
+
+    runtime.prepare();
+
+    std::vector<std::pair<cressim::neo::common::EntityId, GpuRenderTargetReadbackRequest>>
+        sceneReadbackRequests;
+    sceneReadbackRequests.reserve(sceneCameraEntities.size());
+    for (const cressim::neo::common::EntityId cameraEntity : sceneCameraEntities)
+    {
+        const auto camera = runtime.getWorld().tryGetCamera(cameraEntity);
+        if (!camera.has_value() || !camera->output.binding.isValid())
+        {
+            CRESSIM_LOG_ERROR("Image export failed: camera entity ", cameraEntity,
+                              " has no valid explicit output binding.\n");
+            return false;
+        }
+
+        const GpuRenderTargetReadbackRequest request =
+            graphicsDevice->renderTargetSystem().requestRenderTargetReadback(camera->output.binding);
+        if (request.id == 0u)
+        {
+            CRESSIM_LOG_ERROR("Image export failed: could not queue readback for camera entity ",
+                              cameraEntity, ".\n");
+            return false;
+        }
+        sceneReadbackRequests.emplace_back(cameraEntity, request);
+    }
+
+    std::vector<std::pair<cressim::neo::common::EntityId, GpuRenderTargetReadbackRequest>>
+        probeReadbackRequests;
+    probeReadbackRequests.reserve(probeEntities.size());
+    for (const cressim::neo::common::EntityId probeEntity : probeEntities)
+    {
+        const UltrasoundProbeResult *probeResult =
+            runtime.getWorld().tryGetUltrasoundProbeResult(probeEntity);
+        if (probeResult == nullptr || !probeResult->prepared)
+        {
+            CRESSIM_LOG_ERROR("Image export failed: probe entity ", probeEntity,
+                              " did not expose a valid ultrasound output after prepare().\n");
+            return false;
+        }
+
+        const GpuRenderTargetReadbackRequest request =
+            graphicsDevice->renderTargetSystem().requestRenderTargetReadback(
+                probeResult->imageBinding);
+        if (request.id == 0u)
+        {
+            CRESSIM_LOG_ERROR("Image export failed: could not queue readback for probe entity ",
+                              probeEntity, ".\n");
+            return false;
+        }
+        probeReadbackRequests.emplace_back(probeEntity, request);
+    }
+
+    runtime.prepare();
+    if (!runtime.uploadWorld())
+    {
+        CRESSIM_LOG_ERROR("Image export failed: staged capture world upload failed.\n");
+        return false;
+    }
+    if (!runtime.stepPhysics(frame))
+    {
+        CRESSIM_LOG_ERROR("Image export failed: staged capture physics step failed.\n");
+        return false;
+    }
+    if (!runtime.stepSimulationSensors(frame))
+    {
+        CRESSIM_LOG_ERROR("Image export failed: staged capture sensor step failed.\n");
+        return false;
+    }
+    runtime.stepVisualSensors(frame);
+    runtime.endFrame(frame);
+
+    bool savedAnyImage = false;
+    const auto &renderOptions = runtime.renderFrameOptions();
+    for (std::size_t index = 0u; index < sceneReadbackRequests.size(); ++index)
+    {
+        const auto &[cameraEntity, request] = sceneReadbackRequests[index];
+        GpuRenderTargetReadbackEvent event{};
+        if (!graphicsDevice->renderTargetSystem().tryGetRenderTargetReadback(request, event) ||
+            !isValidReadback(event))
+        {
+            CRESSIM_LOG_ERROR("Image export failed: incomplete scene readback for camera entity ",
+                              cameraEntity, ".\n");
+            return false;
+        }
+
+        const std::string outputPath = "scene_env" + std::to_string(index) + ".ppm";
+        if (!cressim::neo::examples::helpers::writeColorPpm(outputPath, event,
+                                                            renderOptions.toneMapper,
+                                                            renderOptions.exposure))
+        {
+            CRESSIM_LOG_ERROR("Image export failed: could not write ", outputPath, ".\n");
+            return false;
+        }
+
+        CRESSIM_LOG_INFO("Saved scene image for env=", index, " to ", outputPath);
+        savedAnyImage = true;
+    }
+
+    for (const auto &[probeEntity, request] : probeReadbackRequests)
+    {
+        const UltrasoundProbeResult *probeResult =
+            runtime.getWorld().tryGetUltrasoundProbeResult(probeEntity);
+        if (probeResult == nullptr || !probeResult->prepared || !probeResult->completed)
+        {
+            CRESSIM_LOG_ERROR("Image export failed: probe entity ", probeEntity,
+                              " did not produce a valid ultrasound image for capture.\n");
+            return false;
+        }
+
+        GpuRenderTargetReadbackEvent event{};
+        if (!graphicsDevice->renderTargetSystem().tryGetRenderTargetReadback(request, event) ||
+            !isValidReadback(event))
+        {
+            CRESSIM_LOG_ERROR("Image export failed: incomplete probe readback for probe entity ",
+                              probeEntity, ".\n");
+            return false;
+        }
+
+        const std::string outputPath =
+            "ultrasound_probe_" + std::to_string(probeEntity) + ".ppm";
+        if (!cressim::neo::examples::helpers::writeColorPpm(outputPath, event))
+        {
+            CRESSIM_LOG_ERROR("Image export failed: could not write ", outputPath, ".\n");
+            return false;
+        }
+
+        CRESSIM_LOG_INFO("Saved ultrasound image for probe entity=", probeEntity, " to ",
+                         outputPath);
+        savedAnyImage = true;
+    }
+
+    return savedAnyImage;
 }
 
 float parseNonNegativeFloat(const std::string &value, const char *optionName)
@@ -430,14 +750,90 @@ MeshHandle registerProbeMesh(cressim::neo::graphics::RenderResourceManager &reso
         halfExtents, "SoftParticlesUltrasoundMultiEnv.ProbeMesh"));
 }
 
+ProbeObjVisualDesc registerLinearProbeObjMesh(cressim::neo::graphics::RenderResourceManager &resources,
+                                              const UltrasoundProbeComponent &probe)
+{
+    ProbeObjVisualDesc desc{};
+
+    const std::filesystem::path probeObjPath =
+        std::filesystem::path(__FILE__).parent_path().parent_path() / "models" /
+        "Linear Probe.obj";
+    if (!std::filesystem::exists(probeObjPath))
+    {
+        CRESSIM_LOG_INFO("Linear probe OBJ not found at ", probeObjPath.string(),
+                         "; using the box probe visual only.\n");
+        return desc;
+    }
+
+    SurfaceMeshData surfaceMesh;
+    std::string errorMessage;
+    if (!cressim::neo::physics::readObjSurfaceMesh(probeObjPath, surfaceMesh, errorMessage))
+    {
+        CRESSIM_LOG_ERROR(errorMessage, "\n");
+        return desc;
+    }
+
+    desc.mesh = resources.registerMesh(
+        makeSurfaceMeshResource(surfaceMesh, "SoftParticlesUltrasoundMultiEnv.LinearProbeObjMesh"));
+
+    Diligent::float3 localBoundsMin{};
+    Diligent::float3 localBoundsMax{};
+    if (!resources.tryGetMeshLocalBounds(desc.mesh, localBoundsMin, localBoundsMax))
+    {
+        CRESSIM_LOG_ERROR("Failed to query bounds for linear probe OBJ mesh.\n");
+        return desc;
+    }
+
+    desc.binding.localRotation =
+        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, -0.5f * kPi);
+
+    Diligent::float3 rotatedBoundsMin{};
+    Diligent::float3 rotatedBoundsMax{};
+    transformBounds(localBoundsMin, localBoundsMax, desc.binding.localRotation, rotatedBoundsMin,
+                    rotatedBoundsMax);
+
+    const Diligent::float3 rotatedExtent{
+        std::max(rotatedBoundsMax.x - rotatedBoundsMin.x, 1.0e-4f),
+        std::max(rotatedBoundsMax.y - rotatedBoundsMin.y, 1.0e-4f),
+        std::max(rotatedBoundsMax.z - rotatedBoundsMin.z, 1.0e-4f),
+    };
+    const float scanlineSpan =
+        std::max(1u, probe.numScanlines) > 1u
+            ? static_cast<float>(probe.numScanlines - 1u) * probe.scanlineSpacing
+            : probe.scanlineSpacing;
+    const float uniformScale = std::max(scanlineSpan, 1.0e-4f) / rotatedExtent.x;
+    desc.binding.localScale = {uniformScale, uniformScale, uniformScale};
+
+    const Diligent::float3 scaledRotatedMin{
+        rotatedBoundsMin.x * desc.binding.localScale.x,
+        rotatedBoundsMin.y * desc.binding.localScale.y,
+        rotatedBoundsMin.z * desc.binding.localScale.z,
+    };
+    const Diligent::float3 scaledRotatedMax{
+        rotatedBoundsMax.x * desc.binding.localScale.x,
+        rotatedBoundsMax.y * desc.binding.localScale.y,
+        rotatedBoundsMax.z * desc.binding.localScale.z,
+    };
+    desc.binding.localPosition = {
+        -0.5f * (scaledRotatedMin.x + scaledRotatedMax.x),
+        -0.5f * (scaledRotatedMin.y + scaledRotatedMax.y),
+        -scaledRotatedMax.z,
+    };
+    desc.available = true;
+    return desc;
+}
+
 void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t envCount,
-                       MeshHandle planeMesh, MeshHandle boxMesh, MeshHandle probeMesh,
+                       MeshHandle planeMesh, MeshHandle boxMesh, MeshHandle probeBoxMesh,
+                       const ProbeObjVisualDesc &probeObjVisual,
+                       GpuRenderTargetHandle sceneColorTarget,
                        const UltrasoundProbeComponent &probeTemplate,
                        const UltrasoundRendererComponent &rendererTemplate,
                        const SceneMaterials &materials,
                        cressim::neo::common::EntityId &outCameraEntity,
                        cressim::neo::common::EntityId &outProbeEntity,
-                       cressim::neo::common::EntityId &outProbeVisualEntity)
+                       ProbeMotionBinding::VisualBinding &outProbeVisual,
+                       cressim::neo::common::EntityId &outSceneCameraEntity)
 {
     auto &world                   = runtime.getWorld();
     const Diligent::float3 origin = envOrigin(envIndex, envCount);
@@ -448,12 +844,30 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     cameraTransform.worldTransform.position =
         origin + Diligent::float3{0.0f, 1.6f, -2.8f - 0.15f * static_cast<float>(envIndex % 3u)};
     cameraTransform.worldTransform.rotation =
-        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, 0.12f);
+        Diligent::QuaternionF::RotationFromAxisAngle({1.0f, 0.0f, 0.0f}, 0.26f);
     world.setTransform(outCameraEntity, cameraTransform);
     CameraComponent camera{};
     camera.verticalFovDegrees = 48.0f;
     camera.renderOrder        = envIndex;
+    camera.backgroundMode     = CameraComponent::BackgroundMode::EnvironmentCubemap;
     world.setCamera(outCameraEntity, camera);
+
+    outSceneCameraEntity = cressim::neo::common::kInvalidEntityId;
+    if (sceneColorTarget.id != 0u)
+    {
+        outSceneCameraEntity = world.createEntity(envIndex);
+        world.setTransform(outSceneCameraEntity, cameraTransform);
+        CameraComponent sceneCamera = camera;
+        sceneCamera.output.mode =
+            cressim::neo::gpu::RenderOutputMode::ExplicitSurface;
+        sceneCamera.output.binding =
+            cressim::neo::gpu::GpuRenderTargetBinding{sceneColorTarget, envIndex, 1u};
+        sceneCamera.outputWidth  = kSceneOutputWidth;
+        sceneCamera.outputHeight = kSceneOutputHeight;
+        sceneCamera.clearColor   = true;
+        sceneCamera.clearDepth   = true;
+        world.setCamera(outSceneCameraEntity, sceneCamera);
+    }
 
     const auto lightEntity = world.createEntity(envIndex);
     DirectionalLightComponent light{};
@@ -472,20 +886,27 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     groundBody.inverseMass = 0.0f;
     world.setRigidBody(groundEntity, groundBody);
     ColliderComponent groundCollider{};
+    constexpr float kGroundColliderHalfHeight = 0.05f;
     groundCollider.shapeType   = ColliderShapeType::Box;
-    groundCollider.shapeParams = {2.0f, 0.05f, 2.0f, 0.0f};
+    groundCollider.shapeParams = {2.0f, kGroundColliderHalfHeight, 2.0f, 0.0f};
+    groundCollider.localPosition = {0.0f, -kGroundColliderHalfHeight, 0.0f};
     groundCollider.friction    = 0.55f;
     world.addCollider(groundEntity, groundCollider);
 
     const auto softEntity = world.createEntity(envIndex);
     TransformComponent softTransform{};
+    constexpr float kSoftHalfHeight = 0.225f;
+    constexpr float kSoftParticleRadius = 0.04f;
+    constexpr float kSoftGroundClearance = 0.09f;
     // Spawn heights are derived from scene geometry instead of tuned by eye:
-    // - the cube must start above the ground to avoid an explosive initial overlap
+    // - the lowest particle sphere should start just above the ground collider to avoid
+    //   an artificial first-frame bounce from initial overlap
     // - the cube must still intersect the downward probe beam on frame 0 so first-frame
     //   ultrasound capture is meaningful
-    const float groundTopHeight = -0.15f + 0.05f;
-    const float cubeHalfHeight  = 0.5f * 0.45f;
-    const float minSpawnHeight  = groundTopHeight + cubeHalfHeight + 0.08f;
+    const float groundTopHeight = -0.15f;
+    const float cubeHalfHeight  = kSoftHalfHeight;
+    const float minSpawnHeight =
+        groundTopHeight + cubeHalfHeight + kSoftParticleRadius + kSoftGroundClearance;
     const float maxSpawnHeight  = kProbeHeight + cubeHalfHeight - 0.04f;
     const float spawnT = envCount > 1u
                              ? static_cast<float>(envIndex) / static_cast<float>(envCount - 1u)
@@ -504,7 +925,7 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     softBody.source.regularGrid.size                  = {0.45f, 0.45f, 0.45f};
     softBody.source.regularGrid.targetParticleSpacing = 0.08f;
     softBody.particleMass         = 0.01f;
-    softBody.particleRadius       = 0.04f;
+    softBody.particleRadius       = kSoftParticleRadius;
     softBody.edgeCompliance       = 0.0f;
     softBody.volumeCompliance     = 0.0008f;
     softBody.selfCollisionEnabled = true;
@@ -541,42 +962,30 @@ void authorEnvironment(Runtime &runtime, std::uint32_t envIndex, std::uint32_t e
     world.setUltrasoundRenderer(probeEntity, renderer);
     outProbeEntity = probeEntity;
 
-    const auto probeVisualEntity = world.createEntity(envIndex);
-    TransformComponent probeVisualTransform{};
-    probeVisualTransform.worldTransform.position = probeTransform.worldTransform.position;
-    probeVisualTransform.worldTransform.rotation = probeTransform.worldTransform.rotation;
-    if (probe.geometry == UltrasoundProbeComponent::Geometry::Linear)
+    if (probe.geometry == UltrasoundProbeComponent::Geometry::Linear && probeObjVisual.available)
     {
-        const Diligent::float3 probeDirection =
-            probeTransform.worldTransform.rotation.RotateVector(Diligent::float3{0.0f, 0.0f, 1.0f});
-        probeVisualTransform.worldTransform.position =
-            probeTransform.worldTransform.position - probeDirection * (0.5f * kProbeBodyDepth);
+        outProbeVisual = probeObjVisual.binding;
+        outProbeVisual.entity = world.createEntity(envIndex);
+        world.setMeshRenderer(outProbeVisual.entity,
+                              MeshRendererComponent{probeObjVisual.mesh, materials.probe, true});
+        applyProbeVisualTransform(runtime, probeEntity, outProbeVisual);
+        return;
     }
-    world.setTransform(probeVisualEntity, probeVisualTransform);
-    world.setMeshRenderer(probeVisualEntity,
-                          MeshRendererComponent{probeMesh, materials.probe, true});
-    outProbeVisualEntity = probeVisualEntity;
+
+    outProbeVisual = {};
+    outProbeVisual.entity = world.createEntity(envIndex);
+    outProbeVisual.localPosition =
+        probe.geometry == UltrasoundProbeComponent::Geometry::Linear
+            ? Diligent::float3{0.0f, 0.0f, -0.5f * kProbeBodyDepth}
+            : Diligent::float3{0.0f, 0.0f, 0.0f};
+    world.setMeshRenderer(outProbeVisual.entity,
+                          MeshRendererComponent{probeBoxMesh, materials.probe, true});
+    applyProbeVisualTransform(runtime, probeEntity, outProbeVisual);
 }
 
 void updateProbeVisualTransform(Runtime &runtime, const ProbeMotionBinding &binding)
 {
-    auto &world = runtime.getWorld();
-    const auto probeTransform = world.tryGetTransform(binding.probeEntity);
-    if (!probeTransform.has_value())
-    {
-        return;
-    }
-
-    TransformComponent visualTransform{};
-    visualTransform.worldTransform.position = probeTransform->worldTransform.position;
-    visualTransform.worldTransform.rotation = probeTransform->worldTransform.rotation;
-    if (binding.geometry == UltrasoundProbeComponent::Geometry::Linear)
-    {
-        const Diligent::float3 probeDirection =
-            visualTransform.worldTransform.rotation.RotateVector(Diligent::float3{0.0f, 0.0f, 1.0f});
-        visualTransform.worldTransform.position -= probeDirection * (0.5f * kProbeBodyDepth);
-    }
-    world.setTransform(binding.visualEntity, visualTransform);
+    applyProbeVisualTransform(runtime, binding.probeEntity, binding.visual);
 }
 
 void animateProbeTransforms(const cressim::neo::common::FrameContext &frame, Runtime &runtime,
@@ -734,6 +1143,7 @@ int main(int argc, char **argv)
     bool debugParticles = false;
     bool moveProbe = false;
     bool saveProbeImages = false;
+    bool saveSceneImages = false;
     float saveProbeDelaySeconds = 0.0f;
     ExampleProbeType probeType = ExampleProbeType::Linear;
     try
@@ -759,6 +1169,11 @@ int main(int argc, char **argv)
             if (std::strcmp(argv[i], "--save-probe-images") == 0)
             {
                 saveProbeImages = true;
+                continue;
+            }
+            if (std::strcmp(argv[i], "--save-scene-images") == 0)
+            {
+                saveSceneImages = true;
                 continue;
             }
             if (std::strcmp(argv[i], "--save-probe-delay-seconds") == 0)
@@ -787,13 +1202,14 @@ int main(int argc, char **argv)
     }
 
     auto config = cressim::neo::examples::helpers::makeRuntimeConfig(options);
+    config.rendererDesc.iblQualityTier    = IblQualityTier::Full;
     config.physicsDesc.softContactIterations  = 60;
     config.physicsDesc.softInternalIterations = 60;
     config.physicsDesc.enableBlockingReadback = false;
     config.sceneLayout.envCount               = options.envCount;
 
     DebugViewerApp viewer;
-    if (!saveProbeImages)
+    if (!saveProbeImages && !saveSceneImages)
     {
         ViewerExampleDefaults viewerDefaults{};
         viewerDefaults.windowTitle = "CRESSim Neo Ultrasound Soft Cube Viewer";
@@ -821,7 +1237,7 @@ int main(int argc, char **argv)
 
     UltrasoundProbeComponent probeDefaults{};
     probeDefaults.numScanlines         = 50u;
-    probeDefaults.lineLength           = 1.2f;
+    probeDefaults.lineLength           = 0.8f;
     probeDefaults.scanlineSpacing      = 0.01f;
     probeDefaults.worldUnitsPerMeter   = 10.0f;
     probeDefaults.beamSigmaLateral     = 0.001f;
@@ -838,12 +1254,47 @@ int main(int argc, char **argv)
     }
 
     auto &resources = runtime.getResources();
+    const auto sharedIbl = loadUltrasoundSkyboxIbl(resources);
     const MeshHandle boxMesh = resources.registerMesh(cressim::neo::examples::helpers::makeBoxMesh(
         {0.225f, 0.225f, 0.225f}, "SoftParticlesUltrasoundMultiEnv.SoftBodyMesh"));
-    const MeshHandle probeMesh = registerProbeMesh(resources, probeDefaults);
+    const MeshHandle probeBoxMesh = registerProbeMesh(resources, probeDefaults);
+    const ProbeObjVisualDesc probeObjVisual =
+        registerLinearProbeObjMesh(resources, probeDefaults);
     const MeshHandle planeMesh = resources.registerMesh(
         cressim::neo::examples::helpers::makePlaneMesh(
             2.0f, "SoftParticlesUltrasoundMultiEnv.PlaneMesh"));
+
+    GpuRenderTargetHandle sceneColorTarget{};
+    std::vector<cressim::neo::common::EntityId> sceneCameraEntities;
+    if (saveSceneImages)
+    {
+        GpuDevice *device = runtime.getGpuDevice();
+        if (device == nullptr)
+        {
+            runtime.shutdown();
+            viewer.shutdown();
+            CRESSIM_LOG_ERROR("Scene image export failed: no GPU device.\n");
+            return 1;
+        }
+
+        GpuRenderTargetDesc sceneTargetDesc{};
+        sceneTargetDesc.width              = kSceneOutputWidth;
+        sceneTargetDesc.height             = kSceneOutputHeight;
+        sceneTargetDesc.arraySize          = options.envCount;
+        sceneTargetDesc.layeredRendering   = true;
+        sceneTargetDesc.color              = true;
+        sceneTargetDesc.depth              = true;
+        sceneTargetDesc.debugName          = "SoftParticlesUltrasoundMultiEnv.SceneColorTarget";
+        sceneColorTarget = device->renderTargetSystem().createRenderTarget(sceneTargetDesc);
+        if (!device->renderTargetSystem().isValidRenderTarget(sceneColorTarget))
+        {
+            runtime.shutdown();
+            viewer.shutdown();
+            CRESSIM_LOG_ERROR("Scene image export failed: render target creation failed.\n");
+            return 1;
+        }
+        sceneCameraEntities.reserve(options.envCount);
+    }
 
     SceneMaterials materials{};
     materials.ground = registerMaterial(resources, "SoftParticlesUltrasoundMultiEnv.Ground",
@@ -851,7 +1302,7 @@ int main(int argc, char **argv)
     materials.softBody = registerMaterial(resources, "SoftParticlesUltrasoundMultiEnv.SoftBody",
                                           {0.86f, 0.54f, 0.44f}, 0.72f);
     materials.probe = registerMaterial(resources, "SoftParticlesUltrasoundMultiEnv.Probe",
-                                       {0.24f, 0.28f, 0.33f}, 0.30f);
+                                       {0.88f, 0.89f, 0.91f}, 0.38f);
 
     cressim::neo::common::EntityId primaryCamera = cressim::neo::common::kInvalidEntityId;
     std::vector<cressim::neo::common::EntityId> probeEntities;
@@ -860,30 +1311,45 @@ int main(int argc, char **argv)
     probeBindings.reserve(options.envCount);
     for (std::uint32_t envIndex = 0u; envIndex < options.envCount; ++envIndex)
     {
+        if (!runtime.getWorld().setEnvironmentIbl(envIndex, sharedIbl))
+        {
+            runtime.shutdown();
+            viewer.shutdown();
+            CRESSIM_LOG_ERROR("Failed to assign ultrasound skybox IBL.\n");
+            return 1;
+        }
+
         cressim::neo::common::EntityId cameraEntity = cressim::neo::common::kInvalidEntityId;
         cressim::neo::common::EntityId probeEntity  = cressim::neo::common::kInvalidEntityId;
-        cressim::neo::common::EntityId probeVisualEntity =
+        cressim::neo::common::EntityId sceneCameraEntity =
             cressim::neo::common::kInvalidEntityId;
-        authorEnvironment(runtime, envIndex, options.envCount, planeMesh, boxMesh, probeMesh,
-                          probeDefaults, rendererDefaults, materials, cameraEntity, probeEntity,
-                          probeVisualEntity);
+        ProbeMotionBinding::VisualBinding probeVisual{};
+        authorEnvironment(runtime, envIndex, options.envCount, planeMesh, boxMesh, probeBoxMesh,
+                          probeObjVisual, sceneColorTarget, probeDefaults, rendererDefaults,
+                          materials, cameraEntity, probeEntity, probeVisual, sceneCameraEntity);
         if (envIndex == 0u)
         {
             primaryCamera = cameraEntity;
         }
+        if (sceneCameraEntity != cressim::neo::common::kInvalidEntityId)
+        {
+            sceneCameraEntities.push_back(sceneCameraEntity);
+        }
         probeEntities.push_back(probeEntity);
         probeBindings.push_back(ProbeMotionBinding{
             probeEntity,
-            probeVisualEntity,
+            probeVisual,
             envOrigin(envIndex, options.envCount) + Diligent::float3{0.0f, kProbeHeight, 0.0f},
             probeDefaults.geometry,
             static_cast<float>(envIndex) * 0.71f,
         });
     }
 
-    if (saveProbeImages)
+    if (saveProbeImages || saveSceneImages)
     {
-        const bool saved = saveProbeImagesAndQuit(runtime, probeEntities, saveProbeDelaySeconds);
+        const bool saved =
+            saveSceneAndProbeImagesAndQuit(runtime, sceneCameraEntities, probeEntities,
+                                           saveProbeDelaySeconds);
         runtime.shutdown();
         return saved ? 0 : 1;
     }

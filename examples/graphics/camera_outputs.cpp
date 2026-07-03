@@ -3,6 +3,7 @@
 #include "engine/runtime.h"
 #include "graphics/environment_ibl_baker.h"
 #include "helpers/example_cli.h"
+#include "helpers/readback_image_io.h"
 #include "helpers/shape_meshes.h"
 #include "helpers/skybox_example.h"
 #include "helpers/viewer_example.h"
@@ -684,7 +685,8 @@ bool saveExplicitOutputsFirstFrame(
         if (isValidColorReadback(event))
         {
             const std::filesystem::path colorPath = outputDir / (entry.label + "_color.ppm");
-            if (!writePpm(colorPath, event, entry.toneMapper, entry.exposure))
+            if (!cressim::neo::examples::helpers::writeColorPpm(colorPath, event,
+                                                                entry.toneMapper, entry.exposure))
             {
                 CRESSIM_LOG_ERROR("Explicit output export failed: could not write ", colorPath,
                                   ".\n");
@@ -695,7 +697,8 @@ bool saveExplicitOutputsFirstFrame(
         if (isValidDepthReadback(event))
         {
             const std::filesystem::path depthPath = outputDir / (entry.label + "_depth.pgm");
-            if (!writeDepthPgm(depthPath, event, entry.nearClip, entry.farClip))
+            if (!cressim::neo::examples::helpers::writeDepthPgm(depthPath, event, entry.nearClip,
+                                                                entry.farClip))
             {
                 CRESSIM_LOG_ERROR("Explicit output export failed: could not write ", depthPath,
                                   ".\n");
