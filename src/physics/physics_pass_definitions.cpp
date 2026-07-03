@@ -1791,6 +1791,8 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveHingeJointConstraintsVars[]
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJoints",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJointRuntimeStates",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJointIndices",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJointLambdas0123",
@@ -1939,11 +1941,28 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveHingeJointTargetVelocitiesV
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJoints",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJointRuntimeStates",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJointIndices",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyLinearVelocityCorrections",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_RigidBodyAngularVelocityCorrections",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kUpdateHingeJointRuntimeStateVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidJointDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyOrientations",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyAngularVelocities",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJoints",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_HingeJointRuntimeStates",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
@@ -2508,6 +2527,14 @@ const gpu::GpuComputePassDefinition kClearSliderJointConstraintState{
     "CRESSimNeo.Physics.ClearSliderJointConstraintState.PSO",
     kClearSliderJointConstraintStateVars,
     std::size(kClearSliderJointConstraintStateVars),
+};
+
+const gpu::GpuComputePassDefinition kUpdateHingeJointRuntimeState{
+    "physics/rigid/solver/physics_rigid_update_hinge_joint_runtime_state.cs.hlsl",
+    "CRESSimNeo.Physics.UpdateHingeJointRuntimeState.CS",
+    "CRESSimNeo.Physics.UpdateHingeJointRuntimeState.PSO",
+    kUpdateHingeJointRuntimeStateVars,
+    std::size(kUpdateHingeJointRuntimeStateVars),
 };
 
 const gpu::GpuComputePassDefinition kBuildFluidNeighborPairs{

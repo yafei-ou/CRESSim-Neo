@@ -25,6 +25,9 @@ public:
     bool clearRigidCorrections(Diligent::IDeviceContext *computeContext,
                                PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
                                const GpuRigidDispatchConstants &constants);
+    bool updateHingeJointRuntimeState(Diligent::IDeviceContext *computeContext,
+                                      const PhysicsSceneGpuState &sceneState,
+                                      std::uint32_t jointCount);
     bool clearHingeJointConstraintState(Diligent::IDeviceContext *computeContext,
                                         const PhysicsSceneGpuState &sceneState,
                                         std::uint32_t jointCount);
@@ -569,6 +572,7 @@ private:
     gpu::GpuComputePass mSolveRoutedCableConstraintsPass;
     gpu::GpuComputePass mSolveHingeJointTargetVelocitiesPass;
     gpu::GpuComputePass mSolveSliderJointTargetVelocitiesPass;
+    gpu::GpuComputePass mUpdateHingeJointRuntimeStatePass;
     gpu::GpuComputePass mClearHingeJointConstraintStatePass;
     gpu::GpuComputePass mClearSphericalJointConstraintStatePass;
     gpu::GpuComputePass mClearSliderJointConstraintStatePass;

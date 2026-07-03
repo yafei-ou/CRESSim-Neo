@@ -299,6 +299,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
                   kSolveStrandRigidAttachmentConstraints) ||
         !initPass(mSolveRigidDistanceConstraintsPass, kSolveRigidDistanceConstraints) ||
         !initPass(mSolveRoutedCableConstraintsPass, kSolveRoutedCableConstraints) ||
+        !initPass(mUpdateHingeJointRuntimeStatePass, kUpdateHingeJointRuntimeState) ||
         !initPass(mClearHingeJointConstraintStatePass, kClearHingeJointConstraintState) ||
         !initPass(mClearSphericalJointConstraintStatePass, kClearSphericalJointConstraintState) ||
         !initPass(mClearSliderJointConstraintStatePass, kClearSliderJointConstraintState) ||
@@ -637,6 +638,42 @@ bool PhysicsPassDispatcher::clearHingeJointConstraintState(Diligent::IDeviceCont
     return writeRigidJointDispatchConstants(computeContext, jointConstants) &&
            mClearHingeJointConstraintStatePass.dispatch(computeContext, kDefaultVariant, bindings,
                                                         dispatchGroupCount(jointCount));
+}
+
+bool PhysicsPassDispatcher::updateHingeJointRuntimeState(Diligent::IDeviceContext *computeContext,
+                                                         const PhysicsSceneGpuState &sceneState,
+                                                         std::uint32_t jointCount)
+{
+    if (jointCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &persistentJoints = sceneState.persistentJoints();
+    const auto &transient        = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"PhysicsRigidJointDispatchConstantsBuffer",
+                              mRigidJointDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
+                              transient.predictedRigidBodies.orientationsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyAngularVelocities",
+                              transient.predictedRigidBodies.angularVelocitiesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_HingeJoints", persistentJoints.hingeJointsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_HingeJointRuntimeStates",
+                              persistentJoints.hingeJointRuntimeStatesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    const GpuRigidJointDispatchConstants jointConstants{jointCount, 0u, 0u, 0u};
+    return writeRigidJointDispatchConstants(computeContext, jointConstants) &&
+           mUpdateHingeJointRuntimeStatePass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                      dispatchGroupCount(jointCount));
 }
 
 bool PhysicsPassDispatcher::clearSphericalJointConstraintState(
@@ -4818,6 +4855,9 @@ bool PhysicsPassDispatcher::dispatchSolveHingeJointConstraintsPass(
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_HingeJoints", persistentJoints.hingeJointsBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_HingeJointRuntimeStates",
+                              persistentJoints.hingeJointRuntimeStatesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_HingeJointIndices", jointIndicesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_HingeJointLambdas0123", transient.hingeJointLambdas0123Buffer,
@@ -5216,6 +5256,9 @@ bool PhysicsPassDispatcher::dispatchSolveHingeJointVelocityTargetsPass(
         gpu::GpuBufferBinding{"g_RigidBodyTypes", persistentBodies.bodyTypesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_HingeJoints", persistentJoints.hingeJointsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_HingeJointRuntimeStates",
+                              persistentJoints.hingeJointRuntimeStatesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
         gpu::GpuBufferBinding{"g_HingeJointIndices", jointIndicesBuffer,
                               Diligent::BUFFER_VIEW_SHADER_RESOURCE},
@@ -5651,6 +5694,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mClearSliderJointConstraintStatePass.forceRecreateAllVariants() &&
            mSolveHingeJointTargetVelocitiesPass.forceRecreateAllVariants() &&
            mSolveSliderJointTargetVelocitiesPass.forceRecreateAllVariants() &&
+           mUpdateHingeJointRuntimeStatePass.forceRecreateAllVariants() &&
            mApplyRigidCorrectionsPass.forceRecreateAllVariants() &&
            mUpdateRigidVelocitiesPass.forceRecreateAllVariants() &&
            mApplyRigidContactVelocitiesPass.forceRecreateAllVariants();

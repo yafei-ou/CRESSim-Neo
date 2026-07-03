@@ -2052,15 +2052,15 @@ bool PhysicsWorld::upsertHingeJoint(const HingeJointState &state)
         common::runtime_math::normalizeQuaternion(normalized.localRotationA);
     normalized.localRotationB =
         common::runtime_math::normalizeQuaternion(normalized.localRotationB);
-    normalized.driveTargetAngle =
-        std::remainder(normalized.driveTargetAngle, 2.0f * Diligent::PI_F);
     if (!normalized.limitEnabled)
     {
         normalized.limitMin = 0.0f;
         normalized.limitMax = 0.0f;
     }
-    normalized.constraintCompliance = std::max(normalized.constraintCompliance, 0.0f);
-    normalized.driveCompliance      = std::max(normalized.driveCompliance, 0.0f);
+    normalized.constraintCompliance    = std::max(normalized.constraintCompliance, 0.0f);
+    normalized.driveCompliance         = std::max(normalized.driveCompliance, 0.0f);
+    normalized.driveDamping            = std::max(normalized.driveDamping, 0.0f);
+    normalized.driveMaxAngularVelocity = std::max(normalized.driveMaxAngularVelocity, 0.0f);
     if (normalized.jointId == kInvalidHingeJointId)
     {
         normalized.jointId = mNextHingeJointId++;
@@ -3597,6 +3597,13 @@ PhysicsWorld::RigidJointChangeKind PhysicsWorld::classifyHingeJointChange(
         return RigidJointChangeKind::TopologyRebuild;
     }
 
+    if (previousState.bodyA != candidate.bodyA || previousState.bodyB != candidate.bodyB ||
+        previousState.localRotationA != candidate.localRotationA ||
+        previousState.localRotationB != candidate.localRotationB)
+    {
+        return RigidJointChangeKind::TopologyRebuild;
+    }
+
     if (previousState.enabled != candidate.enabled ||
         previousState.driveMode != candidate.driveMode)
     {
@@ -4054,6 +4061,12 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
         const Diligent::float3 axisA0 = safeNormalize(
             quaternionRotate(joint.localRotationA, Diligent::float3{1.0f, 0.0f, 0.0f}),
             Diligent::float3{1.0f, 0.0f, 0.0f});
+        const Diligent::float3 axisA1 = safeNormalize(
+            quaternionRotate(joint.localRotationA, Diligent::float3{0.0f, 1.0f, 0.0f}),
+            Diligent::float3{0.0f, 1.0f, 0.0f});
+        const Diligent::float3 axisB1 = safeNormalize(
+            quaternionRotate(joint.localRotationB, Diligent::float3{0.0f, 1.0f, 0.0f}),
+            Diligent::float3{0.0f, 1.0f, 0.0f});
 
         self->mRigidJointScene.hinge.bodyIndicesA.push_back(bodyIndexA);
         self->mRigidJointScene.hinge.bodyIndicesB.push_back(bodyIndexB);
@@ -4063,12 +4076,17 @@ void PhysicsWorld::rebuildRigidJointScene() const noexcept
         self->mRigidJointScene.hinge.localAnchorsA.push_back(toFloat4(joint.localAnchorA, 0.0f));
         self->mRigidJointScene.hinge.localAnchorsB.push_back(toFloat4(joint.localAnchorB, 0.0f));
         self->mRigidJointScene.hinge.localAxesA0.push_back(toFloat4(axisA0, 0.0f));
+        self->mRigidJointScene.hinge.localAxesA1.push_back(toFloat4(axisA1, 0.0f));
+        self->mRigidJointScene.hinge.localAxesB1.push_back(toFloat4(axisB1, 0.0f));
         self->mRigidJointScene.hinge.limitEnabledFlags.push_back(joint.limitEnabled ? 1u : 0u);
         self->mRigidJointScene.hinge.limitMins.push_back(joint.limitMin);
         self->mRigidJointScene.hinge.limitMaxs.push_back(joint.limitMax);
         self->mRigidJointScene.hinge.constraintCompliances.push_back(joint.constraintCompliance);
         self->mRigidJointScene.hinge.driveCompliances.push_back(joint.driveCompliance);
         self->mRigidJointScene.hinge.driveTargetAngles.push_back(joint.driveTargetAngle);
+        self->mRigidJointScene.hinge.driveDampings.push_back(joint.driveDamping);
+        self->mRigidJointScene.hinge.driveMaxAngularVelocities.push_back(
+            joint.driveMaxAngularVelocity);
         self->mRigidJointScene.hinge.driveTargetAngularVelocities.push_back(
             joint.driveTargetAngularVelocity);
         self->mRigidJointScene.hinge.projectionRow0.push_back(projectionRows[0]);

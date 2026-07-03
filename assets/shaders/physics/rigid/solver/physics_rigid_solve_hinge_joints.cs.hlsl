@@ -8,23 +8,18 @@
 // actually applied so the XPBD compliance term stays internally consistent.
 static const float kJointRelaxation = 0.7;
 static const float kMaxJointError = 0.05;
-static const float kMaxJointDriveAngularError = 1.0;
 static const float kMaxJointTranslationCorrection = 0.02;
 static const float kMaxJointAngularCorrection = 0.12;
-static const float kJointDriveRelaxation = 0.2;
 static const float kHingeTranslationRegularization = 1e-5;
 static const float kHingeAngularRegularization = 5e-5;
 static const float kMinXpbdDt = 1e-5;
-
-#ifndef CRESSIM_JOINT_DRIVE_MODE_TARGET_POSITION
-#define CRESSIM_JOINT_DRIVE_MODE_TARGET_POSITION 0
-#endif
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_STRUCTURED_BUFFER(GpuHingeJoint, g_HingeJoints);
+CRESSIM_STRUCTURED_BUFFER(GpuHingeJointRuntimeState, g_HingeJointRuntimeStates);
 CRESSIM_STRUCTURED_BUFFER(uint, g_HingeJointIndices);
 
 CRESSIM_RW_STRUCTURED_BUFFER(float4, g_HingeJointLambdas0123);
@@ -82,225 +77,31 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 pB = posInvMassB.xyz + rB;
     const float3 delta = ClampErrorVector(pA - pB, kMaxJointError);
 
-    const float3 tRow0 = ComputeProjectionJacobianRow(joint.projectionRow0, qA, qB);
     const float3 tRow1 = ComputeProjectionJacobianRow(joint.projectionRow1, qA, qB);
     const float3 tRow2 = ComputeProjectionJacobianRow(joint.projectionRow2, qA, qB);
+    const float3 hingeAxis =
+        SafeNormalize(QuaternionRotate(qA, joint.localAxisA0.xyz), float3(1.0, 0.0, 0.0));
+    const GpuHingeJointRuntimeState runtimeState =
+        CRESSIM_SB_LOAD(g_HingeJointRuntimeStates, jointIndex);
     const bool limitEnabled = joint.limitParams.x > 0.5;
     const float2 limitRange = joint.limitParams.yz;
-    const float currentAngle = ComputeHingeAngle(joint.projectionRow0, qA, qB);
+    float currentWrappedAngle = 0.0;
+    const float currentAngle =
+        ComputeHingeUnwrappedAngle(qA, qB, joint, runtimeState, currentWrappedAngle);
 
     float limitTargetAngle = currentAngle;
-    const bool limitActive = limitEnabled && ComputeLimitTarget(currentAngle, limitRange, limitTargetAngle);
-    const float driveTargetAngle =
-        limitEnabled ? clamp(joint.driveTargetParams.x, limitRange.x, limitRange.y)
-                     : joint.driveTargetParams.x;
-    const float driveError = currentAngle - driveTargetAngle;
+    const bool limitActive =
+        limitEnabled && ComputeLimitTarget(currentAngle, limitRange, limitTargetAngle);
 
     const float invDtSq = 1.0 / max(dt * dt, kMinXpbdDt * kMinXpbdDt);
     const float constraintAlpha = max(joint.limitParams.w, 0.0) * invDtSq;
-    const float driveAlpha = max(joint.driveTargetParams.z, 0.0) * invDtSq;
     const float constraintScale = kJointRelaxation;
-    const float driveScale = kJointDriveRelaxation;
     const float limitScale = kJointRelaxation;
     const float4 lambdaState0123 = CRESSIM_SB_LOAD(g_HingeJointLambdas0123, jointIndex);
     const float4 lambdaState45 = CRESSIM_SB_LOAD(g_HingeJointLambdas45, jointIndex);
-
-#if CRESSIM_JOINT_DRIVE_MODE_TARGET_POSITION
-    float3 jLinA[6];
-    float3 jAngA[6];
-    float3 jLinB[6];
-    float3 jAngB[6];
-    jLinA[0] = float3(1.0, 0.0, 0.0);
-    jLinA[1] = float3(0.0, 1.0, 0.0);
-    jLinA[2] = float3(0.0, 0.0, 1.0);
-    jLinA[3] = 0.0;
-    jLinA[4] = 0.0;
-    jLinA[5] = 0.0;
-    jLinB[0] = -jLinA[0];
-    jLinB[1] = -jLinA[1];
-    jLinB[2] = -jLinA[2];
-    jLinB[3] = 0.0;
-    jLinB[4] = 0.0;
-    jLinB[5] = 0.0;
-    jAngA[0] = cross(rA, jLinA[0]);
-    jAngA[1] = cross(rA, jLinA[1]);
-    jAngA[2] = cross(rA, jLinA[2]);
-    jAngA[3] = tRow0;
-    jAngA[4] = tRow1;
-    jAngA[5] = tRow2;
-    jAngB[0] = -cross(rB, jLinA[0]);
-    jAngB[1] = -cross(rB, jLinA[1]);
-    jAngB[2] = -cross(rB, jLinA[2]);
-    jAngB[3] = -tRow0;
-    jAngB[4] = -tRow1;
-    jAngB[5] = -tRow2;
-
-    float previousLambda[6];
-    previousLambda[0] = lambdaState0123.x;
-    previousLambda[1] = lambdaState0123.y;
-    previousLambda[2] = lambdaState0123.z;
-    previousLambda[3] = lambdaState0123.w;
-    previousLambda[4] = lambdaState45.x;
-    previousLambda[5] = lambdaState45.y;
-
-    float rhs[6];
-    rhs[0] = -delta.x - constraintAlpha * previousLambda[0];
-    rhs[1] = -delta.y - constraintAlpha * previousLambda[1];
-    rhs[2] = -delta.z - constraintAlpha * previousLambda[2];
-    rhs[3] = -sin(0.5 * ClampErrorScalar(driveError, kMaxJointDriveAngularError)) -
-             driveAlpha * previousLambda[3];
-    rhs[4] = -ComputeProjectionConstraintValue(joint.projectionRow1, qA, qB) -
-             constraintAlpha * previousLambda[4];
-    rhs[5] = -ComputeProjectionConstraintValue(joint.projectionRow2, qA, qB) -
-             constraintAlpha * previousLambda[5];
-
-    float k[6][6];
-    [unroll] for (uint row = 0u; row < 6u; ++row)
-    {
-        [unroll] for (uint col = 0u; col < 6u; ++col)
-        {
-            k[row][col] = ComputeConstraintMatrixElement(
-                invMassA, invInertiaA, qA, invMassB, invInertiaB, qB,
-                jLinA[row], jAngA[row], jLinB[row], jAngB[row],
-                jLinA[col], jAngA[col], jLinB[col], jAngB[col]);
-        }
-    }
-
-    k[0][0] += kHingeTranslationRegularization + constraintAlpha;
-    k[1][1] += kHingeTranslationRegularization + constraintAlpha;
-    k[2][2] += kHingeTranslationRegularization + constraintAlpha;
-    k[3][3] += kHingeAngularRegularization + driveAlpha;
-    k[4][4] += kHingeAngularRegularization + constraintAlpha;
-    k[5][5] += kHingeAngularRegularization + constraintAlpha;
-
-    float deltaLambda[6];
-    if (!SolveLinearSystem6x6(k, rhs, deltaLambda))
-    {
-        return;
-    }
-
     float3 linearImpulse = 0.0;
     float3 angularImpulseA = 0.0;
     float3 angularImpulseB = 0.0;
-    float appliedDeltaLambda[6];
-    [unroll] for (uint row = 0u; row < 6u; ++row)
-    {
-        appliedDeltaLambda[row] = deltaLambda[row] * (row == 3u ? driveScale : constraintScale);
-        linearImpulse += jLinA[row] * appliedDeltaLambda[row];
-        angularImpulseA += jAngA[row] * appliedDeltaLambda[row];
-        angularImpulseB += jAngB[row] * appliedDeltaLambda[row];
-    }
-
-    CRESSIM_SB_STORE(g_HingeJointLambdas0123, jointIndex,
-                     float4(previousLambda[0] + appliedDeltaLambda[0],
-                            previousLambda[1] + appliedDeltaLambda[1],
-                            previousLambda[2] + appliedDeltaLambda[2],
-                            previousLambda[3] + appliedDeltaLambda[3]));
-    CRESSIM_SB_STORE(g_HingeJointLambdas45, jointIndex,
-                     float4(previousLambda[4] + appliedDeltaLambda[4],
-                            previousLambda[5] + appliedDeltaLambda[5], lambdaState45.z,
-                            lambdaState45.w));
-#else
-    float3 linearImpulse = 0.0;
-    float3 angularImpulseA = 0.0;
-    float3 angularImpulseB = 0.0;
-
-    if (limitActive)
-    {
-        float3 jLinA[6];
-        float3 jAngA[6];
-        float3 jLinB[6];
-        float3 jAngB[6];
-        jLinA[0] = float3(1.0, 0.0, 0.0);
-        jLinA[1] = float3(0.0, 1.0, 0.0);
-        jLinA[2] = float3(0.0, 0.0, 1.0);
-        jLinA[3] = 0.0;
-        jLinA[4] = 0.0;
-        jLinA[5] = 0.0;
-        jLinB[0] = -jLinA[0];
-        jLinB[1] = -jLinA[1];
-        jLinB[2] = -jLinA[2];
-        jLinB[3] = 0.0;
-        jLinB[4] = 0.0;
-        jLinB[5] = 0.0;
-        jAngA[0] = cross(rA, jLinA[0]);
-        jAngA[1] = cross(rA, jLinA[1]);
-        jAngA[2] = cross(rA, jLinA[2]);
-        jAngA[3] = tRow0;
-        jAngA[4] = tRow1;
-        jAngA[5] = tRow2;
-        jAngB[0] = -cross(rB, jLinA[0]);
-        jAngB[1] = -cross(rB, jLinA[1]);
-        jAngB[2] = -cross(rB, jLinA[2]);
-        jAngB[3] = -tRow0;
-        jAngB[4] = -tRow1;
-        jAngB[5] = -tRow2;
-
-        float previousLambda[6];
-        previousLambda[0] = lambdaState0123.x;
-        previousLambda[1] = lambdaState0123.y;
-        previousLambda[2] = lambdaState0123.z;
-        previousLambda[3] = lambdaState0123.w;
-        previousLambda[4] = lambdaState45.x;
-        previousLambda[5] = lambdaState45.y;
-
-        float rhs[6];
-        rhs[0] = -delta.x - constraintAlpha * previousLambda[0];
-        rhs[1] = -delta.y - constraintAlpha * previousLambda[1];
-        rhs[2] = -delta.z - constraintAlpha * previousLambda[2];
-        rhs[3] = -sin(0.5 * ClampErrorScalar(currentAngle - limitTargetAngle,
-                                             kMaxJointAngularCorrection)) -
-                 constraintAlpha * previousLambda[3];
-        rhs[4] = -ComputeProjectionConstraintValue(joint.projectionRow1, qA, qB) -
-                 constraintAlpha * previousLambda[4];
-        rhs[5] = -ComputeProjectionConstraintValue(joint.projectionRow2, qA, qB) -
-                 constraintAlpha * previousLambda[5];
-
-        float k[6][6];
-        [unroll] for (uint row = 0u; row < 6u; ++row)
-        {
-            [unroll] for (uint col = 0u; col < 6u; ++col)
-            {
-                k[row][col] = ComputeConstraintMatrixElement(
-                    invMassA, invInertiaA, qA, invMassB, invInertiaB, qB,
-                    jLinA[row], jAngA[row], jLinB[row], jAngB[row],
-                    jLinA[col], jAngA[col], jLinB[col], jAngB[col]);
-            }
-        }
-
-        k[0][0] += kHingeTranslationRegularization + constraintAlpha;
-        k[1][1] += kHingeTranslationRegularization + constraintAlpha;
-        k[2][2] += kHingeTranslationRegularization + constraintAlpha;
-        k[3][3] += kHingeAngularRegularization + constraintAlpha;
-        k[4][4] += kHingeAngularRegularization + constraintAlpha;
-        k[5][5] += kHingeAngularRegularization + constraintAlpha;
-
-        float deltaLambda[6];
-        if (!SolveLinearSystem6x6(k, rhs, deltaLambda))
-        {
-            return;
-        }
-
-        float appliedDeltaLambda[6];
-        [unroll] for (uint row = 0u; row < 6u; ++row)
-        {
-            appliedDeltaLambda[row] = deltaLambda[row] * limitScale;
-            linearImpulse += jLinA[row] * appliedDeltaLambda[row];
-            angularImpulseA += jAngA[row] * appliedDeltaLambda[row];
-            angularImpulseB += jAngB[row] * appliedDeltaLambda[row];
-        }
-
-        CRESSIM_SB_STORE(g_HingeJointLambdas0123, jointIndex,
-                         float4(previousLambda[0] + appliedDeltaLambda[0],
-                                previousLambda[1] + appliedDeltaLambda[1],
-                                previousLambda[2] + appliedDeltaLambda[2],
-                                previousLambda[3] + appliedDeltaLambda[3]));
-        CRESSIM_SB_STORE(g_HingeJointLambdas45, jointIndex,
-                         float4(previousLambda[4] + appliedDeltaLambda[4],
-                                previousLambda[5] + appliedDeltaLambda[5], lambdaState45.z,
-                                lambdaState45.w));
-    }
-    else
     {
         float3 jLinA[5];
         float3 jAngA[5];
@@ -380,13 +181,36 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
                          float4(previousLambda[0] + appliedDeltaLambda[0],
                                 previousLambda[1] + appliedDeltaLambda[1],
                                 previousLambda[2] + appliedDeltaLambda[2],
-                                0.0f));
+                                limitActive ? lambdaState0123.w : 0.0f));
         CRESSIM_SB_STORE(g_HingeJointLambdas45, jointIndex,
                          float4(previousLambda[3] + appliedDeltaLambda[3],
                                 previousLambda[4] + appliedDeltaLambda[4],
                                 lambdaState45.z, lambdaState45.w));
     }
-#endif
+
+    if (limitActive)
+    {
+        const float previousLimitLambda = lambdaState0123.w;
+        const float limitError =
+            ClampErrorScalar(currentAngle - limitTargetAngle, kMaxJointAngularCorrection);
+        const float rhs = -limitError - constraintAlpha * previousLimitLambda;
+        const float limitK = ComputeConstraintMatrixElement(
+                                 invMassA, invInertiaA, qA, invMassB, invInertiaB, qB,
+                                 float3(0.0, 0.0, 0.0), -hingeAxis, float3(0.0, 0.0, 0.0),
+                                 hingeAxis, float3(0.0, 0.0, 0.0), -hingeAxis,
+                                 float3(0.0, 0.0, 0.0),
+                                 hingeAxis) +
+                             kHingeAngularRegularization + constraintAlpha;
+        if (abs(limitK) > kEpsilon)
+        {
+            const float appliedDeltaLambda = (rhs / limitK) * limitScale;
+            angularImpulseA += -hingeAxis * appliedDeltaLambda;
+            angularImpulseB += hingeAxis * appliedDeltaLambda;
+            CRESSIM_SB_STORE(g_HingeJointLambdas0123, jointIndex,
+                             float4(lambdaState0123.x, lambdaState0123.y, lambdaState0123.z,
+                                    previousLimitLambda + appliedDeltaLambda));
+        }
+    }
 
     const float3 translationA = linearImpulse * invMassA;
     const float3 rotationA = MultiplyWorldInverseInertia(invInertiaA, qA, angularImpulseA);

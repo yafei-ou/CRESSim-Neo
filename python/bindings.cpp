@@ -1286,6 +1286,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("constraint_compliance", &HingeJointState::constraintCompliance)
         .def_readwrite("drive_compliance", &HingeJointState::driveCompliance)
         .def_readwrite("drive_target_angle", &HingeJointState::driveTargetAngle)
+        .def_readwrite("drive_damping", &HingeJointState::driveDamping)
+        .def_readwrite("drive_max_angular_velocity", &HingeJointState::driveMaxAngularVelocity)
         .def_readwrite("drive_target_angular_velocity",
                        &HingeJointState::driveTargetAngularVelocity);
 

@@ -68,6 +68,8 @@ constexpr Diligent::float3 kPickupObjectHalfExtents{0.22f, 0.22f, 0.22f};
 constexpr float kGripSqueezeMargin = 0.2f;
 constexpr float kFingerJointConstraintCompliance = 1.0e-6f;
 constexpr float kFingerJointDriveCompliance = 8.0e-4f;
+constexpr float kFingerHingeDriveDamping = 3.5f;
+constexpr float kFingerHingeDriveMaxAngularVelocity = 0.75f;
 constexpr float kFingerHingeLimit = 0.95f;
 constexpr float kFingerHingePalmAnchorOffsetX = 0.18f;
 constexpr float kFingerHingePalmAnchorOffsetY = -0.42f;
@@ -346,7 +348,9 @@ HingeJointId authorDrivenHinge(Runtime &runtime, RigidBodyId bodyA, RigidBodyId 
                                float targetAngle, float targetAngularVelocity,
                                bool suppressConnectedCollisions = true,
                                float constraintCompliance = 0.0f,
-                               float driveCompliance = 0.0f)
+                               float driveCompliance = 0.0f,
+                               float driveDamping = 0.0f,
+                               float driveMaxAngularVelocity = 0.0f)
 {
     HingeJointState joint{};
     joint.bodyA = bodyA;
@@ -363,6 +367,8 @@ HingeJointId authorDrivenHinge(Runtime &runtime, RigidBodyId bodyA, RigidBodyId 
     joint.driveCompliance = driveCompliance;
     joint.driveMode = RigidJointDriveMode::None;
     joint.driveTargetAngle = targetAngle;
+    joint.driveDamping = driveDamping;
+    joint.driveMaxAngularVelocity = driveMaxAngularVelocity;
     joint.driveTargetAngularVelocity = targetAngularVelocity;
     if (!runtime.getWorld().physicsWorld().upsertHingeJoint(joint))
     {
@@ -644,7 +650,9 @@ RobotScene authorRobot(Runtime &runtime, MeshHandle beamMesh, MeshHandle carriag
                                                   -kFingerHingeLimit, 0.0f, -hingeOpenAngle, 1.2f,
                                                   true,
                                                   kFingerJointConstraintCompliance,
-                                                  kFingerJointDriveCompliance);
+                                                  kFingerJointDriveCompliance,
+                                                  kFingerHingeDriveDamping,
+                                                  kFingerHingeDriveMaxAngularVelocity);
         robot.rightFingerHinge = authorDrivenHinge(runtime, palmId, rightId, {0.0f, 0.0f, 1.0f},
                                                    {kFingerHingePalmAnchorOffsetX,
                                                     kFingerHingePalmAnchorOffsetY, 0.0f},
@@ -652,7 +660,9 @@ RobotScene authorRobot(Runtime &runtime, MeshHandle beamMesh, MeshHandle carriag
                                                    0.0f, kFingerHingeLimit, hingeOpenAngle, 1.2f,
                                                    true,
                                                    kFingerJointConstraintCompliance,
-                                                   kFingerJointDriveCompliance);
+                                                   kFingerJointDriveCompliance,
+                                                   kFingerHingeDriveDamping,
+                                                   kFingerHingeDriveMaxAngularVelocity);
     }
     else
     {
@@ -752,7 +762,7 @@ int main(int argc, char **argv)
     // hard into each other.
     // Another symptom is that joints can push a dynamic body into a static ground easily, since
     // the non-penetration contact is never iteratively met in positional solve.
-    config.physicsDesc.substeps = 1;
+    config.physicsDesc.substeps = 2;
     config.physicsDesc.defaultIterations = 50;
 
     DebugViewerApp viewer;
@@ -760,7 +770,8 @@ int main(int argc, char **argv)
     defaults.windowTitle = "CRESSim Neo Claw Machine Grasp";
     defaults.width = 1400u;
     defaults.height = 900u;
-    const auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, defaults);
+    auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, defaults);
+    viewerDesc.useFixedTimestep = true;
 
     if (!viewer.initialize(viewerDesc, config))
     {

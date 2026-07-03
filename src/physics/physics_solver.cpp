@@ -732,6 +732,13 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             return false;
         }
         if (hingeJointCount > 0u &&
+            !mImpl->passDispatcher.updateHingeJointRuntimeState(computeBackend.computeContext,
+                                                                mImpl->sceneState, hingeJointCount))
+        {
+            CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateHingeJointRuntimeState dispatch.");
+            return false;
+        }
+        if (hingeJointCount > 0u &&
             !mImpl->passDispatcher.clearHingeJointConstraintState(
                 computeBackend.computeContext, mImpl->sceneState, hingeJointCount))
         {

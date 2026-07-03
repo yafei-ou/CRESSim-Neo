@@ -1102,7 +1102,7 @@ private:
 
     float computeDeltaSeconds()
     {
-        if (!mDesc.windowEnabled)
+        if (mDesc.useFixedTimestep || !mDesc.windowEnabled)
         {
             return std::max(1.0f / 240.0f, std::min(mDesc.fixedDeltaSeconds, 0.1f));
         }

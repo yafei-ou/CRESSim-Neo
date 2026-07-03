@@ -112,6 +112,50 @@ float ComputeHingeAngle(float4 projectionRow, float4 qA, float4 qB)
     return 2.0 * asin(clamp(ComputeProjectionConstraintValue(projectionRow, qA, qB), -1.0, 1.0));
 }
 
+float WrapAngleDelta(float delta)
+{
+    static const float kPi = 3.14159265358979323846;
+    const float twoPi = 2.0 * kPi;
+    delta = fmod(delta + kPi, twoPi);
+    if (delta < 0.0)
+    {
+        delta += twoPi;
+    }
+    return delta - kPi;
+}
+
+float ComputeHingeWrappedAngle(float4 qA, float4 qB, float3 localAxisA0, float3 localAxisA1,
+                               float3 localAxisB1)
+{
+    const float3 hingeAxis =
+        SafeNormalize(QuaternionRotate(qA, localAxisA0), float3(1.0, 0.0, 0.0));
+    const float3 referenceAWorld =
+        SafeNormalize(QuaternionRotate(qA, localAxisA1), float3(0.0, 1.0, 0.0));
+    const float3 referenceBWorld =
+        SafeNormalize(QuaternionRotate(qB, localAxisB1), float3(0.0, 1.0, 0.0));
+    const float3 projectedA = SafeNormalize(
+        referenceAWorld - hingeAxis * dot(referenceAWorld, hingeAxis), ChoosePerpendicular(hingeAxis));
+    float3 fallbackB = cross(hingeAxis, projectedA);
+    fallbackB = SafeNormalize(fallbackB, ChoosePerpendicular(hingeAxis));
+    const float3 projectedB =
+        SafeNormalize(referenceBWorld - hingeAxis * dot(referenceBWorld, hingeAxis), fallbackB);
+    const float sine = dot(hingeAxis, cross(projectedA, projectedB));
+    const float cosine = dot(projectedA, projectedB);
+    return atan2(sine, cosine);
+}
+
+float ComputeHingeUnwrappedAngle(float4 qA, float4 qB, GpuHingeJoint joint,
+                                 GpuHingeJointRuntimeState runtimeState, out float wrappedAngle)
+{
+    wrappedAngle = ComputeHingeWrappedAngle(qA, qB, joint.localAxisA0.xyz, joint.localAxisA1.xyz,
+                                            joint.localAxisB1.xyz);
+    if (runtimeState.angleState.w < 0.5)
+    {
+        return wrappedAngle;
+    }
+    return runtimeState.angleState.y + WrapAngleDelta(wrappedAngle - runtimeState.angleState.x);
+}
+
 bool ComputeLimitTarget(float value, float2 limitRange, out float targetValue)
 {
     if (value < limitRange.x)
