@@ -4289,33 +4289,16 @@ PhysicsGpuSceneView PhysicsSceneGpuState::sceneView() const noexcept
         std::max({mLastUploadedRigidParticleAttachmentResolvedRevision,
                   mLastUploadedRigidDistanceConstraintResolvedRevision,
                   mLastUploadedRoutedCableResolvedRevision});
-    view.joints.ballJointsBuffer               = mPersistentJoints.ballJointsBuffer;
-    view.joints.sphericalJointsBuffer          = mPersistentJoints.sphericalJointsBuffer;
-    view.joints.hingeJointsBuffer              = mPersistentJoints.hingeJointsBuffer;
-    view.joints.sliderJointsBuffer             = mPersistentJoints.sliderJointsBuffer;
-    view.joints.hingePassiveJointIndicesBuffer = mPersistentJoints.hingePassiveJointIndicesBuffer;
-    view.joints.hingePositionDriveJointIndicesBuffer =
-        mPersistentJoints.hingePositionDriveJointIndicesBuffer;
-    view.joints.hingeVelocityDriveJointIndicesBuffer =
-        mPersistentJoints.hingeVelocityDriveJointIndicesBuffer;
-    view.joints.sliderPassiveJointIndicesBuffer = mPersistentJoints.sliderPassiveJointIndicesBuffer;
-    view.joints.sliderPositionDriveJointIndicesBuffer =
-        mPersistentJoints.sliderPositionDriveJointIndicesBuffer;
-    view.joints.sliderVelocityDriveJointIndicesBuffer =
-        mPersistentJoints.sliderVelocityDriveJointIndicesBuffer;
-    view.joints.ballJointCount                = mBallJointCount;
-    view.joints.hingeJointCount               = mHingeJointCount;
-    view.joints.sphericalJointCount           = mSphericalJointCount;
-    view.joints.sliderJointCount              = mSliderJointCount;
-    view.joints.hingePassiveJointCount        = mHingePassiveJointCount;
-    view.joints.hingePositionDriveJointCount  = mHingePositionDriveJointCount;
-    view.joints.hingeVelocityDriveJointCount  = mHingeVelocityDriveJointCount;
-    view.joints.sliderPassiveJointCount       = mSliderPassiveJointCount;
-    view.joints.sliderPositionDriveJointCount = mSliderPositionDriveJointCount;
-    view.joints.sliderVelocityDriveJointCount = mSliderVelocityDriveJointCount;
+    view.joints.ballJointsBuffer      = mPersistentJoints.ballJointsBuffer;
+    view.joints.sphericalJointsBuffer = mPersistentJoints.sphericalJointsBuffer;
+    view.joints.hingeJointsBuffer     = mPersistentJoints.hingeJointsBuffer;
+    view.joints.sliderJointsBuffer    = mPersistentJoints.sliderJointsBuffer;
+    view.joints.ballJointCount        = mBallJointCount;
+    view.joints.hingeJointCount       = mHingeJointCount;
+    view.joints.sphericalJointCount   = mSphericalJointCount;
+    view.joints.sliderJointCount      = mSliderJointCount;
     view.joints.bindingGeneration =
         std::max(mLastUploadedRigidJointSceneRevision, mLastUploadedRigidJointModeRevision);
-    view.joints.modeBindingGeneration            = mLastUploadedRigidJointModeRevision;
     view.soft.particles.positionsInvMassBuffer   = mPersistentParticles.positionsInvMassBuffer;
     view.soft.particles.previousPositionsBuffer  = mPersistentParticles.previousPositionsBuffer;
     view.soft.particles.velocitiesBuffer         = mPersistentParticles.velocitiesBuffer;

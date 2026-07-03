@@ -756,28 +756,6 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
     addBuffer("joint.slider", sceneView.joints.sliderJointsBuffer,
               CustomComputeResourceAccess::ReadWrite, sceneView.joints.sliderJointCount,
               sceneView.joints.bindingGeneration);
-    addBuffer("joint.hinge_passive_indices", sceneView.joints.hingePassiveJointIndicesBuffer,
-              CustomComputeResourceAccess::ReadOnly, sceneView.joints.hingePassiveJointCount,
-              sceneView.joints.modeBindingGeneration);
-    addBuffer("joint.hinge_position_drive_indices",
-              sceneView.joints.hingePositionDriveJointIndicesBuffer,
-              CustomComputeResourceAccess::ReadOnly, sceneView.joints.hingePositionDriveJointCount,
-              sceneView.joints.modeBindingGeneration);
-    addBuffer("joint.hinge_velocity_drive_indices",
-              sceneView.joints.hingeVelocityDriveJointIndicesBuffer,
-              CustomComputeResourceAccess::ReadOnly, sceneView.joints.hingeVelocityDriveJointCount,
-              sceneView.joints.modeBindingGeneration);
-    addBuffer("joint.slider_passive_indices", sceneView.joints.sliderPassiveJointIndicesBuffer,
-              CustomComputeResourceAccess::ReadOnly, sceneView.joints.sliderPassiveJointCount,
-              sceneView.joints.modeBindingGeneration);
-    addBuffer("joint.slider_position_drive_indices",
-              sceneView.joints.sliderPositionDriveJointIndicesBuffer,
-              CustomComputeResourceAccess::ReadOnly, sceneView.joints.sliderPositionDriveJointCount,
-              sceneView.joints.modeBindingGeneration);
-    addBuffer("joint.slider_velocity_drive_indices",
-              sceneView.joints.sliderVelocityDriveJointIndicesBuffer,
-              CustomComputeResourceAccess::ReadOnly, sceneView.joints.sliderVelocityDriveJointCount,
-              sceneView.joints.modeBindingGeneration);
     addBuffer("entity.positions", scene.poses.positionsBuffer,
               CustomComputeResourceAccess::ReadWrite, scene.poses.count, scene.bindingGeneration);
     addBuffer("entity.orientations", scene.poses.orientationsBuffer,

@@ -51,28 +51,15 @@ struct PhysicsGpuRigidSceneView
 
 struct PhysicsGpuJointSceneView
 {
-    Diligent::IBuffer *ballJointsBuffer                      = nullptr;
-    Diligent::IBuffer *sphericalJointsBuffer                 = nullptr;
-    Diligent::IBuffer *hingeJointsBuffer                     = nullptr;
-    Diligent::IBuffer *sliderJointsBuffer                    = nullptr;
-    Diligent::IBuffer *hingePassiveJointIndicesBuffer        = nullptr;
-    Diligent::IBuffer *hingePositionDriveJointIndicesBuffer  = nullptr;
-    Diligent::IBuffer *hingeVelocityDriveJointIndicesBuffer  = nullptr;
-    Diligent::IBuffer *sliderPassiveJointIndicesBuffer       = nullptr;
-    Diligent::IBuffer *sliderPositionDriveJointIndicesBuffer = nullptr;
-    Diligent::IBuffer *sliderVelocityDriveJointIndicesBuffer = nullptr;
-    std::uint32_t ballJointCount                             = 0u;
-    std::uint32_t hingeJointCount                            = 0u;
-    std::uint32_t sphericalJointCount                        = 0u;
-    std::uint32_t sliderJointCount                           = 0u;
-    std::uint32_t hingePassiveJointCount                     = 0u;
-    std::uint32_t hingePositionDriveJointCount               = 0u;
-    std::uint32_t hingeVelocityDriveJointCount               = 0u;
-    std::uint32_t sliderPassiveJointCount                    = 0u;
-    std::uint32_t sliderPositionDriveJointCount              = 0u;
-    std::uint32_t sliderVelocityDriveJointCount              = 0u;
-    std::uint64_t bindingGeneration                          = 0u;
-    std::uint64_t modeBindingGeneration                      = 0u;
+    Diligent::IBuffer *ballJointsBuffer      = nullptr;
+    Diligent::IBuffer *sphericalJointsBuffer = nullptr;
+    Diligent::IBuffer *hingeJointsBuffer     = nullptr;
+    Diligent::IBuffer *sliderJointsBuffer    = nullptr;
+    std::uint32_t ballJointCount             = 0u;
+    std::uint32_t hingeJointCount            = 0u;
+    std::uint32_t sphericalJointCount        = 0u;
+    std::uint32_t sliderJointCount           = 0u;
+    std::uint64_t bindingGeneration          = 0u;
 };
 
 struct PhysicsGpuParticleBufferView
