@@ -19,7 +19,8 @@ set(CRESSIM_NEO_PYTHON_PACKAGE_EXTRA_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/package/camera_centering_env.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/package/ultrasound_centering_env.py"
     "${CMAKE_CURRENT_SOURCE_DIR}/package/soft_body_env.py"
-    "${CMAKE_CURRENT_SOURCE_DIR}/package/fluid_env.py")
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/fluid_env.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/psm_scene.py")
 
 configure_file(
     "${CRESSIM_NEO_PYTHON_PACKAGE_INIT_TEMPLATE}"
@@ -42,6 +43,7 @@ if(NOT ENGINE_STATIC)
         cressim_neo_gpu
     )
 endif()
+set(CRESSIM_NEO_PYTHON_OPTIONAL_RUNTIME_TARGETS "")
 
 target_include_directories(${TARGET_NAME} PRIVATE
     ${PROJECT_SOURCE_DIR}
@@ -53,6 +55,14 @@ target_include_directories(${TARGET_NAME} PRIVATE
 target_link_libraries(${TARGET_NAME} PRIVATE
     ${CRESSIM_NEO_PYTHON_RUNTIME_TARGETS}
 )
+
+if(TARGET cressim_neo_viewer)
+    target_link_libraries(${TARGET_NAME} PRIVATE cressim_neo_viewer)
+    target_compile_definitions(${TARGET_NAME} PRIVATE CRESSIM_NEO_PYTHON_HAS_VIEWER=1)
+    if(NOT ENGINE_STATIC)
+        list(APPEND CRESSIM_NEO_PYTHON_OPTIONAL_RUNTIME_TARGETS cressim_neo_viewer)
+    endif()
+endif()
 
 set_target_properties(${TARGET_NAME}
     PROPERTIES
@@ -126,7 +136,7 @@ install(
 
 if(NOT ENGINE_STATIC)
     install(
-        TARGETS ${CRESSIM_NEO_PYTHON_RUNTIME_TARGETS}
+        TARGETS ${CRESSIM_NEO_PYTHON_RUNTIME_TARGETS} ${CRESSIM_NEO_PYTHON_OPTIONAL_RUNTIME_TARGETS}
         LIBRARY DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
         RUNTIME DESTINATION "${CRESSIM_NEO_PYTHON_INSTALL_DIR}/${CRESSIM_NEO_PYTHON_PACKAGE_NAME}"
     )

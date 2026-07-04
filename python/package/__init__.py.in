@@ -38,6 +38,8 @@ try:
 except RuntimeError:
     FluidTorchVectorEnv = None
 
+from .psm_scene import PsmRobotInstance, PsmScene, create_psm_scene
+
 
 _PACKAGE_DIR = Path(__file__).resolve().parent
 _SHADERS_DIR = _PACKAGE_DIR / "shaders"

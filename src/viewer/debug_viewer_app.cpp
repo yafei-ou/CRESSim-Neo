@@ -833,8 +833,9 @@ public:
 
             runtime.prepare();
             const bool worldUploadSucceeded = runtime.uploadWorld();
-            const bool physicsStepSucceeded = worldUploadSucceeded && runtime.stepPhysics(frame);
-            if (physicsStepSucceeded)
+            const bool physicsStepSucceeded =
+                !mDesc.stepSimulation || (worldUploadSucceeded && runtime.stepPhysics(frame));
+            if (mDesc.stepSimulation && physicsStepSucceeded)
             {
                 (void)runtime.stepSimulationSensors(frame);
             }

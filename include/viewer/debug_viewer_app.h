@@ -62,6 +62,7 @@ struct DebugViewerAppDesc
 
     float fixedDeltaSeconds           = 1.0f / 60.0f;
     bool useFixedTimestep             = false;
+    bool stepSimulation               = true;
     std::uint64_t maxFrames           = 0;
     bool showStats                    = true;
     bool enableDebugParticles         = false;
