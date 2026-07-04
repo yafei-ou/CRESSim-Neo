@@ -99,7 +99,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
             targetVelocity, currentPosition, limitRange, kLimitApproachDistance);
     }
     const float3 linearConstraint =
-        (linearVelocityA - linearVelocityB) + targetVelocity * axis0;
+        (anchorVelocityA - anchorVelocityB) + targetVelocity * axis0;
     const float3 angularConstraint = angularVelocityA - angularVelocityB;
 
     const float3 basis[3] = {
@@ -115,9 +115,9 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     [unroll] for (uint i = 0u; i < 3u; ++i)
     {
         jLinA[i] = basis[i];
-        jAngA[i] = 0.0;
+        jAngA[i] = cross(rA, basis[i]);
         jLinB[i] = -basis[i];
-        jAngB[i] = 0.0;
+        jAngB[i] = -cross(rB, basis[i]);
         jLinA[3u + i] = 0.0;
         jAngA[3u + i] = basis[i];
         jLinB[3u + i] = 0.0;

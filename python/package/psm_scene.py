@@ -31,12 +31,19 @@ _GRIPPER_JOINT_ORDER = (
     "psm_tool_gripper2_joint",
 )
 
-_PHYSICAL_JOINT_ORDER = (*_ARM_JOINT_ORDER, *_GRIPPER_JOINT_ORDER)
+_PASSIVE_JOINT_ORDER = (
+    "psm_pitch_back_joint",
+    "psm_pitch_bottom_joint",
+)
+
+_PHYSICAL_JOINT_ORDER = (*_ARM_JOINT_ORDER, *_PASSIVE_JOINT_ORDER, *_GRIPPER_JOINT_ORDER)
 _COMMAND_JOINT_ORDER = (*_ARM_JOINT_ORDER, "psm_jaw_joint")
 
 _JOINT_KIND = {
     "psm_yaw_joint": "hinge",
     "psm_pitch_end_joint": "hinge",
+    "psm_pitch_back_joint": "hinge",
+    "psm_pitch_bottom_joint": "hinge",
     "psm_main_insertion_joint": "slider",
     "psm_tool_roll_joint": "hinge",
     "psm_tool_pitch_joint": "hinge",
@@ -49,14 +56,14 @@ _DRIVE_MAX_ANGULAR_VELOCITY = 4.0
 _DRIVE_MAX_LINEAR_VELOCITY = 1.0
 _HINGE_DRIVE_COMPLIANCE = 1.0e-6
 _SLIDER_DRIVE_COMPLIANCE = 1.0e-6
-_HINGE_DRIVE_DAMPING = 2.5
-_SLIDER_DRIVE_DAMPING = 4.0
+_HINGE_DRIVE_DAMPING = 0.0
+_SLIDER_DRIVE_DAMPING = 0.0
 _GROUND_HALF_EXTENT = 0.75
 _ENV_SPACING = 2.5
 _BASE_HEIGHT = 0.1524
 _HIDDEN_LINKS: set[str] = set()
 _DEFAULT_INERTIA_DIAG = (1.0e-4, 1.0e-4, 1.0e-4)
-_FALLBACK_INERTIA_SCALE = 32.0
+_FALLBACK_INERTIA_SCALE = 1.0
 
 _InertiaDiag = tuple[float, float, float]
 _LinkDynamicsFallback = tuple[float, _InertiaDiag]
@@ -68,7 +75,7 @@ _LINK_DYNAMICS_FALLBACKS: dict[str, _LinkDynamicsFallback] = {
     "psm_yaw_link": (1.4705, (6.0e-2, 6.0e-2, 1.2e-2)),
     "psm_pitch_end_link": (2.091, (5.0e-2, 5.0e-2, 1.6e-2)),
     "psm_main_insertion_link": (0.22491, (1.2e-2, 1.2e-2, 3.0e-3)),
-    "psm_tool_roll_link": (0.12, (5.0e-4, 5.0e-4, 1.8e-4)),
+    "psm_tool_roll_link": (0.02, (5.0e-4, 5.0e-4, 1.8e-4)),
     "psm_tool_pitch_link": (0.10, (4.0e-4, 4.0e-4, 1.4e-4)),
     "psm_tool_yaw_link": (0.08, (2.8e-4, 2.8e-4, 1.0e-4)),
     "psm_tool_gripper1_link": (0.03, (1.0e-4, 6.0e-5, 1.0e-4)),
@@ -91,6 +98,8 @@ class PsmRobotInstance:
     link_entities: dict[str, int]
     arm_joint_ids: list[int]
     arm_joint_limits: list[tuple[float, float]]
+    passive_joint_ids: dict[str, int]
+    passive_joint_limits: dict[str, tuple[float, float]]
     jaw_joint_ids: tuple[int, int]
     jaw_limit: tuple[float, float]
 
@@ -868,13 +877,14 @@ class PsmScene:
                 state.limit_enabled = True
                 state.limit_min = float(joint["lower"])
                 state.limit_max = float(joint["upper"])
-                state.drive_mode = neo.RigidJointDriveMode.TargetPosition
-                state.drive_target_angle = 0.0
-                state.drive_compliance = _HINGE_DRIVE_COMPLIANCE
-                state.drive_damping = _HINGE_DRIVE_DAMPING
-                state.drive_max_angular_velocity = max(
-                    float(joint["velocity"]), _DRIVE_MAX_ANGULAR_VELOCITY
-                )
+                if joint_name not in _PASSIVE_JOINT_ORDER:
+                    state.drive_mode = neo.RigidJointDriveMode.TargetPosition
+                    state.drive_target_angle = 0.0
+                    state.drive_compliance = _HINGE_DRIVE_COMPLIANCE
+                    state.drive_damping = _HINGE_DRIVE_DAMPING
+                    state.drive_max_angular_velocity = max(
+                        float(joint["velocity"]), _DRIVE_MAX_ANGULAR_VELOCITY
+                    )
                 if not world.upsert_hinge_joint(state):
                     raise RuntimeError(f"Failed to author hinge joint {joint_name}.")
             else:
@@ -901,6 +911,41 @@ class PsmScene:
                 if not world.upsert_slider_joint(state):
                     raise RuntimeError(f"Failed to author slider joint {joint_name}.")
 
+        if {
+            "psm_pitch_bottom_link",
+            "psm_pitch_end_link",
+        }.issubset(link_entities):
+            pitch_bottom_rotation = _matrix_to_quaternion(link_world["psm_pitch_bottom_link"])
+            pitch_bottom_position = link_world["psm_pitch_bottom_link"][:3, 3]
+            # The pitch-chain closure is attached at the pitch-end visual mesh origin, not the
+            # pitch-end link frame origin.
+            pitch_end_anchor_world = (
+                link_world["psm_pitch_end_link"]
+                @ links["psm_pitch_end_link"]["visuals"][0]["origin"]
+            )[:3, 3]
+            pitch_bottom_anchor_local = _quaternion_rotate(
+                _quaternion_conjugate(pitch_bottom_rotation),
+                pitch_end_anchor_world - pitch_bottom_position,
+            )
+
+            closure = neo.BallJointState()
+            closure.joint_id = env_index * 100 + len(_PHYSICAL_JOINT_ORDER) + 1
+            closure.body_a = link_entities["psm_pitch_bottom_link"]
+            closure.body_b = link_entities["psm_pitch_end_link"]
+            closure.local_anchor_a = neo.Float3(
+                float(pitch_bottom_anchor_local[0]),
+                float(pitch_bottom_anchor_local[1]),
+                float(pitch_bottom_anchor_local[2]),
+            )
+            pitch_end_anchor_local = links["psm_pitch_end_link"]["visuals"][0]["origin"][:3, 3]
+            closure.local_anchor_b = neo.Float3(
+                float(pitch_end_anchor_local[0]),
+                float(pitch_end_anchor_local[1]),
+                float(pitch_end_anchor_local[2]),
+            )
+            if not world.upsert_ball_joint(closure):
+                raise RuntimeError("Failed to author pitch bottom/end closure joint.")
+
         self.instances.append(
             PsmRobotInstance(
                 env_index=env_index,
@@ -910,6 +955,13 @@ class PsmScene:
                 arm_joint_limits=[
                     physical_joint_limits[joint_name] for joint_name in _ARM_JOINT_ORDER
                 ],
+                passive_joint_ids={
+                    joint_name: physical_joint_ids[joint_name] for joint_name in _PASSIVE_JOINT_ORDER
+                },
+                passive_joint_limits={
+                    joint_name: physical_joint_limits[joint_name]
+                    for joint_name in _PASSIVE_JOINT_ORDER
+                },
                 jaw_joint_ids=(
                     physical_joint_ids["psm_tool_gripper1_joint"],
                     physical_joint_ids["psm_tool_gripper2_joint"],
