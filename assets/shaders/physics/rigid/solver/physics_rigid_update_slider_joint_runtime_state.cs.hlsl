@@ -52,7 +52,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 anchorVelocityB = linearVelocityB + cross(angularVelocityB, rB);
     const float currentVelocity = dot(anchorVelocityB - anchorVelocityA, axis0);
 
-    GpuSliderJointRuntimeState state{};
+    GpuSliderJointRuntimeState state = (GpuSliderJointRuntimeState)0;
     state.state = float4(currentPosition, currentVelocity, 0.0, 0.0);
     CRESSIM_SB_STORE(g_SliderJointRuntimeStates, jointIndex, state);
 }
