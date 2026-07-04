@@ -43,17 +43,25 @@ def main() -> int:
         ]
         frequencies = [0.55, 0.75, 0.42, 0.95, 1.15, 1.35]
         phase_offsets = [0.0, 0.7, 1.1, 1.8, 2.4, 3.1]
+        jaw_base = 0.35
+        jaw_amplitude = 0.25
+        jaw_frequency = 0.6
+        jaw_phase = 0.4
 
         callbacks = neo.DebugViewerCallbacks()
 
         def before_tick(frame: neo.FrameContext, runtime: neo.Runtime) -> None:
             time_seconds = float(frame.time_seconds)
-            targets = [
+            arm_targets = [
                 base + amplitude * math.sin(2.0 * math.pi * frequency * time_seconds + phase)
                 for base, amplitude, frequency, phase in zip(
                     base_targets, amplitudes, frequencies, phase_offsets
                 )
             ]
+            jaw_target = jaw_base + jaw_amplitude * math.sin(
+                2.0 * math.pi * jaw_frequency * time_seconds + jaw_phase
+            )
+            targets = [*arm_targets, jaw_target]
             scene.set_joint_targets(targets, env_index=0)
 
         callbacks.before_tick = before_tick

@@ -17,7 +17,7 @@ except ImportError:
     trimesh = None
 
 
-_JOINT_ORDER = (
+_ARM_JOINT_ORDER = (
     "psm_yaw_joint",
     "psm_pitch_end_joint",
     "psm_main_insertion_joint",
@@ -26,6 +26,14 @@ _JOINT_ORDER = (
     "psm_tool_yaw_joint",
 )
 
+_GRIPPER_JOINT_ORDER = (
+    "psm_tool_gripper1_joint",
+    "psm_tool_gripper2_joint",
+)
+
+_PHYSICAL_JOINT_ORDER = (*_ARM_JOINT_ORDER, *_GRIPPER_JOINT_ORDER)
+_COMMAND_JOINT_ORDER = (*_ARM_JOINT_ORDER, "psm_jaw_joint")
+
 _JOINT_KIND = {
     "psm_yaw_joint": "hinge",
     "psm_pitch_end_joint": "hinge",
@@ -33,6 +41,8 @@ _JOINT_KIND = {
     "psm_tool_roll_joint": "hinge",
     "psm_tool_pitch_joint": "hinge",
     "psm_tool_yaw_joint": "hinge",
+    "psm_tool_gripper1_joint": "hinge",
+    "psm_tool_gripper2_joint": "hinge",
 }
 
 _DRIVE_MAX_ANGULAR_VELOCITY = 4.0
@@ -65,8 +75,10 @@ class PsmRobotInstance:
     env_index: int
     base_entity: int
     link_entities: dict[str, int]
-    joint_ids: list[int]
-    joint_limits: list[tuple[float, float]]
+    arm_joint_ids: list[int]
+    arm_joint_limits: list[tuple[float, float]]
+    jaw_joint_ids: tuple[int, int]
+    jaw_limit: tuple[float, float]
 
 
 def _require_trimesh():
@@ -409,6 +421,18 @@ def _resolve_link_dynamics(
     return mass, inertia_diag
 
 
+def _resolve_jaw_limits(gripper1: dict, gripper2: dict) -> tuple[float, float]:
+    gripper1_range = (-float(gripper1["upper"]), -float(gripper1["lower"]))
+    gripper2_range = (float(gripper2["lower"]), float(gripper2["upper"]))
+    lower = max(gripper1_range[0], gripper2_range[0])
+    upper = min(gripper1_range[1], gripper2_range[1])
+    if lower > upper:
+        raise RuntimeError(
+            "PSM gripper mimic limits are inconsistent and cannot be mapped to a single jaw command."
+        )
+    return lower, upper
+
+
 def _parse_psm_urdf(urdf_path: Path) -> tuple[dict, dict, dict]:
     root = ET.parse(urdf_path).getroot()
 
@@ -585,8 +609,8 @@ class PsmScene:
         )
 
         retained_links = {"psm_base_link"}
-        retained_links.update(joints[joint_name]["child"] for joint_name in _JOINT_ORDER)
-        retained_joints = {joint_name: joints[joint_name] for joint_name in _JOINT_ORDER}
+        retained_links.update(joints[joint_name]["child"] for joint_name in _PHYSICAL_JOINT_ORDER)
+        retained_joints = {joint_name: joints[joint_name] for joint_name in _PHYSICAL_JOINT_ORDER}
         material_handles = {
             name: self._register_material(
                 resources,
@@ -732,13 +756,13 @@ class PsmScene:
 
         link_world = {"psm_base_link": _urdf_to_engine_root_matrix()}
         link_world["psm_base_link"][:3, 3] += np.array([env_origin[0], 0.0, env_origin[1]])
-        for joint_name in _JOINT_ORDER:
+        for joint_name in _PHYSICAL_JOINT_ORDER:
             joint = joints[joint_name]
             link_world[joint["child"]] = link_world[joint["parent"]] @ joint["origin"]
 
         link_entities: dict[str, int] = {}
         base_entity = 0
-        for link_name in ["psm_base_link", *(joints[name]["child"] for name in _JOINT_ORDER)]:
+        for link_name in ["psm_base_link", *(joints[name]["child"] for name in _PHYSICAL_JOINT_ORDER)]:
             link_entity = world.create_entity(env_index)
             if link_name == "psm_base_link":
                 base_entity = link_entity
@@ -782,9 +806,9 @@ class PsmScene:
                 )
             world.set_rigid_body(link_entity, rigid_body)
 
-        joint_ids: list[int] = []
-        joint_limits: list[tuple[float, float]] = []
-        for joint_index, joint_name in enumerate(_JOINT_ORDER):
+        physical_joint_ids: dict[str, int] = {}
+        physical_joint_limits: dict[str, tuple[float, float]] = {}
+        for joint_index, joint_name in enumerate(_PHYSICAL_JOINT_ORDER):
             joint = joints[joint_name]
             parent_entity = link_entities[joint["parent"]]
             child_entity = link_entities[joint["child"]]
@@ -810,8 +834,8 @@ class PsmScene:
             local_rotation_b = _matrix_to_quaternion(child_world_rotation.T @ solver_joint_world[:3, :3])
 
             assigned_joint_id = env_index * 100 + joint_index + 1
-            joint_ids.append(assigned_joint_id)
-            joint_limits.append((joint["lower"], joint["upper"]))
+            physical_joint_ids[joint_name] = assigned_joint_id
+            physical_joint_limits[joint_name] = (joint["lower"], joint["upper"])
 
             if _JOINT_KIND[joint_name] == "hinge":
                 state = neo.HingeJointState()
@@ -865,8 +889,18 @@ class PsmScene:
                 env_index=env_index,
                 base_entity=base_entity,
                 link_entities=link_entities,
-                joint_ids=joint_ids,
-                joint_limits=joint_limits,
+                arm_joint_ids=[physical_joint_ids[joint_name] for joint_name in _ARM_JOINT_ORDER],
+                arm_joint_limits=[
+                    physical_joint_limits[joint_name] for joint_name in _ARM_JOINT_ORDER
+                ],
+                jaw_joint_ids=(
+                    physical_joint_ids["psm_tool_gripper1_joint"],
+                    physical_joint_ids["psm_tool_gripper2_joint"],
+                ),
+                jaw_limit=_resolve_jaw_limits(
+                    joints["psm_tool_gripper1_joint"],
+                    joints["psm_tool_gripper2_joint"],
+                ),
             )
         )
 
@@ -892,13 +926,20 @@ class PsmScene:
     def _set_env_joint_targets(self, env_index: int, targets: list[float]) -> None:
         if env_index < 0 or env_index >= self.env_count:
             raise ValueError(f"Environment index {env_index} is out of range.")
-        if len(targets) != len(_JOINT_ORDER):
-            raise ValueError(f"Expected {len(_JOINT_ORDER)} joint targets, got {len(targets)}.")
+        if len(targets) not in (len(_ARM_JOINT_ORDER), len(_COMMAND_JOINT_ORDER)):
+            raise ValueError(
+                "Expected "
+                f"{len(_ARM_JOINT_ORDER)} arm targets or {len(_COMMAND_JOINT_ORDER)} "
+                f"arm-plus-jaw targets, got {len(targets)}."
+            )
 
         world = self.runtime.world()
         instance = self.instances[env_index]
+        arm_targets = targets[: len(_ARM_JOINT_ORDER)]
+        jaw_target = 0.0 if len(targets) == len(_ARM_JOINT_ORDER) else float(targets[-1])
+
         for joint_name, joint_id, limits, target in zip(
-            _JOINT_ORDER, instance.joint_ids, instance.joint_limits, targets
+            _ARM_JOINT_ORDER, instance.arm_joint_ids, instance.arm_joint_limits, arm_targets
         ):
             clamped = min(max(float(target), limits[0]), limits[1])
             if _JOINT_KIND[joint_name] == "hinge":
@@ -915,6 +956,19 @@ class PsmScene:
                 state.drive_target_position = clamped
                 if not world.upsert_slider_joint(state):
                     raise RuntimeError(f"Failed to update slider joint {joint_name}.")
+
+        jaw_clamped = min(max(jaw_target, instance.jaw_limit[0]), instance.jaw_limit[1])
+        gripper_targets = (
+            ("psm_tool_gripper1_joint", instance.jaw_joint_ids[0], -jaw_clamped),
+            ("psm_tool_gripper2_joint", instance.jaw_joint_ids[1], jaw_clamped),
+        )
+        for joint_name, joint_id, target in gripper_targets:
+            state = world.try_get_hinge_joint(joint_id)
+            if state is None:
+                raise RuntimeError(f"Missing hinge joint state for {joint_name}.")
+            state.drive_target_angle = float(target)
+            if not world.upsert_hinge_joint(state):
+                raise RuntimeError(f"Failed to update hinge joint {joint_name}.")
 
     def sync(self) -> None:
         self.runtime.prepare()
