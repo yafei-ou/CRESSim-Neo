@@ -34,6 +34,8 @@ _GRIPPER_JOINT_ORDER = (
 _PASSIVE_JOINT_ORDER = (
     "psm_pitch_back_joint",
     "psm_pitch_bottom_joint",
+    "psm_pitch_top_joint",
+    "psm_pitch_front_joint",
 )
 
 _PHYSICAL_JOINT_ORDER = (*_ARM_JOINT_ORDER, *_PASSIVE_JOINT_ORDER, *_GRIPPER_JOINT_ORDER)
@@ -44,6 +46,8 @@ _JOINT_KIND = {
     "psm_pitch_end_joint": "hinge",
     "psm_pitch_back_joint": "hinge",
     "psm_pitch_bottom_joint": "hinge",
+    "psm_pitch_top_joint": "hinge",
+    "psm_pitch_front_joint": "hinge",
     "psm_main_insertion_joint": "slider",
     "psm_tool_roll_joint": "hinge",
     "psm_tool_pitch_joint": "hinge",
@@ -64,6 +68,8 @@ _BASE_HEIGHT = 0.1524
 _HIDDEN_LINKS: set[str] = set()
 _DEFAULT_INERTIA_DIAG = (1.0e-4, 1.0e-4, 1.0e-4)
 _FALLBACK_INERTIA_SCALE = 1.0
+_PITCH_END_TOP_CLOSURE_MESH_OFFSET = np.array((0.00388, -0.036286, 0.0), dtype=np.float64)
+_PITCH_BOTTOM_FRONT_CLOSURE_OFFSET = np.array((0.096164, 0.0, 0.0), dtype=np.float64)
 
 _InertiaDiag = tuple[float, float, float]
 _LinkDynamicsFallback = tuple[float, _InertiaDiag]
@@ -911,6 +917,7 @@ class PsmScene:
                 if not world.upsert_slider_joint(state):
                     raise RuntimeError(f"Failed to author slider joint {joint_name}.")
 
+        closure_joint_offset = 0
         if {
             "psm_pitch_bottom_link",
             "psm_pitch_end_link",
@@ -929,7 +936,7 @@ class PsmScene:
             )
 
             closure = neo.BallJointState()
-            closure.joint_id = env_index * 100 + len(_PHYSICAL_JOINT_ORDER) + 1
+            closure.joint_id = env_index * 100 + len(_PHYSICAL_JOINT_ORDER) + closure_joint_offset + 1
             closure.body_a = link_entities["psm_pitch_bottom_link"]
             closure.body_b = link_entities["psm_pitch_end_link"]
             closure.local_anchor_a = neo.Float3(
@@ -945,6 +952,85 @@ class PsmScene:
             )
             if not world.upsert_ball_joint(closure):
                 raise RuntimeError("Failed to author pitch bottom/end closure joint.")
+            closure_joint_offset += 1
+
+        if {
+            "psm_pitch_top_link",
+            "psm_pitch_end_link",
+        }.issubset(link_entities):
+            pitch_top_rotation = _matrix_to_quaternion(link_world["psm_pitch_top_link"])
+            pitch_top_position = link_world["psm_pitch_top_link"][:3, 3]
+            pitch_end_top_anchor_world = (
+                link_world["psm_pitch_end_link"]
+                @ links["psm_pitch_end_link"]["visuals"][0]["origin"]
+                @ _pose_matrix(_PITCH_END_TOP_CLOSURE_MESH_OFFSET, (0.0, 0.0, 0.0))
+            )[:3, 3]
+            pitch_top_anchor_local = _quaternion_rotate(
+                _quaternion_conjugate(pitch_top_rotation),
+                pitch_end_top_anchor_world - pitch_top_position,
+            )
+
+            closure = neo.BallJointState()
+            closure.joint_id = env_index * 100 + len(_PHYSICAL_JOINT_ORDER) + closure_joint_offset + 1
+            closure.body_a = link_entities["psm_pitch_top_link"]
+            closure.body_b = link_entities["psm_pitch_end_link"]
+            closure.local_anchor_a = neo.Float3(
+                float(pitch_top_anchor_local[0]),
+                float(pitch_top_anchor_local[1]),
+                float(pitch_top_anchor_local[2]),
+            )
+            pitch_end_top_anchor_local = (
+                links["psm_pitch_end_link"]["visuals"][0]["origin"]
+                @ _pose_matrix(_PITCH_END_TOP_CLOSURE_MESH_OFFSET, (0.0, 0.0, 0.0))
+            )[:3, 3]
+            closure.local_anchor_b = neo.Float3(
+                float(pitch_end_top_anchor_local[0]),
+                float(pitch_end_top_anchor_local[1]),
+                float(pitch_end_top_anchor_local[2]),
+            )
+            if not world.upsert_ball_joint(closure):
+                raise RuntimeError("Failed to author pitch top/end closure joint.")
+            closure_joint_offset += 1
+
+        if {
+            "psm_pitch_bottom_link",
+            "psm_pitch_front_link",
+        }.issubset(link_entities):
+            pitch_bottom_rotation = _matrix_to_quaternion(link_world["psm_pitch_bottom_link"])
+            pitch_bottom_position = link_world["psm_pitch_bottom_link"][:3, 3]
+            pitch_front_rotation = _matrix_to_quaternion(link_world["psm_pitch_front_link"])
+            pitch_front_position = link_world["psm_pitch_front_link"][:3, 3]
+            # Assumption: the provided "horizontal" offsets are local +X offsets in the mesh frame.
+            pitch_bottom_front_anchor_world = (
+                link_world["psm_pitch_bottom_link"]
+                @ _pose_matrix(_PITCH_BOTTOM_FRONT_CLOSURE_OFFSET, (0.0, 0.0, 0.0))
+            )[:3, 3]
+            pitch_bottom_front_anchor_local = _quaternion_rotate(
+                _quaternion_conjugate(pitch_bottom_rotation),
+                pitch_bottom_front_anchor_world - pitch_bottom_position,
+            )
+            pitch_front_anchor_local = _quaternion_rotate(
+                _quaternion_conjugate(pitch_front_rotation),
+                pitch_bottom_front_anchor_world - pitch_front_position,
+            )
+
+            closure = neo.BallJointState()
+            closure.joint_id = env_index * 100 + len(_PHYSICAL_JOINT_ORDER) + closure_joint_offset + 1
+            closure.body_a = link_entities["psm_pitch_bottom_link"]
+            closure.body_b = link_entities["psm_pitch_front_link"]
+            closure.local_anchor_a = neo.Float3(
+                float(pitch_bottom_front_anchor_local[0]),
+                float(pitch_bottom_front_anchor_local[1]),
+                float(pitch_bottom_front_anchor_local[2]),
+            )
+            closure.local_anchor_b = neo.Float3(
+                float(pitch_front_anchor_local[0]),
+                float(pitch_front_anchor_local[1]),
+                float(pitch_front_anchor_local[2]),
+            )
+            if not world.upsert_ball_joint(closure):
+                raise RuntimeError("Failed to author pitch bottom/front closure joint.")
+            closure_joint_offset += 1
 
         self.instances.append(
             PsmRobotInstance(
