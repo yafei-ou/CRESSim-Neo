@@ -29,17 +29,17 @@ def main() -> int:
             0.05 * math.pi,
             -0.05 * math.pi,
             0.10,
-            0.18 * math.pi,
-            -0.10 * math.pi,
-            0.12 * math.pi,
+            0.0 * math.pi,
+            0.0 * math.pi,
+            0.0 * math.pi,
         ]
         amplitudes = [
             0.0 * math.pi,
             0.0 * math.pi,
-            0.06,
-            0.16 * math.pi,
-            0.10 * math.pi,
-            0.18 * math.pi,
+            0.0,
+            0.0 * math.pi,
+            0.0 * math.pi,
+            0.0 * math.pi,
         ]
         frequencies = [0.55, 0.75, 0.42, 0.95, 1.15, 1.35]
         phase_offsets = [0.0, 0.7, 1.1, 1.8, 2.4, 3.1]

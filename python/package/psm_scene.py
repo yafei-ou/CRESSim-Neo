@@ -43,6 +43,21 @@ _GROUND_HALF_EXTENT = 0.75
 _ENV_SPACING = 2.5
 _BASE_HEIGHT = 0.1524
 _HIDDEN_LINKS: set[str] = set()
+_DEFAULT_INERTIA_DIAG = (1.0e-4, 1.0e-4, 1.0e-4)
+
+_InertiaDiag = tuple[float, float, float]
+_LinkDynamicsFallback = tuple[float, _InertiaDiag]
+
+# The PSM URDF carries zero inertias for most links, and the distal tool chain also uses
+# very small masses that make joint correction look visibly compliant. When those inertias are
+# missing, prefer hand-tuned tool dynamics over the render-mesh box approximation.
+_LINK_DYNAMICS_FALLBACKS: dict[str, _LinkDynamicsFallback] = {
+    "psm_tool_roll_link": (0.03, (1.5e-6, 1.5e-6, 2.5e-7)),
+    "psm_tool_pitch_link": (0.025, (1.2e-6, 1.2e-6, 2.0e-7)),
+    "psm_tool_yaw_link": (0.02, (8.0e-7, 8.0e-7, 1.5e-7)),
+    "psm_tool_gripper1_link": (0.008, (2.0e-7, 1.0e-7, 2.0e-7)),
+    "psm_tool_gripper2_link": (0.008, (2.0e-7, 1.0e-7, 2.0e-7)),
+}
 
 
 @dataclass
@@ -92,12 +107,17 @@ def _find_psm_urdf_path(
     search_roots.extend(current.parents)
 
     for root in search_roots:
-        candidate = root / "extern" / "SurRoL" / "surrol" / "assets" / "psm" / "psm.urdf"
-        if candidate.exists():
-            return candidate
+        local_candidate = root / "examples" / "models" / "psm" / "psm.urdf"
+        if local_candidate.exists():
+            return local_candidate
+
+        extern_candidate = root / "extern" / "SurRoL" / "surrol" / "assets" / "psm" / "psm.urdf"
+        if extern_candidate.exists():
+            return extern_candidate
 
     raise RuntimeError(
-        "Failed to locate extern/SurRoL/surrol/assets/psm/psm.urdf. "
+        "Failed to locate examples/models/psm/psm.urdf or "
+        "extern/SurRoL/surrol/assets/psm/psm.urdf. "
         "Pass `resolve_root=...`, `urdf_path=...`, or set "
         "`CRESSIM_NEO_PSM_RESOLVE_ROOT`."
     )
@@ -363,6 +383,30 @@ def _mesh_to_desc(mesh, debug_name: str) -> neo.MeshResourceDesc:
     desc.vertices = vertices
     desc.indices = faces_array.astype(np.uint32, copy=False).reshape(-1).tolist()
     return desc
+
+
+def _resolve_link_dynamics(
+    link_name: str,
+    link_data: dict,
+    mesh_inertia_diagonals: dict[str, _InertiaDiag],
+) -> tuple[float, _InertiaDiag]:
+    mass = float(link_data["mass"])
+    inertia_diag = tuple(float(value) for value in link_data["inertia_diag"])
+    fallback = _LINK_DYNAMICS_FALLBACKS.get(link_name)
+    has_valid_inertia = inertia_diag[0] > 0.0 and inertia_diag[1] > 0.0 and inertia_diag[2] > 0.0
+
+    if fallback is not None and (mass <= 0.0 or not has_valid_inertia):
+        return fallback
+
+    if not has_valid_inertia:
+        fallback_diag = mesh_inertia_diagonals.get(link_name, _DEFAULT_INERTIA_DIAG)
+        inertia_diag = (
+            max(mass * fallback_diag[0], 1.0e-6),
+            max(mass * fallback_diag[1], 1.0e-6),
+            max(mass * fallback_diag[2], 1.0e-6),
+        )
+
+    return mass, inertia_diag
 
 
 def _parse_psm_urdf(urdf_path: Path) -> tuple[dict, dict, dict]:
@@ -723,16 +767,12 @@ class PsmScene:
                 rigid_body.inverse_mass = 0.0
                 rigid_body.inverse_inertia_local = neo.Float3(0.0, 0.0, 0.0)
             else:
-                mass = float(links[link_name]["mass"])
+                mass, inertia_diag = _resolve_link_dynamics(
+                    link_name,
+                    links[link_name],
+                    self._mesh_inertia_diagonals,
+                )
                 inverse_mass = 0.0 if mass <= 0.0 else 1.0 / mass
-                inertia_diag = links[link_name]["inertia_diag"]
-                if inertia_diag[0] <= 0.0 or inertia_diag[1] <= 0.0 or inertia_diag[2] <= 0.0:
-                    fallback = self._mesh_inertia_diagonals.get(link_name, (1.0e-4, 1.0e-4, 1.0e-4))
-                    inertia_diag = (
-                        max(float(mass) * fallback[0], 1.0e-6),
-                        max(float(mass) * fallback[1], 1.0e-6),
-                        max(float(mass) * fallback[2], 1.0e-6),
-                    )
                 rigid_body.body_type = neo.RigidBodyType.Dynamic
                 rigid_body.inverse_mass = inverse_mass
                 rigid_body.inverse_inertia_local = neo.Float3(
