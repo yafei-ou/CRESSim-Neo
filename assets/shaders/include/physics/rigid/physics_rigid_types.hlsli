@@ -158,11 +158,24 @@ struct GpuHingeJoint
     float4 localAnchorA;
     float4 localAnchorB;
     float4 localAxisA0;
+    float4 localAxisA1;
+    float4 localAxisB1;
     float4 projectionRow0;
     float4 projectionRow1;
     float4 projectionRow2;
     float4 limitParams;
     float4 driveTargetParams;
+    float4 driveServoParams;
+};
+
+struct GpuHingeJointRuntimeState
+{
+    float4 angleState;
+};
+
+struct GpuSliderJointRuntimeState
+{
+    float4 state;
 };
 
 struct GpuSliderJoint
@@ -181,6 +194,7 @@ struct GpuSliderJoint
     float4 projectionRow2;
     float4 limitParams;
     float4 driveTargetParams;
+    float4 driveServoParams;
 };
 
 struct GpuRoutedCableConstraint

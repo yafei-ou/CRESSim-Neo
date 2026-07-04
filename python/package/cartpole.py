@@ -101,7 +101,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 _POST_PHYSICS_SHADER = r"""
 #include "include/structured_buffer_compat.hlsli"
 #include "include/physics/core/physics_math.hlsli"
-#include "include/physics/rigid/physics_rigid_joint_solver_shared.hlsli"
 #include "include/physics/rigid/physics_rigid_types.hlsli"
 
 cbuffer CartpolePostPhysicsConstants
@@ -114,11 +113,11 @@ cbuffer CartpolePostPhysicsConstants
 
 CRESSIM_STRUCTURED_BUFFER(uint, g_BaseBodyIndices);
 CRESSIM_STRUCTURED_BUFFER(uint, g_CartBodyIndices);
-CRESSIM_STRUCTURED_BUFFER(uint, g_PoleBodyIndices);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyOrientations);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyLinearVelocities);
-CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyAngularVelocities);
+CRESSIM_STRUCTURED_BUFFER(uint, g_HingeJointIndices);
+CRESSIM_STRUCTURED_BUFFER(GpuHingeJointRuntimeState, g_HingeJointRuntimeStates);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_Observations);
 CRESSIM_RW_STRUCTURED_BUFFER(float, g_Rewards);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_Terminated);
@@ -139,38 +138,25 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const uint baseIndex = CRESSIM_SB_LOAD(g_BaseBodyIndices, envIndex);
     const uint cartIndex = CRESSIM_SB_LOAD(g_CartBodyIndices, envIndex);
-    const uint poleIndex = CRESSIM_SB_LOAD(g_PoleBodyIndices, envIndex);
+    const uint hingeJointIndex = CRESSIM_SB_LOAD(g_HingeJointIndices, envIndex);
 
     const float4 basePosInvMass = CRESSIM_SB_LOAD(g_RigidBodyPositionsInvMass, baseIndex);
     const float4 cartPosInvMass = CRESSIM_SB_LOAD(g_RigidBodyPositionsInvMass, cartIndex);
     const float4 baseOrientation = QuaternionNormalize(CRESSIM_SB_LOAD(g_RigidBodyOrientations, baseIndex));
-    const float4 cartOrientation = QuaternionNormalize(CRESSIM_SB_LOAD(g_RigidBodyOrientations, cartIndex));
-    const float4 poleOrientation = QuaternionNormalize(CRESSIM_SB_LOAD(g_RigidBodyOrientations, poleIndex));
     const float3 baseLinearVelocity = CRESSIM_SB_LOAD(g_RigidBodyLinearVelocities, baseIndex).xyz;
     const float3 cartLinearVelocity = CRESSIM_SB_LOAD(g_RigidBodyLinearVelocities, cartIndex).xyz;
-    const float3 baseAngularVelocity = CRESSIM_SB_LOAD(g_RigidBodyAngularVelocities, baseIndex).xyz;
-    const float3 cartAngularVelocity = CRESSIM_SB_LOAD(g_RigidBodyAngularVelocities, cartIndex).xyz;
-    const float3 poleAngularVelocityWorld = CRESSIM_SB_LOAD(g_RigidBodyAngularVelocities, poleIndex).xyz;
+    const GpuHingeJointRuntimeState hingeRuntime =
+        CRESSIM_SB_LOAD(g_HingeJointRuntimeStates, hingeJointIndex);
 
     const float3 sliderAxis = SafeNormalize(
         QuaternionRotate(baseOrientation, float3(1.0, 0.0, 0.0)),
         float3(1.0, 0.0, 0.0));
-    const float3 hingeAxis = SafeNormalize(
-        QuaternionRotate(cartOrientation, float3(0.0, 0.0, 1.0)),
-        float3(0.0, 0.0, 1.0));
 
     const float3 cartDelta = cartPosInvMass.xyz - basePosInvMass.xyz;
     const float cartPosition = dot(cartDelta, sliderAxis);
     const float cartVelocity = dot(cartLinearVelocity - baseLinearVelocity, sliderAxis);
-
-    float3 referenceUp = float3(0.0, 1.0, 0.0) - hingeAxis * dot(float3(0.0, 1.0, 0.0), hingeAxis);
-    referenceUp = SafeNormalize(referenceUp, ChoosePerpendicular(hingeAxis));
-    const float3 referenceRight = SafeNormalize(cross(hingeAxis, referenceUp), float3(1.0, 0.0, 0.0));
-    const float3 poleUp = SafeNormalize(QuaternionRotate(poleOrientation, float3(0.0, 1.0, 0.0)),
-                                        referenceUp);
-    const float3 planarPoleUp = SafeNormalize(poleUp - hingeAxis * dot(poleUp, hingeAxis), referenceUp);
-    const float poleAngle = atan2(dot(planarPoleUp, referenceRight), dot(planarPoleUp, referenceUp));
-    const float poleAngularVelocity = dot(poleAngularVelocityWorld - cartAngularVelocity, hingeAxis);
+    const float poleAngle = hingeRuntime.angleState.x;
+    const float poleAngularVelocity = hingeRuntime.angleState.z;
 
     const uint nextEpisodeStep = CRESSIM_SB_LOAD(g_EpisodeSteps, envIndex) + 1u;
     const uint terminated =
@@ -920,11 +906,11 @@ class CartpoleTorchVectorEnv:
         binding_specs = [
             ("g_BaseBodyIndices", self.base_body_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
             ("g_CartBodyIndices", self.cart_body_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
-            ("g_PoleBodyIndices", self.pole_body_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
+            ("g_HingeJointIndices", self.hinge_joint_buffer, "", neo.CustomComputeResourceAccess.ReadOnly),
             ("g_RigidBodyPositionsInvMass", None, "rigid.positions", neo.CustomComputeResourceAccess.ReadOnly),
             ("g_RigidBodyOrientations", None, "rigid.orientations", neo.CustomComputeResourceAccess.ReadOnly),
             ("g_RigidBodyLinearVelocities", None, "rigid.linear_velocities", neo.CustomComputeResourceAccess.ReadOnly),
-            ("g_RigidBodyAngularVelocities", None, "rigid.angular_velocities", neo.CustomComputeResourceAccess.ReadOnly),
+            ("g_HingeJointRuntimeStates", None, "joint.hinge_runtime", neo.CustomComputeResourceAccess.ReadOnly),
             ("g_Observations", self.observation_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
             ("g_Rewards", self.reward_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
             ("g_Terminated", self.terminated_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),

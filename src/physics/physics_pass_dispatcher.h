@@ -25,6 +25,12 @@ public:
     bool clearRigidCorrections(Diligent::IDeviceContext *computeContext,
                                PhysicsSceneGpuState &sceneState, std::uint32_t bodyCount,
                                const GpuRigidDispatchConstants &constants);
+    bool updateHingeJointRuntimeState(Diligent::IDeviceContext *computeContext,
+                                      const PhysicsSceneGpuState &sceneState,
+                                      std::uint32_t jointCount);
+    bool updateSliderJointRuntimeState(Diligent::IDeviceContext *computeContext,
+                                       const PhysicsSceneGpuState &sceneState,
+                                       std::uint32_t jointCount);
     bool clearHingeJointConstraintState(Diligent::IDeviceContext *computeContext,
                                         const PhysicsSceneGpuState &sceneState,
                                         std::uint32_t jointCount);
@@ -560,15 +566,15 @@ private:
     gpu::GpuComputePass mSolveBallJointConstraintsPass;
     gpu::GpuComputePass mSolveSphericalJointConstraintsPass;
     gpu::GpuComputePass mSolveHingeJointConstraintsPassivePass;
-    gpu::GpuComputePass mSolveHingeJointConstraintsTargetPositionPass;
     gpu::GpuComputePass mSolveSliderJointConstraintsPassivePass;
-    gpu::GpuComputePass mSolveSliderJointConstraintsTargetPositionPass;
     gpu::GpuComputePass mSolveRigidParticleAttachmentConstraintsPass;
     gpu::GpuComputePass mSolveStrandRigidAttachmentConstraintsPass;
     gpu::GpuComputePass mSolveRigidDistanceConstraintsPass;
     gpu::GpuComputePass mSolveRoutedCableConstraintsPass;
     gpu::GpuComputePass mSolveHingeJointTargetVelocitiesPass;
     gpu::GpuComputePass mSolveSliderJointTargetVelocitiesPass;
+    gpu::GpuComputePass mUpdateHingeJointRuntimeStatePass;
+    gpu::GpuComputePass mUpdateSliderJointRuntimeStatePass;
     gpu::GpuComputePass mClearHingeJointConstraintStatePass;
     gpu::GpuComputePass mClearSphericalJointConstraintStatePass;
     gpu::GpuComputePass mClearSliderJointConstraintStatePass;

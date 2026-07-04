@@ -166,7 +166,9 @@ int main()
     hinge.limitMin = -0.25f;
     hinge.limitMax = 0.75f;
     hinge.driveMode = RigidJointDriveMode::TargetPosition;
-    hinge.driveTargetAngle = 0.5f;
+    hinge.driveTargetAngle = 6.0f * Diligent::PI_F;
+    hinge.driveDamping = 0.35f;
+    hinge.driveMaxAngularVelocity = 4.5f;
     hinge.driveTargetAngularVelocity = 1.25f;
     if (!world.upsertHingeJoint(hinge))
     {
@@ -184,6 +186,8 @@ int main()
     slider.limitMin = -0.4f;
     slider.limitMax = 1.1f;
     slider.driveMode = RigidJointDriveMode::TargetPosition;
+    slider.driveDamping = 0.45f;
+    slider.driveMaxVelocity = 1.8f;
     slider.driveTargetPosition = 0.75f;
     slider.driveTargetVelocity = 0.6f;
     if (!world.upsertSliderJoint(slider))
@@ -295,7 +299,9 @@ int main()
         scene.hinge.limitEnabledFlags.front() != 1u ||
         std::fabs(scene.hinge.limitMins.front() + 0.25f) > kEpsilon ||
         std::fabs(scene.hinge.limitMaxs.front() - 0.75f) > kEpsilon ||
-        std::fabs(scene.hinge.driveTargetAngles.front() - 0.5f) > kEpsilon ||
+        std::fabs(scene.hinge.driveTargetAngles.front() - 6.0f * Diligent::PI_F) > kEpsilon ||
+        std::fabs(scene.hinge.driveDampings.front() - 0.35f) > kEpsilon ||
+        std::fabs(scene.hinge.driveMaxAngularVelocities.front() - 4.5f) > kEpsilon ||
         std::fabs(scene.hinge.driveTargetAngularVelocities.front() - 1.25f) > kEpsilon)
     {
         CRESSIM_LOG_ERROR("Hinge drive target state was not rebuilt correctly.");
@@ -306,6 +312,8 @@ int main()
         scene.slider.limitEnabledFlags.front() != 1u ||
         std::fabs(scene.slider.limitMins.front() + 0.4f) > kEpsilon ||
         std::fabs(scene.slider.limitMaxs.front() - 1.1f) > kEpsilon ||
+        std::fabs(scene.slider.driveDampings.front() - 0.45f) > kEpsilon ||
+        std::fabs(scene.slider.driveMaxVelocities.front() - 1.8f) > kEpsilon ||
         std::fabs(scene.slider.driveTargetPositions.front() - 0.75f) > kEpsilon ||
         std::fabs(scene.slider.driveTargetVelocities.front() - 0.6f) > kEpsilon)
     {

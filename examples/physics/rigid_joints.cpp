@@ -60,12 +60,18 @@ constexpr float kAnchorHalfExtent = 0.35f;
 constexpr float kHingeBaseHalfX = 0.45f;
 constexpr float kHingeBaseHalfY = 0.35f;
 constexpr float kHingeBaseHalfZ = 0.35f;
-constexpr float kExampleHingeDriveCompliance = 2.5e-4f;
+constexpr float kExampleHingeDriveCompliance = 2.5e-6f;
+constexpr float kExampleHingeDriveDamping = 0.0f;
+constexpr float kExampleHingeDriveMaxAngularVelocity = 0.9f;
 constexpr float kExampleSliderDriveCompliance = 3.0e-4f;
 constexpr float kExampleSphericalDriveCompliance = 8.0e-5f;
 constexpr float kExampleSphericalFreeCompliance = 1.0e6f;
 constexpr float kUpperHingeRestAngle = -Diligent::PI_F * 0.5f;
 constexpr float kLowerHingeRestAngle = 0.0f;
+constexpr float kHingeDriveHalfRange = 2.0f * Diligent::PI_F;
+constexpr float kHingeDriveRange = 2.0f * kHingeDriveHalfRange;
+constexpr float kLowerHingeDriveHalfRange = 0.5f * Diligent::PI_F;
+constexpr float kLowerHingeDriveRange = 2.0f * kLowerHingeDriveHalfRange;
 constexpr float kHorizontalSliderDriveCenter = 0.12f;
 constexpr float kVerticalSliderDriveCenter = 0.32f;
 constexpr float kOverviewAreaOffsetX = 2.0f;
@@ -382,8 +388,8 @@ AuthoredHingeJointIds authorHingeJointCluster(Runtime &runtime, MeshHandle baseM
     upper.localRotationA = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
     upper.localRotationB = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
     upper.limitEnabled = true;
-    upper.limitMin = -2.55f;
-    upper.limitMax = 0.55f;
+    upper.limitMin = kUpperHingeRestAngle - 0.5f * kHingeDriveRange;
+    upper.limitMax = kUpperHingeRestAngle + 0.5f * kHingeDriveRange;
     upper.driveMode = options.enableVelocityDriveTargets
                           ? RigidJointDriveMode::TargetVelocity
                           : (options.enablePositionDriveTargets
@@ -392,6 +398,8 @@ AuthoredHingeJointIds authorHingeJointCluster(Runtime &runtime, MeshHandle baseM
     upper.driveTargetAngle = kUpperHingeRestAngle;
     upper.driveTargetAngularVelocity = 0.0f;
     upper.driveCompliance = kExampleHingeDriveCompliance;
+    upper.driveDamping = kExampleHingeDriveDamping;
+    upper.driveMaxAngularVelocity = kExampleHingeDriveMaxAngularVelocity;
     if (!world.physicsWorld().upsertHingeJoint(upper))
     {
         throw std::runtime_error("Failed to author upper hinge joint.");
@@ -407,8 +415,8 @@ AuthoredHingeJointIds authorHingeJointCluster(Runtime &runtime, MeshHandle baseM
     lower.localRotationA = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
     lower.localRotationB = makeJointFrameRotation({0.0f, 0.0f, 1.0f});
     lower.limitEnabled = true;
-    lower.limitMin = -1.8f;
-    lower.limitMax = 1.2f;
+    lower.limitMin = kLowerHingeRestAngle - 0.5f * kLowerHingeDriveRange;
+    lower.limitMax = kLowerHingeRestAngle + 0.5f * kLowerHingeDriveRange;
     lower.driveMode = options.enableVelocityDriveTargets
                           ? RigidJointDriveMode::TargetVelocity
                           : (options.enablePositionDriveTargets
@@ -417,6 +425,8 @@ AuthoredHingeJointIds authorHingeJointCluster(Runtime &runtime, MeshHandle baseM
     lower.driveTargetAngle = kLowerHingeRestAngle;
     lower.driveTargetAngularVelocity = 0.0f;
     lower.driveCompliance = kExampleHingeDriveCompliance;
+    lower.driveDamping = kExampleHingeDriveDamping;
+    lower.driveMaxAngularVelocity = kExampleHingeDriveMaxAngularVelocity;
     if (!world.physicsWorld().upsertHingeJoint(lower))
     {
         throw std::runtime_error("Failed to author lower hinge joint.");
@@ -759,6 +769,7 @@ int main(int argc, char **argv)
     viewerDefaults.showStats = true;
     viewerDefaults.vSync = true;
     auto viewerDesc = cressim::neo::examples::helpers::makeViewerDesc(options, viewerDefaults);
+    viewerDesc.useFixedTimestep = true;
     viewerDesc.statsIntervalFrames = 60u;
 
     if (!viewer.initialize(viewerDesc, config))
@@ -910,12 +921,14 @@ int main(int argc, char **argv)
                     if (jointOptions.enableVelocityDriveTargets)
                     {
                         updated.driveTargetAngularVelocity =
-                            velocityWave(0.22f, 0.55f, 0.0f);
+                            velocityWave(0.08f, 0.22f, 0.0f);
                     }
                     else
                     {
+                        updated.driveMode = RigidJointDriveMode::TargetPosition;
                         updated.driveTargetAngle =
-                            kUpperHingeRestAngle + driveWave(0.18f, 0.55f, 0.0f);
+                            kUpperHingeRestAngle +
+                            driveWave(0.02f, kHingeDriveHalfRange, 0.0f);
                     }
                     physicsWorld.upsertHingeJoint(updated);
                 }
@@ -926,13 +939,14 @@ int main(int argc, char **argv)
                     if (jointOptions.enableVelocityDriveTargets)
                     {
                         updated.driveTargetAngularVelocity =
-                            velocityWave(0.27f, 0.40f, Diligent::PI_F * 0.55f);
+                            velocityWave(0.06f, 0.12f, 0.8f);
                     }
                     else
                     {
+                        updated.driveMode = RigidJointDriveMode::TargetPosition;
                         updated.driveTargetAngle =
                             kLowerHingeRestAngle +
-                            driveWave(0.21f, 0.42f, Diligent::PI_F * 0.55f);
+                            driveWave(0.035f, kLowerHingeDriveHalfRange, 0.8f);
                     }
                     physicsWorld.upsertHingeJoint(updated);
                 }

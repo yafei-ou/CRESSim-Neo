@@ -1286,6 +1286,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("constraint_compliance", &HingeJointState::constraintCompliance)
         .def_readwrite("drive_compliance", &HingeJointState::driveCompliance)
         .def_readwrite("drive_target_angle", &HingeJointState::driveTargetAngle)
+        .def_readwrite("drive_damping", &HingeJointState::driveDamping)
+        .def_readwrite("drive_max_angular_velocity", &HingeJointState::driveMaxAngularVelocity)
         .def_readwrite("drive_target_angular_velocity",
                        &HingeJointState::driveTargetAngularVelocity);
 
@@ -1342,6 +1344,8 @@ PYBIND11_MODULE(_cressim_neo, m)
         .def_readwrite("limit_max", &SliderJointState::limitMax)
         .def_readwrite("constraint_compliance", &SliderJointState::constraintCompliance)
         .def_readwrite("drive_compliance", &SliderJointState::driveCompliance)
+        .def_readwrite("drive_damping", &SliderJointState::driveDamping)
+        .def_readwrite("drive_max_velocity", &SliderJointState::driveMaxVelocity)
         .def_readwrite("drive_target_position", &SliderJointState::driveTargetPosition)
         .def_readwrite("drive_target_velocity", &SliderJointState::driveTargetVelocity);
 

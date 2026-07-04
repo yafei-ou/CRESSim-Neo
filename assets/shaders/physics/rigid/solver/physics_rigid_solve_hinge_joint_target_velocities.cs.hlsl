@@ -6,6 +6,7 @@
 
 static const float kVelocityRegularization = 1e-5;
 static const float kLimitApproachAngle = 0.08;
+static const float kMinServoDt = 1e-5;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
@@ -14,6 +15,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyAngularVelocities);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidBodyInverseInertiaLocal);
 CRESSIM_STRUCTURED_BUFFER(uint, g_RigidBodyTypes);
 CRESSIM_STRUCTURED_BUFFER(GpuHingeJoint, g_HingeJoints);
+CRESSIM_STRUCTURED_BUFFER(GpuHingeJointRuntimeState, g_HingeJointRuntimeStates);
 CRESSIM_STRUCTURED_BUFFER(uint, g_HingeJointIndices);
 
 CRESSIM_RW_ATOMIC_FLOAT_BUFFER(g_RigidBodyLinearVelocityCorrections);
@@ -71,11 +73,30 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 rB = QuaternionRotate(qB, joint.localAnchorB.xyz);
     const float3 hingeAxis =
         SafeNormalize(QuaternionRotate(qA, joint.localAxisA0.xyz), float3(1.0, 0.0, 0.0));
+    const GpuHingeJointRuntimeState runtimeState =
+        CRESSIM_SB_LOAD(g_HingeJointRuntimeStates, jointIndex);
     const bool limitEnabled = joint.limitParams.x > 0.5;
     const float2 limitRange = joint.limitParams.yz;
-    const float currentAngle = ComputeHingeAngle(joint.projectionRow0, qA, qB);
+    float currentWrappedAngle = 0.0;
+    const float currentAngle =
+        ComputeHingeUnwrappedAngle(qA, qB, joint, runtimeState, currentWrappedAngle);
+    const float currentAngularVelocity = dot(angularVelocityB - angularVelocityA, hingeAxis);
     float targetAngularVelocity = joint.driveTargetParams.y;
-    if (limitEnabled)
+    if (joint.driveMode == kRigidJointDriveModeTargetPosition)
+    {
+        const float targetAngle =
+            limitEnabled ? clamp(joint.driveTargetParams.x, limitRange.x, limitRange.y)
+                         : joint.driveTargetParams.x;
+        const float servoDt = max(dt, kMinServoDt);
+        targetAngularVelocity =
+            (targetAngle - currentAngle) / servoDt - joint.driveServoParams.x * currentAngularVelocity;
+    }
+    if (joint.driveServoParams.y > 0.0)
+    {
+        targetAngularVelocity =
+            clamp(targetAngularVelocity, -joint.driveServoParams.y, joint.driveServoParams.y);
+    }
+    if (limitEnabled && joint.driveMode != kRigidJointDriveModeTargetPosition)
     {
         targetAngularVelocity = ScaleVelocityMotorTargetNearLimits(
             targetAngularVelocity, currentAngle, limitRange, kLimitApproachAngle);

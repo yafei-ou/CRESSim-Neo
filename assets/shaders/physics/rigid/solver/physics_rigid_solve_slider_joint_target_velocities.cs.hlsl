@@ -6,6 +6,7 @@
 
 static const float kVelocityRegularization = 1e-5;
 static const float kLimitApproachDistance = 0.05;
+static const float kMinServoDt = 1e-5;
 
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_PredictedRigidBodyOrientations);
@@ -75,8 +76,24 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const float3 rB = QuaternionRotate(qB, joint.localAnchorB.xyz);
     const float currentPosition =
         joint.driveTargetParams.y - dot((posInvMassA.xyz + rA) - (posInvMassB.xyz + rB), axis0);
+    const float3 anchorVelocityA = linearVelocityA + cross(angularVelocityA, rA);
+    const float3 anchorVelocityB = linearVelocityB + cross(angularVelocityB, rB);
+    const float currentVelocity = dot(anchorVelocityB - anchorVelocityA, axis0);
     float targetVelocity = joint.driveTargetParams.z;
-    if (limitEnabled)
+    if (joint.driveMode == kRigidJointDriveModeTargetPosition)
+    {
+        const float targetPosition =
+            limitEnabled ? clamp(joint.driveTargetParams.x, limitRange.x, limitRange.y)
+                         : joint.driveTargetParams.x;
+        const float servoDt = max(dt, kMinServoDt);
+        targetVelocity =
+            (targetPosition - currentPosition) / servoDt - joint.driveServoParams.x * currentVelocity;
+    }
+    if (joint.driveServoParams.y > 0.0)
+    {
+        targetVelocity = clamp(targetVelocity, -joint.driveServoParams.y, joint.driveServoParams.y);
+    }
+    if (limitEnabled && joint.driveMode != kRigidJointDriveModeTargetPosition)
     {
         targetVelocity = ScaleVelocityMotorTargetNearLimits(
             targetVelocity, currentPosition, limitRange, kLimitApproachDistance);

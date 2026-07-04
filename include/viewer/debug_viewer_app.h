@@ -61,6 +61,7 @@ struct DebugViewerAppDesc
     float maxMoveSpeed     = 80.0f;
 
     float fixedDeltaSeconds           = 1.0f / 60.0f;
+    bool useFixedTimestep             = false;
     std::uint64_t maxFrames           = 0;
     bool showStats                    = true;
     bool enableDebugParticles         = false;
