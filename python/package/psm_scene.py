@@ -65,6 +65,15 @@ _SLIDER_DRIVE_DAMPING = 0.0
 _GROUND_HALF_EXTENT = 0.75
 _ENV_SPACING = 2.5
 _BASE_HEIGHT = 0.1524
+_PSM_ASSET_BASIS = np.array(
+    (
+        (1.0, 0.0, 0.0, 0.0),
+        (0.0, 1.0, 0.0, 0.0),
+        (0.0, 0.0, -1.0, 0.0),
+        (0.0, 0.0, 0.0, 1.0),
+    ),
+    dtype=np.float64,
+)
 _HIDDEN_LINKS: set[str] = set()
 _DEFAULT_INERTIA_DIAG = (1.0e-4, 1.0e-4, 1.0e-4)
 _FALLBACK_INERTIA_SCALE = 1.0
@@ -205,7 +214,21 @@ def _pose_matrix(xyz: Iterable[float], rpy: Iterable[float]) -> np.ndarray:
 
 
 def _urdf_to_engine_root_matrix() -> np.ndarray:
-    return _pose_matrix((0.0, _BASE_HEIGHT, 0.0), (-0.5 * math.pi, 0.0, 0.0))
+    return _pose_matrix((0.0, _BASE_HEIGHT, 0.0), (0.5 * math.pi, math.pi, 0.0))
+
+
+def _convert_psm_local_frame(transform: np.ndarray) -> np.ndarray:
+    # Keep the PSM asset conversion in one place and apply it to every local frame
+    # that was authored alongside the meshes.
+    return _PSM_ASSET_BASIS @ transform @ _PSM_ASSET_BASIS
+
+
+def _convert_psm_local_direction(direction: Iterable[float]) -> np.ndarray:
+    converted = _PSM_ASSET_BASIS[:3, :3] @ np.asarray(list(direction), dtype=np.float64)
+    length = float(np.linalg.norm(converted))
+    if length <= 1.0e-8:
+        return np.array([1.0, 0.0, 0.0], dtype=np.float64)
+    return converted / length
 
 
 def _matrix_to_quaternion(matrix: np.ndarray) -> neo.Quaternion:
@@ -369,6 +392,7 @@ def _load_trimesh(path: Path, transform: np.ndarray, scale: list[float] | None):
     for mesh in source_meshes:
         if scale is not None:
             mesh.apply_scale(scale)
+        mesh.apply_transform(_PSM_ASSET_BASIS)
         mesh.apply_transform(transform)
     return _combine_trimesh_objects(source_meshes)
 
@@ -522,7 +546,7 @@ def _parse_psm_urdf(urdf_path: Path) -> tuple[dict, dict, dict]:
             visuals.append(
                 {
                     "mesh_path": urdf_path.parent / mesh.attrib["filename"],
-                    "origin": _pose_matrix(xyz, rpy),
+                    "origin": _convert_psm_local_frame(_pose_matrix(xyz, rpy)),
                     "scale": scale,
                     "material_name": material_name,
                 }
@@ -557,8 +581,8 @@ def _parse_psm_urdf(urdf_path: Path) -> tuple[dict, dict, dict]:
             "type": joint.attrib["type"],
             "parent": parent.attrib["link"],
             "child": child.attrib["link"],
-            "origin": _pose_matrix(xyz, rpy),
-            "axis": np.asarray(axis_values, dtype=np.float64),
+            "origin": _convert_psm_local_frame(_pose_matrix(xyz, rpy)),
+            "axis": _convert_psm_local_direction(axis_values),
             "lower": lower,
             "upper": upper,
             "velocity": velocity,
@@ -1114,8 +1138,8 @@ class PsmScene:
 
         jaw_clamped = min(max(jaw_target, instance.jaw_limit[0]), instance.jaw_limit[1])
         gripper_targets = (
-            ("psm_tool_gripper1_joint", instance.jaw_joint_ids[0], -jaw_clamped),
-            ("psm_tool_gripper2_joint", instance.jaw_joint_ids[1], jaw_clamped),
+            ("psm_tool_gripper1_joint", instance.jaw_joint_ids[0], jaw_clamped),
+            ("psm_tool_gripper2_joint", instance.jaw_joint_ids[1], -jaw_clamped),
         )
         for joint_name, joint_id, target in gripper_targets:
             state = world.try_get_hinge_joint(joint_id)
