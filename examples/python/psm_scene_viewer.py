@@ -34,8 +34,8 @@ def main() -> int:
             0.0 * math.pi,
         ]
         amplitudes = [
-            0.0 * math.pi,
-            0.0 * math.pi,
+            0.10 * math.pi,
+            0.10 * math.pi,
             0.0,
             0.0 * math.pi,
             0.0 * math.pi,
@@ -44,7 +44,7 @@ def main() -> int:
         frequencies = [0.55, 0.75, 0.42, 0.95, 1.15, 1.35]
         phase_offsets = [0.0, 0.7, 1.1, 1.8, 2.4, 3.1]
         jaw_base = 0.35
-        jaw_amplitude = 0.25
+        jaw_amplitude = 0.0
         jaw_frequency = 0.6
         jaw_phase = 0.4
 

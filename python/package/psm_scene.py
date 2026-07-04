@@ -49,11 +49,14 @@ _DRIVE_MAX_ANGULAR_VELOCITY = 4.0
 _DRIVE_MAX_LINEAR_VELOCITY = 1.0
 _HINGE_DRIVE_COMPLIANCE = 1.0e-6
 _SLIDER_DRIVE_COMPLIANCE = 1.0e-6
+_HINGE_DRIVE_DAMPING = 2.5
+_SLIDER_DRIVE_DAMPING = 4.0
 _GROUND_HALF_EXTENT = 0.75
 _ENV_SPACING = 2.5
 _BASE_HEIGHT = 0.1524
 _HIDDEN_LINKS: set[str] = set()
 _DEFAULT_INERTIA_DIAG = (1.0e-4, 1.0e-4, 1.0e-4)
+_FALLBACK_INERTIA_SCALE = 32.0
 
 _InertiaDiag = tuple[float, float, float]
 _LinkDynamicsFallback = tuple[float, _InertiaDiag]
@@ -62,12 +65,23 @@ _LinkDynamicsFallback = tuple[float, _InertiaDiag]
 # very small masses that make joint correction look visibly compliant. When those inertias are
 # missing, prefer hand-tuned tool dynamics over the render-mesh box approximation.
 _LINK_DYNAMICS_FALLBACKS: dict[str, _LinkDynamicsFallback] = {
-    "psm_tool_roll_link": (0.03, (1.5e-6, 1.5e-6, 2.5e-7)),
-    "psm_tool_pitch_link": (0.025, (1.2e-6, 1.2e-6, 2.0e-7)),
-    "psm_tool_yaw_link": (0.02, (8.0e-7, 8.0e-7, 1.5e-7)),
-    "psm_tool_gripper1_link": (0.008, (2.0e-7, 1.0e-7, 2.0e-7)),
-    "psm_tool_gripper2_link": (0.008, (2.0e-7, 1.0e-7, 2.0e-7)),
+    "psm_yaw_link": (1.4705, (6.0e-2, 6.0e-2, 1.2e-2)),
+    "psm_pitch_end_link": (2.091, (5.0e-2, 5.0e-2, 1.6e-2)),
+    "psm_main_insertion_link": (0.22491, (1.2e-2, 1.2e-2, 3.0e-3)),
+    "psm_tool_roll_link": (0.12, (5.0e-4, 5.0e-4, 1.8e-4)),
+    "psm_tool_pitch_link": (0.10, (4.0e-4, 4.0e-4, 1.4e-4)),
+    "psm_tool_yaw_link": (0.08, (2.8e-4, 2.8e-4, 1.0e-4)),
+    "psm_tool_gripper1_link": (0.03, (1.0e-4, 6.0e-5, 1.0e-4)),
+    "psm_tool_gripper2_link": (0.03, (1.0e-4, 6.0e-5, 1.0e-4)),
 }
+
+
+def _scale_inertia_diag(inertia_diag: _InertiaDiag, scale: float) -> _InertiaDiag:
+    return (
+        float(inertia_diag[0] * scale),
+        float(inertia_diag[1] * scale),
+        float(inertia_diag[2] * scale),
+    )
 
 
 @dataclass
@@ -408,14 +422,15 @@ def _resolve_link_dynamics(
     has_valid_inertia = inertia_diag[0] > 0.0 and inertia_diag[1] > 0.0 and inertia_diag[2] > 0.0
 
     if fallback is not None and (mass <= 0.0 or not has_valid_inertia):
-        return fallback
+        fallback_mass, fallback_inertia = fallback
+        return fallback_mass, _scale_inertia_diag(fallback_inertia, _FALLBACK_INERTIA_SCALE)
 
     if not has_valid_inertia:
         fallback_diag = mesh_inertia_diagonals.get(link_name, _DEFAULT_INERTIA_DIAG)
         inertia_diag = (
-            max(mass * fallback_diag[0], 1.0e-6),
-            max(mass * fallback_diag[1], 1.0e-6),
-            max(mass * fallback_diag[2], 1.0e-6),
+            max(mass * fallback_diag[0] * _FALLBACK_INERTIA_SCALE, 1.0e-6),
+            max(mass * fallback_diag[1] * _FALLBACK_INERTIA_SCALE, 1.0e-6),
+            max(mass * fallback_diag[2] * _FALLBACK_INERTIA_SCALE, 1.0e-6),
         )
 
     return mass, inertia_diag
@@ -856,6 +871,7 @@ class PsmScene:
                 state.drive_mode = neo.RigidJointDriveMode.TargetPosition
                 state.drive_target_angle = 0.0
                 state.drive_compliance = _HINGE_DRIVE_COMPLIANCE
+                state.drive_damping = _HINGE_DRIVE_DAMPING
                 state.drive_max_angular_velocity = max(
                     float(joint["velocity"]), _DRIVE_MAX_ANGULAR_VELOCITY
                 )
@@ -880,6 +896,7 @@ class PsmScene:
                 state.drive_mode = neo.RigidJointDriveMode.TargetPosition
                 state.drive_target_position = 0.0
                 state.drive_compliance = _SLIDER_DRIVE_COMPLIANCE
+                state.drive_damping = _SLIDER_DRIVE_DAMPING
                 state.drive_max_velocity = max(float(joint["velocity"]), _DRIVE_MAX_LINEAR_VELOCITY)
                 if not world.upsert_slider_joint(state):
                     raise RuntimeError(f"Failed to author slider joint {joint_name}.")
