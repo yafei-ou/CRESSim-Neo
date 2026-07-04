@@ -1,6 +1,7 @@
 #include "physics/physics_scene_gpu_state.h"
 
 #include "common/logger.h"
+#include "common/math_utils_runtime.h"
 #include "gpu/gpu_buffer_utils.h"
 #include "physics/rigid_body_common.h"
 
@@ -19,6 +20,7 @@ namespace
 constexpr std::uint32_t kComputeThreadGroupSize  = 64u;
 constexpr std::uint32_t kNarrowPhaseChunkSize    = 128u;
 constexpr std::uint32_t kSoftBodyBoundsChunkSize = 64u;
+constexpr float kPi                              = 3.14159265358979323846f;
 
 std::uint32_t nextPowerOfTwo(std::uint32_t value) noexcept
 {
@@ -34,6 +36,45 @@ std::uint32_t nextPowerOfTwo(std::uint32_t value) noexcept
     value |= value >> 8u;
     value |= value >> 16u;
     return value + 1u;
+}
+
+Diligent::float3 choosePerpendicular(const Diligent::float3 &axis) noexcept
+{
+    const Diligent::float3 reference = std::abs(axis.y) < 0.99f
+                                           ? Diligent::float3{0.0f, 1.0f, 0.0f}
+                                           : Diligent::float3{1.0f, 0.0f, 0.0f};
+    return Diligent::normalize(Diligent::cross(reference, axis));
+}
+
+float wrapAngleDelta(float delta) noexcept
+{
+    const float twoPi = 2.0f * kPi;
+    delta             = std::fmod(delta + kPi, twoPi);
+    if (delta < 0.0f)
+    {
+        delta += twoPi;
+    }
+    return delta - kPi;
+}
+
+float computeHingeWrappedAngle(const Diligent::QuaternionF &qA, const Diligent::QuaternionF &qB,
+                               const Diligent::float3 &localAxisA0,
+                               const Diligent::float3 &localAxisA1,
+                               const Diligent::float3 &localAxisB1) noexcept
+{
+    const Diligent::float3 hingeAxis       = Diligent::normalize(qA.RotateVector(localAxisA0));
+    const Diligent::float3 referenceAWorld = Diligent::normalize(qA.RotateVector(localAxisA1));
+    const Diligent::float3 referenceBWorld = Diligent::normalize(qB.RotateVector(localAxisB1));
+    const Diligent::float3 projectedA      = common::runtime_math::safeNormalize(
+        referenceAWorld - hingeAxis * Diligent::dot(referenceAWorld, hingeAxis),
+        choosePerpendicular(hingeAxis));
+    Diligent::float3 fallbackB = Diligent::cross(hingeAxis, projectedA);
+    fallbackB = common::runtime_math::safeNormalize(fallbackB, choosePerpendicular(hingeAxis));
+    const Diligent::float3 projectedB = common::runtime_math::safeNormalize(
+        referenceBWorld - hingeAxis * Diligent::dot(referenceBWorld, hingeAxis), fallbackB);
+    const float sine   = Diligent::dot(hingeAxis, Diligent::cross(projectedA, projectedB));
+    const float cosine = Diligent::dot(projectedA, projectedB);
+    return std::atan2(sine, cosine);
 }
 
 bool ensureStructuredBuffer(Diligent::IRenderDevice *renderDevice, const char *name,
@@ -2827,7 +2868,8 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
     {
         return true;
     }
-    const RigidJointSceneHost &jointScene = world.rigidJointScene();
+    const RigidJointSceneHost &jointScene          = world.rigidJointScene();
+    const std::vector<RigidBodyState> &rigidBodies = world.rigidBodySnapshot();
 
     std::vector<GpuBallJoint> ballJoints(jointScene.ball.size());
     for (std::size_t i = 0; i < ballJoints.size(); ++i)
@@ -2899,6 +2941,28 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
             Diligent::float4{jointScene.hinge.driveDampings[i],
                              jointScene.hinge.driveMaxAngularVelocities[i], 0.0f, 0.0f};
 
+        if (dst.bodyA < rigidBodies.size() && dst.bodyB < rigidBodies.size())
+        {
+            const RigidBodyState &bodyA = rigidBodies[dst.bodyA];
+            const RigidBodyState &bodyB = rigidBodies[dst.bodyB];
+            const Diligent::QuaternionF qA =
+                common::runtime_math::normalizeQuaternion(bodyA.rotation);
+            const Diligent::QuaternionF qB =
+                common::runtime_math::normalizeQuaternion(bodyB.rotation);
+            const float wrappedAngle = computeHingeWrappedAngle(
+                qA, qB, Diligent::float3{dst.localAxisA0.x, dst.localAxisA0.y, dst.localAxisA0.z},
+                Diligent::float3{dst.localAxisA1.x, dst.localAxisA1.y, dst.localAxisA1.z},
+                Diligent::float3{dst.localAxisB1.x, dst.localAxisB1.y, dst.localAxisB1.z});
+            const Diligent::float3 hingeAxis = common::runtime_math::safeNormalize(
+                qA.RotateVector(
+                    Diligent::float3{dst.localAxisA0.x, dst.localAxisA0.y, dst.localAxisA0.z}),
+                Diligent::float3{1.0f, 0.0f, 0.0f});
+            const float angularVelocity =
+                Diligent::dot(bodyB.angularVelocity - bodyA.angularVelocity, hingeAxis);
+            hingeRuntimeStates[i].angleState =
+                Diligent::float4{wrappedAngle, wrappedAngle, angularVelocity, 1.0f};
+        }
+
         if (!needsModeIndexUpload || jointScene.hinge.enabledFlags[i] == 0u)
         {
             continue;
@@ -2948,6 +3012,34 @@ bool PhysicsSceneGpuState::uploadRigidJoints(Diligent::IDeviceContext *computeCo
         dst.driveServoParams =
             Diligent::float4{jointScene.slider.driveDampings[i],
                              jointScene.slider.driveMaxVelocities[i], 0.0f, 0.0f};
+
+        if (dst.bodyA < rigidBodies.size() && dst.bodyB < rigidBodies.size())
+        {
+            const RigidBodyState &bodyA = rigidBodies[dst.bodyA];
+            const RigidBodyState &bodyB = rigidBodies[dst.bodyB];
+            const Diligent::QuaternionF qA =
+                common::runtime_math::normalizeQuaternion(bodyA.rotation);
+            const Diligent::QuaternionF qB =
+                common::runtime_math::normalizeQuaternion(bodyB.rotation);
+            const Diligent::float3 axis0 = common::runtime_math::safeNormalize(
+                qA.RotateVector(
+                    Diligent::float3{dst.localAxisA0.x, dst.localAxisA0.y, dst.localAxisA0.z}),
+                Diligent::float3{1.0f, 0.0f, 0.0f});
+            const Diligent::float3 rA = qA.RotateVector(
+                Diligent::float3{dst.localAnchorA.x, dst.localAnchorA.y, dst.localAnchorA.z});
+            const Diligent::float3 rB = qB.RotateVector(
+                Diligent::float3{dst.localAnchorB.x, dst.localAnchorB.y, dst.localAnchorB.z});
+            const float currentPosition =
+                dst.driveTargetParams.y -
+                Diligent::dot((bodyA.position + rA) - (bodyB.position + rB), axis0);
+            const Diligent::float3 anchorVelocityA =
+                bodyA.linearVelocity + Diligent::cross(bodyA.angularVelocity, rA);
+            const Diligent::float3 anchorVelocityB =
+                bodyB.linearVelocity + Diligent::cross(bodyB.angularVelocity, rB);
+            const float currentVelocity = Diligent::dot(anchorVelocityB - anchorVelocityA, axis0);
+            sliderRuntimeStates[i].state =
+                Diligent::float4{currentPosition, currentVelocity, 0.0f, 0.0f};
+        }
 
         if (!needsModeIndexUpload || jointScene.slider.enabledFlags[i] == 0u)
         {
