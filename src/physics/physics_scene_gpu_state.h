@@ -69,10 +69,9 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> hingeJointRuntimeStatesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderJointsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> hingePassiveJointIndicesBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> hingePositionDriveJointIndicesBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> hingeVelocityDriveJointIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> hingeDrivenJointIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderPassiveJointIndicesBuffer;
-        Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderVelocityDriveJointIndicesBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderDrivenJointIndicesBuffer;
     };
 
     struct PersistentRoutedCableBuffers
@@ -441,10 +440,9 @@ public:
     std::uint32_t hingeJointCount() const noexcept;
     std::uint32_t sliderJointCount() const noexcept;
     std::uint32_t hingePassiveJointCount() const noexcept;
-    std::uint32_t hingePositionDriveJointCount() const noexcept;
-    std::uint32_t hingeVelocityDriveJointCount() const noexcept;
+    std::uint32_t hingeDrivenJointCount() const noexcept;
     std::uint32_t sliderPassiveJointCount() const noexcept;
-    std::uint32_t sliderVelocityDriveJointCount() const noexcept;
+    std::uint32_t sliderDrivenJointCount() const noexcept;
     std::uint32_t candidatePairCapacity() const noexcept;
     std::uint32_t rigidContactCapacity() const noexcept;
     std::uint32_t particleCandidatePairCapacity() const noexcept;
@@ -607,10 +605,9 @@ private:
     std::uint32_t mHingeJointCapacity                                  = 0;
     std::uint32_t mSliderJointCapacity                                 = 0;
     std::uint32_t mHingePassiveJointIndexCapacity                      = 0;
-    std::uint32_t mHingePositionDriveIndexCapacity                     = 0;
-    std::uint32_t mHingeVelocityDriveIndexCapacity                     = 0;
+    std::uint32_t mHingeDrivenJointIndexCapacity                       = 0;
     std::uint32_t mSliderPassiveJointIndexCapacity                     = 0;
-    std::uint32_t mSliderVelocityDriveIndexCapacity                    = 0;
+    std::uint32_t mSliderDrivenJointIndexCapacity                      = 0;
     bool mCorrectionBuffersNeedClear                                   = false;
     bool mStaticBroadPhaseDirty                                        = true;
     bool mRigidBodyUploadResetRequired                                 = true;
@@ -640,10 +637,9 @@ private:
     std::uint32_t mHingeJointCount                                     = 0;
     std::uint32_t mSliderJointCount                                    = 0;
     std::uint32_t mHingePassiveJointCount                              = 0;
-    std::uint32_t mHingePositionDriveJointCount                        = 0;
-    std::uint32_t mHingeVelocityDriveJointCount                        = 0;
+    std::uint32_t mHingeDrivenJointCount                               = 0;
     std::uint32_t mSliderPassiveJointCount                             = 0;
-    std::uint32_t mSliderVelocityDriveJointCount                       = 0;
+    std::uint32_t mSliderDrivenJointCount                              = 0;
 };
 
 } // namespace cressim::neo::physics

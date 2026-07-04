@@ -2914,16 +2914,6 @@ const gpu::GpuComputePassDefinition kSolveHingeJointConstraintsPassive{
     std::size(kJointDriveModePassiveMacros),
 };
 
-const gpu::GpuComputePassDefinition kSolveHingeJointConstraintsTargetPosition{
-    "physics/rigid/solver/physics_rigid_solve_hinge_joints.cs.hlsl",
-    "CRESSimNeo.Physics.RigidSolveHingeJointConstraintsTargetPosition.CS",
-    "CRESSimNeo.Physics.RigidSolveHingeJointConstraintsTargetPosition.PSO",
-    kSolveHingeJointConstraintsVars,
-    std::size(kSolveHingeJointConstraintsVars),
-    kJointDriveModeTargetPositionMacros,
-    std::size(kJointDriveModeTargetPositionMacros),
-};
-
 const gpu::GpuComputePassDefinition kSolveSliderJointConstraintsPassive{
     "physics/rigid/solver/physics_rigid_solve_slider_joints.cs.hlsl",
     "CRESSimNeo.Physics.RigidSolveSliderJointConstraintsPassive.CS",
