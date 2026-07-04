@@ -215,8 +215,8 @@ using cressim::neo::physics::StrandMaterialDesc;
 #ifdef CRESSIM_NEO_PYTHON_HAS_VIEWER
 using cressim::neo::viewer::DebugViewerApp;
 using cressim::neo::viewer::DebugViewerAppDesc;
-using cressim::neo::viewer::DebugViewerCameraBinding;
 using cressim::neo::viewer::DebugViewerCallbacks;
+using cressim::neo::viewer::DebugViewerCameraBinding;
 #endif
 
 py::object tryGetRenderTargetReadback(Runtime &runtime,
@@ -1037,9 +1037,8 @@ PYBIND11_MODULE(_cressim_neo, m)
 
     py::class_<DebugViewerApp>(m, "DebugViewerApp")
         .def(py::init<>())
-        .def("initialize",
-             [](DebugViewerApp &viewer, const DebugViewerAppDesc &desc, RuntimeConfig &config)
-             { return viewer.initialize(desc, config); })
+        .def("initialize", [](DebugViewerApp &viewer, const DebugViewerAppDesc &desc,
+                              RuntimeConfig &config) { return viewer.initialize(desc, config); })
         .def("run",
              [](DebugViewerApp &viewer, Runtime &runtime, const DebugViewerCameraBinding &binding)
              { return viewer.run(runtime, binding); })

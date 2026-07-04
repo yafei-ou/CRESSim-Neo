@@ -26,16 +26,16 @@ def main() -> int:
 
     try:
         base_targets = [
-            0.08 * math.pi,
-            -0.12 * math.pi,
-            0.16,
+            0.05 * math.pi,
+            -0.05 * math.pi,
+            0.10,
             0.18 * math.pi,
             -0.10 * math.pi,
             0.12 * math.pi,
         ]
         amplitudes = [
-            0.10 * math.pi,
-            0.08 * math.pi,
+            0.0 * math.pi,
+            0.0 * math.pi,
             0.06,
             0.16 * math.pi,
             0.10 * math.pi,

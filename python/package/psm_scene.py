@@ -508,6 +508,8 @@ class PsmScene:
         config.scene_layout.max_lights_per_env = 3
         config.scene_layout.max_cameras_per_env = 1
         config.physics_desc.enable_blocking_readback = False
+        config.physics_desc.substeps = 4
+        config.physics_desc.default_iterations = 50
 
         viewer = None
         if viewer_desc is not None:
