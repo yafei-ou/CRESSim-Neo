@@ -28,6 +28,9 @@ public:
     bool updateHingeJointRuntimeState(Diligent::IDeviceContext *computeContext,
                                       const PhysicsSceneGpuState &sceneState,
                                       std::uint32_t jointCount);
+    bool updateSliderJointRuntimeState(Diligent::IDeviceContext *computeContext,
+                                       const PhysicsSceneGpuState &sceneState,
+                                       std::uint32_t jointCount);
     bool clearHingeJointConstraintState(Diligent::IDeviceContext *computeContext,
                                         const PhysicsSceneGpuState &sceneState,
                                         std::uint32_t jointCount);
@@ -571,6 +574,7 @@ private:
     gpu::GpuComputePass mSolveHingeJointTargetVelocitiesPass;
     gpu::GpuComputePass mSolveSliderJointTargetVelocitiesPass;
     gpu::GpuComputePass mUpdateHingeJointRuntimeStatePass;
+    gpu::GpuComputePass mUpdateSliderJointRuntimeStatePass;
     gpu::GpuComputePass mClearHingeJointConstraintStatePass;
     gpu::GpuComputePass mClearSphericalJointConstraintStatePass;
     gpu::GpuComputePass mClearSliderJointConstraintStatePass;

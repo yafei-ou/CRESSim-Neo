@@ -68,6 +68,7 @@ public:
         Diligent::RefCntAutoPtr<Diligent::IBuffer> hingeJointsBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> hingeJointRuntimeStatesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderJointsBuffer;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderJointRuntimeStatesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> hingePassiveJointIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> hingeDrivenJointIndicesBuffer;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> sliderPassiveJointIndicesBuffer;
@@ -623,7 +624,7 @@ private:
     std::uint64_t mSoftBindingGeneration                               = 1u;
     std::uint64_t mLastUploadedRigidJointSceneRevision                 = 0;
     std::uint64_t mLastUploadedRigidJointModeRevision                  = 0;
-    std::uint64_t mLastUploadedHingeRuntimeTopologyRevision            = 0;
+    std::uint64_t mLastUploadedJointRuntimeTopologyRevision            = 0;
     std::uint64_t mLastUploadedSoftParticleRevision                    = 0;
     std::uint64_t mLastUploadedSoftTopologyRevision                    = 0;
     std::uint64_t mLastUploadedSoftConstraintAdjacencyRevision         = 0;

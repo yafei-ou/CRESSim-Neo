@@ -186,6 +186,11 @@ struct GpuHingeJointRuntimeState
     Diligent::float4 angleState{0.0f, 0.0f, 0.0f, 0.0f};
 };
 
+struct GpuSliderJointRuntimeState
+{
+    Diligent::float4 state{0.0f, 0.0f, 0.0f, 0.0f};
+};
+
 struct GpuSliderJoint
 {
     std::uint32_t bodyA     = 0u;

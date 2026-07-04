@@ -1966,6 +1966,25 @@ constexpr Diligent::ShaderResourceVariableDesc kUpdateHingeJointRuntimeStateVars
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
+constexpr Diligent::ShaderResourceVariableDesc kUpdateSliderJointRuntimeStateVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidJointDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyPositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyOrientations",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyLinearVelocities",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_PredictedRigidBodyAngularVelocities",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SliderJoints",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SliderJointRuntimeStates",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
 constexpr Diligent::ShaderResourceVariableDesc kSolveSliderJointTargetVelocitiesVars[] = {
     {Diligent::SHADER_TYPE_COMPUTE, "PhysicsRigidDispatchConstantsBuffer",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
@@ -2535,6 +2554,14 @@ const gpu::GpuComputePassDefinition kUpdateHingeJointRuntimeState{
     "CRESSimNeo.Physics.UpdateHingeJointRuntimeState.PSO",
     kUpdateHingeJointRuntimeStateVars,
     std::size(kUpdateHingeJointRuntimeStateVars),
+};
+
+const gpu::GpuComputePassDefinition kUpdateSliderJointRuntimeState{
+    "physics/rigid/solver/physics_rigid_update_slider_joint_runtime_state.cs.hlsl",
+    "CRESSimNeo.Physics.UpdateSliderJointRuntimeState.CS",
+    "CRESSimNeo.Physics.UpdateSliderJointRuntimeState.PSO",
+    kUpdateSliderJointRuntimeStateVars,
+    std::size(kUpdateSliderJointRuntimeStateVars),
 };
 
 const gpu::GpuComputePassDefinition kBuildFluidNeighborPairs{

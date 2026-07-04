@@ -51,15 +51,17 @@ struct PhysicsGpuRigidSceneView
 
 struct PhysicsGpuJointSceneView
 {
-    Diligent::IBuffer *ballJointsBuffer      = nullptr;
-    Diligent::IBuffer *sphericalJointsBuffer = nullptr;
-    Diligent::IBuffer *hingeJointsBuffer     = nullptr;
-    Diligent::IBuffer *sliderJointsBuffer    = nullptr;
-    std::uint32_t ballJointCount             = 0u;
-    std::uint32_t hingeJointCount            = 0u;
-    std::uint32_t sphericalJointCount        = 0u;
-    std::uint32_t sliderJointCount           = 0u;
-    std::uint64_t bindingGeneration          = 0u;
+    Diligent::IBuffer *ballJointsBuffer               = nullptr;
+    Diligent::IBuffer *sphericalJointsBuffer          = nullptr;
+    Diligent::IBuffer *hingeJointsBuffer              = nullptr;
+    Diligent::IBuffer *hingeJointRuntimeStatesBuffer  = nullptr;
+    Diligent::IBuffer *sliderJointsBuffer             = nullptr;
+    Diligent::IBuffer *sliderJointRuntimeStatesBuffer = nullptr;
+    std::uint32_t ballJointCount                      = 0u;
+    std::uint32_t hingeJointCount                     = 0u;
+    std::uint32_t sphericalJointCount                 = 0u;
+    std::uint32_t sliderJointCount                    = 0u;
+    std::uint64_t bindingGeneration                   = 0u;
 };
 
 struct PhysicsGpuParticleBufferView

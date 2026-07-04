@@ -738,6 +738,14 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: UpdateHingeJointRuntimeState dispatch.");
             return false;
         }
+        if (sliderJointCount > 0u &&
+            !mImpl->passDispatcher.updateSliderJointRuntimeState(
+                computeBackend.computeContext, mImpl->sceneState, sliderJointCount))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: UpdateSliderJointRuntimeState dispatch.");
+            return false;
+        }
         if (hingeJointCount > 0u &&
             !mImpl->passDispatcher.clearHingeJointConstraintState(
                 computeBackend.computeContext, mImpl->sceneState, hingeJointCount))
@@ -1265,6 +1273,23 @@ bool PhysicsSolver::step(const common::FrameContext &frameContext, PhysicsWorld 
                 rigidContactIterations, rigidJointIterations, constants))
         {
             CRESSIM_LOG_ERROR("PhysicsSolver::step failed: SolveRigidContactVelocities dispatch.");
+            return false;
+        }
+
+        if (hingeJointCount > 0u &&
+            !mImpl->passDispatcher.updateHingeJointRuntimeState(computeBackend.computeContext,
+                                                                mImpl->sceneState, hingeJointCount))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: final UpdateHingeJointRuntimeState dispatch.");
+            return false;
+        }
+        if (sliderJointCount > 0u &&
+            !mImpl->passDispatcher.updateSliderJointRuntimeState(
+                computeBackend.computeContext, mImpl->sceneState, sliderJointCount))
+        {
+            CRESSIM_LOG_ERROR(
+                "PhysicsSolver::step failed: final UpdateSliderJointRuntimeState dispatch.");
             return false;
         }
 

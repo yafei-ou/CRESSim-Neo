@@ -296,6 +296,7 @@ bool PhysicsPassDispatcher::initialize(gpu::GpuDevice &device, std::uint32_t phy
         !initPass(mSolveRigidDistanceConstraintsPass, kSolveRigidDistanceConstraints) ||
         !initPass(mSolveRoutedCableConstraintsPass, kSolveRoutedCableConstraints) ||
         !initPass(mUpdateHingeJointRuntimeStatePass, kUpdateHingeJointRuntimeState) ||
+        !initPass(mUpdateSliderJointRuntimeStatePass, kUpdateSliderJointRuntimeState) ||
         !initPass(mClearHingeJointConstraintStatePass, kClearHingeJointConstraintState) ||
         !initPass(mClearSphericalJointConstraintStatePass, kClearSphericalJointConstraintState) ||
         !initPass(mClearSliderJointConstraintStatePass, kClearSliderJointConstraintState) ||
@@ -670,6 +671,48 @@ bool PhysicsPassDispatcher::updateHingeJointRuntimeState(Diligent::IDeviceContex
     return writeRigidJointDispatchConstants(computeContext, jointConstants) &&
            mUpdateHingeJointRuntimeStatePass.dispatch(computeContext, kDefaultVariant, bindings,
                                                       dispatchGroupCount(jointCount));
+}
+
+bool PhysicsPassDispatcher::updateSliderJointRuntimeState(Diligent::IDeviceContext *computeContext,
+                                                          const PhysicsSceneGpuState &sceneState,
+                                                          std::uint32_t jointCount)
+{
+    if (jointCount == 0u)
+    {
+        return true;
+    }
+
+    const auto &persistentJoints = sceneState.persistentJoints();
+    const auto &transient        = sceneState.transientBuffers();
+    const std::array bindings{
+        gpu::GpuBufferBinding{"PhysicsRigidDispatchConstantsBuffer", mRigidDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"PhysicsRigidJointDispatchConstantsBuffer",
+                              mRigidJointDispatchConstantsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyPositionsInvMass",
+                              transient.predictedRigidBodies.positionsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyOrientations",
+                              transient.predictedRigidBodies.orientationsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyLinearVelocities",
+                              transient.predictedRigidBodies.linearVelocitiesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_PredictedRigidBodyAngularVelocities",
+                              transient.predictedRigidBodies.angularVelocitiesBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SliderJoints", persistentJoints.sliderJointsBuffer,
+                              Diligent::BUFFER_VIEW_SHADER_RESOURCE},
+        gpu::GpuBufferBinding{"g_SliderJointRuntimeStates",
+                              persistentJoints.sliderJointRuntimeStatesBuffer,
+                              Diligent::BUFFER_VIEW_UNORDERED_ACCESS},
+    };
+
+    const GpuRigidJointDispatchConstants jointConstants{jointCount, 0u, 0u, 0u};
+    return writeRigidJointDispatchConstants(computeContext, jointConstants) &&
+           mUpdateSliderJointRuntimeStatePass.dispatch(computeContext, kDefaultVariant, bindings,
+                                                       dispatchGroupCount(jointCount));
 }
 
 bool PhysicsPassDispatcher::clearSphericalJointConstraintState(
@@ -5647,6 +5690,7 @@ bool PhysicsPassDispatcher::recreateSceneBindingVariants()
            mSolveHingeJointTargetVelocitiesPass.forceRecreateAllVariants() &&
            mSolveSliderJointTargetVelocitiesPass.forceRecreateAllVariants() &&
            mUpdateHingeJointRuntimeStatePass.forceRecreateAllVariants() &&
+           mUpdateSliderJointRuntimeStatePass.forceRecreateAllVariants() &&
            mApplyRigidCorrectionsPass.forceRecreateAllVariants() &&
            mUpdateRigidVelocitiesPass.forceRecreateAllVariants() &&
            mApplyRigidContactVelocitiesPass.forceRecreateAllVariants();

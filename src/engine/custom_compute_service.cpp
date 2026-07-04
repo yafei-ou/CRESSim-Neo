@@ -753,8 +753,14 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
     addBuffer("joint.hinge", sceneView.joints.hingeJointsBuffer,
               CustomComputeResourceAccess::ReadWrite, sceneView.joints.hingeJointCount,
               sceneView.joints.bindingGeneration);
+    addBuffer("joint.hinge_runtime", sceneView.joints.hingeJointRuntimeStatesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.joints.hingeJointCount,
+              sceneView.joints.bindingGeneration);
     addBuffer("joint.slider", sceneView.joints.sliderJointsBuffer,
               CustomComputeResourceAccess::ReadWrite, sceneView.joints.sliderJointCount,
+              sceneView.joints.bindingGeneration);
+    addBuffer("joint.slider_runtime", sceneView.joints.sliderJointRuntimeStatesBuffer,
+              CustomComputeResourceAccess::ReadOnly, sceneView.joints.sliderJointCount,
               sceneView.joints.bindingGeneration);
     addBuffer("entity.positions", scene.poses.positionsBuffer,
               CustomComputeResourceAccess::ReadWrite, scene.poses.count, scene.bindingGeneration);

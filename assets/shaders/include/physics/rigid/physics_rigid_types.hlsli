@@ -173,6 +173,11 @@ struct GpuHingeJointRuntimeState
     float4 angleState;
 };
 
+struct GpuSliderJointRuntimeState
+{
+    float4 state;
+};
+
 struct GpuSliderJoint
 {
     uint bodyA;
