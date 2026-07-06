@@ -28,6 +28,11 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     const GpuRigidDistanceConstraint constraint =
         CRESSIM_SB_LOAD(g_RigidDistanceConstraints, constraintIndex);
+    if (constraint.enabled == 0u)
+    {
+        CRESSIM_SB_STORE(g_RigidDistanceConstraintLambdas, constraintIndex, 0.0);
+        return;
+    }
     const uint bodyA = constraint.rigidBodyIndexA;
     const uint bodyB = constraint.rigidBodyIndexB;
     if (bodyA >= rigidBodyCount || bodyB >= rigidBodyCount || bodyA == bodyB)

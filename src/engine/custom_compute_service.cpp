@@ -727,15 +727,18 @@ bool CustomComputeService::buildResourceRegistry(physics::PhysicsSolver &solver,
               CustomComputeResourceAccess::ReadOnly, sceneView.rigid.colliderCount,
               sceneView.rigid.bindingGeneration);
     addBuffer("constraint.rigid_particle_attachments",
-              sceneView.rigid.rigidParticleAttachmentsBuffer, CustomComputeResourceAccess::ReadOnly,
-              sceneView.rigid.rigidParticleAttachmentCount,
+              sceneView.rigid.rigidParticleAttachmentsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.rigid.rigidParticleAttachmentCount,
+              sceneView.rigid.constraintBindingGeneration);
+    addBuffer("constraint.strand_rigid_attachments", sceneView.rigid.strandRigidAttachmentsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.rigid.strandRigidAttachmentCount,
               sceneView.rigid.constraintBindingGeneration);
     addBuffer("constraint.rigid_distance_constraints",
-              sceneView.rigid.rigidDistanceConstraintsBuffer, CustomComputeResourceAccess::ReadOnly,
-              sceneView.rigid.rigidDistanceConstraintCount,
+              sceneView.rigid.rigidDistanceConstraintsBuffer,
+              CustomComputeResourceAccess::ReadWrite, sceneView.rigid.rigidDistanceConstraintCount,
               sceneView.rigid.constraintBindingGeneration);
     addBuffer("constraint.routed_cable_descriptors", sceneView.rigid.routedCableDescriptorsBuffer,
-              CustomComputeResourceAccess::ReadOnly, sceneView.rigid.routedCableCount,
+              CustomComputeResourceAccess::ReadWrite, sceneView.rigid.routedCableCount,
               sceneView.rigid.constraintBindingGeneration);
     addBuffer("constraint.routed_cable_route_points", sceneView.rigid.routedCableRoutePointsBuffer,
               CustomComputeResourceAccess::ReadOnly, sceneView.rigid.routedCableRoutePointCount,

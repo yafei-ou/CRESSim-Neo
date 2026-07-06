@@ -204,7 +204,7 @@ struct GpuRoutedCableConstraint
     float targetLength;
     float compliance;
     uint tensionOnly;
-    uint reserved0;
+    uint enabled;
     uint reserved1;
     uint reserved2;
 };
@@ -232,6 +232,8 @@ struct GpuRigidDistanceConstraint
     uint rigidBodyIndexB;
     float restDistance;
     float compliance;
+    uint enabled;
+    uint reserved0;
     float4 localAnchorA;
     float4 localAnchorB;
 };
@@ -241,7 +243,7 @@ struct GpuRigidParticleAttachmentConstraint
     uint particleIndex;
     uint rigidBodyIndex;
     float compliance;
-    uint reserved0;
+    uint enabled;
     float4 localAnchor;
 };
 
@@ -252,7 +254,7 @@ struct GpuStrandRigidAttachmentConstraint
     float segmentT;
     float translationCompliance;
     float rotationCompliance;
-    uint reserved0;
+    uint enabled;
     uint reserved1;
     uint reserved2;
     float4 localAnchor;

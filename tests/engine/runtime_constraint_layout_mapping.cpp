@@ -123,6 +123,16 @@ bool hasResource(const std::vector<cressim::neo::engine::CustomComputeResourceDe
                        { return resource.key == key; });
 }
 
+const cressim::neo::engine::CustomComputeResourceDesc *findResource(
+    const std::vector<cressim::neo::engine::CustomComputeResourceDesc> &resources, const char *key)
+{
+    const auto it = std::find_if(
+        resources.begin(), resources.end(),
+        [key](const cressim::neo::engine::CustomComputeResourceDesc &resource)
+        { return resource.key == key; });
+    return it == resources.end() ? nullptr : &*it;
+}
+
 bool verifyConstraintMapping(const cressim::neo::engine::RigidLayoutMapping &rigidMapping,
                              const cressim::neo::engine::ConstraintLayoutMapping &mapping,
                              const std::vector<AuthoredConstraintEnv> &authored)
@@ -278,13 +288,66 @@ int main()
     }
     const std::vector<engine::CustomComputeResourceDesc> resources =
         runtime.listCustomComputeResources();
-    if (!hasResource(resources, "constraint.rigid_particle_attachments") ||
-        !hasResource(resources, "constraint.rigid_distance_constraints") ||
-        !hasResource(resources, "constraint.routed_cable_descriptors") ||
-        !hasResource(resources, "constraint.routed_cable_route_points") ||
-        !hasResource(resources, "constraint.routed_cable_debug_segments"))
+    const engine::CustomComputeResourceDesc *attachmentResource =
+        findResource(resources, "constraint.rigid_particle_attachments");
+    const engine::CustomComputeResourceDesc *strandAttachmentResource =
+        findResource(resources, "constraint.strand_rigid_attachments");
+    const engine::CustomComputeResourceDesc *distanceResource =
+        findResource(resources, "constraint.rigid_distance_constraints");
+    const engine::CustomComputeResourceDesc *cableDescriptorResource =
+        findResource(resources, "constraint.routed_cable_descriptors");
+    const engine::CustomComputeResourceDesc *cableRoutePointResource =
+        findResource(resources, "constraint.routed_cable_route_points");
+    const engine::CustomComputeResourceDesc *cableDebugSegmentResource =
+        findResource(resources, "constraint.routed_cable_debug_segments");
+    if (attachmentResource == nullptr || strandAttachmentResource == nullptr ||
+        distanceResource == nullptr || cableDescriptorResource == nullptr ||
+        cableRoutePointResource == nullptr || cableDebugSegmentResource == nullptr)
     {
         CRESSIM_LOG_ERROR("Expected constraint custom compute resources are missing.");
+        runtime.shutdown();
+        return 1;
+    }
+    if (attachmentResource->access != engine::CustomComputeResourceAccess::ReadWrite ||
+        strandAttachmentResource->access != engine::CustomComputeResourceAccess::ReadWrite ||
+        distanceResource->access != engine::CustomComputeResourceAccess::ReadWrite ||
+        cableDescriptorResource->access != engine::CustomComputeResourceAccess::ReadWrite ||
+        cableRoutePointResource->access != engine::CustomComputeResourceAccess::ReadOnly ||
+        cableDebugSegmentResource->access != engine::CustomComputeResourceAccess::ReadOnly)
+    {
+        CRESSIM_LOG_ERROR("Constraint custom compute resource access policy is incorrect.");
+        runtime.shutdown();
+        return 1;
+    }
+    const std::uint64_t previousBindingGeneration = attachmentResource->bindingGeneration;
+
+    physics::AuthoredRigidParticleAttachmentConstraintState disabledAttachment =
+        *world.tryGetRigidParticleAttachmentConstraint(authored[0].attachment);
+    disabledAttachment.enabled = false;
+    if (!world.upsertRigidParticleAttachmentConstraint(disabledAttachment))
+    {
+        CRESSIM_LOG_ERROR("Failed to disable authored rigid-particle attachment.");
+        runtime.shutdown();
+        return 1;
+    }
+    runtime.prepare();
+    engine::ConstraintLayoutMapping disabledMapping{};
+    if (!runtime.tryGetPreparedConstraintLayoutMapping(disabledMapping))
+    {
+        CRESSIM_LOG_ERROR("Prepared mapping query failed after disabling attachment.");
+        runtime.shutdown();
+        return 1;
+    }
+    if (disabledMapping.rigidParticleAttachments.count != mapping.rigidParticleAttachments.count ||
+        disabledMapping.rigidParticleAttachments.enabledFlags[0] != 0u)
+    {
+        CRESSIM_LOG_ERROR("Disabled authored constraint should remain structurally present.");
+        runtime.shutdown();
+        return 1;
+    }
+    if (!runtime.uploadWorld())
+    {
+        CRESSIM_LOG_ERROR("Failed to upload world after disabling authored attachment.");
         runtime.shutdown();
         return 1;
     }
@@ -314,6 +377,23 @@ int main()
         updatedMapping.layoutRevision == previousGeneration)
     {
         CRESSIM_LOG_ERROR("Prepared constraint layout mapping did not update after structural authoring.");
+        runtime.shutdown();
+        return 1;
+    }
+    if (!runtime.uploadWorld())
+    {
+        CRESSIM_LOG_ERROR("Failed to upload world after structural constraint update.");
+        runtime.shutdown();
+        return 1;
+    }
+    const std::vector<engine::CustomComputeResourceDesc> updatedResources =
+        runtime.listCustomComputeResources();
+    const engine::CustomComputeResourceDesc *updatedAttachmentResource =
+        findResource(updatedResources, "constraint.rigid_particle_attachments");
+    if (updatedAttachmentResource == nullptr ||
+        updatedAttachmentResource->bindingGeneration == previousBindingGeneration)
+    {
+        CRESSIM_LOG_ERROR("Constraint binding generation did not update after re-upload.");
         runtime.shutdown();
         return 1;
     }
