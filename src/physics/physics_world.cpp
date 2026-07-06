@@ -3185,11 +3185,39 @@ const CuttingToolGPU &PhysicsWorld::cuttingTool() const noexcept
 
 void PhysicsWorld::setCuttingTool(const CuttingToolGPU &tool) noexcept
 {
-    mImpl->mCuttingTool              = tool;
-    mImpl->mCuttingTool.radius       = std::max(mImpl->mCuttingTool.radius, 0.0f);
-    mImpl->mCuttingTool.strength     = std::max(mImpl->mCuttingTool.strength, 0.0f);
-    mImpl->mCuttingTool.cutThreshold = std::max(mImpl->mCuttingTool.cutThreshold, 0.0f);
-    mImpl->mCuttingTool.enabled      = mImpl->mCuttingTool.enabled != 0u ? 1u : 0u;
+    mImpl->mCuttingTool = tool;
+    mImpl->mCuttingTool.shape =
+        mImpl->mCuttingTool.shape == static_cast<std::uint32_t>(CuttingToolShape::Blade)
+            ? static_cast<std::uint32_t>(CuttingToolShape::Blade)
+            : static_cast<std::uint32_t>(CuttingToolShape::Capsule);
+    mImpl->mCuttingTool.enabled            = mImpl->mCuttingTool.enabled != 0u ? 1u : 0u;
+    mImpl->mCuttingTool.instantCut         = mImpl->mCuttingTool.instantCut != 0u ? 1u : 0u;
+    mImpl->mCuttingTool.strength           = std::max(mImpl->mCuttingTool.strength, 0.0f);
+    mImpl->mCuttingTool.radius             = std::max(mImpl->mCuttingTool.radius, 0.0f);
+    mImpl->mCuttingTool.cutResistanceScale = std::max(mImpl->mCuttingTool.cutResistanceScale, 1.0e-6f);
+    mImpl->mCuttingTool.bladeHalfLength    = std::max(mImpl->mCuttingTool.bladeHalfLength, 0.0f);
+    mImpl->mCuttingTool.bladeHalfDepth     = std::max(mImpl->mCuttingTool.bladeHalfDepth, 0.0f);
+    mImpl->mCuttingTool.bladeHalfThickness = std::max(mImpl->mCuttingTool.bladeHalfThickness, 0.0f);
+
+    mImpl->mCuttingTool.bladeAxisU =
+        common::runtime_math::safeNormalize(mImpl->mCuttingTool.bladeAxisU, {1.0f, 0.0f, 0.0f});
+    Diligent::float3 referenceV{0.0f, 1.0f, 0.0f};
+    if (std::abs(Diligent::dot(referenceV, mImpl->mCuttingTool.bladeAxisU)) > 0.98f)
+    {
+        referenceV = {0.0f, 0.0f, 1.0f};
+    }
+    Diligent::float3 axisV =
+        mImpl->mCuttingTool.bladeAxisV -
+        mImpl->mCuttingTool.bladeAxisU * Diligent::dot(mImpl->mCuttingTool.bladeAxisV, mImpl->mCuttingTool.bladeAxisU);
+    if (Diligent::dot(axisV, axisV) <= common::runtime_math::kEpsilon)
+    {
+        axisV = referenceV -
+                mImpl->mCuttingTool.bladeAxisU * Diligent::dot(referenceV, mImpl->mCuttingTool.bladeAxisU);
+    }
+    mImpl->mCuttingTool.bladeAxisV = common::runtime_math::safeNormalize(axisV, referenceV);
+    Diligent::float3 normal = Diligent::cross(mImpl->mCuttingTool.bladeAxisU, mImpl->mCuttingTool.bladeAxisV);
+    mImpl->mCuttingTool.bladeNormal =
+        common::runtime_math::safeNormalize(normal, {0.0f, 0.0f, 1.0f});
 }
 
 const std::vector<SoftBend> &PhysicsWorld::softBends() const noexcept

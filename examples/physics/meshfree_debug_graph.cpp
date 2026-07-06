@@ -42,6 +42,7 @@ using cressim::neo::graphics::MeshHandle;
 using cressim::neo::graphics::MeshResourceDesc;
 using cressim::neo::physics::ColliderShapeType;
 using cressim::neo::physics::CuttingToolGPU;
+using cressim::neo::physics::CuttingToolShape;
 using cressim::neo::physics::RigidBodyType;
 using cressim::neo::physics::SoftEdgeToolCounters;
 using cressim::neo::physics::SurfaceMeshData;
@@ -65,6 +66,7 @@ struct MeshfreeDebugOptions
     bool showCutEdges = false;
     bool showStrain = false;
     bool showDamage = false;
+    CuttingToolShape toolShape = CuttingToolShape::Blade;
     std::filesystem::path cloudPath =
         cressim::neo::examples::helpers::assetPath("physics/fixtures/cube_particles.bin");
     std::filesystem::path surfacePath =
@@ -84,6 +86,10 @@ struct MeshfreeDebugOptions
     float fractureThreshold = 0.35f;
     float toolRadius = 0.003f;
     float toolStrength = 5.0f;
+    float bladeLength = 0.0f;
+    float bladeDepth = 0.0f;
+    float bladeThickness = 0.012f;
+    float bladeCutBandDepth = 0.0f;
     float disableEdgeRegionRadius = 0.0f;
     Diligent::float3 disableEdgeRegionCenter{0.0f, 0.0f, 0.0f};
     Diligent::float3 rotationDegrees{0.0f, 0.0f, 0.0f};
@@ -133,7 +139,9 @@ void printUsage(const char *appName)
         " [--shape-correction-debug-scale S] [--disable-cut-aware-clusters]"
         " [--show-particles] [--hide-particles] [--draw-edges] [--disable-edge-test]"
         " [--disable-edge-region X Y Z R] [--enable-fracture] [--fracture-threshold S]"
-        " [--enable-cutting-tool] [--tool-radius R] [--tool-strength S] [--instant-cut]"
+        " [--enable-cutting-tool] [--tool-shape capsule|blade] [--tool-radius R]"
+        " [--tool-strength S] [--instant-cut] [--blade-length L] [--blade-depth D]"
+        " [--blade-thickness T] [--blade-cut-band-depth D]"
         " [--show-cut-edges] [--show-strain] [--show-damage]",
         false);
 }
@@ -147,6 +155,20 @@ float parseFloat(const char *value, const char *optionName)
         throw std::invalid_argument(std::string("Invalid ") + optionName + ": " + value);
     }
     return parsed;
+}
+
+CuttingToolShape parseToolShape(const char *value)
+{
+    const std::string parsed = value != nullptr ? value : "";
+    if (parsed == "capsule")
+    {
+        return CuttingToolShape::Capsule;
+    }
+    if (parsed == "blade")
+    {
+        return CuttingToolShape::Blade;
+    }
+    throw std::invalid_argument("Invalid --tool-shape: " + parsed);
 }
 
 std::uint32_t parsePositiveUint32(const char *value, const char *optionName)
@@ -452,6 +474,89 @@ float segmentDistanceToPoint(const Diligent::float3 &a, const Diligent::float3 &
     return length3((a + ab * t) - point);
 }
 
+Diligent::QuaternionF quaternionFromBasis(const Diligent::float3 &x,
+                                          const Diligent::float3 &y,
+                                          const Diligent::float3 &z)
+{
+    const float m00 = x.x, m01 = y.x, m02 = z.x;
+    const float m10 = x.y, m11 = y.y, m12 = z.y;
+    const float m20 = x.z, m21 = y.z, m22 = z.z;
+    const float trace = m00 + m11 + m22;
+
+    Diligent::QuaternionF q{};
+    if (trace > 0.0f)
+    {
+        const float s = std::sqrt(trace + 1.0f) * 2.0f;
+        q.q.w = 0.25f * s;
+        q.q.x = (m21 - m12) / s;
+        q.q.y = (m02 - m20) / s;
+        q.q.z = (m10 - m01) / s;
+    }
+    else if (m00 > m11 && m00 > m22)
+    {
+        const float s = std::sqrt(1.0f + m00 - m11 - m22) * 2.0f;
+        q.q.w = (m21 - m12) / s;
+        q.q.x = 0.25f * s;
+        q.q.y = (m01 + m10) / s;
+        q.q.z = (m02 + m20) / s;
+    }
+    else if (m11 > m22)
+    {
+        const float s = std::sqrt(1.0f + m11 - m00 - m22) * 2.0f;
+        q.q.w = (m02 - m20) / s;
+        q.q.x = (m01 + m10) / s;
+        q.q.y = 0.25f * s;
+        q.q.z = (m12 + m21) / s;
+    }
+    else
+    {
+        const float s = std::sqrt(1.0f + m22 - m00 - m11) * 2.0f;
+        q.q.w = (m10 - m01) / s;
+        q.q.x = (m02 + m20) / s;
+        q.q.y = (m12 + m21) / s;
+        q.q.z = 0.25f * s;
+    }
+
+    const float lengthSq = Diligent::dot(q.q, q.q);
+    return lengthSq > 1.0e-12f ? Diligent::normalize(q)
+                               : Diligent::QuaternionF{0.0f, 0.0f, 0.0f, 1.0f};
+}
+
+struct BladeToolDimensions
+{
+    float length = 0.0f;
+    float visualHalfDepth = 0.0f;
+    float visualHalfThickness = 0.0f;
+    float cuttingBandHalfDepth = 0.0f;
+    float cuttingHalfThickness = 0.0f;
+};
+
+BladeToolDimensions resolveBladeToolDimensions(const MeshfreeDebugOptions &options,
+                                               const ParticleBounds &rotatedParticleBounds)
+{
+    BladeToolDimensions dimensions{};
+    const float minimumReach = std::max(options.toolRadius * 8.0f, 0.01f);
+    dimensions.length =
+        options.bladeLength > 0.0f
+            ? options.bladeLength
+            : std::max(rotatedParticleBounds.extent.x * 0.70f, minimumReach);
+
+    const float defaultDepth =
+        std::max({options.toolRadius * 8.0f, rotatedParticleBounds.extent.y * 0.16f, 0.025f});
+    const float visualDepth = options.bladeDepth > 0.0f ? options.bladeDepth : defaultDepth;
+    dimensions.visualHalfDepth = visualDepth * 0.5f;
+    dimensions.visualHalfThickness = std::max(options.bladeThickness * 0.5f, 1.0e-5f);
+
+    const float defaultBandDepth = std::max(options.toolRadius, visualDepth * 0.12f);
+    const float bandDepth =
+        options.bladeCutBandDepth > 0.0f ? options.bladeCutBandDepth : defaultBandDepth;
+    dimensions.cuttingBandHalfDepth =
+        std::min(std::max(bandDepth * 0.5f, 1.0e-5f), dimensions.visualHalfDepth);
+    dimensions.cuttingHalfThickness =
+        std::max(dimensions.visualHalfThickness, options.toolRadius);
+    return dimensions;
+}
+
 EdgeDebugStats computeEdgeDebugStats(const cressim::neo::physics::PhysicsWorld &physicsWorld)
 {
     EdgeDebugStats stats{};
@@ -509,25 +614,63 @@ CuttingToolGPU makeCuttingTool(const MeshfreeDebugOptions &options,
     }
 
     const float minimumReach = std::max(options.toolRadius * 8.0f, 0.01f);
-    const float halfLength = std::max(rotatedParticleBounds.extent.y * 0.70f, minimumReach);
+    const float capsuleLength = std::max(rotatedParticleBounds.extent.y * 0.70f, minimumReach);
     const float sweepHalfWidth =
         std::max(rotatedParticleBounds.extent.z * 0.65f, options.toolRadius * 10.0f);
     const float z = bodyCenter.z + std::sin(timeSeconds * 0.65f) * sweepHalfWidth;
-    tool.tipA = {bodyCenter.x, bodyCenter.y, z};
-    tool.tipB = {bodyCenter.x, bodyCenter.y + halfLength, z};
-    tool.radius = options.toolRadius;
-    tool.strength = options.instantCut ? 1.0e6f : options.toolStrength;
-    tool.cutThreshold = 1.0f;
+
+    tool.shape = static_cast<std::uint32_t>(options.toolShape);
     tool.enabled = 1u;
+    tool.instantCut = options.instantCut ? 1u : 0u;
+    tool.strength = options.instantCut ? 1.0e6f : options.toolStrength;
+    tool.cutResistanceScale = 1.0f;
+
+    tool.tipA = {bodyCenter.x, bodyCenter.y, z};
+    tool.tipB = {bodyCenter.x, bodyCenter.y + capsuleLength, z};
+    tool.radius = options.toolRadius;
+
+    const BladeToolDimensions blade = resolveBladeToolDimensions(options, rotatedParticleBounds);
+    const float bladeSweepHalfHeight =
+        std::max(rotatedParticleBounds.extent.y * 0.65f, options.toolRadius * 10.0f);
+    const float bladeY = bodyCenter.y + std::sin(timeSeconds * 0.65f) * bladeSweepHalfHeight;
+    const Diligent::float3 bladeAxisU{1.0f, 0.0f, 0.0f};
+    const Diligent::float3 bladeAxisV{0.0f, -1.0f, 0.0f};
+    const Diligent::float3 bladeNormal{0.0f, 0.0f, 1.0f};
+    const Diligent::float3 bladeVisualCenter{
+        bodyCenter.x,
+        bladeY + (blade.visualHalfDepth - blade.cuttingBandHalfDepth),
+        bodyCenter.z};
+    tool.bladeCenter = bladeVisualCenter +
+                       bladeAxisV * (blade.visualHalfDepth - blade.cuttingBandHalfDepth);
+    tool.bladeHalfLength = blade.length * 0.5f;
+    tool.bladeAxisU = bladeAxisU;
+    tool.bladeHalfDepth = blade.cuttingBandHalfDepth;
+    tool.bladeAxisV = bladeAxisV;
+    tool.bladeHalfThickness = blade.cuttingHalfThickness;
+    tool.bladeNormal = bladeNormal;
     return tool;
 }
 
-TransformComponent makeCuttingToolTransform(const CuttingToolGPU &tool)
+TransformComponent makeCuttingToolTransform(const MeshfreeDebugOptions &options,
+                                            const CuttingToolGPU &tool,
+                                            const ParticleBounds &rotatedParticleBounds)
 {
     TransformComponent transform{};
-    transform.worldTransform.position = {(tool.tipA.x + tool.tipB.x) * 0.5f,
-                                         (tool.tipA.y + tool.tipB.y) * 0.5f,
-                                         (tool.tipA.z + tool.tipB.z) * 0.5f};
+    if (tool.shape == static_cast<std::uint32_t>(CuttingToolShape::Blade))
+    {
+        const BladeToolDimensions blade = resolveBladeToolDimensions(options, rotatedParticleBounds);
+        transform.worldTransform.position =
+            tool.bladeCenter -
+            tool.bladeAxisV * (blade.visualHalfDepth - blade.cuttingBandHalfDepth);
+        transform.worldTransform.rotation =
+            quaternionFromBasis(tool.bladeAxisU, tool.bladeAxisV, tool.bladeNormal);
+        return transform;
+    }
+
+    transform.worldTransform.position = {
+        (tool.tipA.x + tool.tipB.x) * 0.5f,
+        (tool.tipA.y + tool.tipB.y) * 0.5f,
+        (tool.tipA.z + tool.tipB.z) * 0.5f};
     return transform;
 }
 
@@ -538,10 +681,20 @@ void logCuttingToolDebug(const CuttingToolGPU &tool)
         return;
     }
 
-    CRESSIM_LOG_INFO("Cutting tool: tipA=(", tool.tipA.x, ", ", tool.tipA.y, ", ",
-                     tool.tipA.z, "), tipB=(", tool.tipB.x, ", ", tool.tipB.y, ", ",
-                     tool.tipB.z, "), radius=", tool.radius, ", strength=", tool.strength,
-                     ".\n");
+    if (tool.shape == static_cast<std::uint32_t>(CuttingToolShape::Blade))
+    {
+        CRESSIM_LOG_INFO("Cutting tool blade: center=(", tool.bladeCenter.x, ", ",
+                         tool.bladeCenter.y, ", ", tool.bladeCenter.z,
+                         "), halfExtents=(", tool.bladeHalfLength, ", ",
+                         tool.bladeHalfDepth, ", ", tool.bladeHalfThickness,
+                         "), strength=", tool.strength, ".\n");
+        return;
+    }
+
+    CRESSIM_LOG_INFO("Cutting tool capsule: tipA=(", tool.tipA.x, ", ", tool.tipA.y,
+                     ", ", tool.tipA.z, "), tipB=(", tool.tipB.x, ", ", tool.tipB.y,
+                     ", ", tool.tipB.z, "), radius=", tool.radius,
+                     ", strength=", tool.strength, ".\n");
 }
 
 bool edgeIntersectsDisableSelection(const MeshfreeDebugOptions &options,
@@ -940,6 +1093,13 @@ int main(int argc, char **argv)
                 options.enableCuttingTool = true;
                 continue;
             }
+            if (arg == "--tool-shape")
+            {
+                options.toolShape = parseToolShape(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--tool-shape"));
+                continue;
+            }
             if (arg == "--tool-radius")
             {
                 options.toolRadius = parsePositiveFloat(
@@ -960,6 +1120,38 @@ int main(int argc, char **argv)
             {
                 options.instantCut = true;
                 options.enableCuttingTool = true;
+                continue;
+            }
+            if (arg == "--blade-length")
+            {
+                options.bladeLength = parsePositiveFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--blade-length"),
+                    "--blade-length");
+                continue;
+            }
+            if (arg == "--blade-depth")
+            {
+                options.bladeDepth = parsePositiveFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--blade-depth"),
+                    "--blade-depth");
+                continue;
+            }
+            if (arg == "--blade-thickness")
+            {
+                options.bladeThickness = parsePositiveFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--blade-thickness"),
+                    "--blade-thickness");
+                continue;
+            }
+            if (arg == "--blade-cut-band-depth")
+            {
+                options.bladeCutBandDepth = parsePositiveFloat(
+                    cressim::neo::examples::helpers::requireOptionValue(
+                        argc, argv, i, "--blade-cut-band-depth"),
+                    "--blade-cut-band-depth");
                 continue;
             }
             if (arg == "--show-cut-edges")
@@ -1210,13 +1402,29 @@ int main(int argc, char **argv)
         cressim::neo::common::kInvalidEntityId;
     if (options.enableCuttingTool)
     {
-        const float toolLength = length3(currentCuttingTool.tipB - currentCuttingTool.tipA);
-        const MeshHandle cuttingToolMesh = resources.registerMesh(
-            cressim::neo::examples::helpers::makeCapsuleMesh(
-                std::max(options.toolRadius, 1.0e-5f), toolLength * 0.5f, 16u, 4u, 1u,
-                "MeshfreeDebug.CuttingToolCapsule"));
+        MeshHandle cuttingToolMesh{};
+        if (options.toolShape == CuttingToolShape::Blade)
+        {
+            const BladeToolDimensions blade =
+                resolveBladeToolDimensions(options, rotatedParticleBounds);
+            cuttingToolMesh = resources.registerMesh(
+                cressim::neo::examples::helpers::makeBoxMesh(
+                    Diligent::float3{blade.length * 0.5f, blade.visualHalfDepth,
+                                     blade.visualHalfThickness},
+                    "MeshfreeDebug.CuttingToolBlade"));
+        }
+        else
+        {
+            const float toolLength = length3(currentCuttingTool.tipB - currentCuttingTool.tipA);
+            cuttingToolMesh = resources.registerMesh(
+                cressim::neo::examples::helpers::makeCapsuleMesh(
+                    std::max(options.toolRadius, 1.0e-5f), toolLength * 0.5f, 16u, 4u, 1u,
+                    "MeshfreeDebug.CuttingToolCapsule"));
+        }
         cuttingToolEntity = world.createEntity();
-        world.setTransform(cuttingToolEntity, makeCuttingToolTransform(currentCuttingTool));
+        world.setTransform(cuttingToolEntity,
+                           makeCuttingToolTransform(options, currentCuttingTool,
+                                                    rotatedParticleBounds));
         world.setMeshRenderer(cuttingToolEntity,
                               MeshRendererComponent{cuttingToolMesh, cuttingToolMaterial, true});
         logCuttingToolDebug(currentCuttingTool);
@@ -1320,8 +1528,9 @@ int main(int argc, char **argv)
         callbackRuntime.getWorld().physicsWorld().setCuttingTool(tool);
         if (cuttingToolEntity != cressim::neo::common::kInvalidEntityId)
         {
-            callbackRuntime.getWorld().setTransform(cuttingToolEntity,
-                                                    makeCuttingToolTransform(tool));
+            callbackRuntime.getWorld().setTransform(
+                cuttingToolEntity,
+                makeCuttingToolTransform(options, tool, rotatedParticleBounds));
         }
     };
     callbacks.afterTick = [&options, &viewerDesc, &resources, softEntity, &surfaceShellMesh,

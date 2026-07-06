@@ -392,20 +392,39 @@ enum SoftEdgeFlags : std::uint32_t
     Edge_Disabled  = 1u << 3u,
 };
 
+enum class CuttingToolShape : std::uint32_t
+{
+    Capsule = 0u,
+    Blade   = 1u,
+};
+
 struct CuttingToolGPU
 {
+    std::uint32_t shape = static_cast<std::uint32_t>(CuttingToolShape::Capsule);
+    std::uint32_t enabled = 0u;
+    std::uint32_t instantCut = 0u;
+    float strength = 0.0f;
+
     Diligent::float3 tipA{0.0f, 0.0f, 0.0f};
     float radius = 0.0f;
 
     Diligent::float3 tipB{0.0f, 0.0f, 0.0f};
-    float strength = 0.0f;
+    float cutResistanceScale = 1.0f;
 
-    float cutThreshold = 0.0f;
+    Diligent::float3 bladeCenter{0.0f, 0.0f, 0.0f};
+    float bladeHalfLength = 0.0f;
+
+    Diligent::float3 bladeAxisU{1.0f, 0.0f, 0.0f};
+    float bladeHalfDepth = 0.0f;
+
+    Diligent::float3 bladeAxisV{0.0f, 1.0f, 0.0f};
+    float bladeHalfThickness = 0.0f;
+
+    Diligent::float3 bladeNormal{0.0f, 0.0f, 1.0f};
     float padding = 0.0f;
-
-    std::uint32_t enabled = 0u;
-    std::uint32_t reserved0 = 0u;
 };
+
+static_assert(sizeof(CuttingToolGPU) == 112u);
 
 struct SoftEdgeToolCounters
 {
