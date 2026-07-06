@@ -19,10 +19,10 @@ def parse_args() -> argparse.Namespace:
         default=Path("artifacts/psm_soft_grasp_ppo_final.pt"),
         help="Path used to save the trained model or load it for inference.",
     )
-    parser.add_argument("--train-env-count", type=int, default=32)
+    parser.add_argument("--train-env-count", type=int, default=64)
     parser.add_argument("--infer-env-count", type=int, default=1)
     parser.add_argument("--rollout-steps", type=int, default=128)
-    parser.add_argument("--update-count", type=int, default=300)
+    parser.add_argument("--update-count", type=int, default=200)
     parser.add_argument("--max-episode-steps", type=int, default=180)
     parser.add_argument("--image-width", type=int, default=1024)
     parser.add_argument("--image-height", type=int, default=1024)

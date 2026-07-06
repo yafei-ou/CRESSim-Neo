@@ -41,6 +41,7 @@ CRESSIM_STRUCTURED_BUFFER(float4, g_EnvMetadataF32);
 CRESSIM_STRUCTURED_BUFFER(float4, g_ParticlePositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidPositionsInvMass);
 CRESSIM_STRUCTURED_BUFFER(float4, g_RigidOrientations);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_PreviousGraspClosed);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuHingeJoint, g_HingeJoints);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuSliderJoint, g_SliderJoints);
 CRESSIM_RW_STRUCTURED_BUFFER(GpuRigidParticleAttachmentConstraint, g_Attachments);
@@ -176,14 +177,17 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     const uint attachmentSlot = envMeta(envIndex, 10u);
     GpuRigidParticleAttachmentConstraint attachment =
         CRESSIM_SB_LOAD(g_Attachments, attachmentSlot);
+    const uint wasClosed = CRESSIM_SB_LOAD(g_PreviousGraspClosed, envIndex);
     if (graspAction <= 0.0f)
     {
+        CRESSIM_SB_STORE(g_PreviousGraspClosed, envIndex, 0u);
         attachment.enabled = 0u;
         CRESSIM_SB_STORE(g_Attachments, attachmentSlot, attachment);
         return;
     }
 
-    if (attachment.enabled != 0u)
+    CRESSIM_SB_STORE(g_PreviousGraspClosed, envIndex, 1u);
+    if (wasClosed != 0u || attachment.enabled != 0u)
     {
         return;
     }
@@ -258,6 +262,7 @@ CRESSIM_RW_STRUCTURED_BUFFER(float, g_Rewards);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_Terminated);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_Truncated);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_EpisodeSteps);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_PreviousGraspClosed);
 
 static const uint kArmHingeCount = 5u;
 static const uint kEnvMetadataStride = 14u;
@@ -575,6 +580,7 @@ CRESSIM_RW_STRUCTURED_BUFFER(float, g_Rewards);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_Terminated);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_Truncated);
 CRESSIM_RW_STRUCTURED_BUFFER(uint, g_EpisodeSteps);
+CRESSIM_RW_STRUCTURED_BUFFER(uint, g_PreviousGraspClosed);
 
 static const uint kCommandJointCount = 7u;
 static const uint kEnvMetadataStride = 14u;
@@ -617,6 +623,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     attachment.particleIndex = targetParticleIndex;
     attachment.enabled = 0u;
     CRESSIM_SB_STORE(g_Attachments, attachmentSlot, attachment);
+    CRESSIM_SB_STORE(g_PreviousGraspClosed, envIndex, 0u);
 
     const uint tooltipBodyIndex = envMeta(envIndex, 11u);
     const float4 rigidPosInvMass = CRESSIM_SB_LOAD(g_RigidPositionsInvMass, tooltipBodyIndex);
@@ -1357,6 +1364,9 @@ class PsmSoftGraspTorchVectorEnv(TorchStagedVectorEnvBase):
         self.target_choice_buffer, self.target_choice_tensor = self._register_shared_buffer(
             self.runtime, "PsmSoftGrasp.TargetChoice", self.env_count, neo.SharedBufferTensorDTypeCode.UInt
         )
+        self.previous_grasp_closed_buffer, self.previous_grasp_closed_tensor = self._register_shared_buffer(
+            self.runtime, "PsmSoftGrasp.PreviousGraspClosed", self.env_count, neo.SharedBufferTensorDTypeCode.UInt
+        )
         self.env_metadata_u32_buffer, self.env_metadata_u32_tensor = self._register_shared_buffer(
             self.runtime,
             "PsmSoftGrasp.EnvMetadataU32",
@@ -1515,6 +1525,7 @@ class PsmSoftGraspTorchVectorEnv(TorchStagedVectorEnvBase):
         self.episode_steps_tensor.zero_()
         self.reset_mask_tensor.zero_()
         self.target_choice_tensor.zero_()
+        self.previous_grasp_closed_tensor.zero_()
         self.env_metadata_u32_tensor.zero_()
         self.env_metadata_f32_tensor.zero_()
 
@@ -1620,6 +1631,7 @@ class PsmSoftGraspTorchVectorEnv(TorchStagedVectorEnvBase):
             self.episode_steps_buffer,
             self.reset_mask_buffer,
             self.target_choice_buffer,
+            self.previous_grasp_closed_buffer,
             self.env_metadata_u32_buffer,
             self.env_metadata_f32_buffer,
             self.env_particle_offsets_buffer,
@@ -1663,6 +1675,7 @@ class PsmSoftGraspTorchVectorEnv(TorchStagedVectorEnvBase):
                 ("g_ParticlePositionsInvMass", None, "particle.positions_inv_mass", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_RigidPositionsInvMass", None, "rigid.positions", neo.CustomComputeResourceAccess.ReadOnly),
                 ("g_RigidOrientations", None, "rigid.orientations", neo.CustomComputeResourceAccess.ReadOnly),
+                ("g_PreviousGraspClosed", self.previous_grasp_closed_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
                 ("g_HingeJoints", None, "joint.hinge", neo.CustomComputeResourceAccess.ReadWrite),
                 ("g_SliderJoints", None, "joint.slider", neo.CustomComputeResourceAccess.ReadWrite),
                 ("g_Attachments", None, "constraint.rigid_particle_attachments", neo.CustomComputeResourceAccess.ReadWrite),
@@ -1794,6 +1807,7 @@ class PsmSoftGraspTorchVectorEnv(TorchStagedVectorEnvBase):
                 ("g_Terminated", self.terminated_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
                 ("g_Truncated", self.truncated_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
                 ("g_EpisodeSteps", self.episode_steps_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
+                ("g_PreviousGraspClosed", self.previous_grasp_closed_buffer, "", neo.CustomComputeResourceAccess.ReadWrite),
             ],
         )
         reset_outputs_desc.dispatch.mode = neo.CustomComputeDispatchMode.ExplicitGroupCount

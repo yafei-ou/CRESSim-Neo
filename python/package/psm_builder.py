@@ -1498,7 +1498,7 @@ def get_psm_default_runtime_config(env_count: int = 1) -> neo.RuntimeConfig:
     config.scene_layout.max_cameras_per_env = 1
     config.physics_desc.enable_blocking_readback = False
     config.physics_desc.substeps = 4
-    config.physics_desc.default_iterations = 50
+    config.physics_desc.default_iterations = 20
     return config
 
 
