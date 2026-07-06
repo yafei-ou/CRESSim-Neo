@@ -13,11 +13,6 @@ from . import _cressim_neo as neo
 
 import numpy as np
 
-try:
-    import trimesh
-except ImportError:
-    trimesh = None
-
 
 _ARM_JOINT_ORDER = (
     "psm_yaw_joint",
@@ -130,15 +125,6 @@ class PsmBuildResult:
     light_entities: list[list[int]] = field(default_factory=list)
     urdf_path: Path | None = None
     env_count: int = 0
-
-
-def _require_trimesh():
-    if trimesh is None:
-        raise RuntimeError(
-            "Psm builder requires trimesh for OBJ/STL visual mesh loading. "
-            "Install it with `pip install trimesh` in your Python environment."
-        )
-    return trimesh
 
 
 def _normalize_optional_path(path: str | os.PathLike[str] | Path | None) -> Path | None:
@@ -360,31 +346,6 @@ def _env_origin(env_index: int, env_count: int, env_spacing: float) -> np.ndarra
     return np.array([x_offset, y_offset, 0.0], dtype=np.float64)
 
 
-def _combine_trimesh_objects(meshes: list) -> object:
-    if not meshes:
-        raise RuntimeError("Expected at least one visual mesh to combine.")
-    if len(meshes) == 1:
-        return meshes[0]
-    return _require_trimesh().util.concatenate(meshes)
-
-
-def _load_trimesh(path: Path, transform: np.ndarray, scale: list[float] | None):
-    tm = _require_trimesh()
-    loaded = tm.load(path, process=False)
-    if isinstance(loaded, tm.Scene):
-        source_meshes = [geom.copy() for geom in loaded.geometry.values()]
-    else:
-        source_meshes = [loaded.copy()]
-    if not source_meshes:
-        raise RuntimeError(f"Visual mesh contains no geometry: {path}")
-    for mesh in source_meshes:
-        if scale is not None:
-            mesh.apply_scale(scale)
-        mesh.apply_transform(_PSM_ASSET_BASIS)
-        mesh.apply_transform(transform)
-    return _combine_trimesh_objects(source_meshes)
-
-
 def _parse_obj_mtllib_paths(obj_path: Path) -> list[Path]:
     mtllib_paths: list[Path] = []
     try:
@@ -433,76 +394,255 @@ def _find_visual_base_color_texture(mesh_path: Path) -> Path | None:
     return None
 
 
-def _compute_vertex_normals(vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
-    normals = np.zeros_like(vertices, dtype=np.float64)
-    for i0, i1, i2 in faces:
-        p0 = vertices[i0]
-        p1 = vertices[i1]
-        p2 = vertices[i2]
-        face_normal = np.cross(p1 - p0, p2 - p0)
-        length = float(np.linalg.norm(face_normal))
-        if length > 1.0e-8:
-            face_normal /= length
-        else:
-            face_normal = np.array([0.0, 1.0, 0.0], dtype=np.float64)
-        normals[i0] += face_normal
-        normals[i1] += face_normal
-        normals[i2] += face_normal
-
-    lengths = np.linalg.norm(normals, axis=1)
-    valid = lengths > 1.0e-8
-    normals[valid] /= lengths[valid][:, None]
-    normals[~valid] = np.array([0.0, 1.0, 0.0], dtype=np.float64)
-    return normals
-
-
-def _extract_vertex_normals(mesh, vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
-    normals = None
-    cache = getattr(mesh, "_cache", None)
-    cache_dict = getattr(cache, "cache", None)
-    if isinstance(cache_dict, dict):
-        normals = cache_dict.get("vertex_normals")
-    if normals is not None:
-        normals_array = np.asarray(normals, dtype=np.float64)
-        if normals_array.shape == vertices.shape:
-            lengths = np.linalg.norm(normals_array, axis=1)
-            valid = lengths > 1.0e-8
-            if np.all(valid):
-                return normals_array / lengths[:, None]
-    return _compute_vertex_normals(vertices, faces)
-
-
-def _extract_face_normals(mesh, face_count: int) -> np.ndarray | None:
-    normals = None
-    cache = getattr(mesh, "_cache", None)
-    cache_dict = getattr(cache, "cache", None)
-    if isinstance(cache_dict, dict):
-        normals = cache_dict.get("face_normals")
-    if normals is None:
-        normals = getattr(mesh, "face_normals", None)
-    if normals is None:
+def _normalize_obj_index(raw_index: str, count: int) -> int | None:
+    if not raw_index:
         return None
-    normals_array = np.asarray(normals, dtype=np.float64)
-    if normals_array.shape != (face_count, 3):
+    index = int(raw_index)
+    if index > 0:
+        normalized = index - 1
+    else:
+        normalized = count + index
+    if normalized < 0 or normalized >= count:
         return None
-    lengths = np.linalg.norm(normals_array, axis=1)
-    valid = lengths > 1.0e-8
-    if not np.all(valid):
-        return None
-    return normals_array / lengths[:, None]
+    return normalized
 
 
-def _extract_texture_coords(mesh, vertex_count: int) -> np.ndarray | None:
-    visual = getattr(mesh, "visual", None)
-    if visual is None:
-        return None
-    texture_coords = getattr(visual, "uv", None)
-    if texture_coords is None:
-        return None
-    texture_coords_array = np.asarray(texture_coords, dtype=np.float64)
-    if texture_coords_array.shape != (vertex_count, 2):
-        return None
-    return texture_coords_array
+def _transform_position(
+    local_position: np.ndarray,
+    transform_linear: np.ndarray,
+    transform_translation: np.ndarray,
+    scale_vector: np.ndarray,
+) -> np.ndarray:
+    scaled_position = local_position * scale_vector
+    return transform_linear @ (_PSM_ASSET_BASIS[:3, :3] @ scaled_position) + transform_translation
+
+
+def _transform_normal(local_normal: np.ndarray, normal_transform: np.ndarray) -> np.ndarray:
+    world_normal = normal_transform @ local_normal
+    length = float(np.linalg.norm(world_normal))
+    if length <= 1.0e-8:
+        return np.array([0.0, 1.0, 0.0], dtype=np.float64)
+    return world_normal / length
+
+
+def _append_triangle_vertex(
+    vertices: list,
+    indices: list[int],
+    position: np.ndarray,
+    normal: np.ndarray,
+    uv: tuple[float, float] | None = None,
+) -> None:
+    vertex = neo.MeshVertex()
+    vertex.position = neo.Float3(float(position[0]), float(position[1]), float(position[2]))
+    vertex.normal = neo.Float3(float(normal[0]), float(normal[1]), float(normal[2]))
+    if uv is not None:
+        vertex.tex_coord_u = float(uv[0])
+        vertex.tex_coord_v = float(1.0 - uv[1])
+    indices.append(len(vertices))
+    vertices.append(vertex)
+
+
+def _load_obj_mesh_desc(
+    path: Path,
+    transform: np.ndarray,
+    scale: list[float] | None,
+    debug_name: str,
+) -> tuple[neo.MeshResourceDesc, tuple[np.ndarray, np.ndarray]]:
+    positions: list[np.ndarray] = []
+    texcoords: list[tuple[float, float]] = []
+    normals: list[np.ndarray] = []
+    faces: list[list[tuple[int, int | None, int | None]]] = []
+
+    scale_vector = np.asarray(scale if scale is not None else (1.0, 1.0, 1.0), dtype=np.float64)
+    transform_linear = transform[:3, :3]
+    transform_translation = transform[:3, 3]
+    normal_transform = transform_linear @ _PSM_ASSET_BASIS[:3, :3]
+
+    with path.open("r", encoding="utf-8", errors="ignore") as handle:
+        for raw_line in handle:
+            stripped = raw_line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            tokens = stripped.split()
+            if not tokens:
+                continue
+
+            if tokens[0] == "v" and len(tokens) >= 4:
+                positions.append(
+                    _transform_position(
+                        np.array((float(tokens[1]), float(tokens[2]), float(tokens[3])), dtype=np.float64),
+                        transform_linear,
+                        transform_translation,
+                        scale_vector,
+                    )
+                )
+            elif tokens[0] == "vt" and len(tokens) >= 3:
+                texcoords.append((float(tokens[1]), float(tokens[2])))
+            elif tokens[0] == "vn" and len(tokens) >= 4:
+                normals.append(
+                    _transform_normal(
+                        np.array((float(tokens[1]), float(tokens[2]), float(tokens[3])), dtype=np.float64),
+                        normal_transform,
+                    )
+                )
+            elif tokens[0] == "f" and len(tokens) >= 4:
+                face: list[tuple[int, int | None, int | None]] = []
+                for face_token in tokens[1:]:
+                    parts = face_token.split("/")
+                    position_index = _normalize_obj_index(parts[0], len(positions))
+                    texcoord_index = (
+                        _normalize_obj_index(parts[1], len(texcoords))
+                        if len(parts) > 1 and parts[1]
+                        else None
+                    )
+                    normal_index = (
+                        _normalize_obj_index(parts[2], len(normals))
+                        if len(parts) > 2 and parts[2]
+                        else None
+                    )
+                    if position_index is None:
+                        raise RuntimeError(f"OBJ face in {path} references an invalid position index.")
+                    face.append((position_index, texcoord_index, normal_index))
+                faces.append(face)
+
+    if not positions or not faces:
+        raise RuntimeError(f"Mesh {debug_name} contains no renderable OBJ geometry.")
+
+    desc = neo.MeshResourceDesc()
+    desc.debug_name = debug_name
+    vertices = []
+    indices: list[int] = []
+    bounds_min = np.array(positions[0], copy=True)
+    bounds_max = np.array(positions[0], copy=True)
+    for position in positions[1:]:
+        bounds_min = np.minimum(bounds_min, position)
+        bounds_max = np.maximum(bounds_max, position)
+
+    for face in faces:
+        if len(face) < 3:
+            continue
+        for triangle_index in range(1, len(face) - 1):
+            triangle = [face[0], face[triangle_index], face[triangle_index + 1]]
+            p0 = positions[triangle[0][0]]
+            p1 = positions[triangle[1][0]]
+            p2 = positions[triangle[2][0]]
+            fallback_normal = np.cross(p1 - p0, p2 - p0)
+            length = float(np.linalg.norm(fallback_normal))
+            if length <= 1.0e-8:
+                fallback_normal = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+            else:
+                fallback_normal /= length
+
+            for position_index, texcoord_index, normal_index in triangle:
+                normal = normals[normal_index] if normal_index is not None else fallback_normal
+                uv = texcoords[texcoord_index] if texcoord_index is not None else None
+                _append_triangle_vertex(vertices, indices, positions[position_index], normal, uv)
+
+    if not vertices:
+        raise RuntimeError(f"Mesh {debug_name} contains no triangulated OBJ geometry.")
+
+    desc.vertices = vertices
+    desc.indices = indices
+    return desc, (bounds_min, bounds_max)
+
+
+def _is_binary_stl(data: bytes) -> bool:
+    if len(data) < 84:
+        return False
+    triangle_count = struct.unpack_from("<I", data, 80)[0]
+    return 84 + triangle_count * 50 == len(data)
+
+
+def _load_stl_mesh_desc(
+    path: Path,
+    transform: np.ndarray,
+    scale: list[float] | None,
+    debug_name: str,
+) -> tuple[neo.MeshResourceDesc, tuple[np.ndarray, np.ndarray]]:
+    data = path.read_bytes()
+    scale_vector = np.asarray(scale if scale is not None else (1.0, 1.0, 1.0), dtype=np.float64)
+    transform_linear = transform[:3, :3]
+    transform_translation = transform[:3, 3]
+    normal_transform = transform_linear @ _PSM_ASSET_BASIS[:3, :3]
+
+    desc = neo.MeshResourceDesc()
+    desc.debug_name = debug_name
+    vertices = []
+    indices: list[int] = []
+    bounds_min: np.ndarray | None = None
+    bounds_max: np.ndarray | None = None
+
+    def accumulate_triangle(normal: np.ndarray, triangle_positions: list[np.ndarray]) -> None:
+        nonlocal bounds_min, bounds_max
+        transformed_normal = _transform_normal(normal, normal_transform)
+        for position in triangle_positions:
+            bounds_min = np.array(position, copy=True) if bounds_min is None else np.minimum(bounds_min, position)
+            bounds_max = np.array(position, copy=True) if bounds_max is None else np.maximum(bounds_max, position)
+        for corner_index in (0, 1, 2):
+            _append_triangle_vertex(vertices, indices, triangle_positions[corner_index], transformed_normal)
+
+    if _is_binary_stl(data):
+        triangle_count = struct.unpack_from("<I", data, 80)[0]
+        offset = 84
+        for _ in range(triangle_count):
+            normal = np.array(struct.unpack_from("<3f", data, offset), dtype=np.float64)
+            offset += 12
+            triangle_positions = []
+            for _corner in range(3):
+                position = np.array(struct.unpack_from("<3f", data, offset), dtype=np.float64)
+                offset += 12
+                triangle_positions.append(
+                    _transform_position(position, transform_linear, transform_translation, scale_vector)
+                )
+            offset += 2
+            accumulate_triangle(normal, triangle_positions)
+    else:
+        current_normal = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+        current_positions: list[np.ndarray] = []
+        for raw_line in data.decode("utf-8", errors="ignore").splitlines():
+            stripped = raw_line.strip()
+            if not stripped:
+                continue
+            tokens = stripped.split()
+            if len(tokens) >= 5 and tokens[0] == "facet" and tokens[1] == "normal":
+                current_normal = np.array(
+                    (float(tokens[2]), float(tokens[3]), float(tokens[4])),
+                    dtype=np.float64,
+                )
+                current_positions = []
+            elif len(tokens) >= 4 and tokens[0] == "vertex":
+                current_positions.append(
+                    _transform_position(
+                        np.array((float(tokens[1]), float(tokens[2]), float(tokens[3])), dtype=np.float64),
+                        transform_linear,
+                        transform_translation,
+                        scale_vector,
+                    )
+                )
+            elif tokens[0] == "endfacet" and len(current_positions) == 3:
+                accumulate_triangle(current_normal, current_positions)
+                current_positions = []
+
+    if not vertices or bounds_min is None or bounds_max is None:
+        raise RuntimeError(f"Mesh {debug_name} contains no STL geometry.")
+
+    desc.vertices = vertices
+    desc.indices = indices
+    return desc, (bounds_min, bounds_max)
+
+
+def _load_visual_mesh_desc(
+    mesh_path: Path,
+    transform: np.ndarray,
+    scale: list[float] | None,
+    debug_name: str,
+) -> tuple[neo.MeshResourceDesc, tuple[np.ndarray, np.ndarray]]:
+    suffix = mesh_path.suffix.lower()
+    if suffix == ".obj":
+        return _load_obj_mesh_desc(mesh_path, transform, scale, debug_name)
+    if suffix == ".stl":
+        return _load_stl_mesh_desc(mesh_path, transform, scale, debug_name)
+    raise RuntimeError(f"Unsupported visual mesh format for {debug_name}: {mesh_path}")
 
 
 def _read_png_rgba8(path: Path) -> tuple[int, int, bytes]:
@@ -616,47 +756,6 @@ def _read_png_rgba8(path: Path) -> tuple[int, int, bytes]:
         src += 3
         dst += 4
     return width, height, bytes(rgba)
-
-
-def _mesh_to_desc(mesh, debug_name: str) -> neo.MeshResourceDesc:
-    vertices_array = np.asarray(mesh.vertices, dtype=np.float64)
-    faces_array = np.asarray(mesh.faces, dtype=np.int64)
-    if vertices_array.ndim != 2 or vertices_array.shape[1] != 3:
-        raise RuntimeError(f"Mesh {debug_name} has invalid vertex layout: {vertices_array.shape}")
-    if faces_array.ndim != 2 or faces_array.shape[1] != 3:
-        raise RuntimeError(f"Mesh {debug_name} is not triangulated: {faces_array.shape}")
-    if len(vertices_array) == 0 or len(faces_array) == 0:
-        raise RuntimeError(f"Mesh {debug_name} contains no renderable geometry.")
-    if faces_array.min() < 0 or faces_array.max() >= len(vertices_array):
-        raise RuntimeError(f"Mesh {debug_name} references out-of-range vertex indices.")
-
-    faces_array = faces_array[:, [0, 2, 1]].copy()
-    vertex_normals = _extract_vertex_normals(mesh, vertices_array, faces_array)
-    face_normals = _extract_face_normals(mesh, len(faces_array))
-    texture_coords = _extract_texture_coords(mesh, len(vertices_array))
-
-    desc = neo.MeshResourceDesc()
-    desc.debug_name = debug_name
-    vertices = []
-    indices: list[int] = []
-    use_face_normals = face_normals is not None
-    for face_index, face in enumerate(faces_array):
-        face_normal = face_normals[face_index] if use_face_normals else None
-        for corner_index in face:
-            vertex = neo.MeshVertex()
-            position = vertices_array[corner_index]
-            vertex.position = neo.Float3(float(position[0]), float(position[1]), float(position[2]))
-            normal = face_normal if face_normal is not None else vertex_normals[corner_index]
-            vertex.normal = neo.Float3(float(normal[0]), float(normal[1]), float(normal[2]))
-            if texture_coords is not None:
-                uv = texture_coords[corner_index]
-                vertex.tex_coord_u = float(uv[0])
-                vertex.tex_coord_v = float(1.0 - uv[1])
-            indices.append(len(vertices))
-            vertices.append(vertex)
-    desc.vertices = vertices
-    desc.indices = indices
-    return desc
 
 
 def _scale_inertia_diag(inertia_diag: _InertiaDiag, scale: float) -> _InertiaDiag:
@@ -949,7 +1048,10 @@ class _PsmAuthor:
             return self._materials[debug_name]
         material = neo.MaterialResourceDesc()
         material.debug_name = debug_name
-        material.base_color = neo.Float3(float(rgba[0]), float(rgba[1]), float(rgba[2]))
+        if base_color_texture is not None:
+            material.base_color = neo.Float3(1.0, 1.0, 1.0)
+        else:
+            material.base_color = neo.Float3(float(rgba[0]), float(rgba[1]), float(rgba[2]))
         material.roughness = float(roughness)
         material.opacity = float(rgba[3])
         if base_color_texture is not None:
@@ -980,19 +1082,43 @@ class _PsmAuthor:
         if link_name in self._mesh_handles:
             return self._mesh_handles[link_name]
 
-        visual_meshes = [
-            _load_trimesh(visual["mesh_path"], visual["origin"], visual["scale"])
-            for visual in link_data["visuals"]
-        ]
-        combined = _combine_trimesh_objects(visual_meshes)
-        bounds = np.asarray(combined.bounds, dtype=np.float64)
-        extents = np.maximum(bounds[1] - bounds[0], 1.0e-4)
+        mesh_debug_name = f"PsmBuilder.Mesh.{link_name}"
+        bounds_min: np.ndarray | None = None
+        bounds_max: np.ndarray | None = None
+        vertices: list[neo.MeshVertex] = []
+        indices: list[int] = []
+
+        for visual_index, visual in enumerate(link_data["visuals"]):
+            visual_desc, visual_bounds = _load_visual_mesh_desc(
+                Path(visual["mesh_path"]),
+                visual["origin"],
+                visual["scale"],
+                f"{mesh_debug_name}.{visual_index}",
+            )
+            vertex_offset = len(vertices)
+            vertices.extend(list(visual_desc.vertices))
+            indices.extend(vertex_offset + int(index) for index in visual_desc.indices)
+
+            if bounds_min is None or bounds_max is None:
+                bounds_min = np.array(visual_bounds[0], copy=True)
+                bounds_max = np.array(visual_bounds[1], copy=True)
+            else:
+                bounds_min = np.minimum(bounds_min, visual_bounds[0])
+                bounds_max = np.maximum(bounds_max, visual_bounds[1])
+
+        if bounds_min is None or bounds_max is None:
+            raise RuntimeError(f"Expected at least one visual mesh for {link_name}.")
+
+        extents = np.maximum(bounds_max - bounds_min, 1.0e-4)
         self._mesh_inertia_diagonals[link_name] = (
             float((extents[1] * extents[1] + extents[2] * extents[2]) / 12.0),
             float((extents[0] * extents[0] + extents[2] * extents[2]) / 12.0),
             float((extents[0] * extents[0] + extents[1] * extents[1]) / 12.0),
         )
-        mesh_desc = _mesh_to_desc(combined, f"PsmBuilder.Mesh.{link_name}")
+        mesh_desc = neo.MeshResourceDesc()
+        mesh_desc.debug_name = mesh_debug_name
+        mesh_desc.vertices = vertices
+        mesh_desc.indices = indices
         handle = self.resources.register_mesh(mesh_desc)
         self._mesh_handles[link_name] = handle
         return handle
