@@ -649,7 +649,27 @@ constexpr Diligent::ShaderResourceVariableDesc kSolveSoftEdgeConstraintsVars[] =
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftEdgeCorrections",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kApplySoftCuttingToolVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftEdges", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftEdgeLambdas",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
     {Diligent::SHADER_TYPE_COMPUTE, "g_SoftEdgeToolCounters",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+};
+
+constexpr Diligent::ShaderResourceVariableDesc kEvaluateSoftFractureVars[] = {
+    {Diligent::SHADER_TYPE_COMPUTE, "PhysicsParticleDispatchConstantsBuffer",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_ParticlePositionsInvMass",
+     Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftEdges", Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
+    {Diligent::SHADER_TYPE_COMPUTE, "g_SoftEdgeLambdas",
      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE},
 };
 
@@ -2430,6 +2450,22 @@ const gpu::GpuComputePassDefinition kSolveSoftEdgeConstraints{
     "CRESSimNeo.Physics.SolveSoftEdgeConstraints.PSO",
     kSolveSoftEdgeConstraintsVars,
     std::size(kSolveSoftEdgeConstraintsVars),
+};
+
+const gpu::GpuComputePassDefinition kApplySoftCuttingTool{
+    "physics/soft/solver/physics_soft_apply_cutting_tool.cs.hlsl",
+    "CRESSimNeo.Physics.ApplySoftCuttingTool.CS",
+    "CRESSimNeo.Physics.ApplySoftCuttingTool.PSO",
+    kApplySoftCuttingToolVars,
+    std::size(kApplySoftCuttingToolVars),
+};
+
+const gpu::GpuComputePassDefinition kEvaluateSoftFracture{
+    "physics/soft/solver/physics_soft_evaluate_fracture.cs.hlsl",
+    "CRESSimNeo.Physics.EvaluateSoftFracture.CS",
+    "CRESSimNeo.Physics.EvaluateSoftFracture.PSO",
+    kEvaluateSoftFractureVars,
+    std::size(kEvaluateSoftFractureVars),
 };
 
 const gpu::GpuComputePassDefinition kSolveSoftBendConstraints{
