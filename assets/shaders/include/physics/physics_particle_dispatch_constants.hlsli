@@ -32,14 +32,26 @@ cbuffer PhysicsParticleDispatchConstantsBuffer
     uint reserved0;
     uint reserved1;
     float4 gravity;
+    uint cuttingToolShape;
+    uint cuttingToolEnabled;
+    uint cuttingToolInstantCut;
+    float cuttingToolStrength;
     float3 cuttingToolTipA;
     float cuttingToolRadius;
     float3 cuttingToolTipB;
-    float cuttingToolStrength;
-    float cuttingToolCutThreshold;
+    float cuttingToolCutResistanceScale;
+    float3 cuttingToolBladeCenter;
+    float cuttingToolBladeHalfLength;
+    float3 cuttingToolBladeAxisU;
+    float cuttingToolBladeHalfDepth;
+    float3 cuttingToolBladeAxisV;
+    float cuttingToolBladeHalfThickness;
+    float3 cuttingToolBladeNormal;
     float cuttingToolPadding;
-    uint cuttingToolEnabled;
-    uint cuttingToolReserved0;
 };
+
+static const float kSoftInternalRelaxation = 0.2;
+static const uint kCuttingToolShapeCapsule = 0u;
+static const uint kCuttingToolShapeBlade = 1u;
 
 #endif // CRESSIM_NEO_PHYSICS_PARTICLE_DISPATCH_CONSTANTS_HLSLI

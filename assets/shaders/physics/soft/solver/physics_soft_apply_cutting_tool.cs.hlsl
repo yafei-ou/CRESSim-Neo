@@ -64,6 +64,82 @@ float segmentSegmentDistance(float3 p1, float3 q1, float3 p2, float3 q2)
     return length(c1 - c2);
 }
 
+bool segmentIntersectsAabb(float3 p0, float3 p1, float3 halfExtents)
+{
+    const float3 direction = p1 - p0;
+    float tMin = 0.0;
+    float tMax = 1.0;
+
+    [unroll]
+    for (uint axis = 0u; axis < 3u; ++axis)
+    {
+        if (abs(direction[axis]) <= kEpsilon)
+        {
+            if (p0[axis] < -halfExtents[axis] || p0[axis] > halfExtents[axis])
+            {
+                return false;
+            }
+        }
+        else
+        {
+            const float inverseDirection = 1.0 / direction[axis];
+            float t0 = (-halfExtents[axis] - p0[axis]) * inverseDirection;
+            float t1 = (halfExtents[axis] - p0[axis]) * inverseDirection;
+            if (t0 > t1)
+            {
+                const float temporary = t0;
+                t0 = t1;
+                t1 = temporary;
+            }
+
+            tMin = max(tMin, t0);
+            tMax = min(tMax, t1);
+            if (tMin > tMax)
+            {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+float3 toBladeLocal(float3 worldPosition)
+{
+    const float3 offset = worldPosition - cuttingToolBladeCenter;
+    return float3(dot(offset, cuttingToolBladeAxisU),
+                  dot(offset, cuttingToolBladeAxisV),
+                  dot(offset, cuttingToolBladeNormal));
+}
+
+bool edgeIntersectsCuttingTool(float3 positionA, float3 positionB)
+{
+    if (cuttingToolShape == kCuttingToolShapeBlade)
+    {
+        if (cuttingToolBladeHalfLength <= 0.0 || cuttingToolBladeHalfDepth <= 0.0 ||
+            cuttingToolBladeHalfThickness <= 0.0)
+        {
+            return false;
+        }
+
+        const float3 localA = toBladeLocal(positionA);
+        const float3 localB = toBladeLocal(positionB);
+        const float3 bladeHalfExtents = float3(cuttingToolBladeHalfLength,
+                                               cuttingToolBladeHalfDepth,
+                                               cuttingToolBladeHalfThickness);
+        return segmentIntersectsAabb(localA, localB, bladeHalfExtents);
+    }
+
+    if (cuttingToolRadius <= 0.0)
+    {
+        return false;
+    }
+
+    const float toolDistance =
+        segmentSegmentDistance(positionA, positionB, cuttingToolTipA, cuttingToolTipB);
+    return toolDistance <= cuttingToolRadius;
+}
+
 [numthreads(64, 1, 1)]
 void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -89,20 +165,20 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    const bool toolEnabled = cuttingToolEnabled != 0u && cuttingToolRadius > 0.0 &&
-                             cuttingToolStrength > 0.0;
+    const bool toolEnabled = cuttingToolEnabled != 0u &&
+                             (cuttingToolStrength > 0.0 || cuttingToolInstantCut != 0u);
     if (toolEnabled)
     {
         const float3 positionA = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, edge.particleA).xyz;
         const float3 positionB = CRESSIM_SB_LOAD(g_ParticlePositionsInvMass, edge.particleB).xyz;
-        const float toolDistance =
-            segmentSegmentDistance(positionA, positionB, cuttingToolTipA, cuttingToolTipB);
-        if (toolDistance <= cuttingToolRadius)
+        if (edgeIntersectsCuttingTool(positionA, positionB))
         {
             InterlockedAdd(CRESSIM_SB_REF(g_SoftEdgeToolCounters, kToolCandidateCounter),
                            1u, ignoredCounterValue);
             edge.damage = saturate(edge.damage + cuttingToolStrength * dt);
-            if (edge.damage >= edge.cutResistance)
+            const float cutResistance =
+                max(edge.cutResistance * cuttingToolCutResistanceScale, kEpsilon);
+            if (cuttingToolInstantCut != 0u || edge.damage >= cutResistance)
             {
                 InterlockedAdd(CRESSIM_SB_REF(g_SoftEdgeToolCounters, kNewlyCutCounter),
                                1u, ignoredCounterValue);
